@@ -1,5 +1,5 @@
 /**
- * AgentProfile — the session viewer door (BC6).
+ * AgentProfile — the session viewer door.
  *
  * A Recent Activity row click fires the same `onOpenSession` OpenTarget path
  * WorkTaskPage.tsx and Conversations.tsx use, mounting `SessionView` in the
@@ -77,7 +77,7 @@ function renderProfile(): void {
 	);
 }
 
-describe("AgentProfile session viewer door (BC6)", () => {
+describe("AgentProfile session viewer door", () => {
 	beforeEach(() => {
 		mockApiFetch.mockReset();
 		mockApiFetch.mockImplementation((url: string) => {

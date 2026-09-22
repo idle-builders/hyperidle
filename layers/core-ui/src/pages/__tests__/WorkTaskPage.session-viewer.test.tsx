@@ -1,5 +1,5 @@
 /**
- * WorkTaskPage — the session viewer door (BC6).
+ * WorkTaskPage — the session viewer door.
  *
  * A `SessionRow` click fires the same `onOpenSession` OpenTarget path
  * Conversations.tsx uses, mounting `SessionView` in the page's own split
@@ -124,7 +124,7 @@ function renderPage(): void {
 	);
 }
 
-describe("WorkTaskPage session viewer door (BC6)", () => {
+describe("WorkTaskPage session viewer door", () => {
 	beforeEach(() => {
 		mockApiFetch.mockReset();
 		setupFetch();

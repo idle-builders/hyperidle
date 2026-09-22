@@ -13,11 +13,10 @@
  * a configuration override on top of the plugin default (valueSource ===
  * "user_override"). Restore clears the override, returning to the plugin default.
  *
- * @lore BC6: `/api/plugins` (six routes) replaced by `call("search_plugins",
+ * @lore `/api/plugins` (six routes) replaced by `call("search_plugins",
  * …)`/`call("edit_plugin", …)` — the door swap, not a redesign, this page's
  * own header now says. Install/enable/disable/remove/restore are each one
- * `edit_plugin` change field (architecture.md §1, §6; D-vpjf2k/D-fphch8).
- * Restore used to branch on `REGISTRY_KINDS` to decide whether to name a
+ * `edit_plugin` change field. Restore used to branch on `REGISTRY_KINDS` to decide whether to name a
  * contribution by its entity id or its manifest key — the action's own
  * `PluginContributionView.key` is already the one namespaced key both
  * `entityId` and a configuration default's key collapse to, so the branch is

@@ -296,7 +296,7 @@ function SessionRow({
 	agent: string;
 	status: string;
 	effectivenessScore?: number | null;
-	/** BC6: opens the session in the page's split pane — the same `onOpenSession` door Conversations uses. */
+	/** Opens the session in the page's split pane — the same `onOpenSession` door Conversations uses. */
 	onOpen: (sessionId: string) => void;
 }): JSX.Element {
 	const isActive = status === "active";
@@ -336,9 +336,9 @@ function SessionRow({
 }
 
 /**
- * BC6: the session viewer, opened from a `SessionRow` click into the page's
+ * The session viewer, opened from a `SessionRow` click into the page's
  * split pane. Reuses `SessionView` exactly as it is — no redesign, no new
- * component (architecture.md §1). The session's own agent id only surfaces
+ * component. The session's own agent id only surfaces
  * once `useSessionActivity`'s `summary` settles (it stays `null` while
  * streaming — same reasoning as `Conversations.tsx`'s
  * `resolveSessionAgentAuthor`), so a generic placeholder renders until then.
@@ -720,7 +720,7 @@ export function WorkTaskPage({ overrideTaskId }: WorkTaskPageProps = {}): JSX.El
 	const { data, loading, error, refresh } = useOpenTask(taskId);
 	const { data: sessionsData } = useTaskSessions(taskId);
 
-	// BC6: the session viewer door — a `SessionRow` click fires the same
+	// The session viewer door — a `SessionRow` click fires the same
 	// `onOpenSession` OpenTarget path Conversations.tsx uses, mounted in this
 	// page's own split pane rather than navigating away from the task.
 	const { user } = useCurrentUser();

@@ -72,7 +72,7 @@ function scanDeclaredActionNames(
  * The nineteen registrations that realise the eighteen plumbing doors —
  * internal seams, auth, health. A route, never an action.
  *
- * @lore BC6: `GET /sessions/:sessionId` (a live core-api caller,
+ * @lore `GET /sessions/:sessionId` (a live core-api caller,
  * `port.sessions.getById`) and `POST /runs/stop-for-tasks` (a live core-api
  * caller, `task-actions.ts`'s kill path) moved here from `LEGACY_ROUTES` —
  * both are `AgentOrchestrationPort` seams with a real caller left, which is
@@ -136,8 +136,9 @@ const PLATFORM_EVENTS: readonly string[] = [
  * those rows shrank ahead of this item. Only shrinks: an entry whose route is gone is a
  * finding, so the deletion and the row land in the same PR. Includes the
  * three remaining socket/protocol transports (mcp-route, worker-ingress,
- * ws) — see the architecture doc §7 for why each stays a shrink-list entry
- * rather than becoming plumbing or an action today. `session-stream-ws`'s
+ * ws) — each is a socket/protocol handshake, not a request/response route,
+ * so it stays a shrink-list entry rather than becoming plumbing or an
+ * action today. `session-stream-ws`'s
  * own row left with the file: the second websocket is deleted, and
  * `session:<id>` now rides the `ws` row already on this list.
  */

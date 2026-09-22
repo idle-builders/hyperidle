@@ -2,7 +2,7 @@
  * useSessionActivity — a session's row + activity buffer, kept live by the
  * `session:<id>` websocket nudge.
  *
- * @lore BC6: `call` is mocked directly and the global no-op `ws-client` mock
+ * @lore `call` is mocked directly and the global no-op `ws-client` mock
  * (test-setup.ts) is overridden with a captureable spy so a simulated nudge
  * frame can be fired at the subscribed handler — the `useDocument.test.tsx`
  * pattern verbatim, applied to `watch_session`.
@@ -55,7 +55,7 @@ function mkActivity(n = 2) {
 	}));
 }
 
-describe("useSessionActivity (BC6)", () => {
+describe("useSessionActivity", () => {
 	beforeEach(() => {
 		callMock.mockReset();
 		subscribeMock.mockReset();
@@ -155,8 +155,8 @@ describe("useSessionActivity (BC6)", () => {
 		expect(subscribeMock).toHaveBeenCalledWith("session:sess-1", expect.any(Function));
 
 		const callCountBefore = callMock.mock.calls.length;
-		// The nudge carries no content — a bare topic-matching envelope, per
-		// architecture.md §4. It must not, by itself, flip status to "ended".
+		// The nudge carries no content — a bare topic-matching envelope. It
+		// must not, by itself, flip status to "ended".
 		callMock.mockResolvedValue({
 			ok: true,
 			data: { session: mkSession("done"), activity: mkActivity(1) },

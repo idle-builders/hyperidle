@@ -7,8 +7,8 @@
  * orchestration directly and combine this information in the ui instead of in
  * the core api service."*
  *
- * @lore BC6: `GET /api/agent-orchestration/runs?agent_ids=…` is deleted along
- * with the rest of the run-read routes (architecture.md §1). Both hooks now
+ * @lore `GET /api/agent-orchestration/runs?agent_ids=…` is deleted along
+ * with the rest of the run-read routes. Both hooks now
  * call `search_sessions({ agentIds })` — `POST /api/actions/search_sessions`,
  * the same door a person's client and an agent's MCP tool use.
  *

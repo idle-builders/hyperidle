@@ -1,7 +1,7 @@
 /**
  * AU26 review W4/W6/W7 — the run-state hooks the J4 move introduced.
  *
- * @lore BC6: `GET /api/agent-orchestration/runs?agent_ids=…` is deleted; both
+ * @lore `GET /api/agent-orchestration/runs?agent_ids=…` is deleted; both
  * hooks now call `search_sessions({ agentIds })` — `POST
  * /api/actions/search_sessions`, the same door a person's client and an
  * agent's MCP tool use.

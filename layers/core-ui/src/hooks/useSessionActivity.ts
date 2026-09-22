@@ -2,7 +2,7 @@
  * useSessionActivity — a session's row + activity buffer, kept live by the
  * `session:<id>` websocket nudge.
  *
- * @lore BC6 architecture.md §4: `GET /api/sessions/:id/activity` and the
+ * @lore `GET /api/sessions/:id/activity` and the
  * second websocket are both gone. The hook now calls `call("watch_session",
  * { id })` — `POST /api/actions/watch_session`, the same door a person's
  * client and an agent's MCP tool use — and re-runs it on every frame for
@@ -11,7 +11,7 @@
  * kind:"session.activity", data:{sessionId}}`); this hook only reacts to the
  * topic matching, never reads `data`.
  *
- * @lore BC6 architecture.md §12 F1: `stop_session`'s answer is the row as it
+ * @lore `stop_session`'s answer is the row as it
  * stood the moment it was asked, not the terminal state — a live session's
  * harness process is killed and the row is marked by normal teardown
  * afterwards, reaching the browser as this same nudge. This hook never reads

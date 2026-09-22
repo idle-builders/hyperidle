@@ -660,8 +660,8 @@ export function SessionView({
 	const running = status === "streaming";
 
 	// The header Stop control — the real `call("stop_session")` site the
-	// governance rule wants (architecture.md §5, clause 1). Its answer is the
-	// pre-stop row (architecture.md §12 F1): this view learns the session
+	// governance rule wants. Its answer is the
+	// pre-stop row: this view learns the session
 	// ended only when `useSessionActivity` re-runs `watch_session` off the
 	// nudge, never from this call's response.
 	const handleStop = (): void => {

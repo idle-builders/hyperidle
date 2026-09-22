@@ -5,7 +5,7 @@
  * Contributions button visible with "detached" label when a contribution has a
  * user override, contribution expand shows detached tag + restore button.
  *
- * @lore BC6: the five raw `apiFetch("/api/plugins…")` calls this page used to
+ * @lore The five raw `apiFetch("/api/plugins…")` calls this page used to
  * make are gone — `call("search_plugins", …)`/`call("edit_plugin", …)` is the
  * one door now, so `call` is mocked directly (the same idiom
  * `ScopeChangeDialog`'s and `SettingsSkillsAndRules`' own tests use).

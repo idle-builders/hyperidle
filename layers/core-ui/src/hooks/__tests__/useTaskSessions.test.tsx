@@ -1,7 +1,7 @@
 /**
  * A task's sessions, read through the session action list.
  *
- * @lore BC6: `GET /api/tasks/:id/sessions` (later `GET
+ * @lore `GET /api/tasks/:id/sessions` (later `GET
  * /api/agent-orchestration/runs?task_id=…`) is deleted; `useTaskSessions`
  * calls `search_sessions({ taskId })` — `POST /api/actions/search_sessions`,
  * the same door a person's client and an agent's MCP tool use — and does the

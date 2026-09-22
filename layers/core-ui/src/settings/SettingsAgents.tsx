@@ -81,7 +81,7 @@ function agentToEditorDraft(agent: AgentConfig): AgentEditorDraft {
  * Active session counts keyed by agent id, degrading to "0 active" on any
  * failure — the agent list is core's data and stands on its own.
  *
- * @lore BC6: `search_sessions` defaults to 100 with no `limit` set; the old
+ * @lore `search_sessions` defaults to 100 with no `limit` set; the old
  * route had no cap at all. 500 (the action's max) is the closest this read
  * can get to "every active session" under the new contract.
  */
@@ -126,7 +126,7 @@ export function SettingsAgents(): JSX.Element {
 	 * Keeping it in its own state also removes the splice problem outright — a
 	 * save no longer has to carry a run count.
 	 *
-	 * @lore BC6: `GET /api/agent-orchestration/runs/active-counts` is deleted;
+	 * @lore `GET /api/agent-orchestration/runs/active-counts` is deleted;
 	 * this map is now counted client-side from `search_sessions({ state:
 	 * "active" })` rows.
 	 */
@@ -191,7 +191,7 @@ export function SettingsAgents(): JSX.Element {
 			const agentsJson = (await agentsRes.json()) as AgentConfig[];
 			setAgents(agentsJson);
 
-			// BC6: active session counts from search_sessions. A failure here must
+			// Active session counts from search_sessions. A failure here must
 			// not fail the page — the agent list is core's data and stands on its
 			// own; the counts simply render as 0.
 			const counts = await fetchActiveRunCounts();

@@ -7,7 +7,7 @@
  * @lore AU26 J4: `hasActiveSession` no longer rides on the core-api response —
  * core-api stopped reading `agent-orchestration`'s `sessions` table.
  *
- * @lore BC6: `GET /api/agent-orchestration/runs/active-counts` is deleted; the
+ * @lore `GET /api/agent-orchestration/runs/active-counts` is deleted; the
  * hook now calls `search_sessions({ state: "active" })` — `POST
  * /api/actions/search_sessions`, the same door a person's client and an
  * agent's MCP tool use — alongside the recipient list, and counts the active

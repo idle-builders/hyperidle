@@ -4,7 +4,7 @@
  * Architecture plan §4.8: fetches GET /api/recipients?q=<query>.
  * Exposes status/recipients/error with client-side filtering for instant feedback.
  *
- * @lore BC6: `GET /api/agent-orchestration/runs/active-counts` is deleted; the
+ * @lore `GET /api/agent-orchestration/runs/active-counts` is deleted; the
  * hook now calls `search_sessions({ state: "active" })` — `POST
  * /api/actions/search_sessions` — and counts the active rows per agent
  * itself, so `hasActiveSession` renders exactly as before. The stub below
@@ -134,7 +134,7 @@ describe("useRecipients (Q1 §4.8)", () => {
 		expect(result.current.error).not.toBeNull();
 	});
 
-	// AC2 / BC6: hasActiveSession is derived from search_sessions' active rows
+	// AC2: hasActiveSession is derived from search_sessions' active rows
 	it("derives hasActiveSession from the active session rows", async () => {
 		stubFetch(MOCK_RECIPIENTS);
 
@@ -148,7 +148,7 @@ describe("useRecipients (Q1 §4.8)", () => {
 		expect(growth?.hasActiveSession).toBe(false);
 	});
 
-	// BC6: a search_sessions failure degrades to "nobody is busy", not a failed picker
+	// A search_sessions failure degrades to "nobody is busy", not a failed picker
 	it("degrades to no active sessions when search_sessions answers a problem", async () => {
 		const fetchMock = vi.fn().mockImplementation((url: string) =>
 			Promise.resolve({

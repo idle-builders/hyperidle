@@ -709,7 +709,7 @@ export interface MockSearchSessionsOptions {
  * Mock `search_sessions` — every session read (task detail, agent profile,
  * the recipient picker's live dot, Settings → Agents' active-session counts).
  *
- * @lore BC6: `GET /api/sessions*` and `GET /api/agent-orchestration/runs*`
+ * @lore `GET /api/sessions*` and `GET /api/agent-orchestration/runs*`
  * are deleted along with the rest of the run-read routes — `search_sessions`
  * is the one door now, `POST /api/actions/search_sessions`.
  */

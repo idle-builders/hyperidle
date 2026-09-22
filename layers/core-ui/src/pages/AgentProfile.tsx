@@ -223,7 +223,7 @@ function AgentProfileLoaded({
 	const navigate = useNavigate();
 	const { sidebarMobile } = useViewportBreakpoint();
 
-	// BC6: the session viewer door — a Recent Activity row click fires the
+	// The session viewer door — a Recent Activity row click fires the
 	// same `onOpenSession` OpenTarget path Conversations.tsx and WorkTaskPage
 	// use, mounted in this page's own split pane.
 	const { user } = useCurrentUser();
@@ -648,9 +648,9 @@ function AgentProfileLoaded({
 // ---------------------------------------------------------------------------
 
 /**
- * BC6: the session viewer, opened from a Recent Activity row click into the
+ * The session viewer, opened from a Recent Activity row click into the
  * page's split pane. Reuses `SessionView` exactly as it is — no redesign, no
- * new component (architecture.md §1). `WorkTaskPage.tsx`'s `TaskSessionPanel`
+ * new component. `WorkTaskPage.tsx`'s `TaskSessionPanel`
  * verbatim.
  */
 function AgentSessionPanel({

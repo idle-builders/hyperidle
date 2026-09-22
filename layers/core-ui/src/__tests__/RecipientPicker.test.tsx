@@ -7,7 +7,7 @@
  * @lore AU26 J4: `useRecipients` combines core-api's recipient list with a
  * live busy dot.
  *
- * @lore BC6: the busy dot's source is `search_sessions({ state: "active" })`
+ * @lore The busy dot's source is `search_sessions({ state: "active" })`
  * — `call("search_sessions", …)` — not a raw fetch, so it rides the same
  * module-wide `call` mock `send_message` uses below. `stubFetch` routes the
  * recipient list fetch by URL as before; `stubActiveSessions` configures
