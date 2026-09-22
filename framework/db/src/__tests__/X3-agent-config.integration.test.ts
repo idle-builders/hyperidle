@@ -4,7 +4,7 @@
  * AC-1: the agent run config carries harnessType
  *
  * @lore BA9f: `system_prompt` is no longer one of them. An agent's identity is
- * an `agent_file` knowledge document bound to the agent, not a run-config
+ * an `agent_file` document bound to the agent, not a run-config
  * field — how an agent runs and who it is are different things, and only one of
  * them is knowledge. The column is asserted GONE below.
  *

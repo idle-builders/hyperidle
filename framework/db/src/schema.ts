@@ -107,8 +107,8 @@ export const users = pgTable(
  * `role`, `team_id` stay put because core genuinely uses them
  * (`middleware/auth.ts`, `recipients.ts`, `policy-bindings.ts`).
  *
- * @lore The agent's identity is no longer here: it is an `agent_file` knowledge
- * document bound to the agent (scope_kind='user', scope_id=agentId), which is
+ * @lore The agent's identity is no longer here: it is an `agent_file` document
+ * bound to the agent (scope_kind='user', scope_id=agentId), which is
  * what that role has always meant. Migration 0069 moved every existing prompt.
  *
  * @lore AU26 G1: `system_prompt_path` and `skills` were dropped, not moved —
@@ -227,7 +227,7 @@ export const tasks = pgTable(
 		 * this says what to SHOW first, and two siblings with no dependency
 		 * between them still need a defined order. Ordering by recency would
 		 * reshuffle the tree whenever someone edits a child, which makes a tree
-		 * unbrowsable. Aligned with the nested-knowledge-documents tree, which
+		 * unbrowsable. Aligned with the nested-document tree, which
 		 * chose the same shape for the same reason.
 		 */
 		position: integer("position").notNull().default(0),
@@ -613,10 +613,10 @@ export const routines = pgTable(
 		 * used to live here) is dropped by migration 0077. The routine's prompt
 		 * is now the document parented to this routine
 		 * (`parentKind='routine', parentId=<this row's id>, slot='prompt'`) —
-		 * read through `getParentedItem` in `@hyperidle/knowledge`, never a
+		 * read through `getParentedItem` in `@hyperidle/document`, never a
 		 * column on this table. This closes a table-ownership violation BA9g
-		 * named but did not fix: a column here describing a knowledge
-		 * relationship, in a table the knowledge service does not own.
+		 * named but did not fix: a column here describing a document
+		 * relationship, in a table the document service does not own.
 		 */
 		ownerAgentId: text("owner_agent_id")
 			.notNull()
@@ -939,7 +939,7 @@ export const documents = pgTable(
 		index("doc_parent_position_idx").on(table.parentKind, table.parentId, table.position),
 		// One document per named slot per parent — a routine's prompt, an
 		// agent's identity. `slot <> 'ordinary'` leaves a parent free to hold
-		// many ordinary children (the nested-knowledge tree), and Postgres
+		// many ordinary children (the nested-document tree), and Postgres
 		// treats NULLs as distinct by default, so unparented rows never collide.
 		uniqueIndex("doc_parent_slot_uq")
 			.on(table.parentKind, table.parentId, table.slot)
