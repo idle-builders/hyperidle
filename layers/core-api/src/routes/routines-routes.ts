@@ -213,7 +213,7 @@ async function readRoutinePromptBodies(
  *
  * @lore BA9g: the scope was hardcoded `factory` — org-wide — so a routine owned
  * by one team's agent published its instruction to everybody. A prompt is
- * knowledge; it takes the scope of whoever the routine belongs to. An agent with
+ * a document; it takes the scope of whoever the routine belongs to. An agent with
  * a team scopes to that team; a factory-wide agent stays factory.
  */
 async function createRoutinePromptDocument(
@@ -462,7 +462,7 @@ export function createRoutineRoutes(
 		// belonging to a routine that no longer exists and that nothing could
 		// reach again. Archiving every document parented to this routine (not
 		// just the prompt slot) is what the plan calls "deleting a parent
-		// deletes its knowledge" — there is no UI for an orphan, so archiving is
+		// deletes its documents" — there is no UI for an orphan, so archiving is
 		// the only safe default.
 		//
 		// Archived, not hard-deleted: `changes` holds a RESTRICT FK on

@@ -101,7 +101,7 @@ interface AppOptions {
 		>;
 		/**
 		 * `adjust_thread`'s own bound `run`, so the stalled-knowledge-action
-		 * reaction can resolve-or-create the knowledge item's thread.
+		 * reaction can resolve-or-create the document's thread.
 		 */
 		adjustThread: (
 			ctx: import("./actions/action.js").ActionContext,
@@ -214,7 +214,7 @@ interface AppOptions {
 	 * `{pluginsBaseDir}/{pluginId}/` and stores the path in `plugins.install_path`.
 	 * Required for skill restore to work (restore reads from install_path on disk).
 	 * Absent → plugin files are not persisted; install_path will be null; skills
-	 * are still materialised as knowledge items but cannot be restored from source.
+	 * are still materialised as documents but cannot be restored from source.
 	 * Production wiring passes the platform config dir; tests pass a temp dir.
 	 */
 	pluginsBaseDir?: string;

@@ -289,9 +289,9 @@ export function createUserRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 	// AD8b Task 8 — system prompt CRUD: GET + PATCH /api/users/:userId/assistant
 	// There is no `/:userId/assistant` route. It was a second agent editor that
 	// existed only for assistants, because the persona used to be a column with
-	// an assistant-shaped guard on it. The persona is a knowledge document now,
+	// an assistant-shaped guard on it. The persona is a document now,
 	// so an assistant is edited through `/api/agents/:id` like every other agent
-	// and its identity through the one knowledge edit endpoint.
+	// and its identity through the one document edit endpoint.
 
 	return router;
 }

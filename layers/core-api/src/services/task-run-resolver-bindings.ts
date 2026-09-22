@@ -8,7 +8,7 @@
  * imports instead of each separately constructing `{ requireRunnableAgent }`
  * — the same factory-curry idiom `policy-bindings.ts`'s pre-bound `handoff`
  * already uses. Centralizing the wiring here means `getTeamById`/
- * `assembleSessionKnowledge` (Decision H3's contextBundle bake) reach every
+ * `assembleSessionDocuments` (Decision H3's contextBundle bake) reach every
  * real `task_run` emit site from ONE place, instead of five independently
  * drifting copies.
  *
@@ -74,7 +74,7 @@ export function buildTaskRunResolverDeps(
 				searchDocuments,
 			),
 		getTeamById: (db, id) => getTeam(db, { id }),
-		assembleSessionKnowledge: (...args: Parameters<typeof assembleSessionDocuments>) =>
+		assembleSessionDocuments: (...args: Parameters<typeof assembleSessionDocuments>) =>
 			assembleSessionDocuments(...args),
 		readServerConfig: (...args: Parameters<typeof readServerConfig>) => readServerConfig(...args),
 		// `task-run-resolver.ts` bakes `callingThreadId` straight from

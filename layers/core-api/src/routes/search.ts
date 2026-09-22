@@ -2,7 +2,7 @@
  * AD7: Global search route — GET /api/search?q=<query>
  *
  * Returns grouped results across conversations (threads), work (bets), and
- * knowledge items. Three separate LIKE queries — not a UNION — for clarity
+ * documents. Three separate LIKE queries — not a UNION — for clarity
  * and independent per-category 5-result caps.
  *
  * @lore AD7: Three separate queries (not UNION) because each category has
@@ -18,7 +18,7 @@
  * @lore AD7: Auth boundaries:
  * - Threads: filtered to where participants JSON LIKE-probes userId, then
  *   JS-verified for exact membership (prevents false positives from substring).
- * - Knowledge: scope_kind != 'user' OR updated_by = userId.
+ * - Documents: scope_kind != 'user' OR updated_by = userId.
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
@@ -59,7 +59,7 @@ const MAX_PER_CATEGORY = 5;
  *
  * @lore BB1: "bet" removed — the bets table is deleted; every bet became a root task.
  * @lore artifacts-become-knowledge: "artifact" removed — threads hang off the
- * knowledge item itself; there is no artifact host kind.
+ * document itself; there is no artifact host kind.
  */
 function hostKindToConversationKind(hostKind: string): "review" | "chat" {
 	switch (hostKind) {
@@ -99,7 +99,7 @@ export function createSearchRoutes(
 	// Max 200 chars per AD7 architecture spec (knowledge route uses 500 — search is tighter).
 	const SEARCH_QUERY_SCHEMA = z.string().min(1).max(200);
 
-	// GET / — global search across conversations, work (bets), and knowledge
+	// GET / — global search across conversations, work (bets), and documents
 	router.get("/", async (c) => {
 		const userId = c.get("userId");
 		const rawQuery = c.req.query("q");

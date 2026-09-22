@@ -59,8 +59,8 @@ const createAgentSchema = z.object({
 });
 
 const patchAgentSchema = z.object({
-	// No `systemPrompt`. An agent's identity is the `agent_file` knowledge
-	// document bound to it, edited through the one knowledge edit endpoint. This
+	// No `systemPrompt`. An agent's identity is the `agent_file` document
+	// bound to it, edited through the one document edit endpoint. This
 	// route used to carry it, which is why it also carried a whole duplicate
 	// handler branch to stop assistants from using it.
 	name: z.string().min(1).max(200).optional(),
@@ -430,7 +430,7 @@ export function createAgentRoutes(
 		await updateUser(db, id, { status: "retired" });
 
 		// Deleting a parent archives its
-		// knowledge — an agent's identity document (and anything else
+		// documents — an agent's identity document (and anything else
 		// parented to it) has no UI for an orphan, so archiving is the only
 		// safe default. Archived, not hard-deleted: `changes.actor` holds a
 		// RESTRICT FK on `users.id`, and the row's own history never disappears.

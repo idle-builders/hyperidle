@@ -100,7 +100,7 @@ type EditDocumentRun = (
  * @lore BA9g: this used to be a `plugin_configuration_defaults` row and nothing
  * else, so the shipped `knowledge-management` plugin — one agent, three
  * routines, three skills, and `"contributions": []` in its manifest — rendered
- * an entirely empty view. The registry knows the agents, routines and knowledge
+ * an entirely empty view. The registry knows the agents, routines and documents
  * too, so `kind` widened past `ConfigurationKind` and `entityId` names the row.
  */
 export interface PluginContributionView {
@@ -577,7 +577,7 @@ export function createPluginRoutes(
 				title: skill.dirName,
 				body: skill.body,
 				slot: "skill",
-				// A skill has no parent — it is ordinary capability knowledge,
+				// A skill has no parent — it is a capability document,
 				// reached from its own list, not hung off any entity.
 				parentKind: null,
 				parentId: null,

@@ -153,7 +153,7 @@ function buildPolicyDeps(
 
 /**
  * AU11: registers CORE-owned application services against the event bus —
- * knowledge (relevance listener, FTS), notifications, policy engine,
+ * document (relevance listener, FTS), notifications, policy engine,
  * review routing, lifecycle propagation, retention, and the
  * routine scheduler (cron/due-eval + `enqueueWorkIntent`).
  *
@@ -193,8 +193,8 @@ export function registerCoreDomainServices(ctx: {
 	readonly sendMessage: import("./services/session-not-returned-notice.js").SendMessageRunFn;
 	/**
 	 * `adjust_thread`'s own bound `run`, threaded the same way — the
-	 * stalled-knowledge-action reaction resolves-or-creates the knowledge
-	 * item's thread through it.
+	 * stalled-knowledge-action reaction resolves-or-creates the document's
+	 * thread through it.
 	 */
 	readonly adjustThread: import("./services/agent-run-admission-reactions.js").AdjustThreadRunFn;
 	/** AF6 §1: routine scheduler poll cadence (ms). Optional; defaults to 30s. */

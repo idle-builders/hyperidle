@@ -2,7 +2,7 @@
  * @lore Composition root for the routine scheduler (`@hyperidle/routine`'s
  * `routine-scheduler.ts`). `@hyperidle/routine` is a Service, so per
  * Mechanism C (`composition-boundary-guard`, mechanically enforced) it
- * cannot import `work`/`conversation`/`knowledge`/`settings` directly —
+ * cannot import `work`/`conversation`/`document`/`settings` directly —
  * every one of those, plus the one genuinely against-grain (`core-api →
  * agent-orchestration`) dependency, is wired here. `fireRoutine`, the
  * builtin-routine-handler registration, and the scheduler startup all live
@@ -103,7 +103,7 @@ export function buildRoutineSchedulerPorts(
 		requireRunnableAgent,
 		// AU21 §9 Increment 12 (Decision H3): wire the contextBundle bake deps
 		// `resolveRoutineRunRequest` needs — a routine_run session's sandbox now
-		// gets its ranked knowledge + routine/agent/team content baked at emit
+		// gets its ranked documents + routine/agent/team content baked at emit
 		// time instead of `run-orchestration` reading it back at launch.
 		getTeamById: (db: HyperIdleDb, id: string) => getTeam(db, { id }),
 		// BA9c: getSessionById — session row for session_* events.
@@ -121,7 +121,7 @@ export function buildRoutineSchedulerPorts(
 		// trigger event tells routines "a person joined", not "a bot was added to a team".
 		getUserById: (db: HyperIdleDb, id: string) =>
 			findUser(db, { id }).then((u) => (u ? { id: u.id, name: u.name, role: u.role } : undefined)),
-		assembleSessionKnowledge: assembleSessionDocuments,
+		assembleSessionDocuments,
 		// @lore BC4 follow-up (architecture.md §8.3): migrated onto the injected
 		// `search_documents` runner — `startRoutineScheduler`/`fireRoutine`
 		// (below) now take it as an explicit parameter, threaded from

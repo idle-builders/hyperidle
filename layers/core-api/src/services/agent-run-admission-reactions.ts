@@ -150,7 +150,7 @@ async function notifyThreadTurnAdmissionFailure(
  * @lore BC3 architecture.md §5 B7b — the second `items` writer, kept alive
  * as a `send_message` instead: "a knowledge action that could not be
  * admitted gets flagged for a human" is the SAME behaviour, at the SAME
- * moment, into the SAME thread (the knowledge item's, `document`-
+ * moment, into the SAME thread (the document's, `document`-
  * hosted, resolved not recreated on every failure). `system:propagation`
  * posts into it — host-scoped, so it may post, and its first post joins it
  * (architecture.md §3.4) — never the synthetic `"attention_engine"` sender
@@ -174,7 +174,7 @@ async function flagStalledKnowledgeAction(
 			members: ["system:propagation"],
 		});
 		if (!created.ok) {
-			logger.error("flagStalledKnowledgeAction: could not create the knowledge item's thread", {
+			logger.error("flagStalledKnowledgeAction: could not create the document's thread", {
 				knowledgeItemId,
 				problems: created.problems,
 			});
@@ -189,7 +189,7 @@ async function flagStalledKnowledgeAction(
 		review: {
 			title: "Agent work stalled: knowledge action",
 			reasoning: [
-				`Knowledge item ${knowledgeItemId} could not be admitted for agent work (${event.failureCode}).`,
+				`Document ${knowledgeItemId} could not be admitted for agent work (${event.failureCode}).`,
 			],
 		},
 	});
