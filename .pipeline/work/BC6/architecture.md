@@ -358,3 +358,60 @@ else forces it.
 Production lines, added/deleted: T1 320/0 · T2 260/200 · T3 60/330 · T4 520/1000 · T5 80/120 ·
 T6 90/80 · T7 60/120 · T8 40/800 · T9 70/380 · T10 15/15 · T11 40/60. **≈1,555 added,
 ≈3,105 deleted, net ≈ −1,550.** See §0.7.
+
+## 12. Critique amendments (2026-09-22, critique 1: BLOCKED on B1, B2 — both fixed here)
+
+**B1 — teardown could not write "stopped".** `updateSessionRow` (`transition-run.ts:380-393`) only knew
+`done/completed|not_returned` and `crashed`, so an aborted session ended as `completed` and
+`lifecycle-propagation.ts:83` would have finished the task. **Fix (D-njr2es):** the provisioner's
+existing `aborted` flag (`provisioner.ts:1455`, already used at `:1971` for `returnEndReason`) is
+threaded into the normal-teardown `transitionRun` call (`provisioner.ts:2027`) as `terminalOutcome:
+"stopped"`; `endSession`/`updateSessionRow` accept `state:"stopped"`, `outcome:"stopped"`;
+`session_ended` carries `outcome:"stopped"` and `routineRunOutcome:"error"` for a routine session.
+Both doors now converge on one vocabulary: abort path → teardown writes `stopped`; no-live-entry
+path → CAS writes `stopped`. `search_sessions({state:"stopped"})` finds both. Propagation
+(`completed` only) and health (`crashed` only) stay inert on a stop. `SESSION_STATES` includes
+`stopped`. Red tests in T-vtknk9 change accordingly: "stop with a live entry → adapter.stopSession
+called, and after the detached teardown drains the row reads `stopped/stopped` and `session_ended`
+carries `outcome:"stopped"`"; "stop twice → second call answers `stopped:false` once the row is
+terminal, `true` while teardown is still draining" (F1: the response on the abort path is the
+pre-stop row; the terminal state arrives by nudge — say so in the declaration's sentence).
+Also prove F2 in that test: `harness.stopSession` is called twice on the abort path (registry, then
+`provisioner.ts:1877`) and the adapter tolerates it.
+
+**B2 — lint cannot be green between the declarations and the UI.** `actions-projected` clause 1 is
+error-severity and wants a `call("<name>"` site for every declared name. **Fix (D-9p94bz):** tasks
+T-dn7k7y, T-vtknk9, T-fgkg97, T-nmhrw7 verify with `npm run check` green and `npm run lint` red on
+exactly those five clause-1 rows (fewer as the UI tasks land) and nothing else; the builder lists the
+remaining rows in its report. No decoy call site, no rule edit. Full green at T-42x5hb.
+
+**N1 — missed consumers**, now owned by the named tasks: `layers/core-api/src/__testing__/test-fixtures.ts:6,99,147,184`
+and `test-utils.ts:8,116-117` import `@hyperidle/credentials` (T-kbw42e); dependency rows in
+`layers/core-api/package.json:19`, `layers/core-ui/package.json:48`, `layers/agent-orchestration/package.json:30`,
+`layers/agent-orchestration/connections/package.json:19`, `layers/agent-orchestration/filesystems/package.json:19`
+(T-kbw42e; `deps:check` will flag them); `layers/core-ui/src/__testing__/test-setup.ts:30` mocks
+`getSessionStreamClient` (T-fgkg97); `framework/db/src/__tests__/pg-migration.integration.test.ts:48`
+lists `server_credentials` (T-kbw42e).
+
+**N2 — `requestRunStopForTasks` return contract:** returns the session ids it stopped, aborted or
+marked alike (`{ stopped: [{sessionId, taskId}] }` as today), and its `@lore` is rewritten: it now
+takes the bus and emits on the no-live-entry path; on the abort path teardown emits.
+
+**N3 — governance prose:** `actions-projected.ts:69-71` "sixteen plumbing doors" becomes "eighteen"
+in T-vtknk9 (the task that moves the two rows), not T-ep5ydm.
+
+**N4 — `filter_required` dropped.** `search_sessions` with no filter lists newest first with
+`limit` defaulting to 100 (the profile health window passes `agentIds` and its own limit). Matches
+`search_tasks`' "no parameter lists them".
+
+**N5 — order:** the tree is a DAG, not a chain: T-fgkg97 ∥ T-7gy3zv; T-9v5m2t ∥ T-kbw42e;
+T-b2qg8y ∥ T-ep5ydm ∥ T-bgr5ct. No concurrently claimable pair shares a file (critique checked).
+
+**N6 — citation corrections:** `task-actions.ts:812`; `provisioner.ts:1599` reaches the registry
+through `ports.sessionRequests.abortSessionRun` (bound at `run-orchestration-composition.ts:329`);
+`ws-client.ts:238-242`; `resolveHeldToken` at `agent-orchestration/src/app.ts:76`; `pluginsBaseDir`
+at `remote-server/src/create-server.ts:238/254` and `desktop/src/create-server.ts:154/166`;
+`table-owners.json` key `serverCredentials`.
+
+**F3:** `retired-surfaces-absent.ts` needs no change and gets no new tombstones (maintainer-curated).
+**F5:** the seam test is a third file beside `document-ws-e2e` / `thread-ws-e2e`, same model.
