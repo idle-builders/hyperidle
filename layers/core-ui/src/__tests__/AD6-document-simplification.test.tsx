@@ -345,14 +345,19 @@ describe("AD6 — DocumentCreate 3-pill scope picker", () => {
 		expect(screen.getByTestId("scope-pill-create-private")).toHaveAttribute("data-active", "false");
 	});
 
-	it("clicking Private pill makes it active", async () => {
+	it("Private pill is offered only once a parent is chosen", async () => {
+		// A parentless private note is a memory, not a document; the create page
+		// keeps Private disabled until a parent is picked (see
+		// DocumentCreate-private-requires-parent.test.tsx for the parent case).
 		const user = userEvent.setup();
 		renderCreate();
 
-		await user.click(screen.getByTestId("scope-pill-create-private"));
+		const privatePill = screen.getByTestId("scope-pill-create-private");
+		expect(privatePill).toBeDisabled();
+		await user.click(privatePill);
 
-		expect(screen.getByTestId("scope-pill-create-private")).toHaveAttribute("data-active", "true");
-		expect(screen.getByTestId("scope-pill-create-shared")).toHaveAttribute("data-active", "false");
+		expect(privatePill).toHaveAttribute("data-active", "false");
+		expect(screen.getByTestId("scope-pill-create-shared")).toHaveAttribute("data-active", "true");
 	});
 });
 
