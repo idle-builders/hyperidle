@@ -98,8 +98,9 @@ describe("buildToolRegistry", () => {
 	// because a `toContain` here would silently tolerate an extra tool
 	// leaking in. The composed side is derived, not hardcoded: task's own
 	// three actions, thread's own four, document's own three (search/open/
-	// edit) — ten today, re-derived every run so a future action addition or
-	// removal is caught here rather than assumed.
+	// edit), platform's own two (search_plugins/edit_plugin, BC6) — twelve
+	// today, re-derived every run so a future action addition or removal is
+	// caught here rather than assumed.
 	test("returns exactly the four management tools plus the composed action tools", ({
 		db,
 		eventBus,
@@ -128,9 +129,10 @@ describe("buildToolRegistry", () => {
 		expect(names).toEqual(expected);
 		// task ×3 (search_tasks/open_task/edit_task), thread ×4
 		// (search_threads/open_thread/adjust_thread/send_message), document ×3
-		// (search_documents/open_document/edit_document) — ten, not the plan's
-		// stale "six" (written before the thread module was counted).
-		expect(composedActionNames.size).toBe(10);
+		// (search_documents/open_document/edit_document), platform ×2
+		// (search_plugins/edit_plugin, BC6) — twelve, not the plan's stale
+		// "six" (written before the thread module was counted).
+		expect(composedActionNames.size).toBe(12);
 		expect(registry.definitions).toHaveLength(4 + composedActionNames.size);
 	});
 

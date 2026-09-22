@@ -14,6 +14,8 @@
  * it. Remove is worse: the routines keep their `deletedAt` forever.
  *
  * One lifecycle, one outcome: three operations that can disagree become one.
+ *
+ * Re-pointed (BC6) onto `POST /api/actions/edit_plugin`.
  */
 
 import { cpSync, mkdirSync, rmSync } from "node:fs";
@@ -69,19 +71,20 @@ async function install(db: HyperIdleDb, app: Hono): Promise<void> {
 	cpSync(PLUGIN_ROOT, dir, { recursive: true });
 	tempDirs.push(dir);
 
-	const res = await app.request("/api/plugins", {
-		method: "POST",
-		headers: { ...auth(), "Content-Type": "application/json" },
-		body: JSON.stringify({ source: { type: "folder", path: dir }, scope: { kind: "factory" } }),
+	const res = await editPlugin(app, {
+		source: { kind: "folder", path: dir, scope: { kind: "factory", teamId: null } },
 	});
-	if (res.status !== 201) {
+	if (res.status !== 200) {
 		throw new Error(`Install failed: ${JSON.stringify(await res.json())}`);
 	}
 }
 
-async function post(app: Hono, path: string): Promise<number> {
-	const res = await app.request(path, { method: "POST", headers: auth() });
-	return res.status;
+async function editPlugin(app: Hono, body: unknown): Promise<Response> {
+	return app.request("/api/actions/edit_plugin", {
+		method: "POST",
+		headers: { ...auth(), "Content-Type": "application/json" },
+		body: JSON.stringify(body),
+	});
 }
 
 /** What the plugin contributed — the registry is the only answer now. */
@@ -99,7 +102,7 @@ async function contributed(
 describe("installing a plugin revives everything it contributed", () => {
 	test("install over a DISABLED plugin brings its agent and routines back", async ({ db, app }) => {
 		await install(db, app);
-		expect(await post(app, `/api/plugins/${PLUGIN_ID}/disable`)).toBe(200);
+		expect((await editPlugin(app, { id: PLUGIN_ID, state: "disabled" })).status).toBe(200);
 
 		// Precondition: disable really did take everything down.
 		const [agentAfterDisable] = await db
@@ -143,10 +146,7 @@ describe("installing a plugin revives everything it contributed", () => {
 
 	test("install over a REMOVED plugin brings its agent and routines back", async ({ db, app }) => {
 		await install(db, app);
-		const del = await app.request(`/api/plugins/${PLUGIN_ID}`, {
-			method: "DELETE",
-			headers: auth(),
-		});
+		const del = await editPlugin(app, { id: PLUGIN_ID, remove: true });
 		expect(del.status).toBe(200);
 
 		// Precondition: remove soft-deleted the routines.
@@ -181,7 +181,7 @@ describe("installing a plugin revives everything it contributed", () => {
 		app,
 	}) => {
 		await install(db, app);
-		expect(await post(app, `/api/plugins/${PLUGIN_ID}/disable`)).toBe(200);
+		expect((await editPlugin(app, { id: PLUGIN_ID, state: "disabled" })).status).toBe(200);
 		await install(db, app);
 
 		const rows = await db

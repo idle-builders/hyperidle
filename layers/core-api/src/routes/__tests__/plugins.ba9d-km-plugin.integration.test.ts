@@ -88,16 +88,19 @@ async function seedFounder(db: HyperIdleDb): Promise<void> {
 		.onConflictDoNothing();
 }
 
+async function editPlugin(app: Hono, body: unknown): Promise<Response> {
+	return app.request("/api/actions/edit_plugin", {
+		method: "POST",
+		headers: { ...auth(), "Content-Type": "application/json" },
+		body: JSON.stringify(body),
+	});
+}
+
 async function installKmPlugin(db: HyperIdleDb, app: Hono): Promise<Response> {
 	await seedFounder(db);
 	const pluginDir = copyPluginToTemp();
-	return app.request("/api/plugins", {
-		method: "POST",
-		headers: { ...auth(), "Content-Type": "application/json" },
-		body: JSON.stringify({
-			source: { type: "folder", path: pluginDir },
-			scope: { kind: "factory" },
-		}),
+	return editPlugin(app, {
+		source: { kind: "folder", path: pluginDir, scope: { kind: "factory", teamId: null } },
 	});
 }
 
@@ -108,22 +111,17 @@ async function installKmPluginForTeam(
 ): Promise<Response> {
 	await seedFounder(db);
 	const pluginDir = copyPluginToTemp();
-	return app.request("/api/plugins", {
-		method: "POST",
-		headers: { ...auth(), "Content-Type": "application/json" },
-		body: JSON.stringify({
-			source: { type: "folder", path: pluginDir },
-			scope: { kind: "team", teamId },
-		}),
+	return editPlugin(app, {
+		source: { kind: "folder", path: pluginDir, scope: { kind: "team", teamId } },
 	});
 }
 
 describe("document-management plugin install — AC4: global agent + routines", () => {
-	test("install returns 201 with plugin name document-management", async ({ db, app }) => {
+	test("install answers ok with plugin name document-management", async ({ db, app }) => {
 		const res = await installKmPlugin(db, app);
-		expect(res.status).toBe(201);
+		expect(res.status).toBe(200);
 		const body = await res.json();
-		expect(body.plugin.id).toBe(PLUGIN_ID);
+		expect(body.data.id).toBe(PLUGIN_ID);
 	});
 
 	test("install creates the Document Librarian agent (users row, no teamId)", async ({
@@ -240,8 +238,8 @@ describe("document-management plugin — team-scope isolation", () => {
 
 		const resA = await installKmPluginForTeam(db, app, "team-alpha");
 		const resB = await installKmPluginForTeam(db, app, "team-beta");
-		expect(resA.status).toBe(201);
-		expect(resB.status).toBe(201);
+		expect(resA.status).toBe(200);
+		expect(resB.status).toBe(200);
 
 		const idAlpha = agentItemId(PLUGIN_ID, "librarian", "team", "team-alpha");
 		const idBeta = agentItemId(PLUGIN_ID, "librarian", "team", "team-beta");
@@ -337,7 +335,7 @@ describe("document-management plugin — team-scope isolation", () => {
 		]);
 
 		const resEcho = await installKmPluginForTeam(db, app, "team-echo");
-		expect(resEcho.status).toBe(201);
+		expect(resEcho.status).toBe(200);
 
 		const skillIdEcho = skillItemId(PLUGIN_ID, SKILL_DIR, "team", "team-echo");
 
@@ -351,7 +349,7 @@ describe("document-management plugin — team-scope isolation", () => {
 
 		// Team foxtrot installs the SAME plugin at its own team scope.
 		const resFoxtrot = await installKmPluginForTeam(db, app, "team-foxtrot");
-		expect(resFoxtrot.status).toBe(201);
+		expect(resFoxtrot.status).toBe(200);
 
 		const skillIdFoxtrot = skillItemId(PLUGIN_ID, SKILL_DIR, "team", "team-foxtrot");
 

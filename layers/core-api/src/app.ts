@@ -29,7 +29,6 @@ import { createHarnessRoutes } from "./routes/harnesses.js";
 import { authHealth } from "./routes/health.js";
 import { createNotificationRoutes } from "./routes/notifications-routes.js";
 import { createOrgRoutes } from "./routes/org.js";
-import { createPluginRoutes } from "./routes/plugins.js";
 import { createRecipientRoutes } from "./routes/recipients.js";
 import { createRoutineRoutes } from "./routes/routines-routes.js";
 import { createSearchRoutes } from "./routes/search.js";
@@ -513,10 +512,11 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 				import("@hyperidle/domain-model").DocumentRow[]
 			>
 		>;
-		// @lore document-module B10: `/plugins`' install/enable/disable/restore
-		// lifecycle writes documents through the composed `edit_document` action
-		// (architecture.md §8.3) — extracted the same way, never
-		// `@hyperidle/document`'s repository functions directly.
+		// @lore document-module B10: the platform module's install/enable/
+		// disable/restore lifecycle (`edit_plugin`, bound in `compose.ts`'s
+		// fourth action group) writes documents through this same composed
+		// `edit_document` action — never `@hyperidle/document`'s repository
+		// functions directly.
 		const editDocumentAction = actions.find((a) => a.declaration.name === "edit_document");
 		if (!editDocumentAction) {
 			throw new Error("buildCoreActions did not produce an edit_document action");
@@ -614,21 +614,10 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		// owns). Same path, other host — see `createAgentOrchestrationApp`.
 		api.route("/search", createSearchRoutes(options.db, eventBus, searchDocumentsRun));
 		api.route("/settings/agent-behavior", createAgentBehaviorSettingsRoutes(options.db));
-		// BC6: plugin management is ALSO the platform module now —
+		// BC6: plugin management is the platform module now —
 		// `search_plugins`/`edit_plugin`, mounted generically by
 		// `createActionsRouter` above (`compose.ts`'s fourth action group).
-		// `routes/plugins.ts` and this mount are deleted in the same task's
-		// next commit, once the nine plugin integration tests are re-pointed.
-		api.route(
-			"/plugins",
-			createPluginRoutes(
-				options.db,
-				eventBus,
-				editDocumentRun,
-				searchDocumentsRun,
-				options.pluginsBaseDir,
-			),
-		);
+		// `routes/plugins.ts` and its six routes are deleted.
 		api.route("/notifications", createNotificationRoutes(options.db, { deps: notificationsDeps }));
 
 		const db = options.db;
