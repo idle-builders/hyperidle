@@ -1,6 +1,6 @@
 // @lore BB1: Bet import removed — bet is now a root task; getBetById deleted.
 import type { HyperIdleDb, Team, User, WriteExecutor } from "@hyperidle/db";
-import type { BakedWorkIntentRequest, SessionKnowledgeItemLike } from "@hyperidle/domain-model";
+import type { BakedWorkIntentRequest, SessionDocumentLike } from "@hyperidle/domain-model";
 
 /**
  * AU21 §9 Increment 4 — the routine scheduler (relocated from
@@ -207,5 +207,5 @@ export interface RoutineSchedulerPorts {
 			readonly taskDescription: string;
 			readonly agentId: string;
 		},
-	): Promise<readonly SessionKnowledgeItemLike[]>;
+	): Promise<readonly SessionDocumentLike[]>;
 }

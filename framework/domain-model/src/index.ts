@@ -322,7 +322,7 @@ export type {
 	AgentCategory,
 	HarnessType,
 	HealthResponse,
-	KernelKnowledgeStatus,
+	KernelDocumentStatus,
 	ModelTier,
 	// @lore AU34: the one aliased publication the old substrate barrel carried. It reached
 	// `types/money.ts` and was re-exported from there under a second name; the declaration is and
@@ -341,7 +341,7 @@ export {
 	AGENT_CATEGORIES,
 	AGENT_OPERATIONAL_STATUS_LABEL,
 	HARNESS_TYPES,
-	KERNEL_KNOWLEDGE_STATUSES,
+	KERNEL_DOCUMENT_STATUSES,
 	MODEL_TIERS,
 	ORG_EDGE_MECHANISMS,
 	SCOPE_KINDS,
@@ -357,12 +357,12 @@ export type {
 	AgentWorkIntentRecorderInput,
 	BakedAgentRunnableConfig,
 	BakedContextBundle,
-	BakedContextKnowledgeItem,
+	BakedContextDocument,
 	BakedSessionResumeRequest,
 	BakedWorkIntentRequest,
 	ReviewVerdictOutcome,
 	ReviewVerdictRecorderFn,
 	RoutineTriggerEvent,
-	SessionKnowledgeItemLike,
+	SessionDocumentLike,
 } from "./work-intent.js";
-export { bakeAgentRunnableConfig, toBakedContextKnowledgeItems } from "./work-intent.js";
+export { bakeAgentRunnableConfig, toBakedContextDocuments } from "./work-intent.js";

@@ -98,7 +98,7 @@ import * as path from "node:path";
 import { documents } from "@hyperidle/db";
 import { test as dbTest } from "@hyperidle/db/test-fixtures";
 import { assembleSessionDocuments } from "@hyperidle/document";
-import { type BakedContextBundle, toBakedContextKnowledgeItems } from "@hyperidle/domain-model";
+import { type BakedContextBundle, toBakedContextDocuments } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
 import { HARNESS_TEST_MODELS, requireHarness } from "@hyperidle/harness-registry/test-utils";
 import { afterEach, beforeEach, describe, expect } from "vitest";
@@ -215,7 +215,7 @@ async function assembleSkillIntoSandbox(db: import("@hyperidle/db").HyperIdleDb)
 		],
 		agent: { id: AGENT_ID, name: "BA9b Probe Agent", role: "builder" },
 		team: { id: TEAM_ID, name: "BA9b Probe Team" },
-		knowledge: toBakedContextKnowledgeItems(knowledge),
+		documents: toBakedContextDocuments(knowledge),
 	};
 
 	const assembled = await buildTestRunOrchestrationComposition().runSession(

@@ -5,7 +5,7 @@ import type {
 	AgentSessionSourceCorrelation,
 	AgentSessionSourceKind,
 	BakedContextBundle,
-	BakedContextKnowledgeItem,
+	BakedContextDocument,
 	RoutineTriggerEvent,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
@@ -724,7 +724,7 @@ function createDirectoryStructure(sandboxPath: string): void {
 	fs.writeFileSync(path.join(sandboxPath, "work/task-notes.md"), "");
 }
 
-function writeItem(sandboxPath: string, item: BakedContextKnowledgeItem, zone: string): string {
+function writeItem(sandboxPath: string, item: BakedContextDocument, zone: string): string {
 	const filename = toFilename(item.title, item.id);
 	const relativePath = `${zone}/${filename}`;
 	const fullPath = path.join(sandboxPath, relativePath);
@@ -763,7 +763,7 @@ function writeItem(sandboxPath: string, item: BakedContextKnowledgeItem, zone: s
  */
 function writeOrdinaryItems(
 	sandboxPath: string,
-	items: readonly BakedContextKnowledgeItem[],
+	items: readonly BakedContextDocument[],
 	manifestItems: Record<string, ManifestEntry>,
 ): void {
 	const dirPathByAncestorId: Record<string, string> = {};
@@ -851,7 +851,7 @@ function toSkillDirName(title: string): string {
  * @lore BA9b: Write a skill item to each known harness skill directory.
  * Returns the first relative path written (for the manifest entry).
  */
-function writeSkillItem(sandboxPath: string, item: BakedContextKnowledgeItem): string {
+function writeSkillItem(sandboxPath: string, item: BakedContextDocument): string {
 	const dirName = toSkillDirName(item.title);
 	let firstPath: string | undefined;
 	for (const harnessSkillDir of HARNESS_SKILL_DIRS) {
@@ -885,17 +885,17 @@ function writeSkillItem(sandboxPath: string, item: BakedContextKnowledgeItem): s
  * (`item.agentBindingId`) is now the PARENT — `parentKind='agent'`,
  * `parentId=<agentId>` — not a scope reverse lookup. Nothing here changes:
  * `agentBindingId` is still derived once, upstream, in
- * `toBakedContextKnowledgeItems` (`@hyperidle/domain-model`), and this
+ * `toBakedContextDocuments` (`@hyperidle/domain-model`), and this
  * function only ever compares the already-derived value.
  *
  */
 function writeBundleKnowledge(
 	sandboxPath: string,
-	knowledge: readonly BakedContextKnowledgeItem[],
+	knowledge: readonly BakedContextDocument[],
 	agentId: string,
 ): Record<string, ManifestEntry> {
 	const manifestItems: Record<string, ManifestEntry> = {};
-	const ordinaryItems: BakedContextKnowledgeItem[] = [];
+	const ordinaryItems: BakedContextDocument[] = [];
 	for (const item of knowledge) {
 		const role = item.slot;
 
@@ -988,7 +988,7 @@ function writeContextBundle(
 	cleanDirectory(path.join(sandboxPath, ".fabric"));
 	createDirectoryStructure(sandboxPath);
 
-	const manifestItems = writeBundleKnowledge(sandboxPath, bundle.knowledge, agentId);
+	const manifestItems = writeBundleKnowledge(sandboxPath, bundle.documents, agentId);
 
 	const sessionToon =
 		bundle.kind === "task"

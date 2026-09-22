@@ -179,7 +179,7 @@ export interface MentionRef {
 export type InlineRef = EntityRef | MentionRef | CanvasArtifactRef;
 
 // `ArtifactRef` is DELETED. It pointed at a row in the `artifacts` table, and
-// that table is gone — produced content is a knowledge item, referenced by its
+// that table is gone — produced content is a document, referenced by its
 // own id. `ReviewPayload.producedItemId` replaces it; the `kind` it carried is
 // derived from the item's blocks at render time and is not stored anywhere.
 
@@ -341,7 +341,7 @@ export function verdictDecisionLabel(decision: VerdictDecision): string {
 
 // `ArtifactThreadSummary` and `ArtifactThreadSummaryResponse` are DELETED with
 // the endpoint they described (`GET /api/bets/:id/artifact-thread-summary`) and the
-// artifacts table behind it. Threads hang off the knowledge item itself now.
+// artifacts table behind it. Threads hang off the document itself now.
 
 /**
  * L18: Extended plain payload that includes an optional blockId for

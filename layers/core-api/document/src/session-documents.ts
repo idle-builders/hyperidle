@@ -428,7 +428,7 @@ function fetchCapabilityItems(
 
 /**
  * `assembleSessionDocuments`'s output — `DocumentRow` plus the ancestor chain
- * `BakedContextKnowledgeItem.parentChain` needs (review.md B4). Populated for
+ * `BakedContextDocument.parentChain` needs (review.md B4). Populated for
  * ordinary items only; a capability item (skill/rule/agent_file) is placed by
  * slot, never by tree position, so it carries an empty chain.
  */

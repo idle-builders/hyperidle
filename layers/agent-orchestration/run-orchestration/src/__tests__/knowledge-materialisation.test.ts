@@ -1,6 +1,6 @@
 /**
  * @lore nested-knowledge-items architecture.md §5 / review.md B4 & B5 — a
- * `BakedContextKnowledgeItem` carrying a real `parentChain` materialises as
+ * `BakedContextDocument` carrying a real `parentChain` materialises as
  * nested directories (not flat), and every ancestor directory gets its own
  * `.fabric/manifest.json` entry (id → {source_path, scopeKind, version}) so
  * a later writeback session finds it instead of minting a duplicate folder
@@ -45,7 +45,7 @@ const BUNDLE: BakedContextBundle = {
 	ancestors: [],
 	agent: { id: "agent-tree-1", name: "Ada", role: "builder" },
 	team: { id: "team-tree-1", name: "Alpha" },
-	knowledge: [
+	documents: [
 		{
 			id: "k-leaf",
 			title: "Objection handling",
@@ -188,7 +188,7 @@ describe("writeContextBundle: nested materialisation (review.md B4/B5)", () => {
 			ancestors: [],
 			agent: { id: "agent-tree-2", name: "Ada", role: "builder" },
 			team: { id: "team-tree-2", name: "Alpha" },
-			knowledge: [
+			documents: [
 				{
 					id: "k-parent",
 					title: "Pricing",

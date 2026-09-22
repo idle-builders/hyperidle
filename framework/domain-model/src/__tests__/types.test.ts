@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
 	AGENT_CATEGORIES,
-	KERNEL_KNOWLEDGE_STATUSES,
-	type KernelKnowledgeStatus,
+	KERNEL_DOCUMENT_STATUSES,
+	type KernelDocumentStatus,
 	TASK_STATES,
 	type TaskState,
 } from "../types.js";
@@ -10,7 +10,7 @@ import {
 // @lore BB1: BET_STATUSES and BetStatus removed — task vocabulary is the only work vocabulary.
 
 /**
- * I4 cross-cutting: runtime `as const` arrays for `KnowledgeStatus` unions,
+ * I4 cross-cutting: runtime `as const` arrays for `DocumentStatus` unions,
  * paralleling the existing `TASK_STATES`. BetStatus was here and is now gone (BB1).
  */
 describe("status-union runtime constants", () => {
@@ -25,22 +25,22 @@ describe("status-union runtime constants", () => {
 		});
 	});
 
-	describe("KERNEL_KNOWLEDGE_STATUSES", () => {
+	describe("KERNEL_DOCUMENT_STATUSES", () => {
 		it("is exported as a runtime array", () => {
-			expect(Array.isArray(KERNEL_KNOWLEDGE_STATUSES)).toBe(true);
+			expect(Array.isArray(KERNEL_DOCUMENT_STATUSES)).toBe(true);
 		});
 
-		it("has 4 kernel knowledge statuses", () => {
+		it("has 4 kernel document statuses", () => {
 			// Y4: needs_human added for triage escalation (was 3)
-			expect(KERNEL_KNOWLEDGE_STATUSES).toHaveLength(4);
+			expect(KERNEL_DOCUMENT_STATUSES).toHaveLength(4);
 		});
 
 		it("includes proposed, active, archived", () => {
 			// @lore nested-knowledge-items: the status ladder collapsed to
 			// proposed | active | stale | archived — draft/needs_human are gone.
-			const expected: readonly KernelKnowledgeStatus[] = ["proposed", "active", "archived"];
+			const expected: readonly KernelDocumentStatus[] = ["proposed", "active", "archived"];
 			for (const ks of expected) {
-				expect(KERNEL_KNOWLEDGE_STATUSES).toContain(ks);
+				expect(KERNEL_DOCUMENT_STATUSES).toContain(ks);
 			}
 		});
 	});

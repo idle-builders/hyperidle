@@ -32,7 +32,7 @@ function makeBundle(
 		ancestors: [],
 		agent: { id: agentId, name: "Tester", role: "builder" },
 		team: { id: "team-ba9b", name: "Test Team" },
-		knowledge: knowledge.map((k) => ({
+		documents: knowledge.map((k) => ({
 			id: k.id,
 			title: k.title,
 			body: k.body,

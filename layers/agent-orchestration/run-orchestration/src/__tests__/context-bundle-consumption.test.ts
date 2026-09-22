@@ -84,7 +84,7 @@ const BUNDLE: BakedContextBundle = {
 	ancestors: [],
 	agent: { id: "agent-i12-c1", name: "Ada", role: "builder" },
 	team: { id: "team-i12-c1", name: "Alpha" },
-	knowledge: [
+	documents: [
 		{
 			id: "k-l4-i12",
 			title: "Factory item",

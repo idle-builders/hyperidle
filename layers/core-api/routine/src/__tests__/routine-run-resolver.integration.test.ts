@@ -295,7 +295,7 @@ describe("resolveRoutineRunRequest — emit-time routine_run resolver (routine)"
  *
  * @lore BA1 D4: the bake gate is now `assembleSessionDocuments` alone (not
  * "both deps AND a team row found") — a team-less owner still gets the
- * bundle, with `team: null` and `knowledge: []`. `getTeamById` stays
+ * bundle, with `team: null` and `documents: []`. `getTeamById` stays
  * optional Mechanism-C plumbing, now driven by the AGENT's team.
  */
 describe("resolveRoutineRunRequest — contextBundle baking (Increment 12 Wave B)", () => {
@@ -344,7 +344,7 @@ describe("resolveRoutineRunRequest — contextBundle baking (Increment 12 Wave B
 			},
 			agent: { id: "owner-rrun-ctx-1", name: "Agent owner-rrun-ctx-1", role: "builder" },
 			team: { id: "team-rrun-ctx-1", name: team?.name },
-			knowledge: expect.arrayContaining([expect.objectContaining({ id: "item-rrun-ctx-l4" })]),
+			documents: expect.arrayContaining([expect.objectContaining({ id: "item-rrun-ctx-l4" })]),
 		});
 	});
 
@@ -402,7 +402,7 @@ describe("resolveRoutineRunRequest — contextBundle baking (Increment 12 Wave B
 			kind: "routine",
 			routine: { id: "routine-rrun-ctx-noteam", prompt: "Summarize the week." },
 			team: null,
-			knowledge: expect.arrayContaining([
+			documents: expect.arrayContaining([
 				expect.objectContaining({ id: "skill-rrun-ctx-noteam", slot: "skill" }),
 			]),
 		});

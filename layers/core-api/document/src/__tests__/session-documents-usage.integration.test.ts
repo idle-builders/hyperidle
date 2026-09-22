@@ -124,8 +124,8 @@ describe("assembleSessionDocuments — session_use_count (architecture.md §6.7)
  * ancestor chain a bake needs is resolved once, at bake time, via
  * `document-store.ts`'s `resolveParentChain`, and `assembleSessionDocuments`
  * attaches it to every ordinary item it ranks. Before this fix,
- * `BakedContextKnowledgeItem.parentChain` had exactly one production writer
- * (`toBakedContextKnowledgeItems`) and it defaulted to `[]` — every ordinary
+ * `BakedContextDocument.parentChain` had exactly one production writer
+ * (`toBakedContextDocuments`) and it defaulted to `[]` — every ordinary
  * item materialised flat into `knowledge/` regardless of its real tree
  * position. Moved from the deleted `knowledge-parent-chain.integration.test.ts`
  * (B21) — the resolver's own root-first/empty/stops-at-non-document-parent

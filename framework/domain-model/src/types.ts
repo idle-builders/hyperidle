@@ -59,8 +59,8 @@ export interface HealthResponse {
  *
  * @lore O1: moved as part of kernel/strategy separation, historically.
  */
-export const KERNEL_KNOWLEDGE_STATUSES = ["proposed", "active", "stale", "archived"] as const;
-export type KernelKnowledgeStatus = (typeof KERNEL_KNOWLEDGE_STATUSES)[number];
+export const KERNEL_DOCUMENT_STATUSES = ["proposed", "active", "stale", "archived"] as const;
+export type KernelDocumentStatus = (typeof KERNEL_DOCUMENT_STATUSES)[number];
 
 /**
  * @lore BB1: `BET_STATUSES`, `BetStatus`, and `BET_STATUS_LABEL` are DELETED.
@@ -137,15 +137,15 @@ export const ORG_EDGE_MECHANISMS = ["direct", "function", "team"] as const;
 export type OrgEdgeMechanism = (typeof ORG_EDGE_MECHANISMS)[number];
 
 /**
- * Kernel-level scope kinds for knowledge items. Closed enum — adding a new
+ * Kernel-level scope kinds for documents. Closed enum — adding a new
  * scope kind requires a concept-doc update per the Q2 contract.
  *
- * @lore Q2: scope_kind lives on the kernel knowledgeItems table so every
+ * @lore Q2: scope_kind lives on the kernel documents table so every
  * item knows where it belongs, regardless of which strategy fabric is active.
  * The fabric maps scope_kind → layer via scopeToLayer() in packages/server/src/knowledge/types.ts.
  *
  * @lore AU26 F2 (founder ruling, 2026-08-04): `"filesystem"` is REMOVED. AV3
- * had added it so a knowledge item could hang off a repo/doc-set, and that one
+ * had added it so a document could hang off a repo/doc-set, and that one
  * usage was the only reason the `filesystems` record had to stay core-owned
  * while its mounting engine lived in agent-orchestration. A filesystem is an
  * agent's execution environment, not a place knowledge lives — the founder
@@ -160,7 +160,7 @@ export type OrgEdgeMechanism = (typeof ORG_EDGE_MECHANISMS)[number];
  *
  * @lore nested-knowledge-items: `"product"`, `"practice"` and `"task"` are
  * GONE too. `product`/`practice` were the layer vocabulary wearing a scope
- * costume — "Product" and "Practices" are now knowledge items near the root,
+ * costume — "Product" and "Practices" are now documents near the root,
  * not scope values; where an item sits in the tree says what it is about,
  * `scope` says only who sees it. `task` left because a task's knowledge
  * parents onto the task directly (`parentKind='task'`) and never appears in
@@ -177,8 +177,8 @@ export type ScopeKind = (typeof SCOPE_KINDS)[number];
  * Scope kinds that require an external scopeId.
  * "factory" and "user" are self-referential/global — they never need an id.
  *
- * @lore Q2: Extracted to @hyperidle/domain-model so the web dialogs (KnowledgeCreateDialog,
- * ScopeChangeDialog) and the server route (knowledge.ts) share a single source of truth.
+ * @lore Q2: Extracted to @hyperidle/domain-model so the web dialogs (DocumentCreateDialog,
+ * ScopeChangeDialog) and the action declaration (actions/document.ts) share a single source of truth.
  * @lore nested-knowledge-items: `"product"`/`"practice"`/`"task"` removed with
  * the scope kinds themselves.
  */

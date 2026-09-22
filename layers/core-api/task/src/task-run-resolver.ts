@@ -25,9 +25,9 @@ import type { HyperIdleDb, Task, Team, User } from "@hyperidle/db";
 import type {
 	BakedAgentRunnableConfig,
 	BakedContextBundle,
-	SessionKnowledgeItemLike,
+	SessionDocumentLike,
 } from "@hyperidle/domain-model";
-import { bakeAgentRunnableConfig, toBakedContextKnowledgeItems } from "@hyperidle/domain-model";
+import { bakeAgentRunnableConfig, toBakedContextDocuments } from "@hyperidle/domain-model";
 import * as work from "./task-service.js";
 import { taskDispatchAttemptStore } from "./task-service.js";
 
@@ -70,7 +70,7 @@ export interface TaskRunResolverDeps {
 			readonly taskDescription: string;
 			readonly agentId: string;
 		},
-	): Promise<readonly SessionKnowledgeItemLike[]>;
+	): Promise<readonly SessionDocumentLike[]>;
 	/**
 	 * AU21 §9 Increment 12 (Decision H3), Wave E — optional: `@hyperidle/settings`'s
 	 * `readServerConfig`, injected (Mechanism C — `@hyperidle/work` cannot
@@ -166,7 +166,7 @@ export async function bakeTaskContextBundle(
 		})),
 		agent: { id: agent.id, name: agent.name, role: agent.role },
 		team: { id: team.id, name: team.name },
-		knowledge: toBakedContextKnowledgeItems(knowledge),
+		documents: toBakedContextDocuments(knowledge),
 	};
 }
 

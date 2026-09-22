@@ -3,7 +3,7 @@
  *
  * These tests verify:
  * - App-owned knowledge vocabulary is exported from @hyperidle/domain-model after AU3
- * - Kernel types (KERNEL_KNOWLEDGE_STATUSES, agent role split) DO exist in @hyperidle/domain-model
+ * - Kernel types (KERNEL_DOCUMENT_STATUSES, agent role split) DO exist in @hyperidle/domain-model
  *
  * These tests FAIL until the O1 implementation is applied.
  */
@@ -15,20 +15,20 @@ import { describe, expect, it } from "vitest";
 import * as sharedIndex from "../index.js";
 
 describe("O1 kernel type additions to @hyperidle/domain-model", () => {
-	describe("KERNEL_KNOWLEDGE_STATUSES", () => {
+	describe("KERNEL_DOCUMENT_STATUSES", () => {
 		it("is exported from @hyperidle/domain-model (index.ts)", () => {
-			expect("KERNEL_KNOWLEDGE_STATUSES" in sharedIndex).toBe(true);
+			expect("KERNEL_DOCUMENT_STATUSES" in sharedIndex).toBe(true);
 		});
 
 		it("has exactly 4 values", () => {
 			// Y4: needs_human added for triage escalation (was 3)
-			const val = (sharedIndex as Record<string, unknown>)["KERNEL_KNOWLEDGE_STATUSES"];
+			const val = (sharedIndex as Record<string, unknown>)["KERNEL_DOCUMENT_STATUSES"];
 			expect(Array.isArray(val)).toBe(true);
 			expect((val as unknown[]).length).toBe(4);
 		});
 
 		it("contains proposed, active, archived (status collapse, architecture.md §2)", () => {
-			const val = (sharedIndex as Record<string, unknown>)["KERNEL_KNOWLEDGE_STATUSES"] as string[];
+			const val = (sharedIndex as Record<string, unknown>)["KERNEL_DOCUMENT_STATUSES"] as string[];
 			expect(val).toContain("proposed");
 			expect(val).toContain("active");
 			expect(val).toContain("archived");
@@ -61,7 +61,7 @@ describe("O1 kernel type additions to @hyperidle/domain-model", () => {
 
 	describe("App-owned knowledge vocabulary is exported from shared after AU3", () => {
 		// @lore nested-knowledge-items: KNOWLEDGE_LAYERS and KNOWLEDGE_SCOPES are
-		// DELETED, not deprecated — a knowledge item's place in the tree says
+		// DELETED, not deprecated — a document's place in the tree says
 		// what it is about now, not a flat layer/scope-costume vocabulary.
 		it("KNOWLEDGE_LAYERS is gone", () => {
 			expect("KNOWLEDGE_LAYERS" in sharedIndex).toBe(false);

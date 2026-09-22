@@ -160,7 +160,7 @@ export const TaskViewSchema = z.object({
 	children: z.array(TaskNodeSchema),
 	tokensActualRollup: z.number().nullable(),
 	threadId: z.string(),
-	/** Knowledge-item ids parented to this task. */
+	/** Document ids parented to this task. */
 	attachments: z.array(z.string()),
 });
 

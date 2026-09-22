@@ -34,7 +34,7 @@ export { AGENT_CATEGORIES, type AgentCategory } from "./types.js";
  * Pure function, no side effects.
  *
  * @lore AV3 A1: Used by resolveScopeName to display the role a practice-scoped
- * knowledge item belongs to. Supports open-vocab roles beyond the catalog.
+ * document belongs to. Supports open-vocab roles beyond the catalog.
  */
 export function roleLabel(role: string): string {
 	const trimmed = role.trim();

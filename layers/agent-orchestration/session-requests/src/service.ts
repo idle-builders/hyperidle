@@ -1108,7 +1108,7 @@ export type WorkIntentInput =
  * Extended baked work-intent payload for session-requests' own drain logic.
  *
  * @lore AU44-b8: `@hyperidle/work-intent-port` dissolved into `@hyperidle/domain-model`.
- * `BakedContextBundle` and `BakedContextKnowledgeItem` are now imported from there.
+ * `BakedContextBundle` and `BakedContextDocument` are now imported from there.
  * This type stays local because it adds `harnessDisabled` and `callingThreadId` —
  * session-requests-specific extension fields not in domain-model's `BakedWorkIntentRequest`.
  * It is a structural superset, not a mirror.
@@ -1162,7 +1162,7 @@ export type BakedWorkIntentRequest = {
 	 */
 	readonly callingThreadId?: string;
 };
-// BakedContextKnowledgeItem and BakedContextBundle are now imported from @hyperidle/domain-model above.
+// BakedContextDocument and BakedContextBundle are now imported from @hyperidle/domain-model above.
 // The local mirrors existed because @hyperidle/work-intent-port's audience excluded session-requests;
 // work-intent-port dissolved into domain-model (reach: everyone) in AU44 batch 8.
 /**
