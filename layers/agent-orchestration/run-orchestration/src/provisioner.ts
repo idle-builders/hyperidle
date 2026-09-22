@@ -1093,9 +1093,9 @@ async function admitSession(
 	// is exactly what an all-null `users` row resolved before the move.
 	const runConfig = await readAgentRunConfig(db, params.agentId);
 
-	// The agent's identity is the `agent_file` knowledge document bound to it,
-	// baked onto the request core-side. It cannot be read here: `knowledge_items`
-	// belongs to the knowledge service, while `agent_run_config` — read just above
+	// The agent's identity is the `agent_file` document bound to it,
+	// baked onto the request core-side. It cannot be read here: `documents`
+	// belongs to the document service, while `agent_run_config` — read just above
 	// — is orchestration's own.
 	const persona = agentConfig.persona ?? "";
 

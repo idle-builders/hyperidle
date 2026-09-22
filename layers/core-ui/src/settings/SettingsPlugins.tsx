@@ -220,7 +220,7 @@ function InstallForm({ onInstalled }: InstallFormProps): JSX.Element {
 const KIND_LABEL: Record<string, string> = {
 	agent: "agent",
 	routine: "routine",
-	document: "knowledge",
+	document: "document",
 	mcp_server: "MCP server",
 	harness_descriptor: "harness",
 };
