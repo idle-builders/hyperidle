@@ -342,7 +342,7 @@ const sessionRequestsPort: SessionLifecyclePorts["sessionRequests"] = {
 		const result = await transitionSessionRequest(exec, transition);
 		return result === undefined ? undefined : result;
 	},
-	abortSessionRun: (sessionId) => sessionRunRegistry.abort(sessionId),
+	abortSessionRun: (sessionId, reason) => sessionRunRegistry.abort(sessionId, reason),
 	registerSessionRun: (sessionId, control) => sessionRunRegistry.register(sessionId, control),
 	deregisterSessionRun: (sessionId) => sessionRunRegistry.deregister(sessionId),
 };
@@ -573,7 +573,7 @@ export function buildSessionActionsDeps(
 	return {
 		sessions: { list: listSessions, getById: findSessionById },
 		stop: (sessionId) =>
-			stopSessionRun(db, eventBus, sessionId, (id) => sessionRunRegistry.abort(id)),
+			stopSessionRun(db, eventBus, sessionId, (id) => sessionRunRegistry.abort(id, "stop")),
 		activity: getRecentActivity,
 	};
 }

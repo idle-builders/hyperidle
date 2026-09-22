@@ -16,4 +16,4 @@ export {
 	transitionSessionRequest,
 	type WorkIntentInput,
 } from "./service.js";
-export { sessionRunRegistry } from "./session-run-registry.js";
+export { type SessionAbortReason, sessionRunRegistry } from "./session-run-registry.js";

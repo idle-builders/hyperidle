@@ -39,14 +39,27 @@
 
 import type { HarnessAdapter, SessionHandle } from "@hyperidle/harness-protocol";
 
+/**
+ * Why a runtime is being aborted: `"stop"` is a genuine ask — `stop_session`
+ * or a task-kill cascade — the only reason a stopped session's row may read
+ * "stopped". `"return"` is an adapter reporting its own turn is over (an
+ * opencode session's own return tool call schedules this as a defensive
+ * real-kill in case the process is still running); the harness ending its
+ * own turn is not the same event as someone asking it to stop, so it must
+ * never write "stopped" over a clean finish.
+ */
+export type SessionAbortReason = "stop" | "return";
+
 /** One live session's abort affordances. */
 interface SessionRunEntry {
 	/**
 	 * Secondary cooperative flag: flips a per-session boolean the provisioning
 	 * event loop checks each iteration (matters only for non-builtin adapters,
-	 * whose tools route through `registry.invoke`).
+	 * whose tools route through `registry.invoke`). Takes the same `reason`
+	 * `abort` below receives, unchanged, so the provisioning runtime can tell
+	 * a real stop apart from its own adapter's return.
 	 */
-	readonly signalAbort: () => void;
+	readonly signalAbort: (reason: SessionAbortReason) => void;
 	readonly handle: SessionHandle;
 	readonly adapter: HarnessAdapter;
 }
@@ -73,18 +86,23 @@ function has(sessionId: string): boolean {
  * was dispatched), false if there was no live entry (caller falls back to a
  * guarded direct write — see §4 PATCH).
  *
- * Primary: `adapter.stopSession(handle)` — halts the harness (builtin's internal
- * loop, subprocess child, or remote stop). Secondary: flip the provisioning
- * loop's `aborted` flag. The DB terminal transition + `session_ended` emit are
- * driven by the runtime teardown (endSession/crashSession), NOT here — the
- * registry only requests the stop, it never writes terminal state.
+ * `reason` decides which caller this is — a real stop, or an adapter's own
+ * defensive kill after it reported its turn over — and rides straight
+ * through to `signalAbort` unchanged; this function never interprets it
+ * itself. Primary: `adapter.stopSession(handle)` — halts the harness
+ * (builtin's internal loop, subprocess child, or remote stop), unconditional
+ * on `reason` because a live process gets killed either way. Secondary: flip
+ * the provisioning loop's cooperative flag via `signalAbort`. The DB
+ * terminal transition + `session_ended` emit are driven by the runtime
+ * teardown (endSession/crashSession), NOT here — the registry only requests
+ * the stop, it never writes terminal state.
  */
-async function abort(sessionId: string): Promise<boolean> {
+async function abort(sessionId: string, reason: SessionAbortReason): Promise<boolean> {
 	const entry = entries.get(sessionId);
 	if (!entry) return false;
 
 	// Secondary: tell the provisioning event loop to stop (non-builtin invokes).
-	entry.signalAbort();
+	entry.signalAbort(reason);
 
 	// Primary: stop the harness. For builtin this sets its internal `aborted`
 	// flag and awaits the loop, halting tool execution. stopSession is the real

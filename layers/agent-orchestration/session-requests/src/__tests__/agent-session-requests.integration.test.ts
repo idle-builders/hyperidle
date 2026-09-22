@@ -600,13 +600,13 @@ describe("agent session request repository", () => {
 			adapter: adapter(secondStop),
 		});
 		expect(sessionRunRegistry.has("registry-session")).toBe(true);
-		expect(await sessionRunRegistry.abort("registry-session")).toBe(true);
+		expect(await sessionRunRegistry.abort("registry-session", "stop")).toBe(true);
 		expect(firstSignal).not.toHaveBeenCalled();
 		expect(firstStop).not.toHaveBeenCalled();
-		expect(secondSignal).toHaveBeenCalledOnce();
+		expect(secondSignal).toHaveBeenCalledExactlyOnceWith("stop");
 		expect(secondStop).toHaveBeenCalledOnce();
 		sessionRunRegistry.deregister("registry-session");
 		expect(sessionRunRegistry.has("registry-session")).toBe(false);
-		expect(await sessionRunRegistry.abort("registry-session")).toBe(false);
+		expect(await sessionRunRegistry.abort("registry-session", "stop")).toBe(false);
 	});
 });

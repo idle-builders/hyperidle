@@ -491,11 +491,16 @@ interface SessionLifecyclePorts {
 			| "conflict"
 			| "terminal"
 		>;
-		abortSessionRun(sessionId: string): Promise<boolean>;
+		/**
+		 * `reason` distinguishes a genuine stop from an adapter's own return —
+		 * see `stopRequested` below for why the distinction has to survive the
+		 * whole way to the registry's `signalAbort`, not just get decided here.
+		 */
+		abortSessionRun(sessionId: string, reason: "stop" | "return"): Promise<boolean>;
 		registerSessionRun(
 			sessionId: string,
 			control: {
-				signalAbort(): void;
+				signalAbort(reason: "stop" | "return"): void;
 				handle: SessionHandle;
 				adapter: SessionLifecycleHarnessAdapter;
 			},
@@ -1457,11 +1462,14 @@ async function runSession(
 	// `stopRequested` below.
 	let aborted = false;
 	/**
-	 * A real stop request, set ONLY by the registry's `signalAbort` below. Kept
-	 * separate from `aborted` because `aborted` also flips for an adapter's own
-	 * ordinary return action and for a startup failure — neither is a user
-	 * asking a session to stop, and only this flag may write the row
-	 * "stopped".
+	 * A real stop request, set ONLY inside the registry's `signalAbort` below,
+	 * and only when it is called with reason "stop". `signalAbort` also fires
+	 * with reason "return" — the deferred kill an adapter's own return action
+	 * schedules below reaches the SAME registered session, through the SAME
+	 * registry, while the entry is still live, so the discriminator has to be
+	 * the `reason` each caller passes, not merely which function got called.
+	 * A startup failure sets `aborted` directly, never through the registry,
+	 * so it never reaches `stopRequested` either way.
 	 */
 	let stopRequested = false;
 
@@ -1607,7 +1615,10 @@ async function runSession(
 				if (selectedAdapter.meta.type === "opencode") {
 					aborted = true;
 					setTimeout(() => {
-						void ports.sessionRequests.abortSessionRun(sessionId).catch(() => {
+						// "return", not "stop": this is opencode's own turn ending, a
+						// defensive kill in case the process is still running after it —
+						// not a user asking the session to stop. See `stopRequested` above.
+						void ports.sessionRequests.abortSessionRun(sessionId, "return").catch(() => {
 							// The harness may already have exited after the return action.
 						});
 					}, 0);
@@ -1818,9 +1829,9 @@ async function runSession(
 				harnessHandle = await harness.startSession(sessionStartConfig as SessionConfig);
 			}
 			ports.sessionRequests.registerSessionRun(sessionId, {
-				signalAbort: () => {
+				signalAbort: (reason) => {
 					aborted = true;
-					stopRequested = true;
+					if (reason === "stop") stopRequested = true;
 				},
 				handle: harnessHandle,
 				adapter: harness,

@@ -316,7 +316,8 @@ function buildLivePorts(): SessionLifecyclePorts {
 			// binds in production (`sessionRequestsPort`), so `stopSessionRun`'s
 			// injected `abort` and this run's own `signalAbort` rendezvous through
 			// one singleton, exactly as they do in production.
-			abortSessionRun: (sessionId: string) => sessionRunRegistry.abort(sessionId),
+			abortSessionRun: (sessionId: string, reason: "stop" | "return") =>
+				sessionRunRegistry.abort(sessionId, reason),
 			registerSessionRun: (
 				sessionId: string,
 				control: Parameters<typeof sessionRunRegistry.register>[1],
@@ -426,7 +427,7 @@ describe("stopSessionRun — a live runtime entry (the abort path)", () => {
 			db as HyperIdleDb,
 			eventBus,
 			admitted.sessionId,
-			(sessionId) => sessionRunRegistry.abort(sessionId),
+			(sessionId) => sessionRunRegistry.abort(sessionId, "stop"),
 		);
 		expect(stopResult).toBe("aborted");
 
@@ -468,11 +469,21 @@ describe("provisioner — an adapter's own return action is not a user stop", ()
 	/**
 	 * opencode calls its return tool through the MCP bridge, and the
 	 * provisioner flips its cooperative `aborted` flag so the event loop stops
-	 * draining — the same flag a registry abort flips. Without a second flag
-	 * for "someone actually asked to stop", this ordinary return was written
-	 * to the row exactly like a stop: state "stopped" / outcome "stopped",
-	 * which `lifecycle-propagation.ts` never reads as a finish, so the task
-	 * never moved for a session that had, in fact, completed cleanly.
+	 * draining — the same flag a registry abort flips — then schedules a
+	 * defensive `abortSessionRun(sessionId, "return")` in case the process is
+	 * still running. That deferred call reaches the SAME registered session,
+	 * through the SAME registry, while the entry is still live — so
+	 * `signalAbort` has to tell "return" apart from "stop" itself, at the
+	 * reason each caller passes, not by "was signalAbort even called".
+	 *
+	 * The return tool call fires from inside `streamEvents`' first pull, not
+	 * from `openMcpBridge` itself: `registerSessionRun` runs synchronously
+	 * right before `streamEvents` is first pulled, so this is the earliest
+	 * point provably AFTER registration — firing any earlier (e.g. from
+	 * `openMcpBridge`, which resolves before `startSession` even runs) means
+	 * the deferred abort finds no live entry and `signalAbort` never gets
+	 * called at all, a false green that passes whether or not the reason
+	 * split works.
 	 */
 	test("an opencode adapter's own return action ends the row done/completed, not stopped", async ({
 		db,
@@ -485,21 +496,23 @@ describe("provisioner — an adapter's own return action is not a user stop", ()
 		const emitted: SessionEndedEvent[] = [];
 		eventBus.on("session_ended", (event) => emitted.push(event));
 
+		let triggerReturn: (() => void) | undefined;
+		const sessionIdBox: { current?: string } = {};
+
 		const basePorts = buildLivePorts();
 		const provisioner = createProvisioner({
 			...basePorts,
 			harnessRuntime: {
 				...basePorts.harnessRuntime,
-				// The bridge fires the return action the instant it opens — before
-				// `startSession` runs — mirroring how a real MCP tool call arrives
-				// through `onToolCall` and never appears in `streamEvents` at all
-				// (see review-sandbox-lifetime.integration.test.ts).
+				// Captures the callback — does NOT fire it. Firing happens from
+				// `streamEvents` below, once the session is actually registered.
 				openMcpBridge: async ({
 					onToolCall,
 				}: {
 					onToolCall?: (c: { toolName: string; args: unknown }) => void;
 				}) => {
-					onToolCall?.({ toolName: "mcp__hyperidle__send_message", args: {} });
+					triggerReturn = () =>
+						onToolCall?.({ toolName: "mcp__hyperidle__send_message", args: {} });
 					return { token: "tok", url: "http://127.0.0.1:0/mcp" };
 				},
 				closeMcpBridge: async () => undefined,
@@ -519,7 +532,56 @@ describe("provisioner — an adapter's own return action is not a user stop", ()
 			adapterPool: {
 				select: () => ({
 					id: "fake-adapter",
-					adapter: buildLiveHarnessAdapter(() => undefined),
+					adapter: {
+						startSession: async (config: { readonly sessionId: string }) => ({
+							sessionId: config.sessionId,
+						}),
+						// A plain iterator, not a generator: this stream never yields an
+						// event, it only fires the return call once pulled — a
+						// generator with no `yield` is a lint error, and there is
+						// nothing here for the provisioner's own drain loop to observe.
+						streamEvents: () => ({
+							[Symbol.asyncIterator]() {
+								let pulled = false;
+								return {
+									async next() {
+										if (pulled) return { done: true as const, value: undefined };
+										pulled = true;
+										const sessionId = sessionIdBox.current;
+										if (!sessionId) {
+											throw new Error("sessionIdBox not set before streamEvents ran");
+										}
+										// The assertion that closes the false-green gap: the
+										// return call is about to fire, and the registry must
+										// already know about this session for that to mean
+										// anything.
+										expect(sessionRunRegistry.has(sessionId)).toBe(true);
+										triggerReturn?.();
+										return { done: true as const, value: undefined };
+									},
+								};
+							},
+						}),
+						stopSession: async () => {
+							// A real, short delay: the onToolCall handler's own deferred
+							// `abortSessionRun(sessionId, "return")` — a genuine
+							// `setTimeout(0)` — must run to completion BEFORE this
+							// resolves, or phase 11 teardown deregisters the session
+							// first and the deferred call finds nothing to abort. A
+							// 0ms timer always fires before a later-scheduled one with a
+							// real delay, so this ordering is deterministic, not a race.
+							await new Promise((resolve) => setTimeout(resolve, 10));
+							return { outcome: "completed" as const, tokenUsage: { byTier: {} } };
+						},
+						getCapabilities: () => ({
+							preCompactionTrigger: false,
+							subAgents: false,
+							modelProviders: [],
+							mcpSupport: false,
+							returnEnforcement: "none" as const,
+						}),
+						getNativeSessionId: () => undefined,
+					},
 					meta: {
 						name: "Opencode",
 						kind: "local" as const,
@@ -540,6 +602,7 @@ describe("provisioner — an adapter's own return action is not a user stop", ()
 		} as ProvisionSessionDeps;
 
 		const admitted = await provisioner.admit(deps, params);
+		sessionIdBox.current = admitted.sessionId;
 		await provisioner.run(deps, params, admitted);
 
 		const [row] = await (db as HyperIdleDb)

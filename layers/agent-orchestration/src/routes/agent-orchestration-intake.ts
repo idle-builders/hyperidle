@@ -222,7 +222,7 @@ export function createAgentOrchestrationIntakeRoutes(
 		async (c) => {
 			const body = c.req.valid("json");
 			const stopped = await requestRunStopForTasks(db, eventBus, body.taskIds, (sessionId) =>
-				sessionRunRegistry.abort(sessionId),
+				sessionRunRegistry.abort(sessionId, "stop"),
 			);
 			return c.json({ stopped });
 		},
