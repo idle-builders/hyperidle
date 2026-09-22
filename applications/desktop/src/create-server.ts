@@ -72,6 +72,8 @@ export interface ServerHandle {
 	readonly httpServer: ServerType;
 	readonly dispose: () => Promise<void>;
 	readonly credentialResolver: NonNullable<CoreApiBoot["credentialResolver"]>;
+	/** §5: the joined action list — core's plus this Layer's own three session actions. */
+	readonly actionTools: CoreApiBoot["actionTools"];
 }
 
 const MIME_TYPES: Record<string, string> = {
@@ -264,6 +266,9 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			"bootCoreApi did not build an upgradeTokenStore despite upgradeWebSocket being supplied.",
 		);
 	}
+	// §5: the join — see `remote-server/src/create-server.ts`'s
+	// twin comment for why the thunk and the reassignment are both needed.
+	let actionTools = coreApi.actionTools;
 	const agentOrchestration = await bootAgentOrchestration({
 		db,
 		eventBus,
@@ -275,9 +280,9 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			harnessRuntime: harnessRuntimeAdapter,
 			returnStatusTool: returnStatusToolAdapter,
 			coreApiTransport,
-			// §7 — one composed list, built once: core-api's actions, projected
-			// onto this Layer's own MCP tool seam.
-			actionTools: coreApi.actionTools,
+			// §7/§5 — one composed list, built once: core-api's actions, projected
+			// onto this Layer's own MCP tool seam, as a thunk (see above).
+			actionTools: () => actionTools,
 			// §8.4 — the writeback processor's document port, bound straight to
 			// core's composed `edit_document`/`search_documents` values, threaded
 			// through exactly like `actionTools` above.
@@ -302,6 +307,9 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		},
 		cipher: coreApi.cipher,
 	});
+	// §5: close the join — every session from here on sees both
+	// layers' actions through the thunk above.
+	actionTools = [...coreApi.actionTools, ...agentOrchestration.actionTools];
 	// AU36 D5: close the deferred binding — redetect now reaches the reach cache.
 	realInheritedReachRefresh = () => agentOrchestration.inheritedReach.refresh();
 
@@ -413,5 +421,5 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	};
 
 	// biome-ignore lint/style/noNonNullAssertion: `db` is always set above (either the injected fixture or a freshly opened handle)
-	return { httpServer, dispose, credentialResolver: coreApi.credentialResolver! };
+	return { httpServer, dispose, credentialResolver: coreApi.credentialResolver!, actionTools };
 }
