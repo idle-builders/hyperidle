@@ -18,7 +18,7 @@ Document Librarian all arrive because somebody installed a plugin.
 | **Configuration default** | a `plugin_configuration_defaults` row | `contributions[]`, and `mcp.json` servers |
 
 Agents, routine prompts and skills all end up as ordinary rows in the services
-that own them — `users`, `routines`, `knowledge_items`. A plugin does not get a
+that own them — `users`, `routines`, `documents`. A plugin does not get a
 private world; it adds to yours, and what it adds is editable like anything else.
 
 An agent's `identity` names a file inside the plugin, and it becomes that agent's
@@ -34,7 +34,7 @@ contributed: one row per `(plugin, kind, entity)`, plus a `detached_at` stamp.
 It is the **only** answer to "what did this plugin contribute". Provenance used
 to be recorded seven different ways — `plugin_id` columns on `users` and
 `routines`, a `plugin_id` on the configuration defaults, a `topic =
-'plugin:<id>'` and an `updated_by = 'plugin:<id>'` on knowledge items, a
+'plugin:<id>'` and an `updated_by = 'plugin:<id>'` on documents, a
 `<pluginId>/` prefix inside a configuration key, and one-way hashed row ids. Each
 covered a different subset, two were never read at all, and no surface could
 answer the question.
@@ -45,9 +45,9 @@ which is why that write had to sit inside the users package. The registry belong
 to the plugin service. It names the rows; the service that owns each table
 writes them.
 
-Freeing `knowledge_items.topic` also fixed a real defect: matching on `topic =
-'plugin:<id>'` meant that editing a skill's topic silently orphaned it from
-uninstall and disable, permanently.
+Freeing the old `topic` column (since deleted from `documents` entirely) also
+fixed a real defect: matching on `topic = 'plugin:<id>'` meant that editing a
+skill's topic silently orphaned it from uninstall and disable, permanently.
 
 ## One lifecycle
 

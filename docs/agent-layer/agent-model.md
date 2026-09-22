@@ -99,17 +99,17 @@ uninstalling the plugin takes its agents down with it.
 The factory itself provisions none of them. The old `defaultFactoryRoster` —
 five facilitators, one per practice community — is gone: the facilitator
 personas never worked and were retired in BA9d, and the roster concept left the
-core entirely in BA9g. What survives of that idea is
-[facilitators](../knowledge-architecture/facilitators.md), which describes a
-plugin's shape, not something HyperIdle ships.
+core entirely in BA9g. What survives of that idea is the document-management
+plugin's `librarian` agent (`plugins/document-management/`, [archived design
+sketch](../archive/facilitators.md)) — a real plugin-provided agent that
+triages and decays documents on a schedule, not a hardcoded role category.
 
 ### 3.3 Individual agents — the Assistant
 
 Each human gets exactly one assistant: a personal operator scoped to that user. It sees what the user can see and does what the user can do — no factory-wide omniscience. Each user's assistant has its own identity document and
 its own session history; the overlay opens an ordinary direct thread with it, like any direct thread between a user and one agent. **The assistant is the one agent HyperIdle ships with a
 persona** — it is what you talk to on a fresh install, and it carries extra
-rights. It is edited through `/api/agents/:id` and the one knowledge edit
-endpoint, like every other agent; the `GET/PATCH /api/users/:userId/assistant`
+rights. It is edited through `/api/agents/:id` and the `edit_document` action, like every other agent; the `GET/PATCH /api/users/:userId/assistant`
 pair that used to be its private editor was deleted in BA9f.
 
 **Lifecycle.** Created at user registration (`layers/core-api/src/routes/users.ts`); its thread is created on the overlay's first send (`send_message` with `recipients: [assistantId]`), the same as any other direct thread. There is no dedicated assistant thread route and no auto-pin: it starts and stays an ordinary direct thread.

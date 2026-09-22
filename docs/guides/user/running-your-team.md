@@ -33,21 +33,21 @@ Task lifecycle semantics live in [Tasks and Sessions](../../process-layer/tasks-
 
 ## Handling Common Situations
 
-### Turning a knowledge item into a task
+### Turning a document into a task
 
 When a captured insight is ready to become committed work, promote it directly — no retyping.
 
-1. Open the knowledge item in the **Knowledge** view.
+1. Open the document in the **Knowledge** view.
 2. Click the overflow menu (`···`) in the top-right corner.
 3. Choose **Promote to task**.
 
-**Single team:** the task is created immediately and you land in the task page, body pre-filled with the item's content. Review, refine, then move it from `proposed` to `accepted` when ready.
+**Single team:** the task is created immediately and you land in the task page, body pre-filled with the document's content. Review, refine, then move it from `proposed` to `accepted` when ready.
 
 **Multiple teams:** you are taken to the task create page (`Work → New task`) with the body pre-filled. Pick your team, then create.
 
-The source knowledge item is not changed. The new task opens in `proposed` status — you accept it manually when the description is ready. The task header shows "From knowledge: &lt;title&gt;" with a link back to the original item, so the origin is always traceable.
+The source document is not changed. The new task opens in `proposed` status — you accept it manually when the description is ready. The task header shows "From knowledge: &lt;title&gt;" with a link back to the original document, so the origin is always traceable.
 
-**Archived items cannot be promoted.** Archive the item only when you no longer need it as a promotion source, or after the derived task has been accepted.
+**Archived documents cannot be promoted.** Archive the document only when you no longer need it as a promotion source, or after the derived task has been accepted.
 
 ### No subtasks after accepting a task
 
@@ -93,11 +93,7 @@ Each task records the agent **sessions** that worked on it.
 
 ### Knowledge conflict
 
-When two agents modify the same knowledge:
-
-- **Structured kinds** (pattern, anti-pattern, decision, failure) merge per-field, last-writer-wins, with a conflict record kept.
-- **Prose** is never auto-merged — the facilitator creates a review for you to resolve.
-- The conflict is visible on the knowledge item itself (banner) and raises its attention score, so it surfaces in Triage.
+When two agents (or an agent and you) modify the same document at the same time: whoever saves first wins. The second, stale save is refused outright and simply discarded — there is no per-field merge, and nothing is kept for you to resolve. If your own edit gets refused, reload the document and redo the change against its current body.
 
 Sync and conflict mechanics live in [Sync and Conflict Resolution](../../knowledge-architecture/sync-and-conflict-resolution.md).
 

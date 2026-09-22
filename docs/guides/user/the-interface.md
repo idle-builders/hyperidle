@@ -9,8 +9,8 @@
 
 The app is two columns:
 
-- **Sidebar** (left): Context switching and scanning. HyperIdle identity and the grouped Search / Assistant actions sit at the top. Notifications, Conversations, Work, and Knowledge stay in one stable destination set. The large region below shows the active domain's current navigator (provisionally recent threads, teams, or Knowledge items). Settings is pinned at the bottom. On phone the same sidebar is hidden behind Menu.
-- **Main Pane**: Where the work happens — section overviews, team views, review threads, knowledge items.
+- **Sidebar** (left): Context switching and scanning. HyperIdle identity and the grouped Search / Assistant actions sit at the top. Notifications, Conversations, Work, and Knowledge stay in one stable destination set. The large region below shows the active domain's current navigator (provisionally recent threads, teams, or documents). Settings is pinned at the bottom. On phone the same sidebar is hidden behind Menu.
+- **Main Pane**: Where the work happens — section overviews, team views, review threads, documents.
 
 Full shell structure (routes, nav grammar, badges) lives in [App Shell](../../information-architecture/app-shell-always-present.md).
 

@@ -9,7 +9,7 @@ flowchart LR
   Interface["Human collaboration interface\nwork, conversations, knowledge, settings"]
   Coordination["Coordination domain\nteams, tasks, routines"]
   Conversation["Conversation domain\nthreads, messages, reviews, artifacts"]
-  Knowledge["Knowledge domain\nknowledge items, relevance, attention, writeback"]
+  Knowledge["Document domain\ndocuments (memory/artifact/document), writeback"]
   Session["Agent session domain\nsession lifecycle and execution"]
   Harness["Harness domain\nCLI + remote adapters"]
   Integration["Integration domain\nfilesystems, credentials, service connections"]
@@ -54,12 +54,10 @@ flowchart TB
     ConversationAPI["Interface\nsearch_threads/open_thread/send_message/adjust_thread\nartifacts API\nthread events"]
   end
 
-  subgraph Knowledge["Knowledge Domain"]
-    KnowledgeItem["Knowledge items"]
-    KnowledgeProjection["Knowledge projection\nlayer, kind, scores"]
-    Relevance["Relevance and attention"]
+  subgraph Knowledge["Document Domain"]
+    Document["Documents\none table: content, scope, slot, tree position, usage"]
     Writeback["Sandbox writeback"]
-    KnowledgeAPI["Interface\nknowledge/search APIs\nprojection repository interface\nknowledge events"]
+    KnowledgeAPI["Interface\nsearch_documents/open_document/edit_document\nchanges rows as history\ndocument:&lt;id&gt; / documents websocket topics"]
   end
 
   subgraph Session["Agent Session Domain"]
@@ -178,36 +176,26 @@ flowchart TB
 
 Thread/Message primitive (HOST_KINDS, MESSAGE_TYPES, verdict grammar, idempotency) is owned by the [Thread primitive](../human-interface-layer/thread-primitive.md). Artifact contract and embed shapes: [Artifact primitive](../process-layer/artifact-primitive.md).
 
-## L2 - Knowledge Domain
+## L2 - Document Domain
 
 ```mermaid
 flowchart TB
-  KnowledgeItem["Knowledge item\ncanonical content and scope"]
-  KnowledgeProjection["Knowledge projection\nlayer, kind, confidence,\nrelevance, attention"]
-  EditLog["Edit log"]
-  AccessLog["Access log"]
-  Conflict["Conflict"]
+  Document["Document\ncanonical content, scope, slot, tree position, usage counts"]
+  Changes["changes rows\ndocument.created / document.changed — the history"]
 
-  KnowledgeItem --> KnowledgeProjection
-  KnowledgeItem --> EditLog
-  KnowledgeItem --> AccessLog
-  KnowledgeItem --> Conflict
+  Document --> Changes
 
-  Repository["Knowledge repository"] --> KnowledgeItem
-  Repository --> KnowledgeProjection
-  Search["Search"] --> Repository
-  Relevance["Relevance service"] --> KnowledgeProjection
-  Attention["Attention service"] --> KnowledgeProjection
-  Attention --> ReviewItem["Review message"]
-  Writeback["Sandbox writeback"] --> Repository
-  Promotion["Promotion pipeline"] --> Repository
+  Store["Document store\nlayers/core-api/document/"] --> Document
+  Search["search_documents"] --> Store
+  Open["open_document\nbumps read_count"] --> Store
+  Edit["edit_document\nstale version refused, discarded"] --> Store
+  Writeback["Sandbox writeback"] --> Edit
+  SessionContext["Session context assembly\nbumps session_use_count"] --> Store
 
-  KnowledgeAPI["Knowledge API"] --> Repository
-  SessionContext["Session context assembly"] --> Repository
-  Repository -- "knowledge_created/updated/accessed/archived" --> Events["EventBus"]
+  Store -- "document:&lt;id&gt; / documents" --> WsPush["WebSocket push"]
 ```
 
-Knowledge runtime internals (layer taxonomy, assembly, sync, scoring) are owned by [knowledge-architecture](../knowledge-architecture/index.md). Component-level summary: `agent-orchestration` assembles the context a run needs and writes it into the per-session workspace; its writeback (`layers/agent-orchestration/run-orchestration/src/writeback-processor.ts`) uses optimistic concurrency (`version` column, `knowledge_conflicts` table); `core-api`'s relevance and attention scoring filter what each session loads (`layers/core-api/knowledge/src/relevance-service.ts`, `attention-service.ts`).
+Document runtime internals (assembly, sync, tree invariants) are owned by [knowledge-architecture](../knowledge-architecture/index.md). Component-level summary: `agent-orchestration`'s writeback (`layers/agent-orchestration/run-orchestration/src/writeback-processor.ts`) calls `edit_document` as the session's own agent, using optimistic concurrency (`version` column) — a stale write is refused and discarded, there is no conflict table. There is no repository, relevance service, attention service, or promotion pipeline; `layers/core-api/document/` is the one module, and every create/edit is one `changes` row.
 
 ## L2 - Agent Session Domain
 
@@ -263,14 +251,14 @@ flowchart TB
 
 Harness event types match `framework/harness-protocol/src/harness/harness-events.ts` exactly (token_usage, tool_call, completion, error, pre_compaction). `cost_update` was removed — harness telemetry was narrowed to token usage only (founder ruling: "very few harness can actually report cost"; see `layers/agent-execution/harness-registry/src/__testing__/llm-cassette.ts`). The pool does least-loaded selection with load tracking (`layers/agent-execution/harness-registry/src/adapter-pool.ts`). Event-normalization mechanism, capability descriptor shape, discovery/session probes, and the MCP bridge are owned by the [harness capability descriptor](../agent-layer/harness-capability-descriptor.md).
 
-## L2 - Knowledge And Agent Services
+## L2 - Document And Agent Services
 
-Context assembly and learning ingestion belong to `agent-orchestration`; the knowledge repository, relevance, and attention scoring belong to `core-api` (`layers/core-api/knowledge/`). See [runtime-simplification](./runtime-simplification.md).
+Context assembly and learning ingestion belong to `agent-orchestration`; the document module belongs to `core-api` (`layers/core-api/document/`). See [runtime-simplification](./runtime-simplification.md).
 
 ```mermaid
 flowchart TB
   AgentServices["Agent services"]
-  CoreKnowledge["core-api: layers/core-api/knowledge/"]
+  CoreDocument["core-api: layers/core-api/document/"]
 
   AgentServices --> ContextAssembly["Context assembly"]
   AgentServices --> LearningIngestion["Learning ingestion"]
@@ -278,15 +266,13 @@ flowchart TB
   AgentServices --> AgentSelection["Agent selection"]
   AgentServices --> AssistantForm["Assistant formation"]
 
-  ContextAssembly --> KnowledgeRepo["Knowledge repository (core-api)"]
+  ContextAssembly --> DocumentStore["Document store (core-api)"]
   ContextAssembly --> PromptFiles["Prompt/context files"]
   LearningIngestion --> FileWatcher["File watcher"]
   FileWatcher --> Writeback["Writeback"]
-  KnowledgeRepo --> Relevance["Relevance scoring (core-api)"]
-  KnowledgeRepo --> Attention["Attention scoring (core-api)"]
-  CoreKnowledge -.owns.-> KnowledgeRepo
-  CoreKnowledge -.owns.-> Relevance
-  CoreKnowledge -.owns.-> Attention
+  DocumentStore --> SessionDocuments["assembleSessionDocuments\ntag/recency/confidence scoring, 40K token budget"]
+  CoreDocument -.owns.-> DocumentStore
+  CoreDocument -.owns.-> SessionDocuments
 ```
 
 ## L2 - Integration Domain
@@ -326,14 +312,13 @@ flowchart TB
   CoordinationEvents["Coordination events\ntask_state_changed\nroutine_fired"] --> EventBus
   SessionEvents["Session events\nsession_started\nsession_ended\nsession_not_returned\ntool_call_recorded"] --> EventBus
   ConversationEvents["Conversation events\nthread_created\nthread_message_appended\nthread_resolved\nthread_reopened"] --> EventBus
-  KnowledgeEvents["Knowledge events\nknowledge_accessed\nknowledge_updated\nknowledge_created\nknowledge_archived"] --> EventBus
+  DocumentWsPush["Document websocket push\ndocument:&lt;id&gt; / documents\n(not EventBus events — pushed directly from the changes row)"]
   NotificationEvents["Notification events\nnotification"] --> EventBus
 
   EventBus --> TaskDispatch["Task dispatch"]
   EventBus --> Lifecycle["Lifecycle propagation"]
   EventBus --> Dependency["Dependency unblock"]
   EventBus --> ReviewCreation["Review creation"]
-  EventBus --> Relevance["Relevance recompute"]
   EventBus --> Notifications["Notification routing"]
   EventBus --> Routines["Routine triggers"]
   EventBus --> Push["WebSocket push"]
@@ -368,13 +353,13 @@ Verified against code 2026-08-06. Component-level facts only; primitive semantic
 
 ### Primitive store
 
-Embedded Postgres: PGlite (laptop/test) or postgres-js (VPS/cloud), one unified Drizzle type (`framework/db/src/connection.ts`). All shapes owned by `framework/db/src/schema.ts`: teams, team_members, users (humans and agents, `kind` human|ai), tasks (recursive — `parent_task_id` nullable self-FK; replaces the former `bets` + `tasks` two-table design), sessions, routines, routine_runs, threads, messages, org_edges, knowledge_items (:883) + knowledge_app_projection (:1004) + knowledge_edit_log (:912) + knowledge_access_log + knowledge_conflicts, propagation_log, notification_queue, artifacts, filesystems (+injections/captures), agent-run tables (agent_session_requests, agent_work_intents, explicit_session_starts, agent_run_config, …), credential/config/login/invite/proposed-call tables.
+Embedded Postgres: PGlite (laptop/test) or postgres-js (VPS/cloud), one unified Drizzle type (`framework/db/src/connection.ts`). All shapes owned by `framework/db/src/schema.ts`: teams, team_members, users (humans and agents, `kind` human|ai), tasks (recursive — `parent_task_id` nullable self-FK; replaces the former `bets` + `tasks` two-table design), sessions, routines, routine_runs, threads, messages, org_edges, `documents` (one table: content, scope, slot, tree position, `confidence`/`meta`, and four usage columns — `read_count`/`last_read_at`/`session_use_count`/`last_used_at`), propagation_log, notification_queue, artifacts, filesystems (+injections/captures), agent-run tables (agent_session_requests, agent_work_intents, explicit_session_starts, agent_run_config, …), credential/config/login/invite/proposed-call tables.
 
 - The `responses` table is dropped — verdicts are `verdict`-typed messages ([Thread primitive](../human-interface-layer/thread-primitive.md)).
 - There is no `items` table. A review, a question, an escalation are messages on a thread.
 - Message idempotency: UNIQUE(threadId, senderId, clientKey).
 - Sessions carry no cost columns. The cost feature was deleted with no replacement; the spend ceiling lives at the upstream LLM provider account ([WIP limits](../process-layer/wip-and-cost-limits.md)).
-- `org_edges` records org relationships per (fromUserId, mechanism, target); `propagation_log` records lifecycle-propagation applications by source level/id and status; `knowledge_access_log` records per-item knowledge reads.
+- `org_edges` records org relationships per (fromUserId, mechanism, target); `propagation_log` records lifecycle-propagation applications by source level/id and status. There is no separate access-log table for documents — a read is counted directly on the row (`read_count`/`last_read_at`), and every create/edit is one `changes` row (`object='document'`).
 
 ### Item routing
 
@@ -386,13 +371,13 @@ In-process `setInterval` services, no external workflow engine. Routine schedule
 
 A session runs the model its agent was configured with — `agent_run_config.model_id` reaches the harness as `SessionConfig.selectedModel`. There is no gateway and no tier→model resolution; the tier is a cost-reporting label only. Vocabulary: [model routing and cost](../agent-layer/model-routing-and-cost.md).
 
-### Knowledge Services
+### Document Services
 
-See the L2 Knowledge Domain paragraph above; full design in [knowledge-architecture](../knowledge-architecture/index.md). Context assembly and writeback belong to `layers/agent-orchestration/run-orchestration/`; promotion, attention scoring, and conflict resolution to `layers/core-api/knowledge/`. Search is escaped case-insensitive LIKE SQL (`layers/core-api/src/routes/search.ts`) — no FTS5, no pgvector.
+See the L2 Document Domain paragraph above; full design in [knowledge-architecture](../knowledge-architecture/index.md). Context assembly and writeback belong to `layers/agent-orchestration/run-orchestration/`; the document store and the three document actions belong to `layers/core-api/document/`. Search is case-insensitive `ILIKE` over title and body (`document-store.ts`) — no FTS5, no pgvector.
 
 ### API layer
 
-Hono on Node. `core-api` mounts its routes under `/api` (`layers/core-api/src/app.ts`); each Layer hosts its own app, and an Application composes them (`applications/remote-server/src/create-server.ts`, `applications/desktop/src/main.ts`). Schedulers start from `layers/core-api/src/service-bootstrap.ts`. Route groups: auth, users, agents, teams, team-members, tasks (incl. `/:id/handoff`, `PATCH /:id`), sessions, actions (`search_tasks`/`open_task`/`edit_task`/`search_threads`/`open_thread`/`send_message`/`adjust_thread`, one router over the composed action list), artifacts, filesystems, knowledge (URL shape `/:id`, not `/:layer`), org, recipients, status (incl. `/digest`), workers, harnesses, credentials, hint-progress, dispatch-queue, search, settings, ws. `/connections` is served by `agent-orchestration`'s own app (`layers/agent-orchestration/src/app.ts`, `layers/agent-orchestration/src/routes/connections.ts`) — its table set (`service_connections`) is owned by that Layer (AU26 E4).
+Hono on Node. `core-api` mounts its routes under `/api` (`layers/core-api/src/app.ts`); each Layer hosts its own app, and an Application composes them (`applications/remote-server/src/create-server.ts`, `applications/desktop/src/main.ts`). Schedulers start from `layers/core-api/src/service-bootstrap.ts`. Route groups: auth, users, agents, teams, team-members, tasks (incl. `/:id/handoff`, `PATCH /:id`), sessions, actions (`search_tasks`/`open_task`/`edit_task`/`search_threads`/`open_thread`/`send_message`/`adjust_thread`/`search_documents`/`open_document`/`edit_document`, one router over the composed action list — there is no separate `knowledge` route group), artifacts, filesystems, org, recipients, status (incl. `/digest`), workers, harnesses, credentials, hint-progress, dispatch-queue, search, settings, ws. `/connections` is served by `agent-orchestration`'s own app (`layers/agent-orchestration/src/app.ts`, `layers/agent-orchestration/src/routes/connections.ts`) — its table set (`service_connections`) is owned by that Layer (AU26 E4).
 
 Auth: single `HYPERIDLE_API_KEY` via `X-API-Key` header (constant-time compare) + Bearer login-session tokens + invite codes (`layers/core-api/src/middleware/auth.ts`, `layers/core-api/users/src/login-session.ts`). Boundary enforcement: [authorization model](./authorization-model.md).
 
@@ -414,9 +399,9 @@ Channels `"console"` | `"noop"` (`framework/diagnostics/src/observability/types.
 
 ## MCP Tool Surface
 
-Agents interact with the process layer through MCP tools served in-process (`layers/agent-execution/harness-registry/src/mcp/mcp-bridge.ts` + `tool-registry.ts`). Most are declared in `layers/agent-orchestration/tool-handlers/src/tool-definitions.ts`: write_memory, run_knowledge_sweep, score_attention, promote_knowledge, create_conflict_review, merge_knowledge, split_knowledge, create_team, add_agent, create_routine, update_routine, create_artifact. The rest are projected straight from the action list (`layers/core-api/src/actions/actions-as-tools.ts`) — today `search_tasks`, `open_task`, `edit_task` (ungated — same door for humans and agents; setting `ownerAgentId` is a handoff), and `search_threads`, `open_thread`, `send_message`, `adjust_thread`.
+Agents interact with the process layer through MCP tools served in-process (`layers/agent-execution/harness-registry/src/mcp/mcp-bridge.ts` + `tool-registry.ts`). A handful are declared directly in `layers/agent-orchestration/tool-handlers/src/tool-definitions.ts`: `create_team`, `add_agent`, `create_routine`, `update_routine`. Everything else is projected straight from the composed action list (`layers/core-api/src/actions/actions-as-tools.ts`) — `search_tasks`, `open_task`, `edit_task` (ungated — same door for humans and agents; setting `ownerAgentId` is a handoff), `search_threads`, `open_thread`, `send_message`, `adjust_thread`, and `search_documents`, `open_document`, `edit_document`. There is no `write_memory`, `create_artifact`, or knowledge-sweep/scoring/conflict/merge/split tool any more — a memory or an artifact is `edit_document` called with `as: "memory"` / `as: "artifact"`.
 
-The same nouns have real HTTP surfaces for clients: `/api/users/:id/inbox` (GET/POST, principal-self scoped), `POST /api/actions/<name>` for tasks and threads, `/api/knowledge` (`/search`, `/`, `/triage-count`, `/:id`).
+The same nouns have real HTTP surfaces for clients: `/api/users/:id/inbox` (GET/POST, principal-self scoped), `POST /api/actions/<name>` for tasks, threads, and documents alike — there is no separate `/api/knowledge` route.
 
 ## Session Flow
 
@@ -435,7 +420,7 @@ One client endpoint, topic-based:
 
 - `GET /api/ws?token=<one-shot token>`; the token is minted by authenticated `POST /api/auth/ws-token` (`layers/core-api/src/routes/ws.ts`, `routes/auth.ts:87`). Connection acks `{type:"connected"}`.
 - Client sends `{type:"subscribe"|"unsubscribe", topic}`; server acks `{type:"subscribed"|"unsubscribed"|"forbidden", topic}`.
-- Topics: `conversations`, `work`, `thread:<threadId>`, `session:<sessionId>` (session topics are read-only observe mode, open to any authenticated client).
+- Topics: `conversations`, `work`, `thread:<threadId>`, `session:<sessionId>` (session topics are read-only observe mode, open to any authenticated client), `document:<documentId>`, `documents` (pushed once per `changes` row on a document create/edit).
 - Payloads are serialized EventBus event objects per topic (`layers/core-api/src/ws-connection-hub.ts`) — not REST-shaped responses.
 - Subscribe authorization for per-thread topics goes through `canSubscribe` — see the [authorization model](./authorization-model.md).
 
