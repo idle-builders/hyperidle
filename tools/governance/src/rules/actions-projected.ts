@@ -68,8 +68,15 @@ function scanDeclaredActionNames(
 }
 
 /**
- * The seventeen registrations that realise the sixteen plumbing doors —
+ * The nineteen registrations that realise the eighteen plumbing doors —
  * internal seams, auth, health. A route, never an action.
+ *
+ * @lore BC6: `GET /sessions/:sessionId` (a live core-api caller,
+ * `port.sessions.getById`) and `POST /runs/stop-for-tasks` (a live core-api
+ * caller, `task-actions.ts`'s kill path) moved here from `LEGACY_ROUTES` —
+ * both are `AgentOrchestrationPort` seams with a real caller left, which is
+ * what this list means; neither is an action, since core may not call an
+ * orchestration action.
  */
 const PLUMBING_ROUTES: readonly string[] = [
 	"layers/core-api/src/routes/auth.ts|GET /me",
@@ -91,6 +98,8 @@ const PLUMBING_ROUTES: readonly string[] = [
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|GET /filesystems/:id/team",
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /filesystems/:id/injections/persist",
 	"layers/agent-execution/harness-registry/src/mcp/mcp-route.ts|POST /mcp/:token/return-status",
+	"layers/agent-orchestration/src/routes/agent-orchestration-sessions.ts|GET /sessions/:sessionId",
+	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /runs/stop-for-tasks",
 ];
 
 /** The nine object events — task/thread/document/user, edit-in/changed-out. */
@@ -120,7 +129,7 @@ const PLATFORM_EVENTS: readonly string[] = [
 
 /**
  * Every route registered in a production file that is neither a task
- * action route nor one of the sixteen plumbing doors. Re-derived after the
+ * action route nor one of the eighteen plumbing doors. Re-derived after the
  * unreachable-route deletion on main removed fourteen of the 107 entries
  * this rule started with, `coach.ts`/`hints.ts` wholesale among them, so
  * those rows shrank ahead of this item. Only shrinks: an entry whose route is gone is a
@@ -132,11 +141,6 @@ const PLATFORM_EVENTS: readonly string[] = [
 const LEGACY_ROUTES: readonly string[] = [
 	"layers/agent-execution/harness-registry/src/mcp/mcp-route.ts|ALL /mcp/:token",
 	"layers/agent-orchestration/run-orchestration/src/worker-ingress.ts|GET /ws/worker",
-	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /runs/abort",
-	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /runs/stop-for-tasks",
-	"layers/agent-orchestration/src/routes/agent-orchestration-sessions.ts|GET /sessions/:sessionId",
-	"layers/agent-orchestration/src/routes/agent-orchestration-sessions.ts|GET /runs/active-counts",
-	"layers/agent-orchestration/src/routes/agent-orchestration-sessions.ts|GET /runs",
 	"layers/agent-orchestration/src/routes/connections.ts|GET /",
 	"layers/agent-orchestration/src/routes/connections.ts|POST /",
 	"layers/agent-orchestration/src/routes/connections.ts|DELETE /:id",
@@ -148,8 +152,6 @@ const LEGACY_ROUTES: readonly string[] = [
 	"layers/agent-orchestration/src/routes/filesystems.ts|DELETE /:id",
 	"layers/agent-orchestration/src/routes/filesystems.ts|DELETE /:id/injections/:agentUserId",
 	"layers/agent-orchestration/src/routes/session-stream-ws.ts|GET /agent-orchestration/ws",
-	"layers/agent-orchestration/src/routes/sessions.ts|GET /",
-	"layers/agent-orchestration/src/routes/sessions.ts|GET /:id/activity",
 	"layers/core-api/src/routes/agents.ts|GET /:id/profile",
 	"layers/core-api/src/routes/agents.ts|GET /",
 	"layers/core-api/src/routes/agents.ts|POST /",
