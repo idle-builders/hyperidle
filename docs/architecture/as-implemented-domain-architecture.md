@@ -12,7 +12,7 @@ flowchart LR
   Knowledge["Document domain\ndocuments (memory/artifact/document), writeback"]
   Session["Agent session domain\nsession lifecycle and execution"]
   Harness["Harness domain\nCLI + remote adapters"]
-  Integration["Integration domain\nfilesystems, credentials, service connections"]
+  Integration["Integration domain\nfilesystems, service connections"]
   Eventing["Domain event bus\nstate changes and push"]
 
   Interface -- "HTTP API + websocket topics" --> Coordination
@@ -75,10 +75,10 @@ flowchart TB
   end
 
   subgraph Integration["Integration Domain"]
-    Credentials["Credentials and config"]
+    Config["Server config"]
     Filesystems["Filesystem registry and injections"]
     Captures["Filesystem captures"]
-    IntegrationAPI["Interface\nsettings, credentials,\nconnections, filesystems APIs\nmount/capture interface"]
+    IntegrationAPI["Interface\nsettings,\nconnections, filesystems APIs\nmount/capture interface"]
   end
 
   CoordinationAPI --> SessionAPI
@@ -280,14 +280,12 @@ flowchart TB
 ```mermaid
 flowchart TB
   ServerConfig["Server config"]
-  Credentials["Server credentials"]
   ServiceConnections["Service connections"]
   Filesystems["Team filesystems"]
   Injections["Per-agent filesystem injections"]
   Captures["Per-session filesystem captures"]
 
   ServerConfig --> ModelResolution["Model and harness settings"]
-  Credentials --> CredentialResolver["Credential resolver"]
   ServiceConnections --> ConnectionResolver["Connection resolver"]
   Filesystems --> MountPlan["Mount plan"]
   Injections --> MountPlan
@@ -295,13 +293,12 @@ flowchart TB
   SessionWorkspace --> Captures
 
   SettingsAPI["Settings/config APIs"] --> ServerConfig
-  CredentialsAPI["Credentials API"] --> Credentials
   ConnectionsAPI["Connections API"] --> ServiceConnections
   FilesystemsAPI["Filesystems API"] --> Filesystems
   FilesystemsAPI --> Injections
 ```
 
-Tables in `framework/db/src/schema.ts`: filesystems, filesystem_injections, filesystem_captures, server_credentials (:1319), server_config, service_connections (:1735). Held/inherited Connection semantics: [connection model](./connection-model.md). Encryption: [credential model](./credential-model.md).
+Tables in `framework/db/src/schema.ts`: filesystems, filesystem_injections, filesystem_captures, server_config, service_connections (:1387). Held/inherited Connection semantics and its encryption: [connection model](./connection-model.md).
 
 ## L2 - Event Interface
 
@@ -353,7 +350,7 @@ Verified against code 2026-08-06. Component-level facts only; primitive semantic
 
 ### Primitive store
 
-Embedded Postgres: PGlite (laptop/test) or postgres-js (VPS/cloud), one unified Drizzle type (`framework/db/src/connection.ts`). All shapes owned by `framework/db/src/schema.ts`: teams, team_members, users (humans and agents, `kind` human|ai), tasks (recursive — `parent_task_id` nullable self-FK; replaces the former `bets` + `tasks` two-table design), sessions, routines, routine_runs, threads, messages, org_edges, `documents` (one table: content, scope, slot, tree position, `confidence`/`meta`, and four usage columns — `read_count`/`last_read_at`/`session_use_count`/`last_used_at`), propagation_log, notification_queue, artifacts, filesystems (+injections/captures), agent-run tables (agent_session_requests, agent_work_intents, explicit_session_starts, agent_run_config, …), credential/config/login/invite/proposed-call tables.
+Embedded Postgres: PGlite (laptop/test) or postgres-js (VPS/cloud), one unified Drizzle type (`framework/db/src/connection.ts`). All shapes owned by `framework/db/src/schema.ts`: teams, team_members, users (humans and agents, `kind` human|ai), tasks (recursive — `parent_task_id` nullable self-FK; replaces the former `bets` + `tasks` two-table design), sessions, routines, routine_runs, threads, messages, org_edges, `documents` (one table: content, scope, slot, tree position, `confidence`/`meta`, and four usage columns — `read_count`/`last_read_at`/`session_use_count`/`last_used_at`), propagation_log, notification_queue, artifacts, filesystems (+injections/captures), agent-run tables (agent_session_requests, agent_work_intents, explicit_session_starts, agent_run_config, …), config/login/invite/proposed-call tables.
 
 - The `responses` table is dropped — verdicts are `verdict`-typed messages ([Thread primitive](../human-interface-layer/thread-primitive.md)).
 - There is no `items` table. A review, a question, an escalation are messages on a thread.
@@ -377,7 +374,7 @@ See the L2 Document Domain paragraph above; full design in [knowledge-architectu
 
 ### API layer
 
-Hono on Node. `core-api` mounts its routes under `/api` (`layers/core-api/src/app.ts`); each Layer hosts its own app, and an Application composes them (`applications/remote-server/src/create-server.ts`, `applications/desktop/src/main.ts`). Schedulers start from `layers/core-api/src/service-bootstrap.ts`. Route groups: auth, users, agents, teams, team-members, tasks (incl. `/:id/handoff`, `PATCH /:id`), sessions, actions (`search_tasks`/`open_task`/`edit_task`/`search_threads`/`open_thread`/`send_message`/`adjust_thread`/`search_documents`/`open_document`/`edit_document`, one router over the composed action list — there is no separate `knowledge` route group), artifacts, filesystems, org, recipients, status (incl. `/digest`), workers, harnesses, credentials, hint-progress, dispatch-queue, search, settings, ws. `/connections` is served by `agent-orchestration`'s own app (`layers/agent-orchestration/src/app.ts`, `layers/agent-orchestration/src/routes/connections.ts`) — its table set (`service_connections`) is owned by that Layer (AU26 E4).
+Hono on Node. `core-api` mounts its routes under `/api` (`layers/core-api/src/app.ts`); each Layer hosts its own app, and an Application composes them (`applications/remote-server/src/create-server.ts`, `applications/desktop/src/main.ts`). Schedulers start from `layers/core-api/src/service-bootstrap.ts`. Route groups: auth, users, agents, teams, team-members, tasks (incl. `/:id/handoff`, `PATCH /:id`), actions (`search_tasks`/`open_task`/`edit_task`/`search_threads`/`open_thread`/`send_message`/`adjust_thread`/`search_documents`/`open_document`/`edit_document`/`search_plugins`/`edit_plugin`, one router over the composed action list — there is no separate `knowledge` route group), artifacts, filesystems, org, recipients, status (incl. `/digest`), workers, harnesses, hint-progress, dispatch-queue, search, settings, ws. `/connections` is served by `agent-orchestration`'s own app (`layers/agent-orchestration/src/app.ts`, `layers/agent-orchestration/src/routes/connections.ts`) — its table set (`service_connections`) is owned by that Layer (AU26 E4). Agent-orchestration mounts its own `/actions` the same way, with `search_sessions`/`watch_session`/`stop_session` — both Layer apps mount at `/` on the one `/api` router, so `POST /api/actions/<name>` resolves to whichever Layer owns that action. The two Layers' action lists are joined once, at each Application's `createServer`, into the one list an agent reaches over MCP.
 
 Auth: single `HYPERIDLE_API_KEY` via `X-API-Key` header (constant-time compare) + Bearer login-session tokens + invite codes (`layers/core-api/src/middleware/auth.ts`, `layers/core-api/users/src/login-session.ts`). Boundary enforcement: [authorization model](./authorization-model.md).
 
@@ -421,7 +418,7 @@ One client endpoint, topic-based:
 - `GET /api/ws?token=<one-shot token>`; the token is minted by authenticated `POST /api/auth/ws-token` (`layers/core-api/src/routes/ws.ts`, `routes/auth.ts:87`). Connection acks `{type:"connected"}`.
 - Client sends `{type:"subscribe"|"unsubscribe", topic}`; server acks `{type:"subscribed"|"unsubscribed"|"forbidden", topic}`.
 - Topics: `conversations`, `work`, `thread:<threadId>`, `session:<sessionId>` (session topics are read-only observe mode, open to any authenticated client), `document:<documentId>`, `documents` (pushed once per `changes` row on a document create/edit).
-- Payloads are serialized EventBus event objects per topic (`layers/core-api/src/ws-connection-hub.ts`) — not REST-shaped responses.
+- Payloads are serialized EventBus event objects per topic (`layers/core-api/src/ws-connection-hub.ts`) — not REST-shaped responses. Two topics push a plain envelope instead, straight from the write that changed something rather than through the bus: `document:<id>`/`documents` from the row that changed, and `session:<id>` from agent-orchestration's own activity gateway — a content-free `{type:"update", topic, kind:"session.activity", data:{sessionId}}` nudge telling the client to re-fetch, not the activity itself. There is no separate session websocket any more.
 - Subscribe authorization for per-thread topics goes through `canSubscribe` — see the [authorization model](./authorization-model.md).
 
 A separate worker channel `GET /ws/worker?token=<HYPERIDLE_WORKER_TOKEN>` (`layers/agent-orchestration/run-orchestration/src/worker-ingress.ts`) carries Zod-validated register/event/session_result/error/pause/resume messages for remote harness workers.
