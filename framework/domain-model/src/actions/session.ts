@@ -5,26 +5,25 @@ import { MODEL_TIERS } from "../types.js";
 import type { ActionDeclaration } from "./action.js";
 
 /**
- * @lore BC6: the session action list — search, watch, stop. This is what
+ * @lore The session action list — search, watch, stop. This is what
  * replaces the `/agent-orchestration/runs*` routes, the `/sessions*` routes
- * and the second websocket's live-update surface (architecture.md §1, §4).
+ * and the second websocket's live-update surface.
  * `core-ui` imports this file directly — never `core-api` or
  * `agent-orchestration` — for the same reason `document.ts`/`task.ts` do: the
  * browser needs the exact same `input`/invariant shape the server runs.
  *
  * There are deliberately no pure invariant functions in this file. The two
- * candidates the architecture doc's §1 first drafted — `search_sessions`
- * refusing an empty filter, and an authorization check on `stop_session` —
- * are both explicitly dropped (§12 N4, D-bsjkae): no filter lists newest
- * first, and anyone signed in may stop any session. Every remaining
- * constraint is either enforced by the zod shape itself (`.strict()`, `id`
- * `min(1)`) or is DB-dependent (`not_found`) and belongs in the module's
- * `run`, not here.
+ * candidates first drafted — `search_sessions` refusing an empty filter, and
+ * an authorization check on `stop_session` — are both explicitly dropped: no
+ * filter lists newest first, and anyone signed in may stop any session.
+ * Every remaining constraint is either enforced by the zod shape itself
+ * (`.strict()`, `id` `min(1)`) or is DB-dependent (`not_found`) and belongs
+ * in the module's `run`, not here.
  */
 
 // ---------------------------------------------------------------------------
-// SESSION_STATES — architecture.md §1: derived from the actual writers, not
-// assumed. `sessions.state` (`framework/db/src/schema.ts:281`) is written by:
+// SESSION_STATES — derived from the actual writers, not assumed.
+// `sessions.state` (`framework/db/src/schema.ts:281`) is written by:
 //   - the row's own create path: "active"
 //   - `transition-run.ts`'s `updateSessionRow`: "done" | "crashed"
 //   - `runtime-reapers.ts`'s crash sweep: "crashed"
@@ -32,16 +31,16 @@ import type { ActionDeclaration } from "./action.js";
 // No writer ever sets "failed" — that value belongs to
 // `agent_session_requests`, a different table. The set below already
 // includes "stopped": `request-run-stop-for-tasks.ts` was writing it before
-// this task, so D-njr2es's "stopped as a terminal state" is confirmed by the
-// writers rather than added by this declaration.
+// this declaration existed, so "stopped" as a terminal state is confirmed
+// by the writers rather than added by this declaration.
 // ---------------------------------------------------------------------------
 
 export const SESSION_STATES = ["active", "done", "stopped", "crashed"] as const;
 export type SessionState = (typeof SESSION_STATES)[number];
 
 // ---------------------------------------------------------------------------
-// The row — architecture.md §1: the 8 fields `AgentRunSummary` already
-// carries (`agent-run-view.ts:25`) plus `routineId`, `notes`, `modelTier`,
+// The row — the 8 fields `AgentRunSummary` already carries
+// (`agent-run-view.ts:25`) plus `routineId`, `notes`, `modelTier`,
 // `sourceKind`. `state`/`outcome` stay plain, nullable strings, matching
 // `AgentRunSummary` exactly — the column is free text
 // (`framework/db/src/schema.ts:281`); `SESSION_STATES` above is the closed
@@ -68,7 +67,7 @@ export const SessionRowSchema = z.object({
 export type SessionRow = z.infer<typeof SessionRowSchema>;
 
 // ---------------------------------------------------------------------------
-// search_sessions — architecture.md §1, amended by §12 N4.
+// search_sessions
 // ---------------------------------------------------------------------------
 
 export const SearchSessionsInputSchema = z
@@ -78,7 +77,7 @@ export const SearchSessionsInputSchema = z
 		agentIds: z.array(z.string()).optional(),
 		state: z.enum(SESSION_STATES).optional(),
 		routineId: z.string().optional(),
-		limit: z.number().int().min(1).max(500).optional(), // default 100 — §12 N4
+		limit: z.number().int().min(1).max(500).optional(), // default 100
 		offset: z.number().int().min(0).optional(),
 	})
 	.strict();
@@ -94,14 +93,14 @@ export const searchSessions: ActionDeclaration<SearchSessionsInput, SessionRow[]
 };
 
 // ---------------------------------------------------------------------------
-// watch_session — architecture.md §1.
+// watch_session
 // ---------------------------------------------------------------------------
 
 export const WatchSessionInputSchema = z.object({ id: z.string().min(1) }).strict();
 export type WatchSessionInput = z.infer<typeof WatchSessionInputSchema>;
 
-// Mirrors `../session-activity.js`'s `ActivityEntry` union verbatim (D-4ew9fm:
-// the activity is the in-memory ring buffer, unchanged). Typed against the
+// Mirrors `../session-activity.js`'s `ActivityEntry` union verbatim — the
+// activity is the in-memory ring buffer, unchanged. Typed against the
 // real `ActivityEntry` so the two can never drift silently.
 const toolCallDataSchema = z.object({
 	toolName: z.string(),
@@ -172,7 +171,8 @@ export const watchSession: ActionDeclaration<WatchSessionInput, WatchSessionOutp
 };
 
 // ---------------------------------------------------------------------------
-// stop_session — architecture.md §1, amended by §12 F1.
+// stop_session — answers with the row as read BEFORE the stop, not a
+// second re-read after it.
 // ---------------------------------------------------------------------------
 
 export const StopSessionInputSchema = z.object({ id: z.string().min(1) }).strict();

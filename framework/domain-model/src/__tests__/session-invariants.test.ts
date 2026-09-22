@@ -5,12 +5,12 @@
  * `SESSION_STATES`, `SESSION_ACTIONS`.
  *
  * Unlike `document.ts`/`platform.ts`, this module has NO pure invariant
- * function — architecture.md §1's two candidates are both explicitly
- * dropped: `search_sessions`'s `filter_required` (§12 N4 — no filter lists
- * newest first) and `stop_session`'s authorization check (D-bsjkae — anyone
- * signed in may stop any session). The tests below prove those two absences
- * as directly as the schema can, and otherwise exercise the shapes
- * themselves — exact equality, never `toContain`.
+ * function — its two candidates are both explicitly dropped:
+ * `search_sessions`'s `filter_required` (no filter lists newest first) and
+ * `stop_session`'s authorization check (anyone signed in may stop any
+ * session). The tests below prove those two absences as directly as the
+ * schema can, and otherwise exercise the shapes themselves — exact
+ * equality, never `toContain`.
  */
 
 import { describe, expect, it } from "vitest";
@@ -31,7 +31,7 @@ describe("SESSION_STATES", () => {
 });
 
 describe("SearchSessionsInputSchema", () => {
-	it("an empty filter parses — filter_required was dropped (§12 N4)", () => {
+	it("an empty filter parses — filter_required was dropped", () => {
 		const result = SearchSessionsInputSchema.safeParse({});
 		expect(result.success).toBe(true);
 	});
@@ -82,7 +82,7 @@ describe("WatchSessionInputSchema", () => {
 });
 
 describe("StopSessionInputSchema", () => {
-	it("requires a non-empty id and carries no authorization field — D-bsjkae, anyone signed in may stop any session", () => {
+	it("requires a non-empty id and carries no authorization field — anyone signed in may stop any session", () => {
 		expect(StopSessionInputSchema.safeParse({ id: "" }).success).toBe(false);
 		const result = StopSessionInputSchema.safeParse({ id: "s1" });
 		expect(result.success).toBe(true);

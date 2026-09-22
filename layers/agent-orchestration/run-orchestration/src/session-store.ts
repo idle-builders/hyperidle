@@ -26,14 +26,15 @@ export async function findSessionById(
 }
 
 /**
- * `search_sessions`'s own filter — architecture.md §1/§2: `ids`/`taskId`/
- * `agentIds`/`state`/`routineId`, newest first, `limit` always resolved by
- * the caller (the action's own default-100 lives in `session-actions.ts`,
- * not here — this accessor never guesses a default).
+ * `search_sessions`'s own filter: `ids`/`taskId`/`agentIds`/`state`/
+ * `routineId`, newest first, `limit` always resolved by the caller (the
+ * action's own default-100 lives in `session-actions.ts`, not here — this
+ * accessor never guesses a default).
  *
  * @lore AU44 batch6's note above (agentId filter and limit/offset paging
- * dropped, no caller used them) no longer holds: BC6's `search_sessions`
- * action is that caller now, and it needs every field back.
+ * dropped, no caller used them) no longer holds: the session module's
+ * `search_sessions` action is that caller now, and it needs every field
+ * back.
  */
 export interface SessionSearchFilter {
 	readonly ids?: readonly string[];
@@ -158,7 +159,7 @@ export async function writeSessionNotes(
 }
 
 /**
- * @lore `stopSessionRun` — architecture.md §3: the ONE stop path both
+ * @lore `stopSessionRun` — the ONE stop path both
  * doors use (`stop_session`'s action and `requestRunStopForTasks`'s kill
  * cascade). `abort` is injected, never imported — this package names
  * `@hyperidle/session-requests` only as a devDependency, so the caller's

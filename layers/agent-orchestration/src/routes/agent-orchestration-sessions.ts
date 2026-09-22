@@ -18,7 +18,7 @@
  * PUT/DELETE handler exists — the root app's `notFound` answers any of those
  * with the canonical JSON 404, not a bespoke method-not-allowed guard.
  *
- * @lore BC6 architecture.md §0.2/§8: the run-state reads this file used to
+ * @lore The run-state reads this file used to
  * also carry (`GET /runs`, `GET /runs/active-counts`, AU26 J4's "the UI reads
  * run state directly") are DELETED — `search_sessions` is the door now,
  * `POST /api/actions/search_sessions`, same for a person and an agent. This

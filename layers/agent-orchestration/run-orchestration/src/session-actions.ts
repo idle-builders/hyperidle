@@ -1,7 +1,7 @@
 /**
  * The session action list — `search_sessions` / `watch_session` /
  * `stop_session`. This Service owns `sessions` (`table-owners.json`), so it
- * declares the runs itself — architecture.md §2. `Action`/`ActionContext`
+ * declares the runs itself. `Action`/`ActionContext`
  * below are a local structural mirror of `layers/agent-orchestration/src/
  * actions/action.ts`'s own pair, the same reason `@hyperidle/document`/
  * `@hyperidle/task`/`@hyperidle/thread` each declare their own: a nested
@@ -50,7 +50,7 @@ export interface Action<I = unknown, O = unknown> {
 }
 
 /**
- * The session module's outward-facing deps — architecture.md §2. `sessions`
+ * The session module's outward-facing deps. `sessions`
  * is this package's own table (in-package — the two accessors below are
  * `session-store.ts`'s own `listSessions`/`findSessionById`, injected rather
  * than imported directly only for the same uniform-shape reason the
@@ -65,7 +65,7 @@ export interface SessionActionsDeps {
 		list(db: HyperIdleDb, filter: SessionSearchFilter): Promise<readonly Session[]>;
 		getById(db: HyperIdleDb, id: string): Promise<Session | undefined>;
 	};
-	/** architecture.md §3 — `stopSessionRun`, already bound to `abort`/the layer's own `eventBus`. */
+	/** `stopSessionRun`, already bound to `abort`/the layer's own `eventBus`. */
 	readonly stop: (sessionId: string) => Promise<"aborted" | "marked" | "already_ended">;
 	/** The in-memory ring buffer, verbatim (never persisted) — `session-activity-buffer.ts`'s own reader. */
 	readonly activity: (sessionId: string) => readonly ActivityEntry[];
@@ -132,9 +132,9 @@ export function createSessionActions(deps: SessionActionsDeps): readonly Action[
 	}
 
 	// -----------------------------------------------------------------------
-	// stop_session — architecture.md §3, §12 F1: the row in the answer is the
-	// row as it stood the MOMENT asked (pre-stop, on the abort path) — the
-	// terminal state arrives later, by nudge, never in this response.
+	// stop_session — the row in the answer is the row as it stood the MOMENT
+	// asked (pre-stop, on the abort path) — the terminal state arrives
+	// later, by nudge, never in this response.
 	// -----------------------------------------------------------------------
 	async function stopSessionActionRun(
 		ctx: ActionContext,

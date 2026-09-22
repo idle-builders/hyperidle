@@ -203,13 +203,13 @@ export function createAgentOrchestrationIntakeRoutes(
 
 	// ── runs.stopForTasks — POST /agent-orchestration/runs/stop-for-tasks ────
 	//
-	// @lore D-46jmx6: `runs.abort` (POST /runs/abort) is DELETED — `stop_session`
+	// @lore `runs.abort` (POST /runs/abort) is DELETED — `stop_session`
 	// is the caller that never existed, and the only in-layer abort
 	// (`provisioner.ts`'s own registry call) never went through HTTP. This
 	// route now calls the shared `stopSessionRun` per session (via
 	// `requestRunStopForTasks`), reaching the SAME registry abort
-	// `sessionRunRegistry.abort` gives directly — "killing a task goes through
-	// the same abort" (D-bsjkae) without core ever learning a session id.
+	// `sessionRunRegistry.abort` gives directly — killing a task goes through
+	// the same abort without core ever learning a session id.
 	router.post(
 		"/runs/stop-for-tasks",
 		validateBody(

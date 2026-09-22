@@ -7,16 +7,16 @@ import {
 import type { ActionDeclaration, Problem } from "./action.js";
 
 /**
- * @lore BC6: the platform action list — search, edit. This is what replaces
+ * @lore The platform action list — search, edit. This is what replaces
  * `routes/plugins.ts` (984 lines: six routes, `PluginView`/
  * `PluginContributionView`, the install/enable/disable/remove/restore
- * lifecycle — architecture.md §1, §6). `PluginView`/`PluginContributionView`
- * move here from `routes/plugins.ts:106-132` unchanged in shape.
+ * lifecycle). `PluginView`/`PluginContributionView` move here from
+ * `routes/plugins.ts:106-132` unchanged in shape.
  *
  * `edit_plugin` is one partial input discriminated by which change field is
- * present (D-vpjf2k: an edit shape, not a verb field), with the install
- * `scope` nested inside `source` (D-fphch8) so "scope without source" is
- * unrepresentable rather than an invariant this file has to check.
+ * present (an edit shape, not a verb field), with the install `scope`
+ * nested inside `source` so "scope without source" is unrepresentable
+ * rather than an invariant this file has to check.
  */
 
 // ---------------------------------------------------------------------------
@@ -37,8 +37,8 @@ export const PluginScopeSchema = z.discriminatedUnion("kind", [
 export type PluginScope = z.infer<typeof PluginScopeSchema>;
 
 // ---------------------------------------------------------------------------
-// The row — architecture.md §1: `PluginView`/`PluginContributionView` moved
-// out of `routes/plugins.ts:106-132`, unchanged in shape.
+// The row — `PluginView`/`PluginContributionView` moved out of
+// `routes/plugins.ts:106-132`, unchanged in shape.
 // ---------------------------------------------------------------------------
 
 export const PluginContributionViewSchema = z.object({
@@ -69,7 +69,7 @@ export const PluginViewSchema = z.object({
 export type PluginView = z.infer<typeof PluginViewSchema>;
 
 // ---------------------------------------------------------------------------
-// search_plugins — architecture.md §1.
+// search_plugins
 // ---------------------------------------------------------------------------
 
 export const SearchPluginsInputSchema = z
@@ -91,14 +91,14 @@ export const searchPlugins: ActionDeclaration<SearchPluginsInput, PluginView[]> 
 };
 
 // ---------------------------------------------------------------------------
-// edit_plugin — architecture.md §1.
+// edit_plugin
 // ---------------------------------------------------------------------------
 
 /**
- * `plugin-fetch.ts`'s `PluginSource`, `scope` nested inside per source
- * (D-fphch8). Deliberately no `ref` field on the `git` arm — the architecture
- * doc's contract names only `kind`/`url`/`scope`; a pinned-ref install is a
- * separate, later decision.
+ * `plugin-fetch.ts`'s `PluginSource`, `scope` nested inside per source.
+ * Deliberately no `ref` field on the `git` arm — the declared contract
+ * names only `kind`/`url`/`scope`; a pinned-ref install is a separate,
+ * later decision.
  */
 export const EditPluginSourceSchema = z.discriminatedUnion("kind", [
 	z
@@ -139,8 +139,8 @@ export const PLATFORM_ACTIONS = {
 } as const;
 
 // ---------------------------------------------------------------------------
-// editPluginInvariants — pure. Architecture.md §1's four pure invariants.
-// The DB-dependent ones it also names (`unknown_plugin`, `unknown_contribution`,
+// editPluginInvariants — pure. The four pure invariants declared for
+// `edit_plugin`. The DB-dependent ones it also names (`unknown_plugin`, `unknown_contribution`,
 // `install_failed`, `plugin_removed`) need the database and run inside
 // `edit_plugin.run` (a later task), not here.
 // ---------------------------------------------------------------------------

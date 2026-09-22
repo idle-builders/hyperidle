@@ -45,7 +45,7 @@ export interface AgentOrchestrationAppOptions {
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
 	/**
-	 * §2/§5 — the session module's own deps bag (`services/
+	 * The session module's own deps bag (`services/
 	 * run-orchestration-composition.ts`'s `buildSessionActionsDeps`), which is
 	 * what `/sessions/:id/activity`'s old `getRecentActivity` reader moved
 	 * onto (`watch_session`'s own `activity` field).
@@ -62,7 +62,7 @@ export interface AgentOrchestrationAppOptions {
 
 export interface AgentOrchestrationAppHandle {
 	readonly app: Hono<HyperIdleEnv>;
-	/** §5/§7 — this Layer's own three session actions, MCP-projected. `bootAgentOrchestration` exposes this as its own `actionTools`. */
+	/** This Layer's own three session actions, MCP-projected. `bootAgentOrchestration` exposes this as its own `actionTools`. */
 	readonly actionTools: readonly RegisteredTool<HyperIdleDb>[];
 }
 
@@ -78,7 +78,7 @@ export function createAgentOrchestrationApp(
 	// production consumer, so this Layer now owns it directly — no injection.
 	const cipher = { encrypt: encryptCredentialValue, decrypt: decryptCredentialValue };
 
-	// §2/§5 — the session module: search_sessions/watch_session/stop_session,
+	// The session module: search_sessions/watch_session/stop_session,
 	// mounted at `POST /actions/<name>` on this Layer's own app and projected
 	// onto the MCP tool seam. Both layer apps sit on one `/api` router
 	// (`composeApiApplication`), so `POST /api/actions/stop_session` resolves

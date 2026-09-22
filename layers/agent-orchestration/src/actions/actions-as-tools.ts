@@ -4,12 +4,12 @@ import type { Action } from "./action.js";
 
 /**
  * This Layer's own copy of `core-api/src/actions/actions-as-tools.ts`'s MCP
- * loop — architecture.md §5: for each session action, register a tool with
+ * loop: for each session action, register a tool with
  * the action's name, sentence and shape, calling it in-process as the
  * session's agent. `bootAgentOrchestration` exposes the result as this
  * Layer's own `actionTools`; each application's `createServer` joins it with
- * core's own list into `ServerHandle.actionTools` (§5's deferred-binding
- * join, §7).
+ * core's own list into `ServerHandle.actionTools` (the deferred-binding
+ * join).
  */
 export function actionsAsTools(actions: readonly Action[]): readonly RegisteredTool<HyperIdleDb>[] {
 	return actions.map((action) => ({

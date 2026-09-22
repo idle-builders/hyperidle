@@ -473,7 +473,7 @@ export function buildRunOrchestrationComposition(config: {
 	/** Absent (or a bare-app test fixture / `tools/eval`'s standalone use) → seam-backed tools throw only when actually dialled (`unconfiguredCoreApiTransport`), never at construction. */
 	readonly coreApiTransport?: CoreApiTransport;
 	/**
-	 * §7/§5 — core-api's composed action list, projected onto the
+	 * Core-api's composed action list, projected onto the
 	 * MCP tool seam (`CoreApiBoot.actionTools`), as a THUNK — `create-server.ts`
 	 * reassigns the value it closes over once this Layer's own session actions
 	 * exist, and every session's tool registry (built lazily, per session)
@@ -556,14 +556,14 @@ export function buildRunOrchestrationComposition(config: {
 }
 
 /**
- * The session module's deps bag (architecture.md §2) — `sessions.list`/
+ * The session module's deps bag — `sessions.list`/
  * `getById` are this Layer's own `@hyperidle/run-orchestration` accessors
  * (in-package for `session-actions.ts`, injected here only for the uniform
- * deps-bag shape every action module takes); `stop` is `stopSessionRun`
- * (§3) already bound to this boot's own `db`/`eventBus` and to
+ * deps-bag shape every action module takes); `stop` is `stopSessionRun`,
+ * already bound to this boot's own `db`/`eventBus` and to
  * `sessionRunRegistry.abort` — the one place this Layer is allowed to name
  * `@hyperidle/session-requests` in production, since `@hyperidle/
- * run-orchestration` itself may not (devDependency only, §3's own note).
+ * run-orchestration` itself may not (devDependency only).
  */
 export function buildSessionActionsDeps(
 	db: HyperIdleDb,

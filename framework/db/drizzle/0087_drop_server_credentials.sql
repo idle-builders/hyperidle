@@ -1,4 +1,4 @@
--- @lore BC6: the server-side credential surface is deleted — routes, the
+-- @lore The server-side credential surface is deleted — routes, the
 -- @hyperidle/credentials package and this table. Only two names ever lived
 -- here (`shared_backend_key`, now the desktop keychain's; and
 -- `notifications_smtp_password`, which never had a writer). No deployments

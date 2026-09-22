@@ -195,10 +195,10 @@ async function endSession(
 	// ProvisionSessionResult. Passing "not_returned" here is what gives AC1/AC3 real
 	// teeth at the persistence layer.
 	//
-	// @lore D-njr2es: a stopped session writes state "stopped", not "done" — the
-	// abort path (provisioner.ts's own `aborted` flag) threads `terminalOutcome:
-	// "stopped"` here so `lifecycle-propagation.ts` (which only acts on
-	// `outcome==='completed'`) stays inert on a stop, exactly as D-bsjkae requires.
+	// @lore A stopped session writes state "stopped", not "done" — the
+	// abort path (provisioner.ts's own `stopRequested` flag) threads
+	// `terminalOutcome: "stopped"` here so `lifecycle-propagation.ts` (which
+	// only acts on `outcome==='completed'`) stays inert on a stop.
 	const state = terminalOutcome === "stopped" ? "stopped" : "done";
 	const updated = await updateSessionRow(db, context.sessionId, state, terminalOutcome, now);
 
@@ -232,7 +232,7 @@ async function endSession(
 			// outcome is deleted along with the cap gate. A core-api subscriber
 			// (`routine-run-session-end-reactions.ts`) performs the write.
 			//
-			// @lore D-njr2es: a stop finalizes a routine run as "error", not
+			// @lore A stop finalizes a routine run as "error", not
 			// "success" — the routine's own run history must not read a killed
 			// run as a clean finish.
 			...(context.routineId

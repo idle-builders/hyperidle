@@ -148,7 +148,7 @@ export interface AgentOrchestrationRuntimeOptions {
 	 */
 	readonly resolveProvisioningOwnerUserId?: () => Promise<string | null>;
 	/**
-	 * §7/§5 — core-api's composed action list (`CoreApiBoot.
+	 * Core-api's composed action list (`CoreApiBoot.
 	 * actionTools`), projected onto the MCP tool seam, as a THUNK — the
 	 * Application's own `createServer` reassigns the value it closes over
 	 * once THIS boot's own `actionTools` exist too (a cycle otherwise: this
@@ -217,7 +217,7 @@ export interface AgentOrchestrationBoot {
 	/** Mounted by the Application on its `/api` router, AFTER the auth middleware. */
 	readonly app: Hono<HyperIdleEnv>;
 	/**
-	 * §5/§7 — this Layer's OWN three session actions
+	 * This Layer's OWN three session actions
 	 * (`search_sessions`/`watch_session`/`stop_session`), MCP-projected. Each
 	 * application's `createServer` joins this with `coreApi.actionTools` into
 	 * `ServerHandle.actionTools` — the HTTP door needs no join (both layer
@@ -436,7 +436,7 @@ export async function bootAgentOrchestration(
 		);
 	}
 
-	// §2 — the session module's own deps bag: `sessions.list`/`getById` are
+	// The session module's own deps bag: `sessions.list`/`getById` are
 	// this Layer's own accessors, `stop` is `stopSessionRun` already bound to
 	// `db`/`eventBus`/`sessionRunRegistry.abort`, `activity` is this boot's own
 	// `SessionActivityBuffer` reader (what `/sessions/:id/activity` used to

@@ -62,12 +62,12 @@ export interface CreateServerDeps {
 }
 
 /**
- * @lore AH1 §3 / N1: same shape as `remote-server`'s own `ServerHandle`.
+ * @lore Same shape as `remote-server`'s own `ServerHandle`.
  */
 export interface ServerHandle {
 	readonly httpServer: ServerType;
 	readonly dispose: () => Promise<void>;
-	/** §5: the joined action list — core's plus this Layer's own three session actions. */
+	/** The joined action list — core's plus this Layer's own three session actions. */
 	readonly actionTools: CoreApiBoot["actionTools"];
 }
 
@@ -254,7 +254,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		workspace: agentExecution.adapters.sandbox,
 	} satisfies ApplicationProvisionSessionDeps;
 
-	// §5: the join — see `remote-server/src/create-server.ts`'s
+	// The join — see `remote-server/src/create-server.ts`'s
 	// twin comment for why the thunk and the reassignment are both needed.
 	let actionTools = coreApi.actionTools;
 	const agentOrchestration = await bootAgentOrchestration({
@@ -273,7 +273,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			harnessRuntime: harnessRuntimeAdapter,
 			returnStatusTool: returnStatusToolAdapter,
 			coreApiTransport,
-			// §7/§5 — one composed list, built once: core-api's actions, projected
+			// One composed list, built once: core-api's actions, projected
 			// onto this Layer's own MCP tool seam, as a thunk (see above).
 			actionTools: () => actionTools,
 			// §8.4 — the writeback processor's document port, bound straight to
@@ -299,7 +299,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			resolveProvisioningOwnerUserId: coreApi.resolveProvisioningOwnerUserId,
 		},
 	});
-	// §5: close the join — every session from here on sees both
+	// Close the join — every session from here on sees both
 	// layers' actions through the thunk above.
 	actionTools = [...coreApi.actionTools, ...agentOrchestration.actionTools];
 	// AU36 D5: close the deferred binding — redetect now reaches the reach cache.

@@ -102,7 +102,7 @@ describe("editPluginInvariants", () => {
 	});
 });
 
-describe("PluginScopeSchema — scope nested inside source, D-fphch8", () => {
+describe("PluginScopeSchema — scope nested inside source, not a bare field", () => {
 	it("accepts factory scope with a null teamId", () => {
 		expect(PluginScopeSchema.safeParse(factoryScope).success).toBe(true);
 	});

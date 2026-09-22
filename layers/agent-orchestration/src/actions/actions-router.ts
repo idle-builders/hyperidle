@@ -6,7 +6,7 @@ import type { Action } from "./action.js";
 
 /**
  * This Layer's own copy of `core-api/src/actions/actions-router.ts`'s HTTP
- * loop — architecture.md §5: mount `POST /actions/<name>` for every declared
+ * loop: mount `POST /actions/<name>` for every declared
  * session action, parsed with the action's own zod shape, run as the
  * authenticated actor. Both layer apps sit on one `/api` router
  * (`composeApiApplication`), so `POST /api/actions/stop_session` resolves

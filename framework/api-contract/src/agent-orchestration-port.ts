@@ -180,7 +180,7 @@ export interface AgentOrchestrationStoppedRun {
 /**
  * The "request-about-request" family (`runs.*`) — run lifecycle verbs.
  *
- * @lore D-46jmx6: `abort(sessionId)` is DELETED — `stop_session` (the session
+ * @lore `abort(sessionId)` is DELETED — `stop_session` (the session
  * module's own action, `@hyperidle/run-orchestration`) is the caller that
  * never existed for it, and the only in-layer abort (the provisioner's own
  * registry call) never crossed this seam.

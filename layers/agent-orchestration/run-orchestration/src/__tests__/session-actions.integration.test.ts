@@ -1,5 +1,5 @@
 /**
- * The session action list — architecture.md §1-§3. `createSessionActions`'s
+ * The session action list. `createSessionActions`'s
  * three runs against a hand-built `SessionActionsDeps` for `search_sessions`/
  * `watch_session`/the no-live-entry and terminal-row halves of `stop_session`;
  * `stopSessionRun` against the REAL `sessionRunRegistry` and a real
@@ -173,7 +173,7 @@ describe("createSessionActions", () => {
 			if (!result.ok) throw new Error("expected ok");
 			expect(result.data.stopped).toBe(true);
 			// The action reads the row BEFORE calling stop — this is the pre-stop
-			// answer (architecture.md §12 F1), not a second re-read after the CAS.
+			// answer, not a second re-read after the CAS.
 			expect(result.data.session.state).toBe("active");
 		});
 
@@ -284,9 +284,9 @@ function buildLiveHarnessAdapter(onStopSession: () => void) {
 			},
 		}),
 		stopSession: async () => {
-			// F2 (architecture.md §12): called twice on the abort path — once by
-			// `sessionRunRegistry.abort` (the real kill), once by the provisioner's
-			// own post-drain teardown. Idempotent, never throws on the second call.
+			// Called twice on the abort path — once by `sessionRunRegistry.abort`
+			// (the real kill), once by the provisioner's own post-drain teardown.
+			// Idempotent, never throws on the second call.
 			stopped = true;
 			onStopSession();
 			return { outcome: "completed" as const, tokenUsage: { byTier: {} } };

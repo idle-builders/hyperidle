@@ -1,6 +1,6 @@
 /**
- * AU26 H2 (§D-M.2), rewritten so killing a task's runs goes through the same
- * abort a direct stop does — `requestRunStopForTasks` now calls the shared
+ * Rewritten so killing a task's runs goes through the same abort a direct
+ * stop does — `requestRunStopForTasks` now calls the shared
  * `stopSessionRun` per active session: with no live runtime entry registered
  * (every case below — these tests never register one with the runtime),
  * `abort` answers `false` and the CAS-mark path fires, exactly as before,

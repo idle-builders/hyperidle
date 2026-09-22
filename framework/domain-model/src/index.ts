@@ -41,12 +41,12 @@ export {
 	searchDocuments,
 	searchDocumentsInvariants,
 } from "./actions/document.js";
-// @lore BC6: the platform action list — search, edit — declared here
+// @lore The platform action list — search, edit — declared here
 // alongside `document`/`task`/`thread` for the same reason: `core-ui` needs
 // the exact `input`/invariant shape the server runs. `platform.ts` also owns
 // `PLUGIN_LIST_STATES` and `PluginScopeSchema`, not `./configuration.js` —
 // that file keeps only the vocabulary this module and the settings package
-// both need (architecture.md §1).
+// both need.
 export type {
 	EditPluginInput,
 	EditPluginSource,
@@ -69,7 +69,7 @@ export {
 	SearchPluginsInputSchema,
 	searchPlugins,
 } from "./actions/platform.js";
-// @lore BC6: the session action list — search, watch, stop — declared
+// @lore The session action list — search, watch, stop — declared
 // alongside `document`/`task`/`thread`/`platform`, same reason. No invariant
 // export: the two candidates this module first drafted are both dropped —
 // see `actions/session.ts`'s own header comment.
@@ -196,7 +196,7 @@ export { roleLabel } from "./agent-roles.js";
 // HealthSignalInput, computeHealthSignals, deriveHealthLevel, deriveHealthDetail
 // moved to layers/core-ui/src/hooks/agent-health.ts (AU44 batch 8).
 // AgentRunSummary, AgentRunsResponse, AgentRunActiveCountsResponse (agent-run-view.ts)
-// deleted with the run-read routes (BC6): the session action list's `SessionRow`
+// deleted with the run-read routes: the session action list's `SessionRow`
 // (./actions/session.js) is the browser's health-derivation input now.
 // isAgentWorkIntentKind, isAgentWorkIntentSourceKind moved to agent-orchestration (AU44-b8)
 export type { ApiErrorResponse } from "./api-types.js";

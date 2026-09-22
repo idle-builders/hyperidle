@@ -4,10 +4,10 @@ import type { EventBus } from "@hyperidle/event-bus";
 
 /**
  * This Layer's own structural mirror of `layers/core-api/src/actions/
- * action.ts`'s `ActionContext`/`Action` — architecture.md §5: "deliberate
- * duplication... `ActionContext` carries `db` and `eventBus`, which is
- * exactly why it is not in `framework/domain-model`... `@hyperidle/task`
- * already declares its own mirror of `Action` for the same reason." This
+ * action.ts`'s `ActionContext`/`Action` — deliberate
+ * duplication: `ActionContext` carries `db` and `eventBus`, which is
+ * exactly why it is not in `framework/domain-model`. `@hyperidle/task`
+ * already declares its own mirror of `Action` for the same reason. This
  * Layer may not import `@hyperidle/core-api` (the crossing this whole item
  * exists to avoid), so it declares the identical shape and relies on
  * TypeScript's structural typing — `@hyperidle/run-orchestration`'s own

@@ -6,11 +6,11 @@
  * a genuine core need — but the write is `run-orchestration`'s state
  * transition, so core asks for it instead of performing it.
  *
- * @lore D-46jmx6/D-bsjkae: this used to CAS-mark every active run straight to
+ * @lore This used to CAS-mark every active run straight to
  * `stopped` itself, taking no `EventBus`, deliberately silent — the fear was
  * `review/session-review-creator.ts` reacting to a `session_ended` it never
  * expected. That reactor no longer exists, and "killing a task goes through
- * the same abort" is now a real requirement (D-bsjkae), not a CAS-mark that
+ * the same abort" is now a real requirement, not a CAS-mark that
  * leaves the harness process running. This is now a thin loop over the ONE
  * stop path both doors share (`stopSessionRun`, `session-store.ts`): it takes
  * the bus and an injected `abort`, and emits ONLY on the no-live-entry path —

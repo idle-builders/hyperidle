@@ -246,7 +246,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 
 	const hasSecret = Boolean(process.env.HYPERIDLE_CREDENTIAL_KEY ?? process.env.HYPERIDLE_API_KEY);
 	if (!hasSecret) {
-		// @lore AH1 §6, corrected by the server_credentials deletion: Boot is
+		// @lore Corrected by the server_credentials deletion: Boot is
 		// non-fatal but we log a warning so misconfigured deployments are
 		// visible. The write boundary is now POST /api/connections (a held
 		// token's encrypt step throws MISSING_ROOT_SECRET without a secret) —
@@ -366,7 +366,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	// builds the provisioning reads (`connections`/`filesystems`/
 	// `filesystem-mounting`) or the knowledge-writeback port — all three are
 	// in-layer for `bootAgentOrchestration` now (§5.1/§2.7).
-	// §5: the join. `actionTools` starts as core's own list; the
+	// The join. `actionTools` starts as core's own list; the
 	// thunk below lets `bootAgentOrchestration` build every session's tool
 	// registry lazily, per session, off whatever this binding currently holds
 	// — so a session admitted AFTER the reassignment three lines down sees
@@ -389,7 +389,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			harnessRuntime: harnessRuntimeAdapter,
 			returnStatusTool: returnStatusToolAdapter,
 			coreApiTransport,
-			// §7/§5 — one composed list, built once: core-api's actions, projected
+			// One composed list, built once: core-api's actions, projected
 			// onto this Layer's own MCP tool seam, as a thunk (see above).
 			actionTools: () => actionTools,
 			// §8.4 — the writeback processor's document port, bound straight to
@@ -415,7 +415,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			resolveProvisioningOwnerUserId: coreApi.resolveProvisioningOwnerUserId,
 		},
 	});
-	// §5: close the join — every session from here on sees both
+	// Close the join — every session from here on sees both
 	// layers' actions through the thunk above.
 	actionTools = [...coreApi.actionTools, ...agentOrchestration.actionTools];
 	// AU36 D5: close the deferred binding — redetect now reaches the reach cache.
@@ -559,7 +559,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	return {
 		httpServer,
 		dispose,
-		// §5: the joined list — what the seam test drives as "the agent".
+		// The joined list — what the seam test drives as "the agent".
 		actionTools,
 	};
 }
