@@ -376,7 +376,7 @@ async function processWriteback(
 				break;
 			case "delete":
 				{
-					const deleted = await handleDelete(config, change, manifest);
+					const deleted = handleDelete(config, change, manifest);
 					if (deleted) {
 						result.deleted++;
 					}
@@ -546,11 +546,11 @@ async function handleModify(
  * deletion — the manifest simply stops tracking it, and nothing is written
  * to the document itself. Returns true if a tracked entry was dropped.
  */
-async function handleDelete(
+function handleDelete(
 	_config: WritebackConfig,
 	change: WritebackChange,
 	manifest: Manifest,
-): Promise<boolean> {
+): boolean {
 	const existing = findItemByPath(manifest, change.relativePath);
 
 	if (!existing) {
