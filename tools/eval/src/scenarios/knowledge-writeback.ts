@@ -114,7 +114,7 @@ Also document what you wrote in session notes.`,
 					const agentWrittenItems = await ctx.db
 						.select({ id: documents.id })
 						.from(documents)
-						.where(eq(documents.updatedBy, `agent:${ctx.seedResult.agentId}`));
+						.where(eq(documents.updatedBy, ctx.seedResult.agentId));
 
 					if (agentWrittenItems.length > 0) {
 						return {
@@ -294,7 +294,7 @@ Document what you created in session notes.`,
 					const agentWrittenDocuments = await ctx.db
 						.select({ id: documents.id, title: documents.title })
 						.from(documents)
-						.where(and(eq(documents.updatedBy, `agent:${ctx.seedResult.agentId}`)));
+						.where(and(eq(documents.updatedBy, ctx.seedResult.agentId)));
 
 					if (agentWrittenDocuments.length === 0) {
 						return {

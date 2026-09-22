@@ -122,11 +122,11 @@ async function judgeSessionNotesWritten(ctx: JudgeContext): Promise<DimensionSco
 
 /**
  * Dimension 3: document_created
- * Rule-based: query documents where updatedBy = "agent:<agentId>".
- * edit_document (as:"memory") sets updatedBy = "agent:<agentId>".
+ * Rule-based: query documents where updatedBy = "<agentId>".
+ * edit_document (as:"memory") sets updatedBy = "<agentId>".
  */
 async function judgeDocumentCreated(ctx: JudgeContext): Promise<DimensionScore> {
-	const agentUpdatedBy = `agent:${ctx.seedResult.agentId}`;
+	const agentUpdatedBy = ctx.seedResult.agentId;
 
 	const [item] = await ctx.db
 		.select({ id: documents.id })

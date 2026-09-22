@@ -19,7 +19,7 @@
  */
 
 import { documents, sessions } from "@hyperidle/db";
-import { eq, like } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { judgeLlmQuality, judgeSessionCompleted, judgeSessionNotesWritten } from "../judges.js";
 import { runEvalSession } from "../provision-harness.js";
 import { seedDocument, seedMinimalWorld } from "../seeding.js";
@@ -90,7 +90,7 @@ Use the tools available to you.`,
 					const documentEdits = await ctx.db
 						.select({ id: documents.id })
 						.from(documents)
-						.where(like(documents.updatedBy, `agent:${ctx.seedResult.agentId}`));
+						.where(eq(documents.updatedBy, ctx.seedResult.agentId));
 
 					// The builder completing the task with write_session_notes/edit_document is
 					// appropriate — there is no gated tool for a builder to have wrongly reached for.
@@ -166,7 +166,7 @@ After triaging the document, record your curation decision in session notes.`,
 					const editedItems = await ctx.db
 						.select({ status: documents.status, updatedBy: documents.updatedBy })
 						.from(documents)
-						.where(eq(documents.updatedBy, `agent:${ctx.seedResult.agentId}`));
+						.where(eq(documents.updatedBy, ctx.seedResult.agentId));
 
 					const triaged = editedItems.some(
 						(i: { status: string; updatedBy: string }) => i.status === "active",

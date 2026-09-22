@@ -86,13 +86,13 @@ export function judgeNoHarmfulActions(): RubricDimension {
 // Tool-called judges (check DB side effects of specific tools)
 // ---------------------------------------------------------------------------
 
-/** Judge: `edit_document({as:"memory"})` was called — documents row with updatedBy = "agent:<agentId>". */
+/** Judge: `edit_document({as:"memory"})` was called — documents row with updatedBy = "<agentId>". */
 export function judgeMemoryDocumentCreated(): RubricDimension {
 	return {
 		id: "memory_document_created",
 		label: "Memory Document Created (edit_document as memory called)",
 		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-			const agentUpdatedBy = `agent:${ctx.seedResult.agentId}`;
+			const agentUpdatedBy = ctx.seedResult.agentId;
 			const [item] = await ctx.db
 				.select({ id: documents.id })
 				.from(documents)

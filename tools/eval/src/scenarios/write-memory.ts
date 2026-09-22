@@ -80,7 +80,7 @@ the root cause, and the fix.`,
 				id: "body_quality",
 				label: "Document Body Quality",
 				extractContent: async (ctx: JudgeContext): Promise<string> => {
-					const agentUpdatedBy = `agent:${ctx.seedResult.agentId}`;
+					const agentUpdatedBy = ctx.seedResult.agentId;
 					const [item] = await ctx.db
 						.select({ body: documents.body, title: documents.title })
 						.from(documents)
@@ -142,7 +142,7 @@ This reflection will help the team maintain brand consistency going forward.`,
 				id: "brand_consistency",
 				label: "Brand Consistency Reflection Quality",
 				extractContent: async (ctx: JudgeContext): Promise<string> => {
-					const agentUpdatedBy = `agent:${ctx.seedResult.agentId}`;
+					const agentUpdatedBy = ctx.seedResult.agentId;
 					const [item] = await ctx.db
 						.select({ body: documents.body, title: documents.title })
 						.from(documents)
