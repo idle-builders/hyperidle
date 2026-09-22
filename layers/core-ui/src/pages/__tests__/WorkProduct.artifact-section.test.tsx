@@ -1,7 +1,7 @@
 /**
  * WorkTeam: ArtifactSection absence tests.
  *
- * Produced items are knowledge items parented to tasks — there is no team-level
+ * Produced items are documents parented to tasks — there is no team-level
  * parent concept, so ArtifactSection does NOT appear on the WorkTeam page. Tasks
  * each surface their own produced items via ArtifactSection with parentKind="task".
  *

@@ -77,7 +77,7 @@ mockUseDocuments.mockReturnValue({
 	retry: vi.fn(),
 });
 
-function renderKnowledgeList(): ReturnType<typeof render> {
+function renderDocumentList(): ReturnType<typeof render> {
 	return render(
 		<MemoryRouter initialEntries={["/documents"]}>
 			<Routes>
@@ -92,30 +92,30 @@ function renderKnowledgeList(): ReturnType<typeof render> {
 // ---------------------------------------------------------------------------
 describe("W3 AC-33 — Data-driven scope pills", () => {
 	it("does NOT render hardcoded 'Practices' scope pill", () => {
-		renderKnowledgeList();
+		renderDocumentList();
 		// Old hardcoded pills should be gone
 		expect(screen.queryByRole("button", { name: /^practices$/i })).not.toBeInTheDocument();
 	});
 
 	it("does NOT render hardcoded 'Products' scope pill", () => {
-		renderKnowledgeList();
+		renderDocumentList();
 		expect(screen.queryByRole("button", { name: /^products$/i })).not.toBeInTheDocument();
 	});
 
 	it("does NOT render hardcoded 'Factory' scope pill", () => {
-		renderKnowledgeList();
+		renderDocumentList();
 		expect(screen.queryByRole("button", { name: /^factory$/i })).not.toBeInTheDocument();
 	});
 
 	it("renders 'All' pill first", () => {
 		// AD6: scope pills use role="radio" (accessibility improvement) — query by testid.
-		renderKnowledgeList();
+		renderDocumentList();
 		const allPill = screen.getByTestId("scope-pill-all");
 		expect(allPill).toBeInTheDocument();
 	});
 
 	it("renders static scope pills (Shared, Team, Private)", () => {
-		renderKnowledgeList();
+		renderDocumentList();
 		expect(screen.getByTestId("scope-pill-shared")).toBeInTheDocument();
 		expect(screen.getByTestId("scope-pill-team")).toBeInTheDocument();
 		expect(screen.getByTestId("scope-pill-private")).toBeInTheDocument();
@@ -127,20 +127,20 @@ describe("W3 AC-33 — Data-driven scope pills", () => {
 // ---------------------------------------------------------------------------
 describe("W3 AC-34 — Sort controls always visible", () => {
 	it("renders sort controls on the list page", () => {
-		renderKnowledgeList();
+		renderDocumentList();
 		// Sort controls: Relevance, Recency, Frequency
 		const sortBar = document.querySelector("[data-testid='document-sort-bar']");
 		expect(sortBar).not.toBeNull();
 	});
 
 	it("renders Recency sort option", () => {
-		renderKnowledgeList();
+		renderDocumentList();
 		expect(screen.getByText(/recency/i)).toBeInTheDocument();
 	});
 
 	it("sort controls are visible in Curated tab", async () => {
 		const user = userEvent.setup();
-		renderKnowledgeList();
+		renderDocumentList();
 		// Switch to Curated tab
 		const curatedTab = screen.getByRole("tab", { name: /curated/i });
 		await user.click(curatedTab);
@@ -179,10 +179,10 @@ describe("W3 AC-35 — DocRow preview and no status dots", () => {
 // ---------------------------------------------------------------------------
 // AC-36: "+ New" button in header
 // ---------------------------------------------------------------------------
-describe("W3 AC-36 — '+New' button in knowledge list header", () => {
-	it("renders a '+ New' button in the knowledge list header", () => {
-		renderKnowledgeList();
-		const newBtn = screen.getByRole("button", { name: /\+\s*new|new knowledge/i });
+describe("W3 AC-36 — '+New' button in document list header", () => {
+	it("renders a '+ New' button in the document list header", () => {
+		renderDocumentList();
+		const newBtn = screen.getByRole("button", { name: /\+\s*new|new document/i });
 		expect(newBtn).toBeInTheDocument();
 	});
 });
@@ -192,14 +192,14 @@ describe("W3 AC-36 — '+New' button in knowledge list header", () => {
 // ---------------------------------------------------------------------------
 describe("W3 AC-37 — Curated/Triage tab switching", () => {
 	it("renders Curated and Triage tabs", () => {
-		renderKnowledgeList();
+		renderDocumentList();
 		expect(screen.getByRole("tab", { name: /curated/i })).toBeInTheDocument();
 		expect(screen.getByRole("tab", { name: /triage/i })).toBeInTheDocument();
 	});
 
 	it("clicking Curated tab switches view", async () => {
 		const user = userEvent.setup();
-		renderKnowledgeList();
+		renderDocumentList();
 		await user.click(screen.getByRole("tab", { name: /curated/i }));
 		const curatedTab = screen.getByRole("tab", { name: /curated/i });
 		expect(curatedTab).toHaveAttribute("aria-selected", "true");
@@ -207,11 +207,11 @@ describe("W3 AC-37 — Curated/Triage tab switching", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-38: Knowledge list keeps its 800px scan lane
+// AC-38: Document list keeps its 800px scan lane
 // ---------------------------------------------------------------------------
-describe("W3 AC-38 — Knowledge list max-width 800px", () => {
-	it("knowledge list keeps 800px measure without centering the scan lane", () => {
-		renderKnowledgeList();
+describe("W3 AC-38 — Document list max-width 800px", () => {
+	it("document list keeps 800px measure without centering the scan lane", () => {
+		renderDocumentList();
 		// Check for max-width class pattern inside the page
 		const page = document.querySelector("[data-testid='document-list-page']");
 		expect(page).not.toBeNull();

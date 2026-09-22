@@ -409,25 +409,25 @@ describe("AG5 — Menu: dataAttrs passthrough (C4)", () => {
 		expect(item?.getAttribute("role")).toBe("menuitem");
 	});
 
-	it("knowledge item with dataAttrs emits literal data-testid attribute", async () => {
+	it("document item with dataAttrs emits literal data-testid attribute", async () => {
 		await act(async () => {
 			root.render(
 				createElement(Menu, {
 					open: true,
 					onClose: noop,
-					label: "Knowledge actions",
+					label: "Document actions",
 					items: [
 						{
 							id: "archive",
 							label: "Archive",
 							onSelect: noop,
-							dataAttrs: { "data-testid": "knowledge-archive" },
+							dataAttrs: { "data-testid": "document-archive" },
 						},
 					],
 				}) as ReactElement,
 			);
 		});
-		const item = container.querySelector("[data-testid='knowledge-archive']");
+		const item = container.querySelector("[data-testid='document-archive']");
 		expect(item).not.toBeNull();
 		expect(item?.getAttribute("role")).toBe("menuitem");
 	});

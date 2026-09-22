@@ -446,8 +446,8 @@ describe("AB3 AC-4 — Config save via PATCH /api/agents/:id", () => {
 	});
 
 	// @lore BA9f: "Save writes the edited system prompt" lived here. The persona
-	// is a knowledge document now — this pane links to it and never PATCHes it —
-	// so the claim belongs to the knowledge edit endpoint. That this pane's Save
+	// is a document now — this pane links to it and never PATCHes it —
+	// so the claim belongs to the document edit endpoint. That this pane's Save
 	// reaches `PATCH /api/agents/:id` at all is proven by the next test.
 
 	// @lore This test used to change the Model tier select and assert the PATCH

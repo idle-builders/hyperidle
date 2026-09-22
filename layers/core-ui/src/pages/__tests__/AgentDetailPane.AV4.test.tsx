@@ -121,7 +121,7 @@ describe("AgentDetailPane renders as a detail pane without dialog chrome", () =>
 	});
 
 	// @lore BA9f: the pane used to hold a system-prompt textarea. An agent's
-	// identity is a knowledge document now, so the pane links to it — one editor
+	// identity is a document now, so the pane links to it — one editor
 	// for it, not a third copy.
 	it("links to the agent's identity document instead of editing it inline", async () => {
 		renderAgentPane();

@@ -19,8 +19,8 @@
 //
 // @lore artifacts-become-documents: ArtifactGalleryCard, ArtifactKindBadge,
 // ArtifactPreview, ArtifactPreviewSurface, ArtifactStackItem, ArtifactTimestamp
-// deleted by prior builders when artifacts became knowledge items. Only ArtifactFrame
-// survives — it renders the HTML sandbox iframe for html-kind knowledge items.
+// deleted by prior builders when artifacts became documents. Only ArtifactFrame
+// survives — it renders the HTML sandbox iframe for html-kind documents.
 // Family shrinks from 7 to 1.
 
 import { readdirSync } from "node:fs";
