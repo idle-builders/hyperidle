@@ -1,7 +1,7 @@
 /**
  * Deleting a routine takes its prompt document with it.
  *
- * BA9f made a routine's instruction a knowledge document the routine points at.
+ * BA9f made a routine's instruction a document the routine points at.
  * Deleting the routine left the document behind: an orphan in the knowledge view
  * titled "<name> — prompt", belonging to a routine that no longer exists, which
  * nothing could ever reach again.
@@ -51,7 +51,7 @@ async function seedAgent(db: HyperIdleDb): Promise<void> {
 	]);
 }
 
-/** The knowledge document parented to this routine's prompt slot, if any. */
+/** The document parented to this routine's prompt slot, if any. */
 async function findPromptDoc(
 	db: HyperIdleDb,
 	routineId: string,

@@ -145,7 +145,7 @@ describe("a human and an agent put an item into a conversation the same way", ()
 		expect(agentItem.body).toBe(humanItem.body);
 	});
 
-	test("both appear in the conversation, and neither appears in the knowledge tree", async ({
+	test("both appear in the conversation, and neither appears in the document tree", async ({
 		db,
 		app,
 	}) => {
@@ -175,7 +175,7 @@ describe("a human and an agent put an item into a conversation the same way", ()
 		const listed = (await inThread.json()) as { data: ReadonlyArray<{ title: string }> };
 		expect(listed.data.map((i) => i.title).sort()).toEqual(["From agent:pa-agent", "From pa-user"]);
 
-		// The knowledge tree is for kept knowledge, not for per-conversation
+		// The document tree is for kept documents, not for per-conversation
 		// residue. Neither of them belongs there.
 		const tree = await app.request("/api/actions/search_documents", {
 			method: "POST",

@@ -1,9 +1,9 @@
 /**
- * A routine's prompt is a knowledge document.
+ * A routine's prompt is a document.
  *
  * It was a `routines.prompt` text column — the one instruction in the system
- * with no home in knowledge, so it could not be read, edited or reused like the
- * knowledge it plainly is. A plugin that contributes a routine had nothing to
+ * with no home among the documents, so it could not be read, edited or reused
+ * like the document it plainly is. A plugin that contributes a routine had nothing to
  * contribute its prompt *to*.
  *
  * The routine now points at a document. The API still takes `prompt` text
@@ -16,7 +16,7 @@ import { and, eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
-/** The knowledge document parented to this routine's prompt slot, if any. */
+/** The document parented to this routine's prompt slot, if any. */
 async function findPromptDoc(
 	db: HyperIdleDb,
 	routineId: string,
@@ -66,7 +66,7 @@ function routineBody(extra: Record<string, unknown> = {}): string {
 	});
 }
 
-describe("a routine's prompt is a knowledge document", () => {
+describe("a routine's prompt is a document", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 	});

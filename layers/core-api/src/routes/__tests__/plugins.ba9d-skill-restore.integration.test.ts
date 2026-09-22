@@ -145,7 +145,7 @@ describe("BA9d skill restore", () => {
 		const restoreRes = await pluginsApp.request(`/api/plugins/${PLUGIN_ID}/contributions/restore`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ kind: "knowledge", entityId: skillId }),
+			body: JSON.stringify({ kind: "document", entityId: skillId }),
 		});
 		expect(restoreRes.status).toBe(200);
 		const restoreBody = (await restoreRes.json()) as { ok: boolean; entityId: string };
@@ -183,7 +183,7 @@ describe("BA9d skill restore", () => {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
-				kind: "knowledge",
+				kind: "document",
 				entityId: skillItemId(PLUGIN_ID, SKILL_DIR, "factory", null),
 			}),
 		});

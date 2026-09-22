@@ -9,7 +9,7 @@
  * ever be hardcoded… our system basically comes empty out of the box 'minimal'
  * and plugins or the human add stuff to it to make it more useful."
  *
- * A prompt is knowledge, so it takes its owner's scope: an agent on a team
+ * A prompt is a document, so it takes its owner's scope: an agent on a team
  * scopes to that team, an agent on no team stays factory-wide.
  */
 
@@ -19,7 +19,7 @@ import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
-/** The knowledge document parented to this routine's prompt slot. */
+/** The document parented to this routine's prompt slot. */
 async function findPromptDocId(db: HyperIdleDb, routineId: string): Promise<string> {
 	const [row] = await db
 		.select({ id: documents.id })
@@ -99,7 +99,7 @@ describe("a routine's prompt takes its owner's scope", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("a team agent's routine prompt is that team's knowledge", async ({ db, app }) => {
+	test("a team agent's routine prompt is that team's document", async ({ db, app }) => {
 		await seedWorld(db);
 		const docId = await createRoutine(app, db, "agent-on-team");
 
@@ -140,9 +140,9 @@ describe("a routine's prompt takes its owner's scope", () => {
 			body: JSON.stringify({ prompt: "Now it has one." }),
 		});
 		expect(patched.status).toBe(200);
-		const promptKnowledgeId = await findPromptDocId(db, id);
+		const promptDocumentId = await findPromptDocId(db, id);
 
-		const [doc] = await db.select().from(documents).where(eq(documents.id, promptKnowledgeId));
+		const [doc] = await db.select().from(documents).where(eq(documents.id, promptDocumentId));
 		expect(doc?.scopeKind, "the PATCH path must not re-hardcode it").toBe("team");
 		expect(doc?.scopeId).toBe("team-scope");
 	});

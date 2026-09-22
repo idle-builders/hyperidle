@@ -91,7 +91,7 @@ async function contributionsOf(app: Hono): Promise<readonly ContributionRow[]> {
 /** One skill the plugin contributed. */
 async function aContributedSkill(app: Hono): Promise<ContributionRow> {
 	const row = (await contributionsOf(app)).find((c) => c.kind === "document");
-	expect(row, "the plugin must contribute knowledge").toBeDefined();
+	expect(row, "the plugin must contribute a document").toBeDefined();
 	return row as ContributionRow;
 }
 

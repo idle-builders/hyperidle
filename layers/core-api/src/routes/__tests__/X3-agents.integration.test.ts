@@ -468,7 +468,7 @@ describe("X3 AC-6: PATCH /api/agents/:id updates agent configuration", () => {
 
 	// The two persona tests that lived here — a 50,000-char cap and clearing it
 	// with null — are gone with the field. Editing an agent's identity is editing
-	// its knowledge document, so those belong to the knowledge edit endpoint, not
+	// its document, so those belong to the document edit endpoint, not
 	// to a second copy of it on this route.
 });
 
@@ -545,7 +545,7 @@ describe("X3 AC-7: DELETE /api/agents/:id soft-deletes", () => {
 		expect(res.status).toBe(409);
 	});
 
-	// Deleting a parent archives its knowledge —
+	// Deleting a parent archives its documents —
 	// there is no UI for an orphan, so archiving is the only safe default.
 	test("archives the agent's identity document, parented to the agent", async ({ db, app }) => {
 		await seedPrereqs(db);

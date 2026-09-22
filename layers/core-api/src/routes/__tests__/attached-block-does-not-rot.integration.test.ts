@@ -6,7 +6,7 @@
  * resolving, and the conversation degraded to a "source changed" placeholder.
  * What was attached could rot out from under the conversation that attached it.
  *
- * The replacement copies the block's content into a real knowledge item parented
+ * The replacement copies the block's content into a real document parented
  * to the thread. This test is the proof of the property that matters: edit the
  * source afterwards, and what is in the conversation does not move.
  *

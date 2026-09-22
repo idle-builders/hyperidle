@@ -5,7 +5,7 @@
  * and three skills. Its contributions view rendered COMPLETELY EMPTY, because
  * the view read `plugin_configuration_defaults` and none of those things is a
  * row in that table — the plugin declares `"contributions": []` in its manifest,
- * and its real contributions are `users`, `routines` and `knowledge_items` rows.
+ * and its real contributions are `users`, `routines` and `documents` rows.
  * The expand button did not even appear.
  *
  * The registry knows all of it now, so the view asks the registry.
@@ -95,7 +95,7 @@ describe("a plugin's contributions view lists what it contributed", () => {
 		const byKind = new Map<string, number>();
 		for (const c of contributions) byKind.set(c.kind, (byKind.get(c.kind) ?? 0) + 1);
 
-		// One agent (the Knowledge Librarian), three routines, and knowledge for
+		// One agent (the Knowledge Librarian), three routines, and documents for
 		// the three skills plus each routine's prompt document.
 		expect(byKind.get("agent"), "its agent must appear").toBe(1);
 		expect(byKind.get("routine"), "its three routines must appear").toBe(3);

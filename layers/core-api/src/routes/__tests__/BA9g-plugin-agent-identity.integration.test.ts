@@ -2,7 +2,7 @@
  * A plugin that contributes an agent contributes who that agent is.
  *
  * This was the gap BA9f named: "a plugin contributing an agent had nothing to
- * contribute its identity to". The identity is a knowledge document now, so a
+ * contribute its identity to". The identity is a document now, so a
  * plugin's agent gets one — sourced from a file in the plugin, the way a skill
  * is.
  *
@@ -121,7 +121,7 @@ describe("a plugin's agent comes with an identity", () => {
 
 		expect(identity?.body, "and it says who the agent is").toBe(PERSONA);
 		// The binding session assembly reads, and the role that makes it an
-		// agent file rather than ordinary knowledge.
+		// agent file rather than an ordinary document.
 		expect(identity?.slot).toBe("agent_file");
 		expect(identity?.scopeKind).toBe("user");
 		// The parent slot — the binding `getAgentIdentity` actually reads.

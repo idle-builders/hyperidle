@@ -93,7 +93,7 @@ async function seed(db: HyperIdleDb): Promise<void> {
 	]);
 }
 
-describe("an agent's identity document is knowledge, not a private note", () => {
+describe("an agent's identity document is visible to everyone, not a private note", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 	});
