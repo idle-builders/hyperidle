@@ -49,14 +49,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import {
-	type HyperIdleDb,
-	sessions,
-	tasks,
-	teams,
-	threads,
-	users,
-} from "@hyperidle/db";
+import { type HyperIdleDb, sessions, tasks, teams, threads, users } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
@@ -390,7 +383,8 @@ describe("session-platform seam — the five entries answer the same to a person
 					{},
 					agentToolCtx(db, "seam-agent-search", "seam-tool-session-search"),
 				);
-				if (!toolResult.success) throw new Error(`tool door refused: ${JSON.stringify(toolResult)}`);
+				if (!toolResult.success)
+					throw new Error(`tool door refused: ${JSON.stringify(toolResult)}`);
 
 				expect(toolResult.data).toEqual(httpRes.json.data);
 				const ids = (httpRes.json.data as Array<{ id: string }>).map((r) => r.id);
@@ -429,7 +423,8 @@ describe("session-platform seam — the five entries answer the same to a person
 					{ id: "seam-sess-watch" },
 					agentToolCtx(db, "seam-agent-watch", "seam-tool-session-watch"),
 				);
-				if (!toolResult.success) throw new Error(`tool door refused: ${JSON.stringify(toolResult)}`);
+				if (!toolResult.success)
+					throw new Error(`tool door refused: ${JSON.stringify(toolResult)}`);
 
 				expect(toolResult.data).toEqual(httpRes.json.data);
 			} finally {
@@ -484,12 +479,16 @@ describe("session-platform seam — the five entries answer the same to a person
 					{ id: "seam-sess-stop-tool" },
 					agentToolCtx(db, "seam-agent-stop", "seam-tool-session-stop"),
 				);
-				if (!toolResult.success) throw new Error(`tool door refused: ${JSON.stringify(toolResult)}`);
+				if (!toolResult.success)
+					throw new Error(`tool door refused: ${JSON.stringify(toolResult)}`);
 
 				// Two seeded rows, identical but for `id` — the one field a
 				// mutating action's twin seeds can never share. Strip it before
 				// comparing everything else, "modulo nothing" else.
-				const httpData = httpRes.json.data as { stopped: boolean; session: Record<string, unknown> };
+				const httpData = httpRes.json.data as {
+					stopped: boolean;
+					session: Record<string, unknown>;
+				};
 				const toolData = toolResult.data as { stopped: boolean; session: Record<string, unknown> };
 				expect(httpData.stopped).toBe(true);
 				expect(toolData.stopped).toBe(true);
@@ -537,7 +536,12 @@ describe("session-platform seam — the five entries answer the same to a person
 					throw new Error(`install failed: ${JSON.stringify(install.json)}`);
 				}
 
-				const httpRes = await callAction(handle, "search_plugins", {}, "seam-founder-search-plugins");
+				const httpRes = await callAction(
+					handle,
+					"search_plugins",
+					{},
+					"seam-founder-search-plugins",
+				);
 				expect(httpRes.status).toBe(200);
 				expect(httpRes.json.ok).toBe(true);
 
@@ -546,7 +550,8 @@ describe("session-platform seam — the five entries answer the same to a person
 					{},
 					agentToolCtx(db, "seam-agent-search-plugins", "seam-tool-session-search-plugins"),
 				);
-				if (!toolResult.success) throw new Error(`tool door refused: ${JSON.stringify(toolResult)}`);
+				if (!toolResult.success)
+					throw new Error(`tool door refused: ${JSON.stringify(toolResult)}`);
 
 				expect(toolResult.data).toEqual(httpRes.json.data);
 				expect((httpRes.json.data as Array<{ id: string }>).map((p) => p.id)).toEqual([
@@ -592,7 +597,8 @@ describe("session-platform seam — the five entries answer the same to a person
 					{ id: "seam-disable-plugin", state: "disabled" },
 					agentToolCtx(db, "seam-agent-disable", "seam-tool-session-disable"),
 				);
-				if (!toolResult.success) throw new Error(`tool door refused: ${JSON.stringify(toolResult)}`);
+				if (!toolResult.success)
+					throw new Error(`tool door refused: ${JSON.stringify(toolResult)}`);
 
 				const httpData = httpRes.json.data as Record<string, unknown>;
 				const toolData = toolResult.data as Record<string, unknown>;
