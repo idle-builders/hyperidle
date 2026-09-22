@@ -219,7 +219,7 @@ describe("context.ts sandbox output — bundle-consuming byte parity for a fixed
 					requireRunnableAgent,
 					getAgentIdentity,
 					getTeamById: (d: HyperIdleDb, id: string) => getTeam(d, { id }),
-					assembleSessionKnowledge: assembleSessionDocuments,
+					assembleSessionDocuments,
 				},
 			);
 			expect(baked.contextBundle).toBeDefined();

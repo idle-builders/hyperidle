@@ -99,7 +99,7 @@ function makePorts(): RoutineSchedulerPorts {
 			findUser(db, { id }).then((u) => (u ? { id: u.id, name: u.name, role: u.role } : undefined)),
 		getUserById: (db, id) =>
 			findUser(db, { id }).then((u) => (u ? { id: u.id, name: u.name, role: u.role } : undefined)),
-		assembleSessionKnowledge: async () => [],
+		assembleSessionDocuments: async () => [],
 	};
 }
 

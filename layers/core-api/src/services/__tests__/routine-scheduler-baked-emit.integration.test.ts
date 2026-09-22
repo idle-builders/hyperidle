@@ -337,7 +337,7 @@ describe("BA1 D2 — event matching reads the database when the event happens", 
 				eventType: "task_state_changed",
 				active: true,
 			});
-			// The instruction is a knowledge document parented to the routine.
+			// The instruction is a document parented to the routine.
 			await db.insert(documents).values({
 				id: "ki-ba1-e2e-prompt",
 				scopeKind: "factory",

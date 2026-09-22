@@ -408,7 +408,7 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 	}) => {
 		await seedAgent(db, "w0-sub-knowledge-agent");
 		// `changes.actor` FKs to `users` — `flagStalledKnowledgeAction` creates the
-		// knowledge item's thread as "system:propagation", so the row must exist.
+		// document's thread as "system:propagation", so the row must exist.
 		await db.insert(users).values({
 			id: "system:propagation",
 			kind: "ai",
@@ -425,7 +425,7 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 				title: "Wave 0 subscriber item",
 				body: "Body",
 				format: "markdown",
-				// archived — forces "Knowledge item is unavailable".
+				// archived — forces "Document is unavailable".
 				status: "archived",
 				updatedBy: "w0-sub-knowledge-agent",
 				createdAt: NOW,
@@ -453,17 +453,15 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 
 		// @lore BC3 architecture.md §5: `flagStalledKnowledgeAction` no longer
 		// inserts an `items` row (the table is deleted) — it posts a `review`
-		// message into the knowledge item's own thread (host kind
-		// "knowledge_item"), created on demand via `adjustThread`.
+		// message into the document's own thread (host kind
+		// "document"), created on demand via `adjustThread`.
 		await vi.waitFor(async () => {
 			const allMessages = await db.select().from(messages).where(eq(messages.type, "review"));
-			const flagged = allMessages.find((row) =>
-				row.payload.includes(`Knowledge item ${item?.id ?? ""}`),
-			);
+			const flagged = allMessages.find((row) => row.payload.includes(`Document ${item?.id ?? ""}`));
 			expect(flagged).toBeDefined();
 		});
 		// No durable "run" record exists for a knowledge action — nothing else to
-		// assert about the knowledge item itself changing state.
+		// assert about the document itself changing state.
 		const [reloadedItem] = await db
 			.select()
 			.from(documents)

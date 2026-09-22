@@ -14,7 +14,7 @@
  *     `runPracticeMeetingRoutine` relocated VERBATIM (same behavior, new
  *     location) — this file proves the relocated functions work identically
  *     to their dispatch-owned predecessors, calling core-api Services
- *     (`work`/`conversation`/`knowledge`/`review`/`settings`) via an injected
+ *     (`work`/`conversation`/`document`/`review`/`settings`) via an injected
  *     `RoutineSchedulerPorts` bag (Mechanism C — `composition-boundary-guard`
  *     hard-fails a Service package importing another Service directly, no
  *     allowlist, so `@hyperidle/routine` cannot import them itself), composed
@@ -58,7 +58,7 @@ const { getAgentIdentity, getRoutinePrompt } = makeDocumentReadPorts(searchDocum
  * Builds the SAME real ports `routine-scheduler-bindings.ts` composes — a
  * second, test-local wiring (rather than importing that module's private
  * `routineSchedulerPorts` singleton) so this test proves the relocated
- * functions work against real `work`/`conversation`/`knowledge`/`review`/
+ * functions work against real `work`/`conversation`/`document`/`review`/
  * `settings` implementations, independent of the composition root's own
  * plumbing.
  */
