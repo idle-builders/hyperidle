@@ -61,11 +61,16 @@ async function seed(db: HyperIdleDb): Promise<void> {
 
 	// The agent's identity — authored by somebody else entirely, so the only
 	// thing that can make it visible is that it is a binding, not a note.
+	// parentKind/parentId mirror what `routes/agent-identity.ts` always
+	// writes (`parent: { kind: "agent", id: agentId }`) — a real identity row
+	// is never parentless.
 	await db.insert(documents).values([
 		{
 			id: "ki_af_agent-ba9f",
 			scopeKind: "user",
 			scopeId: AGENT,
+			parentKind: "agent",
+			parentId: AGENT,
 			title: "Atlas — identity",
 			body: "You are Atlas.",
 			format: "markdown",

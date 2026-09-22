@@ -378,9 +378,15 @@ function privateSlotInvariants(
 	// is, not a new attempt to create the contradiction — the same "only
 	// refuse an active change" shape `memoryInvariants` already uses for its
 	// own scope/parent checks (a body-only edit of an existing memory is
-	// never re-refused either). Regression found live: an agent's identity
-	// document (`scopeKind:"user"`, a non-ordinary slot, no parent) predates
-	// this check, and a body-only edit of one must keep working.
+	// never re-refused either). The narrowing exists so a body-only edit of
+	// ANY pre-existing row never trips a shape it did not create — it is a
+	// defensive property of the check itself, not evidence of rows already
+	// sitting in this shape. (Corrected: an earlier version of this comment
+	// cited a live agent-identity row with no parent as the motivating case;
+	// that row does not exist in production — `routes/agent-identity.ts`
+	// parents every identity document to its agent. The "live row" was a
+	// hand-inserted test fixture that omitted the `parent` production always
+	// writes.)
 	if (!isCreate && input.scopeKind === undefined && input.parent === undefined) return [];
 	const scopeKind = input.scopeKind ?? prev?.scopeKind;
 	if (scopeKind !== "user") return [];
