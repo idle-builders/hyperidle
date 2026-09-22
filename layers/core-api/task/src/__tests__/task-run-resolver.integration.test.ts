@@ -344,25 +344,25 @@ describe("resolveTaskRunRequest — emit-time task_run resolver (work)", () => {
  * AU21 §9 Increment 12 (Decision H3), Wave B (RED) — `task_run` bakes a
  * `contextBundle` (`kind:"task"`) matching what `context.ts`'s pre-migration
  * `assembleContext`/`buildSessionContextData` used to assemble at launch:
- * task + bet + agent + team content, plus the ranked+budgeted knowledge
- * bundle (`@hyperidle/knowledge`'s `assembleSessionKnowledge`, Wave A).
+ * task + bet + agent + team content, plus the ranked+budgeted document
+ * bundle (`@hyperidle/document`'s `assembleSessionDocuments`, Wave A).
  *
  * Currently RED two ways:
  *  - `npm run check`: `TaskRunResolverDeps` has no `getTeamById`/
- *    `assembleSessionKnowledge` fields yet — passing them as a 3rd-arg object
+ *    `assembleSessionDocuments` fields yet — passing them as a 3rd-arg object
  *    literal is a TS2353 excess-property error.
  *  - `npm run test` (this file): `resolveTaskRunRequest`'s current
  *    implementation never sets `contextBundle` on its return — the field is
  *    `undefined`, so `toMatchObject` on it fails.
  *
- * @lore Mechanism C: `getTeamById`/`assembleSessionKnowledge` must be
+ * @lore Mechanism C: `getTeamById`/`assembleSessionDocuments` must be
  * INJECTED (not statically imported) — `@hyperidle/work`'s package.json
  * declares only `@hyperidle/db` + framework packages as dependencies
  * (composition-boundary-guard's Mechanism C), matching every sibling
  * resolver's `requireRunnableAgent` injection precedent. The real emit sites
  * (`task-state-machine.ts`, `bet-decomposition.ts`, `handoff-protocol.ts`) are
  * core-api Layer code, not nested Services, so they may legitimately import
- * both `@hyperidle/org` and `@hyperidle/knowledge` to wire the real
+ * both `@hyperidle/org` and `@hyperidle/document` to wire the real
  * implementations in — this test does the same (test files are
  * guard-exempt — `scripts/composition-boundary-guard.ts` skips `__tests__/`).
  *
@@ -373,7 +373,7 @@ describe("resolveTaskRunRequest — emit-time task_run resolver (work)", () => {
  * row, not read it twice.
  */
 describe("resolveTaskRunRequest — contextBundle baking (Increment 12 Wave B, RED)", () => {
-	test("bakes a contextBundle (kind:'task') with task/ancestors/agent/team content + ranked knowledge", async ({
+	test("bakes a contextBundle (kind:'task') with task/ancestors/agent/team content + ranked documents", async ({
 		db,
 	}) => {
 		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
@@ -400,7 +400,7 @@ describe("resolveTaskRunRequest — contextBundle baking (Increment 12 Wave B, R
 			agentId: "agent-trun-ctx-1",
 		});
 
-		// L4 (factory-wide) knowledge item — always in scope regardless of team.
+		// L4 (factory-wide) document — always in scope regardless of team.
 		const now = new Date().toISOString();
 		await db.insert(documents).values({
 			id: "item-trun-ctx-l4",
@@ -417,7 +417,7 @@ describe("resolveTaskRunRequest — contextBundle baking (Increment 12 Wave B, R
 		});
 
 		// RED (npm run check): `TaskRunResolverDeps` does not declare `getTeamById`/
-		// `assembleSessionKnowledge` yet — this object literal is a genuine TS2353
+		// `assembleSessionDocuments` yet — this object literal is a genuine TS2353
 		// excess-property error until Wave B's GREEN phase grows the interface.
 		// Left uncast deliberately (no `any`/`as` — CLAUDE.md strict-TS rule): the
 		// compile error itself IS the expected RED signal. Vitest's esbuild
@@ -429,7 +429,7 @@ describe("resolveTaskRunRequest — contextBundle baking (Increment 12 Wave B, R
 				requireRunnableAgent,
 				getAgentIdentity,
 				getTeamById: (d: HyperIdleDb, id: string) => getTeam(d, { id }),
-				assembleSessionKnowledge: assembleSessionDocuments,
+				assembleSessionDocuments,
 			},
 		);
 
