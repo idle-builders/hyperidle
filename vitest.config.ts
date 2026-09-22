@@ -30,7 +30,6 @@ const PROJECTS = [
 	"layers/core-api/thread",
 	"layers/core-api/settings",
 	"layers/core-api/notifications",
-	"layers/core-api/credentials",
 	"layers/agent-orchestration",
 	"layers/agent-orchestration/session-requests",
 	"layers/agent-orchestration/connections",
