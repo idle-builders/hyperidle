@@ -89,23 +89,60 @@ for connections, filesystems, harnesses and agent behaviour stay legacy until BC
 
 ## How we work on this
 
-One architecture note with one critique, then atomic builder chunks in dependency order (session
-module → join → socket → viewer door → platform module → key → deletions → rename of legacy lists),
-red test first per chunk, one fresh review over the integrated diff, the seam test driving every new
-entry as an agent and as a human, `verify`, service integration, the packaged desktop app driven by
-hand (stop a live session, watch it, install and disable a plugin, worker connects with the key),
-then retro and ship to a CI-green open PR. The record has no checks or review configured, so the
-planner runs them.
+One architecture note with one critique (blocked twice, both real), twelve builder chunks in
+dependency order with one red test and one pathspec commit each, three fix waves, two independent
+review passes on the integrated diff, a seam test driving every entry as an agent and as a person,
+`verify`, the full fast suite and the service integration suite, the real opencode and claude turn
+tests, one packaged desktop build driven by hand, then retro and ship to a CI-green open PR.
 
-## Confusions
+## What was decided along the way
 
-## Proposed items
+- A stopped session ends with state and outcome "stopped" on both paths. Teardown reads a stop
+  request that only the registry's abort with reason "stop" sets; opencode's own return goes
+  through the same abort with reason "return" and still ends done/completed. Propagation acts on
+  "completed" and health on "crashed", so a stop moves nothing. A routine session that is stopped
+  finalises as an error.
+- The session module lives in the package that owns the sessions table; the platform module in
+  settings, which owns the plugins tables. Neither imports a neighbour: everything else arrives in
+  a deps bag bound at the layer's composition root.
+- Orchestration carries its own small copies of the action shape and the two loops and mounts its
+  own `/actions` on the one `/api` router. The applications join the two tool lists once each boot;
+  the HTTP door and the lint need no join.
+- The session-by-id lookup the routine scheduler uses and the "stop sessions for these tasks" seam
+  stay as plumbing; the latter now kills for real. Sixteen route rows left the governance list.
+- Between declaring an action and wiring its screen the governance rule is necessarily red on that
+  name; no decoy call site, no rule change. Full green once the screens landed.
+- Search with no filter lists newest first with a limit of 100; the profile's health window passes
+  its own. A stop answers with the row before the stop; the terminal state arrives by nudge, and
+  the Stop control disables once the row is terminal.
+- The encryption helper moved verbatim to the connections package with its golden-vector test;
+  connections no longer receive a cipher from core. Migration 0087 drops the credentials table.
+- The desktop bridge keeps one channel, `credentials:set`; the key field writes and never reads
+  back; the plaintext readback channel and the self-pinging validator are gone with the catalog.
+- Session activity entries in the live stream are content-free nudges on the one socket; the core
+  socket took the per-request identity handoff the deleted socket had.
+- Pipeline and record ids stay out of code, comments and test titles; a @lore block says the
+  constraint in words.
 
-- The plugin system's `contributions[]` engine (406 lines, `configuration_overrides` and
-  `plugin_configuration_defaults` beyond `mcp.json`) is used by no shipped plugin and read only by
-  the agent-behaviour settings page; `harness_descriptor` and `configuration_default` are dead kinds.
-  BC5 or BC7 ground.
-- Nothing installs the bundled plugins; two docs say the document-management plugin seeds the
-  librarian and its routines. BC7.
+## Accepted limits and what is left
+
+- The worker's key field shows only in shared-backend mode; its keychain write is proven by tests
+  and the worker reads that same file, but a live connect to a shared backend was not run because
+  none exists. The founder's condition ("workers still work") is met up to the keychain, not to the
+  wire.
+- The plugin list reloads on navigation, not on a plugin installed through the tool by an agent:
+  plugins emit no event yet.
+- An agent's profile and the team roster show run state on load; the viewer is the only live
+  surface. A stop reaches them on the next visit.
+- The size bar was missed: whitespace-insensitive production diff is +2,991/−3,819 (net −828);
+  862 lines of plugin lifecycle and 169 of cipher are relocations; roughly 1,960 lines are new
+  against the 1,000 the founder accepted. The declarations, the orchestration copies of the loops,
+  the two page splits and the viewer rewrite are where it went.
+- The plugin system's `contributions[]` engine (406 lines and two tables beyond `mcp.json`) is used
+  by no shipped plugin and read only by the agent-behaviour settings page; `harness_descriptor` and
+  `configuration_default` are dead kinds. Nothing installs the bundled plugins. Both are BC7 ground.
 - `plugin_contributions` has no scope column; reinstalling for one team can drop another team's
-  registry row. Known since BC4.
+  registry row. Known since the document item.
+- The AH5 e2e lane was deleted with the server credential it proved; the AH6 lane stays.
+- The harness lane (real binaries, real model) ran for opencode and claude on the thread turn with
+  the persisted row asserted; codex and cursor-agent were not run in this item.
