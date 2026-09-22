@@ -4,16 +4,28 @@
  * Proves: install form elements present, plugin list renders name/version/scope,
  * Contributions button visible with "detached" label when a contribution has a
  * user override, contribution expand shows detached tag + restore button.
+ *
+ * @lore BC6: the five raw `apiFetch("/api/plugins…")` calls this page used to
+ * make are gone — `call("search_plugins", …)`/`call("edit_plugin", …)` is the
+ * one door now, so `call` is mocked directly (the same idiom
+ * `ScopeChangeDialog`'s and `SettingsSkillsAndRules`' own tests use).
+ * `useTeams` still reads `GET /api/teams` through plain `fetch` — untouched by
+ * this door swap — so the team-picker test keeps its own `fetch` stub.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { SettingsPlugins } from "../SettingsPlugins.js";
+
+const { callMock } = vi.hoisted(() => ({ callMock: vi.fn() }));
+
+vi.mock("../../services/call.js", () => ({ call: callMock }));
 
 vi.mock("../../shell/ToastRegion.js", () => ({
 	useToast: () => ({ showToast: vi.fn() }),
 }));
+
+import { SettingsPlugins } from "../SettingsPlugins.js";
 
 const PLUGIN_WITH_DETACHED = {
 	id: "acme-crm",
@@ -56,40 +68,30 @@ const PLUGIN_NO_CONTRIBUTIONS = {
 	contributions: [],
 };
 
-function setupFetch(plugins: unknown[]): void {
-	vi.stubGlobal(
-		"fetch",
-		vi.fn().mockResolvedValue({
-			ok: true,
-			json: async () => ({ plugins }),
-		}),
-	);
+/** `search_plugins` always resolves to `plugins`; `edit_plugin` resolves `ok: true` with the first plugin unless a caller overrides it. */
+function setupCall(plugins: unknown[]): void {
+	callMock.mockImplementation((name: string) => {
+		if (name === "search_plugins") return Promise.resolve({ ok: true, data: plugins });
+		return Promise.resolve({ ok: true, data: plugins[0] ?? PLUGIN_WITH_DETACHED });
+	});
 }
 
-/** Routes GET /api/teams separately so the team picker has real rows to offer. */
-function setupFetchWithTeams(
-	plugins: unknown[],
-	teams: Array<{ id: string; name: string }>,
-): ReturnType<typeof vi.fn> {
-	const fetchSpy = vi.fn(async (input: RequestInfo | URL) => {
-		const url = typeof input === "string" ? input : input.toString();
-		if (url.includes("/api/teams")) {
-			return { ok: true, json: async () => ({ teams }) };
-		}
-		if (url.includes("/api/plugins") && !url.includes("POST")) {
-			return { ok: true, json: async () => ({ plugins }) };
-		}
-		return { ok: true, json: async () => ({ plugins }) };
-	});
-	vi.stubGlobal("fetch", fetchSpy);
-	return fetchSpy;
+/** `useTeams` reads `GET /api/teams` through plain `fetch` — a separate door. */
+function setupTeamsFetch(teams: Array<{ id: string; name: string }>): void {
+	vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ teams }) }));
 }
 
 describe("SettingsPlugins", () => {
-	afterEach(() => vi.restoreAllMocks());
+	afterEach(() => {
+		vi.restoreAllMocks();
+		callMock.mockReset();
+	});
 
 	describe("install form", () => {
-		beforeEach(() => setupFetch([]));
+		beforeEach(() => {
+			setupCall([]);
+			setupTeamsFetch([]);
+		});
 
 		it("renders source type select, URL input, scope select, and install button", async () => {
 			render(<SettingsPlugins />);
@@ -114,9 +116,9 @@ describe("SettingsPlugins", () => {
 			expect(screen.getByTestId("plugin-scope-team-id")).toBeInTheDocument();
 		});
 
-		it("picks a team through the combobox and installs with that team's id", async () => {
+		it("picks a team through the combobox and installs with that team's id nested in source", async () => {
 			const user = userEvent.setup();
-			const fetchSpy = setupFetchWithTeams([], [{ id: "team-alpha", name: "Alpha Team" }]);
+			setupTeamsFetch([{ id: "team-alpha", name: "Alpha Team" }]);
 			render(<SettingsPlugins />);
 			await waitFor(() => {
 				expect(screen.getByTestId("plugin-scope-kind")).toBeInTheDocument();
@@ -132,15 +134,16 @@ describe("SettingsPlugins", () => {
 			await user.click(screen.getByTestId("plugin-install-btn"));
 
 			await waitFor(() => {
-				const postCall = fetchSpy.mock.calls.find(
-					([, opts]) => (opts as RequestInit | undefined)?.method === "POST",
-				);
-				expect(postCall).toBeDefined();
-				const postOpts = postCall?.[1] as RequestInit;
-				const body = JSON.parse(postOpts.body as string) as {
-					scope: { kind: string; teamId: string };
+				const editCall = callMock.mock.calls.find(([name]) => name === "edit_plugin");
+				expect(editCall).toBeDefined();
+				const input = editCall?.[1] as {
+					source: { kind: string; url: string; scope: { kind: string; teamId: string } };
 				};
-				expect(body.scope).toEqual({ kind: "team", teamId: "team-alpha" });
+				expect(input.source).toEqual({
+					kind: "git",
+					url: "https://github.com/org/plugin",
+					scope: { kind: "team", teamId: "team-alpha" },
+				});
 			});
 		});
 
@@ -153,7 +156,10 @@ describe("SettingsPlugins", () => {
 	});
 
 	describe("plugin list", () => {
-		beforeEach(() => setupFetch([PLUGIN_WITH_DETACHED, PLUGIN_NO_CONTRIBUTIONS]));
+		beforeEach(() => {
+			setupCall([PLUGIN_WITH_DETACHED, PLUGIN_NO_CONTRIBUTIONS]);
+			setupTeamsFetch([]);
+		});
 
 		it("renders a row per installed plugin", async () => {
 			render(<SettingsPlugins />);
@@ -196,10 +202,37 @@ describe("SettingsPlugins", () => {
 			expect(screen.getByTestId("plugin-toggle-acme-search").textContent).toBe("Enable");
 			expect(screen.getByTestId("plugin-remove-acme-crm")).toBeInTheDocument();
 		});
+
+		it("disabling a plugin calls edit_plugin with id and the opposite state", async () => {
+			const user = userEvent.setup();
+			render(<SettingsPlugins />);
+			await waitFor(() => {
+				expect(screen.getByTestId("plugin-toggle-acme-crm")).toBeInTheDocument();
+			});
+			await user.click(screen.getByTestId("plugin-toggle-acme-crm"));
+			await waitFor(() => {
+				expect(callMock).toHaveBeenCalledWith("edit_plugin", { id: "acme-crm", state: "disabled" });
+			});
+		});
+
+		it("removing a plugin calls edit_plugin with id and remove: true", async () => {
+			const user = userEvent.setup();
+			render(<SettingsPlugins />);
+			await waitFor(() => {
+				expect(screen.getByTestId("plugin-remove-acme-crm")).toBeInTheDocument();
+			});
+			await user.click(screen.getByTestId("plugin-remove-acme-crm"));
+			await waitFor(() => {
+				expect(callMock).toHaveBeenCalledWith("edit_plugin", { id: "acme-crm", remove: true });
+			});
+		});
 	});
 
 	describe("detached contributions", () => {
-		beforeEach(() => setupFetch([PLUGIN_WITH_DETACHED]));
+		beforeEach(() => {
+			setupCall([PLUGIN_WITH_DETACHED]);
+			setupTeamsFetch([]);
+		});
 
 		it("shows Contributions button with detached hint when any contribution is detached", async () => {
 			render(<SettingsPlugins />);
@@ -243,6 +276,22 @@ describe("SettingsPlugins", () => {
 			});
 			// lookup-contact is not detached — no restore button for it
 			expect(screen.queryByTestId("btn-restore-acme-crm/lookup-contact")).not.toBeInTheDocument();
+		});
+
+		it("restoring a contribution calls edit_plugin with id and the contribution's key", async () => {
+			const user = userEvent.setup();
+			render(<SettingsPlugins />);
+			await waitFor(() => {
+				expect(screen.getByTestId("plugin-expand-acme-crm")).toBeInTheDocument();
+			});
+			await user.click(screen.getByTestId("plugin-expand-acme-crm"));
+			await user.click(await screen.findByTestId("btn-restore-acme-crm/crm-agent"));
+			await waitFor(() => {
+				expect(callMock).toHaveBeenCalledWith("edit_plugin", {
+					id: "acme-crm",
+					restore: { contribution: "acme-crm/crm-agent" },
+				});
+			});
 		});
 	});
 });

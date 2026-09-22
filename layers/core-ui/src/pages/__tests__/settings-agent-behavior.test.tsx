@@ -178,8 +178,15 @@ function setupFetch(): void {
 			if (urlStr.includes("/api/connections")) {
 				return Promise.resolve({ ok: true, status: 200, json: async () => [] });
 			}
-			if (urlStr.includes("/api/plugins")) {
-				return Promise.resolve({ ok: true, status: 200, json: async () => ({ plugins: [] }) });
+			// BC6: SettingsPlugins reads through `call("search_plugins", …)` —
+			// `POST /api/actions/search_plugins`, not the deleted `/api/plugins`
+			// route — and the action's own result shape (`{ ok, data }`).
+			if (urlStr.includes("/api/actions/search_plugins")) {
+				return Promise.resolve({
+					ok: true,
+					status: 200,
+					json: async () => ({ ok: true, data: [] }),
+				});
 			}
 			if (urlStr.includes("/api/notifications")) {
 				return Promise.resolve({ ok: true, status: 200, json: async () => ({}) });
