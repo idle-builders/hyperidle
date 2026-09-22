@@ -85,10 +85,8 @@ export {
 } from "./session-actions.js";
 // -- `sessions`: this Service owns the table, so these are its only doors --
 export {
-	countActiveRunsByAgent,
 	endSessionByCas,
 	findSessionById,
-	listRunSummaries,
 	listSessions,
 	type SessionSearchFilter,
 	stopSessionRun,
