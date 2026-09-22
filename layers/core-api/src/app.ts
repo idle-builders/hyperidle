@@ -1,12 +1,4 @@
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
-import {
-	type CredentialResolver,
-	decryptCredentialValue,
-	deleteCredential,
-	encryptCredentialValue,
-	readCredentials,
-	writeCredential,
-} from "@hyperidle/credentials";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import { EventBus } from "@hyperidle/event-bus";
@@ -23,7 +15,6 @@ import { buildCoreActions } from "./actions/compose.js";
 import { createAgentIdentityPort } from "./routes/agent-identity.js";
 import { createAgentRoutes } from "./routes/agents.js";
 import { createAuthRoutes } from "./routes/auth.js";
-import { createCredentialRoutes } from "./routes/credentials.js";
 import { createFilesystemInjectionRoutes } from "./routes/filesystems.js";
 import { createHarnessRoutes } from "./routes/harnesses.js";
 import { authHealth } from "./routes/health.js";
@@ -176,10 +167,6 @@ interface AppOptions {
 	 */
 	adapterPool?: HarnessCapabilityReader;
 	/**
-	 * Credential resolver for pre-flight API key checks (R1).
-	 */
-	credentialResolver?: CredentialResolver;
-	/**
 	 * Enable shared-mode authentication (S1). When true, the auth middleware
 	 * accepts Bearer tokens from LoginSessions in addition to X-API-Key.
 	 * Also mounts the public /api/auth/claim endpoint (pre-auth).
@@ -270,29 +257,19 @@ const appLogger = createLogger({ pkg: "server.app" });
  * @lore AU19 Increment 1g/1h: `notifications`' DI ports (Mechanism C), wired
  * here at the `packages/server` composition point — same construction as
  * `server-factory.ts`'s (both need the same real functions; `app.ts` also
- * needs to build the `/api/notifications` route table). All five targets
- * (`settings`, `users`, `org`, `work`, `connections`) are now real,
- * already-migrated packages; the credential cipher/store closed in
- * Increment 1h and wire directly to `@hyperidle/connections`' real exports.
+ * needs to build the `/api/notifications` route table).
  *
  * @lore AU20 Ag6b: collapsed from 5 separate port objects into one
  * `NotificationsDeps` bag (same pattern as server-factory.ts).
+ *
+ * @lore server_credentials deletion: `credentialCipher`/`credentialStore`
+ * are gone from `NotificationsDeps` with the table they read — the SMTP
+ * password they used to fetch had no writer since BC1.
  */
 const notificationsServerConfigPort = { read: readServerConfig, update: updateServerConfig };
 
 const notificationsDeps: NotificationsDeps = {
 	serverConfig: notificationsServerConfigPort,
-	credentialCipher: { encryptCredentialValue, decryptCredentialValue },
-	credentialStore: {
-		findByName: async (db, name) => (await readCredentials(db, { name }))[0],
-		upsert: async (db, values) =>
-			writeCredential(db, values.name, {
-				encryptedValue: values.encryptedValue,
-				validationState: values.validationState,
-				lastValidatedAt: values.lastValidatedAt,
-			}),
-		deleteByName: (db, name) => deleteCredential(db, name),
-	},
 };
 
 /**
@@ -608,7 +585,6 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 				createHarnessRoutes(options.adapterPool, options.db, options.onHarnessRedetect),
 			);
 		}
-		api.route("/credentials", createCredentialRoutes(options.db));
 		// AU26 E4: `/api/connections` is served by `agent-orchestration`'s own
 		// app now (its whole table set is `service_connections`, which that Layer
 		// owns). Same path, other host — see `createAgentOrchestrationApp`.

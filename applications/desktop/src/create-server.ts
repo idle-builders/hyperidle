@@ -62,16 +62,11 @@ export interface CreateServerDeps {
 }
 
 /**
- * @lore AH1 §3 / N1: same shape as `remote-server`'s own `ServerHandle` — see
- * that file's doc comment for why `credentialResolver` rides the handle.
- * @lore AU44-b2: `credentialResolver` type derived from `CoreApiBoot` so this
- * application does not import @hyperidle/credentials (a Service) at the
- * application layer — the layer barrel is the only boundary a composition root crosses.
+ * @lore AH1 §3 / N1: same shape as `remote-server`'s own `ServerHandle`.
  */
 export interface ServerHandle {
 	readonly httpServer: ServerType;
 	readonly dispose: () => Promise<void>;
-	readonly credentialResolver: NonNullable<CoreApiBoot["credentialResolver"]>;
 	/** §5: the joined action list — core's plus this Layer's own three session actions. */
 	readonly actionTools: CoreApiBoot["actionTools"];
 }
@@ -173,7 +168,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	if (!hasSecret) {
 		// biome-ignore lint/suspicious/noConsole: intentional boot-time warning before observability adapter is constructed
 		console.warn(
-			"[HyperIdle] No HYPERIDLE_CREDENTIAL_KEY/HYPERIDLE_API_KEY set — credential writes will be refused (MISSING_ROOT_SECRET). Agents cannot resolve keys until a secret is configured.",
+			"[HyperIdle] No HYPERIDLE_CREDENTIAL_KEY/HYPERIDLE_API_KEY set — connection token writes will be refused (MISSING_ROOT_SECRET) until a secret is configured.",
 		);
 	}
 
@@ -303,7 +298,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			},
 			resolveProvisioningOwnerUserId: coreApi.resolveProvisioningOwnerUserId,
 		},
-		cipher: coreApi.cipher,
 	});
 	// §5: close the join — every session from here on sees both
 	// layers' actions through the thunk above.
@@ -418,6 +412,5 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		return disposePromise;
 	};
 
-	// biome-ignore lint/style/noNonNullAssertion: `db` is always set above (either the injected fixture or a freshly opened handle)
-	return { httpServer, dispose, credentialResolver: coreApi.credentialResolver!, actionTools };
+	return { httpServer, dispose, actionTools };
 }

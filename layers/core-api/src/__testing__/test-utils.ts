@@ -5,7 +5,6 @@ import {
 	bootAgentOrchestration,
 } from "@hyperidle/agent-orchestration";
 import type { AgentOrchestrationTransport } from "@hyperidle/api-contract";
-import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/credentials";
 import { registerFixtureOrchestrationCleanup } from "@hyperidle/db/test-fixtures";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
@@ -34,15 +33,6 @@ export interface TestAppOptions extends AppOptions {
 	 * collision.
 	 */
 	agentOrchestrationBoot?: AgentOrchestrationBoot;
-	/**
-	 * AU44 batch2: AES-256-GCM cipher injected into the agent-orchestration Layer
-	 * for connection token encrypt/decrypt. Sourced from `@hyperidle/credentials`
-	 * at the Application layer; absent → connections route rejects token writes.
-	 */
-	cipher?: {
-		readonly encrypt: (plaintext: string) => string;
-		readonly decrypt: (ciphertext: string) => string | null;
-	};
 	/**
 	 * Mount extra routes on the `/api` router at the exact point production's
 	 * Application mounts the MCP bridge: after both Layers' pre-auth
@@ -112,10 +102,6 @@ export async function createTestApp(options?: TestAppOptions): Promise<Hono> {
 			? await bootAgentOrchestration({
 					db: options.db,
 					eventBus,
-					cipher: options.cipher ?? {
-						encrypt: encryptCredentialValue,
-						decrypt: decryptCredentialValue,
-					},
 				})
 			: undefined);
 	if (options?.db && agentOrchestration) {

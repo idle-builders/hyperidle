@@ -24,14 +24,11 @@
  *   - routes are mounted at /api/connections in server-factory.ts
  */
 
-import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/credentials";
 import { type HyperIdleDb, users } from "@hyperidle/db";
 import { createLoginSession } from "@hyperidle/users";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 import { createTestApp } from "../__testing__/test-utils.js";
-
-const TEST_CIPHER = { encrypt: encryptCredentialValue, decrypt: decryptCredentialValue };
 
 const TEST_API_KEY = "test-key-an1-connections";
 const CREDENTIAL_KEY = "test-credential-encryption-key-an1";
@@ -406,7 +403,6 @@ describe("AN1 — /api/connections routes", () => {
 				db,
 				eventBus,
 				sharedMode: true,
-				cipher: TEST_CIPHER,
 			});
 
 			// Seed user A first — API key auth resolves to first human = USER_A.
@@ -454,7 +450,6 @@ describe("AN1 — /api/connections routes", () => {
 				db,
 				eventBus,
 				sharedMode: true,
-				cipher: TEST_CIPHER,
 			});
 
 			await seedUserA(db);
@@ -503,7 +498,6 @@ describe("AN1 — /api/connections routes", () => {
 				db,
 				eventBus,
 				sharedMode: true,
-				cipher: TEST_CIPHER,
 			});
 
 			await seedUserA(db);

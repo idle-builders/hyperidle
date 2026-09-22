@@ -14,7 +14,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SettingsHarnesses } from "../SettingsHarnesses.js";
 
-// Mock ToastRegion — SettingsModels + CredentialsTab call useToast which needs a provider
+// Mock ToastRegion — SettingsModels calls useToast which needs a provider
 vi.mock("../../shell/ToastRegion.js", async () => {
 	const actual = await vi.importActual("../../shell/ToastRegion.js");
 	return {
@@ -22,11 +22,6 @@ vi.mock("../../shell/ToastRegion.js", async () => {
 		useToast: vi.fn(() => ({ showToast: vi.fn() })),
 	};
 });
-
-// Mock CredentialsTab — has its own data fetching, not under test here
-vi.mock("../../components/CredentialsTab.js", () => ({
-	CredentialsTab: () => <div data-testid="credentials-tab">Credentials</div>,
-}));
 
 // ---------------------------------------------------------------------------
 // Fixtures

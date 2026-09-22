@@ -118,30 +118,19 @@ export interface CreateServerDeps {
  * `http.Server`. We store `ServerType` to avoid an unsafe `as http.Server`
  * cast — `.close()` exists on all union members.
  *
- * `credentialResolver` is exposed so integration tests can assert the
- * production wiring is `instanceof DbCredentialResolver` (AH1 invariant).
- *
  * @lore N1: B1 (reviewer): do NOT use `as http.Server` cast. Use ServerType
  * directly — `.close()` exists on all union members.
- * @lore AH1 §3: credentialResolver is in ServerHandle so the single-resolver
- * invariant test can assert `instanceof DbCredentialResolver` without relying
- * on indirect observable effects. This is the correct scope: the test must
- * fail if someone reverts the wiring to EnvCredentialResolver.
- * @lore AU44-b2: `credentialResolver` type derived from `CoreApiBoot` so this
- * application does not import @hyperidle/credentials (a Service) at the
- * application layer — the layer barrel is the only boundary a composition root crosses.
  *
- * @lore BC3 thread-ws-e2e: `actionTools` is exposed for the same reason as
- * `credentialResolver` — an integration test needs to invoke the real
- * `send_message` MCP tool door (`actionsAsTools`'s handler, the exact
- * registry `bootAgentOrchestration`'s runtime threads a live session's tool
- * calls through) against THIS composition's own db/wsHub, not a second
- * throwaway boot whose hub would have zero connected clients.
+ * @lore BC3 thread-ws-e2e: `actionTools` is exposed so an integration test
+ * can invoke the real `send_message` MCP tool door (`actionsAsTools`'s
+ * handler, the exact registry `bootAgentOrchestration`'s runtime threads a
+ * live session's tool calls through) against THIS composition's own
+ * db/wsHub, not a second throwaway boot whose hub would have zero connected
+ * clients.
  */
 export interface ServerHandle {
 	readonly httpServer: ServerType;
 	readonly dispose: () => Promise<void>;
-	readonly credentialResolver: NonNullable<CoreApiBoot["credentialResolver"]>;
 	readonly actionTools: CoreApiBoot["actionTools"];
 }
 
@@ -257,13 +246,16 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 
 	const hasSecret = Boolean(process.env.HYPERIDLE_CREDENTIAL_KEY ?? process.env.HYPERIDLE_API_KEY);
 	if (!hasSecret) {
-		// @lore AH1 §6: Boot is non-fatal but we log a warning so misconfigured deployments
-		// are visible. The write boundary (PUT /api/credentials) rejects loudly (500
-		// MISSING_ROOT_SECRET). console.warn is intentional here — the observability adapter
-		// is not yet constructed at this point in the boot sequence.
+		// @lore AH1 §6, corrected by the server_credentials deletion: Boot is
+		// non-fatal but we log a warning so misconfigured deployments are
+		// visible. The write boundary is now POST /api/connections (a held
+		// token's encrypt step throws MISSING_ROOT_SECRET without a secret) —
+		// the same cipher the deleted /api/credentials route used to guard.
+		// console.warn is intentional here — the observability adapter is not
+		// yet constructed at this point in the boot sequence.
 		// biome-ignore lint/suspicious/noConsole: intentional boot-time warning before observability adapter is constructed
 		console.warn(
-			"[HyperIdle] No HYPERIDLE_CREDENTIAL_KEY/HYPERIDLE_API_KEY set — credential writes will be refused (MISSING_ROOT_SECRET). Agents cannot resolve keys until a secret is configured.",
+			"[HyperIdle] No HYPERIDLE_CREDENTIAL_KEY/HYPERIDLE_API_KEY set — connection token writes will be refused (MISSING_ROOT_SECRET) until a secret is configured.",
 		);
 	}
 
@@ -422,7 +414,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			},
 			resolveProvisioningOwnerUserId: coreApi.resolveProvisioningOwnerUserId,
 		},
-		cipher: coreApi.cipher,
 	});
 	// §5: close the join — every session from here on sees both
 	// layers' actions through the thunk above.
@@ -568,8 +559,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	return {
 		httpServer,
 		dispose,
-		// biome-ignore lint/style/noNonNullAssertion: `db` is always set above (either the injected fixture or a freshly opened handle)
-		credentialResolver: coreApi.credentialResolver!,
 		// §5: the joined list — what the seam test drives as "the agent".
 		actionTools,
 	};

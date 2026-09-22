@@ -30,8 +30,12 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { listConnections, resolveHeldToken } from "@hyperidle/connections";
-import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/credentials";
+import {
+	decryptCredentialValue,
+	encryptCredentialValue,
+	listConnections,
+	resolveHeldToken,
+} from "@hyperidle/connections";
 import { serviceConnections, users } from "@hyperidle/db";
 import { HELD_AUTH_SOURCES, type HeldAuthSource } from "@hyperidle/domain-model";
 import { applyProvisioningPlan, buildProvisioningPlan } from "@hyperidle/run-orchestration";

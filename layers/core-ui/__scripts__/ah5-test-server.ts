@@ -4,26 +4,19 @@
  * Boots a real Hono server on AH5_API_PORT (default 3097) with:
  *   - PGlite database migrated into a fresh per-boot tmp dir (AU32 D4 — no
  *     longer the bare in-memory handle this once was)
- *   - OpenRouter API key seeded ENCRYPTED into server_credentials via
- *     encryptCredentialValue (production AES-256-GCM path) — so DbCredentialResolver
- *     exercises the production credential resolution path with zero mocks.
  *   - Assistant agent configured with the dynamically-selected smoke model
  *     (from ah5-resolve-model.ts output, or fallback model id).
  *
- * @lore AH5: Mirror of ah1-test-server.ts pattern. The key addition is the
- * encrypted OpenRouter credential seed — AH1 never seeded any credential (it
- * drove real PUT /api/credentials/* from the E2E spec). AH5 pre-seeds the
- * credential at boot so the full provisionSession → DbCredentialResolver →
- * callLlm production path runs with no env-based resolver shortcut.
+ * @lore AH5, corrected: the OpenRouter key no longer has anywhere server-side
+ * to be seeded — `server_credentials` and the resolver that read it are
+ * deleted; a harness now authenticates itself. Whatever this lane needs to
+ * reach OpenRouter is the smoke harness's own concern, not this script's.
+ *
+ * @lore AH5: Mirror of ah1-test-server.ts pattern.
  *
  * @lore AH5: npm workspace hoisting means @hyperidle/server, @hyperidle/db,
  * @hyperidle/eval are accessible from node_modules even though layers/core-ui
  * doesn't list them as deps. This is intentional for E2E test helpers.
- *
- * @lore AH5: OPENROUTER_API_KEY must be in process.env (set in your local shell).
- * If absent, the server boots but the credential row is absent — any real LLM call
- * will fail with MissingCredentialError. The `npm run smoke:ah5` orchestrator
- * fails closed if the key is missing before this server starts.
  *
  * @lore AH5: The RESOLVE_MODEL_FILE env var, if set, points to a JSON file
  * written by ah5-resolve-model.ts containing { routedId, ranked }.
@@ -36,8 +29,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { encryptCredentialValue } from "@hyperidle/credentials";
-import { applyMigrations, createPgliteDb, serverCredentials } from "@hyperidle/db";
+import { applyMigrations, createPgliteDb } from "@hyperidle/db";
 import { createServer } from "@hyperidle/remote-server/create-server";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
@@ -64,49 +56,7 @@ await applyMigrations(dataDir, migrationsFolder);
 const { db, close: closeDb } = await createPgliteDb(dataDir);
 
 // ---------------------------------------------------------------------------
-// 2. Seed the OpenRouter API key into server_credentials (encrypted).
-//    This exercises the PRODUCTION DbCredentialResolver path — no EnvCredentialResolver.
-// ---------------------------------------------------------------------------
-const openrouterApiKey = process.env.OPENROUTER_API_KEY;
-if (openrouterApiKey) {
-	// @lore AU20 Am4: encryptCredentialValue is now no-arg; HYPERIDLE_CREDENTIAL_KEY is
-	// set above so the secret is available. Throws MISSING_ROOT_SECRET if not configured.
-	let encryptedValue: string;
-	try {
-		encryptedValue = encryptCredentialValue(openrouterApiKey);
-	} catch {
-		process.stderr.write(
-			"[ah5-test-server] WARNING: No server secret configured (HYPERIDLE_CREDENTIAL_KEY / HYPERIDLE_API_KEY). " +
-				"Credential encryption will fail.\n",
-		);
-		encryptedValue = "";
-	}
-	if (encryptedValue) {
-		const now = new Date().toISOString();
-		await db
-			.insert(serverCredentials)
-			.values({
-				name: "openrouter_api_key",
-				encryptedValue,
-				validationState: "present_untested",
-				updatedAt: now,
-			})
-			.onConflictDoUpdate({
-				target: serverCredentials.name,
-				set: { encryptedValue, updatedAt: now },
-			});
-		process.stdout.write("[ah5-test-server] OpenRouter API key seeded into server_credentials.\n");
-	}
-} else {
-	process.stdout.write(
-		"[ah5-test-server] WARNING: OPENROUTER_API_KEY not set. " +
-			"Real LLM calls will fail with MissingCredentialError. " +
-			"Run via `npm run smoke:ah5` which fails closed if the key is absent.\n",
-	);
-}
-
-// ---------------------------------------------------------------------------
-// 3. Resolve the smoke model to use.
+// 2. Resolve the smoke model to use.
 //    Reads RESOLVE_MODEL_FILE if set (written by ah5-resolve-model.ts),
 //    otherwise falls back to AH5_FALLBACK_MODEL_ID or a static default.
 // ---------------------------------------------------------------------------
@@ -132,7 +82,7 @@ if (resolveModelFile && fs.existsSync(resolveModelFile)) {
 }
 
 // ---------------------------------------------------------------------------
-// 4. Boot the Hono server with the already-migrated tmp-dir DB.
+// 3. Boot the Hono server with the already-migrated tmp-dir DB.
 //    AU31 §6: `topology: "local"` replaces the concrete `AdapterPool`/
 //    `SandboxAdapter` this script used to construct itself (laptop profile,
 //    set above, still governs the in-process CLI discovery).
@@ -143,7 +93,7 @@ const handle = await createServer(AH5_API_PORT, {
 	topology: "local",
 });
 
-// 5. Signal readiness — playwright.ah5.config.ts waits for this line.
+// 4. Signal readiness — playwright.ah5.config.ts waits for this line.
 process.stdout.write(`[ah5-test-server] ready on http://localhost:${AH5_API_PORT}\n`);
 
 // Graceful shutdown.

@@ -34,14 +34,12 @@ import type { NotificationsDeps } from "./ports.js";
 // Private sub-bag aliases (Pick from the single public NotificationsDeps)
 // ---------------------------------------------------------------------------
 
-type ConfigDeps = Pick<NotificationsDeps, "serverConfig" | "credentialCipher" | "credentialStore">;
+type ConfigDeps = Pick<NotificationsDeps, "serverConfig">;
 type MuteDeps = Pick<NotificationsDeps, "serverConfig">;
 
 // ---------------------------------------------------------------------------
 // Private types
 // ---------------------------------------------------------------------------
-
-const SMTP_PASSWORD_CREDENTIAL_NAME = "notifications_smtp_password";
 
 // @lore AU44 batch 4: NotificationConfig is now SMTP-only. primaryChannel,
 // digestChannel, ntfy, flood, testMaxPerHour, smtpIgnoreTls, digestCron all
@@ -81,21 +79,20 @@ export type DeliveryResult = {
 };
 
 // ---------------------------------------------------------------------------
-// Private: credential helpers
+// Private: config assembly
 // ---------------------------------------------------------------------------
 
-async function readSecret(db: HyperIdleDb, name: string, deps: ConfigDeps): Promise<string | null> {
-	const row = await deps.credentialStore.findByName(db, name);
-	if (!row) return null;
-	return deps.credentialCipher.decryptCredentialValue(row.encryptedValue);
-}
-
+/**
+ * @lore server_credentials deletion: the SMTP password used to be read from
+ * an encrypted credential row with no writer since BC1 — always null in
+ * practice. It is now always null, honestly, rather than through a lookup
+ * that could never find one.
+ */
 async function readNotificationConfig(
 	db: HyperIdleDb,
 	deps: ConfigDeps,
 ): Promise<NotificationConfig> {
 	const { notifications } = await deps.serverConfig.read(db);
-	const smtpPassword = await readSecret(db, SMTP_PASSWORD_CREDENTIAL_NAME, deps);
 	return {
 		enabled: notifications.delivery.enabled,
 		smtp: {
@@ -103,7 +100,7 @@ async function readNotificationConfig(
 			port: notifications.delivery.smtpPort,
 			secure: notifications.delivery.smtpSecure,
 			username: notifications.delivery.smtpUsername,
-			password: smtpPassword,
+			password: null,
 			from: notifications.delivery.smtpFrom,
 		},
 	};
@@ -193,11 +190,7 @@ function classifySmtpRetriable(err: unknown): boolean {
 // ---------------------------------------------------------------------------
 
 function toConfigDeps(deps: NotificationsDeps): ConfigDeps {
-	return {
-		serverConfig: deps.serverConfig,
-		credentialCipher: deps.credentialCipher,
-		credentialStore: deps.credentialStore,
-	};
+	return { serverConfig: deps.serverConfig };
 }
 
 function toMuteDeps(deps: NotificationsDeps): MuteDeps {
