@@ -115,10 +115,10 @@ const NAMED_PACKAGES: Readonly<Record<string, { readonly role: Role; readonly la
 	credentials: { role: "service", layer: "core-api" },
 	"design-system": { role: "framework" },
 	desktop: { role: "application" },
+	document: { role: "service", layer: "core-api" },
 	"filesystem-mounting": { role: "service", layer: "agent-orchestration" },
 	filesystems: { role: "service", layer: "agent-orchestration" },
 	"harness-registry": { role: "service", layer: "agent-execution" },
-	knowledge: { role: "service", layer: "core-api" },
 	notifications: { role: "service", layer: "core-api" },
 	policy: { role: "service", layer: "core-api" },
 	"remote-server": { role: "application" },
@@ -645,7 +645,9 @@ describe("AU28 — the registries are honest", () => {
 	it("claims every table the schema declares, and no phantom ones", () => {
 		// A collapse guard, not a census: the next two assertions are what prove the
 		// registry honest. The pass that dropped five unused tables took this from 44 to 39.
-		expect(liveTables.size).toBeGreaterThan(30);
+		// The document module fold (five knowledge tables into one `documents` table) took this
+		// from 33 to 29.
+		expect(liveTables.size).toBeGreaterThan(25);
 		expect(() => validateTableOwners(tableOwners, liveTables, packageNames)).not.toThrow();
 		expect(tableOwners.totals.tables).toBe(liveTables.size);
 	});

@@ -13,7 +13,7 @@
  */
 
 import type { ThreadView } from "@hyperidle/domain-model";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Conversations } from "../pages/Conversations";
@@ -81,6 +81,9 @@ describe("NEW-28 — mobile conversation header collapses when empty", () => {
 					},
 				};
 			}
+			// ArtifactSection (rendered once the thread loads, via `useDocuments`)
+			// fires its own `search_documents` call — give it an empty list, same
+			// as every other action this test doesn't care about.
 			return { ok: true, data: [] };
 		});
 	});
@@ -103,6 +106,14 @@ describe("NEW-28 — mobile conversation header collapses when empty", () => {
 		// conversations-page testid (the wrapper div + ConversationsDetail's
 		// internal state), so use findAllByTestId to avoid a "multiple found" error.
 		await screen.findAllByTestId("conversations-page");
+
+		// Wait for the thread to fully load AND for the artifact panel's own
+		// `search_documents` call (it mounts once the thread resolves) — otherwise
+		// that effect fires after this test's afterEach has already reset callMock,
+		// and `call(...)` resolves to `undefined` on the next test run.
+		await waitFor(() => {
+			expect(callMock).toHaveBeenCalledWith("search_documents", expect.anything());
+		});
 
 		// On mobile with no active session, the PageHeader must not be in the DOM.
 		// Before the fix: empty <header> container occupies 37px of space.

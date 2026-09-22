@@ -1,9 +1,9 @@
 /**
- * A routine's prompt is a knowledge document.
+ * A routine's prompt is a document.
  *
  * It was a `routines.prompt` text column — the one instruction in the system
- * with no home in knowledge, so it could not be read, edited or reused like the
- * knowledge it plainly is. A plugin that contributes a routine had nothing to
+ * with no home among the documents, so it could not be read, edited or reused
+ * like the document it plainly is. A plugin that contributes a routine had nothing to
  * contribute its prompt *to*.
  *
  * The routine now points at a document. The API still takes `prompt` text
@@ -11,24 +11,24 @@
  * editing that document in Knowledge changes what the routine fires with.
  */
 
-import { type HyperIdleDb, knowledgeItems, users } from "@hyperidle/db";
+import { documents, type HyperIdleDb, users } from "@hyperidle/db";
 import { and, eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
-/** The knowledge document parented to this routine's prompt slot, if any. */
+/** The document parented to this routine's prompt slot, if any. */
 async function findPromptDoc(
 	db: HyperIdleDb,
 	routineId: string,
-): Promise<typeof knowledgeItems.$inferSelect | undefined> {
+): Promise<typeof documents.$inferSelect | undefined> {
 	const [row] = await db
 		.select()
-		.from(knowledgeItems)
+		.from(documents)
 		.where(
 			and(
-				eq(knowledgeItems.parentKind, "routine"),
-				eq(knowledgeItems.parentId, routineId),
-				eq(knowledgeItems.role, "prompt"),
+				eq(documents.parentKind, "routine"),
+				eq(documents.parentId, routineId),
+				eq(documents.slot, "prompt"),
 			),
 		);
 	return row;
@@ -66,7 +66,7 @@ function routineBody(extra: Record<string, unknown> = {}): string {
 	});
 }
 
-describe("a routine's prompt is a knowledge document", () => {
+describe("a routine's prompt is a document", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 	});
@@ -133,13 +133,13 @@ describe("a routine's prompt is a knowledge document", () => {
 		const doc = await findPromptDoc(db, created.id);
 		const docId = String(doc?.id);
 
-		// Edited as ordinary knowledge — the whole point of it being a document.
-		await app.request(`/api/knowledge/${docId}`, {
-			method: "PATCH",
+		// Edited as an ordinary document — the whole point of it being one.
+		await app.request("/api/actions/edit_document", {
+			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
+				id: docId,
 				version: doc?.version,
-				updatedBy: "u-founder",
 				body: "Sweep only items older than 90 days.",
 			}),
 		});
@@ -216,5 +216,39 @@ describe("a routine's prompt is a knowledge document", () => {
 
 		expect(withPrompt?.prompt).toBe("Sweep the knowledge base for stale items.");
 		expect(withoutPrompt?.prompt).toBe(null);
+	});
+
+	// architecture.md §8.3 B12: the read is `search_documents({parent, slot})`
+	// with no `status` filter — today's behaviour (the pre-item
+	// `knowledge-repository.ts:2045-2048` read never filtered on status
+	// either), pinned here. A routine paused or whose prompt someone archived
+	// by hand must keep firing with the instruction it had, not go blank.
+	test("a routine's prompt read returns an archived prompt too", async ({ db, app }) => {
+		await seedAgent(db, "agent-owner");
+		const created = (await (
+			await app.request("/api/routines", {
+				method: "POST",
+				headers: authHeaders(),
+				body: routineBody(),
+			})
+		).json()) as { id: string };
+
+		const doc = await findPromptDoc(db, created.id);
+		await db
+			.update(documents)
+			.set({ status: "archived" })
+			.where(eq(documents.id, String(doc?.id)));
+
+		const single = (await (
+			await app.request(`/api/routines/${created.id}`, { headers: authHeaders() })
+		).json()) as { routine?: { prompt?: string | null } };
+		expect(single.routine?.prompt).toBe("Sweep the knowledge base for stale items.");
+
+		const list = (await (
+			await app.request("/api/routines", { headers: authHeaders() })
+		).json()) as Array<{ id: string; prompt?: string | null }>;
+		expect(list.find((r) => r.id === created.id)?.prompt).toBe(
+			"Sweep the knowledge base for stale items.",
+		);
 	});
 });

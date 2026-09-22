@@ -5,7 +5,7 @@ import type {
 	AgentSessionSourceCorrelation,
 	AgentSessionSourceKind,
 	BakedContextBundle,
-	BakedContextKnowledgeItem,
+	BakedContextDocument,
 	RoutineTriggerEvent,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
@@ -18,10 +18,10 @@ import type { Manifest, ManifestEntry } from "./manifest-types.js";
  * is DELETED, not seam-routed — the entity content (task/bet/agent/team or
  * routine/agent/team) + the ranked+budgeted knowledge bundle are baked at
  * EMIT time by each per-kind resolver (`@hyperidle/work`'s
- * `task-run-resolver.ts`, `@hyperidle/knowledge`'s
+ * `task-run-resolver.ts`, `@hyperidle/document`'s
  * `knowledge-action-resolver.ts`, `@hyperidle/routine`'s
  * `resolveRoutineRunRequest`)
- * calling the shared `@hyperidle/knowledge`'s `assembleSessionKnowledge`
+ * calling the shared `@hyperidle/document`'s `assembleSessionDocuments`
  * (Wave A) — the `requireRunnableAgent` precedent. `assembleAgentContext`
  * below consumes the baked `contextBundle` carried on the session request and
  * writes `context/session.toon` + the nested `knowledge/**` tree — ZERO db
@@ -244,7 +244,7 @@ const PERSONA_TOOLS_TOKEN_BUDGET = 4000;
  * @lore AU21 §9 Increment 12 (Decision H3), Wave C: relocated from
  * `contextPorts.knowledge.countTokens` (`run-orchestration-composition.ts`) —
  * that binding was ALWAYS this same self-contained byte-length approximation,
- * never a real `@hyperidle/knowledge` call (verified from source), so
+ * never a real `@hyperidle/document` call (verified from source), so
  * inlining it here drops zero behavior and removes the last reason this file
  * needed a `knowledge` port at all.
  */
@@ -355,7 +355,7 @@ const WORKSPACE_SECTION = `## Workspace
 Your workspace is organized as follows:
 
 - \`context/\` -- Read-only. Your session context (session.toon: task, ancestors, agent, team data).
-- \`knowledge/\` -- Knowledge you can read, edit, and reorganize. It mirrors the real knowledge tree: a folder holds an \`index.md\` (that item's own content) plus its children as files or nested folders. Create, edit, move, and nest items here -- changes save back automatically.
+- \`knowledge/\` -- Documents you can read, edit, and reorganize. It mirrors the real document tree: a folder holds an \`index.md\` (that item's own content) plus its children as files or nested folders. Create, edit, move, and nest items here -- changes save back automatically.
   - \`rules/\` -- Rules and guidelines that apply to your work.
 - \`work/\` -- Your working area.
   - \`artifacts/\` -- Output artifacts.
@@ -517,14 +517,6 @@ function buildRoutineTaskSection(context: RoutineSessionContextData): string {
 				if (ev.subject.actorId) {
 					parts.push(`- **Actor:** ${ev.subject.actorId}`);
 				}
-			} else if (ev.subject.kind === "knowledge-item") {
-				parts.push("");
-				parts.push("**Knowledge item that triggered this run:**");
-				parts.push(`- **Title:** ${ev.subject.item.title}`);
-				parts.push(`- **Format:** ${ev.subject.item.format}`);
-				if (ev.subject.actorId) {
-					parts.push(`- **Actor:** ${ev.subject.actorId}`);
-				}
 			} else if (ev.subject.kind === "team") {
 				parts.push("");
 				parts.push("**Team that triggered this run:**");
@@ -675,8 +667,8 @@ function cleanDirectory(dirPath: string): void {
  * kind-inference subdirectories are GONE — there is one writable, watched
  * `knowledge/` tree shaped like the real tree, not a set of layer buckets. An
  * agent's own materialised knowledge writes wherever its parent chain says;
- * `knowledge/rules` survives because role='rule' items land there regardless
- * of tree position (placement follows role, not tree position).
+ * `knowledge/rules` survives because slot='rule' items land there regardless
+ * of tree position (placement follows slot, not tree position).
  */
 const CONTEXT_ASSEMBLY_DIRS = [".fabric", "context", "knowledge/rules", "work/artifacts"] as const;
 
@@ -732,7 +724,7 @@ function createDirectoryStructure(sandboxPath: string): void {
 	fs.writeFileSync(path.join(sandboxPath, "work/task-notes.md"), "");
 }
 
-function writeItem(sandboxPath: string, item: BakedContextKnowledgeItem, zone: string): string {
+function writeItem(sandboxPath: string, item: BakedContextDocument, zone: string): string {
 	const filename = toFilename(item.title, item.id);
 	const relativePath = `${zone}/${filename}`;
 	const fullPath = path.join(sandboxPath, relativePath);
@@ -771,7 +763,7 @@ function writeItem(sandboxPath: string, item: BakedContextKnowledgeItem, zone: s
  */
 function writeOrdinaryItems(
 	sandboxPath: string,
-	items: readonly BakedContextKnowledgeItem[],
+	items: readonly BakedContextDocument[],
 	manifestItems: Record<string, ManifestEntry>,
 ): void {
 	const dirPathByAncestorId: Record<string, string> = {};
@@ -859,7 +851,7 @@ function toSkillDirName(title: string): string {
  * @lore BA9b: Write a skill item to each known harness skill directory.
  * Returns the first relative path written (for the manifest entry).
  */
-function writeSkillItem(sandboxPath: string, item: BakedContextKnowledgeItem): string {
+function writeSkillItem(sandboxPath: string, item: BakedContextDocument): string {
 	const dirName = toSkillDirName(item.title);
 	let firstPath: string | undefined;
 	for (const harnessSkillDir of HARNESS_SKILL_DIRS) {
@@ -893,19 +885,19 @@ function writeSkillItem(sandboxPath: string, item: BakedContextKnowledgeItem): s
  * (`item.agentBindingId`) is now the PARENT — `parentKind='agent'`,
  * `parentId=<agentId>` — not a scope reverse lookup. Nothing here changes:
  * `agentBindingId` is still derived once, upstream, in
- * `toBakedContextKnowledgeItems` (`@hyperidle/domain-model`), and this
+ * `toBakedContextDocuments` (`@hyperidle/domain-model`), and this
  * function only ever compares the already-derived value.
  *
  */
 function writeBundleKnowledge(
 	sandboxPath: string,
-	knowledge: readonly BakedContextKnowledgeItem[],
+	knowledge: readonly BakedContextDocument[],
 	agentId: string,
 ): Record<string, ManifestEntry> {
 	const manifestItems: Record<string, ManifestEntry> = {};
-	const ordinaryItems: BakedContextKnowledgeItem[] = [];
+	const ordinaryItems: BakedContextDocument[] = [];
 	for (const item of knowledge) {
-		const role = item.role;
+		const role = item.slot;
 
 		// @lore knowledge-attachment-slot Guard 2: `prompt` lands as the run's
 		// instruction, never a sandbox file. This is NOT redundant with the
@@ -996,7 +988,7 @@ function writeContextBundle(
 	cleanDirectory(path.join(sandboxPath, ".fabric"));
 	createDirectoryStructure(sandboxPath);
 
-	const manifestItems = writeBundleKnowledge(sandboxPath, bundle.knowledge, agentId);
+	const manifestItems = writeBundleKnowledge(sandboxPath, bundle.documents, agentId);
 
 	const sessionToon =
 		bundle.kind === "task"

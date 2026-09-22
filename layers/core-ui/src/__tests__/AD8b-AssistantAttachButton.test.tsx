@@ -1,7 +1,7 @@
 /**
  * AD8b — AssistantAttachButton component tests (RED phase).
  *
- * AC-9: Context can be attached from bet cards, task cards, knowledge items,
+ * AC-9: Context can be attached from bet cards, task cards, documents,
  *       blocks, and thread messages.
  *
  * This is a rename of CocAttachButton → AssistantAttachButton.
@@ -79,15 +79,15 @@ describe("AD8b — AssistantAttachButton", () => {
 		).toBeInTheDocument();
 	});
 
-	it("works with knowledge_item refs", () => {
-		const knowledgeRef: AssistantContextRef = {
-			kind: "knowledge_item",
+	it("works with document refs", () => {
+		const documentRef: AssistantContextRef = {
+			kind: "document",
 			id: "ki-1",
 			label: "API Guide",
 		};
 		render(
 			<AssistantContext.Provider value={{ overlayOpen: true, attachContext: vi.fn() }}>
-				<AssistantAttachButton ref={knowledgeRef} />
+				<AssistantAttachButton ref={documentRef} />
 			</AssistantContext.Provider>,
 		);
 		expect(screen.getByTestId("assistant-attach-button")).toBeInTheDocument();

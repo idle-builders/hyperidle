@@ -29,7 +29,7 @@ Code-verified decision log for the system architecture. Each entry records a set
 ## UI
 
 - **Task placement tech.** Plain React task card components in a simple symbolic layout with a hard capacity cap — no drawing-canvas or drag-and-drop library. Surface structure: [work view](../information-architecture/work-view.md); lifecycle: [tasks and sessions](../process-layer/tasks-and-sessions.md).
-- **Attention scores drive notifications and ambient indicators, not the Knowledge view.** The Knowledge view gives access to all knowledge; attention scores decide what notifies and what surfaces via Conversations filter chips — they never filter the Knowledge view. Scoring: [relevance and attention](../knowledge-architecture/relevance-and-attention.md).
+- **There is no attention or relevance score anywhere in the product.** The Knowledge view gives access to all knowledge, unfiltered by any score; Triage is plain recency order, and notifications are driven by explicit review requests and blocker alerts, never a computed score.
 
 ## Process layer
 
@@ -39,7 +39,7 @@ Code-verified decision log for the system architecture. Each entry records a set
 ## Knowledge
 
 - **Knowledge fabric sync: continuous writeback.** A file watcher on `knowledge/` and `work/` writes back changes incrementally (500ms debounce, `layers/agent-orchestration/run-orchestration/src/file-watcher.ts:30`) with WebSocket push to open Knowledge view tabs — no session-boundary dependency. Mechanics: [sync and conflict resolution](../knowledge-architecture/sync-and-conflict-resolution.md).
-- **Conflict resolution: version check, not layer precedence.** There is no layer ladder and no precedence order — a version mismatch on modify, or any delete, always opens a review record rather than resolving automatically. Mechanics: [sync and conflict resolution](../knowledge-architecture/sync-and-conflict-resolution.md).
-- **Edit log for facilitator learning.** Every human edit is logged in `knowledge_edit_log` (`framework/db/src/schema.ts:912`) as a training signal for improving facilitator proposals over time.
-- **Facilitators are not a SPOF.** Practice facilitation is an async self-improvement loop that never interferes with task execution; if a facilitator is down, agents keep working and simply miss new practice updates until the next context assembly.
+- **Conflict resolution: version check, refuse and discard.** There is no layer ladder, no precedence order, and no conflict record to review — a version mismatch on modify is refused outright and the losing edit is simply discarded; a document has no conflict object. Mechanics: [sync and conflict resolution](../knowledge-architecture/sync-and-conflict-resolution.md).
+- **History is the `changes` table, not a dedicated edit log.** Every human edit and every agent `edit_document` call lands as one `document.created`/`document.changed` row in the shared `changes` table — no separate log to keep in sync.
+- **Curation is not a SPOF.** The document-management plugin's librarian agent triages and decays documents on a schedule, entirely separate from task execution; if it is uninstalled or its routines don't run, agents keep working and the tree simply accumulates `proposed` documents until someone or something curates it.
 - **Knowledge misses are acceptable.** Agents will sometimes miss relevant knowledge — a feature, not a bug; it's part of how new approaches get discovered. The system optimizes for relevance at context-assembly time and doesn't guarantee completeness.

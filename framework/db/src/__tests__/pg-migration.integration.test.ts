@@ -40,8 +40,7 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
 					"users",
 					// @lore BB1: `bets` table dropped — tasks carry parentTaskId self-FK.
 					"invite_codes",
-					"knowledge_edit_log",
-					"knowledge_items",
+					"documents",
 					"login_sessions",
 					"messages",
 					"routines",
@@ -69,6 +68,15 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
 			// @lore BC3 migration 0085 step 6: `items` dropped — destructive, no
 			// compat column. Must not reappear.
 			expect(tableNames).not.toContain("items");
+			// @lore BC4 migration 0086: `knowledge_items` renamed to `documents`;
+			// `knowledge_edit_log`, `knowledge_app_projection`, `knowledge_conflicts` and
+			// `knowledge_access_log` dropped outright (§6.2). Exact-absence proves the
+			// DROP TABLEs ran.
+			expect(tableNames).not.toContain("knowledge_items");
+			expect(tableNames).not.toContain("knowledge_edit_log");
+			expect(tableNames).not.toContain("knowledge_app_projection");
+			expect(tableNames).not.toContain("knowledge_conflicts");
+			expect(tableNames).not.toContain("knowledge_access_log");
 			// @lore BB1: bets table dropped — was 18, then 17. BC3: items dropped — now 16.
 			expect(tableNames.length).toBeGreaterThanOrEqual(16);
 		} finally {

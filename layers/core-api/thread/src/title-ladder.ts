@@ -10,7 +10,7 @@
  *   1. assistant thread (two-party `hostKind:"agent"`, by
  *      `users.ownerUserId`, never id shape) → "Assistant"
  *   2. DM (2-participant, user/agent host) → other participant's name
- *   3. host-scoped (`knowledge_item`) → entity title
+ *   3. host-scoped (`document`) → entity title
  *   4. group/feed → deterministic participant-name join
  *   5. last resort → "Untitled conversation"
  *
@@ -36,7 +36,17 @@ export interface TitleLadderDeps {
 		db: HyperIdleDb,
 		ids: readonly string[],
 	) => Promise<ReadonlyMap<string, ParticipantIdentity>>;
-	readonly getKnowledgeItemTitle: (db: HyperIdleDb, id: string) => Promise<string | null>;
+	/**
+	 * Batched — bound to ONE `search_documents({ids})` call however many
+	 * document-hosted rows are in the list, never a per-id loop
+	 * (architecture.md §8.3). A missing/invisible document has no entry in
+	 * the returned map; rung 3 below already falls back to "Deleted document"
+	 * when `.get()` misses.
+	 */
+	readonly getDocumentTitles: (
+		db: HyperIdleDb,
+		ids: readonly string[],
+	) => Promise<ReadonlyMap<string, string>>;
 }
 
 function identityName(entry: ParticipantIdentity | undefined): string | undefined {
@@ -68,16 +78,17 @@ export async function resolveThreadTitles(
 	const allParticipantIds = new Set<string>();
 	for (const row of rows) {
 		for (const p of parseParticipants(row.participants)) allParticipantIds.add(p);
-		if (row.hostKind === "knowledge_item") kiIds.push(row.hostId);
+		if (row.hostKind === "document") kiIds.push(row.hostId);
 	}
 
-	const [kiTitles, userNameMap] = await Promise.all([
-		Promise.all(kiIds.map(async (id) => [id, await deps.getKnowledgeItemTitle(db, id)] as const)),
+	const [kiMap, userNameMap] = await Promise.all([
+		kiIds.length > 0
+			? deps.getDocumentTitles(db, kiIds)
+			: Promise.resolve(new Map<string, string>()),
 		allParticipantIds.size > 0
 			? deps.listUserNames(db, [...allParticipantIds])
 			: Promise.resolve(new Map<string, ParticipantIdentity>()),
 	]);
-	const kiMap = new Map(kiTitles);
 
 	for (const row of rows) {
 		// Rung 0: the stored title wins over everything computed.
@@ -123,11 +134,11 @@ export async function resolveThreadTitles(
 			}
 		}
 
-		// Rung 3: host-scoped (knowledge_item). Task's own rung is gone — a
+		// Rung 3: host-scoped (document). Task's own rung is gone — a
 		// task's thread is team-hosted.
-		if (row.hostKind === "knowledge_item") {
+		if (row.hostKind === "document") {
 			const title = kiMap.get(row.hostId);
-			titleMap.set(row.id, title ?? "Deleted knowledge item");
+			titleMap.set(row.id, title ?? "Deleted document");
 			continue;
 		}
 

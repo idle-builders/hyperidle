@@ -145,8 +145,6 @@ describe("closed enums (AC-4)", () => {
 
 	it("HOST_KINDS has exactly 5 entries (bet, artifact, and task are no longer host kinds — a task's thread is team-hosted)", () => {
 		expect(HOST_KINDS.length).toBe(5);
-		expect(new Set(HOST_KINDS)).toEqual(
-			new Set(["knowledge_item", "agent", "user", "team", "factory"]),
-		);
+		expect(new Set(HOST_KINDS)).toEqual(new Set(["document", "agent", "user", "team", "factory"]));
 	});
 });

@@ -19,56 +19,11 @@
   },
   {
     "path": "layers/core-api/src/routes/auth.ts",
-    "line": 56,
+    "line": 58,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",
     "importerCount": 0,
     "triageHint": "straight-swap"
-  },
-  {
-    "path": "layers/core-ui/src/fixtures/knowledge-data.ts",
-    "line": 68,
-    "symbol": "MOCK_KNOWLEDGE_ITEMS",
-    "kind": "symbol",
-    "shape": "array",
-    "importerCount": 1,
-    "triageHint": "borderline"
-  },
-  {
-    "path": "layers/core-ui/src/pages/KnowledgeDetail.tsx",
-    "line": 63,
-    "symbol": "../fixtures/knowledge-data",
-    "kind": "import",
-    "shape": "import",
-    "importerCount": 0,
-    "triageHint": "borderline"
-  },
-  {
-    "path": "layers/core-ui/src/pages/KnowledgeDetail.tsx",
-    "line": 142,
-    "symbol": "LEGACY_DETAILS",
-    "kind": "symbol",
-    "shape": "object",
-    "importerCount": 3,
-    "triageHint": "borderline"
-  },
-  {
-    "path": "layers/core-ui/src/pages/KnowledgeDetail.tsx",
-    "line": 208,
-    "symbol": "LEGACY_SOURCES",
-    "kind": "symbol",
-    "shape": "object",
-    "importerCount": 1,
-    "triageHint": "borderline"
-  },
-  {
-    "path": "layers/core-ui/src/pages/KnowledgeDetail.tsx",
-    "line": 214,
-    "symbol": "FALLBACK_DETAIL",
-    "kind": "symbol",
-    "shape": "object",
-    "importerCount": 0,
-    "triageHint": "borderline"
   }
 ]

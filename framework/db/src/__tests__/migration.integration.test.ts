@@ -35,8 +35,7 @@ describe("A2: Migration", () => {
 				// @lore AU18: `factory_settings` retired — `server_config` is its
 				// typed singleton-row successor.
 				"server_config",
-				"knowledge_edit_log",
-				"knowledge_items",
+				"documents",
 				"messages",
 				"routines",
 				"sessions",
@@ -68,6 +67,15 @@ describe("A2: Migration", () => {
 		// @lore BC3 migration 0085 step 6: `items` dropped, destructive, no
 		// compat column. Exact-absence proves the DROP TABLE ran.
 		expect(tableNames).not.toContain("items");
+		// @lore BC4 migration 0086: `knowledge_items` renamed to `documents`;
+		// `knowledge_edit_log`, `knowledge_app_projection`, `knowledge_conflicts` and
+		// `knowledge_access_log` dropped outright, folded onto `documents` or removed
+		// with no replacement (§6.2). Exact-absence proves the DROP TABLEs ran.
+		expect(tableNames).not.toContain("knowledge_items");
+		expect(tableNames).not.toContain("knowledge_edit_log");
+		expect(tableNames).not.toContain("knowledge_app_projection");
+		expect(tableNames).not.toContain("knowledge_conflicts");
+		expect(tableNames).not.toContain("knowledge_access_log");
 		expect(tableNames.length).toBeGreaterThanOrEqual(12);
 	});
 
@@ -96,32 +104,21 @@ describe("A2: Migration", () => {
 		});
 	});
 
-	test("migrated database has kernel and fabric knowledge indexes", async ({ db }) => {
-		// @lore O2: layer, scope_id, kind indexes removed from knowledge_items kernel table.
-		// They now live on knowledge_app_projection extension table.
-		const kiResult = await db.execute(
-			`SELECT indexname FROM pg_indexes WHERE tablename = 'knowledge_items' AND schemaname = 'public'` as Parameters<
+	test("migrated database has document indexes", async ({ db }) => {
+		// @lore BC4 migration 0086: the O2 kernel/fabric split is gone — `knowledge_app_projection`
+		// (the extension table these indexes used to live on) is dropped and folded onto
+		// `documents` itself (§6.2), so there is one table and one index set to assert on.
+		const docResult = await db.execute(
+			`SELECT indexname FROM pg_indexes WHERE tablename = 'documents' AND schemaname = 'public'` as Parameters<
 				typeof db.execute
 			>[0],
 		);
-		const kiIndexes = (kiResult as { rows: Array<{ indexname: string }> }).rows.map(
+		const docIndexes = (docResult as { rows: Array<{ indexname: string }> }).rows.map(
 			(r) => r.indexname,
 		);
 
-		// Kernel table should have at least 3 indexes (PK + topic + status/updated_at)
-		expect(kiIndexes.length).toBeGreaterThanOrEqual(3);
-
-		// Strategy fabric table should have indexes too
-		const ksfResult = await db.execute(
-			`SELECT indexname FROM pg_indexes WHERE tablename = 'knowledge_app_projection' AND schemaname = 'public'` as Parameters<
-				typeof db.execute
-			>[0],
-		);
-		const ksfIndexes = (ksfResult as { rows: Array<{ indexname: string }> }).rows.map(
-			(r) => r.indexname,
-		);
-
-		expect(ksfIndexes.length).toBeGreaterThanOrEqual(1);
+		// PK + scope + status + updated_at + slot + parent + parent_position + last_used
+		expect(docIndexes.length).toBeGreaterThanOrEqual(3);
 	});
 
 	test("journal timestamps are strictly monotonically increasing", () => {

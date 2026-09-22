@@ -31,7 +31,6 @@ describe("API Availability Regression Guard (I6)", () => {
 	// route module with a GET base path. See the actions-router POST check below.
 	const ROUTE_MODULES = [
 		{ path: "/api/health", description: "Health (public)" },
-		{ path: "/api/knowledge", description: "Knowledge" },
 		{ path: "/api/users", description: "Users" },
 		{ path: "/api/routines", description: "Routines" },
 		{ path: "/api/sessions", description: "Sessions" },
@@ -68,6 +67,10 @@ describe("API Availability Regression Guard (I6)", () => {
 		// the architecture doc §8: the eight-route /api/tasks CRUD surface is
 		// deleted — task is an action now, not a route module.
 		"/api/tasks",
+		// document-module B20: /api/knowledge is deleted — document is an
+		// action now, `search_documents`/`open_document`/`edit_document` under
+		// `POST /api/actions/<name>`, not a route module with a GET base path.
+		"/api/knowledge",
 		"/api/git-export",
 		"/api/git-export/config",
 		"/api/git-export/run",

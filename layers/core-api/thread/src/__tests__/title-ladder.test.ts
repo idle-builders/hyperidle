@@ -32,7 +32,7 @@ function threadRow(
 function depsFor(identities: Record<string, ParticipantIdentity>): TitleLadderDeps {
 	return {
 		listUserNames: async () => new Map(Object.entries(identities)),
-		getKnowledgeItemTitle: async () => null,
+		getDocumentTitles: async () => new Map(),
 	};
 }
 
@@ -99,5 +99,90 @@ describe("resolveThreadTitles — assistant rung is ownership, not id shape", ()
 			depsFor({ "agent-nova": { name: "Nova", ownerUserId: "u1" } }),
 		);
 		expect(titles.get("t6")).toBe("Nova");
+	});
+});
+
+describe("resolveThreadTitles — rung 3 (document-hosted), batched title lookup", () => {
+	test("N+1 guard: three document-hosted threads make exactly ONE getDocumentTitles call", async () => {
+		const calls: (readonly string[])[] = [];
+		const rows = [
+			threadRow({ id: "d1", hostKind: "document", hostId: "doc-1", participants: "[]" }),
+			threadRow({ id: "d2", hostKind: "document", hostId: "doc-2", participants: "[]" }),
+			threadRow({ id: "d3", hostKind: "document", hostId: "doc-3", participants: "[]" }),
+		];
+		const deps: TitleLadderDeps = {
+			listUserNames: async () => new Map(),
+			getDocumentTitles: async (_db, ids) => {
+				calls.push(ids);
+				return new Map(ids.map((id) => [id, `Title for ${id}`]));
+			},
+		};
+		const titles = await resolveThreadTitles(fakeDb, rows, "u1", deps);
+
+		expect(calls.length).toBe(1);
+		expect(titles.get("d1")).toBe("Title for doc-1");
+		expect(titles.get("d2")).toBe("Title for doc-2");
+		expect(titles.get("d3")).toBe("Title for doc-3");
+	});
+
+	test("reverted to a per-id call, the same list makes THREE calls — proves the guard is red without the batch", async () => {
+		const calls: (readonly string[])[] = [];
+		const rows = [
+			threadRow({ id: "d1", hostKind: "document", hostId: "doc-1", participants: "[]" }),
+			threadRow({ id: "d2", hostKind: "document", hostId: "doc-2", participants: "[]" }),
+			threadRow({ id: "d3", hostKind: "document", hostId: "doc-3", participants: "[]" }),
+		];
+		// A per-id loop, the shape this block replaces — proves the counting
+		// spy above actually catches an N+1, not just the presence of a call.
+		const perIdDeps: TitleLadderDeps = {
+			listUserNames: async () => new Map(),
+			getDocumentTitles: async (_db, ids) => {
+				const out = new Map<string, string>();
+				for (const id of ids) {
+					calls.push([id]);
+					out.set(id, `Title for ${id}`);
+				}
+				return out;
+			},
+		};
+		await resolveThreadTitles(fakeDb, rows, "u1", perIdDeps);
+		expect(calls.length).toBe(3);
+	});
+
+	test("a missing/invisible host document falls back to 'Deleted document', not an error", async () => {
+		const row = threadRow({
+			id: "d4",
+			hostKind: "document",
+			hostId: "doc-gone",
+			participants: "[]",
+		});
+		const deps: TitleLadderDeps = {
+			listUserNames: async () => new Map(),
+			// The runner returned ok but the document simply has no entry — this
+			// is what an invisible-to-the-actor OR truly deleted document looks
+			// like from the ladder's side; both fall back identically.
+			getDocumentTitles: async () => new Map(),
+		};
+		const titles = await resolveThreadTitles(fakeDb, [row], "u1", deps);
+		expect(titles.get("d4")).toBe("Deleted document");
+	});
+
+	test("no document-hosted threads in the list makes zero getDocumentTitles calls", async () => {
+		const calls: (readonly string[])[] = [];
+		const row = threadRow({
+			id: "u9",
+			hostKind: "user",
+			hostId: "u1",
+			participants: JSON.stringify(["u1", "u2"]),
+		});
+		const deps: TitleLadderDeps = {
+			listUserNames: async () => new Map([["u2", { name: "Bo", ownerUserId: null }]]),
+			getDocumentTitles: async (_db, ids) => {
+				calls.push(ids);
+				return new Map();
+			},
+		};
+		await resolveThreadTitles(fakeDb, [row], "u1", deps);
+		expect(calls.length).toBe(0);
 	});
 });

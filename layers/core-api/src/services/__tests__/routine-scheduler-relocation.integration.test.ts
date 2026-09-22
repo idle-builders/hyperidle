@@ -14,7 +14,7 @@
  *     `runPracticeMeetingRoutine` relocated VERBATIM (same behavior, new
  *     location) — this file proves the relocated functions work identically
  *     to their dispatch-owned predecessors, calling core-api Services
- *     (`work`/`conversation`/`knowledge`/`review`/`settings`) via an injected
+ *     (`work`/`conversation`/`document`/`review`/`settings`) via an injected
  *     `RoutineSchedulerPorts` bag (Mechanism C — `composition-boundary-guard`
  *     hard-fails a Service package importing another Service directly, no
  *     allowlist, so `@hyperidle/routine` cannot import them itself), composed
@@ -38,12 +38,6 @@
  */
 
 import { type HyperIdleDb, routineRuns, routines, teams, users } from "@hyperidle/db";
-import {
-	getAgentIdentity,
-	get as getKnowledgeItem,
-	getParentedItem,
-	sweep,
-} from "@hyperidle/knowledge";
 import type { RoutineSchedulerPorts } from "@hyperidle/routine";
 import { fireGenericRoutine } from "@hyperidle/routine";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
@@ -52,15 +46,19 @@ import * as work from "@hyperidle/task";
 import { findThread } from "@hyperidle/thread";
 import { requireRunnableAgent } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
+import { makeDocumentReadPorts } from "../../__testing__/document-read-test-ports.js";
 import { describe, expect, test } from "../../__testing__/test-fixtures.js";
+import { createStandaloneSearchDocuments } from "../../actions/compose.js";
 
 const NOW = "2026-07-28T00:00:00.000Z";
+const searchDocuments = createStandaloneSearchDocuments();
+const { getAgentIdentity, getRoutinePrompt } = makeDocumentReadPorts(searchDocuments);
 
 /**
  * Builds the SAME real ports `routine-scheduler-bindings.ts` composes — a
  * second, test-local wiring (rather than importing that module's private
  * `routineSchedulerPorts` singleton) so this test proves the relocated
- * functions work against real `work`/`conversation`/`knowledge`/`review`/
+ * functions work against real `work`/`conversation`/`document`/`review`/
  * `settings` implementations, independent of the composition root's own
  * plumbing.
  */
@@ -86,15 +84,8 @@ function makePorts(): RoutineSchedulerPorts {
 		conversation: {
 			findThreadById: (db, id) => findThread(db, { id }),
 		},
-		knowledge: {
-			runAutoPromotionSweep: (db, eventBus) => sweep(db, eventBus, "autoPromotion"),
-			runStaleSweep: (db, eventBus, nowMs, thresholdMs, options) =>
-				sweep(db, eventBus, "stale", { nowMs, thresholdMs, ...options }),
-			getItemById: async (db, id) => {
-				const item = await getKnowledgeItem(db, id);
-				return item ?? undefined;
-			},
-		},
+		// @lore BC4 architecture.md §0 A1: `knowledge.getItemById` deleted with
+		// the itemId → knowledge-item subject branch — see `ports.ts`.
 		settings: {
 			readServerConfig: async (db) => {
 				const cfg = await readServerConfig(db);
@@ -106,9 +97,7 @@ function makePorts(): RoutineSchedulerPorts {
 		workIntents: { enqueueWorkIntent },
 		requireRunnableAgent,
 		getAgentIdentity,
-		getRoutinePrompt: async (db, routineId) =>
-			(await getParentedItem(db, { parentKind: "routine", parentId: routineId, role: "prompt" }))
-				?.body ?? null,
+		getRoutinePrompt,
 	};
 }
 

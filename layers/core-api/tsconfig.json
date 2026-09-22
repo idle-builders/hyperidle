@@ -54,7 +54,7 @@
 			"path": "credentials"
 		},
 		{
-			"path": "knowledge"
+			"path": "document"
 		},
 		{
 			"path": "notifications"

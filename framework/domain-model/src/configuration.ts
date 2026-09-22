@@ -15,15 +15,19 @@ export type PluginState = "enabled" | "disabled" | "removed";
 /**
  * The kinds of thing a plugin can contribute, and the table each points into.
  *
- * `agent` → `users`, `routine` → `routines`, `knowledge` → `knowledge_items`
+ * `agent` → `users`, `routine` → `routines`, `document` → `documents`
  * (skills, rules, agent files and routine prompts alike — BA9f made them all
- * knowledge documents, so one kind covers them), `configuration_default` →
+ * documents, so one kind covers them), `configuration_default` →
  * `plugin_configuration_defaults`.
+ *
+ * @lore BC4: member value flipped `knowledge` -> `document` with migration
+ * 0086 step 10 (architecture.md §6.4, §8.6, §8.7c). The constant keeps its
+ * name until the later rename wave.
  */
 export const PLUGIN_CONTRIBUTION_KINDS = [
 	"agent",
 	"routine",
-	"knowledge",
+	"document",
 	"configuration_default",
 ] as const;
 export type PluginContributionKind = (typeof PLUGIN_CONTRIBUTION_KINDS)[number];

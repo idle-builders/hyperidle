@@ -19,6 +19,6 @@ export const HealthyChildren: () => JSX.Element = (): JSX.Element => (
 
 export const Caught: () => JSX.Element = (): JSX.Element => (
 	<ErrorBoundary>
-		<Throws message="Demo render failure: knowledge feed unavailable." />
+		<Throws message="Demo render failure: document feed unavailable." />
 	</ErrorBoundary>
 );

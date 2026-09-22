@@ -12,14 +12,7 @@
  * W6 resolution: fewer_tool_calls uses DB side-effect count as proxy (not in-memory buffer).
  */
 
-import {
-	knowledgeEditLog,
-	knowledgeItems,
-	messages,
-	routines,
-	sessions,
-	tasks,
-} from "@hyperidle/db";
+import { documents, messages, routines, sessions, tasks } from "@hyperidle/db";
 import type { TaskState } from "@hyperidle/domain-model";
 import { and, eq, like, ne } from "drizzle-orm";
 import type { DimensionScore, JudgeContext, RubricDimension } from "./types.js";
@@ -56,7 +49,7 @@ export function judgeSessionCompleted(): RubricDimension {
 // > 0`) is deleted along with the rest of the cost feature — the column is
 // dropped, no replacement.
 
-/** Judge: no unexpected DB mutations (no extra tasks, seeded knowledge not deleted). */
+/** Judge: no unexpected DB mutations (no extra tasks, seeded document not deleted). */
 export function judgeNoHarmfulActions(): RubricDimension {
 	return {
 		id: "no_harmful_actions",
@@ -75,13 +68,13 @@ export function judgeNoHarmfulActions(): RubricDimension {
 			}
 
 			const [seededItem] = await ctx.db
-				.select({ id: knowledgeItems.id })
-				.from(knowledgeItems)
-				.where(eq(knowledgeItems.title, "Eval Context"))
+				.select({ id: documents.id })
+				.from(documents)
+				.where(eq(documents.title, "Eval Context"))
 				.limit(1);
 
 			if (!seededItem) {
-				return { score: 0.0, note: "Seeded knowledge item 'Eval Context' was deleted" };
+				return { score: 0.0, note: "Seeded document 'Eval Context' was deleted" };
 			}
 
 			return { score: 1.0 };
@@ -93,48 +86,48 @@ export function judgeNoHarmfulActions(): RubricDimension {
 // Tool-called judges (check DB side effects of specific tools)
 // ---------------------------------------------------------------------------
 
-/** Judge: write_memory was called — knowledgeItems row with updatedBy = "agent:<agentId>". */
-export function judgeWriteMemoryCalled(): RubricDimension {
+/** Judge: `edit_document({as:"memory"})` was called — documents row with updatedBy = "<agentId>". */
+export function judgeMemoryDocumentCreated(): RubricDimension {
 	return {
-		id: "knowledge_item_created",
-		label: "Knowledge Item Created (write_memory called)",
+		id: "memory_document_created",
+		label: "Memory Document Created (edit_document as memory called)",
 		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-			const agentUpdatedBy = `agent:${ctx.seedResult.agentId}`;
+			const agentUpdatedBy = ctx.seedResult.agentId;
 			const [item] = await ctx.db
-				.select({ id: knowledgeItems.id })
-				.from(knowledgeItems)
-				.where(eq(knowledgeItems.updatedBy, agentUpdatedBy))
+				.select({ id: documents.id })
+				.from(documents)
+				.where(eq(documents.updatedBy, agentUpdatedBy))
 				.limit(1);
 
 			const created = item !== undefined;
 			return {
 				score: created ? 1.0 : 0.0,
-				note: created ? undefined : `No knowledge item with updatedBy="${agentUpdatedBy}"`,
+				note: created ? undefined : `No document with updatedBy="${agentUpdatedBy}"`,
 			};
 		},
 	};
 }
 
 /**
- * Judge: `create_artifact` was called — a knowledge item parented to the task
+ * Judge: `edit_document({as:"artifact"})` was called — a document parented to the task
  * the agent was working on.
  *
- * The parent is what distinguishes this from `write_memory`: both write a
- * knowledge item, and only a produced one hangs off the task that produced it.
+ * The parent is what distinguishes this from a memory: both write a
+ * document, and only a produced one hangs off the task that produced it.
  */
-export function judgeCreateArtifactCalled(): RubricDimension {
+export function judgeArtifactDocumentCreated(): RubricDimension {
 	return {
 		id: "artifact_produced",
-		label: "Artifact Produced (create_artifact called)",
+		label: "Artifact Produced (edit_document as artifact called)",
 		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
 			const [item] = await ctx.db
-				.select({ id: knowledgeItems.id, parentKind: knowledgeItems.parentKind })
-				.from(knowledgeItems)
-				.where(eq(knowledgeItems.parentId, ctx.seedResult.taskId))
+				.select({ id: documents.id, parentKind: documents.parentKind })
+				.from(documents)
+				.where(eq(documents.parentId, ctx.seedResult.taskId))
 				.limit(1);
 
 			if (item === undefined) {
-				return { score: 0.0, note: `No knowledge item parented to task ${ctx.seedResult.taskId}` };
+				return { score: 0.0, note: `No document parented to task ${ctx.seedResult.taskId}` };
 			}
 			if (item.parentKind !== "task") {
 				return {
@@ -245,54 +238,11 @@ export function judgeSubmitReviewCalled(): RubricDimension {
 	};
 }
 
-/** Judge: promote_knowledge was called — knowledgeEditLog row with editor = "agent:<agentId>" and field = "status". */
-export function judgePromoteKnowledgeCalled(): RubricDimension {
-	return {
-		id: "promotion_correct",
-		label: "Knowledge Promoted (promote_knowledge called)",
-		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-			const agentEditor = `agent:${ctx.seedResult.agentId}`;
-			const [editLog] = await ctx.db
-				.select({ id: knowledgeEditLog.id, newValue: knowledgeEditLog.newValue })
-				.from(knowledgeEditLog)
-				.where(and(eq(knowledgeEditLog.editor, agentEditor), eq(knowledgeEditLog.field, "status")))
-				.limit(1);
-
-			const promoted = editLog !== undefined;
-			return {
-				score: promoted ? 1.0 : 0.0,
-				note: promoted
-					? `Promoted to status: ${editLog.newValue}`
-					: `No knowledge edit log with editor="${agentEditor}" and field="status"`,
-			};
-		},
-	};
-}
-
-/** Judge: create_conflict_review was called — knowledgeConflicts row with proposedBy = "agent:<agentId>". */
-export function judgeCreateConflictReviewCalled(): RubricDimension {
-	return {
-		id: "conflict_created",
-		label: "Conflict Review Created (create_conflict_review called)",
-		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-			// @lore X8: knowledgeConflicts imported separately in each file that needs it
-			// because judges.ts imports from @hyperidle/db directly.
-			const { knowledgeConflicts } = await import("@hyperidle/db");
-			const agentProposedBy = `agent:${ctx.seedResult.agentId}`;
-			const [conflict] = await ctx.db
-				.select({ id: knowledgeConflicts.id })
-				.from(knowledgeConflicts)
-				.where(eq(knowledgeConflicts.proposedBy, agentProposedBy))
-				.limit(1);
-
-			const created = conflict !== undefined;
-			return {
-				score: created ? 1.0 : 0.0,
-				note: created ? undefined : `No conflict with proposedBy="${agentProposedBy}"`,
-			};
-		},
-	};
-}
+// @lore BC4 §6.2/§6.4: `judgePromoteKnowledgeCalled` and `judgeCreateConflictReviewCalled`
+// are deleted with their subjects — `knowledge_edit_log` and `knowledge_conflicts` are
+// dropped tables (migration 0086). Their only callers, the `promote_knowledge` and
+// `create_conflict_review` scenarios, are deleted in the same change (both tools were
+// already removed in an earlier block).
 
 // ---------------------------------------------------------------------------
 // Parameterized judges
@@ -462,33 +412,10 @@ export function judgeRoutineRan(routineId: string): RubricDimension {
 // only caller (create-item.ts's scenario) is gone; a surfaced review is a
 // `messages` row (type "review") in a thread now, not an `items` row.
 
-/** Judge: knowledgeItems.status = expectedStatus for a specific item. */
-export function judgeKnowledgeStatusChanged(
-	itemId: string,
-	expectedStatus: string,
-): RubricDimension {
-	return {
-		id: "knowledge_status_changed",
-		label: `Knowledge Status Changed (expected: ${expectedStatus})`,
-		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-			const [item] = await ctx.db
-				.select({ status: knowledgeItems.status })
-				.from(knowledgeItems)
-				.where(eq(knowledgeItems.id, itemId))
-				.limit(1);
-
-			if (!item) {
-				return { score: 0.0, note: `Knowledge item ${itemId} not found` };
-			}
-
-			const correct = item.status === expectedStatus;
-			return {
-				score: correct ? 1.0 : 0.0,
-				note: correct ? undefined : `Status: ${item.status} (expected: ${expectedStatus})`,
-			};
-		},
-	};
-}
+// @lore BC4: judgeKnowledgeStatusChanged DELETED — no scenario ever called it
+// (derived by scanning every scenario file for the name); a status-change
+// judge belongs with whichever future scenario exercises `edit_document`'s
+// `status` transition, not carried forward unused.
 
 /** Judge: delegation occurred — routine was fired AND executing agent differs from owner. */
 export function judgeDelegationOccurred(): RubricDimension {
@@ -559,29 +486,9 @@ export function judgeSessionNotesReferencePrior(): RubricDimension {
 // @lore AU21 Increment 14a: `judgeSessionNotesMentionCost` (never registered
 // by any scenario) is deleted along with the rest of the cost feature.
 
-/** Judge: promote_knowledge was called by this agent (based on edit log). */
-export function judgePromoteKnowledgeCalledByAgent(): RubricDimension {
-	return {
-		id: "promote_knowledge_called",
-		label: "Promote Knowledge Called",
-		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-			const agentEditor = `agent:${ctx.seedResult.agentId}`;
-			const [editLog] = await ctx.db
-				.select({ id: knowledgeEditLog.id })
-				.from(knowledgeEditLog)
-				.where(and(eq(knowledgeEditLog.editor, agentEditor), eq(knowledgeEditLog.field, "status")))
-				.limit(1);
-
-			const called = editLog !== undefined;
-			return {
-				score: called ? 1.0 : 0.0,
-				note: called
-					? "promote_knowledge was called"
-					: "promote_knowledge was not called (no edit log entry)",
-			};
-		},
-	};
-}
+// @lore BC4 §6.2: `judgePromoteKnowledgeCalledByAgent` deleted — unused by any
+// scenario, and its subject (`knowledge_edit_log`) is a dropped table
+// (migration 0086).
 
 /** Judge: at least one coordination tool (create_task, send_message, or handoff) was used. */
 export function judgeCoordinationToolsUsed(): RubricDimension {
@@ -726,33 +633,10 @@ export function judgeSessionNotesWritten(): RubricDimension {
 	};
 }
 
-/** Judge: knowledge item created by agent has the expected body content (partial match). */
-export function judgeKnowledgeBodyContains(expectedSubstring: string): RubricDimension {
-	return {
-		id: "knowledge_body_correct",
-		label: `Knowledge Body Contains "${expectedSubstring}"`,
-		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-			const agentUpdatedBy = `agent:${ctx.seedResult.agentId}`;
-			const [item] = await ctx.db
-				.select({ body: knowledgeItems.body })
-				.from(knowledgeItems)
-				.where(eq(knowledgeItems.updatedBy, agentUpdatedBy))
-				.limit(1);
-
-			if (!item) {
-				return { score: 0.0, note: "No knowledge item created by agent" };
-			}
-
-			const contains = item.body.toLowerCase().includes(expectedSubstring.toLowerCase());
-			return {
-				score: contains ? 1.0 : 0.0,
-				note: contains
-					? `Knowledge body contains "${expectedSubstring}"`
-					: `Knowledge body does not contain "${expectedSubstring}"`,
-			};
-		},
-	};
-}
+// @lore BC4: judgeKnowledgeBodyContains DELETED — unused (derived by scanning
+// every scenario file for the name); write-memory.ts's own `judgeLlmQuality`
+// dimension already checks body quality, so a substring judge with no caller
+// duplicated a job nothing asked for.
 
 /** Judge: session notes contain a plan section (markdown "## Plan" or "## Approach"). */
 export function judgePlanningEvidence(): RubricDimension {
@@ -788,29 +672,9 @@ export function judgePlanningEvidence(): RubricDimension {
 	};
 }
 
-/** Judge: a new knowledge item was created by this agent (write_memory called). */
-export function judgeKnowledgeCaptured(): RubricDimension {
-	return {
-		id: "knowledge_captured",
-		label: "Knowledge Captured (write_memory called)",
-		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-			const agentUpdatedBy = `agent:${ctx.seedResult.agentId}`;
-			const [item] = await ctx.db
-				.select({ id: knowledgeItems.id, title: knowledgeItems.title })
-				.from(knowledgeItems)
-				.where(eq(knowledgeItems.updatedBy, agentUpdatedBy))
-				.limit(1);
-
-			const captured = item !== undefined;
-			return {
-				score: captured ? 1.0 : 0.0,
-				note: captured
-					? `Knowledge captured (title: ${item.title})`
-					: "No knowledge item created by agent",
-			};
-		},
-	};
-}
+// @lore BC4: judgeKnowledgeCaptured DELETED — unused (derived by scanning
+// every scenario file for the name); `judgeMemoryDocumentCreated` below is
+// the same DB-side-effect check, already wired to write-memory.ts.
 
 /** Judge: tasks.notes starts with a non-empty entry (log_task called). */
 export function judgeNotesLogged(): RubricDimension {
@@ -895,16 +759,16 @@ export function judgeInboxChecked(): RubricDimension {
 	};
 }
 
-/** Judge: knowledge items with status="stale" exist (knowledge decay ran). */
+/** Judge: documents with status="stale" exist (the decay routine ran). */
 export function judgeStaleItemsMarked(): RubricDimension {
 	return {
 		id: "stale_items_marked",
 		label: "Stale Items Marked",
 		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
 			const staleItems = await ctx.db
-				.select({ id: knowledgeItems.id })
-				.from(knowledgeItems)
-				.where(like(knowledgeItems.status, "stale%"));
+				.select({ id: documents.id })
+				.from(documents)
+				.where(like(documents.status, "stale%"));
 
 			const hasStale = staleItems.length > 0;
 			return {

@@ -11,17 +11,21 @@
  * POST /api/bets. The parentTaskId query-param path is the subtask creation
  * path — the "Add subtask" button on WorkTaskPage passes it here.
  *
- * @lore AK5: ?fromKnowledge=<id> is the multi-team promote path. KnowledgeDetail
+ * @lore AK5: ?fromDocument=<id> is the multi-team promote path. DocumentDetail
  * auto-creates when there is exactly one team and sends the user here otherwise,
- * so this page is the ONLY other place that carries sourceKnowledgeItemId into
+ * so this page is the ONLY other place that carries sourceDocumentId into
  * the `edit_task` call. Dropping it here silently loses the provenance FK.
+ *
+ * @lore BC4: the prefill read moved off `useKnowledgeItem` onto `useDocument`
+ * — `useKnowledgeItem` is deleted once every consumer has moved
+ * (architecture.md §16.1 break 5).
  */
 
 import { type JSX, useEffect, useState } from "react";
 import { Link as RRLink, useNavigate, useSearchParams } from "react-router-dom";
 import { TaskDependencyField } from "../components/TaskDependencyField.js";
 import { Breadcrumb, Button, Input, PageHeader, PageScaffold, Select } from "../ds/index.js";
-import { useKnowledgeItem } from "../hooks/useKnowledgeItem.js";
+import { useDocument } from "../hooks/useDocument.js";
 import { useTeams } from "../hooks/useTeams.js";
 import { call } from "../services/call.js";
 
@@ -31,7 +35,7 @@ export function WorkTaskCreate(): JSX.Element {
 
 	const parentTaskId = searchParams.get("parentTaskId") ?? undefined;
 	// AK5: provenance carrier for the multi-team promote path.
-	const fromKnowledgeId = searchParams.get("fromKnowledge") ?? undefined;
+	const fromDocumentId = searchParams.get("fromDocument") ?? undefined;
 
 	const { data: teamsData } = useTeams();
 	const teams = teamsData?.teams ?? [];
@@ -45,14 +49,14 @@ export function WorkTaskCreate(): JSX.Element {
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	// AK5: pre-fill title/description from the promoted knowledge item.
-	const { data: knowledgeData } = useKnowledgeItem(fromKnowledgeId);
-	const knowledgeItem = knowledgeData ?? null;
+	// AK5: pre-fill title/description from the promoted document.
+	const { data: documentView } = useDocument(fromDocumentId);
+	const sourceDocument = documentView?.document ?? null;
 	useEffect(() => {
-		if (knowledgeItem === null) return;
-		setTitle((t) => (t === "" ? knowledgeItem.title : t));
-		setDescription((d) => (d === "" ? knowledgeItem.body : d));
-	}, [knowledgeItem]);
+		if (sourceDocument === null) return;
+		setTitle((t) => (t === "" ? sourceDocument.title : t));
+		setDescription((d) => (d === "" ? sourceDocument.body : d));
+	}, [sourceDocument]);
 
 	const resolvedTeamId = singleTeam ? (teams[0]?.id ?? "") : teamId;
 	// parentTaskId path: teamId is inherited server-side; only title is required
@@ -73,7 +77,7 @@ export function WorkTaskCreate(): JSX.Element {
 				doneCondition: doneCondition.trim() || undefined,
 				parentTaskId,
 				teamId: parentTaskId != null ? undefined : resolvedTeamId,
-				sourceKnowledgeItemId: fromKnowledgeId,
+				sourceDocumentId: fromDocumentId,
 				dependencies: dependencies.length > 0 ? [...dependencies] : undefined,
 			});
 

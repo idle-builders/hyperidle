@@ -40,7 +40,7 @@ function mockNoHostSearch(): void {
 
 const THREAD_FIXTURE = {
 	id: "t-filter-001",
-	hostKind: "knowledge_item" as const,
+	hostKind: "document" as const,
 	hostId: "k-filter-001",
 	initiatorId: "u-founder",
 	members: ["u-founder", "agent-unassigned"],
@@ -159,7 +159,7 @@ describe("re-review — filterBlockId never reaches useThread/open_thread", () =
 		// The block filter is HostThreadSection's own concern — forwarding it
 		// into useThread would ask the server to filter `open_thread` itself,
 		// which would starve every other consumer of this same fetch (e.g.
-		// KnowledgeDetail's inline anchored comments) of the blocks it filtered out.
+		// DocumentDetail's inline anchored comments) of the blocks it filtered out.
 		expect(useThread).toHaveBeenCalledWith("t-filter-001");
 	});
 });

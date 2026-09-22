@@ -8,7 +8,7 @@
  * @lore BC3: there is no `bet`/`task` host kind — a task's own thread is
  * `team`-hosted, and the task page already knows its id via
  * `open_task(id).threadId` (never lazily created from the task page, unlike
- * the knowledge page's `host`-prop path).
+ * the document page's `host`-prop path).
  */
 
 import { expect, makeMessage, makeTask, makeThread, mockTaskTree, test } from "./fixtures";

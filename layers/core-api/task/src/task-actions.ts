@@ -5,12 +5,14 @@ import {
 	type AdjustThreadInput,
 	type AgentWorkIntentRecorderInput,
 	canTransitionTaskState,
+	type DocumentRow,
 	type Task as DomainTask,
 	type EditTaskInput,
 	editTask as editTaskDeclaration,
 	type OpenThreadInput,
 	openTask as openTaskDeclaration,
 	type Problem,
+	type SearchDocumentsInput,
 	type SearchTasksInput,
 	searchTasks as searchTasksDeclaration,
 	type TaskListItem,
@@ -49,15 +51,18 @@ export interface TaskActionsDeps {
 	};
 	readonly org: { getTeam(exec: WriteExecutor, q: { id: string }): Promise<Team | undefined> };
 	readonly users: { getUserById(exec: WriteExecutor, id: string): Promise<User | undefined> };
-	readonly knowledge: {
-		listItemIdsByParent(
-			db: HyperIdleDb,
-			q: { parentKind: "task"; parentId: string },
-		): Promise<readonly string[]>;
-		/** Existence check for `sourceKnowledgeItemId` — a dangling provenance FK
-		 * becomes a `Problem` instead of a 500 (`routes/tasks.ts:356-369` today). */
-		getItemById(exec: WriteExecutor, id: string): Promise<{ readonly id: string } | null>;
-	};
+	/**
+	 * The ONE door onto `document` (architecture.md §6.7, §8.3) — task never
+	 * imports `@hyperidle/document`, never opens a document (a read here must
+	 * never count as one), and never calls this inside its own open
+	 * transaction (a runner call inside `ctx.db.transaction` hangs PGlite).
+	 * Two call sites: the artifacts list (`parent:{kind:"task",id}`) and the
+	 * `sourceDocumentId` existence check (`ids:[id]`).
+	 */
+	readonly searchDocuments: (
+		ctx: ActionContext,
+		input: SearchDocumentsInput,
+	) => Promise<ActionResult<DocumentRow[]>>;
 	/**
 	 * Not named on architecture.md §5's `TaskActionsDeps` block, but required
 	 * by step 4's bake (`resolveTaskRunRequest`) — the same shape
@@ -160,7 +165,7 @@ function candidateTask(prev: Task | null, input: EditTaskInput, resolvedState: s
 		outcomeRecordedAt: null,
 		outcomeRecordedBy: null,
 		tokensActualJson: null,
-		sourceKnowledgeItemId: null,
+		sourceDocumentId: null,
 		completedAt: null,
 		position: 0,
 		needsReview: false,
@@ -178,9 +183,7 @@ function candidateTask(prev: Task | null, input: EditTaskInput, resolvedState: s
 		...(input.dependencies !== undefined
 			? { dependencies: input.dependencies ? JSON.stringify(input.dependencies) : null }
 			: {}),
-		...(input.sourceKnowledgeItemId !== undefined
-			? { sourceKnowledgeItemId: input.sourceKnowledgeItemId }
-			: {}),
+		...(input.sourceDocumentId !== undefined ? { sourceDocumentId: input.sourceDocumentId } : {}),
 		...(input.tokensActualJson !== undefined ? { tokensActualJson: input.tokensActualJson } : {}),
 		state: resolvedState as DomainTask["state"],
 	};
@@ -267,10 +270,13 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 			subtreeIds.length > 0 ? await taskDb.list(ctx.db, "task", { ids: subtreeIds }) : [task];
 		const children = buildChildren(subtreeTasks, input.id);
 		const tokensActualRollup = sumTokensActual(subtreeTasks);
-		const attachments = await deps.knowledge.listItemIdsByParent(ctx.db, {
-			parentKind: "task",
-			parentId: input.id,
+		// searchDocuments, never a raw table read — an artifact's `parent_kind
+		// IN ('task','thread')` visibility arm means this never needs a
+		// separate scope check (architecture.md §5.1).
+		const artifactsResult = await deps.searchDocuments(ctx, {
+			parent: { kind: "task", id: input.id },
 		});
+		const attachments = artifactsResult.ok ? artifactsResult.data.map((d) => d.id) : [];
 
 		return {
 			ok: true,
@@ -412,16 +418,17 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 			}
 			teamId ??= parent.teamId;
 		}
-		if (input.sourceKnowledgeItemId !== undefined) {
-			const srcItem = await deps.knowledge.getItemById(ctx.db, input.sourceKnowledgeItemId);
+		if (input.sourceDocumentId !== undefined) {
+			const srcResult = await deps.searchDocuments(ctx, { ids: [input.sourceDocumentId] });
+			const srcItem = srcResult.ok ? srcResult.data[0] : undefined;
 			if (!srcItem) {
 				return {
 					ok: false,
 					problems: [
 						{
-							code: "source_knowledge_item_not_found",
-							message: `Knowledge item '${input.sourceKnowledgeItemId}' not found`,
-							path: "sourceKnowledgeItemId",
+							code: "source_document_not_found",
+							message: `Document '${input.sourceDocumentId}' not found`,
+							path: "sourceDocumentId",
 						},
 					],
 				};
@@ -664,7 +671,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 				dependencies: next.dependencies,
 				position: next.position,
 				needsReview: next.needsReview,
-				sourceKnowledgeItemId: next.sourceKnowledgeItemId,
+				sourceDocumentId: next.sourceDocumentId,
 				tokensActualJson: next.tokensActualJson,
 				updatedAt: now,
 			};
@@ -691,7 +698,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 						next.position ||
 						(await taskDb.maxSiblingPosition(tx, next.parentTaskId, next.teamId)) + 1,
 					needsReview: next.needsReview,
-					sourceKnowledgeItemId: next.sourceKnowledgeItemId,
+					sourceDocumentId: next.sourceDocumentId,
 					createdAt: now,
 					updatedAt: now,
 				};

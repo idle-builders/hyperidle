@@ -1,11 +1,5 @@
-import {
-	agentSessionRequests,
-	type HyperIdleDb,
-	knowledgeAppProjection,
-	users,
-} from "@hyperidle/db";
+import { agentSessionRequests, type HyperIdleDb, users } from "@hyperidle/db";
 import { enqueue, listNotifications } from "@hyperidle/notifications";
-import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test as fixtureTest } from "../__testing__/test-fixtures.js";
 
@@ -36,48 +30,46 @@ describe("app runtime domain observability", () => {
 	});
 
 	fixtureTest(
-		"knowledge projection, routine request, and notifications stay observable",
+		"document projection, routine request, and notifications stay observable",
 		async ({ app, db }) => {
 			await seedFounder(db);
 
-			// @lore the raw projection UPDATE this test used to run is gone: the owner's `create`
-			// (invoked by POST /api/knowledge) already inserts the projection row, so a second write
-			// completing it is a rewrite, not a fix.
-			// @lore nested-knowledge-items: `layer`/`kind` are DELETED — a knowledge
-			// item's place in the tree says what it is about now, not a flat
-			// layer/kind vocabulary. The assertion narrows to what still exists:
-			// the projection row is created alongside the kernel row, and the
-			// detail route returns the item back.
-			const createRes = await app.request("/api/knowledge", {
+			// @lore document-module B20: the route this drove (`POST`/`GET
+			// /api/knowledge`) is deleted; the door is `POST /api/actions/<name>`
+			// now — `edit_document` (upsert) then `open_document` (read back).
+			const createRes = await app.request("/api/actions/edit_document", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					title: "AU3 preserved knowledge",
+					title: "AU3 preserved document",
 					body: "Projection survives runtime migration.",
 					format: "markdown",
-					updatedBy: "u-au3-founder",
 					scopeKind: "factory",
 				}),
 			});
-			expect(createRes.status).toBe(201);
-			const created = (await createRes.json()) as { id: string };
+			expect(createRes.status).toBe(200);
+			const created = (await createRes.json()) as {
+				ok: boolean;
+				data: { document: { id: string } };
+			};
+			expect(created.ok).toBe(true);
+			const createdId = created.data.document.id;
 
-			const [projection] = await db
-				.select()
-				.from(knowledgeAppProjection)
-				.where(eq(knowledgeAppProjection.knowledgeItemId, created.id))
-				.limit(1);
-			expect(projection).toMatchObject({
-				knowledgeItemId: created.id,
-			});
-
-			const detailRes = await app.request(`/api/knowledge/${created.id}`, {
-				method: "GET",
+			const detailRes = await app.request("/api/actions/open_document", {
+				method: "POST",
 				headers: authHeaders(),
+				body: JSON.stringify({ id: createdId }),
 			});
 			expect(detailRes.status).toBe(200);
-			const detail = (await detailRes.json()) as { id?: string; title?: string };
-			expect(detail).toMatchObject({ id: created.id, title: "AU3 preserved knowledge" });
+			const detail = (await detailRes.json()) as {
+				ok: boolean;
+				data: { document: { id: string; title: string } };
+			};
+			expect(detail.ok).toBe(true);
+			expect(detail.data.document).toMatchObject({
+				id: createdId,
+				title: "AU3 preserved document",
+			});
 
 			// @lore AU20 Ag6b: `enqueueNotification` removed from public API; use `enqueue`.
 			// @lore AU44 batch 4: flush/deliver deleted — dispatcher abstraction removed.
@@ -87,7 +79,7 @@ describe("app runtime domain observability", () => {
 			await enqueue(db, {
 				id: notifId,
 				eventType: "au3.domain",
-				subjectId: created.id,
+				subjectId: createdId,
 				severity: "digest",
 				title: "AU3 notification",
 				body: "Notification path still persists.",

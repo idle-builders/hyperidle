@@ -10,7 +10,7 @@
  * contract, covered by `layers/agent-orchestration/src/__tests__/factory-run-config.integration.test.ts`.
  *
  * @lore BA9d: Facilitators removed from the factory roster. The five seed-agent-pf-* agents are
- * now owned by the knowledge-management plugin (BA9d wave 2). The core factory seeds only
+ * now owned by the document-management plugin (BA9d wave 2). The core factory seeds only
  * system:propagation and seed-agent-cos (System Agent). ROSTER_IDS shrank from 6 → 1.
  * Migration 0065 migrated existing strategy rows to "individual".
  */

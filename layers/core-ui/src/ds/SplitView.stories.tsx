@@ -76,7 +76,7 @@ export const Split = (): JSX.Element => {
 				dividerRatio={ratio}
 				onModeChange={setMode}
 				onRatioChange={setRatio}
-				origin={<Pane tone="origin" label="conversation / review / knowledge" />}
+				origin={<Pane tone="origin" label="conversation / review / document" />}
 				destination={<Pane tone="dest" label="artifact (single) · review (diff) · body (mixed)" />}
 			/>
 		</div>

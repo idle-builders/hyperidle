@@ -177,15 +177,15 @@ describe("AC3: review open-handler route (regression guard)", () => {
 		}
 	});
 	it("contextual references use the page-owned Inspect placement", async () => {
-		// @lore artifacts-become-knowledge: artifact route removed — /artifacts/:id deleted
+		// @lore artifacts-become-documents: artifact route removed — /artifacts/:id deleted
 		const { createOpenHandler } = await import("../services/open-handler.js");
 		const nav = vi.fn();
 		const inspect = vi.fn();
 		const handler = createOpenHandler(nav, { onInspectPath: inspect });
-		handler({ route: "host", hostKind: "knowledge_item", hostId: "knowledge-1", blockId: "b 1" });
+		handler({ route: "host", hostKind: "document", hostId: "knowledge-1", blockId: "b 1" });
 		handler({ route: "review", reviewId: "rev-1", threadId: "th-1", intent: "inspect" });
 		expect(inspect.mock.calls.map(([path]) => path)).toEqual([
-			"/knowledge/knowledge-1#block-b%201",
+			"/documents/knowledge-1#block-b%201",
 			"/reviews/rev-1?threadId=th-1",
 		]);
 		expect(nav).not.toHaveBeenCalled();

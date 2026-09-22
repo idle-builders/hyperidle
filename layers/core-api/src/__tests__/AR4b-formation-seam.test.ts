@@ -6,7 +6,7 @@
  * twice, because the persona has. AU27 proved it at the bake boundary (a
  * `users` column core baked at emit); AU26 moved it to `agent_run_config`,
  * which orchestration owns, so it was read live at drain instead. BA9f made it
- * an `agent_file` knowledge document bound to the agent — which is what an
+ * an `agent_file` document bound to the agent — which is what an
  * agent file has always meant — so it is core-owned state again and rides the
  * bake, exactly like the context bundle beside it (AU21 §H3: the provisioner
  * consumes a baked bundle and reads zero core-api state).
@@ -30,11 +30,11 @@
 
 import { agentRunConfig, agentWorkIntents, type HyperIdleDb, threads, users } from "@hyperidle/db";
 import type { BakedAgentRunnableConfig } from "@hyperidle/domain-model";
-import { getAgentIdentityIds, upsertAgentIdentity } from "@hyperidle/knowledge";
 import { readAgentRunConfig } from "@hyperidle/run-orchestration";
 import { and, eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { beforeEach, describe, expect, vi } from "vitest";
+import { makeAgentIdentityTestPort } from "../__testing__/document-read-test-ports.js";
 /**
  * @lore AU31 §3.2/§5: the `coreApiSeamRegistration` auto-fixture used to
  * register this test's `app` on the `CoreApiPort` ambient global — deleted
@@ -43,6 +43,8 @@ import { beforeEach, describe, expect, vi } from "vitest";
  * only), so nothing here needs a seam transport at all.
  */
 import { test } from "../__testing__/test-fixtures.js";
+
+const agentIdentity = makeAgentIdentityTestPort();
 
 const FOUNDER_ID = "founder-ar4b-formation";
 const ASSISTANT_ID = `ast-${FOUNDER_ID}`;
@@ -77,7 +79,7 @@ async function seedFixtures(db: HyperIdleDb): Promise<void> {
 		modelProvider: "openrouter",
 		maxConcurrentSessions: 1,
 	});
-	await upsertAgentIdentity(db, {
+	await agentIdentity.upsertAgentIdentity(db, {
 		agentId: ASSISTANT_ID,
 		agentName: "Assistant",
 		body: "Original row persona — the app default.",
@@ -168,17 +170,19 @@ describe("AR4b: formation seam — editing the assistant's identity document cha
 		const before = await postAndResolveTurnPersona(app, db, "msg-ar4b-before-patch");
 		expect(before).toBe("Original row persona — the app default.");
 
-		// The one knowledge edit endpoint — the same one every other document is
+		// The one document edit door — the same one every other document is
 		// edited through. There is no assistant-shaped side door any more.
-		const identityId = (await getAgentIdentityIds(db, [ASSISTANT_ID])).get(ASSISTANT_ID);
+		const identityId = (await agentIdentity.identityIdsFor(db, FOUNDER_ID, [ASSISTANT_ID])).get(
+			ASSISTANT_ID,
+		);
 		expect(identityId).toBeTruthy();
-		const patchRes = await app.request(`/api/knowledge/${identityId}`, {
-			method: "PATCH",
+		const patchRes = await app.request("/api/actions/edit_document", {
+			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
 				"X-API-Key": GATE_API_KEY,
 			},
-			body: JSON.stringify({ version: 1, updatedBy: FOUNDER_ID, body: ALPHA_PERSONA }),
+			body: JSON.stringify({ id: identityId, version: 1, body: ALPHA_PERSONA }),
 		});
 		expect(patchRes.status).toBe(200);
 

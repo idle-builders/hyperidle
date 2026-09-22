@@ -20,7 +20,7 @@ vi.mock("../../services/call.js", () => ({
 	call: (...args: [string, unknown]) => callMock(...args),
 }));
 
-const HOST = { kind: "knowledge_item" as const, id: "k-create-001" };
+const HOST = { kind: "document" as const, id: "k-create-001" };
 
 function makeThreadRow(id: string) {
 	return {

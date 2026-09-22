@@ -47,31 +47,29 @@ Shapes and semantics: [process-layer/the-four-primitives.md](../process-layer/th
 
 Tree structure and scope are owned by [knowledge-architecture/the-canonical-store.md](../knowledge-architecture/the-canonical-store.md).
 
-**F-3.1** All knowledge lives in the canonical `knowledge_items` store (PGlite locally, Postgres on a server). Kernel columns live on the base table; strategy signals (attentionScore, relevanceScore, confidence, citations) live in the `knowledge_app_projection` extension table. The Knowledge Fabric projects the one store into two surfaces: the Knowledge view for humans and assembled file sandboxes for agents.
+**F-3.1** All knowledge lives in one canonical `documents` table (PGlite locally, Postgres on a server) — content, scope, slot, tree position, and usage signals (`confidence`, `meta`, read/session-use counts) all on the same row; there is no separate projection table. Three actions — `search_documents`, `open_document`, `edit_document` — project the one store into two surfaces: the Knowledge view for humans and assembled file sandboxes for agents.
 
-**F-3.2** Knowledge is nested, not layered: a knowledge item can contain knowledge items, and where an item sits says what it is about. `scope` (`factory | team | user`) says only who sees it. One-liners only here — the taxonomy doc owns the definitions.
+**F-3.2** Knowledge is nested, not layered: a document can contain documents, and where a document sits says what it is about. `scope` (`factory | team | user`) says only who sees it. One-liners only here — the taxonomy doc owns the definitions.
 
 **F-3.3** Context assembly at session start writes a three-zone sandbox — `context/` (read-only), `knowledge/` (proposed changes), `work/` (scratch) — under a token budget, with TOON packs for structured data. Depth: [knowledge-architecture/the-knowledge-fabric-how-knowledge-moves.md](../knowledge-architecture/the-knowledge-fabric-how-knowledge-moves.md).
 
-**F-3.4** Writeback is continuous: a file watcher (500ms debounce) turns changed files into item updates with version checks, new files into items with status `captured`, and version conflicts into `knowledge_conflicts` rows for resolution. Depth: [knowledge-architecture/sync-and-conflict-resolution.md](../knowledge-architecture/sync-and-conflict-resolution.md).
+**F-3.4** Writeback is continuous: a file watcher (500ms debounce) turns changed files into `edit_document` calls with version checks, new files into new documents. A stale version is refused and the agent's edit discarded — there is no conflict table and nothing to review. Depth: [knowledge-architecture/sync-and-conflict-resolution.md](../knowledge-architecture/sync-and-conflict-resolution.md).
 
-**F-3.5** Every knowledge item has a lifecycle status. Kernel keeps `draft / active / archived / needs_human`; the fabric 7-state lifecycle is `captured → provisional → validated → active → stale → archived` (plus `needs_human`). Promotion from provisional to validated happens automatically at 5+ cross-scope repetitions with no contradiction and no open conflict (`AUTO_PROMOTION_REPETITION_THRESHOLD = 5`, `layers/core-api/knowledge/src/promotion-pipeline.ts`).
+**F-3.5** Every document has a lifecycle status: `proposed → active → stale → archived`. Nothing promotes or decays a document automatically — the document-management plugin's `document-triage` routine promotes or archives `proposed` documents by judgement, and its `document-decay` routine archives ordinary in-tree documents unused for 90+ days, both through the ordinary document tools on a schedule.
 
-**F-3.6** Items are scored for human attention (novelty, conflict, repetition, confidence, taste, recency); crossing the 0.7 threshold creates a review item. Relevance is a separate three-signal model (recency / frequency / citation). Depth: [knowledge-architecture/relevance-and-attention.md](../knowledge-architecture/relevance-and-attention.md).
+**F-3.6** There is no attention or relevance scoring engine, and no review-item queue driven by a score. Assembly into a session's sandbox is ranked by tag match, recency, and confidence under a token budget — see [knowledge-architecture/the-knowledge-fabric-how-knowledge-moves.md](../knowledge-architecture/the-knowledge-fabric-how-knowledge-moves.md).
 
-**F-3.7** **Not implemented.** This described Git as an export target for version history — factory and team knowledge exporting as markdown files, never the source of truth. The exporter was deleted in AU26 (increment C1); see [system-requirements.md](system-requirements.md) S-2.2. The database is the only store today. The unimplemented export sketch: [knowledge-architecture/facilitators.md](../knowledge-architecture/facilitators.md).
+**F-3.7** **Not implemented.** This described Git as an export target for version history — factory and team knowledge exporting as markdown files, never the source of truth. The exporter was deleted in AU26 (increment C1); see [system-requirements.md](system-requirements.md) S-2.2. The database is the only store today.
 
-## F-4: Facilitators
+## F-4: Document curation
 
-Duties and lifecycle: [knowledge-architecture/facilitators.md](../knowledge-architecture/facilitators.md); role identity: [agent-layer/agent-model.md](../agent-layer/agent-model.md).
+Duties: [knowledge-architecture/the-knowledge-fabric-how-knowledge-moves.md](../knowledge-architecture/the-knowledge-fabric-how-knowledge-moves.md); role identity: [agent-layer/agent-model.md](../agent-layer/agent-model.md).
 
-**F-4.1** Knowledge curation agents: assistant (individual) and product manager (team). Full category-to-role mapping: [agent-layer/agent-model.md](../agent-layer/agent-model.md).
+**F-4.1** There is no fixed facilitator or product-manager role catalog — agent role is an open string. The document-management plugin's `librarian` agent (role `assistant`) runs the two curation routines below; any team may run its own instead.
 
-**F-4.2** Facilitators continuously organize knowledge (promotion, conflict resolution, decay/archival, lifecycle propagation), score items for human attention, and close the loop by writing human feedback back into the store.
+**F-4.2** The librarian's `document-triage` routine reads every `proposed` document and promotes or archives it by judgement; its `document-decay` routine archives ordinary in-tree documents nobody has read or been handed to a session in 90+ days. Neither is driven by a numeric score.
 
-**F-4.3** Product managers have a dual role: coordinator (integrates the task list, resolves handoffs, drafts retros) and self-improver.
-
-**F-4.4** Surfacing trajectory shifts is the product manager's judgement — no numerical thresholds. Done-condition changes and other significant task edits are visible in the `changes` table; emitting a review item for notable changes is the product manager's call.
+**F-4.4** Surfacing trajectory shifts is a matter of judgement, by whichever agent is coordinating a team — no numerical thresholds. Done-condition changes and other significant task edits are visible in the `changes` table; emitting a review message for a notable change is that agent's call.
 
 ## F-5: Handoff
 
@@ -95,9 +93,9 @@ Depth: [process-layer/handoff-and-lifecycle-propagation.md](../process-layer/han
 
 ## F-7: Top-Down and Bottom-Up Knowledge Flow
 
-**F-7.1** Top-down: humans set direction through factory-layer knowledge and task commitment in the Work view. Every session's assembled context includes the factory layer.
+**F-7.1** Top-down: humans set direction through factory-scoped knowledge and task commitment in the Work view. Every session's assembled context includes the factory-scoped documents.
 
-**F-7.2** Bottom-up: agents contribute findings to their practice through direct knowledge writes; the facilitator decides which become captured practice items. New practice knowledge is automatically available to the next session via context assembly — pull, not push. Any agent can message humans directly.
+**F-7.2** Bottom-up: agents contribute findings directly through `edit_document`; a document starts `proposed` and stands as-is unless a human or a curation routine judges it ready for `active`. New knowledge is automatically available to the next session via context assembly — pull, not push. Any agent can message humans directly.
 
 **F-7.3** The two flows meet at the task: committed top-down, revised bottom-up, every revision recorded as a `changes` row with reasoning.
 
@@ -105,7 +103,7 @@ Depth: [process-layer/handoff-and-lifecycle-propagation.md](../process-layer/han
 
 Plugin routines: [process-layer/routines-and-retros.md](../process-layer/routines-and-retros.md).
 
-**F-8.1** When a task transitions to `done`, the `post-task-retro` routine from the knowledge-management plugin fires. The Knowledge Librarian reads the completed task's notes, identifies concrete learnings, and creates or updates knowledge items. This routine is plugin-provided — teams without the knowledge-management plugin have no automatic retro unless they create one manually.
+**F-8.1** When a task transitions to `done`, the `post-task-retro` routine from the document-management plugin fires. The Document Librarian reads the completed task's notes, identifies concrete learnings, and creates or updates documents with `edit_document`. This routine is plugin-provided — teams without the document-management plugin have no automatic retro unless they create one manually.
 
 **F-8.3** Periodic portfolio retros are not a built-in mechanism. A team or founder can create a calendar-triggered routine on any agent to review cross-task patterns at whatever cadence they choose.
 

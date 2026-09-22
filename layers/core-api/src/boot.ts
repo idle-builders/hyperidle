@@ -52,9 +52,23 @@ import {
 	resolveCredential,
 } from "@hyperidle/credentials";
 import type { HyperIdleDb } from "@hyperidle/db";
+import { getDocument } from "@hyperidle/document";
+import type {
+	ActionResult,
+	DocumentRow,
+	DocumentView,
+	EditDocumentInput,
+	SearchDocumentsInput,
+} from "@hyperidle/domain-model";
+import { EventBus } from "@hyperidle/event-bus";
 import { getPluginMcpContributions } from "@hyperidle/settings";
 import { findThread } from "@hyperidle/thread";
-import { createUpgradeTokenStore, listUsers, type UpgradeTokenStore } from "@hyperidle/users";
+import {
+	createUpgradeTokenStore,
+	findUser,
+	listUsers,
+	type UpgradeTokenStore,
+} from "@hyperidle/users";
 import type { Hono } from "hono";
 import type { UpgradeWebSocket } from "hono/ws";
 import { type ApiMiddlewareStack, createApiMiddlewareStack } from "./api-middleware-stack.js";
@@ -64,6 +78,7 @@ import {
 	registerCoreApiPreAuthRoutes,
 	takeAppActionTools,
 	takeAppDisposers,
+	takeAppDocumentRunners,
 } from "./app.js";
 import { registerWsRoute } from "./routes/ws.js";
 import { WsConnectionHub } from "./ws-connection-hub.js";
@@ -170,6 +185,27 @@ export interface CoreApiBoot {
 	readonly actionTools: ReadonlyArray<
 		import("@hyperidle/harness-protocol").RegisteredTool<HyperIdleDb>
 	>;
+	/**
+	 * §8.4 — the composed `edit_document`/`search_documents` actions, exposed
+	 * as two locked-shape functions the writeback processor binds directly
+	 * (never `open_document` — a writeback re-read must never count as a
+	 * read, §6.7, and never a second HTTP hop through the deleted
+	 * `CoreApiPort.knowledge` seam). `bootAgentOrchestration` threads both
+	 * through exactly like `actionTools`. Present whenever `db` is provided.
+	 */
+	readonly editDocument: (
+		caller: {
+			readonly actor: string;
+			readonly sessionId: string;
+			readonly taskId: string | null;
+			readonly threadId: string | null;
+		},
+		input: EditDocumentInput,
+	) => Promise<ActionResult<DocumentView>>;
+	readonly searchDocuments: (
+		caller: { readonly actor: string },
+		input: SearchDocumentsInput,
+	) => Promise<ActionResult<readonly DocumentRow[]>>;
 }
 
 /**
@@ -233,6 +269,16 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 				? new WsConnectionHub(
 						createDbSubscribeAuthorizer(db, {
 							conversation: { getThreadById: (execDb, id) => findThread(execDb, { id }) },
+							// architecture.md §7: the `document:<id>` subscribe-authz edge —
+							// `document`'s own row read, plus the same `users` subject
+							// resolution `document-actions.ts`'s `resolveViewer` does.
+							document: {
+								getForSubscribe: async (execDb, id) => (await getDocument(execDb, id)) ?? undefined,
+							},
+							users: {
+								getUserById: (execDb, id) => findUser(execDb, { id }),
+								listOwnedBy: (execDb, ownerId) => listUsers(execDb, { ownerUserId: ownerId }),
+							},
 						}),
 					)
 				: new WsConnectionHub();
@@ -285,6 +331,56 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 	const disposers: Array<() => void> = [...takeAppDisposers(app)];
 	const actionTools = takeAppActionTools(app) ?? [];
 
+	// §8.4: the raw `edit_document`/`search_documents` runners this boot's own
+	// `app` just built, adapted from the door's `(ctx: ActionContext, input)`
+	// shape onto the locked `(caller, input)` shape `CoreApiBoot` promises —
+	// `db`/`eventBus` are bound HERE, once, matching `actionTools`'s own "one
+	// composed list, built once" (§7). `ctx.eventBus` is never actually read
+	// by either document runner (`document-actions.ts` reaches the event bus
+	// only through its own injected `wsPush`, never `ctx.eventBus`), so a
+	// fresh fallback instance when the caller supplied none is harmless — the
+	// same fallback `createCoreApiApp` itself uses internally when building
+	// the SAME actions.
+	const documentRunners = takeAppDocumentRunners(app);
+	const documentRunnerEventBus = options?.eventBus ?? new EventBus();
+	const editDocument: CoreApiBoot["editDocument"] = documentRunners
+		? (caller, input) =>
+				documentRunners.editDocument(
+					{
+						actor: caller.actor,
+						db: db as HyperIdleDb,
+						eventBus: documentRunnerEventBus,
+						now: new Date().toISOString(),
+						caller: {
+							sessionId: caller.sessionId,
+							taskId: caller.taskId,
+							threadId: caller.threadId,
+						},
+					},
+					input,
+				)
+		: () => {
+				throw new Error(
+					"CoreApiBoot.editDocument: no db was provided at boot — the composed document actions were never built.",
+				);
+			};
+	const searchDocuments: CoreApiBoot["searchDocuments"] = documentRunners
+		? (caller, input) =>
+				documentRunners.searchDocuments(
+					{
+						actor: caller.actor,
+						db: db as HyperIdleDb,
+						eventBus: documentRunnerEventBus,
+						now: new Date().toISOString(),
+					},
+					input,
+				)
+		: () => {
+				throw new Error(
+					"CoreApiBoot.searchDocuments: no db was provided at boot — the composed document actions were never built.",
+				);
+			};
+
 	return {
 		app,
 		registerPreAuthRoutes: (apiRouter) => {
@@ -298,6 +394,8 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 		disposers,
 		disposeWebSocket,
 		actionTools,
+		editDocument,
+		searchDocuments,
 		wsHub,
 		upgradeTokenStore: tokenStore,
 		...(db ? { resolveProvisioningOwnerUserId: resolveProvisioningOwnerUserIdFor(db) } : {}),

@@ -24,7 +24,7 @@ const BASE_PROFILE: AgentProfileResponse = {
 	teamName: null,
 	teamId: null,
 	createdAt: "2026-01-01T00:00:00.000Z",
-	identityKnowledgeId: "ki_af_demo",
+	identityDocumentId: "ki_af_demo",
 	harnessType: "opencode",
 	maxConcurrentSessions: 1,
 	mcpSetup: null,

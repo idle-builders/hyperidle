@@ -34,7 +34,7 @@ HyperIdle ships as a macOS desktop application (Electron) with three views and a
 
 - **Conversations** — review threads and chat threads. An agent proposes deploying a landing page; the founder approves, comments, or requests changes. Same shape as a GitHub pull request.
 - **Work** — tasks planned and tracked. What every agent is doing and what is blocked.
-- **Knowledge** — the company wiki. Knowledge items organized by practice and scope. Founders prune stale practices, validate new patterns, and add tacit knowledge agents cannot generate.
+- **Knowledge** — the company wiki. Documents organized by practice and scope. Founders prune stale practices, validate new patterns, and add tacit knowledge agents cannot generate.
 
 ---
 

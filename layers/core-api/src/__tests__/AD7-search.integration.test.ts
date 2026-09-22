@@ -1,7 +1,7 @@
 /**
  * AD7 RED — Search backend integration tests.
  *
- * AC-1: Cmd+K search returns grouped results from conversations, bets, and knowledge items.
+ * AC-1: Cmd+K search returns grouped results from conversations, bets, and documents.
  * AC-2: Results are clickable and navigate to the correct detail page (correct IDs returned).
  * AC-3: Search within 300ms for interactive use.
  * AC-4: Empty queries return no results (not all items).
@@ -14,24 +14,15 @@
  * TC-4:  Returns matching conversations (thread + message match)
  * TC-5:  Excludes conversations where user is not a participant (AUTH BOUNDARY)
  * TC-6:  Returns matching work items (bets with team name)
- * TC-7:  Returns matching knowledge items
- * TC-8:  Excludes user-scoped knowledge from other users (AUTH BOUNDARY)
+ * TC-7:  Returns matching documents
+ * TC-8:  Excludes user-scoped documents from other users (AUTH BOUNDARY)
  * TC-9:  Returns results across all three categories
  * TC-10: Limits results to 5 per category
  * TC-11: Escapes LIKE wildcards in query (security)
  * TC-12: Rejects overly long query (>200 chars)
  */
 
-import {
-	type HyperIdleDb,
-	knowledgeAppProjection,
-	knowledgeItems,
-	messages,
-	tasks,
-	teams,
-	threads,
-	users,
-} from "@hyperidle/db";
+import { documents, type HyperIdleDb, messages, tasks, teams, threads, users } from "@hyperidle/db";
 import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
@@ -143,8 +134,8 @@ async function seedRootTask(
 	});
 }
 
-/** Seed a knowledge item with optional fabric row */
-async function seedKnowledgeItem(
+/** Seed a document with optional fabric row */
+async function seedDocument(
 	db: HyperIdleDb,
 	opts: {
 		id: string;
@@ -155,7 +146,7 @@ async function seedKnowledgeItem(
 		status?: string;
 	},
 ): Promise<void> {
-	await db.insert(knowledgeItems).values({
+	await db.insert(documents).values({
 		id: opts.id,
 		title: opts.title,
 		body: opts.body,
@@ -167,10 +158,6 @@ async function seedKnowledgeItem(
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
-	// The owner writes the projection row alongside the item.
-	await db
-		.insert(knowledgeAppProjection)
-		.values({ id: `${opts.id}-projection`, knowledgeItemId: opts.id });
 }
 
 // ─── TC-1: Missing `q` parameter returns 400 ────────────────────────────────
@@ -212,11 +199,11 @@ describe("GET /api/search — AD7 search backend", () => {
 		const body = (await res.json()) as {
 			conversations: unknown[];
 			work: unknown[];
-			knowledge: unknown[];
+			documents: unknown[];
 		};
 		expect(body.conversations).toHaveLength(0);
 		expect(body.work).toHaveLength(0);
-		expect(body.knowledge).toHaveLength(0);
+		expect(body.documents).toHaveLength(0);
 		vi.unstubAllEnvs();
 	});
 
@@ -256,7 +243,7 @@ describe("GET /api/search — AD7 search backend", () => {
 				kind: "review" | "chat";
 			}>;
 			work: unknown[];
-			knowledge: unknown[];
+			documents: unknown[];
 		};
 
 		expect(body.conversations).toHaveLength(1);
@@ -378,9 +365,9 @@ describe("GET /api/search — AD7 search backend", () => {
 		vi.unstubAllEnvs();
 	});
 
-	// ─── TC-7: Matching knowledge items ──────────────
+	// ─── TC-7: Matching documents ──────────────
 
-	test("TC-7: returns matching knowledge items with id, title, status, timestamp", async ({
+	test("TC-7: returns matching documents with id, title, status, timestamp", async ({
 		app,
 		db,
 	}) => {
@@ -388,7 +375,7 @@ describe("GET /api/search — AD7 search backend", () => {
 
 		const userId = "api-key-user";
 		await seedUser(db, userId);
-		await seedKnowledgeItem(db, {
+		await seedDocument(db, {
 			id: "ki-search-1",
 			title: "Onboarding checklist for new engineers",
 			body: "Step 1: Read the docs",
@@ -401,7 +388,7 @@ describe("GET /api/search — AD7 search backend", () => {
 		});
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as {
-			knowledge: Array<{
+			documents: Array<{
 				id: string;
 				title: string;
 				status: string;
@@ -409,22 +396,19 @@ describe("GET /api/search — AD7 search backend", () => {
 			}>;
 		};
 
-		expect(body.knowledge).toHaveLength(1);
-		const ki = body.knowledge[0];
-		expect(ki).toBeDefined();
-		expect(ki?.id).toBe("ki-search-1");
-		expect(ki?.title).toContain("Onboarding");
-		expect(ki?.status).toBe("active");
-		expect(ki?.timestamp).toBeTruthy();
+		expect(body.documents).toHaveLength(1);
+		const doc = body.documents[0];
+		expect(doc).toBeDefined();
+		expect(doc?.id).toBe("ki-search-1");
+		expect(doc?.title).toContain("Onboarding");
+		expect(doc?.status).toBe("active");
+		expect(doc?.timestamp).toBeTruthy();
 		vi.unstubAllEnvs();
 	});
 
-	// ─── TC-8: Auth boundary — excludes user-scoped knowledge from other users
+	// ─── TC-8: Auth boundary — excludes user-scoped documents from other users
 
-	test("TC-8: excludes user-scoped knowledge items belonging to another user", async ({
-		app,
-		db,
-	}) => {
+	test("TC-8: excludes user-scoped documents belonging to another user", async ({ app, db }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 		const userId = "api-key-user";
@@ -432,8 +416,8 @@ describe("GET /api/search — AD7 search backend", () => {
 		await seedUser(db, userId);
 		await seedUser(db, otherUserId);
 
-		// Private knowledge item owned by another user
-		await seedKnowledgeItem(db, {
+		// Private document owned by another user
+		await seedDocument(db, {
 			id: "ki-private-1",
 			title: "Private note about secret strategy",
 			body: "Do not share",
@@ -445,9 +429,9 @@ describe("GET /api/search — AD7 search backend", () => {
 			headers: authHeaders(),
 		});
 		expect(res.status).toBe(200);
-		const body = (await res.json()) as { knowledge: unknown[] };
+		const body = (await res.json()) as { documents: unknown[] };
 		// The item exists in DB but belongs to another user's private scope — must not appear
-		expect(body.knowledge).toHaveLength(0);
+		expect(body.documents).toHaveLength(0);
 		vi.unstubAllEnvs();
 	});
 
@@ -476,8 +460,8 @@ describe("GET /api/search — AD7 search backend", () => {
 		await seedTeam(db, "team-b", "Beta Team");
 		await seedRootTask(db, "task-release-1", "team-b", "Release the v2 feature");
 
-		// Knowledge matching "release"
-		await seedKnowledgeItem(db, {
+		// Documents matching "release"
+		await seedDocument(db, {
 			id: "ki-release-1",
 			title: "Release process guide",
 			body: "How to do releases",
@@ -490,12 +474,12 @@ describe("GET /api/search — AD7 search backend", () => {
 		const body = (await res.json()) as {
 			conversations: unknown[];
 			work: unknown[];
-			knowledge: unknown[];
+			documents: unknown[];
 		};
 
 		expect(body.conversations.length).toBeGreaterThanOrEqual(1);
 		expect(body.work.length).toBeGreaterThanOrEqual(1);
-		expect(body.knowledge.length).toBeGreaterThanOrEqual(1);
+		expect(body.documents.length).toBeGreaterThanOrEqual(1);
 		vi.unstubAllEnvs();
 	});
 

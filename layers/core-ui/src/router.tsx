@@ -13,10 +13,10 @@ import { createBrowserRouter, Navigate, RouterProvider, useParams } from "react-
 import { AppShell } from "./layouts/AppShell";
 import { AgentProfile } from "./pages/AgentProfile";
 import { Conversations } from "./pages/Conversations";
+import { DocumentCreate } from "./pages/DocumentCreate";
+import { DocumentDetail } from "./pages/DocumentDetail";
+import { DocumentList } from "./pages/DocumentList";
 import { FirstRunRedirect } from "./pages/FirstRunRedirect";
-import { KnowledgeCreate } from "./pages/KnowledgeCreate";
-import { KnowledgeDetail } from "./pages/KnowledgeDetail";
-import { KnowledgeList } from "./pages/KnowledgeList";
 import { NotFound } from "./pages/NotFound";
 import { RedirectLegacyConversation } from "./pages/RedirectLegacyConversation";
 import { ReviewPage } from "./pages/review/ReviewPage";
@@ -93,9 +93,13 @@ function buildRoutes(): RouteObject[] {
 				// shim with nothing to bridge).
 				{ path: "reviews/:reviewId", element: <ReviewPage /> },
 				{ path: "agents/:agentId", element: <AgentProfile /> },
-				{ path: "knowledge", element: <KnowledgeList /> },
-				{ path: "knowledge/new", element: <KnowledgeCreate /> },
-				{ path: "knowledge/:knowledgeId", element: <KnowledgeDetail /> },
+				// @lore BC4: /knowledge -> /documents. Deleted rather than
+				// redirected — no persisted row holds the old path shape
+				// (CLAUDE.md's absolute rule 2 forbids a compat shim with
+				// nothing to bridge).
+				{ path: "documents", element: <DocumentList /> },
+				{ path: "documents/new", element: <DocumentCreate /> },
+				{ path: "documents/:documentId", element: <DocumentDetail /> },
 				// @lore FR-18: /settings is now a real route (was ?settings=open overlay).
 				// Sidebar marks the settings button active when pathname starts with /settings.
 				{ path: "settings", element: <SettingsPage /> },

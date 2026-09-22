@@ -7,7 +7,7 @@
  *
  * Renders the `as` element (default h3 — nested one level below the PageHeader
  * h2). Pages where SectionLabel IS the top heading pass as="h2" explicitly
- * (e.g. KnowledgeDetail sidebar).
+ * (e.g. DocumentDetail sidebar).
  *
  * Optional `divider` adds a border-bottom rule for section separators that
  * were previously inlined on section headings.

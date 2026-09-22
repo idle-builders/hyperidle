@@ -1,7 +1,7 @@
 /**
  * scope-labels — AD6: Knowledge Cleanup & Scope Simplification.
  *
- * Provides the static scope options for the knowledge list filter pills
+ * Provides the static scope options for the document list filter pills
  * and the create/change flow scope picker.
  *
  * @lore nested-knowledge-items: SCOPE_KINDS is now exactly the 3 values these
@@ -20,7 +20,7 @@ import type { ScopeKind } from "@hyperidle/domain-model";
 
 export { scopeKindToLabel } from "@hyperidle/domain-model";
 
-/** One entry in the knowledge list filter pill row. */
+/** One entry in the document list filter pill row. */
 export interface ScopePillOption {
 	/** The label shown on the pill button. */
 	label: string;
@@ -44,7 +44,7 @@ export interface ScopeCreateOption {
 }
 
 /**
- * Four static pills for the knowledge list filter row.
+ * Four static pills for the document list filter row.
  * All → Shared (factory) → Team (team) → Private (user).
  */
 export const SCOPE_PILL_OPTIONS: ScopePillOption[] = [
@@ -55,7 +55,7 @@ export const SCOPE_PILL_OPTIONS: ScopePillOption[] = [
 ];
 
 /**
- * Options for the knowledge create/change flow scope picker.
+ * Options for the document create/change flow scope picker.
  * Shared → factory | Team → team | Private → user.
  *
  * @lore AU26 F2 (founder ruling): the fourth option, Filesystem, is REMOVED. A

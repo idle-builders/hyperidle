@@ -28,7 +28,7 @@ function renderShell(initialPath = "/conversations"): ReturnType<typeof render> 
 					{ path: "conversations", element: <div>Conversations Page</div> },
 					{ path: "conversations/:threadId", element: <div>Conversations Page</div> },
 					{ path: "work/portfolio", element: <div>Portfolio Page</div> },
-					{ path: "knowledge", element: <div>Knowledge Page</div> },
+					{ path: "documents", element: <div>Document Page</div> },
 					// @lore FR-18: /settings is now a real route rendered by Outlet.
 					{ path: "settings", element: <SettingsPage /> },
 				],
@@ -92,7 +92,7 @@ describe("AppShell — P4 Settings overlay", () => {
 					Promise.resolve({
 						conversations: [],
 						work: [],
-						knowledge: [],
+						documents: [],
 						threads: [],
 						nextCursor: null,
 						// auth/me response

@@ -83,3 +83,33 @@ describe("Router (P4) — /setup route", () => {
 		expect(allPaths.some((p) => p.includes("setup"))).toBe(true);
 	});
 });
+
+/**
+ * @lore BC4: /knowledge is deleted, not redirected — no persisted row holds
+ * the old path shape (CLAUDE.md's absolute rule 2). The three /documents
+ * routes replace it one-for-one (list, create, detail).
+ */
+describe("Router — /documents replaces /knowledge", () => {
+	function flattenRoutes(rs: readonly { path?: string; children?: unknown }[]): string[] {
+		return rs.flatMap((r) => {
+			const paths: string[] = [];
+			if (typeof r.path === "string") paths.push(r.path);
+			if (Array.isArray(r.children)) {
+				paths.push(...flattenRoutes(r.children as { path?: string; children?: unknown }[]));
+			}
+			return paths;
+		});
+	}
+
+	it("router.tsx has exactly the three /documents routes and no /knowledge route", {
+		timeout: 60_000,
+	}, async () => {
+		const { router } = await import("../router");
+		const allPaths = flattenRoutes(router.routes);
+
+		expect(allPaths).toContain("documents");
+		expect(allPaths).toContain("documents/new");
+		expect(allPaths).toContain("documents/:documentId");
+		expect(allPaths.some((p) => p.includes("knowledge"))).toBe(false);
+	});
+});

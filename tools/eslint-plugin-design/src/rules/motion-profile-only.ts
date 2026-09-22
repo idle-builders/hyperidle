@@ -45,16 +45,16 @@ function animationFrameIdentity(
 ): string | null {
 	const normalized = filename.replace(/\\/g, "/");
 	const source = normalizedSource(context, node);
-	if (normalized.endsWith("layers/core-ui/src/pages/KnowledgeDetail.tsx")) {
+	if (normalized.endsWith("layers/core-ui/src/pages/DocumentDetail.tsx")) {
 		const parent = node.parent as AstNode | undefined;
 		const id =
 			parent?.type === "VariableDeclarator" ? (parent.id as AstNode | undefined) : undefined;
 		return id?.type === "Identifier" &&
 			id.name === "raf" &&
-			source.includes('document.querySelectorAll("[data-block-id]")') &&
+			source.includes('window.document.querySelectorAll("[data-block-id]")') &&
 			source.includes('node.getAttribute("data-block-id")===decoded') &&
 			source.includes('?.scrollIntoView?.({block:"start"})')
-			? "knowledge-anchor-scroll"
+			? "document-anchor-scroll"
 			: null;
 	}
 	if (!normalized.endsWith("layers/core-ui/src/layouts/AppShell.tsx")) return null;

@@ -4,9 +4,11 @@ import type { Locator, Page, Route } from "@playwright/test";
 import { REVIEW_COMPOSITION_SUBJECT } from "../src/pages/review/__fixtures__/review-composition.fixture.js";
 import {
 	expect,
+	makeDocumentRow,
 	makeIdentity,
 	makeMessage,
 	makeThread,
+	mockDocument,
 	mockSearchThreads,
 	mockThread,
 	test,
@@ -69,6 +71,12 @@ async function mockPrimarySurfaces(page: Page): Promise<void> {
 	});
 	await page.route("**/api/sessions?**", (route) => json(route, []));
 	await mockSearchThreads(page, { rows: [] });
+	// @lore BC4: KnowledgeDetail's LEGACY_DETAILS/fixture fallback ("k1, known
+	// fixture id with content") is gone — DocumentDetail only ever reads
+	// `open_document`, so this id needs an explicit mock now.
+	await mockDocument(page, {
+		row: makeDocumentRow("k1", { scopeKind: "team", scopeId: "team-a" }),
+	});
 }
 
 for (const viewport of [
@@ -100,12 +108,12 @@ for (const viewport of [
 		if (viewport.width === 1440)
 			await page.screenshot({ path: resolve(EVIDENCE, "read-conversation.png") });
 
-		await page.goto("/knowledge/k1");
-		await expect(page.getByTestId("knowledge-body")).toBeVisible();
-		const workbench = page.getByTestId("knowledge-metadata-aside").locator("xpath=..");
+		await page.goto("/documents/k1");
+		await expect(page.getByTestId("document-body")).toBeVisible();
+		const workbench = page.getByTestId("document-metadata-aside").locator("xpath=..");
 		await expectSameX(page.getByRole("heading", { level: 1 }), workbench);
 		if (viewport.width === 1440)
-			await page.screenshot({ path: resolve(EVIDENCE, "workbench-knowledge.png") });
+			await page.screenshot({ path: resolve(EVIDENCE, "workbench-document.png") });
 
 		await page.goto("/settings");
 		const focus = page.getByTestId("settings-section-profile");

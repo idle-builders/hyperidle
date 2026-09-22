@@ -18,9 +18,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppShell } from "../layouts/AppShell";
 
 // @lore BC3: the sidebar thread list now comes from `useThreads({mine:true})`
-// → `call("search_threads", ...)`, not `GET /api/threads`. `call` is mocked;
-// `fetch` stays mocked for the surviving routes (`/api/auth/me`, `/api/teams`,
-// `/api/knowledge`) AppShell still hits directly.
+// → `call("search_threads", ...)`, not `GET /api/threads`. `call` is mocked
+// (its fallback branch — `{ok:true, data:[]}` — also covers the sidebar's own
+// `call("search_documents", ...)`); `fetch` stays mocked for the
+// surviving routes (`/api/auth/me`, `/api/teams`) AppShell still hits directly.
 const { callMock } = vi.hoisted(() => ({ callMock: vi.fn() }));
 vi.mock("../services/call.js", () => ({ call: callMock }));
 
@@ -74,7 +75,7 @@ function setFetchMock(threads: ThreadListRow[]): ReturnType<typeof vi.fn> {
 				json: async () => ({ id: "u-founder-test", name: "Founder", email: "", avatarUrl: null }),
 			} as Response;
 		}
-		// /api/teams, /api/knowledge and anything else AppShell fetches directly.
+		// /api/teams and anything else AppShell fetches directly.
 		return { ok: true, json: async () => ({}) } as Response;
 	});
 	global.fetch = fetchMock as unknown as typeof fetch;

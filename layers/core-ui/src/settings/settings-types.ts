@@ -94,7 +94,7 @@ export interface AgentConfig {
 	 */
 	ownerUserId?: string | null;
 	/** The agent's identity document, or null when it has none. */
-	identityKnowledgeId: string | null;
+	identityDocumentId: string | null;
 	harnessType: string | null;
 	/** AH2: Per-agent model ID. null = use tier fallback. */
 	modelId: string | null;

@@ -20,13 +20,13 @@ import type { Action, ActionContext } from "./actions/action.js";
 import { actionsAsTools } from "./actions/actions-as-tools.js";
 import { createActionsRouter } from "./actions/actions-router.js";
 import { buildCoreActions } from "./actions/compose.js";
+import { createAgentIdentityPort } from "./routes/agent-identity.js";
 import { createAgentRoutes } from "./routes/agents.js";
 import { createAuthRoutes } from "./routes/auth.js";
 import { createCredentialRoutes } from "./routes/credentials.js";
 import { createFilesystemInjectionRoutes } from "./routes/filesystems.js";
 import { createHarnessRoutes } from "./routes/harnesses.js";
 import { authHealth } from "./routes/health.js";
-import { createKnowledgeRoutes } from "./routes/knowledge.js";
 import { createNotificationRoutes } from "./routes/notifications-routes.js";
 import { createOrgRoutes } from "./routes/org.js";
 import { createPluginRoutes } from "./routes/plugins.js";
@@ -101,7 +101,7 @@ interface AppOptions {
 		>;
 		/**
 		 * `adjust_thread`'s own bound `run`, so the stalled-knowledge-action
-		 * reaction can resolve-or-create the knowledge item's thread.
+		 * reaction can resolve-or-create the document's thread.
 		 */
 		adjustThread: (
 			ctx: import("./actions/action.js").ActionContext,
@@ -214,7 +214,7 @@ interface AppOptions {
 	 * `{pluginsBaseDir}/{pluginId}/` and stores the path in `plugins.install_path`.
 	 * Required for skill restore to work (restore reads from install_path on disk).
 	 * Absent → plugin files are not persisted; install_path will be null; skills
-	 * are still materialised as knowledge items but cannot be restored from source.
+	 * are still materialised as documents but cannot be restored from source.
 	 * Production wiring passes the platform config dir; tests pass a temp dir.
 	 */
 	pluginsBaseDir?: string;
@@ -236,6 +236,35 @@ const APP_DISPOSERS = new WeakMap<Hono, Array<() => void>>();
  * SAME composed list (architecture.md §7's "one composed list, built once").
  */
 const APP_ACTION_TOOLS = new WeakMap<Hono, ReadonlyArray<RegisteredTool<HyperIdleDb>>>();
+/**
+ * @lore document-module B15: `boot.ts` needs the RAW `edit_document`/
+ * `search_documents` runners (not `actionsAsTools`' MCP-wrapped projection)
+ * to build `CoreApiBoot.editDocument`/`searchDocuments` — the two values
+ * architecture.md §8.4 threads into the writeback processor exactly like
+ * `actionTools`. Same take-once-by-app-instance idiom as `APP_ACTION_TOOLS`,
+ * kept as a second WeakMap rather than widening that one's value shape,
+ * since a tool registration and a raw action runner are different things
+ * with different consumers.
+ */
+const APP_DOCUMENT_RUNNERS = new WeakMap<
+	Hono,
+	{
+		readonly editDocument: (
+			ctx: ActionContext,
+			input: import("@hyperidle/domain-model").EditDocumentInput,
+		) => Promise<
+			import("@hyperidle/domain-model").ActionResult<import("@hyperidle/domain-model").DocumentView>
+		>;
+		readonly searchDocuments: (
+			ctx: ActionContext,
+			input: import("@hyperidle/domain-model").SearchDocumentsInput,
+		) => Promise<
+			import("@hyperidle/domain-model").ActionResult<
+				import("@hyperidle/domain-model").DocumentRow[]
+			>
+		>;
+	}
+>();
 const appLogger = createLogger({ pkg: "server.app" });
 
 /**
@@ -396,9 +425,6 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 			options.agentWorkIntentRecorder ?? defaultAgentWorkIntentRecorder;
 		const reviewVerdictRecorder = options.reviewVerdictRecorder ?? defaultGateVerdictRecorder;
 
-		// @lore U2: `/products` URL renamed to `/teams` (domain rename: Product → Team).
-		// The old `createTeamsRoutes` (knowledge team_members listing) relocated to `/team-members`.
-		api.route("/agents", createAgentRoutes(options.db, agentOrchestration, options.adapterPool));
 		// the action list. `search_tasks`/`open_task`/`edit_task` mount at
 		// `POST /api/actions/<name>` — one loop over the composed list, never a
 		// per-object route factory. the architecture doc §7.
@@ -447,13 +473,77 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		) => Promise<
 			import("@hyperidle/domain-model").ActionResult<import("@hyperidle/domain-model").ThreadView>
 		>;
+		// @lore `/search`'s scope=document branch and its own document category
+		// (architecture.md §8.3) go through the composed `search_documents`
+		// action, extracted the same way `sendMessage`/`adjustThreadRun` are —
+		// never `open_document` (a search result is not a read).
+		const searchDocumentsAction = actions.find((a) => a.declaration.name === "search_documents");
+		if (!searchDocumentsAction) {
+			throw new Error("buildCoreActions did not produce a search_documents action");
+		}
+		const searchDocumentsRun = searchDocumentsAction.run as (
+			ctx: ActionContext,
+			input: import("@hyperidle/domain-model").SearchDocumentsInput,
+		) => Promise<
+			import("@hyperidle/domain-model").ActionResult<
+				import("@hyperidle/domain-model").DocumentRow[]
+			>
+		>;
+		// @lore document-module B10: `/plugins`' install/enable/disable/restore
+		// lifecycle writes documents through the composed `edit_document` action
+		// (architecture.md §8.3) — extracted the same way, never
+		// `@hyperidle/document`'s repository functions directly.
+		const editDocumentAction = actions.find((a) => a.declaration.name === "edit_document");
+		if (!editDocumentAction) {
+			throw new Error("buildCoreActions did not produce an edit_document action");
+		}
+		const editDocumentRun = editDocumentAction.run as (
+			ctx: ActionContext,
+			input: import("@hyperidle/domain-model").EditDocumentInput,
+		) => Promise<
+			import("@hyperidle/domain-model").ActionResult<import("@hyperidle/domain-model").DocumentView>
+		>;
+		// @lore document-module B15: the SAME two runners, captured raw (not
+		// MCP-tool-wrapped) for `boot.ts` to build `CoreApiBoot.editDocument`/
+		// `searchDocuments` off — the writeback processor's document port
+		// (architecture.md §8.4).
+		APP_DOCUMENT_RUNNERS.set(api, {
+			editDocument: editDocumentRun,
+			searchDocuments: searchDocumentsRun,
+		});
+		// @lore document-module B11: an agent's identity document (§8.3) — the
+		// one shared helper every agent-creating route (`/agents`, `/org`'s
+		// scaffold-request, `/teams`'s create) reduces to, built from the same
+		// composed `search_documents`/`edit_document` runners rather than
+		// `@hyperidle/document`'s repository functions.
+		const agentIdentity = createAgentIdentityPort({
+			searchDocuments: searchDocumentsRun,
+			editDocument: editDocumentRun,
+			eventBus,
+		});
+		// @lore U2: `/products` URL renamed to `/teams` (domain rename: Product → Team).
+		// The old `createTeamsRoutes` (knowledge team_members listing) relocated to `/team-members`.
+		// Mounted here (after the action list and `agentIdentity` both exist)
+		// rather than at its old pre-actions spot — the profile/list/create/
+		// delete handlers all reach an agent's identity document through it now.
+		api.route(
+			"/agents",
+			createAgentRoutes(options.db, agentOrchestration, options.adapterPool, agentIdentity),
+		);
 		// @lore `/teams` mounts after the action list is built and `sendMessage`
 		// extracted — its POST handler's welcome-message seed posts through the
 		// composed action instead of a raw `insertThread`/`insertMessage` into
 		// the literal id `thr-ast-${userId}`.
 		api.route(
 			"/teams",
-			createTeamRoutes(options.db, eventBus, agentOrchestration, sendMessage, options.adapterPool),
+			createTeamRoutes(
+				options.db,
+				eventBus,
+				agentOrchestration,
+				sendMessage,
+				agentIdentity,
+				options.adapterPool,
+			),
 		);
 		// @lore BC3 architecture.md §5 B1: `/reviews`, `/conversations`, `/threads`
 		// and their route files are DELETED — search_threads/open_thread/
@@ -466,10 +556,22 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		// on agent-orchestration's app at byte-identical paths. See
 		// `routes/filesystems.ts`'s own top-of-file `@lore`.
 		api.route("/filesystems", createFilesystemInjectionRoutes(options.db, agentOrchestration));
-		api.route("/knowledge", createKnowledgeRoutes(options.db, eventBus));
 		api.route("/users", createUserRoutes(options.db));
-		api.route("/org", createOrgRoutes(options.db, agentOrchestration));
-		api.route("/routines", createRoutineRoutes(options.db, eventBus, agentOrchestration));
+		api.route("/org", createOrgRoutes(options.db, agentOrchestration, agentIdentity));
+		// @lore document-module B12: a routine's prompt document reads/writes
+		// through the same composed `search_documents`/`edit_document` runners,
+		// extracted above (architecture.md §8.2, §8.3) — never
+		// `@hyperidle/document`'s repository functions directly.
+		api.route(
+			"/routines",
+			createRoutineRoutes(
+				options.db,
+				eventBus,
+				agentOrchestration,
+				searchDocumentsRun,
+				editDocumentRun,
+			),
+		);
 		api.route("/recipients", createRecipientRoutes(options.db, eventBus));
 
 		// AH2: GET /api/harnesses — deduped harness type list for SettingsAgents selector.
@@ -486,9 +588,18 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		// AU26 E4: `/api/connections` is served by `agent-orchestration`'s own
 		// app now (its whole table set is `service_connections`, which that Layer
 		// owns). Same path, other host — see `createAgentOrchestrationApp`.
-		api.route("/search", createSearchRoutes(options.db, eventBus));
+		api.route("/search", createSearchRoutes(options.db, eventBus, searchDocumentsRun));
 		api.route("/settings/agent-behavior", createAgentBehaviorSettingsRoutes(options.db));
-		api.route("/plugins", createPluginRoutes(options.db, options.pluginsBaseDir));
+		api.route(
+			"/plugins",
+			createPluginRoutes(
+				options.db,
+				eventBus,
+				editDocumentRun,
+				searchDocumentsRun,
+				options.pluginsBaseDir,
+			),
+		);
 		api.route("/notifications", createNotificationRoutes(options.db, { deps: notificationsDeps }));
 
 		const db = options.db;
@@ -584,6 +695,18 @@ export function takeAppActionTools(
 	const tools = APP_ACTION_TOOLS.get(hono);
 	APP_ACTION_TOOLS.delete(hono);
 	return tools;
+}
+
+/**
+ * §8.4 — detach and return the composed `edit_document`/`search_documents`
+ * runners. `undefined` when `db` was never supplied (no actions were built).
+ * Read exactly once, by `bootCoreApi`, the same idiom `takeAppActionTools`
+ * already gives.
+ */
+export function takeAppDocumentRunners(hono: Hono): ReturnType<typeof APP_DOCUMENT_RUNNERS.get> {
+	const runners = APP_DOCUMENT_RUNNERS.get(hono);
+	APP_DOCUMENT_RUNNERS.delete(hono);
+	return runners;
 }
 
 /**

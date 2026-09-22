@@ -35,11 +35,11 @@ describe("AE5 — resolveHostRoute", () => {
 		expect(resolveHostRoute("task", "task-456")).toBe("/work/task/task-456");
 	});
 
-	it("resolves knowledge_item to /knowledge/:id", () => {
-		expect(resolveHostRoute("knowledge_item", "ki-789")).toBe("/knowledge/ki-789");
+	it("resolves document to /documents/:id", () => {
+		expect(resolveHostRoute("document", "ki-789")).toBe("/documents/ki-789");
 	});
 
-	// @lore artifacts-become-knowledge: artifact test removed — "artifact" is no longer a valid HostKind
+	// @lore artifacts-become-documents: artifact test removed — "artifact" is no longer a valid HostKind
 
 	it("resolves agent to /work/agent/:id", () => {
 		expect(resolveHostRoute("agent", "agent-001")).toBe("/agents/agent-001");
@@ -317,7 +317,7 @@ function makeTask(id: string, title: string, state: string) {
 		outcomeRecordedAt: null,
 		outcomeRecordedBy: null,
 		tokensActualJson: null,
-		sourceKnowledgeItemId: null,
+		sourceDocumentId: null,
 		completedAt: null,
 		position: 0,
 		needsReview: false,

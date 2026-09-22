@@ -24,7 +24,7 @@ export type BlockId = string & { readonly __brand: "BlockId" };
 // @lore BB1: `"bet"` removed — a bet is a task with no parent, and migration
 // 0068 flipped every thread whose host_kind was "bet" to "task" (the host_id was
 // already correct, since each bet kept its id as a root task).
-export type BlockHostKind = "task" | "knowledge_item" | "agent" | "user";
+export type BlockHostKind = "task" | "document" | "agent" | "user";
 
 // ── Closed enums ────────────────────────────────────────────────
 
@@ -32,7 +32,7 @@ export type BlockHostKind = "task" | "knowledge_item" | "agent" | "user";
 // §3.7, §3.9); there is no thread hosted by a task any more. `BlockHostKind`
 // above keeps `"task"` — a block anchor's host is not a thread's host; do not
 // conflate the two vocabularies.
-export const HOST_KINDS = ["knowledge_item", "agent", "user", "team", "factory"] as const;
+export const HOST_KINDS = ["document", "agent", "user", "team", "factory"] as const;
 export type HostKind = (typeof HOST_KINDS)[number];
 
 export const MESSAGE_TYPES = ["plain", "review", "questionnaire", "verdict"] as const;
@@ -138,7 +138,7 @@ export interface AnchorRef {
 export type InlineRefKind = InlineRef["kind"];
 
 export interface EntityRef {
-	readonly kind: "knowledge_item" | "task" | "message";
+	readonly kind: "document" | "task" | "message";
 	readonly id: string;
 }
 
@@ -179,7 +179,7 @@ export interface MentionRef {
 export type InlineRef = EntityRef | MentionRef | CanvasArtifactRef;
 
 // `ArtifactRef` is DELETED. It pointed at a row in the `artifacts` table, and
-// that table is gone — produced content is a knowledge item, referenced by its
+// that table is gone — produced content is a document, referenced by its
 // own id. `ReviewPayload.producedItemId` replaces it; the `kind` it carried is
 // derived from the item's blocks at render time and is not stored anywhere.
 
@@ -341,7 +341,7 @@ export function verdictDecisionLabel(decision: VerdictDecision): string {
 
 // `ArtifactThreadSummary` and `ArtifactThreadSummaryResponse` are DELETED with
 // the endpoint they described (`GET /api/bets/:id/artifact-thread-summary`) and the
-// artifacts table behind it. Threads hang off the knowledge item itself now.
+// artifacts table behind it. Threads hang off the document itself now.
 
 /**
  * L18: Extended plain payload that includes an optional blockId for

@@ -44,7 +44,7 @@ export const CompactWithRetry = (): React.JSX.Element => (
 
 export const WithRetry = (): React.JSX.Element => (
 	<ErrorState
-		title="Couldn't load knowledge"
+		title="Couldn't load documents"
 		description="The server returned an error. You can retry in a moment."
 		onRetry={() => undefined}
 	/>

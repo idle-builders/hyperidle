@@ -11,7 +11,7 @@
  *  - AC4: a session renders as a Fold; NO work-log/tool-call rows in the column.
  *  - AC7: an `unknown` Part renders a quiet placeholder (no throw).
  *  - AC8: clicking chips/folds/review buttons fires onOpen with the resolved
- *         OpenTarget — incl. the non-knowledge (bet) host case (C1). NO
+ *         OpenTarget — incl. the non-document (bet) host case (C1). NO
  *         destination view mounts.
  *
  * RED until `../components/PartList` (and the `parts/*` sub-renderers) exist
@@ -272,8 +272,8 @@ describe("AM1 PartList — onOpen routing seam (AC8)", () => {
 				onOpen={vi.fn()}
 			/>,
 		);
-		// No knowledge/artifact/review viewer surfaces mount in the conversation.
-		expect(document.querySelector('[data-ds-component="KnowledgeDetail"]')).toBeNull();
+		// No document/artifact/review viewer surfaces mount in the conversation.
+		expect(document.querySelector('[data-ds-component="DocumentDetail"]')).toBeNull();
 		expect(document.querySelector('[data-ds-component="ArtifactView"]')).toBeNull();
 		expect(document.querySelector('[data-ds-component="ReviewComposition"]')).toBeNull();
 	});

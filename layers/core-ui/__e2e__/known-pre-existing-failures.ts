@@ -66,7 +66,7 @@ export const AU21_PRE_EXISTING_E2E_FAILURES: readonly string[] = [
 	"thinking row appears while replay is in-flight (LLM_REPLAY_DELAY_MS=80), then disappears once reply lands",
 	// AU21 follow-up (harness-telemetry narrowing, 2026-08-03): same mechanism
 	// as above — this commit touches @hyperidle/harness-protocol's types, which
-	// nothing in knowledge-edit.spec.ts's own feature area depends on. Neither
+	// nothing in document-edit.spec.ts's own feature area depends on. Neither
 	// this commit nor the preceding cost-mock-cleanup commit touches any
 	// knowledge-related file (verified: `git show <commit> --stat | grep -i
 	// knowledge` returns nothing for both). Reproduced twice, consistently,
@@ -229,8 +229,8 @@ export const AU21_PRE_EXISTING_E2E_FAILURES: readonly string[] = [
 	"error state disables chips (aria-disabled='true')",
 	"error then retry: 500 surfaces the error row, retry succeeds and bar unmounts",
 	"every design-system primitive ≥ 44px on /conversations",
-	"every design-system primitive ≥ 44px on /knowledge",
-	"every design-system primitive ≥ 44px on /knowledge/k1",
+	"every design-system primitive ≥ 44px on /documents",
+	"every design-system primitive ≥ 44px on /documents/k1",
 	"every design-system primitive ≥ 44px on /work/task/task-a11y-1",
 	"every design-system primitive ≥ 44px on /work/portfolio",
 	"every design-system primitive ≥ 44px on /work/product/p1",
@@ -242,8 +242,8 @@ export const AU21_PRE_EXISTING_E2E_FAILURES: readonly string[] = [
 	"item created on bet detail page appears in knowledge list",
 	"jump-out link is visible and has correct href",
 	"kanban task → sheet opens → thread renders inline",
-	"knowledge empty state visible when no items",
-	"knowledge list: content area ≤ 800px",
+	"document empty state visible when no items",
+	"document list: content area ≤ 800px",
 	"knowledge-create: + New button is btn-sm; clicking opens dialog; POST is intercepted",
 	"knowledge-open-item: clicking knowledge row navigates to detail page",
 	"knowledge-scope: changing scope fires PATCH to /scope endpoint",
@@ -255,10 +255,10 @@ export const AU21_PRE_EXISTING_E2E_FAILURES: readonly string[] = [
 	"messages anchored to a non-existent block show 'anchor lost' indicator",
 	"no WCAG 2.1 AA violations on /conversations",
 	"no WCAG 2.1 AA violations on /conversations at ≤ 1024px",
-	"no WCAG 2.1 AA violations on /knowledge",
-	"no WCAG 2.1 AA violations on /knowledge at ≤ 1024px",
-	"no WCAG 2.1 AA violations on /knowledge/k1",
-	"no WCAG 2.1 AA violations on /knowledge/k1 at ≤ 1024px",
+	"no WCAG 2.1 AA violations on /documents",
+	"no WCAG 2.1 AA violations on /documents at ≤ 1024px",
+	"no WCAG 2.1 AA violations on /documents/k1",
+	"no WCAG 2.1 AA violations on /documents/k1 at ≤ 1024px",
 	"no WCAG 2.1 AA violations on /work/task/task-a11y-1",
 	"no WCAG 2.1 AA violations on /work/task/task-a11y-1 at ≤ 1024px",
 	"no WCAG 2.1 AA violations on /work/portfolio",

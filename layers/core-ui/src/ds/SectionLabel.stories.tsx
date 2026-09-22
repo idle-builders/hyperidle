@@ -54,7 +54,7 @@ export function WithDivider(): JSX.Element {
 	);
 }
 
-// As h2 — used on KnowledgeDetail sidebar where SectionLabel is the top heading
+// As h2 — used on DocumentDetail sidebar where SectionLabel is the top heading
 export function AsH2(): JSX.Element {
 	return (
 		<div style={{ padding: 24, background: "var(--surface-page, #faf8f5)" }}>

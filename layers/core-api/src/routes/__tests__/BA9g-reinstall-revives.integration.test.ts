@@ -19,21 +19,15 @@
 import { cpSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import {
-	type HyperIdleDb,
-	knowledgeItems,
-	pluginContributions,
-	routines,
-	users,
-} from "@hyperidle/db";
+import { documents, type HyperIdleDb, pluginContributions, routines, users } from "@hyperidle/db";
 import { and, eq, inArray } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, describe, expect } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
 const API_KEY = "test-ba9g-reinstall";
-const PLUGIN_ROOT = resolve("plugins/knowledge-management");
-const PLUGIN_ID = "knowledge-management";
+const PLUGIN_ROOT = resolve("plugins/document-management");
+const PLUGIN_ID = "document-management";
 
 function auth(): Record<string, string> {
 	return { "X-API-Key": API_KEY };
@@ -50,7 +44,26 @@ afterEach(() => {
 	tempDirs.length = 0;
 });
 
-async function install(app: Hono): Promise<void> {
+/** The install route writes documents through `edit_document`, which needs a
+ * real actor for the `changes` row it appends — the auth middleware's
+ * API-key fallback resolves to this id when no human is seeded.
+ * `onConflictDoNothing` so a second install in the same test is safe. */
+async function seedFounder(db: HyperIdleDb): Promise<void> {
+	await db
+		.insert(users)
+		.values({
+			id: "u-founder",
+			kind: "human",
+			name: "Founder",
+			role: "founder",
+			status: "active",
+			createdAt: "2026-01-01T00:00:00Z",
+		})
+		.onConflictDoNothing();
+}
+
+async function install(db: HyperIdleDb, app: Hono): Promise<void> {
+	await seedFounder(db);
 	const dir = join(tmpdir(), `ba9g-${Date.now()}-${Math.round(performance.now())}`);
 	mkdirSync(dir, { recursive: true });
 	cpSync(PLUGIN_ROOT, dir, { recursive: true });
@@ -74,7 +87,7 @@ async function post(app: Hono, path: string): Promise<number> {
 /** What the plugin contributed — the registry is the only answer now. */
 async function contributed(
 	db: HyperIdleDb,
-	kind: "agent" | "routine" | "knowledge",
+	kind: "agent" | "routine" | "document",
 ): Promise<readonly string[]> {
 	const rows = await db
 		.select({ entityId: pluginContributions.entityId })
@@ -85,7 +98,7 @@ async function contributed(
 
 describe("installing a plugin revives everything it contributed", () => {
 	test("install over a DISABLED plugin brings its agent and routines back", async ({ db, app }) => {
-		await install(app);
+		await install(db, app);
 		expect(await post(app, `/api/plugins/${PLUGIN_ID}/disable`)).toBe(200);
 
 		// Precondition: disable really did take everything down.
@@ -95,7 +108,7 @@ describe("installing a plugin revives everything it contributed", () => {
 			.where(inArray(users.id, [...(await contributed(db, "agent"))]));
 		expect(agentAfterDisable?.status).toBe("inactive");
 
-		await install(app);
+		await install(db, app);
 
 		const agents = await db
 			.select()
@@ -107,8 +120,8 @@ describe("installing a plugin revives everything it contributed", () => {
 			.where(inArray(routines.id, [...(await contributed(db, "routine"))]));
 		const skills = await db
 			.select()
-			.from(knowledgeItems)
-			.where(inArray(knowledgeItems.id, [...(await contributed(db, "knowledge"))]));
+			.from(documents)
+			.where(inArray(documents.id, [...(await contributed(db, "document"))]));
 
 		expect(agents.length).toBeGreaterThan(0);
 		expect(rows.length).toBeGreaterThan(0);
@@ -129,7 +142,7 @@ describe("installing a plugin revives everything it contributed", () => {
 	});
 
 	test("install over a REMOVED plugin brings its agent and routines back", async ({ db, app }) => {
-		await install(app);
+		await install(db, app);
 		const del = await app.request(`/api/plugins/${PLUGIN_ID}`, {
 			method: "DELETE",
 			headers: auth(),
@@ -143,7 +156,7 @@ describe("installing a plugin revives everything it contributed", () => {
 			.where(inArray(routines.id, [...(await contributed(db, "routine"))]));
 		expect(afterRemove.some((r) => r.deletedAt !== null)).toBe(true);
 
-		await install(app);
+		await install(db, app);
 
 		const agents = await db
 			.select()
@@ -167,9 +180,9 @@ describe("installing a plugin revives everything it contributed", () => {
 		db,
 		app,
 	}) => {
-		await install(app);
+		await install(db, app);
 		expect(await post(app, `/api/plugins/${PLUGIN_ID}/disable`)).toBe(200);
-		await install(app);
+		await install(db, app);
 
 		const rows = await db
 			.select()

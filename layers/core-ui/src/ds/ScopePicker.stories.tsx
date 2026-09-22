@@ -30,7 +30,7 @@ export const FilterMode = (): React.JSX.Element => {
 			mode="filter"
 			ariaLabel="Filter by scope"
 			testIdPrefix="scope-pill"
-			dataTestId="knowledge-scope-pills"
+			dataTestId="document-scope-pills"
 		/>
 	);
 };
@@ -61,7 +61,7 @@ export const WithDisabledOption = (): React.JSX.Element => {
 			onChange={setValue}
 			ariaLabel="Scope"
 			testIdPrefix="scope-pill-create"
-			disabledTitle="Join a team to use team-scoped knowledge"
+			disabledTitle="Join a team to use team-scoped documents"
 		/>
 	);
 };

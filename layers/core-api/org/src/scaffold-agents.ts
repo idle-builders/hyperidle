@@ -184,7 +184,7 @@ export async function persistScaffoldedAgents(
 			// about. Every scaffolded agent starts at 1 and the operator raises it.
 			maxConcurrentSessions: 1,
 		});
-		// The agent's identity is a knowledge document, seeded once here — the one
+		// The agent's identity is a document, seeded once here — the one
 		// place an agent comes into existence — and edited like any other document
 		// afterwards. Absent when the role has no template; the agent then has no
 		// persona section, which is a valid state.

@@ -89,50 +89,6 @@ interface ToolHandlersCreateTeamInput {
 }
 
 /**
- * Structural mirror of `knowledge`'s own `CreateKnowledgeItemInput`
- * (`knowledge-repository.ts`) — same reasoning as
- * `ToolHandlersCreateTeamInput`: `knowledge.create` reads these
- * specific fields, so this cannot stay the opaque `Record<string, unknown>`
- * shape. `KnowledgeStatus` literal union widens to `string` (Mechanism C:
- * never importing `knowledge`'s own types).
- *
- * @lore nested-knowledge-items: `layer`/`kind`/`topic` are DELETED — a
- * knowledge item's place in the tree says what it is about now, not a flat
- * layer/kind/topic vocabulary.
- */
-interface ToolHandlersCreateKnowledgeItemInput {
-	readonly scopeKind?: string | null;
-	readonly scopeId?: string | null;
-	readonly title: string;
-	readonly body: string;
-	readonly format: string;
-	readonly status: string;
-	readonly updatedBy: string;
-	/**
-	 * @lore rebase-onto-#547: `create_artifact`'s rewrite (a produced item is a
-	 * knowledge item parented to the task or thread that produced it) needs
-	 * these — `write_memory`, the accessor's other caller, never sets them.
-	 */
-	readonly parentKind?: "task" | "thread";
-	readonly parentId?: string;
-	readonly attentionScore?: number | null;
-	readonly confidence?: number | null;
-	readonly meta?: string | null;
-}
-
-/** Structural mirror of `knowledge`'s own `CreateKnowledgeConflictInput` (`conflict-review-store.ts`). */
-interface ToolHandlersCreateKnowledgeConflictInput {
-	readonly id: string;
-	readonly itemId: string;
-	readonly versionBase: number;
-	readonly versionCurrent: number;
-	readonly proposedBody: string;
-	readonly proposedMeta: string | null;
-	readonly proposedBy: string;
-	readonly createdAt: string;
-}
-
-/**
  * `CoreApiPort` write-seam accessor (AU21 §9 Increment 1). Unlike every
  * other accessor in this file, this one takes NO `TDb` — the write crosses
  * via the seam's transport (a real route call through the SAME door core-ui
@@ -144,23 +100,17 @@ interface ToolHandlersCreateKnowledgeConflictInput {
  * @lore `getTaskById`/`createTask`/`updateTaskById`/`appendTaskNote`/
  * `handoffTask` — the whole task-shaped slice of this accessor — are gone.
  * `create_task`/`edit_task`/`handoff_to`/`log_task` are deleted (the task
- * action list replaces them); the three tools that survive and only ever
- * READ a task (`write_memory`, `submit_review`, `create_artifact`) call
- * `openTask` instead, bound at the composition root directly to the
- * `open_task` action's `run` — in-process, never a second HTTP hop
- * (the architecture doc §8 B1).
+ * action list replaces them). `openTask` — bound at the composition root
+ * directly to the `open_task` action's `run`, in-process, never a second
+ * HTTP hop (the architecture doc §8 B1) — is ALSO gone: `write_memory`/
+ * `submit_review`/`create_artifact`, its only callers, are deleted with the
+ * document tools. `create`/`createKnowledgeConflict` are gone too —
+ * `write_memory`/`create_conflict_review`, their only callers on THIS
+ * accessor, are deleted. The `CoreApiKnowledgePort` methods of the same
+ * names (`framework/api-contract/src/core-api-port.ts`) are a different
+ * interface, still called by the sandbox writeback — untouched.
  */
 interface ToolHandlersCoreApiAccessor {
-	/** Structural mirror of the fields `write_memory`/`submit_review`/`create_artifact` read off `TaskView`. */
-	openTask(
-		id: string,
-		actorId: string,
-	): Promise<
-		| {
-				readonly task: { readonly parentTaskId: string | null; readonly teamId: string };
-		  }
-		| undefined
-	>;
 	getUserById(
 		id: string,
 		actorId: string,
@@ -236,77 +186,13 @@ interface ToolHandlersCoreApiAccessor {
 		{ readonly name: string; readonly state: string; readonly deletedAt: string | null } | undefined
 	>;
 	updateRoutineById(id: string, updates: Record<string, unknown>, actorId: string): Promise<void>;
-	/**
-	 * @lore AU21 §9 Increment 2 (knowledge wave): every former
-	 * `ToolHandlersKnowledgeAccessor` capability moved onto this seam
-	 * (`edge-disposition.md`'s `knowledge.{get, create, transition,
-	 * findOpenConflict, recordConflict}` row) — the agent acting on core
-	 * "just like the user would", same as every other Increment 2 migration.
-	 *
-	 * @lore nested-knowledge-items: `search` is DELETED — its only consumer,
-	 * `query_practice`, is gone (its one filter was `layer === 'L3'`).
-	 */
-	create(
-		input: ToolHandlersCreateKnowledgeItemInput,
-		actorId: string,
-	): Promise<{ readonly id: string; readonly version: number }>;
-	findKnowledgeItemVersionById(
-		id: string,
-		actorId: string,
-	): Promise<{ readonly id: string; readonly version: number } | undefined>;
-	findKnowledgeItemStatusById(
-		id: string,
-		actorId: string,
-	): Promise<{ readonly status: string } | undefined>;
-	findOpenConflictByItemAndProposer(
-		itemId: string,
-		proposedBy: string,
-		actorId: string,
-	): Promise<{ readonly id: string } | undefined>;
-	createKnowledgeConflict(
-		input: ToolHandlersCreateKnowledgeConflictInput,
-		actorId: string,
-	): Promise<void>;
-	promoteKnowledgeItem(
-		input: {
-			readonly knowledgeItemId: string;
-			readonly fromStatus: string;
-			readonly toStatus: string;
-			readonly reason: string | undefined;
-			readonly editor: string;
-		},
-		actorId: string,
-	): Promise<
-		| { readonly ok: true; readonly fromStatus: string }
-		| {
-				readonly ok: false;
-				readonly code: "CONFLICT_OPEN" | "CONCURRENT_MODIFICATION";
-				readonly message: string;
-		  }
-	>;
-	/**
-	 * Merge sourceId into targetId: appends source body to target, archives source.
-	 * @lore BA9d D9: restored agent-reachable door (AU44 scope breach, rows 58-59).
-	 */
-	mergeKnowledgeItem(
-		targetId: string,
-		sourceId: string,
-		updatedBy: string,
-		actorId: string,
-	): Promise<{ readonly id: string }>;
-	/**
-	 * Split itemId into two or more new items, archiving the original.
-	 * @lore BA9d D9: restored agent-reachable door (AU44 scope breach, rows 58-59).
-	 */
-	splitKnowledgeItem(
-		itemId: string,
-		newItems: ReadonlyArray<{
-			readonly title: string;
-			readonly body: string;
-		}>,
-		updatedBy: string,
-		actorId: string,
-	): Promise<ReadonlyArray<{ readonly id: string }>>;
+	// There is no `create`/`createKnowledgeConflict` — the AU21 §9 Increment 2
+	// knowledge wave moved every `ToolHandlersKnowledgeAccessor` capability
+	// onto this seam for `write_memory`/`create_conflict_review`; both tools
+	// are deleted with the document tools, so this accessor has no knowledge
+	// capability left. `search` was already gone (its only consumer,
+	// `query_practice`, was deleted earlier — its one filter was
+	// `layer === 'L3'`).
 }
 
 // There is no `ToolHandlersReviewAccessor`/`gate.linkReviewToSession` —

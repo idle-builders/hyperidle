@@ -172,7 +172,7 @@ function discoverPackages(root: string): string[] {
 
 /**
  * Resolve which discovered package owns an error path via longest-prefix match.
- * `layers/core-api/knowledge/src/x.ts` must attribute to `layers/core-api/knowledge`,
+ * `layers/core-api/document/src/x.ts` must attribute to `layers/core-api/document`,
  * not `layers/core-api`, so a Service error never counts against its Layer.
  */
 function ownerOf(path: string, allPackages: readonly string[]): string | null {
@@ -522,7 +522,7 @@ function buildLeafDeclarations(root: string, tscBin: string): void {
 		"framework/harness-protocol",
 		"framework/db",
 		"layers/core-api",
-		"layers/core-api/knowledge",
+		"layers/core-api/document",
 		"layers/core-api/work",
 		"layers/core-api/org",
 		"layers/core-api/users",

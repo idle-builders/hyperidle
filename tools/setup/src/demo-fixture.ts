@@ -12,7 +12,7 @@
  *
  * @lore AX1: the skeleton grew into a LIVED-IN world — six weeks of Acme
  * history (nested tasks across every lifecycle, threads with real reviews, a
- * knowledge corpus, sessions and routines with run history). The content
+ * document corpus, sessions and routines with run history). The content
  * lives in `./demo-world/`; this file keeps the skeleton and the entry
  * point. The AF17 constraint is unchanged: demo data is OPT-IN at database
  * creation (`npm run setup -- --demo`, or `--db-path` pointed at any
@@ -37,9 +37,8 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
 	agentRunConfig,
+	documents,
 	type HyperIdleDb,
-	knowledgeAppProjection,
-	knowledgeItems,
 	routines,
 	tasks,
 	teams,
@@ -56,7 +55,7 @@ import { createDemoClock } from "./demo-world/time.js";
  * Creates: team "Acme" (AU44 B1: team_members dissolved), two humans, the founder's
  * assistant and five team agents, seven root tasks across every lifecycle with
  * nested subtasks to three levels deep, fifteen threads with ~100 messages,
- * a ~40-item knowledge corpus, ~45 sessions, routines with run history, and
+ * a ~40-item document corpus, ~45 sessions, routines with run history, and
  * notifications — a world that reads as six weeks of use by a small team.
  *
  * Idempotent: uses onConflictDoNothing throughout; fixed `demo-*` ids.
@@ -101,21 +100,27 @@ async function upsertDemoRunConfig(
 			.onConflictDoNothing();
 	}
 
-	// The agent's identity is an `agent_file` knowledge document parented to
-	// it — parent_kind='agent', parent_id=the agent — the binding context
-	// assembly reads through `getParentedItem`. scope_kind='user'/scope_id are
-	// still written too: scope answers a different question (how far the item
-	// reaches) and is never derived from the parent. Kernel row and projection
-	// are written together, as knowledge always writes them.
+	// The agent's identity is an `agent_file` document parented to it —
+	// parent_kind='agent', parent_id=the agent — the binding context assembly
+	// reads through `getParentedItem`. scope_kind='user'/scope_id are still
+	// written too: scope answers a different question (how far the item
+	// reaches) and is never derived from the parent.
 	//
 	// Runs AFTER migrations (this fixture is app-level seed data, not a
 	// migration), so a bootstrap run always writes the current parent shape —
 	// there is no pre-parent state for it to repair.
 	if (systemPrompt) {
-		const ts = new Date().toISOString();
+		const now = new Date();
+		const ts = now.toISOString();
 		const identityId = `ki_af_${agentUserId}`;
+		// @lore BC4 §6.7: plausible usage — an identity file is bound into
+		// every session the agent runs (high, recent sessionUseCount) but is
+		// rarely opened directly from the detail page (small readCount, a few
+		// days stale). Spread by a cheap hash of the agent id so multiple demo
+		// agents don't all show identical counters.
+		const seed = agentUserId.length + agentUserId.charCodeAt(0);
 		await db
-			.insert(knowledgeItems)
+			.insert(documents)
 			.values({
 				id: identityId,
 				scopeKind: "user",
@@ -127,25 +132,23 @@ async function upsertDemoRunConfig(
 				format: "markdown",
 				status: "active",
 				version: 1,
-				role: "agent_file",
+				slot: "agent_file",
 				parentKind: "agent",
 				parentId: agentUserId,
 				updatedBy: "demo-seed",
-				createdAt: ts,
+				// Backdated well past the (2-6 day) lastReadAt window below — an
+				// identity file can't have been read before it existed.
+				createdAt: new Date(now.getTime() - (10 + (seed % 20)) * 86_400_000).toISOString(),
 				updatedAt: ts,
+				readCount: 1 + (seed % 4),
+				lastReadAt: new Date(now.getTime() - (2 + (seed % 5)) * 86_400_000).toISOString(),
+				sessionUseCount: 8 + (seed % 20),
+				lastUsedAt: new Date(now.getTime() - (seed % 6) * 3_600_000).toISOString(),
 			})
 			.onConflictDoUpdate({
-				target: knowledgeItems.id,
+				target: documents.id,
 				set: { body: systemPrompt, parentKind: "agent", parentId: agentUserId },
 			});
-		await db
-			.insert(knowledgeAppProjection)
-			.values({
-				id: `kp_af_${agentUserId}`,
-				knowledgeItemId: identityId,
-				scopeId: agentUserId,
-			})
-			.onConflictDoNothing();
 	}
 }
 
@@ -202,6 +205,7 @@ export async function seedDemoWorld(
 			role: "founder",
 			status: "active",
 			email: "founder@example.com",
+			teamId: teamId,
 			createdAt: clock.daysAgo(45),
 		})
 		.onConflictDoNothing();
@@ -218,10 +222,17 @@ export async function seedDemoWorld(
 			name: "Founder's Assistant",
 			role: "assistant",
 			agentCategory: "individual",
+			ownerUserId: founderId,
 			status: "active",
 			createdAt: clock.daysAgo(44),
 		})
 		.onConflictDoNothing();
+	// Review-found defect: this used to be bumped to 2 because the demo world
+	// seeded a placeholder "live" session for this assistant
+	// (`SESSION_ACTIVE_ASSISTANT`) that would otherwise permanently occupy the
+	// one slot — a fake concurrency ceiling to make room for a fake session.
+	// That placeholder is now seeded terminal (`activity.ts`), so a single
+	// slot is the honest number: one assistant, one turn at a time.
 	await upsertDemoRunConfig(db, `ast-${founderId}`, { maxConcurrentSessions: 1 });
 
 	// Demo builder agent
@@ -336,7 +347,7 @@ export async function seedDemoWorld(
 		})
 		.onConflictDoNothing();
 
-	// ── The lived-in world: cast, knowledge, work, conversations, activity ──
+	// ── The lived-in world: cast, documents, work, conversations, activity ──
 	await seedDemoWorldContent(db, clock);
 
 	// ── Give the demo agents the personas the role-personas plugin ships ──

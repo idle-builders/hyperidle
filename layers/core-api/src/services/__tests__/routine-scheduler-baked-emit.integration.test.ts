@@ -28,9 +28,8 @@
 import {
 	agentSessionRequests,
 	agentWorkIntents,
+	documents,
 	type HyperIdleDb,
-	knowledgeAppProjection,
-	knowledgeItems,
 	routineRuns,
 	routines,
 	teams,
@@ -38,15 +37,9 @@ import {
 } from "@hyperidle/db";
 import type {
 	AgentRunLifecycleChangedEvent,
-	KnowledgeCreatedEvent,
 	TaskStateChangedEvent,
+	ThreadCreatedEvent,
 } from "@hyperidle/event-bus";
-import {
-	getAgentIdentity,
-	get as getKnowledgeItem,
-	getParentedItem,
-	sweep,
-} from "@hyperidle/knowledge";
 import type { RoutineSchedulerPorts } from "@hyperidle/routine";
 import { fireGenericRoutine } from "@hyperidle/routine";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
@@ -56,9 +49,14 @@ import { findThread } from "@hyperidle/thread";
 import { requireRunnableAgent } from "@hyperidle/users";
 import { eq, sql } from "drizzle-orm";
 import { vi } from "vitest";
+import { makeDocumentReadPorts } from "../../__testing__/document-read-test-ports.js";
 import { queueDeps } from "../../__testing__/durable-agent-queue-test-deps.js";
 import { describe, expect, test } from "../../__testing__/test-fixtures.js";
+import { createStandaloneSearchDocuments } from "../../actions/compose.js";
 import { startRoutineScheduler } from "../routine-scheduler-bindings.js";
+
+const searchDocuments = createStandaloneSearchDocuments();
+const { getAgentIdentity, getRoutinePrompt } = makeDocumentReadPorts(searchDocuments);
 
 const NOW = new Date().toISOString();
 
@@ -141,16 +139,8 @@ function makePorts(): RoutineSchedulerPorts & {
 			// BA9c: findThreadById for thread rich subject
 			findThreadById: (db, id) => findThread(db, { id }),
 		},
-		knowledge: {
-			runAutoPromotionSweep: (db, eventBus) => sweep(db, eventBus, "autoPromotion"),
-			runStaleSweep: (db, eventBus, nowMs, thresholdMs, options) =>
-				sweep(db, eventBus, "stale", { nowMs, thresholdMs, ...options }),
-			// BA9c: getItemById for knowledge item rich subject
-			getItemById: async (db, id) => {
-				const item = await getKnowledgeItem(db, id);
-				return item ?? undefined;
-			},
-		},
+		// @lore BC4 architecture.md §0 A1: `knowledge.getItemById` deleted with
+		// the itemId → knowledge-item subject branch — see `ports.ts`.
 		settings: {
 			readServerConfig: async (db) => {
 				const cfg = await readServerConfig(db);
@@ -162,9 +152,7 @@ function makePorts(): RoutineSchedulerPorts & {
 		workIntents: { enqueueWorkIntent },
 		requireRunnableAgent,
 		getAgentIdentity,
-		getRoutinePrompt: async (db, routineId) =>
-			(await getParentedItem(db, { parentKind: "routine", parentId: routineId, role: "prompt" }))
-				?.body ?? null,
+		getRoutinePrompt,
 	};
 }
 
@@ -326,10 +314,16 @@ describe("BA1 D2 — event matching reads the database when the event happens", 
 		eventBus,
 		agentOrchestration,
 	}) => {
-		const scheduler = await startRoutineScheduler(db, eventBus, agentOrchestration, {
-			pollIntervalMs: 999_999,
-			canProvision: true,
-		});
+		const scheduler = await startRoutineScheduler(
+			db,
+			eventBus,
+			agentOrchestration,
+			searchDocuments,
+			{
+				pollIntervalMs: 999_999,
+				canProvision: true,
+			},
+		);
 		try {
 			const { ownerAgentId } = await seedTeamAndOwner(db, "ba1-e2e");
 			const configuredPrompt = "Say hello to the team, BA1 style.";
@@ -343,8 +337,8 @@ describe("BA1 D2 — event matching reads the database when the event happens", 
 				eventType: "task_state_changed",
 				active: true,
 			});
-			// The instruction is a knowledge document parented to the routine.
-			await db.insert(knowledgeItems).values({
+			// The instruction is a document parented to the routine.
+			await db.insert(documents).values({
 				id: "ki-ba1-e2e-prompt",
 				scopeKind: "factory",
 				scopeId: null,
@@ -353,19 +347,12 @@ describe("BA1 D2 — event matching reads the database when the event happens", 
 				format: "markdown",
 				status: "active",
 				version: 1,
-				role: "prompt",
+				slot: "prompt",
 				parentKind: "routine",
 				parentId: routineId,
 				updatedBy: "test",
 				createdAt: new Date().toISOString(),
 				updatedAt: new Date().toISOString(),
-			});
-			// Knowledge always writes the kernel row and its projection together —
-			// a document without one is a state production cannot produce.
-			await db.insert(knowledgeAppProjection).values({
-				id: "kp-ba1-e2e-prompt",
-				knowledgeItemId: "ki-ba1-e2e-prompt",
-				scopeId: null,
 			});
 
 			const evt: TaskStateChangedEvent = {
@@ -402,6 +389,94 @@ describe("BA1 D2 — event matching reads the database when the event happens", 
 			scheduler.stop();
 		}
 	});
+
+	/**
+	 * @lore BC4 follow-up (architecture.md §8.3): `getRoutinePrompt`'s
+	 * pre-item behavior (`knowledge-repository.ts`'s `getParentedItem`) never
+	 * filtered by `status` — a manually archived prompt kept being read.
+	 * Migrated onto `search_documents` now (never `@hyperidle/document`
+	 * directly); the search input carries no `status`, on purpose, so this
+	 * pins the SAME behavior through the real scheduler wiring rather than a
+	 * hand-built test double.
+	 */
+	test("an archived prompt document still bakes into the routine's contextBundle", async ({
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
+		const scheduler = await startRoutineScheduler(
+			db,
+			eventBus,
+			agentOrchestration,
+			searchDocuments,
+			{
+				pollIntervalMs: 999_999,
+				canProvision: true,
+			},
+		);
+		try {
+			const { ownerAgentId } = await seedTeamAndOwner(db, "ba1-archived-prompt");
+			const archivedPrompt = "Archived instruction — still authoritative until replaced.";
+			const routineId = "ba1-archived-prompt-routine";
+			await db.insert(routines).values({
+				id: routineId,
+				name: "BA1 archived-prompt routine",
+				state: "active",
+				ownerAgentId,
+				triggerType: "event",
+				eventType: "task_state_changed",
+				active: true,
+			});
+			await db.insert(documents).values({
+				id: "ki-ba1-archived-prompt",
+				scopeKind: "factory",
+				scopeId: null,
+				title: "BA1 archived-prompt routine — prompt",
+				body: archivedPrompt,
+				format: "markdown",
+				status: "archived",
+				version: 1,
+				slot: "prompt",
+				parentKind: "routine",
+				parentId: routineId,
+				updatedBy: "test",
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
+			});
+
+			const evt: TaskStateChangedEvent = {
+				type: "task_state_changed",
+				streamId: "ba1-archived-prompt-task",
+				taskId: "ba1-archived-prompt-task",
+				fromState: "in_progress",
+				toState: "done",
+				timestamp: Date.now(),
+			};
+			eventBus.emit(evt);
+
+			await vi.waitFor(
+				async () => {
+					const runs = await db
+						.select()
+						.from(routineRuns)
+						.where(eq(routineRuns.routineId, routineId));
+					expect(runs).toHaveLength(1);
+				},
+				{ timeout: 1000 },
+			);
+
+			const [run] = await db.select().from(routineRuns).where(eq(routineRuns.routineId, routineId));
+			const [intent] = await db
+				.select()
+				.from(agentWorkIntents)
+				.where(eq(agentWorkIntents.sourceId, run?.id ?? ""));
+			expect(intent).toBeDefined();
+			const baked = intent?.bakedRequestJson ? JSON.parse(intent.bakedRequestJson) : undefined;
+			expect(baked?.contextBundle?.routine?.prompt).toBe(archivedPrompt);
+		} finally {
+			scheduler.stop();
+		}
+	});
 });
 
 /**
@@ -417,10 +492,16 @@ describe("BA1 — immediate stop takes effect on the very next event, with no re
 		agentOrchestration,
 		app,
 	}) => {
-		const scheduler = await startRoutineScheduler(db, eventBus, agentOrchestration, {
-			pollIntervalMs: 999_999,
-			canProvision: true,
-		});
+		const scheduler = await startRoutineScheduler(
+			db,
+			eventBus,
+			agentOrchestration,
+			searchDocuments,
+			{
+				pollIntervalMs: 999_999,
+				canProvision: true,
+			},
+		);
 		try {
 			const { ownerAgentId } = await seedTeamAndOwner(db, "ba1-stop-pause");
 			const routineId = "ba1-stop-pause-routine";
@@ -486,10 +567,16 @@ describe("BA1 — immediate stop takes effect on the very next event, with no re
 		eventBus,
 		agentOrchestration,
 	}) => {
-		const scheduler = await startRoutineScheduler(db, eventBus, agentOrchestration, {
-			pollIntervalMs: 999_999,
-			canProvision: true,
-		});
+		const scheduler = await startRoutineScheduler(
+			db,
+			eventBus,
+			agentOrchestration,
+			searchDocuments,
+			{
+				pollIntervalMs: 999_999,
+				canProvision: true,
+			},
+		);
 		try {
 			const { ownerAgentId } = await seedTeamAndOwner(db, "ba1-stop-delete");
 			const routineId = "ba1-stop-delete-routine";
@@ -558,10 +645,16 @@ describe("BA1 D9 — a routine that cannot run says so, and a paused one is not 
 		eventBus,
 		agentOrchestration,
 	}) => {
-		const scheduler = await startRoutineScheduler(db, eventBus, agentOrchestration, {
-			pollIntervalMs: 999_999,
-			canProvision: true,
-		});
+		const scheduler = await startRoutineScheduler(
+			db,
+			eventBus,
+			agentOrchestration,
+			searchDocuments,
+			{
+				pollIntervalMs: 999_999,
+				canProvision: true,
+			},
+		);
 		try {
 			const { ownerAgentId } = await seedTeamAndOwner(db, "ba1-d9-unrunnable", {
 				ownerStatus: "retired",
@@ -706,10 +799,16 @@ describe("BA1 §3.1.1 cut 3 — self-trigger via the routine_run spelling (NB1)"
 			active: true,
 		});
 
-		const scheduler = await startRoutineScheduler(db, eventBus, agentOrchestration, {
-			pollIntervalMs: 999_999,
-			canProvision: true,
-		});
+		const scheduler = await startRoutineScheduler(
+			db,
+			eventBus,
+			agentOrchestration,
+			searchDocuments,
+			{
+				pollIntervalMs: 999_999,
+				canProvision: true,
+			},
+		);
 		try {
 			const [routine] = await db.select().from(routines).where(eq(routines.id, routineId));
 			const first = await fireGenericRoutine(db, eventBus, routine!, makePorts());
@@ -795,10 +894,16 @@ describe("BA1 §3.1.1 cut 3 — self-trigger via the routine_run spelling (NB1)"
 			active: true,
 		});
 
-		const scheduler = await startRoutineScheduler(db, eventBus, agentOrchestration, {
-			pollIntervalMs: 999_999,
-			canProvision: true,
-		});
+		const scheduler = await startRoutineScheduler(
+			db,
+			eventBus,
+			agentOrchestration,
+			searchDocuments,
+			{
+				pollIntervalMs: 999_999,
+				canProvision: true,
+			},
+		);
 		try {
 			const [routine] = await db.select().from(routines).where(eq(routines.id, routineId));
 			const first = await fireGenericRoutine(db, eventBus, routine!, makePorts());
@@ -845,12 +950,14 @@ describe("BA1 §3.1.1 cut 3 — self-trigger via the routine_run spelling (NB1)"
 	 * cannot be resolved (`originRoutineId` returns `null`) must suppress
 	 * NOTHING. This is the direction that would quietly break the whole
 	 * feature if `originRoutineId` had a bug that returned a wrong id — a
-	 * routine authored on a plain `knowledge_created` (no `sourceKind`/
+	 * routine authored on a plain `thread_created` (no `sourceKind`/
 	 * `sourceCorrelation` at all) must still fire.
 	 *
 	 * @lore BC3 architecture.md §5: the vehicle event was `item_created` —
-	 * deleted with the `items` table. `knowledge_created` is the same shape
-	 * (no source correlation) and is still live.
+	 * deleted with the `items` table.
+	 * @lore B22 (architecture.md §0 A1): re-pointed from `knowledge_created`
+	 * (deleted, never authorable in practice) onto `thread_created` — same
+	 * shape this case needs (no `sourceKind`/`sourceCorrelation`), still live.
 	 */
 	test("an event whose origin cannot be resolved still fires the routines that match it", async ({
 		db,
@@ -865,19 +972,28 @@ describe("BA1 §3.1.1 cut 3 — self-trigger via the routine_run spelling (NB1)"
 			state: "active",
 			ownerAgentId,
 			triggerType: "event",
-			eventType: "knowledge_created",
+			eventType: "thread_created",
 			active: true,
 		});
 
-		const scheduler = await startRoutineScheduler(db, eventBus, agentOrchestration, {
-			pollIntervalMs: 999_999,
-			canProvision: true,
-		});
+		const scheduler = await startRoutineScheduler(
+			db,
+			eventBus,
+			agentOrchestration,
+			searchDocuments,
+			{
+				pollIntervalMs: 999_999,
+				canProvision: true,
+			},
+		);
 		try {
-			const evt: KnowledgeCreatedEvent = {
-				type: "knowledge_created",
-				streamId: "ba1-cut3-unknown-origin-item",
-				itemId: "ba1-cut3-unknown-origin-item",
+			const evt: ThreadCreatedEvent = {
+				type: "thread_created",
+				streamId: "ba1-cut3-unknown-origin-thread",
+				threadId: "ba1-cut3-unknown-origin-thread",
+				hostKind: "team",
+				hostId: "ba1-cut3-unknown-origin-team",
+				initiatorId: "system:propagation",
 				timestamp: Date.now(),
 			};
 			eventBus.emit(evt);

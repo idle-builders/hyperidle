@@ -1,7 +1,7 @@
 /**
  * X3 AC-3 — Seeded agents get their role's persona as their identity document.
  *
- * @lore BA9f: the persona left `agent_run_config` for an `agent_file` knowledge
+ * @lore BA9f: the persona left `agent_run_config` for an `agent_file`
  * document bound to the agent. The claim is unchanged — a seeded agent carries
  * its role template as its persona — only where that text lives has moved.
  *
@@ -43,8 +43,8 @@ async function queryRows<T extends Record<string, unknown>>(
 async function readIdentity(db: HyperIdleDb, agentId: string): Promise<string | null> {
 	const rows = await queryRows<{ body: string | null }>(
 		db,
-		`SELECT body FROM knowledge_items
-      WHERE role = 'agent_file' AND parent_kind = 'agent' AND parent_id = '${agentId}'
+		`SELECT body FROM documents
+      WHERE slot = 'agent_file' AND parent_kind = 'agent' AND parent_id = '${agentId}'
         AND status = 'active'`,
 	);
 	return rows[0]?.body ?? null;

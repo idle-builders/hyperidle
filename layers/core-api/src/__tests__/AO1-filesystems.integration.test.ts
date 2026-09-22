@@ -14,14 +14,14 @@
  *   AC1b — inject/eject/share, UNIQUE enforcement, DELETE injection only
  *   AC2  — connection_id + resourceRef stored, NO credential on the row
  *   AC3  — doc_set accepted; SoR kinds rejected at validation boundary
- *   AC4  — filesystem distinct from knowledge_items + server config
+ *   AC4  — filesystem distinct from documents + server config
  *   AC5  — NoopAuthResolver → needs_attention for connection-backed; local → reachable
  *   AC6  — DELETE filesystem cascades injections
  *   AC8  — migration: filesystems + filesystem_injections tables, correct columns, no agent_user_id
  */
 
 import * as os from "node:os";
-import { type HyperIdleDb, knowledgeItems, serverConfig, teams, users } from "@hyperidle/db";
+import { documents, type HyperIdleDb, serverConfig, teams, users } from "@hyperidle/db";
 import { sql } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
@@ -594,18 +594,15 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 	});
 
 	// ─────────────────────────────────────────────────────────────────────
-	// AC4 — filesystem distinct from knowledge_items + server config
+	// AC4 — filesystem distinct from documents + server config
 	// ─────────────────────────────────────────────────────────────────────
 
-	describe("AC4: Filesystem distinct from knowledge_items and server config", () => {
-		test("registering a filesystem does not change knowledge_items rowcount", async ({
-			db,
-			app,
-		}) => {
+	describe("AC4: Filesystem distinct from documents and server config", () => {
+		test("registering a filesystem does not change documents rowcount", async ({ db, app }) => {
 			const { teamId } = await seedTeamAndBots(db, "ac4a");
 
-			// Count knowledge_items before
-			const before = await db.select().from(knowledgeItems);
+			// Count documents before
+			const before = await db.select().from(documents);
 			const countBefore = before.length;
 
 			await app.request("/api/filesystems", {
@@ -620,8 +617,8 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 				}),
 			});
 
-			// Count knowledge_items after
-			const after = await db.select().from(knowledgeItems);
+			// Count documents after
+			const after = await db.select().from(documents);
 			expect(after.length).toBe(countBefore);
 		});
 
@@ -897,9 +894,7 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 			expect(names).toContain("filesystems_team_idx");
 		});
 
-		test("migration does not touch artifacts or knowledge_items tables (no ALTER)", async ({
-			db,
-		}) => {
+		test("migration does not touch artifacts or documents tables (no ALTER)", async ({ db }) => {
 			// Both tables must still exist and have no new filesystem-related columns
 			const artifactCols = await db.execute(
 				sql.raw(
@@ -914,7 +909,7 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 
 			const kiCols = await db.execute(
 				sql.raw(
-					`SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='knowledge_items' ORDER BY ordinal_position`,
+					`SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='documents' ORDER BY ordinal_position`,
 				),
 			);
 			const kCols = (kiCols as { rows: Array<{ column_name: string }> }).rows.map(

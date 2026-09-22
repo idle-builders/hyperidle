@@ -256,7 +256,7 @@ describe("admitSession — baked agent-runnability config (Increment 12 Wave E)"
 				},
 				agent: { id: "wave-e-agent-2", name: "Agent Two", role: "builder" },
 				team: { id: "team-1", name: "Team" },
-				knowledge: [],
+				documents: [],
 			},
 		};
 
@@ -312,7 +312,7 @@ describe("admitSession — baked agent-runnability config (Increment 12 Wave E)"
 				},
 				agent: { id: "ba9f-agent", name: "Atlas", role: "builder" },
 				team: { id: "team-1", name: "Team" },
-				knowledge: [],
+				documents: [],
 			},
 		};
 
@@ -354,7 +354,7 @@ describe("admitSession — baked agent-runnability config (Increment 12 Wave E)"
 				routine: { id: "routine-1", name: "Nightly sweep", prompt: null, lastRunSummary: null },
 				agent: { id: "ba9f-agent-none", name: "Nameless", role: "builder" },
 				team: { id: "team-1", name: "Team" },
-				knowledge: [],
+				documents: [],
 			},
 		});
 

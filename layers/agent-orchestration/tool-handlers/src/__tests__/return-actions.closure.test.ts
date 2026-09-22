@@ -99,14 +99,10 @@ describe("isReturnAction — AC2: per-tool return predicate", () => {
 	it("returns false for non-member tools (mid-turn tools are not returns)", () => {
 		const nonReturns = [
 			"read_inbox",
-			"write_memory",
-			"create_artifact",
 			"log_task",
 			"query_practice",
 			"write_session_notes",
 			"create_task",
-			"promote_knowledge",
-			"create_conflict_review",
 			"create_team",
 			"add_agent",
 			"create_bet",

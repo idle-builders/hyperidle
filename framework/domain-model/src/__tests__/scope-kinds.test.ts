@@ -10,7 +10,7 @@
  *
  * @lore nested-knowledge-items: `product`/`practice`/`task` are REMOVED.
  * `product` and `practice` were the layer vocabulary wearing a scope costume
- * — "Product" and "Practices" are now knowledge items near the root, not
+ * — "Product" and "Practices" are now documents near the root, not
  * scope values. `task` left because a task's knowledge parents onto the task
  * directly (`parentKind='task'`) and never carries a scope. Scope is now
  * closed to three concentric rings: factory > team > user.

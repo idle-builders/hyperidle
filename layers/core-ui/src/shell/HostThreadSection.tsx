@@ -1,7 +1,7 @@
 /**
  * HostThreadSection — L18 Tier 3 shell component.
  *
- * Single convergence point for the thread surface on task and knowledge_item
+ * Single convergence point for the thread surface on task and document
  * detail surfaces. Wraps `useThread`/`useThreads` and renders messages plus a
  * plain composer.
  *
@@ -11,8 +11,8 @@
  * (`open_task(id).threadId`). Two ways in, never both at once:
  *  - `threadId` — the caller already has the thread (the task page).
  *  - `host` — the caller has only a host to resolve, and creates the thread
- *    on first post when none exists yet (the knowledge page). A
- *    `knowledge_item` host is host-scoped (architecture.md §3.4): any
+ *    on first post when none exists yet (the document page). A
+ *    `document` host is host-scoped (architecture.md §3.4): any
  *    signed-in visitor may read it and post into it, joining by posting.
  *
  * @lore L18: the `inline` prop suppresses the `<section>` wrapper and heading
@@ -31,7 +31,7 @@
  *
  * @lore BC3 review: this component is the *only* place that resolves the
  * host's thread — `search_threads({host})` then `open_thread(id)`. A host
- * page that separately needs the same data (KnowledgeDetail's block-anchored
+ * page that separately needs the same data (DocumentDetail's block-anchored
  * inline rendering) does not call those hooks again; it reads `onThreadView`
  * instead. Duplicating the resolve here was the original review finding:
  * two independent fetchers for one thread, four action calls where two do.
@@ -48,7 +48,7 @@ import { call } from "../services/call.js";
 export interface HostThreadSectionProps {
 	/** The caller already knows its own thread — the task page. */
 	threadId?: string;
-	/** The caller has only a host to resolve — the knowledge page. */
+	/** The caller has only a host to resolve — the document page. */
 	host?: { kind: HostKind; id: string };
 	/** Section header text. Defaults to "Discussion". */
 	title?: string;
@@ -126,7 +126,7 @@ export function HostThreadSection({
 	// @lore re-review: never `useThread(activeThreadId, filterBlockId)` — that
 	// asked the server for only that block's messages, so `onThreadView`
 	// below reported a block-scoped `data` to whatever else on the page
-	// reads it (e.g. KnowledgeDetail's inline anchored comments), making
+	// reads it (e.g. DocumentDetail's inline anchored comments), making
 	// every other block's comments vanish the moment one block's discussion
 	// was opened. `filterBlockId` stays a purely client-side slice over the
 	// one full `ThreadView` this hook loads — see `messages` below.

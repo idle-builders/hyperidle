@@ -1,9 +1,12 @@
 /**
  * ArtifactSection stories — produced-item section for task and thread surfaces.
  *
- * Shows knowledge items parented to a task or thread. Each story uses a
- * fetch-override wrapper to control the GET /api/knowledge? response without
- * vi.mock (unavailable in the browser story renderer).
+ * Each story uses a fetch-override wrapper to control the
+ * `POST /api/actions/{search,open}_document` responses without vi.mock
+ * (unavailable in the browser story renderer).
+ *
+ * @lore BC4: repointed off `GET /api/knowledge?...` onto `search_documents`/
+ * `open_document` via `call()`.
  */
 
 import { useEffect, useState } from "react";
@@ -19,14 +22,22 @@ const ITEM_1 = {
 	title: "Auth service implementation",
 	body: "# Auth service\n\nImplemented the core auth flow.",
 	format: "markdown",
-	status: "captured",
-	version: 1,
-	updatedBy: "agent:session-1",
+	status: "active",
+	slot: "ordinary",
 	scopeKind: "factory",
 	scopeId: null,
-	topic: null,
+	parentKind: "task",
+	parentId: "task-1",
+	position: 0,
+	version: 1,
+	updatedBy: "agent:session-1",
 	createdAt: "2026-09-01T10:00:00.000Z",
 	updatedAt: "2026-09-01T10:00:00.000Z",
+	readCount: 0,
+	lastReadAt: null,
+	sessionUseCount: 0,
+	lastUsedAt: null,
+	as: "artifact",
 };
 
 const ITEM_2 = {
@@ -43,10 +54,14 @@ const ITEM_3 = {
 	body: "# Service Agreement\n\nBetween Acme Corp and HyperIdle...",
 };
 
+function documentView(row: typeof ITEM_1): object {
+	return { document: row, ancestors: [], children: [], siblings: [], scopeName: "Factory" };
+}
+
 // ── Fetch-override wrapper ────────────────────────────────────────────────────
 
 /**
- * Controls the GET /api/knowledge? response without vi.mock.
+ * Controls the `search_documents`/`open_document` action responses without vi.mock.
  */
 function ControlledArtifactSection({
 	parentKind,
@@ -60,7 +75,7 @@ function ControlledArtifactSection({
 	parentId: string;
 	heading?: string;
 	emptyDescription?: string;
-	listResponse: { items: (typeof ITEM_1)[] };
+	listResponse: (typeof ITEM_1)[];
 	detailResponse?: typeof ITEM_1 | null;
 }): React.JSX.Element {
 	const [, rerender] = useState(0);
@@ -69,13 +84,16 @@ function ControlledArtifactSection({
 		const real = globalThis.fetch;
 		globalThis.fetch = ((url: RequestInfo | URL) => {
 			const urlStr = String(url);
-			if (urlStr.includes("/api/knowledge/")) {
-				// detail endpoint
-				const body = detailResponse ? JSON.stringify(detailResponse) : "{}";
-				return Promise.resolve(new Response(body, { status: 200 }));
+			if (urlStr.includes("/api/actions/open_document")) {
+				const body = detailResponse
+					? { ok: true, data: documentView(detailResponse) }
+					: { ok: false, problems: [{ code: "not_found", message: "Not found" }] };
+				return Promise.resolve(new Response(JSON.stringify(body), { status: 200 }));
 			}
-			if (urlStr.includes("/api/knowledge")) {
-				return Promise.resolve(new Response(JSON.stringify(listResponse), { status: 200 }));
+			if (urlStr.includes("/api/actions/search_documents")) {
+				return Promise.resolve(
+					new Response(JSON.stringify({ ok: true, data: listResponse }), { status: 200 }),
+				);
 			}
 			return real(url);
 		}) as typeof fetch;
@@ -114,7 +132,7 @@ export function Empty(): React.JSX.Element {
 			parentId="task-1"
 			heading="Artifacts"
 			emptyDescription="Artifacts will appear here once agents produce output for this task."
-			listResponse={{ items: [] }}
+			listResponse={[]}
 		/>
 	);
 }
@@ -125,7 +143,7 @@ export function OneItem(): React.JSX.Element {
 			parentKind="task"
 			parentId="task-1"
 			heading="Artifacts"
-			listResponse={{ items: [ITEM_1] }}
+			listResponse={[ITEM_1]}
 			detailResponse={ITEM_1}
 		/>
 	);
@@ -137,7 +155,7 @@ export function ThreeItems(): React.JSX.Element {
 			parentKind="task"
 			parentId="task-2"
 			heading="Artifacts"
-			listResponse={{ items: [ITEM_1, ITEM_2, ITEM_3] }}
+			listResponse={[ITEM_1, ITEM_2, ITEM_3]}
 			detailResponse={ITEM_1}
 		/>
 	);
@@ -149,14 +167,12 @@ export function ThreadParented(): React.JSX.Element {
 			parentKind="thread"
 			parentId="thr-1"
 			heading="Produced in conversation"
-			listResponse={{ items: [ITEM_2, ITEM_3] }}
+			listResponse={[ITEM_2, ITEM_3]}
 			detailResponse={ITEM_2}
 		/>
 	);
 }
 
 export function NoHeading(): React.JSX.Element {
-	return (
-		<ControlledArtifactSection parentKind="task" parentId="task-3" listResponse={{ items: [] }} />
-	);
+	return <ControlledArtifactSection parentKind="task" parentId="task-3" listResponse={[]} />;
 }

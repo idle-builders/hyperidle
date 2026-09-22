@@ -89,7 +89,7 @@ export const TaskSchema = z.object({
 	outcomeRecordedAt: z.string().nullable(),
 	outcomeRecordedBy: z.string().nullable(),
 	tokensActualJson: z.string().nullable(),
-	sourceKnowledgeItemId: z.string().nullable(),
+	sourceDocumentId: z.string().nullable(),
 	completedAt: z.string().nullable(),
 	position: z.number().int(),
 	needsReview: z.boolean(),
@@ -160,7 +160,7 @@ export const TaskViewSchema = z.object({
 	children: z.array(TaskNodeSchema),
 	tokensActualRollup: z.number().nullable(),
 	threadId: z.string(),
-	/** Knowledge-item ids parented to this task. */
+	/** Document ids parented to this task. */
 	attachments: z.array(z.string()),
 });
 
@@ -205,7 +205,7 @@ export const EditTaskInputSchema = z
 				summary: z.string().optional(),
 			})
 			.optional(),
-		sourceKnowledgeItemId: z.string().optional(),
+		sourceDocumentId: z.string().optional(),
 		/** Atomic note append — not a partial field on `notes`. */
 		appendNote: z.string().optional(),
 		/**

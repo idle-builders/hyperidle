@@ -50,7 +50,7 @@ Agents run as host processes in a local working directory — there is no isolat
 | Component | Default Technology | Scale Alternative |
 |-----------|--------------------|-------------------|
 | Primitive Store | PGlite (embedded Postgres, `@electric-sql/pglite`) via Drizzle `pgTable` | Real Postgres (`bootstrap-pg.ts`, `pg-ssl.ts`) |
-| Knowledge full-text search | Postgres tsvector + GIN on `knowledge_items` (`layers/core-api/knowledge/src/fts.ts`) | Same |
+| Knowledge search | Case-insensitive `ILIKE` over `documents.title`/`documents.body` (`layers/core-api/document/src/document-store.ts`) | Same |
 | Knowledge exports (human-readable) | Git repo (markdown exports) | Same |
 | Session context | TOON format (`framework/toon-codec/src/toon-codec.ts`) | Same |
 | API Layer | Hono on `@hono/node-server` | Same + load balancer |
@@ -98,7 +98,7 @@ React (TypeScript) with **Tailwind CSS + DaisyUI** and the Hearth theme — `hea
 
 - **Conversations** — threaded messages; review messages embed an artifact reference plus a verdict affordance; humans can initiate conversations and dial into live sessions. Verdict grammar is owned by [Thread Primitive](../human-interface-layer/thread-primitive.md); ArtifactView's five embed shapes by [Artifact Primitive](../process-layer/artifact-primitive.md).
 - **Work** — drill-down WorkOverview → Team → Task (any depth; no Product level; scope is Team). A team's capacity cap is enforced server-side at `in_progress` transitions (`layers/core-api/task/src/task-actions.ts`, `edit_task`). Tasks are agent-owned — no drag; state changes flow through threads.
-- **Knowledge** — items with relevance and attention scoring; scope changes carry a reason logged to the knowledge edit log. Scoring design: [relevance and attention](../knowledge-architecture/relevance-and-attention.md).
+- **Knowledge** — a nested tree of documents, no scoring engine; every edit, including a scope change, lands as one `changes` row. Store design: [the canonical store](../knowledge-architecture/the-canonical-store.md).
 
 View behavior and layout are owned by the [human-interface-layer](../human-interface-layer/the-three-views.md) and [information-architecture](../information-architecture/app-shell-always-present.md) docs.
 
@@ -138,7 +138,7 @@ WebSocket subscribe authorization is owned by the [Authorization Model](./author
 - **A model-calling loop.** That's the harness.
 - **A workflow engine or DAG executor.** Sequences emerge from task dependencies and handoffs.
 - **MCP servers for external tool discovery.** Skills call CLIs and APIs directly. Exception: the MCP Bridge (`layers/agent-execution/harness-registry/src/mcp/mcp-bridge.ts`) exposes HyperIdle's tools TO external harnesses — the inverse direction. There is no outbound MCP broker; external tools arrive via the [Connection model](./connection-model.md) (held tokens injected at provisioning, or inherited harness auth).
-- **A vector database.** Full-text search is Postgres tsvector + GIN on `knowledge_items`; no pgvector.
+- **A vector database.** Document search is case-insensitive `ILIKE` over title and body; no FTS5, no pgvector.
 - **A separate auth service.** Auto-generated API keys; a Tailscale-style private network for shared deployments.
 - **A backlog.** Proposed tasks live on the Work view; unpicked ones can be killed.
 - **Multiple applications.** One app, two form factors.

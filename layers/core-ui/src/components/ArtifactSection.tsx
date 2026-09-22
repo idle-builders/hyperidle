@@ -1,24 +1,26 @@
 /**
  * ArtifactSection — produced-item section for task and thread surfaces.
  *
- * Shows knowledge items parented to a task or thread. "Artifact" is the word
+ * Shows documents parented to a task or thread. "Artifact" is the word
  * users see for content an agent produced — the founder call, per plan. The
- * storage concept (artifacts table) is gone; produced items are knowledge items
- * with a parent slot.
+ * storage concept (artifacts table) is gone; produced items are documents
+ * with `as:"artifact"` and a task/thread parent (architecture.md §3.6).
  *
- * Data: GET /api/knowledge?parentKind=<kind>&parentId=<id> — parented items
- * excluded from the default knowledge list (AC4/AC5).
+ * Data: `search_documents({ parent: { kind, id }, as: "artifact" })` —
+ * I14 requires the parent alongside `as:"artifact"`; both together is what
+ * keeps this list to exactly the produced items under this host (§5.1's
+ * artifact visibility exemption, §5.2).
  *
  * Interaction (AC10): clicking a row enters split mode — the list stays as
  * origin, the selected item's body renders as destination. Uses SplitView from
  * the DS, the standard pattern across settings surfaces.
  *
- * @lore ArtifactSection repoint: the previous version called useArtifacts and
- * read /api/artifacts. That route still exists while the deletion pass is
- * pending; this component is now decoupled from it.
+ * @lore BC4: repointed off `useParentedKnowledgeItems`/`useKnowledgeItem` onto
+ * `useDocuments`/`useDocument` — the one door onto `search_documents`/
+ * `open_document` (architecture.md §9.2).
  */
 
-import { type JSX, useState } from "react";
+import { type JSX, useMemo, useState } from "react";
 import {
 	EmptyState,
 	ErrorState,
@@ -29,10 +31,10 @@ import {
 	SkeletonList,
 	SplitView,
 } from "../ds";
-import { useKnowledgeItem } from "../hooks/useKnowledgeItem.js";
-import { useParentedKnowledgeItems } from "../hooks/useParentedKnowledgeItems.js";
+import { useDocument } from "../hooks/useDocument.js";
+import { useDocuments } from "../hooks/useDocuments.js";
 import { useUiPreference } from "../hooks/useUiPreference.js";
-import { KnowledgeBody } from "../pages/knowledge/KnowledgeBody.js";
+import { DocumentBody } from "../pages/document/DocumentBody.js";
 
 export interface ArtifactSectionProps {
 	parentKind: "task" | "thread";
@@ -52,8 +54,8 @@ export interface ArtifactSectionProps {
 
 /**
  * Detail pane rendered inside the SplitView destination when an item is
- * selected. Fetches the full body and renders it through `KnowledgeBody` — the
- * same path a knowledge item's own page takes.
+ * selected. Fetches the full body and renders it through `DocumentBody` — the
+ * same path a document's own page takes.
  *
  * That shared path is the point, not a convenience. It is what makes a produced
  * item that IS an interactive document — a body whose only block is a fenced
@@ -62,9 +64,9 @@ export interface ArtifactSectionProps {
  * which is precisely the thing this change exists to stop.
  */
 function ArtifactDetailPane({ itemId }: { itemId: string }): JSX.Element {
-	const { data, isLoading } = useKnowledgeItem(itemId);
+	const { status, data } = useDocument(itemId);
 
-	if (isLoading) {
+	if (status === "loading" || status === "idle") {
 		return (
 			<div data-testid="artifact-section-detail" className="p-[24px]">
 				<SkeletonList rows={3} ariaLabel="Loading artifact" />
@@ -72,7 +74,7 @@ function ArtifactDetailPane({ itemId }: { itemId: string }): JSX.Element {
 		);
 	}
 
-	if (!data) {
+	if (data === null) {
 		return (
 			<div data-testid="artifact-section-detail" className="p-[24px]">
 				<EmptyState compact title="Not found" description="Could not load this artifact." />
@@ -80,10 +82,11 @@ function ArtifactDetailPane({ itemId }: { itemId: string }): JSX.Element {
 		);
 	}
 
+	const { document } = data;
 	return (
 		<div data-testid="artifact-section-detail" className="flex flex-col gap-[12px] p-[24px]">
-			<h2 className="type-title">{data.title}</h2>
-			<KnowledgeBody body={data.body} hostId={data.id} documentTitle={data.title} />
+			<h2 className="type-title">{document.title}</h2>
+			<DocumentBody body={document.body} hostId={document.id} documentTitle={document.title} />
 		</div>
 	);
 }
@@ -99,7 +102,15 @@ export function ArtifactSection({
 	const [splitMode, setSplitMode] = useState<FoldMode>("fold-back");
 	const [ratio, setRatio] = useUiPreference("artifact-section", 0.42);
 
-	const { data, error, isLoading } = useParentedKnowledgeItems(parentKind, parentId);
+	// I14: `as:"artifact"` needs a parent alongside it — this is that parent,
+	// always this section's own host. useMemo keeps the filter referentially
+	// stable so useDocuments' effect does not refire every render.
+	const filter = useMemo(
+		() => ({ parent: { kind: parentKind, id: parentId }, as: "artifact" as const }),
+		[parentKind, parentId],
+	);
+	const { status, documents, error } = useDocuments(filter);
+	const isLoading = status === "loading";
 
 	// ── Loading ──────────────────────────────────────────────────────────────
 
@@ -130,7 +141,7 @@ export function ArtifactSection({
 
 	// ── Empty ─────────────────────────────────────────────────────────────────
 
-	const items = data?.items ?? [];
+	const items = documents;
 
 	if (items.length === 0) {
 		if (!heading) return null;

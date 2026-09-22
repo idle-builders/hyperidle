@@ -1,7 +1,6 @@
 // @lore BB1: Bet import removed — bet is now a root task; getBetById deleted.
 import type { HyperIdleDb, Team, User, WriteExecutor } from "@hyperidle/db";
-import type { BakedWorkIntentRequest, SessionKnowledgeItemLike } from "@hyperidle/domain-model";
-import type { EventBus } from "@hyperidle/event-bus";
+import type { BakedWorkIntentRequest, SessionDocumentLike } from "@hyperidle/domain-model";
 
 /**
  * AU21 §9 Increment 4 — the routine scheduler (relocated from
@@ -9,7 +8,7 @@ import type { EventBus } from "@hyperidle/event-bus";
  * Service; per Mechanism C (`composition-boundary-guard`, mechanically
  * enforced, no allowlist) a Service package may depend on nothing but
  * `@hyperidle/db`/framework packages — every OTHER Service it needs
- * (`work`/`conversation`/`knowledge`/`settings`, all core-api same-layer) is
+ * (`work`/`conversation`/`document`/`settings`, all core-api same-layer) is
  * an injected port here, exactly like `DispatchPorts` used to carry them.
  * `workIntents` is the one genuinely against-grain
  * (`core-api → agent-orchestration`) dependency (`@hyperidle/session-requests`).
@@ -72,41 +71,12 @@ export interface RoutineSchedulerPorts {
 			| undefined
 		>;
 	};
-	readonly knowledge: {
-		runAutoPromotionSweep(
-			db: HyperIdleDb,
-			eventBus: EventBus,
-		): Promise<{
-			readonly promotedIds: readonly string[];
-			readonly flaggedForReviewIds: readonly string[];
-			readonly skippedIds: readonly string[];
-			readonly scanned: number;
-		}>;
-		runStaleSweep(
-			db: HyperIdleDb,
-			eventBus: EventBus,
-			nowMs: number,
-			thresholdMs: number | undefined,
-			options: { readonly silent: boolean },
-		): Promise<{ readonly markedIds: readonly string[] }>;
-		/**
-		 * BA9c: Load a knowledge item row for trigger event subject assembly.
-		 * Called for knowledge_created/updated/archived events.
-		 */
-		getItemById(
-			db: HyperIdleDb,
-			id: string,
-		): Promise<
-			| {
-					readonly id: string;
-					readonly title: string;
-					readonly body: string;
-					readonly format: string;
-					readonly version: number;
-			  }
-			| undefined
-		>;
-	};
+	// @lore BC4 architecture.md §0 A1: the `knowledge` port (`getItemById`, for
+	// the three `knowledge_created`/`knowledge_updated`/`knowledge_archived`
+	// trigger-subject events) is DELETED. Those event types were authorable but
+	// unused — no seed or plugin ever created a routine on one — so this port
+	// had no live caller either way. The scheduler's own `itemId` subject
+	// branch that called it is deleted with it (`routine-scheduler.ts`).
 	readonly settings: {
 		readServerConfig(db: HyperIdleDb): Promise<{
 			/**
@@ -223,19 +193,19 @@ export interface RoutineSchedulerPorts {
 	 */
 	getAgentIdentity(db: HyperIdleDb, agentId: string): Promise<string | null>;
 	/**
-	 * The routine's instruction, read from the knowledge document parented to
+	 * The routine's instruction, read from the document parented to
 	 * it. Required, not optional — see the `@lore` on the identical port in
 	 * `routine-service.ts`'s `RoutineRunResolverDeps`.
 	 */
 	getRoutinePrompt(db: HyperIdleDb, routineId: string): Promise<string | null>;
-	assembleSessionKnowledge?(
+	assembleSessionDocuments?(
 		db: HyperIdleDb,
 		input: {
-			/** Absent for a team-less agent — see `assembleSessionKnowledge`'s own note. */
+			/** Absent for a team-less agent — see `assembleSessionDocuments`'s own note. */
 			readonly teamId?: string;
 			readonly agentRole: string;
 			readonly taskDescription: string;
 			readonly agentId: string;
 		},
-	): Promise<readonly SessionKnowledgeItemLike[]>;
+	): Promise<readonly SessionDocumentLike[]>;
 }

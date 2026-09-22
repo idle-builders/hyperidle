@@ -15,15 +15,15 @@
 import { cpSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { type HyperIdleDb, knowledgeItems, users } from "@hyperidle/db";
+import { documents, type HyperIdleDb, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
 const API_KEY = "test-ba9g-detach";
-const PLUGIN_ROOT = resolve("plugins/knowledge-management");
-const PLUGIN_ID = "knowledge-management";
+const PLUGIN_ROOT = resolve("plugins/document-management");
+const PLUGIN_ID = "document-management";
 const FOUNDER = "u-founder-ba9g";
 
 function auth(): Record<string, string> {
@@ -90,8 +90,8 @@ async function contributionsOf(app: Hono): Promise<readonly ContributionRow[]> {
 
 /** One skill the plugin contributed. */
 async function aContributedSkill(app: Hono): Promise<ContributionRow> {
-	const row = (await contributionsOf(app)).find((c) => c.kind === "knowledge");
-	expect(row, "the plugin must contribute knowledge").toBeDefined();
+	const row = (await contributionsOf(app)).find((c) => c.kind === "document");
+	expect(row, "the plugin must contribute a document").toBeDefined();
 	return row as ContributionRow;
 }
 
@@ -101,17 +101,14 @@ describe("editing a plugin's contribution detaches it; restore hands it back", (
 		await install(app);
 		const skill = await aContributedSkill(app);
 
-		const [before] = await db
-			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, skill.entityId));
+		const [before] = await db.select().from(documents).where(eq(documents.id, skill.entityId));
 
-		const res = await app.request(`/api/knowledge/${skill.entityId}`, {
-			method: "PATCH",
+		const res = await app.request("/api/actions/edit_document", {
+			method: "POST",
 			headers: auth(),
 			body: JSON.stringify({
+				id: skill.entityId,
 				version: before?.version,
-				updatedBy: FOUNDER,
 				body: "My own version of this skill.",
 			}),
 		});
@@ -126,26 +123,20 @@ describe("editing a plugin's contribution detaches it; restore hands it back", (
 		await install(app);
 		const skill = await aContributedSkill(app);
 
-		const [before] = await db
-			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, skill.entityId));
-		await app.request(`/api/knowledge/${skill.entityId}`, {
-			method: "PATCH",
+		const [before] = await db.select().from(documents).where(eq(documents.id, skill.entityId));
+		await app.request("/api/actions/edit_document", {
+			method: "POST",
 			headers: auth(),
 			body: JSON.stringify({
+				id: skill.entityId,
 				version: before?.version,
-				updatedBy: FOUNDER,
 				body: "My own version of this skill.",
 			}),
 		});
 
 		await install(app);
 
-		const [after] = await db
-			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, skill.entityId));
+		const [after] = await db.select().from(documents).where(eq(documents.id, skill.entityId));
 		expect(after?.body, "your edit wins over a reinstall").toBe("My own version of this skill.");
 		const view = (await contributionsOf(app)).find((c) => c.entityId === skill.entityId);
 		expect(view?.detached, "and it is still yours afterwards").toBe(true);
@@ -160,16 +151,13 @@ describe("editing a plugin's contribution detaches it; restore hands it back", (
 		await install(app);
 		const skill = await aContributedSkill(app);
 
-		const [original] = await db
-			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, skill.entityId));
-		await app.request(`/api/knowledge/${skill.entityId}`, {
-			method: "PATCH",
+		const [original] = await db.select().from(documents).where(eq(documents.id, skill.entityId));
+		await app.request("/api/actions/edit_document", {
+			method: "POST",
 			headers: auth(),
 			body: JSON.stringify({
+				id: skill.entityId,
 				version: original?.version,
-				updatedBy: FOUNDER,
 				body: "My own version of this skill.",
 			}),
 		});
@@ -177,14 +165,11 @@ describe("editing a plugin's contribution detaches it; restore hands it back", (
 		const res = await app.request(`/api/plugins/${PLUGIN_ID}/contributions/restore`, {
 			method: "POST",
 			headers: auth(),
-			body: JSON.stringify({ kind: "knowledge", entityId: skill.entityId }),
+			body: JSON.stringify({ kind: "document", entityId: skill.entityId }),
 		});
 		expect(res.status).toBe(200);
 
-		const [restored] = await db
-			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, skill.entityId));
+		const [restored] = await db.select().from(documents).where(eq(documents.id, skill.entityId));
 		expect(restored?.body, "the plugin's version comes back").toBe(original?.body);
 
 		const view = (await contributionsOf(app)).find((c) => c.entityId === skill.entityId);
@@ -198,7 +183,7 @@ describe("editing a plugin's contribution detaches it; restore hands it back", (
 		const res = await app.request(`/api/plugins/${PLUGIN_ID}/contributions/restore`, {
 			method: "POST",
 			headers: auth(),
-			body: JSON.stringify({ kind: "knowledge", entityId: "ki-not-from-this-plugin" }),
+			body: JSON.stringify({ kind: "document", entityId: "ki-not-from-this-plugin" }),
 		});
 		expect(res.status).toBe(404);
 	});

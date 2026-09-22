@@ -195,6 +195,19 @@ describe("AB3 — teams routes: agentCategory in roster", () => {
 			app,
 		}) => {
 			const { teamMembersId } = await seedTeamWithCategorizedAgents(db);
+			// A real acting human — the create's identity-document write now goes
+			// through `edit_document`, whose `changes.actor` holds a real FK onto
+			// `users.id` (unlike the free-text column it replaces), so the
+			// auth middleware's no-human-seeded fallback ("u-founder") is no
+			// longer good enough here.
+			await db.insert(users).values({
+				id: "u-founder",
+				kind: "human",
+				name: "Founder",
+				role: "founder",
+				status: "active",
+				createdAt: NOW,
+			});
 
 			const res = await app.request("/api/agents", {
 				method: "POST",

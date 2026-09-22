@@ -1,9 +1,7 @@
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
 import {
-	knowledgeAppProjection,
-	knowledgeEditLog,
-	knowledgeItems,
+	documents,
 	messages,
 	routines,
 	serverConfig,
@@ -20,8 +18,8 @@ describe("A2: Database Schema", () => {
 	describe("AC1: migrations apply correctly", () => {
 		test("creates all current tables", async ({ db }) => {
 			// L1a: `responses` table dropped (plan §5.2). Verdicts now project
-			// as `verdict`-typed messages. Knowledge_conflicts and
-			// notification_queue were added in earlier migrations.
+			// as `verdict`-typed messages. `notification_queue` was added in an
+			// earlier migration.
 			const result = await db.execute(
 				`SELECT tablename AS name FROM pg_tables WHERE schemaname = 'public' AND tablename NOT LIKE '_l1_snapshot_%' ORDER BY tablename` as Parameters<
 					typeof db.execute
@@ -37,8 +35,7 @@ describe("A2: Database Schema", () => {
 					// @lore AU18: `factory_settings` retired — `server_config` is its
 					// typed singleton-row successor.
 					"server_config",
-					"knowledge_edit_log",
-					"knowledge_items",
+					"documents",
 					"messages",
 					"routines",
 					"sessions",
@@ -61,6 +58,14 @@ describe("A2: Database Schema", () => {
 			// list above is `arrayContaining` and tolerates extras — see the longer
 			// note in migration.integration.test.ts.
 			expect(tableNames).not.toContain("user_skills");
+			// @lore BC4 migration 0086: `knowledge_items` renamed to `documents`;
+			// the three extension tables dropped, nothing carried over. Must not
+			// reappear.
+			expect(tableNames).not.toContain("knowledge_items");
+			expect(tableNames).not.toContain("knowledge_app_projection");
+			expect(tableNames).not.toContain("knowledge_edit_log");
+			expect(tableNames).not.toContain("knowledge_access_log");
+			expect(tableNames).not.toContain("knowledge_conflicts");
 			expect(tableNames.length).toBeGreaterThanOrEqual(15);
 		});
 	});
@@ -435,11 +440,12 @@ describe("A2: Database Schema", () => {
 			expect(verdict.decision).toBe("approve");
 		});
 
-		test("inserts and reads knowledge_items", async ({ db }) => {
-			// @lore O2: layer, kind stripped from kernel table; use knowledgeAppProjection.
+		test("inserts and reads documents", async ({ db }) => {
+			// @lore BC4: `confidence`/`meta` fold onto the row itself — no
+			// companion extension table any more.
 			const now = new Date().toISOString();
-			await db.insert(knowledgeItems).values({
-				id: "ki-1",
+			await db.insert(documents).values({
+				id: "doc-1",
 				title: "Chunked uploads",
 				body: "Use chunked uploads for files >10MB",
 				format: "markdown",
@@ -449,24 +455,21 @@ describe("A2: Database Schema", () => {
 				createdAt: now,
 				updatedAt: now,
 			});
-			// The owner's `create` always writes the projection row alongside the item.
-			await db
-				.insert(knowledgeAppProjection)
-				.values({ id: "ki-1-projection", knowledgeItemId: "ki-1" });
 
-			const result = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "ki-1"));
+			const result = await db.select().from(documents).where(eq(documents.id, "doc-1"));
 			expect(result[0]).toMatchObject({
-				id: "ki-1",
+				id: "doc-1",
 				title: "Chunked uploads",
 				version: 1,
+				readCount: 0,
+				sessionUseCount: 0,
 			});
 		});
 
-		test("updates knowledge_items version", async ({ db }) => {
-			// @lore O2: layer, kind stripped from kernel table.
+		test("updates documents version", async ({ db }) => {
 			const now = new Date().toISOString();
-			await db.insert(knowledgeItems).values({
-				id: "ki-1",
+			await db.insert(documents).values({
+				id: "doc-1",
 				title: "Original",
 				body: "Body",
 				format: "markdown",
@@ -476,59 +479,15 @@ describe("A2: Database Schema", () => {
 				createdAt: now,
 				updatedAt: now,
 			});
-			// The owner's `create` always writes the projection row alongside the item.
-			await db
-				.insert(knowledgeAppProjection)
-				.values({ id: "ki-1-projection", knowledgeItemId: "ki-1" });
 
 			await db
-				.update(knowledgeItems)
+				.update(documents)
 				.set({ title: "Updated", version: 2, updatedAt: new Date().toISOString() })
-				.where(eq(knowledgeItems.id, "ki-1"));
+				.where(eq(documents.id, "doc-1"));
 
-			const result = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "ki-1"));
+			const result = await db.select().from(documents).where(eq(documents.id, "doc-1"));
 			expect(result[0]?.title).toBe("Updated");
 			expect(result[0]?.version).toBe(2);
-		});
-
-		test("inserts and reads knowledge_edit_log", async ({ db }) => {
-			// @lore O2: layer, kind stripped from kernel table.
-			const now = new Date().toISOString();
-			await db.insert(knowledgeItems).values({
-				id: "ki-1",
-				title: "T",
-				body: "B",
-				format: "markdown",
-				status: "draft",
-				version: 1,
-				updatedBy: "a",
-				createdAt: now,
-				updatedAt: now,
-			});
-			// The owner's `create` always writes the projection row alongside the item.
-			await db
-				.insert(knowledgeAppProjection)
-				.values({ id: "ki-1-projection", knowledgeItemId: "ki-1" });
-			await db.insert(knowledgeEditLog).values({
-				id: "kel-1",
-				itemId: "ki-1",
-				editor: "human-1",
-				field: "title",
-				oldValue: "Old",
-				newValue: "New",
-				editType: "update",
-				createdAt: now,
-			});
-
-			const result = await db
-				.select()
-				.from(knowledgeEditLog)
-				.where(eq(knowledgeEditLog.id, "kel-1"));
-			expect(result[0]).toMatchObject({
-				id: "kel-1",
-				itemId: "ki-1",
-				field: "title",
-			});
 		});
 
 		// @lore AU18: factory_settings (generic KV bucket) is retired. server_config
@@ -543,13 +502,13 @@ describe("A2: Database Schema", () => {
 		});
 	});
 
-	// --- AC3: knowledge_items kernel indexes exist; strategy indexes on extension table ---
-	describe("AC3: knowledge_items indexes", () => {
-		test("has indexes on topic, status (kernel table)", async ({ db }) => {
-			// @lore O2: layer, scope_id, kind indexes removed from kernel table.
-			// They now live on knowledge_app_projection.
+	// --- AC3: documents indexes exist, including the usage decay index ---
+	describe("AC3: documents indexes", () => {
+		test("has indexes on scope, status, slot, and the usage decay column", async ({ db }) => {
+			// @lore BC4: `confidence`/`meta`/usage columns live on the row itself
+			// now — no more extension table to carry a second set of indexes.
 			const result = await db.execute(
-				`SELECT indexname FROM pg_indexes WHERE tablename = 'knowledge_items' AND schemaname = 'public'` as Parameters<
+				`SELECT indexname FROM pg_indexes WHERE tablename = 'documents' AND schemaname = 'public'` as Parameters<
 					typeof db.execute
 				>[0],
 			);
@@ -557,22 +516,33 @@ describe("A2: Database Schema", () => {
 				(r) => r.indexname,
 			);
 
-			// Should have at least 3 indexes (PK + topic + status/updated_at)
-			expect(indexes.length).toBeGreaterThanOrEqual(3);
+			expect(indexes).toContain("doc_scope_idx");
+			expect(indexes).toContain("doc_status_idx");
+			expect(indexes).toContain("doc_slot_idx");
+			// The decay search: `unusedSince` + `sort:"least_used"` both lead with this.
+			expect(indexes).toContain("doc_last_used_idx");
 		});
 
-		test("knowledge_app_projection has index on knowledge_item_id", async ({ db }) => {
-			// @lore O2: strategy-layer indexes live on the extension table.
+		// @lore document-module B20: carried over from the deleted
+		// `knowledge.q2.integration.test.ts` — the column shape `scope_needs_id`
+		// (framework/domain-model) and the document actions' scope defaulting
+		// both assume.
+		test("scope_kind is NOT NULL with a 'factory' default; scope_id is nullable", async ({
+			db,
+		}) => {
 			const result = await db.execute(
-				`SELECT indexname FROM pg_indexes WHERE tablename = 'knowledge_app_projection' AND schemaname = 'public'` as Parameters<
-					typeof db.execute
-				>[0],
+				`SELECT column_name, is_nullable, column_default
+				 FROM information_schema.columns
+				 WHERE table_name = 'documents'` as Parameters<typeof db.execute>[0],
 			);
-			const indexes = (result as { rows: Array<{ indexname: string }> }).rows.map(
-				(r) => r.indexname,
-			);
+			const columns = (result as { rows: Array<Record<string, unknown>> }).rows;
 
-			expect(indexes.length).toBeGreaterThanOrEqual(1);
+			const scopeKindCol = columns.find((c) => c.column_name === "scope_kind");
+			expect(scopeKindCol?.is_nullable).toBe("NO");
+			expect(scopeKindCol?.column_default).toBe("'factory'::text");
+
+			const scopeIdCol = columns.find((c) => c.column_name === "scope_id");
+			expect(scopeIdCol?.is_nullable).toBe("YES");
 		});
 	});
 
@@ -671,22 +641,6 @@ describe("A2: Database Schema", () => {
 					type: "verdict",
 					payload: JSON.stringify({ decision: "approve" }),
 					clientKey: "verdict-fk",
-					createdAt: now,
-				}),
-			).rejects.toThrow();
-		});
-
-		test("rejects knowledge_edit_log with invalid item_id", async ({ db }) => {
-			const now = new Date().toISOString();
-			await expect(
-				db.insert(knowledgeEditLog).values({
-					id: "kel-1",
-					itemId: "nonexistent-ki",
-					editor: "human-1",
-					field: "title",
-					oldValue: "Old",
-					newValue: "New",
-					editType: "update",
 					createdAt: now,
 				}),
 			).rejects.toThrow();

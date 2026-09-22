@@ -17,7 +17,7 @@
  * literals like tracking-[0.06em], requiring the token form there).
  * Negative-em kerning on the title has no token equivalent so the literal stays.
  *
- * @lore AI7 W1: pageTitleClassName is exported so KnowledgeCreate can compose
+ * @lore AI7 W1: pageTitleClassName is exported so DocumentCreate can compose
  * it on an <input> via `className={`${pageTitleClassName} …`}` — an identifier
  * expression, not the literal combo — so no-handrolled-page-header does not fire.
  */
@@ -30,7 +30,7 @@ import { PageFrame } from "./PageFrame.js";
 /**
  * Canonical page-title class string.
  * The primitive's own title heading uses this const (regardless of `level`).
- * KnowledgeCreate's editable <input> imports and composes it with additional
+ * DocumentCreate's editable <input> imports and composes it with additional
  * classes (no literal fork).
  *
  * @lore AI7: The class string is the single source of truth for the page-title

@@ -81,7 +81,7 @@ test.describe("W3 AC-3 — Knowledge section has no scope sub-items", () => {
 				body: JSON.stringify(TEAMS_FIXTURE),
 			});
 		});
-		await page.goto("/knowledge");
+		await page.goto("/documents");
 		await page.waitForSelector("[data-ds-shell='Sidebar']");
 	});
 

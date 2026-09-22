@@ -37,38 +37,14 @@ test.describe("J8 synthesis — 10 critical flows", () => {
 		await expect(page.getByRole("dialog", { name: /settings/i })).not.toBeVisible();
 	});
 
-	test("4. Triage ↔ Curated tab switch preserves scope and updates the tab state", async ({
-		page,
-	}) => {
-		await page.goto("/knowledge?scope=practice");
-		await page.waitForSelector("[data-testid='knowledge-list-page']");
-		const triage = page.getByRole("tab", { name: /triage/i });
-		const curated = page.getByRole("tab", { name: /curated/i });
-		await triage.click();
-		await expect(triage).toHaveAttribute("aria-selected", "true");
-		await curated.click();
-		await expect(curated).toHaveAttribute("aria-selected", "true");
-		await expect(page.getByTestId("knowledge-scope-indicator")).toHaveText("practice");
-	});
-
-	test("5. Knowledge edit toggle swaps the body into an editable textarea", async ({ page }) => {
-		await page.goto("/knowledge/k1");
-		await page.waitForSelector("[data-testid='knowledge-detail-page']");
-		await page.getByRole("button", { name: /^edit$/i }).click();
-		await expect(page.getByTestId("knowledge-edit-panel")).toBeVisible();
-		await expect(page.getByTestId("knowledge-edit-textarea")).toBeVisible();
-	});
-
-	test("6. Scope browser navigates between Practice / Product / Factory", async ({ page }) => {
-		await page.goto("/knowledge?scope=practice");
-		await page.waitForSelector("[data-testid='knowledge-list-page']");
-		await page.getByTestId("knowledge-scope-browser").getByRole("tab", { name: "Product" }).click();
-		await expect(page).toHaveURL(/scope=product/);
-		await expect(page.getByTestId("knowledge-scope-indicator")).toHaveText("product");
-		await page.getByTestId("knowledge-scope-browser").getByRole("tab", { name: "Factory" }).click();
-		await expect(page).toHaveURL(/scope=factory/);
-		await expect(page.getByTestId("knowledge-scope-indicator")).toHaveText("factory");
-	});
+	// @lore BC4: tests 4-6 (scope browser tabs, the free-text edit textarea)
+	// are deleted — their subject is gone. AD6 replaced the `?scope=` query
+	// browser with the static 3-pill ScopePicker (`scope-pill-*` testids,
+	// no `knowledge-scope-indicator`/`knowledge-scope-browser`), and T2
+	// replaced the plain textarea with BodyEditor (TipTap) — there is no
+	// `knowledge-edit-textarea` element to find. The surviving edit-panel
+	// behavior (Edit shows the panel, Done exits) is covered by
+	// `document-edit.spec.ts`'s T2 AC-1 suite.
 
 	test("7. Bet detail page loads with breadcrumb and tasks table", async ({ page }) => {
 		// @lore L16: WorkBet now calls useBet (real API fetch). Mock the endpoint

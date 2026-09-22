@@ -3,6 +3,8 @@ import type {
 	ActionDeclaration,
 	ActionResult,
 	AdjustThreadInput,
+	DocumentRow,
+	SearchDocumentsInput,
 	SendMessageInput,
 	SendMessageOutput,
 	ThreadView,
@@ -32,6 +34,20 @@ export interface ActionContext {
 		readonly taskId: string | null;
 		readonly threadId: string | null;
 	};
+	/**
+	 * @lore document-module review fix: `true` only for an in-process,
+	 * system-initiated call — set by the composition root itself where it
+	 * builds an `ActionContext` by hand (`routes/agent-identity.ts`'s
+	 * `ctxFor`, `routes/routines-routes.ts`'s route handlers,
+	 * `routes/plugins.ts`'s `ctxFor`), never by the HTTP door
+	 * (`actions-router.ts`) or the MCP tool loop (`actions-as-tools.ts`). The
+	 * one thing it gates: `edit_document`'s `forbidden_parent_kind` invariant,
+	 * which refuses a client-named `agent`/`routine` parent — those two kinds
+	 * are attached exclusively by the system, never by a client (the rule the
+	 * pre-item `routes/knowledge.ts`'s `CLIENT_WRITABLE_PARENT_KINDS`
+	 * enforced).
+	 */
+	readonly internal?: boolean;
 }
 
 /**
@@ -63,3 +79,14 @@ export type AdjustThreadRunFn = (
 	ctx: ActionContext,
 	input: AdjustThreadInput,
 ) => Promise<ActionResult<ThreadView>>;
+/**
+ * `search_documents`'s own bound `run` — the ONLY door a document-reading
+ * neighbour ever gets onto `@hyperidle/document` (architecture.md §6.7,
+ * §8.1). One canonical shape here rather than a private mirror in every
+ * composition root that needs it (`compose.ts`, `task-run-resolver-bindings.ts`,
+ * `routine-scheduler-bindings.ts`).
+ */
+export type SearchDocumentsRunFn = (
+	ctx: ActionContext,
+	input: SearchDocumentsInput,
+) => Promise<ActionResult<DocumentRow[]>>;

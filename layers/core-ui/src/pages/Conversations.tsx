@@ -64,7 +64,7 @@ import { call } from "../services/call.js";
 import { resolveHostRoute } from "../services/host-route.js";
 import { createOpenHandler } from "../services/open-handler.js";
 import { ToastContext } from "../shell/ToastRegion";
-import { KnowledgeDetail } from "./KnowledgeDetail.js";
+import { DocumentDetail } from "./DocumentDetail.js";
 import { ReviewPage } from "./review/ReviewPage.js";
 
 // ---------------------------------------------------------------------------
@@ -109,7 +109,7 @@ function identitiesToParticipants(
 /**
  * @lore resolve the `PartAuthor` for the agent that ran a session
  * from the session's OWN data only — never from the hosting thread's
- * `hostId`. A thread's host can be a team, a knowledge item, a user or an
+ * `hostId`. A thread's host can be a team, a document, a user or an
  * agent; only in the agent case would `hostId` even happen to name an agent,
  * and it is not necessarily the agent that ran THIS session (e.g. a
  * team-hosted task thread, or sub-agent recursion). `useSessionActivity`'s
@@ -222,11 +222,11 @@ const ASYNC_ACK_COPY = "Response recorded — agent will pick it up on next sess
 function InspectDestination({ path }: { path: string }): JSX.Element {
 	const [beforeHash, hash = ""] = path.split("#");
 	const [pathname, query = ""] = (beforeHash ?? "").split("?");
-	const knowledge = pathname?.match(/^\/knowledge\/([^/]+)$/);
-	if (knowledge?.[1]) {
+	const documentMatch = pathname?.match(/^\/documents\/([^/]+)$/);
+	if (documentMatch?.[1]) {
 		return (
-			<KnowledgeDetail
-				overrideKnowledgeId={knowledge[1]}
+			<DocumentDetail
+				overrideDocumentId={documentMatch[1]}
 				overrideHash={hash ? `#${hash}` : ""}
 				presentation="pane"
 			/>
@@ -411,7 +411,7 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 	// The thread's OWN title (page heading + breadcrumb leaf): the stored
 	// override, else the server's viewer-relative ladder answer
 	// (`computedTitle`, never empty). `hostTitle` below is a different thing —
-	// the linked HOST object's own title (e.g. a knowledge item's), not the
+	// the linked HOST object's own title (e.g. a document's), not the
 	// thread's — and must not stand in here: it is `null` for every host kind
 	// the server doesn't special-case (team included), which is what fell
 	// through to the raw host id.
@@ -511,7 +511,7 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 								parentId={threadId}
 								heading="Artifacts"
 								emptyDescription="Artifacts produced in this conversation appear here."
-								onOpen={(itemId) => setInspection({ kind: "path", path: `/knowledge/${itemId}` })}
+								onOpen={(itemId) => setInspection({ kind: "path", path: `/documents/${itemId}` })}
 							/>
 						}
 					/>
@@ -608,7 +608,7 @@ export function Conversations(): JSX.Element {
 					// @lore AZ2: h-full (not flex-1) — this div is now the scroll body's
 					// direct child, not a flex item of a flex-col root; h-full resolves
 					// against the scroll body's own definite height (same pattern as
-					// KnowledgeList.tsx's systemEmpty branch).
+					// DocumentList.tsx's systemEmpty branch).
 					<div className="flex items-center justify-center p-[48px_24px] h-full">
 						<EmptyState
 							title="No conversations yet"

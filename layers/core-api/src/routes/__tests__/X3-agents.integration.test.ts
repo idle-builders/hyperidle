@@ -15,8 +15,7 @@
  *  - framework/db/src/seed.ts inserts system_template:* factorySettings rows
  */
 
-import { agentRunConfig, type HyperIdleDb, knowledgeItems, teams, users } from "@hyperidle/db";
-import { upsertAgentIdentity } from "@hyperidle/knowledge";
+import { agentRunConfig, documents, type HyperIdleDb, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
@@ -145,7 +144,7 @@ describe("X3 AC-4: GET /api/agents returns AI agents with config fields", () => 
 		expect(agent).toHaveProperty("id");
 		expect(agent).toHaveProperty("name");
 		expect(agent).toHaveProperty("role");
-		expect(agent).toHaveProperty("identityKnowledgeId");
+		expect(agent).toHaveProperty("identityDocumentId");
 		expect(agent).toHaveProperty("harnessType");
 		expect(agent).toHaveProperty("maxConcurrentSessions");
 		expect(agent).toHaveProperty("status");
@@ -326,16 +325,16 @@ describe("X3 AC-5: POST /api/agents creates a new agent", () => {
 			}),
 		});
 		expect(res.status).toBe(201);
-		const body = (await res.json()) as { id: string; identityKnowledgeId: string };
-		expect(body.identityKnowledgeId).toBeTruthy();
+		const body = (await res.json()) as { id: string; identityDocumentId: string };
+		expect(body.identityDocumentId).toBeTruthy();
 
 		// Bound to the agent, and an agent file — the binding session assembly reads.
 		const [doc] = await db
 			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, body.identityKnowledgeId));
+			.from(documents)
+			.where(eq(documents.id, body.identityDocumentId));
 		expect(doc?.body).toBe("You are Identity Bot.");
-		expect(doc?.role).toBe("agent_file");
+		expect(doc?.slot).toBe("agent_file");
 		expect(doc?.scopeKind).toBe("user");
 		expect(doc?.scopeId).toBe(body.id);
 	});
@@ -469,7 +468,7 @@ describe("X3 AC-6: PATCH /api/agents/:id updates agent configuration", () => {
 
 	// The two persona tests that lived here — a 50,000-char cap and clearing it
 	// with null — are gone with the field. Editing an agent's identity is editing
-	// its knowledge document, so those belong to the knowledge edit endpoint, not
+	// its document, so those belong to the document edit endpoint, not
 	// to a second copy of it on this route.
 });
 
@@ -546,15 +545,26 @@ describe("X3 AC-7: DELETE /api/agents/:id soft-deletes", () => {
 		expect(res.status).toBe(409);
 	});
 
-	// Deleting a parent archives its knowledge —
+	// Deleting a parent archives its documents —
 	// there is no UI for an orphan, so archiving is the only safe default.
 	test("archives the agent's identity document, parented to the agent", async ({ db, app }) => {
 		await seedPrereqs(db);
-		const identityId = await upsertAgentIdentity(db, {
-			agentId: "x3-agent-builder",
-			agentName: "X3 Builder Bot",
+		const identityId = "x3-identity-doc";
+		await db.insert(documents).values({
+			id: identityId,
+			scopeKind: "user",
+			scopeId: "x3-agent-builder",
+			title: "X3 Builder Bot — identity",
 			body: "I am the builder.",
+			format: "markdown",
+			status: "active",
+			version: 1,
+			slot: "agent_file",
+			parentKind: "agent",
+			parentId: "x3-agent-builder",
 			updatedBy: "u-founder-x3",
+			createdAt: NOW,
+			updatedAt: NOW,
 		});
 
 		const res = await app.request("/api/agents/x3-agent-builder", {
@@ -563,7 +573,7 @@ describe("X3 AC-7: DELETE /api/agents/:id soft-deletes", () => {
 		});
 		expect(res.status).toBe(200);
 
-		const [doc] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, identityId));
+		const [doc] = await db.select().from(documents).where(eq(documents.id, identityId));
 		expect(doc, "the row survives — audit tables hold RESTRICT FKs on it").toBeDefined();
 		expect(doc?.status, "and it is archived, not live").toBe("archived");
 	});

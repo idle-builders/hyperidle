@@ -22,7 +22,7 @@ export async function startWorkerTestRuntime(pool: AdapterPool): Promise<Runtime
 		composition: {
 			context: {} as never,
 			provisioner: {} as never,
-			writeback: { db: {} as never, knowledge: {} as never },
+			writeback: { db: {} as never, document: {} as never },
 			worker: {
 				pool,
 				adapterFactory: {

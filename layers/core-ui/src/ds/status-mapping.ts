@@ -1,7 +1,7 @@
 // @lore BB1: BetStatus removed — bet vocabulary folded into TASK_STATES.
 import type {
 	AgentOperationalStatus,
-	KnowledgeStatus,
+	DocumentStatus,
 	RoutineState,
 	SessionOutcome,
 	TaskOutcomeVerdict,
@@ -27,13 +27,15 @@ export const TASK_STATE_MAP: Record<TaskState, Status> = {
 };
 
 /**
- * Knowledge lifecycle status → presentation Status. Exhaustive over the
- * 4-value KnowledgeStatus ladder.
+ * Document lifecycle status → presentation Status. Exhaustive over the
+ * 4-value DocumentStatus ladder.
  *
  * @lore nested-knowledge-items: collapsed the old 7-value set —
  * captured/provisional/needs_human → proposed, validated → active.
+ * @lore BC4: renamed from KNOWLEDGE_STATUS_MAP/knowledgeStatusToStatus —
+ * values unchanged, `documents.status` carries the same four-value ladder.
  */
-export const KNOWLEDGE_STATUS_MAP: Record<KnowledgeStatus, Status> = {
+export const DOCUMENT_STATUS_MAP: Record<DocumentStatus, Status> = {
 	proposed: "behind",
 	active: "healthy",
 	stale: "error",
@@ -46,8 +48,8 @@ export function taskStateToStatus(state: TaskState): Status {
 	return TASK_STATE_MAP[state] as Status;
 }
 
-export function knowledgeStatusToStatus(ks: KnowledgeStatus): Status {
-	return KNOWLEDGE_STATUS_MAP[ks] as Status;
+export function documentStatusToStatus(ds: DocumentStatus): Status {
+	return DOCUMENT_STATUS_MAP[ds] as Status;
 }
 
 /**

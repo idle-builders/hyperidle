@@ -47,14 +47,13 @@ const GOVERNANCE_DIR = "tools/governance/";
 /** The only files `tools/governance/` may hold at its own root — never recursed into `src/`, which is
  * the engine's real source and grows by design. An allowlist of what may exist, not a denylist of
  * names — that is what catches a returning record whatever it is called. No exceptions, not even for
- * a filename that used to be legitimate. Five governance records plus the two files every `tools/*`
+ * a filename that used to be legitimate. Four governance records plus the two files every `tools/*`
  * workspace package carries. */
 const CLOSED_SET: ReadonlySet<string> = new Set([
 	"tools/governance/README.md",
 	"tools/governance/architecture.json",
 	"tools/governance/decided-rules.json",
 	"tools/governance/table-owners.json",
-	"tools/governance/misplaced-files.json",
 	"tools/governance/package.json",
 	"tools/governance/tsconfig.json",
 ]);

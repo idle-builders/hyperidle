@@ -83,11 +83,11 @@ export interface AgentProfileResponse {
 	// --- Configuration ---
 	/** @lore AK1: Renamed per AK1 harness-vocab plan. */
 	/**
-	 * The `agent_file` knowledge document that says who this agent is, or null
+	 * The `agent_file` document that says who this agent is, or null
 	 * if it has none. The profile links to it; the text lives in the document,
-	 * which is read and edited like any other knowledge.
+	 * which is read and edited like any other document.
 	 */
-	readonly identityKnowledgeId: string | null;
+	readonly identityDocumentId: string | null;
 	readonly harnessType: string | null;
 	readonly maxConcurrentSessions: number;
 	/** MCP connection info (if configured). null in most cases. */

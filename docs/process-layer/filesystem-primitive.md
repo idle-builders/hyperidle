@@ -4,7 +4,7 @@ A **registered, team-scoped file source** — durable file-like working artifact
 
 ## Why it exists
 
-Without a filesystem an agent could research and plan but not produce durable, reviewable output — code least of all. Before AO1, `knowledge_items` was the only durable output store and non-code outputs were squeezed into it; code had no home. The filesystem gives authored output a durable, history-bearing home and is the structural keystone of the self-hosting build loop. Shipped: `filesystems` + `filesystem_injections` + `filesystem_captures` (`framework/db/src/schema.ts`) and the AO2 mount adapters (`layers/agent-orchestration/filesystem-mounting/`).
+Without a filesystem an agent could research and plan but not produce durable, reviewable output — code least of all. Before AO1, `documents` was the only durable output store and non-code outputs were squeezed into it; code had no home. The filesystem gives authored output a durable, history-bearing home and is the structural keystone of the self-hosting build loop. Shipped: `filesystems` + `filesystem_injections` + `filesystem_captures` (`framework/db/src/schema.ts`) and the AO2 mount adapters (`layers/agent-orchestration/filesystem-mounting/`).
 
 ## The line: Filesystem vs Tool vs Knowledge
 
@@ -49,7 +49,7 @@ The `Filesystem`, `FilesystemInjection`, and `FilesystemCapture` shapes are owne
 
 - **Not a system of record / live tool** — inboxes, ticket queues, CRMs are operated via discrete API actions (Track AN); they own their own consistency/permissions/concurrency and are never mounted as an editable-and-synced copy.
 - **Not a retrieval/knowledge index** — a RAG corpus (drive lookup) is the knowledge fabric; read, never edited-and-synced.
-- **Not a `knowledge_item`** — knowledge items are derived/promoted/attention-scored fabric entries; a filesystem is the raw authored working files.
+- **Not a `document`** — documents are scoped, tree-positioned knowledge rows; a filesystem is the raw authored working files.
 - **Not the knowledge-export config/target** — attaching a filesystem must not overwrite the global export config.
 - **Not a Connection** — Connection is auth + tools; filesystem is files. Compose, never merge (the filesystem derives its `source` from the Connection).
 - **Not owned by a single agent** — registered team-scoped, injected per-bot via `FilesystemInjection`. Many bots may share one; a bot may have many.
@@ -96,7 +96,7 @@ Durable record; ephemeral mount. Registration and per-bot injection are independ
   3. Filesystem ⟂ Connection — files vs auth/tools; compose, never merge.
   4. **Filesystem = authored corpus only** — SoRs and retrieval indexes are excluded.
   5. **Local-first** — works with no forge (a plain local git repo / folder).
-  6. Not a knowledge item, not the knowledge-export target.
+  6. Not a document, not the knowledge-export target.
   7. Unreachable/unauthenticated → **needs_attention**, never silent. Mount driven by the bot's **injected** filesystems (`sessions.agentId → filesystem_injections → filesystems`), never a global path.
   8. Forward-only migration.
 

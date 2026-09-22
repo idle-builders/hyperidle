@@ -51,7 +51,7 @@ function makeTask(overrides: Partial<Record<string, unknown>> = {}): Record<stri
 		outcomeRecordedAt: null,
 		outcomeRecordedBy: null,
 		tokensActualJson: null,
-		sourceKnowledgeItemId: null,
+		sourceDocumentId: null,
 		createdAt: "2026-08-30T10:00:00.000Z",
 		updatedAt: "2026-08-30T10:00:00.000Z",
 		completedAt: null,

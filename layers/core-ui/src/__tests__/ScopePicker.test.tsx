@@ -64,10 +64,10 @@ describe("ScopePicker — structure & a11y", () => {
 				mode="filter"
 				ariaLabel="Filter by scope"
 				testIdPrefix="scope-pill"
-				dataTestId="knowledge-scope-pills"
+				dataTestId="document-scope-pills"
 			/>,
 		);
-		expect(screen.getByTestId("knowledge-scope-pills")).toBeInTheDocument();
+		expect(screen.getByTestId("document-scope-pills")).toBeInTheDocument();
 	});
 });
 
@@ -216,12 +216,12 @@ describe("ScopePicker — disabled options", () => {
 				onChange={() => undefined}
 				ariaLabel="Scope"
 				testIdPrefix="scope-pill-create"
-				disabledTitle="Join a team to use team-scoped knowledge"
+				disabledTitle="Join a team to use team-scoped documents"
 			/>,
 		);
 		const teamPill = screen.getByTestId("scope-pill-create-team");
 		expect(teamPill).toBeDisabled();
-		expect(teamPill).toHaveAttribute("title", "Join a team to use team-scoped knowledge");
+		expect(teamPill).toHaveAttribute("title", "Join a team to use team-scoped documents");
 	});
 
 	it("does not emit onChange when a disabled pill is clicked", async () => {

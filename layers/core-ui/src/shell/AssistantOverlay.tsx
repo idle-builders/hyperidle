@@ -33,7 +33,6 @@ import { useAgents } from "../hooks/useAgents.js";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { useThread } from "../hooks/useThread.js";
 import { useThreads } from "../hooks/useThreads.js";
-import { apiFetch } from "../services/api-fetch.js";
 import { call } from "../services/call.js";
 
 export interface AssistantOverlayProps {
@@ -262,7 +261,7 @@ function AssistantOverlayInner({
 	contextRefs: ReadonlyArray<AssistantContextRef>;
 	onRemoveContextRef: (index: number) => void;
 }): JSX.Element {
-	// artifacts-become-knowledge: scopeKind for knowledge items created from pending_block refs.
+	// artifacts-become-documents: scopeKind for documents created from pending_block refs.
 	const { user, status: userStatus } = useCurrentUser();
 	// "The assistant is your agent" — an ordinary agent with
 	// `ownerUserId === me`. `GET /api/agents` carries `ownerUserId` directly, so
@@ -289,13 +288,13 @@ function AssistantOverlayInner({
 		): Promise<string> => {
 			if (!myAgentId) throw new Error("No assistant agent to message");
 
-			// pending_block refs become real knowledge items on send — never wire refs.
+			// pending_block refs become real documents on send — never wire refs.
 			const pendingBlocks = contextRefs.filter(
 				(ref): ref is AssistantContextRef & { kind: "pending_block" } =>
 					ref.kind === "pending_block",
 			);
 			const entityRefs = contextRefs.filter(
-				(ref): ref is AssistantContextRef & { kind: "knowledge_item" | "task" | "message" } =>
+				(ref): ref is AssistantContextRef & { kind: "document" | "task" | "message" } =>
 					ref.kind !== "pending_block",
 			);
 			const refsToSend: InlineRef[] = entityRefs.map((ref) => ({ kind: ref.kind, id: ref.id }));
@@ -321,25 +320,30 @@ function AssistantOverlayInner({
 				throw new Error(res.problems[0]?.message ?? "Failed to send message");
 			}
 
-			// @lore artifacts-become-knowledge: For each pending_block, create a knowledge
-			// item parented to this thread. The content was captured at click time — a real
-			// document row, not a pointer that rots when the source is edited. `/api/knowledge`
-			// is untouched by this item — no `call()` door exists for it yet.
+			// @lore artifacts-become-documents: For each pending_block, create a
+			// document parented to this thread. The content was captured at click
+			// time — a real document row, not a pointer that rots when the source
+			// is edited.
+			// @lore BC4: `apiFetch("/api/knowledge", …)` replaced by
+			// `call("edit_document", { as: "artifact", parent: {kind:"thread", id} })`
+			// (architecture.md §9.2). `as:"artifact"` forces the artifact rules
+			// (I5/I13) — an explicit thread parent wins over the caller's own
+			// session stamp (§4.3 case 3) — so `scopeKind` is informational only,
+			// never "user" (I13: an artifact cannot be private). The old
+			// `scopeKind: teamId ? "product" : "factory"` carried a value outside
+			// SCOPE_KINDS ("factory"|"team"|"user") that `edit_document` would
+			// refuse to validate — fixed to "team" while repointing this call.
 			const teamId = user?.teamId ?? null;
 			await Promise.all(
 				pendingBlocks.map((ref) =>
-					apiFetch("/api/knowledge", {
-						method: "POST",
-						headers: { "Content-Type": "application/json" },
-						body: JSON.stringify({
-							parentKind: "thread",
-							parentId: res.data.thread.id,
-							body: ref.content,
-							format: "markdown",
-							scopeKind: teamId ? "product" : "factory",
-							scopeId: teamId,
-							updatedBy: user?.id,
-						}),
+					call("edit_document", {
+						as: "artifact",
+						parent: { kind: "thread", id: res.data.thread.id },
+						title: ref.label,
+						body: ref.content,
+						format: "markdown",
+						scopeKind: teamId ? "team" : "factory",
+						scopeId: teamId,
 					}),
 				),
 			);

@@ -4,7 +4,7 @@
  * Drives the app and captures screenshots of two list surfaces rendered through
  * the shared Row primitive:
  *   1. WorkTeam agents + routines list (Row via ItemList)
- *   2. KnowledgeList triage view (Row as="li" via ItemList)
+ *   2. DocumentList triage view (Row as="li" via ItemList)
  *
  * Assertions: rows carry data-ds-component="Row", min-height 44px (AC-3 touch
  * target), and screenshots are captured for the visual record.
@@ -22,7 +22,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { expect, test } from "./fixtures";
+import { expect, makeDocumentRow, mockSearchDocuments, test } from "./fixtures";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -30,7 +30,7 @@ import { expect, test } from "./fixtures";
 
 const TEAM_ID = "ag6-team";
 const TEAM_URL = `/work/team/${TEAM_ID}`;
-const KNOWLEDGE_URL = "/knowledge";
+const DOCUMENT_URL = "/documents";
 
 const SpecDir = path.dirname(fileURLToPath(import.meta.url));
 const PROOF_DIR = path.resolve(SpecDir, "../../../test-results");
@@ -110,69 +110,25 @@ function makeTeamFixture() {
 	};
 }
 
-function makeKnowledgeFixture() {
-	return {
-		items: [
-			{
-				id: "ki-ag6-1",
-				layer: "L3",
-				scopeId: null,
-				scopeKind: "pattern",
-				kind: "pattern",
-				topic: "architecture",
-				title: "Row primitive consolidation",
-				body: "All list rows go through the shared Row/ItemList primitive.",
-				format: "markdown",
-				status: "draft",
-				attentionScore: 0.9,
-				relevanceScore: 0.9,
-				confidence: null,
-				version: 1,
-				updatedBy: "agent",
-				createdAt: "2026-06-12T00:00:00.000Z",
-				updatedAt: "2026-06-12T00:00:00.000Z",
-				meta: null,
-				citationCount: null,
-				lastCitedAt: null,
-				signals: {
-					lastActivityAt: "2026-06-12T00:00:00.000Z",
-					accessCount30d: 3,
-					citationCount: null,
-					relevanceScore: 0.9,
-				},
-			},
-			{
-				id: "ki-ag6-2",
-				layer: "L3",
-				scopeId: null,
-				scopeKind: "decision",
-				kind: "decision",
-				topic: "architecture",
-				title: "Hover/focus via clickableProps",
-				body: "clickableProps is the single source of hover+focus+motion for all rows.",
-				format: "markdown",
-				status: "draft",
-				attentionScore: 0.7,
-				relevanceScore: 0.7,
-				confidence: null,
-				version: 1,
-				updatedBy: "agent",
-				createdAt: "2026-06-11T00:00:00.000Z",
-				updatedAt: "2026-06-11T00:00:00.000Z",
-				meta: null,
-				citationCount: null,
-				lastCitedAt: null,
-				signals: {
-					lastActivityAt: "2026-06-11T00:00:00.000Z",
-					accessCount30d: 1,
-					citationCount: null,
-					relevanceScore: 0.7,
-				},
-			},
-		],
-		groups: {},
-	};
-}
+// @lore BC4: the document rows below carry `status:"proposed"` — the
+// DocumentList triage tab filters on exactly that value (was "draft", never
+// a valid status even under the earlier vocabulary).
+const DOCUMENT_ROWS = [
+	makeDocumentRow("ki-ag6-1", {
+		title: "Row primitive consolidation",
+		body: "All list rows go through the shared Row/ItemList primitive.",
+		status: "proposed",
+		createdAt: "2026-06-12T00:00:00.000Z",
+		updatedAt: "2026-06-12T00:00:00.000Z",
+	}),
+	makeDocumentRow("ki-ag6-2", {
+		title: "Hover/focus via clickableProps",
+		body: "clickableProps is the single source of hover+focus+motion for all rows.",
+		status: "proposed",
+		createdAt: "2026-06-11T00:00:00.000Z",
+		updatedAt: "2026-06-11T00:00:00.000Z",
+	}),
+];
 
 // ---------------------------------------------------------------------------
 // Shared route helpers (mirrors AG1 pattern)
@@ -212,18 +168,8 @@ async function mockTeamRoutes(page: import("@playwright/test").Page): Promise<vo
 	});
 }
 
-async function mockKnowledgeRoutes(page: import("@playwright/test").Page): Promise<void> {
-	await page.route("**/api/knowledge**", async (route) => {
-		if (route.request().method() === "GET") {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(makeKnowledgeFixture()),
-			});
-		} else {
-			await route.continue();
-		}
-	});
+async function mockDocumentRoutes(page: import("@playwright/test").Page): Promise<void> {
+	await mockSearchDocuments(page, { rows: DOCUMENT_ROWS });
 }
 
 // ---------------------------------------------------------------------------
@@ -282,34 +228,34 @@ test.describe("AG6 AC-6 — Surface 1: WorkTeam agents + routines via Row primit
 });
 
 // ---------------------------------------------------------------------------
-// AC-6 Surface 2: Knowledge triage list (Row as="li" via ItemList flush/ul)
+// AC-6 Surface 2: Document triage list (Row as="li" via ItemList flush/ul)
 // ---------------------------------------------------------------------------
 
-test.describe("AG6 AC-6 — Surface 2: Knowledge triage rows via Row primitive", () => {
-	test("knowledge triage rows carry data-ds-component=Row and meet 44px min-height", async ({
+test.describe("AG6 AC-6 — Surface 2: Document triage rows via Row primitive", () => {
+	test("document triage rows carry data-ds-component=Row and meet 44px min-height", async ({
 		page,
 	}) => {
 		await page.setViewportSize({ width: 1440, height: 900 });
-		await mockKnowledgeRoutes(page);
+		await mockDocumentRoutes(page);
 
-		await page.goto(KNOWLEDGE_URL);
-		await page.waitForSelector("[data-testid='knowledge-list-page']");
+		await page.goto(DOCUMENT_URL);
+		await page.waitForSelector("[data-testid='document-list-page']");
 		await page.waitForLoadState("networkidle");
 
 		// Triage tab should be active (items are drafts → needs attention)
-		const triageView = page.locator("[data-testid='knowledge-triage-view']");
+		const triageView = page.locator("[data-testid='document-triage-view']");
 		await expect(triageView).toBeVisible();
 
-		// knowledge-row testids must be present; as="li" path → <li data-ds-component="Row" data-testid="knowledge-row">
-		const knowledgeRows = page.locator("li[data-ds-component='Row'][data-testid='knowledge-row']");
-		await expect(knowledgeRows.first()).toBeVisible();
+		// document-row testids must be present; as="li" path → <li data-ds-component="Row" data-testid="document-row">
+		const documentRows = page.locator("li[data-ds-component='Row'][data-testid='document-row']");
+		await expect(documentRows.first()).toBeVisible();
 
-		const count = await knowledgeRows.count();
+		const count = await documentRows.count();
 		expect(count).toBeGreaterThan(0);
 
 		// Touch target: each li[data-ds-component=Row] >= 44px (AC-3)
 		for (let i = 0; i < count; i++) {
-			const box = await knowledgeRows.nth(i).boundingBox();
+			const box = await documentRows.nth(i).boundingBox();
 			if (box) {
 				expect(box.height).toBeGreaterThanOrEqual(44);
 			}
@@ -318,7 +264,7 @@ test.describe("AG6 AC-6 — Surface 2: Knowledge triage rows via Row primitive",
 		// Capture proof screenshot
 		fs.mkdirSync(PROOF_DIR, { recursive: true });
 		await page.screenshot({
-			path: path.join(PROOF_DIR, "AG6-surface2-knowledge-triage.png"),
+			path: path.join(PROOF_DIR, "AG6-surface2-document-triage.png"),
 			fullPage: false,
 		});
 	});

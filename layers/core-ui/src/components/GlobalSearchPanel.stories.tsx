@@ -34,7 +34,7 @@ const mockWork = [
 	},
 ];
 
-const mockKnowledge = [
+const mockDocuments = [
 	{
 		id: "k1",
 		title: "Rate Limiting Pattern",
@@ -105,7 +105,7 @@ export const WithResults = {
 			mockPayload={{
 				conversations: mockConversations,
 				work: mockWork,
-				knowledge: mockKnowledge,
+				documents: mockDocuments,
 			}}
 		/>
 	),
@@ -118,7 +118,7 @@ export const EmptyResults = {
 			mockPayload={{
 				conversations: [],
 				work: [],
-				knowledge: [],
+				documents: [],
 			}}
 		/>
 	),

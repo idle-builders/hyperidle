@@ -278,7 +278,7 @@ export function SettingsHarnesses(): JSX.Element {
 					</div>
 
 					{/* Backend rows — variant="boxed" is the one hairline-border-container
-					    spelling (ItemList.tsx), shared with KnowledgeRoleList. */}
+					    spelling (ItemList.tsx), shared with DocumentSlotList. */}
 					<ItemList as="ul" isEmpty={sorted.length === 0} variant="boxed">
 						{sorted.map((descriptor) => {
 							const sl = statusLine(descriptor);

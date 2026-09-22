@@ -6,9 +6,9 @@
  *      the run, not inferred from a row."
  *
  * Proof method (each binary harness):
- *   1. Insert a skill knowledge item into the real PGlite DB (role='skill',
+ *   1. Insert a skill document into the real PGlite DB (slot='skill',
  *      scopeKind='factory', status='active').
- *   2. Call the production assembleSessionKnowledge path to fetch the item.
+ *   2. Call the production assembleSessionDocuments path to fetch the item.
  *   3. Build a BakedContextBundle and call buildTestRunOrchestrationComposition()
  *      .runSession(mode:'assemble') — the SAME path admitSession calls. This calls
  *      writeSkillItem internally, which writes SKILL.md to HARNESS_SKILL_DIRS.
@@ -95,12 +95,12 @@ import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { knowledgeAppProjection, knowledgeItems } from "@hyperidle/db";
+import { documents } from "@hyperidle/db";
 import { test as dbTest } from "@hyperidle/db/test-fixtures";
-import { type BakedContextBundle, toBakedContextKnowledgeItems } from "@hyperidle/domain-model";
+import { assembleSessionDocuments } from "@hyperidle/document";
+import { type BakedContextBundle, toBakedContextDocuments } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
 import { HARNESS_TEST_MODELS, requireHarness } from "@hyperidle/harness-registry/test-utils";
-import { assembleSessionKnowledge } from "@hyperidle/knowledge";
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import { buildTestRunOrchestrationComposition } from "./run-orchestration-test-runtime.js";
 
@@ -175,7 +175,7 @@ async function assembleSkillIntoSandbox(db: import("@hyperidle/db").HyperIdleDb)
 	const now = new Date().toISOString();
 	const skillId = `ba9b-skill-${Math.random().toString(36).slice(2, 10)}`;
 
-	await db.insert(knowledgeItems).values({
+	await db.insert(documents).values({
 		id: skillId,
 		scopeKind: "factory",
 		scopeId: null,
@@ -183,21 +183,14 @@ async function assembleSkillIntoSandbox(db: import("@hyperidle/db").HyperIdleDb)
 		body: skillBody,
 		format: "markdown",
 		status: "active",
-		role: "skill",
+		slot: "skill",
 		version: 1,
 		updatedBy: "ba9b-test",
 		createdAt: now,
 		updatedAt: now,
 	});
-	await db.insert(knowledgeAppProjection).values({
-		id: `${skillId}-proj`,
-		knowledgeItemId: skillId,
-		scopeId: null,
-		confidence: null,
-		meta: null,
-	});
 
-	const knowledge = await assembleSessionKnowledge(db, {
+	const knowledge = await assembleSessionDocuments(db, {
 		teamId: TEAM_ID,
 		agentRole: "builder",
 		taskDescription: "Probe task",
@@ -222,7 +215,7 @@ async function assembleSkillIntoSandbox(db: import("@hyperidle/db").HyperIdleDb)
 		],
 		agent: { id: AGENT_ID, name: "BA9b Probe Agent", role: "builder" },
 		team: { id: TEAM_ID, name: "BA9b Probe Team" },
-		knowledge: toBakedContextKnowledgeItems(knowledge),
+		documents: toBakedContextDocuments(knowledge),
 	};
 
 	const assembled = await buildTestRunOrchestrationComposition().runSession(

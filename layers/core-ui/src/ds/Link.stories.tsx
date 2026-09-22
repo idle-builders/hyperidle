@@ -28,7 +28,7 @@ export const InProse = (): JSX.Element => (
 			{ type: "text", value: "Open the " },
 			link("/artifacts/a1", "draft artifact"),
 			{ type: "text", value: " or jump to the " },
-			link("/knowledge/k9", "knowledge entry"),
+			link("/documents/k9", "document entry"),
 			{ type: "text", value: " for context." },
 		])}
 	</p>

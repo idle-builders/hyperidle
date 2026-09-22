@@ -52,7 +52,7 @@ function renderShell(initialPath = "/conversations"): ReturnType<typeof render> 
 				children: [
 					{ path: "conversations", element: <div>Conversations Page</div> },
 					{ path: "work/portfolio", element: <div>Portfolio Page</div> },
-					{ path: "knowledge", element: <div>Knowledge Page</div> },
+					{ path: "documents", element: <div>Documents Page</div> },
 				],
 			},
 		],

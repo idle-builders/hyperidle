@@ -2,12 +2,15 @@
  * A produced item appears in the conversation it was produced in.
  *
  * This is the thread half of the parity requirement: a human and an agent put
- * a knowledge item into a conversation the same way, and this is the surface
- * where either one shows up.
+ * a document into a conversation the same way, and this is the surface where
+ * either one shows up.
  *
  * The conversation page already owns a `SplitView`, so the section hands the
  * click back rather than splitting a second time inside it — two splits on one
  * screen fight over the same gesture and the same width.
+ *
+ * @lore BC4: repointed off `useParentedKnowledgeItems`/`useKnowledgeItem` onto
+ * `useDocuments`/`useDocument`.
  */
 
 import { render, screen } from "@testing-library/react";
@@ -15,20 +18,23 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ArtifactSection } from "../ArtifactSection.js";
 
-vi.mock("../../hooks/useParentedKnowledgeItems.js", () => ({
-	useParentedKnowledgeItems: (parentKind: string, parentId: string) => ({
-		data: {
-			items: [
-				{
-					id: "ki-1",
-					title: `Produced in ${parentKind} ${parentId}`,
-					status: "draft",
-				},
-			],
-		},
+vi.mock("../../hooks/useDocuments.js", () => ({
+	useDocuments: (filter: { parent: { kind: string; id: string } }) => ({
+		status: "ready",
+		documents: [
+			{
+				id: "ki-1",
+				title: `Produced in ${filter.parent.kind} ${filter.parent.id}`,
+				status: "active",
+			},
+		],
 		error: null,
-		isLoading: false,
+		retry: vi.fn(),
 	}),
+}));
+
+vi.mock("../../hooks/useDocument.js", () => ({
+	useDocument: () => ({ status: "loading", data: null, error: null, refresh: vi.fn() }),
 }));
 
 describe("produced items in a conversation", () => {

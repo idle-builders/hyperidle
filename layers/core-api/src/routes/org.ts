@@ -20,7 +20,6 @@ import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { API_ERROR_CODES, ORG_EDGE_MECHANISMS } from "@hyperidle/domain-model";
 import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model/http";
-import { upsertAgentIdentity } from "@hyperidle/knowledge";
 import {
 	createTeam,
 	deleteOrgEdge,
@@ -35,6 +34,7 @@ import { findUser, insertUser, listUsers } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";
 import { buildSeamBackedAgentRunConfigWriter } from "../services/agent-orchestration-port-composition.js";
+import type { AgentIdentityPort } from "./agent-identity.js";
 
 const putOrgEdgeSchema = z.object({
 	fromUserId: z.string().min(1),
@@ -89,6 +89,7 @@ const scaffoldFromRequestSchema = z.object({
 export function createOrgRoutes(
 	db: HyperIdleDb,
 	agentOrchestration: AgentOrchestrationPort,
+	identity: AgentIdentityPort,
 ): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
@@ -245,7 +246,7 @@ export function createOrgRoutes(
 			{
 				getUserById: (db2, id) => findUser(db2, { id }),
 				insertUser,
-				upsertAgentIdentity,
+				upsertAgentIdentity: identity.upsertAgentIdentity,
 				...buildSeamBackedAgentRunConfigWriter(agentOrchestration),
 			},
 			body.teamMembersId,

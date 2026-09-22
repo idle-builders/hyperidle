@@ -185,7 +185,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 		},
 		{
 			id: THREAD_KI_CHURN,
-			hostKind: "knowledge_item",
+			hostKind: "document",
 			hostId: KI_CHURN_SIGNALS,
 			initiatorId: MAYA_ID,
 			participants: [MAYA_ID, PM_ID, QA_ID],
@@ -193,7 +193,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 		},
 		{
 			id: THREAD_ART_TRIAL_METRICS,
-			hostKind: "knowledge_item",
+			hostKind: "document",
 			hostId: ART_TRIAL_METRICS,
 			initiatorId: QA_ID,
 			participants: [QA_ID, FOUNDER_ID],
@@ -272,7 +272,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			senderId: ASSISTANT_ID,
 			type: "plain",
 			payload: plain(
-				"Done — search relevance is queued as a draft. One more observation: Maya has reviewed every ops knowledge item this month. If operations keeps growing, the team roster has a hole in it.",
+				"Done — search relevance is queued as a draft. One more observation: Maya has reviewed every ops document this month. If operations keeps growing, the team roster has a hole in it.",
 			),
 			createdAt: clock.daysAgo(33),
 		},
@@ -310,7 +310,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			senderId: ASSISTANT_ID,
 			type: "plain",
 			payload: plain(
-				"Agreed — and it is now a knowledge item, so the next pricing conversation starts from it. Your focus list still says 'activation before expansion'. Still true?",
+				"Agreed — and it is now a document, so the next pricing conversation starts from it. Your focus list still says 'activation before expansion'. Still true?",
 			),
 			createdAt: clock.daysAgo(13),
 		},
@@ -1099,10 +1099,10 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			senderId: PM_ID,
 			type: "plain",
 			payload: plain(
-				"Drafted — and I promoted it straight from the churn-signals knowledge item, so the provenance is visible on the bet.",
+				"Drafted — and I promoted it straight from the churn-signals document, so the provenance is visible on the bet.",
 				[
 					{
-						kind: "knowledge_item",
+						kind: "document",
 						id: KI_CHURN_SIGNALS,
 					},
 				],
@@ -1283,8 +1283,8 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			senderId: PM_ID,
 			type: "plain",
 			payload: plain(
-				"Retro captured as a knowledge item — the one-time limit decision and the dropped reason dropdown are both in it.",
-				[{ kind: "knowledge_item", id: KI_TRIAL_RETRO }],
+				"Retro captured as a document — the one-time limit decision and the dropped reason dropdown are both in it.",
+				[{ kind: "document", id: KI_TRIAL_RETRO }],
 			),
 			createdAt: clock.daysAgo(13),
 		},
@@ -1316,7 +1316,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			type: "plain",
 			payload: plain(
 				"Done — postmortem captured with the usage numbers and the competitor teardown.",
-				[{ kind: "knowledge_item", id: KI_MOBILE_POSTMORTEM }],
+				[{ kind: "document", id: KI_MOBILE_POSTMORTEM }],
 			),
 			createdAt: clock.daysAgo(8),
 		},
@@ -1517,7 +1517,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			senderId: PROPAGATION_ID,
 			type: "plain",
 			payload: plain(
-				"Knowledge promoted: 'Churn early signals' is now validated — it repeated across support, QA, and PM scopes.",
+				"Document promoted: 'Churn early signals' is now validated — it repeated across support, QA, and PM scopes.",
 			),
 			createdAt: clock.daysAgo(6),
 		},
@@ -1537,7 +1537,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			senderId: ASSISTANT_ID,
 			type: "plain",
 			payload: plain(
-				"Weekly note: knowledge triage has four items waiting. The annual-discount one is the only item that needs you specifically.",
+				"Weekly note: document triage has four items waiting. The annual-discount one is the only item that needs you specifically.",
 			),
 			createdAt: clock.daysAgo(2),
 		},

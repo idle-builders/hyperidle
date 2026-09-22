@@ -65,7 +65,7 @@ Vite proxies `/api/*` to `localhost:3001` with **no path rewrite** — the serve
 hyperidle/
 ├── layers/
 │   ├── core-ui/               # React + Vite frontend (port 5173)
-│   ├── core-api/              # Hono API layer — per-domain services (conversation, credentials, knowledge, notifications, org, policy, review, routine, settings, users, work)
+│   ├── core-api/              # Hono API layer — per-domain services (changes, credentials, document, notifications, org, policy, routine, settings, task, thread, users)
 │   ├── agent-orchestration/   # Session/run orchestration, connections, tool handlers, filesystem mounting
 │   └── agent-execution/       # Harness registry — CLI/LLM adapters, context window, MCP bridge
 ├── framework/            # One package per thing, each with a decided audience in tools/governance/architecture.json
@@ -98,7 +98,7 @@ hyperidle/
 │   ├── eslint-plugin-authz/    # Authorization lint rules (default-deny access boundary)
 │   ├── eslint-plugin-design/   # Design-system lint rules (token scales, page anatomy)
 │   ├── eval/                   # Graded journey evals — real-LLM tuning tool, not tests
-│   └── governance/             # Package-boundary rules + the misplacement ledger — see its own README.md
+│   └── governance/             # Package-boundary rules — see its own README.md
 ├── docs/                       # Ground-truth documentation
 ├── .pipeline/                  # <track>.md registries + work/<id>/plan.md per item
 ├── deploy/                     # macOS LaunchAgent service wrapper, setup script, Homebrew cask, Helm chart

@@ -1,23 +1,32 @@
 /**
- * A human and an agent put a knowledge item into a conversation the same way.
+ * A human and an agent put a document into a conversation the same way.
  *
  * This is the goal the change is measured against, not a nice-to-have. Before
  * it, an agent had no path at all: the writeback that turns its files into
- * knowledge items is session-scoped, and a `create_artifact` needed a task. A
- * person could attach something to a conversation and an agent could not.
+ * documents is session-scoped, and the (now-deleted) `create_artifact` tool
+ * needed a task. A person could attach something to a conversation and an
+ * agent could not.
  *
- * Both paths now go through one door — `POST /api/knowledge` with
- * `parentKind:"thread"`. That single door is what makes them indistinguishable,
- * and this test pins the properties that must not drift: same parent, same
- * status, same role, same shape on the way back out.
+ * Both paths now go through one door — `POST /api/actions/edit_document` with
+ * `parent: { kind: "thread", id }`. That single door is what makes them
+ * indistinguishable, and this test pins the properties that must not drift:
+ * same parent, same status, same role, same shape on the way back out.
  *
- * **What this does not prove.** The two payloads below are the shapes the two
- * real call sites send (`create_artifact` in `tool-handlers/src/tool-definitions.ts`
- * for the agent; `AssistantOverlay`'s send path for the human), but this test
- * transcribes them rather than driving those call sites — one lives behind the
- * agent harness and the other in the browser. Each side asserts its own payload
- * in its own package. Closing the gap end to end is a harness-lane job, and the
- * harness lane has no CI runner by design.
+ * **What this does not prove.** The agent payload below is the shape
+ * `create_artifact` used to send (the tool is deleted with the rest of the
+ * document-tool sextet; a document-module successor is the agent's new real
+ * call site, tracked separately) — but this test transcribes the payload
+ * rather than driving a real call site: one lives behind the agent harness
+ * and the other (`AssistantOverlay`'s send path, for the human) in the
+ * browser. Each side asserts its own payload in its own package. Closing the
+ * gap end to end is a harness-lane job, and the harness lane has no CI
+ * runner by design.
+ *
+ * @lore document-module B20: re-pointed off the deleted `POST`/`GET
+ * /api/knowledge` onto `POST /api/actions/edit_document` and
+ * `search_documents` — `search_documents({ parent })` for "what's in this
+ * conversation" and `search_documents({ inTree: true })` for "what's in the
+ * browsable tree" (the old bare `GET /api/knowledge`'s exact shape).
  */
 
 import { type HyperIdleDb, teams, threads, users } from "@hyperidle/db";
@@ -66,7 +75,7 @@ interface CreatedItem {
 	readonly parentKind: string | null;
 	readonly parentId: string | null;
 	readonly status: string;
-	readonly role: string;
+	readonly slot: string;
 	readonly format: string;
 	readonly body: string;
 }
@@ -83,9 +92,10 @@ describe("a human and an agent put an item into a conversation the same way", ()
 		const threadId = await seedThread(db);
 		const BODY = "## What was produced\n\nThe same content either way.";
 
-		// The agent's path: `create_artifact` takes the parent from its own
-		// context — the thread it is answering in — and never as an input.
-		const byAgent = await app.request("/api/knowledge", {
+		// The agent's path: the deleted `create_artifact` took the parent from
+		// its own context — the thread it was answering in — and never as an
+		// input. Its successor (tracked separately) is expected to keep that.
+		const byAgent = await app.request("/api/actions/edit_document", {
 			method: "POST",
 			headers: headers(),
 			body: JSON.stringify({
@@ -93,33 +103,29 @@ describe("a human and an agent put an item into a conversation the same way", ()
 				body: BODY,
 				format: "markdown",
 				status: "proposed",
-				updatedBy: "agent:pa-agent",
 				scopeKind: "factory",
-				parentKind: "thread",
-				parentId: threadId,
+				parent: { kind: "thread", id: threadId },
 			}),
 		});
 
 		// The human's path: "+" on a block, then send.
-		const byHuman = await app.request("/api/knowledge", {
+		const byHuman = await app.request("/api/actions/edit_document", {
 			method: "POST",
 			headers: headers(),
 			body: JSON.stringify({
 				title: "Produced by the human",
 				body: BODY,
 				format: "markdown",
-				updatedBy: "pa-user",
 				scopeKind: "factory",
-				parentKind: "thread",
-				parentId: threadId,
+				parent: { kind: "thread", id: threadId },
 			}),
 		});
 
-		expect(byAgent.status).toBe(201);
-		expect(byHuman.status).toBe(201);
+		expect(byAgent.status).toBe(200);
+		expect(byHuman.status).toBe(200);
 
-		const agentItem = (await byAgent.json()) as CreatedItem;
-		const humanItem = (await byHuman.json()) as CreatedItem;
+		const agentItem = ((await byAgent.json()) as { data: { document: CreatedItem } }).data.document;
+		const humanItem = ((await byHuman.json()) as { data: { document: CreatedItem } }).data.document;
 
 		// Same conversation.
 		expect(agentItem.parentKind).toBe("thread");
@@ -128,56 +134,57 @@ describe("a human and an agent put an item into a conversation the same way", ()
 		expect(humanItem.parentId).toBe(threadId);
 
 		// Same standing. Neither is more or less vouched for than the other,
-		// and neither carries a role that would change where it lands in a
+		// and neither carries a slot that would change where it lands in a
 		// session's context.
 		expect(agentItem.status).toBe(humanItem.status);
-		expect(agentItem.role).toBe(humanItem.role);
-		expect(agentItem.role).toBe("ordinary");
+		expect(agentItem.slot).toBe(humanItem.slot);
+		expect(agentItem.slot).toBe("ordinary");
 
 		// Same content, rendered by the same path.
 		expect(agentItem.format).toBe(humanItem.format);
 		expect(agentItem.body).toBe(humanItem.body);
 	});
 
-	test("both appear in the conversation, and neither appears in the knowledge tree", async ({
+	test("both appear in the conversation, and neither appears in the document tree", async ({
 		db,
 		app,
 	}) => {
 		const threadId = await seedThread(db);
 
-		for (const updatedBy of ["agent:pa-agent", "pa-user"]) {
-			const res = await app.request("/api/knowledge", {
+		for (const actor of ["agent:pa-agent", "pa-user"]) {
+			const res = await app.request("/api/actions/edit_document", {
 				method: "POST",
 				headers: headers(),
 				body: JSON.stringify({
-					title: `From ${updatedBy}`,
+					title: `From ${actor}`,
 					body: "b",
 					format: "markdown",
-					updatedBy,
 					scopeKind: "factory",
-					parentKind: "thread",
-					parentId: threadId,
+					parent: { kind: "thread", id: threadId },
 				}),
 			});
-			expect(res.status).toBe(201);
+			expect(res.status).toBe(200);
 		}
 
-		const inThread = await app.request(`/api/knowledge?parentKind=thread&parentId=${threadId}`, {
+		const inThread = await app.request("/api/actions/search_documents", {
+			method: "POST",
 			headers: headers(),
+			body: JSON.stringify({ parent: { kind: "thread", id: threadId } }),
 		});
 		expect(inThread.status).toBe(200);
-		const listed = (await inThread.json()) as { items: ReadonlyArray<{ title: string }> };
-		expect(listed.items.map((i) => i.title).sort()).toEqual([
-			"From agent:pa-agent",
-			"From pa-user",
-		]);
+		const listed = (await inThread.json()) as { data: ReadonlyArray<{ title: string }> };
+		expect(listed.data.map((i) => i.title).sort()).toEqual(["From agent:pa-agent", "From pa-user"]);
 
-		// The knowledge tree is for kept knowledge, not for per-conversation
+		// The document tree is for kept documents, not for per-conversation
 		// residue. Neither of them belongs there.
-		const tree = await app.request("/api/knowledge", { headers: headers() });
+		const tree = await app.request("/api/actions/search_documents", {
+			method: "POST",
+			headers: headers(),
+			body: JSON.stringify({ inTree: true }),
+		});
 		expect(tree.status).toBe(200);
-		const treeItems = (await tree.json()) as { items: ReadonlyArray<{ title: string }> };
-		expect(treeItems.items.map((i) => i.title)).not.toContain("From agent:pa-agent");
-		expect(treeItems.items.map((i) => i.title)).not.toContain("From pa-user");
+		const treeItems = (await tree.json()) as { data: ReadonlyArray<{ title: string }> };
+		expect(treeItems.data.map((i) => i.title)).not.toContain("From agent:pa-agent");
+		expect(treeItems.data.map((i) => i.title)).not.toContain("From pa-user");
 	});
 });

@@ -4,31 +4,30 @@ Agents execute. Humans validate. That is the collaboration model. Not zero-human
 
 | Role | Responsibility | Example |
 |------|---------------|---------|
-| **Founders / team leads** | Render verdicts, review high-stakes artifacts, shape tasks, curate knowledge | Reviewing a deploy proposal, pruning stale practices |
-| **Agents (team members)** | Pick up tasks, run sessions, ship artifacts, write to practice | Mika (Builder) implementing the Stripe webhook handler |
-| **Strategy agents (facilitators)** | Organize what teams produce, [score attention](../knowledge-architecture/relevance-and-attention.md), route to the right eyes | Assistant drafting the monthly portfolio retro |
+| **Founders / team leads** | Render verdicts, review high-stakes artifacts, shape tasks, curate knowledge | Reviewing a deploy proposal, pruning stale documents |
+| **Agents (team members)** | Pick up tasks, run sessions, ship artifacts, write to the team's knowledge | Mika (Builder) implementing the Stripe webhook handler |
+| **Curation routines (any role, plugin-provided)** | Triage and decay documents on a schedule, by judgement — no fixed "facilitator" role or scoring engine | The document-management plugin's librarian agent running its weekly `document-triage` |
 
 ---
 
 ## Agents are team members, not tools
 
-The Builder agent on the Acme team is a member of that team. It picks up tasks, runs sessions, ships artifacts, and writes to the practice when it learns something. It is not a tool the founder invokes. Agents initiate conversations with founders. They surface problems. They propose changes. They flag uncertainty.
+The Builder agent on the Acme team is a member of that team. It picks up tasks, runs sessions, ships artifacts, and writes to the team's knowledge when it learns something. It is not a tool the founder invokes. Agents initiate conversations with founders. They surface problems. They propose changes. They flag uncertainty.
 
 **Example.** Mika is the Acme Builder. On Tuesday, she picks up "Implement Stripe webhook handler" as a subtask of the payments task. She works through the implementation and hits a product question: which webhook events does the product actually need? She hands the task to the founder — `edit_task({ id, ownerAgentId: founder.id })` — and posts to the thread: "I can implement all 27 Stripe event types or scope to the 4 we need for checkout. Which?"
 
-The founder replies in the thread. Mika starts a new session with the answer and completes the task. When she finds that optimal retry logic conflicts with the growth practice docs, she writes a new practice item and flags the Growth Facilitator. That knowledge becomes available to every Builder the next time webhooks come up.
+The founder replies in the thread. Mika starts a new session with the answer and completes the task. When she finds that optimal retry logic conflicts with an existing document, she writes an updated one with `edit_document`. That knowledge becomes available to every Builder the next time webhooks come up.
 
 ---
 
-## Three agent categories
+## Two agent categories
 
-Agents come in three categories — `team | strategy | individual` (`AGENT_CATEGORIES`, `framework/domain-model/src/types.ts:134`; `users.agent_category` in `framework/db/src/schema.ts`). Full taxonomy, identity, and lifecycle: [agent model](../agent-layer/agent-model.md).
+Agents come in two categories — `team | individual` (`AGENT_CATEGORIES`, `framework/domain-model/src/types.ts`; `users.agent_category` in `framework/db/src/schema.ts`). There is no fixed role catalog — role is an open string, and the roster flexes with the work. Full taxonomy, identity, and lifecycle: [agent model](../agent-layer/agent-model.md).
 
-- **Assistant** — individual, one per human user, created at registration. Holds a persistent thread with its user. Proposes changes to factory-level documents (`PRINCIPLES.md`, `FOCUS.md`). Drafts the monthly portfolio retro (`builtin:portfolio-retro`).
-- **Facilitators** — strategy agents, one per community of practice (build, product, growth, ops, facilitation). Each watches what all agents in its community learn, merges duplicates, resolves conflicts, surfaces items for human review.
-- **Product Managers** — team agents, one per team. The team lead: coordinates handoffs, runs retros.
+- **Team agents** — bound to a team, any role. Most of the workforce: builders, whatever role a team names.
+- **Individual agents** — the Assistant (one per human user, created at registration; holds a persistent thread with its user, proposes changes to factory-scoped documents) or a plugin-provided agent that serves the whole factory or one team, like the document-management plugin's librarian.
 
-The matrix is explicit: each agent reports vertically to their Product Manager and belongs horizontally to a community (`communityForRole`, `framework/domain-model/src/agent-roles.ts`). A Builder on Ambrovia reports to the Ambrovia PM and belongs to the Build community. When the Build community learns something from a different product, the Ambrovia Builder gets it at the next session.
+There is no hardcoded "Facilitator" or "Product Manager" role, and no per-community reporting matrix — a role is whatever string the team or a plugin gave the agent.
 
 ---
 
@@ -67,4 +66,4 @@ Kind registry and shared grounding (`ToolLogo`/`CanvasSourceHeader`): [review pr
 
 ---
 
-Next: [How Knowledge Compounds](./how-knowledge-compounds.md) — the knowledge layers, practices, and the machinery that makes the tenth task faster than the first.
+Next: [How Knowledge Compounds](./how-knowledge-compounds.md) — the document tree and the machinery that makes the tenth task faster than the first.

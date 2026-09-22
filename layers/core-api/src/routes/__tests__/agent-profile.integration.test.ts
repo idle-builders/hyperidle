@@ -27,6 +27,7 @@
 
 import {
 	agentRunConfig,
+	documents,
 	type HyperIdleDb,
 	messages,
 	tasks,
@@ -35,7 +36,6 @@ import {
 	users,
 } from "@hyperidle/db";
 import { AdapterPool } from "@hyperidle/harness-registry";
-import { upsertAgentIdentity } from "@hyperidle/knowledge";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 import { createTestApp } from "../../__testing__/test-utils.js";
@@ -90,11 +90,21 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 	});
 	// Who the agent is — an `agent_file` document bound to it. The profile links
 	// to the document; it does not carry its text.
-	await upsertAgentIdentity(db, {
-		agentId: "ab1-agent-builder",
-		agentName: "AB1 Builder Bot",
+	await db.insert(documents).values({
+		id: "ab1-agent-builder-identity",
+		scopeKind: "user",
+		scopeId: "ab1-agent-builder",
+		title: "AB1 Builder Bot — identity",
 		body: "You are a builder agent.",
+		format: "markdown",
+		status: "active",
+		version: 1,
+		slot: "agent_file",
+		parentKind: "agent",
+		parentId: "ab1-agent-builder",
 		updatedBy: "ab1-agent-builder",
+		createdAt: NOW,
+		updatedAt: NOW,
 	});
 
 	// Seed a human user (to test 404 path)
@@ -184,7 +194,7 @@ describe("AB1 AC-1: GET /api/agents/:id/profile returns 200 with correct shape",
 		expect(body).toHaveProperty("teamName");
 		expect(body).toHaveProperty("createdAt");
 		// Config fields
-		expect(body).toHaveProperty("identityKnowledgeId");
+		expect(body).toHaveProperty("identityDocumentId");
 		expect(body).toHaveProperty("harnessType");
 		expect(body).toHaveProperty("maxConcurrentSessions");
 		// @lore AU26 J4: `activeSession`, `recentSessions`, `performance` and
@@ -217,7 +227,7 @@ describe("AB1 AC-1: GET /api/agents/:id/profile returns 200 with correct shape",
 		expect(body.name).toBe("AB1 Builder Bot");
 		expect(body.role).toBe("builder");
 		expect(body.harnessType).toBe("claude-code");
-		expect(body.identityKnowledgeId).toBeTruthy();
+		expect(body.identityDocumentId).toBeTruthy();
 		expect(body.maxConcurrentSessions).toBe(2);
 	});
 

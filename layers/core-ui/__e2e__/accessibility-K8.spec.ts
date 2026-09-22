@@ -37,8 +37,8 @@ const ROUTES = [
 	// test is hermetic on CI (no real DB needed).
 	{ path: "/work/product/p1", selector: "[data-testid='work-product-page']" },
 	{ path: "/work/task/task-a11y-1", selector: "[data-testid='task-detail-page']" },
-	{ path: "/knowledge", selector: "[data-testid='knowledge-list-page']" },
-	{ path: "/knowledge/k1", selector: "[data-testid='knowledge-detail-page']" },
+	{ path: "/documents", selector: "[data-testid='document-list-page']" },
+	{ path: "/documents/k1", selector: "[data-testid='document-detail-page']" },
 ] as const;
 
 test.describe("K8 — zero WCAG 2.1 AA violations at mobile viewport", () => {
@@ -103,7 +103,7 @@ test.describe("K8 — zero WCAG 2.1 AA violations at mobile viewport", () => {
 		 *     out of K8 scope (chrome refactor).
 		 *
 		 * The scope covers every K7-touched primitive (StatusChip, Tag,
-		 * KeyValue, NavItem, KnowledgeRow, ThreadRow, BetCard, PitchCard,
+		 * KeyValue, NavItem, DocRow, ThreadRow, BetCard, PitchCard,
 		 * TaskCard, NotificationRow, etc.) on every route.
 		 */
 		test(`no WCAG 2.1 AA violations on ${route.path} at ≤ 1024px`, async ({ page }) => {

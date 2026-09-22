@@ -1,14 +1,12 @@
 /**
- * What an agent writes back hangs off what its session is working on.
+ * What an agent writes back hangs off what its session is working on, AND is
+ * attributed to who it is — both read from the session's own row, never
+ * inferred from where the file happened to land inside the sandbox.
  *
- * A task session's produced items are parented to its task; a conversation
- * session's are parented to the thread it is answering in. The parent is read
- * from the session's own row — its identity — not inferred from where the file
- * happened to land inside the sandbox.
- *
- * The integration point under test is the database: a real `sessions` row read
- * through the real subscriber. The knowledge writer stays a port, because it is
- * a port — the seam it dials is covered by the knowledge route's own tests.
+ * The integration point under test is the database: a real `sessions` row
+ * (and the real `agentId` FK it carries) read through the real subscriber.
+ * The document port stays a port, because it is a port — the seam it dials
+ * is covered by the document actions' own tests.
  */
 
 import * as fs from "node:fs";
@@ -16,38 +14,46 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { sessions, tasks, teams, threads, users } from "@hyperidle/db";
 import { test } from "@hyperidle/db/test-fixtures";
+import type { ActionResult, DocumentRow, DocumentView } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import { createWritebackProcessor } from "../writeback-processor.js";
 
 const writeback = createWritebackProcessor();
-type KnowledgeWriter = Parameters<typeof writeback.subscribe>[0]["knowledge"];
-type KnowledgeItem = Awaited<ReturnType<KnowledgeWriter["create"]>>;
+type DocumentPort = Parameters<typeof writeback.subscribe>[0]["document"];
 
 const NOW = "2026-09-02T00:00:00.000Z";
 
-function mkKnowledgeWriter(): KnowledgeWriter & { readonly createCalls: unknown[] } {
-	const createCalls: unknown[] = [];
-	const created: KnowledgeItem = { id: "item-1", version: 1, format: "markdown" };
+function ok(
+	document: Partial<DocumentRow> & { readonly id: string; readonly version: number },
+): ActionResult<DocumentView> {
 	return {
-		createCalls,
-		async create(_db, input) {
-			createCalls.push(input);
-			return created;
+		ok: true,
+		data: {
+			document,
+			ancestors: [],
+			children: [],
+			siblings: [],
+			scopeName: "Factory",
+		} as DocumentView,
+	};
+}
+
+function mkDocumentPort(): DocumentPort & { readonly editCalls: unknown[] } {
+	const editCalls: unknown[] = [];
+	return {
+		editCalls,
+		async editDocument(caller, input) {
+			editCalls.push({ caller, input });
+			return ok({ id: "item-1", version: 1, format: "markdown", scopeKind: "factory" });
 		},
-		async update() {
-			throw new Error("update should not be called in this test");
-		},
-		async recordConflict() {
-			throw new Error("recordConflict should not be called in this test");
-		},
-		async reparentKnowledgeItem() {
-			throw new Error("reparentKnowledgeItem should not be called in this test");
+		async searchDocuments() {
+			throw new Error("searchDocuments should not be called in this test");
 		},
 	};
 }
 
-describe("a written-back item hangs off what the session is working on", () => {
+describe("a written-back item hangs off what the session is working on, attributed to the session's agent", () => {
 	let tmpDir: string;
 	let manifestPath: string;
 	let notePath: string;
@@ -71,10 +77,13 @@ describe("a written-back item hangs off what the session is working on", () => {
 	async function runWriteback(
 		db: Parameters<typeof writeback.subscribe>[0]["db"],
 		sessionId: string,
-	): Promise<unknown> {
+	): Promise<{
+		readonly document: DocumentPort & { readonly editCalls: unknown[] };
+		readonly settled: unknown[];
+	}> {
 		const bus = new EventBus();
-		const knowledge = mkKnowledgeWriter();
-		writeback.subscribe({ db, eventBus: bus, knowledge });
+		const document = mkDocumentPort();
+		writeback.subscribe({ db, eventBus: bus, document });
 
 		bus.emit({
 			type: "sandbox_writeback_changes_detected",
@@ -88,11 +97,12 @@ describe("a written-back item hangs off what the session is working on", () => {
 
 		// The subscriber is fire-and-forget — wait for it to settle.
 		await new Promise((resolve) => setTimeout(resolve, 50));
-		expect(knowledge.createCalls).toHaveLength(1);
-		return knowledge.createCalls[0];
+		return { document, settled: document.editCalls };
 	}
 
-	test("a task session parents its produced item to its task", async ({ db }) => {
+	test("a task session parents its produced item to its task, as the session's own agent", async ({
+		db,
+	}) => {
 		await db.insert(teams).values({ id: "wp-team", name: "T", phase: "build", createdAt: NOW });
 		await db.insert(users).values({
 			id: "wp-agent",
@@ -130,13 +140,17 @@ describe("a written-back item hangs off what the session is working on", () => {
 			startedAt: NOW,
 		});
 
-		expect(await runWriteback(db, "wp-sess-task")).toMatchObject({
-			parent: { kind: "task", id: "wp-task" },
-			status: "proposed",
+		const { document } = await runWriteback(db, "wp-sess-task");
+		expect(document.editCalls).toHaveLength(1);
+		expect(document.editCalls[0]).toMatchObject({
+			caller: { actor: "wp-agent", sessionId: "wp-sess-task", taskId: "wp-task", threadId: null },
+			input: { parent: { kind: "task", id: "wp-task" }, status: "proposed" },
 		});
 	});
 
-	test("a conversation session parents its produced item to its thread", async ({ db }) => {
+	test("a conversation session parents its produced item to its thread, as the session's own agent", async ({
+		db,
+	}) => {
 		await db.insert(users).values({
 			id: "wp-agent-2",
 			kind: "ai",
@@ -156,12 +170,22 @@ describe("a written-back item hangs off what the session is working on", () => {
 			startedAt: NOW,
 		});
 
-		expect(await runWriteback(db, "wp-sess-conv")).toMatchObject({
-			parent: { kind: "thread", id: "thr-ast-u1" },
+		const { document } = await runWriteback(db, "wp-sess-conv");
+		expect(document.editCalls).toHaveLength(1);
+		expect(document.editCalls[0]).toMatchObject({
+			caller: {
+				actor: "wp-agent-2",
+				sessionId: "wp-sess-conv",
+				taskId: null,
+				threadId: "thr-ast-u1",
+			},
+			input: { parent: { kind: "thread", id: "thr-ast-u1" } },
 		});
 	});
 
-	test("a session with neither writes a parentless item rather than guessing", async ({ db }) => {
+	test("a session with neither writes a parentless item rather than guessing, still as its own agent", async ({
+		db,
+	}) => {
 		await db.insert(users).values({
 			id: "wp-agent-3",
 			kind: "ai",
@@ -180,10 +204,26 @@ describe("a written-back item hangs off what the session is working on", () => {
 			startedAt: NOW,
 		});
 
-		expect(await runWriteback(db, "wp-sess-routine")).not.toHaveProperty("parent");
+		const { document } = await runWriteback(db, "wp-sess-routine");
+		expect(document.editCalls).toHaveLength(1);
+		const call = document.editCalls[0] as {
+			readonly caller: { readonly actor: string };
+			readonly input: unknown;
+		};
+		expect(call.caller.actor).toBe("wp-agent-3");
+		expect(call.input).not.toHaveProperty("parent");
 	});
 
-	test("an unknown session still writes the item back, parentless", async ({ db }) => {
-		expect(await runWriteback(db, "wp-sess-nonexistent")).not.toHaveProperty("parent");
+	// @lore document-module B15: an unresolvable session has no real `users.id`
+	// to attribute a write to — `changes.actor` is an FK, so nothing here may
+	// fabricate one (no fallback string satisfies it). Unlike the parent (an
+	// honest "don't know" is fine and was always the behaviour), a missing
+	// actor is fatal to the whole batch: it is skipped, not written parentless
+	// under a made-up identity.
+	test("an unknown session writes nothing back — there is no real agent to attribute it to", async ({
+		db,
+	}) => {
+		const { document } = await runWriteback(db, "wp-sess-nonexistent");
+		expect(document.editCalls).toHaveLength(0);
 	});
 });

@@ -9,7 +9,7 @@ import { registerAgentLayerServices, registerCoreDomainServices } from "../servi
 /**
  * AU11: former app-runtime `bootstrapAppRuntime` split into two owner-scoped
  * registration functions (server-factory.ts) — `registerCoreDomainServices`
- * (knowledge/notifications/policy/routine-scheduler) and
+ * (document/notifications/policy/routine-scheduler) and
  * `registerAgentLayerServices` (builtin-routine handlers/dispatcher/reapers —
  * AU21 Increment 14a: cost-cap sentinel HARD-DELETED, no replacement).
  * Composing them replicates the exact same disposer set bootstrapAppRuntime

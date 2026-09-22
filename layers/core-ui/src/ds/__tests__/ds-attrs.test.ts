@@ -9,10 +9,10 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { DocRow } from "../DocRow";
 import { EmptyState } from "../EmptyState";
 import { ErrorState } from "../ErrorState";
 import { KeyValue } from "../KeyValue";
-import { KnowledgeRow } from "../KnowledgeRow";
 import { NavItem } from "../NavItem";
 import { NotificationRow } from "../NotificationRow";
 // U8: PitchCard deleted from design-system — import removed.
@@ -74,10 +74,10 @@ const TIER_2: ComponentCase[] = [
 			createElement(ErrorState, { title: "Error", description: "Something went wrong" }),
 	},
 	{
-		name: "KnowledgeRow",
+		name: "DocRow",
 		tier: "2",
 		render: () =>
-			createElement(KnowledgeRow, {
+			createElement(DocRow, {
 				title: "Item",
 				status: "active",
 				timestamp: "now",

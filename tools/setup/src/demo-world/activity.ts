@@ -115,7 +115,7 @@ async function seedSessions(db: HyperIdleDb, clock: DemoClock): Promise<void> {
 		}
 	}
 
-	// ── Live sessions: one on a task, one assistant turn ──────────────────
+	// ── Live session: one on a task ────────────────────────────────────────
 	await db
 		.insert(sessions)
 		.values({
@@ -130,6 +130,12 @@ async function seedSessions(db: HyperIdleDb, clock: DemoClock): Promise<void> {
 		})
 		.onConflictDoNothing();
 
+	// Review-found defect: this used to be seeded "active" forever, which
+	// permanently occupied the assistant's one concurrency slot and required
+	// bumping that slot count to 2 just to make room for it — a fake session
+	// forcing a fake ceiling. Seeded terminal instead (ended an hour ago), so
+	// the demo shows honest concurrency: a single slot, and the assistant is
+	// actually free to answer.
 	await db
 		.insert(sessions)
 		.values({
@@ -137,10 +143,14 @@ async function seedSessions(db: HyperIdleDb, clock: DemoClock): Promise<void> {
 			taskId: null,
 			agentId: ASSISTANT_ID,
 			modelTier: "fast",
-			startedAt: clock.hoursAgo(1),
-			endedAt: null,
-			state: "active",
-			notes: "Preparing the morning summary.",
+			startedAt: clock.hoursAgo(1.25),
+			endedAt: clock.hoursAgo(1),
+			state: "done",
+			outcome: "completed",
+			notes: "Prepared the morning summary.",
+			effectivenessScore: "0.85",
+			effectivenessRecordedAt: clock.hoursAgo(1),
+			effectivenessRecordedBy: "demo-founder",
 		})
 		.onConflictDoNothing();
 

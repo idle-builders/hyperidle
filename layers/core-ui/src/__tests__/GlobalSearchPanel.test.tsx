@@ -30,7 +30,7 @@ const mockWork = [
 	},
 ];
 
-const mockKnowledge = [
+const mockDocuments = [
 	{
 		id: "k1",
 		title: "Rate Limiting Pattern",
@@ -39,16 +39,18 @@ const mockKnowledge = [
 	},
 ];
 
+// @lore BC4: the raw fetch payload keeps the `knowledge` wire key (owned by
+// layers/core-api/src/routes/search.ts).
 const mockSearchResults = {
 	conversations: mockConversations,
 	work: mockWork,
-	knowledge: mockKnowledge,
+	documents: mockDocuments,
 };
 
 const emptyResults = {
 	conversations: [],
 	work: [],
-	knowledge: [],
+	documents: [],
 };
 
 describe("GlobalSearchPanel", () => {
@@ -114,7 +116,7 @@ describe("GlobalSearchPanel", () => {
 	});
 
 	// AC4: Results grouped by type
-	it("renders results grouped by Conversations, Work, Knowledge", async () => {
+	it("renders results grouped by Conversations, Work, Documents", async () => {
 		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 		(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
 			ok: true,
@@ -131,7 +133,7 @@ describe("GlobalSearchPanel", () => {
 		await waitFor(() => {
 			expect(screen.getByText("Conversations")).toBeInTheDocument();
 			expect(screen.getByText("Work")).toBeInTheDocument();
-			expect(screen.getByText("Knowledge")).toBeInTheDocument();
+			expect(screen.getByText("Documents")).toBeInTheDocument();
 		});
 	});
 
@@ -143,7 +145,7 @@ describe("GlobalSearchPanel", () => {
 				Promise.resolve({
 					conversations: mockConversations,
 					work: [],
-					knowledge: [],
+					documents: [],
 				}),
 		});
 
@@ -158,7 +160,7 @@ describe("GlobalSearchPanel", () => {
 			expect(screen.getByText("Conversations")).toBeInTheDocument();
 		});
 		expect(screen.queryByText("Work")).not.toBeInTheDocument();
-		expect(screen.queryByText("Knowledge")).not.toBeInTheDocument();
+		expect(screen.queryByText("Documents")).not.toBeInTheDocument();
 	});
 
 	// AC5: Arrow keys navigate, Enter selects, Esc closes
@@ -219,7 +221,7 @@ describe("GlobalSearchPanel", () => {
 		expect(onNavigate).toHaveBeenCalledWith("conversation", "c2");
 	});
 
-	// AC6: Results rendered as ThreadRow, TaskCard (lite), KnowledgeRow
+	// AC6: Results rendered as ThreadRow, TaskCard (lite), DocRow
 	// @lore BB1: BetCard replaced by TaskCard in GlobalSearchPanel.
 	it("renders conversation results as ThreadRow components", async () => {
 		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
@@ -262,7 +264,7 @@ describe("GlobalSearchPanel", () => {
 		});
 	});
 
-	it("renders knowledge results as KnowledgeRow components", async () => {
+	it("renders document results as DocRow components", async () => {
 		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 		(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
 			ok: true,
@@ -277,7 +279,7 @@ describe("GlobalSearchPanel", () => {
 		});
 
 		await waitFor(() => {
-			expect(screen.getByLabelText("Knowledge: Rate Limiting Pattern")).toBeInTheDocument();
+			expect(screen.getByLabelText("Document: Rate Limiting Pattern")).toBeInTheDocument();
 		});
 	});
 

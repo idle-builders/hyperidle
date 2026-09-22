@@ -15,7 +15,7 @@ For the end-user walkthrough of this surface, see [guides/user/the-interface](..
 
 1. **Identity and tools** — HyperIdle mark + wordmark at left; Search and Assistant remain separate accessible actions inside one compact visual group at right. ⌘K still activates global search.
 2. **Four stable destinations: Notifications / Conversations / Work / Knowledge.** Desktop renders labelled rows. In the 300px phone drawer they become a four-icon strip with full accessible names. Conversations, Work and Knowledge select the active domain; Notifications retains its existing inbox behavior until its registered follow-up.
-3. **Domain navigator** — the flexing, scrollable region receives most sidebar space. The shell preserves the current provisional rows (five recent threads, the team set when there are multiple teams, or five Knowledge items). Registered domain follow-ups own the domain-specific structure, controls, canonical order and any list-page retirement.
+3. **Domain navigator** — the flexing, scrollable region receives most sidebar space. The shell preserves the current provisional rows (five recent threads, the team set when there are multiple teams, or five Documents). Registered domain follow-ups own the domain-specific structure, controls, canonical order and any list-page retirement.
 4. **Footer** — icon-only Settings pinned at bottom right. Settings changes Main without replacing the destination strip or active domain navigator.
 
 Desktop width is **276px**. Below the shell breakpoint, the sidebar is hidden behind **Menu** and opens as a **300px drawer**. Detail routes keep both Back and Menu so drilling into an object never strands global navigation.
@@ -34,8 +34,8 @@ Both testids are set conditionally on a single `<span>` element via a ternary on
 
 Uniform across the three selectable domains:
 
-- **Selecting a destination** → marks its domain active + swaps the provisional navigator + navigates `<main>` to that domain's current entry route (`/conversations`, `/work`, `/knowledge`).
-- **Clicking a navigator item** → navigates directly to that object (`/conversations/:threadId`, `/work/team/:teamId`, `/knowledge/:knowledgeId`). Long labels expose their full value through pointer title and accessible name.
+- **Selecting a destination** → marks its domain active + swaps the provisional navigator + navigates `<main>` to that domain's current entry route (`/conversations`, `/work`, `/documents`).
+- **Clicking a navigator item** → navigates directly to that object (`/conversations/:threadId`, `/work/team/:teamId`, `/documents/:documentId`). Long labels expose their full value through pointer title and accessible name.
 - **One exception (AD3/AC11):** Work with exactly 1 team lands directly on `/work/team/:onlyId` — `WorkOverview.tsx:194-196` short-circuits with a redirect so a solo-team founder never sees a 1-row list.
 
 Cross-view edges (what links to what across the three views): [cross-view-navigation-map](./cross-view-navigation-map.md).
@@ -55,9 +55,9 @@ Cross-view edges (what links to what across the three views): [cross-view-naviga
 | `/work/task/:taskId` | WorkTask detail (root or subtask, any depth) |
 | `/reviews/:reviewId` | ReviewPage |
 | `/agents/:agentId` | AgentProfile |
-| `/knowledge` | KnowledgeList |
-| `/knowledge/new` | KnowledgeCreate |
-| `/knowledge/:knowledgeId` | KnowledgeDetail |
+| `/documents` | DocumentList |
+| `/documents/new` | DocumentCreate |
+| `/documents/:documentId` | DocumentDetail |
 | `/artifacts/:id` | ArtifactPermalink |
 | `/settings` | Redirect → `/conversations?settings=open` (L9) |
 | `*` | NotFound (standalone, outside the shell) |

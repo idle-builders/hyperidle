@@ -429,12 +429,12 @@ function AgentProfileLoaded({
 						<KeyValue label="Max sessions" value={String(data.maxConcurrentSessions)} />
 						<KeyValue label="Created" value={createdDate} />
 					</div>
-					{/* Who the agent is. It is a knowledge document, so the profile
+					{/* Who the agent is. It is a document, so the profile
 					    links to it rather than reprinting it — one place to read it,
 					    one place to edit it. */}
-					{data.identityKnowledgeId && (
+					{data.identityDocumentId && (
 						<RRLink
-							to={`/knowledge/${data.identityKnowledgeId}`}
+							to={`/documents/${data.identityDocumentId}`}
 							data-testid="agent-identity-link"
 							className="type-metadata mt-[12px] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
 						>

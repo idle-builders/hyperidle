@@ -33,8 +33,8 @@ export function resolveHostRoute(hostKind: RouteHostKind, hostId: string): strin
 			// betId this function never had. There is no parent to thread now —
 			// one task route at any depth — so the documented no-op is fixed.
 			return `/work/task/${hostId}`;
-		case "knowledge_item":
-			return `/knowledge/${hostId}`;
+		case "document":
+			return `/documents/${hostId}`;
 		case "agent":
 			return `/agents/${hostId}`;
 		case "team":

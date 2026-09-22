@@ -22,7 +22,7 @@ const PROJECTS = [
 	"tools/eslint-plugin-authz",
 	"layers/core-api",
 	"layers/core-api/changes",
-	"layers/core-api/knowledge",
+	"layers/core-api/document",
 	"layers/core-api/routine",
 	"layers/core-api/task",
 	"layers/core-api/org",

@@ -36,13 +36,12 @@
 
 import { classificationTotal } from "../rules/classification-total.js";
 import { frameworkSurfacesDeclared } from "../rules/framework-surfaces-declared.js";
-import { misplacementLedger } from "../rules/misplacement-ledger.js";
 import { noPerFileAllowances } from "../rules/no-per-file-allowances.js";
 import { noStaleBuildArtifacts } from "../rules/no-stale-build-artifacts.js";
 import { type CrossingsResult, type DetectorKind, detectCrossings } from "./crossings.js";
 import { buildDbSurfaceIndex, type DatabasePackageConfig } from "./db-surfaces.js";
 import { type Architecture, decide, type World } from "./governance-model.js";
-import type { MisplacedFiles, TableOwners } from "./governance-registry.js";
+import type { TableOwners } from "./governance-registry.js";
 import type { Finding, Rule } from "./governance-rules.js";
 import { buildCensus, type Census, type WorkspaceRoleRule } from "./repo-census.js";
 
@@ -631,42 +630,16 @@ export const ATTACKS: readonly Attack[] = [
 			groupKey: KEY.serviceForeignWrite,
 		},
 	},
-	// --- Ruling 13 companion rule — surviving pair after AU44 B1 removed teamMembers --------
-	// knowledgeItems and knowledgeAppProjection are both owned by @hyperidle/knowledge and
-	// are unconditionally inserted together in its exported `create` function — the
-	// companion group that replaced the old teams/teamMembers pair.
-	{
-		id: "missing-companion",
-		detail:
-			"a test inserting knowledgeItems without its companion knowledgeAppProjection — Ruling 13's companion rule",
-		rules: ["crossing-table-write"],
-		overlay: {
-			[`${a.developmentDir}/attack-missing-companion.test.ts`]:
-				`import { knowledgeItems } from "@hyperidle/db";\n` +
-				`export const seed = (db: { insert: (x: unknown) => { values: (v: unknown) => unknown } }) =>\n` +
-				`\tdb.insert(knowledgeItems).values({});\n`,
-		},
-		expect: {
-			sort: "violation",
-			file: `${a.developmentDir}/attack-missing-companion.test.ts`,
-			groupKey: "layer → db:table (other) [table:write] development",
-		},
-	},
-	{
-		id: "missing-companion-control",
-		detail:
-			"the same fixture writing BOTH knowledgeItems AND knowledgeAppProjection (under an alias) is credited and clean",
-		rules: ["crossing-table-write"],
-		overlay: {
-			[`${a.developmentDir}/attack-companion-supplied.test.ts`]:
-				`import { knowledgeItems, knowledgeAppProjection as proj } from "@hyperidle/db";\n` +
-				`export const seed = (db: { insert: (x: unknown) => { values: (v: unknown) => unknown } }) => {\n` +
-				`\tdb.insert(knowledgeItems).values({});\n` +
-				`\treturn db.insert(proj).values({});\n` +
-				`};\n`,
-		},
-		expect: { sort: "clean", file: `${a.developmentDir}/attack-companion-supplied.test.ts` },
-	},
+	// @lore BC4: the Ruling-13 companion-rule fixture that lived here (`missing-companion` /
+	// `missing-companion-control`) exploited `knowledgeItems`+`knowledgeAppProjection` — both owned
+	// by `@hyperidle/knowledge` and unconditionally inserted together in its exported `create`
+	// function. This folds the projection's two live columns onto `documents` directly (§6.2) and
+	// drops the rest with nothing carried over, so that companion pair no longer exists. Re-derived
+	// against the live tree with `buildCompanionGroups` (the rule's own mechanism, never a guess):
+	// zero companion groups exist anywhere in the codebase today. Per the rule's own fallback —
+	// re-point at a surviving pair, or delete the case if none exists — there is no surviving pair to
+	// re-point at, so the case is deleted rather than fabricated. `crossing-table-write`'s own
+	// liveness floor (`minScope: 1`) still holds on `foreign-table-write` below.
 
 	{
 		id: "cross-layer-di",
@@ -778,8 +751,8 @@ export const ATTACKS: readonly Attack[] = [
 		rules: ["service-values-do-not-escape-the-face"],
 		overlay: {
 			[`${a.layerDir}/attack-r2-escape.ts`]:
-				`import { list } from "@hyperidle/knowledge";\n` +
-				`export { list as attackEscapedList };\n`,
+				`import { getDocument } from "@hyperidle/document";\n` +
+				`export { getDocument as attackEscapedList };\n`,
 		},
 		mutate: {
 			// Reachable from the `.` entry via an own-module re-export — R2 does not flag THIS line
@@ -790,7 +763,7 @@ export const ATTACKS: readonly Attack[] = [
 			sort: "finding",
 			file: `${a.layerDir}/attack-r2-escape.ts`,
 			ruleId: "service-values-do-not-escape-the-face",
-			messageContains: "@hyperidle/knowledge",
+			messageContains: "@hyperidle/document",
 		},
 	},
 	{
@@ -800,8 +773,8 @@ export const ATTACKS: readonly Attack[] = [
 		rules: ["service-values-do-not-escape-the-face"],
 		overlay: {
 			[`${a.layerDir}/attack-r2-control.ts`]:
-				`import { list } from "@hyperidle/knowledge";\n` +
-				`export const attackR2ControlResult = list();\n`,
+				`import { getDocument } from "@hyperidle/document";\n` +
+				`export const attackR2ControlResult = getDocument();\n`,
 		},
 		mutate: {
 			[a.layerEntryControl]: (existing) => `${existing}\nexport * from "./attack-r2-control.js";\n`,
@@ -1183,11 +1156,11 @@ export const ATTACKS: readonly Attack[] = [
 	{
 		id: "artifact-storage-concept-control",
 		detail:
-			"a production file that names a knowledge item id (not an artifact storage concept) is not reported",
+			"a production file that names a document id (not an artifact storage concept) is not reported",
 		rules: ["artifact-is-not-a-storage-concept"],
 		mutate: {
 			[a.layerEntryControl]: (existing) =>
-				`${existing}export const attackKnowledgeItemRef = { knowledgeItemId: "" };\n`,
+				`${existing}export const attackDocumentRef = { documentId: "" };\n`,
 		},
 		expect: { sort: "clean", file: a.layerEntryControl },
 	},
@@ -1245,16 +1218,18 @@ export const ATTACKS: readonly Attack[] = [
 			"mutating an already-legacy door's handler body, without adding a registration, is clean",
 		rules: ["actions-projected"],
 		isolate: true,
-		// @lore BC3 architecture.md §4: threads.ts (the prior mutate target) is deleted by this item;
-		// re-pointed at knowledge.ts, whose `GET /` is also a LEGACY_ROUTES entry and survives.
+		// @lore BC3 architecture.md §4: threads.ts (the prior mutate target) was
+		// deleted, re-pointed at knowledge.ts. @lore document-module B20:
+		// knowledge.ts is deleted with the route; re-pointed at harnesses.ts,
+		// whose `GET /` is also a LEGACY_ROUTES entry and survives.
 		mutate: {
-			"layers/core-api/src/routes/knowledge.ts": (existing) =>
+			"layers/core-api/src/routes/harnesses.ts": (existing) =>
 				existing.replace(
 					'router.get("/", async (c) => {',
 					'router.get("/", async (c) => {\n\t\t// attack-actions-projected-control: no new registration here.',
 				),
 		},
-		expect: { sort: "clean", file: "layers/core-api/src/routes/knowledge.ts" },
+		expect: { sort: "clean", file: "layers/core-api/src/routes/harnesses.ts" },
 	},
 ];
 
@@ -1744,74 +1719,6 @@ export const STANDALONE_ATTACKS: readonly StandaloneAttack[] = [
 		},
 	},
 	{
-		id: "misplacement-ledger-count",
-		detail:
-			"the misplacement ledger grown by one entry, and shrunk by one fix that was never committed — both fail, and the exact match does not",
-		rules: ["misplacement-ledger"],
-		positive: true,
-		run: () => {
-			// A ledger has no live source to derive from, so it is driven directly: the tree is two
-			// production files, the ledger records both, and the committed count says two.
-			const reason = "a preview surface pinned to a production path until the real route lands";
-			const census = buildCensus({
-				files: [
-					"layers/a/src/one.ts",
-					"layers/a/src/two.ts",
-					"layers/a/src/three.ts",
-					"layers/a/src/four.test.ts",
-				],
-				readFile: () => "",
-			});
-			const ledger = (resolvedFiles: number, files: Record<string, string>): MisplacedFiles => ({
-				misplacedFiles: true,
-				note: "",
-				resolvedFiles,
-				files,
-			});
-			const errorsOf = (l: MisplacedFiles): string[] =>
-				misplacementLedger(l)
-					.evaluate(census)
-					.filter((f) => f.severity === "error")
-					.map((f) => f.message);
-
-			const two = { "layers/a/src/one.ts": reason, "layers/a/src/two.ts": reason };
-
-			const exact = misplacementLedger(ledger(2, two)).evaluate(census);
-			if (exact.some((f) => f.severity === "error"))
-				return `a ledger that matches its committed count was reported: ${exact[0]?.message}`;
-			// Property: every entry is reported on every run, or the ledger is invisible.
-			if (exact.filter((f) => f.severity === "warn").length !== 2)
-				return "the ledger's entries were not reported as warnings";
-
-			const grown = errorsOf(ledger(2, { ...two, "layers/a/src/three.ts": reason }));
-			if (!grown.some((m) => m.includes("may only shrink")))
-				return `a ledger grown past its committed count was not refused: ${grown.join(" | ")}`;
-
-			const shrunk = errorsOf(ledger(2, { "layers/a/src/one.ts": reason }));
-			if (!shrunk.some((m) => m.includes("without committing the shrink"))) {
-				return `a cleared misplacement with a stale count was not reported: ${shrunk.join(" | ")}`;
-			}
-
-			// Integrity: an entry must resolve to a tracked file, and must still be classified production.
-			const gone = errorsOf(ledger(2, { ...two, "layers/a/src/renamed-away.ts": reason }));
-			if (!gone.some((m) => m.includes("is not a tracked file")))
-				return `an entry naming a path that does not exist was accepted: ${gone.join(" | ")}`;
-
-			const moved = errorsOf(
-				ledger(2, { "layers/a/src/one.ts": reason, "layers/a/src/four.test.ts": reason }),
-			);
-			if (!moved.some((m) => m.includes("calls it development")))
-				return `an entry whose file is now development was accepted: ${moved.join(" | ")}`;
-
-			const thin = errorsOf(
-				ledger(2, { "layers/a/src/one.ts": reason, "layers/a/src/two.ts": "later" }),
-			);
-			return thin.some((m) => m.includes("no real reason"))
-				? null
-				: `an entry with no reason was accepted: ${thin.join(" | ")}`;
-		},
-	},
-	{
 		id: "stale-build-artifact",
 		detail:
 			"a compiled `.js` beside its `.ts` source in the guard tree is reported, and the `.ts` alone is not",
@@ -1840,7 +1747,6 @@ export const STANDALONE_ATTACKS: readonly StandaloneAttack[] = [
 				"tools/governance/architecture.json",
 				"tools/governance/decided-rules.json",
 				"tools/governance/table-owners.json",
-				"tools/governance/misplaced-files.json",
 				"tools/governance/src/governance-lint.ts",
 				"tools/governance/src/governance-new-cells.ts",
 			];

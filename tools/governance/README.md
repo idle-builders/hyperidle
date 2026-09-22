@@ -90,20 +90,6 @@ undeclared flag on a governance CLI — see that rule's own comments for exactly
 it does not. The closed set is scoped to this folder's own root only; `src/` is the engine's real
 source and grows by design.
 
-## The shrinking record: `misplaced-files.json`
-
-`misplaced-files.json` holds **files the classifier calls production that are really development and
-cannot move yet** — keyed by path, each entry naming the reason it is stuck, never the work that will
-unstick it, so it cannot go stale when planning changes.
-
-`resolvedFiles` is the committed count of entries that resolve to a tracked file, and the lint fails
-when the live count is **above** it (new debt parked here) or **below** it (a file was fixed and the
-shrink was not committed). Every entry is printed as a warning on every run.
-
-There is no generator, and there cannot be one: whether a production-path file is "really development"
-is a human judgement with nothing live to derive it from. What stands in its place is that growing the
-ledger is a two-line diff — the entry and the count — which review is expected to challenge.
-
 ## Every rule is break-tested, and that is a gate
 
 `npm run lint` runs `governance-lint --attacks`: a table of attacks in
@@ -129,9 +115,6 @@ Property 4 is the one that matters when you add a rule: it will not ship without
   the point.
 - **A new surface of an existing framework package** → declare it in `architecture.json` `surfaces`
   with its audience and the reason. An undeclared surface is forbidden, not ignored.
-- **A production-path file that is really development and genuinely cannot move** → add it to
-  `misplaced-files.json` with the reason, and raise `resolvedFiles` in the same commit. Fixing one
-  deletes the entry and lowers the count; leaving the count is a build error either way.
 - **A verdict the founder changed** → edit `decided-rules.json`, then make the model reproduce it.
   If a clause has to grow an exception to get there, that is the signal to re-read the principle
   rather than bolt on the exception.

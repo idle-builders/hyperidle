@@ -290,42 +290,6 @@ export interface NotificationEvent {
 	kind: "attention" | "auto_unblock";
 }
 
-/**
- * @lore O1: action stays as `string` because the codebase emits 11+ distinct
- * action values across several files, and (historically, before AU21
- * Increment 5 deleted the practice-meeting workflow) included a dynamic
- * `practice_meeting_turn_N` pattern that made a closed union impossible.
- *
- * Actual values emitted today:
- *   knowledge.ts routes:      "created", "updated", "merged", "split", "archived", "flagged"
- *   attention-service.ts:     "attention_recomputed"
- *   promotion-pipeline.ts:    "contradiction_flagged", "auto_promoted", "marked_stale"
- *
- * Tightening to a closed union remains a behavior change, out of O1 scope.
- * Filed as follow-up.
- */
-export interface KnowledgeUpdatedEvent {
-	type: "knowledge_updated";
-	streamId: string;
-	itemId: string;
-	action: string; // intentionally loose -- see @lore above
-	timestamp: number;
-}
-
-export interface KnowledgeCreatedEvent {
-	type: "knowledge_created";
-	streamId: string;
-	itemId: string;
-	timestamp: number;
-}
-
-export interface KnowledgeArchivedEvent {
-	type: "knowledge_archived";
-	streamId: string;
-	itemId: string;
-	timestamp: number;
-}
-
 /** A single detected file-level writeback change (create/modify/delete). */
 export interface SandboxWritebackChange {
 	readonly type: "create" | "modify" | "delete";
@@ -424,7 +388,7 @@ export interface ThreadReopenedEvent {
  *
  * @lore U1: "product" renamed to "team" in propagation levels. The propagation
  * hierarchy is: session -> task -> team -> portfolio.
- * Note: "product" scope kind in knowledge_items is UNCHANGED (different taxonomy).
+ * Note: "product" scope kind in documents is UNCHANGED (different taxonomy).
  */
 type PropagationLevelLiteral = "session" | "task" | "team" | "portfolio";
 
@@ -533,9 +497,6 @@ export type DomainEvent =
 	| ThreadReopenedEvent
 	// AU19 Increment 3f: filesystems ⚠ capture-writeback EventBus inversion
 	| SandboxWritebackChangesDetectedEvent
-	| KnowledgeCreatedEvent
-	| KnowledgeUpdatedEvent
-	| KnowledgeArchivedEvent
 	// AK6: creation events
 	| TeamCreatedEvent
 	| AgentAddedEvent
@@ -581,9 +542,6 @@ export const EVENT_TYPES = [
 	// store, the `items` table (the founder's conversation-review "block"
 	// concept), is gone, and nothing emits it anymore.
 	"sandbox_writeback_changes_detected",
-	"knowledge_created",
-	"knowledge_updated",
-	"knowledge_archived",
 	"team_created",
 	"agent_added",
 	"user_created",

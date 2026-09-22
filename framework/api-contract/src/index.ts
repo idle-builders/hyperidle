@@ -23,26 +23,17 @@ export type {
 } from "./agent-orchestration-port.js";
 export type {
 	// @lore BB1: BetView deleted — bet is now a root task.
-	// CoreApiKnowledgePort / CoreApiRoutinePort: reachable as CoreApiPort["<member>"]
+	// CoreApiRoutinePort: reachable as CoreApiPort["<member>"]
 	CoreApiOrgPort,
 	CoreApiPort,
 	CoreApiTransport,
 	CoreApiUsersPort,
 	// @lore BB1: CreateBetRequest, CreateBetResponse deleted — bet is now a root task.
-	CreateKnowledgeConflictRequest,
-	CreateKnowledgeItemRequest,
-	CreateKnowledgeItemResponse,
 	CreateOrgTeamRequest,
 	InsertRoutineRequest,
-	KnowledgeConflictView,
-	KnowledgeItemStatusView,
-	KnowledgeItemVersionView,
 	OrgTeamMembershipView,
 	OrgTeamView,
 	PersistScaffoldedAgentsResponse,
-	PromoteKnowledgeItemRequest,
-	PromoteKnowledgeItemResult,
-	ReparentKnowledgeItemRequest,
 	RoutineView,
 	ScaffoldFromRequestInput,
 	// @lore BB1: UpdateBetRequest deleted — bet is now a root task.
@@ -54,9 +45,11 @@ export type {
 	// InsertThreadResponse/ItemView/ReviewRecipientsQuery/UpdateItemRequest/
 	// UpdateThreadRequest deleted with the five thread routes and create_item/
 	// submit_review/reply — send_message/adjust_thread replace every one.
-	UpdateKnowledgeItemContentRequest,
-	UpdateKnowledgeItemContentResponse,
-	UpdateKnowledgeItemContentResult,
+	// @lore document-module B15: CreateKnowledgeItemRequest/CreateKnowledgeItemResponse/
+	// KnowledgeItemVersionView/ReparentKnowledgeItemRequest/UpdateKnowledgeItemContentRequest/
+	// UpdateKnowledgeItemContentResponse/UpdateKnowledgeItemContentResult/CoreApiKnowledgePort
+	// deleted — the writeback dials `edit_document`/`search_documents` (§8.4), never a
+	// second HTTP hop through this seam.
 	UpdateOrgTeamRequest,
 	UpdateRoutineRequest,
 	UserView,

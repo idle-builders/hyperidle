@@ -3,7 +3,7 @@
 // H5 changes:
 //   - host(task) → /work/task/:id (BB1: was a no-op; the bet parent route is gone)
 //
-// artifacts-become-knowledge: "artifact" host kind removed.
+// artifacts-become-documents: "artifact" host kind removed.
 //   - The /artifacts/:id page is deleted; artifact is no longer a valid thread host.
 //   - Tests for host(artifact) → /artifacts/:id removed (the subject is gone).
 //   - AC6 artifact variant removed for the same reason.
@@ -25,8 +25,8 @@ describe("resolveHostRoute", () => {
 		expect(resolveHostRoute("task", "task-5")).toBe("/work/task/task-5");
 	});
 
-	it("knowledge_item → /knowledge/:id", () => {
-		expect(resolveHostRoute("knowledge_item", "ki-1")).toBe("/knowledge/ki-1");
+	it("document → /documents/:id", () => {
+		expect(resolveHostRoute("document", "ki-1")).toBe("/documents/ki-1");
 	});
 
 	it("agent → /agents/:id", () => {

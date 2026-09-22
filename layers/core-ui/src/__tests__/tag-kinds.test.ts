@@ -3,7 +3,7 @@ import { TAG_KIND_ICONS, type TagKind } from "../ds";
 
 // J1 — Tag kind centralised map shape test.
 // The map must define entries for the three Tier-2 Tag kinds so that consumers
-// (Tag.tsx + downstream agents that read knowledge taxonomies) get a single
+// (Tag.tsx + downstream agents that read document taxonomies) get a single
 // source of truth instead of scattering icon/tint duplicates across the codebase.
 
 describe("TAG_KIND_ICONS map", () => {

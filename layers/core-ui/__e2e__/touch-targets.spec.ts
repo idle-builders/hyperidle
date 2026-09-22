@@ -42,8 +42,8 @@ const ROUTES = [
 	// Replaced with the product drilldown (hermetic via /api/teams/p1 mock).
 	{ path: "/work/product/p1", selector: "[data-testid='work-product-page']" },
 	{ path: "/work/task/task-a11y-1", selector: "[data-testid='task-detail-page']" },
-	{ path: "/knowledge", selector: "[data-testid='knowledge-list-page']" },
-	{ path: "/knowledge/k1", selector: "[data-testid='knowledge-detail-page']" },
+	{ path: "/documents", selector: "[data-testid='document-list-page']" },
+	{ path: "/documents/k1", selector: "[data-testid='document-detail-page']" },
 ] as const;
 
 interface Undersized {
@@ -72,7 +72,7 @@ async function findUndersizedTargets(page: Page): Promise<Undersized[]> {
 			"[role='radio']",
 		];
 		// @lore K8 / W2 — scope the audit to Tier 0+1+2 design-system primitives
-		// (NavItem, KeyValue, KnowledgeRow, ThreadRow, BetCard, TaskCard,
+		// (NavItem, KeyValue, DocRow, ThreadRow, BetCard, TaskCard,
 		// NotificationRow, EmptyState, etc.). Tier 3 shells
 		// (`[data-ds-shell]`) and page chrome use DaisyUI `btn-xs` /
 		// `btn-sm` / `tab-xs` widgets that pin sub-44px sizes —
@@ -184,7 +184,7 @@ test.describe("K8 — Touch-target audit at mobile viewport (≤ 1024px)", () =>
 	for (const route of ROUTES) {
 		/**
 		 * @lore K8 — assertion runs against design-system primitives
-		 * (NavItem, KeyValue, KnowledgeRow, ThreadRow, etc.) rather than
+		 * (NavItem, KeyValue, DocRow, ThreadRow, etc.) rather than
 		 * the full interactive surface.
 		 *
 		 * @lore W2 — density system removed. Hearth default sizes apply.

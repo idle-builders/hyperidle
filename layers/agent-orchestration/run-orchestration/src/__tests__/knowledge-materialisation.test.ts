@@ -1,6 +1,6 @@
 /**
  * @lore nested-knowledge-items architecture.md §5 / review.md B4 & B5 — a
- * `BakedContextKnowledgeItem` carrying a real `parentChain` materialises as
+ * `BakedContextDocument` carrying a real `parentChain` materialises as
  * nested directories (not flat), and every ancestor directory gets its own
  * `.fabric/manifest.json` entry (id → {source_path, scopeKind, version}) so
  * a later writeback session finds it instead of minting a duplicate folder
@@ -45,14 +45,33 @@ const BUNDLE: BakedContextBundle = {
 	ancestors: [],
 	agent: { id: "agent-tree-1", name: "Ada", role: "builder" },
 	team: { id: "team-tree-1", name: "Alpha" },
-	knowledge: [
+	documents: [
 		{
 			id: "k-leaf",
 			title: "Objection handling",
 			body: "leaf body",
 			format: "markdown",
 			version: 1,
-			role: "ordinary",
+			slot: "ordinary",
+			scopeKind: "team",
+			agentBindingId: null,
+			parentChain: [
+				{ id: "k-root", title: "Product", scopeKind: "factory", version: 3 },
+				{ id: "k-mid", title: "Pricing", scopeKind: "team", version: 2 },
+			],
+		},
+		// @lore BC4: proves `slot` (not a stale `role` field) is what routes an
+		// item away from the ordinary tree — a "rule" item must land in
+		// knowledge/rules/, never nested under its parentChain. If the reader
+		// fell back to a default (the old cast-hiding-a-typo failure mode),
+		// this item would materialise under knowledge/Product/Pricing instead.
+		{
+			id: "k-rule",
+			title: "Deploy checklist",
+			body: "rule body",
+			format: "markdown",
+			version: 1,
+			slot: "rule",
 			scopeKind: "team",
 			agentBindingId: null,
 			parentChain: [
@@ -61,7 +80,7 @@ const BUNDLE: BakedContextBundle = {
 			],
 		},
 	],
-} as unknown as BakedContextBundle;
+};
 
 describe("writeContextBundle: nested materialisation (review.md B4/B5)", () => {
 	let sandboxPath: string | undefined;
@@ -89,8 +108,11 @@ describe("writeContextBundle: nested materialisation (review.md B4/B5)", () => {
 
 		await assembler.assembleAgentContext(input);
 
-		const leafPath = fs.readdirSync(path.join(sandboxPath, "knowledge/Product/Pricing"));
-		const leafFile = leafPath.find((f) => f !== "index.md");
+		const pricingDirEntries = fs.readdirSync(path.join(sandboxPath, "knowledge/Product/Pricing"));
+		// Only the ordinary leaf lands here (plus its index) — the "rule"-slotted
+		// sibling below must not fall through to the parentChain-nested tree.
+		expect(pricingDirEntries).toHaveLength(2);
+		const leafFile = pricingDirEntries.find((f) => f !== "index.md");
 		expect(leafFile).toBeDefined();
 		expect(
 			fs.readFileSync(
@@ -98,6 +120,18 @@ describe("writeContextBundle: nested materialisation (review.md B4/B5)", () => {
 				"utf8",
 			),
 		).toBe("leaf body");
+
+		// @lore BC4: a "rule"-slotted item lands in knowledge/rules/, not nested
+		// under its parentChain — proves the reader keys off `slot`, not a
+		// default that would fall through to the ordinary-tree path.
+		const ruleDirEntries = fs.readdirSync(path.join(sandboxPath, "knowledge/rules"));
+		expect(ruleDirEntries).toHaveLength(1);
+		expect(
+			fs.readFileSync(
+				path.join(sandboxPath, "knowledge/rules", ruleDirEntries[0] as string),
+				"utf8",
+			),
+		).toBe("rule body");
 
 		// Every ancestor gets an index, holding only its own title (no
 		// fabricated body — plan.md: "incomplete, not fabricated").
@@ -154,14 +188,14 @@ describe("writeContextBundle: nested materialisation (review.md B4/B5)", () => {
 			ancestors: [],
 			agent: { id: "agent-tree-2", name: "Ada", role: "builder" },
 			team: { id: "team-tree-2", name: "Alpha" },
-			knowledge: [
+			documents: [
 				{
 					id: "k-parent",
 					title: "Pricing",
 					body: "PARENT BODY — must land in index.md, not a stray sibling file",
 					format: "markdown",
 					version: 5,
-					role: "ordinary",
+					slot: "ordinary",
 					scopeKind: "team",
 					agentBindingId: null,
 					parentChain: [{ id: "k-root", title: "Product", scopeKind: "factory", version: 3 }],
@@ -172,7 +206,7 @@ describe("writeContextBundle: nested materialisation (review.md B4/B5)", () => {
 					body: "child body",
 					format: "markdown",
 					version: 1,
-					role: "ordinary",
+					slot: "ordinary",
 					scopeKind: "team",
 					agentBindingId: null,
 					parentChain: [
@@ -181,7 +215,7 @@ describe("writeContextBundle: nested materialisation (review.md B4/B5)", () => {
 					],
 				},
 			],
-		} as unknown as BakedContextBundle;
+		};
 
 		const input = {
 			sandboxPath,

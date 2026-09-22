@@ -25,9 +25,9 @@ import type { HyperIdleDb, Task, Team, User } from "@hyperidle/db";
 import type {
 	BakedAgentRunnableConfig,
 	BakedContextBundle,
-	SessionKnowledgeItemLike,
+	SessionDocumentLike,
 } from "@hyperidle/domain-model";
-import { bakeAgentRunnableConfig, toBakedContextKnowledgeItems } from "@hyperidle/domain-model";
+import { bakeAgentRunnableConfig, toBakedContextDocuments } from "@hyperidle/domain-model";
 import * as work from "./task-service.js";
 import { taskDispatchAttemptStore } from "./task-service.js";
 
@@ -36,8 +36,8 @@ export interface TaskRunResolverDeps {
 	requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<User>;
 	/**
 	 * The agent's identity document body, baked onto the request so the
-	 * provisioner never reads `knowledge_items` — that table belongs to the
-	 * knowledge service. Injected (Mechanism C).
+	 * provisioner never reads `documents` — that table belongs to the
+	 * document service. Injected (Mechanism C).
 	 */
 	/**
 	 * The agent's identity document, baked onto the request.
@@ -58,11 +58,11 @@ export interface TaskRunResolverDeps {
 	 */
 	getTeamById?(db: HyperIdleDb, id: string): Promise<Team | undefined>;
 	/**
-	 * AU21 §9 Increment 12 (Decision H3) — optional: `@hyperidle/knowledge`'s
-	 * `assembleSessionKnowledge` (Wave A), injected for the same Mechanism C
+	 * AU21 §9 Increment 12 (Decision H3) — optional: `@hyperidle/document`'s
+	 * `assembleSessionDocuments` (Wave A), injected for the same Mechanism C
 	 * reason as `getTeamById` above.
 	 */
-	assembleSessionKnowledge?(
+	assembleSessionDocuments?(
 		db: HyperIdleDb,
 		input: {
 			readonly teamId: string;
@@ -70,7 +70,7 @@ export interface TaskRunResolverDeps {
 			readonly taskDescription: string;
 			readonly agentId: string;
 		},
-	): Promise<readonly SessionKnowledgeItemLike[]>;
+	): Promise<readonly SessionDocumentLike[]>;
 	/**
 	 * AU21 §9 Increment 12 (Decision H3), Wave E — optional: `@hyperidle/settings`'s
 	 * `readServerConfig`, injected (Mechanism C — `@hyperidle/work` cannot
@@ -96,9 +96,9 @@ export interface BakedTaskRunRequest {
 	};
 	/**
 	 * AU21 §9 Increment 12 (Decision H3) — the task/bet/agent/team content +
-	 * ranked knowledge a `task_run` session's sandbox needs, baked at emit time
+	 * ranked documents a `task_run` session's sandbox needs, baked at emit time
 	 * from the SAME `task` (+ its `bet`) this resolver already loads to
-	 * validate. Present only when `deps.getTeamById`/`deps.assembleSessionKnowledge`
+	 * validate. Present only when `deps.getTeamById`/`deps.assembleSessionDocuments`
 	 * were supplied (see `TaskRunResolverDeps` `@lore`).
 	 */
 	readonly contextBundle?: BakedContextBundle;
@@ -126,8 +126,8 @@ export interface BakedTaskRunRequest {
 /**
  * Bake the `contextBundle` (`kind:"task"`) a `task_run` session's sandbox
  * needs: the task/bet this resolver already loaded to validate, the
- * just-validated agent, the task's team, and the ranked+budgeted knowledge
- * bundle (`@hyperidle/knowledge`'s `assembleSessionKnowledge`, injected).
+ * just-validated agent, the task's team, and the ranked+budgeted document
+ * bundle (`@hyperidle/document`'s `assembleSessionDocuments`, injected).
  * Returns `undefined` (never throws) if the team can't be resolved — a
  * missing team would be a data-integrity surprise, not a reason to fail the
  * whole run's bake.
@@ -144,11 +144,11 @@ export async function bakeTaskContextBundle(
 	ancestors: readonly Task[],
 	agent: User,
 	getTeamById: NonNullable<TaskRunResolverDeps["getTeamById"]>,
-	assembleSessionKnowledge: NonNullable<TaskRunResolverDeps["assembleSessionKnowledge"]>,
+	assembleSessionDocuments: NonNullable<TaskRunResolverDeps["assembleSessionDocuments"]>,
 ): Promise<BakedContextBundle | undefined> {
 	const team = await getTeamById(db, task.teamId);
 	if (!team) return undefined;
-	const knowledge = await assembleSessionKnowledge(db, {
+	const knowledge = await assembleSessionDocuments(db, {
 		teamId: task.teamId,
 		agentRole: agent.role,
 		taskDescription: task.description ?? task.title,
@@ -166,7 +166,7 @@ export async function bakeTaskContextBundle(
 		})),
 		agent: { id: agent.id, name: agent.name, role: agent.role },
 		team: { id: team.id, name: team.name },
-		knowledge: toBakedContextKnowledgeItems(knowledge),
+		documents: toBakedContextDocuments(knowledge),
 	};
 }
 
@@ -214,8 +214,8 @@ export async function resolveTaskRunRequest(
 	if (input.kind === "session_start") {
 		// --- session_start path (was resolveSessionStartRequest) ---
 		const agent = await deps.requireRunnableAgent(db, input.requestedAgentId);
-		// The agent's identity is a knowledge document bound to it; baked so the
-		// provisioner never touches knowledge.
+		// The agent's identity is a document bound to it; baked so the
+		// provisioner never touches documents.
 		const agentPersona = await deps.getAgentIdentity(db, agent.id);
 		const task = await work.get(db, "task", input.taskId);
 		if (!task) {
@@ -252,8 +252,8 @@ export async function resolveTaskRunRequest(
 		throw new Error("Task owner changed after intent creation");
 	}
 	const agent = await deps.requireRunnableAgent(db, attempt.agentId);
-	// The agent's identity is a knowledge document bound to it; baked so the
-	// provisioner never touches knowledge.
+	// The agent's identity is a document bound to it; baked so the
+	// provisioner never touches documents.
 	const agentPersona = await deps.getAgentIdentity(db, agent.id);
 
 	// AU21 §9 Increment 12 (Decision H3): bake the contextBundle only when the
@@ -261,8 +261,8 @@ export async function resolveTaskRunRequest(
 	// destructured into locals so TS keeps them narrowed non-optional inside
 	// the block below, no non-null assertion needed.
 	let contextBundle: BakedContextBundle | undefined;
-	const { getTeamById, assembleSessionKnowledge, readServerConfig } = deps;
-	if (getTeamById && assembleSessionKnowledge) {
+	const { getTeamById, assembleSessionDocuments, readServerConfig } = deps;
+	if (getTeamById && assembleSessionDocuments) {
 		// BB1: the containing work is now a chain, not a single bet.
 		// `listAncestorIds` returns nearest-first; the bundle wants root-first.
 		const ancestorIds = await work.listAncestorIds(db, task.id);
@@ -279,7 +279,7 @@ export async function resolveTaskRunRequest(
 			ancestors,
 			agent,
 			getTeamById,
-			assembleSessionKnowledge,
+			assembleSessionDocuments,
 		);
 	}
 	const harnessDisabled = readServerConfig

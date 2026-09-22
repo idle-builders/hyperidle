@@ -103,25 +103,25 @@ describe("migration 0066: BA9d plugin_id columns — brownfield", () => {
 		// Assert 3: new rows can set plugin_id
 		await db.execute(sql`
 				INSERT INTO users (id, name, role, kind, status, agent_category, plugin_id, created_at)
-				VALUES ('plugin-agent-km', 'Knowledge Librarian', 'knowledge-librarian', 'ai', 'active', 'individual', 'knowledge-management', ${NOW})
+				VALUES ('plugin-agent-dm', 'Document Librarian', 'document-librarian', 'ai', 'active', 'individual', 'document-management', ${NOW})
 			`);
 		await db.execute(sql`
 				INSERT INTO routines (id, name, trigger_type, trigger_config, active, owner_agent_id, plugin_id, created_at)
-				VALUES ('km-decay', 'Knowledge Decay', 'calendar', '{"cron":"0 3 * * 0"}', true, 'plugin-agent-km', 'knowledge-management', ${NOW})
+				VALUES ('dm-decay', 'Document Decay', 'calendar', '{"cron":"0 3 * * 0"}', true, 'plugin-agent-dm', 'document-management', ${NOW})
 			`);
 
 		const pluginAgent = await db.execute(sql`
-				SELECT plugin_id FROM users WHERE id = 'plugin-agent-km'
+				SELECT plugin_id FROM users WHERE id = 'plugin-agent-dm'
 			`);
 		expect((pluginAgent.rows as Array<{ plugin_id: string | null }>)[0]?.plugin_id).toBe(
-			"knowledge-management",
+			"document-management",
 		);
 
 		const pluginRoutine = await db.execute(sql`
-				SELECT plugin_id FROM routines WHERE id = 'km-decay'
+				SELECT plugin_id FROM routines WHERE id = 'dm-decay'
 			`);
 		expect((pluginRoutine.rows as Array<{ plugin_id: string | null }>)[0]?.plugin_id).toBe(
-			"knowledge-management",
+			"document-management",
 		);
 	});
 });

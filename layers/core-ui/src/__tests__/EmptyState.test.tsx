@@ -6,11 +6,11 @@ describe("EmptyState", () => {
 	it("renders title and description as meaningful message", () => {
 		render(
 			<EmptyState
-				title="No knowledge items yet"
+				title="No documents yet"
 				description="Agents will populate this as they learn."
 			/>,
 		);
-		expect(screen.getByText("No knowledge items yet")).toBeInTheDocument();
+		expect(screen.getByText("No documents yet")).toBeInTheDocument();
 		expect(screen.getByText("Agents will populate this as they learn.")).toBeInTheDocument();
 	});
 

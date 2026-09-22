@@ -29,7 +29,7 @@
  * data and behavior without creating new sorting/grouping contracts here.
  *
  * @lore AD9: The fast-nav renders a custom <ul><li> list (not ItemList+Row) so
- * that each item can carry data-thread-id / data-team-id / data-knowledge-id
+ * that each item can carry data-thread-id / data-team-id / data-document-id
  * attrs required by E2E selectors and unit tests. Row as="li" does not support
  * arbitrary data-* props. The fast-nav items replicate Row's selected-state
  * class (bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)]) directly.
@@ -50,7 +50,7 @@ import { VIEW_ICONS, VIEW_IDS } from "./shell-types";
 const VIEW_HREFS: Record<ViewId, string> = {
 	conversations: "/conversations",
 	work: "/work",
-	knowledge: "/knowledge",
+	knowledge: "/documents",
 };
 
 export interface SidebarThread {
@@ -64,7 +64,7 @@ export interface SidebarTeam {
 	name: string;
 }
 
-export interface SidebarKnowledgeItem {
+export interface SidebarDocumentItem {
 	id: string;
 	title: string;
 }
@@ -89,10 +89,10 @@ export interface SidebarProps {
 	/** Handler for team sub-item click */
 	onSelectTeam: (id: string) => void;
 
-	/** Knowledge items for the fast-nav list (head of /knowledge list) */
-	knowledgeItems?: ReadonlyArray<SidebarKnowledgeItem>;
-	/** Handler for knowledge item click */
-	onSelectKnowledgeItem?: (id: string) => void;
+	/** Document items for the fast-nav list (head of /documents list) */
+	documentItems?: ReadonlyArray<SidebarDocumentItem>;
+	/** Handler for document item click */
+	onSelectDocumentItem?: (id: string) => void;
 
 	/** Assistant overlay trigger */
 	onAssistantClick?: () => void;
@@ -138,7 +138,7 @@ export interface SidebarProps {
 	 */
 	threadsLoading?: boolean;
 	teamsLoading?: boolean;
-	knowledgeLoading?: boolean;
+	documentsLoading?: boolean;
 
 	/**
 	 * UI-011/012/013: When true, the API call for the corresponding section
@@ -147,7 +147,7 @@ export interface SidebarProps {
 	 */
 	threadsError?: boolean;
 	teamsError?: boolean;
-	knowledgeError?: boolean;
+	documentsError?: boolean;
 
 	/**
 	 * When true, the sidebar is rendered inside the mobile drawer (300px overlay).
@@ -164,7 +164,7 @@ export interface SidebarProps {
 
 // ---------------------------------------------------------------------------
 // W3 AC-3: Knowledge scope sub-items removed.
-// Scopes are now handled as inline pills on the KnowledgeList page.
+// Scopes are now handled as inline pills on the DocumentList page.
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
@@ -333,7 +333,7 @@ function SectionHeader({
 					className="type-data inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-[var(--r-pill)]   tabular-nums bg-[var(--accent-primary)] text-[var(--text-on-accent)] ml-auto"
 					data-testid={
 						view === "knowledge"
-							? "knowledge-triage-badge"
+							? "document-triage-badge"
 							: view === "conversations"
 								? "conversations-blocking-badge"
 								: `${view}-blocking-badge`
@@ -499,7 +499,7 @@ function SettingsFooter({
 // FastNavItem — custom list item with section-specific data attrs.
 //
 // @lore AD9: Uses a plain <li><div role="button"> pattern instead of Row as="li"
-// so each item carries data-thread-id / data-team-id / data-knowledge-id for
+// so each item carries data-thread-id / data-team-id / data-document-id for
 // E2E selectors. Row does not accept arbitrary data-* props. Selected state
 // uses the shell's shared accent-primary-dim row treatment.
 //
@@ -516,7 +516,7 @@ interface FastNavItemProps {
 	/** Optional data attrs for section-specific E2E / unit selectors */
 	"data-thread-id"?: string;
 	"data-team-id"?: string;
-	"data-knowledge-id"?: string;
+	"data-document-id"?: string;
 	"data-testid"?: string;
 }
 
@@ -527,7 +527,7 @@ function FastNavItem({
 	onClick,
 	"data-thread-id": dataThreadId,
 	"data-team-id": dataTeamId,
-	"data-knowledge-id": dataKnowledgeId,
+	"data-document-id": dataDocumentId,
 	"data-testid": dataTestId,
 }: FastNavItemProps): JSX.Element {
 	// @lore AD9: <li data-thread-id aria-current> wraps <Link> so:
@@ -542,7 +542,7 @@ function FastNavItem({
 		<li
 			data-thread-id={dataThreadId}
 			data-team-id={dataTeamId}
-			data-knowledge-id={dataKnowledgeId}
+			data-document-id={dataDocumentId}
 			aria-current={selected ? "page" : undefined}
 			className={[selected ? "bg-[var(--accent-primary-dim)] rounded-[var(--r-subtle)]" : ""]
 				.filter(Boolean)
@@ -588,8 +588,8 @@ export function Sidebar({
 	teams,
 	activeTeamId,
 	onSelectTeam,
-	knowledgeItems = [],
-	onSelectKnowledgeItem,
+	documentItems = [],
+	onSelectDocumentItem,
 	onAssistantClick,
 	assistantOverlayOpen,
 	onSettingsClick,
@@ -601,10 +601,10 @@ export function Sidebar({
 	notificationPopoverOpen,
 	threadsLoading,
 	teamsLoading,
-	knowledgeLoading,
+	documentsLoading,
 	threadsError,
 	teamsError,
-	knowledgeError,
+	documentsError,
 	drawerMode,
 }: SidebarProps): JSX.Element {
 	// Cap threads at 5 for the fast-nav head
@@ -612,13 +612,13 @@ export function Sidebar({
 
 	// AD9: ONE shared fast-nav list — content swaps based on activeView.
 	// threads → Conversations; teams → Work (suppressed for 1 team — AD3 AC-1);
-	// knowledgeItems → Knowledge.
+	// documentItems → Knowledge.
 	// AD3 AC-1: only show teams sub-list when there are 2+ teams (same as old sidebar).
 
 	const fastNavEmpty: Record<ViewId, string> = {
 		conversations: "No threads yet",
 		work: "No teams yet",
-		knowledge: "No knowledge yet",
+		knowledge: "No documents yet",
 	};
 
 	// Shared empty state empty message for non-active sections (shouldn't appear)
@@ -703,15 +703,15 @@ export function Sidebar({
 		}
 
 		if (activeView === "knowledge") {
-			const visibleKnowledge = knowledgeItems.slice(0, 5);
-			if (visibleKnowledge.length === 0) {
+			const visibleDocuments = documentItems.slice(0, 5);
+			if (visibleDocuments.length === 0) {
 				// UI-013: suppress empty message while initial fetch is in flight
-				if (knowledgeLoading) return null;
-				// UI-013: honest error state — don't claim "No knowledge yet" when the API failed
-				if (knowledgeError) {
+				if (documentsLoading) return null;
+				// UI-013: honest error state — don't claim "No documents yet" when the API failed
+				if (documentsError) {
 					return (
 						<p className="type-small px-[24px] py-[12px]  text-[var(--text-tertiary)]">
-							Couldn't load knowledge
+							Couldn't load documents
 						</p>
 					);
 				}
@@ -723,14 +723,14 @@ export function Sidebar({
 			}
 			return (
 				<ul className="list-none m-0 p-0">
-					{visibleKnowledge.map((k) => (
+					{visibleDocuments.map((k) => (
 						<FastNavItem
 							key={k.id}
 							label={k.title}
 							selected={false}
-							href={`/knowledge/${encodeURIComponent(k.id)}`}
-							onClick={() => onSelectKnowledgeItem?.(k.id)}
-							data-knowledge-id={k.id}
+							href={`/documents/${encodeURIComponent(k.id)}`}
+							onClick={() => onSelectDocumentItem?.(k.id)}
+							data-document-id={k.id}
 							data-testid={`fastnav-${k.id}`}
 						/>
 					))}

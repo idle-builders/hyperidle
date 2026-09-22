@@ -74,8 +74,6 @@ The offenders the inventory carries deliberately. An offender in a file not list
 
 **Server auth fallback** — `u-founder` in `layers/core-api/src/middleware/auth.ts`, `layers/core-api/src/routes/auth.ts` and `layers/core-api/policy/src/lifecycle-propagation.ts`. The middleware substitutes the hardcoded user id when the database holds no `kind: "human"` row, and the auth route does the same when the session context carries no resolved user id. Onboarding now inserts that row (`layers/core-api/src/routes/users.ts`), so the fallback is reachable only against a database nobody set up. It goes when `userId` turns nullable and answers 401 instead of substituting a fake identity.
 
-**Knowledge page API wiring** — `MOCK_KNOWLEDGE_ITEMS` in `layers/core-ui/src/fixtures/knowledge-data.ts`, and `LEGACY_DETAILS`, `LEGACY_SOURCES`, `FALLBACK_DETAIL` plus the fixtures import in `layers/core-ui/src/pages/KnowledgeDetail.tsx`. `useKnowledgeItem` fetches live data and falls back to the fixture lookup, which is what keeps the constants reachable; `LEGACY_DETAILS` survives because the protected `KnowledgeDetail.test.tsx` asserts the "company" and "belief" labels that only it carries. Auto-save through `PATCH /api/knowledge/:id` has since shipped, so the deferral those constants were waiting on is spent — what remains is re-baselining the protected assertions against API data, then deleting the fallback with them.
-
 ## When you legitimately need a mock
 
 1. Tests / stories: import or declare freely inside the permitted surface.

@@ -107,8 +107,8 @@ export const users = pgTable(
  * `role`, `team_id` stay put because core genuinely uses them
  * (`middleware/auth.ts`, `recipients.ts`, `policy-bindings.ts`).
  *
- * @lore The agent's identity is no longer here: it is an `agent_file` knowledge
- * document bound to the agent (scope_kind='user', scope_id=agentId), which is
+ * @lore The agent's identity is no longer here: it is an `agent_file` document
+ * bound to the agent (scope_kind='user', scope_id=agentId), which is
  * what that role has always meant. Migration 0069 moved every existing prompt.
  *
  * @lore AU26 G1: `system_prompt_path` and `skills` were dropped, not moved —
@@ -209,11 +209,11 @@ export const tasks = pgTable(
 		 */
 		tokensActualJson: text("tokens_actual_json"),
 		/**
-		 * BB1: provenance — the knowledge item this task was promoted from
-		 * (moved from `bets`, AK5). RESTRICT so provenance outlives a
-		 * convenience delete.
+		 * BB1: provenance — the document this task was promoted from (moved
+		 * from `bets`, AK5). RESTRICT so provenance outlives a convenience
+		 * delete. Renamed `sourceKnowledgeItemId`→`sourceDocumentId`.
 		 */
-		sourceKnowledgeItemId: text("source_knowledge_item_id").references(() => knowledgeItems.id, {
+		sourceDocumentId: text("source_document_id").references(() => documents.id, {
 			onDelete: "restrict",
 		}),
 		/** BB1: set when the task reaches `done` (moved from `bets`). */
@@ -227,7 +227,7 @@ export const tasks = pgTable(
 		 * this says what to SHOW first, and two siblings with no dependency
 		 * between them still need a defined order. Ordering by recency would
 		 * reshuffle the tree whenever someone edits a child, which makes a tree
-		 * unbrowsable. Aligned with the nested-knowledge-documents tree, which
+		 * unbrowsable. Aligned with the nested-document tree, which
 		 * chose the same shape for the same reason.
 		 */
 		position: integer("position").notNull().default(0),
@@ -611,12 +611,12 @@ export const routines = pgTable(
 		 *
 		 * @lore knowledge-attachment-slot: `prompt_knowledge_id` (the FK that
 		 * used to live here) is dropped by migration 0077. The routine's prompt
-		 * is now the knowledge document parented to this routine
-		 * (`parentKind='routine', parentId=<this row's id>, role='prompt'`) —
-		 * read through `getParentedItem` in `@hyperidle/knowledge`, never a
+		 * is now the document parented to this routine
+		 * (`parentKind='routine', parentId=<this row's id>, slot='prompt'`) —
+		 * read through `getParentedItem` in `@hyperidle/document`, never a
 		 * column on this table. This closes a table-ownership violation BA9g
-		 * named but did not fix: a column here describing a knowledge
-		 * relationship, in a table the knowledge service does not own.
+		 * named but did not fix: a column here describing a document
+		 * relationship, in a table the document service does not own.
 		 */
 		ownerAgentId: text("owner_agent_id")
 			.notNull()
@@ -851,15 +851,19 @@ export const orgEdges = pgTable(
 	],
 );
 
-// --- Knowledge ---
+// --- Documents ---
 
 /**
- * @lore O2: kernel/strategy separation. Strategy fields (layer, scopeId, kind,
- * attentionScore, relevanceScore, citationCount, lastCitedAt, confidence, meta)
- * moved to knowledgeAppProjection extension table.
+ * @lore BC4: document as a module. Folds `knowledgeAppProjection`'s two live
+ * columns (`confidence`, `meta`) directly onto the row — the migration's own
+ * `@lore` records why the rest of that extension table (relevance_score,
+ * citation_count, last_cited_at) is dropped with nothing carried over
+ * (founder ruling A5). Four real usage columns replace them: `readCount`
+ * (`open_document`), `lastReadAt`, `sessionUseCount` (`assembleSessionDocuments`),
+ * `lastUsedAt` — never written by `edit_document`, never in a `changes` row.
  */
-export const knowledgeItems = pgTable(
-	"knowledge_items",
+export const documents = pgTable(
+	"documents",
 	{
 		id: text("id").primaryKey(),
 		/**
@@ -875,10 +879,8 @@ export const knowledgeItems = pgTable(
 		status: text("status").notNull(),
 		version: integer("version").notNull().default(1),
 		/**
-		 * @lore BA9b: Knowledge item role. Determines where context assembly
-		 * materialises this item in the session sandbox — widened by the
-		 * knowledge-attachment-slot item to mean *where the item lands in the
-		 * session*.
+		 * @lore BA9b, renamed `role`→`slot` by BC4: determines where context
+		 * assembly materialises this document in the session sandbox.
 		 *
 		 * - ordinary: knowledge/... files, exactly as before (default).
 		 * - skill: a SKILL.md in the harness skills directory (e.g. .claude/skills/<title>/SKILL.md).
@@ -889,15 +891,14 @@ export const knowledgeItems = pgTable(
 		 *
 		 * Default 'ordinary' — all existing rows keep their current behaviour.
 		 */
-		role: text("role").notNull().default("ordinary"),
+		slot: text("slot").notNull().default("ordinary"),
 		/**
-		 * @lore knowledge-attachment-slot: the entity this item hangs off, or
-		 * NULL for unparented knowledge (most rows). Nullable, both — a half
-		 * parent is not a parent (`ki_parent_pair_ck`). No FK: the column points
-		 * at five tables (`ki_parent_kind_ck`), so nothing at the database level
+		 * @lore knowledge-attachment-slot: the entity this document hangs off, or
+		 * NULL for unparented documents (most rows). Nullable, both — a half
+		 * parent is not a parent (`doc_parent_pair_ck`). No FK: the column points
+		 * at five tables (`doc_parent_kind_ck`), so nothing at the database level
 		 * keeps a parent id honest and nothing cascades a delete — application
-		 * code archives a parent's children instead (see the knowledge route
-		 * composition roots).
+		 * code narrows/archives a parent's children instead.
 		 */
 		parentKind: text("parent_kind"),
 		parentId: text("parent_id"),
@@ -909,150 +910,51 @@ export const knowledgeItems = pgTable(
 		 * so one can be added later without a schema change.
 		 */
 		position: integer("position").notNull().default(0),
+		/** Ranking signal, read only by `session-documents.ts`. */
+		confidence: text("confidence"),
+		/** `{tags:[…]}` — read only by `session-documents.ts`'s tag match. */
+		meta: text("meta"),
+		// Usage counters. Never written by `edit_document`, never in a `changes` row.
+		readCount: integer("read_count").notNull().default(0),
+		lastReadAt: text("last_read_at"),
+		sessionUseCount: integer("session_use_count").notNull().default(0),
+		lastUsedAt: text("last_used_at"),
 		updatedBy: text("updated_by").notNull(),
 		createdAt: text("created_at").notNull(),
 		updatedAt: text("updated_at").notNull(),
 	},
 	(table) => [
-		index("ki_scope_idx").on(table.scopeKind, table.scopeId),
-		index("ki_status_idx").on(table.status),
-		index("ki_updated_desc_idx").on(table.updatedAt),
-		index("ki_role_idx").on(table.role),
+		index("doc_scope_idx").on(table.scopeKind, table.scopeId),
+		index("doc_status_idx").on(table.status),
+		index("doc_updated_desc_idx").on(table.updatedAt),
+		index("doc_slot_idx").on(table.slot),
 		check(
-			"ki_role_ck",
-			sql`${table.role} IN ('ordinary', 'skill', 'rule', 'agent_file', 'prompt')`,
+			"doc_slot_ck",
+			sql`${table.slot} IN ('ordinary', 'skill', 'rule', 'agent_file', 'prompt')`,
 		),
-		index("ki_parent_idx").on(table.parentKind, table.parentId),
+		index("doc_parent_idx").on(table.parentKind, table.parentId),
 		// The ordered-children read: every ordinary child of one parent, by
-		// position. Non-partial (unlike ki_parent_slot_uq below) — the tree
+		// position. Non-partial (unlike doc_parent_slot_uq below) — the tree
 		// read walks ordinary children just as often as it resolves a named slot.
-		index("ki_parent_position_idx").on(table.parentKind, table.parentId, table.position),
-		// One item per named role per parent — a routine's prompt, an agent's
-		// identity. `role <> 'ordinary'` leaves a parent free to hold many
-		// ordinary children (the nested-knowledge tree), and Postgres
+		index("doc_parent_position_idx").on(table.parentKind, table.parentId, table.position),
+		// One document per named slot per parent — a routine's prompt, an
+		// agent's identity. `slot <> 'ordinary'` leaves a parent free to hold
+		// many ordinary children (the nested-document tree), and Postgres
 		// treats NULLs as distinct by default, so unparented rows never collide.
-		uniqueIndex("ki_parent_slot_uq")
-			.on(table.parentKind, table.parentId, table.role)
-			.where(sql`${table.role} <> 'ordinary'`),
+		uniqueIndex("doc_parent_slot_uq")
+			.on(table.parentKind, table.parentId, table.slot)
+			.where(sql`${table.slot} <> 'ordinary'`),
+		// The decay search: `unusedSince` + `sort:"least_used"` both lead with this.
+		index("doc_last_used_idx").on(table.lastUsedAt),
 		check(
-			"ki_parent_kind_ck",
-			sql`${table.parentKind} IS NULL OR ${table.parentKind} IN ('knowledge_item', 'task', 'thread', 'routine', 'agent')`,
+			"doc_parent_kind_ck",
+			sql`${table.parentKind} IS NULL OR ${table.parentKind} IN ('document', 'task', 'thread', 'routine', 'agent')`,
 		),
 		check(
-			"ki_parent_pair_ck",
+			"doc_parent_pair_ck",
 			sql`(${table.parentKind} IS NULL AND ${table.parentId} IS NULL) OR (${table.parentKind} IS NOT NULL AND ${table.parentId} IS NOT NULL)`,
 		),
 	],
-);
-
-export const knowledgeEditLog = pgTable("knowledge_edit_log", {
-	id: text("id").primaryKey(),
-	// @lore I3 review sec HIGH-2: edit log MUST outlive its subject. Cascade
-	// would let any agent with delete-on-knowledge_items wipe their own
-	// authored history. RESTRICT forces explicit handling — soft-delete the
-	// item or archive its log first. See I3-security-review.md HIGH.
-	itemId: text("item_id")
-		.notNull()
-		.references(() => knowledgeItems.id, { onDelete: "restrict" }),
-	editor: text("editor").notNull(),
-	field: text("field").notNull(),
-	oldValue: text("old_value"),
-	newValue: text("new_value"),
-	editType: text("edit_type").notNull(),
-	createdAt: text("created_at").notNull(),
-});
-
-// --- Knowledge access log (L22) ---
-
-/**
- * Append-only log of knowledge item detail-view fetches. One row per
- * GET /api/knowledge/:layer/:id 200 response.
- *
- * @lore L22: the composite index (item_id, accessed_at) serves both
- * recency (MAX) and frequency (COUNT with range filter) queries without
- * a second index. ON DELETE RESTRICT matches knowledge_edit_log — the
- * access log MUST outlive its subject (same audit rationale as I3 HIGH-2).
- *
- * @lore L22: accessorKind defaults to "human" when the auth context is
- * not wired into the knowledge routes. The real accessor comes from the
- * auth middleware — wiring it is out of L22 scope.
- */
-export const knowledgeAccessLog = pgTable(
-	"knowledge_access_log",
-	{
-		id: text("id").primaryKey(),
-		itemId: text("item_id")
-			.notNull()
-			.references(() => knowledgeItems.id, { onDelete: "restrict" }),
-		/** "human" | "agent" — closed vocabulary per KnowledgeAccessorKind. */
-		accessorKind: text("accessor_kind").notNull(),
-		accessorId: text("accessor_id").notNull(),
-		/** ISO 8601 timestamp. */
-		accessedAt: text("accessed_at").notNull(),
-	},
-	(table) => [index("kal_item_accessed_idx").on(table.itemId, table.accessedAt)],
-);
-
-// --- Knowledge conflicts ---
-
-export const knowledgeConflicts = pgTable("knowledge_conflicts", {
-	id: text("id").primaryKey(),
-	// @lore I3 review sec HIGH-2: conflict resolution evidence MUST outlive
-	// its subject — same reasoning as knowledge_edit_log above.
-	itemId: text("item_id")
-		.notNull()
-		.references(() => knowledgeItems.id, { onDelete: "restrict" }),
-	versionBase: integer("version_base").notNull(),
-	versionCurrent: integer("version_current").notNull(),
-	proposedBody: text("proposed_body").notNull(),
-	proposedMeta: text("proposed_meta"),
-	proposedBy: text("proposed_by").notNull(),
-	status: text("status").notNull().default("open"),
-	resolvedBy: text("resolved_by"),
-	resolvedAt: text("resolved_at"),
-	createdAt: text("created_at").notNull(),
-});
-
-// --- Extension tables (O2) ---
-
-/**
- * Stores strategy-layer data for knowledge items. Each row maps 1:1 to a
- * knowledge_items row (knowledge_item_id UNIQUE). Cascade DELETE keeps
- * orphan rows impossible.
- *
- * @lore O2: kernel/strategy separation. All strategy signals that were inline
- * on knowledge_items (layer, scopeId, kind, attentionScore, relevanceScore,
- * citationCount, lastCitedAt, confidence, meta) are moved here. The kernel
- * table retains only identity + content columns. No `strategy` discriminator
- * column: multiple strategies can coexist in the same row.
- *
- * @lore AU19 Increment 1k: this table/export was formerly named
- * `knowledgeStrategyFabric` (physical SQL name `knowledge_strategy_fabric`).
- * AU3's Kernel/Strategy runtime retirement was supposed to rename it to the
- * app-owned vocabulary but only bolted on a JS alias export, leaving the real
- * `pgTable` declaration under the legacy name — which silently evaded
- * `table-ownership-guard.ts`'s AST scan (it only recognizes
- * `export const X = pgTable(...)`, not alias assignments). This increment
- * finishes the rename for real: `knowledgeAppProjection` is now the only
- * exported name, and the physical table is renamed via a non-destructive
- * `ALTER TABLE ... RENAME TO` migration (`drizzle/0050_*.sql`).
- */
-export const knowledgeAppProjection = pgTable(
-	"knowledge_app_projection",
-	{
-		id: text("id").primaryKey(),
-		knowledgeItemId: text("knowledge_item_id")
-			.notNull()
-			.unique()
-			.references(() => knowledgeItems.id, { onDelete: "cascade" }),
-		scopeId: text("scope_id"),
-		relevanceScore: text("relevance_score"),
-		confidence: text("confidence"),
-		citationCount: integer("citation_count"),
-		lastCitedAt: text("last_cited_at"),
-		meta: text("meta"),
-	},
-	(table) => [index("ksf_knowledge_item_id_idx").on(table.knowledgeItemId)],
 );
 
 // --- Notification queue (H2) ---
@@ -1114,7 +1016,7 @@ export const notificationQueue = pgTable(
 );
 
 // The `artifacts` table is DELETED (migration 0078). Produced content is a
-// knowledge item whose parent is the task or the conversation that produced it —
+// document whose parent is the task or the conversation that produced it —
 // the same row a human writes, with a body, a status, a version, a scope and an
 // edit history, none of which an artifact row had. The word survives as the name
 // for produced content; nothing stores one.
@@ -1340,7 +1242,7 @@ export const pluginContributions = pgTable(
 		index("plugin_contributions_entity_idx").on(table.kind, table.entityId),
 		check(
 			"plugin_contributions_kind_ck",
-			sql`${table.kind} IN ('agent', 'routine', 'knowledge', 'configuration_default')`,
+			sql`${table.kind} IN ('agent', 'routine', 'document', 'configuration_default')`,
 		),
 	],
 );
@@ -1464,7 +1366,7 @@ export type NewMessage = typeof messages.$inferInsert;
 
 // @lore BC3: `Item`/`NewItem` deleted with the `items` table.
 
-export type KnowledgeItem = typeof knowledgeItems.$inferSelect;
+export type DocumentRow = typeof documents.$inferSelect;
 
 export type NotificationQueueRow = typeof notificationQueue.$inferSelect;
 export type NewNotificationQueueRow = typeof notificationQueue.$inferInsert;

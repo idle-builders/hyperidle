@@ -4,8 +4,7 @@
 	"private": true,
 	"type": "module",
 	"exports": {
-		".": "./src/index.ts",
-		"./testing": "./src/__testing__/throwing-open-task.ts"
+		".": "./src/index.ts"
 	},
 	"scripts": {
 		"check": "tsc --noEmit",

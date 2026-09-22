@@ -10,17 +10,16 @@
  * - Bet overview grid: 960px
  * - Bet detail body: 800px
  * - Task detail body: 800px
- * - Knowledge list: 800px
- * - Knowledge detail body: 960px
+ * - Document list: 800px
+ * - Document detail body: 960px
  * - Settings body: 680px
  */
 
-import { expect, mockSearchThreads, test } from "./fixtures";
+import { expect, mockSearchDocuments, mockSearchThreads, test } from "./fixtures";
 
 const TEAMS_FIXTURE = {
 	teams: [{ id: "t1", name: "Alpha Core", phase: "build", active: true }],
 };
-const KNOWLEDGE_FIXTURE = { items: [] };
 
 test.describe("W3 AC-57 — Max-width centering across all screens", () => {
 	test("conversations thread list: content area ≤ 800px", async ({ page }) => {
@@ -64,14 +63,8 @@ test.describe("W3 AC-57 — Max-width centering across all screens", () => {
 		}
 	});
 
-	test("knowledge list: content area ≤ 800px", async ({ page }) => {
-		await page.route("**/api/knowledge*", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(KNOWLEDGE_FIXTURE),
-			});
-		});
+	test("document list: content area ≤ 800px", async ({ page }) => {
+		await mockSearchDocuments(page, { rows: [] });
 		await page.route("**/api/teams", async (route) => {
 			await route.fulfill({
 				status: 200,
@@ -80,11 +73,11 @@ test.describe("W3 AC-57 — Max-width centering across all screens", () => {
 			});
 		});
 
-		await page.goto("/knowledge");
-		await page.waitForSelector("[data-testid='knowledge-list-page']");
+		await page.goto("/documents");
+		await page.waitForSelector("[data-testid='document-list-page']");
 
-		// Knowledge list body container
-		const listBody = page.locator("[data-testid='knowledge-list-page'] > :first-child");
+		// Document list body container
+		const listBody = page.locator("[data-testid='document-list-page'] > :first-child");
 		const box = await listBody.boundingBox();
 		if (box) {
 			expect(box.width).toBeLessThanOrEqual(800);
@@ -170,14 +163,8 @@ test.describe("W3 — Empty states match mockups (critique CRITICAL-2)", () => {
 		await expect(emptyState).toBeVisible();
 	});
 
-	test("knowledge empty state visible when no items", async ({ page }) => {
-		await page.route("**/api/knowledge*", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ items: [] }),
-			});
-		});
+	test("document empty state visible when no items", async ({ page }) => {
+		await mockSearchDocuments(page, { rows: [] });
 		await page.route("**/api/teams", async (route) => {
 			await route.fulfill({
 				status: 200,
@@ -186,10 +173,10 @@ test.describe("W3 — Empty states match mockups (critique CRITICAL-2)", () => {
 			});
 		});
 
-		await page.goto("/knowledge");
-		await page.waitForSelector("[data-testid='knowledge-list-page']");
+		await page.goto("/documents");
+		await page.waitForSelector("[data-testid='document-list-page']");
 		// Empty state should render
-		const emptyState = page.getByTestId("knowledge-empty-state");
+		const emptyState = page.getByTestId("document-empty-state");
 		await expect(emptyState).toBeVisible();
 	});
 });

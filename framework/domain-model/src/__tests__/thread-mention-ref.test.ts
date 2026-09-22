@@ -42,7 +42,7 @@ describe("AE5 — MentionRef in InlineRef union", () => {
 
 	it("narrowing on kind === 'mention' gives MentionRef shape", () => {
 		const refs: InlineRef[] = [
-			{ kind: "knowledge_item", id: "k-1" },
+			{ kind: "document", id: "k-1" },
 			{ kind: "mention", identityId: "u-abc", displayName: "Alice", sourceText: "@Alice" },
 			{ kind: "task", id: "t-1" },
 		];
@@ -60,7 +60,7 @@ describe("AE5 — MentionRef in InlineRef union", () => {
 			{ kind: "task", id: "b-1" },
 			{ kind: "artifact", id: "a-1" },
 			{ kind: "message", id: "m-1" },
-			{ kind: "knowledge_item", id: "k-1" },
+			{ kind: "document", id: "k-1" },
 		];
 
 		for (const ref of refs) {

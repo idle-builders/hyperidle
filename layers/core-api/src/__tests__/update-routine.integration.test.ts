@@ -8,8 +8,7 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import { THROWING_OPEN_TASK } from "@hyperidle/agent-orchestration/testing";
-import { knowledgeItems, routines, tasks, teams, threads, users } from "@hyperidle/db";
+import { documents, routines, tasks, teams, threads, users } from "@hyperidle/db";
 import { and, eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { describe, expect } from "vitest";
@@ -17,7 +16,7 @@ import { test } from "../__testing__/test-fixtures.js";
 import { makeContext, NOW } from "./_helpers.js";
 
 function buildUpdateRoutineTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
-	return buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_OPEN_TASK).find(
+	return buildToolDefinitions(createInProcessCoreApiTransport(app)).find(
 		(t) => t.name === "update_routine",
 	)!;
 }
@@ -41,6 +40,17 @@ async function seedRoutine(db: Parameters<typeof makeContext>[0]): Promise<{
 		role: "builder",
 		status: "active",
 		teamId: teamId,
+		createdAt: NOW,
+	});
+	// `makeContext`'s default `agentId` ("agent-fac") becomes the actor override
+	// the in-process transport carries to `edit_document`'s `changes.actor` FK
+	// (the routine-prompt write path) — seed the real row, as `_helpers.ts`'s
+	// own `seedBase` does for its callers.
+	await db.insert(users).values({
+		id: "agent-fac",
+		name: "Facilitator",
+		role: "facilitator",
+		status: "active",
 		createdAt: NOW,
 	});
 	await db.insert(threads).values({
@@ -179,16 +189,16 @@ describe("update_routine tool", () => {
 		const [row] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
 		expect(row!.name).toBe("Updated Name");
 		expect(row!.state).toBe("paused");
-		// The prompt lives in a knowledge document parented to the routine now;
+		// The prompt lives in a document parented to the routine now;
 		// the tool writes through to it.
 		const [promptDoc] = await db
 			.select()
-			.from(knowledgeItems)
+			.from(documents)
 			.where(
 				and(
-					eq(knowledgeItems.parentKind, "routine"),
-					eq(knowledgeItems.parentId, routineId),
-					eq(knowledgeItems.role, "prompt"),
+					eq(documents.parentKind, "routine"),
+					eq(documents.parentId, routineId),
+					eq(documents.slot, "prompt"),
 				),
 			)
 			.limit(1);

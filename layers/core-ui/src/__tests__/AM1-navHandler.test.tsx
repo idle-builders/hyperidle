@@ -22,11 +22,11 @@ import type { OpenHandler, OpenTarget } from "../components/parts";
 import { createOpenHandler } from "../services/open-handler";
 
 describe("AM1 navHandler — OpenTarget → navigate (N1, AC8)", () => {
-	it("host + knowledge_item → navigate('/knowledge/:id')", () => {
+	it("host + document → navigate('/documents/:id')", () => {
 		const navigate = vi.fn();
 		const handler: OpenHandler = createOpenHandler(navigate);
-		handler({ route: "host", hostKind: "knowledge_item", hostId: "k-1" });
-		expect(navigate).toHaveBeenCalledWith("/knowledge/k-1");
+		handler({ route: "host", hostKind: "document", hostId: "k-1" });
+		expect(navigate).toHaveBeenCalledWith("/documents/k-1");
 	});
 
 	// @lore BB1: task host now navigates to /work/task/:hostId (was /work/bet/:betId)
@@ -43,7 +43,7 @@ describe("AM1 navHandler — OpenTarget → navigate (N1, AC8)", () => {
 		expect(navigate).toHaveBeenCalledWith("/work/task/task-3");
 	});
 
-	// @lore artifacts-become-knowledge: artifact route is a no-op — /artifacts/:id page deleted
+	// @lore artifacts-become-documents: artifact route is a no-op — /artifacts/:id page deleted
 
 	it("review → navigate('/reviews/:reviewId?threadId=...') (flattened, no betId needed)", () => {
 		const navigate = vi.fn();

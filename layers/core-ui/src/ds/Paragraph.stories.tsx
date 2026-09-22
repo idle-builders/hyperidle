@@ -11,7 +11,7 @@ export const Plain = (): JSX.Element => (
 			{
 				type: "text",
 				value:
-					"A paragraph of body text rendered on the Hearth content scale — the base unit of prose across artifacts, blocks and knowledge.",
+					"A paragraph of body text rendered on the Hearth content scale — the base unit of prose across artifacts, blocks and documents.",
 			},
 		]}
 	/>

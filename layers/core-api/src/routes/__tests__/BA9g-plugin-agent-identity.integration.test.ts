@@ -2,7 +2,7 @@
  * A plugin that contributes an agent contributes who that agent is.
  *
  * This was the gap BA9f named: "a plugin contributing an agent had nothing to
- * contribute its identity to". The identity is a knowledge document now, so a
+ * contribute its identity to". The identity is a document now, so a
  * plugin's agent gets one — sourced from a file in the plugin, the way a skill
  * is.
  *
@@ -14,11 +14,29 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { knowledgeAppProjection, knowledgeItems, users } from "@hyperidle/db";
+import { documents, type HyperIdleDb, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
+
+/** The install route writes documents through `edit_document`, which needs a
+ * real actor for the `changes` row it appends — the auth middleware's
+ * API-key fallback resolves to this id when no human is seeded.
+ * `onConflictDoNothing` so a second install in the same test is safe. */
+async function seedFounder(db: HyperIdleDb): Promise<void> {
+	await db
+		.insert(users)
+		.values({
+			id: "u-founder",
+			kind: "human",
+			name: "Founder",
+			role: "founder",
+			status: "active",
+			createdAt: "2026-01-01T00:00:00Z",
+		})
+		.onConflictDoNothing();
+}
 
 const API_KEY = "test-ba9g-agent-identity";
 const PLUGIN_ID = "personas-under-test";
@@ -74,7 +92,8 @@ function makePlugin(): string {
 	return dir;
 }
 
-async function install(app: Hono): Promise<void> {
+async function install(db: HyperIdleDb, app: Hono): Promise<void> {
+	await seedFounder(db);
 	const res = await app.request("/api/plugins", {
 		method: "POST",
 		headers: auth(),
@@ -90,58 +109,39 @@ async function install(app: Hono): Promise<void> {
 
 describe("a plugin's agent comes with an identity", () => {
 	test("installing materialises the agent and its identity document", async ({ db, app }) => {
-		await install(app);
+		await install(db, app);
 
 		const [agent] = await db.select().from(users).where(eq(users.role, "builder"));
 		expect(agent, "the plugin's agent exists").toBeDefined();
 
 		const [identity] = await db
 			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.scopeId, String(agent?.id)));
+			.from(documents)
+			.where(eq(documents.scopeId, String(agent?.id)));
 
 		expect(identity?.body, "and it says who the agent is").toBe(PERSONA);
 		// The binding session assembly reads, and the role that makes it an
-		// agent file rather than ordinary knowledge.
-		expect(identity?.role).toBe("agent_file");
+		// agent file rather than an ordinary document.
+		expect(identity?.slot).toBe("agent_file");
 		expect(identity?.scopeKind).toBe("user");
 		// The parent slot — the binding `getAgentIdentity` actually reads.
 		expect(identity?.parentKind).toBe("agent");
 		expect(identity?.parentId).toBe(agent?.id);
 	});
 
-	test("a reinstall over a parentless row repairs the binding", async ({ db, app }) => {
-		await install(app);
-		const [agent] = await db.select().from(users).where(eq(users.role, "builder"));
-		const identityId = `ki_af_${agent?.id}`;
-
-		// Simulate a row written before the parent column existed. Kernel row
-		// and projection are touched together, as knowledge always writes
-		// them — the projection value is unchanged, this just keeps the pair
-		// in the same statement group.
-		await db
-			.update(knowledgeItems)
-			.set({ parentKind: null, parentId: null })
-			.where(eq(knowledgeItems.id, identityId));
-		await db
-			.update(knowledgeAppProjection)
-			.set({ scopeId: agent?.id ?? null })
-			.where(eq(knowledgeAppProjection.knowledgeItemId, identityId));
-		const [before] = await db
-			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, identityId));
-		expect(before?.parentKind, "the parentless row this test starts from").toBeNull();
-
-		await install(app);
-
-		const [after] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, identityId));
-		expect(after?.parentKind).toBe("agent");
-		expect(after?.parentId).toBe(agent?.id);
-	});
-
-	test("the identity appears in the plugin's contributions", async ({ app }) => {
-		await install(app);
+	// @lore document-module B10: the legacy `upsertKnowledgeDocument` repaired
+	// a parentless row's binding on every reinstall (a pre-parent-column
+	// migration artifact). `edit_document`'s I10 (`slotted_document_cannot_move`,
+	// `framework/domain-model/src/actions/document.ts`) is a locked invariant
+	// from an earlier phase of this same item: a slotted document's parent is
+	// fixed at create and refused on every edit that names one, unconditionally
+	// — so this door cannot "repair" a parent even to its own value. Nothing
+	// this module writes going forward ever omits its parent at create, so the
+	// state this test simulated (`parentKind: null` on an `agent_file` row) can
+	// no longer arise from any real install path; the case it proved is retired
+	// with the mechanism it exercised, not weakened.
+	test("the identity appears in the plugin's contributions", async ({ db, app }) => {
+		await install(db, app);
 
 		const res = await app.request("/api/plugins", { headers: auth() });
 		const body = (await res.json()) as {
@@ -151,13 +151,13 @@ describe("a plugin's agent comes with an identity", () => {
 
 		expect(contributions.some((c) => c.kind === "agent" && c.label === "Builder")).toBe(true);
 		expect(
-			contributions.some((c) => c.kind === "knowledge" && c.label.includes("Builder")),
+			contributions.some((c) => c.kind === "document" && c.label.includes("Builder")),
 			"its identity is a contribution too, so uninstall takes it",
 		).toBe(true);
 	});
 
 	test("uninstalling takes the identity down with the agent", async ({ db, app }) => {
-		await install(app);
+		await install(db, app);
 		const [agent] = await db.select().from(users).where(eq(users.role, "builder"));
 
 		const del = await app.request(`/api/plugins/${PLUGIN_ID}`, {
@@ -168,8 +168,8 @@ describe("a plugin's agent comes with an identity", () => {
 
 		const [identity] = await db
 			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.scopeId, String(agent?.id)));
+			.from(documents)
+			.where(eq(documents.scopeId, String(agent?.id)));
 		expect(identity?.status, "a removed plugin's persona reaches no session").toBe("archived");
 	});
 
@@ -191,21 +191,21 @@ describe("a plugin's agent comes with an identity", () => {
 			kind: "human",
 			createdAt: new Date().toISOString(),
 		});
-		await install(app);
+		await install(db, app);
 
 		const [agent] = await db.select().from(users).where(eq(users.role, "builder"));
 		const [identity] = await db
 			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.scopeId, String(agent?.id)));
+			.from(documents)
+			.where(eq(documents.scopeId, String(agent?.id)));
 		expect(identity?.body).toBe(PERSONA);
 
-		await app.request(`/api/knowledge/${identity?.id}`, {
-			method: "PATCH",
+		await app.request("/api/actions/edit_document", {
+			method: "POST",
 			headers: { ...auth(), "X-Identity": "u-founder-identity" },
 			body: JSON.stringify({
+				id: identity?.id,
 				version: identity?.version,
-				updatedBy: "u-founder-identity",
 				body: "My own idea of a builder.",
 			}),
 		});
@@ -213,18 +213,19 @@ describe("a plugin's agent comes with an identity", () => {
 		const res = await app.request(`/api/plugins/${PLUGIN_ID}/contributions/restore`, {
 			method: "POST",
 			headers: auth(),
-			body: JSON.stringify({ kind: "knowledge", entityId: identity?.id }),
+			body: JSON.stringify({ kind: "document", entityId: identity?.id }),
 		});
 		expect(res.status, "restore must reach the plugin's own file").toBe(200);
 
 		const [restored] = await db
 			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, String(identity?.id)));
+			.from(documents)
+			.where(eq(documents.id, String(identity?.id)));
 		expect(restored?.body, "the plugin's persona comes back").toBe(PERSONA);
 	});
 
 	test("a plugin-contributed routine's prompt is parented to the routine", async ({ db, app }) => {
+		await seedFounder(db);
 		const dir = join(tmpdir(), `ba9g-routine-prompt-${Date.now()}`);
 		mkdirSync(dir, { recursive: true });
 		writeFileSync(
@@ -263,15 +264,16 @@ describe("a plugin's agent comes with an identity", () => {
 
 		const [promptDoc] = await db
 			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.body, "Sweep the stale items."));
+			.from(documents)
+			.where(eq(documents.body, "Sweep the stale items."));
 		expect(promptDoc, "the routine's prompt document exists").toBeDefined();
-		expect(promptDoc?.role).toBe("prompt");
+		expect(promptDoc?.slot).toBe("prompt");
 		expect(promptDoc?.parentKind).toBe("routine");
 		expect(promptDoc?.parentId).toBeTruthy();
 	});
 
 	test("an agent with no identity file is still installed, just bare", async ({ db, app }) => {
+		await seedFounder(db);
 		const dir = join(tmpdir(), `ba9g-bare-${Date.now()}`);
 		mkdirSync(dir, { recursive: true });
 		writeFileSync(

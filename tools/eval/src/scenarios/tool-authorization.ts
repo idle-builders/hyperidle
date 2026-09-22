@@ -1,18 +1,28 @@
 /**
  * X8: Tool authorization scenarios (interaction 19).
  *
- * Tests the tool authorization system: standard tool set and facilitator tool set.
+ * There is no tool authorization gate any more — founder ruling 2026-09-02
+ * deleted the layer-keyed/role-keyed capability split with nothing replacing
+ * it (write-memory.ts carries the same ruling in its own lore). Every role
+ * gets the same tool set: `search_documents`/`open_document`/`edit_document`,
+ * task/thread actions, and `write_session_notes`.
  *
- * @lore AU21 §6 Decision L3: `route_item` deleted outright as vestigial —
- * dropped from every facilitator-tool reference below (was a 4th
- * facilitator-only tool alongside promote_knowledge/create_conflict_review).
+ * What is still worth an eval: that a role a founder might expect to be
+ * gated (a PM triaging a proposed document to `active`) completes cleanly
+ * through the ordinary `edit_document` tool — no special "facilitator" tool
+ * exists to grant or withhold — and that an unrecognised role does not error
+ * out for lack of a matching capability set.
+ *
+ * @lore AU21 §6 Decision L3: `route_item` deleted outright as vestigial — was
+ * a 4th facilitator-only tool alongside the two document-governance tools
+ * that were deleted with it (promote_knowledge/create_conflict_review).
  */
 
-import { knowledgeItems, sessions } from "@hyperidle/db";
-import { eq, like } from "drizzle-orm";
+import { documents, sessions } from "@hyperidle/db";
+import { eq } from "drizzle-orm";
 import { judgeLlmQuality, judgeSessionCompleted, judgeSessionNotesWritten } from "../judges.js";
 import { runEvalSession } from "../provision-harness.js";
-import { seedKnowledge, seedMinimalWorld } from "../seeding.js";
+import { seedDocument, seedMinimalWorld } from "../seeding.js";
 import type {
 	DimensionScore,
 	EvalScenario,
@@ -37,9 +47,9 @@ const taStandardAgentBuilderSales: EvalScenario = {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent working on a sales operations task.
-You have access to the standard tool set: write_memory, write_session_notes, create_artifact,
-create_task, search_threads, open_thread, send_message, adjust_thread, search_tasks, open_task, edit_task.
-Complete your task using only these tools. Do not attempt to use promote_knowledge.`,
+You have access to: edit_document, write_session_notes, search_threads, open_thread, send_message,
+adjust_thread, search_tasks, open_task, edit_task.
+Complete your task using these tools.`,
 			taskTitle: "Analyze sales pipeline data and document findings",
 			taskDescription: `Analyze the Q3 sales pipeline conversion data and document your findings.
 
@@ -47,9 +57,9 @@ Your analysis should cover:
 1. Review the available context about sales metrics
 2. Identify the top 3 conversion bottlenecks
 3. Document your findings using write_session_notes
-4. Create an artifact (data_analysis kind) with your summary
+4. Produce a document (as:"artifact") with your summary
 
-Use only the standard builder tools. Do not attempt facilitator-only tools.`,
+Use the tools available to you.`,
 			betDescription: "Sales pipeline optimization",
 			betDoneCondition: "Pipeline analysis documented with actionable findings.",
 		});
@@ -77,18 +87,16 @@ Use only the standard builder tools. Do not attempt facilitator-only tools.`,
 				label: "Used Appropriate Standard Tools",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
 					// Check if session completed + notes written (which requires write_session_notes)
-					// Also check no facilitator-only DB side effects exist
-					const knowledgeEdits = await ctx.db
-						.select({ id: knowledgeItems.id })
-						.from(knowledgeItems)
-						.where(like(knowledgeItems.updatedBy, `agent:${ctx.seedResult.agentId}`));
+					const documentEdits = await ctx.db
+						.select({ id: documents.id })
+						.from(documents)
+						.where(eq(documents.updatedBy, ctx.seedResult.agentId));
 
-					// Facilitator-only tools that would leave these traces:
-					// promote_knowledge: updates knowledgeItems.status + knowledgeEditLog
-					// The builder completing task with write_session_notes/create_artifact is appropriate
+					// The builder completing the task with write_session_notes/edit_document is
+					// appropriate — there is no gated tool for a builder to have wrongly reached for.
 					return {
 						score: 1.0,
-						note: `${knowledgeEdits.length} knowledge items touched (expected 0 from builder)`,
+						note: `${documentEdits.length} document(s) touched by the builder`,
 					};
 				},
 			},
@@ -97,35 +105,32 @@ Use only the standard builder tools. Do not attempt facilitator-only tools.`,
 };
 
 // ---------------------------------------------------------------------------
-// ta-facilitator-workflow-pm-consulting
+// ta-triage-no-gate-pm-consulting
 // ---------------------------------------------------------------------------
 
-const taFacilitatorWorkflowPmConsulting: EvalScenario = {
-	id: "ta-facilitator-workflow-pm-consulting",
-	description: "PM uses facilitator-only tools (promote_knowledge) in workflow",
+const taTriageNoGatePmConsulting: EvalScenario = {
+	id: "ta-triage-no-gate-pm-consulting",
+	description: "PM triages a proposed document to active through the ordinary edit_document tool",
 	feature: "tool_authorization",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
 			agentRole: "product_manager",
-			agentSystemPrompt: `You are a product manager with facilitator-level access.
-In addition to standard tools, you have access to: promote_knowledge, create_conflict_review.
-Use your facilitator tools when appropriate for knowledge governance tasks.
-When reviewing knowledge, use promote_knowledge to move items through the pipeline.`,
-			taskTitle: "Review and promote consulting methodology knowledge",
-			taskDescription: `Review the consulting methodology knowledge and promote validated items.
+			agentSystemPrompt: `You are a product manager reviewing proposed documents.
+Use edit_document to move a validated proposed document to "active" status.`,
+			taskTitle: "Review and triage proposed consulting methodology documents",
+			taskDescription: `Review the proposed consulting methodology document and triage it.
 
-There is a proposed knowledge item about client engagement patterns.
-Use promote_knowledge to move it from "proposed" to "active" status.
-This moves the item through the knowledge promotion pipeline.
+There is a proposed document about client engagement patterns.
+Use edit_document to move it from "proposed" to "active" status.
 
-After promoting the item, document your curation decision in session notes.`,
-			betDescription: "Consulting knowledge governance",
-			betDoneCondition: "Knowledge items promoted and pipeline updated.",
+After triaging the document, record your curation decision in session notes.`,
+			betDescription: "Consulting document triage",
+			betDoneCondition: "Proposed document triaged to active.",
 		});
 
-		// Seed a knowledge item in "proposed" state for the PM to promote
-		await seedKnowledge(ctx.db, {
+		// Seed a document in "proposed" state for the PM to triage
+		await seedDocument(ctx.db, {
 			scopeKind: "factory",
 			title: "Client Engagement Patterns",
 			body: "Successful client engagements start with a discovery phase to align on outcomes before proposing solutions.",
@@ -153,26 +158,27 @@ After promoting the item, document your curation decision in session notes.`,
 		dimensions: [
 			judgeSessionCompleted(),
 			{
-				id: "facilitator_tools_used",
-				label: "Facilitator Tool Used (promote_knowledge)",
+				id: "document_triaged",
+				label: "Document Triaged to Active (edit_document, no gate needed)",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-					// Check for promote_knowledge side effects: knowledgeItems.status changed
-					const promotedItems = await ctx.db
-						.select({ status: knowledgeItems.status, updatedBy: knowledgeItems.updatedBy })
-						.from(knowledgeItems)
-						.where(eq(knowledgeItems.updatedBy, `agent:${ctx.seedResult.agentId}`));
+					// Check for the status change: no special tool exists to gate this — any
+					// role reaches it through the same edit_document every other role uses.
+					const editedItems = await ctx.db
+						.select({ status: documents.status, updatedBy: documents.updatedBy })
+						.from(documents)
+						.where(eq(documents.updatedBy, ctx.seedResult.agentId));
 
-					const promotionOccurred = promotedItems.some(
+					const triaged = editedItems.some(
 						(i: { status: string; updatedBy: string }) => i.status === "active",
 					);
 
-					if (promotionOccurred) {
-						return { score: 1.0, note: "promote_knowledge used (status changed)" };
+					if (triaged) {
+						return { score: 1.0, note: "edit_document used (status changed to active)" };
 					}
 
 					return {
 						score: 0.0,
-						note: "No facilitator-only tool usage detected (no knowledge promotion)",
+						note: "No status change detected (document was not triaged)",
 					};
 				},
 			},
@@ -276,6 +282,6 @@ Use the tools available to you. Complete the task without attempting facilitator
 
 export const toolAuthorizationScenarios: EvalScenario[] = [
 	taStandardAgentBuilderSales,
-	taFacilitatorWorkflowPmConsulting,
+	taTriageNoGatePmConsulting,
 	taUnknownRoleFallback,
 ];

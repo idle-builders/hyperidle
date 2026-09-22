@@ -16,14 +16,7 @@
 import * as os from "node:os";
 import * as path from "node:path";
 // @lore U1: `products` renamed to `teams`; `teamMembers` dissolved into `teams` (AU44 B1).
-import {
-	type HyperIdleDb,
-	knowledgeAppProjection,
-	knowledgeItems,
-	teams,
-	threads,
-	users,
-} from "@hyperidle/db";
+import { documents, type HyperIdleDb, teams, threads, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/harness-protocol";
 
@@ -126,7 +119,7 @@ export async function seedTeam(
 	return { id, teamMembersId: id };
 }
 
-export interface SeedKnowledgeItemOptions {
+export interface SeedDocumentOptions {
 	readonly id?: string;
 	readonly scopeKind?: string;
 	readonly scopeId?: string | null;
@@ -138,26 +131,24 @@ export interface SeedKnowledgeItemOptions {
 	readonly updatedBy?: string;
 	readonly createdAt?: string;
 	readonly updatedAt?: string;
-	readonly projectionId?: string;
 	readonly confidence?: string | null;
 	readonly meta?: string | null;
 }
 
 /**
- * Seed a `knowledgeItems` row with its `knowledgeAppProjection` companion — mirrors the owner's
- * writer, `create` (`layers/core-api/knowledge/src/knowledge-repository.ts:254-301`), which always
- * inserts both rows together. Projection fields pass through when given; everything else the owner
- * would compute from a full write (edit log, event emission) is out of scope for a fixture.
+ * Seed a `documents` row — mirrors the owner's writer, `create`
+ * (`layers/core-api/knowledge/src/knowledge-repository.ts:254-301`). `confidence`/`meta` are columns
+ * on `documents` itself (migration 0086 folded the projection in); everything else the owner would
+ * compute from a full write (change log, event emission) is out of scope for a fixture.
  */
-export async function seedKnowledgeItem(
+export async function seedDocument(
 	db: HyperIdleDb,
-	options: SeedKnowledgeItemOptions = {},
-): Promise<{ id: string; projectionId: string }> {
+	options: SeedDocumentOptions = {},
+): Promise<{ id: string }> {
 	const id = options.id ?? "ki-1";
 	const createdAt = options.createdAt ?? NOW;
 	const updatedAt = options.updatedAt ?? createdAt;
-	const projectionId = options.projectionId ?? `${id}-projection`;
-	await db.insert(knowledgeItems).values({
+	await db.insert(documents).values({
 		id,
 		scopeKind: options.scopeKind ?? "factory",
 		scopeId: options.scopeId ?? null,
@@ -166,16 +157,11 @@ export async function seedKnowledgeItem(
 		format: options.format ?? "markdown",
 		status: options.status ?? "proposed",
 		version: options.version ?? 1,
+		confidence: options.confidence ?? null,
+		meta: options.meta ?? null,
 		updatedBy: options.updatedBy ?? "agent-fac",
 		createdAt,
 		updatedAt,
 	});
-	await db.insert(knowledgeAppProjection).values({
-		id: projectionId,
-		knowledgeItemId: id,
-		scopeId: options.scopeId ?? null,
-		confidence: options.confidence ?? null,
-		meta: options.meta ?? null,
-	});
-	return { id, projectionId };
+	return { id };
 }

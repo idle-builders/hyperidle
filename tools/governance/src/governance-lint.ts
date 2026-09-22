@@ -37,7 +37,6 @@ import {
 	buildLiveCensus,
 	CROSSING_KINDS,
 	loadArchitecture,
-	loadMisplacedFiles,
 	loadTableOwners,
 	presentToolingFiles,
 	readRepoFile,
@@ -63,7 +62,6 @@ import { dbSymbolsAllPlaced } from "./rules/db-symbols-all-placed.js";
 import { deepImportsDieWithTheirEntries } from "./rules/deep-imports-die-with-their-entries.js";
 import { frameworkSurfacesDeclared } from "./rules/framework-surfaces-declared.js";
 import { layerExportsResolveInsideTheLayer } from "./rules/layer-exports-resolve-inside-the-layer.js";
-import { misplacementLedger } from "./rules/misplacement-ledger.js";
 import { noLaunderedReExports } from "./rules/no-laundered-re-exports.js";
 import { noPerFileAllowances } from "./rules/no-per-file-allowances.js";
 import { noProductionImportsDevelopment } from "./rules/no-production-imports-development.js";
@@ -109,7 +107,6 @@ function buildRules(
 		noProductionImportsDevelopment,
 		registriesHonest(architecture, loadTableOwners(), detected.db.tables),
 		frameworkSurfacesDeclared(architecture),
-		misplacementLedger(loadMisplacedFiles()),
 		noStaleBuildArtifacts(presentToolingFiles()),
 		noLaunderedReExports({
 			architecture,
@@ -223,7 +220,6 @@ function runLive(errorsOnly: boolean): number {
 		noProductionImportsDevelopment,
 		registriesHonest(architecture, loadTableOwners(), detected.db.tables),
 		frameworkSurfacesDeclared(architecture),
-		misplacementLedger(loadMisplacedFiles()),
 		noStaleBuildArtifacts(presentToolingFiles()),
 		noLaunderedReExports({
 			architecture,

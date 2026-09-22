@@ -49,9 +49,9 @@ import type {
 	BakedAgentRunnableConfig,
 	BakedContextBundle,
 	RoutineTriggerEvent,
-	SessionKnowledgeItemLike,
+	SessionDocumentLike,
 } from "@hyperidle/domain-model";
-import { bakeAgentRunnableConfig, toBakedContextKnowledgeItems } from "@hyperidle/domain-model";
+import { bakeAgentRunnableConfig, toBakedContextDocuments } from "@hyperidle/domain-model";
 import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
 import { nextCronMatch, parseCron } from "./cron.js";
 
@@ -359,11 +359,11 @@ export interface BakedRoutineRunRequest {
 	};
 	/**
 	 * AU21 §9 Increment 12 (Decision H3) — the routine/agent/team content +
-	 * ranked knowledge a `routine_run` session's sandbox needs, baked at emit
+	 * ranked documents a `routine_run` session's sandbox needs, baked at emit
 	 * time from the SAME `routine` this resolver already loaded to validate.
-	 * Present only when `deps.getTeamById`/`deps.assembleSessionKnowledge` were
+	 * Present only when `deps.getTeamById`/`deps.assembleSessionDocuments` were
 	 * supplied (see `RoutineRunResolverDeps` `@lore` below) — a genuine
-	 * capability ADD (routine sessions get zero ranked knowledge today, see
+	 * capability ADD (routine sessions get zero ranked documents today, see
 	 * this file's Wave B test `@lore`), not a preserve-behavior migration.
 	 */
 	readonly contextBundle?: BakedContextBundle;
@@ -399,8 +399,8 @@ export interface RoutineRunResolverDeps {
 	requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<User>;
 	/**
 	 * The agent's identity document body, baked onto the request so the
-	 * provisioner never reads `knowledge_items` — that table belongs to the
-	 * knowledge service. Injected (Mechanism C), absent where nothing bakes.
+	 * provisioner never reads `documents` — that table belongs to the
+	 * document service. Injected (Mechanism C), absent where nothing bakes.
 	 */
 	/**
 	 * The agent's identity document, baked onto the request.
@@ -411,9 +411,9 @@ export interface RoutineRunResolverDeps {
 	 */
 	getAgentIdentity(db: HyperIdleDb, agentId: string): Promise<string | null>;
 	/**
-	 * The routine's instruction, read from the knowledge document parented to
-	 * it. Injected (Mechanism C) because `knowledge_items` belongs to the
-	 * knowledge service — this package depends only on `@hyperidle/db` and
+	 * The routine's instruction, read from the document parented to
+	 * it. Injected (Mechanism C) because `documents` belongs to the
+	 * document service — this package depends only on `@hyperidle/db` and
 	 * framework packages.
 	 *
 	 * Required, not optional — the same reasoning as `getAgentIdentity` above:
@@ -433,20 +433,20 @@ export interface RoutineRunResolverDeps {
 	 */
 	getTeamById?(db: HyperIdleDb, id: string): Promise<Team | undefined>;
 	/**
-	 * AU21 §9 Increment 12 (Decision H3) — optional: `@hyperidle/knowledge`'s
-	 * `assembleSessionKnowledge` (Wave A), injected for the same Mechanism C
+	 * AU21 §9 Increment 12 (Decision H3) — optional: `@hyperidle/document`'s
+	 * `assembleSessionDocuments` (Wave A), injected for the same Mechanism C
 	 * reason as `getTeamById` above.
 	 */
-	assembleSessionKnowledge?(
+	assembleSessionDocuments?(
 		db: HyperIdleDb,
 		input: {
-			/** Absent for a team-less agent — see `assembleSessionKnowledge`'s own note. */
+			/** Absent for a team-less agent — see `assembleSessionDocuments`'s own note. */
 			readonly teamId?: string;
 			readonly agentRole: string;
 			readonly taskDescription: string;
 			readonly agentId: string;
 		},
-	): Promise<readonly SessionKnowledgeItemLike[]>;
+	): Promise<readonly SessionDocumentLike[]>;
 	/**
 	 * AU21 §9 Increment 12 (Decision H3), Wave E — optional:
 	 * `@hyperidle/settings`'s `readServerConfig`, injected (Mechanism C —
@@ -526,13 +526,13 @@ export async function resolveRoutineRunRequest(
 	const teamId = agent.teamId ?? undefined;
 	const userId = agent.ownerUserId ?? undefined;
 
-	// BA1 D4: the bundle is always baked when `assembleSessionKnowledge` is
+	// BA1 D4: the bundle is always baked when `assembleSessionDocuments` is
 	// available. `getTeamById` stays optional Mechanism-C plumbing, driven by
 	// the AGENT's team rather than a `routines.team_id` column that no longer
 	// exists.
 	//
 	// A team-less owner used to be handed `knowledge: []` outright, on the
-	// reasoning that assembling knowledge needs a team. That stopped being true
+	// reasoning that assembling documents needs a team. That stopped being true
 	// when capability items (skill/rule/agent_file) arrived: they are scoped
 	// factory / team / agent, and the factory- and agent-scoped ones need no
 	// team at all. An agent with no team is an ordinary agent — `agentCategory:
@@ -542,25 +542,25 @@ export async function resolveRoutineRunRequest(
 	// Proven on the packaged app by the case that exposed it: an individual
 	// agent ran with an empty sandbox, no `.claude/skills` written, while
 	// factory-scoped skills sat in the database.
-	// Both the instruction and the agent's identity are knowledge documents;
+	// Both the instruction and the agent's identity are documents;
 	// they reach this resolver through injected ports.
 	const agentPersona = await deps.getAgentIdentity(db, agent.id);
-	// The instruction is the knowledge document parented to this routine; read
+	// The instruction is the document parented to this routine; read
 	// it through the injected port.
 	const routinePrompt = await deps.getRoutinePrompt(db, routine.id);
 
 	let contextBundle: BakedContextBundle | undefined;
-	const { getTeamById, assembleSessionKnowledge } = deps;
-	if (assembleSessionKnowledge) {
+	const { getTeamById, assembleSessionDocuments } = deps;
+	if (assembleSessionDocuments) {
 		let team: { readonly id: string; readonly name: string } | null = null;
 		if (teamId && getTeamById) {
 			const teamRow = await getTeamById(db, teamId);
 			if (teamRow) team = { id: teamRow.id, name: teamRow.name };
 		}
-		const knowledge = await assembleSessionKnowledge(db, {
+		const knowledge = await assembleSessionDocuments(db, {
 			...(team ? { teamId: team.id } : {}),
 			agentRole: agent.role,
-			// BA1 D3: the scorer ranks knowledge against the instruction the run
+			// BA1 D3: the scorer ranks documents against the instruction the run
 			// will actually execute, not a description of the routine.
 			taskDescription: routinePrompt ?? routine.name,
 			agentId: agent.id,
@@ -575,7 +575,7 @@ export async function resolveRoutineRunRequest(
 			},
 			agent: { id: agent.id, name: agent.name, role: agent.role },
 			team,
-			knowledge: toBakedContextKnowledgeItems(knowledge),
+			documents: toBakedContextDocuments(knowledge),
 			// BA9c: thread through the pre-assembled triggerEvent; absent for clock-fired runs.
 			...(deps.triggerEvent !== undefined ? { triggerEvent: deps.triggerEvent } : {}),
 		};

@@ -15,6 +15,13 @@
  * owns, never re-exported by name.
  */
 
+// architecture.md §8.3: `fireRoutine` now takes a
+// `search_documents` runner (never `@hyperidle/document` itself) — this is
+// the same standalone composition `service-bootstrap.ts`'s own scheduler
+// wiring uses, exposed so `tools/eval`'s scenarios (the direct `fireRoutine`
+// callers outside any request that already has a runner in scope) build the
+// SAME thing rather than a second implementation.
+export { createStandaloneSearchDocuments } from "./actions/compose.js";
 // AU29 §2.5.2: the first-boot core-state face — the composition roots (desktop,
 // tools/setup) call this instead of a database package writing service-owned tables.
 export { applyFactoryCoreState } from "./bootstrap/factory-state.js";

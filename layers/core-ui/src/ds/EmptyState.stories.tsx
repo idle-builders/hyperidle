@@ -5,7 +5,7 @@ export default {
 	tier: "utility" as const,
 	order: [
 		"ConversationsEmpty",
-		"KnowledgeEmpty",
+		"DocumentEmpty",
 		"TriageClear",
 		"PortfolioEmpty",
 		"WithActionSlot",
@@ -81,7 +81,7 @@ export const ConversationsEmpty = (): React.JSX.Element => (
 	/>
 );
 
-export const KnowledgeEmpty = (): React.JSX.Element => (
+export const DocumentEmpty = (): React.JSX.Element => (
 	<EmptyState
 		icon={
 			<svg
@@ -99,8 +99,8 @@ export const KnowledgeEmpty = (): React.JSX.Element => (
 				<path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
 			</svg>
 		}
-		title="Your knowledge base is empty"
-		description="Knowledge items capture patterns, decisions, and lessons learned. Agents will populate this as they work."
+		title="Your document library is empty"
+		description="Documents capture patterns, decisions, and lessons learned. Agents will populate this as they work."
 		action={
 			<button
 				type="button"

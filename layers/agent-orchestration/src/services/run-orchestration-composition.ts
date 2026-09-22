@@ -22,10 +22,16 @@
  * execution adapters bundle as `harnessRuntime`.
  */
 
-import { randomUUID } from "node:crypto";
 import type { CoreApiTransport } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { summarizeToolArgs } from "@hyperidle/diagnostics";
+import type {
+	ActionResult,
+	DocumentRow,
+	DocumentView,
+	EditDocumentInput,
+	SearchDocumentsInput,
+} from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
 import type { RegisteredTool, ToolContext, ToolRegistry } from "@hyperidle/harness-protocol";
 import {
@@ -52,8 +58,8 @@ import {
 	transitionSessionRequest,
 } from "@hyperidle/session-requests";
 import { buildToolRegistry as buildToolRegistryFromDefinitions } from "@hyperidle/tool-handlers";
-import { buildCoreApiPort, unconfiguredCoreApiTransport } from "./core-api-port-composition.js";
-import { buildToolDefinitions, type ToolHandlersOpenTask } from "./tool-handlers-bindings.js";
+import { unconfiguredCoreApiTransport } from "./core-api-port-composition.js";
+import { buildToolDefinitions } from "./tool-handlers-bindings.js";
 
 // AU21 §9 Increment 12 follow-up part 2 (F2 gap closure): this composition
 // root's own `seamPortForActor` helper (a fresh in-process `CoreApiPort` per
@@ -215,125 +221,54 @@ function widenToToolContext(ctx: SessionLifecycleToolContext): ToolContext<Hyper
 }
 
 /**
- * AU31 §2.7 — the writeback processor's `knowledge` port, rebuilt over the
- * `CoreApiPort` seam instead of the Application injecting
- * `@hyperidle/knowledge` functions directly (`create-server.ts:545-562`
- * before this leaf) — an application → service crossing that hosting could
- * not legalize. `db` is accepted and ignored on every method (same idiom as
- * the seam's server side reads/writes
- * through its OWN `db`, not this argument, which exists only so the object
- * satisfies the writeback processor's pre-existing pooled-handle-shaped port.
+ * The locked shape `CoreApiBoot.editDocument`/`searchDocuments` expose
+ * (architecture.md §8.4), threaded through this composition exactly like
+ * `actionTools`. Typed only through `@hyperidle/domain-model` — this Layer
+ * may not import `core-api`.
  */
-function buildKnowledgeWritebackPort(transport: CoreApiTransport): {
-	create(
-		_db: HyperIdleDb,
-		input: {
-			readonly title: string;
-			readonly body: string;
-			readonly format: string;
-			/**
-			 * @lore rebase-onto-#547: a parallel strand found the route never
-			 * accepted `captured` (its whole life) and fixed this forward to
-			 * `draft`. `draft` doesn't exist any more — this WP's status collapse
-			 * replaces the whole draft/captured/provisional ladder with one
-			 * starting state, `proposed` (see `KNOWLEDGE_STATUSES`).
-			 */
-			readonly status: "proposed";
-			readonly updatedBy: string;
-			readonly scopeKind?: string;
-			/** Where the produced item hangs — the session's task, or the conversation it is answering in — when no wrapping directory places it instead. */
-			readonly parent?: { readonly kind: "task" | "thread"; readonly id: string };
-			readonly parentKind?: "knowledge_item";
-			readonly parentId?: string;
-		},
-	): Promise<{ readonly id: string; readonly version: number; readonly format: string }>;
-	update(
-		_db: HyperIdleDb,
-		id: string,
-		patch: { readonly body: string; readonly updatedBy: string },
-		expectedVersion: number,
-	): Promise<
-		| {
-				readonly ok: true;
-				readonly item: { readonly id: string; readonly version: number; readonly format: string };
-		  }
-		| { readonly ok: false; readonly currentVersion: number }
-	>;
-	recordConflict(
-		_db: HyperIdleDb,
-		input: {
-			readonly itemId: string;
-			readonly versionBase: number;
-			readonly versionCurrent: number;
-			readonly proposedBody: string;
-			readonly proposedBy: string;
-		},
-	): Promise<void>;
-	/**
-	 * @lore nested-knowledge-items: replaces the writeback processor's own
-	 * direct `knowledge_items`/`knowledge_edit_log` reads/writes for the
-	 * move case — `PATCH /knowledge/:id`'s existing `parentKind`/`parentId`
-	 * fields, which already route through `reparent()` (tree invariants +
-	 * its own `field='parent'` edit-log entry).
-	 *
-	 * @lore nested-knowledge-items defect 2: `parentKind`/`parentId` both
-	 * null together detaches the item to the top level (a move to sit
-	 * directly under `knowledge/`, no wrapping directory).
-	 */
-	reparentKnowledgeItem(
-		_db: HyperIdleDb,
-		id: string,
-		input: {
-			readonly parentKind: "knowledge_item" | null;
-			readonly parentId: string | null;
-			readonly updatedBy: string;
-		},
-	): Promise<void>;
+type RunOrchestrationEditDocument = (
+	caller: {
+		readonly actor: string;
+		readonly sessionId: string;
+		readonly taskId: string | null;
+		readonly threadId: string | null;
+	},
+	input: EditDocumentInput,
+) => Promise<ActionResult<DocumentView>>;
+type RunOrchestrationSearchDocuments = (
+	caller: { readonly actor: string },
+	input: SearchDocumentsInput,
+) => Promise<ActionResult<readonly DocumentRow[]>>;
+
+/**
+ * @lore document-module B15: `buildKnowledgeWritebackPort` (rebuilt over the
+ * `CoreApiPort` seam's now-deleted `knowledge` family) is DELETED. The
+ * writeback's document port is no longer built here at all — it is bound
+ * directly from core's composed `edit_document`/`search_documents` VALUES
+ * (`CoreApiBoot.editDocument`/`searchDocuments`, threaded through exactly
+ * like `actionTools` already is, architecture.md §8.4), not a second HTTP
+ * hop through the seam. `buildDocumentWritebackPort` below just adapts the
+ * two locked-shape functions onto the writeback processor's own port
+ * interface — `db` is accepted and ignored on every method, same idiom as
+ * `buildKnowledgeWritebackPort` used to give it, kept only so the object
+ * satisfies the writeback's pre-existing pooled-handle-shaped port.
+ */
+function buildDocumentWritebackPort(
+	editDocument: RunOrchestrationEditDocument,
+	searchDocuments: RunOrchestrationSearchDocuments,
+): {
+	editDocument(
+		caller: Parameters<RunOrchestrationEditDocument>[0],
+		input: Parameters<RunOrchestrationEditDocument>[1],
+	): ReturnType<RunOrchestrationEditDocument>;
+	searchDocuments(
+		caller: Parameters<RunOrchestrationSearchDocuments>[0],
+		input: Parameters<RunOrchestrationSearchDocuments>[1],
+	): ReturnType<RunOrchestrationSearchDocuments>;
 } {
-	const port = buildCoreApiPort(transport);
 	return {
-		async create(_db, input) {
-			const created = await port.knowledge.create({
-				title: input.title,
-				body: input.body,
-				format: input.format,
-				status: input.status,
-				updatedBy: input.updatedBy,
-				scopeKind: input.scopeKind,
-				...(input.parentKind
-					? { parentKind: input.parentKind, parentId: input.parentId }
-					: input.parent
-						? { parentKind: input.parent.kind, parentId: input.parent.id }
-						: {}),
-			});
-			return { id: created.id, version: created.version, format: input.format };
-		},
-		async update(_db, id, patch, expectedVersion) {
-			return port.knowledge.updateKnowledgeItemContent(id, {
-				body: patch.body,
-				updatedBy: patch.updatedBy,
-				expectedVersion,
-			});
-		},
-		async recordConflict(_db, input) {
-			await port.knowledge.createKnowledgeConflict({
-				id: randomUUID(),
-				itemId: input.itemId,
-				versionBase: input.versionBase,
-				versionCurrent: input.versionCurrent,
-				proposedBody: input.proposedBody,
-				proposedMeta: null,
-				proposedBy: input.proposedBy,
-				createdAt: new Date().toISOString(),
-			});
-		},
-		async reparentKnowledgeItem(_db, id, input) {
-			await port.knowledge.reparentKnowledgeItem(id, {
-				parentKind: input.parentKind,
-				parentId: input.parentId,
-				updatedBy: input.updatedBy,
-			});
-		},
+		editDocument: (caller, input) => editDocument(caller, input),
+		searchDocuments: (caller, input) => searchDocuments(caller, input),
 	};
 }
 
@@ -343,36 +278,12 @@ function buildKnowledgeWritebackPort(transport: CoreApiTransport): {
 // `recordReviewSession` from the intake route); core calls it directly
 // rather than a tool dialling back into agent-orchestration.
 
-/**
- * For call sites that only enumerate tool names. Any handler that reaches it
- * is a wiring mistake, and it says so rather than silently doing nothing.
- */
-function unusableOpenTask(): ToolHandlersOpenTask {
-	return () => {
-		throw new Error(
-			"tool-handlers openTask accessor: reached from a name-only tool listing; build the registry through buildToolRegistry instead",
-		);
-	};
-}
-
-/**
- * §8 B1 — `open_task`, bound directly to the composed action's own
- * `run`, called in-process as `actorId` (never a second HTTP hop). `db`/
- * `eventBus` come from the real per-session `ToolContext` a registry build
- * always has in hand.
- */
-function buildOpenTaskBinding(
-	actionTools: readonly RegisteredTool<HyperIdleDb>[],
-	toolCtx: ToolContext<HyperIdleDb>,
-): ToolHandlersOpenTask {
-	const openTaskTool = actionTools.find((t) => t.name === "open_task");
-	return async (id, actorId) => {
-		if (!openTaskTool) return undefined;
-		const result = await openTaskTool.handler({ id }, { ...toolCtx, agentId: actorId });
-		if (!result.success) return undefined;
-		return result.data as { task: { parentTaskId: string | null; teamId: string } };
-	};
-}
+// There is no `unusableOpenTask`/`buildOpenTaskBinding` — §8 B1's `open_task`
+// binding existed only for `ToolHandlersCoreApiAccessor.openTask`, bound to
+// the composed `open_task` action's own `run` for `write_memory`/
+// `submit_review`/`create_artifact`'s task read. All three are deleted with
+// the document tools, so `buildToolDefinitions` no longer takes an
+// `openTask` argument at all.
 
 function buildToolProvider(
 	coreApiTransport: CoreApiTransport,
@@ -382,10 +293,7 @@ function buildToolProvider(
 	return {
 		buildToolRegistry(ctx, options) {
 			const toolCtx = widenToToolContext(ctx);
-			const definitions = buildToolDefinitions(
-				coreApiTransport,
-				buildOpenTaskBinding(actionTools, toolCtx),
-			);
+			const definitions = buildToolDefinitions(coreApiTransport);
 			return buildToolRegistryFromDefinitions([...actionTools, ...definitions], toolCtx, {
 				role: options.role,
 				extraTools: options.extraTools as ToolRegistryOptions["extraTools"],
@@ -393,9 +301,8 @@ function buildToolProvider(
 			});
 		},
 		toolsForRole(role) {
-			// Names and roles only — no handler runs, so the openTask accessor
-			// here is one that refuses rather than quietly does nothing.
-			return [...actionTools, ...buildToolDefinitions(coreApiTransport, unusableOpenTask())].filter(
+			// Names and roles only — no handler runs.
+			return [...actionTools, ...buildToolDefinitions(coreApiTransport)].filter(
 				(d) => d.roles === undefined || d.roles.includes(role),
 			);
 		},
@@ -557,6 +464,17 @@ export function buildRunOrchestrationComposition(config: {
 	 * through. Absent → no action tools registered (a bare-app test fixture).
 	 */
 	readonly actionTools?: readonly RegisteredTool<HyperIdleDb>[];
+	/**
+	 * §8.4 — core's composed `edit_document`/`search_documents` actions,
+	 * threaded through exactly like `actionTools` above (`CoreApiBoot.
+	 * editDocument`/`searchDocuments`) — the writeback processor's own
+	 * document port is bound straight to these VALUES, never a second HTTP
+	 * hop through the seam. Absent together → no writeback document port (a
+	 * bare-app test fixture / `tools/eval`'s standalone use), matching the
+	 * "no writeback" no-op every other absent-provisioning-read already gives.
+	 */
+	readonly editDocument?: RunOrchestrationEditDocument;
+	readonly searchDocuments?: RunOrchestrationSearchDocuments;
 }): RunOrchestrationComposition {
 	const sessionLifecyclePorts = buildSessionLifecyclePorts(
 		config.harnessRuntime,
@@ -565,15 +483,16 @@ export function buildRunOrchestrationComposition(config: {
 		config.actionTools ?? [],
 	);
 
-	// AU31 §2.7: the writeback processor's `knowledge` port, seam-backed by
-	// default — no Application supplies it any more (`create-server.ts`'s
-	// direct `@hyperidle/knowledge` wiring is deleted). Absent only when this
-	// composition itself has no `coreApiTransport` (a bare-app test fixture /
-	// `tools/eval`'s standalone use), matching the "no writeback" no-op every
-	// other absent-provisioning-read already gives.
-	const defaultKnowledgeWritebackPort = config.coreApiTransport
-		? buildKnowledgeWritebackPort(config.coreApiTransport)
-		: undefined;
+	// §8.4: the writeback processor's document port, bound directly to core's
+	// composed actions — no Application supplies a `knowledge` port any more
+	// (that whole seam family is deleted). Absent only when this composition
+	// itself has neither value (a bare-app test fixture / `tools/eval`'s
+	// standalone use), matching the "no writeback" no-op every other
+	// absent-provisioning-read already gives.
+	const defaultDocumentWritebackPort =
+		config.editDocument && config.searchDocuments
+			? buildDocumentWritebackPort(config.editDocument, config.searchDocuments)
+			: undefined;
 
 	function runtimeDeps(
 		db: HyperIdleDb,
@@ -597,8 +516,8 @@ export function buildRunOrchestrationComposition(config: {
 			composition: {
 				context: contextPorts,
 				provisioner: sessionLifecyclePorts,
-				...(defaultKnowledgeWritebackPort
-					? { writeback: { db, knowledge: defaultKnowledgeWritebackPort } }
+				...(defaultDocumentWritebackPort
+					? { writeback: { db, document: defaultDocumentWritebackPort } }
 					: {}),
 				...rest.composition,
 			},

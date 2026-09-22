@@ -29,7 +29,7 @@ Knowledge in a healthy flat company doesn't flow one way. The founders set direc
 
 ### 2.1 Top-down: vision and focus, not assignments
 
-- **`PRINCIPLES` and `FOCUS`** — canonical `factory`-scoped knowledge items. Context assembly fetches every `factory`-scoped item from `knowledge_items` and writes them into the session sandbox. (There is no git export — see [facilitators](../knowledge-architecture/facilitators.md).) Edited by humans through the assistant thread and approved through Conversations.
+- **`PRINCIPLES` and `FOCUS`** — canonical `factory`-scoped documents. Context assembly fetches every `factory`-scoped document and writes them into the session sandbox. (There is no git export.) Edited by humans through the assistant thread and approved through Conversations.
 - **The assistant conversation** — the persistent thread where founders shape direction in dialogue with the assistant; the assistant distills it into proposed updates that loop back through Conversations for approval.
 - **Creating a root task in the Work view** — a direct top-down signal: "this is what we're doing next."
 
@@ -37,8 +37,8 @@ Top-down means direction, never task assignment. Tasks emerge from the team.
 
 ### 2.2 Bottom-up: learnings, data, surfaced insights
 
-- **Practice knowledge** is the primary channel: agents capture observations into their practice's own folder in the tree; facilitators surface the highest-attention items via the Knowledge view. See [../knowledge-architecture/facilitators.md](../knowledge-architecture/facilitators.md).
-- **Task retros** record what was learned and create a knowledge item. The retro is a **plugin skill** (`plugins/knowledge-management/skills/post-task-retro/`), not core machinery — it fires when a task reaches `done`. See [routines-and-retros.md](routines-and-retros.md).
+- **Team knowledge** is the primary channel: agents capture observations directly into the tree with `edit_document`; the document-management plugin's librarian agent triages and decays it on a schedule. See [the-knowledge-fabric-how-knowledge-moves.md](../knowledge-architecture/the-knowledge-fabric-how-knowledge-moves.md).
+- **Task retros** record what was learned and create a document. The retro is a **plugin skill** (`plugins/document-management/skills/post-task-retro/`), not core machinery — it fires when a task reaches `done`. See [routines-and-retros.md](routines-and-retros.md).
 - **Agent-initiated chat** — any agent that notices something the founders should know can post a thread directly. See [../human-interface-layer/thread-primitive.md](../human-interface-layer/thread-primitive.md).
 - **Revising the goal** — when the team learns a task's premise is wrong, it edits the goal directly; the audit trail carries the change and its reasoning.
 
@@ -50,7 +50,7 @@ A root task starts as a top-down commitment and evolves as the team learns; the 
 
 ## 3. The four primitives
 
-**Artifacts are not a primitive.** An artifact is a knowledge item carrying a parent that says what produced it — a task, or a conversation. There is no artifacts table and no separate content model. A task is no longer the *unique* producer either: an agent answering in a conversation produces a thread-parented item, and a human does the same through "+". See [artifact-primitive.md](artifact-primitive.md).
+**Artifacts are not a primitive.** An artifact is a document carrying a parent that says what produced it — a task, or a conversation. There is no artifacts table and no separate content model. A task is no longer the *unique* producer either: an agent answering in a conversation produces a thread-parented document, and a human does the same through "+". See [artifact-primitive.md](artifact-primitive.md).
 
 All shapes below reflect `framework/db/src/schema.ts` — the schema file is authoritative; this doc names the load-bearing fields and their semantics.
 
@@ -73,7 +73,7 @@ Shipped shape:
 - `tokensActualJson` — this task's OWN accumulated TokenUsage. A subtree total is summed at read time; no ancestor carries a rollup column, so there is none to drift.
 - `needsReview` — does finishing this task need a human verdict? Default `false`: work closes straight to `done`. See [tasks-and-sessions §1.1](tasks-and-sessions.md).
 - `position` — display order among siblings, assigned on create (append) and on reparent, settable by a person or an agent. Deliberately NOT derived from `dependencies`: that says what must FINISH first, this says what to SHOW first, and two siblings with no dependency between them still need an order.
-- `sourceKnowledgeItemId` (AK5 promote-from-knowledge), `createdAt`, `updatedAt`, `completedAt` — timestamps are informational; duration is never a budget
+- `sourceDocumentId` (promote-from-document), `createdAt`, `updatedAt`, `completedAt` — timestamps are informational; duration is never a budget
 
 **Cycles are rejected at write time** (`assertNoCycle`), not merely constrained by the database: a
 recursive read that meets a cycle does not error, it spins. The recursive reads additionally carry a

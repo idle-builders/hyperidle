@@ -12,21 +12,20 @@ export { default as pocSessionNotes } from "./poc-session-notes.js";
 
 // X8 scenario arrays — ordered by feature complexity (LOW → MEDIUM → HIGH → non-session)
 
-export { assembledKnowledgeScenarios } from "./assembled-knowledge.js";
+export { assembledDocumentsScenarios } from "./assembled-documents.js";
 
 export { composedPromptScenarios } from "./composed-prompt.js";
 export { createArtifactScenarios } from "./create-artifact.js";
-export { createConflictReviewScenarios } from "./create-conflict-review.js";
 export { createTaskScenarios } from "./create-task.js";
 export { delegationScenarios } from "./delegation.js";
 // Live eval scaffold for force-return enforcement
 export { forceReturnScenarios } from "./force-return.js";
 export { handoffToScenarios } from "./handoff-to.js";
-export { knowledgeWritebackScenarios } from "./knowledge-writeback.js";
 export { logTaskScenarios } from "./log-task.js";
-export { promoteKnowledgeScenarios } from "./promote-knowledge.js";
+export { readDocumentScenarios } from "./read-document.js";
 export { readInboxScenarios } from "./read-inbox.js";
 export { routineSessionsScenarios } from "./routine-sessions.js";
+export { knowledgeWritebackScenarios } from "./sandbox-writeback.js";
 export { sendMessageScenarios } from "./send-message.js";
 export { sessionScenarios } from "./session.js";
 export { submitReviewScenarios } from "./submit-review.js";

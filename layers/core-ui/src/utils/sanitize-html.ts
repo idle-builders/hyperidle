@@ -1,7 +1,7 @@
 /**
  * The one sanitiser policy for agent-authored prose.
  *
- * A knowledge item, a comment and an artifact of the `text` kind are the same
+ * A document, a comment and an artifact of the `text` kind are the same
  * class of content — a markdown body an agent wrote — so they get the same
  * treatment. Two policies for one class of content is how they drift apart.
  *

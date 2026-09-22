@@ -1,9 +1,11 @@
+import { randomUUID } from "node:crypto";
 import {
 	buildRunOrchestrationComposition,
 	type ProvisionSessionDeps,
 	type RunOrchestrationHarnessRuntimeAdapter,
 } from "@hyperidle/agent-orchestration";
-import type { HyperIdleDb } from "@hyperidle/db";
+import { type DocumentRow as DbDocumentRow, documents, type HyperIdleDb } from "@hyperidle/db";
+import type { ActionResult, DocumentRow, DocumentView } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import type { WorkerRegisterMessage } from "@hyperidle/harness-protocol";
 import {
@@ -15,8 +17,107 @@ import {
 	writePluginStdioMcpEntries,
 } from "@hyperidle/harness-registry";
 import { returnStatusTool } from "@hyperidle/harness-registry/mcp";
-import { create, recordConflict, reparent, update } from "@hyperidle/knowledge";
 import type { RuntimePorts } from "@hyperidle/run-orchestration";
+import { eq } from "drizzle-orm";
+import { buildStandaloneDocumentRunners } from "../actions/compose.js";
+
+/**
+ * A direct `documents` row — the same columns the deleted
+ * `@hyperidle/document`'s `create()` wrote. For fixture rows a test seeds
+ * ahead of the real write path under test (`realDocumentWritebackPort`
+ * above): a raw insert skips `edit_document`'s `changes.actor` FK, exactly
+ * as the free-text `updatedBy` these callers always passed already did
+ * (`documents.updated_by` carries no FK; only `changes.actor` does, and a
+ * raw seed insert writes no change row at all).
+ */
+export async function seedDocument(
+	db: HyperIdleDb,
+	input: {
+		readonly title: string;
+		readonly body: string;
+		readonly format: string;
+		readonly status: string;
+		readonly updatedBy: string;
+		readonly scopeKind: string;
+		readonly scopeId?: string | null;
+		readonly parentKind?: string | null;
+		readonly parentId?: string | null;
+	},
+): Promise<DbDocumentRow> {
+	const id = randomUUID();
+	const ts = new Date().toISOString();
+	await db.insert(documents).values({
+		id,
+		scopeKind: input.scopeKind,
+		scopeId: input.scopeId ?? null,
+		title: input.title,
+		body: input.body,
+		format: input.format,
+		status: input.status,
+		parentKind: input.parentKind ?? null,
+		parentId: input.parentId ?? null,
+		position: 0,
+		version: 1,
+		updatedBy: input.updatedBy,
+		createdAt: ts,
+		updatedAt: ts,
+	});
+	const [row] = await db.select().from(documents).where(eq(documents.id, id)).limit(1);
+	if (!row) throw new Error(`seedDocument: failed to read back ${id}`);
+	return row;
+}
+
+/**
+ * A real document writeback port, bound to the REAL `edit_document`/
+ * `search_documents` actions (`buildStandaloneDocumentRunners`,
+ * architecture.md §8.4) — never a hand-rolled Drizzle stub, and never the
+ * legacy repository functions the pre-document-module version of this file
+ * called directly. `openParent` is unreachable through this standalone
+ * bag (compose.ts's own documented invariant): every writeback call this
+ * test harness's callers make either sits under a real directory ancestor or
+ * has no task/thread parent at all, so a document is never parented to a
+ * task/thread through this port. `db`/`eventBus` are bound once, matching the
+ * real `CoreApiBoot.editDocument`/`searchDocuments` shape (fixed at boot,
+ * `caller`/`input` only per call).
+ */
+export function realDocumentWritebackPort(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+): {
+	readonly editDocument: (
+		caller: {
+			readonly actor: string;
+			readonly sessionId: string;
+			readonly taskId: string | null;
+			readonly threadId: string | null;
+		},
+		input: Parameters<ReturnType<typeof buildStandaloneDocumentRunners>["editDocument"]>[1],
+	) => Promise<ActionResult<DocumentView>>;
+	readonly searchDocuments: (
+		caller: { readonly actor: string },
+		input: Parameters<ReturnType<typeof buildStandaloneDocumentRunners>["searchDocuments"]>[1],
+	) => Promise<ActionResult<readonly DocumentRow[]>>;
+} {
+	const runners = buildStandaloneDocumentRunners();
+	return {
+		editDocument: (caller, input) =>
+			runners.editDocument(
+				{
+					actor: caller.actor,
+					db,
+					eventBus,
+					now: new Date().toISOString(),
+					caller: { sessionId: caller.sessionId, taskId: caller.taskId, threadId: caller.threadId },
+				},
+				input,
+			),
+		searchDocuments: (caller, input) =>
+			runners.searchDocuments(
+				{ actor: caller.actor, db, eventBus, now: new Date().toISOString() },
+				input,
+			) as Promise<ActionResult<readonly DocumentRow[]>>,
+	};
+}
 
 /**
  * @lore AU31 §2.1(b)/§5: `runtimeDeps`/`startRuntime` are no longer module-
@@ -84,16 +185,7 @@ export function startTestRuntime(
 				...base.composition,
 				writeback: {
 					db,
-					knowledge: {
-						create,
-						async update(db2, id, patch, expectedVersion) {
-							return { ok: true, item: await update(db2, id, patch, expectedVersion) };
-						},
-						recordConflict,
-						async reparentKnowledgeItem(db2, id, input) {
-							await reparent(db2, id, input);
-						},
-					},
+					document: realDocumentWritebackPort(db, eventBus),
 				},
 				worker: {
 					pool: workerPool,

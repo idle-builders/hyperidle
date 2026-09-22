@@ -18,8 +18,8 @@
  * No real DB or server is required — all data comes from mock responses.
  *
  * @lore AI3 selectors: ThreadRow uses data-testid="thread-time" (added AI3).
- * KnowledgeListRow uses data-testid="knowledge-row" and data-testid="knowledge-time"
- * (added AI3 — inline component, not the design-system KnowledgeRow primitive).
+ * The document list row uses data-testid="document-row" and data-testid="document-time"
+ * (added AI3 — the shared Row primitive, not the design-system DocRow primitive).
  * NotificationPopover uses data-testid="notification-time" (added AI3).
  * AppShell wires NotificationPopover via onNotificationClick → notifOpen state (added AI3).
  * WorkTask metadata strip uses data-testid="task-started-at" (added AI3).
@@ -33,7 +33,15 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { expect, makeThreadListRow, mockSearchThreads, mockThread, test } from "./fixtures";
+import {
+	expect,
+	makeDocumentRow,
+	makeThreadListRow,
+	mockSearchDocuments,
+	mockSearchThreads,
+	mockThread,
+	test,
+} from "./fixtures";
 
 // ── Shared seed timestamps ──────────────────────────────────────────────────
 
@@ -58,7 +66,7 @@ const FUTURE_CREATED_AT = "2030-03-15T09:00:00.000Z";
 
 /**
  * ThreadListRow shape expected by useConversationsThreads.isThreadListRow validator.
- * Must have: id, hostKind (one of: bet/task/knowledge_item/artifact/agent/user/team/factory),
+ * Must have: id, hostKind (one of: bet/task/document/artifact/agent/user/team/factory),
  * hostId, initiatorId, participants (string[]), pinned, lastActiveAt, createdAt,
  * hasUnresolvedReview. Optional: blocking, title.
  */
@@ -91,49 +99,23 @@ function makeBadThread() {
 	});
 }
 
-function makeSeedKnowledgeItem() {
-	return {
-		id: "ai3-seed-item",
-		layer: "L3",
-		scopeId: null,
-		kind: "pattern",
-		topic: "testing",
+function makeSeedDocument() {
+	return makeDocumentRow("ai3-seed-item", {
 		title: "AI3 Seed Item",
 		body: "Seeded for one-clock AC tests",
-		format: "markdown",
-		status: "active",
-		attentionScore: null,
-		relevanceScore: 0.9,
-		confidence: null,
-		version: 1,
 		updatedBy: "human",
 		createdAt: SEED_CREATED_AT,
 		updatedAt: SEED_CREATED_AT,
-		meta: null,
-		citationCount: null,
-		lastCitedAt: null,
-		signals: {
-			lastActivityAt: SEED_CREATED_AT,
-			accessCount30d: 1,
-			citationCount: null,
-			relevanceScore: 0.9,
-		},
-	};
+	});
 }
 
-function makeBadKnowledgeItem() {
+function makeBadDocument() {
 	return {
-		...makeSeedKnowledgeItem(),
+		...makeSeedDocument(),
 		id: "ai3-bad-item",
 		title: "AI3 Bad Timestamp Item",
 		createdAt: BAD_TIMESTAMP,
 		updatedAt: BAD_TIMESTAMP,
-		signals: {
-			lastActivityAt: BAD_TIMESTAMP,
-			accessCount30d: null,
-			citationCount: null,
-			relevanceScore: null,
-		},
 	};
 }
 
@@ -195,21 +177,8 @@ test.describe("AC-1: one-clock label agreement across surfaces", () => {
 			}
 		});
 
-		// Override knowledge list
-		await page.route("**/api/knowledge**", async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({
-						items: [makeSeedKnowledgeItem()],
-						groups: {},
-					}),
-				});
-			} else {
-				await route.continue();
-			}
-		});
+		// Override document list
+		await mockSearchDocuments(page, { rows: [makeSeedDocument()] });
 	});
 
 	test("thread list renders relative label with shared register", async ({ page }) => {
@@ -224,12 +193,12 @@ test.describe("AC-1: one-clock label agreement across surfaces", () => {
 		expect(text).not.toBe("—");
 	});
 
-	test("knowledge list renders relative label with shared register", async ({ page }) => {
-		await page.goto("/knowledge");
-		// KnowledgeListRow uses data-testid="knowledge-row" and data-testid="knowledge-time"
-		const row = page.locator("[data-testid='knowledge-row']").first();
+	test("document list renders relative label with shared register", async ({ page }) => {
+		await page.goto("/documents");
+		// The document list row uses data-testid="document-row" and data-testid="document-time"
+		const row = page.locator("[data-testid='document-row']").first();
 		await expect(row).toBeVisible();
-		const timeEl = row.locator("[data-testid='knowledge-time']").first();
+		const timeEl = row.locator("[data-testid='document-time']").first();
 		await expect(timeEl).not.toBeEmpty();
 		const text = await timeEl.textContent();
 		expect(text).not.toBe("—");
@@ -294,17 +263,17 @@ test.describe("AC-1: one-clock label agreement across surfaces", () => {
 			fullPage: false,
 		});
 
-		// ── Surface 2: knowledge list ───────────────────────────────────────────
-		await page.goto("/knowledge");
-		const knowledgeRow = page.locator("[data-testid='knowledge-row']").first();
-		await expect(knowledgeRow).toBeVisible();
-		const knowledgeTimeEl = knowledgeRow.locator("[data-testid='knowledge-time']").first();
-		await expect(knowledgeTimeEl).not.toBeEmpty();
-		const knowledgeLabel = (await knowledgeTimeEl.textContent()) ?? "";
+		// ── Surface 2: document list ───────────────────────────────────────────
+		await page.goto("/documents");
+		const documentRow = page.locator("[data-testid='document-row']").first();
+		await expect(documentRow).toBeVisible();
+		const documentTimeEl = documentRow.locator("[data-testid='document-time']").first();
+		await expect(documentTimeEl).not.toBeEmpty();
+		const documentLabel = (await documentTimeEl.textContent()) ?? "";
 
 		// Capture surface-2 screenshot
 		await page.screenshot({
-			path: path.join(PROOF_DIR, "AI3-surface-2-knowledge-list.png"),
+			path: path.join(PROOF_DIR, "AI3-surface-2-document-list.png"),
 			fullPage: false,
 		});
 
@@ -331,11 +300,11 @@ test.describe("AC-1: one-clock label agreement across surfaces", () => {
 
 		// Compact register: surfaces 1-3 must be identical
 		expect(threadLabel).not.toBe("—");
-		expect(knowledgeLabel).toBe(threadLabel);
+		expect(documentLabel).toBe(threadLabel);
 		expect(notifLabel).toBe(threadLabel);
 
 		// Confirm compact-register agreement via Set dedup (size 1 = identical)
-		const compactLabels = new Set([threadLabel, knowledgeLabel, notifLabel]);
+		const compactLabels = new Set([threadLabel, documentLabel, notifLabel]);
 		expect(compactLabels.size).toBe(1);
 
 		// Write updated labels.txt proof
@@ -345,7 +314,7 @@ test.describe("AC-1: one-clock label agreement across surfaces", () => {
 			`Seed timestamp: ${SEED_CREATED_AT}`,
 			"",
 			`Surface 1 (thread list):      "${threadLabel}" [relativeShort]`,
-			`Surface 2 (knowledge list):   "${knowledgeLabel}" [relativeShort]`,
+			`Surface 2 (document list):   "${documentLabel}" [relativeShort]`,
 			`Surface 3 (notification):     "${notifLabel}" [relativeShort]`,
 			"",
 			`Compact register identical (surfaces 1-3): ${compactLabels.size === 1}`,
@@ -367,24 +336,11 @@ test.describe("AC-3: invalid timestamps → TIME_PLACEHOLDER or hidden chip", ()
 		await expect(threadRow).toContainText("—");
 	});
 
-	test("knowledge list with bad timestamp shows '—' placeholder", async ({ page }) => {
-		await page.route("**/api/knowledge**", async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({
-						items: [makeBadKnowledgeItem()],
-						groups: {},
-					}),
-				});
-			} else {
-				await route.continue();
-			}
-		});
+	test("document list with bad timestamp shows '—' placeholder", async ({ page }) => {
+		await mockSearchDocuments(page, { rows: [makeBadDocument()] });
 
-		await page.goto("/knowledge");
-		const row = page.locator("[data-testid='knowledge-row']").first();
+		await page.goto("/documents");
+		const row = page.locator("[data-testid='document-row']").first();
 		await expect(row).toBeVisible();
 		await expect(row).toContainText("—");
 	});

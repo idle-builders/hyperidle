@@ -1,7 +1,46 @@
 // the action list. `ActionDeclaration`/`Action*` are the generic shape;
-// `TASK_ACTIONS` and friends are task's own declarations — the first of the
-// per-object action lists, in `./actions/`.
+// `TASK_ACTIONS`/`THREAD_ACTIONS`/`DOCUMENT_ACTIONS` are each object's own
+// declarations, in `./actions/`.
 export type { ActionDeclaration, ActionResult, Problem } from "./actions/action.js";
+// @lore BC4: `Document` is a DOM global in core-ui, so the row type is never
+// called `Document` — see architecture.md §2. `document.ts` also carries the
+// vocabulary that used to live in `./knowledge.js`, deleted whole by B22 —
+// its constants had a real importer (`DOCUMENT_STATUSES`, replacing
+// `KNOWLEDGE_STATUSES`, already declared here) or none at all.
+export type {
+	DocumentAs,
+	DocumentListRow,
+	DocumentParentKind,
+	DocumentRow,
+	DocumentSlot,
+	DocumentStatus,
+	DocumentView,
+	EditDocumentInput,
+	OpenDocumentInput,
+	SearchDocumentsInput,
+} from "./actions/document.js";
+export {
+	canReadDocument,
+	DOCUMENT_ACTIONS,
+	DOCUMENT_AS,
+	DOCUMENT_PARENT_KINDS,
+	DOCUMENT_SLOT_LABEL,
+	DOCUMENT_SLOTS,
+	DOCUMENT_STATUS_LABEL,
+	DOCUMENT_STATUSES,
+	DocumentListRowSchema,
+	DocumentRowSchema,
+	DocumentViewSchema,
+	documentAs,
+	EditDocumentInputSchema,
+	editDocument,
+	editDocumentInvariants,
+	OpenDocumentInputSchema,
+	openDocument,
+	SearchDocumentsInputSchema,
+	searchDocuments,
+	searchDocumentsInvariants,
+} from "./actions/document.js";
 export type {
 	EditTaskInput,
 	SearchTasksInput,
@@ -167,22 +206,6 @@ export {
 // Import from "@hyperidle/domain-model/http" — never via the barrel (Vite bundles barrel into core-ui).
 // ArtifactKind, TextPreview, CodePreview, ImagePreview, DataPreview, HtmlPreview, UrlPreview
 // unexported (SIMPLIFY): derived from closed sets; no external consumer names them directly.
-export type {
-	KnowledgeAccessorKind,
-	KnowledgeParentKind,
-	KnowledgeRole,
-	KnowledgeSortOption,
-	KnowledgeStatus,
-	PropagationLevel,
-} from "./knowledge.js";
-export {
-	KNOWLEDGE_PARENT_KINDS,
-	KNOWLEDGE_ROLE_LABEL,
-	KNOWLEDGE_ROLES,
-	KNOWLEDGE_SORT_OPTIONS,
-	KNOWLEDGE_STATUS_LABEL,
-	KNOWLEDGE_STATUSES,
-} from "./knowledge.js";
 // MentionSegment MERGE → core-ui/ds/mention-segments.ts (AU44 batch 8)
 export type { ResolvedMention } from "./mention.js";
 export {
@@ -299,7 +322,7 @@ export type {
 	AgentCategory,
 	HarnessType,
 	HealthResponse,
-	KernelKnowledgeStatus,
+	KernelDocumentStatus,
 	ModelTier,
 	// @lore AU34: the one aliased publication the old substrate barrel carried. It reached
 	// `types/money.ts` and was re-exported from there under a second name; the declaration is and
@@ -318,7 +341,7 @@ export {
 	AGENT_CATEGORIES,
 	AGENT_OPERATIONAL_STATUS_LABEL,
 	HARNESS_TYPES,
-	KERNEL_KNOWLEDGE_STATUSES,
+	KERNEL_DOCUMENT_STATUSES,
 	MODEL_TIERS,
 	ORG_EDGE_MECHANISMS,
 	SCOPE_KINDS,
@@ -334,12 +357,12 @@ export type {
 	AgentWorkIntentRecorderInput,
 	BakedAgentRunnableConfig,
 	BakedContextBundle,
-	BakedContextKnowledgeItem,
+	BakedContextDocument,
 	BakedSessionResumeRequest,
 	BakedWorkIntentRequest,
 	ReviewVerdictOutcome,
 	ReviewVerdictRecorderFn,
 	RoutineTriggerEvent,
-	SessionKnowledgeItemLike,
+	SessionDocumentLike,
 } from "./work-intent.js";
-export { bakeAgentRunnableConfig, toBakedContextKnowledgeItems } from "./work-intent.js";
+export { bakeAgentRunnableConfig, toBakedContextDocuments } from "./work-intent.js";

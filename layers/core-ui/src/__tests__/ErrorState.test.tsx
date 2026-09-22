@@ -7,12 +7,12 @@ describe("ErrorState", () => {
 	it("renders error title and description", () => {
 		render(
 			<ErrorState
-				title="Couldn't load knowledge"
+				title="Couldn't load documents"
 				description="The server returned an error. Try again?"
 				onRetry={() => undefined}
 			/>,
 		);
-		expect(screen.getByText("Couldn't load knowledge")).toBeInTheDocument();
+		expect(screen.getByText("Couldn't load documents")).toBeInTheDocument();
 		expect(screen.getByText(/server returned an error/i)).toBeInTheDocument();
 	});
 

@@ -2,7 +2,7 @@
  * AD7: Global search route — GET /api/search?q=<query>
  *
  * Returns grouped results across conversations (threads), work (bets), and
- * knowledge items. Three separate LIKE queries — not a UNION — for clarity
+ * documents. Three separate LIKE queries — not a UNION — for clarity
  * and independent per-category 5-result caps.
  *
  * @lore AD7: Three separate queries (not UNION) because each category has
@@ -18,38 +18,53 @@
  * @lore AD7: Auth boundaries:
  * - Threads: filtered to where participants JSON LIKE-probes userId, then
  *   JS-verified for exact membership (prevents false positives from substring).
- * - Knowledge: scope_kind != 'user' OR updated_by = userId.
+ * - Documents: scope_kind != 'user' OR updated_by = userId.
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { ApiErrorResponse } from "@hyperidle/domain-model";
+import type {
+	ActionResult,
+	ApiErrorResponse,
+	DocumentRow,
+	SearchDocumentsInput,
+} from "@hyperidle/domain-model";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import type { EventBus } from "@hyperidle/event-bus";
-import { search as searchKnowledge } from "@hyperidle/knowledge";
 import { listTeams } from "@hyperidle/org";
 import * as work from "@hyperidle/task";
 import { listMessages, listThreads, searchConversations } from "@hyperidle/thread";
 // BB1: deriveTitle removed — tasks use .title directly
 import { Hono } from "hono";
 import z from "zod";
+import type { ActionContext } from "../actions/action.js";
+
+/**
+ * `search_documents`'s own runner shape — the ONE door this route gets onto
+ * `document` (architecture.md §6.7, §8.3). Never `open_document`: listing
+ * search results is not a read of any one of them.
+ */
+type SearchDocumentsRunFn = (
+	ctx: ActionContext,
+	input: SearchDocumentsInput,
+) => Promise<ActionResult<DocumentRow[]>>;
 
 /** Max results per category */
 const MAX_PER_CATEGORY = 5;
 
 /**
  * Map DB hostKind to frontend conversation kind.
- * task/knowledge_item → "review"
+ * task/document → "review"
  * agent/user/team/factory → "chat"
  *
  * @lore BB1: "bet" removed — the bets table is deleted; every bet became a root task.
  * @lore artifacts-become-knowledge: "artifact" removed — threads hang off the
- * knowledge item itself; there is no artifact host kind.
+ * document itself; there is no artifact host kind.
  */
 function hostKindToConversationKind(hostKind: string): "review" | "chat" {
 	switch (hostKind) {
 		case "task":
-		case "knowledge_item":
+		case "document":
 			return "review";
 		default:
 			return "chat";
@@ -73,14 +88,18 @@ function extractPayloadText(payloadJson: string): string {
 	}
 }
 
-export function createSearchRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<HyperIdleEnv> {
+export function createSearchRoutes(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	searchDocuments: SearchDocumentsRunFn,
+): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
 	// I2 review M-4 / HIGH-5: cap query length to prevent long full-table LIKE scans.
 	// Max 200 chars per AD7 architecture spec (knowledge route uses 500 — search is tighter).
 	const SEARCH_QUERY_SCHEMA = z.string().min(1).max(200);
 
-	// GET / — global search across conversations, work (bets), and knowledge
+	// GET / — global search across conversations, work (bets), and documents
 	router.get("/", async (c) => {
 		const userId = c.get("userId");
 		const rawQuery = c.req.query("q");
@@ -96,24 +115,25 @@ export function createSearchRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<H
 		}
 
 		const query = parsed.data;
+		const ctx: ActionContext = { actor: userId, db, eventBus, now: new Date().toISOString() };
 
-		// @lore AU44 batch 4: scope=knowledge folds GET /api/knowledge/search into
-		// GET /api/search — returns { results: [...] } matching the old dedicated route.
-		// No visibility filter (preserving original knowledge search behaviour).
+		// @lore AU44 batch 4: scope=document (architecture.md §8.6 — was
+		// "knowledge") folds GET /api/knowledge/search into GET /api/search —
+		// returns { results: [...] } matching the old dedicated route.
 		// Max query length is now 200 chars (was 500 on the old route — behaviour change).
 		const scope = c.req.query("scope");
-		if (scope === "knowledge") {
+		if (scope === "document") {
 			const rawLimit = c.req.query("limit");
 			const parsedLimit = rawLimit !== undefined ? Number.parseInt(rawLimit, 10) : undefined;
 			const limit =
 				parsedLimit !== undefined && Number.isFinite(parsedLimit) && parsedLimit > 0
 					? parsedLimit
 					: undefined;
-			const results = await searchKnowledge(db, query, {
-				mode: "text",
+			const result = await searchDocuments(ctx, {
+				text: query,
 				...(limit !== undefined ? { limit } : {}),
 			});
-			return c.json({ results });
+			return c.json({ results: result.ok ? result.data : [] });
 		}
 
 		// I2 V4: escape LIKE wildcards so user's literal chars do not become SQL operators.
@@ -272,30 +292,18 @@ export function createSearchRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<H
 			status: row.state,
 		}));
 
-		// ── 3. Knowledge items ──────────────────────────────────────────────────
+		// ── 3. Documents ─────────────────────────────────────────────────────────
 		//
-		// Find knowledge items where title OR body LIKE-matches the query.
+		// Find documents where title OR body ILIKE-matches the query.
 		//
-		// Auth boundary: scope_kind != 'user' OR updated_by = userId.
-		// (user-scoped items are private to their author)
-		//
-		// @lore AU19 Increment 5 item 4 (guard-retirement full-sweep, knowledge
-		// sub-item): this used to be a direct `.from(knowledgeItems).leftJoin(
-		// knowledgeAppProjection, …)` query — `knowledgeItems`/
-		// `knowledgeAppProjection` are `knowledge`-owned (TABLE_OWNER since
-		// Increment 1a). Now calls `@hyperidle/knowledge`'s `searchVisibleByText`
-		// — same ILIKE/auth-filter/join/order/limit, zero behavior change.
+		// @lore BC4 (architecture.md §8.3, §6.7): `search_documents` is the ONE
+		// door — no separate `visibility` argument to pass, its own query always
+		// applies the actor-scoped predicate (§5.1). `search_documents` raises
+		// no read count.
+		const documentResult = await searchDocuments(ctx, { text: query, limit: MAX_PER_CATEGORY });
+		const documentRows = documentResult.ok ? documentResult.data : [];
 
-		// @lore AU20 K1-reads: searchVisibleByText() deleted; search(mode:'text',
-		// visibility) performs ILIKE on title/body/topic + Q2 auth filter.
-		// Accepts raw query (builds %pattern% internally). Same result set.
-		const kiRows = await searchKnowledge(db, query, {
-			mode: "text",
-			visibility: userId,
-			limit: MAX_PER_CATEGORY,
-		});
-
-		const knowledgeResults = kiRows.map((row) => ({
+		const documentResults = documentRows.map((row) => ({
 			id: row.id,
 			title: row.title,
 			status: row.status,
@@ -305,7 +313,7 @@ export function createSearchRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<H
 		return c.json({
 			conversations: conversationResults,
 			work: workResults,
-			knowledge: knowledgeResults,
+			documents: documentResults,
 		});
 	});
 

@@ -1,12 +1,12 @@
 /**
- * AC9 — Clicking "+" on a block creates a knowledge item parented to the thread.
+ * AC9 — Clicking "+" on a block creates a document parented to the thread.
  *
  * After the rewire:
  *   - AssistantContextRef gains kind:"pending_block" with { content, label }
- *   - On send, AssistantOverlay calls POST /api/knowledge for each pending_block ref,
- *     with parentKind:"thread", parentId:<threadId>, format:"markdown", body = content.
+ *   - On send, AssistantOverlay calls edit_document for each pending_block ref,
+ *     with as:"artifact", parent:{kind:"thread", id}, format:"markdown", body = content.
  *   - pending_block refs do NOT appear in payload.refs of the thread message.
- *   - The knowledge item carries the block's content verbatim — editing the source
+ *   - The document carries the block's content verbatim — editing the source
  *     afterwards leaves the item unchanged (no pointer, no rotting blockId).
  *
  * @lore BC3: re-pointed off the deleted `useAssistantThread` onto
@@ -14,11 +14,11 @@
  * `shell/__tests__/AH3-AssistantOverlay.notice.test.tsx`. The thread message
  * send itself no longer POSTs `/api/threads/<id>` — `sendToThread` in
  * `shell/AssistantOverlay.tsx` sends it via
- * `call("send_message", {threadId, text, refs, clientKey})`. The knowledge
- * item creation (`POST /api/knowledge`) is untouched — that door still goes
- * through `apiFetch` directly (no `call()` door exists for it yet, per the
- * component's own `@lore artifacts-become-knowledge` note) — so `apiFetch`
- * stays mocked for that assertion.
+ * `call("send_message", {threadId, text, refs, clientKey})`.
+ *
+ * @lore BC4: the document creation call moved off `apiFetch("/api/knowledge",
+ * …)` onto `call("edit_document", …)` too — both calls now go through the
+ * same mocked `call()` door (architecture.md §9.2).
  */
 
 import { render, screen } from "@testing-library/react";
@@ -63,11 +63,6 @@ vi.mock("../hooks/useThread.js", () => ({
 }));
 vi.mock("../hooks/useThreads.js", () => ({
 	useThreads: vi.fn(),
-}));
-
-const mockApiFetch = vi.fn();
-vi.mock("../services/api-fetch.js", () => ({
-	apiFetch: (...args: unknown[]) => mockApiFetch(...args),
 }));
 
 const callMock = vi.fn();
@@ -139,28 +134,33 @@ function renderOverlay(
 	);
 }
 
-describe("AC9 — pending_block on send creates a knowledge item, not a wire ref", () => {
+describe("AC9 — pending_block on send creates a document, not a wire ref", () => {
 	beforeEach(() => {
-		// Knowledge item creation succeeds
-		mockApiFetch.mockImplementation((url: string, opts?: { method?: string }) => {
-			if (url.includes("/api/knowledge") && opts?.method === "POST") {
+		callMock.mockImplementation((name: string) => {
+			if (name === "send_message") {
+				return Promise.resolve({ ok: true, data: { thread: { id: THREAD_ID } } });
+			}
+			if (name === "edit_document") {
 				return Promise.resolve({
 					ok: true,
-					json: async () => ({ id: "ki-new-1" }),
-					text: async () => JSON.stringify({ id: "ki-new-1" }),
+					data: {
+						document: { id: "ki-new-1" },
+						ancestors: [],
+						children: [],
+						siblings: [],
+						scopeName: "Factory",
+					},
 				});
 			}
-			return Promise.resolve({ ok: true, text: async () => "" });
+			return Promise.resolve({ ok: true, data: {} });
 		});
-		// The thread message send — always resolves to the existing thread.
-		callMock.mockResolvedValue({ ok: true, data: { thread: { id: THREAD_ID } } });
 	});
 
 	afterEach(() => {
 		vi.clearAllMocks();
 	});
 
-	it("pending_block ref triggers POST /api/knowledge with thread as parent on send", async () => {
+	it("pending_block ref triggers edit_document with the thread as parent on send", async () => {
 		const user = userEvent.setup();
 		const pendingBlock: AssistantContextRef = {
 			kind: "pending_block",
@@ -174,20 +174,16 @@ describe("AC9 — pending_block on send creates a knowledge item, not a wire ref
 		await user.type(composer, "Attaching this block");
 		await user.keyboard("{Meta>}{Enter}{/Meta}");
 
-		// Find the knowledge creation call
-		const knowledgeCalls = mockApiFetch.mock.calls.filter((args: unknown[]) => {
-			const url = args[0] as string;
-			const opts = args[1] as { method?: string } | undefined;
-			return url.includes("/api/knowledge") && opts?.method === "POST";
-		});
-		expect(knowledgeCalls).toHaveLength(1);
+		// Find the document creation call
+		const documentCalls = callMock.mock.calls.filter((args) => args[0] === "edit_document");
+		expect(documentCalls).toHaveLength(1);
 
-		const [, opts] = knowledgeCalls[0]!;
-		const body = JSON.parse((opts as { body: string }).body) as Record<string, unknown>;
-		expect(body.parentKind).toBe("thread");
-		expect(body.parentId).toBe(THREAD_ID);
-		expect(body.body).toBe("## Auth migration\n\nThis is the block content.");
-		expect(body.format).toBe("markdown");
+		const [, input] = documentCalls[0]! as [string, Record<string, unknown>];
+		expect(input.as).toBe("artifact");
+		expect(input.parent).toEqual({ kind: "thread", id: THREAD_ID });
+		expect(input.title).toBe("Auth migration");
+		expect(input.body).toBe("## Auth migration\n\nThis is the block content.");
+		expect(input.format).toBe("markdown");
 	});
 
 	it("pending_block ref does NOT appear in thread message payload.refs", async () => {

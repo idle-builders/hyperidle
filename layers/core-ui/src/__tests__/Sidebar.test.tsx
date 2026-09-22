@@ -51,7 +51,7 @@ const defaultProps = {
 	teams: [] as SidebarTeam[],
 	activeTeamId: null,
 	onSelectTeam: vi.fn(),
-	// W3 AC-3: activeScope/onSelectScope removed — scope pills are now in KnowledgeList
+	// W3 AC-3: activeScope/onSelectScope removed — scope pills are now in DocumentList
 	onAssistantClick: vi.fn(),
 	assistantOverlayOpen: false,
 	onSettingsClick: vi.fn(),
@@ -230,13 +230,13 @@ describe("Sidebar — AC-4: Work section team list", () => {
 // ---------------------------------------------------------------------------
 // AC-5: Knowledge section — no scope sub-items (W3 AC-3)
 // Scope sub-items removed from sidebar per W3 AC-3. Scopes are now handled
-// as inline pills on the KnowledgeList page.
+// as inline pills on the DocumentList page.
 // ---------------------------------------------------------------------------
 
 describe("Sidebar — AC-5: Knowledge section scope sub-items", () => {
 	it("does NOT render scope sub-items (Practices/Products/Factory) in the Knowledge section", () => {
 		render(<Sidebar {...defaultProps} />);
-		// W3 AC-3: scope sub-items removed from sidebar — now inline pills on KnowledgeList
+		// W3 AC-3: scope sub-items removed from sidebar — now inline pills on DocumentList
 		expect(screen.queryByText("Practices")).not.toBeInTheDocument();
 		expect(screen.queryByText("Products")).not.toBeInTheDocument();
 		expect(screen.queryByText("Factory")).not.toBeInTheDocument();
@@ -390,82 +390,80 @@ describe("Sidebar — accessibility: aria-current on active nav items", () => {
 });
 
 // ---------------------------------------------------------------------------
-// W2 — Knowledge fast-nav: knowledgeItems render + swap + click (AD9 §1 item 4)
+// W2 — Knowledge fast-nav: documentItems render + swap + click (AD9 §1 item 4)
 // ---------------------------------------------------------------------------
 
 describe("Sidebar — Knowledge fast-nav (AD9 §1 item 4)", () => {
-	const knowledgeItems = [
+	const documentItems = [
 		{ id: "ki-1", title: "Engineering handbook" },
 		{ id: "ki-2", title: "Onboarding guide" },
 		{ id: "ki-3", title: "Product spec" },
 	];
 
-	it("renders knowledge items in fast-nav when activeView='knowledge'", () => {
-		render(<Sidebar {...defaultProps} activeView="knowledge" knowledgeItems={knowledgeItems} />);
+	it("renders document items in fast-nav when activeView='knowledge'", () => {
+		render(<Sidebar {...defaultProps} activeView="knowledge" documentItems={documentItems} />);
 		expect(screen.getByText("Engineering handbook")).toBeInTheDocument();
 		expect(screen.getByText("Onboarding guide")).toBeInTheDocument();
 		expect(screen.getByText("Product spec")).toBeInTheDocument();
 	});
 
-	it("does NOT render knowledge items when activeView is not 'knowledge'", () => {
-		render(
-			<Sidebar {...defaultProps} activeView="conversations" knowledgeItems={knowledgeItems} />,
-		);
+	it("does NOT render document items when activeView is not 'knowledge'", () => {
+		render(<Sidebar {...defaultProps} activeView="conversations" documentItems={documentItems} />);
 		expect(screen.queryByText("Engineering handbook")).not.toBeInTheDocument();
 		expect(screen.queryByText("Onboarding guide")).not.toBeInTheDocument();
 	});
 
-	it("fast-nav swaps content: shows threads in conversations, knowledge in knowledge", () => {
+	it("fast-nav swaps content: shows threads in conversations, documents in knowledge", () => {
 		const threads = [mkThread("t-swap")];
 		const { rerender } = render(
 			<Sidebar
 				{...defaultProps}
 				activeView="conversations"
 				threads={threads}
-				knowledgeItems={knowledgeItems}
+				documentItems={documentItems}
 			/>,
 		);
-		// Conversations active: shows threads, not knowledge items
+		// Conversations active: shows threads, not document items
 		expect(screen.getByText("Thread t-swap")).toBeInTheDocument();
 		expect(screen.queryByText("Engineering handbook")).not.toBeInTheDocument();
 
-		// Switch to knowledge: shows knowledge items, not threads
+		// Switch to knowledge: shows document items, not threads
 		rerender(
 			<Sidebar
 				{...defaultProps}
 				activeView="knowledge"
 				threads={threads}
-				knowledgeItems={knowledgeItems}
+				documentItems={documentItems}
 			/>,
 		);
 		expect(screen.queryByText("Thread t-swap")).not.toBeInTheDocument();
 		expect(screen.getByText("Engineering handbook")).toBeInTheDocument();
 	});
 
-	it("calls onSelectKnowledgeItem with item id on click", async () => {
+	it("calls onSelectDocumentItem with item id on click", async () => {
 		const user = userEvent.setup();
-		const onSelectKnowledgeItem = vi.fn();
+		const onSelectDocumentItem = vi.fn();
 		render(
 			<Sidebar
 				{...defaultProps}
 				activeView="knowledge"
-				knowledgeItems={knowledgeItems}
-				onSelectKnowledgeItem={onSelectKnowledgeItem}
+				documentItems={documentItems}
+				onSelectDocumentItem={onSelectDocumentItem}
 			/>,
 		);
 		await user.click(screen.getByText("Onboarding guide"));
-		expect(onSelectKnowledgeItem).toHaveBeenCalledWith("ki-2");
+		expect(onSelectDocumentItem).toHaveBeenCalledWith("ki-2");
 	});
 
-	it("shows empty message when knowledgeItems is empty and activeView='knowledge'", () => {
-		render(<Sidebar {...defaultProps} activeView="knowledge" knowledgeItems={[]} />);
+	it("shows empty message when documentItems is empty and activeView='knowledge'", () => {
+		render(<Sidebar {...defaultProps} activeView="knowledge" documentItems={[]} />);
 		// Sidebar shows a no-items message in the fast-nav
 		const noItemsEl = screen.queryByText(/no .*(knowledge|items|threads)/i);
 		// At minimum the fast-nav area renders (no crash) — empty state text varies by impl
 		// Check the knowledge section renders at all (section header present)
 		// UI-080: section headers are links now
 		expect(screen.getByRole("link", { name: /^knowledge$/i })).toBeInTheDocument();
-		// And no knowledge items render (empty list)
+		// And no document items render (empty list)
 		expect(screen.queryByText("Engineering handbook")).not.toBeInTheDocument();
 		// Void return — suppress unused var warning
 		void noItemsEl;
@@ -491,16 +489,11 @@ describe("Sidebar — UI-011/012/013: honest error states", () => {
 		expect(screen.getByText(/couldn't load/i)).toBeInTheDocument();
 	});
 
-	it("shows 'Couldn't load knowledge' (not 'No knowledge yet') when knowledgeError=true and activeView=knowledge", () => {
+	it('shows "Couldn\'t load documents" (not "No documents yet") when documentsError=true and activeView=knowledge', () => {
 		render(
-			<Sidebar
-				{...defaultProps}
-				activeView="knowledge"
-				knowledgeItems={[]}
-				knowledgeError={true}
-			/>,
+			<Sidebar {...defaultProps} activeView="knowledge" documentItems={[]} documentsError={true} />,
 		);
-		expect(screen.queryByText(/no knowledge yet/i)).not.toBeInTheDocument();
+		expect(screen.queryByText(/no documents yet/i)).not.toBeInTheDocument();
 		expect(screen.getByText(/couldn't load/i)).toBeInTheDocument();
 	});
 

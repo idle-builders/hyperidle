@@ -3,7 +3,7 @@
  *
  * An earlier draft of this change killed the word outright. The founder reversed that: the tool
  * stays called `create_artifact`, because the name is established and people use it. What sits
- * behind it is a knowledge item parented to whatever context produced it — a task, or the
+ * behind it is a document parented to whatever context produced it — a task, or the
  * conversation it was made in.
  *
  * So this rule is a boundary, not a ban. The word may name the thing an agent produced, the tool
@@ -45,7 +45,7 @@ export interface ArtifactIsNotAStorageConceptInput {
 const BANNED: readonly { readonly token: RegExp; readonly why: string }[] = [
 	{
 		token: /\bArtifactRow\b|\bCreateArtifactInput\b|\bArtifactWithTaskTitle\b/,
-		why: "the `artifacts` table is dropped — produced content is a knowledge item with a parent",
+		why: "the `artifacts` table is dropped — produced content is a document with a parent",
 	},
 	{
 		token: /\bproducingTaskId\b|\bproducing_task_id\b/,
@@ -69,7 +69,7 @@ const BANNED: readonly { readonly token: RegExp; readonly why: string }[] = [
 	},
 	{
 		token: /\bArtifactRef\b|\bartifactRefSchema\b|\bartifactRef\b/,
-		why: "a pointer to an artifact row cannot survive the row — reference the knowledge item",
+		why: "a pointer to an artifact row cannot survive the row — reference the document",
 	},
 	{
 		token: /\bArtifactPage\b|\bArtifactQuery\b|\bArtifactFilterAxis\b/,
@@ -77,19 +77,19 @@ const BANNED: readonly { readonly token: RegExp; readonly why: string }[] = [
 	},
 	{
 		token: /\/api\/artifacts/,
-		why: "the artifacts HTTP surface is deleted — a produced item is read as a knowledge item",
+		why: "the artifacts HTTP surface is deleted — a produced item is read as a document",
 	},
 	{
 		token: /\buseArtifacts\b|\buseArtifact\b/,
-		why: "produced content is fetched as knowledge items parented to a task or thread",
+		why: "produced content is fetched as documents parented to a task or thread",
 	},
 	{
 		token: /\bcomposeArtifactBody\b|\bArtifactUnrenderable\b/,
-		why: "a body renders through `deriveBlocks`, the same path a knowledge body already took",
+		why: "a body renders through `deriveBlocks`, the same path a document body already took",
 	},
 	{
 		token: /\bhostKind: ?"artifact"\b|\bhostKind: ?'artifact'\b/,
-		why: "a thread hangs off the knowledge item itself — `artifact` is not a host kind",
+		why: "a thread hangs off the document itself — `artifact` is not a host kind",
 	},
 ];
 

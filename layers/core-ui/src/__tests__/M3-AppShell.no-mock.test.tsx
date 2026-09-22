@@ -25,7 +25,7 @@ function renderShell(initialPath = "/conversations"): ReturnType<typeof render> 
 					{ path: "conversations/:threadId", element: <div>Conversations Page</div> },
 					{ path: "work/portfolio", element: <div>Portfolio Page</div> },
 					{ path: "work/team", element: <div>Team Page</div> },
-					{ path: "knowledge", element: <div>Knowledge Page</div> },
+					{ path: "documents", element: <div>Documents Page</div> },
 				],
 			},
 		],
@@ -114,7 +114,7 @@ describe("M3 — AppShell: knowledge submenu count:12 removed (F1)", () => {
 	});
 
 	it("knowledge submenu does not show badge with value 12", async () => {
-		renderShell("/knowledge");
+		renderShell("/documents");
 
 		await waitFor(() => {
 			expect(screen.getByTestId("main-content")).toBeInTheDocument();

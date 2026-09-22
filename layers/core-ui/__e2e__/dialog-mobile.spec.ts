@@ -17,29 +17,17 @@
  * the one still asserted here.
  */
 
-import { expect, mockSearchThreads, test } from "./fixtures";
+import {
+	expect,
+	makeDocumentRow,
+	mockDocument,
+	mockSearchDocuments,
+	mockSearchThreads,
+	test,
+} from "./fixtures";
 
 const VIEWPORT_MOBILE = { width: 375, height: 667 };
 const KNOWLEDGE_ID = "k-mobile-dialog-test";
-
-function makeKnowledge() {
-	return {
-		id: KNOWLEDGE_ID,
-		title: "Mobile knowledge item",
-		body: "# Test\n\nContent.",
-		format: "markdown",
-		status: "active",
-		version: 1,
-		updatedBy: "tester",
-		scopeKind: "team",
-		scopeId: null,
-		topic: null,
-		createdAt: new Date().toISOString(),
-		updatedAt: new Date().toISOString(),
-		kind: "note",
-		layer: "team",
-	};
-}
 
 /**
  * Assert that the dialog box (sheet) is bottom-anchored:
@@ -88,35 +76,29 @@ test.describe("AI2 — Mobile bottom-sheet at 375px (AC-4)", () => {
 	test("ScopeChangeDialog — 375px: no horizontal overflow, bottom-anchored sheet", async ({
 		page,
 	}) => {
-		await page.route(`**/api/knowledge/${KNOWLEDGE_ID}`, (route) =>
-			route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(makeKnowledge()),
+		await mockDocument(page, {
+			row: makeDocumentRow(KNOWLEDGE_ID, {
+				title: "Mobile document",
+				body: "# Test\n\nContent.",
+				scopeKind: "team",
 			}),
-		);
-		await page.route("**/api/knowledge/**", (route) =>
-			route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ items: [] }),
-			}),
-		);
+		});
+		await mockSearchDocuments(page, { rows: [] });
 		await mockSearchThreads(page, { rows: [] });
 
-		await page.goto(`/knowledge/${KNOWLEDGE_ID}`);
-		await expect(page.locator("[data-testid='knowledge-detail-page']")).toBeVisible();
+		await page.goto(`/documents/${KNOWLEDGE_ID}`);
+		await expect(page.locator("[data-testid='document-detail-page']")).toBeVisible();
 
 		// Click the overflow menu button ("More options")
 		const overflowBtn = page.getByRole("button", { name: /more options/i });
 		await expect(
 			overflowBtn,
-			"overflow menu button must be visible on knowledge detail",
+			"overflow menu button must be visible on document detail",
 		).toBeVisible();
 		await overflowBtn.click();
 
 		// Click "Change scope" item
-		const changeScopeItem = page.locator("[data-testid='knowledge-change-scope']");
+		const changeScopeItem = page.locator("[data-testid='document-change-scope']");
 		await expect(
 			changeScopeItem,
 			"Change scope item must be visible in overflow menu",

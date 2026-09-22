@@ -102,9 +102,9 @@ export type InstallPluginResult =
 			plugin: InstalledPlugin;
 			/**
 			 * Parsed skills from the manifest, needed by the core-api layer to sync
-			 * skill knowledge items through the knowledge service after install.
-			 * @lore BA9b: settings cannot write knowledgeItems (owned by knowledge).
-			 * The layer's route handler picks these up and calls knowledge.upsertPluginSkill.
+			 * skill documents through the document service after install.
+			 * @lore BA9b: settings cannot write documents (owned by document).
+			 * The layer's route handler picks these up and calls document.upsertPluginSkill.
 			 */
 			skills: readonly ParsedSkill[];
 			/**
@@ -257,13 +257,38 @@ async function removeStaleDefaults(
 }
 
 /**
- * Deterministic knowledge item ID for a plugin skill.
+ * Deterministic document ID for a plugin skill.
  * Scoped to pluginId + skill title so reinstalls update the same row.
  * Exported so the core-api layer's route handlers can compute the same IDs
- * when syncing skills through the knowledge service (governance boundary).
+ * when syncing skills through the document service (governance boundary).
+ *
+ * @lore document-module B10 follow-up: `scopeKind`/`scopeId` join the hash the
+ * same way `agentItemId`/`routineItemId` already fold them in — a factory
+ * install's suffix is empty, so its id is byte-identical to before this
+ * change (there is no pre-existing factory-scoped id to migrate); a
+ * team-scoped install's id now carries the team, so two teams installing the
+ * same plugin never share one skill document. Before this, both teams
+ * resolved the SAME id — the visibility rule (architecture.md §5.1) then
+ * correctly refused the second team's install with `not_found`, because it
+ * cannot see a row scoped to a team it is not, which is how the collision
+ * surfaced rather than a silent overwrite.
  */
-export function skillItemId(pluginId: string, dirName: string): string {
-	return `ki_${sha256(`plugin-skill\0${pluginId}\0${dirName}`).slice(0, 24)}`;
+export function skillItemId(
+	pluginId: string,
+	dirName: string,
+	scopeKind: string,
+	scopeId: string | null,
+): string {
+	const suffix = scopeKind === "team" ? `\0${scopeKind}\0${scopeId ?? ""}` : "";
+	// @lore document-module: the `ki_` prefix stays despite the table rename
+	// (`knowledge_items` -> `documents`) — it is baked into every id this
+	// function has ever minted, including every existing factory-scoped
+	// install's row. Changing it would change the id a reinstall computes,
+	// so a reinstall would stop finding its own row and create a duplicate
+	// instead of updating in place. The factory id must stay byte-identical
+	// forever; only NEW callers ever see the prefix, and none of them read
+	// meaning into it.
+	return `ki_${sha256(`plugin-skill\0${pluginId}\0${dirName}${suffix}`).slice(0, 24)}`;
 }
 
 /**
@@ -275,7 +300,7 @@ export function skillItemId(pluginId: string, dirName: string): string {
  * constant), while a team-scoped install produces ONE row PER team (different
  * teamId → different hash → different row). This is the entire mechanism that
  * guarantees "global upkeep runs once, not once per team" for factory-scoped
- * plugins like knowledge-management: the scheduler sees one routine row and
+ * plugins like document-management: the scheduler sees one routine row and
  * fires it once. A team-scoped plugin gets one routine per team, which is the
  * correct per-team behaviour. The same id derivation must be used wherever
  * these rows are looked up — the test for two-team installs guards this.
@@ -460,7 +485,7 @@ export async function installPlugin(
 				installPath = persistPlugin(fetched.rootDir, input.pluginsBaseDir, pluginId);
 			} catch {
 				// Non-fatal: URL-based MCP servers still work without persistent storage.
-				// Skills are stored as knowledge item bodies (no disk path needed).
+				// Skills are stored as document bodies (no disk path needed).
 			}
 		}
 
@@ -510,9 +535,9 @@ export async function installPlugin(
 		// Write/update MCP server contributions from mcp.json.
 		await writeMcpServerDefaults(db, pluginId, manifest.mcpServers, ts);
 
-		// Skill knowledge items are synced by the core-api layer's route handler
-		// after installPlugin returns, using the knowledge service (governance boundary:
-		// settings cannot write to knowledgeItems — owned by knowledge).
+		// Skill documents are synced by the core-api layer's route handler
+		// after installPlugin returns, using the document service (governance boundary:
+		// settings cannot write to documents — owned by document).
 
 		const rows = await db.select().from(plugins).where(eq(plugins.id, pluginId)).limit(1);
 		const row = rows[0];
@@ -577,7 +602,7 @@ export async function getInstalledPlugin(
  * @lore BA9d: This function only flips plugins.state. The real disable work —
  * deactivating materialised routines, agents, and skills that the plugin
  * created — lives in the route handler (layers/core-api/src/routes/plugins.ts).
- * Settings cannot write to routines, users, or knowledge_items (governance
+ * Settings cannot write to routines, users, or documents (governance
  * boundary). Both must succeed or the plugin is in a split state; the route
  * runs this call first and the row-cleanup second, inside a try/catch.
  */

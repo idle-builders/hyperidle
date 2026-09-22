@@ -13,7 +13,7 @@ export interface ListPayloadProps {
 
 // @lore AZ6: the CSS reset sets `list-style: none` on every `ul`/`ol`, so a list
 // painted as unmarked lines — a document with its bullets silently removed. Every
-// host that renders a body shares this component, so knowledge items and comments
+// host that renders a body shares this component, so documents and comments
 // lost their bullets too.
 //
 // @lore AZ6: the marker is an inline style and NOT a `list-disc` / `list-decimal`

@@ -49,8 +49,8 @@ export type { AdjustThreadRunFn, SendMessageRunFn };
 const logger = createLogger({ pkg: "core-api.agent-run-admission-reactions" });
 const registeredBuses = new WeakSet<EventBus>();
 
-/** Extract the bare knowledge item id from an intent's `knowledge:<id>` source id. */
-function knowledgeItemIdFromSourceId(sourceId: string): string {
+/** Extract the bare document id from an intent's `knowledge:<id>` source id. */
+function documentIdFromSourceId(sourceId: string): string {
 	return sourceId.replace(/^knowledge:/, "");
 }
 
@@ -150,7 +150,7 @@ async function notifyThreadTurnAdmissionFailure(
  * @lore BC3 architecture.md §5 B7b — the second `items` writer, kept alive
  * as a `send_message` instead: "a knowledge action that could not be
  * admitted gets flagged for a human" is the SAME behaviour, at the SAME
- * moment, into the SAME thread (the knowledge item's, `knowledge_item`-
+ * moment, into the SAME thread (the document's, `document`-
  * hosted, resolved not recreated on every failure). `system:propagation`
  * posts into it — host-scoped, so it may post, and its first post joins it
  * (architecture.md §3.4) — never the synthetic `"attention_engine"` sender
@@ -162,20 +162,20 @@ async function flagStalledKnowledgeAction(
 	event: AgentRunAdmissionFailedEvent,
 	deps: { readonly sendMessage: SendMessageRunFn; readonly adjustThread: AdjustThreadRunFn },
 ): Promise<void> {
-	const knowledgeItemId = knowledgeItemIdFromSourceId(event.sourceId);
+	const documentId = documentIdFromSourceId(event.sourceId);
 	const now = new Date(event.timestamp).toISOString();
 	const ctx: ActionContext = { actor: "system:propagation", db, eventBus, now };
 
-	const existing = await findThread(db, { host: { kind: "knowledge_item", id: knowledgeItemId } });
+	const existing = await findThread(db, { host: { kind: "document", id: documentId } });
 	let threadId = existing?.id;
 	if (threadId === undefined) {
 		const created = await deps.adjustThread(ctx, {
-			host: { kind: "knowledge_item", id: knowledgeItemId },
+			host: { kind: "document", id: documentId },
 			members: ["system:propagation"],
 		});
 		if (!created.ok) {
-			logger.error("flagStalledKnowledgeAction: could not create the knowledge item's thread", {
-				knowledgeItemId,
+			logger.error("flagStalledKnowledgeAction: could not create the document's thread", {
+				documentId,
 				problems: created.problems,
 			});
 			return;
@@ -189,7 +189,7 @@ async function flagStalledKnowledgeAction(
 		review: {
 			title: "Agent work stalled: knowledge action",
 			reasoning: [
-				`Knowledge item ${knowledgeItemId} could not be admitted for agent work (${event.failureCode}).`,
+				`Document ${documentId} could not be admitted for agent work (${event.failureCode}).`,
 			],
 		},
 	});

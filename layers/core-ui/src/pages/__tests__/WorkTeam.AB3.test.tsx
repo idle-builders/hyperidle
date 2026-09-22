@@ -103,7 +103,7 @@ const MOCK_AGENT_CONFIGS = [
 		id: "agent-builder-1",
 		name: "Atlas Builder",
 		role: "builder",
-		identityKnowledgeId: "ki_af_demo",
+		identityDocumentId: "ki_af_demo",
 		harnessType: "claude-code",
 		maxConcurrentSessions: 2,
 		status: "active",
@@ -114,7 +114,7 @@ const MOCK_AGENT_CONFIGS = [
 		id: "agent-scout-1",
 		name: "Scout Agent",
 		role: "scout",
-		identityKnowledgeId: "ki_af_demo",
+		identityDocumentId: "ki_af_demo",
 		harnessType: null,
 		maxConcurrentSessions: 1,
 		status: "active",
@@ -126,7 +126,7 @@ const MOCK_AGENT_CONFIGS = [
 		id: "agent-cos-1",
 		name: "System Agent",
 		role: "assistant",
-		identityKnowledgeId: "ki_af_demo",
+		identityDocumentId: "ki_af_demo",
 		harnessType: null,
 		maxConcurrentSessions: 1,
 		status: "active",
@@ -321,7 +321,7 @@ describe("AB3 AC-2 — Edit dialog system prompt textarea pre-filled", () => {
 
 		await waitFor(() => {
 			const link = screen.getByTestId("agent-detail-identity-link");
-			expect(link.getAttribute("href")).toBe("/knowledge/ki_af_demo");
+			expect(link.getAttribute("href")).toBe("/documents/ki_af_demo");
 		});
 	});
 
@@ -446,8 +446,8 @@ describe("AB3 AC-4 — Config save via PATCH /api/agents/:id", () => {
 	});
 
 	// @lore BA9f: "Save writes the edited system prompt" lived here. The persona
-	// is a knowledge document now — this pane links to it and never PATCHes it —
-	// so the claim belongs to the knowledge edit endpoint. That this pane's Save
+	// is a document now — this pane links to it and never PATCHes it —
+	// so the claim belongs to the document edit endpoint. That this pane's Save
 	// reaches `PATCH /api/agents/:id` at all is proven by the next test.
 
 	// @lore This test used to change the Model tier select and assert the PATCH
@@ -585,7 +585,7 @@ describe("AB3 AC-5 — Add custom agent dialog", () => {
 				id: "new-agent-1",
 				name: "New Custom Agent",
 				role: "builder",
-				identityKnowledgeId: "ki_af_demo",
+				identityDocumentId: "ki_af_demo",
 				harnessType: null,
 				maxConcurrentSessions: 1,
 				status: "active",

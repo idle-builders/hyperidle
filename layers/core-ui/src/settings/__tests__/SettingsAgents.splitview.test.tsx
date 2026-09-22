@@ -72,7 +72,7 @@ const MOCK_AGENTS = [
 		// The assistant is a person-owned agent — `ownerUserId` set, not a
 		// structural id prefix.
 		ownerUserId: "user1",
-		identityKnowledgeId: "ki_af_demo",
+		identityDocumentId: "ki_af_demo",
 		harnessType: "opencode",
 		modelId: "deepseek/deepseek-v4-flash",
 		modelProvider: "openrouter",
@@ -87,7 +87,7 @@ const MOCK_AGENTS = [
 		name: "Atlas",
 		role: "builder",
 		ownerUserId: null,
-		identityKnowledgeId: "ki_af_demo",
+		identityDocumentId: "ki_af_demo",
 		harnessType: "opencode",
 		modelId: "deepseek/deepseek-v4-flash",
 		modelProvider: "openrouter",

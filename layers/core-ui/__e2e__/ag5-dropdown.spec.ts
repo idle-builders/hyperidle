@@ -5,7 +5,7 @@
  *   S1. Settings page — Models section Select open/close (resting + open screenshot)
  *   S2. BetCreateDialog — team Select renders full-width control (D4/C3)
  *   S3. RoutineCreateDialog — team/appetite Select renders
- *   S5. KnowledgeDetail overflow Menu — open and close
+ *   S5. DocumentDetail overflow Menu — open and close
  *   T1. Select sm size meets 44px touch target at ≤1024px viewport (AQ-015)
  *
  * Strategy: hermetic page.route() mocks. No DB seeding.
@@ -20,7 +20,7 @@
  * Added page.screenshot() captures on open dropdowns for ≥3 surfaces (visual AC #6).
  */
 
-import { expect, mockSearchThreads, test } from "./fixtures";
+import { expect, makeDocumentRow, mockDocument, mockSearchThreads, test } from "./fixtures";
 
 const _BET_ID = "bet-ag5-test";
 const TEAM_ID = "test-team-1";
@@ -186,38 +186,23 @@ test("AG5-S3: RoutineCreateDialog — canonical Select primitives render", async
 
 // ─── Surface 4b: WorkBet overflow Menu — bet action data attrs preserved ─────
 
-// ─── Surface 5: KnowledgeDetail overflow Menu ────────────────────────────────
+// ─── Surface 5: DocumentDetail overflow Menu ────────────────────────────────
 
-test("AG5-S5: KnowledgeDetail overflow Menu — open and close", async ({ page }) => {
+test("AG5-S5: DocumentDetail overflow Menu — open and close", async ({ page }) => {
 	await page.setViewportSize({ width: 1440, height: 900 });
 
-	// Mock knowledge detail API
+	// Mock document detail API
 	const KNOWLEDGE_ID = "kn-ag5-test";
-	await page.route(`**/api/knowledge/${KNOWLEDGE_ID}`, (route) =>
-		route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify({
-				id: KNOWLEDGE_ID,
-				title: "AG5 Test Knowledge",
-				content: "# Test\n\nContent here.",
-				scope: "team",
-				status: "active",
-				createdAt: new Date().toISOString(),
-				updatedAt: new Date().toISOString(),
-			}),
+	await mockDocument(page, {
+		row: makeDocumentRow(KNOWLEDGE_ID, {
+			title: "AG5 Test Document",
+			body: "# Test\n\nContent here.",
+			scopeKind: "team",
 		}),
-	);
-	await page.route(`**/api/knowledge/${KNOWLEDGE_ID}/blocks`, (route) =>
-		route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify({ blocks: [] }),
-		}),
-	);
+	});
 	await mockSearchThreads(page, { rows: [] });
 
-	await page.goto(`/knowledge/${KNOWLEDGE_ID}`);
+	await page.goto(`/documents/${KNOWLEDGE_ID}`);
 	await page.waitForSelector("[data-testid='main-content']");
 
 	// Open the overflow menu
@@ -230,13 +215,13 @@ test("AG5-S5: KnowledgeDetail overflow Menu — open and close", async ({ page }
 	const menu = page.getByRole("menu");
 	await expect(menu).toBeVisible({ timeout: 5000 });
 
-	// knowledge-archive item must be present
-	const archiveItem = page.locator("[data-testid='knowledge-archive']");
+	// document-archive item must be present
+	const archiveItem = page.locator("[data-testid='document-archive']");
 	await expect(archiveItem).toBeVisible();
 
-	// Screenshot: KnowledgeDetail with overflow menu open (surface 5)
+	// Screenshot: DocumentDetail with overflow menu open (surface 5)
 	await page.screenshot({
-		path: "test-results/ag5-s5-knowledge-menu-open.png",
+		path: "test-results/ag5-s5-document-menu-open.png",
 		fullPage: false,
 	});
 

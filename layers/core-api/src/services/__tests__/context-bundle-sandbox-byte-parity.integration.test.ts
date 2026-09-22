@@ -5,7 +5,7 @@
  *
  * Exercises the REAL end-to-end bake→consume path against a real seeded DB
  * corpus (task, bet, agent, team, one L4/L2/L3 knowledge item each — the same
- * corpus shape `session-knowledge-assembler-ranking-parity.integration.test.ts`
+ * corpus shape `session-documents-ranking-parity.integration.test.ts`
  * (Wave A) pins for the ranking/budget SET): `@hyperidle/work`'s real,
  * already-GREEN (Wave B) `resolveTaskRunRequest` bakes a genuine
  * `contextBundle` from the seeded rows; that bundle is handed to the
@@ -34,21 +34,24 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import {
+	documents,
 	type HyperIdleDb,
-	knowledgeAppProjection,
-	knowledgeItems,
 	taskDispatchAttempts,
 	tasks,
 	teams,
 	threads,
 	users,
 } from "@hyperidle/db";
-import { assembleSessionKnowledge, getAgentIdentity } from "@hyperidle/knowledge";
+import { assembleSessionDocuments } from "@hyperidle/document";
 import { getTeam } from "@hyperidle/org";
 import { createContextAssembler } from "@hyperidle/run-orchestration/scaffolding";
 import { resolveTaskRunRequest } from "@hyperidle/task";
 import { requireRunnableAgent } from "@hyperidle/users";
+import { makeDocumentReadPorts } from "../../__testing__/document-read-test-ports.js";
 import { describe, expect, test } from "../../__testing__/test-fixtures.js";
+import { createStandaloneSearchDocuments } from "../../actions/compose.js";
+
+const { getAgentIdentity } = makeDocumentReadPorts(createStandaloneSearchDocuments());
 
 const NOW = "2026-08-01T00:00:00.000Z";
 const TEAM_ID = "team-i12c-parity";
@@ -128,7 +131,7 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 		updatedAt: NOW,
 	});
 
-	await db.insert(knowledgeItems).values({
+	await db.insert(documents).values({
 		id: "item-i12c-l4",
 		scopeKind: "factory",
 		scopeId: null,
@@ -141,13 +144,8 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
-	await db.insert(knowledgeAppProjection).values({
-		id: "proj-i12c-l4",
-		knowledgeItemId: "item-i12c-l4",
-		scopeId: null,
-	});
 
-	await db.insert(knowledgeItems).values({
+	await db.insert(documents).values({
 		id: "item-i12c-l2",
 		scopeKind: "team",
 		scopeId: TEAM_ID,
@@ -160,13 +158,8 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
-	await db.insert(knowledgeAppProjection).values({
-		id: "proj-i12c-l2",
-		knowledgeItemId: "item-i12c-l2",
-		scopeId: TEAM_ID,
-	});
 
-	await db.insert(knowledgeItems).values({
+	await db.insert(documents).values({
 		id: "item-i12c-l3",
 		scopeKind: "user",
 		scopeId: AGENT_ID,
@@ -178,11 +171,6 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 		updatedBy: AGENT_ID,
 		createdAt: NOW,
 		updatedAt: NOW,
-	});
-	await db.insert(knowledgeAppProjection).values({
-		id: "proj-i12c-l3",
-		knowledgeItemId: "item-i12c-l3",
-		scopeId: AGENT_ID,
 	});
 }
 
@@ -231,7 +219,7 @@ describe("context.ts sandbox output — bundle-consuming byte parity for a fixed
 					requireRunnableAgent,
 					getAgentIdentity,
 					getTeamById: (d: HyperIdleDb, id: string) => getTeam(d, { id }),
-					assembleSessionKnowledge,
+					assembleSessionDocuments,
 				},
 			);
 			expect(baked.contextBundle).toBeDefined();

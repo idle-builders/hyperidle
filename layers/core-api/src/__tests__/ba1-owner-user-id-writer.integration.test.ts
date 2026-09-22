@@ -14,8 +14,8 @@
  * `ast-<userId>` assistant.
  */
 
-import { users } from "@hyperidle/db";
-import { eq } from "drizzle-orm";
+import { changes, documents, users } from "@hyperidle/db";
+import { and, eq } from "drizzle-orm";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
 
 describe("BA1 D6 — a freshly registered human's assistant carries ownerUserId", () => {
@@ -40,5 +40,45 @@ describe("BA1 D6 — a freshly registered human's assistant carries ownerUserId"
 
 		expect(assistant).toBeDefined();
 		expect(assistant?.ownerUserId).toBe(humanId);
+	});
+
+	/**
+	 * @lore BC4 follow-up (architecture.md §8.3): the setup route used to seed
+	 * the assistant's identity with `@hyperidle/document`'s legacy repository
+	 * writer — a raw `INSERT ... ON CONFLICT DO NOTHING`, no `changes` row.
+	 * Routed through `edit_document` (via the shared `agent-identity.ts`
+	 * helper) now, so this is a real behavior change, not just an internal
+	 * refactor: exactly one `agent_file` document exists, and it has a
+	 * `changes` row whose `actor` is the founder who just registered — a real
+	 * `users.id`, not the earlier `updated_by:"scaffold"` free-text sentinel.
+	 */
+	test("POST /api/users (setup) seeds the assistant's identity document, authored by the founder, with a changes row", async ({
+		db,
+		app,
+	}) => {
+		const res = await app.request("/api/users", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ name: "Grace" }),
+		});
+		expect(res.status).toBe(201);
+		const body = (await res.json()) as { user: { id: string } };
+		const humanId = body.user.id;
+		const assistantId = `ast-${humanId}`;
+
+		const identityDocs = await db
+			.select()
+			.from(documents)
+			.where(and(eq(documents.parentKind, "agent"), eq(documents.parentId, assistantId)));
+		expect(identityDocs).toHaveLength(1);
+		const identityDoc = identityDocs[0];
+		expect(identityDoc?.slot).toBe("agent_file");
+
+		const changeRows = await db
+			.select()
+			.from(changes)
+			.where(and(eq(changes.object, "document"), eq(changes.objectId, identityDoc?.id ?? "")));
+		expect(changeRows).toHaveLength(1);
+		expect(changeRows[0]?.actor).toBe(humanId);
 	});
 });

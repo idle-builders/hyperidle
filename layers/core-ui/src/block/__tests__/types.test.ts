@@ -49,7 +49,7 @@ describe("BLOCK_HOST_KINDS", () => {
 	// @lore BB1: "bet" removed from BLOCK_HOST_KINDS — root tasks replace bets
 	it("is a closed 5-entry array (BB1: bet removed)", () => {
 		expect(BLOCK_HOST_KINDS).toHaveLength(5);
-		expect([...BLOCK_HOST_KINDS]).toEqual(["task", "knowledge_item", "artifact", "agent", "user"]);
+		expect([...BLOCK_HOST_KINDS]).toEqual(["task", "document", "artifact", "agent", "user"]);
 	});
 
 	it("derives BlockHostKind union", () => {

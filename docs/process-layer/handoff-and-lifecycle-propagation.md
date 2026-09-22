@@ -63,7 +63,7 @@ When **all children** of a task reach a terminal state (`done` or `killed`) and 
 
 The transition is guarded and appends a `changes` row authored by `system:propagation`. There is no human gate on this transition; it mirrors the Session → Task path.
 
-After a root task (no `parentTaskId`) completes, a `task_state_changed` event fires with the new state. Routines listening on that event — such as the `post-task-retro` routine from the knowledge-management plugin — can pick it up and fire. See [routines-and-retros.md](./routines-and-retros.md).
+After a root task (no `parentTaskId`) completes, a `task_state_changed` event fires with the new state. Routines listening on that event — such as the `post-task-retro` routine from the document-management plugin — can pick it up and fire. See [routines-and-retros.md](./routines-and-retros.md).
 
 ### 2.3 Task → Team (derived on read)
 

@@ -15,8 +15,16 @@
  * of emitting on an EventBus the hub no longer subscribes to.
  */
 
-import { type HyperIdleDb, threads as threadsTable } from "@hyperidle/db";
+import {
+	documents as documentsTable,
+	type HyperIdleDb,
+	teams as teamsTable,
+	threads as threadsTable,
+	users as usersTable,
+} from "@hyperidle/db";
+import { getDocument } from "@hyperidle/document";
 import { findThread } from "@hyperidle/thread";
+import { findUser, listUsers } from "@hyperidle/users";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 import { type WsClient, WsConnectionHub } from "../ws-connection-hub.js";
@@ -36,14 +44,25 @@ function createMockClient(): WsClient & { messages: string[] } {
 }
 
 /**
- * Real Mechanism C deps — mirrors `create-server.ts`'s production wiring.
+ * Real Mechanism C deps — mirrors `create-server.ts`'s production wiring
+ * (`boot.ts`'s own `createDbSubscribeAuthorizer` call).
  *
  * @lore AU26 J3: was four ports. `users`/`org`/`work` existed only to serve the
  * `session:<id>` branch, which moved wholesale to `agent-orchestration`'s own
- * socket. One edge is left: thread participation.
+ * socket. `document`/`users` (architecture.md §7) are new — `users`
+ * back for `document:<id>`'s subject resolution, not the session-team check
+ * AU26 removed.
  */
 const REALTIME_DEPS: SubscribeAuthorizerDeps = {
 	conversation: { getThreadById: (db: HyperIdleDb, id: string) => findThread(db, { id }) },
+	document: {
+		getForSubscribe: async (db: HyperIdleDb, id: string) =>
+			(await getDocument(db, id)) ?? undefined,
+	},
+	users: {
+		getUserById: (db: HyperIdleDb, id: string) => findUser(db, { id }),
+		listOwnedBy: (db: HyperIdleDb, ownerId: string) => listUsers(db, { ownerUserId: ownerId }),
+	},
 };
 
 describe("WsConnectionHub — subscribe authorization (L1 Adv-C1)", () => {
@@ -103,7 +122,7 @@ describe("WsConnectionHub — subscribe authorization (L1 Adv-C1)", () => {
 
 	/**
 	 * @lore BC3 bug fix: `canReadThread`'s host-scoped bypass (`team`/
-	 * `knowledge_item`/`factory` hosts admit any signed-in identity, not just
+	 * `document`/`factory` hosts admit any signed-in identity, not just
 	 * listed `participants`) must be mirrored by the WS authorizer — this is
 	 * what a task's (team-hosted, BC3) thread relies on for every team member
 	 * who never explicitly posted to it.
@@ -192,5 +211,152 @@ describe("WsConnectionHub — subscribe authorization (L1 Adv-C1)", () => {
 		hub.addClient(client, "agent-1");
 
 		expect(await hub.subscribe(client, "evil:thr-1")).toBe("forbidden");
+	});
+});
+
+/**
+ * architecture.md §7: `document:<id>` and `documents` — the subscribe rule is
+ * exactly `canReadDocument`, the same pure predicate `open_document` reads
+ * through. An earlier bug report on this file (host-scoped bypass silently
+ * refused) is exactly the divergence this shared predicate avoids.
+ */
+describe("WsConnectionHub — document subscribe authorization (architecture.md §7)", () => {
+	const now = "2026-06-01T00:00:00.000Z";
+
+	function docValues(overrides: Partial<typeof documentsTable.$inferInsert> & { id: string }) {
+		return {
+			scopeKind: "factory",
+			scopeId: null,
+			title: "Untitled",
+			body: "body",
+			format: "markdown",
+			status: "active",
+			slot: "ordinary",
+			parentKind: null,
+			parentId: null,
+			position: 0,
+			updatedBy: "seed",
+			createdAt: now,
+			updatedAt: now,
+			...overrides,
+		};
+	}
+
+	async function seedUser(db: HyperIdleDb, id: string, overrides: Record<string, unknown> = {}) {
+		await db.insert(usersTable).values({
+			id,
+			kind: "human",
+			name: id,
+			role: "member",
+			status: "active",
+			createdAt: now,
+			...overrides,
+		});
+	}
+
+	test("an artifact (task-parented) document admits any signed-in identity", async ({ db }) => {
+		const hub = new WsConnectionHub(createDbSubscribeAuthorizer(db, REALTIME_DEPS));
+		await db
+			.insert(documentsTable)
+			.values(docValues({ id: "doc-artifact-1", parentKind: "task", parentId: "task-1" }));
+		const client = createMockClient();
+		hub.addClient(client, "anyone-signed-in");
+
+		expect(await hub.subscribe(client, "document:doc-artifact-1")).toBe("ok");
+	});
+
+	test("a private memory admits its owner, refuses a stranger, no frame delivered", async ({
+		db,
+	}) => {
+		const hub = new WsConnectionHub(createDbSubscribeAuthorizer(db, REALTIME_DEPS));
+		await seedUser(db, "memory-owner");
+		await seedUser(db, "memory-stranger");
+		await db.insert(documentsTable).values(
+			docValues({
+				id: "doc-memory-1",
+				scopeKind: "user",
+				scopeId: "memory-owner",
+				slot: "ordinary",
+			}),
+		);
+
+		const ownerClient = createMockClient();
+		hub.addClient(ownerClient, "memory-owner");
+		expect(await hub.subscribe(ownerClient, "document:doc-memory-1")).toBe("ok");
+
+		const strangerClient = createMockClient();
+		hub.addClient(strangerClient, "memory-stranger");
+		expect(await hub.subscribe(strangerClient, "document:doc-memory-1")).toBe("forbidden");
+
+		hub.broadcast(
+			"document:doc-memory-1",
+			JSON.stringify({ type: "update", topic: "document:doc-memory-1", kind: "document.changed" }),
+		);
+		expect(strangerClient.messages).toEqual([]);
+	});
+
+	test("an agent's memory admits the agent's owner — the owned-agent subject list", async ({
+		db,
+	}) => {
+		const hub = new WsConnectionHub(createDbSubscribeAuthorizer(db, REALTIME_DEPS));
+		await seedUser(db, "agent-owner-1");
+		await seedUser(db, "owned-agent-1", {
+			kind: "ai",
+			role: "assistant",
+			agentCategory: "individual",
+			ownerUserId: "agent-owner-1",
+		});
+		await db
+			.insert(documentsTable)
+			.values(docValues({ id: "doc-agent-memory-1", scopeKind: "user", scopeId: "owned-agent-1" }));
+
+		const client = createMockClient();
+		hub.addClient(client, "agent-owner-1");
+		expect(await hub.subscribe(client, "document:doc-agent-memory-1")).toBe("ok");
+	});
+
+	test("a team-scoped document admits only that team's own viewer", async ({ db }) => {
+		const hub = new WsConnectionHub(createDbSubscribeAuthorizer(db, REALTIME_DEPS));
+		await db.insert(teamsTable).values({
+			id: "team-doc-1",
+			name: "team-doc-1",
+			phase: "build",
+			createdAt: now,
+		});
+		await db.insert(teamsTable).values({
+			id: "team-doc-other",
+			name: "team-doc-other",
+			phase: "build",
+			createdAt: now,
+		});
+		await seedUser(db, "team-member-1", { teamId: "team-doc-1" });
+		await seedUser(db, "other-team-member-1", { teamId: "team-doc-other" });
+		await db
+			.insert(documentsTable)
+			.values(docValues({ id: "doc-team-1", scopeKind: "team", scopeId: "team-doc-1" }));
+
+		const memberClient = createMockClient();
+		hub.addClient(memberClient, "team-member-1");
+		expect(await hub.subscribe(memberClient, "document:doc-team-1")).toBe("ok");
+
+		const otherClient = createMockClient();
+		hub.addClient(otherClient, "other-team-member-1");
+		expect(await hub.subscribe(otherClient, "document:doc-team-1")).toBe("forbidden");
+	});
+
+	test("the global `documents` topic accepts any identity", async ({ db }) => {
+		const hub = new WsConnectionHub(createDbSubscribeAuthorizer(db, REALTIME_DEPS));
+		const client = createMockClient();
+		hub.addClient(client, "anyone-signed-in");
+
+		expect(await hub.subscribe(client, "documents")).toBe("ok");
+	});
+
+	test("subscribe to a non-existent document → forbidden", async ({ db }) => {
+		const hub = new WsConnectionHub(createDbSubscribeAuthorizer(db, REALTIME_DEPS));
+		const client = createMockClient();
+		hub.addClient(client, "anyone-signed-in");
+
+		expect(await hub.subscribe(client, "document:does-not-exist")).toBe("forbidden");
 	});
 });

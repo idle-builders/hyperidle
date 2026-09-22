@@ -21,7 +21,7 @@ export const BLOCK_KINDS = [
 export type BlockKind = (typeof BLOCK_KINDS)[number];
 
 // @lore BB1: "bet" removed — root tasks (parentTaskId===null) replace bets.
-export const BLOCK_HOST_KINDS = ["task", "knowledge_item", "artifact", "agent", "user"] as const;
+export const BLOCK_HOST_KINDS = ["task", "document", "artifact", "agent", "user"] as const;
 export type BlockHostKind = (typeof BLOCK_HOST_KINDS)[number];
 
 /**

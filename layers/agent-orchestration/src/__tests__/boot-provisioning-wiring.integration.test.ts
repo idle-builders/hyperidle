@@ -164,12 +164,18 @@ async function bootOrchestrationWithProvisioning(db: HyperIdleDb) {
 				forRegistry: (registry) => agentExecution.adapters.returnStatusTool.forRegistry(registry),
 			},
 			// `startRuntime` asserts `worker`/`writeback` composition is present
-			// before it will start at all — `coreApiTransport` is never dialled
-			// by this test (it only proves the provisioning reads), so a stub
-			// that throws if called is enough to satisfy `runtimeDeps`'s default
-			// seam-backed writeback port.
+			// before it will start at all — neither `editDocument` nor
+			// `searchDocuments` is ever dialled by this test (it only proves the
+			// provisioning reads), so throwing stubs are enough to satisfy
+			// `runtimeDeps`'s default document writeback port (§8.4).
 			coreApiTransport: async () => {
 				throw new Error("coreApiTransport should not be dialled by this provisioning-only test");
+			},
+			editDocument: async () => {
+				throw new Error("editDocument should not be dialled by this provisioning-only test");
+			},
+			searchDocuments: async () => {
+				throw new Error("searchDocuments should not be dialled by this provisioning-only test");
 			},
 			worker: {
 				pool: agentExecution.adapters.pool,

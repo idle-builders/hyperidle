@@ -111,14 +111,14 @@
  * AgentEditDialog — fixed by adding w-full at the call sites.
  */
 
-/* L23 — KnowledgeBody scoped heading hierarchy.
+/* L23 — DocumentBody scoped heading hierarchy.
  *
  * @lore L23 R6: line-height is intentionally omitted. HeadingPayload ships
  * leading-[1.2] as a Tailwind utility, which cascades after @layer components
  * and wins at equal specificity. Adding line-height here would silently lose.
  * Uniform 1.2 from L2 HeadingPayload carries through. See architecture.md § R6.
  *
- * @lore L23: Rules are scoped to [data-knowledge-body] so the same tokens could
+ * @lore L23: Rules are scoped to [data-document-body] so the same tokens could
  * be reused for future Bet pitch bodies under a different attribute without
  * polluting global heading styles.
  */
@@ -155,19 +155,19 @@
 		-webkit-app-region: no-drag;
 	}
 
-	[data-knowledge-body] :is(h1) {
+	[data-document-body] :is(h1) {
 	@apply type-display;
 		margin-top: 6px;
 	}
-	[data-knowledge-body] :is(h2) {
+	[data-document-body] :is(h2) {
 	@apply type-title;
 		margin-top: 6px;
 	}
-	[data-knowledge-body] :is(h3) {
+	[data-document-body] :is(h3) {
 	@apply type-lead;
 		margin-top: 6px;
 	}
-	[data-knowledge-body] :is(h4, h5, h6) {
+	[data-document-body] :is(h4, h5, h6) {
 	@apply type-subheading;
 		color: var(--text-secondary);
 		margin-top: 6px;

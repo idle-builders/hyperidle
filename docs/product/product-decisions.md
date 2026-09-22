@@ -8,9 +8,9 @@ Target user framing behind all of these: solo founder up to a small (~10-person)
 
 ## 1. Standing decisions — do NOT re-open
 
-**Knowledge merge/split stays API-only.** `POST /api/knowledge/:id/merge` and `/:id/split` exist (`layers/core-api/src/routes/knowledge.ts:734`, `:784`); no UI buttons, ever. Users comment on the item and an agent performs the edit. That is the intended end state, not a gap.
+**There is no dedicated knowledge merge/split operation, and none is wanted.** The `merge`/`split` routes this decision used to protect from a UI button are themselves deleted along with the rest of `routes/knowledge.ts` (BC4) — a document is edited like any other: a human comments and an agent performs the edit directly with `edit_document`, or a human edits the body inline. No special merge/split affordance, in the API or the UI, ever.
 
-**No per-skill autonomy controls, ever.** The per-agent-per-skill autonomy product was removed outright. Agents get allow-all on the tools and skills they use; their output is judged at review, and knowledge-item edits are scored behind the system to decide whether a change needs review. Trust model detail: [Review Primitive](../human-interface-layer/review-primitive.md).
+**No per-skill autonomy controls, ever.** The per-agent-per-skill autonomy product was removed outright. Agents get allow-all on the tools and skills they use; their output is judged at review. Trust model detail: [Review Primitive](../human-interface-layer/review-primitive.md).
 
 **Task pause/resume does not exist by design.** Resolved by removing the paused state from the task lifecycle (U1), not by adding endpoints. Lifecycle authority: [Tasks and sessions](../process-layer/tasks-and-sessions.md).
 
@@ -20,8 +20,8 @@ Target user framing behind all of these: solo founder up to a small (~10-person)
 
 ## 2. Decided, not yet executed
 
-- **Knowledge scope cleanup.** Authoring exposes all 6 scope kinds (`SCOPE_KINDS`, `framework/domain-model/src/types.ts:160`; scope enum owned by [The Canonical Store](../knowledge-architecture/the-canonical-store.md)). Founder direction: cut the user-facing choice to roughly three — whole company / this product / just me; the practice-vs-product-vs-team distinction is confusing without domain knowledge. Not shipped.
-- **Knowledge kind taxonomy under question.** Founder doubts the value of the pattern/decision/failure/brief classification and notes "skill" is missing as a kind even though skills are knowledge items. Kind now lives in the app projection as open text (`knowledgeAppProjection.kind`, `framework/db/src/schema.ts:1014`). Open product question, no resolution yet.
+- **Knowledge scope cleanup — done.** `SCOPE_KINDS` (`framework/domain-model/src/types.ts`; scope enum owned by [The Canonical Store](../knowledge-architecture/the-canonical-store.md)) is exactly `factory | team | user` — whole company / this team / just me. The founder's cut-it-to-three direction is the current shape; there is no wider vocabulary left to trim.
+- **There is no `kind` column or taxonomy any more.** The pattern/decision/failure/brief classification the founder doubted is gone entirely, not narrowed — where a document sits in the tree says what it is about (see [The Canonical Store](../knowledge-architecture/the-canonical-store.md)). A skill is simply a document with `slot='skill'`, on the same footing as any other slot.
 - **Create-knowledge-from-discussion needs no button.** An agent can identify and capture knowledge from task discussion; the explicit UI affordance is dispensable.
 - **Org-chart settings page removal.** Founder: "nobody needs that — we have teams with a responsible human and agents inside." `layers/core-ui/src/settings/SettingsOrgChart.tsx` still exists; removal pending.
 - **Routines reframing.** A routine is a work object — or part of a strategy — not an org-level scheduler config. Shapes future Routines work; see [Routines and Retros](../process-layer/routines-and-retros.md).

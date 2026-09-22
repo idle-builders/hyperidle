@@ -3,12 +3,12 @@
  *
  * AC coverage:
  *  - renders empty / loading / error / populated states
- *  - resolves via `threadId` (task page) or `host` (knowledge page, via useThreads)
+ *  - resolves via `threadId` (task page) or `host` (document page, via useThreads)
  *
  * @lore BC3: re-pointed off the deleted `useHostThread` onto `useThread`
  * (`threadId` prop) and `useThreads` (`host` prop) — architecture.md §3.9's
  * "a task's thread is `team`-hosted, known to the caller" and §5 B9's
- * `search_threads({host})` replacement for the knowledge page.
+ * `search_threads({host})` replacement for the document page.
  */
 
 import { render, screen } from "@testing-library/react";
@@ -172,7 +172,7 @@ describe("HostThreadSection (L18)", () => {
 		expect(useThread).toHaveBeenCalledWith("task-abc-thread");
 	});
 
-	it("resolves via useThreads({host}) when only a host is given (knowledge page)", () => {
+	it("resolves via useThreads({host}) when only a host is given (document page)", () => {
 		vi.mocked(useThreads).mockReturnValue({
 			status: "ready",
 			threads: [
@@ -193,10 +193,10 @@ describe("HostThreadSection (L18)", () => {
 			refresh: vi.fn(),
 		});
 
-		render(<HostThreadSection host={{ kind: "knowledge_item", id: "k-123" }} title="Discussion" />);
+		render(<HostThreadSection host={{ kind: "document", id: "k-123" }} title="Discussion" />);
 
 		expect(useThreads).toHaveBeenCalledWith({
-			host: { kind: "knowledge_item", id: "k-123" },
+			host: { kind: "document", id: "k-123" },
 		});
 		expect(useThread).toHaveBeenCalledWith("t-resolved");
 	});

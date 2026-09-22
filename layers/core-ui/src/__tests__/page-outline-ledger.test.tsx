@@ -11,10 +11,6 @@ vi.mock("../services/call.js", () => ({
 vi.mock("../hooks/useTeams", () => ({
 	useTeams: () => ({ data: null, loading: true, error: null, refetch: vi.fn() }),
 }));
-vi.mock("../hooks/useKnowledge.js", () => ({ useKnowledgeItem: () => ({ data: null }) }));
-vi.mock("../hooks/useFetch.js", () => ({
-	useFetch: () => ({ data: null, isLoading: true, error: null }),
-}));
 vi.mock("../services/api-fetch.js", () => ({
 	apiFetch: () => new Promise<Response>(() => undefined),
 }));
@@ -25,9 +21,9 @@ vi.mock("../ds", async (importOriginal) => ({
 
 import { AgentProfile } from "../pages/AgentProfile.js";
 import { Conversations } from "../pages/Conversations.js";
-import { KnowledgeCreate } from "../pages/KnowledgeCreate.js";
-import { KnowledgeDetail } from "../pages/KnowledgeDetail.js";
-import { KnowledgeList } from "../pages/KnowledgeList.js";
+import { DocumentCreate } from "../pages/DocumentCreate.js";
+import { DocumentDetail } from "../pages/DocumentDetail.js";
+import { DocumentList } from "../pages/DocumentList.js";
 import { NotFound } from "../pages/NotFound.js";
 import { ReviewPage } from "../pages/review/ReviewPage.js";
 import { SettingsPage } from "../pages/SettingsPage.js";
@@ -84,9 +80,9 @@ describe("real route outline ledger", () => {
 		["Work Task (loading)", "/work/task/t", "Task", <WorkTaskPage />],
 		["Review", "/reviews/r", "Review", <ReviewPage loader={pendingReview} />],
 		["Agent", "/agents/a", "Agent", <AgentProfile overrideLoading />],
-		["Knowledge list", "/knowledge", "Knowledge", <KnowledgeList loading />],
-		["New Knowledge", "/knowledge/new", undefined, <KnowledgeCreate />],
-		["Knowledge detail", "/knowledge/k1", undefined, <KnowledgeDetail overrideKnowledgeId="k1" />],
+		["Document list", "/documents", "Documents", <DocumentList loading />],
+		["New Document", "/documents/new", undefined, <DocumentCreate />],
+		["Document detail", "/documents/k1", undefined, <DocumentDetail overrideDocumentId="k1" />],
 		[
 			"Settings",
 			"/settings",

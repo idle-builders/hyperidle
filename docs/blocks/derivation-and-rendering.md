@@ -8,8 +8,8 @@ Blocks are derived, never stored. This doc covers where derivation runs, which s
 
 **Ingestion is derivation-free.** Both write paths store markdown only:
 
-- **Watcher writeback** — an agent edits a markdown file in the sandbox; the watcher debounces and writes the body back to the canonical store. Mechanics (debounce, polling fallback, conflict handling) are owned by [`sync-and-conflict-resolution.md`](../knowledge-architecture/sync-and-conflict-resolution.md).
-- **Direct Knowledge-view edit** — the API writes the body to the canonical store and bumps `knowledge_items.version`.
+- **Watcher writeback** — an agent edits a markdown file in the sandbox; the watcher debounces and calls `edit_document`. Mechanics (debounce, a stale write refused and discarded) are owned by [`sync-and-conflict-resolution.md`](../knowledge-architecture/sync-and-conflict-resolution.md).
+- **Direct Knowledge-view edit** — `edit_document` writes the body to the canonical store and bumps `documents.version`.
 
 Neither path derives anything. Derivation happens when a surface renders the body.
 
@@ -20,7 +20,7 @@ Neither path derives anything. Derivation happens when a surface renders the bod
 | Surface | Source body | Renderer |
 |---|---|---|
 | Task description | `tasks.description` | `layers/core-ui/src/pages/WorkTask.tsx` — co-located adapter, `deriveBlocks(description, { kind: "task", id: taskId })` → `<Block />` |
-| Knowledge body | `knowledge_items.body` | `layers/core-ui/src/pages/knowledge/KnowledgeBody.tsx` — includes the per-block action popover and inline anchored-message slots (per-block discussion) |
+| Knowledge body | `documents.body` | `layers/core-ui/src/pages/document/DocumentBody.tsx` — includes the per-block action popover and inline anchored-message slots (per-block discussion) |
 | Review canvas / artifact prose | artifact text bodies | `layers/core-ui/src/pages/review/review-canvas.tsx:78` (`deriveProseBlocks`) and `framework/design-system/src/kinds/compose-artifact-body.tsx`, `{ kind: "artifact" }` |
 
 Artifact embed layouts and the Artifact contract itself are owned by [`artifact-primitive.md`](../process-layer/artifact-primitive.md) — only the Block-derivation side is documented here.
@@ -33,13 +33,13 @@ A Block **belongs to** exactly one source markdown body — `Block.source` carri
 
 Two distinct block-linking shapes, both shipped and coexisting:
 
-1. **Block anchor** (positional). A message *inside the host's own thread* carries `payload.blockId` (+ optional `spotLabel`, AL4) — `PlainPayloadWithBlockId` (`framework/domain-model/src/thread.ts:484`). Dual-written to the queryable `messages.block_id` column (`framework/db/src/schema.ts:788`, T5). The message renders next to its block in the body view (anchored-message slots, `KnowledgeBody.tsx:45`); if the block no longer resolves after an edit, the message shows as orphaned.
+1. **Block anchor** (positional). A message *inside the host's own thread* carries `payload.blockId` (+ optional `spotLabel`, AL4) — `PlainPayloadWithBlockId` (`framework/domain-model/src/thread.ts:484`). Dual-written to the queryable `messages.block_id` column (`framework/db/src/schema.ts:788`, T5). The message renders next to its block in the body view (anchored-message slots, `DocumentBody.tsx:45`); if the block no longer resolves after an edit, the message shows as orphaned.
 2. **Block reference** (contextual). `refs[].{ kind: "block", blockId, hostKind, hostId }` (`BlockRef`, `framework/domain-model/src/thread.ts:117-121`) on any message in **any** thread — DMs, assistant chat, team discussions. The rendering surface resolves the ref client-side at read time (fetch body → derive → find match → embed). If the block no longer exists, the embed degrades to a "source changed" indicator (`layers/core-ui/src/components/BlockRefEmbed.tsx:10`).
 
 Both shapes use the same `(blockId, hostKind, hostId)` coordinate; neither replaces the other.
 
-`InlineRef.kind` is a **closed** discriminated union of six kinds: `knowledge_item | task | artifact | message | block | mention` (`framework/domain-model/src/thread.ts:136-142`; `mention` added by AE5). There is no `bet` kind — a bet is a task with no parent. The `block` variant is the only one carrying extra fields.
+`InlineRef.kind` is a **closed** discriminated union of six kinds: `document | task | artifact | message | block | mention` (`framework/domain-model/src/thread.ts:136-142`; `mention` added by AE5). There is no `bet` kind — a bet is a task with no parent. The `block` variant is the only one carrying extra fields.
 
-**Not a thread attachment kind.** `HOST_KINDS` closed at seven kinds (`task | knowledge_item | artifact | agent | user | team | factory`, `framework/domain-model/src/thread.ts:19-28`) — there is no `block` attachment kind, and no `bet` kind either. Per-block discussion rides the message-level anchor above, not thread attachment. Thread and Message primitives are owned by [`thread-primitive.md`](../human-interface-layer/thread-primitive.md).
+**Not a thread attachment kind.** `HOST_KINDS` closed at seven kinds (`task | document | artifact | agent | user | team | factory`, `framework/domain-model/src/thread.ts:19-28`) — there is no `block` attachment kind, and no `bet` kind either. Per-block discussion rides the message-level anchor above, not thread attachment. Thread and Message primitives are owned by [`thread-primitive.md`](../human-interface-layer/thread-primitive.md).
 
 **Composition is one-way.** A thread or message knows which block it targets; the Block carries no inbound-ref fields. This keeps derivation pure — the same body always derives to the same Block list, regardless of who references it.

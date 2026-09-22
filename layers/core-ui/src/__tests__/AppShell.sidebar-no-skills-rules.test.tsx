@@ -1,51 +1,62 @@
 /**
  * The sidebar's Knowledge fast-nav list
- * shows general knowledge only. A skill or rule item must not appear there
- * either — the same rule KnowledgeList's own filter enforces.
+ * shows general documents only. A skill or rule document must not appear
+ * there either — the same rule DocumentList's own filter enforces.
  */
 import { render, screen, waitFor } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const { callMock } = vi.hoisted(() => ({ callMock: vi.fn() }));
+vi.mock("../services/call.js", () => ({ call: callMock }));
+
+function docRow(overrides: Record<string, unknown>): Record<string, unknown> {
+	return {
+		id: "d1",
+		title: "Untitled",
+		body: "",
+		format: "markdown",
+		status: "active",
+		slot: "ordinary",
+		scopeKind: "team",
+		scopeId: "team-1",
+		parentKind: null,
+		parentId: null,
+		position: 0,
+		version: 1,
+		updatedBy: "agent",
+		createdAt: "2025-01-01T00:00:00.000Z",
+		updatedAt: "2025-01-02T00:00:00.000Z",
+		readCount: 0,
+		lastReadAt: null,
+		sessionUseCount: 0,
+		lastUsedAt: null,
+		as: "document",
+		...overrides,
+	};
+}
+
 beforeEach(() => {
-	global.fetch = vi.fn(async (url: string | URL | Request) => {
-		const urlStr = typeof url === "string" ? url : url instanceof URL ? url.href : url.url;
-		if (urlStr.includes("/api/knowledge")) {
+	callMock.mockImplementation(async (action: string) => {
+		if (action === "search_documents") {
 			return {
 				ok: true,
-				json: async () => ({
-					items: [
-						{
-							id: "k-ordinary",
-							topic: "Architecture",
-							title: "Ordinary decision doc",
-							body: "",
-							format: "markdown",
-							status: "active",
-							role: "ordinary",
-							version: 1,
-							updatedBy: "agent",
-							createdAt: "2025-01-01",
-							updatedAt: "2025-01-02",
-						},
-						{
-							id: "k-skill",
-							topic: null,
-							title: "write-tests-skill",
-							body: "",
-							format: "markdown",
-							status: "active",
-							role: "skill",
-							parentKind: "agent",
-							version: 1,
-							updatedBy: "agent",
-							createdAt: "2025-01-01",
-							updatedAt: "2025-01-01",
-						},
-					],
-				}),
+				data: [
+					docRow({ id: "k-ordinary", title: "Ordinary decision doc" }),
+					docRow({
+						id: "k-skill",
+						title: "write-tests-skill",
+						slot: "skill",
+						parentKind: "agent",
+						parentId: "agent-1",
+					}),
+				],
 			};
 		}
+		return { ok: true, data: [] };
+	});
+	global.fetch = vi.fn(async (url: string | URL | Request) => {
+		const urlStr = typeof url === "string" ? url : url instanceof URL ? url.href : url.url;
 		if (urlStr.includes("/api/auth/me")) {
 			return { ok: true, json: async () => ({ id: "u-founder", name: "Founder" }) };
 		}
@@ -62,8 +73,8 @@ function renderShellAt(initialPath: string): ReturnType<typeof createMemoryRoute
 				path: "/",
 				element: <AppShell />,
 				children: [
-					{ path: "knowledge", element: <div data-testid="knowledge-page">Knowledge Page</div> },
-					{ path: "knowledge/:knowledgeId", element: <div>Detail</div> },
+					{ path: "documents", element: <div data-testid="document-page">Documents Page</div> },
+					{ path: "documents/:documentId", element: <div>Detail</div> },
 				],
 			},
 		],
@@ -75,7 +86,7 @@ function renderShellAt(initialPath: string): ReturnType<typeof createMemoryRoute
 
 describe("AppShell sidebar — no skill or rule in the Knowledge fast-nav list", () => {
 	it("shows the ordinary item, not the skill", async () => {
-		renderShellAt("/knowledge");
+		renderShellAt("/documents");
 		await waitFor(() => {
 			expect(screen.getByText("Ordinary decision doc")).toBeInTheDocument();
 		});

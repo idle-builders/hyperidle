@@ -3,7 +3,7 @@
  *
  * Proves `seedDemoWorld` fills a fresh database with a coherent, weeks-old
  * world: bet history across all lifecycles, tasks in every state, threads
- * with real reviews/verdicts, a knowledge corpus, sessions and routines with
+ * with real reviews/verdicts, a document corpus, sessions and routines with
  * history, and notifications — everything the three views need to look alive.
  */
 
@@ -59,10 +59,10 @@ describe("AX1: lived-in demo world", () => {
 			expect(rt.outcome_summary, `${rt.id} summary`).toBeTruthy();
 		}
 
-		// At least one proposed root task was promoted from a real knowledge item.
+		// At least one proposed root task was promoted from a real document.
 		const promoted = await rows<{ id: string }>(
 			db,
-			`SELECT t.id FROM tasks t JOIN knowledge_items k ON k.id = t.source_knowledge_item_id
+			`SELECT t.id FROM tasks t JOIN documents d ON d.id = t.source_document_id
 			  WHERE t.parent_task_id IS NULL AND t.state = 'proposed'`,
 		);
 		expect(promoted.length).toBeGreaterThanOrEqual(1);
@@ -175,7 +175,7 @@ describe("AX1: lived-in demo world", () => {
 		const badHosts = await rows<{ id: string }>(
 			db,
 			`SELECT th.id FROM threads th
-			  WHERE (th.host_kind = 'knowledge_item' AND NOT EXISTS (SELECT 1 FROM knowledge_items k WHERE k.id = th.host_id))
+			  WHERE (th.host_kind = 'document' AND NOT EXISTS (SELECT 1 FROM documents d WHERE d.id = th.host_id))
 			     OR (th.host_kind = 'agent' AND NOT EXISTS (SELECT 1 FROM users u WHERE u.id = th.host_id))
 			     OR (th.host_kind = 'user' AND NOT EXISTS (SELECT 1 FROM users u WHERE u.id = th.host_id))
 			     OR (th.host_kind = 'team' AND NOT EXISTS (SELECT 1 FROM teams t WHERE t.id = th.host_id))`,
@@ -192,40 +192,29 @@ describe("AX1: lived-in demo world", () => {
 		expect(await count(db, "messages")).toBeGreaterThanOrEqual(100);
 	});
 
-	test("knowledge corpus fills curated + triage with provenance and logs", async ({ db }) => {
+	// @lore BC4: the projection/edit-log/access-log/conflicts tables are dropped
+	// (architecture.md §6.2, §6.4) — `confidence`/`meta` folded onto `documents`,
+	// and the demo corpus (re-seeded 3a99a022b/205659d1d) no longer writes a
+	// conflict row or any edit-log/access-log rows, so those assertions are gone,
+	// not re-pointed.
+	test("document corpus fills curated + triage with real usage signals", async ({ db }) => {
 		await seedWorld(db);
 
-		// the practice-folder items (`demo-ki-practice-*`)
-		// also match `id LIKE 'demo-%'`, so this bound still holds comfortably.
-		expect(await count(db, "knowledge_items", "WHERE id LIKE 'demo-%'")).toBeGreaterThanOrEqual(35);
+		// the practice-folder items (`demo-ki-practice-*`) also match `id LIKE
+		// 'demo-%'`; 43 spec rows + 8 practice folders in the real seed.
+		expect(await count(db, "documents", "WHERE id LIKE 'demo-%'")).toBeGreaterThanOrEqual(45);
 
 		// Triage queue: items a human must look at.
 		// @lore nested-knowledge-items: the status ladder collapsed — draft/
 		// captured/provisional/needs_human all fold into `proposed` now.
-		expect(await count(db, "knowledge_items", "WHERE status = 'proposed'")).toBeGreaterThanOrEqual(
-			3,
-		);
+		expect(await count(db, "documents", "WHERE status = 'proposed'")).toBeGreaterThanOrEqual(3);
 
 		// Variety of scopes.
 		const scopes = await rows<{ scope_kind: string }>(
 			db,
-			"SELECT DISTINCT scope_kind FROM knowledge_items WHERE id LIKE 'demo-%'",
+			"SELECT DISTINCT scope_kind FROM documents WHERE id LIKE 'demo-%'",
 		);
 		expect(scopes.length).toBeGreaterThanOrEqual(3);
-
-		// Every demo item has a projection row; at least one open conflict; edit + access logs.
-		const missingProjection = await rows<{ id: string }>(
-			db,
-			`SELECT k.id FROM knowledge_items k
-			  LEFT JOIN knowledge_app_projection p ON p.knowledge_item_id = k.id
-			  WHERE k.id LIKE 'demo-%' AND p.id IS NULL`,
-		);
-		expect(missingProjection).toHaveLength(0);
-		expect(await count(db, "knowledge_conflicts", "WHERE status = 'open'")).toBeGreaterThanOrEqual(
-			1,
-		);
-		expect(await count(db, "knowledge_edit_log")).toBeGreaterThanOrEqual(3);
-		expect(await count(db, "knowledge_access_log")).toBeGreaterThanOrEqual(5);
 
 		// Provenance loop: a done/killed root task produced a retro item under it.
 		// @lore nested-knowledge-items: task-scoped items are no longer
@@ -233,21 +222,65 @@ describe("AX1: lived-in demo world", () => {
 		// factory-scoped (D4/architecture §7 step 7).
 		const retro = await rows<{ id: string }>(
 			db,
-			`SELECT k.id FROM knowledge_items k
-			  JOIN tasks t ON t.id = k.parent_id
-			  WHERE k.parent_kind = 'task' AND t.parent_task_id IS NULL AND t.state IN ('done','killed')`,
+			`SELECT d.id FROM documents d
+			  JOIN tasks t ON t.id = d.parent_id
+			  WHERE d.parent_kind = 'task' AND t.parent_task_id IS NULL AND t.state IN ('done','killed')`,
 		);
 		expect(retro.length).toBeGreaterThanOrEqual(1);
+
+		// @lore BC4 §6.7: the desktop walk's decay routine (`unusedSince` +
+		// `sort:"least_used"`) needs active, ordinary documents that read stale
+		// on both usage clocks — the seed backdates four of them past 90 days.
+		const usage = await rows<{
+			id: string;
+			last_used_at: string | null;
+			last_read_at: string | null;
+		}>(
+			db,
+			`SELECT id, last_used_at, last_read_at FROM documents
+			  WHERE status = 'active' AND slot = 'ordinary'
+			    AND last_used_at IS NOT NULL AND last_read_at IS NOT NULL`,
+		);
+		const ninetyDaysAgo = Date.now() - 90 * 86_400_000;
+		const staleCount = usage.filter(
+			(d) =>
+				new Date(d.last_used_at as string).getTime() < ninetyDaysAgo &&
+				new Date(d.last_read_at as string).getTime() < ninetyDaysAgo,
+		).length;
+		expect(staleCount).toBeGreaterThanOrEqual(4);
+
+		// A document can't have been read before it existed: created_at must
+		// never come after last_read_at, for every row that has one — not just
+		// the stale slice above.
+		const withReads = await rows<{ id: string; created_at: string; last_read_at: string }>(
+			db,
+			`SELECT id, created_at, last_read_at FROM documents WHERE last_read_at IS NOT NULL`,
+		);
+		expect(withReads.length).toBeGreaterThan(0);
+		const readBeforeCreated = withReads.filter(
+			(d) => new Date(d.created_at).getTime() > new Date(d.last_read_at).getTime(),
+		);
+		expect(readBeforeCreated).toHaveLength(0);
 	});
 
 	test("sessions: terminal history plus live ones, all resolving", async ({ db }) => {
 		await seedWorld(db);
 
 		// @lore BA9d wave 3: three ritual routines removed from demo world
-		// (knowledge-decay, knowledge-promotion, post-task-retro) — their associated
-		// sessions are gone. Actual count is 34 (26 task + 2 live + 6 assistant turns).
+		// (document-decay, document-triage, post-task-retro) — their associated
+		// sessions are gone. Actual count is 34 (26 task + 2 live-or-just-ended +
+		// 6 assistant turns).
+		//
+		// Review-found defect: the assistant's placeholder session
+		// (SESSION_ACTIVE_ASSISTANT) used to be seeded "active" alongside a
+		// concurrency-slot bump on the assistant's run config — a placeholder
+		// permanently occupying a slot, requiring an extra slot just to make
+		// room for it, rather than a session that actually finished. It is now
+		// seeded terminal (state:"done", ended an hour ago) so the demo shows
+		// honest concurrency: only the task session (SESSION_ACTIVE_COPY) is
+		// still live.
 		expect(await count(db, "sessions")).toBeGreaterThanOrEqual(30);
-		expect(await count(db, "sessions", "WHERE state = 'active'")).toBeGreaterThanOrEqual(2);
+		expect(await count(db, "sessions", "WHERE state = 'active'")).toBeGreaterThanOrEqual(1);
 		expect(await count(db, "sessions", "WHERE state IN ('done','crashed')")).toBeGreaterThanOrEqual(
 			30,
 		);
@@ -270,7 +303,7 @@ describe("AX1: lived-in demo world", () => {
 
 	// @lore BA9d: builtin routine mechanism deleted (provisionTeamRoutines removed).
 	// Only demo-routine-daily_digest remains. The three ritual routines
-	// (knowledge-decay, knowledge-promotion, post-task-retro) were also removed
+	// (document-decay, document-triage, post-task-retro) were also removed
 	// from demo world per coordinator instruction. No builtin:* rows exist.
 	test("routines: daily_digest routine with run history (BA9d: no builtin:* rows)", async ({
 		db,
@@ -328,17 +361,15 @@ describe("AX1: lived-in demo world", () => {
 
 		// @lore BB1: "bets" removed from table list — the table is dropped.
 		// @lore artifacts-become-knowledge: "artifacts" removed — the table is dropped.
+		// @lore BC4: "knowledge_app_projection"/"knowledge_edit_log"/
+		// "knowledge_access_log"/"knowledge_conflicts" removed — the tables are dropped.
 		const tables = [
 			"users",
 			"teams",
 			"tasks",
 			"threads",
 			"messages",
-			"knowledge_items",
-			"knowledge_app_projection",
-			"knowledge_edit_log",
-			"knowledge_access_log",
-			"knowledge_conflicts",
+			"documents",
 			"sessions",
 			"routines",
 			"routine_runs",

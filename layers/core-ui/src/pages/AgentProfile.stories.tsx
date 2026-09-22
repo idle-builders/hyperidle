@@ -30,7 +30,7 @@ const BASE_PROFILE: AgentProfileResponse = {
 	teamName: "HyperIdle Core",
 	teamId: "team-1",
 	createdAt: "2024-01-15T08:00:00.000Z",
-	identityKnowledgeId: "ki_af_agent-1",
+	identityDocumentId: "ki_af_agent-1",
 	harnessType: "claude-code",
 	maxConcurrentSessions: 2,
 	mcpSetup: null,
@@ -82,7 +82,7 @@ const BASE_RUN_STATE: AgentRunState = {
 		{
 			sessionId: "sess-3",
 			taskId: "task-3",
-			taskTitle: "Add pagination to knowledge list",
+			taskTitle: "Add pagination to document list",
 			outcome: "completed",
 			startedAt: "2024-06-03T09:00:00.000Z",
 			endedAt: "2024-06-03T10:45:00.000Z",

@@ -52,8 +52,8 @@ export interface BakedWorkIntentRequest {
 	/**
 	 * AU21 §9 Increment 12 (Decision H3): the `task_run`/`knowledge_action`/
 	 * `routine_run` families' baked entity content (task/bet/
-	 * agent/team, or routine/agent/team) plus the ranked+budgeted knowledge
-	 * items `@hyperidle/knowledge`'s `assembleSessionKnowledge` produces —
+	 * agent/team, or routine/agent/team) plus the ranked+budgeted
+	 * documents `@hyperidle/document`'s `assembleSessionDocuments` produces —
 	 * `context.ts`'s `SessionContextData`/`RoutineSessionContextData` content,
 	 * assembled at emit time by each per-kind resolver (the entity it already
 	 * loads to validate + resolve the target agent) instead of
@@ -89,7 +89,7 @@ export interface BakedWorkIntentRequest {
 	 * resolver whose kind has a real thread host: `assistant_turn` (the
 	 * conversation thread), `task_run`/`session_start`/
 	 * `knowledge_action` (the
-	 * knowledge item's thread). `routine_run` bakes none — a routine has no
+	 * document's thread). `routine_run` bakes none — a routine has no
 	 * thread host — and its `reply` tool call falls back to a direct thread
 	 * with the sole human user instead. Carried through onto the created
 	 * `AgentSessionRequest.payloadJson` alongside `agentConfig` so `reply`
@@ -131,12 +131,12 @@ export interface BakedAgentRunnableConfig {
 	readonly role: string;
 	readonly teamId: string | null;
 	/**
-	 * The agent's identity — the body of the `agent_file` knowledge document
+	 * The agent's identity — the body of the `agent_file` document
 	 * bound to it, which becomes the "## Identity" section of the AGENTS.md its
 	 * session reads.
 	 *
 	 * Baked here rather than read at provisioning time because it lives in
-	 * `knowledge_items`, which belongs to the knowledge service; the provisioner
+	 * `documents`, which belongs to the document service; the provisioner
 	 * reads `agent_run_config`, which is orchestration's own. Every path bakes
 	 * this config, including the assistant turn, which bakes no context bundle —
 	 * so this is the one carrier that reaches all of them.
@@ -148,7 +148,7 @@ export interface BakedAgentRunnableConfig {
  * Map a resolver's already-loaded `agent: User` row (or any object structurally
  * satisfying `BakedAgentRunnableConfig`'s fields — `@hyperidle/work-intent-port` has zero
  * `@hyperidle/db` dependency, so this stays duck-typed, same idiom as
- * `SessionKnowledgeItemLike`) onto the exact whitelisted `BakedAgentRunnableConfig`
+ * `SessionDocumentLike`) onto the exact whitelisted `BakedAgentRunnableConfig`
  * shape. A deliberate whitelist pick, not a spread — `User` carries other
  * columns (name, avatar, credentials, etc.) that must never ride onto the
  * baked `AgentSessionRequest.payloadJson`.
@@ -167,26 +167,26 @@ export function bakeAgentRunnableConfig(
 }
 
 /**
- * @lore nested-knowledge-items §5: one ancestor in `BakedContextKnowledgeItem.parentChain` —
+ * @lore nested-knowledge-items §5: one ancestor in `BakedContextDocument.parentChain` —
  * everything `writeOrdinaryItems` (context.ts) needs to materialise that
  * ancestor's own directory + manifest entry without a DB read.
  */
-export interface BakedKnowledgeAncestor {
+export interface BakedDocumentAncestor {
 	readonly id: string;
 	readonly title: string;
 	readonly scopeKind: string;
 	readonly version: number;
 }
 
-/** One ranked+budgeted knowledge item as baked onto a `BakedContextBundle`. */
-export interface BakedContextKnowledgeItem {
+/** One ranked+budgeted document as baked onto a `BakedContextBundle`. */
+export interface BakedContextDocument {
 	readonly id: string;
 	readonly title: string;
 	readonly body: string;
 	readonly format: string;
 	readonly version: number;
 	/**
-	 * @lore nested-knowledge-items §5: the chain of ancestor knowledge items
+	 * @lore nested-knowledge-items §5: the chain of ancestor documents
 	 * this item sits under, root first. `writeContextBundle` does zero DB
 	 * reads ("every byte comes from `bundle`"), so an ancestor that was not
 	 * itself selected still needs its directory-with-index materialised, AND
@@ -195,24 +195,27 @@ export interface BakedContextKnowledgeItem {
 	 * folder item). Each ancestor therefore carries its own `scopeKind` and
 	 * `version`, not just `id`/`title` — everything a manifest entry needs,
 	 * with zero DB reads at write time. Empty for a root item or one whose
-	 * parent is not a knowledge item (task/thread/routine/agent — walks never
+	 * parent is not a document (task/thread/routine/agent — walks never
 	 * cross that hop).
 	 */
-	readonly parentChain: readonly BakedKnowledgeAncestor[];
+	readonly parentChain: readonly BakedDocumentAncestor[];
 	/** @lore nested-knowledge-items §5/D4: this item's own scope — every manifest entry needs one (review.md B6). */
 	readonly scopeKind: string;
 	/**
-	 * @lore BA9b: Role determines how context assembly materialises this item.
-	 * Defaults to 'ordinary' for all items that pre-date the role column.
+	 * @lore BA9b: Slot determines how context assembly materialises this item.
+	 * Defaults to 'ordinary' for all items that pre-date the slot column.
+	 * @lore BC4: field renamed `role` -> `slot` with migration 0086 step 1,
+	 * which renamed the DB column itself (architecture.md §2, §6.4). Values
+	 * unchanged.
 	 * - ordinary: knowledge/... files
 	 * - skill: .claude/skills/<title>/SKILL.md
 	 * - rule: knowledge/rules/<title>
 	 * - agent_file: AGENTS.md/CLAUDE.md, bound to the agent named by the parent slot
 	 * - prompt: the run's instruction — never materialised as a sandbox file
 	 */
-	readonly role: string;
+	readonly slot: string;
 	/**
-	 * @lore BA9b: For role='agent_file', this is the agentId the file is
+	 * @lore BA9b: For slot='agent_file', this is the agentId the file is
 	 * bound to. Only the agent whose session matches this id receives the
 	 * file.
 	 *
@@ -225,14 +228,14 @@ export interface BakedContextKnowledgeItem {
 
 /**
  * AU21 §9 Increment 12 (Decision H3), Wave B — the structural shape
- * `@hyperidle/knowledge`'s `assembleSessionKnowledge` (Wave A) returns
- * (`KnowledgeItemWithProjection`), duck-typed here so `work`/`routine`/
- * `review`'s per-kind resolvers can type their INJECTED `assembleSessionKnowledge`
+ * `@hyperidle/document`'s `assembleSessionDocuments` (Wave A) returns
+ * (`SessionDocument`), duck-typed here so `work`/`routine`/
+ * `review`'s per-kind resolvers can type their INJECTED `assembleSessionDocuments`
  * dependency (Mechanism C: none of those packages may import
- * `@hyperidle/knowledge` directly) without needing that Service's own type.
- * `layer` stays optional (matching `KnowledgeItemWithProjection`'s own
- * `role`, `parentKind` and `parentId` are required: all three come from the
- * kernel `knowledgeItems` table, which is always present in a DB row. role is
+ * `@hyperidle/document` directly) without needing that Service's own type.
+ * `layer` stays optional (matching `SessionDocument`'s own
+ * `slot`, `parentKind` and `parentId` are required: all three come from the
+ * kernel `documents` table, which is always present in a DB row. slot is
  * NOT NULL DEFAULT 'ordinary'; `parentKind`/`parentId` are nullable but always
  * present — the same rule this doc comment already stated for `scopeId`,
  * which this interface no longer needs (its only reader was the
@@ -244,27 +247,29 @@ export interface BakedContextKnowledgeItem {
  * that fallback is exactly how B4 shipped unnoticed (every real caller
  * resolved to flat placement, and the type system never complained). Every
  * caller must resolve the real chain, via `resolveParentChain` (the only
- * caller today, `assembleSessionKnowledge` in `@hyperidle/knowledge`, does).
+ * caller today, `assembleSessionDocuments` in `@hyperidle/document`, does).
  */
-export interface SessionKnowledgeItemLike {
+export interface SessionDocumentLike {
 	readonly id: string;
 	readonly title: string;
 	readonly body: string;
 	readonly format: string;
 	readonly version: number;
-	/** @lore nested-knowledge-items §5: see `BakedContextKnowledgeItem.parentChain`. */
-	readonly parentChain: readonly BakedKnowledgeAncestor[];
-	/** @lore nested-knowledge-items §5/D4: see `BakedContextKnowledgeItem.scopeKind`. */
+	/** @lore nested-knowledge-items §5: see `BakedContextDocument.parentChain`. */
+	readonly parentChain: readonly BakedDocumentAncestor[];
+	/** @lore nested-knowledge-items §5/D4: see `BakedContextDocument.scopeKind`. */
 	readonly scopeKind: string;
 	/**
 	 * @lore BA9b: Kernel table column, NOT NULL DEFAULT 'ordinary'. Required.
-	 * Every DB row carries a non-null role after migration 0062.
+	 * Every DB row carries a non-null slot after migration 0062.
+	 * @lore BC4: field renamed `role` -> `slot`, matching the DB column
+	 * migration 0086 step 1 renamed.
 	 */
-	readonly role: string;
+	readonly slot: string;
 	/**
 	 * @lore knowledge-attachment-slot: kernel table columns, required,
 	 * nullable — the parent slot this item hangs off, if any.
-	 * toBakedContextKnowledgeItems derives agentBindingId from these two
+	 * toBakedContextDocuments derives agentBindingId from these two
 	 * fields: `parentKind === "agent"` means `parentId` names the bound
 	 * agent.
 	 */
@@ -273,15 +278,15 @@ export interface SessionKnowledgeItemLike {
 }
 
 /**
- * Map `assembleSessionKnowledge`'s ranked+budgeted output onto the
- * `BakedContextKnowledgeItem[]` shape every `contextBundle` variant carries —
+ * Map `assembleSessionDocuments`'s ranked+budgeted output onto the
+ * `BakedContextDocument[]` shape every `contextBundle` variant carries —
  * one shared mapper so `task-run-resolver.ts`/`knowledge-action-resolver.ts`/
  * the routine resolver doesn't reimplement the
  * same field-pick.
  */
-export function toBakedContextKnowledgeItems(
-	items: readonly SessionKnowledgeItemLike[],
-): readonly BakedContextKnowledgeItem[] {
+export function toBakedContextDocuments(
+	items: readonly SessionDocumentLike[],
+): readonly BakedContextDocument[] {
 	return items.map((item) => ({
 		id: item.id,
 		title: item.title,
@@ -290,7 +295,7 @@ export function toBakedContextKnowledgeItems(
 		version: item.version,
 		parentChain: item.parentChain,
 		scopeKind: item.scopeKind,
-		role: item.role,
+		slot: item.slot,
 		// @lore knowledge-attachment-slot: the binding is the parent, not the
 		// scope — always derived, never set explicitly (no shim path). One
 		// semantic flip is deliberate: a team-scoped agent_file (unreachable in
@@ -310,7 +315,7 @@ export function toBakedContextKnowledgeItems(
  * (`kind:"routine"`, matching `RoutineSessionContextData`), or a
  * `knowledge_action` session needs (`kind:"knowledge"` — the flagged item
  * itself, since a review turn has no task/bet/routine), plus the shared
- * ranked+budgeted `knowledge` bundle every variant carries.
+ * ranked+budgeted `documents` bundle every variant carries.
  *
  * @lore CONFUSION (Increment 12 Wave B, flagged for reviewer): this original
  * doc comment (Wave A) claimed `knowledge_action` used the `kind:"task"`
@@ -415,24 +420,6 @@ export interface RoutineTriggerEvent {
 		  }
 		| {
 				/**
-				 * BA9c: DB-loaded knowledge-base subject (knowledge_created /
-				 * knowledge_updated / knowledge_archived events —
-				 * rows from the `knowledge_items` table). This is the knowledge layer:
-				 * captured learnings, skills, memory — owned by @hyperidle/knowledge,
-				 * written through create() which writes kernel + app-projection together.
-				 */
-				readonly kind: "knowledge-item";
-				readonly item: {
-					readonly id: string;
-					readonly title: string;
-					readonly body: string;
-					readonly format: string;
-					readonly version: number;
-				};
-				readonly actorId?: string;
-		  }
-		| {
-				/**
 				 * BA9c: DB-loaded team subject (team_created event).
 				 * Reuses BakedContextBundle team shape: {id, name}.
 				 */
@@ -515,7 +502,7 @@ export type BakedContextBundle =
 			}[];
 			readonly agent: { readonly id: string; readonly name: string; readonly role: string };
 			readonly team: { readonly id: string; readonly name: string };
-			readonly knowledge: readonly BakedContextKnowledgeItem[];
+			readonly documents: readonly BakedContextDocument[];
 	  }
 	| {
 			readonly kind: "routine";
@@ -529,7 +516,7 @@ export type BakedContextBundle =
 			readonly agent: { readonly id: string; readonly name: string; readonly role: string };
 			/** BA1 D4: nullable — the owner agent may belong to no team. */
 			readonly team: { readonly id: string; readonly name: string } | null;
-			readonly knowledge: readonly BakedContextKnowledgeItem[];
+			readonly documents: readonly BakedContextDocument[];
 			/**
 			 * BA9c: The event that caused this routine to fire. Absent for clock-fired
 			 * (heartbeat/calendar) routines — those have no triggering event.
@@ -546,7 +533,7 @@ export type BakedContextBundle =
 				readonly version: number;
 			};
 			readonly agent: { readonly id: string; readonly name: string; readonly role: string };
-			readonly knowledge: readonly BakedContextKnowledgeItem[];
+			readonly documents: readonly BakedContextDocument[];
 	  };
 
 /**

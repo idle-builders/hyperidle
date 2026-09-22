@@ -105,6 +105,9 @@ export const knowledgeSessionRequestInputSchema = baseInput.extend({
 	promptMode: z.literal("knowledge"),
 	taskId: z.null().optional(),
 	sourceCorrelation: z.object({
+		// @lore this is the retired "knowledge" session-request family's own
+		// stored payload shape (persisted verbatim in sessions.source_correlation_json
+		// for existing rows) — left as knowledgeItemId rather than renamed.
 		knowledgeItemId: z.string().min(1),
 		action: z.enum(["promote", "summarize", "extract", "review"]),
 		teamId: z.string().min(1).optional(),

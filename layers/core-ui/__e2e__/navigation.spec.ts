@@ -11,8 +11,11 @@
  */
 import {
 	expect,
+	makeDocumentRow,
 	makeTask,
 	makeTaskCardSummary,
+	mockDocument,
+	mockSearchDocuments,
 	mockTaskTree,
 	mockTeamDetail,
 	test,
@@ -180,25 +183,15 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 	});
 
 	test("AC-5: ⌘3 switches to Knowledge view", async ({ page }) => {
-		// Mock knowledge list
-		await page.route("**/api/knowledge", async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({ items: [] }),
-				});
-			} else {
-				await route.continue();
-			}
-		});
+		// Mock document list
+		await mockSearchDocuments(page, { rows: [] });
 
 		await page.goto("/");
 		await page.waitForSelector("[data-testid='main-content']");
 
-		// ⌘3 → Knowledge
+		// ⌘3 → Documents
 		await page.keyboard.press("Meta+3");
-		await expect(page).toHaveURL(/\/knowledge/, { timeout: 3000 });
+		await expect(page).toHaveURL(/\/documents/, { timeout: 3000 });
 	});
 
 	test("AC-5: ⌘1 switches back to Conversations view", async ({ page }) => {
@@ -223,18 +216,18 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 	});
 
 	// AC-5: shortcut guard — does NOT fire while typing in an input
-	// W2: deterministic — Knowledge create page at /knowledge/new has a real <input>
-	// for the title. We navigate there, focus the title input (which is always present
-	// and clickable), then press ⌘2 and assert it does NOT navigate.
+	// W2: deterministic — the document create page at /documents/new has a real
+	// <input> for the title. We navigate there, focus the title input (which is
+	// always present and clickable), then press ⌘2 and assert it does NOT navigate.
 	//
 	// Note: the global-search dialog's SearchField auto-focus is unreliable in the
 	// headless Playwright runner (the focusRef fires but Playwright shows the element
-	// as "inactive"). Using the KnowledgeCreate title input is deterministic because
+	// as "inactive"). Using the DocumentCreate title input is deterministic because
 	// it's a plain <input type="text"> we can directly focus via click().
 	test("AC-5: ⌘2 does not switch views while typing in input", async ({ page }) => {
-		// Navigate to a page with a real text input (knowledge create).
-		await page.goto("/knowledge/new");
-		await page.waitForSelector("[data-testid='knowledge-create-page']");
+		// Navigate to a page with a real text input (document create).
+		await page.goto("/documents/new");
+		await page.waitForSelector("[data-testid='document-create-page']");
 
 		// The title input is a plain <input type="text"> with placeholder "Untitled".
 		const titleInput = page.getByPlaceholder("Untitled");
@@ -246,8 +239,8 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 		// ⌘2 must NOT navigate away — useNavShortcuts guard checks e.target.tagName === "input".
 		await page.keyboard.press("Meta+2");
 
-		// URL must still be /knowledge/new (no navigation happened while typing in input).
-		await expect(page).toHaveURL(/\/knowledge\/new/, { timeout: 1000 });
+		// URL must still be /documents/new (no navigation happened while typing in input).
+		await expect(page).toHaveURL(/\/documents\/new/, { timeout: 1000 });
 
 		// The input must still be focused (not blurred by ⌘2).
 		await expect(titleInput).toBeFocused();
@@ -332,17 +325,20 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 		await expect(page).toHaveURL(/\/work\/portfolio/, { timeout: 5000 });
 	});
 
-	// C1 — AC-2: cross-view history traversal — bet → knowledge → Back → bet.
+	// C1 — AC-2: cross-view history traversal — bet → document → Back → bet.
 	// This is the heart of the workpackage: Back traverses temporal history across views.
 	//
-	// Strategy: navigate bet → knowledge via history.pushState (simulates in-app navigation
+	// Strategy: navigate bet → document via history.pushState (simulates in-app navigation
 	// from ⌘K search result click). The global-search dialog focus is unreliable in headless
 	// Playwright, so we simulate the navigation outcome directly. The AC verifies the
 	// temporal history traversal, not the search UI itself (that's covered by global-search.spec.ts).
-	test("AC-2: cross-view history — task→knowledge→Back returns to task", async ({ page }) => {
-		const KNOWLEDGE_ID = "k1";
+	test("AC-2: cross-view history — task→document→Back returns to task", async ({ page }) => {
+		const DOCUMENT_ID = "k1";
 
 		await mockTaskAndTeam(page);
+		await mockDocument(page, {
+			row: makeDocumentRow(DOCUMENT_ID, { title: "AG4 fixture document" }),
+		});
 
 		// 1. Navigate to bet detail (establishes history base).
 		await page.goto(`/work/task/${ROOT_TASK_ID}`);
@@ -352,19 +348,19 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 		});
 		const betUrl = page.url();
 
-		// 2. Navigate to knowledge item via history.pushState (simulates search-result click).
+		// 2. Navigate to a document via history.pushState (simulates search-result click).
 		// This is what happens in the app when ⌘K result is clicked — React Router pushes history.
 		await page.evaluate((url) => {
 			const currentIdx = (window.history.state?.idx ?? 0) as number;
 			window.history.pushState({ idx: currentIdx + 1 }, "", url);
 			window.dispatchEvent(new PopStateEvent("popstate", { state: window.history.state }));
-		}, `/knowledge/${KNOWLEDGE_ID}`);
+		}, `/documents/${DOCUMENT_ID}`);
 
-		// 3. Should be on the knowledge detail page now.
-		await expect(page).toHaveURL(new RegExp(`/knowledge/${KNOWLEDGE_ID}`), { timeout: 5000 });
-		await page.waitForSelector("[data-testid='knowledge-detail-page']");
+		// 3. Should be on the document detail page now.
+		await expect(page).toHaveURL(new RegExp(`/documents/${DOCUMENT_ID}`), { timeout: 5000 });
+		await page.waitForSelector("[data-testid='document-detail-page']");
 
-		// 4. The Breadcrumb on the knowledge detail page confirms we're at the right screen.
+		// 4. The Breadcrumb on the document detail page confirms we're at the right screen.
 		await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toBeVisible({
 			timeout: 5000,
 		});
@@ -410,7 +406,7 @@ test.describe("Navigation", () => {
 	test("clicking Knowledge section header activates the Knowledge section", async ({ page }) => {
 		// @lore W3: Knowledge scope sub-items (Practices, Products, Factory) were
 		// removed from the Sidebar in W3 AC-3. The Knowledge section header activates
-		// and navigates to /knowledge without scope sub-items.
+		// and navigates to /documents without scope sub-items.
 		await page.getByRole("button", { name: /knowledge/i }).click();
 		// Knowledge section becomes active
 		await expect(page.locator("[data-section='knowledge'][data-active='true']")).toBeVisible();

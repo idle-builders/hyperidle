@@ -51,9 +51,7 @@ describe("AC-4 / AC-11 — message-type discriminant exhaustiveness", () => {
 
 	it("HOST_KINDS is exactly the closed 5-set (bet, artifact, and task are no longer host kinds — a task's thread is team-hosted)", () => {
 		expect(HOST_KINDS.length).toBe(5);
-		expect([...HOST_KINDS].sort()).toEqual(
-			["agent", "factory", "knowledge_item", "team", "user"].sort(),
-		);
+		expect([...HOST_KINDS].sort()).toEqual(["agent", "document", "factory", "team", "user"].sort());
 	});
 
 	it("VERDICT_DECISIONS is the 5 binding verdicts (concept §4.5.7)", () => {

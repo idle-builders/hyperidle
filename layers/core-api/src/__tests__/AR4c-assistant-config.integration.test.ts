@@ -8,7 +8,7 @@
  * @lore BA9f: this drove `PATCH /api/users/:userId/assistant`, a second agent
  * editor that existed only for assistants — because the persona was a column
  * with an assistant-shaped guard on it, and the guard needed a route of its own
- * to send people to. The persona is a knowledge document now, so the guard and
+ * to send people to. The persona is a document now, so the guard and
  * the route are both gone and an assistant is edited at `/api/agents/:id` like
  * every other agent. Same claims, one route.
  *

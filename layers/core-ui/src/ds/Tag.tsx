@@ -32,7 +32,7 @@ const TAG_BASE =
 export function Tag({ label, kind }: TagProps): JSX.Element {
 	// @lore J1 review: defensive guard — if a caller passes an arbitrary
 	// string typed as `TagKind` (e.g. `kind={item.kind as TagKind}` for a
-	// knowledge-item kind not in the Tier-2 set), `meta` would be undefined
+	// document kind not in the Tier-2 set), `meta` would be undefined
 	// and the render path would crash on `meta.tintClass`. Fall back to the
 	// neutral chip in that case so the page stays up.
 	const meta = kind ? TAG_KIND_ICONS[kind] : undefined;

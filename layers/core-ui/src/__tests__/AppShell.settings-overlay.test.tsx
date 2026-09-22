@@ -24,7 +24,7 @@ function renderShell(initialPath = "/conversations"): ReturnType<typeof render> 
 					{ path: "conversations/:threadId", element: <div>Conversations Page</div> },
 					{ path: "work/portfolio", element: <div>Portfolio Page</div> },
 					{ path: "work/team", element: <div>Team Page</div> },
-					{ path: "knowledge", element: <div>Knowledge Page</div> },
+					{ path: "documents", element: <div>Document Page</div> },
 					// @lore FR-18: /settings is now a real route — stub avoids 404 error.
 					{ path: "settings", element: <div data-testid="settings-page">Settings</div> },
 				],
@@ -44,7 +44,7 @@ describe("AppShell — Settings overlay + Command-K priority (J3)", () => {
 				Promise.resolve({
 					conversations: [],
 					work: [],
-					knowledge: [],
+					documents: [],
 					threads: [],
 					nextCursor: null,
 					id: "u-test",

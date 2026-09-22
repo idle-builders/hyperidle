@@ -48,7 +48,7 @@ const ASSISTANT_AGENT = {
 	name: "Assistant",
 	role: "assistant",
 	ownerUserId: "test-founder",
-	identityKnowledgeId: null,
+	identityDocumentId: null,
 	harnessType: null,
 	modelId: null,
 	modelProvider: null,

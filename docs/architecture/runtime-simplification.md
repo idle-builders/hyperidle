@@ -97,7 +97,7 @@ Knowledge to build a run's context bundle) rather than touching the table themse
 
 **Package granularity — one npm workspace package per Service (2026-07-13, founder-settled).**
 Resolved in favor of a real package per Service, nested under its owning Layer's directory
-(`layers/<layer>/<service>/`, e.g. `layers/core-api/knowledge/`,
+(`layers/<layer>/<service>/`, e.g. `layers/core-api/document/`,
 `layers/agent-orchestration/run-orchestration/`), not a shared folder inside 4 monolithic Layer
 packages. Both options were weighed:
 

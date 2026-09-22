@@ -3,7 +3,7 @@
  *
  * Extracts a short text label from a BlockPayload for use in chips
  * and aria-labels. Also provides blockTextFromPayload for creating
- * knowledge item bodies from block content.
+ * document bodies from block content.
  *
  * @lore T4: The excerpt is purely for display — it is never persisted or
  * sent over the wire. The label is capped at 60 characters to keep chips
@@ -93,8 +93,8 @@ export function blockExcerptFromPayload(payload: BlockPayload): string {
 }
 
 /**
- * Extracts the full plain-text content of a block for use as a knowledge
- * item body. No length cap.
+ * Extracts the full plain-text content of a block for use as a document
+ * body. No length cap.
  */
 export function blockTextFromPayload(payload: BlockPayload): string {
 	const acc: string[] = [];

@@ -34,7 +34,6 @@
 import { type HyperIdleDb, routines, teams, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { EVENT_TYPES, EventBus } from "@hyperidle/event-bus";
-import { getAgentIdentity } from "@hyperidle/knowledge";
 import { describe, vi } from "vitest";
 import type { RoutineSchedulerPorts } from "../ports.js";
 import { startRoutineScheduler } from "../routine-scheduler.js";
@@ -62,15 +61,10 @@ function inertPorts(): RoutineSchedulerPorts {
 		conversation: {
 			findThreadById: unreachable("conversation.findThreadById"),
 		},
-		knowledge: {
-			runAutoPromotionSweep: unreachable("knowledge.runAutoPromotionSweep"),
-			runStaleSweep: unreachable("knowledge.runStaleSweep"),
-			getItemById: unreachable("knowledge.getItemById"),
-		},
 		settings: { readServerConfig: unreachable("settings.readServerConfig") },
 		workIntents: { enqueueWorkIntent: unreachable("workIntents.enqueueWorkIntent") },
 		requireRunnableAgent: unreachable("requireRunnableAgent"),
-		getAgentIdentity,
+		getAgentIdentity: unreachable("getAgentIdentity"),
 		getRoutinePrompt: unreachable("getRoutinePrompt"),
 	};
 }

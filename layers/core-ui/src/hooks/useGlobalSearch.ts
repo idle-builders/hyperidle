@@ -1,5 +1,5 @@
-import type { KnowledgeStatus, TaskState } from "@hyperidle/domain-model";
-import { KNOWLEDGE_STATUSES, TASK_STATES } from "@hyperidle/domain-model";
+import type { DocumentStatus, TaskState } from "@hyperidle/domain-model";
+import { DOCUMENT_STATUSES, TASK_STATES } from "@hyperidle/domain-model";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
 
@@ -20,23 +20,23 @@ interface WorkResult {
 	state: TaskState;
 }
 
-interface KnowledgeResult {
+interface DocumentResult {
 	id: string;
 	title: string;
-	status: KnowledgeStatus;
+	status: DocumentStatus;
 	timestamp: string;
 }
 
 export interface SearchResults {
 	conversations: ConversationResult[];
 	work: WorkResult[];
-	knowledge: KnowledgeResult[];
+	documents: DocumentResult[];
 }
 
 const EMPTY_RESULTS: SearchResults = {
 	conversations: [],
 	work: [],
-	knowledge: [],
+	documents: [],
 };
 
 const DEBOUNCE_MS = 150;
@@ -57,7 +57,7 @@ interface UseGlobalSearchReturn {
 // parse* functions below once the string is confirmed present in the set.
 const CONVERSATION_KINDS: ReadonlySet<string> = new Set(["review", "chat"]);
 const TASK_STATE_SET: ReadonlySet<string> = new Set<string>(TASK_STATES);
-const KNOWLEDGE_STATUS_SET: ReadonlySet<string> = new Set<string>(KNOWLEDGE_STATUSES);
+const DOCUMENT_STATUS_SET: ReadonlySet<string> = new Set<string>(DOCUMENT_STATUSES);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null;
@@ -73,8 +73,8 @@ function isConversationKind(v: string): v is ConversationResult["kind"] {
 function isTaskState(v: string): v is TaskState {
 	return TASK_STATE_SET.has(v);
 }
-function isKnowledgeStatus(v: string): v is KnowledgeStatus {
-	return KNOWLEDGE_STATUS_SET.has(v);
+function isDocumentStatus(v: string): v is DocumentStatus {
+	return DOCUMENT_STATUS_SET.has(v);
 }
 
 /**
@@ -128,11 +128,11 @@ function parseWork(value: unknown): WorkResult | null {
 	};
 }
 
-function parseKnowledge(value: unknown): KnowledgeResult | null {
+function parseDocument(value: unknown): DocumentResult | null {
 	if (!isRecord(value)) return null;
 	const fields = readStringFields(value, ["id", "title", "status", "timestamp"] as const);
 	if (!fields) return null;
-	if (!isKnowledgeStatus(fields.status)) return null;
+	if (!isDocumentStatus(fields.status)) return null;
 	return {
 		id: fields.id,
 		title: fields.title,
@@ -177,12 +177,12 @@ function parseSearchResponse(raw: unknown): ParsedResponse {
 	if (!isRecord(raw)) return { results: EMPTY_RESULTS, allMalformed: false };
 	const c = parseBucket(raw.conversations, parseConversation);
 	const w = parseBucket(raw.work, parseWork);
-	const k = parseBucket(raw.knowledge, parseKnowledge);
+	const k = parseBucket(raw.documents, parseDocument);
 	const rawCount = c.rawCount + w.rawCount + k.rawCount;
 	const parsedCount = c.parsed.length + w.parsed.length + k.parsed.length;
 	const allMalformed = rawCount > 0 && parsedCount === 0;
 	return {
-		results: { conversations: c.parsed, work: w.parsed, knowledge: k.parsed },
+		results: { conversations: c.parsed, work: w.parsed, documents: k.parsed },
 		allMalformed,
 	};
 }
@@ -289,9 +289,9 @@ export function useGlobalSearch(): UseGlobalSearchReturn {
 	}, [query]);
 
 	const hasResults =
-		results.conversations.length > 0 || results.work.length > 0 || results.knowledge.length > 0;
+		results.conversations.length > 0 || results.work.length > 0 || results.documents.length > 0;
 
-	const totalCount = results.conversations.length + results.work.length + results.knowledge.length;
+	const totalCount = results.conversations.length + results.work.length + results.documents.length;
 
 	const clear = useCallback((): void => {
 		// I4 adversary W7: abort any in-flight fetch before resetting state

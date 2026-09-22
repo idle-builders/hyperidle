@@ -2,33 +2,26 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
+import type { ActionResult, DocumentRow, DocumentView } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createWritebackProcessor } from "../writeback-processor.js";
 
 const writeback = createWritebackProcessor();
-type KnowledgeWriter = Parameters<typeof writeback.subscribe>[0]["knowledge"];
-type KnowledgeItem = Awaited<ReturnType<KnowledgeWriter["create"]>>;
+type DocumentPort = Parameters<typeof writeback.subscribe>[0]["document"];
 
-function mkKnowledgeWriter(
-	created: KnowledgeItem,
-): KnowledgeWriter & { readonly createCalls: unknown[] } {
-	const createCalls: unknown[] = [];
+function ok(
+	document: Partial<DocumentRow> & { readonly id: string; readonly version: number },
+): ActionResult<DocumentView> {
 	return {
-		createCalls,
-		async create(_db, input) {
-			createCalls.push(input);
-			return created;
-		},
-		async update(_db, _id, _patch, _expectedVersion) {
-			throw new Error("update should not be called in this test");
-		},
-		async recordConflict() {
-			throw new Error("recordConflict should not be called in this test");
-		},
-		async reparentKnowledgeItem() {
-			throw new Error("reparentKnowledgeItem should not be called in this test");
-		},
+		ok: true,
+		data: {
+			document,
+			ancestors: [],
+			children: [],
+			siblings: [],
+			scopeName: "Factory",
+		} as DocumentView,
 	};
 }
 
@@ -50,50 +43,22 @@ describe("registerCaptureWriteback (§10.3 filesystems ⚠ capture-writeback Eve
 		fs.rmSync(tmpDir, { recursive: true, force: true });
 	});
 
-	it("drives processWriteback off sandbox_writeback_changes_detected, using the event's fields and the injected knowledge port", async () => {
-		const bus = new EventBus();
-		const created: KnowledgeItem = { id: "item-1", version: 1, format: "markdown" };
-		const knowledge = mkKnowledgeWriter(created);
-		const notePath = path.join(tmpDir, "knowledge", "note.md");
-		fs.writeFileSync(notePath, "hello writeback");
-
-		writeback.subscribe({ db: {} as HyperIdleDb, eventBus: bus, knowledge });
-
-		bus.emit({
-			type: "sandbox_writeback_changes_detected",
-			streamId: "sess-1",
-			sessionId: "sess-1",
-			sandboxPath: tmpDir,
-			manifestPath,
-			changes: [{ type: "create", relativePath: "knowledge/note.md", fullPath: notePath }],
-			timestamp: Date.now(),
-		});
-
-		// processWriteback is fire-and-forget (void ...catch) — wait a tick for it to settle.
-		await new Promise((resolve) => setTimeout(resolve, 20));
-
-		expect(knowledge.createCalls).toHaveLength(1);
-		expect(knowledge.createCalls[0]).toMatchObject({
-			title: "note",
-			body: "hello writeback",
-			updatedBy: "session:sess-1",
-		});
-
-		const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-		expect(manifest.items["item-1"]).toMatchObject({
-			source_path: "knowledge/note.md",
-			version: 1,
-		});
-	});
-
 	it("stops driving processWriteback after dispose()", async () => {
 		const bus = new EventBus();
-		const created: KnowledgeItem = { id: "item-2", version: 1, format: "markdown" };
-		const knowledge = mkKnowledgeWriter(created);
+		const editCalls: unknown[] = [];
+		const document: DocumentPort = {
+			async editDocument(_caller, input) {
+				editCalls.push(input);
+				return ok({ id: "item-2", version: 1, format: "markdown" });
+			},
+			async searchDocuments() {
+				throw new Error("searchDocuments should not be called in this test");
+			},
+		};
 		const notePath = path.join(tmpDir, "knowledge", "note2.md");
 		fs.writeFileSync(notePath, "goodbye writeback");
 
-		const dispose = writeback.subscribe({ db: {} as HyperIdleDb, eventBus: bus, knowledge });
+		const dispose = writeback.subscribe({ db: {} as HyperIdleDb, eventBus: bus, document });
 		dispose();
 
 		bus.emit({
@@ -108,10 +73,10 @@ describe("registerCaptureWriteback (§10.3 filesystems ⚠ capture-writeback Eve
 
 		await new Promise((resolve) => setTimeout(resolve, 20));
 
-		expect(knowledge.createCalls).toHaveLength(0);
+		expect(editCalls).toHaveLength(0);
 	});
 
-	it("updates tracked knowledge with the manifest version and advances the manifest", async () => {
+	it("a fresh-version modify applies the text and advances the manifest to the returned version", async () => {
 		const notePath = path.join(tmpDir, "knowledge", "note.md");
 		fs.writeFileSync(notePath, "revised body");
 		fs.writeFileSync(
@@ -119,43 +84,50 @@ describe("registerCaptureWriteback (§10.3 filesystems ⚠ capture-writeback Eve
 			JSON.stringify({
 				session_id: "sess-1",
 				assembled_at: new Date().toISOString(),
-				items: { "item-1": { source_path: "knowledge/note.md", version: 4, format: "markdown" } },
+				items: {
+					"item-1": {
+						source_path: "knowledge/note.md",
+						version: 4,
+						format: "markdown",
+						scopeKind: "factory",
+					},
+				},
 			}),
 		);
-		const updateCalls: unknown[] = [];
-		const knowledge: KnowledgeWriter = {
-			async create() {
-				throw new Error("create should not be called");
+		const editCalls: unknown[] = [];
+		const document: DocumentPort = {
+			async editDocument(_caller, input) {
+				editCalls.push(input);
+				return ok({ id: "item-1", version: 5, format: "markdown" });
 			},
-			async update(_db, id, patch, expectedVersion) {
-				updateCalls.push({ id, patch, expectedVersion });
-				return { ok: true, item: { id, version: 5, format: "markdown" } };
-			},
-			async recordConflict() {
-				throw new Error("recordConflict should not be called");
-			},
-			async reparentKnowledgeItem() {
-				throw new Error("reparentKnowledgeItem should not be called");
+			async searchDocuments() {
+				throw new Error("searchDocuments should not be called in this test");
 			},
 		};
 
 		const result = await writeback.process(
-			{ db: {} as HyperIdleDb, sandboxPath: tmpDir, sessionId: "sess-1", manifestPath, knowledge },
+			{
+				db: {} as HyperIdleDb,
+				sandboxPath: tmpDir,
+				sessionId: "sess-1",
+				manifestPath,
+				document,
+				actor: "agent-1",
+			},
 			[{ type: "modify", relativePath: "knowledge/note.md", fullPath: notePath }],
 		);
 
-		expect(updateCalls).toEqual([
-			{
-				id: "item-1",
-				patch: { body: "revised body", updatedBy: "session:sess-1" },
-				expectedVersion: 4,
-			},
-		]);
-		expect(result).toMatchObject({ processed: 1, updated: 1, conflicts: 0 });
+		expect(editCalls).toEqual([{ id: "item-1", body: "revised body", version: 4 }]);
+		expect(result).toMatchObject({ processed: 1, updated: 1 });
 		expect(JSON.parse(fs.readFileSync(manifestPath, "utf-8")).items["item-1"].version).toBe(5);
 	});
 
-	it("records an optimistic-write conflict and advances the manifest to the durable version", async () => {
+	// @lore document-module B15 — the named red-first case: a stale writeback
+	// discards the agent's text and re-reads the durable version through
+	// `searchDocuments`, never `open_document` (§6.7 — a writeback re-read is
+	// not a person reading a document, and this port structurally cannot reach
+	// `open_document` at all).
+	it("a stale write is refused: the agent's text is discarded and the manifest advances to the durable version read via searchDocuments — no conflict object (founder ruling)", async () => {
 		const notePath = path.join(tmpDir, "knowledge", "note.md");
 		fs.writeFileSync(notePath, "competing body");
 		fs.writeFileSync(
@@ -163,40 +135,96 @@ describe("registerCaptureWriteback (§10.3 filesystems ⚠ capture-writeback Eve
 			JSON.stringify({
 				session_id: "sess-1",
 				assembled_at: new Date().toISOString(),
-				items: { "item-1": { source_path: "knowledge/note.md", version: 4, format: "markdown" } },
+				items: {
+					"item-1": {
+						source_path: "knowledge/note.md",
+						version: 4,
+						format: "markdown",
+						scopeKind: "factory",
+					},
+				},
 			}),
 		);
-		const conflictCalls: unknown[] = [];
-		const knowledge: KnowledgeWriter = {
-			async create() {
-				throw new Error("create should not be called");
+		const editCalls: unknown[] = [];
+		const searchCalls: unknown[] = [];
+		const document: DocumentPort = {
+			async editDocument(_caller, input) {
+				editCalls.push(input);
+				return {
+					ok: false,
+					problems: [{ code: "stale", message: "The document changed since you read it." }],
+				};
 			},
-			async update() {
-				return { ok: false, currentVersion: 7 };
-			},
-			async recordConflict(_db, input) {
-				conflictCalls.push(input);
-			},
-			async reparentKnowledgeItem() {
-				throw new Error("reparentKnowledgeItem should not be called");
+			async searchDocuments(caller, input) {
+				searchCalls.push({ caller, input });
+				return { ok: true, data: [{ id: "item-1", version: 7 } as DocumentRow] };
 			},
 		};
 
 		const result = await writeback.process(
-			{ db: {} as HyperIdleDb, sandboxPath: tmpDir, sessionId: "sess-1", manifestPath, knowledge },
+			{
+				db: {} as HyperIdleDb,
+				sandboxPath: tmpDir,
+				sessionId: "sess-1",
+				manifestPath,
+				document,
+				actor: "agent-1",
+			},
 			[{ type: "modify", relativePath: "knowledge/note.md", fullPath: notePath }],
 		);
 
-		expect(conflictCalls).toEqual([
-			{
-				itemId: "item-1",
-				versionBase: 4,
-				versionCurrent: 7,
-				proposedBody: "competing body",
-				proposedBy: "session:sess-1",
-			},
-		]);
-		expect(result).toMatchObject({ processed: 1, updated: 1, conflicts: 1 });
+		// The agent's competing body was OFFERED to editDocument() (the port owns
+		// the refusal) but never landed — no port method commits it anywhere.
+		expect(editCalls).toEqual([{ id: "item-1", body: "competing body", version: 4 }]);
+		expect(searchCalls).toEqual([{ caller: { actor: "agent-1" }, input: { ids: ["item-1"] } }]);
+		expect(result).toMatchObject({ processed: 1, updated: 1 });
 		expect(JSON.parse(fs.readFileSync(manifestPath, "utf-8")).items["item-1"].version).toBe(7);
+	});
+
+	it("a deleted sandbox file drops the manifest entry and writes nothing", async () => {
+		fs.writeFileSync(
+			manifestPath,
+			JSON.stringify({
+				session_id: "sess-1",
+				assembled_at: new Date().toISOString(),
+				items: {
+					"item-1": {
+						source_path: "knowledge/note.md",
+						version: 4,
+						format: "markdown",
+						scopeKind: "factory",
+					},
+				},
+			}),
+		);
+		const document: DocumentPort = {
+			async editDocument() {
+				throw new Error("editDocument should not be called");
+			},
+			async searchDocuments() {
+				throw new Error("searchDocuments should not be called");
+			},
+		};
+
+		const result = await writeback.process(
+			{
+				db: {} as HyperIdleDb,
+				sandboxPath: tmpDir,
+				sessionId: "sess-1",
+				manifestPath,
+				document,
+				actor: "agent-1",
+			},
+			[
+				{
+					type: "delete",
+					relativePath: "knowledge/note.md",
+					fullPath: path.join(tmpDir, "knowledge", "note.md"),
+				},
+			],
+		);
+
+		expect(result).toMatchObject({ processed: 1, deleted: 1 });
+		expect(JSON.parse(fs.readFileSync(manifestPath, "utf-8")).items["item-1"]).toBeUndefined();
 	});
 });

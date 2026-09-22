@@ -107,7 +107,7 @@ export interface ParsedPluginAgent {
 	 *
 	 * @lore BA9g: the gap BA9f named — "a plugin contributing an agent had
 	 * nothing to contribute its identity to". It does now: the identity is a
-	 * knowledge document, and this is the plugin's copy of it. Absent → the agent
+	 * document, and this is the plugin's copy of it. Absent → the agent
 	 * installs bare, which is what HyperIdle itself ships.
 	 */
 	readonly identity: string | null;

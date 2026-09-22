@@ -2,7 +2,7 @@
  * @lore Composition root for the routine scheduler (`@hyperidle/routine`'s
  * `routine-scheduler.ts`). `@hyperidle/routine` is a Service, so per
  * Mechanism C (`composition-boundary-guard`, mechanically enforced) it
- * cannot import `work`/`conversation`/`knowledge`/`settings` directly —
+ * cannot import `work`/`conversation`/`document`/`settings` directly —
  * every one of those, plus the one genuinely against-grain (`core-api →
  * agent-orchestration`) dependency, is wired here. `fireRoutine`, the
  * builtin-routine-handler registration, and the scheduler startup all live
@@ -24,18 +24,13 @@
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb, Routine } from "@hyperidle/db";
-import type { EventBus } from "@hyperidle/event-bus";
-import {
-	assembleSessionKnowledge,
-	getAgentIdentity,
-	get as getKnowledgeItem,
-	getRoutinePrompt,
-	sweep,
-} from "@hyperidle/knowledge";
+import { assembleSessionDocuments } from "@hyperidle/document";
+import { EventBus } from "@hyperidle/event-bus";
 import { getTeam } from "@hyperidle/org";
 import {
 	type FireResult,
 	fireGenericRoutine,
+	getRoutine,
 	type RoutineSchedulerConfig,
 	type RoutineSchedulerPorts,
 	startRoutineScheduler as startRoutineSchedulerInternal,
@@ -44,6 +39,19 @@ import { readServerConfig } from "@hyperidle/settings";
 import * as work from "@hyperidle/task";
 import { findThread } from "@hyperidle/thread";
 import { findUser, requireRunnableAgent } from "@hyperidle/users";
+import type { ActionContext, SearchDocumentsRunFn } from "../actions/action.js";
+import { resolveAgentIdentityBody } from "./task-run-resolver-bindings.js";
+
+/**
+ * A synthetic `ActionContext` for a scheduler-initiated document read — no
+ * request/session actor is in scope this deep in the fire pipeline. The
+ * `EventBus` is a fresh, unused instance (`search_documents` never touches
+ * `ctx.eventBus`; see `task-run-resolver-bindings.ts`'s own note on the same
+ * pattern).
+ */
+function schedulerReadCtx(db: HyperIdleDb, actor: string): ActionContext {
+	return { actor, db, eventBus: new EventBus(), now: new Date().toISOString() };
+}
 
 /**
  * AU31 §3.2 — builds `RoutineSchedulerPorts` for ONE composition's port.
@@ -51,7 +59,10 @@ import { findUser, requireRunnableAgent } from "@hyperidle/users";
  * seam is a per-composition value now, so the ports bag can no longer be
  * built once at import time.
  */
-export function buildRoutineSchedulerPorts(port: AgentOrchestrationPort): RoutineSchedulerPorts {
+export function buildRoutineSchedulerPorts(
+	port: AgentOrchestrationPort,
+	searchDocuments: SearchDocumentsRunFn,
+): RoutineSchedulerPorts {
 	return {
 		work: {
 			// BA9c: getTaskById for trigger event subject assembly.
@@ -74,16 +85,9 @@ export function buildRoutineSchedulerPorts(port: AgentOrchestrationPort): Routin
 			// BA9c: findThreadById — thread row for thread_* events.
 			findThreadById: (db, id) => findThread(db, { id }),
 		},
-		knowledge: {
-			runAutoPromotionSweep: (db, eventBus) => sweep(db, eventBus, "autoPromotion"),
-			runStaleSweep: (db, eventBus, nowMs, thresholdMs, options) =>
-				sweep(db, eventBus, "stale", { nowMs, thresholdMs, ...options }),
-			// BA9c: getItemById — knowledge item for knowledge_* events.
-			getItemById: async (db, id) => {
-				const item = await getKnowledgeItem(db, id);
-				return item ?? undefined;
-			},
-		},
+		// @lore BC4 architecture.md §0 A1: the `knowledge` port (getItemById,
+		// backing the three unused knowledge_* trigger events) is deleted — see
+		// `ports.ts`'s own `@lore` on the interface.
 		settings: {
 			readServerConfig: async (db) => {
 				const cfg = await readServerConfig(db);
@@ -99,7 +103,7 @@ export function buildRoutineSchedulerPorts(port: AgentOrchestrationPort): Routin
 		requireRunnableAgent,
 		// AU21 §9 Increment 12 (Decision H3): wire the contextBundle bake deps
 		// `resolveRoutineRunRequest` needs — a routine_run session's sandbox now
-		// gets its ranked knowledge + routine/agent/team content baked at emit
+		// gets its ranked documents + routine/agent/team content baked at emit
 		// time instead of `run-orchestration` reading it back at launch.
 		getTeamById: (db: HyperIdleDb, id: string) => getTeam(db, { id }),
 		// BA9c: getSessionById — session row for session_* events.
@@ -117,12 +121,34 @@ export function buildRoutineSchedulerPorts(port: AgentOrchestrationPort): Routin
 		// trigger event tells routines "a person joined", not "a bot was added to a team".
 		getUserById: (db: HyperIdleDb, id: string) =>
 			findUser(db, { id }).then((u) => (u ? { id: u.id, name: u.name, role: u.role } : undefined)),
-		assembleSessionKnowledge,
-		getAgentIdentity,
-		// @lore knowledge-attachment-slot: was its own inline getParentedItem call
-		// (a spelling-twin of routines-routes.ts's own copy); both now share
-		// `getRoutinePrompt` from @hyperidle/knowledge, `getAgentIdentity`'s twin.
-		getRoutinePrompt,
+		assembleSessionDocuments,
+		// @lore BC4 follow-up (architecture.md §8.3): migrated onto the injected
+		// `search_documents` runner — `startRoutineScheduler`/`fireRoutine`
+		// (below) now take it as an explicit parameter, threaded from
+		// `service-bootstrap.ts`'s `registerAgentLayerServices` (its own
+		// standalone composition — `service-bootstrap.ts` is wired from
+		// `db`/`eventBus` alone, with no task/thread action bags in scope, so it
+		// cannot reach the real composed list `actions/compose.ts` builds) and
+		// from the direct `fireRoutine` callers (`tools/eval`'s scenarios,
+		// `dispatch-test-helpers.ts`). Actor: no request/session actor is in
+		// scope this deep in the fire pipeline (§8.3 names no neighbour-specific
+		// choice for the scheduler), so both reads use the agent this run is
+		// for — `agent_file`/`prompt` are non-ordinary slots visible to the
+		// agent they belong to (§5.1), and it is the only actor available here.
+		getAgentIdentity: (db: HyperIdleDb, agentId: string) =>
+			resolveAgentIdentityBody(schedulerReadCtx(db, agentId), agentId, searchDocuments),
+		getRoutinePrompt: async (db: HyperIdleDb, routineId: string) => {
+			const routine = await getRoutine(db, routineId);
+			if (!routine) return null;
+			// @lore knowledge-attachment-slot: no status filter, on purpose — the
+			// pre-item read never had one, so a manually archived prompt keeps
+			// being read exactly as it is today (pinned by a test).
+			const result = await searchDocuments(schedulerReadCtx(db, routine.ownerAgentId), {
+				parent: { kind: "routine", id: routineId },
+				slot: "prompt",
+			});
+			return result.ok ? (result.data[0]?.body ?? null) : null;
+		},
 	};
 }
 
@@ -131,12 +157,13 @@ export function startRoutineScheduler(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	agentOrchestration: AgentOrchestrationPort,
+	searchDocuments: SearchDocumentsRunFn,
 	config: RoutineSchedulerConfig,
 ): ReturnType<typeof startRoutineSchedulerInternal> {
 	return startRoutineSchedulerInternal(
 		db,
 		eventBus,
-		buildRoutineSchedulerPorts(agentOrchestration),
+		buildRoutineSchedulerPorts(agentOrchestration, searchDocuments),
 		config,
 	);
 }
@@ -151,11 +178,12 @@ export function fireRoutine(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	agentOrchestration: AgentOrchestrationPort,
+	searchDocuments: SearchDocumentsRunFn,
 	routine: Routine,
 	opts?: {
 		readonly recordSkippedRun?: boolean;
 	},
 ): Promise<FireResult> {
-	const ports = buildRoutineSchedulerPorts(agentOrchestration);
+	const ports = buildRoutineSchedulerPorts(agentOrchestration, searchDocuments);
 	return fireGenericRoutine(db, eventBus, routine, ports, opts?.recordSkippedRun);
 }

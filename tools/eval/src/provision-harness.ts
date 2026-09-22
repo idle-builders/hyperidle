@@ -37,6 +37,7 @@ import {
 } from "@hyperidle/core-api";
 import { bootCoreApi } from "@hyperidle/core-api/boot";
 import type { HyperIdleDb } from "@hyperidle/db";
+import { assembleSessionDocuments } from "@hyperidle/document";
 import { bakeAgentRunnableConfig } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import {
@@ -51,7 +52,6 @@ import {
 	type McpToolBridge,
 	returnStatusTool,
 } from "@hyperidle/harness-registry/mcp";
-import { assembleSessionKnowledge } from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
 import { readServerConfig } from "@hyperidle/settings";
 import * as work from "@hyperidle/task";
@@ -293,7 +293,7 @@ export async function runEvalSession(
 			[],
 			agent,
 			(db: HyperIdleDb, id: string) => getTeam(db, { id }),
-			assembleSessionKnowledge,
+			assembleSessionDocuments,
 		);
 		const { harnessDisabled } = await readServerConfig(deps.db);
 

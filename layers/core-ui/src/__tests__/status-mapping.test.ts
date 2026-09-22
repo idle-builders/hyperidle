@@ -1,11 +1,11 @@
 import {
-	KNOWLEDGE_STATUSES,
-	type KnowledgeStatus,
+	DOCUMENT_STATUSES,
+	type DocumentStatus,
 	TASK_STATES,
 	type TaskState,
 } from "@hyperidle/domain-model";
 import { describe, expect, it } from "vitest";
-import { knowledgeStatusToStatus, type Status, taskStateToStatus } from "../ds";
+import { documentStatusToStatus, type Status, taskStateToStatus } from "../ds";
 
 // @lore BB1: betStatusToStatus tests removed — WorkTeam still exports betStatusToStatus
 // for WorkTeam.tsx consumption until that page is updated to the task primitive.
@@ -81,43 +81,44 @@ describe("taskStateToStatus", () => {
 	});
 });
 
-describe("knowledgeStatusToStatus", () => {
-	// @lore nested-knowledge-items: the 7-value KnowledgeStatus ladder collapsed
-	// to 4 (proposed | active | stale | archived) — captured/provisional/
-	// needs_human folded into proposed, validated folded into active.
+describe("documentStatusToStatus", () => {
+	// @lore nested-knowledge-items: the 7-value status ladder collapsed to 4
+	// (proposed | active | stale | archived) — captured/provisional/needs_human
+	// folded into proposed, validated folded into active.
+	// @lore BC4: renamed from knowledgeStatusToStatus — values unchanged.
 	it("maps proposed to behind", () => {
 		// I4 S2 intent preserved: proposed is the action-required state —
 		// explicitly not `healthy` (would mislead the founder into thinking the
 		// item needs no input).
-		expect(knowledgeStatusToStatus("proposed")).toBe("behind" satisfies Status);
+		expect(documentStatusToStatus("proposed")).toBe("behind" satisfies Status);
 	});
 
 	it("maps active to healthy", () => {
-		expect(knowledgeStatusToStatus("active")).toBe("healthy" satisfies Status);
+		expect(documentStatusToStatus("active")).toBe("healthy" satisfies Status);
 	});
 
 	it("maps stale to error", () => {
-		expect(knowledgeStatusToStatus("stale")).toBe("error" satisfies Status);
+		expect(documentStatusToStatus("stale")).toBe("error" satisfies Status);
 	});
 
 	it("maps archived to done", () => {
-		expect(knowledgeStatusToStatus("archived")).toBe("done" satisfies Status);
+		expect(documentStatusToStatus("archived")).toBe("done" satisfies Status);
 	});
 
-	it("covers all KnowledgeStatus values", () => {
-		const allStatuses: KnowledgeStatus[] = ["proposed", "active", "stale", "archived"];
-		for (const ks of allStatuses) {
-			const result = knowledgeStatusToStatus(ks);
+	it("covers all DocumentStatus values", () => {
+		const allStatuses: DocumentStatus[] = ["proposed", "active", "stale", "archived"];
+		for (const ds of allStatuses) {
+			const result = documentStatusToStatus(ds);
 			expect(typeof result).toBe("string");
 		}
 	});
 
-	it("exhaustively maps every KNOWLEDGE_STATUSES value to a valid Status", () => {
-		// I4 S2/S6: runtime iteration over the shared KNOWLEDGE_STATUSES array
+	it("exhaustively maps every DOCUMENT_STATUSES value to a valid Status", () => {
+		// I4 S2/S6: runtime iteration over the shared DOCUMENT_STATUSES array
 		// — catches additions to the union.
-		expect(KNOWLEDGE_STATUSES).toHaveLength(4);
-		for (const ks of KNOWLEDGE_STATUSES) {
-			const result = knowledgeStatusToStatus(ks);
+		expect(DOCUMENT_STATUSES).toHaveLength(4);
+		for (const ds of DOCUMENT_STATUSES) {
+			const result = documentStatusToStatus(ds);
 			expect(VALID_STATUSES).toContain(result);
 		}
 	});

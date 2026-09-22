@@ -48,7 +48,14 @@ import {
 	resolveHeldToken,
 } from "@hyperidle/connections";
 import type { HyperIdleDb, ServiceConnectionRow } from "@hyperidle/db";
-import { HELD_AUTH_SOURCES } from "@hyperidle/domain-model";
+import {
+	type ActionResult,
+	type DocumentRow,
+	type DocumentView,
+	type EditDocumentInput,
+	HELD_AUTH_SOURCES,
+	type SearchDocumentsInput,
+} from "@hyperidle/domain-model";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import type { EventBus } from "@hyperidle/event-bus";
 import { listInjectedFilesystemsForProvisioning } from "@hyperidle/filesystems";
@@ -150,6 +157,27 @@ export interface AgentOrchestrationRuntimeOptions {
 	 * list, built once", never a second construction site.
 	 */
 	readonly actionTools?: readonly RegisteredTool<HyperIdleDb>[];
+	/**
+	 * §8.4 — core's composed `edit_document`/`search_documents` actions
+	 * (`CoreApiBoot.editDocument`/`searchDocuments`), threaded through exactly
+	 * like `actionTools` above. The writeback processor's document port binds
+	 * directly to these two values — never `open_document` (§6.7: a writeback
+	 * re-read must never count as a read), and never a second HTTP hop
+	 * through the deleted `CoreApiPort.knowledge` seam.
+	 */
+	readonly editDocument?: (
+		caller: {
+			readonly actor: string;
+			readonly sessionId: string;
+			readonly taskId: string | null;
+			readonly threadId: string | null;
+		},
+		input: EditDocumentInput,
+	) => Promise<ActionResult<DocumentView>>;
+	readonly searchDocuments?: (
+		caller: { readonly actor: string },
+		input: SearchDocumentsInput,
+	) => Promise<ActionResult<readonly DocumentRow[]>>;
 }
 
 export interface AgentOrchestrationBootOptions {
@@ -386,6 +414,8 @@ export async function bootAgentOrchestration(
 			returnStatusTool: runtime.returnStatusTool,
 			coreApiTransport: runtime.coreApiTransport,
 			actionTools: runtime.actionTools,
+			editDocument: runtime.editDocument,
+			searchDocuments: runtime.searchDocuments,
 		});
 		runSession = composition.runSession;
 		provisioningReads = buildProvisioningReads(

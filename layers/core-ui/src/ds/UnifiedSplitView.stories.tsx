@@ -1,7 +1,7 @@
 // AM5 — Unified Split View (the money shot).
 //
 // The AM5 thesis, made visible: opening ANY reference, from ANYWHERE, lands in
-// ONE consistent split. Three variants — conversation, review, knowledge — each
+// ONE consistent split. Three variants — conversation, review, document — each
 // composes the SAME `SplitView` primitive (two sibling pane surfaces in the
 // shell's layout space, with a transparent draggable gap and the same controls),
 // and each destination is the SAME shape: the opened artifact rendered as a
@@ -22,10 +22,10 @@
 //   • The origin surfaces are faithful Hearth fixtures built from REAL design-
 //     system primitives (Block, ReferenceChip, Avatar, StatusChip, Fold). They
 //     are NOT the production page components (ConversationSurface / Review /
-//     KnowledgeBody live in `layers/core-ui`; a design-system story must not invert
+//     DocumentBody live in `layers/core-ui`; a design-system story must not invert
 //     the dependency boundary by importing upward). So each origin reproduces the
 //     real surface's SHAPE — message rows + reference chips, a review canvas with
-//     result KPIs + intent checklist, a knowledge body of blocks — using the
+//     result KPIs + intent checklist, a document body of blocks — using the
 //     same primitives the real surfaces compose.
 //
 // Presentational — drag state is local UI state, callbacks are noops.
@@ -275,7 +275,7 @@ function ConversationOrigin(): JSX.Element {
 					</p>
 					<div className="mt-[3px] flex flex-wrap gap-[6px]">
 						<ReferenceChip kind="artifact" label="auth/passkey.ts" meta="+2 −1" mode="posted" />
-						<ReferenceChip kind="knowledge" label="WebAuthn L3 spec" mode="posted" />
+						<ReferenceChip kind="document" label="WebAuthn L3 spec" mode="posted" />
 					</div>
 				</MessageRow>
 				<MessageRow initials="AT" agent name="Atlas" time="9:12">
@@ -346,14 +346,14 @@ function ReviewOrigin(): JSX.Element {
 	);
 }
 
-// Knowledge origin — a knowledge body composed of real `Block` primitives, plus a
+// Document origin — a document body composed of real `Block` primitives, plus a
 // calm Fold (the same disclosure used across the surface) and a reference chip.
-function KnowledgeOrigin(): JSX.Element {
+function DocumentOrigin(): JSX.Element {
 	return (
 		<div className="flex h-full flex-col">
 			<div className="flex items-center gap-[6px] border-b border-[var(--border-subtle)] px-[18px] py-[12px]">
 				<span className="font-mono text-[10px] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">
-					Knowledge
+					Document
 				</span>
 				<span className="text-[14px] font-semibold text-[var(--text-primary)]">
 					Authentication architecture
@@ -443,10 +443,10 @@ export const ReviewToArtifact = (): JSX.Element => {
 	);
 };
 
-// 3. Knowledge → Artifact, `full` mode. Opening from a knowledge body folds the
+// 3. Document → Artifact, `full` mode. Opening from a document body folds the
 //    destination fully forward — the fold's expand state is visible (the only
 //    control is collapse-back-to-split). Same SplitView, same destination cell.
-export const KnowledgeToArtifact = (): JSX.Element => {
+export const DocumentToArtifact = (): JSX.Element => {
 	const [mode, setMode] = useState<FoldMode>("full");
 	const [ratio, setRatio] = useState(0.5);
 	return (
@@ -456,7 +456,7 @@ export const KnowledgeToArtifact = (): JSX.Element => {
 				dividerRatio={ratio}
 				onModeChange={setMode}
 				onRatioChange={setRatio}
-				origin={<KnowledgeOrigin />}
+				origin={<DocumentOrigin />}
 				destination={<TextArtifact />}
 			/>
 		</div>
