@@ -280,6 +280,14 @@ export function skillItemId(
 	scopeId: string | null,
 ): string {
 	const suffix = scopeKind === "team" ? `\0${scopeKind}\0${scopeId ?? ""}` : "";
+	// @lore document-module: the `ki_` prefix stays despite the table rename
+	// (`knowledge_items` -> `documents`) — it is baked into every id this
+	// function has ever minted, including every existing factory-scoped
+	// install's row. Changing it would change the id a reinstall computes,
+	// so a reinstall would stop finding its own row and create a duplicate
+	// instead of updating in place. The factory id must stay byte-identical
+	// forever; only NEW callers ever see the prefix, and none of them read
+	// meaning into it.
 	return `ki_${sha256(`plugin-skill\0${pluginId}\0${dirName}${suffix}`).slice(0, 24)}`;
 }
 
