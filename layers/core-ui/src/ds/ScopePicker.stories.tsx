@@ -61,7 +61,7 @@ export const WithDisabledOption = (): React.JSX.Element => {
 			onChange={setValue}
 			ariaLabel="Scope"
 			testIdPrefix="scope-pill-create"
-			disabledTitle="Join a team to use team-scoped knowledge"
+			disabledTitle="Join a team to use team-scoped documents"
 		/>
 	);
 };

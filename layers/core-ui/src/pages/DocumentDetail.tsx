@@ -528,7 +528,7 @@ function DocumentDetailView({
 		const singleTeam = teams.length === 1;
 
 		if (!singleTeam) {
-			navigate(`/work/task/new?fromKnowledge=${encodeURIComponent(document.id)}`);
+			navigate(`/work/task/new?fromDocument=${encodeURIComponent(document.id)}`);
 			return;
 		}
 
@@ -752,7 +752,7 @@ function DocumentDetailView({
 					)}
 
 					{editing ? (
-						<div className="flex flex-col gap-[12px]" data-testid="knowledge-edit-panel">
+						<div className="flex flex-col gap-[12px]" data-testid="document-edit-panel">
 							<BodyEditor
 								initialContent={editContent}
 								onChange={handleContentChange}
@@ -782,7 +782,7 @@ function DocumentDetailView({
 				</div>
 
 				<aside
-					data-testid="knowledge-metadata-aside"
+					data-testid="document-metadata-aside"
 					className="w-full md:w-[240px] shrink-0 flex flex-col gap-[18px]"
 					aria-label="Document metadata"
 				>

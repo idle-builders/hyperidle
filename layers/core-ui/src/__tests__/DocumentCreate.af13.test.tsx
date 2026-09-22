@@ -101,7 +101,7 @@ describe("AF13 §1 — DocumentCreate sends status:active in create payload", ()
 		);
 
 		// Fill in title
-		const titleInput = screen.getByTestId("knowledge-create-title");
+		const titleInput = screen.getByTestId("document-create-title");
 		await user.type(titleInput, "My new item");
 
 		// Fill in body via mocked BodyEditor
@@ -109,7 +109,7 @@ describe("AF13 §1 — DocumentCreate sends status:active in create payload", ()
 		await user.type(bodyTextarea, "Some content");
 
 		// Submit
-		const createButton = screen.getByTestId("knowledge-create-submit");
+		const createButton = screen.getByTestId("document-create-submit");
 		await user.click(createButton);
 
 		// Assert the arguments sent to edit_document include status:"active"
@@ -191,13 +191,13 @@ describe("DocumentCreate nests in one write", () => {
 			</MemoryRouter>,
 		);
 
-		await user.type(screen.getByTestId("knowledge-create-title"), "Nested item");
+		await user.type(screen.getByTestId("document-create-title"), "Nested item");
 		await user.type(screen.getByTestId("body-editor-textarea"), "Some content");
 
 		await user.click(screen.getByRole("combobox", { name: "Parent" }));
 		await user.click(screen.getByText("Existing parent"));
 
-		await user.click(screen.getByTestId("knowledge-create-submit"));
+		await user.click(screen.getByTestId("document-create-submit"));
 
 		// Exactly one call to edit_document — the create — carrying the parent.
 		await waitFor(() => {
@@ -298,7 +298,7 @@ describe("AF13 §6 — Team scope pill is data-driven (WARNING 3 positive-path p
 		);
 
 		const teamPill = screen.getByTestId("scope-pill-create-team");
-		expect(teamPill).toHaveAttribute("title", "Join a team to use team-scoped knowledge");
+		expect(teamPill).toHaveAttribute("title", "Join a team to use team-scoped documents");
 	});
 
 	it("clicking an enabled Team pill selects the Team scope", async () => {

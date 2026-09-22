@@ -81,7 +81,7 @@ async function fillAndSubmit(): Promise<ReturnType<typeof userEvent.setup>> {
 			<DocumentCreate />
 		</MemoryRouter>,
 	);
-	await user.type(screen.getByTestId("knowledge-create-title"), "A new item");
+	await user.type(screen.getByTestId("document-create-title"), "A new item");
 	await user.type(screen.getByTestId("body-editor-textarea"), "Some content");
 	return user;
 }
@@ -110,7 +110,7 @@ describe("DocumentCreate — parent picker", () => {
 	it("creating with no parent selected calls edit_document with exact arguments and no parent field", async () => {
 		vi.mocked(call).mockResolvedValue(documentView("new-item-id"));
 		const user = await fillAndSubmit();
-		await user.click(screen.getByTestId("knowledge-create-submit"));
+		await user.click(screen.getByTestId("document-create-submit"));
 
 		await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith("/documents/new-item-id"));
 		expect(call).toHaveBeenCalledTimes(1);
@@ -128,7 +128,7 @@ describe("DocumentCreate — parent picker", () => {
 
 		const user = await fillAndSubmit();
 		await pickParent(user, "Root A");
-		await user.click(screen.getByTestId("knowledge-create-submit"));
+		await user.click(screen.getByTestId("document-create-submit"));
 
 		await waitFor(() => expect(call).toHaveBeenCalledTimes(1));
 		expect(call).toHaveBeenCalledWith("edit_document", {
@@ -160,9 +160,9 @@ describe("DocumentCreate — parent picker", () => {
 
 		const user = await fillAndSubmit();
 		await pickParent(user, "Root A");
-		await user.click(screen.getByTestId("knowledge-create-submit"));
+		await user.click(screen.getByTestId("document-create-submit"));
 
-		expect(await screen.findByTestId("knowledge-create-error")).toHaveTextContent(
+		expect(await screen.findByTestId("document-create-error")).toHaveTextContent(
 			"Documents nest 32 deep at most.",
 		);
 		expect(call).toHaveBeenCalledTimes(1);

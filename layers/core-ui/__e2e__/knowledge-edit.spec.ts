@@ -76,7 +76,7 @@ test.describe("T2 AC-1: Edit flow — Edit panel shows, auto-save wired, Done ex
 		await page.getByRole("button", { name: /edit/i }).click();
 
 		// Edit panel must be visible
-		await expect(page.getByTestId("knowledge-edit-panel")).toBeVisible();
+		await expect(page.getByTestId("document-edit-panel")).toBeVisible();
 
 		// Done button replaces Edit button
 		await expect(page.getByRole("button", { name: /done/i })).toBeVisible();
@@ -88,7 +88,7 @@ test.describe("T2 AC-1: Edit flow — Edit panel shows, auto-save wired, Done ex
 		await page.waitForSelector("[data-testid='document-detail-page']");
 
 		await page.getByRole("button", { name: /edit/i }).click();
-		await expect(page.getByTestId("knowledge-edit-panel")).toBeVisible();
+		await expect(page.getByTestId("document-edit-panel")).toBeVisible();
 
 		// Save indicator must be present (content may be empty when idle)
 		await expect(page.getByTestId("save-indicator")).toBeAttached();
@@ -99,12 +99,12 @@ test.describe("T2 AC-1: Edit flow — Edit panel shows, auto-save wired, Done ex
 		await page.waitForSelector("[data-testid='document-detail-page']");
 
 		await page.getByRole("button", { name: /edit/i }).click();
-		await expect(page.getByTestId("knowledge-edit-panel")).toBeVisible();
+		await expect(page.getByTestId("document-edit-panel")).toBeVisible();
 
 		await page.getByRole("button", { name: /done/i }).click();
 
 		// Edit panel gone
-		await expect(page.getByTestId("knowledge-edit-panel")).not.toBeVisible();
+		await expect(page.getByTestId("document-edit-panel")).not.toBeVisible();
 		// Read view visible
 		await expect(page.getByTestId("document-body")).toBeVisible();
 	});
@@ -186,12 +186,12 @@ test.describe("T2 AC-4: Conflict banner on a stale edit_document refusal", () =>
 
 		// Enter edit mode
 		await page.getByRole("button", { name: /edit/i }).click();
-		await expect(page.getByTestId("knowledge-edit-panel")).toBeVisible();
+		await expect(page.getByTestId("document-edit-panel")).toBeVisible();
 
 		// Type into TipTap editor — assert editor is visible (no silent skip).
 		// @lore T2 E2E conflict: pressSequentially() works with contenteditable;
 		// .fill() does not because TipTap is not a form element.
-		const editPanel = page.getByTestId("knowledge-edit-panel");
+		const editPanel = page.getByTestId("document-edit-panel");
 		const editorEl = editPanel.locator('[contenteditable="true"]').first();
 		await expect(editorEl).toBeVisible();
 		await editorEl.click();

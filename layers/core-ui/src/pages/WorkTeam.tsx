@@ -679,7 +679,7 @@ function WorkTeamLoaded({
 				</ItemList>
 			</section>
 
-			{/* Produced items are now task-parented knowledge items — each task's
+			{/* Produced items are now task-parented documents — each task's
 			    own ArtifactSection shows what was produced there. The team overview
 			    no longer aggregates across tasks since there is no team-level parent.
 			    skipArtifacts still suppresses the block in tests that mock data. */}

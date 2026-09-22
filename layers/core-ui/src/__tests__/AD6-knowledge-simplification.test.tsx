@@ -376,7 +376,7 @@ describe("AD6 — DocumentCreate no kind selector", () => {
 		renderCreate();
 
 		// The old kind section had an uppercase "Kind" label
-		const metadataCard = screen.getByTestId("knowledge-create-metadata");
+		const metadataCard = screen.getByTestId("document-create-metadata");
 		expect(within(metadataCard).queryByText("Kind")).not.toBeInTheDocument();
 	});
 });

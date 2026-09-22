@@ -216,12 +216,12 @@ describe("ScopePicker — disabled options", () => {
 				onChange={() => undefined}
 				ariaLabel="Scope"
 				testIdPrefix="scope-pill-create"
-				disabledTitle="Join a team to use team-scoped knowledge"
+				disabledTitle="Join a team to use team-scoped documents"
 			/>,
 		);
 		const teamPill = screen.getByTestId("scope-pill-create-team");
 		expect(teamPill).toBeDisabled();
-		expect(teamPill).toHaveAttribute("title", "Join a team to use team-scoped knowledge");
+		expect(teamPill).toHaveAttribute("title", "Join a team to use team-scoped documents");
 	});
 
 	it("does not emit onChange when a disabled pill is clicked", async () => {

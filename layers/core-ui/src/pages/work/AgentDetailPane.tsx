@@ -163,7 +163,7 @@ export function AgentDetailPane({
 					</div>
 				</div>
 
-				{/* Identity section. It is a knowledge document, so this pane links
+				{/* Identity section. It is a document, so this pane links
 				    to it rather than keeping a third copy of the same editor. */}
 				<div className="mt-[18px]">
 					<h3 className="type-label   uppercase  text-[var(--text-tertiary)] mb-[6px]">IDENTITY</h3>

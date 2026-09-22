@@ -3,7 +3,7 @@
  * the non-factory edit-mode round trip.
  *
  * @lore T2: textarea+preview+Save/Cancel replaced by BodyEditor + Done button.
- * - knowledge-edit-textarea → knowledge-edit-panel (contains TipTap editor)
+ * - knowledge-edit-textarea → document-edit-panel (contains TipTap editor)
  * - document-edit-preview → no longer exists (BodyEditor IS the WYSIWYG view)
  * - Save button → auto-save (no explicit save action)
  * - Cancel button → Done button (exits edit mode)
@@ -24,13 +24,13 @@ test.describe("Knowledge Detail (J7)", () => {
 
 		// T2: BodyEditor edit panel + Done button appear; URL unchanged.
 		// There is no separate preview pane — BodyEditor IS the WYSIWYG editor.
-		await expect(page.getByTestId("knowledge-edit-panel")).toBeVisible();
+		await expect(page.getByTestId("document-edit-panel")).toBeVisible();
 		await expect(page.getByRole("button", { name: /done/i })).toBeVisible();
 		expect(page.url()).toBe(initialUrl);
 
 		// Done exits edit mode and shows the read view.
 		await page.getByRole("button", { name: /done/i }).click();
-		await expect(page.getByTestId("knowledge-edit-panel")).not.toBeVisible();
+		await expect(page.getByTestId("document-edit-panel")).not.toBeVisible();
 		await expect(page.getByTestId("document-body")).toContainText("JWT-based authentication");
 	});
 

@@ -124,7 +124,7 @@ export function DocumentCreate(): JSX.Element {
 	return (
 		<PageScaffold
 			frame="page"
-			data-testid="knowledge-create-page"
+			data-testid="document-create-page"
 			header={
 				/* AI7: PageHeader with editable title input.
 				    @lore AI7-W1: pageTitleClassName is an identifier expression so
@@ -141,7 +141,7 @@ export function DocumentCreate(): JSX.Element {
 						<input
 							type="text"
 							aria-label="Document title"
-							data-testid="knowledge-create-title"
+							data-testid="document-create-title"
 							placeholder="Untitled"
 							value={title}
 							onChange={(e) => setTitle(e.target.value)}
@@ -158,7 +158,7 @@ export function DocumentCreate(): JSX.Element {
 							</Button>
 							<Button
 								variant="primary"
-								data-testid="knowledge-create-submit"
+								data-testid="document-create-submit"
 								onClick={() => void handleCreate()}
 								disabled={!canCreate}
 							>
@@ -177,14 +177,14 @@ export function DocumentCreate(): JSX.Element {
 			 * (not a fixed minHeight) lets it grow with the column. */}
 			<div
 				className="max-w-[960px] w-full py-[24px] flex gap-[24px] items-stretch min-h-[calc(100svh-7rem)]"
-				data-testid="knowledge-create-body"
+				data-testid="document-create-body"
 			>
 				{/* Left: editor */}
 				<div className="flex-1 min-w-0 flex flex-col gap-[12px]">
 					{error && (
 						<p
 							role="alert"
-							data-testid="knowledge-create-error"
+							data-testid="document-create-error"
 							className="type-metadata  text-[var(--status-error)]"
 						>
 							{error}
@@ -210,7 +210,7 @@ export function DocumentCreate(): JSX.Element {
 				<aside className="shrink-0 flex flex-col gap-[12px]" style={{ width: "240px" }}>
 					<div
 						className="bg-[var(--surface-page)] rounded-[var(--r-default)] p-[18px] flex flex-col gap-[12px]"
-						data-testid="knowledge-create-metadata"
+						data-testid="document-create-metadata"
 					>
 						{/* Scope picker — 3 static pills */}
 						<div className="flex flex-col gap-[6px]">
@@ -237,7 +237,7 @@ export function DocumentCreate(): JSX.Element {
 								}}
 								ariaLabel="Scope"
 								testIdPrefix="scope-pill-create"
-								disabledTitle="Join a team to use team-scoped knowledge"
+								disabledTitle="Join a team to use team-scoped documents"
 							/>
 						</div>
 						{needsScopeId && (

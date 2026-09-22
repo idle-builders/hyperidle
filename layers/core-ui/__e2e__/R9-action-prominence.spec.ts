@@ -952,7 +952,7 @@ test.describe("R9 — Document detail page", () => {
 		await editBtn.click();
 
 		// BodyEditor edit panel must appear
-		const editPanel = page.getByTestId("knowledge-edit-panel");
+		const editPanel = page.getByTestId("document-edit-panel");
 		await expect(editPanel).toBeVisible({ timeout: 5_000 });
 
 		// @lore R9: Use pressSequentially() on [contenteditable="true"] for TipTap.

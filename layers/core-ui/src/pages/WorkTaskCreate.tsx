@@ -11,7 +11,7 @@
  * POST /api/bets. The parentTaskId query-param path is the subtask creation
  * path — the "Add subtask" button on WorkTaskPage passes it here.
  *
- * @lore AK5: ?fromKnowledge=<id> is the multi-team promote path. DocumentDetail
+ * @lore AK5: ?fromDocument=<id> is the multi-team promote path. DocumentDetail
  * auto-creates when there is exactly one team and sends the user here otherwise,
  * so this page is the ONLY other place that carries sourceKnowledgeItemId into
  * the `edit_task` call. Dropping it here silently loses the provenance FK.
@@ -37,7 +37,7 @@ export function WorkTaskCreate(): JSX.Element {
 
 	const parentTaskId = searchParams.get("parentTaskId") ?? undefined;
 	// AK5: provenance carrier for the multi-team promote path.
-	const fromKnowledgeId = searchParams.get("fromKnowledge") ?? undefined;
+	const fromDocumentId = searchParams.get("fromDocument") ?? undefined;
 
 	const { data: teamsData } = useTeams();
 	const teams = teamsData?.teams ?? [];
@@ -52,13 +52,13 @@ export function WorkTaskCreate(): JSX.Element {
 	const [error, setError] = useState<string | null>(null);
 
 	// AK5: pre-fill title/description from the promoted document.
-	const { data: knowledgeView } = useDocument(fromKnowledgeId);
-	const knowledgeItem = knowledgeView?.document ?? null;
+	const { data: documentView } = useDocument(fromDocumentId);
+	const sourceDocument = documentView?.document ?? null;
 	useEffect(() => {
-		if (knowledgeItem === null) return;
-		setTitle((t) => (t === "" ? knowledgeItem.title : t));
-		setDescription((d) => (d === "" ? knowledgeItem.body : d));
-	}, [knowledgeItem]);
+		if (sourceDocument === null) return;
+		setTitle((t) => (t === "" ? sourceDocument.title : t));
+		setDescription((d) => (d === "" ? sourceDocument.body : d));
+	}, [sourceDocument]);
 
 	const resolvedTeamId = singleTeam ? (teams[0]?.id ?? "") : teamId;
 	// parentTaskId path: teamId is inherited server-side; only title is required
@@ -79,7 +79,7 @@ export function WorkTaskCreate(): JSX.Element {
 				doneCondition: doneCondition.trim() || undefined,
 				parentTaskId,
 				teamId: parentTaskId != null ? undefined : resolvedTeamId,
-				sourceKnowledgeItemId: fromKnowledgeId,
+				sourceKnowledgeItemId: fromDocumentId,
 				dependencies: dependencies.length > 0 ? [...dependencies] : undefined,
 			});
 

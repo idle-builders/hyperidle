@@ -47,7 +47,7 @@ test.describe("W3 AC-44 — Document edit mode transition", () => {
 	test("edit mode shows the BodyEditor panel", async ({ page }) => {
 		await page.getByRole("button", { name: /^edit$/i }).click();
 
-		const editPanel = page.getByTestId("knowledge-edit-panel");
+		const editPanel = page.getByTestId("document-edit-panel");
 		await expect(editPanel).toBeVisible();
 		await expect(editPanel.locator(".ProseMirror")).toBeVisible();
 	});
@@ -66,7 +66,7 @@ test.describe("W3 AC-44 — Document edit mode transition", () => {
 		test(`${viewport.name}: document prose rests rendered`, async ({ page }) => {
 			await page.setViewportSize(viewport);
 			await expect(page.getByRole("button", { name: /^edit$/i })).toBeVisible();
-			await expect(page.getByTestId("knowledge-edit-panel")).toHaveCount(0);
+			await expect(page.getByTestId("document-edit-panel")).toHaveCount(0);
 			await page.screenshot({
 				path: `test-results/document-read-${viewport.name}.png`,
 				fullPage: true,
@@ -98,25 +98,25 @@ test.describe("W3 AC-45 — Done returns to read mode", () => {
 
 	test("edit panel disappears after clicking Done", async ({ page }) => {
 		await page.getByRole("button", { name: /^edit$/i }).click();
-		await expect(page.getByTestId("knowledge-edit-panel")).toBeVisible();
+		await expect(page.getByTestId("document-edit-panel")).toBeVisible();
 
 		await page.getByRole("button", { name: /^done$/i }).click();
 
-		await expect(page.getByTestId("knowledge-edit-panel")).not.toBeVisible();
+		await expect(page.getByTestId("document-edit-panel")).not.toBeVisible();
 	});
 
 	test("Done remains a save barrier until the latest body change is acknowledged", async ({
 		page,
 	}) => {
 		await page.getByRole("button", { name: /^edit$/i }).click();
-		const editor = page.getByTestId("knowledge-edit-panel").locator('[contenteditable="true"]');
+		const editor = page.getByTestId("document-edit-panel").locator('[contenteditable="true"]');
 		await editor.click();
 		await editor.pressSequentially(" Saved through the barrier.");
 		const done = page.getByRole("button", { name: /^done$/i });
 		await expect(done).toBeDisabled();
 		await expect(done).toBeEnabled({ timeout: 5000 });
 		await done.click();
-		await expect(page.getByTestId("knowledge-edit-panel")).toHaveCount(0);
+		await expect(page.getByTestId("document-edit-panel")).toHaveCount(0);
 	});
 });
 
@@ -129,7 +129,7 @@ test.describe("W3 AC-46 — Metadata aside read-only in edit mode", () => {
 	});
 
 	test("metadata aside remains visible during editing", async ({ page }) => {
-		const aside = page.getByTestId("knowledge-metadata-aside");
+		const aside = page.getByTestId("document-metadata-aside");
 		await expect(aside).toBeVisible();
 
 		await page.getByRole("button", { name: /^edit$/i }).click();
@@ -140,7 +140,7 @@ test.describe("W3 AC-46 — Metadata aside read-only in edit mode", () => {
 	test("metadata aside has no input fields (read-only)", async ({ page }) => {
 		await page.getByRole("button", { name: /^edit$/i }).click();
 
-		const aside = page.getByTestId("knowledge-metadata-aside");
+		const aside = page.getByTestId("document-metadata-aside");
 		const inputs = await aside.locator("input, select, textarea").count();
 		expect(inputs).toBe(0);
 	});

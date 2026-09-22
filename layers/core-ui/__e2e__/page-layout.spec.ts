@@ -102,7 +102,7 @@ for (const viewport of [
 
 		await page.goto("/documents/k1");
 		await expect(page.getByTestId("document-body")).toBeVisible();
-		const workbench = page.getByTestId("knowledge-metadata-aside").locator("xpath=..");
+		const workbench = page.getByTestId("document-metadata-aside").locator("xpath=..");
 		await expectSameX(page.getByRole("heading", { level: 1 }), workbench);
 		if (viewport.width === 1440)
 			await page.screenshot({ path: resolve(EVIDENCE, "workbench-knowledge.png") });

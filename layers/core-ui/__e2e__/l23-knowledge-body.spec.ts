@@ -6,7 +6,7 @@
  * E3: Edit mode shows the BodyEditor panel (WYSIWYG — no separate preview pane).
  *
  * @lore T2: textarea+preview+Save/Cancel replaced by BodyEditor + Done button.
- * - knowledge-edit-textarea → BodyEditor inside knowledge-edit-panel
+ * - knowledge-edit-textarea → BodyEditor inside document-edit-panel
  * - document-edit-preview → no longer exists (BodyEditor IS the WYSIWYG view)
  * - Save button → auto-save (no explicit save action needed)
  * - Cancel button → Done button (exits edit mode)
@@ -80,7 +80,7 @@ test.describe("E1 — Document body: multi-section playbook", () => {
 		await page.getByRole("button", { name: /edit/i }).click();
 
 		// T2: BodyEditor panel replaces the old textarea+preview layout
-		const editPanel = page.getByTestId("knowledge-edit-panel");
+		const editPanel = page.getByTestId("document-edit-panel");
 		await expect(editPanel).toBeVisible();
 
 		// The ProseMirror contenteditable should be present in the panel
@@ -135,9 +135,9 @@ test.describe("E3 — Document body: edit-mode panel is not a <pre>", () => {
 
 		await page.getByRole("button", { name: /edit/i }).click();
 
-		// T2: knowledge-edit-panel replaces the old textarea+preview layout.
+		// T2: document-edit-panel replaces the old textarea+preview layout.
 		// The panel contains the BodyEditor (TipTap .ProseMirror) — no <pre>.
-		const editPanel = page.getByTestId("knowledge-edit-panel");
+		const editPanel = page.getByTestId("document-edit-panel");
 		await expect(editPanel).toBeVisible();
 
 		// The panel must not be a <pre>
@@ -151,7 +151,7 @@ test.describe("E3 — Document body: edit-mode panel is not a <pre>", () => {
 
 		await page.getByRole("button", { name: /edit/i }).click();
 
-		const editPanel = page.getByTestId("knowledge-edit-panel");
+		const editPanel = page.getByTestId("document-edit-panel");
 		// TipTap renders a [contenteditable="true"] div inside .ProseMirror
 		const contentEditable = editPanel.locator('[contenteditable="true"]');
 		await expect(contentEditable).toBeVisible();
@@ -163,7 +163,7 @@ test.describe("E3 — Document body: edit-mode panel is not a <pre>", () => {
 
 		await page.getByRole("button", { name: /edit/i }).click();
 
-		const editPanel = page.getByTestId("knowledge-edit-panel");
+		const editPanel = page.getByTestId("document-edit-panel");
 		await expect(editPanel).toBeVisible();
 
 		// The editor should contain the mocked body content

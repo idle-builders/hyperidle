@@ -227,7 +227,7 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 	test("AC-5: ⌘2 does not switch views while typing in input", async ({ page }) => {
 		// Navigate to a page with a real text input (document create).
 		await page.goto("/documents/new");
-		await page.waitForSelector("[data-testid='knowledge-create-page']");
+		await page.waitForSelector("[data-testid='document-create-page']");
 
 		// The title input is a plain <input type="text"> with placeholder "Untitled".
 		const titleInput = page.getByPlaceholder("Untitled");

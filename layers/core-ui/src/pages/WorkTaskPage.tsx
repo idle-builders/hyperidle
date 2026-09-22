@@ -17,7 +17,7 @@
  *
  * @lore BB1: AppShell <main> is overflow-hidden with no padding, so this page
  * uses the fixed shrink-0 header + flex-1 overflow-y-auto body pattern from
- * the existing WorkTask, WorkBet, and KnowledgeDetail pages.
+ * the existing WorkTask, WorkBet, and DocumentDetail pages.
  *
  * @lore the architecture doc: `taskInvariants` runs client-side here to grey
  * the Save button on a doomed edit (e.g. an illegal state transition) before
@@ -849,7 +849,7 @@ export function WorkTaskPage({ overrideTaskId }: WorkTaskPageProps = {}): JSX.El
 					)}
 				</section>
 
-				{/* Artifacts — knowledge items parented to this task (AC4) */}
+				{/* Artifacts — documents parented to this task (AC4) */}
 				<ArtifactSection
 					parentKind="task"
 					parentId={taskId ?? ""}
