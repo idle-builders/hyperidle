@@ -1,5 +1,6 @@
 /**
- * The task action list — search_tasks / open_task / edit_task — is
+ * The declared action list — five modules, fifteen names, from
+ * search_tasks / open_task / edit_task to search_plugins / edit_plugin — is
  * projected onto every door: mounted on HTTP, registered on MCP, reachable
  * from the UI. This rule is the mechanical proof, over the census plus a
  * handful of scans this file owns (route registrations, tool literals, the
@@ -128,7 +129,7 @@ const PLATFORM_EVENTS: readonly string[] = [
 ];
 
 /**
- * Every route registered in a production file that is neither a task
+ * Every route registered in a production file that is neither a declared
  * action route nor one of the eighteen plumbing doors. Re-derived after the
  * unreachable-route deletion on main removed fourteen of the 107 entries
  * this rule started with, `coach.ts`/`hints.ts` wholesale among them, so
@@ -347,7 +348,7 @@ export function actionsProjected(input: ActionsProjectedInput): Rule {
 		evaluate: (census: Census): readonly Finding[] => {
 			const findings: Finding[] = [];
 			const productionFiles = population(census);
-			const taskActionNames = scanDeclaredActionNames(census, readFile);
+			const declaredActionNames = scanDeclaredActionNames(census, readFile);
 
 			// -- clause 1: every action name is reachable from the UI ------------
 			const uiFiles = census.files.filter(
@@ -356,7 +357,7 @@ export function actionsProjected(input: ActionsProjectedInput): Rule {
 					f.path.startsWith("layers/core-ui/src/") &&
 					/\.tsx?$/.test(f.path),
 			);
-			for (const name of taskActionNames) {
+			for (const name of declaredActionNames) {
 				const matcher = buildCallSiteMatcher(name);
 				const reachable = uiFiles.some((f) => {
 					try {
@@ -404,9 +405,9 @@ export function actionsProjected(input: ActionsProjectedInput): Rule {
 			// -- clause 3: every tool is an action or legacy ----------------------
 			const toolFound = scanToolNames(productionFiles, readFile);
 			const legacyToolSet = new Set(LEGACY_TOOLS);
-			const taskActionSet = new Set(taskActionNames);
+			const declaredActionSet = new Set(declaredActionNames);
 			for (const [name, path] of toolFound) {
-				if (taskActionSet.has(name) || legacyToolSet.has(name)) continue;
+				if (declaredActionSet.has(name) || legacyToolSet.has(name)) continue;
 				findings.push({
 					ruleId: "actions-projected",
 					severity: "error",
