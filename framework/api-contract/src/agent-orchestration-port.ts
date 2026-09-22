@@ -177,14 +177,19 @@ export interface AgentOrchestrationStoppedRun {
 	readonly sessionId: string;
 }
 
-/** The "request-about-request" family (`runs.*`) — run lifecycle verbs. */
+/**
+ * The "request-about-request" family (`runs.*`) — run lifecycle verbs.
+ *
+ * @lore D-46jmx6: `abort(sessionId)` is DELETED — `stop_session` (the session
+ * module's own action, `@hyperidle/run-orchestration`) is the caller that
+ * never existed for it, and the only in-layer abort (the provisioner's own
+ * registry call) never crossed this seam.
+ */
 export interface AgentOrchestrationRunsPort {
 	// @lore AU44 batch6: `reason` param dropped — STOP_DISPOSITIONS was a one-key
 	// map with only "bet_killed" as a legal value. Disposition is now hardcoded.
 	stopForTasks(taskIds: readonly string[]): Promise<ReadonlyArray<AgentOrchestrationStoppedRun>>;
 	endForHandoff(sessionId: string, endedAt: string): Promise<void>;
-	/** In-process registry abort — never crosses the seam itself; exposed here so a caller need not reach `sessionRunRegistry` directly. */
-	abort(sessionId: string): Promise<void>;
 }
 
 /** Mirrors `AgentRunConfig` (`@hyperidle/agent-run-config`). */
