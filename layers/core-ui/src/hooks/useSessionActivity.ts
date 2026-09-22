@@ -26,7 +26,6 @@ import { getWsClient } from "../services/ws-client.js";
 
 export type { ActivityEntry } from "@hyperidle/domain-model";
 export type ToolCallData = Extract<ActivityEntry, { type: "tool_call" }>["data"];
-export type ReasoningData = Extract<ActivityEntry, { type: "reasoning" }>["data"];
 
 export interface SessionSummary {
 	agentId: string;

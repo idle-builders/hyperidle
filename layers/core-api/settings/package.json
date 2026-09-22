@@ -19,8 +19,6 @@
 	},
 	"devDependencies": {
 		"@hyperidle/document": "*",
-		"@hyperidle/routine": "*",
-		"@hyperidle/users": "*",
 		"vitest": "^4.1.9"
 	}
 }
