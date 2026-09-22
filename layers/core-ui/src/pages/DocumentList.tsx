@@ -75,7 +75,7 @@ import { DocumentTreeList } from "./document/DocumentTreeList.js";
 type DocumentTab = "triage" | "curated";
 
 /**
- * AF13 §3: Pure sort helper for documents.
+ * Pure sort helper for documents.
  * Returns a new array — does NOT mutate the input.
  *
  * recency:   updatedAt desc, tie-break title asc
@@ -382,7 +382,7 @@ function DocumentListContent({
 				</button>
 			</div>
 
-			{/* AF13 §3: Sort pills changed from role=radio to plain buttons so
+			{/* Sort pills changed from role=radio to plain buttons so
 			    getByRole("button", { name: /recency/ }) works in tests.
 			    @lore AF13: role="radio" buttons are not found by getByRole("button"),
 			    since explicit role overrides the implicit element role. */}
@@ -610,7 +610,7 @@ export function DocumentList({
 	const [searchQuery, setSearchQuery] = useState("");
 	// "Memories" filter chip — swaps the search_documents filter.
 	const [showMemories, setShowMemories] = useState(false);
-	// AF13 §6: Replace optimisticRemovals (Set<id>) with optimisticStatuses (Map<id, status>).
+	// Replace optimisticRemovals (Set<id>) with optimisticStatuses (Map<id, status>).
 	// A validated item gets status "active" so it moves to Curated in the same render.
 	// A rejected item gets status "archived" so it leaves Triage and does not appear in Curated.
 	// On refusal, the map entry is deleted to revert the item to its original status.
@@ -664,7 +664,7 @@ export function DocumentList({
 	/**
 	 * AD6: Apply static scope filter before triage/curated split.
 	 * null pill → all items | specific pill → only items whose scopeKind is in filterKinds.
-	 * AF13: Also applies optimisticStatuses overrides so triage/curated split reflects
+	 * Also applies optimisticStatuses overrides so triage/curated split reflects
 	 * the immediate user action without waiting for refetch.
 	 */
 	const scopeFilteredItems = useMemo<DocumentRow[]>(() => {
@@ -702,7 +702,7 @@ export function DocumentList({
 		setTab(hasTriage ? "triage" : "curated");
 	}, [allItems]);
 
-	// AF13 §6: Optimistic status-override + `edit_document` for triage actions.
+	// Optimistic status-override + `edit_document` for triage actions.
 	// Uses Map<id, status> instead of Set<id> so validated items appear in Curated
 	// immediately (override status → "active") rather than vanishing from all tabs.
 	// @lore Y4-F02: item.version prevents a stale write on items at version 2+.

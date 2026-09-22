@@ -125,7 +125,7 @@ describe("useCurrentUser (M3 A10)", () => {
 		expect(result.current.error).toBeNull();
 	});
 
-	it("BC4: normalizes a null teamId to undefined (no team)", async () => {
+	it("normalizes a null teamId to undefined (no team)", async () => {
 		const user = {
 			id: "test-user-1",
 			name: "Test User",
@@ -144,7 +144,7 @@ describe("useCurrentUser (M3 A10)", () => {
 		expect(result.current.user?.teamId).toBeUndefined();
 	});
 
-	it("BC4: carries a real teamId through unchanged", async () => {
+	it("carries a real teamId through unchanged", async () => {
 		const user = {
 			id: "test-user-1",
 			name: "Test User",

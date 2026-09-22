@@ -224,7 +224,7 @@ export function documentAs(row: {
 // @lore BC4 architecture.md §7: the read/subscribe visibility predicate,
 // pure and shared between `edit_document`/`search_documents`'s read path
 // and `ws-subscribe-authorizer.ts`, so the socket and the read can never
-// diverge — the same shape BC3's own bug report on that file names as the
+// diverge — the same shape an earlier bug report on that file names as the
 // failure mode this avoids. Mirrors the §5.1 SQL predicate exactly:
 //
 //   parent_kind IN ('task','thread')

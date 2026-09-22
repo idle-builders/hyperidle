@@ -1,5 +1,5 @@
 /**
- * GET /api/auth/me — teamId in the response (AF13 §6 gate-walk fix).
+ * GET /api/auth/me — teamId in the response (a gate-walk fix).
  *
  * `useCurrentUser` and `ScopeChangeDialog` read `teamId` off this response to
  * decide whether "Team" scope can be chosen. Before this fix the route never

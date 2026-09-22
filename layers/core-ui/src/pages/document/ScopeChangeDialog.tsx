@@ -67,7 +67,7 @@ export function ScopeChangeDialog({
 	currentVersion,
 	currentScopeKind,
 }: ScopeChangeDialogProps): JSX.Element | null {
-	// AF13 §4A: Gate Team option by hasTeam, matching DocumentCreate's logic.
+	// Gate the Team option by hasTeam, matching DocumentCreate's logic.
 	const { user } = useCurrentUser();
 	const hasTeam: boolean = user?.teamId !== undefined;
 

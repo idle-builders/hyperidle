@@ -75,7 +75,7 @@ export function createAuthRoutes(
 			name: userRow?.name ?? "Founder",
 			email: userRow?.email ?? "",
 			avatarUrl: userRow?.avatarUrl ?? null,
-			// AF13 §6: team membership so the UI can gate "Team" scope on it.
+			// Team membership so the UI can gate "Team" scope on it.
 			teamId: userRow?.teamId ?? null,
 		});
 	});

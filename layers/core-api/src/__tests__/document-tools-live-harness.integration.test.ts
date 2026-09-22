@@ -1,6 +1,6 @@
 /**
  * @lore The live-harness proof for the document module's three agent-facing
- * tools (`search_documents` / `open_document` / `edit_document`, BC4
+ * tools (`search_documents` / `open_document` / `edit_document`,
  * architecture.md §3): a real agent, given a real task session, writes
  * itself a memory, writes an artifact for that task, and reads a seeded
  * document back — proven against every installed harness, zero stubs, per

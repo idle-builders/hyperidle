@@ -425,7 +425,7 @@ function DocumentDetailView({
 	const latestContentRef = useRef<string>("");
 	const { user } = useCurrentUser();
 
-	// AF13 §2: self-authored factory items are editable; agent-authored factory
+	// Self-authored factory items are editable; agent-authored factory
 	// items remain read-only. Client-side UI policy — not a §4.1 invariant.
 	const isSelfAuthoredFactory = isFactory && user !== null && document.updatedBy === user.id;
 	const isReadOnly = isFactory && !isSelfAuthoredFactory;

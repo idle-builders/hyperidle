@@ -72,7 +72,7 @@ export function DocumentCreate(): JSX.Element {
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	// AF13 §6: Team pill is data-driven — enabled only when the user belongs to a team.
+	// Team pill is data-driven — enabled only when the user belongs to a team.
 	// @lore AF13: CurrentUser.teamId is now populated from the API (GET /api/auth/me).
 	// The previous hardcoded false is replaced by a live check so the team scope
 	// pill becomes available as soon as the user joins a team.
@@ -98,7 +98,7 @@ export function DocumentCreate(): JSX.Element {
 			title: trimmedTitle,
 			body: trimmedBody,
 			format: "markdown",
-			// AF13 §1: human-initiated creates are immediately active (not
+			// Human-initiated creates are immediately active (not
 			// proposed, edit_document's create default) — an agent omits status
 			// and gets "proposed".
 			status: "active",

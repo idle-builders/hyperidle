@@ -1,5 +1,5 @@
 /**
- * AF13 §3 — sortItems unit tests.
+ * sortItems unit tests.
  *
  * sortItems is a pure helper at module scope in DocumentList.tsx (formerly
  * KnowledgeList.tsx). These tests define the exact ordering contract:

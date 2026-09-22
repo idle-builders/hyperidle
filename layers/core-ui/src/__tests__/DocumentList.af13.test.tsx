@@ -1,5 +1,5 @@
 /**
- * AF13 — DocumentList component tests.
+ * DocumentList component tests.
  *
  * Covers:
  * - §3: recency sort pill reorders (both tabs)

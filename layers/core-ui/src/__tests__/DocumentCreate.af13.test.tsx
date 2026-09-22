@@ -1,5 +1,5 @@
 /**
- * AF13 — DocumentCreate component tests (red phase).
+ * DocumentCreate component tests (red phase).
  *
  * Covers:
  * - §1: create payload includes status:"active" (human create intent)
@@ -60,7 +60,7 @@ vi.mock("../hooks/useCurrentUser.js", () => ({
 // §1 — Create payload includes status:"active"
 // ---------------------------------------------------------------------------
 
-describe("AF13 §1 — DocumentCreate sends status:active in create payload", () => {
+describe("DocumentCreate sends status:active in create payload", () => {
 	beforeEach(async () => {
 		const { useCurrentUser } = await import("../hooks/useCurrentUser.js");
 		vi.mocked(useCurrentUser).mockReturnValue({
@@ -214,7 +214,7 @@ describe("DocumentCreate nests in one write", () => {
 // §6 + WARNING 3 — Team pill selectability: data-driven, not hardcoded false
 // ---------------------------------------------------------------------------
 
-describe("AF13 §6 — Team scope pill is data-driven (WARNING 3 positive-path proof)", () => {
+describe("Team scope pill is data-driven (WARNING 3 positive-path proof)", () => {
 	afterEach(() => {
 		vi.clearAllMocks();
 	});
