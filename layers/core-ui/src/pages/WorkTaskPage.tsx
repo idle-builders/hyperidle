@@ -37,26 +37,35 @@ import {
 import { type JSX, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link as RRLink, useNavigate, useParams } from "react-router-dom";
 import { ArtifactSection } from "../components/ArtifactSection.js";
+import type { OpenHandler, PartAuthor } from "../components/parts";
+import { SessionView } from "../components/SessionView.js";
 import { TaskDependencyField } from "../components/TaskDependencyField.js";
 import {
 	Breadcrumb,
 	type BreadcrumbSegment,
 	Button,
 	Combobox,
+	clickableProps,
 	ErrorState,
 	Input,
 	LiveDot,
+	PageFrame,
 	PageHeader,
 	PageScaffold,
 	SectionLabel,
 	Select,
+	SplitView,
 	StatusChip,
 	taskStateToStatus,
 } from "../ds/index.js";
 import { useAgents } from "../hooks/useAgents.js";
+import { useCurrentUser } from "../hooks/useCurrentUser.js";
+import { useSessionActivity } from "../hooks/useSessionActivity.js";
 import { useTaskSessions } from "../hooks/useTaskSessions.js";
+import { useUiPreference } from "../hooks/useUiPreference.js";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import { call } from "../services/call.js";
+import { createOpenHandler } from "../services/open-handler.js";
 import { HostThreadSection } from "../shell/HostThreadSection.js";
 import { NavHistoryCluster } from "../shell/NavHistoryCluster.js";
 
@@ -280,12 +289,15 @@ function SessionRow({
 	agent,
 	status,
 	effectivenessScore,
+	onOpen,
 }: {
 	id: string;
 	title: string;
 	agent: string;
 	status: string;
 	effectivenessScore?: number | null;
+	/** BC6: opens the session in the page's split pane — the same `onOpenSession` door Conversations uses. */
+	onOpen: (sessionId: string) => void;
 }): JSX.Element {
 	const isActive = status === "active";
 	const isDone = status === "done" || status === "completed";
@@ -293,7 +305,10 @@ function SessionRow({
 		<div
 			key={id}
 			data-testid="session-row"
-			className="border-width-thin-b border-[var(--border-subtle)] flex items-center gap-[12px] py-[12px]"
+			{...clickableProps(
+				() => onOpen(id),
+				"border-width-thin-b border-[var(--border-subtle)] flex items-center gap-[12px] py-[12px]",
+			)}
 		>
 			<div className="flex-1 min-w-0">
 				<div className="type-copy text-[var(--text-primary)] truncate">{title}</div>
@@ -316,6 +331,69 @@ function SessionRow({
 					{isActive ? "Active" : isDone ? "Done" : status}
 				</span>
 			</div>
+		</div>
+	);
+}
+
+/**
+ * BC6: the session viewer, opened from a `SessionRow` click into the page's
+ * split pane. Reuses `SessionView` exactly as it is — no redesign, no new
+ * component (architecture.md §1). The session's own agent id only surfaces
+ * once `useSessionActivity`'s `summary` settles (it stays `null` while
+ * streaming — same reasoning as `Conversations.tsx`'s
+ * `resolveSessionAgentAuthor`), so a generic placeholder renders until then.
+ */
+function TaskSessionPanel({
+	sessionId,
+	viewerId,
+	viewerName,
+	onClose,
+	onOpen,
+}: {
+	sessionId: string;
+	viewerId: string;
+	viewerName: string;
+	onClose: () => void;
+	onOpen: OpenHandler;
+}): JSX.Element {
+	const { entries, status, summary } = useSessionActivity(sessionId);
+	const agent: PartAuthor = summary?.agentId
+		? { id: summary.agentId, name: summary.agentId, isAgent: true, isMe: false }
+		: { id: "", name: "Agent", isAgent: true, isMe: false };
+	const viewer: PartAuthor = { id: viewerId, name: viewerName, isAgent: false, isMe: true };
+
+	return (
+		<div className="relative flex h-full flex-col">
+			<button
+				type="button"
+				onClick={onClose}
+				aria-label="Close session view"
+				data-testid="close-session-view"
+				className="absolute top-[9px] right-[12px] z-[1] rounded-[var(--r-subtle)] p-[6px] text-[var(--text-tertiary)]   hover:bg-[var(--surface-container)] hover:text-[var(--text-secondary)]"
+			>
+				<svg
+					viewBox="0 0 12 12"
+					className="h-[11px] w-[11px]"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="1.5"
+					aria-hidden="true"
+				>
+					<path d="M2 2 L10 10 M10 2 L2 10" strokeLinecap="round" />
+				</svg>
+			</button>
+			<SessionView
+				sessionId={sessionId}
+				entries={[...entries]}
+				identity={{ agent, viewer, title: "Session", host: "" }}
+				status={status}
+				onOpen={onOpen}
+				onSend={() => {
+					// Task-page session view: sending is not supported here — the
+					// task's own thread (Discussion, below) is where a person talks
+					// to the agent.
+				}}
+			/>
 		</div>
 	);
 }
@@ -642,6 +720,14 @@ export function WorkTaskPage({ overrideTaskId }: WorkTaskPageProps = {}): JSX.El
 	const { data, loading, error, refresh } = useOpenTask(taskId);
 	const { data: sessionsData } = useTaskSessions(taskId);
 
+	// BC6: the session viewer door — a `SessionRow` click fires the same
+	// `onOpenSession` OpenTarget path Conversations.tsx uses, mounted in this
+	// page's own split pane rather than navigating away from the task.
+	const { user } = useCurrentUser();
+	const [openSessionId, setOpenSessionId] = useState<string | null>(null);
+	const [sessionRatio, setSessionRatio] = useUiPreference("task.session", 0.6);
+	const openSessionTarget = createOpenHandler(navigate, { onOpenSession: setOpenSessionId });
+
 	// Position reordering — `edit_task` with { id, position } then re-read the
 	// subtree so the order the user sees matches what the server stored.
 	// @lore BB1: useEditTask(refresh) wires the onSaved callback so the tree
@@ -731,7 +817,7 @@ export function WorkTaskPage({ overrideTaskId }: WorkTaskPageProps = {}): JSX.El
 
 	return (
 		<PageScaffold
-			frame="page"
+			body="managed"
 			data-testid="task-detail-page"
 			header={
 				<PageHeader
@@ -761,108 +847,139 @@ export function WorkTaskPage({ overrideTaskId }: WorkTaskPageProps = {}): JSX.El
 				/>
 			}
 		>
-			<div
-				data-testid="task-detail-body"
-				className="flex flex-col gap-[24px] max-w-[800px] w-full py-[24px] box-border"
-			>
-				{/* Metadata strip */}
-				<div
-					data-testid="task-meta-strip"
-					className="border-width-thin bg-[var(--surface-page)] rounded-[var(--r-default)] border-[var(--border-subtle)] flex overflow-hidden"
-				>
-					{/* Owner */}
-					<div className="border-width-thin-r flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px] border-[var(--border-subtle)]">
-						<span className="type-label uppercase text-[var(--text-tertiary)]">Owner</span>
-						<span className="type-small text-[var(--text-primary)]">
-							{task.ownerAgentId ?? "Unassigned"}
-						</span>
-					</div>
-					{/* Status */}
-					<div className="border-width-thin-r flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px] border-[var(--border-subtle)]">
-						<span className="type-label uppercase text-[var(--text-tertiary)]">Status</span>
-						<div className="flex items-center gap-[6px] mt-[3px]">
-							{task.state === "in_progress" && <LiveDot />}
-							<StatusChip
-								status={taskStateToStatus(task.state)}
-								label={TASK_STATE_LABEL[task.state]}
+			<SplitView
+				compact={sidebarMobile}
+				originLabel="task"
+				surfaceKey="task.session"
+				mode={openSessionId ? "split" : "fold-back"}
+				dividerRatio={sessionRatio}
+				onRatioChange={setSessionRatio}
+				onModeChange={(mode) => {
+					if (mode === "fold-back") setOpenSessionId(null);
+				}}
+				origin={
+					<PageFrame>
+						<div
+							data-testid="task-detail-body"
+							className="flex flex-col gap-[24px] max-w-[800px] w-full py-[24px] box-border"
+						>
+							{/* Metadata strip */}
+							<div
+								data-testid="task-meta-strip"
+								className="border-width-thin bg-[var(--surface-page)] rounded-[var(--r-default)] border-[var(--border-subtle)] flex overflow-hidden"
+							>
+								{/* Owner */}
+								<div className="border-width-thin-r flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px] border-[var(--border-subtle)]">
+									<span className="type-label uppercase text-[var(--text-tertiary)]">Owner</span>
+									<span className="type-small text-[var(--text-primary)]">
+										{task.ownerAgentId ?? "Unassigned"}
+									</span>
+								</div>
+								{/* Status */}
+								<div className="border-width-thin-r flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px] border-[var(--border-subtle)]">
+									<span className="type-label uppercase text-[var(--text-tertiary)]">Status</span>
+									<div className="flex items-center gap-[6px] mt-[3px]">
+										{task.state === "in_progress" && <LiveDot />}
+										<StatusChip
+											status={taskStateToStatus(task.state)}
+											label={TASK_STATE_LABEL[task.state]}
+										/>
+									</div>
+								</div>
+								{/* Depth / parent */}
+								<div className="border-width-thin-r flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px] border-[var(--border-subtle)]">
+									<span className="type-label uppercase text-[var(--text-tertiary)]">Depth</span>
+									<span className="type-small text-[var(--text-primary)]">
+										{ancestors.length === 0 ? "Root task" : `Level ${ancestors.length}`}
+									</span>
+								</div>
+								{/* Sessions */}
+								<div className="flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px]">
+									<span className="type-label uppercase text-[var(--text-tertiary)]">Sessions</span>
+									<span
+										data-testid="task-session-count"
+										className="type-small text-[var(--text-primary)]"
+									>
+										{activeSessions.length} active / {completedSessions.length} completed
+									</span>
+								</div>
+							</div>
+
+							{/* Edit panel */}
+							<EditPanel task={task} onSaved={refresh} />
+
+							{/* Subtasks */}
+							<section data-testid="task-subtasks-section">
+								<div className="flex items-center justify-between">
+									<SectionLabel label="Subtasks" divider />
+									<Button
+										variant="secondary"
+										size="sm"
+										onClick={() =>
+											navigate(`/work/task/new?parentTaskId=${encodeURIComponent(task.id)}`)
+										}
+										data-testid="add-subtask-btn"
+									>
+										+ Add subtask
+									</Button>
+								</div>
+								<div className="mt-[12px]">
+									<SubtaskTree nodes={children} onReorder={onReorder} />
+								</div>
+							</section>
+
+							{/* Sessions */}
+							<section data-testid="task-sessions-section">
+								<SectionLabel label="Sessions" divider />
+								{sessions.length === 0 ? (
+									<p className="type-metadata text-[var(--text-tertiary)]">No sessions yet.</p>
+								) : (
+									<div className="flex flex-col">
+										{sessions.map((s) => (
+											<SessionRow
+												key={s.id}
+												id={s.id}
+												title={s.title}
+												agent={s.agent}
+												status={s.status}
+												effectivenessScore={s.effectivenessScore}
+												onOpen={(sessionId) => openSessionTarget({ route: "session", sessionId })}
+											/>
+										))}
+									</div>
+								)}
+							</section>
+
+							{/* Artifacts — documents parented to this task (AC4) */}
+							<ArtifactSection
+								parentKind="task"
+								parentId={taskId ?? ""}
+								heading="Artifacts"
+								emptyDescription="Artifacts will appear here once agents produce output for this task."
 							/>
+
+							{/* Discussion */}
+							<section aria-label="Discussion">
+								<SectionLabel label="Discussion" divider />
+								<HostThreadSection threadId={task.threadId} inline />
+							</section>
 						</div>
-					</div>
-					{/* Depth / parent */}
-					<div className="border-width-thin-r flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px] border-[var(--border-subtle)]">
-						<span className="type-label uppercase text-[var(--text-tertiary)]">Depth</span>
-						<span className="type-small text-[var(--text-primary)]">
-							{ancestors.length === 0 ? "Root task" : `Level ${ancestors.length}`}
-						</span>
-					</div>
-					{/* Sessions */}
-					<div className="flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px]">
-						<span className="type-label uppercase text-[var(--text-tertiary)]">Sessions</span>
-						<span
-							data-testid="task-session-count"
-							className="type-small text-[var(--text-primary)]"
-						>
-							{activeSessions.length} active / {completedSessions.length} completed
-						</span>
-					</div>
-				</div>
-
-				{/* Edit panel */}
-				<EditPanel task={task} onSaved={refresh} />
-
-				{/* Subtasks */}
-				<section data-testid="task-subtasks-section">
-					<div className="flex items-center justify-between">
-						<SectionLabel label="Subtasks" divider />
-						<Button
-							variant="secondary"
-							size="sm"
-							onClick={() => navigate(`/work/task/new?parentTaskId=${encodeURIComponent(task.id)}`)}
-							data-testid="add-subtask-btn"
-						>
-							+ Add subtask
-						</Button>
-					</div>
-					<div className="mt-[12px]">
-						<SubtaskTree nodes={children} onReorder={onReorder} />
-					</div>
-				</section>
-
-				{/* Sessions */}
-				<section data-testid="task-sessions-section">
-					<SectionLabel label="Sessions" divider />
-					{sessions.length === 0 ? (
-						<p className="type-metadata text-[var(--text-tertiary)]">No sessions yet.</p>
+					</PageFrame>
+				}
+				destination={
+					openSessionId ? (
+						<TaskSessionPanel
+							sessionId={openSessionId}
+							viewerId={user?.id ?? ""}
+							viewerName={user?.name ?? user?.id ?? ""}
+							onClose={() => setOpenSessionId(null)}
+							onOpen={openSessionTarget}
+						/>
 					) : (
-						<div className="flex flex-col">
-							{sessions.map((s) => (
-								<SessionRow
-									key={s.id}
-									id={s.id}
-									title={s.title}
-									agent={s.agent}
-									status={s.status}
-									effectivenessScore={s.effectivenessScore}
-								/>
-							))}
-						</div>
-					)}
-				</section>
-
-				{/* Artifacts — documents parented to this task (AC4) */}
-				<ArtifactSection
-					parentKind="task"
-					parentId={taskId ?? ""}
-					heading="Artifacts"
-					emptyDescription="Artifacts will appear here once agents produce output for this task."
-				/>
-
-				{/* Discussion */}
-				<section aria-label="Discussion">
-					<SectionLabel label="Discussion" divider />
-					<HostThreadSection threadId={task.threadId} inline />
-				</section>
-			</div>
+						<div />
+					)
+				}
+			/>
 		</PageScaffold>
 	);
 }

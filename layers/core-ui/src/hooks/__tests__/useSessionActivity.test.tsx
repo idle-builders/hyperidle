@@ -1,33 +1,53 @@
 /**
- * Q1 — AC6 / AC10: useSessionActivity hook.
+ * useSessionActivity — a session's row + activity buffer, kept live by the
+ * `session:<id>` websocket nudge.
  *
- * Architecture plan §4.7: fetches GET /api/sessions/:id/activity for initial
- * state, then subscribes to WebSocket topic session:<sessionId>.
- * On session_ended: transitions status to "ended" and exposes summary.
+ * @lore BC6: `call` is mocked directly and the global no-op `ws-client` mock
+ * (test-setup.ts) is overridden with a captureable spy so a simulated nudge
+ * frame can be fired at the subscribed handler — the `useDocument.test.tsx`
+ * pattern verbatim, applied to `watch_session`.
  */
 
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { type ToolCallData, useSessionActivity } from "../useSessionActivity.js";
 
-interface MockActivityEntry {
-	type: "tool_call" | "reasoning";
-	timestamp: number;
-	data: Record<string, unknown>;
-}
+const { subscribeMock, unsubscribeMock, callMock } = vi.hoisted(() => {
+	const unsubscribeMock = vi.fn();
+	const subscribeMock = vi.fn().mockReturnValue(unsubscribeMock);
+	const callMock = vi.fn();
+	return { subscribeMock, unsubscribeMock, callMock };
+});
+
+vi.mock("../../services/ws-client.js", () => ({
+	getWsClient: () => ({
+		subscribe: subscribeMock,
+	}),
+}));
+
+vi.mock("../../services/call.js", () => ({
+	call: callMock,
+}));
+
+import { type ToolCallData, useSessionActivity } from "../useSessionActivity.js";
 
 function mkSession(state: "active" | "done" = "active") {
 	return {
 		id: "sess-1",
 		agentId: "agent-1",
 		taskId: "task-1",
+		startedAt: "2026-09-22T00:00:00.000Z",
+		endedAt: state === "active" ? null : "2026-09-22T00:05:00.000Z",
 		state,
-		startedAt: new Date().toISOString(),
+		outcome: state === "active" ? null : "completed",
+		effectivenessScore: null,
+		routineId: null,
+		notes: null,
 		modelTier: "workhorse",
+		sourceKind: null,
 	};
 }
 
-function mkActivity(n = 2): MockActivityEntry[] {
+function mkActivity(n = 2) {
 	return Array.from({ length: n }, (_, i) => ({
 		type: "tool_call" as const,
 		timestamp: Date.now() + i,
@@ -35,44 +55,37 @@ function mkActivity(n = 2): MockActivityEntry[] {
 	}));
 }
 
-describe("useSessionActivity (Q1 §4.7)", () => {
+describe("useSessionActivity (BC6)", () => {
 	beforeEach(() => {
-		vi.restoreAllMocks();
+		callMock.mockReset();
+		subscribeMock.mockReset();
+		subscribeMock.mockReturnValue(unsubscribeMock);
+		unsubscribeMock.mockReset();
 	});
 
 	afterEach(() => {
-		vi.restoreAllMocks();
+		vi.clearAllMocks();
 	});
 
-	// AC6: transitions connecting → streaming and exposes entries from REST fetch
-	it("fetches initial activity and transitions to streaming state", async () => {
-		global.fetch = vi.fn().mockResolvedValue({
+	it("calls watch_session with the id and transitions connecting → streaming", async () => {
+		callMock.mockResolvedValue({
 			ok: true,
-			json: () =>
-				Promise.resolve({
-					session: mkSession(),
-					activity: mkActivity(3),
-				}),
-		}) as unknown as typeof fetch;
+			data: { session: mkSession(), activity: mkActivity(3) },
+		});
 
 		const { result } = renderHook(() => useSessionActivity("sess-1"));
 		expect(result.current.status).toBe("connecting");
+		expect(callMock).toHaveBeenCalledWith("watch_session", { id: "sess-1" });
 
 		await waitFor(() => expect(result.current.status).toBe("streaming"));
 		expect(result.current.entries.length).toBe(3);
 	});
 
-	// AC6: each entry has type, timestamp, data fields
 	it("entries have type, timestamp, and data fields", async () => {
-		const activities = mkActivity(1);
-		global.fetch = vi.fn().mockResolvedValue({
+		callMock.mockResolvedValue({
 			ok: true,
-			json: () =>
-				Promise.resolve({
-					session: mkSession(),
-					activity: activities,
-				}),
-		}) as unknown as typeof fetch;
+			data: { session: mkSession(), activity: mkActivity(1) },
+		});
 
 		const { result } = renderHook(() => useSessionActivity("sess-1"));
 		await waitFor(() => expect(result.current.status).toBe("streaming"));
@@ -82,58 +95,116 @@ describe("useSessionActivity (Q1 §4.7)", () => {
 		expect((result.current.entries[0]!.data as ToolCallData).toolName).toBe("tool_0");
 	});
 
-	// AC9: when session is already ended (REST response shows state=done),
-	// hook transitions directly to "ended" with summary
-	it("transitions to 'ended' when session state is 'done' in initial fetch", async () => {
-		global.fetch = vi.fn().mockResolvedValue({
+	it("transitions to 'ended' when the session's state is no longer active", async () => {
+		callMock.mockResolvedValue({
 			ok: true,
-			json: () =>
-				Promise.resolve({
-					session: mkSession("done"),
-					activity: mkActivity(5),
-				}),
-		}) as unknown as typeof fetch;
+			data: { session: mkSession("done"), activity: mkActivity(5) },
+		});
 
 		const { result } = renderHook(() => useSessionActivity("sess-1"));
-		await waitFor(() => {
-			expect(result.current.status === "ended" || result.current.status === "streaming").toBe(true);
+		await waitFor(() => expect(result.current.status).toBe("ended"));
+		expect(result.current.summary).toEqual({
+			agentId: "agent-1",
+			taskId: "task-1",
+			endedAt: "2026-09-22T00:05:00.000Z",
 		});
 	});
 
-	// AC6: fetch failure transitions to error state
-	it("transitions to error state when fetch fails", async () => {
-		global.fetch = vi.fn().mockResolvedValue({
+	it("transitions to error state when watch_session is refused", async () => {
+		callMock.mockResolvedValue({
 			ok: false,
-			status: 500,
-		}) as unknown as typeof fetch;
+			problems: [{ code: "not_found", message: "Session sess-1 not found." }],
+		});
 
 		const { result } = renderHook(() => useSessionActivity("sess-1"));
 		await waitFor(() => expect(result.current.status).toBe("error"));
+		expect(result.current.error).toBe("Session sess-1 not found.");
 	});
 
-	// AC6: network error
 	it("transitions to error state on network failure", async () => {
-		global.fetch = vi
-			.fn()
-			.mockRejectedValue(new TypeError("Network error")) as unknown as typeof fetch;
+		callMock.mockRejectedValue(new TypeError("Network error"));
 
 		const { result } = renderHook(() => useSessionActivity("sess-1"));
 		await waitFor(() => expect(result.current.status).toBe("error"));
 	});
 
-	// AC10: summary is null during streaming
 	it("summary is null while streaming", async () => {
-		global.fetch = vi.fn().mockResolvedValue({
+		callMock.mockResolvedValue({
 			ok: true,
-			json: () =>
-				Promise.resolve({
-					session: mkSession(),
-					activity: mkActivity(2),
-				}),
-		}) as unknown as typeof fetch;
+			data: { session: mkSession(), activity: mkActivity(2) },
+		});
 
 		const { result } = renderHook(() => useSessionActivity("sess-1"));
 		await waitFor(() => expect(result.current.status).toBe("streaming"));
 		expect(result.current.summary).toBeNull();
+	});
+
+	it("subscribes to session:<id> and re-runs watch_session exactly once on a nudge — never asserting 'ended' from the nudge itself", async () => {
+		callMock.mockResolvedValue({
+			ok: true,
+			data: { session: mkSession(), activity: mkActivity(1) },
+		});
+		let capturedHandler: ((data: unknown) => void) | null = null;
+		subscribeMock.mockImplementation((_topic: string, handler: (data: unknown) => void) => {
+			capturedHandler = handler;
+			return unsubscribeMock;
+		});
+
+		const { result } = renderHook(() => useSessionActivity("sess-1"));
+		await waitFor(() => expect(result.current.status).toBe("streaming"));
+		expect(subscribeMock).toHaveBeenCalledWith("session:sess-1", expect.any(Function));
+
+		const callCountBefore = callMock.mock.calls.length;
+		// The nudge carries no content — a bare topic-matching envelope, per
+		// architecture.md §4. It must not, by itself, flip status to "ended".
+		callMock.mockResolvedValue({
+			ok: true,
+			data: { session: mkSession("done"), activity: mkActivity(1) },
+		});
+
+		await act(async () => {
+			capturedHandler?.({ type: "update", topic: "session:sess-1", kind: "session.activity" });
+		});
+
+		await waitFor(() => expect(callMock.mock.calls.length).toBe(callCountBefore + 1));
+		await waitFor(() => expect(result.current.status).toBe("ended"));
+	});
+
+	it("does not re-run on a frame for a different topic", async () => {
+		callMock.mockResolvedValue({
+			ok: true,
+			data: { session: mkSession(), activity: mkActivity(1) },
+		});
+		let capturedHandler: ((data: unknown) => void) | null = null;
+		subscribeMock.mockImplementation((_topic: string, handler: (data: unknown) => void) => {
+			capturedHandler = handler;
+			return unsubscribeMock;
+		});
+
+		const { result } = renderHook(() => useSessionActivity("sess-1"));
+		await waitFor(() => expect(result.current.status).toBe("streaming"));
+
+		const callCountBefore = callMock.mock.calls.length;
+
+		await act(async () => {
+			capturedHandler?.({ type: "update", topic: "session:sess-2" });
+		});
+
+		await new Promise((r) => setTimeout(r, 20));
+		expect(callMock.mock.calls.length).toBe(callCountBefore);
+	});
+
+	it("unsubscribes on unmount", async () => {
+		callMock.mockResolvedValue({
+			ok: true,
+			data: { session: mkSession(), activity: mkActivity(1) },
+		});
+
+		const { result, unmount } = renderHook(() => useSessionActivity("sess-1"));
+		await waitFor(() => expect(result.current.status).toBe("streaming"));
+
+		expect(unsubscribeMock).not.toHaveBeenCalled();
+		unmount();
+		expect(unsubscribeMock).toHaveBeenCalledTimes(1);
 	});
 });
