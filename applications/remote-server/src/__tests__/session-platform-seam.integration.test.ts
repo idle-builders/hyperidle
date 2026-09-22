@@ -1,7 +1,8 @@
 /**
- * Real end-to-end proof that the five session/platform entries — architecture.md
- * §1, §5, §9 — answer the same whether a person calls them over HTTP or an
- * agent calls them through the MCP tool seam. Boots the REAL server
+ * Real end-to-end proof that the five session/platform entries — `search_sessions`,
+ * `watch_session`, `stop_session`, `search_plugins`, `edit_plugin` — answer the
+ * same whether a person calls them over HTTP or an agent calls them through
+ * the MCP tool seam. Boots the REAL server
  * (`createServer`), drives `search_sessions`/`watch_session`/`stop_session`/
  * `search_plugins`/`edit_plugin` through BOTH real doors — `POST
  * /api/actions/<name>` with `X-API-Key`, and the registered handler on the
@@ -32,8 +33,7 @@
  * inlined below with this citation
  * (`framework/api-contract/src/core-api-port.ts`).
  *
- * @lore the `tool_call_recorded` nudge (architecture.md §9's third bullet)
- * is emitted by `provisioner.ts`'s live event-stream drain — reachable only
+ * @lore the `tool_call_recorded` nudge is emitted by `provisioner.ts`'s live event-stream drain — reachable only
  * from inside a real harness run, which `ServerHandle` exposes no seam for
  * (no `eventBus`, only `actionTools`/`dispose`/`httpServer`). `stop_session`'s
  * CAS path (no live registry entry) emits `session_ended` on the SAME real
@@ -348,7 +348,7 @@ function makePlugin(pluginId: string): string {
 	return dir;
 }
 
-describe("session-platform seam — the five entries answer the same to a person and an agent (architecture.md §9)", () => {
+describe("session-platform seam — the five entries answer the same to a person and an agent", () => {
 	afterEach(() => {
 		vi.unstubAllEnvs();
 	});
@@ -494,7 +494,8 @@ describe("session-platform seam — the five entries answer the same to a person
 				const { id: _httpId, ...httpSessionRest } = httpData.session;
 				const { id: _toolId, ...toolSessionRest } = toolData.session;
 				expect(httpSessionRest).toEqual(toolSessionRest);
-				// D-njr2es/F1: the answer carries the PRE-stop row.
+				// stop_session answers with the row as it stood the moment it was
+				// asked — the PRE-stop row, not the terminal state teardown writes after.
 				expect(httpSessionRest.state).toBe("active");
 
 				// Plain JS filtering, not `drizzle-orm`'s `eq` — an `applications/*`
