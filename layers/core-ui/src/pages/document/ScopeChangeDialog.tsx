@@ -79,6 +79,12 @@ export function ScopeChangeDialog({
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
+	// Prefill the Scope ID once, the moment Team is freshly picked — they
+	// carry their own team from `/auth/me` (`useCurrentUser`), and that is
+	// the only team they can legally widen to. A one-shot default set from
+	// the `onChange` below, not a standing effect: watching `scopeId` and
+	// refilling on every empty value would fight a person clearing the field
+	// to type a different id. The field stays editable after this.
 	const needsScopeId = SCOPES_REQUIRING_ID.has(scopeKind);
 	const isDirty = selectedOption.scopeKind !== currentScopeKind || scopeId.trim().length > 0;
 	const canSave = isDirty && !submitting;
@@ -141,7 +147,7 @@ export function ScopeChangeDialog({
 							const opt = SCOPE_CREATE_OPTIONS.find((o) => o.id === id);
 							if (opt) {
 								setSelectedOption(opt);
-								setScopeId("");
+								setScopeId(opt.scopeKind === "team" ? (user?.teamId ?? "") : "");
 							}
 						}}
 						ariaLabel="Scope kind"
