@@ -364,6 +364,17 @@ describe("canReadDocument — the shared visibility predicate", () => {
 		).toBe(false);
 	});
 
+	it("a team-scoped row with a NULL scopeId is not readable to a team-less viewer — agrees with the SQL twin, which never matches a NULL scopeId", () => {
+		expect(
+			canReadDocument([], null, {
+				parentKind: null,
+				scopeKind: "team",
+				scopeId: null,
+				slot: "ordinary",
+			}),
+		).toBe(false);
+	});
+
 	it("a factory-scoped row is always readable", () => {
 		expect(
 			canReadDocument([], null, {

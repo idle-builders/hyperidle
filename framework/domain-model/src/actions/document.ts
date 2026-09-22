@@ -243,7 +243,14 @@ export function canReadDocument(
 		row.scopeKind !== "user" ||
 		row.slot !== "ordinary" ||
 		(row.scopeId !== null && subjects.includes(row.scopeId));
-	const notTeamOrMatchesViewer = row.scopeKind !== "team" || row.scopeId === viewerTeamId;
+	// Compared on a non-null `scopeId` — a `team`-scoped row with a NULL
+	// `scopeId` (a reconcile gap the migration can leave behind, §6.4 step 5)
+	// must not read as "matches a team-less viewer" just because both sides
+	// are `null`. The SQL twin (`document-store.ts`'s `visibilityPredicate`)
+	// already gets this right via `eq(scopeId, viewerTeamId)`, which SQL NULL
+	// semantics turn false whenever either side is NULL.
+	const notTeamOrMatchesViewer =
+		row.scopeKind !== "team" || (row.scopeId !== null && row.scopeId === viewerTeamId);
 	return notPrivateOrOwned && notTeamOrMatchesViewer;
 }
 
