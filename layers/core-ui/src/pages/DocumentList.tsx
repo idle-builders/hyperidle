@@ -69,7 +69,7 @@ import { clipExcerpt } from "../utils/clip-excerpt.js";
 import { SCOPE_PILL_OPTIONS, type ScopePillOption } from "../utils/scope-labels";
 import { stripMarkdown } from "../utils/strip-markdown.js";
 import { relativeShort } from "../utils/time.js";
-import { buildKnowledgeTree } from "./document/build-document-tree.js";
+import { buildDocumentTree } from "./document/build-document-tree.js";
 import { DocumentTreeList } from "./document/DocumentTreeList.js";
 
 type DocumentTab = "triage" | "curated";
@@ -142,7 +142,7 @@ function triageRowCells(item: DocumentRow): RowCell[] {
 			),
 		});
 	}
-	cells.push({ content: relativeShort(item.updatedAt), "data-testid": "knowledge-time" });
+	cells.push({ content: relativeShort(item.updatedAt), "data-testid": "document-time" });
 	return cells;
 }
 
@@ -214,7 +214,7 @@ function DocumentListContent({
 	// @lore nested-knowledge-items AC1: the Curated tab renders as a tree —
 	// each parent immediately followed by its own children, indented.
 	const curatedTreeRows = useMemo(
-		() => buildKnowledgeTree(filteredCuratedItems),
+		() => buildDocumentTree(filteredCuratedItems),
 		[filteredCuratedItems],
 	);
 
@@ -288,7 +288,7 @@ function DocumentListContent({
 					role="tablist"
 					aria-label="Document view"
 					className="inline-flex gap-[6px] bg-[var(--surface-container)] rounded-[var(--r-pill)] p-[3px]"
-					data-testid="knowledge-tabs"
+					data-testid="document-tabs"
 				>
 					<button
 						type="button"
@@ -321,7 +321,7 @@ function DocumentListContent({
 					<input
 						type="search"
 						aria-label="Filter documents"
-						data-testid="knowledge-search"
+						data-testid="document-search"
 						placeholder="Filter…"
 						value={searchQuery}
 						onChange={(e) => onSearchChange(e.target.value)}
@@ -360,7 +360,7 @@ function DocumentListContent({
 					}
 					ariaLabel="Filter by scope"
 					testIdPrefix="scope-pill"
-					dataTestId="knowledge-scope-pills"
+					dataTestId="document-scope-pills"
 				/>
 				{/*
 				 * BC4 §9: "Memories" — a filter chip, not a page. Toggling swaps the
@@ -389,7 +389,7 @@ function DocumentListContent({
 			<div
 				role="group"
 				aria-label="Sort order"
-				data-testid="knowledge-sort-bar"
+				data-testid="document-sort-bar"
 				className="flex items-center gap-[9px] py-[9px]"
 			>
 				<span className="type-metadata  text-[var(--text-tertiary)]">Sort:</span>
@@ -423,7 +423,7 @@ function DocumentListContent({
 				// position:sticky's containing block for flex items is the flex parent,
 				// which has no overflow — so sticky never fired. Block flow lets it find
 				// the real scroll ancestor.
-				<div data-testid="knowledge-triage-view">
+				<div data-testid="document-triage-view">
 					{apiLoading ? (
 						<div className="py-[12px]">
 							<SkeletonList rows={4} ariaLabel="Loading triage items" />
@@ -445,7 +445,7 @@ function DocumentListContent({
 										? `No triage items match "${searchQuery}".`
 										: "Triage is clear — agents will surface draft items here as they learn."
 								}
-								dataTestId="knowledge-triage-empty"
+								dataTestId="document-triage-empty"
 							/>
 						</div>
 					) : (
@@ -455,7 +455,7 @@ function DocumentListContent({
 									<Row
 										key={item.id}
 										as="li"
-										data-testid="knowledge-row"
+										data-testid="document-row"
 										data-focused={focusedIndex === index ? "true" : undefined}
 										title={item.title}
 										subtitle={
@@ -546,7 +546,7 @@ function DocumentListContent({
 					)}
 				</div>
 			) : (
-				<div className="flex flex-col" data-testid="knowledge-curated-view">
+				<div className="flex flex-col" data-testid="document-curated-view">
 					{apiLoading ? (
 						<div className="py-[12px]">
 							<SkeletonList rows={4} ariaLabel="Loading curated items" />
@@ -566,7 +566,7 @@ function DocumentListContent({
 							<EmptyState
 								title="No documents yet"
 								description="Agents will populate this scope as they learn. Check back after the next review cycle."
-								dataTestId="knowledge-curated-empty"
+								dataTestId="document-curated-empty"
 							/>
 						</div>
 					) : (
@@ -753,7 +753,7 @@ export function DocumentList({
 			<PageScaffold
 				frame="page"
 				header={<PageHeader title="Documents" />}
-				data-testid="knowledge-list-page"
+				data-testid="document-list-page"
 			>
 				<SkeletonList rows={6} ariaLabel="Loading documents" />
 			</PageScaffold>
@@ -765,7 +765,7 @@ export function DocumentList({
 			<PageScaffold
 				frame="page"
 				header={<PageHeader title="Documents" />}
-				data-testid="knowledge-list-page"
+				data-testid="document-list-page"
 			>
 				<ErrorState
 					title="Couldn't load documents"
@@ -785,7 +785,7 @@ export function DocumentList({
 	return (
 		<PageScaffold
 			frame="page"
-			data-testid="knowledge-list-page"
+			data-testid="document-list-page"
 			header={
 				/* AI7: PageHeader — Documents title + tabs + search + New button in actions.
 				    When systemEmpty: title only. When populated: tabs + search + New in actions. */
@@ -827,7 +827,7 @@ export function DocumentList({
 								Create first document
 							</Button>
 						}
-						dataTestId="knowledge-curated-empty"
+						dataTestId="document-curated-empty"
 					/>
 				</div>
 			) : (

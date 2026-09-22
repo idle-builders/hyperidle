@@ -4,7 +4,7 @@
  *
  * @lore T2: textarea+preview+Save/Cancel replaced by BodyEditor + Done button.
  * - knowledge-edit-textarea → knowledge-edit-panel (contains TipTap editor)
- * - knowledge-edit-preview → no longer exists (BodyEditor IS the WYSIWYG view)
+ * - document-edit-preview → no longer exists (BodyEditor IS the WYSIWYG view)
  * - Save button → auto-save (no explicit save action)
  * - Cancel button → Done button (exits edit mode)
  */
@@ -31,7 +31,7 @@ test.describe("Knowledge Detail (J7)", () => {
 		// Done exits edit mode and shows the read view.
 		await page.getByRole("button", { name: /done/i }).click();
 		await expect(page.getByTestId("knowledge-edit-panel")).not.toBeVisible();
-		await expect(page.getByTestId("knowledge-body")).toContainText("JWT-based authentication");
+		await expect(page.getByTestId("document-body")).toContainText("JWT-based authentication");
 	});
 
 	test("factory-scope item renders no Edit button", async ({ page }) => {

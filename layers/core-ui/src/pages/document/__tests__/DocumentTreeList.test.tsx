@@ -4,14 +4,14 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { buildKnowledgeTree } from "../build-document-tree.js";
+import { buildDocumentTree } from "../build-document-tree.js";
 import { DocumentTreeList } from "../DocumentTreeList.js";
 
 const items = [
 	{
 		id: "k-parent",
 		title: "Pricing",
-		body: "Root knowledge item.",
+		body: "Root document.",
 		format: "markdown",
 		status: "active",
 		version: 1,
@@ -25,7 +25,7 @@ const items = [
 	{
 		id: "k-child",
 		title: "Objection handling",
-		body: "Child knowledge item.",
+		body: "Child document.",
 		format: "markdown",
 		status: "active",
 		version: 1,
@@ -33,7 +33,7 @@ const items = [
 		scopeKind: "factory",
 		createdAt: "2026-01-02T10:00:00.000Z",
 		updatedAt: "2026-01-02T10:00:00.000Z",
-		parentKind: "knowledge_item",
+		parentKind: "document",
 		parentId: "k-parent",
 	},
 ];
@@ -44,13 +44,13 @@ describe("DocumentTreeList", () => {
 		const onNewChild = vi.fn();
 		render(
 			<DocumentTreeList
-				rows={buildKnowledgeTree(items)}
+				rows={buildDocumentTree(items)}
 				onNavigate={onNavigate}
 				onNewChild={onNewChild}
 			/>,
 		);
 
-		const rows = screen.getAllByTestId("knowledge-row");
+		const rows = screen.getAllByTestId("document-row");
 		expect(rows).toHaveLength(2);
 		expect(within(rows[0]!).getByText("Pricing")).toBeInTheDocument();
 		expect(within(rows[1]!).getByText("Objection handling")).toBeInTheDocument();
@@ -62,7 +62,7 @@ describe("DocumentTreeList", () => {
 		const user = userEvent.setup();
 		render(
 			<DocumentTreeList
-				rows={buildKnowledgeTree(items)}
+				rows={buildDocumentTree(items)}
 				onNavigate={vi.fn()}
 				onNewChild={vi.fn()}
 			/>,
@@ -80,7 +80,7 @@ describe("DocumentTreeList", () => {
 		const onNewChild = vi.fn();
 		render(
 			<DocumentTreeList
-				rows={buildKnowledgeTree(items)}
+				rows={buildDocumentTree(items)}
 				onNavigate={vi.fn()}
 				onNewChild={onNewChild}
 			/>,

@@ -64,10 +64,10 @@ describe("ScopePicker — structure & a11y", () => {
 				mode="filter"
 				ariaLabel="Filter by scope"
 				testIdPrefix="scope-pill"
-				dataTestId="knowledge-scope-pills"
+				dataTestId="document-scope-pills"
 			/>,
 		);
-		expect(screen.getByTestId("knowledge-scope-pills")).toBeInTheDocument();
+		expect(screen.getByTestId("document-scope-pills")).toBeInTheDocument();
 	});
 });
 

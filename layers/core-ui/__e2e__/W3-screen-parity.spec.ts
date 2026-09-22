@@ -74,10 +74,10 @@ test.describe("W3 AC-57 — Max-width centering across all screens", () => {
 		});
 
 		await page.goto("/documents");
-		await page.waitForSelector("[data-testid='knowledge-list-page']");
+		await page.waitForSelector("[data-testid='document-list-page']");
 
 		// Knowledge list body container
-		const listBody = page.locator("[data-testid='knowledge-list-page'] > :first-child");
+		const listBody = page.locator("[data-testid='document-list-page'] > :first-child");
 		const box = await listBody.boundingBox();
 		if (box) {
 			expect(box.width).toBeLessThanOrEqual(800);
@@ -174,7 +174,7 @@ test.describe("W3 — Empty states match mockups (critique CRITICAL-2)", () => {
 		});
 
 		await page.goto("/documents");
-		await page.waitForSelector("[data-testid='knowledge-list-page']");
+		await page.waitForSelector("[data-testid='document-list-page']");
 		// Empty state should render
 		const emptyState = page.getByTestId("knowledge-empty-state");
 		await expect(emptyState).toBeVisible();

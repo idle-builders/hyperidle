@@ -40,7 +40,7 @@ describe("DocRow signals prop (L22)", () => {
 		});
 		expect(container.textContent).toContain("Architecture Decision: Auth Strategy");
 		// No signal triad rendered
-		const triad = container.querySelector("[data-testid='knowledge-signals']");
+		const triad = container.querySelector("[data-testid='document-signals']");
 		expect(triad).toBeNull();
 	});
 
@@ -54,7 +54,7 @@ describe("DocRow signals prop (L22)", () => {
 				}),
 			);
 		});
-		const triad = container.querySelector("[data-testid='knowledge-signals']");
+		const triad = container.querySelector("[data-testid='document-signals']");
 		expect(triad).not.toBeNull();
 	});
 
@@ -150,7 +150,7 @@ describe("DocRow signals prop (L22)", () => {
 				}),
 			);
 		});
-		const triad = container.querySelector("[data-testid='knowledge-signals']");
+		const triad = container.querySelector("[data-testid='document-signals']");
 		expect(triad).not.toBeNull();
 		// Count em dashes — should be at least 3 (one per signal)
 		const dashes = (triad?.textContent ?? "").split("—").length - 1;

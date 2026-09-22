@@ -47,7 +47,7 @@ describe("DocumentList — websocket nudge re-runs the search", () => {
 		});
 
 		renderPage();
-		await screen.findByTestId("knowledge-list-page");
+		await screen.findByTestId("document-list-page");
 		await waitFor(() =>
 			expect(subscribeMock).toHaveBeenCalledWith("documents", expect.any(Function)),
 		);

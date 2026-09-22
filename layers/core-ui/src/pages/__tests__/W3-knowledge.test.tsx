@@ -129,7 +129,7 @@ describe("W3 AC-34 — Sort controls always visible", () => {
 	it("renders sort controls on the list page", () => {
 		renderKnowledgeList();
 		// Sort controls: Relevance, Recency, Frequency
-		const sortBar = document.querySelector("[data-testid='knowledge-sort-bar']");
+		const sortBar = document.querySelector("[data-testid='document-sort-bar']");
 		expect(sortBar).not.toBeNull();
 	});
 
@@ -145,7 +145,7 @@ describe("W3 AC-34 — Sort controls always visible", () => {
 		const curatedTab = screen.getByRole("tab", { name: /curated/i });
 		await user.click(curatedTab);
 		// Sort controls still visible
-		const sortBar = document.querySelector("[data-testid='knowledge-sort-bar']");
+		const sortBar = document.querySelector("[data-testid='document-sort-bar']");
 		expect(sortBar).not.toBeNull();
 	});
 });
@@ -213,7 +213,7 @@ describe("W3 AC-38 — Knowledge list max-width 800px", () => {
 	it("knowledge list keeps 800px measure without centering the scan lane", () => {
 		renderKnowledgeList();
 		// Check for max-width class pattern inside the page
-		const page = document.querySelector("[data-testid='knowledge-list-page']");
+		const page = document.querySelector("[data-testid='document-list-page']");
 		expect(page).not.toBeNull();
 		// Content container inside page should have max-width
 		const contentDiv = page?.querySelector("[class*='max-w-\\[800px\\]']");

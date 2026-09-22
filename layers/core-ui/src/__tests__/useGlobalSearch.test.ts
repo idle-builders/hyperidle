@@ -22,7 +22,7 @@ const mockWork = [
 	},
 ];
 
-const mockKnowledge = [
+const mockDocuments = [
 	{
 		id: "k1",
 		title: "Rate Limiting",
@@ -31,16 +31,26 @@ const mockKnowledge = [
 	},
 ];
 
+// @lore BC4: the raw fetch payload keeps the `knowledge` wire key (owned by
+// layers/core-api/src/routes/search.ts) — only the parsed local shape is `documents`.
 const mockSearchResults = {
 	conversations: mockConversations,
 	work: mockWork,
-	knowledge: mockKnowledge,
+	knowledge: mockDocuments,
 };
 
+// The raw `/api/search` fetch payload — kept on the `knowledge` wire key (§ above).
 const emptyResults = {
 	conversations: [],
 	work: [],
 	knowledge: [],
+};
+
+// The hook's own parsed shape — asserted against `result.current.results`.
+const emptyParsedResults = {
+	conversations: [],
+	work: [],
+	documents: [],
 };
 
 describe("useGlobalSearch", () => {
@@ -61,7 +71,7 @@ describe("useGlobalSearch", () => {
 
 	it("starts with empty results", () => {
 		const { result } = renderHook(() => useGlobalSearch());
-		expect(result.current.results).toEqual(emptyResults);
+		expect(result.current.results).toEqual(emptyParsedResults);
 	});
 
 	it("starts with loading false", () => {
@@ -170,7 +180,7 @@ describe("useGlobalSearch", () => {
 		await waitFor(() => {
 			expect(result.current.results.conversations).toHaveLength(1);
 			expect(result.current.results.work).toHaveLength(1);
-			expect(result.current.results.knowledge).toHaveLength(1);
+			expect(result.current.results.documents).toHaveLength(1);
 		});
 	});
 
@@ -234,7 +244,7 @@ describe("useGlobalSearch", () => {
 		});
 
 		expect(result.current.query).toBe("");
-		expect(result.current.results).toEqual(emptyResults);
+		expect(result.current.results).toEqual(emptyParsedResults);
 		expect(result.current.hasResults).toBe(false);
 		expect(result.current.totalCount).toBe(0);
 	});
@@ -344,7 +354,7 @@ describe("useGlobalSearch", () => {
 		// Should have safely defaulted invalid fields to empty arrays
 		expect(result.current.results.conversations).toEqual([]);
 		expect(result.current.results.work).toEqual([]);
-		expect(result.current.results.knowledge).toEqual([]);
+		expect(result.current.results.documents).toEqual([]);
 	});
 
 	it("clears stale results when query becomes empty", async () => {
@@ -379,7 +389,7 @@ describe("useGlobalSearch", () => {
 		// After the final setQuery(""), the hook must synchronously reset
 		// results (no pending fetch, no in-flight stale data).
 		expect(result.current.query).toBe("");
-		expect(result.current.results).toEqual(emptyResults);
+		expect(result.current.results).toEqual(emptyParsedResults);
 		expect(result.current.hasResults).toBe(false);
 		expect(result.current.totalCount).toBe(0);
 	});
@@ -430,7 +440,7 @@ describe("useGlobalSearch", () => {
 			expect(result.current.error).not.toBeNull();
 		});
 		// Results must remain empty; no stale data.
-		expect(result.current.results).toEqual(emptyResults);
+		expect(result.current.results).toEqual(emptyParsedResults);
 		// The hook logged the diagnostic with its prefix.
 		const hasLog = errSpy.mock.calls
 			.map((c) => c.join(" "))

@@ -118,7 +118,7 @@ function renderCreate(): ReturnType<typeof render> {
 		<MemoryRouter initialEntries={["/documents/new"]}>
 			<Routes>
 				<Route path="/documents/new" element={<DocumentCreate />} />
-				<Route path="/documents" element={<div data-testid="knowledge-list-page" />} />
+				<Route path="/documents" element={<div data-testid="document-list-page" />} />
 				<Route path="/documents/:id" element={<div data-testid="document-detail-page" />} />
 			</Routes>
 		</MemoryRouter>,
@@ -150,7 +150,7 @@ describe("AD6 — DocumentList static scope pills", () => {
 
 	it("renders exactly 4 scope pills: All, Shared, Team, Private", () => {
 		renderList();
-		const pills = screen.getByTestId("knowledge-scope-pills");
+		const pills = screen.getByTestId("document-scope-pills");
 		// Must contain exactly these 4 pills
 		expect(within(pills).getByTestId("scope-pill-all")).toBeInTheDocument();
 		expect(within(pills).getByTestId("scope-pill-shared")).toBeInTheDocument();
@@ -167,7 +167,7 @@ describe("AD6 — DocumentList static scope pills", () => {
 			retry: vi.fn(),
 		});
 		renderList();
-		const pills = screen.getByTestId("knowledge-scope-pills");
+		const pills = screen.getByTestId("document-scope-pills");
 		expect(within(pills).getByTestId("scope-pill-all")).toBeInTheDocument();
 		expect(within(pills).getByTestId("scope-pill-shared")).toBeInTheDocument();
 		expect(within(pills).getByTestId("scope-pill-team")).toBeInTheDocument();
@@ -221,7 +221,7 @@ describe("AD6 — DocumentList Shared scope filter", () => {
 
 		await user.click(screen.getByTestId("scope-pill-shared"));
 
-		const curatedView = screen.getByTestId("knowledge-curated-view");
+		const curatedView = screen.getByTestId("document-curated-view");
 		expect(within(curatedView).getByText("Factory knowledge")).toBeInTheDocument();
 		// Team and Private should be hidden under Shared
 		expect(within(curatedView).queryByText("Team knowledge")).not.toBeInTheDocument();
@@ -259,7 +259,7 @@ describe("AD6 — DocumentList Private scope filter", () => {
 		await user.click(screen.getByRole("tab", { name: /curated/i }));
 		await user.click(screen.getByTestId("scope-pill-private"));
 
-		const curatedView = screen.getByTestId("knowledge-curated-view");
+		const curatedView = screen.getByTestId("document-curated-view");
 		expect(within(curatedView).getByText("My private note")).toBeInTheDocument();
 		expect(within(curatedView).queryByText("Factory knowledge")).not.toBeInTheDocument();
 	});
@@ -291,7 +291,7 @@ describe("AD6 — DocumentList kind badge removed from rows", () => {
 		renderList();
 		await user.click(screen.getByRole("tab", { name: /curated/i }));
 
-		const curatedView = await screen.findByTestId("knowledge-curated-view");
+		const curatedView = await screen.findByTestId("document-curated-view");
 		const kindBadges = within(curatedView).queryAllByTestId("kind-badge");
 		expect(kindBadges).toHaveLength(0);
 	});
@@ -301,7 +301,7 @@ describe("AD6 — DocumentList kind badge removed from rows", () => {
 		renderList();
 		await user.click(screen.getByRole("tab", { name: /triage/i }));
 
-		const triageView = await screen.findByTestId("knowledge-triage-view");
+		const triageView = await screen.findByTestId("document-triage-view");
 		const kindBadges = within(triageView).queryAllByTestId("kind-badge");
 		expect(kindBadges).toHaveLength(0);
 	});

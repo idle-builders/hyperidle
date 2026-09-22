@@ -81,11 +81,11 @@ export function GlobalSearchPanel({
 		for (const w of search.results.work) {
 			items.push({ type: "work", id: w.id });
 		}
-		for (const k of search.results.knowledge) {
+		for (const k of search.results.documents) {
 			items.push({ type: "document", id: k.id });
 		}
 		return items;
-	}, [search.results.conversations, search.results.work, search.results.knowledge]);
+	}, [search.results.conversations, search.results.work, search.results.documents]);
 
 	const flatItemsRef = useRef(flatItems);
 	flatItemsRef.current = flatItems;
@@ -267,10 +267,10 @@ export function GlobalSearchPanel({
 							</div>
 						)}
 
-						{search.results.knowledge.length > 0 && (
+						{search.results.documents.length > 0 && (
 							<div>
 								<h3 className="type-label   text-[var(--text-tertiary)] px-2 py-1">Documents</h3>
-								{search.results.knowledge.map((k) => {
+								{search.results.documents.map((k) => {
 									const idx = itemIndex++;
 									return (
 										<div

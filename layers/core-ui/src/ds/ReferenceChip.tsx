@@ -2,7 +2,7 @@
  * ReferenceChip — the single shared attachment/reference primitive (AM1, AC6).
  *
  * ONE chip for EVERY attachment / reference, everywhere: composer drafts,
- * in-message blocks/artifacts/images, knowledge sources, review change-sets.
+ * in-message blocks/artifacts/images, document sources, review change-sets.
  * It replaces five divergent legacy chips (DraftAttachmentChip, AttachmentChip,
  * BlockTitleEmbed, CitationChips, ChangeSetEmbedCard) that drifted apart.
  *

@@ -16,7 +16,7 @@
  *
  * @lore AM1 C1: a block/entity routes to its HOST surface via the `host`
  * OpenTarget — total over `HostKind` (the page resolves it through the
- * existing `resolveHostRoute`). No fabricated `knowledgeId`, no unhandled host.
+ * existing `resolveHostRoute`). No fabricated `documentId`, no unhandled host.
  *
  * @lore AM1 W5: `EntityRef.kind === "message"` has no permalink route → it
  * collapses to the `unknown` Embed (label-only, no target). EntityRef.kind is
@@ -220,7 +220,7 @@ export type OpenTarget =
 			readonly hostKind: RouteHostKind;
 			readonly hostId: string;
 			/** @lore AM5 T8: optional block anchor. open-handler appends #block-<encodeURIComponent(blockId)>
-			 *  to the resolved path; KnowledgeDetail scrolls to the matching data-block-id element.
+			 *  to the resolved path; DocumentDetail scrolls to the matching data-block-id element.
 			 *  Security: blockId is matched by value comparison against known block ids, never
 			 *  concatenated into a querySelector (selector-injection mitigation). */
 			readonly blockId?: string;
@@ -307,7 +307,7 @@ function inlineRefToEmbed(ref: InlineRef): Embed {
 	// CanvasArtifactRef (kind:"artifact") — points to a review canvas artifact,
 	// not a navigable page route. Renders as a non-navigating label so the chip
 	// appears in the conversation without trying to open a deleted /artifacts/:id.
-	// @lore artifacts-become-knowledge: ReviewPage reads this ref by kind to
+	// @lore artifacts-become-documents: ReviewPage reads this ref by kind to
 	// reconstruct the AnchorRef; the embed here is only for the conversation view.
 	if (ref.kind === "artifact") {
 		return { kind: "unknown", label: ref.id };

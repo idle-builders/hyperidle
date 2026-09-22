@@ -476,7 +476,7 @@ const ROUTES: readonly RouteCase[] = [
 	{
 		name: "knowledge-list",
 		url: "/documents",
-		readySelector: "[data-testid='knowledge-list-page']",
+		readySelector: "[data-testid='document-list-page']",
 		setup: async (page) => {
 			await mockSearchDocuments(page, { rows: [] });
 		},

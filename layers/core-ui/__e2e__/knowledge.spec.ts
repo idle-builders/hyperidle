@@ -10,7 +10,7 @@ test.describe
 	.skip("Knowledge", () => {
 		test.beforeEach(async ({ page }) => {
 			await page.goto("/documents");
-			await page.waitForSelector("[data-testid='knowledge-list-page']");
+			await page.waitForSelector("[data-testid='document-list-page']");
 		});
 
 		test("Knowledge list page loads with heading", async ({ page }) => {

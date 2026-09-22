@@ -125,13 +125,13 @@ describe("AF13 §3 — Sort pills actually reorder the curated tab", () => {
 		await user.click(screen.getByRole("tab", { name: /curated/i }));
 
 		// Click Recency sort pill — scoped to sort bar to avoid matching item titles
-		const sortBar = screen.getByTestId("knowledge-sort-bar");
+		const sortBar = screen.getByTestId("document-sort-bar");
 		const recencyPill = within(sortBar).getByRole("button", { name: /recency/i });
 		await user.click(recencyPill);
 
 		// After sort: Newest first, then Middle, then Oldest
 		await waitFor(() => {
-			const curatedView = screen.getByTestId("knowledge-curated-view");
+			const curatedView = screen.getByTestId("document-curated-view");
 			// @lore nested-knowledge-items tree-ui: curated rows are <li role="treeitem">
 			const rows = within(curatedView).getAllByRole("treeitem");
 			const texts = rows.map((r) => r.textContent ?? "");
@@ -169,13 +169,13 @@ describe("AF13 §3 — Sort pills reorder the triage tab", () => {
 		renderAt();
 
 		// Click Recency on triage tab — scoped to sort bar to avoid matching item titles
-		const sortBar = screen.getByTestId("knowledge-sort-bar");
+		const sortBar = screen.getByTestId("document-sort-bar");
 		const recencyPill = within(sortBar).getByRole("button", { name: /recency/i });
 		await user.click(recencyPill);
 
 		// After recency sort: New Draft first, Old Draft second
 		await waitFor(() => {
-			const triageView = screen.getByTestId("knowledge-triage-view");
+			const triageView = screen.getByTestId("document-triage-view");
 			const rows = within(triageView).getAllByRole("listitem");
 			const texts = rows.map((r) => r.textContent ?? "");
 
@@ -216,7 +216,7 @@ describe("AF13 §6 — Triage validate: item leaves triage AND appears in curate
 			expect(screen.getByRole("tab", { name: /triage/i })).toHaveAttribute("aria-selected", "true");
 		});
 
-		const triageView = screen.getByTestId("knowledge-triage-view");
+		const triageView = screen.getByTestId("document-triage-view");
 		expect(within(triageView).getByText("Draft to validate")).toBeInTheDocument();
 
 		// Use keyboard: j to focus, v to validate
@@ -247,7 +247,7 @@ describe("AF13 §6 — Triage validate: item leaves triage AND appears in curate
 		await user.click(screen.getByRole("tab", { name: /curated/i }));
 
 		// Item should appear in curated (status override from proposed → active)
-		const curatedView = await screen.findByTestId("knowledge-curated-view");
+		const curatedView = await screen.findByTestId("document-curated-view");
 		expect(within(curatedView).getByText("Newly validated")).toBeInTheDocument();
 	});
 
@@ -264,7 +264,7 @@ describe("AF13 §6 — Triage validate: item leaves triage AND appears in curate
 			expect(screen.getByRole("tab", { name: /triage/i })).toHaveAttribute("aria-selected", "true");
 		});
 
-		const triageView = screen.getByTestId("knowledge-triage-view");
+		const triageView = screen.getByTestId("document-triage-view");
 		expect(within(triageView).getByText("Item to reject")).toBeInTheDocument();
 
 		// Reject: j to focus, x to archive
@@ -279,7 +279,7 @@ describe("AF13 §6 — Triage validate: item leaves triage AND appears in curate
 		// Switch to curated — item must NOT be there (archived ≠ active)
 		await user.click(screen.getByRole("tab", { name: /curated/i }));
 		await waitFor(() => {
-			const curatedView = screen.getByTestId("knowledge-curated-view");
+			const curatedView = screen.getByTestId("document-curated-view");
 			expect(within(curatedView).queryByText("Item to reject")).not.toBeInTheDocument();
 		});
 	});
@@ -300,7 +300,7 @@ describe("AF13 §6 — Triage validate: item leaves triage AND appears in curate
 			expect(screen.getByRole("tab", { name: /triage/i })).toHaveAttribute("aria-selected", "true");
 		});
 
-		const triageView = screen.getByTestId("knowledge-triage-view");
+		const triageView = screen.getByTestId("document-triage-view");
 
 		await user.keyboard("j");
 		await user.keyboard("v");

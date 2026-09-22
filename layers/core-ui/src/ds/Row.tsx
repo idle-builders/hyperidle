@@ -1,5 +1,5 @@
 /**
- * AG6: Shared list-row primitive for all agent/routine/knowledge rows.
+ * AG6: Shared list-row primitive for all agent/routine/document rows.
  *
  * Anatomy: [lead?] [title+subtitle flex-1] [cells[] shrink-0] [actions? shrink-0]
  *
@@ -82,7 +82,7 @@ export interface RowProps {
 	/** escape hatch; default heuristic (§nested-button) is correct without it */
 	as?: "button" | "div" | "li";
 	"data-testid"?: string;
-	/** KnowledgeList triage keyboard focus */
+	/** DocumentList triage keyboard focus */
 	"data-focused"?: string;
 }
 
@@ -255,14 +255,14 @@ export function Row({
 		// @lore AG6: li MUST NOT have role="button" — that overrides the implicit
 		// listitem role and breaks querySelectorAll / getAllByRole("listitem"). The
 		// architecture specifies: li + onClick + actions → li wrapping inner
-		// div[role=button] (matches original KnowledgeList triage pattern). The li
+		// div[role=button] (matches original DocumentList triage pattern). The li
 		// stays semantic; the div[role=button] handles row-level interactivity.
 		//
 		// @lore AD9 (Row hover fix): The <li> holds ONLY the separator border-b +
 		// listitem role. Layout (px padding, min-h, flex, gap) and hover surface all
 		// move onto a w-full inner div so the hover background fills edge-to-edge
 		// instead of being inset inside the li's px-[24px]. This matches the <button>
-		// branch behaviour and fixes WorkOverview / KnowledgeList / WorkTeam li-rows.
+		// branch behaviour and fixes WorkOverview / DocumentList / WorkTeam li-rows.
 		// The li separator classes ("border-width-thin-b border-[var(--border-subtle)] last:border-none")
 		// stay on the li so the row divider is always full-width.
 

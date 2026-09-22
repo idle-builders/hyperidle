@@ -2,7 +2,7 @@
  * DocumentTreeList stories — nested browse tree for the Curated tab.
  */
 import type { JSX } from "react";
-import { buildKnowledgeTree } from "./build-document-tree.js";
+import { buildDocumentTree } from "./build-document-tree.js";
 import { DocumentTreeList } from "./DocumentTreeList.js";
 
 const demoItems = [
@@ -70,7 +70,7 @@ export function NestedTree(): JSX.Element {
 	return (
 		<div className="max-w-[480px] bg-[var(--surface-elevated)] rounded-[var(--r-default)] overflow-hidden">
 			<DocumentTreeList
-				rows={buildKnowledgeTree(demoItems)}
+				rows={buildDocumentTree(demoItems)}
 				onNavigate={() => undefined}
 				onNewChild={() => undefined}
 			/>

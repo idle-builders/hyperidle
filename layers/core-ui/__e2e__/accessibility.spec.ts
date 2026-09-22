@@ -30,7 +30,7 @@ const ROUTES = [
 	// test is hermetic on CI (no real DB needed).
 	{ path: "/work/product/p1", selector: "[data-testid='work-product-page']" },
 	{ path: "/work/task/task-a11y-1", selector: "[data-testid='task-detail-page']" },
-	{ path: "/knowledge", selector: "[data-testid='knowledge-list-page']" },
+	{ path: "/knowledge", selector: "[data-testid='document-list-page']" },
 	{ path: "/knowledge/k1", selector: "[data-testid='knowledge-detail-page']" },
 ] as const;
 

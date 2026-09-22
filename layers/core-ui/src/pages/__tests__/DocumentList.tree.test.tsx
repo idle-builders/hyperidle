@@ -88,7 +88,7 @@ describe("DocumentList Curated tab: a tree, not a flat list", () => {
 		renderDocumentList();
 
 		await screen.findByText("Pricing");
-		const rows = screen.getAllByTestId("knowledge-row");
+		const rows = screen.getAllByTestId("document-row");
 		const titles = rows.map((row) => within(row).getByText(/Pricing|Objection handling|Orphaned/));
 		expect(titles.map((t) => t.textContent)).toEqual([
 			"Orphaned but active",
@@ -97,7 +97,7 @@ describe("DocumentList Curated tab: a tree, not a flat list", () => {
 		]);
 		expect(screen.queryByText(/└/)).not.toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "Collapse" })).toBeInTheDocument();
-		expect(screen.getByTestId("knowledge-tree-list")).toBeInTheDocument();
+		expect(screen.getByTestId("document-tree-list")).toBeInTheDocument();
 	});
 
 	it("collapses a parent so its child leaves the list", async () => {

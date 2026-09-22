@@ -1,7 +1,7 @@
 /**
  * AD8b — AssistantAttachButton
  *
- * A "+" button that appears on BetCard/TaskCard/KnowledgeRow when the assistant
+ * A "+" button that appears on BetCard/TaskCard/DocRow when the assistant
  * overlay is open. Clicking it attaches the item as a context ref in the
  * AssistantOverlay composer.
  *

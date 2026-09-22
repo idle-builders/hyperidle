@@ -1,7 +1,7 @@
 /**
- * Builds the legal destination-parent choices for a knowledge item — a
+ * Builds the legal destination-parent choices for a document — a
  * client-side mirror of `assertParentInvariants`
- * (`layers/core-api/knowledge/src/knowledge-repository.ts`) so the nest/move
+ * (`layers/core-api/document/src/document-store.ts`) so the nest/move
  * picker never offers a choice the server will refuse.
  *
  * Mirrors, does not replace: a concurrent edit between render and submit can
@@ -78,7 +78,7 @@ function descendantsOf(
 
 /**
  * The number of `document` ancestors `id` has, counting itself — the
- * same quantity `walkKnowledgeItemAncestorChain` computes server-side. A
+ * same quantity `walkDocumentAncestorChain` computes server-side. A
  * child parented under `id` would resend at this length; the server rejects
  * a parent whose own chain already reaches `MAX_TREE_DEPTH`.
  */

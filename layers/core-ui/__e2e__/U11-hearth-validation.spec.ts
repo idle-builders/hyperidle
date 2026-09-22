@@ -309,10 +309,10 @@ test("U11 screenshot: document list (empty)", async ({ page }) => {
 	await mockSearchDocuments(page, { rows: [] });
 
 	await page.goto("/documents");
-	await page.waitForSelector("[data-testid='knowledge-list-page']");
+	await page.waitForSelector("[data-testid='document-list-page']");
 	await page.waitForLoadState("networkidle");
 
-	await expect(page.getByTestId("knowledge-list-page")).toBeVisible();
+	await expect(page.getByTestId("document-list-page")).toBeVisible();
 	await page.screenshot({ path: "test-results/U11-07-knowledge-empty.png", fullPage: false });
 });
 
@@ -324,10 +324,10 @@ test("U11 screenshot: document list (with items)", async ({ page }) => {
 	await mockSearchDocuments(page, { rows: DOCUMENT_ITEMS_FIXTURE });
 
 	await page.goto("/documents");
-	await page.waitForSelector("[data-testid='knowledge-list-page']");
+	await page.waitForSelector("[data-testid='document-list-page']");
 	await page.waitForLoadState("networkidle");
 
-	await expect(page.getByTestId("knowledge-list-page")).toBeVisible();
+	await expect(page.getByTestId("document-list-page")).toBeVisible();
 	await page.screenshot({ path: "test-results/U11-08-knowledge-items.png", fullPage: false });
 });
 

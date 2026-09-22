@@ -1,5 +1,5 @@
 /**
- * Turns a flat, already-sorted knowledge-item array into DFS tree order
+ * Turns a flat, already-sorted document array into DFS tree order
  * (each item immediately followed by its own children, recursively) with a
  * per-item depth for indentation.
  *
@@ -10,7 +10,7 @@
  * unreachable.
  */
 
-export interface KnowledgeTreeItem {
+export interface DocumentTreeItem {
 	id: string;
 	title: string;
 	body: string;
@@ -26,17 +26,17 @@ export interface KnowledgeTreeItem {
 	parentId?: string | null;
 }
 
-export interface KnowledgeTreeRow {
-	item: KnowledgeTreeItem;
+export interface DocumentTreeRow {
+	item: DocumentTreeItem;
 	depth: number;
 	/** True when this item has at least one child visible in the current filter set. */
 	hasChildren: boolean;
 }
 
-export function buildKnowledgeTree(items: KnowledgeTreeItem[]): KnowledgeTreeRow[] {
+export function buildDocumentTree(items: DocumentTreeItem[]): DocumentTreeRow[] {
 	const ids = new Set(items.map((i) => i.id));
-	const childrenByParent = new Map<string, KnowledgeTreeItem[]>();
-	const roots: KnowledgeTreeItem[] = [];
+	const childrenByParent = new Map<string, DocumentTreeItem[]>();
+	const roots: DocumentTreeItem[] = [];
 	for (const item of items) {
 		if (item.parentId && ids.has(item.parentId)) {
 			const siblings = childrenByParent.get(item.parentId) ?? [];
@@ -47,9 +47,9 @@ export function buildKnowledgeTree(items: KnowledgeTreeItem[]): KnowledgeTreeRow
 		}
 	}
 
-	const rows: KnowledgeTreeRow[] = [];
+	const rows: DocumentTreeRow[] = [];
 	const visited = new Set<string>();
-	function visit(item: KnowledgeTreeItem, depth: number): void {
+	function visit(item: DocumentTreeItem, depth: number): void {
 		// Depth-32 cycle backstop (architecture §3) — a malformed tree must not hang the tab.
 		if (visited.has(item.id) || depth > 32) return;
 		visited.add(item.id);
@@ -68,11 +68,11 @@ export function buildKnowledgeTree(items: KnowledgeTreeItem[]): KnowledgeTreeRow
  * depth > parent.depth ↔ descendant of parent, so one skipDepthFrom
  * variable is sufficient.
  */
-export function visibleKnowledgeTreeRows(
-	rows: KnowledgeTreeRow[],
+export function visibleDocumentTreeRows(
+	rows: DocumentTreeRow[],
 	collapsedIds: ReadonlySet<string>,
-): KnowledgeTreeRow[] {
-	const result: KnowledgeTreeRow[] = [];
+): DocumentTreeRow[] {
+	const result: DocumentTreeRow[] = [];
 	let skipDepthFrom: number | null = null;
 	for (const row of rows) {
 		if (skipDepthFrom !== null && row.depth > skipDepthFrom) continue;

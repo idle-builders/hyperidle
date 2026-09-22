@@ -1,5 +1,5 @@
 /**
- * ScopePicker — AI5 E4: Tier 1 knowledge-scope picker.
+ * ScopePicker — AI5 E4: Tier 1 document-scope picker.
  *
  * Consolidates 3 hand-rolled scope pill rows + 1 DaisyUI Select into ONE
  * radiogroup-of-pills primitive (AC4 "one implementation in all 4 locations").
@@ -41,7 +41,7 @@ export interface ScopePickerProps {
 	disabledTitle?: string;
 	/** REQUIRED. Per-pill testid = `${testIdPrefix}-${id}`. */
 	testIdPrefix: string;
-	/** Container testid passthrough (e.g. "knowledge-scope-pills"). */
+	/** Container testid passthrough (e.g. "document-scope-pills"). */
 	dataTestId?: string;
 }
 

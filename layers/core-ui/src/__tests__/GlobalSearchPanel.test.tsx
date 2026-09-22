@@ -30,7 +30,7 @@ const mockWork = [
 	},
 ];
 
-const mockKnowledge = [
+const mockDocuments = [
 	{
 		id: "k1",
 		title: "Rate Limiting Pattern",
@@ -39,10 +39,12 @@ const mockKnowledge = [
 	},
 ];
 
+// @lore BC4: the raw fetch payload keeps the `knowledge` wire key (owned by
+// layers/core-api/src/routes/search.ts).
 const mockSearchResults = {
 	conversations: mockConversations,
 	work: mockWork,
-	knowledge: mockKnowledge,
+	knowledge: mockDocuments,
 };
 
 const emptyResults = {
@@ -262,7 +264,7 @@ describe("GlobalSearchPanel", () => {
 		});
 	});
 
-	it("renders knowledge results as DocRow components", async () => {
+	it("renders document results as DocRow components", async () => {
 		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 		(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
 			ok: true,

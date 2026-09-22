@@ -155,7 +155,7 @@ test.describe("T5 AC-1/AC-5 — Block discussion: Discuss button popover and thr
 		await expect(page.getByTestId("host-thread-section")).toBeVisible();
 
 		// At least one block is rendered in the knowledge body
-		const bodyBlocks = page.locator("[data-testid='knowledge-body'] [data-ds-component='block']");
+		const bodyBlocks = page.locator("[data-testid='document-body'] [data-ds-component='block']");
 		await expect(bodyBlocks.first()).toBeVisible();
 	});
 
@@ -165,7 +165,7 @@ test.describe("T5 AC-1/AC-5 — Block discussion: Discuss button popover and thr
 
 		// Focus the first block and press Space to open block actions
 		const firstBlock = page
-			.locator("[data-testid='knowledge-body'] [data-ds-component='block']")
+			.locator("[data-testid='document-body'] [data-ds-component='block']")
 			.first();
 		await firstBlock.focus();
 		await page.keyboard.press("Space");
@@ -184,7 +184,7 @@ test.describe("T5 AC-1/AC-5 — Block discussion: Discuss button popover and thr
 
 		// Open block actions via keyboard
 		const firstBlock = page
-			.locator("[data-testid='knowledge-body'] [data-ds-component='block']")
+			.locator("[data-testid='document-body'] [data-ds-component='block']")
 			.first();
 		await firstBlock.focus();
 		await page.keyboard.press("Space");
@@ -206,7 +206,7 @@ test.describe("T5 AC-1/AC-5 — Block discussion: Discuss button popover and thr
 
 		// Open block actions and click Discuss
 		const firstBlock = page
-			.locator("[data-testid='knowledge-body'] [data-ds-component='block']")
+			.locator("[data-testid='document-body'] [data-ds-component='block']")
 			.first();
 		await firstBlock.focus();
 		await page.keyboard.press("Space");
@@ -339,7 +339,7 @@ test.describe("T5 AC-5 — HostThreadSection block-scoped filter", () => {
 		// Open block actions on the first block and click Discuss
 		// This sets filterBlockId to the real block's id (which no messages match yet)
 		const firstBlock = page
-			.locator("[data-testid='knowledge-body'] [data-ds-component='block']")
+			.locator("[data-testid='document-body'] [data-ds-component='block']")
 			.first();
 		await firstBlock.focus();
 		await page.keyboard.press("Space");

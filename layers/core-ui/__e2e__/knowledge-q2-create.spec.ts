@@ -41,7 +41,7 @@ test.describe("Q2 AC-3: + New button in DocumentList", () => {
 
 	test("Document list page shows + New button in header", async ({ page }) => {
 		await page.goto("/documents");
-		await page.waitForSelector("[data-testid='knowledge-list-page']");
+		await page.waitForSelector("[data-testid='document-list-page']");
 
 		const newButton = page.getByRole("button", { name: "+ New" });
 		await expect(newButton).toBeVisible();
@@ -127,7 +127,7 @@ test.describe("Q2 AC-12: Change scope from user to team", () => {
 
 		// Navigate to the document list
 		await page.goto("/documents");
-		await page.waitForSelector("[data-testid='knowledge-list-page']");
+		await page.waitForSelector("[data-testid='document-list-page']");
 
 		// User-scoped item should show the row's Private tag. DocumentList also
 		// renders a "Private" scope-filter pill in its own toolbar (unrelated,
@@ -138,7 +138,7 @@ test.describe("Q2 AC-12: Change scope from user to team", () => {
 		// Click on the item to go to detail page. Scope to the list row — the
 		// sidebar's fast-nav (search_documents-backed) also renders an item with
 		// this same title, so a bare text locator is ambiguous.
-		await page.getByTestId("knowledge-row").filter({ hasText: "My private note" }).click();
+		await page.getByTestId("document-row").filter({ hasText: "My private note" }).click();
 		await page.waitForSelector("[data-testid='document-detail-page']", { timeout: 5000 });
 
 		// Open the overflow menu, click "Change scope"
@@ -162,7 +162,7 @@ test.describe("Q2 AC-12: Change scope from user to team", () => {
 
 		// Navigate back to the document list
 		await page.goto("/documents");
-		await page.waitForSelector("[data-testid='knowledge-list-page']");
+		await page.waitForSelector("[data-testid='document-list-page']");
 
 		// Private tag should no longer appear on the row (the toolbar's scope
 		// filter pill stays — see comment above).
@@ -179,7 +179,7 @@ test.describe("Q2 AC-20: Private tag for user-scoped items in list", () => {
 		await mockSearchDocuments(page, { rows: [MOCK_USER_ITEM] });
 
 		await page.goto("/documents");
-		await page.waitForSelector("[data-testid='knowledge-list-page']");
+		await page.waitForSelector("[data-testid='document-list-page']");
 
 		await expect(page.getByText("Private", { exact: true })).toBeVisible();
 	});
@@ -188,7 +188,7 @@ test.describe("Q2 AC-20: Private tag for user-scoped items in list", () => {
 		await mockSearchDocuments(page, { rows: [MOCK_ITEM] });
 
 		await page.goto("/documents");
-		await page.waitForSelector("[data-testid='knowledge-list-page']");
+		await page.waitForSelector("[data-testid='document-list-page']");
 
 		await expect(page.getByText("Private", { exact: true })).not.toBeVisible();
 	});

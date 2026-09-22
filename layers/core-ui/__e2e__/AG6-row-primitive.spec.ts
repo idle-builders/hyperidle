@@ -239,15 +239,15 @@ test.describe("AG6 AC-6 — Surface 2: Knowledge triage rows via Row primitive",
 		await mockKnowledgeRoutes(page);
 
 		await page.goto(KNOWLEDGE_URL);
-		await page.waitForSelector("[data-testid='knowledge-list-page']");
+		await page.waitForSelector("[data-testid='document-list-page']");
 		await page.waitForLoadState("networkidle");
 
 		// Triage tab should be active (items are drafts → needs attention)
-		const triageView = page.locator("[data-testid='knowledge-triage-view']");
+		const triageView = page.locator("[data-testid='document-triage-view']");
 		await expect(triageView).toBeVisible();
 
-		// knowledge-row testids must be present; as="li" path → <li data-ds-component="Row" data-testid="knowledge-row">
-		const knowledgeRows = page.locator("li[data-ds-component='Row'][data-testid='knowledge-row']");
+		// document-row testids must be present; as="li" path → <li data-ds-component="Row" data-testid="document-row">
+		const knowledgeRows = page.locator("li[data-ds-component='Row'][data-testid='document-row']");
 		await expect(knowledgeRows.first()).toBeVisible();
 
 		const count = await knowledgeRows.count();

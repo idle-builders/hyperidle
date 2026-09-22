@@ -98,7 +98,7 @@ export function DocRow({
 							   (off-scale). Tracking aligned to --tracking-caps via the recommendation row
 							   "Letter-spacing for caps". */
 							className="type-data inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)]    bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] text-[var(--text-tertiary)] shrink-0"
-							data-testid="knowledge-version-pill"
+							data-testid="document-version-pill"
 						>
 							{version}
 						</span>
@@ -107,7 +107,7 @@ export function DocRow({
 				{signals ? (
 					// L22 signal triad: recency / freq / impact — em dash for absent values (AC-8)
 					<div
-						data-testid="knowledge-signals"
+						data-testid="document-signals"
 						className="type-metadata flex items-center gap-[12px]  text-[var(--text-tertiary)]"
 					>
 						<span>

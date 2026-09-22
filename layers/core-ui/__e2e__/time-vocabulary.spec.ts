@@ -18,7 +18,7 @@
  * No real DB or server is required — all data comes from mock responses.
  *
  * @lore AI3 selectors: ThreadRow uses data-testid="thread-time" (added AI3).
- * KnowledgeListRow uses data-testid="knowledge-row" and data-testid="knowledge-time"
+ * KnowledgeListRow uses data-testid="document-row" and data-testid="document-time"
  * (added AI3 — inline component, not the design-system KnowledgeRow primitive).
  * NotificationPopover uses data-testid="notification-time" (added AI3).
  * AppShell wires NotificationPopover via onNotificationClick → notifOpen state (added AI3).
@@ -195,10 +195,10 @@ test.describe("AC-1: one-clock label agreement across surfaces", () => {
 
 	test("knowledge list renders relative label with shared register", async ({ page }) => {
 		await page.goto("/documents");
-		// KnowledgeListRow uses data-testid="knowledge-row" and data-testid="knowledge-time"
-		const row = page.locator("[data-testid='knowledge-row']").first();
+		// KnowledgeListRow uses data-testid="document-row" and data-testid="document-time"
+		const row = page.locator("[data-testid='document-row']").first();
 		await expect(row).toBeVisible();
-		const timeEl = row.locator("[data-testid='knowledge-time']").first();
+		const timeEl = row.locator("[data-testid='document-time']").first();
 		await expect(timeEl).not.toBeEmpty();
 		const text = await timeEl.textContent();
 		expect(text).not.toBe("—");
@@ -265,9 +265,9 @@ test.describe("AC-1: one-clock label agreement across surfaces", () => {
 
 		// ── Surface 2: knowledge list ───────────────────────────────────────────
 		await page.goto("/documents");
-		const knowledgeRow = page.locator("[data-testid='knowledge-row']").first();
+		const knowledgeRow = page.locator("[data-testid='document-row']").first();
 		await expect(knowledgeRow).toBeVisible();
-		const knowledgeTimeEl = knowledgeRow.locator("[data-testid='knowledge-time']").first();
+		const knowledgeTimeEl = knowledgeRow.locator("[data-testid='document-time']").first();
 		await expect(knowledgeTimeEl).not.toBeEmpty();
 		const knowledgeLabel = (await knowledgeTimeEl.textContent()) ?? "";
 
@@ -340,7 +340,7 @@ test.describe("AC-3: invalid timestamps → TIME_PLACEHOLDER or hidden chip", ()
 		await mockSearchDocuments(page, { rows: [makeBadKnowledgeItem()] });
 
 		await page.goto("/documents");
-		const row = page.locator("[data-testid='knowledge-row']").first();
+		const row = page.locator("[data-testid='document-row']").first();
 		await expect(row).toBeVisible();
 		await expect(row).toContainText("—");
 	});

@@ -106,7 +106,7 @@ test.describe("T2 AC-1: Edit flow — Edit panel shows, auto-save wired, Done ex
 		// Edit panel gone
 		await expect(page.getByTestId("knowledge-edit-panel")).not.toBeVisible();
 		// Read view visible
-		await expect(page.getByTestId("knowledge-body")).toBeVisible();
+		await expect(page.getByTestId("document-body")).toBeVisible();
 	});
 });
 

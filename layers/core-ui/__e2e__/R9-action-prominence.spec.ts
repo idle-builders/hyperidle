@@ -855,7 +855,7 @@ test.describe("R9 — Document list page", () => {
 		page,
 	}) => {
 		await page.goto("/documents");
-		await page.waitForSelector("[data-testid='knowledge-list-page']");
+		await page.waitForSelector("[data-testid='document-list-page']");
 
 		// @lore R9: Document view tabs (Triage/Curated) use role="tab", not role="button".
 		const curatedTab = page.getByRole("tab", { name: /curated/i });
@@ -866,7 +866,7 @@ test.describe("R9 — Document list page", () => {
 		// Scoped to the curated tree list: the sidebar's own document fast-nav
 		// (AppShell/Sidebar) also renders every title, so an unscoped
 		// getByText resolves to both and is ambiguous.
-		await page.getByTestId("knowledge-tree-list").getByText("JWT Best Practices").click();
+		await page.getByTestId("document-tree-list").getByText("JWT Best Practices").click();
 
 		await expect(page).toHaveURL(new RegExp(`/documents/${KNOWLEDGE_ITEM_1.id}`), {
 			timeout: 5_000,
@@ -876,12 +876,12 @@ test.describe("R9 — Document list page", () => {
 	// knowledge-filter-scope: Click scope pill → filter applied
 	test("knowledge-filter-scope: clicking scope pill activates the filter", async ({ page }) => {
 		await page.goto("/documents");
-		await page.waitForSelector("[data-testid='knowledge-list-page']");
+		await page.waitForSelector("[data-testid='document-list-page']");
 
 		// @lore AE1/AD6: Pills are the static All/Shared/Team/Private set (a
 		// `role="radiogroup"` of `role="radio"` pills, `data-testid="scope-pill-<id>"`,
 		// active state via `data-active`, not a DaisyUI `.btn-primary` toggle).
-		const scopePills = page.getByTestId("knowledge-scope-pills");
+		const scopePills = page.getByTestId("document-scope-pills");
 		const sharedPill = scopePills.getByTestId("scope-pill-shared");
 
 		await sharedPill.click();

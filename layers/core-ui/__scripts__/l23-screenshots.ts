@@ -18,7 +18,7 @@ async function run(): Promise<void> {
 
 	// Screenshot 1 — k1 (single-paragraph belief, no chrome)
 	await page.goto(`${BASE_URL}/knowledge/k1`);
-	await page.waitForSelector("[data-testid='knowledge-body']");
+	await page.waitForSelector("[data-testid='document-body']");
 	await page.screenshot({
 		path: join(PROOF_DIR, "L23-k1-belief-body.png"),
 		fullPage: false,
@@ -59,7 +59,7 @@ async function run(): Promise<void> {
 			].join("\n"),
 		);
 	await page.getByRole("button", { name: /save/i }).click();
-	await page.waitForSelector("[data-testid='knowledge-body']");
+	await page.waitForSelector("[data-testid='document-body']");
 	await page.screenshot({
 		path: join(PROOF_DIR, "L23-k1-playbook-body.png"),
 		fullPage: false,
@@ -72,7 +72,7 @@ async function run(): Promise<void> {
 	await page.getByRole("button", { name: /edit/i }).click();
 	await page.getByTestId("knowledge-edit-textarea").fill("");
 	await page.getByRole("button", { name: /save/i }).click();
-	await page.waitForSelector("[data-testid='knowledge-body']");
+	await page.waitForSelector("[data-testid='document-body']");
 	await page.screenshot({
 		path: join(PROOF_DIR, "L23-k1-empty-body.png"),
 		fullPage: false,

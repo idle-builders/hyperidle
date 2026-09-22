@@ -8,7 +8,7 @@
 // The component lives HERE (not inside a story) so every surface composes the SAME
 // fold: `SplitView.stories.tsx` exercises it with placeholder boxes;
 // `UnifiedSplitView.stories.tsx` fills it with real (Kind,Representation) content
-// across conversation / review / knowledge — proving the unification. No fork, no
+// across conversation / review / document — proving the unification. No fork, no
 // duplicated split logic. See SplitView.stories.tsx header for the full extraction
 // rationale (chat = canonical base, review = converges onto this).
 //

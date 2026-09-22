@@ -6,7 +6,7 @@
  * AC-4: KnowledgeListRow bespoke component removed; composed via Row.
  *
  * Protected testids (time-vocabulary.spec, L13-product-drilldown.spec) must survive:
- * knowledge-row, knowledge-time, status-badge, private-badge, data-focused.
+ * document-row, document-time, status-badge, private-badge, data-focused.
  * @lore nested-knowledge-items: kind-badge removed from the protected list —
  * `kind` vocabulary is deleted.
  */
@@ -87,22 +87,22 @@ describe("AG6 AC-2 — DocumentList rows via Row primitive (T8)", () => {
 		// @lore nested-knowledge-items tree-ui: curated tab migrated from Row/ItemList
 		// to DocumentTreeList — rows are <li role="treeitem"> not Row primitives.
 		renderPage();
-		const treeEl = await screen.findByTestId("knowledge-tree-list");
+		const treeEl = await screen.findByTestId("document-tree-list");
 		expect(treeEl).not.toBeNull();
-		const knowledgeRows = screen.getAllByTestId("knowledge-row");
+		const knowledgeRows = screen.getAllByTestId("document-row");
 		expect(knowledgeRows.length).toBeGreaterThan(0);
 	});
 
 	// Protected testids (time-vocabulary.spec / L13 spec) must survive T8
-	it("knowledge-row testid preserved (protected)", async () => {
+	it("document-row testid preserved (protected)", async () => {
 		renderPage();
-		const rows = await screen.findAllByTestId("knowledge-row");
+		const rows = await screen.findAllByTestId("document-row");
 		expect(rows.length).toBeGreaterThan(0);
 	});
 
-	it("knowledge-time testid preserved (time-vocabulary.spec protected)", async () => {
+	it("document-time testid preserved (time-vocabulary.spec protected)", async () => {
 		renderPage();
-		const times = await screen.findAllByTestId("knowledge-time");
+		const times = await screen.findAllByTestId("document-time");
 		expect(times.length).toBeGreaterThan(0);
 	});
 
@@ -110,8 +110,8 @@ describe("AG6 AC-2 — DocumentList rows via Row primitive (T8)", () => {
 		// @lore nested-knowledge-items tree-ui: the curated tab uses DocumentTreeList
 		// which renders a <ul role="tree"> without a surface-container wrapper.
 		renderPage();
-		const list = await screen.findByTestId("knowledge-curated-view");
-		const treeEl = list.querySelector("[data-testid='knowledge-tree-list']");
+		const list = await screen.findByTestId("document-curated-view");
+		const treeEl = list.querySelector("[data-testid='document-tree-list']");
 		expect(treeEl).not.toBeNull();
 		expect(treeEl?.className ?? "").not.toContain("surface-container");
 	});
@@ -129,7 +129,7 @@ describe("AG6 AC-5 — DocumentList empty/loading via ItemList (T8)", () => {
 		});
 		renderPage();
 		// The ItemList should be present even in populated state — existence proves T8 migration
-		const page = await screen.findByTestId("knowledge-list-page");
+		const page = await screen.findByTestId("document-list-page");
 		expect(page).toBeInTheDocument();
 	});
 });

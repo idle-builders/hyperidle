@@ -165,7 +165,7 @@ describe("Router (L9)", () => {
 	it("renders DocumentList page at /documents", async () => {
 		renderRoute("/documents");
 		await waitFor(() => {
-			expect(screen.getByTestId("knowledge-list-page")).toBeInTheDocument();
+			expect(screen.getByTestId("document-list-page")).toBeInTheDocument();
 		});
 	});
 

@@ -40,7 +40,7 @@ describe("DocRow — J7 factory mode", () => {
 
 	it("renders a version pill in factory mode", () => {
 		render(<DocRow {...defaultProps} factoryMode version="v2.1" />);
-		const pill = screen.getByTestId("knowledge-version-pill");
+		const pill = screen.getByTestId("document-version-pill");
 		expect(pill).toHaveTextContent("v2.1");
 		expect(pill).toHaveClass("inline-flex");
 		expect(pill.className).toContain(
@@ -50,7 +50,7 @@ describe("DocRow — J7 factory mode", () => {
 
 	it("does NOT render the version pill when factoryMode is omitted", () => {
 		render(<DocRow {...defaultProps} />);
-		expect(screen.queryByTestId("knowledge-version-pill")).not.toBeInTheDocument();
+		expect(screen.queryByTestId("document-version-pill")).not.toBeInTheDocument();
 	});
 
 	it("renders the canonical row composition (flex + Hearth literal spacing)", () => {

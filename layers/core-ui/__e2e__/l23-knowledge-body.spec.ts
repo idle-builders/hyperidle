@@ -7,7 +7,7 @@
  *
  * @lore T2: textarea+preview+Save/Cancel replaced by BodyEditor + Done button.
  * - knowledge-edit-textarea → BodyEditor inside knowledge-edit-panel
- * - knowledge-edit-preview → no longer exists (BodyEditor IS the WYSIWYG view)
+ * - document-edit-preview → no longer exists (BodyEditor IS the WYSIWYG view)
  * - Save button → auto-save (no explicit save action needed)
  * - Cancel button → Done button (exits edit mode)
  *
@@ -52,7 +52,7 @@ test.describe("E1 — Document body: multi-section playbook", () => {
 		await page.goto(`/documents/${MOCK_ITEM.id}`);
 		await page.waitForSelector("[data-testid='document-detail-page']");
 
-		const body = page.getByTestId("knowledge-body");
+		const body = page.getByTestId("document-body");
 		await expect(body).toBeVisible();
 
 		// Must NOT be a <pre> element
@@ -60,12 +60,12 @@ test.describe("E1 — Document body: multi-section playbook", () => {
 		expect(tagName).not.toBe("pre");
 	});
 
-	test("body container has data-knowledge-body attribute", async ({ page }) => {
+	test("body container has data-document-body attribute", async ({ page }) => {
 		await page.goto(`/documents/${MOCK_ITEM.id}`);
-		await page.waitForSelector("[data-testid='knowledge-body']");
+		await page.waitForSelector("[data-testid='document-body']");
 
-		const body = page.getByTestId("knowledge-body");
-		const attr = await body.getAttribute("data-knowledge-body");
+		const body = page.getByTestId("document-body");
+		const attr = await body.getAttribute("data-document-body");
 		// Attribute should exist (value may be empty string which is truthy for has)
 		expect(attr).not.toBeNull();
 	});
@@ -92,7 +92,7 @@ test.describe("E1 — Document body: multi-section playbook", () => {
 		await expect(editPanel).not.toBeVisible();
 
 		// Read-view body must NOT be a <pre>
-		const body = page.getByTestId("knowledge-body");
+		const body = page.getByTestId("document-body");
 		await expect(body).toBeVisible();
 		const tagName = await body.evaluate((el) => el.tagName.toLowerCase());
 		expect(tagName).not.toBe("pre");
@@ -108,16 +108,16 @@ test.describe("E2 — Document body: paragraph block, no chrome", () => {
 
 		// The body renders via DocumentBody — should have paragraph block shells
 		const paragraphBlocks = page.locator(
-			"[data-testid='knowledge-body'] [data-ds-component='block'][data-ds-kind='paragraph']",
+			"[data-testid='document-body'] [data-ds-component='block'][data-ds-kind='paragraph']",
 		);
 		await expect(paragraphBlocks.first()).toBeVisible();
 	});
 
 	test("body container has no card/border/shadow chrome", async ({ page }) => {
 		await page.goto(`/documents/${MOCK_ITEM.id}`);
-		await page.waitForSelector("[data-testid='knowledge-body']");
+		await page.waitForSelector("[data-testid='document-body']");
 
-		const body = page.getByTestId("knowledge-body");
+		const body = page.getByTestId("document-body");
 		const cls = (await body.getAttribute("class")) ?? "";
 		expect(cls).not.toContain("card");
 		expect(cls).not.toContain("shadow");

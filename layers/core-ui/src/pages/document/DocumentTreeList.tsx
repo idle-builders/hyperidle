@@ -16,10 +16,10 @@ import { type JSX, useCallback, useMemo, useState } from "react";
 import { clipExcerpt } from "../../utils/clip-excerpt.js";
 import { stripMarkdown } from "../../utils/strip-markdown.js";
 import { relativeShort } from "../../utils/time.js";
-import { type KnowledgeTreeRow, visibleKnowledgeTreeRows } from "./build-document-tree.js";
+import { type DocumentTreeRow, visibleDocumentTreeRows } from "./build-document-tree.js";
 
 export interface DocumentTreeListProps {
-	rows: KnowledgeTreeRow[];
+	rows: DocumentTreeRow[];
 	onNavigate: (id: string) => void;
 	onNewChild: (parentId: string) => void;
 }
@@ -44,16 +44,16 @@ export function DocumentTreeList({
 	}, []);
 
 	const visibleRows = useMemo(
-		() => visibleKnowledgeTreeRows(rows, collapsedIds),
+		() => visibleDocumentTreeRows(rows, collapsedIds),
 		[rows, collapsedIds],
 	);
 
 	return (
 		<ul
 			role="tree"
-			aria-label="Knowledge tree"
+			aria-label="Document tree"
 			data-ds-component="DocumentTreeList"
-			data-testid="knowledge-tree-list"
+			data-testid="document-tree-list"
 			className="flex flex-col"
 		>
 			{visibleRows.map(({ item, depth, hasChildren }) => {
@@ -67,7 +67,7 @@ export function DocumentTreeList({
 				return (
 					<li
 						key={item.id}
-						data-testid="knowledge-row"
+						data-testid="document-row"
 						data-depth={depth}
 						className="group relative flex items-center min-h-[44px] border-width-thin-b border-[var(--border-subtle)] last:border-none cursor-pointer hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))] focus-within:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))]"
 						onClick={() => onNavigate(item.id)}
@@ -165,7 +165,7 @@ export function DocumentTreeList({
 							)}
 							<span
 								className="type-metadata text-[var(--text-tertiary)]"
-								data-testid="knowledge-time"
+								data-testid="document-time"
 							>
 								{relativeShort(item.updatedAt)}
 							</span>

@@ -109,8 +109,8 @@ export interface AgentEditorProps {
 	filesystems?: InjectableFilesystem[];
 	/**
 	 * The agent's identity document, when it has one. Present → the editor links
-	 * to it instead of offering a prompt box: the identity is knowledge, edited
-	 * where knowledge is edited. Absent (creating an agent) → the box seeds it.
+	 * to it instead of offering a prompt box: the identity is a document, edited
+	 * where documents are edited. Absent (creating an agent) → the box seeds it.
 	 */
 	identityKnowledgeId?: string | null;
 	/**
@@ -393,7 +393,7 @@ export function AgentEditor({
 				</div>
 			)}
 
-			{/* Who the agent is. An existing agent's identity is a knowledge
+			{/* Who the agent is. An existing agent's identity is a
 			    document, so the editor sends you there rather than keeping a second
 			    copy of the same text behind a different Save button. */}
 			{identityKnowledgeId ? (

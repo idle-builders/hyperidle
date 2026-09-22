@@ -36,7 +36,7 @@ export interface ItemListProps {
 	/**
 	 * default "contained". "boxed" = flush rows inside a hairline-border
 	 * card (no shadow) — the one spelling for the bordered-container list,
-	 * shared by SettingsHarnesses and KnowledgeRoleList.
+	 * shared by SettingsHarnesses and DocumentSlotList.
 	 */
 	variant?: "contained" | "flush" | "boxed";
 	/** "ul" → semantic list element; default "div" */

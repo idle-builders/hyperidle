@@ -62,7 +62,7 @@ describe("DocumentList — the Memories filter chip", () => {
 
 	it("calls useDocuments with {inTree:true} by default", async () => {
 		renderPage();
-		await screen.findByTestId("knowledge-list-page");
+		await screen.findByTestId("document-list-page");
 		expect(mockUseDocuments).toHaveBeenLastCalledWith({ inTree: true });
 	});
 

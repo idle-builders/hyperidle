@@ -88,7 +88,7 @@ describe("DocumentList", () => {
 
 	it("renders with test id", async () => {
 		renderPage();
-		expect(await screen.findByTestId("knowledge-list-page")).toBeInTheDocument();
+		expect(await screen.findByTestId("document-list-page")).toBeInTheDocument();
 	});
 
 	it("calls search_documents with inTree:true", async () => {
@@ -114,6 +114,6 @@ describe("DocumentList", () => {
 	it("renders timestamps for items using relative time", async () => {
 		renderPage();
 		// Items rendered in Curated view — at least one should show a relative time
-		expect(await screen.findByTestId("knowledge-curated-view")).toBeInTheDocument();
+		expect(await screen.findByTestId("document-curated-view")).toBeInTheDocument();
 	});
 });

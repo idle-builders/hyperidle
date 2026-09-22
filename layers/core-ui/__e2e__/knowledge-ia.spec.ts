@@ -16,7 +16,7 @@ test.describe
 	.skip("Knowledge IA (J6)", () => {
 		test("scope switching re-scopes the list and topic nav", async ({ page }) => {
 			await page.goto("/documents");
-			await page.waitForSelector("[data-testid='knowledge-list-page']");
+			await page.waitForSelector("[data-testid='document-list-page']");
 
 			// Practice is the default scope — indicator shows "practice".
 			await expect(page.getByTestId("knowledge-scope-indicator")).toHaveText("practice");
@@ -47,14 +47,14 @@ test.describe
 			page,
 		}) => {
 			await page.goto("/documents");
-			await page.waitForSelector("[data-testid='knowledge-list-page']");
+			await page.waitForSelector("[data-testid='document-list-page']");
 
 			// Triage is the default because practice has a needs_human item.
 			await expect(page.getByRole("tab", { name: "Triage" })).toHaveAttribute(
 				"aria-selected",
 				"true",
 			);
-			await expect(page.getByTestId("knowledge-triage-view")).toBeVisible();
+			await expect(page.getByTestId("document-triage-view")).toBeVisible();
 
 			// The top-attention item's reason line is rendered under its title.
 			await expect(page.getByText("3 new observations since review")).toBeVisible();
@@ -64,7 +64,7 @@ test.describe
 
 			// Switching to Curated reveals topic group headers with counts.
 			await page.getByRole("tab", { name: "Curated" }).click();
-			await expect(page.getByTestId("knowledge-curated-view")).toBeVisible();
+			await expect(page.getByTestId("document-curated-view")).toBeVisible();
 			const archGroup = page.getByTestId("topic-group-Architecture");
 			await expect(archGroup.getByText("Architecture", { exact: true })).toBeVisible();
 			await expect(archGroup.getByLabel("3 items")).toBeVisible();

@@ -30,7 +30,7 @@ export const FilterMode = (): React.JSX.Element => {
 			mode="filter"
 			ariaLabel="Filter by scope"
 			testIdPrefix="scope-pill"
-			dataTestId="knowledge-scope-pills"
+			dataTestId="document-scope-pills"
 		/>
 	);
 };

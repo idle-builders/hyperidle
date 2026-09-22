@@ -13,7 +13,7 @@
  * Escape effect. Any new action menu must use Menu, not re-implement these behaviors.
  *
  * @lore AG5 C4: Per-item data attribute passthrough via dataAttrs?: Record<string,string>.
- * Bet items emit data-bet-action (queried by AF12/L14 e2e); knowledge items emit data-testid.
+ * Bet items emit data-bet-action (queried by AF12/L14 e2e); document items emit data-testid.
  * A single fixed testId prop would break bet e2e that queries [data-bet-action="kill"], not
  * [data-testid]. Both handled through the same verbatim passthrough mechanism.
  *

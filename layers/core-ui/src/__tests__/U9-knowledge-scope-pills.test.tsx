@@ -85,30 +85,30 @@ function renderPage(): ReturnType<typeof render> {
 describe("U9 AC-6: DocumentList scope pills", () => {
 	it("renders scope pill filter bar", () => {
 		renderPage();
-		expect(screen.getByTestId("knowledge-scope-pills")).toBeInTheDocument();
+		expect(screen.getByTestId("document-scope-pills")).toBeInTheDocument();
 	});
 
 	it('renders "All" scope pill', () => {
 		renderPage();
-		const scopePills = screen.getByTestId("knowledge-scope-pills");
+		const scopePills = screen.getByTestId("document-scope-pills");
 		expect(scopePills.querySelector('[data-testid="scope-pill-all"]')).not.toBeNull();
 	});
 
 	it('renders "Shared" static scope pill (AD6: replaces data-driven practice/product/factory)', () => {
 		renderPage();
-		const scopePills = screen.getByTestId("knowledge-scope-pills");
+		const scopePills = screen.getByTestId("document-scope-pills");
 		expect(scopePills.querySelector('[data-testid="scope-pill-shared"]')).not.toBeNull();
 	});
 
 	it('renders "Team" static scope pill', () => {
 		renderPage();
-		const scopePills = screen.getByTestId("knowledge-scope-pills");
+		const scopePills = screen.getByTestId("document-scope-pills");
 		expect(scopePills.querySelector('[data-testid="scope-pill-team"]')).not.toBeNull();
 	});
 
 	it('renders "Private" static scope pill', () => {
 		renderPage();
-		const scopePills = screen.getByTestId("knowledge-scope-pills");
+		const scopePills = screen.getByTestId("document-scope-pills");
 		expect(scopePills.querySelector('[data-testid="scope-pill-private"]')).not.toBeNull();
 	});
 
@@ -140,7 +140,7 @@ describe("U9 AC-6: DocumentList scope pills", () => {
 
 	it("active tab has aria-selected=true", () => {
 		renderPage();
-		const tabs = screen.getByTestId("knowledge-tabs");
+		const tabs = screen.getByTestId("document-tabs");
 		const activeTab = tabs.querySelector("[aria-selected='true']");
 		expect(activeTab).not.toBeNull();
 	});
@@ -152,7 +152,7 @@ describe("U9 AC-6: DocumentList scope pills", () => {
 		await user.click(screen.getByRole("tab", { name: /triage/i }));
 
 		await waitFor(() => {
-			const sortControls = screen.getByTestId("knowledge-sort-bar");
+			const sortControls = screen.getByTestId("document-sort-bar");
 			const activeSort = sortControls.querySelector("[aria-checked='true']");
 			expect(activeSort).not.toBeNull();
 		});

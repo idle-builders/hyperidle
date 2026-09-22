@@ -180,17 +180,17 @@ test.describe("U9 AC-6: Knowledge scope pills", () => {
 		});
 
 		await page.goto("/documents");
-		await page.waitForSelector("[data-testid='knowledge-list-page']");
+		await page.waitForSelector("[data-testid='document-list-page']");
 	});
 
 	test("scope pills bar is visible above the tabs", async ({ page }) => {
-		await expect(page.getByTestId("knowledge-scope-pills")).toBeVisible();
+		await expect(page.getByTestId("document-scope-pills")).toBeVisible();
 	});
 
 	test('scope pills include "All", "Shared", "Team", "Private"', async ({ page }) => {
 		// @lore AE1: Pills were renamed from old category names (Practices/Products/Factory)
 		// to simplified labels (Shared/Team/Private) in AD6.
-		const scopePills = page.getByTestId("knowledge-scope-pills");
+		const scopePills = page.getByTestId("document-scope-pills");
 		await expect(scopePills.getByTestId("scope-pill-all")).toBeVisible();
 		await expect(scopePills.getByTestId("scope-pill-shared")).toBeVisible();
 		await expect(scopePills.getByTestId("scope-pill-team")).toBeVisible();
@@ -204,7 +204,7 @@ test.describe("U9 AC-6: Knowledge scope pills", () => {
 	});
 
 	test("Triage/Curated tabs use btn-primary for active (not btn-neutral)", async ({ page }) => {
-		const tabs = page.getByTestId("knowledge-tabs");
+		const tabs = page.getByTestId("document-tabs");
 		const activeTab = tabs.locator("[aria-selected='true']");
 		await expect(activeTab).toBeVisible();
 		const className = await activeTab.getAttribute("class");

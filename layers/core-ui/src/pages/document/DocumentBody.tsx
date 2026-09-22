@@ -10,7 +10,7 @@
  *
  * @lore L23 / AZ6: `sanitizeHtml` is fixed and NOT exposed as a prop. It now
  * comes from `utils/sanitize-html.ts`, which is the single policy for
- * agent-authored prose across every host that renders a body — a knowledge item,
+ * agent-authored prose across every host that renders a body — a document,
  * a comment and a `text` artifact are the same class of content.
  *
  * @lore L23: `slots` is intentionally omitted from <Block /> calls. FU-1
@@ -42,8 +42,8 @@ export interface DocumentBodyProps {
 	/** Route document title; enables page-safe authored heading levels. */
 	documentTitle?: string;
 	/**
-	 * Optional data-testid override. Defaults to "knowledge-body".
-	 * The edit-mode preview passes "knowledge-edit-preview".
+	 * Optional data-testid override. Defaults to "document-body".
+	 * The edit-mode preview passes "document-edit-preview".
 	 */
 	testId?: string;
 	/** L18: Called when the user opens a block's actions menu (Space/Enter). */
@@ -101,7 +101,7 @@ export function DocumentBody({
 	body,
 	hostId,
 	documentTitle,
-	testId = "knowledge-body",
+	testId = "document-body",
 	onOpenBlockActions,
 	messagesByBlockId,
 }: DocumentBodyProps): JSX.Element {
@@ -139,7 +139,7 @@ export function DocumentBody({
 	}
 
 	return (
-		<div data-knowledge-body data-testid={testId} className="flex flex-col">
+		<div data-document-body data-testid={testId} className="flex flex-col">
 			{blocks.length === 0 ? (
 				<p className="type-small text-[var(--text-tertiary)]  m-0">(no content yet)</p>
 			) : (

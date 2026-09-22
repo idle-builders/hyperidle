@@ -3,14 +3,14 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-	buildKnowledgeTree,
-	type KnowledgeTreeItem,
-	visibleKnowledgeTreeRows,
+	buildDocumentTree,
+	type DocumentTreeItem,
+	visibleDocumentTreeRows,
 } from "../build-document-tree.js";
 
 function item(
-	partial: Partial<KnowledgeTreeItem> & Pick<KnowledgeTreeItem, "id" | "title">,
-): KnowledgeTreeItem {
+	partial: Partial<DocumentTreeItem> & Pick<DocumentTreeItem, "id" | "title">,
+): DocumentTreeItem {
 	return {
 		body: "",
 		format: "markdown",
@@ -24,9 +24,9 @@ function item(
 	};
 }
 
-describe("buildKnowledgeTree", () => {
+describe("buildDocumentTree", () => {
 	it("orders a parent immediately followed by its own children and marks hasChildren", () => {
-		const rows = buildKnowledgeTree([
+		const rows = buildDocumentTree([
 			item({ id: "root", title: "Root" }),
 			item({ id: "child", title: "Child", parentId: "root" }),
 		]);
@@ -37,7 +37,7 @@ describe("buildKnowledgeTree", () => {
 	});
 
 	it("treats an item whose parent is absent from the array as a root, never dropping it", () => {
-		const rows = buildKnowledgeTree([
+		const rows = buildDocumentTree([
 			item({ id: "orphan", title: "Orphan", parentId: "not-in-array" }),
 		]);
 		expect(rows).toEqual([
@@ -46,15 +46,15 @@ describe("buildKnowledgeTree", () => {
 	});
 });
 
-describe("visibleKnowledgeTreeRows", () => {
+describe("visibleDocumentTreeRows", () => {
 	it("hides descendants of a collapsed parent and keeps siblings", () => {
-		const rows = buildKnowledgeTree([
+		const rows = buildDocumentTree([
 			item({ id: "a", title: "A" }),
 			item({ id: "a1", title: "A1", parentId: "a" }),
 			item({ id: "a1a", title: "A1a", parentId: "a1" }),
 			item({ id: "b", title: "B" }),
 		]);
-		const visible = visibleKnowledgeTreeRows(rows, new Set(["a"]));
+		const visible = visibleDocumentTreeRows(rows, new Set(["a"]));
 		expect(visible.map((r) => r.item.id)).toEqual(["a", "b"]);
 	});
 });

@@ -129,7 +129,7 @@ describe("Y4 — DocumentList triage tab shows exactly the proposed rows", () =>
 		const user = userEvent.setup();
 		await user.click(screen.getByRole("tab", { name: /triage/i }));
 
-		const triageView = await screen.findByTestId("knowledge-triage-view");
+		const triageView = await screen.findByTestId("document-triage-view");
 		const rows = within(triageView).getAllByRole("listitem");
 		// Exact equality: only the two proposed rows, nothing else.
 		expect(within(triageView).getByText("Flagged for human review")).toBeInTheDocument();
@@ -151,7 +151,7 @@ describe("Y4 — DocumentList triage tab shows exactly the proposed rows", () =>
 		const user = userEvent.setup();
 		await user.click(screen.getByRole("tab", { name: /triage/i }));
 
-		expect(await screen.findByTestId("knowledge-triage-empty")).toBeInTheDocument();
+		expect(await screen.findByTestId("document-triage-empty")).toBeInTheDocument();
 	});
 });
 
@@ -220,7 +220,7 @@ describe("Y4 — Triage keyboard navigation", () => {
 
 		await user.keyboard("j");
 
-		const triageView = screen.getByTestId("knowledge-triage-view");
+		const triageView = screen.getByTestId("document-triage-view");
 		const rows = within(triageView).getAllByRole("listitem");
 		expect(rows[0]).toHaveAttribute("data-focused", "true");
 	});
@@ -241,7 +241,7 @@ describe("Y4 — Triage keyboard navigation", () => {
 		await user.keyboard("j");
 		await user.keyboard("j");
 
-		const triageView = screen.getByTestId("knowledge-triage-view");
+		const triageView = screen.getByTestId("document-triage-view");
 		const rowsAfterJJ = within(triageView).getAllByRole("listitem");
 		expect(rowsAfterJJ[1]).toHaveAttribute("data-focused", "true");
 
@@ -262,7 +262,7 @@ describe("Y4 — Triage keyboard navigation", () => {
 
 		await user.keyboard("j");
 
-		const triageView = screen.getByTestId("knowledge-triage-view");
+		const triageView = screen.getByTestId("document-triage-view");
 		const rows = within(triageView).getAllByRole("listitem");
 		expect(rows[0]).toHaveAttribute("data-focused", "true");
 
@@ -400,7 +400,7 @@ describe("Y4 — Triage actions with keyboard shortcuts", () => {
 
 		// Reverted — the item is back in Triage.
 		await waitFor(() => {
-			const triageView = screen.getByTestId("knowledge-triage-view");
+			const triageView = screen.getByTestId("document-triage-view");
 			expect(within(triageView).getByText("Item that will be refused")).toBeInTheDocument();
 		});
 	});
@@ -442,7 +442,7 @@ describe("Y4 — Auto-advance after triage action", () => {
 			expect(screen.getByRole("tab", { name: /triage/i })).toHaveAttribute("aria-selected", "true");
 		});
 
-		const triageView = screen.getByTestId("knowledge-triage-view");
+		const triageView = screen.getByTestId("document-triage-view");
 		expect(within(triageView).getByText("Item to validate")).toBeInTheDocument();
 
 		await user.keyboard("j");
@@ -470,7 +470,7 @@ describe("Y4 — Auto-advance after triage action", () => {
 		await user.keyboard("v");
 
 		await waitFor(() => {
-			const triageView = screen.getByTestId("knowledge-triage-view");
+			const triageView = screen.getByTestId("document-triage-view");
 			const rows = within(triageView).getAllByRole("listitem");
 			expect(rows[0]).toHaveAttribute("data-focused", "true");
 			expect(rows[0]?.textContent).toContain("Second item");
@@ -491,7 +491,7 @@ describe("Y4 — Auto-advance after triage action", () => {
 		await user.keyboard("v");
 
 		await waitFor(() => {
-			expect(screen.getByTestId("knowledge-triage-empty")).toBeInTheDocument();
+			expect(screen.getByTestId("document-triage-empty")).toBeInTheDocument();
 		});
 	});
 });

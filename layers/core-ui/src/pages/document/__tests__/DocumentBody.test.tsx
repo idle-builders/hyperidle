@@ -44,10 +44,10 @@ describe("DocumentBody — T1 empty body", () => {
 		expect(p.className).toContain("text-[var(--text-tertiary)]");
 	});
 
-	it("renders a wrapper with data-knowledge-body attribute", () => {
+	it("renders a wrapper with data-document-body attribute", () => {
 		const { container } = render(<DocumentBody body="" hostId="k-empty" />);
 		// Even empty bodies get the wrapper so the testId selector resolves
-		expect(container.querySelector("[data-knowledge-body]")).toBeInTheDocument();
+		expect(container.querySelector("[data-document-body]")).toBeInTheDocument();
 	});
 });
 
@@ -75,7 +75,7 @@ describe("DocumentBody — T2 three-sentence belief", () => {
 
 	it("body container has no card/border class (no card, no bordered, no shadow)", () => {
 		const { container } = render(<DocumentBody body={THREE_SENTENCE_BODY} hostId="k1" />);
-		const wrapper = container.querySelector("[data-knowledge-body]") as HTMLElement;
+		const wrapper = container.querySelector("[data-document-body]") as HTMLElement;
 		expect(wrapper).toBeInTheDocument();
 		// Must not have DaisyUI card or border utilities that add visual chrome
 		expect(wrapper.className).not.toContain("card");
@@ -85,7 +85,7 @@ describe("DocumentBody — T2 three-sentence belief", () => {
 
 	it("body wrapper has flex flex-col layout", () => {
 		const { container } = render(<DocumentBody body={THREE_SENTENCE_BODY} hostId="k1" />);
-		const wrapper = container.querySelector("[data-knowledge-body]") as HTMLElement;
+		const wrapper = container.querySelector("[data-document-body]") as HTMLElement;
 		expect(wrapper.className).toContain("flex");
 		expect(wrapper.className).toContain("flex-col");
 	});

@@ -15,7 +15,7 @@ export interface UnknownPayloadProps {
  * @lore AZ6: `reason` is the internal discriminant and must never reach the
  * screen — "unsupported block — parser-unrecognised" is a sentence written for
  * whoever wrote the parser, not for whoever opened the page. It maps to plain
- * words here. This component appears inside artifacts, knowledge items and
+ * words here. This component appears inside artifacts, documents and
  * comments, so the wording lands in all three. Layout is unchanged.
  */
 const REASON_TEXT: Record<UnknownPayloadProps["reason"], string> = {
