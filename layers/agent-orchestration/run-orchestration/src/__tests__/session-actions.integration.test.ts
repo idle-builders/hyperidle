@@ -497,9 +497,9 @@ describe("provisioner — an adapter's own return action is not a user stop", ()
 				openMcpBridge: async ({
 					onToolCall,
 				}: {
-					onToolCall: (c: { toolName: string; args: unknown }) => void;
+					onToolCall?: (c: { toolName: string; args: unknown }) => void;
 				}) => {
-					onToolCall({ toolName: "mcp__hyperidle__send_message", args: {} });
+					onToolCall?.({ toolName: "mcp__hyperidle__send_message", args: {} });
 					return { token: "tok", url: "http://127.0.0.1:0/mcp" };
 				},
 				closeMcpBridge: async () => undefined,
