@@ -19,7 +19,13 @@ import {
 	type WriteExecutor,
 } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import type { DocumentView, EditDocumentInput } from "@hyperidle/domain-model";
+import {
+	type DocumentView,
+	type DocumentRow as DomainDocumentRow,
+	documentAs,
+	type EditDocumentInput,
+	type SearchDocumentsInput,
+} from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import type { Action, ActionContext } from "../action-types.js";
@@ -149,6 +155,15 @@ async function readDocumentChanges(db: HyperIdleDb) {
 
 function editAction(deps: DocumentActionsDeps): Action<EditDocumentInput, DocumentView> {
 	return actionFor<EditDocumentInput, DocumentView>(createDocumentActions(deps), "edit_document");
+}
+
+function searchAction(
+	deps: DocumentActionsDeps,
+): Action<SearchDocumentsInput, DomainDocumentRow[]> {
+	return actionFor<SearchDocumentsInput, DomainDocumentRow[]>(
+		createDocumentActions(deps),
+		"search_documents",
+	);
 }
 
 describe("edit_document — the scope cascade, architecture.md §4.3 case 1a", () => {
@@ -324,6 +339,57 @@ describe("edit_document — the scope cascade family, architecture.md §4.3 case
 		const childRow = await readRow(db, invisibleChild.id);
 		expect(childRow?.scopeKind).toBe("user");
 		expect(childRow?.scopeId).toBe("writer-1d");
+	});
+
+	test("narrowing a folder to `user` scope makes its children private documents, never memories — I4 (memory_has_parent) is a write-time check on `edit_document`'s own input and is never reached by the cascade's direct row write, since the cascaded child keeps its `parentKind` (architecture decision on the gate-walk finding)", async ({
+		db,
+	}) => {
+		await seedUser(db, "writer-1g");
+		const folder = await insertDocument(
+			db,
+			docValues({ id: "casc-1g-folder", title: "Folder", scopeKind: "factory", scopeId: null }),
+		);
+		const child = await insertDocument(
+			db,
+			docValues({
+				id: "casc-1g-child",
+				title: "Note",
+				parentKind: "document",
+				parentId: folder.id,
+				scopeKind: "factory",
+				scopeId: null,
+			}),
+		);
+
+		const result = await editAction(writeDeps()).run(ctxFor(db, "writer-1g"), {
+			id: folder.id,
+			scopeKind: "user",
+			scopeId: "writer-1g",
+		});
+		expect(result.ok).toBe(true);
+
+		const childRow = await readRow(db, child.id);
+		expect(childRow?.scopeKind).toBe("user");
+		expect(childRow?.scopeId).toBe("writer-1g");
+		expect(childRow?.parentKind).toBe("document");
+		if (!childRow) throw new Error("expected the child row to exist");
+		expect(documentAs(childRow)).toBe("document");
+
+		// Both reachable through the `document` shape, neither through `memory`.
+		const asDocument = await searchAction(writeDeps()).run(ctxFor(db, "writer-1g"), {
+			as: "document",
+			parent: { kind: "document", id: folder.id },
+		});
+		expect(asDocument.ok).toBe(true);
+		if (!asDocument.ok) throw new Error("expected success");
+		expect(asDocument.data.map((r) => r.id)).toContain(child.id);
+
+		const asMemory = await searchAction(writeDeps()).run(ctxFor(db, "writer-1g"), {
+			as: "memory",
+		});
+		expect(asMemory.ok).toBe(true);
+		if (!asMemory.ok) throw new Error("expected success");
+		expect(asMemory.data.map((r) => r.id)).not.toContain(child.id);
 	});
 
 	test("case 1e — an archived child is narrowed too, its status still archived", async ({ db }) => {
