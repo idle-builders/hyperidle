@@ -324,41 +324,60 @@ function memoryInvariants(
 	return problems;
 }
 
-/** I5/I6/I13 — an artifact hangs off a task or thread, and is never private. */
+/**
+ * I5/I6/I13 — an artifact hangs off a task or thread, and is never private.
+ *
+ * I5/I6 stay keyed on the caller's literal `input.as === "artifact"` — an
+ * edit that moves an existing artifact's parent WITHOUT repeating `as` is
+ * "graduation" (§3.6: `as` is derived, never stored, so moving `parent` off
+ * a task/thread is all graduation is — `document-actions.integration.test.ts`
+ * describe("graduation …")), a deliberately allowed transition. Keying I5/I6
+ * on the row's derived `effectiveAs` instead would refuse that transition.
+ *
+ * I13 is different: it is keyed on `effectiveAs` (the caller's explicit `as`,
+ * or the row's own derived `as` when the edit omits it) — not `input.as`
+ * alone. "An artifact is never private" is an absolute rule, not a
+ * transition; an edit that only sends `{id, scopeKind:"user"}` against an
+ * existing artifact must still be refused here, or the run function's write
+ * lands the private scope with no problem attached (gate-walk finding, same
+ * silent-overwrite shape as `memoryInvariants` above).
+ */
 function artifactInvariants(
+	effectiveAs: DocumentAs | undefined,
 	input: EditDocumentInput,
 	caller: { readonly hasCallingTask: boolean; readonly hasCallingThread: boolean },
 ): Problem[] {
-	if (input.as !== "artifact") return [];
 	const problems: Problem[] = [];
-	if (input.parent === null) {
-		// `null` means "to the top of the tree", for every `as` (architecture
-		// decision) — and an artifact can never be at the top (I5/I6), so an
-		// explicit `parent: null` is refused the same way a `document` parent
-		// is, not silently treated as "no parent given" (which would stamp the
-		// caller's own calling task/thread instead of honouring the explicit
-		// top-of-tree request).
-		problems.push({
-			code: "artifact_parent_kind",
-			message: "An artifact hangs off a task or a conversation.",
-			path: "parent",
-		});
-	} else if (input.parent !== undefined) {
-		if (input.parent.kind !== "task" && input.parent.kind !== "thread") {
+	if (input.as === "artifact") {
+		if (input.parent === null) {
+			// `null` means "to the top of the tree", for every `as` (architecture
+			// decision) — and an artifact can never be at the top (I5/I6), so an
+			// explicit `parent: null` is refused the same way a `document` parent
+			// is, not silently treated as "no parent given" (which would stamp the
+			// caller's own calling task/thread instead of honouring the explicit
+			// top-of-tree request).
 			problems.push({
 				code: "artifact_parent_kind",
 				message: "An artifact hangs off a task or a conversation.",
 				path: "parent",
 			});
+		} else if (input.parent !== undefined) {
+			if (input.parent.kind !== "task" && input.parent.kind !== "thread") {
+				problems.push({
+					code: "artifact_parent_kind",
+					message: "An artifact hangs off a task or a conversation.",
+					path: "parent",
+				});
+			}
+		} else if (!(caller.hasCallingTask || caller.hasCallingThread)) {
+			problems.push({
+				code: "artifact_no_parent",
+				message: "Name the task or conversation this belongs to.",
+				path: "parent",
+			});
 		}
-	} else if (!(caller.hasCallingTask || caller.hasCallingThread)) {
-		problems.push({
-			code: "artifact_no_parent",
-			message: "Name the task or conversation this belongs to.",
-			path: "parent",
-		});
 	}
-	if (input.scopeKind === "user") {
+	if (effectiveAs === "artifact" && input.scopeKind === "user") {
 		problems.push({
 			code: "artifact_cannot_be_private",
 			message:
@@ -463,7 +482,7 @@ export function editDocumentInvariants(
 		input.as ?? (prev !== null ? documentAs(prev) : undefined);
 
 	problems.push(...memoryInvariants(effectiveAs, input));
-	problems.push(...artifactInvariants(input, caller));
+	problems.push(...artifactInvariants(effectiveAs, input, caller));
 	problems.push(...systemParentInvariants(input, caller));
 
 	// A memory's scope is forced regardless of what the caller asked for

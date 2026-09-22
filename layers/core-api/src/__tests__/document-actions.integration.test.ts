@@ -1343,6 +1343,39 @@ describe("case 9 — every §4.1/§4.2 invariant, exact code, both doors", () =>
 		expect(agent.problemCode).toBe("artifact_cannot_be_private");
 	});
 
+	test('I13 artifact_cannot_be_private: editing an EXISTING artifact\'s scope to "user" WITHOUT repeating `as` is still refused — the forced write must never land silently', async ({
+		app,
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
+		await seedTeam(db, "c9i13b");
+		await seedTaskWithThread(db, "c9i13b-task", "c9i13b");
+		await seedAgent(db, "c9i13b-agent");
+		const actions = buildRealActions(agentOrchestration);
+		const artifact = requireDoc(
+			await callAgent<DocumentView>(
+				actions,
+				db,
+				eventBus,
+				"edit_document",
+				{ title: "produced findings", as: "artifact" },
+				{ agentId: "c9i13b-agent", sessionId: "c9i13b-sess", taskId: "c9i13b-task" },
+			),
+		).document;
+		expect(artifact.parentKind).toBe("task");
+
+		const human = await callHuman<DocumentView>(app, "edit_document", {
+			id: artifact.id,
+			version: artifact.version,
+			scopeKind: "user",
+		});
+		expect(human.problemCode).toBe("artifact_cannot_be_private");
+
+		const row = await readDocumentRow(db, artifact.id);
+		expect(row.scopeKind).not.toBe("user");
+	});
+
 	test('I14 artifact_search_needs_parent: search_documents({as:"artifact"}) with no parent', async ({
 		app,
 		db,

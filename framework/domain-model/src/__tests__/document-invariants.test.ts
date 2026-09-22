@@ -186,6 +186,37 @@ describe("editDocumentInvariants", () => {
 		expect(problems[0]?.code).toBe("artifact_cannot_be_private");
 	});
 
+	it("I13 artifact_cannot_be_private: editing an existing artifact's scope to user WITHOUT repeating `as` still refuses — a forced write with no problem attached would be a silent no-op", () => {
+		const prev = makeRow({
+			parentKind: "task",
+			parentId: "t1",
+			scopeKind: "team",
+			scopeId: "team-1",
+		});
+		expect(documentAs(prev)).toBe("artifact");
+		const problems = editDocumentInvariants({ id: prev.id, scopeKind: "user" }, prev, {
+			hasCallingTask: true,
+			hasCallingThread: false,
+		});
+		expect(problems[0]?.code).toBe("artifact_cannot_be_private");
+	});
+
+	it("graduating an existing artifact by moving its parent to a document root, WITHOUT repeating `as`, raises no problem — I5 stays keyed on the caller's explicit `as`, not the row's derived one", () => {
+		const prev = makeRow({
+			parentKind: "task",
+			parentId: "t1",
+			scopeKind: "team",
+			scopeId: "team-1",
+		});
+		expect(documentAs(prev)).toBe("artifact");
+		const problems = editDocumentInvariants(
+			{ id: prev.id, parent: { kind: "document", id: "root-1" } },
+			prev,
+			noCaller,
+		);
+		expect(problems).toEqual([]);
+	});
+
 	it("a well-formed create has no problems", () => {
 		expect(editDocumentInvariants({ title: "A fine document" }, null, noCaller)).toEqual([]);
 	});
