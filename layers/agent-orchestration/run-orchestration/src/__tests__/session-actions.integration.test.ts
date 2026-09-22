@@ -456,3 +456,99 @@ describe("stopSessionRun — a live runtime entry (the abort path)", () => {
 		expect(emitted[0]).toMatchObject({ sessionId: admitted.sessionId, outcome: "stopped" });
 	});
 });
+
+describe("provisioner — an adapter's own return action is not a user stop", () => {
+	const sandboxDirs: string[] = [];
+	afterEach(() => {
+		for (const dir of sandboxDirs.splice(0)) {
+			fs.rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	/**
+	 * opencode calls its return tool through the MCP bridge, and the
+	 * provisioner flips its cooperative `aborted` flag so the event loop stops
+	 * draining — the same flag a registry abort flips. Without a second flag
+	 * for "someone actually asked to stop", this ordinary return was written
+	 * to the row exactly like a stop: state "stopped" / outcome "stopped",
+	 * which `lifecycle-propagation.ts` never reads as a finish, so the task
+	 * never moved for a session that had, in fact, completed cleanly.
+	 */
+	test("an opencode adapter's own return action ends the row done/completed, not stopped", async ({
+		db,
+	}) => {
+		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "session-actions-opencode-"));
+		sandboxDirs.push(sandboxPath);
+		await seedAgent(db as HyperIdleDb, "agent-opencode");
+
+		const eventBus = new EventBus();
+		const emitted: SessionEndedEvent[] = [];
+		eventBus.on("session_ended", (event) => emitted.push(event));
+
+		const basePorts = buildLivePorts();
+		const provisioner = createProvisioner({
+			...basePorts,
+			harnessRuntime: {
+				...basePorts.harnessRuntime,
+				// The bridge fires the return action the instant it opens — before
+				// `startSession` runs — mirroring how a real MCP tool call arrives
+				// through `onToolCall` and never appears in `streamEvents` at all
+				// (see review-sandbox-lifetime.integration.test.ts).
+				openMcpBridge: async ({
+					onToolCall,
+				}: {
+					onToolCall: (c: { toolName: string; args: unknown }) => void;
+				}) => {
+					onToolCall({ toolName: "mcp__hyperidle__send_message", args: {} });
+					return { token: "tok", url: "http://127.0.0.1:0/mcp" };
+				},
+				closeMcpBridge: async () => undefined,
+			},
+		});
+		const params = {
+			taskId: null,
+			agentId: "agent-opencode",
+			productId: "task-free",
+			sandboxBasePath: sandboxPath,
+			agentConfig: { kind: "ai", status: "active", role: "builder", teamId: null },
+			harnessDisabled: [],
+		} as ProvisionSessionParams;
+		const deps = {
+			db: db as HyperIdleDb,
+			eventBus,
+			adapterPool: {
+				select: () => ({
+					id: "fake-adapter",
+					adapter: buildLiveHarnessAdapter(() => undefined),
+					meta: {
+						name: "Opencode",
+						kind: "local" as const,
+						type: "opencode" as const,
+						modelProviders: [],
+						maxConcurrent: 5,
+					},
+				}),
+				release: () => undefined,
+				describeSelectFailure: () => "test pool selected nothing",
+			},
+			workspace: {
+				spawn: async () => ({ sandboxId: "sbx-1", path: sandboxPath }),
+				exec: async () => ({ stdout: "", stderr: "", exitCode: 0 }),
+				adopt: (p: string) => Promise.resolve({ sandboxId: "sb-adopted", path: p }),
+				destroy: async () => undefined,
+			},
+		} as ProvisionSessionDeps;
+
+		const admitted = await provisioner.admit(deps, params);
+		await provisioner.run(deps, params, admitted);
+
+		const [row] = await (db as HyperIdleDb)
+			.select()
+			.from(sessions)
+			.where(eq(sessions.id, admitted.sessionId));
+		expect(row?.state).toBe("done");
+		expect(row?.outcome).toBe("completed");
+		expect(emitted).toHaveLength(1);
+		expect(emitted[0]).toMatchObject({ sessionId: admitted.sessionId, outcome: "completed" });
+	});
+});
