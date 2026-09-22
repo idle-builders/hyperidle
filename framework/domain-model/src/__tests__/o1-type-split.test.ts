@@ -67,16 +67,22 @@ describe("O1 kernel type additions to @hyperidle/domain-model", () => {
 			expect("KNOWLEDGE_LAYERS" in sharedIndex).toBe(false);
 		});
 
-		it("KNOWLEDGE_STATUSES is exported from shared", () => {
-			expect("KNOWLEDGE_STATUSES" in sharedIndex).toBe(true);
+		// @lore B22 (architecture.md §0 A1): `KNOWLEDGE_STATUSES` (`knowledge.ts`)
+		// is deleted — `DOCUMENT_STATUSES` (`actions/document.ts`) is the same
+		// four-value ladder its one real importer (`useGlobalSearch.ts`) now uses.
+		it("KNOWLEDGE_STATUSES is gone; DOCUMENT_STATUSES is exported from shared", () => {
+			expect("KNOWLEDGE_STATUSES" in sharedIndex).toBe(false);
+			expect("DOCUMENT_STATUSES" in sharedIndex).toBe(true);
 		});
 
 		it("KNOWLEDGE_SCOPES is gone", () => {
 			expect("KNOWLEDGE_SCOPES" in sharedIndex).toBe(false);
 		});
 
-		it("KNOWLEDGE_SORT_OPTIONS is exported from shared", () => {
-			expect("KNOWLEDGE_SORT_OPTIONS" in sharedIndex).toBe(true);
+		// @lore B22: `KNOWLEDGE_SORT_OPTIONS` had zero real importers outside
+		// `knowledge.ts` itself — deleted with the file, no replacement.
+		it("KNOWLEDGE_SORT_OPTIONS is gone", () => {
+			expect("KNOWLEDGE_SORT_OPTIONS" in sharedIndex).toBe(false);
 		});
 
 		// @lore nested-knowledge-items AC6: KNOWLEDGE_TOPIC_HEALTHS is DELETED

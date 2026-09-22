@@ -262,41 +262,14 @@ describe("assembleRoutinePrompt", () => {
 
 	// @lore BC3 architecture.md §5: it("renders item (work item) subject with
 	// title") DELETED — the kind:"item"/item_created subject variant no
-	// longer exists (the `items` table is gone); the sibling
-	// "knowledge-item" test below covers the same rendering path for the
-	// surviving subject kind.
-
-	it("renders knowledge-item subject with title and format", async () => {
-		const context = {
-			...routineContext(),
-			triggerEvent: {
-				type: "knowledge_created",
-				timestamp: 1_700_000_000_000,
-				subject: {
-					kind: "knowledge-item" as const,
-					item: {
-						id: "ki-ba9c-probe",
-						title: "BA9c-KI-PROBE-TITLE",
-						body: "Knowledge body",
-						format: "markdown",
-						version: 1,
-					},
-					actorId: "user-ki-actor",
-				},
-			},
-		};
-		const result = await assembler.assembleRoutinePrompt({
-			systemPromptText: "",
-			context,
-			tools: [],
-			sandboxPath: "/tmp/unused",
-		});
-
-		expect(result.assembledPrompt).toContain("### Trigger Event");
-		expect(result.assembledPrompt).toContain("BA9c-KI-PROBE-TITLE");
-		expect(result.assembledPrompt).toContain("markdown");
-		expect(result.assembledPrompt).toContain("**When:**");
-	});
+	// longer exists (the `items` table is gone).
+	//
+	// @lore B22 (architecture.md §0 A1): it("renders knowledge-item subject
+	// with title and format") DELETED — `kind:"knowledge-item"` and the three
+	// `knowledge_*` events it rendered are gone (never authorable in
+	// practice: no seed or plugin ever created a routine on one). The
+	// rendering path itself (a subject arm in the same if/else-if ladder as
+	// "thread"/"team"/"session"/"agent" below) is proven by those siblings.
 
 	it("renders team subject with name", async () => {
 		const context = {

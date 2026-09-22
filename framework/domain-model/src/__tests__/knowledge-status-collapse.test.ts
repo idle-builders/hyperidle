@@ -7,16 +7,19 @@
  * `KERNEL_KNOWLEDGE_STATUSES` (draft, active, archived, needs_human) —
  * collapse into exactly one four-value ladder: proposed | active | stale |
  * archived.
+ *
+ * @lore B22: `KNOWLEDGE_STATUSES` (`knowledge.ts`) is deleted — `DOCUMENT_STATUSES`
+ * (`actions/document.ts`) is the same four-value ladder going forward.
  */
 import { describe, expect, it } from "vitest";
-import { KNOWLEDGE_STATUSES } from "../knowledge.js";
+import { DOCUMENT_STATUSES } from "../actions/document.js";
 import { KERNEL_KNOWLEDGE_STATUSES } from "../types.js";
 
 const COLLAPSED_STATUSES = ["proposed", "active", "stale", "archived"];
 
 describe("knowledge status vocabulary collapses to proposed | active | stale | archived", () => {
-	it("KNOWLEDGE_STATUSES is exactly the four-value ladder", () => {
-		expect([...KNOWLEDGE_STATUSES].sort()).toEqual([...COLLAPSED_STATUSES].sort());
+	it("DOCUMENT_STATUSES is exactly the four-value ladder", () => {
+		expect([...DOCUMENT_STATUSES].sort()).toEqual([...COLLAPSED_STATUSES].sort());
 	});
 
 	it("KERNEL_KNOWLEDGE_STATUSES is exactly the same four-value ladder — both enums collapse into one", () => {

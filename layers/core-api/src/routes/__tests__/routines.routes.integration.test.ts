@@ -338,7 +338,7 @@ describe("routines routes", () => {
 	 * that appears active but never runs.
 	 */
 	describe("BA9d D11 — POST /api/routines rejects transition constraint on non-transition event", () => {
-		test("eventTransitionTo with knowledge_updated returns 400", async ({ db, app }) => {
+		test("eventTransitionTo with thread_message_appended returns 400", async ({ db, app }) => {
 			const now = new Date().toISOString();
 			await db
 				.insert(teams)
@@ -360,7 +360,7 @@ describe("routines routes", () => {
 					name: "Bad constraint routine",
 					ownerAgentId: "ba9d-footgun-agent",
 					triggerType: "event",
-					eventType: "knowledge_updated",
+					eventType: "thread_message_appended",
 					eventTransitionTo: "done",
 				}),
 			});

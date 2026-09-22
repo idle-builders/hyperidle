@@ -51,10 +51,11 @@ export interface HealthResponse {
 
 /**
  * @lore nested-knowledge-items: collapsed onto the single four-value ladder —
- * `proposed | active | stale | archived` — that `KNOWLEDGE_STATUSES`
- * (`./knowledge.ts`) now also is. There were two status vocabularies (kernel
- * vs. app-runtime) saying the same thing under different names (`draft` vs
- * `captured`, both "not yet vouched for"); one lifecycle now, no gatekeeping.
+ * `proposed | active | stale | archived` — that `DOCUMENT_STATUSES`
+ * (`./actions/document.ts`) also is. There were two status vocabularies
+ * (kernel vs. app-runtime) saying the same thing under different names
+ * (`draft` vs `captured`, both "not yet vouched for"); one lifecycle now, no
+ * gatekeeping.
  *
  * @lore O1: moved as part of kernel/strategy separation, historically.
  */

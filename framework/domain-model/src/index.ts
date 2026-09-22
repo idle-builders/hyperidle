@@ -4,8 +4,9 @@
 export type { ActionDeclaration, ActionResult, Problem } from "./actions/action.js";
 // @lore BC4: `Document` is a DOM global in core-ui, so the row type is never
 // called `Document` — see architecture.md §2. `document.ts` also carries the
-// vocabulary that used to live in `./knowledge.js` (`knowledge.ts` is not
-// deleted yet — its own exports below are unchanged until a later block).
+// vocabulary that used to live in `./knowledge.js`, deleted whole by B22 —
+// its constants had a real importer (`DOCUMENT_STATUSES`, replacing
+// `KNOWLEDGE_STATUSES`, already declared here) or none at all.
 export type {
 	DocumentAs,
 	DocumentListRow,
@@ -205,22 +206,6 @@ export {
 // Import from "@hyperidle/domain-model/http" — never via the barrel (Vite bundles barrel into core-ui).
 // ArtifactKind, TextPreview, CodePreview, ImagePreview, DataPreview, HtmlPreview, UrlPreview
 // unexported (SIMPLIFY): derived from closed sets; no external consumer names them directly.
-export type {
-	KnowledgeAccessorKind,
-	KnowledgeParentKind,
-	KnowledgeRole,
-	KnowledgeSortOption,
-	KnowledgeStatus,
-	PropagationLevel,
-} from "./knowledge.js";
-export {
-	KNOWLEDGE_PARENT_KINDS,
-	KNOWLEDGE_ROLE_LABEL,
-	KNOWLEDGE_ROLES,
-	KNOWLEDGE_SORT_OPTIONS,
-	KNOWLEDGE_STATUS_LABEL,
-	KNOWLEDGE_STATUSES,
-} from "./knowledge.js";
 // MentionSegment MERGE → core-ui/ds/mention-segments.ts (AU44 batch 8)
 export type { ResolvedMention } from "./mention.js";
 export {

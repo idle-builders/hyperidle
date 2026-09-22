@@ -1,5 +1,5 @@
-import type { KnowledgeStatus, TaskState } from "@hyperidle/domain-model";
-import { KNOWLEDGE_STATUSES, TASK_STATES } from "@hyperidle/domain-model";
+import type { DocumentStatus, TaskState } from "@hyperidle/domain-model";
+import { DOCUMENT_STATUSES, TASK_STATES } from "@hyperidle/domain-model";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
 
@@ -23,7 +23,7 @@ interface WorkResult {
 interface KnowledgeResult {
 	id: string;
 	title: string;
-	status: KnowledgeStatus;
+	status: DocumentStatus;
 	timestamp: string;
 }
 
@@ -57,7 +57,7 @@ interface UseGlobalSearchReturn {
 // parse* functions below once the string is confirmed present in the set.
 const CONVERSATION_KINDS: ReadonlySet<string> = new Set(["review", "chat"]);
 const TASK_STATE_SET: ReadonlySet<string> = new Set<string>(TASK_STATES);
-const KNOWLEDGE_STATUS_SET: ReadonlySet<string> = new Set<string>(KNOWLEDGE_STATUSES);
+const KNOWLEDGE_STATUS_SET: ReadonlySet<string> = new Set<string>(DOCUMENT_STATUSES);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null;
@@ -73,7 +73,7 @@ function isConversationKind(v: string): v is ConversationResult["kind"] {
 function isTaskState(v: string): v is TaskState {
 	return TASK_STATE_SET.has(v);
 }
-function isKnowledgeStatus(v: string): v is KnowledgeStatus {
+function isKnowledgeStatus(v: string): v is DocumentStatus {
 	return KNOWLEDGE_STATUS_SET.has(v);
 }
 

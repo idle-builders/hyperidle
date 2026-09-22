@@ -420,24 +420,6 @@ export interface RoutineTriggerEvent {
 		  }
 		| {
 				/**
-				 * BA9c: DB-loaded knowledge-base subject (knowledge_created /
-				 * knowledge_updated / knowledge_archived events —
-				 * rows from the `knowledge_items` table). This is the knowledge layer:
-				 * captured learnings, skills, memory — owned by @hyperidle/knowledge,
-				 * written through create() which writes kernel + app-projection together.
-				 */
-				readonly kind: "knowledge-item";
-				readonly item: {
-					readonly id: string;
-					readonly title: string;
-					readonly body: string;
-					readonly format: string;
-					readonly version: number;
-				};
-				readonly actorId?: string;
-		  }
-		| {
-				/**
 				 * BA9c: DB-loaded team subject (team_created event).
 				 * Reuses BakedContextBundle team shape: {id, name}.
 				 */

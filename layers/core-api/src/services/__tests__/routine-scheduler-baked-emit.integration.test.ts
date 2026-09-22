@@ -37,8 +37,8 @@ import {
 } from "@hyperidle/db";
 import type {
 	AgentRunLifecycleChangedEvent,
-	KnowledgeCreatedEvent,
 	TaskStateChangedEvent,
+	ThreadCreatedEvent,
 } from "@hyperidle/event-bus";
 import type { RoutineSchedulerPorts } from "@hyperidle/routine";
 import { fireGenericRoutine } from "@hyperidle/routine";
@@ -950,12 +950,14 @@ describe("BA1 §3.1.1 cut 3 — self-trigger via the routine_run spelling (NB1)"
 	 * cannot be resolved (`originRoutineId` returns `null`) must suppress
 	 * NOTHING. This is the direction that would quietly break the whole
 	 * feature if `originRoutineId` had a bug that returned a wrong id — a
-	 * routine authored on a plain `knowledge_created` (no `sourceKind`/
+	 * routine authored on a plain `thread_created` (no `sourceKind`/
 	 * `sourceCorrelation` at all) must still fire.
 	 *
 	 * @lore BC3 architecture.md §5: the vehicle event was `item_created` —
-	 * deleted with the `items` table. `knowledge_created` is the same shape
-	 * (no source correlation) and is still live.
+	 * deleted with the `items` table.
+	 * @lore B22 (architecture.md §0 A1): re-pointed from `knowledge_created`
+	 * (deleted, never authorable in practice) onto `thread_created` — same
+	 * shape this case needs (no `sourceKind`/`sourceCorrelation`), still live.
 	 */
 	test("an event whose origin cannot be resolved still fires the routines that match it", async ({
 		db,
@@ -970,7 +972,7 @@ describe("BA1 §3.1.1 cut 3 — self-trigger via the routine_run spelling (NB1)"
 			state: "active",
 			ownerAgentId,
 			triggerType: "event",
-			eventType: "knowledge_created",
+			eventType: "thread_created",
 			active: true,
 		});
 
@@ -985,10 +987,13 @@ describe("BA1 §3.1.1 cut 3 — self-trigger via the routine_run spelling (NB1)"
 			},
 		);
 		try {
-			const evt: KnowledgeCreatedEvent = {
-				type: "knowledge_created",
-				streamId: "ba1-cut3-unknown-origin-item",
-				itemId: "ba1-cut3-unknown-origin-item",
+			const evt: ThreadCreatedEvent = {
+				type: "thread_created",
+				streamId: "ba1-cut3-unknown-origin-thread",
+				threadId: "ba1-cut3-unknown-origin-thread",
+				hostKind: "team",
+				hostId: "ba1-cut3-unknown-origin-team",
+				initiatorId: "system:propagation",
 				timestamp: Date.now(),
 			};
 			eventBus.emit(evt);

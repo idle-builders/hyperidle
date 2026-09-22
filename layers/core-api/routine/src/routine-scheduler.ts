@@ -486,8 +486,8 @@ async function assembleTriggerEvent(
 	// through to the session/agent/team/user checks below, same as any other
 	// event with no recognized entity. The `kind:"knowledge-item"` subject arm
 	// itself (`@hyperidle/domain-model`'s `work-intent.ts`) and
-	// `run-orchestration/src/context.ts:520`'s consuming branch are a later
-	// item's deletion (architecture.md B22, which depends on this block).
+	// `run-orchestration/src/context.ts`'s consuming branch are deleted too
+	// (architecture.md B22).
 
 	// Session fallback: sessionId-carrying non-session events (tool_call_recorded,
 	// sandbox_writeback_changes_detected). The session-event types were handled in

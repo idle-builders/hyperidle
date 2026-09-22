@@ -517,14 +517,6 @@ function buildRoutineTaskSection(context: RoutineSessionContextData): string {
 				if (ev.subject.actorId) {
 					parts.push(`- **Actor:** ${ev.subject.actorId}`);
 				}
-			} else if (ev.subject.kind === "knowledge-item") {
-				parts.push("");
-				parts.push("**Knowledge item that triggered this run:**");
-				parts.push(`- **Title:** ${ev.subject.item.title}`);
-				parts.push(`- **Format:** ${ev.subject.item.format}`);
-				if (ev.subject.actorId) {
-					parts.push(`- **Actor:** ${ev.subject.actorId}`);
-				}
 			} else if (ev.subject.kind === "team") {
 				parts.push("");
 				parts.push("**Team that triggered this run:**");
