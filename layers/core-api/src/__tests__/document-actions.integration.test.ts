@@ -1773,6 +1773,13 @@ describe("case 10 — the combined cases of §4.3 (2, 3, 4, 5, 6, 7, 8)", () => 
 			),
 		);
 		expect(reread.document.title).toBe("A's title");
+
+		// The upsert probe never minted a second row with the same id — the
+		// raw-and-unfiltered existence read decides create-vs-edit, and the
+		// visibility predicate is applied only to what it found (architecture.md
+		// §4.3 case 7).
+		const stored = await db.select().from(documents).where(eq(documents.id, "c10c7-m1"));
+		expect(stored).toHaveLength(1);
 	});
 
 	test("§4.3 case 8 (successful half) — a shared task's artifact is readable across teams", async ({
