@@ -83,7 +83,7 @@ export interface DocumentActionsDeps {
 	) => Promise<boolean>;
 	/**
 	 * Decided (O1): bound in `compose.ts` to `markDetached`, called inside the
-	 * edit's transaction when `body` changed. BC5's subscriptions delete it.
+	 * edit's transaction when `body` changed. The subscriptions item deletes it.
 	 */
 	readonly onBodyChanged: (exec: WriteExecutor, documentId: string) => Promise<void>;
 	readonly wsPush?: (topic: string, envelope: unknown) => void;
