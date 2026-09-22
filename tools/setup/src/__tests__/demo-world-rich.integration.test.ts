@@ -248,6 +248,19 @@ describe("AX1: lived-in demo world", () => {
 				new Date(d.last_read_at as string).getTime() < ninetyDaysAgo,
 		).length;
 		expect(staleCount).toBeGreaterThanOrEqual(4);
+
+		// A document can't have been read before it existed: created_at must
+		// never come after last_read_at, for every row that has one — not just
+		// the stale slice above.
+		const withReads = await rows<{ id: string; created_at: string; last_read_at: string }>(
+			db,
+			`SELECT id, created_at, last_read_at FROM documents WHERE last_read_at IS NOT NULL`,
+		);
+		expect(withReads.length).toBeGreaterThan(0);
+		const readBeforeCreated = withReads.filter(
+			(d) => new Date(d.created_at).getTime() > new Date(d.last_read_at).getTime(),
+		);
+		expect(readBeforeCreated).toHaveLength(0);
 	});
 
 	test("sessions: terminal history plus live ones, all resolving", async ({ db }) => {

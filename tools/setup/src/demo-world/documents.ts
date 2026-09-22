@@ -248,7 +248,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 			body: "Trial extensions round UP to whole days in UTC. A trial that expires mid-day never expires mid-day after extension — users experience days, not timestamps.",
 			status: "active",
 			updatedBy: BUILDER_ID,
-			createdAt: clock.daysAgo(29),
+			createdAt: clock.daysAgo(135),
 			updatedAt: clock.daysAgo(29),
 		},
 		// ── Practice scope (L3): patterns the team lives by ─────────────────
@@ -275,7 +275,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 			body: "Changes under ~200 lines get reviewed the same day. Larger changes get split. Review latency is the biggest hidden tax on a small team — the diff itself is rarely the problem.",
 			status: "active",
 			updatedBy: BUILDER_ID,
-			createdAt: clock.daysAgo(31),
+			createdAt: clock.daysAgo(115),
 			updatedAt: clock.daysAgo(31),
 		},
 		{
@@ -288,7 +288,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 			body: "The trial bet worked because the funnel was measured BEFORE the flow shipped — the done-condition was provable on day one. Search almost failed this; the eval loop got built mid-bet and cost a week.",
 			status: "active",
 			updatedBy: PM_ID,
-			createdAt: clock.daysAgo(14),
+			createdAt: clock.daysAgo(22),
 			updatedAt: clock.daysAgo(13),
 		},
 		{
@@ -327,7 +327,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 			body: "1. DKIM/SPF verified on the sending domain.\n2. Plain-text part present.\n3. One link max per email.\n4. Suppression list checked against the send list.\n\nSkipped step 3 once — the welcome email landed in promotions for a week.",
 			status: "active",
 			updatedBy: GROWTH_ID,
-			createdAt: clock.daysAgo(24),
+			createdAt: clock.daysAgo(140),
 			updatedAt: clock.daysAgo(24),
 		},
 		{
@@ -340,7 +340,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 			body: "Early A/B results: subject lines that reference what the user did ('your data connected') out-open generic ones ('welcome to Pulse') by ~2x. Sample is still small — keep provisional.",
 			status: "proposed",
 			updatedBy: GROWTH_ID,
-			createdAt: clock.daysAgo(3),
+			createdAt: clock.daysAgo(18),
 			updatedAt: clock.hoursAgo(2),
 		},
 		{
@@ -353,7 +353,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 			body: "Churned accounts show the same three signals in their final two weeks:\n\n1. Dashboard usage drops below half its norm.\n2. Exports stop entirely.\n3. The admin stops inviting teammates.\n\nAll three live in the event stream. Validated against last quarter's churns — 9 of 11 showed at least two signals.",
 			status: "active",
 			updatedBy: MAYA_ID,
-			createdAt: clock.daysAgo(10),
+			createdAt: clock.daysAgo(26),
 			updatedAt: clock.daysAgo(6),
 		},
 		{
@@ -392,7 +392,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 			body: "Hypothesis: meaningful Pulse usage happens away from a desk. Reality: mobile is 6% of sessions, mostly read-only, and the responsive app covers it.\n\n**What we keep:** the competitor teardown (they churn mobile users too), the usage numbers, and the discipline of research-before-prototype.\n\n**Cost of the lesson:** three agent-weeks. Worth it once, never again for this question.",
 			status: "active",
 			updatedBy: PM_ID,
-			createdAt: clock.daysAgo(8),
+			createdAt: clock.daysAgo(28),
 			updatedAt: clock.daysAgo(8),
 		},
 		{
@@ -457,7 +457,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 			body: "Rule of three: when the same question arrives three times, it becomes a document and (if it is a product problem) a candidate bet. Pricing confusion hit the rule — the pricing bet exists because of it.",
 			status: "proposed",
 			updatedBy: MAYA_ID,
-			createdAt: clock.daysAgo(4),
+			createdAt: clock.daysAgo(20),
 			updatedAt: clock.daysAgo(4),
 		},
 		{
@@ -683,7 +683,7 @@ export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<
 			body: "When an alert fires: 1) is it the database or the app, 2) when did it start, 3) what changed last, 4) who is affected. Answer those four before touching anything.",
 			status: "active",
 			updatedBy: MAYA_ID,
-			createdAt: clock.daysAgo(15),
+			createdAt: clock.daysAgo(145),
 			updatedAt: clock.daysAgo(15),
 		},
 		// ── Produced documents (formerly artifacts) ───────────────────

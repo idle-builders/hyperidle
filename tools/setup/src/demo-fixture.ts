@@ -136,7 +136,9 @@ async function upsertDemoRunConfig(
 				parentKind: "agent",
 				parentId: agentUserId,
 				updatedBy: "demo-seed",
-				createdAt: ts,
+				// Backdated well past the (2-6 day) lastReadAt window below — an
+				// identity file can't have been read before it existed.
+				createdAt: new Date(now.getTime() - (10 + (seed % 20)) * 86_400_000).toISOString(),
 				updatedAt: ts,
 				readCount: 1 + (seed % 4),
 				lastReadAt: new Date(now.getTime() - (2 + (seed % 5)) * 86_400_000).toISOString(),
