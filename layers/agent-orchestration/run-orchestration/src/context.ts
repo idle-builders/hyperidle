@@ -18,10 +18,10 @@ import type { Manifest, ManifestEntry } from "./manifest-types.js";
  * is DELETED, not seam-routed — the entity content (task/bet/agent/team or
  * routine/agent/team) + the ranked+budgeted knowledge bundle are baked at
  * EMIT time by each per-kind resolver (`@hyperidle/work`'s
- * `task-run-resolver.ts`, `@hyperidle/knowledge`'s
+ * `task-run-resolver.ts`, `@hyperidle/document`'s
  * `knowledge-action-resolver.ts`, `@hyperidle/routine`'s
  * `resolveRoutineRunRequest`)
- * calling the shared `@hyperidle/knowledge`'s `assembleSessionKnowledge`
+ * calling the shared `@hyperidle/document`'s `assembleSessionDocuments`
  * (Wave A) — the `requireRunnableAgent` precedent. `assembleAgentContext`
  * below consumes the baked `contextBundle` carried on the session request and
  * writes `context/session.toon` + the nested `knowledge/**` tree — ZERO db
@@ -244,7 +244,7 @@ const PERSONA_TOOLS_TOKEN_BUDGET = 4000;
  * @lore AU21 §9 Increment 12 (Decision H3), Wave C: relocated from
  * `contextPorts.knowledge.countTokens` (`run-orchestration-composition.ts`) —
  * that binding was ALWAYS this same self-contained byte-length approximation,
- * never a real `@hyperidle/knowledge` call (verified from source), so
+ * never a real `@hyperidle/document` call (verified from source), so
  * inlining it here drops zero behavior and removes the last reason this file
  * needed a `knowledge` port at all.
  */

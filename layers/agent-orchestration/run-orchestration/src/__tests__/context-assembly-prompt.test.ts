@@ -74,7 +74,7 @@ describe("assemblePrompt", () => {
 		const result = await assembler.assemblePrompt({
 			systemPromptText: "You are a builder agent.",
 			context: sessionContext(),
-			tools: [{ name: "write_memory", description: "Persist a knowledge item" }],
+			tools: [{ name: "write_memory", description: "Persist a document" }],
 			sandboxPath: "/tmp/unused",
 		});
 

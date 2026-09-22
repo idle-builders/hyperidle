@@ -94,7 +94,7 @@ export { transitionRun } from "./transition-run.js";
  * `startRuntime` (already public) is the only production caller and it
  * calls `createWritebackProcessor().subscribe(...)` internally as one line.
  * A true end-to-end test needs `process`/`subscribe` directly, wired to the
- * REAL knowledge repository (`@hyperidle/knowledge`) — which this package
+ * REAL document repository (`@hyperidle/document`) — which this package
  * may not import (the agent-orchestration -> core-api edge AU26 B1a
  * forbids). That test can only live where BOTH are legal to import
  * (core-api's own test directory), so the factory itself must be public.
