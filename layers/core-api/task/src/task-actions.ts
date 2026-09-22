@@ -183,9 +183,7 @@ function candidateTask(prev: Task | null, input: EditTaskInput, resolvedState: s
 		...(input.dependencies !== undefined
 			? { dependencies: input.dependencies ? JSON.stringify(input.dependencies) : null }
 			: {}),
-		...(input.sourceDocumentId !== undefined
-			? { sourceDocumentId: input.sourceDocumentId }
-			: {}),
+		...(input.sourceDocumentId !== undefined ? { sourceDocumentId: input.sourceDocumentId } : {}),
 		...(input.tokensActualJson !== undefined ? { tokensActualJson: input.tokensActualJson } : {}),
 		state: resolvedState as DomainTask["state"],
 	};
