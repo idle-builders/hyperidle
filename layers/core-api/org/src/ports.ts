@@ -42,7 +42,7 @@ export interface OrgUserDirectory {
 	): Promise<void>;
 	/**
 	 * Give a newly created agent its identity document. The identity is an
-	 * `agent_file` knowledge document bound to the agent, not a run-config field
+	 * `agent_file` document bound to the agent, not a run-config field
 	 * — run config is what harness to use, identity is who the agent is.
 	 */
 	upsertAgentIdentity(
