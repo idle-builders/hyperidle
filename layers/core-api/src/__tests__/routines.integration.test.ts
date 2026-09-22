@@ -228,16 +228,13 @@ describe("Routine Endpoints (E6)", () => {
 		});
 
 		// G4 AC7 (via API): manual trigger for a builtin invokes the handler
-		test("invokes builtin handler for builtin:knowledge-decay (no session)", async ({
-			db,
-			app,
-		}) => {
+		test("invokes builtin handler for builtin:document-decay (no session)", async ({ db, app }) => {
 			await seedBase(db);
 			// Seed builtin routine directly (bypass G4 seed helper in this test file).
 			// AA1: name, teamId, state are now required columns.
 			await db.insert(routines).values({
-				id: "builtin:knowledge-decay",
-				name: "Knowledge decay",
+				id: "builtin:document-decay",
+				name: "Document decay",
 				state: "active",
 				ownerAgentId: "agent-1",
 				triggerType: "calendar",
@@ -247,14 +244,14 @@ describe("Routine Endpoints (E6)", () => {
 
 			const sessionsBefore = await db.select().from(sessions);
 
-			const res = await app.request("/api/routines/builtin:knowledge-decay/trigger", {
+			const res = await app.request("/api/routines/builtin:document-decay/trigger", {
 				method: "POST",
 				headers: authHeaders(),
 			});
 			expect(res.status).toBe(200);
 
 			const body = (await res.json()) as Record<string, unknown>;
-			expect(body.routineId).toBe("builtin:knowledge-decay");
+			expect(body.routineId).toBe("builtin:document-decay");
 			expect(body.fired).toBe(true);
 
 			// Builtin manual trigger must NOT create a session
@@ -264,7 +261,7 @@ describe("Routine Endpoints (E6)", () => {
 			const [updated] = await db
 				.select()
 				.from(routines)
-				.where(eq(routines.id, "builtin:knowledge-decay"));
+				.where(eq(routines.id, "builtin:document-decay"));
 			expect(updated?.lastRunAt).toBeTruthy();
 		});
 	});

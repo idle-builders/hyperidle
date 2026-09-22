@@ -22,8 +22,8 @@ Five end-to-end flows, verified against live code. Each names the real mechanism
 10. CPO opens thread, reads summary, approves
 11. Verdict recorded → task state → "done"
 12. post-task-retro plugin routine fires on task_state_changed → done
-    (plugins/knowledge-management/plugin.json)
-13. Knowledge Librarian writes retro; learnings route to the
+    (plugins/document-management/plugin.json)
+13. Document Librarian writes retro; learnings route to the
     facilitator and the assistant's thread
 ```
 

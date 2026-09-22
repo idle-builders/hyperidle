@@ -2,7 +2,7 @@
 
 <!-- @source framework/db/src/schema.ts -->
 <!-- @source layers/core-api/routine/src/routine-scheduler.ts -->
-<!-- @source plugins/knowledge-management/plugin.json -->
+<!-- @source plugins/document-management/plugin.json -->
 
 Routines attach recurring work to a team: "retro every time a task closes," "weekly knowledge sweep." They live in the `routines` table (`framework/db/src/schema.ts`) and fire from the in-process scheduler (`layers/core-api/routine/src/routine-scheduler.ts`). **All routines are generic** — plugin-provided or user-created. There are no built-in routines wired into core; the built-in routine mechanism (`fireBuiltinRoutine`, `provisionTeamRoutines`, `registerBuiltinRoutineHandlers`) was deleted by BA9d.
 
@@ -24,7 +24,7 @@ A routine has a NOT-NULL owner agent (`schema.ts`); it has no team of its own �
 
 ## 3. Silent runs
 
-A routine can run memory-only: `routines.silent` (`schema.ts`, policy in `layers/core-api/notifications/src/silence-policy.ts`) suppresses thread/item output so an agent stays current on context without producing anything for a human to look at. The knowledge-decay routine runs silent — a weekly sweep would otherwise flood the surface. Knowledge-promotion deliberately does **not** run silent: promotions emit `knowledge_updated` events that triage consumers need.
+A routine can run memory-only: `routines.silent` (`schema.ts`, policy in `layers/core-api/notifications/src/silence-policy.ts`) suppresses thread/item output so an agent stays current on context without producing anything for a human to look at. The document-decay routine runs silent — a weekly sweep would otherwise flood the surface. Document-triage deliberately does **not** run silent: promotions emit `knowledge_updated` events that triage consumers need.
 
 ## 4. Human review is per-run and opt-in
 
@@ -36,12 +36,12 @@ Routines surface in the **Work view** (`layers/core-ui/src/pages/WorkRoutine.tsx
 
 ## 5. Plugin-provided routines
 
-The knowledge-management plugin (`plugins/knowledge-management/plugin.json`) ships three routines. These are generic plugin routines seeded on plugin install — not special-cased in the scheduler:
+The document-management plugin (`plugins/document-management/plugin.json`) ships three routines. These are generic plugin routines seeded on plugin install — not special-cased in the scheduler:
 
 | Routine | Agent | Trigger | humanReview | silent |
 |---|---|---|---|---|
-| `knowledge-decay` | librarian | cron `0 3 * * 0` (Sundays 03:00 UTC) | no | **yes** |
-| `knowledge-promotion` | librarian | cron `0 4 * * 0` (Sundays 04:00 UTC) | no | no |
+| `document-decay` | librarian | cron `0 3 * * 0` (Sundays 03:00 UTC) | no | **yes** |
+| `document-triage` | librarian | cron `0 4 * * 0` (Sundays 04:00 UTC) | no | no |
 | `post-task-retro` | librarian | event `task_state_changed` → `done` | no | no |
 
 These IDs are namespaced by the plugin install mechanism; a `builtin:` prefix still appears on seeded rows in test fixtures but is not meaningful in the plugin system.
@@ -54,13 +54,13 @@ Every closed task produces learning. The process layer's job is to capture it an
 
 ### 6.1 Task retro — every completion
 
-When a task transitions to `done`, the `post-task-retro` routine from the knowledge-management plugin fires on the `task_state_changed` event (filtered by `transitionTo: "done"`). The Knowledge Librarian agent reads the completed task's notes and work, identifies one or two concrete learnings, and creates or updates knowledge items. Because the routine is a generic event-triggered plugin routine, it fires for every team that has the knowledge-management plugin installed. Teams without the plugin simply have no retro routine unless they create one manually.
+When a task transitions to `done`, the `post-task-retro` routine from the document-management plugin fires on the `task_state_changed` event (filtered by `transitionTo: "done"`). The Document Librarian agent reads the completed task's notes and work, identifies one or two concrete learnings, and creates or updates knowledge items. Because the routine is a generic event-triggered plugin routine, it fires for every team that has the document-management plugin installed. Teams without the plugin simply have no retro routine unless they create one manually.
 
 This is the bottom-up signal path. Without it, the team learns in its own memory but the practice and the founder don't, and the next task repeats the same mistakes.
 
 ### 6.2 Practice contribution loop — continuous, agent-driven
 
-The biggest learning channel isn't retros — it's the continuous contribution every agent makes to its practice. There is no meeting: agents capture findings into their practice's knowledge folder as they work, each landing as a `proposed` knowledge item. `knowledge-promotion` (librarian-owned, weekly) promotes the items that meet the repetition threshold to `active`; `knowledge-decay` sets `stale` on what has gone unused. See [Facilitators](../knowledge-architecture/facilitators.md).
+The biggest learning channel isn't retros — it's the continuous contribution every agent makes to its practice. There is no meeting: agents capture findings into their practice's knowledge folder as they work, each landing as a `proposed` knowledge item. `document-triage` (librarian-owned, weekly) promotes the items that meet the repetition threshold to `active`; `document-decay` sets `stale` on what has gone unused. See [Facilitators](../knowledge-architecture/facilitators.md).
 
 The loop closes through context assembly: the next task session's sandbox is assembled fresh from the canonical `knowledge_items` store, so anything the practice decided is simply *there* — nested under `knowledge/` at the team's and the practice's own position in the tree — with no broadcast notification needed. See [knowledge movement](../knowledge-architecture/the-knowledge-fabric-how-knowledge-moves.md). Every team member is also a practice member, so the team stays current on its practice by construction.
 

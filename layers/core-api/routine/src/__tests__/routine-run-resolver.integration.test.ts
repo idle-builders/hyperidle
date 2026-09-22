@@ -386,8 +386,8 @@ describe("resolveRoutineRunRequest — contextBundle baking (Increment 12 Wave B
 				return [
 					{
 						id: "skill-rrun-ctx-noteam",
-						title: "knowledge-decay",
-						body: "# Knowledge decay sweep",
+						title: "document-decay",
+						body: "# Document decay sweep",
 						slot: "skill",
 					} as never,
 				];

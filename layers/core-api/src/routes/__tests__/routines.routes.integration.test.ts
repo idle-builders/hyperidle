@@ -22,19 +22,19 @@ import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 import { fireStoredRoutine } from "../../__tests__/dispatch-test-helpers.js";
 
-/** Seed a built-in routine (knowledge-decay) owned by agent-1. */
+/** Seed a built-in routine (document-decay) owned by agent-1. */
 async function seedBuiltinRoutine(db: HyperIdleDb): Promise<string> {
 	await seedRoutine(db);
 	await db.insert(routines).values({
-		id: "builtin:knowledge-decay",
-		name: "Knowledge decay",
+		id: "builtin:document-decay",
+		name: "Document decay",
 		state: "active",
 		ownerAgentId: "agent-1",
 		triggerType: "calendar",
 		triggerConfig: JSON.stringify({ cron: "0 2 * * *" }),
 		active: true,
 	});
-	return "builtin:knowledge-decay";
+	return "builtin:document-decay";
 }
 
 const TEST_API_KEY = "test-key-routines";
@@ -277,7 +277,7 @@ describe("routines routes", () => {
 				db,
 				eventBus,
 				agentOrchestration,
-				"builtin:knowledge-decay",
+				"builtin:document-decay",
 			);
 			expect(result.fired).toBe(true);
 
@@ -315,7 +315,7 @@ describe("routines routes", () => {
 				db,
 				eventBus,
 				agentOrchestration,
-				"builtin:knowledge-decay",
+				"builtin:document-decay",
 			);
 			expect(result.fired).toBe(false);
 

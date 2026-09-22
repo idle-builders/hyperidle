@@ -1,30 +1,30 @@
 {
 	"$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
-	"name": "knowledge-management",
+	"name": "document-management",
 	"version": "1.0.0",
-	"description": "Knowledge Librarian agent with decay, document triage, and post-task retro routines.",
+	"description": "Document Librarian agent with decay, document triage, and post-task retro routines.",
 	"extensions": {
 		"io.hyperidle": {
 			"contributions": [],
 			"agents": [
 				{
 					"id": "librarian",
-					"name": "Knowledge Librarian",
+					"name": "Document Librarian",
 					"role": "assistant",
 					"agentCategory": "individual"
 				}
 			],
 			"routines": [
 				{
-					"id": "knowledge-decay",
-					"name": "Knowledge Decay Sweep",
+					"id": "document-decay",
+					"name": "Document Decay Sweep",
 					"agentId": "librarian",
 					"triggerType": "calendar",
 					"triggerConfig": "{\"cron\":\"0 3 * * 0\"}",
 					"prompt": "Run the decay sweep: call search_documents with status='active', slot='ordinary', inTree=true, unusedSince set to 90 days ago (ISO timestamp), sort='least_used', limit=50. For each document returned, call edit_document with its id, status='archived', and its version. This archives documents nobody has used in 90+ days so the team's documents stay current and focused."
 				},
 				{
-					"id": "knowledge-promotion",
+					"id": "document-triage",
 					"name": "Document Triage",
 					"agentId": "librarian",
 					"triggerType": "calendar",

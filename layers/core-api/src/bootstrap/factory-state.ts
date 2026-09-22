@@ -7,7 +7,7 @@
  *
  * @lore AU44 AU20-fd: `framework/factory-defaults` dissolved into @hyperidle/org.
  * @lore BA9d: The five seeded facilitator agents are removed. They are now provided
- * by the knowledge-management plugin (wave 2). Their DB rows on existing installs
+ * by the document-management plugin (wave 2). Their DB rows on existing installs
  * are migrated to agentCategory="individual" by migration 0065. The
  * COMMUNITY_DISPLAY_NAMES and FACILITATORS constants are gone; the plugin owns them.
  * The "App-managed" lock (UI label for category="strategy") is deleted with the category.

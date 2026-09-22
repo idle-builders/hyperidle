@@ -6,7 +6,7 @@ of what it added.
 Plugins are how the product gains opinions it does not ship with. A fresh
 install is one System Agent with a bare identity, one Assistant per human, and
 nothing else — no roster, no roles, no personas. A Builder, a Designer, a
-Knowledge Librarian all arrive because somebody installed a plugin.
+Document Librarian all arrive because somebody installed a plugin.
 
 ## What a plugin can contribute
 
@@ -105,7 +105,7 @@ app move".
 `plugins/` in the repository holds plugins that ship with the source but are
 **not** installed by default:
 
-- `knowledge-management` — the Knowledge Librarian agent, decay/promotion/retro
+- `document-management` — the Document Librarian agent, decay/triage/retro
   routines, and three skills.
 - `role-personas` — Builder, Designer, Product Manager, QA Engineer, Growth, Ops
   and Facilitator, each with its identity. This is the roster HyperIdle used to

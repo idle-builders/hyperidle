@@ -50,8 +50,8 @@ async function seedFounder(db: HyperIdleDb): Promise<void> {
 	]);
 }
 
-const PLUGIN_ROOT = resolve("plugins/knowledge-management");
-const PLUGIN_ID = "knowledge-management";
+const PLUGIN_ROOT = resolve("plugins/document-management");
+const PLUGIN_ID = "document-management";
 // One skill dirName from the plugin's skills/ directory.
 const SKILL_DIR = "post-task-retro";
 

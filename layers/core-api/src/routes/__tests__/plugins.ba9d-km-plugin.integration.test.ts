@@ -1,5 +1,5 @@
 /**
- * BA9d — knowledge-management plugin installation integration tests.
+ * BA9d — document-management plugin installation integration tests.
  *
  * Proves AC4: installing the plugin materializes the librarian agent
  * (users row) and three routine rows. A second factory install is idempotent.
@@ -32,8 +32,8 @@ import { afterEach, describe, expect } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
 const API_KEY = "test-ba9d-km-plugin";
-const PLUGIN_ROOT = resolve("plugins/knowledge-management");
-const PLUGIN_ID = "knowledge-management";
+const PLUGIN_ROOT = resolve("plugins/document-management");
+const PLUGIN_ID = "document-management";
 const SKILL_DIR = "post-task-retro";
 
 interface ActionEnvelope<T> {
@@ -118,15 +118,15 @@ async function installKmPluginForTeam(
 	});
 }
 
-describe("knowledge-management plugin install — AC4: global agent + routines", () => {
-	test("install returns 201 with plugin name knowledge-management", async ({ db, app }) => {
+describe("document-management plugin install — AC4: global agent + routines", () => {
+	test("install returns 201 with plugin name document-management", async ({ db, app }) => {
 		const res = await installKmPlugin(db, app);
 		expect(res.status).toBe(201);
 		const body = await res.json();
 		expect(body.plugin.id).toBe(PLUGIN_ID);
 	});
 
-	test("install creates the Knowledge Librarian agent (users row, no teamId)", async ({
+	test("install creates the Document Librarian agent (users row, no teamId)", async ({
 		db,
 		app,
 	}) => {
@@ -136,7 +136,7 @@ describe("knowledge-management plugin install — AC4: global agent + routines",
 		const rows = await db.select().from(users).where(eq(users.id, agentDbId));
 		expect(rows).toHaveLength(1);
 		const agent = rows[0]!;
-		expect(agent.name).toBe("Knowledge Librarian");
+		expect(agent.name).toBe("Document Librarian");
 		expect(agent.kind).toBe("ai");
 		expect(agent.teamId).toBeNull(); // factory-scoped — global, no team
 		expect(agent.status).toBe("active");
@@ -148,8 +148,8 @@ describe("knowledge-management plugin install — AC4: global agent + routines",
 	}) => {
 		await installKmPlugin(db, app);
 
-		const decayId = routineItemId(PLUGIN_ID, "knowledge-decay", "factory", null);
-		const promotionId = routineItemId(PLUGIN_ID, "knowledge-promotion", "factory", null);
+		const decayId = routineItemId(PLUGIN_ID, "document-decay", "factory", null);
+		const promotionId = routineItemId(PLUGIN_ID, "document-triage", "factory", null);
 		const retroId = routineItemId(PLUGIN_ID, "post-task-retro", "factory", null);
 
 		const decayRows = await db.select().from(routines).where(eq(routines.id, decayId));
@@ -164,8 +164,8 @@ describe("knowledge-management plugin install — AC4: global agent + routines",
 	test("decay and promotion routines are calendar-triggered", async ({ db, app }) => {
 		await installKmPlugin(db, app);
 
-		const decayId = routineItemId(PLUGIN_ID, "knowledge-decay", "factory", null);
-		const promotionId = routineItemId(PLUGIN_ID, "knowledge-promotion", "factory", null);
+		const decayId = routineItemId(PLUGIN_ID, "document-decay", "factory", null);
+		const promotionId = routineItemId(PLUGIN_ID, "document-triage", "factory", null);
 
 		const [decay] = await db.select().from(routines).where(eq(routines.id, decayId));
 		const [promotion] = await db.select().from(routines).where(eq(routines.id, promotionId));
@@ -199,8 +199,8 @@ describe("knowledge-management plugin install — AC4: global agent + routines",
 		await installKmPlugin(db, app);
 
 		const routineIds = [
-			routineItemId(PLUGIN_ID, "knowledge-decay", "factory", null),
-			routineItemId(PLUGIN_ID, "knowledge-promotion", "factory", null),
+			routineItemId(PLUGIN_ID, "document-decay", "factory", null),
+			routineItemId(PLUGIN_ID, "document-triage", "factory", null),
 			routineItemId(PLUGIN_ID, "post-task-retro", "factory", null),
 		];
 		const agentId = agentItemId(PLUGIN_ID, "librarian", "factory", null);
@@ -221,7 +221,7 @@ describe("knowledge-management plugin install — AC4: global agent + routines",
 	});
 });
 
-describe("knowledge-management plugin — team-scope isolation", () => {
+describe("document-management plugin — team-scope isolation", () => {
 	test("two teams installing at team scope get independent agent rows", async ({ db, app }) => {
 		await db.insert(teams).values([
 			{
@@ -280,8 +280,8 @@ describe("knowledge-management plugin — team-scope isolation", () => {
 		await installKmPluginForTeam(db, app, "team-gamma");
 		await installKmPluginForTeam(db, app, "team-delta");
 
-		const gammaDecayId = routineItemId(PLUGIN_ID, "knowledge-decay", "team", "team-gamma");
-		const deltaDecayId = routineItemId(PLUGIN_ID, "knowledge-decay", "team", "team-delta");
+		const gammaDecayId = routineItemId(PLUGIN_ID, "document-decay", "team", "team-gamma");
+		const deltaDecayId = routineItemId(PLUGIN_ID, "document-decay", "team", "team-delta");
 
 		// Ids must differ
 		expect(gammaDecayId).not.toBe(deltaDecayId);

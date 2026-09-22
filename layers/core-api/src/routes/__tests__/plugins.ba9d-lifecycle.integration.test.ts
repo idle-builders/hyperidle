@@ -12,8 +12,8 @@ import { afterEach, describe, expect } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
 const API_KEY = "test-ba9d-lifecycle";
-const PLUGIN_ROOT = resolve("plugins/knowledge-management");
-const PLUGIN_ID = "knowledge-management";
+const PLUGIN_ROOT = resolve("plugins/document-management");
+const PLUGIN_ID = "document-management";
 
 function auth(): Record<string, string> {
 	return { "X-API-Key": API_KEY };

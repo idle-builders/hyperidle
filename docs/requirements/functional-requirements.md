@@ -105,7 +105,7 @@ Depth: [process-layer/handoff-and-lifecycle-propagation.md](../process-layer/han
 
 Plugin routines: [process-layer/routines-and-retros.md](../process-layer/routines-and-retros.md).
 
-**F-8.1** When a task transitions to `done`, the `post-task-retro` routine from the knowledge-management plugin fires. The Knowledge Librarian reads the completed task's notes, identifies concrete learnings, and creates or updates knowledge items. This routine is plugin-provided — teams without the knowledge-management plugin have no automatic retro unless they create one manually.
+**F-8.1** When a task transitions to `done`, the `post-task-retro` routine from the document-management plugin fires. The Document Librarian reads the completed task's notes, identifies concrete learnings, and creates or updates knowledge items. This routine is plugin-provided — teams without the document-management plugin have no automatic retro unless they create one manually.
 
 **F-8.3** Periodic portfolio retros are not a built-in mechanism. A team or founder can create a calendar-triggered routine on any agent to review cross-task patterns at whatever cadence they choose.
 

@@ -292,7 +292,7 @@ export function skillItemId(
  * constant), while a team-scoped install produces ONE row PER team (different
  * teamId → different hash → different row). This is the entire mechanism that
  * guarantees "global upkeep runs once, not once per team" for factory-scoped
- * plugins like knowledge-management: the scheduler sees one routine row and
+ * plugins like document-management: the scheduler sees one routine row and
  * fires it once. A team-scoped plugin gets one routine per team, which is the
  * correct per-team behaviour. The same id derivation must be used wherever
  * these rows are looked up — the test for two-team installs guards this.

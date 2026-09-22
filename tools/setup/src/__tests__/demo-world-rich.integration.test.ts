@@ -254,7 +254,7 @@ describe("AX1: lived-in demo world", () => {
 		await seedWorld(db);
 
 		// @lore BA9d wave 3: three ritual routines removed from demo world
-		// (knowledge-decay, document-triage, post-task-retro) — their associated
+		// (document-decay, document-triage, post-task-retro) — their associated
 		// sessions are gone. Actual count is 34 (26 task + 2 live + 6 assistant turns).
 		expect(await count(db, "sessions")).toBeGreaterThanOrEqual(30);
 		expect(await count(db, "sessions", "WHERE state = 'active'")).toBeGreaterThanOrEqual(2);
@@ -280,7 +280,7 @@ describe("AX1: lived-in demo world", () => {
 
 	// @lore BA9d: builtin routine mechanism deleted (provisionTeamRoutines removed).
 	// Only demo-routine-daily_digest remains. The three ritual routines
-	// (knowledge-decay, document-triage, post-task-retro) were also removed
+	// (document-decay, document-triage, post-task-retro) were also removed
 	// from demo world per coordinator instruction. No builtin:* rows exist.
 	test("routines: daily_digest routine with run history (BA9d: no builtin:* rows)", async ({
 		db,

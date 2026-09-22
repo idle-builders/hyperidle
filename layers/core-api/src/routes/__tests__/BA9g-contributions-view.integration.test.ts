@@ -1,7 +1,7 @@
 /**
  * A plugin's contributions view lists what it actually contributed.
  *
- * The shipped `knowledge-management` plugin brings one agent, three routines
+ * The shipped `document-management` plugin brings one agent, three routines
  * and three skills. Its contributions view rendered COMPLETELY EMPTY, because
  * the view read `plugin_configuration_defaults` and none of those things is a
  * row in that table — the plugin declares `"contributions": []` in its manifest,
@@ -20,8 +20,8 @@ import { afterEach, describe, expect } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
 const API_KEY = "test-ba9g-contributions";
-const PLUGIN_ROOT = resolve("plugins/knowledge-management");
-const PLUGIN_ID = "knowledge-management";
+const PLUGIN_ROOT = resolve("plugins/document-management");
+const PLUGIN_ID = "document-management";
 
 function auth(): Record<string, string> {
 	return { "X-API-Key": API_KEY };
@@ -95,7 +95,7 @@ describe("a plugin's contributions view lists what it contributed", () => {
 		const byKind = new Map<string, number>();
 		for (const c of contributions) byKind.set(c.kind, (byKind.get(c.kind) ?? 0) + 1);
 
-		// One agent (the Knowledge Librarian), three routines, and documents for
+		// One agent (the Document Librarian), three routines, and documents for
 		// the three skills plus each routine's prompt document.
 		expect(byKind.get("agent"), "its agent must appear").toBe(1);
 		expect(byKind.get("routine"), "its three routines must appear").toBe(3);
@@ -121,7 +121,7 @@ describe("a plugin's contributions view lists what it contributed", () => {
 			expect(c.label, `${c.kind} ${c.entityId} must have a label`).toBeTruthy();
 		}
 		const labels = contributions.map((c) => c.label);
-		expect(labels).toContain("Knowledge Librarian");
+		expect(labels).toContain("Document Librarian");
 	});
 
 	test("nothing is detached until a person edits it", async ({ db, app }) => {

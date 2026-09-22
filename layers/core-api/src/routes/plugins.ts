@@ -98,7 +98,7 @@ type EditDocumentRun = (
  * One thing a plugin contributed, as the settings view shows it.
  *
  * @lore BA9g: this used to be a `plugin_configuration_defaults` row and nothing
- * else, so the shipped `knowledge-management` plugin — one agent, three
+ * else, so the shipped `document-management` plugin — one agent, three
  * routines, three skills, and `"contributions": []` in its manifest — rendered
  * an entirely empty view. The registry knows the agents, routines and documents
  * too, so `kind` widened past `ConfigurationKind` and `entityId` names the row.

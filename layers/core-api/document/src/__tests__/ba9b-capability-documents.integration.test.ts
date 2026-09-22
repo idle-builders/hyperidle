@@ -243,15 +243,15 @@ describe("a routine prompt in reach appears in neither fetch", () => {
 describe("capability items for a team-less agent", () => {
 	test("a factory-scoped skill reaches an agent that belongs to no team", async ({ db }) => {
 		const skillId = await insertDocument(db, {
-			title: "knowledge-decay",
-			body: "# Knowledge decay sweep",
+			title: "document-decay",
+			body: "# Document decay sweep",
 			role: "skill",
 			scopeKind: "factory",
 		});
 
 		const assembled = await assembleSessionDocuments(db, {
 			agentRole: "assistant",
-			taskDescription: "Run the knowledge decay sweep",
+			taskDescription: "Run the document decay sweep",
 			agentId: "agent-teamless",
 		});
 
@@ -276,7 +276,7 @@ describe("capability items for a team-less agent", () => {
 
 		const assembled = await assembleSessionDocuments(db, {
 			agentRole: "assistant",
-			taskDescription: "Run the knowledge decay sweep",
+			taskDescription: "Run the document decay sweep",
 			agentId: "agent-teamless",
 		});
 

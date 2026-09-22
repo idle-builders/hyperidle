@@ -38,7 +38,7 @@ Top-down means direction, never task assignment. Tasks emerge from the team.
 ### 2.2 Bottom-up: learnings, data, surfaced insights
 
 - **Practice knowledge** is the primary channel: agents capture observations into their practice's own folder in the tree; facilitators surface the highest-attention items via the Knowledge view. See [../knowledge-architecture/facilitators.md](../knowledge-architecture/facilitators.md).
-- **Task retros** record what was learned and create a knowledge item. The retro is a **plugin skill** (`plugins/knowledge-management/skills/post-task-retro/`), not core machinery — it fires when a task reaches `done`. See [routines-and-retros.md](routines-and-retros.md).
+- **Task retros** record what was learned and create a knowledge item. The retro is a **plugin skill** (`plugins/document-management/skills/post-task-retro/`), not core machinery — it fires when a task reaches `done`. See [routines-and-retros.md](routines-and-retros.md).
 - **Agent-initiated chat** — any agent that notices something the founders should know can post a thread directly. See [../human-interface-layer/thread-primitive.md](../human-interface-layer/thread-primitive.md).
 - **Revising the goal** — when the team learns a task's premise is wrong, it edits the goal directly; the audit trail carries the change and its reasoning.
 

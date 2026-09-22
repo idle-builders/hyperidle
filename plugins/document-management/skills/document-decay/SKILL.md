@@ -1,4 +1,4 @@
-# Knowledge Decay Sweep
+# Document Decay Sweep
 
 Use this skill when you need to review the team's documents for stale or unused ones. This is the weekly upkeep routine that keeps the document tree relevant.
 
