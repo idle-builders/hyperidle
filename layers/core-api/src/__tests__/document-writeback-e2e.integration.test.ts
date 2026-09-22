@@ -29,13 +29,12 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { listChanges } from "@hyperidle/changes";
-import { documents, sessions, teams, users } from "@hyperidle/db";
-import { create } from "@hyperidle/document";
+import { documents, type HyperIdleDb, sessions, teams, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import { createWritebackProcessor, startWatcher } from "@hyperidle/run-orchestration";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
-import { realDocumentWritebackPort } from "./run-orchestration-test-runtime.js";
+import { realDocumentWritebackPort, seedDocument } from "./run-orchestration-test-runtime.js";
 
 const NOW = "2026-09-21T00:00:00.000Z";
 const TEAM_ID = "team-dwe";
@@ -53,7 +52,7 @@ function makeSandbox(): { readonly root: string; readonly manifestPath: string }
 }
 
 /** Seeds the team + agent every test writes back as. */
-async function seedAgent(db: Parameters<typeof create>[0]): Promise<void> {
+async function seedAgent(db: HyperIdleDb): Promise<void> {
 	await db.insert(teams).values({ id: TEAM_ID, name: "T", phase: "build", createdAt: NOW });
 	await db.insert(users).values({
 		id: AGENT_ID,
@@ -77,7 +76,7 @@ describe("document writeback end-to-end: real files, real sandbox, real database
 		const { root, manifestPath } = makeSandbox();
 		const document = realDocumentWritebackPort(db, new EventBus());
 
-		const created = await create(db, {
+		const created = await seedDocument(db, {
 			title: "racing note",
 			body: "Original body.",
 			format: "markdown",
@@ -141,7 +140,7 @@ describe("document writeback end-to-end: real files, real sandbox, real database
 		const { root, manifestPath } = makeSandbox();
 		const document = realDocumentWritebackPort(db, new EventBus());
 
-		const created = await create(db, {
+		const created = await seedDocument(db, {
 			title: "fresh note",
 			body: "Original body.",
 			format: "markdown",
@@ -190,7 +189,7 @@ describe("document writeback end-to-end: real files, real sandbox, real database
 		// The wrapping directory is TEAM-scoped, seeded through the real
 		// repository — a created item must inherit the parent's real scope,
 		// not a hardcoded "factory" fallback.
-		const teamFolder = await create(db, {
+		const teamFolder = await seedDocument(db, {
 			title: "pricing",
 			body: "",
 			format: "markdown",

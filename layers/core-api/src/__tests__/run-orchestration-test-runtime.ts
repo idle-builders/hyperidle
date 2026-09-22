@@ -1,9 +1,10 @@
+import { randomUUID } from "node:crypto";
 import {
 	buildRunOrchestrationComposition,
 	type ProvisionSessionDeps,
 	type RunOrchestrationHarnessRuntimeAdapter,
 } from "@hyperidle/agent-orchestration";
-import type { HyperIdleDb } from "@hyperidle/db";
+import { type DocumentRow as DbDocumentRow, documents, type HyperIdleDb } from "@hyperidle/db";
 import type { ActionResult, DocumentRow, DocumentView } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import type { WorkerRegisterMessage } from "@hyperidle/harness-protocol";
@@ -17,7 +18,54 @@ import {
 } from "@hyperidle/harness-registry";
 import { returnStatusTool } from "@hyperidle/harness-registry/mcp";
 import type { RuntimePorts } from "@hyperidle/run-orchestration";
+import { eq } from "drizzle-orm";
 import { buildStandaloneDocumentRunners } from "../actions/compose.js";
+
+/**
+ * A direct `documents` row — the same columns the deleted
+ * `@hyperidle/document`'s `create()` wrote. For fixture rows a test seeds
+ * ahead of the real write path under test (`realDocumentWritebackPort`
+ * above): a raw insert skips `edit_document`'s `changes.actor` FK, exactly
+ * as the free-text `updatedBy` these callers always passed already did
+ * (`documents.updated_by` carries no FK; only `changes.actor` does, and a
+ * raw seed insert writes no change row at all).
+ */
+export async function seedDocument(
+	db: HyperIdleDb,
+	input: {
+		readonly title: string;
+		readonly body: string;
+		readonly format: string;
+		readonly status: string;
+		readonly updatedBy: string;
+		readonly scopeKind: string;
+		readonly scopeId?: string | null;
+		readonly parentKind?: string | null;
+		readonly parentId?: string | null;
+	},
+): Promise<DbDocumentRow> {
+	const id = randomUUID();
+	const ts = new Date().toISOString();
+	await db.insert(documents).values({
+		id,
+		scopeKind: input.scopeKind,
+		scopeId: input.scopeId ?? null,
+		title: input.title,
+		body: input.body,
+		format: input.format,
+		status: input.status,
+		parentKind: input.parentKind ?? null,
+		parentId: input.parentId ?? null,
+		position: 0,
+		version: 1,
+		updatedBy: input.updatedBy,
+		createdAt: ts,
+		updatedAt: ts,
+	});
+	const [row] = await db.select().from(documents).where(eq(documents.id, id)).limit(1);
+	if (!row) throw new Error(`seedDocument: failed to read back ${id}`);
+	return row;
+}
 
 /**
  * A real document writeback port, bound to the REAL `edit_document`/

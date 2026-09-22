@@ -55,7 +55,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { documents } from "@hyperidle/db";
 import { test as dbTest } from "@hyperidle/db/test-fixtures";
-import { assembleSessionDocuments, create } from "@hyperidle/document";
+import { assembleSessionDocuments } from "@hyperidle/document";
 import { type BakedContextBundle, toBakedContextKnowledgeItems } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
 import { HARNESS_TEST_MODELS, requireHarness } from "@hyperidle/harness-registry/test-utils";
@@ -65,6 +65,7 @@ import { describe, expect } from "vitest";
 import {
 	buildTestRunOrchestrationComposition,
 	realDocumentWritebackPort,
+	seedDocument,
 } from "./run-orchestration-test-runtime.js";
 
 // ---------------------------------------------------------------------------
@@ -370,7 +371,7 @@ for (const harness of HARNESSES) {
 				// ancestor walk, which has no ownership filter. This is the real,
 				// natural condition under which architecture.md §5's "index written
 				// anyway" case fires in production.
-				const ancestor = await create(db, {
+				const ancestor = await seedDocument(db, {
 					title: "Findings Archive",
 					body: "Ancestor real body text — must NEVER appear verbatim in the materialised index.md.",
 					format: "markdown",
@@ -379,7 +380,7 @@ for (const harness of HARNESSES) {
 					scopeKind: "user",
 					scopeId: OTHER_USER_ID,
 				});
-				const leaf = await create(db, {
+				const leaf = await seedDocument(db, {
 					title: "Deploy Checklist",
 					body: `Deploy checklist body.\nSECRET: ${leafSecret}`,
 					format: "markdown",
@@ -390,7 +391,7 @@ for (const harness of HARNESSES) {
 					parentKind: "document",
 					parentId: ancestor.id,
 				});
-				await create(db, {
+				await seedDocument(db, {
 					title: "Team Rituals",
 					body: `Team-only info.\nTEAM_TOKEN: ${teamSecret}`,
 					format: "markdown",
@@ -399,7 +400,7 @@ for (const harness of HARNESSES) {
 					scopeKind: "team",
 					scopeId: TEAM_ID,
 				});
-				await create(db, {
+				await seedDocument(db, {
 					title: "Rival Team Secrets",
 					body: `Must never leave this team.\nRIVAL_TOKEN: ${rivalSecret}`,
 					format: "markdown",
@@ -416,7 +417,7 @@ for (const harness of HARNESSES) {
 				// is ALSO reached as an ancestor through the child's parentChain.
 				// Proves the fix in writeOrdinaryItems: Roadmap's real body lands in
 				// its own directory's index.md, not a stray sibling leaf file.
-				const selectedParent = await create(db, {
+				const selectedParent = await seedDocument(db, {
 					title: "Roadmap",
 					body: `Roadmap parent body.\nPARENT_TOKEN: ${parentBodySecret}`,
 					format: "markdown",
@@ -425,7 +426,7 @@ for (const harness of HARNESSES) {
 					scopeKind: "team",
 					scopeId: TEAM_ID,
 				});
-				const childOfParent = await create(db, {
+				const childOfParent = await seedDocument(db, {
 					title: "Q3 Plan",
 					body: `Child under selected parent.\nCHILD_TOKEN: ${childOfParentSecret}`,
 					format: "markdown",
@@ -544,7 +545,7 @@ for (const harness of HARNESSES) {
 
 				// A trivial factory item so the sandbox is a real, non-empty
 				// materialised tree — not the substitute of a hand-built manifest.
-				await create(db, {
+				await seedDocument(db, {
 					title: "Welcome",
 					body: "Welcome to the team.",
 					format: "markdown",
@@ -623,7 +624,7 @@ for (const harness of HARNESSES) {
 				// Same "different owner" trick as the read test, so the folder
 				// with a child does not also get independently selected (see the
 				// file-header @lore for why that combination is avoided here).
-				const folder = await create(db, {
+				const folder = await seedDocument(db, {
 					title: "Folder A",
 					body: "folder body — never independently selected",
 					format: "markdown",
@@ -633,7 +634,7 @@ for (const harness of HARNESSES) {
 					scopeId: OTHER_USER_ID,
 				});
 				const originalBody = "The original roadmap body. Do not change this text.";
-				const doc = await create(db, {
+				const doc = await seedDocument(db, {
 					title: "Roadmap Doc",
 					body: originalBody,
 					format: "markdown",

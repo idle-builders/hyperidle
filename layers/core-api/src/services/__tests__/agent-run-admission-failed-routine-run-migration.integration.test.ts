@@ -42,7 +42,6 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { getAgentIdentity, getParentedItem } from "@hyperidle/document";
 import type { AgentRunAdmissionFailedEvent } from "@hyperidle/event-bus";
 import type { RoutineSchedulerPorts } from "@hyperidle/routine";
 import { fireGenericRoutine } from "@hyperidle/routine";
@@ -52,10 +51,14 @@ import * as work from "@hyperidle/task";
 import { findThread } from "@hyperidle/thread";
 import { requireRunnableAgent } from "@hyperidle/users";
 import { eq, sql } from "drizzle-orm";
+import { makeDocumentReadPorts } from "../../__testing__/document-read-test-ports.js";
 import { queueDeps } from "../../__testing__/durable-agent-queue-test-deps.js";
 import { describe, expect, test } from "../../__testing__/test-fixtures.js";
+import { createStandaloneSearchDocuments } from "../../actions/compose.js";
 
 const NOW = new Date().toISOString();
+const searchDocuments = createStandaloneSearchDocuments();
+const { getAgentIdentity, getRoutinePrompt } = makeDocumentReadPorts(searchDocuments);
 
 async function rejectSessionRequestWrites(db: HyperIdleDb): Promise<void> {
 	await db.execute(
@@ -116,9 +119,7 @@ function makePorts(): RoutineSchedulerPorts & {
 		workIntents: { enqueueWorkIntent },
 		requireRunnableAgent,
 		getAgentIdentity,
-		getRoutinePrompt: async (db, routineId) =>
-			(await getParentedItem(db, { parentKind: "routine", parentId: routineId, role: "prompt" }))
-				?.body ?? null,
+		getRoutinePrompt,
 	};
 }
 

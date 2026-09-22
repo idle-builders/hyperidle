@@ -42,12 +42,16 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { assembleSessionDocuments, getAgentIdentity } from "@hyperidle/document";
+import { assembleSessionDocuments } from "@hyperidle/document";
 import { getTeam } from "@hyperidle/org";
 import { createContextAssembler } from "@hyperidle/run-orchestration/scaffolding";
 import { resolveTaskRunRequest } from "@hyperidle/task";
 import { requireRunnableAgent } from "@hyperidle/users";
+import { makeDocumentReadPorts } from "../../__testing__/document-read-test-ports.js";
 import { describe, expect, test } from "../../__testing__/test-fixtures.js";
+import { createStandaloneSearchDocuments } from "../../actions/compose.js";
+
+const { getAgentIdentity } = makeDocumentReadPorts(createStandaloneSearchDocuments());
 
 const NOW = "2026-08-01T00:00:00.000Z";
 const TEAM_ID = "team-i12c-parity";

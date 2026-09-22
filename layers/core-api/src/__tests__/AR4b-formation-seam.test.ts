@@ -29,12 +29,12 @@
  */
 
 import { agentRunConfig, agentWorkIntents, type HyperIdleDb, threads, users } from "@hyperidle/db";
-import { getAgentIdentityIds, upsertAgentIdentity } from "@hyperidle/document";
 import type { BakedAgentRunnableConfig } from "@hyperidle/domain-model";
 import { readAgentRunConfig } from "@hyperidle/run-orchestration";
 import { and, eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { beforeEach, describe, expect, vi } from "vitest";
+import { makeAgentIdentityTestPort } from "../__testing__/document-read-test-ports.js";
 /**
  * @lore AU31 §3.2/§5: the `coreApiSeamRegistration` auto-fixture used to
  * register this test's `app` on the `CoreApiPort` ambient global — deleted
@@ -43,6 +43,8 @@ import { beforeEach, describe, expect, vi } from "vitest";
  * only), so nothing here needs a seam transport at all.
  */
 import { test } from "../__testing__/test-fixtures.js";
+
+const agentIdentity = makeAgentIdentityTestPort();
 
 const FOUNDER_ID = "founder-ar4b-formation";
 const ASSISTANT_ID = `ast-${FOUNDER_ID}`;
@@ -77,7 +79,7 @@ async function seedFixtures(db: HyperIdleDb): Promise<void> {
 		modelProvider: "openrouter",
 		maxConcurrentSessions: 1,
 	});
-	await upsertAgentIdentity(db, {
+	await agentIdentity.upsertAgentIdentity(db, {
 		agentId: ASSISTANT_ID,
 		agentName: "Assistant",
 		body: "Original row persona — the app default.",
@@ -170,7 +172,9 @@ describe("AR4b: formation seam — editing the assistant's identity document cha
 
 		// The one document edit door — the same one every other document is
 		// edited through. There is no assistant-shaped side door any more.
-		const identityId = (await getAgentIdentityIds(db, [ASSISTANT_ID])).get(ASSISTANT_ID);
+		const identityId = (await agentIdentity.identityIdsFor(db, FOUNDER_ID, [ASSISTANT_ID])).get(
+			ASSISTANT_ID,
+		);
 		expect(identityId).toBeTruthy();
 		const patchRes = await app.request("/api/actions/edit_document", {
 			method: "POST",

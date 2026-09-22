@@ -27,7 +27,7 @@
 
 import { documents, type HyperIdleDb, routineRuns, routines, teams, users } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import { assembleSessionDocuments, getAgentIdentity } from "@hyperidle/document";
+import { assembleSessionDocuments } from "@hyperidle/document";
 import type { BakedContextBundle } from "@hyperidle/domain-model";
 import { getTeam } from "@hyperidle/org";
 import { requireRunnableAgent } from "@hyperidle/users";
@@ -113,6 +113,28 @@ async function readRoutinePrompt(db: HyperIdleDb, routineId: string): Promise<st
 	return row?.body ?? null;
 }
 
+/**
+ * `resolveAgentIdentityBody`'s own read (`task-run-resolver-bindings.ts`), by
+ * direct table access — this file's fixture is `{db}` only, no composed
+ * `search_documents` runner in scope (that lives in `layers/core-api/src`,
+ * a different package this Service may not import — Mechanism C).
+ */
+async function readAgentIdentity(db: HyperIdleDb, agentId: string): Promise<string | null> {
+	const [row] = await db
+		.select()
+		.from(documents)
+		.where(
+			and(
+				eq(documents.parentKind, "agent"),
+				eq(documents.parentId, agentId),
+				eq(documents.slot, "agent_file"),
+				eq(documents.status, "active"),
+			),
+		)
+		.limit(1);
+	return row?.body ?? null;
+}
+
 async function seedRun(
 	db: HyperIdleDb,
 	options: { readonly runId: string; readonly routineId: string; readonly outcome?: string },
@@ -136,7 +158,11 @@ async function seedRun(
  * enumerate this file's cases by hand; the compiler will not do it for you.
  */
 function buildDeps() {
-	return { requireRunnableAgent, getAgentIdentity, getRoutinePrompt: readRoutinePrompt };
+	return {
+		requireRunnableAgent,
+		getAgentIdentity: readAgentIdentity,
+		getRoutinePrompt: readRoutinePrompt,
+	};
 }
 
 describe("resolveRoutineRunRequest — emit-time routine_run resolver (routine)", () => {
@@ -302,7 +328,7 @@ describe("resolveRoutineRunRequest — contextBundle baking (Increment 12 Wave B
 
 		const baked = await resolveRoutineRunRequest(db, "run-rrun-ctx-1", {
 			requireRunnableAgent,
-			getAgentIdentity,
+			getAgentIdentity: readAgentIdentity,
 			getRoutinePrompt: readRoutinePrompt,
 			getTeamById: (d: HyperIdleDb, id: string) => getTeam(d, { id }),
 			assembleSessionKnowledge: assembleSessionDocuments,
@@ -351,7 +377,7 @@ describe("resolveRoutineRunRequest — contextBundle baking (Increment 12 Wave B
 		let receivedTeamId: string | undefined = "unset";
 		const baked = await resolveRoutineRunRequest(db, "run-rrun-ctx-noteam", {
 			requireRunnableAgent,
-			getAgentIdentity,
+			getAgentIdentity: readAgentIdentity,
 			getRoutinePrompt: readRoutinePrompt,
 			getTeamById: (d: HyperIdleDb, id: string) => getTeam(d, { id }),
 			assembleSessionKnowledge: async (_db, input) => {

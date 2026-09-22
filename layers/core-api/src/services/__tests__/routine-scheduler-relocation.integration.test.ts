@@ -38,7 +38,6 @@
  */
 
 import { type HyperIdleDb, routineRuns, routines, teams, users } from "@hyperidle/db";
-import { getAgentIdentity, getParentedItem } from "@hyperidle/document";
 import type { RoutineSchedulerPorts } from "@hyperidle/routine";
 import { fireGenericRoutine } from "@hyperidle/routine";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
@@ -47,9 +46,13 @@ import * as work from "@hyperidle/task";
 import { findThread } from "@hyperidle/thread";
 import { requireRunnableAgent } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
+import { makeDocumentReadPorts } from "../../__testing__/document-read-test-ports.js";
 import { describe, expect, test } from "../../__testing__/test-fixtures.js";
+import { createStandaloneSearchDocuments } from "../../actions/compose.js";
 
 const NOW = "2026-07-28T00:00:00.000Z";
+const searchDocuments = createStandaloneSearchDocuments();
+const { getAgentIdentity, getRoutinePrompt } = makeDocumentReadPorts(searchDocuments);
 
 /**
  * Builds the SAME real ports `routine-scheduler-bindings.ts` composes — a
@@ -94,9 +97,7 @@ function makePorts(): RoutineSchedulerPorts {
 		workIntents: { enqueueWorkIntent },
 		requireRunnableAgent,
 		getAgentIdentity,
-		getRoutinePrompt: async (db, routineId) =>
-			(await getParentedItem(db, { parentKind: "routine", parentId: routineId, role: "prompt" }))
-				?.body ?? null,
+		getRoutinePrompt,
 	};
 }
 

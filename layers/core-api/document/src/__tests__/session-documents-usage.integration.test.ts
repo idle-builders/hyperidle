@@ -118,3 +118,66 @@ describe("assembleSessionDocuments — session_use_count (architecture.md §6.7)
 		expect(picked?.lastUsedAt).toBeNull();
 	});
 });
+
+/**
+ * @lore nested-knowledge-items architecture.md §5 / review.md B4 — the
+ * ancestor chain a bake needs is resolved once, at bake time, via
+ * `document-store.ts`'s `resolveParentChain`, and `assembleSessionDocuments`
+ * attaches it to every ordinary item it ranks. Before this fix,
+ * `BakedContextKnowledgeItem.parentChain` had exactly one production writer
+ * (`toBakedContextKnowledgeItems`) and it defaulted to `[]` — every ordinary
+ * item materialised flat into `knowledge/` regardless of its real tree
+ * position. Moved from the deleted `knowledge-parent-chain.integration.test.ts`
+ * (B21) — the resolver's own root-first/empty/stops-at-non-document-parent
+ * shape is `document-store.integration.test.ts`'s "ancestor chain" describe.
+ */
+describe("assembleSessionDocuments: parentChain (review.md B4)", () => {
+	test("an ordinary item's baked parentChain matches its real ancestors — not the [] default", async ({
+		db,
+	}) => {
+		const now = new Date().toISOString();
+		await db.insert(documents).values({
+			id: "doc-parentchain-root",
+			title: "Practices",
+			body: "body",
+			format: "markdown",
+			status: "active",
+			slot: "ordinary",
+			version: 1,
+			updatedBy: "test-user",
+			scopeKind: "factory",
+			scopeId: null,
+			parentKind: null,
+			parentId: null,
+			createdAt: now,
+			updatedAt: now,
+		});
+		await db.insert(documents).values({
+			id: "doc-parentchain-child",
+			title: "Objection handling",
+			body: "body",
+			format: "markdown",
+			status: "active",
+			slot: "ordinary",
+			version: 1,
+			updatedBy: "test-user",
+			scopeKind: "factory",
+			scopeId: null,
+			parentKind: "document",
+			parentId: "doc-parentchain-root",
+			createdAt: now,
+			updatedAt: now,
+		});
+
+		const items = await assembleSessionDocuments(db, {
+			agentId: "agent-parent-chain",
+			agentRole: "builder",
+			taskDescription: "",
+		});
+
+		const child = items.find((i) => i.id === "doc-parentchain-child");
+		expect(child).toBeDefined();
+		expect(child?.parentChain.map((a) => a.id)).toEqual(["doc-parentchain-root"]);
+		expect(child?.parentChain[0]?.title).toBe("Practices");
+	});
+});

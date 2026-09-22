@@ -42,10 +42,35 @@ import {
 	users,
 } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import { assembleSessionDocuments, getAgentIdentity } from "@hyperidle/document";
+import { assembleSessionDocuments } from "@hyperidle/document";
 import { getTeam } from "@hyperidle/org";
 import { requireRunnableAgent } from "@hyperidle/users";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
+
+/**
+ * `resolveAgentIdentityBody`'s own read
+ * (`layers/core-api/src/services/task-run-resolver-bindings.ts`), by direct
+ * table access — this file's fixture is `{db}` only, no composed
+ * `search_documents` runner in scope (that lives in `layers/core-api/src`, a
+ * different package this Service may not import — Mechanism C). No test
+ * below seeds an `agent_file` document, so this always resolves `null`, same
+ * as the deleted `@hyperidle/document`'s `getAgentIdentity` did here.
+ */
+async function getAgentIdentity(db: HyperIdleDb, agentId: string): Promise<string | null> {
+	const [row] = await db
+		.select()
+		.from(documents)
+		.where(
+			and(
+				eq(documents.parentKind, "agent"),
+				eq(documents.parentId, agentId),
+				eq(documents.slot, "agent_file"),
+				eq(documents.status, "active"),
+			),
+		)
+		.limit(1);
+	return row?.body ?? null;
+}
 
 /** Every task needs a real thread (`tasks.thread_id` is NOT NULL). */
 async function seedThreadForTask(db: HyperIdleDb, taskId: string): Promise<string> {

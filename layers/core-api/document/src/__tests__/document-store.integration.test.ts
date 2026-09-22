@@ -541,6 +541,25 @@ describe("ancestor chain", () => {
 
 		expect(chain.map((a) => a.id)).toEqual([root.id]);
 	});
+
+	// Moved from the deleted `knowledge-parent-chain.integration.test.ts` (B21)
+	// — the two edge cases the "matches listAncestors" case above doesn't pin.
+	test("resolveParentChain is empty for a root item", async ({ db }) => {
+		const solo = await insertDocument(db, docValues({ id: "rpc-solo" }));
+		const chain = await resolveParentChain(db, solo.id);
+		expect(chain).toEqual([]);
+	});
+
+	test("resolveParentChain stops at a non-document parent — a task-parented item has no ancestors", async ({
+		db,
+	}) => {
+		const taskChild = await insertDocument(
+			db,
+			docValues({ id: "rpc-task-child", parentKind: "task", parentId: "some-task-id" }),
+		);
+		const chain = await resolveParentChain(db, taskChild.id);
+		expect(chain).toEqual([]);
+	});
 });
 
 describe("cycle/depth/slot/scope checks (architecture.md §4.2)", () => {
@@ -648,6 +667,42 @@ describe("cycle/depth/slot/scope checks (architecture.md §4.2)", () => {
 		const next = await nextPositionForParent(db, "document", parent.id);
 
 		expect(next).toBe(2);
+	});
+
+	// Moved from the deleted `knowledge-tree-invariants.integration.test.ts`
+	// (B21) — siblings order by position then title (architecture.md §5.1):
+	// same position (both created at the tree's default, 0) falls through to
+	// title order, not insertion order — "Zebra" is inserted first here.
+	test("searchDocumentRows orders same-position siblings by title", async ({ db }) => {
+		const parent = await insertDocument(db, docValues({ id: "order-parent" }));
+		await insertDocument(
+			db,
+			docValues({
+				id: "order-zebra",
+				title: "Zebra",
+				parentKind: "document",
+				parentId: parent.id,
+				position: 0,
+			}),
+		);
+		await insertDocument(
+			db,
+			docValues({
+				id: "order-apple",
+				title: "Apple",
+				parentKind: "document",
+				parentId: parent.id,
+				position: 0,
+			}),
+		);
+
+		const rows = await searchDocumentRows(
+			db,
+			{ parent: { kind: "document", id: parent.id } },
+			ANY_VIEWER,
+		);
+
+		expect(rows.map((r) => r.title)).toEqual(["Apple", "Zebra"]);
 	});
 });
 

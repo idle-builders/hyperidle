@@ -35,7 +35,6 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { getAgentIdentity, getParentedItem } from "@hyperidle/document";
 import type {
 	AgentRunLifecycleChangedEvent,
 	KnowledgeCreatedEvent,
@@ -50,12 +49,14 @@ import { findThread } from "@hyperidle/thread";
 import { requireRunnableAgent } from "@hyperidle/users";
 import { eq, sql } from "drizzle-orm";
 import { vi } from "vitest";
+import { makeDocumentReadPorts } from "../../__testing__/document-read-test-ports.js";
 import { queueDeps } from "../../__testing__/durable-agent-queue-test-deps.js";
 import { describe, expect, test } from "../../__testing__/test-fixtures.js";
 import { createStandaloneSearchDocuments } from "../../actions/compose.js";
 import { startRoutineScheduler } from "../routine-scheduler-bindings.js";
 
 const searchDocuments = createStandaloneSearchDocuments();
+const { getAgentIdentity, getRoutinePrompt } = makeDocumentReadPorts(searchDocuments);
 
 const NOW = new Date().toISOString();
 
@@ -151,9 +152,7 @@ function makePorts(): RoutineSchedulerPorts & {
 		workIntents: { enqueueWorkIntent },
 		requireRunnableAgent,
 		getAgentIdentity,
-		getRoutinePrompt: async (db, routineId) =>
-			(await getParentedItem(db, { parentKind: "routine", parentId: routineId, role: "prompt" }))
-				?.body ?? null,
+		getRoutinePrompt,
 	};
 }
 

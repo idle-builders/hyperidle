@@ -332,6 +332,34 @@ describe("edit_document — D-invariants (architecture.md §4.2)", () => {
 		expect(row?.parentId).toBeNull();
 	});
 
+	// Moved from the deleted `knowledge-tree-invariants.integration.test.ts`
+	// (B21) — D3's own re-check runs LIVE inside the write's transaction
+	// (`document-actions.ts`'s `editDocumentRun`) precisely so two moves that
+	// each look legal against the pre-race tree cannot together produce a
+	// cycle no single read would catch.
+	test("D3 cycle — two concurrent reparents that are each individually legal against the pre-race tree must not both succeed", async ({
+		db,
+	}) => {
+		await seedUser(db, "writer-d3-race");
+		const x = await insertDocument(db, docValues({ id: "d3-race-x", title: "X" }));
+		const y = await insertDocument(db, docValues({ id: "d3-race-y", title: "Y" }));
+
+		const deps = writeDeps();
+		const results = await Promise.allSettled([
+			editAction(deps).run(ctxFor(db, "writer-d3-race"), {
+				id: x.id,
+				parent: { kind: "document", id: y.id },
+			}),
+			editAction(deps).run(ctxFor(db, "writer-d3-race"), {
+				id: y.id,
+				parent: { kind: "document", id: x.id },
+			}),
+		]);
+
+		const succeeded = results.filter((r) => r.status === "fulfilled" && r.value.ok).length;
+		expect(succeeded).toBeLessThanOrEqual(1);
+	});
+
 	test("D4 depth_exceeded — a 32-deep chain refuses one more", async ({ db }) => {
 		await seedUser(db, "writer-d4-1");
 		let parentId: string | null = null;

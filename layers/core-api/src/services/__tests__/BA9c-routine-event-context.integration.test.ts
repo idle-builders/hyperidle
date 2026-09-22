@@ -32,7 +32,6 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { getAgentIdentity, getParentedItem } from "@hyperidle/document";
 // BB1: BetStateChangedEvent deleted — bet is now a root task.
 import type { TaskStateChangedEvent } from "@hyperidle/event-bus";
 import type { RoutineSchedulerPorts } from "@hyperidle/routine";
@@ -44,12 +43,14 @@ import { findThread } from "@hyperidle/thread";
 import { findUser, requireRunnableAgent } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
 import { vi } from "vitest";
+import { makeDocumentReadPorts } from "../../__testing__/document-read-test-ports.js";
 import { describe, expect, test } from "../../__testing__/test-fixtures.js";
 import { createStandaloneSearchDocuments } from "../../actions/compose.js";
 import { startRoutineScheduler } from "../routine-scheduler-bindings.js";
 
 const NOW = new Date().toISOString();
 const searchDocuments = createStandaloneSearchDocuments();
+const { getAgentIdentity, getRoutinePrompt } = makeDocumentReadPorts(searchDocuments);
 
 /**
  * Real ports including BA9c's new DB-lookup ports for rich subject shapes.
@@ -88,9 +89,7 @@ function makePorts(): RoutineSchedulerPorts {
 		workIntents: { enqueueWorkIntent },
 		requireRunnableAgent,
 		getAgentIdentity,
-		getRoutinePrompt: async (db, routineId) =>
-			(await getParentedItem(db, { parentKind: "routine", parentId: routineId, role: "prompt" }))
-				?.body ?? null,
+		getRoutinePrompt,
 		getTeamById: async (db, id) => {
 			const [row] = await db.select().from(teams).where(eq(teams.id, id)).limit(1);
 			return row;
