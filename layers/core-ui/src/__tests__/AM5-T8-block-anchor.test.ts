@@ -41,7 +41,7 @@ describe("AC2: open-handler block anchor", () => {
 		);
 	});
 });
-// @lore artifacts-become-knowledge: test for hostKind:"artifact" with blockId removed —
+// @lore artifacts-become-documents: test for hostKind:"artifact" with blockId removed —
 // "artifact" is no longer a valid HostKind; the /artifacts/:id page is deleted.
 
 // ── 2. AC6: same target from two contexts → identical path ────────────────────

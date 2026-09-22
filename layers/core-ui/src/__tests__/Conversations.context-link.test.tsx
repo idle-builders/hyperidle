@@ -39,7 +39,7 @@ describe("AE5 — resolveHostRoute", () => {
 		expect(resolveHostRoute("document", "ki-789")).toBe("/documents/ki-789");
 	});
 
-	// @lore artifacts-become-knowledge: artifact test removed — "artifact" is no longer a valid HostKind
+	// @lore artifacts-become-documents: artifact test removed — "artifact" is no longer a valid HostKind
 
 	it("resolves agent to /work/agent/:id", () => {
 		expect(resolveHostRoute("agent", "agent-001")).toBe("/agents/agent-001");

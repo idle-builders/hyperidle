@@ -2,7 +2,7 @@
  * AD8b — AssistantContext
  *
  * Provides the assistant overlay open state and context-attachment function to
- * components rendered inside Main. This allows BetCard, TaskCard, KnowledgeRow,
+ * components rendered inside Main. This allows BetCard, TaskCard, DocRow,
  * and ThreadRow to surface a "+" attach affordance without prop-drilling through
  * the entire component tree.
  *
@@ -17,9 +17,9 @@ import { createContext } from "react";
  * persisted in the message payload — only the wire fields travel over the wire).
  *
  * @lore AD8b: Renamed from CocContextRef → AssistantContextRef.
- * @lore artifacts-become-knowledge: BlockRef (kind:"block") removed — a block id rots
+ * @lore artifacts-become-documents: BlockRef (kind:"block") removed — a block id rots
  * the moment the source is edited. Replaced by kind:"pending_block" which captures the
- * block's text at attach time and creates a real knowledge item parented to the thread on
+ * block's text at attach time and creates a real document parented to the thread on
  * send. No pointer, no degradation.
  */
 export type AssistantContextRef =
@@ -32,7 +32,7 @@ export type AssistantContextRef =
 	| {
 			/**
 			 * A block whose content is captured at attach time. On send,
-			 * POST /api/knowledge creates a real knowledge item parented to the
+			 * `call("edit_document", …)` creates a real document parented to the
 			 * thread. The content is a snapshot — editing the source afterwards
 			 * leaves this item unchanged.
 			 */

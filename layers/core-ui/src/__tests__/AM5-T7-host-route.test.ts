@@ -3,7 +3,7 @@
 // H5 changes:
 //   - host(task) → /work/task/:id (BB1: was a no-op; the bet parent route is gone)
 //
-// artifacts-become-knowledge: "artifact" host kind removed.
+// artifacts-become-documents: "artifact" host kind removed.
 //   - The /artifacts/:id page is deleted; artifact is no longer a valid thread host.
 //   - Tests for host(artifact) → /artifacts/:id removed (the subject is gone).
 //   - AC6 artifact variant removed for the same reason.

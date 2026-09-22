@@ -10,7 +10,7 @@
  * Preserves normal punctuation and plain prose — the goal is a readable subtitle,
  * not perfect round-trip markdown removal.
  *
- * @lore UI-046: knowledge item `body` is raw markdown stored by agents/users.
+ * @lore UI-046: document `body` is raw markdown stored by agents/users.
  * Without stripping, headers like "## Summary" and bullets appear verbatim in
  * list-row subtitles. Added to presentation-format (not core-ui) so any layer can
  * call the same helper.

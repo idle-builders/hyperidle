@@ -15,7 +15,7 @@
  *
  * @lore AM1 C1: a block/entity routes to its HOST surface via `resolveHostRoute`
  * — the existing resolver, total over `HostKind`. No new route table, no
- * fabricated `knowledgeId`. `user` resolves to null → no navigation (matching
+ * fabricated `documentId`. `user` resolves to null → no navigation (matching
  * the resolver's existing null return).
  *
  * @lore The review route used to require a betId a task-hosted thread has no
@@ -78,7 +78,7 @@ export function createOpenHandler(navigate: NavigateFn, ctx?: OpenHandlerContext
 				const kind = objectKindForHost(target.hostKind);
 				if (path === null || kind === null) return;
 				// @lore AM5 T8: append #block-<encodeURIComponent(blockId)> for block-anchored open (AC2).
-				// No selector concat — the fragment is matched by value at the scroll site (KnowledgeDetail).
+				// No selector concat — the fragment is matched by value at the scroll site (DocumentDetail).
 				openInspect(
 					kind,
 					target.blockId ? `${path}#block-${encodeURIComponent(target.blockId)}` : path,

@@ -177,7 +177,7 @@ describe("AC3: review open-handler route (regression guard)", () => {
 		}
 	});
 	it("contextual references use the page-owned Inspect placement", async () => {
-		// @lore artifacts-become-knowledge: artifact route removed — /artifacts/:id deleted
+		// @lore artifacts-become-documents: artifact route removed — /artifacts/:id deleted
 		const { createOpenHandler } = await import("../services/open-handler.js");
 		const nav = vi.fn();
 		const inspect = vi.fn();

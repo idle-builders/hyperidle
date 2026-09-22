@@ -43,7 +43,7 @@ describe("AM1 navHandler — OpenTarget → navigate (N1, AC8)", () => {
 		expect(navigate).toHaveBeenCalledWith("/work/task/task-3");
 	});
 
-	// @lore artifacts-become-knowledge: artifact route is a no-op — /artifacts/:id page deleted
+	// @lore artifacts-become-documents: artifact route is a no-op — /artifacts/:id page deleted
 
 	it("review → navigate('/reviews/:reviewId?threadId=...') (flattened, no betId needed)", () => {
 		const navigate = vi.fn();

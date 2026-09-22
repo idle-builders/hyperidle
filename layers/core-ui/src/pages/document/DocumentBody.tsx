@@ -129,7 +129,7 @@ export function DocumentBody({
 	// This is the condition that distinguishes "this document IS an interactive artifact"
 	// from "this document contains an HTML code sample". Must be decided here, where the
 	// full block list is known — renderPayload sees one payload at a time and cannot see this.
-	// @lore artifacts-become-knowledge: a fenced html block alongside other blocks stays a code
+	// @lore artifacts-become-documents: a fenced html block alongside other blocks stays a code
 	// listing; only when it is the ONLY block does it run in the sandbox frame.
 	if (blocks.length === 1) {
 		const sole = blocks.at(0);

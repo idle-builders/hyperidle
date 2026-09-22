@@ -61,7 +61,7 @@ export interface AppShellOutletContext {
 
 	/** U9 AC-1: Opens the RecipientPicker for creating a new thread. */
 	onNewThread: () => void;
-	/** @lore NEW-24: retries AppShell-owned fetches (user + sidebar knowledge list) so a
+	/** @lore NEW-24: retries AppShell-owned fetches (user + sidebar document list) so a
 	 * full-outage recovery clears ALL sidebar error states, not just the main-pane error.
 	 * Child pages call this alongside their own domain retry. */
 	onRetryShell: () => void;
@@ -494,7 +494,7 @@ export function AppShell(): JSX.Element {
 	}, [settingsOpen, commandK, navigate]);
 
 	const handleSearchNavigate = useCallback(
-		// Z8-151: unsafe ids previously caused silent no-ops for work/knowledge types
+		// Z8-151: unsafe ids previously caused silent no-ops for work/document types
 		// while conversation fell back to /conversations. All types now fall back
 		// consistently to their list route so there is no silent failure.
 		(type: string, id: string): void => {
@@ -633,14 +633,14 @@ export function AppShell(): JSX.Element {
 		error: sidebarDocumentsError,
 		retry: retrySidebarDocuments,
 	} = useDocuments({ inTree: true, limit: 50 });
-	const knowledgeLoading = sidebarDocumentsStatus === "loading";
-	const knowledgeError = sidebarDocumentsStatus === "error" ? sidebarDocumentsError : null;
+	const documentsLoading = sidebarDocumentsStatus === "loading";
+	const documentsError = sidebarDocumentsStatus === "error" ? sidebarDocumentsError : null;
 	// @lore nested-knowledge-items §4: the same parent rule DocumentList
 	// applies — a role-carrying binding (skill/rule/agent identity/routine
 	// prompt) has a non-`document` parent and is reached from its own
 	// surface, not the fast-nav. `inTree` already excludes these server-side
 	// (architecture.md §5.1); the client keeps its own check too.
-	const sidebarKnowledgeItems = useMemo(
+	const sidebarDocumentItems = useMemo(
 		() =>
 			sidebarDocuments
 				.filter(
@@ -709,8 +709,8 @@ export function AppShell(): JSX.Element {
 		teams: sidebarTeams,
 		activeTeamId,
 		onSelectTeam: (id: string) => navigate(`/work/team/${encodeURIComponent(id)}`),
-		knowledgeItems: sidebarKnowledgeItems,
-		onSelectKnowledgeItem: (id: string) => navigate(`/documents/${encodeURIComponent(id)}`),
+		documentItems: sidebarDocumentItems,
+		onSelectDocumentItem: (id: string) => navigate(`/documents/${encodeURIComponent(id)}`),
 		onAssistantClick: handleAssistantClick,
 		assistantOverlayOpen,
 		onSettingsClick: handleAvatarClick,
@@ -731,11 +731,11 @@ export function AppShell(): JSX.Element {
 		// UI-011/012/013: suppress false "No X yet" messages during initial load
 		threadsLoading: conversationsThreads.status === "loading",
 		teamsLoading,
-		knowledgeLoading,
+		documentsLoading,
 		// UI-011/012/013: honest error states — sidebar shows "Couldn't load X" not "No X yet"
 		threadsError: isThreadsError,
 		teamsError: teamsError !== null,
-		knowledgeError: knowledgeError !== null,
+		documentsError: documentsError !== null,
 	} as const;
 
 	// Shared main content used in both mobile and desktop branches.

@@ -261,7 +261,7 @@ function AssistantOverlayInner({
 	contextRefs: ReadonlyArray<AssistantContextRef>;
 	onRemoveContextRef: (index: number) => void;
 }): JSX.Element {
-	// artifacts-become-knowledge: scopeKind for knowledge items created from pending_block refs.
+	// artifacts-become-documents: scopeKind for documents created from pending_block refs.
 	const { user, status: userStatus } = useCurrentUser();
 	// "The assistant is your agent" — an ordinary agent with
 	// `ownerUserId === me`. `GET /api/agents` carries `ownerUserId` directly, so
@@ -288,7 +288,7 @@ function AssistantOverlayInner({
 		): Promise<string> => {
 			if (!myAgentId) throw new Error("No assistant agent to message");
 
-			// pending_block refs become real knowledge items on send — never wire refs.
+			// pending_block refs become real documents on send — never wire refs.
 			const pendingBlocks = contextRefs.filter(
 				(ref): ref is AssistantContextRef & { kind: "pending_block" } =>
 					ref.kind === "pending_block",
@@ -320,7 +320,7 @@ function AssistantOverlayInner({
 				throw new Error(res.problems[0]?.message ?? "Failed to send message");
 			}
 
-			// @lore artifacts-become-knowledge: For each pending_block, create a
+			// @lore artifacts-become-documents: For each pending_block, create a
 			// document parented to this thread. The content was captured at click
 			// time — a real document row, not a pointer that rots when the source
 			// is edited.
