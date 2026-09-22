@@ -41,7 +41,7 @@ Negative scope — code matching any bullet has crossed a layer boundary and sho
 
 - **The agent runtime.** Lives in the harness (claude-code CLI, codex, opencode, cursor-agent). See [agent-layer/](../agent-layer/index.md).
 - **Skill execution.** Agents run tools on the host (opt-in sandbox is separate — [architecture/run-unit-model.md](../architecture/run-unit-model.md)); this layer only routes outputs to views.
-- **Memory/knowledge storage.** Owned by the knowledge service (`layers/core-api/knowledge/`) — see [knowledge-architecture/](../knowledge-architecture/index.md).
+- **Memory/knowledge storage.** Owned by the document service (`layers/core-api/document/`) — see [knowledge-architecture/](../knowledge-architecture/index.md).
 - **Observability backends.** Emit to the configured adapter (console today, OTEL planned); never run them.
 - **Workflow orchestration.** No DAGs. Thread actions plus event-bus listeners; that's it.
 - **Multiple applications.** One app.

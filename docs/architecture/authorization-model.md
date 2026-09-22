@@ -19,9 +19,9 @@ The **Principal** is the *authenticated* acting identity bound to a request — 
 | Scope | Host kinds | Visible iff |
 |---|---|---|
 | **participant-scope** | `user`, `agent` (DM / assistant) | `actor ∈ thread.members[]` |
-| **host-scope** | `team`, `knowledge_item`, `factory` | any signed-in principal |
+| **host-scope** | `team`, `document`, `factory` | any signed-in principal |
 
-Host kinds are closed (`knowledge_item|agent|user|team|factory`). There is no `bet` host kind and no `task` host kind — a task's own thread is `team`-hosted (see [thread-primitive.md](../human-interface-layer/thread-primitive.md)). Each maps to exactly one scope; adding a kind requires updating this table first.
+Host kinds are closed (`document|agent|user|team|factory`). There is no `bet` host kind and no `task` host kind — a task's own thread is `team`-hosted (see [thread-primitive.md](../human-interface-layer/thread-primitive.md)). Each maps to exactly one scope; adding a kind requires updating this table first.
 
 The boundary is **derived, never a user-edited ACL**. There is one pair of decision functions; every read and write action routes through them. Host-scoped resources **must stay broadly readable** — over-restricting a task/knowledge discussion is as much a defect as leaking a participant-scoped one.
 

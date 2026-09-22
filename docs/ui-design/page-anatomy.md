@@ -73,7 +73,7 @@ import { PageHeader, pageTitleClassName } from "@hyperidle/design-system";
   actions={<><StatusChip … /><Button … /></>}
 />
 
-// Editable title — compose pageTitleClassName on an <input> (KnowledgeCreate.tsx:142)
+// Editable title — compose pageTitleClassName on an <input> (DocumentCreate.tsx:150)
 <PageHeader
   title={
     <input
@@ -108,11 +108,11 @@ import { SectionLabel } from "@hyperidle/design-system";
 // With divider (WorkBet/WorkTask style)
 <SectionLabel label="Context" divider />
 
-// As h2 (KnowledgeDetail sidebar — SectionLabel is the top body heading)
+// As h2 (DocumentDetail sidebar — SectionLabel is the top body heading)
 <SectionLabel label="Backlinks" as="h2" />
 ```
 
-`as` defaults to `"h3"` — one level below the `<h1>` PageHeader title. Pass `as="h2"` where SectionLabel is the page's top body heading (KnowledgeDetail sidebar pattern).
+`as` defaults to `"h3"` — one level below the `<h1>` PageHeader title. Pass `as="h2"` where SectionLabel is the page's top body heading (DocumentDetail sidebar pattern).
 
 ---
 

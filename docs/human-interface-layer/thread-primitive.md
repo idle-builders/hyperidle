@@ -18,7 +18,7 @@ Thread columns: `framework/db/src/schema.ts`. Message columns: `schema.ts`. `blo
 
 ## Host kinds (closed)
 
-`HOST_KINDS` (`framework/domain-model/src/thread.ts`): `knowledge_item | agent | user | team | factory`. There is no `bet` host kind, no `task` host kind and no `artifact` host kind: a task's own thread is hosted by the task's team, and `tasks.threadId` is a real column set when the task is created — a thread can hold many tasks, and a task has exactly one thread.
+`HOST_KINDS` (`framework/domain-model/src/thread.ts`): `document | agent | user | team | factory`. There is no `bet` host kind, no `task` host kind and no `artifact` host kind: a task's own thread is hosted by the task's team, and `tasks.threadId` is a real column set when the task is created — a thread can hold many tasks, and a task has exactly one thread.
 
 - Host = the entity the thread is *about* — not the creator (that is `initiator_id`); no thread has an owner.
 - No orphan threads. An assistant-style thread with no domain object attaches to the user themselves.
@@ -78,8 +78,8 @@ An unanswered review whose agent finished and walked away is *not* blocking. Blo
 ## Authority
 
 - Server is the source of truth; every write emits an event (`framework/domain-model/src/actions/thread.ts`, the `send_message` and `adjust_thread` actions; delivery guarantees documented in the `framework/event-bus/src/event-bus.ts` docblock).
-- Agents and humans are equal participants: either can initiate a thread to the other. Who may post is exactly who may read: a direct thread is members-only, a team/knowledge-item/factory thread is open to any signed-in principal, and posting to one you can read but are not yet a member of joins you to it in the same transaction.
-- Views never own threads. Conversations is one renderer of threads; task detail, knowledge-item detail, artifact detail, and the assistant overlay are others. Threads exist whether or not any view is open.
+- Agents and humans are equal participants: either can initiate a thread to the other. Who may post is exactly who may read: a direct thread is members-only, a team/document/factory thread is open to any signed-in principal, and posting to one you can read but are not yet a member of joins you to it in the same transaction.
+- Views never own threads. Conversations is one renderer of threads; task detail, document detail, artifact detail, and the assistant overlay are others. Threads exist whether or not any view is open.
 
 ## Closure discipline
 

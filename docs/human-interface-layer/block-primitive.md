@@ -4,7 +4,7 @@ The Block primitive is owned by [`docs/blocks/`](../blocks/index.md) — definit
 
 ## What it is, in one line
 
-A Block is a **derived, addressable, renderable region of a markdown body**. Bodies stay plain GitHub-flavoured markdown on disk — no HyperIdle dialect, no fenced JSON, no `<block>` tag. Blocks are derived at render time on the client (pure `deriveBlocks`, see `layers/core-ui/src/pages/knowledge/KnowledgeBody.tsx`), never stored. Full derivation model: [`docs/blocks/derivation-and-rendering.md`](../blocks/derivation-and-rendering.md).
+A Block is a **derived, addressable, renderable region of a markdown body**. Bodies stay plain GitHub-flavoured markdown on disk — no HyperIdle dialect, no fenced JSON, no `<block>` tag. Blocks are derived at render time on the client (pure `deriveBlocks`, see `layers/core-ui/src/pages/document/DocumentBody.tsx`), never stored. Full derivation model: [`docs/blocks/derivation-and-rendering.md`](../blocks/derivation-and-rendering.md).
 
 ## Where Blocks render in this layer
 

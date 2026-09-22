@@ -8,7 +8,7 @@ Every navigation edge in the shipped app, verified against `layers/core-ui/src/r
 |---|---|---|
 | Any view | Notifications / Conversations / Work / Knowledge | Stable Sidebar destination; `⌘/Ctrl+1/2/3` for the three selectable domains (`useNavShortcuts.ts`) |
 | Any view | Back / Forward in history | `⌘/Ctrl+[` / `⌘/Ctrl+]` (`useNavShortcuts.ts`); NavHistoryCluster |
-| Any view | Thread / Team / Knowledge item | Sidebar domain-navigator row → `/conversations/:threadId`, `/work/team/:teamId`, `/knowledge/:knowledgeId` |
+| Any view | Thread / Team / Document | Sidebar domain-navigator row → `/conversations/:threadId`, `/work/team/:teamId`, `/documents/:documentId` |
 | Any view | Settings | Sidebar gear (`Sidebar.tsx:324-361` SettingsFooter) → in-shell settings overlay (`AppShell` `settingsOpen`) — see [app-shell-always-present.md §5](app-shell-always-present.md) |
 
 ## Within Conversations
@@ -39,9 +39,9 @@ Every navigation edge in the shipped app, verified against `layers/core-ui/src/r
 
 | From | To | Trigger |
 |---|---|---|
-| Knowledge list | Item detail | Click KnowledgeRow → `/knowledge/:knowledgeId` (`router.tsx:92`) |
-| Item detail | Knowledge list | Breadcrumb (`KnowledgeDetail.tsx`) |
-| Item detail | Related item | Related-items sidebar (`structuredRelatedItems`, `KnowledgeDetail.tsx:109,327-328`) |
+| Document list | Document detail | Click DocRow → `/documents/:documentId` (`router.tsx:102`) |
+| Document detail | Document list | Breadcrumb (`DocumentDetail.tsx`) |
+| Document detail | Related item | Related-items sidebar (`structuredRelatedItems`, `DocumentDetail.tsx:109,327-328`) |
 
 ## Back versus Up
 
@@ -49,4 +49,4 @@ Back is temporal and returns through browser history. Breadcrumbs are structural
 
 ## Knowledge ↔ Conversations (cross-view)
 
-Knowledge items host threads: HostThreadSection on the item detail page, plus per-block discussion anchored via `messages.block_id` (`framework/db/src/schema.ts`). Knowledge is not an agent-free view.
+Documents host threads: HostThreadSection on the item detail page, plus per-block discussion anchored via `messages.block_id` (`framework/db/src/schema.ts`). Knowledge is not an agent-free view.
