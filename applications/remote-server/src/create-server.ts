@@ -118,30 +118,19 @@ export interface CreateServerDeps {
  * `http.Server`. We store `ServerType` to avoid an unsafe `as http.Server`
  * cast — `.close()` exists on all union members.
  *
- * `credentialResolver` is exposed so integration tests can assert the
- * production wiring is `instanceof DbCredentialResolver` (AH1 invariant).
- *
  * @lore N1: B1 (reviewer): do NOT use `as http.Server` cast. Use ServerType
  * directly — `.close()` exists on all union members.
- * @lore AH1 §3: credentialResolver is in ServerHandle so the single-resolver
- * invariant test can assert `instanceof DbCredentialResolver` without relying
- * on indirect observable effects. This is the correct scope: the test must
- * fail if someone reverts the wiring to EnvCredentialResolver.
- * @lore AU44-b2: `credentialResolver` type derived from `CoreApiBoot` so this
- * application does not import @hyperidle/credentials (a Service) at the
- * application layer — the layer barrel is the only boundary a composition root crosses.
  *
- * @lore BC3 thread-ws-e2e: `actionTools` is exposed for the same reason as
- * `credentialResolver` — an integration test needs to invoke the real
- * `send_message` MCP tool door (`actionsAsTools`'s handler, the exact
- * registry `bootAgentOrchestration`'s runtime threads a live session's tool
- * calls through) against THIS composition's own db/wsHub, not a second
- * throwaway boot whose hub would have zero connected clients.
+ * @lore BC3 thread-ws-e2e: `actionTools` is exposed so an integration test
+ * can invoke the real `send_message` MCP tool door (`actionsAsTools`'s
+ * handler, the exact registry `bootAgentOrchestration`'s runtime threads a
+ * live session's tool calls through) against THIS composition's own
+ * db/wsHub, not a second throwaway boot whose hub would have zero connected
+ * clients.
  */
 export interface ServerHandle {
 	readonly httpServer: ServerType;
 	readonly dispose: () => Promise<void>;
-	readonly credentialResolver: NonNullable<CoreApiBoot["credentialResolver"]>;
 	readonly actionTools: CoreApiBoot["actionTools"];
 }
 
@@ -257,13 +246,16 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 
 	const hasSecret = Boolean(process.env.HYPERIDLE_CREDENTIAL_KEY ?? process.env.HYPERIDLE_API_KEY);
 	if (!hasSecret) {
-		// @lore AH1 §6: Boot is non-fatal but we log a warning so misconfigured deployments
-		// are visible. The write boundary (PUT /api/credentials) rejects loudly (500
-		// MISSING_ROOT_SECRET). console.warn is intentional here — the observability adapter
-		// is not yet constructed at this point in the boot sequence.
+		// @lore Corrected by the server_credentials deletion: Boot is
+		// non-fatal but we log a warning so misconfigured deployments are
+		// visible. The write boundary is now POST /api/connections (a held
+		// token's encrypt step throws MISSING_ROOT_SECRET without a secret) —
+		// the same cipher the deleted /api/credentials route used to guard.
+		// console.warn is intentional here — the observability adapter is not
+		// yet constructed at this point in the boot sequence.
 		// biome-ignore lint/suspicious/noConsole: intentional boot-time warning before observability adapter is constructed
 		console.warn(
-			"[HyperIdle] No HYPERIDLE_CREDENTIAL_KEY/HYPERIDLE_API_KEY set — credential writes will be refused (MISSING_ROOT_SECRET). Agents cannot resolve keys until a secret is configured.",
+			"[HyperIdle] No HYPERIDLE_CREDENTIAL_KEY/HYPERIDLE_API_KEY set — connection token writes will be refused (MISSING_ROOT_SECRET) until a secret is configured.",
 		);
 	}
 
@@ -325,12 +317,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		return realInheritedReachRefresh();
 	};
 
-	// AU26 J3: the one-shot WS upgrade-token store is the Application's,
-	// because TWO sockets consume it — core-api's `/api/ws` and
-	// `agent-orchestration`'s `/api/agent-orchestration/ws`. `bootCoreApi`
-	// mints it (this Layer already builds the equivalent for its own route);
-	// the Application threads the SAME store into `bootAgentOrchestration`'s
-	// `sessionStream` option below.
 	const coreApi = await bootCoreApi({
 		db,
 		eventBus,
@@ -380,17 +366,22 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	// builds the provisioning reads (`connections`/`filesystems`/
 	// `filesystem-mounting`) or the knowledge-writeback port — all three are
 	// in-layer for `bootAgentOrchestration` now (§5.1/§2.7).
-	if (!coreApi.upgradeTokenStore) {
-		// `upgradeWebSocket` is always supplied above, so `bootCoreApi` always
-		// builds a token store — this can only fire if that wiring regresses.
-		throw new Error(
-			"bootCoreApi did not build an upgradeTokenStore despite upgradeWebSocket being supplied.",
-		);
-	}
+	// The join. `actionTools` starts as core's own list; the
+	// thunk below lets `bootAgentOrchestration` build every session's tool
+	// registry lazily, per session, off whatever this binding currently holds
+	// — so a session admitted AFTER the reassignment three lines down sees
+	// both layers' actions, and no earlier session exists yet to have seen
+	// the narrower list.
+	let actionTools = coreApi.actionTools;
 	const agentOrchestration = await bootAgentOrchestration({
 		db,
 		eventBus,
-		sessionStream: { upgradeWebSocket, upgradeTokens: coreApi.upgradeTokenStore },
+		// AU26 J3, superseded: `upgradeWebSocket` here is ONLY for worker
+		// WebSocket registration now — the live-run stream itself reaches the
+		// browser through `wsPush` below, on core's own socket.
+		upgradeWebSocket,
+		// Byte-identical to core's own action-layer binding (`core-api/src/app.ts`).
+		wsPush: (topic, envelope) => coreApi.wsHub.broadcast(topic, JSON.stringify(envelope)),
 		// AU36 D4: a `local`-topology deployment probes at boot; a `disabled`
 		// one keeps today's behavior — no boot probe, redetect populates (D5).
 		probeInheritedReach: deps.topology === "local",
@@ -398,9 +389,9 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			harnessRuntime: harnessRuntimeAdapter,
 			returnStatusTool: returnStatusToolAdapter,
 			coreApiTransport,
-			// §7 — one composed list, built once: core-api's actions, projected
-			// onto this Layer's own MCP tool seam.
-			actionTools: coreApi.actionTools,
+			// One composed list, built once: core-api's actions, projected
+			// onto this Layer's own MCP tool seam, as a thunk (see above).
+			actionTools: () => actionTools,
 			// §8.4 — the writeback processor's document port, bound straight to
 			// core's composed `edit_document`/`search_documents` values, threaded
 			// through exactly like `actionTools` above.
@@ -423,8 +414,10 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			},
 			resolveProvisioningOwnerUserId: coreApi.resolveProvisioningOwnerUserId,
 		},
-		cipher: coreApi.cipher,
 	});
+	// Close the join — every session from here on sees both
+	// layers' actions through the thunk above.
+	actionTools = [...coreApi.actionTools, ...agentOrchestration.actionTools];
 	// AU36 D5: close the deferred binding — redetect now reaches the reach cache.
 	realInheritedReachRefresh = () => agentOrchestration.inheritedReach.refresh();
 
@@ -566,8 +559,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	return {
 		httpServer,
 		dispose,
-		// biome-ignore lint/style/noNonNullAssertion: `db` is always set above (either the injected fixture or a freshly opened handle)
-		credentialResolver: coreApi.credentialResolver!,
-		actionTools: coreApi.actionTools,
+		// The joined list — what the seam test drives as "the agent".
+		actionTools,
 	};
 }

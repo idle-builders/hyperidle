@@ -3,7 +3,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { bootAgentOrchestration } from "@hyperidle/agent-orchestration";
 import type { AgentOrchestrationPort, AgentOrchestrationTransport } from "@hyperidle/api-contract";
-import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/credentials";
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	type DbFixtures,
@@ -95,8 +94,6 @@ export async function createServiceTestApp(
 		db,
 		eventBus,
 		authApiKey,
-		// AU44-b2: cipher required for /api/connections POST (AES-256-GCM token encrypt/decrypt).
-		cipher: { encrypt: encryptCredentialValue, decrypt: decryptCredentialValue },
 		registerExtraRoutes: registerTestRoutes,
 		pluginsBaseDir,
 	});
@@ -144,7 +141,6 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 		const orchestrationBoot = await bootAgentOrchestration({
 			db,
 			eventBus,
-			cipher: { encrypt: encryptCredentialValue, decrypt: decryptCredentialValue },
 		});
 		registerFixtureOrchestrationCleanup(db, () => {
 			orchestrationBoot.dispose();
@@ -181,7 +177,6 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 		const orchestrationBoot = await bootAgentOrchestration({
 			db,
 			eventBus,
-			cipher: { encrypt: encryptCredentialValue, decrypt: decryptCredentialValue },
 		});
 		registerFixtureOrchestrationCleanup(db, () => {
 			orchestrationBoot.dispose();

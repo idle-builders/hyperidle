@@ -41,8 +41,8 @@ import {
 } from "../ds";
 import { useUiPreference } from "../hooks/useUiPreference.js";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
-import { fetchActiveRunCounts } from "../services/agent-runs.js";
 import { apiFetch } from "../services/api-fetch.js";
+import { call } from "../services/call.js";
 import { useToast } from "../shell/ToastRegion.js";
 import type { AgentEditorDraft } from "./AgentEditor.js";
 import { AgentEditor } from "./AgentEditor.js";
@@ -78,6 +78,24 @@ function agentToEditorDraft(agent: AgentConfig): AgentEditorDraft {
 }
 
 /**
+ * Active session counts keyed by agent id, degrading to "0 active" on any
+ * failure — the agent list is core's data and stands on its own.
+ *
+ * @lore `search_sessions` defaults to 100 with no `limit` set; the old
+ * route had no cap at all. 500 (the action's max) is the closest this read
+ * can get to "every active session" under the new contract.
+ */
+async function fetchActiveRunCounts(): Promise<Readonly<Record<string, number>>> {
+	const result = await call("search_sessions", { state: "active", limit: 500 }).catch(() => null);
+	if (!result?.ok) return {};
+	const counts: Record<string, number> = {};
+	for (const row of result.data) {
+		counts[row.agentId] = (counts[row.agentId] ?? 0) + 1;
+	}
+	return counts;
+}
+
+/**
  * AH2: Parse a structured 422 error body to get the human-readable message.
  * Returns null for non-422 errors (those go to toast).
  */
@@ -104,10 +122,13 @@ export function SettingsAgents(): JSX.Element {
 	/**
 	 * @lore AU26 J4: the "N active" count per agent used to ride on
 	 * `GET /api/agents` (and on both PATCH responses, purely so the client could
-	 * splice it back into the list row). Core-api no longer reads
-	 * `agent-orchestration`'s `sessions` table; this map comes straight from the
-	 * Layer that owns it. Keeping it in its own state also removes the splice
-	 * problem outright — a save no longer has to carry a run count.
+	 * splice it back into the list row). Core-api no longer reads sessions.
+	 * Keeping it in its own state also removes the splice problem outright — a
+	 * save no longer has to carry a run count.
+	 *
+	 * @lore `GET /api/agent-orchestration/runs/active-counts` is deleted;
+	 * this map is now counted client-side from `search_sessions({ state:
+	 * "active" })` rows.
 	 */
 	const [activeRunCounts, setActiveRunCounts] = useState<Readonly<Record<string, number>>>({});
 	const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
@@ -170,12 +191,10 @@ export function SettingsAgents(): JSX.Element {
 			const agentsJson = (await agentsRes.json()) as AgentConfig[];
 			setAgents(agentsJson);
 
-			// AU26 J4: run counts from agent-orchestration's own API. A failure here
-			// must not fail the page — the agent list is core's data and stands on
-			// its own; the counts simply render as 0.
-			const counts: Readonly<Record<string, number>> = await fetchActiveRunCounts().catch(
-				() => ({}),
-			);
+			// Active session counts from search_sessions. A failure here must
+			// not fail the page — the agent list is core's data and stands on its
+			// own; the counts simply render as 0.
+			const counts = await fetchActiveRunCounts();
 			setActiveRunCounts(counts);
 
 			if (harnessesRes.ok) {

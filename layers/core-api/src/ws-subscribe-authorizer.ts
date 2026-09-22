@@ -7,22 +7,20 @@
  *
  * @lore AU26 J3 (founder, verbatim): *"session dial in is 1000% orchestration
  * and has nothing to do with core. core should not know about this session live
- * stuff at all."* The whole `session:<id>` branch is GONE from this file, and
- * with it:
- *   - the direct `sessions` read (an `agent-orchestration` table);
- *   - the `work` port (`RealtimeTaskReader`) — its only caller was the
- *     task-backed session check, which AU26 also proved redundant
- *     (`sessions.taskId` is an FK to `tasks.id` with `onDelete:"restrict"`,
- *     `framework/db/src/schema.ts:229`, so a non-null `taskId` implies the task
- *     exists; the check admitted every authenticated principal anyway);
- *   - the `users` and `org` ports — their only caller was `senderInTeam`, whose
- *     only caller was the task-free-session branch.
+ * stuff at all."* That ruling is superseded now: the browser holds ONE socket,
+ * and `session:<id>` is folded back onto it. What still holds is the spirit of
+ * the ruling — core reads no orchestration table to serve it. The topic admits
+ * any signed-in identity with no DB read at all (the same rule the deleted
+ * second socket's own authorizer already applied, moved verbatim); the direct
+ * `sessions` read, the `work` port (`RealtimeTaskReader`), and the `users`/`org`
+ * ports that only ever served the old task-backed/task-free session checks stay
+ * gone — this file still never reads an `agent-orchestration` table.
  *
- * What remains is what this file was named for: thread and document topics.
- * Core's socket serves `conversations`, `thread:<id>`, `documents` and
- * `document:<id>`; `agent-orchestration` serves `session:<id>` on its own
- * socket, authorized from its own table
- * (`agent-orchestration/src/services/session-stream-hub.ts`).
+ * What else remains is what this file was named for: thread and document
+ * topics. Core's socket serves `conversations`, `thread:<id>`, `documents`,
+ * `document:<id>` and now `session:<id>` — the content itself still lives and
+ * is read entirely inside `agent-orchestration`; this socket only relays the
+ * nudge `agent-orchestration/src/services/session-activity-gateway.ts` pushes.
  *
  * @lore BC4 architecture.md §7: `document:<id>` and `documents` (the twin of
  * `conversations`) added. The subscribe rule is exactly `open_document`'s own
@@ -105,12 +103,13 @@ interface RealtimeUserReader {
 /**
  * Deps `createDbSubscribeAuthorizer` needs — its real outbound edges.
  *
- * @lore AU26 J3: was four (`conversation`/`users`/`org`/`work`). Three of them
- * existed only to serve the `session:<id>` branch that moved to
- * `agent-orchestration`; they went with it. `document`/`users` (architecture.md
- * §7) are new — `users` back because `document:<id>`'s visibility check
- * needs the same subject resolution `document-actions.ts` does, not the
- * session-team check AU26 removed.
+ * @lore AU26 J3: was four (`conversation`/`users`/`org`/`work`), then three
+ * once the `session:<id>` branch moved to `agent-orchestration` (`work`/`org`
+ * only ever served that branch). `document` is new —
+ * `users` came back for `document:<id>`'s visibility check (the same subject
+ * resolution `document-actions.ts` does), not for sessions. `session:<id>`
+ * folding back onto this authorizer needs no port at all — it admits on
+ * identity alone, no table read.
  */
 export interface SubscribeAuthorizerDeps {
 	readonly conversation: RealtimeThreadReader;
@@ -131,9 +130,14 @@ export interface SubscribeAuthorizerDeps {
  *    any signed-in identity; a private `user`-scoped memory admits only its
  *    owner (the actor, or the actor's owned agents); a `team`-scoped document
  *    admits only that team.
+ *  - subscribe to `session:<id>` topics: any signed-in identity, no table
+ *    read — the same rule the deleted second socket's own authorizer already
+ *    applied (an authenticated caller plus "the run exists", which every
+ *    authenticated principal passed anyway on the task-backed path). Session
+ *    content stays inside `agent-orchestration`; this socket only ever
+ *    relays a content-free nudge.
  *
- * Everything else — including `session:<id>`, which this socket no longer
- * carries — is denied.
+ * Everything else is denied.
  *
  * @lore L1 step9 (Adv-C1): subscribe authorization for per-thread topics is
  * the L1a §6.2 contract. The DB lookup is one-shot per subscribe call;
@@ -184,6 +188,10 @@ export function createDbSubscribeAuthorizer(
 				const documentId = topic.slice("document:".length);
 				if (!documentId) return Promise.resolve(false);
 				return senderCanReadDocument(senderId, documentId);
+			}
+			if (topic.startsWith("session:")) {
+				const sessionId = topic.slice("session:".length);
+				return Promise.resolve(Boolean(sessionId));
 			}
 			return Promise.resolve(false);
 		},

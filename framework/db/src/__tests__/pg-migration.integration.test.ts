@@ -45,7 +45,6 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
 					"messages",
 					"routines",
 					"server_config",
-					"server_credentials",
 					"sessions",
 					"tasks",
 					"teams",
@@ -77,6 +76,10 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
 			expect(tableNames).not.toContain("knowledge_app_projection");
 			expect(tableNames).not.toContain("knowledge_conflicts");
 			expect(tableNames).not.toContain("knowledge_access_log");
+			// @lore migration 0087: `server_credentials` dropped — the shared-backend
+			// key now lives only in the desktop keychain, and no other row in it
+			// ever had a writer. Exact-absence proves the DROP TABLE ran.
+			expect(tableNames).not.toContain("server_credentials");
 			// @lore BB1: bets table dropped — was 18, then 17. BC3: items dropped — now 16.
 			expect(tableNames.length).toBeGreaterThanOrEqual(16);
 		} finally {

@@ -21,21 +21,36 @@
  * JSON `ApiErrorResponse` 404, never Hono's `text/plain` default (AC10).
  */
 
-import { type InheritedReach, resolveHeldToken } from "@hyperidle/connections";
+import {
+	decryptCredentialValue,
+	encryptCredentialValue,
+	type InheritedReach,
+	resolveHeldToken,
+} from "@hyperidle/connections";
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { ActivityEntry } from "@hyperidle/domain-model";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
+import type { EventBus } from "@hyperidle/event-bus";
+import type { RegisteredTool } from "@hyperidle/harness-protocol";
+import { createSessionActions, type SessionActionsDeps } from "@hyperidle/run-orchestration";
 import { Hono } from "hono";
+import type { Action } from "./actions/action.js";
+import { actionsAsTools } from "./actions/actions-as-tools.js";
+import { createActionsRouter } from "./actions/actions-router.js";
 import { createAgentOrchestrationIntakeRoutes } from "./routes/agent-orchestration-intake.js";
 import { createAgentOrchestrationSessionsRoutes } from "./routes/agent-orchestration-sessions.js";
 import { createConnectionRoutes } from "./routes/connections.js";
 import { createFilesystemRoutes } from "./routes/filesystems.js";
-import { createOrchestrationSessionRoutes } from "./routes/sessions.js";
 
 export interface AgentOrchestrationAppOptions {
 	readonly db: HyperIdleDb;
-	/** Reads the Layer's own `SessionActivityBuffer` — see `boot.ts`. */
-	readonly getRecentActivity: (sessionId: string) => ReadonlyArray<ActivityEntry>;
+	readonly eventBus: EventBus;
+	/**
+	 * The session module's own deps bag (`services/
+	 * run-orchestration-composition.ts`'s `buildSessionActionsDeps`), which is
+	 * what `/sessions/:id/activity`'s old `getRecentActivity` reader moved
+	 * onto (`watch_session`'s own `activity` field).
+	 */
+	readonly sessionActionsDeps: SessionActionsDeps;
 	/**
 	 * AU36 D7: the connections domain's own reach cache, for `/connections`'
 	 * inherited projection. Read-only and DB-free (`list()`), never a
@@ -43,27 +58,39 @@ export interface AgentOrchestrationAppOptions {
 	 * was when this route read no pool (kernel-only/bare test apps).
 	 */
 	readonly inheritedReach?: InheritedReach;
-	/**
-	 * AU44 batch2: injected cipher for connection token encrypt/decrypt.
-	 * Absent → connections route uses a no-op cipher (token writes fail, reads return null).
-	 */
-	readonly cipher?: {
-		readonly encrypt: (plaintext: string) => string;
-		readonly decrypt: (ciphertext: string) => string | null;
-	};
+}
+
+export interface AgentOrchestrationAppHandle {
+	readonly app: Hono<HyperIdleEnv>;
+	/** This Layer's own three session actions, MCP-projected. `bootAgentOrchestration` exposes this as its own `actionTools`. */
+	readonly actionTools: readonly RegisteredTool<HyperIdleDb>[];
 }
 
 export function createAgentOrchestrationApp(
 	options: AgentOrchestrationAppOptions,
-): Hono<HyperIdleEnv> {
+): AgentOrchestrationAppHandle {
 	const app = new Hono<HyperIdleEnv>();
-	const { db, getRecentActivity, inheritedReach, cipher } = options;
+	const { db, eventBus, sessionActionsDeps, inheritedReach } = options;
+	// @lore token-cipher: the AES-256-GCM cipher used to be threaded in from
+	// core-api's boot (`@hyperidle/credentials`, a foreign layer's Service).
+	// It moved into this Layer's own `@hyperidle/connections` package when
+	// `server_credentials` was deleted and connection tokens became its only
+	// production consumer, so this Layer now owns it directly — no injection.
+	const cipher = { encrypt: encryptCredentialValue, decrypt: decryptCredentialValue };
 
-	app.route("/sessions", createOrchestrationSessionRoutes(db, getRecentActivity));
+	// The session module: search_sessions/watch_session/stop_session,
+	// mounted at `POST /actions/<name>` on this Layer's own app and projected
+	// onto the MCP tool seam. Both layer apps sit on one `/api` router
+	// (`composeApiApplication`), so `POST /api/actions/stop_session` resolves
+	// here while `POST /api/actions/edit_task` resolves on core's own mount.
+	const sessionActions = createSessionActions(sessionActionsDeps) as readonly Action[];
+	app.route("/actions", createActionsRouter(sessionActions, { db, eventBus }));
+	const actionTools = actionsAsTools(sessionActions);
+
 	app.route("/agent-orchestration", createAgentOrchestrationSessionsRoutes(db));
 	// AU31 §3: the write side of `AgentOrchestrationPort`, mounted beside the
 	// read routes above — same internal `/agent-orchestration` seam prefix.
-	app.route("/agent-orchestration", createAgentOrchestrationIntakeRoutes(db));
+	app.route("/agent-orchestration", createAgentOrchestrationIntakeRoutes(db, eventBus));
 	// AU26 E4: `/api/connections` — the path is unchanged; only the host app is.
 	app.route("/connections", createConnectionRoutes(db, inheritedReach, cipher));
 	// AU26 F2: `/api/filesystems` — same story. The reachability probe needs the
@@ -71,9 +98,9 @@ export function createAgentOrchestrationApp(
 	// table since E3, so the resolver is wired via cipher.decrypt → resolveHeldToken.
 	const fileSystemsResolver = {
 		resolve: (userId: string, connectionId: string) =>
-			resolveHeldToken(db, userId, connectionId, cipher?.decrypt ?? (() => null)),
+			resolveHeldToken(db, userId, connectionId, cipher.decrypt),
 	};
 	app.route("/filesystems", createFilesystemRoutes(db, fileSystemsResolver));
 
-	return app;
+	return { app, actionTools };
 }

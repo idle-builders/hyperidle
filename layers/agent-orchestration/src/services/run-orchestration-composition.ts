@@ -27,6 +27,7 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import { summarizeToolArgs } from "@hyperidle/diagnostics";
 import type {
 	ActionResult,
+	ActivityEntry,
 	DocumentRow,
 	DocumentView,
 	EditDocumentInput,
@@ -35,6 +36,8 @@ import type {
 import { EventBus } from "@hyperidle/event-bus";
 import type { RegisteredTool, ToolContext, ToolRegistry } from "@hyperidle/harness-protocol";
 import {
+	findSessionById,
+	listSessions,
 	type PluginMcpContributionsPort,
 	type RunOptions,
 	type RunResult,
@@ -42,8 +45,10 @@ import {
 	type RuntimeDeps,
 	type RuntimePorts,
 	runSession as runSessionInternal,
+	type SessionActionsDeps,
 	startRuntime as startRuntimeInternal,
 	startWatcher,
+	stopSessionRun,
 	transitionRun as transitionRunInternal,
 } from "@hyperidle/run-orchestration";
 import {
@@ -285,16 +290,27 @@ function buildDocumentWritebackPort(
 // the document tools, so `buildToolDefinitions` no longer takes an
 // `openTask` argument at all.
 
+/**
+ * @lore `actionTools` is a thunk, not an array: core's `actionTools` is
+ * threaded in BEFORE this Layer's own session actions exist (a cycle
+ * otherwise: this Layer's sessions must be handed a list that contains this
+ * Layer's own tools too, and that list is only complete after
+ * `bootAgentOrchestration` returns). `buildToolRegistry`/`toolsForRole`
+ * already run lazily, per session — calling the thunk here, at USE time
+ * rather than at composition-build time, is what lets `create-server.ts`
+ * reassign the joined list after both boots complete and have every session
+ * see it.
+ */
 function buildToolProvider(
 	coreApiTransport: CoreApiTransport,
 	returnStatusToolAdapter: RunOrchestrationReturnStatusToolAdapter,
-	actionTools: readonly RegisteredTool<HyperIdleDb>[],
+	actionTools: () => readonly RegisteredTool<HyperIdleDb>[],
 ): SessionLifecyclePorts["toolProvider"] {
 	return {
 		buildToolRegistry(ctx, options) {
 			const toolCtx = widenToToolContext(ctx);
 			const definitions = buildToolDefinitions(coreApiTransport);
-			return buildToolRegistryFromDefinitions([...actionTools, ...definitions], toolCtx, {
+			return buildToolRegistryFromDefinitions([...actionTools(), ...definitions], toolCtx, {
 				role: options.role,
 				extraTools: options.extraTools as ToolRegistryOptions["extraTools"],
 				useOnlyExtraTools: options.useOnlyExtraTools,
@@ -302,7 +318,7 @@ function buildToolProvider(
 		},
 		toolsForRole(role) {
 			// Names and roles only — no handler runs.
-			return [...actionTools, ...buildToolDefinitions(coreApiTransport)].filter(
+			return [...actionTools(), ...buildToolDefinitions(coreApiTransport)].filter(
 				(d) => d.roles === undefined || d.roles.includes(role),
 			);
 		},
@@ -326,7 +342,7 @@ const sessionRequestsPort: SessionLifecyclePorts["sessionRequests"] = {
 		const result = await transitionSessionRequest(exec, transition);
 		return result === undefined ? undefined : result;
 	},
-	abortSessionRun: (sessionId) => sessionRunRegistry.abort(sessionId),
+	abortSessionRun: (sessionId, reason) => sessionRunRegistry.abort(sessionId, reason),
 	registerSessionRun: (sessionId, control) => sessionRunRegistry.register(sessionId, control),
 	deregisterSessionRun: (sessionId) => sessionRunRegistry.deregister(sessionId),
 };
@@ -342,7 +358,7 @@ function buildSessionLifecyclePorts(
 	harnessRuntimeAdapter: RunOrchestrationHarnessRuntimeAdapter,
 	returnStatusToolAdapter: RunOrchestrationReturnStatusToolAdapter,
 	coreApiTransport: CoreApiTransport,
-	actionTools: readonly RegisteredTool<HyperIdleDb>[],
+	actionTools: () => readonly RegisteredTool<HyperIdleDb>[],
 ): SessionLifecyclePorts {
 	return {
 		sessionRequests: sessionRequestsPort,
@@ -457,13 +473,16 @@ export function buildRunOrchestrationComposition(config: {
 	/** Absent (or a bare-app test fixture / `tools/eval`'s standalone use) → seam-backed tools throw only when actually dialled (`unconfiguredCoreApiTransport`), never at construction. */
 	readonly coreApiTransport?: CoreApiTransport;
 	/**
-	 * §7 — core-api's composed action list, projected onto the MCP tool
-	 * seam (`CoreApiBoot.actionTools`). Injected once here rather than
-	 * imported, since `agent-orchestration` may not reach into `core-api`
-	 * directly — the Application (`create-server.ts`) threads the value
-	 * through. Absent → no action tools registered (a bare-app test fixture).
+	 * Core-api's composed action list, projected onto the
+	 * MCP tool seam (`CoreApiBoot.actionTools`), as a THUNK — `create-server.ts`
+	 * reassigns the value it closes over once this Layer's own session actions
+	 * exist, and every session's tool registry (built lazily, per session)
+	 * must see the up-to-date joined list, not the one captured at boot.
+	 * Injected rather than imported, since `agent-orchestration` may not reach
+	 * into `core-api` directly. Absent → no action tools registered (a
+	 * bare-app test fixture).
 	 */
-	readonly actionTools?: readonly RegisteredTool<HyperIdleDb>[];
+	readonly actionTools?: () => readonly RegisteredTool<HyperIdleDb>[];
 	/**
 	 * §8.4 — core's composed `edit_document`/`search_documents` actions,
 	 * threaded through exactly like `actionTools` above (`CoreApiBoot.
@@ -480,7 +499,7 @@ export function buildRunOrchestrationComposition(config: {
 		config.harnessRuntime,
 		config.returnStatusTool,
 		config.coreApiTransport ?? unconfiguredCoreApiTransport(),
-		config.actionTools ?? [],
+		config.actionTools ?? (() => []),
 	);
 
 	// §8.4: the writeback processor's document port, bound directly to core's
@@ -533,5 +552,28 @@ export function buildRunOrchestrationComposition(config: {
 			),
 		startRuntime: (deps) =>
 			startRuntimeInternal(runtimeDeps(deps.db, deps.eventBus ?? new EventBus(), deps)),
+	};
+}
+
+/**
+ * The session module's deps bag — `sessions.list`/
+ * `getById` are this Layer's own `@hyperidle/run-orchestration` accessors
+ * (in-package for `session-actions.ts`, injected here only for the uniform
+ * deps-bag shape every action module takes); `stop` is `stopSessionRun`,
+ * already bound to this boot's own `db`/`eventBus` and to
+ * `sessionRunRegistry.abort` — the one place this Layer is allowed to name
+ * `@hyperidle/session-requests` in production, since `@hyperidle/
+ * run-orchestration` itself may not (devDependency only).
+ */
+export function buildSessionActionsDeps(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	getRecentActivity: (sessionId: string) => ReadonlyArray<ActivityEntry>,
+): SessionActionsDeps {
+	return {
+		sessions: { list: listSessions, getById: findSessionById },
+		stop: (sessionId) =>
+			stopSessionRun(db, eventBus, sessionId, (id) => sessionRunRegistry.abort(id, "stop")),
+		activity: getRecentActivity,
 	};
 }

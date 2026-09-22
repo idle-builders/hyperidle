@@ -9,6 +9,8 @@
  * It is what lets the role personas leave the runtime. HyperIdle ships a single
  * agent with a bare AGENTS.md; a builder, a designer, a PM are things a plugin
  * brings, not things the product has opinions about.
+ *
+ * Re-pointed onto `POST /api/actions/edit_plugin` / `search_plugins`.
  */
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
@@ -20,7 +22,7 @@ import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
-/** The install route writes documents through `edit_document`, which needs a
+/** The install path writes documents through `edit_document`, which needs a
  * real actor for the `changes` row it appends — the auth middleware's
  * API-key fallback resolves to this id when no human is seeded.
  * `onConflictDoNothing` so a second install in the same test is safe. */
@@ -92,17 +94,20 @@ function makePlugin(): string {
 	return dir;
 }
 
-async function install(db: HyperIdleDb, app: Hono): Promise<void> {
-	await seedFounder(db);
-	const res = await app.request("/api/plugins", {
+async function editPlugin(app: Hono, body: unknown): Promise<Response> {
+	return app.request("/api/actions/edit_plugin", {
 		method: "POST",
 		headers: auth(),
-		body: JSON.stringify({
-			source: { type: "folder", path: makePlugin() },
-			scope: { kind: "factory" },
-		}),
+		body: JSON.stringify(body),
 	});
-	if (res.status !== 201) {
+}
+
+async function install(db: HyperIdleDb, app: Hono): Promise<void> {
+	await seedFounder(db);
+	const res = await editPlugin(app, {
+		source: { kind: "folder", path: makePlugin(), scope: { kind: "factory", teamId: null } },
+	});
+	if (res.status !== 200) {
 		throw new Error(`Install failed: ${JSON.stringify(await res.json())}`);
 	}
 }
@@ -143,11 +148,15 @@ describe("a plugin's agent comes with an identity", () => {
 	test("the identity appears in the plugin's contributions", async ({ db, app }) => {
 		await install(db, app);
 
-		const res = await app.request("/api/plugins", { headers: auth() });
+		const res = await app.request("/api/actions/search_plugins", {
+			method: "POST",
+			headers: auth(),
+			body: JSON.stringify({}),
+		});
 		const body = (await res.json()) as {
-			plugins: Array<{ id: string; contributions: Array<{ kind: string; label: string }> }>;
+			data: Array<{ id: string; contributions: Array<{ kind: string; label: string }> }>;
 		};
-		const contributions = body.plugins.find((p) => p.id === PLUGIN_ID)?.contributions ?? [];
+		const contributions = body.data.find((p) => p.id === PLUGIN_ID)?.contributions ?? [];
 
 		expect(contributions.some((c) => c.kind === "agent" && c.label === "Builder")).toBe(true);
 		expect(
@@ -160,10 +169,7 @@ describe("a plugin's agent comes with an identity", () => {
 		await install(db, app);
 		const [agent] = await db.select().from(users).where(eq(users.role, "builder"));
 
-		const del = await app.request(`/api/plugins/${PLUGIN_ID}`, {
-			method: "DELETE",
-			headers: auth(),
-		});
+		const del = await editPlugin(app, { id: PLUGIN_ID, remove: true });
 		expect(del.status).toBe(200);
 
 		const [identity] = await db
@@ -210,10 +216,9 @@ describe("a plugin's agent comes with an identity", () => {
 			}),
 		});
 
-		const res = await app.request(`/api/plugins/${PLUGIN_ID}/contributions/restore`, {
-			method: "POST",
-			headers: auth(),
-			body: JSON.stringify({ kind: "document", entityId: identity?.id }),
+		const res = await editPlugin(app, {
+			id: PLUGIN_ID,
+			restore: { contribution: identity?.id },
 		});
 		expect(res.status, "restore must reach the plugin's own file").toBe(200);
 
@@ -252,12 +257,10 @@ describe("a plugin's agent comes with an identity", () => {
 		);
 		tempDirs.push(dir);
 
-		const res = await app.request("/api/plugins", {
-			method: "POST",
-			headers: auth(),
-			body: JSON.stringify({ source: { type: "folder", path: dir }, scope: { kind: "factory" } }),
+		const res = await editPlugin(app, {
+			source: { kind: "folder", path: dir, scope: { kind: "factory", teamId: null } },
 		});
-		expect(res.status).toBe(201);
+		expect(res.status).toBe(200);
 
 		const [routine] = await db.select().from(users).where(eq(users.name, "Sweeper"));
 		expect(routine, "the plugin's agent exists").toBeDefined();
@@ -291,12 +294,10 @@ describe("a plugin's agent comes with an identity", () => {
 		);
 		tempDirs.push(dir);
 
-		const res = await app.request("/api/plugins", {
-			method: "POST",
-			headers: auth(),
-			body: JSON.stringify({ source: { type: "folder", path: dir }, scope: { kind: "factory" } }),
+		const res = await editPlugin(app, {
+			source: { kind: "folder", path: dir, scope: { kind: "factory", teamId: null } },
 		});
-		expect(res.status).toBe(201);
+		expect(res.status).toBe(200);
 
 		const [agent] = await db.select().from(users).where(eq(users.name, "Quiet"));
 		expect(agent, "the agent installs without an identity").toBeDefined();

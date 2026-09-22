@@ -62,16 +62,13 @@ export interface CreateServerDeps {
 }
 
 /**
- * @lore AH1 §3 / N1: same shape as `remote-server`'s own `ServerHandle` — see
- * that file's doc comment for why `credentialResolver` rides the handle.
- * @lore AU44-b2: `credentialResolver` type derived from `CoreApiBoot` so this
- * application does not import @hyperidle/credentials (a Service) at the
- * application layer — the layer barrel is the only boundary a composition root crosses.
+ * @lore Same shape as `remote-server`'s own `ServerHandle`.
  */
 export interface ServerHandle {
 	readonly httpServer: ServerType;
 	readonly dispose: () => Promise<void>;
-	readonly credentialResolver: NonNullable<CoreApiBoot["credentialResolver"]>;
+	/** The joined action list — core's plus this Layer's own three session actions. */
+	readonly actionTools: CoreApiBoot["actionTools"];
 }
 
 const MIME_TYPES: Record<string, string> = {
@@ -171,7 +168,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	if (!hasSecret) {
 		// biome-ignore lint/suspicious/noConsole: intentional boot-time warning before observability adapter is constructed
 		console.warn(
-			"[HyperIdle] No HYPERIDLE_CREDENTIAL_KEY/HYPERIDLE_API_KEY set — credential writes will be refused (MISSING_ROOT_SECRET). Agents cannot resolve keys until a secret is configured.",
+			"[HyperIdle] No HYPERIDLE_CREDENTIAL_KEY/HYPERIDLE_API_KEY set — connection token writes will be refused (MISSING_ROOT_SECRET) until a secret is configured.",
 		);
 	}
 
@@ -257,17 +254,18 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		workspace: agentExecution.adapters.sandbox,
 	} satisfies ApplicationProvisionSessionDeps;
 
-	if (!coreApi.upgradeTokenStore) {
-		// `upgradeWebSocket` is always supplied above, so `bootCoreApi` always
-		// builds a token store — this can only fire if that wiring regresses.
-		throw new Error(
-			"bootCoreApi did not build an upgradeTokenStore despite upgradeWebSocket being supplied.",
-		);
-	}
+	// The join — see `remote-server/src/create-server.ts`'s
+	// twin comment for why the thunk and the reassignment are both needed.
+	let actionTools = coreApi.actionTools;
 	const agentOrchestration = await bootAgentOrchestration({
 		db,
 		eventBus,
-		sessionStream: { upgradeWebSocket, upgradeTokens: coreApi.upgradeTokenStore },
+		// AU26 J3, superseded: `upgradeWebSocket` here is ONLY for worker
+		// WebSocket registration now — the live-run stream itself reaches the
+		// browser through `wsPush` below, on core's own socket.
+		upgradeWebSocket,
+		// Byte-identical to core's own action-layer binding (`core-api/src/app.ts`).
+		wsPush: (topic, envelope) => coreApi.wsHub.broadcast(topic, JSON.stringify(envelope)),
 		// AU36 D4: desktop is always topology "local" (boot-server.ts) — boot
 		// awaits the initial reach probe, so facts are cached by serve time.
 		probeInheritedReach: deps.topology === "local",
@@ -275,9 +273,9 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			harnessRuntime: harnessRuntimeAdapter,
 			returnStatusTool: returnStatusToolAdapter,
 			coreApiTransport,
-			// §7 — one composed list, built once: core-api's actions, projected
-			// onto this Layer's own MCP tool seam.
-			actionTools: coreApi.actionTools,
+			// One composed list, built once: core-api's actions, projected
+			// onto this Layer's own MCP tool seam, as a thunk (see above).
+			actionTools: () => actionTools,
 			// §8.4 — the writeback processor's document port, bound straight to
 			// core's composed `edit_document`/`search_documents` values, threaded
 			// through exactly like `actionTools` above.
@@ -300,8 +298,10 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			},
 			resolveProvisioningOwnerUserId: coreApi.resolveProvisioningOwnerUserId,
 		},
-		cipher: coreApi.cipher,
 	});
+	// Close the join — every session from here on sees both
+	// layers' actions through the thunk above.
+	actionTools = [...coreApi.actionTools, ...agentOrchestration.actionTools];
 	// AU36 D5: close the deferred binding — redetect now reaches the reach cache.
 	realInheritedReachRefresh = () => agentOrchestration.inheritedReach.refresh();
 
@@ -412,6 +412,5 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		return disposePromise;
 	};
 
-	// biome-ignore lint/style/noNonNullAssertion: `db` is always set above (either the injected fixture or a freshly opened handle)
-	return { httpServer, dispose, credentialResolver: coreApi.credentialResolver! };
+	return { httpServer, dispose, actionTools };
 }

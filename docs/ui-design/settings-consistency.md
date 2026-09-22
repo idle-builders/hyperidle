@@ -32,7 +32,6 @@ The distinguishing factor is **does the row contain a form**, not whether the se
 | Org chart | edge table + add form | table flat; add-edge form = card (18px) |
 | Agents | `ItemList`/`Row` agent list (assistant is a row, not a separate section) + add form | flush (`ItemList variant="flush"`); add form = card |
 | Appearance | swatch buttons | flat (swatches are self-contained controls) |
-| Credentials | catalog rows (pure display) | flush (`ItemList variant="flush"`) |
 | Notifications | toggles | flat |
 | Backend (Worker folded in) | read-only labels + Worker form fields/status | flat |
 | **Agent backends (Harnesses)** | dense harness list (pure display + toggles per row) | ONE `--surface-elevated` container with `--border-subtle` hairline row separators (`overflow-hidden`); no individual row cards; section header flat above the container |
@@ -86,8 +85,6 @@ Color mapping: `STATUS_STYLES` in `framework/design-system/src/StatusChip.tsx:68
 ## AG6 Row/ItemList adoption in Settings
 
 Two list surfaces use `Row` + `ItemList`:
-
-**Credentials catalog** (native fit): `title={entry.label}`, `subtitle={entry.description}`, `actions={<StatusChip/> + <Button> actions}`. Inline edit reveal stays a sibling `div` below `Row`. `ItemList variant="flush"` preserves hairline separators. `data-testid="credential-row-*"` lives on the `Row` (`CredentialsTab.tsx:222`).
 
 **Org-chart edge table** (explicit slot mapping): `title={userName(edge.fromUserId)}` (13px sans), `subtitle={edge.target}` (12px tertiary), `cells=[{content: edge.mechanism}]` (11px mono — mechanism was already mono). `actions=<Button variant="destructive">`. The 1px subtitle shrink and 2px mono shrink are accepted trade-offs for shared-primitive adoption; no primary-value sans→mono downgrade occurs.
 

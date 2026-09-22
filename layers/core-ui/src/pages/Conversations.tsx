@@ -184,6 +184,7 @@ function SessionViewPanel({
 				</svg>
 			</button>
 			<SessionView
+				sessionId={sessionId}
 				entries={[...entries]}
 				identity={{
 					agent,

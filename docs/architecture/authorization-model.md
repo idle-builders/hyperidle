@@ -43,17 +43,17 @@ Endpoints stay mode-agnostic — only the middleware differs. The invariant that
 A **Worker** is a capability-bounded session-execution endpoint — **not** a Principal, **not** an org member.
 
 - Identity is **server-issued and token-bound** (`GET /ws/worker?token=<HYPERIDLE_WORKER_TOKEN>`), not self-asserted: a `register` cannot claim or replace another worker's identity (`id_in_use` rejection + liveness probe, `layers/agent-orchestration/run-orchestration/src/worker-ingress.ts`).
-- Its token authorizes exactly one capability: *run the sessions assigned to this worker.* No authority to read threads, artifacts, knowledge, or the credential store.
-- Credentials reach a worker **scoped to its assigned session's provider** (or the server proxies the model call) — never as a readable org-wide store.
+- Its token authorizes exactly one capability: *run the sessions assigned to this worker.* No authority to read threads, artifacts, or knowledge.
+- There is no server-side credential store for a worker to reach. A worker authenticates to a shared-mode server with `shared_backend_key`, read from its own desktop keychain (see [credential-model.md](credential-model.md)).
 
 ## Secrets
 
 | Kind | What | Protection |
 |---|---|---|
 | **Root-of-trust secret** | The single bootstrap key (`HYPERIDLE_API_KEY`, OS-protected `secrets.json` / desktop safeStorage). | OS file permissions. *Not* encrypted-with-itself. |
-| **Managed secret** | Every other secret (provider/credential values). | Encrypted at rest, key derived from the root — mechanism owned by [credential-model.md](credential-model.md). **Never plaintext, persisted or logged, anywhere.** |
+| **Managed secret** | A user's connection tokens (`service_connections`), and the one remaining credential (`shared_backend_key`). | Encrypted at rest — connection tokens via the cipher in `@hyperidle/connections` ([connection-model.md](connection-model.md)); the credential via the desktop OS keychain ([credential-model.md](credential-model.md)). **Never plaintext, persisted or logged, anywhere.** |
 
-Hiding a field from GET responses is **not** protection. Every credential lives in the `server_credentials` store, never in the `server_config` blob. The model-tier keys this rule was written for are gone entirely — HyperIdle holds no model credential, because a harness authenticates through its own login. See [credential-model.md](credential-model.md).
+Hiding a field from GET responses is **not** protection. A connection token lives in the `service_connections` store, encrypted, never in the `server_config` blob. There is no server-side credential store at all any more — the model-tier keys this rule was written for are gone entirely, and the one credential HyperIdle still holds never leaves the desktop keychain. See [credential-model.md](credential-model.md).
 
 ## Enforcement layer & default posture
 

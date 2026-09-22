@@ -1,8 +1,12 @@
 /**
- * BA9a — plugin HTTP routes integration tests.
+ * BA9a — plugin lifecycle integration tests, re-pointed onto the platform
+ * module: `POST /api/actions/edit_plugin` / `search_plugins` replace
+ * `routes/plugins.ts`'s six routes.
  *
- * Tests the 404 responses added in R1/review-fix for enable, disable,
- * remove, and restore when the plugin ID does not exist or is removed.
+ * Tests the not-found refusals for enable, disable, remove, and restore
+ * when the plugin ID does not exist or is removed — `unknown_plugin`/
+ * `plugin_removed` now, where the deleted route answered a blanket 404
+ * `NOT_FOUND` either way.
  *
  * Uses the real DB + app fixtures (no stubs).
  */
@@ -13,57 +17,55 @@ import { describe, expect, test } from "../../__testing__/test-fixtures.js";
 const API_KEY = "test-ba9a-plugins";
 
 function authHeaders(): Record<string, string> {
-	return { "X-API-Key": API_KEY };
+	return { "X-API-Key": API_KEY, "Content-Type": "application/json" };
 }
 
-describe("Plugin routes — 404 on unknown plugin", () => {
-	test("POST /api/plugins/:id/enable returns 404 for non-existent id", async ({ app }) => {
-		const res = await app.request("/api/plugins/no-such-plugin/enable", {
+describe("edit_plugin — not found", () => {
+	test("state on a non-existent id is unknown_plugin", async ({ app }) => {
+		const res = await app.request("/api/actions/edit_plugin", {
 			method: "POST",
 			headers: authHeaders(),
+			body: JSON.stringify({ id: "no-such-plugin", state: "enabled" }),
 		});
-		expect(res.status).toBe(404);
+		expect(res.status).toBe(422);
 		const body = await res.json();
-		expect(body).toMatchObject({ code: "NOT_FOUND" });
+		expect(body.problems?.[0]?.code).toBe("unknown_plugin");
 	});
 
-	test("POST /api/plugins/:id/disable returns 404 for non-existent id", async ({ app }) => {
-		const res = await app.request("/api/plugins/no-such-plugin/disable", {
+	test("disable on a non-existent id is unknown_plugin", async ({ app }) => {
+		const res = await app.request("/api/actions/edit_plugin", {
 			method: "POST",
 			headers: authHeaders(),
+			body: JSON.stringify({ id: "no-such-plugin", state: "disabled" }),
 		});
-		expect(res.status).toBe(404);
+		expect(res.status).toBe(422);
 		const body = await res.json();
-		expect(body).toMatchObject({ code: "NOT_FOUND" });
+		expect(body.problems?.[0]?.code).toBe("unknown_plugin");
 	});
 
-	test("DELETE /api/plugins/:id returns 404 for non-existent id", async ({ app }) => {
-		const res = await app.request("/api/plugins/no-such-plugin", {
-			method: "DELETE",
-			headers: authHeaders(),
-		});
-		expect(res.status).toBe(404);
-		const body = await res.json();
-		expect(body).toMatchObject({ code: "NOT_FOUND" });
-	});
-
-	test("POST /api/plugins/:id/contributions/restore returns 404 for non-existent id", async ({
-		app,
-	}) => {
-		const res = await app.request("/api/plugins/no-such-plugin/contributions/restore", {
+	test("remove on a non-existent id is unknown_plugin", async ({ app }) => {
+		const res = await app.request("/api/actions/edit_plugin", {
 			method: "POST",
-			headers: { ...authHeaders(), "Content-Type": "application/json" },
-			body: JSON.stringify({ kind: "agent", manifestKey: "some-key" }),
+			headers: authHeaders(),
+			body: JSON.stringify({ id: "no-such-plugin", remove: true }),
 		});
-		expect(res.status).toBe(404);
+		expect(res.status).toBe(422);
 		const body = await res.json();
-		expect(body).toMatchObject({ code: "NOT_FOUND" });
+		expect(body.problems?.[0]?.code).toBe("unknown_plugin");
 	});
 
-	test("DELETE /api/plugins/:id returns 404 for removed (state=removed) plugin", async ({
-		db,
-		app,
-	}) => {
+	test("restore on a non-existent id is unknown_plugin", async ({ app }) => {
+		const res = await app.request("/api/actions/edit_plugin", {
+			method: "POST",
+			headers: authHeaders(),
+			body: JSON.stringify({ id: "no-such-plugin", restore: { contribution: "some-key" } }),
+		});
+		expect(res.status).toBe(422);
+		const body = await res.json();
+		expect(body.problems?.[0]?.code).toBe("unknown_plugin");
+	});
+
+	test("remove on a removed (state=removed) plugin is plugin_removed", async ({ db, app }) => {
 		const now = "2026-01-01T00:00:00Z";
 		await db.insert(plugins).values({
 			id: "removed-plugin",
@@ -76,32 +78,39 @@ describe("Plugin routes — 404 on unknown plugin", () => {
 			updatedAt: now,
 			removedAt: now,
 		});
-		const res = await app.request("/api/plugins/removed-plugin", {
-			method: "DELETE",
-			headers: authHeaders(),
-		});
-		expect(res.status).toBe(404);
-		const body = await res.json();
-		expect(body).toMatchObject({ code: "NOT_FOUND" });
-	});
-
-	test("GET /api/plugins returns empty list when no plugins installed", async ({ app }) => {
-		const res = await app.request("/api/plugins", {
-			method: "GET",
-			headers: authHeaders(),
-		});
-		// builtin is seeded but excluded from list; no user-installed plugins
-		expect(res.status).toBe(200);
-		const body = await res.json();
-		expect(Array.isArray(body.plugins)).toBe(true);
-	});
-
-	test("builtin plugin is treated as not-found by enable (reserved guard)", async ({ app }) => {
-		const res = await app.request(`/api/plugins/${BUILTIN_PLUGIN_ID}/enable`, {
+		const res = await app.request("/api/actions/edit_plugin", {
 			method: "POST",
 			headers: authHeaders(),
+			body: JSON.stringify({ id: "removed-plugin", remove: true }),
 		});
-		// getInstalledPlugin returns null for BUILTIN_PLUGIN_ID → 404
-		expect(res.status).toBe(404);
+		expect(res.status).toBe(422);
+		const body = await res.json();
+		expect(body.problems?.[0]?.code).toBe("plugin_removed");
+	});
+
+	test("search_plugins returns an empty list when no plugins are installed", async ({ app }) => {
+		const res = await app.request("/api/actions/search_plugins", {
+			method: "POST",
+			headers: authHeaders(),
+			body: JSON.stringify({}),
+		});
+		expect(res.status).toBe(200);
+		const body = await res.json();
+		expect(Array.isArray(body.data)).toBe(true);
+		expect(body.data).toEqual([]);
+	});
+
+	test("the builtin plugin is unknown_plugin, never a live row (reserved guard)", async ({
+		app,
+	}) => {
+		const res = await app.request("/api/actions/edit_plugin", {
+			method: "POST",
+			headers: authHeaders(),
+			body: JSON.stringify({ id: BUILTIN_PLUGIN_ID, state: "enabled" }),
+		});
+		// getInstalledPlugin returns null for BUILTIN_PLUGIN_ID → unknown_plugin
+		expect(res.status).toBe(422);
+		const body = await res.json();
+		expect(body.problems?.[0]?.code).toBe("unknown_plugin");
 	});
 });

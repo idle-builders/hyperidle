@@ -1,5 +1,6 @@
 /**
- * The task action list — search_tasks / open_task / edit_task — is
+ * The declared action list — five modules, fifteen names, from
+ * search_tasks / open_task / edit_task to search_plugins / edit_plugin — is
  * projected onto every door: mounted on HTTP, registered on MCP, reachable
  * from the UI. This rule is the mechanical proof, over the census plus a
  * handful of scans this file owns (route registrations, tool literals, the
@@ -68,8 +69,15 @@ function scanDeclaredActionNames(
 }
 
 /**
- * The seventeen registrations that realise the sixteen plumbing doors —
+ * The nineteen registrations that realise the eighteen plumbing doors —
  * internal seams, auth, health. A route, never an action.
+ *
+ * @lore `GET /sessions/:sessionId` (a live core-api caller,
+ * `port.sessions.getById`) and `POST /runs/stop-for-tasks` (a live core-api
+ * caller, `task-actions.ts`'s kill path) moved here from `LEGACY_ROUTES` —
+ * both are `AgentOrchestrationPort` seams with a real caller left, which is
+ * what this list means; neither is an action, since core may not call an
+ * orchestration action.
  */
 const PLUMBING_ROUTES: readonly string[] = [
 	"layers/core-api/src/routes/auth.ts|GET /me",
@@ -91,6 +99,8 @@ const PLUMBING_ROUTES: readonly string[] = [
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|GET /filesystems/:id/team",
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /filesystems/:id/injections/persist",
 	"layers/agent-execution/harness-registry/src/mcp/mcp-route.ts|POST /mcp/:token/return-status",
+	"layers/agent-orchestration/src/routes/agent-orchestration-sessions.ts|GET /sessions/:sessionId",
+	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /runs/stop-for-tasks",
 ];
 
 /** The nine object events — task/thread/document/user, edit-in/changed-out. */
@@ -119,24 +129,22 @@ const PLATFORM_EVENTS: readonly string[] = [
 ];
 
 /**
- * Every route registered in a production file that is neither a task
- * action route nor one of the sixteen plumbing doors. Re-derived after the
+ * Every route registered in a production file that is neither a declared
+ * action route nor one of the eighteen plumbing doors. Re-derived after the
  * unreachable-route deletion on main removed fourteen of the 107 entries
  * this rule started with, `coach.ts`/`hints.ts` wholesale among them, so
  * those rows shrank ahead of this item. Only shrinks: an entry whose route is gone is a
  * finding, so the deletion and the row land in the same PR. Includes the
- * four socket/protocol transports (mcp-route, worker-ingress, ws,
- * session-stream-ws) — see the architecture doc §7 for why each stays a
- * shrink-list entry rather than becoming plumbing or an action today.
+ * three remaining socket/protocol transports (mcp-route, worker-ingress,
+ * ws) — each is a socket/protocol handshake, not a request/response route,
+ * so it stays a shrink-list entry rather than becoming plumbing or an
+ * action today. `session-stream-ws`'s
+ * own row left with the file: the second websocket is deleted, and
+ * `session:<id>` now rides the `ws` row already on this list.
  */
 const LEGACY_ROUTES: readonly string[] = [
 	"layers/agent-execution/harness-registry/src/mcp/mcp-route.ts|ALL /mcp/:token",
 	"layers/agent-orchestration/run-orchestration/src/worker-ingress.ts|GET /ws/worker",
-	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /runs/abort",
-	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /runs/stop-for-tasks",
-	"layers/agent-orchestration/src/routes/agent-orchestration-sessions.ts|GET /sessions/:sessionId",
-	"layers/agent-orchestration/src/routes/agent-orchestration-sessions.ts|GET /runs/active-counts",
-	"layers/agent-orchestration/src/routes/agent-orchestration-sessions.ts|GET /runs",
 	"layers/agent-orchestration/src/routes/connections.ts|GET /",
 	"layers/agent-orchestration/src/routes/connections.ts|POST /",
 	"layers/agent-orchestration/src/routes/connections.ts|DELETE /:id",
@@ -147,18 +155,11 @@ const LEGACY_ROUTES: readonly string[] = [
 	"layers/agent-orchestration/src/routes/filesystems.ts|GET /:id",
 	"layers/agent-orchestration/src/routes/filesystems.ts|DELETE /:id",
 	"layers/agent-orchestration/src/routes/filesystems.ts|DELETE /:id/injections/:agentUserId",
-	"layers/agent-orchestration/src/routes/session-stream-ws.ts|GET /agent-orchestration/ws",
-	"layers/agent-orchestration/src/routes/sessions.ts|GET /",
-	"layers/agent-orchestration/src/routes/sessions.ts|GET /:id/activity",
 	"layers/core-api/src/routes/agents.ts|GET /:id/profile",
 	"layers/core-api/src/routes/agents.ts|GET /",
 	"layers/core-api/src/routes/agents.ts|POST /",
 	"layers/core-api/src/routes/agents.ts|PATCH /:id",
 	"layers/core-api/src/routes/agents.ts|DELETE /:id",
-	"layers/core-api/src/routes/credentials.ts|GET /",
-	"layers/core-api/src/routes/credentials.ts|PUT /:name",
-	"layers/core-api/src/routes/credentials.ts|DELETE /:name",
-	"layers/core-api/src/routes/credentials.ts|POST /:name/validate",
 	"layers/core-api/src/routes/filesystems.ts|POST /:id/injections",
 	"layers/core-api/src/routes/harnesses.ts|GET /",
 	"layers/core-api/src/routes/harnesses.ts|POST /redetect",
@@ -174,12 +175,6 @@ const LEGACY_ROUTES: readonly string[] = [
 	"layers/core-api/src/routes/org.ts|GET /teams/:teamId/membership",
 	"layers/core-api/src/routes/org.ts|POST /teams",
 	"layers/core-api/src/routes/org.ts|POST /scaffold-request",
-	"layers/core-api/src/routes/plugins.ts|GET /",
-	"layers/core-api/src/routes/plugins.ts|POST /",
-	"layers/core-api/src/routes/plugins.ts|POST /:id/enable",
-	"layers/core-api/src/routes/plugins.ts|POST /:id/disable",
-	"layers/core-api/src/routes/plugins.ts|DELETE /:id",
-	"layers/core-api/src/routes/plugins.ts|POST /:id/contributions/restore",
 	"layers/core-api/src/routes/recipients.ts|GET /",
 	"layers/core-api/src/routes/routines-routes.ts|GET /event-types",
 	"layers/core-api/src/routes/routines-routes.ts|POST /",
@@ -354,7 +349,7 @@ export function actionsProjected(input: ActionsProjectedInput): Rule {
 		evaluate: (census: Census): readonly Finding[] => {
 			const findings: Finding[] = [];
 			const productionFiles = population(census);
-			const taskActionNames = scanDeclaredActionNames(census, readFile);
+			const declaredActionNames = scanDeclaredActionNames(census, readFile);
 
 			// -- clause 1: every action name is reachable from the UI ------------
 			const uiFiles = census.files.filter(
@@ -363,7 +358,7 @@ export function actionsProjected(input: ActionsProjectedInput): Rule {
 					f.path.startsWith("layers/core-ui/src/") &&
 					/\.tsx?$/.test(f.path),
 			);
-			for (const name of taskActionNames) {
+			for (const name of declaredActionNames) {
 				const matcher = buildCallSiteMatcher(name);
 				const reachable = uiFiles.some((f) => {
 					try {
@@ -411,9 +406,9 @@ export function actionsProjected(input: ActionsProjectedInput): Rule {
 			// -- clause 3: every tool is an action or legacy ----------------------
 			const toolFound = scanToolNames(productionFiles, readFile);
 			const legacyToolSet = new Set(LEGACY_TOOLS);
-			const taskActionSet = new Set(taskActionNames);
+			const declaredActionSet = new Set(declaredActionNames);
 			for (const [name, path] of toolFound) {
-				if (taskActionSet.has(name) || legacyToolSet.has(name)) continue;
+				if (declaredActionSet.has(name) || legacyToolSet.has(name)) continue;
 				findings.push({
 					ruleId: "actions-projected",
 					severity: "error",

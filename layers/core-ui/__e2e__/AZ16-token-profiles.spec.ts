@@ -177,10 +177,9 @@ async function installAz16Mocks(page: Page): Promise<void> {
 		if (pathname === "/api/harnesses") return json(route, []);
 		if (pathname === "/api/agents") return json(route, []);
 		if (pathname === "/api/connections") return json(route, []);
-		if (pathname === "/api/credentials") return json(route, []);
 		if (pathname === "/api/settings/agent-behavior/config") return json(route, { items: [] });
 		if (pathname === "/api/filesystems") return json(route, { filesystems: [] });
-		if (pathname === "/api/sessions") return json(route, { sessions: [] });
+		if (pathname === "/api/actions/search_sessions") return json(route, { ok: true, data: [] });
 		if (pathname === "/api/artifacts") return json(route, { items: [], nextCursor: null });
 		if (pathname.includes("/routines")) return json(route, { routines: [] });
 		if (pathname.includes("/agents")) return json(route, { agents: [] });

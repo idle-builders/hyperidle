@@ -491,11 +491,16 @@ interface SessionLifecyclePorts {
 			| "conflict"
 			| "terminal"
 		>;
-		abortSessionRun(sessionId: string): Promise<boolean>;
+		/**
+		 * `reason` distinguishes a genuine stop from an adapter's own return —
+		 * see `stopRequested` below for why the distinction has to survive the
+		 * whole way to the registry's `signalAbort`, not just get decided here.
+		 */
+		abortSessionRun(sessionId: string, reason: "stop" | "return"): Promise<boolean>;
 		registerSessionRun(
 			sessionId: string,
 			control: {
-				signalAbort(): void;
+				signalAbort(reason: "stop" | "return"): void;
 				handle: SessionHandle;
 				adapter: SessionLifecycleHarnessAdapter;
 			},
@@ -1451,8 +1456,22 @@ async function runSession(
 	} = admitted;
 
 	// AF7 §5: cooperative abort flag — the provisioning event loop checks it each
-	// iteration.
+	// iteration. Several things flip it (a registry abort, an adapter's own
+	// return action, an onBeforeHarnessStart failure) and all of them must stop
+	// the loop, but only one of them is an actual user stop — see
+	// `stopRequested` below.
 	let aborted = false;
+	/**
+	 * A real stop request, set ONLY inside the registry's `signalAbort` below,
+	 * and only when it is called with reason "stop". `signalAbort` also fires
+	 * with reason "return" — the deferred kill an adapter's own return action
+	 * schedules below reaches the SAME registered session, through the SAME
+	 * registry, while the entry is still live, so the discriminator has to be
+	 * the `reason` each caller passes, not merely which function got called.
+	 * A startup failure sets `aborted` directly, never through the registry,
+	 * so it never reaches `stopRequested` either way.
+	 */
+	let stopRequested = false;
 
 	// ── Phase 8: build tool registry bound to this context.
 	const toolContext: SessionLifecycleToolContext = {
@@ -1596,7 +1615,10 @@ async function runSession(
 				if (selectedAdapter.meta.type === "opencode") {
 					aborted = true;
 					setTimeout(() => {
-						void ports.sessionRequests.abortSessionRun(sessionId).catch(() => {
+						// "return", not "stop": this is opencode's own turn ending, a
+						// defensive kill in case the process is still running after it —
+						// not a user asking the session to stop. See `stopRequested` above.
+						void ports.sessionRequests.abortSessionRun(sessionId, "return").catch(() => {
 							// The harness may already have exited after the return action.
 						});
 					}, 0);
@@ -1807,8 +1829,9 @@ async function runSession(
 				harnessHandle = await harness.startSession(sessionStartConfig as SessionConfig);
 			}
 			ports.sessionRequests.registerSessionRun(sessionId, {
-				signalAbort: () => {
+				signalAbort: (reason) => {
 					aborted = true;
+					if (reason === "stop") stopRequested = true;
 				},
 				handle: harnessHandle,
 				adapter: harness,
@@ -2025,12 +2048,22 @@ async function runSession(
 	if (deps.mounter && mountedFilesystems.length > 0) {
 		await captureMountedFilesystems(sessionId, sandboxPath, mountedFilesystems, deps.mounter);
 	}
+	// @lore `stopRequested` (set only inside `signalAbort` above, when the run
+	// registry's own `abort` is called) threads through as `terminalOutcome:
+	// "stopped"` so a genuinely stopped session's row reads state "stopped" /
+	// outcome "stopped" — not "completed", which `lifecycle-propagation.ts`
+	// would read as a clean finish and move the task. The wider `aborted` flag
+	// is deliberately NOT used here: it also flips for an adapter's own return
+	// action (e.g. opencode's) and for a startup failure, and reading either of
+	// those as a stop wrote every clean opencode finish to the row as
+	// stopped/stopped, so its task never moved.
 	await transitionRun(
 		{ db, eventBus, ports },
 		{
 			target: "session",
 			context: sessionContext,
 			disposition: "end",
+			...(stopRequested ? { terminalOutcome: "stopped" as const } : {}),
 			...(params.taskId ? { tokensByTier: accumulatedTokens } : {}),
 		},
 	);

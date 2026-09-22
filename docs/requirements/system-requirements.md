@@ -58,7 +58,7 @@ Platform constraints and standing decisions — what the system must run on and 
 
 ## S-9: Security and Credentials
 
-**S-9.1** Credentials are stored encrypted — AES-256-GCM in `server_credentials` on shared deployments (`framework/credential-access/src/crypto/credential-encryption.ts`), Electron `safeStorage` on desktop (`applications/desktop/src/safe-credentials.ts`) — and injected at spawn so agents never handle plaintext. Depth: [../architecture/credential-model.md](../architecture/credential-model.md).
+**S-9.1** There is no server-side credential store. The one credential HyperIdle still holds, `shared_backend_key`, is stored encrypted in the desktop's OS keychain (Electron `safeStorage`, `applications/desktop/src/safe-credentials.ts`) and never leaves it. A user's own service connections are a separate, encrypted table (`service_connections`) and are injected at spawn so agents never handle plaintext. Depth: [../architecture/credential-model.md](../architecture/credential-model.md).
 
 **S-9.2** The desktop app binds to localhost only. Auth is an auto-generated API key (`crypto.randomBytes(32)`, `applications/desktop/src/main.ts`) delivered over the Electron preload bridge. No public-internet exposure.
 

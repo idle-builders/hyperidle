@@ -14,8 +14,7 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
-		"@electric-sql/pglite": "^0.5.4",
-		"@hyperidle/domain-model": "*"
+		"@electric-sql/pglite": "^0.5.4"
 	},
 	"devDependencies": {
 		"@hono/node-server": "^2.0.6",

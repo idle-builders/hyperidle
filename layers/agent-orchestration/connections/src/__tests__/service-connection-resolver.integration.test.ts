@@ -22,11 +22,11 @@
  *   then restored → GREEN.
  */
 
-import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/credentials";
 import { type HyperIdleDb, serviceConnections, users } from "@hyperidle/db";
 import { test } from "@hyperidle/db/test-fixtures";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { resolveHeldToken } from "../service-connection-resolver.js";
+import { decryptCredentialValue, encryptCredentialValue } from "../token-cipher.js";
 
 const SERVER_SECRET = "integration-test-server-secret-an1";
 const NOW = new Date().toISOString();

@@ -1,7 +1,8 @@
 /**
  * BA9d D12: skill restore re-imports body from plugin source on disk.
- * Proves that editing a skill's body in the DB and then calling the restore
- * route puts the original SKILL.md content back.
+ * Proves that editing a skill's body in the DB and then calling
+ * `edit_plugin`'s restore change puts the original SKILL.md content back.
+ * Re-pointed onto `POST /api/actions/edit_plugin`.
  *
  * @lore document-module B10: restore now writes through `edit_document`, so
  * `updatedBy` becomes the requesting person (architecture.md §3.5 — the
@@ -82,15 +83,14 @@ describe("BA9d skill restore", () => {
 		// 1. Install. The app's pluginsBaseDir is set at construction time by the
 		//    fixture, so install_path is stored automatically.
 		const pluginDir = copyPlugin();
-		const installRes = await pluginsApp.request("/api/plugins", {
+		const installRes = await pluginsApp.request("/api/actions/edit_plugin", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
-				source: { type: "folder", path: pluginDir },
-				scope: { kind: "factory" },
+				source: { kind: "folder", path: pluginDir, scope: { kind: "factory", teamId: null } },
 			}),
 		});
-		expect(installRes.status).toBe(201);
+		expect(installRes.status).toBe(200);
 
 		// 2. Fetch the skill through `open_document` to get its current state.
 		const skillId = skillItemId(PLUGIN_ID, SKILL_DIR, "factory", null);
@@ -141,14 +141,14 @@ describe("BA9d skill restore", () => {
 		expect(edited.body).toBe("USER EDITED CONTENT");
 		expect(edited.updatedBy).toBe("user-alice");
 
-		// 4. Call the restore route.
-		const restoreRes = await pluginsApp.request(`/api/plugins/${PLUGIN_ID}/contributions/restore`, {
+		// 4. Call edit_plugin's restore change.
+		const restoreRes = await pluginsApp.request("/api/actions/edit_plugin", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ kind: "document", entityId: skillId }),
+			body: JSON.stringify({ id: PLUGIN_ID, restore: { contribution: skillId } }),
 		});
 		expect(restoreRes.status).toBe(200);
-		const restoreBody = (await restoreRes.json()) as { ok: boolean; entityId: string };
+		const restoreBody = (await restoreRes.json()) as { ok: boolean };
 		expect(restoreBody.ok).toBe(true);
 
 		// 5. Confirm body is back to original, updatedBy reset to plugin.
@@ -165,30 +165,29 @@ describe("BA9d skill restore", () => {
 	});
 
 	// Uses the standard `app` fixture (no pluginsBaseDir) to prove that trying
-	// to restore a skill when install_path is null returns a clear error.
-	test("restore without install_path returns NO_INSTALL_PATH", async ({ db, app }) => {
+	// to restore a skill when install_path is null answers a clear problem.
+	test("restore without install_path answers no_install_path", async ({ db, app }) => {
 		await seedFounder(db);
 		const pluginDir = copyPlugin();
-		const installRes = await app.request("/api/plugins", {
+		const installRes = await app.request("/api/actions/edit_plugin", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
-				source: { type: "folder", path: pluginDir },
-				scope: { kind: "factory" },
+				source: { kind: "folder", path: pluginDir, scope: { kind: "factory", teamId: null } },
 			}),
 		});
-		expect(installRes.status).toBe(201);
+		expect(installRes.status).toBe(200);
 
-		const restoreRes = await app.request(`/api/plugins/${PLUGIN_ID}/contributions/restore`, {
+		const restoreRes = await app.request("/api/actions/edit_plugin", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
-				kind: "document",
-				entityId: skillItemId(PLUGIN_ID, SKILL_DIR, "factory", null),
+				id: PLUGIN_ID,
+				restore: { contribution: skillItemId(PLUGIN_ID, SKILL_DIR, "factory", null) },
 			}),
 		});
 		expect(restoreRes.status).toBe(422);
-		const body = (await restoreRes.json()) as { code: string };
-		expect(body.code).toBe("NO_INSTALL_PATH");
+		const body = (await restoreRes.json()) as { problems: ReadonlyArray<{ code: string }> };
+		expect(body.problems[0]?.code).toBe("no_install_path");
 	});
 });

@@ -16,7 +16,7 @@ layers/           the four Layers; each decomposes into Service packages
   core-ui           React app: Conversations, Work, Knowledge
   core-api          HTTP surface + core domains
                     thread · work · knowledge · users · settings · routine ·
-                    notifications · policy · review · org · credentials ·
+                    notifications · policy · review · org ·
                     connections · filesystems · git-export · observability · realtime
   agent-orchestration   decides that and when an agent run happens, and prepares
                     and consumes what it needs
@@ -63,7 +63,7 @@ Agents run as host processes in a local working directory — there is no isolat
 | Notifications | ntfy.sh / SMTP adapters (`layers/core-api/notifications/`) | APNs, Firebase |
 | Observability | `console` \| `noop` channels (`framework/diagnostics/src/observability/`) — OpenTelemetry explicitly future | — |
 | Auth | Auto-generated API key (`X-API-Key` header) | OAuth / passkeys |
-| Credentials | Electron safeStorage (desktop) / AES-256-GCM server-side — see [Credential Model](./credential-model.md) | — |
+| Credentials | Electron safeStorage (desktop only, no server-side store) — see [Credential Model](./credential-model.md) | — |
 | Version control | Git (for markdown artifacts) | Same |
 
 ### Language choices

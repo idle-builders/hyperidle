@@ -96,10 +96,6 @@
 		"db:testing": {
 			"reach": [],
 			"why": "development code. A production file naming it is already an error under the production-may-not-name-development clause; this entry keeps the two answers from disagreeing."
-		},
-		"core-api/credentials": {
-			"reach": ["core-api", "remote-server", "desktop"],
-			"why": "The credential store and its AES-256-GCM cipher (moved from @hyperidle/credential-access). core-api consumes the store directly; both server Applications compose the cipher at boot to inject into agent-orchestration via bootAgentOrchestration."
 		}
 	},
 	"databasePackage": {

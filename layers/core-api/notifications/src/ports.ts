@@ -21,9 +21,13 @@
  * NotificationsSilenceConfig and silence-related fields removed from config
  * section. listQueuedItemsSince removed from work (only consumed by
  * getDailyDigest, now deleted).
+ *
+ * @lore server_credentials deletion: `credentialCipher`/`credentialStore`
+ * removed — the SMTP password they read has had no writer since BC1, and the
+ * table they read it from is gone.
  */
 
-import type { HyperIdleDb, ServerCredential } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 
 // ---------------------------------------------------------------------------
 // Private port interfaces (referenced by NotificationsDeps fields)
@@ -59,26 +63,6 @@ interface NotificationsServerConfigPort {
 	update(db: HyperIdleDb, patch: { notifications: NotificationsConfigPatch }): Promise<unknown>;
 }
 
-interface NotificationsCredentialCipher {
-	encryptCredentialValue(plaintext: string): string;
-	decryptCredentialValue(encrypted: string): string | null;
-}
-
-interface NotificationsCredentialStore {
-	findByName(db: HyperIdleDb, name: string): Promise<ServerCredential | undefined>;
-	upsert(
-		db: HyperIdleDb,
-		values: {
-			readonly name: string;
-			readonly encryptedValue: string;
-			readonly validationState: string;
-			readonly lastValidatedAt: string | null;
-			readonly updatedAt: string;
-		},
-	): Promise<void>;
-	deleteByName(db: HyperIdleDb, name: string): Promise<void>;
-}
-
 // ---------------------------------------------------------------------------
 // Public exported type (1 type counted by census)
 // ---------------------------------------------------------------------------
@@ -92,6 +76,4 @@ interface NotificationsCredentialStore {
  */
 export interface NotificationsDeps {
 	serverConfig: NotificationsServerConfigPort;
-	credentialCipher: NotificationsCredentialCipher;
-	credentialStore: NotificationsCredentialStore;
 }

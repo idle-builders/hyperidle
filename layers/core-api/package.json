@@ -16,7 +16,6 @@
 	"dependencies": {
 		"@hyperidle/api-contract": "*",
 		"@hyperidle/changes": "*",
-		"@hyperidle/credentials": "*",
 		"@hyperidle/db": "*",
 		"@hyperidle/diagnostics": "*",
 		"@hyperidle/domain-model": "*",

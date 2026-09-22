@@ -2,7 +2,7 @@
 
 A **Connection** is a per-(user × service) record that an external service is reachable by that user's agents. It is not a credential and not a tool — it is the **fact of availability** plus a pointer to where the auth for it lives.
 
-Connections are distinct from the [Credential model](./credential-model.md). That doc covers the closed infra-secret catalog (LLM API keys) and its AES-GCM encryption primitive. Connections **reuse** that encryption primitive and resolver pattern but live in a separate open table (`service_connections`) — they never add entries to the infra catalog.
+Connections are distinct from the [Credential model](./credential-model.md), which covers the one credential HyperIdle still holds (`shared_backend_key`, desktop-keychain only). Connections have their own AES-256-GCM cipher (`layers/agent-orchestration/connections/src/token-cipher.ts`) and live in their own open table (`service_connections`) — they never add entries to the credential catalog.
 
 ---
 
@@ -80,7 +80,7 @@ Column details belong to the schema file, not this doc.
 
 - Queries scoped on `AND(id, userId)` — cross-user lookup returns `null`, never leaks existence.
 - Returns `null` for: cross-user, non-existent, mcp rows (no stored token), missing server secret, decryption failure. Never throws.
-- Reuses `decryptCredentialValue` from `credential-encryption.ts` — no forked crypto.
+- Decrypts with `decryptCredentialValue`, this package's own cipher (`token-cipher.ts`) — no forked crypto.
 
 ---
 
@@ -96,7 +96,7 @@ Column details belong to the schema file, not this doc.
 2. **HyperIdle runs no 3-legged OAuth and registers no per-service OAuth app.** Held auth is only a simple secret or an MCP pointer. OAuth services arrive inherited.
 3. **Per-user isolation.** One user's connection (held or inherited) is never resolvable, listable, or usable from another user's session. Cross-user reads return 404/null — never 403, never leaking existence.
 4. **Inherited connections store no auth material.** A token or keychain value copied into a HyperIdle record is a defect.
-5. **The closed infra-credential catalog stays closed.** Connections never add a name to it. `CREDENTIAL_NAMES` and `serverCredentials` are unchanged by this feature.
+5. **Connections and the one credential (`shared_backend_key`, see [credential-model.md](credential-model.md)) are unrelated.** There is no catalog of credential names for a connection to add to — a connection's auth lives in `service_connections`, entirely separate from the desktop keychain entry the worker key uses.
 
 ---
 
@@ -112,4 +112,4 @@ Column details belong to the schema file, not this doc.
 
 ---
 
-See also: [Credential model](./credential-model.md) — infra-secret catalog, shared AES-GCM primitive. [Harness Capability Descriptor](../agent-layer/harness-capability-descriptor.md) — harness readiness/models/auth state (describes the harness only; no reach field). [Authorization model](./authorization-model.md) — access boundary, Managed secret definition.
+See also: [Credential model](./credential-model.md) — the one remaining credential, desktop-keychain only. [Harness Capability Descriptor](../agent-layer/harness-capability-descriptor.md) — harness readiness/models/auth state (describes the harness only; no reach field). [Authorization model](./authorization-model.md) — access boundary, Managed secret definition.

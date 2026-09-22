@@ -1,12 +1,4 @@
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
-import {
-	type CredentialResolver,
-	decryptCredentialValue,
-	deleteCredential,
-	encryptCredentialValue,
-	readCredentials,
-	writeCredential,
-} from "@hyperidle/credentials";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import { EventBus } from "@hyperidle/event-bus";
@@ -23,13 +15,11 @@ import { buildCoreActions } from "./actions/compose.js";
 import { createAgentIdentityPort } from "./routes/agent-identity.js";
 import { createAgentRoutes } from "./routes/agents.js";
 import { createAuthRoutes } from "./routes/auth.js";
-import { createCredentialRoutes } from "./routes/credentials.js";
 import { createFilesystemInjectionRoutes } from "./routes/filesystems.js";
 import { createHarnessRoutes } from "./routes/harnesses.js";
 import { authHealth } from "./routes/health.js";
 import { createNotificationRoutes } from "./routes/notifications-routes.js";
 import { createOrgRoutes } from "./routes/org.js";
-import { createPluginRoutes } from "./routes/plugins.js";
 import { createRecipientRoutes } from "./routes/recipients.js";
 import { createRoutineRoutes } from "./routes/routines-routes.js";
 import { createSearchRoutes } from "./routes/search.js";
@@ -177,10 +167,6 @@ interface AppOptions {
 	 */
 	adapterPool?: HarnessCapabilityReader;
 	/**
-	 * Credential resolver for pre-flight API key checks (R1).
-	 */
-	credentialResolver?: CredentialResolver;
-	/**
 	 * Enable shared-mode authentication (S1). When true, the auth middleware
 	 * accepts Bearer tokens from LoginSessions in addition to X-API-Key.
 	 * Also mounts the public /api/auth/claim endpoint (pre-auth).
@@ -271,29 +257,19 @@ const appLogger = createLogger({ pkg: "server.app" });
  * @lore AU19 Increment 1g/1h: `notifications`' DI ports (Mechanism C), wired
  * here at the `packages/server` composition point — same construction as
  * `server-factory.ts`'s (both need the same real functions; `app.ts` also
- * needs to build the `/api/notifications` route table). All five targets
- * (`settings`, `users`, `org`, `work`, `connections`) are now real,
- * already-migrated packages; the credential cipher/store closed in
- * Increment 1h and wire directly to `@hyperidle/connections`' real exports.
+ * needs to build the `/api/notifications` route table).
  *
  * @lore AU20 Ag6b: collapsed from 5 separate port objects into one
  * `NotificationsDeps` bag (same pattern as server-factory.ts).
+ *
+ * @lore server_credentials deletion: `credentialCipher`/`credentialStore`
+ * are gone from `NotificationsDeps` with the table they read — the SMTP
+ * password they used to fetch had no writer since BC1.
  */
 const notificationsServerConfigPort = { read: readServerConfig, update: updateServerConfig };
 
 const notificationsDeps: NotificationsDeps = {
 	serverConfig: notificationsServerConfigPort,
-	credentialCipher: { encryptCredentialValue, decryptCredentialValue },
-	credentialStore: {
-		findByName: async (db, name) => (await readCredentials(db, { name }))[0],
-		upsert: async (db, values) =>
-			writeCredential(db, values.name, {
-				encryptedValue: values.encryptedValue,
-				validationState: values.validationState,
-				lastValidatedAt: values.lastValidatedAt,
-			}),
-		deleteByName: (db, name) => deleteCredential(db, name),
-	},
 };
 
 /**
@@ -358,6 +334,33 @@ export function registerCoreApiPreAuthRoutes(
 	if (options?.registerWebSocket && tokenStore) {
 		options.registerWebSocket(api, tokenStore);
 	}
+}
+
+/**
+ * `buildCoreActions`'s bindings, assembled once here rather than inline in
+ * `createCoreApiApp` — that function's own cognitive-complexity budget is
+ * already spent, and the two optional pass-throughs (`pluginsBaseDir`,
+ * `wsHub`) are a flat, ungated read of `options`, nothing this function
+ * needs any of `createCoreApiApp`'s own state to compute.
+ */
+function buildCoreActionsBindings(
+	options: AppOptions,
+	agentOrchestration: AgentOrchestrationPort,
+	agentWorkIntentRecorder: import("@hyperidle/domain-model").AgentWorkIntentRecorderFn,
+	reviewVerdictRecorder: import("@hyperidle/domain-model").ReviewVerdictRecorderFn,
+): Parameters<typeof buildCoreActions>[0] {
+	return {
+		agentOrchestration,
+		agentWorkIntentRecorder,
+		reviewVerdictRecorder,
+		...(options.pluginsBaseDir ? { pluginsBaseDir: options.pluginsBaseDir } : {}),
+		...(options.wsHub
+			? {
+					wsPush: (topic: string, envelope: unknown) =>
+						options.wsHub?.broadcast(topic, JSON.stringify(envelope)),
+				}
+			: {}),
+	};
 }
 
 /**
@@ -428,17 +431,14 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		// the action list. `search_tasks`/`open_task`/`edit_task` mount at
 		// `POST /api/actions/<name>` — one loop over the composed list, never a
 		// per-object route factory. the architecture doc §7.
-		const actions: readonly Action[] = buildCoreActions({
-			agentOrchestration,
-			agentWorkIntentRecorder,
-			reviewVerdictRecorder,
-			...(options.wsHub
-				? {
-						wsPush: (topic: string, envelope: unknown) =>
-							options.wsHub?.broadcast(topic, JSON.stringify(envelope)),
-					}
-				: {}),
-		});
+		const actions: readonly Action[] = buildCoreActions(
+			buildCoreActionsBindings(
+				options,
+				agentOrchestration,
+				agentWorkIntentRecorder,
+				reviewVerdictRecorder,
+			),
+		);
 		api.route("/actions", createActionsRouter(actions, { db: options.db, eventBus }));
 		APP_ACTION_TOOLS.set(api, actionsAsTools(actions));
 		const editTaskAction = actions.find((a) => a.declaration.name === "edit_task");
@@ -489,10 +489,11 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 				import("@hyperidle/domain-model").DocumentRow[]
 			>
 		>;
-		// @lore document-module B10: `/plugins`' install/enable/disable/restore
-		// lifecycle writes documents through the composed `edit_document` action
-		// (architecture.md §8.3) — extracted the same way, never
-		// `@hyperidle/document`'s repository functions directly.
+		// @lore document-module B10: the platform module's install/enable/
+		// disable/restore lifecycle (`edit_plugin`, bound in `compose.ts`'s
+		// fourth action group) writes documents through this same composed
+		// `edit_document` action — never `@hyperidle/document`'s repository
+		// functions directly.
 		const editDocumentAction = actions.find((a) => a.declaration.name === "edit_document");
 		if (!editDocumentAction) {
 			throw new Error("buildCoreActions did not produce an edit_document action");
@@ -584,22 +585,15 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 				createHarnessRoutes(options.adapterPool, options.db, options.onHarnessRedetect),
 			);
 		}
-		api.route("/credentials", createCredentialRoutes(options.db));
 		// AU26 E4: `/api/connections` is served by `agent-orchestration`'s own
 		// app now (its whole table set is `service_connections`, which that Layer
 		// owns). Same path, other host — see `createAgentOrchestrationApp`.
 		api.route("/search", createSearchRoutes(options.db, eventBus, searchDocumentsRun));
 		api.route("/settings/agent-behavior", createAgentBehaviorSettingsRoutes(options.db));
-		api.route(
-			"/plugins",
-			createPluginRoutes(
-				options.db,
-				eventBus,
-				editDocumentRun,
-				searchDocumentsRun,
-				options.pluginsBaseDir,
-			),
-		);
+		// Plugin management is the platform module now —
+		// `search_plugins`/`edit_plugin`, mounted generically by
+		// `createActionsRouter` above (`compose.ts`'s fourth action group).
+		// `routes/plugins.ts` and its six routes are deleted.
 		api.route("/notifications", createNotificationRoutes(options.db, { deps: notificationsDeps }));
 
 		const db = options.db;

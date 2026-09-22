@@ -4,11 +4,11 @@
  * Architecture plan §4.8: fetches GET /api/recipients?q=<query>.
  * Exposes status/recipients/error with client-side filtering for instant feedback.
  *
- * @lore AU26 J4: the hook now makes TWO calls — the recipient list from core-api
- * and the live run counts from `agent-orchestration`
- * (`/api/agent-orchestration/runs/active-counts`), which it combines into
- * `hasActiveSession`. Core-api no longer reads `agent-orchestration`'s `sessions`
- * table. The stub below routes by URL for exactly that reason.
+ * @lore `GET /api/agent-orchestration/runs/active-counts` is deleted; the
+ * hook now calls `search_sessions({ state: "active" })` — `POST
+ * /api/actions/search_sessions` — and counts the active rows per agent
+ * itself, so `hasActiveSession` renders exactly as before. The stub below
+ * routes by URL for exactly that reason.
  */
 
 import { renderHook, waitFor } from "@testing-library/react";
@@ -22,6 +22,12 @@ interface MockRecipient {
 	role: string;
 	status: string;
 	avatarUrl: string | null;
+}
+
+interface MockSessionRow {
+	id: string;
+	agentId: string;
+	state: string | null;
 }
 
 function mkRecipient(overrides: Partial<MockRecipient> = {}): MockRecipient {
@@ -41,22 +47,28 @@ const MOCK_RECIPIENTS: MockRecipient[] = [
 	mkRecipient({ id: "user-founder", name: "Founder", kind: "user", role: "founder" }),
 ];
 
-/** Only `agent-builder` is mid-run. */
-const MOCK_ACTIVE_COUNTS: Record<string, number> = { "agent-builder": 1 };
+/** Only `agent-builder` has an active session. */
+const MOCK_ACTIVE_SESSIONS: MockSessionRow[] = [
+	{ id: "session-1", agentId: "agent-builder", state: "active" },
+];
 
 /**
  * Route the two calls the hook makes: core-api's recipient list and
- * agent-orchestration's active-run counts.
+ * `search_sessions({ state: "active" })`.
  */
 function stubFetch(
 	recipients: MockRecipient[],
-	counts: Record<string, number> = MOCK_ACTIVE_COUNTS,
+	activeSessions: MockSessionRow[] = MOCK_ACTIVE_SESSIONS,
 ): ReturnType<typeof vi.fn> {
 	const fetchMock = vi.fn().mockImplementation((url: string) =>
 		Promise.resolve({
 			ok: true,
 			json: () =>
-				Promise.resolve(url.includes("/agent-orchestration/") ? { counts } : { recipients }),
+				Promise.resolve(
+					url === "/api/actions/search_sessions"
+						? { ok: true, data: activeSessions }
+						: { recipients },
+				),
 		}),
 	);
 	global.fetch = fetchMock as unknown as typeof fetch;
@@ -122,8 +134,8 @@ describe("useRecipients (Q1 §4.8)", () => {
 		expect(result.current.error).not.toBeNull();
 	});
 
-	// AC2 / AU26 J4: hasActiveSession is combined from agent-orchestration's counts
-	it("derives hasActiveSession from the orchestration run counts", async () => {
+	// AC2: hasActiveSession is derived from search_sessions' active rows
+	it("derives hasActiveSession from the active session rows", async () => {
 		stubFetch(MOCK_RECIPIENTS);
 
 		const { result } = renderHook(() => useRecipients());
@@ -134,6 +146,27 @@ describe("useRecipients (Q1 §4.8)", () => {
 
 		const growth = result.current.recipients.find((r) => r.id === "agent-growth");
 		expect(growth?.hasActiveSession).toBe(false);
+	});
+
+	// A search_sessions failure degrades to "nobody is busy", not a failed picker
+	it("degrades to no active sessions when search_sessions answers a problem", async () => {
+		const fetchMock = vi.fn().mockImplementation((url: string) =>
+			Promise.resolve({
+				ok: true,
+				json: () =>
+					Promise.resolve(
+						url === "/api/actions/search_sessions"
+							? { ok: false, problems: [{ code: "server_error", message: "Boom" }] }
+							: { recipients: MOCK_RECIPIENTS },
+					),
+			}),
+		);
+		global.fetch = fetchMock as unknown as typeof fetch;
+
+		const { result } = renderHook(() => useRecipients());
+		await waitFor(() => expect(result.current.status).toBe("ready"));
+
+		expect(result.current.recipients.every((r) => r.hasActiveSession === false)).toBe(true);
 	});
 
 	// AC2: empty recipients list returns ready with empty array

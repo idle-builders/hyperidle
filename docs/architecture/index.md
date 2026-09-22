@@ -11,7 +11,7 @@ What may cross which package boundary is not documented here. It is machine-enfo
 - [run-unit-model.md](./run-unit-model.md) — agents run as host child processes (AQ1), working-directory abstraction, capture seam
 - [system-boundary.md](./system-boundary.md) — where HyperIdle ends and git-host/CI/deploy begin; trigger-not-executor seam
 - [authorization-model.md](./authorization-model.md) — load-bearing access-boundary contract (cites `canReadThread`/`canWriteThread`), WS subscribe authorization
-- [credential-model.md](./credential-model.md) — infra-secret storage, AES-GCM encryption, runtime resolution, user visibility
+- [credential-model.md](./credential-model.md) — the one remaining credential, held in the desktop keychain
 - [plugins.md](./plugins.md) — what a plugin contributes, the ownership registry, one lifecycle, detach and restore
 - [connection-model.md](./connection-model.md) — held vs inherited Connection split, `service_connections` table, resolver, descriptor extension
 - [decisions.md](./decisions.md) — code-verified architecture decision log

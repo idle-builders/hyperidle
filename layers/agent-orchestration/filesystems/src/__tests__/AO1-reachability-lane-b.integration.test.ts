@@ -21,8 +21,11 @@
  */
 
 import * as crypto from "node:crypto";
-import { resolveHeldToken } from "@hyperidle/connections";
-import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/credentials";
+import {
+	decryptCredentialValue,
+	encryptCredentialValue,
+	resolveHeldToken,
+} from "@hyperidle/connections";
 import { serviceConnections, teams, users } from "@hyperidle/db";
 import { test } from "@hyperidle/db/test-fixtures";
 import { resolveFilesystemState } from "@hyperidle/filesystems";

@@ -34,7 +34,6 @@ Default test commands run the **affected slice** against `origin/main` (AT1); `:
 | `npm run test:e2e:full` | ALL Playwright E2E specs |
 | `npm run test:coverage` | Tests with coverage |
 | `npm run test:e2e:ah1` | AH1 lane — own Playwright config (`layers/core-ui/playwright.ah1.config.ts`) |
-| `npm run test:e2e:ah5` | AH5 lane — own Playwright config (`layers/core-ui/playwright.ah5.config.ts`) |
 | `npm run test:e2e:ah6` | AH6 real-interaction lane — key-free, offline, replays committed cassettes (`layers/core-ui/__e2e__/cassettes/`) |
 | `npm run smoke:ah6` | AH6 live refresh — re-records cassettes against a real OpenRouter model (`layers/core-ui/__scripts__/ah6-smoke-local.ts`; requires `OPENROUTER_API_KEY`, local only; review the cassette diff before committing) |
 | `npm run test:pg` | Test suite against Postgres (`framework/db/src/__testing__/pg-test-runner.ts`) |

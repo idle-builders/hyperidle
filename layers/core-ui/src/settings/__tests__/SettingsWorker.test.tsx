@@ -76,13 +76,7 @@ function mockBridgeOnWindow(
 			backendMode,
 			worker: workerBridge,
 			credentials: {
-				list: vi.fn(),
-				get: vi.fn(),
-				set: vi.fn(),
-				delete: vi.fn(),
-				isEncryptionAvailable: vi.fn(),
-				status: vi.fn(),
-				validate: vi.fn(),
+				set: vi.fn().mockResolvedValue({ stored: true }),
 			},
 			shell: {
 				openLogs: vi.fn(),
@@ -399,5 +393,62 @@ describe("S4 AC-6 — SettingsWorker: status change subscription", () => {
 		await waitFor(() => {
 			expect(screen.getByText(/connected/i)).toBeInTheDocument();
 		});
+	});
+});
+
+describe("S4 — SettingsWorker: shared backend key field", () => {
+	let workerBridge: ReturnType<typeof makeWorkerBridge>;
+
+	beforeEach(() => {
+		workerBridge = makeWorkerBridge({ enabled: false, connected: false });
+		mockBridgeOnWindow(workerBridge, "shared");
+	});
+
+	afterEach(() => {
+		clearBridgeFromWindow();
+		vi.restoreAllMocks();
+	});
+
+	function getCredentialsBridge(): { set: ReturnType<typeof vi.fn> } {
+		const credentials = window.__HYPERIDLE__?.credentials;
+		if (!credentials) throw new Error("credentials bridge not mocked");
+		return credentials as unknown as { set: ReturnType<typeof vi.fn> };
+	}
+
+	it("saving the field calls credentials.set with the one credential name", async () => {
+		const user = userEvent.setup();
+		render(<SettingsWorker />);
+
+		const input = screen.getByLabelText(/shared backend key/i);
+		await user.type(input, "dummy-test-value");
+		await user.click(screen.getByRole("button", { name: /save key/i }));
+
+		expect(getCredentialsBridge().set).toHaveBeenCalledWith(
+			"shared_backend_key",
+			"dummy-test-value",
+		);
+	});
+
+	it("surfaces the warning returned by credentials.set", async () => {
+		getCredentialsBridge().set.mockResolvedValue({
+			stored: false,
+			warning: "Keychain unavailable — value not stored",
+		});
+
+		const user = userEvent.setup();
+		render(<SettingsWorker />);
+
+		const input = screen.getByLabelText(/shared backend key/i);
+		await user.type(input, "dummy-test-value");
+		await user.click(screen.getByRole("button", { name: /save key/i }));
+
+		await waitFor(() => {
+			expect(screen.getByText(/keychain unavailable/i)).toBeInTheDocument();
+		});
+	});
+
+	it("never reads the value back — the bridge exposes no get method", () => {
+		const credentials = window.__HYPERIDLE__?.credentials as unknown as Record<string, unknown>;
+		expect(credentials.get).toBeUndefined();
 	});
 });

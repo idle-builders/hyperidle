@@ -46,6 +46,18 @@ class WsContextAdapter implements WsClient {
  * @lore L1 step9 (Adv-C1): the upgrade token now binds an identityId.
  * `consumePending` pulls the identity off the consume result so the next
  * `onOpen` can register the client with the hub's authz table.
+ *
+ * @lore AU26 review W12, relocated: the identity travels ON THE REQUEST, keyed
+ * by the Hono `Context` of the upgrade that resolved it — never in a single
+ * module-scoped slot. A shared slot is only safe if nothing can interleave,
+ * and the middleware is `async`: two upgrades at once run middleware(A) →
+ * middleware(B) → onOpen(A), and A joins under B's identity — indistinguishable
+ * from the right answer once a topic admits on identity alone (`session:<id>`,
+ * folded onto this socket, is exactly that kind of topic). This fix used to
+ * live only on the second websocket (`agent-orchestration/src/routes/
+ * session-stream-ws.ts`, deleted); it is copied here rather than deleted with
+ * that file, closing the same race on the socket that now carries both
+ * topic families.
  */
 function registerWsRoute(
 	apiApp: Hono,
@@ -60,12 +72,13 @@ function registerWsRoute(
 
 	// Map WSContext to its adapter for cleanup.
 	const adapters = new Map<WSContext, WsContextAdapter>();
-	// Pending identity from the token-consume step. The consume happens in
-	// the middleware (URL-time); the addClient happens on `onOpen`. The
-	// upgrade flow does not let us thread the identity through directly,
-	// so we stash it in a single-slot queue keyed by request order. This
-	// is safe because the middleware → onOpen handoff is synchronous.
-	let pendingIdentity: string | undefined;
+	// The token is consumed in the middleware (URL-time); `addClient` happens
+	// on `onOpen`, which fires on the runtime's upgrade event. The identity
+	// travels between the two keyed on the Hono `Context` of the upgrade that
+	// resolved it — see the WeakMap `@lore` above for why a single shared slot
+	// is not safe. Weakly keyed, so a request that never upgrades leaves
+	// nothing behind.
+	const identityByRequest = new WeakMap<object, string>();
 
 	// WebSocket auth via one-shot upgrade token (I2 A3/A4/A5).
 	apiApp.use("/ws", async (c, next) => {
@@ -85,18 +98,18 @@ function registerWsRoute(
 			};
 			return c.json(response, 401);
 		}
-		pendingIdentity = result.identityId;
+		if (result.identityId !== undefined) identityByRequest.set(c, result.identityId);
 		await next();
 	});
 
 	apiApp.get(
 		"/ws",
-		upgradeWebSocket(() => ({
+		upgradeWebSocket((c) => ({
 			onOpen(_evt, ws) {
 				const adapter = new WsContextAdapter(ws);
 				adapters.set(ws, adapter);
-				broadcaster?.addClient(adapter, pendingIdentity);
-				pendingIdentity = undefined;
+				broadcaster?.addClient(adapter, identityByRequest.get(c));
+				identityByRequest.delete(c);
 				ws.send(JSON.stringify({ type: "connected" }));
 			},
 			async onMessage(evt, ws) {

@@ -27,27 +27,36 @@
 
 import type { AgentProfileResponse, SessionOutcome } from "@hyperidle/domain-model";
 import { AGENT_OPERATIONAL_STATUS_LABEL, roleLabel } from "@hyperidle/domain-model";
-import type { JSX } from "react";
+import { type JSX, useState } from "react";
 import { Link as RRLink, useNavigate, useParams } from "react-router-dom";
+import type { OpenHandler, PartAuthor } from "../components/parts";
+import { SessionView } from "../components/SessionView.js";
 import {
 	Avatar,
 	agentOperationalStatusToStatus,
 	Breadcrumb,
+	clickableProps,
 	EmptyState,
 	ErrorState,
 	KeyValue,
 	LiveDot,
+	PageFrame,
 	PageHeader,
 	PageScaffold,
 	SectionLabel,
 	SkeletonCard,
+	SplitView,
 	StatusChip,
 	sessionOutcomeToStatus,
 	Tag,
 } from "../ds";
 import { useAgentProfile } from "../hooks/useAgentProfile.js";
 import { type AgentRunState, useAgentRunState } from "../hooks/useAgentRunState.js";
+import { useCurrentUser } from "../hooks/useCurrentUser.js";
+import { useSessionActivity } from "../hooks/useSessionActivity.js";
+import { useUiPreference } from "../hooks/useUiPreference.js";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
+import { createOpenHandler } from "../services/open-handler.js";
 import { NavHistoryCluster } from "../shell/NavHistoryCluster.js";
 import { deriveInitials } from "../utils/initials.js";
 import { absoluteDate } from "../utils/time.js";
@@ -214,6 +223,14 @@ function AgentProfileLoaded({
 	const navigate = useNavigate();
 	const { sidebarMobile } = useViewportBreakpoint();
 
+	// The session viewer door — a Recent Activity row click fires the
+	// same `onOpenSession` OpenTarget path Conversations.tsx and WorkTaskPage
+	// use, mounted in this page's own split pane.
+	const { user } = useCurrentUser();
+	const [openSessionId, setOpenSessionId] = useState<string | null>(null);
+	const [sessionRatio, setSessionRatio] = useUiPreference("agent.session", 0.6);
+	const openSessionTarget = createOpenHandler(navigate, { onOpenSession: setOpenSessionId });
+
 	// @lore AU26 J4: `activeSession`, `recentSessions`, `performance` and
 	// `healthSignals` used to arrive on this response, computed by core-api from
 	// `agent-orchestration`'s `sessions` table. Founder ruling: *"orchestration
@@ -276,7 +293,7 @@ function AgentProfileLoaded({
 
 	return (
 		<PageScaffold
-			frame="page"
+			body="managed"
 			header={
 				/* AI7: PageHeader owns the pinned title strip.
 				    AG4: DS Breadcrumb in leading prop. Identity block stays in body scroll. */
@@ -306,267 +323,322 @@ function AgentProfileLoaded({
 			}
 			data-testid="agent-profile-page"
 		>
-			<div className="flex max-w-[960px] flex-col gap-[24px] py-[24px]">
-				{/* AU26 W6: run state could not be read — say so, never imply health. */}
-				{runStateUnavailable && (
-					<div
-						role="alert"
-						data-testid="run-state-unavailable"
-						className="type-small rounded-[var(--r-subtle)] p-[12px]  text-[var(--text-secondary)]"
-						style={{
-							background: "color-mix(in oklab, var(--status-warning) 8%, transparent)",
-							border:
-								"var(--bw-thin) solid color-mix(in oklab, var(--status-warning) 20%, transparent)",
-						}}
-					>
-						<span className="type-small  text-[var(--text-primary)]">Run state unavailable</span>
-						<span className="ml-[6px]">
-							This agent's runs could not be loaded, so health, recent runs and success rate are not
-							shown.
-						</span>
-					</div>
-				)}
+			<SplitView
+				compact={sidebarMobile}
+				originLabel="agent"
+				surfaceKey="agent.session"
+				mode={openSessionId ? "split" : "fold-back"}
+				dividerRatio={sessionRatio}
+				onRatioChange={setSessionRatio}
+				onModeChange={(mode) => {
+					if (mode === "fold-back") setOpenSessionId(null);
+				}}
+				origin={
+					<PageFrame>
+						<div className="flex max-w-[960px] flex-col gap-[24px] py-[24px]">
+							{/* AU26 W6: run state could not be read — say so, never imply health. */}
+							{runStateUnavailable && (
+								<div
+									role="alert"
+									data-testid="run-state-unavailable"
+									className="type-small rounded-[var(--r-subtle)] p-[12px]  text-[var(--text-secondary)]"
+									style={{
+										background: "color-mix(in oklab, var(--status-warning) 8%, transparent)",
+										border:
+											"var(--bw-thin) solid color-mix(in oklab, var(--status-warning) 20%, transparent)",
+									}}
+								>
+									<span className="type-small  text-[var(--text-primary)]">
+										Run state unavailable
+									</span>
+									<span className="ml-[6px]">
+										This agent's runs could not be loaded, so health, recent runs and success rate
+										are not shown.
+									</span>
+								</div>
+							)}
 
-				{/* F2: Health banner — only shown when degraded, has role="alert" */}
-				{/* @lore UI-105: icon + "Edit in Settings" route added — the banner carried
+							{/* F2: Health banner — only shown when degraded, has role="alert" */}
+							{/* @lore UI-105: icon + "Edit in Settings" route added — the banner carried
 				    copy but no icon or action. A warning icon makes the alert immediately
 				    scannable; the Settings route (same as the Edit button) lets the founder
 				    act on "harness not available" without scrolling the page. */}
-				{!runStateUnavailable && healthSignals.degraded && (
-					<div
-						role="alert"
-						className="type-small rounded-[var(--r-subtle)] p-[12px]  text-[var(--text-secondary)]"
-						style={{
-							background: "color-mix(in oklab, var(--status-warning) 8%, transparent)",
-							border:
-								"var(--bw-thin) solid color-mix(in oklab, var(--status-warning) 20%, transparent)",
-						}}
-					>
-						<div className="flex items-start gap-[9px]">
-							<svg
-								aria-hidden="true"
-								viewBox="0 0 16 16"
-								fill="currentColor"
-								className="shrink-0"
-								style={{ width: 14, height: 14, color: "var(--status-warning)" }}
-							>
-								<path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 10.5a.75.75 0 110-1.5.75.75 0 010 1.5zM7.25 5h1.5l-.25 4.5h-1L7.25 5z" />
-							</svg>
-							<div className="flex-1 min-w-0">
-								<span className="type-small  text-[var(--text-primary)]">Health warning</span>
-								{healthSignals.failureRate7d > 0.5 && (
-									<span className="ml-[6px]">
-										High failure rate: {Math.round(healthSignals.failureRate7d * 100)}% in last 7
-										days.
-									</span>
-								)}
-								{healthSignals.lastSessionCrashed && (
-									<span className="ml-[6px]">Last session crashed.</span>
-								)}
-								{!healthSignals.harnessAvailable && (
-									<span className="ml-[6px]">Required harness not available.</span>
-								)}
-								<RRLink
-									to="/conversations?settings=open"
-									className="type-control ml-[12px]  text-[var(--accent-deep)] hover:underline"
+							{!runStateUnavailable && healthSignals.degraded && (
+								<div
+									role="alert"
+									className="type-small rounded-[var(--r-subtle)] p-[12px]  text-[var(--text-secondary)]"
+									style={{
+										background: "color-mix(in oklab, var(--status-warning) 8%, transparent)",
+										border:
+											"var(--bw-thin) solid color-mix(in oklab, var(--status-warning) 20%, transparent)",
+									}}
 								>
-									Edit in Settings
-								</RRLink>
-							</div>
-						</div>
-					</div>
-				)}
-
-				{/* Identity block — Avatar + meta. Name/status live in PageHeader (AI7). */}
-				<section aria-label="Agent identity" className="flex flex-col gap-[12px]">
-					<div className="flex items-start gap-[12px]">
-						<Avatar initials={initials} size="md" agent />
-						<div className="flex-1 min-w-0">
-							<div className="flex items-center gap-[9px] flex-wrap">
-								{/* AI4 Decision 3a: Category tag (name + status are in PageHeader) */}
-								{data.agentCategory && data.agentCategory !== "team" && (
-									<Tag
-										label={data.agentCategory === "individual" ? "Individual" : data.agentCategory}
-									/>
-								)}
-							</div>
-							<p className="type-metadata  text-[var(--text-tertiary)] mt-[3px]">
-								{roleLabel(data.role)}
-								{data.teamName && <span className="ml-[6px]">· {data.teamName}</span>}
-								<span className="ml-[6px]">· Created {createdDate}</span>
-							</p>
-							{/* @lore BB1: active session links directly to /work/task/:taskId */}
-							{activeSession !== null && (
-								<div className="mt-[6px]" data-testid="agent-active-session">
-									<RRLink
-										to={`/work/task/${encodeURIComponent(activeSession.taskId)}`}
-										className="type-control  text-[var(--accent-deep)] hover:underline"
-									>
-										↗ Active session: {activeSession.sessionId}
-									</RRLink>
+									<div className="flex items-start gap-[9px]">
+										<svg
+											aria-hidden="true"
+											viewBox="0 0 16 16"
+											fill="currentColor"
+											className="shrink-0"
+											style={{ width: 14, height: 14, color: "var(--status-warning)" }}
+										>
+											<path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 10.5a.75.75 0 110-1.5.75.75 0 010 1.5zM7.25 5h1.5l-.25 4.5h-1L7.25 5z" />
+										</svg>
+										<div className="flex-1 min-w-0">
+											<span className="type-small  text-[var(--text-primary)]">Health warning</span>
+											{healthSignals.failureRate7d > 0.5 && (
+												<span className="ml-[6px]">
+													High failure rate: {Math.round(healthSignals.failureRate7d * 100)}% in
+													last 7 days.
+												</span>
+											)}
+											{healthSignals.lastSessionCrashed && (
+												<span className="ml-[6px]">Last session crashed.</span>
+											)}
+											{!healthSignals.harnessAvailable && (
+												<span className="ml-[6px]">Required harness not available.</span>
+											)}
+											<RRLink
+												to="/conversations?settings=open"
+												className="type-control ml-[12px]  text-[var(--accent-deep)] hover:underline"
+											>
+												Edit in Settings
+											</RRLink>
+										</div>
+									</div>
 								</div>
 							)}
-						</div>
-						{/* @lore FR-18: Link to /settings (real route) — was /conversations?settings=open */}
-						<RRLink to="/settings" className="btn btn-ghost btn-sm shrink-0">
-							Edit in Settings
-						</RRLink>
-					</div>
-				</section>
 
-				{/* Section 1 — Configuration */}
-				<section
-					aria-label="Configuration"
-					data-testid="agent-config-section"
-					className="flex flex-col gap-[12px]"
-				>
-					<SectionLabel label="Configuration" as="h2" />
-					<div className="flex flex-col gap-[6px] max-w-[320px]">
-						<KeyValue label="Role" value={roleLabel(data.role)} />
-						<KeyValue label="Harness" value={harnessLabel(data.harnessType)} />
-						<KeyValue label="Category" value={data.agentCategory ?? "team"} />
-						{data.teamName && <KeyValue label="Team" value={data.teamName} />}
-						<KeyValue label="Max sessions" value={String(data.maxConcurrentSessions)} />
-						<KeyValue label="Created" value={createdDate} />
-					</div>
-					{/* Who the agent is. It is a document, so the profile
+							{/* Identity block — Avatar + meta. Name/status live in PageHeader (AI7). */}
+							<section aria-label="Agent identity" className="flex flex-col gap-[12px]">
+								<div className="flex items-start gap-[12px]">
+									<Avatar initials={initials} size="md" agent />
+									<div className="flex-1 min-w-0">
+										<div className="flex items-center gap-[9px] flex-wrap">
+											{/* AI4 Decision 3a: Category tag (name + status are in PageHeader) */}
+											{data.agentCategory && data.agentCategory !== "team" && (
+												<Tag
+													label={
+														data.agentCategory === "individual" ? "Individual" : data.agentCategory
+													}
+												/>
+											)}
+										</div>
+										<p className="type-metadata  text-[var(--text-tertiary)] mt-[3px]">
+											{roleLabel(data.role)}
+											{data.teamName && <span className="ml-[6px]">· {data.teamName}</span>}
+											<span className="ml-[6px]">· Created {createdDate}</span>
+										</p>
+										{/* @lore BB1: active session links directly to /work/task/:taskId */}
+										{activeSession !== null && (
+											<div className="mt-[6px]" data-testid="agent-active-session">
+												<RRLink
+													to={`/work/task/${encodeURIComponent(activeSession.taskId)}`}
+													className="type-control  text-[var(--accent-deep)] hover:underline"
+												>
+													↗ Active session: {activeSession.sessionId}
+												</RRLink>
+											</div>
+										)}
+									</div>
+									{/* @lore FR-18: Link to /settings (real route) — was /conversations?settings=open */}
+									<RRLink to="/settings" className="btn btn-ghost btn-sm shrink-0">
+										Edit in Settings
+									</RRLink>
+								</div>
+							</section>
+
+							{/* Section 1 — Configuration */}
+							<section
+								aria-label="Configuration"
+								data-testid="agent-config-section"
+								className="flex flex-col gap-[12px]"
+							>
+								<SectionLabel label="Configuration" as="h2" />
+								<div className="flex flex-col gap-[6px] max-w-[320px]">
+									<KeyValue label="Role" value={roleLabel(data.role)} />
+									<KeyValue label="Harness" value={harnessLabel(data.harnessType)} />
+									<KeyValue label="Category" value={data.agentCategory ?? "team"} />
+									{data.teamName && <KeyValue label="Team" value={data.teamName} />}
+									<KeyValue label="Max sessions" value={String(data.maxConcurrentSessions)} />
+									<KeyValue label="Created" value={createdDate} />
+								</div>
+								{/* Who the agent is. It is a document, so the profile
 					    links to it rather than reprinting it — one place to read it,
 					    one place to edit it. */}
-					{data.identityDocumentId && (
-						<RRLink
-							to={`/documents/${data.identityDocumentId}`}
-							data-testid="agent-identity-link"
-							className="type-metadata mt-[12px] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
-						>
-							Identity document
-						</RRLink>
-					)}
-				</section>
-
-				{/* Section 2 — Harness Capabilities */}
-				<section
-					aria-label="Harness capabilities"
-					data-testid="agent-capabilities-section"
-					className="flex flex-col gap-[12px]"
-				>
-					<SectionLabel label="Harness Capabilities" as="h2" />
-					<div className="flex flex-wrap gap-[6px]">
-						<CapabilityBadge label="Tool use" supported={data.harnessCapabilities.toolUse} />
-						<CapabilityBadge label="MCP" supported={data.harnessCapabilities.mcpSupport} />
-						<CapabilityBadge
-							label="File editing"
-							supported={data.harnessCapabilities.fileEditing}
-						/>
-						<CapabilityBadge label="Sub-agents" supported={data.harnessCapabilities.subAgents} />
-					</div>
-				</section>
-
-				{/* Section 3 — Review Track Record */}
-				<section
-					aria-label="Review track record"
-					data-testid="agent-track-record-section"
-					className="flex flex-col gap-[12px]"
-				>
-					<SectionLabel label="Review Track Record" as="h2" />
-					{data.reviewTrackRecord.totalVerdicts === 0 ? (
-						<p className="type-metadata  text-[var(--text-tertiary)]">No reviews recorded yet.</p>
-					) : (
-						<div className="flex flex-col gap-[9px]">
-							<div className="flex gap-[24px] flex-wrap">
-								<KeyValue
-									label="Approval rate"
-									value={`${Math.round(data.reviewTrackRecord.approvalRate * 100)}%`}
-								/>
-								<KeyValue label="Reviews" value={String(data.reviewTrackRecord.totalVerdicts)} />
-								<KeyValue label="Window" value={`${data.reviewTrackRecord.windowDays} days`} />
-							</div>
-							<div className="flex gap-[6px] mt-[6px]">
-								{data.reviewTrackRecord.recentVerdicts.slice(0, 10).map((v, i) => (
-									<VerdictDot key={i} decision={v.decision} createdAt={v.createdAt} />
-								))}
-							</div>
-						</div>
-					)}
-				</section>
-
-				{/* Section 4 — Recent Activity */}
-				<section
-					aria-label="Recent activity"
-					data-testid="agent-activity-section"
-					className="flex flex-col gap-[12px]"
-				>
-					<SectionLabel label="Recent Activity" as="h2" />
-					{runStateUnavailable ? (
-						<p className="type-metadata  text-[var(--text-tertiary)]">Runs could not be loaded.</p>
-					) : !runStateSettled ? (
-						<p className="type-metadata  text-[var(--text-tertiary)]">Loading runs…</p>
-					) : recentSessions.length === 0 ? (
-						<p className="type-metadata  text-[var(--text-tertiary)]">No sessions recorded.</p>
-					) : (
-						// @lore UI-073: an HTML <table> is the right element here — this is
-						// genuinely tabular data: sessions × (task, outcome, when). A flex/grid
-						// layout would need role=grid and aria-rowcount/colcount to stay
-						// accessible; a table gets those semantics for free and lets screen
-						// readers announce "row 3 of 8, column 2: completed". ThreadRow is for
-						// conversation-like entries with avatar + unread count — not applicable.
-						<table className="type-metadata w-full " aria-label="Recent agent session activity">
-							<thead>
-								<tr className="border-width-thin-b text-[var(--text-tertiary)] text-left  border-[var(--border-subtle)]">
-									<th className="type-small pb-[6px] ">Task</th>
-									<th className="type-small pb-[6px] ">Outcome</th>
-									<th className="type-small pb-[6px] ">When</th>
-								</tr>
-							</thead>
-							<tbody>
-								{recentSessions.map((session) => (
-									<tr
-										key={session.sessionId}
-										className="border-width-thin-b border-none  border-[var(--border-subtle)] "
+								{data.identityDocumentId && (
+									<RRLink
+										to={`/documents/${data.identityDocumentId}`}
+										data-testid="agent-identity-link"
+										className="type-metadata mt-[12px] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
 									>
-										<td className="py-[6px] text-[var(--text-primary)] truncate max-w-[200px]">
-											{session.taskTitle}
-										</td>
-										<td className="py-[6px]">
-											{/* AI4 AC1: session outcome via StatusChip (was text-only OutcomeChip).
+										Identity document
+									</RRLink>
+								)}
+							</section>
+
+							{/* Section 2 — Harness Capabilities */}
+							<section
+								aria-label="Harness capabilities"
+								data-testid="agent-capabilities-section"
+								className="flex flex-col gap-[12px]"
+							>
+								<SectionLabel label="Harness Capabilities" as="h2" />
+								<div className="flex flex-wrap gap-[6px]">
+									<CapabilityBadge label="Tool use" supported={data.harnessCapabilities.toolUse} />
+									<CapabilityBadge label="MCP" supported={data.harnessCapabilities.mcpSupport} />
+									<CapabilityBadge
+										label="File editing"
+										supported={data.harnessCapabilities.fileEditing}
+									/>
+									<CapabilityBadge
+										label="Sub-agents"
+										supported={data.harnessCapabilities.subAgents}
+									/>
+								</div>
+							</section>
+
+							{/* Section 3 — Review Track Record */}
+							<section
+								aria-label="Review track record"
+								data-testid="agent-track-record-section"
+								className="flex flex-col gap-[12px]"
+							>
+								<SectionLabel label="Review Track Record" as="h2" />
+								{data.reviewTrackRecord.totalVerdicts === 0 ? (
+									<p className="type-metadata  text-[var(--text-tertiary)]">
+										No reviews recorded yet.
+									</p>
+								) : (
+									<div className="flex flex-col gap-[9px]">
+										<div className="flex gap-[24px] flex-wrap">
+											<KeyValue
+												label="Approval rate"
+												value={`${Math.round(data.reviewTrackRecord.approvalRate * 100)}%`}
+											/>
+											<KeyValue
+												label="Reviews"
+												value={String(data.reviewTrackRecord.totalVerdicts)}
+											/>
+											<KeyValue
+												label="Window"
+												value={`${data.reviewTrackRecord.windowDays} days`}
+											/>
+										</div>
+										<div className="flex gap-[6px] mt-[6px]">
+											{data.reviewTrackRecord.recentVerdicts.slice(0, 10).map((v, i) => (
+												<VerdictDot key={i} decision={v.decision} createdAt={v.createdAt} />
+											))}
+										</div>
+									</div>
+								)}
+							</section>
+
+							{/* Section 4 — Recent Activity */}
+							<section
+								aria-label="Recent activity"
+								data-testid="agent-activity-section"
+								className="flex flex-col gap-[12px]"
+							>
+								<SectionLabel label="Recent Activity" as="h2" />
+								{runStateUnavailable ? (
+									<p className="type-metadata  text-[var(--text-tertiary)]">
+										Runs could not be loaded.
+									</p>
+								) : !runStateSettled ? (
+									<p className="type-metadata  text-[var(--text-tertiary)]">Loading runs…</p>
+								) : recentSessions.length === 0 ? (
+									<p className="type-metadata  text-[var(--text-tertiary)]">
+										No sessions recorded.
+									</p>
+								) : (
+									// @lore UI-073: an HTML <table> is the right element here — this is
+									// genuinely tabular data: sessions × (task, outcome, when). A flex/grid
+									// layout would need role=grid and aria-rowcount/colcount to stay
+									// accessible; a table gets those semantics for free and lets screen
+									// readers announce "row 3 of 8, column 2: completed". ThreadRow is for
+									// conversation-like entries with avatar + unread count — not applicable.
+									<table
+										className="type-metadata w-full "
+										aria-label="Recent agent session activity"
+									>
+										<thead>
+											<tr className="border-width-thin-b text-[var(--text-tertiary)] text-left  border-[var(--border-subtle)]">
+												<th className="type-small pb-[6px] ">Task</th>
+												<th className="type-small pb-[6px] ">Outcome</th>
+												<th className="type-small pb-[6px] ">When</th>
+											</tr>
+										</thead>
+										<tbody>
+											{recentSessions.map((session) => (
+												<tr
+													key={session.sessionId}
+													data-testid="agent-session-row"
+													{...clickableProps(
+														() =>
+															openSessionTarget({ route: "session", sessionId: session.sessionId }),
+														"border-width-thin-b border-none  border-[var(--border-subtle)] ",
+													)}
+												>
+													<td className="py-[6px] text-[var(--text-primary)] truncate max-w-[200px]">
+														{session.taskTitle}
+													</td>
+													<td className="py-[6px]">
+														{/* AI4 AC1: session outcome via StatusChip (was text-only OutcomeChip).
 										     F2: narrowed from `as SessionOutcome` cast; label omitted so chip
 										     renders the presentation status name (DONE/ERROR/PAUSED) from
 										     SESSION_OUTCOME_MAP — no SESSION_OUTCOME_LABEL registry in plan. */}
-											{isSessionOutcome(session.outcome) ? (
-												<StatusChip status={sessionOutcomeToStatus(session.outcome)} />
-											) : (
-												<span className="text-[var(--text-tertiary)]">—</span>
-											)}
-										</td>
-										<td className="py-[6px] text-[var(--text-tertiary)]">
-											{absoluteDate(session.startedAt)}
-										</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
-					)}
-				</section>
+														{isSessionOutcome(session.outcome) ? (
+															<StatusChip status={sessionOutcomeToStatus(session.outcome)} />
+														) : (
+															<span className="text-[var(--text-tertiary)]">—</span>
+														)}
+													</td>
+													<td className="py-[6px] text-[var(--text-tertiary)]">
+														{absoluteDate(session.startedAt)}
+													</td>
+												</tr>
+											))}
+										</tbody>
+									</table>
+								)}
+							</section>
 
-				{/* Section 5 — Performance */}
-				<section
-					aria-label="Performance"
-					data-testid="agent-performance-section"
-					className="flex flex-col gap-[12px]"
-				>
-					<SectionLabel label="Performance" as="h2" />
-					<div className="flex gap-[24px] flex-wrap">
-						{/* AU26 W6: an unread run set is "—", never a confident 0. */}
-						<KeyValue
-							label="Sessions"
-							value={runStateSettled ? String(performance.totalSessions) : "—"}
+							{/* Section 5 — Performance */}
+							<section
+								aria-label="Performance"
+								data-testid="agent-performance-section"
+								className="flex flex-col gap-[12px]"
+							>
+								<SectionLabel label="Performance" as="h2" />
+								<div className="flex gap-[24px] flex-wrap">
+									{/* AU26 W6: an unread run set is "—", never a confident 0. */}
+									<KeyValue
+										label="Sessions"
+										value={runStateSettled ? String(performance.totalSessions) : "—"}
+									/>
+									<KeyValue
+										label="Success rate"
+										value={runStateSettled ? `${Math.round(performance.successRate * 100)}%` : "—"}
+									/>
+								</div>
+							</section>
+						</div>
+					</PageFrame>
+				}
+				destination={
+					openSessionId ? (
+						<AgentSessionPanel
+							sessionId={openSessionId}
+							viewerId={user?.id ?? ""}
+							viewerName={user?.name ?? user?.id ?? ""}
+							onClose={() => setOpenSessionId(null)}
+							onOpen={openSessionTarget}
 						/>
-						<KeyValue
-							label="Success rate"
-							value={runStateSettled ? `${Math.round(performance.successRate * 100)}%` : "—"}
-						/>
-					</div>
-				</section>
-			</div>
+					) : (
+						<div />
+					)
+				}
+			/>
 		</PageScaffold>
 	);
 }
@@ -574,6 +646,65 @@ function AgentProfileLoaded({
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
+
+/**
+ * The session viewer, opened from a Recent Activity row click into the
+ * page's split pane. Reuses `SessionView` exactly as it is — no redesign, no
+ * new component. `WorkTaskPage.tsx`'s `TaskSessionPanel`
+ * verbatim.
+ */
+function AgentSessionPanel({
+	sessionId,
+	viewerId,
+	viewerName,
+	onClose,
+	onOpen,
+}: {
+	sessionId: string;
+	viewerId: string;
+	viewerName: string;
+	onClose: () => void;
+	onOpen: OpenHandler;
+}): JSX.Element {
+	const { entries, status, summary } = useSessionActivity(sessionId);
+	const agent: PartAuthor = summary?.agentId
+		? { id: summary.agentId, name: summary.agentId, isAgent: true, isMe: false }
+		: { id: "", name: "Agent", isAgent: true, isMe: false };
+	const viewer: PartAuthor = { id: viewerId, name: viewerName, isAgent: false, isMe: true };
+
+	return (
+		<div className="relative flex h-full flex-col">
+			<button
+				type="button"
+				onClick={onClose}
+				aria-label="Close session view"
+				data-testid="close-session-view"
+				className="absolute top-[9px] right-[12px] z-[1] rounded-[var(--r-subtle)] p-[6px] text-[var(--text-tertiary)]   hover:bg-[var(--surface-container)] hover:text-[var(--text-secondary)]"
+			>
+				<svg
+					viewBox="0 0 12 12"
+					className="h-[11px] w-[11px]"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="1.5"
+					aria-hidden="true"
+				>
+					<path d="M2 2 L10 10 M10 2 L2 10" strokeLinecap="round" />
+				</svg>
+			</button>
+			<SessionView
+				sessionId={sessionId}
+				entries={[...entries]}
+				identity={{ agent, viewer, title: "Session", host: "" }}
+				status={status}
+				onOpen={onOpen}
+				onSend={() => {
+					// Agent-profile session view: read-only recap, not a live chat.
+				}}
+			/>
+		</div>
+	);
+}
 
 /** Green/ghost badge for a harness capability. */
 function CapabilityBadge({ label, supported }: { label: string; supported: boolean }): JSX.Element {

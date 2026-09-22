@@ -9,6 +9,8 @@
  *         `edit_document`'s upsert never sends `body` on an existing row;
  *   (iii) disable archives exactly the contributed ids — a `document`
  *         contribution the plugin no longer owns is untouched.
+ *
+ * Re-pointed onto `POST /api/actions/edit_plugin`.
  */
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
@@ -59,16 +61,19 @@ function makePlugin(): string {
 	return dir;
 }
 
-async function install(app: Hono): Promise<void> {
-	const res = await app.request("/api/plugins", {
+async function editPlugin(app: Hono, body: unknown): Promise<Response> {
+	return app.request("/api/actions/edit_plugin", {
 		method: "POST",
 		headers: auth(),
-		body: JSON.stringify({
-			source: { type: "folder", path: makePlugin() },
-			scope: { kind: "factory" },
-		}),
+		body: JSON.stringify(body),
 	});
-	if (res.status !== 201) {
+}
+
+async function install(app: Hono): Promise<void> {
+	const res = await editPlugin(app, {
+		source: { kind: "folder", path: makePlugin(), scope: { kind: "factory", teamId: null } },
+	});
+	if (res.status !== 200) {
 		throw new Error(`Install failed: ${JSON.stringify(await res.json())}`);
 	}
 }
@@ -166,10 +171,7 @@ describe("a plugin's skill is a document, upserted through edit_document", () =>
 			);
 		const documentId = String(contribution?.entityId);
 
-		const res = await app.request(`/api/plugins/${PLUGIN_ID}/disable`, {
-			method: "POST",
-			headers: auth(),
-		});
+		const res = await editPlugin(app, { id: PLUGIN_ID, state: "disabled" });
 		expect(res.status).toBe(200);
 
 		const [contributed] = await db.select().from(documents).where(eq(documents.id, documentId));

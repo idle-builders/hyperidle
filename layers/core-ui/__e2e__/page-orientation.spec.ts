@@ -7,6 +7,7 @@ import {
 	makeMessage,
 	makeTask,
 	makeThread,
+	mockSearchSessions,
 	mockSearchThreads,
 	mockTaskTree,
 	mockThread,
@@ -86,7 +87,7 @@ test.beforeEach(async ({ page }) => {
 		}),
 	);
 	await mockSearchThreads(page, { rows: [] });
-	await page.route("**/api/sessions*", (route) => fulfillJson(route, { sessions: [] }));
+	await mockSearchSessions(page, { rows: [] });
 	// @lore BB1: the task page is reached at /work/task/:taskId now — there is no
 	// bet segment in front of it — and it loads open_task.
 	await mockTaskTree(page, { task: makeTask("task-orientation", { title: TASK_TITLE }) });

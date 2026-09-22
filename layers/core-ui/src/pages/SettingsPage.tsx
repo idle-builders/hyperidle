@@ -9,16 +9,9 @@
  * left edge (px-[24px]). mx-auto on the body would create a different left
  * edge from the title (centered vs left-aligned). One measure, one left edge.
  *
- * @lore FR-15: Provider keys section is grouped inside the Agents & backends
- * group so users understand these credentials configure the built-in AI
- * gateway (one of the agent backends), not arbitrary secrets. The
- * settings-section-credentials testid is preserved for E2E compatibility.
- * Full structural merge (CredentialsTab into SettingsHarnesses detail pane)
- * is an IA decision deferred to the next work package.
  */
 
 import type { JSX } from "react";
-import { CredentialsTab } from "../components/CredentialsTab.js";
 import { PageHeader, PageScaffold } from "../ds";
 import { SettingsAgentBehavior } from "../settings/SettingsAgentBehavior.js";
 import { SettingsAgents } from "../settings/SettingsAgents.js";
@@ -133,24 +126,6 @@ export function SettingsPage(): JSX.Element {
 					>
 						<SectionTitle>Agent backends</SectionTitle>
 						<SettingsHarnesses />
-					</section>
-
-					{/*
-					 * Provider keys — API credentials for the built-in AI gateway
-					 * (Anthropic + OpenRouter). Grouped here so users see these as
-					 * configuring the built-in backend, not arbitrary secrets.
-					 *
-					 * @lore FR-15: grouped with Agent backends to present built-in
-					 * harness credentials as provider configuration. testid preserved
-					 * for E2E (ah1-onboarding-credentials.spec.ts).
-					 */}
-					<section
-						id="settings-section-credentials"
-						data-testid="settings-section-credentials"
-						className="flex flex-col gap-[9px]"
-					>
-						<SectionTitle>Provider keys</SectionTitle>
-						<CredentialsTab />
 					</section>
 				</div>
 

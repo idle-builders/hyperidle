@@ -1,34 +1,31 @@
 /**
- * Q1 §4.7: useSessionActivity hook.
+ * useSessionActivity — a session's row + activity buffer, kept live by the
+ * `session:<id>` websocket nudge.
  *
- * Fetches GET /api/sessions/:id/activity for the initial activity snapshot,
- * then subscribes to the WebSocket topic session:<sessionId> for live updates.
+ * @lore `GET /api/sessions/:id/activity` and the
+ * second websocket are both gone. The hook now calls `call("watch_session",
+ * { id })` — `POST /api/actions/watch_session`, the same door a person's
+ * client and an agent's MCP tool use — and re-runs it on every frame for
+ * `session:<id>`, the `useDocument.ts` nudge-and-refetch shape verbatim. The
+ * nudge carries no content (`{type:"update", topic:"session:<id>",
+ * kind:"session.activity", data:{sessionId}}`); this hook only reacts to the
+ * topic matching, never reads `data`.
  *
- * States:
- * - connecting: initial fetch in flight
- * - streaming: session is active, receiving events
- * - ended: session ended (session_ended event received or initial state=done)
- * - error: fetch or WS connection failed
- *
- * @lore Q1 review issue #5: WebSocket subscription is now implemented.
- * After the initial REST fetch, the hook subscribes to topic `session:<sessionId>`.
- * Incoming `tool_call_recorded` events are appended. `session_ended` transitions
- * to status "ended" with a summary. Cleanup unsubscribes on unmount.
- *
- * @lore Q1 review issue #9: ActivityEntry uses a discriminated union instead of
- * Record<string, unknown> so callers get precise types without unsafe casts.
+ * @lore `stop_session`'s answer is the row as it
+ * stood the moment it was asked, not the terminal state — a live session's
+ * harness process is killed and the row is marked by normal teardown
+ * afterwards, reaching the browser as this same nudge. This hook never reads
+ * a `stop_session` response; "ended" only ever comes from a re-run
+ * `watch_session` reporting the row is no longer `active`.
  */
 
-import type { ActivityEntry } from "@hyperidle/domain-model";
+import type { ActivityEntry, SessionRow } from "@hyperidle/domain-model";
 import { useEffect, useRef, useState } from "react";
-import { apiFetch } from "../services/api-fetch.js";
-import { getSessionStreamClient } from "../services/ws-client.js";
+import { call } from "../services/call.js";
+import { getWsClient } from "../services/ws-client.js";
 
-// AM3: ActivityEntry is now the canonical type from @hyperidle/domain-model.
-// Re-export for existing callers.
 export type { ActivityEntry } from "@hyperidle/domain-model";
 export type ToolCallData = Extract<ActivityEntry, { type: "tool_call" }>["data"];
-export type ReasoningData = Extract<ActivityEntry, { type: "reasoning" }>["data"];
 
 export interface SessionSummary {
 	agentId: string;
@@ -45,206 +42,81 @@ export interface UseSessionActivityResult {
 	error: string | null;
 }
 
-function isToolCallData(data: unknown): data is ToolCallData {
-	if (typeof data !== "object" || data === null) return false;
-	const d = data as Record<string, unknown>;
-	return typeof d.toolName === "string" && typeof d.argsSummary === "string";
-}
-
-function isReasoningData(data: unknown): data is ReasoningData {
-	if (typeof data !== "object" || data === null) return false;
-	const d = data as Record<string, unknown>;
-	return typeof d.excerpt === "string";
-}
-
-function parseActivityEntry(value: unknown): ActivityEntry | null {
-	if (typeof value !== "object" || value === null) return null;
-	const v = value as Record<string, unknown>;
-	if (typeof v.type !== "string" || typeof v.timestamp !== "number") return null;
-
-	if (v.type === "tool_call" && isToolCallData(v.data)) {
-		return { type: "tool_call", timestamp: v.timestamp, data: v.data };
-	}
-	if (v.type === "reasoning" && isReasoningData(v.data)) {
-		return { type: "reasoning", timestamp: v.timestamp, data: v.data };
-	}
-	return null;
-}
-
-// Maximum number of activity entries to keep client-side (FIFO eviction)
+// Maximum number of activity entries kept client-side (FIFO — the tail is
+// what a viewer opening mid-stream needs).
 const MAX_CLIENT_ENTRIES = 200;
 
-// ---------------------------------------------------------------------------
-// WS message handler (extracted to reduce cognitive complexity in the hook)
-// ---------------------------------------------------------------------------
-
-interface WsHandlerCallbacks {
-	setEntries: React.Dispatch<React.SetStateAction<ReadonlyArray<ActivityEntry>>>;
-	setSummary: React.Dispatch<React.SetStateAction<SessionSummary | null>>;
-	setStatus: React.Dispatch<React.SetStateAction<SessionActivityStatus>>;
-	getAborted: () => boolean;
-}
-
-function appendEntry(
-	entry: ActivityEntry,
-	setEntries: React.Dispatch<React.SetStateAction<ReadonlyArray<ActivityEntry>>>,
-): void {
-	setEntries((prev) => {
-		const next = [...prev, entry];
-		return next.length > MAX_CLIENT_ENTRIES ? next.slice(-MAX_CLIENT_ENTRIES) : next;
-	});
-}
-
-function handleSessionEnded(
-	msg: Record<string, unknown>,
-	callbacks: Pick<WsHandlerCallbacks, "setSummary" | "setStatus">,
-): void {
-	const agentId = typeof msg.agentId === "string" ? msg.agentId : "";
-	const taskId = typeof msg.taskId === "string" ? msg.taskId : "";
-	const endedAt = typeof msg.timestamp === "number" ? new Date(msg.timestamp).toISOString() : null;
-	callbacks.setSummary({ agentId, taskId, endedAt });
-	callbacks.setStatus("ended");
-}
-
-function handleToolCallRecorded(
-	msg: Record<string, unknown>,
-	setEntries: React.Dispatch<React.SetStateAction<ReadonlyArray<ActivityEntry>>>,
-): void {
-	const entry = parseActivityEntry({
-		type: "tool_call",
-		timestamp: typeof msg.timestamp === "number" ? msg.timestamp : Date.now(),
-		data: { toolName: msg.toolName ?? "", argsSummary: msg.argsSummary ?? "" },
-	});
-	if (entry) {
-		appendEntry(entry, setEntries);
-	}
-}
-
-function makeWsMessageHandler(callbacks: WsHandlerCallbacks): (data: unknown) => void {
-	return (data: unknown) => {
-		if (callbacks.getAborted()) return;
-		if (typeof data !== "object" || data === null) return;
-		const msg = data as Record<string, unknown>;
-		if (msg.type === "session_ended") {
-			handleSessionEnded(msg, callbacks);
-		} else if (msg.type === "tool_call_recorded") {
-			handleToolCallRecorded(msg, callbacks.setEntries);
-		}
-	};
-}
-
-// ---------------------------------------------------------------------------
-// Fetch helper (extracted to reduce cognitive complexity in the hook)
-// ---------------------------------------------------------------------------
-
-type FetchFailure = { ok: false; error: string };
-type FetchSuccess = {
-	ok: true;
-	entries: ActivityEntry[];
-	sessionState: string;
-	sessionMeta: { agentId: string; taskId: string };
-};
-type FetchResult = FetchFailure | FetchSuccess;
-
-async function fetchSessionActivity(sessionId: string, signal: AbortSignal): Promise<FetchResult> {
-	const res = await apiFetch(`/api/sessions/${encodeURIComponent(sessionId)}/activity`, { signal });
-	if (!res.ok) {
-		return { ok: false, error: `HTTP ${res.status}` };
-	}
-	const body = (await res.json()) as {
-		session?: {
-			id: string;
-			agentId: string;
-			taskId: string;
-			state: string;
-			startedAt: string;
-			modelTier: string;
-		};
-		activity?: unknown[];
-	};
-
-	const entries: ActivityEntry[] = Array.isArray(body.activity)
-		? (body.activity as unknown[]).flatMap((e) => {
-				const parsed = parseActivityEntry(e);
-				return parsed ? [parsed] : [];
-			})
-		: [];
-
-	return {
-		ok: true,
-		entries,
-		sessionState: body.session?.state ?? "active",
-		sessionMeta: {
-			agentId: body.session?.agentId ?? "",
-			taskId: body.session?.taskId ?? "",
-		},
-	};
+function statusFor(session: SessionRow): SessionActivityStatus {
+	return session.state === "active" ? "streaming" : "ended";
 }
 
 /**
- * Subscribe to session activity for the given session id.
+ * `summary` stays `null` while the session is active — Conversations.tsx's
+ * `resolveSessionAgentAuthor` depends on that to fall back to a generic
+ * agent placeholder rather than a possibly-stale id.
+ */
+function summaryFor(session: SessionRow): SessionSummary | null {
+	if (session.state === "active") return null;
+	return { agentId: session.agentId, taskId: session.taskId ?? "", endedAt: session.endedAt };
+}
+
+/**
+ * Subscribe to a session's row + activity, kept live by the session's nudge
+ * topic.
  */
 export function useSessionActivity(sessionId: string): UseSessionActivityResult {
 	const [status, setStatus] = useState<SessionActivityStatus>("connecting");
 	const [entries, setEntries] = useState<ReadonlyArray<ActivityEntry>>([]);
 	const [summary, setSummary] = useState<SessionSummary | null>(null);
 	const [error, setError] = useState<string | null>(null);
-	const abortRef = useRef<AbortController | null>(null);
+	const [tick, setTick] = useState(0);
+	const cancelledRef = useRef(false);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `tick` is intentionally a dependency — bumping it via the nudge subscription re-runs watch_session.
 	useEffect(() => {
-		const ac = new AbortController();
-		abortRef.current?.abort();
-		abortRef.current = ac;
+		let cancelled = false;
 		setStatus("connecting");
 		setError(null);
-		setSummary(null);
 
-		let unsubscribe: (() => void) | null = null;
-
-		fetchSessionActivity(sessionId, ac.signal)
+		call("watch_session", { id: sessionId })
 			.then((result) => {
-				if (ac.signal.aborted) return;
+				if (cancelled) return;
 				if (!result.ok) {
-					setError(result.error);
+					setError(result.problems[0]?.message ?? "Failed to load session");
 					setStatus("error");
 					return;
 				}
-				setEntries(result.entries);
-
-				if (result.sessionState === "done") {
-					setSummary({ ...result.sessionMeta, endedAt: null });
-					setStatus("ended");
-					return;
-				}
-
-				setStatus("streaming");
-
-				// Q1 §4.7 / review issue #5: subscribe to WebSocket topic for live updates.
-				// @lore AU26 J3: `session:<id>` is served by agent-orchestration's own
-				// socket now, not core-api's — the Layer that owns the run owns its live
-				// stream. Founder: *"session dial in is 1000% orchestration."*
-				const wsClient = getSessionStreamClient();
-				const handler = makeWsMessageHandler({
-					setEntries,
-					setSummary,
-					setStatus,
-					getAborted: () => ac.signal.aborted,
-				});
-				unsubscribe = wsClient.subscribe(`session:${sessionId}`, handler);
+				setEntries(result.data.activity.slice(-MAX_CLIENT_ENTRIES));
+				setSummary(summaryFor(result.data.session));
+				setStatus(statusFor(result.data.session));
 			})
-			.catch((cause) => {
-				if (ac.signal.aborted) return;
-				if (cause instanceof Error && cause.name === "AbortError") return;
+			.catch((cause: unknown) => {
+				if (cancelled) return;
 				setError(cause instanceof Error ? cause.message : "Network error");
 				setStatus("error");
 			});
 
 		return () => {
-			ac.abort();
-			// Q1 review issue #5: unsubscribe from WebSocket topic on unmount
-			if (unsubscribe) {
-				unsubscribe();
-			}
+			cancelled = true;
+		};
+	}, [sessionId, tick]);
+
+	// Nudge subscription — a frame on `session:<id>` means "something about
+	// this session changed"; the hook re-runs its own `watch_session` rather
+	// than applying a partial update.
+	useEffect(() => {
+		cancelledRef.current = false;
+		const ws = getWsClient();
+		const topic = `session:${sessionId}`;
+		const unsubscribe = ws.subscribe(topic, (raw) => {
+			if (typeof raw !== "object" || raw === null) return;
+			const msg = raw as Record<string, unknown>;
+			if (msg.type !== "update" || msg.topic !== topic) return;
+			if (!cancelledRef.current) setTick((n) => n + 1);
+		});
+		return (): void => {
+			cancelledRef.current = true;
+			unsubscribe();
 		};
 	}, [sessionId]);
 

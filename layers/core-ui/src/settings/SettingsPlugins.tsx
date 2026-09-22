@@ -12,10 +12,26 @@
  * @lore BA9a detached: a contribution is "detached" when the user has written
  * a configuration override on top of the plugin default (valueSource ===
  * "user_override"). Restore clears the override, returning to the plugin default.
+ *
+ * @lore `/api/plugins` (six routes) replaced by `call("search_plugins",
+ * …)`/`call("edit_plugin", …)` — the door swap, not a redesign, this page's
+ * own header now says. Install/enable/disable/remove/restore are each one
+ * `edit_plugin` change field. Restore used to branch on `REGISTRY_KINDS` to decide whether to name a
+ * contribution by its entity id or its manifest key — the action's own
+ * `PluginContributionView.key` is already the one namespaced key both
+ * `entityId` and a configuration default's key collapse to, so the branch is
+ * gone: every restore names the contribution with `key`.
  */
 
 // hearth-internal-padding
 
+import type {
+	EditPluginSource,
+	PluginContributionView,
+	PluginListState,
+	PluginScope,
+	PluginView,
+} from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useState } from "react";
 import {
 	Button,
@@ -31,46 +47,15 @@ import {
 	Tag,
 } from "../ds";
 import { useTeams } from "../hooks/useTeams.js";
-import { apiFetch } from "../services/api-fetch.js";
+import { call } from "../services/call.js";
 import { useToast } from "../shell/ToastRegion.js";
 
 // ---------------------------------------------------------------------------
-// Types (mirrors the route response shape)
+// Types
 // ---------------------------------------------------------------------------
 
-type SourceKind = "git" | "zip" | "folder";
-type ScopeKind = "factory" | "team";
-type PluginState = "enabled" | "disabled";
-
-/**
- * One thing a plugin contributed.
- *
- * @lore BA9g: `kind` covers the registry's kinds (agent, routine, knowledge) as
- * well as configuration kinds. The shipped plugin contributes an agent, three
- * routines and three skills and NONE of them are configuration defaults, so
- * this list used to render empty for it.
- */
-interface ContributionView {
-	kind: string;
-	/** The contributed row's id, or the namespaced configuration key. */
-	entityId: string;
-	/** What a person calls it — an id is not a name. */
-	label: string;
-	key: string;
-	manifestKey: string;
-	detached: boolean;
-}
-
-interface PluginView {
-	id: string;
-	name: string;
-	version: string;
-	state: PluginState;
-	scope: { kind: ScopeKind; teamId: string | null };
-	installedAt: string;
-	disabledAt: string | null;
-	contributions: ContributionView[];
-}
+type SourceKind = EditPluginSource["kind"];
+type ScopeKind = PluginScope["kind"];
 
 type LoadState = "loading" | "ready" | "error";
 
@@ -78,11 +63,11 @@ type LoadState = "loading" | "ready" | "error";
 // Helpers
 // ---------------------------------------------------------------------------
 
-function stateChipStatus(state: PluginState): "healthy" | "behind" {
+function stateChipStatus(state: PluginListState): "healthy" | "behind" {
 	return state === "enabled" ? "healthy" : "behind";
 }
 
-function scopeLabel(scope: { kind: ScopeKind; teamId: string | null }): string {
+function scopeLabel(scope: PluginScope): string {
 	if (scope.kind === "factory") return "Factory";
 	return scope.teamId ? `Team: ${scope.teamId}` : "Team";
 }
@@ -110,20 +95,17 @@ function InstallForm({ onInstalled }: InstallFormProps): JSX.Element {
 		if (scopeKind === "team" && !teamId.trim()) return;
 		setInstalling(true);
 		try {
-			const source =
+			const scope: PluginScope =
+				scopeKind === "factory"
+					? { kind: "factory", teamId: null }
+					: { kind: "team", teamId: teamId.trim() };
+			const source: EditPluginSource =
 				sourceKind === "git"
-					? { type: "git", url: value.trim() }
-					: { type: sourceKind, path: value.trim() };
-			const scope =
-				scopeKind === "factory" ? { kind: "factory" } : { kind: "team", teamId: teamId.trim() };
-			const res = await apiFetch("/api/plugins", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ source, scope }),
-			});
-			if (!res.ok) {
-				const body = (await res.json().catch(() => ({}))) as { error?: string };
-				showToast(body.error ?? `Install failed (${res.status})`);
+					? { kind: "git", url: value.trim(), scope }
+					: { kind: sourceKind, path: value.trim(), scope };
+			const result = await call("edit_plugin", { source });
+			if (!result.ok) {
+				showToast(result.problems[0]?.message ?? "Install failed");
 				return;
 			}
 			setValue("");
@@ -225,13 +207,10 @@ const KIND_LABEL: Record<string, string> = {
 	harness_descriptor: "harness",
 };
 
-/** Kinds the registry names by row id rather than by manifest key. */
-const REGISTRY_KINDS = new Set(["agent", "routine", "document"]);
-
 interface ContributionListProps {
 	pluginId: string;
-	contributions: ContributionView[];
-	onRestore: (pluginId: string, c: ContributionView) => Promise<void>;
+	contributions: PluginContributionView[];
+	onRestore: (pluginId: string, c: PluginContributionView) => Promise<void>;
 	restoring: string | null; // "pluginId/manifestKey" key being restored
 }
 
@@ -292,10 +271,12 @@ export function SettingsPlugins(): JSX.Element {
 	const load = useCallback(async (): Promise<void> => {
 		setLoadState("loading");
 		try {
-			const res = await apiFetch("/api/plugins");
-			if (!res.ok) throw new Error(`HTTP ${res.status}`);
-			const body = (await res.json()) as { plugins: PluginView[] };
-			setPlugins(body.plugins ?? []);
+			const result = await call("search_plugins", {});
+			if (!result.ok) {
+				setLoadState("error");
+				return;
+			}
+			setPlugins(result.data);
 			setLoadState("ready");
 		} catch {
 			setLoadState("error");
@@ -307,13 +288,13 @@ export function SettingsPlugins(): JSX.Element {
 	}, [load]);
 
 	async function toggle(plugin: PluginView): Promise<void> {
-		const action = plugin.state === "enabled" ? "disable" : "enable";
+		const nextState: PluginListState = plugin.state === "enabled" ? "disabled" : "enabled";
 		setBusy((prev) => new Set([...prev, plugin.id]));
 		try {
-			const res = await apiFetch(`/api/plugins/${plugin.id}/${action}`, { method: "POST" });
-			if (!res.ok) {
-				const body = (await res.json().catch(() => ({}))) as { error?: string };
-				showToast(body.error ?? `${action} failed`);
+			const result = await call("edit_plugin", { id: plugin.id, state: nextState });
+			if (!result.ok) {
+				const verb = nextState === "enabled" ? "enable" : "disable";
+				showToast(result.problems[0]?.message ?? `${verb} failed`);
 				return;
 			}
 			await load();
@@ -331,10 +312,9 @@ export function SettingsPlugins(): JSX.Element {
 	async function remove(plugin: PluginView): Promise<void> {
 		setBusy((prev) => new Set([...prev, plugin.id]));
 		try {
-			const res = await apiFetch(`/api/plugins/${plugin.id}`, { method: "DELETE" });
-			if (!res.ok) {
-				const body = (await res.json().catch(() => ({}))) as { error?: string };
-				showToast(body.error ?? "Remove failed");
+			const result = await call("edit_plugin", { id: plugin.id, remove: true });
+			if (!result.ok) {
+				showToast(result.problems[0]?.message ?? "Remove failed");
 				return;
 			}
 			showToast(`${plugin.name} removed.`);
@@ -350,24 +330,16 @@ export function SettingsPlugins(): JSX.Element {
 		}
 	}
 
-	async function restore(pluginId: string, contribution: ContributionView): Promise<void> {
+	async function restore(pluginId: string, contribution: PluginContributionView): Promise<void> {
 		const key = `${pluginId}/${contribution.entityId}`;
 		setRestoring(key);
 		try {
-			const res = await apiFetch(`/api/plugins/${pluginId}/contributions/restore`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				// A registry-backed contribution is named by the row it points at; a
-				// configuration default by its manifest key.
-				body: JSON.stringify(
-					REGISTRY_KINDS.has(contribution.kind)
-						? { kind: contribution.kind, entityId: contribution.entityId }
-						: { kind: contribution.kind, manifestKey: contribution.manifestKey },
-				),
+			const result = await call("edit_plugin", {
+				id: pluginId,
+				restore: { contribution: contribution.key },
 			});
-			if (!res.ok) {
-				const body = (await res.json().catch(() => ({}))) as { error?: string };
-				showToast(body.error ?? "Restore failed");
+			if (!result.ok) {
+				showToast(result.problems[0]?.message ?? "Restore failed");
 				return;
 			}
 			showToast(`${contribution.label} restored to plugin default.`);

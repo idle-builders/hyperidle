@@ -174,7 +174,7 @@ async function endSession(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	context: SessionContext,
-	terminalOutcome: "completed" | "not_returned" = "completed",
+	terminalOutcome: "completed" | "not_returned" | "stopped" = "completed",
 	tokensByTier?: Partial<Record<ModelTier, { prompt: number; completion: number }>>,
 ): Promise<void> {
 	// 1. Dispose ingestion handle (final flush).
@@ -194,7 +194,13 @@ async function endSession(
 	// persisted correctly in the DB and carried on the bus — not just in the in-memory
 	// ProvisionSessionResult. Passing "not_returned" here is what gives AC1/AC3 real
 	// teeth at the persistence layer.
-	const updated = await updateSessionRow(db, context.sessionId, "done", terminalOutcome, now);
+	//
+	// @lore A stopped session writes state "stopped", not "done" — the
+	// abort path (provisioner.ts's own `stopRequested` flag) threads
+	// `terminalOutcome: "stopped"` here so `lifecycle-propagation.ts` (which
+	// only acts on `outcome==='completed'`) stays inert on a stop.
+	const state = terminalOutcome === "stopped" ? "stopped" : "done";
+	const updated = await updateSessionRow(db, context.sessionId, state, terminalOutcome, now);
 
 	// 3. Emit session_ended IFF the CAS UPDATE actually transitioned a row.
 	// HARD INVARIANT (AF7 §4.3): gate the emit on rowCount, NOT merely on "the
@@ -223,11 +229,18 @@ async function endSession(
 			// AU21 §9 Increment 4 (Decision B″ item 3): the routine-run finalize
 			// payload rides the SAME event — no direct `routineRuns` write here
 			// anymore. AU21 Increment 14a: the "budget_exhausted" per-run-cap
-			// outcome is deleted along with the cap gate — routineRunOutcome is
-			// always "success" here now (crashSession is the only "error" path).
-			// A core-api subscriber (`routine-run-session-end-reactions.ts`)
-			// performs the write.
-			...(context.routineId ? { routineRunOutcome: "success" as const } : {}),
+			// outcome is deleted along with the cap gate. A core-api subscriber
+			// (`routine-run-session-end-reactions.ts`) performs the write.
+			//
+			// @lore A stop finalizes a routine run as "error", not
+			// "success" — the routine's own run history must not read a killed
+			// run as a clean finish.
+			...(context.routineId
+				? {
+						routineRunOutcome:
+							terminalOutcome === "stopped" ? ("error" as const) : ("success" as const),
+					}
+				: {}),
 			// AU21 §9 Increment 12 (Decision H3), Wave D: the session's
 			// accumulated per-tier token counts ride this SAME event — no direct
 			// `bets.tokensActualJson` write here anymore. A core-api subscriber
@@ -344,7 +357,7 @@ export function transitionRun(
 				readonly target: "session";
 				readonly context: SessionContext;
 				readonly disposition: "end" | "crash";
-				readonly terminalOutcome?: "completed" | "not_returned";
+				readonly terminalOutcome?: "completed" | "not_returned" | "stopped";
 				/**
 				 * AU21 §9 Increment 12 (Decision H3), Wave D: the session's
 				 * accumulated per-tier token counts, carried through onto the
@@ -380,8 +393,8 @@ export function transitionRun(
 async function updateSessionRow(
 	db: HyperIdleDb,
 	sessionId: string,
-	state: "done" | "crashed",
-	outcome: "completed" | "not_returned" | "crashed",
+	state: "done" | "crashed" | "stopped",
+	outcome: "completed" | "not_returned" | "crashed" | "stopped",
 	endedAt: string,
 ): Promise<boolean> {
 	const updated = await db

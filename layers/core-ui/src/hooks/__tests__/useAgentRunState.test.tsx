@@ -1,6 +1,11 @@
 /**
  * AU26 review W4/W6/W7 — the run-state hooks the J4 move introduced.
  *
+ * @lore `GET /api/agent-orchestration/runs?agent_ids=…` is deleted; both
+ * hooks now call `search_sessions({ agentIds })` — `POST
+ * /api/actions/search_sessions`, the same door a person's client and an
+ * agent's MCP tool use.
+ *
  * Three properties, none of which the move shipped with:
  *   - **W6, fail-closed.** A failed orchestration read must NOT render a
  *     crashed agent as healthy and idle. The hook reports `status: "error"`
@@ -9,7 +14,7 @@
  *   - **W4, one request per screen.** Task titles are fetched in ONE batched
  *     `search_tasks` call (its `ids` filter), not one call per task.
  *   - **W7, the orchestration is tested at all.** Active-run selection,
- *     group-by-agent, the task-ref/`betId` resolution and the 10-item slice
+ *     group-by-agent, the task-ref resolution and the 10-item slice
  *     were untested — every consumer mocked the hook out.
  */
 
@@ -20,7 +25,7 @@ import { useAgentRunState, useRosterRunState } from "../useAgentRunState.js";
 const NOW = Date.now();
 const iso = (msAgo: number): string => new Date(NOW - msAgo).toISOString();
 
-interface RunRow {
+interface SessionRowStub {
 	id: string;
 	agentId: string;
 	taskId: string | null;
@@ -31,7 +36,7 @@ interface RunRow {
 	effectivenessScore: string | null;
 }
 
-function run(overrides: Partial<RunRow> & { id: string; agentId: string }): RunRow {
+function row(overrides: Partial<SessionRowStub> & { id: string; agentId: string }): SessionRowStub {
 	return {
 		taskId: null,
 		startedAt: iso(60_000),
@@ -50,13 +55,16 @@ interface TaskRow {
 }
 
 /** Route the two calls the hooks make; count them so an N+1 is visible. */
-function stubFetch(runs: RunRow[], tasks: TaskRow[]): { taskCalls: string[]; runCalls: string[] } {
+function stubFetch(
+	rows: SessionRowStub[],
+	tasks: TaskRow[],
+): { taskCalls: string[]; sessionCalls: string[] } {
 	const taskCalls: string[] = [];
-	const runCalls: string[] = [];
+	const sessionCalls: string[] = [];
 	const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
-		if (url.includes("/agent-orchestration/")) {
-			runCalls.push(url);
-			return Promise.resolve({ ok: true, json: () => Promise.resolve({ runs }) });
+		if (url === "/api/actions/search_sessions") {
+			sessionCalls.push(url);
+			return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true, data: rows }) });
 		}
 		taskCalls.push(url);
 		const body = init?.body ? (JSON.parse(String(init.body)) as { ids?: string[] }) : {};
@@ -67,7 +75,7 @@ function stubFetch(runs: RunRow[], tasks: TaskRow[]): { taskCalls: string[]; run
 		});
 	});
 	vi.stubGlobal("fetch", fetchMock);
-	return { taskCalls, runCalls };
+	return { taskCalls, sessionCalls };
 }
 
 beforeEach(() => {
@@ -84,7 +92,7 @@ describe("useAgentRunState", () => {
 	it("resolves the active run, its task title, and the success rate (BB1: no betId)", async () => {
 		stubFetch(
 			[
-				run({
+				row({
 					id: "r-live",
 					agentId: "a1",
 					taskId: "t1",
@@ -92,8 +100,8 @@ describe("useAgentRunState", () => {
 					endedAt: null,
 					outcome: null,
 				}),
-				run({ id: "r-done", agentId: "a1", taskId: "t2", outcome: "completed" }),
-				run({ id: "r-crash", agentId: "a1", taskId: "t2", outcome: "crashed" }),
+				row({ id: "r-done", agentId: "a1", taskId: "t2", outcome: "completed" }),
+				row({ id: "r-crash", agentId: "a1", taskId: "t2", outcome: "crashed" }),
 			],
 			[
 				{ id: "t1", title: "Live task", betId: "bet-1" },
@@ -121,9 +129,18 @@ describe("useAgentRunState", () => {
 		});
 	});
 
+	it("scopes the search to the agent, asking for every run it can (up to the action's cap)", async () => {
+		const { sessionCalls } = stubFetch([row({ id: "r1", agentId: "a1" })], []);
+
+		const { result } = renderHook(() => useAgentRunState("a1", true));
+		await waitFor(() => expect(result.current.status).toBe("ready"));
+
+		expect(sessionCalls).toHaveLength(1);
+	});
+
 	it("fetches task titles in ONE batched request, not one per task (W4)", async () => {
 		const runs = Array.from({ length: 8 }, (_, i) =>
-			run({ id: `r${i}`, agentId: "a1", taskId: `t${i}` }),
+			row({ id: `r${i}`, agentId: "a1", taskId: `t${i}` }),
 		);
 		const { taskCalls } = stubFetch(
 			runs,
@@ -139,7 +156,7 @@ describe("useAgentRunState", () => {
 
 	it("keeps at most the 10 most recent runs in the recent list", async () => {
 		const runs = Array.from({ length: 14 }, (_, i) =>
-			run({ id: `r${i}`, agentId: "a1", taskId: "t1", startedAt: iso(i * 1000) }),
+			row({ id: `r${i}`, agentId: "a1", taskId: "t1", startedAt: iso(i * 1000) }),
 		);
 		stubFetch(runs, [{ id: "t1", title: "T", betId: null }]);
 
@@ -150,12 +167,19 @@ describe("useAgentRunState", () => {
 		expect(result.current.performance.totalSessions).toBe(14);
 	});
 
-	it("reports status 'error' when the run read fails — it never claims healthy (W6)", async () => {
+	it("reports status 'error' when search_sessions answers a problem — it never claims healthy (W6)", async () => {
 		vi.stubGlobal(
 			"fetch",
 			vi.fn().mockImplementation((url: string) =>
-				url.includes("/agent-orchestration/")
-					? Promise.resolve({ ok: false, status: 503, json: () => Promise.resolve({}) })
+				url === "/api/actions/search_sessions"
+					? Promise.resolve({
+							ok: true,
+							json: () =>
+								Promise.resolve({
+									ok: false,
+									problems: [{ code: "server_error", message: "Boom" }],
+								}),
+						})
 					: Promise.resolve({
 							ok: true,
 							json: () => Promise.resolve({ ok: true, data: [] }),
@@ -181,7 +205,7 @@ describe("useRosterRunState", () => {
 	it("groups runs by agent and marks only the running one active", async () => {
 		stubFetch(
 			[
-				run({
+				row({
 					id: "r1",
 					agentId: "a1",
 					taskId: "t1",
@@ -189,7 +213,7 @@ describe("useRosterRunState", () => {
 					endedAt: null,
 					outcome: null,
 				}),
-				run({ id: "r2", agentId: "a2", outcome: "completed" }),
+				row({ id: "r2", agentId: "a2", outcome: "completed" }),
 			],
 			[{ id: "t1", title: "Live task", betId: "bet-9" }],
 		);
@@ -212,10 +236,17 @@ describe("useRosterRunState", () => {
 		expect(result.current.byAgent.has("a3")).toBe(true);
 	});
 
-	it("reports status 'error' when the run read fails, rather than a healthy roster (W6)", async () => {
+	it("reports status 'error' when search_sessions answers a problem, rather than a healthy roster (W6)", async () => {
 		vi.stubGlobal(
 			"fetch",
-			vi.fn().mockImplementation(() => Promise.resolve({ ok: false, status: 500 })),
+			vi.fn().mockResolvedValue({
+				ok: true,
+				json: () =>
+					Promise.resolve({
+						ok: false,
+						problems: [{ code: "server_error", message: "Boom" }],
+					}),
+			}),
 		);
 
 		const { result } = renderHook(() => useRosterRunState([{ agentId: "a1" }]));

@@ -38,6 +38,7 @@ import type { ActivityEntry } from "@hyperidle/domain-model";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import { type JSX, useRef, useState } from "react";
 import { Button } from "../ds";
+import { call } from "../services/call.js";
 import { clockTime } from "../utils/time.js";
 import { initialsOf } from "./PartList.js";
 import type { OpenHandler, Part, PartAuthor, ToolRunBlock } from "./parts";
@@ -70,6 +71,14 @@ export interface QueuedMessage {
 }
 
 export interface SessionViewProps {
+	/**
+	 * The session's own id — lets the header Stop control call
+	 * `call("stop_session", { id: sessionId })` directly, with no callback
+	 * threaded down from the page. Omitted only by stories/tests that render
+	 * no live session; every production caller has a real id and the header
+	 * control does not render without one.
+	 */
+	readonly sessionId?: string;
 	/** The normalized activity entries from `useSessionActivity`. */
 	readonly entries: ReadonlyArray<ActivityEntry>;
 	/** Session identity (agent, viewer, title, host). */
@@ -113,7 +122,7 @@ function SessionAvatar({
 
 function ParticipantGroup({ people }: { people: readonly PartAuthor[] }): JSX.Element {
 	return (
-		<div className="flex items-center pl-[3px]">
+		<div data-testid="session-identity-chip" className="flex items-center pl-[3px]">
 			{people.map((p, i) => (
 				<div
 					key={p.id}
@@ -634,6 +643,7 @@ function SessionComposer({
  * No parallel renderer (AM3 hard-rule 4).
  */
 export function SessionView({
+	sessionId,
 	entries,
 	identity,
 	descriptor,
@@ -648,6 +658,16 @@ export function SessionView({
 	const [elapsedSecs] = useState(0);
 
 	const running = status === "streaming";
+
+	// The header Stop control — the real `call("stop_session")` site the
+	// governance rule wants. Its answer is the
+	// pre-stop row: this view learns the session
+	// ended only when `useSessionActivity` re-runs `watch_session` off the
+	// nudge, never from this call's response.
+	const handleStop = (): void => {
+		if (!sessionId) return;
+		void call("stop_session", { id: sessionId });
+	};
 
 	// Use the first model id from the descriptor as default
 	const defaultModelId = descriptor?.models[0]?.id ?? "";
@@ -701,6 +721,17 @@ export function SessionView({
 							{identity.title}
 						</h2>
 					</div>
+					{sessionId && (
+						<Button
+							variant="destructive"
+							size="sm"
+							onClick={handleStop}
+							disabled={!running}
+							data-testid="session-header-stop"
+						>
+							Stop
+						</Button>
+					)}
 					<span className="h-[20px] w-px bg-[var(--border-subtle)]" />
 					<ParticipantGroup people={[identity.agent, identity.viewer]} />
 				</div>

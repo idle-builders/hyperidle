@@ -27,7 +27,6 @@
 	},
 	"devDependencies": {
 		"@hyperidle/agent-execution": "*",
-		"@hyperidle/credentials": "*",
 		"@types/node": "^24",
 		"drizzle-orm": "^0.45.2",
 		"vitest": "^4.1.9"

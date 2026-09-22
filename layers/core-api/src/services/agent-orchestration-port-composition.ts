@@ -88,9 +88,6 @@ interface AgentOrchestrationHcClient {
 			};
 		};
 		readonly runs: {
-			readonly abort: {
-				$post(args: { readonly json: { readonly sessionId: string } }): Promise<Response>;
-			};
 			readonly "stop-for-tasks": {
 				// @lore AU44 batch6: `reason` dropped from request body.
 				$post(args: { readonly json: { readonly taskIds: readonly string[] } }): Promise<Response>;
@@ -246,10 +243,6 @@ export function buildAgentOrchestrationPort(
 					json: { sessionId, endedAt },
 				});
 				if (!res.ok) return throwSeamError("runs.endForHandoff", res);
-			},
-			async abort(sessionId: string): Promise<void> {
-				const res = await client["agent-orchestration"].runs.abort.$post({ json: { sessionId } });
-				if (!res.ok) return throwSeamError("runs.abort", res);
 			},
 		},
 		runConfig: {

@@ -33,6 +33,7 @@ import type {
 	DocumentView,
 	Identity,
 	Message,
+	SessionRow,
 	Task,
 	TaskCardSummary,
 	TaskNode,
@@ -669,6 +670,54 @@ export async function mockSearchThreads(
 	opts: MockSearchThreadsOptions,
 ): Promise<void> {
 	await page.route("**/api/actions/search_threads", async (route) => {
+		if (route.request().method() !== "POST") {
+			await route.continue();
+			return;
+		}
+		await route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify({ ok: true, data: opts.rows }),
+		});
+	});
+}
+
+/** A complete session row. Pass only the fields the assertion depends on. */
+export function makeSessionRow(id: string, overrides: Partial<SessionRow> = {}): SessionRow {
+	return {
+		id,
+		agentId: "agent-1",
+		taskId: null,
+		startedAt: "2026-01-01T00:00:00.000Z",
+		endedAt: null,
+		state: "active",
+		outcome: null,
+		effectivenessScore: null,
+		routineId: null,
+		notes: null,
+		modelTier: "workhorse",
+		sourceKind: null,
+		...overrides,
+	};
+}
+
+export interface MockSearchSessionsOptions {
+	readonly rows: readonly SessionRow[];
+}
+
+/**
+ * Mock `search_sessions` — every session read (task detail, agent profile,
+ * the recipient picker's live dot, Settings → Agents' active-session counts).
+ *
+ * @lore `GET /api/sessions*` and `GET /api/agent-orchestration/runs*`
+ * are deleted along with the rest of the run-read routes — `search_sessions`
+ * is the one door now, `POST /api/actions/search_sessions`.
+ */
+export async function mockSearchSessions(
+	page: import("@playwright/test").Page,
+	opts: MockSearchSessionsOptions,
+): Promise<void> {
+	await page.route("**/api/actions/search_sessions", async (route) => {
 		if (route.request().method() !== "POST") {
 			await route.continue();
 			return;

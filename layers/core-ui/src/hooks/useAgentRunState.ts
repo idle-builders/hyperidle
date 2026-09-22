@@ -1,11 +1,16 @@
 /**
- * Agent run state, fetched from `agent-orchestration` and combined with core's
- * own data in the browser.
+ * Agent run state, read through the session action list and combined with
+ * core's own data in the browser.
  *
  * @lore AU26 J4 (founder, verbatim): *"its all for UI? thats why orchestration
  * now has an api so that the ui can get the agent run state from the
  * orchestration directly and combine this information in the ui instead of in
  * the core api service."*
+ *
+ * @lore `GET /api/agent-orchestration/runs?agent_ids=…` is deleted along
+ * with the rest of the run-read routes. Both hooks now
+ * call `search_sessions({ agentIds })` — `POST /api/actions/search_sessions`,
+ * the same door a person's client and an agent's MCP tool use.
  *
  * Two consumers, one shape of work:
  *   - `useRosterRunState` — the team page's roster row (status dot, health tone,
@@ -17,19 +22,14 @@
  *
  * Both derive with the SAME `computeHealthSignals` / `deriveHealthLevel` /
  * `deriveHealthDetail` the routes used, now in `@hyperidle/domain-model`, over the
- * same run rows — so both screens render exactly what they rendered before.
+ * same session rows — so both screens render exactly what they rendered before.
  * `harnessAvailable` still comes from core-api (it is a fact about the server's
  * adapter pool, not run state) and is fed straight back in as the one input the
  * browser cannot compute.
  */
 
-import type {
-	AgentHealthLevel,
-	AgentOperationalStatus,
-	AgentRunSummary,
-} from "@hyperidle/domain-model";
+import type { AgentHealthLevel, AgentOperationalStatus, SessionRow } from "@hyperidle/domain-model";
 import { useEffect, useMemo, useState } from "react";
-import { fetchRunsByAgentIds } from "../services/agent-runs.js";
 import { call } from "../services/call.js";
 import type {
 	AgentActiveSession,
@@ -51,6 +51,28 @@ import { computeHealthSignals, deriveHealthDetail, deriveHealthLevel } from "./a
  * distinguish the three states and say which one they are in.
  */
 export type RunStateStatus = "loading" | "ready" | "error";
+
+/**
+ * `search_sessions` defaults to 100 with no `limit` set; the old route had no
+ * cap at all — a health window needs every run. 500 (the action's max) is
+ * the closest this read can get to "every one" under the new contract.
+ */
+const MAX_SESSIONS = 500;
+
+/** Every session for the given agents, newest first across all of them. */
+async function fetchSessionsByAgentIds(
+	agentIds: ReadonlyArray<string>,
+	signal: AbortSignal,
+): Promise<ReadonlyArray<SessionRow>> {
+	if (agentIds.length === 0) return [];
+	const result = await call(
+		"search_sessions",
+		{ agentIds: [...agentIds], limit: MAX_SESSIONS },
+		signal,
+	);
+	if (!result.ok) throw new Error(result.problems[0]?.message ?? "search_sessions failed");
+	return result.data;
+}
 
 /** The subset of a task the run-state renders need. Both fields are core's. */
 interface TaskRef {
@@ -134,7 +156,7 @@ export function useRosterRunState(members: ReadonlyArray<RosterMemberRef>): Rost
 		setStatus("loading");
 		const ac = new AbortController();
 		(async () => {
-			const runs = await fetchRunsByAgentIds(
+			const runs = await fetchSessionsByAgentIds(
 				members.map((m) => m.agentId),
 				ac.signal,
 			);
@@ -238,7 +260,7 @@ export function useAgentRunState(agentId: string | null, harnessAvailable: boole
 		setState((prev) => (prev.status === "loading" ? prev : { ...prev, status: "loading" }));
 		const ac = new AbortController();
 		(async () => {
-			const runs = await fetchRunsByAgentIds([agentId], ac.signal);
+			const runs = await fetchSessionsByAgentIds([agentId], ac.signal);
 			// The 10 most recent runs drive the recent-runs list; task titles and the
 			// active run's bet link are core's data, fetched from core.
 			const recent = runs.slice(0, 10);
@@ -298,10 +320,8 @@ export function useAgentRunState(agentId: string | null, harnessAvailable: boole
 	return state;
 }
 
-function groupByAgent(
-	runs: ReadonlyArray<AgentRunSummary>,
-): Map<string, ReadonlyArray<AgentRunSummary>> {
-	const byAgent = new Map<string, AgentRunSummary[]>();
+function groupByAgent(runs: ReadonlyArray<SessionRow>): Map<string, ReadonlyArray<SessionRow>> {
+	const byAgent = new Map<string, SessionRow[]>();
 	for (const run of runs) {
 		const bucket = byAgent.get(run.agentId) ?? [];
 		bucket.push(run);

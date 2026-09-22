@@ -10,6 +10,8 @@
  * sentinel nothing ever read: the view showed every skill as attached, and the
  * restore route's skill branch was unreachable from the UI because skills never
  * appeared in the list to click Restore on. It is a registry column now.
+ *
+ * Re-pointed onto `POST /api/actions/edit_plugin` / `search_plugins`.
  */
 
 import { cpSync, mkdirSync, rmSync } from "node:fs";
@@ -46,18 +48,24 @@ beforeEach(() => {
 	vi.stubEnv("HYPERIDLE_API_KEY", API_KEY);
 });
 
+async function editPlugin(app: Hono, body: unknown): Promise<Response> {
+	return app.request("/api/actions/edit_plugin", {
+		method: "POST",
+		headers: auth(),
+		body: JSON.stringify(body),
+	});
+}
+
 async function install(app: Hono): Promise<void> {
 	const dir = join(tmpdir(), `ba9g-dr-${Date.now()}-${Math.round(performance.now())}`);
 	mkdirSync(dir, { recursive: true });
 	cpSync(PLUGIN_ROOT, dir, { recursive: true });
 	tempDirs.push(dir);
 
-	const res = await app.request("/api/plugins", {
-		method: "POST",
-		headers: auth(),
-		body: JSON.stringify({ source: { type: "folder", path: dir }, scope: { kind: "factory" } }),
+	const res = await editPlugin(app, {
+		source: { kind: "folder", path: dir, scope: { kind: "factory", teamId: null } },
 	});
-	if (res.status !== 201) {
+	if (res.status !== 200) {
 		throw new Error(`Install failed: ${JSON.stringify(await res.json())}`);
 	}
 }
@@ -81,11 +89,15 @@ interface ContributionRow {
 }
 
 async function contributionsOf(app: Hono): Promise<readonly ContributionRow[]> {
-	const res = await app.request("/api/plugins", { headers: auth() });
+	const res = await app.request("/api/actions/search_plugins", {
+		method: "POST",
+		headers: auth(),
+		body: JSON.stringify({}),
+	});
 	const body = (await res.json()) as {
-		plugins: Array<{ id: string; contributions: ContributionRow[] }>;
+		data: Array<{ id: string; contributions: ContributionRow[] }>;
 	};
-	return body.plugins.find((p) => p.id === PLUGIN_ID)?.contributions ?? [];
+	return body.data.find((p) => p.id === PLUGIN_ID)?.contributions ?? [];
 }
 
 /** One skill the plugin contributed. */
@@ -162,10 +174,9 @@ describe("editing a plugin's contribution detaches it; restore hands it back", (
 			}),
 		});
 
-		const res = await app.request(`/api/plugins/${PLUGIN_ID}/contributions/restore`, {
-			method: "POST",
-			headers: auth(),
-			body: JSON.stringify({ kind: "document", entityId: skill.entityId }),
+		const res = await editPlugin(app, {
+			id: PLUGIN_ID,
+			restore: { contribution: skill.entityId },
 		});
 		expect(res.status).toBe(200);
 
@@ -176,15 +187,19 @@ describe("editing a plugin's contribution detaches it; restore hands it back", (
 		expect(view?.detached, "and it is the plugin's again").toBe(false);
 	});
 
-	test("restoring something the plugin never contributed is a 404", async ({ db, app }) => {
+	test("restoring something the plugin never contributed is unknown_contribution", async ({
+		db,
+		app,
+	}) => {
 		await seedFounder(db);
 		await install(app);
 
-		const res = await app.request(`/api/plugins/${PLUGIN_ID}/contributions/restore`, {
-			method: "POST",
-			headers: auth(),
-			body: JSON.stringify({ kind: "document", entityId: "ki-not-from-this-plugin" }),
+		const res = await editPlugin(app, {
+			id: PLUGIN_ID,
+			restore: { contribution: "ki-not-from-this-plugin" },
 		});
-		expect(res.status).toBe(404);
+		expect(res.status).toBe(422);
+		const body = (await res.json()) as { problems: ReadonlyArray<{ code: string }> };
+		expect(body.problems[0]?.code).toBe("unknown_contribution");
 	});
 });

@@ -1,17 +1,19 @@
 /**
- * safeStorage-backed credential storage with IPC handlers.
+ * safeStorage-backed credential storage — one IPC channel, write-only.
  *
- * @lore P3: Refactored to enforce the fixed credential catalog. Only the three
- * catalog names (anthropic_api_key, openrouter_api_key, shared_backend_key)
- * are accepted. Arbitrary names are rejected. Added credentials:status and
- * credentials:validate handlers for the fixed catalog UI.
+ * @lore The bridge used to carry six channels: set, get (plaintext
+ * readback), list, delete, status, validate. Nothing in the renderer has
+ * called anything but set since CredentialsTab stopped using the bridge —
+ * the Worker settings field only ever writes the shared backend key, never
+ * reads it back. The catalog collapsed to that one name, so it lives here
+ * as a local constant instead of a shared enum in domain-model.
  */
 
 import * as fs from "node:fs";
-import type { CredentialName, CredentialState } from "@hyperidle/domain-model";
-import { CREDENTIAL_NAMES, isCredentialName } from "@hyperidle/domain-model";
 import { ipcMain, safeStorage } from "electron";
-import { validateCredential } from "./credential-validator.js";
+
+/** The one credential name this bridge accepts. Not extensible from the renderer. */
+const CREDENTIAL_NAME = "shared_backend_key";
 
 export interface SetCredentialResult {
 	stored: boolean;
@@ -20,23 +22,15 @@ export interface SetCredentialResult {
 
 export interface SafeCredentialsManager {
 	/**
-	 * Register all ipcMain handlers for credentials:* channels.
+	 * Register the ipcMain handler for credentials:set.
 	 * Must be called after app is ready.
 	 */
 	registerHandlers(): void;
-	/** Remove all ipcMain handlers. Call on shutdown. */
+	/** Remove the ipcMain handler. Call on shutdown. */
 	unregisterHandlers(): void;
 }
 
-const CHANNELS = [
-	"credentials:set",
-	"credentials:get",
-	"credentials:list",
-	"credentials:delete",
-	"credentials:encryption-available",
-	"credentials:status",
-	"credentials:validate",
-] as const;
+const CHANNELS = ["credentials:set"] as const;
 
 /**
  * Low-level: encrypt a string value using safeStorage.
@@ -64,20 +58,14 @@ export function decryptCredential(encoded: string): string | null {
 }
 
 /**
- * Create a SafeCredentialsManager that uses safeStorage to encrypt/decrypt
- * credentials stored in a JSON file at credentialsPath.
+ * Create a SafeCredentialsManager that uses safeStorage to encrypt a
+ * credential and write it to a JSON file at credentialsPath.
  *
- * @lore P3: Only catalog names (CREDENTIAL_NAMES) are accepted for set/get/delete.
- * credentials:list returns the catalog names, not arbitrary stored names.
- * credentials:status returns Record<CredentialName, CredentialState> for all catalog entries.
- * credentials:validate calls the target service to validate the stored credential.
+ * main.ts's readCredentialFromStore reads that same file directly for the
+ * worker to connect with — this manager never hands the value back to a
+ * renderer.
  */
 export function createSafeCredentialsManager(credentialsPath: string): SafeCredentialsManager {
-	// In-memory fallback for when encryption is unavailable
-	const memoryStore = new Map<string, string>();
-	// In-memory validation state (persists across calls within a session)
-	const validationState = new Map<CredentialName, CredentialState>();
-
 	/** Load the on-disk JSON store. Returns {} if missing. */
 	function loadStore(): Record<string, string> {
 		try {
@@ -96,21 +84,11 @@ export function createSafeCredentialsManager(credentialsPath: string): SafeCrede
 		fs.writeFileSync(credentialsPath, JSON.stringify(store), { mode: 0o600 });
 	}
 
-	/** Check if a catalog credential is present (in store or memory). */
-	function isPresent(name: CredentialName): boolean {
-		if (memoryStore.has(name)) return true;
-		const store = loadStore();
-		return name in store;
-	}
-
 	function registerHandlers(): void {
-		// credentials:set — P3: only accepts catalog names
 		ipcMain.handle(
 			"credentials:set",
 			async (_event: unknown, name: string, value: string): Promise<SetCredentialResult> => {
-				// @lore P3: Enforce catalog. Non-catalog names are rejected.
-				// @lore N4-compat: warning includes "unavailable" so N4 regex /keychain|memory|unavailable/i matches.
-				if (!isCredentialName(name)) {
+				if (name !== CREDENTIAL_NAME) {
 					return {
 						stored: false,
 						warning: `Credential '${name}' unavailable — not in the recognized catalog`,
@@ -119,124 +97,19 @@ export function createSafeCredentialsManager(credentialsPath: string): SafeCrede
 
 				const encrypted = encryptCredential(value);
 				if (encrypted === null) {
-					// Encryption unavailable — store in memory only
-					memoryStore.set(name, value);
-					validationState.set(name, "present_untested");
+					// @lore N4-compat: warning includes "keychain"/"unavailable" so the
+					// existing warning-detection regex still matches. There is no memory
+					// fallback any more — nothing reads this value back, so a value this
+					// manager cannot encrypt is not stored anywhere.
 					return {
 						stored: false,
-						warning: "Keychain unavailable — stored in memory only",
+						warning: "Keychain unavailable — value not stored",
 					};
 				}
 				const store = loadStore();
 				store[name] = encrypted;
 				saveStore(store);
-				validationState.set(name, "present_untested");
 				return { stored: true };
-			},
-		);
-
-		// credentials:get — P3: only accepts catalog names
-		ipcMain.handle(
-			"credentials:get",
-			async (_event: unknown, name: string): Promise<string | null> => {
-				if (!isCredentialName(name)) {
-					return null;
-				}
-				// Check memory fallback first
-				if (memoryStore.has(name)) {
-					return memoryStore.get(name) ?? null;
-				}
-				const store = loadStore();
-				const encoded = store[name];
-				if (encoded === undefined) {
-					return null;
-				}
-				return decryptCredential(encoded);
-			},
-		);
-
-		// credentials:list — returns catalog credential names that are currently stored.
-		// Empty if none are stored. Non-catalog names are never stored (enforced by credentials:set).
-		// @lore P3: Returns only stored names from the catalog (not all catalog names).
-		// This preserves N4 behavior (empty list = []) while P3 requirement is satisfied
-		// (all returned names are catalog names, no arbitrary names in the list).
-		ipcMain.handle("credentials:list", async (_event: unknown): Promise<string[]> => {
-			const store = loadStore();
-			const stored: string[] = [];
-			for (const name of CREDENTIAL_NAMES) {
-				if (name in store || memoryStore.has(name)) {
-					stored.push(name);
-				}
-			}
-			return stored;
-		});
-
-		// credentials:delete — P3: only accepts catalog names
-		ipcMain.handle("credentials:delete", async (_event: unknown, name: string): Promise<void> => {
-			if (!isCredentialName(name)) {
-				return;
-			}
-			memoryStore.delete(name);
-			validationState.delete(name);
-			const store = loadStore();
-			if (name in store) {
-				const { [name]: _removed, ...rest } = store;
-				saveStore(rest as Record<string, string>);
-			}
-		});
-
-		// credentials:encryption-available
-		ipcMain.handle(
-			"credentials:encryption-available",
-			async (_event: unknown): Promise<boolean> => {
-				return safeStorage.isEncryptionAvailable();
-			},
-		);
-
-		// credentials:status — P3: returns state for all catalog entries
-		ipcMain.handle(
-			"credentials:status",
-			async (_event: unknown): Promise<Record<CredentialName, CredentialState>> => {
-				const result = {} as Record<CredentialName, CredentialState>;
-				for (const name of CREDENTIAL_NAMES) {
-					if (!isPresent(name)) {
-						result[name] = "absent";
-					} else {
-						result[name] = validationState.get(name) ?? "present_untested";
-					}
-				}
-				return result;
-			},
-		);
-
-		// credentials:validate — P3: validate a catalog credential against its service
-		ipcMain.handle(
-			"credentials:validate",
-			async (_event: unknown, name: string): Promise<{ valid: boolean; error?: string }> => {
-				if (!isCredentialName(name)) {
-					return { valid: false, error: `'${name}' is not a recognized credential name` };
-				}
-
-				// Get the stored value
-				let value: string | null = null;
-				if (memoryStore.has(name)) {
-					value = memoryStore.get(name) ?? null;
-				} else {
-					const store = loadStore();
-					const encoded = store[name];
-					if (encoded !== undefined) {
-						value = decryptCredential(encoded);
-					}
-				}
-
-				if (value === null) {
-					validationState.set(name, "absent");
-					return { valid: false, error: "Credential not set" };
-				}
-
-				const result = await validateCredential(name, value);
-				validationState.set(name, result.valid ? "valid" : "invalid");
-				return result;
 			},
 		);
 	}

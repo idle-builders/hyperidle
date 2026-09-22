@@ -47,11 +47,12 @@ function createMockClient(): WsClient & { messages: string[] } {
  * Real Mechanism C deps — mirrors `create-server.ts`'s production wiring
  * (`boot.ts`'s own `createDbSubscribeAuthorizer` call).
  *
- * @lore AU26 J3: was four ports. `users`/`org`/`work` existed only to serve the
- * `session:<id>` branch, which moved wholesale to `agent-orchestration`'s own
- * socket. `document`/`users` (architecture.md §7) are new — `users`
- * back for `document:<id>`'s subject resolution, not the session-team check
- * AU26 removed.
+ * @lore AU26 J3: was four ports, then three once `session:<id>` moved to
+ * `agent-orchestration`'s (deleted) second socket — `org`/`work` only ever
+ * served that branch. `document`/`users` are new —
+ * `users` back for `document:<id>`'s subject resolution, not the session-team
+ * check AU26 removed. `session:<id>` folding back onto this authorizer needs
+ * no port at all — it admits on identity alone.
  */
 const REALTIME_DEPS: SubscribeAuthorizerDeps = {
 	conversation: { getThreadById: (db: HyperIdleDb, id: string) => findThread(db, { id }) },
@@ -188,20 +189,19 @@ describe("WsConnectionHub — subscribe authorization (L1 Adv-C1)", () => {
 	});
 
 	/**
-	 * @lore AU26 J3: core's socket no longer serves `session:<id>` AT ALL — the
-	 * live-run stream is `agent-orchestration`'s, on its own socket, authorized
-	 * from its own `sessions` table (see
-	 * `agent-orchestration/src/services/__tests__/session-stream-hub.integration.test.ts`).
-	 * A session topic on THIS hub falls through to the catch-all deny, exactly
-	 * like any other unknown prefix. This case is what proves the branch left,
-	 * rather than merely that its old fail-closed edge still held.
+	 * @lore AU26 J3, superseded: `session:<id>` folds back onto core's socket —
+	 * the live-run stream still lives and is read entirely inside
+	 * `agent-orchestration`, which only ever hands this socket a content-free
+	 * nudge, so admitting the topic here reads no orchestration table. Any
+	 * signed-in identity is enough, exactly what the deleted second socket's
+	 * own authorizer already granted; an empty id still denies.
 	 */
-	test("session topics are not served by core's socket", async ({ db }) => {
+	test("session:<id> admits any signed-in identity, with no table read", async ({ db }) => {
 		const hub = new WsConnectionHub(createDbSubscribeAuthorizer(db, REALTIME_DEPS));
 		const client = createMockClient();
 		hub.addClient(client, "agent-1");
 
-		expect(await hub.subscribe(client, "session:any-session")).toBe("forbidden");
+		expect(await hub.subscribe(client, "session:any-session")).toBe("ok");
 		expect(await hub.subscribe(client, "session:")).toBe("forbidden");
 	});
 

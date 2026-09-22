@@ -1,20 +1,22 @@
 /**
- * N4 — safe-credentials tests
+ * safe-credentials tests — one channel, write-only.
+ *
+ * @lore The bridge used to carry six channels (set, get, list, delete,
+ * status, validate, encryption-available). The plaintext readback and the
+ * catalog-status surface had no renderer caller left once CredentialsTab
+ * stopped using the bridge, so they went. What remains is credentials:set:
+ * it accepts the one recognized name, writes the encrypted blob, and never
+ * hands the value back.
  *
  * AC coverage:
  *  - encryptCredential() returns a base64-encoded string when safeStorage is available
  *  - encryptCredential() returns null when safeStorage is unavailable
  *  - decryptCredential() round-trips: encrypt then decrypt returns the original value
  *  - decryptCredential() returns null for invalid/corrupt ciphertext
- *  - createSafeCredentialsManager() registers IPC handlers for credentials:* channels
+ *  - createSafeCredentialsManager() registers ONLY credentials:set
  *  - credentials:set stores encrypted value in credentials.json
  *  - credentials:set returns { stored: false, warning } when encryption unavailable
- *  - credentials:get returns decrypted value for a stored credential
- *  - credentials:get returns null for unknown credential name
- *  - credentials:list returns all stored credential names
- *  - credentials:delete removes a credential from the store
- *  - credentials:encryption-available returns the safeStorage.isEncryptionAvailable() result
- *  - memory-only fallback: credential stored in memory when encryption unavailable
+ *  - credentials:set rejects a non-catalog name
  */
 
 import * as fs from "node:fs";
@@ -120,21 +122,17 @@ describe("decryptCredential", () => {
 });
 
 describe("createSafeCredentialsManager", () => {
-	it("registerHandlers() calls ipcMain.handle for each credentials:* channel", async () => {
+	it("registerHandlers() registers ONLY credentials:set — no other channel", async () => {
 		const { ipcMain } = await import("electron");
 		const manager = createSafeCredentialsManager(path.join(tmpDir, "credentials.json"));
 		manager.registerHandlers();
 
 		const handleMock = ipcMain.handle as ReturnType<typeof vi.fn>;
 		const channels = handleMock.mock.calls.map((c) => c[0] as string);
-		expect(channels).toContain("credentials:set");
-		expect(channels).toContain("credentials:get");
-		expect(channels).toContain("credentials:list");
-		expect(channels).toContain("credentials:delete");
-		expect(channels).toContain("credentials:encryption-available");
+		expect(channels).toEqual(["credentials:set"]);
 	});
 
-	it("unregisterHandlers() calls ipcMain.removeHandler for each channel", async () => {
+	it("unregisterHandlers() removes only credentials:set", async () => {
 		const { ipcMain } = await import("electron");
 		const manager = createSafeCredentialsManager(path.join(tmpDir, "credentials.json"));
 		manager.registerHandlers();
@@ -142,11 +140,7 @@ describe("createSafeCredentialsManager", () => {
 
 		const removeHandlerMock = ipcMain.removeHandler as ReturnType<typeof vi.fn>;
 		const channels = removeHandlerMock.mock.calls.map((c) => c[0] as string);
-		expect(channels).toContain("credentials:set");
-		expect(channels).toContain("credentials:get");
-		expect(channels).toContain("credentials:list");
-		expect(channels).toContain("credentials:delete");
-		expect(channels).toContain("credentials:encryption-available");
+		expect(channels).toEqual(["credentials:set"]);
 	});
 });
 
@@ -200,156 +194,26 @@ describe("credentials:set handler", () => {
 		// @ts-expect-error private helper on mock
 		safeStorage._setEncryptionAvailable(true);
 	});
-});
 
-describe("credentials:get handler", () => {
-	it("returns decrypted value for a stored credential", async () => {
+	it("rejects a non-catalog name with stored: false", async () => {
 		const { ipcMain } = await import("electron");
 		const credPath = path.join(tmpDir, "credentials.json");
 		const manager = createSafeCredentialsManager(credPath);
 		manager.registerHandlers();
 
 		const handleMock = ipcMain.handle as ReturnType<typeof vi.fn>;
-		type SetFn = (_event: unknown, name: string, value: string) => Promise<unknown>;
-		type GetFn = (_event: unknown, name: string) => Promise<string | null>;
-		const setHandlerFn = getHandler<SetFn>(handleMock, "credentials:set");
-		const getHandlerFn = getHandler<GetFn>(handleMock, "credentials:get");
+		type SetFn = (
+			_event: unknown,
+			name: string,
+			value: string,
+		) => Promise<{ stored: boolean; warning?: string }>;
+		const setHandler = getHandler<SetFn>(handleMock, "credentials:set");
 
-		await setHandlerFn(null, "shared_backend_key", "super-secret");
-		const value = await getHandlerFn(null, "shared_backend_key");
-		expect(value).toBe("super-secret");
-	});
+		const result = await setHandler(null, "ARBITRARY_KEY", "some-value");
+		expect(result.stored).toBe(false);
+		expect(result.warning).toBeDefined();
 
-	it("returns null for an unknown credential name", async () => {
-		const { ipcMain } = await import("electron");
-		const credPath = path.join(tmpDir, "credentials.json");
-		const manager = createSafeCredentialsManager(credPath);
-		manager.registerHandlers();
-
-		const handleMock = ipcMain.handle as ReturnType<typeof vi.fn>;
-		type GetFn = (_event: unknown, name: string) => Promise<string | null>;
-		const getHandlerFn = getHandler<GetFn>(handleMock, "credentials:get");
-
-		const value = await getHandlerFn(null, "NONEXISTENT");
-		expect(value).toBeNull();
-	});
-});
-
-describe("credentials:list handler", () => {
-	it("returns all stored credential names", async () => {
-		const { ipcMain } = await import("electron");
-		const credPath = path.join(tmpDir, "credentials.json");
-		const manager = createSafeCredentialsManager(credPath);
-		manager.registerHandlers();
-
-		const handleMock = ipcMain.handle as ReturnType<typeof vi.fn>;
-		type SetFn = (_event: unknown, name: string, value: string) => Promise<unknown>;
-		type ListFn = (_event: unknown) => Promise<string[]>;
-		const setHandlerFn = getHandler<SetFn>(handleMock, "credentials:set");
-		const listHandlerFn = getHandler<ListFn>(handleMock, "credentials:list");
-
-		// @lore This stored two names and asserted both came back. The catalog is
-		// one name now — HyperIdle holds no model credential — so what the list
-		// handler owes is that a stored name is returned and an unstored one is not.
-		await setHandlerFn(null, "shared_backend_key", "valueA");
-
-		const names = await listHandlerFn(null);
-		expect(names).toEqual(["shared_backend_key"]);
-	});
-
-	it("returns empty array for an empty store", async () => {
-		const { ipcMain } = await import("electron");
-		const credPath = path.join(tmpDir, "credentials.json");
-		const manager = createSafeCredentialsManager(credPath);
-		manager.registerHandlers();
-
-		const handleMock = ipcMain.handle as ReturnType<typeof vi.fn>;
-		type ListFn = (_event: unknown) => Promise<string[]>;
-		const listHandlerFn = getHandler<ListFn>(handleMock, "credentials:list");
-
-		const names = await listHandlerFn(null);
-		expect(names).toEqual([]);
-	});
-});
-
-describe("credentials:delete handler", () => {
-	it("removes a credential from the store", async () => {
-		const { ipcMain } = await import("electron");
-		const credPath = path.join(tmpDir, "credentials.json");
-		const manager = createSafeCredentialsManager(credPath);
-		manager.registerHandlers();
-
-		const handleMock = ipcMain.handle as ReturnType<typeof vi.fn>;
-		type SetFn = (_event: unknown, name: string, value: string) => Promise<unknown>;
-		type DeleteFn = (_event: unknown, name: string) => Promise<void>;
-		type ListFn = (_event: unknown) => Promise<string[]>;
-		const setHandlerFn = getHandler<SetFn>(handleMock, "credentials:set");
-		const deleteHandlerFn = getHandler<DeleteFn>(handleMock, "credentials:delete");
-		const listHandlerFn = getHandler<ListFn>(handleMock, "credentials:list");
-
-		await setHandlerFn(null, "shared_backend_key", "value");
-		await deleteHandlerFn(null, "shared_backend_key");
-		const names = await listHandlerFn(null);
-		expect(names).not.toContain("shared_backend_key");
-	});
-});
-
-describe("credentials:encryption-available handler", () => {
-	it("returns true when safeStorage.isEncryptionAvailable() is true", async () => {
-		const { ipcMain } = await import("electron");
-		const manager = createSafeCredentialsManager(path.join(tmpDir, "credentials.json"));
-		manager.registerHandlers();
-
-		const handleMock = ipcMain.handle as ReturnType<typeof vi.fn>;
-		type EncAvailFn = (_event: unknown) => Promise<boolean>;
-		const encAvailHandler = getHandler<EncAvailFn>(handleMock, "credentials:encryption-available");
-
-		const result = await encAvailHandler(null);
-		expect(result).toBe(true);
-	});
-
-	it("returns false when safeStorage.isEncryptionAvailable() is false", async () => {
-		const { ipcMain, safeStorage } = await import("electron");
-		// @ts-expect-error private helper on mock
-		safeStorage._setEncryptionAvailable(false);
-
-		const manager = createSafeCredentialsManager(path.join(tmpDir, "credentials.json"));
-		manager.registerHandlers();
-
-		const handleMock = ipcMain.handle as ReturnType<typeof vi.fn>;
-		type EncAvailFn = (_event: unknown) => Promise<boolean>;
-		const encAvailHandler = getHandler<EncAvailFn>(handleMock, "credentials:encryption-available");
-
-		const result = await encAvailHandler(null);
-		expect(result).toBe(false);
-
-		// @ts-expect-error private helper on mock
-		safeStorage._setEncryptionAvailable(true);
-	});
-});
-
-describe("memory-only fallback", () => {
-	it("stores credential in memory when encryption is unavailable", async () => {
-		const { ipcMain, safeStorage } = await import("electron");
-		// @ts-expect-error private helper on mock
-		safeStorage._setEncryptionAvailable(false);
-
-		const credPath = path.join(tmpDir, "credentials.json");
-		const manager = createSafeCredentialsManager(credPath);
-		manager.registerHandlers();
-
-		const handleMock = ipcMain.handle as ReturnType<typeof vi.fn>;
-		type MemSetFn = (_event: unknown, name: string, value: string) => Promise<{ stored: boolean }>;
-		type MemGetFn = (_event: unknown, name: string) => Promise<string | null>;
-		const memSetHandler = getHandler<MemSetFn>(handleMock, "credentials:set");
-		const memGetHandler = getHandler<MemGetFn>(handleMock, "credentials:get");
-
-		await memSetHandler(null, "shared_backend_key", "in-memory-value");
-		const value = await memGetHandler(null, "shared_backend_key");
-		// Memory-only: the value should still be retrievable within the same session
-		expect(value).toBe("in-memory-value");
-
-		// @ts-expect-error private helper on mock
-		safeStorage._setEncryptionAvailable(true);
+		// The rejected name must never be written to disk.
+		expect(fs.existsSync(credPath)).toBe(false);
 	});
 });

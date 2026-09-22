@@ -1,8 +1,9 @@
 /**
  * The layer's own composition for the action mechanism: wires
- * `@hyperidle/task`'s `createTaskActions` and `@hyperidle/thread`'s
- * `createThreadActions` deps to the real Services, and returns the ONE
- * composed list every projection (HTTP, MCP, UI) reads.
+ * `@hyperidle/task`'s `createTaskActions`, `@hyperidle/thread`'s
+ * `createThreadActions` and `@hyperidle/settings`'s `createPlatformActions`
+ * deps to the real Services, and returns the ONE composed list every
+ * projection (HTTP, MCP, UI) reads.
  */
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { appendChange } from "@hyperidle/changes";
@@ -22,11 +23,22 @@ import type {
 	ThreadView,
 } from "@hyperidle/domain-model";
 import { getTeam } from "@hyperidle/org";
-import { getRoutine } from "@hyperidle/routine";
-import { markDetached, readServerConfig } from "@hyperidle/settings";
+import { getRoutine, insertRoutine, setRoutinesLive, softDeleteRoutines } from "@hyperidle/routine";
+import {
+	createPlatformActions,
+	markDetached,
+	type PlatformActionsDeps,
+	readServerConfig,
+} from "@hyperidle/settings";
 import { createTaskActions, type TaskActionsDeps } from "@hyperidle/task";
 import { createThreadActions, type ThreadActionsDeps } from "@hyperidle/thread";
-import { findUser, listUsers, requireRunnableAgent } from "@hyperidle/users";
+import {
+	findUser,
+	insertUserIfAbsent,
+	listUsers,
+	requireRunnableAgent,
+	setAgentsStatus,
+} from "@hyperidle/users";
 import {
 	buildTaskRunResolverDeps,
 	resolveAgentIdentityBody,
@@ -209,20 +221,58 @@ function buildDocumentActionsDeps(
 }
 
 /**
+ * `platform`'s deps: `editDocument`/`searchDocuments`
+ * are extracted from the already-built `documentActions` through `runnerFor`
+ * — no lazy binding needed here (unlike `document`'s own `searchDocuments`
+ * closure), because `platform` is built AFTER `document`, never before.
+ * Everything else outside `@hyperidle/settings`'s own three tables — an
+ * agent is a `users` row, a routine is a `routines` row — is bound to the
+ * real function, because `@hyperidle/settings` may not import
+ * `@hyperidle/users`/`@hyperidle/routine`.
+ */
+function buildPlatformActionsDeps(
+	documentActions: readonly Action[],
+	pluginsBaseDir?: string,
+): PlatformActionsDeps {
+	return {
+		agents: {
+			insertIfAbsent: (exec, values) => insertUserIfAbsent(exec, values),
+			setStatus: (exec, ids, status) => setAgentsStatus(exec, ids, status),
+			list: (exec, ids) => listUsers(exec, { ids: [...ids] }),
+		},
+		routines: {
+			insert: (exec, values, opts) => insertRoutine(exec, values, opts),
+			setLive: (exec, ids, live) => setRoutinesLive(exec, ids, live),
+			softDelete: (exec, ids) => softDeleteRoutines(exec, ids),
+			get: (exec, id) => getRoutine(exec, id),
+		},
+		editDocument: runnerFor<EditDocumentInput, DocumentView>(documentActions, "edit_document"),
+		searchDocuments: runnerFor<SearchDocumentsInput, DocumentRow[]>(
+			documentActions,
+			"search_documents",
+		),
+		...(pluginsBaseDir ? { pluginsBaseDir } : {}),
+	};
+}
+
+/**
  * `buildCoreActions` — the composed `readonly Action[]` every loop (HTTP
  * router, MCP tool adapter, the UI's `call()`, the governance rule) reads.
  *
  * Thread actions are built FIRST — the task bag needs `adjust_thread`'s
  * runner and the thread bag needs nothing from task (`ThreadActionsDeps`
- * names no task). `document` is built LAST — it needs `open_task`/
+ * names no task). `document` is built next — it needs `open_task`/
  * `open_thread`, both already real arrays by then (architecture.md §8.2).
- * The returned array's own order is irrelevant.
+ * `platform` is built LAST, a fourth group after `document` — it needs
+ * `edit_document`/`search_documents`, already real by then. The returned
+ * array's own order is irrelevant.
  */
 export function buildCoreActions(bindings: {
 	readonly agentOrchestration: AgentOrchestrationPort;
 	readonly agentWorkIntentRecorder: AgentWorkIntentRecorderFn;
 	readonly reviewVerdictRecorder: ReviewVerdictRecorderFn;
 	readonly wsPush?: (topic: string, envelope: unknown) => void;
+	readonly pluginsBaseDir?: string;
 }): readonly Action[] {
 	let documentActions: readonly Action[] = [];
 	const searchDocuments = lazySearchDocuments(() => documentActions);
@@ -237,7 +287,10 @@ export function buildCoreActions(bindings: {
 	documentActions = createDocumentActions(
 		buildDocumentActionsDeps(taskActions, threadActions, bindings.wsPush),
 	) as readonly Action[];
-	return [...taskActions, ...threadActions, ...documentActions];
+	const platformActions = createPlatformActions(
+		buildPlatformActionsDeps(documentActions, bindings.pluginsBaseDir),
+	) as readonly Action[];
+	return [...taskActions, ...threadActions, ...documentActions, ...platformActions];
 }
 
 /**

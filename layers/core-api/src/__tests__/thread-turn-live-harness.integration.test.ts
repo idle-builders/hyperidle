@@ -87,6 +87,7 @@ import {
 	requireHarness,
 	type SupportedHarnessName,
 } from "@hyperidle/harness-registry/test-utils";
+import { findSessionById } from "@hyperidle/run-orchestration";
 import { drainIntents } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
@@ -348,7 +349,9 @@ describe("a human's send_message wakes an agent, whose own send_message ends the
 			const composition = buildRunOrchestrationComposition({
 				harnessRuntime: buildLiveHarnessRuntimeAdapter(mcpBridgeRegistry, enforcementRegistry),
 				returnStatusTool: { forRegistry: (registry) => returnStatusTool.forRegistry(registry) },
-				actionTools,
+				// `actionTools` is a thunk now — this test's list never
+				// changes mid-run, so a constant-returning closure is enough.
+				actionTools: () => actionTools,
 			});
 
 			const result = await composition.runSession(
@@ -402,6 +405,21 @@ describe("a human's send_message wakes an agent, whose own send_message ends the
 				payload?.text,
 				`agent reply on ${harness} did not contain the required text: ${payload?.text}`,
 			).toContain("THREAD_TURN_OK");
+
+			// The in-memory result above proves the provisioner's own view of the
+			// run; the persisted row is the independent proof that teardown wrote
+			// the same verdict — the bug this test guards against (opencode's own
+			// return persisted as state/outcome "stopped" while the in-memory
+			// result said "completed") passed on the in-memory assertions alone.
+			const sessionRow = await findSessionById(db, result.sessionId);
+			expect(
+				sessionRow?.state,
+				`session row for ${harness} (session ${result.sessionId}) was not marked done`,
+			).toBe("done");
+			expect(
+				sessionRow?.outcome,
+				`session row for ${harness} (session ${result.sessionId}) was not marked completed`,
+			).toBe("completed");
 		} finally {
 			orchestrationBoot.dispose();
 			await new Promise<void>((resolve, reject) => {

@@ -41,6 +41,61 @@ export {
 	searchDocuments,
 	searchDocumentsInvariants,
 } from "./actions/document.js";
+// @lore The platform action list — search, edit — declared here
+// alongside `document`/`task`/`thread` for the same reason: `core-ui` needs
+// the exact `input`/invariant shape the server runs. `platform.ts` also owns
+// `PLUGIN_LIST_STATES` and `PluginScopeSchema`, not `./configuration.js` —
+// that file keeps only the vocabulary this module and the settings package
+// both need.
+export type {
+	EditPluginInput,
+	EditPluginSource,
+	PluginContributionView,
+	PluginListState,
+	PluginScope,
+	PluginView,
+	SearchPluginsInput,
+} from "./actions/platform.js";
+export {
+	EditPluginInputSchema,
+	EditPluginSourceSchema,
+	editPlugin,
+	editPluginInvariants,
+	PLATFORM_ACTIONS,
+	PLUGIN_LIST_STATES,
+	PluginContributionViewSchema,
+	PluginScopeSchema,
+	PluginViewSchema,
+	SearchPluginsInputSchema,
+	searchPlugins,
+} from "./actions/platform.js";
+// @lore The session action list — search, watch, stop — declared
+// alongside `document`/`task`/`thread`/`platform`, same reason. No invariant
+// export: the two candidates this module first drafted are both dropped —
+// see `actions/session.ts`'s own header comment.
+export type {
+	SearchSessionsInput,
+	SessionRow,
+	SessionState,
+	StopSessionInput,
+	StopSessionOutput,
+	WatchSessionInput,
+	WatchSessionOutput,
+} from "./actions/session.js";
+export {
+	ActivityEntrySchema,
+	SESSION_ACTIONS,
+	SESSION_STATES,
+	SearchSessionsInputSchema,
+	SessionRowSchema,
+	StopSessionInputSchema,
+	StopSessionOutputSchema,
+	searchSessions,
+	stopSession,
+	WatchSessionInputSchema,
+	WatchSessionOutputSchema,
+	watchSession,
+} from "./actions/session.js";
 export type {
 	EditTaskInput,
 	SearchTasksInput,
@@ -140,11 +195,9 @@ export type {
 export { roleLabel } from "./agent-roles.js";
 // HealthSignalInput, computeHealthSignals, deriveHealthLevel, deriveHealthDetail
 // moved to layers/core-ui/src/hooks/agent-health.ts (AU44 batch 8).
-export type {
-	AgentRunActiveCountsResponse,
-	AgentRunSummary,
-	AgentRunsResponse,
-} from "./agent-run-view.js";
+// AgentRunSummary, AgentRunsResponse, AgentRunActiveCountsResponse (agent-run-view.ts)
+// deleted with the run-read routes: the session action list's `SessionRow`
+// (./actions/session.js) is the browser's health-derivation input now.
 // isAgentWorkIntentKind, isAgentWorkIntentSourceKind moved to agent-orchestration (AU44-b8)
 export type { ApiErrorResponse } from "./api-types.js";
 export { API_ERROR_CODES } from "./api-types.js";
@@ -182,13 +235,6 @@ export {
 	CONNECTION_HEALTH,
 	HELD_AUTH_SOURCES,
 } from "./connection.js";
-export type { CredentialName, CredentialState } from "./credential.js";
-export {
-	CREDENTIAL_CATALOG,
-	CREDENTIAL_NAMES,
-	CREDENTIAL_STATES,
-	isCredentialName,
-} from "./credential.js";
 export {
 	ASSISTANT_TURN_TIMEOUT_MS,
 	CapacityExceededError,

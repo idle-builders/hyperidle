@@ -6,38 +6,48 @@
  * a genuine core need — but the write is `run-orchestration`'s state
  * transition, so core asks for it instead of performing it.
  *
- * @lore AU26 H2: no `session_ended` is emitted, and the decision lives here now
- * rather than in `work`. The upward propagation engine only acts on
- * `outcome:'completed'` so it would ignore the event anyway, but emitting could
- * trip unrelated handlers (`review/session-review-creator.ts` creates a review
- * item on it). This function takes no `EventBus`, so the suppression is
- * structural rather than a comment someone must keep honouring.
+ * @lore This used to CAS-mark every active run straight to
+ * `stopped` itself, taking no `EventBus`, deliberately silent — the fear was
+ * `review/session-review-creator.ts` reacting to a `session_ended` it never
+ * expected. That reactor no longer exists, and "killing a task goes through
+ * the same abort" is now a real requirement, not a CAS-mark that
+ * leaves the harness process running. This is now a thin loop over the ONE
+ * stop path both doors share (`stopSessionRun`, `session-store.ts`): it takes
+ * the bus and an injected `abort`, and emits ONLY on the no-live-entry path —
+ * on the abort path the provisioning teardown emits, exactly as `stop_session`
+ * itself does.
  *
- * @lore AU26 H2: the return value is the set of runs ACTUALLY stopped, not a
- * count. A 0-row CAS — an already-stopped run on a re-kill — stops nothing.
- * A count could not tell the caller which runs were affected.
+ * @lore AU26 H2: the return value is the set of runs ACTUALLY stopped
+ * (aborted or marked alike), not a count. A 0-row CAS — an already-stopped run
+ * on a re-kill — stops nothing. A count could not tell the caller which runs
+ * were affected.
  */
 
-import { sessions, type WriteExecutor } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
+import { sessions } from "@hyperidle/db";
+import type { EventBus } from "@hyperidle/event-bus";
 import { and, eq, inArray } from "drizzle-orm";
-
-// @lore AU44 batch6: STOP_DISPOSITIONS was a one-key map behind a one-legal-value
-// `reason` param. The map and param are gone; disposition is hardcoded.
-const STOP_DISPOSITION = { state: "stopped", outcome: "stopped" } as const;
+import { stopSessionRun } from "./session-store.js";
 
 export interface StoppedRun {
 	readonly taskId: string;
 	readonly sessionId: string;
 }
 
+/**
+ * `db`, not `WriteExecutor` — `stopSessionRun` reads and CAS-writes the same
+ * row per session (never inside a shared transaction, PGlite has one
+ * connection), matching every other `session-store.ts` accessor.
+ */
 export async function requestRunStopForTasks(
-	exec: WriteExecutor,
+	db: HyperIdleDb,
+	eventBus: EventBus,
 	taskIds: readonly string[],
+	abort: (sessionId: string) => Promise<boolean>,
 ): Promise<readonly StoppedRun[]> {
 	if (taskIds.length === 0) return [];
-	const disposition = STOP_DISPOSITION;
 
-	const active = await exec
+	const active = await db
 		.select({ id: sessions.id, taskId: sessions.taskId })
 		.from(sessions)
 		.where(and(inArray(sessions.taskId, [...taskIds]), eq(sessions.state, "active")));
@@ -47,13 +57,8 @@ export async function requestRunStopForTasks(
 		// `sessions.taskId` is nullable, but the predicate above already
 		// constrained it to the caller's list.
 		if (run.taskId === null) continue;
-		const now = new Date().toISOString();
-		const updated = await exec
-			.update(sessions)
-			.set({ ...disposition, endedAt: now })
-			.where(and(eq(sessions.id, run.id), eq(sessions.state, "active")))
-			.returning({ id: sessions.id });
-		if (updated.length === 0) continue;
+		const result = await stopSessionRun(db, eventBus, run.id, abort);
+		if (result === "already_ended") continue;
 		stopped.push({ taskId: run.taskId, sessionId: run.id });
 	}
 	return stopped;

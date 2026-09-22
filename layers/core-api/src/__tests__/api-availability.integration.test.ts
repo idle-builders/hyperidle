@@ -33,7 +33,6 @@ describe("API Availability Regression Guard (I6)", () => {
 		{ path: "/api/health", description: "Health (public)" },
 		{ path: "/api/users", description: "Users" },
 		{ path: "/api/routines", description: "Routines" },
-		{ path: "/api/sessions", description: "Sessions" },
 		{ path: "/api/notifications/inbox", description: "Notifications (inbox)" },
 	] as const;
 
@@ -71,6 +70,10 @@ describe("API Availability Regression Guard (I6)", () => {
 		// action now, `search_documents`/`open_document`/`edit_document` under
 		// `POST /api/actions/<name>`, not a route module with a GET base path.
 		"/api/knowledge",
+		// /api/sessions is deleted — session is an action now,
+		// `search_sessions`/`watch_session`/`stop_session` under
+		// `POST /api/actions/<name>`, not a route module with a GET base path.
+		"/api/sessions",
 		"/api/git-export",
 		"/api/git-export/config",
 		"/api/git-export/run",

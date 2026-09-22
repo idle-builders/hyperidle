@@ -4,16 +4,20 @@
  * Architecture plan §4.4: inline recipient picker for new DM thread creation.
  * States: browsing (search + list), selected (recipient + message input), sending.
  *
- * @lore AU26 J4: `useRecipients` now makes TWO calls — core-api's recipient list
- * and `agent-orchestration`'s active-run counts, which it combines into the live
- * busy dot. The `stubFetch` helper routes by URL for that reason.
+ * @lore AU26 J4: `useRecipients` combines core-api's recipient list with a
+ * live busy dot.
+ *
+ * @lore The busy dot's source is `search_sessions({ state: "active" })`
+ * — `call("search_sessions", …)` — not a raw fetch, so it rides the same
+ * module-wide `call` mock `send_message` uses below. `stubFetch` routes the
+ * recipient list fetch by URL as before; `stubActiveSessions` configures
+ * `callMock` for the `search_sessions` side.
  *
  * @lore BC3: sending the first message no longer POSTs `/api/threads` — the
  * picker's `handleSend` starts the thread via
  * `call("send_message", {recipients, text, clientKey})`
  * (`components/RecipientPicker.tsx`). `call` is mocked module-wide, same
- * pattern as `Conversations.context-link.test.tsx`; `useRecipients`'s own
- * fetch calls (recipient list + active-run counts) are untouched.
+ * pattern as `Conversations.context-link.test.tsx`.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
@@ -51,19 +55,40 @@ const MOCK_RECIPIENTS: MockRecipient[] = [
 ];
 
 /** Only `agent-builder` is mid-run — the live dot's one true case. */
-const MOCK_ACTIVE_COUNTS: Record<string, number> = { "agent-builder": 1 };
+const ACTIVE_AGENT_IDS: readonly string[] = ["agent-builder"];
 
-/** Route the recipient list and the orchestration run counts. */
+/**
+ * Configure `callMock` (the module-wide `call` mock) to answer
+ * `search_sessions` with one active row per agent id, so `useRecipients`'
+ * live-dot count comes back non-zero for those agents.
+ */
+function stubActiveSessions(activeAgentIds: readonly string[] = ACTIVE_AGENT_IDS): void {
+	callMock.mockImplementation((name: string) => {
+		if (name === "search_sessions") {
+			return Promise.resolve({
+				ok: true,
+				data: activeAgentIds.map((agentId) => ({ id: `session-${agentId}`, agentId })),
+			});
+		}
+		return Promise.resolve({
+			ok: false,
+			problems: [
+				{
+					code: "unmocked_call",
+					message: `RecipientPicker.test.tsx does not mock call("${name}")`,
+				},
+			],
+		});
+	});
+}
+
+/** Route the recipient list fetch; `search_sessions` rides `callMock` instead. */
 function stubFetch(recipients: MockRecipient[] = MOCK_RECIPIENTS): void {
-	global.fetch = vi.fn().mockImplementation((url: string) =>
-		Promise.resolve({
-			ok: true,
-			json: () =>
-				Promise.resolve(
-					url.includes("/agent-orchestration/") ? { counts: MOCK_ACTIVE_COUNTS } : { recipients },
-				),
-		}),
-	) as unknown as typeof fetch;
+	stubActiveSessions();
+	global.fetch = vi.fn().mockResolvedValue({
+		ok: true,
+		json: () => Promise.resolve({ recipients }),
+	}) as unknown as typeof fetch;
 }
 
 function renderPicker(

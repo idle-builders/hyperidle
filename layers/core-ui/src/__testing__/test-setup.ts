@@ -25,11 +25,6 @@ vi.mock("../services/ws-client.js", () => ({
 	getWsClient: () => ({
 		subscribe: () => () => undefined,
 	}),
-	// @lore AU26 J3: the second socket (agent-orchestration's `session:<id>`
-	// stream) needs the same no-op stub as core's.
-	getSessionStreamClient: () => ({
-		subscribe: () => () => undefined,
-	}),
 }));
 
 // @lore Node 26 defines globalThis.localStorage as experimental (returns undefined

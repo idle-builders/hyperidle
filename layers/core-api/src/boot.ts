@@ -17,40 +17,30 @@
  *
  * @lore AU31 §5.2: this boot now absorbs core's remaining SELF-composition —
  * pieces that were built by the Application even though every dependency they
- * touch (`credentials`, `settings`, `users`, `conversation`) is core-api's own
- * in-layer service. Application-level construction of these was legal only by
+ * touch (`settings`, `users`, `conversation`) is core-api's own in-layer
+ * service. Application-level construction of these was legal only by
  * accident (nothing stopped an Application from doing a Layer's own wiring);
  * under the closed boundary an Application may reach only a Layer's face, so
  * the wiring moved to the face it always belonged to:
- *   - the one-time credential migration + the production `DbCredentialResolver`
- *     (`create-server.ts:450-477` before this leaf);
  *   - the WS connection hub + its subscribe authorizer (`conversation`'s
  *     `findThread` wire is core-internal) and the WS route itself, when the
  *     Application supplies its Node-specific `upgradeWebSocket` adapter;
  *   - the work-state push gateway (task/bet forwarder onto the hub);
  *   - the upgrade-token store construction;
- *   - a `resolveModel` capability built from this Layer's own `settings` +
- *     `credentials` services (replaces the Application's `makeResolveModel`);
  *   - `resolveProvisioningOwnerUserId` — AU26 review C2's "the human whose
  *     held connections a spawn provisions" now reads `users` (core-api's own
  *     table) from INSIDE this boot instead of the Application importing
  *     `@hyperidle/users` directly; the boot hands the resolved capability out
  *     as a value, and the Application threads it into `bootAgentOrchestration`'s
- *     options exactly the way it already threads `resolveModel` and the
- *     execution adapters bundle — no Layer imports another.
+ *     options exactly the way it already threads the execution adapters
+ *     bundle — no Layer imports another.
  *
  * The boot RESULT exposes what the Application must pass onward
- * (`upgradeTokenStore`, `resolveModel`, `resolveProvisioningOwnerUserId`,
- * `wsHub`, `middleware`, `app`, `registerPreAuthRoutes`) — the Application
- * mediates every cross-face handoff, never a direct service import.
+ * (`upgradeTokenStore`, `resolveProvisioningOwnerUserId`, `wsHub`,
+ * `middleware`, `app`, `registerPreAuthRoutes`) — the Application mediates
+ * every cross-face handoff, never a direct service import.
  */
 
-import {
-	type CredentialResolver,
-	decryptCredentialValue,
-	encryptCredentialValue,
-	resolveCredential,
-} from "@hyperidle/credentials";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { getDocument } from "@hyperidle/document";
 import type {
@@ -143,17 +133,6 @@ export interface CoreApiBoot {
 	 * whenever `db` is provided.
 	 */
 	readonly resolveProvisioningOwnerUserId?: () => Promise<string | null>;
-	/** The production credential resolver this boot constructed (or the caller's override) — exposed for the same reason `wsHub` is: AH1's single-resolver invariant test asserts `instanceof DbCredentialResolver` against it. */
-	readonly credentialResolver?: CredentialResolver;
-	/**
-	 * The AES-256-GCM cipher pair — exposed so composition roots can inject
-	 * `{ encrypt, decrypt }` into bootAgentOrchestration without importing
-	 * @hyperidle/credentials (a Service) directly from the application layer.
-	 */
-	readonly cipher: {
-		readonly encrypt: (v: string) => string;
-		readonly decrypt: (v: string) => string | null;
-	};
 	/**
 	 * BA9b: plugin MCP contributions port — exposes the per-team merged
 	 * plugin MCP configuration to the provisioner without a direct settings →
@@ -245,20 +224,6 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 	const sharedMode = options?.sharedMode ?? process.env.HYPERIDLE_SHARED_MODE === "true";
 	const db = options?.db;
 
-	// AH1 §4/§3: seed env key on first boot + build the production resolver.
-	// Both are core-api's own service (`credentials`), built here rather than
-	// in the Application. A caller-supplied `credentialResolver` (tests) is
-	// respected as-is; production leaves it unset and gets the real thing.
-	//
-	// @lore AU44 batch2: DbCredentialResolver deleted (replaced by resolveCredential).
-	// migrateCredentialsToStore deleted (all deployments have migrated), and the
-	// `seedAnthropicKeyFromEnv` that outlived it went with the model gateway —
-	// HyperIdle stores no model credential to seed.
-	let credentialResolver: CredentialResolver | undefined = options?.credentialResolver;
-	if (db && !credentialResolver) {
-		credentialResolver = { resolve: (name) => resolveCredential(db, name) };
-	}
-
 	// AU21 §6 Decision L4 / AU26 J3 / AU31 §5.2: the hub is built ONCE, here,
 	// carrying core-api's own topics only (`thread:<id>`, `conversations`).
 	// A caller-supplied `wsHub` (tests) is respected as-is.
@@ -305,7 +270,6 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 	const layerOptions: CoreApiBootOptions = {
 		...options,
 		wsHub,
-		...(credentialResolver ? { credentialResolver } : {}),
 		...(registerWebSocket ? { registerWebSocket } : {}),
 		...(options?.serviceBootstrap ? { serviceBootstrap: options.serviceBootstrap } : {}),
 	};
@@ -406,11 +370,5 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 					},
 				}
 			: {}),
-		...(credentialResolver ? { credentialResolver } : {}),
-		// @lore AU44-b2: cipher exposed here so composition roots can inject it into
-		// agent-orchestration without importing directly from @hyperidle/credentials (a Service).
-		// A property-access value is "composition", not injection, and the DI detector does not
-		// trace it — see crossing-detectors.ts `scanArgument` (no PropertyAccessExpression branch).
-		cipher: { encrypt: encryptCredentialValue, decrypt: decryptCredentialValue },
 	};
 }

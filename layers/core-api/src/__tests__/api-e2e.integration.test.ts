@@ -87,50 +87,6 @@ async function seedTaskData(db: HyperIdleDb): Promise<void> {
 	});
 }
 
-async function seedSessionData(db: HyperIdleDb): Promise<void> {
-	// @lore U1: teamId references `teams` domain entity (not teamMembers).
-	await db.insert(threads).values({
-		id: `thr-${"bet-s"}`,
-		hostKind: "team",
-		hostId: "prod-1",
-		initiatorId: "system:propagation",
-		participants: "[]",
-		lastActiveAt: new Date().toISOString(),
-		createdAt: new Date().toISOString(),
-	});
-	await db.insert(tasks).values({
-		threadId: `thr-${"bet-s"}`,
-		id: "bet-s",
-		parentTaskId: null,
-		teamId: "prod-1",
-		title: "Session bet",
-		description: "Session bet",
-		state: "in_progress",
-		createdAt: new Date().toISOString(),
-		updatedAt: new Date().toISOString(),
-	});
-
-	await db.insert(threads).values({
-		id: `thr-${"task-s"}`,
-		hostKind: "team",
-		hostId: "prod-1",
-		initiatorId: "system:propagation",
-		participants: "[]",
-		lastActiveAt: new Date().toISOString(),
-		createdAt: new Date().toISOString(),
-	});
-	await db.insert(tasks).values({
-		threadId: `thr-${"task-s"}`,
-		id: "task-s",
-		parentTaskId: "bet-s",
-		teamId: "prod-1",
-		title: "Session task",
-		state: "in_progress",
-		createdAt: new Date().toISOString(),
-		updatedAt: new Date().toISOString(),
-	});
-}
-
 async function seedRoutineData(db: HyperIdleDb): Promise<void> {
 	await db.insert(routines).values({
 		id: "routine-1",
@@ -402,19 +358,10 @@ describe("E2E API Integration (I5)", () => {
 	// -------------------------------------------------------
 	// 8. Sessions
 	// -------------------------------------------------------
-	describe("Sessions", () => {
-		test("GET /api/sessions returns session list", async ({ db, app }) => {
-			await seedBase(db);
-			await seedSessionData(db);
-			const res = await app.request("/api/sessions", { headers: auth() });
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as unknown[];
-			expect(Array.isArray(body)).toBe(true);
-		});
-
-		// POST /api/sessions (door #114) and PATCH /api/sessions/:id (door #144) deleted.
-		// Tests removed with the routes.
-	});
+	// GET /api/sessions deleted — search_sessions is the door now, proven by
+	// the integrate task's seam test, not here.
+	// POST /api/sessions (door #114) and PATCH /api/sessions/:id (door #144) deleted.
+	// Tests removed with the routes.
 
 	// Status routes (doors #115-118) deleted. Tests removed with the routes.
 

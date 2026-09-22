@@ -52,6 +52,14 @@ async function seedFounder(db: HyperIdleDb): Promise<void> {
 	});
 }
 
+async function editPlugin(app: Hono, body: unknown): Promise<Response> {
+	return app.request("/api/actions/edit_plugin", {
+		method: "POST",
+		headers: { ...auth(), "Content-Type": "application/json" },
+		body: JSON.stringify(body),
+	});
+}
+
 async function install(db: HyperIdleDb, app: Hono): Promise<void> {
 	await seedFounder(db);
 	const dir = join(tmpdir(), `ba9g-cv-${Date.now()}-${Math.round(performance.now())}`);
@@ -59,12 +67,10 @@ async function install(db: HyperIdleDb, app: Hono): Promise<void> {
 	cpSync(PLUGIN_ROOT, dir, { recursive: true });
 	tempDirs.push(dir);
 
-	const res = await app.request("/api/plugins", {
-		method: "POST",
-		headers: { ...auth(), "Content-Type": "application/json" },
-		body: JSON.stringify({ source: { type: "folder", path: dir }, scope: { kind: "factory" } }),
+	const res = await editPlugin(app, {
+		source: { kind: "folder", path: dir, scope: { kind: "factory", teamId: null } },
 	});
-	if (res.status !== 201) {
+	if (res.status !== 200) {
 		throw new Error(`Install failed: ${JSON.stringify(await res.json())}`);
 	}
 }
@@ -77,12 +83,16 @@ interface ContributionRow {
 }
 
 async function contributionsOf(app: Hono): Promise<readonly ContributionRow[]> {
-	const res = await app.request("/api/plugins", { headers: auth() });
+	const res = await app.request("/api/actions/search_plugins", {
+		method: "POST",
+		headers: { ...auth(), "Content-Type": "application/json" },
+		body: JSON.stringify({}),
+	});
 	expect(res.status).toBe(200);
 	const body = (await res.json()) as {
-		plugins: Array<{ id: string; contributions: ContributionRow[] }>;
+		data: Array<{ id: string; contributions: ContributionRow[] }>;
 	};
-	const plugin = body.plugins.find((p) => p.id === PLUGIN_ID);
+	const plugin = body.data.find((p) => p.id === PLUGIN_ID);
 	expect(plugin, "the installed plugin must be listed").toBeDefined();
 	return plugin?.contributions ?? [];
 }

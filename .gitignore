@@ -7,7 +7,6 @@ build/
 coverage/
 playwright-report/
 playwright-report-ah1/
-playwright-report-ah5/
 playwright-report-ah6/
 test-results/
 layers/core-ui/__e2e__/screenshots/
