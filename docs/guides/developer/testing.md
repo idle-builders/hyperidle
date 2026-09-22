@@ -105,16 +105,11 @@ Cassette key = SHA-256 of canonical JSON `{model, system, messages, tools, maxTo
 |---|---|---|
 | Dev server | 3001 | 5173 |
 | Default e2e (Playwright-managed Vite) | — (API mocked) | 5179 |
-| AH5 lane | 3097 | 5182 |
 | AH6 lane | 3098 | 5183 |
 
 ### Spec file
 
 `layers/core-ui/__e2e__/AH6-assistant-interaction.spec.ts` — three scenarios (S1/S2/S3) using real `AssistantOverlay` handles. No `page.route()` on the assistant, turn, session, credential, or LLM paths. Shell-scaffolding mocks (`/api/auth/me`, `/api/teams`) are tolerated to render the shell.
-
-### AH5 superseded
-
-AH6 supersedes AH5's synthetic probe (`ah5-real-turn-probe.ts` + `write_session_notes("AH5-SMOKE-OK")` task); those artifacts are deleted and `smoke:ah5` is retired. The AH5 encrypted-credential test (`ah5-live-agent-path.spec.ts` S1) remains.
 
 ## Mock Data
 
