@@ -331,6 +331,26 @@ describe("migration 0086: document as a module — brownfield", () => {
 		expect(row?.idx).not.toBeNull();
 	});
 
+	it("renames ki_parent_slot_uq to doc_parent_slot_uq, and it still refuses a second non-ordinary slot on one parent", async () => {
+		const db = await seedAndMigrate();
+
+		const [row] = (await db.execute(sql`SELECT to_regclass('doc_parent_slot_uq') AS idx`))
+			.rows as Array<{ idx: string | null }>;
+		expect(row?.idx).not.toBeNull();
+
+		// doc-prompt already holds the 'prompt' slot on ('routine', 'routine-xyz')
+		// — a second row naming the same (parent_kind, parent_id, slot) must be
+		// refused by the renamed constraint, not silently accepted.
+		await expect(
+			db.execute(sql`
+				INSERT INTO documents
+					(id, scope_kind, scope_id, title, body, format, status, version, slot, parent_kind, parent_id, updated_by, created_at, updated_at)
+				VALUES
+					('doc-prompt-dup', 'factory', NULL, 'Prompt dup', 'Body', 'markdown', 'active', 1, 'prompt', 'routine', 'routine-xyz', 'human-1', ${NOW}, ${NOW})
+			`),
+		).rejects.toThrow();
+	});
+
 	it("backfills the scope owner off updated_by's ladder — five cases, one residue, one negative control", async () => {
 		const db = await seedAndMigrate();
 
