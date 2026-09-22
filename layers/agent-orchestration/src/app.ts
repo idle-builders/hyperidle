@@ -21,7 +21,12 @@
  * JSON `ApiErrorResponse` 404, never Hono's `text/plain` default (AC10).
  */
 
-import { type InheritedReach, resolveHeldToken } from "@hyperidle/connections";
+import {
+	decryptCredentialValue,
+	encryptCredentialValue,
+	type InheritedReach,
+	resolveHeldToken,
+} from "@hyperidle/connections";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import type { EventBus } from "@hyperidle/event-bus";
@@ -53,14 +58,6 @@ export interface AgentOrchestrationAppOptions {
 	 * was when this route read no pool (kernel-only/bare test apps).
 	 */
 	readonly inheritedReach?: InheritedReach;
-	/**
-	 * AU44 batch2: injected cipher for connection token encrypt/decrypt.
-	 * Absent → connections route uses a no-op cipher (token writes fail, reads return null).
-	 */
-	readonly cipher?: {
-		readonly encrypt: (plaintext: string) => string;
-		readonly decrypt: (ciphertext: string) => string | null;
-	};
 }
 
 export interface AgentOrchestrationAppHandle {
@@ -73,7 +70,13 @@ export function createAgentOrchestrationApp(
 	options: AgentOrchestrationAppOptions,
 ): AgentOrchestrationAppHandle {
 	const app = new Hono<HyperIdleEnv>();
-	const { db, eventBus, sessionActionsDeps, inheritedReach, cipher } = options;
+	const { db, eventBus, sessionActionsDeps, inheritedReach } = options;
+	// @lore token-cipher: the AES-256-GCM cipher used to be threaded in from
+	// core-api's boot (`@hyperidle/credentials`, a foreign layer's Service).
+	// It moved into this Layer's own `@hyperidle/connections` package when
+	// `server_credentials` was deleted and connection tokens became its only
+	// production consumer, so this Layer now owns it directly — no injection.
+	const cipher = { encrypt: encryptCredentialValue, decrypt: decryptCredentialValue };
 
 	// §2/§5 — the session module: search_sessions/watch_session/stop_session,
 	// mounted at `POST /actions/<name>` on this Layer's own app and projected
@@ -95,7 +98,7 @@ export function createAgentOrchestrationApp(
 	// table since E3, so the resolver is wired via cipher.decrypt → resolveHeldToken.
 	const fileSystemsResolver = {
 		resolve: (userId: string, connectionId: string) =>
-			resolveHeldToken(db, userId, connectionId, cipher?.decrypt ?? (() => null)),
+			resolveHeldToken(db, userId, connectionId, cipher.decrypt),
 	};
 	app.route("/filesystems", createFilesystemRoutes(db, fileSystemsResolver));
 

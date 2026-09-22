@@ -1,19 +1,22 @@
 /**
- * The AES-256-GCM credential cipher, in its new home: `@hyperidle/credentials`.
+ * The AES-256-GCM cipher, in its new home: `@hyperidle/connections`.
  *
- * @lore AU26 E1 (J1): the move's proof obligation is that the *format* did not
- * change. A round-trip alone cannot prove that — a cipher that silently changed
- * its KDF, salt, info string or byte layout still round-trips against itself.
- * So the load-bearing assertion here is the GOLDEN VECTOR: a base64 ciphertext
+ * @lore AU26 E1 (J1), carried through the server_credentials deletion: the
+ * move's proof obligation is that the *format* did not change. A round-trip
+ * alone cannot prove that — a cipher that silently changed its KDF, salt,
+ * info string or byte layout still round-trips against itself. So the
+ * load-bearing assertion here is the GOLDEN VECTOR: a base64 ciphertext
  * produced by the PRE-move implementation (`layers/core-api/connections/src/
  * credential-encryption.ts` at commit cf279e43) under a fixed key + plaintext,
  * which the relocated code must still decrypt to that exact plaintext. If it
- * ever stops decrypting, every credential already at rest in a user's local
- * PGlite directory has become unreadable — the same class of break as an
- * un-rollbackable migration.
+ * ever stops decrypting, every connection token already at rest in a user's
+ * local PGlite directory has become unreadable — the same class of break as
+ * an un-rollbackable migration. The cipher moved a second time, verbatim,
+ * when `server_credentials` was dropped and connection tokens became its
+ * only production consumer — the vector still has to hold.
  */
 import { describe, expect, test, vi } from "vitest";
-import { decryptCredentialValue, encryptCredentialValue } from "../credential-encryption.js";
+import { decryptCredentialValue, encryptCredentialValue } from "../token-cipher.js";
 
 /** Fixed key used to mint the golden vector below. */
 const FIXED_KEY = "au26-e1-fixed-key";

@@ -43,6 +43,7 @@
 import type { CoreApiTransport } from "@hyperidle/api-contract";
 import {
 	createInheritedReach,
+	decryptCredentialValue,
 	type InheritedReach,
 	listConnections,
 	resolveHeldToken,
@@ -210,16 +211,6 @@ export interface AgentOrchestrationBootOptions {
 	readonly probeInheritedReach?: boolean;
 	/** AU31 §5.1 — absent means "no runtime": the route surface and session-stream socket exist, but no poller starts (the shape every existing bare-app test fixture already relies on). */
 	readonly runtime?: AgentOrchestrationRuntimeOptions;
-	/**
-	 * AU44 batch2: injected AES-256-GCM cipher for connection token encrypt/decrypt.
-	 * Sourced from `@hyperidle/credentials` at the Application layer; this Layer
-	 * does NOT import from core-api directly (architecture Mechanism B).
-	 * Absent → connections route rejects token writes and resolves null for reads.
-	 */
-	readonly cipher?: {
-		readonly encrypt: (plaintext: string) => string;
-		readonly decrypt: (ciphertext: string) => string | null;
-	};
 }
 
 export interface AgentOrchestrationBoot {
@@ -388,8 +379,12 @@ function buildProvisioningReads(
 export async function bootAgentOrchestration(
 	options: AgentOrchestrationBootOptions,
 ): Promise<AgentOrchestrationBoot> {
-	const { db, eventBus, upgradeWebSocket, wsPush, probeInheritedReach, runtime, cipher } = options;
-	const decrypt = cipher?.decrypt ?? (() => null);
+	const { db, eventBus, upgradeWebSocket, wsPush, probeInheritedReach, runtime } = options;
+	// @lore token-cipher: the decrypt half used to arrive as an injected
+	// `cipher` option, sourced from core-api's `@hyperidle/credentials`. That
+	// package is deleted with `server_credentials`; this Layer's own
+	// `@hyperidle/connections` now owns the cipher outright.
+	const decrypt = decryptCredentialValue;
 
 	// AU36 D4: the reach cache is ALWAYS built; `probeInheritedReach` only
 	// decides whether boot awaits the initial probe (refresh never rejects, so
@@ -454,7 +449,6 @@ export async function bootAgentOrchestration(
 		eventBus,
 		sessionActionsDeps,
 		inheritedReach,
-		...(cipher ? { cipher } : {}),
 	});
 
 	return {

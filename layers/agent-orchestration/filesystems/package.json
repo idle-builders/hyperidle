@@ -16,7 +16,6 @@
 	},
 	"devDependencies": {
 		"@hyperidle/connections": "*",
-		"@hyperidle/credentials": "*",
 		"vitest": "^4.1.9"
 	}
 }

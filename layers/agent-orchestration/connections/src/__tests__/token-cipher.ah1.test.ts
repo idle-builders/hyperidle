@@ -33,7 +33,7 @@ describe("encryptCredentialValue / decryptCredentialValue — secret-gate", () =
 		process.env.HYPERIDLE_CREDENTIAL_KEY = "";
 		process.env.HYPERIDLE_API_KEY = "";
 		try {
-			const { encryptCredentialValue } = await import("../credential-encryption.js");
+			const { encryptCredentialValue } = await import("../token-cipher.js");
 			expect(() => encryptCredentialValue("any-value")).toThrow();
 		} finally {
 			delete process.env.HYPERIDLE_CREDENTIAL_KEY;
@@ -45,7 +45,7 @@ describe("encryptCredentialValue / decryptCredentialValue — secret-gate", () =
 		process.env.HYPERIDLE_CREDENTIAL_KEY = "";
 		process.env.HYPERIDLE_API_KEY = "";
 		try {
-			const { encryptCredentialValue } = await import("../credential-encryption.js");
+			const { encryptCredentialValue } = await import("../token-cipher.js");
 			try {
 				encryptCredentialValue("any-value");
 				throw new Error("Expected encryptCredentialValue to throw");
@@ -64,7 +64,7 @@ describe("encryptCredentialValue / decryptCredentialValue — secret-gate", () =
 		process.env.HYPERIDLE_CREDENTIAL_KEY = "";
 		process.env.HYPERIDLE_API_KEY = "";
 		try {
-			const { decryptCredentialValue } = await import("../credential-encryption.js");
+			const { decryptCredentialValue } = await import("../token-cipher.js");
 			// Any ciphertext — returns null because no secret is available to decrypt with.
 			const result = decryptCredentialValue("dGVzdC1jaXBoZXJ0ZXh0");
 			expect(result).toBeNull();
@@ -78,7 +78,7 @@ describe("encryptCredentialValue / decryptCredentialValue — secret-gate", () =
 		process.env.HYPERIDLE_CREDENTIAL_KEY = "my-cred-key-32chars-long!!!!!!";
 		process.env.HYPERIDLE_API_KEY = "";
 		try {
-			const { encryptCredentialValue } = await import("../credential-encryption.js");
+			const { encryptCredentialValue } = await import("../token-cipher.js");
 			const result = encryptCredentialValue("my-secret-value");
 			expect(typeof result).toBe("string");
 			expect(result.length).toBeGreaterThan(0);
@@ -92,9 +92,7 @@ describe("encryptCredentialValue / decryptCredentialValue — secret-gate", () =
 		process.env.HYPERIDLE_CREDENTIAL_KEY = "my-cred-key-32chars-long!!!!!!";
 		process.env.HYPERIDLE_API_KEY = "";
 		try {
-			const { encryptCredentialValue, decryptCredentialValue } = await import(
-				"../credential-encryption.js"
-			);
+			const { encryptCredentialValue, decryptCredentialValue } = await import("../token-cipher.js");
 			const plaintext = "super-secret-credential";
 			const encrypted = encryptCredentialValue(plaintext);
 			const decrypted = decryptCredentialValue(encrypted);
