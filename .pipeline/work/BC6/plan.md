@@ -27,7 +27,9 @@ routes, package, table and tab.
 
 **Rulings (founder, 2026-09-22).** Stop kills the process and leaves the task alone. Activity stays
 in memory. Two plugin entries in the edit shape, not one `manage_plugins` with a verb field. The
-server-side key goes; the desktop keeps it. Every entry is an agent tool too.
+server-side key goes; the desktop keeps it. Every entry is an agent tool too. Search plugins lists
+installed plugins only. Size: net red and no more than 1,000 new lines — the plugin lifecycle moving
+out of the deleted route file into the module is not new code (≈1,550 added / 3,100 deleted).
 
 ## How it works
 
@@ -41,7 +43,8 @@ real process kill — and the normal teardown marks the row stopped and fires "s
 task page, the agent's health and the routine reactions see it like any other end. The task keeps
 its state and owner. Anyone signed in may search, watch and stop any session; agents get the same
 three tools. Killing a task keeps its existing stop path but now goes through the same abort, so a
-killed task's agents actually stop.
+killed task's agents actually stop. That seam and the session-by-id lookup the routine scheduler
+uses stay as plumbing; 16 route rows go.
 
 **One websocket.** The session socket, its hub and its gateway go. The activity gateway pushes a
 nudge on `session:<id>` through core's hub — the same envelope threads and documents use; the
@@ -58,7 +61,8 @@ gains the session and plugin entries. Core never imports orchestration; the decl
 `framework/domain-model/src/actions/` like the others.
 
 **Platform: two entries on settings' list.** *Search plugins* returns the installed plugins with
-state and contributions, plus the bundled ones not installed. *Edit plugin* is one partial: no id
+state and contributions (the repo's bundled plugins are not shipped to a user's machine, so listing
+and installing them is BC7's ground). *Edit plugin* is one partial: no id
 with a source (folder, git, zip) installs; `state` enables or disables; `remove` removes; `restore`
 puts one contribution back to what the plugin shipped. The invariants say why a change is refused
 (builtin cannot be removed or disabled, unknown contribution, unknown plugin). The domain-row work
@@ -67,7 +71,7 @@ with the internal flag — moves into the module's `run`, so the settings packag
 lifecycle instead of half. The settings page calls the two entries through `call`; agents get both.
 
 **The key leaves the server.** The credentials routes, package, table and the Credentials tab are
-deleted. The desktop's Worker settings section gets one field that writes the key to the keychain
+deleted; the encryption helper moves to the connections package, whose tokens it also encrypts. The desktop's Worker settings section gets one field that writes the key to the keychain
 through the bridge the worker already reads, and the worker connects for the first time. The SMTP
 password stored beside it has had no writer since BC1 and goes with the table.
 
