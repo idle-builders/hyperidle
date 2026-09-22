@@ -8,10 +8,20 @@
  * - Save button → auto-save (no explicit save action)
  * - Cancel button → Done button (exits edit mode)
  */
-import { expect, test } from "./fixtures";
+import { expect, makeDocumentRow, mockDocument, test } from "./fixtures";
 
 test.describe("Document Detail (J7)", () => {
 	test("non-factory item supports edit round-trip without URL change", async ({ page }) => {
+		// @lore BC4: KnowledgeDetail's LEGACY_DETAILS/fixture-fallback (baked-in
+		// demo content for k1/k2/k11/k12) is gone — DocumentDetail only ever
+		// reads `open_document`, so this id needs an explicit mock now.
+		await mockDocument(page, {
+			row: makeDocumentRow("k1", {
+				scopeKind: "team",
+				scopeId: "team-a",
+				body: "JWT-based authentication with refresh tokens.",
+			}),
+		});
 		await page.goto("/documents/k1");
 		await page.waitForSelector("[data-testid='document-detail-page']");
 

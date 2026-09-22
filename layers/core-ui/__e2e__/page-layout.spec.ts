@@ -4,9 +4,11 @@ import type { Locator, Page, Route } from "@playwright/test";
 import { REVIEW_COMPOSITION_SUBJECT } from "../src/pages/review/__fixtures__/review-composition.fixture.js";
 import {
 	expect,
+	makeDocumentRow,
 	makeIdentity,
 	makeMessage,
 	makeThread,
+	mockDocument,
 	mockSearchThreads,
 	mockThread,
 	test,
@@ -69,6 +71,12 @@ async function mockPrimarySurfaces(page: Page): Promise<void> {
 	});
 	await page.route("**/api/sessions?**", (route) => json(route, []));
 	await mockSearchThreads(page, { rows: [] });
+	// @lore BC4: KnowledgeDetail's LEGACY_DETAILS/fixture fallback ("k1, known
+	// fixture id with content") is gone — DocumentDetail only ever reads
+	// `open_document`, so this id needs an explicit mock now.
+	await mockDocument(page, {
+		row: makeDocumentRow("k1", { scopeKind: "team", scopeId: "team-a" }),
+	});
 }
 
 for (const viewport of [

@@ -12,8 +12,10 @@
 
 import {
 	expect,
+	makeDocumentRow,
 	makeThread,
 	makeThreadListRow,
+	mockDocument,
 	mockSearchThreads,
 	mockThread,
 	test,
@@ -41,6 +43,12 @@ test.describe("L18 — Document thread surface", () => {
 			rows: [makeThreadListRow(THREAD_ID, { ...thread, hasUnresolvedReview: false })],
 		});
 		await mockThread(page, { thread, messages: [] });
+		// @lore BC4: KnowledgeDetail's LEGACY_DETAILS/fixture fallback ("k3, known
+		// fixture id with content") is gone — DocumentDetail only ever reads
+		// `open_document`, so this id needs an explicit mock now.
+		await mockDocument(page, {
+			row: makeDocumentRow(DOCUMENT_ID, { scopeKind: "team", scopeId: "team-a" }),
+		});
 
 		await page.goto(`/documents/${DOCUMENT_ID}`);
 

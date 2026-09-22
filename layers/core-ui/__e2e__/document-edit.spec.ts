@@ -128,7 +128,10 @@ test.describe("T2 AC-3: Factory-scoped item is read-only", () => {
 	});
 
 	test("fixture factory item (k11) has no Edit button", async ({ page }) => {
-		// k11 is factory-scope in the local fixture data (no API needed)
+		// @lore BC4: KnowledgeDetail's LEGACY_DETAILS fixture fallback (id "k11"
+		// served without an API call) is gone — DocumentDetail only ever reads
+		// `open_document`, so this specific id needs its own mock now.
+		await mockDocument(page, { row: makeDocumentRow("k11", { scopeKind: "factory" }) });
 		await page.goto("/documents/k11");
 		await page.waitForSelector("[data-testid='document-detail-page']");
 
