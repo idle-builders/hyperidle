@@ -93,47 +93,46 @@ one is ever wanted. Statuses stay `proposed · active · stale · archived`; not
 edit. The cross-object search box keeps its route until the user module; its document part calls
 search documents.
 
-## How we work on this
+## What was decided along the way
 
-**Confirmed 2026-09-21, after the architecture and its two critiques.** The three old document
-events for routines are dropped now (no routine can react to a document change until
-subscriptions). Narrowing cascades, recorded per child. A memory is private; a document written by
-an agent goes to its team. Editing a plugin's skill or rule still marks it detached, through one
-small hook the platform item removes. Usage counts are kept and made real; the plugin archives
-unused documents. The internal field `role` becomes `slot`. The agent's sandbox folder stays
-`knowledge/` — the name of the place, like the sidebar.
+- A memory is a private note with no parent and an ordinary slot; a person's private document in
+  the tree is a document and can be widened to the team or everyone later. The list keeps a
+  "Private" pill and a separate "Memories" filter. A memory asked for a scope is refused with a
+  reason, never silently kept private. A root document cannot be scoped "Private" from the dialog.
+- The pure rules key on what the row already is, not only on the word in the edit: a memory
+  given a team scope and an existing artifact made private are both refused. Moving an artifact
+  into the tree ("graduation") stays a plain parent change.
+- Only the server attaches a document to an agent or a routine; a person or an agent gets a plain
+  refusal. In-process callers carry an internal flag no transport can set.
+- A search by parent must name one id or a list of ids; a parent kind alone is refused, so the
+  artifact exemption from the audience filter can never list every team's output.
+- The path shown on open stops at the first parent the viewer may not read.
+- A neighbour never calls a document action from inside its own open transaction (PGlite has one
+  connection; it hangs). Task and thread lookups for an edit run before the transaction opens.
+- The scope cascade narrows wider children in the same transaction with one change row each; it
+  never turns a child into a memory. Widening never cascades.
+- Reads count only through open; every internal read is a search. Session use is counted where the
+  starting documents are picked, inside the caller's transaction when there is one.
+- Plugin documents installed at team scope get one copy per team (the id carries the team);
+  factory installs keep their ids.
+- `/auth/me` carries the user's team so Team scope can be chosen; the demo founder is on the Acme
+  team and the demo assistant's placeholder session is seeded finished.
+- Rename everywhere except: the sidebar section "Knowledge" and its view id, the agent's sandbox
+  folder `knowledge/`, the `knowledge_action` session family, old migration files, and the word
+  where it means the place. The misplacement-ledger governance rule was deleted with its last
+  entry, as its own text prescribes.
 
-**Confirmed in interview 2026-09-20/21** — five rulings, recorded in `facts.md`: no conflict
-object; merge and split removed; rename everything except the sidebar word; memory and artifact as
-words on edit; a memory is for its writer and the agent's owner.
+## Accepted limits and what is left
 
-**Size, confirmed 2026-09-21.** Added lines will pass 1,000 (the rename, re-pointed tests); the
-founder accepts that up front because the goal is a strong net reduction. The line count shown at
-the gate is net code, and it must be clearly negative.
-
-**Dials.** complexity: suite · ambiguity: established context · exposure: public contract.
-
-**Order.** Architecture written against `facts.md`, then one critique — it paid on both earlier
-items. The build is cut into small chunks from the start: each owns its paths, implements one
-block of the architecture, writes its failing test first, runs one check, makes one commit with
-named paths. Order: declaration and module with its seam test → migration with a test on an old
-database → neighbours re-pointed → agent side (tools, writeback, seam methods deleted) → screens →
-deletions → the rename as its own mechanical wave → docs, plugin and personas. Full gates are their
-own chunk. Then independent review in two passes (module and migration; agent side and screens);
-every fix wave gets its own re-review.
-
-**Gate, before ship.** The founder sees, in the packaged desktop app on the demo data: the
-Knowledge section listing, opening, creating, editing, moving, archiving and triaging documents
-through the list; a second window updating live; a stale edit refused with its reason; an agent
-writing a memory and an artifact and reading a document through the three tools; the governance
-rule green with the document entries gone from the legacy lists; the review findings; the line
-count. Then retro and ship to a CI-green open PR. Nobody merges.
-
-**Verification.** `npm run verify`, unit, service integration; the new document seam test driving
-all three actions as an agent and as a human; a real-socket test for the nudge; the migration test
-on a database from before this item; the harness lane locally once at the end because the tool list
-changes; full e2e once for branch-only failures.
-
-## Confusions
-
-## Proposed items
+- A page left open on a busy document counts a read on each live refresh; the decay routine keys
+  on dates, not counts.
+- Reinstalling a plugin for one team can drop another team's copy from that plugin's registry
+  (the registry has no team column); the document itself is untouched. Platform item.
+- If the migration meets a malformed JSON message row it stops and names the row.
+- A routine cannot react to a document change until subscriptions read the change rows.
+- The plugin-detach hook is a plugin word inside the document module's deps until the platform
+  item removes it. The setup route and the scheduler build their own small document-action wiring
+  instead of receiving the app's list.
+- Nothing cites a document yet, so there is no citation count.
+- Two chips from the previous item still stand: the unreachable session viewer on the conversations
+  page, and a hung agent start blocking other agents' turns.
