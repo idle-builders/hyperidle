@@ -195,6 +195,28 @@ async function siblingsOf(
 }
 
 /**
+ * `listAncestors` reads the true stored chain, unfiltered — it has to, the
+ * store never sees a viewer. A cross-team (or otherwise unreadable) ancestor
+ * must not leak its title/body into the breadcrumb, so the chain is walked
+ * nearest-to-root and cut at the first ancestor the viewer cannot read: a
+ * path with a hole (visible root, invisible parent, visible-again document)
+ * would still be a lie about what stands between them, so nothing beyond the
+ * cut is kept either, not just the unreadable row itself.
+ */
+function visibleAncestors(
+	viewer: DocumentSearchViewer,
+	ancestorRows: readonly DbDocumentRow[], // root-first, as `listAncestors` returns them
+): DbDocumentRow[] {
+	const nearestFirst = [...ancestorRows].reverse();
+	const kept: DbDocumentRow[] = [];
+	for (const ancestor of nearestFirst) {
+		if (!canReadDocument(viewer.subjects, viewer.viewerTeamId, ancestor)) break;
+		kept.push(ancestor);
+	}
+	return kept.reverse(); // back to root-first
+}
+
+/**
  * Builds the `DocumentView` for an already-loaded row. Counts nothing —
  * `open_document.run` is the visibility check plus this plus `bumpRead`;
  * `edit_document.run` (B6a) calls this directly on the row it just wrote, so
@@ -217,7 +239,7 @@ export async function assembleDocumentView(
 	]);
 	return {
 		document: toDocumentRow(row),
-		ancestors: ancestorRows.map(toDocumentRow),
+		ancestors: visibleAncestors(viewer, ancestorRows).map(toDocumentRow),
 		children: childRows.map(toDocumentRow),
 		siblings: siblingRows.map(toDocumentRow),
 		scopeName,

@@ -577,6 +577,64 @@ describe("case 5 — a tree: ancestors root-first, ordered children, siblings ex
 });
 
 // ---------------------------------------------------------------------------
+// Case 5b — `open_document`'s `ancestors` are filtered through the viewer's
+// own visibility, never the raw stored chain (review finding: a team-A
+// viewer opening a team-A child under a team-B parent must not receive the
+// parent's title/body just because it sits above a document they CAN read).
+// ---------------------------------------------------------------------------
+
+describe("case 5b — ancestors are filtered through the viewer's own visibility", () => {
+	test("a cross-team ancestor is absent from the path, exact length", async ({
+		app,
+		db,
+		eventBus,
+	}) => {
+		await seedTeam(db, "c5b-a");
+		await seedTeam(db, "c5b-b");
+		await seedHuman(db, "c5b-b-owner", "c5b-b");
+		await seedHuman(db, "c5b-a-viewer", "c5b-a");
+
+		// The team-B owner can see their own team-B parent, so they may nest a
+		// narrower team-A-scoped child under it (D6 only compares scope RANK,
+		// both are "team" rank — architecture.md §4.2's D6 note).
+		const parent = requireDoc(
+			await callHuman<DocumentView>(
+				app,
+				"edit_document",
+				{ title: "team-B parent", scopeKind: "team", scopeId: "c5b-b" },
+				actorHeaders("c5b-b-owner"),
+			),
+		).document;
+		const child = requireDoc(
+			await callHuman<DocumentView>(
+				app,
+				"edit_document",
+				{
+					title: "team-A child",
+					scopeKind: "team",
+					scopeId: "c5b-a",
+					parent: { kind: "document", id: parent.id },
+				},
+				actorHeaders("c5b-b-owner"),
+			),
+		).document;
+
+		// The team-A viewer CAN read the child itself (it is scoped to their
+		// own team) but must not see the team-B parent above it.
+		const opened = requireDoc(
+			await callHuman<DocumentView>(
+				app,
+				"open_document",
+				{ id: child.id },
+				actorHeaders("c5b-a-viewer"),
+			),
+		);
+		expect(opened.ancestors.map((a) => a.id)).not.toContain(parent.id);
+		expect(opened.ancestors).toHaveLength(0);
+	});
+});
+
+// ---------------------------------------------------------------------------
 // Case 6 — search_documents({inTree:true}) excludes artifacts and slotted
 // documents.
 // ---------------------------------------------------------------------------
