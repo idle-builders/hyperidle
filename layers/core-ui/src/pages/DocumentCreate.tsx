@@ -41,6 +41,7 @@ import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { call } from "../services/call.js";
 import { SCOPE_CREATE_OPTIONS, type ScopeCreateOption } from "../utils/scope-labels.js";
 import { ParentPicker } from "./document/ParentPicker.js";
+import { scopeRank } from "./document/parent-options.js";
 
 export function DocumentCreate(): JSX.Element {
 	const navigate = useNavigate();
@@ -77,6 +78,22 @@ export function DocumentCreate(): JSX.Element {
 	// The previous hardcoded false is replaced by a live check so the team scope
 	// pill becomes available as soon as the user joins a team.
 	const hasTeam: boolean = user?.teamId !== undefined;
+	// Review-found defect: this create page offered "Private" with NO parent
+	// chosen. A parentless, user-scoped write reads back as a memory
+	// (`documentAs`, architecture.md §3.6) — a one-way trapdoor the
+	// ScopeChangeDialog trapdoor guard then has to defend against on the
+	// resulting detail page. A root private note is a memory, made through
+	// the assistant/agent path, not this document-create page — so Private
+	// is only offered once a parent is chosen.
+	const hasParentChosen: boolean = parentId !== "";
+
+	const disabledReasons: string[] = [];
+	if (!hasTeam) disabledReasons.push("Join a team to use team-scoped documents.");
+	if (!hasParentChosen) {
+		disabledReasons.push(
+			"A root document scoped Private becomes a memory — create one from the assistant/agent instead.",
+		);
+	}
 
 	const needsScopeId = SCOPES_REQUIRING_ID.has(selectedScope.scopeKind);
 	const canCreate =
@@ -119,6 +136,24 @@ export function DocumentCreate(): JSX.Element {
 
 	const handleCancel = (): void => {
 		navigate("/documents");
+	};
+
+	/**
+	 * Private is only legal with a parent chosen (see `hasParentChosen`
+	 * above) — clearing the parent while Private is selected would otherwise
+	 * leave that illegal combination sitting there selected. Falls back to
+	 * Team (the person's own team, prefilled) when they have one, or Shared
+	 * when they don't — never silently stays on Private.
+	 */
+	const handleParentChange = (next: string): void => {
+		setParentId(next);
+		if (next === "" && selectedScope.scopeKind === "user") {
+			const fallback =
+				(hasTeam ? SCOPE_CREATE_OPTIONS.find((o) => o.scopeKind === "team") : undefined) ??
+				defaultScope;
+			setSelectedScope(fallback);
+			setScopeId(fallback.scopeKind === "team" ? (user?.teamId ?? "") : "");
+		}
 	};
 
 	return (
@@ -221,23 +256,33 @@ export function DocumentCreate(): JSX.Element {
 								options={SCOPE_CREATE_OPTIONS.map((option) => ({
 									id: option.id,
 									label: option.label,
-									disabled: submitting || (option.id === "team" && !hasTeam),
+									disabled:
+										submitting ||
+										(option.id === "team" && !hasTeam) ||
+										(option.id === "private" && !hasParentChosen),
 								}))}
 								value={selectedScope.id}
 								onChange={(id) => {
 									const next = SCOPE_CREATE_OPTIONS.find((o) => o.id === id);
 									if (next) {
+										// A parent legal under the old scope may not be legal
+										// under a NARROWER one (the narrowing rule) — reset
+										// rather than offer a stale, possibly-illegal choice.
+										// Widening (Private carries the widest legal-parent set —
+										// `scopeRank`'s highest rank, parent-options.ts) never
+										// invalidates an already-chosen parent, so it is kept —
+										// Private's own availability already depends on one
+										// being chosen (hasParentChosen above).
+										if (scopeRank(next.scopeKind) < scopeRank(selectedScope.scopeKind)) {
+											setParentId("");
+										}
 										setSelectedScope(next);
 										setScopeId("");
-										// A parent legal under the old scope may not be legal
-										// under the new one (the narrowing rule) — reset rather
-										// than offer a stale, possibly-illegal choice.
-										setParentId("");
 									}
 								}}
 								ariaLabel="Scope"
 								testIdPrefix="scope-pill-create"
-								disabledTitle="Join a team to use team-scoped documents"
+								disabledTitle={disabledReasons.join(" ")}
 							/>
 						</div>
 						{needsScopeId && (
@@ -254,7 +299,7 @@ export function DocumentCreate(): JSX.Element {
 						    picks a parent, defaulting to none (a root)." */}
 						<ParentPicker
 							value={parentId}
-							onChange={setParentId}
+							onChange={handleParentChange}
 							childScopeKind={selectedScope.scopeKind}
 							disabled={submitting}
 						/>

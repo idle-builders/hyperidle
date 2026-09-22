@@ -297,8 +297,16 @@ describe("Team scope pill is data-driven (WARNING 3 positive-path proof)", () =>
 			</MemoryRouter>,
 		);
 
+		// disabledTitle is one shared tooltip for the whole picker (ScopePicker's
+		// own contract), composed from whichever reasons apply — with no team
+		// AND no parent chosen (this test picks neither), both the Team and the
+		// Private reason are present (DocumentCreate-private-requires-parent.test.tsx
+		// covers the Private-specific reason).
 		const teamPill = screen.getByTestId("scope-pill-create-team");
-		expect(teamPill).toHaveAttribute("title", "Join a team to use team-scoped documents");
+		expect(teamPill).toHaveAttribute(
+			"title",
+			"Join a team to use team-scoped documents. A root document scoped Private becomes a memory — create one from the assistant/agent instead.",
+		);
 	});
 
 	it("clicking an enabled Team pill selects the Team scope", async () => {

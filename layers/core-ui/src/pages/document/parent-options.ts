@@ -13,7 +13,8 @@
 
 const SCOPE_RANK: Readonly<Record<string, number>> = { factory: 0, team: 1, user: 2 };
 
-function scopeRank(scopeKind: string): number {
+/** Exported so callers can tell narrowing from widening without duplicating the scale (e.g. DocumentCreate's scope-change parent reset). */
+export function scopeRank(scopeKind: string): number {
 	return SCOPE_RANK[scopeKind] ?? 0;
 }
 
