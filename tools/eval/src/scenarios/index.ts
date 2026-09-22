@@ -12,7 +12,7 @@ export { default as pocSessionNotes } from "./poc-session-notes.js";
 
 // X8 scenario arrays — ordered by feature complexity (LOW → MEDIUM → HIGH → non-session)
 
-export { assembledKnowledgeScenarios } from "./assembled-knowledge.js";
+export { assembledDocumentsScenarios } from "./assembled-documents.js";
 
 export { composedPromptScenarios } from "./composed-prompt.js";
 export { createArtifactScenarios } from "./create-artifact.js";

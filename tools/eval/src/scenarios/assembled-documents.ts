@@ -346,7 +346,7 @@ Write session notes describing what patterns you followed and where you put your
 // Export
 // ---------------------------------------------------------------------------
 
-export const assembledKnowledgeScenarios: EvalScenario[] = [
+export const assembledDocumentsScenarios: EvalScenario[] = [
 	mkUtilizationBuilderHealthcare,
 	mkRankingPmDevops,
 	mkReadonlyRespectBuilderFrontend,
