@@ -538,6 +538,25 @@ export function searchDocumentsInvariants(input: SearchDocumentsInput): Problem[
 		});
 	}
 
+	// Review-found blocker: `parent.id`/`parent.ids` were both optional with no
+	// refine, so `{as:"artifact", parent:{kind:"task"}}` passed this function
+	// and the store then filtered on `parentKind` alone — every task/thread's
+	// artifacts, to anyone. `id`/`ids` name a query shape, not a value the
+	// store may treat as absent; exactly one must be given, for every parent
+	// kind (not only artifacts — a bare `parent:{kind:"thread"}` is the same
+	// unbounded query one kind over).
+	if (input.parent !== undefined) {
+		const hasId = input.parent.id !== undefined;
+		const hasIds = input.parent.ids !== undefined;
+		if (hasId === hasIds) {
+			problems.push({
+				code: "parent_needs_id",
+				message: "Name exactly one of id or ids for a parent filter.",
+				path: "parent",
+			});
+		}
+	}
+
 	if (input.inTree === true && input.parent !== undefined) {
 		problems.push({
 			code: "two_shapes",

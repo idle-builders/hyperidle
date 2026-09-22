@@ -233,6 +233,19 @@ describe("search_documents — the one query (architecture.md §5.1)", () => {
 		expect(rows.map((r) => r.id).sort()).toEqual([a.id, b.id].sort());
 	});
 
+	test("parent with neither id nor ids throws — a defensive backstop, so an internal caller cannot bypass the declaration's own refusal and run an unbounded parent-kind-only query", async ({
+		db,
+	}) => {
+		await insertDocument(
+			db,
+			docValues({ id: "parent-no-id", parentKind: "task", parentId: "task-unbounded" }),
+		);
+
+		expect(() => searchDocumentRows(db, { parent: { kind: "task" } }, ANY_VIEWER)).toThrow(
+			"parent filter must name id or ids",
+		);
+	});
+
 	describe("as", () => {
 		test("as: artifact matches only task/thread-parented rows", async ({ db }) => {
 			const artifact = await insertDocument(

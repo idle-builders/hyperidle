@@ -433,6 +433,14 @@ export function searchDocumentRows(
 			conditions.push(eq(documents.parentId, input.parent.id));
 		} else if (input.parent.ids !== undefined) {
 			conditions.push(inArray(documents.parentId, [...input.parent.ids]));
+		} else {
+			// Defensive backstop for the declaration's own `parent_needs_id`
+			// refusal (architecture.md §5.1, §3.6 I14's bound) — a
+			// parent-kind-only query would answer every row of that kind,
+			// visibility aside. `searchDocumentsInvariants` already refuses this
+			// shape at every client door; this throw is what makes an internal
+			// caller unable to bypass it by calling the store directly.
+			throw new Error("searchDocumentRows: a parent filter must name id or ids");
 		}
 	}
 

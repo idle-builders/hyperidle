@@ -277,6 +277,33 @@ describe("searchDocumentsInvariants", () => {
 		expect(problems.map((p) => p.code)).not.toContain("artifact_search_needs_parent");
 	});
 
+	it("parent_needs_id: a parent filter with neither id nor ids — the blocker: {as:'artifact', parent:{kind:'task'}} must not fall through as an unbounded parent-kind-only query", () => {
+		const problems = searchDocumentsInvariants({ as: "artifact", parent: { kind: "task" } });
+		expect(problems[0]?.code).toBe("parent_needs_id");
+	});
+
+	it("parent_needs_id fires for every parent kind, not only artifact", () => {
+		const problems = searchDocumentsInvariants({ parent: { kind: "thread" } });
+		expect(problems[0]?.code).toBe("parent_needs_id");
+	});
+
+	it("parent_needs_id: both id and ids given together is refused too", () => {
+		const problems = searchDocumentsInvariants({
+			parent: { kind: "task", id: "t1", ids: ["t1", "t2"] },
+		});
+		expect(problems[0]?.code).toBe("parent_needs_id");
+	});
+
+	it("parent_needs_id does not fire when only id is given", () => {
+		const problems = searchDocumentsInvariants({ parent: { kind: "task", id: "t1" } });
+		expect(problems.map((p) => p.code)).not.toContain("parent_needs_id");
+	});
+
+	it("parent_needs_id does not fire when only ids is given", () => {
+		const problems = searchDocumentsInvariants({ parent: { kind: "task", ids: ["t1"] } });
+		expect(problems.map((p) => p.code)).not.toContain("parent_needs_id");
+	});
+
 	it("two_shapes: inTree and parent given together", () => {
 		const problems = searchDocumentsInvariants({
 			inTree: true,

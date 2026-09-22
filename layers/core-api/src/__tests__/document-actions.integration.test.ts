@@ -2854,3 +2854,69 @@ describe("HTTP door — 422 problem lists", () => {
 		expect(body.data?.document.title).toBe("HTTP 200 proof");
 	});
 });
+
+// ---------------------------------------------------------------------------
+// case 18 — the blocker: search_documents's `parent` filter must name
+// exactly one of `id`/`ids`, over HTTP with a real 422, not just a
+// problem-list shape.
+// ---------------------------------------------------------------------------
+
+describe("case 18 — search_documents({parent}) must name exactly one of id/ids", () => {
+	test("both doors: {as:'artifact', parent:{kind:'task'}} with no id/ids is refused with 422 parent_needs_id and returns no rows — the legitimate {id} and {ids} shapes still find the artifact", async ({
+		app,
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
+		await seedTeam(db, "c18-a");
+		await seedTeam(db, "c18-b");
+		await seedTaskWithThread(db, "c18-task", "c18-a");
+		await seedHuman(db, "c18-outsider", "c18-b");
+		await seedAgent(db, "c18-agent");
+		const actions = buildRealActions(agentOrchestration);
+		const doors = buildDoors(app, actions, db, eventBus, {
+			agentId: "c18-agent",
+			sessionId: "c18-sess",
+		});
+
+		// A real artifact on the task — if the bug were still live, the
+		// unbounded parent-kind-only query would hand it to anyone.
+		const artifact = requireDoc(
+			await callAgent<DocumentView>(
+				actions,
+				db,
+				eventBus,
+				"edit_document",
+				{ title: "task artifact", as: "artifact" },
+				{ agentId: "c18-agent", sessionId: "c18-sess", taskId: "c18-task" },
+			),
+		).document;
+
+		const res = await app.request("/api/actions/search_documents", {
+			method: "POST",
+			headers: actorHeaders("c18-outsider"),
+			body: JSON.stringify({ as: "artifact", parent: { kind: "task" } }),
+		});
+		expect(res.status).toBe(422);
+		const body = (await res.json()) as ActionEnvelope<DocumentRow[]>;
+		expect(body.problems?.[0]?.code).toBe("parent_needs_id");
+		expect(body.data).toBeUndefined();
+
+		const { human, agent } = await doors.search(
+			{ as: "artifact", parent: { kind: "task" } },
+			actorHeaders("c18-outsider"),
+		);
+		expect(human.problemCode).toBe("parent_needs_id");
+		expect(human.data).toBeUndefined();
+		expect(agent.problemCode).toBe("parent_needs_id");
+		expect(agent.data).toBeUndefined();
+
+		const byId = await doors.search({ parent: { kind: "task", id: "c18-task" } });
+		expect((byId.human.data ?? []).map((d) => d.id)).toEqual([artifact.id]);
+		expect((byId.agent.data ?? []).map((d) => d.id)).toEqual([artifact.id]);
+
+		const byIds = await doors.search({ parent: { kind: "task", ids: ["c18-task"] } });
+		expect((byIds.human.data ?? []).map((d) => d.id)).toEqual([artifact.id]);
+		expect((byIds.agent.data ?? []).map((d) => d.id)).toEqual([artifact.id]);
+	});
+});
