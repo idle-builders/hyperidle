@@ -384,12 +384,19 @@ function visibilityPredicate(subjects: readonly string[], viewerTeamId: string |
 
 /**
  * `as` translated to predicates, never a post-filter (architecture.md §3.6,
- * founder decision on the gate-walk finding). A memory is a user-scoped row
- * with **no parent** — not in the tree. `slot` plays no part: a memory's
- * slot is always forced to `ordinary` at write time (I3/I9), so a `slot`
- * check here would only re-derive what `parent_kind IS NULL` already
- * answers, and would wrongly catch a private *tree* document (`as:
- * "document"`, scoped to `user`, `parent_kind` non-null) as a memory.
+ * founder decision on the gate-walk finding). A memory is a user-scoped,
+ * parentless, `ordinary`-slot row — not in the tree, and not a row `slot`
+ * alone already makes public.
+ *
+ * Review-found defect: an earlier version of this predicate dropped the
+ * `slot` term (a memory's slot is always forced to `ordinary` at write time,
+ * I3/I9, so checking it here seemed to only re-derive `parent_kind IS
+ * NULL`) — but `visibilityPredicate` exempts ANY non-ordinary slot from the
+ * privacy check regardless of scope, so a user-scoped, parentless row with a
+ * non-ordinary slot matched `as:"memory"` here while being world-readable
+ * there: the Memories filter would show a row every other person could
+ * already read. `slot` must agree with the visibility predicate, not just
+ * with what a memory's own write path forces.
  *
  * `notArtifact` is written with an explicit `isNull` branch — `NOT
  * (parent_kind IN (...))` alone evaluates to SQL NULL (excluded) for a NULL
@@ -401,18 +408,20 @@ const notArtifact = or(
 	not(inArray(documents.parentKind, ["task", "thread"])),
 ) as SQL;
 
+const isMemory = and(
+	eq(documents.scopeKind, "user"),
+	isNull(documents.parentKind),
+	eq(documents.slot, "ordinary"),
+) as SQL;
+
 function asPredicate(as: DocumentAs): SQL {
 	switch (as) {
 		case "artifact":
 			return inArray(documents.parentKind, ["task", "thread"]);
 		case "memory":
-			return and(notArtifact, eq(documents.scopeKind, "user"), isNull(documents.parentKind)) as SQL;
-		case "document": {
-			const notMemory = not(
-				and(eq(documents.scopeKind, "user"), isNull(documents.parentKind)) as SQL,
-			);
-			return and(notArtifact, notMemory) as SQL;
-		}
+			return and(notArtifact, isMemory) as SQL;
+		case "document":
+			return and(notArtifact, not(isMemory)) as SQL;
 	}
 }
 

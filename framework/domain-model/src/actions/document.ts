@@ -210,13 +210,22 @@ export function documentAs(row: {
 	readonly slot: string;
 }): DocumentAs {
 	if (row.parentKind === "task" || row.parentKind === "thread") return "artifact";
-	// A memory is a user-scoped row with no parent — not in the tree (founder
-	// decision, gate-walk finding). A user-scoped row WITH a parent is a
-	// private document: `as:"document"`, widenable to team/factory and back,
-	// like any tree document. `slot` plays no part in this — a memory's slot
-	// is always forced to `ordinary` at write time (I3/I9), so checking it
-	// here would only ever re-derive what `parentKind` already answers.
-	if (row.scopeKind === "user" && row.parentKind === null) return "memory";
+	// A memory is a user-scoped, parentless, `ordinary`-slot row — not in the
+	// tree (founder decision, gate-walk finding), and not a row `slot` alone
+	// already makes public. Review-found defect: an earlier version of this
+	// function dropped the `slot` term (reasoning that I3/I9 always force a
+	// memory's slot to `ordinary`, so checking it here would only re-derive
+	// `parentKind`) — but `canReadDocument` exempts ANY non-ordinary slot from
+	// the privacy check regardless of scope, so a user-scoped, parentless row
+	// with a non-ordinary slot was reading as "memory" here while
+	// `canReadDocument` was treating it as public: the Memories filter would
+	// show a row every other person could already read. `slot` must agree
+	// with the visibility predicate, not just with what a memory's own write
+	// path forces. A user-scoped row WITH a parent is a private document:
+	// `as:"document"`, widenable to team/factory and back, like any tree
+	// document.
+	if (row.scopeKind === "user" && row.parentKind === null && row.slot === "ordinary")
+		return "memory";
 	return "document";
 }
 
@@ -322,6 +331,45 @@ function memoryInvariants(
 		});
 	}
 	return problems;
+}
+
+/**
+ * Review-found defect, paired with `documentAs`'s own fix above: a
+ * user-scoped, parentless, non-`ordinary`-slot row derives as `"document"`
+ * (not a memory — `documentAs`), but reads as PUBLIC through
+ * `canReadDocument`'s non-ordinary-slot exemption, regardless of scope. A
+ * caller asking for `scopeKind:"user"` on that shape is asking for a
+ * contradiction — private-by-scope, public-by-slot — so it is refused
+ * outright, the same way I13 refuses `as:"artifact"` + `scopeKind:"user"`
+ * rather than silently resolving the conflict one way or the other. Only
+ * `effectiveAs === "document"` reaches this: a memory's slot is already
+ * forced to `ordinary` (I3/I9), and an artifact's `scopeKind:"user"` is
+ * already refused by I13.
+ */
+function privateSlotInvariants(
+	effectiveAs: DocumentAs | undefined,
+	input: EditDocumentInput,
+	prev: DocumentRow | null,
+): Problem[] {
+	// `effectiveAs` is `undefined` only for a create with no explicit `as` —
+	// `edit_document.run` defaults that shape to `"document"` (§3.6's write
+	// table), so this check must too, or a bare `{scopeKind:"user",
+	// slot:"skill"}` create would slip past it.
+	if (effectiveAs !== "document" && effectiveAs !== undefined) return [];
+	const scopeKind = input.scopeKind ?? prev?.scopeKind;
+	if (scopeKind !== "user") return [];
+	const slot = input.slot ?? prev?.slot ?? "ordinary";
+	if (slot === "ordinary") return [];
+	const parentIsNull =
+		input.parent !== undefined ? input.parent === null : prev === null || prev.parentKind === null;
+	if (!parentIsNull) return [];
+	return [
+		{
+			code: "memory_needs_ordinary_slot",
+			message: "A document scoped to you alone, with no parent, must use the ordinary slot.",
+			path: "slot",
+		},
+	];
 }
 
 /**
@@ -482,6 +530,7 @@ export function editDocumentInvariants(
 		input.as ?? (prev !== null ? documentAs(prev) : undefined);
 
 	problems.push(...memoryInvariants(effectiveAs, input));
+	problems.push(...privateSlotInvariants(effectiveAs, input, prev));
 	problems.push(...artifactInvariants(effectiveAs, input, caller));
 	problems.push(...systemParentInvariants(input, caller));
 

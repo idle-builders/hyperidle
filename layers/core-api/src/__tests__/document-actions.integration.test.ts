@@ -1101,6 +1101,24 @@ describe("case 9 — every §4.1/§4.2 invariant, exact code, both doors", () =>
 		expect(agent.problemCode).toBe("memory_has_parent");
 	});
 
+	test("memory_needs_ordinary_slot: a user-scoped, parentless, non-ordinary-slot document is refused — review-found defect: that shape derives as a document but reads as public, a contradiction of the scope the caller asked for", async ({
+		app,
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
+		await seedTeam(db, "c9mns");
+		await seedAgent(db, "c9mns-agent");
+		const actions = buildRealActions(agentOrchestration);
+		const doors = buildDoors(app, actions, db, eventBus, {
+			agentId: "c9mns-agent",
+			sessionId: "c9mns-sess",
+		});
+		const { human, agent } = await doors.edit({ title: "x", scopeKind: "user", slot: "skill" });
+		expect(human.problemCode).toBe("memory_needs_ordinary_slot");
+		expect(agent.problemCode).toBe("memory_needs_ordinary_slot");
+	});
+
 	test('I5 artifact_parent_kind: as:"artifact" with a document parent', async ({
 		app,
 		db,

@@ -72,6 +72,55 @@ describe("editDocumentInvariants", () => {
 		expect(problems[0]?.code).toBe("memory_has_parent");
 	});
 
+	it("memory_needs_ordinary_slot: as:'document', scopeKind:'user', no parent, slot:'skill' — review-found defect: this shape derives as 'document' (the fix above) but reads as PUBLIC via canReadDocument's non-ordinary-slot exemption, contradicting the scope the caller asked for; refused outright rather than silently public or silently a memory", () => {
+		const problems = editDocumentInvariants(
+			{ as: "document", scopeKind: "user", slot: "skill", title: "Note" },
+			null,
+			noCaller,
+		);
+		expect(problems[0]?.code).toBe("memory_needs_ordinary_slot");
+	});
+
+	it("memory_needs_ordinary_slot fires with no explicit `as` too — the default is 'document'", () => {
+		const problems = editDocumentInvariants(
+			{ scopeKind: "user", slot: "skill", title: "Note" },
+			null,
+			noCaller,
+		);
+		expect(problems[0]?.code).toBe("memory_needs_ordinary_slot");
+	});
+
+	it("memory_needs_ordinary_slot does not fire when a parent is given — that is an ordinary private tree document", () => {
+		const problems = editDocumentInvariants(
+			{ as: "document", scopeKind: "user", slot: "skill", parent: { kind: "document", id: "p1" } },
+			null,
+			noCaller,
+		);
+		expect(problems.map((p) => p.code)).not.toContain("memory_needs_ordinary_slot");
+	});
+
+	it("memory_needs_ordinary_slot does not fire for a non-user scope", () => {
+		const problems = editDocumentInvariants(
+			{ as: "document", scopeKind: "team", scopeId: "t1", slot: "skill", title: "Note" },
+			null,
+			noCaller,
+		);
+		expect(problems.map((p) => p.code)).not.toContain("memory_needs_ordinary_slot");
+	});
+
+	it("memory_needs_ordinary_slot: an edit reaching the same shape by narrowing scope on an already-root slotted document, without touching parent/slot/as, still refuses — I10 cannot save it, since the parent never changes", () => {
+		const prev = makeRow({
+			scopeKind: "team",
+			scopeId: "team-1",
+			slot: "skill",
+			parentKind: null,
+			parentId: null,
+		});
+		expect(documentAs(prev)).toBe("document");
+		const problems = editDocumentInvariants({ id: prev.id, scopeKind: "user" }, prev, noCaller);
+		expect(problems[0]?.code).toBe("memory_needs_ordinary_slot");
+	});
+
 	it("I3 memory_scope_fixed: editing an existing memory's scope WITHOUT repeating `as` still refuses — the run function's forcing must never land silently", () => {
 		const prev = makeRow({ scopeKind: "user", scopeId: "u1", parentKind: null, slot: "ordinary" });
 		expect(documentAs(prev)).toBe("memory");
@@ -374,8 +423,8 @@ describe("documentAs — the read-side derivation", () => {
 		expect(documentAs({ parentKind: null, scopeKind: "user", slot: "ordinary" })).toBe("memory");
 	});
 
-	it("a user-scoped row with no parent is a memory regardless of slot — a memory's slot is always forced to ordinary at write time, so this only matters for a row written before that forcing existed", () => {
-		expect(documentAs({ parentKind: null, scopeKind: "user", slot: "skill" })).toBe("memory");
+	it("a user-scoped, parentless, non-ordinary-slot row is a document, not a memory — review-found defect: `documentAs` must agree with `canReadDocument`, which exempts a non-ordinary slot from the privacy check regardless of scope; a memory that were public would be a lie about what the Memories filter shows", () => {
+		expect(documentAs({ parentKind: null, scopeKind: "user", slot: "skill" })).toBe("document");
 	});
 
 	it("a user-scoped row WITH a parent is a private document, not a memory — founder decision, gate-walk finding: a note in the tree is not the same thing as a memory", () => {

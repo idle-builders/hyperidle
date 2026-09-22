@@ -322,6 +322,40 @@ describe("search_documents — the one query (architecture.md §5.1)", () => {
 			expect(rows.map((r) => r.id)).toEqual([memory.id]);
 		});
 
+		test("as: memory excludes a user-scoped, parentless row with a non-ordinary slot — review-found defect: that shape reads as PUBLIC (visibilityPredicate's non-ordinary-slot exemption), so `as` must agree and call it a document, not a memory", async ({
+			db,
+		}) => {
+			const publicShapedLikeMemory = await insertDocument(
+				db,
+				docValues({
+					id: "as-memory-public-slot",
+					scopeKind: "user",
+					scopeId: "writer-1",
+					slot: "skill",
+					parentKind: null,
+				}),
+			);
+			const memory = await insertDocument(
+				db,
+				docValues({ id: "as-memory-5", scopeKind: "user", scopeId: "writer-1", slot: "ordinary" }),
+			);
+
+			const asMemory = await searchDocumentRows(
+				db,
+				{ as: "memory" },
+				{ subjects: ["writer-1"], viewerTeamId: null },
+			);
+			expect(asMemory.map((r) => r.id)).not.toContain(publicShapedLikeMemory.id);
+			expect(asMemory.map((r) => r.id)).toEqual([memory.id]);
+
+			const asDocument = await searchDocumentRows(
+				db,
+				{ as: "document" },
+				{ subjects: ["writer-1"], viewerTeamId: null },
+			);
+			expect(asDocument.map((r) => r.id)).toContain(publicShapedLikeMemory.id);
+		});
+
 		test("as: document includes a user-scoped row that HAS a parent — a private document, not a memory (gate-walk finding, founder decision: a memory is a user-scoped row with no parent)", async ({
 			db,
 		}) => {
