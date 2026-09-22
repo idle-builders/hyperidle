@@ -348,7 +348,9 @@ describe("a human's send_message wakes an agent, whose own send_message ends the
 			const composition = buildRunOrchestrationComposition({
 				harnessRuntime: buildLiveHarnessRuntimeAdapter(mcpBridgeRegistry, enforcementRegistry),
 				returnStatusTool: { forRegistry: (registry) => returnStatusTool.forRegistry(registry) },
-				actionTools,
+				// §5: `actionTools` is a thunk now — this test's list never
+				// changes mid-run, so a constant-returning closure is enough.
+				actionTools: () => actionTools,
 			});
 
 			const result = await composition.runSession(

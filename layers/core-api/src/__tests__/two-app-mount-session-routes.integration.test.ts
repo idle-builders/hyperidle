@@ -1,17 +1,11 @@
 /**
  * AU26 B1a — the two-app mount.
  *
- * `agent-orchestration` gets its own Hono app. Four of `sessions-routes.ts`'s
- * five registrations move onto it (`GET /`, `GET /starts/:startId`,
- * `GET /:id/activity`, `PATCH /:id`); `POST /api/sessions` stays core-hosted
- * (§D-H #16). Both apps mount on the same `/api` router at their unchanged
- * paths (§D-A rule 7), so this file proves the interleaved routing shape the
- * checked-in probe (`.pipeline/work/AU26/probes/two-app-mount/poc4.ts`) predicts:
+ * `agent-orchestration` has its own Hono app, mounted beside core-api's on
+ * the same `/api` router at unchanged paths (§D-A rule 7), so this file
+ * proves the interleaved routing shape the checked-in probe
+ * (`.pipeline/work/AU26/probes/two-app-mount/poc4.ts`) predicts:
  *
- *   - every moved route still answers, with the same body, through the
- *     Application-composed instance (AC5(b));
- *   - each of them 401s without auth — the Application's middleware stack
- *     applies to the mounted sub-app (AC5(c));
  *   - `AgentOrchestrationPort.sessions.getById` returns the full wire shape
  *     (AC5(d));
  *   - the two apps do not shadow each other — zero duplicate `method + path`
@@ -25,6 +19,11 @@
  *   - PATCH /api/sessions/:id (#144 DELETE)
  *   - GET /api/agent-orchestration/sessions (#145 DELETE)
  *   - POST /api/sessions (#114 DELETE)
+ *
+ * @lore BC6: `GET /api/sessions` and `GET /api/sessions/:id/activity` are
+ * DELETED — `search_sessions`/`watch_session` are the door now
+ * (`POST /api/actions/<name>`), proven by the integrate task's seam test,
+ * not here. `routes/sessions.ts` (the file both lived in) is gone.
  */
 
 import { bootAgentOrchestration } from "@hyperidle/agent-orchestration";
@@ -136,47 +135,12 @@ describe("agent-orchestration's own app, mounted beside core-api's", () => {
 		vi.unstubAllEnvs();
 	});
 
-	describe("the relocated session routes answer through the composed app", () => {
-		test("GET /api/sessions lists, and filters by task_id", async ({ db, app }) => {
-			await seed(db);
-			const res = await app.request("/api/sessions?task_id=task-1", { headers: authHeaders() });
-			expect(res.status).toBe(200);
-			const rows = (await res.json()) as ReadonlyArray<{ id: string }>;
-			expect(rows.map((r) => r.id)).toEqual(["sess-1"]);
-
-			const none = await app.request("/api/sessions?task_id=task-nope", { headers: authHeaders() });
-			expect(await none.json()).toEqual([]);
-		});
-
-		// GET /api/sessions/starts/:startId (#142) deleted — test removed
-		// PATCH /api/sessions/:id (#144) deleted — test removed
-		// GET /api/agent-orchestration/sessions (#145) deleted — test removed
-
-		test("GET /api/sessions/:id/activity returns session metadata + entries", async ({
-			db,
-			app,
-		}) => {
-			await seed(db);
-			const res = await app.request("/api/sessions/sess-1/activity", { headers: authHeaders() });
-			expect(res.status).toBe(200);
-			expect(await res.json()).toEqual({
-				session: {
-					id: "sess-1",
-					agentId: "agent-1",
-					taskId: "task-1",
-					state: "active",
-					startedAt: NOW,
-					modelTier: "workhorse",
-				},
-				activity: [],
-			});
-
-			const missing = await app.request("/api/sessions/nope/activity", { headers: authHeaders() });
-			expect(missing.status).toBe(404);
-		});
-	});
-
+	// GET /api/sessions/starts/:startId (#142) deleted — test removed
+	// PATCH /api/sessions/:id (#144) deleted — test removed
+	// GET /api/agent-orchestration/sessions (#145) deleted — test removed
 	// POST /api/sessions (#114) deleted — test removed
+	// GET /api/sessions deleted — search_sessions is the door now
+	// GET /api/sessions/:id/activity deleted — watch_session is the door now
 
 	test("AgentOrchestrationPort.sessions.getById returns the full session wire row", async ({
 		db,
@@ -190,17 +154,14 @@ describe("agent-orchestration's own app, mounted beside core-api's", () => {
 		expect(await port.sessions.getById("nope")).toBeNull();
 	});
 
-	test("every live session route 401s without auth", async ({ db, requestWithoutAuth }) => {
+	test("the plumbing session route 401s without auth", async ({ db, requestWithoutAuth }) => {
 		await seed(db);
-		// Deleted: #114 POST /sessions, #142 GET /starts/:startId, #144 PATCH /:id, #145 GET /agent-orchestration/sessions
-		const cases: ReadonlyArray<readonly [string, string]> = [
-			["GET", "/api/sessions"],
-			["GET", "/api/sessions/sess-1/activity"],
-		];
-		for (const [method, path] of cases) {
-			const res = await requestWithoutAuth(path, { method });
-			expect(res.status, `${method} ${path}`).toBe(401);
-		}
+		// Deleted: #114 POST /sessions, #142 GET /starts/:startId, #144 PATCH /:id,
+		// #145 GET /agent-orchestration/sessions, GET /sessions, GET /sessions/:id/activity.
+		const res = await requestWithoutAuth("/api/agent-orchestration/sessions/sess-1", {
+			method: "GET",
+		});
+		expect(res.status).toBe(401);
 	});
 
 	test("the two apps do not shadow each other — zero duplicate method+path", async ({
@@ -226,8 +187,12 @@ describe("agent-orchestration's own app, mounted beside core-api's", () => {
 		expect(collisions).toEqual([]);
 
 		// …and the moved routes really are orchestration's: core alone does not serve them.
-		expect([...routeKeys(coreOnly)]).not.toContain("GET /sessions/:id/activity");
-		expect(orchKeys.has("GET /sessions/:id/activity")).toBe(true);
+		expect([...routeKeys(coreOnly)]).not.toContain("GET /agent-orchestration/sessions/:sessionId");
+		expect(orchKeys.has("GET /agent-orchestration/sessions/:sessionId")).toBe(true);
+		// orchestration's own /actions mount — stop_session resolves here,
+		// never on core's own mount.
+		expect([...routeKeys(coreOnly)]).not.toContain("POST /actions/stop_session");
+		expect(orchKeys.has("POST /actions/stop_session")).toBe(true);
 		// POST /sessions (#114) deleted — assertion removed
 		orchestration.dispose();
 	});
