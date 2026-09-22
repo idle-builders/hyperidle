@@ -61,7 +61,6 @@ function makePool(): AdapterPool {
 		new CliHarnessAdapter({
 			binary: "claude",
 			args: [],
-			envMap: {},
 			eventFormat: "text",
 			envAllowlist: [],
 		}),

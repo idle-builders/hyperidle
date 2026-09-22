@@ -18,6 +18,7 @@ import type { HarnessEvent, SessionConfig, SessionResumeConfig } from "@hyperidl
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CliAdapterConfig } from "../cli-harness-adapter.js";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
+import { cliAdapterFixture } from "./cli-adapter-fixtures.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -25,7 +26,6 @@ function makeConfig(overrides: Partial<CliAdapterConfig> = {}): CliAdapterConfig
 	return {
 		binary: "fake-tool",
 		args: ["--dir", "{{sandbox}}", "--model", "{{model}}"],
-		envMap: { MCP_URL: "{{mcpUrl}}" },
 		eventFormat: "ndjson",
 		envAllowlist: ["PATH", "HOME"],
 		...overrides,
@@ -119,15 +119,14 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 	// harness's environment. Both variables are gone — HyperIdle holds no model
 	// credential to pass on — so there is nothing left for them to resolve.
 
-	it("resolves {{mcpUrl}} in envMap", async () => {
+	it("resolves {{mcpUrl}} in args", async () => {
 		const spawnSpy = vi.fn();
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
 
 		const adapter = new CliHarnessAdapter(
 			makeConfig({
-				args: [],
-				envMap: { MCP_URL: "{{mcpUrl}}" },
+				args: ["--mcp-url", "{{mcpUrl}}"],
 				envAllowlist: [],
 			}),
 			{ spawnFn: spawnSpy },
@@ -135,19 +134,18 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 		await adapter.startSession(makeSessionConfig());
 
 		const spawnCall = spawnSpy.mock.calls[0]!;
-		const spawnEnv = spawnCall[2]?.env as Record<string, string>;
-		expect(spawnEnv["MCP_URL"]).toBe("http://localhost:3001/api/mcp/abc123token");
+		const spawnArgs = spawnCall[1] as string[];
+		expect(spawnArgs).toContain("http://localhost:3001/api/mcp/abc123token");
 	});
 
-	it("resolves {{mcpUrl}} to empty string when mcpConnectionInfo is absent", async () => {
+	it("resolves {{mcpUrl}} to empty string in args when mcpConnectionInfo is absent", async () => {
 		const spawnSpy = vi.fn();
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
 
 		const adapter = new CliHarnessAdapter(
 			makeConfig({
-				args: [],
-				envMap: { MCP_URL: "{{mcpUrl}}" },
+				args: ["--mcp-url", "{{mcpUrl}}"],
 				envAllowlist: [],
 			}),
 			{ spawnFn: spawnSpy },
@@ -156,8 +154,8 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 		await adapter.startSession(sessionConfigNoMcp);
 
 		const spawnCall = spawnSpy.mock.calls[0]!;
-		const spawnEnv = spawnCall[2]?.env as Record<string, string>;
-		expect(spawnEnv["MCP_URL"]).toBe("");
+		const spawnArgs = spawnCall[1] as string[];
+		expect(spawnArgs).toContain("");
 	});
 
 	it("drops --model flag when the agent named no model (WARNING-D1 conditional-model fix)", async () => {
@@ -173,7 +171,6 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 		const adapter = new CliHarnessAdapter(
 			makeConfig({
 				args: ["exec", "{{prompt}}", "--model", "{{model}}", "--json"],
-				envMap: {},
 				envAllowlist: [],
 			}),
 			{ spawnFn: spawnSpy },
@@ -206,7 +203,7 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 		const instruction = `Your task: build the thing\n\n${"y".repeat(500)}\n\nFinally: say DONE.`;
 
 		const adapter = new CliHarnessAdapter(
-			makeConfig({ args: ["exec", "{{prompt}}"], envMap: {}, envAllowlist: [] }),
+			makeConfig({ args: ["exec", "{{prompt}}"], envAllowlist: [] }),
 			{ spawnFn: spawnSpy },
 		);
 		await adapter.startSession(makeSessionConfig({ instruction }));
@@ -228,7 +225,7 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 		spawnSpy.mockReturnValue(fakeChild.proc);
 
 		const adapter = new CliHarnessAdapter(
-			makeConfig({ args: ["exec", "{{prompt}}"], envMap: {}, envAllowlist: [] }),
+			makeConfig({ args: ["exec", "{{prompt}}"], envAllowlist: [] }),
 			{ spawnFn: spawnSpy },
 		);
 		await adapter.startSession(
@@ -253,7 +250,6 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 		const adapter = new CliHarnessAdapter(
 			makeConfig({
 				args: ["exec", "{{prompt}}", "--model", "{{model}}", "--json"],
-				envMap: {},
 				envAllowlist: [],
 			}),
 			{ spawnFn: spawnSpy },
@@ -367,7 +363,7 @@ describe("CliHarnessAdapter startSession", () => {
 // ── Env sandboxing ────────────────────────────────────────────────────────────
 
 describe("CliHarnessAdapter env sandboxing", () => {
-	it("only includes allowlisted env vars plus resolved envMap vars", async () => {
+	it("only includes allowlisted env vars (non-listed are excluded)", async () => {
 		const spawnSpy = vi.fn();
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
@@ -381,7 +377,6 @@ describe("CliHarnessAdapter env sandboxing", () => {
 		const adapter = new CliHarnessAdapter(
 			makeConfig({
 				args: [],
-				envMap: { FAKE_MCP: "{{mcpUrl}}" },
 				envAllowlist: ["PATH"], // Only PATH is allowlisted, not HYPERIDLE_SECRET
 			}),
 			{ spawnFn: spawnSpy },
@@ -390,7 +385,6 @@ describe("CliHarnessAdapter env sandboxing", () => {
 
 		const spawnEnv = spawnSpy!.mock.calls[0]![2]?.env as Record<string, string>;
 		expect(spawnEnv["PATH"]).toBe("/usr/bin:/bin");
-		expect(spawnEnv["FAKE_MCP"]).toBe("http://localhost:3001/api/mcp/abc123token");
 		// Secret must NOT be forwarded
 		expect(spawnEnv["HYPERIDLE_SECRET"]).toBeUndefined();
 
@@ -409,10 +403,9 @@ describe("CliHarnessAdapter env sandboxing", () => {
 		spawnSpy.mockReturnValue(fakeChild.proc);
 
 		process.env["DATABASE_URL"] = "postgres://should-not-leak";
-		const adapter = new CliHarnessAdapter(
-			makeConfig({ args: [], envMap: {}, envAllowlist: ["PATH"] }),
-			{ spawnFn: spawnSpy },
-		);
+		const adapter = new CliHarnessAdapter(makeConfig({ args: [], envAllowlist: ["PATH"] }), {
+			spawnFn: spawnSpy,
+		});
 		await adapter.startSession(makeSessionConfig());
 
 		const spawnEnv = spawnSpy!.mock.calls[0]![2]?.env as Record<string, string>;
@@ -423,57 +416,15 @@ describe("CliHarnessAdapter env sandboxing", () => {
 
 // ── resumeSession env construction ───────────────────────────────────────────
 //
-// Guards that envMap is resolved the same way in resumeSession as in
-// startSession. Before this fix, resumeSession passed only extraEnv
-// (CODEX_HOME + mcpTokenEnv), silently dropping envMap.
-//
-// @lore A test here proved `{{apiKey}}` resolved on resume exactly as it did at
-// start — codex's envMap was `OPENAI_API_KEY: "{{apiKey}}"`, opencode's the
-// ANTHROPIC_API_KEY equivalent. HyperIdle holds no key to resolve any more: a
-// harness arrives already logged in and carries its own credential, so
-// `{{apiKey}}` and `{{baseUrl}}` are gone as template vars. The claim that
-// survives — envMap IS resolved on resume, and per-session specifics beat it —
-// is made below over `{{model}}`, a var that still exists.
+// @lore envMap was removed entirely (all harnesses authenticate themselves;
+// HyperIdle never injects a credential). The last envMap entry was codex's
+// OPENAI_API_KEY: "{{apiKey}}" — {{apiKey}} was never a valid TemplateVar so
+// resolveTemplates left it verbatim, passing the literal string "{{apiKey}}"
+// to every codex spawn. Tests here now cover mcpTokenEnv and the codex spawn
+// env guard (no OPENAI_API_KEY in the env handed to a codex process).
 
 describe("CliHarnessAdapter resumeSession — env construction", () => {
-	it("resolves envMap templates on resume the same way startSession does", async () => {
-		const spawnSpy = vi.fn();
-		// startSession spawn (call 0) and resumeSession spawn (call 1)
-		const fakeChild1 = makeFakeChild();
-		const fakeChild2 = makeFakeChild();
-		spawnSpy.mockReturnValueOnce(fakeChild1.proc).mockReturnValueOnce(fakeChild2.proc);
-
-		const adapter = new CliHarnessAdapter(
-			{
-				binary: "opencode",
-				// Minimal args — no templates that need a sandbox on disk.
-				args: ["run", "{{prompt}}", "--format", "json", "--pure"],
-				envMap: { MY_MODEL: "{{model}}" },
-				eventFormat: "ndjson",
-				envAllowlist: [],
-			},
-			{ spawnFn: spawnSpy },
-		);
-
-		const startConfig = makeSessionConfig({ selectedModel: "claude-haiku-4-5" });
-		await adapter.startSession(startConfig);
-
-		const startEnv = spawnSpy.mock.calls[0]![2]?.env as Record<string, string>;
-		expect(startEnv["MY_MODEL"]).toBe("claude-haiku-4-5");
-
-		// resumeSession: the model must be resolved from envMap the same way.
-		const resumeConfig: SessionResumeConfig = {
-			sandboxPath: "/fake/sandbox",
-			modelTier: "workhorse",
-			selectedModel: "claude-sonnet-4-6",
-		};
-		await adapter.resumeSession("fake-session-id", "Hello", resumeConfig);
-
-		const resumeEnv = spawnSpy.mock.calls[1]![2]?.env as Record<string, string>;
-		expect(resumeEnv["MY_MODEL"]).toBe("claude-sonnet-4-6");
-	});
-
-	it("mcpTokenEnv overrides envMap on resume (per-session specifics win)", async () => {
+	it("mcpTokenEnv vars are applied to resume spawn env", async () => {
 		const spawnSpy = vi.fn();
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
@@ -481,8 +432,7 @@ describe("CliHarnessAdapter resumeSession — env construction", () => {
 		const adapter = new CliHarnessAdapter(
 			{
 				binary: "opencode",
-				args: ["run", "{{prompt}}", "--format", "json", "--pure"],
-				envMap: { MY_TOKEN: "{{model}}" },
+				args: ["run", "{{prompt}}", "--format", "json"],
 				eventFormat: "ndjson",
 				envAllowlist: [],
 			},
@@ -492,14 +442,37 @@ describe("CliHarnessAdapter resumeSession — env construction", () => {
 		const resumeConfig: SessionResumeConfig = {
 			sandboxPath: "/fake/sandbox",
 			modelTier: "workhorse",
-			selectedModel: "from-envmap",
+			selectedModel: "any-model",
 			mcpTokenEnv: { MY_TOKEN: "from-mcpTokenEnv" },
 		};
 		await adapter.resumeSession("fake-session-id", "Hello", resumeConfig);
 
 		const resumeEnv = spawnSpy.mock.calls[0]![2]?.env as Record<string, string>;
-		// mcpTokenEnv wins over envMap.
 		expect(resumeEnv["MY_TOKEN"]).toBe("from-mcpTokenEnv");
+	});
+});
+
+// ── codex spawn env guard ─────────────────────────────────────────────────────
+//
+// Asserts that the env handed to a codex process has no OPENAI_API_KEY.
+// The production config used to carry OPENAI_API_KEY: "{{apiKey}}", but {{apiKey}}
+// was never a valid TemplateVar — resolveTemplates left it verbatim, so every
+// codex spawn received the literal string "{{apiKey}}" as its API key,
+// potentially pushing it onto API-key auth instead of its auth.json path.
+// Now envMap is deleted entirely; the guard below proves no such key leaks.
+
+describe("CliHarnessAdapter codex spawn env guard", () => {
+	it("codex spawn env has no OPENAI_API_KEY", async () => {
+		const spawnSpy = vi.fn();
+		const fakeChild = makeFakeChild();
+		spawnSpy.mockReturnValue(fakeChild.proc);
+
+		const adapter = new CliHarnessAdapter(cliAdapterFixture("codex"), { spawnFn: spawnSpy });
+		await adapter.startSession(makeSessionConfig());
+
+		const spawnEnv = spawnSpy.mock.calls[0]![2]?.env as Record<string, string>;
+		// envMap was removed; codex authenticates via auth.json, not an API key.
+		expect(spawnEnv["OPENAI_API_KEY"]).toBeUndefined();
 	});
 });
 

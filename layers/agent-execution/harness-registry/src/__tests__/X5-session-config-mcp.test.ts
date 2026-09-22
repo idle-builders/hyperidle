@@ -98,7 +98,6 @@ describe("Adapter mcpSupport capability declarations", () => {
 			{
 				binary: "aider",
 				args: [],
-				envMap: {},
 				eventFormat: "text",
 				envAllowlist: [],
 			},
@@ -141,7 +140,7 @@ describe("AC6 — conditional tool_call interception based on mcpSupport + mcpBr
 	it("CliHarnessAdapter (mcpSupport: true) does NOT intercept when bridge is active", () => {
 		const spawnSpy = vi.fn();
 		const adapter = new CliHarnessAdapter(
-			{ binary: "aider", args: [], envMap: {}, eventFormat: "text", envAllowlist: [] },
+			{ binary: "aider", args: [], eventFormat: "text", envAllowlist: [] },
 			{ spawnFn: spawnSpy },
 		);
 		const intercepts = shouldInterceptToolCalls(
@@ -154,7 +153,7 @@ describe("AC6 — conditional tool_call interception based on mcpSupport + mcpBr
 	it("CliHarnessAdapter (mcpSupport: true) DOES intercept when bridge failed (no token)", () => {
 		const spawnSpy = vi.fn();
 		const adapter = new CliHarnessAdapter(
-			{ binary: "aider", args: [], envMap: {}, eventFormat: "text", envAllowlist: [] },
+			{ binary: "aider", args: [], eventFormat: "text", envAllowlist: [] },
 			{ spawnFn: spawnSpy },
 		);
 		const intercepts = shouldInterceptToolCalls(

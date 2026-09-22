@@ -29,7 +29,6 @@ function makeConfig(overrides: Partial<CliAdapterConfig> = {}): CliAdapterConfig
 	return {
 		binary: "fake-cli",
 		args: [],
-		envMap: {},
 		eventFormat: "ndjson",
 		envAllowlist: [],
 		...overrides,

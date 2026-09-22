@@ -400,9 +400,6 @@ const CLI_TOOL_CONFIGS: Partial<Record<HarnessType, CliAdapterConfig>> = {
 		// observed to be load-bearing for this specific codex-cli precondition.
 		// No bypass flag is used here, before or after this correction.
 		args: ["exec", "--sandbox", "workspace-write", "--model", "{{model}}", "{{prompt}}", "--json"],
-		envMap: {
-			OPENAI_API_KEY: "{{apiKey}}",
-		},
 		eventFormat: "ndjson",
 		envAllowlist: ["PATH", "HOME", "LANG"],
 		// Explicit channel — avoids relying on deriveCliChannel binary-string matching.
@@ -444,12 +441,6 @@ const CLI_TOOL_CONFIGS: Partial<Record<HarnessType, CliAdapterConfig>> = {
 		// is injected by cli-harness-adapter (same pattern as CODEX_HOME) to provide the same
 		// config isolation --pure used to claim but never actually delivered.
 		args: ["run", "{{prompt}}", "--dir", "{{sandbox}}", "--format", "json", "--model", "{{model}}"],
-		// @lore opencode used to be handed a stored API key here, under whichever
-		// variable its provider reads, plus a provider block for a brought
-		// OpenAI-compatible endpoint. Both are gone: opencode authenticates through
-		// its own login like every other harness, and HyperIdle holds no model
-		// credential to pass on.
-		envMap: {},
 		// AL7 delta: changed from "text" → "ndjson" because opencode --format json emits JSONL.
 		// @lore AL7 W3: opencode JSONL events (step_finish, tool) may normalize to `unknown` via
 		// normalizeHarnessEvent until the opencode pre-map is added (T6 verify). The router capture
@@ -487,13 +478,11 @@ const CLI_TOOL_CONFIGS: Partial<Record<HarnessType, CliAdapterConfig>> = {
  * CLI adapter config for the `claude` CLI (claude-code harness type).
  *
  * Key design decisions:
- * - No ANTHROPIC_API_KEY in envMap: claude uses its own installed auth (via HOME).
- *   Injecting our key would shadow the user's configured auth and break the
- *   intended "installed harness brings its own credentials" pattern (mirrors
- *   codex reading ~/.codex/auth.json — we don't inject OpenAI keys there either).
- * @lore claude-cli-adapter: envMap is empty intentionally — claude authenticates
- * via ~/.claude/ credentials installed by `claude login`. Injecting ANTHROPIC_API_KEY
- * would shadow the user's configured auth, potentially breaking enterprise/SSO setups.
+ * - No API key injection: claude uses its own installed auth (via HOME).
+ *   Every harness authenticates itself; HyperIdle injects no credential.
+ * @lore claude-cli-adapter: claude authenticates via ~/.claude/ credentials
+ * installed by `claude login`. envMap was removed — all harnesses bring their own
+ * credentials and no injected key could help.
  * - returnEnforcementChannel: "settings-claude" — provisionReturnHook writes
  *   .claude/settings.json + return-check.sh Stop hook before the subprocess starts.
  * - eventDialect: "claude-stream-json" — triggers preMapClaudeEvent pre-map in
@@ -537,8 +526,6 @@ const CLAUDE_CLI_CONFIG: CliAdapterConfig = {
 		"--settings",
 		".claude/settings.json",
 	],
-	// No API key injection — claude uses its own installed auth via HOME.
-	envMap: {},
 	eventFormat: "ndjson",
 	// PATH + HOME needed for binary resolution and credential loading.
 	// LANG for locale-sensitive output correctness.
@@ -561,7 +548,7 @@ const CLAUDE_CLI_CONFIG: CliAdapterConfig = {
  *
  * @lore AW1: cursor-agent exposes headless `--print --output-format stream-json`
  * with the same event shapes as claude (assistant/result/system). Auth is inherited
- * via Cursor login — no API key in envMap. `--trust` + `--approve-mcps` allow
+ * via Cursor login — no API key injection. `--trust` + `--approve-mcps` allow
  * headless workspace + MCP without interactive prompts.
  */
 const CURSOR_AGENT_CLI_CONFIG: CliAdapterConfig = {
@@ -577,7 +564,6 @@ const CURSOR_AGENT_CLI_CONFIG: CliAdapterConfig = {
 		"--trust",
 		"--approve-mcps",
 	],
-	envMap: {},
 	eventFormat: "ndjson",
 	envAllowlist: ["PATH", "HOME", "LANG", "USER", "LOGNAME"],
 	// @lore BA2: back to the true floor. This briefly said "settings-cursor", a

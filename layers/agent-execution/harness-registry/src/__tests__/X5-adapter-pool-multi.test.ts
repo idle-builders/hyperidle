@@ -123,7 +123,6 @@ describe("AC7 — new adapters can be added via register() only", () => {
 			{
 				binary: "opencode",
 				args: ["--dir", "{{sandbox}}"],
-				envMap: { ANTHROPIC_API_KEY: "{{apiKey}}" },
 				eventFormat: "text",
 				envAllowlist: ["PATH", "HOME"],
 			},

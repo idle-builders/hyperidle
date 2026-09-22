@@ -32,7 +32,6 @@ function makePool(): AdapterPool {
 		new CliHarnessAdapter({
 			binary: "codex",
 			args: [],
-			envMap: {},
 			eventFormat: "ndjson",
 			envAllowlist: [],
 		}),

@@ -75,8 +75,11 @@ describe("CLAUDE_CLI_CONFIG shape", () => {
 		expect(CLAUDE_CLI_CONFIG.eventDialect).toBe("claude-stream-json");
 	});
 
-	it("envMap is empty — claude uses its own installed auth via HOME", () => {
-		expect(CLAUDE_CLI_CONFIG.envMap).toEqual({});
+	it("claude has no envMap — authenticates via its own installed auth", () => {
+		// @lore envMap was removed from CliAdapterConfig. claude authenticates via
+		// ~/.claude/ credentials; no API key is injected by HyperIdle.
+		// Verify no envMap property exists on the config.
+		expect("envMap" in CLAUDE_CLI_CONFIG).toBe(false);
 	});
 
 	it("envAllowlist includes PATH, HOME, LANG, USER, LOGNAME", () => {

@@ -43,7 +43,6 @@ function makeAH2Pool(): AdapterPool {
 		new CliHarnessAdapter({
 			binary: "claude",
 			args: [],
-			envMap: {},
 			eventFormat: "text",
 			envAllowlist: [],
 		}),

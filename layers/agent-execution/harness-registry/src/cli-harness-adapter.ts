@@ -59,7 +59,7 @@ function createIsolatedEnforcementRegistry(): EnforcementRegistry {
  */
 
 /**
- * Template variable names used in args and envMap.
+ * Template variable names used in args.
  * @lore AK1: {{workspace}} renamed to {{sandbox}} in AK1 harness-vocab rename.
  * @lore {{prompt}} added for per-session seed prompt carrier (codex exec).
  */
@@ -89,18 +89,11 @@ interface CliAdapterConfig {
 	 * {{sandbox}}, {{model}}, {{mcpUrl}}.
 	 */
 	readonly args: readonly string[];
-	/**
-	 * Environment variable mappings. Values may use the same template variables.
-	 * These are merged with the allowlisted host env vars.
-	 */
-	readonly envMap: Readonly<Record<string, string>>;
-	// @lore Two fields stood here: `credentialEnvByProvider`, which put a stored
-	// API key into the subprocess under its own provider's variable name, and
-	// `customEndpointProvider`, which declared a brought OpenAI-compatible
-	// endpoint in the harness's own config file. Both existed so someone could
-	// bring a key and have a harness run on it. That is not a thing any more —
-	// the harness is what you bring, and the key lives in its own login. HyperIdle
-	// stores no model credential, so there is nothing left to inject.
+	// @lore envMap stood here: a Record<string,string> of env var templates resolved
+	// into the sandboxed env. Its last entry was codex's OPENAI_API_KEY: "{{apiKey}}",
+	// dead plumbing — {{apiKey}} was never a valid TemplateVar so resolveTemplates left
+	// it verbatim, and every spawned codex received the literal string "{{apiKey}}" as
+	// its API key. envMap and its startSession/resumeSession processing loops are gone.
 
 	/**
 	 * How to interpret stdout lines.
@@ -334,7 +327,7 @@ function resolveTemplates(template: string, vars: Record<TemplateVar, string>): 
 	return result;
 }
 
-/** Build the sandboxed environment from allowlist + resolved envMap. */
+/** Build the sandboxed environment from allowlist + per-session env. */
 function buildSandboxedEnv(
 	allowlist: readonly string[],
 	resolvedEnvMap: Record<string, string>,
@@ -568,17 +561,12 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		const optionArgv = modelOptionArgv(deriveHarnessType(this.config.binary), config.modelOptions);
 		if (optionArgv.length > 0) resolvedArgs = [...resolvedArgs, ...optionArgv];
 
-		// Resolve envMap
-		const resolvedEnvMap: Record<string, string> = {};
-		for (const [key, value] of Object.entries(this.config.envMap)) {
-			resolvedEnvMap[key] = resolveTemplates(value, templateVars);
-		}
+		// @lore No API key is injected into a harness, ever. Blocks stood here that put
+		// a stored key under its provider's variable name and wrote a brought endpoint
+		// into the harness's own config file. A harness authenticates itself; an
+		// injected key can shadow the login the person already has rather than help it.
 
-		// @lore No API key is injected into a harness, ever. Two blocks stood here —
-		// one putting a stored key under its provider's variable name, one writing a
-		// brought endpoint into the harness's own config file. A harness
-		// authenticates itself, and an injected key can shadow the login the person
-		// already has rather than help it.
+		const resolvedEnvMap: Record<string, string> = {};
 
 		// ── Per-session CODEX_HOME injection.
 		//
@@ -1211,28 +1199,8 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			}
 		}
 
-		// ── Resolve envMap the same way startSession does.
-		//
-		// startSession builds resolvedEnvMap from this.config.envMap with template
-		// vars resolved against the session's config. resumeSession was previously
-		// passing only extraEnv (CODEX_HOME + mcpTokenEnv), silently dropping envMap
-		// entries. extraEnv entries override (they are per-session specifics that
-		// take precedence over the template).
-		//
-		// {{mcpUrl}} and {{prompt}} are not meaningful at resume time and resolve
-		// to empty string, which is safe — neither appears in any production envMap.
-		const resumeTemplateVars: Record<TemplateVar, string> = {
-			"{{sandbox}}": config.sandboxPath,
-			"{{model}}": config.selectedModel ?? "",
-			"{{mcpUrl}}": "",
-			"{{prompt}}": "",
-		};
+		// Build resolvedEnvMap from extraEnv (CODEX_HOME, mcpTokenEnv, etc.).
 		const resolvedEnvMap: Record<string, string> = {};
-		for (const [key, value] of Object.entries(this.config.envMap)) {
-			resolvedEnvMap[key] = resolveTemplates(value, resumeTemplateVars);
-		}
-		// extraEnv (CODEX_HOME, mcpTokenEnv) takes precedence over the template-resolved
-		// envMap entries — per-session specifics win over the credential template.
 		for (const [k, v] of Object.entries(extraEnv)) {
 			resolvedEnvMap[k] = v;
 		}
