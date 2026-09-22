@@ -235,13 +235,6 @@ export {
 	CONNECTION_HEALTH,
 	HELD_AUTH_SOURCES,
 } from "./connection.js";
-export type { CredentialName, CredentialState } from "./credential.js";
-export {
-	CREDENTIAL_CATALOG,
-	CREDENTIAL_NAMES,
-	CREDENTIAL_STATES,
-	isCredentialName,
-} from "./credential.js";
 export {
 	ASSISTANT_TURN_TIMEOUT_MS,
 	CapacityExceededError,

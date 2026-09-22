@@ -28,6 +28,9 @@ interface WorkerStatus {
 	modelProviders: string[];
 }
 
+/** The one credential name the desktop bridge accepts. */
+const SHARED_BACKEND_KEY_NAME = "shared_backend_key";
+
 function isElectron(): boolean {
 	return typeof window !== "undefined" && window.__HYPERIDLE__ !== undefined;
 }
@@ -77,6 +80,11 @@ export function SettingsWorker(): JSX.Element {
 
 	const [status, setStatus] = useState<WorkerStatus>(DEFAULT_STATUS);
 	const [maxConcurrent, setMaxConcurrent] = useState(1);
+	const [sharedKeyInput, setSharedKeyInput] = useState("");
+	const [sharedKeyResult, setSharedKeyResult] = useState<{
+		stored: boolean;
+		warning?: string;
+	} | null>(null);
 
 	// Load initial status and subscribe to changes (shared mode only)
 	useEffect(() => {
@@ -152,8 +160,52 @@ export function SettingsWorker(): JSX.Element {
 		setStatus((s) => ({ ...s, paused: false }));
 	};
 
+	// @lore The field is write-only: it calls credentials.set and shows the
+	// {stored, warning} result, and never reads the key back. The worker
+	// reads the same encrypted file directly (main.ts's readCredentialFromStore)
+	// on the next worker:enable, so this is the only place the key is entered.
+	const handleSaveSharedKey = async (): Promise<void> => {
+		const credentials = window.__HYPERIDLE__?.credentials;
+		if (!credentials) return;
+		const result = await credentials.set(SHARED_BACKEND_KEY_NAME, sharedKeyInput);
+		setSharedKeyResult(result);
+	};
+
 	return (
 		<div className="flex flex-col gap-[18px]">
+			{/* Shared backend key */}
+			<div className="flex flex-col gap-[9px]">
+				<div className="flex items-end gap-[9px]">
+					<div className="w-[240px]">
+						<Input
+							type="password"
+							label="Shared backend key"
+							value={sharedKeyInput}
+							onChange={(e) => setSharedKeyInput(e.target.value)}
+						/>
+					</div>
+					<Button
+						variant="ghost"
+						size="sm"
+						onClick={() => void handleSaveSharedKey()}
+						disabled={!sharedKeyInput}
+					>
+						Save key
+					</Button>
+				</div>
+				{sharedKeyResult && (
+					<p
+						className={`type-metadata  ${
+							sharedKeyResult.stored
+								? "text-[var(--status-success)]"
+								: "text-[var(--status-warning)]"
+						}`}
+					>
+						{sharedKeyResult.warning ?? "Key stored."}
+					</p>
+				)}
+			</div>
+
 			{/* Toggle */}
 			<Toggle
 				on={status.enabled}

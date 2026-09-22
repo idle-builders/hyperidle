@@ -17,16 +17,8 @@ contextBridge.exposeInMainWorld("__HYPERIDLE__", {
 	backendMode: (process.argv.find((a: string) => a.startsWith("--backend-mode="))?.split("=")[1] ??
 		null) as "local" | "shared" | null,
 	credentials: {
-		list: (): Promise<string[]> => ipcRenderer.invoke("credentials:list"),
-		get: (name: string): Promise<string | null> => ipcRenderer.invoke("credentials:get", name),
 		set: (name: string, value: string): Promise<{ stored: boolean; warning?: string }> =>
 			ipcRenderer.invoke("credentials:set", name, value),
-		delete: (name: string): Promise<void> => ipcRenderer.invoke("credentials:delete", name),
-		isEncryptionAvailable: (): Promise<boolean> =>
-			ipcRenderer.invoke("credentials:encryption-available"),
-		status: (): Promise<Record<string, string>> => ipcRenderer.invoke("credentials:status"),
-		validate: (name: string): Promise<{ valid: boolean; error?: string }> =>
-			ipcRenderer.invoke("credentials:validate", name),
 	},
 	shell: {
 		openLogs: (): Promise<void> => ipcRenderer.invoke("shell:open-logs"),
