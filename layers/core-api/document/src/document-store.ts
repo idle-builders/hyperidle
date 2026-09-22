@@ -384,22 +384,31 @@ function visibilityPredicate(subjects: readonly string[], viewerTeamId: string |
 
 /**
  * `as` translated to predicates, never a post-filter (architecture.md §3.6).
- * `parentKind` is nullable, so the `document` arm's negation is written with
- * an explicit `isNull` branch — `NOT(parent_kind IN (...))` alone evaluates
- * to SQL NULL (excluded) for a NULL `parent_kind`, which would wrongly drop
- * every root-level document from its own `as` filter.
+ * `parentKind` is nullable, so `notArtifact` is written with an explicit
+ * `isNull` branch — `NOT(parent_kind IN (...))` alone evaluates to SQL NULL
+ * (excluded) for a NULL `parent_kind`, which would wrongly drop every
+ * root-level document from its own `as` filter. Shared by the `memory` and
+ * `document` arms below — `documentAs` (architecture.md §3.6) checks
+ * `parentKind` before `scopeKind`/`slot`, so both predicates must apply the
+ * same exclusion first, or a task/thread-parented, user-scoped row would
+ * answer both `as:"artifact"` and `as:"memory"`.
  */
+const notArtifact = or(
+	isNull(documents.parentKind),
+	not(inArray(documents.parentKind, ["task", "thread"])),
+) as SQL;
+
 function asPredicate(as: DocumentAs): SQL {
 	switch (as) {
 		case "artifact":
 			return inArray(documents.parentKind, ["task", "thread"]);
 		case "memory":
-			return and(eq(documents.scopeKind, "user"), eq(documents.slot, "ordinary")) as SQL;
-		case "document": {
-			const notArtifact = or(
-				isNull(documents.parentKind),
-				not(inArray(documents.parentKind, ["task", "thread"])),
+			return and(
+				notArtifact,
+				eq(documents.scopeKind, "user"),
+				eq(documents.slot, "ordinary"),
 			) as SQL;
+		case "document": {
 			const notMemory = not(
 				and(eq(documents.scopeKind, "user"), eq(documents.slot, "ordinary")) as SQL,
 			);

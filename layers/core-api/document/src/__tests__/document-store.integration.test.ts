@@ -280,6 +280,35 @@ describe("search_documents — the one query (architecture.md §5.1)", () => {
 			expect(rows.map((r) => r.id)).toEqual([memory.id]);
 		});
 
+		test("as: memory excludes a user-scoped, ordinary-slot row that is ALSO task-parented — an artifact, not a memory", async ({
+			db,
+		}) => {
+			const artifactShapedLikeMemory = await insertDocument(
+				db,
+				docValues({
+					id: "as-memory-artifact-shape",
+					scopeKind: "user",
+					scopeId: "writer-1",
+					slot: "ordinary",
+					parentKind: "task",
+					parentId: "task-1",
+				}),
+			);
+			const memory = await insertDocument(
+				db,
+				docValues({ id: "as-memory-4", scopeKind: "user", scopeId: "writer-1", slot: "ordinary" }),
+			);
+
+			const rows = await searchDocumentRows(
+				db,
+				{ as: "memory" },
+				{ subjects: ["writer-1"], viewerTeamId: null },
+			);
+
+			expect(rows.map((r) => r.id)).not.toContain(artifactShapedLikeMemory.id);
+			expect(rows.map((r) => r.id)).toEqual([memory.id]);
+		});
+
 		test("as: document matches everything else, including a NULL-parent root", async ({ db }) => {
 			await insertDocument(
 				db,
