@@ -189,7 +189,7 @@ export interface AgentOrchestrationRunsPort {
 
 /** Mirrors `AgentRunConfig` (`@hyperidle/agent-run-config`). */
 export interface AgentOrchestrationRunConfigView {
-	// The agent's identity is NOT here. It is the `agent_file` knowledge document
+	// The agent's identity is NOT here. It is the `agent_file` document
 	// bound to the agent (scope_kind='user', scope_id = the agent's id), edited
 	// like any other document. Run config is how an agent runs; the identity is
 	// who it is, and it stopped being a column so a plugin could contribute one.
