@@ -397,7 +397,12 @@ export function createRoutineRoutes(
 			);
 		}
 
-		const ctx: ActionContext = { actor: c.get("userId"), db, eventBus, now };
+		// `internal: true` — this route is the system that is allowed to
+		// attach a document to a routine (`parent.kind:"routine"`,
+		// `edit_document`'s `forbidden_parent_kind` invariant); the routine id
+		// a prompt document parents to always comes from this route's own URL
+		// param or its own just-inserted row, never from raw client input.
+		const ctx: ActionContext = { actor: c.get("userId"), db, eventBus, now, internal: true };
 		if (body.prompt) {
 			await createRoutinePromptDocument(ctx, editDocument, {
 				routineId,
@@ -424,11 +429,14 @@ export function createRoutineRoutes(
 		// The row no longer carries the prompt text — resolve it from each
 		// routine's document, same as GET/POST/PATCH, so all four responses
 		// agree on shape. One batched read, not one per routine.
+		// `internal: true` — see the single-line `ctxFor` sites above; this
+		// route is the system caller allowed to name a `routine` parent.
 		const ctx: ActionContext = {
 			actor: c.get("userId"),
 			db,
 			eventBus,
 			now: new Date().toISOString(),
+			internal: true,
 		};
 		const prompts = await readRoutinePromptBodies(
 			ctx,
@@ -467,7 +475,12 @@ export function createRoutineRoutes(
 		//
 		// Archived, not hard-deleted: `changes` holds a RESTRICT FK on
 		// `documents.id`, and the audit trail outlives its subject.
-		const ctx: ActionContext = { actor: c.get("userId"), db, eventBus, now };
+		// `internal: true` — this route is the system that is allowed to
+		// attach a document to a routine (`parent.kind:"routine"`,
+		// `edit_document`'s `forbidden_parent_kind` invariant); the routine id
+		// a prompt document parents to always comes from this route's own URL
+		// param or its own just-inserted row, never from raw client input.
+		const ctx: ActionContext = { actor: c.get("userId"), db, eventBus, now, internal: true };
 		await archiveRoutineDocuments(ctx, searchDocuments, editDocument, routineId);
 
 		return c.json({ deleted: true, deletedAt: now });
@@ -519,11 +532,14 @@ export function createRoutineRoutes(
 			};
 		});
 
+		// `internal: true` — see the single-line `ctxFor` sites above; this
+		// route is the system caller allowed to name a `routine` parent.
 		const ctx: ActionContext = {
 			actor: c.get("userId"),
 			db,
 			eventBus,
 			now: new Date().toISOString(),
+			internal: true,
 		};
 		const routineInfo: RoutineInfo = {
 			id: routine.id,
@@ -597,11 +613,14 @@ export function createRoutineRoutes(
 		if (body.silent !== undefined) updates.silent = body.silent;
 		// AA1: extended fields
 		if (body.name !== undefined) updates.name = body.name;
+		// `internal: true` — see the single-line `ctxFor` sites above; this
+		// route is the system caller allowed to name a `routine` parent.
 		const ctx: ActionContext = {
 			actor: c.get("userId"),
 			db,
 			eventBus,
 			now: new Date().toISOString(),
+			internal: true,
 		};
 		if (body.prompt !== undefined) {
 			// Write through to the document. A routine that never had a prompt gets

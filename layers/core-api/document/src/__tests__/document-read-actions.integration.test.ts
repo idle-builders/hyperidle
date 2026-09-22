@@ -99,6 +99,9 @@ function readOnlyDeps(): DocumentActionsDeps {
 		openParent: async () => {
 			throw new Error("the read half never calls openParent");
 		},
+		systemParentExists: async () => {
+			throw new Error("the read half never calls systemParentExists");
+		},
 		onBodyChanged: async () => {
 			throw new Error("the read half never calls onBodyChanged");
 		},

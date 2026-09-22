@@ -166,6 +166,42 @@ describe("editDocumentInvariants", () => {
 		const prev = makeRow();
 		expect(editDocumentInvariants({ id: prev.id, title: "Renamed" }, prev, noCaller)).toEqual([]);
 	});
+
+	it("forbidden_parent_kind: a non-internal caller names an agent parent", () => {
+		const problems = editDocumentInvariants(
+			{ title: "Identity", parent: { kind: "agent", id: "a1" } },
+			null,
+			noCaller,
+		);
+		expect(problems[0]?.code).toBe("forbidden_parent_kind");
+	});
+
+	it("forbidden_parent_kind: a non-internal caller names a routine parent", () => {
+		const problems = editDocumentInvariants(
+			{ title: "Prompt", parent: { kind: "routine", id: "r1" } },
+			null,
+			noCaller,
+		);
+		expect(problems[0]?.code).toBe("forbidden_parent_kind");
+	});
+
+	it("forbidden_parent_kind does not fire for an internal caller", () => {
+		const problems = editDocumentInvariants(
+			{ title: "Identity", parent: { kind: "agent", id: "a1" } },
+			null,
+			{ ...noCaller, internal: true },
+		);
+		expect(problems.map((p) => p.code)).not.toContain("forbidden_parent_kind");
+	});
+
+	it("forbidden_parent_kind does not fire for a client-writable parent kind (document/task/thread)", () => {
+		const problems = editDocumentInvariants(
+			{ title: "Note", parent: { kind: "document", id: "d1" } },
+			null,
+			noCaller,
+		);
+		expect(problems.map((p) => p.code)).not.toContain("forbidden_parent_kind");
+	});
 });
 
 describe("searchDocumentsInvariants", () => {
@@ -213,10 +249,13 @@ describe("combined cases (pure half)", () => {
 
 	it("case 2: a move of a slotted document is refused by I10 before D5 is ever consulted", () => {
 		const prev = makeRow({ slot: "prompt" });
+		// `internal: true` — a routine parent is internal-only
+		// (`forbidden_parent_kind`); this case is about I10 firing before D5,
+		// not about who may name a routine.
 		const problems = editDocumentInvariants(
 			{ id: prev.id, parent: { kind: "routine", id: "r1" } },
 			prev,
-			noCaller,
+			{ ...noCaller, internal: true },
 		);
 		expect(problems[0]?.code).toBe("slotted_document_cannot_move");
 		expect(problems.map((p) => p.code)).not.toContain("slot_taken");

@@ -136,14 +136,24 @@ export interface PluginListResponse {
 // ---------------------------------------------------------------------------
 
 /** The `ActionContext` every document action call in this file shares — the
- * requesting person is the actor, in-process, same as every other Action. */
+ * requesting person is the actor, in-process, same as every other Action.
+ * `internal: true` — a plugin's manifest, not the request body, decides a
+ * contributed document's parent kind (`edit_document`'s `forbidden_parent_kind`
+ * invariant refuses a client-named `agent`/`routine` parent; a plugin install
+ * can legitimately contribute an agent identity or a routine prompt). */
 function ctxFor(
 	c: Context<HyperIdleEnv>,
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	now?: string,
 ): ActionContext {
-	return { actor: c.get("userId"), db, eventBus, now: now ?? new Date().toISOString() };
+	return {
+		actor: c.get("userId"),
+		db,
+		eventBus,
+		now: now ?? new Date().toISOString(),
+		internal: true,
+	};
 }
 
 /**

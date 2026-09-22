@@ -22,6 +22,7 @@ import type {
 	ThreadView,
 } from "@hyperidle/domain-model";
 import { getTeam } from "@hyperidle/org";
+import { getRoutine } from "@hyperidle/routine";
 import { markDetached, readServerConfig } from "@hyperidle/settings";
 import { createTaskActions, type TaskActionsDeps } from "@hyperidle/task";
 import { createThreadActions, type ThreadActionsDeps } from "@hyperidle/thread";
@@ -167,6 +168,18 @@ function buildOpenParent(
 }
 
 /**
+ * `document`'s `systemParentExists` port — existence of an `agent`/`routine`
+ * parent, asked only on the internal path (`ctx.internal`). An agent is a
+ * `users` row (the same read `deps.users.getUserById` already wraps); a
+ * routine is `@hyperidle/routine`'s own `getRoutine`, already imported by
+ * this layer's `routines-routes.ts`.
+ */
+const systemParentExists: DocumentActionsDeps["systemParentExists"] = async (exec, kind, id) => {
+	if (kind === "agent") return (await findUser(exec, { id })) !== undefined;
+	return (await getRoutine(exec, id)) !== undefined;
+};
+
+/**
  * `document`'s deps (architecture.md §8.1, §7). `wsPush` binds here — the
  * websocket nudge — the same optional pass-through `buildThreadActionsDeps`
  * already does; `createDocumentActions`'s own `pushChanges` no-ops when it is
@@ -185,6 +198,7 @@ function buildDocumentActionsDeps(
 		},
 		org: { getTeam: (exec, q) => getTeam(exec, q) },
 		openParent: buildOpenParent(taskActions, threadActions),
+		systemParentExists,
 		// O1(b): bound to the settings package's contribution tracker — a
 		// document's `body` changing detaches it from the plugin that seeded
 		// it, the same event `routes/knowledge.ts:666` (pre-item) raised.
@@ -256,6 +270,7 @@ function buildStandaloneDocumentActions(): readonly Action[] {
 				"buildStandaloneDocumentActions: openParent is unreachable — this composition never parents a document to a task or thread",
 			);
 		},
+		systemParentExists,
 		onBodyChanged: (exec, documentId) =>
 			markDetached(exec, { kind: "document", entityId: documentId, ts: new Date().toISOString() }),
 	}) as readonly Action[];

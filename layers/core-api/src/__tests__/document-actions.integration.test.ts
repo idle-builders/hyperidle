@@ -23,12 +23,14 @@ import {
 } from "@hyperidle/db";
 import type { DocumentRow, DocumentView, SearchDocumentsInput } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
+import { insertRoutine } from "@hyperidle/routine";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
-import type { Action } from "../actions/action.js";
+import type { Action, ActionContext } from "../actions/action.js";
 import { actionsAsTools } from "../actions/actions-as-tools.js";
 import { buildCoreActions } from "../actions/compose.js";
+import { type AgentIdentityDeps, createAgentIdentityPort } from "../routes/agent-identity.js";
 
 const TEST_API_KEY = "test-key-document-actions";
 
@@ -109,6 +111,31 @@ async function callAgent<T>(
 	return result.success
 		? { ok: true, data: result.data as T }
 		: { ok: false, problemCode: result.code };
+}
+
+/**
+ * The internal-caller path — review finding: only a system-initiated call
+ * (the routines route, the agent identity helper, the plugin installer) may
+ * name an `agent`/`routine` parent through `edit_document`. Neither client
+ * door (`callHuman`/`callAgent`) can reach it any more; this simulates the
+ * same in-process binding those composition roots use by hand-setting
+ * `ctx.internal` before calling the action's `run` directly.
+ */
+async function callInternal<T>(
+	actions: readonly Action[],
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	name: string,
+	body: Record<string, unknown>,
+	actor: string,
+): Promise<DoorResult<T>> {
+	const action = actions.find((a) => a.declaration.name === name);
+	if (!action) throw new Error(`no "${name}" action`);
+	const ctx: ActionContext = { actor, db, eventBus, now: new Date().toISOString(), internal: true };
+	const result = await action.run(ctx, body);
+	return result.ok
+		? { ok: true, data: result.data as T }
+		: { ok: false, problemCode: result.problems[0]?.code };
 }
 
 function buildRealActions(agentOrchestration: AgentOrchestrationPort): readonly Action[] {
@@ -209,6 +236,20 @@ async function seedTaskWithThread(db: HyperIdleDb, taskId: string, teamId: strin
 		threadId,
 		createdAt: now,
 		updatedAt: now,
+	});
+}
+
+/** A real routine row — `edit_document`'s internal path checks a named
+ * `routine` parent actually exists (`deps.systemParentExists`). */
+async function seedRoutine(db: HyperIdleDb, id: string, ownerAgentId: string): Promise<void> {
+	await insertRoutine(db, {
+		id,
+		name: id,
+		ownerAgentId,
+		triggerType: "event",
+		state: "active",
+		active: true,
+		createdAt: new Date().toISOString(),
 	});
 }
 
@@ -584,11 +625,7 @@ describe("case 5 — a tree: ancestors root-first, ordered children, siblings ex
 // ---------------------------------------------------------------------------
 
 describe("case 5b — ancestors are filtered through the viewer's own visibility", () => {
-	test("a cross-team ancestor is absent from the path, exact length", async ({
-		app,
-		db,
-		eventBus,
-	}) => {
+	test("a cross-team ancestor is absent from the path, exact length", async ({ app, db }) => {
 		await seedTeam(db, "c5b-a");
 		await seedTeam(db, "c5b-b");
 		await seedHuman(db, "c5b-b-owner", "c5b-b");
@@ -644,6 +681,7 @@ describe("case 6 — search_documents({inTree:true}) excludes artifacts and slot
 		await seedTeam(db, "c6");
 		await seedTaskWithThread(db, "c6-task-1", "c6");
 		await seedAgent(db, "c6-agent");
+		await seedRoutine(db, "c6-routine-1", "c6-agent");
 		const actions = buildRealActions(agentOrchestration);
 		const doors = buildDoors(app, actions, db, eventBus, {
 			agentId: "c6-agent",
@@ -658,14 +696,18 @@ describe("case 6 — search_documents({inTree:true}) excludes artifacts and slot
 				})
 			).agent,
 		).document.id;
+		// A routine parent is internal-only (`forbidden_parent_kind`) — seeded
+		// through the internal path, the same in-process binding the routines
+		// route uses, never through a client door.
 		const prompt = requireDoc(
-			(
-				await doors.edit({
-					title: "c6-prompt",
-					slot: "prompt",
-					parent: { kind: "routine", id: "c6-routine-1" },
-				})
-			).human,
+			await callInternal<DocumentView>(
+				actions,
+				db,
+				eventBus,
+				"edit_document",
+				{ title: "c6-prompt", slot: "prompt", parent: { kind: "routine", id: "c6-routine-1" } },
+				FOUNDER_ID,
+			),
 		).document.id;
 
 		const { human, agent } = await doors.search({ inTree: true });
@@ -754,35 +796,36 @@ describe("case 8 — a batched parent.ids search returns one row per routine", (
 	}) => {
 		await seedTeam(db, "c8");
 		await seedAgent(db, "c8-agent");
+		await seedRoutine(db, "c8-routine-a", "c8-agent");
+		await seedRoutine(db, "c8-routine-b", "c8-agent");
 		const actions = buildRealActions(agentOrchestration);
 		const doors = buildDoors(app, actions, db, eventBus, {
 			agentId: "c8-agent",
 			sessionId: "c8-sess",
 		});
 
-		// Two distinct doors creating on two distinct routine parents — never
-		// `doors.edit` here, which would run BOTH doors against the SAME body
-		// and collide on the same (parent, slot) once the second call's own
-		// discarded arm and its kept arm target the same routine.
+		// A routine parent is internal-only (`forbidden_parent_kind`) — both
+		// seeded through the internal path (the same in-process binding the
+		// routines route uses), on two distinct routine parents so the second
+		// write never collides with the first on the same (parent, slot).
 		const a = requireDoc(
-			await callHuman<DocumentView>(app, "edit_document", {
-				title: "prompt-a",
-				slot: "prompt",
-				parent: { kind: "routine", id: "c8-routine-a" },
-			}),
-		).document.id;
-		const b = requireDoc(
-			await callAgent<DocumentView>(
+			await callInternal<DocumentView>(
 				actions,
 				db,
 				eventBus,
 				"edit_document",
-				{
-					title: "prompt-b",
-					slot: "prompt",
-					parent: { kind: "routine", id: "c8-routine-b" },
-				},
-				{ agentId: "c8-agent", sessionId: "c8-sess" },
+				{ title: "prompt-a", slot: "prompt", parent: { kind: "routine", id: "c8-routine-a" } },
+				FOUNDER_ID,
+			),
+		).document.id;
+		const b = requireDoc(
+			await callInternal<DocumentView>(
+				actions,
+				db,
+				eventBus,
+				"edit_document",
+				{ title: "prompt-b", slot: "prompt", parent: { kind: "routine", id: "c8-routine-b" } },
+				"c8-agent",
 			),
 		).document.id;
 
@@ -1263,30 +1306,34 @@ describe("case 9 — every §4.1/§4.2 invariant, exact code, both doors", () =>
 	}, 30_000);
 
 	test('D5 slot_taken: a second "prompt" on one routine', async ({
-		app,
 		db,
 		eventBus,
 		agentOrchestration,
 	}) => {
 		await seedTeam(db, "c9d5");
 		await seedAgent(db, "c9d5-agent");
+		await seedRoutine(db, "c9d5-routine", "c9d5-agent");
 		const actions = buildRealActions(agentOrchestration);
-		const doors = buildDoors(app, actions, db, eventBus, {
-			agentId: "c9d5-agent",
-			sessionId: "c9d5-sess",
-		});
-		await doors.edit({
-			title: "first prompt",
-			slot: "prompt",
-			parent: { kind: "routine", id: "c9d5-routine" },
-		});
-		const { human, agent } = await doors.edit({
-			title: "second prompt",
-			slot: "prompt",
-			parent: { kind: "routine", id: "c9d5-routine" },
-		});
-		expect(human.problemCode).toBe("slot_taken");
-		expect(agent.problemCode).toBe("slot_taken");
+		// A routine parent is internal-only (`forbidden_parent_kind`) — D5
+		// itself is about the slot, not about who called, so this simulates the
+		// routines route's own in-process binding rather than a client door.
+		await callInternal<DocumentView>(
+			actions,
+			db,
+			eventBus,
+			"edit_document",
+			{ title: "first prompt", slot: "prompt", parent: { kind: "routine", id: "c9d5-routine" } },
+			FOUNDER_ID,
+		);
+		const second = await callInternal<DocumentView>(
+			actions,
+			db,
+			eventBus,
+			"edit_document",
+			{ title: "second prompt", slot: "prompt", parent: { kind: "routine", id: "c9d5-routine" } },
+			FOUNDER_ID,
+		);
+		expect(second.problemCode).toBe("slot_taken");
 	});
 
 	test("D6 scope_too_wide: a factory child under a team parent", async ({
@@ -1427,6 +1474,117 @@ describe("case 9 — every §4.1/§4.2 invariant, exact code, both doors", () =>
 });
 
 // ---------------------------------------------------------------------------
+// Case 9b — forbidden_parent_kind (review finding): only a system-initiated
+// call may name an `agent`/`routine` parent through `edit_document`. Both
+// client doors refused; the internal path (the identity helper, the routines
+// route) is unaffected and a missing routine on that path still answers
+// parent_not_found.
+// ---------------------------------------------------------------------------
+
+describe("case 9b — forbidden_parent_kind: only the system attaches a document to an agent or a routine", () => {
+	test("HTTP door and tool door both refuse a client-named agent parent", async ({
+		app,
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
+		await seedTeam(db, "c9b1");
+		await seedAgent(db, "c9b1-agent");
+		const actions = buildRealActions(agentOrchestration);
+		const doors = buildDoors(app, actions, db, eventBus, {
+			agentId: "c9b1-agent",
+			sessionId: "c9b1-sess",
+		});
+		const { human, agent } = await doors.edit({
+			title: "sneaky identity",
+			parent: { kind: "agent", id: "c9b1-agent" },
+		});
+		expect(human.problemCode).toBe("forbidden_parent_kind");
+		expect(agent.problemCode).toBe("forbidden_parent_kind");
+	});
+
+	test("HTTP door and tool door both refuse a client-named routine parent", async ({
+		app,
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
+		await seedTeam(db, "c9b2");
+		await seedAgent(db, "c9b2-agent");
+		await seedRoutine(db, "c9b2-routine", "c9b2-agent");
+		const actions = buildRealActions(agentOrchestration);
+		const doors = buildDoors(app, actions, db, eventBus, {
+			agentId: "c9b2-agent",
+			sessionId: "c9b2-sess",
+		});
+		const { human, agent } = await doors.edit({
+			title: "sneaky prompt",
+			parent: { kind: "routine", id: "c9b2-routine" },
+		});
+		expect(human.problemCode).toBe("forbidden_parent_kind");
+		expect(agent.problemCode).toBe("forbidden_parent_kind");
+	});
+
+	test("the identity helper still creates an agent's identity document, unaffected by the client refusal", async ({
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
+		await seedTeam(db, "c9b3");
+		await seedAgent(db, "c9b3-agent");
+		const actions = buildRealActions(agentOrchestration);
+		const editDocument = actions.find((a) => a.declaration.name === "edit_document");
+		const searchDocuments = actions.find((a) => a.declaration.name === "search_documents");
+		if (!(editDocument && searchDocuments)) throw new Error("missing action");
+		const identity = createAgentIdentityPort({
+			searchDocuments: searchDocuments.run as AgentIdentityDeps["searchDocuments"],
+			editDocument: editDocument.run as AgentIdentityDeps["editDocument"],
+			eventBus,
+		});
+		const id = await identity.upsertAgentIdentity(db, {
+			agentId: "c9b3-agent",
+			agentName: "c9b3-agent",
+			body: "identity body",
+			updatedBy: "system:propagation",
+		});
+		const opened = requireDoc(
+			await callAgent<DocumentView>(
+				actions,
+				db,
+				eventBus,
+				"open_document",
+				{ id },
+				{
+					agentId: "c9b3-agent",
+					sessionId: "c9b3-sess",
+				},
+			),
+		);
+		expect(opened.document.parentKind).toBe("agent");
+		expect(opened.document.parentId).toBe("c9b3-agent");
+	});
+
+	test("D2 parent_not_found: a missing routine on the internal path", async ({
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
+		await seedTeam(db, "c9b4");
+		await seedAgent(db, "c9b4-agent");
+		const actions = buildRealActions(agentOrchestration);
+		const result = await callInternal<DocumentView>(
+			actions,
+			db,
+			eventBus,
+			"edit_document",
+			{ title: "orphaned prompt", parent: { kind: "routine", id: "c9b4-no-such-routine" } },
+			"c9b4-agent",
+		);
+		expect(result.problemCode).toBe("parent_not_found");
+	});
+});
+
+// ---------------------------------------------------------------------------
 // Case 10 — the eight combined cases of §4.3 (the cascade family, case 1, is
 // its own describe block — case 14 below).
 // ---------------------------------------------------------------------------
@@ -1440,20 +1598,24 @@ describe("case 10 — the combined cases of §4.3 (2, 3, 4, 5, 6, 7, 8)", () => 
 	}) => {
 		await seedTeam(db, "c10c2");
 		await seedAgent(db, "c10c2-agent");
+		await seedRoutine(db, "c10c2-routine", "c10c2-agent");
 		const actions = buildRealActions(agentOrchestration);
 		const doors = buildDoors(app, actions, db, eventBus, {
 			agentId: "c10c2-agent",
 			sessionId: "c10c2-sess",
 		});
 		const other = requireDoc((await doors.edit({ title: "elsewhere" })).human).document.id;
+		// A routine parent is internal-only (`forbidden_parent_kind`) — seeded
+		// through the internal path, never a client door.
 		const prompt = requireDoc(
-			(
-				await doors.edit({
-					title: "prompt",
-					slot: "prompt",
-					parent: { kind: "routine", id: "c10c2-routine" },
-				})
-			).human,
+			await callInternal<DocumentView>(
+				actions,
+				db,
+				eventBus,
+				"edit_document",
+				{ title: "prompt", slot: "prompt", parent: { kind: "routine", id: "c10c2-routine" } },
+				FOUNDER_ID,
+			),
 		).document.id;
 		const human = await callHuman<DocumentView>(app, "edit_document", {
 			id: prompt,

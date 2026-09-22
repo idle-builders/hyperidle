@@ -334,6 +334,37 @@ function artifactInvariants(
 	return problems;
 }
 
+/**
+ * Only a system-initiated caller may name an `agent`/`routine` parent — the
+ * rule `routes/knowledge.ts`'s (now-deleted) `CLIENT_WRITABLE_PARENT_KINDS`
+ * enforced ("`routine` and `agent` stay refused from the client: those are
+ * attached exclusively by core-api's own routes") and this module's first
+ * pass over `edit_document` dropped. `caller.internal` is `true` only when
+ * the composition root itself built the call (the routine route, the agent
+ * identity helper, the plugin installer) — never set by the HTTP door or the
+ * MCP tool loop, so a client can never talk its way past this by shape alone.
+ */
+function systemParentInvariants(
+	input: EditDocumentInput,
+	caller: { readonly internal?: boolean },
+): Problem[] {
+	if (
+		input.parent !== undefined &&
+		input.parent !== null &&
+		(input.parent.kind === "agent" || input.parent.kind === "routine") &&
+		!caller.internal
+	) {
+		return [
+			{
+				code: "forbidden_parent_kind",
+				message: "Only the system attaches a document to an agent or a routine.",
+				path: "parent",
+			},
+		];
+	}
+	return [];
+}
+
 /** I9/I10/I11 — a slotted document's slot and parent are fixed at create. */
 function slotAndParentInvariants(input: EditDocumentInput, prev: DocumentRow | null): Problem[] {
 	const problems: Problem[] = [];
@@ -369,7 +400,13 @@ function slotAndParentInvariants(input: EditDocumentInput, prev: DocumentRow | n
 export function editDocumentInvariants(
 	input: EditDocumentInput,
 	prev: DocumentRow | null,
-	caller: { readonly hasCallingTask: boolean; readonly hasCallingThread: boolean },
+	caller: {
+		readonly hasCallingTask: boolean;
+		readonly hasCallingThread: boolean;
+		/** Set only by an in-process, system-initiated call — never by a
+		 * client door. See `systemParentInvariants` below. */
+		readonly internal?: boolean;
+	},
 ): Problem[] {
 	const problems: Problem[] = [];
 
@@ -384,6 +421,7 @@ export function editDocumentInvariants(
 
 	problems.push(...memoryInvariants(input));
 	problems.push(...artifactInvariants(input, caller));
+	problems.push(...systemParentInvariants(input, caller));
 
 	// A memory's scope is forced regardless of what the caller asked for
 	// (memory_scope_fixed already reports that); checking scope_needs_id on

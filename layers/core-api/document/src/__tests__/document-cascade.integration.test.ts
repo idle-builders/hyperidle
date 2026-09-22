@@ -130,6 +130,9 @@ function writeDeps(opts: DepsOptions = {}): DocumentActionsDeps {
 			(async () => {
 				throw new Error("openParent not stubbed for this test");
 			}),
+		systemParentExists: async () => {
+			throw new Error("systemParentExists not stubbed for this test");
+		},
 		onBodyChanged: opts.onBodyChanged ?? (async () => {}),
 		...(opts.wsPush ? { wsPush: opts.wsPush } : {}),
 	};

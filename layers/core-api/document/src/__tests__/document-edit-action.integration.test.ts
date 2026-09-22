@@ -130,7 +130,7 @@ function realOpenParent(): DocumentActionsDeps["openParent"] {
 function ctxFor(
 	db: HyperIdleDb,
 	actor: string,
-	opts: { now?: string; caller?: ActionContext["caller"] } = {},
+	opts: { now?: string; caller?: ActionContext["caller"]; internal?: boolean } = {},
 ): ActionContext {
 	return {
 		actor,
@@ -138,6 +138,7 @@ function ctxFor(
 		eventBus: new EventBus(),
 		now: opts.now ?? "2026-06-01T00:00:00.000Z",
 		...(opts.caller ? { caller: opts.caller } : {}),
+		...(opts.internal ? { internal: true } : {}),
 	};
 }
 
@@ -149,6 +150,7 @@ function actionFor<I, O>(actions: readonly Action[], name: string): Action<I, O>
 
 interface DepsOptions {
 	readonly openParent?: DocumentActionsDeps["openParent"];
+	readonly systemParentExists?: DocumentActionsDeps["systemParentExists"];
 	readonly onBodyChanged?: DocumentActionsDeps["onBodyChanged"];
 	readonly wsPush?: DocumentActionsDeps["wsPush"];
 }
@@ -182,6 +184,11 @@ function writeDeps(opts: DepsOptions = {}): DocumentActionsDeps {
 			opts.openParent ??
 			(async () => {
 				throw new Error("openParent not stubbed for this test");
+			}),
+		systemParentExists:
+			opts.systemParentExists ??
+			(async () => {
+				throw new Error("systemParentExists not stubbed for this test");
 			}),
 		onBodyChanged: opts.onBodyChanged ?? (async () => {}),
 		...(opts.wsPush ? { wsPush: opts.wsPush } : {}),
@@ -288,7 +295,15 @@ describe("edit_document — D-invariants (architecture.md §4.2)", () => {
 		expect(result.problems[0]?.code).toBe("parent_not_found");
 	}, 5000);
 
-	test("a `routine`/`agent` parent has no existence port — no check runs (today's behaviour, kept)", async ({
+	// @lore document-module review fix: this used to be "a routine/agent
+	// parent has no existence port — no check runs (today's behaviour,
+	// kept)" and asserted `result.ok === true` for a NON-existent routine —
+	// today's behaviour was itself the bug (any client could attach a
+	// document to any routine or agent id, existing or not). The fix restores
+	// the pre-item rule ("`routine`/`agent` are attached exclusively by
+	// core-api's own routes") and adds the existence check the old test
+	// documented as absent.
+	test("forbidden_parent_kind: a non-internal caller may not name a routine parent", async ({
 		db,
 	}) => {
 		await seedUser(db, "writer-d2-routine-1", { kind: "ai" });
@@ -298,9 +313,45 @@ describe("edit_document — D-invariants (architecture.md §4.2)", () => {
 			body: "x",
 			parent: { kind: "routine", id: "no-such-routine" },
 		});
-		expect(result.ok).toBe(true);
-		if (!result.ok) throw new Error("expected success");
-		expect(result.data.document.parentKind).toBe("routine");
+		expect(result.ok).toBe(false);
+		if (result.ok) throw new Error("expected a refusal");
+		expect(result.problems[0]?.code).toBe("forbidden_parent_kind");
+	});
+
+	test("forbidden_parent_kind: a non-internal caller may not name an agent parent", async ({
+		db,
+	}) => {
+		await seedUser(db, "writer-d2-agent-1", { kind: "ai" });
+		const result = await editAction(writeDeps()).run(ctxFor(db, "writer-d2-agent-1"), {
+			as: "document",
+			title: "Identity body",
+			body: "x",
+			parent: { kind: "agent", id: "no-such-agent" },
+		});
+		expect(result.ok).toBe(false);
+		if (result.ok) throw new Error("expected a refusal");
+		expect(result.problems[0]?.code).toBe("forbidden_parent_kind");
+	});
+
+	test("D2 parent_not_found — a routine parent that does not exist, on the internal path", async ({
+		db,
+	}) => {
+		await seedUser(db, "writer-d2-routine-2", { kind: "ai" });
+		const deps = writeDeps({
+			systemParentExists: async (_exec, _kind, _id) => false,
+		});
+		const result = await editAction(deps).run(
+			ctxFor(db, "writer-d2-routine-2", { internal: true }),
+			{
+				as: "document",
+				title: "Prompt body",
+				body: "x",
+				parent: { kind: "routine", id: "no-such-routine" },
+			},
+		);
+		expect(result.ok).toBe(false);
+		if (result.ok) throw new Error("expected a refusal");
+		expect(result.problems[0]?.code).toBe("parent_not_found");
 	});
 
 	test("D3 cycle — moving a root under its own grandchild is refused", async ({ db }) => {
@@ -393,8 +444,11 @@ describe("edit_document — D-invariants (architecture.md §4.2)", () => {
 		db,
 	}) => {
 		await seedUser(db, "writer-d5-1", { kind: "ai" });
-		const edit = editAction(writeDeps());
-		const ctx = ctxFor(db, "writer-d5-1");
+		// A routine parent is internal-only (`forbidden_parent_kind`); D5 itself
+		// is about the slot, not the caller, so this simulates the routines
+		// route's own in-process binding rather than a client door.
+		const edit = editAction(writeDeps({ systemParentExists: async () => true }));
+		const ctx = ctxFor(db, "writer-d5-1", { internal: true });
 		const first = await edit.run(ctx, {
 			as: "document",
 			title: "The prompt",
@@ -470,8 +524,11 @@ describe("edit_document — the combined cases, architecture.md §4.3 (2-8; the 
 		db,
 	}) => {
 		await seedUser(db, "writer-case2-1", { kind: "ai" });
-		const edit = editAction(writeDeps());
-		const ctx = ctxFor(db, "writer-case2-1");
+		// Internal, same reason as D5 above — a routine parent is internal-only,
+		// and this case is about I10 firing before D5, not about who may name
+		// a routine.
+		const edit = editAction(writeDeps({ systemParentExists: async () => true }));
+		const ctx = ctxFor(db, "writer-case2-1", { internal: true });
 		const prompt = await edit.run(ctx, {
 			as: "document",
 			title: "The prompt",

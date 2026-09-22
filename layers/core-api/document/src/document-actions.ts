@@ -70,6 +70,18 @@ export interface DocumentActionsDeps {
 		id: string,
 	) => Promise<{ readonly exists: boolean; readonly teamId?: string }>;
 	/**
+	 * Existence of an `agent`/`routine` parent — asked only on the internal
+	 * path (`ctx.internal`), since a client-named one is refused before this
+	 * is ever reached (`forbidden_parent_kind`). Bound in `compose.ts` to the
+	 * users/routine reads already injected elsewhere: an agent is a `users`
+	 * row, a routine is `@hyperidle/routine`'s `getRoutine`.
+	 */
+	readonly systemParentExists: (
+		exec: WriteExecutor,
+		kind: "agent" | "routine",
+		id: string,
+	) => Promise<boolean>;
+	/**
 	 * Decided (O1): bound in `compose.ts` to `markDetached`, called inside the
 	 * edit's transaction when `body` changed. BC5's subscriptions delete it.
 	 */
@@ -473,6 +485,7 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 		const caller = {
 			hasCallingTask: Boolean(ctx.caller?.taskId),
 			hasCallingThread: Boolean(ctx.caller?.threadId),
+			internal: Boolean(ctx.internal),
 		};
 		const pureProblems = editDocumentInvariants(input, domainPrev, caller);
 		if (pureProblems.length > 0) return { ok: false, problems: pureProblems };
@@ -589,6 +602,36 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 			}
 		}
 
+		// -- the agent/routine arm — internal-only (forbidden_parent_kind
+		// already refused a client-named one above, in the pure pass), and a
+		// plain read against a table this module doesn't own, so resolving it
+		// before the transaction opens is safe the same way the task/thread
+		// arm above is. Review finding: "a missing agent/routine ->
+		// parent_not_found" on the internal path. -------------------------------
+		if (
+			parentActivelySet &&
+			effectiveParent !== null &&
+			(effectiveParent.kind === "agent" || effectiveParent.kind === "routine")
+		) {
+			const exists = await deps.systemParentExists(
+				ctx.db,
+				effectiveParent.kind,
+				effectiveParent.id,
+			);
+			if (!exists) {
+				return {
+					ok: false,
+					problems: [
+						{
+							code: "parent_not_found",
+							message: `No ${effectiveParent.kind} with id '${effectiveParent.id}'.`,
+							path: "parent",
+						},
+					],
+				};
+			}
+		}
+
 		let writtenRow: DbDocumentRow | null = null;
 		let pushRow: PushableChange | null = null;
 		const cascadeRows: PushableChange[] = [];
@@ -636,10 +679,9 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 						}
 					}
 					// A `task`/`thread` parent's existence was already checked above,
-					// before the transaction opened. A `routine`/`agent` parent has no
-					// existence port (architecture.md §8.1's `openParent` covers only
-					// task/thread) and legacy `applyParentMove` never checked these
-					// kinds either — kept as today's behaviour, not invented.
+					// before the transaction opened — and so was an `agent`/`routine`
+					// one, through `deps.systemParentExists` (internal callers only;
+					// see the `forbidden_parent_kind` refusal in the pure pass).
 				}
 
 				// -- D5 — reachable only at create (a move is refused first by

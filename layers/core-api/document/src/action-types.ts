@@ -21,6 +21,15 @@ export interface ActionContext {
 		readonly taskId: string | null;
 		readonly threadId: string | null;
 	};
+	/**
+	 * `true` only for an in-process, system-initiated call — bound by the
+	 * composition root itself (the routine route, the agent identity helper,
+	 * the plugin installer), never set by the HTTP door or the MCP tool loop.
+	 * The one thing it gates: `edit_document`'s `forbidden_parent_kind`
+	 * invariant, which refuses a client-named `agent`/`routine` parent
+	 * (`@hyperidle/domain-model`'s `systemParentInvariants`).
+	 */
+	readonly internal?: boolean;
 }
 
 export interface Action<I = unknown, O = unknown> {

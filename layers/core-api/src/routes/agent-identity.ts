@@ -72,8 +72,11 @@ export interface AgentIdentityPort {
 	) => Promise<void>;
 }
 
+/** `internal: true` — this module is exactly the "system" that is allowed to
+ * attach a document to an agent (`parent.kind:"agent"`, `edit_document`'s
+ * `forbidden_parent_kind` invariant). */
 function ctxFor(db: HyperIdleDb, deps: AgentIdentityDeps, actor: string): ActionContext {
-	return { actor, db, eventBus: deps.eventBus, now: new Date().toISOString() };
+	return { actor, db, eventBus: deps.eventBus, now: new Date().toISOString(), internal: true };
 }
 
 /**
