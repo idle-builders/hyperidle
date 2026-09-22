@@ -1,161 +1,184 @@
-# BC5 — architecture
+# BC5 — architecture (revision 2, after critique 1)
 
 Technical shape of `.pipeline/work/BC5/plan.md`. Census: `facts-user.md`, `facts-subscriptions.md`.
-Every claim is checked against `feature/user-subscriptions` @ `ffc7caa83` (base `84b4626fb`) with a
-`file:line`; anything not checked says `UNVERIFIED`. Tasks and decisions below are PROPOSED — the
-pipeline planner creates them.
+Decisions in force: D-42sbt2, D-e3zm2j, D-c7jgxy. Every claim is checked against
+`feature/user-subscriptions` (base `84b4626fb`) with a `file:line`; anything unchecked says
+`UNVERIFIED`. Tasks and decisions below are PROPOSED — the pipeline planner creates them.
 
-## 0. What the census and the plan got wrong
+## 0. What the census and the plan got wrong, and how it is settled
 
-1. **`teams.capacity` is read.** `edit_task` refuses an accept with `capacity_exceeded` from
-   `team.capacity` (`layers/core-api/task/src/task-actions.ts:559-567`); `WorkTeam.tsx` shows it. The
-   column has never been written (DEFAULT 5, `framework/db/src/schema.ts:49`), but dropping it (plan:
-   "every other column goes") deletes the team WIP limit. **PLAN AMENDMENT PROPOSED:** drop the WIP
-   limit with the column (invariant, its tests, `docs/process-layer/wip-and-cost-limits.md`) — the
-   founder's "id and a name, nothing else" — or keep `capacity`. Blocks assume the drop (T11).
-2. **Some users have neither team nor owner.** The two system users (`bootstrap/factory-state.ts`) and
-   every factory-scope plugin agent — the librarian, owner of all three shipped subscriptions
-   (`plugins/document-management/plugin.json`) — have `teamId` and `ownerUserId` null. Under "global +
-   my team + my own" they would hear no task event (tasks are never global: `tasks.team_id` NOT NULL,
-   `schema.ts:171`). **PLAN AMENDMENT PROPOSED (reading):** a user with neither team nor owner is
-   factory-wide — its team is every team. Nothing new is stored.
-3. **The transition filter is lost.** `post-task-retro` fires only on `done`
-   (`plugin.json:39-40`, `transitionTo`). A subscription row has no filter (D-42sbt2); converted to
-   `task.changed` it wakes the librarian — one harness session — on every task edit. **PLAN AMENDMENT
-   PROPOSED**, founder choice: (a) convert, with a first prompt line "if this change did not move the
-   task to done, stop" and accept the session cost; (b) drop `post-task-retro` from the plugin; (c) a
-   filter field (a new outcome — not recommended). Blocks assume (a).
-4. **Setup makes two agents today, the plan names one.** `POST /users` scaffolds the person's owned
-   assistant (`routes/users.ts:145-173`); `POST /teams` scaffolds a nameless team agent with a null
-   prompt (`teams-routes.ts:269-299`), then stamps the picked harness on the assistant (`:348-385`) and
-   posts a welcome. **PLAN AMENDMENT PROPOSED:** "then `edit_user` (new agent)" is the person's own
-   assistant, owned, carrying the picked harness — onboarding lands on the assistant overlay
-   (`SetupFlow.tsx:240`, `/work?onboarding=true`). The team agent goes with the scaffold.
-5. **The welcome screen needs the harness list before anyone exists.** `SetupFlow.tsx:165` reads
-   `GET /harnesses` on mount; the API-key actor then is the literal `"u-founder"` with no row
-   (`middleware/auth.ts:142-149`). Settled in §7: `open_user` with no id opens the caller and answers
-   `user: null` for that one moment. Folder inspection (`SetupFlow.tsx:218,:325`) moves inside
-   `edit_user`; the post-pick confirmation row keeps the path but loses the git-branch detail — the
-   only visible change on that screen. Founder may veto (then: a preload `shell.inspectFolder`).
-6. **The lint cannot see dotted event names.** Clause 4 extracts `EVENT_TYPES` members with
-   `/["'`]([a-z_]+)["'`]/g` (`tools/governance/src/rules/actions-projected.ts:329`); `"task.changed"`
-   never matches, so the nine would be invisible. Widen to `[a-z_.]+` (T3).
-7. **`agent_work_intent_recorded` dies with the scheduler.** One emitter (`routine-scheduler.ts:241`),
-   one subscriber (`run-orchestration/src/start-runtime.ts:325`). A mention never emitted it — the
-   seam recorder is a bare `port.intents.submit` (`services/agent-orchestration-port-composition.ts:
-   336-340`) and the drain picks intents up within a second. Delete the type, the subscriber and its
-   `PLATFORM_EVENTS` row (eight → seven) (T8).
-8. **The four tools are all of `tool-definitions.ts`** (`:57,:146,:225,:324`) and the only consumer
-   of `CoreApiPort` (`agent-orchestration/src/services/tool-handlers-bindings.ts:88-151`). Deleting
-   them deletes `CoreApiPort` (`framework/api-contract/src/core-api-port.ts`), orchestration's
-   `core-api-port-composition.ts` (387) and both applications' `coreApiTransport`
-   (`remote-server/src/create-server.ts:287-292,:391,:449`; `desktop/src/create-server.ts:195-200,
-   :275,:321`). `CORE_API_ACTOR_OVERRIDE_HEADER` survives: `middleware/auth.ts:146` reads it and 16
-   test files send it.
-9. **Connections and folders cannot move into core.** LAYER-BELOW §8 says they "move to the user
-   module". Orchestration reads both at provisioning (held tokens: `connections/src/service-connection-
-   resolver.ts`; mounts: `filesystems/src/injected-filesystems-for-provisioning.ts`), so a move makes
-   the executor read core — against the founder's blind-executor rule. Reading taken: the user module
-   owns the *verbs*; the rows stay where the executor reads them, reached through
-   `AgentOrchestrationPort` exactly as `runConfig` already is (`api-contract/src/agent-orchestration-
-   port.ts`, `runConfig`/`filesystems`). Same for `agent_run_config`.
-10. **Three migrations, not one.** Tests build PGlite from migrations, so the new tables must exist
-    before the user module's tests; a dropped table or column must go in the same block as its last
-    reader, or `npm run check` goes red mid-chain. 0088 adds (T2), 0089 cuts routines and
-    notifications over (T7), 0090 cuts teams, sessions and the intent vocabulary (T11). The journal
-    ends at idx 87 (`framework/db/drizzle/meta/_journal.json`).
-11. **No `document_id` column.** `doc_parent_slot_uq` allows one `prompt` document per parent
-    (`schema.ts:944-946`), so the librarian's three prompts cannot all hang off the agent. Migration
-    0077 already chose parenting over a pointer. A subscription's document is the `prompt`-slot
-    document parented `('subscription', <id>)`; subscription ids reuse routine ids, so the migration
-    only respells `parent_kind`.
-12. **Agent health notices go.** `services/agent-health-session-end-reactions.ts` (201) writes queue
-    rows with no type key (facts-subscriptions §2.7). With the queue gone it has nowhere to write, and
-    a notification object of its own was rejected. Consequence: "agent crashed 3× in 7 days" is no
-    longer surfaced. Deleted in T7.
-13. **"Email goes" = delivery.** `nodemailer`, `install.ts:deliver`, the SMTP config. The
-    `users.email` profile column stays (SettingsProfile edits it).
-14. **An owned agent reads no team documents today.** `resolveViewer` takes `actor.teamId`
-    (`document/src/document-actions.ts:115-127`), as does the socket check
-    (`ws-subscribe-authorizer.ts:168-177`); an assistant's is null. "An owned agent takes its owner's"
-    team means both use the owner's team — a small visible widening for assistants, in T7 with reach.
+**Two founder calls are still open** (blocks assume the default shown; either answer changes one
+block only):
+
+- **F1 — agent-health notices** (`services/agent-health-session-end-reactions.ts`, 201 lines) are the
+  only live writer of the inbox people see: a crashed session writes a queue row
+  (facts-subscriptions §2.7). The queue goes. **Default in the blocks: kept**, rewritten as an
+  `edit_user({ id: agent, health })` from the same `session_ended(crashed)` reaction — a `health`
+  note on the agent (`users.health`, added by 0088) that lands as `user.changed`, so whoever
+  subscribes to `user.changed` in reach (the owner, the team) sees it. The note text carries the
+  crash count of the last 7 days, counted from the agent's own `user` change rows; every crash is a
+  change (the old "silent below 3" threshold cannot be kept without a second store). If the founder
+  says drop: T7b deletes the file and 0088 adds no column.
+- **F2 — factory agents and the retro.** (a) System users (`bootstrap/factory-state.ts`) and
+  factory-scope plugin agents — the librarian, owner of all three shipped subscriptions — have
+  neither team nor owner, and tasks are never global (`tasks.team_id` NOT NULL, `schema.ts:171`).
+  **Default:** such a user is factory-wide — it reaches every team. (b) `post-task-retro` fires only
+  on `done` today (`plugin.json:39-40`, `transitionTo`); a subscription row has no filter
+  (D-42sbt2). **Default:** it converts to `task.changed` with a first prompt line "if this change
+  did not move the task to done, stop" — one harness session per task edit is the accepted cost.
+
+**Settled** (D-c7jgxy and the planner's calls):
+
+1. **Capacity goes.** `edit_task`'s `capacity_exceeded` reads `team.capacity`
+   (`layers/core-api/task/src/task-actions.ts:559-567`; column DEFAULT 5, never written,
+   `schema.ts:49`). The column, the invariant, its tests and the WorkTeam display go (T11);
+   `docs/process-layer/wip-and-cost-limits.md` is rewritten (T13).
+2. **Setup keeps its two agents.** Today `POST /users` scaffolds the person's owned assistant with a
+   one-line persona (`routes/users.ts:145-173`, `org/src/resolve-scaffold-specs.ts:27-28,:72-81`) and
+   `POST /teams` scaffolds `<Team> Agent`, `agentCategory:"team"`, with the picked harness
+   (`resolve-scaffold-specs.ts:50-60`, `teams-routes.ts:273-301`), then stamps that harness on the
+   assistant (`:348-385`). §7: three `edit_user` calls reproduce these rows. The welcome message,
+   `team_created` and the founder→team org edge are not written — membership is `users.team_id`.
+3. **Folder detail after the pick stays.** `POST /filesystems/inspect-path` (`SetupFlow.tsx:218,:325`)
+   is a plumbing lookup: its row moves from `LEGACY_ROUTES` (`actions-projected.ts:153`) to
+   `PLUMBING_ROUTES` in T11, where the rest of `agent-orchestration/src/routes/filesystems.ts` is
+   deleted. `SetupFlow` keeps the call and builds the folder body exactly as today.
+4. **The welcome screen needs harnesses before anyone exists.** `SetupFlow.tsx:165`; the API-key
+   caller is then the rowless `"u-founder"` (`middleware/auth.ts:142-149`). `open_user` with no id
+   opens the caller and answers `user: null` in that one moment (§7).
+5. **The lint cannot see dotted names.** Clause 4 matches `/["'`]([a-z_]+)["'`]/g`
+   (`actions-projected.ts:329`); widen to `[a-z_.]+` (T3).
+6. **`agent_work_intent_recorded` dies with the scheduler.** Its one emitter is
+   `routine-scheduler.ts:241`, its one subscriber `start-runtime.ts:325`; the mention door never
+   emitted it (`agent-orchestration-port-composition.ts:336-340`). Type, subscriber and the
+   `PLATFORM_EVENTS` row go (T8).
+7. **The four tools are all of `tool-definitions.ts`** (`:57,:146,:225,:324`) and the only consumer of
+   `CoreApiPort` (`tool-handlers-bindings.ts:88-151`). With them go `CoreApiPort`
+   (`api-contract/src/core-api-port.ts`), orchestration's `core-api-port-composition.ts` and every
+   `coreApiTransport` (§9). `CORE_API_ACTOR_OVERRIDE_HEADER` (`core-api-port.ts:257`, read at
+   `middleware/auth.ts:146`, sent by 16 test files) moves to `api-contract/src/actor-override-header.ts`.
+8. **Connections, folders and run config stay in orchestration** behind port methods, as `runConfig`
+   already is (`api-contract/src/agent-orchestration-port.ts`): orchestration reads them at
+   provisioning (`connections/src/service-connection-resolver.ts`,
+   `filesystems/src/injected-filesystems-for-provisioning.ts`); moving them would make the executor
+   read core. LAYER-BELOW §8 is corrected on this point.
+9. **Three migrations**, each with the code it retires: 0088 adds (T2), 0089 cuts routines and
+   notifications over (T7b), 0090 cuts teams, sessions and the intent vocabulary (T11). The journal
+   ends at idx 87.
+10. **No `document_id` column.** `doc_parent_slot_uq` allows one `prompt` per parent
+    (`schema.ts:944-946`); migration 0077 chose parenting over pointers. A subscription's document is
+    the `prompt` document parented `('subscription', <id>)`; subscription ids reuse routine ids.
+11. **Org edges keep all three kinds** (`direct`, `function`, `team` — `domain-model/src/types.ts:136`,
+    offered at `SettingsOrgChart.tsx:61,:92`). `org_edges.mechanism` has no CHECK
+    (`schema.ts:837-853`). 0090 touches no edge.
+12. **"Email goes" = delivery** (`nodemailer`, `install.ts:deliver`, SMTP config). `users.email` stays.
+13. **An owned agent reads no team documents today** — `resolveViewer` (`document-actions.ts:115-127`)
+    and the socket check (`ws-subscribe-authorizer.ts:168-177`) take `actor.teamId`. "An owned agent
+    takes its owner's team" makes both use the owner's team: assistants see their owner's team
+    documents (T7a).
+14. **Route count.** 48 `LEGACY_ROUTES` rows belong to these families (listed in §10): 47 are
+    deleted, `inspect-path` becomes plumbing. The goal's "45" was an earlier count; 47 is the number.
+15. **Backends and behaviour are install-wide.** The harness list is this machine's; behaviour
+    overrides are unique on `(kind, key)` for the whole install (`configuration_overrides`,
+    facts-user §2.8) and `settings-agent-behavior.ts` scopes nothing to a caller. They sit behind the
+    user door as the founder asked; one person's override changes it for everyone.
+
+Known limits, stated not fixed: the fire runs in memory after commit, so a process death between a
+change's commit and its emit loses that change's wakes and inbox rows — the mention door has the same
+gap (`thread-actions.ts:1200-1238`). The subscription prompt and the change land in the agent's
+context file and the session opens with "proceed" (`cli-harness-adapter.ts:521-528`,
+`provisioner.ts:1401-1416,:1564`), as mentions and routines do today.
 
 ## 1. The three declarations — `framework/domain-model/src/actions/user.ts`
 
 Shaped like `actions/document.ts`/`platform.ts`: zod `input`/`output` that `z.toJSONSchema` accepts,
-a `sentence`, pure invariants returning `Problem[]`, a `USER_ACTIONS` map; exported from `src/index.ts`;
-`layers/core-ui/src/services/call.ts:20` gains `& typeof USER_ACTIONS`.
+a `sentence`, pure invariants returning `Problem[]`, a `USER_ACTIONS` map; exported from
+`src/index.ts`; `layers/core-ui/src/services/call.ts:20` gains `& typeof USER_ACTIONS`.
 
-**Vocabulary** (same file): `OBJECT_EVENTS` — the nine, `as const` (`task.created`, `task.changed`,
-`thread.created`, `thread.message`, `thread.changed`, `document.created`, `document.changed`,
-`user.created`, `user.changed`). `USER_KINDS = ["human","ai"]`. `USER_STATUSES` derived by the builder
-from the writers (seen: `active`, `idle`, `inactive`, `retired` — `routes/agents.ts:430`,
-`users/src/runnable-agent.ts`, `platform-actions.ts:146`). `ChangeRowSchema` `{ id, object, objectId,
-kind: created|changed|message, actor, before: record|null, after: record, at }` — the parsed
-`changes` row, shared by the inbox, the bus and the wake.
+**Vocabulary** (same file): `OBJECT_EVENTS` — the nine, `as const`. `USER_KINDS = ["human","ai"]`.
+`USER_STATUSES` derived from the writers (seen: `active`, `idle`, `inactive`, `retired` —
+`routes/agents.ts:430`, `users/src/runnable-agent.ts`, `platform-actions.ts:146`).
+`AGENT_CATEGORIES` reused. `ASSISTANT_IDENTITY` — the persona text moved verbatim from
+`resolve-scaffold-specs.ts:27-28` (the welcome screen passes it). `ChangeRowSchema` `{ id, object,
+objectId, kind: created|changed|message, actor, before: record|null, after: record, at }`.
 
 **`UserRowSchema`** `{ id, kind, name, role, status, email|null, avatarUrl|null, createdAt,
-agentCategory|null, ownerUserId|null, team: {id,name}|null, edges: EdgeSchema[] }`. `team` is the
-*effective* team: own, else the owner's. `edges` = this user's outgoing `org_edges`
-(`{ id, mechanism, target }`) so the org chart needs one call.
+agentCategory|null, ownerUserId|null, health|null, team: {id,name}|null, edges: {id, mechanism,
+target}[] }`. `team` is the effective team (own, else the owner's); `edges` are the user's outgoing
+`org_edges`, so the org chart needs one call.
 
 **`search_users`** `{ ids?, kind?, teamId?, name?, ownerUserId?, status?, limit? (≤500) }` `.strict()`
-→ `UserRow[]`, name order. No filter lists everyone (the roster, the picker). `teamId` matches the
-effective team. `name` is a case-insensitive contains. No invariants.
+→ `UserRow[]`, name order. No filter lists everyone. `teamId` matches the effective team; `name` is a
+case-insensitive contains. No invariants.
 
 **`open_user`** `{ id? }` — absent = the caller. → `UserView`:
 
 ```
-{ user: UserRow | null,                 // null only when the caller has no row (first run, §7)
-  runsOn: HarnessDescriptor[],          // this machine's harnesses, disabled stamped; same on every view
-  runConfig: { harnessType, modelId, modelProvider, maxConcurrentSessions, modelOptions } | null, // agents
-  documentIds: { slot, id }[],          // agent-parented identity/skill/rule documents
-  folders: FolderView[],                // agent: folders given to it; person: its team's folders
+{ user: UserRow | null,               // null only for a caller with no row (first run, §7)
+  runsOn: HarnessDescriptor[],        // install-wide: this machine's harnesses, disabled stamped
+  runConfig: {harnessType, modelId, modelProvider, maxConcurrentSessions, modelOptions} | null,
+  documentIds: { slot, id }[],        // agent-parented identity / skill / rule documents
+  folders: FolderView[],              // agent: folders given to it; person: its team's folders
   subscriptions: { id, event|null, schedule|null, paused, documentId|null, nextRunAt|null }[],
-  connections: { connections: ConnectionView[], inherited: InheritedReachView[] } | null, // self only
-  behaviour: BehaviourEntry[] | null,   // self only — the configuration defaults + overrides
-  inbox: { change: ChangeRow, seenAt|null, readAt|null }[] | null }   // self only, newest 50
+  connections: { connections: ConnectionView[], inherited: InheritedReachView[] } | null, // self
+  behaviour: BehaviourEntry[] | null, // self view; install-wide values (§0.15)
+  inbox: { change: ChangeRow, seenAt|null, readAt|null }[] | null }  // self, newest 50
 ```
 
-`HarnessDescriptor`, `ConnectionView`, `FolderView`, `BehaviourEntry` become zod schemas here, the
-same shape the deleted routes returned (`HarnessCapabilityDescriptor`; `routes/connections.ts` list
-row, no token; `routes/filesystems.ts:88-100` view; `AgentBehaviorConfigView`,
-`domain-model/src/agent-behavior-config.ts`) — one declaration of each, the TS interfaces go.
-Problem: `not_found`.
+`HarnessDescriptor`, `ConnectionView` (no token), `FolderView` (`routes/filesystems.ts:88-100`),
+`BehaviourEntry` (`AgentBehaviorConfigView`, `domain-model/src/agent-behavior-config.ts`) become zod
+schemas here; the TS interfaces go. Problem: `not_found`.
 
 **`edit_user`** — one partial; no `id` creates. Returns `UserView`.
 
 ```
-{ id?, kind? (create-only), name?, role?, email?, avatarUrl?, status?,
+{ id?, kind? (create), name?, role?, email?, avatarUrl?, status?, health?: string|null,
   team?: { name },                                   // found by name (oldest) or created
-  ownerUserId? (create-only, agents),
+  ownerUserId? (create, agents), agentCategory? (create, agents; default: owned → "individual",
+  else "team", as routes/agents.ts:268), identity?: string|null (create, agents),
   runConfig?: { harnessType?, modelId?, modelProvider?, modelOptions?, maxConcurrentSessions? },
   edges?: { add?: {mechanism, target}[], remove?: edgeId[] },
-  folders?: { add?: {path}[], remove?: id[], give?: id[], take?: id[] },
+  folders?: { add?: {kind, resourceRef, writeback, connectionId}[],   // today's POST /filesystems body
+              remove?: id[], give?: id[], take?: id[] },
   connections?: { add?: {service, authSource, token?, serverUrl?}[], remove?: id[] },
   subscriptions?: { add?: {event?, schedule?, prompt?: string|null, paused?}[],
-                    change?: {id, event?, schedule?, prompt?: string|null, paused?}[],
-                    remove?: id[] },
+                    change?: {id, event?, schedule?, prompt?: string|null, paused?}[], remove?: id[] },
   inbox?: { seen?: "all" | changeId[], read?: changeId[] },
   behaviour?: { id, fields: Record<string, string|boolean|null> }[],
   redetectHarnesses?: true }
 ```
 
-`event` is `z.enum(OBJECT_EVENTS)` — an unknown event is refused by the parse, not a problem code.
+`identity` is written after commit, internally, as the agent's `agent_file` document through the
+existing helper (`routes/agent-identity.ts`, 155 lines — moved verbatim into `@hyperidle/user`, its
+`ActionContext` import swapped for the package's mirror) — written when given, as the scaffold did
+(`org/src/scaffold-agents.ts:191-195`). `status:"retired"` archives the agent's child documents after
+commit through the same helper's `archiveChildren`, as `routes/agents.ts:432-437` does. `event` is
+`z.enum(OBJECT_EVENTS)`: an unknown event is refused by the parse.
 
-**Pure** (`editUserInvariants(input)`): `kind_required`, `name_required` (create);
-`belonging_required` (create with neither `team` nor `ownerUserId` — every user is in a team);
-`owned_agent_has_no_team` (`ownerUserId` with `team`); `person_has_no_owner`;
-`kind_is_create_only`, `owner_is_create_only` (with `id`); `event_or_schedule` (exactly one per added
-subscription). **Need the database** (inside `run`): `not_found`, `unknown_actor` (a rowless caller
-may only create the first person, §7), `unknown_owner` (owner is not a person), `owned_agent_has_no_team`
-(team set on an existing owned agent), `unknown_user` (edge target), `schedule_for_agents_only`,
-`prompt_for_agents_only`, `agent_not_runnable` (a subscription on an agent `requireRunnableAgent`
-refuses — `users/src/runnable-agent.ts`), `invalid_schedule` (`parseCron` throws), `unknown_subscription`,
-`unknown_edge`, `unknown_folder`, `folder_other_team`, `invalid_path`, `unknown_connection`,
-`connection_invalid`, `yourself_only` (connections, inbox, behaviour on someone else — today's
-per-caller scoping, `routes/connections.ts:10`), plus `validate-agent-config.ts`'s harness/model codes
-carried verbatim.
+**Pure** (`editUserInvariants(input)`): `kind_required`, `name_required`; `belonging_required` (create
+with neither `team` nor `ownerUserId`); `owned_agent_has_no_team`; `person_has_no_owner`;
+`agent_fields_for_agents` (`identity`/`agentCategory`/`runConfig` on a person create);
+`kind_is_create_only`, `owner_is_create_only`, `identity_is_create_only` (with `id`);
+`event_or_schedule` (exactly one per added subscription).
+
+**Need the database** (inside `run`): `not_found`; `unknown_actor` (a rowless caller may only create
+the first person, §7); `unknown_owner`; `owned_agent_has_no_team` (team on an existing owned agent);
+`own_profile_only` — name/email/avatar of a person change only by that person (kept from
+`routes/users.ts:236-249`); `cannot_retire` — people and `role:"system"` agents are not retired
+(kept from `routes/agents.ts:423-425`); `unknown_user` (edge target); `schedule_for_agents_only`;
+`prompt_for_agents_only`; `agent_not_runnable`; `invalid_schedule` (`parseCron` throws);
+`unknown_subscription`, `unknown_edge`, `unknown_folder`, `folder_other_team`, `unknown_connection`,
+`connection_invalid`; `yourself_only` (connections and inbox — today's per-caller scoping,
+`routes/connections.ts:10`; behaviour on your own view only, a door shape, not privacy §0.15); plus
+`validate-agent-config.ts`'s harness/model codes verbatim.
+
+**The runnable check** is `requireRunnableAgent` — kind `ai`, status `active|idle`
+(`users/src/runnable-agent.ts`). It reads no run config (a harness is optional; the pool picks one at
+admission — `org/src/scaffold-agents.ts:32-36`), so it runs inside the edit's transaction against the
+row being written: an agent created with a run config and subscriptions in one call passes. Plugin
+installs write agents active in the same phase-1 transaction before their subscriptions
+(`platform-actions.ts:589-624`) and disable pauses both, so the check holds by construction there and
+the install path does not repeat it.
 
 ## 2. Tables and migrations
 
@@ -167,7 +190,7 @@ CREATE TABLE "subscriptions" (
   "user_id" text NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
   "event" text, "schedule" text,
   "paused" boolean NOT NULL DEFAULT false,
-  "next_run_at" text,                                   -- schedule rows only
+  "next_run_at" text,
   "created_at" text NOT NULL, "updated_at" text NOT NULL,
   CONSTRAINT "subscriptions_trigger_ck" CHECK (("event" IS NULL) <> ("schedule" IS NULL)),
   CONSTRAINT "subscriptions_event_ck" CHECK ("event" IS NULL OR "event" IN (<the nine>)),
@@ -179,215 +202,211 @@ CREATE TABLE "inbox" (
   "change_id" text NOT NULL REFERENCES "changes"("id") ON DELETE CASCADE,
   "seen_at" text, "read_at" text,
   PRIMARY KEY ("user_id", "change_id"));
+ALTER TABLE "users" ADD COLUMN "health" text;          -- F1 default
 ```
 
-Plus: `agent_work_intents` kind / source-kind / compat checks and `documents.doc_parent_kind_ck` gain
-`subscription_run` / `subscription` / `subscription` beside the routine members (removed by
-0089/0090). `schema.ts` gains `subscriptions`, `inbox`; `table-owners.json` gains both → `user`.
-`next_run_at` exists because a laptop asleep at 03:00 must still run the weekly job on wake — the
-routine behaviour (`routine-scheduler.ts` tick, `nextRunAt <= now`).
+Plus: the `agent_work_intents` kind / source-kind / pairing checks (`0085_thread_module.sql:119-125`)
+and `documents.doc_parent_kind_ck` gain `subscription_run` / `subscription` / `subscription` beside
+the routine members. `schema.ts` and `table-owners.json` gain `subscriptions`, `inbox` → `user`.
+`next_run_at` keeps the routine behaviour: a laptop asleep at 03:00 runs the weekly job on wake.
 
-**0089_routines_become_subscriptions.sql (T7).** (1) `INSERT INTO subscriptions` from live routines
-(`deleted_at IS NULL`, trigger `event`/`calendar`): same `id`, `user_id = owner_agent_id`,
-`event` mapped (`task_state_changed`→`task.changed`, `thread_created`→`thread.created`,
+**0089_routines_become_subscriptions.sql (T7b).** (1) `INSERT INTO subscriptions` from live routines
+(`deleted_at IS NULL`, trigger `event`/`calendar`): same `id`; `user_id = owner_agent_id`; `event`
+mapped (`task_state_changed`→`task.changed`, `thread_created`→`thread.created`,
 `thread_message_appended`→`thread.message`, `thread_resolved`/`thread_reopened`→`thread.changed`;
-any other name `RAISE EXCEPTION`), `schedule = trigger_config::json->>'cron'`, `paused = (state <>
-'active' OR NOT active)`, `next_run_at`, timestamps. (2) `UPDATE documents SET parent_kind =
-'subscription'` where the parent is a migrated routine; `DELETE` the prompt documents of routines not
-migrated. (3) `plugin_contributions.kind`, `plugin_configuration_defaults.kind`,
-`configuration_overrides.kind` `routine` → `subscription` and their checks respelled
-(`schema.ts:1172,1227,1254`). (4) `DROP TABLE routine_runs, routines, notification_queue`. (5)
-documents parent-kind check loses `routine`. Hand-written, journal entry, `framework/db/drizzle/
-README.md` steps. No deployments exist, so no row is preserved beyond this.
+any other `RAISE EXCEPTION`); `schedule = trigger_config::json->>'cron'`; `paused = (state <>
+'active' OR NOT active)`; `next_run_at`; `created_at = COALESCE(created_at, last_run_at,
+<migration instant>)`, `updated_at = created_at`. The demo seed's `demo-routine-daily_digest` converts
+like any other (paused, since it is `active:false`). (2) Prompt documents of migrated routines get
+`parent_kind = 'subscription'`; those of unmigrated routines are deleted. (3)
+`plugin_contributions.kind`, `plugin_configuration_defaults.kind`, `configuration_overrides.kind`
+`routine` → `subscription`, checks respelled (`schema.ts:1172,1227,1254`). (4) `DROP TABLE
+routine_runs, routines, notification_queue`. (5) documents parent-kind check loses `routine`.
 
-**0090_team_is_a_name.sql (T11).** (1) Every human with no team gets the target of its
-`mechanism='team'` org edge, else the oldest team; then `DELETE FROM org_edges WHERE mechanism =
-'team'` (membership is the column now; the vocabulary loses `team` — whether `org_edges.mechanism`
-has a CHECK is `UNVERIFIED`, builder checks). (2) `ALTER TABLE teams DROP` `phase`, `brief_path`,
-`architecture_path`, `brand_path`, `principles_path`, `factory_db_path`, `lead_agent_id`, `capacity`,
-`formed_at`. (3) `sessions.source_kind`, `agent_session_requests.source_kind/prompt_mode`,
-`agent_work_intents.kind/source_kind` `routine*` → `subscription*`; `DROP INDEX
-sessions_routine_id_idx`, `DROP COLUMN sessions.routine_id`; intent checks narrowed to the final set.
-`users.team_id` stays nullable: owned agents must keep it null (`users_belonging_ck`,
-`schema.ts:90-93`) and the system users exist before any team; "every user is in a team" is the
-`belonging_required` invariant plus the migration, not a column constraint.
-Check `framework/db/src/__tests__/pg-migration.integration.test.ts` for table lists in all three.
+**0090_team_is_a_name.sql (T11).** (1) Every human with no team gets the target of its oldest
+`mechanism='team'` edge, else the oldest team; edges are untouched. (2) `ALTER TABLE teams DROP`
+`phase`, `brief_path`, `architecture_path`, `brand_path`, `principles_path`, `factory_db_path`,
+`lead_agent_id`, `capacity`, `formed_at`. (3) `DELETE FROM agent_work_intents WHERE kind =
+'routine_run'` (their stored request is routine-shaped and no code runs it); `sessions.source_kind`
+and `agent_session_requests.source_kind/prompt_mode` `routine` → `subscription` (history rows; no
+CHECK on either); `DROP INDEX sessions_routine_id_idx; DROP COLUMN sessions.routine_id`; intent checks
+narrowed to the final set. `users.team_id` stays nullable: owned agents must keep it null
+(`users_belonging_ck`, `schema.ts:90-93`) and system users exist before any team; "every user is in a
+team" is `belonging_required` plus (1). All three: hand-written, journal entry
+(`framework/db/drizzle/README.md`); check `framework/db/src/__tests__/pg-migration.integration.test.ts`.
 
 ## 3. Events — every change row is one
 
-- `framework/event-bus/src/events.ts`: one `ObjectChangeEvent` `{ type: <one of the nine>, streamId:
-  objectId, change: ChangeRow, timestamp, cascade?: true }` in `DomainEvent`; the nine spelled out in
-  `EVENT_TYPES` (the lint parses the literal). A helper `objectEvent(row, opts?)` builds it from a
-  `changes` row (`${object}.${kind}`, JSON parsed).
+- `framework/event-bus/src/events.ts`: one member per name, as a distributive mapped union so
+  `EventByType = Extract<DomainEvent, {type:T}>` (`events.ts:565`) resolves each —
+  `type ObjectChangeEvent = { [T in ObjectEventName]: { type: T; streamId: string; change:
+  ChangeRow; timestamp: number; cascade?: true } }[ObjectEventName]`, in `DomainEvent`; the nine
+  spelled out in `EVENT_TYPES` (the lint parses the literal). `objectEvent(row, opts?)` builds one
+  from a `changes` row.
 - **The emit lives in each module, post commit, over the rows it appended** — the idiom thread and
-  document already use for the socket (`thread-actions.ts:1241`, `document-actions.ts:870`). Task
-  collects the rows `appendChange` returns (`task-actions.ts:380,:711,:730`; its dep type widens from
-  `Promise<unknown>` to the row) and emits after `:811`; the kill cascade's descendant rows carry
-  `cascade: true` (`:380` loop). The user module does the same. No wrapper: four modules, four loops
-  of one line; a shared helper that knew about commit would need the transaction.
-- **`task_state_changed` → `task.created`/`task.changed`**: lifecycle propagation
+  document use for the socket (`thread-actions.ts:1241`, `document-actions.ts:870`). Task collects the
+  rows `appendChange` returns (`task-actions.ts:380,:711,:730`; the dep type widens from
+  `Promise<unknown>` to the row) and emits where `:817-830` emit today; the kill loop's descendant rows
+  carry `cascade: true` (the loop skips the root, `:355-366`). The user module does the same.
+- `task_state_changed` → `task.created`/`task.changed`: lifecycle propagation
   (`policy/src/lifecycle-propagation.ts:407`) and the dependency watcher (`app.ts:620`) read
-  `change.after.state` (present only when state moved — `diffFields` keeps differing fields) and
-  keep the cascade skip. Emits at `task-actions.ts:818,:829` go.
-- **Emits removed** in T3: `thread-actions.ts:1119,:1129,:1140,:1149`; `dependency-watcher.ts:82,:154`
-  (`notification`, zero subscribers). **Types removed** with their last listener, the routine matcher,
-  in T7: `task_state_changed`, the four `thread_*`, `notification`. `team_created`, `agent_added`,
-  `user_created` go with their emitters in T11. `session_started/ended/not_returned` stay (D-e3zm2j).
-- Subscribers that change: the two above; the routine matcher (deleted); nothing else listens to
-  the deleted names (facts-subscriptions §3.1). The socket authorizer changes for `user:` only (§4).
+  `change.after.state` (present only when state moved) and keep the cascade skip.
+- **Emits removed** in T3: `task-actions.ts:817-830`, `thread-actions.ts:1119,:1129,:1140,:1149`,
+  `dependency-watcher.ts:82,:154`. **Types removed** with their last listener, the routine matcher, in
+  T7b: `task_state_changed`, four `thread_*`, `notification`. `team_created`, `agent_added`,
+  `user_created` go with their emitters in T11. `session_*` stay (D-e3zm2j).
 
 ## 4. The firing mechanism — `@hyperidle/user`
 
-**Fire** (`subscription-fire.ts`), registered in `app.ts` beside the dependency watcher, on the nine
-types. Per event, after the emitter's commit (the bus handler starts a `void` async — no open
-transaction, so PGlite's one connection is free):
+**Fire** (`subscription-fire.ts`), registered in `app.ts` beside the dependency watcher, on the nine.
+Per event, after the emitter's commit (a `void` async handler — PGlite's one connection is free):
 
-1. `listSubscriptions({ event: e.type, paused: false })`; drop the change's own actor — **a user is
-   never woken or told about its own change** (the one loop cut: a routine re-triggering itself).
-2. Reach, per subscriber `u`, where `teamsOf(u)` = own team, else owner's, else every team (§0.2):
-   - task: `open_task` once (system) → `task.teamId ∈ teamsOf(u)` or `task.ownerAgentId === u.id`;
-   - thread: `open_thread` **as `u`** answers ok (`canReadThread`, `thread-actions.ts:408`);
-   - document: `open_document` **as `u`** answers ok (`canReadDocument`, `document-actions.ts:428-432`);
+1. `listSubscriptions({ event, paused: false })`, minus the change's own actor (D-c7jgxy: never
+   woken by its own change).
+2. Reach per subscriber `u`, with `teamsOf(u)` = own team, else owner's, else every team (F2):
+   - task: `search_tasks({ ids:[id] })` once → `teamId ∈ teamsOf(u)` or `ownerAgentId === u.id`;
+   - thread: `search_threads({ ids:[id] })` **as `u`** returns the row (`canReadThread`);
+   - document: `search_documents({ ids:[id] })` **as `u`** returns the row (`canReadDocument`);
    - user: the changed user's effective team `∈ teamsOf(u)`, or it is `u`, or `u` owns it.
-   Global falls out of the modules' own read rules (host-scoped threads, factory documents). Reach
-   is computed at fire time, never stored. A subscription never reaches more than `open` would.
-3. Agent → `resolveSubscriptionWakeRequest` then `deps.agentWorkIntentRecorder` — the function a
-   mention calls (`thread-actions.ts:1217`, bound `compose.ts:93`):
-   `{ kind: "subscription_run", sourceKind: "subscription", sourceId: "<subId>:<changeId>",
-   requestedBy: change.actor, idempotencyKey: "subscription:<subId>:<changeId>", bakedRequest }`.
-   A bake failure drops that wake and is logged, never thrown (`thread-actions.ts:1226-1236` idiom).
-4. Person → insert `inbox (u.id, change.id)` `onConflictDoNothing`; if inserted,
-   `wsPush("user:"+u.id, { type:"update", topic:"user:"+u.id, kind:"inbox", data:{ changeId } })`.
+   Search is read-only: `open_document` bumps the read count that ranks search
+   (`document-actions.ts:441`), so no `open_*` is ever called here. Reach is computed, never stored.
+3. Agent → `resolveSubscriptionWakeRequest` → `deps.agentWorkIntentRecorder` (the function a
+   mention calls, `thread-actions.ts:1217`, bound `compose.ts:93`): `{ kind:"subscription_run",
+   sourceKind:"subscription", sourceId:"<subId>:<changeId>", requestedBy: change.actor,
+   idempotencyKey:"subscription:<subId>:<changeId>", bakedRequest }`. A bake failure drops that wake
+   and is logged (`thread-actions.ts:1226-1236` idiom).
+4. Person → `inbox (u.id, change.id)` `onConflictDoNothing`; if inserted, `wsPush("user:"+u.id,
+   { type:"update", topic:"user:"+u.id, kind:"inbox", data:{ changeId } })`.
 
 **Baked request** — the routine shape (`routine-service.ts:479-604`) renamed, reusing
-`assembleSessionDocuments`, `bakeAgentRunnableConfig` and `getAgentIdentity` through deps:
+`assembleSessionDocuments`, `bakeAgentRunnableConfig`, `getAgentIdentity` through deps:
 `{ defaultAgentId, sourceKind:"subscription", sourceId, streamId:"subscription:<subId>", teamId?,
 userId? (owner), taskId:null, sourceCorrelation:{ subscriptionId, changeId?, teamId? },
 contextBundle:{ kind:"subscription", subscription:{ id, event, schedule }, prompt: string|null,
-change: ChangeRow|null, agent, team|null, documents }, agentConfig, harnessDisabled? }`.
-`prompt` is the body of the subscription's `prompt` document (`search_documents` parent
-`('subscription', id)`), ranking input when present, else the event name.
+change: ChangeRow|null, agent, team|null, documents }, agentConfig, harnessDisabled? }`. `prompt` is
+the subscription's `prompt` document body.
 
-**Clock** (`subscription-clock.ts`): `cron.ts` moved verbatim from `layers/core-api/routine/src/`;
-`setInterval` (default 30 s, `AppOptions.subscriptionClockMs` replaces `routinePollIntervalMs`), a
-running guard, and each due row (`schedule` set, not paused, `next_run_at <= now`) wakes with
-`change: null`, `sourceId "<subId>:<next_run_at>"`, then `next_run_at = nextCronMatch(now)`. The wake
-message says it is a scheduled run of `<cron>`. Started and stopped in `app.ts` with the fire (both
-need the composed runners, which `registerAgentLayerServices` never had —
+**Clock** (`subscription-clock.ts`): `cron.ts` moved verbatim; `setInterval` (default 30 s,
+`AppOptions.subscriptionClockMs` replaces `routinePollIntervalMs`), a running guard; each due row
+(`schedule`, not paused, `next_run_at <= now`) wakes with `change: null`, `sourceId
+"<subId>:<next_run_at>"`, then `next_run_at = nextCronMatch(now)`. Started and stopped in `app.ts`
+with the fire (both need the composed runners, which `registerAgentLayerServices` never had —
 `service-bootstrap.ts:393-419`).
 
-**Socket**: `ws-subscribe-authorizer.ts` gains `user:<id>` → `topic.slice(5) === senderId`
-(beside `:192-195`). Content-free nudge; the hook re-runs `open_user`.
+**Inbox clean-up**: the retention sweep that ran the deleted `reap` (`service-bootstrap.ts:328-333`,
+every 6 h) calls the user module's `reapInbox(db, cutoff)` instead: read rows whose change is older
+than `TERMINAL_LOG_TTL_MS` = 30 days (`service-bootstrap.ts:77`) are deleted — the queue's own rule.
 
-**"Run it now"** is `send_message` to the agent — no code.
+**Socket**: `ws-subscribe-authorizer.ts` gains `user:<id>` → `topic.slice(5) === senderId` (beside
+`:192-195`). "Run it now" is `send_message` to the agent — no code.
 
 ## 5. Orchestration — the routine flavour becomes the subscription flavour
 
-T6 adds, T8 deletes; the pair lands as a rename.
+T6 adds, T8 deletes; together a rename.
 
-- Vocabulary: `AGENT_WORK_INTENT_KINDS` (both copies — `event-bus/src/events.ts:26`,
+- `routine_run` → `subscription_run` in `AGENT_WORK_INTENT_KINDS` (`event-bus/src/events.ts:26`,
   `domain-model/src/work-intent.ts:632`), `AgentWorkIntentRecorderInput` (`work-intent.ts:585`),
-  `AgentWorkIntentSourceKind`, intake `WORK_INTENT_KINDS` (`agent-orchestration-intake.ts:34`),
-  `AgentOrchestrationWorkIntentKind`, `session-requests/src/guards.ts:17`, `errors.ts:18`:
-  `routine_run` → `subscription_run`. `AGENT_SESSION_SOURCE_KINDS`/`PROMPT_MODES`
-  (`session-request.ts:9-31`) `routine` → `subscription`; `routineSessionRequestInputSchema` →
+  `AgentWorkIntentSourceKind`, intake `WORK_INTENT_KINDS` (`agent-orchestration-intake.ts:50`),
+  `AgentOrchestrationWorkIntentKind`, `session-requests/src/guards.ts:17`, `errors.ts:18`.
+  `AGENT_SESSION_SOURCE_KINDS`/`PROMPT_MODES` (`session-request.ts:9-31`) `routine` → `subscription`;
   `subscriptionSessionRequestInputSchema` with the §4 correlation.
 - `BakedContextBundle` `kind:"routine"` (`work-intent.ts:508-525`) → `kind:"subscription"`;
-  `RoutineTriggerEvent` (`:343-470`) deleted — the change row replaces it; `lastRunSummary` deleted.
-- `run-orchestration/src/context.ts`: `RoutineSessionContextData`/`assembleRoutinePrompt`/
-  `buildRoutineTaskSection` (`:101-626`) → subscription versions: `## Subscription` (event or
-  schedule), `### Instruction` (prompt), `### What happened` (the change; values over 2,000 chars cut
-  with "open the object for the rest").
+  `RoutineTriggerEvent` (`:343-470`) and `lastRunSummary` deleted — the change row replaces them.
+- `run-orchestration/src/context.ts:101-626`: subscription versions of the routine context and prompt
+  — `## Subscription`, `### Instruction` (prompt), `### What happened` (the change; values over 2,000
+  chars cut with "open the object for the rest").
 - `provisioner.ts`: `params.routineId` (`:881,:1230,:1271,:1285,:1331,:1508`) goes; the flavour is
   `contextBundle.kind === "subscription"`. `runtime.ts:522` goes.
-- Deleted outright (T8): `routineRunOutcome` (`events.ts` `SessionEndedEvent`; emitters
-  `transition-run.ts:238-240,:319`, `session-store.ts:211`, `runtime-reapers.ts:210`),
-  `context.routineId` (`transition-run.ts:171`), `reapStaleRoutineSessions` + `reapers.routines`
-  (`runtime-reapers.ts:131-238`, `start-runtime.ts:417-418`, `contracts.ts:309-312`, both apps'
-  `reapers.routines`) — it healed routine-run coalescing, which no longer exists;
-  `SessionRow.routineId` + `search_sessions.routineId` (`domain-model/src/actions/session.ts:60,:79`,
-  `session-actions.ts:87,:107`, `session-store.ts:44,:61`), `AgentOrchestrationSessionWireRow.routineId`;
-  `agent_work_intent_recorded` + `start-runtime.ts:316-325` (§0.7).
-- Core `agent-run-admission-reactions.ts:213-224` `routine_run` case → `subscription_run`: log the
-  refused wake; there is nothing to finalize.
+- Deleted in T8: `routineRunOutcome` (`SessionEndedEvent`; `transition-run.ts:238-240,:319`,
+  `session-store.ts:211`, `runtime-reapers.ts:210`); `context.routineId` (`transition-run.ts:171`);
+  `reapStaleRoutineSessions` + `reapers.routines` (`runtime-reapers.ts:131-238`,
+  `start-runtime.ts:417-418`, `contracts.ts:309-312`, both apps) — it healed routine-run coalescing,
+  which no longer exists; `SessionRow.routineId` + `search_sessions.routineId`
+  (`actions/session.ts:60,:79`, `session-actions.ts:87,:107`, `session-store.ts:44,:61`);
+  `AgentOrchestrationSessionWireRow.routineId`; `agent_work_intent_recorded` + `start-runtime.ts:313-326`.
+- `agent-run-admission-reactions.ts:213-224` `routine_run` case → `subscription_run`: log the
+  refused wake; nothing to finalize.
 
 ## 6. Where the module lives, and what it reaches
 
 `layers/core-api/user` (`@hyperidle/user`) owns `users`, `teams`, `org_edges`, `login_sessions`,
-`invite_codes`, `subscriptions`, `inbox` (`table-owners.json`; `architecture.json` rows naming
-`users`/`org`/`routine`/`notifications`/`tool-handlers` checked). Relocated verbatim: all of
-`layers/core-api/users/src/*`, `org/src/team-lookup.ts`, `org/src/org-edges.ts`, `routine/src/cron.ts`.
-`org-routing.ts` (zero production callers, facts-user §8) is deleted, not moved.
+`invite_codes`, `subscriptions`, `inbox`. Moved verbatim: `layers/core-api/users/src/*`,
+`org/src/team-lookup.ts`, `org/src/org-edges.ts`, `routine/src/cron.ts`, `routes/agent-identity.ts`,
+`routes/validate-agent-config.ts` (descriptors through deps). `org/src/org-routing.ts` (zero
+production callers) is deleted. `agent-behavior-config-impl.ts` moves into `@hyperidle/settings`.
 
-Actions: `user-actions.ts` returns `Action[]` with a local structural `Action`/`ActionContext`
-mirror (`platform-actions.ts:98-120` idiom). `compose.ts` builds it fifth, after platform. Deps bag:
+`user-actions.ts` returns `Action[]` with a local structural mirror (`platform-actions.ts:98-120`);
+`compose.ts` builds it fifth, after platform. Deps bag:
 
 ```
-{ changes: { appendChange },
-  runConfig, folders, connections  — from AgentOrchestrationPort,
+{ changes: { appendChange, listByIds },        // listByIds: open_user's inbox (listChanges gains ids)
+  runConfig, folders, connections — from AgentOrchestrationPort,
   agentWorkIntentRecorder,
-  harnesses?: { describe(): HarnessDescriptor[], redetect(): Promise<void> },   // adapterPool + onHarnessRedetect, app.ts:131,:168
-  readServerConfig,                 // harnessDisabled stamp, as routes/harnesses.ts does
+  harnesses?: { describe(), redetect() },       // adapterPool + onHarnessRedetect, app.ts:131,:168
+  readServerConfig,                             // harnessDisabled stamp, as routes/harnesses.ts
   behaviour: { list(db), patch(db, id, fields, actor) },   // @hyperidle/settings
-  searchDocuments, editDocument,    // prompt documents, documentIds
+  searchDocuments, editDocument,                // prompts, identity, documentIds
+  searchTasks, searchThreads,                   // reach (§4)
   requireRunnableAgent, getAgentIdentity, assembleSessionDocuments, wsPush? }
 ```
 
-- **Port additions (T4)** on `AgentOrchestrationPort`, each an intake PLUMBING route plus the client
-  in `core-api/src/services/agent-orchestration-port-composition.ts`:
-  `folders { list({teamId}|{agentUserId}), add({teamId, path}) (inspects, picks code|doc_set),
-  remove(id), give(id, agentUserId) (= today's persistInjection), take(id, agentUserId) }`;
-  `connections { list(userId) → {connections, inherited}, add(userId, input) (validates, encrypts),
-  remove(userId, id) }`. Bodies move out of `agent-orchestration/src/routes/{connections,filesystems}.ts`
-  into functions both call until T11 deletes the routes. `filesystems.getTeamId` and its row
-  `GET /filesystems/:id/team` die with their only caller (`core-api/src/routes/filesystems.ts`) in
-  T11; `give` checks team by `folders.list({teamId})`.
-- `validate-agent-config.ts` moves into `@hyperidle/user`, taking descriptors through deps;
-  `agent-behavior-config-impl.ts` moves into `@hyperidle/settings` (owner of the configuration tables).
-  Both old route files import the moved ones until T11.
-- `edit_user` order: validate → one transaction for users/teams/edges/subscriptions + one `user`
-  change row → commit → port calls (run config, folders, connections), prompt documents through
-  `editDocument` with `internal: true` set inside the module, behaviour writes, redetect → emit. The
-  port and document calls never sit inside the module's transaction.
-- **Change rows** (`object:'user'`): one per edit that changes identity fields, team, run config,
-  edges or subscriptions. Inbox marks, folders, connections, behaviour and redetect append none —
-  marking your inbox read must not notify anyone.
+- **Port additions (T4)** on `AgentOrchestrationPort`, each an intake PLUMBING route plus its client
+  in `core-api/src/services/agent-orchestration-port-composition.ts`: `folders { list({teamId} |
+  {agentUserId}), add(teamId, body), remove(id), give(id, agentUserId) (= today's persistInjection),
+  take(id, agentUserId) }`; `connections { list(userId) → {connections, inherited}, add(userId, input)
+  (validates, encrypts), remove(userId, id) }`. Bodies are extracted from
+  `agent-orchestration/src/routes/{connections,filesystems}.ts`, which call the same functions until
+  T11. `filesystems.getTeamId` and its row die with their only caller (`core-api/src/routes/
+  filesystems.ts`) in T11; `give` checks the team with `folders.list({teamId})`.
+- `edit_user` order: validate → one transaction (users, teams, edges, subscriptions, one `user`
+  change row, runnable check) → commit → port calls (run config, folders, connections), identity and
+  prompt documents through `editDocument` with `internal: true` set inside the module, retire
+  archive, behaviour writes, redetect → emit. No port or document call sits inside the transaction.
+- **Change rows** (`object:'user'`): one per edit changing identity fields, `health`, team, run
+  config, edges or subscriptions. Inbox marks, folders, connections, behaviour, redetect append none.
 - `DOCUMENT_PARENT_KINDS` (`actions/document.ts:36`) and `edit_document`'s system-only parent set:
   `routine` → `subscription`; `compose.ts:189-192` `systemParentExists` asks the user module.
-- Platform: `PlatformActionsDeps.routines` (`platform-actions.ts:154-163`) → `subscriptions
-  { insert, setLive (paused = !live), remove, get }`; manifest `routines[]` → `subscriptions[]
-  { id, agentId, event? | schedule?, prompt? }` (`plugin-manifest.ts:121-156`); `routineItemId` →
-  `subscriptionItemId` (new hash input — a reinstall reconciles through `forgetContributionsExcept`);
-  contribution label = event or schedule.
+- Platform: `PlatformActionsDeps.routines` (`platform-actions.ts:154-163`) → `subscriptions { insert,
+  setLive (paused = !live), remove, get }`; manifest `routines[]` → `subscriptions[] { id, agentId,
+  event? | schedule?, prompt? }` (`plugin-manifest.ts:121-156`); `routineItemId` →
+  `subscriptionItemId` with the hash input kept byte-for-byte (`plugin-installer.ts:322-328`, a
+  `@lore` says why the literal stays) so installed ids do not churn; label = event or schedule.
 
 ## 7. The welcome screen
 
-`SetupFlow.tsx` keeps its markup and calls the authed door with the key every client already sends
-(`services/api-fetch.ts` injects `X-API-Key` on every `/api/*`): mount → `open_user({})` for
-`runsOn`; Start → `edit_user({ kind:"human", name, team:{ name: <folder basename | "My Team"> },
-folders:{ add:[{ path }] }? })` → `edit_user({ kind:"ai", name:"<name>'s Assistant",
-role:"assistant", ownerUserId, runConfig:<picked harness> })` → navigate as today.
+`SetupFlow.tsx` keeps its markup and calls the authed door with the key every client sends
+(`services/api-fetch.ts`). Mount → `open_user({})` for `runsOn`. Folder pick → `POST
+/filesystems/inspect-path` as today (plumbing). Start:
 
-**First-run rule** inside `edit_user`: a caller with no `users` row may create a person only while no
-person exists (else `unknown_actor`); that change row's actor is the new person (`changes.actor`
-is a FK, `schema.ts:582-584`). This is the pre-auth route's guard (`routes/users.ts:107-126`) behind
-the auth middleware instead of in front of it — strictly tighter. `createUserSetupRoute` and its mount
-(`app.ts:320-329`) go; the scaffold, the welcome message and `team_created` go.
-`FirstRunRedirect.tsx` → `search_users({ kind:"human" })` non-empty with a team → `/work`, else
-`/setup`. `GET /auth/me` stays plumbing; `useCurrentUser` is untouched.
+1. `edit_user({ kind:"human", name, team:{ name: <folder basename | "My Team"> }, folders:{ add:[<the
+   body SetupFlow builds today, SetupFlow.tsx:343-360>] }? })`
+2. `edit_user({ kind:"ai", name:"<name>'s Assistant", role:"assistant", agentCategory:"individual",
+   ownerUserId: <person>, identity: ASSISTANT_IDENTITY, runConfig: <picked harness> })`
+3. `edit_user({ kind:"ai", name:"<Team> Agent", role:"agent", agentCategory:"team", team:{ name },
+   runConfig: <picked harness> })`
+
+then navigate to `/work?onboarding=true` as today (`SetupFlow.tsx:240`). Ids are generated; nothing
+reads the `ast-` prefix any more (`service-bootstrap.ts:285`).
+
+**First-run rule** in `edit_user`: a caller with no `users` row may create a person only while no
+person exists (else `unknown_actor`); that change row's actor is the new person (`changes.actor` is a
+FK, `schema.ts:582-584`). This is the pre-auth route's guard (`routes/users.ts:107-126`) behind the auth
+middleware instead of in front — strictly tighter. `createUserSetupRoute` and its mount
+(`app.ts:320-329`) go. `FirstRunRedirect.tsx` → `search_users({ kind:"human" })` non-empty with a team
+→ `/work`, else `/setup`. `GET /auth/me` stays plumbing; `useCurrentUser` is untouched.
 
 ## 8. UI re-pointing
 
 | Screen / hook | Now | Becomes |
 |---|---|---|
 | `SettingsProfile.tsx:67` | `PATCH /users/:id` | `edit_user({ id: me, name, email })` |
-| `SettingsOrgChart.tsx:111,:129,:153` | `/org` ×3 | `search_users()` (rows carry `team`, `edges`); `edit_user({ id: from, edges })` |
-| `SettingsAgents.tsx`, `AgentEditor.tsx`, `AgentAddDialog.tsx:97`, `work/AgentDetailPane.tsx:83` | `/agents` CRUD, `/harnesses`, `/org`, `/filesystems`, injections | `search_users({ kind:"ai" })`; `open_user({ id })` (`runsOn`, `runConfig`, `folders`); `edit_user` create / patch / `status:"retired"` / `folders.give|take` |
-| `SettingsFilesystems.tsx:77,:94` | `/org`, `/filesystems?teamId` | `open_user({})`.folders; `edit_user({ id: me, folders })` |
+| `SettingsOrgChart.tsx:111,:129,:153` | `/org` ×3 | `search_users()` (rows carry `team`, `edges`); `edit_user({ id: from, edges })` — all three kinds as today |
+| `SettingsAgents.tsx`, `AgentEditor.tsx`, `AgentAddDialog.tsx:97`, `work/AgentDetailPane.tsx:83` | `/agents` CRUD, `/harnesses`, `/org`, `/filesystems`, injections | `search_users({ kind:"ai" })`; `open_user({ id })`; `edit_user` create (`identity` = the prompt it collects; `team` defaults to the caller's team when the form leaves it empty — today it is optional, `agents.ts:57`) / patch / `status:"retired"` / `folders.give|take` |
+| `SettingsFilesystems.tsx:77,:94` | `/org`, `/filesystems?teamId` | `open_user({})`.folders |
 | `SettingsHarnesses.tsx:177,:196` | `/harnesses`, redetect | `open_user({})`.runsOn; `edit_user({ id: me, redetectHarnesses: true })` |
 | `SettingsConnections.tsx:106,:370,:392` | `/connections` | `open_user({})`.connections; `edit_user({ id: me, connections })` |
 | `SettingsAgentBehavior.tsx:78,:133` | `/settings/agent-behavior` | `open_user({})`.behaviour; `edit_user({ id: me, behaviour })` |
-| `SettingsNotifications.tsx` + `useNotificationMute.ts` | global mute | the nine events, one toggle each over my event subscriptions (off = paused); hook deleted |
+| `SettingsNotifications.tsx` + `useNotificationMute.ts` | global mute | one toggle per event over my event subscriptions (off = paused); hook deleted |
 | `NotificationPopover.tsx` + `useNotifications.ts` | `/notifications` ×3 | `open_user({})`.inbox; `edit_user({ id: me, inbox })`; `getWsClient().subscribe("user:"+me)` refetch; renders the change row, links to the object |
 | `WorkTeam.tsx`, `useTeam.ts`, `useTeams.ts`, `useTeamAgents.ts`, `WorkOverview.tsx` | `/teams`, `/agents` | `search_users({ teamId })` + `search_tasks({ teamId })`; teams = distinct `team` of `search_users()`; routines block (~446-520) and capacity display deleted |
 | `AgentProfile.tsx`, `useAgentProfile.ts:39` | `/agents/:id/profile` | `open_user({ id })` + new `SubscriptionsSection.tsx` (+ story): list, add (event select or cron text, prompt text), pause, remove; raw cron shown |
@@ -396,216 +415,231 @@ the auth middleware instead of in front of it — strictly tighter. `createUserS
 | `FirstRunRedirect.tsx`, `SetupFlow.tsx` | §7 | §7 |
 | `WorkRoutine.tsx`, `work/RoutineDetailPane.tsx`, `work/RoutineCreateDialog.tsx`, `useRoutine.ts`, `router.tsx:83` | routines | deleted with stories and tests |
 
-`useAgents.ts`, `useAgentRunState.ts` comments, `settings-types.ts`, `model-options-for-harness.ts`
-follow their callers. No redesign; each screen keeps its markup.
+## 9. Deletions and their real consumers (each lands in the block named)
 
-## 9. Deletions and their real consumers
-
-- **Packages** `layers/core-api/{routine,notifications,org}` (users is relocated): vitest PROJECTS rows
-  (`vitest.config.ts:26,28,29,32`), `layers/core-api/package.json:26-31`,
-  `layers/core-api/task/package.json:22-23`, `tools/eval/package.json:24,26`, knip ignore
-  `layers/core-api/src/__tests__/notifications-test-deps.ts` (`knip.json:28`), `nodemailer` +
-  `@types/nodemailer`, `tools/repo-gates/src/__tests__/dep-manifest-verdict.test.ts`,
-  `framework/db/src/__tests__/governance-crossings.test.ts`; 59 files import the four names (21
-  production — rg census).
-- **Core routes** `users` (297), `agents` (447), `agent-profile` (222), `org` (259), `teams-routes`
-  (683), `recipients` (70), `routines-routes` (709), `notifications-routes` (125), `filesystems` (107),
-  `harnesses` (97), `settings-agent-behavior` (78), `agent-identity` (155 — its only callers are the
-  deleted routes); orchestration `routes/connections.ts` (520), `routes/filesystems.ts` (319). 51
-  server tests, 38 UI tests, 37 Playwright specs + `__e2e__/fixtures.ts` +
-  `known-pre-existing-failures.ts` hit them by URL (rg). A test of deleted behaviour is deleted; a
-  test that only *seeds* through a route re-seeds through `edit_user` or a direct row.
-- **Services** `routine-scheduler-bindings.ts`, `routine-run-session-end-reactions.ts`,
-  `agent-health-session-end-reactions.ts` and their `service-bootstrap.ts` registrations (`:215-235`,
-  `:393-419`); `reap` (`service-bootstrap.ts:16,:332`).
-- **Tools** all four + `tool-handlers/src/ports.ts` seams + `tool-handlers-bindings.ts` +
-  `core-api-port-composition.ts` + `CoreApiPort` (§0.8); `buildToolRegistry`/`toRegistered` stay if
-  still imported (builder checks; else the package goes too).
-- **Domain model** `routine.ts`, `notifications.ts`; `team.ts` shrinks to what survives the UI
-  re-point; `agent-behavior-config.ts` becomes the zod in `user.ts`; `routine-detail` link target.
-- **Seed/eval** `tools/setup/src/demo-fixture.ts:330-347`, `demo-world/activity.ts:195-281` (queue
-  and routine-run rows), `cast.ts:39-50` (Maya gets `teamId`); `tools/eval/src/scenarios/
-  routine-sessions.ts` converted to a schedule subscription (registered in `scenarios/index.ts`).
-- **Plugin** `plugins/document-management/plugin.json` three entries → `subscriptions` (§0.3).
+- **T2** `layers/core-api/users` → `user` rename: vitest PROJECTS (`vitest.config.ts:29`),
+  `tools/repo-gates/src/typecheck-gate.ts:527-533` leaf list (`users` → `user`), manifests
+  (`layers/core-api/package.json:31`, `task/package.json:23`, `tools/eval/package.json:26`), the 20+20
+  importers (facts-user §1.1), `tools/eval/src/provision-harness.ts`.
+- **T5** `document-read-test-ports.ts:19`'s `agent-identity` import follows the move.
+- **T7b** packages `routine`, `notifications`: vitest rows (`:26,:32`), typecheck-gate rows,
+  `layers/core-api/package.json:26,29`, `nodemailer` + `@types/nodemailer`, knip ignore
+  `notifications-test-deps.ts` (`knip.json:28`), `tools/repo-gates/src/__tests__/dep-manifest-verdict
+  .test.ts`, `framework/db/src/__tests__/governance-crossings.test.ts`; routes `routines-routes.ts`,
+  `notifications-routes.ts`; services `routine-scheduler-bindings.ts` (and `fireRoutine`,
+  `layers/core-api/src/index.ts:67`), `routine-run-session-end-reactions.ts`;
+  `agent-health-session-end-reactions.ts` rewritten (F1); `service-bootstrap.ts` registrations
+  (`:215-235`, `:393-419`) and `reap` (`:16,:332`); tools `create_routine`/`update_routine` and their
+  `CoreApiPort.routine` seams; `domain-model/src/{routine,notifications}.ts`; `document-read-test-
+  ports.ts:19` routine import; eval `scenarios/routine-sessions.ts` converted to a schedule
+  subscription (`scenarios/index.ts`), `scenarios/delegation.ts:35-36`, `judges.ts:15,:383-395`; seed
+  `tools/setup/src/demo-fixture.ts:330-347` inserts the subscription (same row 0089 would make),
+  `demo-world/activity.ts:195-281` drops the three queue rows and the run row — the demo inbox starts
+  empty; `plugins/document-management/plugin.json` → `subscriptions` (F2b).
+- **T11** routes `users` (297), `agents` (447), `agent-profile` (222), `org` (259), `teams-routes`
+  (683), `recipients` (70), core `filesystems` (107), `harnesses` (97), `settings-agent-behavior`
+  (78); orchestration `routes/connections.ts` (520) and `routes/filesystems.ts` except `POST
+  /inspect-path`; tools `create_team`/`add_agent`, `tool-handlers/src/ports.ts`,
+  `tool-handlers-bindings.ts`, knip's `tool-handlers/src/__tests__/stub-ports.ts` row (`knip.json:31`),
+  `core-api-port-composition.ts`, `CoreApiPort`, every `coreApiTransport` (`remote-server/src/
+  create-server.ts:287-292,:391,:449`, `desktop/src/create-server.ts:195-200,:275,:321`,
+  `run-orchestration-composition.ts:66,:305`, `tools/eval/src/provision-harness.ts:69,:128,:141,:303`),
+  `tools/trace/trace-lib.ts:699-701` (`SEAM_FILES` loses the orchestration row),
+  `tools/repo-gates/src/lib/dep-manifest-verdict.ts:80-84` (reason text); package `org` (scaffold,
+  `resolve-scaffold-specs`, `ports`) with its vitest (`:28`), typecheck-gate and manifest rows
+  (`package.json:27`, `task/package.json:22`, `tools/eval/package.json:24`); the dropped team
+  columns' writers and types: `user/src/team-lookup.ts:93-103` (`createTeam`),
+  `tools/setup/src/demo-fixture.ts:192,:271`, `demo-world/cast.ts:139`,
+  `framework/domain-model/src/team.ts:38-102` (shrinks to what the re-pointed UI still imports);
+  `buildToolRegistry`/`toRegistered` stay if still imported (builder checks; else `tool-handlers`
+  goes too). 51 server tests, 38 UI tests and 37 Playwright specs hit these URLs: a test of deleted
+  behaviour is deleted; a test that only seeds through a route re-seeds through `edit_user` or a row.
 
 ## 10. Governance (`actions-projected.ts`)
 
-Each row leaves in the block that deletes its subject (a stale row is itself an error, `:396-406`).
-`LEGACY_ROUTES`: T7 the 5 notifications + 7 routines rows; T11 the other 36 (agents 5, core
-filesystems 1, harnesses 2, org 7, recipients 1, settings-agent-behavior 2, teams 4, users 4,
-connections 4, orchestration filesystems 6). `PLUMBING_ROUTES`: T4 adds the new intake rows; T11
-removes `GET /filesystems/:id/team`. `LEGACY_TOOLS`: T7 `create_routine`, `update_routine`; T11
-`add_agent`, `create_team` (leaves `return_status`). `LEGACY_EVENTS`: T7 six; T11 three (leaves the
-three `session_*`). `PLATFORM_EVENTS`: T8 −1. Clause-4 regex (§0.6) in T3. Header prose (`:2-4`) →
-six modules, eighteen names (T1). Clause 1 is red on `search_users`/`open_user`/`edit_user` from T1
-until the UI lands (D-9p94bz precedent): no decoy call, no rule edit.
+A stale row is itself an error (`:396-406`), so each row leaves with its subject.
+
+- **T7b — 12 `LEGACY_ROUTES` rows:** `notifications-routes.ts` `GET /inbox`, `POST /seen`,
+  `POST /:id/read`, `GET /mute`, `PUT /mute/:key`; `routines-routes.ts` `GET /event-types`, `POST /`,
+  `GET /`, `DELETE /:id`, `GET /:id`, `PATCH /:id`, `POST /:id/trigger`.
+- **T11 — 35 rows deleted, 1 reclassified:** `agents.ts` ×5 (`GET /:id/profile`, `GET /`, `POST /`,
+  `PATCH /:id`, `DELETE /:id`); core `filesystems.ts` `POST /:id/injections`; `harnesses.ts` ×2;
+  `org.ts` ×7 (`GET /`, `PUT /edges`, `DELETE /edges/:id`, `GET /teams/:teamId`, `GET
+  /teams/:teamId/membership`, `POST /teams`, `POST /scaffold-request`); `recipients.ts` `GET /`;
+  `settings-agent-behavior.ts` ×2; `teams-routes.ts` ×4; `users.ts` ×4; orchestration
+  `connections.ts` ×4; orchestration `filesystems.ts` ×5 (`POST /`, `GET /`, `GET /:id`, `DELETE
+  /:id`, `DELETE /:id/injections/:agentUserId`); `filesystems.ts|POST /inspect-path` → `PLUMBING_ROUTES`.
+  **47 deleted in all.**
+- `PLUMBING_ROUTES`: T4 adds the folder/connection intake rows; T11 removes
+  `GET /filesystems/:id/team` and adds `inspect-path`; the "nineteen registrations" prose follows.
+- `LEGACY_TOOLS`: T7b `create_routine`, `update_routine`; T11 `add_agent`, `create_team`.
+- `LEGACY_EVENTS`: T7b six; T11 three (leaves `session_*`). `PLATFORM_EVENTS`: T8 −1. Regex: T3.
+- Header prose → six modules, eighteen names (T1). Clause 1 is red on the three user actions from
+  T1 until T9 (D-9p94bz precedent): no decoy call, no rule edit.
 
 ## 11. Builder blocks
 
-Every block ends with `npm run check` green and `npm run lint` red only on the clause-1 rows still
-waiting for the UI (listed in the report). Tests of behaviour a later block deletes may stay red
-until then; each block lists them. One pathspec commit each; ids never in code.
+Every block ends with `npm run check` green and `npm run lint` red only on clause-1 rows still waiting
+for the UI (listed in its report). Tests of behaviour a later block deletes may stay red until then;
+each block names them. One pathspec commit each; ids never in code. Blocks that share a file are
+ordered by `needs`; blocks without an order between them have disjoint scopes.
 
-**T1 — declarations.** Goal §1. Scope `framework/domain-model/src/actions/user.ts`,
+**T1 — declarations.** §1. Scope `framework/domain-model/src/actions/user.ts`,
 `framework/domain-model/src/index.ts`, `framework/domain-model/src/__tests__/`,
 `layers/core-ui/src/services/call.ts`, `tools/governance/src/rules/actions-projected.ts` (prose).
-Needs —. Red: each pure problem code once. Lint red: clause 1 ×3. ~+420.
+Needs —. Red: each pure code once. ~+450.
 
-**T2 — the package and 0088.** Goal §6 relocation + §2 0088. Scope `layers/core-api/user/`,
-`layers/core-api/users/`, `layers/core-api/org/src/{team-lookup,org-edges,org-routing}.ts`,
-`routine/src/cron.ts`, every importer of `@hyperidle/users` and of the two org files (repoint),
-`framework/db/{src/schema.ts,drizzle/0088_*,drizzle/meta/_journal.json}`,
-`tools/governance/{table-owners,architecture}.json`, `vitest.config.ts`, package manifests,
-`tools/eval/src/provision-harness.ts`. Needs T1. Red: a `subscriptions` row violating each check is
-refused. Deletes `org-routing.ts` + test. ~+120 new, ~1,030 moved, −273.
+**T2 — the package and 0088.** §6 moves (users, team-lookup, org-edges, cron; org-routing deleted),
+§2 0088. Scope `layers/core-api/user/`, `layers/core-api/users/`,
+`layers/core-api/org/src/{team-lookup,org-edges,org-routing}.ts` (+ test), `routine/src/cron.ts`,
+importers of `@hyperidle/users` and those org files, `framework/db/{src/schema.ts,drizzle/0088_*,
+drizzle/meta/_journal.json}`, `tools/governance/{table-owners,architecture}.json`,
+`vitest.config.ts`, `tools/repo-gates/src/typecheck-gate.ts`, manifests,
+`tools/eval/src/provision-harness.ts`. Needs T1. Red: each `subscriptions` check refuses a bad row.
+~+120, ~1,030 moved, −273.
 
-**T3 — nine events.** Goal §3 (T3 part). Scope `framework/event-bus/src/events.ts`,
+**T3 — nine events.** §3. Scope `framework/event-bus/src/events.ts`,
 `layers/core-api/{task,thread,document}/src/*-actions.ts`, `task/src/dependency-watcher.ts`,
-`policy/src/lifecycle-propagation.ts`, `layers/core-api/src/app.ts` (watcher only),
-`actions-projected.ts` (regex). Needs T2. Red: an `edit_task` state move emits exactly one
-`task.changed` carrying the row; a kill emits `cascade:true` for descendants; propagation still
-completes a parent. Expected red until T7: routine-scheduler event tests. ~+120/−90.
+`policy/src/lifecycle-propagation.ts`, `layers/core-api/src/app.ts`, `actions-projected.ts` (regex).
+Needs T2. Red: a state move emits exactly one `task.changed` with the row; a kill flags descendants;
+propagation still completes a parent. Red until T7b: routine-scheduler event tests. ~+130/−90.
 
-**T4 — folders and connections behind the port.** Goal §6 port. Scope
+**T4 — folders and connections behind the port.** §6. Scope
 `framework/api-contract/src/agent-orchestration-port.ts`, `agent-orchestration-intake.ts`,
 `agent-orchestration/src/routes/{connections,filesystems}.ts` (extract only),
-`core-api/src/services/agent-orchestration-port-composition.ts`, `actions-projected.ts`
-(PLUMBING). Needs T2. Red: through the composed app, add → list → give → take → remove a folder and a
-connection. ~+260, ~300 moved.
+`core-api/src/services/agent-orchestration-port-composition.ts`, `actions-projected.ts` (plumbing).
+Needs T3 (shares `actions-projected.ts`). Red: through the composed app, add → list → give → take →
+remove a folder and a connection. ~+260, ~300 moved.
 
-**T5 — the user module.** Goal §1 runs, §6. Scope `layers/core-api/user/src/user-actions.ts` (+
-validate-agent-config move), `layers/core-api/settings/src/` (behaviour impl move),
-`layers/core-api/src/actions/compose.ts`, `app.ts` (deps), `layers/core-api/user/src/__tests__/`.
-Needs T1, T2, T4. Red: every DB problem code; create person with team by name; owned agent inherits
-the owner's team in `search_users`; subscription add writes the prompt document parented to it;
-inbox marks. ~+900, ~430 moved.
+**T5 — the user module.** §1 runs, §6. Scope `layers/core-api/user/src/{user-actions,agent-identity,
+validate-agent-config}.ts` + tests, `layers/core-api/src/routes/{agent-identity,validate-agent-config,
+agent-behavior-config-impl}.ts` (moved out; importers repointed),
+`layers/core-api/settings/src/`, `layers/core-api/changes/src/` (`listChanges` ids),
+`layers/core-api/src/actions/compose.ts`, `layers/core-api/src/app.ts` (deps),
+`layers/core-api/src/__testing__/document-read-test-ports.ts`. Needs T4 (and T3 for `app.ts`). Red:
+every DB code; the two kept guards; person + team by name; owned agent's effective team; agent
+created with run config + identity + subscriptions in one call; retire archives the identity;
+subscription prompt parented to it; inbox marks. ~+900, ~580 moved.
 
-**T6 — orchestration accepts a subscription wake.** Goal §5 (additive half). Scope
+**T6 — orchestration accepts a subscription wake.** §5 additive half. Scope
 `framework/domain-model/src/{work-intent,session-request}.ts`, `framework/event-bus/src/events.ts`
-(kinds), `framework/api-contract/src/agent-orchestration-port.ts`,
-`layers/agent-orchestration/{session-requests,run-orchestration}/src/`, intake enum. Needs T2. Red:
-a baked `subscription` bundle assembles a prompt with the instruction and the change. ~+200.
+(kinds), `framework/api-contract/src/agent-orchestration-port.ts` (kind),
+`layers/agent-orchestration/{session-requests,run-orchestration}/src/`, intake enum. Needs T4 (shares
+port file and intake; T3 via T4 for `events.ts`). Disjoint from T5. Red: a `subscription` bundle
+assembles a prompt with the instruction and the change. ~+200.
 
-**T7 — one mechanism: fire, clock, cut-over, 0089.** Goal §4, §2 0089, §0.12, §0.14. Scope
-`layers/core-api/user/src/{subscription-fire,subscription-clock,subscription-wake}.ts`,
-`ws-subscribe-authorizer.ts`, `document-actions.ts` (`resolveViewer`), `app.ts`,
-`service-bootstrap.ts`, `boot.ts`, delete `layers/core-api/{routine,notifications}/`,
-`routes/{routines,notifications}-routes.ts`, the three services, `agent-run-admission-reactions.ts`,
-`compose.ts` (platform + systemParentExists), `layers/core-api/settings/src/{platform-actions,
-plugin-manifest,plugin-installer,plugin-configuration}.ts`, `plugins/document-management/plugin.json`,
-`framework/domain-model/src/{routine,notifications,configuration,agent-behavior-config}.ts`,
-`actions/document.ts`, the six event types, `tool-definitions.ts` (two routine tools) +
-`tool-handlers/src/ports.ts` + `tool-handlers-bindings.ts` + `core-api-port.ts` routine seams,
-`tools/setup/src/`, `tools/eval/src/scenarios/`, `framework/db/{schema.ts,drizzle/0089_*}`,
-`table-owners.json`, `actions-projected.ts`. Needs T3, T5, T6. Red (service integration, the fire):
-`task.changed` in team A wakes the A agent, not the B agent; a factory agent hears both; the actor
-is not woken by its own edit; a person gets one inbox row and one `user:<id>` frame; paused → nothing;
-a due schedule wakes once and advances `next_run_at`; a plugin install creates the three
-subscriptions. ~+450, −4,500.
+**T7a — fire and clock (additive).** §4, §0.13. Scope `layers/core-api/user/src/{subscription-fire,
+subscription-clock,subscription-wake}.ts` + tests, `ws-subscribe-authorizer.ts`,
+`document/src/document-actions.ts` (`resolveViewer`), `layers/core-api/src/app.ts` (register fire and
+clock). Needs T5, T6. Red (service integration): `task.changed` in team A wakes the A agent, not the B
+agent; a factory agent hears both; no self-wake; a person gets one inbox row and one `user:<id>`
+frame; a subscriber's document reach does not change the document's `readCount`; paused → nothing; a
+due schedule wakes once and advances `next_run_at`. ~+450.
 
-**T8 — orchestration forgets routines.** Goal §5 deletions, §0.7. Scope
+**T7b — cut-over and 0089.** §2 0089, §9 T7b list, F1 rewrite, §10 T7b rows. Scope everything in the
+§9 T7b bullet plus `layers/core-api/src/{service-bootstrap,boot,index}.ts`,
+`agent-run-admission-reactions.ts`, `compose.ts` (platform deps, `systemParentExists`),
+`layers/core-api/settings/src/{platform-actions,plugin-manifest,plugin-installer,plugin-configuration}
+.ts`, `framework/domain-model/src/{configuration,agent-behavior-config}.ts`, `actions/document.ts`,
+`framework/event-bus/src/events.ts` (six types), `tool-definitions.ts` (two tools),
+`tool-handlers/src/ports.ts`, `tool-handlers-bindings.ts`, `core-api-port.ts` (routine seams),
+`framework/db/{schema.ts,drizzle/0089_*}`, `table-owners.json`, `actions-projected.ts`. Needs T7a.
+Red: a plugin install creates the three subscriptions with stable ids; a crashed session writes the
+agent's `health` and a `user.changed`; 0089 converts a seeded routine. ~+120/−4,300.
+
+**T8 — orchestration forgets routines.** §5 deletions, §0.6. Scope
 `layers/agent-orchestration/run-orchestration/src/{context,provisioner,runtime,transition-run,
 session-store,runtime-reapers,start-runtime,contracts,errors,session-actions}.ts`,
-`session-requests/src/{service,guards}.ts`, `framework/domain-model/src/{work-intent,
-session-request,actions/session}.ts`, `framework/event-bus/src/events.ts`, `framework/api-contract/`,
-both `create-server.ts` (`reapers.routines`), `actions-projected.ts`. Needs T7. Red: a crashed
-subscription session ends with no routine finalize (event carries no `routineRunOutcome`). ~−600.
+`session-requests/src/{service,guards}.ts`, `framework/domain-model/src/{work-intent,session-request,
+actions/session}.ts`, `framework/event-bus/src/events.ts`, `framework/api-contract/` (session wire
+row), both `create-server.ts` (`reapers.routines`), `actions-projected.ts`. Needs T7b. Red: a crashed
+subscription session's `session_ended` carries no routine outcome. ~−600.
 
-**T9 — UI: people, agents, profile, routines out.** Goal §8 rows Profile … AssistantOverlay +
-routine pages. Scope those files, their hooks, stories, `__tests__`, `router.tsx`. Needs T5, T7. Red:
-component tests per re-pointed screen (`call` mocked at the door); SubscriptionsSection story. Lint:
-clause 1 clears for `search_users`/`open_user`/`edit_user`. ~+500/−2,000.
+**T9 — UI: people, agents, profile; routine pages out.** §8 rows Profile … AssistantOverlay + routine
+rows. Scope those files, hooks, stories, `__tests__`, `router.tsx`. Needs T7b. Disjoint from T8 and
+T10. Red: component tests per screen (`call` mocked at the door); `SubscriptionsSection` story. Clause
+1 clears. ~+500/−2,000.
 
-**T10 — UI: settings attributes, inbox, welcome screen.** Goal §8 remaining rows, §7. Scope
+**T10 — UI: settings attributes, inbox, welcome screen.** §8 remaining rows, §7. Scope
 `layers/core-ui/src/settings/Settings{Filesystems,Harnesses,Connections,AgentBehavior,
-Notifications}.tsx`, `shell/NotificationPopover.tsx`, `shell/notification-display.ts`,
-`ds/NotificationRow.tsx`, `hooks/useNotifications.ts`, `hooks/useNotificationMute.ts`,
-`pages/{SetupFlow,FirstRunRedirect}.tsx`, their tests/stories. Needs T5, T7. ~+400/−300.
+Notifications}.tsx`, `shell/{NotificationPopover.tsx,notification-display.ts}`, `ds/NotificationRow.tsx`,
+`hooks/{useNotifications,useNotificationMute}.ts`, `pages/{SetupFlow,FirstRunRedirect}.tsx`, their
+tests and stories. Needs T7b. Red: SetupFlow makes the three calls and still calls `inspect-path`.
+~+400/−300.
 
-**T11 — the old doors go; 0090.** Goal §9 routes/tools/seam, §0.1, §2 0090, §7 pre-auth. Scope the
-eleven core route files, orchestration `routes/{connections,filesystems}.ts`,
-`layers/agent-orchestration/{tool-handlers,src/services}/`, `framework/api-contract/src/`,
-`layers/core-api/org/`, `layers/core-api/src/{app,boot}.ts`, both `create-server.ts`,
-`task-actions.ts` (capacity), `framework/event-bus/src/events.ts` (three creation events),
-`framework/db/{schema.ts,drizzle/0090_*}`, `actions-projected.ts`, the server tests hitting the routes.
-Needs T8, T9, T10. Red: after 0090 every human in the seed has a team and no `team` edge remains.
-~+60/−4,700.
+**T11 — the old doors go; 0090.** §9 T11 list, §0.1, §2 0090, §7 pre-auth, §10 T11 rows. Scope the
+§9 T11 bullet plus `layers/core-api/src/{app,boot}.ts`, `task-actions.ts` (capacity),
+`framework/event-bus/src/events.ts` (three creation events), `framework/api-contract/src/`
+(`actor-override-header.ts`), `framework/db/{schema.ts,drizzle/0090_*}`, `actions-projected.ts`, the
+server tests hitting the routes. Needs T8, T9, T10. Red: after 0090 every seeded human has a team, org
+edges are unchanged, no `routine_run` intent remains. ~+60/−4,700.
 
-**T12 — Playwright and fixtures.** Scope `layers/core-ui/__e2e__/` (37 specs, `fixtures.ts`,
+**T12 — Playwright and fixtures.** `layers/core-ui/__e2e__/` (37 specs, `fixtures.ts`,
 `known-pre-existing-failures.ts`). Needs T11. Full e2e run, not the affected slice.
 
-**T13 — docs.** §14. Needs T11.
-
-**T14 — integrate.** §12. Needs T12, T13.
+**T13 — docs.** §14. Needs T11. **T14 — integrate.** §12. Needs T12, T13.
 
 ## 12. Verification
 
-- **Unit**: the pure invariants (T1); the prompt section (T6).
-- **Service integration** (`{db, app, eventBus}`): the user module (T5), the fire and clock (T7), the
-  port (T4), the migrations against PGlite with the demo seed.
-- **The seam test — the integrate block's evidence.**
+- **Unit**: pure invariants (T1); the prompt section (T6).
+- **Service integration** (`{db, app, eventBus}`): user module (T5), fire and clock (T7a), port (T4),
+  cut-over and 0089 (T7b), 0090 against the demo seed (T11).
+- **The seam test — T14's evidence.**
   `applications/remote-server/src/__tests__/user-subscription-seam.integration.test.ts`, modelled on
-  `session-platform-seam.integration.test.ts` (real `createServer`, real socket, real `ws` client):
-  `search_users`/`open_user`/`edit_user` each driven as a person (`POST /api/actions/<name>`) and as
-  an agent (the joined `ServerHandle.actionTools` handler), same answers; then a person and an agent
-  subscribe to `task.changed`, a third user edits a task in reach — the person's `user:<id>` frame
-  arrives and `open_user` shows the inbox row; an intent `subscription_run` exists for the agent; an
-  out-of-reach agent got none; pausing stops both.
-- **Real harness**: `layers/core-api/src/__tests__/subscription-wake-live-harness.integration.test.ts`
-  modelled on `thread-turn-live-harness.integration.test.ts` — all four `requireHarness` lanes; a
-  subscribed agent woken by a change reads the change and acts (edits a document named in its
-  prompt). `npm run test:integration:harness -- <file>` locally; it has no CI job.
-- **Packaged desktop, by hand** (fresh userData): welcome screen looks as before, finishes, lands on
-  the assistant; the plugin's subscriptions appear on the librarian's profile; subscribe yourself to
-  `task.changed`, move a task in another window — the badge lights without reload; subscribe an agent,
-  move a task — a session starts; Settings: profile, org chart edge, agent add/edit/retire, folder
-  add/give, connection add/remove, backends re-detect, behaviour override.
-- Gates at T14: `npm run verify`, `npm run test:full`, `npm run test:integration:service`, full e2e.
+  `session-platform-seam.integration.test.ts` (real `createServer`, socket, `ws` client): the three
+  entries driven as a person (`POST /api/actions/<name>`) and as an agent (the joined
+  `ServerHandle.actionTools`), same answers; then a person and an agent subscribe to `task.changed`, a
+  third user edits a task in reach — the person's `user:<id>` frame arrives and `open_user` shows the
+  inbox row; a `subscription_run` intent exists for the agent; an out-of-reach agent got none; pausing
+  stops both.
+- **Real harness**: `layers/core-api/src/__tests__/subscription-wake-live-harness.integration.test.ts`,
+  modelled on `thread-turn-live-harness.integration.test.ts`, all four `requireHarness` lanes: a
+  subscribed agent woken by a change reads it and edits the document its prompt names. Local only.
+- **Packaged desktop, by hand** (fresh userData): the welcome screen looks and behaves as today —
+  branch shown after the pick, lands on the assistant, the team agent exists with the picked harness;
+  the librarian's three subscriptions show on its profile; subscribe yourself to `task.changed`, move a
+  task elsewhere — the badge lights without reload; subscribe an agent — a session starts; Settings:
+  profile, org chart edge of each kind, agent add/edit/retire, folder give, connection add/remove,
+  re-detect, behaviour override.
+- T14 gates: `npm run verify`, `npm run test:full`, `npm run test:integration:service`, full e2e.
 
 ## 13. Size budget (production lines)
 
-T1 +420 · T2 +120 (1,030 moved, −273) · T3 +120/−90 · T4 +260 (300 moved) · T5 +900 (430 moved) ·
-T6 +200 · T7 +450/−4,500 · T8 −600 · T9 +500/−2,000 · T10 +400/−300 · T11 +60/−4,700.
-**≈ 3,430 new, ≈ 1,760 moved, ≈ 12,460 deleted — net ≈ −9,000.** New code passes 1,000; accepted on
-net change (D-e3zm2j). If T5 passes ~1,200 new, stop and report which assumption made it so.
+T1 +450 · T2 +120 (1,030 moved, −273) · T3 +130/−90 · T4 +260 (300 moved) · T5 +900 (580 moved) ·
+T6 +200 · T7a +450 · T7b +120/−4,300 · T8 −600 · T9 +500/−2,000 · T10 +400/−300 · T11 +60/−4,700.
+**≈ 3,590 new, ≈ 1,910 moved, ≈ 12,260 deleted — net ≈ −8,700.** Accepted on net change
+(D-e3zm2j). If T5 passes ~1,200 new, stop and report which assumption made it so.
 
-## 14. Docs made false (list; T13 edits)
+## 14. Docs made false (T13)
 
 `docs/guides/user/{getting-started,settings,agents,running-your-team,connections,the-interface,
 three-core-views}.md` · `docs/process-layer/{teams,the-four-primitives,wip-and-cost-limits}.md` ·
 `docs/requirements/{users-and-their-modes-of-engagement,functional-requirements,system-requirements}.md`
 · `docs/architecture/{authorization-model,as-implemented-domain-architecture,system-overview,
-connection-model,plugins}.md` · `docs/agent-layer/agent-model.md` · `docs/ui-design/settings-
-consistency.md` · `docs/information-architecture/app-shell-always-present.md` ·
-`docs/deployment/shared-backend.md` (first-run creation) · `plans/reviews/LAYER-BELOW.md` §8 note
-(connections stay in orchestration). Anything else naming routines, notification queue, `/api/teams`
-or `create_team`: `rg` in T13.
+connection-model,plugins}.md` · `docs/agent-layer/agent-model.md` ·
+`docs/ui-design/settings-consistency.md` · `docs/information-architecture/app-shell-always-present.md`
+· `docs/deployment/shared-backend.md` · `plans/reviews/LAYER-BELOW.md` §8 note. Anything else naming
+routines, the notification queue, `/api/teams` or `create_team`: `rg` in T13.
 
 ## 15. Proposed decisions
 
-1. The three declarations are §1 exactly; `open_user({})` opens the caller. — One door for self and
-   others; the welcome screen and settings need "me".
-2. Reach = the owning module's `open` as the subscriber (thread, document) or the team rule (task,
-   user); a user with neither team nor owner is factory-wide. — Never more than search; plugin agents
-   keep working.
-3. A user is never woken or notified by its own change. — The one loop cut; no other loop guard.
-4. Wake = `subscription_run`/`subscription`, key `subscription:<subId>:<changeId|dueAt>`, baked
-   bundle `kind:"subscription"` carrying the change and the prompt. — The routine flavour renamed;
-   the executor stays blind.
-5. The prompt is the `prompt` document parented to the subscription; no pointer column. — Slot
-   uniqueness; migration 0077's precedent.
-6. Run config, folders and connections stay in orchestration behind port methods. — The executor
-   reads them at provisioning.
-7. Every change row is emitted once, post commit, by the module that appended it (`objectEvent`),
-   descendants of a kill flagged `cascade`. — No shared transaction-aware wrapper.
-8. `user` change rows only for identity, team, run config, edges and subscriptions. — Inbox marks
-   must not fan out.
-9. Connections, inbox and behaviour are read and written on yourself only. — Today's per-caller
-   scoping kept, nothing added.
-10. The welcome screen calls the authed door; a rowless caller may create only the first person. —
-    Replaces the pre-auth route with the same guard.
-11. Three migrations, each with its readers' removal. — Every block ends check-green.
-12. The team page loses its routines block; subscriptions are edited on the agent profile and in
-    Notifications settings. — No team page of its own; smallest surface.
-13. The team WIP limit goes with `capacity` (pending §0.1). — "Id and a name, nothing else."
-14. Clause 1 stays red on the three user actions until T9 (D-9p94bz precedent).
+1. The three declarations are §1 exactly, including create-only `identity` and `agentCategory`;
+   `open_user({})` opens the caller. — Every current caller can be served.
+2. Reach reads through `search_*({ ids })` as the subscriber (thread, document) or the team rule
+   (task, user); never `open_*`. — Same rule as search, no read-count writes.
+3. Wake = `subscription_run`/`subscription`, key `subscription:<subId>:<changeId|dueAt>`, bundle
+   `kind:"subscription"` with the change and the prompt. — The routine flavour renamed; the executor
+   stays blind.
+4. The prompt is the `prompt` document parented to the subscription; no pointer column.
+5. Every change row is emitted once, post commit, by the module that appended it; one event member per
+   name. — Types resolve per name; no transaction-aware wrapper.
+6. `user` change rows for identity fields, health, team, run config, edges, subscriptions only.
+7. Kept guards: own profile only; people and system agents are not retired. Connections and inbox
+   are your own; backends and behaviour are install-wide behind the user door.
+8. The runnable check reads the row inside the transaction; plugin installs satisfy it by
+   construction.
+9. Inbox rows read and older than 30 days are deleted by the existing 6-hour retention sweep.
+10. Plugin subscription ids keep the routine hash input.
+11. The team page loses its routines block; subscriptions are edited on the agent profile and in
+    Notifications settings.
+12. Clause 1 stays red on the three user actions until T9 (D-9p94bz precedent).
