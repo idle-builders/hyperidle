@@ -32,12 +32,12 @@ Tasks are the single work primitive; root tasks (no parent) are the top-level co
 - Title: "Search results relevance (ranking overhaul)". Team: Acme. State: proposed. Body (markdown): the shaped task — problem statement, proposed solution sketch, rabbit holes to avoid, done condition.
 - Title: "Onboarding v2 — guided setup flow". Team: Ambrovia. State: in_progress. Subtasks: "Design new step flow" (done), "Implement analytics tracking" (in_progress), "QA pass" (hold).
 
-## Knowledge items
+## Documents
 
-Scopes and fields match the real schema: scope kinds `practice`/`product`/`factory` ∈ `SCOPE_KINDS` (`framework/domain-model/src/types.ts`); `status` sits on `knowledge_items` (`framework/db/src/schema.ts`), `kind` and `confidence` on the `knowledge_app_projection` extension table (`framework/db/src/schema.ts`). Statuses map to the Triage (draft) and Curated (active) tabs.
+Scopes and fields match the real schema: scope kinds `factory`/`team`/`user` ∈ `SCOPE_KINDS` (`framework/domain-model/src/types.ts`); `status`, `slot`, `confidence`, and the tree position (`parent_kind`/`parent_id`) all sit on the one `documents` table (`framework/db/src/schema.ts`) — there is no separate projection table. There is no `kind` or `topic` field; where a document sits in the tree says what it is about. Statuses map to the Triage (`proposed`) and Curated (`active`) tabs.
 
-- Practice scope, building practice, topic "file-handling": Title: "Chunked upload for files >10MB". Kind: pattern. Status: active. Confidence: 0.85. Preview: "Use 2MB chunks for multipart uploads on memory-constrained hosts (Coolify free tier). 5MB chunks cause OOM — see anti-pattern."
-- Practice scope, building practice, topic "authentication": Title: "JWT rotation patterns for multi-tenant SaaS". Kind: pattern. Status: provisional. Preview: "Rotate signing keys every 90 days. Store previous key for 7 days to allow graceful token expiry."
-- Practice scope, building practice, topic "authentication": Title: "Large JWT payloads in cookies". Kind: anti_pattern. Status: active. Preview: "Don't embed full user profiles in JWTs — cookie size limits cause silent auth failures on Safari."
-- Product scope, Acme, topic "pricing": Title: "Margin calculation rounding decision". Kind: decision. Status: active. Preview: "Round to four decimal places per contract terms. Nearest-cent rounding was rejected — see review thread."
-- Factory scope: Title: "Ship daily, review weekly". Kind: principle. Status: active. Preview: "Agents ship continuously. Humans review in weekly batches. Never block a deploy for a non-blocking review."
+- Team scope (Building team), nested under "Practices" → "File Handling": Title: "Chunked upload for files >10MB". Status: active. Confidence: 0.85. Preview: "Use 2MB chunks for multipart uploads on memory-constrained hosts (Coolify free tier). 5MB chunks cause OOM."
+- Team scope (Building team), nested under "Practices" → "Authentication": Title: "JWT rotation for multi-tenant SaaS". Status: proposed. Preview: "Rotate signing keys every 90 days. Store previous key for 7 days to allow graceful token expiry."
+- Team scope (Building team), nested under "Practices" → "Authentication": Title: "Large JWT payloads in cookies". Status: active. Preview: "Don't embed full user profiles in JWTs — cookie size limits cause silent auth failures on Safari."
+- Team scope (Acme team), nested under "Pricing": Title: "Margin calculation rounding decision". Status: active. Preview: "Round to four decimal places per contract terms. Nearest-cent rounding was rejected — see review thread."
+- Factory scope: Title: "Ship daily, review weekly". Status: active. Preview: "Agents ship continuously. Humans review in weekly batches. Never block a deploy for a non-blocking review."

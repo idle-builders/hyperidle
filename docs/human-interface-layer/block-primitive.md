@@ -11,7 +11,7 @@ A Block is a **derived, addressable, renderable region of a markdown body**. Bod
 | Surface | Source body |
 |---|---|
 | Task description (`WorkTask.tsx`) | `tasks.description` markdown |
-| Knowledge body (`KnowledgeBody.tsx`) | `knowledge_items.body` markdown |
+| Knowledge body (`DocumentBody.tsx`) | `documents.body` markdown |
 | Review canvas artifact bodies (`review-canvas.tsx`) | artifact body markdown |
 | Per-block discussion | threads anchored on the surfaces above |
 

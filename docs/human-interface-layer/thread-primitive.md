@@ -49,7 +49,7 @@ A configuration is a recognisable pattern of host + participants + pinning — d
 - **assistant** — host = user, pinned. (Starts unpinned → classifies as `dm` until the assistant's first response.)
 - **feed** — host = team or factory; broadcast.
 - **dm** — host = agent or user, exactly two participants.
-- **attached** — everything else (thread on a knowledge item or artifact).
+- **attached** — everything else (thread on a document or artifact).
 
 Post-spec extension: `direct_key` (AF14, `schema.ts`) dedupes direct two-participant threads only, via a partial unique index; null for group/feed/host-scoped threads, and the assistant thread is exempt.
 

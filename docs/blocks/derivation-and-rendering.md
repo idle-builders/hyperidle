@@ -8,8 +8,8 @@ Blocks are derived, never stored. This doc covers where derivation runs, which s
 
 **Ingestion is derivation-free.** Both write paths store markdown only:
 
-- **Watcher writeback** — an agent edits a markdown file in the sandbox; the watcher debounces and writes the body back to the canonical store. Mechanics (debounce, polling fallback, conflict handling) are owned by [`sync-and-conflict-resolution.md`](../knowledge-architecture/sync-and-conflict-resolution.md).
-- **Direct Knowledge-view edit** — the API writes the body to the canonical store and bumps `knowledge_items.version`.
+- **Watcher writeback** — an agent edits a markdown file in the sandbox; the watcher debounces and calls `edit_document`. Mechanics (debounce, a stale write refused and discarded) are owned by [`sync-and-conflict-resolution.md`](../knowledge-architecture/sync-and-conflict-resolution.md).
+- **Direct Knowledge-view edit** — `edit_document` writes the body to the canonical store and bumps `documents.version`.
 
 Neither path derives anything. Derivation happens when a surface renders the body.
 
@@ -20,7 +20,7 @@ Neither path derives anything. Derivation happens when a surface renders the bod
 | Surface | Source body | Renderer |
 |---|---|---|
 | Task description | `tasks.description` | `layers/core-ui/src/pages/WorkTask.tsx` — co-located adapter, `deriveBlocks(description, { kind: "task", id: taskId })` → `<Block />` |
-| Knowledge body | `knowledge_items.body` | `layers/core-ui/src/pages/knowledge/KnowledgeBody.tsx` — includes the per-block action popover and inline anchored-message slots (per-block discussion) |
+| Knowledge body | `documents.body` | `layers/core-ui/src/pages/document/DocumentBody.tsx` — includes the per-block action popover and inline anchored-message slots (per-block discussion) |
 | Review canvas / artifact prose | artifact text bodies | `layers/core-ui/src/pages/review/review-canvas.tsx:78` (`deriveProseBlocks`) and `framework/design-system/src/kinds/compose-artifact-body.tsx`, `{ kind: "artifact" }` |
 
 Artifact embed layouts and the Artifact contract itself are owned by [`artifact-primitive.md`](../process-layer/artifact-primitive.md) — only the Block-derivation side is documented here.

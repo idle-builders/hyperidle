@@ -70,8 +70,8 @@ Reached from a task row in Team View or from the subtask list on a parent task. 
 | **Overflow menu** | — | "Kill" |
 | **State chip** | Current task state | — |
 | **Stat cards row** | Progress (subtasks done/total) + Team (avatar + name) | — |
-| **Provenance link** | Shown when promoted from a knowledge item (AK5) | Open source item |
-| **Outcome section** | Record verdict + summary; AI retro draft; saving captures a knowledge item | Edit / save |
+| **Provenance link** | Shown when promoted from a document (AK5) | Open source document |
+| **Outcome section** | Record verdict + summary; AI retro draft; saving captures a document | Edit / save |
 | **Description / Done condition** | Task body rendered as Blocks — `deriveBlocks(description, { kind: "task", id: taskId })` → `<Block />`. Spec: [docs/blocks/](../blocks/index.md) | Inline edit with save indicator |
 | **Edit controls** | Title, description, done condition, owner, dependencies — `POST /api/actions/edit_task` | Submit |
 | **Subtasks** | Recursive task rows — title + owner/state/relative-time meta line, outcome verdict badge, `StatusChip` per state + `LiveDot` (pulsing) when `in_progress` | Click row → `/work/task/:subtaskId`; "+ Add subtask" → `/work/task/new?parentTaskId=:id` |
