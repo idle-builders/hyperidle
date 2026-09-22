@@ -222,6 +222,7 @@ export async function seedDemoWorld(
 			name: "Founder's Assistant",
 			role: "assistant",
 			agentCategory: "individual",
+			ownerUserId: founderId,
 			status: "active",
 			createdAt: clock.daysAgo(44),
 		})
