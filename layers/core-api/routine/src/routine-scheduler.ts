@@ -11,7 +11,7 @@
  * `listRoutines`/`getRoutine`), an ordinary intra-package call instead of a
  * `DispatchPorts.routine.*` cross-layer edge.
  *
- * @lore AU21 Increment 4 — Mechanism C: `work`/`conversation`/`knowledge`/
+ * @lore AU21 Increment 4 — Mechanism C: `work`/`conversation`/`document`/
  * `review`/`settings` are ALL cross-Service from this package's point of
  * view, so every call into them is an injected `RoutineSchedulerPorts`
  * method (mirroring `DispatchPorts`'s old shape for these fields), wired at
@@ -171,8 +171,8 @@ export async function fireGenericRoutine(
 				// contextBundle deps (present once the composition root wires
 				// them — `routine-scheduler-bindings.ts`).
 				getTeamById: ports.getTeamById,
-				assembleSessionKnowledge: ports.assembleSessionKnowledge,
-				// The routine's instruction lives in the knowledge document parented to it.
+				assembleSessionDocuments: ports.assembleSessionDocuments,
+				// The routine's instruction lives in the document parented to it.
 				getRoutinePrompt: ports.getRoutinePrompt,
 				// AU21 §9 Increment 12 (Decision H3), Wave E: forward the SAME
 				// `settings.readServerConfig` for the `harnessDisabled` bake — no

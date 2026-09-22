@@ -8,7 +8,7 @@ import type { BakedWorkIntentRequest, SessionKnowledgeItemLike } from "@hyperidl
  * Service; per Mechanism C (`composition-boundary-guard`, mechanically
  * enforced, no allowlist) a Service package may depend on nothing but
  * `@hyperidle/db`/framework packages — every OTHER Service it needs
- * (`work`/`conversation`/`knowledge`/`settings`, all core-api same-layer) is
+ * (`work`/`conversation`/`document`/`settings`, all core-api same-layer) is
  * an injected port here, exactly like `DispatchPorts` used to carry them.
  * `workIntents` is the one genuinely against-grain
  * (`core-api → agent-orchestration`) dependency (`@hyperidle/session-requests`).
@@ -193,15 +193,15 @@ export interface RoutineSchedulerPorts {
 	 */
 	getAgentIdentity(db: HyperIdleDb, agentId: string): Promise<string | null>;
 	/**
-	 * The routine's instruction, read from the knowledge document parented to
+	 * The routine's instruction, read from the document parented to
 	 * it. Required, not optional — see the `@lore` on the identical port in
 	 * `routine-service.ts`'s `RoutineRunResolverDeps`.
 	 */
 	getRoutinePrompt(db: HyperIdleDb, routineId: string): Promise<string | null>;
-	assembleSessionKnowledge?(
+	assembleSessionDocuments?(
 		db: HyperIdleDb,
 		input: {
-			/** Absent for a team-less agent — see `assembleSessionKnowledge`'s own note. */
+			/** Absent for a team-less agent — see `assembleSessionDocuments`'s own note. */
 			readonly teamId?: string;
 			readonly agentRole: string;
 			readonly taskDescription: string;
