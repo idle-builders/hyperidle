@@ -1096,27 +1096,9 @@ export type NewFilesystem = typeof filesystems.$inferInsert;
 export type NewFilesystemInjection = typeof filesystemInjections.$inferInsert;
 // The wire types `Filesystem`/`FilesystemInjection` (parsed) live in @hyperidle/domain-model — see §1.
 
-// --- P3: Server-side credential storage (shared mode) ---
-
-/**
- * Encrypted credential storage for shared-mode deployments.
- * Values are AES-256-GCM encrypted with key derived from HYPERIDLE_API_KEY via HKDF.
- *
- * @lore P3: Only used in shared mode. In local mode, credentials live in
- * safeStorage on the desktop. The name column is constrained to the
- * CREDENTIAL_NAMES catalog at the application layer (not the DB layer).
- */
-export const serverCredentials = pgTable("server_credentials", {
-	/** CredentialName from catalog — anthropic_api_key | openrouter_api_key | shared_backend_key */
-	name: text("name").primaryKey(),
-	/** AES-256-GCM encrypted value. Format: base64(iv + ciphertext + authTag). */
-	encryptedValue: text("encrypted_value").notNull(),
-	/** Validation state: "present_untested" | "valid" | "invalid". */
-	validationState: text("validation_state").notNull().default("present_untested"),
-	/** When the credential was last validated. */
-	lastValidatedAt: text("last_validated_at"),
-	updatedAt: text("updated_at").notNull(),
-});
+// @lore server_credentials deletion: the `server_credentials` table (P3's
+// shared-mode credential store) is dropped — the shared-backend key now
+// lives only in the desktop keychain, and no other row ever had a writer.
 
 // --- P3: Typed server config ---
 
@@ -1371,8 +1353,6 @@ export type DocumentRow = typeof documents.$inferSelect;
 export type NotificationQueueRow = typeof notificationQueue.$inferSelect;
 export type NewNotificationQueueRow = typeof notificationQueue.$inferInsert;
 
-export type ServerCredential = typeof serverCredentials.$inferSelect;
-
 export type PluginRow = typeof plugins.$inferSelect;
 
 export type PluginConfigurationDefaultRow = typeof pluginConfigurationDefaults.$inferSelect;
@@ -1398,9 +1378,11 @@ export type NewInviteCode = typeof inviteCodes.$inferInsert;
  * authSource is app-enforced to { token, mcp } on insert (Zod at the route
  * boundary); the `inherited` value never reaches this table.
  *
- * @lore AN1: Separate from `server_credentials` (closed infra-secret catalog).
- * This is an open, user-driven set that reuses the encryption primitive only.
- * Writing a ServiceConnection into serverCredentials violates concept hard-rule 5.
+ * @lore AN1, corrected by the `server_credentials` deletion: this table used
+ * to be kept separate from that closed infra-secret catalog (concept
+ * hard-rule 5) — an open, user-driven set that reused only the encryption
+ * primitive, never the catalog. The catalog is gone; the primitive
+ * (`@hyperidle/connections`' token cipher) is this table's own now.
  */
 export const serviceConnections = pgTable(
 	"service_connections",
