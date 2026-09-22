@@ -69,7 +69,7 @@ describe("stripMarkdown", () => {
 	});
 
 	it("removes dangling unclosed emphasis markers in truncated excerpts", () => {
-		// Knowledge excerpts are clipped mid-word, leaving an unclosed * or _
+		// Document excerpts are clipped mid-word, leaving an unclosed * or _
 		expect(stripMarkdown("answer *what are user")).toBe("answer what are user");
 		expect(stripMarkdown("answer _what are user")).toBe("answer what are user");
 	});
