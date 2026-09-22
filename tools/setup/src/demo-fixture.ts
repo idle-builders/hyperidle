@@ -205,6 +205,7 @@ export async function seedDemoWorld(
 			role: "founder",
 			status: "active",
 			email: "founder@example.com",
+			teamId: teamId,
 			createdAt: clock.daysAgo(45),
 		})
 		.onConflictDoNothing();
