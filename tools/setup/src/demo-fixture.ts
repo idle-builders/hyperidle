@@ -227,7 +227,10 @@ export async function seedDemoWorld(
 			createdAt: clock.daysAgo(44),
 		})
 		.onConflictDoNothing();
-	await upsertDemoRunConfig(db, `ast-${founderId}`, { maxConcurrentSessions: 1 });
+	// The demo world seeds one placeholder "live" session for this assistant
+	// (`SESSION_ACTIVE_ASSISTANT`); with a single slot that placeholder blocks
+	// every real turn, so the assistant never answers in demo mode.
+	await upsertDemoRunConfig(db, `ast-${founderId}`, { maxConcurrentSessions: 2 });
 
 	// Demo builder agent
 	await db
