@@ -199,11 +199,11 @@ describe("GET /api/search — AD7 search backend", () => {
 		const body = (await res.json()) as {
 			conversations: unknown[];
 			work: unknown[];
-			knowledge: unknown[];
+			documents: unknown[];
 		};
 		expect(body.conversations).toHaveLength(0);
 		expect(body.work).toHaveLength(0);
-		expect(body.knowledge).toHaveLength(0);
+		expect(body.documents).toHaveLength(0);
 		vi.unstubAllEnvs();
 	});
 
@@ -243,7 +243,7 @@ describe("GET /api/search — AD7 search backend", () => {
 				kind: "review" | "chat";
 			}>;
 			work: unknown[];
-			knowledge: unknown[];
+			documents: unknown[];
 		};
 
 		expect(body.conversations).toHaveLength(1);
@@ -388,7 +388,7 @@ describe("GET /api/search — AD7 search backend", () => {
 		});
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as {
-			knowledge: Array<{
+			documents: Array<{
 				id: string;
 				title: string;
 				status: string;
@@ -396,13 +396,13 @@ describe("GET /api/search — AD7 search backend", () => {
 			}>;
 		};
 
-		expect(body.knowledge).toHaveLength(1);
-		const ki = body.knowledge[0];
-		expect(ki).toBeDefined();
-		expect(ki?.id).toBe("ki-search-1");
-		expect(ki?.title).toContain("Onboarding");
-		expect(ki?.status).toBe("active");
-		expect(ki?.timestamp).toBeTruthy();
+		expect(body.documents).toHaveLength(1);
+		const doc = body.documents[0];
+		expect(doc).toBeDefined();
+		expect(doc?.id).toBe("ki-search-1");
+		expect(doc?.title).toContain("Onboarding");
+		expect(doc?.status).toBe("active");
+		expect(doc?.timestamp).toBeTruthy();
 		vi.unstubAllEnvs();
 	});
 
@@ -429,9 +429,9 @@ describe("GET /api/search — AD7 search backend", () => {
 			headers: authHeaders(),
 		});
 		expect(res.status).toBe(200);
-		const body = (await res.json()) as { knowledge: unknown[] };
+		const body = (await res.json()) as { documents: unknown[] };
 		// The item exists in DB but belongs to another user's private scope — must not appear
-		expect(body.knowledge).toHaveLength(0);
+		expect(body.documents).toHaveLength(0);
 		vi.unstubAllEnvs();
 	});
 
@@ -474,12 +474,12 @@ describe("GET /api/search — AD7 search backend", () => {
 		const body = (await res.json()) as {
 			conversations: unknown[];
 			work: unknown[];
-			knowledge: unknown[];
+			documents: unknown[];
 		};
 
 		expect(body.conversations.length).toBeGreaterThanOrEqual(1);
 		expect(body.work.length).toBeGreaterThanOrEqual(1);
-		expect(body.knowledge.length).toBeGreaterThanOrEqual(1);
+		expect(body.documents.length).toBeGreaterThanOrEqual(1);
 		vi.unstubAllEnvs();
 	});
 

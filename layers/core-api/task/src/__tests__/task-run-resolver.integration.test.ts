@@ -462,7 +462,7 @@ describe("resolveTaskRunRequest — contextBundle baking (Increment 12 Wave B, R
 			],
 			agent: { id: "agent-trun-ctx-1", name: "Agent", role: "builder" },
 			team: { id: "team-trun-ctx-1", name: team?.name },
-			knowledge: expect.arrayContaining([expect.objectContaining({ id: "item-trun-ctx-l4" })]),
+			documents: expect.arrayContaining([expect.objectContaining({ id: "item-trun-ctx-l4" })]),
 		});
 	});
 });
