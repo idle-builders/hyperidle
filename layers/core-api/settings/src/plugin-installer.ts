@@ -102,9 +102,9 @@ export type InstallPluginResult =
 			plugin: InstalledPlugin;
 			/**
 			 * Parsed skills from the manifest, needed by the core-api layer to sync
-			 * skill knowledge items through the knowledge service after install.
-			 * @lore BA9b: settings cannot write documents (owned by knowledge).
-			 * The layer's route handler picks these up and calls knowledge.upsertPluginSkill.
+			 * skill documents through the document service after install.
+			 * @lore BA9b: settings cannot write documents (owned by document).
+			 * The layer's route handler picks these up and calls document.upsertPluginSkill.
 			 */
 			skills: readonly ParsedSkill[];
 			/**
@@ -257,10 +257,10 @@ async function removeStaleDefaults(
 }
 
 /**
- * Deterministic knowledge item ID for a plugin skill.
+ * Deterministic document ID for a plugin skill.
  * Scoped to pluginId + skill title so reinstalls update the same row.
  * Exported so the core-api layer's route handlers can compute the same IDs
- * when syncing skills through the knowledge service (governance boundary).
+ * when syncing skills through the document service (governance boundary).
  *
  * @lore document-module B10 follow-up: `scopeKind`/`scopeId` join the hash the
  * same way `agentItemId`/`routineItemId` already fold them in — a factory
@@ -477,7 +477,7 @@ export async function installPlugin(
 				installPath = persistPlugin(fetched.rootDir, input.pluginsBaseDir, pluginId);
 			} catch {
 				// Non-fatal: URL-based MCP servers still work without persistent storage.
-				// Skills are stored as knowledge item bodies (no disk path needed).
+				// Skills are stored as document bodies (no disk path needed).
 			}
 		}
 
@@ -527,9 +527,9 @@ export async function installPlugin(
 		// Write/update MCP server contributions from mcp.json.
 		await writeMcpServerDefaults(db, pluginId, manifest.mcpServers, ts);
 
-		// Skill knowledge items are synced by the core-api layer's route handler
-		// after installPlugin returns, using the knowledge service (governance boundary:
-		// settings cannot write to documents — owned by knowledge).
+		// Skill documents are synced by the core-api layer's route handler
+		// after installPlugin returns, using the document service (governance boundary:
+		// settings cannot write to documents — owned by document).
 
 		const rows = await db.select().from(plugins).where(eq(plugins.id, pluginId)).limit(1);
 		const row = rows[0];
