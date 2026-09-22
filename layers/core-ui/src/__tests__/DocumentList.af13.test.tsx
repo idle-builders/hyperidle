@@ -100,7 +100,7 @@ function editDocumentResult(row: DocumentRow): {
 // §3 — Sort pills reorder the curated list
 // ---------------------------------------------------------------------------
 
-describe("AF13 §3 — Sort pills actually reorder the curated tab", () => {
+describe("§3 — Sort pills actually reorder the curated tab", () => {
 	beforeEach(() => {
 		mockCall.mockReset();
 	});
@@ -150,7 +150,7 @@ describe("AF13 §3 — Sort pills actually reorder the curated tab", () => {
 // §3 — Sort pills reorder the triage tab
 // ---------------------------------------------------------------------------
 
-describe("AF13 §3 — Sort pills reorder the triage tab", () => {
+describe("§3 — Sort pills reorder the triage tab", () => {
 	beforeEach(() => {
 		mockCall.mockReset();
 	});
@@ -192,7 +192,7 @@ describe("AF13 §3 — Sort pills reorder the triage tab", () => {
 // (optimistic status override, not just removal)
 // ---------------------------------------------------------------------------
 
-describe("AF13 §6 — Triage validate: item leaves triage AND appears in curated (same render)", () => {
+describe("§6 — Triage validate: item leaves triage AND appears in curated (same render)", () => {
 	beforeEach(() => {
 		mockCall.mockReset();
 		mockCall.mockResolvedValue(editDocumentResult(makeItem("k-draft", "active")));
