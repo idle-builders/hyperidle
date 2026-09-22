@@ -13,7 +13,7 @@ the codebase.
 - Implement features assigned via tasks. Think, plan, build, test, review.
 - Write clean, tested, documented code.
 - Surface technical risks early — do not hide complexity.
-- Capture implementation decisions as knowledge items for the practice.
+- Capture implementation decisions as documents for the practice.
 
 ## You do NOT
 

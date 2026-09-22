@@ -2,7 +2,7 @@
 	"$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
 	"name": "knowledge-management",
 	"version": "1.0.0",
-	"description": "Knowledge Librarian agent with decay, promotion, and post-task retro routines.",
+	"description": "Knowledge Librarian agent with decay, document triage, and post-task retro routines.",
 	"extensions": {
 		"io.hyperidle": {
 			"contributions": [],
@@ -21,15 +21,15 @@
 					"agentId": "librarian",
 					"triggerType": "calendar",
 					"triggerConfig": "{\"cron\":\"0 3 * * 0\"}",
-					"prompt": "Run the knowledge decay sweep by calling the run_knowledge_sweep tool with kind='stale'. This marks active knowledge items that have not been referenced recently as stale so the team's knowledge base stays current and focused."
+					"prompt": "Run the decay sweep: call search_documents with status='active', slot='ordinary', inTree=true, unusedSince set to 90 days ago (ISO timestamp), sort='least_used', limit=50. For each document returned, call edit_document with its id, status='archived', and its version. This archives documents nobody has used in 90+ days so the team's documents stay current and focused."
 				},
 				{
 					"id": "knowledge-promotion",
-					"name": "Knowledge Promotion with Attention Recompute",
+					"name": "Document Triage",
 					"agentId": "librarian",
 					"triggerType": "calendar",
 					"triggerConfig": "{\"cron\":\"0 4 * * 0\"}",
-					"prompt": "Run the knowledge promotion sweep by calling the run_knowledge_sweep tool with kind='autoPromotion'. This promotes provisional knowledge items that have met the repetition threshold to validated status so the most-referenced items are available to the team."
+					"prompt": "Run document triage: call search_documents with status='proposed', inTree=true. For each result, call open_document to read it in full, then decide by judgement whether it is ready to stand as the team's active record. Promote it with edit_document (id, status='active', version) or archive it with edit_document (id, status='archived', version). Write a one-line reason for each decision in the run's summary."
 				},
 				{
 					"id": "post-task-retro",
@@ -38,7 +38,7 @@
 					"triggerType": "event",
 					"eventType": "task_state_changed",
 					"triggerConfig": "{\"transitionTo\":\"done\"}",
-					"prompt": "A task just completed. Review the task notes and any work done. Identify one or two concrete learnings — a process improvement, a decision that should be documented, or a gap in the team's knowledge. Create or update knowledge items to capture what was learned. Keep retros brief and actionable."
+					"prompt": "A task just completed. Review the task notes and any work done. Identify one or two concrete learnings — a process improvement, a decision that should be documented, or a gap in the team's knowledge. Use edit_document (as:\"document\") to capture what was learned. Keep retros brief and actionable."
 				}
 			]
 		}

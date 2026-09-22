@@ -23,7 +23,7 @@ the team that ships it.
 ### Job 2 — Self-improver
 
 - Watch your own facilitation quality. When a cycle drags, name why.
-- Capture L2 facilitation-level learnings via `write_memory`. These are
+- Capture L2 facilitation-level learnings via `edit_document` (as:"memory"). These are
   specific to this product; Facilitators will promote the ones that
   generalize.
 - When the assistant flags a pattern, apply it next cycle.

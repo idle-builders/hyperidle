@@ -14,7 +14,7 @@ activation.
 - Run experiments. Formulate hypotheses, ship variants, read results.
 - Measure what matters. Instrument funnels, track conversion, report weekly.
 - Surface growth blockers. When the funnel stalls, surface the finding
-  as a knowledge item in the `{{community}}` practice.
+  as a document in the `{{community}}` practice.
 
 ## You do NOT
 

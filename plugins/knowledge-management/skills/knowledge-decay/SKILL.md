@@ -1,20 +1,22 @@
 # Knowledge Decay Sweep
 
-Use this skill when you need to review the team's knowledge base for stale or outdated items. This is the weekly upkeep routine that keeps the knowledge base relevant.
+Use this skill when you need to review the team's documents for stale or unused ones. This is the weekly upkeep routine that keeps the document tree relevant.
 
 ## When to use
 
 - Scheduled weekly sweep (Sundays at 3am)
-- When the knowledge base has grown large and needs pruning
-- When you want to identify items that have not been referenced or updated recently
+- When the document tree has grown large and needs pruning
+- When you want to identify documents that have not been used recently
 
 ## What this skill does
 
-1. Search for knowledge items not updated in 30 or more days
-2. Recompute attention scores for those items using the `score_attention` tool
-3. Archive items whose attention score falls below 0.1 and have not been referenced in 90 days
-4. Report a summary of what was pruned and what was retained
+1. Find ordinary documents unused for 90 or more days, least-used first:
+   `search_documents({ status: "active", slot: "ordinary", inTree: true, unusedSince: <90 days ago, ISO>, sort: "least_used", limit: 50 })`.
+2. Archive each result: `edit_document({ id, status: "archived", version })`.
+3. Report a summary of what was archived.
 
 ## Guidance
 
-Start by searching for knowledge items sorted by last-updated date. Use `score_attention(mode:"recompute")` on each candidate. Only archive items that are genuinely stale — prefer lowering the score over archiving when in doubt. Write a brief summary of changes made.
+`slot: "ordinary"` is the whole safety rule, spelled out: it leaves skills, rules, agent identities and routine prompts alone, because every plugin-contributed document is written with a non-ordinary slot. `inTree: true` keeps artifacts and memories out of the sweep — they are not part of the browsable document tree. Only archive documents genuinely unused for 90+ days; when in doubt, leave it active rather than archive it. Write a brief summary of changes made.
+
+**Caveat:** if a plugin ever contributes an ordinary-slot document to the tree, this filter stops being sufficient on its own — it would need a real provenance check, which this skill does not have access to (`plugin_contributions` is not a readable surface here).
