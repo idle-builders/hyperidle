@@ -1,5 +1,5 @@
 /**
- * L23 visual proof script — capture screenshots of KnowledgeBody states.
+ * L23 visual proof script — capture screenshots of DocumentBody states.
  * Run: npx tsx __scripts__/l23-screenshots.ts
  */
 
@@ -17,7 +17,7 @@ async function run(): Promise<void> {
 	const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
 
 	// Screenshot 1 — k1 (single-paragraph belief, no chrome)
-	await page.goto(`${BASE_URL}/knowledge/k1`);
+	await page.goto(`${BASE_URL}/documents/k1`);
 	await page.waitForSelector("[data-testid='document-body']");
 	await page.screenshot({
 		path: join(PROOF_DIR, "L23-k1-belief-body.png"),
@@ -26,8 +26,8 @@ async function run(): Promise<void> {
 	console.log("Saved k1-belief-body.png");
 
 	// Screenshot 2 — inject multi-section playbook then screenshot
-	await page.goto(`${BASE_URL}/knowledge/k1`);
-	await page.waitForSelector("[data-testid='knowledge-detail-page']");
+	await page.goto(`${BASE_URL}/documents/k1`);
+	await page.waitForSelector("[data-testid='document-detail-page']");
 	await page.getByRole("button", { name: /edit/i }).click();
 	await page
 		.getByTestId("knowledge-edit-textarea")
@@ -67,8 +67,8 @@ async function run(): Promise<void> {
 	console.log("Saved k1-playbook-body.png");
 
 	// Screenshot 3 — empty state
-	await page.goto(`${BASE_URL}/knowledge/k1`);
-	await page.waitForSelector("[data-testid='knowledge-detail-page']");
+	await page.goto(`${BASE_URL}/documents/k1`);
+	await page.waitForSelector("[data-testid='document-detail-page']");
 	await page.getByRole("button", { name: /edit/i }).click();
 	await page.getByTestId("knowledge-edit-textarea").fill("");
 	await page.getByRole("button", { name: /save/i }).click();
