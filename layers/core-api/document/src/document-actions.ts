@@ -544,12 +544,14 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 		if (effectiveAs === "memory") {
 			effectiveParent = null;
 		} else if (input.parent !== undefined) {
-			effectiveParent =
-				input.parent === null
-					? effectiveAs === "artifact"
-						? stampedArtifactParent(ctx)
-						: null
-					: input.parent;
+			// `null` always means "to the top of the tree" (architecture
+			// decision) — never a re-stamp of the calling task/thread. An
+			// explicit `as:"artifact"` + `parent:null` is refused before this
+			// line is ever reached (I5, `artifact_parent_kind`); an existing
+			// artifact edited to `parent:null` with no explicit `as` simply
+			// moves to the top and stops being derived as an artifact on the
+			// next read (`documentAs` re-derives from the stored `parentKind`).
+			effectiveParent = input.parent;
 		} else if (prev) {
 			effectiveParent =
 				prev.parentKind !== null && prev.parentId !== null

@@ -1919,6 +1919,31 @@ describe("graduation — a task-parented artifact moves into the document tree v
 		expect(graduated.parentKind).toBeNull();
 		expect(graduated.parentId).toBeNull();
 	});
+
+	test('as:"artifact" + explicit parent:null from a task session is refused — null means the top of the tree, and an artifact cannot be there', async ({
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
+		await seedTeam(db, "cgrad-3");
+		await seedTaskWithThread(db, "cgrad-3-task", "cgrad-3");
+		await seedAgent(db, "cgrad-3-agent");
+		const actions = buildRealActions(agentOrchestration);
+
+		// The tool door — the only one that ever carries `ctx.caller`, so this
+		// is the exact shape the bug needed: a task session naming `as:
+		// "artifact"` and an explicit `parent: null` together.
+		const result = await callAgent<DocumentView>(
+			actions,
+			db,
+			eventBus,
+			"edit_document",
+			{ title: "orphaned artifact", as: "artifact", parent: null },
+			{ agentId: "cgrad-3-agent", sessionId: "cgrad-3-sess", taskId: "cgrad-3-task" },
+		);
+		expect(result.ok).toBe(false);
+		expect(result.problemCode).toBe("artifact_parent_kind");
+	});
 });
 
 // ---------------------------------------------------------------------------

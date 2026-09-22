@@ -315,7 +315,19 @@ function artifactInvariants(
 ): Problem[] {
 	if (input.as !== "artifact") return [];
 	const problems: Problem[] = [];
-	if (input.parent !== undefined && input.parent !== null) {
+	if (input.parent === null) {
+		// `null` means "to the top of the tree", for every `as` (architecture
+		// decision) — and an artifact can never be at the top (I5/I6), so an
+		// explicit `parent: null` is refused the same way a `document` parent
+		// is, not silently treated as "no parent given" (which would stamp the
+		// caller's own calling task/thread instead of honouring the explicit
+		// top-of-tree request).
+		problems.push({
+			code: "artifact_parent_kind",
+			message: "An artifact hangs off a task or a conversation.",
+			path: "parent",
+		});
+	} else if (input.parent !== undefined) {
 		if (input.parent.kind !== "task" && input.parent.kind !== "thread") {
 			problems.push({
 				code: "artifact_parent_kind",
