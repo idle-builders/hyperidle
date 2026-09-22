@@ -1,5 +1,5 @@
 /**
- * AX1 — demo world knowledge: a six-week corpus across scopes, kinds and
+ * AX1 — demo world documents: a six-week corpus across scopes, kinds and
  * lifecycles — curated patterns, a triage queue, stale and archived items,
  * plausible read/session-use counters (BC4 §6.7), and the provenance loop
  * (completed bet → retro item → promoted draft bet).
@@ -50,7 +50,7 @@ const PRODUCT_ROOT_ID = "ki-mig-root-product";
 const PRACTICES_ROOT_ID = "ki-mig-root-practices";
 const GENERAL_ROOT_ID = "ki-mig-root-general";
 
-interface KnowledgeSpec {
+interface DocumentSpec {
 	readonly id: string;
 	readonly scopeKind: "factory" | "team" | "user";
 	readonly scopeId: string | null;
@@ -103,7 +103,7 @@ interface UsageValues {
  * with varied counts" — an id-keyed hash, not a fixed table, so the spread
  * stays believable across ~35 items without hand-tuning each one.
  */
-function usageFor(spec: KnowledgeSpec, clock: DemoClock): UsageValues {
+function usageFor(spec: DocumentSpec, clock: DemoClock): UsageValues {
 	if (LONG_UNUSED_IDS.has(spec.id)) {
 		const h = usageHash(spec.id);
 		const lastReadDays = 95 + (h % 40); // 95-134 days ago
@@ -128,7 +128,7 @@ function usageFor(spec: KnowledgeSpec, clock: DemoClock): UsageValues {
 	};
 }
 
-/** One knowledge-item folder under Practices per practice, keyed by the old practice scopeId. */
+/** One document folder under Practices per practice, keyed by the old practice scopeId. */
 const PRACTICE_FOLDER_ID: Readonly<Record<string, string>> = {
 	builder: "demo-ki-practice-builder",
 	product_manager: "demo-ki-practice-product-manager",
@@ -143,11 +143,11 @@ const PRACTICE_FOLDER_ID: Readonly<Record<string, string>> = {
 /** Looks up a practice's folder id, or throws — every practiceId used below is a known key. */
 function practiceFolderId(practiceId: string): string {
 	const id = PRACTICE_FOLDER_ID[practiceId];
-	if (!id) throw new Error(`demo-world/knowledge: unknown practice id "${practiceId}"`);
+	if (!id) throw new Error(`demo-world/documents: unknown practice id "${practiceId}"`);
 	return id;
 }
 
-export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<void> {
+export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<void> {
 	for (const [practiceId, folderId] of Object.entries(PRACTICE_FOLDER_ID)) {
 		await db
 			.insert(documents)
@@ -169,7 +169,7 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			.onConflictDoNothing();
 	}
 
-	const specs: readonly KnowledgeSpec[] = [
+	const specs: readonly DocumentSpec[] = [
 		// ── Product scope (L2): what Pulse is and the decisions that shape it ──
 		{
 			id: "demo-ki-pulse-brief",
@@ -454,7 +454,7 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			parentKind: "document",
 			parentId: practiceFolderId("support"),
 			title: "Support tickets that repeat three times become knowledge",
-			body: "Rule of three: when the same question arrives three times, it becomes a knowledge item and (if it is a product problem) a candidate bet. Pricing confusion hit the rule — the pricing bet exists because of it.",
+			body: "Rule of three: when the same question arrives three times, it becomes a document and (if it is a product problem) a candidate bet. Pricing confusion hit the rule — the pricing bet exists because of it.",
 			status: "proposed",
 			updatedBy: MAYA_ID,
 			createdAt: clock.daysAgo(4),
@@ -686,9 +686,9 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			createdAt: clock.daysAgo(15),
 			updatedAt: clock.daysAgo(15),
 		},
-		// ── Produced knowledge items (formerly artifacts) ───────────────────
+		// ── Produced documents (formerly artifacts) ───────────────────
 		// @lore artifacts-become-knowledge: produced content (pages, code, dashboards)
-		// is a knowledge item parented to the task that produced it. The body carries
+		// is a document parented to the task that produced it. The body carries
 		// the actual content; kind is derived at render from the blocks. An item whose
 		// body is a single fenced html block renders live in the sandbox frame.
 		//

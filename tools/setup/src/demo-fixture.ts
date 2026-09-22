@@ -12,7 +12,7 @@
  *
  * @lore AX1: the skeleton grew into a LIVED-IN world — six weeks of Acme
  * history (nested tasks across every lifecycle, threads with real reviews, a
- * knowledge corpus, sessions and routines with run history). The content
+ * document corpus, sessions and routines with run history). The content
  * lives in `./demo-world/`; this file keeps the skeleton and the entry
  * point. The AF17 constraint is unchanged: demo data is OPT-IN at database
  * creation (`npm run setup -- --demo`, or `--db-path` pointed at any
@@ -55,7 +55,7 @@ import { createDemoClock } from "./demo-world/time.js";
  * Creates: team "Acme" (AU44 B1: team_members dissolved), two humans, the founder's
  * assistant and five team agents, seven root tasks across every lifecycle with
  * nested subtasks to three levels deep, fifteen threads with ~100 messages,
- * a ~40-item knowledge corpus, ~45 sessions, routines with run history, and
+ * a ~40-item document corpus, ~45 sessions, routines with run history, and
  * notifications — a world that reads as six weeks of use by a small team.
  *
  * Idempotent: uses onConflictDoNothing throughout; fixed `demo-*` ids.
@@ -337,7 +337,7 @@ export async function seedDemoWorld(
 		})
 		.onConflictDoNothing();
 
-	// ── The lived-in world: cast, knowledge, work, conversations, activity ──
+	// ── The lived-in world: cast, documents, work, conversations, activity ──
 	await seedDemoWorldContent(db, clock);
 
 	// ── Give the demo agents the personas the role-personas plugin ships ──

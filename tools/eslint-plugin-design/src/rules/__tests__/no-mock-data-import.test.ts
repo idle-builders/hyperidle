@@ -81,10 +81,10 @@ ruleTester.run("no-mock-data-import", noMockDataImport, {
 			errors: [{ messageId: "mockDataImport" }],
 		},
 		// Positive: import from fixtures/ (without double-underscore) in runtime code
-		// Mirrors KnowledgeList.tsx importing from fixtures/knowledge-data.ts
+		// Mirrors DocumentList.tsx importing from fixtures/document-data.ts
 		{
-			filename: "/repo/layers/core-ui/src/components/KnowledgeList.tsx",
-			code: 'import { MOCK_KNOWLEDGE_ITEMS } from "../fixtures/knowledge-data";',
+			filename: "/repo/layers/core-ui/src/components/DocumentList.tsx",
+			code: 'import { MOCK_DOCUMENT_ITEMS } from "../fixtures/document-data";',
 			errors: [{ messageId: "mockDataImport" }],
 		},
 		// Positive: import from fixtures/ in a layouts file

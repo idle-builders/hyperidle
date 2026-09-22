@@ -3,7 +3,7 @@
  *
  * Proves `seedDemoWorld` fills a fresh database with a coherent, weeks-old
  * world: bet history across all lifecycles, tasks in every state, threads
- * with real reviews/verdicts, a knowledge corpus, sessions and routines with
+ * with real reviews/verdicts, a document corpus, sessions and routines with
  * history, and notifications — everything the three views need to look alive.
  */
 
@@ -197,7 +197,7 @@ describe("AX1: lived-in demo world", () => {
 	// and the demo corpus (re-seeded 3a99a022b/205659d1d) no longer writes a
 	// conflict row or any edit-log/access-log rows, so those assertions are gone,
 	// not re-pointed.
-	test("knowledge corpus fills curated + triage with real usage signals", async ({ db }) => {
+	test("document corpus fills curated + triage with real usage signals", async ({ db }) => {
 		await seedWorld(db);
 
 		// the practice-folder items (`demo-ki-practice-*`) also match `id LIKE
@@ -254,7 +254,7 @@ describe("AX1: lived-in demo world", () => {
 		await seedWorld(db);
 
 		// @lore BA9d wave 3: three ritual routines removed from demo world
-		// (knowledge-decay, knowledge-promotion, post-task-retro) — their associated
+		// (knowledge-decay, document-triage, post-task-retro) — their associated
 		// sessions are gone. Actual count is 34 (26 task + 2 live + 6 assistant turns).
 		expect(await count(db, "sessions")).toBeGreaterThanOrEqual(30);
 		expect(await count(db, "sessions", "WHERE state = 'active'")).toBeGreaterThanOrEqual(2);
@@ -280,7 +280,7 @@ describe("AX1: lived-in demo world", () => {
 
 	// @lore BA9d: builtin routine mechanism deleted (provisionTeamRoutines removed).
 	// Only demo-routine-daily_digest remains. The three ritual routines
-	// (knowledge-decay, knowledge-promotion, post-task-retro) were also removed
+	// (knowledge-decay, document-triage, post-task-retro) were also removed
 	// from demo world per coordinator instruction. No builtin:* rows exist.
 	test("routines: daily_digest routine with run history (BA9d: no builtin:* rows)", async ({
 		db,

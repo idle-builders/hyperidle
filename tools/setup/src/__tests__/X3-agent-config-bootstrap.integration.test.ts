@@ -1,7 +1,7 @@
 /**
  * X3 AC-3 — Seeded agents get their role's persona as their identity document.
  *
- * @lore BA9f: the persona left `agent_run_config` for an `agent_file` knowledge
+ * @lore BA9f: the persona left `agent_run_config` for an `agent_file`
  * document bound to the agent. The claim is unchanged — a seeded agent carries
  * its role template as its persona — only where that text lives has moved.
  *

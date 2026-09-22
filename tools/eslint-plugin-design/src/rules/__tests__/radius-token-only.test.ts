@@ -48,7 +48,7 @@ ruleTester.run("radius-token-only", radiusTokenOnly, {
 		// same-named file anywhere else in the repo (a page-local component,
 		// a test fixture) must NOT inherit the exemption.
 		{
-			filename: "layers/core-ui/src/pages/knowledge/Checkbox.tsx",
+			filename: "layers/core-ui/src/pages/document/Checkbox.tsx",
 			code: 'const J = <div className="rounded-[6px]" />;',
 			errors: [{ messageId: "notAToken" }],
 		},

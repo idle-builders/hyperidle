@@ -1156,11 +1156,11 @@ export const ATTACKS: readonly Attack[] = [
 	{
 		id: "artifact-storage-concept-control",
 		detail:
-			"a production file that names a knowledge item id (not an artifact storage concept) is not reported",
+			"a production file that names a document id (not an artifact storage concept) is not reported",
 		rules: ["artifact-is-not-a-storage-concept"],
 		mutate: {
 			[a.layerEntryControl]: (existing) =>
-				`${existing}export const attackKnowledgeItemRef = { knowledgeItemId: "" };\n`,
+				`${existing}export const attackDocumentRef = { documentId: "" };\n`,
 		},
 		expect: { sort: "clean", file: a.layerEntryControl },
 	},

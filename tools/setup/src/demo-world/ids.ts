@@ -78,9 +78,9 @@ export const TASK_DOWNGRADE_UI = "demo-task-downgrade-ui";
 export const TASK_CHURN_SIGNALS = "demo-task-churn-signals";
 export const TASK_CHURN_DASH = "demo-task-churn-dash";
 
-// ── Produced knowledge items (ids reused from the former artifacts table) ───
+// ── Produced documents (ids reused from the former artifacts table) ─────────
 // @lore artifacts-become-knowledge: these ids were "artifact" ids; the table
-// is gone. Content is a knowledge item parented to the producing task.
+// is gone. Content is a document parented to the producing task.
 export const ART_PRICING_PAGE = "demo-art-pricing-page";
 export const ART_TRIAL_FLOW = "demo-art-trial-flow";
 export const ART_TRIAL_METRICS = "demo-art-trial-metrics";
@@ -109,7 +109,7 @@ export const MSG_PRICING_QUESTIONNAIRE = "demo-msg-pricing-annual-questionnaire"
 export const MSG_TRIAL_REVIEW = "demo-msg-trial-review-request";
 export const MSG_SEARCH_REVIEW = "demo-msg-search-review-request";
 
-// ── Knowledge ───────────────────────────────────────────────────────────────
+// ── Documents ─────────────────────────────────────────────────────────────
 export const KI_CHURN_SIGNALS = "demo-ki-churn-early-signals";
 export const KI_PRICING_TIERS = "demo-ki-two-tier-pricing";
 export const KI_TRIAL_RETRO = "demo-ki-retro-trial-extension";

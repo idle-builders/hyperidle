@@ -7,7 +7,7 @@
  *
  * Three negative (compliance) cases the rule MUST honor:
  *   1. The combo in `pageTitleClassName` as a template-literal expression reference
- *      (KnowledgeCreate editable <input> path — W1):
+ *      (DocumentCreate editable <input> path — W1):
  *      className={`${pageTitleClassName} bg-transparent ...`}
  *      → The rule uses collectClassStringsFromJSXAttribute which only extracts
  *        static quasi text from TemplateLiteral (identifier expressions contribute
@@ -111,7 +111,7 @@ describe("design/no-handrolled-page-header rule (AI7 AC3)", () => {
 		});
 	});
 
-	// ---- VALID: KnowledgeCreate identifier-reference escape hatch (W1) ----
+	// ---- VALID: DocumentCreate identifier-reference escape hatch (W1) ----
 
 	it("does NOT flag a template-literal className that references the pageTitleClassName identifier (W1)", () => {
 		tester.run("no-handrolled-page-header", noHandrolledPageHeader, {

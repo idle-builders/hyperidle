@@ -326,7 +326,7 @@ Research first, prototype only if the numbers say yes.`,
 			title: "Rewrite pricing copy around outcomes",
 			description:
 				"Replace feature-count copy with outcome copy: what a team can DO on each tier. Headlines, FAQ answers, CTA.",
-			doneCondition: "All page copy rewritten and consistent with the brand-voice knowledge item.",
+			doneCondition: "All page copy rewritten and consistent with the brand-voice document.",
 			state: "in_progress",
 			createdAt: clock.daysAgo(9),
 			updatedAt: clock.hoursAgo(1),

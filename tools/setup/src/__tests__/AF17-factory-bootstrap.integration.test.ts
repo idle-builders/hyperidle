@@ -135,7 +135,7 @@ describe("AF17 AC1: runFactoryBootstrap creates the complete factory layer", () 
 	});
 
 	// @lore AU43 repair: seed-ki-1 tests removed — ensureFactoryKnowledgeSeed deleted by AU43 bundle-4.
-	// Bootstrap no longer seeds knowledge items or the strategy fabric projection row.
+	// Bootstrap no longer seeds documents or the strategy fabric projection row.
 
 	test("no teams row is created by bootstrap (team_id null constraint)", async ({ db }) => {
 		await runFactoryBootstrap(db);

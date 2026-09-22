@@ -54,7 +54,7 @@ function animationFrameIdentity(
 			source.includes('window.document.querySelectorAll("[data-block-id]")') &&
 			source.includes('node.getAttribute("data-block-id")===decoded') &&
 			source.includes('?.scrollIntoView?.({block:"start"})')
-			? "knowledge-anchor-scroll"
+			? "document-anchor-scroll"
 			: null;
 	}
 	if (!normalized.endsWith("layers/core-ui/src/layouts/AppShell.tsx")) return null;
