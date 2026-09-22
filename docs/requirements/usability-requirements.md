@@ -48,11 +48,11 @@ Primitive semantics: [notification-primitive](../human-interface-layer/notificat
 
 ## UX-5: Knowledge View
 
-**UX-5.1** The Knowledge view has two main surfaces: Curated (active items) and Triage (needs attention, sorted by attention score — [relevance-and-attention](../knowledge-architecture/relevance-and-attention.md)). Items are scoped; the scope enum is owned by [the-canonical-store](../knowledge-architecture/the-canonical-store.md).
+**UX-5.1** The Knowledge view has two main surfaces: Curated (active documents, a nestable tree) and Triage (`proposed` documents, plain recency order — there is no attention score any more). Documents are scoped; the scope enum is owned by [the-canonical-store](../knowledge-architecture/the-canonical-store.md).
 
-**UX-5.2** Supported curation actions: merge, split, archive, inline edit. Merge combines bodies, archives the source, and logs the edit (`layers/core-api/src/routes/knowledge.ts`, `knowledge_edit_log`). Split promotes a section to a new item.
+**UX-5.2** Supported curation actions: archive, inline edit (`edit_document`). There is no merge or split action, in the UI or the API — a document is combined or divided by editing its body directly.
 
-**UX-5.3** Every knowledge item shows provenance and confidence on its detail page (KnowledgeDetail metadata).
+**UX-5.3** A document's detail page shows its status, scope, where it sits in the tree, and its usage — how many times it has been opened and when, how many session assemblies have handed it to an agent and when (`DocumentDetail.tsx`).
 
 ## UX-6: Trust & Usage Transparency
 

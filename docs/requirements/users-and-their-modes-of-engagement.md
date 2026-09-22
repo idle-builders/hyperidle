@@ -14,7 +14,7 @@ Humans engage through six interaction modes, each with a distinct rhythm and cog
 
 **Create (minutes, proactive).** Humans are not just reviewers — they actively create:
 - **Tasks** — author a title, description, and done condition; create tasks from the Work view (`WorkTaskCreate.tsx`). Root tasks are the top-level commitments; subtasks can be added to any depth.
-- **Knowledge** — write knowledge items at any of the 6 scopes: `factory | product | practice | team | task | user` (`framework/domain-model/src/types.ts`; `user` = user-private).
+- **Knowledge** — write documents at any of the 3 scopes: `factory | team | user` (`framework/domain-model/src/types.ts`; `user` = private).
 - **Conversations** — initiate threads with specific agents via the RecipientPicker, opened from the UI.
 - **Session dial-in** — observe a running agent session's live activity stream (**D** key, `Conversations.tsx`). Read-only, with filter tabs All | Tools | Reasoning.
 
@@ -22,7 +22,7 @@ Humans engage through six interaction modes, each with a distinct rhythm and cog
 
 **Assistant (monthly, conversational).** Talk with the assistant agent about how the factory is running — cross-product patterns, recurring obstacles, rule changes. Accessible via the assistant overlay (sidebar button), deliberately engaged monthly.
 
-**Curate (weekly, editorial).** Tend the cross-product knowledge base — triage/curated tabs (`KnowledgeList.tsx:62`), prune stale items (staleness detection built in), flag wrong-looking items, author new items at any scope. Twenty minutes, once a week.
+**Curate (weekly, editorial).** Tend the cross-product knowledge base — triage/curated tabs (`DocumentList.tsx`), prune stale documents (staleness detection built in), flag wrong-looking documents, author new documents at any scope. Twenty minutes, once a week.
 
 ## 2. Agent Users
 
