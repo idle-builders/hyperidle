@@ -17,38 +17,37 @@
  * there is no team segment to assert. The team is reachable from /work.
  */
 
-import { expect, makeTask, mockTaskTree, test } from "./fixtures";
+import {
+	expect,
+	makeSessionRow,
+	makeTask,
+	mockSearchSessions,
+	mockTaskTree,
+	test,
+} from "./fixtures";
 
 const ROOT_TASK_ID = "root-e2e-1";
 const TASK_ID = "task-e2e-1";
 const ROOT_TITLE = "User Auth Flow";
 const TASK_TITLE = "Implement login endpoint";
 
-/** `GET /api/agent-orchestration/runs?task_id=…` — what useTaskSessions reads. */
-const RUNS_FIXTURE = {
-	runs: [
-		{
-			id: "sess-1",
-			state: "completed",
-			startedAt: "2026-01-01T10:00:00.000Z",
-			agentId: "agent-dev-1",
-			effectivenessScore: null,
-		},
-	],
-};
+/** What `search_sessions({ taskId })` answers — the door `useTaskSessions` reads. */
+const SESSIONS_FIXTURE = [
+	makeSessionRow("sess-1", {
+		state: "completed",
+		outcome: "completed",
+		startedAt: "2026-01-01T10:00:00.000Z",
+		agentId: "agent-dev-1",
+		taskId: TASK_ID,
+	}),
+];
 
 const TEAMS_FIXTURE = {
 	teams: [{ id: "t1", name: "Alpha Core", phase: "build", active: true }],
 };
 
 async function seedTaskTree(page: import("@playwright/test").Page): Promise<void> {
-	await page.route("**/api/agent-orchestration/runs**", async (route) => {
-		await route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify(RUNS_FIXTURE),
-		});
-	});
+	await mockSearchSessions(page, { rows: SESSIONS_FIXTURE });
 	await page.route("**/api/teams", async (route) => {
 		await route.fulfill({
 			status: 200,

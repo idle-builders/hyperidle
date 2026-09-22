@@ -19,7 +19,7 @@
  * and returns 502, causing timeout on hydration. Pattern from L19.
  */
 
-import { expect, mockSearchThreads, test } from "./fixtures";
+import { expect, makeSessionRow, mockSearchSessions, mockSearchThreads, test } from "./fixtures";
 
 const PRODUCT_ID = "prod-l20";
 const BET_ID = "bet-l20";
@@ -94,19 +94,16 @@ function makeEmptyMessagesResponse() {
 }
 
 function makeSessionsResponse(taskId: string, state: string, outcome: string | null) {
-	return {
-		sessions: [
-			{
-				id: SESSION_ID,
-				taskId,
-				agentId: AGENT_ID,
-				state,
-				outcome,
-				startedAt: "2026-05-06T10:00:00Z",
-				endedAt: state === "ended" ? "2026-05-06T10:30:00Z" : null,
-			},
-		],
-	};
+	return [
+		makeSessionRow(SESSION_ID, {
+			taskId,
+			agentId: AGENT_ID,
+			state,
+			outcome,
+			startedAt: "2026-05-06T10:00:00Z",
+			endedAt: state === "done" ? "2026-05-06T10:30:00Z" : null,
+		}),
+	];
 }
 
 // ── Shared route mock helper ──────────────────────────────────────────────────
@@ -132,14 +129,8 @@ async function setupCommonRoutes(
 		});
 	});
 
-	// Sessions list for the task
-	await page.route(`**/api/sessions?**`, (route) => {
-		return route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify(makeSessionsResponse(TASK_ID, "ended", "completed")),
-		});
-	});
+	// Sessions list for the task, via search_sessions.
+	await mockSearchSessions(page, { rows: makeSessionsResponse(TASK_ID, "done", "completed") });
 
 	// Products: handle both detail (/api/teams/:id) and list (/api/teams or /api/teams?...)
 	// in a single handler. Playwright evaluates the last-registered route first, so merging

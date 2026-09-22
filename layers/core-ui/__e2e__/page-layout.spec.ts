@@ -9,6 +9,7 @@ import {
 	makeMessage,
 	makeThread,
 	mockDocument,
+	mockSearchSessions,
 	mockSearchThreads,
 	mockThread,
 	test,
@@ -69,7 +70,7 @@ async function mockPrimarySurfaces(page: Page): Promise<void> {
 		],
 		hostTitle: "Layout task",
 	});
-	await page.route("**/api/sessions?**", (route) => json(route, []));
+	await mockSearchSessions(page, { rows: [] });
 	await mockSearchThreads(page, { rows: [] });
 	// @lore BC4: KnowledgeDetail's LEGACY_DETAILS/fixture fallback ("k1, known
 	// fixture id with content") is gone — DocumentDetail only ever reads

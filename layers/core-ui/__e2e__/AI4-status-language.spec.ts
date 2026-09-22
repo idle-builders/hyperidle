@@ -30,7 +30,16 @@
 
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { expect, makeTask, makeTaskNode, mockSearchThreads, mockTaskTree, test } from "./fixtures";
+import {
+	expect,
+	makeSessionRow,
+	makeTask,
+	makeTaskNode,
+	mockSearchSessions,
+	mockSearchThreads,
+	mockTaskTree,
+	test,
+} from "./fixtures";
 
 // ── Fixture IDs ────────────────────────────────────────────────────────────────
 const ROOT_TASK_ID = "root-ai4-proof";
@@ -51,20 +60,13 @@ const STATUS_CHIP = '[data-ds-component="StatusChip"]';
 const LIVE_DOT = '[data-az16-profile="activity"]';
 // ── Mock data ──────────────────────────────────────────────────────────────────
 
-function makeActiveSessionsResponse() {
-	return {
-		sessions: [
-			{
-				id: "sess-ai4-active",
-				title: "Implementing status chip unification",
-				agent: "Dev Agent",
-				tokens: 15000,
-				status: "active",
-				harnessUrl: null,
-				effectivenessScore: null,
-			},
-		],
-	};
+function makeActiveSessions() {
+	return [
+		makeSessionRow("sess-ai4-active", {
+			taskId: TASK_ID,
+			state: "active",
+		}),
+	];
 }
 
 function makeTeamDetailResponse() {
@@ -122,21 +124,8 @@ async function setupBetRoutes(
 /** Wire routes needed for WorkTask detail page. */
 async function setupTaskRoutes(page: Parameters<typeof setupBetRoutes>[0]) {
 	await setupBetRoutes(page);
-	// Sessions for WorkTask detail + TaskSheet
-	await page.route(`**/api/sessions**`, (route) =>
-		route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify(makeActiveSessionsResponse()),
-		}),
-	);
-	await page.route(`**/api/agent-orchestration/runs**`, (route) =>
-		route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify(makeActiveSessionsResponse()),
-		}),
-	);
+	// Sessions for WorkTask detail + TaskSheet, via search_sessions.
+	await mockSearchSessions(page, { rows: makeActiveSessions() });
 }
 
 /** Wire routes needed for WorkTeam page. */
