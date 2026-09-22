@@ -2,7 +2,7 @@
  * AU26 B1a — the two-app mount.
  *
  * `agent-orchestration` has its own Hono app, mounted beside core-api's on
- * the same `/api` router at unchanged paths (§D-A rule 7), so this file
+ * the same `/api` router at unchanged paths, so this file
  * proves the interleaved routing shape the checked-in probe
  * (`.pipeline/work/AU26/probes/two-app-mount/poc4.ts`) predicts:
  *
@@ -20,7 +20,7 @@
  *   - GET /api/agent-orchestration/sessions (#145 DELETE)
  *   - POST /api/sessions (#114 DELETE)
  *
- * @lore BC6: `GET /api/sessions` and `GET /api/sessions/:id/activity` are
+ * @lore `GET /api/sessions` and `GET /api/sessions/:id/activity` are
  * DELETED — `search_sessions`/`watch_session` are the door now
  * (`POST /api/actions/<name>`), proven by the integrate task's seam test,
  * not here. `routes/sessions.ts` (the file both lived in) is gone.

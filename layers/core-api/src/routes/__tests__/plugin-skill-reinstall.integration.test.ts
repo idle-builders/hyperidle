@@ -10,7 +10,7 @@
  *   (iii) disable archives exactly the contributed ids — a `document`
  *         contribution the plugin no longer owns is untouched.
  *
- * Re-pointed (BC6) onto `POST /api/actions/edit_plugin`.
+ * Re-pointed onto `POST /api/actions/edit_plugin`.
  */
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";

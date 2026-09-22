@@ -11,7 +11,7 @@
  * restore route's skill branch was unreachable from the UI because skills never
  * appeared in the list to click Restore on. It is a registry column now.
  *
- * Re-pointed (BC6) onto `POST /api/actions/edit_plugin` / `search_plugins`.
+ * Re-pointed onto `POST /api/actions/edit_plugin` / `search_plugins`.
  */
 
 import { cpSync, mkdirSync, rmSync } from "node:fs";

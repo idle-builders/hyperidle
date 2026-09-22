@@ -1,6 +1,6 @@
 /**
  * BA9a — plugin lifecycle integration tests, re-pointed onto the platform
- * module (BC6): `POST /api/actions/edit_plugin` / `search_plugins` replace
+ * module: `POST /api/actions/edit_plugin` / `search_plugins` replace
  * `routes/plugins.ts`'s six routes.
  *
  * Tests the not-found refusals for enable, disable, remove, and restore

@@ -49,7 +49,7 @@ function createMockClient(): WsClient & { messages: string[] } {
  *
  * @lore AU26 J3: was four ports, then three once `session:<id>` moved to
  * `agent-orchestration`'s (deleted) second socket — `org`/`work` only ever
- * served that branch. `document`/`users` (architecture.md §7) are new —
+ * served that branch. `document`/`users` are new —
  * `users` back for `document:<id>`'s subject resolution, not the session-team
  * check AU26 removed. `session:<id>` folding back onto this authorizer needs
  * no port at all — it admits on identity alone.

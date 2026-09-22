@@ -105,7 +105,7 @@ interface RealtimeUserReader {
  *
  * @lore AU26 J3: was four (`conversation`/`users`/`org`/`work`), then three
  * once the `session:<id>` branch moved to `agent-orchestration` (`work`/`org`
- * only ever served that branch). `document` (architecture.md §7) is new —
+ * only ever served that branch). `document` is new —
  * `users` came back for `document:<id>`'s visibility check (the same subject
  * resolution `document-actions.ts` does), not for sessions. `session:<id>`
  * folding back onto this authorizer needs no port at all — it admits on

@@ -1,6 +1,6 @@
 /**
  * The platform module — `search_plugins`/`edit_plugin` own the whole plugin
- * lifecycle (architecture.md §1, §2, §6). Real PGlite via the `{ db }`
+ * lifecycle. Real PGlite via the `{ db }`
  * fixture. `deps.agents`/`deps.routines` are backed by real queries against
  * the real `users`/`routines` tables — the same crossing `compose.ts` binds
  * in production, built here with raw drizzle rather than importing

@@ -15,7 +15,7 @@
  *
  * One lifecycle, one outcome: three operations that can disagree become one.
  *
- * Re-pointed (BC6) onto `POST /api/actions/edit_plugin`.
+ * Re-pointed onto `POST /api/actions/edit_plugin`.
  */
 
 import { cpSync, mkdirSync, rmSync } from "node:fs";

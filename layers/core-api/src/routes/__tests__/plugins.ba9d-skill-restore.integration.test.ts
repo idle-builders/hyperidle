@@ -2,7 +2,7 @@
  * BA9d D12: skill restore re-imports body from plugin source on disk.
  * Proves that editing a skill's body in the DB and then calling
  * `edit_plugin`'s restore change puts the original SKILL.md content back.
- * Re-pointed (BC6) onto `POST /api/actions/edit_plugin`.
+ * Re-pointed onto `POST /api/actions/edit_plugin`.
  *
  * @lore document-module B10: restore now writes through `edit_document`, so
  * `updatedBy` becomes the requesting person (architecture.md §3.5 — the

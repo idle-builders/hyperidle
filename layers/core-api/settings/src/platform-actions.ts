@@ -1,8 +1,8 @@
 /**
  * The platform action list — `search_plugins` / `edit_plugin`. This Service
  * owns `plugins`, `plugin_contributions` and `plugin_configuration_defaults`
- * (`table-owners.json`), so it declares the runs itself — architecture.md §2,
- * §6. Replaces `routes/plugins.ts` (984 lines, six routes) whole.
+ * (`table-owners.json`), so it declares the runs itself. Replaces
+ * `routes/plugins.ts` (984 lines, six routes) whole.
  *
  * `Action`/`ActionContext` below are a local structural mirror of
  * `layers/core-api/src/actions/action.ts`'s own pair, the same reason
@@ -13,7 +13,7 @@
  * @lore document-module B10 (carried over from `routes/plugins.ts`'s own
  * header): every document read/write goes through the injected
  * `editDocument`/`searchDocuments` runners (`runnerFor` over the composed
- * list `compose.ts` builds, architecture.md §2), never a document
+ * list `compose.ts` builds), never a document
  * repository function directly. `edit_document` opens its own transaction
  * per call, so the document-touching calls in this file never run inside
  * this module's OWN `ctx.db.transaction(...)` blocks — they run before it
@@ -29,8 +29,8 @@
  * phases: the agent/routine transaction, then the document archive loop.
  *
  * `internal: true` is set INSIDE this module's own `run`, on the ctx it
- * hands to `editDocument` — never read off the caller's ctx (architecture.md
- * §2; `action.ts:37-50`'s own account of why).
+ * hands to `editDocument` — never read off the caller's ctx
+ * (`action.ts:37-50`'s own account of why).
  */
 
 import {
@@ -130,7 +130,7 @@ type EditDocumentRunFn = (
 ) => Promise<ActionResult<DocumentView>>;
 
 /**
- * The platform module's outward-facing deps — architecture.md §2. Everything
+ * The platform module's outward-facing deps. Everything
  * outside `@hyperidle/settings`'s own three tables arrives here: an agent is
  * a `users` row, a routine is a `routines` row, a document write/read goes
  * through the composed `edit_document`/`search_documents` runners — this
@@ -406,7 +406,7 @@ function readPluginDocumentSource(
 
 // ---------------------------------------------------------------------------
 // The contributions view — the configuration-default half plus the
-// registry's half (agents, routines, documents), architecture.md §6.
+// registry's half (agents, routines, documents).
 // ---------------------------------------------------------------------------
 
 interface ConfigurationItemForPlugin {
@@ -698,7 +698,7 @@ async function removeRun(
 	// The pre-remove state — `state: "removed"` is not a member of
 	// `PluginListState`, so there is no valid view to build AFTER removing;
 	// the answer is the row as it stood the moment asked, the same idiom
-	// `stop_session` uses for its pre-stop row (architecture.md §12 F1).
+	// `stop_session` uses for its pre-stop row.
 	const preView = await assemblePluginView(ctx, deps, id);
 
 	await removePlugin(ctx.db, id, ctx.now);
@@ -783,8 +783,8 @@ async function restoreRun(
 }
 
 // ---------------------------------------------------------------------------
-// search_plugins — installed plugins only (founder ruling, architecture.md
-// §0.5: nothing packages `plugins/` into the desktop bundle, so there is no
+// search_plugins — installed plugins only (founder ruling: nothing
+// packages `plugins/` into the desktop bundle, so there is no
 // "bundled but not installed" set to list here).
 // ---------------------------------------------------------------------------
 

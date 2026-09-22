@@ -10,7 +10,7 @@
  * agent with a bare AGENTS.md; a builder, a designer, a PM are things a plugin
  * brings, not things the product has opinions about.
  *
- * Re-pointed (BC6) onto `POST /api/actions/edit_plugin` / `search_plugins`.
+ * Re-pointed onto `POST /api/actions/edit_plugin` / `search_plugins`.
  */
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";

@@ -221,7 +221,7 @@ function buildDocumentActionsDeps(
 }
 
 /**
- * `platform`'s deps (architecture.md §2, §6): `editDocument`/`searchDocuments`
+ * `platform`'s deps: `editDocument`/`searchDocuments`
  * are extracted from the already-built `documentActions` through `runnerFor`
  * — no lazy binding needed here (unlike `document`'s own `searchDocuments`
  * closure), because `platform` is built AFTER `document`, never before.

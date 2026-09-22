@@ -1,6 +1,6 @@
 /**
  * BA9d plugin lifecycle: disable/enable/remove must stop/restart/clean
- * materialised rows. Re-pointed (BC6) onto `POST /api/actions/edit_plugin`.
+ * materialised rows. Re-pointed onto `POST /api/actions/edit_plugin`.
  */
 
 import { cpSync, mkdirSync, rmSync } from "node:fs";

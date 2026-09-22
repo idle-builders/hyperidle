@@ -590,7 +590,7 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		// owns). Same path, other host — see `createAgentOrchestrationApp`.
 		api.route("/search", createSearchRoutes(options.db, eventBus, searchDocumentsRun));
 		api.route("/settings/agent-behavior", createAgentBehaviorSettingsRoutes(options.db));
-		// BC6: plugin management is the platform module now —
+		// Plugin management is the platform module now —
 		// `search_plugins`/`edit_plugin`, mounted generically by
 		// `createActionsRouter` above (`compose.ts`'s fourth action group).
 		// `routes/plugins.ts` and its six routes are deleted.

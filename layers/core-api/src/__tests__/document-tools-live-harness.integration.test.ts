@@ -377,7 +377,7 @@ describe("a real agent writes a memory, writes a task artifact, and reads a docu
 			const composition = buildRunOrchestrationComposition({
 				harnessRuntime: buildLiveHarnessRuntimeAdapter(mcpBridgeRegistry, enforcementRegistry),
 				returnStatusTool: { forRegistry: (registry) => returnStatusTool.forRegistry(registry) },
-				// §5: `actionTools` is a thunk now — this test's list never
+				// `actionTools` is a thunk now — this test's list never
 				// changes mid-run, so a constant-returning closure is enough.
 				actionTools: () => actionTools,
 			});
