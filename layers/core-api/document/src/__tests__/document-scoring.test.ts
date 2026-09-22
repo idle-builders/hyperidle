@@ -1,5 +1,5 @@
 /**
- * AU20 completeness contract — pure-logic unit tests for the knowledge service.
+ * AU20 completeness contract — pure-logic unit tests for the document service.
  *
  * These tests cover capabilities that are pure functions (no DB needed):
  *   - sanitizeFtsQuery: FTS injection prevention + token normalization

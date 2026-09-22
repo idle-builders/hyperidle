@@ -1,5 +1,5 @@
 /**
- * BA9b — Service integration tests for capability knowledge items.
+ * BA9b — Service integration tests for capability documents.
  *
  * Proves:
  * - assembleSessionDocuments returns skill/rule items alongside ordinary ones
@@ -18,7 +18,7 @@ function generateId(): string {
 	return `test-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-async function insertKnowledgeItem(
+async function insertDocument(
 	db: HyperIdleDb,
 	opts: {
 		id?: string;
@@ -53,7 +53,7 @@ async function insertKnowledgeItem(
 // ---------------------------------------------------------------------------
 describe("BA9b: assembleSessionDocuments includes capability items", () => {
 	test("factory-scoped skill is returned for any team session", async ({ db }) => {
-		await insertKnowledgeItem(db, {
+		await insertDocument(db, {
 			title: "write-tests",
 			body: "Write tests first.",
 			role: "skill",
@@ -76,7 +76,7 @@ describe("BA9b: assembleSessionDocuments includes capability items", () => {
 		const teamA = `team-a-${generateId()}`;
 		const teamB = `team-b-${generateId()}`;
 
-		await insertKnowledgeItem(db, {
+		await insertDocument(db, {
 			title: "team-a-skill",
 			body: "Team A's skill.",
 			role: "skill",
@@ -110,7 +110,7 @@ describe("BA9b: assembleSessionDocuments includes capability items", () => {
 		const teamId = `team-${generateId()}`;
 		const otherId = `agent-other-${generateId()}`;
 
-		await insertKnowledgeItem(db, {
+		await insertDocument(db, {
 			title: "agent-specific-instructions",
 			body: "Only for this agent.",
 			role: "agent_file",
@@ -139,8 +139,8 @@ describe("BA9b: assembleSessionDocuments includes capability items", () => {
 		expect(foundForOther).toBeUndefined();
 	});
 
-	test("rule item is returned in session knowledge", async ({ db }) => {
-		await insertKnowledgeItem(db, {
+	test("rule item is returned in session documents", async ({ db }) => {
+		await insertDocument(db, {
 			title: "no-console-rule",
 			body: "Never use console.log.",
 			role: "rule",
@@ -161,7 +161,7 @@ describe("BA9b: assembleSessionDocuments includes capability items", () => {
 	test("a factory skill appears exactly once (never doubled by the capability fetch)", async ({
 		db,
 	}) => {
-		const id = await insertKnowledgeItem(db, {
+		const id = await insertDocument(db, {
 			title: `dedup-skill-${generateId()}`,
 			body: "Dedup test.",
 			role: "skill",
@@ -192,22 +192,22 @@ describe("a routine prompt in reach appears in neither fetch", () => {
 		const teamId = `team-prompt-${generateId()}`;
 		const agentId = `agent-prompt-${generateId()}`;
 
-		await insertKnowledgeItem(db, {
+		await insertDocument(db, {
 			title: "factory-prompt",
 			body: "Factory-scoped instruction.",
 			role: "prompt",
 			scopeKind: "factory",
 		});
-		await insertKnowledgeItem(db, {
+		await insertDocument(db, {
 			title: "team-prompt",
 			body: "Team-scoped instruction.",
 			role: "prompt",
 			scopeKind: "team",
 			scopeId: teamId,
 		});
-		await insertKnowledgeItem(db, { title: "still-a-skill", body: "Skill body.", role: "skill" });
-		await insertKnowledgeItem(db, { title: "still-a-rule", body: "Rule body.", role: "rule" });
-		await insertKnowledgeItem(db, {
+		await insertDocument(db, { title: "still-a-skill", body: "Skill body.", role: "skill" });
+		await insertDocument(db, { title: "still-a-rule", body: "Rule body.", role: "rule" });
+		await insertDocument(db, {
 			title: "still-an-identity",
 			body: "Identity body.",
 			role: "agent_file",
@@ -236,13 +236,13 @@ describe("a routine prompt in reach appears in neither fetch", () => {
  * agent and must still receive everything scoped to reach it — the factory
  * ones, and the ones bound to it by id.
  *
- * Nothing here is about where an item came from. A skill is a knowledge row
+ * Nothing here is about where an item came from. A skill is a document row
  * with `role: "skill"`; whichever writer produced it, the scope decides who
  * receives it.
  */
 describe("capability items for a team-less agent", () => {
 	test("a factory-scoped skill reaches an agent that belongs to no team", async ({ db }) => {
-		const skillId = await insertKnowledgeItem(db, {
+		const skillId = await insertDocument(db, {
 			title: "knowledge-decay",
 			body: "# Knowledge decay sweep",
 			role: "skill",
@@ -259,14 +259,14 @@ describe("capability items for a team-less agent", () => {
 	});
 
 	test("an agent-bound skill reaches its agent with no team in play", async ({ db }) => {
-		const boundId = await insertKnowledgeItem(db, {
+		const boundId = await insertDocument(db, {
 			title: "librarian-only",
 			body: "# Bound to one agent",
 			role: "skill",
 			scopeKind: "user",
 			scopeId: "agent-teamless",
 		});
-		const otherId = await insertKnowledgeItem(db, {
+		const otherId = await insertDocument(db, {
 			title: "someone-elses",
 			body: "# Bound to a different agent",
 			role: "skill",
@@ -293,7 +293,7 @@ describe("capability items for a team-less agent", () => {
  */
 describe("who a capability item reaches", () => {
 	test("a factory-scoped skill reaches a team agent and a team-less one alike", async ({ db }) => {
-		const skillId = await insertKnowledgeItem(db, {
+		const skillId = await insertDocument(db, {
 			title: "shared-practice",
 			body: "# Everyone gets this",
 			role: "skill",
@@ -317,7 +317,7 @@ describe("who a capability item reaches", () => {
 	});
 
 	test("a team-scoped skill reaches that team's agents and no one else", async ({ db }) => {
-		const skillId = await insertKnowledgeItem(db, {
+		const skillId = await insertDocument(db, {
 			title: "alpha-only",
 			body: "# Team alpha only",
 			role: "skill",
@@ -349,7 +349,7 @@ describe("who a capability item reaches", () => {
 	});
 
 	test("a skill bound to one agent reaches that agent even inside a team", async ({ db }) => {
-		const boundId = await insertKnowledgeItem(db, {
+		const boundId = await insertDocument(db, {
 			title: "just-for-this-agent",
 			body: "# Bound",
 			role: "skill",
@@ -379,12 +379,12 @@ describe("who a capability item reaches", () => {
 /**
  * The team-scoped fetch only runs when `input.teamId` is set (architecture
  * D1: "factory + its team + its own", no subtree/other-team selection). A
- * team-less agent has no team-scoped knowledge to receive; it must not
+ * team-less agent has no team-scoped documents to receive; it must not
  * inherit other teams'.
  */
-describe("a team-less agent receives no team-scoped ordinary knowledge", () => {
+describe("a team-less agent receives no team-scoped ordinary documents", () => {
 	test("does not inherit another team's items", async ({ db }) => {
-		const otherTeamItem = await insertKnowledgeItem(db, {
+		const otherTeamItem = await insertDocument(db, {
 			title: "Another team's working agreement",
 			body: "Private to that team.",
 			role: "ordinary",

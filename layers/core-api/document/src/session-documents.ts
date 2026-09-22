@@ -70,10 +70,10 @@ const DEFAULT_WEIGHTS: ScoringWeights = {
 	confidence: 0.15,
 };
 
-/** Total context window tokens and knowledge allocation ratio. */
+/** Total context window tokens and document allocation ratio. */
 const CONTEXT_WINDOW_TOKENS = 200_000;
-const KNOWLEDGE_ALLOCATION_RATIO = 0.2;
-const DEFAULT_KNOWLEDGE_BUDGET = CONTEXT_WINDOW_TOKENS * KNOWLEDGE_ALLOCATION_RATIO; // 40_000
+const DOCUMENT_ALLOCATION_RATIO = 0.2;
+const DEFAULT_DOCUMENT_BUDGET = CONTEXT_WINDOW_TOKENS * DOCUMENT_ALLOCATION_RATIO; // 40_000
 
 /**
  * Scoring weights. Always the hardcoded defaults.
@@ -308,7 +308,7 @@ async function rank(
 	context: ScoringContext & { readonly tokenLimit?: number },
 ): Promise<DocumentRow[]> {
 	const weights = await loadScoringWeights(db);
-	return rankAndBudget(items, context, weights, context.tokenLimit ?? DEFAULT_KNOWLEDGE_BUDGET);
+	return rankAndBudget(items, context, weights, context.tokenLimit ?? DEFAULT_DOCUMENT_BUDGET);
 }
 
 // ---------------------------------------------------------------------------
@@ -332,7 +332,7 @@ export interface SessionDocumentsInput {
 	/**
 	 * @lore BA9b: agentId is required to fetch agent_file items bound to this agent.
 	 * Required (not optional) so no caller can accidentally omit it and silently lose
-	 * agent-bound knowledge items. All three real bundle-builders (task-run-resolver,
+	 * agent-bound documents. All three real bundle-builders (task-run-resolver,
 	 * routine-service) have agent.id in scope and must pass it.
 	 */
 	readonly agentId: string;
@@ -360,7 +360,7 @@ function fetchOrdinaryItemsByScope(
 				eq(documents.slot, "ordinary"),
 				eq(documents.scopeKind, scopeKind),
 				scopeId === null ? isNull(documents.scopeId) : eq(documents.scopeId, scopeId),
-				// @lore BA9g: a session must never be handed archived knowledge. The
+				// @lore BA9g: a session must never be handed an archived document. The
 				// rule is NOT "only active": `write_memory` writes `proposed` items
 				// and R7 AC-5 requires those to reach the next session. Archived is
 				// the one status that means "this reaches nobody".
@@ -447,7 +447,7 @@ export interface SessionDocument extends DocumentRow {
  * selection.
  *
  * `rank()` reads scoring weights from the DB and trims to
- * `DEFAULT_KNOWLEDGE_BUDGET` tokens — this function delegates to it.
+ * `DEFAULT_DOCUMENT_BUDGET` tokens — this function delegates to it.
  *
  * @lore BA9b: capability items (slot != 'ordinary') are appended AFTER the
  * ranked ordinary items. They are not ranked/budgeted — plugin installation

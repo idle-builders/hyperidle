@@ -31,6 +31,6 @@ export { createDocumentActions, type DocumentActionsDeps } from "./document-acti
 export { getDocument } from "./document-store.js";
 // -- session context assembly (AU21 §9 Increment 12, Decision H3 — the
 // requireRunnableAgent-precedent shared assembler; per-kind resolvers call
-// this intra-layer instead of run-orchestration reading knowledge back) --
+// this intra-layer instead of run-orchestration reading documents back) --
 export type { SessionDocument } from "./session-documents.js";
 export { assembleSessionDocuments } from "./session-documents.js";
