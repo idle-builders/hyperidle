@@ -26,6 +26,7 @@ import type {
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { BakedAgentRunnableConfig } from "@hyperidle/domain-model";
 import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model/http";
+import type { EventBus } from "@hyperidle/event-bus";
 import { getFilesystem, saveInjection as saveFilesystemInjection } from "@hyperidle/filesystems";
 import {
 	type DEFAULT_AGENT_RUN_CONFIG,
@@ -122,7 +123,10 @@ const gateVerdictInputSchema = z.object({
 	agentConfig: z.unknown().optional(),
 }) satisfies z.ZodType<AgentOrchestrationReviewVerdictInput>;
 
-export function createAgentOrchestrationIntakeRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
+export function createAgentOrchestrationIntakeRoutes(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
 	// ── intents.submit — POST /agent-orchestration/intents ──────────────────
@@ -197,18 +201,15 @@ export function createAgentOrchestrationIntakeRoutes(db: HyperIdleDb): Hono<Hype
 		},
 	);
 
-	// ── runs.abort — POST /agent-orchestration/runs/abort ────────────────────
-	router.post(
-		"/runs/abort",
-		validateBody(z.object({ sessionId: z.string().min(1) })),
-		async (c) => {
-			const { sessionId } = c.req.valid("json");
-			await sessionRunRegistry.abort(sessionId);
-			return c.json({ ok: true });
-		},
-	);
-
 	// ── runs.stopForTasks — POST /agent-orchestration/runs/stop-for-tasks ────
+	//
+	// @lore D-46jmx6: `runs.abort` (POST /runs/abort) is DELETED — `stop_session`
+	// is the caller that never existed, and the only in-layer abort
+	// (`provisioner.ts`'s own registry call) never went through HTTP. This
+	// route now calls the shared `stopSessionRun` per session (via
+	// `requestRunStopForTasks`), reaching the SAME registry abort
+	// `sessionRunRegistry.abort` gives directly — "killing a task goes through
+	// the same abort" (D-bsjkae) without core ever learning a session id.
 	router.post(
 		"/runs/stop-for-tasks",
 		validateBody(
@@ -220,7 +221,9 @@ export function createAgentOrchestrationIntakeRoutes(db: HyperIdleDb): Hono<Hype
 		),
 		async (c) => {
 			const body = c.req.valid("json");
-			const stopped = await requestRunStopForTasks(db, body.taskIds);
+			const stopped = await requestRunStopForTasks(db, eventBus, body.taskIds, (sessionId) =>
+				sessionRunRegistry.abort(sessionId),
+			);
 			return c.json({ stopped });
 		},
 	);

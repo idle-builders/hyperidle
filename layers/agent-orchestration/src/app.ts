@@ -23,19 +23,29 @@
 
 import { type InheritedReach, resolveHeldToken } from "@hyperidle/connections";
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { ActivityEntry } from "@hyperidle/domain-model";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
+import type { EventBus } from "@hyperidle/event-bus";
+import type { RegisteredTool } from "@hyperidle/harness-protocol";
+import { createSessionActions, type SessionActionsDeps } from "@hyperidle/run-orchestration";
 import { Hono } from "hono";
+import type { Action } from "./actions/action.js";
+import { actionsAsTools } from "./actions/actions-as-tools.js";
+import { createActionsRouter } from "./actions/actions-router.js";
 import { createAgentOrchestrationIntakeRoutes } from "./routes/agent-orchestration-intake.js";
 import { createAgentOrchestrationSessionsRoutes } from "./routes/agent-orchestration-sessions.js";
 import { createConnectionRoutes } from "./routes/connections.js";
 import { createFilesystemRoutes } from "./routes/filesystems.js";
-import { createOrchestrationSessionRoutes } from "./routes/sessions.js";
 
 export interface AgentOrchestrationAppOptions {
 	readonly db: HyperIdleDb;
-	/** Reads the Layer's own `SessionActivityBuffer` — see `boot.ts`. */
-	readonly getRecentActivity: (sessionId: string) => ReadonlyArray<ActivityEntry>;
+	readonly eventBus: EventBus;
+	/**
+	 * §2/§5 — the session module's own deps bag (`services/
+	 * run-orchestration-composition.ts`'s `buildSessionActionsDeps`), which is
+	 * what `/sessions/:id/activity`'s old `getRecentActivity` reader moved
+	 * onto (`watch_session`'s own `activity` field).
+	 */
+	readonly sessionActionsDeps: SessionActionsDeps;
 	/**
 	 * AU36 D7: the connections domain's own reach cache, for `/connections`'
 	 * inherited projection. Read-only and DB-free (`list()`), never a
@@ -53,17 +63,31 @@ export interface AgentOrchestrationAppOptions {
 	};
 }
 
+export interface AgentOrchestrationAppHandle {
+	readonly app: Hono<HyperIdleEnv>;
+	/** §5/§7 — this Layer's own three session actions, MCP-projected. `bootAgentOrchestration` exposes this as its own `actionTools`. */
+	readonly actionTools: readonly RegisteredTool<HyperIdleDb>[];
+}
+
 export function createAgentOrchestrationApp(
 	options: AgentOrchestrationAppOptions,
-): Hono<HyperIdleEnv> {
+): AgentOrchestrationAppHandle {
 	const app = new Hono<HyperIdleEnv>();
-	const { db, getRecentActivity, inheritedReach, cipher } = options;
+	const { db, eventBus, sessionActionsDeps, inheritedReach, cipher } = options;
 
-	app.route("/sessions", createOrchestrationSessionRoutes(db, getRecentActivity));
+	// §2/§5 — the session module: search_sessions/watch_session/stop_session,
+	// mounted at `POST /actions/<name>` on this Layer's own app and projected
+	// onto the MCP tool seam. Both layer apps sit on one `/api` router
+	// (`composeApiApplication`), so `POST /api/actions/stop_session` resolves
+	// here while `POST /api/actions/edit_task` resolves on core's own mount.
+	const sessionActions = createSessionActions(sessionActionsDeps) as readonly Action[];
+	app.route("/actions", createActionsRouter(sessionActions, { db, eventBus }));
+	const actionTools = actionsAsTools(sessionActions);
+
 	app.route("/agent-orchestration", createAgentOrchestrationSessionsRoutes(db));
 	// AU31 §3: the write side of `AgentOrchestrationPort`, mounted beside the
 	// read routes above — same internal `/agent-orchestration` seam prefix.
-	app.route("/agent-orchestration", createAgentOrchestrationIntakeRoutes(db));
+	app.route("/agent-orchestration", createAgentOrchestrationIntakeRoutes(db, eventBus));
 	// AU26 E4: `/api/connections` — the path is unchanged; only the host app is.
 	app.route("/connections", createConnectionRoutes(db, inheritedReach, cipher));
 	// AU26 F2: `/api/filesystems` — same story. The reachability probe needs the
@@ -75,5 +99,5 @@ export function createAgentOrchestrationApp(
 	};
 	app.route("/filesystems", createFilesystemRoutes(db, fileSystemsResolver));
 
-	return app;
+	return { app, actionTools };
 }
