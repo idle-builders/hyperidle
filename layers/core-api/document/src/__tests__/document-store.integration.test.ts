@@ -309,6 +309,37 @@ describe("search_documents — the one query (architecture.md §5.1)", () => {
 			expect(rows.map((r) => r.id)).toEqual([memory.id]);
 		});
 
+		test("as: document includes a user-scoped row that HAS a parent — a private document, not a memory (gate-walk finding, founder decision: a memory is a user-scoped row with no parent)", async ({
+			db,
+		}) => {
+			const folder = await insertDocument(db, docValues({ id: "as-folder", parentKind: null }));
+			const privateInTree = await insertDocument(
+				db,
+				docValues({
+					id: "as-private-doc",
+					scopeKind: "user",
+					scopeId: "writer-1",
+					slot: "ordinary",
+					parentKind: "document",
+					parentId: folder.id,
+				}),
+			);
+
+			const asDocument = await searchDocumentRows(
+				db,
+				{ as: "document" },
+				{ subjects: ["writer-1"], viewerTeamId: null },
+			);
+			expect(asDocument.map((r) => r.id)).toContain(privateInTree.id);
+
+			const asMemory = await searchDocumentRows(
+				db,
+				{ as: "memory" },
+				{ subjects: ["writer-1"], viewerTeamId: null },
+			);
+			expect(asMemory.map((r) => r.id)).not.toContain(privateInTree.id);
+		});
+
 		test("as: document matches everything else, including a NULL-parent root", async ({ db }) => {
 			await insertDocument(
 				db,
