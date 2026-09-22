@@ -122,6 +122,39 @@ describe("editDocumentInvariants", () => {
 		expect(problems[0]?.code).toBe("memory_needs_ordinary_slot");
 	});
 
+	it("memory_needs_ordinary_slot does NOT fire on a body-only edit of a row that is ALREADY in this shape — regression found live: an agent's identity document (scopeKind:'user', slot:'agent_file', no parent) predates this check, and editing only its body must keep working, the same way memoryInvariants never re-refuses a body-only edit of an existing memory", () => {
+		const prev = makeRow({
+			scopeKind: "user",
+			scopeId: "agent-1",
+			slot: "agent_file",
+			parentKind: null,
+			parentId: null,
+		});
+		expect(documentAs(prev)).toBe("document");
+		const problems = editDocumentInvariants(
+			{ id: prev.id, version: prev.version, body: "rewritten" },
+			prev,
+			noCaller,
+		);
+		expect(problems).toEqual([]);
+	});
+
+	it("memory_needs_ordinary_slot DOES fire on an edit of an already-ambiguous row that also touches scopeKind — an active change into the shape is still refused, even starting from an already-ambiguous row", () => {
+		const prev = makeRow({
+			scopeKind: "team",
+			scopeId: "team-1",
+			slot: "agent_file",
+			parentKind: null,
+			parentId: null,
+		});
+		const problems = editDocumentInvariants(
+			{ id: prev.id, version: prev.version, scopeKind: "user" },
+			prev,
+			noCaller,
+		);
+		expect(problems[0]?.code).toBe("memory_needs_ordinary_slot");
+	});
+
 	it("I3 memory_scope_fixed: editing an existing memory's scope WITHOUT repeating `as` still refuses — the run function's forcing must never land silently", () => {
 		const prev = makeRow({ scopeKind: "user", scopeId: "u1", parentKind: null, slot: "ordinary" });
 		expect(documentAs(prev)).toBe("memory");

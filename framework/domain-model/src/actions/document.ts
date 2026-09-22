@@ -370,12 +370,24 @@ function privateSlotInvariants(
 	// table), so this check must too, or a bare `{scopeKind:"user",
 	// slot:"skill"}` create would slip past it.
 	if (effectiveAs !== "document" && effectiveAs !== undefined) return [];
+	const isCreate = prev === null;
+	// Slot is immutable after create (I9) — an edit can only ever transition
+	// INTO this shape by touching `scopeKind` or `parent`. An edit that
+	// touches neither leaves the row's scope/parent exactly as they already
+	// were, so it is a continuation of whatever the row already legitimately
+	// is, not a new attempt to create the contradiction — the same "only
+	// refuse an active change" shape `memoryInvariants` already uses for its
+	// own scope/parent checks (a body-only edit of an existing memory is
+	// never re-refused either). Regression found live: an agent's identity
+	// document (`scopeKind:"user"`, a non-ordinary slot, no parent) predates
+	// this check, and a body-only edit of one must keep working.
+	if (!isCreate && input.scopeKind === undefined && input.parent === undefined) return [];
 	const scopeKind = input.scopeKind ?? prev?.scopeKind;
 	if (scopeKind !== "user") return [];
 	const slot = input.slot ?? prev?.slot ?? "ordinary";
 	if (slot === "ordinary") return [];
 	const parentIsNull =
-		input.parent !== undefined ? input.parent === null : prev === null || prev.parentKind === null;
+		input.parent !== undefined ? input.parent === null : isCreate || prev.parentKind === null;
 	if (!parentIsNull) return [];
 	return [
 		{
