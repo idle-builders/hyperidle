@@ -117,10 +117,6 @@ export {
 	TaskViewSchema,
 	taskInvariants,
 } from "./actions/task.js";
-// @lore BC3: `Thread`, `Message` and the four payload interfaces moved out
-// of `thread.ts` into `actions/thread.ts` as zod schemas — re-exported here
-// under the SAME names so every existing importer keeps compiling against
-// the name it already uses.
 export type {
 	AdjustThreadInput,
 	Identity,
@@ -169,6 +165,61 @@ export {
 	threadParticipantsSchema,
 	verdictPayloadSchema,
 } from "./actions/thread.js";
+// @lore BC3: `Thread`, `Message` and the four payload interfaces moved out
+// of `thread.ts` into `actions/thread.ts` as zod schemas — re-exported here
+// under the SAME names so every existing importer keeps compiling against
+// the name it already uses.
+// @lore BC5: the user action list — search, open, edit — declared alongside
+// `document`/`task`/`thread`/`session`/`platform`, same reason: `core-ui`
+// needs the exact `input`/invariant shape the server runs. `user.ts` also
+// carries the nine object-event names (`OBJECT_EVENTS`), the change-row
+// shape (`ChangeRowSchema`) and `ASSISTANT_IDENTITY`, the persona text the
+// welcome screen and the scaffold both pass as a new assistant's identity.
+export type {
+	AddSubscriptionInput,
+	BehaviourEntry,
+	ChangeKind,
+	ChangeObject,
+	ChangeRow,
+	ConnectionView,
+	EditUserInput,
+	FolderView,
+	HarnessDescriptor,
+	InheritedReachView,
+	ObjectEventName,
+	OpenUserInput,
+	SearchUsersInput,
+	SubscriptionView,
+	UserKind,
+	UserRow,
+	UserStatus,
+	UserView,
+} from "./actions/user.js";
+export {
+	ASSISTANT_IDENTITY,
+	BehaviourEntrySchema,
+	CHANGE_KINDS,
+	CHANGE_OBJECTS,
+	ChangeRowSchema,
+	ConnectionViewSchema,
+	EditUserInputSchema,
+	editUser,
+	editUserInvariants,
+	FolderViewSchema,
+	HarnessDescriptorSchema,
+	InheritedReachViewSchema,
+	OBJECT_EVENTS,
+	OpenUserInputSchema,
+	openUser,
+	SearchUsersInputSchema,
+	SubscriptionViewSchema,
+	searchUsers,
+	USER_ACTIONS,
+	USER_KINDS,
+	USER_STATUSES,
+	UserRowSchema,
+	UserViewSchema,
+} from "./actions/user.js";
 export type {
 	AgentBehaviorConfigKind,
 	AgentBehaviorConfigLink,

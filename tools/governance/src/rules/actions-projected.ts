@@ -1,10 +1,10 @@
 /**
- * The declared action list — five modules, fifteen names, from
- * search_tasks / open_task / edit_task to search_plugins / edit_plugin — is
- * projected onto every door: mounted on HTTP, registered on MCP, reachable
- * from the UI. This rule is the mechanical proof, over the census plus a
- * handful of scans this file owns (route registrations, tool literals, the
- * event-bus vocabulary).
+ * The declared action list — six modules, eighteen names, from
+ * search_tasks / open_task / edit_task to search_users / open_user /
+ * edit_user — is projected onto every door: mounted on HTTP, registered on
+ * MCP, reachable from the UI. This rule is the mechanical proof, over the
+ * census plus a handful of scans this file owns (route registrations, tool
+ * literals, the event-bus vocabulary).
  *
  * `src/` is the engine's own source and grows by design — `no-per-file-
  * allowances`'s closed set is scoped to `tools/governance/`'s own root, not

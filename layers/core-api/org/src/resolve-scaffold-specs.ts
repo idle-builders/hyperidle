@@ -1,3 +1,4 @@
+import { ASSISTANT_IDENTITY } from "@hyperidle/domain-model";
 import type { AgentScaffoldSpec } from "./scaffold-agents.js";
 
 /**
@@ -23,9 +24,6 @@ interface AgentScaffoldRequest {
 	readonly ownerUserId: string | null;
 	readonly ownerUserName: string | null;
 }
-
-const APP_ASSISTANT_SYSTEM_PROMPT =
-	"You are a helpful AI assistant. Be concise, direct, and thoughtful in your responses.";
 
 /**
  * Resolve the agent scaffold specs for one of the three known triggers.
@@ -75,7 +73,7 @@ export function resolveAgentScaffoldSpecs(
 					role: "assistant",
 					name: request.ownerUserName ? `${request.ownerUserName}'s Assistant` : "Assistant",
 					agentCategory: "individual",
-					systemPrompt: APP_ASSISTANT_SYSTEM_PROMPT,
+					systemPrompt: ASSISTANT_IDENTITY,
 					idHint: request.ownerUserId ? `ast-${request.ownerUserId}` : undefined,
 					ownerUserId: request.ownerUserId ?? undefined,
 				},

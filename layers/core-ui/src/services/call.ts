@@ -1,9 +1,9 @@
 /**
  * call — the UI's one door onto the action list. `TASK_ACTIONS &
- * THREAD_ACTIONS & DOCUMENT_ACTIONS & SESSION_ACTIONS & PLATFORM_ACTIONS`
- * today; grows per item as more objects get their own action list. `POST
- * /api/actions/<name>`, the same door a human's client and an agent's MCP
- * tool both use.
+ * THREAD_ACTIONS & DOCUMENT_ACTIONS & SESSION_ACTIONS & PLATFORM_ACTIONS &
+ * USER_ACTIONS` today; grows per item as more objects get their own action
+ * list. `POST /api/actions/<name>`, the same door a human's client and an
+ * agent's MCP tool both use.
  */
 
 import type {
@@ -13,6 +13,7 @@ import type {
 	SESSION_ACTIONS,
 	TASK_ACTIONS,
 	THREAD_ACTIONS,
+	USER_ACTIONS,
 } from "@hyperidle/domain-model";
 import type { z } from "zod";
 import { apiFetch } from "./api-fetch.js";
@@ -21,7 +22,8 @@ type Actions = typeof TASK_ACTIONS &
 	typeof THREAD_ACTIONS &
 	typeof DOCUMENT_ACTIONS &
 	typeof SESSION_ACTIONS &
-	typeof PLATFORM_ACTIONS;
+	typeof PLATFORM_ACTIONS &
+	typeof USER_ACTIONS;
 
 export async function call<N extends keyof Actions>(
 	name: N,
