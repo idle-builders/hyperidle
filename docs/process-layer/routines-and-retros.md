@@ -54,17 +54,17 @@ Every closed task produces learning. The process layer's job is to capture it an
 
 ### 6.1 Task retro — every completion
 
-When a task transitions to `done`, the `post-task-retro` routine from the document-management plugin fires on the `task_state_changed` event (filtered by `transitionTo: "done"`). The Document Librarian agent reads the completed task's notes and work, identifies one or two concrete learnings, and creates or updates knowledge items. Because the routine is a generic event-triggered plugin routine, it fires for every team that has the document-management plugin installed. Teams without the plugin simply have no retro routine unless they create one manually.
+When a task transitions to `done`, the `post-task-retro` routine from the document-management plugin fires on the `task_state_changed` event (filtered by `transitionTo: "done"`). The Document Librarian agent reads the completed task's notes and work, identifies one or two concrete learnings, and creates or updates documents with `edit_document`. Because the routine is a generic event-triggered plugin routine, it fires for every team that has the document-management plugin installed. Teams without the plugin simply have no retro routine unless they create one manually.
 
-This is the bottom-up signal path. Without it, the team learns in its own memory but the practice and the founder don't, and the next task repeats the same mistakes.
+This is the bottom-up signal path. Without it, the team learns in its own memory but the rest of the team and the founder don't, and the next task repeats the same mistakes.
 
-### 6.2 Practice contribution loop — continuous, agent-driven
+### 6.2 Team contribution loop — continuous, agent-driven
 
-The biggest learning channel isn't retros — it's the continuous contribution every agent makes to its practice. There is no meeting: agents capture findings into their practice's knowledge folder as they work, each landing as a `proposed` knowledge item. `document-triage` (librarian-owned, weekly) promotes the items that meet the repetition threshold to `active`; `document-decay` sets `stale` on what has gone unused. See [Facilitators](../knowledge-architecture/facilitators.md).
+The biggest learning channel isn't retros — it's the continuous contribution every agent makes to its team's knowledge. There is no meeting: agents capture findings into the tree as they work, each landing as a `proposed` document. The librarian's weekly `document-triage` routine reads every `proposed` document and promotes or archives it by judgement — there is no repetition threshold or score; its `document-decay` routine sets `archived` on ordinary tree documents unused for 90+ days. See [Knowledge Movement](../knowledge-architecture/the-knowledge-fabric-how-knowledge-moves.md).
 
-The loop closes through context assembly: the next task session's sandbox is assembled fresh from the canonical `knowledge_items` store, so anything the practice decided is simply *there* — nested under `knowledge/` at the team's and the practice's own position in the tree — with no broadcast notification needed. See [knowledge movement](../knowledge-architecture/the-knowledge-fabric-how-knowledge-moves.md). Every team member is also a practice member, so the team stays current on its practice by construction.
+The loop closes through context assembly: the next task session's sandbox is assembled fresh from the canonical `documents` store, so anything the team decided is simply *there* — nested under `knowledge/` at the team's own position in the tree — with no broadcast notification needed. See [knowledge movement](../knowledge-architecture/the-knowledge-fabric-how-knowledge-moves.md).
 
-Item lifecycle (`proposed` → `active`) and the promotion pipeline are owned by [Facilitators](../knowledge-architecture/facilitators.md).
+Document lifecycle (`proposed` → `active`) and the two curation routines are owned by [Knowledge Movement](../knowledge-architecture/the-knowledge-fabric-how-knowledge-moves.md).
 
 ### 6.3 Human curation — weekly, async
 

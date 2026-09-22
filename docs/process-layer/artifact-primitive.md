@@ -1,15 +1,16 @@
 # Artifact
 
-**An artifact is a knowledge item that hangs off the thing that produced it.**
+**An artifact is a document that hangs off the thing that produced it.**
 
 There is no artifacts table, no separate content model, and no second lifecycle.
-An artifact is the ordinary knowledge item every other part of the system already
+An artifact is the ordinary `documents` row every other part of the system already
 knows how to store, version, scope, edit and discuss — carrying a parent that
 says *where it came from*: the task it was produced in, or the conversation it
 was produced in.
 
 The word stays because people use it. What it names has changed: it is a stage a
-knowledge item is at, not a different kind of thing.
+document is at, not a different kind of thing — `as: "artifact"` is derived from
+the row on read, never stored as its own column (see [the canonical store](../knowledge-architecture/the-canonical-store.md#what-the-caller-calls-it-as)).
 
 ## Why the second table went
 
@@ -18,18 +19,18 @@ An artifact used to be a receipt: `id`, `producing_task_id`, `kind`, `label`,
 history. It could not exist without a task, it was never edited, and its whole
 content lived in an untyped JSON preview column.
 
-A knowledge item is a document: scope, title, markdown body, status, version,
-role, an edit log, an access log, and a place in the knowledge tree.
+A document is: scope, title, markdown body, status, version, slot, and a place
+in the document tree, with every create and edit recorded as a `changes` row.
 
 They were the same thing at different stages of being kept. Modelling that as two
 tables bought a receipt that could never grow into a document, and a document
 that could never be produced by a task. Removing the second one closes the
-product thesis: everything is a thread, a task, or a knowledge item.
+product thesis: everything is a thread, a task, or a document.
 
 ## The shape
 
-An artifact is a row in `knowledge_items` (`framework/db/src/schema.ts`) where
-the parent slot points at a task or a thread:
+An artifact is a row in `documents` (`framework/db/src/schema.ts`) where the
+parent slot points at a task or a thread:
 
 ```
 parent_kind = 'task'   + parent_id = <task id>     # produced while working
@@ -38,13 +39,14 @@ parent_kind = 'thread' + parent_id = <thread id>   # produced in a conversation
 
 The parent slot carries no foreign key — it can point at five different tables —
 so existence is confirmed at the API boundary by the service that owns the
-parent's table: `work` for a task, `conversation` for a thread. A half-named
-parent (a kind with no id, or an id with no kind) is refused.
+parent's table: `task` for a task, `thread` for a thread. A half-named parent
+(a kind with no id, or an id with no kind) is refused.
 
-Only `task` and `thread` may be named by a client. The other parent kinds
-(`knowledge_item`, `routine`, `agent`) are written exclusively by core-api's own
-routes, which already hold the parent row for other reasons — so nothing outside
-can forge a routine's prompt or an agent's identity.
+Only `task` and `thread` may be named by a client via `edit_document`'s `parent`
+field. The other parent kinds (`document`, `routine`, `agent`) are written
+exclusively by core-api's own composition, which already holds the parent row
+for other reasons — so nothing outside can forge a routine's prompt or an
+agent's identity.
 
 ## Content is markdown. There is no preview column.
 
@@ -73,14 +75,17 @@ and no stored discriminant.
 
 Three ways, and they produce the same row.
 
-- **An agent calls `create_artifact`** with a title and a markdown body. The
-  parent is taken from the agent's own context and never passed as input: the
-  task it is working in, or the conversation it is answering in. Neither is an
-  error — a produced item must belong to something.
-- **An agent writes a file** into `knowledge/` in its sandbox. The writeback path
-  turns it into a knowledge item parented to whatever the session is working on,
-  read from the session's own row.
-- **A human clicks "+"** on a block and sends it. That puts a knowledge item into
+- **An agent calls `edit_document`** with `as: "artifact"`, a title, and a
+  markdown body. The parent is stamped from the agent's own calling context —
+  the task it is working in (checked first), or the conversation it is
+  answering in — and can never be passed as input: `parent` targets only
+  `task | thread`, and an artifact create with no calling task or thread
+  refuses with `artifact_no_parent`.
+- **An agent writes a file** into `knowledge/` in its sandbox. The writeback
+  path turns it into a document, calling `edit_document` as the session's own
+  agent, parented to whatever the session is working on, read from the
+  session's own row.
+- **A human clicks "+"** on a block and sends it. That puts a document into
   the conversation, parented to the thread.
 
 The last one is the point of the design: **a human and an agent put something
@@ -89,47 +94,46 @@ parity requirement, not a nice-to-have.
 
 ## Where one shows up
 
-- A **task-parented** item appears on that task, and never in the knowledge tree.
-- A **thread-parented** item appears in that conversation, and never in the
-  knowledge tree.
+- A **task-parented** document appears on that task, and never in the document tree.
+- A **thread-parented** document appears in that conversation, and never in the
+  document tree.
 - Clicking either opens it in the split view, rendered through the same body path
-  a knowledge item's own page uses — so an interactive one runs in the sandbox
+  a tree document's own page uses — so an interactive one runs in the sandbox
   frame there too.
 
-Keeping produced items out of the tree is what stops the tree filling with
+Keeping produced documents out of the tree is what stops the tree filling with
 per-task residue.
 
-**Thread-parented items are leaves.** A thread can be hosted on a knowledge item
-and a knowledge item can be parented to a thread, so `item → thread → item` is
-expressible. The cycle is made *inert, not illegal* — forbidding it would forbid
-an item hosting a thread that produces an item, which is the use case. Every tree
-walk stops at the first non-knowledge-item parent, so a thread-parented item has
-no ancestors and inherits nothing.
+**Thread-parented documents are leaves.** A thread can be hosted on a document
+and a document can be parented to a thread, so `document → thread → document`
+is expressible. The cycle is made *inert, not illegal* — forbidding it would
+forbid a document hosting a thread that produces a document, which is the use
+case. Every tree walk stops at the first non-`document` parent, so a
+thread-parented document has no ancestors and inherits nothing.
 
-## Graduating into the knowledge tree
+## Moving into the document tree
 
-Giving a produced item a knowledge-item parent is how it becomes part of the
-team's knowledge rather than residue of one task.
+Giving a produced document a `document` parent is how it becomes part of the
+team's knowledge rather than residue of one task. There is no dedicated
+"graduate" route or edit type — it is an ordinary `edit_document({id, parent:
+{kind:"document", id:<target>}})` move, the same call that reparents anything
+else, checked against the same tree invariants (no cycles, scope no wider than
+the new parent's). Once the parent is no longer a task or a thread, the
+document's derived `as` reads back as `"document"` on the next open, with no
+separate step to flip it.
 
-This is a **narrow, dedicated transition**, not an editable field. The parent is
-create-only everywhere else, deliberately: otherwise a person could repoint a
-routine's prompt or an agent's identity at something else. Graduation is allowed
-only when the item's role is `ordinary` and its current parent is a task or a
-thread, and only onto a knowledge item that exists — or onto nothing, meaning the
-top of the tree.
+**Provenance lives in `changes` history.** There is no `producing_task_id`
+column, and none is wanted: `parent_id` means where a document sits, not where
+it came from. Moving it overwrites `parent_id` — but the edit's `changes` row
+carries the old and new value, so the original task or thread id survives as
+that row's `before`. Looking for provenance means reading history, which is
+the natural place to look, and it is the *only* place it is kept.
 
-**Provenance lives in that transition's history.** There is no `producing_task_id`
-column any more, and none is wanted: `parent_id` means where an item sits, not
-where it came from. Graduating overwrites it — but the update path logs old and
-new values per field, so the original task id survives as that edit-log entry's
-`oldValue`. Looking for provenance means reading history, which is the natural
-place to look, and it is the *only* place it is kept.
+## Status and slot
 
-## Status and role
-
-A produced item is created with role `ordinary`. Its status is the ordinary
-pre-validation draft state — produced, not yet vouched for — which is exactly
-what an artifact always was.
+A produced document is created with slot `ordinary`. Its status is the ordinary
+pre-validation draft state, `proposed` — produced, not yet vouched for — which
+is exactly what an artifact always was.
 
 ## What "artifact" may and may not name
 

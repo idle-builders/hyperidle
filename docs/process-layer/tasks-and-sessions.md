@@ -78,7 +78,7 @@ Every session has a three-phase lifecycle managed by agent-layer provisioning an
 
 1. **Context assembly (session start).** The agent layer writes the agent's knowledge slice as files into the session sandbox: read-only `context/` (factory, product, practices), `work/` (scratch space, artifacts, notes), `knowledge/` (where the agent proposes changes), plus a hidden `.fabric/manifest.json` tracking the version of every assembled item.
 2. **Execution.** The agent works on plain files — no sync daemon, no special protocol.
-3. **Continuous writeback.** Writeback syncs `knowledge/` and `work/` back to the canonical store throughout the session. New files become CAPTURED knowledge items; a crash loses at most the debounce window, not the session.
+3. **Continuous writeback.** Writeback syncs `knowledge/` and `work/` back to the canonical store throughout the session, calling `edit_document` as the session's own agent. New files become new documents, status `proposed`; a crash loses at most the debounce window, not the session.
 
 Watcher, debounce, writeback rules, and conflict resolution are owned by [sync and conflict resolution](../knowledge-architecture/sync-and-conflict-resolution.md).
 
@@ -102,7 +102,7 @@ There's no need for a session-length cap beyond the natural one: when context co
 
 Three layers of memory bridge sessions on the same task, all mediated by Core knowledge services:
 
-- **The agent's private memory** — the agent's own notes about what it's doing and what it believes. Stored as `user`-scoped knowledge items (`framework/db/src/schema.ts`). Assembled into `context/` at session start. Survives across sessions for the same agent.
+- **The agent's private memory** — the agent's own notes about what it's doing and what it believes. Stored as `user`-scoped documents (`edit_document({as:"memory"})`, `framework/db/src/schema.ts`). Assembled into `context/` at session start. Survives across sessions for the same agent.
 - **The task's notes** (`tasks.notes`) — written continuously during the session (synced back via the file watcher) by whoever was working it. Any session by any agent can read them. This is how agent B picks up where agent A left off, and how agent A picks up tomorrow what it did today.
 - **The task's thread** — the conversation around the work. Comments, questions, review feedback. Read on demand, not by default.
 

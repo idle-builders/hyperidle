@@ -9,7 +9,7 @@ The primitives that structure how teams and agents do work — Task, Session, Te
 - [handoff-and-lifecycle-propagation.md](./handoff-and-lifecycle-propagation.md) — how work moves between agents (HandoffMetadata, system-resolved roles) and how state changes ripple up the primitive hierarchy.
 - [teams.md](./teams.md) — Team primitive: persistent, product-bound, one-team FK, membership via review items, AK6 scaffold.
 - [routines-and-retros.md](./routines-and-retros.md) — recurring work and retros: trigger shapes, owner/stateKey, humanReview flag. Retros are a **plugin**, not core machinery.
-- [artifact-primitive.md](./artifact-primitive.md) — what an artifact is: a knowledge item parented to the task or conversation that produced it. No artifacts table.
+- [artifact-primitive.md](./artifact-primitive.md) — what an artifact is: a document parented to the task or conversation that produced it. No artifacts table.
 - [filesystem-primitive.md](./filesystem-primitive.md) — registered team-scoped file source: the filesystem-vs-tool-vs-knowledge decision rule, injection model, and lifecycle.
 - [wip-and-cost-limits.md](./wip-and-cost-limits.md) — owns the WIP ceiling at agent and team level (concurrent `in_progress` tasks, counted live), the duration-is-not-a-budget-axis doctrine, and the record of the deleted cost-cap feature.
 - [canonical-shapes.md](./canonical-shapes.md) — cross-primitive conventions: RevisionLogEntry, Money/TokenUsage as shipped, outcome-verdict meanings, ModelTierUnknownWarning, no-FK/trust-first invariants.
