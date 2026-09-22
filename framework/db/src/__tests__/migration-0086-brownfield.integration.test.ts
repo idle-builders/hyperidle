@@ -268,6 +268,53 @@ describe("migration 0086: document as a module — brownfield", () => {
 		expect(payload.refs[1]?.id).toBe("task-1");
 	});
 
+	it("refuses the whole migration, naming the row, when a message payload mentions the old token but is not valid JSON", async () => {
+		// A dedicated instance, deliberately not sharing seedAndMigrate's fixture
+		// — every other test in this file expects the migration to SUCCEED, and
+		// this one row must make it fail.
+		const client = new PGlite();
+		clients.push(client);
+		await client.waitReady;
+		const db = drizzle(client);
+
+		const folderBefore = makeTempMigrationsFolder(PRE_MIGRATION_IDX);
+		tempDirs.push(folderBefore);
+		await migrate(db, { migrationsFolder: folderBefore });
+
+		await db.execute(sql`
+			INSERT INTO teams (id, name, phase, created_at) VALUES ('team-bad', 'Team Bad', 'build', ${NOW})
+		`);
+		await db.execute(sql`
+			INSERT INTO users (id, name, kind, role, status, team_id, created_at)
+			VALUES ('human-bad', 'Human Bad', 'human', 'founder', 'active', 'team-bad', ${NOW})
+		`);
+		await db.execute(sql`
+			INSERT INTO threads (id, host_kind, host_id, initiator_id, participants, last_active_at, created_at)
+			VALUES ('thread-bad', 'team', 'team-bad', 'human-bad', '[]', ${NOW}, ${NOW})
+		`);
+		// Mentions the old token (so step 9's LIKE prefilter would have picked
+		// it up) but is not valid JSON at all.
+		await db.execute(sql`
+			INSERT INTO messages (id, sender_id, thread_id, type, payload, client_key, created_at)
+			VALUES ('msg-bad', 'human-bad', 'thread-bad', 'plain', 'not json, just says knowledge_item', 'ck-msg-bad', ${NOW})
+		`);
+
+		const folderAfter = makeTempMigrationsFolder(MIGRATION_IDX);
+		tempDirs.push(folderAfter);
+		let caught: unknown;
+		try {
+			await migrate(db, { migrationsFolder: folderAfter });
+		} catch (error) {
+			caught = error;
+		}
+		expect(caught).toBeDefined();
+		// The driver wraps the raised message under `.cause` rather than
+		// surfacing it as the thrown error's own `.message`.
+		const raised = caught instanceof Error ? (caught.cause as Error | undefined) : undefined;
+		expect(raised?.message).toContain("msg-bad");
+		expect(raised?.message).toContain("malformed payload");
+	});
+
 	it("flips plugin_contributions.kind from knowledge to document", async () => {
 		const db = await seedAndMigrate();
 

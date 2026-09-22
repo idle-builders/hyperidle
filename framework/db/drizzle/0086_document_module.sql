@@ -139,6 +139,23 @@ ALTER TABLE "threads" ENABLE TRIGGER "threads_host_immutable_trg";
 --> statement-breakpoint
 
 -- 9. inline refs stored inside message payloads: {"kind":"knowledge_item","id":…}
+--    Guard first: the UPDATE below casts every candidate row's payload to
+--    jsonb inside its own WHERE clause, and a single malformed row would
+--    abort the whole statement (and this whole migration) with no
+--    indication of which row broke it. Raise with the offending id instead.
+DO $$
+DECLARE
+  r RECORD;
+BEGIN
+  FOR r IN SELECT "id", "payload" FROM "messages" WHERE "payload" LIKE '%knowledge_item%' LOOP
+    BEGIN
+      PERFORM r."payload"::jsonb;
+    EXCEPTION WHEN OTHERS THEN
+      RAISE EXCEPTION '0086: message % has a malformed payload — cannot rewrite its refs', r."id";
+    END;
+  END LOOP;
+END $$;
+--> statement-breakpoint
 UPDATE "messages" SET "payload" = jsonb_set(
     "payload"::jsonb, '{refs}',
     (SELECT COALESCE(jsonb_agg(
@@ -175,6 +192,27 @@ WHERE "before" LIKE '%sourceKnowledgeItemId%' OR "after" LIKE '%sourceKnowledgeI
 --     whenever `status='failed'`; the drafted step only set `last_error`, which
 --     would have violated that check on every matching row. Mirrors 0080's own
 --     shape exactly (`last_error_code`, cleared claim fields, bumped `updated_at`).
+--     Guarded the same way step 9 is: the UPDATE's own WHERE casts
+--     `baked_request_json` to jsonb, and one malformed row would otherwise
+--     abort the whole migration with no indication of which row.
+DO $$
+DECLARE
+  r RECORD;
+BEGIN
+  FOR r IN
+    SELECT "id", "baked_request_json" FROM "agent_work_intents"
+    WHERE "status" IN ('pending','claimed')
+      AND "baked_request_json" IS NOT NULL
+      AND "baked_request_json" LIKE '%contextBundle%'
+  LOOP
+    BEGIN
+      PERFORM r."baked_request_json"::jsonb;
+    EXCEPTION WHEN OTHERS THEN
+      RAISE EXCEPTION '0086: agent_work_intent % has a malformed baked_request_json — cannot check its contextBundle', r."id";
+    END;
+  END LOOP;
+END $$;
+--> statement-breakpoint
 UPDATE "agent_work_intents" SET
   "status" = 'failed',
   "claim_token" = NULL,
