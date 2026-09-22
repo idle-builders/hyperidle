@@ -40,6 +40,15 @@ export interface ScopeChangeDialogProps {
 	currentVersion: number;
 	/** Current scope kind to pre-fill the select. */
 	currentScopeKind: ScopeKind;
+	/**
+	 * Whether the document has a parent — review-found defect: a parentless
+	 * (root) document scoped `"user"` reads back as a memory (`documentAs`),
+	 * and widening it away from Private is then refused. Private is disabled
+	 * here for a root document so that trapdoor can never be entered through
+	 * this dialog; a private *tree* document (one with a parent) is not a
+	 * memory and stays unaffected.
+	 */
+	hasParent: boolean;
 }
 
 /**
@@ -66,6 +75,7 @@ export function ScopeChangeDialog({
 	documentId,
 	currentVersion,
 	currentScopeKind,
+	hasParent,
 }: ScopeChangeDialogProps): JSX.Element | null {
 	// Gate the Team option by hasTeam, matching DocumentCreate's logic.
 	const { user } = useCurrentUser();
@@ -88,6 +98,18 @@ export function ScopeChangeDialog({
 	const needsScopeId = SCOPES_REQUIRING_ID.has(scopeKind);
 	const isDirty = selectedOption.scopeKind !== currentScopeKind || scopeId.trim().length > 0;
 	const canSave = isDirty && !submitting;
+
+	// The picker's `disabledTitle` is one shared tooltip for every disabled
+	// pill (`ScopePicker`'s own contract) — composed from whichever reasons
+	// apply, since Team and Private can be disabled at once for different
+	// reasons (no team; a root document).
+	const disabledReasons: string[] = [];
+	if (!hasTeam) disabledReasons.push("Join a team to use team-scoped documents.");
+	if (!hasParent) {
+		disabledReasons.push(
+			"A root document scoped Private becomes a memory — create one from Memories instead.",
+		);
+	}
 
 	const handleSave = async (): Promise<void> => {
 		// A scope that names an entity needs that entity's id; the server enforces
@@ -140,7 +162,10 @@ export function ScopeChangeDialog({
 						options={SCOPE_CREATE_OPTIONS.map((opt) => ({
 							id: opt.id,
 							label: opt.label,
-							disabled: submitting || (opt.id === "team" && !hasTeam),
+							disabled:
+								submitting ||
+								(opt.id === "team" && !hasTeam) ||
+								(opt.id === "private" && !hasParent),
 						}))}
 						value={selectedOption.id}
 						onChange={(id) => {
@@ -152,7 +177,7 @@ export function ScopeChangeDialog({
 						}}
 						ariaLabel="Scope kind"
 						testIdPrefix="scope-pill-change"
-						disabledTitle="Join a team to use team-scoped documents"
+						disabledTitle={disabledReasons.join(" ")}
 					/>
 				</div>
 

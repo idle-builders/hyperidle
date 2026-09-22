@@ -791,6 +791,7 @@ function DocumentDetailView({
 						documentId={document.id}
 						currentVersion={document.version}
 						currentScopeKind={document.scopeKind}
+						hasParent={document.parentKind !== null}
 					/>
 
 					{/* A move changes the tree shape the whole page renders

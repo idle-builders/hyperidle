@@ -140,10 +140,17 @@ describe("DocumentDetail — Archive", () => {
 
 describe("DocumentDetail — Change scope", () => {
 	it("calls edit_document with { id, scopeKind, version }", async () => {
+		// Given a parent — review-found defect: Private is disabled for a
+		// parentless document (scoping a root document Private is a one-way
+		// trapdoor into a memory), so this generic "scope change" mechanics
+		// case now needs a parent for Private to stay a choosable target. A
+		// private *tree* document is not a memory (architecture.md §3.6).
 		const row = makeDocumentRow({
 			id: "doc-1",
 			title: "Runbook",
 			scopeKind: "factory",
+			parentKind: "document",
+			parentId: "doc-root",
 			version: 1,
 		});
 		callMock.mockImplementation(

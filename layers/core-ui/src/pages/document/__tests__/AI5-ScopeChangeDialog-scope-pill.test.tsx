@@ -39,6 +39,11 @@ const BASE_PROPS = {
 	documentId: "doc-1",
 	currentVersion: 1,
 	currentScopeKind: "factory" as const,
+	// This suite is about the Shared/Team pill mechanics; hasParent:true
+	// keeps Private enabled so those cases are unaffected. Private's own
+	// disabled-for-a-root-document behavior is covered in
+	// ScopeChangeDialog-private-root.test.tsx.
+	hasParent: true,
 };
 
 describe("AI5: ScopeChangeDialog — scope-pill-change picker", () => {

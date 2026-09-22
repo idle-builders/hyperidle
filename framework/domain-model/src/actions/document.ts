@@ -309,17 +309,31 @@ function touchesAnyOf(
  * only sends `scopeKind` (no `as`) must still be refused here: the run
  * function forces the scope back to `user` regardless, and a forced write
  * with no problem attached is a silent no-op (gate-walk finding).
+ *
+ * Review-found defect: creating a root (parentless) document scoped
+ * `"user"` is a one-way trapdoor — the row reads back as a memory
+ * (`documentAs`), so a later attempt to widen it hits this same check. The
+ * generic "no scope to set" message reads as a bug report to someone who
+ * only ever asked for Private on a document; an EXISTING memory
+ * (`prev !== null` and it already derives as one) gets the clearer message
+ * telling them what to do about it. A create with an explicit
+ * `as:"memory"` + a scope keeps the original message — there is no
+ * existing row yet to point at.
  */
 function memoryInvariants(
 	effectiveAs: DocumentAs | undefined,
 	input: EditDocumentInput,
+	prev: DocumentRow | null,
 ): Problem[] {
 	if (effectiveAs !== "memory") return [];
 	const problems: Problem[] = [];
+	const isExistingMemory = prev !== null && documentAs(prev) === "memory";
 	if (input.scopeKind !== undefined || input.scopeId !== undefined) {
 		problems.push({
 			code: "memory_scope_fixed",
-			message: "A memory is private to you — it has no scope to set.",
+			message: isExistingMemory
+				? "A memory has no audience to change; save it as a document to share it."
+				: "A memory is private to you — it has no scope to set.",
 			path: "scopeKind",
 		});
 	}
@@ -529,7 +543,7 @@ export function editDocumentInvariants(
 	const effectiveAs: DocumentAs | undefined =
 		input.as ?? (prev !== null ? documentAs(prev) : undefined);
 
-	problems.push(...memoryInvariants(effectiveAs, input));
+	problems.push(...memoryInvariants(effectiveAs, input, prev));
 	problems.push(...privateSlotInvariants(effectiveAs, input, prev));
 	problems.push(...artifactInvariants(effectiveAs, input, caller));
 	problems.push(...systemParentInvariants(input, caller));

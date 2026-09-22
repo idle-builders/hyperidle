@@ -38,6 +38,9 @@ const BASE_PROPS = {
 	documentId: "doc-1",
 	currentVersion: 1,
 	currentScopeKind: "user" as const,
+	// This suite is about the Team pill's prefill, not Private; hasParent:true
+	// keeps Private enabled so it is not what makes the Team clicks under test.
+	hasParent: true,
 };
 
 describe("ScopeChangeDialog — Team scope id prefill", () => {

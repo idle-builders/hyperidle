@@ -54,13 +54,14 @@ describe("editDocumentInvariants", () => {
 		expect(problems[0]?.code).toBe("empty_edit");
 	});
 
-	it("I3 memory_scope_fixed: as memory with an explicit scopeKind", () => {
+	it("I3 memory_scope_fixed: as memory with an explicit scopeKind, on a create — the generic message, since there is no existing memory yet to point at", () => {
 		const problems = editDocumentInvariants(
 			{ as: "memory", scopeKind: "team", title: "Note" },
 			null,
 			noCaller,
 		);
 		expect(problems[0]?.code).toBe("memory_scope_fixed");
+		expect(problems[0]?.message).toBe("A memory is private to you — it has no scope to set.");
 	});
 
 	it("I4 memory_has_parent: as memory with a parent", () => {
@@ -130,6 +131,19 @@ describe("editDocumentInvariants", () => {
 			noCaller,
 		);
 		expect(problems[0]?.code).toBe("memory_scope_fixed");
+	});
+
+	it("memory_scope_fixed: widening an EXISTING memory gets the clearer, review-requested message — a one-way trapdoor (defect: creating a root document Private becomes a memory) should tell the person what to do about it, not just that it is refused", () => {
+		const prev = makeRow({ scopeKind: "user", scopeId: "u1", parentKind: null, slot: "ordinary" });
+		expect(documentAs(prev)).toBe("memory");
+		const problems = editDocumentInvariants(
+			{ id: prev.id, scopeKind: "team", scopeId: "team-1" },
+			prev,
+			noCaller,
+		);
+		expect(problems[0]?.message).toBe(
+			"A memory has no audience to change; save it as a document to share it.",
+		);
 	});
 
 	it("a private tree document's scope CAN change without `as` — it is not a memory, so no forcing applies", () => {
