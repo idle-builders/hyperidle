@@ -41,6 +41,61 @@ export {
 	searchDocuments,
 	searchDocumentsInvariants,
 } from "./actions/document.js";
+// @lore BC6: the platform action list — search, edit — declared here
+// alongside `document`/`task`/`thread` for the same reason: `core-ui` needs
+// the exact `input`/invariant shape the server runs. `platform.ts` also owns
+// `PLUGIN_LIST_STATES` and `PluginScopeSchema`, not `./configuration.js` —
+// that file keeps only the vocabulary this module and the settings package
+// both need (architecture.md §1).
+export type {
+	EditPluginInput,
+	EditPluginSource,
+	PluginContributionView,
+	PluginListState,
+	PluginScope,
+	PluginView,
+	SearchPluginsInput,
+} from "./actions/platform.js";
+export {
+	EditPluginInputSchema,
+	EditPluginSourceSchema,
+	editPlugin,
+	editPluginInvariants,
+	PLATFORM_ACTIONS,
+	PLUGIN_LIST_STATES,
+	PluginContributionViewSchema,
+	PluginScopeSchema,
+	PluginViewSchema,
+	SearchPluginsInputSchema,
+	searchPlugins,
+} from "./actions/platform.js";
+// @lore BC6: the session action list — search, watch, stop — declared
+// alongside `document`/`task`/`thread`/`platform`, same reason. No invariant
+// export: the two candidates this module first drafted are both dropped —
+// see `actions/session.ts`'s own header comment.
+export type {
+	SearchSessionsInput,
+	SessionRow,
+	SessionState,
+	StopSessionInput,
+	StopSessionOutput,
+	WatchSessionInput,
+	WatchSessionOutput,
+} from "./actions/session.js";
+export {
+	ActivityEntrySchema,
+	SESSION_ACTIONS,
+	SESSION_STATES,
+	SearchSessionsInputSchema,
+	SessionRowSchema,
+	StopSessionInputSchema,
+	StopSessionOutputSchema,
+	searchSessions,
+	stopSession,
+	WatchSessionInputSchema,
+	WatchSessionOutputSchema,
+	watchSession,
+} from "./actions/session.js";
 export type {
 	EditTaskInput,
 	SearchTasksInput,
