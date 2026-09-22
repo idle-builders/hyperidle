@@ -355,7 +355,7 @@ const WORKSPACE_SECTION = `## Workspace
 Your workspace is organized as follows:
 
 - \`context/\` -- Read-only. Your session context (session.toon: task, ancestors, agent, team data).
-- \`knowledge/\` -- Knowledge you can read, edit, and reorganize. It mirrors the real knowledge tree: a folder holds an \`index.md\` (that item's own content) plus its children as files or nested folders. Create, edit, move, and nest items here -- changes save back automatically.
+- \`knowledge/\` -- Documents you can read, edit, and reorganize. It mirrors the real document tree: a folder holds an \`index.md\` (that item's own content) plus its children as files or nested folders. Create, edit, move, and nest items here -- changes save back automatically.
   - \`rules/\` -- Rules and guidelines that apply to your work.
 - \`work/\` -- Your working area.
   - \`artifacts/\` -- Output artifacts.
@@ -667,8 +667,8 @@ function cleanDirectory(dirPath: string): void {
  * kind-inference subdirectories are GONE — there is one writable, watched
  * `knowledge/` tree shaped like the real tree, not a set of layer buckets. An
  * agent's own materialised knowledge writes wherever its parent chain says;
- * `knowledge/rules` survives because role='rule' items land there regardless
- * of tree position (placement follows role, not tree position).
+ * `knowledge/rules` survives because slot='rule' items land there regardless
+ * of tree position (placement follows slot, not tree position).
  */
 const CONTEXT_ASSEMBLY_DIRS = [".fabric", "context", "knowledge/rules", "work/artifacts"] as const;
 
