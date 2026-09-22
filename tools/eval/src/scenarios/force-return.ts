@@ -60,7 +60,7 @@ Complete your analysis and then end your turn without calling any return tool.`,
 			taskTitle: "Analyze the current task queue and summarize priorities",
 			taskDescription: `Analyze the task queue:
 1. Read any available context about the current priorities
-2. Write a brief summary to memory using write_memory
+2. Write a brief summary to memory using edit_document (as:"memory")
 3. End your turn
 
 Do NOT call edit_task or send_message.
@@ -301,7 +301,7 @@ Complete your analysis and then end your turn without calling any return tool.`,
 			taskTitle: "Analyze task queue and summarize priorities (external harness test)",
 			taskDescription: `Analyze the task queue:
 1. Read any available context about the current priorities
-2. Write a brief summary to memory using write_memory
+2. Write a brief summary to memory using edit_document (as:"memory")
 3. End your turn
 
 Do NOT call edit_task or send_message.`,
