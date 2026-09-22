@@ -52,7 +52,6 @@ import * as path from "node:path";
 import { type HyperIdleDb, sessions, tasks, teams, threads, users } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
-import { eq } from "drizzle-orm";
 import { afterEach, vi } from "vitest";
 import { createServer, type ServerHandle } from "../create-server.js";
 
@@ -498,20 +497,19 @@ describe("session-platform seam — the five entries answer the same to a person
 				// D-njr2es/F1: the answer carries the PRE-stop row.
 				expect(httpSessionRest.state).toBe("active");
 
-				const [httpRow] = await db
-					.select()
-					.from(sessions)
-					.where(eq(sessions.id, "seam-sess-stop-http"));
-				const [toolRow] = await db
-					.select()
-					.from(sessions)
-					.where(eq(sessions.id, "seam-sess-stop-tool"));
+				// Plain JS filtering, not `drizzle-orm`'s `eq` — an `applications/*`
+				// package declares no direct dependency on it (it only ever reaches
+				// the ORM through `@hyperidle/db`).
+				const allSessions = await db.select().from(sessions);
+				const httpRow = allSessions.find((r) => r.id === "seam-sess-stop-http");
+				const toolRow = allSessions.find((r) => r.id === "seam-sess-stop-tool");
 				expect(httpRow?.state).toBe("stopped");
 				expect(httpRow?.outcome).toBe("stopped");
 				expect(toolRow?.state).toBe("stopped");
 				expect(toolRow?.outcome).toBe("stopped");
 
-				const [taskRow] = await db.select().from(tasks).where(eq(tasks.id, "seam-task-stop"));
+				const allTasks = await db.select().from(tasks);
+				const taskRow = allTasks.find((r) => r.id === "seam-task-stop");
 				expect(taskRow?.state).toBe("in_progress");
 			} finally {
 				await handle.server.dispose();
