@@ -29,24 +29,48 @@ export async function findSessionById(
 	return row;
 }
 
-/** Full rows, filtered by whichever of the three fields the caller supplies. */
-// @lore AU44 batch6: agentId filter and limit/offset paging dropped — the
-// Conversations page queries task_id+state=active only; no caller uses agentId
-// or paging. The function is a simple filtered select.
+/**
+ * `search_sessions`'s own filter — architecture.md §1/§2: `ids`/`taskId`/
+ * `agentIds`/`state`/`routineId`, newest first, `limit` always resolved by
+ * the caller (the action's own default-100 lives in `session-actions.ts`,
+ * not here — this accessor never guesses a default).
+ *
+ * @lore AU44 batch6's note above (agentId filter and limit/offset paging
+ * dropped, no caller used them) no longer holds: BC6's `search_sessions`
+ * action is that caller now, and it needs every field back.
+ */
+export interface SessionSearchFilter {
+	readonly ids?: readonly string[];
+	readonly taskId?: string;
+	readonly agentIds?: readonly string[];
+	readonly state?: string;
+	readonly routineId?: string;
+	readonly limit: number;
+	readonly offset?: number;
+}
+
+/** Full rows, filtered by whichever fields the caller supplies. Newest first. */
 export async function listSessions(
 	db: HyperIdleDb,
-	filter: { readonly taskId?: string; readonly state?: string },
+	filter: SessionSearchFilter,
 ): Promise<Session[]> {
 	const conditions = [];
+	if (filter.ids && filter.ids.length > 0) conditions.push(inArray(sessions.id, [...filter.ids]));
 	if (filter.taskId) conditions.push(eq(sessions.taskId, filter.taskId));
+	if (filter.agentIds && filter.agentIds.length > 0) {
+		conditions.push(inArray(sessions.agentId, [...filter.agentIds]));
+	}
 	if (filter.state) conditions.push(eq(sessions.state, filter.state));
+	if (filter.routineId) conditions.push(eq(sessions.routineId, filter.routineId));
 
-	return conditions.length > 0
-		? await db
-				.select()
-				.from(sessions)
-				.where(and(...conditions))
-		: await db.select().from(sessions);
+	const query = db
+		.select()
+		.from(sessions)
+		.where(conditions.length > 0 ? and(...conditions) : undefined)
+		.orderBy(desc(sessions.startedAt))
+		.limit(filter.limit);
+
+	return filter.offset ? await query.offset(filter.offset) : await query;
 }
 
 /**
@@ -205,4 +229,60 @@ export async function writeSessionNotes(
 	notes: string,
 ): Promise<void> {
 	await db.update(sessions).set({ notes }).where(eq(sessions.id, sessionId));
+}
+
+/**
+ * @lore `stopSessionRun` — architecture.md §3: the ONE stop path both
+ * doors use (`stop_session`'s action and `requestRunStopForTasks`'s kill
+ * cascade). `abort` is injected, never imported — this package names
+ * `@hyperidle/session-requests` only as a devDependency, so the caller's
+ * composition root (which holds both packages) passes `sessionRunRegistry.
+ * abort` in.
+ *
+ * 1. a terminal row -> `"already_ended"`, no write, no emit.
+ * 2. `abort(sessionId)` true (a live runtime entry answered) -> `"aborted"`:
+ *    write nothing, emit nothing — the provisioning teardown
+ *    (`transition-run.ts`'s `endSession`) writes the terminal row and emits
+ *    `session_ended` as it does for any other end (outcome "stopped" — a
+ *    stop must never read as a clean "completed" finish, or the upward
+ *    task-propagation path would move a task that was just killed).
+ * 3. `abort` false (no live runtime entry — a restart, another process, an
+ *    already-dead child) -> CAS `state='stopped'`/`outcome='stopped'`
+ *    ourselves, guarded on `state='active'` exactly like
+ *    `request-run-stop-for-tasks.ts`'s own disposition, and emit
+ *    `session_ended` so the task page, agent health and routine reactions
+ *    see the same end -> `"marked"`.
+ */
+export async function stopSessionRun(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	sessionId: string,
+	abort: (sessionId: string) => Promise<boolean>,
+): Promise<"aborted" | "marked" | "already_ended"> {
+	const row = await findSessionById(db, sessionId);
+	if (!row || row.state !== "active") return "already_ended";
+
+	const wasAborted = await abort(sessionId);
+	if (wasAborted) return "aborted";
+
+	const now = new Date().toISOString();
+	const updated = await db
+		.update(sessions)
+		.set({ state: "stopped", outcome: "stopped", endedAt: now })
+		.where(and(eq(sessions.id, sessionId), eq(sessions.state, "active")))
+		.returning({ id: sessions.id });
+	if (updated.length === 0) return "already_ended";
+
+	eventBus.emit<"session_ended">({
+		type: "session_ended",
+		streamId: sessionId,
+		sessionId,
+		agentId: row.agentId,
+		taskId: row.taskId,
+		timestamp: Date.now(),
+		outcome: "stopped",
+		...(row.routineId ? { routineRunOutcome: "error" as const } : {}),
+	} satisfies SessionEndedEvent);
+
+	return "marked";
 }

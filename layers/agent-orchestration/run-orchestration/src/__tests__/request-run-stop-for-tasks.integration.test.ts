@@ -1,10 +1,10 @@
 /**
- * AU26 H2 (§D-M.2) — RED. `requestRunStopForTasks` does not exist yet.
- *
- * `layers/core-api/work/bet-kill-cascade.ts` selected the active runs per
- * task and CAS-stopped each one itself, deliberately suppressing
- * `session_ended`. Killing a bet must stop its runs — that is a genuine core
- * need — but the write is `run-orchestration`'s, so it comes down here.
+ * AU26 H2 (§D-M.2), rewritten so killing a task's runs goes through the same
+ * abort a direct stop does — `requestRunStopForTasks` now calls the shared
+ * `stopSessionRun` per active session: with no live runtime entry registered
+ * (every case below — these tests never register one with the runtime),
+ * `abort` answers `false` and the CAS-mark path fires, exactly as before,
+ * but now via `session_ended`.
  *
  * The returned set is load-bearing, not a convenience: a 0-row CAS (an
  * already-stopped run) must return an empty set. A count would not tell the
@@ -13,8 +13,12 @@
 
 import { type HyperIdleDb, sessions, tasks, teams, threads, users } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
+import { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import { requestRunStopForTasks } from "../request-run-stop-for-tasks.js";
+
+/** No test in this file registers a live runtime entry — `abort` always answers false, the no-live-entry path. */
+const noLiveEntry = async (): Promise<boolean> => false;
 
 const NOW = "2026-08-04T10:00:00.000Z";
 
@@ -82,8 +86,9 @@ describe("requestRunStopForTasks", () => {
 		await seed(db);
 		await seedRun(db, "run-a", "task-a", "active");
 		await seedRun(db, "run-b", "task-b", "active");
+		const eventBus = new EventBus();
 
-		const stopped = await requestRunStopForTasks(db, ["task-a", "task-b"]);
+		const stopped = await requestRunStopForTasks(db, eventBus, ["task-a", "task-b"], noLiveEntry);
 
 		expect([...stopped].sort((x, y) => x.sessionId.localeCompare(y.sessionId))).toEqual([
 			{ taskId: "task-a", sessionId: "run-a" },
@@ -98,12 +103,31 @@ describe("requestRunStopForTasks", () => {
 		}
 	});
 
+	test("emits session_ended per stopped run on the no-live-entry path", async ({ db }) => {
+		await seed(db);
+		await seedRun(db, "run-a", "task-a", "active");
+		const eventBus = new EventBus();
+		const emitted: unknown[] = [];
+		eventBus.on("session_ended", (event) => emitted.push(event));
+
+		await requestRunStopForTasks(db, eventBus, ["task-a"], noLiveEntry);
+
+		expect(emitted).toHaveLength(1);
+		expect(emitted[0]).toMatchObject({
+			type: "session_ended",
+			sessionId: "run-a",
+			taskId: "task-a",
+			outcome: "stopped",
+		});
+	});
+
 	test("leaves runs on tasks outside the list alone", async ({ db }) => {
 		await seed(db);
 		await seedRun(db, "run-a", "task-a", "active");
 		await seedRun(db, "run-other", "task-untouched", "active");
+		const eventBus = new EventBus();
 
-		const stopped = await requestRunStopForTasks(db, ["task-a"]);
+		const stopped = await requestRunStopForTasks(db, eventBus, ["task-a"], noLiveEntry);
 
 		expect(stopped).toEqual([{ taskId: "task-a", sessionId: "run-a" }]);
 		const [other] = await db.select().from(sessions).where(eq(sessions.id, "run-other"));
@@ -113,20 +137,40 @@ describe("requestRunStopForTasks", () => {
 	test("is idempotent — an already-stopped run is not in the returned set", async ({ db }) => {
 		await seed(db);
 		await seedRun(db, "run-a", "task-a", "active");
+		const eventBus = new EventBus();
 
-		const first = await requestRunStopForTasks(db, ["task-a"]);
+		const first = await requestRunStopForTasks(db, eventBus, ["task-a"], noLiveEntry);
 		expect(first).toHaveLength(1);
 
 		// The 0-row CAS: a re-kill of an already-stopped run returns empty.
-		const second = await requestRunStopForTasks(db, ["task-a"]);
+		const second = await requestRunStopForTasks(db, eventBus, ["task-a"], noLiveEntry);
 		expect(second).toHaveLength(0);
 	});
 
 	test("returns an empty set for an empty task list", async ({ db }) => {
 		await seed(db);
 		await seedRun(db, "run-a", "task-a", "active");
+		const eventBus = new EventBus();
 
-		expect(await requestRunStopForTasks(db, [])).toEqual([]);
+		expect(await requestRunStopForTasks(db, eventBus, [], noLiveEntry)).toEqual([]);
+		const [row] = await db.select().from(sessions).where(eq(sessions.id, "run-a"));
+		expect(row?.state).toBe("active");
+	});
+
+	test("the abort path stops nothing itself and emits nothing — teardown owns both", async ({
+		db,
+	}) => {
+		await seed(db);
+		await seedRun(db, "run-a", "task-a", "active");
+		const eventBus = new EventBus();
+		const emitted: unknown[] = [];
+		eventBus.on("session_ended", (event) => emitted.push(event));
+		const liveEntry = async (): Promise<boolean> => true;
+
+		const stopped = await requestRunStopForTasks(db, eventBus, ["task-a"], liveEntry);
+
+		expect(stopped).toEqual([{ taskId: "task-a", sessionId: "run-a" }]);
+		expect(emitted).toHaveLength(0);
 		const [row] = await db.select().from(sessions).where(eq(sessions.id, "run-a"));
 		expect(row?.state).toBe("active");
 	});

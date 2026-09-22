@@ -2025,12 +2025,19 @@ async function runSession(
 	if (deps.mounter && mountedFilesystems.length > 0) {
 		await captureMountedFilesystems(sessionId, sandboxPath, mountedFilesystems, deps.mounter);
 	}
+	// @lore D-njr2es: `aborted` (the cooperative flag `sessionRunRegistry.abort`
+	// flips via `signalAbort`, set above at session registration) threads
+	// through as `terminalOutcome: "stopped"` so a stopped session's row reads
+	// state "stopped" / outcome "stopped" — not "completed", which
+	// `lifecycle-propagation.ts` would read as a clean finish and move the
+	// task (D-bsjkae forbids that).
 	await transitionRun(
 		{ db, eventBus, ports },
 		{
 			target: "session",
 			context: sessionContext,
 			disposition: "end",
+			...(aborted ? { terminalOutcome: "stopped" as const } : {}),
 			...(params.taskId ? { tokensByTier: accumulatedTokens } : {}),
 		},
 	);
