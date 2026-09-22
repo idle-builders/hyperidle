@@ -82,7 +82,7 @@ const BASE_RUN_STATE: AgentRunState = {
 		{
 			sessionId: "sess-3",
 			taskId: "task-3",
-			taskTitle: "Add pagination to knowledge list",
+			taskTitle: "Add pagination to document list",
 			outcome: "completed",
 			startedAt: "2024-06-03T09:00:00.000Z",
 			endedAt: "2024-06-03T10:45:00.000Z",

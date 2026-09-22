@@ -1,6 +1,6 @@
 import { DocumentList } from "./DocumentList";
 
-export default { title: "Page: Knowledge/List" };
+export default { title: "Page: Document/List" };
 
 export const Default = (): React.JSX.Element => <DocumentList />;
 

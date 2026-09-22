@@ -76,18 +76,18 @@ export function WithDisabledItem(): JSX.Element {
 			label: "Archive",
 			disabled: true,
 			onSelect: () => {},
-			dataAttrs: { "data-testid": "knowledge-archive" },
+			dataAttrs: { "data-testid": "document-archive" },
 		},
 		{
 			id: "change-scope",
 			label: "Change scope",
 			onSelect: () => {},
-			dataAttrs: { "data-testid": "knowledge-change-scope" },
+			dataAttrs: { "data-testid": "document-change-scope" },
 		},
 	];
 	return (
 		<div className="p-[18px] flex gap-[24px]">
-			<ToggleMenu items={items} label="Knowledge actions" align="end" />
+			<ToggleMenu items={items} label="Document actions" align="end" />
 		</div>
 	);
 }
@@ -107,7 +107,7 @@ export function WithIcons(): JSX.Element {
 	const iconItems: MenuItem[] = [
 		{
 			id: "add",
-			label: "Add knowledge",
+			label: "Add document",
 			icon: (
 				<svg
 					viewBox="0 0 16 16"

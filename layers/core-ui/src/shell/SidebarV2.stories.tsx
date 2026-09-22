@@ -15,7 +15,7 @@
  *   4. A separator.
  *   5. ONE shared "fast navigation" list below the separator that SWAPS its
  *      contents based on the selected top-level item — threads for
- *      Conversations, teams for Work, knowledge items for Knowledge. It shows
+ *      Conversations, teams for Work, documents for Knowledge. It shows
  *      the head ("top X that fit") of that section's list view.
  *
  * Selecting a top-level item → fast-nav list swaps + that item shows selected.
@@ -64,7 +64,7 @@ const SECTION_ITEMS: Record<ViewId, NavItem[]> = {
 const FASTNAV_EMPTY: Record<ViewId, string> = {
 	conversations: "No conversations yet",
 	work: "No teams yet",
-	knowledge: "No knowledge yet",
+	knowledge: "No documents yet",
 };
 
 // ---------------------------------------------------------------------------
@@ -369,7 +369,7 @@ export function WorkActive(): JSX.Element {
 }
 WorkActive.storyName = "AD9 new sidebar — Work active (teams)";
 
-/** Knowledge active → fast-nav shows knowledge items. */
+/** Knowledge active → fast-nav shows documents. */
 export function KnowledgeActive(): JSX.Element {
 	return (
 		<Frame>
@@ -377,4 +377,4 @@ export function KnowledgeActive(): JSX.Element {
 		</Frame>
 	);
 }
-KnowledgeActive.storyName = "AD9 new sidebar — Knowledge active (knowledge items)";
+KnowledgeActive.storyName = "AD9 new sidebar — Knowledge active (documents)";
