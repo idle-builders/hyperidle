@@ -361,6 +361,33 @@ export function registerCoreApiPreAuthRoutes(
 }
 
 /**
+ * `buildCoreActions`'s bindings, assembled once here rather than inline in
+ * `createCoreApiApp` — that function's own cognitive-complexity budget is
+ * already spent, and the two optional pass-throughs (`pluginsBaseDir`,
+ * `wsHub`) are a flat, ungated read of `options`, nothing this function
+ * needs any of `createCoreApiApp`'s own state to compute.
+ */
+function buildCoreActionsBindings(
+	options: AppOptions,
+	agentOrchestration: AgentOrchestrationPort,
+	agentWorkIntentRecorder: import("@hyperidle/domain-model").AgentWorkIntentRecorderFn,
+	reviewVerdictRecorder: import("@hyperidle/domain-model").ReviewVerdictRecorderFn,
+): Parameters<typeof buildCoreActions>[0] {
+	return {
+		agentOrchestration,
+		agentWorkIntentRecorder,
+		reviewVerdictRecorder,
+		...(options.pluginsBaseDir ? { pluginsBaseDir: options.pluginsBaseDir } : {}),
+		...(options.wsHub
+			? {
+					wsPush: (topic: string, envelope: unknown) =>
+						options.wsHub?.broadcast(topic, JSON.stringify(envelope)),
+				}
+			: {}),
+	};
+}
+
+/**
  * Create `core-api`'s own route table — the Layer's HTTP surface and nothing
  * else. The returned app is mounted by the Application at `/` on its `/api`
  * router, AFTER the middleware stack, beside `bootAgentOrchestration().app`.
@@ -428,17 +455,14 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		// the action list. `search_tasks`/`open_task`/`edit_task` mount at
 		// `POST /api/actions/<name>` — one loop over the composed list, never a
 		// per-object route factory. the architecture doc §7.
-		const actions: readonly Action[] = buildCoreActions({
-			agentOrchestration,
-			agentWorkIntentRecorder,
-			reviewVerdictRecorder,
-			...(options.wsHub
-				? {
-						wsPush: (topic: string, envelope: unknown) =>
-							options.wsHub?.broadcast(topic, JSON.stringify(envelope)),
-					}
-				: {}),
-		});
+		const actions: readonly Action[] = buildCoreActions(
+			buildCoreActionsBindings(
+				options,
+				agentOrchestration,
+				agentWorkIntentRecorder,
+				reviewVerdictRecorder,
+			),
+		);
 		api.route("/actions", createActionsRouter(actions, { db: options.db, eventBus }));
 		APP_ACTION_TOOLS.set(api, actionsAsTools(actions));
 		const editTaskAction = actions.find((a) => a.declaration.name === "edit_task");
@@ -590,6 +614,11 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		// owns). Same path, other host — see `createAgentOrchestrationApp`.
 		api.route("/search", createSearchRoutes(options.db, eventBus, searchDocumentsRun));
 		api.route("/settings/agent-behavior", createAgentBehaviorSettingsRoutes(options.db));
+		// BC6: plugin management is ALSO the platform module now —
+		// `search_plugins`/`edit_plugin`, mounted generically by
+		// `createActionsRouter` above (`compose.ts`'s fourth action group).
+		// `routes/plugins.ts` and this mount are deleted in the same task's
+		// next commit, once the nine plugin integration tests are re-pointed.
 		api.route(
 			"/plugins",
 			createPluginRoutes(

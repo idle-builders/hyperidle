@@ -17,6 +17,11 @@
  * migrateCredentialsToStore uses an inline type.
  */
 
+// -- platform module (BC6): search_plugins / edit_plugin own the whole
+// plugin lifecycle. `Action`/`ActionContext` are this module's own
+// structural mirror — see platform-actions.ts's own header. --
+export type { Action, ActionContext, PlatformActionsDeps } from "./platform-actions.js";
+export { createPlatformActions } from "./platform-actions.js";
 // -- action rules (scoped items for agent action approval) --
 // -- plugin configuration (resolution engine, agent-behavior UI) --
 export { listConfiguration, writeConfigurationOverride } from "./plugin-configuration.js";
