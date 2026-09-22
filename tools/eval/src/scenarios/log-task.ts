@@ -13,7 +13,7 @@ import {
 	judgeSessionCompleted,
 } from "../judges.js";
 import { runEvalSession } from "../provision-harness.js";
-import { seedKnowledge, seedMinimalWorld } from "../seeding.js";
+import { seedDocument, seedMinimalWorld } from "../seeding.js";
 import type {
 	EvalScenario,
 	JudgeContext,
@@ -53,7 +53,7 @@ Your logs should be specific and actionable, not generic.`,
 			betDoneCondition: "Contract reviewed and compliance issues documented.",
 		});
 
-		await seedKnowledge(ctx.db, {
+		await seedDocument(ctx.db, {
 			scopeKind: "team",
 			scopeId: world.teamId,
 			title: "Contract Review Standards",

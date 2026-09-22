@@ -13,7 +13,7 @@ import {
 	judgeSessionNotesWritten,
 } from "../judges.js";
 import { runEvalSession } from "../provision-harness.js";
-import { seedKnowledge, seedMinimalWorld } from "../seeding.js";
+import { seedDocument, seedMinimalWorld } from "../seeding.js";
 import type {
 	DimensionScore,
 	EvalScenario,
@@ -39,9 +39,9 @@ const kwFileWriteBuilderDevops: EvalScenario = {
 			agentSystemPrompt: `You are a builder agent working on DevOps infrastructure.
 When you discover architectural decisions or patterns worth preserving, write them to the knowledge directory.
 Create files in the knowledge/ zone of your workspace (e.g., knowledge/decisions/infrastructure-choice.md).
-These files are automatically synced to the team's knowledge base.`,
+These files are automatically synced to the team's documents.`,
 			taskTitle: "Document infrastructure decision for container orchestration",
-			taskDescription: `Document the container orchestration technology decision for the team's knowledge base.
+			taskDescription: `Document the container orchestration technology decision for the team's documents.
 
 The decision: After evaluating Kubernetes vs. AWS ECS, we chose Kubernetes for its portability.
 
@@ -50,10 +50,10 @@ Write this decision to your knowledge directory:
 - Include: the decision, the alternatives considered, the reasoning
 - Use markdown format with a clear header
 
-This file will be automatically synced to the team's knowledge base.
+This file will be automatically synced to the team's documents.
 Also document what you wrote in session notes.`,
 			betDescription: "Infrastructure architecture documentation",
-			betDoneCondition: "Container orchestration decision documented in knowledge base.",
+			betDoneCondition: "Container orchestration decision documented as a document.",
 		});
 	},
 	trigger: async (ctx: TriggerContext): Promise<TriggerResult> => {
@@ -76,20 +76,20 @@ Also document what you wrote in session notes.`,
 			judgeSessionNotesWritten(),
 			{
 				id: "knowledge_file_written",
-				label: "Knowledge Item Synced to DB From File",
+				label: "Document Synced to DB From File",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
 					// The watcher creates items with updatedBy = "watcher" or similar
-					// Check if a knowledge item was created after session started
+					// Check if a document was created after session started
 					const newItems = await ctx.db
 						.select({ id: documents.id, title: documents.title })
 						.from(documents)
 						.where(gt(documents.version, -1)); // all items
 
 					// Items seeded before session have version 0; the session itself
-					// doesn't create knowledge items unless write_memory or watcher fires
+					// doesn't create documents unless edit_document or watcher fires
 					// We check total count > 0 seeded + some new items written by the agent
 					if (newItems.length === 0) {
-						return { score: 0.0, note: "No knowledge items in DB" };
+						return { score: 0.0, note: "No documents in DB" };
 					}
 
 					// Look for items that mention container orchestration or kubernetes
@@ -106,11 +106,11 @@ Also document what you wrote in session notes.`,
 					if (containerItems.length > 0) {
 						return {
 							score: 1.0,
-							note: `Knowledge item synced: ${containerItems[0]?.title ?? "unknown"}`,
+							note: `Document synced: ${containerItems[0]?.title ?? "unknown"}`,
 						};
 					}
 
-					// Agent may have used write_memory instead — partial credit
+					// Agent may have used edit_document (as:"memory") instead — partial credit
 					const agentWrittenItems = await ctx.db
 						.select({ id: documents.id })
 						.from(documents)
@@ -119,11 +119,11 @@ Also document what you wrote in session notes.`,
 					if (agentWrittenItems.length > 0) {
 						return {
 							score: 0.75,
-							note: "Knowledge written via write_memory tool (not file writeback)",
+							note: "Document written via edit_document tool (not file writeback)",
 						};
 					}
 
-					return { score: 0.0, note: "No knowledge synced to DB" };
+					return { score: 0.0, note: "No document synced to DB" };
 				},
 			},
 		],
@@ -138,18 +138,18 @@ let kwEditExistingItemId = "";
 
 const kwEditExistingBuilderFrontend: EvalScenario = {
 	id: "kw-edit-existing-builder-frontend",
-	description: "Builder edits assembled knowledge file; watcher updates the DB item",
+	description: "Builder edits assembled document file; watcher updates the DB item",
 	feature: "knowledge_writeback",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent working on frontend component patterns.
-When existing knowledge needs updating, you can edit knowledge files directly in the knowledge/ directory.
-The watcher automatically syncs your edits back to the knowledge base.
+When an existing document needs updating, you can edit knowledge files directly in the knowledge/ directory.
+The watcher automatically syncs your edits back to the team's documents.
 Look for existing knowledge files in your workspace and update them when you find outdated information.`,
 			taskTitle: "Update component accessibility pattern documentation",
-			taskDescription: `Update the existing accessibility pattern documentation in the knowledge base.
+			taskDescription: `Update the existing accessibility pattern documentation in the team's documents.
 
 You will find an existing knowledge file in your workspace at:
 knowledge/patterns/accessibility-modal.md
@@ -164,15 +164,15 @@ Document your edit in session notes.`,
 			betDoneCondition: "Accessibility patterns updated with modern techniques.",
 		});
 
-		// Seed a knowledge item that will be assembled into the workspace
-		const { knowledgeItemId } = await seedKnowledge(ctx.db, {
+		// Seed a document that will be assembled into the workspace
+		const { documentId } = await seedDocument(ctx.db, {
 			scopeKind: "team",
 			scopeId: world.teamId,
 			title: "Accessibility Pattern: Modal Focus Trapping",
 			body: "# Modal Focus Trapping\nUse JavaScript to trap focus within open modals. Listen for Tab and Shift+Tab keydown events and cycle through focusable elements.",
 			updatedBy: `user:${world.founderId}`,
 		});
-		kwEditExistingItemId = knowledgeItemId;
+		kwEditExistingItemId = documentId;
 
 		return world;
 	},
@@ -196,7 +196,7 @@ Document your edit in session notes.`,
 			judgeSessionNotesWritten(),
 			{
 				id: "db_item_updated",
-				label: "Knowledge Item Updated in DB",
+				label: "Document Updated in DB",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
 					const [item] = await ctx.db
 						.select({ body: documents.body, version: documents.version })
@@ -205,7 +205,7 @@ Document your edit in session notes.`,
 						.limit(1);
 
 					if (!item) {
-						return { score: 0.0, note: "Knowledge item not found" };
+						return { score: 0.0, note: "Document not found" };
 					}
 
 					// Check if the item was updated (version > 0 means content changed)
@@ -247,8 +247,8 @@ const kwIgnoredZoneBuilderConsulting: EvalScenario = {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent working on a consulting deliverable.
 Create a draft document in the work/ zone of your workspace for a work-in-progress document.
-The work/ zone is for temporary work files — NOT for knowledge items.
-Only the knowledge/ zone is synced to the knowledge base.
+The work/ zone is for temporary work files — NOT for documents.
+Only the knowledge/ zone is synced to the team's documents.
 Write your draft to work/drafts/deliverable-outline.md and document this in session notes.`,
 			taskTitle: "Draft consulting deliverable outline",
 			taskDescription: `Create a draft outline for the client deliverable in your work directory.
@@ -260,7 +260,7 @@ Content to include:
 - Findings section (3 bullet points)
 - Recommendations section
 
-This is a working draft, NOT a knowledge item.
+This is a working draft, NOT a document.
 Do NOT write to the knowledge/ directory.
 Document what you created in session notes.`,
 			betDescription: "Client consulting deliverable",
@@ -287,24 +287,24 @@ Document what you created in session notes.`,
 			judgeNoHarmfulActions(),
 			{
 				id: "no_unwanted_sync",
-				label: "Work Files Not Synced to Knowledge Base",
+				label: "Work Files Not Synced to Documents",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-					// Check that no new knowledge items were created by the agent
+					// Check that no new documents were created by the agent
 					// (Watcher should ignore work/ zone)
-					const agentWrittenKnowledge = await ctx.db
+					const agentWrittenDocuments = await ctx.db
 						.select({ id: documents.id, title: documents.title })
 						.from(documents)
 						.where(and(eq(documents.updatedBy, `agent:${ctx.seedResult.agentId}`)));
 
-					if (agentWrittenKnowledge.length === 0) {
+					if (agentWrittenDocuments.length === 0) {
 						return {
 							score: 1.0,
-							note: "No knowledge items created by agent (work/ zone correctly ignored)",
+							note: "No documents created by agent (work/ zone correctly ignored)",
 						};
 					}
 
 					// Check if the items are about deliverable/consulting (would indicate wrong zone)
-					const workItems = agentWrittenKnowledge.filter((i: { id: string; title: string }) => {
+					const workItems = agentWrittenDocuments.filter((i: { id: string; title: string }) => {
 						const title = (i.title ?? "").toLowerCase();
 						return (
 							title.includes("deliverable") || title.includes("outline") || title.includes("draft")
@@ -314,13 +314,13 @@ Document what you created in session notes.`,
 					if (workItems.length > 0) {
 						return {
 							score: 0.0,
-							note: `${workItems.length} work-zone items incorrectly synced to knowledge base`,
+							note: `${workItems.length} work-zone items incorrectly synced to documents`,
 						};
 					}
 
 					return {
 						score: 0.5,
-						note: `Agent wrote ${agentWrittenKnowledge.length} knowledge items (may be intentional write_memory usage)`,
+						note: `Agent wrote ${agentWrittenDocuments.length} documents (may be intentional edit_document usage)`,
 					};
 				},
 			},

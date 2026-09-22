@@ -9,7 +9,7 @@ import { messages, threads } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { judgeLlmQuality, judgeSessionCompleted, judgeSubmitReviewCalled } from "../judges.js";
 import { runEvalSession } from "../provision-harness.js";
-import { seedKnowledge, seedMinimalWorld, seedThread } from "../seeding.js";
+import { seedDocument, seedMinimalWorld, seedThread } from "../seeding.js";
 import type {
 	DimensionScore,
 	EvalScenario,
@@ -27,35 +27,35 @@ import type {
 const srWithProducedItemBuilderDevops: EvalScenario = {
 	id: "sr-with-produced-item-builder-devops",
 	description:
-		"Builder submits structured review with producedItemId linking to a task-parented knowledge item",
+		"Builder submits structured review with producedItemId linking to a task-parented document",
 	feature: "send_message",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent implementing DevOps infrastructure.
-When you complete work and have produced a knowledge item, submit a review using send_message with type "review".
-Include a producedItemId pointing to the knowledge item you produced.
+When you complete work and have produced a document, submit a review using send_message with type "review".
+Include a producedItemId pointing to the document you produced.
 Your review reasoning should explain what was implemented and what to verify.`,
 			taskTitle: "Refactor monitoring configuration",
 			taskDescription: `Review your implementation of the monitoring configuration refactor.
 
-You have already produced a knowledge item for this task that captures the implementation details.
+You have already produced a document for this task that captures the implementation details.
 
 Submit a review using send_message with type "review" and:
 - title: "Monitoring configuration refactor ready for review"
 - reasoning: at least 2 points about what was changed and what to verify
-- producedItemId: "<the knowledge item ID>"
+- producedItemId: "<the document ID>"
 
-The knowledge item ID is: PRODUCED_ITEM_ID_PLACEHOLDER
+The document ID is: PRODUCED_ITEM_ID_PLACEHOLDER
 
 Your reasoning should mention: what was changed and what the reviewer should check.`,
 			betDescription: "Infrastructure monitoring improvements",
 			betDoneCondition: "Monitoring configuration refactored and reviewed.",
 		});
 
-		// Seed a task-parented knowledge item so the agent can reference it.
-		const { knowledgeItemId } = await seedKnowledge(ctx.db, {
+		// Seed a task-parented document so the agent can reference it.
+		const { documentId } = await seedDocument(ctx.db, {
 			scopeKind: "factory",
 			title: "Monitoring configuration refactor — implementation notes",
 			body: "Updated Prometheus scrape intervals, added VictoriaMetrics, removed legacy exporters.",
@@ -72,7 +72,7 @@ Your reasoning should mention: what was changed and what the reviewer should che
 			await ctx.db
 				.update(tasks)
 				.set({
-					description: task.description.replace("PRODUCED_ITEM_ID_PLACEHOLDER", knowledgeItemId),
+					description: task.description.replace("PRODUCED_ITEM_ID_PLACEHOLDER", documentId),
 				})
 				.where(eq(tasks.id, world.taskId));
 		}

@@ -1,7 +1,7 @@
 /**
- * X8: Assembled knowledge scenarios (interaction 17).
+ * X8: Assembled context scenarios (interaction 17).
  *
- * Tests knowledge context assembly: multi-layer utilization, relevance ranking, read-only enforcement.
+ * Tests document context assembly: multi-layer utilization, relevance ranking, read-only enforcement.
  */
 
 import { sessions } from "@hyperidle/db";
@@ -13,7 +13,7 @@ import {
 	judgeSessionNotesWritten,
 } from "../judges.js";
 import { runEvalSession } from "../provision-harness.js";
-import { seedKnowledge, seedMinimalWorld } from "../seeding.js";
+import { seedDocument, seedMinimalWorld } from "../seeding.js";
 import type {
 	EvalScenario,
 	JudgeContext,
@@ -29,39 +29,39 @@ import type {
 
 const mkUtilizationBuilderHealthcare: EvalScenario = {
 	id: "mk-utilization-builder-healthcare",
-	description: "Builder references knowledge from multiple layers seeded before session",
+	description: "Builder references documents from multiple layers seeded before session",
 	feature: "assembled_knowledge",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent working on a healthcare patient portal.
-Your workspace contains assembled knowledge from multiple layers. Read and use this knowledge.
-When writing session notes, explicitly reference the specific knowledge items you found:
+Your workspace contains assembled documents from multiple layers. Read and use these documents.
+When writing session notes, explicitly reference the specific documents you found:
 - Security patterns (L3 community patterns)
 - HIPAA documentation (L2 product-specific)
 - Company principles (L4 factory-wide)
 
-Mention which knowledge items influenced your implementation approach.`,
+Mention which documents influenced your implementation approach.`,
 			taskTitle: "Implement secure patient data access layer",
 			taskDescription: `Implement the patient data access layer for the healthcare portal.
 
-Before implementing, review the knowledge context assembled in your workspace.
+Before implementing, review the document context assembled in your workspace.
 It contains:
 - HIPAA data handling requirements (product-specific)
 - Healthcare security patterns (community-wide)
 - Company security principles (factory-wide)
 
 Write session notes that:
-1. Reference at least 2 specific pieces of knowledge from your context
+1. Reference at least 2 specific documents from your context
 2. Explain how they informed your implementation approach
-3. Note which knowledge layer each came from (L2, L3, or L4)`,
+3. Note which layer each came from (L2, L3, or L4)`,
 			betDescription: "Healthcare patient portal",
 			betDoneCondition: "Secure data access layer implemented following HIPAA requirements.",
 		});
 
 		// Seed L2 product-specific HIPAA docs
-		await seedKnowledge(ctx.db, {
+		await seedDocument(ctx.db, {
 			scopeKind: "team",
 			scopeId: world.teamId,
 			title: "HIPAA Data Handling: Patient Portal Requirements",
@@ -70,7 +70,7 @@ Write session notes that:
 		});
 
 		// Seed L3 community security patterns
-		await seedKnowledge(ctx.db, {
+		await seedDocument(ctx.db, {
 			scopeKind: "factory",
 			title: "Healthcare Security Pattern: Defense in Depth",
 			body: "Apply 3+ security layers: network segmentation, application-level auth, data encryption. Never rely on a single security control. Use the principle of least privilege for all data access.",
@@ -78,7 +78,7 @@ Write session notes that:
 		});
 
 		// Seed L4 factory-wide principles
-		await seedKnowledge(ctx.db, {
+		await seedDocument(ctx.db, {
 			scopeKind: "factory",
 			title: "Company Security Principles",
 			body: "Security is non-negotiable. Any feature that accesses sensitive data requires security review before deployment. Zero-trust architecture: verify every request, never assume internal traffic is safe.",
@@ -107,7 +107,7 @@ Write session notes that:
 			judgeSessionNotesWritten(),
 			judgeLlmQuality({
 				id: "knowledge_referenced",
-				label: "Multiple Knowledge Layers Referenced in Notes",
+				label: "Multiple Document Layers Referenced in Notes",
 				extractContent: async (ctx: JudgeContext): Promise<string> => {
 					const [session] = await ctx.db
 						.select({ notes: sessions.notes })
@@ -116,7 +116,7 @@ Write session notes that:
 						.limit(1);
 					return session?.notes ?? "";
 				},
-				criteria: `Score 1.0 if session notes reference knowledge from at least 2 layers (mentions HIPAA requirements, security patterns, OR company principles — with enough specificity to identify which knowledge item was used). Score 0.5 if notes mention security or HIPAA generally but without referencing specific knowledge items from the context. Score 0.0 if no knowledge is referenced.`,
+				criteria: `Score 1.0 if session notes reference documents from at least 2 layers (mentions HIPAA requirements, security patterns, OR company principles — with enough specificity to identify which document was used). Score 0.5 if notes mention security or HIPAA generally but without referencing specific documents from the context. Score 0.0 if no document is referenced.`,
 			}),
 			judgeLlmQuality({
 				id: "session_notes_quality",
@@ -129,7 +129,7 @@ Write session notes that:
 						.limit(1);
 					return session?.notes ?? "";
 				},
-				criteria: `Score 1.0 if session notes describe a specific implementation approach that was informed by the knowledge context (mentions encryption, access control, audit logging, or session management in the context of the patient data access layer). Score 0.5 if notes describe implementation but don't connect it to the knowledge context. Score 0.0 if notes are generic or empty.`,
+				criteria: `Score 1.0 if session notes describe a specific implementation approach that was informed by the document context (mentions encryption, access control, audit logging, or session management in the context of the patient data access layer). Score 0.5 if notes describe implementation but don't connect it to the document context. Score 0.0 if notes are generic or empty.`,
 			}),
 		],
 	},
@@ -141,20 +141,20 @@ Write session notes that:
 
 const mkRankingPmDevops: EvalScenario = {
 	id: "mk-ranking-pm-devops",
-	description: "PM focuses on relevant knowledge and ignores irrelevant context items",
+	description: "PM focuses on relevant documents and ignores irrelevant context items",
 	feature: "assembled_knowledge",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
 			agentRole: "product_manager",
 			agentSystemPrompt: `You are a product manager working on infrastructure capacity planning.
-Your knowledge context contains many items — some relevant to your task, some not.
-Focus on the knowledge most relevant to infrastructure capacity planning.
-When writing session notes, cite the specific knowledge items that informed your recommendations.`,
+Your document context contains many items — some relevant to your task, some not.
+Focus on the documents most relevant to infrastructure capacity planning.
+When writing session notes, cite the specific documents that informed your recommendations.`,
 			taskTitle: "Create infrastructure capacity plan for Q4",
-			taskDescription: `Create an infrastructure capacity plan for Q4 based on the available knowledge.
+			taskDescription: `Create an infrastructure capacity plan for Q4 based on the available documents.
 
-Your knowledge context contains relevant items about:
+Your document context contains relevant items about:
 - Current infrastructure performance metrics
 - Growth projections for Q4
 - Kubernetes scaling patterns
@@ -164,14 +164,14 @@ And irrelevant items about:
 - Sales pipeline metrics
 - Customer support SLAs
 
-Write session notes that reference the RELEVANT knowledge items (infrastructure, capacity, scaling).
+Write session notes that reference the RELEVANT documents (infrastructure, capacity, scaling).
 Do not reference or be distracted by the irrelevant items.`,
 			betDescription: "Q4 infrastructure capacity planning",
 			betDoneCondition: "Capacity plan created based on performance data and growth projections.",
 		});
 
 		// Seed RELEVANT items
-		await seedKnowledge(ctx.db, {
+		await seedDocument(ctx.db, {
 			scopeKind: "team",
 			scopeId: world.teamId,
 			title: "Current Infrastructure Performance Metrics Q3",
@@ -179,7 +179,7 @@ Do not reference or be distracted by the irrelevant items.`,
 			updatedBy: `user:${world.founderId}`,
 		});
 
-		await seedKnowledge(ctx.db, {
+		await seedDocument(ctx.db, {
 			scopeKind: "team",
 			scopeId: world.teamId,
 			title: "Q4 Growth Projections",
@@ -187,7 +187,7 @@ Do not reference or be distracted by the irrelevant items.`,
 			updatedBy: `user:${world.founderId}`,
 		});
 
-		await seedKnowledge(ctx.db, {
+		await seedDocument(ctx.db, {
 			scopeKind: "factory",
 			title: "Kubernetes Horizontal Scaling Patterns",
 			body: "Pre-scale by 30% for known traffic spikes. Set HPA min replicas to 3 for production workloads. Use predictive scaling for scheduled events (Black Friday, product launches).",
@@ -195,7 +195,7 @@ Do not reference or be distracted by the irrelevant items.`,
 		});
 
 		// Seed IRRELEVANT items (should be ignored)
-		await seedKnowledge(ctx.db, {
+		await seedDocument(ctx.db, {
 			scopeKind: "team",
 			scopeId: world.teamId,
 			title: "Q3 Marketing Campaign Performance",
@@ -203,7 +203,7 @@ Do not reference or be distracted by the irrelevant items.`,
 			updatedBy: `user:${world.founderId}`,
 		});
 
-		await seedKnowledge(ctx.db, {
+		await seedDocument(ctx.db, {
 			scopeKind: "team",
 			scopeId: world.teamId,
 			title: "Sales Pipeline Metrics Q3",
@@ -233,7 +233,7 @@ Do not reference or be distracted by the irrelevant items.`,
 			judgeSessionNotesWritten(),
 			judgeLlmQuality({
 				id: "relevant_knowledge_used",
-				label: "Relevant Knowledge Referenced (Infrastructure)",
+				label: "Relevant Documents Referenced (Infrastructure)",
 				extractContent: async (ctx: JudgeContext): Promise<string> => {
 					const [session] = await ctx.db
 						.select({ notes: sessions.notes })
@@ -242,11 +242,11 @@ Do not reference or be distracted by the irrelevant items.`,
 						.limit(1);
 					return session?.notes ?? "";
 				},
-				criteria: `Score 1.0 if session notes reference infrastructure-specific knowledge (mentions Q4 growth projections, performance metrics, CPU/memory usage, or scaling patterns). Score 0.5 if notes mention capacity planning generally without citing specific numbers or patterns. Score 0.0 if no infrastructure knowledge is referenced.`,
+				criteria: `Score 1.0 if session notes reference infrastructure-specific documents (mentions Q4 growth projections, performance metrics, CPU/memory usage, or scaling patterns). Score 0.5 if notes mention capacity planning generally without citing specific numbers or patterns. Score 0.0 if no infrastructure document is referenced.`,
 			}),
 			judgeLlmQuality({
 				id: "irrelevant_knowledge_ignored",
-				label: "Irrelevant Knowledge Not Distracted By",
+				label: "Irrelevant Documents Not Distracted By",
 				extractContent: async (ctx: JudgeContext): Promise<string> => {
 					const [session] = await ctx.db
 						.select({ notes: sessions.notes })
@@ -274,7 +274,7 @@ const mkReadonlyRespectBuilderFrontend: EvalScenario = {
 		const world = await seedMinimalWorld(ctx.db, {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent implementing frontend components.
-Your workspace contains a context/ directory with assembled knowledge files.
+Your workspace contains a context/ directory with assembled document files.
 These files are READ-ONLY — you can read them but must NOT modify them.
 Work files go in the work/ directory. Never write to context/.`,
 			taskTitle: "Implement component following existing patterns",
@@ -291,8 +291,8 @@ Write session notes describing what patterns you followed and where you put your
 			betDoneCondition: "Component implemented following existing patterns.",
 		});
 
-		// Seed knowledge that will be assembled into the context/ workspace
-		await seedKnowledge(ctx.db, {
+		// Seed a document that will be assembled into the context/ workspace
+		await seedDocument(ctx.db, {
 			scopeKind: "team",
 			scopeId: world.teamId,
 			title: "Frontend Component Patterns",

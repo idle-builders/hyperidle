@@ -23,6 +23,7 @@ export { forceReturnScenarios } from "./force-return.js";
 export { handoffToScenarios } from "./handoff-to.js";
 export { knowledgeWritebackScenarios } from "./knowledge-writeback.js";
 export { logTaskScenarios } from "./log-task.js";
+export { readDocumentScenarios } from "./read-document.js";
 export { readInboxScenarios } from "./read-inbox.js";
 export { routineSessionsScenarios } from "./routine-sessions.js";
 export { sendMessageScenarios } from "./send-message.js";

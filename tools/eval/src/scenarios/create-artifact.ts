@@ -1,14 +1,14 @@
 /**
- * `create_artifact` — an eval, which means the TOOL is what is under test.
+ * `edit_document({as:"artifact"})` — an eval, which means the TOOL is what is under test.
  *
  * These scenarios give the agent a goal and nothing else. They deliberately do
- * not say "call create_artifact", do not name the parameters, and do not
+ * not say "call edit_document", do not name the parameters, and do not
  * describe the body format. Everything the agent knows about how to produce an
  * artifact, it learns from the tool's own `description` — which is exactly the
  * thing an eval is supposed to let us tune.
  *
  * That is the difference between this and the integration test beside it. The
- * test (`create-artifact-end-to-end.integration.test.ts`) proves the tool
+ * test (`document-actions.integration.test.ts`) proves the tool
  * round-trips when called correctly. This asks whether an agent, handed a
  * normal piece of work, uses it correctly WITHOUT being told how. A prompt that
  * spells out the mechanics can only ever score the model's instruction
@@ -28,7 +28,7 @@
 
 import { documents } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
-import { judgeCreateArtifactCalled, judgeLlmQuality, judgeSessionCompleted } from "../judges.js";
+import { judgeArtifactDocumentCreated, judgeLlmQuality, judgeSessionCompleted } from "../judges.js";
 import { runEvalSession } from "../provision-harness.js";
 import { seedMinimalWorld } from "../seeding.js";
 import type {
@@ -72,7 +72,7 @@ function trigger(ctx: TriggerContext): Promise<TriggerResult> {
 const caCodeBuilderDevops: EvalScenario = {
 	id: "ca-code-builder-devops",
 	description: "Builder produces a code artifact as a fenced block in a markdown body",
-	feature: "create_artifact",
+	feature: "edit_document_artifact",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
@@ -91,7 +91,7 @@ The team needs the finished manifest itself, not a summary of it.`,
 	rubric: {
 		dimensions: [
 			judgeSessionCompleted(),
-			judgeCreateArtifactCalled(),
+			judgeArtifactDocumentCreated(),
 			judgeLlmQuality({
 				id: "code_content_quality",
 				label: "Produced body carries real manifest content",
@@ -109,7 +109,7 @@ The team needs the finished manifest itself, not a summary of it.`,
 const caInteractiveDesignerFrontend: EvalScenario = {
 	id: "ca-interactive-designer-frontend",
 	description: "Designer produces an interactive artifact as a sole fenced html block",
-	feature: "create_artifact",
+	feature: "edit_document_artifact",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
@@ -129,7 +129,7 @@ described. Use the sample figures already in the task thread.`,
 	rubric: {
 		dimensions: [
 			judgeSessionCompleted(),
-			judgeCreateArtifactCalled(),
+			judgeArtifactDocumentCreated(),
 			{
 				id: "sole_html_block",
 				label: "Body is a single fenced html block (renders in the sandbox frame)",
@@ -142,7 +142,7 @@ described. Use the sample figures already in the task thread.`,
 					const endsFence = body.endsWith("```");
 
 					// Exactly one fenced block, tagged html, with nothing outside it —
-					// the condition `KnowledgeBody` checks before using the frame.
+					// the condition `DocumentBody` checks before using the frame.
 					if (opensHtml && endsFence && fences === 2) return { score: 1.0 };
 					if (body.includes("```html")) {
 						return {
@@ -172,8 +172,8 @@ described. Use the sample figures already in the task thread.`,
 
 const caDecisionPmHealthcare: EvalScenario = {
 	id: "ca-decision-pm-healthcare",
-	description: "PM produces a decision artifact hung off the task, not filed as team knowledge",
-	feature: "create_artifact",
+	description: "PM produces a decision artifact hung off the task, not filed as a team document",
+	feature: "edit_document_artifact",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
@@ -192,7 +192,7 @@ constrained the choice.`,
 	rubric: {
 		dimensions: [
 			judgeSessionCompleted(),
-			judgeCreateArtifactCalled(),
+			judgeArtifactDocumentCreated(),
 			judgeLlmQuality({
 				id: "decision_rationale_quality",
 				label: "Decision carries regulatory rationale",

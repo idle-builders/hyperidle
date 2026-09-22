@@ -230,7 +230,7 @@ export async function seedTask(
  * live directly on `documents`. Callers that need context assembly to find
  * the seeded row no longer need a second insert.
  */
-export async function seedKnowledge(
+export async function seedDocument(
 	db: HyperIdleDb,
 	opts: {
 		itemId?: string;
@@ -239,14 +239,14 @@ export async function seedKnowledge(
 		title: string;
 		body: string;
 		updatedBy: string;
-		/** Knowledge lifecycle status. Defaults to "active". Use "proposed" for promotion pipeline scenarios. */
+		/** Document lifecycle status. Defaults to "active". Use "proposed" for triage scenarios. */
 		status?: string;
 		/** Parent entity kind, e.g. "task" or "thread". When omitted, the item has no parent. */
 		parentKind?: string;
 		/** Parent entity ID. Required when parentKind is provided. */
 		parentId?: string;
 	},
-): Promise<{ knowledgeItemId: string }> {
+): Promise<{ documentId: string }> {
 	const itemId = opts.itemId ?? randomUUID();
 	const now = new Date().toISOString();
 
@@ -266,12 +266,12 @@ export async function seedKnowledge(
 		updatedAt: now,
 	});
 
-	return { knowledgeItemId: itemId };
+	return { documentId: itemId };
 }
 
 /**
  * Composite: seed a complete minimal world (team, founder, agent, bet, task,
- * factory settings, one knowledge item). Returns all IDs needed to trigger
+ * factory settings, one document). Returns all IDs needed to trigger
  * a provisioning session.
  *
  * This is the 80% case: creates the minimum viable world state for a
@@ -331,8 +331,8 @@ export async function seedMinimalWorld(
 		state: "accepted",
 	});
 
-	// Seed one factory-level knowledge item so the agent has context
-	await seedKnowledge(db, {
+	// Seed one factory-level document so the agent has context
+	await seedDocument(db, {
 		scopeKind: "factory",
 		title: "Eval Context",
 		body: "This is an automated evaluation scenario. Complete the task as described.",
@@ -536,5 +536,5 @@ function buildDefaultSystemPrompt(role: string): string {
 Your job is to complete assigned tasks using the available tools.
 Be thorough, accurate, and document your work with session notes.
 Always write session notes when you complete a task.
-When asked to create knowledge items, use the write_memory tool.`;
+When asked to create documents, use the edit_document tool.`;
 }
