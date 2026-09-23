@@ -4,22 +4,28 @@
  * P4 Task 10: Settings section (AC-12, AC-14)
  * Displays org chart edges with Add/Delete functionality.
  *
- * - Fetches edges from GET /api/org (returns { edges, users, teams })
+ * - Fetches every user via `search_users({})` — each row carries its own
+ *   `edges` and its effective `team`; users/edges/teams are all derived from
+ *   that one list (architecture.md §8).
  * - Edge table: FROM | MECHANISM | TARGET | delete button
  * - "Add Edge" expands inline form with From select, Mechanism select, Target select
- * - Delete calls DELETE /api/org/edges/:id
- * - Add calls PUT /api/org/edges
+ * - Delete calls `edit_user({ id: fromUserId, edges: { remove: [edgeId] } })`
+ * - Add calls `edit_user({ id: fromUserId, edges: { add: [{mechanism, target}] } })`
+ *
+ * @lore BC5 T9: the door swap. A team-mechanism edge's target is the team's
+ * real id directly now — the old `team_members` indirection (`teamActualId`)
+ * is gone along with the team_members table itself.
  *
  * @lore visual-parity W-06: DaisyUI form classes replaced with Hearth token styling.
  * @lore visual-parity issue-16: Target field is now context-aware:
  * - mechanism "direct" → select from users list
- * - mechanism "team" → select from teams list from GET /api/org (id=teamMembers.id, name=teams.name)
+ * - mechanism "team" → select from each user's effective `team` (id=teams.id, name=teams.name)
  * - mechanism "function" → free-text input
  * Inline error display added below the form (not just toast).
  *
  * @lore AF15: Three fixes:
- * 1. OrgData now includes teams:{id,name}[] from GET /api/org.
- * 2. Team select uses data.teams (real ids from teamMembers) instead of deriveTeams
+ * 1. OrgData now includes teams:{id,name}[] derived from every user's effective team.
+ * 2. Team select uses the derived teams list (real team ids) instead of deriveTeams
  *    (circular edge-derived derivation). deriveTeams deleted — was a circular dependency
  *    that made the first team edge impossible to create.
  * 3. Solo short-circuit (1 human) relaxed: Add-Edge form still renders. Mechanism
@@ -55,7 +61,7 @@ import {
 	Select,
 	SkeletonList,
 } from "../ds";
-import { apiFetch } from "../services/api-fetch.js";
+import { call } from "../services/call.js";
 import { useToast } from "../shell/ToastRegion.js";
 
 type OrgEdgeMechanism = "direct" | "function" | "team";
@@ -65,7 +71,6 @@ interface OrgEdge {
 	fromUserId: string;
 	mechanism: OrgEdgeMechanism;
 	target: string;
-	createdAt: string;
 }
 
 interface OrgUser {
@@ -78,18 +83,40 @@ interface OrgUser {
 interface OrgTeam {
 	id: string;
 	name: string;
-	/** UI-034: the actual teams.id — edge.target stores this, not teamMembers.id. */
-	teamActualId?: string;
 }
 
 interface OrgData {
 	edges: OrgEdge[];
 	users: OrgUser[];
-	/** AF15: Real teams list from teamMembers joined to teams.name. id = teamMembers.id. */
 	teams: OrgTeam[];
 }
 
 const MECHANISMS: OrgEdgeMechanism[] = ["direct", "function", "team"];
+
+/** Every user, each with its own `edges` and effective `team` — the one call. */
+async function fetchOrgData(): Promise<OrgData> {
+	const result = await call("search_users", {});
+	if (!result.ok) throw new Error(result.problems[0]?.message ?? "Failed to load org chart");
+	const users: OrgUser[] = result.data.map((u) => ({
+		id: u.id,
+		kind: u.kind,
+		name: u.name,
+		role: u.role,
+	}));
+	const edges: OrgEdge[] = result.data.flatMap((u) =>
+		u.edges.map((e) => ({
+			id: e.id,
+			fromUserId: u.id,
+			mechanism: e.mechanism as OrgEdgeMechanism,
+			target: e.target,
+		})),
+	);
+	const teamsById = new Map<string, OrgTeam>();
+	for (const u of result.data) {
+		if (u.team) teamsById.set(u.team.id, { id: u.team.id, name: u.team.name });
+	}
+	return { edges, users, teams: [...teamsById.values()] };
+}
 
 export function SettingsOrgChart(): JSX.Element {
 	const { showToast } = useToast();
@@ -108,10 +135,8 @@ export function SettingsOrgChart(): JSX.Element {
 	const loadOrg = useCallback(async (): Promise<void> => {
 		setStatus("loading");
 		try {
-			const res = await apiFetch("/api/org");
-			if (!res.ok) throw new Error(`HTTP ${res.status}`);
-			const json = (await res.json()) as OrgData;
-			setData(json);
+			const org = await fetchOrgData();
+			setData(org);
 			setStatus("ready");
 		} catch {
 			setStatus("error");
@@ -124,13 +149,13 @@ export function SettingsOrgChart(): JSX.Element {
 
 	const handleDelete = useCallback(
 		async (edgeId: string): Promise<void> => {
+			const edge = data?.edges.find((e) => e.id === edgeId);
+			if (!edge) return;
 			setDeletingId(edgeId);
 			try {
-				const res = await apiFetch(`/api/org/edges/${encodeURIComponent(edgeId)}`, {
-					method: "DELETE",
-				});
-				if (!res.ok && res.status !== 204) {
-					throw new Error(`HTTP ${res.status}`);
+				const result = await call("edit_user", { id: edge.fromUserId, edges: { remove: [edgeId] } });
+				if (!result.ok) {
+					throw new Error(result.problems[0]?.message ?? "Failed to delete edge");
 				}
 				setData((prev) =>
 					prev ? { ...prev, edges: prev.edges.filter((e) => e.id !== edgeId) } : prev,
@@ -142,7 +167,7 @@ export function SettingsOrgChart(): JSX.Element {
 				setDeletingId(null);
 			}
 		},
-		[showToast],
+		[data, showToast],
 	);
 
 	const handleAdd = useCallback(async (): Promise<void> => {
@@ -150,22 +175,24 @@ export function SettingsOrgChart(): JSX.Element {
 		setAdding(true);
 		setFormError(null);
 		try {
-			const res = await apiFetch("/api/org/edges", {
-				method: "PUT",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ fromUserId, mechanism, target }),
+			const result = await call("edit_user", {
+				id: fromUserId,
+				edges: { add: [{ mechanism, target }] },
 			});
-			if (!res.ok) {
-				const err = (await res.json().catch(() => ({}))) as { error?: string };
-				throw new Error(err.error ?? `HTTP ${res.status}`);
+			if (!result.ok) {
+				throw new Error(result.problems[0]?.message ?? "Failed to add edge");
 			}
-			const edge = (await res.json()) as OrgEdge;
+			const freshEdges: OrgEdge[] = result.data.user
+				? result.data.user.edges.map((e) => ({
+						id: e.id,
+						fromUserId,
+						mechanism: e.mechanism as OrgEdgeMechanism,
+						target: e.target,
+					}))
+				: [];
 			setData((prev) =>
 				prev
-					? {
-							...prev,
-							edges: prev.edges.some((e) => e.id === edge.id) ? prev.edges : [...prev.edges, edge],
-						}
+					? { ...prev, edges: [...prev.edges.filter((e) => e.fromUserId !== fromUserId), ...freshEdges] }
 					: prev,
 			);
 			setShowAddForm(false);
@@ -211,14 +238,11 @@ export function SettingsOrgChart(): JSX.Element {
 	const userName = (id: string): string => users.find((u) => u.id === id)?.name ?? id;
 
 	// D4 (POLISH-060): resolve edge target to a human-readable label.
-	// For "team" mechanism, target is a team-<uuid> — look it up in data.teams.
+	// For "team" mechanism, target is the team's real id — look it up in data.teams.
 	// For other mechanisms (direct/function), target is a user id or free text — use as-is.
-	// UI-034: edge.target stores teams.id (e.g. "demo-team-acme") but GET /api/org
-	// returns teams with t.id = teamMembers.id and t.teamActualId = teams.id — check
-	// both to avoid falling back to the raw slug when teamActualId matches.
 	const targetLabel = (edge: OrgEdge): string => {
 		if (edge.mechanism === "team") {
-			const team = teams.find((t) => t.id === edge.target || t.teamActualId === edge.target);
+			const team = teams.find((t) => t.id === edge.target);
 			return team?.name ?? edge.target;
 		}
 		return edge.target;
@@ -357,7 +381,7 @@ export function SettingsOrgChart(): JSX.Element {
 
 interface AddEdgeFormProps {
 	users: OrgUser[];
-	/** AF15: Real teams from GET /api/org. id=teamMembers.id, name=teams.name. */
+	/** AF15: Real teams, derived from every user's effective `team`. */
 	teams: OrgTeam[];
 	/** AF15: True when exactly 1 human — defaults mechanism to "function". */
 	isSolo: boolean;
@@ -435,11 +459,11 @@ function AddEdgeForm({
 							options={users.map((u) => ({ id: u.id, label: u.name }))}
 						/>
 					) : mechanism === "team" ? (
-						/* AF15: Team select from real teams (teamMembers joined to teams.name).
-						 * value=team.id (teamMembers.id — what server validates for mechanism:"team").
-						 * label=team.name (teams.name — human-readable).
+						/* AF15: Team select from real teams (each user's effective `team`).
+						 * value=team.id (teams.id — what the server validates for mechanism:"team").
+						 * label=team.name (human-readable).
 						 * @lore AF15: The old deriveTeams() derived from existing edges — circular.
-						 * Now sourced from GET /api/org `teams` array.
+						 * Now sourced from `search_users`'s per-row `team`.
 						 * @lore BA6: the empty-teams guidance used to BE the closed
 						 * trigger's displayed value (a disabled option standing in for
 						 * "selected"). Combobox has no such slot, so it is `emptyMessage`

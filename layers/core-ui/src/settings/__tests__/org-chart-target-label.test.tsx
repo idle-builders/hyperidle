@@ -2,16 +2,19 @@
  * D4 (POLISH-060) — SettingsOrgChart: team edges resolve team name, not raw uuid.
  *
  * AC:
- *   1. A "team" mechanism edge renders the team NAME (not "team-<uuid>").
+ *   1. A "team" mechanism edge renders the team NAME (not the raw team id).
  *   2. Empty edges state has explanatory copy about teams not auto-creating edges.
+ *
+ * @lore BC5 T9: door swap — `call("search_users", {})` replaces `GET
+ * /api/org`. A team-mechanism edge's target is now the team's real id
+ * directly (no more `team_members` indirection to resolve through).
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../../services/api-fetch.js", () => ({
-	apiFetch: vi.fn(),
-}));
+const { callMock } = vi.hoisted(() => ({ callMock: vi.fn() }));
+vi.mock("../../services/call.js", () => ({ call: callMock }));
 
 const mockShowToast = vi.fn();
 vi.mock("../../shell/ToastRegion.js", async () => {
@@ -24,20 +27,37 @@ vi.mock("../../shell/ToastRegion.js", async () => {
 
 import { SettingsOrgChart } from "../SettingsOrgChart.js";
 
-type OrgUser = { id: string; kind: string; name: string; role: string };
-type OrgTeam = { id: string; name: string };
+type MockEdge = { id: string; mechanism: string; target: string };
+type MockUserRow = {
+	id: string;
+	kind: string;
+	name: string;
+	role: string;
+	team: { id: string; name: string } | null;
+	edges: MockEdge[];
+};
 
-function makeOrgResponse(users: OrgUser[], edges: unknown[] = [], teams: OrgTeam[] = []): Response {
-	return new Response(JSON.stringify({ edges, users, teams }), { status: 200 });
+function mkUser(overrides: Partial<MockUserRow> = {}): MockUserRow {
+	return {
+		id: overrides.id ?? "u1",
+		kind: overrides.kind ?? "human",
+		name: overrides.name ?? "User",
+		role: overrides.role ?? "member",
+		team: overrides.team ?? null,
+		edges: overrides.edges ?? [],
+	};
+}
+
+function setupCall(users: MockUserRow[]): void {
+	callMock.mockImplementation((name: string) => {
+		if (name === "search_users") return Promise.resolve({ ok: true, data: users });
+		return Promise.resolve({ ok: false, problems: [{ code: "unmocked", message: name }] });
+	});
 }
 
 describe("OrgChart team edge renders team name not raw id", () => {
-	let fetchSpy: ReturnType<typeof vi.fn>;
-
-	beforeEach(async () => {
-		const { apiFetch } = await import("../../services/api-fetch.js");
-		fetchSpy = vi.mocked(apiFetch);
-		fetchSpy.mockReset();
+	beforeEach(() => {
+		callMock.mockReset();
 		mockShowToast.mockClear();
 	});
 
@@ -46,24 +66,15 @@ describe("OrgChart team edge renders team name not raw id", () => {
 	});
 
 	it("renders team name instead of raw team id for team-mechanism edges", async () => {
-		fetchSpy.mockResolvedValue(
-			makeOrgResponse(
-				[
-					{ id: "u1", kind: "human", name: "Alice", role: "founder" },
-					{ id: "u2", kind: "human", name: "Bob", role: "engineer" },
-				],
-				[
-					{
-						id: "edge-1",
-						fromUserId: "u1",
-						mechanism: "team",
-						target: "team-abc-uuid-123",
-						createdAt: "2026-01-01T00:00:00.000Z",
-					},
-				],
-				[{ id: "team-abc-uuid-123", name: "Alpha Team" }],
-			),
-		);
+		setupCall([
+			mkUser({
+				id: "u1",
+				name: "Alice",
+				team: { id: "team-abc-uuid-123", name: "Alpha Team" },
+				edges: [{ id: "edge-1", mechanism: "team", target: "team-abc-uuid-123" }],
+			}),
+			mkUser({ id: "u2", name: "Bob", team: { id: "team-abc-uuid-123", name: "Alpha Team" } }),
+		]);
 
 		render(<SettingsOrgChart />);
 
@@ -77,24 +88,14 @@ describe("OrgChart team edge renders team name not raw id", () => {
 	});
 
 	it("non-team mechanism edges render target as-is (direct/function)", async () => {
-		fetchSpy.mockResolvedValue(
-			makeOrgResponse(
-				[
-					{ id: "u1", kind: "human", name: "Alice", role: "founder" },
-					{ id: "u2", kind: "human", name: "Bob", role: "engineer" },
-				],
-				[
-					{
-						id: "edge-2",
-						fromUserId: "u1",
-						mechanism: "function",
-						target: "Engineering",
-						createdAt: "2026-01-01T00:00:00.000Z",
-					},
-				],
-				[],
-			),
-		);
+		setupCall([
+			mkUser({
+				id: "u1",
+				name: "Alice",
+				edges: [{ id: "edge-2", mechanism: "function", target: "Engineering" }],
+			}),
+			mkUser({ id: "u2", name: "Bob" }),
+		]);
 
 		render(<SettingsOrgChart />);
 
@@ -104,21 +105,11 @@ describe("OrgChart team edge renders team name not raw id", () => {
 	});
 
 	it("empty edges state shows explanatory copy about teams not auto-creating edges", async () => {
-		fetchSpy.mockResolvedValue(
-			makeOrgResponse(
-				[
-					{ id: "u1", kind: "human", name: "Alice", role: "founder" },
-					{ id: "u2", kind: "human", name: "Bob", role: "engineer" },
-				],
-				[],
-				[],
-			),
-		);
+		setupCall([mkUser({ id: "u1", name: "Alice" }), mkUser({ id: "u2", name: "Bob" })]);
 
 		render(<SettingsOrgChart />);
 
 		await waitFor(() => {
-			// The empty state should mention that teams don't auto-create edges
 			expect(screen.getByText(/teams don't auto-create/i)).toBeInTheDocument();
 		});
 	});
