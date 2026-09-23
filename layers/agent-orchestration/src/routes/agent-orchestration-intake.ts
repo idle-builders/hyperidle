@@ -51,7 +51,11 @@ import {
 import { Hono } from "hono";
 import { z } from "zod";
 import { isPrivateHostLiteral } from "../ssrf.js";
-import { createConnectionForUser, listConnectionsForUser, removeConnectionForUser } from "./connections.js";
+import {
+	createConnectionForUser,
+	listConnectionsForUser,
+	removeConnectionForUser,
+} from "./connections.js";
 import { listFolders, registerFolder, removeFolder, takeFolder } from "./filesystems.js";
 
 const WORK_INTENT_KINDS = [

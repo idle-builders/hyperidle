@@ -356,7 +356,9 @@ export function buildAgentOrchestrationPort(
 			},
 		},
 		folders: {
-			async list(query: AgentOrchestrationFolderListQuery): Promise<AgentOrchestrationFolderView[]> {
+			async list(
+				query: AgentOrchestrationFolderListQuery,
+			): Promise<AgentOrchestrationFolderView[]> {
 				const res = await client["agent-orchestration"].folders.list.$post({ json: query });
 				if (!res.ok) return throwSeamError("folders.list", res);
 				const body = (await res.json()) as { readonly folders: AgentOrchestrationFolderView[] };
@@ -380,7 +382,10 @@ export function buildAgentOrchestrationPort(
 				return (await res.json()) as AgentOrchestrationRemoveResult;
 			},
 			/** §6: the SAME write as `filesystems.persistInjection` above, under the `folders` family's own name. */
-			async give(id: string, agentUserId: string): Promise<AgentOrchestrationPersistInjectionResult> {
+			async give(
+				id: string,
+				agentUserId: string,
+			): Promise<AgentOrchestrationPersistInjectionResult> {
 				const res = await client["agent-orchestration"].filesystems[":id"].injections.persist.$post(
 					{ param: { id }, json: { agentUserId } },
 				);
@@ -416,9 +421,9 @@ export function buildAgentOrchestrationPort(
 				return (await res.json()) as AgentOrchestrationCreateConnectionResult;
 			},
 			async remove(userId: string, id: string): Promise<AgentOrchestrationRemoveResult> {
-				const res = await client["agent-orchestration"].connections[":userId"][":id"].remove.$post(
-					{ param: { userId, id } },
-				);
+				const res = await client["agent-orchestration"].connections[":userId"][":id"].remove.$post({
+					param: { userId, id },
+				});
 				if (!res.ok) return throwSeamError("connections.remove", res);
 				return (await res.json()) as AgentOrchestrationRemoveResult;
 			},

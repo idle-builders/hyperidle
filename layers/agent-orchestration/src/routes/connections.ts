@@ -265,7 +265,9 @@ export async function createConnectionForUser(
 	return { ok: true, connection: rowToView(row) };
 }
 
-export type RemoveConnectionResult = { readonly ok: true } | { readonly ok: false; readonly code: "NOT_FOUND" };
+export type RemoveConnectionResult =
+	| { readonly ok: true }
+	| { readonly ok: false; readonly code: "NOT_FOUND" };
 
 /** `connections.remove` — cross-user, non-existent and `inherited:` ids all resolve NOT_FOUND, never leak existence. */
 export async function removeConnectionForUser(

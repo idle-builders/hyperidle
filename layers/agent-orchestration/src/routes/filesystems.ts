@@ -160,10 +160,7 @@ async function checkAndPersistState(
 /** `folders.list` — a team's own folders, or the folders given to one agent. */
 export type ListFoldersQuery = { readonly teamId: string } | { readonly agentUserId: string };
 
-export async function listFolders(
-	db: HyperIdleDb,
-	query: ListFoldersQuery,
-): Promise<Filesystem[]> {
+export async function listFolders(db: HyperIdleDb, query: ListFoldersQuery): Promise<Filesystem[]> {
 	const rows =
 		"teamId" in query
 			? await listFilesystems(db, { teamId: query.teamId })
@@ -218,7 +215,8 @@ export async function registerFolder(
 		const errMsg = (e: unknown): string => {
 			if (!(e instanceof Error)) return String(e);
 			const own = e.message;
-			if (own.includes("filesystems_team_id_teams_id_fk") || own.includes("foreign key")) return own;
+			if (own.includes("filesystems_team_id_teams_id_fk") || own.includes("foreign key"))
+				return own;
 			return e.cause !== undefined ? errMsg(e.cause) : own;
 		};
 		const msg = errMsg(err);
@@ -235,7 +233,9 @@ export async function registerFolder(
 	return { ok: true, folder: rowToFilesystem(probed) };
 }
 
-export type RemoveFolderResult = { readonly ok: true } | { readonly ok: false; readonly code: "NOT_FOUND" };
+export type RemoveFolderResult =
+	| { readonly ok: true }
+	| { readonly ok: false; readonly code: "NOT_FOUND" };
 
 /** `folders.remove` — cascades `filesystem_injections` at the DB level, same as the route. */
 export async function removeFolder(db: HyperIdleDb, id: string): Promise<RemoveFolderResult> {
