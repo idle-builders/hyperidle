@@ -58,13 +58,17 @@ export function SettingsFilesystems(): JSX.Element {
 
 	const load = useCallback(async (): Promise<void> => {
 		setStatus("loading");
-		const result = await call("open_user", {});
-		if (!result.ok) {
+		try {
+			const result = await call("open_user", {});
+			if (!result.ok) {
+				setStatus("error");
+				return;
+			}
+			setFilesystems([...result.data.folders]);
+			setStatus("ready");
+		} catch {
 			setStatus("error");
-			return;
 		}
-		setFilesystems([...result.data.folders]);
-		setStatus("ready");
 	}, []);
 
 	useEffect(() => {

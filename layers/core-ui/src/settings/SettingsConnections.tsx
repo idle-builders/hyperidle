@@ -127,18 +127,23 @@ function AddConnectionDialog({
 			source === "token"
 				? { service, authSource: "token" as const, token }
 				: { service: service || undefined, authSource: "mcp" as const, serverUrl };
-		const result = await call("edit_user", { id: userId, connections: { add: [entry] } });
-		setSubmitting(false);
-		if (!result.ok) {
-			setError(result.problems[0]?.message ?? "Failed to add connection");
-			return;
+		try {
+			const result = await call("edit_user", { id: userId, connections: { add: [entry] } });
+			if (!result.ok) {
+				setError(result.problems[0]?.message ?? "Failed to add connection");
+				return;
+			}
+			onAdded();
+			onClose();
+			setService("");
+			setToken("");
+			setServerUrl("");
+			setSource("token");
+		} catch {
+			setError("Network error");
+		} finally {
+			setSubmitting(false);
 		}
-		onAdded();
-		onClose();
-		setService("");
-		setToken("");
-		setServerUrl("");
-		setSource("token");
 	}, [source, service, token, serverUrl, userId, onAdded, onClose]);
 
 	return (
@@ -382,18 +387,22 @@ export function SettingsConnections(): JSX.Element {
 	const loadConnections = useCallback(async () => {
 		setLoading(true);
 		setError(null);
-		const result = await call("open_user", {});
-		if (!result.ok || result.data.user === null || result.data.connections === null) {
+		try {
+			const result = await call("open_user", {});
+			if (!result.ok || result.data.user === null || result.data.connections === null) {
+				setError("failed");
+				return;
+			}
+			setUserId(result.data.user.id);
+			setConnections([
+				...result.data.connections.connections,
+				...result.data.connections.inherited.map(inheritedAsConnection),
+			]);
+		} catch {
 			setError("failed");
+		} finally {
 			setLoading(false);
-			return;
 		}
-		setUserId(result.data.user.id);
-		setConnections([
-			...result.data.connections.connections,
-			...result.data.connections.inherited.map(inheritedAsConnection),
-		]);
-		setLoading(false);
 	}, []);
 
 	useEffect(() => {
@@ -404,10 +413,14 @@ export function SettingsConnections(): JSX.Element {
 		async (id: string): Promise<void> => {
 			if (!userId) return;
 			setRemoveError(null);
-			const result = await call("edit_user", { id: userId, connections: { remove: [id] } });
-			if (result.ok) {
-				void loadConnections();
-			} else {
+			try {
+				const result = await call("edit_user", { id: userId, connections: { remove: [id] } });
+				if (result.ok) {
+					void loadConnections();
+				} else {
+					setRemoveError("Couldn't remove connection — please try again.");
+				}
+			} catch {
 				setRemoveError("Couldn't remove connection — please try again.");
 			}
 		},

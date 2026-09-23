@@ -12,7 +12,11 @@
  * only a person's own subscription rows.
  */
 
-import { OBJECT_EVENTS, type ObjectEventName, type SubscriptionView } from "@hyperidle/domain-model";
+import {
+	OBJECT_EVENTS,
+	type ObjectEventName,
+	type SubscriptionView,
+} from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useState } from "react";
 import { ErrorState, SkeletonList, Toggle } from "../ds";
 import { call } from "../services/call.js";
@@ -38,14 +42,18 @@ export function SettingsNotifications(): JSX.Element {
 
 	const load = useCallback(async (): Promise<void> => {
 		setStatus("loading");
-		const result = await call("open_user", {});
-		if (!result.ok || result.data.user === null) {
+		try {
+			const result = await call("open_user", {});
+			if (!result.ok || result.data.user === null) {
+				setStatus("error");
+				return;
+			}
+			setUserId(result.data.user.id);
+			setSubscriptions([...result.data.subscriptions]);
+			setStatus("ready");
+		} catch {
 			setStatus("error");
-			return;
 		}
-		setUserId(result.data.user.id);
-		setSubscriptions([...result.data.subscriptions]);
-		setStatus("ready");
 	}, []);
 
 	useEffect(() => {
@@ -61,22 +69,26 @@ export function SettingsNotifications(): JSX.Element {
 	const setEventOn = useCallback(
 		async (event: ObjectEventName, on: boolean): Promise<void> => {
 			if (!userId) return;
-			const existing = subscriptionForEvent(event);
-			if (existing) {
-				if (existing.paused === !on) return;
+			try {
+				const existing = subscriptionForEvent(event);
+				if (existing) {
+					if (existing.paused === !on) return;
+					const result = await call("edit_user", {
+						id: userId,
+						subscriptions: { change: [{ id: existing.id, paused: !on }] },
+					});
+					if (result.ok) setSubscriptions([...result.data.subscriptions]);
+					return;
+				}
+				if (!on) return; // already off — nothing to pause
 				const result = await call("edit_user", {
 					id: userId,
-					subscriptions: { change: [{ id: existing.id, paused: !on }] },
+					subscriptions: { add: [{ event }] },
 				});
 				if (result.ok) setSubscriptions([...result.data.subscriptions]);
-				return;
+			} catch {
+				// Non-fatal — the toggle stays as it was
 			}
-			if (!on) return; // already off — nothing to pause
-			const result = await call("edit_user", {
-				id: userId,
-				subscriptions: { add: [{ event }] },
-			});
-			if (result.ok) setSubscriptions([...result.data.subscriptions]);
 		},
 		[userId, subscriptionForEvent],
 	);

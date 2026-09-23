@@ -174,14 +174,18 @@ export function SettingsHarnesses(): JSX.Element {
 
 	const loadDescriptors = useCallback(async (): Promise<void> => {
 		setLoadState("loading");
-		const result = await call("open_user", {});
-		if (!result.ok || result.data.user === null) {
+		try {
+			const result = await call("open_user", {});
+			if (!result.ok || result.data.user === null) {
+				setLoadState("error");
+				return;
+			}
+			setSelfId(result.data.user.id);
+			setDescriptors([...result.data.runsOn]);
+			setLoadState("ready");
+		} catch {
 			setLoadState("error");
-			return;
 		}
-		setSelfId(result.data.user.id);
-		setDescriptors([...result.data.runsOn]);
-		setLoadState("ready");
 	}, []);
 
 	useEffect(() => {
@@ -193,13 +197,18 @@ export function SettingsHarnesses(): JSX.Element {
 	const handleRedetect = useCallback(async (): Promise<void> => {
 		if (!selfId) return;
 		setRedetecting(true);
-		const result = await call("edit_user", { id: selfId, redetectHarnesses: true });
-		if (result.ok) {
-			setDescriptors([...result.data.runsOn]);
-			setLoadState("ready");
+		try {
+			const result = await call("edit_user", { id: selfId, redetectHarnesses: true });
+			if (result.ok) {
+				setDescriptors([...result.data.runsOn]);
+				setLoadState("ready");
+			}
+			// On error (e.g. 429 rate-limit) don't overwrite the current list
+		} catch {
+			// On error don't overwrite the current list
+		} finally {
+			setRedetecting(false);
 		}
-		// On error (e.g. 429 rate-limit) don't overwrite the current list
-		setRedetecting(false);
 	}, [selfId]);
 
 	// ── Row click ──────────────────────────────────────────────────────────────

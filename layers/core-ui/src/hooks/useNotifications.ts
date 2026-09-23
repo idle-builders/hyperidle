@@ -37,14 +37,18 @@ export function useNotifications(): UseNotificationsResult {
 
 	const fetchInbox = useCallback(async (): Promise<void> => {
 		setStatus("loading");
-		const result = await call("open_user", {});
-		if (!result.ok || result.data.user === null || result.data.inbox === null) {
+		try {
+			const result = await call("open_user", {});
+			if (!result.ok || result.data.user === null || result.data.inbox === null) {
+				setStatus("error");
+				return;
+			}
+			setUserId(result.data.user.id);
+			setRows([...result.data.inbox]);
+			setStatus("ready");
+		} catch {
 			setStatus("error");
-			return;
 		}
-		setUserId(result.data.user.id);
-		setRows([...result.data.inbox]);
-		setStatus("ready");
 	}, []);
 
 	useEffect(() => {
@@ -70,18 +74,26 @@ export function useNotifications(): UseNotificationsResult {
 
 	const markSeen = useCallback(async (): Promise<void> => {
 		if (!userId) return;
-		const result = await call("edit_user", { id: userId, inbox: { seen: "all" } });
-		if (!result.ok) return;
-		const now = new Date().toISOString();
-		setRows((prev) => prev.map((row) => (row.seenAt === null ? { ...row, seenAt: now } : row)));
+		try {
+			const result = await call("edit_user", { id: userId, inbox: { seen: "all" } });
+			if (!result.ok) return;
+			const now = new Date().toISOString();
+			setRows((prev) => prev.map((row) => (row.seenAt === null ? { ...row, seenAt: now } : row)));
+		} catch {
+			// Non-fatal — UI keeps the old seen state
+		}
 	}, [userId]);
 
 	const markRead = useCallback(
 		async (changeId: string): Promise<void> => {
 			if (!userId) return;
-			const result = await call("edit_user", { id: userId, inbox: { read: [changeId] } });
-			if (!result.ok) return;
-			setRows((prev) => prev.filter((row) => row.change.id !== changeId));
+			try {
+				const result = await call("edit_user", { id: userId, inbox: { read: [changeId] } });
+				if (!result.ok) return;
+				setRows((prev) => prev.filter((row) => row.change.id !== changeId));
+			} catch {
+				// Non-fatal
+			}
 		},
 		[userId],
 	);

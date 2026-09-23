@@ -68,14 +68,18 @@ export function SettingsAgentBehavior(): JSX.Element {
 
 	const load = useCallback(async (): Promise<void> => {
 		setStatus("loading");
-		const result = await call("open_user", {});
-		if (!result.ok || result.data.user === null || result.data.behaviour === null) {
+		try {
+			const result = await call("open_user", {});
+			if (!result.ok || result.data.user === null || result.data.behaviour === null) {
+				setStatus("error");
+				return;
+			}
+			setSelfId(result.data.user.id);
+			setItems([...result.data.behaviour]);
+			setStatus("ready");
+		} catch {
 			setStatus("error");
-			return;
 		}
-		setSelfId(result.data.user.id);
-		setItems([...result.data.behaviour]);
-		setStatus("ready");
 	}, []);
 
 	useEffect(() => {
@@ -118,37 +122,42 @@ export function SettingsAgentBehavior(): JSX.Element {
 	}
 
 	async function saveSelected(): Promise<void> {
-		if (!selected || !selfId) return;
+		if (!(selected && selfId)) return;
 		setSaving(true);
 		setSaveError(null);
-		const result = await call("edit_user", {
-			id: selfId,
-			behaviour: [{ id: selected.id, fields: draft }],
-		});
-		if (!result.ok || result.data.behaviour === null) {
-			const message = result.ok
-				? "Could not save agent behavior."
-				: (result.problems[0]?.message ?? "Could not save agent behavior.");
+		try {
+			const result = await call("edit_user", {
+				id: selfId,
+				behaviour: [{ id: selected.id, fields: draft }],
+			});
+			if (!result.ok || result.data.behaviour === null) {
+				const message = result.ok
+					? "Could not save agent behavior."
+					: (result.problems[0]?.message ?? "Could not save agent behavior.");
+				setSaveError(message);
+				showToast(message);
+				return;
+			}
+			const nextItems = result.data.behaviour;
+			setItems([...nextItems]);
+			const updated = nextItems.find((item) => item.id === selected.id) ?? null;
+			setSelectedId(updated?.id ?? null);
+			if (updated) {
+				setDraft(
+					Object.fromEntries(
+						updated.editableFields.map((field) => [field.id, field.value]),
+					) as Record<string, string | boolean | null>,
+				);
+			}
+			setEditing(false);
+			showToast("Agent behavior saved");
+		} catch (err) {
+			const message = err instanceof Error ? err.message : "Could not save agent behavior.";
 			setSaveError(message);
 			showToast(message);
+		} finally {
 			setSaving(false);
-			return;
 		}
-		const nextItems = result.data.behaviour;
-		setItems([...nextItems]);
-		const updated = nextItems.find((item) => item.id === selected.id) ?? null;
-		setSelectedId(updated?.id ?? null);
-		if (updated) {
-			setDraft(
-				Object.fromEntries(updated.editableFields.map((field) => [field.id, field.value])) as Record<
-					string,
-					string | boolean | null
-				>,
-			);
-		}
-		setEditing(false);
-		showToast("Agent behavior saved");
-		setSaving(false);
 	}
 
 	if (status === "loading") {
