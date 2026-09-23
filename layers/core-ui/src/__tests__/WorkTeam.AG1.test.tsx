@@ -25,10 +25,10 @@
  * replacement. Only Capacity/Agent Health remain.
  */
 
-import type { RosterMember, TeamDetail } from "@hyperidle/domain-model";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
+import type { TeamPageData, TeamRosterMember } from "../hooks/useTeam.js";
 import { WorkTeam } from "../pages/WorkTeam";
 
 // ---------------------------------------------------------------------------
@@ -89,41 +89,29 @@ vi.mock("../hooks/useAgentRunState", async () => {
 // ---------------------------------------------------------------------------
 
 /** Healthy roster member */
-const AGENT_HEALTHY: RosterMember = {
+const AGENT_HEALTHY: TeamRosterMember = {
 	agentId: "agent-h",
 	name: "Healthy Agent",
 	role: "builder",
-	isLead: true,
 	agentCategory: "team",
 };
 
 /** Warning-health roster member — triggers "Needs attention" on the Agent Health tile (AZ7 B4: this tile's own vocabulary, distinct from team.status's chip words) */
-const AGENT_WARNING: RosterMember = {
+const AGENT_WARNING: TeamRosterMember = {
 	agentId: "agent-w",
 	name: "Warning Agent",
 	role: "builder",
-	isLead: false,
 	agentCategory: "team",
 };
 
-/** Base fixture: populated team with bets, routines, and 2-member roster */
-const POPULATED_TEAM: TeamDetail = {
+/** Base fixture: populated team with active tasks and a 2-member roster */
+const POPULATED_TEAM: TeamPageData = {
 	team: {
 		id: "team-ag1",
 		name: "AG1 Team",
-		phase: "build",
 		status: "healthy",
-		leadAgentId: "agent-h",
-	},
-	teamMembers: {
-		id: "tm-ag1",
-		formedAt: "2026-01-01T00:00:00.000Z",
-		dissolvedAt: null,
 	},
 	roster: [AGENT_HEALTHY, AGENT_WARNING],
-	burn: {
-		capacity: 5,
-	},
 	tasksInProgress: [
 		{
 			id: "bet-1",
@@ -133,51 +121,27 @@ const POPULATED_TEAM: TeamDetail = {
 			progressTotal: 2,
 		},
 	],
-	routines: [
-		{
-			id: "routine-1",
-			name: "Daily digest",
-			state: "active",
-			scheduleLabel: "Every day at 8:00 AM",
-			agentName: "Healthy Agent",
-			agentInitials: "HA",
-			lastRunAt: "2026-01-01T08:00:00.000Z",
-			lastRunOutcome: "success",
-			nextRunAt: "2026-01-02T08:00:00.000Z",
-		},
-	],
 };
 
-/** Empty team: no bets, no routines, no roster */
-const EMPTY_TEAM: TeamDetail = {
+/** Empty team: no active tasks, no roster */
+const EMPTY_TEAM: TeamPageData = {
 	team: {
 		id: "team-ag1-empty",
 		name: "Empty Team",
-		phase: "build",
 		status: "healthy",
-		leadAgentId: null,
-	},
-	teamMembers: {
-		id: "tm-ag1-empty",
-		formedAt: "2026-01-01T00:00:00.000Z",
-		dissolvedAt: null,
 	},
 	roster: [],
-	burn: {
-		capacity: 5,
-	},
 	tasksInProgress: [],
-	routines: [],
 };
 
 /** Team with all-healthy roster */
-const TEAM_ALL_HEALTHY: TeamDetail = {
+const TEAM_ALL_HEALTHY: TeamPageData = {
 	...POPULATED_TEAM,
 	roster: [AGENT_HEALTHY],
 };
 
 /** Team with one warning agent — Agent Health → "Needs attention" (AZ7 B4) */
-const TEAM_WITH_WARNING: TeamDetail = {
+const TEAM_WITH_WARNING: TeamPageData = {
 	...POPULATED_TEAM,
 	roster: [AGENT_HEALTHY, AGENT_WARNING],
 };
@@ -186,7 +150,7 @@ const TEAM_WITH_WARNING: TeamDetail = {
 // Render helper
 // ---------------------------------------------------------------------------
 
-function renderPage(data: TeamDetail | null = POPULATED_TEAM): ReturnType<typeof render> {
+function renderPage(data: TeamPageData | null = POPULATED_TEAM): ReturnType<typeof render> {
 	return render(
 		<MemoryRouter initialEntries={["/work/team/team-ag1"]}>
 			<Routes>
@@ -266,13 +230,15 @@ describe("AG1 AC-1 — desktop content column wrapper", () => {
 
 // @lore AU21 Increment 14a: the "Burn"/"Cap" stat tiles are HARD-DELETED
 // along with the rest of the cost-cap feature — the burn section now renders
-// 2 stat tiles (Capacity, Status), not 4, no replacement.
+// 2 stat tiles (Active tasks, Agent Health), not 4, no replacement.
+// @lore BC5 T9: the Capacity tile (active tasks / team capacity) is gone with
+// teams.capacity (D-c7jgxy) — it is now a plain "Active tasks" count.
 describe("AG1 AC-2 — stat tiles in burn section", () => {
-	it("[RED] renders a tile labeled 'Capacity' inside team-burn-vs-cap", () => {
+	it("renders a tile labeled 'Active tasks' inside team-burn-vs-cap", () => {
 		renderPage(POPULATED_TEAM);
 		const section = screen.getByTestId("team-burn-vs-cap");
 		const label = Array.from(section.querySelectorAll("span")).find(
-			(el) => el.textContent?.trim().toUpperCase() === "CAPACITY",
+			(el) => el.textContent?.trim().toUpperCase() === "ACTIVE TASKS",
 		);
 		expect(label).toBeDefined();
 	});
@@ -368,11 +334,6 @@ describe("AG1 AC-3 — empty team agent-health tile", () => {
 		expect(screen.getByTestId("team-active-tasks-empty")).toBeInTheDocument();
 	});
 
-	it("[GREEN] team-routines-empty shows when routines is empty", () => {
-		renderPage(EMPTY_TEAM);
-		expect(screen.getByTestId("team-routines-empty")).toBeInTheDocument();
-	});
-
 	it("[GREEN] team-agents section shows when roster is empty", () => {
 		renderPage(EMPTY_TEAM);
 		expect(screen.getByTestId("team-agents")).toBeInTheDocument();
@@ -458,16 +419,6 @@ describe("AG1 AC-4 — all existing testids preserved (Tier 1 — test-asserted)
 		expect(screen.getByTestId("team-active-tasks-empty")).toBeInTheDocument();
 	});
 
-	it("[GREEN] team-routines present (Tier 1)", () => {
-		renderPage(POPULATED_TEAM);
-		expect(screen.getByTestId("team-routines")).toBeInTheDocument();
-	});
-
-	it("[GREEN] team-routines-empty present when no routines (Tier 1)", () => {
-		renderPage(EMPTY_TEAM);
-		expect(screen.getByTestId("team-routines-empty")).toBeInTheDocument();
-	});
-
 	it("[GREEN] team-agents present (Tier 1)", () => {
 		renderPage(POPULATED_TEAM);
 		expect(screen.getByTestId("team-agents")).toBeInTheDocument();
@@ -491,11 +442,6 @@ describe("AG1 AC-4 — all existing testids preserved (Tier 1 — test-asserted)
 });
 
 describe("AG1 AC-4 — existing testids preserved (Tier 2 — silent, no CI net)", () => {
-	it("[GREEN] new-routine-btn present (Tier 2)", () => {
-		renderPage(POPULATED_TEAM);
-		expect(screen.getByTestId("new-routine-btn")).toBeInTheDocument();
-	});
-
 	it("[GREEN] add-agent-btn present (Tier 2)", () => {
 		renderPage(POPULATED_TEAM);
 		expect(screen.getByTestId("add-agent-btn")).toBeInTheDocument();
