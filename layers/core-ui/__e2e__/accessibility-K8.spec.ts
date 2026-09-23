@@ -18,10 +18,13 @@ import AxeBuilder from "@axe-core/playwright";
 import {
 	expect,
 	makeTask,
-	makeTaskCardSummary,
 	makeTaskNode,
+	makeUserRow,
+	mockAgents,
+	mockSearchSessions,
+	mockSearchUsers,
 	mockTaskTree,
-	mockTeamDetail,
+	mockTeamPage,
 	test,
 } from "./fixtures";
 
@@ -30,16 +33,18 @@ const MOBILE = { width: 1024, height: 900 };
 // L9: /conversations/review and /conversations/chat replaced by /conversations.
 const ROUTES = [
 	{ path: "/conversations", selector: "[data-testid='conversations-page']" },
-	{ path: "/work/portfolio", selector: "[data-testid='work-portfolio-page']" },
+	{ path: "/work/portfolio", selector: "[data-testid='work-overview-page']" },
 	// @lore L13: /work/team was removed in L13; the route now redirects to
 	// /work/portfolio. We replace it with a product drilldown to keep route
-	// coverage. The /api/teams/p1 mock is registered in beforeEach so this
+	// coverage. The team-page mocks are registered in beforeEach so this
 	// test is hermetic on CI (no real DB needed).
-	{ path: "/work/product/p1", selector: "[data-testid='work-product-page']" },
+	{ path: "/work/product/p1", selector: "[data-testid='work-team-page']" },
 	{ path: "/work/task/task-a11y-1", selector: "[data-testid='task-detail-page']" },
 	{ path: "/documents", selector: "[data-testid='document-list-page']" },
 	{ path: "/documents/k1", selector: "[data-testid='document-detail-page']" },
 ] as const;
+
+const A11Y_ROSTER = [makeUserRow("agent-1", { kind: "ai", name: "Alice", role: "Lead Engineer" })];
 
 test.describe("K8 — zero WCAG 2.1 AA violations at mobile viewport", () => {
 	test.use({ viewport: MOBILE });
@@ -47,8 +52,8 @@ test.describe("K8 — zero WCAG 2.1 AA violations at mobile viewport", () => {
 	// @lore BB1: was a hand-rolled `/api/bets/b1` body. WorkTaskPage loads
 	// `open_task`; the shared fixture owns that shape so this
 	// route stays hermetic on CI where there is no DB.
-	// @lore L13: WorkProduct calls useProduct. Mock /api/teams/p1 so the
-	// product drilldown route is also hermetic.
+	// @lore BC5 T9: `GET /api/teams/:id` is gone — `mockTeamPage` composes the
+	// product-drilldown route's team page from search_users/search_tasks.
 	test.beforeEach(async ({ page }) => {
 		await mockTaskTree(page, {
 			task: makeTask("task-a11y-1", {
@@ -64,18 +69,17 @@ test.describe("K8 — zero WCAG 2.1 AA violations at mobile viewport", () => {
 				}),
 			],
 		});
-		await mockTeamDetail(page, {
+		await mockSearchUsers(page, { rows: A11Y_ROSTER });
+		await mockTeamPage(page, {
 			teamId: "p1",
-			name: "Alpha",
-			roster: [{ agentId: "agent-1", name: "Alice", role: "Lead Engineer", isLead: true }],
+			teamName: "Alpha",
+			roster: A11Y_ROSTER,
 			tasksInProgress: [
-				makeTaskCardSummary("task-a11y-1", {
-					title: "User auth flow",
-					progressDone: 3,
-					progressTotal: 8,
-				}),
+				makeTask("task-a11y-1", { teamId: "p1", title: "User auth flow", state: "in_progress" }),
 			],
 		});
+		await mockAgents(page, { agents: [] });
+		await mockSearchSessions(page, { rows: [] });
 	});
 
 	for (const route of ROUTES) {
