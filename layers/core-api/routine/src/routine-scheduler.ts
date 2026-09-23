@@ -80,9 +80,13 @@ export interface FireResult {
 	runId?: string;
 }
 
-function safeNextRunAt(routine: Routine, now: Date): string | null {
+function safeNextRunAt(
+	routine: Routine,
+	now: Date,
+	cron: RoutineSchedulerPorts["cron"],
+): string | null {
 	try {
-		return computeRoutineNextRunAt(routine.triggerType, routine.triggerConfig, now);
+		return computeRoutineNextRunAt(routine.triggerType, routine.triggerConfig, now, cron);
 	} catch {
 		return routine.nextRunAt ?? null;
 	}
@@ -150,7 +154,7 @@ export async function fireGenericRoutine(
 				errorMessage: "Coalesced: previous run still in progress",
 			});
 		}
-		const nextRunAt = safeNextRunAt(routine, now);
+		const nextRunAt = safeNextRunAt(routine, now, ports.cron);
 		await updateRoutine(db, routine.id, { nextRunAt });
 		return { fired: false, reason: "previous run still in progress" };
 	}
@@ -248,7 +252,7 @@ export async function fireGenericRoutine(
 		timestamp: Date.now(),
 	});
 	const lastRunAt = now.toISOString();
-	const nextRunAt = safeNextRunAt(routine, now);
+	const nextRunAt = safeNextRunAt(routine, now, ports.cron);
 
 	await updateRoutine(db, routine.id, {
 		lastRunAt,
@@ -665,13 +669,21 @@ function registerRoutineEventMatcher(
  * Backfills a missing `nextRunAt` on scheduled routines — relocated verbatim
  * from `backfillMissingNextRunAtInternal`.
  */
-async function backfillMissingNextRunAt(db: HyperIdleDb): Promise<number> {
+async function backfillMissingNextRunAt(
+	db: HyperIdleDb,
+	cron: RoutineSchedulerPorts["cron"],
+): Promise<number> {
 	const now = new Date();
 	const candidates = await listRoutines(db, { active: true, missingNextRunAt: true });
 
 	let count = 0;
 	for (const routine of candidates) {
-		const nextRunAt = computeRoutineNextRunAt(routine.triggerType, routine.triggerConfig, now);
+		const nextRunAt = computeRoutineNextRunAt(
+			routine.triggerType,
+			routine.triggerConfig,
+			now,
+			cron,
+		);
 		if (!nextRunAt) continue;
 		await updateRoutine(db, routine.id, { nextRunAt });
 		count += 1;
@@ -712,7 +724,7 @@ export async function startRoutineScheduler(
 	const reaperCadenceMs = config.reaperCadenceMs ?? ROUTINE_REAPER_CADENCE_MS;
 	let lastReapedAt = 0;
 	let tickRunning = false;
-	await backfillMissingNextRunAt(db);
+	await backfillMissingNextRunAt(db, ports.cron);
 	// BA1 D2: registration is synchronous now — there is no boot-time read to
 	// await. The disposer shape (`unwind`, returned into `stop()`) is
 	// unchanged.

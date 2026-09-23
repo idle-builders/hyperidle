@@ -6,10 +6,10 @@
  * @lore AU44 B1: `OrgAgentRunConfigWriter` folded into `OrgUserDirectory` — the
  * two were always wired together into the same `deps` object; a one-method port
  * does not earn its own type. `listUsersByKind` removed — recipient resolution
- * moved into `@hyperidle/users` as `listHumans`; reading users is native there.
+ * moved into `@hyperidle/user` as `listHumans`; reading users is native there.
  *
  * @lore AU19 Increment 1d: `users` migrated for real. This port is now wired
- * at every real call site to `@hyperidle/users`' real exported functions.
+ * at every real call site to `@hyperidle/user`' real exported functions.
  *
  * @lore AU26 G1 (architecture §D-L): `writeAgentRunConfig` added. `persistScaffoldedAgents`
  * is the single writer of agent user rows, and it stamps the Kernel-owned mechanism

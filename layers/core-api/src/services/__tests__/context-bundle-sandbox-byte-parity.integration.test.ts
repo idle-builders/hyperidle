@@ -43,10 +43,9 @@ import {
 	users,
 } from "@hyperidle/db";
 import { assembleSessionDocuments } from "@hyperidle/document";
-import { getTeam } from "@hyperidle/org";
 import { createContextAssembler } from "@hyperidle/run-orchestration/scaffolding";
 import { resolveTaskRunRequest } from "@hyperidle/task";
-import { requireRunnableAgent } from "@hyperidle/users";
+import { getTeam, requireRunnableAgent } from "@hyperidle/user";
 import { makeDocumentReadPorts } from "../../__testing__/document-read-test-ports.js";
 import { describe, expect, test } from "../../__testing__/test-fixtures.js";
 import { createStandaloneSearchDocuments } from "../../actions/compose.js";

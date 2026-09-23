@@ -142,7 +142,7 @@ export interface AgentOrchestrationRuntimeOptions {
 	 * AU26 review C2 / AU31 §5.1/§5.2: the Application's `bootCoreApi`-sourced
 	 * capability resolving the single human whose held connections a spawn
 	 * provisions — this Layer reads zero core-api state, so it can never
-	 * resolve an owner itself (`@hyperidle/users` is core-api's own service).
+	 * resolve an owner itself (`@hyperidle/user` is core-api's own service).
 	 * Absent means no held connections are ever provisioned (the same
 	 * observable outcome as today's empty-rows case).
 	 */

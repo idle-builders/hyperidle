@@ -52,11 +52,10 @@ import {
 	type McpToolBridge,
 	returnStatusTool,
 } from "@hyperidle/harness-registry/mcp";
-import { getTeam } from "@hyperidle/org";
 import { readServerConfig } from "@hyperidle/settings";
 import * as work from "@hyperidle/task";
 import { bakeTaskContextBundle } from "@hyperidle/task";
-import { requireRunnableAgent } from "@hyperidle/users";
+import { getTeam, requireRunnableAgent } from "@hyperidle/user";
 import type { TriggerResult } from "./types.js";
 
 // ---------------------------------------------------------------------------

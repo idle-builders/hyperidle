@@ -122,7 +122,7 @@ export interface RoutineSchedulerPorts {
 	/**
 	 * Widened `Promise<unknown>` → `Promise<User>` in Increment 12 Wave B (H2
 	 * precedent, matching `RoutineRunResolverDeps`'s own widening) — the real
-	 * wired implementation (`@hyperidle/users`' `requireRunnableAgent`,
+	 * wired implementation (`@hyperidle/user`' `requireRunnableAgent`,
 	 * `routine-scheduler-bindings.ts:149`) already returns `Promise<User>`; this
 	 * is a type-only widening, no behavior change.
 	 */
@@ -208,4 +208,15 @@ export interface RoutineSchedulerPorts {
 			readonly agentId: string;
 		},
 	): Promise<readonly SessionDocumentLike[]>;
+	/**
+	 * @lore BC5 T2: cron parsing moved to `@hyperidle/user` (Mechanism C — this
+	 * Service may not import it directly, matching `requireRunnableAgent`
+	 * above). Optional: only a calendar-trigger routine needs it, and only the
+	 * real composition root (`routine-scheduler-bindings.ts`) wires it — tests
+	 * that never fire a calendar routine can omit it.
+	 */
+	readonly cron?: {
+		parseCron(expr: string): unknown;
+		nextCronMatch(fields: unknown, from: Date): Date;
+	};
 }

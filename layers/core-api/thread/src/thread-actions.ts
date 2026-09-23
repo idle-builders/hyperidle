@@ -69,7 +69,7 @@ export interface ThreadActionsDeps {
 		/**
 		 * @lore The team-scoped read `resolveMentionsForMessage` needs — AE5's
 		 * "mention any agent in the team, not only who is in the thread" rule.
-		 * A nested Service may not import `@hyperidle/users` directly.
+		 * A nested Service may not import `@hyperidle/user` directly.
 		 */
 		listByTeamIds(exec: WriteExecutor, teamIds: readonly string[]): Promise<readonly User[]>;
 		/**

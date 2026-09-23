@@ -21,9 +21,8 @@
 		"@hyperidle/event-bus": "*",
 		"@hyperidle/harness-registry": "*",
 		"@hyperidle/document": "*",
-		"@hyperidle/org": "*",
 		"@hyperidle/settings": "*",
-		"@hyperidle/users": "*",
+		"@hyperidle/user": "*",
 		"@hyperidle/task": "*",
 		"drizzle-orm": "^0.45.2",
 		"hono": "^4.12.27"

@@ -463,7 +463,7 @@ export interface RoutineTriggerEvent {
 				 * discriminant carries information: "user" means a person joined,
 				 * "agent" means a bot was added to a team. A routine doing onboarding
 				 * acts differently on each. Loaded from the `users` table via
-				 * @hyperidle/users findUser, the same table that stores agents.
+				 * @hyperidle/user findUser, the same table that stores agents.
 				 */
 				readonly kind: "user";
 				readonly user: {

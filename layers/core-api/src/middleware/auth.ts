@@ -4,7 +4,7 @@ import { createLogger } from "@hyperidle/diagnostics";
 import type { ApiErrorResponse } from "@hyperidle/domain-model";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import { constantTimeStringEqual, type HyperIdleEnv } from "@hyperidle/domain-model/http";
-import { findUser, validateBearerToken } from "@hyperidle/users";
+import { findUser, validateBearerToken } from "@hyperidle/user";
 import type { Context, MiddlewareHandler } from "hono";
 
 /**

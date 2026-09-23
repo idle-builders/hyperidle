@@ -15,10 +15,9 @@ import {
 } from "@hyperidle/domain-model";
 import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model/http";
 import { EVENT_TYPES, type EventBus } from "@hyperidle/event-bus";
-import { getTeam } from "@hyperidle/org";
 import * as routineService from "@hyperidle/routine";
 import { humanizeSchedule, parseTransitionTo } from "@hyperidle/routine";
-import { findUser } from "@hyperidle/users";
+import { findUser, getTeam, nextCronMatch, parseCron } from "@hyperidle/user";
 import { Hono } from "hono";
 import z from "zod";
 import type { ActionContext } from "../actions/action.js";
@@ -379,17 +378,21 @@ export function createRoutineRoutes(
 		// cron below now fails BEFORE any document is created, so it can never
 		// orphan one (the old order created the document first).
 		try {
-			await routineService.insertRoutine(db, {
-				id: routineId,
-				name: body.name,
-				ownerAgentId: body.ownerAgentId,
-				triggerType: body.triggerType,
-				...(triggerConfig !== undefined ? { triggerConfig } : {}),
-				...(eventType !== undefined ? { eventType } : {}),
-				state: "active",
-				active: true,
-				createdAt: now,
-			});
+			await routineService.insertRoutine(
+				db,
+				{
+					id: routineId,
+					name: body.name,
+					ownerAgentId: body.ownerAgentId,
+					triggerType: body.triggerType,
+					...(triggerConfig !== undefined ? { triggerConfig } : {}),
+					...(eventType !== undefined ? { eventType } : {}),
+					state: "active",
+					active: true,
+					createdAt: now,
+				},
+				{ parseCron, nextCronMatch },
+			);
 		} catch {
 			return c.json(
 				{ error: "Invalid cron expression", code: API_ERROR_CODES.VALIDATION_ERROR },

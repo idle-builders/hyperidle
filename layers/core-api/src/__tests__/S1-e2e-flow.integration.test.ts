@@ -15,7 +15,7 @@
  */
 
 import { type HyperIdleDb, users } from "@hyperidle/db";
-import { createInvite, createLoginSession, revokeLoginSession } from "@hyperidle/users";
+import { createInvite, createLoginSession, revokeLoginSession } from "@hyperidle/user";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";

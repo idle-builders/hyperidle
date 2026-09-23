@@ -18,7 +18,7 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import { insertUserIfAbsent, listFactoryAgents } from "@hyperidle/users";
+import { insertUserIfAbsent, listFactoryAgents } from "@hyperidle/user";
 
 const SYSTEM_ASSISTANT = { role: "assistant", idHint: "seed-agent-cos" } as const;
 

@@ -32,19 +32,20 @@ import type {
 } from "@hyperidle/domain-model";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import type { EventBus } from "@hyperidle/event-bus";
-import {
-	createTeam,
-	getTeam,
-	listTeams,
-	persistScaffoldedAgents,
-	resolveAgentScaffoldSpecs,
-	updateTeam,
-	upsertOrgEdge,
-} from "@hyperidle/org";
+import { persistScaffoldedAgents, resolveAgentScaffoldSpecs } from "@hyperidle/org";
 import * as routineService from "@hyperidle/routine";
 import { humanizeSchedule } from "@hyperidle/routine";
 import * as work from "@hyperidle/task";
-import { findUser, insertUser, listUsers } from "@hyperidle/users";
+import {
+	createTeam,
+	findUser,
+	getTeam,
+	insertUser,
+	listTeams,
+	listUsers,
+	updateTeam,
+	upsertOrgEdge,
+} from "@hyperidle/user";
 import { Hono } from "hono";
 import type { SendMessageRunFn } from "../actions/action.js";
 import { buildSeamBackedAgentRunConfigWriter } from "../services/agent-orchestration-port-composition.js";

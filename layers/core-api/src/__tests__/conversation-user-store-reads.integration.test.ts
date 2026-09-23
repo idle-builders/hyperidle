@@ -14,7 +14,7 @@
 
 import { type HyperIdleDb, messages as messagesTable, teams, threads, users } from "@hyperidle/db";
 import { findThread, listMessages, listThreads, searchConversations } from "@hyperidle/thread";
-import { findUser, insertUser, listUsers } from "@hyperidle/users";
+import { findUser, insertUser, listUsers } from "@hyperidle/user";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
 

@@ -26,7 +26,6 @@ import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb, Routine } from "@hyperidle/db";
 import { assembleSessionDocuments } from "@hyperidle/document";
 import { EventBus } from "@hyperidle/event-bus";
-import { getTeam } from "@hyperidle/org";
 import {
 	type FireResult,
 	fireGenericRoutine,
@@ -38,7 +37,7 @@ import {
 import { readServerConfig } from "@hyperidle/settings";
 import * as work from "@hyperidle/task";
 import { findThread } from "@hyperidle/thread";
-import { findUser, requireRunnableAgent } from "@hyperidle/users";
+import { findUser, getTeam, nextCronMatch, parseCron, requireRunnableAgent } from "@hyperidle/user";
 import type { ActionContext, SearchDocumentsRunFn } from "../actions/action.js";
 import { resolveAgentIdentityBody } from "./task-run-resolver-bindings.js";
 
@@ -149,6 +148,8 @@ export function buildRoutineSchedulerPorts(
 			});
 			return result.ok ? (result.data[0]?.body ?? null) : null;
 		},
+		// BC5 T2: cron moved to `@hyperidle/user` — Mechanism C, wired here.
+		cron: { parseCron, nextCronMatch },
 	};
 }
 

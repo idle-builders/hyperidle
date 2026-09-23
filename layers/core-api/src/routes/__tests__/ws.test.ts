@@ -14,14 +14,14 @@
  * merge instead of being deleted with the file it was copied from.
  */
 
-import type { UpgradeTokenStore } from "@hyperidle/users";
+import type { UpgradeTokenStore } from "@hyperidle/user";
 import { Hono } from "hono";
 import { defineWebSocketHelper } from "hono/ws";
 import { describe, expect, it } from "vitest";
 import { WsConnectionHub } from "../../ws-connection-hub.js";
 import { registerWsRoute } from "../ws.js";
 
-/** A one-shot store with the same contract as `@hyperidle/users`'s real one. */
+/** A one-shot store with the same contract as `@hyperidle/user`'s real one. */
 function createStore(tokens: Map<string, string | undefined>): UpgradeTokenStore {
 	return {
 		issue: () => {

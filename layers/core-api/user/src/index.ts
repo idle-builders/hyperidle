@@ -1,0 +1,66 @@
+/**
+ * Barrel for @hyperidle/user (core-api Layer, SQL-owning Service).
+ *
+ * Typed functions only. This barrel MUST NOT re-export the raw `users`/
+ * `teams`/`orgEdges`/`loginSessions`/`inviteCodes` pgTable objects — that
+ * would let a consumer obtain a table transitively and defeat Table ACL
+ * (Mechanism A). Consumers get typed functions; the tables stay private to
+ * this Service.
+ *
+ * @lore BC5 T2: users, teams, org edges, login sessions and invite codes are
+ * one Service now — a user (human or agent) with its team and who it reports
+ * to is one row of state, not three packages agreeing by convention.
+ * `user-store.ts`, `factory-writers.ts`, `invite-code.ts`, `login-session.ts`,
+ * `runnable-agent.ts` and `upgrade-token-store.ts` moved here unchanged from
+ * `@hyperidle/users`; `team-lookup.ts` and `org-edges.ts` moved here
+ * unchanged from `@hyperidle/org`. `cron.ts` moved here unchanged from
+ * `@hyperidle/routine` — it was already private to that package (the only
+ * caller was its own `insertRoutine`), and this Service's subscription clock
+ * is now its other caller, so `parseCron`/`nextCronMatch` are exported here
+ * for `@hyperidle/routine` to keep importing until the cut-over retires it.
+ *
+ * @lore AU19 Increment 1d: this is the real cut-over — `user-store.ts`
+ * (users), `login-session.ts` (loginSessions), `invite-code.ts`
+ * (inviteCodes), and `upgrade-token-store.ts` (pure in-memory, no table)
+ * moved here from `packages/server/src/services/`/`packages/server/src/auth/`
+ * unchanged (behavior-preserving move).
+ *
+ * @lore AU20 Am11: 14 bespoke read variants collapsed into `findUser` +
+ * `listUsers` + `UserFilter`. The two projected getters (`listAgentProfiles` /
+ * `listUserDirectory`) and their row types are deleted — routes project full
+ * rows themselves. `generateToken`, `hashToken`, `findLoginSessionByTokenHash`,
+ * `generateInviteCode` internalized (only external callers were tests).
+ * `reapLoginSessions` + `reapInviteCodes` merged into `reapExpiredCredentials`.
+ *
+ * @lore AU44 B1: `team_members` dissolved into `teams`. `AU20 Am7`: 22
+ * per-call-site team exports collapsed into `getTeam`/`listTeams`/
+ * `createTeam`/`updateTeam`.
+ *
+ * @lore AH4: `upsertOrgEdge` is idempotent by construction — INSERT … ON
+ * CONFLICT DO NOTHING against the composite unique index, then re-select.
+ */
+
+// -- cron (AU44 batch 3 — private to the routine trigger until the
+// subscription clock became its second caller; BC5 T2 moved it here) --
+export type { CronFields } from "./cron.js";
+export { nextCronMatch, parseCron } from "./cron.js";
+// -- factory writers (AU29 §2.5.2 — idempotent first-boot users writes) --
+export { insertUserIfAbsent, listFactoryAgents, setAgentsStatus } from "./factory-writers.js";
+// -- invite code (S1 — invite/claim flow) --
+export { claimInvite, createInvite } from "./invite-code.js";
+// -- login session (S1 — bearer-token auth) --
+export { createLoginSession, revokeLoginSession, validateBearerToken } from "./login-session.js";
+// -- org edges (P2 — org chart edge CRUD, survivor from batch 0) --
+export type { UpsertOrgEdgeInput } from "./org-edges.js";
+export { deleteOrgEdge, listOrgEdges, upsertOrgEdge } from "./org-edges.js";
+// -- runnable-agent invariant (AU21 §6 Decision B — the shared ast-<userId> check) --
+export { AgentNotRunnableError, requireRunnableAgent } from "./runnable-agent.js";
+// -- team lookup (AU20 Am7 / AU44 B1 — team_members dissolved) --
+export type { CreateTeamInput } from "./team-lookup.js";
+export { createTeam, getTeam, listTeams, updateTeam } from "./team-lookup.js";
+// -- upgrade token store (I2 — WS-handshake one-shot tokens, no table) --
+export type { UpgradeTokenStore } from "./upgrade-token-store.js";
+export { createUpgradeTokenStore } from "./upgrade-token-store.js";
+// -- user store (AU12 / AU20 Am11 — single owner of `users` row read/write) --
+export type { UserFilter } from "./user-store.js";
+export { findUser, getOrCreateUser, insertUser, listUsers, updateUser } from "./user-store.js";

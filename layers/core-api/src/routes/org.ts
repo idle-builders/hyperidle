@@ -12,25 +12,27 @@
  *
  * @lore BC3 architecture.md §5 B4: `GET /review-recipients` DELETED — it
  * existed only for the deleted `create_item`/`submit_review` tools.
- * `resolveReviewRecipients` (`@hyperidle/org`) itself survives; only this
- * route wrapper died.
+ * `resolveReviewRecipients` had zero production callers by the time users
+ * became a module with subscriptions and was deleted with `org-routing.ts`;
+ * only this route wrapper died earlier.
  */
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { API_ERROR_CODES, ORG_EDGE_MECHANISMS } from "@hyperidle/domain-model";
 import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model/http";
+import { persistScaffoldedAgents, resolveAgentScaffoldSpecs } from "@hyperidle/org";
 import {
 	createTeam,
 	deleteOrgEdge,
+	findUser,
 	getTeam,
+	insertUser,
 	listOrgEdges,
 	listTeams,
-	persistScaffoldedAgents,
-	resolveAgentScaffoldSpecs,
+	listUsers,
 	upsertOrgEdge,
-} from "@hyperidle/org";
-import { findUser, insertUser, listUsers } from "@hyperidle/users";
+} from "@hyperidle/user";
 import { Hono } from "hono";
 import z from "zod";
 import { buildSeamBackedAgentRunConfigWriter } from "../services/agent-orchestration-port-composition.js";

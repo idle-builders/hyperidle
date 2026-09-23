@@ -75,7 +75,7 @@
 			"path": "thread"
 		},
 		{
-			"path": "users"
+			"path": "user"
 		}
 	]
 }

@@ -15,7 +15,7 @@
 
 import { users } from "@hyperidle/db";
 import { AdapterPool, CliHarnessAdapter } from "@hyperidle/harness-registry";
-import { createLoginSession } from "@hyperidle/users";
+import { createLoginSession } from "@hyperidle/user";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 import { createTestApp } from "../../__testing__/test-utils.js";

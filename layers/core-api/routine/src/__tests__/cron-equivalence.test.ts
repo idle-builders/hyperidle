@@ -9,21 +9,25 @@
  *
  * Before the fold, `computeNextRunAt` was defined in framework/cron/src/cron.ts
  * and re-exported from @hyperidle/cron. After the fold the same logic lives in
- * layers/core-api/routine/src/cron.ts (private module) and is also inlined
- * into routine-service.ts's `computeRoutineNextRunAt`.
+ * routine-service.ts's `computeRoutineNextRunAt`, and is also inlined here.
  *
- * This file tests:
- *   1. The private `computeRoutineNextRunAt` (from routine-service.ts) produces
- *      the SAME values as the original `computeNextRunAt` logic for all three
- *      trigger types, using concrete reference instants captured from the
- *      original implementation.
- *   2. `parseCron` and `nextCronMatch` in the local cron.ts produce the same
- *      outputs as the original framework/cron implementation.
+ * This file tests the private `computeRoutineNextRunAt` (from
+ * routine-service.ts) produces the SAME values as the original
+ * `computeNextRunAt` logic for all three trigger types, using concrete
+ * reference instants captured from the original implementation.
+ *
+ * @lore BC5 T2: `parseCron`/`nextCronMatch` equivalence moved with `cron.ts`
+ * itself, to `@hyperidle/user`'s `cron-equivalence.test.ts` — this file keeps
+ * only the routine-owned half.
  */
 
+import { nextCronMatch, parseCron } from "@hyperidle/user";
 import { describe, expect, test } from "vitest";
-import { nextCronMatch, parseCron } from "../cron.js";
 import { computeRoutineNextRunAt } from "../routine-service.js";
+
+// Test-only wiring of the `CronOps` Mechanism C port real production code
+// gets from its composition root (`compose.ts`, `routines-routes.ts`).
+const CRON = { parseCron, nextCronMatch };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Reference instants — frozen so the test is deterministic.
@@ -51,12 +55,13 @@ describe("computeRoutineNextRunAt — post-fold equivalence (AU44 B3)", () => {
 			"heartbeat",
 			JSON.stringify({ intervalSeconds: 30 }),
 			REFERENCE_NOW,
+			CRON,
 		);
 		expect(result).toBe(HEARTBEAT_EXPECTED);
 	});
 
 	test("continuous trigger with default intervalSeconds (60) returns expected ISO instant", () => {
-		const result = computeRoutineNextRunAt("continuous", "{}", REFERENCE_NOW);
+		const result = computeRoutineNextRunAt("continuous", "{}", REFERENCE_NOW, CRON);
 		expect(result).toBe(CONTINUOUS_EXPECTED);
 	});
 
@@ -65,6 +70,7 @@ describe("computeRoutineNextRunAt — post-fold equivalence (AU44 B3)", () => {
 			"calendar",
 			JSON.stringify({ cron: CALENDAR_CRON }),
 			REFERENCE_NOW,
+			CRON,
 		);
 		expect(result).toBe(CALENDAR_EXPECTED);
 	});
@@ -74,59 +80,25 @@ describe("computeRoutineNextRunAt — post-fold equivalence (AU44 B3)", () => {
 			"event",
 			JSON.stringify({ eventType: "task_state_changed" }),
 			REFERENCE_NOW,
+			CRON,
 		);
 		expect(result).toBeNull();
 	});
 
 	test("null triggerConfig is handled without throwing", () => {
-		const result = computeRoutineNextRunAt("heartbeat", null, REFERENCE_NOW);
+		const result = computeRoutineNextRunAt("heartbeat", null, REFERENCE_NOW, CRON);
 		// default interval 60s
 		expect(result).toBe(CONTINUOUS_EXPECTED);
 	});
 
 	test("calendar trigger with invalid cron throws", () => {
 		expect(() =>
-			computeRoutineNextRunAt("calendar", JSON.stringify({ cron: "not-a-cron" }), REFERENCE_NOW),
+			computeRoutineNextRunAt(
+				"calendar",
+				JSON.stringify({ cron: "not-a-cron" }),
+				REFERENCE_NOW,
+				CRON,
+			),
 		).toThrow();
-	});
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 2. parseCron / nextCronMatch equivalence (local cron.ts vs original logic)
-// ─────────────────────────────────────────────────────────────────────────────
-
-describe("parseCron / nextCronMatch — private routine cron module (AU44 B3)", () => {
-	test("parseCron produces correct CronFields for '*/5 * * * *'", () => {
-		const fields = parseCron("*/5 * * * *");
-		expect(fields.minute).toEqual([0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]);
-		expect(fields.hour).toBe("*");
-		expect(fields.dayOfMonth).toBe("*");
-		expect(fields.month).toBe("*");
-		expect(fields.dayOfWeek).toBe("*");
-	});
-
-	test("nextCronMatch advances to the correct minute", () => {
-		const fields = parseCron(CALENDAR_CRON);
-		const next = nextCronMatch(fields, REFERENCE_NOW);
-		expect(next.toISOString()).toBe(CALENDAR_EXPECTED);
-	});
-
-	test("nextCronMatch — daily cron '0 9 * * *' next fire from 10:00 is next day 09:00", () => {
-		const fields = parseCron("0 9 * * *");
-		const next = nextCronMatch(fields, REFERENCE_NOW);
-		// 10:00 UTC Jan 15 → next 09:00 UTC is Jan 16
-		expect(next.toISOString()).toBe("2025-01-16T09:00:00.000Z");
-	});
-
-	test("nextCronMatch — weekly cron '0 10 * * MON' next fire from Wednesday is next Monday", () => {
-		const fields = parseCron("0 10 * * MON");
-		const next = nextCronMatch(fields, REFERENCE_NOW);
-		// Jan 15 2025 is Wednesday → next Monday is Jan 20
-		expect(next.toISOString()).toBe("2025-01-20T10:00:00.000Z");
-	});
-
-	test("parseCron throws on invalid expression", () => {
-		expect(() => parseCron("not valid cron")).toThrow();
-		expect(() => parseCron("* * * *")).toThrow(); // only 4 fields
 	});
 });

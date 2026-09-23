@@ -13,7 +13,7 @@
  *      `active`, or its `state` is not `"active"`.
  *   3. Resolve the target agent: the routine's `ownerAgentId`.
  *   4. Validate the resolved target's runnability via the shared ast-`<userId>`
- *      invariant (`requireRunnableAgent`, `@hyperidle/users`).
+ *      invariant (`requireRunnableAgent`, `@hyperidle/user`).
  *   5. Bake: `defaultAgentId`, `sourceKind:"routine"`, `sourceId` (the RUN
  *      id, not the routine id — @lore AU9 correlation), `streamId:
  *      routine:<routineId>`, `teamId`, `taskId: null`, `sourceCorrelation:
@@ -29,8 +29,7 @@ import { documents, type HyperIdleDb, routineRuns, routines, teams, users } from
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { assembleSessionDocuments } from "@hyperidle/document";
 import type { BakedContextBundle } from "@hyperidle/domain-model";
-import { getTeam } from "@hyperidle/org";
-import { requireRunnableAgent } from "@hyperidle/users";
+import { getTeam, requireRunnableAgent } from "@hyperidle/user";
 import { and, eq } from "drizzle-orm";
 
 async function seedTeam(db: HyperIdleDb, teamId: string): Promise<void> {

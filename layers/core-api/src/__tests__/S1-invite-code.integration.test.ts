@@ -13,7 +13,7 @@
  */
 
 import { type HyperIdleDb, inviteCodes, loginSessions, users } from "@hyperidle/db";
-import { claimInvite, createInvite } from "@hyperidle/users";
+import { claimInvite, createInvite } from "@hyperidle/user";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 

@@ -373,7 +373,7 @@ function buildLeafDeclarations(root: string, tscBin: string): void {
 	// routes/tools/services now import `@hyperidle/org`.
 	//
 	// @lore AU19 Increment 1d: `core-api/users` added — same TS6305 cascade;
-	// ~30 routes/tools/services now import `@hyperidle/users`.
+	// ~30 routes/tools/services now import `@hyperidle/user`.
 	//
 	// @lore AU19 Increment 1e: `core-api/conversation` added — same TS6305
 	// cascade; ~27 routes/tools/services imported `@hyperidle/conversation`.
@@ -525,7 +525,7 @@ function buildLeafDeclarations(root: string, tscBin: string): void {
 		"layers/core-api/document",
 		"layers/core-api/work",
 		"layers/core-api/org",
-		"layers/core-api/users",
+		"layers/core-api/user",
 		"layers/core-api/conversation",
 		"layers/core-api/settings",
 		"layers/core-api/notifications",

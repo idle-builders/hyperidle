@@ -97,7 +97,7 @@ vi.mock("@hyperidle/harness-registry/mcp", () => ({
 // selection, not agent runnability, so those two reads are mocked here
 // rather than pulled onto a real DB (this is a `.test.ts` unit test, no DB
 // fixture).
-vi.mock("@hyperidle/users", () => ({
+vi.mock("@hyperidle/user", () => ({
 	requireRunnableAgent: vi.fn(
 		async () =>
 			({
@@ -112,6 +112,7 @@ vi.mock("@hyperidle/users", () => ({
 				maxConcurrentSessions: 5,
 			}) as unknown as User,
 	),
+	getTeam: vi.fn(async () => ({ id: "team", name: "Team" })),
 }));
 /*
  * The context bake reads the real task and assembles the real document
@@ -122,9 +123,6 @@ vi.mock("@hyperidle/users", () => ({
 vi.mock("@hyperidle/task", () => ({
 	get: vi.fn(async () => ({ id: "task", teamId: "team", title: "T", description: "d" })),
 	bakeTaskContextBundle: vi.fn(async () => undefined),
-}));
-vi.mock("@hyperidle/org", () => ({
-	getTeam: vi.fn(async () => ({ id: "team", name: "Team" })),
 }));
 vi.mock("@hyperidle/document", () => ({
 	assembleSessionDocuments: vi.fn(async () => []),

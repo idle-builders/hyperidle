@@ -30,10 +30,23 @@
  * to any specific caller need anymore).
  *
  * @lore AU44 B3: `insertRoutine` now computes `nextRunAt` owner-side from
- * `triggerType`/`triggerConfig`, using the cron utilities private to this
- * package. Non-owner callers (routines-routes.ts, create_routine tool) drop
- * their cron imports entirely — a bad cron expression throws here and is
- * caught by the caller as a 400 / INVALID_INPUT.
+ * `triggerType`/`triggerConfig`, using the cron utilities `@hyperidle/user`
+ * exports (moved there BC5 T2 — the user module's subscription clock is
+ * their other caller now). Non-owner callers (routines-routes.ts,
+ * create_routine tool) drop their cron imports entirely — a bad cron
+ * expression throws here and is caught by the caller as a 400 / INVALID_INPUT.
+ *
+ * @lore BC5 T2: a Service may depend on nothing but `@hyperidle/db`/framework
+ * packages (Mechanism C, `composition-boundary-guard`) — `@hyperidle/user` is
+ * another core-api Service, so `parseCron`/`nextCronMatch` are an injected
+ * `CronOps`, not a static import, exactly like `requireRunnableAgent` already
+ * is on `RoutineSchedulerPorts`. `CronOps` is generic over the parsed-cron
+ * shape instead of naming `@hyperidle/user`'s `CronFields` — even a type-only
+ * import is still a named crossing (governance detects the specifier, not
+ * whether the binding survives to runtime), so the shape stays opaque here
+ * and the caller's own type carries it through. Wired at the two call sites
+ * this package has (`routines-routes.ts`, `compose.ts`) with the real
+ * `@hyperidle/user` functions — both already Layer code, not a nested Service.
  */
 import {
 	type HyperIdleDb,
@@ -53,7 +66,14 @@ import type {
 } from "@hyperidle/domain-model";
 import { bakeAgentRunnableConfig, toBakedContextDocuments } from "@hyperidle/domain-model";
 import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
-import { nextCronMatch, parseCron } from "./cron.js";
+
+/** Mechanism C: the cron parsing this package needs, injected by the caller —
+ * generic over the parsed-cron shape `F` so this file never names
+ * `@hyperidle/user` itself. */
+export interface CronOps<F> {
+	readonly parseCron: (expr: string) => F;
+	readonly nextCronMatch: (fields: F, from: Date) => Date;
+}
 
 export type Routine = typeof routines.$inferSelect;
 export type RoutineRun = typeof routineRuns.$inferSelect;
@@ -101,10 +121,14 @@ export type RoutineRunPatch = Partial<NewRoutineRun>;
  *
  * @throws if triggerType is "calendar" and the cron expression is invalid
  */
-export function computeRoutineNextRunAt(
+export function computeRoutineNextRunAt<F>(
 	triggerType: string,
 	triggerConfig: string | null,
 	now: Date,
+	/** Absent only in tests that never exercise a calendar trigger — every
+	 * real caller (`compose.ts`, `routines-routes.ts`, the scheduler's
+	 * composition root) wires the real `@hyperidle/user` functions. */
+	cron?: CronOps<F>,
 ): string | null {
 	let config: { intervalSeconds?: number; cron?: string } = {};
 	try {
@@ -120,14 +144,18 @@ export function computeRoutineNextRunAt(
 		return new Date(now.getTime() + intervalMs).toISOString();
 	}
 	if (triggerType === "calendar" && config.cron) {
-		return nextCronMatch(parseCron(config.cron), now).toISOString();
+		if (!cron) throw new Error("computeRoutineNextRunAt: a calendar trigger needs cron ops");
+		return cron.nextCronMatch(cron.parseCron(config.cron), now).toISOString();
 	}
 	return null;
 }
 
-export async function insertRoutine(
+export async function insertRoutine<F>(
 	exec: WriteExecutor,
 	values: NewRoutine,
+	/** See `computeRoutineNextRunAt`'s note — absent only in tests that never
+	 * insert a calendar-triggered routine. */
+	cron?: CronOps<F>,
 	opts?: { readonly onConflictDoNothing?: boolean },
 ): Promise<string | null> {
 	// Owner-side nextRunAt computation: override whatever the caller passed.
@@ -135,6 +163,7 @@ export async function insertRoutine(
 		values.triggerType,
 		values.triggerConfig ?? null,
 		new Date(),
+		cron,
 	);
 	const row = { ...values, nextRunAt };
 	if (opts?.onConflictDoNothing) {
@@ -383,7 +412,7 @@ export interface BakedRoutineRunRequest {
 
 /**
  * Injected deps — Mechanism C. The shared ast-`<userId>` runnability invariant
- * (`requireRunnableAgent`, `@hyperidle/users`) is cross-Service from this
+ * (`requireRunnableAgent`, `@hyperidle/user`) is cross-Service from this
  * package's point of view, so this Service cannot import it directly; the real
  * implementation is wired at the composition root
  * (`layers/core-api/src/services/routine-scheduler-bindings.ts`), mirroring
@@ -495,8 +524,8 @@ export async function resolveRoutineRunRequest(
 		agent = await deps.requireRunnableAgent(db, selectedAgentId);
 	} catch (error) {
 		// @lore normalize to ONE recognizable class: the real `requireRunnableAgent`
-		// (`@hyperidle/users`) throws its own `AgentNotRunnableError`, which this
-		// package cannot name directly (Mechanism C — no `@hyperidle/users`
+		// (`@hyperidle/user`) throws its own `AgentNotRunnableError`, which this
+		// package cannot name directly (Mechanism C — no `@hyperidle/user`
 		// import). `fireGenericRoutine` needs to distinguish "this resolution is
 		// not legitimate" (swallow, report `fired:false`) from a genuine
 		// downstream infra failure on the SAME transaction's writes (must

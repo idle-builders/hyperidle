@@ -43,8 +43,7 @@ import type {
 } from "@hyperidle/domain-model";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import type { HarnessCapabilities } from "@hyperidle/harness-protocol";
-import { getTeam } from "@hyperidle/org";
-import { findUser } from "@hyperidle/users";
+import { findUser, getTeam } from "@hyperidle/user";
 import type { Context } from "hono";
 import {
 	type HarnessCapabilityReader,

@@ -6,7 +6,7 @@ import type { RegisteredTool } from "@hyperidle/harness-protocol";
 import type { NotificationsDeps } from "@hyperidle/notifications";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import { checkAndUnblockDependents } from "@hyperidle/task";
-import { createUpgradeTokenStore, type UpgradeTokenStore } from "@hyperidle/users";
+import { createUpgradeTokenStore, type UpgradeTokenStore } from "@hyperidle/user";
 import { Hono } from "hono";
 import type { Action, ActionContext } from "./actions/action.js";
 import { actionsAsTools } from "./actions/actions-as-tools.js";

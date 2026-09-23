@@ -41,7 +41,7 @@ import type {
 import * as routineService from "@hyperidle/routine";
 import * as work from "@hyperidle/task";
 import { findThread, listMessages } from "@hyperidle/thread";
-import { findUser, listUsers } from "@hyperidle/users";
+import { findUser, listUsers } from "@hyperidle/user";
 import type { ActionContext, AdjustThreadRunFn, SendMessageRunFn } from "../actions/action.js";
 
 export type { AdjustThreadRunFn, SendMessageRunFn };

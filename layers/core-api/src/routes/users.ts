@@ -10,7 +10,7 @@ import { persistScaffoldedAgents, resolveAgentScaffoldSpecs } from "@hyperidle/o
 // AgentScaffoldSpec; after that the document is edited like any other.
 
 import { constantTimeStringEqual, type HyperIdleEnv } from "@hyperidle/domain-model/http";
-import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";
+import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/user";
 import { Hono } from "hono";
 import z from "zod";
 import { buildStandaloneDocumentRunners } from "../actions/compose.js";

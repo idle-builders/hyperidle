@@ -22,7 +22,6 @@ import type {
 	TaskView,
 	ThreadView,
 } from "@hyperidle/domain-model";
-import { getTeam } from "@hyperidle/org";
 import { getRoutine, insertRoutine, setRoutinesLive, softDeleteRoutines } from "@hyperidle/routine";
 import {
 	createPlatformActions,
@@ -34,11 +33,14 @@ import { createTaskActions, type TaskActionsDeps } from "@hyperidle/task";
 import { createThreadActions, type ThreadActionsDeps } from "@hyperidle/thread";
 import {
 	findUser,
+	getTeam,
 	insertUserIfAbsent,
 	listUsers,
+	nextCronMatch,
+	parseCron,
 	requireRunnableAgent,
 	setAgentsStatus,
-} from "@hyperidle/users";
+} from "@hyperidle/user";
 import {
 	buildTaskRunResolverDeps,
 	resolveAgentIdentityBody,
@@ -228,7 +230,7 @@ function buildDocumentActionsDeps(
  * Everything else outside `@hyperidle/settings`'s own three tables — an
  * agent is a `users` row, a routine is a `routines` row — is bound to the
  * real function, because `@hyperidle/settings` may not import
- * `@hyperidle/users`/`@hyperidle/routine`.
+ * `@hyperidle/user`/`@hyperidle/routine`.
  */
 function buildPlatformActionsDeps(
 	documentActions: readonly Action[],
@@ -241,7 +243,8 @@ function buildPlatformActionsDeps(
 			list: (exec, ids) => listUsers(exec, { ids: [...ids] }),
 		},
 		routines: {
-			insert: (exec, values, opts) => insertRoutine(exec, values, opts),
+			insert: (exec, values, opts) =>
+				insertRoutine(exec, values, { parseCron, nextCronMatch }, opts),
 			setLive: (exec, ids, live) => setRoutinesLive(exec, ids, live),
 			softDelete: (exec, ids) => softDeleteRoutines(exec, ids),
 			get: (exec, id) => getRoutine(exec, id),

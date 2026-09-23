@@ -28,7 +28,7 @@
 		"@hyperidle/policy": "*",
 		"@hyperidle/routine": "*",
 		"@hyperidle/settings": "*",
-		"@hyperidle/users": "*",
+		"@hyperidle/user": "*",
 		"@hyperidle/task": "*",
 		"@hyperidle/thread": "*",
 		"hono": "^4.12.27",

@@ -31,9 +31,9 @@ import type {
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import type { EventBus } from "@hyperidle/event-bus";
-import { listTeams } from "@hyperidle/org";
 import * as work from "@hyperidle/task";
 import { listMessages, listThreads, searchConversations } from "@hyperidle/thread";
+import { listTeams } from "@hyperidle/user";
 // BB1: deriveTitle removed — tasks use .title directly
 import { Hono } from "hono";
 import z from "zod";

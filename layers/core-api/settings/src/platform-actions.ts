@@ -134,7 +134,7 @@ type EditDocumentRunFn = (
  * outside `@hyperidle/settings`'s own three tables arrives here: an agent is
  * a `users` row, a routine is a `routines` row, a document write/read goes
  * through the composed `edit_document`/`search_documents` runners — this
- * package may import neither `@hyperidle/users` nor `@hyperidle/routine`
+ * package may import neither `@hyperidle/user` nor `@hyperidle/routine`
  * nor the layer's own document composition, so the layer's `compose.ts`
  * binds each to the real function.
  */

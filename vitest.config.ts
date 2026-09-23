@@ -26,7 +26,7 @@ const PROJECTS = [
 	"layers/core-api/routine",
 	"layers/core-api/task",
 	"layers/core-api/org",
-	"layers/core-api/users",
+	"layers/core-api/user",
 	"layers/core-api/thread",
 	"layers/core-api/settings",
 	"layers/core-api/notifications",

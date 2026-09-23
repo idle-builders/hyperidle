@@ -4,7 +4,7 @@
  * fixture. `deps.agents`/`deps.routines` are backed by real queries against
  * the real `users`/`routines` tables — the same crossing `compose.ts` binds
  * in production, built here with raw drizzle rather than importing
- * `@hyperidle/users`/`@hyperidle/routine` (this package may not depend on
+ * `@hyperidle/user`/`@hyperidle/routine` (this package may not depend on
  * either). `deps.editDocument`/`deps.searchDocuments` are the REAL
  * `@hyperidle/document` actions, not a stub — the one genuinely external
  * crossing this module has, and the phase-discipline this whole module

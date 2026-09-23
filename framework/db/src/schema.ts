@@ -77,7 +77,7 @@ export const users = pgTable(
 		 * BA1 D6: who an agent belongs to, as a real column — a team (`teamId`),
 		 * a person (`ownerUserId`), or neither. Null for human users (the
 		 * `users_belonging_ck` check below is trivially satisfied by them).
-		 * Written only through `@hyperidle/users`' `insertUser`; `updateUser`
+		 * Written only through `@hyperidle/user`' `insertUser`; `updateUser`
 		 * is deliberately not extended (BA1 has no post-creation belonging
 		 * change — see `resolve-scaffold-specs.ts`'s `user_assistant` case).
 		 */
@@ -85,6 +85,14 @@ export const users = pgTable(
 			onDelete: "set null",
 		}),
 		/** BA9d: set when this user row was materialised by a plugin install. Used for disable/enable/remove cleanup. */
+		/**
+		 * @lore BC5 T2 (F1): a note on an agent — its crash count over the last
+		 * 7 days, counted from its own `user` change rows — or null for a
+		 * healthy row. Written by the session-ended-crashed reaction as an
+		 * `edit_user` call, landing as a `user.changed` change row so whoever
+		 * subscribes to it in reach sees it. Meaningless for a human row.
+		 */
+		health: text("health"),
 	},
 	(table) => [
 		check(
@@ -438,11 +446,11 @@ export const agentWorkIntents = pgTable(
 		index("agent_work_intents_claim_expires_idx").on(table.claimExpiresAt),
 		check(
 			"agent_work_intents_kind_ck",
-			sql`${table.kind} in ('assistant_turn','session_start','knowledge_action','routine_run','task_run','session_resume')`,
+			sql`${table.kind} in ('assistant_turn','session_start','knowledge_action','routine_run','task_run','session_resume','subscription_run')`,
 		),
 		check(
 			"agent_work_intents_source_kind_ck",
-			sql`${table.sourceKind} in ('thread_message','explicit_session_start','knowledge_action','routine_run','task_dispatch_attempt','review_verdict')`,
+			sql`${table.sourceKind} in ('thread_message','explicit_session_start','knowledge_action','routine_run','task_dispatch_attempt','review_verdict','subscription')`,
 		),
 		check(
 			"agent_work_intents_status_ck",
@@ -462,6 +470,7 @@ export const agentWorkIntents = pgTable(
 				or (${table.kind} = 'routine_run' and ${table.sourceKind} = 'routine_run')
 				or (${table.kind} = 'task_run' and ${table.sourceKind} = 'task_dispatch_attempt')
 				or (${table.kind} = 'session_resume' and ${table.sourceKind} = 'review_verdict')
+				or (${table.kind} = 'subscription_run' and ${table.sourceKind} = 'subscription')
 			`,
 		),
 		/**
@@ -851,6 +860,73 @@ export const orgEdges = pgTable(
 	],
 );
 
+// --- Subscriptions and inbox (BC5 T2) ---
+
+/**
+ * @lore BC5 T2: a subscription replaces a routine's trigger row and a
+ * notification's queue row with one shape shared by a person and an agent —
+ * `event | schedule`, never both (`subscriptions_trigger_ck`). A person's
+ * subscription only ever adds an inbox row; an agent's wakes it through the
+ * same intent door a mention uses. `nextRunAt` is written only for a
+ * schedule row (`subscriptions_next_run_ck`) — the clock advances it after
+ * each fire, the same way `routines.next_run_at` worked.
+ */
+export const subscriptions = pgTable(
+	"subscriptions",
+	{
+		id: text("id").primaryKey(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => users.id, { onDelete: "cascade" }),
+		event: text("event"),
+		schedule: text("schedule"),
+		paused: boolean("paused").notNull().default(false),
+		nextRunAt: text("next_run_at"),
+		createdAt: text("created_at").notNull(),
+		updatedAt: text("updated_at").notNull(),
+	},
+	(table) => [
+		index("subscriptions_user_idx").on(table.userId),
+		index("subscriptions_event_idx").on(table.event).where(sql`${table.event} IS NOT NULL`),
+		check("subscriptions_trigger_ck", sql`(${table.event} IS NULL) <> (${table.schedule} IS NULL)`),
+		check(
+			"subscriptions_event_ck",
+			sql`${table.event} IS NULL OR ${table.event} IN (
+				'task.created', 'task.changed',
+				'thread.created', 'thread.message', 'thread.changed',
+				'document.created', 'document.changed',
+				'user.created', 'user.changed'
+			)`,
+		),
+		check(
+			"subscriptions_next_run_ck",
+			sql`${table.nextRunAt} IS NULL OR ${table.schedule} IS NOT NULL`,
+		),
+	],
+);
+
+/**
+ * @lore BC5 T2: a person's half of a subscription firing — a pointer at the
+ * change row they have not yet seen or read, never the change's content
+ * (the UI renders the `changes` row itself). Composite PK: one row per
+ * (user, change), so a re-fire of the same event onto the same change is
+ * `onConflictDoNothing`, not a duplicate.
+ */
+export const inbox = pgTable(
+	"inbox",
+	{
+		userId: text("user_id")
+			.notNull()
+			.references(() => users.id, { onDelete: "cascade" }),
+		changeId: text("change_id")
+			.notNull()
+			.references(() => changes.id, { onDelete: "cascade" }),
+		seenAt: text("seen_at"),
+		readAt: text("read_at"),
+	},
+	(table) => [primaryKey({ columns: [table.userId, table.changeId] })],
+);
+
 // --- Documents ---
 
 /**
@@ -948,7 +1024,7 @@ export const documents = pgTable(
 		index("doc_last_used_idx").on(table.lastUsedAt),
 		check(
 			"doc_parent_kind_ck",
-			sql`${table.parentKind} IS NULL OR ${table.parentKind} IN ('document', 'task', 'thread', 'routine', 'agent')`,
+			sql`${table.parentKind} IS NULL OR ${table.parentKind} IN ('document', 'task', 'thread', 'routine', 'agent', 'subscription')`,
 		),
 		check(
 			"doc_parent_pair_ck",
@@ -1317,6 +1393,14 @@ export type Team = typeof teams.$inferSelect;
 
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
+
+// @lore BC5 T2: subscription and inbox row types, owned by @hyperidle/user
+// alongside User/Team/NewUser above.
+export type Subscription = typeof subscriptions.$inferSelect;
+export type NewSubscription = typeof subscriptions.$inferInsert;
+
+export type InboxRow = typeof inbox.$inferSelect;
+export type NewInboxRow = typeof inbox.$inferInsert;
 
 // @lore AU26 G1: the run-config row types. `AgentRunConfigRow` is the raw
 // table row (carries `agentUserId`); `@hyperidle/agent-run-config`'s

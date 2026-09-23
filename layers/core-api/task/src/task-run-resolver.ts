@@ -9,7 +9,7 @@
  * tables (`taskDispatchAttempts`, `tasks`, `bets`) plus the shared
  * ast-`<userId>` runnability invariant.
  *
- * @lore Mechanism C: `requireRunnableAgent` (`@hyperidle/users`) is injected,
+ * @lore Mechanism C: `requireRunnableAgent` (`@hyperidle/user`) is injected,
  * not statically imported — same shape as `assistant-turn-resolver.ts`'s
  * `AssistantTurnResolverDeps` / `session-start-resolver.ts`'s
  * `SessionStartResolverDeps`. Return type widened to `Promise<User>` in
@@ -48,10 +48,10 @@ export interface TaskRunResolverDeps {
 	 */
 	getAgentIdentity(db: HyperIdleDb, agentId: string): Promise<string | null>;
 	/**
-	 * AU21 §9 Increment 12 (Decision H3) — optional: `@hyperidle/org`'s
+	 * AU21 §9 Increment 12 (Decision H3) — optional: `@hyperidle/user`'s
 	 * `getTeam`, injected (Mechanism C — `@hyperidle/work`'s `package.json`
 	 * depends only on `@hyperidle/db` + framework packages, never
-	 * `@hyperidle/org`). Absent at a call site not yet wired to bake context
+	 * `@hyperidle/user`). Absent at a call site not yet wired to bake context
 	 * (composition-root wiring is a later wave) — the resolver falls back to
 	 * baking no `contextBundle` rather than throwing, matching every existing
 	 * caller's current (context-free) behavior unchanged.

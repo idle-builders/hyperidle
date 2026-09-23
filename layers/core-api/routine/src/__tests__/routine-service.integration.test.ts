@@ -81,6 +81,7 @@ describe("routine-service", () => {
 					ownerAgentId: "agent-1",
 					triggerType: "heartbeat",
 				},
+				undefined,
 				{ onConflictDoNothing: true },
 			);
 
@@ -92,6 +93,7 @@ describe("routine-service", () => {
 					ownerAgentId: "agent-1",
 					triggerType: "heartbeat",
 				},
+				undefined,
 				{ onConflictDoNothing: true },
 			);
 

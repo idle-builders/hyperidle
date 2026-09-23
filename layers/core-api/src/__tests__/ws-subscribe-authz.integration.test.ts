@@ -24,7 +24,7 @@ import {
 } from "@hyperidle/db";
 import { getDocument } from "@hyperidle/document";
 import { findThread } from "@hyperidle/thread";
-import { findUser, listUsers } from "@hyperidle/users";
+import { findUser, listUsers } from "@hyperidle/user";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 import { type WsClient, WsConnectionHub } from "../ws-connection-hub.js";

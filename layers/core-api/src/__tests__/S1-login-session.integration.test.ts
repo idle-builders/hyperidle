@@ -17,7 +17,7 @@
  */
 
 import { type HyperIdleDb, users } from "@hyperidle/db";
-import { createLoginSession, revokeLoginSession, validateBearerToken } from "@hyperidle/users";
+import { createLoginSession, revokeLoginSession, validateBearerToken } from "@hyperidle/user";
 import { afterEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 

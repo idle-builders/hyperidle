@@ -46,7 +46,7 @@ import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
 import * as work from "@hyperidle/task";
 import { findThread } from "@hyperidle/thread";
-import { requireRunnableAgent } from "@hyperidle/users";
+import { requireRunnableAgent } from "@hyperidle/user";
 import { eq, sql } from "drizzle-orm";
 import { vi } from "vitest";
 import { makeDocumentReadPorts } from "../../__testing__/document-read-test-ports.js";

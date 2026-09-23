@@ -27,8 +27,7 @@ import type {
 import type { HyperIdleDb } from "@hyperidle/db";
 import { AGENT_CATEGORIES } from "@hyperidle/domain-model";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
-import { getTeam } from "@hyperidle/org";
-import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";
+import { findUser, getTeam, insertUser, listUsers, updateUser } from "@hyperidle/user";
 import { Hono } from "hono";
 import z from "zod";
 import type { HarnessCapabilityReader } from "../services/harness-capability-reader.js";

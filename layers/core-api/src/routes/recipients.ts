@@ -19,7 +19,7 @@
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
-import { listUsers } from "@hyperidle/users";
+import { listUsers } from "@hyperidle/user";
 import { Hono } from "hono";
 
 export interface RecipientRow {

@@ -57,10 +57,10 @@ describe("undeclared direction", () => {
 	it("reports a workspace @hyperidle/* import — knip waves these through, this gate must not", () => {
 		const result = computePackageDivergences(
 			facts({
-				imported: new Map([["@hyperidle/users", ["layers/example/src/__tests__/a.test.ts"]]]),
+				imported: new Map([["@hyperidle/user", ["layers/example/src/__tests__/a.test.ts"]]]),
 			}),
 		);
-		expect(result.map((d) => d.dependency)).toEqual(["@hyperidle/users"]);
+		expect(result.map((d) => d.dependency)).toEqual(["@hyperidle/user"]);
 	});
 
 	it("does not excuse an import just because some other package declares it", () => {
