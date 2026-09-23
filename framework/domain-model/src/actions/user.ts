@@ -235,15 +235,6 @@ export const ConnectionViewSchema = z.object({
 });
 export type ConnectionView = z.infer<typeof ConnectionViewSchema>;
 
-/** Mirrors `InheritedConnectionFact` — a service the machine already holds auth for. */
-export const InheritedReachViewSchema = z.object({
-	name: z.string(),
-	kind: z.enum(["mcp-server", "cli"]),
-	source: z.string(),
-	health: z.enum([...CONNECTION_HEALTH, "unknown"]),
-});
-export type InheritedReachView = z.infer<typeof InheritedReachViewSchema>;
-
 const FolderResourceRefSchema = z.discriminatedUnion("kind", [
 	z.object({ kind: z.literal("code"), repo: z.string().min(1), branch: z.string().min(1) }),
 	z.object({ kind: z.literal("doc_set"), folder: z.string().min(1) }),
@@ -365,7 +356,10 @@ export const UserViewSchema = z.object({
 	connections: z
 		.object({
 			connections: z.array(ConnectionViewSchema),
-			inherited: z.array(InheritedReachViewSchema),
+			/** Mirrors `ServiceConnectionView` too — the connections door
+			 * (`projectFacts`) already projects inherited facts into the same
+			 * held-row shape, never a separate one. */
+			inherited: z.array(ConnectionViewSchema),
 		})
 		.nullable(),
 	/** Self view; install-wide values underneath. */

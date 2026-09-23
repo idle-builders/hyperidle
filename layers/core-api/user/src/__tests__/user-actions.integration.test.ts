@@ -17,12 +17,13 @@ import {
 } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { createDocumentActions, type DocumentActionsDeps } from "@hyperidle/document";
-import type {
-	ActionResult,
-	EditUserInput,
-	OpenUserInput,
-	SearchUsersInput,
-	UserView,
+import {
+	type ActionResult,
+	type EditUserInput,
+	type OpenUserInput,
+	type SearchUsersInput,
+	type UserView,
+	UserViewSchema,
 } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
@@ -621,5 +622,43 @@ describe("edit_user — every DB-dependent problem code", () => {
 		expect(result.ok).toBe(false);
 		if (result.ok) return;
 		expect(result.problems[0]?.code).toBe("unknown_edge");
+	});
+});
+
+describe("open_user — the declared output shape matches what the connections door returns", () => {
+	test("an install with inherited connections parses against UserViewSchema", async ({ db }) => {
+		await seedFounder(db);
+		// The real connections door (`agent-orchestration/connections`'s
+		// `projectFacts`) projects inherited rows into the same
+		// `ServiceConnectionView` shape (id/service/via/authSource/health/
+		// removable) held connections use — see `listConnectionsForUser` and
+		// `SettingsConnections.test.tsx`'s fixture. This fake stands in for
+		// that door with a row shaped exactly like the real one.
+		const deps: UserActionsDeps = {
+			...buildDeps(),
+			connections: {
+				...buildDeps().connections,
+				list: async () => ({
+					connections: [],
+					inherited: [
+						{
+							id: "inherited:claude-code:github",
+							service: "github",
+							via: "claude-code · github",
+							authSource: "inherited",
+							health: "working",
+							removable: false,
+						},
+					],
+				}),
+			},
+		};
+		const { openUser } = actionsFor(deps);
+		const result = await openUser(ctxFor(db, "u-founder"), {});
+		expect(result.ok).toBe(true);
+		if (!result.ok) return;
+
+		const parsed = UserViewSchema.safeParse(result.data);
+		expect(parsed.success).toBe(true);
 	});
 });

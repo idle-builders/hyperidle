@@ -24,7 +24,6 @@ import type {
 	ConnectionAuthSource,
 	ConnectionHealth,
 	ConnectionView,
-	InheritedReachView,
 } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useState } from "react";
 // hearth-internal-padding
@@ -43,39 +42,6 @@ import {
 	StatusChip,
 } from "../ds";
 import { call } from "../services/call.js";
-
-/**
- * @lore BC5 T19: `InheritedReachView` (`name/kind/source/health`, no id) is
- * the shape domain-model's `open_user` schema still declares for the
- * inherited group — but the connections door itself (`agent-orchestration/
- * connections`'s `projectFacts`, folded in at AU44 batch2) already projects
- * inherited facts into `ServiceConnectionView` rows before they reach the
- * wire: the same `id/service/via/authSource/health/removable` shape the held
- * groups use. `openUser`'s response is cast through, not re-validated
- * (`user-actions.ts`'s `connections` assembly), so the JSON a real caller
- * gets is a `ConnectionView`, not the declared `InheritedReachView` — mapping
- * through `.name`/`.kind`/`.source` reads undefined on every row and crashed
- * the health sort (`a.service.localeCompare` on an undefined `service`) in
- * the packaged app. Read the row through its real fields until domain-model's
- * schema is corrected to match its own door.
- */
-function inheritedAsConnection(reach: InheritedReachView): ConnectionView {
-	// Single audited read of the real wire shape (see the @lore above) — not
-	// a laundering `as unknown as` cast: `wire` is read defensively field by
-	// field, so a row that really is `name/kind/source/health`-shaped (the
-	// declared type, should the door ever go back to it) degrades to an
-	// honest empty row instead of crashing the sort.
-	const wire: Record<string, unknown> = reach;
-	const service = typeof wire.service === "string" ? wire.service : "";
-	return {
-		id: typeof wire.id === "string" ? wire.id : service,
-		service,
-		via: typeof wire.via === "string" ? wire.via : "",
-		authSource: "inherited",
-		health: wire.health === "needs-attention" ? "needs-attention" : "working",
-		removable: false,
-	};
-}
 
 // ---------------------------------------------------------------------------
 // Mappers
@@ -411,7 +377,7 @@ export function SettingsConnections(): JSX.Element {
 			setUserId(result.data.user.id);
 			setConnections([
 				...result.data.connections.connections,
-				...result.data.connections.inherited.map(inheritedAsConnection),
+				...result.data.connections.inherited,
 			]);
 		} catch {
 			setError("failed");
