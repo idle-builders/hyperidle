@@ -942,7 +942,7 @@ interface AssembleAgentContextInput {
 	readonly agentRole: string;
 	readonly teamId: string | null;
 	/** True for a subscription-fired session — no task/bet context to read. */
-	readonly isRoutine: boolean;
+	readonly taskFree: boolean;
 	readonly sourceKind: AgentSessionSourceKind | null;
 	readonly sourceId: string | null;
 	readonly sourceCorrelation: AgentSessionSourceCorrelation | null;

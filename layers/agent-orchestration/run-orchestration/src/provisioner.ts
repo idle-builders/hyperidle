@@ -417,7 +417,7 @@ interface SessionLifecycleContextAssembly {
 		readonly agentRole: string;
 		readonly teamId: string | null;
 		/** True for a subscription-fired session — no task/bet context to read. */
-		readonly isRoutine: boolean;
+		readonly taskFree: boolean;
 		readonly sourceKind: AgentSessionSourceKind | null;
 		readonly sourceId: string | null;
 		readonly sourceCorrelation: AgentSessionSourceCorrelation | null;
@@ -1264,7 +1264,7 @@ async function admitSession(
 			agentId: params.agentId,
 			agentRole,
 			teamId: params.productId,
-			isRoutine: params.contextBundle?.kind === "subscription",
+			taskFree: params.contextBundle?.kind === "subscription",
 			sourceKind: params.requestContext?.sourceKind ?? null,
 			sourceId: params.requestContext?.sourceId ?? null,
 			sourceCorrelation: params.requestContext?.sourceCorrelation ?? null,
@@ -1278,7 +1278,7 @@ async function admitSession(
 			agentId: params.agentId,
 			agentRole,
 			teamId: params.productId,
-			isRoutine: params.contextBundle?.kind === "subscription",
+			taskFree: params.contextBundle?.kind === "subscription",
 			sourceKind: params.requestContext.sourceKind,
 			sourceId: params.requestContext.sourceId,
 			sourceCorrelation: params.requestContext.sourceCorrelation,

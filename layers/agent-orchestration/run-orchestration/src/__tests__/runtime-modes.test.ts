@@ -28,7 +28,7 @@ describe("runSession modes", () => {
 			agentId: "agent-1",
 			agentRole: "builder",
 			teamId: null,
-			isRoutine: false,
+			taskFree: false,
 			sourceKind: null,
 			sourceId: null,
 			sourceCorrelation: null,

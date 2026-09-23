@@ -140,7 +140,7 @@ describe("assembleAgentContext — contextBundle consumption (Increment 12 Wave 
 			agentId: "agent-i12-c1",
 			agentRole: "builder",
 			teamId: "team-i12-c1",
-			isRoutine: false,
+			taskFree: false,
 			sourceKind: null,
 			sourceId: null,
 			sourceCorrelation: null,
