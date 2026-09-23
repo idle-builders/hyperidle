@@ -1,14 +1,12 @@
-// @lore U1: `ProductListResponse` → `TeamListResponse`.
-import type { TeamListResponse } from "@hyperidle/domain-model";
 import { type JSX, useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
-import { apiFetch } from "../services/api-fetch.js";
+import { call } from "../services/call.js";
 
 /**
- * @lore P4: Updated to check both human user existence (GET /api/auth/me) AND
- * teams existence (GET /api/teams) in parallel. Redirects to /setup if
- * either check fails. This replaces the P3 single-check logic that only checked
- * products and redirected to /onboarding (which no longer exists).
+ * @lore BC5 T10: the door swap — `search_users({ kind: "human" })` replaces
+ * the `GET /api/auth/me` + `GET /api/teams` pair (architecture.md §7). A
+ * human row with a team means setup is done; every user is in a team
+ * (D-e3zm2j), so the row's own `team` field is the one check.
  *
  * @lore N5: On API failure (network error, auth timing, etc.), default to
  * /setup rather than /conversations. On a fresh install any failure means the
@@ -21,22 +19,13 @@ export function FirstRunRedirect(): JSX.Element {
 	useEffect(() => {
 		let cancelled = false;
 
-		// P4: Run both checks in parallel (architecture Q3 decision).
-		Promise.all([
-			apiFetch("/api/auth/me").then((res) => res.ok),
-			apiFetch("/api/teams")
-				.then((res) => {
-					if (!res.ok) return false;
-					// @lore U1: TeamListResponse uses `teams` array.
-					return (res.json() as Promise<TeamListResponse>).then((data) => data.teams.length > 0);
-				})
-				.catch(() => false),
-		])
-			.then(([hasUser, hasTeams]) => {
+		call("search_users", { kind: "human" })
+			.then((result) => {
 				if (cancelled) return;
+				const done = result.ok && result.data.some((user) => user.team !== null);
 				// @lore R2: redirect to /work (was /work/portfolio, was /conversations).
 				// AD9: unconditional → /work; WorkOverview handles 1-team → team-page short-circuit.
-				setTarget(hasUser && hasTeams ? "/work" : "/setup");
+				setTarget(done ? "/work" : "/setup");
 			})
 			.catch(() => {
 				// @lore P4: On any API failure, default to /setup (not /conversations).
