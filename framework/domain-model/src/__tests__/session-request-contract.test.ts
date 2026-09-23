@@ -54,6 +54,17 @@ describe("agent session request contract", () => {
 				idempotencyKey: "knowledge:ki-1:review",
 				sourceCorrelation: { knowledgeItemId: "ki-1", action: "review", teamId: "team-1" },
 			},
+			{
+				// BC5 T6: additive alongside "routine" — the cut-over block retires it.
+				sourceKind: "subscription",
+				sourceId: "sub-1:change-1",
+				streamId: "subscription:sub-1",
+				agentId: "agent-1",
+				teamId: "team-1",
+				promptMode: "subscription",
+				idempotencyKey: "subscription:sub-1:change-1",
+				sourceCorrelation: { subscriptionId: "sub-1", changeId: "change-1", teamId: "team-1" },
+			},
 		];
 
 		for (const example of examples) {

@@ -19,7 +19,9 @@ import {
 } from "../work-intent.js";
 
 describe("AGENT_WORK_INTENT_KINDS canonical runtime kind list", () => {
-	it("contains exactly the six canonical kinds", () => {
+	// BC5 T6: `subscription_run` added, additive, alongside `routine_run` — the
+	// cut-over block retires `routine_run`, growing the union to seven kinds.
+	it("contains exactly the seven canonical kinds", () => {
 		expect(AGENT_WORK_INTENT_KINDS).toEqual([
 			"thread_turn",
 			"session_start",
@@ -27,6 +29,7 @@ describe("AGENT_WORK_INTENT_KINDS canonical runtime kind list", () => {
 			"routine_run",
 			"task_run",
 			"session_resume",
+			"subscription_run",
 		]);
 	});
 
@@ -85,6 +88,14 @@ describe("AgentWorkIntentRecorderInput widened six-kind union", () => {
 					threadId: "thread-1",
 					agentId: "agent-1",
 				},
+			},
+			{
+				// BC5 T6: a subscription's wake — sourceKind is "subscription", not
+				// "subscription_run", matching the DB's kind/source-kind pairing.
+				kind: "subscription_run",
+				sourceKind: "subscription",
+				sourceId: "s7",
+				idempotencyKey: "k7",
 			},
 		];
 		expect(inputs.map((i) => i.kind)).toEqual(AGENT_WORK_INTENT_KINDS);

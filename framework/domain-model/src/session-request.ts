@@ -12,6 +12,11 @@ export const AGENT_SESSION_SOURCE_KINDS = [
 	"routine",
 	"knowledge",
 	/**
+	 * @lore BC5 T6: a subscription's wake — additive alongside `routine`; the
+	 * cut-over block retires `routine`.
+	 */
+	"subscription",
+	/**
 	 * @lore BA2: a human's verdict on the review an agent filed. The session it
 	 * asks for is not a new piece of work — it returns an agent to a session it
 	 * already had, so it composes no prompt and assembles no context.
@@ -24,6 +29,8 @@ export const AGENT_SESSION_PROMPT_MODES = [
 	"conversation",
 	"routine",
 	"knowledge",
+	/** @lore BC5 T6: additive alongside `routine`; the cut-over block retires `routine`. */
+	"subscription",
 	/**
 	 * @lore BA2: not a prompt at all — the verdict arrives as a user turn in a session
 	 * the harness replays for itself. Named so the request row stays honest about
@@ -116,6 +123,24 @@ export const knowledgeSessionRequestInputSchema = baseInput.extend({
 });
 
 /**
+ * @lore BC5 T6: the request a subscription's wake starts — additive alongside
+ * `routineSessionRequestInputSchema`; the cut-over block retires that one.
+ * `changeId` is absent for a schedule-fired wake (no change caused it).
+ */
+export const subscriptionSessionRequestInputSchema = baseInput.extend({
+	sourceKind: z.literal("subscription"),
+	promptMode: z.literal("subscription"),
+	taskId: z.null().optional(),
+	// The subscriber's effective team — absent for a factory-wide agent.
+	teamId: z.string().min(1).optional(),
+	sourceCorrelation: z.object({
+		subscriptionId: z.string().min(1),
+		changeId: z.string().min(1).optional(),
+		teamId: z.string().min(1).optional(),
+	}),
+});
+
+/**
  * @lore BA2: the request that returns an agent to its own session carrying a verdict.
  *
  * It has no `taskId` requirement and no context to assemble — everything it needs
@@ -139,6 +164,7 @@ export const agentSessionRequestInputSchema = z.discriminatedUnion("sourceKind",
 	assistantSessionRequestInputSchema,
 	routineSessionRequestInputSchema,
 	knowledgeSessionRequestInputSchema,
+	subscriptionSessionRequestInputSchema,
 	reviewResumeSessionRequestInputSchema,
 ]);
 

@@ -19,6 +19,7 @@
  * is a structural superset of `HyperIdleDb`).
  */
 
+import type { ChangeRow } from "./actions/user.js";
 import type { AgentSessionSourceCorrelation, AgentSessionSourceKind } from "./session-request.js";
 
 /**
@@ -524,6 +525,27 @@ export type BakedContextBundle =
 			readonly triggerEvent?: RoutineTriggerEvent;
 	  }
 	| {
+			/**
+			 * BC5 T6: a subscription's wake — additive alongside `kind:"routine"`;
+			 * the cut-over block retires that member. `change` is the row that
+			 * fired an event subscription, absent for a schedule tick.
+			 */
+			readonly kind: "subscription";
+			readonly subscription: {
+				readonly id: string;
+				readonly event: string | null;
+				readonly schedule: string | null;
+			};
+			/** The subscription's own instruction — the `prompt` document's body, or null when it carries none. */
+			readonly prompt: string | null;
+			/** The change that woke this subscription, or null for a schedule tick. */
+			readonly change: ChangeRow | null;
+			readonly agent: { readonly id: string; readonly name: string; readonly role: string };
+			/** The subscriber's effective team, or null for a factory-wide agent. */
+			readonly team: { readonly id: string; readonly name: string } | null;
+			readonly documents: readonly BakedContextDocument[];
+	  }
+	| {
 			readonly kind: "knowledge";
 			readonly item: {
 				readonly id: string;
@@ -616,6 +638,21 @@ export type AgentWorkIntentRecorderInput =
 			readonly requestedBy?: string;
 			readonly idempotencyKey: string;
 			readonly resume: BakedSessionResumeRequest;
+	  }
+	| {
+			/**
+			 * BC5 T6: a subscription's wake — additive alongside `routine_run`; the
+			 * cut-over block retires that kind. `sourceKind` is `"subscription"`,
+			 * not `"subscription_run"` — matching `agent_work_intents_kind_source_
+			 * compat_ck`'s pairing exactly.
+			 */
+			readonly kind: "subscription_run";
+			readonly sourceKind: "subscription";
+			readonly sourceId: string;
+			readonly requestedBy?: string;
+			readonly idempotencyKey: string;
+			/** See `BakedWorkIntentRequest`. Populated at emit time by the user module's subscription fire. */
+			readonly bakedRequest?: BakedWorkIntentRequest;
 	  };
 
 /**
@@ -637,6 +674,7 @@ export const AGENT_WORK_INTENT_KINDS = [
 	"routine_run",
 	"task_run",
 	"session_resume",
+	"subscription_run",
 ] as const;
 
 export type AgentWorkIntentKind = (typeof AGENT_WORK_INTENT_KINDS)[number];

@@ -354,6 +354,7 @@ export {
 	assistantSessionRequestInputSchema,
 	knowledgeSessionRequestInputSchema,
 	routineSessionRequestInputSchema,
+	subscriptionSessionRequestInputSchema,
 	taskSessionRequestInputSchema,
 } from "./session-request.js";
 export type {
