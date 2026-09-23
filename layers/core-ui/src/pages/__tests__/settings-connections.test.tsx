@@ -5,14 +5,11 @@
  * undefined (reading 'localeCompare')` then `[ErrorBoundary] caught render
  * error`, opening Settings on the demo database.
  *
- * @lore BC5 T19: the connections door (`agent-orchestration/connections`'s
- * `projectFacts`, folded in at AU44 batch2) already returns the inherited
- * group as `ServiceConnectionView` rows — the same `id/service/via/
- * authSource/health/removable` shape the held groups use — not the
- * `name/kind/source/health` shape domain-model's `InheritedReachView` type
- * still declares. This fixture is that real wire shape, not the declared
- * one: 14 inherited rows, some `needs-attention`, no held connections, no
- * documents.
+ * @lore The connections door (`agent-orchestration/connections`'s
+ * `projectFacts`) returns the inherited group as `ServiceConnectionView`
+ * rows — the same `id/service/via/authSource/health/removable` shape the
+ * held groups use. This fixture is that real wire shape: 14 inherited rows,
+ * some `needs-attention`, no held connections, no documents.
  */
 
 import { render, screen } from "@testing-library/react";
