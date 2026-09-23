@@ -179,11 +179,6 @@ const LEGACY_ROUTES: readonly string[] = [
 	"layers/core-api/src/routes/filesystems.ts|POST /:id/injections",
 	"layers/core-api/src/routes/harnesses.ts|GET /",
 	"layers/core-api/src/routes/harnesses.ts|POST /redetect",
-	"layers/core-api/src/routes/notifications-routes.ts|GET /inbox",
-	"layers/core-api/src/routes/notifications-routes.ts|POST /seen",
-	"layers/core-api/src/routes/notifications-routes.ts|POST /:id/read",
-	"layers/core-api/src/routes/notifications-routes.ts|GET /mute",
-	"layers/core-api/src/routes/notifications-routes.ts|PUT /mute/:key",
 	"layers/core-api/src/routes/org.ts|GET /",
 	"layers/core-api/src/routes/org.ts|PUT /edges",
 	"layers/core-api/src/routes/org.ts|DELETE /edges/:id",
@@ -192,13 +187,6 @@ const LEGACY_ROUTES: readonly string[] = [
 	"layers/core-api/src/routes/org.ts|POST /teams",
 	"layers/core-api/src/routes/org.ts|POST /scaffold-request",
 	"layers/core-api/src/routes/recipients.ts|GET /",
-	"layers/core-api/src/routes/routines-routes.ts|GET /event-types",
-	"layers/core-api/src/routes/routines-routes.ts|POST /",
-	"layers/core-api/src/routes/routines-routes.ts|GET /",
-	"layers/core-api/src/routes/routines-routes.ts|DELETE /:id",
-	"layers/core-api/src/routes/routines-routes.ts|GET /:id",
-	"layers/core-api/src/routes/routines-routes.ts|PATCH /:id",
-	"layers/core-api/src/routes/routines-routes.ts|POST /:id/trigger",
 	"layers/core-api/src/routes/search.ts|GET /",
 	"layers/core-api/src/routes/settings-agent-behavior.ts|GET /config",
 	"layers/core-api/src/routes/settings-agent-behavior.ts|PATCH /config/:id",
@@ -222,36 +210,29 @@ const LEGACY_ROUTES: readonly string[] = [
  * `log_task` are deleted, plus `return_status` (the tool twin of the
  * `POST /mcp/:token/return-status` plumbing route — never an object action).
  */
-const LEGACY_TOOLS: readonly string[] = [
-	"add_agent",
-	"create_routine",
-	"create_team",
-	"update_routine",
-	"return_status",
-];
+const LEGACY_TOOLS: readonly string[] = ["add_agent", "create_team", "return_status"];
 
 /**
  * Every `EVENT_TYPES` member that is neither one of the nine object events
  * nor one of the eight platform events. Re-derived after the dead-event
  * deletion on main removed five of these entirely (`thread_archived`,
  * `dependency_met`, `knowledge_accessed`, `work_selection_requested`,
- * `routine_fired`), so they shrank ahead of this item. `task_state_changed` is the pre-action
- * task-changed shape, still emitted from `edit_task` until subscriptions
- * replace it.
+ * `routine_fired`), so they shrank ahead of this item.
+ *
+ * @lore BC5 T7b: `task_state_changed`, `thread_created`,
+ * `thread_message_appended`, `thread_resolved`, `thread_reopened` and
+ * `notification` are gone from `EVENT_TYPES` itself now — the routine
+ * matcher was their last listener; the nine object events carry the same
+ * change. Six rows shrank ahead of this comment for the same reason the
+ * five before them did.
  */
 const LEGACY_EVENTS: readonly string[] = [
-	"task_state_changed",
 	"session_started",
 	"session_ended",
 	"session_not_returned",
-	"thread_created",
-	"thread_message_appended",
-	"thread_resolved",
-	"thread_reopened",
 	"team_created",
 	"agent_added",
 	"user_created",
-	"notification",
 ];
 
 /** Path to the event-bus vocabulary this rule's clause 4 reads. */

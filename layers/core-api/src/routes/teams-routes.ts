@@ -24,8 +24,6 @@ import type {
 	CreateTeamRequest,
 	CreateTeamResponse,
 	RosterMember,
-	RoutineCardSummary,
-	RoutineRunOutcome,
 	TaskCardSummary,
 	TeamDetail,
 	TeamListItem,
@@ -33,8 +31,6 @@ import type {
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import type { EventBus } from "@hyperidle/event-bus";
 import { persistScaffoldedAgents, resolveAgentScaffoldSpecs } from "@hyperidle/org";
-import * as routineService from "@hyperidle/routine";
-import { humanizeSchedule } from "@hyperidle/routine";
 import * as work from "@hyperidle/task";
 import {
 	type AgentIdentityPort,
@@ -52,13 +48,6 @@ import type { SendMessageRunFn } from "../actions/action.js";
 import { buildSeamBackedAgentRunConfigWriter } from "../services/agent-orchestration-port-composition.js";
 import type { HarnessCapabilityReader } from "../services/harness-capability-reader.js";
 import { resolveHarnessAvailable } from "./agent-profile.js";
-
-/** Inlined from @hyperidle/presentation-format (server copy removed, row 18). */
-function deriveInitials(name: string): string {
-	const trimmed = name.trim();
-	if (trimmed.length === 0) return "?";
-	return trimmed.slice(0, 2).toUpperCase();
-}
 
 /**
  * Derive team status from team_members and active bet states.
@@ -203,16 +192,11 @@ export function createTeamRoutes(
 
 				const agentCount = teamAgentRows.length;
 
-				// BA1 D5: a routine has no team_id — its team is derived from its
-				// owner agent. `routine-service.ts`'s `@lore AU13 §A2/A9` forbids a
-				// foreign join inside the routine service, so this route resolves
-				// the team's agent ids first and passes them in.
-				// AA2: exclude soft-deleted (listRoutines' default).
-				const routineCount = (
-					await routineService.listRoutines(db, {
-						ownerAgentIds: teamAgentRows.map((agent) => agent.id),
-					})
-				).length;
+				// @lore BC5 T7b: the `routines` table is dropped (migration 0089) —
+				// a routine is a subscription now, and `TeamDetail.routineCount`
+				// (a routine-specific counter) has no replacement in this item;
+				// T11 deletes this route and the field with it.
+				const routineCount = 0;
 
 				return {
 					id: team.id,
@@ -598,51 +582,10 @@ export function createTeamRoutes(
 				return bRow.createdAt.localeCompare(aRow.createdAt);
 			});
 
-			// BA1 D5: a routine has no team_id — resolve the team's agent ids
-			// first (already loaded as the roster's `agentIds` above) and pass
-			// them in, honouring `routine-service.ts`'s `@lore AU13 §A2/A9`
-			// (the routine service imports zero foreign tables).
-			// AA1: Load routines for this team (AA2: exclude soft-deleted)
-			const routineRows = await routineService.listRoutines(db, { ownerAgentIds: agentIds });
-
-			// Build agent name map for routine owners
-			const ownerIds = [
-				...new Set(routineRows.map((r) => r.ownerAgentId).filter(Boolean)),
-			] as string[];
-			const ownerRows = ownerIds.length > 0 ? await listUsers(db, { ids: ownerIds }) : [];
-			const ownerMap = new Map(ownerRows.map((u) => [u.id, u]));
-
-			// Fetch latest routine_run for each routine to get lastRunOutcome
-			const teamRoutines: RoutineCardSummary[] = await Promise.all(
-				routineRows.map(async (r) => {
-					const [latestRun] = await routineService.listRoutineRuns(db, {
-						routineId: r.id,
-						limit: 1,
-					});
-
-					const owner = ownerMap.get(r.ownerAgentId);
-					const agentName = owner?.name ?? r.ownerAgentId;
-
-					return {
-						id: r.id,
-						name: r.name,
-						state: (r.state ?? "active") as RoutineCardSummary["state"],
-						scheduleLabel: humanizeSchedule(
-							r.triggerType,
-							r.triggerConfig ?? null,
-							r.eventType ?? null,
-						),
-						agentName,
-						agentInitials: deriveInitials(agentName),
-						lastRunAt: r.lastRunAt ?? null,
-						lastRunOutcome: (latestRun?.outcome ?? null) as RoutineRunOutcome | null,
-						nextRunAt: r.nextRunAt ?? null,
-					};
-				}),
-			);
-
-			// Sort routines by name asc
-			teamRoutines.sort((a, b) => a.name.localeCompare(b.name));
+			// @lore BC5 T7b: the `routines` table is dropped (migration 0089) — a
+			// routine is a subscription now, and `TeamDetail.routines` (the
+			// routine-specific card list) has no replacement in this item; T11
+			// deletes this route and the field with it.
 
 			// 6. Derive team status (BB1: tasksInProgress count = active root tasks)
 			const teamStatus = deriveTeamStatus(
@@ -673,7 +616,6 @@ export function createTeamRoutes(
 					capacity: team.capacity,
 				},
 				tasksInProgress,
-				routines: teamRoutines,
 			};
 
 			return c.json(detail);
