@@ -294,6 +294,31 @@ function mockTreeAndPatch(
 						: { ok: false, problems: patchResponse.problems ?? [] },
 			};
 		}
+		if (url.includes("/api/actions/search_users")) {
+			// @lore BC5 T9: useAgents now calls `search_users({ kind: "ai" })`
+			// through `call()`, which POSTs here — not the old `GET /api/agents`.
+			return {
+				ok: true,
+				json: async () => ({
+					ok: true,
+					data: agents.map((a) => ({
+						id: a.id,
+						kind: "ai",
+						name: a.name,
+						role: a.role,
+						status: "active",
+						email: null,
+						avatarUrl: null,
+						createdAt: "2026-01-01T00:00:00.000Z",
+						agentCategory: "team",
+						ownerUserId: null,
+						health: null,
+						team: null,
+						edges: [],
+					})),
+				}),
+			};
+		}
 		if (url.includes("/api/agents")) {
 			return { ok: true, json: async () => agents };
 		}

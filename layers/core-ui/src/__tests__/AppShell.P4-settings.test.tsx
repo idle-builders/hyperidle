@@ -44,8 +44,49 @@ describe("AppShell — P4 Settings overlay", () => {
 		// W3: URL-aware mock so SettingsOrgChart (/api/org) doesn't crash.
 		// X3: Also mock /api/agents so SettingsAgents doesn't break the page.
 		// AH2: Also mock /api/harnesses so SettingsAgents harness fetch doesn't error.
+		// @lore BC5 T9: SettingsProfile/SettingsOrgChart/SettingsAgents now call
+		// `search_users`/`open_user`/`edit_user` through `call()`, which POSTs
+		// `/api/actions/<name>` — the same `apiFetch`/`fetch` this mock already
+		// intercepts. Route those three by URL and return a real `ActionResult`
+		// shape (`{ ok, data }`), not the old kitchen-sink fallback blob below.
 		global.fetch = vi.fn().mockImplementation((url: unknown) => {
 			const urlStr = typeof url === "string" ? url : String(url);
+			if (urlStr.includes("/api/actions/search_users")) {
+				return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true, data: [] }) });
+			}
+			if (urlStr.includes("/api/actions/open_user")) {
+				return Promise.resolve({
+					ok: true,
+					json: () =>
+						Promise.resolve({
+							ok: true,
+							data: {
+								user: {
+									id: "u-founder",
+									kind: "human",
+									name: "Test Founder",
+									role: "founder",
+									status: "active",
+									email: "test@example.com",
+									avatarUrl: null,
+									team: null,
+									edges: [],
+								},
+								runsOn: [],
+								runConfig: null,
+								documentIds: [],
+								folders: [],
+								subscriptions: [],
+								connections: null,
+								behaviour: null,
+								inbox: null,
+							},
+						}),
+				});
+			}
+			if (urlStr.includes("/api/actions/edit_user")) {
+				return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true, data: {} }) });
+			}
 			if (urlStr.includes("/api/org")) {
 				return Promise.resolve({
 					ok: true,

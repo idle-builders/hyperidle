@@ -85,16 +85,29 @@ function renderShellAt(initialPath: string): void {
 
 const STUB_USER = { id: "u-founder-test", name: "Founder", email: "", avatarUrl: null };
 
+/** `open_user({})`'s door result for STUB_USER — `useCurrentUser` reads `data.user`. */
+const OPEN_USER_RESULT = {
+	ok: true,
+	data: {
+		user: { ...STUB_USER, team: null },
+		runsOn: [],
+		runConfig: null,
+		documentIds: [],
+		folders: [],
+		subscriptions: [],
+		connections: null,
+		behaviour: null,
+		inbox: null,
+	},
+};
+
 function stubFetchOk(rows: MockListRow[]): void {
 	callMock.mockImplementation(async (action: string) => {
 		if (action === "search_threads") return { ok: true, data: rows };
+		if (action === "open_user") return OPEN_USER_RESULT;
 		return { ok: true, data: [] };
 	});
-	global.fetch = vi.fn(async (input: RequestInfo | URL) => {
-		const url = typeof input === "string" ? input : input.toString();
-		if (url.includes("/api/auth/me")) {
-			return { ok: true, json: async () => STUB_USER } as Response;
-		}
+	global.fetch = vi.fn(async () => {
 		return { ok: true, json: async () => ({}) } as Response;
 	}) as unknown as typeof fetch;
 }
@@ -146,11 +159,7 @@ describe("Conversations page — L10 filter wiring (via AppShell OutletContext)"
 	});
 
 	function stubFetchAuthOnly(): void {
-		global.fetch = vi.fn(async (input: RequestInfo | URL) => {
-			const url = typeof input === "string" ? input : input.toString();
-			if (url.includes("/api/auth/me")) {
-				return { ok: true, json: async () => STUB_USER } as Response;
-			}
+		global.fetch = vi.fn(async () => {
 			return { ok: true, json: async () => ({}) } as Response;
 		}) as unknown as typeof fetch;
 	}
@@ -161,6 +170,7 @@ describe("Conversations page — L10 filter wiring (via AppShell OutletContext)"
 			if (action === "search_threads") {
 				return { ok: false, problems: [{ code: "boom", message: "boom", path: "" }] };
 			}
+			if (action === "open_user") return OPEN_USER_RESULT;
 			return { ok: true, data: [] };
 		});
 		renderShellAt("/conversations");
@@ -174,6 +184,7 @@ describe("Conversations page — L10 filter wiring (via AppShell OutletContext)"
 			if (action === "search_threads") {
 				return { ok: false, problems: [{ code: "boom", message: "boom", path: "" }] };
 			}
+			if (action === "open_user") return OPEN_USER_RESULT;
 			return { ok: true, data: [] };
 		});
 		renderShellAt("/conversations");
@@ -191,6 +202,7 @@ describe("Conversations page — L10 filter wiring (via AppShell OutletContext)"
 		stubFetchAuthOnly();
 		callMock.mockImplementation(async (action: string) => {
 			if (action === "search_threads") return new Promise(() => {});
+			if (action === "open_user") return OPEN_USER_RESULT;
 			return { ok: true, data: [] };
 		});
 		renderShellAt("/conversations");

@@ -62,19 +62,28 @@ function setFetchMock(threads: ThreadListRow[]): ReturnType<typeof vi.fn> {
 		if (action === "search_threads") {
 			return { ok: true, data: threads };
 		}
-		return { ok: true, data: [] };
-	});
-	const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-		const url = typeof input === "string" ? input : input.toString();
-		// /api/auth/me — return a valid user so useCurrentUser resolves with a truthy
-		// id, which allows useThreads to fire its call rather than short-circuiting
-		// to the empty ready state (N5 fix).
-		if (url.includes("/api/auth/me")) {
+		if (action === "open_user") {
+			// A valid self row so `useCurrentUser` resolves with a truthy id, which
+			// allows `useThreads` to fire its call rather than short-circuiting to
+			// the empty ready state (N5 fix).
 			return {
 				ok: true,
-				json: async () => ({ id: "u-founder-test", name: "Founder", email: "", avatarUrl: null }),
-			} as Response;
+				data: {
+					user: { id: "u-founder-test", name: "Founder", email: "", avatarUrl: null, team: null },
+					runsOn: [],
+					runConfig: null,
+					documentIds: [],
+					folders: [],
+					subscriptions: [],
+					connections: null,
+					behaviour: null,
+					inbox: null,
+				},
+			};
 		}
+		return { ok: true, data: [] };
+	});
+	const fetchMock = vi.fn(async () => {
 		// /api/teams and anything else AppShell fetches directly.
 		return { ok: true, json: async () => ({}) } as Response;
 	});
@@ -221,7 +230,12 @@ describe("U6 — AppShell wires thread list into Sidebar Conversations section",
 		// (N5 guard). The sidebar must NOT claim "No threads yet" — that is a false empty state.
 		// AppShell propagates userStatus==="error" as isThreadsError=true so the sidebar shows
 		// "Couldn't load threads" instead.
-		global.fetch = vi.fn().mockRejectedValue(new Error("Network error"));
+		callMock.mockImplementation(async (action: string) => {
+			if (action === "open_user") {
+				return { ok: false, problems: [{ code: "boom", message: "Network error" }] };
+			}
+			return { ok: true, data: [] };
+		});
 		renderShell();
 		await waitFor(() => {
 			expect(screen.queryByText(/no threads yet/i)).not.toBeInTheDocument();
@@ -233,7 +247,12 @@ describe("U6 — AppShell wires thread list into Sidebar Conversations section",
 		// NEW-23: when the API is down, the Conversations page must receive threadsStatus:"error"
 		// from AppShell so it shows an error state rather than the false "No conversations yet"
 		// empty claim. Verified by reading the Outlet context in a test child route.
-		global.fetch = vi.fn().mockRejectedValue(new Error("Network error"));
+		callMock.mockImplementation(async (action: string) => {
+			if (action === "open_user") {
+				return { ok: false, problems: [{ code: "boom", message: "Network error" }] };
+			}
+			return { ok: true, data: [] };
+		});
 		const router = createMemoryRouter(
 			[
 				{

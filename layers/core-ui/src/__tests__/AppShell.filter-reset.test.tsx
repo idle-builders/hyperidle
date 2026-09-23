@@ -33,16 +33,25 @@ const ONE_THREAD: ThreadListRow = {
 beforeEach(() => {
 	callMock.mockImplementation(async (action: string) => {
 		if (action === "search_threads") return { ok: true, data: [ONE_THREAD] };
-		return { ok: true, data: [] };
-	});
-	global.fetch = vi.fn(async (input: RequestInfo | URL) => {
-		const url = typeof input === "string" ? input : input.toString();
-		if (url.includes("/api/auth/me")) {
+		if (action === "open_user") {
 			return {
 				ok: true,
-				json: async () => ({ id: "u-test", name: "Tester", email: "", avatarUrl: null }),
-			} as Response;
+				data: {
+					user: { id: "u-test", name: "Tester", email: "", avatarUrl: null, team: null },
+					runsOn: [],
+					runConfig: null,
+					documentIds: [],
+					folders: [],
+					subscriptions: [],
+					connections: null,
+					behaviour: null,
+					inbox: null,
+				},
+			};
 		}
+		return { ok: true, data: [] };
+	});
+	global.fetch = vi.fn(async () => {
 		return { ok: true, json: async () => ({}) } as Response;
 	}) as unknown as typeof fetch;
 });
