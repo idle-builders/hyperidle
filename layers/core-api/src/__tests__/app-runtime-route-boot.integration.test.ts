@@ -39,9 +39,11 @@ describe("app runtime route boot", () => {
 				const routeChecks = [
 					["/api/health", false],
 					// BC5 T7b: /api/routines and /api/notifications/inbox are deleted
-					// with their packages — /api/users takes their place here.
-					["/api/users", true],
-					["/api/harnesses", true],
+					// with their packages.
+					// BC5 T11: /api/users and /api/harnesses are deleted with the user
+					// module cutover — /api/search takes their place as the
+					// app-owned, authed GET route proof.
+					["/api/search?q=x", true],
 				] as const;
 
 				for (const [path, authed] of routeChecks) {

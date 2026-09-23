@@ -129,6 +129,61 @@ describe("filesystem path inspection and registration", () => {
 		}
 	});
 
+	// @lore BC5 T11: `POST /api/teams` and `POST /api/filesystems` are deleted
+	// with the `teams`/`filesystems` route families — a folder is a user
+	// attribute now, given through `edit_user({ folders: { add } })` and read
+	// back through `open_user({ id }).folders`.
+	async function createHumanWithTeam(
+		app: { request: (path: string, init?: RequestInit) => Promise<Response> },
+		name: string,
+	): Promise<string> {
+		const res = await app.request("/api/actions/edit_user", {
+			method: "POST",
+			headers: authHeaders(),
+			body: JSON.stringify({ kind: "human", name, team: { name: `${name} Team` } }),
+		});
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as { ok: true; data: { user: { id: string } | null } };
+		const id = body.data.user?.id;
+		if (!id) throw new Error("edit_user did not return a created human");
+		return id;
+	}
+
+	async function addFolder(
+		app: { request: (path: string, init?: RequestInit) => Promise<Response> },
+		id: string,
+		folder: {
+			kind: "code" | "doc_set";
+			resourceRef: Record<string, unknown>;
+			writeback: "git" | "file" | "none";
+		},
+	): Promise<Response> {
+		return app.request("/api/actions/edit_user", {
+			method: "POST",
+			headers: authHeaders(),
+			body: JSON.stringify({ id, folders: { add: [folder] } }),
+		});
+	}
+
+	async function openFolders(
+		app: { request: (path: string, init?: RequestInit) => Promise<Response> },
+		id: string,
+	): Promise<Array<{ kind: string; resourceRef: Record<string, unknown>; writeback: string }>> {
+		const res = await app.request("/api/actions/open_user", {
+			method: "POST",
+			headers: authHeaders(),
+			body: JSON.stringify({ id }),
+		});
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as {
+			ok: true;
+			data: {
+				folders: Array<{ kind: string; resourceRef: Record<string, unknown>; writeback: string }>;
+			};
+		};
+		return body.data.folders;
+	}
+
 	test("git repo with branch → filesystem registered as kind:code with branch + writeback:none", async ({
 		app,
 	}) => {
@@ -139,43 +194,17 @@ describe("filesystem path inspection and registration", () => {
 		try {
 			await initGitRepo(dir, true);
 
-			// Create a team first
-			const teamRes = await app.request("/api/teams", {
-				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({ name: "FS Team", functions: ["development"] }),
-			});
-			expect(teamRes.status).toBe(201);
-			const teamBody = (await teamRes.json()) as { team: { id: string } };
-			const teamId = teamBody.team.id;
+			const id = await createHumanWithTeam(app, "FS Human");
 
-			// Register as code filesystem
-			const fsRes = await app.request("/api/filesystems", {
-				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({
-					teamId,
-					kind: "code",
-					connectionId: null,
-					resourceRef: { kind: "code", repo: dir, branch: "main" },
-					writeback: "none",
-				}),
+			const fsRes = await addFolder(app, id, {
+				kind: "code",
+				resourceRef: { kind: "code", repo: dir, branch: "main" },
+				writeback: "none",
 			});
-			expect(fsRes.status).toBe(201);
+			expect(fsRes.status).toBe(200);
 
-			// Assert via GET /api/filesystems?teamId=
-			const listRes = await app.request(`/api/filesystems?teamId=${teamId}`, {
-				headers: authHeaders(),
-			});
-			expect(listRes.status).toBe(200);
-			const listBody = (await listRes.json()) as {
-				filesystems: Array<{
-					kind: string;
-					resourceRef: { kind: string; repo?: string; branch?: string };
-					writeback: string;
-				}>;
-			};
-			const fs = listBody.filesystems[0];
+			const folders = await openFolders(app, id);
+			const fs = folders[0];
 			expect(fs?.kind).toBe("code");
 			expect(fs?.resourceRef?.branch).toBe("main");
 			expect(fs?.writeback).toBe("none");
@@ -185,7 +214,7 @@ describe("filesystem path inspection and registration", () => {
 		}
 	});
 
-	test("empty-branch git repo → registered as doc_set, never 400", async ({ app }) => {
+	test("empty-branch git repo → registered as doc_set, never refused", async ({ app }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 		const dir = join(tmpdir(), `av1-empty-reg-${Date.now()}`);
@@ -193,41 +222,21 @@ describe("filesystem path inspection and registration", () => {
 		try {
 			await initGitRepo(dir, false); // no commits → no resolvable branch
 
-			// Create team
-			const teamRes = await app.request("/api/teams", {
-				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({ name: "Empty FS Team", functions: ["development"] }),
-			});
-			expect(teamRes.status).toBe(201);
-			const teamBody = (await teamRes.json()) as { team: { id: string } };
-			const teamId = teamBody.team.id;
+			const id = await createHumanWithTeam(app, "Empty FS Human");
 
-			// Since no branch, register as doc_set (the fallback for empty-branch)
-			const fsRes = await app.request("/api/filesystems", {
-				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({
-					teamId,
-					kind: "doc_set",
-					connectionId: null,
-					resourceRef: { kind: "doc_set", folder: dir },
-					writeback: "none",
-				}),
+			// Since no branch, register as doc_set (the fallback for empty-branch).
+			// Must NOT be refused — doc_set registration should succeed.
+			const fsRes = await addFolder(app, id, {
+				kind: "doc_set",
+				resourceRef: { kind: "doc_set", folder: dir },
+				writeback: "none",
 			});
-			// Must NOT 400 — doc_set registration should succeed
-			expect(fsRes.status).toBe(201);
+			expect(fsRes.status).toBe(200);
 
-			const listRes = await app.request(`/api/filesystems?teamId=${teamId}`, {
-				headers: authHeaders(),
-			});
-			expect(listRes.status).toBe(200);
-			const listBody = (await listRes.json()) as {
-				filesystems: Array<{ kind: string; writeback: string }>;
-			};
-			expect(listBody.filesystems.length).toBe(1);
-			expect(listBody.filesystems[0]?.kind).toBe("doc_set");
-			expect(listBody.filesystems[0]?.writeback).toBe("none");
+			const folders = await openFolders(app, id);
+			expect(folders.length).toBe(1);
+			expect(folders[0]?.kind).toBe("doc_set");
+			expect(folders[0]?.writeback).toBe("none");
 		} finally {
 			await rm(dir, { recursive: true, force: true });
 			vi.unstubAllEnvs();
@@ -240,37 +249,17 @@ describe("filesystem path inspection and registration", () => {
 		const dir = join(tmpdir(), `av1-doc-${Date.now()}`);
 		await mkdir(dir, { recursive: true });
 		try {
-			// Create team
-			const teamRes = await app.request("/api/teams", {
-				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({ name: "Doc Team", functions: ["development"] }),
-			});
-			expect(teamRes.status).toBe(201);
-			const teamBody = (await teamRes.json()) as { team: { id: string } };
-			const teamId = teamBody.team.id;
+			const id = await createHumanWithTeam(app, "Doc Human");
 
-			// Register as doc_set
-			const fsRes = await app.request("/api/filesystems", {
-				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({
-					teamId,
-					kind: "doc_set",
-					connectionId: null,
-					resourceRef: { kind: "doc_set", folder: dir },
-					writeback: "none",
-				}),
+			const fsRes = await addFolder(app, id, {
+				kind: "doc_set",
+				resourceRef: { kind: "doc_set", folder: dir },
+				writeback: "none",
 			});
-			expect(fsRes.status).toBe(201);
+			expect(fsRes.status).toBe(200);
 
-			const listRes = await app.request(`/api/filesystems?teamId=${teamId}`, {
-				headers: authHeaders(),
-			});
-			const listBody = (await listRes.json()) as {
-				filesystems: Array<{ kind: string; writeback: string }>;
-			};
-			const fs = listBody.filesystems[0];
+			const folders = await openFolders(app, id);
+			const fs = folders[0];
 			expect(fs?.kind).toBe("doc_set");
 			expect(fs?.writeback).toBe("none");
 		} finally {

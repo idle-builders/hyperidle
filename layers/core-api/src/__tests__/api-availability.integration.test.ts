@@ -32,10 +32,10 @@ describe("API Availability Regression Guard (I6)", () => {
 	// @lore BC5 T7b: /api/routines and /api/notifications/inbox move to
 	// RETIRED_ROUTES below — both packages and routes are deleted with the
 	// routine/notification cutover.
-	const ROUTE_MODULES = [
-		{ path: "/api/health", description: "Health (public)" },
-		{ path: "/api/users", description: "Users" },
-	] as const;
+	// @lore BC5 T11: /api/users moves to RETIRED_ROUTES below — user is an
+	// action now, `search_users`/`open_user`/`edit_user` under
+	// `POST /api/actions/<name>`, not a route module with a GET base path.
+	const ROUTE_MODULES = [{ path: "/api/health", description: "Health (public)" }] as const;
 
 	for (const route of ROUTE_MODULES) {
 		test(`${route.description} (${route.path}) is mounted and returns non-404`, async ({ app }) => {
@@ -82,6 +82,19 @@ describe("API Availability Regression Guard (I6)", () => {
 		// BC5 T7b: the routine and notifications packages and their routes are deleted.
 		"/api/routines",
 		"/api/notifications/inbox",
+		// BC5 T11: user is one module now — the users/agents/org/teams/
+		// recipients/harnesses/filesystems(core)/connections/settings-agent-
+		// behavior route families are all deleted; every one folds into
+		// search_users/open_user/edit_user.
+		"/api/users",
+		"/api/agents",
+		"/api/org",
+		"/api/teams",
+		"/api/recipients",
+		"/api/harnesses",
+		"/api/filesystems",
+		"/api/connections",
+		"/api/settings/agent-behavior",
 	] as const;
 
 	for (const path of RETIRED_ROUTES) {

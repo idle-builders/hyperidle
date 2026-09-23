@@ -310,37 +310,10 @@ describe("E2E API Integration (I5)", () => {
 	// -------------------------------------------------------
 	// 7. Agents
 	// -------------------------------------------------------
-	describe("Agents", () => {
-		// @lore AU26 J1: the per-user `activeSessions` count is gone — it was a raw
-		// `sessions` read and the list's one consumer is typed `{id,name,role,teamId}`.
-		test("GET /api/users lists agents", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/users", { headers: auth() });
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as Array<{ id: string; name: string }>;
-			expect(body.length).toBeGreaterThanOrEqual(1);
-			expect(body.some((u) => u.id === "agent-1")).toBe(true);
-		});
-
-		test("GET /api/users/:id returns agent detail", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/users/agent-1", { headers: auth() });
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as { id: string };
-			expect(body.id).toBe("agent-1");
-		});
-
-		test("GET /api/users/:id returns 404 for unknown agent", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/users/nonexistent", { headers: auth() });
-			expect(res.status).toBe(404);
-			const body = (await res.json()) as { code: string };
-			expect(body.code).toBe("NOT_FOUND");
-		});
-
-		// GET /api/users/:id/inbox (door #92) and POST /api/users/:id/inbox (door #93)
-		// deleted. Tests removed with the routes.
-	});
+	// @lore BC5 T11: GET /api/users, GET /api/users/:id and GET /api/users/:id/
+	// inbox are all deleted with the `users` route family — user is one module
+	// now, `search_users`/`open_user`/`edit_user` under `POST /api/actions/
+	// <name>`, proven in `@hyperidle/user`'s own `user-actions.integration.test.ts`.
 
 	// -------------------------------------------------------
 	// 8. Sessions

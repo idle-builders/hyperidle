@@ -14,8 +14,8 @@
  * gateway, so they keep naming a harness after that harness is gone.
  */
 
-import { agentRunConfig, type HyperIdleDb, teams, users } from "@hyperidle/db";
-import { eq } from "drizzle-orm";
+import type { HyperIdleDb } from "@hyperidle/db";
+import { users } from "@hyperidle/db";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
 
 const NOW = "2026-08-28T00:00:00.000Z";
@@ -36,93 +36,37 @@ async function seedFounder(db: HyperIdleDb): Promise<void> {
 	});
 }
 
+// @lore BC5 T11: `POST /api/agents` and `POST /api/teams` (with its
+// `functions`-driven roster scaffold and team-level `primaryHarness`
+// default) are deleted with the `agents`/`teams` route families — a team is
+// just an id and a name now (migration 0090 drops every other column), so
+// "a team's chosen harness propagates to its scaffolded roster" has no
+// subject left to test. What survives is the principle itself, proven
+// against `edit_user`: nobody's agent is quietly assigned a harness or model
+// it never picked.
 describe("no harness or model is chosen on someone's behalf", () => {
 	test("an agent created with no harness named stores none", async ({ db, app }) => {
 		await seedFounder(db);
-		await db
-			.insert(teams)
-			.values({ id: "team-nodefault", name: "No Default", phase: "build", createdAt: NOW });
 
-		const res = await app.request("/api/agents", {
+		const res = await app.request("/api/actions/edit_user", {
 			method: "POST",
 			headers: authHeaders(),
-			body: JSON.stringify({ name: "Unassigned Agent", role: "builder", teamId: "team-nodefault" }),
+			body: JSON.stringify({ kind: "ai", name: "Unassigned Agent", role: "builder" }),
 		});
-		expect(res.status).toBe(201);
-		const body = (await res.json()) as { agent?: { id?: string }; id?: string };
-		const agentId = body.agent?.id ?? body.id;
-		expect(agentId).toBeDefined();
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as {
+			ok: true;
+			data: {
+				runConfig: {
+					harnessType: string | null;
+					modelId: string | null;
+					modelProvider: string | null;
+				} | null;
+			};
+		};
 
-		const [config] = await db
-			.select()
-			.from(agentRunConfig)
-			.where(eq(agentRunConfig.agentUserId, agentId as string))
-			.limit(1);
-
-		expect(config?.harnessType ?? null).toBeNull();
-		expect(config?.modelId ?? null).toBeNull();
-		expect(config?.modelProvider ?? null).toBeNull();
-	});
-
-	test("a team created without a chosen harness scaffolds agents that store none", async ({
-		db,
-		app,
-	}) => {
-		await seedFounder(db);
-
-		const res = await app.request("/api/teams", {
-			method: "POST",
-			headers: authHeaders(),
-			body: JSON.stringify({ name: "Unchosen Team", functions: ["development"] }),
-		});
-		expect(res.status).toBe(201);
-		const body = (await res.json()) as { teamMembers: { id: string } };
-
-		const agents = await db.select().from(users).where(eq(users.teamId, body.teamMembers.id));
-		expect(agents.length).toBeGreaterThan(0);
-		for (const agent of agents) {
-			const [config] = await db
-				.select()
-				.from(agentRunConfig)
-				.where(eq(agentRunConfig.agentUserId, agent.id))
-				.limit(1);
-			expect(config?.harnessType ?? null, `${agent.name} was assigned a harness`).toBeNull();
-			expect(config?.modelId ?? null, `${agent.name} was assigned a model`).toBeNull();
-		}
-	});
-
-	test("a team created WITH a chosen harness scaffolds agents onto exactly that", async ({
-		db,
-		app,
-	}) => {
-		await seedFounder(db);
-
-		const res = await app.request("/api/teams", {
-			method: "POST",
-			headers: authHeaders(),
-			body: JSON.stringify({
-				name: "Chosen Team",
-				functions: ["development"],
-				primaryHarness: {
-					harnessType: "claude-code",
-					modelId: "haiku",
-					modelProvider: "anthropic",
-				},
-			}),
-		});
-		expect(res.status).toBe(201);
-		const body = (await res.json()) as { teamMembers: { id: string } };
-
-		const agents = await db.select().from(users).where(eq(users.teamId, body.teamMembers.id));
-		expect(agents.length).toBeGreaterThan(0);
-		for (const agent of agents) {
-			const [config] = await db
-				.select()
-				.from(agentRunConfig)
-				.where(eq(agentRunConfig.agentUserId, agent.id))
-				.limit(1);
-			expect(config?.harnessType).toBe("claude-code");
-			expect(config?.modelId).toBe("haiku");
-		}
+		expect(body.data.runConfig?.harnessType ?? null).toBeNull();
+		expect(body.data.runConfig?.modelId ?? null).toBeNull();
+		expect(body.data.runConfig?.modelProvider ?? null).toBeNull();
 	});
 });

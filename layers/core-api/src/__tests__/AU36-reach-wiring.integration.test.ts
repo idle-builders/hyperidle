@@ -7,11 +7,12 @@
  * stubbed integration point, no test-only production export.
  *
  * AC coverage:
- *   AC1 — GET /api/connections is answerable from connections-domain state
- *         alone: the boot wire test boots orchestration WITHOUT an adapter
- *         pool and still sees the seeded inherited entries.
- *   AC2 — switching an agent's harness type A→B→A leaves GET /api/connections
- *         byte-identical at every step (harness independence, exercised both).
+ *   AC1 — `open_user({})` is answerable from connections-domain state alone:
+ *         the boot wire test boots orchestration WITHOUT an adapter pool and
+ *         still sees the seeded inherited entries.
+ *   AC2 — switching an agent's harness type A→B→A leaves `open_user({})`'s
+ *         inherited reach byte-identical at every step (harness independence,
+ *         exercised both).
  *   AC3 — the view JSON of inherited entries is exactly the AN1 contract
  *         (id/service/via/authSource/health/removable).
  *   AC5 (boot moment) — `probeInheritedReach: true` awaits the initial probe,
@@ -19,19 +20,18 @@
  *
  * Wiring proven (each test catches a broken hook at a different point):
  *   boot wire    — bootAgentOrchestration(probeInheritedReach) → cache → route
- *   redetect wire — POST /api/harnesses/redetect → onHarnessRedetect → refresh
+ *   redetect wire — `edit_user({ redetectHarnesses: true })` → onHarnessRedetect → refresh
  *
  * @lore AU36: architecture.md §7.2's AC2 wording says "switch an agent's
  * `users.harnessType`" — that citation is stale (pre-AU26). The harness type
  * column lives on `agent_run_config` (framework/db/src/schema.ts, AU26 G1);
  * `users` carries identity only. This test switches the real column.
  *
- * FAILS until:
- *   - `@hyperidle/connections` exports `createInheritedReach` (D1)
- *   - `bootAgentOrchestration` gains `probeInheritedReach`, builds the cache,
- *     and exposes `inheritedReach` (D4)
- *   - `createConnectionRoutes` reads the reach cache instead of descriptors (D7)
- *   - `createTestApp`/core-api wire `onHarnessRedetect` into redetect (D5)
+ * @lore BC5 T11: `GET /api/connections` and `POST /api/harnesses/redetect`
+ * are deleted with the `harnesses`/`connections` route families —
+ * connections are a user attribute now, read through `open_user({}).
+ * connections.inherited` and refreshed through `edit_user({ id: me,
+ * redetectHarnesses: true })`, both self-only (architecture.md §8).
  */
 
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -54,6 +54,23 @@ const AGENT_ID = "u-au36-agent";
 
 function authHeaders(): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json" };
+}
+
+/** `open_user({})` opens the one seeded human (the sole API-key actor) and returns its inherited reach. */
+async function openInherited(
+	app: { request: (path: string, init?: RequestInit) => Promise<Response> },
+): Promise<Array<Record<string, unknown>>> {
+	const res = await app.request("/api/actions/open_user", {
+		method: "POST",
+		headers: authHeaders(),
+		body: JSON.stringify({}),
+	});
+	expect(res.status).toBe(200);
+	const body = (await res.json()) as {
+		ok: true;
+		data: { connections: { inherited: Array<Record<string, unknown>> } | null };
+	};
+	return body.data.connections?.inherited ?? [];
 }
 
 /** The exact AN1 view contract an inherited fact projects to (architecture §2). */
@@ -130,10 +147,11 @@ async function emptyCodexHome(): Promise<string> {
 }
 
 /**
- * The harness routes need a `HarnessCapabilityReader` to mount at all
- * (core-api app.ts mounts /api/harnesses only when `adapterPool` is present).
- * Same minimal static pool shape AM4/AH2 use — the pool is NOT the thing
- * under test here; the reach wiring is.
+ * `edit_user({ redetectHarnesses: true })` only calls through when a
+ * `HarnessCapabilityReader` is wired (`compose.ts` binds `deps.harnesses`
+ * only when `adapterPool` is present). Same minimal static pool shape
+ * AM4/AH2 used — the pool is NOT the thing under test here; the reach
+ * wiring is.
  */
 function makePool(): AdapterPool {
 	const pool = new AdapterPool();
@@ -184,13 +202,11 @@ describe("AU36 — reach wiring end to end", () => {
 
 			await seedHuman(db);
 
-			const res = await app.request("/api/connections", { headers: authHeaders() });
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as Array<Record<string, unknown>>;
+			const inherited = await openInherited(app);
 
 			// AC3/AC5: exact view JSON, cached by serve time (boot awaited the probe).
-			expect(body).toContainEqual(inheritedView("codex", "au36-codex-reach"));
-			expect(body).toContainEqual(inheritedView("opencode", "au36-opencode-reach"));
+			expect(inherited).toContainEqual(inheritedView("codex", "au36-codex-reach"));
+			expect(inherited).toContainEqual(inheritedView("opencode", "au36-opencode-reach"));
 		});
 	});
 
@@ -219,9 +235,8 @@ describe("AU36 — reach wiring end to end", () => {
 			await seedHuman(db);
 
 			// Boot saw the empty codex home — honest none-state first.
-			const before = await app.request("/api/connections", { headers: authHeaders() });
-			expect(before.status).toBe(200);
-			expect(await before.text()).not.toContain("au36-redetect-codex");
+			const before = await openInherited(app);
+			expect(before).not.toContainEqual(inheritedView("codex", "au36-redetect-codex"));
 
 			// The user changes harness config, then hits Refresh (redetect).
 			await writeFile(
@@ -229,19 +244,18 @@ describe("AU36 — reach wiring end to end", () => {
 				'[mcp_servers.au36-redetect-codex]\ncommand = "node"\nargs = ["index.js"]\n',
 			);
 
-			const redetect = await app.request("/api/harnesses/redetect", {
+			const redetect = await app.request("/api/actions/edit_user", {
 				method: "POST",
 				headers: authHeaders(),
+				body: JSON.stringify({ id: HUMAN_ID, redetectHarnesses: true }),
 			});
 			expect(redetect.status).toBe(200);
 
-			// The response returns after the probes completed — GET reflects the fact.
-			const after = await app.request("/api/connections", { headers: authHeaders() });
-			expect(after.status).toBe(200);
-			const body = (await after.json()) as Array<Record<string, unknown>>;
-			expect(body).toContainEqual(inheritedView("codex", "au36-redetect-codex"));
+			// The response returns after the probes completed — the read reflects the fact.
+			const after = await openInherited(app);
+			expect(after).toContainEqual(inheritedView("codex", "au36-redetect-codex"));
 			// the stable opencode fact survived the refresh
-			expect(body).toContainEqual(inheritedView("opencode", "au36-opencode-stable"));
+			expect(after).toContainEqual(inheritedView("opencode", "au36-opencode-stable"));
 		});
 	});
 
@@ -264,29 +278,23 @@ describe("AU36 — reach wiring end to end", () => {
 			await seedHuman(db);
 			await seedAgentWithHarness(db, "claude-code");
 
-			const firstRes = await app.request("/api/connections", { headers: authHeaders() });
-			expect(firstRes.status).toBe(200);
-			const firstBody = await firstRes.text();
+			const first = await openInherited(app);
 
 			// Non-vacuity: the response genuinely carries the seeded reach facts,
 			// so byte-identity below cannot pass on two empty arrays.
-			expect(firstBody).toContain("inherited:codex:au36-switch-codex");
-			expect(firstBody).toContain("inherited:opencode:au36-switch-opencode");
+			expect(first).toContainEqual(inheritedView("codex", "au36-switch-codex"));
+			expect(first).toContainEqual(inheritedView("opencode", "au36-switch-opencode"));
 
 			// A → B
 			await switchAgentHarness(db, "codex");
-			const secondRes = await app.request("/api/connections", { headers: authHeaders() });
-			expect(secondRes.status).toBe(200);
-			const secondBody = await secondRes.text();
+			const second = await openInherited(app);
 
 			// B → A
 			await switchAgentHarness(db, "claude-code");
-			const thirdRes = await app.request("/api/connections", { headers: authHeaders() });
-			expect(thirdRes.status).toBe(200);
-			const thirdBody = await thirdRes.text();
+			const third = await openInherited(app);
 
-			expect(secondBody).toBe(firstBody);
-			expect(thirdBody).toBe(firstBody);
+			expect(second).toEqual(first);
+			expect(third).toEqual(first);
 		});
 	});
 });

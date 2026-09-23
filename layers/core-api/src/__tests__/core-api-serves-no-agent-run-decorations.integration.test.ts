@@ -154,21 +154,9 @@ describe("core-api serves no agent-run decorations", () => {
 	});
 
 	// GET /api/status deleted (zero consumers, AU43) — test removed.
-
-	test("GET /api/users does not report per-user activeSessions", async ({ db, app }) => {
-		await seed(db);
-		const res = await app.request("/api/users", { headers: authHeaders() });
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as Array<Record<string, unknown>>;
-		expect(body.length).toBeGreaterThan(0);
-		for (const row of body) {
-			expect(row).not.toHaveProperty("activeSessions");
-		}
-		// The identity fields the one real consumer is typed against survive.
-		const agent = body.find((r) => r.id === "agent-1");
-		expect(agent?.name).toBe("Builder Bot");
-		expect(agent?.role).toBe("builder");
-	});
+	// @lore BC5 T11: GET /api/users and GET /api/teams are deleted with the
+	// `users`/`teams` route families — the per-row absence they pinned has no
+	// route left to pin it on.
 
 	test("open_thread members carry no operationalStatus", async ({ db, app }) => {
 		await seed(db);
@@ -190,22 +178,5 @@ describe("core-api serves no agent-run decorations", () => {
 		// What the renderers actually read survives.
 		expect(agentIdentity?.name).toBe("Builder Bot");
 		expect(agentIdentity?.isAgent).toBe(true);
-	});
-
-	test("GET /api/teams items carry no activeAgentCount or agentHealthWarning", async ({
-		db,
-		app,
-	}) => {
-		await seed(db);
-		const res = await app.request("/api/teams", { headers: authHeaders() });
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as { teams: Array<Record<string, unknown>> };
-		expect(body.teams.length).toBeGreaterThan(0);
-		for (const team of body.teams) {
-			expect(team).not.toHaveProperty("activeAgentCount");
-			expect(team).not.toHaveProperty("agentHealthWarning");
-		}
-		// `agentCount` is a `users` read, not a run read — it stays.
-		expect(body.teams[0]?.agentCount).toBe(1);
 	});
 });
