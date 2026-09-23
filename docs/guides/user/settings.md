@@ -7,13 +7,13 @@ Click the **Settings** button pinned at the bottom of the Sidebar. All sections 
 | **Profile** | Your name and email |
 | **Org chart** | Reporting lines between humans (direct / function / team relationships) |
 | **Agents** | Per-agent model, harness, and system prompt; add new agents |
-| **Agent behavior** | Configuration that controls agent work: triggers, agents, routines, skills, tools, and MCP |
+| **Skills & rules** | Skill and rule documents attached to agents |
+| **Agent behavior** | Configuration that controls agent work: agents, subscriptions, skills, tools, and MCP |
 | **Filesystems** | Team-registered file sources — code repos and document sets |
 | **Agent backends** | Which AI execution environments (harnesses) are detected, authenticated, and enabled |
 | **Connections** | External services your agents can use — see [Connections](connections.md) |
 | **Appearance** | Theme (light / dark / system) |
-| **Credentials** | Desktop app: saved credentials and API keys |
-| **Notifications** | Per-type notification toggles (on/off per type only — quiet hours, factory silence, digest, and channels have no settings UI yet) |
+| **Notifications** | One toggle per event, over your own subscriptions to it |
 | **Worker** | Desktop + shared backend: register this device as a worker node |
 | **Backend** | Shows current backend mode (Web / Local / Shared) |
 
@@ -33,7 +33,7 @@ The **Org chart** section shows reporting lines between humans in your team.
 
 If you are the only human in the system, a guidance hint appears above the form; **Function** is the zero-dependency default for describing your role before other humans join.
 
-**Teams connect automatically.** When you create a team via Setup or the Teams page, a **Team** org edge is created connecting you (the founder) to the new team. You never add that edge manually.
+Team membership itself is not an org edge — it is the team every user belongs to, shown on their row and set when they are created or edited. Org edges are reporting lines on top of that: add a **Team** edge yourself to record who founded or leads a team.
 
 ## Adding Agents
 
@@ -64,11 +64,9 @@ There is no per-agent autonomy dial. How much an agent's work gets reviewed is d
 
 **Settings → Agent behavior** shows the configuration that controls when agents act and what context they use.
 
-The section groups configuration across agents, triggers, routines, skills, tools, and MCP. Each row shows the active value, where it came from, and whether a user override is active. Built-in and plugin defaults remain visible when you override them, so you can tell what changed without reading plugin internals.
+The section groups configuration across agents, skills, tools, and MCP. Each row shows the active value, where it came from, and whether a user override is active. Built-in and plugin defaults remain visible when you override them, so you can tell what changed without reading plugin internals.
 
-Trigger rows are event-first. A trigger shows the event it applies to, the agent attached to that event, the prompt source, and whether the rule is a default, plugin-provided, user-owned, or user override. Disabled or removed plugin origins remain visible with an attention state, so you can see whether the default stopped applying or a user override still runs.
-
-Some edits happen directly in Agent behavior. Deep edits still link to the existing canonical sections: agent identity in **Agents**, backend setup in **Agent backends**, service/MCP credentials in **Connections**, and routine schedule detail in the routine editor.
+Some edits happen directly in Agent behavior. Deep edits still link to the existing canonical sections: agent identity in **Agents**, backend setup in **Agent backends**, service/MCP credentials in **Connections**, and an agent's own subscriptions on its profile page.
 
 ## Filesystems
 
@@ -107,7 +105,7 @@ External services (tokens, MCP servers, inherited harness auth) live in **Settin
 
 ## Notifications
 
-Per-notification-type toggles — turn each notification kind on or off. See [The Interface](the-interface.md) for how notifications surface in the app.
+One toggle per event — task, conversation, document, or user, created or changed. Turning a toggle on subscribes you to that event; turning it off pauses your subscription. See [The Interface](the-interface.md) for how a subscribed event reaches your inbox.
 
 ## Backend Mode
 

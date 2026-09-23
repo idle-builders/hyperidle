@@ -1,6 +1,6 @@
 # WIP Limits
 
-The single cheapest way to ruin an agent factory is to spawn unbounded parallel work. WIP (work-in-progress) is bounded at two levels — **agent** and **team** — by a plain concurrency ceiling, never by a duration budget.
+The single cheapest way to ruin an agent factory is to spawn unbounded parallel work. WIP (work-in-progress) is bounded at the **agent** level by a plain concurrency ceiling, never by a duration budget.
 
 > **@lore AU21 Increment 14a (founder, 2026-08-03): the cost-cap/accounting feature this doc used to describe is HARD-DELETED, no replacement.** HyperIdle previously tracked a Money cap/actual-spend pair at the agent/team/factory/bet/routine levels (`@hyperidle/cost`'s `cost-cap.ts`) and gated new sessions on it. The founder's ruling, verbatim: *"the real cost cap is built into the upstream system like your openrouter or claude account. we do not actually enforce cost. all we do is lightweight cost accounting... this feature adds no value just chaos and complexity."* The entire mechanism — gate, ledger, events, display columns — is deleted with no replacement; the real spend ceiling lives at the upstream LLM provider account (OpenRouter/Anthropic), not in HyperIdle. A future, separate effort may rebuild lightweight cost accounting from scratch; nothing here anticipates that shape.
 
@@ -10,11 +10,7 @@ Each agent has a maximum number of in-progress sessions — WIP limit, **default
 
 ## Per team
 
-Each team has a maximum number of tasks that may be `in_progress` at once (`teams.capacity`, `framework/db/src/schema.ts` — no baked-in formula). The check runs on the transition into `in_progress` (`transitionTask`, `layers/core-api/work/src/task-state-machine.ts`) and refuses with `CapacityExceededError`.
-
-The limit counts tasks **at every depth of the task tree**, not just root tasks. What bounds a factory is how much work is actually running, not how many top-level commitments exist.
-
-> **BB1 change.** This limit used to be checked in exactly one place — the bet *commit* ceremony — against a stored `teams.activeBets` tally the commit/complete/kill paths maintained by hand. Both are gone. The ceremony is deleted, and the tally with it: a stored count of a derivable fact can drift from the truth, so the count is now a live `COUNT(*) WHERE state = 'in_progress'` taken inside the transition's own transaction. That makes it un-stale by construction, and it closes the hole the old check could say nothing about — work started without ever being committed.
+There is no team-level cap. A team is an id and a name (`framework/db/src/schema.ts`); it carries no capacity column and the transition into `in_progress` (`transitionTask`, `layers/core-api/work/src/task-state-machine.ts`) refuses nothing on a team's behalf. What bounds a factory is the sum of its agents' own concurrency ceilings, above.
 
 ## Per factory
 

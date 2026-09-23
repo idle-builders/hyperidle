@@ -163,7 +163,7 @@ This is the conversation-first path — you iterate with the Assistant until the
 
 **Expected:** You are navigated to the new Task detail page. The Task also appears as a `proposed` card in the Team view.
 
-To start agents, open the Task and accept it (change status to `accepted`). Agents on your team will begin adding subtasks and running sessions as they pick up the work. If your team is already at its capacity limit (the number of `in_progress` tasks across all depths), you must complete or kill a task before accepting another.
+To start agents, open the Task and accept it (change status to `accepted`). Agents on your team will begin adding subtasks and running sessions as they pick up the work.
 
 **Troubleshooting:**
 - Create button stays disabled — the description field is required.
