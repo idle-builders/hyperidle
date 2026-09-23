@@ -71,17 +71,17 @@ export interface DocumentActionsDeps {
 		id: string,
 	) => Promise<{ readonly exists: boolean; readonly teamId?: string }>;
 	/**
-	 * Existence of an `agent`/`routine`/`subscription` parent — asked only on
-	 * the internal path (`ctx.internal`), since a client-named one is refused
+	 * Existence of an `agent`/`subscription` parent — asked only on the
+	 * internal path (`ctx.internal`), since a client-named one is refused
 	 * before this is ever reached (`forbidden_parent_kind`). Bound in
-	 * `compose.ts` to the users/routine/subscription reads already injected
-	 * elsewhere: an agent is a `users` row, a routine is `@hyperidle/routine`'s
-	 * `getRoutine`, a subscription is `@hyperidle/user`'s `getSubscription` —
-	 * the user module owns `subscriptions` too.
+	 * `compose.ts` to the users/subscription reads already injected
+	 * elsewhere: an agent is a `users` row, a subscription is
+	 * `@hyperidle/user`'s `getSubscription` — the user module owns
+	 * `subscriptions` too.
 	 */
 	readonly systemParentExists: (
 		exec: WriteExecutor,
-		kind: "agent" | "routine" | "subscription",
+		kind: "agent" | "subscription",
 		id: string,
 	) => Promise<boolean>;
 	/**
@@ -724,9 +724,10 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 						}
 					}
 					// A `task`/`thread` parent's existence was already checked above,
-					// before the transaction opened — and so was an `agent`/`routine`
-					// one, through `deps.systemParentExists` (internal callers only;
-					// see the `forbidden_parent_kind` refusal in the pure pass).
+					// before the transaction opened — and so was an `agent`/
+					// `subscription` one, through `deps.systemParentExists` (internal
+					// callers only; see the `forbidden_parent_kind` refusal in the
+					// pure pass).
 				}
 
 				// -- D5 — reachable only at create (a move is refused first by

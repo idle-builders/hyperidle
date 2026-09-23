@@ -181,11 +181,11 @@ describe("BA9b: assembleSessionDocuments includes capability items", () => {
 });
 
 /**
- * A routine prompt must never reach a session sandbox — neither the
+ * A subscription prompt must never reach a session sandbox — neither the
  * scope-based ordinary fetch (role:"ordinary" only) nor the capability fetch
  * (skill/rule/agent_file only) matches role:"prompt".
  */
-describe("a routine prompt in reach appears in neither fetch", () => {
+describe("a subscription prompt in reach appears in neither fetch", () => {
 	test("a factory-scoped prompt and a team-scoped prompt are both excluded, while skills/rules/identity still appear", async ({
 		db,
 	}) => {
