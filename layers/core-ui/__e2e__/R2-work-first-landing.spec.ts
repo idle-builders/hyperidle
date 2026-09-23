@@ -11,25 +11,21 @@
  * AC-7: "Create bet" CTA is the most prominent action on WorkPortfolio when no bets exist.
  */
 
-import { expect, test } from "./fixtures";
+import { expect, makeUserRow, mockSearchUsers, mockUser, test } from "./fixtures";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared mocks
 // ─────────────────────────────────────────────────────────────────────────────
 
-const MOCK_CREATE_USER_RESPONSE = {
-	id: "u-r2-founder",
+// @lore BC5 T10: `GET /api/auth/me`, `GET/POST /api/teams` and `POST
+// /api/users` are gone — the welcome screen calls `edit_user` (new person +
+// team name) then `edit_user` (new agent), both through the fixtures.ts
+// auto-use `open_user({})` default plus these per-test overrides.
+const CREATED_FOUNDER_ROW = makeUserRow("u-r2-founder", {
 	name: "Alice R2",
-	kind: "human",
 	role: "founder",
-	status: "active",
-};
-
-const MOCK_CREATE_PRODUCT_RESPONSE = {
-	id: "p-r2-product",
-	name: "My Product",
-	phase: "build",
-};
+	team: { id: "p-r2-product", name: "My Product" },
+});
 
 test.describe("R2 — Work-First Landing", () => {
 	// ─────────────────────────────────────────────────────────────────────────
@@ -38,47 +34,54 @@ test.describe("R2 — Work-First Landing", () => {
 
 	test.describe("SetupFlow (R2)", () => {
 		test.beforeEach(async ({ page }) => {
-			// Fresh install: no user, no products
-			await page.route("**/api/auth/me", async (route) => {
-				if (route.request().method() === "GET") {
-					await route.fulfill({
-						status: 401,
-						contentType: "application/json",
-						body: JSON.stringify({ error: "Unauthorized" }),
-					});
-				} else {
-					await route.continue();
+			// Fresh install: open_user({}) answers "no row yet" — the welcome
+			// screen's own first-run shape (architecture.md §7).
+			await page.route("**/api/actions/open_user", async (route) => {
+				const input = JSON.parse(route.request().postData() ?? "{}") as { id?: string };
+				if (input.id !== undefined) {
+					await route.fallback();
+					return;
 				}
+				await route.fulfill({
+					status: 200,
+					contentType: "application/json",
+					body: JSON.stringify({
+						ok: true,
+						data: {
+							user: null,
+							runsOn: [],
+							runConfig: null,
+							documentIds: [],
+							folders: [],
+							subscriptions: [],
+							connections: null,
+							behaviour: null,
+							inbox: null,
+							reviewTrackRecord: null,
+						},
+					}),
+				});
 			});
-
-			await page.route("**/api/teams", async (route) => {
-				if (route.request().method() === "GET") {
-					await route.fulfill({
-						status: 200,
-						contentType: "application/json",
-						body: JSON.stringify({ teams: [] }),
-					});
-				} else if (route.request().method() === "POST") {
-					await route.fulfill({
-						status: 201,
-						contentType: "application/json",
-						body: JSON.stringify(MOCK_CREATE_PRODUCT_RESPONSE),
-					});
-				} else {
-					await route.continue();
-				}
-			});
-
-			await page.route("**/api/users", async (route) => {
-				if (route.request().method() === "POST") {
-					await route.fulfill({
-						status: 201,
-						contentType: "application/json",
-						body: JSON.stringify(MOCK_CREATE_USER_RESPONSE),
-					});
-				} else {
-					await route.continue();
-				}
+			await page.route("**/api/actions/edit_user", async (route) => {
+				await route.fulfill({
+					status: 200,
+					contentType: "application/json",
+					body: JSON.stringify({
+						ok: true,
+						data: {
+							user: CREATED_FOUNDER_ROW,
+							runsOn: [],
+							runConfig: null,
+							documentIds: [],
+							folders: [],
+							subscriptions: [],
+							connections: null,
+							behaviour: null,
+							inbox: null,
+							reviewTrackRecord: null,
+						},
+					}),
+				});
 			});
 		});
 
@@ -142,18 +145,9 @@ test.describe("R2 — Work-First Landing", () => {
 
 		// AC-5: After setup, navigates to /work/portfolio
 		test("AC5 — navigates to /work/portfolio after successful setup", async ({ page }) => {
-			// After setup, mock auth/me to return user + products to exist
-			await page.route("**/api/auth/me", async (route) => {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({
-						id: "u-r2-founder",
-						name: "Alice R2",
-						avatarUrl: null,
-					}),
-				});
-			});
+			// After setup, the team page's own reads resolve to the created founder.
+			await mockUser(page, { row: CREATED_FOUNDER_ROW, self: true });
+			await mockSearchUsers(page, { rows: [CREATED_FOUNDER_ROW] });
 
 			// Mock canvas endpoint
 
@@ -190,18 +184,10 @@ test.describe("R2 — Work-First Landing", () => {
 		test("AC5 — redirects to /work/portfolio (not /conversations) when setup is complete", async ({
 			page,
 		}) => {
-			// User exists + products exist
-			await page.route("**/api/auth/me", async (route) => {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({
-						id: "u-1",
-						name: "Founder",
-						avatarUrl: null,
-					}),
-				});
-			});
+			// User exists + a team exists (every human is in one — D-e3zm2j).
+			const founderRow = makeUserRow("u-1", { name: "Founder", team: { id: "t-1", name: "Team" } });
+			await mockUser(page, { row: founderRow, self: true });
+			await mockSearchUsers(page, { rows: [founderRow] });
 
 			await page.route("**/api/artifacts**", async (route) => {
 				await route.fulfill({
