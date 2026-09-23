@@ -389,13 +389,15 @@ describe("AX1: lived-in demo world", () => {
 		await seedWorld(db);
 
 		// @lore BB1: `active_bets` column dropped from teams — WIP is counted
-		// live via countTeamTasksInProgress. The bets table is gone too. We now
-		// verify the team has a lead_agent_id and that root tasks exist.
-		const teamRow = await rows<{ lead_agent_id: string | null }>(
+		// live via countTeamTasksInProgress. The bets table is gone too.
+		// @lore BC5 T11 (migration 0090, D-e3zm2j): `lead_agent_id` (and every
+		// other setup-wizard scaffold column) is dropped too — a team is an id
+		// and a name now, so this test verifies root tasks exist instead.
+		const teamRow = await rows<{ id: string }>(
 			db,
-			"SELECT lead_agent_id FROM teams WHERE id = 'demo-team-acme'",
+			"SELECT id FROM teams WHERE id = 'demo-team-acme'",
 		);
-		expect(teamRow[0]?.lead_agent_id).toBeTruthy();
+		expect(teamRow[0]?.id).toBe("demo-team-acme");
 
 		// Root tasks (parentTaskId IS NULL) should exist for the demo team.
 		const rootTaskCount = await count(

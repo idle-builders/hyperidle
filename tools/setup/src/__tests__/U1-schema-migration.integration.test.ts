@@ -85,13 +85,12 @@ describe("U1 AC1: Table renames — products→teams", () => {
 		expect(await tableExists(db, "products")).toBe(false);
 	});
 
-	test("AC1: `teams` table exists and has product-like columns (id, name, phase, created_at)", async ({
+	test("AC1: `teams` table exists and has product-like columns (id, name, created_at)", async ({
 		db,
 	}) => {
 		const cols = await columnNamesOf(db, "teams");
 		expect(cols).toContain("id");
 		expect(cols).toContain("name");
-		expect(cols).toContain("phase");
 		expect(cols).toContain("created_at");
 	});
 
@@ -100,12 +99,14 @@ describe("U1 AC1: Table renames — products→teams", () => {
 		expect(await tableExists(db, "team_members")).toBe(false);
 	});
 
-	test("AC1: `teams` table has capacity and formed_at columns (folded from team_members)", async ({
-		db,
-	}) => {
+	// @lore BC5 T11 (migration 0090, D-e3zm2j): a team is an id and a name —
+	// phase/capacity/formed_at and the rest of the setup-wizard scaffold
+	// columns are dropped, not folded from team_members here anymore.
+	test("AC1: `teams` table has no phase, capacity, or formed_at columns", async ({ db }) => {
 		const cols = await columnNamesOf(db, "teams");
-		expect(cols).toContain("capacity");
-		expect(cols).toContain("formed_at");
+		expect(cols).not.toContain("phase");
+		expect(cols).not.toContain("capacity");
+		expect(cols).not.toContain("formed_at");
 	});
 
 	test("AC1: seed data round-trips — `teams` table holds the demo team row", async ({ db }) => {
@@ -140,9 +141,7 @@ describe("U1 AC1: FK rename on tasks", () => {
 		const now = new Date().toISOString();
 
 		await db.execute(
-			sql.raw(
-				`INSERT INTO teams (id, name, phase, created_at) VALUES ('t-p2', 'MyTeam', 'build', '${now}')`,
-			),
+			sql.raw(`INSERT INTO teams (id, name, created_at) VALUES ('t-p2', 'MyTeam', '${now}')`),
 		);
 		// Every task needs a real thread (tasks.thread_id is NOT NULL) —
 		// team-hosted, matching what `edit_task` seeds for a new task.
@@ -213,7 +212,7 @@ describe("U1 AC8: Seed data uses new table/column names", () => {
 describe("U1: Full table schema shape assertions", () => {
 	test("teams table schema matches architecture spec §4.1 (formerly products)", async ({ db }) => {
 		const cols = await columnNamesOf(db, "teams");
-		expect(cols).toEqual(expect.arrayContaining(["id", "name", "phase", "created_at"]));
+		expect(cols).toEqual(expect.arrayContaining(["id", "name", "created_at"]));
 	});
 
 	// @lore AU44 B1: team_members dissolved into teams — test removed

@@ -102,13 +102,9 @@ describe("A2: Seed script", () => {
 		expect(agents[0]?.name).toBeTruthy();
 		expect(agents[0]?.role).toBeTruthy();
 
-		// @lore AU44 B1: team_members folded into teams; capacity now lives on teams.
-		const teamMembers = await queryRows<{ id: string; capacity: number }>(
-			db,
-			"SELECT id, capacity FROM teams LIMIT 1",
-		);
-		expect(teamMembers[0]?.id).toBeTruthy();
-		expect(teamMembers[0]?.capacity).toBeGreaterThan(0);
+		// @lore AU44 B1: team_members folded into teams.
+		// @lore BC5 T11 (migration 0090, D-e3zm2j): capacity is dropped — a team
+		// is an id and a name now, no capacity gate left to read back.
 
 		// @lore BC4: `knowledge_app_projection` is dropped (architecture.md §6.2,
 		// §6.4) — the row it used to project (`confidence`) is a plain column on
