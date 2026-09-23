@@ -117,6 +117,10 @@ const PLUMBING_ROUTES: readonly string[] = [
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|GET /connections/:userId",
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /connections/:userId",
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /connections/:userId/:id/remove",
+	// @lore BC5 T11 (architecture.md §0.1 clause 3): `SetupFlow.tsx` needs
+	// folder detail (git repo? which branch?) BEFORE a folder exists to
+	// register — a plumbing lookup, not an action. Moved from LEGACY_ROUTES.
+	"layers/agent-orchestration/src/routes/filesystems.ts|POST /inspect-path",
 ];
 
 /** The nine object events — task/thread/document/user, edit-in/changed-out. */
@@ -160,43 +164,7 @@ const PLATFORM_EVENTS: readonly string[] = [
 const LEGACY_ROUTES: readonly string[] = [
 	"layers/agent-execution/harness-registry/src/mcp/mcp-route.ts|ALL /mcp/:token",
 	"layers/agent-orchestration/run-orchestration/src/worker-ingress.ts|GET /ws/worker",
-	"layers/agent-orchestration/src/routes/connections.ts|GET /",
-	"layers/agent-orchestration/src/routes/connections.ts|POST /",
-	"layers/agent-orchestration/src/routes/connections.ts|DELETE /:id",
-	"layers/agent-orchestration/src/routes/connections.ts|POST /:id/validate",
-	"layers/agent-orchestration/src/routes/filesystems.ts|POST /",
-	"layers/agent-orchestration/src/routes/filesystems.ts|POST /inspect-path",
-	"layers/agent-orchestration/src/routes/filesystems.ts|GET /",
-	"layers/agent-orchestration/src/routes/filesystems.ts|GET /:id",
-	"layers/agent-orchestration/src/routes/filesystems.ts|DELETE /:id",
-	"layers/agent-orchestration/src/routes/filesystems.ts|DELETE /:id/injections/:agentUserId",
-	"layers/core-api/src/routes/agents.ts|GET /:id/profile",
-	"layers/core-api/src/routes/agents.ts|GET /",
-	"layers/core-api/src/routes/agents.ts|POST /",
-	"layers/core-api/src/routes/agents.ts|PATCH /:id",
-	"layers/core-api/src/routes/agents.ts|DELETE /:id",
-	"layers/core-api/src/routes/filesystems.ts|POST /:id/injections",
-	"layers/core-api/src/routes/harnesses.ts|GET /",
-	"layers/core-api/src/routes/harnesses.ts|POST /redetect",
-	"layers/core-api/src/routes/org.ts|GET /",
-	"layers/core-api/src/routes/org.ts|PUT /edges",
-	"layers/core-api/src/routes/org.ts|DELETE /edges/:id",
-	"layers/core-api/src/routes/org.ts|GET /teams/:teamId",
-	"layers/core-api/src/routes/org.ts|GET /teams/:teamId/membership",
-	"layers/core-api/src/routes/org.ts|POST /teams",
-	"layers/core-api/src/routes/org.ts|POST /scaffold-request",
-	"layers/core-api/src/routes/recipients.ts|GET /",
 	"layers/core-api/src/routes/search.ts|GET /",
-	"layers/core-api/src/routes/settings-agent-behavior.ts|GET /config",
-	"layers/core-api/src/routes/settings-agent-behavior.ts|PATCH /config/:id",
-	"layers/core-api/src/routes/teams-routes.ts|GET /",
-	"layers/core-api/src/routes/teams-routes.ts|POST /",
-	"layers/core-api/src/routes/teams-routes.ts|PATCH /:teamId",
-	"layers/core-api/src/routes/teams-routes.ts|GET /:teamId",
-	"layers/core-api/src/routes/users.ts|POST /",
-	"layers/core-api/src/routes/users.ts|GET /",
-	"layers/core-api/src/routes/users.ts|GET /:id",
-	"layers/core-api/src/routes/users.ts|PATCH /:id",
 	"layers/core-api/src/routes/ws.ts|GET /ws",
 ];
 
@@ -204,12 +172,15 @@ const LEGACY_ROUTES: readonly string[] = [
  * Every tool name declared in a production `ToolDefinition` literal that is
  * not an action. Re-derived after the attention-engine deletion on main
  * removed `run_knowledge_sweep`/`score_attention` with it, so
- * those two entries shrank ahead of this item. The fourteen left in
- * `tool-definitions.ts` once `create_task`/`edit_task`/`handoff_to`/
- * `log_task` are deleted, plus `return_status` (the tool twin of the
- * `POST /mcp/:token/return-status` plumbing route — never an object action).
+ * those two entries shrank ahead of this item.
+ *
+ * @lore BC5 T11: `add_agent`/`create_team` — the last two hand-written tools
+ * `tool-definitions.ts` carried — are gone with the `org` package they
+ * scaffolded through; only `return_status` (the tool twin of the
+ * `POST /mcp/:token/return-status` plumbing route — never an object action)
+ * is left in the hand-written catalog.
  */
-const LEGACY_TOOLS: readonly string[] = ["add_agent", "create_team", "return_status"];
+const LEGACY_TOOLS: readonly string[] = ["return_status"];
 
 /**
  * Every `EVENT_TYPES` member that is neither one of the nine object events
@@ -224,14 +195,17 @@ const LEGACY_TOOLS: readonly string[] = ["add_agent", "create_team", "return_sta
  * matcher was their last listener; the nine object events carry the same
  * change. Six rows shrank ahead of this comment for the same reason the
  * five before them did.
+ *
+ * @lore BC5 T11: `team_created`/`agent_added`/`user_created` are gone from
+ * `EVENT_TYPES` too — their emitters were the `org`/`teams-routes`/`users`
+ * routes, all deleted; `user.created`/`user.changed` (the object events)
+ * carry the same change now. `session_*` stay (D-e3zm2j) — the plumbing by
+ * which a run reports back to its task.
  */
 const LEGACY_EVENTS: readonly string[] = [
 	"session_started",
 	"session_ended",
 	"session_not_returned",
-	"team_created",
-	"agent_added",
-	"user_created",
 ];
 
 /** Path to the event-bus vocabulary this rule's clause 4 reads. */

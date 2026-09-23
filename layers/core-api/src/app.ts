@@ -7,7 +7,6 @@ import type { RegisteredTool } from "@hyperidle/harness-protocol";
 import { readServerConfig } from "@hyperidle/settings";
 import { checkAndUnblockDependents } from "@hyperidle/task";
 import {
-	createAgentIdentityPort,
 	createUpgradeTokenStore,
 	registerSubscriptionFire,
 	startSubscriptionClock,
@@ -18,17 +17,9 @@ import type { Action, ActionContext } from "./actions/action.js";
 import { actionsAsTools } from "./actions/actions-as-tools.js";
 import { createActionsRouter } from "./actions/actions-router.js";
 import { buildCoreActions, runnerFor } from "./actions/compose.js";
-import { createAgentRoutes } from "./routes/agents.js";
 import { createAuthRoutes } from "./routes/auth.js";
-import { createFilesystemInjectionRoutes } from "./routes/filesystems.js";
-import { createHarnessRoutes } from "./routes/harnesses.js";
 import { authHealth } from "./routes/health.js";
-import { createOrgRoutes } from "./routes/org.js";
-import { createRecipientRoutes } from "./routes/recipients.js";
 import { createSearchRoutes } from "./routes/search.js";
-import { createAgentBehaviorSettingsRoutes } from "./routes/settings-agent-behavior.js";
-import { createTeamRoutes } from "./routes/teams-routes.js";
-import { createUserRoutes, createUserSetupRoute } from "./routes/users.js";
 import {
 	buildSeamBackedReviewVerdictRecorder,
 	buildSeamBackedWorkIntentRecorder,
@@ -312,17 +303,11 @@ export function registerCoreApiPreAuthRoutes(
 		return c.json(response);
 	});
 
-	// P4: Public: POST /api/users (setup — no auth required on first run).
-	// The route itself enforces auth once a human user already exists
-	// (setup-complete guard).
-	if (options?.db && options.agentOrchestration) {
-		// AK6 T8: eventBus passed so user_created event is emitted after assistant persist.
-		const earlyEventBus = options.eventBus ?? new EventBus();
-		api.route(
-			"/users",
-			createUserSetupRoute(options.db, earlyEventBus, options.agentOrchestration),
-		);
-	}
+	// @lore BC5 T11 (architecture.md §7): the pre-auth `POST /api/users`
+	// setup route is DELETED — `edit_user`'s own first-run rule (a caller
+	// with no `users` row may create a person only while no person exists)
+	// is strictly tighter, behind the auth middleware instead of in front of
+	// it.
 
 	// WS upgrades authenticate via a one-shot upgrade token (`?token=...`) in a
 	// middleware defined inside `registerWsRoute`, not via the API key.
@@ -580,70 +565,25 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 			import("@hyperidle/domain-model").EditUserInput,
 			import("@hyperidle/domain-model").UserView
 		>(actions, "edit_user");
-		// @lore document-module B11: an agent's identity document (§8.3) — the
-		// one shared helper every agent-creating route (`/agents`, `/org`'s
-		// scaffold-request, `/teams`'s create) reduces to, built from the same
-		// composed `search_documents`/`edit_document` runners rather than
-		// `@hyperidle/document`'s repository functions.
-		const agentIdentity = createAgentIdentityPort({
-			searchDocuments: searchDocumentsRun,
-			editDocument: editDocumentRun,
-			eventBus,
-		});
-		// @lore U2: `/products` URL renamed to `/teams` (domain rename: Product → Team).
-		// The old `createTeamsRoutes` (knowledge team_members listing) relocated to `/team-members`.
-		// Mounted here (after the action list and `agentIdentity` both exist)
-		// rather than at its old pre-actions spot — the profile/list/create/
-		// delete handlers all reach an agent's identity document through it now.
-		api.route(
-			"/agents",
-			createAgentRoutes(options.db, agentOrchestration, options.adapterPool, agentIdentity),
-		);
-		// @lore `/teams` mounts after the action list is built and `sendMessage`
-		// extracted — its POST handler's welcome-message seed posts through the
-		// composed action instead of a raw `insertThread`/`insertMessage` into
-		// the literal id `thr-ast-${userId}`.
-		api.route(
-			"/teams",
-			createTeamRoutes(
-				options.db,
-				eventBus,
-				agentOrchestration,
-				sendMessage,
-				agentIdentity,
-				options.adapterPool,
-			),
-		);
+		// @lore BC5 T11: the `agents`/`org`/`teams`/`recipients`/`harnesses`
+		// route families and the core-hosted `filesystems` injection route are
+		// all DELETED — user is one module now, `search_users`/`open_user`/
+		// `edit_user` under `POST /api/actions/<name>` (mounted generically by
+		// `createActionsRouter` above), never a route module. `agentIdentity`
+		// (the shared helper those routes reduced an agent's identity document
+		// creation to) goes with them — `@hyperidle/user`'s own
+		// `agent-identity.ts` builds the same port internally now, per call,
+		// for `edit_user`'s own identity-document write.
 		// @lore BC3 architecture.md §5 B1: `/reviews`, `/conversations`, `/threads`
 		// and their route files are DELETED — search_threads/open_thread/
 		// send_message/adjust_thread are the door now, mounted generically by
-		// createActionsRouter above. `/recipients` stays (plan.md Confusion 4).
-		// AU26 F2: only ONE `/api/filesystems` registration is still core-hosted —
-		// `POST /:id/injections`, whose team-consistency gate reads `users` +
-		// `team_members`. Every other registration (and the reachability probe's
-		// `ServiceConnectionResolver`, which core-api no longer constructs) lives
-		// on agent-orchestration's app at byte-identical paths. See
-		// `routes/filesystems.ts`'s own top-of-file `@lore`.
-		api.route("/filesystems", createFilesystemInjectionRoutes(options.db, agentOrchestration));
-		api.route("/users", createUserRoutes(options.db));
-		api.route("/org", createOrgRoutes(options.db, agentOrchestration, agentIdentity));
-		api.route("/recipients", createRecipientRoutes(options.db, eventBus));
-
-		// AH2: GET /api/harnesses — deduped harness type list for SettingsAgents selector.
-		// AM4 CHANGE 3 (Seam 3): thread options.db so the handler can stamp discovery.disabled
-		// and the redetect/disable routes can read/write server_config.
-		// AU36 D5: thread onHarnessRedetect so redetect also refreshes inherited reach.
-		if (options.adapterPool) {
-			api.route(
-				"/harnesses",
-				createHarnessRoutes(options.adapterPool, options.db, options.onHarnessRedetect),
-			);
-		}
-		// AU26 E4: `/api/connections` is served by `agent-orchestration`'s own
-		// app now (its whole table set is `service_connections`, which that Layer
-		// owns). Same path, other host — see `createAgentOrchestrationApp`.
+		// createActionsRouter above.
+		// AU26 E4: `/api/connections` was served by `agent-orchestration`'s own
+		// app; that route family is deleted too (BC5 T11) — connections are a
+		// user attribute now, behind `open_user`/`edit_user`.
 		api.route("/search", createSearchRoutes(options.db, eventBus, searchDocumentsRun));
-		api.route("/settings/agent-behavior", createAgentBehaviorSettingsRoutes(options.db));
+		// @lore BC5 T11: `/settings/agent-behavior` is deleted — behaviour is a
+		// user attribute now, behind `open_user`/`edit_user`.
 		// Plugin management is the platform module now —
 		// `search_plugins`/`edit_plugin`, mounted generically by
 		// `createActionsRouter` above (`compose.ts`'s fourth action group).

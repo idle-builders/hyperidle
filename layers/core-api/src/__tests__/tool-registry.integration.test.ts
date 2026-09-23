@@ -125,8 +125,9 @@ describe("buildToolRegistry", () => {
 			buildToolRegistry,
 		}) => {
 			const registry = buildToolRegistry(makeContext(db, eventBus), { role: "assistant" });
-			// `edit_task`'s `id` is required.
-			const result = await registry.invoke("edit_task", {});
+			// `open_task`'s `id` is a bare required string — no business
+			// invariant runs before the zod shape itself refuses `{}`.
+			const result = await registry.invoke("open_task", {});
 			expect(result.success).toBe(false);
 			if (!result.success) {
 				expect(result.code).toBe("INVALID_INPUT");

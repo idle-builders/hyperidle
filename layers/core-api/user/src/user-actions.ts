@@ -1014,10 +1014,22 @@ async function editExistingUserRun(
 			// audited cast, widened through a local `unknown` binding rather
 			// than a chained `as unknown as` (forbidden — `design/no-unknown-cast`).
 			const connWidened: unknown = conn;
-			const result = await deps.connections.add(
-				id,
-				connWidened as Parameters<typeof deps.connections.add>[1],
-			);
+			// @lore BC5 T11: the seam-backed `connections.add` binding
+			// (`agent-orchestration-port-composition.ts`) throws on any
+			// non-2xx response — including the seam's own schema rejection of
+			// a mismatched pair (a bad `serverUrl`, a missing token) — rather
+			// than returning the `{ok:false}` its own return type promises.
+			// This catch makes the door honor what it already documented:
+			// every refused add, thrown or returned, is one `connection_invalid`.
+			let result: Awaited<ReturnType<typeof deps.connections.add>>;
+			try {
+				result = await deps.connections.add(
+					id,
+					connWidened as Parameters<typeof deps.connections.add>[1],
+				);
+			} catch {
+				return problem("connection_invalid", "That connection could not be added.", "connections");
+			}
 			if (!result.ok)
 				return problem("connection_invalid", "That connection could not be added.", "connections");
 		}

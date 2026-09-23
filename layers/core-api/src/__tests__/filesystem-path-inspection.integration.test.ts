@@ -134,7 +134,7 @@ describe("filesystem path inspection and registration", () => {
 	// attribute now, given through `edit_user({ folders: { add } })` and read
 	// back through `open_user({ id }).folders`.
 	async function createHumanWithTeam(
-		app: { request: (path: string, init?: RequestInit) => Promise<Response> },
+		app: { request: (path: string, init?: RequestInit) => Response | Promise<Response> },
 		name: string,
 	): Promise<string> {
 		const res = await app.request("/api/actions/edit_user", {
@@ -150,7 +150,7 @@ describe("filesystem path inspection and registration", () => {
 	}
 
 	async function addFolder(
-		app: { request: (path: string, init?: RequestInit) => Promise<Response> },
+		app: { request: (path: string, init?: RequestInit) => Response | Promise<Response> },
 		id: string,
 		folder: {
 			kind: "code" | "doc_set";
@@ -166,7 +166,7 @@ describe("filesystem path inspection and registration", () => {
 	}
 
 	async function openFolders(
-		app: { request: (path: string, init?: RequestInit) => Promise<Response> },
+		app: { request: (path: string, init?: RequestInit) => Response | Promise<Response> },
 		id: string,
 	): Promise<Array<{ kind: string; resourceRef: Record<string, unknown>; writeback: string }>> {
 		const res = await app.request("/api/actions/open_user", {

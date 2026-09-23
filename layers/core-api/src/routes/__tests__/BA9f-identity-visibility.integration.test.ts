@@ -239,7 +239,13 @@ describe("agent identity through the document action mechanism", () => {
 		const createRes = await app.request("/api/actions/edit_user", {
 			method: "POST",
 			headers: authHeaders(CREATOR),
-			body: JSON.stringify({ kind: "ai", name: "Atlas", role: "builder", identity: "You are Atlas." }),
+			body: JSON.stringify({
+				kind: "ai",
+				name: "Atlas",
+				role: "builder",
+				identity: "You are Atlas.",
+				ownerUserId: CREATOR,
+			}),
 		});
 		expect(createRes.status).toBe(200);
 		const created = (
@@ -276,7 +282,13 @@ describe("agent identity through the document action mechanism", () => {
 		const createRes = await app.request("/api/actions/edit_user", {
 			method: "POST",
 			headers: authHeaders(CREATOR),
-			body: JSON.stringify({ kind: "ai", name: "Ranger", role: "builder", identity: "You are Ranger." }),
+			body: JSON.stringify({
+				kind: "ai",
+				name: "Ranger",
+				role: "builder",
+				identity: "You are Ranger.",
+				ownerUserId: CREATOR,
+			}),
 		});
 		const created = (
 			(await createRes.json()) as { ok: true; data: { user: { id: string } | null } }

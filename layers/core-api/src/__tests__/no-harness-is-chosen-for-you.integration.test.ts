@@ -51,7 +51,12 @@ describe("no harness or model is chosen on someone's behalf", () => {
 		const res = await app.request("/api/actions/edit_user", {
 			method: "POST",
 			headers: authHeaders(),
-			body: JSON.stringify({ kind: "ai", name: "Unassigned Agent", role: "builder" }),
+			body: JSON.stringify({
+				kind: "ai",
+				name: "Unassigned Agent",
+				role: "builder",
+				team: { name: "No Default Team" },
+			}),
 		});
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as {

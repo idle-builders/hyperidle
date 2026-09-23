@@ -424,7 +424,11 @@ const EditUserConnectionsSchema = z
 			.array(
 				z
 					.object({
-						service: z.string().min(1),
+						// Optional: an "mcp" add derives its service name from
+						// `serverUrl`'s hostname when the caller omits it (mirrors
+						// `createConnectionSchema`'s own optional `service` on that
+						// branch); a "token" add still needs one named explicitly.
+						service: z.string().min(1).optional(),
 						authSource: z.enum(HELD_AUTH_SOURCES),
 						token: z.string().optional(),
 						serverUrl: z.string().optional(),

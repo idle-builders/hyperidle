@@ -25,7 +25,6 @@ import {
 	decryptCredentialValue,
 	encryptCredentialValue,
 	type InheritedReach,
-	resolveHeldToken,
 } from "@hyperidle/connections";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
@@ -38,7 +37,6 @@ import { actionsAsTools } from "./actions/actions-as-tools.js";
 import { createActionsRouter } from "./actions/actions-router.js";
 import { createAgentOrchestrationIntakeRoutes } from "./routes/agent-orchestration-intake.js";
 import { createAgentOrchestrationSessionsRoutes } from "./routes/agent-orchestration-sessions.js";
-import { createConnectionRoutes } from "./routes/connections.js";
 import { createFilesystemRoutes } from "./routes/filesystems.js";
 
 export interface AgentOrchestrationAppOptions {
@@ -97,16 +95,13 @@ export function createAgentOrchestrationApp(
 		"/agent-orchestration",
 		createAgentOrchestrationIntakeRoutes(db, eventBus, { inheritedReach, cipher }),
 	);
-	// AU26 E4: `/api/connections` — the path is unchanged; only the host app is.
-	app.route("/connections", createConnectionRoutes(db, inheritedReach, cipher));
-	// AU26 F2: `/api/filesystems` — same story. The reachability probe needs the
-	// held-connection decrypt path, and `service_connections` is this Layer's own
-	// table since E3, so the resolver is wired via cipher.decrypt → resolveHeldToken.
-	const fileSystemsResolver = {
-		resolve: (userId: string, connectionId: string) =>
-			resolveHeldToken(db, userId, connectionId, cipher.decrypt),
-	};
-	app.route("/filesystems", createFilesystemRoutes(db, fileSystemsResolver));
+	// @lore BC5 T11: `/api/connections` (`routes/connections.ts`) is DELETED —
+	// connections are a user attribute now, behind `open_user`/`edit_user`,
+	// crossing this Layer's own `AgentOrchestrationConnectionsPort` seam
+	// (`agent-orchestration-intake.ts` above) rather than a public route.
+	// `/api/filesystems` shrinks to its one surviving plumbing lookup,
+	// `POST /inspect-path` — it needs neither `db` nor a connection resolver.
+	app.route("/filesystems", createFilesystemRoutes());
 
 	return { app, actionTools };
 }

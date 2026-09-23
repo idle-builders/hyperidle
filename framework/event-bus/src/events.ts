@@ -317,51 +317,6 @@ export interface PropagationFailedEvent {
 }
 
 /**
- * AK6: Emitted by POST /api/teams (and create-team tool) AFTER the team,
- * teamMembers, and all scaffolded agent users rows have been persisted.
- * streamId = teamId for per-team stream routing.
- */
-export interface TeamCreatedEvent {
-	type: "team_created";
-	streamId: string;
-	teamId: string;
-	teamMembersId: string;
-	/** Ids of every agent users row created for this team (real ids, post-persist). */
-	agentIds: readonly string[];
-	at: string;
-}
-
-/**
- * AK6: Emitted by the add_agent tool (and teams add-agent route) AFTER the
- * agent users row has been persisted.
- * streamId = teamId for per-team stream routing.
- */
-export interface AgentAddedEvent {
-	type: "agent_added";
-	streamId: string;
-	teamId: string;
-	teamMembersId: string;
-	agentId: string;
-	role: string;
-	at: string;
-}
-
-/**
- * AK6: Emitted by POST /api/users (and assistant lazy-create) AFTER the human
- * user row AND the assistant agent users row have been persisted.
- * Semantics: "human + their assistant now exist."
- * streamId = userId for per-user stream routing.
- */
-export interface UserCreatedEvent {
-	type: "user_created";
-	streamId: string;
-	userId: string;
-	/** The assistant agent's users.id (real id, post-persist). */
-	assistantAgentId: string;
-	at: string;
-}
-
-/**
  * The wire shape of a raw `changes` table row — `@hyperidle/db`'s `Change`
  * (and the value its own `appendChange` returns) structurally satisfies
  * this without a cast: `before`/`after` are still JSON text, undecoded.
@@ -455,10 +410,10 @@ export type DomainEvent =
 	// (ObjectChangeEvent members) carry the same change now.
 	// AU19 Increment 3f: filesystems ⚠ capture-writeback EventBus inversion
 	| SandboxWritebackChangesDetectedEvent
-	// AK6: creation events
-	| TeamCreatedEvent
-	| AgentAddedEvent
-	| UserCreatedEvent
+	// @lore BC5 T11: TeamCreatedEvent/AgentAddedEvent/UserCreatedEvent deleted
+	// with the `org`/`teams-routes`/`users` routes, their last emitters —
+	// `user.created`/`user.changed` (ObjectChangeEvent members) carry the
+	// same change now.
 	// @lore BC5 T7b: NotificationEvent deleted — subscriptions replace the
 	// notification queue; `user.changed` (an ObjectChangeEvent member) plus a
 	// subscription's inbox row carry what this used to.
@@ -515,9 +470,9 @@ export const EVENT_TYPES = [
 	// store, the `items` table (the founder's conversation-review "block"
 	// concept), is gone, and nothing emits it anymore.
 	"sandbox_writeback_changes_detected",
-	"team_created",
-	"agent_added",
-	"user_created",
+	// @lore BC5 T11: "team_created"/"agent_added"/"user_created" deleted with
+	// the `org`/`teams-routes`/`users` routes, their last emitters —
+	// "user.created"/"user.changed" (above) carry the same change now.
 	// @lore BC5 T7b: "notification" deleted — subscriptions replace the
 	// notification queue.
 	"propagation_applied",
