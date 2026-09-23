@@ -1,19 +1,12 @@
 /**
  * Pure cron utilities.
  *
- * AU44 batch 3: dissolved from framework/cron. Calendar routines are
- * routine-domain logic; the only real consumer was the routine scheduler.
+ * parseCron/nextCronMatch are the two exported functions; CronFields is
+ * exported alongside them.
  *
- * @lore AU44 B3: computeNextRunAt merged into computeRoutineNextRunAt in
- * routine-service.ts (single canonical next-run-at function, returns null for
- * event triggers rather than ""). parseCron/nextCronMatch stay as the two
- * exported functions; CronFields is exported alongside them.
- *
- * @lore BC5 T2: moved from `@hyperidle/routine` to `@hyperidle/user` and
- * exported from the package index — a subscription's schedule trigger needs
- * the same cron parsing a calendar routine used, and the user module is
- * where that clock lives now. `@hyperidle/routine` keeps importing these two
- * functions from `@hyperidle/user` until the cut-over retires the package.
+ * @lore BC5 T2: lives in `@hyperidle/user`, exported from the package index —
+ * a subscription's schedule trigger needs this cron parsing, and the user
+ * module is where the subscription clock lives.
  */
 
 export interface CronFields {

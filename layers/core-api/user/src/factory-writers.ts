@@ -41,7 +41,7 @@ export async function listFactoryAgents(
  * Set the `status` field on the named agent rows.
  *
  * Users/agents are never hard-deleted — many tables have ON DELETE RESTRICT FKs
- * on users.id (items.sourceAgentId, routines.ownerAgentId, etc.).
+ * on users.id (tasks.ownerAgentId, sessions.agentId, etc.).
  * Status='inactive' is the safe tombstone.
  *
  * @lore BA9d: the route cannot write the `users` table directly (governance

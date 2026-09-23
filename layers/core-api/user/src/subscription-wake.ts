@@ -1,10 +1,9 @@
 /**
  * `resolveSubscriptionWakeRequest` — bake the `BakedWorkIntentRequest` a
  * subscription's wake carries, for an agent subscriber. Architecture.md §4:
- * "the routine shape (`routine-service.ts`'s `resolveRoutineRunRequest`)
- * renamed" — same three reused pieces (`bakeAgentRunnableConfig`,
- * `toBakedContextDocuments`, an injected `assembleSessionDocuments`), same
- * optional-contextBundle shape, but with no `routine_runs` row to load: the
+ * three reused pieces (`bakeAgentRunnableConfig`, `toBakedContextDocuments`,
+ * an injected `assembleSessionDocuments`), same optional-contextBundle
+ * shape, but no run row to load: the
  * subscription row and the change that woke it are already in the caller's
  * hand (`subscription-fire.ts`'s own `listSubscriptions` read), so this
  * function does no DB read of its own beyond the agent row

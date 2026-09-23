@@ -9,8 +9,8 @@
  * Every family resolver (built in later Increment-3 waves) imports this ONE
  * helper via ordinary same-layer core-api DI instead of re-implementing the
  * `kind==="ai"` + `active`/`idle` check inline. This is Wave 0's job to
- * build; `session-requests`'s own `requireRunnableActor` is untouched for now
- * (the drain still needs it for the not-yet-migrated `routine_run` case).
+ * build; `session-requests`'s own `requireRunnableActor` is untouched for
+ * now — it is still needed until every kind resolves at emit time.
  *
  * Currently RED: no such export exists anywhere under
  * `layers/core-api/users/src/` (nor from its barrel, `@hyperidle/users`) —

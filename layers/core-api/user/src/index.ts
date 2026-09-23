@@ -13,11 +13,9 @@
  * `user-store.ts`, `factory-writers.ts`, `invite-code.ts`, `login-session.ts`,
  * `runnable-agent.ts` and `upgrade-token-store.ts` moved here unchanged from
  * `@hyperidle/users`; `team-lookup.ts` and `org-edges.ts` moved here
- * unchanged from `@hyperidle/org`. `cron.ts` moved here unchanged from
- * `@hyperidle/routine` — it was already private to that package (the only
- * caller was its own `insertRoutine`), and this Service's subscription clock
- * is now its other caller, so `parseCron`/`nextCronMatch` are exported here
- * for `@hyperidle/routine` to keep importing until the cut-over retires it.
+ * unchanged from `@hyperidle/org`. `cron.ts` lives here — this Service's
+ * subscription clock is its caller, so `parseCron`/`nextCronMatch` are
+ * exported here.
  *
  * @lore BC5 T5: `search_users`/`open_user`/`edit_user` (`user-actions.ts`)
  * are this Service's own action list now, the way `@hyperidle/task`/
@@ -52,8 +50,7 @@
 // -- agent identity (moved verbatim from routes/agent-identity.ts) --
 export type { AgentIdentityDeps, AgentIdentityPort } from "./agent-identity.js";
 export { createAgentIdentityPort } from "./agent-identity.js";
-// -- cron (AU44 batch 3 — private to the routine trigger until the
-// subscription clock became its second caller, and moved here with it) --
+// -- cron (used by the subscription clock's schedule trigger) --
 export type { CronFields } from "./cron.js";
 export { nextCronMatch, parseCron } from "./cron.js";
 // -- factory writers (AU29 §2.5.2 — idempotent first-boot users writes) --

@@ -1,8 +1,7 @@
 /**
  * `subscriptions`/`inbox` (migration 0088) and the widened
- * `agent_work_intents`/`documents` checks that seat the subscription wake
- * beside the routine pairing they will eventually replace. Real PGlite via
- * the `{ db }` fixture — no stub of a constraint.
+ * `agent_work_intents`/`documents` checks that seat the subscription wake.
+ * Real PGlite via the `{ db }` fixture — no stub of a constraint.
  */
 import {
 	agentWorkIntents,

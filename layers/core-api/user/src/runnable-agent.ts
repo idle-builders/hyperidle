@@ -9,12 +9,6 @@
  * is shared, because it is one cross-domain invariant (never trust the human
  * sender as the agent), not five domain-specific resolutions.
  *
- * @lore this is a NEW copy, not a relocation: `session-requests`'s own
- * `requireRunnableActor` stays in place unchanged for now — the drain still
- * needs it for the one remaining unmigrated case (`routine_run`, deliberately
- * left alone through the end of Increment 3 per the placement ruling). Once
- * `routine_run`'s resolver moves core-side (Increment 4), that internal copy
- * becomes dead and can be deleted in favor of this one.
  */
 
 import type { HyperIdleDb, User } from "@hyperidle/db";
@@ -24,7 +18,7 @@ import { findUser } from "./user-store.js";
  * Thrown when the resolved user is not a runnable AI agent.
  *
  * @lore BA1 review N4: `.name` is set explicitly (not left as the inherited
- * `"Error"`) so a caller across a Mechanism C boundary — `@hyperidle/routine`
+ * `"Error"`) so a caller across a Mechanism C boundary — a package that
  * cannot import this class, only the `requireRunnableAgent` function
  * signature — can still tell "the resolved agent genuinely is not runnable"
  * apart from any other failure (e.g. a DB connection blip inside `findUser`)

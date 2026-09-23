@@ -70,9 +70,9 @@ describe("startSubscriptionClock", () => {
 		expect(woken).toHaveLength(1);
 		expect(woken[0]).toBe(`sub-cron:${past}`);
 
-		// `next_run_at` advances from the fire-time "now" (the same
-		// `safeNextRunAt`-style rule the routine scheduler uses), not from the
-		// due row's own stale `next_run_at` — so this only pins the invariant
+		// `next_run_at` advances from the fire-time "now" (a `safeNextRunAt`-
+		// style rule), not from the due row's own stale `next_run_at` — so
+		// this only pins the invariant
 		// the AC actually names: it moved off the due timestamp, to a real
 		// future minute-boundary.
 		const row = await getSubscription(db, "sub-cron");

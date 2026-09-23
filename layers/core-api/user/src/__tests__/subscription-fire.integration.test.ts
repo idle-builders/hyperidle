@@ -1,8 +1,7 @@
 /**
  * `registerSubscriptionFire` — architecture.md §4/§0.13. Real PGlite via the
  * `{ db }` fixture, a real `EventBus()` (this package has no `{db,eventBus}`
- * fixture of its own — the same precedent
- * `routine-scheduler-completeness.integration.test.ts` and this package's own
+ * fixture of its own — the same precedent this package's own
  * `user-actions.integration.test.ts` already set), and the REAL
  * `@hyperidle/document` action list for document reach (never a stub of the
  * integration point under test — reach itself). Task/thread reach reads the

@@ -2,14 +2,11 @@
  * AU44 B3 — cron equivalence proof, the `parseCron`/`nextCronMatch` half.
  *
  * Before the fold, this logic lived in framework/cron/src/cron.ts and was
- * re-exported from @hyperidle/cron. After the fold it lived as a private
- * module inside @hyperidle/routine; this file asserts it still produces the
+ * re-exported from @hyperidle/cron; this file asserts it still produces the
  * same outputs as the original implementation.
  *
- * @lore BC5 T2: moved here with `cron.ts` itself — the subscription clock is
- * this module's own caller now, alongside `@hyperidle/routine`'s
- * `computeRoutineNextRunAt` (its own equivalence test stays in that
- * package's `cron-equivalence.test.ts`, testing only its half).
+ * @lore BC5 T2: lives here with `cron.ts` itself — the subscription clock is
+ * this module's own caller now.
  */
 
 import { describe, expect, test } from "vitest";

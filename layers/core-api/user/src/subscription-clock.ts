@@ -1,11 +1,10 @@
 /**
  * `startSubscriptionClock` — the schedule half of a subscription
- * (`event | schedule`, never both). Architecture.md §4: `cron.ts` moved
- * verbatim (T2), the tick-loop shape copied from
- * `@hyperidle/routine`'s `routine-scheduler.ts` (never imported — a Service
- * may depend on nothing but `@hyperidle/db`/framework packages) — a running
- * guard, a `setInterval`, due rows fired then their `next_run_at` advanced.
- * Registered in `app.ts` beside `registerSubscriptionFire`.
+ * (`event | schedule`, never both). Architecture.md §4: a running guard, a
+ * `setInterval`, due rows fired then their `next_run_at` advanced — a
+ * Service may depend on nothing but `@hyperidle/db`/framework packages, so
+ * the tick loop is self-contained. Registered in `app.ts` beside
+ * `registerSubscriptionFire`.
  */
 import type { HyperIdleDb, User } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
@@ -26,7 +25,7 @@ export interface SubscriptionClockDeps extends SubscriptionWakeDeps {
 }
 
 export interface SubscriptionClockConfig {
-	/** Default 30s — matches the routine scheduler's own default poll cadence. */
+	/** Default 30s poll cadence. */
 	readonly tickIntervalMs?: number;
 }
 
