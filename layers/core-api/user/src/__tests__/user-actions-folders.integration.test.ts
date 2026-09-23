@@ -331,6 +331,94 @@ describe("edit_user — folders.give team gate (B2)", () => {
 	});
 });
 
+describe("edit_user — a thrown folder-port call is caught like a connection failure (N6)", () => {
+	test("give throwing (the seam's own non-2xx-throws-instead-of-returns shape) still commits the rename and emits user.changed", async ({
+		db,
+	}) => {
+		await seedFounder(db);
+		await seedTeamAgent(db, "team-a", "agent-a");
+		const throwingPort: UserActionsDeps["folders"] = {
+			...buildFoldersFake([codeFolder("folder-1", "team-a")]).port,
+			give: async () => {
+				throw new Error("seam: non-2xx response");
+			},
+		};
+		const deps = buildDeps(throwingPort);
+		const { editUser } = actionsFor(deps);
+
+		const bus = new EventBus();
+		const seen: ObjectChangeEvent[] = [];
+		bus.on("user.changed", (e) => seen.push(e));
+
+		const result = await editUser(ctxFor(db, "agent-a", bus), {
+			id: "agent-a",
+			role: "renamed-role",
+			folders: { give: ["folder-1"] },
+		});
+
+		// The throw is caught and turned into a problem, exactly like a
+		// connection add that throws — it must not escape uncaught and skip
+		// the commit's own emit.
+		expect(result.ok).toBe(false);
+		if (result.ok) return;
+		expect(result.problems[0]?.path).toBe("folders");
+
+		expect(seen).toHaveLength(1);
+		expect(seen[0]?.change.objectId).toBe("agent-a");
+
+		const [row] = await db.select().from(users).where(eq(users.id, "agent-a"));
+		expect(row?.role).toBe("renamed-role");
+	});
+});
+
+describe("edit_user — create and edit give the same effective team for an owned agent (N7)", () => {
+	test("an owned agent can be given a folder belonging to its owner's team from Settings (edit)", async ({
+		db,
+	}) => {
+		await seedFounder(db);
+		const bus = new EventBus();
+		const deps = buildDeps();
+		const { editUser } = actionsFor(deps);
+
+		const owner = await editUser(ctxFor(db, "u-founder", bus), {
+			kind: "human",
+			name: "Owner",
+			team: { name: "Owner Team" },
+		});
+		expect(owner.ok).toBe(true);
+		if (!owner.ok) return;
+		const ownerId = owner.data.user?.id as string;
+		const ownerTeamId = owner.data.user?.team?.id as string;
+
+		const agent = await editUser(ctxFor(db, ownerId, bus), {
+			kind: "ai",
+			name: "Owned Assistant",
+			ownerUserId: ownerId,
+			identity: "hi",
+		});
+		expect(agent.ok).toBe(true);
+		if (!agent.ok) return;
+		const agentId = agent.data.user?.id as string;
+
+		// The folder belongs to the OWNER's team, not to any team of the
+		// agent's own (an owned agent's own `teamId` column is always null —
+		// it takes its owner's team, exactly like `create` already resolves
+		// via `effectiveTeamId` when the SAME folder is given at creation).
+		const ownersTeamFolder = codeFolder("folder-1", ownerTeamId);
+		const { port } = buildFoldersFake([ownersTeamFolder]);
+		const deps2 = buildDeps(port);
+		const { editUser: editUser2 } = actionsFor(deps2);
+
+		const result = await editUser2(ctxFor(db, agentId, bus), {
+			id: agentId,
+			folders: { give: ["folder-1"] },
+		});
+		expect(result.ok).toBe(true);
+		if (!result.ok) return;
+		expect(result.data.folders.some((f) => f.id === "folder-1")).toBe(true);
+	});
+});
+
 describe("edit_user — a failed folder step does not swallow user.changed (N1)", () => {
 	test("a name change plus a refused give: the row updates AND the event still fires", async ({
 		db,

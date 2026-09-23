@@ -38,6 +38,7 @@ import type {
 	User,
 	WriteExecutor,
 } from "@hyperidle/db";
+import { createLogger } from "@hyperidle/diagnostics";
 import {
 	type AgentBehaviorConfigKind,
 	type AgentBehaviorConfigView,
@@ -242,6 +243,8 @@ type Result<T> = { ok: true; data: T } | { ok: false; problems: Problem[] };
 function problem(code: string, message: string, path?: string): { ok: false; problems: Problem[] } {
 	return { ok: false, problems: [{ code, message, ...(path ? { path } : {}) }] };
 }
+
+const logger = createLogger({ pkg: "user.user-actions" });
 
 const RUNNABLE_STATUSES: ReadonlySet<string> = new Set(["active", "idle"]);
 
@@ -640,7 +643,18 @@ async function archiveSubscriptionPrompt(
  * team with `folders.list({teamId})`, replacing origin/main's
  * `routes/filesystems.ts` `TEAM_MISMATCH` (route deleted, gate never
  * ported). A folder already given to this agent is CONFLICT from the port —
- * its own code, `folder_already_given`, distinct from a team mismatch. */
+ * its own code, `folder_already_given`, distinct from a team mismatch.
+ *
+ * @lore review 1b N6: every one of these five port calls throws on a non-2xx
+ * response the same way `deps.connections.add` does
+ * (`agent-orchestration-port-composition.ts`) — `applyUserConnections`
+ * already caught that; this function did not, so a seam blip escaped
+ * uncaught, past both callers' post-commit sequence, and skipped the
+ * `user.changed`/`user.created` emit even though the row itself had already
+ * committed. Every call below is now caught the same way, turning a throw
+ * into the same problem its neighbouring `!result.ok` branch already
+ * returns — a thrown failure and a returned one are indistinguishable to
+ * the caller, exactly like `applyUserConnections`. */
 async function applyUserFolders(
 	deps: UserActionsDeps,
 	id: string,
@@ -655,13 +669,23 @@ async function applyUserFolders(
 				path: "folders",
 			};
 		}
-		const result = await deps.folders.add(teamId, body);
+		let result: Awaited<ReturnType<typeof deps.folders.add>>;
+		try {
+			result = await deps.folders.add(teamId, body);
+		} catch {
+			return { code: "unknown_folder", message: "That team does not exist.", path: "folders" };
+		}
 		if (!result.ok) {
 			return { code: "unknown_folder", message: "That team does not exist.", path: "folders" };
 		}
 	}
 	for (const folderId of folders.remove ?? []) {
-		const result = await deps.folders.remove(folderId);
+		let result: Awaited<ReturnType<typeof deps.folders.remove>>;
+		try {
+			result = await deps.folders.remove(folderId);
+		} catch {
+			return { code: "unknown_folder", message: `No folder '${folderId}'.`, path: "folders" };
+		}
 		if (!result.ok) {
 			return { code: "unknown_folder", message: `No folder '${folderId}'.`, path: "folders" };
 		}
@@ -674,7 +698,16 @@ async function applyUserFolders(
 				path: "folders",
 			};
 		}
-		const teamFolders = await deps.folders.list({ teamId });
+		let teamFolders: readonly UserActionsFolderView[];
+		try {
+			teamFolders = await deps.folders.list({ teamId });
+		} catch {
+			return {
+				code: "folder_other_team",
+				message: `Folder '${folderId}' does not belong to this agent's team.`,
+				path: "folders",
+			};
+		}
 		if (!teamFolders.some((f) => f.id === folderId)) {
 			return {
 				code: "folder_other_team",
@@ -682,7 +715,12 @@ async function applyUserFolders(
 				path: "folders",
 			};
 		}
-		const result = await deps.folders.give(folderId, id);
+		let result: Awaited<ReturnType<typeof deps.folders.give>>;
+		try {
+			result = await deps.folders.give(folderId, id);
+		} catch {
+			return { code: "unknown_folder", message: `No folder '${folderId}'.`, path: "folders" };
+		}
 		if (!result.ok) {
 			return result.code === "CONFLICT"
 				? {
@@ -694,7 +732,16 @@ async function applyUserFolders(
 		}
 	}
 	for (const folderId of folders.take ?? []) {
-		const result = await deps.folders.take(folderId, id);
+		let result: Awaited<ReturnType<typeof deps.folders.take>>;
+		try {
+			result = await deps.folders.take(folderId, id);
+		} catch {
+			return {
+				code: "unknown_folder",
+				message: `No folder '${folderId}' given to this agent.`,
+				path: "folders",
+			};
+		}
 		if (!result.ok) {
 			return {
 				code: "unknown_folder",
@@ -923,7 +970,39 @@ async function createUserRun(
 
 	if (mainChangeRow) ctx.eventBus.emit(objectEvent(mainChangeRow));
 
-	if (stepProblem) return { ok: false, problems: [stepProblem] };
+	// @lore review 1b N8: unlike `editExistingUserRun` (below), a create that
+	// answers `ok:false` here does not describe a no-op — the person and team
+	// rows are already committed. `edit_user`'s wire shape (`ActionResult` —
+	// `framework/domain-model/src/actions/action.ts`, out of this item's
+	// scope) is a strict `{ok:true,data} | {ok:false,problems}`, so there is
+	// no shape that carries the row AND the problem at once; the two options
+	// the review named are "refuse before the row is written" or "answer
+	// `ok:true` with the row, the folder/connection problem reported some
+	// other way". The welcome screen decides this: `SetupFlow.tsx` already
+	// treats the person's own folder pick as best-effort (its own comment
+	// says so) and never branches on a folder-specific problem — it only
+	// checks `ok`/`user !== null` before using the new person's id to create
+	// their assistant next. Refusing up front would mean re-running the
+	// folder step BEFORE the team a fresh `input.team` creates even exists,
+	// which is the "commit → port calls → emit" ordering §6/B1 already fixed
+	// the other direction; undoing that ordering for create alone, to serve
+	// one caller's retry safety, is the wrong trade. So: create always
+	// answers `ok:true` with the row once it is truly committed — the
+	// caller that asked for a folder/connection it didn't get can already
+	// see that from the row's own `folders`/`connections` fields (silence by
+	// omission, the same signal a person reads off Settings after a change
+	// that quietly did not apply); the problem itself is still reported,
+	// through the same logger every other non-fatal step failure in this
+	// package already reports through (`subscription-fire.ts`,
+	// `subscription-clock.ts`), so an operator can see it without the
+	// caller having to retry-and-duplicate to surface it.
+	if (stepProblem) {
+		logger.warn("create: folder/connection step failed after the row committed", {
+			userId: id,
+			code: stepProblem.code,
+			path: stepProblem.path,
+		});
+	}
 
 	const userRow = await findUser(ctx.db, { id });
 	const data = await buildUserView(ctx, deps, userRow ?? null, true);
@@ -1161,7 +1240,21 @@ async function editExistingUserRun(
 
 	let stepProblem: Problem | null = null;
 	if (input.folders) {
-		const teamId = resolvedTeamId ?? existing.teamId;
+		// @lore review 1b N7: an owned agent's own `teamId` column is always
+		// null (`createUserRun` never sets it when `ownerUserId` is given) — it
+		// takes its owner's team, the same "effective team" `toUserRows` already
+		// reports on `open_user`. `create` already resolved this correctly for
+		// `folders.give` at creation time (`values.teamId ?? ownerRow?.teamId`);
+		// this edit path fell back to `existing.teamId` alone, so an owned
+		// agent's folder could never be given from Settings after creation even
+		// though the SAME give at creation time would have succeeded — main
+		// itself refused it too (`TEAM_MISMATCH` on a null team), so this was
+		// not a regression, but create and edit disagreeing on one user's
+		// effective team is its own bug.
+		const ownerRow = existing.ownerUserId
+			? await findUser(ctx.db, { id: existing.ownerUserId })
+			: undefined;
+		const teamId = resolvedTeamId ?? existing.teamId ?? ownerRow?.teamId ?? null;
 		stepProblem = await applyUserFolders(deps, id, teamId, input.folders);
 	}
 	if (!stepProblem && input.connections) {

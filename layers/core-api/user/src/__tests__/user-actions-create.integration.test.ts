@@ -317,3 +317,47 @@ describe("edit_user — create honours folders and connections (B1)", () => {
 		expect(reopened.data.connections?.connections).toHaveLength(1);
 	});
 });
+
+describe("edit_user — a failed folder step on create never leaves a half-made person (N8)", () => {
+	test("the folder step fails, but the person and team WERE created — the caller gets the row, not a bare refusal", async ({
+		db,
+	}) => {
+		await seedFounder(db);
+		const refusingFolders: UserActionsDeps["folders"] = {
+			...buildFoldersFake(),
+			add: async () => ({ ok: false, code: "TEAM_NOT_FOUND" }) as const,
+		};
+		const deps = buildDeps();
+		const { editUser, openUser } = actionsFor({ ...deps, folders: refusingFolders });
+
+		const result = await editUser(ctxFor(db, "u-founder"), {
+			kind: "human",
+			name: "Grace",
+			team: { name: "Grace's Team" },
+			folders: {
+				add: [
+					{
+						kind: "doc_set",
+						resourceRef: { kind: "doc_set", folder: "/Users/grace/notes" },
+						writeback: "none",
+					},
+				],
+			},
+		});
+
+		// The person and team really were created — the caller must be told so
+		// (a bare `ok:false` here is what drove the welcome screen to retry and
+		// create a second person, N8). The folder itself did not attach.
+		expect(result.ok).toBe(true);
+		if (!result.ok) return;
+		expect(result.data.user?.name).toBe("Grace");
+		expect(result.data.user?.team?.name).toBe("Grace's Team");
+		expect(result.data.folders).toHaveLength(0);
+
+		const personId = result.data.user?.id as string;
+		const reopened = await openUser(ctxFor(db, personId), {});
+		expect(reopened.ok).toBe(true);
+		if (!reopened.ok) return;
+		expect(reopened.data.user?.id).toBe(personId);
+	});
+});
