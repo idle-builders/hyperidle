@@ -1,17 +1,23 @@
 /**
- * useAgents — thin one-shot fetch hook for GET /api/agents.
+ * useAgents — thin one-shot fetch hook for every agent in the backend.
  *
  * Every agent in the backend, unfiltered — for pickers that offer any agent
  * as a choice (e.g. a task's owner) rather than one team's roster.
  * `useTeamAgents` is a filter over this hook's result, not a second fetch —
  * the one fetch here is the whole agent-loading surface.
  *
- * @lore: same shape as `useTeams` — no caching, no retry beyond the
- * exposed `refetch`.
+ * @lore BC5 T9: `call("search_users", { kind: "ai" })` replaces
+ * `apiFetch("/api/agents")` (architecture.md §8). The two real consumers
+ * (`AssistantOverlay`, `WorkTaskPage`) only ever read `id`/`name`/`role`/
+ * `ownerUserId` — the fields `search_users`' `UserRow` carries directly.
+ * The rest of `AgentConfig` (harness/model/identity document/filesystems) has
+ * no equivalent in a search row — an agent picker never needed it — so those
+ * fields default to their "nothing configured" value here.
  */
 
+import type { UserRow } from "@hyperidle/domain-model";
 import { useEffect, useState } from "react";
-import { apiFetch } from "../services/api-fetch.js";
+import { call } from "../services/call.js";
 import type { AgentConfig } from "../settings/settings-types.js";
 
 export interface UseAgentsResult {
@@ -19,6 +25,22 @@ export interface UseAgentsResult {
 	loading: boolean;
 	error: Error | null;
 	refetch: () => void;
+}
+
+function toAgentConfig(row: UserRow): AgentConfig {
+	return {
+		id: row.id,
+		name: row.name,
+		role: row.role,
+		ownerUserId: row.ownerUserId,
+		identityDocumentId: null,
+		harnessType: null,
+		modelId: null,
+		modelProvider: null,
+		maxConcurrentSessions: 1,
+		status: row.status,
+		agentCategory: row.agentCategory,
+	};
 }
 
 export function useAgents(): UseAgentsResult {
@@ -33,17 +55,18 @@ export function useAgents(): UseAgentsResult {
 	useEffect(() => {
 		let cancelled = false;
 		setState((prev) => ({ ...prev, loading: true, error: null }));
-		apiFetch("/api/agents")
-			.then((res) => {
-				if (!res.ok) throw new Error(`Agent fetch failed: ${res.status}`);
-				return res.json() as Promise<unknown>;
-			})
-			.then((body) => {
-				// A response the endpoint never actually sends (e.g. a test double
-				// answering every route the same way) degrades to "no agents" rather
-				// than a runtime crash in a `.map()` two components away.
-				const agents = Array.isArray(body) ? (body as AgentConfig[]) : [];
-				if (!cancelled) setState({ agents, loading: false, error: null });
+		call("search_users", { kind: "ai" })
+			.then((result) => {
+				if (cancelled) return;
+				if (!result.ok) {
+					setState({
+						agents: [],
+						loading: false,
+						error: new Error(result.problems[0]?.message ?? "Agent fetch failed"),
+					});
+					return;
+				}
+				setState({ agents: result.data.map(toAgentConfig), loading: false, error: null });
 			})
 			.catch((err: unknown) => {
 				if (!cancelled) {

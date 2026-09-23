@@ -5,31 +5,29 @@
  * fetch — WorkTeam tests only ever assert on `agents`/`refetch`, so a
  * regression where the filter is dropped and every agent is returned still
  * leaves every WorkTeam test green. This test asserts on the filter itself.
+ *
+ * @lore BC5 T9: useAgents' internal fetch moved to `call("search_users", …)`
+ * — this test mocks `call` instead of `apiFetch`.
  */
 
 import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../../services/api-fetch.js", () => ({
-	apiFetch: vi.fn(),
-}));
+const { callMock } = vi.hoisted(() => ({ callMock: vi.fn() }));
+vi.mock("../../services/call.js", () => ({ call: callMock }));
 
 import { useTeamAgents } from "../useTeamAgents.js";
 
-const ALL_AGENTS = [
-	{ id: "agent-a", name: "Alpha" },
-	{ id: "agent-b", name: "Bravo" },
-	{ id: "agent-c", name: "Charlie" },
+const ALL_AGENT_ROWS = [
+	{ id: "agent-a", kind: "ai", name: "Alpha", role: "builder", status: "active", ownerUserId: null, agentCategory: "team" },
+	{ id: "agent-b", kind: "ai", name: "Bravo", role: "builder", status: "active", ownerUserId: null, agentCategory: "team" },
+	{ id: "agent-c", kind: "ai", name: "Charlie", role: "builder", status: "active", ownerUserId: null, agentCategory: "team" },
 ];
 
 describe("useTeamAgents", () => {
-	let fetchSpy: ReturnType<typeof vi.fn>;
-
-	beforeEach(async () => {
-		const { apiFetch } = await import("../../services/api-fetch.js");
-		fetchSpy = vi.mocked(apiFetch);
-		fetchSpy.mockReset();
-		fetchSpy.mockResolvedValue(new Response(JSON.stringify(ALL_AGENTS), { status: 200 }));
+	beforeEach(() => {
+		callMock.mockReset();
+		callMock.mockResolvedValue({ ok: true, data: ALL_AGENT_ROWS });
 	});
 
 	afterEach(() => {
