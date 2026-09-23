@@ -58,10 +58,10 @@ import { useSessionActivity } from "../hooks/useSessionActivity.js";
 import { useUiPreference } from "../hooks/useUiPreference.js";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import { createOpenHandler } from "../services/open-handler.js";
-import { SubscriptionsSection } from "./SubscriptionsSection.js";
 import { NavHistoryCluster } from "../shell/NavHistoryCluster.js";
 import { deriveInitials } from "../utils/initials.js";
 import { absoluteDate } from "../utils/time.js";
+import { SubscriptionsSection } from "./SubscriptionsSection.js";
 
 // UI-041: static display names for known harness families. Matches
 // KNOWN_HARNESS_NAMES in harness-capability-descriptors.ts.
@@ -210,11 +210,14 @@ export function AgentProfile({
 		);
 	}
 
+	// Stories/tests own the fixture when overrideData is set — nothing to re-fetch.
+	const noopRefetch = (): void => undefined;
+
 	return (
 		<AgentProfileLoaded
 			data={data}
 			overrideRunState={overrideRunState}
-			refetch={overrideData !== undefined ? () => {} : fetched.refetch}
+			refetch={overrideData !== undefined ? noopRefetch : fetched.refetch}
 		/>
 	);
 }

@@ -153,7 +153,10 @@ export function SettingsOrgChart(): JSX.Element {
 			if (!edge) return;
 			setDeletingId(edgeId);
 			try {
-				const result = await call("edit_user", { id: edge.fromUserId, edges: { remove: [edgeId] } });
+				const result = await call("edit_user", {
+					id: edge.fromUserId,
+					edges: { remove: [edgeId] },
+				});
 				if (!result.ok) {
 					throw new Error(result.problems[0]?.message ?? "Failed to delete edge");
 				}
@@ -192,7 +195,10 @@ export function SettingsOrgChart(): JSX.Element {
 				: [];
 			setData((prev) =>
 				prev
-					? { ...prev, edges: [...prev.edges.filter((e) => e.fromUserId !== fromUserId), ...freshEdges] }
+					? {
+							...prev,
+							edges: [...prev.edges.filter((e) => e.fromUserId !== fromUserId), ...freshEdges],
+						}
 					: prev,
 			);
 			setShowAddForm(false);

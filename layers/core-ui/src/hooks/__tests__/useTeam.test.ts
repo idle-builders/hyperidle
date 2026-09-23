@@ -75,7 +75,14 @@ function setupOk(): void {
 		if (name === "open_task") {
 			return Promise.resolve({
 				ok: true,
-				data: { task: ROOT_TASK, ancestors: [], children: [], tokensActualRollup: null, threadId: "t1", attachments: [] },
+				data: {
+					task: ROOT_TASK,
+					ancestors: [],
+					children: [],
+					tokensActualRollup: null,
+					threadId: "t1",
+					attachments: [],
+				},
 			});
 		}
 		return Promise.resolve({ ok: true, data: [] });
@@ -125,7 +132,10 @@ describe("useTeam", () => {
 	it("populates error on non-ok response", async () => {
 		callMock.mockImplementation((name: string) => {
 			if (name === "search_users") {
-				return Promise.resolve({ ok: false, problems: [{ code: "boom", message: "Team fetch failed" }] });
+				return Promise.resolve({
+					ok: false,
+					problems: [{ code: "boom", message: "Team fetch failed" }],
+				});
 			}
 			return Promise.resolve({ ok: true, data: [] });
 		});

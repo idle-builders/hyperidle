@@ -60,11 +60,9 @@ const ACTIVE_AGENT_IDS: readonly string[] = ["agent-builder"];
  * recipient list), `search_sessions` (the live busy dot), `send_message`
  * (starting the DM thread — configurable per test via `sendResult`).
  */
-function stubCall(options: {
-	users?: MockUserRow[];
-	activeAgentIds?: readonly string[];
-	sendResult?: unknown;
-} = {}): void {
+function stubCall(
+	options: { users?: MockUserRow[]; activeAgentIds?: readonly string[]; sendResult?: unknown } = {},
+): void {
 	const { users = MOCK_USERS, activeAgentIds = ACTIVE_AGENT_IDS, sendResult } = options;
 	callMock.mockImplementation((name: string) => {
 		if (name === "search_sessions") {
@@ -82,7 +80,10 @@ function stubCall(options: {
 		return Promise.resolve({
 			ok: false,
 			problems: [
-				{ code: "unmocked_call", message: `RecipientPicker.test.tsx does not mock call("${name}")` },
+				{
+					code: "unmocked_call",
+					message: `RecipientPicker.test.tsx does not mock call("${name}")`,
+				},
 			],
 		});
 	});

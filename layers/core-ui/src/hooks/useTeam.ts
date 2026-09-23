@@ -106,7 +106,12 @@ export function useTeam(teamId: string | undefined): UseTeamResult {
 				const teamName = members[0]?.team?.name ?? teamId;
 				const roster: TeamRosterMember[] = members
 					.filter((m) => m.kind === "ai")
-					.map((m) => ({ agentId: m.id, name: m.name, role: m.role, agentCategory: m.agentCategory }));
+					.map((m) => ({
+						agentId: m.id,
+						name: m.name,
+						role: m.role,
+						agentCategory: m.agentCategory,
+					}));
 
 				const status: TeamPageStatus =
 					blockedResult.ok && blockedResult.data.length > 0 ? "blocked" : "healthy";

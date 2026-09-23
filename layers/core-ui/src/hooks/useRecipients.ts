@@ -120,7 +120,10 @@ export function useRecipients(query?: string): UseRecipientsResult {
 					return;
 				}
 				setRecipients(
-					result.data.map((row) => ({ ...toRecipient(row), hasActiveSession: (counts[row.id] ?? 0) > 0 })),
+					result.data.map((row) => ({
+						...toRecipient(row),
+						hasActiveSession: (counts[row.id] ?? 0) > 0,
+					})),
 				);
 				setStatus("ready");
 			} catch (cause) {

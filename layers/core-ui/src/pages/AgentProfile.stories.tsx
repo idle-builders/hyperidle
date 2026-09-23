@@ -8,8 +8,8 @@
 
 import type { JSX } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import type { AgentRunState } from "../hooks/useAgentRunState.js";
 import type { AgentProfileData } from "../hooks/useAgentProfile.js";
+import type { AgentRunState } from "../hooks/useAgentRunState.js";
 import { AgentProfile } from "./AgentProfile.js";
 
 function wrap(element: JSX.Element): JSX.Element {
@@ -183,7 +183,10 @@ export const NoHistory = (): JSX.Element =>
 /** Agent with no subscriptions yet — shows "No subscriptions yet." */
 export const NoSubscriptions = (): JSX.Element =>
 	wrap(
-		<AgentProfile overrideRunState={BASE_RUN_STATE} overrideData={{ ...BASE_PROFILE, subscriptions: [] }} />,
+		<AgentProfile
+			overrideRunState={BASE_RUN_STATE}
+			overrideData={{ ...BASE_PROFILE, subscriptions: [] }}
+		/>,
 	);
 
 /** Loading skeleton state. */

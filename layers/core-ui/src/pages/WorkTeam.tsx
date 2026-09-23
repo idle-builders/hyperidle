@@ -28,7 +28,11 @@
  * `AgentProfile`, not the team page.
  */
 
-import { AGENT_OPERATIONAL_STATUS_LABEL, roleLabel, TASK_STATE_LABEL } from "@hyperidle/domain-model";
+import {
+	AGENT_OPERATIONAL_STATUS_LABEL,
+	roleLabel,
+	TASK_STATE_LABEL,
+} from "@hyperidle/domain-model";
 import type { JSX } from "react";
 import { useMemo, useState } from "react";
 import { Link as RRLink, useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -335,7 +339,11 @@ function WorkTeamLoaded({
 					>
 						<KpiStat
 							metrics={[
-								{ label: "Active tasks", value: String(tasksInProgress.length), sub: "in progress" },
+								{
+									label: "Active tasks",
+									value: String(tasksInProgress.length),
+									sub: "in progress",
+								},
 							]}
 						/>
 					</div>

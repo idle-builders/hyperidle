@@ -97,7 +97,11 @@ const MOCK_AGENT_CONFIGS: Record<
 		maxConcurrentSessions: 2,
 		identityDocumentId: "ki_af_demo",
 	},
-	"agent-scout-1": { harnessType: null, maxConcurrentSessions: 1, identityDocumentId: "ki_af_demo" },
+	"agent-scout-1": {
+		harnessType: null,
+		maxConcurrentSessions: 1,
+		identityDocumentId: "ki_af_demo",
+	},
 	"agent-cos-1": { harnessType: null, maxConcurrentSessions: 1, identityDocumentId: "ki_af_demo" },
 };
 
@@ -148,7 +152,8 @@ function setupCall(): void {
 				},
 			});
 		}
-		if (name === "edit_user") return Promise.resolve({ ok: true, data: { user: { id: "agent-new" } } });
+		if (name === "edit_user")
+			return Promise.resolve({ ok: true, data: { user: { id: "agent-new" } } });
 		if (name === "search_users") {
 			// `useTeamAgents` filters `useAgents`' `search_users(kind: ai)` fetch —
 			// the roster rows so `paneAgent` resolves to something non-null.

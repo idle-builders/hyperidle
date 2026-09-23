@@ -7,7 +7,7 @@
 
 import type { JSX, ReactNode } from "react";
 import { ToastRegion } from "../shell/ToastRegion.js";
-import { SubscriptionsSection, type SubscriptionRow } from "./SubscriptionsSection.js";
+import { type SubscriptionRow, SubscriptionsSection } from "./SubscriptionsSection.js";
 
 function WithToast({ children }: { children: ReactNode }): JSX.Element {
 	return <ToastRegion>{children}</ToastRegion>;

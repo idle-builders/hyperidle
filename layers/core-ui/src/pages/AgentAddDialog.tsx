@@ -16,7 +16,7 @@
  * never left to a caller default.
  */
 
-import { type HarnessType, HARNESS_TYPES, roleLabel } from "@hyperidle/domain-model";
+import { HARNESS_TYPES, type HarnessType, roleLabel } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useState } from "react";
 // hearth-internal-padding
 import { Button, Combobox, Dialog, Input, KeyValue } from "../ds";
@@ -103,7 +103,10 @@ export function AgentAddDialog({
 				role: formValues.role,
 				identity: formValues.systemPrompt || "",
 				team: { name: teamName },
-				runConfig: { ...(harnessType ? { harnessType } : {}), maxConcurrentSessions: formValues.maxConcurrentSessions },
+				runConfig: {
+					...(harnessType ? { harnessType } : {}),
+					maxConcurrentSessions: formValues.maxConcurrentSessions,
+				},
 			});
 			if (!result.ok) throw new Error(result.problems[0]?.message ?? "Failed to create agent");
 			onCreated();

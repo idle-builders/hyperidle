@@ -44,7 +44,14 @@ const OPEN_USER_OK = {
 		documentIds: [{ slot: "agent_file", id: "ki_af_agent-1" }],
 		folders: [],
 		subscriptions: [
-			{ id: "sub-1", event: "task.changed", schedule: null, paused: false, documentId: null, nextRunAt: null },
+			{
+				id: "sub-1",
+				event: "task.changed",
+				schedule: null,
+				paused: false,
+				documentId: null,
+				nextRunAt: null,
+			},
 		],
 		connections: null,
 		behaviour: null,

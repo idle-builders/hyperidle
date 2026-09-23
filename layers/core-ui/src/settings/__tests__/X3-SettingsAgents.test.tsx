@@ -150,11 +150,18 @@ function setupCall(store: MockAgent[]): void {
 				});
 			}
 			const agent = store.find((a) => a.id === id);
-			if (!agent) return Promise.resolve({ ok: false, problems: [{ code: "not_found", message: id }] });
+			if (!agent)
+				return Promise.resolve({ ok: false, problems: [{ code: "not_found", message: id }] });
 			return Promise.resolve({
 				ok: true,
 				data: {
-					user: { id: agent.id, kind: "ai", name: agent.name, role: agent.role, status: agent.status },
+					user: {
+						id: agent.id,
+						kind: "ai",
+						name: agent.name,
+						role: agent.role,
+						status: agent.status,
+					},
 					runsOn: HARNESSES,
 					runConfig: {
 						harnessType: agent.harnessType,
@@ -193,7 +200,8 @@ function setupCall(store: MockAgent[]): void {
 				return Promise.resolve({ ok: true, data: { user: { id: newAgent.id } } });
 			}
 			const agent = store.find((a) => a.id === id);
-			if (!agent) return Promise.resolve({ ok: false, problems: [{ code: "not_found", message: id }] });
+			if (!agent)
+				return Promise.resolve({ ok: false, problems: [{ code: "not_found", message: id }] });
 			if (input.status === "retired") {
 				const index = store.findIndex((a) => a.id === id);
 				store.splice(index, 1);

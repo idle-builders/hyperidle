@@ -12,8 +12,8 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it } from "vitest";
-import type { AgentRunState } from "../../hooks/useAgentRunState.js";
 import type { AgentProfileData } from "../../hooks/useAgentProfile.js";
+import type { AgentRunState } from "../../hooks/useAgentRunState.js";
 import { ToastRegion } from "../../shell/ToastRegion.js";
 import { AgentProfile } from "../AgentProfile.js";
 

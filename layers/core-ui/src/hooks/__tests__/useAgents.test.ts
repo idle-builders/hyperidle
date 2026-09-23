@@ -14,8 +14,24 @@ vi.mock("../../services/call.js", () => ({ call: callMock }));
 import { useAgents } from "../useAgents.js";
 
 const AGENT_ROWS = [
-	{ id: "agent-a", kind: "ai", name: "Alpha", role: "builder", status: "active", ownerUserId: null, agentCategory: "team" },
-	{ id: "agent-b", kind: "ai", name: "Bravo", role: "reviewer", status: "idle", ownerUserId: "u-1", agentCategory: "individual" },
+	{
+		id: "agent-a",
+		kind: "ai",
+		name: "Alpha",
+		role: "builder",
+		status: "active",
+		ownerUserId: null,
+		agentCategory: "team",
+	},
+	{
+		id: "agent-b",
+		kind: "ai",
+		name: "Bravo",
+		role: "reviewer",
+		status: "idle",
+		ownerUserId: "u-1",
+		agentCategory: "individual",
+	},
 ];
 
 describe("useAgents", () => {
@@ -53,7 +69,10 @@ describe("useAgents", () => {
 	});
 
 	it("surfaces an error when the action fails", async () => {
-		callMock.mockResolvedValueOnce({ ok: false, problems: [{ code: "server_error", message: "Boom" }] });
+		callMock.mockResolvedValueOnce({
+			ok: false,
+			problems: [{ code: "server_error", message: "Boom" }],
+		});
 		const { result } = renderHook(() => useAgents());
 
 		await waitFor(() => {

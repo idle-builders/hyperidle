@@ -9,7 +9,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastRegion } from "../../shell/ToastRegion.js";
-import { SubscriptionsSection, type SubscriptionRow } from "../SubscriptionsSection.js";
+import { type SubscriptionRow, SubscriptionsSection } from "../SubscriptionsSection.js";
 
 const { callMock } = vi.hoisted(() => ({ callMock: vi.fn() }));
 vi.mock("../../services/call.js", () => ({ call: callMock }));
@@ -73,7 +73,10 @@ describe("SubscriptionsSection — add", () => {
 		renderSection(SUBS, onChanged);
 
 		await user.click(screen.getByTestId("new-subscription-btn"));
-		await user.selectOptions(screen.getByRole("combobox", { name: /^event$/i }), "document.created");
+		await user.selectOptions(
+			screen.getByRole("combobox", { name: /^event$/i }),
+			"document.created",
+		);
 		await user.type(screen.getByRole("textbox", { name: /prompt/i }), "Summarize it");
 		await user.click(screen.getByTestId("subscription-create-submit"));
 

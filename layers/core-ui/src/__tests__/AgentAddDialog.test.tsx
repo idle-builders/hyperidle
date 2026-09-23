@@ -122,10 +122,7 @@ describe("AgentAddDialog — role field is a Combobox", () => {
 		await user.click(screen.getByRole("button", { name: /create/i }));
 
 		await waitFor(() => {
-			expect(callMock).toHaveBeenCalledWith(
-				"edit_user",
-				expect.objectContaining({ identity: "" }),
-			);
+			expect(callMock).toHaveBeenCalledWith("edit_user", expect.objectContaining({ identity: "" }));
 		});
 	});
 });

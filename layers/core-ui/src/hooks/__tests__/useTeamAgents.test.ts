@@ -19,9 +19,33 @@ vi.mock("../../services/call.js", () => ({ call: callMock }));
 import { useTeamAgents } from "../useTeamAgents.js";
 
 const ALL_AGENT_ROWS = [
-	{ id: "agent-a", kind: "ai", name: "Alpha", role: "builder", status: "active", ownerUserId: null, agentCategory: "team" },
-	{ id: "agent-b", kind: "ai", name: "Bravo", role: "builder", status: "active", ownerUserId: null, agentCategory: "team" },
-	{ id: "agent-c", kind: "ai", name: "Charlie", role: "builder", status: "active", ownerUserId: null, agentCategory: "team" },
+	{
+		id: "agent-a",
+		kind: "ai",
+		name: "Alpha",
+		role: "builder",
+		status: "active",
+		ownerUserId: null,
+		agentCategory: "team",
+	},
+	{
+		id: "agent-b",
+		kind: "ai",
+		name: "Bravo",
+		role: "builder",
+		status: "active",
+		ownerUserId: null,
+		agentCategory: "team",
+	},
+	{
+		id: "agent-c",
+		kind: "ai",
+		name: "Charlie",
+		role: "builder",
+		status: "active",
+		ownerUserId: null,
+		agentCategory: "team",
+	},
 ];
 
 describe("useTeamAgents", () => {

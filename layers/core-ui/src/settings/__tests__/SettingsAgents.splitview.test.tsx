@@ -142,7 +142,8 @@ function setupCall(agents: MockAgent[] = MOCK_AGENTS): void {
 				});
 			}
 			const agent = agents.find((a) => a.id === id);
-			if (!agent) return Promise.resolve({ ok: false, problems: [{ code: "not_found", message: id }] });
+			if (!agent)
+				return Promise.resolve({ ok: false, problems: [{ code: "not_found", message: id }] });
 			return Promise.resolve({
 				ok: true,
 				data: {

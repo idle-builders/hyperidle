@@ -54,7 +54,10 @@ const MOCK_ACTIVE_SESSIONS: MockSessionRow[] = [
 ];
 
 /** Route the two actions the hook calls: `search_users` and `search_sessions`. */
-function setupCall(users: MockUserRow[], activeSessions: MockSessionRow[] = MOCK_ACTIVE_SESSIONS): void {
+function setupCall(
+	users: MockUserRow[],
+	activeSessions: MockSessionRow[] = MOCK_ACTIVE_SESSIONS,
+): void {
 	callMock.mockImplementation((name: string) => {
 		if (name === "search_sessions") return Promise.resolve({ ok: true, data: activeSessions });
 		return Promise.resolve({ ok: true, data: users });
@@ -134,7 +137,10 @@ describe("useRecipients", () => {
 	it("degrades to no active sessions when search_sessions answers a problem", async () => {
 		callMock.mockImplementation((name: string) => {
 			if (name === "search_sessions") {
-				return Promise.resolve({ ok: false, problems: [{ code: "server_error", message: "Boom" }] });
+				return Promise.resolve({
+					ok: false,
+					problems: [{ code: "server_error", message: "Boom" }],
+				});
 			}
 			return Promise.resolve({ ok: true, data: MOCK_USERS });
 		});

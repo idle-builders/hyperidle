@@ -42,7 +42,7 @@
 
 // hearth-internal-padding
 
-import { type HarnessType, HARNESS_TYPES, roleLabel } from "@hyperidle/domain-model";
+import { HARNESS_TYPES, type HarnessType, roleLabel } from "@hyperidle/domain-model";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import { type JSX, useCallback, useEffect, useState } from "react";
 import type { FoldMode } from "../ds";
@@ -92,7 +92,9 @@ function folderToInjectable(folder: {
 }): InjectableFilesystem {
 	const ref = folder.resourceRef;
 	const resource =
-		ref.kind === "code" ? `${ref.repo ?? ""}${ref.branch ? `@${ref.branch}` : ""}` : (ref.folder ?? "");
+		ref.kind === "code"
+			? `${ref.repo ?? ""}${ref.branch ? `@${ref.branch}` : ""}`
+			: (ref.folder ?? "");
 	return { id: folder.id, source: folder.source, kind: folder.kind, resource };
 }
 
@@ -178,7 +180,8 @@ export function SettingsAgents(): JSX.Element {
 				call("open_user", {}),
 				call("search_users", { kind: "ai" }),
 			]);
-			if (!listResult.ok) throw new Error(listResult.problems[0]?.message ?? "Failed to load agents");
+			if (!listResult.ok)
+				throw new Error(listResult.problems[0]?.message ?? "Failed to load agents");
 
 			if (selfResult.ok) {
 				setHarnesses([...selfResult.data.runsOn]);
@@ -191,7 +194,9 @@ export function SettingsAgents(): JSX.Element {
 			// own; the counts simply render as 0.
 			const countsPromise = fetchActiveRunCounts();
 
-			const views = await Promise.all(listResult.data.map((row) => call("open_user", { id: row.id })));
+			const views = await Promise.all(
+				listResult.data.map((row) => call("open_user", { id: row.id })),
+			);
 			const agentConfigs: AgentConfig[] = listResult.data.map((row, index) => {
 				const view = views[index];
 				const identityDocumentId = view?.ok
@@ -203,9 +208,9 @@ export function SettingsAgents(): JSX.Element {
 					role: row.role,
 					ownerUserId: row.ownerUserId,
 					identityDocumentId,
-					harnessType: view?.ok ? view.data.runConfig?.harnessType ?? null : null,
-					modelId: view?.ok ? view.data.runConfig?.modelId ?? null : null,
-					modelProvider: view?.ok ? view.data.runConfig?.modelProvider ?? null : null,
+					harnessType: view?.ok ? (view.data.runConfig?.harnessType ?? null) : null,
+					modelId: view?.ok ? (view.data.runConfig?.modelId ?? null) : null,
+					modelProvider: view?.ok ? (view.data.runConfig?.modelProvider ?? null) : null,
 					maxConcurrentSessions: view?.ok ? (view.data.runConfig?.maxConcurrentSessions ?? 1) : 1,
 					status: row.status,
 					agentCategory: row.agentCategory,

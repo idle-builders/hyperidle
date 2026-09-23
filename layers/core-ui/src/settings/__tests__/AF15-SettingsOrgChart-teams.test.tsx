@@ -72,10 +72,7 @@ function setupCall(users: MockUserRow[]): void {
 				edges = edges.filter((e) => !edgesInput.remove?.includes(e.id));
 			}
 			if (edgesInput?.add) {
-				edges = [
-					...edges,
-					...edgesInput.add.map((a, i) => ({ id: `new-edge-${i}`, ...a })),
-				];
+				edges = [...edges, ...edgesInput.add.map((a, i) => ({ id: `new-edge-${i}`, ...a }))];
 			}
 			if (editedUser) editedUser.edges = edges;
 			return Promise.resolve({
