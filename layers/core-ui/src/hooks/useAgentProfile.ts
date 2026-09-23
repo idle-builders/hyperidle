@@ -16,6 +16,13 @@
  * `reviewTrackRecord` (now computed by `open_user` itself, restored from
  * the deleted `agent-profile.ts` route) are back — dropped fields, not
  * dropped facts.
+ *
+ * @lore BC5 T18: `harnessAvailable` is derived here from the same `runsOn`
+ * read, mirroring the deleted `agent-profile.ts` route's
+ * `resolveHarnessAvailable`: no preference (`harnessType` null) means any
+ * enabled harness will do; a specific type must appear in `runsOn` and not
+ * be `discovery.disabled`. `open_user` reports `runsOn` for any target, not
+ * self only — a stale comment on this hook's caller claimed otherwise.
  */
 
 import type { HarnessDescriptor, SubscriptionView, UserView } from "@hyperidle/domain-model";
@@ -36,7 +43,23 @@ export interface AgentProfileData {
 	readonly subscriptions: readonly SubscriptionView[];
 	/** The `runsOn` entry matching `harnessType`, or `null` when none/unset. */
 	readonly harnessCapabilities: HarnessDescriptor | null;
+	/**
+	 * True when the agent's harness requirement is met: no preference and at
+	 * least one enabled harness exists, or the specific `harnessType` is
+	 * present in `runsOn` and not `discovery.disabled`.
+	 */
+	readonly harnessAvailable: boolean;
 	readonly reviewTrackRecord: UserView["reviewTrackRecord"];
+}
+
+/** Mirrors the deleted `agent-profile.ts` route's `resolveHarnessAvailable`. */
+function resolveHarnessAvailable(
+	harnessType: string | null,
+	runsOn: readonly HarnessDescriptor[],
+): boolean {
+	if (!harnessType) return runsOn.some((h) => h.discovery.disabled !== true);
+	const match = runsOn.find((h) => h.type === harnessType);
+	return match !== undefined && match.discovery.disabled !== true;
 }
 
 export interface UseAgentProfileResult {
@@ -94,6 +117,7 @@ export function useAgentProfile(agentId: string | undefined): UseAgentProfileRes
 					result.data.documentIds.find((d) => d.slot === "agent_file")?.id ?? null;
 				const harnessType = result.data.runConfig?.harnessType ?? null;
 				const harnessCapabilities = result.data.runsOn.find((h) => h.type === harnessType) ?? null;
+				const harnessAvailable = resolveHarnessAvailable(harnessType, result.data.runsOn);
 				setState({
 					data: {
 						id: row.id,
@@ -108,6 +132,7 @@ export function useAgentProfile(agentId: string | undefined): UseAgentProfileRes
 						maxConcurrentSessions: result.data.runConfig?.maxConcurrentSessions ?? 1,
 						subscriptions: result.data.subscriptions,
 						harnessCapabilities,
+						harnessAvailable,
 						reviewTrackRecord: result.data.reviewTrackRecord,
 					},
 					loading: false,

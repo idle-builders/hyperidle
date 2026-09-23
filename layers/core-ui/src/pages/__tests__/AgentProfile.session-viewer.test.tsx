@@ -33,6 +33,7 @@ const BASE_PROFILE: AgentProfileData = {
 	maxConcurrentSessions: 1,
 	subscriptions: [],
 	harnessCapabilities: null,
+	harnessAvailable: true,
 	reviewTrackRecord: null,
 };
 

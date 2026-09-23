@@ -61,6 +61,7 @@ const BASE_PROFILE: AgentProfileData = {
 		returnEnforcement: "settings-claude",
 		modelProviders: ["anthropic"],
 	},
+	harnessAvailable: true,
 	reviewTrackRecord: {
 		approvalRate: 0.86,
 		totalVerdicts: 14,

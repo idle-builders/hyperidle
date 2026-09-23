@@ -256,12 +256,14 @@ function AgentProfileLoaded({
 	// derives the same four with the same `computeHealthSignals` — the live chip,
 	// the recent-runs table, the success rate and the degraded banner all render
 	// exactly what they rendered before.
-	// @lore BC5 T9: `harnessAvailable` used to come from core-api (a fact about
-	// the server's adapter pool). `open_user` carries no such fact for another
-	// user's row (only a self `open_user({})` call sees `runsOn`), so this page
-	// assumes an agent it can open is runnable — `true`, the same default the
-	// hook already gives an absent value.
-	const fetchedRunState = useAgentRunState(overrideRunState ? null : data.id, true);
+	// @lore BC5 T18: `harnessAvailable` is a fact about the server's adapter
+	// pool (`open_user`'s `runsOn`), not run state — `useAgentProfile` derives
+	// it from the same read `harnessCapabilities` uses and hands it back here,
+	// the one input `useAgentRunState` cannot compute in the browser.
+	const fetchedRunState = useAgentRunState(
+		overrideRunState ? null : data.id,
+		data.harnessAvailable,
+	);
 	const {
 		activeSession,
 		recentSessions: rawRecentSessions,
