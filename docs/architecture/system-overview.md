@@ -15,9 +15,8 @@ applications/     deployment units — wiring and bootstrap only, never business
 layers/           the four Layers; each decomposes into Service packages
   core-ui           React app: Conversations, Work, Knowledge
   core-api          HTTP surface + core domains
-                    thread · work · knowledge · users · settings · routine ·
-                    notifications · policy · review · org ·
-                    connections · filesystems · git-export · observability · realtime
+                    changes · document · policy · settings · task · thread · user
+                    (run `ls layers/core-api/` for the live set)
   agent-orchestration   decides that and when an agent run happens, and prepares
                     and consumes what it needs
                     session-requests · run-orchestration · dispatch · tool-handlers ·
@@ -41,7 +40,7 @@ yet.
 admission, provisioning, context assembly, capture and writeback, lifecycle events.
 `agent-execution` owns the harness itself and holds no database access.
 
-Knowledge lives in one nested tree, not a layer ladder: where an item sits says what it is about, and `scope` (`factory | team | user`, `framework/domain-model/src/knowledge.ts`) says who can see it. Per-session task/team/routine state is serialized separately as `context/session.toon`. Owned by [Knowledge Architecture](../knowledge-architecture/index.md).
+Knowledge lives in one nested tree, not a layer ladder: where an item sits says what it is about, and `scope` (`factory | team | user`, `framework/domain-model/src/knowledge.ts`) says who can see it. Per-session task/team/subscription state is serialized separately as `context/session.toon`. Owned by [Knowledge Architecture](../knowledge-architecture/index.md).
 
 Agents run as host processes in a local working directory — there is no isolation layer by default; opt-in sandboxing is a planned follow-up (AQ2). See [Run-Unit Model](./run-unit-model.md).
 
@@ -55,12 +54,12 @@ Agents run as host processes in a local working directory — there is no isolat
 | Session context | TOON format (`framework/toon-codec/src/toon-codec.ts`) | Same |
 | API Layer | Hono on `@hono/node-server` | Same + load balancer |
 | Event Bus | In-process EventBus (TypeScript) | _Future candidate:_ Redis pub/sub or NATS (cloud profile only) |
-| Scheduler | `setInterval` services inside the owning Service, e.g. `layers/core-api/routine/src/routine-scheduler.ts` | _Future candidate:_ external queue (cloud profile only) |
+| Scheduler | `setInterval` services inside the owning Service, e.g. `layers/core-api/user/src/subscription-clock.ts` | _Future candidate:_ external queue (cloud profile only) |
 | Harnesses | CLI adapters (claude-code/codex/opencode/cursor-agent) + remote worker, pooled via `layers/agent-execution/harness-registry/src/adapter-pool.ts` | — |
 | Sandbox (default) | `LocalSandboxAdapter` (host working dir); `DisabledSandboxAdapter` | Opt-in isolation planned (AQ2) |
 | Human Interface | React + TypeScript (Electron renderer) | Same |
 | Desktop shell | Electron (macOS, arm64, DMG) | — |
-| Notifications | ntfy.sh / SMTP adapters (`layers/core-api/notifications/`) | APNs, Firebase |
+| Notifications | In-app inbox only — no egress adapter (`layers/core-api/user/src/subscription-fire.ts`) | APNs, Firebase, email |
 | Observability | `console` \| `noop` channels (`framework/diagnostics/src/observability/`) — OpenTelemetry explicitly future | — |
 | Auth | Auto-generated API key (`X-API-Key` header) | OAuth / passkeys |
 | Credentials | Electron safeStorage (desktop only, no server-side store) — see [Credential Model](./credential-model.md) | — |
@@ -97,7 +96,7 @@ React (TypeScript) with **Tailwind CSS + DaisyUI** and the Hearth theme — `hea
 ### 3.3 The three views
 
 - **Conversations** — threaded messages; review messages embed an artifact reference plus a verdict affordance; humans can initiate conversations and dial into live sessions. Verdict grammar is owned by [Thread Primitive](../human-interface-layer/thread-primitive.md); ArtifactView's five embed shapes by [Artifact Primitive](../process-layer/artifact-primitive.md).
-- **Work** — drill-down WorkOverview → Team → Task (any depth; no Product level; scope is Team). A team's capacity cap is enforced server-side at `in_progress` transitions (`layers/core-api/task/src/task-actions.ts`, `edit_task`). Tasks are agent-owned — no drag; state changes flow through threads.
+- **Work** — drill-down WorkOverview → Team → Task (any depth; no Product level; scope is Team). There is no team-level cap — a team carries no capacity column. Tasks are agent-owned — no drag; state changes flow through threads.
 - **Knowledge** — a nested tree of documents, no scoring engine; every edit, including a scope change, lands as one `changes` row. Store design: [the canonical store](../knowledge-architecture/the-canonical-store.md).
 
 View behavior and layout are owned by the [human-interface-layer](../human-interface-layer/the-three-views.md) and [information-architecture](../information-architecture/app-shell-always-present.md) docs.
