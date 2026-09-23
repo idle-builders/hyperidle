@@ -1550,9 +1550,7 @@ async function runSession(
 		// from the baked `kind:"subscription"` bundle, ZERO db read, the same
 		// way a routine session does from its own bundle kind. Additive
 		// alongside the routine branch above; the cut-over block retires it.
-		const subscriptionContextData = subscriptionSessionContextDataFromBundle(
-			params.contextBundle,
-		);
+		const subscriptionContextData = subscriptionSessionContextDataFromBundle(params.contextBundle);
 		({ assembledPrompt } = await ports.contextAssembly.assembleSubscriptionPrompt({
 			systemPromptText,
 			context: subscriptionContextData,
