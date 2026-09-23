@@ -100,20 +100,22 @@ describe("agent_work_intents kind CHECK == @hyperidle/domain-model AGENT_WORK_IN
 	// mechanism is REMOVED entirely, not migrated: the intent union shrinks
 	// from seven kinds to six. Deleting the capture machinery removes
 	// `reengagement` too, so the union was five kinds.
-	// BC5 T6: `subscription_run` added, additive alongside `routine_run` — the
-	// cut-over block retires `routine_run`, growing the union to six kinds.
-	const SIX_LIVE_KINDS = [
+	// BC5 T6: `subscription_run` added, additive alongside `routine_run` —
+	// briefly growing the union to six kinds.
+	// BC5 T11 (migration 0090): the cut-over block retires `routine_run` —
+	// back down to five, with `subscription_run` the one that stays.
+	const FIVE_LIVE_KINDS = [
 		"thread_turn",
 		"session_start",
 		"knowledge_action",
-		"routine_run",
 		"task_run",
 		"subscription_run",
 	] as const;
 
-	test("AGENT_WORK_INTENT_KINDS is exactly the six live kinds (subscription_run added)", () => {
-		expect(AGENT_WORK_INTENT_KINDS).toHaveLength(6);
-		expect([...AGENT_WORK_INTENT_KINDS].sort()).toEqual([...SIX_LIVE_KINDS].sort());
+	test("AGENT_WORK_INTENT_KINDS is exactly the five live kinds (routine_run retired)", () => {
+		expect(AGENT_WORK_INTENT_KINDS).toHaveLength(5);
+		expect([...AGENT_WORK_INTENT_KINDS].sort()).toEqual([...FIVE_LIVE_KINDS].sort());
+		expect(AGENT_WORK_INTENT_KINDS).not.toContain("routine_run");
 		expect(AGENT_WORK_INTENT_KINDS).not.toContain("bet_decomposition");
 		expect(AGENT_WORK_INTENT_KINDS).not.toContain("reengagement");
 	});

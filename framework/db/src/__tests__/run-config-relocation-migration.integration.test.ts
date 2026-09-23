@@ -174,11 +174,14 @@ describe("migration 0055 relocates run config off users and teams, forward-only"
 	}, async () => {
 		const { client } = requireHarness();
 
+		// @lore BC5 T11 (migration 0090, D-e3zm2j): 'phase' is dropped from
+		// teams — the full migration chain this harness replays already ran
+		// 0090 in beforeEach, so this seed never re-adds it.
 		await client.exec(`
-			INSERT INTO "teams" (id, name, phase, created_at, default_harness_type, default_model_id, default_model_provider)
+			INSERT INTO "teams" (id, name, created_at, default_harness_type, default_model_id, default_model_provider)
 			VALUES
-				('t-set', 'Set', 'build', '${NOW}', 'codex', 'claude-sonnet-4-6', 'anthropic'),
-				('t-unset', 'Unset', 'build', '${NOW}', NULL, NULL, NULL);
+				('t-set', 'Set', '${NOW}', 'codex', 'claude-sonnet-4-6', 'anthropic'),
+				('t-unset', 'Unset', '${NOW}', NULL, NULL, NULL);
 		`);
 
 		await exec(client, readMigration0055());
