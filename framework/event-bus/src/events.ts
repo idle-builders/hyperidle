@@ -7,9 +7,13 @@
 import type {
 	AgentSessionSourceCorrelation,
 	AgentSessionSourceKind,
+	ChangeKind,
+	ChangeObject,
+	ChangeRow,
 	HostKind,
 	MessageType,
 	ModelTier,
+	ObjectEventName,
 	SessionOutcome,
 	TaskState,
 } from "@hyperidle/domain-model";
@@ -470,6 +474,67 @@ export interface UserCreatedEvent {
 }
 
 /**
+ * The wire shape of a raw `changes` table row — `@hyperidle/db`'s `Change`
+ * (and the value its own `appendChange` returns) structurally satisfies
+ * this without a cast: `before`/`after` are still JSON text, undecoded.
+ * event-bus does not depend on `@hyperidle/db`; TypeScript's structural
+ * typing is what makes that row assignable here.
+ */
+export interface ChangesRow {
+	readonly id: string;
+	readonly object: string;
+	readonly objectId: string;
+	readonly kind: string;
+	readonly actor: string;
+	readonly before: string | null;
+	readonly after: string;
+	readonly at: string;
+}
+
+/**
+ * The nine object events, one member per `ObjectEventName` — a distributive
+ * mapped type so `EventByType<"task.changed">` resolves to exactly the
+ * `task.changed` member, not the union of all nine. `change` is the decoded
+ * `ChangeRow` (architecture.md §3); `cascade` rides only on a kill loop's
+ * descendant rows.
+ */
+export type ObjectChangeEvent = {
+	[T in ObjectEventName]: {
+		readonly type: T;
+		readonly streamId: string;
+		readonly change: ChangeRow;
+		readonly timestamp: number;
+		readonly cascade?: true;
+	};
+}[ObjectEventName];
+
+/**
+ * Builds one object-change event from a raw `changes` row — the module that
+ * appended the row calls this once, post commit, over each row it appended
+ * (architecture.md §3). Decodes `before`/`after` from JSON text into the
+ * `ChangeRow` wire shape; derives the dotted event name from `object.kind`.
+ */
+export function objectEvent(row: ChangesRow, opts?: { readonly cascade?: true }): ObjectChangeEvent {
+	const change: ChangeRow = {
+		id: row.id,
+		object: row.object as ChangeObject,
+		objectId: row.objectId,
+		kind: row.kind as ChangeKind,
+		actor: row.actor,
+		before: row.before === null ? null : (JSON.parse(row.before) as Record<string, unknown>),
+		after: JSON.parse(row.after) as Record<string, unknown>,
+		at: row.at,
+	};
+	return {
+		type: `${row.object}.${row.kind}` as ObjectEventName,
+		streamId: row.objectId,
+		change,
+		timestamp: Date.now(),
+		...(opts?.cascade ? { cascade: true as const } : {}),
+	} as ObjectChangeEvent;
+}
+
+/**
  * Discriminated union of all domain events.
  *
  * @lore O1: To add an event: (1) define the interface with type literal
@@ -480,6 +545,7 @@ export interface UserCreatedEvent {
  * a kernel/strategy split that is now gone. DomainEvent is the single union.
  */
 export type DomainEvent =
+	| ObjectChangeEvent
 	| AgentWorkIntentEvent
 	| AgentRunAdmissionFailedEvent
 	| AgentRunLifecycleChangedEvent
@@ -525,6 +591,18 @@ export type EventType = DomainEvent["type"];
  * restore) — see the architecture's §9 required step.
  */
 export const EVENT_TYPES = [
+	// The nine object events (architecture.md §3) — one per `changes` row,
+	// spelled out literally so the governance lint's clause 4 (a regex over
+	// this file's source text) can see them.
+	"task.created",
+	"task.changed",
+	"thread.created",
+	"thread.message",
+	"thread.changed",
+	"document.created",
+	"document.changed",
+	"user.created",
+	"user.changed",
 	"agent_work_intent_recorded",
 	"agent_run_admission_failed",
 	"agent_run_lifecycle_changed",

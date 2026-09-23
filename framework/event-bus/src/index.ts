@@ -10,11 +10,13 @@ export type {
 	AgentWorkIntentKind,
 	AgentWorkIntentSourceKind,
 	// @lore BB1: BetRevisedEvent and BetStateChangedEvent deleted — bet is now a root task.
+	ChangesRow,
 	DomainEvent,
 	EventByType,
 	EventHandler,
 	EventType,
 	NotificationEvent,
+	ObjectChangeEvent,
 	PropagationAppliedEvent,
 	PropagationFailedEvent,
 	SandboxWritebackChange,
@@ -35,4 +37,4 @@ export type {
 	WildcardHandler,
 	WildcardType,
 } from "./events.js";
-export { AGENT_WORK_INTENT_KINDS, EVENT_TYPES } from "./events.js";
+export { AGENT_WORK_INTENT_KINDS, EVENT_TYPES, objectEvent } from "./events.js";
