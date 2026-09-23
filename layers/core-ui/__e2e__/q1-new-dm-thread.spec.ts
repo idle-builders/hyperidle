@@ -17,41 +17,25 @@ import {
 	expect,
 	makeThread,
 	makeThreadListRow,
+	makeUserRow,
+	mockSearchSessions,
 	mockSearchThreads,
+	mockSearchUsers,
 	mockThread,
 	test,
 } from "./fixtures";
 
 const NOW_ISO = new Date().toISOString();
 
+// @lore BC5 T9: `GET /api/recipients` is gone — `useRecipients` reads
+// `search_users({status:"active"})`, mapping `kind` ("human"|"ai") onto the
+// picker's own vocabulary ("user"|"agent").
+// `useRecipients` queries `search_users({status:"active", ...})` — every row
+// here is "active" so the real filter doesn't silently drop one.
 const MOCK_RECIPIENTS = [
-	{
-		id: "agent-builder",
-		kind: "agent",
-		name: "Builder Bot",
-		role: "builder",
-		status: "active",
-		hasActiveSession: false,
-		avatarUrl: null,
-	},
-	{
-		id: "agent-growth",
-		kind: "agent",
-		name: "Growth Engine",
-		role: "growth",
-		status: "idle",
-		hasActiveSession: false,
-		avatarUrl: null,
-	},
-	{
-		id: "user-founder",
-		kind: "user",
-		name: "Founder",
-		role: "founder",
-		status: "active",
-		hasActiveSession: false,
-		avatarUrl: null,
-	},
+	makeUserRow("agent-builder", { kind: "ai", name: "Builder Bot", role: "builder" }),
+	makeUserRow("agent-growth", { kind: "ai", name: "Growth Engine", role: "growth" }),
+	makeUserRow("user-founder", { kind: "human", name: "Founder", role: "founder" }),
 ];
 
 const CREATED_THREAD = makeThread("new-dm-thread-id", {
@@ -65,14 +49,9 @@ const CREATED_THREAD = makeThread("new-dm-thread-id", {
 
 test.describe("Q1 — New DM Thread Creation", () => {
 	test.beforeEach(async ({ page }) => {
-		// Mock recipients endpoint
-		await page.route("**/api/recipients**", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ recipients: MOCK_RECIPIENTS }),
-			});
-		});
+		// Mock the recipient picker's data source.
+		await mockSearchUsers(page, { rows: MOCK_RECIPIENTS });
+		await mockSearchSessions(page, { rows: [] });
 
 		// Mock send_message ({recipients, text}) — creates the thread and sends
 		// the first message in one call; there is no separate thread-create door.
