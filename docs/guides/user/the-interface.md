@@ -87,7 +87,7 @@ The **Assistant** action sits with Search in the sidebar's top-right tool group.
 
 | Card | Meaning | Action |
 |---|---|---|
-| No API key yet | No Anthropic key is configured | Click **Settings → Credentials** to add your key |
+| No API key yet | No Anthropic key is configured | Click **Settings → Connections** to add your key |
 | Runtime not configured | No harness is selected for the assistant | Click **Open Agent settings** to pick a harness |
 | Couldn't reach the model | The provider returned a temporary error | Click **Retry** to try again |
 

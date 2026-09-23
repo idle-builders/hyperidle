@@ -11,31 +11,28 @@ Five end-to-end flows, verified against live code. Each names the real mechanism
 3. Lifecycle propagation (layers/core-api/policy/src/lifecycle-propagation.ts):
    parent task → "review" (CAS-guarded, audited)
 4. Propagation walks up: if root task's all children are terminal → root → "review"
-5. Product Manager confirms done condition met
-6. Product Manager creates Item: task review thread
-   (kind: review, risk_tier: high, body: summary of what shipped)
-7. Router: risk_tier ≥ medium → Conversations + push notification
-   (notification_queue + dispatcher)
-8. Router: product scope → route to CPO
-   (resolveReviewRecipients, layers/core-api/org/src/org-routing.ts)
-9. Notification adapter: push to CPO's phone
-10. CPO opens thread, reads summary, approves
-11. Verdict recorded → task state → "done"
-12. post-task-retro plugin subscription fires on task.changed; its own prompt
-    stops unless the change moved a root task to done
-    (plugins/document-management/plugin.json)
-13. Document Librarian writes retro; learnings route to the
+5. task.changed is an ObjectChangeEvent — every subscription matching the
+   task in reach (global + its team + its own) fires
+   (registerSubscriptionFire, layers/core-api/user/src/subscription-fire.ts)
+6. Product Manager's subscription adds an inbox row; a live nudge surfaces it
+7. Product Manager opens the task's thread, reads the summary, posts a
+   verdict-typed message
+8. Verdict recorded → task state → "done"
+9. post-task-retro plugin subscription fires on task.changed; its own prompt
+   stops unless the change moved a root task to done AND it is a root task
+   (plugins/document-management/plugin.json)
+10. Document Librarian writes retro; learnings route to the
     facilitator and the assistant's thread
 ```
 
 ## 2. An Agent Gets Stuck
 
 ```
-1. Builder agent hits a question it can't resolve → creates a chat thread Item
-   (kind: chat, blocking: true, body: "Stripe webhook keys missing")
-2. Router: chat + blocking → Conversations + push notification
-   (urgency carried by notification_queue.severity)
-3. Router: technical scope → route to CPO
+1. Builder agent hits a question it can't resolve → sends a message in its
+   task thread ("Stripe webhook keys missing")
+2. thread.message is an ObjectChangeEvent — every subscription matching the
+   thread in reach fires (registerSubscriptionFire)
+3. CPO's subscription adds an inbox row; a live nudge surfaces it
 4. CPO opens thread on phone, replies with the key location
 5. Reply lands in the Builder's thread
 6. Builder starts new session, reads reply, continues
