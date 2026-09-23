@@ -126,7 +126,10 @@ describe("SettingsPlugins", () => {
 
 		it("picks a team through the combobox and installs with that team's id nested in source", async () => {
 			const user = userEvent.setup();
-			setupCall([], [{ id: "u-alpha", name: "Alice", team: { id: "team-alpha", name: "Alpha Team" } }]);
+			setupCall(
+				[],
+				[{ id: "u-alpha", name: "Alice", team: { id: "team-alpha", name: "Alpha Team" } }],
+			);
 			render(<SettingsPlugins />);
 			await waitFor(() => {
 				expect(screen.getByTestId("plugin-scope-kind")).toBeInTheDocument();
