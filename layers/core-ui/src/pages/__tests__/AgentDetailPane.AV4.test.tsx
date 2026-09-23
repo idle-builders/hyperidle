@@ -1,16 +1,22 @@
 /**
  * AV4 — AgentDetailPane: RED tests.
  *
- * AC-3: AgentDetailPane body renders without role="dialog"; Save calls PATCH.
+ * AC-3: AgentDetailPane body renders without role="dialog"; Save calls edit_user.
  *
  * These tests FAIL until AgentDetailPane is implemented.
+ *
+ * @lore BC5 T9: the door swap — `call` mocked at the door. The pane fetches
+ * its own `open_user({ id: agent.id })` the moment an agent is selected (see
+ * AgentDetailPane.tsx's own header comment) — the roster's `AgentConfig`
+ * carries no harness/identity data, so the mock's `open_user` branch is what
+ * actually supplies them here, not the `agent` prop.
  */
 
-import type { RosterMember } from "@hyperidle/domain-model";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { TeamRosterMember } from "../../hooks/useTeam.js";
 import type { AgentConfig } from "../../settings/settings-types";
 import { AgentDetailPane } from "../work/AgentDetailPane";
 
@@ -18,10 +24,8 @@ import { AgentDetailPane } from "../work/AgentDetailPane";
 // Mocks
 // ---------------------------------------------------------------------------
 
-const mockApiFetch = vi.fn();
-vi.mock("../../services/api-fetch.js", () => ({
-	apiFetch: (...args: unknown[]) => mockApiFetch(...args),
-}));
+const { callMock } = vi.hoisted(() => ({ callMock: vi.fn() }));
+vi.mock("../../services/call.js", () => ({ call: callMock }));
 
 vi.mock("../../shell/ToastRegion.js", () => ({
 	useToast: () => ({ showToast: vi.fn() }),
@@ -51,22 +55,50 @@ const AGENT_CONFIG: AgentConfig = {
 	id: "a1",
 	name: "Atlas Builder",
 	role: "builder",
-	identityDocumentId: "ki_af_demo",
-	harnessType: "claude-code",
+	identityDocumentId: null,
+	harnessType: null,
 	modelId: null,
 	modelProvider: null,
-	maxConcurrentSessions: 2,
+	maxConcurrentSessions: 1,
 	status: "active",
 	agentCategory: "team",
 };
 
-const ROSTER_MEMBER: RosterMember = {
+const ROSTER_MEMBER: TeamRosterMember = {
 	agentId: "a1",
 	name: "Atlas Builder",
 	role: "builder",
-	isLead: false,
 	agentCategory: "team",
 };
+
+function setupCall(): void {
+	callMock.mockImplementation((name: string) => {
+		if (name === "open_user") {
+			return Promise.resolve({
+				ok: true,
+				data: {
+					user: { id: "a1", name: "Atlas Builder" },
+					runsOn: [],
+					runConfig: {
+						harnessType: "claude-code",
+						modelId: null,
+						modelProvider: null,
+						maxConcurrentSessions: 2,
+						modelOptions: {},
+					},
+					documentIds: [{ slot: "agent_file", id: "ki_af_demo" }],
+					folders: [],
+					subscriptions: [],
+					connections: null,
+					behaviour: null,
+					inbox: null,
+				},
+			});
+		}
+		if (name === "edit_user") return Promise.resolve({ ok: true, data: { user: { id: "a1" } } });
+		return Promise.resolve({ ok: true, data: [] });
+	});
+}
 
 // ---------------------------------------------------------------------------
 // Render helper
@@ -74,7 +106,7 @@ const ROSTER_MEMBER: RosterMember = {
 
 function renderAgentPane(
 	agent: AgentConfig = AGENT_CONFIG,
-	rosterMember: RosterMember = ROSTER_MEMBER,
+	rosterMember: TeamRosterMember = ROSTER_MEMBER,
 ): ReturnType<typeof render> {
 	const onClose = vi.fn();
 	const onSaved = vi.fn();
@@ -90,9 +122,13 @@ function renderAgentPane(
 	);
 }
 
+beforeEach(() => {
+	callMock.mockReset();
+	setupCall();
+});
+
 afterEach(() => {
 	vi.clearAllMocks();
-	mockApiFetch.mockReset();
 });
 
 // ---------------------------------------------------------------------------
@@ -133,21 +169,20 @@ describe("AgentDetailPane renders as a detail pane without dialog chrome", () =>
 		expect(screen.queryByRole("textbox", { name: /system prompt/i })).toBeNull();
 	});
 
-	it("[RED] Save button calls PATCH /api/agents/a1", async () => {
+	it("[RED] Save button calls edit_user with id: a1", async () => {
 		const user = userEvent.setup();
-		mockApiFetch.mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }));
 
 		renderAgentPane();
+
+		await waitFor(() => {
+			expect(screen.getByTestId("agent-detail-identity-link")).toBeInTheDocument();
+		});
 
 		const saveBtn = screen.getByRole("button", { name: /^save$/i });
 		await user.click(saveBtn);
 
 		await waitFor(() => {
-			const patchCall = mockApiFetch.mock.calls.find(
-				(call) => (call[1] as RequestInit)?.method === "PATCH",
-			);
-			expect(patchCall).toBeDefined();
-			expect(patchCall?.[0] as string).toContain("/api/agents/a1");
+			expect(callMock).toHaveBeenCalledWith("edit_user", expect.objectContaining({ id: "a1" }));
 		});
 	});
 });

@@ -29,38 +29,31 @@ vi.mock("../shell/ToastRegion.js", async () => {
 /**
  * @lore U1: TeamDetail shape replaces ProductDetail.
  * - `product` → `team` (TeamSummary)
- * - `team` → `teamMembers` (membership group)
  * - `pitchTitle` → `descriptionTitle`
  * - `status: "committed"` → `status: "active"`
+ * @lore BC5 T9: TeamPageData replaces TeamDetail — team is id + name + a
+ * computed "healthy" | "blocked" status now (no phase, no lead, D-c7jgxy).
  */
 const MOCK_PRODUCT_DETAIL = {
 	team: {
 		id: "p1",
 		name: "HyperIdle Core",
-		phase: "build",
 		status: "healthy" as const,
-		leadAgentId: "agent-lead",
 	},
-	teamMembers: { id: "t1", formedAt: "2024-01-01T00:00:00.000Z", dissolvedAt: null },
 	roster: [
 		{
 			agentId: "agent-lead",
 			name: "Lead Agent",
 			role: "lead",
-			isLead: true,
 			agentCategory: "team",
 		},
 		{
 			agentId: "agent-member",
 			name: "Alice Agent",
 			role: "member",
-			isLead: false,
 			agentCategory: "team",
 		},
 	],
-	burn: {
-		capacity: 5,
-	},
 	tasksInProgress: [
 		{
 			id: "b1",
@@ -202,14 +195,5 @@ describe("WorkTeam", () => {
 		// The StatusChip for a committed bet should not say BEHIND
 		const betsRegion = screen.getByTestId("team-active-tasks");
 		expect(betsRegion.textContent).not.toContain("BEHIND");
-	});
-
-	// D2 regression guard: the lead name (not the agent id) must appear in the header.
-	it("12. renders lead display name (not agent id) in the team header", () => {
-		renderPage("p1", MOCK_PRODUCT_DETAIL);
-		// The roster has leadAgentId="agent-lead" → name "Lead Agent".
-		// The header should show the name, not the raw id.
-		expect(screen.getByText(/Lead:\s*Lead Agent/i)).toBeInTheDocument();
-		expect(screen.queryByText(/Lead:\s*agent-lead/i)).not.toBeInTheDocument();
 	});
 });
