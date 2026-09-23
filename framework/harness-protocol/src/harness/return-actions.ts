@@ -125,6 +125,17 @@ export function isReturnAction(
  *
  * `required` absent or empty ⇒ falls back to plain membership (the
  * unchanged, pre-Increment-3 behavior — every return action satisfies).
+ *
+ * @lore `return_status` (the self-check bridge tool every session gets —
+ * `harness-registry`'s `return-status-tool.ts`) is deliberately NOT a member
+ * of the base closed set (`RETURN_ACTION_SET`): an unfiltered session (no
+ * `required`, e.g. a task_run) must still return real work — calling a
+ * status check alone would let it stop without doing anything. It satisfies
+ * the gate ONLY when a session's own `required` subset names it explicitly —
+ * a subscription wake, which has no work-output action to call at all (no
+ * task, no calling thread), reports its status and that IS its return.
+ * Checked ahead of the base `isReturnAction` gate (which would reject it)
+ * rather than added there, so this stays required-only, never a fallback.
  */
 export function isRequiredReturnAction(
 	toolName: string,
@@ -132,9 +143,11 @@ export function isRequiredReturnAction(
 	args?: Record<string, unknown>,
 	taskId?: string,
 ): boolean {
+	const bare = stripMcpNamespace(toolName);
+	if (required?.includes("return_status") && bare === "return_status") return true;
 	if (!isReturnAction(toolName, args, taskId)) return false;
 	if (!required || required.length === 0) return true;
-	return required.includes(stripMcpNamespace(toolName));
+	return required.includes(bare);
 }
 
 /**
@@ -163,10 +176,17 @@ const RETURN_ACTION_HINTS: Record<ReturnActionName, string> = {
 };
 
 /**
- * A function from a canonical bare return-action name to the LITERAL tool
- * name the current harness will accept — see `literalToolNamerForAdapterType`.
+ * A function from a canonical bare tool name to the LITERAL tool name the
+ * current harness will accept — see `literalToolNamerForAdapterType`.
+ *
+ * @lore Widened from `(name: ReturnActionName) => string` to `(name: string)
+ * => string`: `return_status` (the self-check bridge tool, never a member of
+ * `ReturnActionName` — see `isRequiredReturnAction`'s `@lore`) still needs its
+ * literal, harness-namespaced form for a subscription session's prompt
+ * orientation. The mapping itself was always name-agnostic (a namespace
+ * prefix, nothing more); only the type was narrower than the function.
  */
-export type LiteralToolNamer = (name: ReturnActionName) => string;
+export type LiteralToolNamer = (name: string) => string;
 
 /** Default namer: the bare name unchanged (the pre-Increment-8 default). */
 const identityToolName: LiteralToolNamer = (name) => name;
