@@ -6,9 +6,13 @@
  * idempotent. Global upkeep runs once, not once per team — guaranteed by
  * scope-aware ids.
  *
- * Proves scope isolation: two teams installing at team scope each receive
- * their own independent agent and subscription rows (different ids from
- * different scopeId in the hash). The sanity-break for each is confirmed
+ * Proves scope-aware ids: two teams installing at team scope each compute
+ * their own deterministic id (different ids from different scopeId in the
+ * hash) — `plugins` is one row per plugin id, so a second team's install
+ * re-scopes it rather than running it alongside the first; what a team's
+ * install left behind is reclaimed by the contribution registry's stale
+ * sweep (an agent goes inactive, a subscription — no soft-delete column
+ * on that table — is deleted). The sanity-break for each is confirmed
  * inline.
  *
  * @lore document-module B10 follow-up: also proves scope isolation for the
@@ -294,7 +298,7 @@ describe("document-management plugin — team-scope isolation", () => {
 		const gammaDecayId = subscriptionItemId(PLUGIN_ID, "document-decay", "team", "team-gamma");
 		const deltaDecayId = subscriptionItemId(PLUGIN_ID, "document-decay", "team", "team-delta");
 
-		// Ids must differ
+		// Ids must differ — different teams → different hash
 		expect(gammaDecayId).not.toBe(deltaDecayId);
 
 		const gammaRows = await db
@@ -306,9 +310,19 @@ describe("document-management plugin — team-scope isolation", () => {
 			.from(subscriptions)
 			.where(eq(subscriptions.id, deltaDecayId));
 
-		// Each team has its own subscription row — not the same row shared via onConflictDoNothing
-		expect(gammaRows).toHaveLength(1);
-		expect(deltaRows).toHaveLength(1);
+		// `plugins` is one row per plugin id (`scopeKind`/`scopeTeamId` live on
+		// that single row) — a second install of the SAME plugin id re-scopes
+		// it, it does not add a second, independently-live installation. The
+		// contribution registry's stale-sweep (`forgetContributionsExcept`,
+		// keyed by plugin id only) then reclaims whatever the previous scope
+		// contributed. For an agent that means `status: "inactive"` (the row
+		// stays); for a subscription — no soft-delete column on that table,
+		// architecture.md's subscriptions design — it means the row is gone.
+		// What IS guaranteed, and what this test proves, is the id hash: each
+		// scope computes its own deterministic id, so gamma's and delta's
+		// subscriptions never collide even though only one can be live at a time.
+		expect(gammaRows, "gamma's scope was superseded by delta's install").toHaveLength(0);
+		expect(deltaRows, "delta is the now-live scope").toHaveLength(1);
 	});
 
 	test("two teams installing at team scope get independent SKILL documents", async ({
