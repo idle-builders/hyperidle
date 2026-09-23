@@ -154,8 +154,6 @@ export {
 	agentOperationalStatusToStatus,
 	DOCUMENT_STATUS_MAP,
 	documentStatusToStatus,
-	ROUTINE_STATE_MAP,
-	routineStateToStatus,
 	SESSION_OUTCOME_MAP,
 	sessionOutcomeToStatus,
 	TASK_OUTCOME_VERDICT_STATUS,

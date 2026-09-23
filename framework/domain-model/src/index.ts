@@ -321,15 +321,11 @@ export { MODEL_PROVIDERS } from "./model-provider.js";
 // NOTIFICATION_TYPES/shortLabelForType) is DELETED — no production consumer
 // was left once SettingsNotifications.tsx moved to per-event subscription
 // toggles over `open_user({}).subscriptions`.
-export type {
-	RoutineCardSummary,
-	RoutineDetail,
-	RoutineInfo,
-	RoutineRunOutcome,
-	RoutineRunSummary,
-	RoutineState,
-} from "./routine.js";
-export { ROUTINE_RUN_OUTCOMES, ROUTINE_STATES, SCHEDULE_PRESETS } from "./routine.js";
+// @lore BC5 T11b: routine.ts (RoutineCardSummary/RoutineDetail/RoutineInfo/
+// RoutineRunOutcome/RoutineRunSummary/RoutineState/ROUTINE_RUN_OUTCOMES/
+// ROUTINE_STATES/SCHEDULE_PRESETS) is DELETED — its last production consumer,
+// status-mapping.ts's ROUTINE_STATE_MAP, had no reader once the routine pages
+// left in T9; a subscription has no lifecycle state of its own to chip.
 export type {
 	ActivityEntry,
 	AnswerDeltaData,
