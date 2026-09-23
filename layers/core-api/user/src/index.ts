@@ -93,14 +93,18 @@ export type {
 	SubscriptionsFilter,
 } from "./subscriptions-store.js";
 export {
+	deleteReapableInboxRows,
 	deleteSubscription,
+	deleteSubscriptions,
 	getSubscription,
 	insertInboxRow,
 	insertSubscription,
 	listInboxRows,
+	listReadInboxChangeIds,
 	listSubscriptions,
 	markInboxRead,
 	markInboxSeen,
+	setSubscriptionsPaused,
 	updateSubscription,
 } from "./subscriptions-store.js";
 // -- team lookup (AU20 Am7 / AU44 B1 — team_members dissolved) --

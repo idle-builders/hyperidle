@@ -13,7 +13,7 @@ import {
 	type NewSubscription,
 	subscriptions,
 } from "@hyperidle/db";
-import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 
 export type NewSubscriptionRow = NewSubscription;
 
@@ -51,9 +51,14 @@ export async function getSubscription(
 export async function insertSubscription(
 	db: HyperIdleDb,
 	values: NewSubscriptionRow,
-): Promise<typeof subscriptions.$inferSelect> {
-	const [row] = await db.insert(subscriptions).values(values).returning();
-	if (!row) throw new Error("insertSubscription: insert returned no row");
+	opts?: { readonly onConflictDoNothing?: boolean },
+): Promise<typeof subscriptions.$inferSelect | undefined> {
+	const [row] = opts?.onConflictDoNothing
+		? await db.insert(subscriptions).values(values).onConflictDoNothing().returning()
+		: await db.insert(subscriptions).values(values).returning();
+	if (!row && !opts?.onConflictDoNothing) {
+		throw new Error("insertSubscription: insert returned no row");
+	}
 	return row;
 }
 
@@ -67,6 +72,28 @@ export async function updateSubscription(
 	patch: SubscriptionPatch,
 ): Promise<void> {
 	await db.update(subscriptions).set(patch).where(eq(subscriptions.id, id));
+}
+
+/** Pause or unpause every one of these subscriptions — the plugin
+ * enable/disable/remove lifecycle's `setLive`, batched by id. */
+export async function setSubscriptionsPaused(
+	db: HyperIdleDb,
+	ids: readonly string[],
+	paused: boolean,
+	updatedAt: string,
+): Promise<void> {
+	if (ids.length === 0) return;
+	await db
+		.update(subscriptions)
+		.set({ paused, updatedAt })
+		.where(inArray(subscriptions.id, Array.from(ids)));
+}
+
+/** Hard-delete every one of these subscriptions — the plugin remove
+ * lifecycle's cleanup (a subscription has no soft-delete column). */
+export async function deleteSubscriptions(db: HyperIdleDb, ids: readonly string[]): Promise<void> {
+	if (ids.length === 0) return;
+	await db.delete(subscriptions).where(inArray(subscriptions.id, Array.from(ids)));
 }
 
 export async function deleteSubscription(db: HyperIdleDb, id: string): Promise<void> {
@@ -129,4 +156,35 @@ export async function markInboxRead(
 		.update(inbox)
 		.set({ readAt, seenAt: readAt })
 		.where(and(eq(inbox.userId, userId), inArray(inbox.changeId, Array.from(changeIds))));
+}
+
+/**
+ * Distinct change ids behind a read inbox row, across every user — the
+ * retention sweep's first step (`@hyperidle/changes`' `listChanges` answers
+ * how old each one is; `inbox` carries no timestamp of its own).
+ */
+export async function listReadInboxChangeIds(db: HyperIdleDb): Promise<string[]> {
+	const rows = await db
+		.selectDistinct({ changeId: inbox.changeId })
+		.from(inbox)
+		.where(isNotNull(inbox.readAt));
+	return rows.map((r) => r.changeId);
+}
+
+/**
+ * Delete every read inbox row behind one of these change ids — the
+ * retention sweep's second step, once the caller has decided (via
+ * `@hyperidle/changes`) which change ids are older than the cutoff. Returns
+ * the count deleted.
+ */
+export async function deleteReapableInboxRows(
+	db: HyperIdleDb,
+	changeIds: readonly string[],
+): Promise<number> {
+	if (changeIds.length === 0) return 0;
+	const deleted = await db
+		.delete(inbox)
+		.where(and(isNotNull(inbox.readAt), inArray(inbox.changeId, Array.from(changeIds))))
+		.returning({ changeId: inbox.changeId });
+	return deleted.length;
 }
