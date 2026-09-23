@@ -1,14 +1,15 @@
 /**
- * Q1 §4.8: useRecipients hook.
+ * useRecipients hook — the recipient picker's data source.
  *
- * Fetches GET /api/recipients (optionally with ?q=<query>) and returns
- * the mapped recipient list. Uses apiFetch for API key injection.
+ * @lore BC5 T9: `call("search_users", { status: "active", name? })` replaces
+ * `apiFetch("/api/recipients")` (architecture.md §8). A `UserRow`'s
+ * `kind` ("human" | "ai") maps to the picker's own vocabulary ("user" | "agent").
  *
  * @lore AU26 J4: `hasActiveSession` no longer rides on the core-api response —
  * core-api stopped reading `agent-orchestration`'s `sessions` table.
  *
  * @lore `GET /api/agent-orchestration/runs/active-counts` is deleted; the
- * hook now calls `search_sessions({ state: "active" })` — `POST
+ * hook calls `search_sessions({ state: "active" })` — `POST
  * /api/actions/search_sessions`, the same door a person's client and an
  * agent's MCP tool use — alongside the recipient list, and counts the active
  * rows per agent itself, so the picker's live busy dot renders exactly as
@@ -16,9 +17,8 @@
  * than failing the picker, which is core's data and stands on its own.
  */
 
-import type { SessionRow } from "@hyperidle/domain-model";
+import type { SessionRow, UserRow } from "@hyperidle/domain-model";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { apiFetch } from "../services/api-fetch.js";
 import { call } from "../services/call.js";
 
 export interface Recipient {
@@ -38,20 +38,16 @@ export interface UseRecipientsResult {
 	retry: () => void;
 }
 
-/** The core-api half of a recipient — everything except the live busy flag. */
-type RecipientBase = Omit<Recipient, "hasActiveSession">;
-
-function isRecipientBase(value: unknown): value is RecipientBase {
-	if (typeof value !== "object" || value === null) return false;
-	const v = value as Record<string, unknown>;
-	return (
-		typeof v.id === "string" &&
-		(v.kind === "agent" || v.kind === "user") &&
-		typeof v.name === "string" &&
-		typeof v.role === "string" &&
-		typeof v.status === "string" &&
-		(v.avatarUrl === null || typeof v.avatarUrl === "string")
-	);
+/** A `UserRow` maps directly to a recipient, minus the live busy flag. */
+function toRecipient(row: UserRow): Omit<Recipient, "hasActiveSession"> {
+	return {
+		id: row.id,
+		kind: row.kind === "ai" ? "agent" : "user",
+		name: row.name,
+		role: row.role,
+		status: row.status,
+		avatarUrl: row.avatarUrl,
+	};
 }
 
 /**
@@ -90,9 +86,9 @@ async function fetchActiveSessionCounts(
 }
 
 /**
- * Fetch the recipient list from GET /api/recipients.
+ * Fetch the recipient list through `search_users`.
  *
- * @param query - Optional search query forwarded as ?q=<query>.
+ * @param query - Optional search query forwarded as `name`.
  */
 export function useRecipients(query?: string): UseRecipientsResult {
 	const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
@@ -111,30 +107,21 @@ export function useRecipients(query?: string): UseRecipientsResult {
 
 		(async (): Promise<void> => {
 			try {
-				const url = query ? `/api/recipients?q=${encodeURIComponent(query)}` : "/api/recipients";
-				// @lore AU26 review W4: the two reads are INDEPENDENT — core-api's
-				// recipient list and the active-session count — so they go out
-				// together. Awaiting the count after the list resolved made the
-				// picker two serial round-trips for no reason.
-				const [res, counts] = await Promise.all([
-					apiFetch(url, { signal: ac.signal }),
+				// @lore AU26 review W4: the two reads are INDEPENDENT — the recipient
+				// list and the active-session count — so they go out together.
+				const [result, counts] = await Promise.all([
+					call("search_users", { status: "active", ...(query ? { name: query } : {}) }, ac.signal),
 					fetchActiveSessionCounts(ac.signal),
 				]);
 				if (ac.signal.aborted) return;
-				if (!res.ok) {
-					setError(`HTTP ${res.status}`);
+				if (!result.ok) {
+					setError(result.problems[0]?.message ?? "Failed to load recipients");
 					setStatus("error");
 					return;
 				}
-				const body = (await res.json()) as { recipients?: unknown };
-				if (ac.signal.aborted) return;
-				if (!Array.isArray(body.recipients)) {
-					setError("Malformed response");
-					setStatus("error");
-					return;
-				}
-				const valid = (body.recipients as unknown[]).filter(isRecipientBase);
-				setRecipients(valid.map((r) => ({ ...r, hasActiveSession: (counts[r.id] ?? 0) > 0 })));
+				setRecipients(
+					result.data.map((row) => ({ ...toRecipient(row), hasActiveSession: (counts[row.id] ?? 0) > 0 })),
+				);
 				setStatus("ready");
 			} catch (cause) {
 				if (ac.signal.aborted) return;

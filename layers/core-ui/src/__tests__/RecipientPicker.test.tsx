@@ -4,20 +4,18 @@
  * Architecture plan §4.4: inline recipient picker for new DM thread creation.
  * States: browsing (search + list), selected (recipient + message input), sending.
  *
- * @lore AU26 J4: `useRecipients` combines core-api's recipient list with a
- * live busy dot.
+ * @lore AU26 J4: `useRecipients` combines the recipient list with a live busy dot.
  *
- * @lore The busy dot's source is `search_sessions({ state: "active" })`
- * — `call("search_sessions", …)` — not a raw fetch, so it rides the same
- * module-wide `call` mock `send_message` uses below. `stubFetch` routes the
- * recipient list fetch by URL as before; `stubActiveSessions` configures
- * `callMock` for the `search_sessions` side.
+ * @lore BC5 T9: the recipient list itself is now `call("search_users", { status:
+ * "active", name? })` — the door swap replacing `apiFetch("/api/recipients")`.
+ * `search_sessions` (the live busy dot) and `send_message` (starting the DM
+ * thread) already rode `call`. All three now go through the one module-wide
+ * `call` mock, routed by action name.
  *
- * @lore BC3: sending the first message no longer POSTs `/api/threads` — the
- * picker's `handleSend` starts the thread via
+ * @lore BC3: sending the first message POSTs no route — the picker's
+ * `handleSend` starts the thread via
  * `call("send_message", {recipients, text, clientKey})`
- * (`components/RecipientPicker.tsx`). `call` is mocked module-wide, same
- * pattern as `Conversations.context-link.test.tsx`.
+ * (`components/RecipientPicker.tsx`).
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
@@ -28,19 +26,19 @@ import { RecipientPicker } from "../components/RecipientPicker.js";
 const { callMock } = vi.hoisted(() => ({ callMock: vi.fn() }));
 vi.mock("../services/call.js", () => ({ call: callMock }));
 
-interface MockRecipient {
+interface MockUserRow {
 	id: string;
-	kind: "agent" | "user";
+	kind: "human" | "ai";
 	name: string;
 	role: string;
 	status: string;
 	avatarUrl: string | null;
 }
 
-function mkRecipient(overrides: Partial<MockRecipient> = {}): MockRecipient {
+function mkUserRow(overrides: Partial<MockUserRow> = {}): MockUserRow {
 	return {
 		id: overrides.id ?? "agent-1",
-		kind: overrides.kind ?? "agent",
+		kind: overrides.kind ?? "ai",
 		name: overrides.name ?? "Test Agent",
 		role: overrides.role ?? "builder",
 		status: overrides.status ?? "active",
@@ -48,21 +46,26 @@ function mkRecipient(overrides: Partial<MockRecipient> = {}): MockRecipient {
 	};
 }
 
-const MOCK_RECIPIENTS: MockRecipient[] = [
-	mkRecipient({ id: "agent-builder", name: "Builder Bot" }),
-	mkRecipient({ id: "agent-growth", name: "Growth Engine" }),
-	mkRecipient({ id: "user-founder", name: "Founder", kind: "user", role: "founder" }),
+const MOCK_USERS: MockUserRow[] = [
+	mkUserRow({ id: "agent-builder", name: "Builder Bot" }),
+	mkUserRow({ id: "agent-growth", name: "Growth Engine" }),
+	mkUserRow({ id: "user-founder", name: "Founder", kind: "human", role: "founder" }),
 ];
 
 /** Only `agent-builder` is mid-run — the live dot's one true case. */
 const ACTIVE_AGENT_IDS: readonly string[] = ["agent-builder"];
 
 /**
- * Configure `callMock` (the module-wide `call` mock) to answer
- * `search_sessions` with one active row per agent id, so `useRecipients`'
- * live-dot count comes back non-zero for those agents.
+ * Route every `call()` the picker makes by action name: `search_users` (the
+ * recipient list), `search_sessions` (the live busy dot), `send_message`
+ * (starting the DM thread — configurable per test via `sendResult`).
  */
-function stubActiveSessions(activeAgentIds: readonly string[] = ACTIVE_AGENT_IDS): void {
+function stubCall(options: {
+	users?: MockUserRow[];
+	activeAgentIds?: readonly string[];
+	sendResult?: unknown;
+} = {}): void {
+	const { users = MOCK_USERS, activeAgentIds = ACTIVE_AGENT_IDS, sendResult } = options;
 	callMock.mockImplementation((name: string) => {
 		if (name === "search_sessions") {
 			return Promise.resolve({
@@ -70,25 +73,19 @@ function stubActiveSessions(activeAgentIds: readonly string[] = ACTIVE_AGENT_IDS
 				data: activeAgentIds.map((agentId) => ({ id: `session-${agentId}`, agentId })),
 			});
 		}
+		if (name === "search_users") {
+			return Promise.resolve({ ok: true, data: users });
+		}
+		if (name === "send_message" && sendResult !== undefined) {
+			return Promise.resolve(sendResult);
+		}
 		return Promise.resolve({
 			ok: false,
 			problems: [
-				{
-					code: "unmocked_call",
-					message: `RecipientPicker.test.tsx does not mock call("${name}")`,
-				},
+				{ code: "unmocked_call", message: `RecipientPicker.test.tsx does not mock call("${name}")` },
 			],
 		});
 	});
-}
-
-/** Route the recipient list fetch; `search_sessions` rides `callMock` instead. */
-function stubFetch(recipients: MockRecipient[] = MOCK_RECIPIENTS): void {
-	stubActiveSessions();
-	global.fetch = vi.fn().mockResolvedValue({
-		ok: true,
-		json: () => Promise.resolve({ recipients }),
-	}) as unknown as typeof fetch;
 }
 
 function renderPicker(
@@ -111,7 +108,7 @@ describe("RecipientPicker (Q1 §4.4)", () => {
 	// AC1: opening "New thread" puts focus in the search field immediately —
 	// no click needed to start typing a recipient's name.
 	it("renders a search input on mount and focuses it", async () => {
-		stubFetch();
+		stubCall();
 
 		renderPicker();
 		const input = screen.getByRole("textbox");
@@ -121,15 +118,15 @@ describe("RecipientPicker (Q1 §4.4)", () => {
 	// AC1: the trigger has a real accessible name — a <span> next to the
 	// button (pre-fix) leaves it name:"" for assistive tech.
 	it("names the combobox trigger for assistive tech", () => {
-		stubFetch();
+		stubCall();
 
 		renderPicker();
 		expect(screen.getByRole("combobox", { name: "Recipient" })).toBeInTheDocument();
 	});
 
-	// AC2: recipient list is rendered from API response, once loaded
+	// AC2: recipient list is rendered from search_users, once loaded
 	it("renders a list of recipients after loading", async () => {
-		stubFetch();
+		stubCall();
 
 		renderPicker();
 		await waitFor(() => {
@@ -141,7 +138,7 @@ describe("RecipientPicker (Q1 §4.4)", () => {
 
 	// AC2: agents with active sessions show a "Live" indicator
 	it("shows a live indicator for agents with an active session", async () => {
-		stubFetch();
+		stubCall();
 
 		renderPicker();
 		await waitFor(() => {
@@ -155,21 +152,21 @@ describe("RecipientPicker (Q1 §4.4)", () => {
 	// Moving RecipientPicker onto Combobox dropped each row's Avatar because
 	// ComboboxOption had no slot for one — restored via `leading`.
 	it("renders each recipient row's avatar", async () => {
-		stubFetch();
+		stubCall();
 
 		renderPicker();
 		await waitFor(() => {
 			expect(screen.getByText("Builder Bot")).toBeInTheDocument();
 		});
 		const avatars = document.querySelectorAll('[data-ds-component="Avatar"]');
-		expect(avatars.length).toBeGreaterThanOrEqual(MOCK_RECIPIENTS.length);
+		expect(avatars.length).toBeGreaterThanOrEqual(MOCK_USERS.length);
 	});
 
 	// AC2: clicking a recipient transitions to selected state (message input visible)
 	it("clicking a recipient shows a message input", async () => {
 		const user = (await import("@testing-library/user-event")).default.setup();
 
-		stubFetch();
+		stubCall();
 
 		renderPicker();
 		await waitFor(() => {
@@ -190,10 +187,7 @@ describe("RecipientPicker (Q1 §4.4)", () => {
 		const user = (await import("@testing-library/user-event")).default.setup();
 		const onCancel = vi.fn();
 
-		global.fetch = vi.fn().mockResolvedValue({
-			ok: true,
-			json: () => Promise.resolve({ recipients: [] }),
-		}) as unknown as typeof fetch;
+		stubCall({ users: [] });
 
 		renderPicker({ onCancel });
 		const input = screen.getByRole("textbox");
@@ -205,10 +199,7 @@ describe("RecipientPicker (Q1 §4.4)", () => {
 
 	// AC2: empty state when no recipients found
 	it("shows empty state when search yields no results", async () => {
-		global.fetch = vi.fn().mockResolvedValue({
-			ok: true,
-			json: () => Promise.resolve({ recipients: [] }),
-		}) as unknown as typeof fetch;
+		stubCall({ users: [] });
 
 		renderPicker();
 		await waitFor(() => {
@@ -223,20 +214,21 @@ describe("RecipientPicker (Q1 §4.4)", () => {
 		const user = (await import("@testing-library/user-event")).default.setup();
 		const onSelect = vi.fn();
 
-		stubFetch();
-		callMock.mockResolvedValue({
-			ok: true,
-			data: {
-				thread: {
-					id: "new-thread-id",
-					hostKind: "agent",
-					hostId: "agent-builder",
-					initiatorId: "u-founder",
-					members: ["u-founder", "agent-builder"],
-					pinned: false,
-					resolvedAt: null,
-					lastActiveAt: new Date().toISOString(),
-					createdAt: new Date().toISOString(),
+		stubCall({
+			sendResult: {
+				ok: true,
+				data: {
+					thread: {
+						id: "new-thread-id",
+						hostKind: "agent",
+						hostId: "agent-builder",
+						initiatorId: "u-founder",
+						members: ["u-founder", "agent-builder"],
+						pinned: false,
+						resolvedAt: null,
+						lastActiveAt: new Date().toISOString(),
+						createdAt: new Date().toISOString(),
+					},
 				},
 			},
 		});
