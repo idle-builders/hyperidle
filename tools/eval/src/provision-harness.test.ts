@@ -28,7 +28,6 @@ vi.mock("@hyperidle/agent-orchestration", () => ({
 		dispose: vi.fn(),
 		joinLifecycleDrain: vi.fn(async () => {}),
 	})),
-	createInProcessCoreApiTransport: vi.fn(() => vi.fn()),
 }));
 
 vi.mock("@hyperidle/core-api", () => ({

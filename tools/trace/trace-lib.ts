@@ -696,10 +696,7 @@ export interface SeamEntry {
 	line: number;
 }
 
-const SEAM_FILES = [
-	"layers/agent-orchestration/src/services/core-api-port-composition.ts",
-	"layers/core-api/src/services/agent-orchestration-port-composition.ts",
-];
+const SEAM_FILES = ["layers/core-api/src/services/agent-orchestration-port-composition.ts"];
 
 function hcMethod(name: string): string | null {
 	switch (name) {
@@ -785,10 +782,7 @@ export interface DiBinding {
 const DI_BINDING_FILES = [
 	"layers/core-api/src/service-bootstrap.ts",
 	"layers/core-api/src/services/policy-bindings.ts",
-	"layers/core-api/src/services/routine-scheduler-bindings.ts",
 	"layers/core-api/src/services/task-run-resolver-bindings.ts",
-	"layers/agent-orchestration/src/services/tool-handlers-bindings.ts",
-	"layers/agent-orchestration/src/services/calling-thread-bindings.ts",
 	"layers/agent-orchestration/src/services/run-orchestration-composition.ts",
 ];
 

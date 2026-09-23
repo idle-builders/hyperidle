@@ -1,13 +1,11 @@
-import {
-	buildToolDefinitions,
-	createInProcessCoreApiTransport,
-} from "@hyperidle/agent-orchestration";
 import { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext, ToolRegistry } from "@hyperidle/harness-protocol";
 import { createReturnEnforcement } from "@hyperidle/harness-registry";
 import { createMcpToolBridge } from "@hyperidle/harness-registry/mcp";
 import { buildToolRegistry } from "@hyperidle/tool-handlers";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
+import { actionsAsTools } from "../actions/actions-as-tools.js";
+import { buildCoreActions } from "../actions/compose.js";
 
 const registry: ToolRegistry = {
 	definitions: [],
@@ -16,14 +14,22 @@ const registry: ToolRegistry = {
 };
 
 describe("X2 MCP session custody", () => {
-	test("opens a role-filtered production tool registry and preserves result codes", async ({
+	test("opens a production tool registry and preserves result codes", async ({
 		db,
-		app,
+		agentOrchestration,
 	}) => {
-		// @lore AU31 §3.2/§5: the tool definitions are built fresh off THIS
-		// test's own `app` — no ambient global to register (the cross-test
-		// bleed architecture.md §3.2 names as the reason it's deleted).
-		const definitions = buildToolDefinitions(createInProcessCoreApiTransport(app));
+		// @lore BC5 T11: the hand-written management catalog (`create_team`/
+		// `add_agent`) is DELETED with the `CoreApiPort` seam it wrote through
+		// — a session's registry is the composed action list's own tool
+		// projection now, exactly what `run-orchestration-composition.ts`'s
+		// `buildToolProvider` assembles.
+		const definitions = actionsAsTools(
+			buildCoreActions({
+				agentOrchestration,
+				agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
+				reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
+			}),
+		);
 		const context: ToolContext<typeof db> = {
 			db,
 			eventBus: new EventBus(),
@@ -33,15 +39,12 @@ describe("X2 MCP session custody", () => {
 			sandboxPath: "/tmp/mcp-role-session",
 			ingestion: { dispose() {} },
 		};
-		const builderRegistry = buildToolRegistry(definitions, context, { role: "builder" });
-		const assistantRegistry = buildToolRegistry(definitions, context, { role: "assistant" });
-		expect(builderRegistry.definitions.some(({ name }) => name === "create_team")).toBe(false);
-		expect(assistantRegistry.definitions.some(({ name }) => name === "create_team")).toBe(true);
-		await expect(builderRegistry.invoke("create_team", {})).resolves.toMatchObject({
-			success: false,
-			code: "FORBIDDEN",
+		const registry = buildToolRegistry(definitions, context, { role: "assistant" });
+		expect(registry.definitions.some(({ name }) => name === "search_users")).toBe(true);
+		await expect(registry.invoke("search_users", {})).resolves.toMatchObject({
+			success: true,
 		});
-		await expect(builderRegistry.invoke("not_a_real_tool", {})).resolves.toMatchObject({
+		await expect(registry.invoke("not_a_real_tool", {})).resolves.toMatchObject({
 			success: false,
 			code: "NOT_FOUND",
 		});
@@ -49,7 +52,7 @@ describe("X2 MCP session custody", () => {
 		const bridge = createMcpToolBridge();
 		const { token } = await bridge.open({
 			sessionId: context.sessionId,
-			registry: builderRegistry as ToolRegistry,
+			registry: registry as ToolRegistry,
 		});
 		const delegated = await bridge.router.request(`/mcp/${token}`, { method: "POST" });
 		expect(delegated.status).not.toBe(401);

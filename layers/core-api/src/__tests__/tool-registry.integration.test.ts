@@ -1,10 +1,6 @@
 import * as os from "node:os";
 import * as path from "node:path";
-import {
-	buildToolDefinitions,
-	createInProcessCoreApiTransport,
-} from "@hyperidle/agent-orchestration";
-import { type HyperIdleDb, teams } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext, ToolRegistry } from "@hyperidle/harness-protocol";
 import type { BuildToolRegistryOptions } from "@hyperidle/tool-handlers";
@@ -15,26 +11,12 @@ import { actionsAsTools } from "../actions/actions-as-tools.js";
 import { buildCoreActions } from "../actions/compose.js";
 
 /**
- * @lore AU31 §3.2/§5: the `coreApiSeamRegistration` auto-fixture used to
- * register this test's `app` on the ambient global — replaced by a
- * `buildToolRegistry` fixture that builds the dispatch fresh off THIS test's
- * own `app`, bound with the OLD two-arg shape (`(ctx, options) => registry`)
- * so every call site below is unchanged.
- * @lore the six document tools (`write_memory`/`create_artifact`/
- * `promote_knowledge`/`create_conflict_review`/`merge_knowledge`/
- * `split_knowledge`) are DELETED. `create_routine` was the dispatch vehicle
- * for handler-routing/INVALID_INPUT proof below, deleted in its turn with
- * the routine package (BC5 T7b) — `add_agent` is the vehicle now
- * (`create_team`'s seam route requires a `functions` field its tool input
- * never sends and always 400s — a pre-existing gap out of scope here, so it
- * stays off the dispatch-vehicle path, same as before).
- * @lore document-module: the registry a real agent gets is the FOUR
- * hand-written management tools (from `buildToolDefinitions`) PLUS the
- * composed core actions' own tool projection (`actionsAsTools(buildCoreActions(...))`)
- * — exactly what `run-orchestration-composition.ts`'s `buildToolProvider`
- * assembles (`[...actionTools, ...definitions]`). This fixture reproduces
- * that same union rather than the four-tool subset alone, so "the registered
- * tool names an agent gets" is what is actually asserted below.
+ * @lore BC5 T11: `create_team`/`add_agent` (the hand-written management
+ * catalog `buildToolDefinitions` built) are DELETED with the `CoreApiPort`
+ * seam they wrote through — the `org` package they scaffolded is gone. What
+ * an agent gets today is exactly the composed core action list's own tool
+ * projection (`actionsAsTools(buildCoreActions(...))`), the same union
+ * `run-orchestration-composition.ts`'s `buildToolProvider` assembles.
  */
 const test = baseTest.extend<{
 	buildToolRegistry: (
@@ -42,8 +24,7 @@ const test = baseTest.extend<{
 		options: BuildToolRegistryOptions<HyperIdleDb>,
 	) => ToolRegistry<HyperIdleDb>;
 }>({
-	buildToolRegistry: async ({ app, agentOrchestration }, use) => {
-		const definitions = buildToolDefinitions(createInProcessCoreApiTransport(app));
+	buildToolRegistry: async ({ agentOrchestration }, use) => {
 		const actionTools = actionsAsTools(
 			buildCoreActions({
 				agentOrchestration,
@@ -52,7 +33,7 @@ const test = baseTest.extend<{
 			}),
 		);
 		await use((ctx, options) =>
-			buildToolRegistryFromDefinitions<HyperIdleDb>([...actionTools, ...definitions], ctx, options),
+			buildToolRegistryFromDefinitions<HyperIdleDb>([...actionTools], ctx, options),
 		);
 	},
 });
@@ -70,38 +51,21 @@ function makeContext(db: HyperIdleDb, eventBus: EventBus): ToolContext<HyperIdle
 	};
 }
 
-const NOW = "2026-09-21T00:00:00.000Z";
-
-/** Seeds a team for `add_agent`'s `teamId` foreign key. */
-async function seedTeam(db: HyperIdleDb): Promise<string> {
-	const teamId = `team-${Date.now()}`;
-	await db
-		.insert(teams)
-		.values({ id: teamId, name: "Registry Team", phase: "build", createdAt: NOW });
-	return teamId;
-}
-
 describe("buildToolRegistry", () => {
-	// @lore the six document tools (write_memory/create_artifact/
-	// promote_knowledge/create_conflict_review/merge_knowledge/split_knowledge)
-	// are gone. What an agent gets today is the four hand-written AE3
-	// management tools PLUS whatever the composed core action list projects
-	// as tools — never asserted with `toContain`, always exact set equality,
-	// because a `toContain` here would silently tolerate an extra tool
-	// leaking in. The composed side is derived, not hardcoded: task's own
-	// three actions, thread's own four, document's own three (search/open/
-	// edit), platform's own two (search_plugins/edit_plugin) — twelve
-	// today, re-derived every run so a future action addition or removal is
-	// caught here rather than assumed.
-	// @lore BC5 T7b: create_routine/update_routine deleted with the routine
-	// package — the hand-written catalog is down to the two team tools.
-	test("returns exactly the two management tools plus the composed action tools", ({
+	// @lore BC5 T11: what an agent gets today is exactly the composed core
+	// action list's own tool projection — never asserted with `toContain`,
+	// always exact set equality, so a future action addition or removal is
+	// caught here rather than assumed. task's own three, thread's own four,
+	// document's own three (search/open/edit), platform's own two
+	// (search_plugins/edit_plugin), user's own three (search_users/open_user/
+	// edit_user) — fifteen.
+	test("returns exactly the composed action tools", ({
 		db,
 		eventBus,
 		agentOrchestration,
 		buildToolRegistry,
 	}) => {
-		const registry = buildToolRegistry(makeContext(db, eventBus), { role: "assistant" }); // @lore AD8a: role string renamed to "assistant" in AD8b
+		const registry = buildToolRegistry(makeContext(db, eventBus), { role: "assistant" });
 		const names = new Set(registry.definitions.map((d) => d.name));
 
 		const composedActionNames = new Set(
@@ -112,17 +76,10 @@ describe("buildToolRegistry", () => {
 			}).map((a) => a.declaration.name),
 		);
 		// Set equality, never toContain: proves the registered set is EXACTLY
-		// this union, with nothing extra and nothing missing.
-		const expected = new Set(["create_team", "add_agent", ...composedActionNames]);
-		expect(names).toEqual(expected);
-		// task ×3 (search_tasks/open_task/edit_task), thread ×4
-		// (search_threads/open_thread/adjust_thread/send_message), document ×3
-		// (search_documents/open_document/edit_document), platform ×2
-		// (search_plugins/edit_plugin), user ×3 (search_users/open_user/
-		// edit_user) — fifteen, not the earlier twelve (written before the
-		// user module was counted).
+		// the composed action list, with nothing extra and nothing missing.
+		expect(names).toEqual(composedActionNames);
 		expect(composedActionNames.size).toBe(15);
-		expect(registry.definitions).toHaveLength(2 + composedActionNames.size);
+		expect(registry.definitions).toHaveLength(composedActionNames.size);
 	});
 
 	test("each definition has a non-empty description and a Zod input schema", ({
@@ -158,15 +115,7 @@ describe("buildToolRegistry", () => {
 
 		test("routes to the matching handler by name", async ({ db, eventBus, buildToolRegistry }) => {
 			const registry = buildToolRegistry(makeContext(db, eventBus), { role: "assistant" });
-			const teamId = await seedTeam(db);
-			// @lore BC5 T7b: create_routine (the dispatch vehicle after the six
-			// document tools) is deleted too, with the routine package. add_agent
-			// replaces it — see the doc comment above for why not create_team.
-			const result = await registry.invoke("add_agent", {
-				teamId,
-				role: "builder",
-				name: "Routing check agent",
-			});
+			const result = await registry.invoke("search_users", {});
 			expect(result.success).toBe(true);
 		});
 
@@ -176,8 +125,8 @@ describe("buildToolRegistry", () => {
 			buildToolRegistry,
 		}) => {
 			const registry = buildToolRegistry(makeContext(db, eventBus), { role: "assistant" });
-			// @lore BC5 T7b: add_agent's `teamId`/`role`/`name` are required.
-			const result = await registry.invoke("add_agent", {});
+			// `edit_task`'s `id` is required.
+			const result = await registry.invoke("edit_task", {});
 			expect(result.success).toBe(false);
 			if (!result.success) {
 				expect(result.code).toBe("INVALID_INPUT");

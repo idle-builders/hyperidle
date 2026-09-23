@@ -37,7 +37,6 @@ import { bootAgentExecution } from "@hyperidle/agent-execution";
 import {
 	type ApplicationProvisionSessionDeps,
 	bootAgentOrchestration,
-	createInProcessCoreApiTransport,
 	type RunOrchestrationHarnessRuntimeAdapter,
 	type RunOrchestrationReturnStatusToolAdapter,
 } from "@hyperidle/agent-orchestration";
@@ -270,26 +269,22 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	const agentExecution =
 		deps.agentExecutionBoot ?? (await bootAgentExecution({ topology: deps.topology, mcpBaseUrl }));
 
-	// @lore AU31 §3.2 clause 4: the construction cycle — both seam transports
+	// @lore AU31 §3.2 clause 4: the construction cycle — the seam transport
 	// must dial the COMPOSED app (the one carrying the `/api` prefix), which
 	// does not exist until every Layer has booted and been mounted below.
-	// Closed by root-local bindings, not module variables. No route handler
-	// calls a port before then (they only read it when a real request
-	// arrives; both ports' methods are lazy), so this is safe.
+	// Closed by a root-local binding, not a module variable. No route handler
+	// calls the port before then (its methods are lazy), so this is safe.
 	// @lore AU31 §3.2: the transport TYPE is derived from the layer face
-	// function's own signature (`ReturnType<typeof createInProcessCoreApiTransport>`
-	// / `Parameters<typeof buildAgentOrchestrationPort>[0]`) rather than
-	// imported by name from `@hyperidle/api-contract` — an application may not
-	// name a framework contract package directly (governance `crossing-import`,
-	// api-contract's reach is `["layer"]`); it reaches the type only through
-	// the LAYER export it already legally imports.
-	let realCoreApiTransport: ReturnType<typeof createInProcessCoreApiTransport> | undefined;
-	const coreApiTransport: ReturnType<typeof createInProcessCoreApiTransport> = async (req) => {
-		if (!realCoreApiTransport) {
-			throw new Error("CoreApiPort transport called before the composed app was built.");
-		}
-		return realCoreApiTransport(req);
-	};
+	// function's own signature (`Parameters<typeof buildAgentOrchestrationPort>[0]`)
+	// rather than imported by name from `@hyperidle/api-contract` — an
+	// application may not name a framework contract package directly
+	// (governance `crossing-import`, api-contract's reach is `["layer"]`); it
+	// reaches the type only through the LAYER export it already legally
+	// imports.
+	// @lore BC5 T11: the `coreApiTransport`/`realCoreApiTransport` pair (the
+	// `CoreApiPort` seam's own deferred binding) is DELETED — `create_team`/
+	// `add_agent`, the seam's last two tools, are gone with the `org` package
+	// they wrote through.
 	let realAgentOrchestrationTransport:
 		| Parameters<typeof buildAgentOrchestrationPort>[0]
 		| undefined;
@@ -387,7 +382,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		runtime: {
 			harnessRuntime: harnessRuntimeAdapter,
 			returnStatusTool: returnStatusToolAdapter,
-			coreApiTransport,
 			// One composed list, built once: core-api's actions, projected
 			// onto this Layer's own MCP tool seam, as a thunk (see above).
 			actionTools: () => actionTools,
@@ -439,12 +433,11 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	app.route("/", health);
 
 	// AU31 §3.2 clause 4: close the construction cycle — the in-process
-	// transports (need the COMPOSED app, since their seam URLs carry the
-	// `/api` prefix) can only be built now that `app` exists. The ports built
-	// above (before either Layer booted) already resolve every subsequent
-	// request through them.
+	// transport (needs the COMPOSED app, since its seam URLs carry the `/api`
+	// prefix) can only be built now that `app` exists. The port built above
+	// (before either Layer booted) already resolves every subsequent request
+	// through it.
 	realAgentOrchestrationTransport = createInProcessAgentOrchestrationTransport(app);
-	realCoreApiTransport = createInProcessCoreApiTransport(app);
 
 	// Both Layers' + the execution face's teardown ride the composed app's
 	// disposer bag, so a single `disposeApp(app)` tears the whole composition

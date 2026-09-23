@@ -167,9 +167,6 @@ async function bootOrchestrationWithProvisioning(db: HyperIdleDb) {
 			// `searchDocuments` is ever dialled by this test (it only proves the
 			// provisioning reads), so throwing stubs are enough to satisfy
 			// `runtimeDeps`'s default document writeback port (§8.4).
-			coreApiTransport: async () => {
-				throw new Error("coreApiTransport should not be dialled by this provisioning-only test");
-			},
 			editDocument: async () => {
 				throw new Error("editDocument should not be dialled by this provisioning-only test");
 			},

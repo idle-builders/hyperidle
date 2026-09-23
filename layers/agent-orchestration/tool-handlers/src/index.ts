@@ -1,28 +1,16 @@
 /**
  * Barrel for @hyperidle/tool-handlers (agent-orchestration Layer Service).
  *
- * @lore AU20 Am10: collapsed from 42 exports to 3.
- *   - 22 `createXTool` factory exports → 0 PUBLIC (internal; assembled by
- *     `buildToolDefinitions`). The tool set is internal data, not 22 named
- *     exports — adding a tool adds one internal entry; public API unchanged.
- *   - 13 port sub-type exports → internal (reachable structurally through
- *     `ToolHandlersPorts`; only the aggregate is the DI contract).
- *   - `buildAllToolDefinitions` + `toolsForRoleFromPorts` → 1
- *     `buildToolDefinitions(ports, {role?})`.
- *
- * `create_bet`/`edit_bet` exist as ordinary `["assistant"]`-role-scoped
- * tools in `buildToolDefinitions`'s own `all` array.
- *
- * @lore AU19 Increment 4 (§7.5 C1 resolution): the DB-/domain-touching
- * handler bodies of `tools/*` (§4 roster). `buildToolDefinitions(ports)`
- * DI-wires all 22 domain-touching tool bodies and the orchestration Layer
- * (today `packages/server`'s composition root) wires `ports` to each target
- * Service's real exports, then hands the resulting `RegisteredTool[]` into
- * `@hyperidle/tool-provider`'s `buildToolRegistry`.
+ * @lore BC5 T11: `ToolHandlersPorts`/`buildToolDefinitions` are DELETED —
+ * `create_team`/`add_agent`, this package's last two hand-written tools,
+ * are gone with the `CoreApiPort` seam and the `org` package they wrote
+ * through. What is left is generic dispatch infrastructure with a real
+ * caller beyond those two tools: `run-orchestration-composition.ts`'s
+ * `buildToolProvider` still assembles a session's registry from the
+ * composed action list through `buildToolRegistry` below, role-filtered the
+ * same way. A tool-less catalog is still a catalog.
  */
 
-export type { ToolHandlersPorts } from "./ports.js";
-export { buildToolDefinitions } from "./tool-definitions.js";
 /**
  * @lore AU31 §2.5: `buildToolRegistry` relocated from `@hyperidle/harness-
  * registry` (agent-execution) — it imports only `@hyperidle/shared` and

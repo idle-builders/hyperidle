@@ -30,7 +30,6 @@ import { bootAgentExecution } from "@hyperidle/agent-execution";
 import {
 	type ApplicationProvisionSessionDeps,
 	bootAgentOrchestration,
-	createInProcessCoreApiTransport,
 	type RunOrchestrationHarnessRuntimeAdapter,
 	type RunOrchestrationReturnStatusToolAdapter,
 } from "@hyperidle/agent-orchestration";
@@ -191,13 +190,10 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	// @lore AU31 §3.2: the transport TYPE is derived from the layer face
 	// function's own signature rather than imported by name from
 	// `@hyperidle/api-contract` — see `remote-server`'s twin `@lore`.
-	let realCoreApiTransport: ReturnType<typeof createInProcessCoreApiTransport> | undefined;
-	const coreApiTransport: ReturnType<typeof createInProcessCoreApiTransport> = async (req) => {
-		if (!realCoreApiTransport) {
-			throw new Error("CoreApiPort transport called before the composed app was built.");
-		}
-		return realCoreApiTransport(req);
-	};
+	// @lore BC5 T11: the `coreApiTransport`/`realCoreApiTransport` pair (the
+	// `CoreApiPort` seam's own deferred binding) is DELETED — `create_team`/
+	// `add_agent`, the seam's last two tools, are gone with the `org` package
+	// they wrote through.
 	let realAgentOrchestrationTransport:
 		| Parameters<typeof buildAgentOrchestrationPort>[0]
 		| undefined;
@@ -271,7 +267,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		runtime: {
 			harnessRuntime: harnessRuntimeAdapter,
 			returnStatusTool: returnStatusToolAdapter,
-			coreApiTransport,
 			// One composed list, built once: core-api's actions, projected
 			// onto this Layer's own MCP tool seam, as a thunk (see above).
 			actionTools: () => actionTools,
@@ -316,7 +311,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	app.route("/", health);
 
 	realAgentOrchestrationTransport = createInProcessAgentOrchestrationTransport(app);
-	realCoreApiTransport = createInProcessCoreApiTransport(app);
 
 	registerAppDisposers(app, [
 		...coreApi.disposers,
