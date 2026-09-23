@@ -291,6 +291,21 @@ export const AU21_PRE_EXISTING_E2E_FAILURES: readonly string[] = [
 	"work empty state visible when no bets",
 	"work portfolio bet grid: content area ≤ 960px",
 
+	// @lore BC5 T12 (2026-09-23): four AZ2-page-scroll.spec.ts titles mock
+	// `GET /api/artifacts/:id` and wait on a standalone `/artifacts/:id`
+	// permalink page — `router.tsx` carries no `artifacts` route at all, and
+	// no production file reads `/api/artifacts/:id`. Verified pre-existing:
+	// `router.tsx`'s only change on this branch is the WorkRoutine deletion
+	// (`git log origin/main..HEAD -- layers/core-ui/src/router.tsx`) — the
+	// artifacts route was already absent on `origin/main` before this item
+	// started, most likely left behind by the earlier, unrelated "Artifacts
+	// become knowledge items" merge. Not caused by BC5; fixing the stale
+	// fixture belongs to whoever owns that page's e2e coverage.
+	"artifact permalink: >=1 scroll container, clippedPx===0 at desktop-1440",
+	"artifact permalink: >=1 scroll container, clippedPx===0 at desktop-1024",
+	"artifact permalink: >=1 scroll container, clippedPx===0 at mobile-375",
+	"AC1: the last line of the artifact diff is reachable by scrolling to the end",
+
 	// @lore AU28 (2026-08-05, the AU26+AU27 rebase): five tests that AU26's route move broke
 	// on `main`, invisible there and unmasked here. AU26 repointed the web session/run reads
 	// at agent-orchestration's new API surface (`useTaskSessions` now fetches

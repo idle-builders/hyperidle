@@ -22,11 +22,18 @@
 import {
 	expect,
 	makeDocumentRow,
+	makeTask,
 	makeThread,
+	makeUserRow,
+	mockAgents,
 	mockDocument,
 	mockSearchDocuments,
+	mockSearchSessions,
 	mockSearchThreads,
+	mockSearchUsers,
+	mockTeamPage,
 	mockThread,
+	mockUser,
 	type Page,
 	type Route,
 	test,
@@ -128,62 +135,24 @@ async function mockAppShell(_page: Page): Promise<void> {
 const TEAM_ID = "team-az2";
 const TEAM_URL = `/work/team/${TEAM_ID}`;
 
-function makeOverflowingTeam() {
-	return {
-		team: {
-			id: TEAM_ID,
-			name: "AZ2 Scroll Team",
-			phase: "build",
-			status: "healthy",
-			leadAgentId: "agent-0",
-		},
-		teamMembers: { id: TEAM_ID, formedAt: new Date().toISOString(), dissolvedAt: null },
-		roster: Array.from({ length: 24 }, (_, i) => ({
-			agentId: `agent-${i}`,
-			name: `Agent ${i}`,
-			role: "builder",
-			isLead: i === 0,
-			agentCategory: "team",
-			operationalStatus: "idle",
-			healthLevel: "healthy",
-			healthDetail: "Healthy",
-			activeTaskTitle: null,
-			activeTaskId: null,
-			activeBetId: null,
-		})),
-		burn: { capacity: 20 },
-		tasksInProgress: Array.from({ length: 8 }, (_, i) => ({
-			id: `bet-${i}`,
-			title: `Bet number ${i}`,
-			status: "active",
-			progressDone: i,
-			progressTotal: 8,
-		})),
-		routines: Array.from({ length: 6 }, (_, i) => ({
-			id: `routine-${i}`,
-			name: `Routine ${i}`,
-			state: "active",
-			scheduleLabel: "Every day at 8:00 AM",
-			agentName: "Agent 0",
-			agentInitials: "A0",
-			lastRunAt: new Date(Date.now() - 86400000).toISOString(),
-			lastRunOutcome: "success",
-			nextRunAt: new Date(Date.now() + 86400000).toISOString(),
-		})),
-	};
-}
+const OVERFLOWING_ROSTER = Array.from({ length: 24 }, (_, i) =>
+	makeUserRow(`agent-${i}`, { kind: "ai", name: `Agent ${i}`, role: "builder", agentCategory: "team" }),
+);
+
+const OVERFLOWING_TASKS = Array.from({ length: 8 }, (_, i) =>
+	makeTask(`bet-${i}`, { teamId: TEAM_ID, title: `Bet number ${i}`, state: "in_progress" }),
+);
 
 async function mockTeamRoute(page: Page): Promise<void> {
-	await page.route(`**/api/teams/${TEAM_ID}`, async (route: Route) => {
-		await route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify(makeOverflowingTeam()),
-		});
+	await mockSearchUsers(page, { rows: OVERFLOWING_ROSTER });
+	await mockTeamPage(page, {
+		teamId: TEAM_ID,
+		teamName: "AZ2 Scroll Team",
+		roster: OVERFLOWING_ROSTER,
+		tasksInProgress: OVERFLOWING_TASKS,
 	});
-	await page.route("**/api/agents*", async (route: Route) => {
-		await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([]) });
-	});
+	await mockAgents(page, { agents: [] });
+	await mockSearchSessions(page, { rows: [] });
 	await page.route("**/api/artifacts*", async (route: Route) => {
 		await route.fulfill({
 			status: 200,
@@ -285,13 +254,7 @@ function makeOverflowingArtifact() {
 
 async function mockArtifactAppShell(page: Page): Promise<void> {
 	await mockSearchThreads(page, { rows: [] });
-	await page.route("**/api/teams**", async (route: Route) => {
-		await route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify({ teams: [] }),
-		});
-	});
+	await mockSearchUsers(page, { rows: [] });
 }
 
 test.describe("AZ2 AC1/AC2 — /artifacts/:id reaches its end at every viewport", () => {
@@ -360,7 +323,6 @@ const ROOT_TASK_ID = "task-az2";
 const AGENT_ID = "agent-az2";
 const DOCUMENT_ID = "document-az2";
 const THREAD_ID = "thread-az2";
-const ROUTINE_ID = "routine-az2";
 
 async function mockDefaultThreads(page: Page): Promise<void> {
 	await mockSearchThreads(page, { rows: [] });
@@ -372,17 +334,14 @@ const ROUTES: readonly RouteCase[] = [
 		url: "/work",
 		readySelector: "[data-testid^='work-overview-page']",
 		setup: async (page) => {
-			await page.route("**/api/teams", async (route: Route) => {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({
-						teams: [
-							{ id: "t1", name: "Team One", status: "healthy", tasksInProgress: 2 },
-							{ id: "t2", name: "Team Two", status: "healthy", tasksInProgress: 1 },
-						],
-					}),
-				});
+			await mockSearchUsers(page, {
+				rows: [
+					makeUserRow("agent-t1", { kind: "ai", team: { id: "t1", name: "Team One" } }),
+					makeUserRow("agent-t2", { kind: "ai", team: { id: "t2", name: "Team Two" } }),
+				],
+			});
+			await page.route("**/api/actions/search_tasks", async (route: Route) => {
+				await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, data: [] }) });
 			});
 		},
 	},
@@ -397,79 +356,24 @@ const ROUTES: readonly RouteCase[] = [
 		},
 	},
 	{
-		name: "work-routine",
-		url: `/work/routine/${ROUTINE_ID}`,
-		readySelector: "[data-testid='work-routine-page']",
-		setup: async (page) => {
-			await page.route(`**/api/routines/${ROUTINE_ID}`, async (route: Route) => {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({
-						routine: {
-							id: ROUTINE_ID,
-							name: "AZ2 fixture routine",
-							teamName: "Alpha",
-							state: "active",
-							scheduleLabel: "Daily",
-							triggerType: "schedule",
-							triggerConfig: JSON.stringify({ cron: "0 8 * * *" }),
-							autonomyLevel: 2,
-							silent: false,
-							lastRunAt: null,
-							lastRunOutcome: null,
-							nextRunAt: null,
-							createdAt: "2026-01-01T00:00:00.000Z",
-							agentName: "Agent 0",
-						},
-						runs: [],
-					}),
-				});
-			});
-		},
-	},
-	{
+		// @lore BC5 T9: `/work/routine/:id` and WorkRoutine are gone — subscriptions
+		// replace routines, and they live on AgentProfile now, not their own page.
 		name: "agent-profile",
 		url: `/agents/${AGENT_ID}`,
 		readySelector: "[data-testid='agent-profile-page']",
 		setup: async (page) => {
-			await page.route(`**/api/agents/${AGENT_ID}/profile`, async (route: Route) => {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({
-						id: AGENT_ID,
-						name: "AZ2 fixture agent",
-						role: "builder",
-						agentCategory: "team",
-						teamId: "t1",
-						teamName: "Alpha",
-						harnessType: null,
-						harnessAvailable: true,
-						maxConcurrentSessions: 1,
-						createdAt: "2026-01-01T00:00:00.000Z",
-						systemPrompt: null,
-						harnessCapabilities: {
-							toolUse: true,
-							mcpSupport: false,
-							fileEditing: true,
-							subAgents: false,
-						},
-						reviewTrackRecord: {
-							totalVerdicts: 0,
-							approvalRate: 0,
-							windowDays: 30,
-							recentVerdicts: [],
-						},
-					}),
-				});
+			await mockUser(page, {
+				row: makeUserRow(AGENT_ID, {
+					kind: "ai",
+					name: "AZ2 fixture agent",
+					role: "builder",
+					agentCategory: "team",
+					team: { id: "t1", name: "Alpha" },
+				}),
 			});
-			await page.route("**/api/agents/*/runs*", async (route: Route) => {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({ recentSessions: [], activeSession: null }),
-				});
+			await mockSearchSessions(page, { rows: [] });
+			await page.route("**/api/actions/search_tasks", async (route: Route) => {
+				await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, data: [] }) });
 			});
 		},
 	},
@@ -508,14 +412,8 @@ const ROUTES: readonly RouteCase[] = [
 		url: "/work/task/new",
 		readySelector: "[data-testid='task-create-page']",
 		setup: async (page) => {
-			await page.route("**/api/teams", async (route: Route) => {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({
-						teams: [{ id: "t1", name: "Alpha", phase: "build", active: true }],
-					}),
-				});
+			await mockSearchUsers(page, {
+				rows: [makeUserRow("u-az2", { team: { id: "t1", name: "Alpha" } })],
 			});
 		},
 	},
