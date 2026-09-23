@@ -81,7 +81,7 @@ describe("AgentWorkIntentRecorderInput widened six-kind union", () => {
 				},
 			},
 			{
-				// BC5 T6: a subscription's wake — sourceKind is "subscription", not
+				// A subscription's wake — sourceKind is "subscription", not
 				// "subscription_run", matching the DB's kind/source-kind pairing.
 				kind: "subscription_run",
 				sourceKind: "subscription",

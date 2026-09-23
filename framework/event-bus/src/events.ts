@@ -338,7 +338,7 @@ export interface ChangesRow {
  * The nine object events, one member per `ObjectEventName` — a distributive
  * mapped type so `EventByType<"task.changed">` resolves to exactly the
  * `task.changed` member, not the union of all nine. `change` is the decoded
- * `ChangeRow` (architecture.md §3); `cascade` rides only on a kill loop's
+ * `ChangeRow`; `cascade` rides only on a kill loop's
  * descendant rows.
  */
 export type ObjectChangeEvent = {
@@ -354,7 +354,7 @@ export type ObjectChangeEvent = {
 /**
  * Builds one object-change event from a raw `changes` row — the module that
  * appended the row calls this once, post commit, over each row it appended
- * (architecture.md §3). Decodes `before`/`after` from JSON text into the
+ * Decodes `before`/`after` from JSON text into the
  * `ChangeRow` wire shape; derives the dotted event name from `object.kind`.
  */
 export function objectEvent(
@@ -441,7 +441,7 @@ export type EventType = DomainEvent["type"];
  * restore) — see the architecture's §9 required step.
  */
 export const EVENT_TYPES = [
-	// The nine object events (architecture.md §3) — one per `changes` row,
+	// The nine object events — one per `changes` row,
 	// spelled out literally so the governance lint's clause 4 (a regex over
 	// this file's source text) can see them.
 	"task.created",

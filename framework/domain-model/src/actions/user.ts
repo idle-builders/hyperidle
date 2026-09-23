@@ -89,7 +89,7 @@ export const ChangeRowSchema = z.object({
 export type ChangeRow = z.infer<typeof ChangeRowSchema>;
 
 // ---------------------------------------------------------------------------
-// The row — architecture.md §1. `team` is the effective team (own, else the
+// The row. `team` is the effective team (own, else the
 // owner's); `edges` are the user's outgoing `org_edges`, so the org chart
 // needs one call.
 // ---------------------------------------------------------------------------
@@ -143,7 +143,7 @@ export const searchUsers: ActionDeclaration<SearchUsersInput, UserRow[]> = {
 };
 
 // ---------------------------------------------------------------------------
-// open_user — architecture.md §1. The supporting views (harness, folder,
+// open_user. The supporting views (harness, folder,
 // connection, behaviour, inbox) are declared as zod shapes in this file so
 // the wire contract is self-contained; the TS interfaces this mirrors
 // (`HarnessCapabilityDescriptor`, `ServiceConnectionView`, `Filesystem`,
@@ -392,7 +392,7 @@ export const openUser: ActionDeclaration<OpenUserInput, UserView> = {
 };
 
 // ---------------------------------------------------------------------------
-// edit_user — architecture.md §1. One partial; no `id` creates.
+// edit_user. One partial; no `id` creates.
 // ---------------------------------------------------------------------------
 
 const EditUserTeamRefSchema = z.object({ name: z.string().min(1) }).strict();
@@ -553,7 +553,7 @@ export const USER_ACTIONS = {
 } as const;
 
 // ---------------------------------------------------------------------------
-// Pure invariants — architecture.md §1. DB-dependent problems (`not_found`,
+// Pure invariants. DB-dependent problems (`not_found`,
 // `unknown_actor`, `unknown_owner`, the runnable check, the harness/model
 // codes `validate-agent-config.ts` already names, and the rest) need the
 // database and belong in `edit_user.run` (a later task), not here.

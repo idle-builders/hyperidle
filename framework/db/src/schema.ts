@@ -688,7 +688,7 @@ export const orgEdges = pgTable(
 	],
 );
 
-// --- Subscriptions and inbox (BC5 T2) ---
+// --- Subscriptions and inbox ---
 
 /**
  * @lore BC5 T2: one row shape shared by a person and an agent — `event |
