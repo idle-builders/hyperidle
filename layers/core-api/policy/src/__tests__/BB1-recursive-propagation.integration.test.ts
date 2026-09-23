@@ -38,7 +38,7 @@ import {
 	type TaskState,
 	type TaskView,
 } from "@hyperidle/domain-model";
-import { EventBus } from "@hyperidle/event-bus";
+import { EventBus, objectEvent } from "@hyperidle/event-bus";
 import { and, eq } from "drizzle-orm";
 import { vi } from "vitest";
 import { type PolicyDeps, registerLifecyclePropagation } from "../index.js";
@@ -110,7 +110,9 @@ const sendMessageStub: PolicySendMessage = async (): Promise<ActionResult<SendMe
  * CAS-write-then-emit shape the real action provides, using the SAME pure
  * `canTransitionTaskState` grammar the real action's invariants run over.
  * Sufficient for what these tests exercise (ancestor cascade logic driven
- * off `task_state_changed`) — no dispatch, no `changes` row.
+ * off `task.changed`) — no dispatch, no real `changes` row (a synthetic
+ * `ChangeRow` is built in place, the same shape `objectEvent` would decode
+ * from a real one).
  */
 function makeEditTask(): PolicyEditTask {
 	return async (ctx, input: EditTaskInput): Promise<ActionResult<TaskView>> => {
@@ -144,14 +146,18 @@ function makeEditTask(): PolicyEditTask {
 					problems: [{ code: "invalid_transition", message: "lost the CAS race" }],
 				};
 			}
-			ctx.eventBus.emit({
-				type: "task_state_changed",
-				streamId: taskId,
-				taskId,
-				fromState,
-				toState,
-				timestamp: Date.now(),
-			});
+			ctx.eventBus.emit(
+				objectEvent({
+					id: `test-change-${taskId}-${Date.now()}`,
+					object: "task",
+					objectId: taskId,
+					kind: "changed",
+					actor: ctx.actor,
+					before: JSON.stringify({ state: fromState }),
+					after: JSON.stringify({ state: toState }),
+					at: ctx.now,
+				}),
+			);
 		}
 		return {
 			ok: true,
@@ -221,7 +227,7 @@ async function getTaskState(db: HyperIdleDb, id: string): Promise<string | undef
 	return row?.state;
 }
 
-/** Directly write a terminal state then emit task_state_changed so propagation fires. */
+/** Directly write a terminal state then emit task.changed so propagation fires. */
 async function completeTask(
 	db: HyperIdleDb,
 	eventBus: EventBus,
@@ -240,15 +246,21 @@ async function completeTask(
 		.where(and(eq(tasks.id, taskId), eq(tasks.state, fromState)))
 		.returning({ id: tasks.id });
 	expect(result.length > 0).toBe(true);
-	eventBus.emit({
-		type: "task_state_changed",
-		streamId: taskId,
-		taskId,
-		fromState,
-		toState,
-		timestamp: Date.now(),
-		...(cascade ? { cascade: true } : {}),
-	});
+	eventBus.emit(
+		objectEvent(
+			{
+				id: `test-change-${taskId}-${Date.now()}`,
+				object: "task",
+				objectId: taskId,
+				kind: "changed",
+				actor: "system:propagation",
+				before: JSON.stringify({ state: fromState }),
+				after: JSON.stringify({ state: toState }),
+				at: new Date().toISOString(),
+			},
+			cascade ? { cascade: true } : undefined,
+		),
+	);
 }
 
 // ─── Session → Task propagation tests ────────────────────────────────────────
@@ -388,7 +400,7 @@ describe("BB1 AC3 — parent auto-completion cascade (needsReview fork)", () => 
 
 			// 3-level tree: root and middle both in `accepted`, both needsReview=false.
 			// When leaf finishes, middle → done in the first propagation pass,
-			// which then emits task_state_changed(done) for middle, triggering
+			// which then emits task.changed(done) for middle, triggering
 			// propagateTaskToParent(middle) → root → done.
 			await seedTask(db, {
 				id: "bb1-p3-root",
@@ -625,7 +637,7 @@ describe("BB1 AC3 — parent auto-completion cascade (needsReview fork)", () => 
 describe("BB1 — a cascade kill does not complete its ancestors", () => {
 	/**
 	 * `cascadeTaskKill` kills deepest-first and every kill emits
-	 * `task_state_changed(killed)`. This handler listens for `killed` on purpose
+	 * `task.changed(killed)`. This handler listens for `killed` on purpose
 	 * so that killing the last live child still advances its parent — and it
 	 * only ever moves ancestors to `done`/`review`, never `killed`. On the shared
 	 * production bus that meant killing a subtree raced its own completion:
