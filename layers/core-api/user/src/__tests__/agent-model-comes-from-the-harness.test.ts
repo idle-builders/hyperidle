@@ -22,11 +22,7 @@
 
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import { describe, expect, it } from "vitest";
-import type {
-	HarnessCapabilityFilter,
-	HarnessCapabilityReader,
-} from "../../services/harness-capability-reader.js";
-import { validateAgentConfig } from "../validate-agent-config.js";
+import { type HarnessCapabilityProbe, validateAgentConfig } from "../validate-agent-config.js";
 
 function descriptorWith(
 	harnessType: string,
@@ -51,12 +47,10 @@ function descriptorWith(
 	};
 }
 
-function readerFor(descriptors: readonly HarnessCapabilityDescriptor[]): HarnessCapabilityReader {
+function readerFor(descriptors: readonly HarnessCapabilityDescriptor[]): HarnessCapabilityProbe {
 	return {
-		size: descriptors.length,
-		describe: (options?: HarnessCapabilityFilter): HarnessCapabilityDescriptor[] =>
+		describe: (options): HarnessCapabilityDescriptor[] =>
 			options?.type ? descriptors.filter((d) => d.type === options.type) : [...descriptors],
-		refresh: async (): Promise<void> => undefined,
 	};
 }
 

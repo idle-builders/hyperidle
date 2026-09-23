@@ -1,39 +1,24 @@
 /**
  * The one place an agent's identity document is written or looked up —
- * architecture.md §8.3: `routes/agents.ts`, `routes/org.ts`, `routes/users.ts`
- * and `routes/teams-routes.ts` all reduce to this one shared helper instead
- * of each calling the retired `upsertAgentIdentity`/`getAgentIdentityIds`
- * repository functions directly.
+ * architecture.md §6: moved verbatim from `layers/core-api/src/routes/
+ * agent-identity.ts` into this package. `routes/agents.ts`, `routes/org.ts`,
+ * `routes/users.ts` and `routes/teams-routes.ts` all reduce to this one
+ * shared helper (imported from `@hyperidle/user` now) instead of each
+ * calling the retired `upsertAgentIdentity`/`getAgentIdentityIds`
+ * repository functions directly; `user-actions.ts`'s `edit_user` uses the
+ * same port for the identity a create/retire touches.
  *
  * An agent's identity is an `agent_file`-slotted document parented to the
  * agent (`parentKind:"agent"`, `parentId:<agentId>`), `scopeKind:"user"`,
  * `scopeId:<agentId>` — the binding context assembly reads through the parent
  * slot. Every read and write here goes through the injected
  * `search_documents`/`edit_document` runners, never `@hyperidle/document`
- * directly (architecture.md §8.1: a neighbour reaches documents only through
- * the three actions, in-process, as the acting user) — and never
- * `open_document`, so an identity lookup never counts as a read (§6.7).
+ * directly — and never `open_document`, so an identity lookup never counts
+ * as a read.
  */
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
-import type {
-	ActionResult,
-	DocumentRow,
-	DocumentView,
-	EditDocumentInput,
-	SearchDocumentsInput,
-} from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import type { ActionContext } from "../actions/action.js";
-
-export type SearchDocumentsRunFn = (
-	ctx: ActionContext,
-	input: SearchDocumentsInput,
-) => Promise<ActionResult<readonly DocumentRow[]>>;
-
-export type EditDocumentRunFn = (
-	ctx: ActionContext,
-	input: EditDocumentInput,
-) => Promise<ActionResult<DocumentView>>;
+import type { ActionContext, EditDocumentRunFn, SearchDocumentsRunFn } from "./action-types.js";
 
 export interface AgentIdentityDeps {
 	readonly searchDocuments: SearchDocumentsRunFn;
@@ -64,7 +49,7 @@ export interface AgentIdentityPort {
 		viewerActor: string,
 		agentIds: readonly string[],
 	) => Promise<ReadonlyMap<string, string>>;
-	/** Archives every document parented to this agent — an agent delete. */
+	/** Archives every document parented to this agent — an agent delete/retire. */
 	readonly archiveChildren: (
 		db: HyperIdleDb,
 		viewerActor: string,
@@ -80,10 +65,10 @@ function ctxFor(db: HyperIdleDb, deps: AgentIdentityDeps, actor: string): Action
 }
 
 /**
- * @lore architecture.md §8.3 names the shape of a scaffold-created identity
+ * @lore architecture.md §8.3 (carried over from the route this file was
+ * moved from) names the shape of a scaffold-created identity
  * (`doc_af_${agentId}`, read-then-edit) but not an actor for it:
- * `persistScaffoldedAgents` (`layers/core-api/org/src/scaffold-agents.ts`,
- * not owned by this block) passes the literal "scaffold" through
+ * `persistScaffoldedAgents` passes the literal "scaffold" through
  * `input.updatedBy`, which is not a row in `users` at all — and
  * `edit_document`'s `changes.actor` FK (`references users.id`, restrict)
  * needs a real one, unlike the free-text `documents.updated_by` this

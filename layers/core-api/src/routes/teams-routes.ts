@@ -37,6 +37,7 @@ import * as routineService from "@hyperidle/routine";
 import { humanizeSchedule } from "@hyperidle/routine";
 import * as work from "@hyperidle/task";
 import {
+	type AgentIdentityPort,
 	createTeam,
 	findUser,
 	getTeam,
@@ -50,7 +51,6 @@ import { Hono } from "hono";
 import type { SendMessageRunFn } from "../actions/action.js";
 import { buildSeamBackedAgentRunConfigWriter } from "../services/agent-orchestration-port-composition.js";
 import type { HarnessCapabilityReader } from "../services/harness-capability-reader.js";
-import type { AgentIdentityPort } from "./agent-identity.js";
 import { resolveHarnessAvailable } from "./agent-profile.js";
 
 /** Inlined from @hyperidle/presentation-format (server copy removed, row 18). */

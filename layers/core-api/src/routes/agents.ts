@@ -27,13 +27,19 @@ import type {
 import type { HyperIdleDb } from "@hyperidle/db";
 import { AGENT_CATEGORIES } from "@hyperidle/domain-model";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
-import { findUser, getTeam, insertUser, listUsers, updateUser } from "@hyperidle/user";
+import {
+	type AgentIdentityPort,
+	findUser,
+	getTeam,
+	insertUser,
+	listUsers,
+	updateUser,
+	validateAgentConfig,
+} from "@hyperidle/user";
 import { Hono } from "hono";
 import z from "zod";
 import type { HarnessCapabilityReader } from "../services/harness-capability-reader.js";
-import type { AgentIdentityPort } from "./agent-identity.js";
 import { handleAgentProfile } from "./agent-profile.js";
-import { validateAgentConfig } from "./validate-agent-config.js";
 
 // ---------------------------------------------------------------------------
 // Zod schemas

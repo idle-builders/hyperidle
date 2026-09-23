@@ -13,6 +13,15 @@
 		},
 		{
 			"path": "../../../framework/domain-model"
+		},
+		{
+			"path": "../../../framework/event-bus"
+		},
+		{
+			"path": "../../../framework/harness-capability"
+		},
+		{
+			"path": "../document"
 		}
 	]
 }

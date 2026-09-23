@@ -6,13 +6,16 @@ import type { RegisteredTool } from "@hyperidle/harness-protocol";
 import type { NotificationsDeps } from "@hyperidle/notifications";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import { checkAndUnblockDependents } from "@hyperidle/task";
-import { createUpgradeTokenStore, type UpgradeTokenStore } from "@hyperidle/user";
+import {
+	createAgentIdentityPort,
+	createUpgradeTokenStore,
+	type UpgradeTokenStore,
+} from "@hyperidle/user";
 import { Hono } from "hono";
 import type { Action, ActionContext } from "./actions/action.js";
 import { actionsAsTools } from "./actions/actions-as-tools.js";
 import { createActionsRouter } from "./actions/actions-router.js";
 import { buildCoreActions } from "./actions/compose.js";
-import { createAgentIdentityPort } from "./routes/agent-identity.js";
 import { createAgentRoutes } from "./routes/agents.js";
 import { createAuthRoutes } from "./routes/auth.js";
 import { createFilesystemInjectionRoutes } from "./routes/filesystems.js";
@@ -360,6 +363,8 @@ function buildCoreActionsBindings(
 						options.wsHub?.broadcast(topic, JSON.stringify(envelope)),
 				}
 			: {}),
+		...(options.adapterPool ? { adapterPool: options.adapterPool } : {}),
+		...(options.onHarnessRedetect ? { onHarnessRedetect: options.onHarnessRedetect } : {}),
 	};
 }
 

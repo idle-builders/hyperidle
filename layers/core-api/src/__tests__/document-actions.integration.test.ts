@@ -24,13 +24,13 @@ import {
 import type { DocumentRow, DocumentView, SearchDocumentsInput } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import { insertRoutine } from "@hyperidle/routine";
+import { type AgentIdentityDeps, createAgentIdentityPort } from "@hyperidle/user";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 import type { Action, ActionContext } from "../actions/action.js";
 import { actionsAsTools } from "../actions/actions-as-tools.js";
 import { buildCoreActions } from "../actions/compose.js";
-import { type AgentIdentityDeps, createAgentIdentityPort } from "../routes/agent-identity.js";
 
 const TEST_API_KEY = "test-key-document-actions";
 

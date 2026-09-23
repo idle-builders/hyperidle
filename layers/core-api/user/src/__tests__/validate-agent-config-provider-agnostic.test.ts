@@ -10,27 +10,26 @@
  * — no compatibility check". Use registration meta (not live capabilities) because
  * select() already uses meta.modelProviders and that is the authoritative source.
  *
- * @lore AU31 §2.8: this file moved from `@hyperidle/run-orchestration`'s
- * `__tests__/` (itself moved there from `layers/core-api/src/__tests__/` under
- * AU26 G1) back into core-api with `validateAgentConfig` itself — see that
- * function's own `@lore` for why the crossing it existed to avoid was never
- * free under AU31's boundary rule. The fixture stays a structural
- * `HarnessCapabilityReader` (unchanged from the AU26 G1 move — this file never
- * needed a real `AdapterPool`). What this file asserts is unchanged: that
- * `validateAgentConfig` reads REGISTRATION metadata (`describe().modelProviders`)
- * and not live capabilities, and that an empty list means provider-agnostic.
+ * @lore AU31 §2.8 / BC5 architecture.md §6: this file moved from
+ * `@hyperidle/run-orchestration`'s `__tests__/` (itself moved there from
+ * `layers/core-api/src/__tests__/` under AU26 G1) into core-api with
+ * `validateAgentConfig` itself, and again into `@hyperidle/user` when that
+ * function moved a second time — see the function's own `@lore` for why. The
+ * fixture stays a structural reader (unchanged from the AU26 G1 move — this
+ * file never needed a real `AdapterPool`), now typed against the function's
+ * own narrower `HarnessCapabilityProbe` rather than core-api's wider
+ * `HarnessCapabilityReader` (a nested Service may not import the layer).
+ * What this file asserts is unchanged: that `validateAgentConfig` reads
+ * REGISTRATION metadata (`describe().modelProviders`) and not live
+ * capabilities, and that an empty list means provider-agnostic.
  */
 
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import { describe, expect, it } from "vitest";
-import type {
-	HarnessCapabilityFilter,
-	HarnessCapabilityReader,
-} from "../../services/harness-capability-reader.js";
-import { validateAgentConfig } from "../validate-agent-config.js";
+import { type HarnessCapabilityProbe, validateAgentConfig } from "../validate-agent-config.js";
 
 // ---------------------------------------------------------------------------
-// Structural reader fixture — the four members `HarnessCapabilityReader` names
+// Structural reader fixture — the one member `HarnessCapabilityProbe` names
 // ---------------------------------------------------------------------------
 
 function makeDescriptor(
@@ -55,17 +54,15 @@ function makeReaderWith(
 	harnessType: string,
 	metaProviders: readonly string[],
 	capabilitiesProviders: readonly string[],
-): HarnessCapabilityReader {
+): HarnessCapabilityProbe {
 	const descriptor = makeDescriptor(harnessType, metaProviders, capabilitiesProviders);
 	return makeReader([descriptor]);
 }
 
-function makeReader(descriptors: readonly HarnessCapabilityDescriptor[]): HarnessCapabilityReader {
+function makeReader(descriptors: readonly HarnessCapabilityDescriptor[]): HarnessCapabilityProbe {
 	return {
-		size: descriptors.length,
-		describe: (options?: HarnessCapabilityFilter) =>
+		describe: (options) =>
 			descriptors.filter((d) => options?.type === undefined || d.type === options.type).slice(),
-		refresh: () => Promise.resolve(),
 	};
 }
 

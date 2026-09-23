@@ -23,6 +23,7 @@ import { API_ERROR_CODES, ORG_EDGE_MECHANISMS } from "@hyperidle/domain-model";
 import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model/http";
 import { persistScaffoldedAgents, resolveAgentScaffoldSpecs } from "@hyperidle/org";
 import {
+	type AgentIdentityPort,
 	createTeam,
 	deleteOrgEdge,
 	findUser,
@@ -36,7 +37,6 @@ import {
 import { Hono } from "hono";
 import z from "zod";
 import { buildSeamBackedAgentRunConfigWriter } from "../services/agent-orchestration-port-composition.js";
-import type { AgentIdentityPort } from "./agent-identity.js";
 
 const putOrgEdgeSchema = z.object({
 	fromUserId: z.string().min(1),

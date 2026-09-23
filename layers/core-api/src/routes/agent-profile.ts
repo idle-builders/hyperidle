@@ -43,14 +43,13 @@ import type {
 } from "@hyperidle/domain-model";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import type { HarnessCapabilities } from "@hyperidle/harness-protocol";
-import { findUser, getTeam } from "@hyperidle/user";
+import { type AgentIdentityPort, findUser, getTeam } from "@hyperidle/user";
 import type { Context } from "hono";
 import {
 	type HarnessCapabilityReader,
 	harnessCapabilitiesForType,
 } from "../services/harness-capability-reader.js";
 import { computeApprovalRate } from "../services/policy-bindings.js";
-import type { AgentIdentityPort } from "./agent-identity.js";
 
 // @lore AU26 J4: `computeHealthSignals`, `deriveHealthLevel` and
 // `deriveHealthDetail` moved to `@hyperidle/domain-model` (`agent-run-view.ts`),

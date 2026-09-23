@@ -13,9 +13,12 @@
 	"dependencies": {
 		"@hyperidle/db": "*",
 		"@hyperidle/domain-model": "*",
+		"@hyperidle/event-bus": "*",
 		"drizzle-orm": "^0.45.2"
 	},
 	"devDependencies": {
+		"@hyperidle/document": "*",
+		"@hyperidle/harness-capability": "*",
 		"vitest": "^4.1.9"
 	}
 }

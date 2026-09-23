@@ -14,9 +14,9 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import { getRoutine } from "@hyperidle/routine";
+import { type AgentIdentityPort, createAgentIdentityPort } from "@hyperidle/user";
 import type { ActionContext, SearchDocumentsRunFn } from "../actions/action.js";
 import { buildStandaloneDocumentRunners } from "../actions/compose.js";
-import { type AgentIdentityPort, createAgentIdentityPort } from "../routes/agent-identity.js";
 import { resolveAgentIdentityBody } from "../services/task-run-resolver-bindings.js";
 
 function readCtx(db: HyperIdleDb, actor: string): ActionContext {

@@ -10,12 +10,17 @@ import { persistScaffoldedAgents, resolveAgentScaffoldSpecs } from "@hyperidle/o
 // AgentScaffoldSpec; after that the document is edited like any other.
 
 import { constantTimeStringEqual, type HyperIdleEnv } from "@hyperidle/domain-model/http";
-import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/user";
+import {
+	createAgentIdentityPort,
+	findUser,
+	insertUser,
+	listUsers,
+	updateUser,
+} from "@hyperidle/user";
 import { Hono } from "hono";
 import z from "zod";
 import { buildStandaloneDocumentRunners } from "../actions/compose.js";
 import { buildSeamBackedAgentRunConfigWriter } from "../services/agent-orchestration-port-composition.js";
-import { createAgentIdentityPort } from "./agent-identity.js";
 
 /**
  * @lore P4: PATCH /api/users/:id — only name and email are writable by the

@@ -19,6 +19,15 @@
  * is now its other caller, so `parseCron`/`nextCronMatch` are exported here
  * for `@hyperidle/routine` to keep importing until the cut-over retires it.
  *
+ * @lore BC5 T5: `search_users`/`open_user`/`edit_user` (`user-actions.ts`)
+ * are this Service's own action list now, the way `@hyperidle/task`/
+ * `@hyperidle/thread`/`@hyperidle/document` each declare theirs.
+ * `agent-identity.ts` and `validate-agent-config.ts` moved here verbatim
+ * from `layers/core-api/src/routes/` — every agent-creating route
+ * (`routes/agents.ts`, `routes/org.ts`, `routes/users.ts`,
+ * `routes/teams-routes.ts`) imports both from here now, unchanged in
+ * substance, until T11 deletes those routes outright.
+ *
  * @lore AU19 Increment 1d: this is the real cut-over — `user-store.ts`
  * (users), `login-session.ts` (loginSessions), `invite-code.ts`
  * (inviteCodes), and `upgrade-token-store.ts` (pure in-memory, no table)
@@ -40,6 +49,9 @@
  * CONFLICT DO NOTHING against the composite unique index, then re-select.
  */
 
+// -- agent identity (BC5 T5 — moved verbatim from routes/agent-identity.ts) --
+export type { AgentIdentityDeps, AgentIdentityPort } from "./agent-identity.js";
+export { createAgentIdentityPort } from "./agent-identity.js";
 // -- cron (AU44 batch 3 — private to the routine trigger until the
 // subscription clock became its second caller; BC5 T2 moved it here) --
 export type { CronFields } from "./cron.js";
@@ -55,12 +67,39 @@ export type { UpsertOrgEdgeInput } from "./org-edges.js";
 export { deleteOrgEdge, listOrgEdges, upsertOrgEdge } from "./org-edges.js";
 // -- runnable-agent invariant (AU21 §6 Decision B — the shared ast-<userId> check) --
 export { AgentNotRunnableError, requireRunnableAgent } from "./runnable-agent.js";
+// -- subscriptions and inbox (BC5 T5 — subscription() search/edit/wake state) --
+export type {
+	InboxRowFilter,
+	NewSubscriptionRow,
+	SubscriptionPatch,
+	SubscriptionsFilter,
+} from "./subscriptions-store.js";
+export {
+	deleteSubscription,
+	getSubscription,
+	insertInboxRow,
+	insertSubscription,
+	listInboxRows,
+	listSubscriptions,
+	markInboxRead,
+	markInboxSeen,
+	updateSubscription,
+} from "./subscriptions-store.js";
 // -- team lookup (AU20 Am7 / AU44 B1 — team_members dissolved) --
 export type { CreateTeamInput } from "./team-lookup.js";
 export { createTeam, getTeam, listTeams, updateTeam } from "./team-lookup.js";
 // -- upgrade token store (I2 — WS-handshake one-shot tokens, no table) --
 export type { UpgradeTokenStore } from "./upgrade-token-store.js";
 export { createUpgradeTokenStore } from "./upgrade-token-store.js";
+// -- user actions (BC5 T5 — search_users / open_user / edit_user) --
+export type { UserActionsDeps } from "./user-actions.js";
+export { createUserActions } from "./user-actions.js";
 // -- user store (AU12 / AU20 Am11 — single owner of `users` row read/write) --
 export type { UserFilter } from "./user-store.js";
 export { findUser, getOrCreateUser, insertUser, listUsers, updateUser } from "./user-store.js";
+// -- run-config validation (BC5 T5 — moved verbatim from routes/validate-agent-config.ts) --
+export type {
+	AgentConfigValidationError,
+	HarnessCapabilityProbe,
+} from "./validate-agent-config.js";
+export { validateAgentConfig } from "./validate-agent-config.js";
