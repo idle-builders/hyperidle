@@ -36,7 +36,7 @@ import { join, resolve } from "node:path";
 import { documents, type HyperIdleDb, subscriptions, teams, users } from "@hyperidle/db";
 import type { DocumentRow } from "@hyperidle/domain-model";
 import { agentItemId, skillItemId, subscriptionItemId } from "@hyperidle/settings";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, describe, expect } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
@@ -201,6 +201,27 @@ describe("document-management plugin install — AC4: global agent + subscriptio
 
 		expect(retro!.event).toBe("task.changed");
 		expect(retro!.schedule).toBeNull();
+	});
+
+	// @lore BC5 T11 founder ruling: post-task-retro converts task.changed
+	// (every edit, not just a completion) into a subscription with no filter
+	// of its own — the prompt itself must carry both guards, or a status
+	// tweak or a note edit fires a full retro session for nothing.
+	test("post-task-retro's prompt carries both guards: not-done and not-root", async ({
+		db,
+		app,
+	}) => {
+		await installKmPlugin(db, app);
+
+		const retroId = subscriptionItemId(PLUGIN_ID, "post-task-retro", "factory", null);
+		const [promptDoc] = await db
+			.select()
+			.from(documents)
+			.where(and(eq(documents.parentKind, "subscription"), eq(documents.parentId, retroId)));
+
+		expect(promptDoc).toBeDefined();
+		expect(promptDoc!.body).toContain("if this change did not move the task to done, stop");
+		expect(promptDoc!.body).toContain("if the task is not a root task (it has a parent), stop");
 	});
 
 	test("AC4: second factory install is idempotent — same agent and subscription row counts", async ({

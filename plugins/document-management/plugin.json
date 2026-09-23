@@ -34,7 +34,7 @@
 					"name": "Post-Task Retro",
 					"agentId": "librarian",
 					"event": "task.changed",
-					"prompt": "if this change did not move the task to done, stop\n\nA task just completed. Review the task notes and any work done. Identify one or two concrete learnings — a process improvement, a decision that should be documented, or a gap in the team's knowledge. Use edit_document (as:\"document\") to capture what was learned. Keep retros brief and actionable."
+					"prompt": "if this change did not move the task to done, stop\nif the task is not a root task (it has a parent), stop\n\nA task just completed. Review the task notes and any work done. Identify one or two concrete learnings — a process improvement, a decision that should be documented, or a gap in the team's knowledge. Use edit_document (as:\"document\") to capture what was learned. Keep retros brief and actionable."
 				}
 			]
 		}
