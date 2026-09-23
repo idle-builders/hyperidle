@@ -43,7 +43,7 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
 					"documents",
 					"login_sessions",
 					"messages",
-					"routines",
+					"subscriptions",
 					"server_config",
 					"sessions",
 					"tasks",
@@ -52,6 +52,11 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
 				]),
 			);
 			expect(tableNames).not.toContain("responses");
+			// @lore BC5 T7b migration 0089: routines/routine_runs/notification_queue
+			// dropped — a routine is a subscription now, a notification an inbox row.
+			expect(tableNames).not.toContain("routines");
+			expect(tableNames).not.toContain("routine_runs");
+			expect(tableNames).not.toContain("notification_queue");
 			// @lore U1: `products` renamed to `teams`
 			expect(tableNames).not.toContain("products");
 			// @lore AU18: factory_settings dropped — must not reappear.
