@@ -514,7 +514,10 @@ export type ObjectChangeEvent = {
  * (architecture.md §3). Decodes `before`/`after` from JSON text into the
  * `ChangeRow` wire shape; derives the dotted event name from `object.kind`.
  */
-export function objectEvent(row: ChangesRow, opts?: { readonly cascade?: true }): ObjectChangeEvent {
+export function objectEvent(
+	row: ChangesRow,
+	opts?: { readonly cascade?: true },
+): ObjectChangeEvent {
 	const change: ChangeRow = {
 		id: row.id,
 		object: row.object as ChangeObject,

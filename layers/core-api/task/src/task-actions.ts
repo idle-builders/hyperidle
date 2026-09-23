@@ -1,6 +1,13 @@
 import { randomUUID } from "node:crypto";
-import type { Change, HyperIdleDb, NewChange, NewTask, Team, User, WriteExecutor } from "@hyperidle/db";
-import { objectEvent } from "@hyperidle/event-bus";
+import type {
+	Change,
+	HyperIdleDb,
+	NewChange,
+	NewTask,
+	Team,
+	User,
+	WriteExecutor,
+} from "@hyperidle/db";
 import {
 	type ActionResult,
 	type AdjustThreadInput,
@@ -22,6 +29,7 @@ import {
 	type ThreadView,
 	taskInvariants,
 } from "@hyperidle/domain-model";
+import { objectEvent } from "@hyperidle/event-bus";
 import type { Action, ActionContext } from "./action-types.js";
 import { handleDependencyKilled } from "./dependency-watcher.js";
 import type { BakedTaskRunRequest, TaskRunResolverDeps } from "./task-run-resolver.js";
@@ -347,7 +355,9 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 		actor: string,
 		now: string,
 		rootFromState: string,
-	): Promise<readonly { readonly id: string; readonly fromState: string; readonly row: Change | null }[]> {
+	): Promise<
+		readonly { readonly id: string; readonly fromState: string; readonly row: Change | null }[]
+	> {
 		const subtreeIds = await taskDb.listSubtreeIds(tx, rootTaskId);
 		if (subtreeIds.length === 0) return [];
 		// The root's own row was already flipped to "killed" by the caller's

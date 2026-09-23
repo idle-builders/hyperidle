@@ -350,7 +350,10 @@ function pushChanges(deps: DocumentActionsDeps, rows: readonly PushableChange[])
  * decoded `before`/`after` here keeps one canonical builder shared by every
  * module instead of a second one over decoded values.
  */
-function emitObjectEvents(eventBus: ActionContext["eventBus"], rows: readonly PushableChange[]): void {
+function emitObjectEvents(
+	eventBus: ActionContext["eventBus"],
+	rows: readonly PushableChange[],
+): void {
 	for (const row of rows) {
 		const changesRow: ChangesRow = {
 			id: row.id,
