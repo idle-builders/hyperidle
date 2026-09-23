@@ -59,8 +59,18 @@ const MAX_CONTENT_WIDTH = 961;
 // ---------------------------------------------------------------------------
 
 const POPULATED_ROSTER = [
-	makeUserRow("agent-h", { kind: "ai", name: "Healthy Agent", role: "builder", agentCategory: "team" }),
-	makeUserRow("agent-w", { kind: "ai", name: "Warning Agent", role: "builder", agentCategory: "team" }),
+	makeUserRow("agent-h", {
+		kind: "ai",
+		name: "Healthy Agent",
+		role: "builder",
+		agentCategory: "team",
+	}),
+	makeUserRow("agent-w", {
+		kind: "ai",
+		name: "Warning Agent",
+		role: "builder",
+		agentCategory: "team",
+	}),
 ];
 
 const POPULATED_TASKS = [
@@ -71,7 +81,10 @@ const POPULATED_TASKS = [
 // Shared setup helpers
 // ---------------------------------------------------------------------------
 
-async function mockTeamRoute(page: import("@playwright/test").Page, populated: boolean): Promise<void> {
+async function mockTeamRoute(
+	page: import("@playwright/test").Page,
+	populated: boolean,
+): Promise<void> {
 	const roster = populated ? POPULATED_ROSTER : [];
 
 	// Sidebar's own `useTeams()` (unfiltered `search_users({})`) — registered

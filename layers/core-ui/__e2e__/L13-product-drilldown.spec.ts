@@ -43,7 +43,11 @@ const ROSTER = [
 	makeUserRow("agent-member", { kind: "ai", name: "Alice Agent", role: "member" }),
 ];
 
-const ACTIVE_TASK = makeTask("b1", { teamId: PRODUCT_ID, title: "Auth migration", state: "in_progress" });
+const ACTIVE_TASK = makeTask("b1", {
+	teamId: PRODUCT_ID,
+	title: "Auth migration",
+	state: "in_progress",
+});
 
 test.describe("L13 — Product drill-down", () => {
 	test.beforeEach(async ({ page }) => {

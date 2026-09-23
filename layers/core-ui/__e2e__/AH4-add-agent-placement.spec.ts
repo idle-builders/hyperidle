@@ -53,7 +53,9 @@ const EXISTING_AGENT = makeUserRow("agent-existing", {
 test.describe("AH4 AC6 — Settings Agents add form shows team placement", () => {
 	test("Team Select is visible and populated in the Settings Agents add form", async ({ page }) => {
 		await mockUser(page, { row: FOUNDER_ROW, self: true });
-		await mockSearchUsers(page, { rows: [EXISTING_AGENT, { ...FOUNDER_ROW, team: { id: TEAM_ID, name: TEAM_NAME } }] });
+		await mockSearchUsers(page, {
+			rows: [EXISTING_AGENT, { ...FOUNDER_ROW, team: { id: TEAM_ID, name: TEAM_NAME } }],
+		});
 
 		await page.goto("/settings");
 		await page.waitForSelector("[data-testid='settings-page']");
@@ -103,7 +105,10 @@ test.describe("AH4 AC6 — Settings Agents add form shows team placement", () =>
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify({ ok: true, data: created ? [EXISTING_AGENT, newAgentRow] : [EXISTING_AGENT] }),
+				body: JSON.stringify({
+					ok: true,
+					data: created ? [EXISTING_AGENT, newAgentRow] : [EXISTING_AGENT],
+				}),
 			});
 		});
 		await page.route("**/api/actions/edit_user", async (route) => {
@@ -118,7 +123,18 @@ test.describe("AH4 AC6 — Settings Agents add form shows team placement", () =>
 				contentType: "application/json",
 				body: JSON.stringify({
 					ok: true,
-					data: { user: newAgentRow, runsOn: [], runConfig: null, documentIds: [], folders: [], subscriptions: [], connections: null, behaviour: null, inbox: null, reviewTrackRecord: null },
+					data: {
+						user: newAgentRow,
+						runsOn: [],
+						runConfig: null,
+						documentIds: [],
+						folders: [],
+						subscriptions: [],
+						connections: null,
+						behaviour: null,
+						inbox: null,
+						reviewTrackRecord: null,
+					},
 				}),
 			});
 		});

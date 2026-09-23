@@ -13,7 +13,7 @@ import {
 	expect,
 	makeDocumentRow,
 	makeTask,
-	makeUserRow,
+	type makeUserRow,
 	mockAgents,
 	mockDocument,
 	mockSearchDocuments,

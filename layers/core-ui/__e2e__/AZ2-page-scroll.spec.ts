@@ -136,7 +136,12 @@ const TEAM_ID = "team-az2";
 const TEAM_URL = `/work/team/${TEAM_ID}`;
 
 const OVERFLOWING_ROSTER = Array.from({ length: 24 }, (_, i) =>
-	makeUserRow(`agent-${i}`, { kind: "ai", name: `Agent ${i}`, role: "builder", agentCategory: "team" }),
+	makeUserRow(`agent-${i}`, {
+		kind: "ai",
+		name: `Agent ${i}`,
+		role: "builder",
+		agentCategory: "team",
+	}),
 );
 
 const OVERFLOWING_TASKS = Array.from({ length: 8 }, (_, i) =>
@@ -341,7 +346,11 @@ const ROUTES: readonly RouteCase[] = [
 				],
 			});
 			await page.route("**/api/actions/search_tasks", async (route: Route) => {
-				await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, data: [] }) });
+				await route.fulfill({
+					status: 200,
+					contentType: "application/json",
+					body: JSON.stringify({ ok: true, data: [] }),
+				});
 			});
 		},
 	},
@@ -373,7 +382,11 @@ const ROUTES: readonly RouteCase[] = [
 			});
 			await mockSearchSessions(page, { rows: [] });
 			await page.route("**/api/actions/search_tasks", async (route: Route) => {
-				await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, data: [] }) });
+				await route.fulfill({
+					status: 200,
+					contentType: "application/json",
+					body: JSON.stringify({ ok: true, data: [] }),
+				});
 			});
 		},
 	},

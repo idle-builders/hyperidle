@@ -65,7 +65,11 @@ const REVIEW_TRACK_RECORD = {
 	approvalRate: 0.9,
 	totalVerdicts: 10,
 	recentVerdicts: [
-		{ decision: "approve", threadId: "t-1", createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString() },
+		{
+			decision: "approve",
+			threadId: "t-1",
+			createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+		},
 	],
 	windowDays: 30,
 };
@@ -148,7 +152,11 @@ async function mockAgentProfile(
 
 test.describe("AB1 AC-1: Navigate to agent profile from team page", () => {
 	test.beforeEach(async ({ page }) => {
-		await mockTeamPage(page, { teamId: MOCK_TEAM_ID, teamName: "E2E Test Team", roster: [AGENT_ROW] });
+		await mockTeamPage(page, {
+			teamId: MOCK_TEAM_ID,
+			teamName: "E2E Test Team",
+			roster: [AGENT_ROW],
+		});
 		await mockAgentProfile(page, { sessions: healthySessions() });
 	});
 

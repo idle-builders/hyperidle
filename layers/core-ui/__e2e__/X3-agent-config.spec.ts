@@ -24,7 +24,7 @@
  * green-phase fix.
  */
 
-import { expect, makeUserRow, mockSearchUsers, mockUser, test } from "./fixtures";
+import { expect, makeUserRow, mockSearchUsers, test } from "./fixtures";
 
 // ---------------------------------------------------------------------------
 // Mock data
@@ -354,7 +354,9 @@ test.describe("X3 AC-12: Settings UI delete with two-click confirmation", () => 
 				contentType: "application/json",
 				body: JSON.stringify({
 					ok: true,
-					data: { user: toUserRow({ ...(MOCK_AGENTS[0] as (typeof MOCK_AGENTS)[0]), status: "retired" }) },
+					data: {
+						user: toUserRow({ ...(MOCK_AGENTS[0] as (typeof MOCK_AGENTS)[0]), status: "retired" }),
+					},
 				}),
 			});
 		});

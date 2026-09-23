@@ -156,7 +156,10 @@ async function mockInbox(
 	rows: ReturnType<typeof makeSeedNotificationRow>[],
 ): Promise<void> {
 	await mockUser(page, {
-		row: makeUserRow("test-founder", { name: "Test Founder", team: { id: "test-team-1", name: "Test Team" } }),
+		row: makeUserRow("test-founder", {
+			name: "Test Founder",
+			team: { id: "test-team-1", name: "Test Team" },
+		}),
 		self: true,
 		inbox: rows,
 		connections: { connections: [], inherited: [] },

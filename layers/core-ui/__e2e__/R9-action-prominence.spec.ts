@@ -427,7 +427,9 @@ test.describe("R9 — Team page", () => {
 			teamId: BET_1.teamId,
 			teamName: "Alpha Core",
 			roster,
-			tasksInProgress: [makeTask(BET_1.id, { teamId: BET_1.teamId, title: BET_1.title, state: "in_progress" })],
+			tasksInProgress: [
+				makeTask(BET_1.id, { teamId: BET_1.teamId, title: BET_1.title, state: "in_progress" }),
+			],
 		});
 	});
 

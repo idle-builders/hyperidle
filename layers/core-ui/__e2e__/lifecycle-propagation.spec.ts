@@ -114,7 +114,9 @@ async function setupCommonRoutes(
 
 	// @lore BC5 T9: `GET /api/teams` and `GET /api/teams/:id` are gone —
 	// `useTeams`/`useTeam` compose from `search_users`/`search_tasks`.
-	const roster = [makeUserRow("agent-l20", { kind: "ai", team: { id: PRODUCT_ID, name: "L20 Product" } })];
+	const roster = [
+		makeUserRow("agent-l20", { kind: "ai", team: { id: PRODUCT_ID, name: "L20 Product" } }),
+	];
 	await mockSearchUsers(page, { rows: roster });
 	await page.route("**/api/actions/search_tasks", (route) => {
 		const input = JSON.parse(route.request().postData() ?? "{}") as {

@@ -112,9 +112,7 @@ const DEFAULT_USER_ROW: UserRow = makeUserRow("test-founder", {
  * `id` falls through (`route.fallback()`) so a per-test `mockUser()` /
  * `mockUser({ self: true })` registration — or a spec's own handler — wins.
  */
-async function fulfillDefaultOpenUser(
-	route: import("@playwright/test").Route,
-): Promise<void> {
+async function fulfillDefaultOpenUser(route: import("@playwright/test").Route): Promise<void> {
 	if (route.request().method() !== "POST") {
 		await route.continue();
 		return;
@@ -149,9 +147,7 @@ async function fulfillDefaultOpenUser(
  * `route.fallback()`, so it never conflicts with a test's own handler either
  * way.
  */
-async function fulfillDefaultSearchUsers(
-	route: import("@playwright/test").Route,
-): Promise<void> {
+async function fulfillDefaultSearchUsers(route: import("@playwright/test").Route): Promise<void> {
 	if (route.request().method() !== "POST") {
 		await route.continue();
 		return;
@@ -174,9 +170,7 @@ async function fulfillDefaultSearchUsers(
  * neither shows an error nor a result — the earlier `fulfillDefaultSearchUsers`
  * default alone is not enough).
  */
-async function fulfillDefaultSearchTasks(
-	route: import("@playwright/test").Route,
-): Promise<void> {
+async function fulfillDefaultSearchTasks(route: import("@playwright/test").Route): Promise<void> {
 	if (route.request().method() !== "POST") {
 		await route.continue();
 		return;

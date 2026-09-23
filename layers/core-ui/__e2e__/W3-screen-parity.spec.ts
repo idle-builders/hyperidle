@@ -15,9 +15,18 @@
  * - Settings body: 680px
  */
 
-import { expect, makeUserRow, mockSearchDocuments, mockSearchThreads, mockSearchUsers, test } from "./fixtures";
+import {
+	expect,
+	makeUserRow,
+	mockSearchDocuments,
+	mockSearchThreads,
+	mockSearchUsers,
+	test,
+} from "./fixtures";
 
-const TEAM_ROSTER = [makeUserRow("agent-t1", { kind: "ai", team: { id: "t1", name: "Alpha Core" } })];
+const TEAM_ROSTER = [
+	makeUserRow("agent-t1", { kind: "ai", team: { id: "t1", name: "Alpha Core" } }),
+];
 
 test.describe("W3 AC-57 — Max-width centering across all screens", () => {
 	test("conversations thread list: content area ≤ 800px", async ({ page }) => {

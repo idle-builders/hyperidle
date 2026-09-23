@@ -48,9 +48,7 @@ async function mockPrimarySurfaces(page: Page): Promise<void> {
 			makeUserRow("member-team-b", { team: { id: "team-b", name: "Growth" } }),
 		],
 	});
-	await page.route("**/api/actions/search_tasks", (route) =>
-		json(route, { ok: true, data: [] }),
-	);
+	await page.route("**/api/actions/search_tasks", (route) => json(route, { ok: true, data: [] }));
 	// The thread door is `POST /api/actions/{search_threads, open_thread}`
 	// — never `GET /api/threads*`. There is no `task` host kind (a
 	// task's own thread is `team`-hosted).

@@ -12,7 +12,14 @@
  * The fixtures fixture auto-mocks the core APIs. We layer additional mocks
  * for /api/bets and /api/teams.
  */
-import { expect, makeDocumentRow, makeUserRow, mockSearchThreads, mockSearchUsers, test } from "./fixtures";
+import {
+	expect,
+	makeDocumentRow,
+	makeUserRow,
+	mockSearchThreads,
+	mockSearchUsers,
+	test,
+} from "./fixtures";
 
 const TEAM_ROSTER_U9 = [
 	makeUserRow("agent-1", { kind: "ai", team: { id: "team-alpha", name: "Alpha Team" } }),
