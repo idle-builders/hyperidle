@@ -229,25 +229,28 @@ describe("a plugin's agent comes with an identity", () => {
 		expect(restored?.body, "the plugin's persona comes back").toBe(PERSONA);
 	});
 
-	test("a plugin-contributed routine's prompt is parented to the routine", async ({ db, app }) => {
+	test("a plugin-contributed subscription's prompt is parented to the subscription", async ({
+		db,
+		app,
+	}) => {
 		await seedFounder(db);
-		const dir = join(tmpdir(), `ba9g-routine-prompt-${Date.now()}`);
+		const dir = join(tmpdir(), `ba9g-subscription-prompt-${Date.now()}`);
 		mkdirSync(dir, { recursive: true });
 		writeFileSync(
 			join(dir, "plugin.json"),
 			JSON.stringify({
 				$schema: "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
-				name: "routine-prompt-under-test",
+				name: "subscription-prompt-under-test",
 				version: "1.0.0",
 				extensions: {
 					"io.hyperidle": {
 						agents: [{ id: "sweeper", name: "Sweeper", role: "builder", agentCategory: "team" }],
-						routines: [
+						subscriptions: [
 							{
 								id: "weekly-sweep",
 								name: "Weekly sweep",
 								agentId: "sweeper",
-								triggerType: "manual",
+								event: "task.changed",
 								prompt: "Sweep the stale items.",
 							},
 						],
@@ -262,16 +265,16 @@ describe("a plugin's agent comes with an identity", () => {
 		});
 		expect(res.status).toBe(200);
 
-		const [routine] = await db.select().from(users).where(eq(users.name, "Sweeper"));
-		expect(routine, "the plugin's agent exists").toBeDefined();
+		const [subscriptionOwner] = await db.select().from(users).where(eq(users.name, "Sweeper"));
+		expect(subscriptionOwner, "the plugin's agent exists").toBeDefined();
 
 		const [promptDoc] = await db
 			.select()
 			.from(documents)
 			.where(eq(documents.body, "Sweep the stale items."));
-		expect(promptDoc, "the routine's prompt document exists").toBeDefined();
+		expect(promptDoc, "the subscription's prompt document exists").toBeDefined();
 		expect(promptDoc?.slot).toBe("prompt");
-		expect(promptDoc?.parentKind).toBe("routine");
+		expect(promptDoc?.parentKind).toBe("subscription");
 		expect(promptDoc?.parentId).toBeTruthy();
 	});
 

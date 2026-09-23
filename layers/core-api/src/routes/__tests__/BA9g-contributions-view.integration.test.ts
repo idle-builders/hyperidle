@@ -1,11 +1,11 @@
 /**
  * A plugin's contributions view lists what it actually contributed.
  *
- * The shipped `document-management` plugin brings one agent, three routines
+ * The shipped `document-management` plugin brings one agent, three subscriptions
  * and three skills. Its contributions view rendered COMPLETELY EMPTY, because
  * the view read `plugin_configuration_defaults` and none of those things is a
  * row in that table — the plugin declares `"contributions": []` in its manifest,
- * and its real contributions are `users`, `routines` and `documents` rows.
+ * and its real contributions are `users`, `subscriptions` and `documents` rows.
  * The expand button did not even appear.
  *
  * The registry knows all of it now, so the view asks the registry.
@@ -98,17 +98,17 @@ async function contributionsOf(app: Hono): Promise<readonly ContributionRow[]> {
 }
 
 describe("a plugin's contributions view lists what it contributed", () => {
-	test("the shipped plugin's agent, routines and skills all appear", async ({ db, app }) => {
+	test("the shipped plugin's agent, subscriptions and skills all appear", async ({ db, app }) => {
 		await install(db, app);
 
 		const contributions = await contributionsOf(app);
 		const byKind = new Map<string, number>();
 		for (const c of contributions) byKind.set(c.kind, (byKind.get(c.kind) ?? 0) + 1);
 
-		// One agent (the Document Librarian), three routines, and documents for
-		// the three skills plus each routine's prompt document.
+		// One agent (the Document Librarian), three subscriptions, and documents for
+		// the three skills plus each subscription's prompt document.
 		expect(byKind.get("agent"), "its agent must appear").toBe(1);
-		expect(byKind.get("routine"), "its three routines must appear").toBe(3);
+		expect(byKind.get("subscription"), "its three subscriptions must appear").toBe(3);
 		expect(byKind.get("document") ?? 0, "its skills must appear").toBeGreaterThanOrEqual(3);
 	});
 
