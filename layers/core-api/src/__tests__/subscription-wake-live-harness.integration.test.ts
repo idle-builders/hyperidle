@@ -4,12 +4,14 @@
  * subscription's own instruction (its `prompt` document, embedded directly
  * into the session's assembled AGENTS.md/CLAUDE.md — `buildSubscriptionSection`,
  * `run-orchestration/src/context.ts`) and edits the document that instruction
- * names — the only way this proof can go green, since a subscription session
- * has no forced return action (`requiredReturnActions` is only set for a
- * task-free session with a CALLING THREAD, which a subscription never has —
- * `provisioner.ts`), so nothing but the model actually reading its
- * instruction and calling `edit_document` produces the effect this test
- * checks for.
+ * names — nothing but the model actually reading its instruction and calling
+ * `edit_document` produces the effect this test checks for. A subscription
+ * session's own forced return action is `return_status` (the self-check
+ * bridge tool, `provisioner.ts`'s `requiresReturnStatusReturn`), never
+ * `send_message` — this test also proves no message row was written for the
+ * agent, the exact desktop-walk defect (T15's send_message-forcing fix made
+ * every subscription wake end with an unwanted direct message even when the
+ * instruction never asked for one).
  *
  * Per harness (claude / codex / opencode / cursor-agent), `requireHarness(...)`,
  * zero stubs, hard-fail if absent — never `skipIf` to green (CLAUDE.md,
@@ -44,6 +46,7 @@ import {
 	agentWorkIntents,
 	documents,
 	type HyperIdleDb,
+	messages,
 	tasks,
 	teams,
 	threads,
@@ -355,7 +358,7 @@ describe("a real task.changed wakes a subscribed agent, who reads the change and
 
 			const instruction =
 				`Call edit_document with id: "${documentId}" and body: "${WAKE_TOKEN}" — ` +
-				"call it now, with no other tool calls.";
+				"call it now. Do not send any message to anyone.";
 			const subscribeResult = await editUser(
 				{ actor: founderId, db, eventBus, now: new Date().toISOString(), internal: true },
 				{ id: agentId, subscriptions: { add: [{ event: "task.changed", prompt: instruction }] } },
@@ -447,6 +450,17 @@ describe("a real task.changed wakes a subscribed agent, who reads the change and
 				documentRow?.body,
 				`document ${documentId} was not edited by ${harness}: ${JSON.stringify(documentRow)}`,
 			).toBe(WAKE_TOKEN);
+
+			// The desktop-walk defect: a subscription session's forced return used
+			// to be send_message, so every wake ended with an unwanted direct
+			// message even when the instruction never asked for one. return_status
+			// is the forced return now — no message row for this agent, on any
+			// harness.
+			const agentMessages = await db.select().from(messages).where(eq(messages.senderId, agentId));
+			expect(
+				agentMessages,
+				`${harness} sent an unforced message: ${JSON.stringify(agentMessages)}`,
+			).toHaveLength(0);
 
 			const sessionRow = await findSessionById(db, result.sessionId);
 			expect(

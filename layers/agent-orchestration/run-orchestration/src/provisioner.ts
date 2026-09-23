@@ -18,7 +18,7 @@ import type { ReturnEnforcementChannel } from "@hyperidle/harness-capability";
 import {
 	type ConversationMessage,
 	type HarnessEvent,
-	isReturnAction,
+	isRequiredReturnAction,
 	literalToolNamerForAdapterType,
 	MAX_FORCE_RETURNS,
 	type SessionConfig,
@@ -440,7 +440,7 @@ interface SessionLifecycleContextAssembly {
 		readonly context: SessionLifecycleSubscriptionSessionContextData;
 		readonly tools: readonly SessionLifecycleToolSummary[];
 		readonly sandboxPath: string;
-		readonly sendMessageOrientation?: string;
+		readonly returnOrientation?: string;
 	}): Promise<{ readonly assembledPrompt: string; readonly personaToolsTokens: number }>;
 	writeSandboxAgentsMd(sandboxPath: string, assembledPrompt: string): void;
 }
@@ -522,18 +522,35 @@ interface SessionLifecyclePorts {
  * True for a task-free session whose only satisfying return action is
  * `send_message` — one line, shared by the prompt orientation
  * (`assembleTaskFreePrompt`) and the enforced gate (`requiredReturnActions`
- * below) so the two can never drift apart the way they did before: a
- * session that replies into a calling thread (the assistant,
- * `knowledge_action`) and a subscription wake (no calling thread to reply
- * into — `resolveSubscriptionWakeRequest` bakes none — but still task-free)
- * both resolve `true`. A task-bound session (task_run/session_start) keeps
- * the full return set, `edit_task` included, even with a calling thread.
+ * below) so the two can never drift apart. A session that replies into a
+ * calling thread (the assistant, `knowledge_action`) resolves `true`. A
+ * task-bound session (task_run/session_start) keeps the full return set,
+ * `edit_task` included, even with a calling thread.
+ *
+ * A subscription wake is deliberately NOT covered here — see
+ * `requiresReturnStatusReturn` below. Forcing `send_message` on a
+ * subscription session made every wake end with an unwanted direct message
+ * to whoever the session happened to fall back to reporting to, even when
+ * the subscription's own instruction never asked it to say anything.
  */
 function requiresSendMessageReturn(params: ProvisionSessionParams): boolean {
-	return (
-		params.taskId == null &&
-		(params.callingThreadId != null || params.requestContext?.sourceKind === "subscription")
-	);
+	return params.taskId == null && params.callingThreadId != null;
+}
+
+/**
+ * True for a subscription wake: a task-free session with no calling thread
+ * to reply into (`resolveSubscriptionWakeRequest` never bakes one — there is
+ * no conversation to answer), woken by an event or schedule rather than a
+ * person. It has no work-output return action to call at all, so its only
+ * satisfying return action is the self-check `return_status` tool —
+ * reporting that it is done IS its return. It speaks only when the
+ * subscription's own instruction tells it to, by calling `send_message`
+ * itself — never forced, because a subscription session has nowhere
+ * structural for a forced message to go that is guaranteed to be right (see
+ * `requiresSendMessageReturn`'s note).
+ */
+function requiresReturnStatusReturn(params: ProvisionSessionParams): boolean {
+	return params.taskId == null && params.requestContext?.sourceKind === "subscription";
 }
 
 /**
@@ -595,13 +612,30 @@ async function assembleTaskFreePrompt(
 	// name that does not exist ("Model tried to call unavailable tool
 	// 'send_message'").
 	const sendMessageToolName = literalToolNamerForAdapterType(adapterType)("send_message");
+	// requiresSendMessageReturn is true only when a calling thread is present
+	// (see its own doc comment) — this session always has one here.
 	const sendMessageOrientation = requiresSendMessageReturn(params)
-		? params.callingThreadId != null
-			? `When you are done, call \`${sendMessageToolName}\` to answer in this conversation.`
-			: `When you are done, call \`${sendMessageToolName}\` to report your result — this session has no calling thread, so it reaches the human you report to directly.`
+		? `When you are done, call \`${sendMessageToolName}\` to answer in this conversation.`
 		: "";
 
-	return [systemPromptText, sourceSection, conversationSection, sendMessageOrientation, toolSection]
+	// A subscription wake (no calling thread, no work-output action) reports
+	// its status instead — see `requiresReturnStatusReturn`. This is the
+	// graceful-degrade fallback prompt (no `kind:"subscription"` bundle to
+	// build the real `assembleSubscriptionPrompt` from); the real composer
+	// carries the same line (`context.ts`'s `returnOrientation`).
+	const returnStatusToolName = literalToolNamerForAdapterType(adapterType)("return_status");
+	const returnStatusOrientation = requiresReturnStatusReturn(params)
+		? `When you are done, call \`${returnStatusToolName}\` to report your status. Speak only if the subscription's instruction asks you to.`
+		: "";
+
+	return [
+		systemPromptText,
+		sourceSection,
+		conversationSection,
+		sendMessageOrientation,
+		returnStatusOrientation,
+		toolSection,
+	]
 		.filter(Boolean)
 		.join("\n\n");
 }
@@ -1525,24 +1559,24 @@ async function runSession(
 		// subscription+agent+team context from the baked `kind:"subscription"`
 		// bundle, ZERO db read.
 		const subscriptionContextData = subscriptionSessionContextDataFromBundle(params.contextBundle);
-		// See `requiresSendMessageReturn`'s `@lore` and `assembleTaskFreePrompt`'s
-		// own `sendMessageOrientation` — a subscription wake has no calling
-		// thread to infer this from, so it needs the same proactive, one-line
-		// heads-up, computed the same way (the literal tool name the SELECTED
-		// harness exposes) and threaded through as pre-rendered text so this
-		// module's own prompt composer never needs the harness-protocol
-		// return-action vocabulary imported into it.
-		const subscriptionSendMessageToolName = literalToolNamerForAdapterType(
+		// See `requiresReturnStatusReturn`'s `@lore` and `assembleTaskFreePrompt`'s
+		// own `returnStatusOrientation` — a subscription wake has no calling
+		// thread and no work-output action, so it needs the same proactive,
+		// one-line heads-up, computed the same way (the literal tool name the
+		// SELECTED harness exposes) and threaded through as pre-rendered text
+		// so this module's own prompt composer never needs the
+		// harness-protocol return-action vocabulary imported into it.
+		const subscriptionReturnStatusToolName = literalToolNamerForAdapterType(
 			selectedAdapter.meta.type,
-		)("send_message");
+		)("return_status");
 		({ assembledPrompt } = await ports.contextAssembly.assembleSubscriptionPrompt({
 			systemPromptText,
 			context: subscriptionContextData,
 			tools: toolSummaries,
 			sandboxPath,
-			...(requiresSendMessageReturn(params)
+			...(requiresReturnStatusReturn(params)
 				? {
-						sendMessageOrientation: `When you are done, call \`${subscriptionSendMessageToolName}\` to report your result — this session has no calling thread, so it reaches the human you report to directly.`,
+						returnOrientation: `When you are done, call \`${subscriptionReturnStatusToolName}\` to report your status. Speak only if the subscription's instruction above asks you to.`,
 					}
 				: {}),
 		}));
@@ -1600,22 +1634,27 @@ async function runSession(
 		fs.writeFileSync(mcpJsonPath, JSON.stringify({ mcpServers: {} }, null, 2), "utf-8");
 	}
 
-	// See `requiresSendMessageReturn`: a session whose output belongs in a
-	// calling thread and has no task (the assistant, and now knowledge_action
-	// too), or a subscription wake (task-free, but never bakes a calling
-	// thread — there is no thread to reply into), must call `send_message`,
-	// not the full return set. A task-bound session (task_run/session_start)
-	// also bakes a calling thread but keeps the full set available
-	// (`send_message` still lands in the same thread, but so does e.g.
-	// `edit_task`). Naming `send_message` explicitly removes a dead option
-	// the default full-set forcing message would otherwise offer: `edit_task`
-	// can never satisfy a task-free gate (no `taskId` to match), so a session
-	// with no specific requirement could burn its whole force budget on an
-	// ineffective `edit_task` attempt and end `not_returned` regardless of
-	// harness.
-	const requiredReturnActions: readonly string[] | undefined = requiresSendMessageReturn(params)
-		? ["send_message"]
-		: undefined;
+	// See `requiresReturnStatusReturn`/`requiresSendMessageReturn`. A
+	// subscription wake (task-free, never bakes a calling thread — there is
+	// no thread to reply into, and no task to hand off) has no work-output
+	// return action at all, so its own required subset is `["return_status"]`
+	// — the self-check tool reporting it is done. A session whose output
+	// belongs in a calling thread and has no task (the assistant, and
+	// `knowledge_action`) must call `send_message` instead — that thread is a
+	// real place for the message to land. A task-bound session
+	// (task_run/session_start) keeps the full return set available even with
+	// a calling thread (`send_message` still lands there, but so does e.g.
+	// `edit_task`). Naming the specific action explicitly removes dead
+	// options the default full-set forcing message would otherwise offer —
+	// e.g. `edit_task` can never satisfy a task-free gate (no `taskId` to
+	// match), so a session with no specific requirement could burn its whole
+	// force budget on an ineffective attempt and end `not_returned`
+	// regardless of harness.
+	const requiredReturnActions: readonly string[] | undefined = requiresReturnStatusReturn(params)
+		? ["return_status"]
+		: requiresSendMessageReturn(params)
+			? ["send_message"]
+			: undefined;
 
 	// One gate per session — all events observed by this gate. Declared
 	// here (before the MCP bridge's `onToolCall` closure below references it)
@@ -1637,7 +1676,20 @@ async function runSession(
 			sessionId,
 			toolRegistry: registry,
 			onToolCall: ({ toolName, args }) => {
-				if (!isReturnAction(toolName, args as Record<string, unknown>)) return;
+				// The SAME required-aware predicate the gate itself uses (not the
+				// unfiltered `isReturnAction`) — otherwise a subscription session's
+				// `return_status` call (never a member of the base closed set,
+				// satisfying ONLY via `requiredReturnActions`) would never trip this
+				// early-abort path, unlike every other kind's return action.
+				if (
+					!isRequiredReturnAction(
+						toolName,
+						requiredReturnActions,
+						args as Record<string, unknown>,
+						params.taskId ?? undefined,
+					)
+				)
+					return;
 
 				returnGate.observe({
 					type: "tool_call",

@@ -6,14 +6,17 @@
  *      AGENTS.md/CLAUDE.md), replacing the raw machine-id Correlation line;
  *   2. `SessionConfig.requiredReturnActions` — the structural rule for every
  *      task-free session (`taskId == null`): a session with a calling
- *      thread (`callingThreadId != null`) or a subscription wake
- *      (`requestContext.sourceKind === "subscription"`, which never bakes a
- *      calling thread — there is no thread to reply into) both resolve to
- *      `["send_message"]`, plus the one-line send_message orientation in
- *      the prompt. A subscription wake with no forced action left
- *      completion up to each harness's own natural turn-end signal, which
- *      is not uniform across CLI adapters — the fix narrows it to the same
- *      single required action every other task-free session already gets.
+ *      thread (`callingThreadId != null`) resolves to `["send_message"]`,
+ *      plus the one-line orientation in the prompt.
+ *
+ * A subscription wake (`requestContext.sourceKind === "subscription"`, which
+ * never bakes a calling thread — there is no thread to reply into) resolves
+ * to `["return_status"]` instead, never `send_message` — a subscription
+ * session has no work-output action and no structural place a forced
+ * message is guaranteed to belong; forcing one made every wake end with an
+ * unwanted direct message even when the subscription's own instruction
+ * never asked for one. It reports its status with the self-check
+ * `return_status` tool and speaks only when its instruction says to.
  *
  * Uses `deps.onBeforeHarnessStart`'s abort return to observe the fully
  * assembled `SessionConfig` without spawning a real harness process.
@@ -148,7 +151,7 @@ describe("generic transcript delivery (Increment 4)", () => {
 	 * whenever an `assembleSessionDocuments` dep is wired, which production
 	 * always does): `assembleSubscriptionPrompt`, not the task-free fallback
 	 * `assembleTaskFreePrompt`, composes the prompt. Echoes
-	 * `sendMessageOrientation` straight into `assembledPrompt` so a test can
+	 * `returnOrientation` straight into `assembledPrompt` so a test can
 	 * assert on it without re-implementing the real composer.
 	 */
 	function buildSubscriptionHarnessPorts(): SessionLifecyclePorts {
@@ -162,7 +165,7 @@ describe("generic transcript delivery (Increment 4)", () => {
 					assembledPrompt: [
 						"# Session Instructions",
 						"## Subscription",
-						input.sendMessageOrientation ?? "",
+						input.returnOrientation ?? "",
 					].join("\n"),
 					personaToolsTokens: 0,
 				}),
@@ -346,7 +349,7 @@ describe("generic transcript delivery (Increment 4)", () => {
 		expect(captured.sessionConfig?.requiredReturnActions).toBeUndefined();
 	});
 
-	test("a subscription wake (task-free, no calling thread) also gets requiredReturnActions:['send_message']", async ({
+	test("a subscription wake (task-free, no calling thread) gets requiredReturnActions:['return_status'], never send_message", async ({
 		db,
 	}) => {
 		await seedAgent(db, "agent-subscription-wake-1");
@@ -377,14 +380,17 @@ describe("generic transcript delivery (Increment 4)", () => {
 		const admitted = await provisioner.admit(deps, params);
 		await provisioner.run(deps, params, admitted);
 
-		expect(captured.sessionConfig?.requiredReturnActions).toEqual(["send_message"]);
+		expect(captured.sessionConfig?.requiredReturnActions).toEqual(["return_status"]);
 		// The proactive prompt orientation, not just the reactive forced-return
 		// message — a subscription wake gets no calling-thread transcript to
-		// infer this from, so it has to be told up front.
-		expect(captured.sessionConfig?.assembledPrompt ?? "").toContain("call `send_message`");
+		// infer this from, so it has to be told up front. It reports status,
+		// never a forced message.
+		const prompt = captured.sessionConfig?.assembledPrompt ?? "";
+		expect(prompt).toContain("call `return_status`");
+		expect(prompt).not.toContain("call `send_message`");
 	});
 
-	test("a subscription wake WITH the real contextBundle also gets the send_message orientation (assembleSubscriptionPrompt, not the task-free fallback)", async ({
+	test("a subscription wake WITH the real contextBundle also gets the return_status orientation (assembleSubscriptionPrompt, not the task-free fallback)", async ({
 		db,
 	}) => {
 		await seedAgent(db, "agent-subscription-wake-2");
@@ -417,8 +423,8 @@ describe("generic transcript delivery (Increment 4)", () => {
 		const admitted = await provisioner.admit(deps, params);
 		await provisioner.run(deps, params, admitted);
 
-		expect(captured.sessionConfig?.requiredReturnActions).toEqual(["send_message"]);
-		expect(captured.sessionConfig?.assembledPrompt ?? "").toContain("call `send_message`");
+		expect(captured.sessionConfig?.requiredReturnActions).toEqual(["return_status"]);
+		expect(captured.sessionConfig?.assembledPrompt ?? "").toContain("call `return_status`");
 	});
 
 	test("a session with no transcript renders the original Correlation line, unchanged (no regression)", async ({
