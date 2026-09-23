@@ -33,13 +33,7 @@
  * (`action.ts:37-50`'s own account of why).
  */
 
-import {
-	type HyperIdleDb,
-	type NewRoutine,
-	type NewUser,
-	plugins,
-	type WriteExecutor,
-} from "@hyperidle/db";
+import { type HyperIdleDb, type NewUser, plugins, type WriteExecutor } from "@hyperidle/db";
 import {
 	type ActionDeclaration,
 	type ActionResult,
@@ -87,8 +81,8 @@ import {
 	type PluginSource,
 	removePlugin,
 	restorePluginContribution,
-	routineItemId,
 	skillItemId,
+	subscriptionItemId,
 } from "./plugin-installer.js";
 import { parsePluginManifest } from "./plugin-manifest.js";
 
@@ -130,13 +124,33 @@ type EditDocumentRunFn = (
 ) => Promise<ActionResult<DocumentView>>;
 
 /**
+ * A plugin's own subscription trigger, as `edit_plugin` writes it: exactly
+ * one of `event`/`schedule` (`subscriptions_trigger_ck`, migration 0088).
+ */
+export interface NewPlatformSubscription {
+	readonly id: string;
+	readonly userId: string;
+	readonly event: string | null;
+	readonly schedule: string | null;
+	readonly createdAt: string;
+}
+
+/**
  * The platform module's outward-facing deps. Everything
  * outside `@hyperidle/settings`'s own three tables arrives here: an agent is
- * a `users` row, a routine is a `routines` row, a document write/read goes
- * through the composed `edit_document`/`search_documents` runners — this
- * package may import neither `@hyperidle/user` nor `@hyperidle/routine`
- * nor the layer's own document composition, so the layer's `compose.ts`
- * binds each to the real function.
+ * a `users` row, a subscription is a `subscriptions` row, a document
+ * write/read goes through the composed `edit_document`/`search_documents`
+ * runners — this package may import neither `@hyperidle/user` nor the
+ * layer's own document composition, so the layer's `compose.ts` binds each
+ * to the real function.
+ *
+ * @lore BC5 T7b: `routines` renamed `subscriptions` — `insertRoutine`'s
+ * owner-side `nextRunAt` computation (cron parsing) moves into `compose.ts`'s
+ * binding, since this package may not import `@hyperidle/user`'s cron
+ * helpers either. `softDelete` becomes `remove` (a hard delete — a
+ * subscription has no soft-delete column). `get` answers a display label
+ * (`event` or `schedule` — a subscription has no `name` column) rather than
+ * a name.
  */
 export interface PlatformActionsDeps {
 	readonly agents: {
@@ -151,15 +165,15 @@ export interface PlatformActionsDeps {
 			ids: readonly string[],
 		): Promise<readonly { readonly id: string; readonly name: string }[]>;
 	};
-	readonly routines: {
+	readonly subscriptions: {
 		insert(
 			exec: WriteExecutor,
-			values: NewRoutine,
+			values: NewPlatformSubscription,
 			opts?: { readonly onConflictDoNothing?: boolean },
-		): Promise<string | null>;
+		): Promise<void>;
 		setLive(exec: WriteExecutor, ids: readonly string[], live: boolean): Promise<void>;
-		softDelete(exec: WriteExecutor, ids: readonly string[]): Promise<void>;
-		get(exec: WriteExecutor, id: string): Promise<{ readonly name: string } | undefined>;
+		remove(exec: WriteExecutor, ids: readonly string[]): Promise<void>;
+		get(exec: WriteExecutor, id: string): Promise<{ readonly label: string } | undefined>;
 	};
 	readonly editDocument: EditDocumentRunFn;
 	readonly searchDocuments: SearchDocumentsRunFn;
@@ -244,11 +258,11 @@ interface ContributedDocumentSpec {
 async function setNonDocumentContributionsLive(
 	deps: PlatformActionsDeps,
 	exec: WriteExecutor,
-	ids: { readonly agentIds: readonly string[]; readonly routineIds: readonly string[] },
+	ids: { readonly agentIds: readonly string[]; readonly subscriptionIds: readonly string[] },
 	live: boolean,
 ): Promise<void> {
 	await deps.agents.setStatus(exec, ids.agentIds, live ? "active" : "inactive");
-	await deps.routines.setLive(exec, ids.routineIds, live);
+	await deps.subscriptions.setLive(exec, ids.subscriptionIds, live);
 }
 
 /**
@@ -350,13 +364,13 @@ async function labelContributions(
 		contributions.filter((c) => c.kind === kind).map((c) => c.entityId);
 
 	const agentIds = idsOf("agent");
-	const routineIds = idsOf("routine");
+	const subscriptionIds = idsOf("subscription");
 	const documentIds = idsOf("document");
 
-	const [agents, routineRows, documentsResult] = await Promise.all([
+	const [agents, subscriptionRows, documentsResult] = await Promise.all([
 		agentIds.length > 0 ? deps.agents.list(ctx.db, agentIds) : Promise.resolve([]),
-		routineIds.length > 0
-			? Promise.all(routineIds.map((id) => deps.routines.get(ctx.db, id)))
+		subscriptionIds.length > 0
+			? Promise.all(subscriptionIds.map((id) => deps.subscriptions.get(ctx.db, id)))
 			: Promise.resolve([]),
 		documentIds.length > 0
 			? deps.searchDocuments(ctx, { ids: documentIds })
@@ -365,9 +379,9 @@ async function labelContributions(
 
 	const labels = new Map<string, string>();
 	for (const a of agents) labels.set(a.id, a.name);
-	routineIds.forEach((id, i) => {
-		const r = routineRows[i];
-		if (r) labels.set(id, r.name);
+	subscriptionIds.forEach((id, i) => {
+		const r = subscriptionRows[i];
+		if (r) labels.set(id, r.label);
 	});
 	if (documentsResult.ok) for (const d of documentsResult.data) labels.set(d.id, d.title);
 	return labels;
@@ -396,9 +410,9 @@ function readPluginDocumentSource(
 			const agentDbId = agentItemId(pluginId, agent.id, scopeKind, scopeId);
 			if (`ki_af_${agentDbId}` === documentId) return agent.identity;
 		}
-		for (const routine of parsed.manifest.routines) {
-			const routineDbId = routineItemId(pluginId, routine.id, scopeKind, scopeId);
-			if (`ki_rp_${routineDbId}` === documentId) return routine.prompt ?? null;
+		for (const subscription of parsed.manifest.subscriptions) {
+			const subscriptionDbId = subscriptionItemId(pluginId, subscription.id, scopeKind, scopeId);
+			if (`ki_rp_${subscriptionDbId}` === documentId) return subscription.prompt ?? null;
 		}
 	}
 	return null;
@@ -533,10 +547,10 @@ async function installRun(
 	});
 	if (!result.ok) return problem("install_failed", result.reason);
 
-	const { plugin, skills, agents, routines, scopeKind, scopeId, installTs } = result;
+	const { plugin, skills, agents, subscriptions, scopeKind, scopeId, installTs } = result;
 
 	const agentIds: string[] = [];
-	const routineIds: string[] = [];
+	const subscriptionIds: string[] = [];
 	const documentSpecs: ContributedDocumentSpec[] = [];
 
 	for (const skill of skills) {
@@ -569,25 +583,25 @@ async function installRun(
 		}
 	}
 
-	for (const routineSpec of routines) {
-		const routineDbId = routineItemId(plugin.id, routineSpec.id, scopeKind, scopeId);
-		routineIds.push(routineDbId);
-		if (routineSpec.prompt) {
+	for (const subscriptionSpec of subscriptions) {
+		const subscriptionDbId = subscriptionItemId(plugin.id, subscriptionSpec.id, scopeKind, scopeId);
+		subscriptionIds.push(subscriptionDbId);
+		if (subscriptionSpec.prompt) {
 			documentSpecs.push({
-				id: `ki_rp_${routineDbId}`,
-				title: `${routineSpec.name || "Routine"} — prompt`,
-				body: routineSpec.prompt,
+				id: `ki_rp_${subscriptionDbId}`,
+				title: `${subscriptionSpec.name || "Subscription"} — prompt`,
+				body: subscriptionSpec.prompt,
 				slot: "prompt",
-				parentKind: "routine",
-				parentId: routineDbId,
+				parentKind: "subscription",
+				parentId: subscriptionDbId,
 				scopeKind: scopeKind as ScopeKind,
 				scopeId,
 			});
 		}
 	}
 
-	// Phase 1 — agents and routines materialize, in ONE transaction. Never a
-	// document write in here (top-of-file @lore).
+	// Phase 1 — agents and subscriptions materialize, in ONE transaction.
+	// Never a document write in here (top-of-file @lore).
 	await ctx.db.transaction(async (tx) => {
 		for (const agentSpec of agents) {
 			const dbId = agentItemId(plugin.id, agentSpec.id, scopeKind, scopeId);
@@ -603,25 +617,23 @@ async function installRun(
 			});
 		}
 
-		for (const routineSpec of routines) {
-			const routineDbId = routineItemId(plugin.id, routineSpec.id, scopeKind, scopeId);
-			const agentDbId = agentItemId(plugin.id, routineSpec.agentId, scopeKind, scopeId);
-			await deps.routines.insert(
+		for (const subscriptionSpec of subscriptions) {
+			const subscriptionDbId = subscriptionItemId(plugin.id, subscriptionSpec.id, scopeKind, scopeId);
+			const agentDbId = agentItemId(plugin.id, subscriptionSpec.agentId, scopeKind, scopeId);
+			await deps.subscriptions.insert(
 				tx,
 				{
-					id: routineDbId,
-					name: routineSpec.name,
-					ownerAgentId: agentDbId,
-					triggerType: routineSpec.triggerType,
-					triggerConfig: routineSpec.triggerConfig ?? null,
-					eventType: routineSpec.eventType ?? null,
+					id: subscriptionDbId,
+					userId: agentDbId,
+					event: subscriptionSpec.event,
+					schedule: subscriptionSpec.schedule,
 					createdAt: installTs,
 				},
 				{ onConflictDoNothing: true },
 			);
 		}
 
-		await setNonDocumentContributionsLive(deps, tx, { agentIds, routineIds }, true);
+		await setNonDocumentContributionsLive(deps, tx, { agentIds, subscriptionIds }, true);
 	});
 
 	// Phase 2 — after that transaction commits: the plugin's documents,
@@ -636,7 +648,7 @@ async function installRun(
 	await ctx.db.transaction(async (tx) => {
 		for (const [kind, ids] of [
 			["agent", agentIds],
-			["routine", routineIds],
+			["subscription", subscriptionIds],
 			["document", documentIds],
 		] as const) {
 			for (const entityId of ids) {
@@ -648,7 +660,7 @@ async function installRun(
 				keepEntityIds: ids,
 			});
 			if (kind === "document") staleDocumentIds = stale;
-			if (kind === "routine") await deps.routines.softDelete(tx, stale);
+			if (kind === "subscription") await deps.subscriptions.remove(tx, stale);
 			if (kind === "agent") await deps.agents.setStatus(tx, stale, "inactive");
 		}
 	});
@@ -673,14 +685,14 @@ async function stateRun(
 	if (state === "enabled") await enablePlugin(ctx.db, id, ctx.now);
 	else await disablePlugin(ctx.db, id, ctx.now);
 
-	const [agentIds, routineIds, documentIds] = await Promise.all([
+	const [agentIds, subscriptionIds, documentIds] = await Promise.all([
 		contributedEntityIds(ctx.db, id, "agent"),
-		contributedEntityIds(ctx.db, id, "routine"),
+		contributedEntityIds(ctx.db, id, "subscription"),
 		contributedEntityIds(ctx.db, id, "document"),
 	]);
 	const live = state === "enabled";
 	await ctx.db.transaction(async (tx) => {
-		await setNonDocumentContributionsLive(deps, tx, { agentIds, routineIds }, live);
+		await setNonDocumentContributionsLive(deps, tx, { agentIds, subscriptionIds }, live);
 	});
 	await setContributedDocumentsLive(internalCtx(ctx), deps, documentIds, live);
 
@@ -703,14 +715,14 @@ async function removeRun(
 
 	await removePlugin(ctx.db, id, ctx.now);
 
-	const [agentIds, routineIds, documentIds] = await Promise.all([
+	const [agentIds, subscriptionIds, documentIds] = await Promise.all([
 		contributedEntityIds(ctx.db, id, "agent"),
-		contributedEntityIds(ctx.db, id, "routine"),
+		contributedEntityIds(ctx.db, id, "subscription"),
 		contributedEntityIds(ctx.db, id, "document"),
 	]);
 	await ctx.db.transaction(async (tx) => {
-		await setNonDocumentContributionsLive(deps, tx, { agentIds, routineIds }, false);
-		await deps.routines.softDelete(tx, routineIds);
+		await setNonDocumentContributionsLive(deps, tx, { agentIds, subscriptionIds }, false);
+		await deps.subscriptions.remove(tx, subscriptionIds);
 	});
 	await setContributedDocumentsLive(internalCtx(ctx), deps, documentIds, false);
 

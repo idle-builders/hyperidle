@@ -131,7 +131,7 @@ const McpServerConfigurationSchema = ConfigurationObjectSchema.superRefine((valu
 const ConfigurationValueSchemas = {
 	agent: ConfigurationObjectSchema,
 	skill: ConfigurationObjectSchema,
-	routine: ConfigurationObjectSchema,
+	subscription: ConfigurationObjectSchema,
 	tool: ConfigurationObjectSchema,
 	mcp_server: McpServerConfigurationSchema,
 	harness_descriptor: ConfigurationObjectSchema,

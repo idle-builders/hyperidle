@@ -1,11 +1,11 @@
 /**
  * The platform module — `search_plugins`/`edit_plugin` own the whole plugin
  * lifecycle. Real PGlite via the `{ db }`
- * fixture. `deps.agents`/`deps.routines` are backed by real queries against
- * the real `users`/`routines` tables — the same crossing `compose.ts` binds
- * in production, built here with raw drizzle rather than importing
- * `@hyperidle/user`/`@hyperidle/routine` (this package may not depend on
- * either). `deps.editDocument`/`deps.searchDocuments` are the REAL
+ * fixture. `deps.agents`/`deps.subscriptions` are backed by real queries
+ * against the real `users`/`subscriptions` tables — the same crossing
+ * `compose.ts` binds in production, built here with raw drizzle rather than
+ * importing `@hyperidle/user` (this package may not depend on it).
+ * `deps.editDocument`/`deps.searchDocuments` are the REAL
  * `@hyperidle/document` actions, not a stub — the one genuinely external
  * crossing this module has, and the phase-discipline this whole module
  * exists to protect (top-of-file @lore in `platform-actions.ts`) only means
@@ -18,7 +18,7 @@ import {
 	changes,
 	documents,
 	type HyperIdleDb,
-	routines,
+	subscriptions,
 	teams,
 	users,
 	type WriteExecutor,
@@ -89,9 +89,9 @@ function realDocumentActions(): readonly Action[] {
 				return row !== undefined;
 			}
 			const [row] = await exec
-				.select({ id: routines.id })
-				.from(routines)
-				.where(eq(routines.id, id))
+				.select({ id: subscriptions.id })
+				.from(subscriptions)
+				.where(eq(subscriptions.id, id))
 				.limit(1);
 			return row !== undefined;
 		},
@@ -136,40 +136,47 @@ function buildDeps(overrides: Partial<PlatformActionsDeps> = {}): PlatformAction
 					.where(inArray(users.id, [...ids]));
 			},
 		},
-		routines: {
+		subscriptions: {
 			insert: async (exec, values, opts) => {
+				// @lore this test builds its own raw-drizzle stand-in for
+				// `compose.ts`'s binding (same reason `@hyperidle/settings` may
+				// not import `@hyperidle/user`/its cron helpers) — `nextRunAt`
+				// computation is exercised for real in `@hyperidle/user`'s own
+				// `user-actions.test.ts`/subscription-clock coverage, not here.
+				const row = {
+					id: values.id,
+					userId: values.userId,
+					event: values.event,
+					schedule: values.schedule,
+					paused: false,
+					nextRunAt: null,
+					createdAt: values.createdAt,
+					updatedAt: values.createdAt,
+				};
 				if (opts?.onConflictDoNothing) {
-					await exec.insert(routines).values(values).onConflictDoNothing();
+					await exec.insert(subscriptions).values(row).onConflictDoNothing();
 				} else {
-					await exec.insert(routines).values(values);
+					await exec.insert(subscriptions).values(row);
 				}
-				return values.id;
 			},
 			setLive: async (exec, ids, live) => {
 				if (ids.length === 0) return;
 				await exec
-					.update(routines)
-					.set(
-						live
-							? { active: true, state: "active" as const, deletedAt: null }
-							: { active: false, state: "paused" as const },
-					)
-					.where(inArray(routines.id, [...ids]));
+					.update(subscriptions)
+					.set({ paused: !live, updatedAt: new Date().toISOString() })
+					.where(inArray(subscriptions.id, [...ids]));
 			},
-			softDelete: async (exec, ids) => {
+			remove: async (exec, ids) => {
 				if (ids.length === 0) return;
-				await exec
-					.update(routines)
-					.set({ active: false, state: "paused" as const, deletedAt: new Date().toISOString() })
-					.where(inArray(routines.id, [...ids]));
+				await exec.delete(subscriptions).where(inArray(subscriptions.id, [...ids]));
 			},
 			get: async (exec, id) => {
 				const [row] = await exec
-					.select({ name: routines.name })
-					.from(routines)
-					.where(eq(routines.id, id))
+					.select({ event: subscriptions.event, schedule: subscriptions.schedule })
+					.from(subscriptions)
+					.where(eq(subscriptions.id, id))
 					.limit(1);
-				return row;
+				return row ? { label: row.event ?? row.schedule ?? "" } : undefined;
 			},
 		},
 		editDocument: runnerFor(documentActions, "edit_document"),
@@ -197,9 +204,9 @@ function typedActions(deps: PlatformActionsDeps): {
 	return { search: search as never, edit: edit as never };
 }
 
-/** A minimal plugin: one agent (with an identity file), one routine (with a
- * prompt), one skill, and one `tool`-kind configuration contribution — enough
- * to exercise every phase of the lifecycle. */
+/** A minimal plugin: one agent (with an identity file), one subscription
+ * (with a prompt), one skill, and one `tool`-kind configuration
+ * contribution — enough to exercise every phase of the lifecycle. */
 function makePlugin(pluginId: string): string {
 	const dir = mkdtempSync(join(tmpdir(), "platform-actions-test-"));
 	mkdirSync(join(dir, "skills", "sweep"), { recursive: true });
@@ -222,12 +229,12 @@ function makePlugin(pluginId: string): string {
 							identity: "identity.md",
 						},
 					],
-					routines: [
+					subscriptions: [
 						{
-							id: "sweep-routine",
-							name: "Sweep Routine",
+							id: "sweep-subscription",
+							name: "Sweep Subscription",
 							agentId: "builder",
-							triggerType: "manual",
+							event: "task.changed",
 							prompt: "Sweep the stale items.",
 						},
 					],
@@ -264,7 +271,7 @@ describe("createPlatformActions", () => {
 			expect(plugin?.state).toBe("enabled");
 			const kinds = plugin?.contributions.map((c) => c.kind) ?? [];
 			expect(kinds).toContain("agent");
-			expect(kinds).toContain("routine");
+			expect(kinds).toContain("subscription");
 			expect(kinds).toContain("document");
 			expect(kinds).toContain("tool");
 		});
@@ -299,7 +306,7 @@ describe("createPlatformActions", () => {
 	});
 
 	describe("edit_plugin — install", () => {
-		test("materializes the agent, routine and skill, all live", async ({ db }) => {
+		test("materializes the agent, subscription and skill, all live", async ({ db }) => {
 			await seedFounder(db);
 			const { edit } = typedActions(buildDeps());
 			const dir = makePlugin("install-under-test");
@@ -312,10 +319,10 @@ describe("createPlatformActions", () => {
 			expect(result.data.state).toBe("enabled");
 
 			const agentContribution = result.data.contributions.find((c) => c.kind === "agent");
-			const routineContribution = result.data.contributions.find((c) => c.kind === "routine");
+			const subscriptionContribution = result.data.contributions.find((c) => c.kind === "subscription");
 			const documentContributions = result.data.contributions.filter((c) => c.kind === "document");
 			expect(agentContribution?.label).toBe("Builder");
-			expect(documentContributions.length).toBeGreaterThanOrEqual(2); // skill + agent identity + routine prompt
+			expect(documentContributions.length).toBeGreaterThanOrEqual(2); // skill + agent identity + subscription prompt
 
 			const [agentRow] = await db
 				.select()
@@ -323,11 +330,11 @@ describe("createPlatformActions", () => {
 				.where(eq(users.id, agentContribution?.entityId ?? ""));
 			expect(agentRow?.status).toBe("active");
 
-			const [routineRow] = await db
+			const [subscriptionRow] = await db
 				.select()
-				.from(routines)
-				.where(eq(routines.id, routineContribution?.entityId ?? ""));
-			expect(routineRow?.active).toBe(true);
+				.from(subscriptions)
+				.where(eq(subscriptions.id, subscriptionContribution?.entityId ?? ""));
+			expect(subscriptionRow).toBeDefined();
 
 			for (const doc of documentContributions) {
 				const [row] = await db.select().from(documents).where(eq(documents.id, doc.entityId));
@@ -360,7 +367,7 @@ describe("createPlatformActions", () => {
 	});
 
 	describe("edit_plugin — enable/disable", () => {
-		test("disable deactivates the agent, routine and documents; enable revives them", async ({
+		test("disable deactivates the agent, subscription and documents; enable revives them", async ({
 			db,
 		}) => {
 			await seedFounder(db);
@@ -401,7 +408,7 @@ describe("createPlatformActions", () => {
 	});
 
 	describe("edit_plugin — remove", () => {
-		test("soft-deletes routines, deactivates the agent, archives documents; the answer is the pre-remove view", async ({
+		test("removes subscriptions, deactivates the agent, archives documents; the answer is the pre-remove view", async ({
 			db,
 		}) => {
 			await seedFounder(db);
@@ -414,17 +421,16 @@ describe("createPlatformActions", () => {
 				},
 			});
 			if (!install.ok) throw new Error("install failed");
-			const routineId =
-				install.data.contributions.find((c) => c.kind === "routine")?.entityId ?? "";
+			const subscriptionId =
+				install.data.contributions.find((c) => c.kind === "subscription")?.entityId ?? "";
 
 			const result = await edit.run(ctxFor(db), { id: "remove-under-test", remove: true });
 			if (!result.ok) throw new Error(`remove failed: ${JSON.stringify(result.problems)}`);
 			// The pre-remove state — "removed" is not a member of PluginListState.
 			expect(result.data.state).toBe("enabled");
 
-			const [routineRow] = await db.select().from(routines).where(eq(routines.id, routineId));
-			expect(routineRow?.deletedAt).not.toBeNull();
-			expect(routineRow?.active).toBe(false);
+			const subRow = await db.select().from(subscriptions).where(eq(subscriptions.id, subscriptionId));
+			expect(subRow.length).toBe(0);
 
 			// A second change on the now-removed plugin answers plugin_removed.
 			const again = await edit.run(ctxFor(db), { id: "remove-under-test", state: "enabled" });

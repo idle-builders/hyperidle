@@ -49,7 +49,7 @@ import type {
 	ParsedContribution,
 	ParsedMcpServer,
 	ParsedPluginAgent,
-	ParsedPluginRoutine,
+	ParsedPluginSubscription,
 	ParsedSkill,
 } from "./plugin-manifest.js";
 import { parsePluginManifest } from "./plugin-manifest.js";
@@ -114,11 +114,11 @@ export type InstallPluginResult =
 			 */
 			agents: readonly ParsedPluginAgent[];
 			/**
-			 * Routines declared in extensions["io.hyperidle"].routines[].
-			 * The core-api route handler materializes them as routines rows via insertRoutine.
-			 * @lore BA9d: settings cannot write routines (owned by routine service).
+			 * Subscriptions declared in extensions["io.hyperidle"].subscriptions[].
+			 * The core-api route handler materializes them as subscriptions rows.
+			 * @lore BA9d: settings cannot write subscriptions (owned by the user module).
 			 */
-			routines: readonly ParsedPluginRoutine[];
+			subscriptions: readonly ParsedPluginSubscription[];
 			scopeKind: string;
 			scopeId: string | null;
 			installTs: string;
@@ -315,11 +315,17 @@ export function agentItemId(
 }
 
 /**
- * Stable DB id for a plugin-declared routine.
+ * Stable DB id for a plugin-declared subscription.
  * Deterministic from pluginId + localId + install scope.
  * See @lore on agentItemId — same scope guarantee applies.
+ *
+ * @lore BC5 T7b: renamed from `routineItemId` — the hash input literal
+ * ("plugin-routine\0...") stays byte-for-byte unchanged on purpose, so an
+ * already-installed plugin's subscription id does not churn on reinstall
+ * (migration 0089 converts its routine row to a subscription under this
+ * SAME id).
  */
-export function routineItemId(
+export function subscriptionItemId(
 	pluginId: string,
 	localId: string,
 	scopeKind: string,
@@ -550,7 +556,7 @@ export async function installPlugin(
 			plugin: pluginFromRow(row, manifest.warnings),
 			skills: manifest.skills,
 			agents: manifest.agents,
-			routines: manifest.routines,
+			subscriptions: manifest.subscriptions,
 			scopeKind: input.scope.kind,
 			scopeId: input.scope.teamId ?? null,
 			installTs: ts,

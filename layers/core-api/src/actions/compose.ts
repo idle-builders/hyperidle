@@ -23,7 +23,6 @@ import type {
 	TaskView,
 	ThreadView,
 } from "@hyperidle/domain-model";
-import { getRoutine, insertRoutine, setRoutinesLive, softDeleteRoutines } from "@hyperidle/routine";
 import {
 	createPlatformActions,
 	listAgentBehaviorConfiguration,
@@ -36,15 +35,18 @@ import { createTaskActions, type TaskActionsDeps } from "@hyperidle/task";
 import { createThreadActions, type ThreadActionsDeps } from "@hyperidle/thread";
 import {
 	createUserActions,
+	deleteSubscriptions,
 	findUser,
 	getSubscription,
 	getTeam,
+	insertSubscription,
 	insertUserIfAbsent,
 	listUsers,
 	nextCronMatch,
 	parseCron,
 	requireRunnableAgent,
 	setAgentsStatus,
+	setSubscriptionsPaused,
 	type UserActionsDeps,
 } from "@hyperidle/user";
 import type { HarnessCapabilityReader } from "../services/harness-capability-reader.js";
@@ -190,17 +192,17 @@ function buildOpenParent(
 
 /**
  * `document`'s `systemParentExists` port — existence of an `agent`/
- * `routine`/`subscription` parent, asked only on the internal path
- * (`ctx.internal`). An agent is a `users` row (the same read
- * `deps.users.getUserById` already wraps); a routine is
- * `@hyperidle/routine`'s own `getRoutine`, already imported by this layer's
- * `routines-routes.ts`; a subscription is `@hyperidle/user`'s own
- * `getSubscription` — the user module owns `subscriptions` too.
+ * `subscription` parent, asked only on the internal path (`ctx.internal`).
+ * An agent is a `users` row (the same read `deps.users.getUserById` already
+ * wraps); a subscription is `@hyperidle/user`'s own `getSubscription` — the
+ * user module owns `subscriptions` too.
+ *
+ * @lore BC5 T7b: `routine` is gone — `DOCUMENT_PARENT_KINDS` no longer
+ * names it, so this is exhaustive over `agent`/`subscription` now.
  */
 const systemParentExists: DocumentActionsDeps["systemParentExists"] = async (exec, kind, id) => {
 	if (kind === "agent") return (await findUser(exec, { id })) !== undefined;
-	if (kind === "subscription") return (await getSubscription(exec, id)) !== undefined;
-	return (await getRoutine(exec, id)) !== undefined;
+	return (await getSubscription(exec, id)) !== undefined;
 };
 
 /**
@@ -238,9 +240,16 @@ function buildDocumentActionsDeps(
  * — no lazy binding needed here (unlike `document`'s own `searchDocuments`
  * closure), because `platform` is built AFTER `document`, never before.
  * Everything else outside `@hyperidle/settings`'s own three tables — an
- * agent is a `users` row, a routine is a `routines` row — is bound to the
- * real function, because `@hyperidle/settings` may not import
- * `@hyperidle/user`/`@hyperidle/routine`.
+ * agent is a `users` row, a subscription is a `subscriptions` row — is
+ * bound to the real function, because `@hyperidle/settings` may not import
+ * `@hyperidle/user`.
+ *
+ * @lore BC5 T7b: `routines` renamed `subscriptions` — the owner-side
+ * `nextRunAt` computation (`insertRoutine`'s own `{parseCron, nextCronMatch}`
+ * cron-ops idiom) moves here: a schedule subscription's `nextRunAt` is
+ * computed at insert time the same way `user-actions.ts`'s own
+ * `nextRunAtFor` does, since `@hyperidle/settings` may not import
+ * `@hyperidle/user`'s cron helpers either.
  */
 function buildPlatformActionsDeps(
 	documentActions: readonly Action[],
@@ -252,12 +261,34 @@ function buildPlatformActionsDeps(
 			setStatus: (exec, ids, status) => setAgentsStatus(exec, ids, status),
 			list: (exec, ids) => listUsers(exec, { ids: [...ids] }),
 		},
-		routines: {
-			insert: (exec, values, opts) =>
-				insertRoutine(exec, values, { parseCron, nextCronMatch }, opts),
-			setLive: (exec, ids, live) => setRoutinesLive(exec, ids, live),
-			softDelete: (exec, ids) => softDeleteRoutines(exec, ids),
-			get: (exec, id) => getRoutine(exec, id),
+		subscriptions: {
+			insert: async (exec, values, opts) => {
+				const nextRunAt =
+					values.schedule !== null
+						? nextCronMatch(parseCron(values.schedule), new Date(values.createdAt)).toISOString()
+						: null;
+				await insertSubscription(
+					exec,
+					{
+						id: values.id,
+						userId: values.userId,
+						event: values.event,
+						schedule: values.schedule,
+						paused: false,
+						nextRunAt,
+						createdAt: values.createdAt,
+						updatedAt: values.createdAt,
+					},
+					opts,
+				);
+			},
+			setLive: (exec, ids, live) =>
+				setSubscriptionsPaused(exec, ids, !live, new Date().toISOString()),
+			remove: (exec, ids) => deleteSubscriptions(exec, ids),
+			get: async (exec, id) => {
+				const row = await getSubscription(exec, id);
+				return row ? { label: row.event ?? row.schedule ?? "" } : undefined;
+			},
 		},
 		editDocument: runnerFor<EditDocumentInput, DocumentView>(documentActions, "edit_document"),
 		searchDocuments: runnerFor<SearchDocumentsInput, DocumentRow[]>(
@@ -442,10 +473,9 @@ export function buildStandaloneDocumentRunners(): {
 }
 
 /**
- * `search_documents` alone, standalone — `service-bootstrap.ts`'s routine
- * scheduler wiring and its `tools/eval`/`dispatch-test-helpers.ts` direct
- * `fireRoutine` callers (architecture.md §8.3: neither ever edits a
- * document) only ever need this one runner.
+ * `search_documents` alone, standalone — `tools/eval`'s scenario runners
+ * (architecture.md §8.3: never edit a document) only ever need this one
+ * runner.
  */
 export function createStandaloneSearchDocuments(): SearchDocumentsRunFn {
 	return buildStandaloneDocumentRunners().searchDocuments;

@@ -4,10 +4,12 @@ import type {
 	ActionResult,
 	AdjustThreadInput,
 	DocumentRow,
+	EditUserInput,
 	SearchDocumentsInput,
 	SendMessageInput,
 	SendMessageOutput,
 	ThreadView,
+	UserView,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 
@@ -79,6 +81,15 @@ export type AdjustThreadRunFn = (
 	ctx: ActionContext,
 	input: AdjustThreadInput,
 ) => Promise<ActionResult<ThreadView>>;
+/**
+ * `edit_user`'s own bound `run` — BC5 T7b (F1): the crashed-session health
+ * reaction writes the agent's `health` through it, the same canonical-shape
+ * idiom as `SendMessageRunFn`/`AdjustThreadRunFn`.
+ */
+export type EditUserRunFn = (
+	ctx: ActionContext,
+	input: EditUserInput,
+) => Promise<ActionResult<UserView>>;
 /**
  * `search_documents`'s own bound `run` — the ONLY door a document-reading
  * neighbour ever gets onto `@hyperidle/document` (architecture.md §6.7,

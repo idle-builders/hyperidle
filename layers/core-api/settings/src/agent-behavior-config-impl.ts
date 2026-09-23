@@ -49,12 +49,17 @@ export class AgentBehaviorConfigError extends Error {
 	}
 }
 
+// @lore BC5 T7b: `ConfigurationKind`'s "routine" member is respelled
+// "subscription" (matches migration 0089's CHECK respelling) — the
+// presentation-layer `AgentBehaviorConfigKind` bucket keeps its own
+// "routine" name (UI vocabulary is a later item's concern), so only the
+// DB-facing side of this map changes.
 const CONFIG_KIND_TO_AGENT_BEHAVIOR_KIND: Partial<
 	Record<ConfigurationKind, AgentBehaviorConfigKind>
 > = {
 	agent: "agent",
 	skill: "skill",
-	routine: "routine",
+	subscription: "routine",
 	tool: "tool",
 	mcp_server: "mcp",
 };
@@ -62,7 +67,7 @@ const CONFIG_KIND_TO_AGENT_BEHAVIOR_KIND: Partial<
 const AGENT_BEHAVIOR_KIND_TO_CONFIG_KIND: Record<AgentBehaviorConfigKind, ConfigurationKind> = {
 	agent: "agent",
 	skill: "skill",
-	routine: "routine",
+	routine: "subscription",
 	tool: "tool",
 	mcp: "mcp_server",
 };
