@@ -4,8 +4,10 @@
  * AC: empty source groups (inherited/token/mcp) do not render a bare empty list;
  * groups with zero connections are fully hidden.
  *
- * @lore BC5 T10: mocks `call` at the door (`open_user({}).connections`)
- * instead of `apiFetch`.
+ * @lore BC5 T10/T19: mocks `call` at the door (`open_user({}).connections`)
+ * instead of `apiFetch`. The inherited fixture uses the real wire shape
+ * (`ConnectionView`: id/service/via/authSource/health/removable) the
+ * connections door actually returns for inherited rows — see T19.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
@@ -42,10 +44,12 @@ function openUserData(connections: unknown[], inherited: unknown[]): Record<stri
 }
 
 const INHERITED_GITHUB = {
-	name: "GitHub",
-	kind: "cli" as const,
-	source: "claude-code · gh CLI",
+	id: "inherited:claude-code:github",
+	service: "GitHub",
+	via: "CLI · claude-code · gh CLI",
+	authSource: "inherited" as const,
 	health: "working" as const,
+	removable: false,
 };
 
 describe("SettingsConnections empty groups are hidden", () => {

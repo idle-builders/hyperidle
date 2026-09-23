@@ -9,11 +9,14 @@
  *   Design: removable held rows show overflow menu; inherited rows do not
  *   Story: SettingsConnections.stories.tsx Populated story exists and renders
  *
- * @lore BC5 T10: the door swap — `open_user({}).connections` replaces `GET
- * /api/connections`; the inherited group is now `InheritedReachView[]`
- * (name/kind/source/health, no id/removable) mapped in the component to the
- * same row shape as a held connection (architecture.md §8). `call` is
- * mocked at the door.
+ * @lore BC5 T10/T19: the door swap — `open_user({}).connections` replaces
+ * `GET /api/connections` (architecture.md §8). The inherited group's real
+ * wire shape is `ConnectionView` (id/service/via/authSource/health/
+ * removable) — the connections door already projects it that way
+ * (`agent-orchestration/connections`'s `projectFacts`) — not the
+ * `name/kind/source/health` shape domain-model's `InheritedReachView` type
+ * still declares (T19 fixed the component to read the real fields). `call`
+ * is mocked at the door.
  */
 
 import { render, screen } from "@testing-library/react";
@@ -26,10 +29,12 @@ vi.mock("../../services/call.js", () => ({ call: callMock }));
 // ── Fixture data ──────────────────────────────────────────────────────────────
 
 const INHERITED_GITHUB = {
-	name: "GitHub",
-	kind: "cli" as const,
-	source: "claude-code · gh CLI",
+	id: "inherited:claude-code:github",
+	service: "GitHub",
+	via: "CLI · claude-code · gh CLI",
+	authSource: "inherited" as const,
 	health: "working" as const,
+	removable: false,
 };
 
 const TOKEN_STRIPE = {
