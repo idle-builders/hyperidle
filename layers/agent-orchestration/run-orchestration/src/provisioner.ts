@@ -1389,8 +1389,9 @@ function buildVerdictMessage(resume: BakedSessionResumeRequest): string {
  * to do. The two were conflated, and the agent received a 200-character slice of
  * the wrong one.
  *
- * Returns undefined when the session has no task to state — a routine waking on a
- * heartbeat, or an assistant turn, whose opening turn comes from elsewhere.
+ * Returns undefined when the session has no task to state — a subscription
+ * waking on a heartbeat, or an assistant turn, whose opening turn comes from
+ * elsewhere.
  */
 function composeTaskInstruction(params: ProvisionSessionParams): string | undefined {
 	const bundle = params.contextBundle;

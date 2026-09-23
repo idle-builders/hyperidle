@@ -487,11 +487,10 @@ async function failOrRelease(
 		.where(
 			and(eq(agentWorkIntents.id, intent.id), eq(agentWorkIntents.claimToken, intent.claimToken)),
 		);
-	// @lore AU21 §6 Decision B4/§13: the OLD direct
-	// `deps.routine.updateRoutineRunIfRunning` write for a terminal
-	// `routine_run` failure is GONE — replaced by this event, reacted to by a
-	// core-api subscriber (`registerAgentRunAdmissionReactions`), for EVERY
-	// kind, not just `routine_run`. `deps.eventBus` is optional (back-compat
+	// @lore AU21 §6 Decision B4/§13: every terminal failure is reported through
+	// this event, reacted to by a core-api subscriber
+	// (`registerAgentRunAdmissionReactions`), for EVERY kind — no service here
+	// writes a run-row outcome directly. `deps.eventBus` is optional (back-compat
 	// with every pre-existing `queueDeps(db)` call site that never wired one).
 	// @lore AU29 §2.4: the typed construction+emit used to be
 	// the framework's `reportAdmissionFailure`, also called by
@@ -1170,7 +1169,7 @@ export type BakedWorkIntentRequest = {
  * matching against `settings`'s `kind:"trigger"` entries, target-agent
  * resolution) REMOVED — confirmed via git archaeology + a full production
  * call-site grep that `createTriggeredInternal` (this variant's only
- * consumer) had ZERO real callers: routine firing has called
+ * consumer) had ZERO real callers: subscription firing has called
  * `enqueueWorkIntent` directly since before AU21 even started (verified at
  * `7b64e8d1^`'s dispatch/service.ts and AU20's original session-requests
  * rewrite, `d6dcfa2c`), and every other family's real resolve-at-emit
