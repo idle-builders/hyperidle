@@ -373,11 +373,7 @@ describe("E2E API Integration (I5)", () => {
 		});
 	});
 
-	// -------------------------------------------------------
-	// 15. Validation
-	// -------------------------------------------------------
-	describe("Request validation", () => {
-		// POST /api/sessions (door #114) deleted. Validation test removed with the route.
-		// @lore BC5 T7b: PATCH /api/routines/:id 404 test deleted with the route.
-	});
+	// @lore BC5 T7b: section 15 "Request validation" deleted — its two cases
+	// (POST /api/sessions door #114, PATCH /api/routines/:id 404) were both
+	// removed with their routes, leaving an empty describe vitest refuses to run.
 });
