@@ -15,6 +15,19 @@
  * @lore AD8a: /api/rail mock removed — the Rail API was deleted in U6 and the
  * route has been purged from the server. See packages/server/src/app.ts.
  *
+ * @lore BC5 T9/T11: the user door — `POST /api/actions/{search_users,
+ * open_user, edit_user}` — replaced `GET /api/auth/me`, `GET/POST/PATCH
+ * /api/{users,agents,agent-profile,org,teams,recipients}*` and the routine/
+ * notification queue routes. `AppShell` calls `open_user({})` (via
+ * `useCurrentUser`) on EVERY page load — same role `GET /api/auth/me` used to
+ * play — so this file's auto-use fixture answers it by default (a "self" row,
+ * echoing `DEFAULT_AUTH_ME`) the same way it already defaults `open_task`;
+ * without that default every spec in the suite, not only the ones that seed
+ * a user, would hang on the shell's own bootstrap call. `GET /api/teams`
+ * and `GET /api/agents` are gone with the `teams`/`users`/`agents` route
+ * families — nothing production calls them any more — so their mocks are
+ * deleted rather than kept as dead handlers.
+ *
  * This file extends Playwright's `test` with an auto-use fixture that intercepts
  * the core M3 endpoints before every test. Individual tests can register
  * their own page.route() calls to override specific endpoints — Playwright's LIFO
@@ -38,10 +51,11 @@ import type {
 	TaskCardSummary,
 	TaskNode,
 	TaskView,
-	TeamDetail,
 	Thread,
 	ThreadListRow,
 	ThreadView,
+	UserRow,
+	UserView,
 } from "@hyperidle/domain-model";
 import { test as base, expect } from "@playwright/test";
 import type { AgentConfig } from "../src/settings/settings-types.js";
@@ -73,17 +87,50 @@ const DEFAULT_SETTINGS = {
 /** Default mock response for POST /api/actions/search_threads */
 const DEFAULT_THREADS: never[] = [];
 
-/** Default mock response for GET /api/teams */
-const DEFAULT_TEAMS = {
-	teams: [
-		{
-			id: "test-team-1",
-			name: "Test Team",
-			phase: "build",
-			active: true,
-		},
-	],
-};
+/**
+ * Default mock response for POST /api/actions/open_user with no `id` — the
+ * "self" row `useCurrentUser` (and therefore `AppShell`, on every page load)
+ * resolves. Echoes `DEFAULT_AUTH_ME`'s identity. Defined with `makeUserRow`
+ * (declared further down — function declarations hoist) so this stays the
+ * one row shape the whole file shares.
+ */
+const DEFAULT_USER_ROW: UserRow = makeUserRow("test-founder", {
+	name: "Test Founder",
+	role: "founder",
+	email: "test@hyperidle.dev",
+});
+
+/**
+ * Answers `POST /api/actions/open_user` with no `id` (the caller's own row) —
+ * shared by the auto-use fixture and `registerCoreMocks`. A call carrying an
+ * `id` falls through (`route.fallback()`) so a per-test `mockUser()` /
+ * `mockUser({ self: true })` registration — or a spec's own handler — wins.
+ */
+async function fulfillDefaultOpenUser(
+	route: import("@playwright/test").Route,
+): Promise<void> {
+	if (route.request().method() !== "POST") {
+		await route.continue();
+		return;
+	}
+	const input = JSON.parse(route.request().postData() ?? "{}") as { id?: string };
+	if (input.id !== undefined) {
+		await route.fallback();
+		return;
+	}
+	await route.fulfill({
+		status: 200,
+		contentType: "application/json",
+		body: JSON.stringify({
+			ok: true,
+			data: makeUserView(DEFAULT_USER_ROW, {
+				connections: { connections: [], inherited: [] },
+				behaviour: [],
+				inbox: [],
+			}),
+		}),
+	});
+}
 
 type CoreApiFixtures = {
 	/** Auto-use fixture: registers default M3 API mocks before every test. */
@@ -151,18 +198,8 @@ export const test = base.extend<CoreApiFixtures>({
 				});
 			});
 
-			// GET /api/teams — team list for work portfolio
-			await page.route("**/api/teams", async (route) => {
-				if (route.request().method() === "GET") {
-					await route.fulfill({
-						status: 200,
-						contentType: "application/json",
-						body: JSON.stringify(DEFAULT_TEAMS),
-					});
-				} else {
-					await route.continue();
-				}
-			});
+			// POST /api/actions/open_user (no id) — the shell's own "who am I".
+			await page.route("**/api/actions/open_user", fulfillDefaultOpenUser);
 
 			// POST /api/actions/open_task — WorkTaskPage's only data source.
 			//
@@ -245,17 +282,7 @@ export async function registerCoreMocks(page: import("@playwright/test").Page): 
 			body: JSON.stringify({ ok: true, data: DEFAULT_THREADS }),
 		});
 	});
-	await page.route("**/api/teams", async (route) => {
-		if (route.request().method() === "GET") {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(DEFAULT_TEAMS),
-			});
-		} else {
-			await route.continue();
-		}
-	});
+	await page.route("**/api/actions/open_user", fulfillDefaultOpenUser);
 }
 
 // ---------------------------------------------------------------------------
@@ -419,43 +446,288 @@ export function makeTaskCardSummary(
 	};
 }
 
-export interface MockTeamDetailOptions {
-	readonly teamId: string;
-	readonly name?: string;
-	readonly capacity?: number;
-	readonly tasksInProgress?: readonly TaskCardSummary[];
-	readonly routines?: TeamDetail["routines"];
-	readonly roster?: TeamDetail["roster"];
+// ---------------------------------------------------------------------------
+// User fixtures
+//
+// @lore BC5 T9/T11: the only user surface is `POST /api/actions/{search_users,
+// open_user, edit_user}` — `{ok:true,data}` or `{ok:false,problems}`.
+// `GET /api/auth/me`, `GET/POST/PATCH /api/{users,agents,agent-profile,org,
+// teams,recipients}*` are deleted. These helpers build the row shapes
+// (`UserRow`, `UserView`) and register per-test mocks, the same pattern as
+// the thread/document fixtures above.
+// ---------------------------------------------------------------------------
+
+/** A complete user row — person or agent. Pass only the fields the assertion depends on. */
+export function makeUserRow(id: string, overrides: Partial<UserRow> = {}): UserRow {
+	return {
+		id,
+		kind: "human",
+		name: `User ${id}`,
+		role: "member",
+		status: "active",
+		email: null,
+		avatarUrl: null,
+		createdAt: "2026-01-01T00:00:00.000Z",
+		agentCategory: null,
+		ownerUserId: null,
+		health: null,
+		team: null,
+		edges: [],
+		...overrides,
+	};
 }
 
-/** Mock `GET /api/teams/:id` — the team detail page's only data source. */
-export async function mockTeamDetail(
-	page: import("@playwright/test").Page,
-	opts: MockTeamDetailOptions,
-): Promise<void> {
-	const body: TeamDetail = {
-		team: {
-			id: opts.teamId,
-			name: opts.name ?? "Test Team",
-			phase: "build",
-			status: "healthy",
-			leadAgentId: null,
-		},
-		teamMembers: { id: opts.teamId, formedAt: "2026-01-01T00:00:00.000Z", dissolvedAt: null },
-		roster: [...(opts.roster ?? [])],
-		burn: { capacity: opts.capacity ?? 3 },
-		tasksInProgress: [...(opts.tasksInProgress ?? [])],
-		routines: [...(opts.routines ?? [])],
+/** `open_user`'s full payload for one row — every optional section defaults to "not fetched". */
+export function makeUserView(row: UserRow | null, overrides: Partial<UserView> = {}): UserView {
+	return {
+		user: row,
+		runsOn: [],
+		runConfig: null,
+		documentIds: [],
+		folders: [],
+		subscriptions: [],
+		connections: null,
+		behaviour: null,
+		inbox: null,
+		reviewTrackRecord: null,
+		...overrides,
 	};
-	await page.route(`**/api/teams/${opts.teamId}`, async (route) => {
-		if (route.request().method() !== "GET") {
-			await route.continue();
+}
+
+export interface MockUserOptions {
+	/** The row `open_user`/`edit_user` answer for. */
+	readonly row: UserRow;
+	/**
+	 * When true, `open_user({})` (no id — "myself") answers with this row too,
+	 * alongside `open_user({ id: row.id })`. Set on the one row a spec is
+	 * viewing/acting as.
+	 */
+	readonly self?: boolean;
+	readonly runsOn?: UserView["runsOn"];
+	readonly runConfig?: UserView["runConfig"];
+	readonly documentIds?: UserView["documentIds"];
+	readonly folders?: UserView["folders"];
+	readonly subscriptions?: UserView["subscriptions"];
+	readonly connections?: UserView["connections"];
+	readonly behaviour?: UserView["behaviour"];
+	readonly inbox?: UserView["inbox"];
+	readonly reviewTrackRecord?: UserView["reviewTrackRecord"];
+	/** When set, `edit_user` replies with this HTTP status instead of 200. */
+	readonly patchStatus?: number;
+}
+
+/**
+ * Mock `open_user` (what `useCurrentUser`/`useAgentProfile`/every settings
+ * page loads) and `edit_user` (what they write) for one user id — both
+ * `POST /api/actions/<name>`. `edit_user` merges the row-level scalar fields
+ * of the patch (name/role/status/email/avatarUrl/health) and echoes the view
+ * back; a spec asserting a structural edit (subscriptions/edges/folders/
+ * connections) registers its own narrower handler after calling this, which
+ * wins by LIFO.
+ *
+ * Registered per-test, so it wins over the auto-use `open_user({})` default
+ * (Playwright matches routes LIFO).
+ */
+export async function mockUser(
+	page: import("@playwright/test").Page,
+	opts: MockUserOptions,
+): Promise<void> {
+	let row = opts.row;
+	const view = (): UserView =>
+		makeUserView(row, {
+			runsOn: opts.runsOn,
+			runConfig: opts.runConfig,
+			documentIds: opts.documentIds,
+			folders: opts.folders,
+			subscriptions: opts.subscriptions,
+			connections: opts.connections,
+			behaviour: opts.behaviour,
+			inbox: opts.inbox,
+			reviewTrackRecord: opts.reviewTrackRecord,
+		});
+
+	await page.route("**/api/actions/open_user", async (route) => {
+		const input = JSON.parse(route.request().postData() ?? "{}") as { id?: string };
+		const matches = input.id === row.id || (opts.self === true && input.id === undefined);
+		if (!matches) {
+			// @lore see mockTaskTree's open_task handler above — fallback(), not
+			// continue(), so a spec mocking more than one user id still works.
+			await route.fallback();
 			return;
 		}
 		await route.fulfill({
 			status: 200,
 			contentType: "application/json",
-			body: JSON.stringify(body),
+			body: JSON.stringify({ ok: true, data: view() }),
+		});
+	});
+
+	await page.route("**/api/actions/edit_user", async (route) => {
+		const patch = JSON.parse(route.request().postData() ?? "{}") as Partial<UserRow> & {
+			id?: string;
+		};
+		if (patch.id !== row.id) {
+			await route.fallback();
+			return;
+		}
+		const status = opts.patchStatus ?? 200;
+		if (status !== 200) {
+			await route.fulfill({
+				status,
+				contentType: "application/json",
+				body: JSON.stringify({
+					ok: false,
+					problems: [{ code: "validation_error", message: "Edit rejected" }],
+				}),
+			});
+			return;
+		}
+		row = { ...row, ...patch };
+		await route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify({ ok: true, data: view() }),
+		});
+	});
+}
+
+export interface MockSearchUsersOptions {
+	readonly rows: readonly UserRow[];
+}
+
+/**
+ * Mock `search_users` — the roster, the agent list, the recipient picker,
+ * the org chart and the team pages (`useTeams`/`useTeam` build their team
+ * list/detail from this one call, client-side). Applies the same filters the
+ * real action does (ids/kind/teamId/name-contains/ownerUserId/status) over
+ * the rows given, so a spec seeding more than one team or kind gets the
+ * right slice for each call. Registered per-test; there is no auto-use
+ * fallback for this route (unlike `open_user`), so a spec that mounts a
+ * user-search surface without calling this hangs on loading.
+ */
+export async function mockSearchUsers(
+	page: import("@playwright/test").Page,
+	opts: MockSearchUsersOptions,
+): Promise<void> {
+	await page.route("**/api/actions/search_users", async (route) => {
+		if (route.request().method() !== "POST") {
+			await route.continue();
+			return;
+		}
+		const input = JSON.parse(route.request().postData() ?? "{}") as {
+			ids?: readonly string[];
+			kind?: string;
+			teamId?: string;
+			name?: string;
+			ownerUserId?: string;
+			status?: string;
+		};
+		let rows = [...opts.rows];
+		if (input.ids) rows = rows.filter((r) => input.ids?.includes(r.id));
+		if (input.kind) rows = rows.filter((r) => r.kind === input.kind);
+		if (input.teamId) rows = rows.filter((r) => r.team?.id === input.teamId);
+		if (input.name) {
+			const needle = input.name.toLowerCase();
+			rows = rows.filter((r) => r.name.toLowerCase().includes(needle));
+		}
+		if (input.ownerUserId) rows = rows.filter((r) => r.ownerUserId === input.ownerUserId);
+		if (input.status) rows = rows.filter((r) => r.status === input.status);
+		await route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify({ ok: true, data: rows }),
+		});
+	});
+}
+
+export interface MockTeamPageOptions {
+	readonly teamId: string;
+	readonly teamName?: string;
+	/** Agent members of the team (kind "ai") — the roster `useTeam` renders. */
+	readonly roster?: readonly UserRow[];
+	/** True ⇒ `useTeam`'s status computes "blocked" (one blocked task exists). */
+	readonly blocked?: boolean;
+	/** Root (`parentTaskId: null`), `in_progress` tasks — the active-task cards. */
+	readonly tasksInProgress?: readonly Task[];
+	/** Each in-progress task's subtree, keyed by task id — for its progress rollup. */
+	readonly taskChildren?: Readonly<Record<string, readonly TaskNode[]>>;
+}
+
+/**
+ * Mock the three calls `useTeam(teamId)` composes a team page from —
+ * `search_users({ teamId })`, `search_tasks({ teamId, state })` (blocked +
+ * in_progress), and `open_task` per in-progress task — replacing the single
+ * `GET /api/teams/:id` the page used to make. `capacity`/`phase`/
+ * `leadAgentId`/routines have no equivalent: the columns and the routines
+ * table that carried them are gone (D-c7jgxy).
+ */
+export async function mockTeamPage(
+	page: import("@playwright/test").Page,
+	opts: MockTeamPageOptions,
+): Promise<void> {
+	const team = { id: opts.teamId, name: opts.teamName ?? "Test Team" };
+	const roster = [...(opts.roster ?? [])].map((r) => ({ ...r, team }));
+	// useTeam reads teamName off the first member row — a roster-less team
+	// still needs one row carrying `team` so the name resolves.
+	const members = roster.length > 0 ? roster : [makeUserRow(`${opts.teamId}-member`, { team })];
+
+	await page.route("**/api/actions/search_users", async (route) => {
+		const input = JSON.parse(route.request().postData() ?? "{}") as { teamId?: string };
+		if (input.teamId !== opts.teamId) {
+			await route.fallback();
+			return;
+		}
+		await route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify({ ok: true, data: members }),
+		});
+	});
+
+	await page.route("**/api/actions/search_tasks", async (route) => {
+		const input = JSON.parse(route.request().postData() ?? "{}") as {
+			teamId?: string;
+			state?: string;
+			parentTaskId?: string | null;
+		};
+		if (input.teamId !== opts.teamId) {
+			await route.fallback();
+			return;
+		}
+		const data =
+			input.state === "blocked"
+				? opts.blocked
+					? [makeTask(`${opts.teamId}-blocked`, { teamId: opts.teamId, state: "blocked" })]
+					: []
+				: [...(opts.tasksInProgress ?? [])];
+		await route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify({ ok: true, data }),
+		});
+	});
+
+	await page.route("**/api/actions/open_task", async (route) => {
+		const input = JSON.parse(route.request().postData() ?? "{}") as { id?: string };
+		const task = (opts.tasksInProgress ?? []).find((t) => t.id === input.id);
+		if (!task) {
+			await route.fallback();
+			return;
+		}
+		await route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify({
+				ok: true,
+				data: {
+					task,
+					ancestors: [],
+					children: opts.taskChildren?.[task.id] ?? [],
+					tokensActualRollup: null,
+					threadId: null,
+					attachments: [],
+				},
+			}),
 		});
 	});
 }
@@ -608,9 +880,11 @@ export async function mockThread(
 }
 
 /**
- * A complete `GET /api/agents` row. Pass only the fields the assertion
- * depends on — `ownerUserId` is the one the assistant overlay reads to find
- * "the viewer's own agent".
+ * An `AgentConfig` — the shape `useAgents`' `toAgentConfig` produces from a
+ * `search_users` row. Pass only the fields the assertion depends on —
+ * `ownerUserId` is the one the assistant overlay reads to find "the viewer's
+ * own agent". `mockAgents` below is the one place that still needs this
+ * shape; every other caller reads a `UserRow` directly now.
  */
 export function makeAgentConfig(id: string, overrides: Partial<AgentConfig> = {}): AgentConfig {
 	return {
@@ -634,24 +908,46 @@ export interface MockAgentsOptions {
 }
 
 /**
- * Mock `GET /api/agents` — every agent picker's data source, and the
- * assistant overlay's `myAgentId = agents.find(a => a.ownerUserId ===
- * user?.id)` lookup. Registered per-test; wins over the network via
- * LIFO (there is no auto-use fallback for this route).
+ * Mock `search_users({ kind: "ai" })` — `useAgents`' one fetch, the source
+ * for every agent picker and the assistant overlay's `myAgentId` lookup.
+ *
+ * @lore BC5 T9: replaces `GET /api/agents`, deleted with the `agents` route.
+ * `useAgents.toAgentConfig` only ever reads `id`/`name`/`role`/`ownerUserId`/
+ * `status`/`agentCategory` off the row — the rest of `AgentConfig`
+ * (harness/model/identity document) has no `search_users` equivalent and
+ * comes back `null`/default, exactly as production does. Registered
+ * per-test; falls through (not `continue()`) on a non-`kind:"ai"` query so
+ * it composes with a `mockSearchUsers`/`mockTeamPage` call for the same
+ * page.
  */
 export async function mockAgents(
 	page: import("@playwright/test").Page,
 	opts: MockAgentsOptions,
 ): Promise<void> {
-	await page.route("**/api/agents", async (route) => {
-		if (route.request().method() !== "GET") {
+	const rows: UserRow[] = opts.agents.map((a) =>
+		makeUserRow(a.id, {
+			kind: "ai",
+			name: a.name,
+			role: a.role,
+			ownerUserId: a.ownerUserId,
+			status: a.status,
+			agentCategory: a.agentCategory,
+		}),
+	);
+	await page.route("**/api/actions/search_users", async (route) => {
+		if (route.request().method() !== "POST") {
 			await route.continue();
+			return;
+		}
+		const input = JSON.parse(route.request().postData() ?? "{}") as { kind?: string };
+		if (input.kind !== "ai") {
+			await route.fallback();
 			return;
 		}
 		await route.fulfill({
 			status: 200,
 			contentType: "application/json",
-			body: JSON.stringify(opts.agents),
+			body: JSON.stringify({ ok: true, data: rows }),
 		});
 	});
 }
