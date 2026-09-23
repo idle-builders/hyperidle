@@ -12,30 +12,12 @@
  * The fixtures fixture auto-mocks the core APIs. We layer additional mocks
  * for /api/bets and /api/teams.
  */
-import { expect, makeDocumentRow, mockSearchThreads, test } from "./fixtures";
+import { expect, makeDocumentRow, makeUserRow, mockSearchThreads, mockSearchUsers, test } from "./fixtures";
 
-const TEAMS_FIXTURE = {
-	teams: [
-		{
-			id: "team-alpha",
-			name: "Alpha Team",
-			status: "healthy",
-			shipRate: "80%",
-			leadAgentId: "agent-1",
-			shipped: 5,
-			progress: { done: 2, total: 4 },
-		},
-		{
-			id: "team-beta",
-			name: "Beta Team",
-			status: "behind",
-			shipRate: "60%",
-			leadAgentId: "agent-2",
-			shipped: 3,
-			progress: { done: 1, total: 3 },
-		},
-	],
-};
+const TEAM_ROSTER_U9 = [
+	makeUserRow("agent-1", { kind: "ai", team: { id: "team-alpha", name: "Alpha Team" } }),
+	makeUserRow("agent-2", { kind: "ai", team: { id: "team-beta", name: "Beta Team" } }),
+];
 
 const DOCUMENT_ROWS = [
 	makeDocumentRow("k1", {
@@ -89,19 +71,10 @@ test.describe("U9 AC-1: Conversations page — New Thread button + filter pills"
 
 test.describe("U9 AC-2 + AC-3: Work Portfolio — bet grid + team pills", () => {
 	test.beforeEach(async ({ page }) => {
-		// Mock /api/teams
-		await page.route("**/api/teams", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(TEAMS_FIXTURE),
-			});
-		});
-
-		// Mock /api/bets (portfolio endpoint)
+		await mockSearchUsers(page, { rows: TEAM_ROSTER_U9 });
 
 		await page.goto("/work/portfolio");
-		await page.waitForSelector("[data-testid='work-portfolio-page']");
+		await page.waitForSelector("[data-testid='work-overview-page']");
 	});
 
 	test('"All bets" heading is visible (not "Portfolio Canvas")', async ({ page }) => {
