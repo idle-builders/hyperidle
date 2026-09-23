@@ -8,10 +8,6 @@
  * exactly (architecture.md §8.3), off the same `search_documents` runner,
  * instead of each test reaching past the action mechanism for the deleted
  * direct-table function.
- *
- * @lore BC5 T7b: `getRoutinePrompt` deleted with the routine package — its
- * only callers were the routine-scheduler integration tests, deleted in the
- * same change.
  */
 import type { HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";

@@ -53,7 +53,7 @@ interface AppOptions {
 	/**
 	 * @lore AU44 batch 4: readAlertPreferences removed from ctx — the dispatcher
 	 * that consumed it is deleted. serviceBootstrap ctx now only carries the 3
-	 * primitives needed by the routine scheduler and agent orchestration.
+	 * primitives the agent layer and agent orchestration need.
 	 */
 	serviceBootstrap?: (ctx: {
 		db: HyperIdleDb;
@@ -382,7 +382,7 @@ function registerSubscriptionServices(
 	});
 	// BC5 T7a: the schedule half — started and stopped alongside the fire
 	// mechanism, needing the SAME composed runners `registerAgentLayerServices`
-	// (the routine scheduler's own composition root) never had.
+	// never had (its own composition root is deliberately built without them).
 	const subscriptionClock = startSubscriptionClock(db, eventBus, {
 		agentWorkIntentRecorder,
 		searchDocuments: runners.searchDocumentsRun,

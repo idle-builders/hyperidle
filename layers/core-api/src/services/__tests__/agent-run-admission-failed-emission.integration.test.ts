@@ -1,30 +1,19 @@
 /**
- * AU21 Increment 3, Wave 0 (RED) — the NEW pre-handoff failure channel.
- *
- * architecture.md §6 Decision B4 / §10's `AgentRunAdmissionFailedEvent` /
- * §13's migration list: `failOrRelease` (session-requests/src/service.ts:960)
- * must EMIT `agent_run_admission_failed` on every failed claim/dispatch
- * attempt (terminal computed exactly as today's logic already does), and must
- * STOP performing its current direct `deps.routine.updateRoutineRunIfRunning`
- * write for a terminal `routine_run` failure — that write moves to a core-api
- * subscriber reacting to the new event (see the sibling
- * `agent-run-admission-failed-subscribers.integration.test.ts`).
+ * The pre-handoff failure channel: `failOrRelease` (session-requests/src/
+ * service.ts) emits `agent_run_admission_failed` on every failed claim/
+ * dispatch attempt, terminal computed the same way for every kind.
  *
  * This file proves ONLY the emission contract — the event fires, with the
  * right shape, for both terminal codes and the non-terminal (informational)
- * case — and that failOrRelease's own direct write is gone (GREEN: `deps.
- * eventBus` exists on `DurableAgentQueueDeps` and is genuinely wired; AU21 §9
- * Increment 9 additionally deleted the dead `deps.routine` surface entirely,
- * so there is no longer even a compile-time path back to the old direct
- * write).
+ * case.
  *
  * @lore assertion note: `streamId`'s exact convention for a PRE-resolution
  * failure (the resolution itself is what's failing, so a fully-resolved
- * `task:<id>`/`routine:<id>`/`thread:<id>` stream may not be derivable from
- * the stored intent row alone) is not pinned down by architecture.md beyond
- * "same convention as AgentWorkIntentEvent" — this test asserts its presence
- * as a non-empty string, not an exact format, and leaves the precise
- * convention to the implementer.
+ * `task:<id>`/`subscription:<id>`/`thread:<id>` stream may not be derivable
+ * from the stored intent row alone) is not pinned down by architecture.md
+ * beyond "same convention as AgentWorkIntentEvent" — this test asserts its
+ * presence as a non-empty string, not an exact format, and leaves the
+ * precise convention to the implementer.
  */
 
 import { agentWorkIntents, type HyperIdleDb, teams, users } from "@hyperidle/db";
@@ -36,22 +25,11 @@ import { describe, expect, test } from "../../__testing__/test-fixtures.js";
 const NOW = new Date().toISOString();
 
 /**
- * AU21 §9 Increment 4, Wave B — `routine_run` is now ALSO migrated to
- * resolve-at-emit (the last of the seven kinds), so the "inject a throwing
- * `deps.routine.getRoutineRunById` spy" vehicle the two tests below used
- * (per their own `@lore` note, itself a repeat of the same move once made for
- * `assistant_turn`) no longer reaches any domain read at drain time — a bare
- * `routine_run` intent now fails immediately with `InvalidAgentWorkSourceError`
- * before ever touching `deps.routine`. Both tests are rewritten to the SAME
- * real-infra-fault-injection vehicle
- * `agent-run-admission-failed-routine-run-migration.integration.test.ts`
- * proves: a genuinely BAKED `routine_run` intent (so the drain takes the
- * zero-domain-read baked path, exactly like production) whose downstream
- * `agent_session_requests` insert is rejected by a real Postgres trigger —
- * a legitimate non-`InvalidAgentWorkSourceError` failure class for an
- * already-validly-baked payload, same as the `_bake_deps` these two tests
- * exist to exercise (failOrRelease's generic terminal/non-terminal + max-
- * attempts mechanics), not any one kind's resolution.
+ * Every kind resolves at emit time, so no kind reaches a domain read at
+ * drain time for an unbaked intent. Vehicle: a genuinely BAKED
+ * `subscription_run` intent (so `parseBakedRequest` is truthy and the drain
+ * takes the zero-domain-read baked path) whose downstream
+ * `agent_session_requests` insert is rejected by a real Postgres trigger.
  */
 async function rejectSessionRequestWrites(db: HyperIdleDb): Promise<void> {
 	await db.execute(
@@ -129,15 +107,6 @@ describe("agent_run_admission_failed — emission from failOrRelease", () => {
 	// The MAX_ATTEMPTS_EXCEEDED and non-terminal tests below (baked + Postgres
 	// trigger) remain as the live emission proofs.
 
-	// @lore AU21 §9 Increment 4, Wave B: these two tests originally used
-	// `assistant_turn`, then `routine_run` (once `assistant_turn` migrated),
-	// as a "still-unmigrated kind" vehicle for a transient (non-source-
-	// invalid) drain-time failure. Now that ALL SEVEN kinds resolve at emit,
-	// there is no kind left that reaches a domain read at drain time for an
-	// unbaked intent — see this file's top-of-file note. Vehicle: a genuinely
-	// BAKED `routine_run` intent (so `parseBakedRequest` is truthy and the
-	// drain takes the zero-domain-read baked path) whose downstream
-	// `agent_session_requests` insert is rejected by a real Postgres trigger.
 	test("terminal MAX_ATTEMPTS_EXCEEDED failure (non-InvalidAgentWorkSourceError) emits the event", async ({
 		db,
 		eventBus,
@@ -206,8 +175,7 @@ describe("agent_run_admission_failed — emission from failOrRelease", () => {
 		);
 	});
 
-	// @lore AU44: "failOrRelease direct routineRuns write" test deleted.
-	// It also relied on the unbaked-intent drain path which AU44 removed.
-	// The type system is the live proof: deps.routine no longer exists on
-	// DurableQueueDeps (removed in AU21 §9 Increment 9).
+	// @lore AU44: the type system is the live proof that a direct run-row
+	// write from `failOrRelease` can't come back — no such dependency exists
+	// on `DurableQueueDeps` any more.
 });

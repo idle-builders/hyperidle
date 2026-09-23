@@ -118,11 +118,12 @@ async function callAgent<T>(
 
 /**
  * The internal-caller path — review finding: only a system-initiated call
- * (the routines route, the agent identity helper, the plugin installer) may
- * name an `agent`/`routine` parent through `edit_document`. Neither client
- * door (`callHuman`/`callAgent`) can reach it any more; this simulates the
- * same in-process binding those composition roots use by hand-setting
- * `ctx.internal` before calling the action's `run` directly.
+ * (the subscription internal path, the agent identity helper, the plugin
+ * installer) may name an `agent`/`subscription` parent through
+ * `edit_document`. Neither client door (`callHuman`/`callAgent`) can reach
+ * it any more; this simulates the same in-process binding those composition
+ * roots use by hand-setting `ctx.internal` before calling the action's `run`
+ * directly.
  */
 async function callInternal<T>(
 	actions: readonly Action[],
@@ -867,9 +868,9 @@ describe("case 6 — search_documents({inTree:true}) excludes artifacts and slot
 				})
 			).agent,
 		).document.id;
-		// A routine parent is internal-only (`forbidden_parent_kind`) — seeded
-		// through the internal path, the same in-process binding the routines
-		// route uses, never through a client door.
+		// A subscription parent is internal-only (`forbidden_parent_kind`) —
+		// seeded through the internal path, the same in-process binding the
+		// subscription actions use, never through a client door.
 		const prompt = requireDoc(
 			await callInternal<DocumentView>(
 				actions,
@@ -959,11 +960,11 @@ describe('case 7 — search_documents({as:"memory"}) returns only the caller\'s 
 
 // ---------------------------------------------------------------------------
 // Case 8 — search_documents({parent:{kind: "subscription", ids:[a,b]}, slot:"prompt"})
-// returns one row per routine, in one query.
+// returns one row per subscription, in one query.
 // ---------------------------------------------------------------------------
 
-describe("case 8 — a batched parent.ids search returns one row per routine", () => {
-	test("both doors: exactly the two prompts, one per routine id", async ({
+describe("case 8 — a batched parent.ids search returns one row per subscription", () => {
+	test("both doors: exactly the two prompts, one per subscription id", async ({
 		app,
 		db,
 		eventBus,
@@ -979,10 +980,11 @@ describe("case 8 — a batched parent.ids search returns one row per routine", (
 			sessionId: "c8-sess",
 		});
 
-		// A routine parent is internal-only (`forbidden_parent_kind`) — both
-		// seeded through the internal path (the same in-process binding the
-		// routines route uses), on two distinct routine parents so the second
-		// write never collides with the first on the same (parent, slot).
+		// A subscription parent is internal-only (`forbidden_parent_kind`) —
+		// both seeded through the internal path (the same in-process binding
+		// the subscription actions use), on two distinct subscription parents
+		// so the second write never collides with the first on the same
+		// (parent, slot).
 		const a = requireDoc(
 			await callInternal<DocumentView>(
 				actions,
@@ -1531,7 +1533,7 @@ describe("case 9 — every §4.1/§4.2 invariant, exact code, both doors", () =>
 		}
 	}, 30_000);
 
-	test('D5 slot_taken: a second "prompt" on one routine', async ({
+	test('D5 slot_taken: a second "prompt" on one subscription', async ({
 		db,
 		eventBus,
 		agentOrchestration,
@@ -1540,9 +1542,9 @@ describe("case 9 — every §4.1/§4.2 invariant, exact code, both doors", () =>
 		await seedAgent(db, "c9d5-agent");
 		await seedSubscription(db, "c9d5-routine", "c9d5-agent");
 		const actions = buildRealActions(agentOrchestration);
-		// A routine parent is internal-only (`forbidden_parent_kind`) — D5
+		// A subscription parent is internal-only (`forbidden_parent_kind`) — D5
 		// itself is about the slot, not about who called, so this simulates the
-		// routines route's own in-process binding rather than a client door.
+		// subscription actions' own in-process binding rather than a client door.
 		await callInternal<DocumentView>(
 			actions,
 			db,
@@ -1709,13 +1711,13 @@ describe("case 9 — every §4.1/§4.2 invariant, exact code, both doors", () =>
 
 // ---------------------------------------------------------------------------
 // Case 9b — forbidden_parent_kind (review finding): only a system-initiated
-// call may name an `agent`/`routine` parent through `edit_document`. Both
-// client doors refused; the internal path (the identity helper, the routines
-// route) is unaffected and a missing routine on that path still answers
-// parent_not_found.
+// call may name an `agent`/`subscription` parent through `edit_document`.
+// Both client doors refused; the internal path (the identity helper, the
+// subscription actions) is unaffected and a missing subscription on that
+// path still answers parent_not_found.
 // ---------------------------------------------------------------------------
 
-describe("case 9b — forbidden_parent_kind: only the system attaches a document to an agent or a routine", () => {
+describe("case 9b — forbidden_parent_kind: only the system attaches a document to an agent or a subscription", () => {
 	test("HTTP door and tool door both refuse a client-named agent parent", async ({
 		app,
 		db,
@@ -1737,7 +1739,7 @@ describe("case 9b — forbidden_parent_kind: only the system attaches a document
 		expect(agent.problemCode).toBe("forbidden_parent_kind");
 	});
 
-	test("HTTP door and tool door both refuse a client-named routine parent", async ({
+	test("HTTP door and tool door both refuse a client-named subscription parent", async ({
 		app,
 		db,
 		eventBus,
@@ -1798,7 +1800,7 @@ describe("case 9b — forbidden_parent_kind: only the system attaches a document
 		expect(opened.document.parentId).toBe("c9b3-agent");
 	});
 
-	test("D2 parent_not_found: a missing routine on the internal path", async ({
+	test("D2 parent_not_found: a missing subscription on the internal path", async ({
 		db,
 		eventBus,
 		agentOrchestration,
@@ -1839,8 +1841,8 @@ describe("case 10 — the combined cases of §4.3 (2, 3, 4, 5, 6, 7, 8)", () => 
 			sessionId: "c10c2-sess",
 		});
 		const other = requireDoc((await doors.edit({ title: "elsewhere" })).human).document.id;
-		// A routine parent is internal-only (`forbidden_parent_kind`) — seeded
-		// through the internal path, never a client door.
+		// A subscription parent is internal-only (`forbidden_parent_kind`) —
+		// seeded through the internal path, never a client door.
 		const prompt = requireDoc(
 			await callInternal<DocumentView>(
 				actions,

@@ -8,9 +8,9 @@ import { registerAgentLayerServices, registerCoreDomainServices } from "../servi
 /**
  * AU11: former app-runtime `bootstrapAppRuntime` split into two owner-scoped
  * registration functions (server-factory.ts) — `registerCoreDomainServices`
- * (document/notifications/policy/routine-scheduler) and
- * `registerAgentLayerServices` (builtin-routine handlers/dispatcher/reapers —
- * AU21 Increment 14a: cost-cap sentinel HARD-DELETED, no replacement).
+ * (document/policy/review routing/lifecycle propagation/retention) and
+ * `registerAgentLayerServices` (dispatcher/reapers — AU21 Increment 14a:
+ * cost-cap sentinel HARD-DELETED, no replacement).
  * Composing them replicates the exact same disposer set bootstrapAppRuntime
  * returned; only the grouping is new.
  *
@@ -96,10 +96,8 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				cleanupEffect: "unsubscribe",
 				constituents: ["agent_run_admission_failed subscription"],
 			},
-			// @lore BC5 T7b: the "routine-run session-end reactions" owner
-			// (`registerRoutineRunSessionEndReactions`, the POST-SESSION
-			// routine-run finalize reaction) is HARD-DELETED with the routine
-			// package — a subscription's wake carries no run row to finalize.
+			// There is no routine-run session-end reactions owner — a
+			// subscription's wake carries no run row to finalize.
 			// @lore AU26: the POST-SESSION agent-health reaction — the event-driven
 			// degraded-agent notification that replaced `routes/teams-routes.ts`'s
 			// `maybeNotifyAgentError`, closing core-api's last `sessions` read.
@@ -111,8 +109,7 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 			// @lore AU21 §9 Increment 10 (Decision H1)/Increment 12 (Decision H3)
 			// Wave D: the POST-SESSION `task` dispatch-attempt finalize reaction
 			// PLUS the bet per-tier token-writeback reaction (Wave D's additive
-			// `session_ended` subscription) — a DIFFERENT mechanism/owner from the
-			// routine-run finalize reaction above, replacing `session-requests`'s/
+			// `session_ended` subscription), replacing `session-requests`'s/
 			// `run-orchestration`'s own former direct cross-layer writes.
 			{
 				owner: "work session-end reactions",
@@ -174,13 +171,10 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				cleanupEffect: "interval cleared",
 				constituents: ["retention interval"],
 			},
-			// @lore BC5 T7b: `registerAgentLayerServices` now returns no disposers
-			// at all — the routine scheduler (cron/due-eval tick, the last thing it
-			// owned) is HARD-DELETED with the routine package; the assistant still
-			// runs through the SAME durable poller (`startRuntime`) as every other
-			// kind, which is wired elsewhere, not here.
-			// @lore BA9d wave 3: "builtin routine reactions" (bet_state_changed
-			// subscription) was deleted in commit aa260893c — no owner entry here.
+			// `registerAgentLayerServices` now returns no disposers at all — no
+			// scheduler lives here; the assistant still runs through the SAME
+			// durable poller (`startRuntime`) as every other kind, which is
+			// wired elsewhere, not here.
 			// @lore AU21 Increment 14a: the "cost sentinel" owner (15-minute
 			// scheduled job + its dedup subscription) is HARD-DELETED along with
 			// the rest of the cost feature — no replacement.
@@ -297,18 +291,12 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				// removed from this owner's unsubscribe list — both events are
 				// HARD-DELETED along with the rest of the cost feature, no
 				// replacement subscription.
-				// @lore AU44 batch 4: notifications simplified — dispatcher, drain,
-				// alert-routing (item_created), daily-digest worker (routine_fired),
-				// and adapter abstraction all removed per FULL-AUDIT.md rows 5452-5453.
-				// @lore BC3 architecture.md §5 B7: the "notification" subscription
-				// entry (installNotifications' inbox-enqueue listener) is removed —
-				// the listener itself is HARD-DELETED, no replacement registration.
+				// The notification dispatcher, drain, alert-routing, daily-digest
+				// worker and adapter abstraction don't exist — nothing left to
+				// unsubscribe or clear.
 				{ unsubscribedEvents: [], clearedIntervals: 1 },
-				// @lore BC5 T7b: `registerRoutineEventMatcher` (one `eventBus.on` per
-				// EVENT_TYPES member, unwound in reverse registration order) is
-				// HARD-DELETED with the routine package along with the rest of
-				// `registerAgentLayerServices`'s former disposers — that function
-				// registers nothing now, so there is no trailing entry here.
+				// `registerAgentLayerServices` registers nothing now, so there is no
+				// trailing entry here.
 				// @lore AU21 Increment 14a: the "cost sentinel" owner (previously
 				// here, ["session_ended", "session_handoff_completed"] unsubscribe +
 				// 1 cleared interval) is HARD-DELETED along with the rest of the

@@ -6,17 +6,15 @@
  * exist yet").
  *
  * Every one of these scenarios drives the REAL, already-existing
- * `resolveIntentInputInternal` branch for that kind (none of the seven
- * resolvers are migrated in this wave — including `routine_run`, which stays
- * untouched all the way through Increment 3 per the scope note) into its
- * existing `InvalidAgentWorkSourceError` — a genuine pre-handoff failure,
- * exactly the shape the drain already produces today. What's NEW, and what
- * this file proves is currently MISSING, is the core-api-side REACTION once
- * that failure is reported back on `agent_run_admission_failed` with
+ * `resolveIntentInputInternal` branch for that kind into its existing
+ * `InvalidAgentWorkSourceError` — a genuine pre-handoff failure, exactly the
+ * shape the drain already produces today. What's NEW, and what this file
+ * proves is currently MISSING, is the core-api-side REACTION once that
+ * failure is reported back on `agent_run_admission_failed` with
  * `terminal: true`, per architecture.md §10's table:
  *
- *   subscription_run  -> logged only (BC5 T7b: replaces routine_run — a
- *                        subscription's wake carries no run row to finalize)
+ *   subscription_run  -> logged only; a subscription's wake carries no run
+ *                        row to finalize
  *   task_run          -> work marks the taskDispatchAttempts row failed
  *   session_start     -> work marks the explicitSessionStarts row failed (no retry)
  *   knowledge_action  -> a review-flagged item is created (no run-record mutation)
@@ -157,11 +155,10 @@ async function seedAgent(
 }
 
 describe("agent_run_admission_failed — per-kind core-api reactions", () => {
-	// @lore BC5 T7b: the routine_run reaction (finalizing a `routineRuns` row)
-	// is deleted with the routine package — `agent-run-admission-reactions.ts`'s
-	// `subscription_run` case is logged-only, since a subscription's wake
-	// carries no run row to finalize. This proves the drain reaches that case
-	// without throwing, the only externally observable behavior left.
+	// `agent-run-admission-reactions.ts`'s `subscription_run` case is
+	// logged-only, since a subscription's wake carries no run row to
+	// finalize. This proves the drain reaches that case without throwing,
+	// the only externally observable behavior left.
 	test("subscription_run: a refused wake is logged, no run row to finalize", async ({
 		db,
 		eventBus,

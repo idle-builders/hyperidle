@@ -197,8 +197,7 @@ describe("BA9d lifecycle: remove deletes materialised rows", () => {
 		const subscriptionIds = [...(await contributed(db, "subscription"))];
 		const res = await removeKmPlugin(app);
 		expect(res.status).toBe(200);
-		// @lore BC5 T7b: a subscription has no soft-delete column — remove is a
-		// hard delete now, unlike the routine it replaces.
+		// A subscription has no soft-delete column — remove is a hard delete.
 		const subscriptionRows = await db
 			.select()
 			.from(subscriptions)

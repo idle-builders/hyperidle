@@ -432,8 +432,8 @@ export function buildAgentOrchestrationPort(
 /**
  * AU31 §3.2 — the seam-backed `AgentWorkIntentRecorder` factory: the
  * composition-root adapter that lets `@hyperidle/work`'s `transitionTask`
- * (site 6), `@hyperidle/policy`'s `handoff` (site 7), `@hyperidle/routine`'s
- * scheduler (site 8) and `@hyperidle/review`'s proposed-call workflow
+ * (site 6), `@hyperidle/policy`'s `handoff` (site 7), the subscription
+ * clock (site 8) and `@hyperidle/review`'s proposed-call workflow
  * (site 9) — plus every route that records a work intent directly — go
  * through the port instead of importing `@hyperidle/session-requests`.
  *

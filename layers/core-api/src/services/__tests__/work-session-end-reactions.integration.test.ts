@@ -5,10 +5,9 @@
  * `registerWorkSessionEndReactions` (layers/core-api/src/services/
  * work-session-end-reactions.ts) does NOT YET EXIST — every test in this
  * file is RED via module resolution failure until the GREEN phase creates
- * it. This is the exact `routine-run-session-end-reactions.ts` pattern
- * (`registeredBuses` WeakSet idempotency guard, explicit
- * `register*(db, eventBus)` wiring convention) applied to `task`'s
- * post-session writeback.
+ * it. This is the same `registeredBuses` WeakSet idempotency guard, explicit
+ * `register*(db, eventBus)` wiring convention every reaction module in this
+ * directory follows, applied to `task`'s post-session writeback.
  *
  * Per architecture.md §6 Decision H / §9 Increment 10: this subscriber reacts
  * to `agent_run_lifecycle_changed` ONLY — NOT `session_ended`. `session_ended`'s

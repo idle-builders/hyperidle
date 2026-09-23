@@ -4,11 +4,10 @@
  * `registerWorkSessionStartedReactions` (layers/core-api/src/services/
  * work-session-started-reactions.ts) does NOT YET EXIST — every test in this
  * file is RED via module resolution failure until the GREEN phase creates it.
- * Same shape as `work-session-end-reactions.ts` /
- * `routine-run-session-end-reactions.ts`: a per-eventBus-instance idempotency
- * guard (`registeredBuses` WeakSet) and an explicit `register*(db, eventBus)`
- * wiring convention — NOT auto-wired onto `test-fixtures.ts`'s `eventBus`
- * fixture.
+ * Same shape as `work-session-end-reactions.ts`: a per-eventBus-instance
+ * idempotency guard (`registeredBuses` WeakSet) and an explicit
+ * `register*(db, eventBus)` wiring convention — NOT auto-wired onto
+ * `test-fixtures.ts`'s `eventBus` fixture.
  *
  * Per architecture.md §6 Decision H3 / §9 Increment 12: this subscriber
  * replaces `run-orchestration/provisioner.ts`'s direct

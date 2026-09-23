@@ -127,10 +127,9 @@ async function seedWork(db: HyperIdleDb): Promise<void> {
 		createdAt: now,
 		updatedAt: now,
 	});
-	// @lore BC5 T7b: `routines` is dropped (migration 0089) — subscriptions
-	// carry no FK to a backing row either, so this seed only ever needed the
-	// "subscription-au3-agent" id string used below as a `sourceId`, never a
-	// real backing row.
+	// Subscriptions carry no FK to a backing row, so this seed only ever
+	// needed the "subscription-au3-agent" id string used below as a
+	// `sourceId`, never a real backing row.
 	await db.insert(threads).values({
 		id: "thread-au3-agent",
 		hostKind: "user",

@@ -59,7 +59,7 @@ function identifyBootstrapOwner(
 	return Object.assign(dispose, { owner, cleanupEffect, constituents });
 }
 
-/** Default staleness bound for the routine-session reaper (1h). */
+/** Default staleness bound for the subscription-session reaper (1h). */
 export const DEFAULT_REAPER_STALE_AFTER_MS = 60 * 60 * 1000;
 /**
  * @lore AU20 C1: retention package dissolved — these constants move here
@@ -156,9 +156,8 @@ function buildPolicyDeps(
  * same disposer set; only the grouping changed, not registration order
  * within each group (behavior-preserving, AU11 import-path-only invariant).
  *
- * @lore BC5 T7b: the routine scheduler (cron/due-eval, `routine-scheduler.ts`)
- * is deleted with the routine package — the subscription clock replaces it,
- * wired in `app.ts` (§ its own `@lore`).
+ * @lore BC5 T7b: no scheduler lives here — the subscription clock (cron/
+ * due-eval) is wired in `app.ts` (§ its own `@lore`).
  */
 export function registerCoreDomainServices(ctx: {
 	readonly db: HyperIdleDb;
@@ -194,14 +193,14 @@ export function registerCoreDomainServices(ctx: {
 	 * through it instead of a notification-queue row.
 	 */
 	readonly editUser: import("./services/agent-health-session-end-reactions.js").EditUserRunFn;
-	/** AF6 scope (iii): when true, generic (taskId) routines auto-fire. */
+	/** AF6 scope (iii): when true, generic (taskId) subscriptions auto-fire. */
 	readonly canProvision?: boolean;
-	/** AF6 §4: routine-session reaper staleness bound (ms). Default 1h. */
+	/** AF6 §4: subscription-session reaper staleness bound (ms). Default 1h. */
 	readonly reaperStaleAfterMs?: number;
 	/** AF6 §4: in-process periodic reaper cadence (ms). 0 = every poll (tests). */
 	readonly reaperCadenceMs?: number;
 	/**
-	 * AD2: provisioning deps threaded into the routine scheduler's fire-time
+	 * AD2: provisioning deps threaded into the subscription clock's fire-time
 	 * session creation. Omitted from the type here to avoid a core-module
 	 * dependency on server harness types — passed through as-is.
 	 */
@@ -222,8 +221,8 @@ export function registerCoreDomainServices(ctx: {
 		),
 	);
 
-	// @lore BC5 T7b: the routine-run session-end reaction is deleted with the
-	// routine package — a subscription's wake carries no run row to finalize.
+	// The routine-run session-end reaction doesn't exist — a subscription's
+	// wake carries no run row to finalize.
 
 	// AU26: the degraded-agent notification, event-driven. Replaces
 	// `routes/teams-routes.ts`'s deleted `maybeNotifyAgentError` — a notification
@@ -347,16 +346,13 @@ export function registerCoreDomainServices(ctx: {
  * `registerCoreDomainServices` (see that function's doc-comment for the
  * behavior-preservation invariant).
  *
- * @lore BC5 T7b: the routine scheduler (builtin-routine event reaction +
- * the cron/due-eval tick loop, `routine-scheduler-bindings.ts`) is deleted
- * with the routine package — a subscription's fire and clock
- * (`registerSubscriptionFire`/`startSubscriptionClock`) replace it, wired
- * in `app.ts` alongside the dependency watcher, not here (they need the
+ * @lore BC5 T7b: no scheduler lives here — a subscription's fire and clock
+ * (`registerSubscriptionFire`/`startSubscriptionClock`) are wired in
+ * `app.ts` alongside the dependency watcher, not here (they need the
  * composed action bags this composition root is deliberately built
- * without — see `buildStandaloneDocumentActions`'s own doc-comment). The
- * assistant runs through the SAME durable poller (`startRuntime`, wired by
- * the Application's composition root) as every other kind — no second
- * lifecycle to boot here.
+ * without). The assistant runs through the SAME durable poller
+ * (`startRuntime`, wired by the Application's composition root) as every
+ * other kind — no second lifecycle to boot here.
  */
 export function registerAgentLayerServices(ctx: {
 	readonly db: HyperIdleDb;
@@ -365,7 +361,7 @@ export function registerAgentLayerServices(ctx: {
 	readonly agentOrchestration: AgentOrchestrationPort;
 	readonly dispatcherDeps?: Omit<TaskDispatcherDeps, "db" | "eventBus">;
 	readonly reaperStaleAfterMs?: number;
-	/** AF6 scope (iii): when true, generic (taskId) routines auto-fire. */
+	/** AF6 scope (iii): when true, generic (taskId) subscriptions auto-fire. */
 	readonly canProvision?: boolean;
 	/** AF6 §4: in-process periodic reaper cadence (ms). 0 = every poll (tests). */
 	readonly reaperCadenceMs?: number;

@@ -159,11 +159,8 @@ describe("atomic production handoffs", () => {
 		cleanupRejectedIntentWrites = undefined;
 	});
 
-	// @lore BC5 T7b: "routine_runs" dropped from both the query and the
-	// expected set, and the test renamed six→five — the two routine-command
-	// atomicity tests it backed (manual trigger, scheduler fire) are deleted
-	// with the routine package (see the @lore a few lines below); a
-	// subscription's wake carries no run row to be an authoritative source for.
+	// A subscription's wake carries no run row to be an authoritative source
+	// for, so only five atomic commands have one.
 	test("schema exposes authoritative sources for all five atomic commands", async ({ db }) => {
 		const result = await db.execute(sql`
 			select table_name as "tableName" from information_schema.tables
@@ -308,10 +305,8 @@ describe("atomic production handoffs", () => {
 
 	// flag (POST /api/knowledge/:id/flag) §3.1 site 4 coverage moved to plugin — ritual routes left core under AU20 founder ruling; recover from git when the plugin lands.
 
-	// @lore BC5 T7b: AU31 §3.1 site 8's two "routine command" atomicity tests
-	// (manual trigger, scheduler fire) are deleted with the routine package —
-	// a subscription's wake carries no run row to leave wedged; T7a/T7b's own
-	// suites cover the subscription wake path.
+	// A subscription's wake carries no run row to leave wedged; T7a/T7b's
+	// own suites cover the subscription wake path.
 
 	// §8 B4: `POST /tasks/:id/handoff` is deleted — handoff is
 	// `edit_task({ ownerAgentId })` now, and `toRole`/`toHuman` targeting is

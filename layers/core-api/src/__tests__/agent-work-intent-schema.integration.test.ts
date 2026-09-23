@@ -115,8 +115,8 @@ describe("agent_work_intents durable-rows checks", () => {
 	test("accepts every closed kind/source pairing", async ({ db }) => {
 		const pairs: ReadonlyArray<readonly [AgentWorkIntent["kind"], AgentWorkIntent["sourceKind"]]> =
 			[
-				// @lore BC5 T11 (migration 0090): 'routine_run'/'routine_run' dropped —
-				// the kind retires from the closed set entirely, not just this pairing.
+				// `routine_run` isn't a valid kind — it retired from the closed set
+				// entirely, not just this pairing.
 				["thread_turn", "thread_message"],
 				["session_start", "explicit_session_start"],
 				["knowledge_action", "knowledge_action"],

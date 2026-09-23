@@ -43,7 +43,7 @@ afterEach(() => {
 });
 
 /** A minimal plugin with one skill and nothing else — a `document`
- * contribution, no agent, no routine. */
+ * contribution, no agent, no subscription. */
 function makePlugin(): string {
 	const dir = join(tmpdir(), `skill-reinstall-${Date.now()}-${Math.round(performance.now())}`);
 	mkdirSync(join(dir, "skills", SKILL_DIR), { recursive: true });

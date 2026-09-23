@@ -4,8 +4,7 @@
  * finalized subscriber table:
  *
  *   subscription_run  -> logged only; a subscription's wake carries no run
- *                         row to finalize (BC5 T7b: replaces the deleted
- *                         `routine_run` -> routine_runs.outcome="error" case)
+ *                         row to finalize
  *   task_run          -> work marks the taskDispatchAttempts row failed
  *   session_start     -> the explicitSessionStarts row is marked failed, no
  *                         automatic retry (an explicit human/agent-requested
@@ -210,9 +209,8 @@ async function reactToAdmissionFailure(
 	threadDeps: { readonly sendMessage: SendMessageRunFn; readonly adjustThread: AdjustThreadRunFn },
 ): Promise<void> {
 	switch (event.kind) {
-		// @lore BC5 T7b: `routine_run` is gone with the routine package — a
-		// subscription's wake carries no run row to finalize (unlike a
-		// routine's `routine_runs` row), so a refused wake is just logged.
+		// A subscription's wake carries no run row to finalize, so a refused
+		// wake is just logged.
 		case "subscription_run":
 			logger.warn("subscription wake refused admission", {
 				intentId: event.intentId,

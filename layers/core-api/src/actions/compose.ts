@@ -434,17 +434,11 @@ export function buildCoreActions(bindings: {
  * composed HTTP/MCP list — for the composition roots that need
  * `search_documents`/`edit_document` before or outside that list exists:
  * the pre-auth first-run setup route (`routes/users.ts`, called before any
- * request has reached `createCoreApiApp`) and the routine scheduler
- * (`service-bootstrap.ts`'s `registerAgentLayerServices`, wired from
- * `db`/`eventBus` alone — no task/thread action bags in scope at its own
- * composition root, so it cannot receive the real composed list's runner
- * the way `taskRunResolver`/`routine-scheduler-bindings.ts`'s OTHER two
- * ports do). `openParent` is honestly unreachable here: it fires only from
- * `edit_document` when the caller's `parent.kind` is `"task"`/`"thread"`,
- * and neither caller ever parents a document that way (an agent identity
- * document is agent-parented; the scheduler only ever searches, never
- * edits). Throws rather than fabricating a result if that invariant is
- * ever broken.
+ * request has reached `createCoreApiApp`). `openParent` is honestly
+ * unreachable here: it fires only from `edit_document` when the caller's
+ * `parent.kind` is `"task"`/`"thread"`, and this caller never parents a
+ * document that way (an agent identity document is agent-parented). Throws
+ * rather than fabricating a result if that invariant is ever broken.
  */
 function buildStandaloneDocumentActions(): readonly Action[] {
 	return createDocumentActions({
