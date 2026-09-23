@@ -22,25 +22,38 @@
 
 import { type HyperIdleDb, orgEdges } from "@hyperidle/db";
 import type { OrgEdgeMechanism } from "@hyperidle/domain-model";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 
 /**
- * List `orgEdges` rows, optionally filtered by id.
+ * List `orgEdges` rows, optionally filtered by id or by the set of users the
+ * edge is FROM.
  *
  * With `filter.id` performs a single-row lookup (replaces the old
- * `getOrgEdgeById`). Without a filter returns all rows.
+ * `getOrgEdgeById`). With `filter.fromUserIds` batches the outgoing edges of
+ * several users in one query — `user-actions.ts`'s `search_users`/`open_user`
+ * batch this to build each row's `edges` field. Without a filter returns all
+ * rows.
  *
  * @lore AU19 Increment 5 item 4 (guard-retirement full-sweep, `org` sub-item):
  * closes `routes/org.ts`'s `GET /` org-chart response.
  * @lore AU20 Am7: `filter.id` folds in `getOrgEdgeById` (the pre-delete
  * existence check) — a single parameterized read replaces two exports.
+ * @lore BC5 T5: `fromUserIds` added — `open_user`'s "edges are the user's
+ * outgoing org_edges" needs one batched read, not N single-user ones.
  */
 export async function listOrgEdges(
 	db: HyperIdleDb,
-	filter?: { id?: string },
+	filter?: { id?: string; fromUserIds?: readonly string[] },
 ): Promise<Array<typeof orgEdges.$inferSelect>> {
 	if (filter?.id !== undefined) {
 		return db.select().from(orgEdges).where(eq(orgEdges.id, filter.id));
+	}
+	if (filter?.fromUserIds !== undefined) {
+		if (filter.fromUserIds.length === 0) return [];
+		return db
+			.select()
+			.from(orgEdges)
+			.where(inArray(orgEdges.fromUserId, Array.from(filter.fromUserIds)));
 	}
 	return db.select().from(orgEdges);
 }

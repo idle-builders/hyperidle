@@ -15,7 +15,7 @@
 
 import type { Team, WriteExecutor } from "@hyperidle/db";
 import { type HyperIdleDb, teams } from "@hyperidle/db";
-import { eq, inArray } from "drizzle-orm";
+import { asc, eq, inArray } from "drizzle-orm";
 
 // ---------------------------------------------------------------------------
 // Team reads
@@ -23,6 +23,10 @@ import { eq, inArray } from "drizzle-orm";
 
 /**
  * Read a single `teams` row by id or name, or `undefined` if none exists.
+ * A name lookup is the OLDEST match (`createdAt` then `id`, ascending) — two
+ * teams may share a name (no unique index on the column), and `edit_user`'s
+ * "found by name (oldest), or created" needs a deterministic pick rather
+ * than whatever order the database happens to return.
  *
  * @example getTeam(db, { id: teamId })
  * @example getTeam(db, { name: "Alpha" })
@@ -35,7 +39,12 @@ export async function getTeam(
 		const [row] = await db.select().from(teams).where(eq(teams.id, query.id)).limit(1);
 		return row;
 	}
-	const [row] = await db.select().from(teams).where(eq(teams.name, query.name)).limit(1);
+	const [row] = await db
+		.select()
+		.from(teams)
+		.where(eq(teams.name, query.name))
+		.orderBy(asc(teams.createdAt), asc(teams.id))
+		.limit(1);
 	return row;
 }
 

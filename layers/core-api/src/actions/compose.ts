@@ -6,7 +6,7 @@
  * projection (HTTP, MCP, UI) reads.
  */
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
-import { appendChange } from "@hyperidle/changes";
+import { appendChange, listChanges } from "@hyperidle/changes";
 import type { User, WriteExecutor } from "@hyperidle/db";
 import { createDocumentActions, type DocumentActionsDeps } from "@hyperidle/document";
 import type {
@@ -16,6 +16,7 @@ import type {
 	DocumentRow,
 	DocumentView,
 	EditDocumentInput,
+	HarnessDescriptor,
 	OpenThreadInput,
 	ReviewVerdictRecorderFn,
 	SearchDocumentsInput,
@@ -25,14 +26,18 @@ import type {
 import { getRoutine, insertRoutine, setRoutinesLive, softDeleteRoutines } from "@hyperidle/routine";
 import {
 	createPlatformActions,
+	listAgentBehaviorConfiguration,
 	markDetached,
 	type PlatformActionsDeps,
+	patchAgentBehaviorConfiguration,
 	readServerConfig,
 } from "@hyperidle/settings";
 import { createTaskActions, type TaskActionsDeps } from "@hyperidle/task";
 import { createThreadActions, type ThreadActionsDeps } from "@hyperidle/thread";
 import {
+	createUserActions,
 	findUser,
+	getSubscription,
 	getTeam,
 	insertUserIfAbsent,
 	listUsers,
@@ -40,7 +45,9 @@ import {
 	parseCron,
 	requireRunnableAgent,
 	setAgentsStatus,
+	type UserActionsDeps,
 } from "@hyperidle/user";
+import type { HarnessCapabilityReader } from "../services/harness-capability-reader.js";
 import {
 	buildTaskRunResolverDeps,
 	resolveAgentIdentityBody,
@@ -182,14 +189,17 @@ function buildOpenParent(
 }
 
 /**
- * `document`'s `systemParentExists` port — existence of an `agent`/`routine`
- * parent, asked only on the internal path (`ctx.internal`). An agent is a
- * `users` row (the same read `deps.users.getUserById` already wraps); a
- * routine is `@hyperidle/routine`'s own `getRoutine`, already imported by
- * this layer's `routines-routes.ts`.
+ * `document`'s `systemParentExists` port — existence of an `agent`/
+ * `routine`/`subscription` parent, asked only on the internal path
+ * (`ctx.internal`). An agent is a `users` row (the same read
+ * `deps.users.getUserById` already wraps); a routine is
+ * `@hyperidle/routine`'s own `getRoutine`, already imported by this layer's
+ * `routines-routes.ts`; a subscription is `@hyperidle/user`'s own
+ * `getSubscription` (BC5 T5 — the user module owns `subscriptions` too).
  */
 const systemParentExists: DocumentActionsDeps["systemParentExists"] = async (exec, kind, id) => {
 	if (kind === "agent") return (await findUser(exec, { id })) !== undefined;
+	if (kind === "subscription") return (await getSubscription(exec, id)) !== undefined;
 	return (await getRoutine(exec, id)) !== undefined;
 };
 
@@ -259,6 +269,72 @@ function buildPlatformActionsDeps(
 }
 
 /**
+ * One audited cast: `HarnessCapabilityDescriptor` (the real pool's own type)
+ * and `HarnessDescriptor` (`user-actions.ts`'s zod-mirrored dep shape, which
+ * `@hyperidle/user` may not import `@hyperidle/harness-capability` to name
+ * directly) differ only in array mutability, never in the values themselves.
+ */
+function toHarnessDescriptors(
+	descriptors: readonly import("@hyperidle/harness-capability").HarnessCapabilityDescriptor[],
+): readonly HarnessDescriptor[] {
+	const widened: unknown = descriptors;
+	return widened as readonly HarnessDescriptor[];
+}
+
+/**
+ * `user`'s deps (architecture.md §6): `runConfig`/`folders`/`connections`
+ * come straight off `AgentOrchestrationPort` (the same port `runConfig`
+ * already reaches through) — `@hyperidle/user` hand-types structural mirrors
+ * of these three sub-ports rather than importing `@hyperidle/api-contract`
+ * itself (governance: "a service talks through its own layer"), and this
+ * assignment is where that mirror meets the real thing.
+ * `editDocument`/`searchDocuments` are extracted from the already-built
+ * `documentActions`, exactly like `platform`'s own deps above;
+ * `behaviour`/`readServerConfig` bind to `@hyperidle/settings`'s own typed
+ * functions, because `@hyperidle/user` may not import that sibling Service
+ * either. `harnesses` is absent when no adapter pool is wired (a
+ * composition without agent execution) — `open_user`'s `runsOn` then answers
+ * `[]`, the same "no pool" shape `routes/harnesses.ts` itself never mounts
+ * under.
+ */
+function buildUserActionsDeps(
+	documentActions: readonly Action[],
+	agentOrchestration: AgentOrchestrationPort,
+	adapterPool?: HarnessCapabilityReader,
+	onHarnessRedetect?: () => Promise<void>,
+): UserActionsDeps {
+	return {
+		changes: {
+			appendChange,
+			listByIds: (db, ids) => listChanges(db, { ids }),
+		},
+		runConfig: agentOrchestration.runConfig,
+		folders: agentOrchestration.folders,
+		connections: agentOrchestration.connections,
+		...(adapterPool
+			? {
+					harnesses: {
+						describe: () => toHarnessDescriptors(adapterPool.describe()),
+						redetect: async () => {
+							await Promise.all([adapterPool.refresh(), onHarnessRedetect?.()]);
+						},
+					},
+				}
+			: {}),
+		readServerConfig: (db) => readServerConfig(db),
+		behaviour: {
+			list: (db, options) => listAgentBehaviorConfiguration(db, options),
+			patch: (db, input) => patchAgentBehaviorConfiguration(db, input),
+		},
+		editDocument: runnerFor<EditDocumentInput, DocumentView>(documentActions, "edit_document"),
+		searchDocuments: runnerFor<SearchDocumentsInput, DocumentRow[]>(
+			documentActions,
+			"search_documents",
+		),
+	};
+}
+
+/**
  * `buildCoreActions` — the composed `readonly Action[]` every loop (HTTP
  * router, MCP tool adapter, the UI's `call()`, the governance rule) reads.
  *
@@ -266,9 +342,10 @@ function buildPlatformActionsDeps(
  * runner and the thread bag needs nothing from task (`ThreadActionsDeps`
  * names no task). `document` is built next — it needs `open_task`/
  * `open_thread`, both already real arrays by then (architecture.md §8.2).
- * `platform` is built LAST, a fourth group after `document` — it needs
- * `edit_document`/`search_documents`, already real by then. The returned
- * array's own order is irrelevant.
+ * `platform` is built fourth, after `document` — it needs `edit_document`/
+ * `search_documents`, already real by then. `user` is built FIFTH, after
+ * `platform` (architecture.md §6) — it needs the same two document runners,
+ * already real by then too. The returned array's own order is irrelevant.
  */
 export function buildCoreActions(bindings: {
 	readonly agentOrchestration: AgentOrchestrationPort;
@@ -276,6 +353,8 @@ export function buildCoreActions(bindings: {
 	readonly reviewVerdictRecorder: ReviewVerdictRecorderFn;
 	readonly wsPush?: (topic: string, envelope: unknown) => void;
 	readonly pluginsBaseDir?: string;
+	readonly adapterPool?: HarnessCapabilityReader;
+	readonly onHarnessRedetect?: () => Promise<void>;
 }): readonly Action[] {
 	let documentActions: readonly Action[] = [];
 	const searchDocuments = lazySearchDocuments(() => documentActions);
@@ -293,7 +372,15 @@ export function buildCoreActions(bindings: {
 	const platformActions = createPlatformActions(
 		buildPlatformActionsDeps(documentActions, bindings.pluginsBaseDir),
 	) as readonly Action[];
-	return [...taskActions, ...threadActions, ...documentActions, ...platformActions];
+	const userActions = createUserActions(
+		buildUserActionsDeps(
+			documentActions,
+			bindings.agentOrchestration,
+			bindings.adapterPool,
+			bindings.onHarnessRedetect,
+		),
+	) as readonly Action[];
+	return [...taskActions, ...threadActions, ...documentActions, ...platformActions, ...userActions];
 }
 
 /**
