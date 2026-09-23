@@ -98,7 +98,7 @@ interface WritebackConfig {
 	/**
 	 * What this session is working on, if anything — the parent every item it
 	 * writes back hangs off. A task session parents to its task; a conversation
-	 * session parents to its thread. A session with neither (a routine, a
+	 * session parents to its thread. A session with neither (a subscription, a
 	 * knowledge run) writes parentless items, as before.
 	 */
 	parent?: { readonly kind: "task" | "thread"; readonly id: string };
@@ -592,8 +592,8 @@ interface CaptureWritebackSubscriberDeps {
  * `undefined` (session not found, or the lookup itself failed) means there
  * is no legal actor to attribute a write to — the whole batch is skipped
  * rather than fabricating one (no fallback string satisfies a `users.id`
- * FK). A missing parent alone is not fatal (a routine/knowledge-run session
- * legitimately has none); a missing actor is.
+ * FK). A missing parent alone is not fatal (a subscription/knowledge-run
+ * session legitimately has none); a missing actor is.
  */
 async function resolveSessionContext(
 	db: WritebackConfig["db"],

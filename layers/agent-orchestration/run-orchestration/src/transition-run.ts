@@ -14,16 +14,7 @@ interface IngestionHandle {
 	dispose(): void;
 }
 type SessionLifecyclePorts = Parameters<typeof createProvisioner>[0];
-/**
- * AU21 §9 Increment 4 (Decision B″ item 3): `routine` dropped from this Pick.
- * `endSession`/`crashSession` no longer write `routineRuns` directly — the
- * finalize payload rides the existing `session_ended` emit (additive
- * `routineRunOutcome` field, `@hyperidle/domain-model`'s
- * `SessionEndedEvent`) and a NEW core-api subscriber
- * (`routine-run-session-end-reactions.ts`) performs the write from inside
- * core-api. `TransitionPorts` now carries only the own-state
- * `sessionRequests` port the "request" disposition path still needs.
- */
+/** `TransitionPorts` carries only the own-state `sessionRequests` port the "request" disposition path needs. */
 type TransitionPorts = Pick<SessionLifecyclePorts, "sessionRequests">;
 
 /** AU21 Increment 14a: `cost_cap` reason deleted — the cap gate no longer exists. */
@@ -168,7 +159,6 @@ interface SessionContext {
 	/** Correlates every observability event for this session (H3). */
 	traceId: string;
 	readonly requestContext?: SessionLifecycleCorrelation;
-	routineId?: string;
 }
 async function endSession(
 	db: HyperIdleDb,
@@ -226,21 +216,6 @@ async function endSession(
 			// Use terminalOutcome (not hardcoded "completed") so not_returned
 			// turns surface correctly on the bus.
 			outcome: terminalOutcome,
-			// AU21 §9 Increment 4 (Decision B″ item 3): the routine-run finalize
-			// payload rides the SAME event — no direct `routineRuns` write here
-			// anymore. AU21 Increment 14a: the "budget_exhausted" per-run-cap
-			// outcome is deleted along with the cap gate. A core-api subscriber
-			// (`routine-run-session-end-reactions.ts`) performs the write.
-			//
-			// @lore A stop finalizes a routine run as "error", not
-			// "success" — the routine's own run history must not read a killed
-			// run as a clean finish.
-			...(context.routineId
-				? {
-						routineRunOutcome:
-							terminalOutcome === "stopped" ? ("error" as const) : ("success" as const),
-					}
-				: {}),
 			// AU21 §9 Increment 12 (Decision H3), Wave D: the session's
 			// accumulated per-tier token counts ride this SAME event — no direct
 			// `bets.tokensActualJson` write here anymore. A core-api subscriber
@@ -314,9 +289,6 @@ async function crashSession(
 				: {}),
 			timestamp: Date.now(),
 			outcome: "crashed",
-			// AU21 §9 Increment 4 (Decision B″ item 3): crash always finalizes the
-			// routine run to "error" — carried on the same event, no direct write.
-			...(context.routineId ? { routineRunOutcome: "error" as const } : {}),
 			// AU21 §9 Increment 12 (Decision H3), Wave D: see endSession's identical
 			// comment — accumulated tokens ride this same event, no direct write.
 			...(tokensByTier && Object.keys(tokensByTier).length > 0 ? { tokensByTier } : {}),

@@ -63,10 +63,8 @@ const WORK_INTENT_KINDS = [
 	"thread_turn",
 	"session_start",
 	"knowledge_action",
-	"routine_run",
 	"task_run",
 	"session_resume",
-	// @lore BC5 T6: additive alongside `routine_run`; the cut-over block retires it.
 	"subscription_run",
 ] as const;
 

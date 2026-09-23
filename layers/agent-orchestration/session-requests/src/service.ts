@@ -649,7 +649,7 @@ async function createFromBakedRequestInternal(
 		sourceCorrelation: baked.sourceCorrelation,
 		// AU21 §9 Increment 11 (Decision H2) / Increment 12 (Decision H3): the
 		// assistant_turn family's baked transcript, the
-		// task_run/routine_run/knowledge_action families' baked
+		// task_run/subscription_run/knowledge_action families' baked
 		// contextBundle, and (Wave E) EVERY kind's baked
 		// agentConfig/harnessDisabled ride the existing generic `payloadJson`
 		// pass-through column onto the created `AgentSessionRequest`.
@@ -1067,9 +1067,7 @@ function mutateRequestInternal(
 const PROMPT_MODE_BY_SOURCE: Record<string, string> = {
 	task: "task",
 	assistant: "conversation",
-	routine: "routine",
 	knowledge: "knowledge",
-	// BC5 T6: additive alongside "routine" — the cut-over block retires it.
 	subscription: "subscription",
 };
 
@@ -1080,15 +1078,12 @@ export type WorkIntentInput =
 				| "thread_turn"
 				| "session_start"
 				| "knowledge_action"
-				| "routine_run"
 				| "task_run"
-				// @lore BC5 T6: additive alongside "routine_run"; the cut-over block retires it.
 				| "subscription_run";
 			readonly sourceKind:
 				| "thread_message"
 				| "explicit_session_start"
 				| "knowledge_action"
-				| "routine_run"
 				| "task_dispatch_attempt"
 				| "subscription";
 			readonly sourceId: string;
@@ -1141,8 +1136,8 @@ export type BakedWorkIntentRequest = {
 	}>;
 	/**
 	 * AU21 §9 Increment 12 (Decision H3): the `task_run`/`knowledge_action`/
-	 * `routine_run` families' baked entity content (task/bet/
-	 * agent/team, or routine/agent/team) plus the ranked+budgeted knowledge
+	 * `subscription_run` families' baked entity content (task/bet/
+	 * agent/team, or subscription/agent/team) plus the ranked+budgeted knowledge
 	 * items `@hyperidle/knowledge`'s `assembleSessionKnowledge` produces.
 	 * Absent for `assistant_turn` (bakes `transcript` instead) — see
 	 * `BakedWorkIntentRequest` in `@hyperidle/work-intent-port` for the full `@lore`.
@@ -1162,7 +1157,7 @@ export type BakedWorkIntentRequest = {
 	readonly harnessDisabled?: readonly string[];
 	/**
 	 * AU27 Increment 1 (Decision 1) — the session's calling thread id. Absent
-	 * for `routine_run`/`knowledge_action` — see `BakedWorkIntentRequest` in
+	 * for `subscription_run`/`knowledge_action` — see `BakedWorkIntentRequest` in
 	 * `@hyperidle/work-intent-port` for the full `@lore`.
 	 */
 	readonly callingThreadId?: string;

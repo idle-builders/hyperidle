@@ -34,7 +34,6 @@ import {
 	type HeldConnectionsReaderPort,
 } from "./connection-provisioning.js";
 import {
-	routineSessionContextDataFromBundle,
 	sessionContextDataFromBundle,
 	subscriptionSessionContextDataFromBundle,
 } from "./context.js";
@@ -338,7 +337,7 @@ interface SessionLifecycleToolContext {
 	/**
 	 * AU27 Increment 1 (Decision 1) — the session's calling thread, forwarded
 	 * straight from `params.callingThreadId` (baked at emit — zero
-	 * orchestration -> core read). Absent for `routine_run`/`knowledge_action`.
+	 * orchestration -> core read). Absent for `subscription_run`/`knowledge_action`.
 	 */
 	readonly threadId?: string;
 }
@@ -392,23 +391,6 @@ interface SessionLifecycleSessionContextData {
 	readonly team: { readonly id: string; readonly name: string };
 }
 
-interface SessionLifecycleRoutineSessionContextData {
-	readonly routine: {
-		readonly id: string;
-		readonly name: string;
-		/** BA1 D3: one column, one field — replaces `description`. */
-		readonly prompt: string | null;
-		readonly lastRunSummary: string | null;
-	};
-	readonly agent: { readonly id: string; readonly name: string; readonly role: string };
-	/** BA1 D4: nullable — the owner agent may belong to no team. */
-	readonly team: { readonly id: string; readonly name: string } | null;
-}
-
-/**
- * BC5 T6: additive alongside `SessionLifecycleRoutineSessionContextData`; the
- * cut-over block retires that one.
- */
 interface SessionLifecycleSubscriptionSessionContextData {
 	readonly subscription: {
 		readonly id: string;
@@ -434,6 +416,7 @@ interface SessionLifecycleContextAssembly {
 		readonly agentId: string;
 		readonly agentRole: string;
 		readonly teamId: string | null;
+		/** True for a subscription-fired session — no task/bet context to read. */
 		readonly isRoutine: boolean;
 		readonly sourceKind: AgentSessionSourceKind | null;
 		readonly sourceId: string | null;
@@ -452,13 +435,6 @@ interface SessionLifecycleContextAssembly {
 		readonly tools: readonly SessionLifecycleToolSummary[];
 		readonly sandboxPath: string;
 	}): Promise<{ readonly assembledPrompt: string; readonly personaToolsTokens: number }>;
-	assembleRoutinePrompt(input: {
-		readonly systemPromptText: string;
-		readonly context: SessionLifecycleRoutineSessionContextData;
-		readonly tools: readonly SessionLifecycleToolSummary[];
-		readonly sandboxPath: string;
-	}): Promise<{ readonly assembledPrompt: string; readonly personaToolsTokens: number }>;
-	/** BC5 T6: additive alongside `assembleRoutinePrompt`; the cut-over block retires that one. */
 	assembleSubscriptionPrompt(input: {
 		readonly systemPromptText: string;
 		readonly context: SessionLifecycleSubscriptionSessionContextData;
@@ -902,18 +878,12 @@ interface ProvisionSessionParams {
 		readonly sourceCorrelation: AgentSessionSourceCorrelation;
 	};
 	/**
-	 * AA2: When set, this session is a routine session. The provisioning orchestrator
-	 * will use routine context (routineSessionContextDataFromBundle + assembleRoutinePrompt)
-	 * instead of task/bet context, and will populate sessions.routineId.
-	 */
-	readonly routineId?: string;
-	/**
 	 * AU21 §9 Increment 12 (Decision H3) — the baked entity+knowledge bundle
 	 * this session's sandbox context (Phase 6) and prompt persona (Phase 8.5)
 	 * are built from — `kind:"task"` for `task_run`,
-	 * `kind:"routine"` for `routine_run`. Sourced from the emit-time resolver
-	 * via the drained `AgentSessionRequest.payloadJson` (zero db read here).
-	 * Absent for `knowledge_action`/`session_start`/`assistant_turn` turns.
+	 * `kind:"subscription"` for `subscription_run`. Sourced from the emit-time
+	 * resolver via the drained `AgentSessionRequest.payloadJson` (zero db read
+	 * here). Absent for `knowledge_action`/`session_start`/`assistant_turn` turns.
 	 */
 	readonly contextBundle?: BakedContextBundle;
 	/**
@@ -962,7 +932,7 @@ interface ProvisionSessionParams {
 	 * EMIT time by every per-kind resolver that has one (`assistant_turn` from
 	 * the triggering message's thread; `task_run`/`session_start`/
 	 * resolve-or-create). Absent for
-	 * `routine_run`/`knowledge_action`. Forwarded verbatim onto
+	 * `subscription_run`/`knowledge_action`. Forwarded verbatim onto
 	 * `SessionLifecycleToolContext.threadId` in Phase 8 — the `reply` tool
 	 * (Increment 2) reads it from there. ZERO orchestration -> core read.
 	 */
@@ -1255,8 +1225,6 @@ async function admitSession(
 		startedAt,
 		state: "active",
 		sandboxSnapshot: sandboxPath,
-		// AA2: populate routineId when this is a routine session.
-		...(params.routineId ? { routineId: params.routineId } : {}),
 	};
 	if (reservedSession) {
 		await db
@@ -1296,7 +1264,7 @@ async function admitSession(
 			agentId: params.agentId,
 			agentRole,
 			teamId: params.productId,
-			isRoutine: !!params.routineId,
+			isRoutine: params.contextBundle?.kind === "subscription",
 			sourceKind: params.requestContext?.sourceKind ?? null,
 			sourceId: params.requestContext?.sourceId ?? null,
 			sourceCorrelation: params.requestContext?.sourceCorrelation ?? null,
@@ -1310,7 +1278,7 @@ async function admitSession(
 			agentId: params.agentId,
 			agentRole,
 			teamId: params.productId,
-			isRoutine: !!params.routineId,
+			isRoutine: params.contextBundle?.kind === "subscription",
 			sourceKind: params.requestContext.sourceKind,
 			sourceId: params.requestContext.sourceId,
 			sourceCorrelation: params.requestContext.sourceCorrelation,
@@ -1355,8 +1323,6 @@ async function admitSession(
 		// @lore AF4/§5: traceId correlates observability events for this session
 		// (H3). The provisioning path owns the session, so it mints the id.
 		traceId: randomUUID(),
-		// AA2: pass routineId so endSession/crashSession can update routine_runs.
-		...(params.routineId ? { routineId: params.routineId } : {}),
 	};
 
 	return {
@@ -1533,23 +1499,10 @@ async function runSession(
 		}));
 
 	let assembledPrompt: string;
-	if (params.routineId && params.contextBundle?.kind === "routine") {
-		// AU21 §9 Increment 12 (Decision H3): routine session — derive
-		// routine+agent+team context from the baked `kind:"routine"` bundle,
-		// ZERO db read (the routine/org reads this used to make via
-		// `buildRoutineSessionContextData` are gone).
-		const routineContextData = routineSessionContextDataFromBundle(params.contextBundle);
-		({ assembledPrompt } = await ports.contextAssembly.assembleRoutinePrompt({
-			systemPromptText,
-			context: routineContextData,
-			tools: toolSummaries,
-			sandboxPath,
-		}));
-	} else if (params.contextBundle?.kind === "subscription") {
-		// BC5 T6: subscription session — derive subscription+agent+team context
-		// from the baked `kind:"subscription"` bundle, ZERO db read, the same
-		// way a routine session does from its own bundle kind. Additive
-		// alongside the routine branch above; the cut-over block retires it.
+	if (params.contextBundle?.kind === "subscription") {
+		// AU21 §9 Increment 12 (Decision H3): subscription session — derive
+		// subscription+agent+team context from the baked `kind:"subscription"`
+		// bundle, ZERO db read.
 		const subscriptionContextData = subscriptionSessionContextDataFromBundle(params.contextBundle);
 		({ assembledPrompt } = await ports.contextAssembly.assembleSubscriptionPrompt({
 			systemPromptText,
@@ -1557,12 +1510,7 @@ async function runSession(
 			tools: toolSummaries,
 			sandboxPath,
 		}));
-	} else if (
-		params.taskId &&
-		!params.routineId &&
-		!params.requestContext &&
-		params.contextBundle?.kind === "task"
-	) {
+	} else if (params.taskId && !params.requestContext && params.contextBundle?.kind === "task") {
 		// AU21 §9 Increment 12 (Decision H3): normal (non-durable, no
 		// requestContext) task session — derive task+ancestors+agent+team context
 		// from the baked `kind:"task"` bundle, ZERO db read (the task/
@@ -1580,7 +1528,7 @@ async function runSession(
 		// primary production path — `requestContext` is always set by
 		// `consumeAgentSessionRequest`) already took this generic, db-free
 		// branch pre-migration regardless of source kind (unchanged here) —
-		// this is also the graceful fallback for a routine/task session whose
+		// this is also the graceful fallback for a subscription/task session whose
 		// emit-time resolver hasn't been wired with the optional contextBundle
 		// deps yet (`getTeamById`/`assembleSessionKnowledge`), so a wiring gap
 		// degrades to a plain prompt instead of crashing the session.

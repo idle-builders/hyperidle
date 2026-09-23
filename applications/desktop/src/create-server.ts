@@ -39,7 +39,6 @@ import {
 	buildAgentOrchestrationPort,
 	composeApiApplication,
 	createInProcessAgentOrchestrationTransport,
-	DEFAULT_REAPER_STALE_AFTER_MS,
 	health,
 	registerAgentLayerServices,
 	registerCoreDomainServices,
@@ -294,7 +293,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			},
 			reapers: {
 				sandboxes: { sandboxBasePath },
-				routines: { staleAfterMs: DEFAULT_REAPER_STALE_AFTER_MS },
 			},
 			resolveProvisioningOwnerUserId: coreApi.resolveProvisioningOwnerUserId,
 		},
