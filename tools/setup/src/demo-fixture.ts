@@ -319,7 +319,7 @@ export async function seedDemoWorld(
 			teamId,
 			ownerAgentId: "seed-agent-cos",
 			title: "Daily digest anchor task",
-			description: "Anchor task for the daily digest routine.",
+			description: "Anchor task for the daily digest subscription.",
 			state: "accepted",
 			createdAt: clock.daysAgo(19),
 			updatedAt: clock.daysAgo(19),

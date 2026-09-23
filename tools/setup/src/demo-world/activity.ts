@@ -1,10 +1,10 @@
 /**
  * AX1 — demo world activity: ~45 sessions (terminal history + two live).
- * @lore BA9d: ritual routines (retro, knowledge decay, knowledge promotion) removed
+ * @lore BA9d: ritual subscriptions (retro, knowledge decay, knowledge promotion) removed
  * from the demo world — the plugin owns them. A demo install without the plugin
- * shows no ritual routines; installing the plugin produces exactly one of each.
+ * shows no ritual subscriptions; installing the plugin produces exactly one of each.
  * @lore BC5 T7b: the notification-popover fixture rows and the daily-digest
- * routine's run-history row are deleted with `notification_queue` and
+ * subscription's run-history row are deleted with `notification_queue` and
  * `routine_runs` — no fabricated inbox row replaces them (no code path
  * writes an inbox row except a real subscription's own wake), so the demo
  * inbox starts empty.
