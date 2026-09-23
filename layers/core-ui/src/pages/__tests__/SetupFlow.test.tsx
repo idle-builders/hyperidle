@@ -1,8 +1,8 @@
 /**
- * BC5 T10 — SetupFlow: three `edit_user` calls (person with team name; owned
+ * SetupFlow: three `edit_user` calls (person with team name; owned
  * assistant with ASSISTANT_IDENTITY and the picked harness; the team agent)
  * and it still calls `POST /api/filesystems/inspect-path` for the folder
- * detail (architecture.md §7). `call` is mocked at the door; `apiFetch` is
+ * detail. `call` is mocked at the door; `apiFetch` is
  * mocked for the plumbing inspect-path route only.
  */
 

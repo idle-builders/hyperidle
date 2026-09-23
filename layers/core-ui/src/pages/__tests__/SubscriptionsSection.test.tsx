@@ -1,5 +1,5 @@
 /**
- * BC5 T9 — SubscriptionsSection component tests.
+ * SubscriptionsSection component tests.
  *
  * Covers: list, add (event or schedule + prompt), pause/resume, remove — all
  * through `edit_user`, `call` mocked at the door.

@@ -60,7 +60,7 @@ export function useCurrentUser(): UseCurrentUserResult {
 				}
 				const row = result.data.user;
 				if (row === null) {
-					// First-run: caller has no row yet (architecture.md §7).
+					// First-run: caller has no row yet.
 					setError("No profile yet.");
 					setStatus("error");
 					return;

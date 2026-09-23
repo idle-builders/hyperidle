@@ -1,5 +1,5 @@
 /**
- * BC5 T10 — SettingsAgentBehavior reads/writes the caller's behaviour off
+ * SettingsAgentBehavior reads/writes the caller's behaviour off
  * `open_user`/`edit_user`.
  */
 

@@ -1,9 +1,9 @@
 /**
- * BC5 T9 — SubscriptionsSection: list, add, pause/resume, remove a user's
+ * SubscriptionsSection: list, add, pause/resume, remove a user's
  * subscriptions. Mounted on AgentProfile — an agent is woken by every
- * occurrence of what it is subscribed to, within its reach (architecture.md
- * §1, §4). A person's own subscriptions live behind Settings → Notifications
- * (a later screen); this section is agent-facing.
+ * occurrence of what it is subscribed to, within its reach. A person's own
+ * subscriptions live behind Settings → Notifications (a later screen); this
+ * section is agent-facing.
  *
  * @lore BC5 T9: reuses the deleted `RoutineCreateDialog`'s "When" toggle
  * (schedule vs. event) and its Select/Input field shapes — the same choice a

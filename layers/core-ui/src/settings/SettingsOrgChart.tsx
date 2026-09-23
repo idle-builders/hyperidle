@@ -6,7 +6,7 @@
  *
  * - Fetches every user via `search_users({})` — each row carries its own
  *   `edges` and its effective `team`; users/edges/teams are all derived from
- *   that one list (architecture.md §8).
+ *   that one list.
  * - Edge table: FROM | MECHANISM | TARGET | delete button
  * - "Add Edge" expands inline form with From select, Mechanism select, Target select
  * - Delete calls `edit_user({ id: fromUserId, edges: { remove: [edgeId] } })`

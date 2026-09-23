@@ -1,5 +1,5 @@
 /**
- * BC5 T9 — SubscriptionsSection stories.
+ * SubscriptionsSection stories.
  *
  * @lore wrapped in <ToastRegion> because the section calls useToast() on
  * pause/remove/add — the story viewer does not provide one.

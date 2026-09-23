@@ -1,7 +1,6 @@
 /**
- * BC5 T10 — FirstRunRedirect reads `search_users({ kind: "human" })`: a
- * human with a team means setup is done → /work, else → /setup
- * (architecture.md §7).
+ * FirstRunRedirect reads `search_users({ kind: "human" })`: a
+ * human with a team means setup is done → /work, else → /setup.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";

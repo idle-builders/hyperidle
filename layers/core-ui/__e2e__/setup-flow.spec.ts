@@ -133,9 +133,8 @@ test.describe("SetupFlow (R2)", () => {
 
 	// AC-10: FirstRunRedirect checks both a human row AND its team
 	test("redirects to /setup when user exists but no products (AC-10)", async ({ page }) => {
-		// A human row exists, but carries no team yet — not "done" (D-e3zm2j:
-		// every user is in a team, so a team-less human means setup isn't
-		// finished).
+		// A human row exists, but carries no team yet — not "done" (every
+		// user is in a team, so a team-less human means setup isn't finished).
 		await mockSearchUsers(page, {
 			rows: [makeUserRow("u-existing", { name: "Existing User" })],
 		});

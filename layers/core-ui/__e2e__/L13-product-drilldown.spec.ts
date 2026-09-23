@@ -178,7 +178,7 @@ test.describe("L13 — Product drill-down", () => {
 	test("(6) unknown team /work/team/does-not-exist shows 404 empty state", async ({ page }) => {
 		// No mockTeamPage call for "does-not-exist" — search_users({teamId})
 		// naturally answers empty (no seeded row carries that team), which is
-		// useTeam's own "404" case now (architecture.md §1).
+		// useTeam's own "404" case now.
 		await page.goto("/work/team/does-not-exist");
 		await page.waitForSelector("[data-testid='work-team-page']");
 

@@ -1,5 +1,5 @@
 /**
- * BC5 T10 — SettingsFilesystems reads the caller's folders off `open_user`.
+ * SettingsFilesystems reads the caller's folders off `open_user`.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";

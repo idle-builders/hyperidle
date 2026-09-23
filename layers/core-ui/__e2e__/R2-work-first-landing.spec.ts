@@ -35,7 +35,7 @@ test.describe("R2 — Work-First Landing", () => {
 	test.describe("SetupFlow (R2)", () => {
 		test.beforeEach(async ({ page }) => {
 			// Fresh install: open_user({}) answers "no row yet" — the welcome
-			// screen's own first-run shape (architecture.md §7).
+			// screen's own first-run shape.
 			await page.route("**/api/actions/open_user", async (route) => {
 				const input = JSON.parse(route.request().postData() ?? "{}") as { id?: string };
 				if (input.id !== undefined) {
@@ -184,7 +184,7 @@ test.describe("R2 — Work-First Landing", () => {
 		test("AC5 — redirects to /work/portfolio (not /conversations) when setup is complete", async ({
 			page,
 		}) => {
-			// User exists + a team exists (every human is in one — D-e3zm2j).
+			// User exists + a team exists (every human is in one).
 			const founderRow = makeUserRow("u-1", { name: "Founder", team: { id: "t-1", name: "Team" } });
 			await mockUser(page, { row: founderRow, self: true });
 			await mockSearchUsers(page, { rows: [founderRow] });

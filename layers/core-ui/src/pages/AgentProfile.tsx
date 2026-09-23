@@ -495,7 +495,7 @@ function AgentProfileLoaded({
 								)}
 							</section>
 
-							{/* Section 2 — Harness Capabilities (BC5 T11: restored from
+							{/* Section 2 — Harness Capabilities (restored from
 							    open_user's runsOn, matched by harnessType). */}
 							{data.harnessCapabilities && (
 								<section
@@ -522,7 +522,7 @@ function AgentProfileLoaded({
 								onChanged={refetch}
 							/>
 
-							{/* Section 4 — Review Track Record (BC5 T11: restored — computed
+							{/* Section 4 — Review Track Record (restored — computed
 							    by open_user itself now, through the deps bag). */}
 							{data.reviewTrackRecord && (
 								<section

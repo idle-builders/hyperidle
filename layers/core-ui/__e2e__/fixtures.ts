@@ -717,7 +717,7 @@ export interface MockTeamPageOptions {
  * in_progress), and `open_task` per in-progress task — replacing the single
  * `GET /api/teams/:id` the page used to make. `capacity`/`phase`/
  * `leadAgentId`/routines have no equivalent: the columns and the routines
- * table that carried them are gone (D-c7jgxy).
+ * table that carried them are gone with the team columns they read.
  */
 export async function mockTeamPage(
 	page: import("@playwright/test").Page,

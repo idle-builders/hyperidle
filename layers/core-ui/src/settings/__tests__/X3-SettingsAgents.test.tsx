@@ -1,5 +1,5 @@
 /**
- * X3 — SettingsAgents component unit tests (updated for AV2, then BC5 T9)
+ * X3 — SettingsAgents component unit tests (updated for AV2, then for subscriptions)
  *
  * AC-9: Settings UI Agents section renders agent list (ItemList/Row, not a table)
  * AC-10: REMOVED — inline edit via Edit button replaced by SplitView row-click.
