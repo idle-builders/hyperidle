@@ -256,7 +256,7 @@ export const sessions = pgTable(
 	{
 		id: text("id").primaryKey(),
 		/**
-		 * AU1: nullable because assistant/routine/knowledge/decomposition runs are
+		 * AU1: nullable because assistant/subscription/knowledge/decomposition runs are
 		 * real sessions without fabricated task rows. Task-backed sessions keep the FK.
 		 */
 		taskId: text("task_id").references(() => tasks.id, { onDelete: "restrict" }),
@@ -395,12 +395,10 @@ export const agentWorkIntents = pgTable(
 		lastError: text("last_error"),
 		lastErrorCode: text("last_error_code"),
 		/**
-		 * @lore AU21 Increment 3 Wave 0: the emit-time-resolved request
-		 * (`resolveIntentInputInternal`'s current per-kind return shape),
-		 * populated by a migrated family's emit-side resolver. When present the
-		 * drain uses it directly (zero domain reads); when absent (the one
-		 * remaining unmigrated case, `routine_run`) the drain falls through to
-		 * its existing per-kind resolution branch.
+		 * @lore AU44: every intent kind bakes its request at emit time; the
+		 * drain reads this column directly (zero domain reads). An absent
+		 * value is production-unreachable and fails via
+		 * INVALID_WORK_SOURCE rather than falling back to a resolver.
 		 */
 		bakedRequestJson: text("baked_request_json"),
 		createdAt: text("created_at").notNull(),
@@ -418,13 +416,6 @@ export const agentWorkIntents = pgTable(
 			.where(sql`${table.requestId} is not null`),
 		index("agent_work_intents_status_created_idx").on(table.status, table.createdAt),
 		index("agent_work_intents_claim_expires_idx").on(table.claimExpiresAt),
-		// @lore BC5 T11 (migration 0090): 'routine_run' drops from both closed
-		// sets — every stored `routine_run` intent is deleted (its request is
-		// routine-shaped and no code runs it); 'subscription_run' is the final
-		// vocabulary a subscription's wake uses now. This TS definition had
-		// drifted to 'assistant_turn' — stale since migration 0085 renamed the
-		// live constraint to 'thread_turn'; fixed here to match what 0090
-		// actually leaves in the database, not what this file said before it.
 		check(
 			"agent_work_intents_kind_ck",
 			sql`${table.kind} in ('thread_turn','session_start','knowledge_action','task_run','session_resume','subscription_run')`,
@@ -586,8 +577,7 @@ export const changes = pgTable(
 	],
 );
 
-// @lore BC5 T7b: routines/routine_runs dropped (migration 0089) — a routine
-// is a subscription now (subscriptions, below).
+// Routines don't exist — a routine is a subscription now (subscriptions, below).
 
 // --- Messaging (L1a Thread primitive) ---
 
@@ -663,12 +653,10 @@ export const messages = pgTable(
 );
 
 // @lore BC3 migration 0085 step 6: the `items` table and `messages.legacyItemId`
-// are DROPPED, destructive, no compat column. `items` and the policy engine
-// die together (plan.md:71-75) — a review, a question, an escalation are
-// messages already; the table's readers were the policy engine, notification
-// links and routine subjects, all deleted with it (architecture.md §5 B7/B7b).
-// `responses` was already dropped (L1a) — verdicts project as `verdict`-typed
-// `messages` rows.
+// are DROPPED, destructive, no compat column. A review, a question, an
+// escalation are messages already (architecture.md §5 B7/B7b). `responses`
+// was already dropped (L1a) — verdicts project as `verdict`-typed `messages`
+// rows.
 
 // --- Org chart edges (P2) ---
 
@@ -703,13 +691,12 @@ export const orgEdges = pgTable(
 // --- Subscriptions and inbox (BC5 T2) ---
 
 /**
- * @lore BC5 T2: a subscription replaces a routine's trigger row and a
- * notification's queue row with one shape shared by a person and an agent —
- * `event | schedule`, never both (`subscriptions_trigger_ck`). A person's
+ * @lore BC5 T2: one row shape shared by a person and an agent — `event |
+ * schedule`, never both (`subscriptions_trigger_ck`). A person's
  * subscription only ever adds an inbox row; an agent's wakes it through the
  * same intent door a mention uses. `nextRunAt` is written only for a
  * schedule row (`subscriptions_next_run_ck`) — the clock advances it after
- * each fire, the same way `routines.next_run_at` worked.
+ * each fire.
  */
 export const subscriptions = pgTable(
 	"subscriptions",
@@ -853,7 +840,7 @@ export const documents = pgTable(
 		// position. Non-partial (unlike doc_parent_slot_uq below) — the tree
 		// read walks ordinary children just as often as it resolves a named slot.
 		index("doc_parent_position_idx").on(table.parentKind, table.parentId, table.position),
-		// One document per named slot per parent — a routine's prompt, an
+		// One document per named slot per parent — a subscription's prompt, an
 		// agent's identity. `slot <> 'ordinary'` leaves a parent free to hold
 		// many ordinary children (the nested-document tree), and Postgres
 		// treats NULLs as distinct by default, so unparented rows never collide.
@@ -873,9 +860,8 @@ export const documents = pgTable(
 	],
 );
 
-// @lore BC5 T7b: notification_queue dropped (migration 0089) — inbox
-// (below, beside subscriptions) replaces it: a pointer at a change row plus
-// seen/read timestamps, no egress lifecycle.
+// The notification queue doesn't exist — inbox (below, beside subscriptions)
+// is a pointer at a change row plus seen/read timestamps, no egress lifecycle.
 
 // The `artifacts` table is DELETED (migration 0078). Produced content is a
 // document whose parent is the task or the conversation that produced it —
@@ -1039,20 +1025,11 @@ export const pluginConfigurationDefaults = pgTable(
 /**
  * What a plugin contributed, and whether the person has since taken it over.
  *
- * @lore BA9g: provenance used to be recorded SEVEN different ways —
- * `users.plugin_id`, `routines.plugin_id`,
- * `plugin_configuration_defaults.plugin_id`, `knowledge_items.topic =
- * 'plugin:<id>'`, `knowledge_items.updated_by = 'plugin:<id>'`, a `<pluginId>/`
- * prefix inside a configuration key, and one-way hashed row ids. Each covered a
- * different subset, so no surface could answer "what did this plugin
- * contribute" and the lifecycle operations disagreed with each other. Two of
- * the seven were never read at all.
- *
- * Two of those were also table-ownership violations wearing a column: a
- * `plugin_id` on `users` and on `routines` is provenance the PLUGIN service
- * owns, sitting in tables it does not, which is why the write had to live in the
- * users package. This table belongs to the plugin service, and it is the only
- * answer to who contributed what.
+ * @lore BA9g: provenance lives in this one table, not as a `plugin_id`
+ * column scattered across others — a `plugin_id` on `users` would be
+ * provenance the PLUGIN service owns sitting in a table it does not. This
+ * table belongs to the plugin service, and it is the only answer to who
+ * contributed what.
  *
  * `detachedAt` replaces the `updated_by = 'plugin:<id>'` sentinel: a person
  * edited this contribution, so a reinstall must not overwrite their version.
