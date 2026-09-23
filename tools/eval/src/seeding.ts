@@ -7,8 +7,8 @@
  *
  * @lore X7: We do NOT use seed() from @hyperidle/db. The existing seed()
  * reads from docs/system-prompts/ on disk (requires monorepo root CWD) and inserts
- * too many fixtures (practice facilitators, routines, etc.) irrelevant to
- * most eval scenarios. These helpers insert only what the scenario needs.
+ * far more fixtures than most eval scenarios need. These helpers insert only
+ * what the scenario needs.
  */
 
 import { execFileSync } from "node:child_process";

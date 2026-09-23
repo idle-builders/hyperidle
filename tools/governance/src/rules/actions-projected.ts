@@ -191,10 +191,9 @@ const LEGACY_TOOLS: readonly string[] = ["return_status"];
  *
  * @lore BC5 T7b: `task_state_changed`, `thread_created`,
  * `thread_message_appended`, `thread_resolved`, `thread_reopened` and
- * `notification` are gone from `EVENT_TYPES` itself now — the routine
- * matcher was their last listener; the nine object events carry the same
- * change. Six rows shrank ahead of this comment for the same reason the
- * five before them did.
+ * `notification` are gone from `EVENT_TYPES` itself now — their last
+ * listener is gone; the nine object events carry the same change. Six rows
+ * shrank ahead of this comment for the same reason the five before them did.
  *
  * @lore BC5 T11: `team_created`/`agent_added`/`user_created` are gone from
  * `EVENT_TYPES` too — their emitters were the `org`/`teams-routes`/`users`
