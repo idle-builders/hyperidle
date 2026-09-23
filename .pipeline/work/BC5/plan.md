@@ -103,6 +103,44 @@ a person, `verify`, the full fast suite and the service integration suite, the r
 a subscription that wakes an agent, one packaged desktop build driven by hand, then retro and ship to
 a CI-green open PR.
 
-## Confusions
+## What was decided along the way
 
-## Proposed items
+- Every change row is one bus event (`<object>.<kind>`), emitted once post-commit by the module
+  that appended it; the twelve legacy names are gone. Session start/end stay orchestration→core
+  plumbing; a session end reaches subscribers as `task.changed`.
+- The user module lives in core (`@hyperidle/user`, owner of users, teams, org edges, sessions
+  tokens, subscriptions, inbox). Connections and folders stay owned by orchestration and are
+  reached through the same port family run config uses; the executor never reads core.
+- A subscription wake is an intent of kind `subscription_run` with the change row and the prompt
+  document in its bundle, keyed `subscription:<id>:<changeId|dueAt>`; reach is computed at fire
+  time (task/user by team, thread/document via `search_*` as the subscriber, never `open_*`); a
+  user is never woken by its own change; a no-team/no-owner agent hears every team.
+- A subscription session returns with `return_status`, never a forced message — the first fix
+  forced `send_message` and every wake ended as a direct message to the oldest person.
+- Team is id + name + createdAt; capacity and the WIP limit went with it; every human got a team
+  from an existing-team edge (else the oldest team) in migration 0090.
+- The welcome screen keeps its look: three `edit_user` calls (person + team + folder, owned
+  assistant with the persona text and picked harness, team agent without identity); the folder
+  detail still comes from the plumbing inspect-path lookup. Creating with a folder answers with
+  the row even when the folder step fails, so a retry never makes a second person.
+- Giving a folder to an agent checks the team; "already given" is its own problem code.
+- The crash notice is a `health` note on the agent written through `edit_user`; the counter
+  counts health notes, not every edit.
+- The document plugin's retro subscription prompt stops unless the task is done and a root task.
+- Inbox rows read and older than 30 days are deleted on the existing retention sweep.
+- `open_user` returns the machine's harness list and a computed review track record; the profile
+  derives harness availability from that list, not a constant.
+- Pipeline ids stay out of code, comments and test titles except inside @lore prose that states
+  the constraint; three sweeps were needed.
+
+## Accepted limits and what is left
+
+- Backends and behaviour defaults are install-wide behind the user door, as before.
+- Cursor-agent has no reactive return enforcement (a documented harness gap); a subscription
+  session on it ends because the prompt tells it to return, which it does.
+- An agent's subscription prompt document is scoped to the agent; the wake reads identity and
+  prompt documents as the change's actor, which works because those slots are readable by all.
+- A wake is lost if the process dies between the commit and the emit — the same gap as mentions.
+- Orchestration's connections/folders intake routes are callable by any signed-in user, like the
+  other seams; unchanged here.
+- The welcome-screen retry after a failed folder step logs the problem rather than showing it.
