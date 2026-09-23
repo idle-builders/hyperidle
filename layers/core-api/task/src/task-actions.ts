@@ -1,13 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type {
-	Change,
-	HyperIdleDb,
-	NewChange,
-	NewTask,
-	Team,
-	User,
-	WriteExecutor,
-} from "@hyperidle/db";
+import type { Change, HyperIdleDb, NewChange, NewTask, User, WriteExecutor } from "@hyperidle/db";
 import {
 	type ActionResult,
 	type AdjustThreadInput,
@@ -58,7 +50,6 @@ export interface TaskActionsDeps {
 		): Promise<readonly { taskId: string; sessionId: string }[]>;
 		endRunForHandoff(sessionId: string, endedAt: string): Promise<void>;
 	};
-	readonly org: { getTeam(exec: WriteExecutor, q: { id: string }): Promise<Team | undefined> };
 	readonly users: { getUserById(exec: WriteExecutor, id: string): Promise<User | undefined> };
 	/**
 	 * The ONE door onto `document` (architecture.md §6.7, §8.3) — task never
@@ -563,26 +554,10 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 				path: "state",
 			});
 		}
-		const dispatchingOwner = next.ownerAgentId;
-		if (
-			resolvedState === "accepted" &&
-			dispatchingOwner &&
-			prev?.state !== "accepted" &&
-			problems.length === 0
-		) {
-			const team = await deps.org.getTeam(ctx.db, { id: next.teamId });
-			if (!team) {
-				problems.push({ code: "team_not_found", message: "Team not found.", path: "teamId" });
-			} else {
-				const running = await taskDb.countTeamTasksInProgress(ctx.db, next.teamId);
-				if (running >= team.capacity) {
-					problems.push({
-						code: "capacity_exceeded",
-						message: `Team is already at its capacity of ${team.capacity} in-progress tasks.`,
-					});
-				}
-			}
-		}
+		// @lore BC5 T11: the capacity_exceeded gate (team.capacity, dropped by
+		// migration 0090) is deleted — WIP capacity goes with the team column
+		// that carried it (D-c7jgxy). A team is id + name now; accepting a
+		// task no longer reads it at all.
 		if (
 			input.ownerAgentId !== undefined &&
 			input.ownerAgentId !== null &&

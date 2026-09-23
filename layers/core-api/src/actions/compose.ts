@@ -125,7 +125,6 @@ function buildTaskActionsDeps(
 			endRunForHandoff: (sessionId, endedAt) =>
 				agentOrchestration.runs.endForHandoff(sessionId, endedAt),
 		},
-		org: { getTeam: (exec, q) => getTeam(exec, q) },
 		users: { getUserById: (exec, id) => findUser(exec, { id }) },
 		searchDocuments,
 		taskRunResolver: buildTaskRunResolverDeps(searchDocuments),
