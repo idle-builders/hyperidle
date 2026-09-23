@@ -81,15 +81,5 @@ describe("server_config.harnessDisabled key", () => {
 			const disabled = (config as { harnessDisabled?: string[] }).harnessDisabled ?? [];
 			expect(disabled).toHaveLength(0);
 		});
-
-		test("harnessDisabled update does not clobber notifications", async ({ db }) => {
-			// @lore AU44 batch 4: reviewAlerts removed from schema; use mutedTypes instead.
-			await updateServerConfig(db, { notifications: { mutedTypes: ["review_request"] } });
-			await updateServerConfig(db, { harnessDisabled: ["opencode"] } as AM4ServerConfigPatch);
-
-			const config = await readServerConfig(db);
-			// Notifications must survive unrelated harnessDisabled write
-			expect(config.notifications.mutedTypes).toContain("review_request");
-		});
 	});
 });

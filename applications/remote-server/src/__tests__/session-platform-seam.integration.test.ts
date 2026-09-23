@@ -302,7 +302,7 @@ async function seedSession(
 	});
 }
 
-/** A minimal plugin: one agent, one routine, one skill document, one `tool`-kind
+/** A minimal plugin: one agent, one subscription, one skill document, one `tool`-kind
  * configuration contribution — the same shape `platform-actions.integration.test.ts`'s
  * own `makePlugin` uses, so `search_plugins`/`edit_plugin` exercise every
  * contribution kind. */
@@ -328,12 +328,12 @@ function makePlugin(pluginId: string): string {
 							identity: "identity.md",
 						},
 					],
-					routines: [
+					subscriptions: [
 						{
-							id: "sweep-routine",
-							name: "Sweep Routine",
+							id: "sweep-subscription",
+							name: "Sweep Subscription",
 							agentId: "builder",
-							triggerType: "manual",
+							event: "task.changed",
 							prompt: "Sweep the stale items.",
 						},
 					],

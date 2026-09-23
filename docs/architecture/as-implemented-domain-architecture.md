@@ -379,13 +379,13 @@ Verified against code 2026-08-06. Component-level facts only; primitive semantic
 
 ### Primitive store
 
-Embedded Postgres: PGlite (laptop/test) or postgres-js (VPS/cloud), one unified Drizzle type (`framework/db/src/connection.ts`). All shapes owned by `framework/db/src/schema.ts`: teams (id + name only), users (humans and agents, `kind` human|ai; team membership is `users.teamId`, or an owned agent's owner's), subscriptions, inbox, tasks (recursive — `parent_task_id` nullable self-FK; replaces the former `bets` + `tasks` two-table design), sessions, threads, messages, org_edges, `documents` (one table: content, scope, slot, tree position, `confidence`/`meta`, and four usage columns — `read_count`/`last_read_at`/`session_use_count`/`last_used_at`), propagation_log, artifacts, filesystems (+injections/captures), agent-run tables (agent_session_requests, agent_work_intents, explicit_session_starts, agent_run_config, …), config/login/invite/proposed-call tables.
+Embedded Postgres: PGlite (laptop/test) or postgres-js (VPS/cloud), one unified Drizzle type (`framework/db/src/connection.ts`). All shapes owned by `framework/db/src/schema.ts`: teams (id + name only), users (humans and agents, `kind` human|ai; team membership is `users.teamId`, or an owned agent's owner's), subscriptions, inbox, tasks (recursive — `parent_task_id` nullable self-FK; replaces the former `bets` + `tasks` two-table design), sessions, threads, messages, org_edges, `documents` (one table: content, scope, slot, tree position, `confidence`/`meta`, and four usage columns — `read_count`/`last_read_at`/`session_use_count`/`last_used_at`), artifacts, filesystems (+injections/captures), agent-run tables (agent_session_requests, agent_work_intents, explicit_session_starts, agent_run_config, …), config/login/invite/proposed-call tables.
 
 - The `responses` table is dropped — verdicts are `verdict`-typed messages ([Thread primitive](../human-interface-layer/thread-primitive.md)).
 - There is no `items` table. A review, a question, an escalation are messages on a thread.
 - Message idempotency: UNIQUE(threadId, senderId, clientKey).
 - Sessions carry no cost columns. The cost feature was deleted with no replacement; the spend ceiling lives at the upstream LLM provider account ([WIP limits](../process-layer/wip-and-cost-limits.md)).
-- `org_edges` records org relationships per (fromUserId, mechanism, target); `propagation_log` records lifecycle-propagation applications by source level/id and status. There is no separate access-log table for documents — a read is counted directly on the row (`read_count`/`last_read_at`), and every create/edit is one `changes` row (`object='document'`).
+- `org_edges` records org relationships per (fromUserId, mechanism, target). There is no separate access-log table for documents — a read is counted directly on the row (`read_count`/`last_read_at`), and every create/edit is one `changes` row (`object='document'`).
 
 ### Item routing
 
