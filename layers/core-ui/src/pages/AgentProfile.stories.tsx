@@ -6,10 +6,10 @@
  * uses Link and useParams internally.
  */
 
-import type { AgentProfileResponse } from "@hyperidle/domain-model";
 import type { JSX } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import type { AgentRunState } from "../hooks/useAgentRunState.js";
+import type { AgentProfileData } from "../hooks/useAgentProfile.js";
 import { AgentProfile } from "./AgentProfile.js";
 
 function wrap(element: JSX.Element): JSX.Element {
@@ -22,7 +22,7 @@ function wrap(element: JSX.Element): JSX.Element {
 	);
 }
 
-const BASE_PROFILE: AgentProfileResponse = {
+const BASE_PROFILE: AgentProfileData = {
 	id: "agent-1",
 	name: "Atlas Builder",
 	role: "builder",
@@ -33,26 +33,24 @@ const BASE_PROFILE: AgentProfileResponse = {
 	identityDocumentId: "ki_af_agent-1",
 	harnessType: "claude-code",
 	maxConcurrentSessions: 2,
-	mcpSetup: null,
-	harnessAvailable: true,
-	harnessCapabilities: {
-		toolUse: true,
-		mcpSupport: true,
-		fileEditing: true,
-		subAgents: true,
-	},
-	reviewTrackRecord: {
-		approvalRate: 0.92,
-		totalVerdicts: 34,
-		recentVerdicts: [
-			{ decision: "approve", threadId: "t-1", createdAt: "2024-06-03T10:45:00.000Z" },
-			{ decision: "approve", threadId: "t-2", createdAt: "2024-06-02T14:00:00.000Z" },
-			{ decision: "request-changes", threadId: "t-3", createdAt: "2024-06-01T09:00:00.000Z" },
-			{ decision: "approve-with-comments", threadId: "t-4", createdAt: "2024-05-30T16:00:00.000Z" },
-			{ decision: "approve", threadId: "t-5", createdAt: "2024-05-29T11:00:00.000Z" },
-		],
-		windowDays: 30,
-	},
+	subscriptions: [
+		{
+			id: "sub-1",
+			event: "task.changed",
+			schedule: null,
+			paused: false,
+			documentId: "doc-sub-1",
+			nextRunAt: null,
+		},
+		{
+			id: "sub-2",
+			event: null,
+			schedule: "0 9 * * 1",
+			paused: true,
+			documentId: null,
+			nextRunAt: "2024-06-10T09:00:00.000Z",
+		},
+	],
 };
 
 /**
@@ -147,7 +145,7 @@ export const RunStateUnavailable = (): JSX.Element =>
 export const Degraded = (): JSX.Element =>
 	wrap(
 		<AgentProfile
-			overrideData={{ ...BASE_PROFILE, harnessAvailable: false }}
+			overrideData={BASE_PROFILE}
 			overrideRunState={{
 				...BASE_RUN_STATE,
 				healthSignals: {
@@ -161,19 +159,11 @@ export const Degraded = (): JSX.Element =>
 		/>,
 	);
 
-/** Agent with no sessions and no reviews yet — empty state rows. */
+/** Agent with no sessions and no subscriptions yet — empty state rows. */
 export const NoHistory = (): JSX.Element =>
 	wrap(
 		<AgentProfile
-			overrideData={{
-				...BASE_PROFILE,
-				reviewTrackRecord: {
-					approvalRate: 0,
-					totalVerdicts: 0,
-					recentVerdicts: [],
-					windowDays: 30,
-				},
-			}}
+			overrideData={{ ...BASE_PROFILE, subscriptions: [] }}
 			overrideRunState={{
 				status: "ready",
 				activeSession: null,
@@ -190,21 +180,10 @@ export const NoHistory = (): JSX.Element =>
 		/>,
 	);
 
-/** Agent with no reviews yet — shows "No reviews recorded yet." */
-export const NoReviews = (): JSX.Element =>
+/** Agent with no subscriptions yet — shows "No subscriptions yet." */
+export const NoSubscriptions = (): JSX.Element =>
 	wrap(
-		<AgentProfile
-			overrideRunState={BASE_RUN_STATE}
-			overrideData={{
-				...BASE_PROFILE,
-				reviewTrackRecord: {
-					approvalRate: 0,
-					totalVerdicts: 0,
-					recentVerdicts: [],
-					windowDays: 30,
-				},
-			}}
-		/>,
+		<AgentProfile overrideRunState={BASE_RUN_STATE} overrideData={{ ...BASE_PROFILE, subscriptions: [] }} />,
 	);
 
 /** Loading skeleton state. */
@@ -231,12 +210,6 @@ export const StrategyAgent = (): JSX.Element =>
 				agentCategory: "individual",
 				teamName: null,
 				teamId: null,
-				harnessCapabilities: {
-					toolUse: false,
-					mcpSupport: false,
-					fileEditing: false,
-					subAgents: false,
-				},
 			}}
 		/>,
 	);

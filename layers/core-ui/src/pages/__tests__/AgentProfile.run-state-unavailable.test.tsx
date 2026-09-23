@@ -10,14 +10,15 @@
  * asserted as fact.
  */
 
-import type { AgentProfileResponse } from "@hyperidle/domain-model";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import type { AgentRunState } from "../../hooks/useAgentRunState.js";
+import type { AgentProfileData } from "../../hooks/useAgentProfile.js";
+import { ToastRegion } from "../../shell/ToastRegion.js";
 import { AgentProfile } from "../AgentProfile.js";
 
-const PROFILE: AgentProfileResponse = {
+const PROFILE: AgentProfileData = {
 	id: "agent-w6",
 	name: "W6 Agent",
 	role: "builder",
@@ -28,15 +29,7 @@ const PROFILE: AgentProfileResponse = {
 	identityDocumentId: "ki_af_demo",
 	harnessType: "opencode",
 	maxConcurrentSessions: 1,
-	mcpSetup: null,
-	harnessAvailable: true,
-	harnessCapabilities: {
-		toolUse: true,
-		mcpSupport: false,
-		fileEditing: true,
-		subAgents: false,
-	},
-	reviewTrackRecord: { approvalRate: 0, totalVerdicts: 0, recentVerdicts: [], windowDays: 30 },
+	subscriptions: [],
 };
 
 function runState(status: AgentRunState["status"]): AgentRunState {
@@ -57,14 +50,16 @@ function runState(status: AgentRunState["status"]): AgentRunState {
 
 function renderProfile(state: AgentRunState): void {
 	render(
-		<MemoryRouter initialEntries={["/agents/agent-w6"]}>
-			<Routes>
-				<Route
-					path="/agents/:agentId"
-					element={<AgentProfile overrideData={PROFILE} overrideRunState={state} />}
-				/>
-			</Routes>
-		</MemoryRouter>,
+		<ToastRegion>
+			<MemoryRouter initialEntries={["/agents/agent-w6"]}>
+				<Routes>
+					<Route
+						path="/agents/:agentId"
+						element={<AgentProfile overrideData={PROFILE} overrideRunState={state} />}
+					/>
+				</Routes>
+			</MemoryRouter>
+		</ToastRegion>,
 	);
 }
 
