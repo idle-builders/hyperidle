@@ -19,94 +19,41 @@
  *
  * @lore N2: All AH4 E2E specs use page.route() mocking — consistent with 78/90
  * existing specs. See layers/core-ui/playwright.config.ts @lore N2.
+ *
+ * @lore BC5 T9: `GET /api/agents`, `GET /api/harnesses` and `GET /api/org` are
+ * gone — the Settings Agents section reads `open_user({})` + `search_users({
+ * kind:"ai"})` + `open_user({id})` per row, and writes through `edit_user`.
+ * `GET /api/teams/:id` is gone too — `mockTeamPage` composes the team page.
+ * `teamName` in `AgentAddDialog` is a plain prop from the team page's own
+ * data (`data.team.name`), not a separate fetch.
  */
 
 import * as path from "node:path";
-import { expect, test } from "./fixtures";
+import {
+	expect,
+	makeUserRow,
+	mockAgents,
+	mockSearchSessions,
+	mockSearchUsers,
+	mockTeamPage,
+	mockUser,
+	test,
+} from "./fixtures";
 
 const TEAM_ID = "team-ah4-agents";
 const TEAM_NAME = "Placement Test Team";
-
-function makeOrgResponse() {
-	return {
-		edges: [],
-		users: [],
-		teams: [{ id: TEAM_ID, name: TEAM_NAME }],
-	};
-}
-
-function makeAgentsResponse(extra: unknown[] = []) {
-	return [
-		{
-			id: "agent-existing",
-			name: "Existing Agent",
-			role: "builder",
-			agentCategory: "team",
-			harnessType: "claude-code",
-			modelId: "claude-sonnet-4-6",
-			modelProvider: "anthropic",
-			maxConcurrentSessions: 1,
-			status: "active",
-			activeSessions: 0,
-		},
-		...extra,
-	];
-}
-
-function makeHarnessesResponse() {
-	return [{ type: "claude-code", name: "Claude Code", modelProviders: ["anthropic"] }];
-}
-
-function makeTeamDetailResponse() {
-	return {
-		team: { id: TEAM_ID, name: TEAM_NAME, phase: "build", status: "healthy", leadAgentId: null },
-		teamMembers: { id: TEAM_ID, formedAt: new Date().toISOString(), dissolvedAt: null },
-		roster: [],
-		burn: {
-			capacity: 5,
-		},
-		tasksInProgress: [],
-		bets: [],
-		routines: [],
-	};
-}
+const FOUNDER_ROW = makeUserRow("test-founder", { name: "Test Founder", role: "founder" });
+const EXISTING_AGENT = makeUserRow("agent-existing", {
+	kind: "ai",
+	name: "Existing Agent",
+	role: "builder",
+	agentCategory: "team",
+});
 
 test.describe("AH4 AC6 — Settings Agents add form shows team placement", () => {
 	test("Team Select is visible and populated in the Settings Agents add form", async ({ page }) => {
-		// Mock required API endpoints
-		await page.route("**/api/agents", async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(makeAgentsResponse()),
-				});
-			} else {
-				await route.continue();
-			}
-		});
-		await page.route("**/api/harnesses", async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(makeHarnessesResponse()),
-				});
-			} else {
-				await route.continue();
-			}
-		});
-		await page.route("**/api/org", async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(makeOrgResponse()),
-				});
-			} else {
-				await route.continue();
-			}
-		});
+		await mockUser(page, { row: FOUNDER_ROW, self: true });
+		await mockSearchUsers(page, { rows: [EXISTING_AGENT, { ...FOUNDER_ROW, team: { id: TEAM_ID, name: TEAM_NAME } }] });
 
 		await page.goto("/settings");
 		await page.waitForSelector("[data-testid='settings-page']");
@@ -133,51 +80,46 @@ test.describe("AH4 AC6 — Settings Agents add form shows team placement", () =>
 	});
 
 	test("After agent creation in Settings, agent appears in the agents list", async ({ page }) => {
-		const newAgent = {
-			id: "agent-new-ah4",
+		const newAgentRow = makeUserRow("agent-new-ah4", {
+			kind: "ai",
 			name: "AH4 New Agent",
 			role: "builder",
 			agentCategory: "team",
-			harnessType: "claude-code",
-			modelId: "claude-sonnet-4-6",
-			modelProvider: "anthropic",
-			maxConcurrentSessions: 1,
-			status: "active",
-			activeSessions: 0,
-		};
+		});
+
+		await mockUser(page, { row: FOUNDER_ROW, self: true });
 
 		let created = false;
-
-		await page.route("**/api/agents", async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(created ? makeAgentsResponse([newAgent]) : makeAgentsResponse()),
-				});
-			} else if (route.request().method() === "POST") {
-				created = true;
-				await route.fulfill({
-					status: 201,
-					contentType: "application/json",
-					body: JSON.stringify(newAgent),
-				});
-			} else {
+		await page.route("**/api/actions/search_users", async (route) => {
+			if (route.request().method() !== "POST") {
 				await route.continue();
+				return;
 			}
-		});
-		await page.route("**/api/harnesses", async (route) => {
+			const input = JSON.parse(route.request().postData() ?? "{}") as { kind?: string };
+			if (input.kind !== "ai") {
+				await route.fallback();
+				return;
+			}
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify(makeHarnessesResponse()),
+				body: JSON.stringify({ ok: true, data: created ? [EXISTING_AGENT, newAgentRow] : [EXISTING_AGENT] }),
 			});
 		});
-		await page.route("**/api/org", async (route) => {
+		await page.route("**/api/actions/edit_user", async (route) => {
+			const input = JSON.parse(route.request().postData() ?? "{}") as { id?: string };
+			if (input.id !== undefined) {
+				await route.fallback();
+				return;
+			}
+			created = true;
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify(makeOrgResponse()),
+				body: JSON.stringify({
+					ok: true,
+					data: { user: newAgentRow, runsOn: [], runConfig: null, documentIds: [], folders: [], subscriptions: [], connections: null, behaviour: null, inbox: null, reviewTrackRecord: null },
+				}),
 			});
 		});
 
@@ -207,36 +149,10 @@ test.describe("AH4 AC6 — WorkTeam AgentAddDialog shows placement KeyValue", ()
 	test("AgentAddDialog shows TEAM label with team name when opened from WorkTeam", async ({
 		page,
 	}) => {
-		// Mock all required routes for the WorkTeam page
-		await page.route(`**/api/teams/${TEAM_ID}`, async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(makeTeamDetailResponse()),
-				});
-			} else {
-				await route.continue();
-			}
-		});
-		await page.route("**/api/agents", async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify([]),
-				});
-			} else {
-				await route.continue();
-			}
-		});
-		await page.route(`**/api/teams/${TEAM_ID}/agents`, async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify([]),
-			});
-		});
+		await mockSearchUsers(page, { rows: [] });
+		await mockTeamPage(page, { teamId: TEAM_ID, teamName: TEAM_NAME, roster: [] });
+		await mockAgents(page, { agents: [] });
+		await mockSearchSessions(page, { rows: [] });
 
 		// Navigate to the team page
 		await page.goto(`/work/team/${TEAM_ID}`);
