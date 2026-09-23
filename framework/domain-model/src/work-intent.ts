@@ -196,7 +196,7 @@ export interface BakedContextDocument {
 	 * folder item). Each ancestor therefore carries its own `scopeKind` and
 	 * `version`, not just `id`/`title` — everything a manifest entry needs,
 	 * with zero DB reads at write time. Empty for a root item or one whose
-	 * parent is not a document (task/thread/routine/agent — walks never
+	 * parent is not a document (task/thread/subscription/agent — walks never
 	 * cross that hop).
 	 */
 	readonly parentChain: readonly BakedDocumentAncestor[];
@@ -230,7 +230,7 @@ export interface BakedContextDocument {
 /**
  * AU21 §9 Increment 12 (Decision H3), Wave B — the structural shape
  * `@hyperidle/document`'s `assembleSessionDocuments` (Wave A) returns
- * (`SessionDocument`), duck-typed here so `work`/`routine`/
+ * (`SessionDocument`), duck-typed here so `work`/`user`/
  * `review`'s per-kind resolvers can type their INJECTED `assembleSessionDocuments`
  * dependency (Mechanism C: none of those packages may import
  * `@hyperidle/document` directly) without needing that Service's own type.
@@ -282,7 +282,7 @@ export interface SessionDocumentLike {
  * Map `assembleSessionDocuments`'s ranked+budgeted output onto the
  * `BakedContextDocument[]` shape every `contextBundle` variant carries —
  * one shared mapper so `task-run-resolver.ts`/`knowledge-action-resolver.ts`/
- * the routine resolver doesn't reimplement the
+ * the subscription-wake resolver doesn't reimplement the
  * same field-pick.
  */
 export function toBakedContextDocuments(
