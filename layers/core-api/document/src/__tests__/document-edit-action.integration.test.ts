@@ -21,7 +21,7 @@ import {
 } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import type { DocumentView, EditDocumentInput, OpenDocumentInput } from "@hyperidle/domain-model";
-import { EventBus } from "@hyperidle/event-bus";
+import { EventBus, type ObjectChangeEvent } from "@hyperidle/event-bus";
 import { and, eq } from "drizzle-orm";
 import type { Action, ActionContext } from "../action-types.js";
 import { createDocumentActions, type DocumentActionsDeps } from "../document-actions.js";
@@ -993,6 +993,86 @@ describe("edit_document — the post-commit push, architecture.md §7", () => {
 			body: "x",
 		});
 		expect(result.ok).toBe(true);
+	});
+});
+
+describe("edit_document — object events, architecture.md §3", () => {
+	test("create emits exactly one document.created carrying the row", async ({ db }) => {
+		await seedUser(db, "writer-event-1");
+		const ctx = ctxFor(db, "writer-event-1");
+		const events: ObjectChangeEvent[] = [];
+		ctx.eventBus.on("document.created", (e) => events.push(e));
+
+		const result = await editAction(writeDeps()).run(ctx, {
+			id: "doc-event-1",
+			title: "New doc",
+			body: "hello",
+		});
+		expect(result.ok).toBe(true);
+
+		expect(events).toHaveLength(1);
+		expect(events[0]?.change.objectId).toBe("doc-event-1");
+		expect(events[0]?.change.before).toBeNull();
+		expect(events[0]?.change.after).toMatchObject({ title: "New doc" });
+		expect(events[0]?.cascade).toBeUndefined();
+	});
+
+	test("an edit emits exactly one document.changed naming only the fields that differ", async ({
+		db,
+	}) => {
+		await seedUser(db, "writer-event-2");
+		const edit = editAction(writeDeps());
+		const ctx = ctxFor(db, "writer-event-2");
+		await edit.run(ctx, { id: "doc-event-2", title: "Before", body: "same body" });
+
+		const events: ObjectChangeEvent[] = [];
+		ctx.eventBus.on("document.changed", (e) => events.push(e));
+
+		const result = await edit.run(ctx, { id: "doc-event-2", title: "After" });
+		expect(result.ok).toBe(true);
+
+		expect(events).toHaveLength(1);
+		expect(events[0]?.change.objectId).toBe("doc-event-2");
+		expect(events[0]?.change.before).toEqual({ id: "doc-event-2", title: "Before" });
+		expect(events[0]?.change.after).toEqual({ id: "doc-event-2", title: "After" });
+	});
+
+	test("a scope-narrowing cascade emits one document.changed per narrowed child, alongside the parent's own", async ({
+		db,
+	}) => {
+		await seedUser(db, "writer-event-3");
+		const edit = editAction(writeDeps());
+		const ctx = ctxFor(db, "writer-event-3");
+
+		const parent = await edit.run(ctx, {
+			id: "doc-event-parent",
+			title: "Parent",
+			body: "p",
+			scopeKind: "factory",
+		});
+		expect(parent.ok).toBe(true);
+		const child = await edit.run(ctx, {
+			id: "doc-event-child",
+			title: "Child",
+			body: "c",
+			parent: { kind: "document", id: "doc-event-parent" },
+		});
+		expect(child.ok).toBe(true);
+
+		const events: ObjectChangeEvent[] = [];
+		ctx.eventBus.on("document.changed", (e) => events.push(e));
+
+		const narrowed = await edit.run(ctx, {
+			id: "doc-event-parent",
+			scopeKind: "team",
+			scopeId: "team-event-1",
+		});
+		expect(narrowed.ok).toBe(true);
+
+		const parentEvent = events.find((e) => e.change.objectId === "doc-event-parent");
+		const childEvent = events.find((e) => e.change.objectId === "doc-event-child");
+		expect(parentEvent).toBeDefined();
+		expect(childEvent).toBeDefined();
 	});
 });
 

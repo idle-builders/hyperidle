@@ -26,6 +26,7 @@ import {
 	searchDocuments as searchDocumentsDeclaration,
 	searchDocumentsInvariants,
 } from "@hyperidle/domain-model";
+import { type ChangesRow, objectEvent } from "@hyperidle/event-bus";
 import type { Action, ActionContext } from "./action-types.js";
 import {
 	assertParentInvariants,
@@ -338,6 +339,30 @@ function pushChanges(deps: DocumentActionsDeps, rows: readonly PushableChange[])
 				at: row.at,
 			},
 		});
+	}
+}
+
+/**
+ * Post-commit, once per `changes` row this call appended — the SAME rows
+ * `pushChanges` pushes over the socket (architecture.md §3: "the idiom
+ * thread and document use for the socket"). `objectEvent` wants the raw
+ * `changes`-row shape (JSON text); re-encoding `PushableChange`'s already
+ * decoded `before`/`after` here keeps one canonical builder shared by every
+ * module instead of a second one over decoded values.
+ */
+function emitObjectEvents(eventBus: ActionContext["eventBus"], rows: readonly PushableChange[]): void {
+	for (const row of rows) {
+		const changesRow: ChangesRow = {
+			id: row.id,
+			object: "document",
+			objectId: row.objectId,
+			kind: row.kind,
+			actor: row.actor,
+			before: row.before === null ? null : JSON.stringify(row.before),
+			after: JSON.stringify(row.after),
+			at: row.at,
+		};
+		eventBus.emit(objectEvent(changesRow));
 	}
 }
 
@@ -866,8 +891,14 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 			throw new Error("edit_document: transaction committed without writing a row");
 		}
 		// Post-commit, once per `changes` row — the parent's and every narrowed
-		// child's (architecture.md §6.6 rule 5, §7).
-		if (pushRow) pushChanges(deps, [pushRow, ...cascadeRows]);
+		// child's (architecture.md §6.6 rule 5, §7); each is also one
+		// document.created/document.changed object event (architecture.md
+		// §3, decision 5).
+		if (pushRow) {
+			const rows = [pushRow, ...cascadeRows];
+			pushChanges(deps, rows);
+			emitObjectEvents(ctx.eventBus, rows);
+		}
 
 		// Never through `open_document.run` — that would count this write as a
 		// read (architecture.md §6.7's trap).
