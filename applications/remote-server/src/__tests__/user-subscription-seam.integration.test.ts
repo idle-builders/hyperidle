@@ -29,14 +29,7 @@
 
 import * as os from "node:os";
 import * as path from "node:path";
-import {
-	agentWorkIntents,
-	type HyperIdleDb,
-	tasks,
-	teams,
-	threads,
-	users,
-} from "@hyperidle/db";
+import { agentWorkIntents, type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import { and, eq, like } from "drizzle-orm";
@@ -63,7 +56,10 @@ async function boot(db: HyperIdleDb): Promise<Booted> {
 	const server = await createServer(0, {
 		db,
 		topology: "disabled",
-		sandboxBasePath: path.join(os.tmpdir(), `user-subscription-seam-${Date.now()}-${Math.random()}`),
+		sandboxBasePath: path.join(
+			os.tmpdir(),
+			`user-subscription-seam-${Date.now()}-${Math.random()}`,
+		),
 	});
 	const addr = server.httpServer.address();
 	if (typeof addr !== "object" || addr === null) {
@@ -210,6 +206,22 @@ async function waitUntil(check: () => Promise<boolean>, timeoutMs = 3000): Promi
 		}
 		await new Promise((r) => setTimeout(r, 50));
 	}
+}
+
+/** Asserts a `callAction` result is a 200 `ok`, returning its `data` — collapses the
+ * repeated "throw with the body on failure" check every mutating call below needs. */
+function expectOk(res: HttpResult, what: string): Record<string, unknown> {
+	if (res.status !== 200 || res.json.ok !== true) {
+		throw new Error(`${what} failed: ${JSON.stringify(res.json)}`);
+	}
+	return res.json.data as Record<string, unknown>;
+}
+
+/** The `id` of the first subscription on an `edit_user` response's `subscriptions` array. */
+function firstSubscriptionId(data: Record<string, unknown>, what: string): string {
+	const id = (data.subscriptions as Array<{ id: string }>)[0]?.id;
+	if (!id) throw new Error(`no subscription id returned for ${what}`);
+	return id;
 }
 
 async function seedTeam(db: HyperIdleDb, teamId: string): Promise<void> {
@@ -420,73 +432,63 @@ describe("user-subscription seam — reach, wake, and pause", () => {
 				teamId: "seam-sub-team-in",
 			});
 
-			const subPersonRes = await callAction(
-				handle,
-				"edit_user",
-				{ id: "seam-sub-person", subscriptions: { add: [{ event: "task.changed" }] } },
-				"seam-sub-editor",
+			const personSubId = firstSubscriptionId(
+				expectOk(
+					await callAction(
+						handle,
+						"edit_user",
+						{ id: "seam-sub-person", subscriptions: { add: [{ event: "task.changed" }] } },
+						"seam-sub-editor",
+					),
+					"subscribe person",
+				),
+				"the person",
 			);
-			if (subPersonRes.status !== 200 || subPersonRes.json.ok !== true) {
-				throw new Error(`subscribe person failed: ${JSON.stringify(subPersonRes.json)}`);
-			}
-			const personSubId = (
-				subPersonRes.json.data as { subscriptions: Array<{ id: string }> }
-			).subscriptions[0]?.id;
-			if (!personSubId) throw new Error("no subscription id returned for the person");
-
-			const subAgentInRes = await callAction(
-				handle,
-				"edit_user",
-				{ id: "seam-sub-agent-in", subscriptions: { add: [{ event: "task.changed" }] } },
-				"seam-sub-editor",
+			const agentInSubId = firstSubscriptionId(
+				expectOk(
+					await callAction(
+						handle,
+						"edit_user",
+						{ id: "seam-sub-agent-in", subscriptions: { add: [{ event: "task.changed" }] } },
+						"seam-sub-editor",
+					),
+					"subscribe in-reach agent",
+				),
+				"the in-reach agent",
 			);
-			if (subAgentInRes.status !== 200 || subAgentInRes.json.ok !== true) {
-				throw new Error(`subscribe in-reach agent failed: ${JSON.stringify(subAgentInRes.json)}`);
-			}
-			const agentInSubId = (
-				subAgentInRes.json.data as { subscriptions: Array<{ id: string }> }
-			).subscriptions[0]?.id;
-			if (!agentInSubId) throw new Error("no subscription id returned for the in-reach agent");
-
-			const subAgentOutRes = await callAction(
-				handle,
-				"edit_user",
-				{ id: "seam-sub-agent-out", subscriptions: { add: [{ event: "task.changed" }] } },
-				"seam-sub-editor",
+			const agentOutSubId = firstSubscriptionId(
+				expectOk(
+					await callAction(
+						handle,
+						"edit_user",
+						{ id: "seam-sub-agent-out", subscriptions: { add: [{ event: "task.changed" }] } },
+						"seam-sub-editor",
+					),
+					"subscribe out-of-reach agent",
+				),
+				"the out-of-reach agent",
 			);
-			if (subAgentOutRes.status !== 200 || subAgentOutRes.json.ok !== true) {
-				throw new Error(
-					`subscribe out-of-reach agent failed: ${JSON.stringify(subAgentOutRes.json)}`,
-				);
-			}
-			const agentOutSubId = (
-				subAgentOutRes.json.data as { subscriptions: Array<{ id: string }> }
-			).subscriptions[0]?.id;
-			if (!agentOutSubId) throw new Error("no subscription id returned for the out-of-reach agent");
 
 			const token = await mintWsToken(handle, "seam-sub-person");
 			ws = connect(handle, token);
 			await waitForOpen(ws);
 			ws.send(JSON.stringify({ type: "subscribe", topic: "user:seam-sub-person" }));
-			await waitForFrame(
-				ws,
-				(m) => m.type === "subscribed" && m.topic === "user:seam-sub-person",
-			);
+			await waitForFrame(ws, (m) => m.type === "subscribed" && m.topic === "user:seam-sub-person");
 
 			const nudge = waitForFrame(
 				ws,
 				(m) => m.type === "update" && m.topic === "user:seam-sub-person",
 			);
 
-			const editRes = await callAction(
-				handle,
+			expectOk(
+				await callAction(
+					handle,
+					"edit_task",
+					{ id: "seam-sub-task", state: "blocked" },
+					"seam-sub-editor",
+				),
 				"edit_task",
-				{ id: "seam-sub-task", state: "blocked" },
-				"seam-sub-editor",
 			);
-			if (editRes.status !== 200 || editRes.json.ok !== true) {
-				throw new Error(`edit_task failed: ${JSON.stringify(editRes.json)}`);
-			}
 
 			const frame = await nudge;
 			expect(frame.kind).toBe("inbox");
@@ -494,10 +496,11 @@ describe("user-subscription seam — reach, wake, and pause", () => {
 			expect(typeof changeId).toBe("string");
 
 			// open_user, as the person themself, shows the inbox row.
-			const openRes = await callAction(handle, "open_user", {}, "seam-sub-person");
-			expect(openRes.status).toBe(200);
-			const inbox = (openRes.json.data as { inbox: Array<{ change: { id: string } }> | null })
-				.inbox;
+			const openData = expectOk(
+				await callAction(handle, "open_user", {}, "seam-sub-person"),
+				"open_user",
+			);
+			const inbox = openData.inbox as Array<{ change: { id: string } }> | null;
 			expect(inbox?.some((row) => row.change.id === changeId)).toBe(true);
 
 			// a subscription_run intent exists for the in-reach agent.
@@ -537,41 +540,41 @@ describe("user-subscription seam — reach, wake, and pause", () => {
 			expect(outReachIntents).toHaveLength(0);
 
 			// pausing stops both.
-			const pausePersonRes = await callAction(
-				handle,
-				"edit_user",
-				{ id: "seam-sub-person", subscriptions: { change: [{ id: personSubId, paused: true }] } },
-				"seam-sub-editor",
+			expectOk(
+				await callAction(
+					handle,
+					"edit_user",
+					{ id: "seam-sub-person", subscriptions: { change: [{ id: personSubId, paused: true }] } },
+					"seam-sub-editor",
+				),
+				"pause person subscription",
 			);
-			if (pausePersonRes.status !== 200 || pausePersonRes.json.ok !== true) {
-				throw new Error(`pause person subscription failed: ${JSON.stringify(pausePersonRes.json)}`);
-			}
-			const pauseAgentRes = await callAction(
-				handle,
-				"edit_user",
-				{
-					id: "seam-sub-agent-in",
-					subscriptions: { change: [{ id: agentInSubId, paused: true }] },
-				},
-				"seam-sub-editor",
+			expectOk(
+				await callAction(
+					handle,
+					"edit_user",
+					{
+						id: "seam-sub-agent-in",
+						subscriptions: { change: [{ id: agentInSubId, paused: true }] },
+					},
+					"seam-sub-editor",
+				),
+				"pause agent subscription",
 			);
-			if (pauseAgentRes.status !== 200 || pauseAgentRes.json.ok !== true) {
-				throw new Error(`pause agent subscription failed: ${JSON.stringify(pauseAgentRes.json)}`);
-			}
 
 			const noNudge = assertNoFrame(
 				ws,
 				(m) => m.type === "update" && m.topic === "user:seam-sub-person",
 			);
-			const editRes2 = await callAction(
-				handle,
-				"edit_task",
-				{ id: "seam-sub-task", state: "in_progress" },
-				"seam-sub-editor",
+			expectOk(
+				await callAction(
+					handle,
+					"edit_task",
+					{ id: "seam-sub-task", state: "in_progress" },
+					"seam-sub-editor",
+				),
+				"second edit_task",
 			);
-			if (editRes2.status !== 200 || editRes2.json.ok !== true) {
-				throw new Error(`second edit_task failed: ${JSON.stringify(editRes2.json)}`);
-			}
 			await noNudge;
 
 			// give the fire handler its usual window, then confirm no new intent landed.

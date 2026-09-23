@@ -42,8 +42,8 @@ import {
 	agentRunConfig,
 	agentSessionRequests,
 	agentWorkIntents,
-	type HyperIdleDb,
 	documents,
+	type HyperIdleDb,
 	tasks,
 	teams,
 	threads,
@@ -290,7 +290,10 @@ function buildFireDeps(
 }
 
 describe("a real task.changed wakes a subscribed agent, who reads the change and edits the document its prompt names (real harness)", () => {
-	async function runSubscriptionWakeProof(harness: SupportedHarnessName, db: HyperIdleDb): Promise<void> {
+	async function runSubscriptionWakeProof(
+		harness: SupportedHarnessName,
+		db: HyperIdleDb,
+	): Promise<void> {
 		const founderId = `founder-sub-wake-${harness}`;
 		const agentId = `agent-sub-wake-${harness}`;
 		const teamId = `team-sub-wake-${harness}`;
@@ -358,7 +361,9 @@ describe("a real task.changed wakes a subscribed agent, who reads the change and
 				{ id: agentId, subscriptions: { add: [{ event: "task.changed", prompt: instruction }] } },
 			);
 			if (!subscribeResult.ok) {
-				throw new Error(`edit_user (subscribe) failed: ${JSON.stringify(subscribeResult.problems)}`);
+				throw new Error(
+					`edit_user (subscribe) failed: ${JSON.stringify(subscribeResult.problems)}`,
+				);
 			}
 			const subId = subscribeResult.data.subscriptions[0]?.id;
 			if (!subId) throw new Error("no subscription id returned");
