@@ -72,12 +72,20 @@ const createOrgTeamSchema = z.object({
  * @lore AU44 AU20-fd: backs `CoreApiOrgPort.scaffoldFromRequest` — widens the
  * scaffold seam so agent-orchestration passes the request instead of pre-resolved
  * specs. Core-api resolves via `resolveAgentScaffoldSpecs` then persists.
+ *
+ * @lore BC5 T7b: `functions` (a required array field neither
+ * `resolveAgentScaffoldSpecs` nor `persistScaffoldedAgents` ever read)
+ * deleted — `ScaffoldFromRequestInput` (`framework/api-contract`) never had
+ * it, and the seam's own binding never sent it, so every `create_team`/
+ * `add_agent` call 400'd on this dead required field. Found chasing a
+ * dispatch vehicle for `tool-registry.integration.test.ts` once
+ * `create_routine`, the tool that had dodged this bug, was deleted with the
+ * routine package.
  */
 const scaffoldFromRequestSchema = z.object({
 	teamMembersId: z.string().nullable(),
 	trigger: z.enum(["team_scaffold", "agent_added", "user_assistant"]),
 	teamName: z.string().nullable(),
-	functions: z.array(z.string()).nullable(),
 	role: z.string().nullable(),
 	name: z.string().nullable(),
 	ownerUserId: z.string().nullable(),

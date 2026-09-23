@@ -38,9 +38,9 @@ describe("app runtime route boot", () => {
 			try {
 				const routeChecks = [
 					["/api/health", false],
-					["/api/routines", true],
-					// GET /api/notifications root (door #129) deleted
-					["/api/notifications/inbox", true],
+					// BC5 T7b: /api/routines and /api/notifications/inbox are deleted
+					// with their packages — /api/users takes their place here.
+					["/api/users", true],
 					["/api/harnesses", true],
 				] as const;
 

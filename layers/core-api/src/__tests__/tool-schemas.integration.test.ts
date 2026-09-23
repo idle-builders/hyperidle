@@ -17,11 +17,13 @@ import { buildCoreActions } from "../actions/compose.js";
 // @lore the six document tools (`write_memory`/`create_artifact`/
 // `promote_knowledge`/`create_conflict_review`/`merge_knowledge`/
 // `split_knowledge`) are DELETED — the hand-written catalog is now exactly
-// the four AE3 management tools (chief_of_staff / assistant). The three
-// REAL document tools (`search_documents`/`open_document`/`edit_document`)
-// are not hand-written — they are the composed `document` action's own
-// projection, covered separately below.
-const EXPECTED_TOOL_NAMES = ["create_team", "add_agent", "create_routine", "update_routine"];
+// the two AE3 management tools (chief_of_staff / assistant) —
+// `create_routine`/`update_routine` are deleted too, with the routine
+// package (BC5 T7b). The three REAL document tools
+// (`search_documents`/`open_document`/`edit_document`) are not hand-written
+// — they are the composed `document` action's own projection, covered
+// separately below.
+const EXPECTED_TOOL_NAMES = ["create_team", "add_agent"];
 const DOCUMENT_TOOL_NAMES = ["search_documents", "open_document", "edit_document"];
 
 function makeContext(db: HyperIdleDb): ToolContext<HyperIdleDb> {

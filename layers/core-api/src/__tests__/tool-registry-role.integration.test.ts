@@ -61,17 +61,14 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 	});
 
 	// AE3 — AC-5: management tool authorization (BB1: create_bet removed)
-	const MANAGEMENT_TOOLS = [
-		"create_team",
-		"add_agent",
-		"create_routine",
-		"update_routine",
-	] as const;
+	// @lore BC5 T7b: create_routine/update_routine deleted with the routine
+	// package — the tool-handlers catalog is down to the two team tools.
+	const MANAGEMENT_TOOLS = ["create_team", "add_agent"] as const;
 
 	// @lore the six document tools are gone — MANAGEMENT_TOOLS is now the
 	// whole hand-written catalog, so this also proves the catalog carries no
-	// extra tool beyond the four.
-	test("assistant registry includes exactly the 4 management tools", ({ db, app }) => {
+	// extra tool beyond the two.
+	test("assistant registry includes exactly the 2 management tools", ({ db, app }) => {
 		const registry = buildToolRegistry(
 			buildToolDefinitions(createInProcessCoreApiTransport(app)),
 			makeContext(db),
@@ -82,7 +79,7 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 	});
 
 	// @lore AD8b: role string "chief_of_staff" renamed to "assistant".
-	test("AE3 AC-5: assistant registry includes all 4 management tools", ({ db, app }) => {
+	test("AE3 AC-5: assistant registry includes all 2 management tools", ({ db, app }) => {
 		const registry = buildToolRegistry(
 			buildToolDefinitions(createInProcessCoreApiTransport(app)),
 			makeContext(db),
