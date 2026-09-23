@@ -11,12 +11,20 @@
  *  - /api/agents CRUD endpoints are implemented
  *  - /api/agents/templates/:role endpoint is implemented
  *
- * @lore X3: E2E tests mock /api/agents to avoid needing a seeded backend.
+ * @lore X3: E2E tests mock the user door to avoid needing a seeded backend.
  * The fixtures extend the core mocks from ./fixtures.ts and add agent-specific
  * route mocks. LIFO route matching means these handlers win over the fallbacks.
+ *
+ * @lore BC5 T9/T11: `GET/POST/PATCH/DELETE /api/agents*` are gone —
+ * SettingsAgents reads `search_users({kind:"ai"})` + `open_user({id})` per
+ * row and writes through `edit_user`. Every test in this file is already on
+ * known-pre-existing-failures.ts (`openSettings`'s "user profile" button
+ * predates that door swap and no longer exists at all — Settings' trigger is
+ * named "Settings" now) — this is a plumbing correctness pass, not a
+ * green-phase fix.
  */
 
-import { expect, test } from "./fixtures";
+import { expect, makeUserRow, mockSearchUsers, mockUser, test } from "./fixtures";
 
 // ---------------------------------------------------------------------------
 // Mock data
@@ -56,8 +64,25 @@ const PM_TEMPLATE = {
 async function openSettings(page: import("@playwright/test").Page): Promise<void> {
 	await page.goto("/");
 	await page.waitForSelector("[data-testid='main-content']");
-	await page.getByRole("button", { name: /user profile/i }).click();
+	await page.getByRole("button", { name: /settings/i }).click();
 	await expect(page.getByRole("dialog", { name: /settings/i })).toBeVisible();
+}
+
+/** `MOCK_AGENTS`/`updatedAgent`-shaped test data, mapped onto a `UserRow`. */
+function toUserRow(agent: {
+	id: string;
+	name: string;
+	role: string;
+	harnessType: string | null;
+	maxConcurrentSessions: number;
+	status: string;
+}): ReturnType<typeof makeUserRow> {
+	return makeUserRow(agent.id, {
+		kind: "ai",
+		name: agent.name,
+		role: agent.role,
+		status: agent.status as ReturnType<typeof makeUserRow>["status"],
+	});
 }
 
 // ---------------------------------------------------------------------------
@@ -66,18 +91,7 @@ async function openSettings(page: import("@playwright/test").Page): Promise<void
 
 test.describe("X3 AC-9: Settings Agents section renders agent table", () => {
 	test.beforeEach(async ({ page }) => {
-		// Mock GET /api/agents
-		await page.route("**/api/agents", async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(MOCK_AGENTS),
-				});
-			} else {
-				await route.continue();
-			}
-		});
+		await mockSearchUsers(page, { rows: MOCK_AGENTS.map(toUserRow) });
 
 		await openSettings(page);
 	});
@@ -132,36 +146,36 @@ test.describe("X3 AC-10: Settings UI edit form opens inline and saves", () => {
 	test.beforeEach(async ({ page }) => {
 		updatedAgent = null;
 
-		await page.route("**/api/agents", async (route) => {
-			if (route.request().method() === "GET") {
-				const agents = updatedAgent
-					? MOCK_AGENTS.map((a) => (a.id === updatedAgent?.id ? updatedAgent : a))
-					: MOCK_AGENTS;
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(agents),
-				});
-			} else {
+		await page.route("**/api/actions/search_users", async (route) => {
+			if (route.request().method() !== "POST") {
 				await route.continue();
+				return;
 			}
+			const agents = updatedAgent
+				? MOCK_AGENTS.map((a) => (a.id === updatedAgent?.id ? updatedAgent : a))
+				: MOCK_AGENTS;
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ ok: true, data: agents.map(toUserRow) }),
+			});
 		});
 
-		await page.route("**/api/agents/e2e-agent-pm", async (route) => {
-			if (route.request().method() === "PATCH") {
-				const body = (await route.request().postDataJSON()) as Record<string, unknown>;
-				updatedAgent = {
-					...(MOCK_AGENTS[0] as (typeof MOCK_AGENTS)[0]),
-					...(body as Partial<(typeof MOCK_AGENTS)[0]>),
-				};
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(updatedAgent),
-				});
-			} else {
-				await route.continue();
+		await page.route("**/api/actions/edit_user", async (route) => {
+			const body = JSON.parse(route.request().postData() ?? "{}") as { id?: string; name?: string };
+			if (body.id !== "e2e-agent-pm") {
+				await route.fallback();
+				return;
 			}
+			updatedAgent = {
+				...(MOCK_AGENTS[0] as (typeof MOCK_AGENTS)[0]),
+				...(body as Partial<(typeof MOCK_AGENTS)[0]>),
+			};
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ ok: true, data: { user: toUserRow(updatedAgent) } }),
+			});
 		});
 
 		await openSettings(page);
@@ -219,30 +233,26 @@ test.describe("X3 AC-10: Settings UI edit form opens inline and saves", () => {
 
 test.describe("X3 AC-11: Settings UI add form creates agent with template pre-fill", () => {
 	test.beforeEach(async ({ page }) => {
-		await page.route("**/api/agents", async (route) => {
-			const method = route.request().method();
-			if (method === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(MOCK_AGENTS),
-				});
-			} else if (method === "POST") {
-				const body = (await route.request().postDataJSON()) as Record<string, unknown>;
-				await route.fulfill({
-					status: 201,
-					contentType: "application/json",
-					body: JSON.stringify({
-						id: "new-e2e-agent",
-						...(body as Partial<(typeof MOCK_AGENTS)[0]>),
-						kind: "ai",
-						status: "active",
-						activeSessions: 0,
-					}),
-				});
-			} else {
-				await route.continue();
-			}
+		await mockSearchUsers(page, { rows: MOCK_AGENTS.map(toUserRow) });
+		await page.route("**/api/actions/edit_user", async (route) => {
+			const body = JSON.parse(route.request().postData() ?? "{}") as Record<string, unknown>;
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({
+					ok: true,
+					data: {
+						user: toUserRow({
+							id: "new-e2e-agent",
+							name: (body.name as string) ?? "New agent",
+							role: (body.role as string) ?? "builder",
+							harnessType: null,
+							maxConcurrentSessions: 1,
+							status: "active",
+						}),
+					},
+				}),
+			});
 		});
 
 		await page.route("**/api/agents/templates/product_manager", async (route) => {
@@ -313,32 +323,40 @@ test.describe("X3 AC-12: Settings UI delete with two-click confirmation", () => 
 	test.beforeEach(async ({ page }) => {
 		let agentRetired = false;
 
-		await page.route("**/api/agents", async (route) => {
-			if (route.request().method() === "GET") {
-				const agents = agentRetired
-					? MOCK_AGENTS.filter((a) => a.id !== "e2e-agent-pm")
-					: MOCK_AGENTS;
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(agents),
-				});
-			} else {
+		await page.route("**/api/actions/search_users", async (route) => {
+			if (route.request().method() !== "POST") {
 				await route.continue();
+				return;
 			}
+			const agents = agentRetired
+				? MOCK_AGENTS.filter((a) => a.id !== "e2e-agent-pm")
+				: MOCK_AGENTS;
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ ok: true, data: agents.map(toUserRow) }),
+			});
 		});
 
-		await page.route("**/api/agents/e2e-agent-pm", async (route) => {
-			if (route.request().method() === "DELETE") {
-				agentRetired = true;
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({ id: "e2e-agent-pm", status: "retired" }),
-				});
-			} else {
-				await route.continue();
+		// SettingsAgents' retire path: edit_user({ id, status: "retired" }).
+		await page.route("**/api/actions/edit_user", async (route) => {
+			const body = JSON.parse(route.request().postData() ?? "{}") as {
+				id?: string;
+				status?: string;
+			};
+			if (body.id !== "e2e-agent-pm" || body.status !== "retired") {
+				await route.fallback();
+				return;
 			}
+			agentRetired = true;
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({
+					ok: true,
+					data: { user: toUserRow({ ...(MOCK_AGENTS[0] as (typeof MOCK_AGENTS)[0]), status: "retired" }) },
+				}),
+			});
 		});
 
 		await openSettings(page);
