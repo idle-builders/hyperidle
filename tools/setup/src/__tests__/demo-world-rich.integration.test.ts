@@ -3,8 +3,12 @@
  *
  * Proves `seedDemoWorld` fills a fresh database with a coherent, weeks-old
  * world: bet history across all lifecycles, tasks in every state, threads
- * with real reviews/verdicts, a document corpus, sessions and routines with
- * history, and notifications — everything the three views need to look alive.
+ * with real reviews/verdicts, a document corpus, sessions and a paused
+ * daily-digest subscription — everything the three views need to look alive.
+ *
+ * @lore BC5 T7b: "and notifications" dropped from that list — the demo
+ * world no longer fabricates unread popover rows (no demo data fabricated
+ * in code); a person's inbox is real, and starts empty.
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
@@ -305,40 +309,33 @@ describe("AX1: lived-in demo world", () => {
 	// Only demo-routine-daily_digest remains. The three ritual routines
 	// (document-decay, document-triage, post-task-retro) were also removed
 	// from demo world per coordinator instruction. No builtin:* rows exist.
-	test("routines: daily_digest routine with run history (BA9d: no builtin:* rows)", async ({
-		db,
-	}) => {
+	// @lore BC5 T7b: `routines` renamed `subscriptions`, and there is no
+	// run-history table on the new side (`routine_runs` is dropped with no
+	// replacement, migration 0089) — the daily-digest fixture is a paused
+	// schedule subscription now, same row 0089's migration would produce
+	// from an `active: false` routine.
+	test("subscriptions: daily_digest subscription, paused, no builtin:* rows", async ({ db }) => {
 		await seedWorld(db);
 
-		// Only the daily-digest routine should exist.
+		// Only the daily-digest subscription should exist, and it starts paused.
+		const digestRows = await rows<{ paused: boolean }>(
+			db,
+			"SELECT paused FROM subscriptions WHERE id = 'demo-routine-daily_digest'",
+		);
+		expect(digestRows, "demo-routine-daily_digest").toHaveLength(1);
+		expect(digestRows[0]?.paused, "starts paused").toBe(true);
+		// No builtin:* subscriptions (mechanism deleted in BA9d aa260893c).
 		expect(
-			await count(db, "routines", "WHERE id = 'demo-routine-daily_digest'"),
-			"demo-routine-daily_digest",
-		).toBe(1);
-		// No builtin:* routines (mechanism deleted in BA9d aa260893c).
-		expect(await count(db, "routines", "WHERE id LIKE 'builtin:%'"), "no builtin:* routines").toBe(
-			0,
-		);
-		// At least the daily-digest run history row.
-		expect(await count(db, "routine_runs")).toBeGreaterThanOrEqual(1);
-		const danglingRuns = await rows<{ id: string }>(
-			db,
-			`SELECT r.id FROM routine_runs r LEFT JOIN routines ro ON ro.id = r.routine_id WHERE ro.id IS NULL`,
-		);
-		expect(danglingRuns).toHaveLength(0);
+			await count(db, "subscriptions", "WHERE id LIKE 'builtin:%'"),
+			"no builtin:* subscriptions",
+		).toBe(0);
 	});
 
-	test("notifications wait unread in the popover", async ({ db }) => {
-		await seedWorld(db);
-
-		const unread = await rows<{ type_key: string | null }>(
-			db,
-			"SELECT type_key FROM notification_queue WHERE read_at IS NULL",
-		);
-		const keys = new Set(unread.map((n) => n.type_key));
-		expect(keys.has("review_request")).toBe(true);
-		expect(keys.has("blocker_alert")).toBe(true);
-	});
+	// @lore BC5 T7b: `notification_queue` is dropped with no replacement —
+	// a person's inbox is `open_user({}).inbox` now, backed by the `inbox`
+	// table, and the demo world seeds no fabricated unread rows into it
+	// (no demo data fabricated in code, only seeded — this fixture no longer
+	// invents a popover-ready backlog).
 
 	test("the world has weeks of history, anchored to seed time", async ({ db }) => {
 		await seedWorld(db);
@@ -363,6 +360,9 @@ describe("AX1: lived-in demo world", () => {
 		// @lore artifacts-become-knowledge: "artifacts" removed — the table is dropped.
 		// @lore BC4: "knowledge_app_projection"/"knowledge_edit_log"/
 		// "knowledge_access_log"/"knowledge_conflicts" removed — the tables are dropped.
+		// @lore BC5 T7b: "routines"/"routine_runs"/"notification_queue" removed
+		// from this list — the tables are dropped (migration 0089); "subscriptions"
+		// (and "inbox", added in 0088) take their place.
 		const tables = [
 			"users",
 			"teams",
@@ -371,9 +371,8 @@ describe("AX1: lived-in demo world", () => {
 			"messages",
 			"documents",
 			"sessions",
-			"routines",
-			"routine_runs",
-			"notification_queue",
+			"subscriptions",
+			"inbox",
 			"agent_run_config",
 		];
 		const before: Record<string, number> = {};

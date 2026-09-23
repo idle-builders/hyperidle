@@ -146,10 +146,15 @@ describe("AF17 AC1: runFactoryBootstrap creates the complete factory layer", () 
 
 	// @lore AU44 B1: team_members table dissolved into teams — test removed
 
-	test("no routines row is created by bootstrap (routines require a team)", async ({ db }) => {
+	// @lore BC5 T7b: `routines` renamed `subscriptions` — factory bootstrap
+	// creates factory-scoped system identities, never a team or a subscription.
+	test("no subscriptions row is created by bootstrap", async ({ db }) => {
 		await runFactoryBootstrap(db);
 
-		const rows = await queryRows<{ count: string }>(db, "SELECT COUNT(*) AS count FROM routines");
+		const rows = await queryRows<{ count: string }>(
+			db,
+			"SELECT COUNT(*) AS count FROM subscriptions",
+		);
 		expect(Number(rows[0]?.count)).toBe(0);
 	});
 
