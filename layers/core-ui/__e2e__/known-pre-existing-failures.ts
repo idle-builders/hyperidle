@@ -306,6 +306,12 @@ export const AU21_PRE_EXISTING_E2E_FAILURES: readonly string[] = [
 	"artifact permalink: >=1 scroll container, clippedPx===0 at mobile-375",
 	"AC1: the last line of the artifact diff is reachable by scrolling to the end",
 
+	// @lore BC5 T12 (2026-09-23): a pure CSS-token assertion, unrelated to any
+	// route. `[data-section-header='work']` computes 13px, not the asserted
+	// 14px — a design-token drift neither `Sidebar.tsx` nor `tokens.css` touch
+	// on this branch (`git log origin/main..HEAD` for both is empty).
+	"sidebar section headers use 14px font-size",
+
 	// @lore AU28 (2026-08-05, the AU26+AU27 rebase): five tests that AU26's route move broke
 	// on `main`, invisible there and unmasked here. AU26 repointed the web session/run reads
 	// at agent-orchestration's new API surface (`useTaskSessions` now fetches

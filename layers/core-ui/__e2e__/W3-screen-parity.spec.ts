@@ -15,22 +15,14 @@
  * - Settings body: 680px
  */
 
-import { expect, mockSearchDocuments, mockSearchThreads, test } from "./fixtures";
+import { expect, makeUserRow, mockSearchDocuments, mockSearchThreads, mockSearchUsers, test } from "./fixtures";
 
-const TEAMS_FIXTURE = {
-	teams: [{ id: "t1", name: "Alpha Core", phase: "build", active: true }],
-};
+const TEAM_ROSTER = [makeUserRow("agent-t1", { kind: "ai", team: { id: "t1", name: "Alpha Core" } })];
 
 test.describe("W3 AC-57 — Max-width centering across all screens", () => {
 	test("conversations thread list: content area ≤ 800px", async ({ page }) => {
 		await mockSearchThreads(page, { rows: [] });
-		await page.route("**/api/teams", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(TEAMS_FIXTURE),
-			});
-		});
+		await mockSearchUsers(page, { rows: TEAM_ROSTER });
 
 		await page.goto("/conversations");
 		await page.waitForSelector("[data-testid='conversations-page']");
@@ -45,16 +37,10 @@ test.describe("W3 AC-57 — Max-width centering across all screens", () => {
 	});
 
 	test("work portfolio bet grid: content area ≤ 960px", async ({ page }) => {
-		await page.route("**/api/teams", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(TEAMS_FIXTURE),
-			});
-		});
+		await mockSearchUsers(page, { rows: TEAM_ROSTER });
 
 		await page.goto("/work/portfolio");
-		await page.waitForSelector("[data-testid='work-portfolio-page']");
+		await page.waitForSelector("[data-testid='work-overview-page']");
 
 		const betGrid = page.getByTestId("bet-grid");
 		const box = await betGrid.boundingBox();
@@ -65,13 +51,7 @@ test.describe("W3 AC-57 — Max-width centering across all screens", () => {
 
 	test("document list: content area ≤ 800px", async ({ page }) => {
 		await mockSearchDocuments(page, { rows: [] });
-		await page.route("**/api/teams", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(TEAMS_FIXTURE),
-			});
-		});
+		await mockSearchUsers(page, { rows: TEAM_ROSTER });
 
 		await page.goto("/documents");
 		await page.waitForSelector("[data-testid='document-list-page']");
@@ -87,13 +67,7 @@ test.describe("W3 AC-57 — Max-width centering across all screens", () => {
 
 test.describe("W3 — Sidebar section headers styling (critique CRITICAL-1)", () => {
 	test.beforeEach(async ({ page }) => {
-		await page.route("**/api/teams", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(TEAMS_FIXTURE),
-			});
-		});
+		await mockSearchUsers(page, { rows: TEAM_ROSTER });
 		await mockSearchThreads(page, { rows: [] });
 		await page.goto("/conversations");
 		await page.waitForSelector("[data-ds-shell='Sidebar']");
@@ -133,13 +107,7 @@ test.describe("W3 — Sidebar section headers styling (critique CRITICAL-1)", ()
 test.describe("W3 — Empty states match mockups (critique CRITICAL-2)", () => {
 	test("conversations empty state visible when no threads", async ({ page }) => {
 		await mockSearchThreads(page, { rows: [] });
-		await page.route("**/api/teams", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(TEAMS_FIXTURE),
-			});
-		});
+		await mockSearchUsers(page, { rows: TEAM_ROSTER });
 
 		await page.goto("/conversations");
 		// The empty state should render
@@ -148,16 +116,10 @@ test.describe("W3 — Empty states match mockups (critique CRITICAL-2)", () => {
 	});
 
 	test("work empty state visible when no bets", async ({ page }) => {
-		await page.route("**/api/teams", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(TEAMS_FIXTURE),
-			});
-		});
+		await mockSearchUsers(page, { rows: TEAM_ROSTER });
 
 		await page.goto("/work/portfolio");
-		await page.waitForSelector("[data-testid='work-portfolio-page']");
+		await page.waitForSelector("[data-testid='work-overview-page']");
 		// Empty state should render
 		const emptyState = page.getByTestId("work-empty-state");
 		await expect(emptyState).toBeVisible();
@@ -165,13 +127,7 @@ test.describe("W3 — Empty states match mockups (critique CRITICAL-2)", () => {
 
 	test("document empty state visible when no items", async ({ page }) => {
 		await mockSearchDocuments(page, { rows: [] });
-		await page.route("**/api/teams", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(TEAMS_FIXTURE),
-			});
-		});
+		await mockSearchUsers(page, { rows: TEAM_ROSTER });
 
 		await page.goto("/documents");
 		await page.waitForSelector("[data-testid='document-list-page']");
