@@ -618,7 +618,12 @@ async function installRun(
 		}
 
 		for (const subscriptionSpec of subscriptions) {
-			const subscriptionDbId = subscriptionItemId(plugin.id, subscriptionSpec.id, scopeKind, scopeId);
+			const subscriptionDbId = subscriptionItemId(
+				plugin.id,
+				subscriptionSpec.id,
+				scopeKind,
+				scopeId,
+			);
 			const agentDbId = agentItemId(plugin.id, subscriptionSpec.agentId, scopeKind, scopeId);
 			await deps.subscriptions.insert(
 				tx,

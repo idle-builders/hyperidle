@@ -171,4 +171,3 @@ async function seedSessions(db: HyperIdleDb, clock: DemoClock): Promise<void> {
 			.onConflictDoNothing();
 	}
 }
-

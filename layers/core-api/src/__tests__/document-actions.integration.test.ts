@@ -876,7 +876,11 @@ describe("case 6 — search_documents({inTree:true}) excludes artifacts and slot
 				db,
 				eventBus,
 				"edit_document",
-				{ title: "c6-prompt", slot: "prompt", parent: { kind: "subscription", id: "c6-routine-1" } },
+				{
+					title: "c6-prompt",
+					slot: "prompt",
+					parent: { kind: "subscription", id: "c6-routine-1" },
+				},
 				FOUNDER_ID,
 			),
 		).document.id;
@@ -1544,7 +1548,11 @@ describe("case 9 — every §4.1/§4.2 invariant, exact code, both doors", () =>
 			db,
 			eventBus,
 			"edit_document",
-			{ title: "first prompt", slot: "prompt", parent: { kind: "subscription", id: "c9d5-routine" } },
+			{
+				title: "first prompt",
+				slot: "prompt",
+				parent: { kind: "subscription", id: "c9d5-routine" },
+			},
 			FOUNDER_ID,
 		);
 		const second = await callInternal<DocumentView>(
@@ -1552,7 +1560,11 @@ describe("case 9 — every §4.1/§4.2 invariant, exact code, both doors", () =>
 			db,
 			eventBus,
 			"edit_document",
-			{ title: "second prompt", slot: "prompt", parent: { kind: "subscription", id: "c9d5-routine" } },
+			{
+				title: "second prompt",
+				slot: "prompt",
+				parent: { kind: "subscription", id: "c9d5-routine" },
+			},
 			FOUNDER_ID,
 		);
 		expect(second.problemCode).toBe("slot_taken");

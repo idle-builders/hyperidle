@@ -297,8 +297,14 @@ describe("document-management plugin — team-scope isolation", () => {
 		// Ids must differ
 		expect(gammaDecayId).not.toBe(deltaDecayId);
 
-		const gammaRows = await db.select().from(subscriptions).where(eq(subscriptions.id, gammaDecayId));
-		const deltaRows = await db.select().from(subscriptions).where(eq(subscriptions.id, deltaDecayId));
+		const gammaRows = await db
+			.select()
+			.from(subscriptions)
+			.where(eq(subscriptions.id, gammaDecayId));
+		const deltaRows = await db
+			.select()
+			.from(subscriptions)
+			.where(eq(subscriptions.id, deltaDecayId));
 
 		// Each team has its own subscription row — not the same row shared via onConflictDoNothing
 		expect(gammaRows).toHaveLength(1);

@@ -39,7 +39,13 @@ export const DOCUMENT_SLOT_LABEL: Record<DocumentSlot, string> = {
 /** @lore BC5 T7b: `routine` is gone — a routine's prompt used to parent
  * there; a subscription's prompt parents to `subscription` instead
  * (migration 0089 re-parents every surviving prompt document). */
-export const DOCUMENT_PARENT_KINDS = ["document", "task", "thread", "agent", "subscription"] as const;
+export const DOCUMENT_PARENT_KINDS = [
+	"document",
+	"task",
+	"thread",
+	"agent",
+	"subscription",
+] as const;
 export type DocumentParentKind = (typeof DOCUMENT_PARENT_KINDS)[number];
 
 /** The word an agent uses. Derived on read, never stored — see `documentAs` below. */

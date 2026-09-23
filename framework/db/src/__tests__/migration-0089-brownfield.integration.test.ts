@@ -122,7 +122,9 @@ describe("migration 0089: routines become subscriptions — brownfield", () => {
 	it("converts a live calendar routine to a schedule subscription, unpaused", async () => {
 		const db = await seedAndMigrate();
 		const [row] = (
-			await db.execute(sql`SELECT user_id, event, schedule, paused, next_run_at FROM subscriptions WHERE id = 'routine-live-cal'`)
+			await db.execute(
+				sql`SELECT user_id, event, schedule, paused, next_run_at FROM subscriptions WHERE id = 'routine-live-cal'`,
+			)
 		).rows as Array<{
 			user_id: string;
 			event: string | null;
@@ -140,7 +142,9 @@ describe("migration 0089: routines become subscriptions — brownfield", () => {
 	it("converts an inactive (demo-seed shaped) routine to a PAUSED subscription", async () => {
 		const db = await seedAndMigrate();
 		const [row] = (
-			await db.execute(sql`SELECT paused, schedule FROM subscriptions WHERE id = 'demo-routine-daily_digest'`)
+			await db.execute(
+				sql`SELECT paused, schedule FROM subscriptions WHERE id = 'demo-routine-daily_digest'`,
+			)
 		).rows as Array<{ paused: boolean; schedule: string | null }>;
 		expect(row?.paused).toBe(true);
 		expect(row?.schedule).toBe("0 8 * * *");
@@ -149,7 +153,9 @@ describe("migration 0089: routines become subscriptions — brownfield", () => {
 	it("maps task_state_changed to task.changed on an event routine", async () => {
 		const db = await seedAndMigrate();
 		const [row] = (
-			await db.execute(sql`SELECT user_id, event, schedule FROM subscriptions WHERE id = 'routine-live-evt'`)
+			await db.execute(
+				sql`SELECT user_id, event, schedule FROM subscriptions WHERE id = 'routine-live-evt'`,
+			)
 		).rows as Array<{ user_id: string; event: string | null; schedule: string | null }>;
 		expect(row?.user_id).toBe("agent-evt");
 		expect(row?.event).toBe("task.changed");
@@ -166,7 +172,9 @@ describe("migration 0089: routines become subscriptions — brownfield", () => {
 	it("re-parents a migrated routine's prompt document to the subscription", async () => {
 		const db = await seedAndMigrate();
 		const [row] = (
-			await db.execute(sql`SELECT parent_kind, parent_id FROM documents WHERE id = 'doc-prompt-live-cal'`)
+			await db.execute(
+				sql`SELECT parent_kind, parent_id FROM documents WHERE id = 'doc-prompt-live-cal'`,
+			)
 		).rows as Array<{ parent_kind: string; parent_id: string }>;
 		expect(row?.parent_kind).toBe("subscription");
 		expect(row?.parent_id).toBe("routine-live-cal");
@@ -174,9 +182,8 @@ describe("migration 0089: routines become subscriptions — brownfield", () => {
 
 	it("deletes an unmigrated routine's prompt document (nowhere to land)", async () => {
 		const db = await seedAndMigrate();
-		const rows = (
-			await db.execute(sql`SELECT id FROM documents WHERE id = 'doc-prompt-deleted'`)
-		).rows as Array<{ id: string }>;
+		const rows = (await db.execute(sql`SELECT id FROM documents WHERE id = 'doc-prompt-deleted'`))
+			.rows as Array<{ id: string }>;
 		expect(rows).toHaveLength(0);
 	});
 

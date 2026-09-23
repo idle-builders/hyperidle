@@ -30,9 +30,9 @@ import { listChanges } from "@hyperidle/changes";
 import { agentRunConfig, type HyperIdleDb, teams, users } from "@hyperidle/db";
 import type { SessionOutcome } from "@hyperidle/domain-model";
 import type { SessionEndedEvent } from "@hyperidle/event-bus";
+import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
 import type { EditUserRunFn } from "../../actions/action.js";
 import { buildCoreActions } from "../../actions/compose.js";
-import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
 import {
 	AGENT_FAILURE_WINDOW_DAYS,
 	registerAgentHealthSessionEndReactions,
@@ -80,7 +80,9 @@ function sessionEnded(options: {
 }
 
 /** The real `edit_user` runner, off the same composed action list `app.ts` builds. */
-function buildEditUser(agentOrchestration: Parameters<typeof buildCoreActions>[0]["agentOrchestration"]): EditUserRunFn {
+function buildEditUser(
+	agentOrchestration: Parameters<typeof buildCoreActions>[0]["agentOrchestration"],
+): EditUserRunFn {
 	const actions = buildCoreActions({
 		agentOrchestration,
 		agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
@@ -146,7 +148,11 @@ describe("BC5 T7b (F1) — registerAgentHealthSessionEndReactions writes health,
 		expect(thisAgent?.health ?? null).toBeNull();
 	});
 
-	test("consecutive crashes raise the count each time", async ({ db, eventBus, agentOrchestration }) => {
+	test("consecutive crashes raise the count each time", async ({
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
 		const { agentId } = await seedAgent(db, "ahr-count");
 		const editUser = buildEditUser(agentOrchestration);
 		const changeEvents: string[] = [];

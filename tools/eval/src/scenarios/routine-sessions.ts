@@ -111,7 +111,9 @@ const rsScheduleFire: EvalScenario = {
 					const advanced = sub.nextRunAt !== null && new Date(sub.nextRunAt).getTime() > Date.now();
 					return {
 						score: advanced ? 1.0 : 0.0,
-						note: advanced ? `nextRunAt: ${sub.nextRunAt}` : "nextRunAt not advanced into the future",
+						note: advanced
+							? `nextRunAt: ${sub.nextRunAt}`
+							: "nextRunAt not advanced into the future",
 					};
 				},
 			},

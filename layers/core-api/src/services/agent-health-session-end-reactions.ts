@@ -44,8 +44,8 @@
  * all.
  */
 
-import type { HyperIdleDb } from "@hyperidle/db";
 import { listChanges } from "@hyperidle/changes";
+import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { EventBus, SessionEndedEvent } from "@hyperidle/event-bus";
 import { findUser, getTeam } from "@hyperidle/user";

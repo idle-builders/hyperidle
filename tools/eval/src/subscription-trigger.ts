@@ -18,7 +18,7 @@ import {
 	createStandaloneSearchDocuments,
 } from "@hyperidle/core-api";
 import { type HyperIdleDb, subscriptions, users } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/event-bus";
+import type { EventBus } from "@hyperidle/event-bus";
 import { resolveSubscriptionWakeRequest } from "@hyperidle/user";
 import { eq } from "drizzle-orm";
 
@@ -49,7 +49,7 @@ export async function fireSubscription(
 	if (!sub) return { fired: false };
 
 	const [agent] = await db.select().from(users).where(eq(users.id, sub.userId)).limit(1);
-	if (!agent || agent.kind !== "ai") return { fired: false };
+	if (agent?.kind !== "ai") return { fired: false };
 
 	const dueAt = sub.nextRunAt ?? new Date().toISOString();
 	const sourceId = `${sub.id}:${dueAt}`;

@@ -9,8 +9,9 @@
  * behind `@hyperidle/user`'s own store — this Layer never writes another
  * Service's table.
  */
-import type { HyperIdleDb } from "@hyperidle/db";
+
 import { listChanges } from "@hyperidle/changes";
+import type { HyperIdleDb } from "@hyperidle/db";
 import { deleteReapableInboxRows, listReadInboxChangeIds } from "@hyperidle/user";
 
 /** Deletes every read inbox row whose change is older than `cutoff`. Returns the count deleted. */

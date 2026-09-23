@@ -21,8 +21,8 @@
  */
 import { appendChange } from "@hyperidle/changes";
 import {
-	inbox,
 	type HyperIdleDb,
+	inbox,
 	subscriptions,
 	taskDispatchAttempts,
 	tasks,
@@ -31,10 +31,10 @@ import {
 	users,
 } from "@hyperidle/db";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
-import { reapInbox } from "../services/inbox-reaper.js";
 // NOT YET CREATED — this import failing to resolve is this file's primary RED
 // signal for the "task-dispatch-attempt reaper — relocated home" describe block.
 import { reapTerminalTaskDispatchAttempts, TERMINAL_LOG_TTL_MS } from "../service-bootstrap.js";
+import { reapInbox } from "../services/inbox-reaper.js";
 
 const now = new Date("2026-07-13T12:00:00.000Z");
 const DAY = 86_400_000;

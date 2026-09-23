@@ -179,11 +179,21 @@ describe("search_documents — the one query (architecture.md §5.1)", () => {
 	test("parent {kind,id} returns exactly that named parent's children", async ({ db }) => {
 		const match = await insertDocument(
 			db,
-			docValues({ id: "parent-a", parentKind: "subscription", parentId: "subscription-1", slot: "prompt" }),
+			docValues({
+				id: "parent-a",
+				parentKind: "subscription",
+				parentId: "subscription-1",
+				slot: "prompt",
+			}),
 		);
 		await insertDocument(
 			db,
-			docValues({ id: "parent-b", parentKind: "subscription", parentId: "subscription-2", slot: "prompt" }),
+			docValues({
+				id: "parent-b",
+				parentKind: "subscription",
+				parentId: "subscription-2",
+				slot: "prompt",
+			}),
 		);
 
 		const rows = await searchDocumentRows(
@@ -747,7 +757,9 @@ describe("cycle/depth/slot/scope checks (architecture.md §4.2)", () => {
 			}),
 		);
 
-		await expect(assertSlotFree(db, "subscription", "subscription-slot-1", "prompt")).rejects.toMatchObject({
+		await expect(
+			assertSlotFree(db, "subscription", "subscription-slot-1", "prompt"),
+		).rejects.toMatchObject({
 			code: "slot_taken",
 		});
 	});

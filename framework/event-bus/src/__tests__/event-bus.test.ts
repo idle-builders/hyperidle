@@ -39,7 +39,10 @@ vi.mock("@hyperidle/diagnostics", () => ({
 import type { DomainEvent, ObjectChangeEvent } from "@hyperidle/event-bus";
 import { EventBus } from "../event-bus.js";
 
-function makeTaskEvent(taskId: string, seq: number): Extract<ObjectChangeEvent, { type: "task.changed" }> {
+function makeTaskEvent(
+	taskId: string,
+	seq: number,
+): Extract<ObjectChangeEvent, { type: "task.changed" }> {
 	return {
 		type: "task.changed",
 		streamId: taskId,
@@ -57,7 +60,10 @@ function makeTaskEvent(taskId: string, seq: number): Extract<ObjectChangeEvent, 
 	};
 }
 
-function makeSessionStarted(agentId: string, seq: number): Extract<DomainEvent, { type: "session_started" }> {
+function makeSessionStarted(
+	agentId: string,
+	seq: number,
+): Extract<DomainEvent, { type: "session_started" }> {
 	return {
 		type: "session_started",
 		streamId: `session:${agentId}-${seq}`,

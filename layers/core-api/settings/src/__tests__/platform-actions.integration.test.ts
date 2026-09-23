@@ -319,7 +319,9 @@ describe("createPlatformActions", () => {
 			expect(result.data.state).toBe("enabled");
 
 			const agentContribution = result.data.contributions.find((c) => c.kind === "agent");
-			const subscriptionContribution = result.data.contributions.find((c) => c.kind === "subscription");
+			const subscriptionContribution = result.data.contributions.find(
+				(c) => c.kind === "subscription",
+			);
 			const documentContributions = result.data.contributions.filter((c) => c.kind === "document");
 			expect(agentContribution?.label).toBe("Builder");
 			expect(documentContributions.length).toBeGreaterThanOrEqual(2); // skill + agent identity + subscription prompt
@@ -429,7 +431,10 @@ describe("createPlatformActions", () => {
 			// The pre-remove state — "removed" is not a member of PluginListState.
 			expect(result.data.state).toBe("enabled");
 
-			const subRow = await db.select().from(subscriptions).where(eq(subscriptions.id, subscriptionId));
+			const subRow = await db
+				.select()
+				.from(subscriptions)
+				.where(eq(subscriptions.id, subscriptionId));
 			expect(subRow.length).toBe(0);
 
 			// A second change on the now-removed plugin answers plugin_removed.
