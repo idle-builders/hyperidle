@@ -1222,14 +1222,17 @@ export const ATTACKS: readonly Attack[] = [
 		// deleted, re-pointed at knowledge.ts. @lore document-module B20:
 		// knowledge.ts is deleted with the route; re-pointed at harnesses.ts,
 		// whose `GET /` is also a LEGACY_ROUTES entry and survives.
+		// @lore BC5 T11: harnesses.ts is deleted with the whole legacy route
+		// family; re-pointed at search.ts, whose `GET /` is still a
+		// LEGACY_ROUTES entry and survives.
 		mutate: {
-			"layers/core-api/src/routes/harnesses.ts": (existing) =>
+			"layers/core-api/src/routes/search.ts": (existing) =>
 				existing.replace(
 					'router.get("/", async (c) => {',
 					'router.get("/", async (c) => {\n\t\t// attack-actions-projected-control: no new registration here.',
 				),
 		},
-		expect: { sort: "clean", file: "layers/core-api/src/routes/harnesses.ts" },
+		expect: { sort: "clean", file: "layers/core-api/src/routes/search.ts" },
 	},
 ];
 
