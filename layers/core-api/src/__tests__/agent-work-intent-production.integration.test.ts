@@ -305,8 +305,8 @@ describe("atomic production handoffs", () => {
 
 	// flag (POST /api/knowledge/:id/flag) §3.1 site 4 coverage moved to plugin — ritual routes left core under AU20 founder ruling; recover from git when the plugin lands.
 
-	// A subscription's wake carries no run row to leave wedged; T7a/T7b's
-	// own suites cover the subscription wake path.
+	// A subscription's wake carries no run row to leave wedged; the
+	// subscription fire and clock suites cover the wake path itself.
 
 	// §8 B4: `POST /tasks/:id/handoff` is deleted — handoff is
 	// `edit_task({ ownerAgentId })` now, and `toRole`/`toHuman` targeting is

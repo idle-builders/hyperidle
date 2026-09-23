@@ -363,9 +363,9 @@ export interface AgentOrchestrationPort {
 	readonly runs: AgentOrchestrationRunsPort;
 	readonly runConfig: AgentOrchestrationRunConfigPort;
 	readonly filesystems: AgentOrchestrationFilesystemsPort;
-	/** §6 (T4) — a team's folders, given to and taken from an agent. */
+	/** A team's folders, given to and taken from an agent. */
 	readonly folders: AgentOrchestrationFoldersPort;
-	/** §6 (T4) — one user's held connections plus the machine's inherited reach. */
+	/** One user's held connections plus the machine's inherited reach. */
 	readonly connections: AgentOrchestrationConnectionsPort;
 	readonly gate: AgentOrchestrationGatePort;
 }

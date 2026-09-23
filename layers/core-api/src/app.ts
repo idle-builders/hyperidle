@@ -613,7 +613,7 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		// exclusively calls task's own table paths, so `task` is its correct
 		// home. §6 row 2: it now writes through `edit_task` instead of the
 		// deleted `transitionTask`, injected as a plain function (Mechanism C).
-		// architecture.md §3: `task_state_changed` is gone from this path —
+		// The deleted `task_state_changed` event is gone from this path —
 		// `task.changed` carries the row, and `change.after.state` is present
 		// only when the edit moved the state (the diff-only shape `edit_task`
 		// already writes).

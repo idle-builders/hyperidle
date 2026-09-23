@@ -138,7 +138,7 @@ export function createAgentOrchestrationIntakeRoutes(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	/**
-	 * §6 (T4) — the `folders`/`connections` families' own extras: the reach
+	 * The `folders`/`connections` families' own extras: the reach
 	 * cache `connections.list` unions in, and the cipher `connections.add`
 	 * encrypts a held token with. Both already exist at this Layer's
 	 * composition root (`app.ts`) for the public `/connections` route; the

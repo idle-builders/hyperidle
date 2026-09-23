@@ -21,10 +21,10 @@
  * are this Service's own action list now, the way `@hyperidle/task`/
  * `@hyperidle/thread`/`@hyperidle/document` each declare theirs.
  * `agent-identity.ts` and `validate-agent-config.ts` moved here verbatim
- * from `layers/core-api/src/routes/` — every agent-creating route
- * (`routes/agents.ts`, `routes/org.ts`, `routes/users.ts`,
- * `routes/teams-routes.ts`) imports both from here now, unchanged in
- * substance, until T11 deletes those routes outright.
+ * from `layers/core-api/src/routes/`. The agent-creating routes that used
+ * to import them (`routes/agents.ts`, `routes/org.ts`, `routes/users.ts`,
+ * `routes/teams-routes.ts`) are deleted along with the rest of the user/org
+ * route surface; `user-actions.ts` is their only caller now.
  *
  * @lore AU19 Increment 1d: this is the real cut-over — `user-store.ts`
  * (users), `login-session.ts` (loginSessions), `invite-code.ts`

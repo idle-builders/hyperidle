@@ -30,8 +30,8 @@ WHERE "kind" = 'human' AND "team_id" IS NULL;
 --> statement-breakpoint
 
 -- 2. every stored `routine_run` work intent is deleted — its baked request
---    is routine-shaped (T7b's own drain never ran one; no code does), so
---    nothing left over here has a code path to serve it. The three checks
+--    is routine-shaped and no code drains it any more, so nothing left over
+--    here has a code path to serve it. The three checks
 --    rebuilt below drop 'routine_run' only — they keep 0085's 'thread_turn'
 --    rename (not 'assistant_turn', which 0085 already retired).
 DELETE FROM "agent_work_intents" WHERE "kind" = 'routine_run';
