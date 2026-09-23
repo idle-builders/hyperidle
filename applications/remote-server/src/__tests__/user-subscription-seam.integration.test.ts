@@ -32,7 +32,6 @@ import * as path from "node:path";
 import { agentWorkIntents, type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
-import { and, eq, like } from "drizzle-orm";
 import { afterEach, vi } from "vitest";
 import { createServer, type ServerHandle } from "../create-server.js";
 
@@ -503,40 +502,27 @@ describe("user-subscription seam — reach, wake, and pause", () => {
 			const inbox = openData.inbox as Array<{ change: { id: string } }> | null;
 			expect(inbox?.some((row) => row.change.id === changeId)).toBe(true);
 
-			// a subscription_run intent exists for the in-reach agent.
+			// a subscription_run intent exists for the in-reach agent. Plain JS
+			// filtering, not drizzle-orm's eq/like — an `applications/*` package
+			// declares no direct dependency on it (it only ever reaches the ORM
+			// through `@hyperidle/db`), the same idiom `stop_session`'s own
+			// comparison in `session-platform-seam` uses.
 			await waitUntil(async () => {
-				const [row] = await db
-					.select()
-					.from(agentWorkIntents)
-					.where(
-						and(
-							eq(agentWorkIntents.sourceKind, "subscription"),
-							eq(agentWorkIntents.sourceId, `${agentInSubId}:${changeId}`),
-						),
-					);
-				return row !== undefined;
-			});
-			const [agentInIntent] = await db
-				.select()
-				.from(agentWorkIntents)
-				.where(
-					and(
-						eq(agentWorkIntents.sourceKind, "subscription"),
-						eq(agentWorkIntents.sourceId, `${agentInSubId}:${changeId}`),
-					),
+				const rows = await db.select().from(agentWorkIntents);
+				return rows.some(
+					(r) => r.sourceKind === "subscription" && r.sourceId === `${agentInSubId}:${changeId}`,
 				);
+			});
+			const allIntents = await db.select().from(agentWorkIntents);
+			const agentInIntent = allIntents.find(
+				(r) => r.sourceKind === "subscription" && r.sourceId === `${agentInSubId}:${changeId}`,
+			);
 			expect(agentInIntent?.kind).toBe("subscription_run");
 
 			// the out-of-reach agent got none.
-			const outReachIntents = await db
-				.select()
-				.from(agentWorkIntents)
-				.where(
-					and(
-						eq(agentWorkIntents.sourceKind, "subscription"),
-						like(agentWorkIntents.sourceId, `${agentOutSubId}:%`),
-					),
-				);
+			const outReachIntents = allIntents.filter(
+				(r) => r.sourceKind === "subscription" && r.sourceId.startsWith(`${agentOutSubId}:`),
+			);
 			expect(outReachIntents).toHaveLength(0);
 
 			// pausing stops both.
@@ -579,15 +565,10 @@ describe("user-subscription seam — reach, wake, and pause", () => {
 
 			// give the fire handler its usual window, then confirm no new intent landed.
 			await new Promise((r) => setTimeout(r, 300));
-			const agentInIntentsAfterPause = await db
-				.select()
-				.from(agentWorkIntents)
-				.where(
-					and(
-						eq(agentWorkIntents.sourceKind, "subscription"),
-						like(agentWorkIntents.sourceId, `${agentInSubId}:%`),
-					),
-				);
+			const allIntentsAfterPause = await db.select().from(agentWorkIntents);
+			const agentInIntentsAfterPause = allIntentsAfterPause.filter(
+				(r) => r.sourceKind === "subscription" && r.sourceId.startsWith(`${agentInSubId}:`),
+			);
 			expect(agentInIntentsAfterPause).toHaveLength(1); // only the pre-pause one from above
 		} finally {
 			ws?.close();
