@@ -42,7 +42,7 @@ export interface BakedWorkIntentRequest {
 	/**
 	 * AU21 §9 Increment 11 (Decision H2): the `assistant_turn` family's baked
 	 * thread transcript (`@hyperidle/conversation`'s `resolveAssistantTurnRequest`).
-	 * Absent for every other kind — `task_run`/`knowledge_action`/`routine_run`/
+	 * Absent for every other kind — `task_run`/`knowledge_action`/`subscription_run`/
 	 * Others instead bake a `contextBundle` (Decision H3, Increment 12).
 	 */
 	readonly transcript?: ReadonlyArray<{
@@ -52,10 +52,10 @@ export interface BakedWorkIntentRequest {
 	}>;
 	/**
 	 * AU21 §9 Increment 12 (Decision H3): the `task_run`/`knowledge_action`/
-	 * `routine_run` families' baked entity content (task/bet/
-	 * agent/team, or routine/agent/team) plus the ranked+budgeted
+	 * `subscription_run` families' baked entity content (task/bet/
+	 * agent/team, or subscription/agent/team) plus the ranked+budgeted
 	 * documents `@hyperidle/document`'s `assembleSessionDocuments` produces —
-	 * `context.ts`'s `SessionContextData`/`RoutineSessionContextData` content,
+	 * `context.ts`'s `SessionContextData`/`SubscriptionSessionContextData` content,
 	 * assembled at emit time by each per-kind resolver (the entity it already
 	 * loads to validate + resolve the target agent) instead of
 	 * `run-orchestration` reading it back at session-launch time. Absent for
@@ -90,7 +90,7 @@ export interface BakedWorkIntentRequest {
 	 * resolver whose kind has a real thread host: `assistant_turn` (the
 	 * conversation thread), `task_run`/`session_start`/
 	 * `knowledge_action` (the
-	 * document's thread). `routine_run` bakes none — a routine has no
+	 * document's thread). `subscription_run` bakes none — a subscription has no
 	 * thread host — and its `reply` tool call falls back to a direct thread
 	 * with the sole human user instead. Carried through onto the created
 	 * `AgentSessionRequest.payloadJson` alongside `agentConfig` so `reply`
@@ -311,171 +311,13 @@ export function toBakedContextDocuments(
 
 /**
  * AU21 §9 Increment 12 (Decision H3) — the baked entity content a
- * a `task_run` session needs (`kind:"task"`, matching
- * `context.ts`'s `SessionContextData`), a `routine_run` session needs
- * (`kind:"routine"`, matching `RoutineSessionContextData`), or a
+ * `task_run` session needs (`kind:"task"`, matching
+ * `context.ts`'s `SessionContextData`), a `subscription_run` session needs
+ * (`kind:"subscription"`, matching `SubscriptionSessionContextData`), or a
  * `knowledge_action` session needs (`kind:"knowledge"` — the flagged item
- * itself, since a review turn has no task/bet/routine), plus the shared
+ * itself, since a review turn has no task or subscription), plus the shared
  * ranked+budgeted `documents` bundle every variant carries.
- *
- * @lore CONFUSION (Increment 12 Wave B, flagged for reviewer): this original
- * doc comment (Wave A) claimed `knowledge_action` used the `kind:"task"`
- * shape — WRONG, verified from source: `resolveKnowledgeActionRequest`
- * (`knowledge-action-resolver.ts`) never resolves a task or bet at all (its
- * `BakedKnowledgeActionRequest` has no `taskId`/`teamId` fields whatsoever),
- * and the resulting session takes `provisioner.ts`'s task-free branch —
- * genuinely zero context/ranked-knowledge today (see the `@lore` on
- * `knowledge-action-resolver.integration.test.ts`'s Wave B contextBundle
- * test for the full trace). The `kind:"knowledge"` variant below (and that
- * resolver's contextBundle) is therefore a capability ADD, not a
- * preserve-behavior migration — same premise-mismatch category as
- * `routine_run`'s (see that resolver test's `@lore`), not an
- * implementation-detail guess. Flagged for architecture reconciliation.
  */
-/**
- * The event that caused an event-triggered routine to fire.
- * Assembled by the scheduler at fire-time; threaded into the baked bundle so
- * the running agent knows what happened and who was involved.
- *
- * @lore BA9c: Lives in domain-model (not event-bus) to avoid a circular
- * dependency — event-bus already imports from domain-model. Uses plain
- * `string` for `type` rather than importing `DomainEvent`.
- */
-export interface RoutineTriggerEvent {
-	/** The domain event type string (e.g. "task_state_changed"). */
-	readonly type: string;
-	/** Unix timestamp (ms) of the original domain event. */
-	readonly timestamp: number;
-	/** State transition when the event carries one (fromState/toState). */
-	readonly transition?: {
-		readonly from: string;
-		readonly to: string;
-	};
-	/**
-	 * The entity the event concerns, assembled as fully as possible.
-	 *
-	 * - `task`: the task plus its ancestor chain, DB-loaded (task_state_changed).
-	 *           BB1 removed the separate `bet` variant — a bet is
-	 *           a root task now, so a bet event IS a task event.
-	 * - `generic`: for all other event types that carry a named entity id (threadId,
-	 *   itemId, sessionId, artifactId, teamId, agentId, userId, routineId, …).
-	 *   No DB lookup — carries the id directly from the event.
-	 *   `actorId` is set when the event explicitly names who performed the action
-	 *   (senderId, accessorId, agentId on thread/knowledge/session events).
-	 * Absent only when the event carries genuinely no identifying id.
-	 */
-	readonly subject?:
-		| {
-				readonly kind: "task";
-				readonly task: {
-					readonly id: string;
-					readonly title: string;
-					readonly description: string | null;
-					readonly state: string;
-				};
-				/**
-				 * BB1: the containing work, root first, down to the immediate
-				 * parent. Empty for a root task.
-				 *
-				 * Replaces the single `bet` this carried. A task used to sit
-				 * exactly one level under a bet, so one entity was the whole
-				 * context above it; a task can now sit at any depth, and an agent
-				 * on a leaf needs the goal chain it is serving, not just the step
-				 * directly above.
-				 */
-				readonly ancestors: readonly {
-					readonly id: string;
-					readonly title: string;
-					readonly description: string | null;
-					readonly doneCondition: string | null;
-				}[];
-		  }
-		| {
-				/**
-				 * Generic entity carrier for non-task/bet events.
-				 * `entityKind` is a human-readable noun matching the event vocabulary
-				 * (e.g. "routine"). `actorId` is the id of the person or agent who
-				 * performed the action when the event names one.
-				 *
-				 * @lore BA9c: routineId stays generic — a routine waking about
-				 * another routine is thin by nature; there is no useful payload
-				 * beyond what the event already carries. Do not promote it.
-				 */
-				readonly kind: "generic";
-				readonly entityKind: string;
-				readonly entityId: string;
-				readonly actorId?: string;
-		  }
-		| {
-				/** BA9c: DB-loaded thread subject (thread events). */
-				readonly kind: "thread";
-				readonly thread: {
-					readonly id: string;
-					/** Entity type the thread belongs to (e.g. "task", "bet", "user"). */
-					readonly hostKind: string;
-					readonly hostId: string;
-					/** null = open; ISO-8601 string = resolved. */
-					readonly resolvedAt: string | null;
-				};
-				readonly actorId?: string;
-		  }
-		| {
-				/**
-				 * BA9c: DB-loaded team subject (team_created event).
-				 * Reuses BakedContextBundle team shape: {id, name}.
-				 */
-				readonly kind: "team";
-				readonly team: {
-					readonly id: string;
-					readonly name: string;
-				};
-				readonly actorId?: string;
-		  }
-		| {
-				/** BA9c: DB-loaded session subject (session_started / session_ended etc. events). */
-				readonly kind: "session";
-				readonly session: {
-					readonly id: string;
-					readonly state: string;
-					readonly agentId: string;
-					readonly outcome: string | null;
-				};
-				readonly actorId?: string;
-		  }
-		| {
-				/**
-				 * BA9c: DB-loaded agent subject (agent_added events when agentId is the
-				 * primary entity — priority above teamId so agent_added → kind:"agent",
-				 * not kind:"team").
-				 * Reuses BakedContextBundle agent shape: {id, name, role}.
-				 */
-				readonly kind: "agent";
-				readonly agent: {
-					readonly id: string;
-					readonly name: string;
-					readonly role: string;
-				};
-				readonly actorId?: string;
-		  }
-		| {
-				/**
-				 * BA9c: DB-loaded user subject (user_created events — a human joining
-				 * the workspace). Same {id, name, role} shape as kind:"agent" but the
-				 * discriminant carries information: "user" means a person joined,
-				 * "agent" means a bot was added to a team. A routine doing onboarding
-				 * acts differently on each. Loaded from the `users` table via
-				 * @hyperidle/user findUser, the same table that stores agents.
-				 */
-				readonly kind: "user";
-				readonly user: {
-					readonly id: string;
-					readonly name: string;
-					readonly role: string;
-				};
-				readonly actorId?: string;
-		  };
-}
-
 export type BakedContextBundle =
 	| {
 			readonly kind: "task";
@@ -506,30 +348,7 @@ export type BakedContextBundle =
 			readonly documents: readonly BakedContextDocument[];
 	  }
 	| {
-			readonly kind: "routine";
-			readonly routine: {
-				readonly id: string;
-				readonly name: string;
-				/** BA1 D3: one column, one field — replaces `description`. */
-				readonly prompt: string | null;
-				readonly lastRunSummary: string | null;
-			};
-			readonly agent: { readonly id: string; readonly name: string; readonly role: string };
-			/** BA1 D4: nullable — the owner agent may belong to no team. */
-			readonly team: { readonly id: string; readonly name: string } | null;
-			readonly documents: readonly BakedContextDocument[];
-			/**
-			 * BA9c: The event that caused this routine to fire. Absent for clock-fired
-			 * (heartbeat/calendar) routines — those have no triggering event.
-			 */
-			readonly triggerEvent?: RoutineTriggerEvent;
-	  }
-	| {
-			/**
-			 * BC5 T6: a subscription's wake — additive alongside `kind:"routine"`;
-			 * the cut-over block retires that member. `change` is the row that
-			 * fired an event subscription, absent for a schedule tick.
-			 */
+			/** A subscription's wake. `change` is the row that fired an event subscription, absent for a schedule tick. */
 			readonly kind: "subscription";
 			readonly subscription: {
 				readonly id: string;
@@ -604,15 +423,6 @@ export type AgentWorkIntentRecorderInput =
 			readonly bakedRequest?: BakedWorkIntentRequest;
 	  }
 	| {
-			readonly kind: "routine_run";
-			readonly sourceKind: "routine_run";
-			readonly sourceId: string;
-			readonly requestedBy?: string;
-			readonly idempotencyKey: string;
-			/** See `BakedWorkIntentRequest`. Populated at emit time by `routine-service.ts`'s `resolveRoutineRunRequest` (AU21 Increment 4). */
-			readonly bakedRequest?: BakedWorkIntentRequest;
-	  }
-	| {
 			readonly kind: "task_run";
 			readonly sourceKind: "task_dispatch_attempt";
 			readonly sourceId: string;
@@ -641,9 +451,8 @@ export type AgentWorkIntentRecorderInput =
 	  }
 	| {
 			/**
-			 * BC5 T6: a subscription's wake — additive alongside `routine_run`; the
-			 * cut-over block retires that kind. `sourceKind` is `"subscription"`,
-			 * not `"subscription_run"` — matching `agent_work_intents_kind_source_
+			 * A subscription's wake. `sourceKind` is `"subscription"`, not
+			 * `"subscription_run"` — matching `agent_work_intents_kind_source_
 			 * compat_ck`'s pairing exactly.
 			 */
 			readonly kind: "subscription_run";
@@ -665,13 +474,12 @@ export type AgentWorkIntentRecorderInput =
  * @lore BC1: relocated from the deleted domain-model events fork (`events.ts`)
  * — this is the recorder input's own canonical list, not the (differently
  * scoped) `AGENT_WORK_INTENT_KINDS` in `@hyperidle/event-bus`, which covers
- * `AgentWorkIntentEvent`'s `intentKind` and omits `session_resume`.
+ * `AgentRunAdmissionFailedEvent`'s `kind` and omits `session_resume`.
  */
 export const AGENT_WORK_INTENT_KINDS = [
 	"thread_turn",
 	"session_start",
 	"knowledge_action",
-	"routine_run",
 	"task_run",
 	"session_resume",
 	"subscription_run",

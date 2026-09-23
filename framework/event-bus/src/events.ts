@@ -31,10 +31,8 @@ export const AGENT_WORK_INTENT_KINDS = [
 	"thread_turn",
 	"session_start",
 	"knowledge_action",
-	"routine_run",
 	"task_run",
-	// @lore BC5 T6: a subscription's wake — additive alongside `routine_run`;
-	// the cut-over block retires that kind.
+	// A subscription's wake.
 	"subscription_run",
 ] as const;
 
@@ -52,21 +50,8 @@ export type AgentWorkIntentSourceKind =
 	| "thread_message"
 	| "explicit_session_start"
 	| "knowledge_action"
-	| "routine_run"
 	| "task_dispatch_attempt"
-	// @lore BC5 T6: additive alongside `routine_run`; the cut-over block retires it.
 	| "subscription";
-
-export interface AgentWorkIntentEvent {
-	readonly type: "agent_work_intent_recorded";
-	readonly streamId: string;
-	readonly intentId: string;
-	readonly intentKind: AgentWorkIntentKind;
-	readonly sourceKind: AgentSessionSourceKind | "explicit_session_start";
-	readonly sourceId: string;
-	readonly idempotencyKey: string;
-	readonly timestamp: number;
-}
 
 export type AgentRunAdmissionFailureCode =
 	| "INVALID_WORK_SOURCE" // baked payload's source no longer exists / no longer eligible (domain-state staleness)
@@ -161,20 +146,6 @@ export interface SessionEndedEvent {
 	timestamp: number;
 	/** Final disposition of the session. */
 	outcome: SessionOutcome;
-	/**
-	 * AU21 §9 Increment 4 (Decision B″ item 3) — additive, routine-sourced
-	 * sessions only. Carries the routine-run finalize outcome, independent of
-	 * the session's own `outcome`. Consumed by the core-api subscriber
-	 * `routine-run-session-end-reactions.ts`, the literal replacement for
-	 * `run-orchestration`'s deleted direct `routineRuns` write
-	 * (`updateRoutineRunOnSessionEnd`). `"timeout"` is the stale-session-reaper
-	 * outcome (`runtime-reapers.ts`'s `reapStaleRoutineSessions`) — the SAME
-	 * event channel, a second producer.
-	 *
-	 * @lore AU21 Increment 14a: `"budget_exhausted"` (the per-run cost-cap
-	 * outcome) is deleted along with the cap gate — no replacement.
-	 */
-	routineRunOutcome?: "success" | "error" | "timeout";
 	/**
 	 * AU21 §9 Increment 12 (Decision H3), Wave D — additive. Carries
 	 * `run-orchestration/provisioner.ts`'s per-model-tier accumulated token
@@ -466,7 +437,6 @@ export function objectEvent(
  */
 export type DomainEvent =
 	| ObjectChangeEvent
-	| AgentWorkIntentEvent
 	| AgentRunAdmissionFailedEvent
 	| AgentRunLifecycleChangedEvent
 	// @lore BB1: BetStateChangedEvent and BetRevisedEvent deleted — bet is now a root task.
@@ -528,7 +498,6 @@ export const EVENT_TYPES = [
 	"document.changed",
 	"user.created",
 	"user.changed",
-	"agent_work_intent_recorded",
 	"agent_run_admission_failed",
 	"agent_run_lifecycle_changed",
 	// @lore BB1: "bet_state_changed" and "bet_revised" deleted — bet is now a root task.

@@ -40,7 +40,7 @@ export type SessionState = (typeof SESSION_STATES)[number];
 
 // ---------------------------------------------------------------------------
 // The row — the 8 fields `AgentRunSummary` already carries
-// (`agent-run-view.ts:25`) plus `routineId`, `notes`, `modelTier`,
+// (`agent-run-view.ts:25`) plus `notes`, `modelTier`,
 // `sourceKind`. `state`/`outcome` stay plain, nullable strings, matching
 // `AgentRunSummary` exactly — the column is free text
 // (`framework/db/src/schema.ts:281`); `SESSION_STATES` above is the closed
@@ -57,7 +57,6 @@ export const SessionRowSchema = z.object({
 	outcome: z.string().nullable(),
 	/** Decimal string as stored, or null. */
 	effectivenessScore: z.string().nullable(),
-	routineId: z.string().nullable(),
 	notes: z.string().nullable(),
 	/** `sessions.model_tier` is `NOT NULL`, and every writer sets it from the closed `ModelTier` type. */
 	modelTier: z.enum(MODEL_TIERS),
@@ -76,7 +75,6 @@ export const SearchSessionsInputSchema = z
 		taskId: z.string().optional(),
 		agentIds: z.array(z.string()).optional(),
 		state: z.enum(SESSION_STATES).optional(),
-		routineId: z.string().optional(),
 		limit: z.number().int().min(1).max(500).optional(), // default 100
 		offset: z.number().int().min(0).optional(),
 	})
@@ -87,7 +85,7 @@ export const searchSessions: ActionDeclaration<SearchSessionsInput, SessionRow[]
 	name: "search_sessions",
 	sentence:
 		"Search sessions — agent runs, past and live. No parameter lists them, newest first, up to " +
-		"100 unless you set limit (up to 500); filter by id, task, agent, state, or routine.",
+		"100 unless you set limit (up to 500); filter by id, task, agent, or state.",
 	input: SearchSessionsInputSchema,
 	output: z.array(SessionRowSchema),
 };

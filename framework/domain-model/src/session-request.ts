@@ -9,12 +9,8 @@ import { z } from "zod";
 export const AGENT_SESSION_SOURCE_KINDS = [
 	"task",
 	"assistant",
-	"routine",
 	"knowledge",
-	/**
-	 * @lore BC5 T6: a subscription's wake — additive alongside `routine`; the
-	 * cut-over block retires `routine`.
-	 */
+	/** A subscription's wake — an event or schedule woke the subscriber. */
 	"subscription",
 	/**
 	 * @lore BA2: a human's verdict on the review an agent filed. The session it
@@ -27,9 +23,7 @@ export const AGENT_SESSION_SOURCE_KINDS = [
 export const AGENT_SESSION_PROMPT_MODES = [
 	"task",
 	"conversation",
-	"routine",
 	"knowledge",
-	/** @lore BC5 T6: additive alongside `routine`; the cut-over block retires `routine`. */
 	"subscription",
 	/**
 	 * @lore BA2: not a prompt at all — the verdict arrives as a user turn in a session
@@ -94,19 +88,6 @@ export const assistantSessionRequestInputSchema = baseInput.extend({
 	}),
 });
 
-export const routineSessionRequestInputSchema = baseInput.extend({
-	sourceKind: z.literal("routine"),
-	promptMode: z.literal("routine"),
-	taskId: z.string().min(1).nullable().optional(),
-	// BA1 D5: scope comes from the owner agent, which may belong to no team.
-	teamId: z.string().min(1).optional(),
-	sourceCorrelation: z.object({
-		routineId: z.string().min(1),
-		routineRunId: z.string().min(1),
-		teamId: z.string().min(1).optional(),
-	}),
-});
-
 export const knowledgeSessionRequestInputSchema = baseInput.extend({
 	sourceKind: z.literal("knowledge"),
 	promptMode: z.literal("knowledge"),
@@ -123,9 +104,8 @@ export const knowledgeSessionRequestInputSchema = baseInput.extend({
 });
 
 /**
- * @lore BC5 T6: the request a subscription's wake starts — additive alongside
- * `routineSessionRequestInputSchema`; the cut-over block retires that one.
- * `changeId` is absent for a schedule-fired wake (no change caused it).
+ * The request a subscription's wake starts. `changeId` is absent for a
+ * schedule-fired wake (no change caused it).
  */
 export const subscriptionSessionRequestInputSchema = baseInput.extend({
 	sourceKind: z.literal("subscription"),
@@ -162,7 +142,6 @@ export const reviewResumeSessionRequestInputSchema = baseInput.extend({
 export const agentSessionRequestInputSchema = z.discriminatedUnion("sourceKind", [
 	taskSessionRequestInputSchema,
 	assistantSessionRequestInputSchema,
-	routineSessionRequestInputSchema,
 	knowledgeSessionRequestInputSchema,
 	subscriptionSessionRequestInputSchema,
 	reviewResumeSessionRequestInputSchema,

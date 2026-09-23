@@ -6,7 +6,6 @@ export type {
 	AgentRunAdmissionFailedEvent,
 	AgentRunAdmissionFailureCode,
 	AgentRunLifecycleChangedEvent,
-	AgentWorkIntentEvent,
 	AgentWorkIntentKind,
 	AgentWorkIntentSourceKind,
 	// @lore BB1: BetRevisedEvent and BetStateChangedEvent deleted — bet is now a root task.

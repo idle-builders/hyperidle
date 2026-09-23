@@ -132,9 +132,8 @@ const OBJECT_EVENTS: readonly string[] = [
 	"user.changed",
 ];
 
-/** The eight platform events — extension surface, never an object door. */
+/** The seven platform events — extension surface, never an object door. */
 const PLATFORM_EVENTS: readonly string[] = [
-	"agent_work_intent_recorded",
 	"agent_run_admission_failed",
 	"agent_run_lifecycle_changed",
 	"session_handoff_completed",
@@ -214,7 +213,7 @@ const LEGACY_TOOLS: readonly string[] = ["add_agent", "create_team", "return_sta
 
 /**
  * Every `EVENT_TYPES` member that is neither one of the nine object events
- * nor one of the eight platform events. Re-derived after the dead-event
+ * nor one of the seven platform events. Re-derived after the dead-event
  * deletion on main removed five of these entirely (`thread_archived`,
  * `dependency_met`, `knowledge_accessed`, `work_selection_requested`,
  * `routine_fired`), so they shrank ahead of this item.

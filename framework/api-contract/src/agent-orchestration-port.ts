@@ -52,7 +52,6 @@ export interface AgentOrchestrationSessionWireRow {
 	readonly sandboxSnapshot: string | null;
 	readonly outcome: string | null;
 	readonly notes: string | null;
-	readonly routineId: string | null;
 	readonly effectivenessScore: string | null;
 	readonly effectivenessRecordedAt: string | null;
 	readonly effectivenessRecordedBy: string | null;
@@ -88,10 +87,8 @@ export type AgentOrchestrationWorkIntentKind =
 	| "thread_turn"
 	| "session_start"
 	| "knowledge_action"
-	| "routine_run"
 	| "task_run"
 	| "session_resume"
-	// @lore BC5 T6: additive alongside `routine_run`; the cut-over block retires it.
 	| "subscription_run";
 
 /**

@@ -353,7 +353,6 @@ export {
 	agentSessionRequestInputSchema,
 	assistantSessionRequestInputSchema,
 	knowledgeSessionRequestInputSchema,
-	routineSessionRequestInputSchema,
 	subscriptionSessionRequestInputSchema,
 	taskSessionRequestInputSchema,
 } from "./session-request.js";
@@ -460,7 +459,6 @@ export type {
 	BakedWorkIntentRequest,
 	ReviewVerdictOutcome,
 	ReviewVerdictRecorderFn,
-	RoutineTriggerEvent,
 	SessionDocumentLike,
 } from "./work-intent.js";
 export { bakeAgentRunnableConfig, toBakedContextDocuments } from "./work-intent.js";
