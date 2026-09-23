@@ -270,7 +270,7 @@ describe("AX1: lived-in demo world", () => {
 	test("sessions: terminal history plus live ones, all resolving", async ({ db }) => {
 		await seedWorld(db);
 
-		// @lore BA9d wave 3: three ritual routines removed from demo world
+		// @lore BA9d wave 3: three ritual subscriptions removed from demo world
 		// (document-decay, document-triage, post-task-retro) — their associated
 		// sessions are gone. Actual count is 34 (26 task + 2 live-or-just-ended +
 		// 6 assistant turns).
@@ -306,14 +306,12 @@ describe("AX1: lived-in demo world", () => {
 	});
 
 	// @lore BA9d: builtin routine mechanism deleted (provisionTeamRoutines removed).
-	// Only demo-routine-daily_digest remains. The three ritual routines
+	// Only demo-routine-daily_digest remains. The three ritual subscriptions
 	// (document-decay, document-triage, post-task-retro) were also removed
 	// from demo world per coordinator instruction. No builtin:* rows exist.
-	// @lore BC5 T7b: `routines` renamed `subscriptions`, and there is no
-	// run-history table on the new side (`routine_runs` is dropped with no
-	// replacement, migration 0089) — the daily-digest fixture is a paused
-	// schedule subscription now, same row 0089's migration would produce
-	// from an `active: false` routine.
+	// @lore BC5 T7b: there is no run-history table on the subscriptions side
+	// (`routine_runs` is dropped with no replacement, migration 0089) — the
+	// daily-digest fixture is a paused schedule subscription.
 	test("subscriptions: daily_digest subscription, paused, no builtin:* rows", async ({ db }) => {
 		await seedWorld(db);
 

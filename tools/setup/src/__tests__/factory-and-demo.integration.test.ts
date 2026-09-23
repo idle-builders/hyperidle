@@ -241,10 +241,6 @@ describe("A2: Seed script", () => {
 	});
 });
 
-// @lore AF17: Builtin routine tests (G4 AC6) were removed from seed.integration.test.ts.
-// After the seed split, the server's team-creation flow provisions builtins per team,
-// not the seed function. Per-team coverage lives in AF17-team-routines.integration.test.ts.
-
 describe("AF17: seed() = runFactoryBootstrap + seedDemoWorld", () => {
 	test("seed() produces factory layer (bootstrap) + demo world (Acme team)", async ({ db }) => {
 		await runFactoryBootstrap(db);
