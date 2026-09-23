@@ -263,7 +263,6 @@ export function AppShell(): JSX.Element {
 	 * Matches:
 	 *   /conversations/:id          (thread detail)
 	 *   /work/task/:id              (task detail — any depth, replaces /work/bet/:id)
-	 *   /work/routine/:id           (routine detail)
 	 *   /work/team/:id              (team page — shows back arrow)
 	 *   /documents/:id              (document detail, but NOT /documents/new)
 	 *   /agents/:id                 (agent detail)
@@ -277,8 +276,6 @@ export function AppShell(): JSX.Element {
 		if (/^\/conversations\/[^/]+/.test(p)) return true;
 		// @lore BB1: /work/bet/:id replaced by /work/task/:id (any depth)
 		if (/^\/work\/task\/[^/]+/.test(p)) return true;
-		// work/routine/:id
-		if (/^\/work\/routine\/[^/]+/.test(p)) return true;
 		// work/team/:id
 		if (/^\/work\/team\/[^/]+/.test(p)) return true;
 		// documents/:id — exclude "new"
@@ -635,7 +632,7 @@ export function AppShell(): JSX.Element {
 	const documentsLoading = sidebarDocumentsStatus === "loading";
 	const documentsError = sidebarDocumentsStatus === "error" ? sidebarDocumentsError : null;
 	// @lore nested-knowledge-items §4: the same parent rule DocumentList
-	// applies — a role-carrying binding (skill/rule/agent identity/routine
+	// applies — a role-carrying binding (skill/rule/agent identity/subscription
 	// prompt) has a non-`document` parent and is reached from its own
 	// surface, not the fast-nav. `inTree` already excludes these server-side
 	// (architecture.md §5.1); the client keeps its own check too.
@@ -677,7 +674,6 @@ export function AppShell(): JSX.Element {
 		if (p.startsWith("/work/team/")) return "Work";
 		// @lore BB1: /work/bet/:id replaced by /work/task/:id
 		if (p.startsWith("/work/task/")) return "Work";
-		if (p.startsWith("/work/routine/")) return "Work";
 		if (p.startsWith("/work")) return "Work";
 		if (p.startsWith("/documents")) return "Knowledge";
 		if (p.startsWith("/agents")) return "Agents";
