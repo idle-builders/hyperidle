@@ -201,7 +201,7 @@ function InstallForm({ onInstalled }: InstallFormProps): JSX.Element {
 /** What each contribution kind is called in the list. */
 const KIND_LABEL: Record<string, string> = {
 	agent: "agent",
-	routine: "routine",
+	subscription: "subscription",
 	document: "document",
 	mcp_server: "MCP server",
 	harness_descriptor: "harness",

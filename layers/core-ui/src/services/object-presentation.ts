@@ -4,13 +4,12 @@
 export type ProductObjectKind =
 	| "team"
 	| "task"
-	| "routine"
 	| "agent"
 	| "thread"
 	| "document"
 	| "review"
 	| "session";
-export const PRODUCT_OBJECT_KINDS = "team task routine agent thread document review session".split(
+export const PRODUCT_OBJECT_KINDS = "team task agent thread document review session".split(
 	" ",
 ) as ProductObjectKind[];
 export type OpenIntent = "navigate" | "inspect" | "act";
