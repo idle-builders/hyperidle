@@ -42,7 +42,7 @@ export type AgentWorkIntentKind = (typeof AGENT_WORK_INTENT_KINDS)[number];
  * The RAW `agent_work_intents.source_kind` vocabulary (the identity an intent
  * was recorded under, pre-resolution) — distinct from `AgentSessionSourceKind`
  * (the RESOLVED "session-source" vocabulary a chosen agent's request ends up
- * carrying, e.g. `"routine"`/`"knowledge"`). `AgentRunAdmissionFailedEvent`
+ * carrying, e.g. `"subscription"`/`"knowledge"`). `AgentRunAdmissionFailedEvent`
  * fires from the drain against the STORED intent row, before (or instead of)
  * resolution succeeds, so it carries this pre-resolution vocabulary verbatim.
  */
@@ -92,9 +92,9 @@ export interface AgentRunLifecycleChangedEvent {
 	/**
 	 * Why the run ended this way, read back off the durable request row. A
 	 * subscriber that records a terminal outcome of its own (core-api's
-	 * routine-run finalizer) has no other source for the reason — without
-	 * these it can only write "it failed", which is what left every real
-	 * provisioning failure undiagnosable from the product.
+	 * task-dispatch-attempt finalizer) has no other source for the reason —
+	 * without these it can only write "it failed", which is what left every
+	 * real provisioning failure undiagnosable from the product.
 	 */
 	readonly failureCode?: string;
 	readonly errorMessage?: string;
@@ -106,11 +106,11 @@ export interface AgentRunLifecycleChangedEvent {
 /**
  * @lore BB1: `BetStateChangedEvent` DELETED — a bet is now a root task.
  * A bet state change IS a task state change; `task_state_changed` is the
- * only work-state event. This NARROWS the routine extension surface:
- * routines authored against `bet_state_changed` will no longer fire. Since
- * no code emits `bet_state_changed` anymore (the bet entity is gone), no
- * routine could have matched it in practice — the deletion removes a dead
- * event type from the extension surface.
+ * only work-state event. This NARROWS the subscription extension surface:
+ * a subscription authored against `bet_state_changed` will no longer fire.
+ * Since no code emits `bet_state_changed` anymore (the bet entity is gone),
+ * no subscription could have matched it in practice — the deletion removes
+ * a dead event type from the extension surface.
  */
 
 export interface SessionStartedEvent {
@@ -395,9 +395,9 @@ export type DomainEvent =
 	| AgentRunAdmissionFailedEvent
 	| AgentRunLifecycleChangedEvent
 	// @lore BB1: BetStateChangedEvent and BetRevisedEvent deleted — bet is now a root task.
-	// @lore BC5 T7b: TaskStateChangedEvent deleted with the routine matcher, its
-	// last listener — `edit_task` emits `task.changed` (an ObjectChangeEvent
-	// member) for lifecycle propagation and the dependency watcher now.
+	// @lore BC5 T7b: TaskStateChangedEvent deleted — its last listener is gone;
+	// `edit_task` emits `task.changed` (an ObjectChangeEvent member) for
+	// lifecycle propagation and the dependency watcher now.
 	| SessionStartedEvent
 	| SessionEndedEvent
 	// AU19 Increment 3g: handoff EventBus inversion
@@ -405,8 +405,8 @@ export type DomainEvent =
 	// Return-gate escape surface
 	| SessionNotReturnedEvent
 	// @lore BC5 T7b: ThreadCreatedEvent/ThreadMessageAppendedEvent/
-	// ThreadResolvedEvent/ThreadReopenedEvent deleted with the routine matcher,
-	// their last listener — `thread.created`/`thread.message`/`thread.changed`
+	// ThreadResolvedEvent/ThreadReopenedEvent deleted — their last listener is
+	// gone — `thread.created`/`thread.message`/`thread.changed`
 	// (ObjectChangeEvent members) carry the same change now.
 	// AU19 Increment 3f: filesystems ⚠ capture-writeback EventBus inversion
 	| SandboxWritebackChangesDetectedEvent
@@ -427,10 +427,10 @@ export type EventType = DomainEvent["type"];
 /**
  * BA1 D8/D2 — the one compile-time-complete list of every event type.
  *
- * @lore BC5 T7b: the routine matcher that used to subscribe to every member
- * here (D2, the founder's loop ruling at §3.1) is deleted with the routine
- * package — a subscription now fires on one of the nine object events or a
- * schedule (`subscriptions_event_ck`, migration 0088), never this whole list.
+ * @lore BC5 T7b: the old generic listener that used to subscribe to every
+ * member here (D2, the founder's loop ruling at §3.1) is gone — a
+ * subscription fires on one of the nine object events or a schedule
+ * (`subscriptions_event_ck`, migration 0088), never this whole list.
  *
  * `as const satisfies readonly EventType[]` is load-bearing, not cosmetic:
  * `satisfies` rejects a listed name that is not an `EventType`, and the
@@ -456,15 +456,15 @@ export const EVENT_TYPES = [
 	"agent_run_admission_failed",
 	"agent_run_lifecycle_changed",
 	// @lore BB1: "bet_state_changed" and "bet_revised" deleted — bet is now a root task.
-	// @lore BC5 T7b: "task_state_changed" deleted — the routine matcher, its
-	// last listener, is gone; "task.changed" (above) carries a state move now.
+	// @lore BC5 T7b: "task_state_changed" deleted — its last listener is gone;
+	// "task.changed" (above) carries a state move now.
 	"session_started",
 	"session_ended",
 	"session_handoff_completed",
 	"session_not_returned",
 	// @lore BC5 T7b: "thread_created"/"thread_message_appended"/
-	// "thread_resolved"/"thread_reopened" deleted with the routine matcher,
-	// their last listener — "thread.created"/"thread.message"/"thread.changed"
+	// "thread_resolved"/"thread_reopened" deleted — their last listener is
+	// gone — "thread.created"/"thread.message"/"thread.changed"
 	// (above) carry the same change now.
 	// @lore BC3 architecture.md §5: "item_created" DELETED — its only backing
 	// store, the `items` table (the founder's conversation-review "block"

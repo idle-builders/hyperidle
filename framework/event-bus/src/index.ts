@@ -10,9 +10,8 @@ export type {
 	// @lore BB1: BetRevisedEvent and BetStateChangedEvent deleted — bet is now a root task.
 	// @lore BC5 T7b: NotificationEvent, TaskStateChangedEvent and the four
 	// ThreadCreated/ThreadMessageAppended/ThreadResolved/ThreadReopened events
-	// deleted with the routine matcher, their last listener — subscriptions
-	// replace them with `ObjectChangeEvent`'s "task.changed"/"thread.*"/
-	// "user.changed" members.
+	// deleted — their last listener is gone — subscriptions replace them with
+	// `ObjectChangeEvent`'s "task.changed"/"thread.*"/"user.changed" members.
 	// @lore BC5 T11: TeamCreatedEvent/AgentAddedEvent/UserCreatedEvent deleted
 	// with the `org`/`teams-routes`/`users` routes, their last emitters.
 	ChangesRow,

@@ -31,11 +31,11 @@ vi.mock("@hyperidle/diagnostics", () => ({
 }));
 
 // @lore BB1: BetStateChangedEvent deleted — bet is now a root task.
-// @lore BC5 T7b: TaskStateChangedEvent/NotificationEvent deleted with the
-// routine matcher, their last listener — this file's generic "some event"
-// fixture is now `task.changed` (an ObjectChangeEvent member, the shape
-// every real task-state move emits today), and the second wildcard fixture
-// is `session_started`, a plain platform event with no object-event shape.
+// @lore BC5 T7b: TaskStateChangedEvent/NotificationEvent deleted — their
+// last listener is gone — this file's generic "some event" fixture is now
+// `task.changed` (an ObjectChangeEvent member, the shape every real
+// task-state move emits today), and the second wildcard fixture is
+// `session_started`, a plain platform event with no object-event shape.
 import type { DomainEvent, ObjectChangeEvent } from "@hyperidle/event-bus";
 import { EventBus } from "../event-bus.js";
 
