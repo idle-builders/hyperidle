@@ -1,47 +1,30 @@
 /**
- * AO1 — SettingsFilesystems: the TEAM FILESYSTEM REGISTRY (live component).
+ * AO1 — SettingsFilesystems: the folders a person's team can reach.
  *
- * Fetches from GET /api/filesystems?teamId=<id> (the team registry list).
- * Mirrors the static story shape in SettingsFilesystems.stories.tsx.
- *
- * @lore AO1: The registry is team-scoped (filesystems.team_id → teams.id).
- * The team's actual id (teams.id) is fetched from /api/org → teamActualId.
- * Per-bot injection lives on the agent's config panel in SettingsAgents.
+ * @lore BC5 T10: the door swap — `call("open_user", {})` replaces the
+ * `/api/org` + `/api/filesystems?teamId=` pair (architecture.md §8). A
+ * person's `folders` on `UserView` is already their team's registry — no
+ * second call to resolve the team id first.
  */
 
+import type { FolderView } from "@hyperidle/domain-model";
 import type { JSX } from "react";
 import { useCallback, useEffect, useState } from "react";
 // hearth-internal-padding
 import { type Status, StatusChip, Tag } from "../ds";
-import { apiFetch } from "../services/api-fetch.js";
-
-// ---------------------------------------------------------------------------
-// Wire types from the API (mirrors @hyperidle/filesystem-contract Filesystem)
-// ---------------------------------------------------------------------------
-
-interface FilesystemApiItem {
-	id: string;
-	teamId: string;
-	source: string;
-	kind: string;
-	connectionId: string | null;
-	resourceRef: { kind: string; repo?: string; branch?: string; folder?: string };
-	writeback: string;
-	state: string;
-	createdAt: string;
-}
+import { call } from "../services/call.js";
 
 // ---------------------------------------------------------------------------
 // Mappers
 // ---------------------------------------------------------------------------
 
-function stateToStatus(s: string): Status | "unknown" {
+function stateToStatus(s: FolderView["state"]): Status | "unknown" {
 	if (s === "reachable") return "healthy";
 	if (s === "needs_attention") return "behind";
 	return "unknown";
 }
 
-function stateLabel(s: string): string {
+function stateLabel(s: FolderView["state"]): string {
 	if (s === "reachable") return "Reachable";
 	if (s === "needs_attention") return "Needs attention";
 	return "Attached";
@@ -57,9 +40,12 @@ function sourceLabel(s: string): string {
 	return labels[s] ?? s;
 }
 
-function resourceDisplay(item: FilesystemApiItem): string {
-	const ref = item.resourceRef;
-	return ref.repo ?? ref.folder ?? "—";
+function resourceDisplay(item: FolderView): string {
+	return item.resourceRef.kind === "code" ? item.resourceRef.repo : item.resourceRef.folder;
+}
+
+function resourceBranch(item: FolderView): string | null {
+	return item.resourceRef.kind === "code" ? item.resourceRef.branch : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -67,42 +53,18 @@ function resourceDisplay(item: FilesystemApiItem): string {
 // ---------------------------------------------------------------------------
 
 export function SettingsFilesystems(): JSX.Element {
-	const [filesystems, setFilesystems] = useState<FilesystemApiItem[]>([]);
+	const [filesystems, setFilesystems] = useState<FolderView[]>([]);
 	const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 
 	const load = useCallback(async (): Promise<void> => {
 		setStatus("loading");
-		try {
-			// AO1: must use teams.id (the registry scope). Get it from /api/org → teamActualId.
-			const orgRes = await apiFetch("/api/org");
-			if (!orgRes.ok) {
-				setStatus("error");
-				return;
-			}
-			const orgJson = (await orgRes.json()) as {
-				teams?: Array<{ id: string; name: string; teamActualId?: string }>;
-			};
-			const firstTeamActualId = orgJson.teams?.[0]?.teamActualId;
-			if (!firstTeamActualId) {
-				// No team yet — empty list is correct
-				setFilesystems([]);
-				setStatus("ready");
-				return;
-			}
-
-			const fsRes = await apiFetch(
-				`/api/filesystems?teamId=${encodeURIComponent(firstTeamActualId)}`,
-			);
-			if (!fsRes.ok) {
-				setStatus("error");
-				return;
-			}
-			const fsJson = (await fsRes.json()) as { filesystems: FilesystemApiItem[] };
-			setFilesystems(Array.isArray(fsJson.filesystems) ? fsJson.filesystems : []);
-			setStatus("ready");
-		} catch {
+		const result = await call("open_user", {});
+		if (!result.ok) {
 			setStatus("error");
+			return;
 		}
+		setFilesystems([...result.data.folders]);
+		setStatus("ready");
 	}, []);
 
 	useEffect(() => {
@@ -155,9 +117,9 @@ export function SettingsFilesystems(): JSX.Element {
 											<span className="type-data truncate   text-[var(--text-primary)]">
 												{resourceDisplay(fs)}
 											</span>
-											{fs.resourceRef.branch ? (
+											{resourceBranch(fs) ? (
 												<span className="type-data   text-[var(--text-tertiary)]">
-													@{fs.resourceRef.branch}
+													@{resourceBranch(fs)}
 												</span>
 											) : null}
 											<Tag label={fs.kind} />
