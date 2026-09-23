@@ -1,10 +1,15 @@
 /**
  * AU20 C1 — retention package dissolved. Each TTL sweep is now exercised
- * through its owning service directly (users / notifications / document).
+ * through its owning service directly (users / document).
  *
  * Exact-behavior lock against the former `reapRetentionOnce` integration
  * test (AU19 Increment 2g): same predicates, same cutoffs, same per-table
  * survivor sets — no behavior change.
+ *
+ * @lore BC5 T7b: the notification_queue sweep is replaced by `reapInbox` —
+ * same rule (a read row older than the TTL is deleted), moved onto the
+ * subscription mechanism's own `inbox` table (`inbox-reaper.ts`'s own
+ * `@lore`).
  *
  * @lore AU21 §9 Increment 10 (Decision H1) — RED. `reapTerminalTaskDispatchAttempts`
  * is relocated OUT of `session-requests`'s `reapExpired` single atomic
@@ -14,16 +19,19 @@
  * `server-factory.ts` so the predicate is directly testable without waiting
  * on the real 6h `setInterval`.
  */
+import { appendChange } from "@hyperidle/changes";
 import {
+	inbox,
 	type HyperIdleDb,
+	subscriptions,
 	taskDispatchAttempts,
 	tasks,
 	teams,
 	threads,
 	users,
 } from "@hyperidle/db";
-import { enqueue, listNotifications, reap } from "@hyperidle/notifications";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
+import { reapInbox } from "../services/inbox-reaper.js";
 // NOT YET CREATED — this import failing to resolve is this file's primary RED
 // signal for the "task-dispatch-attempt reaper — relocated home" describe block.
 import { reapTerminalTaskDispatchAttempts, TERMINAL_LOG_TTL_MS } from "../service-bootstrap.js";
@@ -108,54 +116,68 @@ async function seedTaskDispatchAttempt(
 }
 
 describe("retention reaper — individual owning-service sweeps", () => {
-	test("prunes old read notification_queue rows older than the TTL, keeps unread/recent", async ({
-		db,
-	}) => {
+	test("prunes old read inbox rows older than the TTL, keeps unread/recent", async ({ db }) => {
 		/**
-		 * @lore AU44 batch 4: reap() signature changed from (db, cutoff, statuses[])
-		 * to (db, cutoff). Predicate changed from `status IN (sent, failed, dropped)`
-		 * to `readAt IS NOT NULL AND createdAt < cutoff`.
-		 * Rows seed with readAt to match the new predicate:
-		 *   - nq-old-read: old + readAt set → REAPED
-		 *   - nq-old-unread: old + readAt null → KEPT (still in inbox)
-		 *   - nq-recent-read: recent + readAt set → KEPT (not old enough)
+		 * @lore BC5 T7b: same predicate the deleted notification_queue reap used
+		 * (`readAt IS NOT NULL AND <age> < cutoff`), moved onto `inbox` — whose
+		 * own age is its `changes` row's `at`, since `inbox` carries no
+		 * timestamp of its own (`inbox-reaper.ts`'s own `@lore`).
+		 *   - ib-old-read: old change + readAt set → REAPED
+		 *   - ib-old-unread: old change + readAt null → KEPT (still in inbox)
+		 *   - ib-recent-read: recent change + readAt set → KEPT (not old enough)
 		 */
-		function nqRow(
-			id: string,
-			createdAt: string,
-			readAt: string | null,
-		): Parameters<typeof enqueue>[1] {
-			return {
-				id,
-				eventType: "test",
-				subjectId: null,
-				severity: "digest" as const,
-				title: "t",
-				body: null,
-				reason: "notification_event",
-				channel: null,
-				status: "pending",
-				attempts: 0,
-				createdAt,
-				readAt,
-			};
-		}
+		const agentId = "rr-agent";
+		await db.insert(users).values({
+			id: agentId,
+			kind: "ai",
+			name: "Agent",
+			role: "builder",
+			status: "active",
+			createdAt: now.toISOString(),
+		});
+		await db.insert(subscriptions).values({
+			id: "rr-sub",
+			userId: agentId,
+			event: "task.changed",
+			paused: false,
+			createdAt: now.toISOString(),
+			updatedAt: now.toISOString(),
+		});
+
 		const oldIso = new Date(now.getTime() - 31 * DAY).toISOString();
 		const readIso = new Date(now.getTime() - 30 * DAY).toISOString();
-		await enqueue(db, nqRow("nq-old-read", oldIso, readIso));
-		await enqueue(db, nqRow("nq-old-unread", oldIso, null));
-		await enqueue(db, nqRow("nq-recent-read", now.toISOString(), readIso));
+
+		async function seedInboxRow(
+			id: string,
+			changeAt: string,
+			readAt: string | null,
+		): Promise<void> {
+			const change = await appendChange(db, {
+				id,
+				object: "user",
+				objectId: agentId,
+				kind: "changed",
+				actor: agentId,
+				before: null,
+				after: "{}",
+				at: changeAt,
+			});
+			await db
+				.insert(inbox)
+				.values({ userId: agentId, changeId: change.id, seenAt: readAt, readAt });
+		}
+		await seedInboxRow("ib-old-read", oldIso, readIso);
+		await seedInboxRow("ib-old-unread", oldIso, null);
+		await seedInboxRow("ib-recent-read", now.toISOString(), readIso);
 
 		const termCutoff = new Date(now.getTime() - TERMINAL_LOG_TTL_MS).toISOString();
-		const deleted = await reap(db, termCutoff);
-		expect(deleted.length).toBe(1);
-		expect(deleted[0]).toBe("nq-old-read");
+		const deletedCount = await reapInbox(db, termCutoff);
+		expect(deletedCount).toBe(1);
 
-		// Verify survivors by direct unread query + check nq-recent-read still exists
-		const unread = await listNotifications(db, { kind: "unread" });
-		expect(unread.map((r) => r.id)).toContain("nq-old-unread");
-		// nq-old-read was reaped
-		expect(unread.map((r) => r.id)).not.toContain("nq-old-read");
+		const survivors = await db.select({ changeId: inbox.changeId }).from(inbox);
+		expect(survivors.map((r) => r.changeId)).toContain("ib-old-unread");
+		expect(survivors.map((r) => r.changeId)).toContain("ib-recent-read");
+		expect(survivors.map((r) => r.changeId)).not.toContain("ib-old-read");
 	});
 });
 

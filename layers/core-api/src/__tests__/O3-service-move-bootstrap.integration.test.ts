@@ -21,7 +21,7 @@ import { registerAgentLayerServices, registerCoreDomainServices } from "../servi
 function fullServiceBootstrap(
 	ctx: Omit<
 		Parameters<typeof registerCoreDomainServices>[0],
-		"editTask" | "sendMessage" | "adjustThread"
+		"editTask" | "sendMessage" | "adjustThread" | "editUser"
 	>,
 ): Array<() => void> {
 	const actions = buildCoreActions({
@@ -35,6 +35,8 @@ function fullServiceBootstrap(
 	if (!sendMessageAction) throw new Error("send_message action not found");
 	const adjustThreadAction = actions.find((a) => a.declaration.name === "adjust_thread");
 	if (!adjustThreadAction) throw new Error("adjust_thread action not found");
+	const editUserAction = actions.find((a) => a.declaration.name === "edit_user");
+	if (!editUserAction) throw new Error("edit_user action not found");
 	const fullCtx = {
 		...ctx,
 		editTask: editTaskAction.run as Parameters<typeof registerCoreDomainServices>[0]["editTask"],
@@ -44,6 +46,7 @@ function fullServiceBootstrap(
 		adjustThread: adjustThreadAction.run as Parameters<
 			typeof registerCoreDomainServices
 		>[0]["adjustThread"],
+		editUser: editUserAction.run as Parameters<typeof registerCoreDomainServices>[0]["editUser"],
 	};
 	return [...registerCoreDomainServices(fullCtx), ...registerAgentLayerServices(fullCtx)];
 }

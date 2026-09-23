@@ -4,8 +4,7 @@ import { createLogger } from "@hyperidle/diagnostics";
 import { assembleSessionDocuments } from "@hyperidle/document";
 import { EventBus } from "@hyperidle/event-bus";
 import type { RegisteredTool } from "@hyperidle/harness-protocol";
-import type { NotificationsDeps } from "@hyperidle/notifications";
-import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
+import { readServerConfig } from "@hyperidle/settings";
 import { checkAndUnblockDependents } from "@hyperidle/task";
 import {
 	createAgentIdentityPort,
@@ -24,10 +23,8 @@ import { createAuthRoutes } from "./routes/auth.js";
 import { createFilesystemInjectionRoutes } from "./routes/filesystems.js";
 import { createHarnessRoutes } from "./routes/harnesses.js";
 import { authHealth } from "./routes/health.js";
-import { createNotificationRoutes } from "./routes/notifications-routes.js";
 import { createOrgRoutes } from "./routes/org.js";
 import { createRecipientRoutes } from "./routes/recipients.js";
-import { createRoutineRoutes } from "./routes/routines-routes.js";
 import { createSearchRoutes } from "./routes/search.js";
 import { createAgentBehaviorSettingsRoutes } from "./routes/settings-agent-behavior.js";
 import { createTeamRoutes } from "./routes/teams-routes.js";
@@ -104,6 +101,17 @@ interface AppOptions {
 			input: import("@hyperidle/domain-model").AdjustThreadInput,
 		) => Promise<
 			import("@hyperidle/domain-model").ActionResult<import("@hyperidle/domain-model").ThreadView>
+		>;
+		/**
+		 * `edit_user`'s own bound `run` — BC5 T7b (F1): the crashed-session
+		 * health reaction writes the agent's `health` through it instead of a
+		 * notification-queue row.
+		 */
+		editUser: (
+			ctx: import("./actions/action.js").ActionContext,
+			input: import("@hyperidle/domain-model").EditUserInput,
+		) => Promise<
+			import("@hyperidle/domain-model").ActionResult<import("@hyperidle/domain-model").UserView>
 		>;
 	}) => Array<() => void>;
 	/**
@@ -258,25 +266,6 @@ const APP_DOCUMENT_RUNNERS = new WeakMap<
 	}
 >();
 const appLogger = createLogger({ pkg: "server.app" });
-
-/**
- * @lore AU19 Increment 1g/1h: `notifications`' DI ports (Mechanism C), wired
- * here at the `packages/server` composition point — same construction as
- * `server-factory.ts`'s (both need the same real functions; `app.ts` also
- * needs to build the `/api/notifications` route table).
- *
- * @lore AU20 Ag6b: collapsed from 5 separate port objects into one
- * `NotificationsDeps` bag (same pattern as server-factory.ts).
- *
- * @lore server_credentials deletion: `credentialCipher`/`credentialStore`
- * are gone from `NotificationsDeps` with the table they read — the SMTP
- * password they used to fetch had no writer since BC1.
- */
-const notificationsServerConfigPort = { read: readServerConfig, update: updateServerConfig };
-
-const notificationsDeps: NotificationsDeps = {
-	serverConfig: notificationsServerConfigPort,
-};
 
 /**
  * Resolve the one-shot WebSocket upgrade-token store this app instance uses.
@@ -583,6 +572,14 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 			editDocument: editDocumentRun,
 			searchDocuments: searchDocumentsRun,
 		});
+		// @lore BC5 T7b (F1): the crashed-session health reaction writes the
+		// agent's `health` through the composed `edit_user` action — never
+		// `@hyperidle/user`'s store functions directly — so the write lands as
+		// an ordinary `user.changed` row, same as any other edit.
+		const editUserRun = runnerFor<
+			import("@hyperidle/domain-model").EditUserInput,
+			import("@hyperidle/domain-model").UserView
+		>(actions, "edit_user");
 		// @lore document-module B11: an agent's identity document (§8.3) — the
 		// one shared helper every agent-creating route (`/agents`, `/org`'s
 		// scaffold-request, `/teams`'s create) reduces to, built from the same
@@ -630,20 +627,6 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		api.route("/filesystems", createFilesystemInjectionRoutes(options.db, agentOrchestration));
 		api.route("/users", createUserRoutes(options.db));
 		api.route("/org", createOrgRoutes(options.db, agentOrchestration, agentIdentity));
-		// @lore document-module B12: a routine's prompt document reads/writes
-		// through the same composed `search_documents`/`edit_document` runners,
-		// extracted above (architecture.md §8.2, §8.3) — never
-		// `@hyperidle/document`'s repository functions directly.
-		api.route(
-			"/routines",
-			createRoutineRoutes(
-				options.db,
-				eventBus,
-				agentOrchestration,
-				searchDocumentsRun,
-				editDocumentRun,
-			),
-		);
 		api.route("/recipients", createRecipientRoutes(options.db, eventBus));
 
 		// AH2: GET /api/harnesses — deduped harness type list for SettingsAgents selector.
@@ -665,7 +648,8 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		// `search_plugins`/`edit_plugin`, mounted generically by
 		// `createActionsRouter` above (`compose.ts`'s fourth action group).
 		// `routes/plugins.ts` and its six routes are deleted.
-		api.route("/notifications", createNotificationRoutes(options.db, { deps: notificationsDeps }));
+		// @lore BC5 T7b: `/notifications` is deleted with the notification
+		// queue — a person's inbox is `open_user({}).inbox` now.
 
 		const db = options.db;
 		const disposers: Array<() => void> = [];
@@ -678,6 +662,7 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 				editTask,
 				sendMessage,
 				adjustThread: adjustThreadRun,
+				editUser: editUserRun,
 			}) ?? [];
 		disposers.push(...serviceDisposers);
 

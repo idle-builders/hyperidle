@@ -15,12 +15,11 @@
  * owns, never re-exported by name.
  */
 
-// architecture.md §8.3: `fireRoutine` now takes a
-// `search_documents` runner (never `@hyperidle/document` itself) — this is
-// the same standalone composition `service-bootstrap.ts`'s own scheduler
-// wiring uses, exposed so `tools/eval`'s scenarios (the direct `fireRoutine`
-// callers outside any request that already has a runner in scope) build the
-// SAME thing rather than a second implementation.
+// @lore BC5 T7b: the routine scheduler's `fireRoutine` is gone —
+// `tools/eval`'s scenarios drive a subscription wake through the real
+// `edit_user`/subscription-fire mechanism instead. `createStandaloneSearchDocuments`
+// stays: it is a standalone `search_documents` runner other composition
+// roots still need outside any request that already has one in scope.
 export { createStandaloneSearchDocuments } from "./actions/compose.js";
 // AU29 §2.5.2: the first-boot core-state face — the composition roots (desktop,
 // tools/setup) call this instead of a database package writing service-owned tables.
@@ -57,11 +56,3 @@ export {
 	createInProcessAgentOrchestrationTransport,
 	createNetworkAgentOrchestrationTransport,
 } from "./services/agent-orchestration-port-composition.js";
-// AU31 §7.1: `tools/eval`'s one legitimate cross-package consumer of
-// routine-firing — an own-module re-export (`./services/…`, not a Service
-// package specifier), so R2 does not read it as a Service value escaping.
-// `provisionTeamRoutines` (the `@hyperidle/routine` half the deleted
-// `routines.ts` barrel also carried) is NOT re-exported here: `tools/eval` is
-// a tooling composition root, and `tooling → service [import]` is allowed in
-// its own (development) world, so it imports `@hyperidle/routine` directly.
-export { fireRoutine } from "./services/routine-scheduler-bindings.js";

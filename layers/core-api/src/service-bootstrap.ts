@@ -13,18 +13,15 @@ import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { EventBus } from "@hyperidle/event-bus";
-import { reap } from "@hyperidle/notifications";
 import type { PolicyDeps } from "@hyperidle/policy";
 import { registerLifecyclePropagation } from "@hyperidle/policy";
 import * as taskDb from "@hyperidle/task";
 import { listMessages } from "@hyperidle/thread";
-import { createStandaloneSearchDocuments } from "./actions/compose.js";
 import { registerAgentHealthSessionEndReactions } from "./services/agent-health-session-end-reactions.js";
 import { registerAgentRunAdmissionReactions } from "./services/agent-run-admission-reactions.js";
 // @lore AU21 Increment 14a: cost sentinel + `costOps`/`cost-bindings.ts` are
 // HARD-DELETED along with the rest of the cost feature — no replacement.
-import { registerRoutineRunSessionEndReactions } from "./services/routine-run-session-end-reactions.js";
-import { startRoutineScheduler } from "./services/routine-scheduler-bindings.js";
+import { reapInbox } from "./services/inbox-reaper.js";
 import { registerSessionNotReturnedNotice } from "./services/session-not-returned-notice.js";
 import { registerWorkSessionEndReactions } from "./services/work-session-end-reactions.js";
 import { registerWorkSessionStartedReactions } from "./services/work-session-started-reactions.js";
@@ -62,8 +59,6 @@ function identifyBootstrapOwner(
 	return Object.assign(dispose, { owner, cleanupEffect, constituents });
 }
 
-/** Production default poll cadence for the routine scheduler. */
-const DEFAULT_ROUTINE_POLL_INTERVAL_MS = 30_000;
 /** Default staleness bound for the routine-session reaper (1h). */
 export const DEFAULT_REAPER_STALE_AFTER_MS = 60 * 60 * 1000;
 /**
@@ -153,21 +148,17 @@ function buildPolicyDeps(
 
 /**
  * AU11: registers CORE-owned application services against the event bus —
- * document (relevance listener, FTS), notifications, policy engine,
- * review routing, lifecycle propagation, retention, and the
- * routine scheduler (cron/due-eval + `enqueueWorkIntent`).
+ * document (relevance listener, FTS), policy engine, review routing,
+ * lifecycle propagation and retention.
  *
  * Split from the former `app-runtime` shell's `bootstrapAppRuntime` —
  * together with `registerAgentLayerServices` this replicates the exact
  * same disposer set; only the grouping changed, not registration order
  * within each group (behavior-preserving, AU11 import-path-only invariant).
  *
- * @lore AU15: routine-scheduler.ts stays Core (cron/due-eval is a core
- * domain concern); the residual Core→Agent edge AU11 recorded here (its
- * former fire-time agent-selection call is CLOSED — owner-WIP evaluation and
- * delegate resolution moved to drain-time in
- * `agent-work-intent-worker.ts`'s `resolveAuthoritativeInput` (`routine_run`
- * branch). routine-scheduler.ts no longer imports agent-selection.ts at all.
+ * @lore BC5 T7b: the routine scheduler (cron/due-eval, `routine-scheduler.ts`)
+ * is deleted with the routine package — the subscription clock replaces it,
+ * wired in `app.ts` (§ its own `@lore`).
  */
 export function registerCoreDomainServices(ctx: {
 	readonly db: HyperIdleDb;
@@ -197,6 +188,12 @@ export function registerCoreDomainServices(ctx: {
 	 * thread through it.
 	 */
 	readonly adjustThread: import("./services/agent-run-admission-reactions.js").AdjustThreadRunFn;
+	/**
+	 * `edit_user`'s own bound `run`, threaded the same way — BC5 T7b (F1):
+	 * the crashed-session health reaction writes the agent's `health`
+	 * through it instead of a notification-queue row.
+	 */
+	readonly editUser: import("./services/agent-health-session-end-reactions.js").EditUserRunFn;
 	/** AF6 §1: routine scheduler poll cadence (ms). Optional; defaults to 30s. */
 	readonly routinePollIntervalMs?: number;
 	/** AF6 scope (iii): when true, generic (taskId) routines auto-fire. */
@@ -212,7 +209,7 @@ export function registerCoreDomainServices(ctx: {
 	 */
 	readonly dispatcherDeps?: Omit<TaskDispatcherDeps, "db" | "eventBus">;
 }): Array<() => void> {
-	const { db, eventBus, agentOrchestration, editTask, sendMessage, adjustThread } = ctx;
+	const { db, eventBus, agentOrchestration, editTask, sendMessage, adjustThread, editUser } = ctx;
 	const disposers: Array<() => void> = [];
 
 	disposers.push(
@@ -227,14 +224,8 @@ export function registerCoreDomainServices(ctx: {
 		),
 	);
 
-	disposers.push(
-		identifyBootstrapOwner(
-			registerRoutineRunSessionEndReactions(db, eventBus),
-			"routine-run session-end reactions",
-			"unsubscribe",
-			["session_ended subscription", "agent_run_lifecycle_changed subscription"],
-		),
-	);
+	// @lore BC5 T7b: the routine-run session-end reaction is deleted with the
+	// routine package — a subscription's wake carries no run row to finalize.
 
 	// AU26: the degraded-agent notification, event-driven. Replaces
 	// `routes/teams-routes.ts`'s deleted `maybeNotifyAgentError` — a notification
@@ -243,7 +234,7 @@ export function registerCoreDomainServices(ctx: {
 	// `sessions` table.
 	disposers.push(
 		identifyBootstrapOwner(
-			registerAgentHealthSessionEndReactions(db, eventBus),
+			registerAgentHealthSessionEndReactions(db, eventBus, editUser),
 			"agent-health session-end reactions",
 			"unsubscribe",
 			["session_ended subscription"],
@@ -317,8 +308,7 @@ export function registerCoreDomainServices(ctx: {
 	// @lore BC3 architecture.md §5 B7: the notifications inbox listener
 	// (`installNotifications`) is deleted — its only trigger was the policy
 	// engine's "attention" event, deleted with `items` (R2). Nothing left to
-	// register; `reap` below is the notifications package's only remaining
-	// composition-root touchpoint.
+	// register.
 	// AF16 T17: in-process 6h TTL retention reaper. Runs unconditionally.
 	// @lore AU20 C1: retention package dissolved — sweep logic and scheduler
 	// live here at the composition root; per-table deletes delegate to their
@@ -327,9 +317,10 @@ export function registerCoreDomainServices(ctx: {
 	const runRetentionSweep = async (): Promise<void> => {
 		const nowMs = Date.now();
 		const termCutoff = new Date(nowMs - TERMINAL_LOG_TTL_MS).toISOString();
-		// notification_queue (owned by `notifications`)
-		// @lore AU44 batch 4: reap signature changed — deletes rows where readAt IS NOT NULL AND createdAt < cutoff
-		await reap(db, termCutoff);
+		// @lore BC5 T7b: `inbox` (owned by `user`) replaces `notification_queue`
+		// (owned by the deleted `notifications`) — same rule, a read row older
+		// than cutoff is deleted.
+		await reapInbox(db, termCutoff);
 		// task_dispatch_attempts (owned by `work`) — AU21 §9 Increment 10
 		// (Decision H1): relocated out of session-requests's reapExpired.
 		await reapTerminalTaskDispatchAttempts(db, termCutoff, TASK_DISPATCH_ATTEMPT_REAP_BATCH_SIZE);
@@ -352,15 +343,21 @@ export function registerCoreDomainServices(ctx: {
 }
 
 /**
- * AU11: registers AGENT-owned services — builtin routine handlers, the task
- * dispatcher, and the sandbox/routine-session reapers (AU21 Increment 14a:
- * the cost-cap dedup release + cost sentinel this used to also register are
- * deleted, no replacement). Split from the former `bootstrapAppRuntime`
- * shell alongside `registerCoreDomainServices` (see that function's
- * doc-comment for the behavior-preservation invariant).
+ * AU11: registers AGENT-owned services (AU21 Increment 14a: the cost-cap
+ * dedup release + cost sentinel this used to also register are deleted, no
+ * replacement). Split from the former `bootstrapAppRuntime` shell alongside
+ * `registerCoreDomainServices` (see that function's doc-comment for the
+ * behavior-preservation invariant).
  *
- * The assistant runs through the SAME durable poller (`startRuntime`, wired
- * by the Application's composition root) as every other kind — no second
+ * @lore BC5 T7b: the routine scheduler (builtin-routine event reaction +
+ * the cron/due-eval tick loop, `routine-scheduler-bindings.ts`) is deleted
+ * with the routine package — a subscription's fire and clock
+ * (`registerSubscriptionFire`/`startSubscriptionClock`) replace it, wired
+ * in `app.ts` alongside the dependency watcher, not here (they need the
+ * composed action bags this composition root is deliberately built
+ * without — see `buildStandaloneDocumentActions`'s own doc-comment). The
+ * assistant runs through the SAME durable poller (`startRuntime`, wired by
+ * the Application's composition root) as every other kind — no second
  * lifecycle to boot here.
  */
 export function registerAgentLayerServices(ctx: {
@@ -370,52 +367,13 @@ export function registerAgentLayerServices(ctx: {
 	readonly agentOrchestration: AgentOrchestrationPort;
 	readonly dispatcherDeps?: Omit<TaskDispatcherDeps, "db" | "eventBus">;
 	readonly reaperStaleAfterMs?: number;
-	/** AF6 §1: routine scheduler poll cadence (ms). Optional; defaults to 30s. */
-	readonly routinePollIntervalMs?: number;
 	/** AF6 scope (iii): when true, generic (taskId) routines auto-fire. */
 	readonly canProvision?: boolean;
 	/** AF6 §4: in-process periodic reaper cadence (ms). 0 = every poll (tests). */
 	readonly reaperCadenceMs?: number;
 }): Array<() => void> {
-	const { db, eventBus, agentOrchestration } = ctx;
 	const disposers: Array<() => void> = [];
 	const reaperStaleAfterMs = ctx.reaperStaleAfterMs ?? DEFAULT_REAPER_STALE_AFTER_MS;
-
-	// AU21 §9 Increment 4: the routine scheduler (builtin-routine event
-	// reaction + the cron/due-eval tick loop) is its own core-api-side
-	// lifecycle (`routine-scheduler-bindings.ts`).
-	const pollIntervalMs = ctx.routinePollIntervalMs ?? DEFAULT_ROUTINE_POLL_INTERVAL_MS;
-
-	// architecture.md §8.3: the scheduler's own `search_documents` runner —
-	// standalone, never the composed HTTP/MCP list (`registerAgentLayerServices`
-	// is wired from `db`/`eventBus` alone, with no task/thread action bags in
-	// scope at this composition root; see `compose.ts`'s own doc-comment on
-	// `buildStandaloneDocumentActions`).
-	const schedulerSearchDocuments = createStandaloneSearchDocuments();
-	const schedulerPromise = startRoutineScheduler(
-		db,
-		eventBus,
-		agentOrchestration,
-		schedulerSearchDocuments,
-		{
-			pollIntervalMs,
-			canProvision: ctx.canProvision ?? Boolean(ctx.dispatcherDeps),
-			reaperCadenceMs: ctx.reaperCadenceMs,
-		},
-	);
-	schedulerPromise.catch((err) => {
-		serviceBootstrapLog.error("routine scheduler start failed", { err });
-	});
-	disposers.push(
-		identifyBootstrapOwner(
-			() => {
-				void schedulerPromise.then((s) => s.stop()).catch(() => {});
-			},
-			"routine scheduler",
-			"cron/due-eval tick stop",
-			["routine scheduler"],
-		),
-	);
 
 	// @lore AU21 Increment 14a: the cost sentinel (15-minute scheduled job) is
 	// deleted along with the rest of the cost feature — no replacement.
