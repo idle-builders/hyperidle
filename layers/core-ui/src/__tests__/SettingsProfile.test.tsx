@@ -1,14 +1,21 @@
 /**
  * P4 — SettingsProfile section component tests (Task 8, AC-13, AC-24, AC-25)
  *
- * AC-13: Profile section: name + email edits persist via PATCH /api/users/:id
+ * AC-13: Profile section: name + email edits persist via edit_user
  * AC-24: Settings save feedback via toast (toast "Profile saved" appears)
  * AC-25: Profile edits do NOT silently revert (bug fix)
+ *
+ * @lore BC5 T9: the door swap — `call("edit_user", { id, name, email })`
+ * replaces `apiFetch(PATCH /api/users/:id)`. `call` is mocked directly.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const { callMock } = vi.hoisted(() => ({ callMock: vi.fn() }));
+vi.mock("../services/call.js", () => ({ call: callMock }));
+
 import { SettingsProfile } from "../settings/SettingsProfile";
 
 const DEFAULT_USER = {
@@ -39,19 +46,11 @@ vi.mock("../shell/ToastRegion.js", async () => {
 
 describe("SettingsProfile", () => {
 	beforeEach(() => {
-		vi.stubGlobal(
-			"fetch",
-			vi.fn().mockImplementation(() =>
-				Promise.resolve({
-					ok: true,
-					status: 200,
-					json: async () => ({
-						...DEFAULT_USER,
-						name: "Updated Name",
-					}),
-				}),
-			),
-		);
+		callMock.mockReset();
+		callMock.mockResolvedValue({
+			ok: true,
+			data: { user: { ...DEFAULT_USER, name: "Updated Name" } },
+		});
 		mockShowToast.mockClear();
 	});
 
@@ -67,8 +66,8 @@ describe("SettingsProfile", () => {
 		expect(screen.getByLabelText(/^email/i)).toHaveValue("alice@example.com");
 	});
 
-	// AC-13: Save button calls PATCH /api/users/:id
-	it("Save Profile button calls PATCH /api/users/:id with updated values", async () => {
+	// AC-13: Save button calls edit_user
+	it("Save Profile button calls edit_user with updated values", async () => {
 		const user = userEvent.setup();
 		render(<SettingsProfile />);
 
@@ -80,16 +79,10 @@ describe("SettingsProfile", () => {
 		await user.click(saveBtn);
 
 		await waitFor(() => {
-			const fetchMock = vi.mocked(fetch);
-			const patchCall = fetchMock.mock.calls.find(
-				([url, opts]) =>
-					typeof url === "string" &&
-					url.includes("/api/users/") &&
-					(opts as RequestInit)?.method === "PATCH",
+			expect(callMock).toHaveBeenCalledWith(
+				"edit_user",
+				expect.objectContaining({ id: DEFAULT_USER.id, name: "Bob Updated" }),
 			);
-			expect(patchCall).toBeDefined();
-			const body = JSON.parse((patchCall?.[1] as RequestInit)?.body as string);
-			expect(body.name).toBe("Bob Updated");
 		});
 	});
 
@@ -113,16 +106,10 @@ describe("SettingsProfile", () => {
 
 	// AC-24: Toast on error
 	it("shows error toast when save fails", async () => {
-		vi.stubGlobal(
-			"fetch",
-			vi.fn().mockImplementation(() =>
-				Promise.resolve({
-					ok: false,
-					status: 500,
-					json: async () => ({ error: "Server error" }),
-				}),
-			),
-		);
+		callMock.mockResolvedValue({
+			ok: false,
+			problems: [{ code: "server_error", message: "Server error" }],
+		});
 
 		const user = userEvent.setup();
 		render(<SettingsProfile />);
