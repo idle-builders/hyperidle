@@ -9,6 +9,7 @@ import type {
 	BakedAgentRunnableConfig,
 	BakedContextBundle,
 	BakedSessionResumeRequest,
+	ChangeRow,
 	ModelTier,
 	SessionOutcome,
 } from "@hyperidle/domain-model";
@@ -32,7 +33,11 @@ import {
 	buildProvisioningPlan,
 	type HeldConnectionsReaderPort,
 } from "./connection-provisioning.js";
-import { routineSessionContextDataFromBundle, sessionContextDataFromBundle } from "./context.js";
+import {
+	routineSessionContextDataFromBundle,
+	sessionContextDataFromBundle,
+	subscriptionSessionContextDataFromBundle,
+} from "./context.js";
 import {
 	ConcurrencyLimitError,
 	NoAvailableHarnessError,
@@ -400,6 +405,22 @@ interface SessionLifecycleRoutineSessionContextData {
 	readonly team: { readonly id: string; readonly name: string } | null;
 }
 
+/**
+ * BC5 T6: additive alongside `SessionLifecycleRoutineSessionContextData`; the
+ * cut-over block retires that one.
+ */
+interface SessionLifecycleSubscriptionSessionContextData {
+	readonly subscription: {
+		readonly id: string;
+		readonly event: string | null;
+		readonly schedule: string | null;
+	};
+	readonly prompt: string | null;
+	readonly change: ChangeRow | null;
+	readonly agent: { readonly id: string; readonly name: string; readonly role: string };
+	readonly team: { readonly id: string; readonly name: string } | null;
+}
+
 interface SessionLifecycleToolSummary {
 	readonly name: string;
 	readonly description: string;
@@ -434,6 +455,13 @@ interface SessionLifecycleContextAssembly {
 	assembleRoutinePrompt(input: {
 		readonly systemPromptText: string;
 		readonly context: SessionLifecycleRoutineSessionContextData;
+		readonly tools: readonly SessionLifecycleToolSummary[];
+		readonly sandboxPath: string;
+	}): Promise<{ readonly assembledPrompt: string; readonly personaToolsTokens: number }>;
+	/** BC5 T6: additive alongside `assembleRoutinePrompt`; the cut-over block retires that one. */
+	assembleSubscriptionPrompt(input: {
+		readonly systemPromptText: string;
+		readonly context: SessionLifecycleSubscriptionSessionContextData;
 		readonly tools: readonly SessionLifecycleToolSummary[];
 		readonly sandboxPath: string;
 	}): Promise<{ readonly assembledPrompt: string; readonly personaToolsTokens: number }>;
@@ -1514,6 +1542,20 @@ async function runSession(
 		({ assembledPrompt } = await ports.contextAssembly.assembleRoutinePrompt({
 			systemPromptText,
 			context: routineContextData,
+			tools: toolSummaries,
+			sandboxPath,
+		}));
+	} else if (params.contextBundle?.kind === "subscription") {
+		// BC5 T6: subscription session — derive subscription+agent+team context
+		// from the baked `kind:"subscription"` bundle, ZERO db read, the same
+		// way a routine session does from its own bundle kind. Additive
+		// alongside the routine branch above; the cut-over block retires it.
+		const subscriptionContextData = subscriptionSessionContextDataFromBundle(
+			params.contextBundle,
+		);
+		({ assembledPrompt } = await ports.contextAssembly.assembleSubscriptionPrompt({
+			systemPromptText,
+			context: subscriptionContextData,
 			tools: toolSummaries,
 			sandboxPath,
 		}));
