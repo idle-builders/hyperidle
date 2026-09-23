@@ -440,6 +440,7 @@ interface SessionLifecycleContextAssembly {
 		readonly context: SessionLifecycleSubscriptionSessionContextData;
 		readonly tools: readonly SessionLifecycleToolSummary[];
 		readonly sandboxPath: string;
+		readonly sendMessageOrientation?: string;
 	}): Promise<{ readonly assembledPrompt: string; readonly personaToolsTokens: number }>;
 	writeSandboxAgentsMd(sandboxPath: string, assembledPrompt: string): void;
 }
@@ -518,6 +519,24 @@ interface SessionLifecyclePorts {
 }
 
 /**
+ * True for a task-free session whose only satisfying return action is
+ * `send_message` — one line, shared by the prompt orientation
+ * (`assembleTaskFreePrompt`) and the enforced gate (`requiredReturnActions`
+ * below) so the two can never drift apart the way they did before: a
+ * session that replies into a calling thread (the assistant,
+ * `knowledge_action`) and a subscription wake (no calling thread to reply
+ * into — `resolveSubscriptionWakeRequest` bakes none — but still task-free)
+ * both resolve `true`. A task-bound session (task_run/session_start) keeps
+ * the full return set, `edit_task` included, even with a calling thread.
+ */
+function requiresSendMessageReturn(params: ProvisionSessionParams): boolean {
+	return (
+		params.taskId == null &&
+		(params.callingThreadId != null || params.requestContext?.sourceKind === "subscription")
+	);
+}
+
+/**
  * @lore AU21 §9 Increment 10a (Decision I): the `"decomposition"` sourceKind
  * branch this function used to special-case (a bet-decomposition PM turn's
  * "Turn this bet into concrete proposed tasks" prompt) is REMOVED — the
@@ -576,10 +595,11 @@ async function assembleTaskFreePrompt(
 	// name that does not exist ("Model tried to call unavailable tool
 	// 'send_message'").
 	const sendMessageToolName = literalToolNamerForAdapterType(adapterType)("send_message");
-	const sendMessageOrientation =
-		params.callingThreadId != null && params.taskId == null
+	const sendMessageOrientation = requiresSendMessageReturn(params)
+		? params.callingThreadId != null
 			? `When you are done, call \`${sendMessageToolName}\` to answer in this conversation.`
-			: "";
+			: `When you are done, call \`${sendMessageToolName}\` to report your result — this session has no calling thread, so it reaches the human you report to directly.`
+		: "";
 
 	return [systemPromptText, sourceSection, conversationSection, sendMessageOrientation, toolSection]
 		.filter(Boolean)
@@ -1505,11 +1525,26 @@ async function runSession(
 		// subscription+agent+team context from the baked `kind:"subscription"`
 		// bundle, ZERO db read.
 		const subscriptionContextData = subscriptionSessionContextDataFromBundle(params.contextBundle);
+		// See `requiresSendMessageReturn`'s `@lore` and `assembleTaskFreePrompt`'s
+		// own `sendMessageOrientation` — a subscription wake has no calling
+		// thread to infer this from, so it needs the same proactive, one-line
+		// heads-up, computed the same way (the literal tool name the SELECTED
+		// harness exposes) and threaded through as pre-rendered text so this
+		// module's own prompt composer never needs the harness-protocol
+		// return-action vocabulary imported into it.
+		const subscriptionSendMessageToolName = literalToolNamerForAdapterType(
+			selectedAdapter.meta.type,
+		)("send_message");
 		({ assembledPrompt } = await ports.contextAssembly.assembleSubscriptionPrompt({
 			systemPromptText,
 			context: subscriptionContextData,
 			tools: toolSummaries,
 			sandboxPath,
+			...(requiresSendMessageReturn(params)
+				? {
+						sendMessageOrientation: `When you are done, call \`${subscriptionSendMessageToolName}\` to report your result — this session has no calling thread, so it reaches the human you report to directly.`,
+					}
+				: {}),
 		}));
 	} else if (params.taskId && !params.requestContext && params.contextBundle?.kind === "task") {
 		// AU21 §9 Increment 12 (Decision H3): normal (non-durable, no
@@ -1565,14 +1600,22 @@ async function runSession(
 		fs.writeFileSync(mcpJsonPath, JSON.stringify({ mcpServers: {} }, null, 2), "utf-8");
 	}
 
-	// A session whose output belongs in a calling thread and has no task (the
-	// assistant, and now knowledge_action too) must call `send_message`, not
-	// the full return set — purely structural, no `sourceKind` check
-	// anywhere. A task-bound session (task_run/session_start) also bakes a
-	// calling thread but keeps the full set available (`send_message` still
-	// lands in the same thread, but so does e.g. `edit_task`).
-	const requiredReturnActions: readonly string[] | undefined =
-		params.callingThreadId != null && params.taskId == null ? ["send_message"] : undefined;
+	// See `requiresSendMessageReturn`: a session whose output belongs in a
+	// calling thread and has no task (the assistant, and now knowledge_action
+	// too), or a subscription wake (task-free, but never bakes a calling
+	// thread — there is no thread to reply into), must call `send_message`,
+	// not the full return set. A task-bound session (task_run/session_start)
+	// also bakes a calling thread but keeps the full set available
+	// (`send_message` still lands in the same thread, but so does e.g.
+	// `edit_task`). Naming `send_message` explicitly removes a dead option
+	// the default full-set forcing message would otherwise offer: `edit_task`
+	// can never satisfy a task-free gate (no `taskId` to match), so a session
+	// with no specific requirement could burn its whole force budget on an
+	// ineffective `edit_task` attempt and end `not_returned` regardless of
+	// harness.
+	const requiredReturnActions: readonly string[] | undefined = requiresSendMessageReturn(params)
+		? ["send_message"]
+		: undefined;
 
 	// One gate per session — all events observed by this gate. Declared
 	// here (before the MCP bridge's `onToolCall` closure below references it)

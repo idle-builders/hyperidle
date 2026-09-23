@@ -4,9 +4,16 @@
  * (baked at emit — Increment 1's `callingThreadId` sibling) reaches:
  *   1. the `## Conversation` prompt section (every harness reads it from
  *      AGENTS.md/CLAUDE.md), replacing the raw machine-id Correlation line;
- *   2. `SessionConfig.requiredReturnActions` — Decision 3's structural rule
- *      (`callingThreadId != null && taskId == null` ⇒ `["send_message"]`), plus the
- *      one-line send_message orientation in the prompt.
+ *   2. `SessionConfig.requiredReturnActions` — the structural rule for every
+ *      task-free session (`taskId == null`): a session with a calling
+ *      thread (`callingThreadId != null`) or a subscription wake
+ *      (`requestContext.sourceKind === "subscription"`, which never bakes a
+ *      calling thread — there is no thread to reply into) both resolve to
+ *      `["send_message"]`, plus the one-line send_message orientation in
+ *      the prompt. A subscription wake with no forced action left
+ *      completion up to each harness's own natural turn-end signal, which
+ *      is not uniform across CLI adapters — the fix narrows it to the same
+ *      single required action every other task-free session already gets.
  *
  * Uses `deps.onBeforeHarnessStart`'s abort return to observe the fully
  * assembled `SessionConfig` without spawning a real harness process.
@@ -131,6 +138,34 @@ describe("generic transcript delivery (Increment 4)", () => {
 					manifestPath: "",
 				}),
 				assemblePrompt: async () => ({ assembledPrompt: "context", personaToolsTokens: 0 }),
+			},
+		};
+	}
+
+	/**
+	 * The subscription-bundle variant — the real production shape
+	 * (`resolveSubscriptionWakeRequest` bakes `contextBundle.kind:"subscription"`
+	 * whenever an `assembleSessionDocuments` dep is wired, which production
+	 * always does): `assembleSubscriptionPrompt`, not the task-free fallback
+	 * `assembleTaskFreePrompt`, composes the prompt. Echoes
+	 * `sendMessageOrientation` straight into `assembledPrompt` so a test can
+	 * assert on it without re-implementing the real composer.
+	 */
+	function buildSubscriptionHarnessPorts(): SessionLifecyclePorts {
+		const base = buildHarnessPorts();
+		return {
+			...base,
+			contextAssembly: {
+				...base.contextAssembly,
+				assembleAgentContext: async () => ({ itemCount: 0, durationMs: 0, manifestPath: "" }),
+				assembleSubscriptionPrompt: async (input) => ({
+					assembledPrompt: [
+						"# Session Instructions",
+						"## Subscription",
+						input.sendMessageOrientation ?? "",
+					].join("\n"),
+					personaToolsTokens: 0,
+				}),
 			},
 		};
 	}
@@ -309,6 +344,81 @@ describe("generic transcript delivery (Increment 4)", () => {
 		await provisioner.run(deps, params, admitted);
 
 		expect(captured.sessionConfig?.requiredReturnActions).toBeUndefined();
+	});
+
+	test("a subscription wake (task-free, no calling thread) also gets requiredReturnActions:['send_message']", async ({
+		db,
+	}) => {
+		await seedAgent(db, "agent-subscription-wake-1");
+		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "au27-subscription-wake-"));
+		sandboxDirs.push(sandboxPath);
+
+		// A `requestContext` with no `taskId` runs Phase 6's task-free
+		// `assembleAgentContext` call (same branch the "no transcript"
+		// scenario below exercises for `sourceKind: "task"`) — allow it.
+		const ports = buildHarnessPorts({ allowContextAssembly: true });
+		const provisioner = createProvisioner(ports);
+		const captured: { sessionConfig?: SessionConfig } = {};
+		const deps = buildDeps(db as HyperIdleDb, sandboxPath, captured);
+
+		// The real shape a subscription's wake bakes: task-free, no calling
+		// thread at all (subscription-wake.ts never sets one — there is no
+		// thread to reply into), sourceKind "subscription".
+		const params = {
+			...baseParams("agent-subscription-wake-1", sandboxPath),
+			requestContext: {
+				requestId: "req-subscription-wake-1",
+				sourceKind: "subscription",
+				sourceId: "sub-1:change-1",
+				sourceCorrelation: { subscriptionId: "sub-1", changeId: "change-1" },
+			},
+		} as unknown as ProvisionSessionParams;
+
+		const admitted = await provisioner.admit(deps, params);
+		await provisioner.run(deps, params, admitted);
+
+		expect(captured.sessionConfig?.requiredReturnActions).toEqual(["send_message"]);
+		// The proactive prompt orientation, not just the reactive forced-return
+		// message — a subscription wake gets no calling-thread transcript to
+		// infer this from, so it has to be told up front.
+		expect(captured.sessionConfig?.assembledPrompt ?? "").toContain("call `send_message`");
+	});
+
+	test("a subscription wake WITH the real contextBundle also gets the send_message orientation (assembleSubscriptionPrompt, not the task-free fallback)", async ({
+		db,
+	}) => {
+		await seedAgent(db, "agent-subscription-wake-2");
+		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "au27-subscription-wake-"));
+		sandboxDirs.push(sandboxPath);
+
+		const provisioner = createProvisioner(buildSubscriptionHarnessPorts());
+		const captured: { sessionConfig?: SessionConfig } = {};
+		const deps = buildDeps(db as HyperIdleDb, sandboxPath, captured);
+
+		const params = {
+			...baseParams("agent-subscription-wake-2", sandboxPath),
+			contextBundle: {
+				kind: "subscription",
+				subscription: { id: "sub-2", event: "task.changed", schedule: null },
+				prompt: "Edit the named document.",
+				change: null,
+				agent: { id: "agent-subscription-wake-2", name: "Builder", role: "builder" },
+				team: null,
+				documents: [],
+			},
+			requestContext: {
+				requestId: "req-subscription-wake-2",
+				sourceKind: "subscription",
+				sourceId: "sub-2:change-2",
+				sourceCorrelation: { subscriptionId: "sub-2", changeId: "change-2" },
+			},
+		} as unknown as ProvisionSessionParams;
+
+		const admitted = await provisioner.admit(deps, params);
+		await provisioner.run(deps, params, admitted);
+
+		expect(captured.sessionConfig?.requiredReturnActions).toEqual(["send_message"]);
+		expect(captured.sessionConfig?.assembledPrompt ?? "").toContain("call `send_message`");
 	});
 
 	test("a session with no transcript renders the original Correlation line, unchanged (no regression)", async ({

@@ -448,6 +448,20 @@ interface SubscriptionPromptCompositionInput {
 	readonly context: SubscriptionSessionContextData;
 	readonly tools: readonly ToolSummary[];
 	readonly sandboxPath: string;
+	/**
+	 * A one-line, pre-rendered reminder that this session's only satisfying
+	 * return action is `send_message`, named with the LITERAL tool name the
+	 * selected harness exposes — computed by the caller
+	 * (`provisioner.ts`'s `requiresSendMessageReturn` +
+	 * `literalToolNamerForAdapterType`, the same pair `assembleTaskFreePrompt`
+	 * uses) so this module never needs to import the harness-protocol return-
+	 * action vocabulary itself. A subscription wake has no calling thread to
+	 * infer this from — without the line here, the agent's only chance to
+	 * learn it must call `send_message` is the reactive forced-return
+	 * message, which is not every harness's most reliable channel. Absent ⇒
+	 * no line (matches `assembleTaskFreePrompt`'s empty-string degrade).
+	 */
+	readonly sendMessageOrientation?: string;
 }
 
 /** A rendered change value over this many characters is cut, with a pointer back to the object. */
@@ -500,7 +514,13 @@ function buildSubscriptionSection(context: SubscriptionSessionContextData): stri
 function assembleSubscriptionPrompt(
 	input: SubscriptionPromptCompositionInput,
 ): PromptCompositionResult {
-	const { systemPromptText, context, tools, sandboxPath: _sandboxPath } = input;
+	const {
+		systemPromptText,
+		context,
+		tools,
+		sandboxPath: _sandboxPath,
+		sendMessageOrientation,
+	} = input;
 
 	// Build persona section from inline text (same as assemblePrompt)
 	let personaSection = "";
@@ -539,6 +559,10 @@ function assembleSubscriptionPrompt(
 
 	const subscriptionSection = buildSubscriptionSection(context);
 	parts.push(subscriptionSection);
+
+	if (sendMessageOrientation) {
+		parts.push(sendMessageOrientation, "");
+	}
 
 	parts.push(toolsContent);
 
