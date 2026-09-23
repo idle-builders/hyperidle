@@ -317,10 +317,10 @@ export {
 // `model-provider.js`, and the provider names are all that is left.
 export type { ModelProvider } from "./model-provider.js";
 export { MODEL_PROVIDERS } from "./model-provider.js";
-export type { NotificationType, NotificationTypeKey } from "./notifications.js";
-// NotificationUrgency unexported (SIMPLIFY): member of registry entry; no external consumer names it directly.
-// shortLabelForType MERGE → core-ui/shell/notification-display.ts (AU44 batch 8)
-export { NOTIFICATION_TYPES } from "./notifications.js";
+// @lore BC5 T10/T11: notifications.ts (NotificationType/NotificationTypeKey/
+// NOTIFICATION_TYPES/shortLabelForType) is DELETED — no production consumer
+// was left once SettingsNotifications.tsx moved to per-event subscription
+// toggles over `open_user({}).subscriptions`.
 export type {
 	RoutineCardSummary,
 	RoutineDetail,
