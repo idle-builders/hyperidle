@@ -2,13 +2,14 @@
  * Agent-behavior configuration view-model — presentation projection of the
  * plugin-configuration resolution engine onto the settings-page display format.
  *
- * @lore AU20 R-settings: Moved from @hyperidle/settings barrel to the route
- * layer (layers/core-api/src/routes/). This is a pure presentation view-model
- * — it builds display labels, status strings, editable-field descriptors, and
- * settings-page deep-links over the listConfiguration / writeConfigurationOverride
- * primitives. It has no cross-service consumer (only the settings-UI route reads
- * it), so it does not belong in the service's product API. Composition on top of
- * the §B resolution engine, not a config primitive itself.
+ * @lore AU20 R-settings: originally moved from @hyperidle/settings's barrel
+ * to the route layer (layers/core-api/src/routes/) as a pure presentation
+ * view-model with no cross-service consumer. BC5 T5 moves it back —
+ * `user-actions.ts`'s `open_user`/`edit_user` (self-view `behaviour`) is now
+ * a second consumer, and `@hyperidle/user` may not import the route layer to
+ * reach it — so it belongs in the Service whose primitives it composes
+ * (`listConfiguration`/`writeConfigurationOverride`), exported through the
+ * barrel like every other typed function this Service exposes.
  */
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { ConfigurationKind, ResolvedConfigurationItem } from "@hyperidle/domain-model";
@@ -21,7 +22,7 @@ import {
 	type AgentBehaviorValueSource,
 	isAgentBehaviorConfigKind,
 } from "@hyperidle/domain-model";
-import { listConfiguration, writeConfigurationOverride } from "@hyperidle/settings";
+import { listConfiguration, writeConfigurationOverride } from "./plugin-configuration.js";
 
 export interface ListAgentBehaviorConfigOptions {
 	readonly kind?: AgentBehaviorConfigKind;

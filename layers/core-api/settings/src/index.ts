@@ -17,6 +17,17 @@
  * migrateCredentialsToStore uses an inline type.
  */
 
+// -- agent-behavior config view-model (BC5 T5 — moved from
+// layers/core-api/src/routes/agent-behavior-config-impl.ts; `user-actions.ts`'s
+// `open_user`/`edit_user` self-view `behaviour` and `routes/
+// settings-agent-behavior.ts` both import this from the barrel now) --
+export {
+	AgentBehaviorConfigError,
+	type ListAgentBehaviorConfigOptions,
+	listAgentBehaviorConfiguration,
+	type PatchAgentBehaviorConfigInput,
+	patchAgentBehaviorConfiguration,
+} from "./agent-behavior-config-impl.js";
 // -- platform module: search_plugins / edit_plugin own the whole
 // plugin lifecycle. `Action`/`ActionContext` are this module's own
 // structural mirror — see platform-actions.ts's own header. --

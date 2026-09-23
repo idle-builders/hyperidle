@@ -5,12 +5,12 @@ import {
 	type AgentBehaviorConfigPatchResponse,
 	isAgentBehaviorConfigKind,
 } from "@hyperidle/domain-model";
-import { Hono } from "hono";
 import {
 	AgentBehaviorConfigError,
 	listAgentBehaviorConfiguration,
 	patchAgentBehaviorConfiguration,
-} from "./agent-behavior-config-impl.js";
+} from "@hyperidle/settings";
+import { Hono } from "hono";
 
 type AgentBehaviorCode =
 	| "INVALID_KIND"
