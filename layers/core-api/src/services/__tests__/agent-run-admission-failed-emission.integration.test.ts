@@ -69,23 +69,22 @@ async function rejectSessionRequestWrites(db: HyperIdleDb): Promise<void> {
 	`);
 }
 
-function bakedRoutineRunRequest(idSuffix: string) {
+function bakedSubscriptionRunRequest(idSuffix: string) {
 	return {
 		defaultAgentId: `emission-vehicle-agent-${idSuffix}`,
-		sourceKind: "routine" as const,
-		sourceId: `emission-vehicle-run-${idSuffix}`,
-		streamId: `routine:emission-vehicle-routine-${idSuffix}`,
+		sourceKind: "subscription" as const,
+		sourceId: `emission-vehicle-fire-${idSuffix}`,
+		streamId: `subscription:emission-vehicle-subscription-${idSuffix}`,
 		teamId: `emission-vehicle-team-${idSuffix}`,
 		taskId: null,
 		sourceCorrelation: {
-			routineId: `emission-vehicle-routine-${idSuffix}`,
-			routineRunId: `emission-vehicle-run-${idSuffix}`,
+			subscriptionId: `emission-vehicle-subscription-${idSuffix}`,
 			teamId: `emission-vehicle-team-${idSuffix}`,
 		},
 	};
 }
 
-async function seedRoutineVehicleFks(db: HyperIdleDb, idSuffix: string): Promise<void> {
+async function seedSubscriptionVehicleFks(db: HyperIdleDb, idSuffix: string): Promise<void> {
 	await db.insert(teams).values({
 		id: `emission-vehicle-team-${idSuffix}`,
 		name: `Emission vehicle team ${idSuffix}`,
@@ -144,17 +143,17 @@ describe("agent_run_admission_failed — emission from failOrRelease", () => {
 		db,
 		eventBus,
 	}) => {
-		await seedRoutineVehicleFks(db, "max-attempts");
+		await seedSubscriptionVehicleFks(db, "max-attempts");
 		await rejectSessionRequestWrites(db);
 		const deps = { ...queueDeps(db), eventBus };
 		const { events } = captureAdmissionFailures(eventBus);
 
 		const intent = await enqueueWorkIntent(db, {
-			kind: "routine_run",
-			sourceKind: "routine_run",
-			sourceId: "wave0-max-attempts-routine-run",
+			kind: "subscription_run",
+			sourceKind: "subscription",
+			sourceId: "wave0-max-attempts-subscription-run",
 			idempotencyKey: "wave0-max-attempts",
-			bakedRequest: bakedRoutineRunRequest("max-attempts"),
+			bakedRequest: bakedSubscriptionRunRequest("max-attempts"),
 		});
 
 		await drainIntents(deps, { maxAttempts: 1 });
@@ -162,7 +161,7 @@ describe("agent_run_admission_failed — emission from failOrRelease", () => {
 		expect(events).toHaveLength(1);
 		expect(events[0]).toMatchObject({
 			intentId: intent.id,
-			kind: "routine_run",
+			kind: "subscription_run",
 			failureCode: "MAX_ATTEMPTS_EXCEEDED",
 			terminal: true,
 		});
@@ -177,17 +176,17 @@ describe("agent_run_admission_failed — emission from failOrRelease", () => {
 		db,
 		eventBus,
 	}) => {
-		await seedRoutineVehicleFks(db, "non-terminal");
+		await seedSubscriptionVehicleFks(db, "non-terminal");
 		await rejectSessionRequestWrites(db);
 		const deps = { ...queueDeps(db), eventBus };
 		const { events } = captureAdmissionFailures(eventBus);
 
 		const intent = await enqueueWorkIntent(db, {
-			kind: "routine_run",
-			sourceKind: "routine_run",
-			sourceId: "wave0-non-terminal-routine-run",
+			kind: "subscription_run",
+			sourceKind: "subscription",
+			sourceId: "wave0-non-terminal-subscription-run",
 			idempotencyKey: "wave0-non-terminal",
-			bakedRequest: bakedRoutineRunRequest("non-terminal"),
+			bakedRequest: bakedSubscriptionRunRequest("non-terminal"),
 		});
 
 		await drainIntents(deps, { maxAttempts: 5 });

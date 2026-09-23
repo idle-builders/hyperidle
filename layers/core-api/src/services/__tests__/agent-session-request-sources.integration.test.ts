@@ -129,9 +129,10 @@ async function seedWork(db: HyperIdleDb): Promise<void> {
 		createdAt: now,
 		updatedAt: now,
 	});
-	// @lore BC5 T7b: `routines` is dropped (migration 0089) — nothing FKs to
-	// it, so this seed only ever needed the "routine-au3-agent" id string used
-	// below as a `sourceId`, never a real backing row.
+	// @lore BC5 T7b: `routines` is dropped (migration 0089) — subscriptions
+	// carry no FK to a backing row either, so this seed only ever needed the
+	// "subscription-au3-agent" id string used below as a `sourceId`, never a
+	// real backing row.
 	await db.insert(threads).values({
 		id: "thread-au3-agent",
 		hostKind: "user",
@@ -245,17 +246,16 @@ describe("agent session request sources", () => {
 				payloadJson: bakedAgentConfigPayload,
 			},
 			{
-				sourceKind: "routine",
-				sourceId: "routine-run-au3-agent",
-				streamId: "routine:routine-au3-agent",
+				sourceKind: "subscription",
+				sourceId: "subscription-fire-au3-agent",
+				streamId: "subscription:subscription-au3-agent",
 				taskId: null,
 				agentId: "agent-au3-agent",
 				teamId: "team-au3-agent",
-				promptMode: "routine",
-				idempotencyKey: "au3:routine",
+				promptMode: "subscription",
+				idempotencyKey: "au3:subscription",
 				sourceCorrelation: {
-					routineId: "routine-au3-agent",
-					routineRunId: "routine-run-au3-agent",
+					subscriptionId: "subscription-au3-agent",
 					teamId: "team-au3-agent",
 				},
 				payloadJson: bakedAgentConfigPayload,
@@ -313,20 +313,21 @@ describe("agent session request sources", () => {
 		}
 
 		expect(adapter.configs).toHaveLength(3);
-		// Sources are processed in order (task, routine, assistant) — "routine"
-		// (index 1) is task-free (taskId: null), the same shape the removed
-		// "decomposition" source used to be — its context goes through the
-		// generic task-free `source_kind:` formatting `context.ts` produces.
-		const routineConfig = adapter.configs[1];
-		const routineContext = capturedContext.get(routineConfig?.sessionId ?? "");
-		expect(routineContext?.manifestExists).toBe(true);
-		expect(routineContext?.sessionContext).toContain("source_kind: routine");
+		// Sources are processed in order (task, subscription, assistant) —
+		// "subscription" (index 1) is task-free (taskId: null), the same shape
+		// the removed "decomposition" source used to be — its context goes
+		// through the generic task-free `source_kind:` formatting `context.ts`
+		// produces.
+		const subscriptionConfig = adapter.configs[1];
+		const subscriptionContext = capturedContext.get(subscriptionConfig?.sessionId ?? "");
+		expect(subscriptionContext?.manifestExists).toBe(true);
+		expect(subscriptionContext?.sessionContext).toContain("source_kind: subscription");
 		const started = events.filter((event) => event.type === "session_started");
 		const ended = events.filter((event) => event.type === "session_ended");
 		expect(started).toHaveLength(3);
 		expect(ended).toHaveLength(3);
-		expect(started.some((event) => event.sourceKind === "routine")).toBe(true);
-		expect(ended.some((event) => event.sourceKind === "routine")).toBe(true);
+		expect(started.some((event) => event.sourceKind === "subscription")).toBe(true);
+		expect(ended.some((event) => event.sourceKind === "subscription")).toBe(true);
 
 		const rows = await db.select().from(agentSessionRequests);
 		expect(rows.map((row) => row.status).sort()).toEqual(["completed", "completed", "completed"]);

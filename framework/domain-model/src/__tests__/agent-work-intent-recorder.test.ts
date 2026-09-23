@@ -19,14 +19,11 @@ import {
 } from "../work-intent.js";
 
 describe("AGENT_WORK_INTENT_KINDS canonical runtime kind list", () => {
-	// BC5 T6: `subscription_run` added, additive, alongside `routine_run` — the
-	// cut-over block retires `routine_run`, growing the union to seven kinds.
-	it("contains exactly the seven canonical kinds", () => {
+	it("contains exactly the six canonical kinds", () => {
 		expect(AGENT_WORK_INTENT_KINDS).toEqual([
 			"thread_turn",
 			"session_start",
 			"knowledge_action",
-			"routine_run",
 			"task_run",
 			"session_resume",
 			"subscription_run",
@@ -61,12 +58,6 @@ describe("AgentWorkIntentRecorderInput widened six-kind union", () => {
 				sourceKind: "knowledge_action",
 				sourceId: "s3",
 				idempotencyKey: "k3",
-			},
-			{
-				kind: "routine_run",
-				sourceKind: "routine_run",
-				sourceId: "s4",
-				idempotencyKey: "k4",
 			},
 			{
 				kind: "task_run",
@@ -116,9 +107,9 @@ describe("AgentWorkIntentRecorderInput widened six-kind union", () => {
 	});
 
 	it("rejects a mismatched kind/sourceKind pairing via type narrowing", () => {
-		// @ts-expect-error — "routine_run" pairs only with sourceKind "routine_run"
+		// @ts-expect-error — "subscription_run" pairs only with sourceKind "subscription"
 		acceptRecorderInput({
-			kind: "routine_run",
+			kind: "subscription_run",
 			sourceKind: "thread_message",
 			sourceId: "s1",
 			idempotencyKey: "k1",

@@ -94,7 +94,6 @@ function buildHarnessPorts(captured: {
 			assembleAgentContext: neverCalled("contextAssembly.assembleAgentContext"),
 			beginAgentWriteback: () => ({ dispose: () => undefined }),
 			assemblePrompt: neverCalled("contextAssembly.assemblePrompt"),
-			assembleRoutinePrompt: neverCalled("contextAssembly.assembleRoutinePrompt"),
 			assembleSubscriptionPrompt: neverCalled("contextAssembly.assembleSubscriptionPrompt"),
 			writeSandboxAgentsMd: vi.fn(),
 		},
@@ -181,7 +180,7 @@ describe("provisioner.run — ToolContext.threadId forwarded from params.calling
 		expect(captured.toolContext?.threadId).toBe("thread-provisioner-ctx-1");
 	});
 
-	test("a session with no baked callingThreadId gets no ToolContext.threadId (routine_run)", async ({
+	test("a session with no baked callingThreadId gets no ToolContext.threadId (subscription_run)", async ({
 		db,
 	}) => {
 		const now = new Date().toISOString();

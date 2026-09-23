@@ -99,7 +99,6 @@ function buildHarnessPorts(
 				: neverCalled("contextAssembly.assembleAgentContext"),
 			beginAgentWriteback: () => ({ dispose: () => undefined }),
 			assemblePrompt: neverCalled("contextAssembly.assemblePrompt"),
-			assembleRoutinePrompt: neverCalled("contextAssembly.assembleRoutinePrompt"),
 			assembleSubscriptionPrompt: neverCalled("contextAssembly.assembleSubscriptionPrompt"),
 			writeSandboxAgentsMd: vi.fn(),
 		},

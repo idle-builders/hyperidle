@@ -35,9 +35,7 @@ const COMPATIBLE_SOURCE_KIND: Record<
 	thread_turn: "thread_message",
 	session_start: "explicit_session_start",
 	knowledge_action: "knowledge_action",
-	routine_run: "routine_run",
 	task_run: "task_dispatch_attempt",
-	// BC5 T6: additive alongside routine_run — the cut-over block retires it.
 	subscription_run: "subscription",
 };
 

@@ -491,8 +491,8 @@ describe("registerWorkSessionEndReactions", () => {
 		eventBus.emit(
 			lifecycleChanged({
 				requestId: "wser-ignore-req",
-				sourceKind: "routine",
-				sourceId: "routine-run-x",
+				sourceKind: "subscription",
+				sourceId: "subscription-run-x",
 				state: "completed",
 			}),
 		);

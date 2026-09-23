@@ -100,7 +100,6 @@ function buildHarnessPorts(): SessionLifecyclePorts {
 			assembleAgentContext: vi.fn(async () => ({ itemCount: 0, durationMs: 0, manifestPath: "" })),
 			beginAgentWriteback: () => ({ dispose: () => undefined }),
 			assemblePrompt: neverCalled("contextAssembly.assemblePrompt"),
-			assembleRoutinePrompt: neverCalled("contextAssembly.assembleRoutinePrompt"),
 			assembleSubscriptionPrompt: neverCalled("contextAssembly.assembleSubscriptionPrompt"),
 			writeSandboxAgentsMd: vi.fn(),
 		},

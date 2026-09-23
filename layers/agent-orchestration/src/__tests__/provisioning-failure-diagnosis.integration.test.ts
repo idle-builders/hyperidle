@@ -8,8 +8,8 @@
  * `errorMessage` correctly, so `agent-run-boundary.integration.test.ts` has
  * asserted `errorMessage: "runtime exploded"` green for months while the
  * production adapter in `run-orchestration-composition.ts` silently dropped
- * the field on the floor. Every failed routine request in a real database
- * carries `error_code: "Error"` and `error_message: null`.
+ * the field on the floor. Every failed subscription request in a real
+ * database carries `error_code: "Error"` and `error_message: null`.
  *
  * Same shape as this Layer's `boot-provisioning-wiring.integration.test.ts`
  * headline: a port tested only through a hand-built stand-in proves nothing
@@ -29,7 +29,7 @@ import {
 const TEAM_ID = "team-provdiag";
 const AGENT_ID = "agent-provdiag";
 const REQUEST_ID = "request-provdiag";
-const ROUTINE_RUN_ID = "routine-run-provdiag";
+const SUBSCRIPTION_FIRE_ID = "subscription-fire-provdiag";
 const NOW = "2026-08-28T14:49:37.000Z";
 
 /**
@@ -54,16 +54,16 @@ async function seed(db: HyperIdleDb): Promise<void> {
 	});
 	await db.insert(agentSessionRequests).values({
 		id: REQUEST_ID,
-		sourceKind: "routine",
-		sourceId: ROUTINE_RUN_ID,
-		streamId: `routine:${ROUTINE_RUN_ID}`,
+		sourceKind: "subscription",
+		sourceId: SUBSCRIPTION_FIRE_ID,
+		streamId: `subscription:${SUBSCRIPTION_FIRE_ID}`,
 		agentId: AGENT_ID,
 		teamId: TEAM_ID,
-		promptMode: "routine",
-		idempotencyKey: `routine:${ROUTINE_RUN_ID}`,
+		promptMode: "subscription",
+		idempotencyKey: `subscription:${SUBSCRIPTION_FIRE_ID}`,
 		sourceCorrelationJson: JSON.stringify({
-			routineId: "routine-provdiag",
-			routineRunId: ROUTINE_RUN_ID,
+			subscriptionId: "subscription-provdiag",
+			teamId: TEAM_ID,
 		}),
 		payloadJson: JSON.stringify({
 			agentConfig: { kind: "ai", status: "active", role: "builder", teamId: TEAM_ID },
@@ -174,8 +174,8 @@ describe("pre-admission provisioning failure diagnosis", () => {
 
 		await runUntilProvisioningFails(db, eventBus);
 
-		// Without this, core-api's routine-run finalizer has nothing to write —
-		// which is why `routine_runs.error_message` is null in production too.
+		// Without this, core-api has nothing to record the failure against —
+		// which is why the row's `error_message` is null in production too.
 		expect(lifecycle).toHaveLength(1);
 		expect(lifecycle[0]).toMatchObject({ state: "failed" });
 		expect(lifecycle[0]?.errorMessage).toContain(POOL_EMPTY);
