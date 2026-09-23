@@ -1,21 +1,21 @@
 /**
  * `tool-handlers` Service (agent-orchestration) — outbound composition-
  * boundary (Mechanism C) DI ports, per architecture §10.2's census (the
- * merged `tools` census row, §7.5's C1 split). The one remaining real
- * outbound edge (`routine`, renamed from `dispatch` in AU21 §9 Increment 9 —
- * `dispatch` no longer offers `provisionTeamRoutines` at all) is ordinary
- * composition-root DI, wired by the composition root
- * (`layers/core-api/src/services/tool-handlers-bindings.ts`) directly to
- * `@hyperidle/routine`'s real exported function. `coreApi` (AU21 §9 Increment 1, `work`; Increment
- * 2, `users`+`conversation`, then `org`+`routine`+`handoffTask`, then
- * `knowledge`) is DIFFERENT in kind — it crosses the `CoreApiPort` write seam
- * (a real route call), not same-process DI; see `ToolHandlersCoreApiAccessor`'s
- * own doc comment below. There is no longer a standalone `conversation`/`org`/
- * `routine`/`policy`/`knowledge` port — every former
+ * merged `tools` census row, §7.5's C1 split).
+ *
+ * @lore BC5 T7b: the same-process `routine` DI edge this comment used to
+ * describe (renamed from `dispatch` in AU21 §9 Increment 9) is gone —
+ * `create_routine`/`update_routine` are deleted with it; a routine is a
+ * subscription now, edited on `edit_user`. `coreApi` is DIFFERENT in kind —
+ * it crosses the `CoreApiPort` write seam (a real route call), not
+ * same-process DI; see `ToolHandlersCoreApiAccessor`'s own doc comment
+ * below. There is no longer a standalone `conversation`/`org`/`routine`/
+ * `policy`/`knowledge` port — every former
  * `ToolHandlersConversationAccessor`/`ToolHandlersOrgAccessor`/
  * `ToolHandlersRoutineAccessor`/`ToolHandlersPolicyAccessor.handoff`/
  * `ToolHandlersKnowledgeAccessor` capability moved onto `coreApi` (Increment
- * 2's conversation wave, then org/routine/handoff wave, then knowledge wave).
+ * 2's conversation wave, then org/routine/handoff wave, then knowledge wave)
+ * before this item retired the routine slice of it outright.
  *
  * Several call shapes COLLAPSE (not a 1:1 port-per-function mirror) because
  * Mechanism C forbids `tool-handlers` from importing the Services a tool
@@ -178,14 +178,9 @@ interface ToolHandlersCoreApiAccessor {
 		systemPromptOverride: string | undefined,
 		actorId: string,
 	): Promise<{ readonly agentIds: readonly string[]; readonly leadAgentId: string | null }>;
-	insertRoutine(input: Record<string, unknown>, actorId: string): Promise<string | null>;
-	getRoutineById(
-		id: string,
-		actorId: string,
-	): Promise<
-		{ readonly name: string; readonly state: string; readonly deletedAt: string | null } | undefined
-	>;
-	updateRoutineById(id: string, updates: Record<string, unknown>, actorId: string): Promise<void>;
+	// @lore BC5 T7b: insertRoutine/getRoutineById/updateRoutineById are
+	// deleted — a routine is a subscription now, edited on `edit_user`,
+	// never through this seam.
 	// There is no `create`/`createKnowledgeConflict` — the AU21 §9 Increment 2
 	// knowledge wave moved every `ToolHandlersKnowledgeAccessor` capability
 	// onto this seam for `write_memory`/`create_conflict_review`; both tools

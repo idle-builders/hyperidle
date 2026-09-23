@@ -142,70 +142,11 @@ export interface CoreApiOrgPort {
 }
 
 /**
- * Mirrors `POST /routines`'s validated request body — extended (Increment 2)
- * with an optional client-supplied `id` so `create_routine`'s pre-computed
- * routine id round-trips through the seam (the route otherwise generates its
- * own id server-side, per its real UI caller `RoutineCreateDialog.tsx`, which
- * never supplies one).
+ * @lore BC5 T7b: InsertRoutineRequest/RoutineView/UpdateRoutineRequest/
+ * CoreApiRoutinePort DELETED with `create_routine`/`update_routine` — a
+ * routine is a subscription now, edited on `edit_user`, never through this
+ * seam.
  */
-export interface InsertRoutineRequest {
-	readonly id?: string;
-	readonly name: string;
-	/** BA1 D1: renamed from `description`. */
-	readonly prompt?: string | null;
-	readonly ownerAgentId: string;
-	readonly triggerType: string;
-	/** Required for `triggerType:"calendar"` only. */
-	readonly triggerConfig?: string;
-	/** BA1 D8: required for `triggerType:"event"` only. */
-	readonly eventType?: string;
-}
-
-/**
- * Mirrors `GET /routines/:id`'s `RoutineDetail.routine` fields a `CoreApiPort`
- * consumer relies on. The route 404s a soft-deleted routine, so a found
- * result never carries a real `deletedAt` — always `null` here.
- */
-export interface RoutineView {
-	readonly name: string;
-	readonly state: string;
-	readonly deletedAt: string | null;
-}
-
-/**
- * Mirrors `PATCH /routines/:id`'s validated request body — the field subset
- * `update_routine` sets (the route's own `updateRoutineSchema` covers every
- * one of these already).
- *
- * @lore BA1 review N5: this used to declare `description`, from before D1
- * renamed the column to `prompt` — the route's `.strict()` schema only ever
- * knew `prompt`, so a caller following this type's declared shape got a 400,
- * and the one real caller (`update_routine`'s tool handler) only survived
- * because `tool-handlers-bindings.ts`'s `widenUpdateRoutineInput` is an
- * unchecked `as UpdateRoutineRequest` cast off a `Record<string, unknown>` —
- * `prompt` was never checked against this type at all. Renamed to match the
- * schema field-for-field so the cast has something real to check against.
- */
-export interface UpdateRoutineRequest {
-	readonly name?: string;
-	readonly prompt?: string;
-	readonly state?: string;
-	/** `update_routine`'s tool handler always sets this alongside `state` (backward-compat sync). */
-	readonly active?: boolean;
-	readonly triggerConfig?: string;
-}
-
-/**
- * The agent's tool-facing `routine` capability family (Decision C, Increment
- * 2's org/routine/handoff wave) — `edge-disposition.md`'s `routine.{getRoutine,
- * insertRoutine, updateRoutine}` row.
- */
-export interface CoreApiRoutinePort {
-	/** Returns the owner-computed nextRunAt (AU44 B3: computation moved into service). */
-	insertRoutine(input: InsertRoutineRequest): Promise<string | null>;
-	getRoutineById(id: string): Promise<RoutineView | undefined>;
-	updateRoutineById(id: string, updates: UpdateRoutineRequest): Promise<void>;
-}
 
 /**
  * AU21 §9 Increment 12 follow-up (F2 gap closure): `FilesystemProvisioningView`/
@@ -242,7 +183,6 @@ export interface CoreApiRoutinePort {
 export interface CoreApiPort {
 	readonly users: CoreApiUsersPort;
 	readonly org: CoreApiOrgPort;
-	readonly routine: CoreApiRoutinePort;
 }
 
 /**

@@ -6,7 +6,6 @@ import {
 	agentSessionRequests,
 	type HyperIdleDb,
 	messages,
-	routines,
 	tasks,
 	teams,
 	threads,
@@ -130,13 +129,9 @@ async function seedWork(db: HyperIdleDb): Promise<void> {
 		createdAt: now,
 		updatedAt: now,
 	});
-	await db.insert(routines).values({
-		id: "routine-au3-agent",
-		name: "AU3 routine",
-		ownerAgentId: "agent-au3-agent",
-		triggerType: "manual",
-		createdAt: now,
-	});
+	// @lore BC5 T7b: `routines` is dropped (migration 0089) — nothing FKs to
+	// it, so this seed only ever needed the "routine-au3-agent" id string used
+	// below as a `sourceId`, never a real backing row.
 	await db.insert(threads).values({
 		id: "thread-au3-agent",
 		hostKind: "user",

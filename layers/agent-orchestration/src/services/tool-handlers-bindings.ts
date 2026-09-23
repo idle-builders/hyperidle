@@ -3,9 +3,10 @@
  * at the `packages/server` composition point. There is no longer a
  * standalone same-process `work` DI capability — AU21 §6 Decision L3
  * deleted `routeItem` (the last one) outright as vestigial, not relocated.
- * `work`/`users`/`conversation`/`org`/`routine`/`policy.handoff`/`knowledge`
- * all cross the `CoreApiPort` seam instead (see `coreApi`'s own inline
- * `@lore` below).
+ * `work`/`users`/`conversation`/`org`/`policy.handoff`/`knowledge` all cross
+ * the `CoreApiPort` seam instead (see `coreApi`'s own inline `@lore`
+ * below). `routine` retired outright with `create_routine`/`update_routine`
+ * (BC5 T7b) — a routine is a subscription now, edited on `edit_user`.
  *
  * @lore AU19 Increment 4: this module builds each bound singleton ONCE, at
  * the composition root, so every real call site (AU31 §2.5: the relocated
@@ -44,32 +45,15 @@
  * the move changes no conversation, only which layer hosts the wiring.
  */
 
-import type {
-	CoreApiPort,
-	CoreApiTransport,
-	InsertRoutineRequest,
-	UpdateRoutineRequest,
-} from "@hyperidle/api-contract";
+import type { CoreApiPort, CoreApiTransport } from "@hyperidle/api-contract";
 import type { ToolHandlersPorts } from "@hyperidle/tool-handlers";
 import { buildToolDefinitions as buildToolDefinitionsFromPorts } from "@hyperidle/tool-handlers";
 import { buildCoreApiPort, withActorTransport } from "./core-api-port-composition.js";
 
 // There is no `widenCreateItemInput` — `create_item` is gone.
-
-/**
- * Same audited-widen idiom — `ports.ts`'s
- * `ToolHandlersCoreApiAccessor.insertRoutine`/`updateRoutineById` keep the
- * opaque `Record<string, unknown>` shape (Mechanism C: `tool-handlers` never
- * imports `@hyperidle/api-contract`'s concrete request types), widened here
- * at the composition boundary to the seam's real wire types.
- */
-function widenInsertRoutineInput(input: unknown): InsertRoutineRequest {
-	return input as InsertRoutineRequest;
-}
-
-function widenUpdateRoutineInput(input: unknown): UpdateRoutineRequest {
-	return input as UpdateRoutineRequest;
-}
+// @lore BC5 T7b: widenInsertRoutineInput/widenUpdateRoutineInput are gone —
+// a routine is a subscription now, edited on `edit_user`, never through
+// this seam.
 
 /**
  * Builds a fresh `ToolHandlersPorts`, every `coreApi` field closing over the
@@ -139,11 +123,8 @@ export function buildToolHandlersPorts(transport: CoreApiTransport): ToolHandler
 					ownerUserName,
 					systemPromptOverride,
 				}),
-			insertRoutine: (input: Record<string, unknown>, actorId: string) =>
-				seamPortForActor(actorId).routine.insertRoutine(widenInsertRoutineInput(input)),
-			getRoutineById: (id, actorId) => seamPortForActor(actorId).routine.getRoutineById(id),
-			updateRoutineById: (id: string, updates: Record<string, unknown>, actorId: string) =>
-				seamPortForActor(actorId).routine.updateRoutineById(id, widenUpdateRoutineInput(updates)),
+			// @lore BC5 T7b: insertRoutine/getRoutineById/updateRoutineById are
+			// gone — a routine is a subscription now, edited on `edit_user`.
 			// There is no `create`/`createKnowledgeConflict` — the AU21 §9
 			// Increment 2 knowledge wave moved every `ToolHandlersKnowledgeAccessor`
 			// capability onto this seam for `write_memory`/`create_conflict_review`;

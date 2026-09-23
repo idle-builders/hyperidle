@@ -25,7 +25,7 @@
  * test fails before ever observing a `session_ended` emission or a
  * `routineRuns` finalize.
  */
-import { type HyperIdleDb, routineRuns, routines, sessions, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, sessions, teams, users } from "@hyperidle/db";
 import { describe, expect, test, vi } from "@hyperidle/db/test-fixtures";
 import type { SessionEndedEvent } from "@hyperidle/event-bus";
 import { EventBus } from "@hyperidle/event-bus";
@@ -70,17 +70,10 @@ async function seedStaleRoutineSession(
 		teamId: teamId,
 		createdAt: nowIso,
 	});
-	await db.insert(routines).values({
-		id: routineId,
-		name: "Routine",
-		state: "active",
-		ownerAgentId: agentId,
-		triggerType: "manual",
-		active: true,
-	});
-	await db
-		.insert(routineRuns)
-		.values({ id: runId, routineId, startedAt: nowIso, outcome: "running" });
+	// @lore BC5 T7b: `routines`/`routine_runs` are dropped (migration 0089) —
+	// `sessions.routine_id`/`source_id` carry no FK to either (plain text
+	// columns), so this seed only ever needed the id strings below, never a
+	// real backing row.
 	await db.insert(sessions).values({
 		id: sessionId,
 		agentId,

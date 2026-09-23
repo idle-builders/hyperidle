@@ -1,4 +1,4 @@
-import { type HyperIdleDb, routines, tasks, teams, threads, users } from "@hyperidle/db";
+import { type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
@@ -84,19 +84,6 @@ async function seedTaskData(db: HyperIdleDb): Promise<void> {
 		state: "proposed",
 		createdAt: new Date().toISOString(),
 		updatedAt: new Date().toISOString(),
-	});
-}
-
-async function seedRoutineData(db: HyperIdleDb): Promise<void> {
-	await db.insert(routines).values({
-		id: "routine-1",
-		name: "Test routine",
-		state: "active",
-		ownerAgentId: "agent-1",
-		triggerType: "heartbeat",
-		triggerConfig: JSON.stringify({ intervalMs: 60000 }),
-		autonomyLevel: 2,
-		active: true,
 	});
 }
 
@@ -365,34 +352,8 @@ describe("E2E API Integration (I5)", () => {
 
 	// Status routes (doors #115-118) deleted. Tests removed with the routes.
 
-	// -------------------------------------------------------
-	// 11. Routines
-	// -------------------------------------------------------
-	describe("Routines", () => {
-		test("GET /api/routines lists routines", async ({ db, app }) => {
-			await seedBase(db);
-			await seedRoutineData(db);
-			const res = await app.request("/api/routines", { headers: auth() });
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as Array<{ id: string }>;
-			expect(body.length).toBeGreaterThanOrEqual(1);
-		});
-
-		test("PATCH /api/routines/:id updates routine", async ({ db, app }) => {
-			await seedBase(db);
-			await seedRoutineData(db);
-			const res = await app.request("/api/routines/routine-1", {
-				method: "PATCH",
-				headers: auth(),
-				body: JSON.stringify({ active: false }),
-			});
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as { active: boolean };
-			expect(body.active).toBe(false);
-		});
-
-		// POST /api/routines/:id/retire (door #?) deleted. Tests removed with the route.
-	});
+	// @lore BC5 T7b: 11. Routines — GET/PATCH /api/routines deleted with the
+	// routine package; a routine is a subscription now, edited on `edit_user`.
 
 	// -------------------------------------------------------
 	// 14. 404 handling
@@ -417,17 +378,6 @@ describe("E2E API Integration (I5)", () => {
 	// -------------------------------------------------------
 	describe("Request validation", () => {
 		// POST /api/sessions (door #114) deleted. Validation test removed with the route.
-
-		test("PATCH /api/routines/:id returns 404 for nonexistent routine", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/routines/nonexistent", {
-				method: "PATCH",
-				headers: auth(),
-				body: JSON.stringify({ active: true }),
-			});
-			expect(res.status).toBe(404);
-			const body = (await res.json()) as { code: string };
-			expect(body.code).toBe("NOT_FOUND");
-		});
+		// @lore BC5 T7b: PATCH /api/routines/:id 404 test deleted with the route.
 	});
 });

@@ -41,15 +41,14 @@ import {
 	type CoreApiPort,
 	type CoreApiTransport,
 	type CreateOrgTeamRequest,
-	type InsertRoutineRequest,
 	type OrgTeamMembershipView,
 	type OrgTeamView,
 	type PersistScaffoldedAgentsResponse,
-	type RoutineView,
 	type ScaffoldFromRequestInput,
 	// @lore BB1: UpdateBetRequest deleted — bet is now a root task.
 	type UpdateOrgTeamRequest,
-	type UpdateRoutineRequest,
+	// @lore BC5 T7b: InsertRoutineRequest/RoutineView/UpdateRoutineRequest
+	// deleted — a routine is a subscription now, edited on `edit_user`.
 	// @lore BB1: CreateBetRequest, CreateBetResponse deleted — bet is now a root task.
 	// @lore TaskView/UpdateTaskRequest deleted — the task action list replaces the seam.
 	// @lore BC3 architecture.md §5 B4: ConversationMessageType/ConversationThreadView/
@@ -82,16 +81,6 @@ interface CoreApiHcClient {
 			$patch(args: {
 				readonly param: { readonly teamId: string };
 				readonly json: UpdateOrgTeamRequest;
-			}): Promise<Response>;
-		};
-	};
-	readonly routines: {
-		$post(args: { readonly json: InsertRoutineRequest }): Promise<Response>;
-		readonly ":id": {
-			$get(args: { readonly param: { readonly id: string } }): Promise<Response>;
-			$patch(args: {
-				readonly param: { readonly id: string };
-				readonly json: UpdateRoutineRequest;
 			}): Promise<Response>;
 		};
 	};
@@ -190,23 +179,8 @@ async function getOrUndefined<T>(method: string, res: Response): Promise<T | und
 	return (await res.json()) as T;
 }
 
-/**
- * `GET /routines/:id`'s response body is the heavier `RoutineDetail`
- * (`{routine, runs, budget}`) — extract only the `RoutineView` fields a seam
- * consumer relies on. The route already 404s a soft-deleted routine, so a
- * found result never carries a real `deletedAt` (always `null` here).
- */
-async function getRoutineViewOrUndefined(
-	method: string,
-	res: Response,
-): Promise<RoutineView | undefined> {
-	if (res.status === 404) return undefined;
-	if (!res.ok) return throwSeamError(method, res);
-	const body = (await res.json()) as {
-		readonly routine: { readonly name: string; readonly state: string };
-	};
-	return { name: body.routine.name, state: body.routine.state, deletedAt: null };
-}
+// @lore BC5 T7b: getRoutineViewOrUndefined DELETED with the routine seam —
+// a routine is a subscription now, edited on `edit_user`.
 
 // @lore BB1: BET_PATCH_FIELD_NAMES DELETED — UpdateBetRequest and BetPatchFieldBody gone.
 
@@ -277,25 +251,9 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 				return (await res.json()) as PersistScaffoldedAgentsResponse;
 			},
 		},
-		routine: {
-			async insertRoutine(input: InsertRoutineRequest): Promise<string | null> {
-				const res = await client.routines.$post({ json: input });
-				if (!res.ok) return throwSeamError("routine.insertRoutine", res);
-				// Route returns the created routine; extract owner-computed nextRunAt.
-				const body = (await res.json()) as { readonly nextRunAt?: string | null } | null;
-				return body?.nextRunAt ?? null;
-			},
-
-			async getRoutineById(id: string): Promise<RoutineView | undefined> {
-				const res = await client.routines[":id"].$get({ param: { id } });
-				return getRoutineViewOrUndefined("routine.getRoutineById", res);
-			},
-
-			async updateRoutineById(id: string, updates: UpdateRoutineRequest): Promise<void> {
-				const res = await client.routines[":id"].$patch({ param: { id }, json: updates });
-				if (!res.ok) return throwSeamError("routine.updateRoutineById", res);
-			},
-		},
+		// @lore BC5 T7b: the `routine` seam family (insertRoutine/getRoutineById/
+		// updateRoutineById) is deleted — a routine is a subscription now,
+		// edited on `edit_user`.
 		// @lore document-module B15: `knowledge` (create/updateKnowledgeItemContent/
 		// reparentKnowledgeItem) is DELETED — the writeback processor dials the
 		// composed `edit_document`/`search_documents` actions directly now

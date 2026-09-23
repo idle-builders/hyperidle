@@ -3,15 +3,16 @@
  *
  * Extends the §11 contract-test harness to the remaining `tool-handlers`
  * capabilities named in this wave's scope (`edge-disposition.md`'s
- * `org.{getTeam, getTeam, createTeam, updateTeam}` and
- * `routine.{getRoutine, insertRoutine, updateRoutine}` rows — both `§4
- * seam`):
+ * `org.{getTeam, getTeam, createTeam, updateTeam}` row — `§4 seam`):
  *
  *  - `ToolHandlersOrgAccessor`: getTeamById, getTeamMembersByTeamId,
  *    getTeamMembersById, createTeam, updateTeam,
  *    persistScaffoldedAgents (`tool-handlers/src/ports.ts:92-132`).
- *  - `ToolHandlersRoutineAccessor`: insertRoutine, getRoutineById,
- *    updateRoutineById (`ports.ts:151-160`).
+ *
+ * @lore BC5 T7b: `ToolHandlersRoutineAccessor` (insertRoutine/
+ * getRoutineById/updateRoutineById) and its own "CoreApiPort.routine"
+ * describe block are deleted — a routine is a subscription now, edited on
+ * `edit_user`, never through this seam.
  *
  * @lore the architecture doc §8 B4: the `policy.handoff`/`work.handoffTask`
  * seam this file's `handoff` third once covered is deleted — handoff is now
@@ -53,18 +54,6 @@
  *    collapsed Kernel-persist helper — even `POST /teams` calls the
  *    underlying function directly in-process, never via HTTP; no UI route
  *    exists to reuse).
- *  - `routine.insertRoutine`   → REUSE existing `POST /routines`
- *    (`routines-routes.ts:94` — field-for-field match with
- *    `create_routine`'s own validated shape).
- *  - `routine.getRoutineById`  → REUSE existing `GET /routines/:id` (a
- *    heavier enriched `RoutineDetail` response incl. run history + budget
- *    stats — narrow fields extracted, same shape-tolerance precedent as
- *    `work.getBetById` reusing `GET /bets/:id`). Already 404s a soft-deleted
- *    routine, so a found result never carries `deletedAt`.
- *  - `routine.updateRoutineById` → REUSE existing `PATCH /routines/:id`
- *    (`updateRoutineSchema` already accepts every field `update_routine`
- *    sets: name, description, state, triggerConfig — AU21 Increment 14a:
- *    `costCapPerRunMinor`/`costCapMonthlyMinor` HARD-DELETED, no replacement).
  */
 
 import {
@@ -72,7 +61,7 @@ import {
 	createInProcessCoreApiTransport,
 	withActorTransport,
 } from "@hyperidle/agent-orchestration";
-import { type HyperIdleDb, routines, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import {
@@ -93,11 +82,8 @@ interface SeamTeamView {
 	readonly name: string;
 }
 
-interface SeamRoutineView {
-	readonly name: string;
-	readonly state: string;
-	readonly deletedAt: string | null;
-}
+// @lore BC5 T7b: SeamRoutineView deleted — the `routine` seam family is
+// gone; a routine is a subscription now, edited on `edit_user`.
 
 interface SeamCoreApiPortIncrement2OrgRoutineHandoff {
 	readonly org: {
@@ -134,11 +120,6 @@ interface SeamCoreApiPortIncrement2OrgRoutineHandoff {
 			readonly ownerUserName: string | null;
 			readonly systemPromptOverride?: string;
 		}): Promise<{ readonly agentIds: readonly string[]; readonly leadAgentId: string | null }>;
-	};
-	readonly routine: {
-		insertRoutine(input: Record<string, unknown>): Promise<void>;
-		getRoutineById(id: string): Promise<SeamRoutineView | undefined>;
-		updateRoutineById(id: string, updates: Record<string, unknown>): Promise<void>;
 	};
 }
 
@@ -321,92 +302,7 @@ describe("CoreApiPort.org — Increment 2 org/routine/handoff wave (RED)", () =>
 	});
 });
 
-describe("CoreApiPort.routine — Increment 2 org/routine/handoff wave (RED)", () => {
-	test("insertRoutine reaches the real POST /routines route (a real row lands in the DB)", async ({
-		db,
-		app,
-	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-routine-key-insert");
-		await seedTeam(db, { suffix: "routine1" });
-		await seedAgent(db, "agent-routine-owner1");
-
-		const port = buildSeamPort("agent-routine-owner1", app);
-		await port.routine.insertRoutine({
-			id: "routine-inc2-1",
-			name: "Daily standup",
-			prompt: null,
-			ownerAgentId: "agent-routine-owner1",
-			triggerType: "calendar",
-			triggerConfig: JSON.stringify({ cron: "0 9 * * *" }),
-		});
-
-		const [row] = await db
-			.select()
-			.from(routines)
-			.where(eq(routines.id, "routine-inc2-1"))
-			.limit(1);
-		expect(row).toBeDefined();
-		expect(row?.name).toBe("Daily standup");
-	});
-
-	test("getRoutineById reaches the real routine-detail route", async ({ db, app }) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-routine-key-get");
-		const { teamId } = await seedTeam(db, { suffix: "routine2" });
-		await seedAgent(db, "agent-routine-owner2", { teamId });
-		await db.insert(routines).values({
-			id: "routine-inc2-2",
-			name: "Weekly retro",
-			ownerAgentId: "agent-routine-owner2",
-			triggerType: "calendar",
-			triggerConfig: JSON.stringify({ cron: "0 9 * * MON" }),
-			state: "active",
-			active: true,
-			createdAt: NOW,
-		});
-
-		const port = buildSeamPort("agent-routine-owner2", app);
-		const found = await port.routine.getRoutineById("routine-inc2-2");
-
-		expect(found?.name).toBe("Weekly retro");
-		expect(found?.state).toBe("active");
-	});
-
-	test("getRoutineById against a nonexistent routine resolves undefined (no throw)", async ({
-		app,
-	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-routine-key-get-404");
-		const port = buildSeamPort("agent-routine-missing", app);
-		const found = await port.routine.getRoutineById("no-such-routine");
-		expect(found).toBeUndefined();
-	});
-
-	test("updateRoutineById reaches the real PATCH /routines/:id route (row lands in the DB)", async ({
-		db,
-		app,
-	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-routine-key-update");
-		const { teamId } = await seedTeam(db, { suffix: "routine3" });
-		await seedAgent(db, "agent-routine-owner3", { teamId });
-		await db.insert(routines).values({
-			id: "routine-inc2-3",
-			name: "Old name",
-			ownerAgentId: "agent-routine-owner3",
-			triggerType: "calendar",
-			triggerConfig: JSON.stringify({ cron: "0 9 * * *" }),
-			state: "active",
-			active: true,
-			createdAt: NOW,
-		});
-
-		const port = buildSeamPort("agent-routine-owner3", app);
-		await port.routine.updateRoutineById("routine-inc2-3", { name: "New name", state: "paused" });
-
-		const [row] = await db
-			.select()
-			.from(routines)
-			.where(eq(routines.id, "routine-inc2-3"))
-			.limit(1);
-		expect(row?.name).toBe("New name");
-		expect(row?.state).toBe("paused");
-	});
-});
+// @lore BC5 T7b: the "CoreApiPort.routine" describe block (insertRoutine/
+// getRoutineById/updateRoutineById reaching the real /routines routes) is
+// deleted — that seam is gone; a routine is a subscription now, edited on
+// `edit_user`, never through CoreApiPort.

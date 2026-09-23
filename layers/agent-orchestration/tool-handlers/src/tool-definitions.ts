@@ -10,19 +10,12 @@
  * completeness-contract tests imported them directly. Stage 3 migrated those
  * tests to drive `buildToolDefinitions`, completing the collapse.
  *
- * @lore AU20 Stage 2: `parseCron`/`nextCronMatch` removed from the dispatch
- * port — they were pure utilities now in `@hyperidle/cron`; `create_routine`
- * imported them directly, no dispatch back-edge needed.
- *
- * @lore AU44 B3: `@hyperidle/cron` dissolved into `@hyperidle/routine`.
- * `create_routine` no longer calls parseCron/nextCronMatch — nextRunAt
- * computation is owner-side in insertRoutine. The port method now returns
- * the computed nextRunAt.
+ * @lore BC5 T7b: `create_routine`/`update_routine` are deleted — a routine
+ * is a subscription now, edited on `edit_user`, never a standalone tool.
  */
 
 import { randomUUID } from "node:crypto";
 import type { HyperIdleDb } from "@hyperidle/db";
-import { EVENT_TYPES } from "@hyperidle/event-bus";
 import { err, ok, type RegisteredTool } from "@hyperidle/harness-protocol";
 import z from "zod";
 import type { ToolHandlersPorts } from "./ports.js";
@@ -195,170 +188,12 @@ function makeAddAgentTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<AddAgen
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// create_routine
-// @lore AU44 B3: cron computation moved owner-side into insertRoutine
-// (routine service). The tool no longer imports @hyperidle/cron — cron
-// validation happens at the service boundary; an invalid expression returns
-// INVALID_INPUT via the port.
+// create_routine / update_routine — DELETED (BC5 T7b). A routine is a
+// subscription now, edited on the user module's `edit_user` action
+// (`subscriptions: { add | change | pause | remove }`) — never a standalone
+// tool. `CoreApiRoutinePort`/`insertRoutine`/`getRoutineById`/
+// `updateRoutineById` go with them (`ports.ts`).
 // ─────────────────────────────────────────────────────────────────────────────
-
-const EVENT_TYPE_VALUES = EVENT_TYPES as readonly [string, ...string[]];
-
-const createRoutineInputSchema = z.object({
-	name: z.string().min(1).max(200),
-	/** BA1 D1: renamed from `description` — 12 000 chars, the retiring trigger entity's own limit. */
-	prompt: z.string().max(12_000).optional(),
-	ownerAgentId: z.string().min(1),
-	triggerType: z.enum(["calendar", "event"]),
-	/** Required for `triggerType:"calendar"` only. */
-	triggerConfig: z.string().min(1).optional(),
-	/** BA1 D8: required (and validated against `EVENT_TYPES`) for `triggerType:"event"` only. */
-	eventType: z.enum(EVENT_TYPE_VALUES).optional(),
-});
-
-type CreateRoutineInput = z.infer<typeof createRoutineInputSchema>;
-
-function makeCreateRoutineTool<TDb>(
-	ports: ToolHandlersPorts,
-): ToolDefinition<CreateRoutineInput, TDb> {
-	return {
-		name: "create_routine",
-		description:
-			"Create a new routine (recurring automated task) for any agent. Fires on a calendar schedule (a cron expression) or on an event (one of the platform's event types) — pick triggerType accordingly.",
-		inputSchema: createRoutineInputSchema,
-		roles: ["assistant"],
-		handler: async (args, ctx) => {
-			const parsed = createRoutineInputSchema.safeParse(args);
-			if (!parsed.success) return err("INVALID_INPUT", parsed.error.message);
-			const input = parsed.data;
-
-			const agent = await ports.coreApi.getUserById(input.ownerAgentId, ctx.agentId);
-			if (!agent) return err("NOT_FOUND", `Agent not found: ${input.ownerAgentId}`);
-
-			let triggerConfig: string | undefined;
-			let eventType: string | undefined;
-			let cronForErrorMessage: string | undefined;
-
-			if (input.triggerType === "calendar") {
-				if (!input.triggerConfig) {
-					return err("INVALID_INPUT", "triggerConfig must include a cron field");
-				}
-				// Validate triggerConfig JSON structure — cron expression validation
-				// is owner-side in insertRoutine (throws INVALID_INPUT on bad cron).
-				let triggerConfigParsed: { cron?: string };
-				try {
-					triggerConfigParsed = JSON.parse(input.triggerConfig) as { cron?: string };
-				} catch {
-					return err("INVALID_INPUT", "triggerConfig must be valid JSON");
-				}
-				if (!triggerConfigParsed.cron) {
-					return err("INVALID_INPUT", "triggerConfig must include a cron field");
-				}
-				triggerConfig = input.triggerConfig;
-				cronForErrorMessage = triggerConfigParsed.cron;
-			} else {
-				// BA1 D8: `triggerType:"event"` requires `eventType`, already
-				// validated against `EVENT_TYPES` by the schema.
-				if (!input.eventType) {
-					return err("INVALID_INPUT", 'eventType is required for triggerType:"event"');
-				}
-				eventType = input.eventType;
-			}
-
-			const routineId = randomUUID();
-
-			// BA1 D5/NB2: the route's create schema is `.strict()` — only send
-			// the fields it declares. `state`/`active`/`createdAt` are computed
-			// by the route itself and were never read from the body even before
-			// `.strict()`; sending them used to be silently dropped, now it 400s.
-			let nextRunAt: string | null = null;
-			try {
-				nextRunAt = await ports.coreApi.insertRoutine(
-					{
-						id: routineId,
-						name: input.name,
-						prompt: input.prompt ?? null,
-						ownerAgentId: input.ownerAgentId,
-						triggerType: input.triggerType,
-						...(triggerConfig !== undefined ? { triggerConfig } : {}),
-						...(eventType !== undefined ? { eventType } : {}),
-					},
-					ctx.agentId,
-				);
-			} catch (e) {
-				// Only mislabel the failure as a cron error when the thrown message is
-				// actually from parseCron — DB or network errors must propagate so the
-				// agent sees a 500, not a misleading "Invalid cron expression".
-				if (e instanceof Error && /invalid cron/i.test(e.message)) {
-					return err("INVALID_INPUT", `Invalid cron expression: ${cronForErrorMessage}`);
-				}
-				throw e;
-			}
-
-			return ok({ routineId, name: input.name, nextRunAt });
-		},
-	};
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// update_routine
-// ─────────────────────────────────────────────────────────────────────────────
-
-const updateRoutineInputSchema = z.object({
-	routineId: z.string().min(1),
-	updates: z.object({
-		name: z.string().min(1).max(200).optional(),
-		/** BA1 D1: renamed from `description`. */
-		prompt: z.string().max(12_000).optional(),
-		state: z.enum(["active", "paused"]).optional(),
-		triggerConfig: z.string().optional(),
-	}),
-});
-
-type UpdateRoutineInput = z.infer<typeof updateRoutineInputSchema>;
-
-function makeUpdateRoutineTool<TDb>(
-	ports: ToolHandlersPorts,
-): ToolDefinition<UpdateRoutineInput, TDb> {
-	return {
-		name: "update_routine",
-		description:
-			"Update an existing routine's configuration — name, description, schedule, or state.",
-		inputSchema: updateRoutineInputSchema,
-		roles: ["assistant"],
-		handler: async (args, ctx) => {
-			const parsed = updateRoutineInputSchema.safeParse(args);
-			if (!parsed.success) return err("INVALID_INPUT", parsed.error.message);
-			const input = parsed.data;
-
-			const existing = await ports.coreApi.getRoutineById(input.routineId, ctx.agentId);
-			if (!existing || existing.deletedAt) {
-				return err("NOT_FOUND", `Routine not found: ${input.routineId}`);
-			}
-
-			const updates: Record<string, unknown> = {};
-			const u = input.updates;
-			if (u.name !== undefined) updates.name = u.name;
-			if (u.prompt !== undefined) updates.prompt = u.prompt;
-			if (u.triggerConfig !== undefined) updates.triggerConfig = u.triggerConfig;
-			if (u.state !== undefined) {
-				updates.state = u.state;
-				updates.active = u.state === "active";
-			}
-
-			if (Object.keys(updates).length > 0) {
-				await ports.coreApi.updateRoutineById(input.routineId, updates, ctx.agentId);
-			}
-
-			const updated = await ports.coreApi.getRoutineById(input.routineId, ctx.agentId);
-			return ok({
-				routineId: input.routineId,
-				name: updated?.name ?? existing.name,
-				state: updated?.state ?? existing.state,
-			});
-		},
-	};
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // log_task — DELETED . `edit_task({ appendNote })` replaces it.
@@ -389,8 +224,6 @@ export function buildToolDefinitions(
 	const all: readonly RegisteredTool<HyperIdleDb>[] = [
 		toRegistered(makeCreateTeamTool(ports)),
 		toRegistered(makeAddAgentTool(ports)),
-		toRegistered(makeCreateRoutineTool(ports)),
-		toRegistered(makeUpdateRoutineTool(ports)),
 	];
 	if (opts?.role !== undefined) {
 		const role = opts.role;

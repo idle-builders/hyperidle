@@ -34,19 +34,19 @@ export type {
 } from "./agent-orchestration-port.js";
 export type {
 	// @lore BB1: BetView deleted — bet is now a root task.
-	// CoreApiRoutinePort: reachable as CoreApiPort["<member>"]
 	CoreApiOrgPort,
 	CoreApiPort,
 	CoreApiTransport,
 	CoreApiUsersPort,
 	// @lore BB1: CreateBetRequest, CreateBetResponse deleted — bet is now a root task.
 	CreateOrgTeamRequest,
-	InsertRoutineRequest,
 	OrgTeamMembershipView,
 	OrgTeamView,
 	PersistScaffoldedAgentsResponse,
-	RoutineView,
 	ScaffoldFromRequestInput,
+	// @lore BC5 T7b: CoreApiRoutinePort/InsertRoutineRequest/RoutineView/
+	// UpdateRoutineRequest deleted — a routine is a subscription now, edited
+	// on `edit_user`.
 	// @lore BB1: UpdateBetRequest deleted — bet is now a root task.
 	// @lore TaskView/CreateTaskRequest/CreateTaskResponse/UpdateTaskRequest/
 	// HandoffTaskRequest/HandoffTaskResponse deleted — the task action list replaces the seam.
@@ -62,7 +62,6 @@ export type {
 	// deleted — the writeback dials `edit_document`/`search_documents` (§8.4), never a
 	// second HTTP hop through this seam.
 	UpdateOrgTeamRequest,
-	UpdateRoutineRequest,
 	UserView,
 } from "./core-api-port.js";
 export { CORE_API_ACTOR_OVERRIDE_HEADER } from "./core-api-port.js";

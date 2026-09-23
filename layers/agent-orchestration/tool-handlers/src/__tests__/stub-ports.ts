@@ -13,6 +13,10 @@
  * @lore `openTask`/`create`/`createKnowledgeConflict` DELETED with
  * `write_memory`/`submit_review`/`create_artifact`/`create_conflict_review` —
  * the last callers of each on `ToolHandlersCoreApiAccessor`.
+ *
+ * @lore BC5 T7b: `insertRoutine`/`getRoutineById`/`updateRoutineById`
+ * DELETED with `create_routine`/`update_routine` — a routine is a
+ * subscription now, edited on `edit_user`.
  */
 import type { ToolHandlersPorts } from "../ports.js";
 
@@ -29,8 +33,5 @@ export const STUB_TOOL_HANDLERS_PORTS: ToolHandlersPorts = {
 		createTeam: notImplemented,
 		updateTeam: notImplemented,
 		scaffoldFromRequest: notImplemented,
-		insertRoutine: notImplemented,
-		getRoutineById: notImplemented,
-		updateRoutineById: notImplemented,
 	},
 };
