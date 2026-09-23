@@ -157,6 +157,19 @@ function sourceInput(
 					teamId: "team-au6",
 				},
 			};
+		case "subscription":
+			// BC5 T6: additive alongside "routine" — the cut-over block retires it.
+			return {
+				...base,
+				sourceKind,
+				taskId: null,
+				promptMode: "subscription",
+				sourceCorrelation: {
+					subscriptionId: `subscription-${suffix}`,
+					changeId: `change-${suffix}`,
+					teamId: "team-au6",
+				},
+			};
 		case "review_resume":
 			return {
 				...base,
