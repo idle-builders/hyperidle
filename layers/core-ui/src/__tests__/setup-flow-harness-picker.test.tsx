@@ -2,21 +2,34 @@
  * SetupFlow harness picker — component tests.
  *
  * AC1: Harness picker renders all descriptors; choosability gated on discovery.state.
- * AC4b: key PUT precedes nav + nav target /work?onboarding=true (ordering kept).
+ * AC4b: the person is created before navigating; the picked harness reaches
+ *       the assistant and team-agent edit_user calls; no credential is written.
  * AC5: graceful degrade — discovery failing must not block setup.
  *
  * @lore The always-present built-in gateway row this file was written around is
  * gone. It used to be the default selection, the fallback when discovery failed,
  * and the reason primaryHarness could be omitted from the team POST. All three
  * are now answered by the discovered harnesses themselves.
+ *
+ * @lore BC5 T10: the door swap — `open_user({}).runsOn` replaces `GET
+ * /api/harnesses`; the three `edit_user` calls replace `POST /api/users` →
+ * `POST /api/teams` → `POST /api/filesystems` (architecture.md §7). `call`
+ * is mocked at the door; `apiFetch` stays mocked for the plumbing
+ * `POST /api/filesystems/inspect-path` route.
  */
 
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { SetupFlow } from "../pages/SetupFlow";
+
+const { callMock } = vi.hoisted(() => ({ callMock: vi.fn() }));
+vi.mock("../services/call.js", () => ({ call: callMock }));
+
+const { apiFetchMock } = vi.hoisted(() => ({ apiFetchMock: vi.fn() }));
+vi.mock("../services/api-fetch.js", () => ({ apiFetch: apiFetchMock }));
 
 // ── Stub descriptors ──────────────────────────────────────────────────────────
 
@@ -85,53 +98,58 @@ function WorkOverviewStub(): React.JSX.Element {
 // ── Mock helpers ──────────────────────────────────────────────────────────────
 
 interface MockOptions {
-	/** Harness descriptors returned by GET /api/harnesses */
+	/** Harness descriptors returned by open_user({}).runsOn */
 	descriptors?: HarnessCapabilityDescriptor[];
-	/** If true, GET /api/harnesses returns a non-ok response */
+	/** If true, open_user({}) resolves { ok: false } */
 	discoveryFails?: boolean;
-	/** If true, GET /api/harnesses promise never resolves (slow) */
-	discoveryHangs?: boolean;
 }
 
-/**
- * Set up global.fetch mock. Returns two call-order helpers: credentialCallIndex
- * (the 0-based position of the PUT /api/credentials call among all fetch calls).
- */
-function setupFetchMock(opts: MockOptions = {}): {
-	getCallOrder: () => Array<{ url: string; method: string }>;
+function openUserData(descriptors: HarnessCapabilityDescriptor[]): Record<string, unknown> {
+	return {
+		user: null,
+		runsOn: descriptors,
+		runConfig: null,
+		documentIds: [],
+		folders: [],
+		subscriptions: [],
+		connections: null,
+		behaviour: null,
+		inbox: null,
+	};
+}
+
+/** edit_user calls made during a submit, in order, with their input. */
+function setupCallMock(opts: MockOptions = {}): {
+	editUserCalls: () => Array<Record<string, unknown>>;
 } {
-	const callOrder: Array<{ url: string; method: string }> = [];
-
-	global.fetch = vi.fn().mockImplementation((url: string, options?: RequestInit) => {
-		const method = (options?.method ?? "GET").toUpperCase();
-		callOrder.push({ url, method });
-
-		if (method === "GET" && url.includes("/api/harnesses")) {
-			if (opts.discoveryHangs) return new Promise(() => {});
+	const editUserCalls: Array<Record<string, unknown>> = [];
+	callMock.mockReset();
+	callMock.mockImplementation((name: string, input: Record<string, unknown>) => {
+		if (name === "open_user") {
 			if (opts.discoveryFails) {
-				return Promise.resolve({ ok: false, status: 500, json: async () => ({}) });
+				return Promise.resolve({ ok: false, problems: [{ code: "server_error", message: "no" }] });
 			}
-			const descriptors = opts.descriptors ?? [OPENCODE_READY];
 			return Promise.resolve({
 				ok: true,
-				status: 200,
-				json: async () => descriptors,
+				data: openUserData(opts.descriptors ?? [OPENCODE_READY]),
 			});
 		}
-
-		// All other calls succeed generically
-		return Promise.resolve({
-			ok: true,
-			status: 201,
-			json: async () => ({
-				user: { id: "u-1", name: "Alice" },
-				team: { id: "team-1", name: "My Team", phase: "build" },
-				teamMembers: { id: "tm-1" },
-			}),
-		});
-	}) as typeof fetch;
-
-	return { getCallOrder: () => callOrder };
+		if (name === "edit_user") {
+			editUserCalls.push(input);
+			if (input.kind === "human") {
+				return Promise.resolve({
+					ok: true,
+					data: { ...openUserData([]), user: { id: "u-1", kind: "human", name: input.name } },
+				});
+			}
+			return Promise.resolve({
+				ok: true,
+				data: { ...openUserData([]), user: { id: "u-agent", kind: "ai", name: input.name } },
+			});
+		}
+		return Promise.resolve({ ok: false, problems: [{ code: "unmocked", message: name }] });
+	});
+	return { editUserCalls: () => editUserCalls };
 }
 
 function renderSetupFlow(initialPath = "/setup"): void {
@@ -153,12 +171,9 @@ describe("harness picker renders all descriptors", () => {
 	});
 
 	it("renders two choosable ready rows + a greyed missing row", async () => {
-		setupFetchMock({
-			descriptors: [OPENCODE_READY, CLAUDE_CODE_READY, CODEX_MISSING],
-		});
+		setupCallMock({ descriptors: [OPENCODE_READY, CLAUDE_CODE_READY, CODEX_MISSING] });
 		renderSetupFlow();
 
-		// All three rows must appear
 		await waitFor(() => {
 			expect(screen.getByText("OpenCode")).toBeInTheDocument();
 			expect(screen.getByText("Claude Code")).toBeInTheDocument();
@@ -167,31 +182,25 @@ describe("harness picker renders all descriptors", () => {
 	});
 
 	it("greyed missing row is NOT selectable (codex)", async () => {
-		setupFetchMock({
-			descriptors: [OPENCODE_READY, CLAUDE_CODE_READY, CODEX_MISSING],
-		});
+		setupCallMock({ descriptors: [OPENCODE_READY, CLAUDE_CODE_READY, CODEX_MISSING] });
 		renderSetupFlow();
 
 		await waitFor(() => {
 			expect(screen.getByText("Codex")).toBeInTheDocument();
 		});
 
-		// The codex row should be aria-disabled
 		const codexRow = screen.getByTestId("harness-row-codex");
 		expect(codexRow).toHaveAttribute("aria-disabled", "true");
 	});
 
 	it("greyed missing row shows install hint", async () => {
-		setupFetchMock({
-			descriptors: [OPENCODE_READY, CODEX_MISSING],
-		});
+		setupCallMock({ descriptors: [OPENCODE_READY, CODEX_MISSING] });
 		renderSetupFlow();
 
 		await waitFor(() => {
 			expect(screen.getByText("Codex")).toBeInTheDocument();
 		});
 
-		// The greyed row has an "install to use" affordance
 		expect(screen.getByTestId("harness-row-codex")).toHaveTextContent(/install/i);
 	});
 
@@ -199,9 +208,7 @@ describe("harness picker renders all descriptors", () => {
 	// to be there. Discovery now decides: the form opens on the first harness this
 	// machine can actually run, so it never opens on a name that is not here.
 	it("the first choosable row is default-selected (radio)", async () => {
-		setupFetchMock({
-			descriptors: [OPENCODE_READY, CLAUDE_CODE_READY],
-		});
+		setupCallMock({ descriptors: [OPENCODE_READY, CLAUDE_CODE_READY] });
 		renderSetupFlow();
 
 		await waitFor(() => {
@@ -213,9 +220,7 @@ describe("harness picker renders all descriptors", () => {
 
 	it("clicking a choosable row selects it as primary", async () => {
 		const user = userEvent.setup();
-		setupFetchMock({
-			descriptors: [OPENCODE_READY, CLAUDE_CODE_READY],
-		});
+		setupCallMock({ descriptors: [OPENCODE_READY, CLAUDE_CODE_READY] });
 		renderSetupFlow();
 
 		await waitFor(() => {
@@ -229,16 +234,13 @@ describe("harness picker renders all descriptors", () => {
 
 	it("clicking a greyed row does NOT select it", async () => {
 		const user = userEvent.setup();
-		setupFetchMock({
-			descriptors: [OPENCODE_READY, CODEX_MISSING],
-		});
+		setupCallMock({ descriptors: [OPENCODE_READY, CODEX_MISSING] });
 		renderSetupFlow();
 
 		await waitFor(() => {
 			expect(screen.getByText("Codex")).toBeInTheDocument();
 		});
 
-		// Click on the codex row — the ready harness should remain selected
 		await user.click(screen.getByText("Codex"));
 		expect(screen.getByTestId("harness-radio-opencode")).toBeChecked();
 	});
@@ -257,8 +259,8 @@ describe("harness picker graceful degrade", () => {
 	// the alternative would strand someone over a probe error. The genuine
 	// "nothing can run here" case is a populated list with nothing choosable in it,
 	// covered in setup-blocks-with-no-harness.test.tsx.
-	it("renders no harness rows when GET /api/harnesses fails", async () => {
-		setupFetchMock({ discoveryFails: true });
+	it("renders no harness rows when open_user({}) fails", async () => {
+		setupCallMock({ discoveryFails: true });
 		renderSetupFlow();
 
 		await waitFor(() => {
@@ -270,7 +272,7 @@ describe("harness picker graceful degrade", () => {
 
 	it("Start button still enables on a name alone when discovery fails", async () => {
 		const user = userEvent.setup();
-		setupFetchMock({ discoveryFails: true });
+		setupCallMock({ discoveryFails: true });
 		renderSetupFlow();
 
 		await user.type(screen.getByLabelText(/your name/i), "Alice");
@@ -280,12 +282,9 @@ describe("harness picker graceful degrade", () => {
 	});
 });
 
-// ── AC4b: Key PUT precedes nav + auto-open kept ───────────────────────────────
+// ── AC4b: person created first + picked harness reaches the agents ───────────
 
-describe("setup submit ordering — key write before nav", () => {
-	beforeEach(() => {
-		vi.stubGlobal("__HYPERIDLE__", undefined);
-	});
+describe("setup submit ordering — person before agents, no credential", () => {
 	afterEach(() => {
 		vi.restoreAllMocks();
 	});
@@ -293,11 +292,11 @@ describe("setup submit ordering — key write before nav", () => {
 	// @lore This asserted a PUT /api/credentials landed before the navigate, back
 	// when setup collected an API key and stored it for a harness to run on. Setup
 	// asks for no credential now — the harness holds its own — so the ordering
-	// guarantee is that the team is created before we leave the screen, and the
-	// credential write is asserted absent.
-	it("creates the team before navigating, and writes no credential", async () => {
+	// guarantee is that the person is created before the agents that need their
+	// id, and no credential write ever happens.
+	it("creates the person before the agents, and writes no credential", async () => {
 		const user = userEvent.setup();
-		const { getCallOrder } = setupFetchMock({ descriptors: [OPENCODE_READY] });
+		const { editUserCalls } = setupCallMock({ descriptors: [OPENCODE_READY] });
 		renderSetupFlow();
 
 		await user.type(screen.getByLabelText(/your name/i), "Alice");
@@ -307,50 +306,26 @@ describe("setup submit ordering — key write before nav", () => {
 			expect(screen.getByTestId("work-page")).toBeInTheDocument();
 		});
 
-		// Verify nav target includes onboarding=true
 		const searchEl = screen.getByTestId("current-search");
 		expect(searchEl.textContent).toContain("onboarding=true");
 
-		const calls = getCallOrder();
-		expect(calls.some((c) => c.method === "POST" && c.url.includes("/api/teams"))).toBe(true);
-		expect(calls.some((c) => c.url.includes("/api/credentials"))).toBe(false);
+		const calls = editUserCalls();
+		expect(calls).toHaveLength(3);
+		expect(calls[0]?.kind).toBe("human");
+		expect(calls[1]?.kind).toBe("ai");
+		expect(calls[2]?.kind).toBe("ai");
+		// No credential write: the only door calls are open_user + three edit_user.
+		const names = callMock.mock.calls.map(([name]) => name);
+		expect(names.every((name) => name === "open_user" || name === "edit_user")).toBe(true);
 	});
 
-	it("primaryHarness is included in POST /api/teams body when a ready harness is selected", async () => {
+	it("primaryHarness reaches the assistant and team-agent edit_user calls when a ready harness is selected", async () => {
 		const user = userEvent.setup();
-		let capturedTeamsBody: Record<string, unknown> | null = null;
-
-		global.fetch = vi.fn().mockImplementation((url: string, options?: RequestInit) => {
-			if ((options?.method?.toUpperCase() ?? "GET") === "GET" && url.includes("/api/harnesses")) {
-				return Promise.resolve({
-					ok: true,
-					status: 200,
-					json: async () => [OPENCODE_READY, CLAUDE_CODE_READY],
-				});
-			}
-			if ((options?.method?.toUpperCase() ?? "") === "POST" && url.includes("/api/teams")) {
-				try {
-					capturedTeamsBody = JSON.parse(options?.body as string) as Record<string, unknown>;
-				} catch {
-					// ignore
-				}
-			}
-			return Promise.resolve({
-				ok: true,
-				status: 201,
-				json: async () => ({
-					user: { id: "u-1" },
-					team: { id: "team-1", name: "My Team", phase: "build" },
-					teamMembers: { id: "tm-1" },
-				}),
-			});
-		}) as typeof fetch;
-
+		const { editUserCalls } = setupCallMock({ descriptors: [OPENCODE_READY, CLAUDE_CODE_READY] });
 		renderSetupFlow();
 
 		await user.type(screen.getByLabelText(/your name/i), "Alice");
 
-		// Select the claude-code row
 		await waitFor(() => {
 			expect(screen.getByText("Claude Code")).toBeInTheDocument();
 		});
@@ -362,11 +337,11 @@ describe("setup submit ordering — key write before nav", () => {
 			expect(screen.getByTestId("work-page")).toBeInTheDocument();
 		});
 
-		expect(capturedTeamsBody).not.toBeNull();
-		const phRaw = (capturedTeamsBody as unknown as Record<string, unknown>)["primaryHarness"];
-		expect(phRaw).toBeDefined();
-		const ph = phRaw as Record<string, unknown>;
-		expect(ph.harnessType).toBe("claude-code");
+		const calls = editUserCalls();
+		const assistantCall = calls[1] as { runConfig?: { harnessType?: string } };
+		const teamAgentCall = calls[2] as { runConfig?: { harnessType?: string } };
+		expect(assistantCall.runConfig?.harnessType).toBe("claude-code");
+		expect(teamAgentCall.runConfig?.harnessType).toBe("claude-code");
 	});
 
 	// @lore This used to assert the opposite: builtin was the server-side default,
@@ -374,34 +349,7 @@ describe("setup submit ordering — key write before nav", () => {
 	// is no default harness to fall back to now, so the chosen one is always named.
 	it("primaryHarness names the chosen harness even when it is the only one", async () => {
 		const user = userEvent.setup();
-		let capturedTeamsBody: Record<string, unknown> | null = null;
-
-		global.fetch = vi.fn().mockImplementation((url: string, options?: RequestInit) => {
-			if ((options?.method?.toUpperCase() ?? "GET") === "GET" && url.includes("/api/harnesses")) {
-				return Promise.resolve({
-					ok: true,
-					status: 200,
-					json: async () => [OPENCODE_READY],
-				});
-			}
-			if ((options?.method?.toUpperCase() ?? "") === "POST" && url.includes("/api/teams")) {
-				try {
-					capturedTeamsBody = JSON.parse(options?.body as string) as Record<string, unknown>;
-				} catch {
-					// ignore
-				}
-			}
-			return Promise.resolve({
-				ok: true,
-				status: 201,
-				json: async () => ({
-					user: { id: "u-1" },
-					team: { id: "team-1", name: "My Team", phase: "build" },
-					teamMembers: { id: "tm-1" },
-				}),
-			});
-		}) as typeof fetch;
-
+		const { editUserCalls } = setupCallMock({ descriptors: [OPENCODE_READY] });
 		renderSetupFlow();
 
 		await user.type(screen.getByLabelText(/your name/i), "Alice");
@@ -416,89 +364,41 @@ describe("setup submit ordering — key write before nav", () => {
 			expect(screen.getByTestId("work-page")).toBeInTheDocument();
 		});
 
-		expect(capturedTeamsBody).not.toBeNull();
-		const ph = capturedTeamsBody?.["primaryHarness"] as Record<string, unknown> | undefined;
-		expect(ph?.harnessType).toBe("opencode");
+		const calls = editUserCalls();
+		const assistantCall = calls[1] as { runConfig?: { harnessType?: string } };
+		expect(assistantCall.runConfig?.harnessType).toBe("opencode");
 	});
 });
 
 // ── W1: isCode client-side decision — code vs doc_set based on inspect-path result ──
 
 describe("SetupFlow filesystem kind decision (isCode client logic)", () => {
-	beforeEach(() => {
-		vi.stubGlobal("__HYPERIDLE__", undefined);
-	});
 	afterEach(() => {
 		vi.restoreAllMocks();
 	});
 
-	/**
-	 * Build a fetch mock that:
-	 * - GET /api/harnesses → a single ready harness descriptor
-	 * - POST /api/filesystems/inspect-path → the provided inspect result
-	 * - POST /api/users, POST /api/teams, PUT /api/credentials → success stubs
-	 * - POST /api/filesystems → success + captures the request body
-	 */
-	function setupFetchMockWithInspect(
-		inspectResult: { exists: boolean; isGitRepo: boolean; branch: string | null },
-		captureRef: { body: Record<string, unknown> | null },
-	): void {
-		global.fetch = vi.fn().mockImplementation((url: string, options?: RequestInit) => {
-			const method = (options?.method ?? "GET").toUpperCase();
-
-			if (method === "GET" && url.includes("/api/harnesses")) {
-				return Promise.resolve({
-					ok: true,
-					status: 200,
-					json: async () => [OPENCODE_READY],
-				});
+	function setupApiFetchWithInspect(inspectResult: {
+		exists: boolean;
+		isGitRepo: boolean;
+		branch: string | null;
+	}): void {
+		apiFetchMock.mockReset();
+		apiFetchMock.mockImplementation((url: string) => {
+			if (typeof url === "string" && url.includes("/api/filesystems/inspect-path")) {
+				return Promise.resolve({ ok: true, json: async () => inspectResult });
 			}
-
-			if (method === "POST" && url.includes("/api/filesystems/inspect-path")) {
-				return Promise.resolve({
-					ok: true,
-					status: 200,
-					json: async () => inspectResult,
-				});
-			}
-
-			if (method === "POST" && url.includes("/api/filesystems")) {
-				try {
-					captureRef.body = JSON.parse(options?.body as string) as Record<string, unknown>;
-				} catch {
-					// ignore
-				}
-				return Promise.resolve({
-					ok: true,
-					status: 201,
-					json: async () => ({ id: "fs-1" }),
-				});
-			}
-
-			// Default stub for users, teams, credentials
-			return Promise.resolve({
-				ok: true,
-				status: 201,
-				json: async () => ({
-					user: { id: "u-1", name: "Alice" },
-					team: { id: "team-1", name: "My Team", phase: "build" },
-					teamMembers: { id: "tm-1" },
-				}),
-			});
-		}) as typeof fetch;
+			return Promise.resolve({ ok: false, json: async () => ({}) });
+		});
 	}
 
-	it("git repo with resolvable branch → POST /api/filesystems body has kind:'code' with branch", async () => {
+	it("git repo with resolvable branch → the person's folders.add has kind:'code' with branch", async () => {
 		const user = userEvent.setup();
-		const captureRef: { body: Record<string, unknown> | null } = { body: null };
-
-		setupFetchMockWithInspect({ exists: true, isGitRepo: true, branch: "main" }, captureRef);
+		const { editUserCalls } = setupCallMock({ descriptors: [OPENCODE_READY] });
+		setupApiFetchWithInspect({ exists: true, isGitRepo: true, branch: "main" });
 
 		renderSetupFlow();
 
 		await user.type(screen.getByLabelText(/your name/i), "Alice");
-
-		// Type a folder path — SetupFlow re-inspects on submit if folderInfo is null/stale
 		await user.type(screen.getByRole("textbox", { name: /folder/i }), "/home/alice/myrepo");
 
 		await user.click(screen.getByRole("button", { name: /start hyperidle/i }));
@@ -507,25 +407,26 @@ describe("SetupFlow filesystem kind decision (isCode client logic)", () => {
 			expect(screen.getByTestId("work-page")).toBeInTheDocument();
 		});
 
-		// Assert: client used kind:"code" (branch was resolvable)
-		expect(captureRef.body).not.toBeNull();
-		expect(captureRef.body?.["kind"]).toBe("code");
-		const ref = captureRef.body?.["resourceRef"] as Record<string, unknown> | undefined;
+		const personCall = editUserCalls()[0] as {
+			folders?: { add?: Array<Record<string, unknown>> };
+		};
+		const folder = personCall.folders?.add?.[0];
+		expect(folder).toBeDefined();
+		expect(folder?.["kind"]).toBe("code");
+		const ref = folder?.["resourceRef"] as Record<string, unknown> | undefined;
 		expect(ref?.["branch"]).toBe("main");
-		expect(captureRef.body?.["writeback"]).toBe("none");
+		expect(folder?.["writeback"]).toBe("none");
 	});
 
-	it("git repo with no resolvable branch (null) → POST /api/filesystems body has kind:'doc_set', not 400", async () => {
+	it("git repo with no resolvable branch (null) → folders.add has kind:'doc_set', not code", async () => {
 		const user = userEvent.setup();
-		const captureRef: { body: Record<string, unknown> | null } = { body: null };
-
+		const { editUserCalls } = setupCallMock({ descriptors: [OPENCODE_READY] });
 		// Empty-branch case: isGitRepo=true but branch=null (no commits yet)
-		setupFetchMockWithInspect({ exists: true, isGitRepo: true, branch: null }, captureRef);
+		setupApiFetchWithInspect({ exists: true, isGitRepo: true, branch: null });
 
 		renderSetupFlow();
 
 		await user.type(screen.getByLabelText(/your name/i), "Alice");
-
 		await user.type(screen.getByRole("textbox", { name: /folder/i }), "/home/alice/empty-repo");
 
 		await user.click(screen.getByRole("button", { name: /start hyperidle/i }));
@@ -534,12 +435,14 @@ describe("SetupFlow filesystem kind decision (isCode client logic)", () => {
 			expect(screen.getByTestId("work-page")).toBeInTheDocument();
 		});
 
-		// Assert: client degraded to kind:"doc_set" (no branch → no 400)
-		expect(captureRef.body).not.toBeNull();
-		expect(captureRef.body?.["kind"]).toBe("doc_set");
-		// Must NOT have sent kind:"code" with an empty branch (that would 400)
-		const ref = captureRef.body?.["resourceRef"] as Record<string, unknown> | undefined;
+		const personCall = editUserCalls()[0] as {
+			folders?: { add?: Array<Record<string, unknown>> };
+		};
+		const folder = personCall.folders?.add?.[0];
+		expect(folder).toBeDefined();
+		expect(folder?.["kind"]).toBe("doc_set");
+		const ref = folder?.["resourceRef"] as Record<string, unknown> | undefined;
 		expect(ref?.["branch"]).toBeUndefined();
-		expect(captureRef.body?.["writeback"]).toBe("none");
+		expect(folder?.["writeback"]).toBe("none");
 	});
 });

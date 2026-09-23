@@ -25,11 +25,17 @@ const HARNESS = {
 	kind: "local",
 	authAction: { kind: "native_cli_login", label: "Log in to Claude Code", command: ["claude"] },
 	discovery: { state: "ready" },
-	models: [{ id: "claude-sonnet-4-6", label: "Sonnet", provider: "anthropic", selectable: true, options: [] }],
+	models: [
+		{
+			id: "claude-sonnet-4-6",
+			label: "Sonnet",
+			provider: "anthropic",
+			selectable: true,
+			options: [],
+		},
+	],
 	modelProviders: ["anthropic"],
 };
-
-const SELF_ROW = { id: "u-founder", kind: "human", name: "founder", team: null };
 
 function openUserData(): Record<string, unknown> {
 	return {
@@ -125,7 +131,7 @@ describe("SetupFlow", () => {
 		const editUserCalls = callMock.mock.calls.filter(([name]) => name === "edit_user");
 
 		// 1. the person, with a team named from the folder basename
-		expect(editUserCalls[0][1]).toMatchObject({
+		expect(editUserCalls.at(0)?.[1]).toMatchObject({
 			kind: "human",
 			name: "Ada",
 			team: { name: "my-repo" },
@@ -142,7 +148,7 @@ describe("SetupFlow", () => {
 		});
 
 		// 2. their owned assistant, with ASSISTANT_IDENTITY and the picked harness
-		expect(editUserCalls[1][1]).toMatchObject({
+		expect(editUserCalls.at(1)?.[1]).toMatchObject({
 			kind: "ai",
 			name: "Ada's Assistant",
 			role: "assistant",
@@ -153,7 +159,7 @@ describe("SetupFlow", () => {
 		});
 
 		// 3. the team agent, no identity
-		expect(editUserCalls[2][1]).toMatchObject({
+		expect(editUserCalls.at(2)?.[1]).toMatchObject({
 			kind: "ai",
 			name: "my-repo Agent",
 			role: "agent",
@@ -161,6 +167,6 @@ describe("SetupFlow", () => {
 			team: { name: "my-repo" },
 			runConfig: { harnessType: "claude-code" },
 		});
-		expect(editUserCalls[2][1]).not.toHaveProperty("identity");
+		expect(editUserCalls.at(2)?.[1]).not.toHaveProperty("identity");
 	});
 });

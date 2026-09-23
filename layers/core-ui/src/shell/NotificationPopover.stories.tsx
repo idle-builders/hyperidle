@@ -112,7 +112,11 @@ export function Empty(): JSX.Element {
 export function LoadingState(): JSX.Element {
 	return (
 		<div style={{ height: "500px", position: "relative" }}>
-			<NotificationPopover open={true} onClose={noop} _data={makeData({ status: "loading", rows: [] })} />
+			<NotificationPopover
+				open={true}
+				onClose={noop}
+				_data={makeData({ status: "loading", rows: [] })}
+			/>
 		</div>
 	);
 }
@@ -121,7 +125,11 @@ export function LoadingState(): JSX.Element {
 export function ErrorState(): JSX.Element {
 	return (
 		<div style={{ height: "500px", position: "relative" }}>
-			<NotificationPopover open={true} onClose={noop} _data={makeData({ status: "error", rows: [] })} />
+			<NotificationPopover
+				open={true}
+				onClose={noop}
+				_data={makeData({ status: "error", rows: [] })}
+			/>
 		</div>
 	);
 }

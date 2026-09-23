@@ -215,7 +215,10 @@ describe("AN1 — SettingsConnections component", () => {
 	describe("error state", () => {
 		it("shows error message when open_user fails", async () => {
 			callMock.mockReset();
-			callMock.mockResolvedValue({ ok: false, problems: [{ code: "server_error", message: "no" }] });
+			callMock.mockResolvedValue({
+				ok: false,
+				problems: [{ code: "server_error", message: "no" }],
+			});
 			render(<SettingsConnections />);
 			const err = await screen.findByText(/couldn't load connections/i);
 			expect(err).toBeDefined();

@@ -24,6 +24,9 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SetupFlow } from "../pages/SetupFlow";
 
+const { callMock } = vi.hoisted(() => ({ callMock: vi.fn() }));
+vi.mock("../services/call.js", () => ({ call: callMock }));
+
 function descriptor(
 	type: string,
 	name: string,
@@ -58,13 +61,26 @@ const ONE_READY: HarnessCapabilityDescriptor[] = [
 ];
 
 function mockFetch(descriptors: HarnessCapabilityDescriptor[]): void {
-	global.fetch = vi.fn().mockImplementation((url: string, options?: RequestInit) => {
-		const method = (options?.method ?? "GET").toUpperCase();
-		if (method === "GET" && url.includes("/api/harnesses")) {
-			return Promise.resolve({ ok: true, status: 200, json: async () => descriptors });
+	callMock.mockReset();
+	callMock.mockImplementation((name: string) => {
+		if (name === "open_user") {
+			return Promise.resolve({
+				ok: true,
+				data: {
+					user: null,
+					runsOn: descriptors,
+					runConfig: null,
+					documentIds: [],
+					folders: [],
+					subscriptions: [],
+					connections: null,
+					behaviour: null,
+					inbox: null,
+				},
+			});
 		}
-		return Promise.resolve({ ok: true, status: 200, json: async () => ({}) });
-	}) as unknown as typeof fetch;
+		return Promise.resolve({ ok: false, problems: [{ code: "unmocked", message: name }] });
+	});
 }
 
 function renderSetup(): void {

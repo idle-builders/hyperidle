@@ -36,11 +36,7 @@
  * `POST /filesystems/inspect-path` stays — it is plumbing, not an action.
  */
 
-import {
-	ASSISTANT_IDENTITY,
-	type ActionResult,
-	type EditUserInput,
-} from "@hyperidle/domain-model";
+import { type ActionResult, ASSISTANT_IDENTITY, type EditUserInput } from "@hyperidle/domain-model";
 import {
 	derivePrimaryHarness,
 	type HarnessCapabilityDescriptor,
@@ -334,7 +330,9 @@ export function SetupFlow(): JSX.Element {
 					...(folderAdd ? { folders: folderAdd } : {}),
 				});
 				if (!personResult.ok || personResult.data.user === null) {
-					throw new Error(personResult.ok ? "Failed to create user" : personResultMessage(personResult));
+					throw new Error(
+						personResult.ok ? "Failed to create user" : personResultMessage(personResult),
+					);
 				}
 				const createdUserId = personResult.data.user.id;
 

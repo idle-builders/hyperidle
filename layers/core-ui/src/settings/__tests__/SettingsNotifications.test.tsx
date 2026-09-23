@@ -122,7 +122,7 @@ describe("SettingsNotifications", () => {
 
 	it("turning an event on with no existing subscription adds one", async () => {
 		callMock.mockReset();
-		callMock.mockImplementation((name: string, input: Record<string, unknown>) => {
+		callMock.mockImplementation((name: string) => {
 			if (name === "open_user") return Promise.resolve({ ok: true, data: openUserData([]) });
 			if (name === "edit_user") {
 				return Promise.resolve({
