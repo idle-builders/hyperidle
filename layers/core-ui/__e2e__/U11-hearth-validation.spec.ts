@@ -37,9 +37,14 @@ import {
 	makeMessage,
 	makeThread,
 	makeThreadListRow,
+	makeUserRow,
+	mockAgents,
 	mockDocument,
 	mockSearchDocuments,
+	mockSearchSessions,
 	mockSearchThreads,
+	mockSearchUsers,
+	mockTeamPage,
 	mockThread,
 	test,
 } from "./fixtures";
@@ -48,30 +53,10 @@ import {
 // Shared fixture data
 // ---------------------------------------------------------------------------
 
-const TEAMS_FIXTURE = {
-	teams: [
-		{
-			id: "team-u11-1",
-			name: "Hearth Core",
-			phase: "build",
-			status: "healthy",
-			leadAgentId: "agent-lead",
-			shipped: 5,
-			shipRate: "71%",
-			progress: { done: 3, total: 6 },
-		},
-		{
-			id: "team-u11-2",
-			name: "Platform Team",
-			phase: "grow",
-			status: "behind",
-			leadAgentId: "agent-lead-2",
-			shipped: 3,
-			shipRate: "75%",
-			progress: { done: 1, total: 3 },
-		},
-	],
-};
+const TEAM_ROSTER_U11 = [
+	makeUserRow("agent-lead", { kind: "ai", team: { id: "team-u11-1", name: "Hearth Core" } }),
+	makeUserRow("agent-lead-2", { kind: "ai", team: { id: "team-u11-2", name: "Platform Team" } }),
+];
 
 const THREAD_U11_1 = makeThread("thread-u11-1", {
 	hostKind: "team",
@@ -117,33 +102,6 @@ const MESSAGES_FIXTURE = [
 		createdAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
 	}),
 ];
-
-const TEAM_DETAIL_FIXTURE = {
-	product: {
-		id: "team-u11-1",
-		name: "Hearth Core",
-		phase: "build",
-		status: "healthy",
-		leadAgentId: "agent-lead",
-	},
-	team: { id: "team-u11-1", formedAt: new Date().toISOString(), dissolvedAt: null },
-	roster: [
-		{ agentId: "agent-lead", name: "Lead Agent", role: "lead", isLead: true },
-		{ agentId: "agent-member", name: "Alice Agent", role: "member", isLead: false },
-	],
-	burn: {
-		capacity: 5,
-	},
-	tasksInProgress: [
-		{
-			id: "bet-u11-draft",
-			title: "Hearth Design System",
-			status: "draft",
-			progressDone: 0,
-			progressTotal: 0,
-		},
-	],
-};
 
 const DOCUMENT_ITEMS_FIXTURE = [
 	makeDocumentRow("k-u11-1", {
@@ -233,19 +191,13 @@ test("U11 screenshot: thread detail", async ({ page }) => {
 // ---------------------------------------------------------------------------
 
 test("U11 screenshot: work portfolio bet grid", async ({ page }) => {
-	await page.route("**/api/teams", async (route) => {
-		await route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify(TEAMS_FIXTURE),
-		});
-	});
+	await mockSearchUsers(page, { rows: TEAM_ROSTER_U11 });
 
 	await page.goto("/work/portfolio");
-	await page.waitForSelector("[data-testid='work-portfolio-page']");
+	await page.waitForSelector("[data-testid='work-overview-page']");
 	await page.waitForLoadState("networkidle");
 
-	await expect(page.getByTestId("work-portfolio-page")).toBeVisible();
+	await expect(page.getByTestId("work-overview-page")).toBeVisible();
 	await page.screenshot({ path: "test-results/U11-04-work-portfolio.png", fullPage: false });
 });
 
@@ -277,21 +229,19 @@ test("U11 screenshot: bet detail", async ({ page }) => {
 // ---------------------------------------------------------------------------
 
 test("U11 screenshot: team view", async ({ page }) => {
-	await page.route("**/api/teams/team-u11-1", async (route) => {
-		await route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify(TEAM_DETAIL_FIXTURE),
-		});
+	const roster = [
+		makeUserRow("agent-lead", { kind: "ai", name: "Lead Agent", role: "lead" }),
+		makeUserRow("agent-member", { kind: "ai", name: "Alice Agent", role: "member" }),
+	];
+	await mockSearchUsers(page, { rows: roster });
+	await mockTeamPage(page, {
+		teamId: "team-u11-1",
+		teamName: "Hearth Core",
+		roster,
+		tasksInProgress: [],
 	});
-
-	await page.route("**/api/teams", async (route) => {
-		await route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify(TEAMS_FIXTURE),
-		});
-	});
+	await mockAgents(page, { agents: [] });
+	await mockSearchSessions(page, { rows: [] });
 
 	await page.goto("/work/team/team-u11-1");
 	await page.waitForSelector("[data-testid='work-team-page']");
@@ -354,36 +304,12 @@ test("U11 screenshot: document detail", async ({ page }) => {
 test("U11 screenshot: settings overlay open", async ({ page }) => {
 	await mockSearchThreads(page, { rows: [] });
 
-	await page.route("**/api/settings", async (route) => {
-		if (route.request().method() === "GET" || route.request().method() === "PATCH") {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({
-					profile: { name: "Test Founder", email: "test@hyperidle.dev", avatarUrl: null },
-					teams: [],
-					users: [],
-					notifications: {
-						reviewAlerts: true,
-						blockerAlerts: true,
-						quietHoursEnabled: false,
-						quietHoursStart: "22:00",
-						quietHoursEnd: "08:00",
-						mutedTeams: [],
-					},
-				}),
-			});
-		} else {
-			await route.continue();
-		}
-	});
-
 	await page.goto("/conversations");
 	await page.waitForSelector("[data-testid='main-content']");
 	await page.waitForLoadState("networkidle");
 
-	// Open the settings overlay by clicking the user profile button in the sidebar
-	const profileBtn = page.getByRole("button", { name: /user profile/i });
+	// Open Settings by clicking its trigger in the sidebar.
+	const profileBtn = page.getByRole("button", { name: /settings/i });
 	if (await profileBtn.isVisible()) {
 		await profileBtn.click();
 		// Wait for settings content to appear
