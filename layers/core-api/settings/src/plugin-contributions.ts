@@ -7,10 +7,10 @@
  * the seven were never read at all. This module is the only answer now.
  *
  * The plugin service says WHICH rows a plugin owns; the service that owns each
- * table does the write. That is why nothing here writes `users`, `routines` or
- * `documents` — it hands their ids to the owner instead. It replaces a
- * `plugin_id` column on `users` and on `routines`, which was the plugin
- * service's provenance sitting in tables it does not own.
+ * table does the write. That is why nothing here writes `users`,
+ * `subscriptions` or `documents` — it hands their ids to the owner instead.
+ * It replaces a `plugin_id` column on `users` and on `subscriptions`, which
+ * was the plugin service's provenance sitting in tables it does not own.
  */
 
 import { pluginContributions, type WriteExecutor } from "@hyperidle/db";

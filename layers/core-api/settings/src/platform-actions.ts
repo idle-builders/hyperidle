@@ -18,7 +18,7 @@
  * per call, so the document-touching calls in this file never run inside
  * this module's OWN `ctx.db.transaction(...)` blocks — they run before it
  * opens or after it commits. Install is four phases for that reason, in this
- * order: (1) the agents/routines transaction commits; (2) the document
+ * order: (1) the agents/subscriptions transaction commits; (2) the document
  * upsert runs, BEFORE the contribution registry claims these ids — a fresh
  * create's `onBodyChanged` hook marks a document detached the moment a
  * `plugin_contributions` row already names its id, and a plugin's own first
@@ -26,7 +26,7 @@
  * transaction commits, naming what is current and what is now stale; (4) the
  * stale documents are archived. Enable/disable/remove read the registry
  * first (it already names everything, nothing to (re)record) so they are two
- * phases: the agent/routine transaction, then the document archive loop.
+ * phases: the agent/subscription transaction, then the document archive loop.
  *
  * `internal: true` is set INSIDE this module's own `run`, on the ctx it
  * hands to `editDocument` — never read off the caller's ctx
@@ -231,7 +231,7 @@ function problem(code: string, message: string, path?: string): { ok: false; pro
 
 // ---------------------------------------------------------------------------
 // One document a plugin contributes — a skill, an agent's identity, or a
-// routine's prompt — before it is written. Verbatim from `routes/plugins.ts`.
+// subscription's prompt — before it is written. Verbatim from `routes/plugins.ts`.
 // ---------------------------------------------------------------------------
 
 interface ContributedDocumentSpec {
@@ -246,7 +246,7 @@ interface ContributedDocumentSpec {
 }
 
 /**
- * Make everything a plugin's agents and routines contributed live, or not —
+ * Make everything a plugin's agents and subscriptions contributed live, or not —
  * the document half is `setContributedDocumentsLive` below, kept separate
  * because it runs through `editDocument` (its own transaction) rather than
  * this one.
@@ -390,7 +390,7 @@ async function labelContributions(
 /**
  * The plugin's own version of a contributed document, read off disk. See
  * `routes/plugins.ts`'s own header for why every contributed document kind
- * (skill, agent identity, routine prompt) needs its own branch here.
+ * (skill, agent identity, subscription prompt) needs its own branch here.
  */
 function readPluginDocumentSource(
 	installPath: string,
@@ -420,7 +420,7 @@ function readPluginDocumentSource(
 
 // ---------------------------------------------------------------------------
 // The contributions view — the configuration-default half plus the
-// registry's half (agents, routines, documents).
+// registry's half (agents, subscriptions, documents).
 // ---------------------------------------------------------------------------
 
 interface ConfigurationItemForPlugin {
