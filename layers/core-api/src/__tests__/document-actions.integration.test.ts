@@ -23,8 +23,11 @@ import {
 } from "@hyperidle/db";
 import type { DocumentRow, DocumentView, SearchDocumentsInput } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { insertRoutine } from "@hyperidle/routine";
-import { type AgentIdentityDeps, createAgentIdentityPort } from "@hyperidle/user";
+import {
+	type AgentIdentityDeps,
+	createAgentIdentityPort,
+	insertSubscription,
+} from "@hyperidle/user";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
@@ -239,17 +242,17 @@ async function seedTaskWithThread(db: HyperIdleDb, taskId: string, teamId: strin
 	});
 }
 
-/** A real routine row — `edit_document`'s internal path checks a named
- * `routine` parent actually exists (`deps.systemParentExists`). */
-async function seedRoutine(db: HyperIdleDb, id: string, ownerAgentId: string): Promise<void> {
-	await insertRoutine(db, {
+/** A real subscription row — `edit_document`'s internal path checks a named
+ * `subscription` parent actually exists (`deps.systemParentExists`). */
+async function seedSubscription(db: HyperIdleDb, id: string, userId: string): Promise<void> {
+	const now = new Date().toISOString();
+	await insertSubscription(db, {
 		id,
-		name: id,
-		ownerAgentId,
-		triggerType: "event",
-		state: "active",
-		active: true,
-		createdAt: new Date().toISOString(),
+		userId,
+		event: "task.changed",
+		paused: false,
+		createdAt: now,
+		updatedAt: now,
 	});
 }
 
@@ -849,7 +852,7 @@ describe("case 6 — search_documents({inTree:true}) excludes artifacts and slot
 		await seedTeam(db, "c6");
 		await seedTaskWithThread(db, "c6-task-1", "c6");
 		await seedAgent(db, "c6-agent");
-		await seedRoutine(db, "c6-routine-1", "c6-agent");
+		await seedSubscription(db, "c6-routine-1", "c6-agent");
 		const actions = buildRealActions(agentOrchestration);
 		const doors = buildDoors(app, actions, db, eventBus, {
 			agentId: "c6-agent",
@@ -873,7 +876,7 @@ describe("case 6 — search_documents({inTree:true}) excludes artifacts and slot
 				db,
 				eventBus,
 				"edit_document",
-				{ title: "c6-prompt", slot: "prompt", parent: { kind: "routine", id: "c6-routine-1" } },
+				{ title: "c6-prompt", slot: "prompt", parent: { kind: "subscription", id: "c6-routine-1" } },
 				FOUNDER_ID,
 			),
 		).document.id;
@@ -951,7 +954,7 @@ describe('case 7 — search_documents({as:"memory"}) returns only the caller\'s 
 });
 
 // ---------------------------------------------------------------------------
-// Case 8 — search_documents({parent:{kind:"routine", ids:[a,b]}, slot:"prompt"})
+// Case 8 — search_documents({parent:{kind: "subscription", ids:[a,b]}, slot:"prompt"})
 // returns one row per routine, in one query.
 // ---------------------------------------------------------------------------
 
@@ -964,8 +967,8 @@ describe("case 8 — a batched parent.ids search returns one row per routine", (
 	}) => {
 		await seedTeam(db, "c8");
 		await seedAgent(db, "c8-agent");
-		await seedRoutine(db, "c8-routine-a", "c8-agent");
-		await seedRoutine(db, "c8-routine-b", "c8-agent");
+		await seedSubscription(db, "c8-routine-a", "c8-agent");
+		await seedSubscription(db, "c8-routine-b", "c8-agent");
 		const actions = buildRealActions(agentOrchestration);
 		const doors = buildDoors(app, actions, db, eventBus, {
 			agentId: "c8-agent",
@@ -982,7 +985,7 @@ describe("case 8 — a batched parent.ids search returns one row per routine", (
 				db,
 				eventBus,
 				"edit_document",
-				{ title: "prompt-a", slot: "prompt", parent: { kind: "routine", id: "c8-routine-a" } },
+				{ title: "prompt-a", slot: "prompt", parent: { kind: "subscription", id: "c8-routine-a" } },
 				FOUNDER_ID,
 			),
 		).document.id;
@@ -992,13 +995,13 @@ describe("case 8 — a batched parent.ids search returns one row per routine", (
 				db,
 				eventBus,
 				"edit_document",
-				{ title: "prompt-b", slot: "prompt", parent: { kind: "routine", id: "c8-routine-b" } },
+				{ title: "prompt-b", slot: "prompt", parent: { kind: "subscription", id: "c8-routine-b" } },
 				"c8-agent",
 			),
 		).document.id;
 
 		const searchBody: SearchDocumentsInput = {
-			parent: { kind: "routine", ids: ["c8-routine-a", "c8-routine-b"] },
+			parent: { kind: "subscription", ids: ["c8-routine-a", "c8-routine-b"] },
 			slot: "prompt",
 		};
 		const { human, agent } = await doors.search(searchBody as unknown as Record<string, unknown>);
@@ -1531,7 +1534,7 @@ describe("case 9 — every §4.1/§4.2 invariant, exact code, both doors", () =>
 	}) => {
 		await seedTeam(db, "c9d5");
 		await seedAgent(db, "c9d5-agent");
-		await seedRoutine(db, "c9d5-routine", "c9d5-agent");
+		await seedSubscription(db, "c9d5-routine", "c9d5-agent");
 		const actions = buildRealActions(agentOrchestration);
 		// A routine parent is internal-only (`forbidden_parent_kind`) — D5
 		// itself is about the slot, not about who called, so this simulates the
@@ -1541,7 +1544,7 @@ describe("case 9 — every §4.1/§4.2 invariant, exact code, both doors", () =>
 			db,
 			eventBus,
 			"edit_document",
-			{ title: "first prompt", slot: "prompt", parent: { kind: "routine", id: "c9d5-routine" } },
+			{ title: "first prompt", slot: "prompt", parent: { kind: "subscription", id: "c9d5-routine" } },
 			FOUNDER_ID,
 		);
 		const second = await callInternal<DocumentView>(
@@ -1549,7 +1552,7 @@ describe("case 9 — every §4.1/§4.2 invariant, exact code, both doors", () =>
 			db,
 			eventBus,
 			"edit_document",
-			{ title: "second prompt", slot: "prompt", parent: { kind: "routine", id: "c9d5-routine" } },
+			{ title: "second prompt", slot: "prompt", parent: { kind: "subscription", id: "c9d5-routine" } },
 			FOUNDER_ID,
 		);
 		expect(second.problemCode).toBe("slot_taken");
@@ -1730,7 +1733,7 @@ describe("case 9b — forbidden_parent_kind: only the system attaches a document
 	}) => {
 		await seedTeam(db, "c9b2");
 		await seedAgent(db, "c9b2-agent");
-		await seedRoutine(db, "c9b2-routine", "c9b2-agent");
+		await seedSubscription(db, "c9b2-routine", "c9b2-agent");
 		const actions = buildRealActions(agentOrchestration);
 		const doors = buildDoors(app, actions, db, eventBus, {
 			agentId: "c9b2-agent",
@@ -1738,7 +1741,7 @@ describe("case 9b — forbidden_parent_kind: only the system attaches a document
 		});
 		const { human, agent } = await doors.edit({
 			title: "sneaky prompt",
-			parent: { kind: "routine", id: "c9b2-routine" },
+			parent: { kind: "subscription", id: "c9b2-routine" },
 		});
 		expect(human.problemCode).toBe("forbidden_parent_kind");
 		expect(agent.problemCode).toBe("forbidden_parent_kind");
@@ -1796,7 +1799,7 @@ describe("case 9b — forbidden_parent_kind: only the system attaches a document
 			db,
 			eventBus,
 			"edit_document",
-			{ title: "orphaned prompt", parent: { kind: "routine", id: "c9b4-no-such-routine" } },
+			{ title: "orphaned prompt", parent: { kind: "subscription", id: "c9b4-no-such-routine" } },
 			"c9b4-agent",
 		);
 		expect(result.problemCode).toBe("parent_not_found");
@@ -1817,7 +1820,7 @@ describe("case 10 — the combined cases of §4.3 (2, 3, 4, 5, 6, 7, 8)", () => 
 	}) => {
 		await seedTeam(db, "c10c2");
 		await seedAgent(db, "c10c2-agent");
-		await seedRoutine(db, "c10c2-routine", "c10c2-agent");
+		await seedSubscription(db, "c10c2-routine", "c10c2-agent");
 		const actions = buildRealActions(agentOrchestration);
 		const doors = buildDoors(app, actions, db, eventBus, {
 			agentId: "c10c2-agent",
@@ -1832,7 +1835,7 @@ describe("case 10 — the combined cases of §4.3 (2, 3, 4, 5, 6, 7, 8)", () => 
 				db,
 				eventBus,
 				"edit_document",
-				{ title: "prompt", slot: "prompt", parent: { kind: "routine", id: "c10c2-routine" } },
+				{ title: "prompt", slot: "prompt", parent: { kind: "subscription", id: "c10c2-routine" } },
 				FOUNDER_ID,
 			),
 		).document.id;
