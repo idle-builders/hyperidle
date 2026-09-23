@@ -163,6 +163,31 @@ async function fulfillDefaultSearchUsers(
 	});
 }
 
+/**
+ * Answers `POST /api/actions/search_tasks` with an empty list — shared by
+ * the auto-use fixture and `registerCoreMocks`. `useTeams`' 1-team
+ * short-circuit (the sidebar's own instance AND `WorkOverview`'s) reads two
+ * `search_tasks` calls per team AFTER `search_users` resolves; without this
+ * default, any spec that navigates to "/" or "/work" and does not register
+ * its own `mockSearchTasks()`/`mockTeamPage()` hangs waiting for a redirect
+ * that never completes (the hook's `Promise.all` never settles, so it
+ * neither shows an error nor a result — the earlier `fulfillDefaultSearchUsers`
+ * default alone is not enough).
+ */
+async function fulfillDefaultSearchTasks(
+	route: import("@playwright/test").Route,
+): Promise<void> {
+	if (route.request().method() !== "POST") {
+		await route.continue();
+		return;
+	}
+	await route.fulfill({
+		status: 200,
+		contentType: "application/json",
+		body: JSON.stringify({ ok: true, data: [] }),
+	});
+}
+
 type CoreApiFixtures = {
 	/** Auto-use fixture: registers default M3 API mocks before every test. */
 	_coreApiMocks: undefined;
@@ -234,6 +259,9 @@ export const test = base.extend<CoreApiFixtures>({
 
 			// POST /api/actions/search_users — FirstRunRedirect's setup-done check.
 			await page.route("**/api/actions/search_users", fulfillDefaultSearchUsers);
+
+			// POST /api/actions/search_tasks — useTeams' 1-team short-circuit.
+			await page.route("**/api/actions/search_tasks", fulfillDefaultSearchTasks);
 
 			// POST /api/actions/open_task — WorkTaskPage's only data source.
 			//
@@ -318,6 +346,7 @@ export async function registerCoreMocks(page: import("@playwright/test").Page): 
 	});
 	await page.route("**/api/actions/open_user", fulfillDefaultOpenUser);
 	await page.route("**/api/actions/search_users", fulfillDefaultSearchUsers);
+	await page.route("**/api/actions/search_tasks", fulfillDefaultSearchTasks);
 }
 
 // ---------------------------------------------------------------------------

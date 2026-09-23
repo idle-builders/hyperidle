@@ -374,4 +374,43 @@ export const AU21_PRE_EXISTING_E2E_FAILURES: readonly string[] = [
 	// session" (a different file, WorkTask's session row) is untouched by this item
 	// and stays excluded.
 	"livedot-worktask-session: LiveDot present in WorkTask active session row",
+
+	// @lore BC5 T12 (2026-09-23): six titles across four files, discovered by
+	// the FULL suite run (none of these files are in BC5's own scope, and
+	// none are touched by this branch — `git log origin/main..HEAD` for each
+	// is empty). Two share the dead-`/artifacts/:id`-route cause already
+	// documented above (AZ2); the other two causes are new but equally
+	// unrelated to the user/subscriptions door swap:
+	//
+	// - AZ7-icon-button-geometry.spec.ts (2 titles): the conversation
+	//   composer's Send button measures 39px, not the asserted 32px/44px, in
+	//   its DISABLED state (no draft text — the test never types one).
+	//   `Button.tsx` is untouched on this branch; a real, pre-existing sizing
+	//   gap for the disabled variant of `size="icon"`.
+	// - page-orientation.spec.ts (3 titles, "artifact orientation paints
+	//   cleanly at *px"): `/artifacts/az11-orientation` — the same missing
+	//   `/artifacts/:id` route as AZ2's artifact-permalink entries above.
+	// - document-detail.spec.ts (1 title): `/documents/k12` (a factory-scope
+	//   "needs_human" item) has no `mockDocument()` registration in this
+	//   spec at all — it silently depended on a fixture-fallback this repo's
+	//   own `@lore BC4` comment (same file, a few lines up) says is gone;
+	//   its sibling `k11` case happens to still resolve, `k12` does not.
+	"conversation composer Send button measures 32x32 on desktop (44x44 below lg, per AQ-015)",
+	"conversation composer Send button widens to the 44px touch floor below the lg breakpoint (AQ-015)",
+	"artifact orientation paints cleanly at 1440px",
+	"artifact orientation paints cleanly at 1024px",
+	"artifact orientation paints cleanly at 390px",
+	"factory-scope needs_human item shows the Amendable under review banner",
+
+	// @lore BC5 T12: two more, same standard (untouched files, unrelated cause).
+	// - document-q2-create.spec.ts: the "Change scope" menu item is disabled
+	//   with title "A memory has no audience to change; save it as a
+	//   document to share it" — a memory-vs-document distinction this spec's
+	//   fixture doesn't account for; nothing here touches the user door.
+	// - q1-session-dial-in.spec.ts: `getByRole("button", { name: "Conversation
+	//   actions" })` matches no production string at all (`grep -rn
+	//   "Conversation actions" layers/core-ui/src` — zero hits, prod or
+	//   test); a stale locator from a renamed/removed control.
+	"changing scope from user to team removes the Private tag",
+	"inline artifact Inspect preserves the live thread draft, scroll, and route",
 ] as const;
