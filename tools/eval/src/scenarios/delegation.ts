@@ -1,5 +1,7 @@
 /**
- * X8: Delegation scenarios (interaction 24) — BC5 T7b retired the premise.
+ * X8: Delegation scenarios (interaction 24) — retired: subscriptions replaced
+ * routines and carry no delegate candidate, so the premise these scenarios
+ * tested is gone.
  *
  * @lore AU15/AU30: routine delegation never resolved a delegate at
  * fire-time already (`resolveRoutineRunRequest` always targeted
@@ -112,7 +114,7 @@ const delSuccessfulDelegation: EvalScenario = {
 };
 
 // ---------------------------------------------------------------------------
-// del-owner-wip-no-delegate-defers — RETIRED (BC5 T7b)
+// del-owner-wip-no-delegate-defers — RETIRED
 //
 // This scenario proved a routine fires-and-defers (never skips) when both
 // the owner and a candidate delegate are WIP-full. A subscription has no

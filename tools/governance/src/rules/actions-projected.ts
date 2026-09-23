@@ -107,7 +107,7 @@ const PLUMBING_ROUTES: readonly string[] = [
 	"layers/agent-execution/harness-registry/src/mcp/mcp-route.ts|POST /mcp/:token/return-status",
 	"layers/agent-orchestration/src/routes/agent-orchestration-sessions.ts|GET /sessions/:sessionId",
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /runs/stop-for-tasks",
-	// BC5 §6 (T4): `folders`/`connections` cross the port the way `runConfig`
+	// `folders`/`connections` cross the port the way `runConfig`
 	// already does. `folders.give` is `POST .../filesystems/:id/injections/persist`
 	// above under a second capability name — no new row for it.
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /folders/list",
@@ -295,9 +295,9 @@ function scanEventTypes(readFile: (path: string) => string): readonly string[] {
 			`actions-projected: could not find EVENT_TYPES in ${EVENT_TYPES_FILE} — the file moved or its shape changed.`,
 		);
 	}
-	// `[a-z_.]+` — widened for the nine dotted object-event names
-	// (architecture.md §0.6): a plain `[a-z_]+` stops at the dot and reports
-	// "task" instead of "task.created", which OBJECT_EVENTS never matches.
+	// `[a-z_.]+` — widened for the nine dotted object-event names: a plain
+	// `[a-z_]+` stops at the dot and reports "task" instead of "task.created",
+	// which OBJECT_EVENTS never matches.
 	return [...block[1].matchAll(/["'`]([a-z_.]+)["'`]/g)].map((m) => m[1] ?? "");
 }
 
