@@ -2,7 +2,7 @@
  * AH2 — validate the (harnessType, modelProvider, modelId) triple an agent's
  * run config carries, against the adapter pool + the model catalog.
  *
- * @lore BC5 architecture.md §6: moved verbatim from `layers/core-api/src/
+ * @lore architecture.md §6: moved verbatim from `layers/core-api/src/
  * routes/validate-agent-config.ts` into this package — `edit_user`'s create
  * and edit paths are now this function's only callers, replacing
  * `routes/agents.ts`/`routes/assistant.ts`'s direct calls (those routes

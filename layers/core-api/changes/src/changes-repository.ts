@@ -27,7 +27,7 @@ export interface ListChangesFilter {
 	readonly object?: string;
 	readonly objectId?: string;
 	readonly after?: string;
-	/** BC5 T5: `open_user`'s inbox batch-reads the change rows an inbox's
+	/** `open_user`'s inbox batch-reads the change rows an inbox's
 	 * `(user_id, change_id)` rows point at, by id. */
 	readonly ids?: readonly string[];
 }

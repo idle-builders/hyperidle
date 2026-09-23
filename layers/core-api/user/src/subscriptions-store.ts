@@ -1,11 +1,10 @@
 /**
  * Subscriptions and inbox — the single owner of `subscriptions`/`inbox` row
- * reads and writes (migration 0088, BC5 T2). A subscription is one row per
+ * reads and writes (migration 0088). A subscription is one row per
  * `user · event | schedule · document? · paused`; an inbox row is a pointer
  * at a `changes` row a person has (or has not) seen/read. `user-actions.ts`'s
- * `edit_user`/`open_user` are the only callers today — the fire mechanism
- * (T7a's `subscription-fire.ts`) is this store's second caller once it
- * lands.
+ * `edit_user`/`open_user` are the only callers today — the mechanism that
+ * fires a subscription is this store's second caller once it lands.
  */
 import {
 	type HyperIdleDb,

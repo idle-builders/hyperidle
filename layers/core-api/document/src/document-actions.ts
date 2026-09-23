@@ -76,8 +76,8 @@ export interface DocumentActionsDeps {
 	 * before this is ever reached (`forbidden_parent_kind`). Bound in
 	 * `compose.ts` to the users/routine/subscription reads already injected
 	 * elsewhere: an agent is a `users` row, a routine is `@hyperidle/routine`'s
-	 * `getRoutine`, a subscription is `@hyperidle/user`'s `getSubscription`
-	 * (BC5 T5).
+	 * `getRoutine`, a subscription is `@hyperidle/user`'s `getSubscription` —
+	 * the user module owns `subscriptions` too.
 	 */
 	readonly systemParentExists: (
 		exec: WriteExecutor,
@@ -639,8 +639,9 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 		// the pure pass), and a plain read against a table this module doesn't
 		// own, so resolving it before the transaction opens is safe the same
 		// way the task/thread arm above is. Review finding: "a missing
-		// agent/routine -> parent_not_found" on the internal path; BC5 T5 adds
-		// `subscription` to the same arm. -------------------------------
+		// agent/routine -> parent_not_found" on the internal path; `subscription`
+		// joins the same arm now that it is a system-only parent kind too.
+		// -------------------------------
 		if (
 			parentActivelySet &&
 			effectiveParent !== null &&

@@ -49,11 +49,11 @@
  * CONFLICT DO NOTHING against the composite unique index, then re-select.
  */
 
-// -- agent identity (BC5 T5 — moved verbatim from routes/agent-identity.ts) --
+// -- agent identity (moved verbatim from routes/agent-identity.ts) --
 export type { AgentIdentityDeps, AgentIdentityPort } from "./agent-identity.js";
 export { createAgentIdentityPort } from "./agent-identity.js";
 // -- cron (AU44 batch 3 — private to the routine trigger until the
-// subscription clock became its second caller; BC5 T2 moved it here) --
+// subscription clock became its second caller, and moved here with it) --
 export type { CronFields } from "./cron.js";
 export { nextCronMatch, parseCron } from "./cron.js";
 // -- factory writers (AU29 §2.5.2 — idempotent first-boot users writes) --
@@ -67,7 +67,7 @@ export type { UpsertOrgEdgeInput } from "./org-edges.js";
 export { deleteOrgEdge, listOrgEdges, upsertOrgEdge } from "./org-edges.js";
 // -- runnable-agent invariant (AU21 §6 Decision B — the shared ast-<userId> check) --
 export { AgentNotRunnableError, requireRunnableAgent } from "./runnable-agent.js";
-// -- subscriptions and inbox (BC5 T5 — subscription() search/edit/wake state) --
+// -- subscriptions and inbox (subscription search/edit/wake state) --
 export type {
 	InboxRowFilter,
 	NewSubscriptionRow,
@@ -91,13 +91,13 @@ export { createTeam, getTeam, listTeams, updateTeam } from "./team-lookup.js";
 // -- upgrade token store (I2 — WS-handshake one-shot tokens, no table) --
 export type { UpgradeTokenStore } from "./upgrade-token-store.js";
 export { createUpgradeTokenStore } from "./upgrade-token-store.js";
-// -- user actions (BC5 T5 — search_users / open_user / edit_user) --
+// -- user actions (search_users / open_user / edit_user) --
 export type { UserActionsDeps } from "./user-actions.js";
 export { createUserActions } from "./user-actions.js";
 // -- user store (AU12 / AU20 Am11 — single owner of `users` row read/write) --
 export type { UserFilter } from "./user-store.js";
 export { findUser, getOrCreateUser, insertUser, listUsers, updateUser } from "./user-store.js";
-// -- run-config validation (BC5 T5 — moved verbatim from routes/validate-agent-config.ts) --
+// -- run-config validation (moved verbatim from routes/validate-agent-config.ts) --
 export type {
 	AgentConfigValidationError,
 	HarnessCapabilityProbe,

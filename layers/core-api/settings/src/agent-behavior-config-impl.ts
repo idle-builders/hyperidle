@@ -4,10 +4,10 @@
  *
  * @lore AU20 R-settings: originally moved from @hyperidle/settings's barrel
  * to the route layer (layers/core-api/src/routes/) as a pure presentation
- * view-model with no cross-service consumer. BC5 T5 moves it back —
- * `user-actions.ts`'s `open_user`/`edit_user` (self-view `behaviour`) is now
- * a second consumer, and `@hyperidle/user` may not import the route layer to
- * reach it — so it belongs in the Service whose primitives it composes
+ * view-model with no cross-service consumer. Moved back once the user
+ * module's `open_user`/`edit_user` (self-view `behaviour`) became a second
+ * consumer — `@hyperidle/user` may not import the route layer to reach it,
+ * so it belongs in the Service whose primitives it composes
  * (`listConfiguration`/`writeConfigurationOverride`), exported through the
  * barrel like every other typed function this Service exposes.
  */

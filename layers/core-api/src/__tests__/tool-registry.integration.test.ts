@@ -131,8 +131,8 @@ describe("buildToolRegistry", () => {
 		// (search_threads/open_thread/adjust_thread/send_message), document ×3
 		// (search_documents/open_document/edit_document), platform ×2
 		// (search_plugins/edit_plugin), user ×3 (search_users/open_user/
-		// edit_user, BC5 T5) — fifteen, not the earlier twelve (written before
-		// the user module was counted).
+		// edit_user) — fifteen, not the earlier twelve (written before the
+		// user module was counted).
 		expect(composedActionNames.size).toBe(15);
 		expect(registry.definitions).toHaveLength(4 + composedActionNames.size);
 	});

@@ -38,8 +38,8 @@ import { and, eq, inArray } from "drizzle-orm";
  * closes `routes/org.ts`'s `GET /` org-chart response.
  * @lore AU20 Am7: `filter.id` folds in `getOrgEdgeById` (the pre-delete
  * existence check) — a single parameterized read replaces two exports.
- * @lore BC5 T5: `fromUserIds` added — `open_user`'s "edges are the user's
- * outgoing org_edges" needs one batched read, not N single-user ones.
+ * @lore `fromUserIds` added — `open_user`'s "edges are the user's outgoing
+ * org_edges" needs one batched read, not N single-user ones.
  */
 export async function listOrgEdges(
 	db: HyperIdleDb,

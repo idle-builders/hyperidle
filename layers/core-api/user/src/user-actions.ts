@@ -2,7 +2,7 @@
  * `search_users` / `open_user` / `edit_user` — the user module's own action
  * list, declared the way `@hyperidle/task`/`@hyperidle/thread`/
  * `@hyperidle/document`/`@hyperidle/settings` each declare theirs.
- * Architecture: `.pipeline/work/BC5/architecture.md` §1 (the declarations,
+ * Architecture: architecture.md §1 (the declarations,
  * `framework/domain-model/src/actions/user.ts`) and §6 (where this module
  * lives and what it reaches).
  *
@@ -21,15 +21,15 @@
  * `edit_document` runners, harnesses/behaviour/server config through thin
  * function seams.
  *
- * @lore BC5 T5: the deps bag omits `agentWorkIntentRecorder`/`searchTasks`/
+ * @lore the deps bag omits `agentWorkIntentRecorder`/`searchTasks`/
  * `searchThreads`/`assembleSessionDocuments`/`wsPush` — architecture.md §6
  * lists them once for the whole package, but they exist to let a
- * subscription WAKE someone (§4's fire mechanism), and firing is T7a's
- * `subscription-fire.ts`, a second module in this same package. `edit_user`
+ * subscription WAKE someone (§4's fire mechanism), and firing belongs to a
+ * later `subscription-fire.ts` module in this same package. `edit_user`
  * only ever WRITES a subscription row; it never fires one. Pulling those
- * five deps in here now would leave them unused until T7a lands and unable
- * to be proven red-then-green by this task's own tests — T7a adds its own
- * narrower deps bag when it adds the module that actually needs them.
+ * five deps in here now would leave them unused until that module lands and
+ * unable to be proven red-then-green by this module's own tests — the firing
+ * module adds its own narrower deps bag when it lands.
  */
 import type {
 	Change,
@@ -142,8 +142,8 @@ export interface UserActionsDeps {
 		readonly appendChange: (exec: WriteExecutor, row: NewChange) => Promise<Change>;
 		readonly listByIds: (db: HyperIdleDb, ids: readonly string[]) => Promise<readonly Change[]>;
 	};
-	/** §6 (T4): structural mirrors of the ports orchestration already exposes
-	 * — `compose.ts` (the layer, which may import `@hyperidle/api-contract`)
+	/** §6: structural mirrors of the ports orchestration already exposes —
+	 * `compose.ts` (the layer, which may import `@hyperidle/api-contract`)
 	 * binds these straight to the real `AgentOrchestrationPort` members. */
 	readonly runConfig: {
 		read(agentId: string): Promise<UserActionsRunConfigView>;

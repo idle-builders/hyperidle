@@ -17,7 +17,7 @@
  * migrateCredentialsToStore uses an inline type.
  */
 
-// -- agent-behavior config view-model (BC5 T5 — moved from
+// -- agent-behavior config view-model (moved from
 // layers/core-api/src/routes/agent-behavior-config-impl.ts; `user-actions.ts`'s
 // `open_user`/`edit_user` self-view `behaviour` and `routes/
 // settings-agent-behavior.ts` both import this from the barrel now) --

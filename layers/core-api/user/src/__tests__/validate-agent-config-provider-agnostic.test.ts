@@ -10,7 +10,7 @@
  * — no compatibility check". Use registration meta (not live capabilities) because
  * select() already uses meta.modelProviders and that is the authoritative source.
  *
- * @lore AU31 §2.8 / BC5 architecture.md §6: this file moved from
+ * @lore AU31 §2.8 / architecture.md §6: this file moved from
  * `@hyperidle/run-orchestration`'s `__tests__/` (itself moved there from
  * `layers/core-api/src/__tests__/` under AU26 G1) into core-api with
  * `validateAgentConfig` itself, and again into `@hyperidle/user` when that

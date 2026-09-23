@@ -195,7 +195,7 @@ function buildOpenParent(
  * `deps.users.getUserById` already wraps); a routine is
  * `@hyperidle/routine`'s own `getRoutine`, already imported by this layer's
  * `routines-routes.ts`; a subscription is `@hyperidle/user`'s own
- * `getSubscription` (BC5 T5 — the user module owns `subscriptions` too).
+ * `getSubscription` — the user module owns `subscriptions` too.
  */
 const systemParentExists: DocumentActionsDeps["systemParentExists"] = async (exec, kind, id) => {
 	if (kind === "agent") return (await findUser(exec, { id })) !== undefined;

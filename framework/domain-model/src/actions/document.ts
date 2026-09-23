@@ -36,9 +36,10 @@ export const DOCUMENT_SLOT_LABEL: Record<DocumentSlot, string> = {
 	prompt: "Prompt",
 };
 
-/** BC5 T5: `subscription` added beside `routine` — a subscription's prompt
- * document is parented to the subscription the same way a routine's prompt
- * is parented to the routine. T7b removes `routine` once the cut-over runs. */
+/** `subscription` added beside `routine` — a subscription's prompt document
+ * is parented to the subscription the same way a routine's prompt is
+ * parented to the routine. `routine` is removed once routines cut over to
+ * subscriptions. */
 export const DOCUMENT_PARENT_KINDS = [
 	"document",
 	"task",
