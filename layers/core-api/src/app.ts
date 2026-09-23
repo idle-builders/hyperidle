@@ -617,20 +617,24 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		// exclusively calls task's own table paths, so `task` is its correct
 		// home. §6 row 2: it now writes through `edit_task` instead of the
 		// deleted `transitionTask`, injected as a plain function (Mechanism C).
-		const unsubDepWatcher = eventBus.on("task_state_changed", (event) => {
-			if (event.toState === "done") {
+		// architecture.md §3: `task_state_changed` is gone from this path —
+		// `task.changed` carries the row, and `change.after.state` is present
+		// only when the edit moved the state (the diff-only shape `edit_task`
+		// already writes).
+		const unsubDepWatcher = eventBus.on("task.changed", (event) => {
+			if (event.change.after.state === "done") {
 				void checkAndUnblockDependents(
 					{ actor: "system:propagation", db, eventBus, now: new Date().toISOString() },
-					event.taskId,
+					event.change.objectId,
 					editTask,
 				).catch((err) => {
 					appLogger.error("[dep-watcher] unblock failed for task", {
-						taskId: event.taskId,
+						taskId: event.change.objectId,
 						error: err instanceof Error ? err.message : String(err),
 					});
 				});
 			}
-			// @lore BA6: NOT subscribed here on `toState === "killed"` — unlike the
+			// @lore BA6: NOT subscribed here on `state === "killed"` — unlike the
 			// `done` reaction above, a killed dependency's reset has to be visible
 			// the moment the kill's own response returns. Subscribing here would
 			// race `cascadeTaskKill`'s own synchronous per-task loop and

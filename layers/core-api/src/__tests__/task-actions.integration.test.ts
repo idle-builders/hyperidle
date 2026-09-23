@@ -17,6 +17,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import type { ObjectChangeEvent } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
@@ -586,8 +587,12 @@ describe("appendNote", () => {
 	});
 });
 
-describe("task_state_changed", () => {
-	test("emits on state change", async ({ db, app, eventBus }) => {
+describe("task.changed", () => {
+	test("a state move emits exactly one task.changed carrying the row", async ({
+		db,
+		app,
+		eventBus,
+	}) => {
 		await seedTeam(db, "ta-team-8");
 		const now = new Date().toISOString();
 		const threadId = await seedThread(db, "ta-emit-task", "ta-team-8");
@@ -602,8 +607,8 @@ describe("task_state_changed", () => {
 			updatedAt: now,
 		});
 
-		const events: Array<{ readonly toState: string }> = [];
-		eventBus.on("task_state_changed", (e) => events.push(e));
+		const events: ObjectChangeEvent[] = [];
+		eventBus.on("task.changed", (e) => events.push(e));
 
 		const res = await call<TaskViewBody>(app, "edit_task", {
 			id: "ta-emit-task",
@@ -611,7 +616,60 @@ describe("task_state_changed", () => {
 		});
 
 		expect(res.status).toBe(200);
-		expect(events.some((e) => e.toState === "hold")).toBe(true);
+		expect(events).toHaveLength(1);
+		expect(events[0]?.change.objectId).toBe("ta-emit-task");
+		expect(events[0]?.change.before).toMatchObject({ state: "proposed" });
+		expect(events[0]?.change.after).toMatchObject({ state: "hold" });
+		expect(events[0]?.cascade).toBeUndefined();
+	});
+
+	test("a kill flags each descendant's task.changed as cascade; the root's own is not", async ({
+		db,
+		app,
+		eventBus,
+	}) => {
+		await seedTeam(db, "ta-team-10");
+		const now = new Date().toISOString();
+		const rootThreadId = await seedThread(db, "ta-cascade-root", "ta-team-10");
+		const childThreadId = await seedThread(db, "ta-cascade-child", "ta-team-10");
+		await db.insert(tasks).values([
+			{
+				id: "ta-cascade-root",
+				parentTaskId: null,
+				teamId: "ta-team-10",
+				title: "Cascade root",
+				state: "in_progress",
+				threadId: rootThreadId,
+				createdAt: now,
+				updatedAt: now,
+			},
+			{
+				id: "ta-cascade-child",
+				parentTaskId: "ta-cascade-root",
+				teamId: "ta-team-10",
+				title: "Cascade child",
+				state: "in_progress",
+				threadId: childThreadId,
+				createdAt: now,
+				updatedAt: now,
+			},
+		]);
+
+		const events: ObjectChangeEvent[] = [];
+		eventBus.on("task.changed", (e) => events.push(e));
+
+		const res = await call<TaskViewBody>(app, "edit_task", {
+			id: "ta-cascade-root",
+			state: "killed",
+		});
+		expect(res.status).toBe(200);
+
+		const rootEvent = events.find((e) => e.change.objectId === "ta-cascade-root");
+		const childEvent = events.find((e) => e.change.objectId === "ta-cascade-child");
+		expect(rootEvent).toBeDefined();
+		expect(childEvent).toBeDefined();
+		expect(rootEvent?.cascade).toBeUndefined();
+		expect(childEvent?.cascade).toBe(true);
 	});
 });
 
