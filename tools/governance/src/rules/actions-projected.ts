@@ -326,7 +326,10 @@ function scanEventTypes(readFile: (path: string) => string): readonly string[] {
 			`actions-projected: could not find EVENT_TYPES in ${EVENT_TYPES_FILE} — the file moved or its shape changed.`,
 		);
 	}
-	return [...block[1].matchAll(/["'`]([a-z_]+)["'`]/g)].map((m) => m[1] ?? "");
+	// `[a-z_.]+` — widened for the nine dotted object-event names
+	// (architecture.md §0.6): a plain `[a-z_]+` stops at the dot and reports
+	// "task" instead of "task.created", which OBJECT_EVENTS never matches.
+	return [...block[1].matchAll(/["'`]([a-z_.]+)["'`]/g)].map((m) => m[1] ?? "");
 }
 
 /** A `call("<name>"` reference, the UI's one way of reaching an action. */
