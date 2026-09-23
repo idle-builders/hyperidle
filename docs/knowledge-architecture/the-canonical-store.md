@@ -2,13 +2,13 @@
 
 All knowledge lives in one Postgres database — **PGlite embedded locally (laptop/test), postgres-js on a server (VPS/cloud)**. Both drivers satisfy the same Drizzle `HyperIdleDb` type, so callers are driver-agnostic (`framework/db/src/connection.ts`). PGlite is the deliberate default: a zero-ops embedded Postgres — no separate process, one data directory, laptop-first — with the identical schema running unchanged on server Postgres when a deployment outgrows a single machine.
 
-Every knowledge object — a human's note, an agent's memory, a task's artifact, a skill, a rule, an agent's identity, a routine's prompt — is one row in one table: `documents`. There is no separate projection table; every derived signal a session or a search needs lives on this same row.
+Every knowledge object — a human's note, an agent's memory, a task's artifact, a skill, a rule, an agent's identity, a subscription's prompt — is one row in one table: `documents`. There is no separate projection table; every derived signal a session or a search needs lives on this same row.
 
 ## The `documents` table
 
 The row carries identity, content, scope, slot, tree position, and concurrency control: `id`, `scope_kind` (default `factory`), `scope_id`, `title`, `body` (markdown), `format` (`markdown` in practice), `status`, `version` (optimistic concurrency), `slot` (default `ordinary`), `parent_kind`, `parent_id`, `position`, `confidence`, `meta`, four usage columns (`read_count`, `last_read_at`, `session_use_count`, `last_used_at`), `updated_by`, `created_at`, `updated_at` (`framework/db/src/schema.ts`). The authoritative shape is `framework/db/src/schema.ts`; this doc never mirrors it.
 
-`status` is the 4-value lifecycle `proposed` / `active` / `stale` / `archived` (`DOCUMENT_STATUSES`, `framework/domain-model/src/actions/document.ts`). A new document starts `proposed`. Nothing promotes or decays a document automatically — the document-management plugin's `document-triage` and `document-decay` routines do that by judgement, on a schedule, through the same `search_documents`/`open_document`/`edit_document` tools any agent uses; see [Knowledge Movement](the-knowledge-fabric-how-knowledge-moves.md).
+`status` is the 4-value lifecycle `proposed` / `active` / `stale` / `archived` (`DOCUMENT_STATUSES`, `framework/domain-model/src/actions/document.ts`). A new document starts `proposed`. Nothing promotes or decays a document automatically — the document-management plugin's `document-triage` and `document-decay` subscriptions do that by judgement, on a schedule, through the same `search_documents`/`open_document`/`edit_document` tools any agent uses; see [Knowledge Movement](the-knowledge-fabric-how-knowledge-moves.md).
 
 There is no `topic` column and no `kind` column. Where a document sits in the tree is what it is about, not a flat vocabulary word stamped on the row.
 
@@ -16,8 +16,8 @@ There is no `topic` column and no `kind` column. Where a document sits in the tr
 
 A document answers three separate questions about how it relates to the rest of the system, each on its own field:
 
-- **`parent_kind` + `parent_id`** — where it hangs. Both nullable, both-or-neither. `parent_kind` is a closed 5-value enum — `document | task | thread | routine | agent` (`DOCUMENT_PARENT_KINDS`, `framework/domain-model/src/actions/document.ts`). There is no FK — the column points at five different tables, so existence is validated at the API boundary, not the database. A named slot (anything but `ordinary`) is a singular slot per parent (a routine has exactly one prompt, an agent exactly one identity), enforced by a partial unique index; `ordinary` children can be many under one parent — that is what lets a `document` parent hold an arbitrary number of children.
-- **`slot`** — where the document lands in the session sandbox. Closed 5-value enum — `ordinary | skill | rule | agent_file | prompt` (`DOCUMENT_SLOTS`, `framework/domain-model/src/actions/document.ts`). `ordinary` lands as a file under `knowledge/`, `skill` in the harness's own skills directory, `rule` in `knowledge/rules`, `agent_file` as the bound agent's own identity content, `prompt` as a routine's run instruction (never a file). `slot` is create-only — a slotted document may never change slot or parent afterwards.
+- **`parent_kind` + `parent_id`** — where it hangs. Both nullable, both-or-neither. `parent_kind` is a closed 5-value enum — `document | task | thread | subscription | agent` (`DOCUMENT_PARENT_KINDS`, `framework/domain-model/src/actions/document.ts`). There is no FK — the column points at five different tables, so existence is validated at the API boundary, not the database. A named slot (anything but `ordinary`) is a singular slot per parent (a subscription has exactly one prompt, an agent exactly one identity), enforced by a partial unique index; `ordinary` children can be many under one parent — that is what lets a `document` parent hold an arbitrary number of children.
+- **`slot`** — where the document lands in the session sandbox. Closed 5-value enum — `ordinary | skill | rule | agent_file | prompt` (`DOCUMENT_SLOTS`, `framework/domain-model/src/actions/document.ts`). `ordinary` lands as a file under `knowledge/`, `skill` in the harness's own skills directory, `rule` in `knowledge/rules`, `agent_file` as the bound agent's own identity content, `prompt` as a subscription's run instruction (never a file). `slot` is create-only — a slotted document may never change slot or parent afterwards.
 - **`scope_kind` + `scope_id`** — who sees it (below). Stored on the row, never derived from its parent. The two questions happen to coincide for an agent's identity document (`parent_kind='agent', parent_id=X` and `scope_kind='user', scope_id=X` name the same agent), but that is a coincidence of that one case, not a rule.
 
 ### What the caller calls it: `as`
@@ -32,7 +32,7 @@ A document answers three separate questions about how it relates to the rest of 
 
 ## The tree
 
-A `document` parent turns the flat table into a tree: a document can be the child of another document, and children order by an explicit `position` (default creation order, ties by title) — there is no drag-to-reorder interface; the column exists so one can be added later. A document with no parent is a root. **Only `document`-parented rows appear in the tree.** A document parented to a task, thread, routine, or agent never appears there; every tree walk stops at the first non-`document` parent, so a task- or thread-parented document (an artifact) is both a leaf and a walking root — it has no ancestors and inherits nothing.
+A `document` parent turns the flat table into a tree: a document can be the child of another document, and children order by an explicit `position` (default creation order, ties by title) — there is no drag-to-reorder interface; the column exists so one can be added later. A document with no parent is a root. **Only `document`-parented rows appear in the tree.** A document parented to a task, thread, subscription, or agent never appears there; every tree walk stops at the first non-`document` parent, so a task- or thread-parented document (an artifact) is both a leaf and a walking root — it has no ancestors and inherits nothing.
 
 Invariants hold on every write that sets a `document` parent, checked inside the same transaction as the write:
 
@@ -68,7 +68,7 @@ There is no `knowledge_edit_log` table, no `knowledge_access_log`, no `knowledge
 
 Assembling a session's sandbox is one query against one table — every factory-wide document, plus this team's, plus this agent's own. Multiple tables or a separate projection table would turn that into a join that has to stay in sync by hand; folding usage and ranking signals onto the same row that already carries content and scope means there is nothing else to keep consistent.
 
-The process primitives (tasks, sessions, teams, routines) stay in their own tables. `documents` is for knowledge objects only.
+The process primitives (tasks, sessions, teams, subscriptions) stay in their own tables. `documents` is for knowledge objects only.
 
 ## Blocks are projections
 

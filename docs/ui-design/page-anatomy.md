@@ -22,7 +22,7 @@ import { PageScaffold, PageHeader } from "@hyperidle/design-system";
 `PageScaffold` takes two body modes:
 
 - **`body="scroll"`** (default) — the scaffold owns the scroll region itself: `flex-1 overflow-y-auto`, marked `data-page-scroll` so e2e evidence and tests can find it without pinning a class literal.
-- **`body="managed"`** — the child owns its own scrolling (`SplitView`, `ConversationSurface`, a detail pane like `RoutineDetailPane`/`AgentDetailPane`). The scaffold still guarantees the child a bounded flex column to size against: `flex-1 min-h-0 flex flex-col overflow-hidden`. This is the exact shape the WorkTeam defect was missing — a block wrapper (`overflow-hidden`, no `flex-col`) gives a flex-1 child nothing to size against, so it grows to its full content height instead of clipping/scrolling.
+- **`body="managed"`** — the child owns its own scrolling (`SplitView`, `ConversationSurface`, a detail pane like `AgentDetailPane`). The scaffold still guarantees the child a bounded flex column to size against: `flex-1 min-h-0 flex flex-col overflow-hidden`. This is the exact shape the WorkTeam defect was missing — a block wrapper (`overflow-hidden`, no `flex-col`) gives a flex-1 child nothing to size against, so it grows to its full content height instead of clipping/scrolling.
 
 It also takes an explicit horizontal mode:
 

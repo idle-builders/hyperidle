@@ -109,7 +109,7 @@ Cassette key = SHA-256 of canonical JSON `{model, system, messages, tools, maxTo
 
 ### Spec file
 
-`layers/core-ui/__e2e__/AH6-assistant-interaction.spec.ts` — three scenarios (S1/S2/S3) using real `AssistantOverlay` handles. No `page.route()` on the assistant, turn, session, credential, or LLM paths. Shell-scaffolding mocks (`/api/auth/me`, `/api/teams`) are tolerated to render the shell.
+`layers/core-ui/__e2e__/AH3-assistant-responds.spec.ts` uses real `AssistantOverlay` handles. No `page.route()` on the assistant, turn, session, credential, or LLM paths. Shell-scaffolding mocks (`/api/auth/me`, `/api/actions/search_users`) are tolerated to render the shell — there is no `/api/teams` route any more, team membership is a field on `search_users`' rows.
 
 ## Mock Data
 

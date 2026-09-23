@@ -77,7 +77,7 @@ Helm chart** — cloud deploys currently skip factory bootstrap.
 
 Factory bootstrap is **not** team provisioning and **not** demo data:
 
-- A user's own **team** and its **agent roster** are created by **onboarding / `create_team`**, provisioned per-team with an `ownerRole` resolved from the team roster at provision time — never factory-seeded. Plugin-provided routines (`document-decay`, `document-triage`, `post-task-retro`) are seeded by the document-management plugin on team creation.
+- A user's own **team** and its **agent roster** are created by **onboarding / `edit_user`**, provisioned per-team with an `ownerRole` resolved from the team roster at provision time — never factory-seeded. Plugin-provided subscriptions (`document-decay`, `document-triage`, `post-task-retro`) are seeded by the document-management plugin on install.
 - The bootstrap **never** creates a user-facing team, human, or assistant (local
   or shared). Demo/example world-state lives only in tests / stories / e2e /
   `setup-cli` demo mode, under a neutral fictional name.

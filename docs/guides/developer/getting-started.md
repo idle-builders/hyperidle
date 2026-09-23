@@ -24,7 +24,7 @@ Setup flags: `--db-path <dir>` (PGlite data directory, default `./hyperidle-pg`)
 
 ### Demo data
 
-`npm run setup -- --demo` fills a fresh database with a lived-in Acme world — six weeks of history for a small team of two humans and five agents: tasks across every lifecycle (in_progress with a review blocking on the founder, proposed, done with outcomes, killed), subtasks in all eight states, ~15 threads with reviews, verdicts and DMs, a ~40-item knowledge corpus with a triage queue, sessions, routines with run history, and unread notifications. It exists so UI work and demos happen against a product that looks used, not an empty shell. The seed is idempotent (`demo-*` ids, re-running changes nothing) and anchors all timestamps to seed time.
+`npm run setup -- --demo` fills a fresh database with a lived-in Acme world — six weeks of history for a small team of two humans and five agents: tasks across every lifecycle (in_progress with a review blocking on the founder, proposed, done with outcomes, killed), subtasks in all eight states, ~15 threads with reviews, verdicts and DMs, a ~40-item knowledge corpus with a triage queue, sessions, subscriptions, and unread inbox rows. It exists so UI work and demos happen against a product that looks used, not an empty shell. The seed is idempotent (`demo-*` ids, re-running changes nothing) and anchors all timestamps to seed time.
 
 - Local-mode auth resolves the first human user, so a seeded instance logs you straight in as the demo founder — no onboarding.
 - Postgres: `npm run db:bootstrap:pg -- --demo` (or `HYPERIDLE_DEMO=1`).
@@ -65,7 +65,7 @@ Vite proxies `/api/*` to `localhost:3001` with **no path rewrite** — the serve
 hyperidle/
 ├── layers/
 │   ├── core-ui/               # React + Vite frontend (port 5173)
-│   ├── core-api/              # Hono API layer — per-domain services (changes, credentials, document, notifications, org, policy, routine, settings, task, thread, users)
+│   ├── core-api/              # Hono API layer — per-domain services (changes, document, policy, settings, task, thread, user)
 │   ├── agent-orchestration/   # Session/run orchestration, connections, tool handlers, filesystem mounting
 │   └── agent-execution/       # Harness registry — CLI/LLM adapters, context window, MCP bridge
 ├── framework/            # One package per thing, each with a decided audience in tools/governance/architecture.json

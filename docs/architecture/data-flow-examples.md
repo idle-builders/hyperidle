@@ -21,7 +21,8 @@ Five end-to-end flows, verified against live code. Each names the real mechanism
 9. Notification adapter: push to CPO's phone
 10. CPO opens thread, reads summary, approves
 11. Verdict recorded → task state → "done"
-12. post-task-retro plugin routine fires on task_state_changed → done
+12. post-task-retro plugin subscription fires on task.changed; its own prompt
+    stops unless the change moved a root task to done
     (plugins/document-management/plugin.json)
 13. Document Librarian writes retro; learnings route to the
     facilitator and the assistant's thread
@@ -42,19 +43,19 @@ Five end-to-end flows, verified against live code. Each names the real mechanism
 
 ## 3. A Team Learns Something (the contribution loop)
 
-The tree and its statuses are owned by [the-canonical-store](../knowledge-architecture/the-canonical-store.md); the curation routines by [Knowledge Movement](../knowledge-architecture/the-knowledge-fabric-how-knowledge-moves.md).
+The tree and its statuses are owned by [the-canonical-store](../knowledge-architecture/the-canonical-store.md); the curation subscriptions by [Knowledge Movement](../knowledge-architecture/the-knowledge-fabric-how-knowledge-moves.md).
 
 ```
 1. A Builder discovers chunked upload >10MB works better
 2. Builder logs the finding to task notes at session end (before compaction)
-3. The Builder (or, later, the librarian agent's post-task-retro routine)
+3. The Builder (or, later, the librarian agent's post-task-retro subscription)
    creates a document with edit_document, nested under the team's tree:
    "chunked upload for files >10MB"
    (status: proposed)
 4. Nobody has judged it yet → doesn't surface to a human as active
 5. Two weeks later, a Builder on another team independently discovers
    the same thing and writes their own document
-6. The librarian's weekly document-triage routine reads the proposed
+6. The librarian's weekly document-triage subscription reads the proposed
    document, judges it a genuine reusable pattern, and promotes it → active
 7. The document is now active, nested where it was written
 8. Next time any Builder starts a task session:
@@ -87,17 +88,20 @@ The tree and its statuses are owned by [the-canonical-store](../knowledge-archit
    judges it necessary)
 ```
 
-## 5. A Sleep-Time Routine Runs
+## 5. A Sleep-Time Subscription Runs
 
 ```
-1. Brand Voice agent has a silent routine (routines.silent = true):
-   "every 6 hours, summarize new copy artifacts into memory"
-2. Scheduler fires the routine
+1. Brand Voice agent has a schedule subscription: cron "every 6 hours",
+   prompt "summarize new copy artifacts into memory"
+2. The subscription clock finds it due, advances its next_run_at, and
+   wakes the agent the same way an event subscription would
 3. Model tier selected: fast (tiers: reasoning | workhorse | fast —
    see ../agent-layer/model-routing-and-cost.md)
 4. Session starts, agent queries for new copy artifacts since the last run
 5. Agent summarizes patterns into its own private memory (user scope)
-   ("we shifted to a more formal tone this week")
+   ("we shifted to a more formal tone this week") — nothing about the
+   run is inherently silent; it produces no thread message only because
+   its prompt asks for none
 6. Session ends → session_ended event
 7. No Item created, no thread, no notification
 8. Next time the Brand Voice agent reviews copy in a task session,

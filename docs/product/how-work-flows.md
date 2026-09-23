@@ -7,7 +7,7 @@ HyperIdle has four process primitives. Everything else is mechanics on top of th
 | **Team** | Agents bound to a product | Life of the product |
 | **Task** | Shaped work with a goal, possibly containing subtasks | Until done or killed |
 | **Session** | One bounded run of an agent on a task | One context window |
-| **Routine** | Recurring trigger with persistent memory | Until retired |
+| **Subscription** | A row on a user that wakes it — an agent through a session, a person through an inbox row — every time an event it names happens | Until removed |
 
 All four are implemented as tables in `framework/db/src/schema.ts`. Spec depth lives in [the four primitives](../process-layer/the-four-primitives.md).
 
@@ -84,19 +84,23 @@ Depth: [Handoff and lifecycle propagation](../process-layer/handoff-and-lifecycl
 
 ---
 
-## Routines: recurring work with persistent memory
+## Subscriptions: recurring work, the same mechanism as a person's notifications
 
-A routine is a recurring trigger attached to a named agent, with state that persists across runs. Three trigger shapes:
+A subscription is a row on a user — human or agent — that fires on exactly one of two trigger shapes:
 
-- **Calendar** — every Monday at 9am
-- **Event** — every time a task completes, run a retro
-- **Heartbeat** — every hour, check whether anything is stalled
+- **Event** — every time a task changes, run a retro
+- **Schedule** — a cron string, every Monday at 9am
 
-Every routine has a named owner who holds the thread of memory. Helena (the Facilitator for Growth) owns "weekly growth metrics review." Every Monday she checks what shipped, compares numbers against practice benchmarks, and posts a summary.
+When the subscriber is an agent, firing wakes a session the same way a mention does. When the
+subscriber is a person, it lands an inbox row instead — the identical mechanism serves both; only
+what happens on wake differs. Helena (the Facilitator for Growth) subscribes to a weekly schedule for
+"growth metrics review." Every Monday she checks what shipped, compares numbers against practice
+benchmarks, and posts a summary.
 
-Routines can opt in to per-run human review. Routines that stop producing actionable output are candidates for retirement.
+A subscription's reach never exceeds what its owner could already see — company-wide, its team, or
+its own.
 
-Depth: [Routines and retros](../process-layer/routines-and-retros.md).
+Depth: [Subscriptions and retros](../process-layer/subscriptions-and-retros.md).
 
 ---
 

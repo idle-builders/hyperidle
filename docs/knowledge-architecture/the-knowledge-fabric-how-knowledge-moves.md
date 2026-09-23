@@ -44,7 +44,7 @@ Human edits a document in the Knowledge view
 
 ## 3. Projection for agents (session sandbox)
 
-Selection, ranking, and budgeting are done **before** a session starts, not at provisioning time. A per-kind resolver (the task-run resolver, the routine resolver, the knowledge-action resolver) calls the shared `assembleSessionDocuments` (`layers/core-api/document/src/session-documents.ts`) to fetch the factory-wide, the agent's team, and the agent's own ordinary documents, plus its capability documents (skill/rule/agent_file), then rank+budget the ordinary set into a baked `contextBundle`. That bundle rides along on the session request. Context assembly then does zero DB reads — it only writes the already-baked bundle into files in the agent's sandbox, and `assembleSessionDocuments`'s own last step bumps `session_use_count`/`last_used_at` on exactly the documents it is about to hand over.
+Selection, ranking, and budgeting are done **before** a session starts, not at provisioning time. A per-kind resolver (the task-run resolver, the subscription resolver, the knowledge-action resolver) calls the shared `assembleSessionDocuments` (`layers/core-api/document/src/session-documents.ts`) to fetch the factory-wide, the agent's team, and the agent's own ordinary documents, plus its capability documents (skill/rule/agent_file), then rank+budget the ordinary set into a baked `contextBundle`. That bundle rides along on the session request. Context assembly then does zero DB reads — it only writes the already-baked bundle into files in the agent's sandbox, and `assembleSessionDocuments`'s own last step bumps `session_use_count`/`last_used_at` on exactly the documents it is about to hand over.
 
 **Sandbox layout:**
 
@@ -54,7 +54,7 @@ Selection, ranking, and budgeting are done **before** a session starts, not at p
     manifest.json            # version tracking (hidden from the agent)
 
   context/                   # READ-ONLY (chmod 0o444)
-    session.toon             # TOON pack: task, ancestors, agent, team, routine state
+    session.toon             # TOON pack: task, ancestors, agent, team, subscription state
 
   knowledge/                 # READ-WRITE, watched — the real tree, shaped like the real tree
     rules/                   # slot='rule' documents land here regardless of tree position
@@ -78,7 +78,7 @@ Selection, ranking, and budgeting are done **before** a session starts, not at p
 
 | Zone | Permission | Purpose | Fate |
 |------|-----------|---------|------|
-| `context/` | read-only | This session's own context (task, ancestors, agent, team, routine state) | Changes discarded |
+| `context/` | read-only | This session's own context (task, ancestors, agent, team, subscription state) | Changes discarded |
 | `work/` | read-write | Session scratch, artifacts | Captured back at session end (see [run-unit-model.md](../architecture/run-unit-model.md)) |
 | `knowledge/` | read-write, watched | The real document tree — reading it is reading the knowledge base, writing to it proposes a change | Diffed and written back to `documents` via `edit_document`, as the session's own agent |
 
@@ -113,9 +113,9 @@ Writeback matches files to documents by `source_path` and checks versions agains
 
 Weights are fixed constants, not DB-tunable. Budget: `CONTEXT_WINDOW_TOKENS = 200,000`, `DOCUMENT_ALLOCATION_RATIO = 0.2` → a 40,000-token document budget, filled greedily by score descending, with one exception — **factory-scoped documents are always included first, non-negotiable, even over budget**. Capability documents (skill/rule/agent_file) bypass ranking entirely and load unconditionally — plugin installation is a deliberate act. "Load what you need, nothing more" is implemented, not aspirational; the cap exists to prevent a degenerate case (a scope with thousands of documents) from blowing up session costs.
 
-**Nothing scores a document for human attention any more.** There is no facilitator review queue and no attention engine. Instead, the document-management plugin's `document-triage` routine reads every `proposed` document and promotes or archives it by judgement, and its `document-decay` routine archives `ordinary`, in-tree documents nobody has read or been handed in 90+ days (`search_documents({unusedSince, sort:"least_used"})`) — both real agent routines, not a scoring formula. See `plugins/document-management/`.
+**Nothing scores a document for human attention any more.** There is no facilitator review queue and no attention engine. Instead, the document-management plugin's `document-triage` subscription reads every `proposed` document and promotes or archives it by judgement, and its `document-decay` subscription archives `ordinary`, in-tree documents nobody has read or been handed in 90+ days (`search_documents({unusedSince, sort:"least_used"})`) — both real agent subscriptions, not a scoring formula. See `plugins/document-management/`.
 
-**TOON reality** (spec: [github.com/toon-format/toon](https://github.com/toon-format/toon); codec at `framework/toon-codec/src/toon-codec.ts`): the only TOON artifact is `context/session.toon`, built from task (with its subtree context), team, user, and routine state. Documents are always written as markdown; per-document TOON packing was never built.
+**TOON reality** (spec: [github.com/toon-format/toon](https://github.com/toon-format/toon); codec at `framework/toon-codec/src/toon-codec.ts`): the only TOON artifact is `context/session.toon`, built from task (with its subtree context), team, user, and subscription state. Documents are always written as markdown; per-document TOON packing was never built.
 
 ## 4. Why context assembly, not FUSE
 
