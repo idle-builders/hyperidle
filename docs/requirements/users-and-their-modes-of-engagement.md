@@ -10,7 +10,7 @@ Humans engage through six interaction modes, each with a distinct rhythm and cog
 
 **Review (seconds, reactive).** Approve, reject, or comment on concrete proposed actions. This is the daily driver. Target: 15-second decidability for simple items, with room for multi-turn conversation when the item warrants it — see [the three views](../human-interface-layer/the-three-views.md) for the full principle.
 
-**Prioritize (ambient, daily).** Glance at factory state — active tasks, blockers, capacity (`WorkOverview.tsx`, `WorkTask.tsx` / `WorkRoutine.tsx` / `AgentProfile.tsx`). A few minutes with morning coffee. No decisions required, just awareness and occasional nudges.
+**Prioritize (ambient, daily).** Glance at factory state — active tasks, blockers, agent subscriptions (`WorkOverview.tsx`, `WorkTask.tsx`, `AgentProfile.tsx`). A few minutes with morning coffee. No decisions required, just awareness and occasional nudges.
 
 **Create (minutes, proactive).** Humans are not just reviewers — they actively create:
 - **Tasks** — author a title, description, and done condition; create tasks from the Work view (`WorkTaskCreate.tsx`). Root tasks are the top-level commitments; subtasks can be added to any depth.
@@ -18,7 +18,7 @@ Humans engage through six interaction modes, each with a distinct rhythm and cog
 - **Conversations** — initiate threads with specific agents via the RecipientPicker, opened from the UI.
 - **Session dial-in** — observe a running agent session's live activity stream (**D** key, `Conversations.tsx`). Read-only, with filter tabs All | Tools | Reasoning.
 
-**Plan (weekly, focused).** Pick the next 2–3 root tasks to accept under a hard capacity cap (`teams.capacity`). Fifteen minutes, once a week — forces trade-offs through explicit limits. Task states are `proposed | accepted | hold | in_progress | blocked | review | done | killed`; lifecycle owned by [tasks and sessions](../process-layer/tasks-and-sessions.md).
+**Plan (weekly, focused).** Pick the next 2–3 root tasks to accept, bounded by how many sessions the team's agents can actually run at once (`maxConcurrentSessions`, not a team-level cap). Fifteen minutes, once a week — forces trade-offs through what agent capacity actually exists. Task states are `proposed | accepted | hold | in_progress | blocked | review | done | killed`; lifecycle owned by [tasks and sessions](../process-layer/tasks-and-sessions.md).
 
 **Assistant (monthly, conversational).** Talk with the assistant agent about how the factory is running — cross-product patterns, recurring obstacles, rule changes. Accessible via the assistant overlay (sidebar button), deliberately engaged monthly.
 
@@ -26,4 +26,4 @@ Humans engage through six interaction modes, each with a distinct rhythm and cog
 
 ## 2. Agent Users
 
-Agents never see a UI. Their experience is defined by the APIs, schemas, and data stores they read from and write to. Agents share the same `users` table as humans, with `kind='ai'`, and participate in threads, review routing (via `org_edges`), and team membership (`team_members`) through the same data model. Agent taxonomy, identity, and lifecycle: [agent model](../agent-layer/agent-model.md).
+Agents never see a UI. Their experience is defined by the APIs, schemas, and data stores they read from and write to. Agents share the same `users` table as humans, with `kind='ai'`, and participate in threads, review routing (via `org_edges`), team membership (`users.teamId`, or an owned agent's owner's team), and subscriptions through the same data model. Agent taxonomy, identity, and lifecycle: [agent model](../agent-layer/agent-model.md).
