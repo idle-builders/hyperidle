@@ -6,7 +6,7 @@
  *  - Use AgentEditor (shared editor) in the SplitView destination pane.
  *  - Model dropdown reads descriptor.models (discovered), NOT MODEL_CATALOG.
  *  - SplitView ratio persisted via useUiPreference("settings.agents", 0.42).
- *  - Save routing: PATCH /api/agents/:id, for every agent including assistants.
+ *  - Save routing: `edit_user`, for every agent including assistants.
  *
  * @lore AV2: The assistant (ast-*) was previously filtered out of this list and
  * managed in SettingsAssistant. AV2 unifies: the assistant IS an agent. The row
@@ -21,11 +21,28 @@
  * const [ratio, setRatio] = useUiPreference(key, default)
  * then dividerRatio={ratio} onRatioChange={setRatio} — surfaceKey alone is
  * presentational/informational only (SplitView.tsx:46 @lore AM5 T6).
+ *
+ * @lore BC5 T9: the door swap — `search_users({ kind: "ai" })` replaces `GET
+ * /api/agents`; one `open_user({ id })` per row (parallel) replaces the
+ * per-row `GET /api/filesystems?agentUserId=` fetch and carries the full
+ * editor draft (harness/model/identity/folders) up front, so opening a row
+ * no longer needs a second fetch. `edit_user` replaces the agent PATCH/POST/
+ * DELETE routes: a save is a patch by id, a create passes `kind:"ai"` and
+ * `identity: systemPrompt ?? ""` always (so the agent gets an identity
+ * document even from an empty box, matching the old route), and a delete is
+ * `status:"retired"` — there is no hard agent delete any more. Filesystem
+ * injection is `folders.give`/`folders.take` on the same call, so the two
+ * separate `POST/DELETE .../injections` round trips collapse into the save.
+ * The install-wide harness list and the caller's team folders both come off
+ * one `open_user({})` (self) call — `runsOn` is install-wide regardless of
+ * whose row you open, and a person's `folders` are their team's registered
+ * ones (the injection pool). A new agent's team defaults to the caller's
+ * (`open_user({}).user.team`) — this screen has no team picker of its own.
  */
 
 // hearth-internal-padding
 
-import { roleLabel } from "@hyperidle/domain-model";
+import { type HarnessType, HARNESS_TYPES, roleLabel } from "@hyperidle/domain-model";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import { type JSX, useCallback, useEffect, useState } from "react";
 import type { FoldMode } from "../ds";
@@ -41,22 +58,11 @@ import {
 } from "../ds";
 import { useUiPreference } from "../hooks/useUiPreference.js";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
-import { apiFetch } from "../services/api-fetch.js";
 import { call } from "../services/call.js";
 import { useToast } from "../shell/ToastRegion.js";
 import type { AgentEditorDraft } from "./AgentEditor.js";
 import { AgentEditor } from "./AgentEditor.js";
 import type { AgentConfig, InjectableFilesystem } from "./settings-types.js";
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-interface OrgTeam {
-	id: string;
-	name: string;
-	teamActualId?: string;
-}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -77,6 +83,19 @@ function agentToEditorDraft(agent: AgentConfig): AgentEditorDraft {
 	};
 }
 
+/** A team folder as `open_user` carries it, shaped for the injection control. */
+function folderToInjectable(folder: {
+	id: string;
+	source: string;
+	kind: string;
+	resourceRef: { kind: string; repo?: string; branch?: string; folder?: string };
+}): InjectableFilesystem {
+	const ref = folder.resourceRef;
+	const resource =
+		ref.kind === "code" ? `${ref.repo ?? ""}${ref.branch ? `@${ref.branch}` : ""}` : (ref.folder ?? "");
+	return { id: folder.id, source: folder.source, kind: folder.kind, resource };
+}
+
 /**
  * Active session counts keyed by agent id, degrading to "0 active" on any
  * failure — the agent list is core's data and stands on its own.
@@ -95,20 +114,6 @@ async function fetchActiveRunCounts(): Promise<Readonly<Record<string, number>>>
 	return counts;
 }
 
-/**
- * AH2: Parse a structured 422 error body to get the human-readable message.
- * Returns null for non-422 errors (those go to toast).
- */
-async function extract422Error(res: Response): Promise<string | null> {
-	if (res.status !== 422) return null;
-	try {
-		const body = (await res.json()) as { error?: string; code?: string };
-		return body.error ?? "Server rejected the changes.";
-	} catch {
-		return "Server rejected the changes.";
-	}
-}
-
 // ---------------------------------------------------------------------------
 // SettingsAgents
 // ---------------------------------------------------------------------------
@@ -118,7 +123,6 @@ export function SettingsAgents(): JSX.Element {
 	const [agents, setAgents] = useState<AgentConfig[]>([]);
 	const [harnesses, setHarnesses] = useState<HarnessCapabilityDescriptor[]>([]);
 	const [filesystems, setFilesystems] = useState<InjectableFilesystem[]>([]);
-	const [orgTeams, setOrgTeams] = useState<OrgTeam[]>([]);
 	/**
 	 * @lore AU26 J4: the "N active" count per agent used to ride on
 	 * `GET /api/agents` (and on both PATCH responses, purely so the client could
@@ -160,60 +164,62 @@ export function SettingsAgents(): JSX.Element {
 		filesystemIds: [],
 		modelOptions: {},
 	});
+	/** The caller's own team — a new agent defaults to it; this screen has no team picker. */
+	const [selfTeamName, setSelfTeamName] = useState<string | null>(null);
 
 	// ---------------------------------------------------------------------------
 	// Data loading
 	// ---------------------------------------------------------------------------
 
-	const loadTeamFilesystems = useCallback(
-		async (teamActualId: string | undefined): Promise<void> => {
-			if (!teamActualId) return;
-			const filesystemsRes = await apiFetch(
-				`/api/filesystems?teamId=${encodeURIComponent(teamActualId)}`,
-			);
-			if (filesystemsRes.ok) {
-				const fsJson = (await filesystemsRes.json()) as { filesystems?: InjectableFilesystem[] };
-				if (Array.isArray(fsJson.filesystems)) setFilesystems(fsJson.filesystems);
-			}
-		},
-		[],
-	);
-
 	const loadAgents = useCallback(async (): Promise<void> => {
 		setStatus("loading");
 		try {
-			const [agentsRes, harnessesRes, orgRes] = await Promise.all([
-				apiFetch("/api/agents"),
-				apiFetch("/api/harnesses"),
-				apiFetch("/api/org"),
+			const [selfResult, listResult] = await Promise.all([
+				call("open_user", {}),
+				call("search_users", { kind: "ai" }),
 			]);
-			if (!agentsRes.ok) throw new Error(`HTTP ${agentsRes.status}`);
-			const agentsJson = (await agentsRes.json()) as AgentConfig[];
-			setAgents(agentsJson);
+			if (!listResult.ok) throw new Error(listResult.problems[0]?.message ?? "Failed to load agents");
+
+			if (selfResult.ok) {
+				setHarnesses([...selfResult.data.runsOn]);
+				setFilesystems(selfResult.data.folders.map(folderToInjectable));
+				setSelfTeamName(selfResult.data.user?.team?.name ?? null);
+			}
 
 			// Active session counts from search_sessions. A failure here must
 			// not fail the page — the agent list is core's data and stands on its
 			// own; the counts simply render as 0.
-			const counts = await fetchActiveRunCounts();
-			setActiveRunCounts(counts);
+			const countsPromise = fetchActiveRunCounts();
 
-			if (harnessesRes.ok) {
-				const harnessesJson = (await harnessesRes.json()) as HarnessCapabilityDescriptor[];
-				if (Array.isArray(harnessesJson)) setHarnesses(harnessesJson);
-			}
-
-			if (orgRes.ok) {
-				const orgJson = (await orgRes.json()) as { teams?: OrgTeam[] };
-				const teamList = Array.isArray(orgJson.teams) ? orgJson.teams : [];
-				setOrgTeams(teamList);
-				const firstTeamActualId = teamList[0]?.teamActualId;
-				await loadTeamFilesystems(firstTeamActualId);
-			}
+			const views = await Promise.all(listResult.data.map((row) => call("open_user", { id: row.id })));
+			const agentConfigs: AgentConfig[] = listResult.data.map((row, index) => {
+				const view = views[index];
+				const identityDocumentId = view?.ok
+					? (view.data.documentIds.find((d) => d.slot === "agent_file")?.id ?? null)
+					: null;
+				return {
+					id: row.id,
+					name: row.name,
+					role: row.role,
+					ownerUserId: row.ownerUserId,
+					identityDocumentId,
+					harnessType: view?.ok ? view.data.runConfig?.harnessType ?? null : null,
+					modelId: view?.ok ? view.data.runConfig?.modelId ?? null : null,
+					modelProvider: view?.ok ? view.data.runConfig?.modelProvider ?? null : null,
+					maxConcurrentSessions: view?.ok ? (view.data.runConfig?.maxConcurrentSessions ?? 1) : 1,
+					status: row.status,
+					agentCategory: row.agentCategory,
+					filesystemIds: view?.ok ? view.data.folders.map((f) => f.id) : [],
+					modelOptions: view?.ok ? (view.data.runConfig?.modelOptions ?? {}) : {},
+				};
+			});
+			setAgents(agentConfigs);
+			setActiveRunCounts(await countsPromise);
 			setStatus("ready");
 		} catch {
 			setStatus("error");
 		}
-	}, [loadTeamFilesystems]);
+	}, []);
 
 	useEffect(() => {
 		void loadAgents();
@@ -223,26 +229,11 @@ export function SettingsAgents(): JSX.Element {
 	// Agent row click → open editor
 	// ---------------------------------------------------------------------------
 
-	const handleAgentClick = useCallback(async (agent: AgentConfig): Promise<void> => {
+	const handleAgentClick = useCallback((agent: AgentConfig): void => {
 		setEditError(null);
 		setAddMode(false);
-
-		// Load the agent's currently-injected filesystems
-		let injectedIds: string[] = [];
-		try {
-			const injRes = await apiFetch(`/api/filesystems?agentUserId=${encodeURIComponent(agent.id)}`);
-			if (injRes.ok) {
-				const injJson = (await injRes.json()) as { filesystems?: Array<{ id: string }> };
-				if (Array.isArray(injJson.filesystems)) {
-					injectedIds = injJson.filesystems.map((f) => f.id);
-				}
-			}
-		} catch {
-			// non-fatal
-		}
-
-		setEditOriginalFsIds(injectedIds);
-		setDraft({ ...agentToEditorDraft(agent), filesystemIds: injectedIds });
+		setEditOriginalFsIds(agent.filesystemIds ?? []);
+		setDraft(agentToEditorDraft(agent));
 		setSelectedId(agent.id);
 		setSplitMode("split");
 	}, []);
@@ -256,7 +247,7 @@ export function SettingsAgents(): JSX.Element {
 	}, []);
 
 	// ---------------------------------------------------------------------------
-	// Save: PATCH /api/agents/:id, for every agent including the assistant
+	// Save: `edit_user`, for every agent including the assistant
 	// ---------------------------------------------------------------------------
 
 	const handleEditSave = useCallback(async (): Promise<void> => {
@@ -265,68 +256,65 @@ export function SettingsAgents(): JSX.Element {
 		setEditError(null);
 
 		try {
-			// One route for every agent. The id-prefix split existed because the
-			// persona was a column with an assistant-shaped guard on it; both the
-			// guard and the second route are gone.
-			const res = await apiFetch(`/api/agents/${encodeURIComponent(selectedId)}`, {
-				method: "PATCH",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					name: draft.name,
-					role: draft.role,
-					harnessType: draft.harnessType || null,
-					modelId: draft.modelId || null,
-					modelProvider: draft.modelProvider || null,
-					maxConcurrentSessions: draft.maxConcurrentSessions,
-					modelOptions: draft.modelOptions,
-				}),
-			});
-
-			if (res.status === 422) {
-				const msg = await extract422Error(res);
-				setEditError(msg);
-				return;
-			}
-			if (!res.ok) {
-				showToast("Failed to save agent");
-				return;
-			}
-
-			const updated = (await res.json()) as AgentConfig;
-
-			// AO1: persist filesystem injection changes
 			const newIds = new Set(draft.filesystemIds);
 			const origIds = new Set(editOriginalFsIds);
-			const toAdd = draft.filesystemIds.filter((id) => !origIds.has(id));
-			const toRemove = editOriginalFsIds.filter((id) => !newIds.has(id));
-			await Promise.all([
-				...toAdd.map((fsId) =>
-					apiFetch(`/api/filesystems/${encodeURIComponent(fsId)}/injections`, {
-						method: "POST",
-						headers: { "Content-Type": "application/json" },
-						body: JSON.stringify({ agentUserId: selectedId }),
-					}),
-				),
-				...toRemove.map((fsId) =>
-					apiFetch(
-						`/api/filesystems/${encodeURIComponent(fsId)}/injections/${encodeURIComponent(selectedId)}`,
-						{ method: "DELETE" },
-					),
-				),
-			]);
+			const give = draft.filesystemIds.filter((id) => !origIds.has(id));
+			const take = editOriginalFsIds.filter((id) => !newIds.has(id));
+			const harnessType = HARNESS_TYPES.includes(draft.harnessType as HarnessType)
+				? (draft.harnessType as HarnessType)
+				: undefined;
 
-			setAgents((prev) => prev.map((a) => (a.id === selectedId ? updated : a)));
+			// One action for every agent. The id-prefix split existed because the
+			// persona was a column with an assistant-shaped guard on it; both the
+			// guard and the second route are gone.
+			const result = await call("edit_user", {
+				id: selectedId,
+				name: draft.name,
+				role: draft.role,
+				runConfig: {
+					...(harnessType ? { harnessType } : {}),
+					...(draft.modelId ? { modelId: draft.modelId } : {}),
+					...(draft.modelProvider ? { modelProvider: draft.modelProvider } : {}),
+					maxConcurrentSessions: draft.maxConcurrentSessions,
+					modelOptions: draft.modelOptions,
+				},
+				...(give.length > 0 || take.length > 0 ? { folders: { give, take } } : {}),
+			});
+
+			if (!result.ok) {
+				setEditError(result.problems[0]?.message ?? "Server rejected the changes.");
+				return;
+			}
+
+			setAgents((prev) =>
+				prev.map((a) =>
+					a.id === selectedId
+						? {
+								...a,
+								name: draft.name,
+								role: draft.role,
+								harnessType: draft.harnessType || null,
+								modelId: draft.modelId || null,
+								modelProvider: draft.modelProvider,
+								maxConcurrentSessions: draft.maxConcurrentSessions,
+								modelOptions: draft.modelOptions,
+								filesystemIds: draft.filesystemIds,
+							}
+						: a,
+				),
+			);
 			setSelectedId(null);
 			setDraft(null);
 			setEditOriginalFsIds([]);
 			setSplitMode("fold-back");
 			showToast("Agent saved");
+			void loadAgents();
 		} catch {
 			showToast("Failed to save agent");
 		} finally {
 			setSaving(false);
 		}
-	}, [selectedId, draft, editOriginalFsIds, showToast]);
+	}, [selectedId, draft, editOriginalFsIds, showToast, loadAgents]);
 
 	// ---------------------------------------------------------------------------
 	// Add agent
@@ -336,33 +324,25 @@ export function SettingsAgents(): JSX.Element {
 		setAdding(true);
 		setAddError(null);
 		try {
-			const teamId = orgTeams.length > 0 ? (orgTeams[0]?.id ?? null) : null;
-			const res = await apiFetch("/api/agents", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					name: addDraft.name,
-					role: addDraft.role,
-					systemPrompt: addDraft.systemPrompt || null,
-					harnessType: addDraft.harnessType || null,
-					modelId: addDraft.modelId || null,
-					modelProvider: addDraft.modelProvider || null,
+			const harnessType = HARNESS_TYPES.includes(addDraft.harnessType as HarnessType)
+				? (addDraft.harnessType as HarnessType)
+				: undefined;
+			const result = await call("edit_user", {
+				kind: "ai",
+				name: addDraft.name,
+				role: addDraft.role,
+				identity: addDraft.systemPrompt || "",
+				...(selfTeamName ? { team: { name: selfTeamName } } : {}),
+				runConfig: {
+					...(harnessType ? { harnessType } : {}),
 					maxConcurrentSessions: addDraft.maxConcurrentSessions,
 					modelOptions: addDraft.modelOptions,
-					teamId,
-				}),
+				},
 			});
-			if (res.status === 422) {
-				const msg = await extract422Error(res);
-				setAddError(msg);
+			if (!result.ok) {
+				setAddError(result.problems[0]?.message ?? "Server rejected the changes.");
 				return;
 			}
-			if (!res.ok) {
-				showToast("Failed to create agent");
-				return;
-			}
-			const created = (await res.json()) as AgentConfig;
-			setAgents((prev) => [...prev, created]);
 			setAddMode(false);
 			setAddDraft({
 				name: "",
@@ -376,24 +356,23 @@ export function SettingsAgents(): JSX.Element {
 				modelOptions: {},
 			});
 			showToast("Agent created");
+			void loadAgents();
 		} catch {
 			showToast("Failed to create agent");
 		} finally {
 			setAdding(false);
 		}
-	}, [addDraft, orgTeams, showToast]);
+	}, [addDraft, selfTeamName, showToast, loadAgents]);
 
 	// ---------------------------------------------------------------------------
-	// Delete
+	// Delete — soft: status "retired". There is no hard agent delete any more.
 	// ---------------------------------------------------------------------------
 
 	const handleDeleteConfirm = useCallback(
 		async (agentId: string): Promise<void> => {
 			try {
-				const res = await apiFetch(`/api/agents/${encodeURIComponent(agentId)}`, {
-					method: "DELETE",
-				});
-				if (!res.ok) throw new Error(`HTTP ${res.status}`);
+				const result = await call("edit_user", { id: agentId, status: "retired" });
+				if (!result.ok) throw new Error(result.problems[0]?.message ?? "Failed to delete agent");
 				setAgents((prev) => prev.filter((a) => a.id !== agentId));
 				if (selectedId === agentId) {
 					setSelectedId(null);

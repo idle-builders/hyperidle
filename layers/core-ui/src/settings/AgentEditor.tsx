@@ -78,7 +78,7 @@ export interface AgentEditorDraft {
 }
 
 export interface AgentEditorProps {
-	/** The agent id being edited. Every agent, assistants included, uses /api/agents/:id. */
+	/** The agent id being edited. Every agent, assistants included, is edited through `edit_user`. */
 	agentId: string;
 	/**
 	 * The human this agent belongs to, or null for a team-owned agent. Decides
@@ -90,7 +90,7 @@ export interface AgentEditorProps {
 	/** Called when the user changes any draft field. */
 	onDraftChange: (fn: (prev: AgentEditorDraft) => AgentEditorDraft) => void;
 	/**
-	 * All harness descriptors (from GET /api/harnesses).
+	 * All harness descriptors (`open_user({}).runsOn` — install-wide, any user).
 	 * The editor picks `selectedDescriptor = harnesses.find(h => h.type === draft.harnessType)`.
 	 * Used to build the discovered model dropdown.
 	 */
