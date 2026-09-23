@@ -1,8 +1,8 @@
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
-import { EventBus } from "@hyperidle/event-bus";
 import { assembleSessionDocuments } from "@hyperidle/document";
+import { EventBus } from "@hyperidle/event-bus";
 import type { RegisteredTool } from "@hyperidle/harness-protocol";
 import type { NotificationsDeps } from "@hyperidle/notifications";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
@@ -18,7 +18,7 @@ import { Hono } from "hono";
 import type { Action, ActionContext } from "./actions/action.js";
 import { actionsAsTools } from "./actions/actions-as-tools.js";
 import { createActionsRouter } from "./actions/actions-router.js";
-import { buildCoreActions } from "./actions/compose.js";
+import { buildCoreActions, runnerFor } from "./actions/compose.js";
 import { createAgentRoutes } from "./routes/agents.js";
 import { createAuthRoutes } from "./routes/auth.js";
 import { createFilesystemInjectionRoutes } from "./routes/filesystems.js";
@@ -372,6 +372,53 @@ function buildCoreActionsBindings(
 }
 
 /**
+ * BC5 T7a architecture.md §4: registers the subscription fire mechanism
+ * (the nine object events) and its schedule half, extracted out of
+ * `createCoreApiApp` for the same reason `buildCoreActionsBindings` was —
+ * that function's own cognitive-complexity budget is already spent.
+ * `searchTasksRun`/`searchThreadsRun`/`searchDocumentsRun` are reach's own
+ * doors (already extracted in `createCoreApiApp`, never `open_*`);
+ * `assembleSessionDocuments`/`readServerConfig` are this Layer's own
+ * (never a nested Service's) imports, exactly like
+ * `task-run-resolver-bindings.ts`'s equivalent wiring.
+ */
+function registerSubscriptionServices(
+	options: AppOptions,
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	agentWorkIntentRecorder: import("@hyperidle/domain-model").AgentWorkIntentRecorderFn,
+	runners: {
+		readonly searchTasksRun: import("@hyperidle/user").SearchTasksReachFn;
+		readonly searchThreadsRun: import("@hyperidle/user").SearchThreadsReachFn;
+		readonly searchDocumentsRun: import("./actions/action.js").SearchDocumentsRunFn;
+	},
+): Array<() => void> {
+	const wsPush = options.wsHub
+		? (topic: string, envelope: unknown) =>
+				options.wsHub?.broadcast(topic, JSON.stringify(envelope))
+		: undefined;
+	const unsubSubscriptionFire = registerSubscriptionFire(db, eventBus, {
+		agentWorkIntentRecorder,
+		searchTasks: runners.searchTasksRun,
+		searchThreads: runners.searchThreadsRun,
+		searchDocuments: runners.searchDocumentsRun,
+		assembleSessionDocuments,
+		readServerConfig: (readDb) => readServerConfig(readDb),
+		...(wsPush ? { wsPush } : {}),
+	});
+	// BC5 T7a: the schedule half — started and stopped alongside the fire
+	// mechanism, needing the SAME composed runners `registerAgentLayerServices`
+	// (the routine scheduler's own composition root) never had.
+	const subscriptionClock = startSubscriptionClock(db, eventBus, {
+		agentWorkIntentRecorder,
+		searchDocuments: runners.searchDocumentsRun,
+		assembleSessionDocuments,
+		readServerConfig: (readDb) => readServerConfig(readDb),
+	});
+	return [unsubSubscriptionFire, subscriptionClock.stop];
+}
+
+/**
  * Create `core-api`'s own route table — the Layer's HTTP surface and nothing
  * else. The returned app is mounted by the Application at `/` on its `/api`
  * router, AFTER the middleware stack, beside `bootAgentOrchestration().app`.
@@ -499,17 +546,20 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		>;
 		// BC5 T7a architecture.md §4: subscription reach — extracted the same
 		// way `searchDocumentsRun` is, never `open_task`/`open_thread` (a
-		// subscriber's reach must never count as a read).
-		const searchTasksAction = actions.find((a) => a.declaration.name === "search_tasks");
-		if (!searchTasksAction) {
-			throw new Error("buildCoreActions did not produce a search_tasks action");
-		}
-		const searchTasksRun = searchTasksAction.run as import("@hyperidle/user").SearchTasksReachFn;
-		const searchThreadsAction = actions.find((a) => a.declaration.name === "search_threads");
-		if (!searchThreadsAction) {
-			throw new Error("buildCoreActions did not produce a search_threads action");
-		}
-		const searchThreadsRun = searchThreadsAction.run as import("@hyperidle/user").SearchThreadsReachFn;
+		// subscriber's reach must never count as a read). `runnerFor` throws
+		// its own "no such action" error, so this adds no branch here.
+		const searchTasksRun = runnerFor<
+			{ readonly ids: readonly string[] },
+			readonly {
+				readonly id: string;
+				readonly teamId: string;
+				readonly ownerAgentId: string | null;
+			}[]
+		>(actions, "search_tasks");
+		const searchThreadsRun = runnerFor<
+			{ readonly ids: readonly string[] },
+			readonly { readonly id: string }[]
+		>(actions, "search_threads");
 		// @lore document-module B10: the platform module's install/enable/
 		// disable/restore lifecycle (`edit_plugin`, bound in `compose.ts`'s
 		// fourth action group) writes documents through this same composed
@@ -665,38 +715,17 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		});
 		disposers.push(unsubDepWatcher);
 
-		// BC5 T7a architecture.md §4: the subscription fire mechanism, registered
-		// beside the dependency watcher above — a `void` async handler per object
-		// event, same idiom. `searchTasksRun`/`searchThreadsRun`/`searchDocumentsRun`
-		// (already extracted above) are reach's own doors, never `open_*`.
-		// `assembleSessionDocuments`/`readServerConfig` are this Layer's own
-		// (never a nested Service's) imports, exactly like
-		// `task-run-resolver-bindings.ts`'s equivalent wiring.
-		const wsPush = options.wsHub
-			? (topic: string, envelope: unknown) => options.wsHub?.broadcast(topic, JSON.stringify(envelope))
-			: undefined;
-		const unsubSubscriptionFire = registerSubscriptionFire(db, eventBus, {
-			agentWorkIntentRecorder,
-			searchTasks: searchTasksRun,
-			searchThreads: searchThreadsRun,
-			searchDocuments: searchDocumentsRun,
-			assembleSessionDocuments,
-			readServerConfig: (readDb) => readServerConfig(readDb),
-			...(wsPush ? { wsPush } : {}),
-		});
-		disposers.push(unsubSubscriptionFire);
-
-		// BC5 T7a architecture.md §4: the schedule half — started and stopped
-		// alongside the fire mechanism, needing the SAME composed runners
-		// `registerAgentLayerServices` (the routine scheduler's own composition
-		// root) never had.
-		const subscriptionClock = startSubscriptionClock(db, eventBus, {
-			agentWorkIntentRecorder,
-			searchDocuments: searchDocumentsRun,
-			assembleSessionDocuments,
-			readServerConfig: (readDb) => readServerConfig(readDb),
-		});
-		disposers.push(subscriptionClock.stop);
+		// BC5 T7a architecture.md §4: the subscription fire mechanism and its
+		// schedule half, registered beside the dependency watcher above.
+		// Extracted the same way `buildCoreActionsBindings` was — this
+		// function's own cognitive-complexity budget is already spent.
+		disposers.push(
+			...registerSubscriptionServices(options, db, eventBus, agentWorkIntentRecorder, {
+				searchTasksRun,
+				searchThreadsRun,
+				searchDocumentsRun,
+			}),
+		);
 
 		APP_DISPOSERS.set(api, disposers);
 	}

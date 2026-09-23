@@ -34,7 +34,12 @@ export interface SubscriptionClock {
 	readonly stop: () => void;
 }
 
-function actionContextFor(db: HyperIdleDb, eventBus: EventBus, actor: string, now: string): ActionContext {
+function actionContextFor(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	actor: string,
+	now: string,
+): ActionContext {
 	return { actor, db, eventBus, now, internal: true };
 }
 
@@ -49,7 +54,12 @@ function actionContextFor(db: HyperIdleDb, eventBus: EventBus, actor: string, no
 async function fireSchedule(
 	db: HyperIdleDb,
 	eventBus: EventBus,
-	sub: { readonly id: string; readonly userId: string; readonly schedule: string | null; readonly nextRunAt: string | null },
+	sub: {
+		readonly id: string;
+		readonly userId: string;
+		readonly schedule: string | null;
+		readonly nextRunAt: string | null;
+	},
 	deps: SubscriptionClockDeps,
 ): Promise<void> {
 	const dueAt = sub.nextRunAt;
@@ -101,10 +111,16 @@ async function fireSchedule(
 	await updateSubscription(db, sub.id, { nextRunAt, updatedAt: now.toISOString() });
 }
 
-async function tick(db: HyperIdleDb, eventBus: EventBus, deps: SubscriptionClockDeps): Promise<void> {
+async function tick(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	deps: SubscriptionClockDeps,
+): Promise<void> {
 	const now = new Date().toISOString();
 	const candidates = await listSubscriptions(db, { paused: false });
-	const due = candidates.filter((s) => s.schedule !== null && s.nextRunAt !== null && s.nextRunAt <= now);
+	const due = candidates.filter(
+		(s) => s.schedule !== null && s.nextRunAt !== null && s.nextRunAt <= now,
+	);
 	for (const sub of due) {
 		await fireSchedule(db, eventBus, sub, deps);
 	}

@@ -20,14 +20,10 @@
  * uses, a person gets an inbox row and a `user:<id>` nudge.
  */
 import type { HyperIdleDb, User } from "@hyperidle/db";
-import type {
-	AgentWorkIntentRecorderFn,
-	ChangeRow,
-	Problem,
-} from "@hyperidle/domain-model";
+import { createLogger } from "@hyperidle/diagnostics";
+import type { AgentWorkIntentRecorderFn, ChangeRow, Problem } from "@hyperidle/domain-model";
 import { OBJECT_EVENTS } from "@hyperidle/domain-model";
 import type { EventBus, ObjectChangeEvent } from "@hyperidle/event-bus";
-import { createLogger } from "@hyperidle/diagnostics";
 import type { ActionContext, SearchDocumentsRunFn } from "./action-types.js";
 import { AgentNotRunnableError } from "./runnable-agent.js";
 import type { SubscriptionWakeDeps } from "./subscription-wake.js";
@@ -49,7 +45,8 @@ export type SearchTasksReachFn = (
 	ctx: ActionContext,
 	input: { readonly ids: readonly string[] },
 ) => Promise<
-	{ readonly ok: true; readonly data: readonly TaskReachRow[] } | { readonly ok: false; readonly problems: readonly Problem[] }
+	| { readonly ok: true; readonly data: readonly TaskReachRow[] }
+	| { readonly ok: false; readonly problems: readonly Problem[] }
 >;
 
 /** `search_threads({ids})` run AS the subscriber — existence alone answers reach. */
@@ -73,7 +70,12 @@ export interface SubscriptionFireDeps extends SubscriptionWakeDeps {
 	readonly wsPush?: (topic: string, envelope: unknown) => void;
 }
 
-function actionContextFor(db: HyperIdleDb, eventBus: EventBus, actor: string, now: string): ActionContext {
+function actionContextFor(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	actor: string,
+	now: string,
+): ActionContext {
 	return { actor, db, eventBus, now, internal: true };
 }
 

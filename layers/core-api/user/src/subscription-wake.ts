@@ -21,16 +21,16 @@
 import type { HyperIdleDb, User } from "@hyperidle/db";
 import {
 	type BakedContextBundle,
-	bakeAgentRunnableConfig,
 	type BakedWorkIntentRequest,
+	bakeAgentRunnableConfig,
 	type ChangeRow,
 	type SessionDocumentLike,
 	toBakedContextDocuments,
 } from "@hyperidle/domain-model";
 import type { ActionContext, SearchDocumentsRunFn } from "./action-types.js";
+import { requireRunnableAgent } from "./runnable-agent.js";
 import { getTeam } from "./team-lookup.js";
 import { findUser } from "./user-store.js";
-import { requireRunnableAgent } from "./runnable-agent.js";
 
 /** Injected, cross-Service capabilities this resolver cannot own directly. */
 export interface SubscriptionWakeDeps {

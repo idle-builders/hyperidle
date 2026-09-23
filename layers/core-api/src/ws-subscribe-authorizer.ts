@@ -96,9 +96,7 @@ interface RealtimeUserReader {
 	getUserById(
 		db: HyperIdleDb,
 		id: string,
-	): Promise<
-		{ readonly teamId: string | null; readonly ownerUserId: string | null } | undefined
-	>;
+	): Promise<{ readonly teamId: string | null; readonly ownerUserId: string | null } | undefined>;
 	listOwnedBy(db: HyperIdleDb, ownerId: string): Promise<readonly { readonly id: string }[]>;
 }
 

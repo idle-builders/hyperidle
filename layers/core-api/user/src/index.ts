@@ -67,6 +67,13 @@ export type { UpsertOrgEdgeInput } from "./org-edges.js";
 export { deleteOrgEdge, listOrgEdges, upsertOrgEdge } from "./org-edges.js";
 // -- runnable-agent invariant (AU21 §6 Decision B — the shared ast-<userId> check) --
 export { AgentNotRunnableError, requireRunnableAgent } from "./runnable-agent.js";
+// -- subscription clock (the schedule half — cron due rows) --
+export type {
+	SubscriptionClock,
+	SubscriptionClockConfig,
+	SubscriptionClockDeps,
+} from "./subscription-clock.js";
+export { startSubscriptionClock } from "./subscription-clock.js";
 // -- subscription fire (the nine object events wake a subscription) --
 export type {
 	SearchTasksReachFn,
@@ -75,13 +82,6 @@ export type {
 	SubscriptionFireDisposer,
 } from "./subscription-fire.js";
 export { registerSubscriptionFire } from "./subscription-fire.js";
-// -- subscription clock (the schedule half — cron due rows) --
-export type {
-	SubscriptionClock,
-	SubscriptionClockConfig,
-	SubscriptionClockDeps,
-} from "./subscription-clock.js";
-export { startSubscriptionClock } from "./subscription-clock.js";
 // -- subscription wake (the baked request both fire and clock share) --
 export type { ResolveSubscriptionWakeInput, SubscriptionWakeDeps } from "./subscription-wake.js";
 export { resolveSubscriptionWakeRequest } from "./subscription-wake.js";
