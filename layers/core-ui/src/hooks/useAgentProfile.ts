@@ -5,20 +5,20 @@
  * When agentId is undefined, returns idle state (no fetch).
  *
  * @lore BC5 T9: the door swap — `call("open_user", { id: agentId })` replaces
- * `apiFetch("/api/agents/:id/profile")` (architecture.md §8). The old
- * `AgentProfileResponse`'s `harnessCapabilities` and `reviewTrackRecord`
- * (adapter-capability flags and review-verdict aggregation) have no
- * equivalent on `open_user` — that route is itself retired in a later item
- * (architecture.md §9, T11's deletion list names `agent-profile`) — so
- * `AgentProfile.tsx` no longer renders those two sections; every other field
+ * `apiFetch("/api/agents/:id/profile")` (architecture.md §8). Every field
  * (identity, role, team, harness/model config, identity document,
  * subscriptions) comes straight off `UserView`. `activeSession`,
  * `recentSessions`, `performance` and `healthSignals` were already client-
  * derived from `agent-orchestration` (AU26 J4, `useAgentRunState`) and are
  * untouched by this door swap.
+ *
+ * @lore BC5 T11: `harnessCapabilities` (a matching `runsOn` entry) and
+ * `reviewTrackRecord` (now computed by `open_user` itself, restored from
+ * the deleted `agent-profile.ts` route) are back — dropped fields, not
+ * dropped facts.
  */
 
-import type { SubscriptionView } from "@hyperidle/domain-model";
+import type { HarnessDescriptor, SubscriptionView, UserView } from "@hyperidle/domain-model";
 import { useEffect, useState } from "react";
 import { call } from "../services/call.js";
 
@@ -34,6 +34,9 @@ export interface AgentProfileData {
 	readonly harnessType: string | null;
 	readonly maxConcurrentSessions: number;
 	readonly subscriptions: readonly SubscriptionView[];
+	/** The `runsOn` entry matching `harnessType`, or `null` when none/unset. */
+	readonly harnessCapabilities: HarnessDescriptor | null;
+	readonly reviewTrackRecord: UserView["reviewTrackRecord"];
 }
 
 export interface UseAgentProfileResult {
@@ -89,6 +92,9 @@ export function useAgentProfile(agentId: string | undefined): UseAgentProfileRes
 				}
 				const identityDocumentId =
 					result.data.documentIds.find((d) => d.slot === "agent_file")?.id ?? null;
+				const harnessType = result.data.runConfig?.harnessType ?? null;
+				const harnessCapabilities =
+					result.data.runsOn.find((h) => h.type === harnessType) ?? null;
 				setState({
 					data: {
 						id: row.id,
@@ -99,9 +105,11 @@ export function useAgentProfile(agentId: string | undefined): UseAgentProfileRes
 						teamId: row.team?.id ?? null,
 						createdAt: row.createdAt,
 						identityDocumentId,
-						harnessType: result.data.runConfig?.harnessType ?? null,
+						harnessType,
 						maxConcurrentSessions: result.data.runConfig?.maxConcurrentSessions ?? 1,
 						subscriptions: result.data.subscriptions,
+						harnessCapabilities,
+						reviewTrackRecord: result.data.reviewTrackRecord,
 					},
 					loading: false,
 					error: null,

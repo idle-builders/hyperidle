@@ -196,6 +196,21 @@ export interface UserActionsDeps {
 		describe(): readonly HarnessDescriptor[];
 		redetect(): Promise<void>;
 	};
+	/**
+	 * Agent only — a derived trust signal (§ restored from the deleted
+	 * `agent-profile.ts` route's `computeApprovalRate`). Absent → `null` on
+	 * every agent's `reviewTrackRecord` (a composition without policy wired).
+	 */
+	readonly reviewTrackRecord?: (db: HyperIdleDb, agentId: string) => Promise<{
+		readonly approvalRate: number;
+		readonly totalVerdicts: number;
+		readonly recentVerdicts: ReadonlyArray<{
+			readonly decision: string;
+			readonly threadId: string;
+			readonly createdAt: string;
+		}>;
+		readonly windowDays: number;
+	}>;
 	readonly readServerConfig: (
 		db: HyperIdleDb,
 	) => Promise<{ readonly harnessDisabled: readonly string[] }>;
@@ -378,6 +393,7 @@ async function buildUserView(
 			connections: null,
 			behaviour: null,
 			inbox: null,
+			reviewTrackRecord: null,
 		};
 	}
 
@@ -385,6 +401,13 @@ async function buildUserView(
 	if (!row) throw new Error("open_user: toUserRows dropped a row it was given");
 
 	const runConfig = userRow.kind === "ai" ? await deps.runConfig.read(userRow.id) : null;
+
+	// @lore BC5 T11: public for any caller, like the deleted agent-profile.ts
+	// route was — a review track record is not a self-only fact.
+	const reviewTrackRecord =
+		userRow.kind === "ai" && deps.reviewTrackRecord
+			? await deps.reviewTrackRecord(ctx.db, userRow.id)
+			: null;
 
 	let documentIds: UserView["documentIds"] = [];
 	if (userRow.kind === "ai") {
@@ -462,6 +485,7 @@ async function buildUserView(
 		connections,
 		behaviour,
 		inbox,
+		reviewTrackRecord,
 	} as UserView;
 }
 

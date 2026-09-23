@@ -29,6 +29,8 @@ const BASE_PROFILE: AgentProfileData = {
 	harnessType: "opencode",
 	maxConcurrentSessions: 1,
 	subscriptions: [],
+	harnessCapabilities: null,
+	reviewTrackRecord: null,
 };
 
 const DEGRADED_RUN_STATE: AgentRunState = {

@@ -33,6 +33,7 @@ import {
 } from "@hyperidle/settings";
 import { createTaskActions, type TaskActionsDeps } from "@hyperidle/task";
 import { createThreadActions, type ThreadActionsDeps } from "@hyperidle/thread";
+import { computeApprovalRate } from "../services/policy-bindings.js";
 import {
 	createUserActions,
 	deleteSubscriptions,
@@ -355,6 +356,21 @@ function buildUserActionsDeps(
 		behaviour: {
 			list: (db, options) => listAgentBehaviorConfiguration(db, options),
 			patch: (db, input) => patchAgentBehaviorConfiguration(db, input),
+		},
+		// @lore BC5 T11: restored from the deleted `agent-profile.ts` route —
+		// same `computeApprovalRate` call, same 30-day window, same 10-verdict cap.
+		reviewTrackRecord: async (db, agentId) => {
+			const result = await computeApprovalRate(db, agentId, 30, 10);
+			return {
+				approvalRate: result.approvalRate,
+				totalVerdicts: result.totalVerdicts,
+				recentVerdicts: result.recentVerdicts.map((v) => ({
+					decision: v.decision,
+					threadId: v.threadId,
+					createdAt: v.createdAt,
+				})),
+				windowDays: 30,
+			};
 		},
 		editDocument: runnerFor<EditDocumentInput, DocumentView>(documentActions, "edit_document"),
 		searchDocuments: runnerFor<SearchDocumentsInput, DocumentRow[]>(

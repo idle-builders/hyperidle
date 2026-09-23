@@ -51,6 +51,29 @@ const BASE_PROFILE: AgentProfileData = {
 			nextRunAt: "2024-06-10T09:00:00.000Z",
 		},
 	],
+	harnessCapabilities: {
+		type: "claude-code",
+		name: "Claude Code",
+		kind: "local",
+		authAction: { kind: "native_cli_login", label: "Sign in" },
+		discovery: { state: "ready" },
+		models: [{ id: "sonnet", label: "Sonnet", selectable: true, options: [] }],
+		returnEnforcement: "settings-claude",
+		modelProviders: ["anthropic"],
+	},
+	reviewTrackRecord: {
+		approvalRate: 0.86,
+		totalVerdicts: 14,
+		recentVerdicts: [
+			{ decision: "approve", threadId: "thr-1", createdAt: "2024-06-08T10:00:00.000Z" },
+			{
+				decision: "approve_with_comments",
+				threadId: "thr-2",
+				createdAt: "2024-06-05T10:00:00.000Z",
+			},
+		],
+		windowDays: 30,
+	},
 };
 
 /**

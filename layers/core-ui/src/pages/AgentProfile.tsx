@@ -493,15 +493,68 @@ function AgentProfileLoaded({
 								)}
 							</section>
 
-							{/* Section 2 — Subscriptions (BC5 T9: replaces Harness Capabilities +
-							    Review Track Record — see the @lore near CapabilityBadge's old spot). */}
+							{/* Section 2 — Harness Capabilities (BC5 T11: restored from
+							    open_user's runsOn, matched by harnessType). */}
+							{data.harnessCapabilities && (
+								<section
+									aria-label="Harness capabilities"
+									data-testid="agent-harness-capabilities-section"
+									className="flex flex-col gap-[12px]"
+								>
+									<SectionLabel label="Harness Capabilities" as="h2" />
+									<div className="flex flex-wrap gap-[6px]">
+										<Tag label={data.harnessCapabilities.kind} />
+										<Tag label={data.harnessCapabilities.discovery.state} />
+										{data.harnessCapabilities.returnEnforcement && (
+											<Tag label={data.harnessCapabilities.returnEnforcement} />
+										)}
+										<Tag label={`${data.harnessCapabilities.models.length} models`} />
+									</div>
+								</section>
+							)}
+
+							{/* Section 3 — Subscriptions */}
 							<SubscriptionsSection
 								userId={data.id}
 								subscriptions={data.subscriptions}
 								onChanged={refetch}
 							/>
 
-							{/* Section 3 — Recent Activity */}
+							{/* Section 4 — Review Track Record (BC5 T11: restored — computed
+							    by open_user itself now, through the deps bag). */}
+							{data.reviewTrackRecord && (
+								<section
+									aria-label="Review track record"
+									data-testid="agent-review-track-record-section"
+									className="flex flex-col gap-[12px]"
+								>
+									<SectionLabel label="Review Track Record" as="h2" />
+									<div className="flex flex-row gap-[24px]">
+										<KeyValue
+											label="Approval rate"
+											value={`${Math.round(data.reviewTrackRecord.approvalRate * 100)}%`}
+										/>
+										<KeyValue
+											label={`Verdicts (${data.reviewTrackRecord.windowDays}d)`}
+											value={String(data.reviewTrackRecord.totalVerdicts)}
+										/>
+									</div>
+									{data.reviewTrackRecord.recentVerdicts.length > 0 && (
+										<ul className="flex flex-col gap-[3px]">
+											{data.reviewTrackRecord.recentVerdicts.map((v, i) => (
+												<li
+													key={`${v.threadId}-${i}`}
+													className="type-small text-[var(--text-secondary)]"
+												>
+													{v.decision} — {absoluteDate(v.createdAt)}
+												</li>
+											))}
+										</ul>
+									)}
+								</section>
+							)}
+
+							{/* Section 5 — Recent Activity */}
 							<section
 								aria-label="Recent activity"
 								data-testid="agent-activity-section"
@@ -678,12 +731,9 @@ function AgentSessionPanel({
 // Session outcomes now render as full StatusChip pills (deliberate visual change:
 // text-only colored label → chrome pill with dot).
 //
-// @lore BC5 T9: CapabilityBadge and VerdictDot (the Harness Capabilities and
-// Review Track Record sections) are deleted — both read fields
-// (`harnessCapabilities`, `reviewTrackRecord`) that only ever existed on
-// `GET /api/agents/:id/profile`'s response, a route retired in this same
-// item's tree (architecture.md §9, T11's deletion list names
-// `agent-profile`). Neither has an `open_user` equivalent: capability flags
-// were adapter-probe output, and the review track record was verdict-message
-// aggregation — a thread-domain concern, not a user attribute. No successor
-// section replaces them.
+// @lore BC5 T11: CapabilityBadge/VerdictDot (the old dedicated components for
+// these two sections) are NOT restored — the restored sections above render
+// with plain Tag/KeyValue instead. Harness Capabilities reads a `runsOn`
+// entry (install-wide, matched by `harnessType`); Review Track Record reads
+// `open_user`'s own `reviewTrackRecord` field, computed through the deps bag
+// (`computeApprovalRate`, unchanged) rather than a second route.

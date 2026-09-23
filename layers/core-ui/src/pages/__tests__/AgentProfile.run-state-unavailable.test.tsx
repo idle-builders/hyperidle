@@ -30,6 +30,8 @@ const PROFILE: AgentProfileData = {
 	harnessType: "opencode",
 	maxConcurrentSessions: 1,
 	subscriptions: [],
+	harnessCapabilities: null,
+	reviewTrackRecord: null,
 };
 
 function runState(status: AgentRunState["status"]): AgentRunState {

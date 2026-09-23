@@ -335,6 +335,21 @@ const RunConfigViewSchema = z.object({
 	modelOptions: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).nullable(),
 });
 
+/**
+ * @lore BC5 T11: restored from the deleted `agent-profile.ts` route's own
+ * `computeApprovalRate` call — a derived trust signal, not a stored column.
+ */
+const ReviewTrackRecordSchema = z.object({
+	/** (approve + approve-with-comments) / total. 0 when no verdicts. */
+	approvalRate: z.number(),
+	totalVerdicts: z.number().int(),
+	/** Newest first, capped at 10. */
+	recentVerdicts: z.array(
+		z.object({ decision: z.string(), threadId: z.string(), createdAt: z.string() }),
+	),
+	windowDays: z.number().int(),
+});
+
 export const UserViewSchema = z.object({
 	/** null only for a caller with no row — the first-run moment. */
 	user: UserRowSchema.nullable(),
@@ -357,6 +372,12 @@ export const UserViewSchema = z.object({
 	behaviour: z.array(BehaviourEntrySchema).nullable(),
 	/** Self only, newest 50. */
 	inbox: z.array(InboxRowViewSchema).nullable(),
+	/**
+	 * Agent only — derived trust signal from verdict-message history over a
+	 * fixed 30-day window. `null` for a person, or when the caller wired no
+	 * reviewTrackRecord reader.
+	 */
+	reviewTrackRecord: ReviewTrackRecordSchema.nullable(),
 });
 export type UserView = z.infer<typeof UserViewSchema>;
 
