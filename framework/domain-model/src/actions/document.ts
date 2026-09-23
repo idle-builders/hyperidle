@@ -36,7 +36,17 @@ export const DOCUMENT_SLOT_LABEL: Record<DocumentSlot, string> = {
 	prompt: "Prompt",
 };
 
-export const DOCUMENT_PARENT_KINDS = ["document", "task", "thread", "routine", "agent"] as const;
+/** BC5 T5: `subscription` added beside `routine` — a subscription's prompt
+ * document is parented to the subscription the same way a routine's prompt
+ * is parented to the routine. T7b removes `routine` once the cut-over runs. */
+export const DOCUMENT_PARENT_KINDS = [
+	"document",
+	"task",
+	"thread",
+	"routine",
+	"agent",
+	"subscription",
+] as const;
 export type DocumentParentKind = (typeof DOCUMENT_PARENT_KINDS)[number];
 
 /** The word an agent uses. Derived on read, never stored — see `documentAs` below. */
@@ -485,13 +495,15 @@ function systemParentInvariants(
 	if (
 		input.parent !== undefined &&
 		input.parent !== null &&
-		(input.parent.kind === "agent" || input.parent.kind === "routine") &&
+		(input.parent.kind === "agent" ||
+			input.parent.kind === "routine" ||
+			input.parent.kind === "subscription") &&
 		!caller.internal
 	) {
 		return [
 			{
 				code: "forbidden_parent_kind",
-				message: "Only the system attaches a document to an agent or a routine.",
+				message: "Only the system attaches a document to an agent, a routine or a subscription.",
 				path: "parent",
 			},
 		];

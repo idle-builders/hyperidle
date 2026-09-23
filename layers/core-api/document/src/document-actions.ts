@@ -71,15 +71,17 @@ export interface DocumentActionsDeps {
 		id: string,
 	) => Promise<{ readonly exists: boolean; readonly teamId?: string }>;
 	/**
-	 * Existence of an `agent`/`routine` parent — asked only on the internal
-	 * path (`ctx.internal`), since a client-named one is refused before this
-	 * is ever reached (`forbidden_parent_kind`). Bound in `compose.ts` to the
-	 * users/routine reads already injected elsewhere: an agent is a `users`
-	 * row, a routine is `@hyperidle/routine`'s `getRoutine`.
+	 * Existence of an `agent`/`routine`/`subscription` parent — asked only on
+	 * the internal path (`ctx.internal`), since a client-named one is refused
+	 * before this is ever reached (`forbidden_parent_kind`). Bound in
+	 * `compose.ts` to the users/routine/subscription reads already injected
+	 * elsewhere: an agent is a `users` row, a routine is `@hyperidle/routine`'s
+	 * `getRoutine`, a subscription is `@hyperidle/user`'s `getSubscription`
+	 * (BC5 T5).
 	 */
 	readonly systemParentExists: (
 		exec: WriteExecutor,
-		kind: "agent" | "routine",
+		kind: "agent" | "routine" | "subscription",
 		id: string,
 	) => Promise<boolean>;
 	/**
@@ -632,16 +634,19 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 			}
 		}
 
-		// -- the agent/routine arm — internal-only (forbidden_parent_kind
-		// already refused a client-named one above, in the pure pass), and a
-		// plain read against a table this module doesn't own, so resolving it
-		// before the transaction opens is safe the same way the task/thread
-		// arm above is. Review finding: "a missing agent/routine ->
-		// parent_not_found" on the internal path. -------------------------------
+		// -- the agent/routine/subscription arm — internal-only
+		// (forbidden_parent_kind already refused a client-named one above, in
+		// the pure pass), and a plain read against a table this module doesn't
+		// own, so resolving it before the transaction opens is safe the same
+		// way the task/thread arm above is. Review finding: "a missing
+		// agent/routine -> parent_not_found" on the internal path; BC5 T5 adds
+		// `subscription` to the same arm. -------------------------------
 		if (
 			parentActivelySet &&
 			effectiveParent !== null &&
-			(effectiveParent.kind === "agent" || effectiveParent.kind === "routine")
+			(effectiveParent.kind === "agent" ||
+				effectiveParent.kind === "routine" ||
+				effectiveParent.kind === "subscription")
 		) {
 			const exists = await deps.systemParentExists(
 				ctx.db,
