@@ -732,6 +732,46 @@ export async function mockTeamPage(
 	});
 }
 
+export interface MockSearchTasksOptions {
+	readonly rows: readonly Task[];
+}
+
+/**
+ * Mock `search_tasks` — `useAgentRunState`/`useRosterRunState`'s task-title
+ * batch lookup (`ids`) and every other client-side task filter. Applies the
+ * same `ids`/`teamId`/`state`/`parentTaskId` filters the real action does.
+ * Registered per-test; there is no auto-use fallback for this route.
+ */
+export async function mockSearchTasks(
+	page: import("@playwright/test").Page,
+	opts: MockSearchTasksOptions,
+): Promise<void> {
+	await page.route("**/api/actions/search_tasks", async (route) => {
+		if (route.request().method() !== "POST") {
+			await route.continue();
+			return;
+		}
+		const input = JSON.parse(route.request().postData() ?? "{}") as {
+			ids?: readonly string[];
+			teamId?: string;
+			state?: string;
+			parentTaskId?: string | null;
+		};
+		let rows = [...opts.rows];
+		if (input.ids) rows = rows.filter((t) => input.ids?.includes(t.id));
+		if (input.teamId) rows = rows.filter((t) => t.teamId === input.teamId);
+		if (input.state) rows = rows.filter((t) => t.state === input.state);
+		if (input.parentTaskId !== undefined) {
+			rows = rows.filter((t) => t.parentTaskId === input.parentTaskId);
+		}
+		await route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify({ ok: true, data: rows }),
+		});
+	});
+}
+
 // ---------------------------------------------------------------------------
 // Thread fixtures
 //
