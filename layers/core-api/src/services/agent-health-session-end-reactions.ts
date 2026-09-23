@@ -37,11 +37,15 @@
  * (invisible) below the threshold, which is exactly the second store this
  * mechanism no longer has. Every crash now writes a `health` note — the
  * note text still carries how many crashes happened in the trailing 7-day
- * window (counted from the agent's own `user` change rows: every
- * `edit_user` on this agent — this reaction's own writes included — is one
- * of them), so a human reading the note sees the same "N failures in 7
- * days" framing as before, just without a gate on whether it is written at
- * all.
+ * window, so a human reading the note sees the same "N failures in 7 days"
+ * framing as before, just without a gate on whether it is written at all.
+ *
+ * @lore review fix: the count used to be EVERY `user` change row on the
+ * agent in the window — a plain rename or a team move counted as a
+ * "failure" alongside an actual crash. This reaction is the only writer of
+ * `health` on an `edit_user` call (grep confirms no UI or route sets it),
+ * so `after.health` present on a row is exactly "this row is one of this
+ * reaction's own crash notes" — the filter below counts only those.
  */
 
 import { listChanges } from "@hyperidle/changes";
@@ -96,11 +100,16 @@ async function recordAgentFailure(
 	}
 
 	const since = new Date(now.getTime() - AGENT_FAILURE_WINDOW_DAYS * MS_PER_DAY).toISOString();
-	// The agent's own `user` change rows in the window — every prior
-	// `edit_user` on this row, this reaction's own crash notes included.
-	// `+ 1` is this crash.
+	// This reaction's own prior crash notes in the window — not every `user`
+	// change row (a rename or a team move is not a crash). `after` is the
+	// change row's JSON-encoded diff; `health` is present on it only when a
+	// call set `health`, which only this reaction does. `+ 1` is this crash.
 	const priorChanges = await listChanges(db, { object: "user", objectId: agentId, after: since });
-	const failureCount = priorChanges.length + 1;
+	const priorCrashNotes = priorChanges.filter((c) => {
+		const after = JSON.parse(c.after) as Record<string, unknown>;
+		return after.health !== undefined;
+	});
+	const failureCount = priorCrashNotes.length + 1;
 
 	const subject = agent.teamName === null ? agent.name : `${agent.name} on team ${agent.teamName}`;
 	const health = `${subject}: ${failureCount} failures in the last ${AGENT_FAILURE_WINDOW_DAYS} days`;

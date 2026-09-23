@@ -184,4 +184,45 @@ describe("BC5 T7b (F1) — registerAgentHealthSessionEndReactions writes health,
 			),
 		).not.toThrow();
 	});
+
+	// N4: the count used to be every `user` change row on the agent, so an
+	// unrelated rename between two crashes inflated the count to 3 instead
+	// of 2. It must count only this reaction's own crash notes.
+	test("a rename between crashes does not count toward the crash total", async ({
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
+		const { agentId } = await seedAgent(db, "ahr-rename");
+		const editUser = buildEditUser(agentOrchestration);
+		const changeEvents: string[] = [];
+		eventBus.on("user.changed", (e) => changeEvents.push(e.change.objectId));
+
+		registerAgentHealthSessionEndReactions(db, eventBus, editUser);
+
+		eventBus.emit(sessionEnded({ sessionId: "ahr-rename-s0", agentId, outcome: "crashed" }));
+		await vi.waitFor(async () => {
+			expect(changeEvents.filter((id) => id === agentId).length).toBe(1);
+		});
+
+		// A plain rename — not a crash note — writes its own `user.changed`.
+		const renameResult = await editUser(
+			{ actor: agentId, db, eventBus, now: new Date().toISOString() },
+			{ id: agentId, role: "renamed-role" },
+		);
+		expect(renameResult.ok).toBe(true);
+		await vi.waitFor(async () => {
+			expect(changeEvents.filter((id) => id === agentId).length).toBe(2);
+		});
+
+		eventBus.emit(sessionEnded({ sessionId: "ahr-rename-s1", agentId, outcome: "crashed" }));
+		await vi.waitFor(async () => {
+			expect(changeEvents.filter((id) => id === agentId).length).toBe(3);
+		});
+
+		const thisAgent = (await db.select().from(users)).find((u) => u.id === agentId);
+		// 2 crashes + the rename in between = 3 `user.changed` rows, but only
+		// 2 of them are crash notes.
+		expect(thisAgent?.health).toContain(`2 failures in the last ${AGENT_FAILURE_WINDOW_DAYS} days`);
+	});
 });
