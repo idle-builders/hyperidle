@@ -1,5 +1,5 @@
 /**
- * T19 — the whole Settings page renders on the real `open_user({})` shape.
+ * The whole Settings page renders on the real `open_user({})` shape.
  *
  * Reproduces the packaged-app crash end to end: opening Settings on the demo
  * database threw `TypeError: Cannot read properties of undefined (reading
@@ -76,7 +76,7 @@ const INHERITED_SERVICES = [
 	"cursor-agent",
 ];
 
-/** The real wire shape open_user({}) returns for the inherited group — see T19. */
+/** The real wire shape open_user({}) returns for the inherited group. */
 function inheritedRows(): unknown[] {
 	return INHERITED_SERVICES.map((service, i) => ({
 		id: `inherited:harness:${service}`,
@@ -159,7 +159,7 @@ function renderSettingsPage(): ReturnType<typeof render> {
 	);
 }
 
-describe("T19 — SettingsPage on the real open_user shape", () => {
+describe("SettingsPage on the real open_user shape", () => {
 	beforeEach(() => setupFetch());
 	afterEach(() => vi.restoreAllMocks());
 

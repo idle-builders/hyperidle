@@ -1,5 +1,5 @@
 /**
- * T19 — SettingsConnections renders on the real `open_user({})` shape.
+ * SettingsConnections renders on the real `open_user({})` shape.
  *
  * Reproduces the packaged-app crash: `TypeError: Cannot read properties of
  * undefined (reading 'localeCompare')` then `[ErrorBoundary] caught render
@@ -69,7 +69,7 @@ function openUserData(): Record<string, unknown> {
 	};
 }
 
-describe("T19 — SettingsConnections on the real open_user shape", () => {
+describe("SettingsConnections on the real open_user shape", () => {
 	beforeEach(() => {
 		callMock.mockReset();
 		callMock.mockImplementation((name: string) => {
