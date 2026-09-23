@@ -46,6 +46,9 @@ after BC7.
   person" is the separate `ownerUserId` column. Both stay.)
 - Email goes.
 - Size is judged on net change, not on edited lines.
+- A no-team agent (a factory plugin's) reaches every team. The document plugin's retro becomes a
+  "task changed" subscription whose prompt stops unless the task is done AND a root task. The crash
+  notice survives as a health note on the agent (an edit, so subscribers to "user changed" hear it).
 
 ## How it works
 
