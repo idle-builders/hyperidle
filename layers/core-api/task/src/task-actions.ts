@@ -336,8 +336,8 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 	 * @lore B2 fix: this used to return bare ids and the caller emitted a
 	 * hardcoded `fromState: "proposed"` for every collateral kill — wrong
 	 * whenever a descendant was killed from `in_progress`/`accepted`/etc, and
-	 * a real consumer (`routine-scheduler.ts`'s transition matching) reads
-	 * that field. The real value is already in hand here (`t.state`, read for
+	 * a real consumer (the subscription fire mechanism's transition matching)
+	 * reads that field. The real value is already in hand here (`t.state`, read for
 	 * the transition guard); it is now carried out instead of discarded.
 	 */
 	async function killSubtreeInTx(

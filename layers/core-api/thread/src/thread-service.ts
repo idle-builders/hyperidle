@@ -5,10 +5,11 @@
  * `deletedAt`; `messages` has no `legacyItemId` — the two filter fields
  * that would read it (`legacyItemIds`/`noLegacyItem`) don't exist.
  *
- * Private to this package. `search.ts`, the ws authorizer and the routine
- * scheduler binding — the three surviving outside readers of the deleted
- * `conversation` package — get typed read functions from THIS module's own
- * barrel, exactly as they got them from `conversation`'s barrel before.
+ * Private to this package. `search.ts`, the ws authorizer and the
+ * subscription fire mechanism — the three surviving outside readers of the
+ * deleted `conversation` package — get typed read functions from THIS
+ * module's own barrel, exactly as they got them from `conversation`'s
+ * barrel before.
  */
 
 import {

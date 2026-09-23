@@ -4,7 +4,7 @@
  * Typed functions only — the barrel must not re-export the raw `threads`/
  * `messages` pgTable objects (Table ACL / Mechanism A). The three surviving
  * outside readers of the deleted `conversation` package (`search.ts`, the ws
- * authorizer, the routine scheduler binding) get their reads from here.
+ * authorizer, the subscription fire mechanism) get their reads from here.
  *
  * @lore BC3 review fix: `updateThread`, `updateMessage`,
  * `resolveMessageIfUnresolved`, `searchThreadsByTitle`, `findMessage`,
