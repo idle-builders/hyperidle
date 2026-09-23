@@ -13,9 +13,9 @@
  * edited afterward (the document content view's slot selector is gone),
  * which is what makes this the single writer of slot for the slots it lists.
  * Skills and rules are the only document type with a *list* today — a
- * routine's prompt and an agent's identity are singular 1:1 bindings shown
- * inline in their own editor (AgentEditor's identity link, the routine
- * prompt field), not a create/list/delete surface — so this component is not
+ * subscription's prompt and an agent's identity are singular 1:1 bindings
+ * shown inline in their own editor (AgentEditor's identity link, the
+ * subscription prompt field), not a create/list/delete surface — so this component is not
  * wired into them. Wiring is a one-line instantiation (see
  * SettingsSkillsAndRules.tsx) whenever a type gets a real list.
  *

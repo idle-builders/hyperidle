@@ -5,7 +5,7 @@ import type { JSX } from "react";
  *
  * @lore AG6: Justified-distinct from LiveDot (AI4). LiveDot is a pulsing
  * accent dot for live-activity signals. RowDot is a static, tone-keyed dot
- * for status (health, routine state, notification urgency). DO NOT copy
+ * for status (team health, harness status). DO NOT copy
  * LiveDot markup or its animate-pulse class.
  */
 

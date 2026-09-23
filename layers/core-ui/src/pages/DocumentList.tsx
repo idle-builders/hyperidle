@@ -644,7 +644,7 @@ export function DocumentList({
 	}, [apiRetry, outletCtx]);
 
 	// @lore nested-knowledge-items §4: a role-carrying binding (agent identity,
-	// routine prompt, skill, rule) is any row whose parent is set but is not
+	// subscription prompt, skill, rule) is any row whose parent is set but is not
 	// `document`. `search_documents({inTree:true})` already excludes these
 	// server-side (§5.1's `<shape>` predicate), but the client keeps its own
 	// check too: it is the one place this page's contract with its data

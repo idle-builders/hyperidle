@@ -293,7 +293,7 @@ function WorkTeamLoaded({
 	// @lore AZ2: teamBodyContent is the team list JSX extracted into a variable so it
 	// can be: 1. Rendered full-width when no selection (PageScaffold's own scroll
 	// body owns the scroll region). 2. Passed as `origin` to SplitView when
-	// ?routine or ?agent is set (SplitView's own origin wrapper — `flex min-w-0
+	// ?agent is set (SplitView's own origin wrapper — `flex min-w-0
 	// flex-col overflow-auto`, SplitView.tsx:197 — already gives it a bounded
 	// scrolling column; the content needs no scroll wrapper of its own there
 	// either). Pre-AZ2 this was `teamBody`, a standalone `flex-1 overflow-y-auto`

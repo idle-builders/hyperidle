@@ -18,7 +18,7 @@ describe("buildParentOptions", () => {
 		expect(options.map((o) => o.value).sort()).toEqual(["a", "b"]);
 	});
 
-	it("excludes a task/thread/routine/agent-parented row — off-tree by design", () => {
+	it("excludes a task/thread/subscription/agent-parented row — off-tree by design", () => {
 		const items = [
 			item("a", "Alpha", "factory"),
 			item("skill-1", "A Skill", "user", "agent-1", "agent"),
