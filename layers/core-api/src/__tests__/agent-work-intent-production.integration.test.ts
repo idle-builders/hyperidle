@@ -161,11 +161,16 @@ describe("atomic production handoffs", () => {
 		cleanupRejectedIntentWrites = undefined;
 	});
 
-	test("schema exposes authoritative sources for all six atomic commands", async ({ db }) => {
+	// @lore BC5 T7b: "routine_runs" dropped from both the query and the
+	// expected set, and the test renamed six→five — the two routine-command
+	// atomicity tests it backed (manual trigger, scheduler fire) are deleted
+	// with the routine package (see the @lore a few lines below); a
+	// subscription's wake carries no run row to be an authoritative source for.
+	test("schema exposes authoritative sources for all five atomic commands", async ({ db }) => {
 		const result = await db.execute(sql`
 			select table_name as "tableName" from information_schema.tables
 			where table_schema = 'public'
-			and table_name in ('messages','explicit_session_starts','documents','routine_runs','bets','task_dispatch_attempts','agent_work_intents')
+			and table_name in ('messages','explicit_session_starts','documents','bets','task_dispatch_attempts','agent_work_intents')
 		`);
 		const rows = result as { rows: Array<{ tableName: string }> };
 		expect(new Set(rows.rows.map((row) => row.tableName))).toEqual(
@@ -174,7 +179,6 @@ describe("atomic production handoffs", () => {
 				"messages",
 				"explicit_session_starts",
 				"documents",
-				"routine_runs",
 				"task_dispatch_attempts",
 				"agent_work_intents",
 			]),

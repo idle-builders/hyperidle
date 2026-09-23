@@ -29,11 +29,12 @@ describe("API Availability Regression Guard (I6)", () => {
 	// the architecture doc §8: /api/tasks (the eight-route CRUD surface) is
 	// deleted outright — task is an action, `POST /api/actions/<name>`, not a
 	// route module with a GET base path. See the actions-router POST check below.
+	// @lore BC5 T7b: /api/routines and /api/notifications/inbox move to
+	// RETIRED_ROUTES below — both packages and routes are deleted with the
+	// routine/notification cutover.
 	const ROUTE_MODULES = [
 		{ path: "/api/health", description: "Health (public)" },
 		{ path: "/api/users", description: "Users" },
-		{ path: "/api/routines", description: "Routines" },
-		{ path: "/api/notifications/inbox", description: "Notifications (inbox)" },
 	] as const;
 
 	for (const route of ROUTE_MODULES) {
@@ -78,6 +79,9 @@ describe("API Availability Regression Guard (I6)", () => {
 		"/api/git-export/config",
 		"/api/git-export/run",
 		"/api/git-export/status",
+		// BC5 T7b: the routine and notifications packages and their routes are deleted.
+		"/api/routines",
+		"/api/notifications/inbox",
 	] as const;
 
 	for (const path of RETIRED_ROUTES) {
