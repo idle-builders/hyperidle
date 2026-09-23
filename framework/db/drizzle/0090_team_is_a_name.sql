@@ -31,14 +31,16 @@ WHERE "kind" = 'human' AND "team_id" IS NULL;
 
 -- 2. every stored `routine_run` work intent is deleted — its baked request
 --    is routine-shaped (T7b's own drain never ran one; no code does), so
---    nothing left over here has a code path to serve it.
+--    nothing left over here has a code path to serve it. The three checks
+--    rebuilt below drop 'routine_run' only — they keep 0085's 'thread_turn'
+--    rename (not 'assistant_turn', which 0085 already retired).
 DELETE FROM "agent_work_intents" WHERE "kind" = 'routine_run';
 --> statement-breakpoint
 
 ALTER TABLE "agent_work_intents" DROP CONSTRAINT "agent_work_intents_kind_ck";
 --> statement-breakpoint
 ALTER TABLE "agent_work_intents" ADD CONSTRAINT "agent_work_intents_kind_ck"
-	CHECK ("kind" IN ('assistant_turn', 'session_start', 'knowledge_action', 'task_run', 'session_resume', 'subscription_run'));
+	CHECK ("kind" IN ('thread_turn', 'session_start', 'knowledge_action', 'task_run', 'session_resume', 'subscription_run'));
 --> statement-breakpoint
 
 ALTER TABLE "agent_work_intents" DROP CONSTRAINT "agent_work_intents_source_kind_ck";
@@ -51,7 +53,7 @@ ALTER TABLE "agent_work_intents" DROP CONSTRAINT "agent_work_intents_kind_source
 --> statement-breakpoint
 ALTER TABLE "agent_work_intents" ADD CONSTRAINT "agent_work_intents_kind_source_compat_ck"
 	CHECK (
-		("kind" = 'assistant_turn' and "source_kind" = 'thread_message')
+		("kind" = 'thread_turn' and "source_kind" = 'thread_message')
 		or ("kind" = 'session_start' and "source_kind" = 'explicit_session_start')
 		or ("kind" = 'knowledge_action' and "source_kind" = 'knowledge_action')
 		or ("kind" = 'task_run' and "source_kind" = 'task_dispatch_attempt')

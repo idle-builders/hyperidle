@@ -421,10 +421,13 @@ export const agentWorkIntents = pgTable(
 		// @lore BC5 T11 (migration 0090): 'routine_run' drops from both closed
 		// sets — every stored `routine_run` intent is deleted (its request is
 		// routine-shaped and no code runs it); 'subscription_run' is the final
-		// vocabulary a subscription's wake uses now.
+		// vocabulary a subscription's wake uses now. This TS definition had
+		// drifted to 'assistant_turn' — stale since migration 0085 renamed the
+		// live constraint to 'thread_turn'; fixed here to match what 0090
+		// actually leaves in the database, not what this file said before it.
 		check(
 			"agent_work_intents_kind_ck",
-			sql`${table.kind} in ('assistant_turn','session_start','knowledge_action','task_run','session_resume','subscription_run')`,
+			sql`${table.kind} in ('thread_turn','session_start','knowledge_action','task_run','session_resume','subscription_run')`,
 		),
 		check(
 			"agent_work_intents_source_kind_ck",
@@ -442,7 +445,7 @@ export const agentWorkIntents = pgTable(
 		check(
 			"agent_work_intents_kind_source_compat_ck",
 			sql`
-				(${table.kind} = 'assistant_turn' and ${table.sourceKind} = 'thread_message')
+				(${table.kind} = 'thread_turn' and ${table.sourceKind} = 'thread_message')
 				or (${table.kind} = 'session_start' and ${table.sourceKind} = 'explicit_session_start')
 				or (${table.kind} = 'knowledge_action' and ${table.sourceKind} = 'knowledge_action')
 				or (${table.kind} = 'task_run' and ${table.sourceKind} = 'task_dispatch_attempt')

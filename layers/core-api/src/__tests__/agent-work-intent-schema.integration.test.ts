@@ -105,7 +105,7 @@ describe("agent_work_intents durable-rows checks", () => {
 			db.insert(agentWorkIntents).values(
 				baseIntent({
 					id: "bad-pair",
-					kind: "routine_run",
+					kind: "task_run",
 					sourceKind: "thread_message",
 				}),
 			),
@@ -115,10 +115,11 @@ describe("agent_work_intents durable-rows checks", () => {
 	test("accepts every closed kind/source pairing", async ({ db }) => {
 		const pairs: ReadonlyArray<readonly [AgentWorkIntent["kind"], AgentWorkIntent["sourceKind"]]> =
 			[
+				// @lore BC5 T11 (migration 0090): 'routine_run'/'routine_run' dropped —
+				// the kind retires from the closed set entirely, not just this pairing.
 				["thread_turn", "thread_message"],
 				["session_start", "explicit_session_start"],
 				["knowledge_action", "knowledge_action"],
-				["routine_run", "routine_run"],
 				["task_run", "task_dispatch_attempt"],
 			];
 		for (const [kind, sourceKind] of pairs) {
