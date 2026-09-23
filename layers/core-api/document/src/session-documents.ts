@@ -18,7 +18,7 @@
  * `bumpSessionUse(db, ids, now)` over exactly the documents it is about to
  * return — the assembler is the only place that knows the final list, so
  * putting the bump in the two run resolvers that call it
- * (`task-run-resolver-bindings.ts`, `routine-scheduler-bindings.ts`) would be
+ * (`task-run-resolver.ts`, `subscription-wake.ts`) would be
  * the same write duplicated in two files. When the bake runs inside
  * `edit_task`'s own transaction (`task-actions.ts:759-763` passes
  * `tx as HyperIdleDb`), this call joins that transaction and rolls back with
@@ -333,7 +333,7 @@ export interface SessionDocumentsInput {
 	 * @lore BA9b: agentId is required to fetch agent_file items bound to this agent.
 	 * Required (not optional) so no caller can accidentally omit it and silently lose
 	 * agent-bound documents. All three real bundle-builders (task-run-resolver,
-	 * routine-service) have agent.id in scope and must pass it.
+	 * subscription-wake) have agent.id in scope and must pass it.
 	 */
 	readonly agentId: string;
 }
@@ -377,8 +377,9 @@ function fetchOrdinaryItemsByScope(
  * present (AC8 stated decision).
  *
  * @lore knowledge-attachment-slot §5 Guard 1: the predicate used to be
- * `ne(role, 'ordinary')`, which also matched `prompt` — a routine prompt is
- * non-ordinary and takes factory or team scope from its owner agent, so it
+ * `ne(role, 'ordinary')`, which also matched `prompt` — a subscription
+ * prompt is non-ordinary and takes factory or team scope from its owner
+ * agent, so it
  * matched directly. Named to the three roles that actually materialise here
  * instead: a role added later is excluded by default, not included by
  * default.
