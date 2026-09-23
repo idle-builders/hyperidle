@@ -855,7 +855,14 @@ async function createUserRun(
 	const changeActor = callerRow ? ctx.actor : id;
 	const agentCategory: AgentCategory | null =
 		kind === "ai" ? (input.agentCategory ?? (input.ownerUserId ? "individual" : "team")) : null;
-	const role = input.role ?? (kind === "human" ? "member" : "agent");
+	// @lore T23: A rowless caller creating a human can only be the welcome
+	// screen's first `edit_user` call (the check above already refuses a
+	// second one once any human exists) — so it gets "founder" the way
+	// origin/main's now-deleted setup route hardcoded it, instead of the
+	// "member" every later human default gets. Deciding it here, rather than
+	// having SetupFlow.tsx pass role explicitly, keeps the welcome screen's
+	// call body unchanged.
+	const role = input.role ?? (kind === "human" ? (callerRow ? "member" : "founder") : "agent");
 
 	const values: NewUser = {
 		id,

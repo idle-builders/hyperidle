@@ -361,3 +361,22 @@ describe("edit_user — a failed folder step on create never leaves a half-made 
 		expect(reopened.data.user?.id).toBe(personId);
 	});
 });
+
+describe("edit_user — the welcome screen's first person (T23)", () => {
+	test("a fresh database's first human is created with role 'founder'", async ({ db }) => {
+		const deps = buildDeps();
+		const { editUser } = actionsFor(deps);
+
+		// No seedFounder: this is a genuinely empty database, and the caller
+		// (the welcome screen, pre-auth) has no user row of its own — exactly
+		// what `SetupFlow.tsx`'s first `edit_user` call sends.
+		const result = await editUser(ctxFor(db, "u-nobody"), {
+			kind: "human",
+			name: "Ada",
+			team: { name: "Welcome Team" },
+		});
+		expect(result.ok).toBe(true);
+		if (!result.ok) return;
+		expect(result.data.user?.role).toBe("founder");
+	});
+});
