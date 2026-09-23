@@ -30,9 +30,12 @@
  * `promote_knowledge`/`create_conflict_review`/`merge_knowledge`/
  * `split_knowledge`) are DELETED — `search_documents`/`open_document`/
  * `edit_document` replace their reachable surface as composed ACTIONS
- * (§8.4), never hand-written `ToolDefinition`s in this catalog. What
- * remains is four `roles: ["assistant"]` tools, all team/routine
- * management — there is no longer an unrestricted or multi-role tier.
+ * (§8.4), never hand-written `ToolDefinition`s in this catalog.
+ *
+ * @lore BC5 T7b: `create_routine`/`update_routine` are DELETED — a routine
+ * is a subscription now, edited on `edit_user`. What remains is two
+ * `roles: ["assistant"]` tools, both team management — there is no longer
+ * an unrestricted or multi-role tier.
  */
 
 import { describe, expect, it } from "vitest";
@@ -46,23 +49,23 @@ import { STUB_TOOL_HANDLERS_PORTS } from "./stub-ports.js";
 /**
  * Role assignment summary for the current catalog:
  *
- * roles: ["assistant"] only (4 tools):
- *   create_team, add_agent, create_routine, update_routine
+ * roles: ["assistant"] only (2 tools):
+ *   create_team, add_agent
  *
  * There is no unrestricted tier and no multi-role tier left — every
- * survivor is assistant-only team/routine management.
+ * survivor is assistant-only team management.
  */
 describe("buildToolDefinitions — role filtering", () => {
-	const ASSISTANT_ONLY = ["create_team", "add_agent", "create_routine", "update_routine"] as const;
+	const ASSISTANT_ONLY = ["create_team", "add_agent"] as const;
 
-	it("returns all 4 tools when no opts provided", () => {
+	it("returns all 2 tools when no opts provided", () => {
 		const tools = buildToolDefinitions(STUB_TOOL_HANDLERS_PORTS);
-		expect(tools).toHaveLength(4);
+		expect(tools).toHaveLength(2);
 	});
 
-	it("returns all 4 tools when opts.role is undefined", () => {
+	it("returns all 2 tools when opts.role is undefined", () => {
 		const tools = buildToolDefinitions(STUB_TOOL_HANDLERS_PORTS, { role: undefined });
-		expect(tools).toHaveLength(4);
+		expect(tools).toHaveLength(2);
 	});
 
 	it("returns same tool set for undefined and no-opts (identity guarantee)", () => {
@@ -75,13 +78,13 @@ describe("buildToolDefinitions — role filtering", () => {
 		expect(noOpts).toEqual(withUndefined);
 	});
 
-	describe("role: 'assistant' (all 4 tools)", () => {
-		it("returns 4 tools — assistant sees the full catalog", () => {
+	describe("role: 'assistant' (all 2 tools)", () => {
+		it("returns 2 tools — assistant sees the full catalog", () => {
 			const tools = buildToolDefinitions(STUB_TOOL_HANDLERS_PORTS, { role: "assistant" });
-			expect(tools).toHaveLength(4);
+			expect(tools).toHaveLength(2);
 		});
 
-		it("includes assistant-only tools (create_team, add_agent, create_routine, update_routine)", () => {
+		it("includes assistant-only tools (create_team, add_agent)", () => {
 			const tools = buildToolDefinitions(STUB_TOOL_HANDLERS_PORTS, { role: "assistant" });
 			const names = new Set(tools.map((t) => t.name));
 			for (const name of ASSISTANT_ONLY) {
