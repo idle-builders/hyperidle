@@ -88,7 +88,7 @@ export function createAgentOrchestrationApp(
 	app.route("/agent-orchestration", createAgentOrchestrationSessionsRoutes(db));
 	// AU31 §3: the write side of `AgentOrchestrationPort`, mounted beside the
 	// read routes above — same internal `/agent-orchestration` seam prefix.
-	// BC5 §6 (T4): the `folders`/`connections` families reuse the SAME
+	// The `folders`/`connections` families reuse the SAME
 	// `inheritedReach`/`cipher` the public `/connections` route below is
 	// wired with — one reach cache, one cipher, never a second copy.
 	app.route(

@@ -158,7 +158,7 @@ function deriveServiceFromUrl(serverUrl: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Extracted logic (BC5 architecture.md §6, T4) — the one implementation
+// Extracted logic — the one implementation
 // `AgentOrchestrationPort`'s `connections` family calls through
 // `agent-orchestration-intake.ts`'s plumbing routes.
 // ---------------------------------------------------------------------------

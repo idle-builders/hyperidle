@@ -76,7 +76,7 @@ async function checkAndPersistState(
 	});
 }
 
-// ─── Extracted logic (BC5 architecture.md §6, T4) ─────────────────────────────
+// ─── Extracted logic ─────────────────────────────
 //
 // The one implementation `AgentOrchestrationPort`'s `folders` family calls
 // through `agent-orchestration-intake.ts`'s plumbing routes.

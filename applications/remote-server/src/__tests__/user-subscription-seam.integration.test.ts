@@ -17,7 +17,7 @@
  * (already idle — idempotent) again through the other, so the compared
  * views are literally the same entity and the doors are proven interchangeable.
  *
- * The subscription half proves architecture.md §4's fire mechanism end to
+ * The subscription half proves the subscription fire mechanism end to
  * end: a person and an agent both subscribe to `task.changed`; a third,
  * out-of-reach agent subscribes too; a fourth user (neither subscriber) edits
  * a task the subscribed team can see — the person's `user:<id>` frame
