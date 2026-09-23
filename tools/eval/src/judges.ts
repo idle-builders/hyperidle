@@ -12,7 +12,7 @@
  * W6 resolution: fewer_tool_calls uses DB side-effect count as proxy (not in-memory buffer).
  */
 
-import { documents, messages, routines, sessions, tasks } from "@hyperidle/db";
+import { documents, messages, sessions, tasks } from "@hyperidle/db";
 import type { TaskState } from "@hyperidle/domain-model";
 import { and, eq, like, ne } from "drizzle-orm";
 import type { DimensionScore, JudgeContext, RubricDimension } from "./types.js";
@@ -379,35 +379,6 @@ Respond ONLY with the JSON object. No preamble, no markdown.`;
 	};
 }
 
-// ---------------------------------------------------------------------------
-// Routine-specific judges
-// ---------------------------------------------------------------------------
-
-/** Judge: routine ran — routines.lastRunAt updated. */
-export function judgeRoutineRan(routineId: string): RubricDimension {
-	return {
-		id: "routine_ran",
-		label: "Routine Ran",
-		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-			const [routine] = await ctx.db
-				.select({ lastRunAt: routines.lastRunAt })
-				.from(routines)
-				.where(eq(routines.id, routineId))
-				.limit(1);
-
-			if (!routine) {
-				return { score: 0.0, note: `Routine ${routineId} not found` };
-			}
-
-			const fired = routine.lastRunAt !== null;
-			return {
-				score: fired ? 1.0 : 0.0,
-				note: fired ? `lastRunAt: ${routine.lastRunAt}` : "routine.lastRunAt is null (not ran)",
-			};
-		},
-	};
-}
-
 // @lore BC3 architecture.md §5 B4/B12: judgeReviewItemCreated DELETED — its
 // only caller (create-item.ts's scenario) is gone; a surfaced review is a
 // `messages` row (type "review") in a thread now, not an `items` row.
@@ -417,31 +388,11 @@ export function judgeRoutineRan(routineId: string): RubricDimension {
 // judge belongs with whichever future scenario exercises `edit_document`'s
 // `status` transition, not carried forward unused.
 
-/** Judge: delegation occurred — routine was fired AND executing agent differs from owner. */
-export function judgeDelegationOccurred(): RubricDimension {
-	return {
-		id: "delegate_used",
-		label: "Delegation Occurred",
-		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-			// After delegation, a session is created with the delegate's agentId.
-			// The seedResult.agentId is the routine owner. If the session's agentId differs,
-			// delegation occurred.
-			const [session] = await ctx.db
-				.select({ agentId: sessions.agentId })
-				.from(sessions)
-				.where(ne(sessions.agentId, ctx.seedResult.agentId))
-				.limit(1);
-
-			const delegated = session !== undefined;
-			return {
-				score: delegated ? 1.0 : 0.0,
-				note: delegated
-					? `Delegated to agent: ${session.agentId}`
-					: "No session found for a different agent (delegation did not occur)",
-			};
-		},
-	};
-}
+// @lore BC5 T7b: judgeRoutineRan/judgeDelegationOccurred DELETED — no
+// scenario called either (derived the same way judgeKnowledgeStatusChanged
+// was), and the routine entity + routine-owner delegation concept they read
+// are both gone. A subscription's wake always targets the exact subscriber,
+// unconditionally — there is no delegate to judge.
 
 // ---------------------------------------------------------------------------
 // Extended judges for combined evals (Section 11)
@@ -759,7 +710,7 @@ export function judgeInboxChecked(): RubricDimension {
 	};
 }
 
-/** Judge: documents with status="stale" exist (the decay routine ran). */
+/** Judge: documents with status="stale" exist (the decay subscription ran). */
 export function judgeStaleItemsMarked(): RubricDimension {
 	return {
 		id: "stale_items_marked",

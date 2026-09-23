@@ -17,25 +17,26 @@
  * @lore AU26: AB2's AC-6 ("a degraded agent enqueues an `agent.health.degraded`
  * notification") is NOT deleted — it MOVED off this route. The founder's ruling
  * made it event-driven: `registerAgentHealthSessionEndReactions` reacts to a
- * crashed `session_ended` and the notification system counts its own rows. That
- * closed the route's last `sessions` read (a GET that writes was a smell
- * independent of layering, and a notification that only fires when a human
- * happens to open a page is not a notification). The behavior lives in
+ * crashed `session_ended` and writes the agent's `health` (BC5 T7b — no
+ * queue any more). That closed the route's last `sessions` read (a GET that
+ * writes was a smell independent of layering, and a notification that only
+ * fires when a human happens to open a page is not a notification). The
+ * behavior lives in
  * `services/__tests__/agent-health-session-end-reactions.integration.test.ts`;
- * what this file now asserts is the REMOVAL — loading the team page enqueues
- * nothing, ever.
+ * what this file now asserts is the REMOVAL — loading the team page writes
+ * nothing to the inbox, ever.
  */
 
 import {
 	agentRunConfig,
 	type HyperIdleDb,
+	inbox,
 	sessions,
 	tasks,
 	teams,
 	threads,
 	users,
 } from "@hyperidle/db";
-import { listNotifications } from "@hyperidle/notifications";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
@@ -252,7 +253,8 @@ describe("AU26: GET /teams/:teamId enqueues nothing", () => {
 		const second = await app.request("/api/teams/ab2-team", { headers: authHeaders() });
 		expect(second.status).toBe(200);
 
-		// @lore AU44 batch 4: kind:"all" removed; unread covers all inbox rows (readAt IS NULL)
-		expect(await listNotifications(db, { kind: "unread" })).toHaveLength(0);
+		// @lore BC5 T7b: the inbox table replaces notification_queue — loading
+		// the team page must not write it.
+		expect(await db.select().from(inbox)).toHaveLength(0);
 	});
 });

@@ -295,23 +295,23 @@ describe("edit_document — D-invariants (architecture.md §4.2)", () => {
 		expect(result.problems[0]?.code).toBe("parent_not_found");
 	}, 5000);
 
-	// @lore document-module review fix: this used to be "a routine/agent
+	// @lore document-module review fix: this used to be "a subscription/agent
 	// parent has no existence port — no check runs (today's behaviour,
-	// kept)" and asserted `result.ok === true` for a NON-existent routine —
+	// kept)" and asserted `result.ok === true` for a NON-existent subscription —
 	// today's behaviour was itself the bug (any client could attach a
-	// document to any routine or agent id, existing or not). The fix restores
-	// the pre-item rule ("`routine`/`agent` are attached exclusively by
+	// document to any subscription or agent id, existing or not). The fix restores
+	// the pre-item rule ("`subscription`/`agent` are attached exclusively by
 	// core-api's own routes") and adds the existence check the old test
 	// documented as absent.
-	test("forbidden_parent_kind: a non-internal caller may not name a routine parent", async ({
+	test("forbidden_parent_kind: a non-internal caller may not name a subscription parent", async ({
 		db,
 	}) => {
-		await seedUser(db, "writer-d2-routine-1", { kind: "ai" });
-		const result = await editAction(writeDeps()).run(ctxFor(db, "writer-d2-routine-1"), {
+		await seedUser(db, "writer-d2-subscription-1", { kind: "ai" });
+		const result = await editAction(writeDeps()).run(ctxFor(db, "writer-d2-subscription-1"), {
 			as: "document",
 			title: "Prompt body",
 			body: "x",
-			parent: { kind: "routine", id: "no-such-routine" },
+			parent: { kind: "subscription", id: "no-such-subscription" },
 		});
 		expect(result.ok).toBe(false);
 		if (result.ok) throw new Error("expected a refusal");
@@ -333,20 +333,20 @@ describe("edit_document — D-invariants (architecture.md §4.2)", () => {
 		expect(result.problems[0]?.code).toBe("forbidden_parent_kind");
 	});
 
-	test("D2 parent_not_found — a routine parent that does not exist, on the internal path", async ({
+	test("D2 parent_not_found — a subscription parent that does not exist, on the internal path", async ({
 		db,
 	}) => {
-		await seedUser(db, "writer-d2-routine-2", { kind: "ai" });
+		await seedUser(db, "writer-d2-subscription-2", { kind: "ai" });
 		const deps = writeDeps({
 			systemParentExists: async (_exec, _kind, _id) => false,
 		});
 		const result = await editAction(deps).run(
-			ctxFor(db, "writer-d2-routine-2", { internal: true }),
+			ctxFor(db, "writer-d2-subscription-2", { internal: true }),
 			{
 				as: "document",
 				title: "Prompt body",
 				body: "x",
-				parent: { kind: "routine", id: "no-such-routine" },
+				parent: { kind: "subscription", id: "no-such-subscription" },
 			},
 		);
 		expect(result.ok).toBe(false);
@@ -440,12 +440,12 @@ describe("edit_document — D-invariants (architecture.md §4.2)", () => {
 		expect(result.problems[0]?.code).toBe("depth_exceeded");
 	});
 
-	test("D5 slot_taken — a second prompt on one routine is refused, only reachable at create", async ({
+	test("D5 slot_taken — a second prompt on one subscription is refused, only reachable at create", async ({
 		db,
 	}) => {
 		await seedUser(db, "writer-d5-1", { kind: "ai" });
-		// A routine parent is internal-only (`forbidden_parent_kind`); D5 itself
-		// is about the slot, not the caller, so this simulates the routines
+		// A subscription parent is internal-only (`forbidden_parent_kind`); D5 itself
+		// is about the slot, not the caller, so this simulates the subscriptions
 		// route's own in-process binding rather than a client door.
 		const edit = editAction(writeDeps({ systemParentExists: async () => true }));
 		const ctx = ctxFor(db, "writer-d5-1", { internal: true });
@@ -454,7 +454,7 @@ describe("edit_document — D-invariants (architecture.md §4.2)", () => {
 			title: "The prompt",
 			body: "x",
 			slot: "prompt",
-			parent: { kind: "routine", id: "routine-d5-1" },
+			parent: { kind: "subscription", id: "subscription-d5-1" },
 		});
 		expect(first.ok).toBe(true);
 
@@ -463,7 +463,7 @@ describe("edit_document — D-invariants (architecture.md §4.2)", () => {
 			title: "A second prompt",
 			body: "y",
 			slot: "prompt",
-			parent: { kind: "routine", id: "routine-d5-1" },
+			parent: { kind: "subscription", id: "subscription-d5-1" },
 		});
 		expect(second.ok).toBe(false);
 		if (second.ok) throw new Error("expected a refusal");
@@ -524,9 +524,9 @@ describe("edit_document — the combined cases, architecture.md §4.3 (2-8; the 
 		db,
 	}) => {
 		await seedUser(db, "writer-case2-1", { kind: "ai" });
-		// Internal, same reason as D5 above — a routine parent is internal-only,
+		// Internal, same reason as D5 above — a subscription parent is internal-only,
 		// and this case is about I10 firing before D5, not about who may name
-		// a routine.
+		// a subscription.
 		const edit = editAction(writeDeps({ systemParentExists: async () => true }));
 		const ctx = ctxFor(db, "writer-case2-1", { internal: true });
 		const prompt = await edit.run(ctx, {
@@ -534,14 +534,14 @@ describe("edit_document — the combined cases, architecture.md §4.3 (2-8; the 
 			title: "The prompt",
 			body: "x",
 			slot: "prompt",
-			parent: { kind: "routine", id: "routine-case2-1" },
+			parent: { kind: "subscription", id: "subscription-case2-1" },
 		});
 		expect(prompt.ok).toBe(true);
 		if (!prompt.ok) throw new Error("expected success");
 
 		const moved = await edit.run(ctx, {
 			id: prompt.data.document.id,
-			parent: { kind: "routine", id: "routine-case2-2" },
+			parent: { kind: "subscription", id: "subscription-case2-2" },
 		});
 		expect(moved.ok).toBe(false);
 		if (moved.ok) throw new Error("expected a refusal");

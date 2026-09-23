@@ -6,7 +6,13 @@
 import { cpSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { documents, type HyperIdleDb, pluginContributions, routines, users } from "@hyperidle/db";
+import {
+	documents,
+	type HyperIdleDb,
+	pluginContributions,
+	subscriptions,
+	users,
+} from "@hyperidle/db";
 import { and, eq, inArray } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, describe, expect } from "vitest";
@@ -96,7 +102,7 @@ async function removeKmPlugin(app: Hono): Promise<Response> {
 /** What the plugin contributed — the registry is the only answer now. */
 async function contributed(
 	db: HyperIdleDb,
-	kind: "agent" | "routine" | "document",
+	kind: "agent" | "subscription" | "document",
 ): Promise<readonly string[]> {
 	const rows = await db
 		.select({ entityId: pluginContributions.entityId })
@@ -106,18 +112,17 @@ async function contributed(
 }
 
 describe("BA9d lifecycle: install materialises pluginId on rows", () => {
-	test("after install: routines and agent have pluginId set and are active", async ({
+	test("after install: subscriptions and agent have pluginId set and are active", async ({
 		db,
 		app,
 	}) => {
 		await installKmPlugin(db, app);
-		const routineRows = await db
+		const subscriptionRows = await db
 			.select()
-			.from(routines)
-			.where(inArray(routines.id, [...(await contributed(db, "routine"))]));
-		expect(routineRows.length).toBeGreaterThan(0);
-		expect(routineRows.every((r) => r.active)).toBe(true);
-		expect(routineRows.every((r) => r.deletedAt === null)).toBe(true);
+			.from(subscriptions)
+			.where(inArray(subscriptions.id, [...(await contributed(db, "subscription"))]));
+		expect(subscriptionRows.length).toBeGreaterThan(0);
+		expect(subscriptionRows.every((r) => !r.paused)).toBe(true);
 		const agentRows = await db
 			.select()
 			.from(users)
@@ -128,16 +133,16 @@ describe("BA9d lifecycle: install materialises pluginId on rows", () => {
 });
 
 describe("BA9d lifecycle: disable deactivates materialised rows", () => {
-	test("after disable: routines inactive, agent inactive", async ({ db, app }) => {
+	test("after disable: subscriptions paused, agent inactive", async ({ db, app }) => {
 		await installKmPlugin(db, app);
 		const res = await disableKmPlugin(app);
 		expect(res.status).toBe(200);
-		const routineRows = await db
+		const subscriptionRows = await db
 			.select()
-			.from(routines)
-			.where(inArray(routines.id, [...(await contributed(db, "routine"))]));
-		expect(routineRows.length).toBeGreaterThan(0);
-		expect(routineRows.every((r) => !r.active)).toBe(true);
+			.from(subscriptions)
+			.where(inArray(subscriptions.id, [...(await contributed(db, "subscription"))]));
+		expect(subscriptionRows.length).toBeGreaterThan(0);
+		expect(subscriptionRows.every((r) => r.paused)).toBe(true);
 		const agentRows = await db
 			.select()
 			.from(users)
@@ -163,17 +168,17 @@ describe("BA9d lifecycle: disable deactivates materialised rows", () => {
 });
 
 describe("BA9d lifecycle: enable reactivates materialised rows", () => {
-	test("after enable: routines active, agent active", async ({ db, app }) => {
+	test("after enable: subscriptions live, agent active", async ({ db, app }) => {
 		await installKmPlugin(db, app);
 		await disableKmPlugin(app);
 		const res = await enableKmPlugin(app);
 		expect(res.status).toBe(200);
-		const routineRows = await db
+		const subscriptionRows = await db
 			.select()
-			.from(routines)
-			.where(inArray(routines.id, [...(await contributed(db, "routine"))]));
-		expect(routineRows.length).toBeGreaterThan(0);
-		expect(routineRows.every((r) => r.active)).toBe(true);
+			.from(subscriptions)
+			.where(inArray(subscriptions.id, [...(await contributed(db, "subscription"))]));
+		expect(subscriptionRows.length).toBeGreaterThan(0);
+		expect(subscriptionRows.every((r) => !r.paused)).toBe(true);
 		const agentRows = await db
 			.select()
 			.from(users)
@@ -183,18 +188,22 @@ describe("BA9d lifecycle: enable reactivates materialised rows", () => {
 	});
 });
 
-describe("BA9d lifecycle: remove soft-deletes materialised rows", () => {
-	test("after remove: routines soft-deleted, agent inactive", async ({ db, app }) => {
+describe("BA9d lifecycle: remove deletes materialised rows", () => {
+	test("after remove: subscriptions gone (no soft-delete column), agent inactive", async ({
+		db,
+		app,
+	}) => {
 		await installKmPlugin(db, app);
+		const subscriptionIds = [...(await contributed(db, "subscription"))];
 		const res = await removeKmPlugin(app);
 		expect(res.status).toBe(200);
-		const routineRows = await db
+		// @lore BC5 T7b: a subscription has no soft-delete column — remove is a
+		// hard delete now, unlike the routine it replaces.
+		const subscriptionRows = await db
 			.select()
-			.from(routines)
-			.where(inArray(routines.id, [...(await contributed(db, "routine"))]));
-		expect(routineRows.length).toBeGreaterThan(0);
-		expect(routineRows.every((r) => !r.active)).toBe(true);
-		expect(routineRows.every((r) => r.deletedAt !== null)).toBe(true);
+			.from(subscriptions)
+			.where(inArray(subscriptions.id, subscriptionIds));
+		expect(subscriptionRows).toHaveLength(0);
 		const agentRows = await db
 			.select()
 			.from(users)

@@ -1,7 +1,7 @@
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
 import type { ActionResult, EditTaskInput, TaskState, TaskView } from "@hyperidle/domain-model";
-import type { NotificationEvent, ObjectChangeEvent } from "@hyperidle/event-bus";
+import type { ObjectChangeEvent } from "@hyperidle/event-bus";
 import { checkAndUnblockDependents } from "@hyperidle/task";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
@@ -211,8 +211,6 @@ describe("Dependency Watcher", () => {
 
 			const events: ObjectChangeEvent[] = [];
 			eventBus.on("task.changed", (e) => events.push(e));
-			const notifications: NotificationEvent[] = [];
-			eventBus.on("notification", (e) => notifications.push(e));
 
 			await checkAndUnblockDependents(
 				makeCtx(db, eventBus),
@@ -226,8 +224,8 @@ describe("Dependency Watcher", () => {
 			expect(events[0]!.change.after).toMatchObject({ state: "accepted" });
 			// The auto-transition's own `edit_task` call is what reaches the bus
 			// now (decision 5) — the old ambient auto_unblock notification, a
-			// second notice of the SAME edit, is gone.
-			expect(notifications).toHaveLength(0);
+			// second notice of the SAME edit, is gone (BC5 T7b: the "notification"
+			// event type itself no longer exists).
 		});
 
 		test("does not emit when task stays in hold", async ({ db, eventBus, agentOrchestration }) => {

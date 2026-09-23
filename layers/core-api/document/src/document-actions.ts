@@ -643,20 +643,20 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 			}
 		}
 
-		// -- the agent/routine/subscription arm — internal-only
-		// (forbidden_parent_kind already refused a client-named one above, in
-		// the pure pass), and a plain read against a table this module doesn't
-		// own, so resolving it before the transaction opens is safe the same
-		// way the task/thread arm above is. Review finding: "a missing
-		// agent/routine -> parent_not_found" on the internal path; `subscription`
-		// joins the same arm now that it is a system-only parent kind too.
+		// -- the agent/subscription arm — internal-only (forbidden_parent_kind
+		// already refused a client-named one above, in the pure pass), and a
+		// plain read against a table this module doesn't own, so resolving it
+		// before the transaction opens is safe the same way the task/thread
+		// arm above is. Review finding: "a missing agent/subscription ->
+		// parent_not_found" on the internal path.
+		//
+		// @lore BC5 T7b: `routine` is gone — `DOCUMENT_PARENT_KINDS` no longer
+		// names it, so this is exhaustive over agent/subscription now.
 		// -------------------------------
 		if (
 			parentActivelySet &&
 			effectiveParent !== null &&
-			(effectiveParent.kind === "agent" ||
-				effectiveParent.kind === "routine" ||
-				effectiveParent.kind === "subscription")
+			(effectiveParent.kind === "agent" || effectiveParent.kind === "subscription")
 		) {
 			const exists = await deps.systemParentExists(
 				ctx.db,

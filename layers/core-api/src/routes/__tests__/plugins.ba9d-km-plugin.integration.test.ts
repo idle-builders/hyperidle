@@ -2,20 +2,26 @@
  * BA9d — document-management plugin installation integration tests.
  *
  * Proves AC4: installing the plugin materializes the librarian agent
- * (users row) and three routine rows. A second factory install is idempotent.
- * Global upkeep runs once, not once per team — guaranteed by scope-aware ids.
+ * (users row) and three subscription rows. A second factory install is
+ * idempotent. Global upkeep runs once, not once per team — guaranteed by
+ * scope-aware ids.
  *
  * Proves scope isolation: two teams installing at team scope each receive
- * their own independent agent and routine rows (different ids from different
- * scopeId in the hash). The sanity-break for each is confirmed inline.
+ * their own independent agent and subscription rows (different ids from
+ * different scopeId in the hash). The sanity-break for each is confirmed
+ * inline.
  *
  * @lore document-module B10 follow-up: also proves scope isolation for the
  * SKILL documents a team-scoped install contributes (`skillItemId` now folds
- * `scopeKind`/`scopeId` into its hash, same as `agentItemId`/`routineItemId`
+ * `scopeKind`/`scopeId` into its hash, same as `agentItemId`/`subscriptionItemId`
  * already did) — before this, two teams installing at team scope resolved
  * the SAME skill document id, and the second team's install failed
  * `not_found` under the visibility rule (architecture.md §5.1) rather than
  * silently overwriting the first team's row.
+ *
+ * @lore BC5 T7b: routine rows become subscription rows —
+ * `routineItemId`/`routines` renamed `subscriptionItemId`/`subscriptions`
+ * (the hash input stays byte-for-byte so an install's ids don't churn).
  *
  * Uses the real DB + app fixture. Each test is self-contained.
  */
@@ -23,9 +29,9 @@
 import { cpSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { documents, type HyperIdleDb, routines, teams, users } from "@hyperidle/db";
+import { documents, type HyperIdleDb, subscriptions, teams, users } from "@hyperidle/db";
 import type { DocumentRow } from "@hyperidle/domain-model";
-import { agentItemId, routineItemId, skillItemId } from "@hyperidle/settings";
+import { agentItemId, skillItemId, subscriptionItemId } from "@hyperidle/settings";
 import { eq, inArray } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, describe, expect } from "vitest";
@@ -116,7 +122,7 @@ async function installKmPluginForTeam(
 	});
 }
 
-describe("document-management plugin install — AC4: global agent + routines", () => {
+describe("document-management plugin install — AC4: global agent + subscriptions", () => {
 	test("install answers ok with plugin name document-management", async ({ db, app }) => {
 		const res = await installKmPlugin(db, app);
 		expect(res.status).toBe(200);
@@ -140,82 +146,86 @@ describe("document-management plugin install — AC4: global agent + routines", 
 		expect(agent.status).toBe("active");
 	});
 
-	test("install creates three routine rows (decay, promotion, post-task-retro)", async ({
+	test("install creates three subscription rows (decay, promotion, post-task-retro)", async ({
 		db,
 		app,
 	}) => {
 		await installKmPlugin(db, app);
 
-		const decayId = routineItemId(PLUGIN_ID, "document-decay", "factory", null);
-		const promotionId = routineItemId(PLUGIN_ID, "document-triage", "factory", null);
-		const retroId = routineItemId(PLUGIN_ID, "post-task-retro", "factory", null);
+		const decayId = subscriptionItemId(PLUGIN_ID, "document-decay", "factory", null);
+		const promotionId = subscriptionItemId(PLUGIN_ID, "document-triage", "factory", null);
+		const retroId = subscriptionItemId(PLUGIN_ID, "post-task-retro", "factory", null);
 
-		const decayRows = await db.select().from(routines).where(eq(routines.id, decayId));
-		const promotionRows = await db.select().from(routines).where(eq(routines.id, promotionId));
-		const retroRows = await db.select().from(routines).where(eq(routines.id, retroId));
+		const decayRows = await db.select().from(subscriptions).where(eq(subscriptions.id, decayId));
+		const promotionRows = await db
+			.select()
+			.from(subscriptions)
+			.where(eq(subscriptions.id, promotionId));
+		const retroRows = await db.select().from(subscriptions).where(eq(subscriptions.id, retroId));
 
 		expect(decayRows).toHaveLength(1);
 		expect(promotionRows).toHaveLength(1);
 		expect(retroRows).toHaveLength(1);
 	});
 
-	test("decay and promotion routines are calendar-triggered", async ({ db, app }) => {
+	test("decay and promotion subscriptions are schedule-triggered", async ({ db, app }) => {
 		await installKmPlugin(db, app);
 
-		const decayId = routineItemId(PLUGIN_ID, "document-decay", "factory", null);
-		const promotionId = routineItemId(PLUGIN_ID, "document-triage", "factory", null);
+		const decayId = subscriptionItemId(PLUGIN_ID, "document-decay", "factory", null);
+		const promotionId = subscriptionItemId(PLUGIN_ID, "document-triage", "factory", null);
 
-		const [decay] = await db.select().from(routines).where(eq(routines.id, decayId));
-		const [promotion] = await db.select().from(routines).where(eq(routines.id, promotionId));
+		const [decay] = await db.select().from(subscriptions).where(eq(subscriptions.id, decayId));
+		const [promotion] = await db
+			.select()
+			.from(subscriptions)
+			.where(eq(subscriptions.id, promotionId));
 
-		expect(decay!.triggerType).toBe("calendar");
-		expect(promotion!.triggerType).toBe("calendar");
-		// nextRunAt is set by insertRoutine from the cron schedule
+		expect(decay!.schedule).toBe("0 3 * * 0");
+		expect(promotion!.schedule).toBe("0 4 * * 0");
+		expect(decay!.event).toBeNull();
+		expect(promotion!.event).toBeNull();
+		// nextRunAt is computed at insert time from the cron schedule
 		expect(decay!.nextRunAt).toBeTruthy();
 		expect(promotion!.nextRunAt).toBeTruthy();
 	});
 
-	test("post-task-retro routine is event-triggered on task_state_changed with transitionTo=done", async ({
-		db,
-		app,
-	}) => {
+	test("post-task-retro subscription is event-triggered on task.changed", async ({ db, app }) => {
 		await installKmPlugin(db, app);
 
-		const retroId = routineItemId(PLUGIN_ID, "post-task-retro", "factory", null);
-		const [retro] = await db.select().from(routines).where(eq(routines.id, retroId));
+		const retroId = subscriptionItemId(PLUGIN_ID, "post-task-retro", "factory", null);
+		const [retro] = await db.select().from(subscriptions).where(eq(subscriptions.id, retroId));
 
-		expect(retro!.triggerType).toBe("event");
-		expect(retro!.eventType).toBe("task_state_changed");
-		// triggerConfig contains transitionTo: "done"
-		expect(retro!.triggerConfig).toContain("done");
+		expect(retro!.event).toBe("task.changed");
+		expect(retro!.schedule).toBeNull();
 	});
 
-	test("AC4: second factory install is idempotent — same agent and routine row counts", async ({
+	test("AC4: second factory install is idempotent — same agent and subscription row counts", async ({
 		db,
 		app,
 	}) => {
 		await installKmPlugin(db, app);
 
-		const routineIds = [
-			routineItemId(PLUGIN_ID, "document-decay", "factory", null),
-			routineItemId(PLUGIN_ID, "document-triage", "factory", null),
-			routineItemId(PLUGIN_ID, "post-task-retro", "factory", null),
+		const subscriptionIds = [
+			subscriptionItemId(PLUGIN_ID, "document-decay", "factory", null),
+			subscriptionItemId(PLUGIN_ID, "document-triage", "factory", null),
+			subscriptionItemId(PLUGIN_ID, "post-task-retro", "factory", null),
 		];
 		const agentId = agentItemId(PLUGIN_ID, "librarian", "factory", null);
 
 		const countAgents = async () =>
 			(await db.select().from(users).where(eq(users.id, agentId))).length;
-		const countRoutines = async () =>
-			(await db.select().from(routines).where(inArray(routines.id, routineIds))).length;
+		const countSubscriptions = async () =>
+			(await db.select().from(subscriptions).where(inArray(subscriptions.id, subscriptionIds)))
+				.length;
 
 		const agentsBefore = await countAgents();
-		const routinesBefore = await countRoutines();
+		const subscriptionsBefore = await countSubscriptions();
 
 		// Second install (reinstall) — onConflictDoNothing fires
 		await installKmPlugin(db, app);
 
 		expect(await countAgents()).toBe(agentsBefore);
-		expect(await countRoutines()).toBe(routinesBefore);
+		expect(await countSubscriptions()).toBe(subscriptionsBefore);
 	});
 });
 
@@ -259,7 +269,10 @@ describe("document-management plugin — team-scope isolation", () => {
 		expect(rowBeta[0]!.teamId).toBe("team-beta");
 	});
 
-	test("two teams installing at team scope get independent routine rows", async ({ db, app }) => {
+	test("two teams installing at team scope get independent subscription rows", async ({
+		db,
+		app,
+	}) => {
 		await db.insert(teams).values([
 			{
 				id: "team-gamma",
@@ -278,16 +291,16 @@ describe("document-management plugin — team-scope isolation", () => {
 		await installKmPluginForTeam(db, app, "team-gamma");
 		await installKmPluginForTeam(db, app, "team-delta");
 
-		const gammaDecayId = routineItemId(PLUGIN_ID, "document-decay", "team", "team-gamma");
-		const deltaDecayId = routineItemId(PLUGIN_ID, "document-decay", "team", "team-delta");
+		const gammaDecayId = subscriptionItemId(PLUGIN_ID, "document-decay", "team", "team-gamma");
+		const deltaDecayId = subscriptionItemId(PLUGIN_ID, "document-decay", "team", "team-delta");
 
 		// Ids must differ
 		expect(gammaDecayId).not.toBe(deltaDecayId);
 
-		const gammaRows = await db.select().from(routines).where(eq(routines.id, gammaDecayId));
-		const deltaRows = await db.select().from(routines).where(eq(routines.id, deltaDecayId));
+		const gammaRows = await db.select().from(subscriptions).where(eq(subscriptions.id, gammaDecayId));
+		const deltaRows = await db.select().from(subscriptions).where(eq(subscriptions.id, deltaDecayId));
 
-		// Each team has its own routine row — not the same row shared via onConflictDoNothing
+		// Each team has its own subscription row — not the same row shared via onConflictDoNothing
 		expect(gammaRows).toHaveLength(1);
 		expect(deltaRows).toHaveLength(1);
 	});

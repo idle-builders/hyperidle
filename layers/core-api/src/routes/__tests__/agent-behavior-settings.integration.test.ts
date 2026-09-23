@@ -104,8 +104,8 @@ async function seedAgentBehaviorConfig(db: HyperIdleDb) {
 		},
 		{
 			pluginId: BUILTIN_PLUGIN_ID,
-			kind: "routine",
-			key: "routine.daily-product-scan",
+			kind: "subscription",
+			key: "subscription.daily-product-scan",
 			value: {
 				id: "daily-product-scan",
 				name: "Daily product scan",

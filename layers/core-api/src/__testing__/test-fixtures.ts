@@ -63,7 +63,7 @@ export interface IntegrationFixtures extends DbFixtures {
 	 * AU31 §3.2 — a real `AgentOrchestrationPort` over a throwaway
 	 * `bootAgentOrchestration({db, eventBus})`, for any test that needs to call
 	 * production code requiring the seam's port WITHOUT needing the full `app`
-	 * fixture (e.g. `dispatch-test-helpers.ts`'s `fireStoredRoutine`).
+	 * fixture.
 	 */
 	agentOrchestration: AgentOrchestrationPort;
 	/**

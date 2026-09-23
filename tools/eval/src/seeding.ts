@@ -19,8 +19,8 @@ import {
 	documents,
 	type HyperIdleDb,
 	messages,
-	routines,
 	sessions,
+	subscriptions,
 	tasks,
 	teams,
 	threads,
@@ -412,45 +412,40 @@ export async function seedMessage(
 // `create_conflict_review` scenarios, are deleted in the same change.
 
 /**
- * Create a routine row.
+ * Create a subscription row.
  *
- * `dispatchOps.fireRoutine` reads scheduling/event fields from `triggerConfig`; a
- * `taskId` is scenario data only and is not required by the dispatch contract.
+ * @lore BC5 T7b: renamed from `seedRoutine` — a subscription fires on
+ * exactly one of `event`/`schedule` (`subscriptions_trigger_ck`, migration
+ * 0088); there is no `heartbeat`/`continuous`/`humanReview`/`silent`
+ * vocabulary left (those were routine-only concepts with no subscription
+ * analogue — an agent subscriber always wakes, unconditionally).
  */
-export async function seedRoutine(
+export async function seedSubscription(
 	db: HyperIdleDb,
 	opts: {
-		routineId?: string;
-		ownerAgentId: string;
-		triggerType: "heartbeat" | "calendar" | "event" | "continuous";
-		triggerConfig?: Record<string, unknown>;
-		/** BA1 D2/D8: `triggerType:"event"`'s event name — a real column, not part of `triggerConfig`. */
-		eventType?: string;
-		humanReview?: boolean;
-		autonomyLevel?: number;
-		silent?: boolean;
-		active?: boolean;
-		lastRunAt?: string;
+		subscriptionId?: string;
+		userId: string;
+		event?: string;
+		schedule?: string;
+		paused?: boolean;
 		nextRunAt?: string;
 	},
-): Promise<{ routineId: string }> {
-	const routineId = opts.routineId ?? randomUUID();
+): Promise<{ subscriptionId: string }> {
+	const subscriptionId = opts.subscriptionId ?? randomUUID();
+	const now = new Date().toISOString();
 
-	await db.insert(routines).values({
-		id: routineId,
-		ownerAgentId: opts.ownerAgentId,
-		triggerType: opts.triggerType,
-		triggerConfig: opts.triggerConfig ? JSON.stringify(opts.triggerConfig) : null,
-		eventType: opts.eventType ?? null,
-		humanReview: opts.humanReview ?? false,
-		autonomyLevel: opts.autonomyLevel ?? null,
-		silent: opts.silent ?? false,
-		active: opts.active ?? true,
-		lastRunAt: opts.lastRunAt ?? null,
+	await db.insert(subscriptions).values({
+		id: subscriptionId,
+		userId: opts.userId,
+		event: opts.event ?? null,
+		schedule: opts.schedule ?? null,
+		paused: opts.paused ?? false,
 		nextRunAt: opts.nextRunAt ?? null,
+		createdAt: now,
+		updatedAt: now,
 	});
 
-	return { routineId };
+	return { subscriptionId };
 }
 
 /** Create an active session (for WIP-limit testing in delegation scenarios). */

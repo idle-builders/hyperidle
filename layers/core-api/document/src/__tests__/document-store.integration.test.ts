@@ -179,16 +179,16 @@ describe("search_documents — the one query (architecture.md §5.1)", () => {
 	test("parent {kind,id} returns exactly that named parent's children", async ({ db }) => {
 		const match = await insertDocument(
 			db,
-			docValues({ id: "parent-a", parentKind: "routine", parentId: "routine-1", slot: "prompt" }),
+			docValues({ id: "parent-a", parentKind: "subscription", parentId: "subscription-1", slot: "prompt" }),
 		);
 		await insertDocument(
 			db,
-			docValues({ id: "parent-b", parentKind: "routine", parentId: "routine-2", slot: "prompt" }),
+			docValues({ id: "parent-b", parentKind: "subscription", parentId: "subscription-2", slot: "prompt" }),
 		);
 
 		const rows = await searchDocumentRows(
 			db,
-			{ parent: { kind: "routine", id: "routine-1" } },
+			{ parent: { kind: "subscription", id: "subscription-1" } },
 			ANY_VIEWER,
 		);
 
@@ -741,20 +741,20 @@ describe("cycle/depth/slot/scope checks (architecture.md §4.2)", () => {
 			db,
 			docValues({
 				id: "inv-slot-taken",
-				parentKind: "routine",
-				parentId: "routine-slot-1",
+				parentKind: "subscription",
+				parentId: "subscription-slot-1",
 				slot: "prompt",
 			}),
 		);
 
-		await expect(assertSlotFree(db, "routine", "routine-slot-1", "prompt")).rejects.toMatchObject({
+		await expect(assertSlotFree(db, "subscription", "subscription-slot-1", "prompt")).rejects.toMatchObject({
 			code: "slot_taken",
 		});
 	});
 
 	test("assertSlotFree resolves when the slot is free", async ({ db }) => {
 		await expect(
-			assertSlotFree(db, "routine", "routine-slot-2", "prompt"),
+			assertSlotFree(db, "subscription", "subscription-slot-2", "prompt"),
 		).resolves.toBeUndefined();
 	});
 

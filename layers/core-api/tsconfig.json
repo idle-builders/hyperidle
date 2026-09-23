@@ -54,16 +54,10 @@
 			"path": "document"
 		},
 		{
-			"path": "notifications"
-		},
-		{
 			"path": "org"
 		},
 		{
 			"path": "policy"
-		},
-		{
-			"path": "routine"
 		},
 		{
 			"path": "settings"
