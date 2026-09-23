@@ -8,9 +8,11 @@ import {
 	makeIdentity,
 	makeMessage,
 	makeThread,
+	makeUserRow,
 	mockDocument,
 	mockSearchSessions,
 	mockSearchThreads,
+	mockSearchUsers,
 	mockThread,
 	test,
 } from "./fixtures";
@@ -35,13 +37,19 @@ async function expectSameX(a: Locator, b: Locator): Promise<void> {
 }
 
 async function mockPrimarySurfaces(page: Page): Promise<void> {
-	await page.route("**/api/teams", (route) =>
-		json(route, {
-			teams: [
-				{ id: "team-a", name: "Core", phase: "build", status: "healthy", tasksInProgress: 2 },
-				{ id: "team-b", name: "Growth", phase: "build", status: "healthy", tasksInProgress: 1 },
-			],
-		}),
+	// @lore kind:"human", not "ai" — a kind:"ai" row here would also answer
+	// SettingsAgents' own search_users({kind:"ai"}) list, and its per-row
+	// open_user({id}) follow-up calls have no mock in this test, so every one
+	// of them hits the network and the section renders an error state (a wide
+	// side effect this test's width assertions do not want).
+	await mockSearchUsers(page, {
+		rows: [
+			makeUserRow("member-team-a", { team: { id: "team-a", name: "Core" } }),
+			makeUserRow("member-team-b", { team: { id: "team-b", name: "Growth" } }),
+		],
+	});
+	await page.route("**/api/actions/search_tasks", (route) =>
+		json(route, { ok: true, data: [] }),
 	);
 	// The thread door is `POST /api/actions/{search_threads, open_thread}`
 	// — never `GET /api/threads*`. There is no `task` host kind (a
@@ -130,83 +138,10 @@ for (const viewport of [
 	});
 }
 
-async function mockTeamRoutine(page: Page): Promise<void> {
-	await page.route("**/api/teams/team-layout", (route) =>
-		json(route, {
-			team: {
-				id: "team-layout",
-				name: "Layout Team",
-				phase: "build",
-				status: "healthy",
-				leadAgentId: null,
-			},
-			teamMembers: { id: "team-layout", formedAt: NOW, dissolvedAt: null },
-			roster: [],
-			burn: { capacity: 4 },
-			tasksInProgress: [],
-			routines: [
-				{
-					id: "routine-layout",
-					name: "Daily layout check",
-					state: "active",
-					scheduleLabel: "Daily",
-					agentName: "Atlas",
-					agentInitials: "AT",
-					lastRunAt: null,
-				},
-			],
-		}),
-	);
-	await page.route("**/api/routines/routine-layout", (route) =>
-		json(route, {
-			routine: {
-				id: "routine-layout",
-				name: "Daily layout check",
-				description: "Check the frame",
-				state: "active",
-				triggerType: "calendar",
-				triggerConfig: '{"cron":"0 8 * * *"}',
-				scheduleLabel: "Daily",
-				ownerAgentId: "agent-layout",
-				agentName: "Atlas",
-				agentInitials: "AT",
-				teamId: "team-layout",
-				teamName: "Layout Team",
-				autonomyLevel: 2,
-				humanReview: false,
-				delegationAllowed: false,
-				lastRunAt: null,
-				lastRunOutcome: null,
-				nextRunAt: null,
-				createdAt: NOW,
-				lastRunSummary: null,
-				silent: false,
-			},
-			runs: [],
-		}),
-	);
-	await page.route("**/api/artifacts*", (route) => json(route, { items: [], nextCursor: null }));
-}
-
-test("team split uses local pane headers and compact destination-only behavior", async ({
-	page,
-}) => {
-	await mkdir(EVIDENCE, { recursive: true });
-	await mockTeamRoutine(page);
-	await page.setViewportSize({ width: 1024, height: 768 });
-	await page.goto("/work/team/team-layout?routine=routine-layout");
-	const split = page.locator("[data-ds-component='split-view']");
-	await expect(split).toBeVisible();
-	await expect(split.locator("[data-ds-component='PageHeader'] h1")).toHaveCount(0);
-	await expect(split.locator("[data-ds-component='PageHeader'] h2")).toHaveCount(2);
-	await expect(split.locator("[data-page-frame]")).toHaveCount(0);
-	await page.screenshot({ path: resolve(EVIDENCE, "inspect-team.png") });
-
-	await page.setViewportSize({ width: 390, height: 844 });
-	await expect(split.locator("[data-compact-return]")).toBeVisible();
-	await expect(split.locator(":scope > div").first()).toBeHidden();
-	await page.screenshot({ path: resolve(EVIDENCE, "compact-team.png") });
-});
+// @lore BC5 T9: "team split uses local pane headers..." deleted. Its subject
+// — a routine's split pane opened via `/work/team/:id?routine=:id` — is gone
+// with WorkRoutine and the routines table; WorkTeam's split view is agent-
+// selection only now (`?agent=:id`), and there is no routine pane to open.
 
 test("review with an artifact open uses two local panes", async ({ page }) => {
 	await mkdir(EVIDENCE, { recursive: true });

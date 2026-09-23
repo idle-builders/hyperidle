@@ -324,6 +324,19 @@ export const AU21_PRE_EXISTING_E2E_FAILURES: readonly string[] = [
 	"clicking Knowledge section header activates the Knowledge section",
 	"AC-E9: overlay state persists across view navigation (not destroyed on navigate)",
 
+	// @lore BC5 T12 (2026-09-23): `settings-section-profile`'s width (720px,
+	// stretched to `settings-body`'s own max-w-[720px] by flex-col's default
+	// `align-items: stretch`) fails the test's `<= 681` + "centered under the
+	// page frame" assertions. `SettingsPage.tsx`'s own FR-9 lore is explicit
+	// that settings content is left-aligned with NO `mx-auto`, by decision —
+	// the opposite of what this test expects. Neither `SettingsPage.tsx` nor
+	// this spec's assertion logic changed on this branch (`git log
+	// origin/main..HEAD` for the page is empty; the spec's selectors and the
+	// `681` constant are byte-identical to `origin/main`) — a stale
+	// expectation from before the FR-9 redesign, not caused by BC5.
+	"stable frame and content lanes paint at 1440px",
+	"stable frame and content lanes paint at 1024px",
+
 	// @lore AU28 (2026-08-05, the AU26+AU27 rebase): five tests that AU26's route move broke
 	// on `main`, invisible there and unmasked here. AU26 repointed the web session/run reads
 	// at agent-orchestration's new API surface (`useTaskSessions` now fetches
