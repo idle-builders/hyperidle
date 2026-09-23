@@ -98,6 +98,12 @@ const DEFAULT_USER_ROW: UserRow = makeUserRow("test-founder", {
 	name: "Test Founder",
 	role: "founder",
 	email: "test@hyperidle.dev",
+	// A team, not null — FirstRunRedirect's own "setup done" check
+	// (`search_users({kind:"human"}).some(u => u.team !== null)`) reads this
+	// default too (`fulfillDefaultSearchUsers` below), so a spec that never
+	// seeds a team lands on the real app instead of /setup, matching every
+	// other spec's assumption that setup is already done.
+	team: { id: "test-team-1", name: "Test Team" },
 });
 
 /**
@@ -129,6 +135,31 @@ async function fulfillDefaultOpenUser(
 				inbox: [],
 			}),
 		}),
+	});
+}
+
+/**
+ * Answers `POST /api/actions/search_users` with `[DEFAULT_USER_ROW]` —
+ * shared by the auto-use fixture and `registerCoreMocks`. `FirstRunRedirect`
+ * calls `search_users({kind:"human"})` on EVERY root ("/") visit to decide
+ * /work vs /setup; without this default every spec that navigates to "/"
+ * without its own `mockSearchUsers()` call would 404 the request and land on
+ * /setup instead of the shell. A per-test `mockSearchUsers()` registration
+ * wins over this one (LIFO); this file's own is a plain `page.route()`, not
+ * `route.fallback()`, so it never conflicts with a test's own handler either
+ * way.
+ */
+async function fulfillDefaultSearchUsers(
+	route: import("@playwright/test").Route,
+): Promise<void> {
+	if (route.request().method() !== "POST") {
+		await route.continue();
+		return;
+	}
+	await route.fulfill({
+		status: 200,
+		contentType: "application/json",
+		body: JSON.stringify({ ok: true, data: [DEFAULT_USER_ROW] }),
 	});
 }
 
@@ -200,6 +231,9 @@ export const test = base.extend<CoreApiFixtures>({
 
 			// POST /api/actions/open_user (no id) — the shell's own "who am I".
 			await page.route("**/api/actions/open_user", fulfillDefaultOpenUser);
+
+			// POST /api/actions/search_users — FirstRunRedirect's setup-done check.
+			await page.route("**/api/actions/search_users", fulfillDefaultSearchUsers);
 
 			// POST /api/actions/open_task — WorkTaskPage's only data source.
 			//
@@ -283,6 +317,7 @@ export async function registerCoreMocks(page: import("@playwright/test").Page): 
 		});
 	});
 	await page.route("**/api/actions/open_user", fulfillDefaultOpenUser);
+	await page.route("**/api/actions/search_users", fulfillDefaultSearchUsers);
 }
 
 // ---------------------------------------------------------------------------

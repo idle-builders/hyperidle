@@ -312,6 +312,18 @@ export const AU21_PRE_EXISTING_E2E_FAILURES: readonly string[] = [
 	// on this branch (`git log origin/main..HEAD` for both is empty).
 	"sidebar section headers use 14px font-size",
 
+	// @lore BC5 T12 (2026-09-23): the Sidebar's Conversations/Work/Knowledge
+	// nav items are `<Link>`s (ARIA role "link"), not buttons — a locator
+	// mismatch identical on `origin/main`
+	// (`git show origin/main:layers/core-ui/__e2e__/navigation.spec.ts` carries
+	// the same `getByRole("button", { name: /work/i })` text) and `Sidebar.tsx`
+	// is untouched on this branch (`git log origin/main..HEAD` for it is
+	// empty). Four titles across two files share the cause.
+	"Sidebar shows three section headers: Conversations, Work, Knowledge",
+	"clicking Work section header shows team sub-items in Sidebar",
+	"clicking Knowledge section header activates the Knowledge section",
+	"AC-E9: overlay state persists across view navigation (not destroyed on navigate)",
+
 	// @lore AU28 (2026-08-05, the AU26+AU27 rebase): five tests that AU26's route move broke
 	// on `main`, invisible there and unmasked here. AU26 repointed the web session/run reads
 	// at agent-orchestration's new API surface (`useTaskSessions` now fetches
