@@ -23,7 +23,6 @@
 import { expect, makeDocumentRow, mockDocument, mockSearchThreads, test } from "./fixtures";
 
 const _BET_ID = "bet-ag5-test";
-const TEAM_ID = "test-team-1";
 
 /** Mock response for GET /api/model-gateway */
 const MODEL_GATEWAY_FIXTURE = {
@@ -86,43 +85,6 @@ async function _setupBetsListRoutes(
 	});
 }
 
-/** Mock routes for WorkTeam page at /work/team/:id */
-async function setupTeamRoutes(
-	page: Parameters<typeof test>[1] extends infer T
-		? T extends { page: infer P }
-			? P
-			: never
-		: never,
-): Promise<void> {
-	await page.route(`**/api/teams/${TEAM_ID}`, (route) => {
-		if (route.request().method() === "GET") {
-			return route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({
-					product: { id: TEAM_ID, name: "Test Team", phase: "build", status: "healthy" },
-					team: { id: "t1", formedAt: new Date().toISOString(), dissolvedAt: null },
-					roster: [],
-					burn: { capacity: 5 },
-					tasksInProgress: [],
-					routines: [],
-				}),
-			});
-		}
-		return route.continue();
-	});
-	await page.route(`**/api/agents`, (route) => {
-		if (route.request().method() === "GET") {
-			return route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ agents: [] }),
-			});
-		}
-		return route.continue();
-	});
-}
-
 // ─── Surface 1: Settings / Models ────────────────────────────────────────────
 
 test("AG5-S1: Settings/Models — canonical Select renders on model tier rows", async ({ page }) => {
@@ -154,35 +116,11 @@ test("AG5-S1: Settings/Models — canonical Select renders on model tier rows", 
 });
 
 // ─── Surface 3: RoutineCreateDialog ──────────────────────────────────────────
-
-test("AG5-S3: RoutineCreateDialog — canonical Select primitives render", async ({ page }) => {
-	await page.setViewportSize({ width: 1440, height: 900 });
-	await setupTeamRoutes(page);
-
-	// @lore AG5 fix: RoutineCreateDialog is in WorkTeam at /work/team/:id.
-	await page.goto(`/work/team/${TEAM_ID}`);
-	await page.waitForSelector("[data-testid='main-content']");
-
-	// Click "New routine" button
-	const createBtn = page.getByTestId("new-routine-btn");
-	await expect(createBtn).toBeVisible({ timeout: 10000 });
-	await createBtn.click();
-
-	const dialog = page.getByRole("dialog");
-	await expect(dialog).toBeVisible({ timeout: 5000 });
-
-	const selects = dialog.locator("[data-ds-component='Select']");
-	await expect(selects.first()).toBeVisible({ timeout: 5000 });
-	// Multiple selects (schedule/team/agent) should be present
-	const count = await selects.count();
-	expect(count).toBeGreaterThanOrEqual(2);
-
-	// Screenshot: RoutineCreateDialog with selects (surface 3)
-	await page.screenshot({
-		path: "test-results/ag5-s3-routine-create-dialog.png",
-		fullPage: false,
-	});
-});
+//
+// @lore BC5 T9: deleted. Its subject — RoutineCreateDialog, opened from the
+// team page's "new-routine-btn" — is gone with the routines table and
+// WorkTeam's routines section (subscriptions replace routines, and they live
+// on AgentProfile, not the team page).
 
 // ─── Surface 4b: WorkBet overflow Menu — bet action data attrs preserved ─────
 
