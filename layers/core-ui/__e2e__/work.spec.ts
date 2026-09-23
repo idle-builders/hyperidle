@@ -2,35 +2,19 @@
  * E2E tests for the Work section: Portfolio canvas, Team kanban board,
  * bet cards, and pitch selector.
  *
- * @lore M3: Teams now come from /api/teams. Tests that need team data
- * must mock the endpoint with fixture data.
- * @lore U11: Migrated from /api/products to /api/teams (server route renamed in U2).
+ * @lore BC5 T11: `GET /api/teams` is gone — `useTeams` builds the portfolio's
+ * team list from `search_users({})` (architecture.md §1).
  */
-import { expect, test } from "./fixtures";
-
-const TEAMS_FIXTURE = {
-	teams: [
-		{
-			id: "t1",
-			name: "HyperIdle Core",
-			phase: "build",
-			active: true,
-		},
-	],
-};
+import { expect, makeUserRow, mockSearchUsers, test } from "./fixtures";
 
 test.describe("Work Portfolio", () => {
 	test.beforeEach(async ({ page }) => {
-		// Mock /api/teams so team pill filters render deterministically in e2e.
-		await page.route("**/api/teams", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(TEAMS_FIXTURE),
-			});
+		// So team pill filters render deterministically in e2e.
+		await mockSearchUsers(page, {
+			rows: [makeUserRow("agent-t1", { kind: "ai", team: { id: "t1", name: "HyperIdle Core" } })],
 		});
 		await page.goto("/work/portfolio");
-		await page.waitForSelector("[data-testid='work-portfolio-page']");
+		await page.waitForSelector("[data-testid='work-overview-page']");
 	});
 
 	test("Portfolio page renders a portfolio overview heading (I4 P1)", async ({ page }) => {
@@ -43,8 +27,8 @@ test.describe("Work Portfolio", () => {
 		// @lore U11: product-card testid was removed in U9 (WorkPortfolio now renders
 		// a flat BetCard grid). The bet-grid container is the structural assertion.
 		// Empty state (no bets) or populated state (bet cards) — either shows bet-grid
-		// in the loaded state. We check work-portfolio-page is visible (from beforeEach).
-		const portfolioPage = page.getByTestId("work-portfolio-page");
+		// in the loaded state. We check work-overview-page is visible (from beforeEach).
+		const portfolioPage = page.getByTestId("work-overview-page");
 		await expect(portfolioPage).toBeVisible();
 	});
 });
