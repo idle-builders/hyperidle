@@ -10,12 +10,16 @@ export type {
 	AgentWorkIntentKind,
 	AgentWorkIntentSourceKind,
 	// @lore BB1: BetRevisedEvent and BetStateChangedEvent deleted — bet is now a root task.
+	// @lore BC5 T7b: NotificationEvent, TaskStateChangedEvent and the four
+	// ThreadCreated/ThreadMessageAppended/ThreadResolved/ThreadReopened events
+	// deleted with the routine matcher, their last listener — subscriptions
+	// replace them with `ObjectChangeEvent`'s "task.changed"/"thread.*"/
+	// "user.changed" members.
 	ChangesRow,
 	DomainEvent,
 	EventByType,
 	EventHandler,
 	EventType,
-	NotificationEvent,
 	ObjectChangeEvent,
 	PropagationAppliedEvent,
 	PropagationFailedEvent,
@@ -26,12 +30,7 @@ export type {
 	SessionNotReturnedEvent,
 	// SessionOutcome stays in @hyperidle/domain-model (core-ui uses it; core-ui cannot reach event-bus)
 	SessionStartedEvent,
-	TaskStateChangedEvent,
 	TeamCreatedEvent,
-	ThreadCreatedEvent,
-	ThreadMessageAppendedEvent,
-	ThreadReopenedEvent,
-	ThreadResolvedEvent,
 	ToolCallRecordedEvent,
 	UserCreatedEvent,
 	WildcardHandler,

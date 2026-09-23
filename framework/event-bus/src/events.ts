@@ -10,12 +10,9 @@ import type {
 	ChangeKind,
 	ChangeObject,
 	ChangeRow,
-	HostKind,
-	MessageType,
 	ModelTier,
 	ObjectEventName,
 	SessionOutcome,
-	TaskState,
 } from "@hyperidle/domain-model";
 
 /**
@@ -120,31 +117,6 @@ export interface AgentRunLifecycleChangedEvent {
 }
 
 // --- Event type discriminants ---
-
-export interface TaskStateChangedEvent {
-	type: "task_state_changed";
-	streamId: string;
-	taskId: string;
-	fromState: TaskState;
-	toState: TaskState;
-	timestamp: number;
-	/**
-	 * BB1: this transition is part of a deliberate subtree KILL, not ordinary
-	 * progress. Upward completion propagation must ignore it.
-	 *
-	 * @lore BB1: without this, killing a task with descendants raced its own
-	 * completion cascade. `cascadeTaskKill` kills deepest-first, each kill emits
-	 * this event, and the propagation handler — which listens for `killed` on
-	 * purpose, so a last child being killed can still advance its parent — found
-	 * the ancestors' children all terminal and marked them `done` before the
-	 * cascade reached them. That stamped `completedAt` on cancelled work and
-	 * raised a "Confirm shipping?" review on a killed root. The cascade already
-	 * suppresses `session_ended` for exactly this reason; this closes the other
-	 * path. Optional, so every existing emitter is unchanged and only the
-	 * cascade opts in.
-	 */
-	cascade?: boolean;
-}
 
 /**
  * @lore BB1: `BetStateChangedEvent` DELETED — a bet is now a root task.
@@ -277,28 +249,6 @@ export interface SessionNotReturnedEvent {
 	readonly timestamp: number;
 }
 
-export interface NotificationEvent {
-	type: "notification";
-	streamId: string;
-	targetId: string;
-	message: string;
-	timestamp: number;
-	/**
-	 * AF8: MANDATORY discriminator. Distinguishes policy-engine "attention"
-	 * push notifications from dep-watcher "auto_unblock" ambient events.
-	 *
-	 * @lore AF8: This field is MANDATORY (not optional) so TypeScript forces
-	 * both emit sites to set it. The notification listener filters on `kind`
-	 * ONLY — never on message text. auto_unblock is ambient (concept hard
-	 * rule #6) and must never produce a notification_queue row.
-	 *
-	 * Emit sites:
-	 *   policy-engine.ts   → kind: "attention"
-	 *   dependency-watcher.ts → kind: "auto_unblock"
-	 */
-	kind: "attention" | "auto_unblock";
-}
-
 /** A single detected file-level writeback change (create/modify/delete). */
 export interface SandboxWritebackChange {
 	readonly type: "create" | "modify" | "delete";
@@ -349,44 +299,6 @@ export interface ToolCallRecordedEvent {
 	sessionId: string;
 	toolName: string;
 	argsSummary: string;
-	timestamp: number;
-}
-
-// L1a — Thread primitive events (plan §6.3). `streamId` = `threadId` so
-// per-thread events arrive in order.
-export interface ThreadCreatedEvent {
-	type: "thread_created";
-	streamId: string;
-	threadId: string;
-	hostKind: HostKind;
-	hostId: string;
-	initiatorId: string;
-	timestamp: number;
-}
-
-export interface ThreadMessageAppendedEvent {
-	type: "thread_message_appended";
-	streamId: string;
-	threadId: string;
-	messageId: string;
-	messageType: MessageType;
-	senderId: string;
-	timestamp: number;
-}
-
-export interface ThreadResolvedEvent {
-	type: "thread_resolved";
-	streamId: string;
-	threadId: string;
-	resolvedByMessageId: string;
-	timestamp: number;
-}
-
-export interface ThreadReopenedEvent {
-	type: "thread_reopened";
-	streamId: string;
-	threadId: string;
-	reopenedByMessageId: string;
 	timestamp: number;
 }
 
@@ -557,25 +469,29 @@ export type DomainEvent =
 	| AgentWorkIntentEvent
 	| AgentRunAdmissionFailedEvent
 	| AgentRunLifecycleChangedEvent
-	| TaskStateChangedEvent
 	// @lore BB1: BetStateChangedEvent and BetRevisedEvent deleted — bet is now a root task.
+	// @lore BC5 T7b: TaskStateChangedEvent deleted with the routine matcher, its
+	// last listener — `edit_task` emits `task.changed` (an ObjectChangeEvent
+	// member) for lifecycle propagation and the dependency watcher now.
 	| SessionStartedEvent
 	| SessionEndedEvent
 	// AU19 Increment 3g: handoff EventBus inversion
 	| SessionHandoffCompletedEvent
 	// Return-gate escape surface
 	| SessionNotReturnedEvent
-	| ThreadCreatedEvent
-	| ThreadMessageAppendedEvent
-	| ThreadResolvedEvent
-	| ThreadReopenedEvent
+	// @lore BC5 T7b: ThreadCreatedEvent/ThreadMessageAppendedEvent/
+	// ThreadResolvedEvent/ThreadReopenedEvent deleted with the routine matcher,
+	// their last listener — `thread.created`/`thread.message`/`thread.changed`
+	// (ObjectChangeEvent members) carry the same change now.
 	// AU19 Increment 3f: filesystems ⚠ capture-writeback EventBus inversion
 	| SandboxWritebackChangesDetectedEvent
 	// AK6: creation events
 	| TeamCreatedEvent
 	| AgentAddedEvent
 	| UserCreatedEvent
-	| NotificationEvent
+	// @lore BC5 T7b: NotificationEvent deleted — subscriptions replace the
+	// notification queue; `user.changed` (an ObjectChangeEvent member) plus a
+	// subscription's inbox row carry what this used to.
 	| PropagationAppliedEvent
 	| PropagationFailedEvent
 	| ToolCallRecordedEvent;
@@ -584,11 +500,12 @@ export type DomainEvent =
 export type EventType = DomainEvent["type"];
 
 /**
- * BA1 D8/D2 — the one compile-time-complete list of every event type. D2's
- * routine-event matcher subscribes to every member (all 24, nothing
- * excluded — the founder's loop ruling at §3.1 rejects a narrowed
- * allow-list); D8's create/patch validators and `GET /api/routines/event-types`
- * all read this SAME constant.
+ * BA1 D8/D2 — the one compile-time-complete list of every event type.
+ *
+ * @lore BC5 T7b: the routine matcher that used to subscribe to every member
+ * here (D2, the founder's loop ruling at §3.1) is deleted with the routine
+ * package — a subscription now fires on one of the nine object events or a
+ * schedule (`subscriptions_event_ck`, migration 0088), never this whole list.
  *
  * `as const satisfies readonly EventType[]` is load-bearing, not cosmetic:
  * `satisfies` rejects a listed name that is not an `EventType`, and the
@@ -614,16 +531,17 @@ export const EVENT_TYPES = [
 	"agent_work_intent_recorded",
 	"agent_run_admission_failed",
 	"agent_run_lifecycle_changed",
-	"task_state_changed",
 	// @lore BB1: "bet_state_changed" and "bet_revised" deleted — bet is now a root task.
+	// @lore BC5 T7b: "task_state_changed" deleted — the routine matcher, its
+	// last listener, is gone; "task.changed" (above) carries a state move now.
 	"session_started",
 	"session_ended",
 	"session_handoff_completed",
 	"session_not_returned",
-	"thread_created",
-	"thread_message_appended",
-	"thread_resolved",
-	"thread_reopened",
+	// @lore BC5 T7b: "thread_created"/"thread_message_appended"/
+	// "thread_resolved"/"thread_reopened" deleted with the routine matcher,
+	// their last listener — "thread.created"/"thread.message"/"thread.changed"
+	// (above) carry the same change now.
 	// @lore BC3 architecture.md §5: "item_created" DELETED — its only backing
 	// store, the `items` table (the founder's conversation-review "block"
 	// concept), is gone, and nothing emits it anymore.
@@ -631,7 +549,8 @@ export const EVENT_TYPES = [
 	"team_created",
 	"agent_added",
 	"user_created",
-	"notification",
+	// @lore BC5 T7b: "notification" deleted — subscriptions replace the
+	// notification queue.
 	"propagation_applied",
 	"propagation_failed",
 	"tool_call_recorded",
