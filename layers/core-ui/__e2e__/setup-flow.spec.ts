@@ -19,72 +19,36 @@
  * - AC-8 Navigates to /conversations → updated (now /work/portfolio)
  */
 
-import { expect, test } from "./fixtures";
+import { expect, makeUserRow, mockSearchUsers, mockUser, test } from "./fixtures";
+
+// @lore BC5 T10: `GET /api/auth/me`, `GET/POST /api/teams`, `POST /api/users`
+// are gone — `FirstRunRedirect` reads `search_users({kind:"human"})` (a human
+// row with a team means setup is done) and the welcome screen writes through
+// `edit_user` twice (new person + team name, then new agent).
+const NO_HUMANS_YET: ReturnType<typeof makeUserRow>[] = [];
 
 test.describe("SetupFlow (R2)", () => {
 	// Register additional API mocks for setup
 	test.beforeEach(async ({ page }) => {
-		// No human user — auth/me returns 401
-		await page.route("**/api/auth/me", async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 401,
-					contentType: "application/json",
-					body: JSON.stringify({ error: "Unauthorized" }),
-				});
-			} else {
-				await route.continue();
-			}
-		});
+		// No human user with a team yet — fresh install.
+		await mockSearchUsers(page, { rows: NO_HUMANS_YET });
 
-		// No products — fresh install
-		await page.route("**/api/teams", async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({ teams: [] }),
-				});
-			} else {
-				await route.continue();
-			}
-		});
-
-		// POST /api/users — create human user (no email required)
-		await page.route("**/api/users", async (route) => {
-			if (route.request().method() === "POST") {
-				await route.fulfill({
-					status: 201,
-					contentType: "application/json",
-					body: JSON.stringify({
-						id: "u-new-founder",
-						name: "Alice",
-						kind: "human",
-						role: "founder",
-						status: "active",
-					}),
-				});
-			} else {
-				await route.continue();
-			}
-		});
-
-		// POST /api/teams
-		await page.route("**/api/teams", async (route) => {
-			const method = route.request().method();
-			if (method === "POST") {
-				await route.fulfill({
-					status: 201,
-					contentType: "application/json",
-					body: JSON.stringify({
-						id: "p-new-product",
-						name: "My Product",
-						phase: "build",
-					}),
-				});
-			} else {
-				await route.continue();
-			}
+		// edit_user — create the founder (new person + team name).
+		await page.route("**/api/actions/edit_user", async (route) => {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({
+					ok: true,
+					data: {
+						user: makeUserRow("u-new-founder", {
+							name: "Alice",
+							role: "founder",
+							team: { id: "p-new-product", name: "My Product" },
+						}),
+					},
+				}),
+			});
 		});
 	});
 
@@ -148,17 +112,13 @@ test.describe("SetupFlow (R2)", () => {
 
 	// AC-5: After completing setup, navigates to /work.
 	test("navigates to /work after successful setup", async ({ page }) => {
-		// After setup, auth/me should return a user
-		await page.route("**/api/auth/me", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({
-					id: "u-new-founder",
-					name: "Alice",
-					avatarUrl: null,
-				}),
-			});
+		// After setup, the shell's own open_user({}) resolves to the new founder.
+		await mockUser(page, {
+			row: makeUserRow("u-new-founder", {
+				name: "Alice",
+				team: { id: "p-new-product", name: "My Product" },
+			}),
+			self: true,
 		});
 
 		await page.goto("/setup");
@@ -171,32 +131,13 @@ test.describe("SetupFlow (R2)", () => {
 		await expect(page).toHaveURL(/\/work(?:\?onboarding=true)?$/, { timeout: 10_000 });
 	});
 
-	// AC-10: FirstRunRedirect checks both user + products
+	// AC-10: FirstRunRedirect checks both a human row AND its team
 	test("redirects to /setup when user exists but no products (AC-10)", async ({ page }) => {
-		// User exists
-		await page.route("**/api/auth/me", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({
-					id: "u-existing",
-					name: "Existing User",
-					avatarUrl: null,
-				}),
-			});
-		});
-
-		// But no products
-		await page.route("**/api/teams", async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({ teams: [] }),
-				});
-			} else {
-				await route.continue();
-			}
+		// A human row exists, but carries no team yet — not "done" (D-e3zm2j:
+		// every user is in a team, so a team-less human means setup isn't
+		// finished).
+		await mockSearchUsers(page, {
+			rows: [makeUserRow("u-existing", { name: "Existing User" })],
 		});
 
 		await page.goto("/");

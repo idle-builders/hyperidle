@@ -113,6 +113,16 @@ export const AU21_PRE_EXISTING_E2E_FAILURES: readonly string[] = [
 	"AC1 — Start button disabled when name filled but no API key",
 	"AC1 — Start button enabled when name and API key are filled",
 	"AC1 — renders name and API key fields as required fields",
+	// @lore BC5 T12 (2026-09-23): setup-flow.spec.ts's own titles for the same
+	// stale expectation — SetupFlow's harness picker has no "Anthropic API
+	// Key" text input at all (verified on `origin/main`: `git show origin/
+	// main:layers/core-ui/src/pages/SetupFlow.tsx` carries the same
+	// `enter_api_key` hint-text-only shape, no input; `SetupFlow.tsx`'s own
+	// AV1 lore says setup stopped collecting a key). Pre-existing, not
+	// branch-only.
+	"renders name and API key fields; repo path optional",
+	"Start button becomes enabled when name and API key are filled",
+	"navigates to /work after successful setup",
 	"AC1b-portfolio: bet active status chip on BetCard (portfolio)",
 	"AC3-portfolio: validated verdict chip on BetCard (portfolio)",
 	"AC5 — navigates to /work/portfolio after successful setup",
