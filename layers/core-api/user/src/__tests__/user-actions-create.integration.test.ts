@@ -362,7 +362,7 @@ describe("edit_user — a failed folder step on create never leaves a half-made 
 	});
 });
 
-describe("edit_user — the welcome screen's first person (T23)", () => {
+describe("edit_user — the welcome screen's first person is the founder", () => {
 	test("a fresh database's first human is created with role 'founder'", async ({ db }) => {
 		const deps = buildDeps();
 		const { editUser } = actionsFor(deps);
