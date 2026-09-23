@@ -74,20 +74,10 @@ test("AI1 AC2/AC5 — conversations: blocking section uses --status-error border
 test("AI1 AC4 — settings assistant: --surface-container + status token colors", async ({
 	page,
 }) => {
-	await page.route("**/api/users/*/assistant**", async (route) => {
-		if (route.request().method() === "GET") {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({
-					persona: "You are a helpful assistant for the HyperIdle team.",
-					enabled: true,
-				}),
-			});
-		} else {
-			await route.continue();
-		}
-	});
+	// @lore BC5 T11: `GET /api/users/*/assistant` is gone with the `users`
+	// route family — the assistant's persona is `edit_user`'s `identity`
+	// field now, read through `open_user`, which the fixtures.ts auto-use
+	// default already answers. Nothing else drives this screenshot's data.
 
 	// Settings opens as a modal via /conversations?settings=open
 	// then navigate to the assistant sub-section
