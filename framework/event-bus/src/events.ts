@@ -36,6 +36,9 @@ export const AGENT_WORK_INTENT_KINDS = [
 	"knowledge_action",
 	"routine_run",
 	"task_run",
+	// @lore BC5 T6: a subscription's wake — additive alongside `routine_run`;
+	// the cut-over block retires that kind.
+	"subscription_run",
 ] as const;
 
 export type AgentWorkIntentKind = (typeof AGENT_WORK_INTENT_KINDS)[number];
@@ -53,7 +56,9 @@ export type AgentWorkIntentSourceKind =
 	| "explicit_session_start"
 	| "knowledge_action"
 	| "routine_run"
-	| "task_dispatch_attempt";
+	| "task_dispatch_attempt"
+	// @lore BC5 T6: additive alongside `routine_run`; the cut-over block retires it.
+	| "subscription";
 
 export interface AgentWorkIntentEvent {
 	readonly type: "agent_work_intent_recorded";

@@ -90,7 +90,9 @@ export type AgentOrchestrationWorkIntentKind =
 	| "knowledge_action"
 	| "routine_run"
 	| "task_run"
-	| "session_resume";
+	| "session_resume"
+	// @lore BC5 T6: additive alongside `routine_run`; the cut-over block retires it.
+	| "subscription_run";
 
 /**
  * Mirrors `AgentWorkIntentRecorderInput` — `bakedRequest` is carried opaque
