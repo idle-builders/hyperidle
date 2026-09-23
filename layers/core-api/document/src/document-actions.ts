@@ -123,9 +123,18 @@ async function resolveViewer(
 		deps.users.getUserById(ctx.db, ctx.actor),
 		deps.users.listOwnedBy(ctx.db, ctx.actor),
 	]);
+	// BC5 T7a architecture.md §0.13: an owned agent carries no team of its
+	// own (`owned_agent_has_no_team`) — its effective team is its owner's,
+	// so a team-scoped document reaches an assistant the same way it
+	// reaches the person who owns it.
+	let viewerTeamId = actorUser?.teamId ?? null;
+	if (viewerTeamId === null && actorUser?.ownerUserId) {
+		const owner = await deps.users.getUserById(ctx.db, actorUser.ownerUserId);
+		viewerTeamId = owner?.teamId ?? null;
+	}
 	return {
 		subjects: [ctx.actor, ...owned.map((u) => u.id)],
-		viewerTeamId: actorUser?.teamId ?? null,
+		viewerTeamId,
 	};
 }
 
