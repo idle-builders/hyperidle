@@ -109,10 +109,9 @@ triages and decays documents on a schedule, not a hardcoded role category.
 Each human gets exactly one assistant: a personal operator scoped to that user. It sees what the user can see and does what the user can do — no factory-wide omniscience. Each user's assistant has its own identity document and
 its own session history; the overlay opens an ordinary direct thread with it, like any direct thread between a user and one agent. **The assistant is the one agent HyperIdle ships with a
 persona** — it is what you talk to on a fresh install, and it carries extra
-rights. It is edited through `/api/agents/:id` and the `edit_document` action, like every other agent; the `GET/PATCH /api/users/:userId/assistant`
-pair that used to be its private editor was deleted in BA9f.
+rights. It is edited through `edit_user` and the `edit_document` action, like every other agent — there is no dedicated assistant editor route.
 
-**Lifecycle.** Created at user registration (`layers/core-api/src/routes/users.ts`); its thread is created on the overlay's first send (`send_message` with `recipients: [assistantId]`), the same as any other direct thread. There is no dedicated assistant thread route and no auto-pin: it starts and stays an ordinary direct thread.
+**Lifecycle.** Created by an `edit_user` call at setup (the welcome screen's second call, `layers/core-ui/src/pages/SetupFlow.tsx`); its thread is created on the overlay's first send (`send_message` with `recipients: [assistantId]`), the same as any other direct thread. There is no dedicated assistant thread route and no auto-pin: it starts and stays an ordinary direct thread.
 
 **Task drafting.** `edit_task` (no `id` creates) is one of the ordinary action-projected tools every agent kind sees, unrestricted by role — the Assistant has the same full tool surface as every other agent kind (AU27). Creating a task requires a resolvable `teams.id`; the calling thread context determines whether that is available.
 
@@ -170,5 +169,5 @@ Consequences:
 
 - **Specialist capabilities** (security review, accessibility audit) ship as skills the agent invokes in-session — possibly via sub-agents — not as separate top-level agents the factory manages.
 - **The team roster stays small.** A team is 3–6 agents, not 15. Specialization happens inside sessions, not at the org-chart level.
-- **Spend is not tracked.** There are no cost columns anywhere — not on sessions, not on `users`, not on `team_members` — and no accumulator behind them. The spend ceiling is the upstream provider account, not HyperIdle. [wip-and-cost-limits](../process-layer/wip-and-cost-limits.md) records the deletion and why nothing replaced it.
-- **What IS bounded is concurrency.** A team's capacity is a WIP ceiling on parallel work, backed by `team_members.capacity` — same doc.
+- **Spend is not tracked.** There are no cost columns anywhere — not on sessions, not on `users`, not on `teams` — and no accumulator behind them. The spend ceiling is the upstream provider account, not HyperIdle. [wip-and-cost-limits](../process-layer/wip-and-cost-limits.md) records the deletion and why nothing replaced it.
+- **What IS bounded is concurrency.** Each agent's own `maxConcurrentSessions` is the WIP ceiling on parallel work — there is no team-level cap, a team carries no capacity column — same doc.
