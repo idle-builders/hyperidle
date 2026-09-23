@@ -34,35 +34,22 @@ vi.mock("react-router-dom", async (importOriginal) => {
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
-const BASE_TEAM = {
-	phase: "build",
-	leadAgentId: null,
-	tasksDone: 0,
-	shipRate: "—",
-	progress: { done: 0, total: 0 },
-	routineCount: 0,
-	agentCount: 0,
-};
-
 const TEAM_A = {
-	...BASE_TEAM,
 	id: "team-a",
 	name: "Alpha Team",
 	status: "healthy" as const,
 	tasksInProgress: 3,
 };
 const TEAM_B = {
-	...BASE_TEAM,
 	id: "team-b",
 	name: "Beta Team",
 	status: "blocked" as const,
 	tasksInProgress: 1,
 };
 const TEAM_C = {
-	...BASE_TEAM,
 	id: "team-c",
 	name: "Gamma Team",
-	status: "behind" as const,
+	status: "healthy" as const,
 	tasksInProgress: 0,
 };
 
@@ -275,19 +262,19 @@ describe("AC2 — Populated team list (2+ teams)", () => {
 		expect(rows).toHaveLength(3);
 	});
 
-	it("rows appear in attention-sorted order: blocked → behind → healthy", () => {
+	it("rows appear in attention-sorted order: blocked → healthy (name asc)", () => {
 		mockUseTeams.mockReturnValue({
-			data: { teams: [TEAM_A, TEAM_B, TEAM_C] }, // healthy, blocked, behind
+			data: { teams: [TEAM_A, TEAM_B, TEAM_C] }, // healthy, blocked, healthy
 			loading: false,
 			error: null,
 			refetch: mockRefetch,
 		});
 		renderInRouter();
 		const rows = screen.getAllByTestId("team-row");
-		// blocked first (TEAM_B), then behind (TEAM_C), then healthy (TEAM_A)
+		// blocked first (TEAM_B), then healthy by name asc (TEAM_A, TEAM_C)
 		expect(rows[0]).toHaveTextContent("Beta Team");
-		expect(rows[1]).toHaveTextContent("Gamma Team");
-		expect(rows[2]).toHaveTextContent("Alpha Team");
+		expect(rows[1]).toHaveTextContent("Alpha Team");
+		expect(rows[2]).toHaveTextContent("Gamma Team");
 	});
 
 	it("each row shows team name as title", () => {

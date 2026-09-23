@@ -356,21 +356,7 @@ export {
 	subscriptionSessionRequestInputSchema,
 	taskSessionRequestInputSchema,
 } from "./session-request.js";
-export type {
-	AgentHealthLevel,
-	AgentOperationalStatus,
-	CreateTeamRequest,
-	CreateTeamResponse,
-	PrimaryHarnessConfig,
-	RosterMember,
-	TaskCardSummary,
-	TeamBurn,
-	TeamDetail,
-	TeamListItem,
-	TeamListResponse,
-	TeamStatus,
-	TeamSummary,
-} from "./team.js";
+export type { AgentHealthLevel, AgentOperationalStatus } from "./team.js";
 export type {
 	AgentSessionStateSnapshot,
 	AnchorRef,

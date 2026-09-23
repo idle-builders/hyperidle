@@ -1,39 +1,28 @@
 /**
  * AD9 — sortTeamsByAttention unit tests (AC3).
  *
- * Pure helper: rank blocked(0) → behind(1) → healthy(2); tie-break name asc only.
+ * Pure helper: rank blocked(0) → healthy(1); tie-break name asc only.
  * No agent-health tie-break (removed per founder design-review; AU26 J1 then
  * deleted the `agentHealthWarning` field from the wire type outright).
+ *
+ * @lore BC5 T11: "behind" (capacity overrun) is gone with capacity itself
+ * (D-npax8h) — only "blocked"/"healthy" remain, and the wire shape is
+ * `TeamsListItem` (`hooks/useTeams.ts`), not the deleted `TeamListItem`.
  */
 
-import type { TeamListItem } from "@hyperidle/domain-model";
 import { describe, expect, it } from "vitest";
+import type { TeamsListItem } from "../../../hooks/useTeams.js";
 import { sortTeamsByAttention } from "../sortTeamsByAttention.js";
 
-const BASE: Omit<TeamListItem, "id" | "name" | "status"> = {
-	phase: "build",
-	leadAgentId: null,
-	tasksInProgress: 0,
-	tasksDone: 0,
-	shipRate: "—",
-	progress: { done: 0, total: 0 },
-	routineCount: 0,
-	agentCount: 0,
-};
-
-function team(id: string, name: string, status: TeamListItem["status"]): TeamListItem {
-	return { ...BASE, id, name, status };
+function team(id: string, name: string, status: TeamsListItem["status"]): TeamsListItem {
+	return { id, name, status, tasksInProgress: 0 };
 }
 
 describe("sortTeamsByAttention", () => {
-	it("blocked → behind → healthy ordering", () => {
-		const input = [
-			team("h", "Healthy Team", "healthy"),
-			team("b", "Blocked Team", "blocked"),
-			team("e", "Behind Team", "behind"),
-		];
+	it("blocked → healthy ordering", () => {
+		const input = [team("h", "Healthy Team", "healthy"), team("b", "Blocked Team", "blocked")];
 		const result = sortTeamsByAttention(input);
-		expect(result.map((t) => t.status)).toEqual(["blocked", "behind", "healthy"]);
+		expect(result.map((t) => t.status)).toEqual(["blocked", "healthy"]);
 	});
 
 	it("returns only blocked when all blocked (preserves input order within rank — name asc)", () => {
@@ -52,21 +41,19 @@ describe("sortTeamsByAttention", () => {
 		expect(result.map((t) => t.name)).toEqual(["Apple", "Mango", "Zebra"]);
 	});
 
-	it("mixed ranks + ties: blocked before behind before healthy, names asc within rank", () => {
+	it("mixed ranks + ties: blocked before healthy, names asc within rank", () => {
 		const input = [
 			team("h2", "Zeta Health", "healthy"),
-			team("e1", "Alpha Behind", "behind"),
 			team("b1", "Bravo Block", "blocked"),
 			team("h1", "Alpha Health", "healthy"),
-			team("e2", "Beta Behind", "behind"),
 			team("b2", "Alpha Block", "blocked"),
 		];
 		const result = sortTeamsByAttention(input);
-		expect(result.map((t) => t.id)).toEqual(["b2", "b1", "e1", "e2", "h1", "h2"]);
+		expect(result.map((t) => t.id)).toEqual(["b2", "b1", "h1", "h2"]);
 	});
 
 	it("single team returns array with same team", () => {
-		const input = [team("x", "Only Team", "behind")];
+		const input = [team("x", "Only Team", "blocked")];
 		const result = sortTeamsByAttention(input);
 		expect(result).toHaveLength(1);
 		expect(result[0]?.id).toBe("x");

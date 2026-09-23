@@ -524,7 +524,6 @@ function buildLeafDeclarations(root: string, tscBin: string): void {
 		"layers/core-api",
 		"layers/core-api/document",
 		"layers/core-api/work",
-		"layers/core-api/org",
 		"layers/core-api/user",
 		"layers/core-api/conversation",
 		"layers/core-api/settings",

@@ -6,7 +6,6 @@
  * or the selected domain's navigator. Mobile exposes the same shell in a 300px drawer.
  */
 
-import type { TeamListItem } from "@hyperidle/domain-model";
 import FocusTrap from "focus-trap-react";
 import type { JSX } from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -395,7 +394,7 @@ export function AppShell(): JSX.Element {
 	// triggering lint/correctness/noInvalidUseBeforeDeclaration.
 	const { data: teamsData, loading: teamsLoading, error: teamsError } = useTeams();
 	const sidebarTeams = useMemo(
-		() => ((teamsData?.teams ?? []) as TeamListItem[]).map((t) => ({ id: t.id, name: t.name })),
+		() => (teamsData?.teams ?? []).map((t) => ({ id: t.id, name: t.name })),
 		[teamsData],
 	);
 

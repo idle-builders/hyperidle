@@ -24,7 +24,6 @@ const PROJECTS = [
 	"layers/core-api/changes",
 	"layers/core-api/document",
 	"layers/core-api/task",
-	"layers/core-api/org",
 	"layers/core-api/user",
 	"layers/core-api/thread",
 	"layers/core-api/settings",

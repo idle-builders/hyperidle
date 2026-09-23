@@ -50,7 +50,6 @@ export {
 // option), so it cannot fold into `./boot`'s own result.
 export {
 	buildAgentOrchestrationPort,
-	buildSeamBackedAgentRunConfigWriter,
 	buildSeamBackedReviewVerdictRecorder,
 	buildSeamBackedWorkIntentRecorder,
 	createInProcessAgentOrchestrationTransport,

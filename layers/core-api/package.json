@@ -23,7 +23,6 @@
 		"@hyperidle/harness-capability": "*",
 		"@hyperidle/harness-protocol": "*",
 		"@hyperidle/document": "*",
-		"@hyperidle/org": "*",
 		"@hyperidle/policy": "*",
 		"@hyperidle/settings": "*",
 		"@hyperidle/user": "*",

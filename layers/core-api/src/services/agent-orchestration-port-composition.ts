@@ -50,13 +50,11 @@ import type {
 	AgentOrchestrationWorkIntentInput,
 	AgentOrchestrationWorkIntentReceipt,
 } from "@hyperidle/api-contract";
-import type { WriteExecutor } from "@hyperidle/db";
 import type {
 	AgentWorkIntentRecorderFn,
 	AgentWorkIntentRecorderInput,
 	ReviewVerdictRecorderFn,
 } from "@hyperidle/domain-model";
-import type { OrgUserDirectory } from "@hyperidle/org";
 import type { Hono } from "hono";
 import { hc } from "hono/client";
 import type { AppType } from "../schemas/index.js";
@@ -468,31 +466,12 @@ export function buildSeamBackedReviewVerdictRecorder(
 	return (input) => port.intents.recordReviewVerdict(input);
 }
 
-/**
- * AU31 §2.2/§3 clause 2 — the seam-backed `OrgAgentRunConfigWriter` factory:
- * the composition-root adapter that lets `@hyperidle/org`'s
- * `persistScaffoldedAgents` (org.ts, teams-routes.ts, users.ts's setup route)
- * go through the port instead of importing `@hyperidle/run-orchestration`
- * directly. Same shape as `buildSeamBackedWorkIntentRecorder` above:
- * `writeAgentRunConfig` deliberately IGNORES the executor it is handed — a
- * seam call is an HTTP round trip through the composed app's own connection,
- * so it can never join a caller's transaction, which is why
- * `persistScaffoldedAgents` is never itself called from inside a
- * `db.transaction(...)` at any of its three call sites.
- */
-export function buildSeamBackedAgentRunConfigWriter(
-	port: AgentOrchestrationPort,
-): Pick<OrgUserDirectory, "writeAgentRunConfig"> {
-	return {
-		writeAgentRunConfig: async (
-			_db: WriteExecutor,
-			agentUserId: string,
-			patch: AgentOrchestrationRunConfigPatch,
-		) => {
-			await port.runConfig.write(agentUserId, patch);
-		},
-	};
-}
+// @lore BC5 T11: `buildSeamBackedAgentRunConfigWriter` (the seam-backed
+// `OrgAgentRunConfigWriter` factory `@hyperidle/org`'s `persistScaffoldedAgents`
+// went through) is DELETED — `org.ts`/`teams-routes.ts`/`users.ts`'s setup
+// route, its only three callers, are gone with the `org` package they
+// scaffolded through. `edit_user` writes an agent's run config straight
+// through `AgentOrchestrationPort.runConfig.write` itself now (`compose.ts`).
 
 /**
  * The in-process transport: core-api's own Hono app dispatches the request

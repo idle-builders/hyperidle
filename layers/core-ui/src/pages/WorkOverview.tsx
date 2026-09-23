@@ -28,7 +28,6 @@
  * onNewBet callbacks; the wrapper supplies navigate().
  */
 
-import type { TeamListItem } from "@hyperidle/domain-model";
 import type { JSX } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import {
@@ -42,12 +41,13 @@ import {
 	SkeletonList,
 	StatusChip,
 } from "../ds";
+import type { TeamsListItem } from "../hooks/useTeams.js";
 import { useTeams } from "../hooks/useTeams.js";
 import { sortTeamsByAttention } from "./work/sortTeamsByAttention.js";
 
 export interface WorkOverviewViewProps {
-	/** Teams to render. Already includes the full TeamListItem shape; sorting happens here. */
-	teams: readonly TeamListItem[];
+	/** Teams to render. Already includes the full TeamsListItem shape; sorting happens here. */
+	teams: readonly TeamsListItem[];
 	loading: boolean;
 	/** Non-null when the teams fetch failed. */
 	error: Error | null;
