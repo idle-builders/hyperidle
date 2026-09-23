@@ -49,7 +49,7 @@ async function seedAgent(
 	const agentId = `${id}-agent`;
 	const teamName = `Team ${id}`;
 	const agentName = `Agent ${id}`;
-	await db.insert(teams).values({ id: teamId, name: teamName, phase: "build", createdAt: NOW });
+	await db.insert(teams).values({ id: teamId, name: teamName, createdAt: NOW });
 	await db.insert(users).values({
 		id: agentId,
 		kind: "ai",

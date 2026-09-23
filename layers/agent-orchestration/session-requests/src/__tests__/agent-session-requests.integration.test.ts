@@ -98,7 +98,7 @@ describe("agent session request repository", () => {
 	}
 	test("claimNextAgentSessionRequest claims exactly one pending request", async ({ db }) => {
 		const now = new Date().toISOString();
-		await db.insert(teams).values({ id: "team-3", name: "Team", phase: "build", createdAt: now });
+		await db.insert(teams).values({ id: "team-3", name: "Team", createdAt: now });
 		await db.insert(users).values([
 			{
 				id: "agent-3",
@@ -374,9 +374,7 @@ describe("agent session request repository", () => {
 		db,
 	}) => {
 		const now = new Date().toISOString();
-		await db
-			.insert(teams)
-			.values({ id: "explicit-team", name: "Team", phase: "build", createdAt: now });
+		await db.insert(teams).values({ id: "explicit-team", name: "Team", createdAt: now });
 		await db.insert(users).values([
 			{
 				id: "explicit-agent",

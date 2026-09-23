@@ -171,7 +171,7 @@ function makeEditTask(): PolicyEditTask {
 const NOW = new Date().toISOString();
 
 async function seedTeam(db: HyperIdleDb, teamId: string): Promise<void> {
-	await db.insert(teams).values({ id: teamId, name: teamId, phase: "build", createdAt: NOW });
+	await db.insert(teams).values({ id: teamId, name: teamId, createdAt: NOW });
 	// Seed system:propagation user so seedTask's threads.initiatorId (below)
 	// does not fail its FK constraint (threads.initiatorId → users.id).
 	await db.insert(users).values({

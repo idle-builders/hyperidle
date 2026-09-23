@@ -35,7 +35,7 @@ async function createRequestForTest(db: HyperIdleDb, request: AgentSessionReques
 }
 async function seedBase(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(teams).values({ id: "team-au6", name: "AU6", phase: "build", createdAt: now });
+	await db.insert(teams).values({ id: "team-au6", name: "AU6", createdAt: now });
 	await db.insert(users).values([
 		{
 			id: "agent-au6",

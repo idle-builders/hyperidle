@@ -283,7 +283,7 @@ describe("edit_user — kept guards", () => {
 
 	test("cannot_retire: a system agent cannot be retired", async ({ db }) => {
 		await seedFounder(db);
-		await db.insert(teams).values({ id: "team-x", name: "X", phase: "build", createdAt: NOW });
+		await db.insert(teams).values({ id: "team-x", name: "X", createdAt: NOW });
 		await db.insert(users).values({
 			id: "a-system",
 			kind: "ai",
@@ -375,9 +375,7 @@ describe("edit_user — a subscription prompt document parented to the subscript
 describe("edit_user — inbox marks", () => {
 	test("marking a change read stamps both readAt and seenAt", async ({ db }) => {
 		await seedFounder(db);
-		await db
-			.insert(teams)
-			.values({ id: "team-inbox", name: "Inbox", phase: "build", createdAt: NOW });
+		await db.insert(teams).values({ id: "team-inbox", name: "Inbox", createdAt: NOW });
 		await db.insert(users).values({
 			id: "u-reader",
 			kind: "human",

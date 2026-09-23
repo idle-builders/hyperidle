@@ -83,10 +83,7 @@ describe("A2: Database Schema", () => {
 			await db.insert(teams).values({
 				id: "prod-1",
 				name: "Acme",
-				phase: "build",
 				createdAt: now,
-				capacity: 7,
-				formedAt: now,
 			});
 
 			const result = await db.select().from(teams).where(eq(teams.id, "prod-1"));
@@ -94,9 +91,7 @@ describe("A2: Database Schema", () => {
 			expect(result[0]).toMatchObject({
 				id: "prod-1",
 				name: "Acme",
-				phase: "build",
-				capacity: 7,
-				formedAt: now,
+				createdAt: now,
 			});
 		});
 
@@ -126,7 +121,7 @@ describe("A2: Database Schema", () => {
 		// parentTaskId: null is the top-level unit of work.
 		test("inserts and reads root tasks (formerly bets)", async ({ db }) => {
 			const now = new Date().toISOString();
-			await db.insert(teams).values({ id: "prod-1", name: "Acme", phase: "build", createdAt: now });
+			await db.insert(teams).values({ id: "prod-1", name: "Acme", createdAt: now });
 			// Every task has a real thread (`tasks.thread_id` is NOT NULL).
 			await db.insert(threads).values({
 				id: "thr-root-1",
@@ -164,7 +159,7 @@ describe("A2: Database Schema", () => {
 		// @lore BB1: task now has parentTaskId instead of betId.
 		test("inserts and reads tasks", async ({ db }) => {
 			const now = new Date().toISOString();
-			await db.insert(teams).values({ id: "prod-1", name: "Acme", phase: "build", createdAt: now });
+			await db.insert(teams).values({ id: "prod-1", name: "Acme", createdAt: now });
 			// Every task has a real thread (`tasks.thread_id` is NOT NULL).
 			await db.insert(threads).values([
 				{
@@ -221,7 +216,7 @@ describe("A2: Database Schema", () => {
 		// @lore BB1: task now has parentTaskId instead of betId.
 		test("updates tasks correctly", async ({ db }) => {
 			const now = new Date().toISOString();
-			await db.insert(teams).values({ id: "prod-1", name: "Acme", phase: "build", createdAt: now });
+			await db.insert(teams).values({ id: "prod-1", name: "Acme", createdAt: now });
 			// Every task has a real thread (`tasks.thread_id` is NOT NULL).
 			await db.insert(threads).values({
 				id: "thr-task-1",
@@ -256,7 +251,7 @@ describe("A2: Database Schema", () => {
 		// @lore BB1: task now has parentTaskId instead of betId.
 		test("inserts and reads sessions", async ({ db }) => {
 			const now = new Date().toISOString();
-			await db.insert(teams).values({ id: "prod-1", name: "Acme", phase: "build", createdAt: now });
+			await db.insert(teams).values({ id: "prod-1", name: "Acme", createdAt: now });
 			await db.insert(users).values({
 				id: "agent-1",
 				kind: "ai",
@@ -306,7 +301,7 @@ describe("A2: Database Schema", () => {
 
 		test("inserts and reads subscriptions", async ({ db }) => {
 			const now = new Date().toISOString();
-			await db.insert(teams).values({ id: "prod-1", name: "Acme", phase: "build", createdAt: now });
+			await db.insert(teams).values({ id: "prod-1", name: "Acme", createdAt: now });
 			await db.insert(users).values({
 				id: "agent-1",
 				kind: "ai",
@@ -558,7 +553,7 @@ describe("A2: Database Schema", () => {
 		// An invalid parentTaskId must be rejected by the FK constraint.
 		test("rejects task with invalid parent_task_id", async ({ db }) => {
 			const now = new Date().toISOString();
-			await db.insert(teams).values({ id: "prod-1", name: "P", phase: "build", createdAt: now });
+			await db.insert(teams).values({ id: "prod-1", name: "P", createdAt: now });
 			// Every task has a real thread (`tasks.thread_id` is NOT NULL).
 			await db.insert(threads).values({
 				id: "thr-task-1",
@@ -588,7 +583,7 @@ describe("A2: Database Schema", () => {
 		// @lore BB1: task now has parentTaskId instead of betId.
 		test("rejects session with invalid agent_id", async ({ db }) => {
 			const now = new Date().toISOString();
-			await db.insert(teams).values({ id: "prod-1", name: "P", phase: "build", createdAt: now });
+			await db.insert(teams).values({ id: "prod-1", name: "P", createdAt: now });
 			// Every task has a real thread (`tasks.thread_id` is NOT NULL).
 			await db.insert(threads).values({
 				id: "thr-task-1",

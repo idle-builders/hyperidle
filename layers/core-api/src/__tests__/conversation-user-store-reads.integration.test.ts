@@ -48,7 +48,7 @@ function threadValues(id: string, extra: Record<string, unknown> = {}) {
 async function seedTeam(db: HyperIdleDb, teamId: string): Promise<void> {
 	await db
 		.insert(teams)
-		.values({ id: teamId, name: `Team ${teamId}`, phase: "build", createdAt: NOW });
+		.values({ id: teamId, name: `Team ${teamId}`, createdAt: NOW });
 }
 
 function messageValues(

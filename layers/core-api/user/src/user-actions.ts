@@ -668,8 +668,6 @@ async function createUserRun(
 				await createTeam(tx, {
 					id: teamId,
 					name: input.team.name,
-					phase: "build",
-					factoryDbPath: null,
 					createdAt: now,
 				});
 				teamRow = await getTeam(tx, { id: teamId });
@@ -883,8 +881,6 @@ async function editExistingUserRun(
 				await createTeam(tx, {
 					id: teamId,
 					name: input.team.name,
-					phase: "build",
-					factoryDbPath: null,
 					createdAt: now,
 				});
 				teamRow = await getTeam(tx, { id: teamId });

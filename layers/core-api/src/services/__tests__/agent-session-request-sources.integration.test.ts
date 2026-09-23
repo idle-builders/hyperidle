@@ -60,9 +60,7 @@ class RecordingHarnessAdapter implements HarnessAdapter {
 
 async function seedWork(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
-	await db
-		.insert(teams)
-		.values({ id: "team-au3-agent", name: "AU3 Agent", phase: "build", createdAt: now });
+	await db.insert(teams).values({ id: "team-au3-agent", name: "AU3 Agent", createdAt: now });
 	await db.insert(users).values([
 		{
 			id: "agent-au3-agent",

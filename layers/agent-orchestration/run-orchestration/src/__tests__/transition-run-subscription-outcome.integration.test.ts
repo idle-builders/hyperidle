@@ -36,7 +36,7 @@ async function seedSubscriptionSession(
 	const agentId = `${id}-agent`;
 	const sessionId = `${id}-session`;
 
-	await db.insert(teams).values({ id: teamId, name: "Team", phase: "build", createdAt: NOW });
+	await db.insert(teams).values({ id: teamId, name: "Team", createdAt: NOW });
 	await db.insert(users).values({
 		id: agentId,
 		kind: "ai",

@@ -88,7 +88,6 @@ async function seedSubscriptionVehicleFks(db: HyperIdleDb, idSuffix: string): Pr
 	await db.insert(teams).values({
 		id: `emission-vehicle-team-${idSuffix}`,
 		name: `Emission vehicle team ${idSuffix}`,
-		phase: "build",
 		createdAt: NOW,
 	});
 	await db.insert(users).values({

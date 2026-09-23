@@ -189,7 +189,6 @@ export async function seedDemoWorld(
 		.values({
 			id: teamId,
 			name: "Acme",
-			phase: "build",
 			createdAt: clock.daysAgo(44),
 		})
 		.onConflictDoNothing();
@@ -267,8 +266,8 @@ export async function seedDemoWorld(
 		.onConflictDoNothing();
 	await upsertDemoRunConfig(db, "demo-agent-pm", { maxConcurrentSessions: 1 });
 
-	// Set team lead to demo builder
-	await db.update(teams).set({ leadAgentId: "demo-agent-builder" }).where(eq(teams.id, teamId));
+	// @lore BC5 T11: `leadAgentId` is dropped (migration 0090) — a team is an
+	// id and a name now; there is no lead to set.
 
 	// Daily digest bet (disabled by default — operator enables)
 	await db

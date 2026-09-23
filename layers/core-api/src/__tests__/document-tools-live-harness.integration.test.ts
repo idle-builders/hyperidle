@@ -182,7 +182,6 @@ async function seedFounderAgentAndTeam(
 	await db.insert(teams).values({
 		id: opts.teamId,
 		name: "Document Tools Live Harness Team",
-		phase: "build",
 		createdAt: NOW,
 	});
 	await db.insert(agentRunConfig).values({

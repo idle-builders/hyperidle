@@ -74,7 +74,7 @@ const FOUNDER_ID = "u-founder";
 
 async function seedTeam(db: HyperIdleDb, teamId: string): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(teams).values({ id: teamId, name: teamId, phase: "build", createdAt: now });
+	await db.insert(teams).values({ id: teamId, name: teamId, createdAt: now });
 	await db
 		.insert(users)
 		.values([

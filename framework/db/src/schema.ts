@@ -21,33 +21,17 @@ import {
 // @lore U1: `teams` is the domain entity (formerly `products`). Migration 0021 renamed both
 // tables; the companion `team_members` table (formerly `teams`) folded back in per AU44 batch 1.
 // @lore AU44 B1: `team_members` is dissolved back into `teams`. The 1:1 invariant enforced by
-// app-level 500s was the schema confessing two tables were one entity. Columns `leadAgentId`,
-// `capacity`, `activeBets`, `formedAt` move here; `dissolvedAt` is dropped (teams.phase =
-// "archive" carries that signal). `users.teamId` now references `teams.id` directly.
+// app-level 500s was the schema confessing two tables were one entity. `users.teamId` now
+// references `teams.id` directly.
+// @lore BC5 T11 (migration 0090): `phase`/`briefPath`/`architecturePath`/`brandPath`/
+// `principlesPath`/`factoryDbPath`/`leadAgentId`/`capacity`/`formedAt` are all DROPPED — a team is
+// an id and a name now (D-e3zm2j). Capacity goes with the WIP-limit gate that read it
+// (`edit_task`'s `capacity_exceeded`); the rest were the setup wizard's scaffold-tracking columns,
+// unwritten on every real path (facts-user.md).
 export const teams = pgTable("teams", {
 	id: text("id").primaryKey(),
 	name: text("name").notNull(),
-	phase: text("phase").notNull(),
-	briefPath: text("brief_path"),
-	architecturePath: text("architecture_path"),
-	brandPath: text("brand_path"),
-	principlesPath: text("principles_path"),
-	factoryDbPath: text("factory_db_path"),
 	createdAt: text("created_at").notNull(),
-	// AU44 B1: folded from team_members
-	leadAgentId: text("lead_agent_id"),
-	/**
-	 * BB1: the WIP limit — how many tasks this team may have `in_progress` at
-	 * once, at any depth in the task tree.
-	 *
-	 * @lore BB1: the companion `active_bets` counter is GONE. It was a stored
-	 * tally maintained by the bet commit/complete/kill paths, and a stored
-	 * tally of a derivable fact can drift. The live count is a
-	 * `COUNT(*) WHERE state = 'in_progress'` inside the same transaction that
-	 * makes the transition, so it cannot be stale by construction.
-	 */
-	capacity: integer("capacity").notNull().default(5),
-	formedAt: text("formed_at"),
 });
 
 export const users = pgTable(
@@ -292,15 +276,6 @@ export const sessions = pgTable(
 		outcome: text("outcome"),
 		notes: text("notes"),
 		/**
-		 * AA1/AA2-prep: links this session to a routine run. Null until AA2 wires
-		 * the scheduler to create sessions with a routine_id.
-		 *
-		 * @lore AA1: Column added now per "no incremental migrations" constraint.
-		 * Will be populated in AA2 when the routine scheduler creates sessions.
-		 * ON DELETE SET NULL ensures session records survive if a routine is retired.
-		 */
-		routineId: text("routine_id"),
-		/**
 		 * AC1: Session effectiveness score stored as text (float 0-1).
 		 *
 		 * @lore AC1 S-1: Stored as text (not real/float) because the existing schema
@@ -330,7 +305,6 @@ export const sessions = pgTable(
 		index("sessions_source_idx").on(table.sourceKind, table.sourceId),
 		index("sessions_agent_id_idx").on(table.agentId),
 		index("sessions_state_idx").on(table.state),
-		index("sessions_routine_id_idx").on(table.routineId),
 	],
 );
 
@@ -444,13 +418,17 @@ export const agentWorkIntents = pgTable(
 			.where(sql`${table.requestId} is not null`),
 		index("agent_work_intents_status_created_idx").on(table.status, table.createdAt),
 		index("agent_work_intents_claim_expires_idx").on(table.claimExpiresAt),
+		// @lore BC5 T11 (migration 0090): 'routine_run' drops from both closed
+		// sets — every stored `routine_run` intent is deleted (its request is
+		// routine-shaped and no code runs it); 'subscription_run' is the final
+		// vocabulary a subscription's wake uses now.
 		check(
 			"agent_work_intents_kind_ck",
-			sql`${table.kind} in ('assistant_turn','session_start','knowledge_action','routine_run','task_run','session_resume','subscription_run')`,
+			sql`${table.kind} in ('assistant_turn','session_start','knowledge_action','task_run','session_resume','subscription_run')`,
 		),
 		check(
 			"agent_work_intents_source_kind_ck",
-			sql`${table.sourceKind} in ('thread_message','explicit_session_start','knowledge_action','routine_run','task_dispatch_attempt','review_verdict','subscription')`,
+			sql`${table.sourceKind} in ('thread_message','explicit_session_start','knowledge_action','task_dispatch_attempt','review_verdict','subscription')`,
 		),
 		check(
 			"agent_work_intents_status_ck",
@@ -467,7 +445,6 @@ export const agentWorkIntents = pgTable(
 				(${table.kind} = 'assistant_turn' and ${table.sourceKind} = 'thread_message')
 				or (${table.kind} = 'session_start' and ${table.sourceKind} = 'explicit_session_start')
 				or (${table.kind} = 'knowledge_action' and ${table.sourceKind} = 'knowledge_action')
-				or (${table.kind} = 'routine_run' and ${table.sourceKind} = 'routine_run')
 				or (${table.kind} = 'task_run' and ${table.sourceKind} = 'task_dispatch_attempt')
 				or (${table.kind} = 'session_resume' and ${table.sourceKind} = 'review_verdict')
 				or (${table.kind} = 'subscription_run' and ${table.sourceKind} = 'subscription')

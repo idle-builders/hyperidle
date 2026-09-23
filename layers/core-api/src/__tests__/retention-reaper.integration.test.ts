@@ -51,9 +51,7 @@ async function seedTaskDispatchAttempt(
 	const rootTaskId = `${options.id}-bet`;
 	const taskId = `${options.id}-task`;
 	const agentId = `${options.id}-agent`;
-	await db
-		.insert(teams)
-		.values({ id: teamId, name: "Team", phase: "build", createdAt: now.toISOString() });
+	await db.insert(teams).values({ id: teamId, name: "Team", createdAt: now.toISOString() });
 
 	await db.insert(users).values({
 		id: agentId,

@@ -12,7 +12,6 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 	await db.insert(teams).values({
 		id: "prod-1",
 		name: "E2E Product",
-		phase: "build",
 		createdAt: new Date().toISOString(),
 	});
 

@@ -35,7 +35,7 @@ import { insertSubscription, listInboxRows } from "../subscriptions-store.js";
 const TS = "2026-01-01T00:00:00.000Z";
 
 async function seedTeam(db: HyperIdleDb, id: string): Promise<void> {
-	await db.insert(teams).values({ id, name: id, phase: "build", createdAt: TS });
+	await db.insert(teams).values({ id, name: id, createdAt: TS });
 }
 
 async function seedUser(

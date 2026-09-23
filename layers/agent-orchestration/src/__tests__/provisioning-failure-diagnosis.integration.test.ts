@@ -42,7 +42,7 @@ const NOW = "2026-08-28T14:49:37.000Z";
 const POOL_EMPTY = "no harness adapters are registered";
 
 async function seed(db: HyperIdleDb): Promise<void> {
-	await db.insert(teams).values({ id: TEAM_ID, name: "Prov Diag", phase: "build", createdAt: NOW });
+	await db.insert(teams).values({ id: TEAM_ID, name: "Prov Diag", createdAt: NOW });
 	await db.insert(users).values({
 		id: AGENT_ID,
 		kind: "ai",

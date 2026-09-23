@@ -77,62 +77,24 @@ export async function listTeams(
 /**
  * Input for {@link createTeam}.
  *
- * @lore AU44 B1: `teamMembersId`/`capacity`/`activeBets`/`formedAt` removed —
- * these formerly seeded the companion `team_members` row; after the fold they
- * live on `teams` with schema defaults (capacity=5, formedAt=createdAt).
- * @lore BB1: `activeBets` column dropped — the WIP limit is now counted live
- * from `tasks.state = 'in_progress'` via `countTeamTasksInProgress` in
- * `@hyperidle/work`. No stored tally that can drift.
+ * @lore BC5 T11: a team is an id and a name now (D-e3zm2j, migration 0090)
+ * — `phase`/`factoryDbPath`/every other scaffold-tracking column is gone.
  */
 export interface CreateTeamInput {
 	readonly id: string;
 	readonly name: string;
-	readonly phase: string;
-	readonly factoryDbPath: string | null;
 	readonly createdAt: string;
 }
 
-/**
- * Insert a `teams` row.
- *
- * @lore AU44 B1: formerly inserted both `teams` and `team_members` companion.
- * After the fold, a single insert suffices; default (capacity=5) lives in the schema.
- * @lore BB1: `activeBets: 0` default removed — the column is dropped.
- */
+/** Insert a `teams` row. */
 export async function createTeam(db: WriteExecutor, input: CreateTeamInput): Promise<void> {
 	await db.insert(teams).values({
 		id: input.id,
 		name: input.name,
-		phase: input.phase,
-		factoryDbPath: input.factoryDbPath,
 		createdAt: input.createdAt,
-		capacity: 5,
-		formedAt: input.createdAt,
 	});
 }
 
-/**
- * Update team-owned columns on the `teams` row.
- *
- * @example updateTeam(db, teamId, { phase: "archive" })
- * @example updateTeam(db, teamId, { leadAgentId: agentId })
- *
- * @lore AU44 B1: formerly split between `teams` (phase) and `team_members`
- * (leadAgentId). After the fold all columns are on `teams`.
- * @lore BB1: `activeBets` removed — the column is dropped; WIP is counted live.
- */
-export async function updateTeam(
-	db: WriteExecutor,
-	teamId: string,
-	patch: { phase?: string; leadAgentId?: string },
-): Promise<void> {
-	const set: { phase?: string; leadAgentId?: string } = {};
-	if (patch.phase !== undefined) set.phase = patch.phase;
-	if (patch.leadAgentId !== undefined) set.leadAgentId = patch.leadAgentId;
-	if (Object.keys(set).length === 0) return;
-	await db.update(teams).set(set).where(eq(teams.id, teamId));
-}
-
-// @lore AU21 Increment 14a: `applyTeamCost` (the `teamMembers.costActual`
-// increment/reset seam) is deleted along with the rest of the cost feature —
-// the column is dropped, no replacement.
+// @lore BC5 T11: `updateTeam` (phase/leadAgentId) is deleted — both columns
+// are dropped (migration 0090); a team has no writable field but its name,
+// and `edit_user` never renames one.

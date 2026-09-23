@@ -34,7 +34,7 @@ async function seedMinimalWorld(
 	const sessionId = "session-ac5-test";
 	const agentId = "agent-ac5-builder";
 
-	await db.insert(teams).values({ id: teamId, name: "Acme Test", phase: "build", createdAt: NOW });
+	await db.insert(teams).values({ id: teamId, name: "Acme Test", createdAt: NOW });
 
 	// The founder human — normally created at onboarding, not bootstrap
 	await db.insert(users).values({

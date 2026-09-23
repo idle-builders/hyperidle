@@ -320,13 +320,11 @@ describe("WsConnectionHub — document subscribe authorization (architecture.md 
 		await db.insert(teamsTable).values({
 			id: "team-doc-1",
 			name: "team-doc-1",
-			phase: "build",
 			createdAt: now,
 		});
 		await db.insert(teamsTable).values({
 			id: "team-doc-other",
 			name: "team-doc-other",
-			phase: "build",
 			createdAt: now,
 		});
 		await seedUser(db, "team-member-1", { teamId: "team-doc-1" });

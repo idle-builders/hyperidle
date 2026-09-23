@@ -43,7 +43,7 @@ async function seedIdentity(db: Parameters<typeof saveFilesystem>[0], suffix: st
 	const sessionId = `session-filesystems-contract-${suffix}`;
 	await db
 		.insert(teams)
-		.values({ id: teamId, name: `Filesystem ${suffix}`, phase: "build", createdAt: NOW });
+		.values({ id: teamId, name: `Filesystem ${suffix}`, createdAt: NOW });
 	await db.insert(users).values({
 		id: agentId,
 		kind: "ai",

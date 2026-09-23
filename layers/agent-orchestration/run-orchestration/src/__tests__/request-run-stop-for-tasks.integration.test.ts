@@ -23,7 +23,7 @@ const noLiveEntry = async (): Promise<boolean> => false;
 const NOW = "2026-08-04T10:00:00.000Z";
 
 async function seed(db: HyperIdleDb): Promise<void> {
-	await db.insert(teams).values({ id: "team-1", name: "T", phase: "build", createdAt: NOW });
+	await db.insert(teams).values({ id: "team-1", name: "T", createdAt: NOW });
 	await db
 		.insert(users)
 		.values({ id: "agent-1", name: "A", role: "builder", status: "active", createdAt: NOW });

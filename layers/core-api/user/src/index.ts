@@ -109,7 +109,7 @@ export {
 } from "./subscriptions-store.js";
 // -- team lookup (AU20 Am7 / AU44 B1 — team_members dissolved) --
 export type { CreateTeamInput } from "./team-lookup.js";
-export { createTeam, getTeam, listTeams, updateTeam } from "./team-lookup.js";
+export { createTeam, getTeam, listTeams } from "./team-lookup.js";
 // -- upgrade token store (I2 — WS-handshake one-shot tokens, no table) --
 export type { UpgradeTokenStore } from "./upgrade-token-store.js";
 export { createUpgradeTokenStore } from "./upgrade-token-store.js";

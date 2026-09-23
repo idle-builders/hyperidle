@@ -58,7 +58,7 @@ async function seedWorld(db: HyperIdleDb): Promise<void> {
 		status: "active",
 		createdAt: now,
 	});
-	await db.insert(teams).values({ id: TEAM_ID, name: TEAM_ID, phase: "build", createdAt: now });
+	await db.insert(teams).values({ id: TEAM_ID, name: TEAM_ID, createdAt: now });
 	// Every task has a real thread now (`tasks.thread_id` is NOT NULL).
 	await db.insert(threads).values({
 		id: `thr-${ROOT_TASK_ID}`,

@@ -37,7 +37,7 @@ describe("I3 review C3: migration idempotency on a populated PGlite DB", () => {
 			const NOW = "2026-04-18T00:00:00Z";
 			await db
 				.insert(schema.teams)
-				.values({ id: "p1", name: "P1", phase: "build", createdAt: NOW });
+				.values({ id: "p1", name: "P1", createdAt: NOW });
 			// @lore P2: agents → users table. kind: "ai" required.
 			await db.insert(schema.users).values({
 				id: "a1",

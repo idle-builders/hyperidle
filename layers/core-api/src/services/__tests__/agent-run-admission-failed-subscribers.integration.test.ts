@@ -136,7 +136,7 @@ const NOW = new Date().toISOString();
 
 async function seedTeam(db: HyperIdleDb, id: string): Promise<{ teamId: string }> {
 	const teamId = `${id}-team`;
-	await db.insert(teams).values({ id: teamId, name: id, phase: "build", createdAt: NOW });
+	await db.insert(teams).values({ id: teamId, name: id, createdAt: NOW });
 	return { teamId };
 }
 

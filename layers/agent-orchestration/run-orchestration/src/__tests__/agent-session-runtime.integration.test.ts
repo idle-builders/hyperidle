@@ -48,7 +48,7 @@ describe("agent session runtime consumer", () => {
 		db,
 	}) => {
 		const now = new Date().toISOString();
-		await db.insert(teams).values({ id: "team-1", name: "Team", phase: "build", createdAt: now });
+		await db.insert(teams).values({ id: "team-1", name: "Team", createdAt: now });
 		await db.insert(users).values({
 			id: "agent-1",
 			kind: "ai",
@@ -149,7 +149,7 @@ describe("agent session runtime consumer", () => {
 
 	test("request is running before harness run starts", async ({ db }) => {
 		const now = new Date().toISOString();
-		await db.insert(teams).values({ id: "team-1", name: "Team", phase: "build", createdAt: now });
+		await db.insert(teams).values({ id: "team-1", name: "Team", createdAt: now });
 		await db.insert(users).values({
 			id: "agent-1",
 			kind: "ai",
@@ -301,7 +301,7 @@ describe("agent session runtime consumer", () => {
 		db,
 	}) => {
 		const createdAt = new Date().toISOString();
-		await db.insert(teams).values({ id: "team-race", name: "Team", phase: "build", createdAt });
+		await db.insert(teams).values({ id: "team-race", name: "Team", createdAt });
 		await db.insert(users).values({
 			id: "agent-race",
 			kind: "ai",

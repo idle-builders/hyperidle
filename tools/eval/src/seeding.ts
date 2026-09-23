@@ -34,13 +34,17 @@ import type { ScenarioSeedResult } from "./types.js";
 // Individual helpers
 // ---------------------------------------------------------------------------
 
-/** Create a team (domain entity) + team members group. */
+/**
+ * Create a team.
+ *
+ * @lore BC5 T11: a team is an id and a name now (D-e3zm2j, migration 0090) —
+ * `phase` is gone with the column that carried it.
+ */
 export async function seedTeam(
 	db: HyperIdleDb,
 	opts?: Partial<{
 		teamId: string;
 		teamName: string;
-		phase: string;
 	}>,
 ): Promise<{ teamId: string }> {
 	const teamId = opts?.teamId ?? randomUUID();
@@ -49,7 +53,6 @@ export async function seedTeam(
 	await db.insert(teams).values({
 		id: teamId,
 		name: opts?.teamName ?? "Eval Team",
-		phase: opts?.phase ?? "alpha",
 		createdAt: now,
 	});
 

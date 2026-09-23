@@ -92,9 +92,7 @@ async function seedTeamAndRootTask(
 	options: { readonly teamId: string; readonly rootTaskId: string },
 ): Promise<void> {
 	const now = new Date().toISOString();
-	await db
-		.insert(teams)
-		.values({ id: options.teamId, name: options.teamId, phase: "build", createdAt: now });
+	await db.insert(teams).values({ id: options.teamId, name: options.teamId, createdAt: now });
 	const threadId = await seedThreadForTask(db, options.rootTaskId);
 	await db.insert(tasks).values({
 		id: options.rootTaskId,

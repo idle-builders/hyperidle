@@ -260,13 +260,11 @@ describe("document-management plugin — team-scope isolation", () => {
 			{
 				id: "team-alpha",
 				name: "Alpha",
-				phase: "active",
 				createdAt: "2026-01-01T00:00:00.000Z",
 			},
 			{
 				id: "team-beta",
 				name: "Beta",
-				phase: "active",
 				createdAt: "2026-01-01T00:00:00.000Z",
 			},
 		]);
@@ -302,13 +300,11 @@ describe("document-management plugin — team-scope isolation", () => {
 			{
 				id: "team-gamma",
 				name: "Gamma",
-				phase: "active",
 				createdAt: "2026-01-01T00:00:00.000Z",
 			},
 			{
 				id: "team-delta",
 				name: "Delta",
-				phase: "active",
 				createdAt: "2026-01-01T00:00:00.000Z",
 			},
 		]);
@@ -354,13 +350,11 @@ describe("document-management plugin — team-scope isolation", () => {
 			{
 				id: "team-echo",
 				name: "Echo",
-				phase: "active",
 				createdAt: "2026-01-01T00:00:00.000Z",
 			},
 			{
 				id: "team-foxtrot",
 				name: "Foxtrot",
-				phase: "active",
 				createdAt: "2026-01-01T00:00:00.000Z",
 			},
 		]);

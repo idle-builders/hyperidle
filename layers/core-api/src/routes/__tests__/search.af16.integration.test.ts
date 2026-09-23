@@ -19,9 +19,7 @@ function authHeaders(): Record<string, string> {
 
 async function seedBase(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
-	await db
-		.insert(teams)
-		.values({ id: "srch-team", name: "Search Team", phase: "build", createdAt: now });
+	await db.insert(teams).values({ id: "srch-team", name: "Search Team", createdAt: now });
 	await db.insert(users).values({
 		id: "srch-user",
 		kind: "human",

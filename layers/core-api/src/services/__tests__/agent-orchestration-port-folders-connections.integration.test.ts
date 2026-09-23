@@ -18,9 +18,7 @@ const NOW = "2026-09-23T00:00:00.000Z";
 describe("AgentOrchestrationPort — folders and connections (§6, T4)", () => {
 	test("folders: add, list, give, take, remove", async ({ db, app }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", "aop-folders-key");
-		await db
-			.insert(teams)
-			.values({ id: "aop-fold-team", name: "aop-fold", phase: "build", createdAt: NOW });
+		await db.insert(teams).values({ id: "aop-fold-team", name: "aop-fold", createdAt: NOW });
 		await db.insert(users).values({
 			id: "aop-fold-agent",
 			kind: "ai",

@@ -32,8 +32,8 @@ const TASK_DESCRIPTION = "Ship the boundary seam parity check.";
 
 async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 	await db.insert(teams).values([
-		{ id: TEAM_ID, name: "Parity Team", phase: "build", createdAt: NOW },
-		{ id: OTHER_TEAM_ID, name: "Other Team", phase: "build", createdAt: NOW },
+		{ id: TEAM_ID, name: "Parity Team", createdAt: NOW },
+		{ id: OTHER_TEAM_ID, name: "Other Team", createdAt: NOW },
 	]);
 	await db.insert(users).values({
 		id: AGENT_ID,

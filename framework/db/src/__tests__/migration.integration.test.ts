@@ -93,12 +93,9 @@ describe("A2: Migration", () => {
 		await db.insert(teams).values({
 			id: "test-prod",
 			name: "Test",
-			phase: "build",
 			createdAt: now,
-			capacity: 7,
 			// @lore BB1: `activeBets` column dropped — WIP is counted live via
 			// countTeamTasksInProgress. No insert needed.
-			formedAt: now,
 		});
 
 		const result = await db.select().from(teams);

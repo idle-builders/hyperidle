@@ -82,9 +82,7 @@ const SYSTEM_PROPAGATION_ID = "system:propagation";
 
 async function seedBase(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
-	await db
-		.insert(teams)
-		.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now });
+	await db.insert(teams).values({ id: "prod-1", name: "Test Product", createdAt: now });
 
 	// BB1: bets replaced by root tasks (parentTaskId: null)
 	await db.insert(threads).values({

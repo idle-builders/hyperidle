@@ -22,9 +22,7 @@ const authHeaders = {
 async function seedExplicitSessionAuthority(db: HyperIdleDb) {
 	await db.execute(sql`drop trigger if exists au9_reject_intent_write on agent_work_intents`);
 	const now = new Date().toISOString();
-	await db
-		.insert(teams)
-		.values({ id: "au9-production-team", name: "AU9", phase: "build", createdAt: now });
+	await db.insert(teams).values({ id: "au9-production-team", name: "AU9", createdAt: now });
 	await db.insert(users).values([
 		{
 			id: "au9-production-human",

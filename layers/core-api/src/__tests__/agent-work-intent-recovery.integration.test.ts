@@ -25,7 +25,7 @@ async function seedExplicitStartIntent(
 	options: { claimed?: boolean; expired?: boolean } = {},
 ): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(teams).values({ id: `${id}-team`, name: id, phase: "build", createdAt: now });
+	await db.insert(teams).values({ id: `${id}-team`, name: id, createdAt: now });
 	await db.insert(users).values({
 		id: `${id}-agent`,
 		kind: "ai",

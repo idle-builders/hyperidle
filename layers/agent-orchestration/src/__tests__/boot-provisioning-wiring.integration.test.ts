@@ -66,9 +66,7 @@ afterEach(() => {
 });
 
 async function seed(db: HyperIdleDb): Promise<void> {
-	await db
-		.insert(teams)
-		.values({ id: TEAM_ID, name: "AU26 C1", phase: "build", createdAt: OWNER_CREATED_AT });
+	await db.insert(teams).values({ id: TEAM_ID, name: "AU26 C1", createdAt: OWNER_CREATED_AT });
 	await db.insert(users).values([
 		{
 			id: OWNER_ID,

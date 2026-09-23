@@ -66,9 +66,7 @@ const ATTEMPT_ID = "attempt-i12c-parity";
 const TASK_DESCRIPTION = "Ship the Wave C byte-parity check.";
 
 async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
-	await db
-		.insert(teams)
-		.values({ id: TEAM_ID, name: "Byte Parity Team", phase: "build", createdAt: NOW });
+	await db.insert(teams).values({ id: TEAM_ID, name: "Byte Parity Team", createdAt: NOW });
 	await db.insert(users).values({
 		id: AGENT_ID,
 		kind: "ai",
@@ -234,7 +232,7 @@ describe("context.ts sandbox output — bundle-consuming byte parity for a fixed
 				agentId: AGENT_ID,
 				agentRole: AGENT_ROLE,
 				teamId: TEAM_ID,
-				isRoutine: false,
+				taskFree: false,
 				sourceKind: null,
 				sourceId: null,
 				sourceCorrelation: null,

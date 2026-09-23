@@ -35,7 +35,7 @@ function makeCtx(db: HyperIdleDb, eventBus: ActionContext["eventBus"]): ActionCo
 
 async function seedPrerequisites(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(teams).values({ id: "p1", name: "Test Product", phase: "build", createdAt: now });
+	await db.insert(teams).values({ id: "p1", name: "Test Product", createdAt: now });
 
 	// `changes.actor` FKs to `users` — `makeCtx`'s actor "system:propagation"
 	// needs a real row for `edit_task`'s changes-row write to succeed.

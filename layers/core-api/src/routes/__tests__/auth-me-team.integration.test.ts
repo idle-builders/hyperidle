@@ -22,9 +22,7 @@ describe("GET /api/auth/me — teamId", () => {
 	const NOW = new Date().toISOString();
 
 	test("returns the seeded user's teamId when the user belongs to a team", async ({ app, db }) => {
-		await db
-			.insert(teams)
-			.values({ id: "t-auth-me", name: "Acme", phase: "build", createdAt: NOW });
+		await db.insert(teams).values({ id: "t-auth-me", name: "Acme", createdAt: NOW });
 		await db.insert(users).values({
 			id: "u-auth-me-team",
 			kind: "human",

@@ -106,7 +106,7 @@ async function seedTaskAndAgent(
 	const rootId = `${id}-root`;
 	const taskId = `${id}-task`;
 	const agentId = `${id}-agent`;
-	await db.insert(teams).values({ id: teamId, name: "Team", phase: "build", createdAt: NOW });
+	await db.insert(teams).values({ id: teamId, name: "Team", createdAt: NOW });
 	await db.insert(users).values({
 		id: agentId,
 		kind: "ai",

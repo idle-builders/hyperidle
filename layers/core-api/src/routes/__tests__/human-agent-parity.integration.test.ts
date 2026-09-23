@@ -41,7 +41,7 @@ function headers(): Record<string, string> {
 }
 
 async function seedThread(db: HyperIdleDb): Promise<string> {
-	await db.insert(teams).values({ id: "pa-team", name: "T", phase: "build", createdAt: NOW });
+	await db.insert(teams).values({ id: "pa-team", name: "T", createdAt: NOW });
 	await db.insert(users).values({
 		id: "pa-user",
 		kind: "human",

@@ -150,7 +150,7 @@ describe("generic transcript delivery (Increment 4)", () => {
 		const now = new Date().toISOString();
 		const teamId = `${taskId}-team`;
 		const rootTaskId = `${taskId}-bet`;
-		await db.insert(teams).values({ id: teamId, name: teamId, phase: "build", createdAt: now });
+		await db.insert(teams).values({ id: teamId, name: teamId, createdAt: now });
 		await db.insert(threads).values({
 			id: `thr-${rootTaskId}`,
 			hostKind: "team",
