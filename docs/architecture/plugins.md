@@ -58,12 +58,12 @@ registry: make everything this plugin contributed live, or not live.
 They used to be three separate spellings over three different provenance
 mechanisms, and they drifted:
 
-- disable wrote a routine's `active` but not its `state`, so a plugin-disabled
-  routine read as active while the scheduler skipped it
+- disable wrote a subscription's `active` but not its `state`, so a
+  plugin-disabled subscription read as active while the scheduler skipped it
 - remove set a `deletedAt` that nothing ever cleared
-- install revived skills but **not** agents or routines, so reinstalling a
-  disabled plugin produced one that reported `enabled` with a dead agent and
-  dead routines, unfixable short of manual SQL
+- install revived skills but **not** agents or subscriptions, so reinstalling
+  a disabled plugin produced one that reported `enabled` with a dead agent
+  and dead subscriptions, unfixable short of manual SQL
 
 **Installing is a deliberate act**: everything the plugin contributes is live
 afterwards, whatever a previous disable or remove left behind.

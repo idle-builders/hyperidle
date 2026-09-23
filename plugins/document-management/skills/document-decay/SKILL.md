@@ -17,6 +17,6 @@ Use this skill when you need to review the team's documents for stale or unused 
 
 ## Guidance
 
-`slot: "ordinary"` is the whole safety rule, spelled out: it leaves skills, rules, agent identities and routine prompts alone, because every plugin-contributed document is written with a non-ordinary slot. `inTree: true` keeps artifacts and memories out of the sweep — they are not part of the browsable document tree. Only archive documents genuinely unused for 90+ days; when in doubt, leave it active rather than archive it. Write a brief summary of changes made.
+`slot: "ordinary"` is the whole safety rule, spelled out: it leaves skills, rules, agent identities and subscription prompts alone, because every plugin-contributed document is written with a non-ordinary slot. `inTree: true` keeps artifacts and memories out of the sweep — they are not part of the browsable document tree. Only archive documents genuinely unused for 90+ days; when in doubt, leave it active rather than archive it. Write a brief summary of changes made.
 
 **Caveat:** if a plugin ever contributes an ordinary-slot document to the tree, this filter stops being sufficient on its own — it would need a real provenance check, which this skill does not have access to (`plugin_contributions` is not a readable surface here).
