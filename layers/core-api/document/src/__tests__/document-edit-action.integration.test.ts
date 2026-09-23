@@ -257,7 +257,7 @@ describe("edit_document — D7 stale (architecture.md §4.3 case 4)", () => {
 	});
 });
 
-describe("edit_document — D-invariants (architecture.md §4.2)", () => {
+describe("edit_document — D-invariants (document parent/state checks)", () => {
 	test("D2 parent_not_found — a document parent that does not exist", async ({ db }) => {
 		await seedUser(db, "writer-d2-doc-1");
 		const result = await editAction(writeDeps()).run(ctxFor(db, "writer-d2-doc-1"), {
@@ -995,7 +995,7 @@ describe("edit_document — the post-commit push, architecture.md §7", () => {
 	});
 });
 
-describe("edit_document — object events, architecture.md §3", () => {
+describe("edit_document — object events, one per changes row post commit", () => {
 	test("create emits exactly one document.created carrying the row", async ({ db }) => {
 		await seedUser(db, "writer-event-1");
 		const ctx = ctxFor(db, "writer-event-1");

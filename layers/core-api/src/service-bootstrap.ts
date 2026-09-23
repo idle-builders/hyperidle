@@ -188,8 +188,8 @@ export function registerCoreDomainServices(ctx: {
 	 */
 	readonly adjustThread: import("./services/agent-run-admission-reactions.js").AdjustThreadRunFn;
 	/**
-	 * `edit_user`'s own bound `run`, threaded the same way — BC5 T7b (F1):
-	 * the crashed-session health reaction writes the agent's `health`
+	 * `edit_user`'s own bound `run`, threaded the same way — the
+	 * crashed-session health reaction writes the agent's `health`
 	 * through it instead of a notification-queue row.
 	 */
 	readonly editUser: import("./services/agent-health-session-end-reactions.js").EditUserRunFn;

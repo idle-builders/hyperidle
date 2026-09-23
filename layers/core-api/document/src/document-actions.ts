@@ -123,7 +123,7 @@ async function resolveViewer(
 		deps.users.getUserById(ctx.db, ctx.actor),
 		deps.users.listOwnedBy(ctx.db, ctx.actor),
 	]);
-	// BC5 T7a architecture.md §0.13: an owned agent carries no team of its
+	// An owned agent carries no team of its
 	// own (`owned_agent_has_no_team`) — its effective team is its owner's,
 	// so a team-scoped document reaches an assistant the same way it
 	// reaches the person who owns it.
@@ -355,8 +355,8 @@ function pushChanges(deps: DocumentActionsDeps, rows: readonly PushableChange[])
 
 /**
  * Post-commit, once per `changes` row this call appended — the SAME rows
- * `pushChanges` pushes over the socket (architecture.md §3: "the idiom
- * thread and document use for the socket"). `objectEvent` wants the raw
+ * `pushChanges` pushes over the socket — the idiom
+ * thread and document use for the socket. `objectEvent` wants the raw
  * `changes`-row shape (JSON text); re-encoding `PushableChange`'s already
  * decoded `before`/`after` here keeps one canonical builder shared by every
  * module instead of a second one over decoded values.
@@ -910,9 +910,8 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 			throw new Error("edit_document: transaction committed without writing a row");
 		}
 		// Post-commit, once per `changes` row — the parent's and every narrowed
-		// child's (architecture.md §6.6 rule 5, §7); each is also one
-		// document.created/document.changed object event (architecture.md
-		// §3, decision 5).
+		// child's; each is also one
+		// document.created/document.changed object event (decision 5).
 		if (pushRow) {
 			const rows = [pushRow, ...cascadeRows];
 			pushChanges(deps, rows);

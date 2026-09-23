@@ -65,7 +65,7 @@ function subscriptionValues(
 	};
 }
 
-describe("subscriptions — BC5 T2 (migration 0088)", () => {
+describe("subscriptions (migration 0088)", () => {
 	test("refuses a row with neither an event nor a schedule", async ({ db }) => {
 		await seedTeam(db, "team-a");
 		await seedUser(db, "u1", { teamId: "team-a" });
@@ -159,7 +159,7 @@ describe("subscriptions — BC5 T2 (migration 0088)", () => {
 	});
 });
 
-describe("inbox — BC5 T2 (migration 0088)", () => {
+describe("inbox (migration 0088)", () => {
 	test("refuses a row for a user that does not exist", async ({ db }) => {
 		await seedTeam(db, "team-a");
 		await seedUser(db, "actor", { teamId: "team-a" });
@@ -193,7 +193,7 @@ describe("inbox — BC5 T2 (migration 0088)", () => {
 	});
 });
 
-describe("users.health — BC5 T2 (migration 0088, F1)", () => {
+describe("users.health (migration 0088)", () => {
 	test("defaults to null", async ({ db }) => {
 		await seedTeam(db, "team-a");
 		await seedUser(db, "u1", { teamId: "team-a" });
@@ -209,7 +209,7 @@ describe("users.health — BC5 T2 (migration 0088, F1)", () => {
 	});
 });
 
-describe("agent_work_intents subscription pairing — BC5 T2 (migration 0088)", () => {
+describe("agent_work_intents subscription pairing (migration 0088)", () => {
 	function intentValues(
 		overrides: Partial<typeof agentWorkIntents.$inferInsert> & { id: string },
 	): typeof agentWorkIntents.$inferInsert {
@@ -257,7 +257,7 @@ describe("agent_work_intents subscription pairing — BC5 T2 (migration 0088)", 
 	});
 });
 
-describe("documents.doc_parent_kind_ck — BC5 T2 (migration 0088)", () => {
+describe("documents.doc_parent_kind_ck (migration 0088)", () => {
 	test("accepts parent_kind='subscription'", async ({ db }) => {
 		const [row] = await db
 			.insert(documents)

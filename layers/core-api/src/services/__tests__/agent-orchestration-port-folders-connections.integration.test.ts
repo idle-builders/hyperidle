@@ -1,5 +1,5 @@
 /**
- * BC5 T4 (architecture.md §6) — RED phase → GREEN. Folders and connections
+ * Folders and connections
  * cross `AgentOrchestrationPort` the way `runConfig` already does: the
  * logic is extracted from `agent-orchestration`'s own `connections.ts` and
  * `filesystems.ts` routes, so this test drives the same behaviour through

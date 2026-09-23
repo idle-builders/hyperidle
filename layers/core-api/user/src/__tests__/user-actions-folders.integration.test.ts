@@ -2,8 +2,8 @@
  * Review fix B2 — `deps.folders.give` was called with no team check at all:
  * origin/main's `routes/filesystems.ts:77-88` refused a mismatched team with
  * `TEAM_MISMATCH`; that route (and its gate) was deleted with nothing to
- * replace it, so any agent could be given any team's folder. architecture.md
- * §6: "`give` checks the team with `folders.list({teamId})`". This file
+ * replace it, so any agent could be given any team's folder.
+ * `give` checks the team with `folders.list({teamId})`. This file
  * proves the gate is back under `folder_other_team`, and that "already
  * given" (the port's own `CONFLICT`) is its OWN problem code —
  * `folder_already_given` — not reused from `folder_other_team`.

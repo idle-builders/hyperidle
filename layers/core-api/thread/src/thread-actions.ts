@@ -334,8 +334,8 @@ function pushChanges(deps: ThreadActionsDeps, rows: readonly PushableChange[]): 
 
 /**
  * Post-commit, once per `changes` row this call appended — the SAME rows
- * `pushChanges` pushes over the socket (architecture.md §3: "the idiom
- * thread and document use for the socket"). `objectEvent` wants the raw
+ * `pushChanges` pushes over the socket — the idiom
+ * thread and document use for the socket. `objectEvent` wants the raw
  * `changes`-row shape (JSON text); re-encoding `PushableChange`'s already
  * decoded `before`/`after` here keeps one canonical builder shared by every
  * module instead of a second one over decoded values.
@@ -1142,8 +1142,8 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		}
 
 		// -- 6. after commit -----------------------------------------------------
-		// Every row this call appended is one object event (architecture.md
-		// §3, decision 5) — `pushRows` already carries them all: the message,
+		// Every row this call appended is one object event
+		// (decision 5) — `pushRows` already carries them all: the message,
 		// the create (if any) and the resolve/reopen (if any).
 		emitObjectEvents(ctx.eventBus, pushRows);
 

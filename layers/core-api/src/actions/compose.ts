@@ -313,7 +313,7 @@ function toHarnessDescriptors(
 }
 
 /**
- * `user`'s deps (architecture.md §6): `runConfig`/`folders`/`connections`
+ * `user`'s deps: `runConfig`/`folders`/`connections`
  * come straight off `AgentOrchestrationPort` (the same port `runConfig`
  * already reaches through) — `@hyperidle/user` hand-types structural mirrors
  * of these three sub-ports rather than importing `@hyperidle/api-contract`
@@ -390,7 +390,7 @@ function buildUserActionsDeps(
  * `open_thread`, both already real arrays by then (architecture.md §8.2).
  * `platform` is built fourth, after `document` — it needs `edit_document`/
  * `search_documents`, already real by then. `user` is built FIFTH, after
- * `platform` (architecture.md §6) — it needs the same two document runners,
+ * `platform` — it needs the same two document runners,
  * already real by then too. The returned array's own order is irrelevant.
  */
 export function buildCoreActions(bindings: {
@@ -483,7 +483,7 @@ export function buildStandaloneDocumentRunners(): {
 
 /**
  * `search_documents` alone, standalone — `tools/eval`'s scenario runners
- * (architecture.md §8.3: never edit a document) only ever need this one
+ * (never edit a document) only ever need this one
  * runner.
  */
 export function createStandaloneSearchDocuments(): SearchDocumentsRunFn {

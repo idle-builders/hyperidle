@@ -1,5 +1,5 @@
 /**
- * `registerSubscriptionFire` — architecture.md §4/§0.13. Real PGlite via the
+ * `registerSubscriptionFire` — the subscription fire mechanism. Real PGlite via the
  * `{ db }` fixture, a real `EventBus()` (this package has no `{db,eventBus}`
  * fixture of its own — the same precedent this package's own
  * `user-actions.integration.test.ts` already set), and the REAL

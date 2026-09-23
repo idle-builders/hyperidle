@@ -1,5 +1,5 @@
 /**
- * AU26 / BC5 T7b (F1) — the degraded-agent notice, event-driven.
+ * AU26 — the degraded-agent notice, event-driven.
  *
  * Founder ruling: *"shouldn't the notification system anyhow allow to be event
  * based and then the notification system just keeps track of how many of the
@@ -13,7 +13,7 @@
  * WeakSet idempotency guard and the explicit `register*(db, eventBus)` wiring
  * convention.
  *
- * Behavior under test (BC5 T7b — the notification queue is gone):
+ * Behavior under test (the notification queue is gone):
  *   - `session_ended` with `outcome: "crashed"` writes the agent's `health`
  *     through `edit_user`, which lands as a `user.changed` change row — no
  *     HTTP request involved, the old producer was a side effect of
@@ -93,7 +93,7 @@ function buildEditUser(
 	return editUserAction.run as EditUserRunFn;
 }
 
-describe("BC5 T7b (F1) — registerAgentHealthSessionEndReactions writes health, not a queue row", () => {
+describe("registerAgentHealthSessionEndReactions writes health, not a queue row", () => {
 	test("a crashed session writes the agent's health and a user.changed", async ({
 		db,
 		eventBus,

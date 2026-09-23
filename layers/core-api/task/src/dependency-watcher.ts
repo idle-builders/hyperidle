@@ -20,7 +20,7 @@ type EditTask = (ctx: ActionContext, input: EditTaskInput) => Promise<ActionResu
  * returns problems instead of throwing, so a refused accept is logged and
  * dropped rather than propagated. The auto-transition's own `edit_task`
  * call already appends a `changes` row and emits `task.changed` for it
- * (architecture.md §3, decision 5) — no separate ambient notification of
+ * (decision 5) — no separate ambient notification of
  * the same edit rides the bus anymore.
  *
  * @lore I3 (TRACK-I.md L137-139): the previous implementation loaded every

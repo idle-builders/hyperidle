@@ -2352,7 +2352,7 @@ describe("edit_task — every task gets a thread", () => {
 });
 
 // ============================================================================
-// object events — architecture.md §3: one per changes row, post commit
+// object events — one per changes row, post commit
 // ============================================================================
 
 describe("send_message / adjust_thread — object events fire from the change rows", () => {

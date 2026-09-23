@@ -1,6 +1,6 @@
 /**
  * The one place an agent's identity document is written or looked up —
- * architecture.md §6: moved verbatim from `layers/core-api/src/routes/
+ * moved verbatim from `layers/core-api/src/routes/
  * agent-identity.ts` into this package. `routes/agents.ts`, `routes/org.ts`,
  * `routes/users.ts` and `routes/teams-routes.ts` all reduce to this one
  * shared helper (imported from `@hyperidle/user` now) instead of each

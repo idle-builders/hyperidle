@@ -19,7 +19,7 @@
  * `registeredBuses` WeakSet idempotency guard, and the explicit
  * `register*(db, eventBus)` wiring convention wired at `service-bootstrap.ts`.
  *
- * ## BC5 T7b (F1): the notification queue is gone — this writes `health` now
+ * ## The notification queue is gone — this writes `health` now
  *
  * The old trigger was a RATIO — `failureRate7d > 0.5 || lastSessionCrashed`
  * (`deriveHealthLevel`, `framework/domain-model/src/agent-run-view.ts`), computed from

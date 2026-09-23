@@ -79,10 +79,10 @@ describe("API Availability Regression Guard (I6)", () => {
 		"/api/git-export/config",
 		"/api/git-export/run",
 		"/api/git-export/status",
-		// BC5 T7b: the routine and notifications packages and their routes are deleted.
+		// The routine and notifications packages and their routes are deleted.
 		"/api/routines",
 		"/api/notifications/inbox",
-		// BC5 T11: user is one module now — the users/agents/org/teams/
+		// User is one module now — the users/agents/org/teams/
 		// recipients/harnesses/filesystems(core)/connections/settings-agent-
 		// behavior route families are all deleted; every one folds into
 		// search_users/open_user/edit_user.

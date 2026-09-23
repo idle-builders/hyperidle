@@ -2,9 +2,7 @@
  * `search_users` / `open_user` / `edit_user` — the user module's own action
  * list, declared the way `@hyperidle/task`/`@hyperidle/thread`/
  * `@hyperidle/document`/`@hyperidle/settings` each declare theirs.
- * Architecture: architecture.md §1 (the declarations,
- * `framework/domain-model/src/actions/user.ts`) and §6 (where this module
- * lives and what it reaches).
+ * Declared in `framework/domain-model/src/actions/user.ts`.
  *
  * `Action`/`ActionContext` are this Service's own structural mirror
  * (`./action-types.js`) — the same reason `@hyperidle/settings`'s
@@ -638,8 +636,8 @@ async function archiveSubscriptionPrompt(
 // FIRST folder/connection problem to the caller at the very end.
 // ---------------------------------------------------------------------------
 
-/** `give`'s team-consistency gate — architecture.md §6: "`give` checks the
- * team with `folders.list({teamId})`", replacing origin/main's
+/** `give`'s team-consistency gate — checks the
+ * team with `folders.list({teamId})`, replacing origin/main's
  * `routes/filesystems.ts` `TEAM_MISMATCH` (route deleted, gate never
  * ported). A folder already given to this agent is CONFLICT from the port —
  * its own code, `folder_already_given`, distinct from a team mismatch. */

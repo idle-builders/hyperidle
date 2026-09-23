@@ -224,7 +224,7 @@ describe("Dependency Watcher", () => {
 			expect(events[0]!.change.after).toMatchObject({ state: "accepted" });
 			// The auto-transition's own `edit_task` call is what reaches the bus
 			// now (decision 5) — the old ambient auto_unblock notification, a
-			// second notice of the SAME edit, is gone (BC5 T7b: the "notification"
+			// second notice of the SAME edit, is gone (the "notification"
 			// event type itself no longer exists).
 		});
 

@@ -1,5 +1,5 @@
 /**
- * `startSubscriptionClock` — architecture.md §4's schedule half. Real PGlite
+ * `startSubscriptionClock` — the subscription schedule half. Real PGlite
  * via the `{ db }` fixture, a real `EventBus()` (same precedent as
  * `subscription-fire.integration.test.ts`), a real tick loop — not a
  * hand-called `tick()`, the actual `setInterval` this module starts.

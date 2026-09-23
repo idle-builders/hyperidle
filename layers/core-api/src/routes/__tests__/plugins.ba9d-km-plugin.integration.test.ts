@@ -333,8 +333,8 @@ describe("document-management plugin — team-scope isolation", () => {
 		// contribution registry's stale-sweep (`forgetContributionsExcept`,
 		// keyed by plugin id only) then reclaims whatever the previous scope
 		// contributed. For an agent that means `status: "inactive"` (the row
-		// stays); for a subscription — no soft-delete column on that table,
-		// architecture.md's subscriptions design — it means the row is gone.
+		// stays); for a subscription — no soft-delete column on that table in
+		// the subscriptions design — it means the row is gone.
 		// What IS guaranteed, and what this test proves, is the id hash: each
 		// scope computes its own deterministic id, so gamma's and delta's
 		// subscriptions never collide even though only one can be live at a time.

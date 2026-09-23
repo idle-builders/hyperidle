@@ -3,7 +3,7 @@
  * (nor `input.connections`) at all: the welcome screen's first call created
  * the person and the team but silently dropped the picked folder
  * (`SetupFlow.tsx` sends `edit_user({kind:"human", name, team, folders:{add:
- * [...]}})`, architecture.md §7 step 1 — the same body origin/main's
+ * [...]}})` — the same body origin/main's
  * `SetupFlow.tsx:350` POSTed to `/api/filesystems`). This file proves create
  * now honours `folders`/`connections` the same way an edit does: a server
  * test creates a user with a folder and finds it via `open_user`.

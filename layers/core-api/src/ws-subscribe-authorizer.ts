@@ -91,7 +91,7 @@ interface RealtimeDocumentReader {
 
 /** Port for §5.1's `:subjects`/`:viewerTeamId` resolution — the actor plus
  * every agent they own, and the actor's own team (or, for an owned agent
- * with no team of its own, its owner's — BC5 T7a architecture.md §0.13). */
+ * with no team of its own, its owner's). */
 interface RealtimeUserReader {
 	getUserById(
 		db: HyperIdleDb,
@@ -201,7 +201,7 @@ export function createDbSubscribeAuthorizer(
 				const sessionId = topic.slice("session:".length);
 				return Promise.resolve(Boolean(sessionId));
 			}
-			// BC5 T7a: a subscription's inbox nudge — admits only the identity
+			// A subscription's inbox nudge — admits only the identity
 			// named in the topic itself, no table read (the same "identity
 			// alone" rule `session:<id>` already uses).
 			if (topic.startsWith("user:")) {

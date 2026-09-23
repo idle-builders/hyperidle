@@ -1,10 +1,10 @@
 /**
  * `registerSubscriptionFire` — the nine object events wake the subscriptions
- * written against them. Architecture.md §4/§0.13.
+ * written against them.
  *
  * Registered in `app.ts` beside the dependency watcher, post commit, over
  * the SAME `ObjectChangeEvent`s `task`/`thread`/`document`/`user` already
- * emit once per appended `changes` row (architecture.md §3) — this module
+ * emit once per appended `changes` row — this module
  * adds no new event, no new table write on the object side, and does its
  * own DB work in a `void` async handler exactly like `dependency-watcher`'s
  * own `eventBus.on("task.changed", ...)` registration in `app.ts` (PGlite's
@@ -60,7 +60,7 @@ export type SearchThreadsReachFn = (
 
 export interface SubscriptionFireDeps extends SubscriptionWakeDeps {
 	readonly agentWorkIntentRecorder: AgentWorkIntentRecorderFn;
-	/** Reach for a `task.*` event — called once per event, never per subscriber. */
+	/** Reach for a `task.*` event — called once per subscriber, as that subscriber. */
 	readonly searchTasks: SearchTasksReachFn;
 	/** Reach for a `thread.*` event — called once per subscriber, as that subscriber. */
 	readonly searchThreads: SearchThreadsReachFn;
@@ -101,7 +101,7 @@ async function effectiveTeamIdOf(db: HyperIdleDb, user: User): Promise<string | 
 
 /**
  * Whether `subscriber` reaches the changed object — the same rule
- * `search_*` itself applies, never `open_*` (architecture.md §4 step 2).
+ * `search_*` itself applies, never `open_*`.
  */
 async function reaches(
 	db: HyperIdleDb,

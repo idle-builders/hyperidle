@@ -82,7 +82,7 @@ export type AdjustThreadRunFn = (
 	input: AdjustThreadInput,
 ) => Promise<ActionResult<ThreadView>>;
 /**
- * `edit_user`'s own bound `run` — BC5 T7b (F1): the crashed-session health
+ * `edit_user`'s own bound `run` — the crashed-session health
  * reaction writes the agent's `health` through it, the same canonical-shape
  * idiom as `SendMessageRunFn`/`AdjustThreadRunFn`.
  */

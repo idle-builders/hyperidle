@@ -94,7 +94,7 @@ interface AppOptions {
 			import("@hyperidle/domain-model").ActionResult<import("@hyperidle/domain-model").ThreadView>
 		>;
 		/**
-		 * `edit_user`'s own bound `run` — BC5 T7b (F1): the crashed-session
+		 * `edit_user`'s own bound `run` — the crashed-session
 		 * health reaction writes the agent's `health` through it instead of a
 		 * notification-queue row.
 		 */
@@ -346,7 +346,7 @@ function buildCoreActionsBindings(
 }
 
 /**
- * BC5 T7a architecture.md §4: registers the subscription fire mechanism
+ * Registers the subscription fire mechanism
  * (the nine object events) and its schedule half, extracted out of
  * `createCoreApiApp` for the same reason `buildCoreActionsBindings` was —
  * that function's own cognitive-complexity budget is already spent.
@@ -380,7 +380,7 @@ function registerSubscriptionServices(
 		readServerConfig: (readDb) => readServerConfig(readDb),
 		...(wsPush ? { wsPush } : {}),
 	});
-	// BC5 T7a: the schedule half — started and stopped alongside the fire
+	// The schedule half — started and stopped alongside the fire
 	// mechanism, needing the SAME composed runners `registerAgentLayerServices`
 	// never had (its own composition root is deliberately built without them).
 	const subscriptionClock = startSubscriptionClock(db, eventBus, {
@@ -518,7 +518,7 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 				import("@hyperidle/domain-model").DocumentRow[]
 			>
 		>;
-		// BC5 T7a architecture.md §4: subscription reach — extracted the same
+		// Subscription reach — extracted the same
 		// way `searchDocumentsRun` is, never `open_task`/`open_thread` (a
 		// subscriber's reach must never count as a read). `runnerFor` throws
 		// its own "no such action" error, so this adds no branch here.
@@ -579,7 +579,7 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		// send_message/adjust_thread are the door now, mounted generically by
 		// createActionsRouter above.
 		// AU26 E4: `/api/connections` was served by `agent-orchestration`'s own
-		// app; that route family is deleted too (BC5 T11) — connections are a
+		// app; that route family is deleted too — connections are a
 		// user attribute now, behind `open_user`/`edit_user`.
 		api.route("/search", createSearchRoutes(options.db, eventBus, searchDocumentsRun));
 		// @lore BC5 T11: `/settings/agent-behavior` is deleted — behaviour is a
@@ -640,7 +640,7 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		});
 		disposers.push(unsubDepWatcher);
 
-		// BC5 T7a architecture.md §4: the subscription fire mechanism and its
+		// The subscription fire mechanism and its
 		// schedule half, registered beside the dependency watcher above.
 		// Extracted the same way `buildCoreActionsBindings` was — this
 		// function's own cognitive-complexity budget is already spent.
