@@ -298,6 +298,47 @@ describe("EditUserInputSchema", () => {
 	it("parses inbox.seen as the literal 'all'", () => {
 		expect(EditUserInputSchema.safeParse({ id: "u1", inbox: { seen: "all" } }).success).toBe(true);
 	});
+
+	// B1: a create (no `id`) carries `folders`/`connections` too — nothing in
+	// the schema, nor in `editUserInvariants`, is create-only for them, so a
+	// welcome-screen call that picks a folder is never silently ignored.
+	it("parses folders and connections on a create — no id required for either", () => {
+		const result = EditUserInputSchema.safeParse({
+			kind: "human",
+			name: "Ada",
+			team: { name: "Core" },
+			folders: {
+				add: [
+					{
+						kind: "doc_set",
+						resourceRef: { kind: "doc_set", folder: "/home/ada" },
+						writeback: "none",
+					},
+				],
+			},
+			connections: { add: [{ authSource: "mcp", serverUrl: "https://example.com/mcp" }] },
+		});
+		expect(result.success).toBe(true);
+	});
+
+	it("editUserInvariants raises no problem for a create carrying folders/connections", () => {
+		const problems = editUserInvariants({
+			kind: "human",
+			name: "Ada",
+			team: { name: "Core" },
+			folders: {
+				add: [
+					{
+						kind: "doc_set",
+						resourceRef: { kind: "doc_set", folder: "/home/ada" },
+						writeback: "none",
+					},
+				],
+			},
+			connections: { add: [{ authSource: "mcp", serverUrl: "https://example.com/mcp" }] },
+		});
+		expect(problems).toEqual([]);
+	});
 });
 
 describe("UserRowSchema", () => {

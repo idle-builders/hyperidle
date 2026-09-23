@@ -621,6 +621,149 @@ async function archiveSubscriptionPrompt(
 }
 
 // ---------------------------------------------------------------------------
+// edit_user — folders and connections, shared by create and edit
+//
+// @lore Review fix: `create` used to never call this at all (a welcome-screen
+// folder pick was silently dropped) and `edit` returned the first port
+// failure IMMEDIATELY — before the transaction's own `user.changed` row ever
+// reached `ctx.eventBus.emit`, three loops and a `for` below. The row was
+// already committed by that point, so the caller got told the whole edit
+// was refused while it had, in fact, half-landed, and nobody in reach ever
+// heard about the half that did. architecture.md §6 fixes the ORDER at
+// "commit → port calls → emit" — port calls already run after commit, so
+// the fix is not to move them earlier; it is to stop `return`ing out of the
+// middle of that sequence. Both callers now run every port call through
+// these two helpers, keep going through the rest of their own post-commit
+// steps and the emit regardless of a port failure, and surface only the
+// FIRST folder/connection problem to the caller at the very end.
+// ---------------------------------------------------------------------------
+
+/** `give`'s team-consistency gate — architecture.md §6: "`give` checks the
+ * team with `folders.list({teamId})`", replacing origin/main's
+ * `routes/filesystems.ts` `TEAM_MISMATCH` (route deleted, gate never
+ * ported). A folder already given to this agent is CONFLICT from the port —
+ * its own code, `folder_already_given`, distinct from a team mismatch. */
+async function applyUserFolders(
+	deps: UserActionsDeps,
+	id: string,
+	teamId: string | null,
+	folders: NonNullable<EditUserInput["folders"]>,
+): Promise<Problem | null> {
+	for (const body of folders.add ?? []) {
+		if (!teamId) {
+			return {
+				code: "unknown_folder",
+				message: "This user has no team to add a folder to.",
+				path: "folders",
+			};
+		}
+		const result = await deps.folders.add(teamId, body);
+		if (!result.ok) {
+			return { code: "unknown_folder", message: "That team does not exist.", path: "folders" };
+		}
+	}
+	for (const folderId of folders.remove ?? []) {
+		const result = await deps.folders.remove(folderId);
+		if (!result.ok) {
+			return { code: "unknown_folder", message: `No folder '${folderId}'.`, path: "folders" };
+		}
+	}
+	for (const folderId of folders.give ?? []) {
+		if (!teamId) {
+			return {
+				code: "folder_other_team",
+				message: "This agent has no team to receive a folder.",
+				path: "folders",
+			};
+		}
+		const teamFolders = await deps.folders.list({ teamId });
+		if (!teamFolders.some((f) => f.id === folderId)) {
+			return {
+				code: "folder_other_team",
+				message: `Folder '${folderId}' does not belong to this agent's team.`,
+				path: "folders",
+			};
+		}
+		const result = await deps.folders.give(folderId, id);
+		if (!result.ok) {
+			return result.code === "CONFLICT"
+				? {
+						code: "folder_already_given",
+						message: `Folder '${folderId}' is already given to this agent.`,
+						path: "folders",
+					}
+				: { code: "unknown_folder", message: `No folder '${folderId}'.`, path: "folders" };
+		}
+	}
+	for (const folderId of folders.take ?? []) {
+		const result = await deps.folders.take(folderId, id);
+		if (!result.ok) {
+			return {
+				code: "unknown_folder",
+				message: `No folder '${folderId}' given to this agent.`,
+				path: "folders",
+			};
+		}
+	}
+	return null;
+}
+
+async function applyUserConnections(
+	deps: UserActionsDeps,
+	id: string,
+	connections: NonNullable<EditUserInput["connections"]>,
+): Promise<Problem | null> {
+	for (const conn of connections.add ?? []) {
+		// `EditUserConnectionsSchema`'s flat `{service, authSource, token?,
+		// serverUrl?}` (today's `POST /filesystems` body shape) is wider than
+		// the port's own discriminated union — the port itself is the one
+		// that refuses a mismatched pair (`connection_invalid` below). One
+		// audited cast, widened through a local `unknown` binding rather than
+		// a chained `as unknown as` (forbidden — `design/no-unknown-cast`).
+		//
+		// @lore the seam-backed `connections.add` binding
+		// (`agent-orchestration-port-composition.ts`) throws on any non-2xx
+		// response — including the seam's own schema rejection of a
+		// mismatched pair (a bad `serverUrl`, a missing token) — rather than
+		// returning the `{ok:false}` its own return type promises. This catch
+		// makes the door honor what it already documented: every refused add,
+		// thrown or returned, is one `connection_invalid`.
+		const connWidened: unknown = conn;
+		let result: Awaited<ReturnType<typeof deps.connections.add>>;
+		try {
+			result = await deps.connections.add(
+				id,
+				connWidened as Parameters<typeof deps.connections.add>[1],
+			);
+		} catch {
+			return {
+				code: "connection_invalid",
+				message: "That connection could not be added.",
+				path: "connections",
+			};
+		}
+		if (!result.ok) {
+			return {
+				code: "connection_invalid",
+				message: "That connection could not be added.",
+				path: "connections",
+			};
+		}
+	}
+	for (const connId of connections.remove ?? []) {
+		const result = await deps.connections.remove(id, connId);
+		if (!result.ok) {
+			return {
+				code: "unknown_connection",
+				message: `No connection '${connId}'.`,
+				path: "connections",
+			};
+		}
+	}
+	return null;
+}
+
+// ---------------------------------------------------------------------------
 // edit_user — create
 // ---------------------------------------------------------------------------
 
@@ -645,9 +788,10 @@ async function createUserRun(
 		}
 	}
 
+	let ownerRow: User | undefined;
 	if (input.ownerUserId !== undefined) {
-		const owner = await findUser(ctx.db, { id: input.ownerUserId });
-		if (!owner)
+		ownerRow = await findUser(ctx.db, { id: input.ownerUserId });
+		if (!ownerRow)
 			return problem("unknown_owner", `No user with id '${input.ownerUserId}'.`, "ownerUserId");
 	}
 
@@ -739,9 +883,24 @@ async function createUserRun(
 		});
 	});
 
-	// -- post-commit: run config, identity + subscription prompt documents,
-	// behaviour, redetect. No port or document call inside the transaction. --
+	// -- post-commit: run config, folders + connections (§6 — the welcome
+	// screen's own folder pick arrives here, B1), identity + subscription
+	// prompt documents, behaviour, redetect. No port or document call inside
+	// the transaction above. A folder/connection problem is held, not
+	// returned, so every step below still runs and the row's own
+	// `user.created` still reaches every subscriber in reach (see the
+	// `applyUserFolders`/`applyUserConnections` @lore). --
 	if (input.runConfig) await deps.runConfig.write(id, input.runConfig);
+
+	let stepProblem: Problem | null = null;
+	if (input.folders) {
+		const effectiveTeamId = values.teamId ?? ownerRow?.teamId ?? null;
+		stepProblem = await applyUserFolders(deps, id, effectiveTeamId, input.folders);
+	}
+	if (!stepProblem && input.connections) {
+		stepProblem = await applyUserConnections(deps, id, input.connections);
+	}
+
 	if (kind === "ai" && input.identity !== undefined) {
 		await identity.upsertAgentIdentity(ctx.db, {
 			agentId: id,
@@ -765,6 +924,8 @@ async function createUserRun(
 	if (input.redetectHarnesses && deps.harnesses) await deps.harnesses.redetect();
 
 	if (mainChangeRow) ctx.eventBus.emit(objectEvent(mainChangeRow));
+
+	if (stepProblem) return { ok: false, problems: [stepProblem] };
 
 	const userRow = await findUser(ctx.db, { id });
 	const data = await buildUserView(ctx, deps, userRow ?? null, true);
@@ -994,73 +1155,19 @@ async function editExistingUserRun(
 	});
 
 	// -- post-commit: ports, documents, behaviour, redetect, retire archive.
-	// No port or document call sits inside the transaction above. --
+	// No port or document call sits inside the transaction above. A
+	// folder/connection problem is held, not returned, so the rest of this
+	// sequence — including the `user.changed` emit below — still runs (see
+	// `applyUserFolders`/`applyUserConnections` @lore). --
 	if (input.runConfig) await deps.runConfig.write(id, input.runConfig);
 
+	let stepProblem: Problem | null = null;
 	if (input.folders) {
 		const teamId = resolvedTeamId ?? existing.teamId;
-		for (const body of input.folders.add ?? []) {
-			if (!teamId)
-				return problem("unknown_folder", "This user has no team to add a folder to.", "folders");
-			const result = await deps.folders.add(teamId, body);
-			if (!result.ok) return problem("unknown_folder", "That team does not exist.", "folders");
-		}
-		for (const folderId of input.folders.remove ?? []) {
-			const result = await deps.folders.remove(folderId);
-			if (!result.ok) return problem("unknown_folder", `No folder '${folderId}'.`, "folders");
-		}
-		for (const folderId of input.folders.give ?? []) {
-			const result = await deps.folders.give(folderId, id);
-			if (!result.ok) {
-				return result.code === "CONFLICT"
-					? problem(
-							"folder_other_team",
-							`Folder '${folderId}' is already given to this agent.`,
-							"folders",
-						)
-					: problem("unknown_folder", `No folder '${folderId}'.`, "folders");
-			}
-		}
-		for (const folderId of input.folders.take ?? []) {
-			const result = await deps.folders.take(folderId, id);
-			if (!result.ok)
-				return problem("unknown_folder", `No folder '${folderId}' given to this agent.`, "folders");
-		}
+		stepProblem = await applyUserFolders(deps, id, teamId, input.folders);
 	}
-
-	if (input.connections) {
-		for (const conn of input.connections.add ?? []) {
-			// `EditUserConnectionsSchema`'s flat `{service, authSource, token?,
-			// serverUrl?}` (today's `POST /filesystems` body shape) is wider than
-			// the port's own discriminated union — the port itself is the one
-			// that refuses a mismatched pair (`connection_invalid` below). One
-			// audited cast, widened through a local `unknown` binding rather
-			// than a chained `as unknown as` (forbidden — `design/no-unknown-cast`).
-			const connWidened: unknown = conn;
-			// @lore BC5 T11: the seam-backed `connections.add` binding
-			// (`agent-orchestration-port-composition.ts`) throws on any
-			// non-2xx response — including the seam's own schema rejection of
-			// a mismatched pair (a bad `serverUrl`, a missing token) — rather
-			// than returning the `{ok:false}` its own return type promises.
-			// This catch makes the door honor what it already documented:
-			// every refused add, thrown or returned, is one `connection_invalid`.
-			let result: Awaited<ReturnType<typeof deps.connections.add>>;
-			try {
-				result = await deps.connections.add(
-					id,
-					connWidened as Parameters<typeof deps.connections.add>[1],
-				);
-			} catch {
-				return problem("connection_invalid", "That connection could not be added.", "connections");
-			}
-			if (!result.ok)
-				return problem("connection_invalid", "That connection could not be added.", "connections");
-		}
-		for (const connId of input.connections.remove ?? []) {
-			const result = await deps.connections.remove(id, connId);
-			if (!result.ok)
-				return problem("unknown_connection", `No connection '${connId}'.`, "connections");
-		}
+	if (!stepProblem && input.connections) {
+		stepProblem = await applyUserConnections(deps, id, input.connections);
 	}
 
 	for (const sub of addedSubscriptions) {
@@ -1087,6 +1194,8 @@ async function editExistingUserRun(
 	if (input.redetectHarnesses && deps.harnesses) await deps.harnesses.redetect();
 
 	if (mainChangeRow) ctx.eventBus.emit(objectEvent(mainChangeRow));
+
+	if (stepProblem) return { ok: false, problems: [stepProblem] };
 
 	const userRow = await findUser(ctx.db, { id });
 	const isSelf = id === ctx.actor;
