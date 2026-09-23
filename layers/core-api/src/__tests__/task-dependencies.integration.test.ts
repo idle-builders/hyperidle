@@ -51,9 +51,7 @@ async function editTask(
 
 async function seedTeam(db: HyperIdleDb, teamId: string): Promise<void> {
 	const now = new Date().toISOString();
-	await db
-		.insert(teams)
-		.values({ id: teamId, name: `Team ${teamId}`, createdAt: now });
+	await db.insert(teams).values({ id: teamId, name: `Team ${teamId}`, createdAt: now });
 	// `changes.actor` FKs to `users` — API-key auth with no seeded human row
 	// falls back to the literal "u-founder", and the dependency watcher's own
 	// edit_task calls (dependency-killed cleanup) write as "system:propagation".

@@ -53,9 +53,7 @@ async function readTaskState(db: HyperIdleDb, taskId: string): Promise<string | 
 }
 
 async function seedTeam(db: HyperIdleDb, teamId: string): Promise<void> {
-	await db
-		.insert(teams)
-		.values({ id: teamId, name: `Team ${teamId}`, createdAt: NOW });
+	await db.insert(teams).values({ id: teamId, name: `Team ${teamId}`, createdAt: NOW });
 	// `changes.actor` FKs to `users` — API-key auth with no seeded human row
 	// falls back to the literal "u-founder", and the dependency watcher's own
 	// edit_task calls write as "system:propagation". Both need real rows.

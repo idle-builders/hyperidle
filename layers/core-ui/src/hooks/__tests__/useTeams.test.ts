@@ -54,7 +54,10 @@ function mockCallImplementation(
 		}
 		if (name === "search_tasks") {
 			if (input.state === "blocked") {
-				return { ok: true, data: Array.from({ length: blockedCount }, (_, i) => ({ id: `b${i}` })) };
+				return {
+					ok: true,
+					data: Array.from({ length: blockedCount }, (_, i) => ({ id: `b${i}` })),
+				};
 			}
 			return {
 				ok: true,

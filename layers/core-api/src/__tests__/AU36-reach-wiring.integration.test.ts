@@ -57,9 +57,9 @@ function authHeaders(): Record<string, string> {
 }
 
 /** `open_user({})` opens the one seeded human (the sole API-key actor) and returns its inherited reach. */
-async function openInherited(
-	app: { request: (path: string, init?: RequestInit) => Response | Promise<Response> },
-): Promise<Array<Record<string, unknown>>> {
+async function openInherited(app: {
+	request: (path: string, init?: RequestInit) => Response | Promise<Response>;
+}): Promise<Array<Record<string, unknown>>> {
 	const res = await app.request("/api/actions/open_user", {
 		method: "POST",
 		headers: authHeaders(),

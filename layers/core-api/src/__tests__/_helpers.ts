@@ -58,7 +58,7 @@ export function makeContext(
  */
 export async function seedBase(db: HyperIdleDb): Promise<void> {
 	// @lore U1: teams is the domain entity (formerly products); teamMembers is the membership group.
-	await db.insert(teams).values({ id: "p1", name: "Test",createdAt: NOW });
+	await db.insert(teams).values({ id: "p1", name: "Test", createdAt: NOW });
 
 	// @lore AD8c: role renamed from practice_facilitator to facilitator
 	await db.insert(users).values({

@@ -93,8 +93,7 @@ export function useAgentProfile(agentId: string | undefined): UseAgentProfileRes
 				const identityDocumentId =
 					result.data.documentIds.find((d) => d.slot === "agent_file")?.id ?? null;
 				const harnessType = result.data.runConfig?.harnessType ?? null;
-				const harnessCapabilities =
-					result.data.runsOn.find((h) => h.type === harnessType) ?? null;
+				const harnessCapabilities = result.data.runsOn.find((h) => h.type === harnessType) ?? null;
 				setState({
 					data: {
 						id: row.id,

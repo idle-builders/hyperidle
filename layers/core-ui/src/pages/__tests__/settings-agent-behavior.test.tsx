@@ -205,7 +205,11 @@ function setupFetch(): void {
 				});
 			}
 			if (urlStr.includes("/api/actions/search_tasks")) {
-				return Promise.resolve({ ok: true, status: 200, json: async () => ({ ok: true, data: [] }) });
+				return Promise.resolve({
+					ok: true,
+					status: 200,
+					json: async () => ({ ok: true, data: [] }),
+				});
 			}
 			// SettingsPlugins reads through `call("search_plugins", …)` —
 			// `POST /api/actions/search_plugins`, not the deleted `/api/plugins`

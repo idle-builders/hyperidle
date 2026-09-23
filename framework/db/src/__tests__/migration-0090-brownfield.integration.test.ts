@@ -131,7 +131,8 @@ describe("migration 0090: team is a name — brownfield", () => {
 
 	it("backfills a human from the oldest org edge whose target is a real team, skipping a pre-fold target", async () => {
 		const db = await seedAndMigrate();
-		const [row] = (await db.execute(sql`SELECT team_id FROM users WHERE id = 'human-a'`)).rows as Array<{
+		const [row] = (await db.execute(sql`SELECT team_id FROM users WHERE id = 'human-a'`))
+			.rows as Array<{
 			team_id: string | null;
 		}>;
 		expect(row?.team_id).toBe("team-newer");
@@ -139,7 +140,8 @@ describe("migration 0090: team is a name — brownfield", () => {
 
 	it("backfills a human with no org edge to the oldest team", async () => {
 		const db = await seedAndMigrate();
-		const [row] = (await db.execute(sql`SELECT team_id FROM users WHERE id = 'human-b'`)).rows as Array<{
+		const [row] = (await db.execute(sql`SELECT team_id FROM users WHERE id = 'human-b'`))
+			.rows as Array<{
 			team_id: string | null;
 		}>;
 		expect(row?.team_id).toBe("team-oldest");
@@ -147,17 +149,15 @@ describe("migration 0090: team is a name — brownfield", () => {
 
 	it("never backfills an AI user (only kind='human' rows)", async () => {
 		const db = await seedAndMigrate();
-		const [row] = (
-			await db.execute(sql`SELECT team_id FROM users WHERE id = 'agent-factory'`)
-		).rows as Array<{ team_id: string | null }>;
+		const [row] = (await db.execute(sql`SELECT team_id FROM users WHERE id = 'agent-factory'`))
+			.rows as Array<{ team_id: string | null }>;
 		expect(row?.team_id).toBeNull();
 	});
 
 	it("leaves org edges themselves untouched", async () => {
 		const db = await seedAndMigrate();
-		const rows = (
-			await db.execute(sql`SELECT id, target FROM org_edges ORDER BY id`)
-		).rows as Array<{ id: string; target: string }>;
+		const rows = (await db.execute(sql`SELECT id, target FROM org_edges ORDER BY id`))
+			.rows as Array<{ id: string; target: string }>;
 		expect(rows).toEqual([
 			{ id: "edge-a-real", target: "team-newer" },
 			{ id: "edge-a-stale", target: "team-members-pre-fold-id" },

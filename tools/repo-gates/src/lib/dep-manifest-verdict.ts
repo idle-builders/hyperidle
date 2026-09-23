@@ -80,7 +80,7 @@ export const JUSTIFIED_UNUSED: ReadonlyArray<{
 		pkg: "@hyperidle/agent-orchestration",
 		dependency: "@types/node",
 		reason:
-			'`tsconfig.json`\'s own `types: ["node"]` is declared explicitly for this package (ambient Node globals, not an explicit import this scanner\'s source scan can see) — `ssrf.ts`/`git-runner.ts` import real `node:` builtins, but the ambient-types declaration itself is what this allowance covers.',
+			"`tsconfig.json`'s own `types: [\"node\"]` is declared explicitly for this package (ambient Node globals, not an explicit import this scanner's source scan can see) — `ssrf.ts`/`git-runner.ts` import real `node:` builtins, but the ambient-types declaration itself is what this allowance covers.",
 	},
 	{
 		pkg: "@hyperidle/website",

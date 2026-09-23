@@ -201,7 +201,10 @@ export interface UserActionsDeps {
 	 * `agent-profile.ts` route's `computeApprovalRate`). Absent → `null` on
 	 * every agent's `reviewTrackRecord` (a composition without policy wired).
 	 */
-	readonly reviewTrackRecord?: (db: HyperIdleDb, agentId: string) => Promise<{
+	readonly reviewTrackRecord?: (
+		db: HyperIdleDb,
+		agentId: string,
+	) => Promise<{
 		readonly approvalRate: number;
 		readonly totalVerdicts: number;
 		readonly recentVerdicts: ReadonlyArray<{

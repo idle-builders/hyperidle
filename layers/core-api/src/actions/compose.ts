@@ -33,7 +33,6 @@ import {
 } from "@hyperidle/settings";
 import { createTaskActions, type TaskActionsDeps } from "@hyperidle/task";
 import { createThreadActions, type ThreadActionsDeps } from "@hyperidle/thread";
-import { computeApprovalRate } from "../services/policy-bindings.js";
 import {
 	createUserActions,
 	deleteSubscriptions,
@@ -51,6 +50,7 @@ import {
 	type UserActionsDeps,
 } from "@hyperidle/user";
 import type { HarnessCapabilityReader } from "../services/harness-capability-reader.js";
+import { computeApprovalRate } from "../services/policy-bindings.js";
 import {
 	buildTaskRunResolverDeps,
 	resolveAgentIdentityBody,

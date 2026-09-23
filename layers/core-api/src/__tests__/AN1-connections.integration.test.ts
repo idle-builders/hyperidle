@@ -167,7 +167,9 @@ describe("AN1 — connections behind open_user/edit_user", () => {
 			const res = await requestWithoutAuth("/api/actions/edit_user", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ connections: { add: [{ service: "Stripe", authSource: "token", token: "tok123" }] } }),
+				body: JSON.stringify({
+					connections: { add: [{ service: "Stripe", authSource: "token", token: "tok123" }] },
+				}),
 			});
 			expect(res.status).toBe(401);
 		});
