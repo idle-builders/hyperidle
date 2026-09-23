@@ -6,6 +6,7 @@ import type {
 	AgentSessionSourceKind,
 	BakedContextBundle,
 	BakedContextDocument,
+	ChangeRow,
 	RoutineTriggerEvent,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
@@ -190,8 +191,57 @@ function flattenToLines(value: unknown, prefix: string, lines: string[]): void {
 	lines.push(`${prefix}: ${String(value)}`);
 }
 
-/** Build session.toon content from a task-or-routine session's derived context data. */
-function buildSessionContextToon(data: SessionContextData | RoutineSessionContextData): string {
+// ─────────────────────────────────────────────────────────────────────────────
+// BC5 T6: Subscription session context
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Context data for a subscription session (BC5 T6).
+ * Contains subscription + agent + team — no task/bet fields, the same shape
+ * of restriction as a routine session.
+ *
+ * Additive alongside `RoutineSessionContextData` — the cut-over block deletes
+ * that one and this shape takes over its role.
+ */
+interface SubscriptionSessionContextData {
+	subscription: {
+		id: string;
+		event: string | null;
+		schedule: string | null;
+	};
+	/** The subscription's own instruction — the `prompt` document's body, or null when it carries none. */
+	prompt: string | null;
+	/** The change that woke this subscription, or null for a schedule tick. */
+	change: ChangeRow | null;
+	agent: {
+		id: string;
+		name: string;
+		role: string;
+	};
+	/** The subscriber's effective team, or null for a factory-wide agent. */
+	team: {
+		id: string;
+		name: string;
+	} | null;
+}
+
+/** Map a `kind:"subscription"` baked `contextBundle` onto `SubscriptionSessionContextData` — a pure passthrough. */
+function subscriptionSessionContextDataFromBundle(
+	bundle: Extract<BakedContextBundle, { kind: "subscription" }>,
+): SubscriptionSessionContextData {
+	return {
+		subscription: bundle.subscription,
+		prompt: bundle.prompt,
+		change: bundle.change,
+		agent: bundle.agent,
+		team: bundle.team,
+	};
+}
+
+/** Build session.toon content from a task/routine/subscription session's derived context data. */
+function buildSessionContextToon(
+	data: SessionContextData | RoutineSessionContextData | SubscriptionSessionContextData,
+): string {
 	return encodeToon(data);
 }
 
@@ -634,6 +684,120 @@ function assembleRoutinePrompt(input: RoutinePromptCompositionInput): PromptComp
 	return { assembledPrompt, personaToolsTokens };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// BC5 T6: Subscription prompt assembly
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Input to subscription prompt assembly (BC5 T6). */
+interface SubscriptionPromptCompositionInput {
+	readonly systemPromptText: string;
+	/** Subscription session context data — no task/bet fields. */
+	readonly context: SubscriptionSessionContextData;
+	readonly tools: readonly ToolSummary[];
+	readonly sandboxPath: string;
+}
+
+/** A rendered change value over this many characters is cut, with a pointer back to the object. */
+const CHANGE_RENDER_CHAR_LIMIT = 2000;
+
+/** Render a change's `before`/`after` value, cut at the char limit rather than dumped whole. */
+function renderChangeValue(value: Record<string, unknown> | null): string {
+	if (value === null) return "(none)";
+	const json = JSON.stringify(value, null, 2);
+	if (json.length <= CHANGE_RENDER_CHAR_LIMIT) return json;
+	return `${json.slice(0, CHANGE_RENDER_CHAR_LIMIT)}\n… (open the object for the rest)`;
+}
+
+/**
+ * Build the subscription section markdown (BC5 T6).
+ * Replaces buildRoutineTaskSection for subscription sessions — shows the
+ * subscription's own instruction (its `prompt` document) and what happened
+ * (the change that woke it, or a note that this run came from a schedule).
+ */
+function buildSubscriptionSection(context: SubscriptionSessionContextData): string {
+	const trigger = context.subscription.event ?? context.subscription.schedule ?? "unknown";
+	const parts: string[] = ["## Subscription", "", `**Subscribed to:** ${trigger}`];
+
+	if (context.prompt) {
+		parts.push("", "### Instruction", "", context.prompt);
+	}
+
+	parts.push("", "### What happened", "");
+	if (context.change) {
+		const change = context.change;
+		parts.push(`**Object:** ${change.object} ${change.objectId}`);
+		parts.push(`**Kind:** ${change.kind}`);
+		parts.push(`**Actor:** ${change.actor}`);
+		parts.push(`**At:** ${change.at}`);
+		parts.push("", "**Before:**", "", renderChangeValue(change.before));
+		parts.push("", "**After:**", "", renderChangeValue(change.after));
+	} else {
+		parts.push("This run was woken by a schedule, not a change.");
+	}
+
+	parts.push("");
+
+	return parts.join("\n");
+}
+
+/**
+ * Assemble a complete subscription session context prompt (BC5 T6).
+ * Parallel to assembleRoutinePrompt but uses buildSubscriptionSection instead
+ * of buildRoutineTaskSection — additive alongside it; the cut-over block
+ * retires the routine variant.
+ */
+function assembleSubscriptionPrompt(
+	input: SubscriptionPromptCompositionInput,
+): PromptCompositionResult {
+	const { systemPromptText, context, tools, sandboxPath: _sandboxPath } = input;
+
+	// Build persona section from inline text (same as assemblePrompt)
+	let personaSection = "";
+	if (systemPromptText.length > 0) {
+		const stripped = stripFrontmatter(systemPromptText);
+		// For subscription sessions, use team name as the product variable —
+		// a factory-wide agent's subscription may belong to no team.
+		const vars: Record<string, string> = {
+			product: context.team?.name ?? "",
+			community: context.agent.role,
+		};
+		personaSection = substituteTemplateVars(stripped, vars);
+	}
+
+	const toolsContent = buildToolsSection(tools);
+
+	// Enforce token budget on persona + tools
+	const personaTokens = approxTokenCount(personaSection);
+	const toolsTokens = approxTokenCount(toolsContent);
+	let personaToolsTokens = personaTokens + toolsTokens;
+
+	if (personaToolsTokens > PERSONA_TOOLS_TOKEN_BUDGET && personaSection.length > 0) {
+		logger.warn(
+			`Subscription persona + tools section exceeds ${PERSONA_TOOLS_TOKEN_BUDGET} tokens (${personaToolsTokens}). Truncating persona.`,
+		);
+		personaSection = `${truncatePersona(personaSection)}\n\n(Persona truncated to fit token budget.)`;
+		personaToolsTokens = approxTokenCount(personaSection) + toolsTokens;
+	}
+
+	// Assemble sections
+	const parts: string[] = ["# Session Instructions", ""];
+
+	if (personaSection.length > 0) {
+		parts.push("## Identity", "", personaSection.trimEnd(), "");
+	}
+
+	const subscriptionSection = buildSubscriptionSection(context);
+	parts.push(subscriptionSection);
+
+	parts.push(toolsContent);
+
+	parts.push(WORKSPACE_SECTION);
+
+	const assembledPrompt = parts.join("\n");
+
+	return { assembledPrompt, personaToolsTokens };
+}
+
 // `ManifestEntry`/`Manifest` are shared with writeback-processor.ts's reader
 // (review.md B5) — see manifest-types.ts.
 
@@ -977,7 +1141,7 @@ interface ContextAssemblyResult {
 function writeContextBundle(
 	sandboxPath: string,
 	sessionId: string,
-	bundle: Extract<BakedContextBundle, { kind: "task" | "routine" }>,
+	bundle: Extract<BakedContextBundle, { kind: "task" | "routine" | "subscription" }>,
 	agentId: string,
 ): ContextAssemblyResult {
 	const start = performance.now();
@@ -993,7 +1157,9 @@ function writeContextBundle(
 	const sessionToon =
 		bundle.kind === "task"
 			? buildSessionContextToon(sessionContextDataFromBundle(bundle))
-			: buildSessionContextToon(routineSessionContextDataFromBundle(bundle));
+			: bundle.kind === "routine"
+				? buildSessionContextToon(routineSessionContextDataFromBundle(bundle))
+				: buildSessionContextToon(subscriptionSessionContextDataFromBundle(bundle));
 	fs.writeFileSync(path.join(sandboxPath, "context/session.toon"), sessionToon);
 
 	setContextReadOnly(sandboxPath);
@@ -1056,8 +1222,11 @@ interface AgentWritebackHandle {
 /** A baked bundle this file's sandbox-writing path knows how to consume. */
 function isWritableBundle(
 	bundle: BakedContextBundle | undefined,
-): bundle is Extract<BakedContextBundle, { kind: "task" | "routine" }> {
-	return bundle !== undefined && (bundle.kind === "task" || bundle.kind === "routine");
+): bundle is Extract<BakedContextBundle, { kind: "task" | "routine" | "subscription" }> {
+	return (
+		bundle !== undefined &&
+		(bundle.kind === "task" || bundle.kind === "routine" || bundle.kind === "subscription")
+	);
 }
 
 /**
@@ -1170,6 +1339,10 @@ interface ContextAssembler {
 	}): AgentWritebackHandle;
 	assemblePrompt(input: PromptCompositionInput): Promise<PromptCompositionResult>;
 	assembleRoutinePrompt(input: RoutinePromptCompositionInput): Promise<PromptCompositionResult>;
+	/** BC5 T6: additive alongside `assembleRoutinePrompt`; the cut-over block retires that one. */
+	assembleSubscriptionPrompt(
+		input: SubscriptionPromptCompositionInput,
+	): Promise<PromptCompositionResult>;
 	writeSandboxAgentsMd(sandboxPath: string, assembledPrompt: string): void;
 	stripFrontmatter(content: string): string;
 	substituteTemplateVars(template: string, vars: Record<string, string>): string;
@@ -1186,6 +1359,7 @@ export function createContextAssembler(ports: ContextAssemblyPorts): ContextAsse
 		beginAgentWriteback: (input) => beginAgentWriteback(input, ports),
 		assemblePrompt: (input) => Promise.resolve(assemblePrompt(input)),
 		assembleRoutinePrompt: (input) => Promise.resolve(assembleRoutinePrompt(input)),
+		assembleSubscriptionPrompt: (input) => Promise.resolve(assembleSubscriptionPrompt(input)),
 		writeSandboxAgentsMd,
 		stripFrontmatter,
 		substituteTemplateVars,
@@ -1196,5 +1370,14 @@ export function createContextAssembler(ports: ContextAssemblyPorts): ContextAsse
 	};
 }
 
-export type { AssembleAgentContextInput, RoutineSessionContextData, SessionContextData };
-export { routineSessionContextDataFromBundle, sessionContextDataFromBundle };
+export type {
+	AssembleAgentContextInput,
+	RoutineSessionContextData,
+	SessionContextData,
+	SubscriptionSessionContextData,
+};
+export {
+	routineSessionContextDataFromBundle,
+	sessionContextDataFromBundle,
+	subscriptionSessionContextDataFromBundle,
+};
