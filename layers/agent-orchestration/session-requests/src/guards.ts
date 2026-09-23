@@ -16,6 +16,8 @@ const AGENT_WORK_INTENT_SOURCE_KINDS = [
 	"knowledge_action",
 	"routine_run",
 	"task_dispatch_attempt",
+	// @lore BC5 T6: additive alongside `routine_run`; the cut-over block retires it.
+	"subscription",
 ] as const;
 
 /** Narrow a raw `agent_work_intents.kind` DB column value to `AgentWorkIntentKind`. */

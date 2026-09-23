@@ -1069,6 +1069,8 @@ const PROMPT_MODE_BY_SOURCE: Record<string, string> = {
 	assistant: "conversation",
 	routine: "routine",
 	knowledge: "knowledge",
+	// BC5 T6: additive alongside "routine" — the cut-over block retires it.
+	subscription: "subscription",
 };
 
 export type WorkIntentInput =
@@ -1079,13 +1081,16 @@ export type WorkIntentInput =
 				| "session_start"
 				| "knowledge_action"
 				| "routine_run"
-				| "task_run";
+				| "task_run"
+				// @lore BC5 T6: additive alongside "routine_run"; the cut-over block retires it.
+				| "subscription_run";
 			readonly sourceKind:
 				| "thread_message"
 				| "explicit_session_start"
 				| "knowledge_action"
 				| "routine_run"
-				| "task_dispatch_attempt";
+				| "task_dispatch_attempt"
+				| "subscription";
 			readonly sourceId: string;
 			readonly requestedBy?: string;
 			readonly idempotencyKey: string;
