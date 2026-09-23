@@ -69,7 +69,7 @@ function scanDeclaredActionNames(
 }
 
 /**
- * The nineteen registrations that realise the eighteen plumbing doors —
+ * The twenty-six registrations that realise the twenty-six plumbing doors —
  * internal seams, auth, health. A route, never an action.
  *
  * @lore `GET /sessions/:sessionId` (a live core-api caller,
@@ -78,6 +78,12 @@ function scanDeclaredActionNames(
  * both are `AgentOrchestrationPort` seams with a real caller left, which is
  * what this list means; neither is an action, since core may not call an
  * orchestration action.
+ *
+ * @lore BC5 §6 (T4): `folders`/`connections` added seven new rows for eight
+ * new doors — `folders.give` reuses the existing
+ * `POST .../filesystems/:id/injections/persist` row under a second
+ * capability name, one row realising two doors, same idiom the two moved
+ * rows above already established.
  */
 const PLUMBING_ROUTES: readonly string[] = [
 	"layers/core-api/src/routes/auth.ts|GET /me",
@@ -101,6 +107,16 @@ const PLUMBING_ROUTES: readonly string[] = [
 	"layers/agent-execution/harness-registry/src/mcp/mcp-route.ts|POST /mcp/:token/return-status",
 	"layers/agent-orchestration/src/routes/agent-orchestration-sessions.ts|GET /sessions/:sessionId",
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /runs/stop-for-tasks",
+	// BC5 §6 (T4): `folders`/`connections` cross the port the way `runConfig`
+	// already does. `folders.give` is `POST .../filesystems/:id/injections/persist`
+	// above under a second capability name — no new row for it.
+	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /folders/list",
+	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /folders",
+	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /folders/:id/remove",
+	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /folders/:id/take",
+	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|GET /connections/:userId",
+	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /connections/:userId",
+	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /connections/:userId/:id/remove",
 ];
 
 /** The nine object events — task/thread/document/user, edit-in/changed-out. */

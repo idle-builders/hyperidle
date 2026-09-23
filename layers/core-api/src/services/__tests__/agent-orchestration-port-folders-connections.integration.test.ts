@@ -106,8 +106,8 @@ describe("AgentOrchestrationPort — folders and connections (§6, T4)", () => {
 		if (!added.ok) throw new Error("unreachable");
 		expect(added.connection.service).toBe("GitHub");
 		expect(added.connection.authSource).toBe("token");
-		expect((added.connection as Record<string, unknown>).encryptedToken).toBeUndefined();
-		expect((added.connection as Record<string, unknown>).token).toBeUndefined();
+		expect((added.connection as unknown as Record<string, unknown>).encryptedToken).toBeUndefined();
+		expect((added.connection as unknown as Record<string, unknown>).token).toBeUndefined();
 
 		const listed = await port.connections.list("aop-conn-user");
 		expect(listed.connections.map((c) => c.id)).toContain(added.connection.id);

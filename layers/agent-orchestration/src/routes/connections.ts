@@ -75,7 +75,12 @@ function isBlockedUrl(url: string): boolean {
 	}
 }
 
-const createConnectionSchema = z.discriminatedUnion("authSource", [
+/**
+ * Exported so `agent-orchestration-intake.ts` validates `connections.add`'s
+ * body against the SAME schema this route always has — mirrors
+ * `AgentOrchestrationConnectionCreateInput` (`@hyperidle/api-contract`).
+ */
+export const createConnectionSchema = z.discriminatedUnion("authSource", [
 	z.object({
 		service: z.string().min(1).max(200),
 		authSource: z.literal("token"),
@@ -96,6 +101,7 @@ const createConnectionSchema = z.discriminatedUnion("authSource", [
 			}),
 	}),
 ]);
+export type CreateConnectionInput = z.infer<typeof createConnectionSchema>;
 
 // ---------------------------------------------------------------------------
 // View builder
@@ -168,6 +174,113 @@ function deriveServiceFromUrl(serverUrl: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Extracted logic (BC5 architecture.md §6, T4) — the read/write bodies both
+// this route and `AgentOrchestrationPort`'s `connections` family call, so
+// the two doors can never drift. The HTTP route below is unchanged
+// behaviour, now calling these instead of inlining them.
+// ---------------------------------------------------------------------------
+
+/**
+ * `connections.list` — held rows (from DB) union the reach cache's inherited
+ * projections, kept as two arrays rather than the route's own merged one so
+ * a caller that needs to tell them apart (§6's `open_user`) can.
+ */
+export async function listConnectionsForUser(
+	db: HyperIdleDb,
+	userId: string,
+	inheritedReach?: InheritedReach,
+): Promise<{
+	readonly connections: readonly ServiceConnectionView[];
+	readonly inherited: readonly ServiceConnectionView[];
+}> {
+	const rows = await listConnections(db, { userId });
+	return {
+		connections: rows.map(rowToView),
+		inherited: inheritedReach?.list() ?? [],
+	};
+}
+
+export type CreateConnectionResult =
+	| { readonly ok: true; readonly connection: ServiceConnectionView }
+	| { readonly ok: false; readonly code: "MISSING_ROOT_SECRET" }
+	| { readonly ok: false; readonly code: "DUPLICATE_CONNECTION" };
+
+/** `connections.add` — validated body already parsed by the caller; encrypts a token, derives an mcp service name. */
+export async function createConnectionForUser(
+	db: HyperIdleDb,
+	userId: string,
+	body: CreateConnectionInput,
+	encrypt: (plaintext: string) => string,
+): Promise<CreateConnectionResult> {
+	const now = new Date().toISOString();
+	const id = `sc-${crypto.randomUUID()}`;
+
+	if (body.authSource === "token") {
+		let encryptedToken: string;
+		try {
+			encryptedToken = encrypt(body.token);
+		} catch {
+			return { ok: false, code: "MISSING_ROOT_SECRET" };
+		}
+		try {
+			await insertConnection(db, {
+				id,
+				userId,
+				service: body.service,
+				authSource: "token",
+				encryptedToken,
+				serverUrl: null,
+				health: "needs-attention",
+				lastValidatedAt: null,
+				createdAt: now,
+				updatedAt: now,
+			});
+		} catch (err) {
+			if (isUniqueViolation(err)) return { ok: false, code: "DUPLICATE_CONNECTION" };
+			throw err;
+		}
+	} else {
+		const service = body.service ?? deriveServiceFromUrl(body.serverUrl);
+		try {
+			await insertConnection(db, {
+				id,
+				userId,
+				service,
+				authSource: "mcp",
+				encryptedToken: null,
+				serverUrl: body.serverUrl,
+				health: "needs-attention",
+				lastValidatedAt: null,
+				createdAt: now,
+				updatedAt: now,
+			});
+		} catch (err) {
+			if (isUniqueViolation(err)) return { ok: false, code: "DUPLICATE_CONNECTION" };
+			throw err;
+		}
+	}
+
+	const [row] = await listConnections(db, { id });
+	if (!row) throw new Error("Failed to retrieve created connection");
+	return { ok: true, connection: rowToView(row) };
+}
+
+export type RemoveConnectionResult = { readonly ok: true } | { readonly ok: false; readonly code: "NOT_FOUND" };
+
+/** `connections.remove` — cross-user, non-existent and `inherited:` ids all resolve NOT_FOUND, never leak existence. */
+export async function removeConnectionForUser(
+	db: HyperIdleDb,
+	userId: string,
+	id: string,
+): Promise<RemoveConnectionResult> {
+	if (id.startsWith("inherited:")) return { ok: false, code: "NOT_FOUND" };
+	const [existing] = await listConnections(db, { id, userId });
+	if (!existing) return { ok: false, code: "NOT_FOUND" };
+	await deleteConnection(db, { id, userId });
+	return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
 // Route factory
 // ---------------------------------------------------------------------------
 
@@ -217,18 +330,10 @@ export function createConnectionRoutes(
 	 */
 	router.get("/", async (c) => {
 		const userId = c.get("userId");
-
-		// Held connections from DB
-		const rows = await listConnections(db, { userId });
-
-		const storedViews = rows.map(rowToView);
-
-		// Inherited projections from the reach cache (no spawn per request)
-		// list() now returns ServiceConnectionView[] directly (projection inlined in InheritedReach)
-		const inheritedViews = inheritedReach?.list() ?? [];
+		const { connections, inherited } = await listConnectionsForUser(db, userId, inheritedReach);
 
 		// Inherited first (the first-class signal), then held
-		return c.json([...inheritedViews, ...storedViews]);
+		return c.json([...inherited, ...connections]);
 	});
 
 	// `GET /provisioning` was DELETED by AU21 Decision K1 — it existed ONLY to
@@ -267,75 +372,18 @@ export function createConnectionRoutes(
 			);
 		}
 
-		const body = parsed.data;
-		const now = new Date().toISOString();
-		const id = `sc-${crypto.randomUUID()}`;
-
-		if (body.authSource === "token") {
-			// Fail-loud on missing root secret at the write boundary
-			let encryptedToken: string;
-			try {
-				encryptedToken = encrypt(body.token);
-			} catch {
+		const result = await createConnectionForUser(db, userId, parsed.data, encrypt);
+		if (!result.ok) {
+			if (result.code === "MISSING_ROOT_SECRET") {
 				return c.json(
 					{ error: "Encryption secret not configured", code: "MISSING_ROOT_SECRET" },
 					500,
 				);
 			}
-
-			try {
-				await insertConnection(db, {
-					id,
-					userId,
-					service: body.service,
-					authSource: "token",
-					encryptedToken,
-					serverUrl: null,
-					health: "needs-attention",
-					lastValidatedAt: null,
-					createdAt: now,
-					updatedAt: now,
-				});
-			} catch (err) {
-				// Unique constraint violation → 409
-				if (isUniqueViolation(err)) {
-					return c.json({ error: "Connection already exists", code: "DUPLICATE_CONNECTION" }, 409);
-				}
-				throw err;
-			}
-		} else {
-			// mcp
-			const service = body.service ?? deriveServiceFromUrl(body.serverUrl);
-
-			try {
-				await insertConnection(db, {
-					id,
-					userId,
-					service,
-					authSource: "mcp",
-					encryptedToken: null,
-					serverUrl: body.serverUrl,
-					health: "needs-attention",
-					lastValidatedAt: null,
-					createdAt: now,
-					updatedAt: now,
-				});
-			} catch (err) {
-				if (isUniqueViolation(err)) {
-					return c.json({ error: "Connection already exists", code: "DUPLICATE_CONNECTION" }, 409);
-				}
-				throw err;
-			}
+			return c.json({ error: "Connection already exists", code: "DUPLICATE_CONNECTION" }, 409);
 		}
 
-		// Return the view (no secret)
-		const [row] = await listConnections(db, { id });
-
-		if (!row) {
-			return c.json({ error: "Failed to retrieve created connection" }, 500);
-		}
-
-		return c.json(rowToView(row), 201);
+		return c.json(result.connection, 201);
 	});
 
 	// ── DELETE /:id ───────────────────────────────────────────────────────────
@@ -353,19 +401,10 @@ export function createConnectionRoutes(
 		const userId = c.get("userId");
 		const id = c.req.param("id");
 
-		// inherited: ids are sentinels with no DB row — always 404
-		if (id.startsWith("inherited:")) {
-			return c.json({ error: "Not found", code: "NOT_FOUND" }, 404);
+		const result = await removeConnectionForUser(db, userId, id);
+		if (!result.ok) {
+			return c.json({ error: "Not found", code: result.code }, 404);
 		}
-
-		// SELECT first (userId-scoped) to confirm ownership before deleting
-		const [existing] = await listConnections(db, { id, userId });
-
-		if (!existing) {
-			return c.json({ error: "Not found", code: "NOT_FOUND" }, 404);
-		}
-
-		await deleteConnection(db, { id, userId });
 
 		return c.body(null, 204);
 	});

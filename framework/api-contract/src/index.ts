@@ -9,7 +9,18 @@
 export type {
 	// Sub-port interfaces reachable as AgentOrchestrationPort["<member>"] —
 	// not named-imported by anyone; removed from barrel, kept in source.
+	AgentOrchestrationAddFolderResult,
+	// BC5 §6 (T4): folders/connections — named imports on both sides of the seam.
+	AgentOrchestrationConnectionCreateInput,
+	AgentOrchestrationConnectionsListView,
+	AgentOrchestrationConnectionView,
+	AgentOrchestrationCreateConnectionResult,
+	AgentOrchestrationFolderCreateInput,
+	AgentOrchestrationFolderListQuery,
+	AgentOrchestrationFolderView,
+	AgentOrchestrationPersistInjectionResult,
 	AgentOrchestrationPort,
+	AgentOrchestrationRemoveResult,
 	AgentOrchestrationReviewVerdictInput,
 	AgentOrchestrationReviewVerdictOutcome,
 	AgentOrchestrationRunConfigPatch,
