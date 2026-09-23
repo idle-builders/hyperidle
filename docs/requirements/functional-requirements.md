@@ -27,7 +27,7 @@ one.
 
 **F-1.5** Agents are retired (soft-delete to `status="retired"`), never hard-deleted. Retirement is available at any time.
 
-**F-1.6** An agent belongs to exactly one team (`users.teamId` is a single FK). No multi-team membership.
+**F-1.6** An agent belongs to exactly one team — its own, or, if it is owned by a person, its owner's. No multi-team membership.
 
 **F-1.7** A session runs the model its agent was configured with (`model_id`/`model_provider`), passed to the harness binary as `--model`. There is no tier-based routing and no per-agent tier dial: the tier vocabulary (reasoning / workhorse / fast) survives only as the key of the token-usage bucket a session's spend is reported in. Vocabulary and mechanics: [agent-layer/model-routing-and-cost.md](../agent-layer/model-routing-and-cost.md).
 
@@ -39,9 +39,9 @@ Shapes and semantics: [process-layer/the-four-primitives.md](../process-layer/th
 
 **F-2.2 Session.** A single agent's bounded run on a task, states `active | paused | done | crashed`. The session ends before context compaction, and the agent writes session notes back to the task before ending — notes are the bridge between sessions on the same task. Shape owned by [process-layer/the-four-primitives.md](../process-layer/the-four-primitives.md) §Sessions.
 
-**F-2.3 Team.** A persistent group of agents. Capacity is a single integer — max concurrent in-progress tasks at any depth of the task tree. Teams persist; agents join and leave by direct membership change. Depth: [process-layer/teams.md](../process-layer/teams.md).
+**F-2.3 Team.** A name every user belongs to — an id and a name, nothing else. No capacity, lead, or phase column. Teams persist; a user's team changes by editing that user. Depth: [process-layer/teams.md](../process-layer/teams.md).
 
-**F-2.4 Routine.** A recurring trigger attached to a named agent with persistent state across runs (`stateKey`). Trigger types: heartbeat, calendar (cron in `triggerConfig`), event (any of the full event vocabulary, `EVENT_TYPES`), continuous. An event trigger may carry a `transitionTo` constraint in `triggerConfig` to filter by the target state. A routine has no team of its own — its scope is wherever its owner agent belongs. Routines declare `humanReview` and `silent` (sleep-time routines that update memory without producing items). Lifecycle state is `active | paused | error` (`routines.state`, `framework/db/src/schema.ts`); the boolean `routines.active` is **deprecated** — new code reads `state` (AA2 will drop `active`). Each trigger is recorded in `routine_runs` — an append-only audit log (`framework/db/src/schema.ts`). Routine creation is not approval-gated; an event routine takes effect on the very next matching event, with no restart. All routines are generic (plugin-provided or user-created) — there are no hard-wired builtin routines in core. Depth: [process-layer/routines-and-retros.md](../process-layer/routines-and-retros.md).
+**F-2.4 Subscription.** A row on a user that fires on exactly one of an event (one of nine object-change names) or a schedule (cron, agent-only), with persistent `nextRunAt` on the schedule half. An agent subscriber is woken through the same intent door a mention uses; a person gets an inbox row. Reach is company-wide, the subscriber's team, or the subscriber's own — the same rule search applies. Lifecycle is `paused` (boolean) only — there is no run-history table, no `humanReview`/`silent` flags, and no owner-team column: a subscription's scope is wherever its owner belongs. Subscription creation is not approval-gated; an event subscription takes effect on the very next matching event, with no restart. All subscriptions are generic (plugin-provided or user-created) — there are no hard-wired builtins in core. Depth: [process-layer/subscriptions-and-retros.md](../process-layer/subscriptions-and-retros.md).
 
 ## F-3: Knowledge
 
@@ -55,7 +55,7 @@ Tree structure and scope are owned by [knowledge-architecture/the-canonical-stor
 
 **F-3.4** Writeback is continuous: a file watcher (500ms debounce) turns changed files into `edit_document` calls with version checks, new files into new documents. A stale version is refused and the agent's edit discarded — there is no conflict table and nothing to review. Depth: [knowledge-architecture/sync-and-conflict-resolution.md](../knowledge-architecture/sync-and-conflict-resolution.md).
 
-**F-3.5** Every document has a lifecycle status: `proposed → active → stale → archived`. Nothing promotes or decays a document automatically — the document-management plugin's `document-triage` routine promotes or archives `proposed` documents by judgement, and its `document-decay` routine archives ordinary in-tree documents unused for 90+ days, both through the ordinary document tools on a schedule.
+**F-3.5** Every document has a lifecycle status: `proposed → active → stale → archived`. Nothing promotes or decays a document automatically — the document-management plugin's `document-triage` subscription promotes or archives `proposed` documents by judgement, and its `document-decay` subscription archives ordinary in-tree documents unused for 90+ days, both through the ordinary document tools on a schedule.
 
 **F-3.6** There is no attention or relevance scoring engine, and no review-item queue driven by a score. Assembly into a session's sandbox is ranked by tag match, recency, and confidence under a token budget — see [knowledge-architecture/the-knowledge-fabric-how-knowledge-moves.md](../knowledge-architecture/the-knowledge-fabric-how-knowledge-moves.md).
 
@@ -65,9 +65,9 @@ Tree structure and scope are owned by [knowledge-architecture/the-canonical-stor
 
 Duties: [knowledge-architecture/the-knowledge-fabric-how-knowledge-moves.md](../knowledge-architecture/the-knowledge-fabric-how-knowledge-moves.md); role identity: [agent-layer/agent-model.md](../agent-layer/agent-model.md).
 
-**F-4.1** There is no fixed facilitator or product-manager role catalog — agent role is an open string. The document-management plugin's `librarian` agent (role `assistant`) runs the two curation routines below; any team may run its own instead.
+**F-4.1** There is no fixed facilitator or product-manager role catalog — agent role is an open string. The document-management plugin's `librarian` agent (role `assistant`) runs the two curation subscriptions below; any team may run its own instead.
 
-**F-4.2** The librarian's `document-triage` routine reads every `proposed` document and promotes or archives it by judgement; its `document-decay` routine archives ordinary in-tree documents nobody has read or been handed to a session in 90+ days. Neither is driven by a numeric score.
+**F-4.2** The librarian's `document-triage` subscription reads every `proposed` document and promotes or archives it by judgement; its `document-decay` subscription archives ordinary in-tree documents nobody has read or been handed to a session in 90+ days. Neither is driven by a numeric score.
 
 **F-4.4** Surfacing trajectory shifts is a matter of judgement, by whichever agent is coordinating a team — no numerical thresholds. Done-condition changes and other significant task edits are visible in the `changes` table; emitting a review message for a notable change is that agent's call.
 
@@ -95,22 +95,22 @@ Depth: [process-layer/handoff-and-lifecycle-propagation.md](../process-layer/han
 
 **F-7.1** Top-down: humans set direction through factory-scoped knowledge and task commitment in the Work view. Every session's assembled context includes the factory-scoped documents.
 
-**F-7.2** Bottom-up: agents contribute findings directly through `edit_document`; a document starts `proposed` and stands as-is unless a human or a curation routine judges it ready for `active`. New knowledge is automatically available to the next session via context assembly — pull, not push. Any agent can message humans directly.
+**F-7.2** Bottom-up: agents contribute findings directly through `edit_document`; a document starts `proposed` and stands as-is unless a human or a curation subscription judges it ready for `active`. New knowledge is automatically available to the next session via context assembly — pull, not push. Any agent can message humans directly.
 
 **F-7.3** The two flows meet at the task: committed top-down, revised bottom-up, every revision recorded as a `changes` row with reasoning.
 
 ## F-8: Retros and Learning
 
-Plugin routines: [process-layer/routines-and-retros.md](../process-layer/routines-and-retros.md).
+Plugin subscriptions: [process-layer/subscriptions-and-retros.md](../process-layer/subscriptions-and-retros.md).
 
-**F-8.1** When a task transitions to `done`, the `post-task-retro` routine from the document-management plugin fires. The Document Librarian reads the completed task's notes, identifies concrete learnings, and creates or updates documents with `edit_document`. This routine is plugin-provided — teams without the document-management plugin have no automatic retro unless they create one manually.
+**F-8.1** `post-task-retro`, a subscription from the document-management plugin, fires on every `task.changed` event; its own prompt stops unless the change moved a root task to `done`. When it doesn't stop, the Document Librarian reads the completed task's notes, identifies concrete learnings, and creates or updates documents with `edit_document`. This subscription is plugin-provided — teams without the document-management plugin have no automatic retro unless they create one manually.
 
-**F-8.3** Periodic portfolio retros are not a built-in mechanism. A team or founder can create a calendar-triggered routine on any agent to review cross-task patterns at whatever cadence they choose.
+**F-8.3** Periodic portfolio retros are not a built-in mechanism. A team or founder can create a schedule subscription on any agent to review cross-task patterns at whatever cadence they choose.
 
 ## F-9: WIP Limits
 
 Concurrency semantics: [process-layer/wip-and-cost-limits.md](../process-layer/wip-and-cost-limits.md).
 
-**F-9.2** An agent's WIP limit is `maxConcurrentSessions`, default 1 (`framework/db/src/schema.ts`). Team capacity (`teams.capacity`) is a single integer — the maximum number of tasks that may be `in_progress` at once, counted at every depth of the task tree.
+**F-9.2** An agent's WIP limit is `maxConcurrentSessions`, default 1 (`framework/db/src/schema.ts`). There is no team-level cap — a team carries no capacity column.
 
-**F-9.3** Hitting a WIP limit is enforced synchronously, never a silent drop: transitioning a task to `in_progress` when the team is at capacity is rejected with `CapacityExceededError` (409); an agent already at its session concurrency limit causes the run to retry rather than starting a second session.
+**F-9.3** Hitting a WIP limit is enforced synchronously, never a silent drop: an agent already at its session concurrency limit causes the run to retry rather than starting a second session.

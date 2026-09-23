@@ -6,7 +6,7 @@ Behavioral UX requirements for the human interface. Shell structure and page lay
 
 **UX-1.1** The desktop app is a single Electron window with two persistent zones: a Sidebar (left, 276px fixed width) and a Main pane showing the active view. The Sidebar exposes Notifications plus the three selectable domains `conversations | work | knowledge`; on phone the same 300px composition is hidden behind Menu. Shell layout detail: [app-shell](../information-architecture/app-shell-always-present.md).
 
-**UX-1.2** Ambient state is embedded within each view — filter chips, health indicators, badges. Notification inbox is a Sidebar-anchored popover (`layers/core-ui/src/shell/NotificationPopover.tsx`: unseen dots clear on open, per-type mute, dismiss); there is no top-bar bell or global toast stream. Ambient indicators may change color, count, or animate — they cannot demand attention. Anything that needs attention routes to Conversations.
+**UX-1.2** Ambient state is embedded within each view — filter chips, health indicators, badges. The notification inbox is a Sidebar-anchored popover (`layers/core-ui/src/shell/NotificationPopover.tsx`: unseen dots clear on open, dismiss marks a row read); there is no top-bar bell or global toast stream. Ambient indicators may change color, count, or animate — they cannot demand attention. Anything that needs attention routes to Conversations.
 
 **UX-1.3** First run: the SetupFlow page guides profile creation and setup (`layers/core-ui/src/pages/SetupFlow.tsx`, `FirstRunRedirect.tsx`); contextual hints (`framework/domain-model/src/hint.ts`) appear at key first-time moments.
 
@@ -26,11 +26,11 @@ Behavioral UX requirements for the human interface. Shell structure and page lay
 
 Primitive semantics: [notification-primitive](../human-interface-layer/notification-primitive.md).
 
-**UX-3.1** Push notifications fire immediately for a blocked task (`blocker_alert`, from the dependency watcher). Everything else is silent or digest.
+**UX-3.1** A row lands the moment its subscribed event fires — there is no urgency tier and no digest; the popover's unseen dot is the only signal.
 
-**UX-3.2** Non-urgent items batch into a daily digest (`layers/core-api/notifications/src/daily-digest.ts`).
+**UX-3.2** Rows are cleared two ways: read (click-through or dismiss, per row) or the 30-day retention sweep. There is no batching.
 
-**UX-3.3** Notification mute is per-type, global per factory (`layers/core-api/notifications/src/install.ts`). Per-human / per-product quiet hours are not built (future AF15).
+**UX-3.3** Subscribing is per-user and per-event (Settings → Notifications), not a factory-wide mute. Quiet hours are not built.
 
 ## UX-4: Work View
 
@@ -40,7 +40,7 @@ Primitive semantics: [notification-primitive](../human-interface-layer/notificat
 
 **UX-4.3** Task creation is a full page (`layers/core-ui/src/pages/WorkTaskCreate.tsx`). A `parentTaskId` query param pre-selects the parent when creating a subtask.
 
-**UX-4.4** Team burn is visible in the Team view: in-progress tasks vs. capacity (`WorkTeam.tsx`). Capacity counts tasks at every depth of the task tree.
+**UX-4.4** In-progress task count is visible in the Team view (`WorkTeam.tsx`), counted at every depth of the task tree. There is no capacity ceiling to burn against.
 
 **UX-4.5** No backlog. Work is a continuous flow — no backlog surface or table exists anywhere.
 
@@ -60,7 +60,7 @@ Primitive semantics: [notification-primitive](../human-interface-layer/notificat
 
 **UX-6.2** Trust is earned, not assigned, and shown rather than enforced: approval rate from verdict history (AD4, `layers/core-api/policy/src/approval-rate.ts`) renders on the agent's profile; every review still waits for a human's own verdict. Surface: [review-primitive](../human-interface-layer/review-primitive.md).
 
-**UX-6.3** Usage transparency: per-session token chips and team burn (in-progress tasks vs. capacity) keep work visible at every level.
+**UX-6.3** Usage transparency: per-session token chips and the team's in-progress task count keep work visible at every level.
 
 ## UX-7: App Shell & Navigation
 

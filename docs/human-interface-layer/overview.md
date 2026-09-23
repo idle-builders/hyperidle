@@ -33,7 +33,7 @@ Three parts, as built:
 
 1. **The Thread/Message data model.** PGlite-backed (embedded Postgres); typed messages `plain | review | questionnaire | verdict` (`framework/domain-model/src/thread.ts` MESSAGE_TYPES). Four actions — search a thread, open a thread, send a message, adjust a thread — are the whole public surface, over `POST /api/actions/<name>` and as agent tools alike. Owned by [thread-primitive.md](thread-primitive.md).
 2. **One reference application.** The Electron desktop app above — Sidebar + Main pane, server in-process.
-3. **Notification dispatch.** Channels are exactly console / ntfy / smtp (`layers/core-api/notifications/src/install.ts`); a blocked task fires immediately, FYI-grade events go ambient/digest. Owned by [notification-primitive.md](notification-primitive.md).
+3. **The inbox.** A row per subscribed change, in-app only — no egress channel. A person's own subscriptions (Settings → Notifications) decide what reaches it. Owned by [notification-primitive.md](notification-primitive.md).
 
 ## 4. What This Layer Is Not
 
