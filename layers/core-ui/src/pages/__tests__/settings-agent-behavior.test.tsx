@@ -92,8 +92,8 @@ const AGENT_BEHAVIOR_ITEMS = [
 		editableFields: [],
 	},
 	{
-		id: "routine:routine.daily-product-scan",
-		kind: "routine",
+		id: "subscription:subscription.daily-product-scan",
+		kind: "subscription",
 		name: "Daily product scan",
 		origin: { type: "builtin", label: "Built-in HyperIdle", state: "enabled" },
 		valueSource: "default",
@@ -103,9 +103,9 @@ const AGENT_BEHAVIOR_ITEMS = [
 		editableFields: [],
 		links: [
 			{
-				target: "routine-detail",
-				label: "Open routine",
-				href: "/work/routines/daily-product-scan",
+				target: "settings-notifications",
+				label: "Open Notifications",
+				href: "#settings-section-notifications",
 			},
 		],
 	},
@@ -242,8 +242,8 @@ describe("Settings Agent behavior surface", () => {
 	afterEach(() => vi.restoreAllMocks());
 
 	// BA1 D10: "Triggers" category is gone — five kinds now (agents, skills,
-	// routines, tools, MCP).
-	it("renders one Settings area for agents, skills, routines, tools, and MCP without Fabric/Strategy/trigger labels", async () => {
+	// subscriptions, tools, MCP).
+	it("renders one Settings area for agents, skills, subscriptions, tools, and MCP without Fabric/Strategy/trigger labels", async () => {
 		renderSettingsPage();
 
 		const section = await screen.findByTestId("settings-section-agent-behavior");
@@ -254,7 +254,7 @@ describe("Settings Agent behavior surface", () => {
 			"settings-agent-behavior",
 		);
 		expect(section.querySelector('[data-ds-component="split-view"]')).toBeInTheDocument();
-		for (const label of ["Agents", "Skills", "Routines", "Tools", "MCP"]) {
+		for (const label of ["Agents", "Skills", "Subscriptions", "Tools", "MCP"]) {
 			expect(within(section).getByText(label)).toBeInTheDocument();
 		}
 		expect(section.textContent ?? "").not.toMatch(/Fabric|Strategy|trigger/i);

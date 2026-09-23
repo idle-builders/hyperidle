@@ -24,7 +24,7 @@ import { useToast } from "../shell/ToastRegion.js";
 const CATEGORY_LABELS = {
 	agent: "Agents",
 	skill: "Skills",
-	routine: "Routines",
+	subscription: "Subscriptions",
 	tool: "Tools",
 	mcp: "MCP",
 } as const satisfies Record<BehaviourEntry["kind"], string>;
@@ -303,7 +303,7 @@ export function SettingsAgentBehavior(): JSX.Element {
 				<EmptyState
 					compact
 					title="Select a behavior row"
-					description="Choose an agent, skill, routine, tool, or MCP row to inspect its active value."
+					description="Choose an agent, skill, subscription, tool, or MCP row to inspect its active value."
 				/>
 			)}
 		</div>

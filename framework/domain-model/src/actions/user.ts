@@ -288,7 +288,7 @@ const BehaviourLinkSchema = z.object({
 		"settings-agents",
 		"settings-agent-backends",
 		"settings-connections",
-		"routine-detail",
+		"settings-notifications",
 	]),
 	label: z.string(),
 	href: z.string(),

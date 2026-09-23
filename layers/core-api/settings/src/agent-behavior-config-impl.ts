@@ -49,17 +49,16 @@ export class AgentBehaviorConfigError extends Error {
 	}
 }
 
-// @lore BC5 T7b: `ConfigurationKind`'s "routine" member is respelled
-// "subscription" (matches migration 0089's CHECK respelling) — the
-// presentation-layer `AgentBehaviorConfigKind` bucket keeps its own
-// "routine" name (UI vocabulary is a later item's concern), so only the
-// DB-facing side of this map changes.
+// @lore BC5 T11b: `AgentBehaviorConfigKind`'s "routine" member is respelled
+// "subscription" too, matching `ConfigurationKind`'s DB-facing name — the map
+// stays because the two enums' other members (`mcp` vs `mcp_server`) still
+// differ.
 const CONFIG_KIND_TO_AGENT_BEHAVIOR_KIND: Partial<
 	Record<ConfigurationKind, AgentBehaviorConfigKind>
 > = {
 	agent: "agent",
 	skill: "skill",
-	subscription: "routine",
+	subscription: "subscription",
 	tool: "tool",
 	mcp_server: "mcp",
 };
@@ -67,7 +66,7 @@ const CONFIG_KIND_TO_AGENT_BEHAVIOR_KIND: Partial<
 const AGENT_BEHAVIOR_KIND_TO_CONFIG_KIND: Record<AgentBehaviorConfigKind, ConfigurationKind> = {
 	agent: "agent",
 	skill: "skill",
-	routine: "subscription",
+	subscription: "subscription",
 	tool: "tool",
 	mcp: "mcp_server",
 };
@@ -172,7 +171,7 @@ function projectResolvedConfiguration(
 		statusLabel: statusLabelFor(item, valueSource),
 		active: item.active,
 		editableFields: editableFieldsFor(item),
-		links: linksFor(kind, item.key),
+		links: linksFor(kind),
 	};
 }
 
@@ -219,8 +218,8 @@ function activeSummaryFor(kind: AgentBehaviorConfigKind, value: Record<string, u
 			return [value.name, value.role, value.harnessType].filter(isNonEmptyString).join(" · ");
 		case "skill":
 			return `autonomy level ${String(value.autonomyLevel ?? "default")}`;
-		case "routine":
-			return [value.triggerType, value.ownerAgentId].filter(isNonEmptyString).join(" · ");
+		case "subscription":
+			return [value.event ?? value.schedule, value.agentId].filter(isNonEmptyString).join(" · ");
 		case "tool":
 			return typeof value.description === "string"
 				? value.description
@@ -260,18 +259,18 @@ function editableFieldsFor(item: ResolvedConfigurationItem): AgentBehaviorEditab
 	}
 }
 
-function linksFor(kind: AgentBehaviorConfigKind, key: string): AgentBehaviorConfigLink[] {
+function linksFor(kind: AgentBehaviorConfigKind): AgentBehaviorConfigLink[] {
 	switch (kind) {
 		case "agent":
 			return [
 				{ target: "settings-agents", label: "Open Agents", href: "#settings-section-agents" },
 			];
-		case "routine":
+		case "subscription":
 			return [
 				{
-					target: "routine-detail",
-					label: "Open routine",
-					href: `/work/routines/${encodeURIComponent(key)}`,
+					target: "settings-notifications",
+					label: "Open Notifications",
+					href: "#settings-section-notifications",
 				},
 			];
 		case "mcp":
