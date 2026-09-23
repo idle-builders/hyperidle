@@ -310,9 +310,12 @@ export const AU21_PRE_EXISTING_E2E_FAILURES: readonly string[] = [
 	// reproduces all five byte-for-byte — same titles, same line numbers, same
 	// `session-row` locator timeout — with 18 passed alongside. Nothing here is caused by
 	// AU28, and the fix belongs to whoever re-points these mocks at the moved routes.
-	"shows Recent Activity section with sessions table",
-	"does not show health banner when agent is healthy",
-	"shows active session link when agent has running session",
-	"recent activity table has accessible aria-label",
+	//
+	// @lore BC5 T12: the four AB1-agent-profile.spec.ts titles are removed from this
+	// list — the T9 door swap rewrote the spec's mocks onto `open_user`/
+	// `search_sessions`/`search_tasks`, and all four now pass for real (verified:
+	// the full 16-test AB1-agent-profile.spec.ts file is green). "livedot-worktask-
+	// session" (a different file, WorkTask's session row) is untouched by this item
+	// and stays excluded.
 	"livedot-worktask-session: LiveDot present in WorkTask active session row",
 ] as const;
