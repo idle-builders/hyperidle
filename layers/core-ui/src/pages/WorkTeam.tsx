@@ -809,7 +809,6 @@ function WorkTeamLoaded({
 				<AgentAddDialog
 					rolesInUse={(data?.roster ?? []).map((m) => m.role)}
 					open={addDialogOpen}
-					teamMembersId={data.teamMembers.id}
 					teamName={data.team.name}
 					onClose={() => setAddDialogOpen(false)}
 					onCreated={() => {

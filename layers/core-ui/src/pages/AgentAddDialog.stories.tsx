@@ -24,7 +24,6 @@ export const Open = (): JSX.Element => (
 	<WithToast>
 		<AgentAddDialog
 			open={true}
-			teamMembersId="tm-example"
 			teamName="Example Team"
 			onClose={noop}
 			onCreated={noop}
@@ -37,7 +36,6 @@ export const Closed = (): JSX.Element => (
 	<WithToast>
 		<AgentAddDialog
 			open={false}
-			teamMembersId="tm-example"
 			teamName="Example Team"
 			onClose={noop}
 			onCreated={noop}

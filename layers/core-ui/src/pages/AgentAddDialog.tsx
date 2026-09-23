@@ -4,28 +4,29 @@
  * Separate from AgentEditDialog because the header is structurally different
  * (editable name + role select vs static identity display).
  *
- * @lore AB3: teamMembersId is explicitly named to prevent passing team.id
- * (the public team identifier) by mistake. users.teamId references
- * team_members.id, not teams.id. Passing team.id would fail the FK constraint.
- *
  * @lore AI2: Migrated from native <dialog> + showModal() boilerplate to the
  * Dialog primitive. isDirty is true when the user has modified name or systemPrompt
  * from the initial empty state. Authoring surface — guards on dismissal when dirty.
+ *
+ * @lore BC5 T9: the door swap — `call("edit_user", {...})` replaces `POST
+ * /api/agents`. `identity` is always sent (`?? ""`) so the agent gets an
+ * identity document even with an empty system prompt, matching the create
+ * route's old behaviour. `team` is the destination team by name — this
+ * dialog is always placed inside a specific team's page, so the field is
+ * never left to a caller default.
  */
 
-import { roleLabel } from "@hyperidle/domain-model";
+import { type HarnessType, HARNESS_TYPES, roleLabel } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useState } from "react";
 // hearth-internal-padding
 import { Button, Combobox, Dialog, Input, KeyValue } from "../ds";
-import { apiFetch } from "../services/api-fetch.js";
+import { call } from "../services/call.js";
 import { roleOptions } from "../settings/role-options.js";
 import { useToast } from "../shell/ToastRegion.js";
 
 export interface AgentAddDialogProps {
 	open: boolean;
-	/** team_members.id — NOT teams.id. See @lore above. */
-	teamMembersId: string;
-	/** Display name of the destination team. Shown read-only above the name field. */
+	/** Name of the destination team — matched or created by `edit_user`'s `team` ref. Shown read-only above the name field. */
 	teamName: string;
 	onClose: () => void;
 	/** Called after successful create. Triggers refetch in parent. */
@@ -63,7 +64,6 @@ const INITIAL_FORM: AddFormValues = {
 
 export function AgentAddDialog({
 	open,
-	teamMembersId,
 	teamName,
 	onClose,
 	onCreated,
@@ -94,19 +94,18 @@ export function AgentAddDialog({
 		if (!formValues.name.trim()) return;
 		setCreating(true);
 		try {
-			const res = await apiFetch("/api/agents", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					name: formValues.name.trim(),
-					role: formValues.role,
-					systemPrompt: formValues.systemPrompt || null,
-					harnessType: formValues.harnessType || null,
-					maxConcurrentSessions: formValues.maxConcurrentSessions,
-					teamId: teamMembersId,
-				}),
+			const harnessType = HARNESS_TYPES.includes(formValues.harnessType as HarnessType)
+				? (formValues.harnessType as HarnessType)
+				: undefined;
+			const result = await call("edit_user", {
+				kind: "ai",
+				name: formValues.name.trim(),
+				role: formValues.role,
+				identity: formValues.systemPrompt || "",
+				team: { name: teamName },
+				runConfig: { ...(harnessType ? { harnessType } : {}), maxConcurrentSessions: formValues.maxConcurrentSessions },
 			});
-			if (!res.ok) throw new Error(`HTTP ${res.status}`);
+			if (!result.ok) throw new Error(result.problems[0]?.message ?? "Failed to create agent");
 			onCreated();
 			onClose();
 			showToast("Agent created");
@@ -115,7 +114,7 @@ export function AgentAddDialog({
 		} finally {
 			setCreating(false);
 		}
-	}, [formValues, teamMembersId, onCreated, onClose, showToast]);
+	}, [formValues, teamName, onCreated, onClose, showToast]);
 
 	const roleDescription = roleLabel(formValues.role);
 

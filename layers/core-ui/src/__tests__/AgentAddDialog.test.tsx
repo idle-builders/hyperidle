@@ -8,9 +8,12 @@
 
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AgentAddDialog } from "../pages/AgentAddDialog";
 import { ToastRegion } from "../shell/ToastRegion";
+
+const { callMock } = vi.hoisted(() => ({ callMock: vi.fn() }));
+vi.mock("../services/call.js", () => ({ call: callMock }));
 
 function renderDialog(
 	teamName: string,
@@ -21,7 +24,6 @@ function renderDialog(
 		<ToastRegion>
 			<AgentAddDialog
 				open={open}
-				teamMembersId="tm-acme"
 				teamName={teamName}
 				onClose={vi.fn()}
 				onCreated={vi.fn()}
@@ -70,21 +72,19 @@ describe("AH4 AC2 — AgentAddDialog placement affordance", () => {
 });
 
 describe("AgentAddDialog — role field is a Combobox", () => {
+	beforeEach(() => {
+		callMock.mockReset();
+		callMock.mockResolvedValue({ ok: true, data: { user: { id: "agent-new" } } });
+	});
 	afterEach(() => vi.restoreAllMocks());
 
 	it("picks a role through the combobox and creates the agent with it", async () => {
 		const user = userEvent.setup();
-		const fetchSpy = vi.fn().mockResolvedValue({
-			ok: true,
-			json: async () => ({ id: "agent-new" }),
-		});
-		vi.stubGlobal("fetch", fetchSpy);
 
 		render(
 			<ToastRegion>
 				<AgentAddDialog
 					open
-					teamMembersId="tm-acme"
 					teamName="Acme"
 					onClose={vi.fn()}
 					onCreated={vi.fn()}
@@ -102,13 +102,30 @@ describe("AgentAddDialog — role field is a Combobox", () => {
 		await user.click(screen.getByRole("button", { name: /create/i }));
 
 		await waitFor(() => {
-			const call = fetchSpy.mock.calls.find(
-				([, opts]) => (opts as RequestInit | undefined)?.method === "POST",
+			expect(callMock).toHaveBeenCalledWith(
+				"edit_user",
+				expect.objectContaining({ kind: "ai", role: "scout", team: { name: "Acme" } }),
 			);
-			expect(call).toBeDefined();
-			const opts = call?.[1] as RequestInit;
-			const body = JSON.parse(opts.body as string) as { role: string };
-			expect(body.role).toBe("scout");
+		});
+	});
+
+	it("always sends identity, even with an empty system prompt", async () => {
+		const user = userEvent.setup();
+
+		render(
+			<ToastRegion>
+				<AgentAddDialog open teamName="Acme" onClose={vi.fn()} onCreated={vi.fn()} />
+			</ToastRegion>,
+		);
+
+		await user.type(screen.getByLabelText("Agent name"), "Newbie");
+		await user.click(screen.getByRole("button", { name: /create/i }));
+
+		await waitFor(() => {
+			expect(callMock).toHaveBeenCalledWith(
+				"edit_user",
+				expect.objectContaining({ identity: "" }),
+			);
 		});
 	});
 });
