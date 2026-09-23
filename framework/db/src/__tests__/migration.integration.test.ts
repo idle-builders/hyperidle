@@ -103,9 +103,7 @@ describe("A2: Migration", () => {
 		expect(result[0]).toMatchObject({
 			id: "test-prod",
 			name: "Test",
-			capacity: 7,
-			// @lore BB1: `activeBets` column dropped — not in schema, not asserted.
-			formedAt: now,
+			createdAt: now,
 		});
 	});
 
