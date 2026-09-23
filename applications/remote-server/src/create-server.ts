@@ -320,9 +320,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		onHarnessRedetect,
 		...(pluginsBaseDir ? { pluginsBaseDir } : {}),
 		serviceBootstrap: (ctx) => {
-			// AF6/AU1: production boots the routine scheduler at the default
-			// 30s cadence. Runtime deps are present, so generic routine fires
-			// enter through AgentSessionRequest instead of stub sessions.
 			// `ctx.readAlertPreferences` is `bootCoreApi`'s own capability
 			// (§5.2) — this Application no longer imports `@hyperidle/settings`
 			// to build it.
@@ -332,8 +329,8 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			// `service-bootstrap.ts:68` records that `Boolean(ctx.dispatcherDeps)`
 			// was only ever a stand-in for this same boolean).
 			// AU11: two owners register independently — core domain services
-			// (knowledge/notifications/policy/routine-scheduler) then agent-owned
-			// services (builtin-routine handlers/dispatcher/reapers).
+			// (document/policy/review routing/lifecycle propagation/retention)
+			// then agent-owned services (dispatcher/reapers).
 			return [
 				...registerCoreDomainServices({ ...ctx, canProvision: true }),
 				...registerAgentLayerServices({ ...ctx, canProvision: true }),
