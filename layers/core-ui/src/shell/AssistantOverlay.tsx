@@ -264,9 +264,9 @@ function AssistantOverlayInner({
 	// artifacts-become-documents: scopeKind for documents created from pending_block refs.
 	const { user, status: userStatus } = useCurrentUser();
 	// "The assistant is your agent" — an ordinary agent with
-	// `ownerUserId === me`. `GET /api/agents` carries `ownerUserId` directly, so
-	// the overlay finds it straight off the one agents fetch every agent picker
-	// already shares — no second fetch.
+	// `ownerUserId === me`. `search_users({ kind: "ai" })` carries `ownerUserId`
+	// directly, so the overlay finds it straight off the one agents fetch every
+	// agent picker already shares — no second fetch.
 	const { agents, loading: agentsLoading, refetch: refetchAgents } = useAgents();
 	const myAgentId = agents.find((a) => a.ownerUserId === user?.id)?.id ?? null;
 
@@ -379,7 +379,7 @@ function AssistantOverlayInner({
 		[sendToThread, threadSearch],
 	);
 
-	// `/api/auth/me` is still in flight until `userStatus`
+	// `open_user({})` is still in flight until `userStatus`
 	// leaves "loading" — without this, `myAgentId` reads as null while the
 	// user is unresolved and the overlay flashes the no-agent message.
 	if (
