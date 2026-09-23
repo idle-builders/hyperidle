@@ -194,8 +194,6 @@ export function registerCoreDomainServices(ctx: {
 	 * through it instead of a notification-queue row.
 	 */
 	readonly editUser: import("./services/agent-health-session-end-reactions.js").EditUserRunFn;
-	/** AF6 §1: routine scheduler poll cadence (ms). Optional; defaults to 30s. */
-	readonly routinePollIntervalMs?: number;
 	/** AF6 scope (iii): when true, generic (taskId) routines auto-fire. */
 	readonly canProvision?: boolean;
 	/** AF6 §4: routine-session reaper staleness bound (ms). Default 1h. */
