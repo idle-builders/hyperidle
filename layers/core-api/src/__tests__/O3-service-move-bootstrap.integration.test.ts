@@ -299,7 +299,7 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 					// @lore BC3 architecture.md §5: "item_created" removed —
 					// lifecycle-propagation never subscribed to it; the event type
 					// itself is deleted with the `items` table.
-					unsubscribedEvents: ["session_ended", "task_state_changed"],
+					unsubscribedEvents: ["session_ended", "task.changed"],
 					clearedIntervals: 0,
 				},
 				// @lore AU26 C1: the "git-export handler" owner (its one
