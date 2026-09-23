@@ -1,6 +1,6 @@
 /**
  * AU31 §3.2 — a real `AgentOrchestrationPort` for eval scenarios that drive
- * production code (`fireRoutine` and friends) directly, with no composed
+ * production code (`fireSubscription` and friends) directly, with no composed
  * HTTP app in the picture. Same shape as the service-lane test fixture's own
  * throwaway boot (`layers/core-api/src/__testing__/test-fixtures.ts`): a
  * real `bootAgentOrchestration({db, eventBus})`, dialled over its own bare

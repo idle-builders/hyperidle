@@ -1,6 +1,5 @@
 /**
- * BC5 T7b: the routine scheduler's eval coverage, converted to a schedule
- * subscription.
+ * Eval coverage for a due schedule subscription firing.
  *
  * @lore BC5 T7b: the four routine variants this file used to cover
  * (heartbeat, calendar, humanReview, silent) collapse to one — `heartbeat`/
@@ -45,11 +44,11 @@ function makeSyntheticResult(startMs: number, fired: boolean): TriggerResult {
 let scheduleSubscriptionId = "";
 let scheduleSubscriptionOwnerId = "";
 
-const rsScheduleFire: EvalScenario = {
-	id: "rs-schedule-fire",
+const ssScheduleFire: EvalScenario = {
+	id: "ss-schedule-fire",
 	description:
 		"Schedule subscription fires: a subscription_run intent is recorded and nextRunAt advances from the cron expression",
-	feature: "routine_sessions",
+	feature: "subscription_schedule",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
@@ -125,4 +124,4 @@ const rsScheduleFire: EvalScenario = {
 // Export
 // ---------------------------------------------------------------------------
 
-export const routineSessionsScenarios: EvalScenario[] = [rsScheduleFire];
+export const subscriptionScheduleScenarios: EvalScenario[] = [ssScheduleFire];

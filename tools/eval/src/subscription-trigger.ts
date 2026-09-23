@@ -1,6 +1,6 @@
 /**
- * BC5 T7b: the eval suite's replacement for `@hyperidle/core-api`'s deleted
- * `fireRoutine` — fires one subscription directly, outside the tick loop
+ * @lore BC5 T7b: the eval suite's replacement for `@hyperidle/core-api`'s
+ * deleted `fireRoutine` — fires one subscription directly, outside the tick loop
  * (`@hyperidle/user`'s `startSubscriptionClock`/`registerSubscriptionFire`
  * are both interval/event-driven, with no single-call entry a scenario can
  * drive deterministically). Mirrors `subscription-clock.ts`'s own
