@@ -424,3 +424,24 @@ D-scope is replaced by: **D-install-row** — one `plugins` row per install, id 
 (factory) or `<name>@<teamId>` (team), unique `(name, scope_kind, scope_team_id)`, one install
 folder per row; hash inputs take the manifest name, registry and defaults take the install id;
 availability is judged against the viewer's team; `installScope` picks the Install button's scope.
+
+## 12. Second critique amendments (accepted by the planner; override §11 where they conflict)
+
+1. **`defaultId` takes the install id.** `plugin_configuration_defaults.id` is the primary key
+   (`plugin-installer.ts:154-155`, `pcd_<sha(pluginId\0kind\0key)>`); with the manifest name as
+   input, two teams' installs of one plugin compute the same id under different `plugin_id` and the
+   second insert raises on the PK, not on the `(plugin_id, kind, key)` conflict target. So:
+   `defaultId(installId, kind, key)`; only the stored key (`namespacedKey` → `<name>/<key>`) keeps
+   the manifest name, so `manifestKeyOf` (`platform-actions.ts:432`) and `pluginContributionKey`
+   (`plugin-installer.ts:707`) are unchanged. A migrated team row keeps its old `pcd_` id; a
+   same-team reinstall lands on the conflict target and updates in place.
+2. **`viewerTeamId` = own team, else the owner's team** (the `teamsOf` rule of
+   `subscription-fire.ts:83-90`, exported from the user module for compose to bind). A fresh
+   install's only agent is owned with no team of its own; with `findUser` alone it would see only
+   factory availability and could not offer its person "Role personas". A viewer with neither
+   (the librarian) sees factory availability only.
+3. **Migration 0092 guards:** `UPDATE plugins SET id = id || '@' || scope_team_id WHERE
+   scope_kind = 'team' AND scope_team_id IS NOT NULL`; the 0072 auto-named constraint is
+   `plugin_contributions_plugin_id_fkey`; `schema.ts` gains `onUpdate: "cascade"` on both FK
+   declarations (`:1003`, `:1043`) beside the unique index. The reserved `builtin` row keeps
+   `name ≠ id` as today (harmless).
