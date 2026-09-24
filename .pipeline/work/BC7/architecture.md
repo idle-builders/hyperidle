@@ -347,3 +347,80 @@ Total: ~440 new production lines, well under 1,000; ~335 deleted plus the docs f
   not-disabled harness via `derivePrimaryHarness`, written post-commit through
   `AgentOrchestrationPort.runConfig.write`; none available → no run config, install still
   succeeds. Binds C, D.
+
+## 11. Critique amendments (D-c2gwsp: a plugin installs per team, independently)
+
+Overrides §0.4, §1, §5.2–5.3, §7, §9 C and D, and D-scope where they conflict.
+
+1. **One `plugins` row per install; the row id is the install id.** `plugins.id` stays the primary
+   key (`schema.ts:973`; FKs `plugin_configuration_defaults.plugin_id` 0044:39,
+   `plugin_contributions.plugin_id` 0072:16 keep pointing at it). Its value becomes: the manifest
+   name for a factory install, `<name>@<teamId>` for a team install. A manifest name can never
+   contain `@` (`plugin-manifest.ts:52-59`), so the two forms cannot collide, and `builtin` stays
+   `builtin`. `plugins.name` (today a copy of the id, `plugin-installer.ts:504`) is the manifest
+   name and the key `search_plugins` matches bundled folders against. New unique index
+   `plugins_name_scope_uq (name, scope_kind, scope_team_id)`; no column moves. Chosen over a
+   surrogate hash or a composite key: every reader keys on `plugins.id` and `edit_plugin` takes
+   `id`; a readable install id keeps all of them unchanged in shape. Every hash input that today
+   takes `plugin.id` takes `plugin.name` instead — `agentItemId`/`subscriptionItemId`/`skillItemId`
+   (`platform-actions.ts:558,570,587,607,622,627` and `readPluginDocumentSource` `:397-414`,
+   passed `existing.name` at `:763`), `namespacedKey`/`defaultId`
+   (`plugin-installer.ts:154-163,201-204,402-405`) — so contributed ids, config keys and
+   `manifestKeyOf` (`platform-actions.ts:431`) stay as they are; `recordContribution`,
+   `contributionId`, `listContributions`, `removeStaleDefaults` and the defaults upsert on
+   `(plugin_id, kind, key)` (`:216-224`) take the install id — one row set per install, no
+   collision. `search_plugins`/`edit_plugin` ids are install ids; the UI already keys rows on
+   `plugin.id` (`SettingsPlugins.tsx:392`). `edit_plugin`'s `id` stays one field (a row id), not
+   id + scope — the row already knows its scope.
+2. **Migration.** The folders delete stays `0091_drop_unfiled_grouping_roots.sql` (§2). The plugin
+   conversion is `0092_plugin_install_per_scope.sql`: re-add the two FKs above with
+   `ON UPDATE CASCADE` (drop + add; `plugin_contributions` keeps `ON DELETE cascade`,
+   defaults keep `restrict`); `UPDATE plugins SET id = id || '@' || scope_team_id WHERE
+   scope_kind = 'team'`; create the unique index. Child `plugin_id` values follow by cascade;
+   child primary keys that embed the old id (`pc_…`, `pcd_…`) stay unique and are not rewritten —
+   a reinstall upserts on `(plugin_id, kind, key)`, never on that id. Both migrations and the
+   `schema.ts` index line live in one new task M (§11.6) because A and C would otherwise both edit
+   `meta/_journal.json`.
+3. **Install path on disk: one folder per install** — `persistPlugin(…, installId)`
+   (`plugin-installer.ts:437-446`), i.e. `<pluginsBaseDir>/<name>` or `<name>@<teamId>`. Invariant:
+   the `rmSync` at `:441` only ever removes this install's own folder, so a second team's install
+   never deletes the folder a first team's restore reads (`platform-actions.ts:762`). Same content
+   twice on disk is the price; nothing shares.
+4. **`search_plugins` per viewer.** `searchRun` resolves the viewer's team through a new dep
+   `viewerTeamId(db, actorId)` (bound in `compose.ts` from `findUser`, like `agents.list`). Installed
+   rows: all non-removed rows, as today (a factory install and every team's install are visible to
+   everyone; the row's `scope` says whose). Available rows: each bundled folder whose manifest has
+   `installScope: "team"` and no non-removed row at `(name, team, viewerTeam)`; or
+   `installScope: "factory"` and no non-removed row at `(name, factory)`. Another team's row leaves
+   the plugin available to this team; a factory row makes it installed for everyone. A viewer with
+   no team (an agent with no team, the librarian) sees only factory availability.
+5. **remove / disable / enable / restore** act on one row by install id (`lookupPlugin`,
+   `platform-actions.ts:504-520`; `enablePlugin`/`disablePlugin`/`removePlugin`,
+   `plugin-installer.ts:616-660`) — unchanged code, now naturally per install. Contributed ids
+   already include the scope (`plugin-installer.ts:276-291,309-336`), so two teams' agents,
+   subscriptions, `ki_af_<agentId>`, `ki_rp_<subId>` and skill documents are distinct, and
+   `plugin_contributions (plugin_id, kind, entity_id)` is unique per install. The remaining shared
+   surface is `configuration_overrides (kind, key)` (`schema.ts:1082-1090`): a person's override of
+   `role-personas/x` applies to every install of that plugin — overrides are install-wide today
+   (BC5 accepted limit) and neither bundled plugin ships `contributions[]`; left as is.
+   Also `installRun` no longer needs "move" semantics: a reinstall at the same `(name, scope)`
+   hits the same row and upserts as today; a reinstall at another scope is a new row.
+6. **`installScope` stays** (§0.3, §1): the Install button still has to choose the viewer's team
+   or factory, and the librarian must land factory-wide. With per-team rows the field only picks
+   the default scope; the folder/git/zip form keeps its explicit scope picker.
+7. **Tasks and sizes.** New task **M — migrations 0091 and 0092 and the plugins unique index**:
+   scope `framework/db/drizzle/0091_*`, `0092_*`, `meta/_journal.json`, `framework/db/src/schema.ts`
+   (index line; the comment fixes of §6.2 move here too) + a `framework/db` migration test; needs
+   none; ~40 new lines. A and C `need` M; A's scope drops the migration and `schema.ts`; D's
+   migration test moves to M. Task C grows by ~60 (install id, per-viewer availability,
+   `viewerTeamId` binding) to ~360 new; total ~500 new production lines. §7's service integration
+   test adds: team A and team B each install bundled role-personas → fourteen active agents, seven
+   per team, two `plugins` rows, two install folders; `search_plugins` as a team-B viewer before
+   B's install lists role-personas available while team A's row is installed; removing team A's
+   install leaves team B's seven agents active and its row enabled; installing document-management
+   once at factory scope makes it installed for both viewers.
+
+D-scope is replaced by: **D-install-row** — one `plugins` row per install, id = manifest name
+(factory) or `<name>@<teamId>` (team), unique `(name, scope_kind, scope_team_id)`, one install
+folder per row; hash inputs take the manifest name, registry and defaults take the install id;
+availability is judged against the viewer's team; `installScope` picks the Install button's scope.
