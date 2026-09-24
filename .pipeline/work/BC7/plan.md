@@ -45,6 +45,9 @@ plugins installable from the packaged app so the opinions can come back.
 - **A plugin's agents land on the team the plugin is installed for, on the first available
   harness** — the plugin is installed locally, so the local harness is the one. The librarian
   stays a no-team agent that reaches every team, as BC5 set it up.
+- **A plugin can be installed per team, independently** (ruling on the critique's blocker,
+  2026-09-25). Today a plugin is one row with one scope, so a second team's install silently moved
+  the first team's agents away. Each team's install is now its own; nobody's agents move.
 - The configuration layer (`builtin | plugin | user` origin, contributions with user overrides)
   stays: the founder called it "the right shape already". Not a delete candidate.
 - The welcome screen keeps its look (BC5 ruling stands).
@@ -96,8 +99,10 @@ and not yet installed. Installing an available one is the same install as a fold
 path supplied by the app, into the team of whoever installs it. The agents a plugin brings get the
 first available harness at install time, the same choice the welcome screen makes, so they are
 runnable at once; their subscriptions and prompt documents arrive as today. The librarian's plugin
-is installed factory-wide and its agent keeps no team, so it reaches every team. Remove, disable,
-enable and restore are unchanged; a removed bundled plugin goes back to "available".
+is installed factory-wide and its agent keeps no team, so it reaches every team. Two teams can
+each install the same plugin; each gets its own agents and its own row, and removing one team's
+leaves the other's alone. Remove, disable, enable and restore are unchanged per install; a bundled
+plugin a team has not installed shows as available to that team.
 
 **Left simple.** No plugin registry, no versions, no updates: the bundled folder is whatever the
 build shipped. A plugin only adds its own agents; it never touches the assistant. The harness is
