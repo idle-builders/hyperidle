@@ -354,7 +354,7 @@ Your workspace is organized as follows:
   - \`rules/\` -- Rules and guidelines that apply to your work.
 - \`work/\` -- Your working area.
   - \`artifacts/\` -- Output artifacts.
-  - \`task-notes.md\` -- Your session notes (use write_session_notes tool).
+  - \`task-notes.md\` -- Your session notes.
 - \`.fabric/manifest.json\` -- Manifest of assembled context items (do not modify).
 `;
 

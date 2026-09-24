@@ -26,6 +26,7 @@
 import {
 	MAX_FORCE_RETURNS,
 	ok,
+	RETURN_ACTION_NAMES,
 	type RegisteredTool,
 	shouldForceReturn,
 	type ToolContext,
@@ -110,7 +111,7 @@ const returnStatusDefinition = {
 	name: "return_status" as const,
 	description:
 		"Check whether HyperIdle requires you to return your work before stopping. " +
-		"If forceMessage is non-null, call exactly one of: submit_review, edit_task, send_message, or reply. " +
+		`If forceMessage is non-null, call exactly one of: ${RETURN_ACTION_NAMES.join(", ")}. ` +
 		"If forceMessage is null, you may stop normally.",
 	inputSchema,
 

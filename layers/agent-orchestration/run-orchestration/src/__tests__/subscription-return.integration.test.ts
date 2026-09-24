@@ -21,6 +21,7 @@ import { expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import { isRequiredReturnAction } from "@hyperidle/harness-protocol";
 import { afterEach, describe, vi } from "vitest";
+import { createContextAssembler } from "../context.js";
 import { createProvisioner } from "../provisioner.js";
 
 type CreateProvisioner = typeof createProvisioner;
@@ -141,7 +142,13 @@ describe("a subscription wake's forced return is return_status, never send_messa
 		});
 	}
 
-	function buildPorts(invokedTools: string[]): SessionLifecyclePorts {
+	function buildPorts(
+		invokedTools: string[],
+		composer: "scripted" | "real" = "scripted",
+	): SessionLifecyclePorts {
+		const realAssembler = createContextAssembler({
+			filesystems: { startWatcher: () => ({ stop: () => {} }) },
+		});
 		return {
 			sessionRequests: {
 				findSessionRequest: vi.fn(),
@@ -167,14 +174,17 @@ describe("a subscription wake's forced return is return_status, never send_messa
 				assembleAgentContext: async () => ({ itemCount: 0, durationMs: 0, manifestPath: "" }),
 				beginAgentWriteback: () => ({ dispose: () => undefined }),
 				assemblePrompt: async () => ({ assembledPrompt: "unused", personaToolsTokens: 0 }),
-				assembleSubscriptionPrompt: async (input) => ({
-					assembledPrompt: [
-						"# Session Instructions",
-						"## Subscription",
-						input.returnOrientation ?? "",
-					].join("\n"),
-					personaToolsTokens: 0,
-				}),
+				assembleSubscriptionPrompt: async (input) =>
+					composer === "real"
+						? realAssembler.assembleSubscriptionPrompt(input)
+						: {
+								assembledPrompt: [
+									"# Session Instructions",
+									"## Subscription",
+									input.returnOrientation ?? "",
+								].join("\n"),
+								personaToolsTokens: 0,
+							},
 				writeSandboxAgentsMd: () => undefined,
 			},
 		};
@@ -184,6 +194,7 @@ describe("a subscription wake's forced return is return_status, never send_messa
 		db: HyperIdleDb,
 		sandboxPath: string,
 		events: readonly FakeHarnessEvent[],
+		adapterType?: string,
 	): ProvisionSessionDeps {
 		return {
 			db,
@@ -195,7 +206,7 @@ describe("a subscription wake's forced return is return_status, never send_messa
 					meta: {
 						name: "Fake",
 						kind: "local",
-						type: undefined,
+						type: adapterType,
 						modelProviders: [],
 						maxConcurrent: 5,
 					},
@@ -215,7 +226,7 @@ describe("a subscription wake's forced return is return_status, never send_messa
 	function subscriptionParams(
 		agentId: string,
 		sandboxPath: string,
-		prompt: string,
+		prompt: string | null,
 	): ProvisionSessionParams {
 		return {
 			taskId: null,
@@ -326,5 +337,83 @@ describe("a subscription wake's forced return is return_status, never send_messa
 		const prompt = captured.sessionConfig?.assembledPrompt ?? "";
 		expect(prompt).toContain("call `return_status`");
 		expect(prompt).not.toContain("call `send_message`");
+	});
+
+	/** Runs admit + run up to the harness start and returns the prompt the session would get. */
+	async function composedPrompt(
+		db: HyperIdleDb,
+		agentId: string,
+		prompt: string | null,
+		adapterType: string,
+	): Promise<string> {
+		await seedAgent(db, agentId);
+		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "subscription-return-"));
+		sandboxDirs.push(sandboxPath);
+		const provisioner = createProvisioner(buildPorts([], "real"));
+		const captured: { assembledPrompt?: string } = {};
+		const deps: ProvisionSessionDeps = {
+			...buildDeps(db, sandboxPath, [], adapterType),
+			onBeforeHarnessStart: (ctx) => {
+				captured.assembledPrompt = ctx.sessionConfig.assembledPrompt;
+				return "abort";
+			},
+		};
+		const params = subscriptionParams(agentId, sandboxPath, prompt);
+		const admitted = await provisioner.admit(deps, params);
+		await provisioner.run(deps, params, admitted);
+		return captured.assembledPrompt ?? "";
+	}
+
+	test("with no instruction written, the session is told so and left to decide — never told to stay silent", async ({
+		db,
+	}) => {
+		const prompt = await composedPrompt(db as HyperIdleDb, "agent-sub-empty", null, "claude-code");
+
+		expect(prompt).toContain("### What happened");
+		expect(prompt).not.toContain("### Instruction");
+		expect(prompt).toContain(
+			"Nobody has written an instruction for this event yet — decide for yourself whether it needs anything from you.",
+		);
+		expect(prompt).toContain("call `mcp__hyperidle__return_status`");
+		expect(prompt).not.toContain("Speak only if");
+	});
+
+	test("with an instruction written, the session speaks only if it asks", async ({ db }) => {
+		const prompt = await composedPrompt(
+			db as HyperIdleDb,
+			"agent-sub-written",
+			"Tell me when a task is done.",
+			"claude-code",
+		);
+
+		expect(prompt).toContain("### Instruction");
+		expect(prompt).toContain("Speak only if the subscription's instruction above asks you to.");
+		expect(prompt).not.toContain("Nobody has written an instruction");
+	});
+
+	test("the review paragraph names the harness's literal send_message tool and the review's fields", async ({
+		db,
+	}) => {
+		const claude = await composedPrompt(
+			db as HyperIdleDb,
+			"agent-sub-review-1",
+			null,
+			"claude-code",
+		);
+		const opencode = await composedPrompt(
+			db as HyperIdleDb,
+			"agent-sub-review-2",
+			null,
+			"opencode",
+		);
+
+		expect(claude).toContain("## When work needs a person");
+		expect(claude).toContain("`mcp__hyperidle__send_message`");
+		expect(claude).not.toContain("`send_message`");
+		expect(claude).not.toContain('type "review"');
+		for (const field of ["`review`", "`title`", "`reasoning`", "`artifacts`"]) {
+			expect(claude).toContain(field);
+		}
+		expect(opencode).toContain("`hyperidle_send_message`");
 	});
 });

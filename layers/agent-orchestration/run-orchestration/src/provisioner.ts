@@ -543,9 +543,9 @@ function requiresSendMessageReturn(params: ProvisionSessionParams): boolean {
  * no conversation to answer), woken by an event or schedule rather than a
  * person. It has no work-output return action to call at all, so its only
  * satisfying return action is the self-check `return_status` tool —
- * reporting that it is done IS its return. It speaks only when the
- * subscription's own instruction tells it to, by calling `send_message`
- * itself — never forced, because a subscription session has nowhere
+ * reporting that it is done IS its return. It speaks when the subscription's
+ * own instruction tells it to — or, with none written, when it judges the
+ * change needs it — by calling `send_message` itself; never forced, because a subscription session has nowhere
  * structural for a forced message to go that is guaranteed to be right (see
  * `requiresSendMessageReturn`'s note).
  */
@@ -623,9 +623,11 @@ async function assembleTaskFreePrompt(
 	// graceful-degrade fallback prompt (no `kind:"subscription"` bundle to
 	// build the real `assembleSubscriptionPrompt` from); the real composer
 	// carries the same line (`context.ts`'s `returnOrientation`).
+	// No bundle means no instruction reached this prompt, so it is the
+	// no-instruction line whatever the subscription holds.
 	const returnStatusToolName = literalToolNamerForAdapterType(adapterType)("return_status");
 	const returnStatusOrientation = requiresReturnStatusReturn(params)
-		? `When you are done, call \`${returnStatusToolName}\` to report your status. Speak only if the subscription's instruction asks you to.`
+		? subscriptionReturnOrientation(returnStatusToolName, false)
 		: "";
 
 	return [
@@ -1050,11 +1052,40 @@ interface ProvisionSessionResult {
  * agents choose to ask about is the evidence any future interception list would
  * be built from, so the wording deliberately leaves the judgement with them
  * rather than enumerating what to ask about.
+ *
+ * @lore Every fact here is what the thread module does today, and it must stay
+ * so: a review is `send_message`'s `review` field (a title, short reasoning
+ * points, optional artifacts), not a message "type"; with no thread named it
+ * lands in the conversation the session was called from, else with the one
+ * person the agent answers to (`soleHumanForAgent`); the session ends there and
+ * the verdict resumes it with `buildVerdictMessage`'s words. It names the
+ * LITERAL tool the selected harness exposes, so it is composed after the
+ * adapter is picked — a small model cannot resolve a bare `send_message`
+ * (see `assembleTaskFreePrompt`'s note on literal tool names).
  */
-const REVIEW_ORIENTATION = `
+function reviewOrientation(sendMessageToolName: string): string {
+	return `
 
 ## When work needs a person
-Nothing here stops you. You decide when work deserves a person's agreement before you do it — an irreversible change, something that reaches beyond this workspace, a call where being wrong would be expensive, or anything you would want a second opinion on. When you judge that it does, ask with \`send_message\` with type "review": say what you have done, what you want to do next and why, and attach the real evidence a person needs to decide. Your session ends there. A human reads it, decides, and you are brought back to carry on with their answer. A declined review declines that solution, not the task — keep working toward the same goal another way.`;
+Nothing here stops you. You decide when work deserves a person's agreement before you do it — an irreversible change, something that reaches beyond this workspace, a call where being wrong would be expensive, or anything you would want a second opinion on. When you judge that it does, ask by calling \`${sendMessageToolName}\` with a \`review\`: a \`title\`, short \`reasoning\` points — what you have done, what you want to do next and why — and \`artifacts\` when you have real evidence a person needs to decide. It goes to the conversation you were called from, or else to your person. That call ends your session. A person approves or declines it, and you are brought back with their answer. A decline declines the approach you proposed, not the task — keep working toward the same goal another way.`;
+}
+
+/**
+ * The line a subscription session ends its prompt with. With an instruction
+ * written, the session speaks only if that instruction asks it to. With none
+ * — a fresh subscription nobody has given taste to yet — it is told so and
+ * left to judge for itself; telling it to speak only if an absent instruction
+ * asks would silence every empty subscription for good.
+ */
+function subscriptionReturnOrientation(
+	returnStatusToolName: string,
+	hasInstruction: boolean,
+): string {
+	const done = `When you are done, call \`${returnStatusToolName}\` to report your status.`;
+	return hasInstruction
+		? `${done} Speak only if the subscription's instruction above asks you to.`
+		: `Nobody has written an instruction for this event yet — decide for yourself whether it needs anything from you. ${done}`;
+}
 
 /**
  * AF7 §2: The synchronous result of admission (phases 1-7). Carries everything
@@ -1156,8 +1187,6 @@ async function admitSession(
 	// — is orchestration's own.
 	const persona = agentConfig.persona ?? "";
 
-	const systemPromptText = `${persona}${REVIEW_ORIENTATION}`;
-
 	// @lore The tier used to be chosen: explicit param > the agent's own
 	// `modelTierPreference` > "workhorse". That dial is gone. It named which model
 	// gateway entry a session resolved against, and with the gateway removed it
@@ -1195,6 +1224,10 @@ async function admitSession(
 	}
 	const harness = selectedAdapter.adapter;
 	const adapterId = selectedAdapter.id;
+
+	const systemPromptText = `${persona}${reviewOrientation(
+		literalToolNamerForAdapterType(selectedAdapter.meta.type)("send_message"),
+	)}`;
 
 	// @lore AU9: request-mediated admission already reserved/adopted this exact
 	// request's session before this concurrency check runs. Exclude the request's
@@ -1576,7 +1609,10 @@ async function runSession(
 			sandboxPath,
 			...(requiresReturnStatusReturn(params)
 				? {
-						returnOrientation: `When you are done, call \`${subscriptionReturnStatusToolName}\` to report your status. Speak only if the subscription's instruction above asks you to.`,
+						returnOrientation: subscriptionReturnOrientation(
+							subscriptionReturnStatusToolName,
+							Boolean(subscriptionContextData.prompt),
+						),
 					}
 				: {}),
 		}));
@@ -2158,7 +2194,7 @@ async function runSession(
 	// resume spawns the harness with a working directory that no longer exists,
 	// and it hangs instead of failing, so the answer reaches nobody and nothing
 	// says why. The question is asked of the `review_sessions` row `send_message`
-	// (type "review") wrote, not of the tool-call event: a return action reaches this function by
+	// (with a `review`) wrote, not of the tool-call event: a return action reaches this function by
 	// one of two paths depending on whether the MCP bridge is open, and watching
 	// only the stream was green in a test and dead on every real run.
 	if (!(await sessionAwaitsVerdict(db, sessionId))) {
