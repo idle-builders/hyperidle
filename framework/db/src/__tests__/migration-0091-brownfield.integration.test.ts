@@ -95,7 +95,9 @@ describe("migration 0091: drop the unfiled grouping roots", () => {
 		await migrateBefore(db);
 
 		await fileUnderProduct(db);
-		await db.execute(sql`INSERT INTO teams (id, name, created_at) VALUES ('team-1', 'Team', ${NOW})`);
+		await db.execute(
+			sql`INSERT INTO teams (id, name, created_at) VALUES ('team-1', 'Team', ${NOW})`,
+		);
 		await db.execute(sql`
 			INSERT INTO users (id, name, kind, role, status, created_at)
 			VALUES ('human-1', 'Human', 'human', 'member', 'active', ${NOW})
