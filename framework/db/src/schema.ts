@@ -61,14 +61,13 @@ export const users = pgTable(
 		 * BA1 D6: who an agent belongs to, as a real column — a team (`teamId`),
 		 * a person (`ownerUserId`), or neither. Null for human users (the
 		 * `users_belonging_ck` check below is trivially satisfied by them).
-		 * Written only through `@hyperidle/user`' `insertUser`; `updateUser`
-		 * is deliberately not extended (BA1 has no post-creation belonging
-		 * change — see `resolve-scaffold-specs.ts`'s `user_assistant` case).
+		 * Written only when the agent is created, through `@hyperidle/user`'
+		 * `insertUser`; `updateUser` deliberately never changes it. An owned
+		 * agent takes its owner's team.
 		 */
 		ownerUserId: text("owner_user_id").references((): AnyPgColumn => users.id, {
 			onDelete: "set null",
 		}),
-		/** BA9d: set when this user row was materialised by a plugin install. Used for disable/enable/remove cleanup. */
 		/**
 		 * @lore BC5 T2 (F1): a note on an agent — its crash count over the last
 		 * 7 days, counted from its own `user` change rows — or null for a
@@ -970,7 +969,14 @@ export const serverConfig = pgTable("server_config", {
 export const plugins = pgTable(
 	"plugins",
 	{
+		/**
+		 * The install id: one row per install, so two teams each hold their
+		 * own install of one plugin. The manifest name for a factory install,
+		 * `<name>@<teamId>` for a team install (a manifest name never contains
+		 * `@`). Child rows follow a renamed id by `ON UPDATE CASCADE`.
+		 */
 		id: text("id").primaryKey(),
+		/** The manifest name; unique per scope and team (`plugins_name_scope_uq`). */
 		name: text("name").notNull(),
 		version: text("version").notNull(),
 		state: text("state").$type<PluginState>().notNull(),
@@ -991,6 +997,7 @@ export const plugins = pgTable(
 	(table) => [
 		check("plugins_state_ck", sql`${table.state} IN ('enabled', 'disabled', 'removed')`),
 		check("plugins_scope_kind_ck", sql`${table.scopeKind} IN ('factory', 'team')`),
+		uniqueIndex("plugins_name_scope_uq").on(table.name, table.scopeKind, table.scopeTeamId),
 	],
 );
 
@@ -1000,7 +1007,7 @@ export const pluginConfigurationDefaults = pgTable(
 		id: text("id").primaryKey(),
 		pluginId: text("plugin_id")
 			.notNull()
-			.references(() => plugins.id, { onDelete: "restrict" }),
+			.references(() => plugins.id, { onDelete: "restrict", onUpdate: "cascade" }),
 		kind: text("kind").$type<ConfigurationKind>().notNull(),
 		key: text("key").notNull(),
 		defaultValueJson: text("default_value_json").notNull(),
@@ -1040,7 +1047,7 @@ export const pluginContributions = pgTable(
 		id: text("id").primaryKey(),
 		pluginId: text("plugin_id")
 			.notNull()
-			.references(() => plugins.id, { onDelete: "cascade" }),
+			.references(() => plugins.id, { onDelete: "cascade", onUpdate: "cascade" }),
 		/** Which table `entityId` points into. */
 		kind: text("kind").$type<PluginContributionKind>().notNull(),
 		/** The contributed row's primary key, in the table `kind` names. */
