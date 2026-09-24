@@ -339,7 +339,10 @@ export interface ChangesRow {
  * mapped type so `EventByType<"task.changed">` resolves to exactly the
  * `task.changed` member, not the union of all nine. `change` is the decoded
  * `ChangeRow`; `cascade` rides only on a kill loop's
- * descendant rows.
+ * descendant rows. `woke` names the agents this change's own path already
+ * started work for — a person's message to their assistant, a task handed to
+ * an agent, a verdict on an agent's review — so their subscriptions skip it
+ * and each agent wakes once. Both live in memory only, never on the row.
  */
 export type ObjectChangeEvent = {
 	[T in ObjectEventName]: {
@@ -348,6 +351,7 @@ export type ObjectChangeEvent = {
 		readonly change: ChangeRow;
 		readonly timestamp: number;
 		readonly cascade?: true;
+		readonly woke?: readonly string[];
 	};
 }[ObjectEventName];
 
@@ -359,7 +363,7 @@ export type ObjectChangeEvent = {
  */
 export function objectEvent(
 	row: ChangesRow,
-	opts?: { readonly cascade?: true },
+	opts?: { readonly cascade?: true; readonly woke?: readonly string[] },
 ): ObjectChangeEvent {
 	const change: ChangeRow = {
 		id: row.id,
@@ -377,6 +381,7 @@ export function objectEvent(
 		change,
 		timestamp: Date.now(),
 		...(opts?.cascade ? { cascade: true as const } : {}),
+		...(opts?.woke && opts.woke.length > 0 ? { woke: opts.woke } : {}),
 	} as ObjectChangeEvent;
 }
 

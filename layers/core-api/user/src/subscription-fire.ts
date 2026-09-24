@@ -12,7 +12,10 @@
  * committed).
  *
  * Per event: `listSubscriptions({event, paused:false})`, minus the change's
- * own actor (never self-wake). For each remaining subscriber, reach is
+ * own actor (never self-wake), minus the agents the change's own path already
+ * started work for (`event.woke`), minus subscriptions that did not exist
+ * before the change (a subscription hears only what happens after it). For
+ * each remaining subscriber, reach is
  * computed the same way `search_*` itself would answer — `search_tasks`/
  * `search_threads`/`search_documents` (the last two called AS the
  * subscriber, so a subscriber's reach never bumps `readCount`, and never
@@ -221,7 +224,16 @@ async function fireForEvent(
 	const change = event.change;
 	const subs = await listSubscriptions(db, { event: event.type, paused: false });
 	if (subs.length === 0) return;
-	const candidates = subs.filter((s) => s.userId !== change.actor);
+	const woke = new Set(event.woke ?? []);
+	// @lore A subscription hears only changes made after it exists: a
+	// subscription written in the same transaction as the change shares its
+	// `now`, so an agent created with subscriptions never wakes on its own
+	// `user.created`. And an agent this change already started work for (a
+	// person's message to it, a task handed to it, a verdict on its review)
+	// is not woken a second time by its subscription — one change, one session.
+	const candidates = subs.filter(
+		(s) => s.userId !== change.actor && !woke.has(s.userId) && s.createdAt < change.at,
+	);
 	for (const sub of candidates) {
 		const subscriber = await findUser(db, { id: sub.userId });
 		if (!subscriber) continue;

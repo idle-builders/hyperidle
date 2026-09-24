@@ -813,9 +813,13 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 		// state move or any other field edit alike), each killed
 		// descendant's row flagged `cascade: true` so lifecycle propagation
 		// and the dependency watcher can tell a deliberate subtree kill from
-		// ordinary progress.
+		// ordinary progress. When this edit dispatches the task to an agent, the
+		// main row names that agent as already woken, so its own subscription
+		// does not start a second session for the same change.
 		if (mainChangeRow) {
-			ctx.eventBus.emit(objectEvent(mainChangeRow));
+			ctx.eventBus.emit(
+				objectEvent(mainChangeRow, dispatch ? { woke: [dispatch.ownerAgentId] } : undefined),
+			);
 		}
 		for (const killed of killedTasks) {
 			if (killed.id === (prev?.id ?? next.id)) continue;

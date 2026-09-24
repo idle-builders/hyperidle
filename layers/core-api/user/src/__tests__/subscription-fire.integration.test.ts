@@ -32,6 +32,8 @@ import { registerSubscriptionFire, type SubscriptionFireDeps } from "../subscrip
 import { insertSubscription, listInboxRows } from "../subscriptions-store.js";
 
 const TS = "2026-01-01T00:00:00.000Z";
+/** Every change below happens after the subscriptions it should reach were written. */
+const LATER = "2026-01-02T00:00:00.000Z";
 
 async function seedTeam(db: HyperIdleDb, id: string): Promise<void> {
 	await db.insert(teams).values({ id, name: id, createdAt: TS });
@@ -88,10 +90,11 @@ async function insertChangeRow(
 	object: "task" | "thread" | "document" | "user",
 	objectId: string,
 	actor: string,
+	at: string = LATER,
 ): Promise<Change> {
 	const [row] = await db
 		.insert(changes)
-		.values({ id, object, objectId, kind: "changed", actor, before: null, after: "{}", at: TS })
+		.values({ id, object, objectId, kind: "changed", actor, before: null, after: "{}", at })
 		.returning();
 	if (!row) throw new Error("insertChangeRow: insert returned no row");
 	return row;
@@ -416,5 +419,74 @@ describe("registerSubscriptionFire — document reach", () => {
 		expect(woken).toContain("sub-doc:c6");
 		const [row] = await db.select().from(documents).where(eq(documents.id, "doc-1"));
 		expect(row?.readCount).toBe(0);
+	});
+});
+
+describe("registerSubscriptionFire — one change, one session", () => {
+	async function seedSubscribedAgent(db: HyperIdleDb, createdAt: string): Promise<void> {
+		await seedTeam(db, "team-a");
+		await seedUser(db, "actor", { teamId: "team-a" });
+		await seedUser(db, "agent-a", { kind: "ai", teamId: "team-a", status: "active" });
+		await seedTaskWithThread(db, "task-once", "team-a", null);
+		await insertSubscription(db, {
+			id: "sub-once",
+			userId: "agent-a",
+			event: "task.changed",
+			schedule: null,
+			paused: false,
+			nextRunAt: null,
+			createdAt,
+			updatedAt: createdAt,
+		});
+	}
+
+	async function wakesFor(db: HyperIdleDb, emit: (eventBus: EventBus) => Promise<void>) {
+		const eventBus = new EventBus();
+		const woken: string[] = [];
+		const deps = buildDeps(db, {
+			agentWorkIntentRecorder: async (input) => {
+				if (input.kind === "subscription_run") woken.push(input.sourceId);
+				return { id: "intent-1", idempotencyKey: input.idempotencyKey };
+			},
+		});
+		const unsub = fire(db, eventBus, deps);
+		try {
+			await emit(eventBus);
+			await new Promise((r) => setTimeout(r, 50));
+		} finally {
+			unsub();
+		}
+		return woken;
+	}
+
+	test("an agent the change already woke is not woken again by its subscription", async ({
+		db,
+	}) => {
+		await seedSubscribedAgent(db, TS);
+		const woken = await wakesFor(db, async (eventBus) => {
+			const change = await insertChangeRow(db, "c-woke", "task", "task-once", "actor");
+			eventBus.emit(objectEvent(change, { woke: ["agent-a"] }));
+		});
+		expect(woken).toEqual([]);
+	});
+
+	test("a subscription written at the same moment as the change does not hear it", async ({
+		db,
+	}) => {
+		await seedSubscribedAgent(db, LATER);
+		const woken = await wakesFor(db, async (eventBus) => {
+			const change = await insertChangeRow(db, "c-same", "task", "task-once", "actor", LATER);
+			eventBus.emit(objectEvent(change));
+		});
+		expect(woken).toEqual([]);
+	});
+
+	test("a subscription written before the change hears it", async ({ db }) => {
+		await seedSubscribedAgent(db, TS);
+		const woken = await wakesFor(db, async (eventBus) => {
+			const change = await insertChangeRow(db, "c-after", "task", "task-once", "actor", LATER);
+			eventBus.emit(objectEvent(change, { woke: ["someone-else"] }));
+		});
+		expect(woken).toEqual(["sub-once:c-after"]);
 	});
 });
