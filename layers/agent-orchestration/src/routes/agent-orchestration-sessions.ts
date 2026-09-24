@@ -22,9 +22,8 @@
  * also carry (`GET /runs`, `GET /runs/active-counts`, AU26 J4's "the UI reads
  * run state directly") are DELETED — `search_sessions` is the door now,
  * `POST /api/actions/search_sessions`, same for a person and an agent. This
- * route survives ALONE because it has a live core-api caller (`port.sessions.
- * getById`, `routine-scheduler-bindings.ts`), and core may not call an
- * orchestration action.
+ * route survives ALONE because it has a live core-api caller
+ * (`port.sessions.getById`), and core may not call an orchestration action.
  */
 
 import type { AgentOrchestrationSessionWireRow } from "@hyperidle/api-contract";

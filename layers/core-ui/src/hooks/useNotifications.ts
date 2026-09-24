@@ -1,54 +1,50 @@
 /**
  * AF8 — useNotifications hook.
  *
- * Fetches the in-app notification inbox from GET /api/notifications/inbox.
- * Exposes markSeen, markRead, and muteType mutations.
- *
- * @lore AF8: The hook is the sole data-access point for the NotificationPopover.
- * It does NOT import from @hyperidle/db — all data flows through the HTTP API
- * to respect the Human Interface → server boundary.
+ * @lore BC5 T10: the door swap — `open_user({}).inbox` replaces `GET
+ * /api/notifications/inbox`; `edit_user({ id: me, inbox: { seen, read } })`
+ * replaces the seen/read/mute routes; a `user:<id>` websocket nudge
+ * (`useSessionActivity.ts`'s topic-and-refetch shape) replaces the second
+ * poll (architecture.md §8). There is no per-type mute left to call here —
+ * a subscription's own pause lives in Settings → Notifications.
  */
 
+import type { ChangeRow } from "@hyperidle/domain-model";
 import { useCallback, useEffect, useState } from "react";
-import { apiFetch } from "../services/api-fetch.js";
+import { call } from "../services/call.js";
+import { getWsClient } from "../services/ws-client.js";
 
-export interface NotificationRow {
-	id: string;
-	typeKey: string;
-	urgency: "immediate" | "ambient";
-	title: string;
-	sourceLink: string;
-	createdAt: string;
-	seenAt: string | null;
-	readAt: string | null;
+export interface InboxItem {
+	readonly change: ChangeRow;
+	readonly seenAt: string | null;
+	readonly readAt: string | null;
 }
 
 export interface UseNotificationsResult {
 	unseenCount: number;
-	rows: NotificationRow[];
+	rows: InboxItem[];
 	status: "loading" | "ready" | "error";
 	/** Re-fetch the inbox. Used by the error-state Retry button. */
 	refetch: () => Promise<void>;
 	markSeen: () => Promise<void>;
-	markRead: (id: string) => Promise<void>;
-	muteType: (typeKey: string) => Promise<void>;
+	markRead: (changeId: string) => Promise<void>;
 }
 
 export function useNotifications(): UseNotificationsResult {
 	const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
-	const [unseenCount, setUnseenCount] = useState(0);
-	const [rows, setRows] = useState<NotificationRow[]>([]);
+	const [rows, setRows] = useState<InboxItem[]>([]);
+	const [userId, setUserId] = useState<string | null>(null);
 
 	const fetchInbox = useCallback(async (): Promise<void> => {
 		setStatus("loading");
 		try {
-			const res = await apiFetch("/api/notifications/inbox");
-			if (!res.ok) throw new Error(`HTTP ${res.status}`);
-			const body = (await res.json()) as { unseenCount: number; rows: NotificationRow[] };
-			setUnseenCount(body.unseenCount ?? 0);
-			// @lore AI2: null-coalesce rows to [] to guard against malformed API responses
-			// where the key is missing (e.g. stale mocks returning { notifications } not { rows }).
-			setRows(body.rows ?? []);
+			const result = await call("open_user", {});
+			if (!result.ok || result.data.user === null || result.data.inbox === null) {
+				setStatus("error");
+				return;
+			}
+			setUserId(result.data.user.id);
+			setRows([...result.data.inbox]);
 			setStatus("ready");
 		} catch {
 			setStatus("error");
@@ -59,37 +55,50 @@ export function useNotifications(): UseNotificationsResult {
 		void fetchInbox();
 	}, [fetchInbox]);
 
+	// Nudge subscription — a frame on `user:<id>` means the caller's inbox
+	// may have changed; refetch rather than apply a partial update.
+	useEffect(() => {
+		if (!userId) return;
+		const ws = getWsClient();
+		const topic = `user:${userId}`;
+		const unsubscribe = ws.subscribe(topic, (raw) => {
+			if (typeof raw !== "object" || raw === null) return;
+			const msg = raw as Record<string, unknown>;
+			if (msg.type !== "update" || msg.topic !== topic) return;
+			void fetchInbox();
+		});
+		return (): void => {
+			unsubscribe();
+		};
+	}, [userId, fetchInbox]);
+
 	const markSeen = useCallback(async (): Promise<void> => {
+		if (!userId) return;
 		try {
-			await apiFetch("/api/notifications/seen", { method: "POST" });
-			setUnseenCount(0);
+			const result = await call("edit_user", { id: userId, inbox: { seen: "all" } });
+			if (!result.ok) return;
+			const now = new Date().toISOString();
+			setRows((prev) => prev.map((row) => (row.seenAt === null ? { ...row, seenAt: now } : row)));
 		} catch {
-			// Non-fatal — UI keeps the old count
+			// Non-fatal — UI keeps the old seen state
 		}
-	}, []);
+	}, [userId]);
 
-	const markRead = useCallback(async (id: string): Promise<void> => {
-		try {
-			await apiFetch(`/api/notifications/${id}/read`, { method: "POST" });
-			setRows((prev) => prev.filter((r) => r.id !== id));
-		} catch {
-			// Non-fatal
-		}
-	}, []);
+	const markRead = useCallback(
+		async (changeId: string): Promise<void> => {
+			if (!userId) return;
+			try {
+				const result = await call("edit_user", { id: userId, inbox: { read: [changeId] } });
+				if (!result.ok) return;
+				setRows((prev) => prev.filter((row) => row.change.id !== changeId));
+			} catch {
+				// Non-fatal
+			}
+		},
+		[userId],
+	);
 
-	const muteType = useCallback(async (typeKey: string): Promise<void> => {
-		try {
-			await apiFetch(`/api/notifications/mute/${typeKey}`, {
-				method: "PUT",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ muted: true }),
-			});
-			// Remove all rows of this type from the list
-			setRows((prev) => prev.filter((r) => r.typeKey !== typeKey));
-		} catch {
-			// Non-fatal
-		}
-	}, []);
+	const unseenCount = rows.filter((row) => row.seenAt === null).length;
 
-	return { unseenCount, rows, status, refetch: fetchInbox, markSeen, markRead, muteType };
+	return { unseenCount, rows, status, refetch: fetchInbox, markSeen, markRead };
 }

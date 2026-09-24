@@ -12,7 +12,7 @@
  */
 
 import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
-import { getOrCreateUser, insertUser, updateUser } from "@hyperidle/users";
+import { getOrCreateUser, insertUser, updateUser } from "@hyperidle/user";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
 

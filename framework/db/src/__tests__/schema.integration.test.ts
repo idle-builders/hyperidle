@@ -3,9 +3,9 @@ import { eq } from "drizzle-orm";
 import {
 	documents,
 	messages,
-	routines,
 	serverConfig,
 	sessions,
+	subscriptions,
 	tasks,
 	// @lore U1: `teams` is the domain entity (formerly `products`).
 	teams,
@@ -18,8 +18,7 @@ describe("A2: Database Schema", () => {
 	describe("AC1: migrations apply correctly", () => {
 		test("creates all current tables", async ({ db }) => {
 			// L1a: `responses` table dropped (plan §5.2). Verdicts now project
-			// as `verdict`-typed messages. `notification_queue` was added in an
-			// earlier migration.
+			// as `verdict`-typed messages.
 			const result = await db.execute(
 				`SELECT tablename AS name FROM pg_tables WHERE schemaname = 'public' AND tablename NOT LIKE '_l1_snapshot_%' ORDER BY tablename` as Parameters<
 					typeof db.execute
@@ -37,7 +36,7 @@ describe("A2: Database Schema", () => {
 					"server_config",
 					"documents",
 					"messages",
-					"routines",
+					"subscriptions",
 					"sessions",
 					"tasks",
 					"teams",
@@ -58,6 +57,11 @@ describe("A2: Database Schema", () => {
 			// list above is `arrayContaining` and tolerates extras — see the longer
 			// note in migration.integration.test.ts.
 			expect(tableNames).not.toContain("user_skills");
+			// @lore BC5 T7b migration 0089: routines/routine_runs/notification_queue
+			// dropped — a routine is a subscription now, a notification an inbox row.
+			expect(tableNames).not.toContain("routines");
+			expect(tableNames).not.toContain("routine_runs");
+			expect(tableNames).not.toContain("notification_queue");
 			// @lore BC4 migration 0086: `knowledge_items` renamed to `documents`;
 			// the three extension tables dropped, nothing carried over. Must not
 			// reappear.
@@ -79,10 +83,7 @@ describe("A2: Database Schema", () => {
 			await db.insert(teams).values({
 				id: "prod-1",
 				name: "Acme",
-				phase: "build",
 				createdAt: now,
-				capacity: 7,
-				formedAt: now,
 			});
 
 			const result = await db.select().from(teams).where(eq(teams.id, "prod-1"));
@@ -90,9 +91,7 @@ describe("A2: Database Schema", () => {
 			expect(result[0]).toMatchObject({
 				id: "prod-1",
 				name: "Acme",
-				phase: "build",
-				capacity: 7,
-				formedAt: now,
+				createdAt: now,
 			});
 		});
 
@@ -122,7 +121,7 @@ describe("A2: Database Schema", () => {
 		// parentTaskId: null is the top-level unit of work.
 		test("inserts and reads root tasks (formerly bets)", async ({ db }) => {
 			const now = new Date().toISOString();
-			await db.insert(teams).values({ id: "prod-1", name: "Acme", phase: "build", createdAt: now });
+			await db.insert(teams).values({ id: "prod-1", name: "Acme", createdAt: now });
 			// Every task has a real thread (`tasks.thread_id` is NOT NULL).
 			await db.insert(threads).values({
 				id: "thr-root-1",
@@ -160,7 +159,7 @@ describe("A2: Database Schema", () => {
 		// @lore BB1: task now has parentTaskId instead of betId.
 		test("inserts and reads tasks", async ({ db }) => {
 			const now = new Date().toISOString();
-			await db.insert(teams).values({ id: "prod-1", name: "Acme", phase: "build", createdAt: now });
+			await db.insert(teams).values({ id: "prod-1", name: "Acme", createdAt: now });
 			// Every task has a real thread (`tasks.thread_id` is NOT NULL).
 			await db.insert(threads).values([
 				{
@@ -217,7 +216,7 @@ describe("A2: Database Schema", () => {
 		// @lore BB1: task now has parentTaskId instead of betId.
 		test("updates tasks correctly", async ({ db }) => {
 			const now = new Date().toISOString();
-			await db.insert(teams).values({ id: "prod-1", name: "Acme", phase: "build", createdAt: now });
+			await db.insert(teams).values({ id: "prod-1", name: "Acme", createdAt: now });
 			// Every task has a real thread (`tasks.thread_id` is NOT NULL).
 			await db.insert(threads).values({
 				id: "thr-task-1",
@@ -252,7 +251,7 @@ describe("A2: Database Schema", () => {
 		// @lore BB1: task now has parentTaskId instead of betId.
 		test("inserts and reads sessions", async ({ db }) => {
 			const now = new Date().toISOString();
-			await db.insert(teams).values({ id: "prod-1", name: "Acme", phase: "build", createdAt: now });
+			await db.insert(teams).values({ id: "prod-1", name: "Acme", createdAt: now });
 			await db.insert(users).values({
 				id: "agent-1",
 				kind: "ai",
@@ -300,9 +299,9 @@ describe("A2: Database Schema", () => {
 			});
 		});
 
-		test("inserts and reads routines", async ({ db }) => {
+		test("inserts and reads subscriptions", async ({ db }) => {
 			const now = new Date().toISOString();
-			await db.insert(teams).values({ id: "prod-1", name: "Acme", phase: "build", createdAt: now });
+			await db.insert(teams).values({ id: "prod-1", name: "Acme", createdAt: now });
 			await db.insert(users).values({
 				id: "agent-1",
 				kind: "ai",
@@ -311,22 +310,24 @@ describe("A2: Database Schema", () => {
 				status: "active",
 				createdAt: now,
 			});
-			await db.insert(routines).values({
-				id: "routine-1",
-				name: "Test routine",
-				state: "active",
-				ownerAgentId: "agent-1",
-				triggerType: "heartbeat",
-				triggerConfig: JSON.stringify({ intervalSeconds: 900 }),
-				active: true,
+			await db.insert(subscriptions).values({
+				id: "subscription-1",
+				userId: "agent-1",
+				schedule: "0 8 * * *",
+				paused: false,
+				createdAt: now,
+				updatedAt: now,
 			});
 
-			const result = await db.select().from(routines).where(eq(routines.id, "routine-1"));
+			const result = await db
+				.select()
+				.from(subscriptions)
+				.where(eq(subscriptions.id, "subscription-1"));
 			expect(result[0]).toMatchObject({
-				id: "routine-1",
-				ownerAgentId: "agent-1",
-				triggerType: "heartbeat",
-				active: true,
+				id: "subscription-1",
+				userId: "agent-1",
+				schedule: "0 8 * * *",
+				paused: false,
 			});
 		});
 
@@ -552,7 +553,7 @@ describe("A2: Database Schema", () => {
 		// An invalid parentTaskId must be rejected by the FK constraint.
 		test("rejects task with invalid parent_task_id", async ({ db }) => {
 			const now = new Date().toISOString();
-			await db.insert(teams).values({ id: "prod-1", name: "P", phase: "build", createdAt: now });
+			await db.insert(teams).values({ id: "prod-1", name: "P", createdAt: now });
 			// Every task has a real thread (`tasks.thread_id` is NOT NULL).
 			await db.insert(threads).values({
 				id: "thr-task-1",
@@ -582,7 +583,7 @@ describe("A2: Database Schema", () => {
 		// @lore BB1: task now has parentTaskId instead of betId.
 		test("rejects session with invalid agent_id", async ({ db }) => {
 			const now = new Date().toISOString();
-			await db.insert(teams).values({ id: "prod-1", name: "P", phase: "build", createdAt: now });
+			await db.insert(teams).values({ id: "prod-1", name: "P", createdAt: now });
 			// Every task has a real thread (`tasks.thread_id` is NOT NULL).
 			await db.insert(threads).values({
 				id: "thr-task-1",

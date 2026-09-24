@@ -28,8 +28,6 @@ describe("I3: FK actions — RESTRICT on reference data", () => {
 		await db.insert(teams).values({
 			id: "p1",
 			name: "P",
-			phase: "build",
-			capacity: 5,
 			createdAt: NOW,
 		});
 		// Every task has a real thread (`tasks.thread_id` is NOT NULL).

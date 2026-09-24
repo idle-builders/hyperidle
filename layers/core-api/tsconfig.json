@@ -54,16 +54,7 @@
 			"path": "document"
 		},
 		{
-			"path": "notifications"
-		},
-		{
-			"path": "org"
-		},
-		{
 			"path": "policy"
-		},
-		{
-			"path": "routine"
 		},
 		{
 			"path": "settings"
@@ -75,7 +66,7 @@
 			"path": "thread"
 		},
 		{
-			"path": "users"
+			"path": "user"
 		}
 	]
 }

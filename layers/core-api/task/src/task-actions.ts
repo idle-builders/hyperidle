@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { HyperIdleDb, NewChange, NewTask, Team, User, WriteExecutor } from "@hyperidle/db";
+import type { Change, HyperIdleDb, NewChange, NewTask, User, WriteExecutor } from "@hyperidle/db";
 import {
 	type ActionResult,
 	type AdjustThreadInput,
@@ -21,6 +21,7 @@ import {
 	type ThreadView,
 	taskInvariants,
 } from "@hyperidle/domain-model";
+import { objectEvent } from "@hyperidle/event-bus";
 import type { Action, ActionContext } from "./action-types.js";
 import { handleDependencyKilled } from "./dependency-watcher.js";
 import type { BakedTaskRunRequest, TaskRunResolverDeps } from "./task-run-resolver.js";
@@ -37,7 +38,7 @@ import { taskDispatchAttemptStore } from "./task-service.js";
  */
 export interface TaskActionsDeps {
 	readonly changes: {
-		appendChange(exec: WriteExecutor, row: NewChange): Promise<unknown>;
+		appendChange(exec: WriteExecutor, row: NewChange): Promise<Change>;
 	};
 	readonly agentOrchestration: {
 		// one direction, three verbs — see architecture.md's header. A later
@@ -49,7 +50,6 @@ export interface TaskActionsDeps {
 		): Promise<readonly { taskId: string; sessionId: string }[]>;
 		endRunForHandoff(sessionId: string, endedAt: string): Promise<void>;
 	};
-	readonly org: { getTeam(exec: WriteExecutor, q: { id: string }): Promise<Team | undefined> };
 	readonly users: { getUserById(exec: WriteExecutor, id: string): Promise<User | undefined> };
 	/**
 	 * The ONE door onto `document` (architecture.md §6.7, §8.3) — task never
@@ -336,8 +336,8 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 	 * @lore B2 fix: this used to return bare ids and the caller emitted a
 	 * hardcoded `fromState: "proposed"` for every collateral kill — wrong
 	 * whenever a descendant was killed from `in_progress`/`accepted`/etc, and
-	 * a real consumer (`routine-scheduler.ts`'s transition matching) reads
-	 * that field. The real value is already in hand here (`t.state`, read for
+	 * a real consumer (the subscription fire mechanism's transition matching)
+	 * reads that field. The real value is already in hand here (`t.state`, read for
 	 * the transition guard); it is now carried out instead of discarded.
 	 */
 	async function killSubtreeInTx(
@@ -346,7 +346,9 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 		actor: string,
 		now: string,
 		rootFromState: string,
-	): Promise<readonly { readonly id: string; readonly fromState: string }[]> {
+	): Promise<
+		readonly { readonly id: string; readonly fromState: string; readonly row: Change | null }[]
+	> {
 		const subtreeIds = await taskDb.listSubtreeIds(tx, rootTaskId);
 		if (subtreeIds.length === 0) return [];
 		// The root's own row was already flipped to "killed" by the caller's
@@ -360,16 +362,19 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 		// already proves the root is a genuine fresh kill, and the root's own
 		// `changes` row was already appended by that main update path — so the
 		// root needs no second transition or changes row here, only inclusion
-		// in the returned id list.
+		// in the returned id list. `row` is `null` for the root for the same
+		// reason — its object-change event is the main path's own emit.
 		const descendantIds = subtreeIds.filter((id) => id !== rootTaskId);
-		if (descendantIds.length === 0) return [{ id: rootTaskId, fromState: rootFromState }];
+		if (descendantIds.length === 0) {
+			return [{ id: rootTaskId, fromState: rootFromState, row: null }];
+		}
 		const subtree = await taskDb.list(tx, "task", { ids: descendantIds });
 		const doomed = subtree.filter((t) => !TERMINAL_TASK_STATES.includes(t.state));
 		const depthOrder = new Map(subtreeIds.map((id, i) => [id, i]));
 		const deepestFirst = [...doomed].sort(
 			(a, b) => (depthOrder.get(b.id) ?? 0) - (depthOrder.get(a.id) ?? 0),
 		);
-		const killed: { readonly id: string; readonly fromState: string }[] = [];
+		const killed: { readonly id: string; readonly fromState: string; readonly row: Change }[] = [];
 		for (const t of deepestFirst) {
 			const { before, after } = diffFields(t.id, t, { state: "killed" });
 			await taskDb.transition(tx, "task", {
@@ -377,7 +382,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 				guard: { field: "state", equals: t.state },
 				patch: { state: "killed", updatedAt: now },
 			});
-			await deps.changes.appendChange(tx, {
+			const row = await deps.changes.appendChange(tx, {
 				id: randomUUID(),
 				object: "task",
 				objectId: t.id,
@@ -387,9 +392,9 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 				after: JSON.stringify(after),
 				at: now,
 			});
-			killed.push({ id: t.id, fromState: t.state });
+			killed.push({ id: t.id, fromState: t.state, row });
 		}
-		return [...killed, { id: rootTaskId, fromState: rootFromState }];
+		return [...killed, { id: rootTaskId, fromState: rootFromState, row: null }];
 	}
 
 	async function editTaskRun(
@@ -549,26 +554,10 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 				path: "state",
 			});
 		}
-		const dispatchingOwner = next.ownerAgentId;
-		if (
-			resolvedState === "accepted" &&
-			dispatchingOwner &&
-			prev?.state !== "accepted" &&
-			problems.length === 0
-		) {
-			const team = await deps.org.getTeam(ctx.db, { id: next.teamId });
-			if (!team) {
-				problems.push({ code: "team_not_found", message: "Team not found.", path: "teamId" });
-			} else {
-				const running = await taskDb.countTeamTasksInProgress(ctx.db, next.teamId);
-				if (running >= team.capacity) {
-					problems.push({
-						code: "capacity_exceeded",
-						message: `Team is already at its capacity of ${team.capacity} in-progress tasks.`,
-					});
-				}
-			}
-		}
+		// @lore BC5 T11: the capacity_exceeded gate (team.capacity, dropped by
+		// migration 0090) is deleted — WIP capacity goes with the team column
+		// that carried it (D-c7jgxy). A team is id + name now; accepting a
+		// task no longer reads it at all.
 		if (
 			input.ownerAgentId !== undefined &&
 			input.ownerAgentId !== null &&
@@ -638,7 +627,12 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 
 		// -- 4. inside one transaction --------------------------------------------
 		const now = ctx.now;
-		let killedTasks: readonly { readonly id: string; readonly fromState: string }[] = [];
+		let killedTasks: readonly {
+			readonly id: string;
+			readonly fromState: string;
+			readonly row: Change | null;
+		}[] = [];
+		let mainChangeRow: Change | null = null;
 		let dispatch:
 			| {
 					attemptId: string;
@@ -708,7 +702,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 					null,
 					values as unknown as Record<string, unknown>,
 				);
-				await deps.changes.appendChange(tx, {
+				mainChangeRow = await deps.changes.appendChange(tx, {
 					id: randomUUID(),
 					object: "task",
 					objectId: taskId,
@@ -727,7 +721,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 					});
 					after.appendNote = `[${now} ${ctx.actor}] ${input.appendNote}`;
 				}
-				await deps.changes.appendChange(tx, {
+				mainChangeRow = await deps.changes.appendChange(tx, {
 					id: randomUUID(),
 					object: "task",
 					objectId: taskId,
@@ -814,27 +808,20 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 		if (predecessorSessionId && dispatch?.occasion === "owner_handoff") {
 			await deps.agentOrchestration.endRunForHandoff(predecessorSessionId, now);
 		}
-		if (prev === null || prev.state !== resolvedState) {
-			ctx.eventBus.emit({
-				type: "task_state_changed",
-				streamId: prev?.id ?? next.id,
-				taskId: prev?.id ?? next.id,
-				fromState: (prev?.state ?? "proposed") as DomainTask["state"],
-				toState: resolvedState as DomainTask["state"],
-				timestamp: Date.now(),
-			});
+		// Every change row this call appended is one object event, post
+		// commit (decision 5) — the main row always (a
+		// state move or any other field edit alike), each killed
+		// descendant's row flagged `cascade: true` so lifecycle propagation
+		// and the dependency watcher can tell a deliberate subtree kill from
+		// ordinary progress.
+		if (mainChangeRow) {
+			ctx.eventBus.emit(objectEvent(mainChangeRow));
 		}
 		for (const killed of killedTasks) {
 			if (killed.id === (prev?.id ?? next.id)) continue;
-			ctx.eventBus.emit({
-				type: "task_state_changed",
-				streamId: killed.id,
-				taskId: killed.id,
-				fromState: killed.fromState as DomainTask["state"],
-				toState: "killed",
-				timestamp: Date.now(),
-				cascade: true,
-			});
+			if (killed.row) {
+				ctx.eventBus.emit(objectEvent(killed.row, { cascade: true }));
+			}
 		}
 		if (dispatch) {
 			await deps.agentOrchestration.submitWorkIntent({

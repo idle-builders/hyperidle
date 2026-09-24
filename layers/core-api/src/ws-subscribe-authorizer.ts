@@ -90,9 +90,13 @@ interface RealtimeDocumentReader {
 }
 
 /** Port for §5.1's `:subjects`/`:viewerTeamId` resolution — the actor plus
- * every agent they own, and the actor's own team. */
+ * every agent they own, and the actor's own team (or, for an owned agent
+ * with no team of its own, its owner's). */
 interface RealtimeUserReader {
-	getUserById(db: HyperIdleDb, id: string): Promise<{ readonly teamId: string | null } | undefined>;
+	getUserById(
+		db: HyperIdleDb,
+		id: string,
+	): Promise<{ readonly teamId: string | null; readonly ownerUserId: string | null } | undefined>;
 	listOwnedBy(db: HyperIdleDb, ownerId: string): Promise<readonly { readonly id: string }[]>;
 }
 
@@ -173,7 +177,11 @@ export function createDbSubscribeAuthorizer(
 			deps.users.listOwnedBy(db, senderId),
 		]);
 		const subjects = [senderId, ...owned.map((u) => u.id)];
-		const viewerTeamId = actorUser?.teamId ?? null;
+		let viewerTeamId = actorUser?.teamId ?? null;
+		if (viewerTeamId === null && actorUser?.ownerUserId) {
+			const owner = await deps.users.getUserById(db, actorUser.ownerUserId);
+			viewerTeamId = owner?.teamId ?? null;
+		}
 		return canReadDocument(subjects, viewerTeamId, row);
 	}
 	return {
@@ -192,6 +200,13 @@ export function createDbSubscribeAuthorizer(
 			if (topic.startsWith("session:")) {
 				const sessionId = topic.slice("session:".length);
 				return Promise.resolve(Boolean(sessionId));
+			}
+			// A subscription's inbox nudge — admits only the identity
+			// named in the topic itself, no table read (the same "identity
+			// alone" rule `session:<id>` already uses).
+			if (topic.startsWith("user:")) {
+				const userId = topic.slice("user:".length);
+				return Promise.resolve(userId.length > 0 && userId === senderId);
 			}
 			return Promise.resolve(false);
 		},

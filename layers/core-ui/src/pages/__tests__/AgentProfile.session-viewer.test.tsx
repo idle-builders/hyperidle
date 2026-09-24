@@ -6,12 +6,13 @@
  * page's own split pane.
  */
 
-import type { AgentProfileResponse } from "@hyperidle/domain-model";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { AgentProfileData } from "../../hooks/useAgentProfile.js";
 import type { AgentRunState } from "../../hooks/useAgentRunState.js";
+import { ToastRegion } from "../../shell/ToastRegion.js";
 import { AgentProfile } from "../AgentProfile.js";
 
 const mockApiFetch = vi.fn();
@@ -19,7 +20,7 @@ vi.mock("../../services/api-fetch.js", () => ({
 	apiFetch: (...args: unknown[]) => mockApiFetch(...args),
 }));
 
-const BASE_PROFILE: AgentProfileResponse = {
+const BASE_PROFILE: AgentProfileData = {
 	id: "agent-test",
 	name: "Test Agent",
 	role: "builder",
@@ -30,15 +31,10 @@ const BASE_PROFILE: AgentProfileResponse = {
 	identityDocumentId: "ki_af_demo",
 	harnessType: "opencode",
 	maxConcurrentSessions: 1,
-	mcpSetup: null,
+	subscriptions: [],
+	harnessCapabilities: null,
 	harnessAvailable: true,
-	harnessCapabilities: {
-		toolUse: true,
-		mcpSupport: false,
-		fileEditing: true,
-		subAgents: false,
-	},
-	reviewTrackRecord: { approvalRate: 0, totalVerdicts: 0, recentVerdicts: [], windowDays: 30 },
+	reviewTrackRecord: null,
 };
 
 const RUN_STATE: AgentRunState = {
@@ -66,14 +62,16 @@ const RUN_STATE: AgentRunState = {
 
 function renderProfile(): void {
 	render(
-		<MemoryRouter initialEntries={["/agents/agent-test"]}>
-			<Routes>
-				<Route
-					path="/agents/:agentId"
-					element={<AgentProfile overrideData={BASE_PROFILE} overrideRunState={RUN_STATE} />}
-				/>
-			</Routes>
-		</MemoryRouter>,
+		<ToastRegion>
+			<MemoryRouter initialEntries={["/agents/agent-test"]}>
+				<Routes>
+					<Route
+						path="/agents/:agentId"
+						element={<AgentProfile overrideData={BASE_PROFILE} overrideRunState={RUN_STATE} />}
+					/>
+				</Routes>
+			</MemoryRouter>
+		</ToastRegion>,
 	);
 }
 

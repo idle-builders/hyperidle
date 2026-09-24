@@ -33,13 +33,17 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
+import type { ChangeRow } from "@hyperidle/domain-model";
 import {
 	expect,
 	makeDocumentRow,
 	makeThreadListRow,
+	makeUserRow,
 	mockSearchDocuments,
+	mockSearchTasks,
 	mockSearchThreads,
 	mockThread,
+	mockUser,
 	test,
 } from "./fixtures";
 
@@ -56,11 +60,6 @@ const SEED_CREATED_AT = "2026-06-12T11:32:07.000Z"; // 3h before 14:32:07Z
  * An unparseable timestamp injected into surfaces for AC-3.
  */
 const BAD_TIMESTAMP = "not-a-valid-date";
-
-/**
- * A future timestamp for AC-3 (absolute surfaces must still render their real date).
- */
-const FUTURE_CREATED_AT = "2030-03-15T09:00:00.000Z";
 
 // ── Mock data builders ──────────────────────────────────────────────────────
 
@@ -120,34 +119,52 @@ function makeBadDocument() {
 }
 
 /**
- * useNotifications fetches GET /api/notifications/inbox and expects:
- * { unseenCount: number; rows: NotificationRow[] }
- * where NotificationRow: { id, typeKey, urgency, title, sourceLink, createdAt, seenAt, readAt }
+ * @lore BC5 T10: the inbox carries a `ChangeRow` now (`open_user({}).inbox`),
+ * not a notification-type registry row — `NotificationPopover` renders
+ * `row.change.at` as the time label and links via `linkForChange` (object +
+ * objectId), so a seed row needs a real `ChangeRow` shape.
  */
-function makeSeedNotificationRow() {
+function makeChangeRow(id: string, overrides: Partial<ChangeRow> = {}): ChangeRow {
 	return {
-		id: "ai3-seed-notif",
-		typeKey: "mention",
-		urgency: "ambient" as const,
-		title: "Seeded notification",
-		sourceLink: "/conversations/ai3-seed-thread",
-		createdAt: SEED_CREATED_AT,
+		id,
+		object: "thread",
+		objectId: "ai3-seed-thread",
+		kind: "message",
+		actor: "test-founder",
+		before: null,
+		after: {},
+		at: SEED_CREATED_AT,
+		...overrides,
+	};
+}
+
+function makeSeedNotificationRow() {
+	return { change: makeChangeRow("ai3-seed-notif"), seenAt: null, readAt: null };
+}
+
+function makeBadNotificationRow() {
+	return {
+		change: makeChangeRow("ai3-bad-notif", { at: BAD_TIMESTAMP }),
 		seenAt: null,
 		readAt: null,
 	};
 }
 
-function makeBadNotificationRow() {
-	return {
-		...makeSeedNotificationRow(),
-		id: "ai3-bad-notif",
-		title: "Bad timestamp notification",
-		createdAt: BAD_TIMESTAMP,
-	};
-}
-
-function makeNotificationInboxResponse(rows: ReturnType<typeof makeSeedNotificationRow>[]) {
-	return { unseenCount: rows.length, rows };
+/** Overrides open_user({}) so its `.inbox` carries the given rows. */
+async function mockInbox(
+	page: import("@playwright/test").Page,
+	rows: ReturnType<typeof makeSeedNotificationRow>[],
+): Promise<void> {
+	await mockUser(page, {
+		row: makeUserRow("test-founder", {
+			name: "Test Founder",
+			team: { id: "test-team-1", name: "Test Team" },
+		}),
+		self: true,
+		inbox: rows,
+		connections: { connections: [], inherited: [] },
+		behaviour: [],
+	});
 }
 
 // ── Proof directory (absolute path from the worktree root) ─────────────────
@@ -164,18 +181,12 @@ test.describe("AC-1: one-clock label agreement across surfaces", () => {
 		// the fixture's empty-array response.
 		await mockSearchThreads(page, { rows: [makeSeedThread()] });
 
-		// Override notifications inbox — useNotifications fetches /api/notifications/inbox
-		await page.route("**/api/notifications/inbox**", async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(makeNotificationInboxResponse([makeSeedNotificationRow()])),
-				});
-			} else {
-				await route.continue();
-			}
-		});
+		// Override the inbox — useNotifications reads open_user({}).inbox.
+		await mockInbox(page, [makeSeedNotificationRow()]);
+
+		// useTeams' per-team task-stat reads (the 1-team short-circuit on "/"
+		// needs this to resolve before it can redirect to /work/team/:id).
+		await mockSearchTasks(page, { rows: [] });
 
 		// Override document list
 		await mockSearchDocuments(page, { rows: [makeSeedDocument()] });
@@ -346,17 +357,7 @@ test.describe("AC-3: invalid timestamps → TIME_PLACEHOLDER or hidden chip", ()
 	});
 
 	test("notification popover with bad timestamp shows '—'", async ({ page }) => {
-		await page.route("**/api/notifications/inbox**", async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(makeNotificationInboxResponse([makeBadNotificationRow()])),
-				});
-			} else {
-				await route.continue();
-			}
-		});
+		await mockInbox(page, [makeBadNotificationRow()]);
 
 		await page.goto("/");
 		const notifBtn = page.locator("[data-testid='sidebar-notification-btn']");
@@ -425,56 +426,7 @@ test.describe("AC-3: invalid timestamps → TIME_PLACEHOLDER or hidden chip", ()
 });
 
 // ── AC-4: Absolute format ────────────────────────────────────────────────
-
-test.describe("AC-4: absolute format", () => {
-	test("WorkRoutine 'Created' field renders MMM D, YYYY format", async ({ page }) => {
-		const ROUTINE_ID = "ai3-seed-routine";
-
-		// WorkRoutine fetches GET /api/routines/:routineId → RoutineDetail shape
-		await page.route(`**/api/routines/${ROUTINE_ID}**`, async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({
-						routine: {
-							id: ROUTINE_ID,
-							name: "AI3 Seed Routine",
-							description: "Seeded for one-clock",
-							state: "active",
-							triggerType: "manual",
-							triggerConfig: null,
-							scheduleLabel: "Manual",
-							ownerAgentId: "test-agent",
-							agentName: "Test Agent",
-							agentInitials: "TA",
-							teamId: "test-team-1",
-							teamName: "Test Team",
-							autonomyLevel: null,
-							humanReview: false,
-							delegationAllowed: false,
-							lastRunAt: null,
-							lastRunOutcome: null,
-							nextRunAt: null,
-							createdAt: FUTURE_CREATED_AT,
-						},
-						runs: [],
-						budget: {
-							totalRunsThisMonth: 0,
-						},
-					}),
-				});
-			} else {
-				await route.continue();
-			}
-		});
-
-		// Navigate to the routine detail page
-		await page.goto(`/work/routine/${ROUTINE_ID}`);
-		const createdField = page.locator("[data-testid='routine-created']").first();
-		await expect(createdField).toBeVisible();
-		const text = (await createdField.textContent()) ?? "";
-		// Must match "MMM D, YYYY" — e.g. "Mar 15, 2030"
-		expect(text).toMatch(/^[A-Z][a-z]{2} \d{1,2}, \d{4}$/);
-	});
-});
+//
+// @lore BC5 T9: "WorkRoutine 'Created' field renders MMM D, YYYY format"
+// deleted. Its subject — `/work/routine/:id`, WorkRoutine's "Created" field —
+// is gone with WorkRoutine and the routines table.

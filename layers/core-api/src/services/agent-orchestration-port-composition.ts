@@ -30,7 +30,16 @@
  */
 
 import type {
+	AgentOrchestrationAddFolderResult,
+	AgentOrchestrationConnectionCreateInput,
+	AgentOrchestrationConnectionsListView,
+	AgentOrchestrationCreateConnectionResult,
+	AgentOrchestrationFolderCreateInput,
+	AgentOrchestrationFolderListQuery,
+	AgentOrchestrationFolderView,
+	AgentOrchestrationPersistInjectionResult,
 	AgentOrchestrationPort,
+	AgentOrchestrationRemoveResult,
 	AgentOrchestrationReviewVerdictInput,
 	AgentOrchestrationReviewVerdictOutcome,
 	AgentOrchestrationRunConfigPatch,
@@ -41,13 +50,11 @@ import type {
 	AgentOrchestrationWorkIntentInput,
 	AgentOrchestrationWorkIntentReceipt,
 } from "@hyperidle/api-contract";
-import type { WriteExecutor } from "@hyperidle/db";
 import type {
 	AgentWorkIntentRecorderFn,
 	AgentWorkIntentRecorderInput,
 	ReviewVerdictRecorderFn,
 } from "@hyperidle/domain-model";
-import type { OrgUserDirectory } from "@hyperidle/org";
 import type { Hono } from "hono";
 import { hc } from "hono/client";
 import type { AppType } from "../schemas/index.js";
@@ -125,6 +132,41 @@ interface AgentOrchestrationHcClient {
 						$post(args: {
 							readonly param: { readonly id: string };
 							readonly json: { readonly agentUserId: string };
+						}): Promise<Response>;
+					};
+				};
+			};
+		};
+		readonly folders: {
+			readonly list: {
+				$post(args: { readonly json: AgentOrchestrationFolderListQuery }): Promise<Response>;
+			};
+			$post(args: {
+				readonly json: { readonly teamId: string } & AgentOrchestrationFolderCreateInput;
+			}): Promise<Response>;
+			readonly ":id": {
+				readonly remove: {
+					$post(args: { readonly param: { readonly id: string } }): Promise<Response>;
+				};
+				readonly take: {
+					$post(args: {
+						readonly param: { readonly id: string };
+						readonly json: { readonly agentUserId: string };
+					}): Promise<Response>;
+				};
+			};
+		};
+		readonly connections: {
+			readonly ":userId": {
+				$get(args: { readonly param: { readonly userId: string } }): Promise<Response>;
+				$post(args: {
+					readonly param: { readonly userId: string };
+					readonly json: AgentOrchestrationConnectionCreateInput;
+				}): Promise<Response>;
+				readonly ":id": {
+					readonly remove: {
+						$post(args: {
+							readonly param: { readonly userId: string; readonly id: string };
 						}): Promise<Response>;
 					};
 				};
@@ -311,14 +353,87 @@ export function buildAgentOrchestrationPort(
 				if (!res.ok) return throwSeamError("gate.linkReview", res);
 			},
 		},
+		folders: {
+			async list(
+				query: AgentOrchestrationFolderListQuery,
+			): Promise<AgentOrchestrationFolderView[]> {
+				const res = await client["agent-orchestration"].folders.list.$post({ json: query });
+				if (!res.ok) return throwSeamError("folders.list", res);
+				const body = (await res.json()) as { readonly folders: AgentOrchestrationFolderView[] };
+				return body.folders;
+			},
+			async add(
+				teamId: string,
+				body: AgentOrchestrationFolderCreateInput,
+			): Promise<AgentOrchestrationAddFolderResult> {
+				const res = await client["agent-orchestration"].folders.$post({
+					json: { teamId, ...body },
+				});
+				if (!res.ok) return throwSeamError("folders.add", res);
+				return (await res.json()) as AgentOrchestrationAddFolderResult;
+			},
+			async remove(id: string): Promise<AgentOrchestrationRemoveResult> {
+				const res = await client["agent-orchestration"].folders[":id"].remove.$post({
+					param: { id },
+				});
+				if (!res.ok) return throwSeamError("folders.remove", res);
+				return (await res.json()) as AgentOrchestrationRemoveResult;
+			},
+			/** §6: the SAME write as `filesystems.persistInjection` above, under the `folders` family's own name. */
+			async give(
+				id: string,
+				agentUserId: string,
+			): Promise<AgentOrchestrationPersistInjectionResult> {
+				const res = await client["agent-orchestration"].filesystems[":id"].injections.persist.$post(
+					{ param: { id }, json: { agentUserId } },
+				);
+				if (!res.ok) return throwSeamError("folders.give", res);
+				return (await res.json()) as AgentOrchestrationPersistInjectionResult;
+			},
+			async take(id: string, agentUserId: string): Promise<AgentOrchestrationRemoveResult> {
+				const res = await client["agent-orchestration"].folders[":id"].take.$post({
+					param: { id },
+					json: { agentUserId },
+				});
+				if (!res.ok) return throwSeamError("folders.take", res);
+				return (await res.json()) as AgentOrchestrationRemoveResult;
+			},
+		},
+		connections: {
+			async list(userId: string): Promise<AgentOrchestrationConnectionsListView> {
+				const res = await client["agent-orchestration"].connections[":userId"].$get({
+					param: { userId },
+				});
+				if (!res.ok) return throwSeamError("connections.list", res);
+				return (await res.json()) as AgentOrchestrationConnectionsListView;
+			},
+			async add(
+				userId: string,
+				input: AgentOrchestrationConnectionCreateInput,
+			): Promise<AgentOrchestrationCreateConnectionResult> {
+				const res = await client["agent-orchestration"].connections[":userId"].$post({
+					param: { userId },
+					json: input,
+				});
+				if (!res.ok) return throwSeamError("connections.add", res);
+				return (await res.json()) as AgentOrchestrationCreateConnectionResult;
+			},
+			async remove(userId: string, id: string): Promise<AgentOrchestrationRemoveResult> {
+				const res = await client["agent-orchestration"].connections[":userId"][":id"].remove.$post({
+					param: { userId, id },
+				});
+				if (!res.ok) return throwSeamError("connections.remove", res);
+				return (await res.json()) as AgentOrchestrationRemoveResult;
+			},
+		},
 	};
 }
 
 /**
  * AU31 §3.2 — the seam-backed `AgentWorkIntentRecorder` factory: the
  * composition-root adapter that lets `@hyperidle/work`'s `transitionTask`
- * (site 6), `@hyperidle/policy`'s `handoff` (site 7), `@hyperidle/routine`'s
- * scheduler (site 8) and `@hyperidle/review`'s proposed-call workflow
+ * (site 6), `@hyperidle/policy`'s `handoff` (site 7), the subscription
+ * clock (site 8) and `@hyperidle/review`'s proposed-call workflow
  * (site 9) — plus every route that records a work intent directly — go
  * through the port instead of importing `@hyperidle/session-requests`.
  *
@@ -351,31 +466,12 @@ export function buildSeamBackedReviewVerdictRecorder(
 	return (input) => port.intents.recordReviewVerdict(input);
 }
 
-/**
- * AU31 §2.2/§3 clause 2 — the seam-backed `OrgAgentRunConfigWriter` factory:
- * the composition-root adapter that lets `@hyperidle/org`'s
- * `persistScaffoldedAgents` (org.ts, teams-routes.ts, users.ts's setup route)
- * go through the port instead of importing `@hyperidle/run-orchestration`
- * directly. Same shape as `buildSeamBackedWorkIntentRecorder` above:
- * `writeAgentRunConfig` deliberately IGNORES the executor it is handed — a
- * seam call is an HTTP round trip through the composed app's own connection,
- * so it can never join a caller's transaction, which is why
- * `persistScaffoldedAgents` is never itself called from inside a
- * `db.transaction(...)` at any of its three call sites.
- */
-export function buildSeamBackedAgentRunConfigWriter(
-	port: AgentOrchestrationPort,
-): Pick<OrgUserDirectory, "writeAgentRunConfig"> {
-	return {
-		writeAgentRunConfig: async (
-			_db: WriteExecutor,
-			agentUserId: string,
-			patch: AgentOrchestrationRunConfigPatch,
-		) => {
-			await port.runConfig.write(agentUserId, patch);
-		},
-	};
-}
+// @lore BC5 T11: `buildSeamBackedAgentRunConfigWriter` (the seam-backed
+// `OrgAgentRunConfigWriter` factory `@hyperidle/org`'s `persistScaffoldedAgents`
+// went through) is DELETED — `org.ts`/`teams-routes.ts`/`users.ts`'s setup
+// route, its only three callers, are gone with the `org` package they
+// scaffolded through. `edit_user` writes an agent's run config straight
+// through `AgentOrchestrationPort.runConfig.write` itself now (`compose.ts`).
 
 /**
  * The in-process transport: core-api's own Hono app dispatches the request

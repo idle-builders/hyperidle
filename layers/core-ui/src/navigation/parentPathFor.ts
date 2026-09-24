@@ -24,7 +24,6 @@
  *
  * Matched route → parent mapping:
  *   /work/task/:id              → /work  (BB1: tasks at any depth, breadcrumb handles deep nav)
- *   /work/routine/:id           → /work  (AD9: was /work/portfolio)
  *   /work/team/:id              → /work  (AD9: was /work/portfolio)
  *   /documents/:id              → /documents  (excludes /documents/new)
  *   /agents/:id                 → /conversations
@@ -36,11 +35,6 @@
 export function parentPathFor(pathname: string): string | null {
 	// Task detail: /work/task/:id → /work (BB1: replaces /work/bet/:id at any depth)
 	if (/^\/work\/task\/[^/]+/.test(pathname)) {
-		return "/work";
-	}
-
-	// Routine detail: /work/routine/:id → /work (AD9: was /work/portfolio)
-	if (/^\/work\/routine\/[^/]+/.test(pathname)) {
 		return "/work";
 	}
 

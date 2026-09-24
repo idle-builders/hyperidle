@@ -22,7 +22,7 @@ import { buildTestPorts } from "./test-ports.js";
 
 async function seedTaskFixture(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(teams).values({ id: "team-1", name: "Team", phase: "build", createdAt: now });
+	await db.insert(teams).values({ id: "team-1", name: "Team", createdAt: now });
 	await db.insert(users).values({
 		id: "agent-1",
 		kind: "ai",
@@ -135,7 +135,7 @@ describe("consumeAgentSessionRequest — callingThreadId bake (Increment 1)", ()
 		);
 	});
 
-	test("omits callingThreadId when the drained payload carries none (e.g. routine_run)", async ({
+	test("omits callingThreadId when the drained payload carries none (e.g. subscription_run)", async ({
 		db,
 	}) => {
 		await seedTaskFixture(db);

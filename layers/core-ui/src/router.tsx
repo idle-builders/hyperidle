@@ -23,7 +23,6 @@ import { ReviewPage } from "./pages/review/ReviewPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { SetupFlow } from "./pages/SetupFlow";
 import { WorkOverview } from "./pages/WorkOverview";
-import { WorkRoutine } from "./pages/WorkRoutine";
 import { WorkTaskCreate } from "./pages/WorkTaskCreate";
 import { WorkTaskPage } from "./pages/WorkTaskPage";
 import { WorkTeam } from "./pages/WorkTeam";
@@ -80,7 +79,8 @@ function buildRoutes(): RouteObject[] {
 				// forward params directly in React Router v7).
 				{ path: "work/team/:teamId", element: <WorkTeam /> },
 				{ path: "work/product/:productId", element: <RedirectProductToTeam /> },
-				{ path: "work/routine/:routineId", element: <WorkRoutine /> },
+				// @lore BC5 T9: work/routine/:routineId route deleted — subscriptions
+				// replace routines; WorkRoutine is gone.
 				// @lore BB1: /work/task/:taskId replaces both /work/bet/:betId and
 				// /work/bet/:betId/task/:taskId. One route, any depth. The breadcrumb
 				// is built from the ancestors array in the tree response.

@@ -117,7 +117,7 @@ function buildHarnessPorts(overrides: Partial<SessionLifecyclePorts>): SessionLi
 			assembleAgentContext: neverCalled("contextAssembly.assembleAgentContext"),
 			beginAgentWriteback: () => ({ dispose: () => undefined }),
 			assemblePrompt: neverCalled("contextAssembly.assemblePrompt"),
-			assembleRoutinePrompt: neverCalled("contextAssembly.assembleRoutinePrompt"),
+			assembleSubscriptionPrompt: neverCalled("contextAssembly.assembleSubscriptionPrompt"),
 			writeSandboxAgentsMd: neverCalled("contextAssembly.writeSandboxAgentsMd"),
 		},
 	};

@@ -1,31 +1,25 @@
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
+import { assembleSessionDocuments } from "@hyperidle/document";
 import { EventBus } from "@hyperidle/event-bus";
 import type { RegisteredTool } from "@hyperidle/harness-protocol";
-import type { NotificationsDeps } from "@hyperidle/notifications";
-import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
+import { readServerConfig } from "@hyperidle/settings";
 import { checkAndUnblockDependents } from "@hyperidle/task";
-import { createUpgradeTokenStore, type UpgradeTokenStore } from "@hyperidle/users";
+import {
+	createUpgradeTokenStore,
+	registerSubscriptionFire,
+	startSubscriptionClock,
+	type UpgradeTokenStore,
+} from "@hyperidle/user";
 import { Hono } from "hono";
 import type { Action, ActionContext } from "./actions/action.js";
 import { actionsAsTools } from "./actions/actions-as-tools.js";
 import { createActionsRouter } from "./actions/actions-router.js";
-import { buildCoreActions } from "./actions/compose.js";
-import { createAgentIdentityPort } from "./routes/agent-identity.js";
-import { createAgentRoutes } from "./routes/agents.js";
+import { buildCoreActions, runnerFor } from "./actions/compose.js";
 import { createAuthRoutes } from "./routes/auth.js";
-import { createFilesystemInjectionRoutes } from "./routes/filesystems.js";
-import { createHarnessRoutes } from "./routes/harnesses.js";
 import { authHealth } from "./routes/health.js";
-import { createNotificationRoutes } from "./routes/notifications-routes.js";
-import { createOrgRoutes } from "./routes/org.js";
-import { createRecipientRoutes } from "./routes/recipients.js";
-import { createRoutineRoutes } from "./routes/routines-routes.js";
 import { createSearchRoutes } from "./routes/search.js";
-import { createAgentBehaviorSettingsRoutes } from "./routes/settings-agent-behavior.js";
-import { createTeamRoutes } from "./routes/teams-routes.js";
-import { createUserRoutes, createUserSetupRoute } from "./routes/users.js";
 import {
 	buildSeamBackedReviewVerdictRecorder,
 	buildSeamBackedWorkIntentRecorder,
@@ -59,7 +53,7 @@ interface AppOptions {
 	/**
 	 * @lore AU44 batch 4: readAlertPreferences removed from ctx — the dispatcher
 	 * that consumed it is deleted. serviceBootstrap ctx now only carries the 3
-	 * primitives needed by the routine scheduler and agent orchestration.
+	 * primitives the agent layer and agent orchestration need.
 	 */
 	serviceBootstrap?: (ctx: {
 		db: HyperIdleDb;
@@ -98,6 +92,17 @@ interface AppOptions {
 			input: import("@hyperidle/domain-model").AdjustThreadInput,
 		) => Promise<
 			import("@hyperidle/domain-model").ActionResult<import("@hyperidle/domain-model").ThreadView>
+		>;
+		/**
+		 * `edit_user`'s own bound `run` — the crashed-session
+		 * health reaction writes the agent's `health` through it instead of a
+		 * notification-queue row.
+		 */
+		editUser: (
+			ctx: import("./actions/action.js").ActionContext,
+			input: import("@hyperidle/domain-model").EditUserInput,
+		) => Promise<
+			import("@hyperidle/domain-model").ActionResult<import("@hyperidle/domain-model").UserView>
 		>;
 	}) => Array<() => void>;
 	/**
@@ -254,25 +259,6 @@ const APP_DOCUMENT_RUNNERS = new WeakMap<
 const appLogger = createLogger({ pkg: "server.app" });
 
 /**
- * @lore AU19 Increment 1g/1h: `notifications`' DI ports (Mechanism C), wired
- * here at the `packages/server` composition point — same construction as
- * `server-factory.ts`'s (both need the same real functions; `app.ts` also
- * needs to build the `/api/notifications` route table).
- *
- * @lore AU20 Ag6b: collapsed from 5 separate port objects into one
- * `NotificationsDeps` bag (same pattern as server-factory.ts).
- *
- * @lore server_credentials deletion: `credentialCipher`/`credentialStore`
- * are gone from `NotificationsDeps` with the table they read — the SMTP
- * password they used to fetch had no writer since BC1.
- */
-const notificationsServerConfigPort = { read: readServerConfig, update: updateServerConfig };
-
-const notificationsDeps: NotificationsDeps = {
-	serverConfig: notificationsServerConfigPort,
-};
-
-/**
  * Resolve the one-shot WebSocket upgrade-token store this app instance uses.
  *
  * I2 review arch H-2/H-3: the store — and with it `/api/auth/ws-token` — exists
@@ -317,17 +303,11 @@ export function registerCoreApiPreAuthRoutes(
 		return c.json(response);
 	});
 
-	// P4: Public: POST /api/users (setup — no auth required on first run).
-	// The route itself enforces auth once a human user already exists
-	// (setup-complete guard).
-	if (options?.db && options.agentOrchestration) {
-		// AK6 T8: eventBus passed so user_created event is emitted after assistant persist.
-		const earlyEventBus = options.eventBus ?? new EventBus();
-		api.route(
-			"/users",
-			createUserSetupRoute(options.db, earlyEventBus, options.agentOrchestration),
-		);
-	}
+	// @lore BC5 T11 (architecture.md §7): the pre-auth `POST /api/users`
+	// setup route is DELETED — `edit_user`'s own first-run rule (a caller
+	// with no `users` row may create a person only while no person exists)
+	// is strictly tighter, behind the auth middleware instead of in front of
+	// it.
 
 	// WS upgrades authenticate via a one-shot upgrade token (`?token=...`) in a
 	// middleware defined inside `registerWsRoute`, not via the API key.
@@ -360,7 +340,56 @@ function buildCoreActionsBindings(
 						options.wsHub?.broadcast(topic, JSON.stringify(envelope)),
 				}
 			: {}),
+		...(options.adapterPool ? { adapterPool: options.adapterPool } : {}),
+		...(options.onHarnessRedetect ? { onHarnessRedetect: options.onHarnessRedetect } : {}),
 	};
+}
+
+/**
+ * Registers the subscription fire mechanism
+ * (the nine object events) and its schedule half, extracted out of
+ * `createCoreApiApp` for the same reason `buildCoreActionsBindings` was —
+ * that function's own cognitive-complexity budget is already spent.
+ * `searchTasksRun`/`searchThreadsRun`/`searchDocumentsRun` are reach's own
+ * doors (already extracted in `createCoreApiApp`, never `open_*`);
+ * `assembleSessionDocuments`/`readServerConfig` are this Layer's own
+ * (never a nested Service's) imports, exactly like
+ * `task-run-resolver-bindings.ts`'s equivalent wiring.
+ */
+function registerSubscriptionServices(
+	options: AppOptions,
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	agentWorkIntentRecorder: import("@hyperidle/domain-model").AgentWorkIntentRecorderFn,
+	runners: {
+		readonly searchTasksRun: import("@hyperidle/user").SearchTasksReachFn;
+		readonly searchThreadsRun: import("@hyperidle/user").SearchThreadsReachFn;
+		readonly searchDocumentsRun: import("./actions/action.js").SearchDocumentsRunFn;
+	},
+): Array<() => void> {
+	const wsPush = options.wsHub
+		? (topic: string, envelope: unknown) =>
+				options.wsHub?.broadcast(topic, JSON.stringify(envelope))
+		: undefined;
+	const unsubSubscriptionFire = registerSubscriptionFire(db, eventBus, {
+		agentWorkIntentRecorder,
+		searchTasks: runners.searchTasksRun,
+		searchThreads: runners.searchThreadsRun,
+		searchDocuments: runners.searchDocumentsRun,
+		assembleSessionDocuments,
+		readServerConfig: (readDb) => readServerConfig(readDb),
+		...(wsPush ? { wsPush } : {}),
+	});
+	// The schedule half — started and stopped alongside the fire
+	// mechanism, needing the SAME composed runners `registerAgentLayerServices`
+	// never had (its own composition root is deliberately built without them).
+	const subscriptionClock = startSubscriptionClock(db, eventBus, {
+		agentWorkIntentRecorder,
+		searchDocuments: runners.searchDocumentsRun,
+		assembleSessionDocuments,
+		readServerConfig: (readDb) => readServerConfig(readDb),
+	});
+	return [unsubSubscriptionFire, subscriptionClock.stop];
 }
 
 /**
@@ -489,6 +518,22 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 				import("@hyperidle/domain-model").DocumentRow[]
 			>
 		>;
+		// Subscription reach — extracted the same
+		// way `searchDocumentsRun` is, never `open_task`/`open_thread` (a
+		// subscriber's reach must never count as a read). `runnerFor` throws
+		// its own "no such action" error, so this adds no branch here.
+		const searchTasksRun = runnerFor<
+			{ readonly ids: readonly string[] },
+			readonly {
+				readonly id: string;
+				readonly teamId: string;
+				readonly ownerAgentId: string | null;
+			}[]
+		>(actions, "search_tasks");
+		const searchThreadsRun = runnerFor<
+			{ readonly ids: readonly string[] },
+			readonly { readonly id: string }[]
+		>(actions, "search_threads");
 		// @lore document-module B10: the platform module's install/enable/
 		// disable/restore lifecycle (`edit_plugin`, bound in `compose.ts`'s
 		// fourth action group) writes documents through this same composed
@@ -512,89 +557,39 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 			editDocument: editDocumentRun,
 			searchDocuments: searchDocumentsRun,
 		});
-		// @lore document-module B11: an agent's identity document (§8.3) — the
-		// one shared helper every agent-creating route (`/agents`, `/org`'s
-		// scaffold-request, `/teams`'s create) reduces to, built from the same
-		// composed `search_documents`/`edit_document` runners rather than
-		// `@hyperidle/document`'s repository functions.
-		const agentIdentity = createAgentIdentityPort({
-			searchDocuments: searchDocumentsRun,
-			editDocument: editDocumentRun,
-			eventBus,
-		});
-		// @lore U2: `/products` URL renamed to `/teams` (domain rename: Product → Team).
-		// The old `createTeamsRoutes` (knowledge team_members listing) relocated to `/team-members`.
-		// Mounted here (after the action list and `agentIdentity` both exist)
-		// rather than at its old pre-actions spot — the profile/list/create/
-		// delete handlers all reach an agent's identity document through it now.
-		api.route(
-			"/agents",
-			createAgentRoutes(options.db, agentOrchestration, options.adapterPool, agentIdentity),
-		);
-		// @lore `/teams` mounts after the action list is built and `sendMessage`
-		// extracted — its POST handler's welcome-message seed posts through the
-		// composed action instead of a raw `insertThread`/`insertMessage` into
-		// the literal id `thr-ast-${userId}`.
-		api.route(
-			"/teams",
-			createTeamRoutes(
-				options.db,
-				eventBus,
-				agentOrchestration,
-				sendMessage,
-				agentIdentity,
-				options.adapterPool,
-			),
-		);
+		// @lore BC5 T7b (F1): the crashed-session health reaction writes the
+		// agent's `health` through the composed `edit_user` action — never
+		// `@hyperidle/user`'s store functions directly — so the write lands as
+		// an ordinary `user.changed` row, same as any other edit.
+		const editUserRun = runnerFor<
+			import("@hyperidle/domain-model").EditUserInput,
+			import("@hyperidle/domain-model").UserView
+		>(actions, "edit_user");
+		// @lore BC5 T11: the `agents`/`org`/`teams`/`recipients`/`harnesses`
+		// route families and the core-hosted `filesystems` injection route are
+		// all DELETED — user is one module now, `search_users`/`open_user`/
+		// `edit_user` under `POST /api/actions/<name>` (mounted generically by
+		// `createActionsRouter` above), never a route module. `agentIdentity`
+		// (the shared helper those routes reduced an agent's identity document
+		// creation to) goes with them — `@hyperidle/user`'s own
+		// `agent-identity.ts` builds the same port internally now, per call,
+		// for `edit_user`'s own identity-document write.
 		// @lore BC3 architecture.md §5 B1: `/reviews`, `/conversations`, `/threads`
 		// and their route files are DELETED — search_threads/open_thread/
 		// send_message/adjust_thread are the door now, mounted generically by
-		// createActionsRouter above. `/recipients` stays (plan.md Confusion 4).
-		// AU26 F2: only ONE `/api/filesystems` registration is still core-hosted —
-		// `POST /:id/injections`, whose team-consistency gate reads `users` +
-		// `team_members`. Every other registration (and the reachability probe's
-		// `ServiceConnectionResolver`, which core-api no longer constructs) lives
-		// on agent-orchestration's app at byte-identical paths. See
-		// `routes/filesystems.ts`'s own top-of-file `@lore`.
-		api.route("/filesystems", createFilesystemInjectionRoutes(options.db, agentOrchestration));
-		api.route("/users", createUserRoutes(options.db));
-		api.route("/org", createOrgRoutes(options.db, agentOrchestration, agentIdentity));
-		// @lore document-module B12: a routine's prompt document reads/writes
-		// through the same composed `search_documents`/`edit_document` runners,
-		// extracted above (architecture.md §8.2, §8.3) — never
-		// `@hyperidle/document`'s repository functions directly.
-		api.route(
-			"/routines",
-			createRoutineRoutes(
-				options.db,
-				eventBus,
-				agentOrchestration,
-				searchDocumentsRun,
-				editDocumentRun,
-			),
-		);
-		api.route("/recipients", createRecipientRoutes(options.db, eventBus));
-
-		// AH2: GET /api/harnesses — deduped harness type list for SettingsAgents selector.
-		// AM4 CHANGE 3 (Seam 3): thread options.db so the handler can stamp discovery.disabled
-		// and the redetect/disable routes can read/write server_config.
-		// AU36 D5: thread onHarnessRedetect so redetect also refreshes inherited reach.
-		if (options.adapterPool) {
-			api.route(
-				"/harnesses",
-				createHarnessRoutes(options.adapterPool, options.db, options.onHarnessRedetect),
-			);
-		}
-		// AU26 E4: `/api/connections` is served by `agent-orchestration`'s own
-		// app now (its whole table set is `service_connections`, which that Layer
-		// owns). Same path, other host — see `createAgentOrchestrationApp`.
+		// createActionsRouter above.
+		// AU26 E4: `/api/connections` was served by `agent-orchestration`'s own
+		// app; that route family is deleted too — connections are a
+		// user attribute now, behind `open_user`/`edit_user`.
 		api.route("/search", createSearchRoutes(options.db, eventBus, searchDocumentsRun));
-		api.route("/settings/agent-behavior", createAgentBehaviorSettingsRoutes(options.db));
+		// @lore BC5 T11: `/settings/agent-behavior` is deleted — behaviour is a
+		// user attribute now, behind `open_user`/`edit_user`.
 		// Plugin management is the platform module now —
 		// `search_plugins`/`edit_plugin`, mounted generically by
 		// `createActionsRouter` above (`compose.ts`'s fourth action group).
 		// `routes/plugins.ts` and its six routes are deleted.
-		api.route("/notifications", createNotificationRoutes(options.db, { deps: notificationsDeps }));
+		// @lore BC5 T7b: `/notifications` is deleted with the notification
+		// queue — a person's inbox is `open_user({}).inbox` now.
 
 		const db = options.db;
 		const disposers: Array<() => void> = [];
@@ -607,6 +602,7 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 				editTask,
 				sendMessage,
 				adjustThread: adjustThreadRun,
+				editUser: editUserRun,
 			}) ?? [];
 		disposers.push(...serviceDisposers);
 
@@ -617,20 +613,24 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		// exclusively calls task's own table paths, so `task` is its correct
 		// home. §6 row 2: it now writes through `edit_task` instead of the
 		// deleted `transitionTask`, injected as a plain function (Mechanism C).
-		const unsubDepWatcher = eventBus.on("task_state_changed", (event) => {
-			if (event.toState === "done") {
+		// The deleted `task_state_changed` event is gone from this path —
+		// `task.changed` carries the row, and `change.after.state` is present
+		// only when the edit moved the state (the diff-only shape `edit_task`
+		// already writes).
+		const unsubDepWatcher = eventBus.on("task.changed", (event) => {
+			if (event.change.after.state === "done") {
 				void checkAndUnblockDependents(
 					{ actor: "system:propagation", db, eventBus, now: new Date().toISOString() },
-					event.taskId,
+					event.change.objectId,
 					editTask,
 				).catch((err) => {
 					appLogger.error("[dep-watcher] unblock failed for task", {
-						taskId: event.taskId,
+						taskId: event.change.objectId,
 						error: err instanceof Error ? err.message : String(err),
 					});
 				});
 			}
-			// @lore BA6: NOT subscribed here on `toState === "killed"` — unlike the
+			// @lore BA6: NOT subscribed here on `state === "killed"` — unlike the
 			// `done` reaction above, a killed dependency's reset has to be visible
 			// the moment the kill's own response returns. Subscribing here would
 			// race `cascadeTaskKill`'s own synchronous per-task loop and
@@ -639,6 +639,18 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 			// itself, awaited, right after each task's kill transition.
 		});
 		disposers.push(unsubDepWatcher);
+
+		// The subscription fire mechanism and its
+		// schedule half, registered beside the dependency watcher above.
+		// Extracted the same way `buildCoreActionsBindings` was — this
+		// function's own cognitive-complexity budget is already spent.
+		disposers.push(
+			...registerSubscriptionServices(options, db, eventBus, agentWorkIntentRecorder, {
+				searchTasksRun,
+				searchThreadsRun,
+				searchDocumentsRun,
+			}),
+		);
 
 		APP_DISPOSERS.set(api, disposers);
 	}

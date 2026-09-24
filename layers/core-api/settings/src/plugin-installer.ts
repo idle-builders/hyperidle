@@ -49,7 +49,7 @@ import type {
 	ParsedContribution,
 	ParsedMcpServer,
 	ParsedPluginAgent,
-	ParsedPluginRoutine,
+	ParsedPluginSubscription,
 	ParsedSkill,
 } from "./plugin-manifest.js";
 import { parsePluginManifest } from "./plugin-manifest.js";
@@ -114,11 +114,11 @@ export type InstallPluginResult =
 			 */
 			agents: readonly ParsedPluginAgent[];
 			/**
-			 * Routines declared in extensions["io.hyperidle"].routines[].
-			 * The core-api route handler materializes them as routines rows via insertRoutine.
-			 * @lore BA9d: settings cannot write routines (owned by routine service).
+			 * Subscriptions declared in extensions["io.hyperidle"].subscriptions[].
+			 * The core-api route handler materializes them as subscriptions rows.
+			 * @lore BA9d: settings cannot write subscriptions (owned by the user module).
 			 */
-			routines: readonly ParsedPluginRoutine[];
+			subscriptions: readonly ParsedPluginSubscription[];
 			scopeKind: string;
 			scopeId: string | null;
 			installTs: string;
@@ -263,7 +263,7 @@ async function removeStaleDefaults(
  * when syncing skills through the document service (governance boundary).
  *
  * @lore document-module B10 follow-up: `scopeKind`/`scopeId` join the hash the
- * same way `agentItemId`/`routineItemId` already fold them in — a factory
+ * same way `agentItemId`/`subscriptionItemId` already fold them in — a factory
  * install's suffix is empty, so its id is byte-identical to before this
  * change (there is no pre-existing factory-scoped id to migrate); a
  * team-scoped install's id now carries the team, so two teams installing the
@@ -300,9 +300,10 @@ export function skillItemId(
  * constant), while a team-scoped install produces ONE row PER team (different
  * teamId → different hash → different row). This is the entire mechanism that
  * guarantees "global upkeep runs once, not once per team" for factory-scoped
- * plugins like document-management: the scheduler sees one routine row and
- * fires it once. A team-scoped plugin gets one routine per team, which is the
- * correct per-team behaviour. The same id derivation must be used wherever
+ * plugins like document-management: the subscription clock sees one
+ * subscription row and fires it once. A team-scoped plugin gets one
+ * subscription per team, which is the correct per-team behaviour. The same
+ * id derivation must be used wherever
  * these rows are looked up — the test for two-team installs guards this.
  */
 export function agentItemId(
@@ -315,11 +316,17 @@ export function agentItemId(
 }
 
 /**
- * Stable DB id for a plugin-declared routine.
+ * Stable DB id for a plugin-declared subscription.
  * Deterministic from pluginId + localId + install scope.
  * See @lore on agentItemId — same scope guarantee applies.
+ *
+ * @lore BC5 T7b: renamed from `routineItemId` — the hash input literal
+ * ("plugin-routine\0...") stays byte-for-byte unchanged on purpose, so an
+ * already-installed plugin's subscription id does not churn on reinstall
+ * (migration 0089 converts its routine row to a subscription under this
+ * SAME id).
  */
-export function routineItemId(
+export function subscriptionItemId(
 	pluginId: string,
 	localId: string,
 	scopeKind: string,
@@ -550,7 +557,7 @@ export async function installPlugin(
 			plugin: pluginFromRow(row, manifest.warnings),
 			skills: manifest.skills,
 			agents: manifest.agents,
-			routines: manifest.routines,
+			subscriptions: manifest.subscriptions,
 			scopeKind: input.scope.kind,
 			scopeId: input.scope.teamId ?? null,
 			installTs: ts,
@@ -600,11 +607,11 @@ export async function getInstalledPlugin(
  * handles this automatically.
  *
  * @lore BA9d: This function only flips plugins.state. The real disable work —
- * deactivating materialised routines, agents, and skills that the plugin
- * created — lives in the route handler (layers/core-api/src/routes/plugins.ts).
- * Settings cannot write to routines, users, or documents (governance
- * boundary). Both must succeed or the plugin is in a split state; the route
- * runs this call first and the row-cleanup second, inside a try/catch.
+ * deactivating materialised subscriptions, agents, and skills that the
+ * plugin created — lives in `platform-actions.ts`. Settings cannot write to
+ * subscriptions, users, or documents (governance boundary). Both must
+ * succeed or the plugin is in a split state; `platform-actions.ts` runs this
+ * call first and the row-cleanup second, inside a try/catch.
  */
 export async function disablePlugin(
 	db: HyperIdleDb,
@@ -652,12 +659,13 @@ export async function removePlugin(db: HyperIdleDb, pluginId: string, now?: stri
 		.delete(pluginConfigurationDefaults)
 		.where(eq(pluginConfigurationDefaults.pluginId, pluginId));
 	// Step 2: mark plugin as removed (restrict constraint now satisfied)
-	// @lore BA9d: All domain-row cleanup (routines, agents, skills) happens
-	// in the route handler after this call — settings cannot write to those
-	// tables (governance boundary). The route wraps both calls; if this
-	// succeeds but the row cleanup fails, the plugin is in state='removed'
-	// with its rows still live. The route catches that and returns
-	// REMOVE_CLEANUP_FAILED rather than silently leaving a split state.
+	// @lore BA9d: All domain-row cleanup (subscriptions, agents, skills)
+	// happens in `platform-actions.ts` after this call — settings cannot
+	// write to those tables (governance boundary). `platform-actions.ts`
+	// wraps both calls; if this succeeds but the row cleanup fails, the
+	// plugin is in state='removed' with its rows still live. It catches that
+	// and returns REMOVE_CLEANUP_FAILED rather than silently leaving a split
+	// state.
 	await db
 		.update(plugins)
 		.set({ state: "removed", removedAt: ts, updatedAt: ts })

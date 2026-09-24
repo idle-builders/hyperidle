@@ -35,10 +35,6 @@ describe("AG4 — parentPathFor", () => {
 			expect(parentPathFor("/work/task/xyz-456")).toBe("/work");
 		});
 
-		it("routine detail → /work (was /work/portfolio)", () => {
-			expect(parentPathFor("/work/routine/routine-1")).toBe("/work");
-		});
-
 		it("team detail → /work (was /work/portfolio)", () => {
 			expect(parentPathFor("/work/team/team-1")).toBe("/work");
 		});

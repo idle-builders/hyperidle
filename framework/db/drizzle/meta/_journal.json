@@ -610,6 +610,27 @@
 			"when": 1789813681807,
 			"tag": "0087_drop_server_credentials",
 			"breakpoints": true
+		},
+		{
+			"idx": 88,
+			"version": "7",
+			"when": 1789900081807,
+			"tag": "0088_user_subscriptions",
+			"breakpoints": true
+		},
+		{
+			"idx": 89,
+			"version": "7",
+			"when": 1789986481807,
+			"tag": "0089_routines_become_subscriptions",
+			"breakpoints": true
+		},
+		{
+			"idx": 90,
+			"version": "7",
+			"when": 1790072881807,
+			"tag": "0090_team_is_a_name",
+			"breakpoints": true
 		}
 	]
 }

@@ -29,7 +29,6 @@ async function seedTeamAndAgent(db: HyperIdleDb): Promise<void> {
 	await db.insert(teams).values({
 		id: "team-1",
 		name: "Test Team",
-		phase: "build",
 		createdAt: new Date().toISOString(),
 	});
 	await db.insert(users).values({

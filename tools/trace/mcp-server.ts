@@ -150,7 +150,7 @@ server.registerTool(
 	{
 		title: "Trace an event",
 		description:
-			"Show who publishes and who handles a given event, and what each handler does. Events are how parts of HyperIdle react to things that happened (for example session_ended or task_state_changed). Pass event='__list__' to see every event with publish/handle counts. USE WHEN you want to know what happens when something happens; what reacts to / is triggered by / listens to / handles / subscribes to an event; where an event comes from or who emits / publishes / fires it; or what side effects or cascades follow an event.",
+			"Show who publishes and who handles a given event, and what each handler does. Events are how parts of HyperIdle react to things that happened (for example session_ended or task.changed). Pass event='__list__' to see every event with publish/handle counts. USE WHEN you want to know what happens when something happens; what reacts to / is triggered by / listens to / handles / subscribes to an event; where an event comes from or who emits / publishes / fires it; or what side effects or cascades follow an event.",
 		inputSchema: asMcpInputSchema(z.object({ event: z.string() })),
 	},
 	({ event }: EventArgs) => {

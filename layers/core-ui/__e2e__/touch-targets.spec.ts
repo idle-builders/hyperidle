@@ -22,11 +22,14 @@
 import {
 	expect,
 	makeTask,
-	makeTaskCardSummary,
 	makeTaskNode,
+	makeUserRow,
+	mockAgents,
+	mockSearchSessions,
 	mockSearchThreads,
+	mockSearchUsers,
 	mockTaskTree,
-	mockTeamDetail,
+	mockTeamPage,
 	type Page,
 	test,
 } from "./fixtures";
@@ -37,10 +40,10 @@ const MIN_TOUCH_PX = 44;
 // L9: /conversations/review and /conversations/chat replaced by /conversations.
 const ROUTES = [
 	{ path: "/conversations", selector: "[data-testid='conversations-page']" },
-	{ path: "/work/portfolio", selector: "[data-testid='work-portfolio-page']" },
+	{ path: "/work/portfolio", selector: "[data-testid='work-overview-page']" },
 	// @lore L13: /work/team was removed; route redirects to /work/portfolio.
-	// Replaced with the product drilldown (hermetic via /api/teams/p1 mock).
-	{ path: "/work/product/p1", selector: "[data-testid='work-product-page']" },
+	// Replaced with the product drilldown (hermetic via mockTeamPage).
+	{ path: "/work/product/p1", selector: "[data-testid='work-team-page']" },
 	{ path: "/work/task/task-a11y-1", selector: "[data-testid='task-detail-page']" },
 	{ path: "/documents", selector: "[data-testid='document-list-page']" },
 	{ path: "/documents/k1", selector: "[data-testid='document-detail-page']" },
@@ -167,18 +170,18 @@ test.describe("K8 — Touch-target audit at mobile viewport (≤ 1024px)", () =>
 				}),
 			],
 		});
-		await mockTeamDetail(page, {
+		const roster = [makeUserRow("agent-1", { kind: "ai", name: "Alice", role: "Lead Engineer" })];
+		await mockSearchUsers(page, { rows: roster });
+		await mockTeamPage(page, {
 			teamId: "p1",
-			name: "Alpha",
-			roster: [{ agentId: "agent-1", name: "Alice", role: "Lead Engineer", isLead: true }],
+			teamName: "Alpha",
+			roster,
 			tasksInProgress: [
-				makeTaskCardSummary("task-a11y-1", {
-					title: "User auth flow",
-					progressDone: 3,
-					progressTotal: 8,
-				}),
+				makeTask("task-a11y-1", { teamId: "p1", title: "User auth flow", state: "in_progress" }),
 			],
 		});
+		await mockAgents(page, { agents: [] });
+		await mockSearchSessions(page, { rows: [] });
 	});
 
 	for (const route of ROUTES) {

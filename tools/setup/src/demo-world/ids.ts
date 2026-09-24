@@ -20,7 +20,7 @@ export const GROWTH_ID = "demo-agent-growth";
 /**
  * @lore BA9d: seed-agent-pf-facilitation removed from factory bootstrap.
  * Knowledge-management plugin will provide facilitators. Demo world uses
- * the demo founder's assistant as stand-in for knowledge-routine activity.
+ * the demo founder's assistant as stand-in for knowledge-subscription activity.
  */
 export const FACILITATOR_ID = "ast-demo-founder";
 export const PROPAGATION_ID = "system:propagation";
@@ -115,11 +115,12 @@ export const KI_PRICING_TIERS = "demo-ki-two-tier-pricing";
 export const KI_TRIAL_RETRO = "demo-ki-retro-trial-extension";
 export const KI_MOBILE_POSTMORTEM = "demo-ki-postmortem-mobile";
 
-// ── Routines ────────────────────────────────────────────────────────────────
-// @lore BA9d: ritual routine ids (post-task retro, knowledge decay, knowledge
-// promotion) removed from the demo world — the plugin owns them now. Only the
-// skeleton's daily digest remains here; all other routines come from plugins.
-export const ROUTINE_DAILY_DIGEST = "demo-routine-daily_digest";
+// @lore BA9d: ritual subscription ids (post-task retro, knowledge decay,
+// knowledge promotion) removed from the demo world — the plugin owns them now.
+// @lore BC5 T7b: `ROUTINE_DAILY_DIGEST` deleted — the daily-digest
+// subscription's run-history row (`routine_runs`) is gone with the table;
+// `demo-fixture.ts` still seeds the (now paused) subscription itself, under
+// the same literal id.
 
 // ── Sessions (only the ones other rows reference) ───────────────────────────
 export const SESSION_ACTIVE_COPY = "demo-session-pricing-copy-live";

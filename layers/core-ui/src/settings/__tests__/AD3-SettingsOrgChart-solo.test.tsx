@@ -8,14 +8,15 @@
  * When there are 2+ human users:
  *   - The normal table / "Add Edge" button is shown
  *   - The contextual message is NOT shown
+ *
+ * @lore BC5 T9: door swap — `call("search_users", {})` replaces `GET /api/org`.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../../services/api-fetch.js", () => ({
-	apiFetch: vi.fn(),
-}));
+const { callMock } = vi.hoisted(() => ({ callMock: vi.fn() }));
+vi.mock("../../services/call.js", () => ({ call: callMock }));
 
 // Mock useToast
 const mockShowToast = vi.fn();
@@ -29,20 +30,29 @@ vi.mock("../../shell/ToastRegion.js", async () => {
 
 import { SettingsOrgChart } from "../SettingsOrgChart";
 
-type OrgUser = { id: string; kind: string; name: string; role: string };
+type MockUserRow = { id: string; kind: string; name: string; role: string; team: null; edges: [] };
 
-function makeOrgResponse(users: OrgUser[], edges: unknown[] = [], teams: unknown[] = []): Response {
-	// AF15: GET /api/org now returns { edges, users, teams }
-	return new Response(JSON.stringify({ edges, users, teams }), { status: 200 });
+function mkUser(overrides: Partial<MockUserRow> = {}): MockUserRow {
+	return {
+		id: overrides.id ?? "u1",
+		kind: overrides.kind ?? "human",
+		name: overrides.name ?? "User",
+		role: overrides.role ?? "member",
+		team: null,
+		edges: [],
+	};
+}
+
+function setupCall(users: MockUserRow[]): void {
+	callMock.mockImplementation((name: string) => {
+		if (name === "search_users") return Promise.resolve({ ok: true, data: users });
+		return Promise.resolve({ ok: false, problems: [{ code: "unmocked", message: name }] });
+	});
 }
 
 describe("AD3 AC-2: SettingsOrgChart — solo contextual message", () => {
-	let fetchSpy: ReturnType<typeof vi.fn>;
-
-	beforeEach(async () => {
-		const { apiFetch } = await import("../../services/api-fetch.js");
-		fetchSpy = vi.mocked(apiFetch);
-		fetchSpy.mockReset();
+	beforeEach(() => {
+		callMock.mockReset();
 		mockShowToast.mockClear();
 	});
 
@@ -51,11 +61,10 @@ describe("AD3 AC-2: SettingsOrgChart — solo contextual message", () => {
 	});
 
 	it("shows contextual message when there is exactly 1 human user", async () => {
-		const users: OrgUser[] = [
-			{ id: "u1", kind: "human", name: "Solo Founder", role: "owner" },
-			{ id: "a1", kind: "agent", name: "Helper Bot", role: "agent" },
-		];
-		fetchSpy.mockResolvedValueOnce(makeOrgResponse(users));
+		setupCall([
+			mkUser({ id: "u1", kind: "human", name: "Solo Founder", role: "owner" }),
+			mkUser({ id: "a1", kind: "ai", name: "Helper Bot", role: "agent" }),
+		]);
 		render(<SettingsOrgChart />);
 
 		await waitFor(() => {
@@ -68,10 +77,7 @@ describe("AD3 AC-2: SettingsOrgChart — solo contextual message", () => {
 	});
 
 	it("does NOT render the edge table when solo (but does render Add Edge form)", async () => {
-		// AF15: Solo short-circuit relaxed. Table is still hidden (no edges), but
-		// the Add Edge form/button is now shown (with guidance hint above it).
-		const users: OrgUser[] = [{ id: "u1", kind: "human", name: "Solo Founder", role: "owner" }];
-		fetchSpy.mockResolvedValueOnce(makeOrgResponse(users));
+		setupCall([mkUser({ id: "u1", kind: "human", name: "Solo Founder", role: "owner" })]);
 		render(<SettingsOrgChart />);
 
 		await waitFor(() => {
@@ -86,11 +92,7 @@ describe("AD3 AC-2: SettingsOrgChart — solo contextual message", () => {
 	});
 
 	it("DOES render the Add Edge button when solo (AF15: solo short-circuit relaxed)", async () => {
-		// AF15: The design spec relaxed solo mode — the founder must be able to create
-		// function edges even as the only human. The hint is shown above the form,
-		// but the form and Add Edge button are still rendered.
-		const users: OrgUser[] = [{ id: "u1", kind: "human", name: "Solo Founder", role: "owner" }];
-		fetchSpy.mockResolvedValueOnce(makeOrgResponse(users));
+		setupCall([mkUser({ id: "u1", kind: "human", name: "Solo Founder", role: "owner" })]);
 		render(<SettingsOrgChart />);
 
 		await waitFor(() => {
@@ -105,11 +107,10 @@ describe("AD3 AC-2: SettingsOrgChart — solo contextual message", () => {
 	});
 
 	it("shows the full org chart UI when there are 2 human users", async () => {
-		const users: OrgUser[] = [
-			{ id: "u1", kind: "human", name: "Alice", role: "owner" },
-			{ id: "u2", kind: "human", name: "Bob", role: "member" },
-		];
-		fetchSpy.mockResolvedValueOnce(makeOrgResponse(users));
+		setupCall([
+			mkUser({ id: "u1", kind: "human", name: "Alice", role: "owner" }),
+			mkUser({ id: "u2", kind: "human", name: "Bob", role: "member" }),
+		]);
 		render(<SettingsOrgChart />);
 
 		await waitFor(() => {
@@ -124,9 +125,7 @@ describe("AD3 AC-2: SettingsOrgChart — solo contextual message", () => {
 	});
 
 	it("does NOT show solo message when org has only agents (humanCount = 0)", async () => {
-		// 0 humans: show normal UI (not solo message — solo is only for === 1 human)
-		const users: OrgUser[] = [{ id: "a1", kind: "agent", name: "Bot", role: "agent" }];
-		fetchSpy.mockResolvedValueOnce(makeOrgResponse(users));
+		setupCall([mkUser({ id: "a1", kind: "ai", name: "Bot", role: "agent" })]);
 		render(<SettingsOrgChart />);
 
 		await waitFor(() => {

@@ -53,7 +53,7 @@ function makeSandbox(): { readonly root: string; readonly manifestPath: string }
 
 /** Seeds the team + agent every test writes back as. */
 async function seedAgent(db: HyperIdleDb): Promise<void> {
-	await db.insert(teams).values({ id: TEAM_ID, name: "T", phase: "build", createdAt: NOW });
+	await db.insert(teams).values({ id: TEAM_ID, name: "T", createdAt: NOW });
 	await db.insert(users).values({
 		id: AGENT_ID,
 		kind: "ai",

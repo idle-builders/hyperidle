@@ -43,8 +43,7 @@ import {
 } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { assembleSessionDocuments } from "@hyperidle/document";
-import { getTeam } from "@hyperidle/org";
-import { requireRunnableAgent } from "@hyperidle/users";
+import { getTeam, requireRunnableAgent } from "@hyperidle/user";
 import { and, eq } from "drizzle-orm";
 
 /**
@@ -93,9 +92,7 @@ async function seedTeamAndRootTask(
 	options: { readonly teamId: string; readonly rootTaskId: string },
 ): Promise<void> {
 	const now = new Date().toISOString();
-	await db
-		.insert(teams)
-		.values({ id: options.teamId, name: options.teamId, phase: "build", createdAt: now });
+	await db.insert(teams).values({ id: options.teamId, name: options.teamId, createdAt: now });
 	const threadId = await seedThreadForTask(db, options.rootTaskId);
 	await db.insert(tasks).values({
 		id: options.rootTaskId,
@@ -362,7 +359,7 @@ describe("resolveTaskRunRequest — emit-time task_run resolver (work)", () => {
  * resolver's `requireRunnableAgent` injection precedent. The real emit sites
  * (`task-state-machine.ts`, `bet-decomposition.ts`, `handoff-protocol.ts`) are
  * core-api Layer code, not nested Services, so they may legitimately import
- * both `@hyperidle/org` and `@hyperidle/document` to wire the real
+ * both `@hyperidle/user` and `@hyperidle/document` to wire the real
  * implementations in — this test does the same (test files are
  * guard-exempt — `scripts/composition-boundary-guard.ts` skips `__tests__/`).
  *

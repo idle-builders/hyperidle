@@ -1,23 +1,24 @@
 /**
- * Q1 — AC2: useRecipients hook.
+ * useRecipients hook.
  *
- * Architecture plan §4.8: fetches GET /api/recipients?q=<query>.
- * Exposes status/recipients/error with client-side filtering for instant feedback.
- *
- * @lore `GET /api/agent-orchestration/runs/active-counts` is deleted; the
- * hook now calls `search_sessions({ state: "active" })` — `POST
- * /api/actions/search_sessions` — and counts the active rows per agent
- * itself, so `hasActiveSession` renders exactly as before. The stub below
- * routes by URL for exactly that reason.
+ * @lore BC5 T9: the door swap — `call("search_users", { status: "active", name?
+ * })` replaces `apiFetch("/api/recipients")`. `search_sessions` (the active-session
+ * count) is untouched. `call` is mocked directly (the same idiom SettingsPlugins'
+ * own test uses); the two calls are routed by action name.
  */
 
 import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const { callMock } = vi.hoisted(() => ({ callMock: vi.fn() }));
+
+vi.mock("../../services/call.js", () => ({ call: callMock }));
+
 import { useRecipients } from "../useRecipients.js";
 
-interface MockRecipient {
+interface MockUserRow {
 	id: string;
-	kind: "agent" | "user";
+	kind: "human" | "ai";
 	name: string;
 	role: string;
 	status: string;
@@ -30,10 +31,10 @@ interface MockSessionRow {
 	state: string | null;
 }
 
-function mkRecipient(overrides: Partial<MockRecipient> = {}): MockRecipient {
+function mkUserRow(overrides: Partial<MockUserRow> = {}): MockUserRow {
 	return {
 		id: overrides.id ?? "agent-1",
-		kind: overrides.kind ?? "agent",
+		kind: overrides.kind ?? "ai",
 		name: overrides.name ?? "Test Agent",
 		role: overrides.role ?? "builder",
 		status: overrides.status ?? "active",
@@ -41,10 +42,10 @@ function mkRecipient(overrides: Partial<MockRecipient> = {}): MockRecipient {
 	};
 }
 
-const MOCK_RECIPIENTS: MockRecipient[] = [
-	mkRecipient({ id: "agent-builder", name: "Builder Bot", kind: "agent" }),
-	mkRecipient({ id: "agent-growth", name: "Growth Engine", kind: "agent" }),
-	mkRecipient({ id: "user-founder", name: "Founder", kind: "user", role: "founder" }),
+const MOCK_USERS: MockUserRow[] = [
+	mkUserRow({ id: "agent-builder", name: "Builder Bot", kind: "ai" }),
+	mkUserRow({ id: "agent-growth", name: "Growth Engine", kind: "ai" }),
+	mkUserRow({ id: "user-founder", name: "Founder", kind: "human", role: "founder" }),
 ];
 
 /** Only `agent-builder` has an active session. */
@@ -52,41 +53,28 @@ const MOCK_ACTIVE_SESSIONS: MockSessionRow[] = [
 	{ id: "session-1", agentId: "agent-builder", state: "active" },
 ];
 
-/**
- * Route the two calls the hook makes: core-api's recipient list and
- * `search_sessions({ state: "active" })`.
- */
-function stubFetch(
-	recipients: MockRecipient[],
+/** Route the two actions the hook calls: `search_users` and `search_sessions`. */
+function setupCall(
+	users: MockUserRow[],
 	activeSessions: MockSessionRow[] = MOCK_ACTIVE_SESSIONS,
-): ReturnType<typeof vi.fn> {
-	const fetchMock = vi.fn().mockImplementation((url: string) =>
-		Promise.resolve({
-			ok: true,
-			json: () =>
-				Promise.resolve(
-					url === "/api/actions/search_sessions"
-						? { ok: true, data: activeSessions }
-						: { recipients },
-				),
-		}),
-	);
-	global.fetch = fetchMock as unknown as typeof fetch;
-	return fetchMock;
+): void {
+	callMock.mockImplementation((name: string) => {
+		if (name === "search_sessions") return Promise.resolve({ ok: true, data: activeSessions });
+		return Promise.resolve({ ok: true, data: users });
+	});
 }
 
-describe("useRecipients (Q1 §4.8)", () => {
+describe("useRecipients", () => {
 	beforeEach(() => {
-		vi.restoreAllMocks();
+		callMock.mockReset();
 	});
 
 	afterEach(() => {
 		vi.restoreAllMocks();
 	});
 
-	// AC2: transitions loading → ready and exposes recipients
 	it("transitions loading → ready and exposes mapped recipients", async () => {
-		stubFetch(MOCK_RECIPIENTS);
+		setupCall(MOCK_USERS);
 
 		const { result } = renderHook(() => useRecipients());
 		expect(result.current.status).toBe("loading");
@@ -96,47 +84,45 @@ describe("useRecipients (Q1 §4.8)", () => {
 		});
 		expect(result.current.recipients.length).toBe(3);
 		expect(result.current.recipients[0]!.id).toBe("agent-builder");
+		// human/ai maps to the door's user/agent recipient kind.
+		expect(result.current.recipients.find((r) => r.id === "agent-builder")?.kind).toBe("agent");
+		expect(result.current.recipients.find((r) => r.id === "user-founder")?.kind).toBe("user");
 	});
 
-	// AC2: search query is passed to the fetch URL
-	it("includes query param in fetch URL when query provided", async () => {
-		const fetchMock = stubFetch([]);
+	it("passes the query as search_users' name filter", async () => {
+		setupCall([]);
 
 		const { result } = renderHook(() => useRecipients("builder"));
 		await waitFor(() => expect(result.current.status).toBe("ready"));
 
-		const url = fetchMock.mock.calls
-			.map((call) => call[0] as string)
-			.find((u) => u.includes("/api/recipients"));
-		expect(url).toContain("builder");
+		expect(callMock).toHaveBeenCalledWith(
+			"search_users",
+			expect.objectContaining({ status: "active", name: "builder" }),
+			expect.anything(),
+		);
 	});
 
-	// AC2: error state when fetch fails
-	it("surfaces error when fetch fails", async () => {
-		global.fetch = vi.fn().mockResolvedValue({
-			ok: false,
-			status: 500,
-		}) as unknown as typeof fetch;
+	it("surfaces error when the action fails", async () => {
+		callMock.mockImplementation((name: string) => {
+			if (name === "search_sessions") return Promise.resolve({ ok: true, data: [] });
+			return Promise.resolve({ ok: false, problems: [{ code: "server_error", message: "Boom" }] });
+		});
 
 		const { result } = renderHook(() => useRecipients());
 		await waitFor(() => expect(result.current.status).toBe("error"));
 		expect(result.current.error).not.toBeNull();
 	});
 
-	// AC2: network error
-	it("surfaces error when network throws", async () => {
-		global.fetch = vi
-			.fn()
-			.mockRejectedValue(new TypeError("Network error")) as unknown as typeof fetch;
+	it("surfaces error when the door throws", async () => {
+		callMock.mockRejectedValue(new TypeError("Network error"));
 
 		const { result } = renderHook(() => useRecipients());
 		await waitFor(() => expect(result.current.status).toBe("error"));
 		expect(result.current.error).not.toBeNull();
 	});
 
-	// AC2: hasActiveSession is derived from search_sessions' active rows
 	it("derives hasActiveSession from the active session rows", async () => {
-		stubFetch(MOCK_RECIPIENTS);
+		setupCall(MOCK_USERS);
 
 		const { result } = renderHook(() => useRecipients());
 		await waitFor(() => expect(result.current.status).toBe("ready"));
@@ -148,20 +134,16 @@ describe("useRecipients (Q1 §4.8)", () => {
 		expect(growth?.hasActiveSession).toBe(false);
 	});
 
-	// A search_sessions failure degrades to "nobody is busy", not a failed picker
 	it("degrades to no active sessions when search_sessions answers a problem", async () => {
-		const fetchMock = vi.fn().mockImplementation((url: string) =>
-			Promise.resolve({
-				ok: true,
-				json: () =>
-					Promise.resolve(
-						url === "/api/actions/search_sessions"
-							? { ok: false, problems: [{ code: "server_error", message: "Boom" }] }
-							: { recipients: MOCK_RECIPIENTS },
-					),
-			}),
-		);
-		global.fetch = fetchMock as unknown as typeof fetch;
+		callMock.mockImplementation((name: string) => {
+			if (name === "search_sessions") {
+				return Promise.resolve({
+					ok: false,
+					problems: [{ code: "server_error", message: "Boom" }],
+				});
+			}
+			return Promise.resolve({ ok: true, data: MOCK_USERS });
+		});
 
 		const { result } = renderHook(() => useRecipients());
 		await waitFor(() => expect(result.current.status).toBe("ready"));
@@ -169,9 +151,8 @@ describe("useRecipients (Q1 §4.8)", () => {
 		expect(result.current.recipients.every((r) => r.hasActiveSession === false)).toBe(true);
 	});
 
-	// AC2: empty recipients list returns ready with empty array
-	it("returns ready with empty recipients on empty server response", async () => {
-		stubFetch([]);
+	it("returns ready with empty recipients on empty response", async () => {
+		setupCall([]);
 
 		const { result } = renderHook(() => useRecipients());
 		await waitFor(() => expect(result.current.status).toBe("ready"));

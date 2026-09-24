@@ -42,7 +42,6 @@ async function seedAgentInTeam(
 	await db.insert(teams).values({
 		id: rootTeamId,
 		name: "Live Proof Team",
-		phase: "build",
 		createdAt: new Date().toISOString(),
 	});
 	const agentId = randomUUID();

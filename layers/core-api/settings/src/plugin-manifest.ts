@@ -13,7 +13,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, resolve, sep } from "node:path";
 import type { ConfigurationKind } from "@hyperidle/domain-model";
-import { BUILTIN_PLUGIN_ID, CONFIGURATION_KINDS } from "@hyperidle/domain-model";
+import { BUILTIN_PLUGIN_ID, CONFIGURATION_KINDS, OBJECT_EVENTS } from "@hyperidle/domain-model";
 
 // ---------------------------------------------------------------------------
 // Spec constants
@@ -94,7 +94,7 @@ export interface ParsedSkill {
 
 /**
  * An agent declared in extensions["io.hyperidle"].agents[].
- * The `id` is a local key used to reference the agent from routines.
+ * The `id` is a local key used to reference the agent from subscriptions.
  * The route handler computes the stable DB id from pluginId + localId.
  */
 export interface ParsedPluginAgent {
@@ -114,17 +114,22 @@ export interface ParsedPluginAgent {
 }
 
 /**
- * A routine declared in extensions["io.hyperidle"].routines[].
- * `agentId` references a ParsedPluginAgent.id within this manifest.
- * The route handler computes stable DB ids for both the routine and agent.
+ * A subscription declared in extensions["io.hyperidle"].subscriptions[].
+ * `agentId` references a ParsedPluginAgent.id within this manifest. Exactly
+ * one of `event`/`schedule` is set (`edit_user`'s own subscription
+ * invariant). The route handler computes stable DB ids for both the
+ * subscription and agent.
+ *
+ * @lore BC5 T7b: renamed from `ParsedPluginRoutine` — `triggerType`/
+ * `triggerConfig`/`eventType` collapse into `event`/`schedule`, matching
+ * `subscriptions`' own two-trigger shape (migration 0088).
  */
-export interface ParsedPluginRoutine {
+export interface ParsedPluginSubscription {
 	readonly id: string;
 	readonly name: string;
 	readonly agentId: string;
-	readonly triggerType: string;
-	readonly triggerConfig: string | null;
-	readonly eventType: string | null;
+	readonly event: string | null;
+	readonly schedule: string | null;
 	readonly prompt: string | null;
 }
 
@@ -152,8 +157,8 @@ export interface PluginManifest {
 	readonly mcpServers: ParsedMcpServer[];
 	/** Agents declared in extensions["io.hyperidle"].agents[]. */
 	readonly agents: ParsedPluginAgent[];
-	/** Routines declared in extensions["io.hyperidle"].routines[]. */
-	readonly routines: ParsedPluginRoutine[];
+	/** Subscriptions declared in extensions["io.hyperidle"].subscriptions[]. */
+	readonly subscriptions: ParsedPluginSubscription[];
 }
 
 export type ManifestParseResult =
@@ -248,10 +253,10 @@ export function parsePluginManifest(pluginRoot: string): ManifestParseResult {
 		}
 	}
 
-	// Extract contributions, agents, and routines from our namespace
+	// Extract contributions, agents, and subscriptions from our namespace
 	const contributions: ParsedContribution[] = [];
 	const agents: ParsedPluginAgent[] = [];
-	const routines: ParsedPluginRoutine[] = [];
+	const subscriptions: ParsedPluginSubscription[] = [];
 	if (ourExtension !== undefined) {
 		if (typeof ourExtension === "object" && ourExtension !== null && !Array.isArray(ourExtension)) {
 			const ext = ourExtension as Record<string, unknown>;
@@ -267,10 +272,10 @@ export function parsePluginManifest(pluginRoot: string): ManifestParseResult {
 					if (agent) agents.push(agent);
 				}
 			}
-			if (Array.isArray(ext.routines)) {
-				for (const item of ext.routines) {
-					const routine = parsePluginRoutine(item, warnings);
-					if (routine) routines.push(routine);
+			if (Array.isArray(ext.subscriptions)) {
+				for (const item of ext.subscriptions) {
+					const subscription = parsePluginSubscription(item, warnings);
+					if (subscription) subscriptions.push(subscription);
 				}
 			}
 		}
@@ -300,7 +305,7 @@ export function parsePluginManifest(pluginRoot: string): ManifestParseResult {
 			skills,
 			mcpServers,
 			agents,
-			routines,
+			subscriptions,
 		},
 	};
 }
@@ -550,14 +555,21 @@ function readPluginFile(pluginRoot: string, relativePath: string): string | null
 	}
 }
 
-function parsePluginRoutine(
+/**
+ * @lore BC5 T7b: renamed from `parsePluginRoutine`. `triggerType`/
+ * `triggerConfig`/`eventType` collapse into `event`/`schedule` — exactly
+ * one required, matching `subscriptions_trigger_ck` (migration 0088).
+ * `event` must be one of the nine object events; `schedule` is a bare cron
+ * expression (`subscriptions.schedule`, not a JSON-wrapped trigger config).
+ */
+function parsePluginSubscription(
 	item: unknown,
 	warnings: ManifestWarning[],
-): ParsedPluginRoutine | null {
+): ParsedPluginSubscription | null {
 	if (typeof item !== "object" || item === null || Array.isArray(item)) {
 		warnings.push({
 			code: "INVALID_CONTRIBUTION",
-			message: "Routine entry is not an object — skipped",
+			message: "Subscription entry is not an object — skipped",
 		});
 		return null;
 	}
@@ -565,28 +577,37 @@ function parsePluginRoutine(
 	if (typeof obj.id !== "string" || !obj.id) {
 		warnings.push({
 			code: "INVALID_CONTRIBUTION",
-			message: 'Routine missing required string "id" — skipped',
+			message: 'Subscription missing required string "id" — skipped',
 		});
 		return null;
 	}
 	if (typeof obj.name !== "string" || !obj.name) {
 		warnings.push({
 			code: "INVALID_CONTRIBUTION",
-			message: `Routine "${obj.id}" missing required string "name" — skipped`,
+			message: `Subscription "${obj.id}" missing required string "name" — skipped`,
 		});
 		return null;
 	}
 	if (typeof obj.agentId !== "string" || !obj.agentId) {
 		warnings.push({
 			code: "INVALID_CONTRIBUTION",
-			message: `Routine "${obj.id}" missing required string "agentId" — skipped`,
+			message: `Subscription "${obj.id}" missing required string "agentId" — skipped`,
 		});
 		return null;
 	}
-	if (typeof obj.triggerType !== "string" || !obj.triggerType) {
+	const event = typeof obj.event === "string" ? obj.event : null;
+	const schedule = typeof obj.schedule === "string" ? obj.schedule : null;
+	if ((event === null) === (schedule === null)) {
 		warnings.push({
 			code: "INVALID_CONTRIBUTION",
-			message: `Routine "${obj.id}" missing required string "triggerType" — skipped`,
+			message: `Subscription "${obj.id}" must set exactly one of "event"/"schedule" — skipped`,
+		});
+		return null;
+	}
+	if (event !== null && !OBJECT_EVENTS.includes(event as (typeof OBJECT_EVENTS)[number])) {
+		warnings.push({
+			code: "INVALID_CONTRIBUTION",
+			message: `Subscription "${obj.id}" has invalid "event" ${JSON.stringify(event)} — skipped (valid: ${OBJECT_EVENTS.join(", ")})`,
 		});
 		return null;
 	}
@@ -594,9 +615,8 @@ function parsePluginRoutine(
 		id: obj.id,
 		name: obj.name,
 		agentId: obj.agentId,
-		triggerType: obj.triggerType,
-		triggerConfig: typeof obj.triggerConfig === "string" ? obj.triggerConfig : null,
-		eventType: typeof obj.eventType === "string" ? obj.eventType : null,
+		event,
+		schedule,
 		prompt: typeof obj.prompt === "string" ? obj.prompt : null,
 	};
 }

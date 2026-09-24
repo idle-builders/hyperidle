@@ -29,7 +29,7 @@ const NOW = "2026-08-04T10:00:00.000Z";
 const ENDED_AT = "2026-08-04T11:00:00.000Z";
 
 async function seedRun(db: HyperIdleDb, state: string): Promise<void> {
-	await db.insert(teams).values({ id: "team-1", name: "T", phase: "build", createdAt: NOW });
+	await db.insert(teams).values({ id: "team-1", name: "T", createdAt: NOW });
 	await db.insert(users).values({
 		id: "agent-1",
 		name: "A",

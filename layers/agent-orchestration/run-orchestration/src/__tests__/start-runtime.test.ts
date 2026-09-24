@@ -5,7 +5,7 @@ import type { RuntimeDeps, RuntimeHandle, RuntimePorts } from "../contracts.js";
 import { ConcurrencyLimitError } from "../errors.js";
 
 const state = vi.hoisted(() => ({
-	failRoutineReaper: false,
+	failSandboxReaperStart: false,
 	writebackDispose: vi.fn(),
 	sandboxDispose: vi.fn(),
 	workerDispose: vi.fn(),
@@ -30,11 +30,10 @@ vi.mock("../writeback-processor.js", () => ({
 }));
 vi.mock("../runtime-reapers.js", () => ({
 	createRuntimeReapers: vi.fn(() => ({
-		reapRoutineSessions: vi.fn(async () => {
-			if (state.failRoutineReaper) throw new Error("reaper failed");
-			return 0;
+		startSandboxes: vi.fn(() => {
+			if (state.failSandboxReaperStart) throw new Error("reaper failed");
+			return state.sandboxDispose;
 		}),
-		startSandboxes: vi.fn(() => state.sandboxDispose),
 	})),
 }));
 vi.mock("../worker-ingress.js", () => ({
@@ -81,7 +80,6 @@ function deps(): RuntimeDeps {
 				sandboxes: {} as NonNullable<
 					NonNullable<RuntimeDeps["composition"]["reapers"]>["sandboxes"]
 				>,
-				routines: {} as NonNullable<NonNullable<RuntimeDeps["composition"]["reapers"]>["routines"]>,
 			},
 		},
 	};
@@ -94,7 +92,7 @@ const workerArgs = [
 
 describe("startRuntime resource ownership", () => {
 	afterEach(() => {
-		state.failRoutineReaper = false;
+		state.failSandboxReaperStart = false;
 		state.runSessionThrows = null;
 		vi.clearAllMocks();
 		vi.useRealTimers();
@@ -157,7 +155,7 @@ describe("startRuntime resource ownership", () => {
 
 	it("rolls back resources when a later startup stage fails", async () => {
 		vi.useFakeTimers();
-		state.failRoutineReaper = true;
+		state.failSandboxReaperStart = true;
 		await expect(startRuntime(deps())).rejects.toThrow("reaper failed");
 		expect(state.writebackDispose).toHaveBeenCalledOnce();
 		expect(state.sandboxDispose).not.toHaveBeenCalled();
@@ -178,7 +176,7 @@ describe("startRuntime resource ownership", () => {
 
 	it("preserves the startup failure when rollback disposal also throws", async () => {
 		vi.useFakeTimers();
-		state.failRoutineReaper = true;
+		state.failSandboxReaperStart = true;
 		state.writebackDispose.mockImplementationOnce(() => {
 			throw new Error("rollback dispose failed");
 		});

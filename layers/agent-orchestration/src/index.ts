@@ -25,25 +25,12 @@ export { bootAgentOrchestration } from "./boot.js";
 // AU29 §2.5.3: the first-boot run-config face — the composition roots call this
 // AFTER core-api's applyFactoryCoreState (agent_run_config.agentUserId has an FK
 // to users.id), instead of a database package writing an orchestration-owned table.
-/**
- * AU31 §2.5/§5/§12: the `CoreApiPort` seam's outbound client construction —
- * relocated here from core-api with the tool stack that is its real
- * consumer (`buildRunOrchestrationComposition`, `services/run-orchestration-
- * composition.ts`). `applications/remote-server/src/create-server.ts` needs
- * `createInProcessCoreApiTransport`/`createNetworkCoreApiTransport` directly
- * to build the value it hands into `bootAgentOrchestration`'s `runtime.
- * coreApiTransport` option (§3.2 clause 4's construction-cycle pattern); the
- * rest of this group has the same real production consumer inside this
- * package's own boot and is exposed at the same face for that reason, not
- * only because tests reuse it too.
- */
-export {
-	buildCoreApiPort,
-	createInProcessCoreApiTransport,
-	createNetworkCoreApiTransport,
-	unconfiguredCoreApiTransport,
-	withActorTransport,
-} from "./services/core-api-port-composition.js";
+// @lore BC5 T11: the `CoreApiPort` seam's outbound client construction
+// (`buildCoreApiPort`/`createInProcessCoreApiTransport`/
+// `createNetworkCoreApiTransport`/`unconfiguredCoreApiTransport`/
+// `withActorTransport`, `services/core-api-port-composition.ts`) is DELETED
+// — `create_team`/`add_agent`, its last two tools, are gone with the `org`
+// package they wrote through.
 /**
  * AU31 §2.1(b)/§2.3/§5/§6: the run-orchestration composition — `bootAgent
  * Orchestration`'s own internal consumer. Exposed so a caller with no
@@ -58,13 +45,8 @@ export type {
 	RunOrchestrationReturnStatusToolAdapter,
 } from "./services/run-orchestration-composition.js";
 export { buildRunOrchestrationComposition } from "./services/run-orchestration-composition.js";
-/**
- * AU31 §2.5: the tool stack's own composition — `buildToolHandlersPorts`/
- * `buildToolDefinitions` wire `@hyperidle/tool-handlers`' domain ports to a
- * `CoreApiTransport` value. `buildRunOrchestrationComposition`'s own
- * `toolProvider` is this package's real production consumer; exposed here so
- * a caller building a dispatch against a real app (service-lane tests,
- * `tools/eval`) reaches the SAME wiring production uses instead of a
- * hand-rolled duplicate.
- */
-export { buildToolDefinitions, buildToolHandlersPorts } from "./services/tool-handlers-bindings.js";
+// @lore BC5 T11: the tool stack's own composition
+// (`buildToolHandlersPorts`/`buildToolDefinitions`,
+// `services/tool-handlers-bindings.ts`) is DELETED with the `CoreApiPort`
+// seam it wired `@hyperidle/tool-handlers`' domain ports through —
+// `create_team`/`add_agent` were its only two tools.

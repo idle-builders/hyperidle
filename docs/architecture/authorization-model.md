@@ -72,6 +72,8 @@ Every WebSocket subscribe routes through `canSubscribe` (DB-backed authorizer `c
 - **Global topics** (`conversations`, `work`) — any authenticated identity.
 - **`session:<id>`** — the session must exist and its task host must resolve; valid sessions are host-scope (any authenticated principal), non-existent or unresolvable sessions deny fail-closed.
 - **`thread:<id>`** — the subscriber must be in the thread's `participants` column (participant-scope — the same case `canReadThread` covers for `user`/`agent` hosts).
+- **`document:<id>`** — the same `canReadDocument` predicate `document-actions.ts`'s own read path uses, against the subscriber's subjects and effective team.
+- **`user:<id>`** — a subscription's inbox nudge; admits only the identity named in the topic itself (no table read, the same "identity alone" rule `session:<id>` uses).
 - **Anything else** — denied.
 
 This is the authoritative statement of WS subscribe authorization; the WS push contract in [as-implemented-domain-architecture.md](as-implemented-domain-architecture.md) cites it.

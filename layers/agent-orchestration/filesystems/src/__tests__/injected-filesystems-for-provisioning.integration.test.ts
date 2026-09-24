@@ -28,9 +28,7 @@ describe("listInjectedFilesystemsForProvisioning reads an agent's injected files
 	test("matches EXACTLY what the route's `filesystem_injections -> filesystems` join returns for a fixed agent/team/injection fixture", async ({
 		db,
 	}) => {
-		await db
-			.insert(teams)
-			.values({ id: "team-rifa-1", name: "RIFA Team", phase: "build", createdAt: NOW });
+		await db.insert(teams).values({ id: "team-rifa-1", name: "RIFA Team", createdAt: NOW });
 		// The owner writes the membership row alongside the team.
 		await db.insert(users).values({
 			id: "agent-rifa-1",
@@ -79,9 +77,7 @@ describe("listInjectedFilesystemsForProvisioning reads an agent's injected files
 	test("an agent with multiple injected filesystems gets every one back, in the same shape", async ({
 		db,
 	}) => {
-		await db
-			.insert(teams)
-			.values({ id: "team-rifa-2", name: "RIFA Team 2", phase: "build", createdAt: NOW });
+		await db.insert(teams).values({ id: "team-rifa-2", name: "RIFA Team 2", createdAt: NOW });
 		// The owner writes the membership row alongside the team.
 		await db.insert(users).values({
 			id: "agent-rifa-2",

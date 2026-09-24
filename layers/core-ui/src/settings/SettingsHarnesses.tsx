@@ -36,7 +36,7 @@ import {
 } from "../ds";
 import { useUiPreference } from "../hooks/useUiPreference.js";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
-import { apiFetch } from "../services/api-fetch.js";
+import { call } from "../services/call.js";
 import { hasCaps, statusLine } from "./harness-presentation.js";
 
 // ---------------------------------------------------------------------------
@@ -162,6 +162,7 @@ export function SettingsHarnesses(): JSX.Element {
 	const [loadState, setLoadState] = useState<LoadState>("loading");
 	const [descriptors, setDescriptors] = useState<HarnessCapabilityDescriptor[]>([]);
 	const [redetecting, setRedetecting] = useState(false);
+	const [selfId, setSelfId] = useState<string | null>(null);
 
 	// SplitView state
 	const [splitMode, setSplitMode] = useState<FoldMode>("fold-back");
@@ -174,10 +175,13 @@ export function SettingsHarnesses(): JSX.Element {
 	const loadDescriptors = useCallback(async (): Promise<void> => {
 		setLoadState("loading");
 		try {
-			const res = await apiFetch("/api/harnesses");
-			if (!res.ok) throw new Error(`HTTP ${res.status}`);
-			const data = (await res.json()) as HarnessCapabilityDescriptor[];
-			setDescriptors(data);
+			const result = await call("open_user", {});
+			if (!result.ok || result.data.user === null) {
+				setLoadState("error");
+				return;
+			}
+			setSelfId(result.data.user.id);
+			setDescriptors([...result.data.runsOn]);
 			setLoadState("ready");
 		} catch {
 			setLoadState("error");
@@ -191,19 +195,21 @@ export function SettingsHarnesses(): JSX.Element {
 	// ── Re-detect ──────────────────────────────────────────────────────────────
 
 	const handleRedetect = useCallback(async (): Promise<void> => {
+		if (!selfId) return;
 		setRedetecting(true);
 		try {
-			const res = await apiFetch("/api/harnesses/redetect", { method: "POST" });
-			if (!res.ok) throw new Error(`HTTP ${res.status}`);
-			const data = (await res.json()) as HarnessCapabilityDescriptor[];
-			setDescriptors(data);
-			setLoadState("ready");
-		} catch {
+			const result = await call("edit_user", { id: selfId, redetectHarnesses: true });
+			if (result.ok) {
+				setDescriptors([...result.data.runsOn]);
+				setLoadState("ready");
+			}
 			// On error (e.g. 429 rate-limit) don't overwrite the current list
+		} catch {
+			// On error don't overwrite the current list
 		} finally {
 			setRedetecting(false);
 		}
-	}, []);
+	}, [selfId]);
 
 	// ── Row click ──────────────────────────────────────────────────────────────
 

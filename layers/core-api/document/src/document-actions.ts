@@ -26,6 +26,7 @@ import {
 	searchDocuments as searchDocumentsDeclaration,
 	searchDocumentsInvariants,
 } from "@hyperidle/domain-model";
+import { type ChangesRow, objectEvent } from "@hyperidle/event-bus";
 import type { Action, ActionContext } from "./action-types.js";
 import {
 	assertParentInvariants,
@@ -70,15 +71,17 @@ export interface DocumentActionsDeps {
 		id: string,
 	) => Promise<{ readonly exists: boolean; readonly teamId?: string }>;
 	/**
-	 * Existence of an `agent`/`routine` parent — asked only on the internal
-	 * path (`ctx.internal`), since a client-named one is refused before this
-	 * is ever reached (`forbidden_parent_kind`). Bound in `compose.ts` to the
-	 * users/routine reads already injected elsewhere: an agent is a `users`
-	 * row, a routine is `@hyperidle/routine`'s `getRoutine`.
+	 * Existence of an `agent`/`subscription` parent — asked only on the
+	 * internal path (`ctx.internal`), since a client-named one is refused
+	 * before this is ever reached (`forbidden_parent_kind`). Bound in
+	 * `compose.ts` to the users/subscription reads already injected
+	 * elsewhere: an agent is a `users` row, a subscription is
+	 * `@hyperidle/user`'s `getSubscription` — the user module owns
+	 * `subscriptions` too.
 	 */
 	readonly systemParentExists: (
 		exec: WriteExecutor,
-		kind: "agent" | "routine",
+		kind: "agent" | "subscription",
 		id: string,
 	) => Promise<boolean>;
 	/**
@@ -120,9 +123,18 @@ async function resolveViewer(
 		deps.users.getUserById(ctx.db, ctx.actor),
 		deps.users.listOwnedBy(ctx.db, ctx.actor),
 	]);
+	// An owned agent carries no team of its
+	// own (`owned_agent_has_no_team`) — its effective team is its owner's,
+	// so a team-scoped document reaches an assistant the same way it
+	// reaches the person who owns it.
+	let viewerTeamId = actorUser?.teamId ?? null;
+	if (viewerTeamId === null && actorUser?.ownerUserId) {
+		const owner = await deps.users.getUserById(ctx.db, actorUser.ownerUserId);
+		viewerTeamId = owner?.teamId ?? null;
+	}
 	return {
 		subjects: [ctx.actor, ...owned.map((u) => u.id)],
-		viewerTeamId: actorUser?.teamId ?? null,
+		viewerTeamId,
 	};
 }
 
@@ -338,6 +350,33 @@ function pushChanges(deps: DocumentActionsDeps, rows: readonly PushableChange[])
 				at: row.at,
 			},
 		});
+	}
+}
+
+/**
+ * Post-commit, once per `changes` row this call appended — the SAME rows
+ * `pushChanges` pushes over the socket — the idiom
+ * thread and document use for the socket. `objectEvent` wants the raw
+ * `changes`-row shape (JSON text); re-encoding `PushableChange`'s already
+ * decoded `before`/`after` here keeps one canonical builder shared by every
+ * module instead of a second one over decoded values.
+ */
+function emitObjectEvents(
+	eventBus: ActionContext["eventBus"],
+	rows: readonly PushableChange[],
+): void {
+	for (const row of rows) {
+		const changesRow: ChangesRow = {
+			id: row.id,
+			object: "document",
+			objectId: row.objectId,
+			kind: row.kind,
+			actor: row.actor,
+			before: row.before === null ? null : JSON.stringify(row.before),
+			after: JSON.stringify(row.after),
+			at: row.at,
+		};
+		eventBus.emit(objectEvent(changesRow));
 	}
 }
 
@@ -604,16 +643,20 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 			}
 		}
 
-		// -- the agent/routine arm — internal-only (forbidden_parent_kind
+		// -- the agent/subscription arm — internal-only (forbidden_parent_kind
 		// already refused a client-named one above, in the pure pass), and a
 		// plain read against a table this module doesn't own, so resolving it
 		// before the transaction opens is safe the same way the task/thread
-		// arm above is. Review finding: "a missing agent/routine ->
-		// parent_not_found" on the internal path. -------------------------------
+		// arm above is. Review finding: "a missing agent/subscription ->
+		// parent_not_found" on the internal path.
+		//
+		// @lore BC5 T7b: `routine` is gone — `DOCUMENT_PARENT_KINDS` no longer
+		// names it, so this is exhaustive over agent/subscription now.
+		// -------------------------------
 		if (
 			parentActivelySet &&
 			effectiveParent !== null &&
-			(effectiveParent.kind === "agent" || effectiveParent.kind === "routine")
+			(effectiveParent.kind === "agent" || effectiveParent.kind === "subscription")
 		) {
 			const exists = await deps.systemParentExists(
 				ctx.db,
@@ -681,9 +724,10 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 						}
 					}
 					// A `task`/`thread` parent's existence was already checked above,
-					// before the transaction opened — and so was an `agent`/`routine`
-					// one, through `deps.systemParentExists` (internal callers only;
-					// see the `forbidden_parent_kind` refusal in the pure pass).
+					// before the transaction opened — and so was an `agent`/
+					// `subscription` one, through `deps.systemParentExists` (internal
+					// callers only; see the `forbidden_parent_kind` refusal in the
+					// pure pass).
 				}
 
 				// -- D5 — reachable only at create (a move is refused first by
@@ -866,8 +910,13 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 			throw new Error("edit_document: transaction committed without writing a row");
 		}
 		// Post-commit, once per `changes` row — the parent's and every narrowed
-		// child's (architecture.md §6.6 rule 5, §7).
-		if (pushRow) pushChanges(deps, [pushRow, ...cascadeRows]);
+		// child's; each is also one
+		// document.created/document.changed object event (decision 5).
+		if (pushRow) {
+			const rows = [pushRow, ...cascadeRows];
+			pushChanges(deps, rows);
+			emitObjectEvents(ctx.eventBus, rows);
+		}
 
 		// Never through `open_document.run` — that would count this write as a
 		// read (architecture.md §6.7's trap).

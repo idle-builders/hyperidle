@@ -12,11 +12,11 @@ Code-verified decision log for the system architecture. Each entry records a set
 - **Session note quality.** No rigid template. LLMs write good prose; what matters is flight-level guidance on what to write about (goal, outcome, changes, next steps, hazards). Notes are stored as prose (`sessions.notes`) — the process layer never parses them structurally.
 - **Context compaction detection.** Continuous session notes throughout the session (the agent writes to `work/session-notes.md` as it works, picked up by continuous writeback). Pre-compaction trigger where the harness supports it — part of the adapter contract ([harness capability descriptor](../agent-layer/harness-capability-descriptor.md)). Token-counting heuristic as fallback.
 - **Hot-reload for skills.** The next session picks changes up. No mid-session propagation.
-- **Cross-team routine ownership.** Routines that observe patterns beyond a single team belong to the assistant (individual agent).
+- **Cross-team subscription ownership.** A subscription that observes patterns beyond a single team belongs to a team-less, owner-less agent — its reach is every team.
 
 ## Runtime & process model
 
-- **Scheduler architecture.** Single Node.js process: the API server and the in-process `setInterval` schedulers (`layers/core-api/routine/src/routine-scheduler.ts`) share one event loop; context assembly and session-start calls run as async tasks. Extract the scheduler to its own process (communicating via the event bus) only if measured latency degrades under load.
+- **Scheduler architecture.** Single Node.js process: the API server and the in-process `setInterval` schedulers (`layers/core-api/user/src/subscription-clock.ts`) share one event loop; context assembly and session-start calls run as async tasks. Extract the scheduler to its own process (communicating via the event bus) only if measured latency degrades under load.
 - **No external framework integrations in the process layer.** No Letta, no Agent Mail, no Temporal, no Inngest. All agentic integrations happen through harness adapters in the agent runtime. The process layer stays minimal: Postgres (PGlite), TypeScript/Node.js, the knowledge services, and the Hono API.
 - **Postgres only.** PGlite locally, `postgres-js` against a managed server — one engine, one schema (`framework/db/src/schema.ts` is `pgTable`-only). SQLite is retired entirely. See [the canonical store](../knowledge-architecture/the-canonical-store.md).
 
@@ -28,8 +28,8 @@ Code-verified decision log for the system architecture. Each entry records a set
 
 ## UI
 
-- **Task placement tech.** Plain React task card components in a simple symbolic layout with a hard capacity cap — no drawing-canvas or drag-and-drop library. Surface structure: [work view](../information-architecture/work-view.md); lifecycle: [tasks and sessions](../process-layer/tasks-and-sessions.md).
-- **There is no attention or relevance score anywhere in the product.** The Knowledge view gives access to all knowledge, unfiltered by any score; Triage is plain recency order, and notifications are driven by explicit review requests and blocker alerts, never a computed score.
+- **Task placement tech.** Plain React task card components in a simple symbolic layout — no drawing-canvas or drag-and-drop library, no team-level cap. Surface structure: [work view](../information-architecture/work-view.md); lifecycle: [tasks and sessions](../process-layer/tasks-and-sessions.md).
+- **There is no attention or relevance score anywhere in the product.** The Knowledge view gives access to all knowledge, unfiltered by any score; Triage is plain recency order, and inbox rows are driven by a person's own explicit subscriptions, never a computed score.
 
 ## Process layer
 
@@ -41,5 +41,5 @@ Code-verified decision log for the system architecture. Each entry records a set
 - **Knowledge fabric sync: continuous writeback.** A file watcher on `knowledge/` and `work/` writes back changes incrementally (500ms debounce, `layers/agent-orchestration/run-orchestration/src/file-watcher.ts:30`) with WebSocket push to open Knowledge view tabs — no session-boundary dependency. Mechanics: [sync and conflict resolution](../knowledge-architecture/sync-and-conflict-resolution.md).
 - **Conflict resolution: version check, refuse and discard.** There is no layer ladder, no precedence order, and no conflict record to review — a version mismatch on modify is refused outright and the losing edit is simply discarded; a document has no conflict object. Mechanics: [sync and conflict resolution](../knowledge-architecture/sync-and-conflict-resolution.md).
 - **History is the `changes` table, not a dedicated edit log.** Every human edit and every agent `edit_document` call lands as one `document.created`/`document.changed` row in the shared `changes` table — no separate log to keep in sync.
-- **Curation is not a SPOF.** The document-management plugin's librarian agent triages and decays documents on a schedule, entirely separate from task execution; if it is uninstalled or its routines don't run, agents keep working and the tree simply accumulates `proposed` documents until someone or something curates it.
+- **Curation is not a SPOF.** The document-management plugin's librarian agent triages and decays documents on a schedule, entirely separate from task execution; if it is uninstalled or its subscriptions don't run, agents keep working and the tree simply accumulates `proposed` documents until someone or something curates it.
 - **Knowledge misses are acceptable.** Agents will sometimes miss relevant knowledge — a feature, not a bug; it's part of how new approaches get discovered. The system optimizes for relevance at context-assembly time and doesn't guarantee completeness.

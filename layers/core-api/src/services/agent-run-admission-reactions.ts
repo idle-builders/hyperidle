@@ -3,8 +3,8 @@
  * `agent_run_admission_failed` event, one subscriber per `kind`, per the
  * finalized subscriber table:
  *
- *   routine_run       -> routine finalizes the run to outcome="error"
- *                         (replaces `failOrRelease`'s deleted direct write)
+ *   subscription_run  -> logged only; a subscription's wake carries no run
+ *                         row to finalize
  *   task_run          -> work marks the taskDispatchAttempts row failed
  *   session_start     -> the explicitSessionStarts row is marked failed, no
  *                         automatic retry (an explicit human/agent-requested
@@ -38,10 +38,9 @@ import type {
 	AgentRunAdmissionFailureCode,
 	EventBus,
 } from "@hyperidle/event-bus";
-import * as routineService from "@hyperidle/routine";
 import * as work from "@hyperidle/task";
 import { findThread, listMessages } from "@hyperidle/thread";
-import { findUser, listUsers } from "@hyperidle/users";
+import { findUser, listUsers } from "@hyperidle/user";
 import type { ActionContext, AdjustThreadRunFn, SendMessageRunFn } from "../actions/action.js";
 
 export type { AdjustThreadRunFn, SendMessageRunFn };
@@ -210,18 +209,14 @@ async function reactToAdmissionFailure(
 	threadDeps: { readonly sendMessage: SendMessageRunFn; readonly adjustThread: AdjustThreadRunFn },
 ): Promise<void> {
 	switch (event.kind) {
-		case "routine_run":
-			// `routine` is core-api's own Service — in-layer, not a crossing.
-			await routineService.updateRoutineRun(
-				db,
-				event.sourceId,
-				{
-					outcome: "error",
-					endedAt: new Date(event.timestamp).toISOString(),
-					errorMessage: event.failureCode,
-				},
-				{ onlyIfRunning: true },
-			);
+		// A subscription's wake carries no run row to finalize, so a refused
+		// wake is just logged.
+		case "subscription_run":
+			logger.warn("subscription wake refused admission", {
+				intentId: event.intentId,
+				sourceId: event.sourceId,
+				failureCode: event.failureCode,
+			});
 			return;
 		case "task_run":
 			await work.taskDispatchAttemptStore.markFailed(db, event.sourceId);

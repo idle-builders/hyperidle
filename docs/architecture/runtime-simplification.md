@@ -76,11 +76,10 @@ code path permitted to read or write that table — but owning a table is not wh
 Service; having a clear interface is. A Service is a directory under its Layer — run
 `ls layers/*/` for the live set rather than trusting a list here. As of this writing:
 
-- **`core-api` Services:** `connections`, `conversation`, `credentials`, `filesystems`,
-  `git-export`, `knowledge`, `notifications`, `observability`, `org`, `policy`, `realtime`,
-  `review`, `routine`, `settings`, `users`, `work`.
-- **`agent-orchestration` Services:** `agent-run-config`, `connections`, `dispatch`,
-  `filesystem-mounting`, `filesystems`, `run-orchestration`, `session-requests`, `tool-handlers`.
+- **`core-api` Services:** `changes`, `document`, `policy`, `settings`, `task`, `thread`, `user`
+  (run `ls layers/core-api/` for the live set).
+- **`agent-orchestration` Services:** `connections`, `filesystems`, `run-orchestration`,
+  `session-requests`, `tool-handlers` (run `ls layers/agent-orchestration/` for the live set).
 - **`agent-execution` Services (zero DB access):** `harness-registry`.
 - **`core-ui` Services — open question, not yet decided.** Whether `layers/core-ui` should be
   organized into the same Service/Domain names (a `work/` UI folder alongside the `work` Service, a
@@ -159,13 +158,13 @@ The core app owns the user-visible product domains: Work, Conversation, Knowledg
 
 The agent layer owns every LLM-capable run. It accepts session requests, chooses and provisions the agent run, starts and supervises the harness, exposes tools and MCP, captures output, writes session lifecycle events, and handles the decomposition of an agent run or session into observable results. Collaboration domains do not call harnesses or provisioning internals directly.
 
-Plugins are preconfiguration bundles, not a third runtime layer. A plugin can contribute default agents, skills, routines, triggers, tools, MCP servers, harness descriptors, and settings metadata. Once installed, those contributions appear as editable app configuration; user configuration wins over plugin defaults.
+Plugins are preconfiguration bundles, not a third runtime layer. A plugin can contribute default agents, skills, subscriptions, tools, MCP servers, harness descriptors, and settings metadata. Once installed, those contributions appear as editable app configuration; user configuration wins over plugin defaults.
 
 Triggers are the single rule for "event -> agent work." Any event that can cause an LLM call is triggerable. If no user or plugin trigger matches, the agent layer attaches the default eligible agent with no event-specific prompt. If a user or plugin trigger matches, it supplies the specific agent and prompt for that event.
 
 ## Durable agent handoff
 
-Core actions first persist an `agent_work_intents` row. The row identifies one of six work families—assistant turn, explicit session, knowledge action, routine run, task run, or re-engagement—and contains source identity plus an idempotency key. It contains no model, tool, prompt, harness, or execution result.
+Core actions first persist an `agent_work_intents` row. The row identifies one of six work families—assistant turn, explicit session, knowledge action, subscription run, task run, or re-engagement—and contains source identity plus an idempotency key. It contains no model, tool, prompt, harness, or execution result.
 
 Explicit session starts also persist `explicit_session_starts`, the authoritative command record for requested task, agent, and model tier. The neutral intent references that row; execution choices do not leak into the shared envelope.
 
@@ -178,18 +177,19 @@ Terminal request state is persisted before `agent_run_lifecycle_changed` is publ
 There is no Strategy registry and no Fabric package. Every responsibility this frame describes lives
 in a Layer's Service directory, listed above.
 
-Core-owned work — knowledge storage and scoring, notifications, policy, review routing, lifecycle
-propagation, the routine scheduler — sits in `layers/core-api/<service>/`. Agent-owned work — run
-admission and custody, context and capture, watchers, dispatch — sits in
+Core-owned work — knowledge storage and scoring, the user's own inbox, policy, review routing,
+lifecycle propagation, the subscription clock and fire — sits in `layers/core-api/<service>/`.
+Agent-owned work — run admission and custody, context and capture, watchers, dispatch — sits in
 `layers/agent-orchestration/<service>/`. Harness adapters, MCP and tool execution sit in
 `layers/agent-execution/harness-registry/`.
 
-Routine-firing lives in `layers/core-api/src/services/routine-scheduler-bindings.ts`'s `fireRoutine`,
-with `provisionTeamRoutines` in `@hyperidle/routine` — both re-exported through `core-api`'s
-`routines.ts` for cross-package callers, instead of a curated barrel of standalone routine functions.
+Subscription firing and the schedule clock live directly in `@hyperidle/user`
+(`subscription-fire.ts`, `subscription-clock.ts`), exported as `registerSubscriptionFire`/
+`startSubscriptionClock` and wired in `layers/core-api/src/app.ts` — no separate bindings module, no
+curated barrel of standalone functions.
 
-The app has the durable primitives this frame keeps: users include humans and agents, routines are
-editable records, knowledge is stored in canonical tables, MCP and tools run through
+The app has the durable primitives this frame keeps: users include humans and agents, subscriptions
+are editable records, knowledge is stored in canonical tables, MCP and tools run through
 `agent-execution`, harness adapters are registered centrally, and domain events are emitted.
 
 ## Simplification Rule
@@ -199,5 +199,5 @@ When this track is complete:
 - There is no Fabric runtime layer or Strategy concept.
 - Core app domains do not know how an agent run is executed.
 - The agent layer is the only owner of LLM execution.
-- Triggers, routines, agents, skills, tools, and MCP are editable configuration in the app.
+- Subscriptions, agents, skills, tools, and MCP are editable configuration in the app.
 - Plugins only seed and extend that configuration; they do not become hidden global brains.

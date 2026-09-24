@@ -45,7 +45,7 @@ export const PluginContributionViewSchema = z.object({
 	kind: z.union([z.enum(CONFIGURATION_KINDS), z.enum(PLUGIN_CONTRIBUTION_KINDS)]),
 	/** The contributed row's id, or the namespaced configuration key. */
 	entityId: z.string(),
-	/** What a person calls it: an agent's name, a routine's name, a document's title. */
+	/** What a person calls it: an agent's name, a subscription's name, a document's title. */
 	label: z.string(),
 	/** Namespaced: "pluginId/manifestKey". */
 	key: z.string(),

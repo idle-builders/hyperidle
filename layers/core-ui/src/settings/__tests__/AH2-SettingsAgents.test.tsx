@@ -32,20 +32,8 @@ const MOCK_HARNESSES = [
 	{ type: "claude-code", name: "Claude Code", modelProviders: ["anthropic"] },
 ];
 
-const MOCK_AGENTS = [
-	{
-		id: "agent-opus-1",
-		name: "Opus Agent",
-		role: "builder",
-		systemPrompt: null,
-		harnessType: "opencode",
-		modelId: "claude-opus-4-8",
-		modelProvider: "anthropic",
-		maxConcurrentSessions: 1,
-		status: "active",
-		activeSessions: 0,
-	},
-];
+const { callMock } = vi.hoisted(() => ({ callMock: vi.fn() }));
+vi.mock("../../services/call.js", () => ({ call: callMock }));
 
 const mockShowToast = vi.fn();
 vi.mock("../../shell/ToastRegion.js", async () => {
@@ -72,23 +60,64 @@ afterEach(() => {
 
 describe("AH2 AC2: Agent list rows show no per-row harness warning", () => {
 	it("does NOT show 'Harness unavailable' in the list even when agent harness is not in registry", async () => {
-		vi.stubGlobal(
-			"fetch",
-			vi.fn().mockImplementation((url: string) => {
-				if (String(url).includes("/api/harnesses")) {
-					return Promise.resolve({ ok: true, status: 200, json: async () => MOCK_HARNESSES });
-				}
-				if (String(url).includes("/api/agents")) {
-					return Promise.resolve({
-						ok: true,
-						status: 200,
+		callMock.mockReset();
+		callMock.mockImplementation((name: string, input: Record<string, unknown>) => {
+			if (name === "search_sessions") return Promise.resolve({ ok: true, data: [] });
+			if (name === "search_users") {
+				return Promise.resolve({
+					ok: true,
+					data: [
+						{
+							id: "agent-opus-1",
+							kind: "ai",
+							name: "Opus Agent",
+							role: "builder",
+							status: "active",
+							email: null,
+							avatarUrl: null,
+							createdAt: "2026-01-01T00:00:00.000Z",
+							agentCategory: "team",
+							ownerUserId: null,
+							health: null,
+							team: { id: "team-1", name: "Acme" },
+							edges: [],
+						},
+					],
+				});
+			}
+			if (name === "open_user") {
+				const id = input.id as string | undefined;
+				const runsOn = id === undefined ? MOCK_HARNESSES : MOCK_HARNESSES;
+				return Promise.resolve({
+					ok: true,
+					data: {
+						user:
+							id === undefined
+								? { id: "self", kind: "human", name: "Me", team: { id: "team-1", name: "Acme" } }
+								: { id, kind: "ai", name: "Opus Agent", role: "builder", status: "active" },
+						runsOn,
 						// Agent uses "aider" which is not in MOCK_HARNESSES — no chip should appear
-						json: async () => [{ ...MOCK_AGENTS[0], harnessType: "aider" }],
-					});
-				}
-				return Promise.resolve({ ok: false, status: 404, json: async () => ({}) });
-			}),
-		);
+						runConfig:
+							id === undefined
+								? null
+								: {
+										harnessType: "aider",
+										modelId: "claude-opus-4-8",
+										modelProvider: "anthropic",
+										maxConcurrentSessions: 1,
+										modelOptions: {},
+									},
+						documentIds: [],
+						folders: [],
+						subscriptions: [],
+						connections: null,
+						behaviour: null,
+						inbox: null,
+					},
+				});
+			}
+			return Promise.resolve({ ok: false, problems: [{ code: "unmocked", message: name }] });
+		});
 
 		render(<SettingsAgents />);
 

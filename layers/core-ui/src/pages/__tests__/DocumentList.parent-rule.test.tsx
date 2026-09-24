@@ -1,12 +1,12 @@
 /**
  * DocumentList's parent-rule filter: a role-carrying binding (agent
- * identity, routine prompt, skill, rule) is any row whose parent is set but
+ * identity, subscription prompt, skill, rule) is any row whose parent is set but
  * is not `document` — it is excluded from the browsable tree structurally,
  * not by a `role`/`slot` check (architecture.md §5.1's `inTree` shape).
  *
  * Reproduces the scenario architecture.md names: an agent identity
- * (`slot='agent_file'`, `parentKind='agent'`) and a routine prompt
- * (`slot='prompt'`, `parentKind='routine'`) must never render under "General".
+ * (`slot='agent_file'`, `parentKind='agent'`) and a subscription prompt
+ * (`slot='prompt'`, `parentKind='subscription'`) must never render under "General".
  */
 import type { DocumentRow } from "@hyperidle/domain-model";
 import { render, screen } from "@testing-library/react";
@@ -75,12 +75,12 @@ describe("DocumentList: the parent rule excludes role-carrying bindings", () => 
 					parentId: "agent-1",
 				}),
 				makeDoc({
-					id: "ki_rp_routine-1",
-					title: "Routine One — prompt",
+					id: "ki_rp_subscription-1",
+					title: "Subscription One — prompt",
 					body: "Do the thing.",
 					slot: "prompt",
-					parentKind: "routine",
-					parentId: "routine-1",
+					parentKind: "subscription",
+					parentId: "subscription-1",
 				}),
 			],
 			status: "ready",
@@ -89,10 +89,10 @@ describe("DocumentList: the parent rule excludes role-carrying bindings", () => 
 		});
 	});
 
-	it("shows an ordinary root item but never an agent identity or a routine prompt", async () => {
+	it("shows an ordinary root item but never an agent identity or a subscription prompt", async () => {
 		renderDocumentList();
 		expect(await screen.findByText("Auth Strategy Decision")).toBeInTheDocument();
 		expect(screen.queryByText("Agent One — identity")).not.toBeInTheDocument();
-		expect(screen.queryByText("Routine One — prompt")).not.toBeInTheDocument();
+		expect(screen.queryByText("Subscription One — prompt")).not.toBeInTheDocument();
 	});
 });

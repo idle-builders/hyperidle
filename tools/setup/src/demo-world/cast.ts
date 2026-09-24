@@ -7,9 +7,8 @@
  * resolves the first human user, so the founder is who lands in the app.
  */
 
-import { agentRunConfig, type HyperIdleDb, orgEdges, teams, users } from "@hyperidle/db";
+import { agentRunConfig, type HyperIdleDb, orgEdges, users } from "@hyperidle/db";
 import type { HarnessType } from "@hyperidle/domain-model";
-import { eq } from "drizzle-orm";
 import {
 	ASSISTANT_ID,
 	BUILDER_ID,
@@ -132,10 +131,6 @@ export async function seedCast(db: HyperIdleDb, clock: DemoClock): Promise<void>
 			.onConflictDoNothing();
 	}
 
-	// Team state reflects six weeks of use: the PM leads (docs/process-layer
-	// default). @lore BB1: activeBets removed — WIP is counted live.
-	await db
-		.update(teams)
-		.set({ leadAgentId: PM_ID, formedAt: clock.daysAgo(44) })
-		.where(eq(teams.id, TEAM_ID));
+	// @lore BC5 T11: `leadAgentId`/`formedAt` are dropped (migration 0090) —
+	// a team is an id and a name now; there is nothing left here to set.
 }

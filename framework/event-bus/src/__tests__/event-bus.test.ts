@@ -31,28 +31,45 @@ vi.mock("@hyperidle/diagnostics", () => ({
 }));
 
 // @lore BB1: BetStateChangedEvent deleted — bet is now a root task.
-import type { DomainEvent, NotificationEvent, TaskStateChangedEvent } from "@hyperidle/event-bus";
+// @lore BC5 T7b: TaskStateChangedEvent/NotificationEvent deleted — their
+// last listener is gone — this file's generic "some event" fixture is now
+// `task.changed` (an ObjectChangeEvent member, the shape every real
+// task-state move emits today), and the second wildcard fixture is
+// `session_started`, a plain platform event with no object-event shape.
+import type { DomainEvent, ObjectChangeEvent } from "@hyperidle/event-bus";
 import { EventBus } from "../event-bus.js";
 
-function makeTaskEvent(taskId: string, seq: number): TaskStateChangedEvent {
+function makeTaskEvent(
+	taskId: string,
+	seq: number,
+): Extract<ObjectChangeEvent, { type: "task.changed" }> {
 	return {
-		type: "task_state_changed",
-		streamId: `task:${taskId}`,
-		taskId,
-		fromState: "proposed",
-		toState: "in_progress",
+		type: "task.changed",
+		streamId: taskId,
+		change: {
+			id: `chg-${taskId}-${seq}`,
+			object: "task",
+			objectId: taskId,
+			kind: "changed",
+			actor: "u-test",
+			before: { state: "proposed" },
+			after: { state: "in_progress" },
+			at: new Date(seq).toISOString(),
+		},
 		timestamp: seq,
 	};
 }
 
-function makeNotification(targetId: string, seq: number): NotificationEvent {
+function makeSessionStarted(
+	agentId: string,
+	seq: number,
+): Extract<DomainEvent, { type: "session_started" }> {
 	return {
-		type: "notification",
-		streamId: `user:${targetId}`,
-		targetId,
-		// AF8: kind is now mandatory. Tests use "attention" as the default.
-		kind: "attention",
-		message: `msg-${seq}`,
+		type: "session_started",
+		streamId: `session:${agentId}-${seq}`,
+		sessionId: `sess-${agentId}-${seq}`,
+		agentId,
+		taskId: null,
 		timestamp: seq,
 	};
 }
@@ -69,7 +86,7 @@ describe("EventBus", () => {
 		const bus = new EventBus();
 		const received: number[] = [];
 
-		bus.on("task_state_changed", (e) => {
+		bus.on("task.changed", (e) => {
 			received.push(e.timestamp);
 		});
 
@@ -85,11 +102,11 @@ describe("EventBus", () => {
 		const receivedA: string[] = [];
 		const receivedB: string[] = [];
 
-		bus.on("task_state_changed", (e) => {
-			receivedA.push(e.taskId);
+		bus.on("task.changed", (e) => {
+			receivedA.push(e.change.objectId);
 		});
-		bus.on("task_state_changed", (e) => {
-			receivedB.push(e.taskId);
+		bus.on("task.changed", (e) => {
+			receivedB.push(e.change.objectId);
 		});
 
 		bus.emit(makeTaskEvent("t1", 1));
@@ -102,8 +119,8 @@ describe("EventBus", () => {
 		const bus = new EventBus();
 		const received: string[] = [];
 
-		const unsub = bus.on("task_state_changed", (e: TaskStateChangedEvent) => {
-			received.push(e.taskId);
+		const unsub = bus.on("task.changed", (e) => {
+			received.push(e.change.objectId);
 		});
 
 		bus.emit(makeTaskEvent("t1", 1));
@@ -122,11 +139,11 @@ describe("EventBus", () => {
 		});
 
 		bus.emit(makeTaskEvent("t1", 1));
-		bus.emit(makeNotification("u1", 2));
+		bus.emit(makeSessionStarted("u1", 2));
 
 		expect(received).toHaveLength(2);
-		expect(received[0]!.type).toBe("task_state_changed");
-		expect(received[1]!.type).toBe("notification");
+		expect(received[0]!.type).toBe("task.changed");
+		expect(received[1]!.type).toBe("session_started");
 	});
 
 	it("wildcard unsubscribe works", () => {
@@ -148,7 +165,7 @@ describe("EventBus", () => {
 		const bus = new EventBus();
 		const received: number[] = [];
 
-		bus.on("task_state_changed", (e) => {
+		bus.on("task.changed", (e) => {
 			received.push(e.timestamp);
 		});
 
@@ -163,7 +180,7 @@ describe("EventBus", () => {
 		const bus = new EventBus();
 		let count = 0;
 
-		bus.on("task_state_changed", () => {
+		bus.on("task.changed", () => {
 			count++;
 		});
 
@@ -186,7 +203,7 @@ describe("EventBus", () => {
 		const bus = new EventBus();
 		let delivered = false;
 
-		bus.on("task_state_changed", () => {
+		bus.on("task.changed", () => {
 			delivered = true;
 		});
 
@@ -212,14 +229,14 @@ describe("EventBus", () => {
 
 		// This test verifies compile-time type safety.
 		// If the types are wrong, tsc will reject this file.
-		bus.on("task_state_changed", (e) => {
+		bus.on("task.changed", (e) => {
 			// These property accesses must type-check
-			const TaskId: string = e.taskId;
-			const From: string = e.fromState;
-			const To: string = e.toState;
+			const TaskId: string = e.change.objectId;
+			const Before: unknown = e.change.before;
+			const After: Record<string, unknown> = e.change.after;
 			expect(TaskId).toBeDefined();
-			expect(From).toBeDefined();
-			expect(To).toBeDefined();
+			expect(Before).toBeDefined();
+			expect(After).toBeDefined();
 		});
 
 		// @lore BB1: BetStateChangedEvent deleted — bet is now a root task.
@@ -237,10 +254,10 @@ describe("EventBus", () => {
 			const bus = new EventBus();
 			const subsequent = vi.fn();
 
-			bus.on("task_state_changed", () => {
+			bus.on("task.changed", () => {
 				throw new Error("boom-E1");
 			});
-			bus.on("task_state_changed", subsequent);
+			bus.on("task.changed", subsequent);
 
 			// emit must NOT throw — the bus swallows per-handler failures.
 			expect(() => bus.emit(makeTaskEvent("t1", 1))).not.toThrow();
@@ -254,7 +271,7 @@ describe("EventBus", () => {
 		it("logs via createLogger.error when a handler throws", () => {
 			const bus = new EventBus();
 
-			bus.on("task_state_changed", () => {
+			bus.on("task.changed", () => {
 				throw new Error("boom-E2");
 			});
 
@@ -289,7 +306,7 @@ describe("EventBus", () => {
 			const bus = new EventBus();
 			const wildcard = vi.fn();
 
-			bus.on("task_state_changed", () => {
+			bus.on("task.changed", () => {
 				throw new Error("boom-E3b");
 			});
 			bus.on("*", wildcard);
@@ -308,7 +325,7 @@ describe("EventBus", () => {
 			const laterWild = vi.fn();
 
 			// Type-specific fires first (insertion order), then wildcards.
-			bus.on("task_state_changed", laterType);
+			bus.on("task.changed", laterType);
 			bus.on("*", () => {
 				throw new Error("boom-E3c");
 			});

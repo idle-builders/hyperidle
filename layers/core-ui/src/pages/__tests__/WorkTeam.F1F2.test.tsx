@@ -1,19 +1,22 @@
 /**
  * F1 + F2 (POLISH-060) — WorkTeam: flush lists + create-bet button.
  *
- * F1: routines and agents ItemLists use variant="flush" (no grey container);
+ * F1: agents ItemList uses variant="flush" (no grey container);
  *     active bets use Row/ItemList flush (no hand-rolled grey BetRow button);
  *     StatTile drops bg-[var(--surface-container)] (uses border instead).
  *
  * F2: Active Bets SectionLabel has a "+ New bet" button that navigates to /work/bet/new.
+ *
+ * @lore BC5 T9: the routines-section flush-variant coverage is deleted with
+ * the R5 Routines section itself.
  */
 
-import type { TeamDetail } from "@hyperidle/domain-model";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { TeamPageData } from "../../hooks/useTeam.js";
 import { WorkTeam } from "../WorkTeam";
 
 vi.mock("../../components/ArtifactSection.js", () => ({
@@ -33,23 +36,13 @@ vi.mock("../../shell/ToastRegion.js", () => ({
 // Fixtures
 // ---------------------------------------------------------------------------
 
-const TEAM_WITH_BETS: TeamDetail = {
+const TEAM_WITH_BETS: TeamPageData = {
 	team: {
 		id: "f1-team-1",
 		name: "F1 Test Team",
-		phase: "build",
 		status: "healthy",
-		leadAgentId: null,
-	},
-	teamMembers: {
-		id: "tm-f1",
-		formedAt: "2026-01-01T00:00:00.000Z",
-		dissolvedAt: null,
 	},
 	roster: [],
-	burn: {
-		capacity: 3,
-	},
 	tasksInProgress: [
 		{
 			id: "bet-1",
@@ -61,11 +54,10 @@ const TEAM_WITH_BETS: TeamDetail = {
 	],
 };
 
-const TEAM_EMPTY: TeamDetail = {
+const TEAM_EMPTY: TeamPageData = {
 	...TEAM_WITH_BETS,
 	tasksInProgress: [],
 	roster: [],
-	burn: { ...TEAM_WITH_BETS.burn },
 };
 
 function renderWithRouter(ui: ReactNode, path = "/work/team/f1-team-1"): ReturnType<typeof render> {
@@ -104,14 +96,6 @@ describe("WorkTeam lists use flush variant (no grey container)", () => {
 	afterEach(() => {
 		vi.restoreAllMocks();
 		mockApiFetch.mockReset();
-	});
-
-	it("routines section renders an ItemList (present in DOM)", async () => {
-		mockApiFetch.mockReturnValue(Promise.resolve(makeAgentsResponse()));
-		renderWithRouter(<WorkTeam overrideData={TEAM_EMPTY} skipArtifacts />);
-		await waitFor(() => {
-			expect(screen.getByTestId("team-routines")).toBeInTheDocument();
-		});
 	});
 
 	it("agents section renders (present in DOM)", async () => {

@@ -33,7 +33,7 @@ async function reactToSessionNotReturned(
 	event: SessionNotReturnedEvent,
 	sendMessage: SendMessageRunFn,
 ): Promise<void> {
-	// No BAKED calling thread — only a routine_run session reaches this: it
+	// No BAKED calling thread — only a subscription_run session reaches this: it
 	// has no thread host to resolve one from at emit time, and (unlike
 	// `reply`'s own call-time fallback to a direct thread) this reaction has
 	// no agent-facing call to fall back from — no-op, per Decision 5.

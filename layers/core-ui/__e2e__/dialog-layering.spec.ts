@@ -52,14 +52,9 @@ async function setupAppShellMocks(page: import("@playwright/test").Page): Promis
 	// the assistant's existing direct thread this way, and it's also the broad
 	// fallback for the Conversations submenu list.
 	await mockSearchThreads(page, { rows: [] });
-	// notifications inbox — guard against fetch errors
-	await page.route("**/api/notifications**", (route) =>
-		route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify({ unseenCount: 0, rows: [] }),
-		}),
-	);
+	// @lore BC5 T10: `GET /api/notifications*` is gone — `useNotifications`
+	// reads the inbox off `open_user({}).inbox`, which the fixtures.ts
+	// auto-use default already answers.
 }
 
 // ---------------------------------------------------------------------------

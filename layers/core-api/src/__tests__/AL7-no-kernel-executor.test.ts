@@ -16,6 +16,14 @@
  * provides an execute/dispatch/kernel-capability surface.
  */
 
+import {
+	DOCUMENT_ACTIONS,
+	PLATFORM_ACTIONS,
+	SESSION_ACTIONS,
+	TASK_ACTIONS,
+	THREAD_ACTIONS,
+	USER_ACTIONS,
+} from "@hyperidle/domain-model";
 import { describe, expect, it } from "vitest";
 
 describe("AC12: no kernel-executor surface in the trust-first model", () => {
@@ -61,15 +69,20 @@ describe("AC12: no kernel-executor surface in the trust-first model", () => {
 		expect(exportFound).toBe(false);
 	});
 
-	it("stage_operation tool is NOT in ALL_TOOL_DEFINITIONS (v1 tool retired)", async () => {
-		const { buildToolDefinitions } = await import("@hyperidle/agent-orchestration");
-		// @lore AU31 §3.2/B2: this test only reads tool NAMES — never invokes a
-		// handler — so a transport that throws if called is more honest than
-		// wiring a real `app`.
-		const ALL_TOOL_DEFINITIONS = buildToolDefinitions(() => {
-			throw new Error("AL7-no-kernel-executor never invokes a tool handler");
-		});
-		const names = ALL_TOOL_DEFINITIONS.map((d: { name: string }) => d.name);
+	it("stage_operation tool is NOT among the declared actions (v1 tool retired)", () => {
+		// @lore BC5 T11: `buildToolDefinitions` (the hand-written management
+		// catalog) is DELETED with the `CoreApiPort` seam it wrote through —
+		// every tool an agent reaches today is the composed action list's own
+		// projection, declared here directly with no DB/orchestration wiring
+		// needed to read the name set.
+		const names = [
+			...Object.keys(TASK_ACTIONS),
+			...Object.keys(THREAD_ACTIONS),
+			...Object.keys(DOCUMENT_ACTIONS),
+			...Object.keys(USER_ACTIONS),
+			...Object.keys(PLATFORM_ACTIONS),
+			...Object.keys(SESSION_ACTIONS),
+		];
 		// The stage_operation tool was the v1 agent-authored staging tool — retired per concept rejection #8
 		expect(names).not.toContain("stage_operation");
 	});

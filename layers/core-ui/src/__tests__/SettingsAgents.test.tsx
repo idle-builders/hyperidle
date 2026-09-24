@@ -3,6 +3,9 @@
  *
  * AC2: The SettingsAgents add form renders a Team Select populated from
  *      GET /api/org; the POST body includes the selected teamId.
+ *
+ * @lore BC5 T9: the door swap — `call` mocked at the door, `search_users`/
+ * `open_user`/`edit_user` replace `/api/agents`, `/api/harnesses`, `/api/org`.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
@@ -15,36 +18,34 @@ import { ToastRegion } from "../shell/ToastRegion";
 // Mock helpers
 // ---------------------------------------------------------------------------
 
-const TEAM_ID = "tm-alpha";
-const TEAM_NAME = "Alpha Team";
+const { callMock } = vi.hoisted(() => ({ callMock: vi.fn() }));
+vi.mock("../services/call.js", () => ({ call: callMock }));
 
-function mockFetch(
-	teams: { id: string; name: string }[] = [{ id: TEAM_ID, name: TEAM_NAME }],
-): ReturnType<typeof vi.fn> {
-	return vi.fn().mockImplementation((url: string) => {
-		const urlStr = String(url);
-		if (urlStr.includes("/api/agents")) {
+function setupCall(): void {
+	callMock.mockImplementation((name: string, input: Record<string, unknown>) => {
+		if (name === "search_sessions") return Promise.resolve({ ok: true, data: [] });
+		if (name === "search_users") return Promise.resolve({ ok: true, data: [] });
+		if (name === "open_user") {
+			const id = input.id as string | undefined;
 			return Promise.resolve({
 				ok: true,
-				status: 200,
-				json: async () => [],
+				data: {
+					user:
+						id === undefined
+							? { id: "self", team: { id: "team-alpha", name: "Alpha Team" } }
+							: null,
+					runsOn: [{ type: "opencode", name: "OpenCode", modelProviders: ["anthropic"] }],
+					runConfig: null,
+					documentIds: [],
+					folders: [],
+					subscriptions: [],
+					connections: null,
+					behaviour: null,
+					inbox: null,
+				},
 			});
 		}
-		if (urlStr.includes("/api/harnesses")) {
-			return Promise.resolve({
-				ok: true,
-				status: 200,
-				json: async () => [{ type: "opencode", name: "OpenCode", modelProviders: ["anthropic"] }],
-			});
-		}
-		if (urlStr.includes("/api/org")) {
-			return Promise.resolve({
-				ok: true,
-				status: 200,
-				json: async () => ({ edges: [], users: [], teams }),
-			});
-		}
-		return Promise.resolve({ ok: false, status: 404, json: async () => ({}) });
+		return Promise.resolve({ ok: false, problems: [{ code: "unmocked", message: name }] });
 	});
 }
 
@@ -59,11 +60,9 @@ function renderSettingsAgents(): ReturnType<typeof render> {
 describe("AH4 AC2 — SettingsAgents add form", () => {
 	// AV2: Team picker moved out of Add Agent form — AgentEditor is used instead.
 	// Tests updated to match the new Add Agent flow (AgentEditor inline form).
-	let fetchMock: ReturnType<typeof vi.fn>;
-
 	beforeEach(() => {
-		fetchMock = mockFetch();
-		vi.stubGlobal("fetch", fetchMock);
+		callMock.mockReset();
+		setupCall();
 	});
 
 	afterEach(() => {

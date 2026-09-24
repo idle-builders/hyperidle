@@ -43,7 +43,7 @@ export interface BuildParentOptionsInput {
 
 /**
  * Only `document`-parented rows (or roots) are browsable tree nodes —
- * task/thread/routine/agent-parented rows are off-tree by design
+ * task/thread/subscription/agent-parented rows are off-tree by design
  * (architecture.md §3, "walks stop at the first non-document parent").
  */
 function isTreeNode(item: ParentCandidate): boolean {

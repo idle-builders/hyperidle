@@ -2,9 +2,8 @@
  * L13 — Work/Team page: unified team view.
  *
  * Layout (V1 — Stacked single column, per design/approved.md):
- *   R1 — Team header (breadcrumb + name + status + phase + lead)
- *   R4 — Team burn vs cap
- *   R2 — Active bets
+ *   R1 — Team header (breadcrumb + name + status)
+ *   R2 — Active tasks
  *   R3 — Roster
  *   Artifact slot (placeholder for L12)
  *
@@ -19,10 +18,16 @@
  * data-testids updated.
  * @lore U6: Route path renamed from /work/product/:productId to /work/team/:teamId.
  * useParams now reads `teamId` directly (no more productId alias).
+ *
+ * @lore BC5 T9: the door swap — `useTeam` now composes this page's data from
+ * `search_users`/`search_tasks`/`open_task` (see its own header comment)
+ * instead of one `GET /api/teams/:id`. Phase, lead and capacity are gone with
+ * the columns that carried them; `team` is id + name + a computed
+ * `"healthy" | "blocked"` status now. The routines section (R5) and its
+ * dialog/pane are deleted — subscriptions replace routines, and they live on
+ * `AgentProfile`, not the team page.
  */
 
-// @lore BB1: `BetCardSummary` → `TaskCardSummary`, `activeBets` → `tasksInProgress`.
-import type { TaskCardSummary, TeamDetail } from "@hyperidle/domain-model";
 import {
 	AGENT_OPERATIONAL_STATUS_LABEL,
 	roleLabel,
@@ -45,7 +50,6 @@ import {
 	PageScaffold,
 	Row,
 	RowDot,
-	routineStateToStatus,
 	SectionLabel,
 	SkeletonCard,
 	SplitView,
@@ -54,17 +58,15 @@ import {
 	taskStateToStatus,
 } from "../ds";
 import { DEFAULT_ROSTER_RUN_STATE, useRosterRunState } from "../hooks/useAgentRunState.js";
-import { useTeam } from "../hooks/useTeam";
+import type { TeamPageData, TeamTaskCard } from "../hooks/useTeam.js";
+import { useTeam } from "../hooks/useTeam.js";
 import { useTeamAgents } from "../hooks/useTeamAgents.js";
 import { useUiPreference } from "../hooks/useUiPreference.js";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import { NavHistoryCluster } from "../shell/NavHistoryCluster.js";
 import { deriveInitials } from "../utils/initials.js";
-import { relativeShort } from "../utils/time.js";
 import { AgentAddDialog } from "./AgentAddDialog.js";
 import { AgentDetailPane } from "./work/AgentDetailPane.js";
-import { RoutineCreateDialog } from "./work/RoutineCreateDialog.js";
-import { RoutineDetailPane } from "./work/RoutineDetailPane.js";
 
 export interface WorkTeamProps {
 	/**
@@ -73,8 +75,10 @@ export interface WorkTeamProps {
 	 * Pass `null` to simulate a resolved-but-empty fetch (e.g. 404/500 path).
 	 *
 	 * @lore U1: Type changed from ProductDetail to TeamDetail.
+	 * @lore BC5 T9: TeamDetail (the old GET /api/teams/:id shape) replaced by
+	 * TeamPageData — useTeam's own client-composed shape.
 	 */
-	overrideData?: TeamDetail | null;
+	overrideData?: TeamPageData | null;
 	/**
 	 * Override the loading state. When true, skeleton placeholders are shown.
 	 */
@@ -111,7 +115,7 @@ export function WorkTeam({
 	const fetched = useTeam(overrideData !== undefined ? undefined : teamId);
 
 	const error = overrideError !== undefined ? (overrideError ?? null) : fetched.error;
-	const data = overrideData !== undefined ? overrideData : (fetched.data as TeamDetail | null);
+	const data = overrideData !== undefined ? overrideData : (fetched.data as TeamPageData | null);
 	// UI-015: retry re-issues the team fetch in place (no page reload).
 	const onRetryTeam = overrideData === undefined ? fetched.refetch : undefined;
 
@@ -130,10 +134,9 @@ export function WorkTeam({
 				data-testid="work-team-page"
 			>
 				<div className="max-w-[960px] w-full py-[24px] flex flex-col gap-[24px]">
-					{/* UI-016: match real content regions — summary strip, bets, routines, roster */}
+					{/* UI-016: match real content regions — summary strip, active tasks, roster */}
 					<SkeletonCard ariaLabel="Loading team summary" />
 					<SkeletonCard ariaLabel="Loading active tasks" />
-					<SkeletonCard ariaLabel="Loading routines" />
 					<SkeletonCard ariaLabel="Loading roster" />
 				</div>
 			</PageScaffold>
@@ -190,8 +193,8 @@ export function WorkTeam({
 
 	// @lore U6: Defensive guard against malformed API responses (e.g. stubs that return
 	// { threads: [], nextCursor: null } for unrecognised URLs in tests). When data does
-	// not carry the expected TeamDetail shape, render the not-found EmptyState rather
-	// than crashing in WorkTeamLoaded at `data.team.leadAgentId`.
+	// not carry the expected TeamPageData shape, render the not-found EmptyState rather
+	// than crashing in WorkTeamLoaded at `data.team.name`.
 	if (!data.team) {
 		return (
 			<PageScaffold frame="page" header={<PageHeader title="Team" />} data-testid="work-team-page">
@@ -221,8 +224,8 @@ function WorkTeamLoaded({
 	skipArtifacts = false,
 	refetchTeam,
 }: {
-	// @lore U1: TeamDetail replaces ProductDetail.
-	data: TeamDetail;
+	// @lore U1: TeamDetail replaces ProductDetail. @lore BC5 T9: TeamPageData replaces TeamDetail.
+	data: TeamPageData;
 	/**
 	 * When true, the ArtifactSection is not rendered. Used by test overrides
 	 * to prevent ArtifactSection from calling fetch and consuming mocked responses
@@ -233,32 +236,27 @@ function WorkTeamLoaded({
 	 * overrideData in tests, skipping ArtifactSection prevents fetch-order races.
 	 */
 	skipArtifacts?: boolean;
-	/** AF16 T3: Callback to re-fetch team data after a mutation (e.g. routine created). */
+	/** AF16 T3: Callback to re-fetch team data after a mutation (e.g. an agent added). */
 	refetchTeam?: () => void;
 }): JSX.Element {
 	const navigate = useNavigate();
 	const { sidebarMobile } = useViewportBreakpoint();
 	// @lore U1: `team` replaces `product` in TeamDetail.
-	// @lore AA1: routines defaults to [] so pre-AA1 mock data (missing the field) doesn't crash.
 	// @lore BB1: activeBets → tasksInProgress; stored counter deleted, list comes from API
-	const { team, roster, burn, tasksInProgress = [], routines = [] } = data;
+	const { team, roster, tasksInProgress } = data;
 	// onOpenArtifact removed — ArtifactSection manages the split view internally
 	// @lore AV4: All three new hooks go UNCONDITIONALLY here at the top of WorkTeamLoaded,
 	// NOT in WorkTeam — WorkTeam has 5 early-return guard branches (loading/error/null/no-team)
 	// that would make any hook after the first guard a conditional-hook violation.
 	// WorkTeamLoaded is always rendered (data guaranteed present) — safe to add hooks here.
 	const [searchParams, setSearchParams] = useSearchParams();
-	const [routineRatio, setRoutineRatio] = useUiPreference("work.routine", 0.5);
 	const [agentRatio, setAgentRatio] = useUiPreference("work.agent", 0.5);
 
-	const selectedRoutineId = searchParams.get("routine");
 	const selectedAgentId = searchParams.get("agent");
-	const hasSelection = selectedRoutineId !== null || selectedAgentId !== null;
+	const hasSelection = selectedAgentId !== null;
 
 	// AB3: dialog state
 	const [addDialogOpen, setAddDialogOpen] = useState(false);
-	// AA2: routine create dialog state
-	const [createRoutineOpen, setCreateRoutineOpen] = useState(false);
 
 	// AB3: fetch full agent configs for the roster.
 	// @lore: `useTeamAgents` fetches nothing itself (it filters `useAgents`'
@@ -292,16 +290,10 @@ function WorkTeamLoaded({
 	const paneRosterMember =
 		selectedAgentId !== null ? (roster.find((m) => m.agentId === selectedAgentId) ?? null) : null;
 
-	// D2: Resolve lead display name from roster instead of showing the agent id.
-	const leadName =
-		team.leadAgentId !== null
-			? (roster.find((m) => m.agentId === team.leadAgentId)?.name ?? team.leadAgentId)
-			: null;
-
 	// @lore AZ2: teamBodyContent is the team list JSX extracted into a variable so it
 	// can be: 1. Rendered full-width when no selection (PageScaffold's own scroll
 	// body owns the scroll region). 2. Passed as `origin` to SplitView when
-	// ?routine or ?agent is set (SplitView's own origin wrapper — `flex min-w-0
+	// ?agent is set (SplitView's own origin wrapper — `flex min-w-0
 	// flex-col overflow-auto`, SplitView.tsx:197 — already gives it a bounded
 	// scrolling column; the content needs no scroll wrapper of its own there
 	// either). Pre-AZ2 this was `teamBody`, a standalone `flex-1 overflow-y-auto`
@@ -328,9 +320,11 @@ function WorkTeamLoaded({
 			 */}
 			<section aria-label="Team summary" data-testid="team-burn-vs-cap">
 				{/*
-				 * @lore AG1: stat tiles (Capacity/Status) replace the KeyValue
-				 * burn list. flex-wrap (not grid-cols-N) avoids AQ-108. Status tile is
-				 * mandatory — empty roster → "—"/"No agents", never "Healthy".
+				 * @lore AG1: stat tiles (Active tasks/Agent Health) replace the
+				 * KeyValue burn list. flex-wrap (not grid-cols-N) avoids AQ-108. Status
+				 * tile is mandatory — empty roster → "—"/"No agents", never "Healthy".
+				 * @lore BC5 T9: the Capacity tile (active tasks / team capacity) is gone
+				 * with teams.capacity (D-c7jgxy) — it now just counts.
 				 */}
 				{/* @lore UI-065: StatTile replaced with KpiStat (design-system primitive) +
 				    a border card wrapper. KpiStat is the canonical metric-display primitive
@@ -338,7 +332,7 @@ function WorkTeamLoaded({
 				    field was added to KpiStatMetric (optional, backward-compatible) so the
 				    contextual annotation line ("active bets", "1 idle agent") is preserved. */}
 				<div className="flex gap-[12px] flex-wrap">
-					{/* Capacity tile */}
+					{/* Active tasks tile */}
 					<div
 						data-testid="stat-tile"
 						className="border-width-thin flex-1 min-w-[180px] rounded-[var(--r-subtle)]  border-[var(--border-subtle)] p-[18px]"
@@ -346,9 +340,9 @@ function WorkTeamLoaded({
 						<KpiStat
 							metrics={[
 								{
-									label: "Capacity",
-									value: `${tasksInProgress.length} / ${burn.capacity}`,
-									sub: "active tasks",
+									label: "Active tasks",
+									value: String(tasksInProgress.length),
+									sub: "in progress",
 								},
 							]}
 						/>
@@ -442,74 +436,6 @@ function WorkTeamLoaded({
 				)}
 			</section>
 
-			{/* R5 — Routines (AA1): sits after active tasks, before roster */}
-			<section aria-label="Team routines" data-testid="team-routines">
-				<SectionLabel
-					label="Routines"
-					as="h2"
-					trailing={
-						<Button
-							variant="ghost"
-							size="sm"
-							type="button"
-							onClick={() => setCreateRoutineOpen(true)}
-							data-testid="new-routine-btn"
-						>
-							+ New routine
-						</Button>
-					}
-				/>
-				<ItemList
-					variant="flush"
-					isEmpty={routines.length === 0}
-					empty={{
-						title: "No routines",
-						description: "This team has no recurring work configured.",
-						dataTestId: "team-routines-empty",
-					}}
-				>
-					{routines.map((routine) => {
-						const routineStatus = routineStateToStatus(routine.state);
-						const routineTone =
-							routineStatus === "healthy"
-								? ("success" as const)
-								: routineStatus === "error"
-									? ("error" as const)
-									: routineStatus === "paused"
-										? ("info" as const)
-										: ("neutral" as const);
-						const lastRunLabel = routine.lastRunAt ? relativeShort(routine.lastRunAt) : "Never";
-						return (
-							<Row
-								key={routine.id}
-								data-testid="routine-row"
-								lead={<RowDot tone={routineTone} />}
-								title={routine.name}
-								cells={[
-									{
-										content: (
-											<span
-												className="type-avatar-initial type-avatar-initial--sm w-[24px] h-[24px] rounded-[var(--r-pill)] shrink-0 flex items-center justify-center text-[var(--accent-deep)]"
-												style={{ background: "var(--accent-deep-dim)" }}
-												aria-label={routine.agentName}
-												title={routine.agentName}
-											>
-												{routine.agentInitials}
-											</span>
-										),
-									},
-									// @lore NEW-10: removed fixed width:80 — "Every Monday at 10:00 AM" needs
-									// ~173px; the name (flex-1) has plenty of empty space to give back.
-									{ content: routine.scheduleLabel, align: "start" },
-									{ content: lastRunLabel, width: 60, numeric: true },
-								]}
-								href={`/work/routine/${encodeURIComponent(routine.id)}`}
-							/>
-						);
-					})}
-				</ItemList>
-			</section>
-
 			{/* R3 — Agents (AB2: replaces Roster/AgentCard with flat AgentRow rows) */}
 			<section aria-label="Team agents" data-testid="team-agents">
 				<SectionLabel
@@ -590,16 +516,7 @@ function WorkTeamLoaded({
 										<Avatar initials={initials} size="sm" agent />
 									</>
 								}
-								title={
-									<>
-										{member.name}
-										{member.isLead && (
-											<span className="type-metadata ml-[6px] text-[var(--accent-deep)] ">
-												— Lead
-											</span>
-										)}
-									</>
-								}
+								title={member.name}
 								cells={[
 									...(hasCategory
 										? [
@@ -689,23 +606,6 @@ function WorkTeamLoaded({
 			 * Customize now opens AgentDetailPane in the split pane via ?agent param (AC#3).
 			 * AgentAddDialog stays a modal; it mounts in the outer return (not teamBody) so it
 			 * works correctly regardless of whether the split pane is open or not. */}
-
-			{/* AA2: Routine create dialog */}
-			{createRoutineOpen && (
-				<RoutineCreateDialog
-					open={createRoutineOpen}
-					onClose={() => setCreateRoutineOpen(false)}
-					onCreated={() => {
-						// AF16 T3 (Z8-128): refetch team data so the new routine appears
-						// without a page reload. Mirrors the agent path (refetchAgents above).
-						refetchTeam?.();
-						setCreateRoutineOpen(false);
-					}}
-					agents={roster
-						.filter((m) => m.role !== "human")
-						.map((m) => ({ id: m.agentId, name: m.name }))}
-				/>
-			)}
 		</div>
 	); // end teamBodyContent
 	const teamHeader = (presentation: "page" | "pane"): JSX.Element => (
@@ -725,12 +625,6 @@ function WorkTeamLoaded({
 					}
 					LinkComponent={RRLink}
 				/>
-			}
-			subtitle={
-				<span className="type-small text-[var(--text-tertiary)]">
-					Phase: {team.phase}
-					{leadName && ` · Lead: ${leadName}`}
-				</span>
 			}
 			actions={<StatusChip status={team.status} />}
 		/>
@@ -756,26 +650,7 @@ function WorkTeamLoaded({
 				body={hasSelection ? "managed" : "scroll"}
 				data-testid="work-team-page"
 			>
-				{selectedRoutineId !== null ? (
-					<SplitView
-						compact={sidebarMobile}
-						originLabel="team"
-						surfaceKey="work.routine"
-						mode="split"
-						dividerRatio={routineRatio}
-						onRatioChange={setRoutineRatio}
-						onModeChange={(mode) => {
-							if (mode === "fold-back") setSearchParams({});
-						}}
-						origin={teamPane}
-						destination={
-							<RoutineDetailPane
-								routineId={selectedRoutineId}
-								onClose={() => setSearchParams({})}
-							/>
-						}
-					/>
-				) : selectedAgentId !== null ? (
+				{selectedAgentId !== null ? (
 					<SplitView
 						compact={sidebarMobile}
 						originLabel="team"
@@ -809,11 +684,11 @@ function WorkTeamLoaded({
 				<AgentAddDialog
 					rolesInUse={(data?.roster ?? []).map((m) => m.role)}
 					open={addDialogOpen}
-					teamMembersId={data.teamMembers.id}
 					teamName={data.team.name}
 					onClose={() => setAddDialogOpen(false)}
 					onCreated={() => {
 						refetchAgents();
+						refetchTeam?.();
 						setAddDialogOpen(false);
 					}}
 				/>
@@ -829,12 +704,14 @@ function WorkTeamLoaded({
 /**
  * Single active-task row rendered inside R2. Uses design-system Row for flush layout.
  * @lore BB1: Renamed from BetRow; now uses TaskCardSummary shape.
+ * @lore BC5 T9: TaskCardSummary (the old GET /api/teams/:id shape) replaced by
+ * TeamTaskCard — useTeam's own client-composed shape (§ useTeam.ts).
  * @lore F1 (POLISH-060): replaced hand-rolled grey button with Row primitive — drops
  * bg-[var(--surface-container)] so tasks sit flush on the page, not in a grey card.
  */
 // @lore UI-080: href instead of onClick so ⌘-click / middle-click work natively.
 // StatusChip (actions) is display-only so nesting inside <a> is valid.
-function TaskRow({ task, href }: { task: TaskCardSummary; href: string }): JSX.Element {
+function TaskRow({ task, href }: { task: TeamTaskCard; href: string }): JSX.Element {
 	const progressText = task.progressTotal > 0 ? `${task.progressDone}/${task.progressTotal}` : "—";
 
 	return (

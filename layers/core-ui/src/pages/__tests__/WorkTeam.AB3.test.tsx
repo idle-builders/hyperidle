@@ -5,25 +5,31 @@
  * AC-1: Agent cards show name, role description, and category tag for non-team agents.
  * AC-2: Clicking agent card opens edit dialog pre-filled with system prompt textarea.
  * AC-3: Edit dialog respects category — app-managed agents show note + disabled config.
- * AC-4: Config section save calls PATCH /api/agents/:id with updated values.
- * AC-5: "+ Add agent" button opens create dialog; Create calls POST /api/agents.
- * AC-6: First-time hint banner with data-testid="hint-review-agents" is visible.
+ * AC-4: Config section save calls edit_user with updated values.
+ * AC-5: "+ Add agent" button opens create dialog; Create calls edit_user (kind: ai).
  *
  * These tests FAIL until:
  * - WorkTeam roster section is replaced with agent cards (data-testid="agent-row")
  * - AgentEditDialog component is created
  * - AgentAddDialog component is created
  * - useTeamAgents hook is created
- * - "review-agents" hint is added to HintId union and HINT_CATALOG
  * - RosterMember.agentCategory field is added
+ *
+ * @lore BC5 T9: the door swap — `call` mocked at the door. `useTeamAgents` is
+ * mocked directly (empty map — its own coverage lives in useAgents' tests),
+ * so the roster's category tags come straight off `TeamPageData.roster`; the
+ * pane's harness/identity fields come off `open_user({ id })`, fired the
+ * moment `AgentDetailPane` selects an agent (AgentDetailPane's own @lore).
+ * AC-6 (the first-time hint banner) is dropped — it was never implemented in
+ * this file to begin with (the docstring named it, no test did).
  */
 
-import type { TeamDetail } from "@hyperidle/domain-model";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { TeamPageData } from "../../hooks/useTeam.js";
 import { WorkTeam } from "../WorkTeam";
 
 // ---------------------------------------------------------------------------
@@ -35,51 +41,39 @@ vi.mock("../../components/ArtifactSection.js", () => ({
 	ArtifactSection: () => null,
 }));
 
-// Mock apiFetch for dialog save/create calls
-const mockApiFetch = vi.fn();
-vi.mock("../../services/api-fetch.js", () => ({
-	apiFetch: (...args: unknown[]) => mockApiFetch(...args),
-}));
-
 // Mock toast
 vi.mock("../../shell/ToastRegion.js", () => ({
 	useToast: () => ({ showToast: vi.fn() }),
 }));
+
+const { callMock } = vi.hoisted(() => ({ callMock: vi.fn() }));
+vi.mock("../../services/call.js", () => ({ call: callMock }));
 
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
 
 /**
- * A TeamDetail with a mix of agent categories.
- * RosterMember now requires agentCategory (AB3 extension).
+ * A TeamPageData with a mix of agent categories.
+ * TeamRosterMember now requires agentCategory (AB3 extension).
  */
-const TEAM_WITH_AGENTS: TeamDetail = {
+const TEAM_WITH_AGENTS: TeamPageData = {
 	team: {
 		id: "ab3-team-1",
 		name: "AB3 Test Team",
-		phase: "build",
 		status: "healthy",
-		leadAgentId: "agent-builder-1",
-	},
-	teamMembers: {
-		id: "tm-ab3",
-		formedAt: "2026-01-01T00:00:00.000Z",
-		dissolvedAt: null,
 	},
 	roster: [
 		{
 			agentId: "agent-builder-1",
 			name: "Atlas Builder",
 			role: "builder",
-			isLead: true,
 			agentCategory: "team",
 		},
 		{
 			agentId: "agent-scout-1",
 			name: "Scout Agent",
 			role: "scout",
-			isLead: false,
 			// @lore BA9d: strategy category removed; scout is now individual
 			agentCategory: "individual",
 		},
@@ -87,53 +81,104 @@ const TEAM_WITH_AGENTS: TeamDetail = {
 			agentId: "agent-cos-1",
 			name: "System Agent",
 			role: "assistant",
-			isLead: false,
 			agentCategory: "individual",
 		},
 	],
-	burn: {
-		capacity: 5,
-	},
 	tasksInProgress: [],
 };
 
-/** Mock agent configs returned by GET /api/agents */
-const MOCK_AGENT_CONFIGS = [
-	{
-		id: "agent-builder-1",
-		name: "Atlas Builder",
-		role: "builder",
-		identityDocumentId: "ki_af_demo",
+/** Mock per-agent `open_user` runConfig/documentIds, keyed by agent id. */
+const MOCK_AGENT_CONFIGS: Record<
+	string,
+	{ harnessType: string | null; maxConcurrentSessions: number; identityDocumentId: string | null }
+> = {
+	"agent-builder-1": {
 		harnessType: "claude-code",
 		maxConcurrentSessions: 2,
-		status: "active",
-		activeSessions: 0,
-		agentCategory: "team",
-	},
-	{
-		id: "agent-scout-1",
-		name: "Scout Agent",
-		role: "scout",
 		identityDocumentId: "ki_af_demo",
+	},
+	"agent-scout-1": {
 		harnessType: null,
 		maxConcurrentSessions: 1,
-		status: "active",
-		activeSessions: 0,
-		// @lore BA9d: strategy category removed; scout is now individual
-		agentCategory: "individual",
-	},
-	{
-		id: "agent-cos-1",
-		name: "System Agent",
-		role: "assistant",
 		identityDocumentId: "ki_af_demo",
-		harnessType: null,
-		maxConcurrentSessions: 1,
-		status: "active",
-		activeSessions: 0,
-		agentCategory: "individual",
 	},
-];
+	"agent-cos-1": { harnessType: null, maxConcurrentSessions: 1, identityDocumentId: "ki_af_demo" },
+};
+
+/** Routes `open_user`/`edit_user` against MOCK_AGENT_CONFIGS. */
+function setupCall(): void {
+	callMock.mockImplementation((name: string, input: Record<string, unknown>) => {
+		if (name === "open_user") {
+			const id = input.id as string | undefined;
+			if (id === undefined) {
+				return Promise.resolve({
+					ok: true,
+					data: {
+						user: { id: "self", team: { id: "ab3-team-1", name: "AB3 Test Team" } },
+						runsOn: [],
+						runConfig: null,
+						documentIds: [],
+						folders: [],
+						subscriptions: [],
+						connections: null,
+						behaviour: null,
+						inbox: null,
+					},
+				});
+			}
+			const config = MOCK_AGENT_CONFIGS[id];
+			return Promise.resolve({
+				ok: true,
+				data: {
+					user: { id, name: id },
+					runsOn: [],
+					runConfig: config
+						? {
+								harnessType: config.harnessType,
+								modelId: null,
+								modelProvider: null,
+								maxConcurrentSessions: config.maxConcurrentSessions,
+								modelOptions: {},
+							}
+						: null,
+					documentIds: config?.identityDocumentId
+						? [{ slot: "agent_file", id: config.identityDocumentId }]
+						: [],
+					folders: [],
+					subscriptions: [],
+					connections: null,
+					behaviour: null,
+					inbox: null,
+				},
+			});
+		}
+		if (name === "edit_user")
+			return Promise.resolve({ ok: true, data: { user: { id: "agent-new" } } });
+		if (name === "search_users") {
+			// `useTeamAgents` filters `useAgents`' `search_users(kind: ai)` fetch —
+			// the roster rows so `paneAgent` resolves to something non-null.
+			return Promise.resolve({
+				ok: true,
+				data: Object.keys(MOCK_AGENT_CONFIGS).map((id) => ({
+					id,
+					kind: "ai",
+					name: id,
+					role: "builder",
+					status: "active",
+					email: null,
+					avatarUrl: null,
+					createdAt: "2026-01-01T00:00:00.000Z",
+					agentCategory: "team",
+					ownerUserId: null,
+					health: null,
+					team: null,
+					edges: [],
+				})),
+			});
+		}
+		return Promise.resolve({ ok: true, data: [] });
+	});
+}
 
 // ---------------------------------------------------------------------------
 // Render helpers
@@ -150,36 +195,18 @@ function renderWithHints(ui: ReactNode, path = "/work/team/ab3-team-1"): ReturnT
 	);
 }
 
-function makeHintResponse(dismissed: string[] = []): Response {
-	return new Response(
-		JSON.stringify({
-			dismissed: dismissed.map((hintId) => ({ hintId, seenAt: "2026-01-01T00:00:00.000Z" })),
-		}),
-		{ status: 200 },
-	);
-}
-
-function makeAgentsResponse(agents = MOCK_AGENT_CONFIGS): Response {
-	return new Response(JSON.stringify(agents), { status: 200 });
-}
-
 // ---------------------------------------------------------------------------
 // AC-1: Agent cards show name, description, and category tags
 // ---------------------------------------------------------------------------
 
 describe("AB3 AC-1 — Agent cards with name, description, and category tags", () => {
-	let fetchSpy: ReturnType<typeof vi.fn>;
-
 	beforeEach(() => {
-		fetchSpy = vi.fn();
-		global.fetch = fetchSpy as unknown as typeof fetch;
-		fetchSpy.mockResolvedValue(makeHintResponse());
-		mockApiFetch.mockResolvedValue(makeAgentsResponse());
+		callMock.mockReset();
+		setupCall();
 	});
 
 	afterEach(() => {
 		vi.restoreAllMocks();
-		mockApiFetch.mockReset();
 	});
 
 	it("renders agent cards with data-testid='agent-card' for each roster member", async () => {
@@ -247,18 +274,13 @@ describe("AB3 AC-1 — Agent cards with name, description, and category tags", (
 // ---------------------------------------------------------------------------
 
 describe("AB3 AC-2 — Edit dialog system prompt textarea pre-filled", () => {
-	let fetchSpy: ReturnType<typeof vi.fn>;
-
 	beforeEach(() => {
-		fetchSpy = vi.fn();
-		global.fetch = fetchSpy as unknown as typeof fetch;
-		fetchSpy.mockResolvedValue(makeHintResponse());
-		mockApiFetch.mockResolvedValue(makeAgentsResponse());
+		callMock.mockReset();
+		setupCall();
 	});
 
 	afterEach(() => {
 		vi.restoreAllMocks();
-		mockApiFetch.mockReset();
 	});
 
 	// @lore AV4: Customize now opens AgentDetailPane in split pane (no modal).
@@ -351,18 +373,13 @@ describe("AB3 AC-2 — Edit dialog system prompt textarea pre-filled", () => {
 // ---------------------------------------------------------------------------
 
 describe("AB3 AC-3 — Edit dialog category-aware behavior", () => {
-	let fetchSpy: ReturnType<typeof vi.fn>;
-
 	beforeEach(() => {
-		fetchSpy = vi.fn();
-		global.fetch = fetchSpy as unknown as typeof fetch;
-		fetchSpy.mockResolvedValue(makeHintResponse());
-		mockApiFetch.mockResolvedValue(makeAgentsResponse());
+		callMock.mockReset();
+		setupCall();
 	});
 
 	afterEach(() => {
 		vi.restoreAllMocks();
-		mockApiFetch.mockReset();
 	});
 
 	// @lore BA9d D5: app-managed dialog tests deleted — strategy category and the
@@ -431,18 +448,13 @@ describe("AB3 AC-3 — Edit dialog category-aware behavior", () => {
 // ---------------------------------------------------------------------------
 
 describe("AB3 AC-4 — Config save via PATCH /api/agents/:id", () => {
-	let fetchSpy: ReturnType<typeof vi.fn>;
-
 	beforeEach(() => {
-		fetchSpy = vi.fn();
-		global.fetch = fetchSpy as unknown as typeof fetch;
-		fetchSpy.mockResolvedValue(makeHintResponse());
-		mockApiFetch.mockResolvedValue(makeAgentsResponse());
+		callMock.mockReset();
+		setupCall();
 	});
 
 	afterEach(() => {
 		vi.restoreAllMocks();
-		mockApiFetch.mockReset();
 	});
 
 	// @lore BA9f: "Save writes the edited system prompt" lived here. The persona
@@ -458,14 +470,8 @@ describe("AB3 AC-4 — Config save via PATCH /api/agents/:id", () => {
 	// is what reaches the harness. The claim itself — this pane's Save reaches
 	// `PATCH /api/agents/:id` with what the user edited — is unchanged, so the
 	// test makes it over the config field that survived.
-	it("Save button calls PATCH with the edited harness", async () => {
+	it("Save button calls edit_user with the edited harness", async () => {
 		const user = userEvent.setup();
-
-		const patchResponse = new Response(
-			JSON.stringify({ ...MOCK_AGENT_CONFIGS[0], harnessType: "codex" }),
-			{ status: 200 },
-		);
-		mockApiFetch.mockResolvedValueOnce(makeAgentsResponse()).mockResolvedValueOnce(patchResponse);
 
 		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
 
@@ -501,16 +507,13 @@ describe("AB3 AC-4 — Config save via PATCH /api/agents/:id", () => {
 		await user.click(saveBtn);
 
 		await waitFor(() => {
-			const patchCall = mockApiFetch.mock.calls.find(
-				(call) => (call[1] as RequestInit)?.method === "PATCH",
+			expect(callMock).toHaveBeenCalledWith(
+				"edit_user",
+				expect.objectContaining({
+					id: "agent-builder-1",
+					runConfig: expect.objectContaining({ harnessType: "codex" }),
+				}),
 			);
-			expect(patchCall).toBeDefined();
-			if (!patchCall) return;
-			const body = JSON.parse((patchCall[1] as RequestInit).body as string) as Record<
-				string,
-				unknown
-			>;
-			expect(body.harnessType).toBe("codex");
 		});
 	});
 });
@@ -520,18 +523,13 @@ describe("AB3 AC-4 — Config save via PATCH /api/agents/:id", () => {
 // ---------------------------------------------------------------------------
 
 describe("AB3 AC-5 — Add custom agent dialog", () => {
-	let fetchSpy: ReturnType<typeof vi.fn>;
-
 	beforeEach(() => {
-		fetchSpy = vi.fn();
-		global.fetch = fetchSpy as unknown as typeof fetch;
-		fetchSpy.mockResolvedValue(makeHintResponse());
-		mockApiFetch.mockResolvedValue(makeAgentsResponse());
+		callMock.mockReset();
+		setupCall();
 	});
 
 	afterEach(() => {
 		vi.restoreAllMocks();
-		mockApiFetch.mockReset();
 	});
 
 	it("renders a '+ Add agent' button below the roster", async () => {
@@ -577,27 +575,8 @@ describe("AB3 AC-5 — Add custom agent dialog", () => {
 		});
 	});
 
-	it("clicking Create calls POST /api/agents with teamMembersId", async () => {
+	it("clicking Create calls edit_user with the team name", async () => {
 		const user = userEvent.setup();
-
-		const createResponse = new Response(
-			JSON.stringify({
-				id: "new-agent-1",
-				name: "New Custom Agent",
-				role: "builder",
-				identityDocumentId: "ki_af_demo",
-				harnessType: null,
-				maxConcurrentSessions: 1,
-				status: "active",
-				activeSessions: 0,
-				agentCategory: "team",
-			}),
-			{ status: 201 },
-		);
-
-		mockApiFetch
-			.mockResolvedValueOnce(makeAgentsResponse()) // initial GET /api/agents
-			.mockResolvedValueOnce(createResponse); // POST /api/agents
 
 		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
 
@@ -620,20 +599,14 @@ describe("AB3 AC-5 — Add custom agent dialog", () => {
 		await user.click(createBtn);
 
 		await waitFor(() => {
-			const postCall = mockApiFetch.mock.calls.find(
-				(call) =>
-					(call[1] as RequestInit)?.method === "POST" &&
-					(call[0] as string).includes("/api/agents"),
+			expect(callMock).toHaveBeenCalledWith(
+				"edit_user",
+				expect.objectContaining({
+					kind: "ai",
+					name: "New Custom Agent",
+					team: { name: "AB3 Test Team" },
+				}),
 			);
-			expect(postCall).toBeDefined();
-			if (!postCall) return;
-			const body = JSON.parse((postCall[1] as RequestInit).body as string) as Record<
-				string,
-				unknown
-			>;
-			expect(body.name).toBe("New Custom Agent");
-			// teamId must be the teamMembers.id (not team.id)
-			expect(body.teamId).toBe("tm-ab3");
 		});
 	});
 });

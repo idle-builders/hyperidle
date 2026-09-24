@@ -26,6 +26,26 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SetupFlow } from "../pages/SetupFlow";
 
+// @lore BC5 T10: the door swap — `call` is mocked at the door instead of
+// `global.fetch`; `POST /api/users` → `POST /api/teams` becomes three
+// `edit_user` calls (architecture.md §7).
+const { callMock } = vi.hoisted(() => ({ callMock: vi.fn() }));
+vi.mock("../services/call.js", () => ({ call: callMock }));
+
+function openUserData(): Record<string, unknown> {
+	return {
+		user: null,
+		runsOn: [],
+		runConfig: null,
+		documentIds: [],
+		folders: [],
+		subscriptions: [],
+		connections: null,
+		behaviour: null,
+		inbox: null,
+	};
+}
+
 // AD9: /work/portfolio retired → /work is the new landing
 function WorkOverviewStub(): React.JSX.Element {
 	return <div data-testid="landing">work-overview</div>;
@@ -49,20 +69,20 @@ afterEach(() => {
 
 describe("SetupFlow (R2)", () => {
 	beforeEach(() => {
-		vi.stubGlobal(
-			"fetch",
-			vi.fn().mockImplementation(() =>
-				Promise.resolve({
+		callMock.mockReset();
+		callMock.mockImplementation((name: string, input: Record<string, unknown>) => {
+			if (name === "open_user") return Promise.resolve({ ok: true, data: openUserData() });
+			if (name === "edit_user") {
+				return Promise.resolve({
 					ok: true,
-					status: 201,
-					json: async () => ({
-						id: "u-new",
-						name: "Alice",
-						kind: "human",
-					}),
-				}),
-			),
-		);
+					data: {
+						...openUserData(),
+						user: { id: "u-new", kind: input.kind, name: input.name },
+					},
+				});
+			}
+			return Promise.resolve({ ok: false, problems: [{ code: "unmocked", message: name }] });
+		});
 	});
 
 	// AC-1: the name is the only always-present required field
@@ -173,16 +193,17 @@ describe("SetupFlow (R2)", () => {
 
 	// Submitting state
 	it("Start button shows loading state while submitting", async () => {
-		let resolveFetch!: (value: unknown) => void;
-		vi.stubGlobal(
-			"fetch",
-			vi.fn().mockImplementation(
-				() =>
-					new Promise((resolve) => {
-						resolveFetch = resolve;
-					}),
-			),
-		);
+		let resolveEditUser!: (value: unknown) => void;
+		callMock.mockReset();
+		callMock.mockImplementation((name: string) => {
+			if (name === "open_user") return Promise.resolve({ ok: true, data: openUserData() });
+			if (name === "edit_user") {
+				return new Promise((resolve) => {
+					resolveEditUser = resolve;
+				});
+			}
+			return Promise.resolve({ ok: false, problems: [{ code: "unmocked", message: name }] });
+		});
 
 		const user = userEvent.setup();
 		renderSetupFlow();
@@ -195,11 +216,7 @@ describe("SetupFlow (R2)", () => {
 		// During submission, button should be disabled
 		expect(startBtn).toBeDisabled();
 
-		// Clean up by resolving
-		resolveFetch({
-			ok: true,
-			status: 201,
-			json: async () => ({ id: "u-1", name: "Alice", kind: "human" }),
-		});
+		// Clean up by resolving the person's edit_user call
+		resolveEditUser({ ok: true, data: { ...openUserData(), user: { id: "u-1", kind: "human" } } });
 	});
 });

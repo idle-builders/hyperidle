@@ -80,7 +80,7 @@ export const JUSTIFIED_UNUSED: ReadonlyArray<{
 		pkg: "@hyperidle/agent-orchestration",
 		dependency: "@types/node",
 		reason:
-			'AU31 §5/§12: services/core-api-port-composition.ts reads process.env.HYPERIDLE_API_KEY (a global, not an explicit `node:` import), so usesNodeBuiltins never sees it — the same reason tsconfig.json\'s own `types: ["node"]` had to be declared explicitly for this package.',
+			"`tsconfig.json`'s own `types: [\"node\"]` is declared explicitly for this package (ambient Node globals, not an explicit import this scanner's source scan can see) — `ssrf.ts`/`git-runner.ts` import real `node:` builtins, but the ambient-types declaration itself is what this allowance covers.",
 	},
 	{
 		pkg: "@hyperidle/website",

@@ -42,7 +42,7 @@
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
-import { findUser, type UpgradeTokenStore } from "@hyperidle/users";
+import { findUser, type UpgradeTokenStore } from "@hyperidle/user";
 import { Hono } from "hono";
 
 export function createAuthRoutes(

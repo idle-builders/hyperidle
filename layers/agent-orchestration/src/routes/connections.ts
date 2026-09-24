@@ -1,17 +1,20 @@
 /**
- * AN1 — /api/connections routes.
+ * Connections — read/write bodies for a user's `service_connections`, held
+ * union the reach cache's inherited projections.
  *
- * CRUD for per-user ServiceConnections (held: token | mcp).
- * Inherited connections are projected live from the connections domain's own
- * reach cache (AU36).
+ * @lore BC5 T11 (architecture.md §6/§9, T4): the `/api/connections` HTTP
+ * route family (`createConnectionRoutes`, its rate limiters and the
+ * `/:id/validate` SSRF-checked probe) is DELETED — connections are a user
+ * attribute now, read through `open_user({}).connections` and written
+ * through `edit_user({ connections })`, crossing `AgentOrchestrationPort`'s
+ * `connections` seam (`agent-orchestration-intake.ts`'s plumbing routes)
+ * rather than a public route. `listConnectionsForUser`/
+ * `createConnectionForUser`/`removeConnectionForUser` below (BC5 T4) are
+ * that seam's one implementation — they stay, unchanged.
  *
- * Security model:
- *   - All routes require auth (401 without API key / session token).
- *   - Every query scoped on userId (AC5 — per-user isolation).
- *   - Cross-user / non-existent → 404 (never 403 — never leaks existence).
- *   - Tokens stored AES-256-GCM encrypted, NEVER returned in any response.
- *   - SSRF: serverUrl must be https:// and must not resolve to a private/loopback IP.
- *   - rate-limit: POST 20/min, DELETE 20/min, validate 3/min.
+ * Security model unchanged: every query scoped on userId (per-user
+ * isolation); cross-user / non-existent → NOT_FOUND, never leaks existence;
+ * tokens stored AES-256-GCM encrypted, never returned.
  *
  * @lore AN1: No trust tier, no broker/gate, no OAuth dance. Simple secrets and
  * MCP pointers only. OAuth services arrive inherited from the harness.
@@ -19,22 +22,6 @@
  * @lore AN1: Concept hard-rule 1 — encryptedToken NEVER appears in any response.
  * The resolver (ServiceConnectionResolver) is the only plaintext path, wired to
  * sandbox injection (AN2), not to routes.
- *
- * @lore AU26 E4 (AU21 Decision J4, with J6 superseded): this module lives on
- * `agent-orchestration`'s own app now, not core-api's. J6 kept the HTTP surface
- * core-hosted and had it delegate downward; §D-A supersedes that — a route goes
- * where its tables go, and this file's whole table set is `service_connections`
- * alone. Reads AND mutations moved, not just reads.
- *
- * **The paths do not change.** Both apps mount on the Application's one `/api`
- * router, so `/api/connections`, `/api/connections/:id` and
- * `/api/connections/:id/validate` are byte-identical to before and
- * `layers/core-ui` needs no change at all (AC7(c)).
- *
- * The middleware stack — cors, body limit, auth, fail-closed, `onError` — is
- * Application-applied to that shared router and reaches this module unchanged.
- * This file declares its own boundaries with `@hyperidle/domain-model`'s
- * `` and imports nothing from core-api.
  */
 
 import {
@@ -42,14 +29,11 @@ import {
 	type InheritedReach,
 	insertConnection,
 	listConnections,
-	updateConnection,
 } from "@hyperidle/connections";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { ConnectionHealth, ServiceConnectionView } from "@hyperidle/domain-model";
-import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
-import { Hono } from "hono";
 import { z } from "zod";
-import { isPrivateHostLiteral, resolveUrlForSSRF } from "../ssrf.js";
+import { isPrivateHostLiteral } from "../ssrf.js";
 
 // ---------------------------------------------------------------------------
 // Input validation
@@ -75,7 +59,12 @@ function isBlockedUrl(url: string): boolean {
 	}
 }
 
-const createConnectionSchema = z.discriminatedUnion("authSource", [
+/**
+ * Exported so `agent-orchestration-intake.ts` validates `connections.add`'s
+ * body against the SAME schema — mirrors `AgentOrchestrationConnectionCreateInput`
+ * (`@hyperidle/api-contract`).
+ */
+export const createConnectionSchema = z.discriminatedUnion("authSource", [
 	z.object({
 		service: z.string().min(1).max(200),
 		authSource: z.literal("token"),
@@ -96,6 +85,7 @@ const createConnectionSchema = z.discriminatedUnion("authSource", [
 			}),
 	}),
 ]);
+export type CreateConnectionInput = z.infer<typeof createConnectionSchema>;
 
 // ---------------------------------------------------------------------------
 // View builder
@@ -168,335 +158,111 @@ function deriveServiceFromUrl(serverUrl: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Route factory
+// Extracted logic — the one implementation
+// `AgentOrchestrationPort`'s `connections` family calls through
+// `agent-orchestration-intake.ts`'s plumbing routes.
 // ---------------------------------------------------------------------------
 
 /**
- * Create the /api/connections router.
- *
- * @lore AN1: Rate limiters created inside the factory so each app instance gets
- * an independent bucket. Module-level rate limiters would persist across app
- * instances in the same vitest worker, causing spurious 429s in integration tests.
- * (Mirrors the pattern used by `createHarnessRoutes` for its redetect limiter.)
- *
- * @param db — Drizzle DB handle
- * @param inheritedReach — the connections domain's own reach cache (AU36 D7).
- *   Absent (kernel-only/bare test apps) → empty inherited group, exactly as
- *   today's absent-pool case.
+ * `connections.list` — held rows (from DB) union the reach cache's inherited
+ * projections, kept as two arrays rather than a merged one so a caller that
+ * needs to tell them apart (§6's `open_user`) can.
  */
-export function createConnectionRoutes(
+export async function listConnectionsForUser(
 	db: HyperIdleDb,
+	userId: string,
 	inheritedReach?: InheritedReach,
-	cipher?: {
-		readonly encrypt: (plaintext: string) => string;
-		readonly decrypt: (ciphertext: string) => string | null;
-	},
-): Hono<HyperIdleEnv> {
-	const encrypt =
-		cipher?.encrypt ??
-		(() => {
-			throw new Error("Encryption secret not configured");
-		});
-	const decrypt = cipher?.decrypt ?? (() => null);
-	const router = new Hono<HyperIdleEnv>();
-
-	// Per-router-instance rate limiters (one bucket per identity, reset per app lifecycle).
-
-	// ── GET / ─────────────────────────────────────────────────────────────────
-	/**
-	 * List all connections for the authenticated user.
-	 * Returns: held rows (from DB) ∪ inherited projections (from the reach cache).
-	 * NEVER includes encryptedToken or any secret value.
-	 *
-	 * @lore AN1 critique WARNING §7: reads the CACHED reach snapshot (sync +
-	 * DB-free). Never re-probes per request.
-	 *
-	 * @lore AU36 (AC1): the inherited half is assembled from connections-domain
-	 * state only — no harness registry, descriptor, or adapter-pool read in the
-	 * path.
-	 */
-	router.get("/", async (c) => {
-		const userId = c.get("userId");
-
-		// Held connections from DB
-		const rows = await listConnections(db, { userId });
-
-		const storedViews = rows.map(rowToView);
-
-		// Inherited projections from the reach cache (no spawn per request)
-		// list() now returns ServiceConnectionView[] directly (projection inlined in InheritedReach)
-		const inheritedViews = inheritedReach?.list() ?? [];
-
-		// Inherited first (the first-class signal), then held
-		return c.json([...inheritedViews, ...storedViews]);
-	});
-
-	// `GET /provisioning` was DELETED by AU21 Decision K1 — it existed ONLY to
-	// back `CoreApiPort.connections.listHeldConnectionsForProvisioning()`, a
-	// live seam call `agent-orchestration` made at session-provisioning time,
-	// and it had no frontend consumer (unlike `GET /filesystems?agentUserId=`,
-	// which the Settings UI still calls directly and which therefore stays).
-	//
-	// @lore AU26 E3: the bake K1 replaced it with is gone too. The spawn reads
-	// `service_connections` live from `@hyperidle/connections`, in-layer — no
-	// route, no seam, nothing frozen onto the request.
-
-	// ── POST / ────────────────────────────────────────────────────────────────
-	/**
-	 * Create a new held connection.
-	 *
-	 * token path: encrypt the token, store health:"needs-attention".
-	 * mcp path: store serverUrl, no token.
-	 * On unique violation (user × service × authSource): 409.
-	 */
-	router.post("/", async (c) => {
-		const userId = c.get("userId");
-
-		let rawBody: unknown;
-		try {
-			rawBody = await c.req.json();
-		} catch {
-			return c.json({ error: "Invalid JSON", code: "VALIDATION_ERROR" }, 400);
-		}
-
-		const parsed = createConnectionSchema.safeParse(rawBody);
-		if (!parsed.success) {
-			return c.json(
-				{ error: "Validation failed", code: "VALIDATION_ERROR", issues: parsed.error.issues },
-				400,
-			);
-		}
-
-		const body = parsed.data;
-		const now = new Date().toISOString();
-		const id = `sc-${crypto.randomUUID()}`;
-
-		if (body.authSource === "token") {
-			// Fail-loud on missing root secret at the write boundary
-			let encryptedToken: string;
-			try {
-				encryptedToken = encrypt(body.token);
-			} catch {
-				return c.json(
-					{ error: "Encryption secret not configured", code: "MISSING_ROOT_SECRET" },
-					500,
-				);
-			}
-
-			try {
-				await insertConnection(db, {
-					id,
-					userId,
-					service: body.service,
-					authSource: "token",
-					encryptedToken,
-					serverUrl: null,
-					health: "needs-attention",
-					lastValidatedAt: null,
-					createdAt: now,
-					updatedAt: now,
-				});
-			} catch (err) {
-				// Unique constraint violation → 409
-				if (isUniqueViolation(err)) {
-					return c.json({ error: "Connection already exists", code: "DUPLICATE_CONNECTION" }, 409);
-				}
-				throw err;
-			}
-		} else {
-			// mcp
-			const service = body.service ?? deriveServiceFromUrl(body.serverUrl);
-
-			try {
-				await insertConnection(db, {
-					id,
-					userId,
-					service,
-					authSource: "mcp",
-					encryptedToken: null,
-					serverUrl: body.serverUrl,
-					health: "needs-attention",
-					lastValidatedAt: null,
-					createdAt: now,
-					updatedAt: now,
-				});
-			} catch (err) {
-				if (isUniqueViolation(err)) {
-					return c.json({ error: "Connection already exists", code: "DUPLICATE_CONNECTION" }, 409);
-				}
-				throw err;
-			}
-		}
-
-		// Return the view (no secret)
-		const [row] = await listConnections(db, { id });
-
-		if (!row) {
-			return c.json({ error: "Failed to retrieve created connection" }, 500);
-		}
-
-		return c.json(rowToView(row), 201);
-	});
-
-	// ── DELETE /:id ───────────────────────────────────────────────────────────
-	/**
-	 * Delete a held connection owned by the authenticated user.
-	 *
-	 * Cross-user / non-existent / inherited:* ids → 404 (never 403).
-	 * Concept hard-rule 3: never leak existence to a cross-user caller.
-	 *
-	 * @lore AN1: SELECT-then-DELETE pattern rather than relying on rowCount,
-	 * since PGlite's DELETE result shape varies. The SELECT is userId-scoped so
-	 * cross-user ids produce the same 404 as non-existent ids (no existence leak).
-	 */
-	router.delete("/:id", async (c) => {
-		const userId = c.get("userId");
-		const id = c.req.param("id");
-
-		// inherited: ids are sentinels with no DB row — always 404
-		if (id.startsWith("inherited:")) {
-			return c.json({ error: "Not found", code: "NOT_FOUND" }, 404);
-		}
-
-		// SELECT first (userId-scoped) to confirm ownership before deleting
-		const [existing] = await listConnections(db, { id, userId });
-
-		if (!existing) {
-			return c.json({ error: "Not found", code: "NOT_FOUND" }, 404);
-		}
-
-		await deleteConnection(db, { id, userId });
-
-		return c.body(null, 204);
-	});
-
-	// ── POST /:id/validate ────────────────────────────────────────────────────
-	/**
-	 * Probe health of a held connection and write back the result.
-	 *
-	 * token: presence + decrypt-OK → "working"; else → "needs-attention".
-	 * mcp: AN1 reports "needs-attention" without a live network call
-	 *   (AN2 upgrades to a real tool-call probe; the endpoint is the write-back seam).
-	 *
-	 * @lore AN1 critique WARNING §4 SSRF: the validate endpoint does NOT make
-	 * outbound HTTP calls in AN1. token → presence/decrypt only; mcp → "needs-attention"
-	 * without any network call. This eliminates the SSRF surface for AN1.
-	 * AN2 adds the live MCP reachability probe with full SSRF protection.
-	 */
-	router.post("/:id/validate", async (c) => {
-		const userId = c.get("userId");
-		const id = c.req.param("id");
-
-		const [row] = await listConnections(db, { id, userId });
-
-		if (!row) {
-			return c.json({ error: "Not found", code: "NOT_FOUND" }, 404);
-		}
-
-		let health: ConnectionHealth;
-
-		if (row.authSource === "token") {
-			// token: check presence + decrypt-OK
-			if (!row.encryptedToken) {
-				health = "needs-attention";
-			} else {
-				// decrypt returns null when no root secret is set
-				const plaintext = decrypt(row.encryptedToken);
-				health = plaintext ? "working" : "needs-attention";
-			}
-		} else {
-			// mcp: AN2 live MCP reachability probe.
-			// resolveUrlForSSRF → pin the resolved IP → attempt HTTP reach.
-			// This is the ONE path where AN2 owns the connect and can pin the IP
-			// to guard against DNS rebinding (W3 in the architecture critique).
-			//
-			// @lore AN2 validate-SSRF: Only /validate pins the resolved IP because
-			// AN2 owns the connect here. The provisioned-config path (spawn-time
-			// SSRF check in buildProvisioningPlan) is check-only, not pinned,
-			// because the harness owns the subsequent connect.
-			health = await probeMcpReachability(row.serverUrl);
-		}
-
-		const now = new Date().toISOString();
-		await updateConnection(db, { id, userId }, { health, lastValidatedAt: now, updatedAt: now });
-
-		return c.json({ health });
-	});
-
-	return router;
+): Promise<{
+	readonly connections: readonly ServiceConnectionView[];
+	readonly inherited: readonly ServiceConnectionView[];
+}> {
+	const rows = await listConnections(db, { userId });
+	return {
+		connections: rows.map(rowToView),
+		inherited: inheritedReach?.list() ?? [],
+	};
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+export type CreateConnectionResult =
+	| { readonly ok: true; readonly connection: ServiceConnectionView }
+	| { readonly ok: false; readonly code: "MISSING_ROOT_SECRET" }
+	| { readonly ok: false; readonly code: "DUPLICATE_CONNECTION" };
 
-/**
- * AN2 — Live MCP reachability probe for mcp connections.
- *
- * Resolves the URL via resolveUrlForSSRF (SSRF check + pinned IP), then attempts
- * an HTTP GET to the MCP endpoint to verify it is reachable.
- *
- * This is the ONLY AN2 path that is genuinely DNS-rebinding-guarded: AN2 owns
- * the connect here and pins the resolved IP (unlike the provisioned-config path
- * where the harness owns the connect and AN2 cannot pin).
- *
- * Returns "working" if the server responds (2xx or MCP-typical 4xx like 405/404),
- * "needs-attention" if SSRF check fails, DNS resolution fails, or the server is
- * unreachable within the timeout.
- *
- * @lore AN2 validate-SSRF: Uses resolveUrlForSSRF + pinned IP for the fetch.
- * "Pinned" means we use the IP from the DNS resolution result rather than the
- * hostname, preventing a DNS rebinding attack between check and connect.
- * This guard applies ONLY here (AN2 owns the connect). The provisioned-config
- * path is check-only (harness owns the connect, pinning is impossible without
- * proxying — concept hard-rule 6).
- */
-async function probeMcpReachability(
-	serverUrl: string | null | undefined,
-): Promise<ConnectionHealth> {
-	if (!serverUrl) return "needs-attention";
+/** `connections.add` — validated body already parsed by the caller; encrypts a token, derives an mcp service name. */
+export async function createConnectionForUser(
+	db: HyperIdleDb,
+	userId: string,
+	body: CreateConnectionInput,
+	encrypt: (plaintext: string) => string,
+): Promise<CreateConnectionResult> {
+	const now = new Date().toISOString();
+	const id = `sc-${crypto.randomUUID()}`;
 
-	const ssrfResult = await resolveUrlForSSRF(serverUrl, { label: "mcp serverUrl" });
-	if (!ssrfResult.ok) return "needs-attention";
-
-	// Pin the resolved IP to guard against DNS rebinding (only possible here because
-	// AN2 owns this connect — unlike the provisioned-config path).
-	try {
-		const parsed = new URL(serverUrl);
-		const pinnedAddress = ssrfResult.addresses[0];
-		if (!pinnedAddress) return "needs-attention";
-
-		// Build the fetch URL with the pinned IP.
-		// For https, we must send the Host header with the original hostname.
-		const pinnedUrl = new URL(serverUrl);
-		pinnedUrl.hostname =
-			pinnedAddress.family === 6 ? `[${pinnedAddress.address}]` : pinnedAddress.address;
-
-		const controller = new AbortController();
-		const timer = setTimeout(() => controller.abort(), 5_000);
-
+	if (body.authSource === "token") {
+		let encryptedToken: string;
 		try {
-			const response = await fetch(pinnedUrl.toString(), {
-				method: "GET",
-				headers: { Host: parsed.hostname },
-				signal: controller.signal,
-			});
-			clearTimeout(timer);
-
-			// MCP servers respond to GET / with various status codes (200, 404, 405).
-			// Any HTTP response means the server is reachable.
-			// Only network-level failure (no response) or SSRF blockage → needs-attention.
-			if (response.status > 0) {
-				return "working";
-			}
-			return "needs-attention";
+			encryptedToken = encrypt(body.token);
 		} catch {
-			clearTimeout(timer);
-			return "needs-attention";
+			return { ok: false, code: "MISSING_ROOT_SECRET" };
 		}
-	} catch {
-		return "needs-attention";
+		try {
+			await insertConnection(db, {
+				id,
+				userId,
+				service: body.service,
+				authSource: "token",
+				encryptedToken,
+				serverUrl: null,
+				health: "needs-attention",
+				lastValidatedAt: null,
+				createdAt: now,
+				updatedAt: now,
+			});
+		} catch (err) {
+			if (isUniqueViolation(err)) return { ok: false, code: "DUPLICATE_CONNECTION" };
+			throw err;
+		}
+	} else {
+		const service = body.service ?? deriveServiceFromUrl(body.serverUrl);
+		try {
+			await insertConnection(db, {
+				id,
+				userId,
+				service,
+				authSource: "mcp",
+				encryptedToken: null,
+				serverUrl: body.serverUrl,
+				health: "needs-attention",
+				lastValidatedAt: null,
+				createdAt: now,
+				updatedAt: now,
+			});
+		} catch (err) {
+			if (isUniqueViolation(err)) return { ok: false, code: "DUPLICATE_CONNECTION" };
+			throw err;
+		}
 	}
+
+	const [row] = await listConnections(db, { id });
+	if (!row) throw new Error("Failed to retrieve created connection");
+	return { ok: true, connection: rowToView(row) };
+}
+
+export type RemoveConnectionResult =
+	| { readonly ok: true }
+	| { readonly ok: false; readonly code: "NOT_FOUND" };
+
+/** `connections.remove` — cross-user, non-existent and `inherited:` ids all resolve NOT_FOUND, never leak existence. */
+export async function removeConnectionForUser(
+	db: HyperIdleDb,
+	userId: string,
+	id: string,
+): Promise<RemoveConnectionResult> {
+	if (id.startsWith("inherited:")) return { ok: false, code: "NOT_FOUND" };
+	const [existing] = await listConnections(db, { id, userId });
+	if (!existing) return { ok: false, code: "NOT_FOUND" };
+	await deleteConnection(db, { id, userId });
+	return { ok: true };
 }
 
 // @lore drizzle-orm 0.45.2: wraps PGlite errors — outer message is "Failed query: …",

@@ -16,7 +16,6 @@ Work drills from team list → team → task → subtask → … to any depth. R
 | `/work/team/:teamId` | WorkTeam | 2 |
 | `/work/task/new` | WorkTaskCreate — full-page create | — |
 | `/work/task/:taskId` | WorkTask — task detail (root or subtask, any depth) | 3+ |
-| `/work/routine/:routineId` | WorkRoutine | — |
 
 Legacy redirects: `/work/portfolio` → `/work` (unconditional), `/work/product/:productId` → `/work/team/:teamId` (U6 rename; Product = Team 1:1).
 
@@ -28,12 +27,12 @@ Landing screen. Flat list of all teams; each row carries the at-a-glance triage 
 |---|---|---|
 | **Header** | Title "Teams" + "{n} teams" count line | — |
 | **New task button** | `Button variant="primary" size="sm"` in header right | Click → `/work/task/new` |
-| **Team row** (× N) | Team name (single line, truncated) + in-progress task count (numeric end cell) + `StatusChip` (healthy/behind/blocked) | Click row → `/work/team/:id` |
+| **Team row** (× N) | Team name (single line, truncated) + in-progress task count (numeric end cell) + `StatusChip` (healthy/blocked) | Click row → `/work/team/:id` |
 | **Loading state** | `SkeletonList rows={4}`, aria-label "Loading teams" | — |
 | **Empty state** | `EmptyState` "No teams yet" | Action → `/setup` |
 | **Error state** | `ErrorState` "Couldn't load teams" | Retry |
 
-**Attention sort:** `blocked` → `behind` → `healthy`; within a rank, name ascending (`sortTeamsByAttention`, `layers/core-ui/src/pages/work/sortTeamsByAttention.ts:27`).
+**Attention sort:** `blocked` → `healthy`; within a rank, name ascending (`sortTeamsByAttention`, `layers/core-ui/src/pages/work/sortTeamsByAttention.ts:27`).
 
 **1-team short-circuit (AD3/AD9):** exactly one team → `WorkOverview` immediately redirects to `/work/team/:id`; the 1-row list is never shown. All entry paths (sidebar, post-setup landing, bookmarked `/work`, the `/work/portfolio` redirect) collapse through this single chokepoint.
 
@@ -45,14 +44,16 @@ Stacked single column (L13, `layers/core-ui/src/pages/WorkTeam.tsx`), top to bot
 
 | Section | Information | Actions |
 |---|---|---|
-| **Team header** | Breadcrumb + name + status + phase + lead | — |
-| **Team summary** (`team-burn-vs-cap`) | Stat strip: Capacity (in-progress tasks / capacity) + Status (derives from roster) | — |
+| **Team header** | Breadcrumb + name + status | — |
 | **Active tasks** (`team-active-tasks`) | Root task rows + "+ New task" button | Task click → `/work/task/:id`; New task → `/work/task/new` |
-| **Routines** (`team-routines`) | Routine rows + create dialog (AA1/AA2) | Routine click → `/work/routine/:id` — see [routines-and-retros](../process-layer/routines-and-retros.md) |
-| **Team agents** (`team-agents`) | Flat `AgentRow` roster (AB2) | Add an agent |
+| **Team agents** (`team-agents`) | Flat `AgentRow` roster (AB2) | Add an agent; click an agent → its profile, where its subscriptions live |
 | **Artifacts** | `ArtifactSection` | Open artifact |
 
-The Capacity/Status stat strip lives here — not in the sidebar. It carries the WIP capacity tile only (`TeamBurn`, `framework/domain-model/src/team.ts`), backed by the `teams.capacity` column (`framework/db/src/schema.ts`). Capacity counts tasks `in_progress` at every depth — not just root tasks. The rationale for bounding concurrency is owned by [wip-and-cost-limits](../process-layer/wip-and-cost-limits.md).
+There is no capacity or lead column any more — a team is an id and a name. Status is computed
+client-side, `"healthy" | "blocked"`, from `search_tasks({ teamId })` (`layers/core-ui/src/pages/WorkTeam.tsx`);
+the count shown is simply the team's in-progress tasks, not a ratio against a ceiling. There is no
+routines section here — a subscription is edited on its owning agent's profile page or in Settings →
+Notifications, not on the team page. See [subscriptions-and-retros](../process-layer/subscriptions-and-retros.md).
 
 ## 4. Task create (`/work/task/new`)
 

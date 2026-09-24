@@ -14,9 +14,9 @@
  * functions, executor-first param), widened to accept `WriteExecutor` so
  * callers that already coordinate a multi-table write inside
  * `db.transaction(async (tx) => …)` (handoff-protocol, bet-state-machine,
- * task-state-machine, lifecycle-propagation, bet-decomposition,
- * builtin-routine-handlers) can join this service's write into their
- * existing transaction unchanged. Reads reuse the same `WriteExecutor` type
+ * task-state-machine, lifecycle-propagation, bet-decomposition) can join
+ * this service's write into their existing transaction unchanged. Reads
+ * reuse the same `WriteExecutor` type
  * (addendum §A3) so tx-scoped reads keep seeing uncommitted in-transaction
  * state.
  *

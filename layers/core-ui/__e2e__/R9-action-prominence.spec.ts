@@ -33,10 +33,14 @@ import {
 	makeTask,
 	makeThread,
 	makeThreadListRow,
+	makeUserRow,
 	mockDocument,
 	mockSearchDocuments,
 	mockSearchThreads,
+	mockSearchUsers,
 	mockTaskTree,
+	mockTeamPage,
+	mockUser,
 	test,
 } from "./fixtures";
 
@@ -325,76 +329,22 @@ async function seedDocumentsActive(page: Page): Promise<void> {
 // ---------------------------------------------------------------------------
 
 test.describe("R9 — Setup page", () => {
-	test.beforeEach(async ({ page }) => {
-		// Override auth/me to 401 — fresh install, no human user
-		await page.route("**/api/auth/me", async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 401,
-					contentType: "application/json",
-					body: JSON.stringify({ error: "Unauthorized" }),
-				});
-			} else {
-				await route.continue();
-			}
-		});
-
-		await page.route("**/api/teams", async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({ teams: [] }),
-				});
-			} else {
-				await route.continue();
-			}
-		});
-	});
+	// @lore BC5 T10: `GET /api/auth/me`, `POST /api/users` and `POST /api/teams`
+	// are gone — the welcome screen's fresh-install read is `open_user({})`
+	// (the fixtures.ts auto-use default already answers a "self" row; the
+	// live test below needs no override), and its writes are two `edit_user`
+	// calls.
 
 	// setup-happy-path: fill name + API key + click Start → navigates to /work/portfolio
 	test("setup-happy-path: complete setup navigates to /work/portfolio", async ({ page }) => {
-		await page.route("**/api/users", async (route) => {
-			if (route.request().method() === "POST") {
-				await route.fulfill({
-					status: 201,
-					contentType: "application/json",
-					body: JSON.stringify({
-						id: "u-r9-founder",
-						name: "R9 Founder",
-						kind: "human",
-						role: "founder",
-						status: "active",
-					}),
-				});
-			} else {
-				await route.continue();
-			}
+		await mockUser(page, {
+			row: makeUserRow("u-r9-founder", {
+				name: "R9 Founder",
+				role: "founder",
+				team: { id: "team-r9-1", name: "My Team" },
+			}),
+			self: true,
 		});
-
-		// POST /api/teams
-		await page.route("**/api/teams", async (route) => {
-			if (route.request().method() === "POST") {
-				await route.fulfill({
-					status: 201,
-					contentType: "application/json",
-					body: JSON.stringify({ id: "team-r9-1", name: "My Team", phase: "build" }),
-				});
-			} else {
-				await route.continue();
-			}
-		});
-
-		// After setup, auth/me returns user
-		await page.route("**/api/auth/me", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ id: "u-r9-founder", name: "R9 Founder", avatarUrl: null }),
-			});
-		});
-
-		// Mock bets for portfolio
 
 		await page.goto("/setup");
 		await page.getByLabel(/^name/i).fill("R9 Founder");
@@ -413,18 +363,17 @@ test.describe("R9 — Setup page", () => {
 		await expect(startBtn).toBeDisabled();
 	});
 
-	// setup-invalid-key: POST /api/users returns 422 → error alert visible
+	// setup-invalid-key: POST edit_user returns a problem → error alert visible
 	test("setup-invalid-key: server 422 error shows alert feedback", async ({ page }) => {
-		await page.route("**/api/users", async (route) => {
-			if (route.request().method() === "POST") {
-				await route.fulfill({
-					status: 422,
-					contentType: "application/json",
-					body: JSON.stringify({ error: "Invalid API key format" }),
-				});
-			} else {
-				await route.continue();
-			}
+		await page.route("**/api/actions/edit_user", async (route) => {
+			await route.fulfill({
+				status: 422,
+				contentType: "application/json",
+				body: JSON.stringify({
+					ok: false,
+					problems: [{ code: "validation_error", message: "Invalid API key format" }],
+				}),
+			});
 		});
 
 		await page.goto("/setup");
@@ -472,41 +421,15 @@ test.describe("R9 — Portfolio page", () => {
 
 test.describe("R9 — Team page", () => {
 	test.beforeEach(async ({ page }) => {
-		await page.route(`**/api/teams/${BET_1.teamId}`, async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					// @lore R9: TeamDetail.team is a TeamSummary (id/name/phase/status/leadAgentId).
-					// TeamDetail.teamMembers is { id, formedAt, dissolvedAt }.
-					// BetCardSummary uses descriptionTitle (not pitchTitle — renamed in U1).
-					body: JSON.stringify({
-						team: {
-							id: BET_1.teamId,
-							name: "Alpha Core",
-							phase: "build",
-							status: "healthy",
-							leadAgentId: null,
-						},
-						teamMembers: { id: BET_1.teamId, formedAt: NOW, dissolvedAt: null },
-						roster: [{ agentId: "test-founder", name: "Test Founder", role: "lead", isLead: true }],
-						burn: {
-							capacity: 2,
-						},
-						tasksInProgress: [
-							{
-								id: BET_1.id,
-								title: BET_1.title,
-								status: BET_1.status,
-								progressDone: 1,
-								progressTotal: 3,
-							},
-						],
-					}),
-				});
-			} else {
-				await route.continue();
-			}
+		const roster = [makeUserRow("agent-lead-r9", { kind: "ai", name: "Lead Agent", role: "lead" })];
+		await mockSearchUsers(page, { rows: roster });
+		await mockTeamPage(page, {
+			teamId: BET_1.teamId,
+			teamName: "Alpha Core",
+			roster,
+			tasksInProgress: [
+				makeTask(BET_1.id, { teamId: BET_1.teamId, title: BET_1.title, state: "in_progress" }),
+			],
 		});
 	});
 
@@ -977,21 +900,16 @@ test.describe("R9 — Document detail page", () => {
 	// document-scope: overflow menu → Change scope → pick a pill → Save → edit_document intercepted
 	test("document-scope: changing scope fires edit_document", async ({ page }) => {
 		// ScopeChangeDialog disables the "Team" pill unless the current user has
-		// a teamId (`hasTeam = user?.teamId !== undefined`) — override auth/me so
-		// this test can exercise the Team pill + Scope ID input.
-		await page.route("**/api/auth/me", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({
-					id: "test-founder",
-					name: "Test Founder",
-					email: "test@hyperidle.dev",
-					role: "founder",
-					avatarUrl: null,
-					teamId: "test-team-1",
-				}),
-			});
+		// a teamId (`hasTeam = user?.teamId !== undefined`) — override open_user
+		// so this test can exercise the Team pill + Scope ID input.
+		await mockUser(page, {
+			row: makeUserRow("test-founder", {
+				name: "Test Founder",
+				role: "founder",
+				email: "test@hyperidle.dev",
+				team: { id: "test-team-1", name: "Test Team" },
+			}),
+			self: true,
 		});
 
 		let scopeChangeCalled = false;

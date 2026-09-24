@@ -15,14 +15,20 @@
  * through `bootAgentOrchestration`'s options — never imported here by name.
  * The `./tool-provider-bindings.js` import is gone too: that wrapper is
  * DELETED (§2.5), its dispatch (`buildToolRegistry`) relocated to
- * `@hyperidle/tool-handlers` (now in-layer), its role filter replaced by
- * `buildToolDefinitions(transport, {role})`'s own filter, its workflow port
+ * `@hyperidle/tool-handlers` (now in-layer), its workflow port
  * rebuilt over `CoreApiPort.review` (the seam, since `@hyperidle/review`
  * stays core-api's own Service), and `returnStatusTool` riding the same
  * execution adapters bundle as `harnessRuntime`.
+ *
+ * @lore BC5 T11: the `CoreApiPort` seam itself, `CoreApiTransport`,
+ * `core-api-port-composition.ts` and `tool-handlers-bindings.ts` are
+ * DELETED — `create_team`/`add_agent`, the seam's last two tools, are gone
+ * with the `org` package they wrote through. A session's tool registry is
+ * built from `actionTools()` alone now; `buildToolRegistry` (still
+ * `@hyperidle/tool-handlers`'s own) keeps its per-session, role-filtered
+ * dispatch role unchanged.
  */
 
-import type { CoreApiTransport } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { summarizeToolArgs } from "@hyperidle/diagnostics";
 import type {
@@ -63,8 +69,6 @@ import {
 	transitionSessionRequest,
 } from "@hyperidle/session-requests";
 import { buildToolRegistry as buildToolRegistryFromDefinitions } from "@hyperidle/tool-handlers";
-import { unconfiguredCoreApiTransport } from "./core-api-port-composition.js";
-import { buildToolDefinitions } from "./tool-handlers-bindings.js";
 
 // AU21 §9 Increment 12 follow-up part 2 (F2 gap closure): this composition
 // root's own `seamPortForActor` helper (a fresh in-process `CoreApiPort` per
@@ -302,15 +306,13 @@ function buildDocumentWritebackPort(
  * see it.
  */
 function buildToolProvider(
-	coreApiTransport: CoreApiTransport,
 	returnStatusToolAdapter: RunOrchestrationReturnStatusToolAdapter,
 	actionTools: () => readonly RegisteredTool<HyperIdleDb>[],
 ): SessionLifecyclePorts["toolProvider"] {
 	return {
 		buildToolRegistry(ctx, options) {
 			const toolCtx = widenToToolContext(ctx);
-			const definitions = buildToolDefinitions(coreApiTransport);
-			return buildToolRegistryFromDefinitions([...actionTools(), ...definitions], toolCtx, {
+			return buildToolRegistryFromDefinitions([...actionTools()], toolCtx, {
 				role: options.role,
 				extraTools: options.extraTools as ToolRegistryOptions["extraTools"],
 				useOnlyExtraTools: options.useOnlyExtraTools,
@@ -318,9 +320,7 @@ function buildToolProvider(
 		},
 		toolsForRole(role) {
 			// Names and roles only — no handler runs.
-			return [...actionTools(), ...buildToolDefinitions(coreApiTransport)].filter(
-				(d) => d.roles === undefined || d.roles.includes(role),
-			);
+			return [...actionTools()].filter((d) => d.roles === undefined || d.roles.includes(role));
 		},
 		returnStatusToolForRegistry(registry) {
 			return returnStatusToolAdapter.forRegistry(registry);
@@ -357,14 +357,13 @@ const sessionRequestsPort: SessionLifecyclePorts["sessionRequests"] = {
 function buildSessionLifecyclePorts(
 	harnessRuntimeAdapter: RunOrchestrationHarnessRuntimeAdapter,
 	returnStatusToolAdapter: RunOrchestrationReturnStatusToolAdapter,
-	coreApiTransport: CoreApiTransport,
 	actionTools: () => readonly RegisteredTool<HyperIdleDb>[],
 ): SessionLifecyclePorts {
 	return {
 		sessionRequests: sessionRequestsPort,
 		observability: observabilityAccessor,
 		harnessRuntime: buildHarnessRuntime(harnessRuntimeAdapter),
-		toolProvider: buildToolProvider(coreApiTransport, returnStatusToolAdapter, actionTools),
+		toolProvider: buildToolProvider(returnStatusToolAdapter, actionTools),
 	};
 }
 
@@ -450,7 +449,7 @@ const runOrchestrationPorts: RuntimePorts = {
 
 /**
  * One composition's worth of `runtimeDeps`/`runSession`/`startRuntime`,
- * bound to the execution adapters and `CoreApiTransport` a caller supplies.
+ * bound to the execution adapters a caller supplies.
  * `bootAgentOrchestration` builds exactly one of these per boot; a
  * standalone caller with no composition root of its own (`tools/eval`'s
  * `runEvalSession`) builds one directly off its own adapters.
@@ -470,8 +469,6 @@ export interface RunOrchestrationComposition {
 export function buildRunOrchestrationComposition(config: {
 	readonly harnessRuntime: RunOrchestrationHarnessRuntimeAdapter;
 	readonly returnStatusTool: RunOrchestrationReturnStatusToolAdapter;
-	/** Absent (or a bare-app test fixture / `tools/eval`'s standalone use) → seam-backed tools throw only when actually dialled (`unconfiguredCoreApiTransport`), never at construction. */
-	readonly coreApiTransport?: CoreApiTransport;
 	/**
 	 * Core-api's composed action list, projected onto the
 	 * MCP tool seam (`CoreApiBoot.actionTools`), as a THUNK — `create-server.ts`
@@ -498,7 +495,6 @@ export function buildRunOrchestrationComposition(config: {
 	const sessionLifecyclePorts = buildSessionLifecyclePorts(
 		config.harnessRuntime,
 		config.returnStatusTool,
-		config.coreApiTransport ?? unconfiguredCoreApiTransport(),
 		config.actionTools ?? (() => []),
 	);
 

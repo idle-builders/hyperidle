@@ -103,7 +103,7 @@ describe("a written-back item hangs off what the session is working on, attribut
 	test("a task session parents its produced item to its task, as the session's own agent", async ({
 		db,
 	}) => {
-		await db.insert(teams).values({ id: "wp-team", name: "T", phase: "build", createdAt: NOW });
+		await db.insert(teams).values({ id: "wp-team", name: "T", createdAt: NOW });
 		await db.insert(users).values({
 			id: "wp-agent",
 			kind: "ai",
@@ -195,16 +195,16 @@ describe("a written-back item hangs off what the session is working on, attribut
 			createdAt: NOW,
 		});
 		await db.insert(sessions).values({
-			id: "wp-sess-routine",
+			id: "wp-sess-subscription",
 			taskId: null,
 			agentId: "wp-agent-3",
 			modelTier: "small",
 			state: "running",
-			sourceKind: "routine",
+			sourceKind: "subscription",
 			startedAt: NOW,
 		});
 
-		const { document } = await runWriteback(db, "wp-sess-routine");
+		const { document } = await runWriteback(db, "wp-sess-subscription");
 		expect(document.editCalls).toHaveLength(1);
 		const call = document.editCalls[0] as {
 			readonly caller: { readonly actor: string };

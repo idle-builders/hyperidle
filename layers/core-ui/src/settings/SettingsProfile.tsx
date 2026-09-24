@@ -1,18 +1,21 @@
 /**
  * SettingsProfile — Profile settings section.
  *
- * Pre-fills name + email from current user. Saves via PATCH /api/users/:id.
+ * Pre-fills name + email from current user. Saves via `edit_user`.
  * Shows toast feedback on save success or failure.
  *
- * AC-13: Profile section: name + email edits persist via PATCH /api/users/:id
+ * AC-13: Profile section: name + email edits persist via edit_user
  * AC-24: Settings save feedback via toast
  * AC-25: Profile edits do NOT silently revert (dirty tracking)
+ *
+ * @lore BC5 T9: the door swap — `call("edit_user", { id, name, email })`
+ * replaces `apiFetch(PATCH /api/users/:id)` (architecture.md §8).
  */
 
 import { type ChangeEvent, type JSX, useCallback, useEffect, useState } from "react";
 import { Button, ErrorState, Input, SkeletonList } from "../ds";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
-import { apiFetch } from "../services/api-fetch.js";
+import { call } from "../services/call.js";
 import { useToast } from "../shell/ToastRegion.js";
 
 /**
@@ -64,13 +67,10 @@ export function SettingsProfile(): JSX.Element {
 		if (!(user && isDirty)) return;
 		setSaving(true);
 		try {
-			const res = await apiFetch(`/api/users/${user.id}`, {
-				method: "PATCH",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ name, email }),
-			});
-			if (!res.ok) {
-				throw new Error(`HTTP ${res.status}`);
+			const result = await call("edit_user", { id: user.id, name, email });
+			if (!result.ok) {
+				showToast("Failed to save profile");
+				return;
 			}
 			// Update saved values so Save button becomes disabled again
 			setSavedName(name);

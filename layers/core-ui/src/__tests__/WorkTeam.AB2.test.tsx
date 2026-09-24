@@ -16,11 +16,11 @@
  * JSDOM).
  */
 
-import type { RosterMember, TeamDetail } from "@hyperidle/domain-model";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
+import type { TeamPageData, TeamRosterMember } from "../hooks/useTeam.js";
 import { WorkTeam } from "../pages/WorkTeam";
 
 // AgentEditDialog calls useToast — mock ToastRegion to avoid "must be used within
@@ -85,57 +85,43 @@ vi.mock("../hooks/useAgentRunState", async () => {
 	};
 });
 
-const BASE_TEAM: TeamDetail = {
+const BASE_TEAM: TeamPageData = {
 	team: {
 		id: "team-ab2",
 		name: "AB2 Team",
-		phase: "build",
 		status: "healthy",
-		leadAgentId: null,
-	},
-	teamMembers: {
-		id: "tm-ab2",
-		formedAt: "2026-01-01T00:00:00.000Z",
-		dissolvedAt: null,
 	},
 	roster: [],
-	burn: {
-		capacity: 5,
-	},
 	tasksInProgress: [],
-	routines: [],
 };
 
-const AGENT_IDLE: RosterMember = {
+const AGENT_IDLE: TeamRosterMember = {
 	agentId: "agent-idle",
 	name: "Idle Agent",
 	role: "builder",
-	isLead: false,
 	agentCategory: null,
 };
 
-const AGENT_ACTIVE: RosterMember = {
+const AGENT_ACTIVE: TeamRosterMember = {
 	agentId: "agent-active",
 	name: "Active Agent",
 	role: "builder",
-	isLead: false,
 	agentCategory: null,
 };
 
-const AGENT_ERROR: RosterMember = {
+const AGENT_ERROR: TeamRosterMember = {
 	agentId: "agent-error",
 	name: "Error Agent",
 	role: "builder",
-	isLead: false,
 	agentCategory: null,
 };
 
-const TEAM_WITH_AGENTS: TeamDetail = {
+const TEAM_WITH_AGENTS: TeamPageData = {
 	...BASE_TEAM,
 	roster: [AGENT_IDLE, AGENT_ACTIVE, AGENT_ERROR],
 };
 
-function renderPage(data: TeamDetail = BASE_TEAM): ReturnType<typeof render> {
+function renderPage(data: TeamPageData = BASE_TEAM): ReturnType<typeof render> {
 	return render(
 		<MemoryRouter initialEntries={["/work/team/team-ab2"]}>
 			<Routes>

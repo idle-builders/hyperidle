@@ -22,8 +22,8 @@ Both projections read and write the same store. The web Knowledge pages and ever
 ## How knowledge moves — where the depth lives
 
 - **Context assembly** — at session start, the relevant slice for the agent's role and task is assembled into the sandbox, scored and budgeted; see [The Knowledge Fabric](../knowledge-architecture/the-knowledge-fabric-how-knowledge-moves.md).
-- **Lifecycle and curation** — documents move `proposed` → `active` when a human, or the document-management plugin's `document-triage` routine, judges them ready; its `document-decay` routine archives ordinary tree documents unused for 90+ days; `archived` is terminal. There is no scoring formula behind either — both routines read and decide by judgement, through the same tools any agent uses. Store semantics in [The Canonical Store](../knowledge-architecture/the-canonical-store.md).
-- **Learning flows back up** — retros run as a plugin routine: [Routines and Retros](../process-layer/routines-and-retros.md).
+- **Lifecycle and curation** — documents move `proposed` → `active` when a human, or the document-management plugin's `document-triage` subscription, judges them ready; its `document-decay` subscription archives ordinary tree documents unused for 90+ days; `archived` is terminal. There is no scoring formula behind either — both subscriptions read and decide by judgement, through the same tools any agent uses. Store semantics in [The Canonical Store](../knowledge-architecture/the-canonical-store.md).
+- **Learning flows back up** — retros run as a plugin subscription: [Subscriptions and Retros](../process-layer/subscriptions-and-retros.md).
 
 ---
 

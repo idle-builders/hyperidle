@@ -100,7 +100,7 @@ function buildHarnessPorts(): SessionLifecyclePorts {
 			assembleAgentContext: vi.fn(async () => ({ itemCount: 0, durationMs: 0, manifestPath: "" })),
 			beginAgentWriteback: () => ({ dispose: () => undefined }),
 			assemblePrompt: neverCalled("contextAssembly.assemblePrompt"),
-			assembleRoutinePrompt: neverCalled("contextAssembly.assembleRoutinePrompt"),
+			assembleSubscriptionPrompt: neverCalled("contextAssembly.assembleSubscriptionPrompt"),
 			writeSandboxAgentsMd: vi.fn(),
 		},
 	};
@@ -129,7 +129,7 @@ describe("the model an agent is configured with reaches its session", () => {
 		const now = new Date().toISOString();
 		const teamId = `${taskId}-team`;
 		const rootTaskId = `${taskId}-root`;
-		await db.insert(teams).values({ id: teamId, name: teamId, phase: "build", createdAt: now });
+		await db.insert(teams).values({ id: teamId, name: teamId, createdAt: now });
 		await db.insert(threads).values({
 			id: `thr-${rootTaskId}`,
 			hostKind: "team",

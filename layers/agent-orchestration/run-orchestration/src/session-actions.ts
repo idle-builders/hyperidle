@@ -84,7 +84,6 @@ function toSessionRow(row: Session): SessionRow {
 		state: row.state,
 		outcome: row.outcome,
 		effectivenessScore: row.effectivenessScore,
-		routineId: row.routineId,
 		notes: row.notes,
 		modelTier: row.modelTier as SessionRow["modelTier"],
 		sourceKind: row.sourceKind as SessionRow["sourceKind"],
@@ -104,7 +103,6 @@ export function createSessionActions(deps: SessionActionsDeps): readonly Action[
 			...(input.taskId ? { taskId: input.taskId } : {}),
 			...(input.agentIds ? { agentIds: input.agentIds } : {}),
 			...(input.state ? { state: input.state } : {}),
-			...(input.routineId ? { routineId: input.routineId } : {}),
 			limit: input.limit ?? DEFAULT_SEARCH_LIMIT,
 			...(input.offset !== undefined ? { offset: input.offset } : {}),
 		});

@@ -110,7 +110,7 @@ const BANNED: readonly { readonly token: RegExp; readonly why: string }[] = [
 		why: "GET /hints and POST /hints/:id/dismiss were retired with the hint_progress table",
 	},
 	{
-		// The hint-progress backing functions, exported from @hyperidle/users.
+		// The hint-progress backing functions, exported from @hyperidle/user.
 		// These only existed to serve the deleted hint routes.
 		token: /\blistDismissedHints\b/,
 		why: "hint dismissal surface was retired — its backing function must not return",

@@ -2,19 +2,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { type HyperIdleDb, sessions } from "@hyperidle/db";
-import { createLogger } from "@hyperidle/diagnostics";
-import type { EventBus } from "@hyperidle/event-bus";
-import { and, eq, lt, sql } from "drizzle-orm";
-import type { createProvisioner } from "./provisioner.js";
-
-type SessionLifecyclePorts = Parameters<typeof createProvisioner>[0];
-/**
- * AU21 §9 Increment 4 (Decision B″ item 3): the routine-run finalize write
- * moved core-side. `reapStaleRoutineSessions` no longer touches
- * `ports.routine` at all — the stale session's own `sourceId` column is
- * already the `routineRunId` (set at session creation, AA2), so no routine
- * lookup is needed to emit the finalize event.
- */
 
 // ---- sandbox ----
 
@@ -128,112 +115,14 @@ function startSandboxReaper(db: HyperIdleDb, options: SandboxReaperOptions): () 
 	};
 }
 
-// ---- routine sessions ----
-
-const reaperLog = createLogger({ pkg: "server.routine-reaper" });
-
-interface ReapStaleRoutineSessionsOpts {
-	/** A routine session active longer than this (ms) is considered stale/hung. */
-	staleAfterMs: number;
-	/** Override "now" (ms) for deterministic tests. */
-	now?: number;
-}
-
-/**
- * AF6 §4 (R5) — finalize stale `active` routine sessions that never reached
- * endSession/crashSession (process restart mid-run, in-process adapter hang).
- *
- * A `running` routine_run + `active` routine session that is never finalized
- * makes `routineService.findRunningRoutineRun` true forever (AU15: the
- * unified run-row coalescing signal both fire paths now share) → the routine
- * bricks itself. This reaper marks each stale session `crashed` and its
- * `running` routine_run `timeout`, self-healing coalescing so the next
- * scheduled fire is eligible.
- *
- * Direct DB finalize (not via session-lifecycle): after a restart there is no
- * live SessionContext / harness to tear down — the process that owned it is gone.
- * For an in-process hang there is likewise nothing in-memory worth draining.
- *
- * @lore AF6: pure-DB (db + eventBus only) so it can live in app runtime and be
- * injected into the scheduler poll loop without coupling to session provisioning.
- */
-async function reapStaleRoutineSessions(
-	db: HyperIdleDb,
-	eventBus: EventBus,
-	opts: ReapStaleRoutineSessionsOpts,
-	_ports: SessionLifecyclePorts,
-): Promise<number> {
-	const nowMs = opts.now ?? Date.now();
-	const cutoffIso = new Date(nowMs - opts.staleAfterMs).toISOString();
-	const endedAt = new Date(nowMs).toISOString();
-
-	// Stale = active routine session started before the cutoff.
-	const stale = await db
-		.select({
-			id: sessions.id,
-			routineId: sessions.routineId,
-			agentId: sessions.agentId,
-			taskId: sessions.taskId,
-			sourceId: sessions.sourceId,
-		})
-		.from(sessions)
-		.where(
-			and(
-				eq(sessions.state, "active"),
-				sql`${sessions.routineId} is not null`,
-				lt(sessions.startedAt, cutoffIso),
-			),
-		);
-
-	let reaped = 0;
-	for (const session of stale) {
-		// `sourceId` is already this session's `routineRunId` (AA2) — no routine
-		// lookup is needed to identify the run to finalize.
-		if (!(session.routineId && session.sourceId)) continue;
-
-		await db.update(sessions).set({ state: "crashed", endedAt }).where(eq(sessions.id, session.id));
-
-		// AU21 §9 Increment 4 (Decision B″ item 3): finalize via the SAME
-		// post-session `session_ended` channel `endSession`/`crashSession` use
-		// — no direct `routineRuns` write here. The new core-api subscriber
-		// (`routine-run-session-end-reactions.ts`) performs the actual write.
-		eventBus.emit({
-			type: "session_ended",
-			streamId: session.id,
-			sessionId: session.id,
-			agentId: session.agentId,
-			taskId: session.taskId,
-			sourceKind: "routine",
-			sourceId: session.sourceId,
-			timestamp: nowMs,
-			outcome: "crashed",
-			routineRunOutcome: "timeout",
-		});
-
-		reaped += 1;
-	}
-
-	if (reaped > 0) {
-		reaperLog.info("reaped stale routine sessions", { reaped, staleAfterMs: opts.staleAfterMs });
-	}
-
-	return reaped;
-}
-
 interface RuntimeReapers {
 	reapSandboxes(options: SandboxReaperOptions): Promise<void>;
 	startSandboxes(options: SandboxReaperOptions): () => void;
-	reapRoutineSessions(options: ReapStaleRoutineSessionsOpts): Promise<number>;
 }
 
-export function createRuntimeReapers(
-	db: HyperIdleDb,
-	eventBus: EventBus,
-	ports: SessionLifecyclePorts,
-): RuntimeReapers {
+export function createRuntimeReapers(db: HyperIdleDb): RuntimeReapers {
 	return {
 		reapSandboxes: (options) => reapSandboxesOnce(db, options),
 		startSandboxes: (options) => startSandboxReaper(db, options),
-		reapRoutineSessions: (options) => reapStaleRoutineSessions(db, eventBus, options, ports),
 	};
 }

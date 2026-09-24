@@ -1,7 +1,7 @@
 /**
  * @mention resolution — moved from `routes/threads.ts`'s
  * `buildMentionLookup`/`resolveMentionsForMessage` (AE5). A nested Service
- * may not import `@hyperidle/users` directly, so the name lookup is built
+ * may not import `@hyperidle/user` directly, so the name lookup is built
  * from an injected read (`ThreadActionsDeps.users`) instead of `listUsers`.
  */
 

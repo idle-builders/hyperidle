@@ -10,6 +10,8 @@ import {
 	makeTask,
 	makeThread,
 	makeThreadListRow,
+	makeUserRow,
+	makeUserView,
 	test,
 } from "./fixtures";
 
@@ -58,34 +60,28 @@ const TASK_VIEW = {
 	attachments: [],
 };
 
-const TEAM = {
-	product: {
-		id: "team-az16",
-		name: "Hearth",
-		phase: "build",
-		status: "healthy",
-		leadAgentId: "agent-az16",
-	},
-	team: {
-		id: "team-az16",
-		name: "Hearth",
-		phase: "build",
-		status: "healthy",
-		formedAt: "2026-08-14T08:00:00.000Z",
-		dissolvedAt: null,
-	},
-	roster: [{ agentId: "agent-az16", name: "Atlas", role: "builder", isLead: true }],
-	burn: { capacity: 5 },
-	tasksInProgress: [
-		{
-			id: "bet-az16",
-			title: "Semantic design profiles",
-			status: "active",
-			progressDone: 8,
-			progressTotal: 9,
-		},
-	],
-};
+const TEAM_ID = "team-az16";
+
+const FOUNDER_ROW = makeUserRow("test-founder", {
+	name: "Test Founder",
+	role: "founder",
+	email: "test@hyperidle.dev",
+	team: { id: TEAM_ID, name: "Hearth" },
+});
+
+const AGENT_ROW = makeUserRow("agent-az16", {
+	kind: "ai",
+	name: "Atlas",
+	role: "builder",
+	agentCategory: "team",
+	team: { id: TEAM_ID, name: "Hearth" },
+});
+
+const TEAM_TASK = makeTask("bet-az16", {
+	teamId: TEAM_ID,
+	title: "Semantic design profiles",
+	state: "in_progress",
+});
 
 const KNOWLEDGE = makeDocumentRow("k-az16", {
 	title: "Semantic profile contract",
@@ -147,10 +143,6 @@ async function installAz16Mocks(page: Page): Promise<void> {
 		if (pathname === "/api/actions/send_message") {
 			return json(route, { ok: true, data: { message: REVIEW_MESSAGE, thread: THREAD } });
 		}
-		if (pathname === "/api/teams/team-az16") return json(route, TEAM);
-		if (pathname === "/api/teams") {
-			return json(route, { teams: [{ id: "team-az16", name: "Hearth", phase: "build" }] });
-		}
 		if (pathname === "/api/actions/open_task") return json(route, { ok: true, data: TASK_VIEW });
 		if (pathname === "/api/actions/open_document") {
 			return json(route, {
@@ -167,22 +159,40 @@ async function installAz16Mocks(page: Page): Promise<void> {
 		if (pathname === "/api/actions/search_documents") {
 			return json(route, { ok: true, data: [KNOWLEDGE] });
 		}
-		if (pathname === "/api/org") {
+		// @lore BC5 T9/T11: `GET /api/{teams,teams/:id,org,harnesses,agents,
+		// connections,filesystems}` and `/api/settings/agent-behavior/config`
+		// are gone with the users/agents/org/teams/recipients/connections/
+		// filesystems/harnesses/agent-behavior route families — the user door
+		// (`search_users`/`open_user`/`edit_user`) is the one surface now.
+		if (pathname === "/api/actions/search_users") {
+			return json(route, { ok: true, data: [FOUNDER_ROW, AGENT_ROW] });
+		}
+		if (pathname === "/api/actions/open_user") {
+			const body = route.request().postDataJSON() as { id?: string } | null;
+			const row = body?.id === AGENT_ROW.id ? AGENT_ROW : FOUNDER_ROW;
+			const self = body?.id === undefined;
 			return json(route, {
-				edges: [],
-				users: [{ id: "test-founder", kind: "human", name: "Test Founder", role: "founder" }],
-				teams: [{ id: "team-az16", name: "Hearth" }],
+				ok: true,
+				data: makeUserView(row, {
+					connections: self ? { connections: [], inherited: [] } : null,
+					behaviour: self ? [] : null,
+					inbox: self ? [] : null,
+					runsOn: row.kind === "ai" ? [] : [],
+				}),
 			});
 		}
-		if (pathname === "/api/harnesses") return json(route, []);
-		if (pathname === "/api/agents") return json(route, []);
-		if (pathname === "/api/connections") return json(route, []);
-		if (pathname === "/api/settings/agent-behavior/config") return json(route, { items: [] });
-		if (pathname === "/api/filesystems") return json(route, { filesystems: [] });
+		if (pathname === "/api/actions/edit_user") {
+			const body = (route.request().postDataJSON() as { id?: string } | null) ?? {};
+			const row = body.id === AGENT_ROW.id ? AGENT_ROW : FOUNDER_ROW;
+			return json(route, { ok: true, data: makeUserView(row) });
+		}
+		if (pathname === "/api/actions/search_tasks") {
+			const body = route.request().postDataJSON() as { state?: string } | null;
+			const data = body?.state === "blocked" ? [] : [TEAM_TASK];
+			return json(route, { ok: true, data });
+		}
 		if (pathname === "/api/actions/search_sessions") return json(route, { ok: true, data: [] });
 		if (pathname === "/api/artifacts") return json(route, { items: [], nextCursor: null });
-		if (pathname.includes("/routines")) return json(route, { routines: [] });
-		if (pathname.includes("/agents")) return json(route, { agents: [] });
 		return json(route, {});
 	});
 }

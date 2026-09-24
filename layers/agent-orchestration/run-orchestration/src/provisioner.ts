@@ -9,6 +9,7 @@ import type {
 	BakedAgentRunnableConfig,
 	BakedContextBundle,
 	BakedSessionResumeRequest,
+	ChangeRow,
 	ModelTier,
 	SessionOutcome,
 } from "@hyperidle/domain-model";
@@ -17,7 +18,7 @@ import type { ReturnEnforcementChannel } from "@hyperidle/harness-capability";
 import {
 	type ConversationMessage,
 	type HarnessEvent,
-	isReturnAction,
+	isRequiredReturnAction,
 	literalToolNamerForAdapterType,
 	MAX_FORCE_RETURNS,
 	type SessionConfig,
@@ -32,7 +33,10 @@ import {
 	buildProvisioningPlan,
 	type HeldConnectionsReaderPort,
 } from "./connection-provisioning.js";
-import { routineSessionContextDataFromBundle, sessionContextDataFromBundle } from "./context.js";
+import {
+	sessionContextDataFromBundle,
+	subscriptionSessionContextDataFromBundle,
+} from "./context.js";
 import {
 	ConcurrencyLimitError,
 	NoAvailableHarnessError,
@@ -333,7 +337,7 @@ interface SessionLifecycleToolContext {
 	/**
 	 * AU27 Increment 1 (Decision 1) — the session's calling thread, forwarded
 	 * straight from `params.callingThreadId` (baked at emit — zero
-	 * orchestration -> core read). Absent for `routine_run`/`knowledge_action`.
+	 * orchestration -> core read). Absent for `subscription_run`/`knowledge_action`.
 	 */
 	readonly threadId?: string;
 }
@@ -387,16 +391,15 @@ interface SessionLifecycleSessionContextData {
 	readonly team: { readonly id: string; readonly name: string };
 }
 
-interface SessionLifecycleRoutineSessionContextData {
-	readonly routine: {
+interface SessionLifecycleSubscriptionSessionContextData {
+	readonly subscription: {
 		readonly id: string;
-		readonly name: string;
-		/** BA1 D3: one column, one field — replaces `description`. */
-		readonly prompt: string | null;
-		readonly lastRunSummary: string | null;
+		readonly event: string | null;
+		readonly schedule: string | null;
 	};
+	readonly prompt: string | null;
+	readonly change: ChangeRow | null;
 	readonly agent: { readonly id: string; readonly name: string; readonly role: string };
-	/** BA1 D4: nullable — the owner agent may belong to no team. */
 	readonly team: { readonly id: string; readonly name: string } | null;
 }
 
@@ -413,7 +416,8 @@ interface SessionLifecycleContextAssembly {
 		readonly agentId: string;
 		readonly agentRole: string;
 		readonly teamId: string | null;
-		readonly isRoutine: boolean;
+		/** True for a subscription-fired session — no task/bet context to read. */
+		readonly taskFree: boolean;
 		readonly sourceKind: AgentSessionSourceKind | null;
 		readonly sourceId: string | null;
 		readonly sourceCorrelation: AgentSessionSourceCorrelation | null;
@@ -431,11 +435,12 @@ interface SessionLifecycleContextAssembly {
 		readonly tools: readonly SessionLifecycleToolSummary[];
 		readonly sandboxPath: string;
 	}): Promise<{ readonly assembledPrompt: string; readonly personaToolsTokens: number }>;
-	assembleRoutinePrompt(input: {
+	assembleSubscriptionPrompt(input: {
 		readonly systemPromptText: string;
-		readonly context: SessionLifecycleRoutineSessionContextData;
+		readonly context: SessionLifecycleSubscriptionSessionContextData;
 		readonly tools: readonly SessionLifecycleToolSummary[];
 		readonly sandboxPath: string;
+		readonly returnOrientation?: string;
 	}): Promise<{ readonly assembledPrompt: string; readonly personaToolsTokens: number }>;
 	writeSandboxAgentsMd(sandboxPath: string, assembledPrompt: string): void;
 }
@@ -514,6 +519,41 @@ interface SessionLifecyclePorts {
 }
 
 /**
+ * True for a task-free session whose only satisfying return action is
+ * `send_message` — one line, shared by the prompt orientation
+ * (`assembleTaskFreePrompt`) and the enforced gate (`requiredReturnActions`
+ * below) so the two can never drift apart. A session that replies into a
+ * calling thread (the assistant, `knowledge_action`) resolves `true`. A
+ * task-bound session (task_run/session_start) keeps the full return set,
+ * `edit_task` included, even with a calling thread.
+ *
+ * A subscription wake is deliberately NOT covered here — see
+ * `requiresReturnStatusReturn` below. Forcing `send_message` on a
+ * subscription session made every wake end with an unwanted direct message
+ * to whoever the session happened to fall back to reporting to, even when
+ * the subscription's own instruction never asked it to say anything.
+ */
+function requiresSendMessageReturn(params: ProvisionSessionParams): boolean {
+	return params.taskId == null && params.callingThreadId != null;
+}
+
+/**
+ * True for a subscription wake: a task-free session with no calling thread
+ * to reply into (`resolveSubscriptionWakeRequest` never bakes one — there is
+ * no conversation to answer), woken by an event or schedule rather than a
+ * person. It has no work-output return action to call at all, so its only
+ * satisfying return action is the self-check `return_status` tool —
+ * reporting that it is done IS its return. It speaks only when the
+ * subscription's own instruction tells it to, by calling `send_message`
+ * itself — never forced, because a subscription session has nowhere
+ * structural for a forced message to go that is guaranteed to be right (see
+ * `requiresSendMessageReturn`'s note).
+ */
+function requiresReturnStatusReturn(params: ProvisionSessionParams): boolean {
+	return params.taskId == null && params.requestContext?.sourceKind === "subscription";
+}
+
+/**
  * @lore AU21 §9 Increment 10a (Decision I): the `"decomposition"` sourceKind
  * branch this function used to special-case (a bet-decomposition PM turn's
  * "Turn this bet into concrete proposed tasks" prompt) is REMOVED — the
@@ -572,12 +612,30 @@ async function assembleTaskFreePrompt(
 	// name that does not exist ("Model tried to call unavailable tool
 	// 'send_message'").
 	const sendMessageToolName = literalToolNamerForAdapterType(adapterType)("send_message");
-	const sendMessageOrientation =
-		params.callingThreadId != null && params.taskId == null
-			? `When you are done, call \`${sendMessageToolName}\` to answer in this conversation.`
-			: "";
+	// requiresSendMessageReturn is true only when a calling thread is present
+	// (see its own doc comment) — this session always has one here.
+	const sendMessageOrientation = requiresSendMessageReturn(params)
+		? `When you are done, call \`${sendMessageToolName}\` to answer in this conversation.`
+		: "";
 
-	return [systemPromptText, sourceSection, conversationSection, sendMessageOrientation, toolSection]
+	// A subscription wake (no calling thread, no work-output action) reports
+	// its status instead — see `requiresReturnStatusReturn`. This is the
+	// graceful-degrade fallback prompt (no `kind:"subscription"` bundle to
+	// build the real `assembleSubscriptionPrompt` from); the real composer
+	// carries the same line (`context.ts`'s `returnOrientation`).
+	const returnStatusToolName = literalToolNamerForAdapterType(adapterType)("return_status");
+	const returnStatusOrientation = requiresReturnStatusReturn(params)
+		? `When you are done, call \`${returnStatusToolName}\` to report your status. Speak only if the subscription's instruction asks you to.`
+		: "";
+
+	return [
+		systemPromptText,
+		sourceSection,
+		conversationSection,
+		sendMessageOrientation,
+		returnStatusOrientation,
+		toolSection,
+	]
 		.filter(Boolean)
 		.join("\n\n");
 }
@@ -874,18 +932,12 @@ interface ProvisionSessionParams {
 		readonly sourceCorrelation: AgentSessionSourceCorrelation;
 	};
 	/**
-	 * AA2: When set, this session is a routine session. The provisioning orchestrator
-	 * will use routine context (routineSessionContextDataFromBundle + assembleRoutinePrompt)
-	 * instead of task/bet context, and will populate sessions.routineId.
-	 */
-	readonly routineId?: string;
-	/**
 	 * AU21 §9 Increment 12 (Decision H3) — the baked entity+knowledge bundle
 	 * this session's sandbox context (Phase 6) and prompt persona (Phase 8.5)
 	 * are built from — `kind:"task"` for `task_run`,
-	 * `kind:"routine"` for `routine_run`. Sourced from the emit-time resolver
-	 * via the drained `AgentSessionRequest.payloadJson` (zero db read here).
-	 * Absent for `knowledge_action`/`session_start`/`assistant_turn` turns.
+	 * `kind:"subscription"` for `subscription_run`. Sourced from the emit-time
+	 * resolver via the drained `AgentSessionRequest.payloadJson` (zero db read
+	 * here). Absent for `knowledge_action`/`session_start`/`assistant_turn` turns.
 	 */
 	readonly contextBundle?: BakedContextBundle;
 	/**
@@ -934,7 +986,7 @@ interface ProvisionSessionParams {
 	 * EMIT time by every per-kind resolver that has one (`assistant_turn` from
 	 * the triggering message's thread; `task_run`/`session_start`/
 	 * resolve-or-create). Absent for
-	 * `routine_run`/`knowledge_action`. Forwarded verbatim onto
+	 * `subscription_run`/`knowledge_action`. Forwarded verbatim onto
 	 * `SessionLifecycleToolContext.threadId` in Phase 8 — the `reply` tool
 	 * (Increment 2) reads it from there. ZERO orchestration -> core read.
 	 */
@@ -1227,8 +1279,6 @@ async function admitSession(
 		startedAt,
 		state: "active",
 		sandboxSnapshot: sandboxPath,
-		// AA2: populate routineId when this is a routine session.
-		...(params.routineId ? { routineId: params.routineId } : {}),
 	};
 	if (reservedSession) {
 		await db
@@ -1268,7 +1318,7 @@ async function admitSession(
 			agentId: params.agentId,
 			agentRole,
 			teamId: params.productId,
-			isRoutine: !!params.routineId,
+			taskFree: params.contextBundle?.kind === "subscription",
 			sourceKind: params.requestContext?.sourceKind ?? null,
 			sourceId: params.requestContext?.sourceId ?? null,
 			sourceCorrelation: params.requestContext?.sourceCorrelation ?? null,
@@ -1282,7 +1332,7 @@ async function admitSession(
 			agentId: params.agentId,
 			agentRole,
 			teamId: params.productId,
-			isRoutine: !!params.routineId,
+			taskFree: params.contextBundle?.kind === "subscription",
 			sourceKind: params.requestContext.sourceKind,
 			sourceId: params.requestContext.sourceId,
 			sourceCorrelation: params.requestContext.sourceCorrelation,
@@ -1327,8 +1377,6 @@ async function admitSession(
 		// @lore AF4/§5: traceId correlates observability events for this session
 		// (H3). The provisioning path owns the session, so it mints the id.
 		traceId: randomUUID(),
-		// AA2: pass routineId so endSession/crashSession can update routine_runs.
-		...(params.routineId ? { routineId: params.routineId } : {}),
 	};
 
 	return {
@@ -1395,8 +1443,9 @@ function buildVerdictMessage(resume: BakedSessionResumeRequest): string {
  * to do. The two were conflated, and the agent received a 200-character slice of
  * the wrong one.
  *
- * Returns undefined when the session has no task to state — a routine waking on a
- * heartbeat, or an assistant turn, whose opening turn comes from elsewhere.
+ * Returns undefined when the session has no task to state — a subscription
+ * waking on a heartbeat, or an assistant turn, whose opening turn comes from
+ * elsewhere.
  */
 function composeTaskInstruction(params: ProvisionSessionParams): string | undefined {
 	const bundle = params.contextBundle;
@@ -1505,24 +1554,33 @@ async function runSession(
 		}));
 
 	let assembledPrompt: string;
-	if (params.routineId && params.contextBundle?.kind === "routine") {
-		// AU21 §9 Increment 12 (Decision H3): routine session — derive
-		// routine+agent+team context from the baked `kind:"routine"` bundle,
-		// ZERO db read (the routine/org reads this used to make via
-		// `buildRoutineSessionContextData` are gone).
-		const routineContextData = routineSessionContextDataFromBundle(params.contextBundle);
-		({ assembledPrompt } = await ports.contextAssembly.assembleRoutinePrompt({
+	if (params.contextBundle?.kind === "subscription") {
+		// AU21 §9 Increment 12 (Decision H3): subscription session — derive
+		// subscription+agent+team context from the baked `kind:"subscription"`
+		// bundle, ZERO db read.
+		const subscriptionContextData = subscriptionSessionContextDataFromBundle(params.contextBundle);
+		// See `requiresReturnStatusReturn`'s `@lore` and `assembleTaskFreePrompt`'s
+		// own `returnStatusOrientation` — a subscription wake has no calling
+		// thread and no work-output action, so it needs the same proactive,
+		// one-line heads-up, computed the same way (the literal tool name the
+		// SELECTED harness exposes) and threaded through as pre-rendered text
+		// so this module's own prompt composer never needs the
+		// harness-protocol return-action vocabulary imported into it.
+		const subscriptionReturnStatusToolName = literalToolNamerForAdapterType(
+			selectedAdapter.meta.type,
+		)("return_status");
+		({ assembledPrompt } = await ports.contextAssembly.assembleSubscriptionPrompt({
 			systemPromptText,
-			context: routineContextData,
+			context: subscriptionContextData,
 			tools: toolSummaries,
 			sandboxPath,
+			...(requiresReturnStatusReturn(params)
+				? {
+						returnOrientation: `When you are done, call \`${subscriptionReturnStatusToolName}\` to report your status. Speak only if the subscription's instruction above asks you to.`,
+					}
+				: {}),
 		}));
-	} else if (
-		params.taskId &&
-		!params.routineId &&
-		!params.requestContext &&
-		params.contextBundle?.kind === "task"
-	) {
+	} else if (params.taskId && !params.requestContext && params.contextBundle?.kind === "task") {
 		// AU21 §9 Increment 12 (Decision H3): normal (non-durable, no
 		// requestContext) task session — derive task+ancestors+agent+team context
 		// from the baked `kind:"task"` bundle, ZERO db read (the task/
@@ -1540,7 +1598,7 @@ async function runSession(
 		// primary production path — `requestContext` is always set by
 		// `consumeAgentSessionRequest`) already took this generic, db-free
 		// branch pre-migration regardless of source kind (unchanged here) —
-		// this is also the graceful fallback for a routine/task session whose
+		// this is also the graceful fallback for a subscription/task session whose
 		// emit-time resolver hasn't been wired with the optional contextBundle
 		// deps yet (`getTeamById`/`assembleSessionKnowledge`), so a wiring gap
 		// degrades to a plain prompt instead of crashing the session.
@@ -1576,14 +1634,27 @@ async function runSession(
 		fs.writeFileSync(mcpJsonPath, JSON.stringify({ mcpServers: {} }, null, 2), "utf-8");
 	}
 
-	// A session whose output belongs in a calling thread and has no task (the
-	// assistant, and now knowledge_action too) must call `send_message`, not
-	// the full return set — purely structural, no `sourceKind` check
-	// anywhere. A task-bound session (task_run/session_start) also bakes a
-	// calling thread but keeps the full set available (`send_message` still
-	// lands in the same thread, but so does e.g. `edit_task`).
-	const requiredReturnActions: readonly string[] | undefined =
-		params.callingThreadId != null && params.taskId == null ? ["send_message"] : undefined;
+	// See `requiresReturnStatusReturn`/`requiresSendMessageReturn`. A
+	// subscription wake (task-free, never bakes a calling thread — there is
+	// no thread to reply into, and no task to hand off) has no work-output
+	// return action at all, so its own required subset is `["return_status"]`
+	// — the self-check tool reporting it is done. A session whose output
+	// belongs in a calling thread and has no task (the assistant, and
+	// `knowledge_action`) must call `send_message` instead — that thread is a
+	// real place for the message to land. A task-bound session
+	// (task_run/session_start) keeps the full return set available even with
+	// a calling thread (`send_message` still lands there, but so does e.g.
+	// `edit_task`). Naming the specific action explicitly removes dead
+	// options the default full-set forcing message would otherwise offer —
+	// e.g. `edit_task` can never satisfy a task-free gate (no `taskId` to
+	// match), so a session with no specific requirement could burn its whole
+	// force budget on an ineffective attempt and end `not_returned`
+	// regardless of harness.
+	const requiredReturnActions: readonly string[] | undefined = requiresReturnStatusReturn(params)
+		? ["return_status"]
+		: requiresSendMessageReturn(params)
+			? ["send_message"]
+			: undefined;
 
 	// One gate per session — all events observed by this gate. Declared
 	// here (before the MCP bridge's `onToolCall` closure below references it)
@@ -1605,7 +1676,20 @@ async function runSession(
 			sessionId,
 			toolRegistry: registry,
 			onToolCall: ({ toolName, args }) => {
-				if (!isReturnAction(toolName, args as Record<string, unknown>)) return;
+				// The SAME required-aware predicate the gate itself uses (not the
+				// unfiltered `isReturnAction`) — otherwise a subscription session's
+				// `return_status` call (never a member of the base closed set,
+				// satisfying ONLY via `requiredReturnActions`) would never trip this
+				// early-abort path, unlike every other kind's return action.
+				if (
+					!isRequiredReturnAction(
+						toolName,
+						requiredReturnActions,
+						args as Record<string, unknown>,
+						params.taskId ?? undefined,
+					)
+				)
+					return;
 
 				returnGate.observe({
 					type: "tool_call",

@@ -5,10 +5,10 @@ import { createLogger } from "@hyperidle/diagnostics";
 import type { TaskState } from "@hyperidle/domain-model";
 import type {
 	EventBus,
+	EventByType,
 	PropagationAppliedEvent,
 	PropagationFailedEvent,
 	SessionEndedEvent,
-	TaskStateChangedEvent,
 } from "@hyperidle/event-bus";
 import { TaskInvalidTransitionError } from "./errors.js";
 import type { PolicyDeps } from "./ports.js";
@@ -20,7 +20,7 @@ type LifecyclePropagationDeps = Pick<PolicyDeps, "work" | "editTask" | "sendMess
 /**
  * §6 rows 4/5: writes through `edit_task` instead of the deleted private
  * `transitionTask` helper. `edit_task` appends its own `changes` row and
- * emits `task_state_changed` after commit — this function no longer does
+ * emits `task.changed` after commit — this function no longer does
  * either. A refusal (a `Problem`, not a throw) becomes
  * `TaskInvalidTransitionError`, the shape every caller here already catches.
  */
@@ -176,7 +176,7 @@ async function propagateSessionToTask(
  * level above a task; ancestors are now at any depth. We use `listAncestorIds`
  * (nearest-first) and process the chain in one call — each ancestor transition
  * commits before we read the next level, so the sibling check at level N+1 sees
- * the just-committed `done` state of level N. The `task_state_changed` event
+ * the just-committed `done` state of level N. The `task.changed` event
  * emitted by each `transitionTask` re-triggers this handler for the ancestor;
  * those secondary calls find their own ancestors already done and skip (CAS).
  *
@@ -184,7 +184,7 @@ async function propagateSessionToTask(
  * that are already in `review` or a terminal state are skipped so a second
  * sibling completing does not re-attempt the same transition. The cascade
  * advances ONE level per call: leaf → middle to `review`, then when middle is
- * marked `done` by a human the next `task_state_changed(done)` event advances
+ * marked `done` by a human the next `task.changed(done)` event advances
  * root to `review`. A human verdict between levels is the point of `review`.
  *
  * A root task reaching `review` (`parentTaskId === null`) is what used to be a
@@ -230,7 +230,7 @@ async function propagateTaskToParent(
 
 			// BB1 needsReview fork: parent goes to `review` only when it asked for
 			// one; otherwise it goes straight to `done`. When the parent goes to
-			// `done`, transitionTask emits task_state_changed(done) for it, which
+			// `done`, transitionTask emits task.changed(done) for it, which
 			// re-triggers this handler for the GRANDPARENT — the cascade continues
 			// upward without requiring a human verdict at every level. A task with
 			// needsReview=true is where the chain deliberately stops until a person
@@ -402,16 +402,20 @@ export function registerLifecyclePropagation(
 		})();
 	});
 
-	// Handler 2: task_state_changed -> evaluate parent transition (recursive rollup).
+	// Handler 2: task.changed -> evaluate parent transition (recursive rollup).
 	// Fires for every terminal state so that a kill also propagates upward.
-	const unsubTaskChanged = eventBus.on("task_state_changed", (event: TaskStateChangedEvent) => {
+	// `change.after.state` is present only when the edit moved the state (the
+	// diff-only shape `edit_task` writes) — a title-only edit's `task.changed`
+	// carries no `state` key and no-ops here.
+	const unsubTaskChanged = eventBus.on("task.changed", (event: EventByType<"task.changed">) => {
 		// @lore BB1: a cascade kill is not progress — skip it. The handler still
 		// listens for ordinary `killed` transitions so that killing the last live
 		// child advances its parent, which is the behaviour AC3 promises.
 		if (event.cascade === true) return;
-		if (event.toState === "done" || event.toState === "killed") {
+		const state = event.change.after.state;
+		if (state === "done" || state === "killed") {
 			void (async () => {
-				await propagateTaskToParent(db, eventBus, event.taskId, deps);
+				await propagateTaskToParent(db, eventBus, event.change.objectId, deps);
 			})();
 		}
 	});

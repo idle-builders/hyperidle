@@ -213,10 +213,7 @@ function assertNoFrame(
 
 async function seedTeam(db: HyperIdleDb, teamId: string): Promise<void> {
 	const now = new Date().toISOString();
-	await db
-		.insert(teams)
-		.values({ id: teamId, name: teamId, phase: "build", createdAt: now })
-		.onConflictDoNothing();
+	await db.insert(teams).values({ id: teamId, name: teamId, createdAt: now }).onConflictDoNothing();
 }
 
 async function seedHuman(db: HyperIdleDb, id: string, teamId?: string): Promise<void> {
@@ -305,7 +302,7 @@ async function seedSession(
 	});
 }
 
-/** A minimal plugin: one agent, one routine, one skill document, one `tool`-kind
+/** A minimal plugin: one agent, one subscription, one skill document, one `tool`-kind
  * configuration contribution — the same shape `platform-actions.integration.test.ts`'s
  * own `makePlugin` uses, so `search_plugins`/`edit_plugin` exercise every
  * contribution kind. */
@@ -331,12 +328,12 @@ function makePlugin(pluginId: string): string {
 							identity: "identity.md",
 						},
 					],
-					routines: [
+					subscriptions: [
 						{
-							id: "sweep-routine",
-							name: "Sweep Routine",
+							id: "sweep-subscription",
+							name: "Sweep Subscription",
 							agentId: "builder",
-							triggerType: "manual",
+							event: "task.changed",
 							prompt: "Sweep the stale items.",
 						},
 					],

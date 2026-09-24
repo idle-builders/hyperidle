@@ -21,6 +21,7 @@ import {
 } from "@hyperidle/db";
 import type { ActionResult, SendMessageInput, ThreadView } from "@hyperidle/domain-model";
 import { adjustThreadInvariants } from "@hyperidle/domain-model";
+import type { ObjectChangeEvent } from "@hyperidle/event-bus";
 import { drainIntents } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
@@ -73,7 +74,7 @@ const FOUNDER_ID = "u-founder";
 
 async function seedTeam(db: HyperIdleDb, teamId: string): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(teams).values({ id: teamId, name: teamId, phase: "build", createdAt: now });
+	await db.insert(teams).values({ id: teamId, name: teamId, createdAt: now });
 	await db
 		.insert(users)
 		.values([
@@ -2351,11 +2352,11 @@ describe("edit_task — every task gets a thread", () => {
 });
 
 // ============================================================================
-// legacy bus names
+// object events — one per changes row, post commit
 // ============================================================================
 
-describe("send_message — legacy bus names still fire", () => {
-	test("thread_created, thread_message_appended, thread_resolved, thread_reopened fire from the change row", async ({
+describe("send_message / adjust_thread — object events fire from the change rows", () => {
+	test("thread.created, thread.message, thread.changed fire from send_message's own appended rows", async ({
 		db,
 		app,
 		eventBus,
@@ -2363,13 +2364,12 @@ describe("send_message — legacy bus names still fire", () => {
 		await seedTeam(db, "lb-1");
 		await seedAgent(db, "lb-agent-1", "lb-1");
 
-		const seen: string[] = [];
-		const handler = (event: { type: string }) => seen.push(event.type);
+		const seen: ObjectChangeEvent[] = [];
+		const handler = (event: ObjectChangeEvent) => seen.push(event);
 		const unsubscribers = [
-			eventBus.on("thread_created", handler as never),
-			eventBus.on("thread_message_appended", handler as never),
-			eventBus.on("thread_resolved", handler as never),
-			eventBus.on("thread_reopened", handler as never),
+			eventBus.on("thread.created", handler),
+			eventBus.on("thread.message", handler),
+			eventBus.on("thread.changed", handler),
 		];
 
 		const created = await call<{ message: { id: string }; thread: { id: string } }>(
@@ -2391,11 +2391,39 @@ describe("send_message — legacy bus names still fire", () => {
 			agentHeaders("lb-agent-1"),
 		);
 
-		expect(seen).toContain("thread_created");
-		expect(seen).toContain("thread_message_appended");
-		expect(seen).toContain("thread_resolved");
-		expect(seen).toContain("thread_reopened");
+		const types = seen.map((e) => e.type);
+		expect(types).toContain("thread.created");
+		expect(types).toContain("thread.message");
+		expect(types).toContain("thread.changed");
+		expect(seen.every((e) => e.change.objectId === threadId)).toBe(true);
+		expect(seen.every((e) => e.change.object === "thread")).toBe(true);
 		for (const unsubscribe of unsubscribers) unsubscribe();
+	});
+
+	test("adjust_thread's own create and edit each fire their own object event", async ({
+		db,
+		app,
+		eventBus,
+	}) => {
+		await seedTeam(db, "lb-2");
+
+		const seen: ObjectChangeEvent[] = [];
+		const unsubCreated = eventBus.on("thread.created", (e) => seen.push(e));
+		const unsubChanged = eventBus.on("thread.changed", (e) => seen.push(e));
+
+		const created = await call<ThreadView>(app, "adjust_thread", { title: "New thread" });
+		const threadId = created.body.data?.thread.id as string;
+
+		await call(app, "adjust_thread", { id: threadId, pinned: true });
+
+		unsubCreated();
+		unsubChanged();
+
+		const createdEvent = seen.find((e) => e.type === "thread.created");
+		const changedEvent = seen.find((e) => e.type === "thread.changed");
+		expect(createdEvent?.change.objectId).toBe(threadId);
+		expect(changedEvent?.change.objectId).toBe(threadId);
+		expect(changedEvent?.change.after).toMatchObject({ pinned: true });
 	});
 });
 

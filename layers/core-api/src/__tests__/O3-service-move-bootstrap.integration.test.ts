@@ -1,4 +1,3 @@
-import { EVENT_TYPES } from "@hyperidle/event-bus";
 import { describe } from "vitest";
 import { expect, test, vi } from "../__testing__/test-fixtures.js";
 import { createTestApp } from "../__testing__/test-utils.js";
@@ -9,9 +8,9 @@ import { registerAgentLayerServices, registerCoreDomainServices } from "../servi
 /**
  * AU11: former app-runtime `bootstrapAppRuntime` split into two owner-scoped
  * registration functions (server-factory.ts) — `registerCoreDomainServices`
- * (document/notifications/policy/routine-scheduler) and
- * `registerAgentLayerServices` (builtin-routine handlers/dispatcher/reapers —
- * AU21 Increment 14a: cost-cap sentinel HARD-DELETED, no replacement).
+ * (document/policy/review routing/lifecycle propagation/retention) and
+ * `registerAgentLayerServices` (dispatcher/reapers — AU21 Increment 14a:
+ * cost-cap sentinel HARD-DELETED, no replacement).
  * Composing them replicates the exact same disposer set bootstrapAppRuntime
  * returned; only the grouping is new.
  *
@@ -21,7 +20,7 @@ import { registerAgentLayerServices, registerCoreDomainServices } from "../servi
 function fullServiceBootstrap(
 	ctx: Omit<
 		Parameters<typeof registerCoreDomainServices>[0],
-		"editTask" | "sendMessage" | "adjustThread"
+		"editTask" | "sendMessage" | "adjustThread" | "editUser"
 	>,
 ): Array<() => void> {
 	const actions = buildCoreActions({
@@ -35,6 +34,8 @@ function fullServiceBootstrap(
 	if (!sendMessageAction) throw new Error("send_message action not found");
 	const adjustThreadAction = actions.find((a) => a.declaration.name === "adjust_thread");
 	if (!adjustThreadAction) throw new Error("adjust_thread action not found");
+	const editUserAction = actions.find((a) => a.declaration.name === "edit_user");
+	if (!editUserAction) throw new Error("edit_user action not found");
 	const fullCtx = {
 		...ctx,
 		editTask: editTaskAction.run as Parameters<typeof registerCoreDomainServices>[0]["editTask"],
@@ -44,6 +45,7 @@ function fullServiceBootstrap(
 		adjustThread: adjustThreadAction.run as Parameters<
 			typeof registerCoreDomainServices
 		>[0]["adjustThread"],
+		editUser: editUserAction.run as Parameters<typeof registerCoreDomainServices>[0]["editUser"],
 	};
 	return [...registerCoreDomainServices(fullCtx), ...registerAgentLayerServices(fullCtx)];
 }
@@ -94,14 +96,8 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				cleanupEffect: "unsubscribe",
 				constituents: ["agent_run_admission_failed subscription"],
 			},
-			// @lore AU21 §9 Increment 4 (Decision B″ item 3): the POST-SESSION
-			// routine-run finalize reaction — a DIFFERENT mechanism from the
-			// PRE-HANDOFF `agent-run-admission reactions` owner above.
-			{
-				owner: "routine-run session-end reactions",
-				cleanupEffect: "unsubscribe",
-				constituents: ["session_ended subscription", "agent_run_lifecycle_changed subscription"],
-			},
+			// There is no routine-run session-end reactions owner — a
+			// subscription's wake carries no run row to finalize.
 			// @lore AU26: the POST-SESSION agent-health reaction — the event-driven
 			// degraded-agent notification that replaced `routes/teams-routes.ts`'s
 			// `maybeNotifyAgentError`, closing core-api's last `sessions` read.
@@ -113,8 +109,7 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 			// @lore AU21 §9 Increment 10 (Decision H1)/Increment 12 (Decision H3)
 			// Wave D: the POST-SESSION `task` dispatch-attempt finalize reaction
 			// PLUS the bet per-tier token-writeback reaction (Wave D's additive
-			// `session_ended` subscription) — a DIFFERENT mechanism/owner from the
-			// routine-run finalize reaction above, replacing `session-requests`'s/
+			// `session_ended` subscription), replacing `session-requests`'s/
 			// `run-orchestration`'s own former direct cross-layer writes.
 			{
 				owner: "work session-end reactions",
@@ -176,16 +171,10 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				cleanupEffect: "interval cleared",
 				constituents: ["retention interval"],
 			},
-			// `registerAgentLayerServices` boots one lifecycle — the assistant
-			// runs through the SAME durable poller (`startRuntime`) as every
-			// other kind.
-			// @lore BA9d wave 3: "builtin routine reactions" (bet_state_changed
-			// subscription) was deleted in commit aa260893c — no owner entry here.
-			{
-				owner: "routine scheduler",
-				cleanupEffect: "cron/due-eval tick stop",
-				constituents: ["routine scheduler"],
-			},
+			// `registerAgentLayerServices` now returns no disposers at all — no
+			// scheduler lives here; the assistant still runs through the SAME
+			// durable poller (`startRuntime`) as every other kind, which is
+			// wired elsewhere, not here.
 			// @lore AU21 Increment 14a: the "cost sentinel" owner (15-minute
 			// scheduled job + its dedup subscription) is HARD-DELETED along with
 			// the rest of the cost feature — no replacement.
@@ -240,15 +229,8 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				// `fullServiceBootstrap` call reaches it here, so THIS registration
 				// is a no-op disposer (no `off()` call, no interval).
 				{ unsubscribedEvents: [], clearedIntervals: 0 },
-				// @lore AU21 §9 Increment 4: `registerRoutineRunSessionEndReactions`
-				// is NOT pre-registered on the `eventBus` test fixture (unlike
-				// `registerAgentRunAdmissionReactions` above) — this is its first,
-				// real registration on this eventBus instance, so both its
-				// subscriptions unsubscribe for real.
-				{
-					unsubscribedEvents: ["session_ended", "agent_run_lifecycle_changed"],
-					clearedIntervals: 0,
-				},
+				// @lore BC5 T7b: `registerRoutineRunSessionEndReactions`'s observed
+				// effect entry is deleted with its owner above.
 				// @lore AU26: `registerAgentHealthSessionEndReactions` — the
 				// event-driven degraded-agent notification that replaced
 				// `routes/teams-routes.ts`'s `maybeNotifyAgentError` (and with it
@@ -299,7 +281,7 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 					// @lore BC3 architecture.md §5: "item_created" removed —
 					// lifecycle-propagation never subscribed to it; the event type
 					// itself is deleted with the `items` table.
-					unsubscribedEvents: ["session_ended", "task_state_changed"],
+					unsubscribedEvents: ["session_ended", "task.changed"],
 					clearedIntervals: 0,
 				},
 				// @lore AU26 C1: the "git-export handler" owner (its one
@@ -309,26 +291,12 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				// removed from this owner's unsubscribe list — both events are
 				// HARD-DELETED along with the rest of the cost feature, no
 				// replacement subscription.
-				// @lore AU44 batch 4: notifications simplified — dispatcher, drain,
-				// alert-routing (item_created), daily-digest worker (routine_fired),
-				// and adapter abstraction all removed per FULL-AUDIT.md rows 5452-5453.
-				// @lore BC3 architecture.md §5 B7: the "notification" subscription
-				// entry (installNotifications' inbox-enqueue listener) is removed —
-				// the listener itself is HARD-DELETED, no replacement registration.
+				// The notification dispatcher, drain, alert-routing, daily-digest
+				// worker and adapter abstraction don't exist — nothing left to
+				// unsubscribe or clear.
 				{ unsubscribedEvents: [], clearedIntervals: 1 },
-				// @lore BA9d wave 3: "builtin routine reactions" bet_state_changed
-				// subscription deleted in commit aa260893c — no entry here.
-				// @lore BA1 D2: `registerRoutineEventMatcher` replaces
-				// `registerEventTriggers` — one `eventBus.on` per EVENT_TYPES
-				// member (34, always, regardless of what is in `routines`), not
-				// one per seeded routine (zero, on this fresh test DB, under the
-				// old code — hence the previously-empty list here). `unwind()`
-				// unsubscribes in REVERSE registration order, so this is
-				// `EVENT_TYPES` reversed.
-				{
-					unsubscribedEvents: [...EVENT_TYPES].reverse(),
-					clearedIntervals: 1,
-				},
+				// `registerAgentLayerServices` registers nothing now, so there is no
+				// trailing entry here.
 				// @lore AU21 Increment 14a: the "cost sentinel" owner (previously
 				// here, ["session_ended", "session_handoff_completed"] unsubscribe +
 				// 1 cleared interval) is HARD-DELETED along with the rest of the

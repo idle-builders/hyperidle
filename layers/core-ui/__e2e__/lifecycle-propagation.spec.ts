@@ -19,7 +19,15 @@
  * and returns 502, causing timeout on hydration. Pattern from L19.
  */
 
-import { expect, makeSessionRow, mockSearchSessions, mockSearchThreads, test } from "./fixtures";
+import {
+	expect,
+	makeSessionRow,
+	makeUserRow,
+	mockSearchSessions,
+	mockSearchThreads,
+	mockSearchUsers,
+	test,
+} from "./fixtures";
 
 const PRODUCT_ID = "prod-l20";
 const BET_ID = "bet-l20";
@@ -58,34 +66,6 @@ function _makeBetResponse(betStatus: string, taskState: string) {
 		description: "# Problem\n\nTest lifecycle propagation.",
 		tasks: [makeTask(taskState)],
 		revisionLog: null,
-	};
-}
-
-function makeProductResponse(betStatus: string) {
-	// Shape matches TeamDetail from @hyperidle/domain-model.
-	// @lore BB1: `activeBets: BetCardSummary[]` became
-	// `tasksInProgress: TaskCardSummary[]` (title/state, not pitchTitle/status),
-	// and TeamBurn lost its stored counter — it is { capacity } only.
-	return {
-		product: {
-			id: PRODUCT_ID,
-			name: "L20 Product",
-			phase: "build",
-			status: "healthy",
-			leadAgentId: null,
-		},
-		team: { id: "team-l20", formedAt: "2026-01-01T00:00:00Z", dissolvedAt: null },
-		roster: [],
-		burn: { capacity: 5 },
-		tasksInProgress: [
-			{
-				id: BET_ID,
-				title: "L20 Lifecycle Bet",
-				status: betStatus,
-				progressDone: 1,
-				progressTotal: 1,
-			},
-		],
 	};
 }
 
@@ -132,30 +112,26 @@ async function setupCommonRoutes(
 	// Sessions list for the task, via search_sessions.
 	await mockSearchSessions(page, { rows: makeSessionsResponse(TASK_ID, "done", "completed") });
 
-	// Products: handle both detail (/api/teams/:id) and list (/api/teams or /api/teams?...)
-	// in a single handler. Playwright evaluates the last-registered route first, so merging
-	// avoids the ambiguity of route.continue() falling through to the network instead of the
-	// earlier specific handler.
-	// @lore L20: Playwright last-registered-wins ordering means a wildcard registered after a
-	// specific pattern will be evaluated FIRST, and route.continue() from the wildcard falls through
-	// to subsequent handlers — but can hit the network if no later handler matches. Consolidating
-	// into one handler is the safest pattern for URL-dispatch in Playwright mocks.
-	await page.route("**/api/teams**", (route) => {
-		if (route.request().method() !== "GET") return route.continue();
-		const url = route.request().url();
-		if (url.includes(`/${PRODUCT_ID}`)) {
-			// Detail route: /api/teams/:id
-			return route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(makeProductResponse(betStatus)),
-			});
-		}
-		// List route: /api/teams or /api/teams?...
+	// @lore BC5 T9: `GET /api/teams` and `GET /api/teams/:id` are gone —
+	// `useTeams`/`useTeam` compose from `search_users`/`search_tasks`.
+	const roster = [
+		makeUserRow("agent-l20", { kind: "ai", team: { id: PRODUCT_ID, name: "L20 Product" } }),
+	];
+	await mockSearchUsers(page, { rows: roster });
+	await page.route("**/api/actions/search_tasks", (route) => {
+		const input = JSON.parse(route.request().postData() ?? "{}") as {
+			teamId?: string;
+			state?: string;
+		};
+		if (input.teamId !== PRODUCT_ID) return route.continue();
+		const data =
+			input.state === "blocked"
+				? []
+				: [{ id: BET_ID, teamId: PRODUCT_ID, title: "L20 Lifecycle Bet", state: "in_progress" }];
 		return route.fulfill({
 			status: 200,
 			contentType: "application/json",
-			body: JSON.stringify({ teams: [] }),
+			body: JSON.stringify({ ok: true, data }),
 		});
 	});
 

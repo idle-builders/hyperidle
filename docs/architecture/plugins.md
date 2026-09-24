@@ -13,13 +13,14 @@ Document Librarian all arrive because somebody installed a plugin.
 | Kind | Becomes | Declared as |
 |---|---|---|
 | **Agent** | a `users` row, plus its identity | `agents[]` in the manifest, with an optional `identity` file |
-| **Routine** | a `routines` row, plus its prompt | `routines[]`, whose `prompt` becomes a knowledge document |
+| **Subscription** | a `subscriptions` row, plus its prompt | `subscriptions[]`, whose `prompt` becomes a knowledge document |
 | **Skill** | a knowledge document | a `skills/<name>/SKILL.md` file |
 | **Configuration default** | a `plugin_configuration_defaults` row | `contributions[]`, and `mcp.json` servers |
 
-Agents, routine prompts and skills all end up as ordinary rows in the services
-that own them — `users`, `routines`, `documents`. A plugin does not get a
-private world; it adds to yours, and what it adds is editable like anything else.
+Agents, subscription prompts and skills all end up as ordinary rows in the services
+that own them — `users` (agents, subscriptions, both owned by `@hyperidle/user`), `documents`. A
+plugin does not get a private world; it adds to yours, and what it adds is editable like anything
+else.
 
 An agent's `identity` names a file inside the plugin, and it becomes that agent's
 `agent_file` knowledge document. A path that escapes the plugin root, or names a
@@ -33,7 +34,7 @@ contributed: one row per `(plugin, kind, entity)`, plus a `detached_at` stamp.
 
 It is the **only** answer to "what did this plugin contribute". Provenance used
 to be recorded seven different ways — `plugin_id` columns on `users` and
-`routines`, a `plugin_id` on the configuration defaults, a `topic =
+`subscriptions`, a `plugin_id` on the configuration defaults, a `topic =
 'plugin:<id>'` and an `updated_by = 'plugin:<id>'` on documents, a
 `<pluginId>/` prefix inside a configuration key, and one-way hashed row ids. Each
 covered a different subset, two were never read at all, and no surface could
@@ -57,19 +58,20 @@ registry: make everything this plugin contributed live, or not live.
 They used to be three separate spellings over three different provenance
 mechanisms, and they drifted:
 
-- disable wrote a routine's `active` but not its `state`, so a plugin-disabled
-  routine read as active while the scheduler skipped it
+- disable wrote a subscription's `active` but not its `state`, so a
+  plugin-disabled subscription read as active while the scheduler skipped it
 - remove set a `deletedAt` that nothing ever cleared
-- install revived skills but **not** agents or routines, so reinstalling a
-  disabled plugin produced one that reported `enabled` with a dead agent and
-  dead routines, unfixable short of manual SQL
+- install revived skills but **not** agents or subscriptions, so reinstalling
+  a disabled plugin produced one that reported `enabled` with a dead agent
+  and dead subscriptions, unfixable short of manual SQL
 
 **Installing is a deliberate act**: everything the plugin contributes is live
 afterwards, whatever a previous disable or remove left behind.
 
-Nothing is hard-deleted. The audit tables hold RESTRICT foreign keys on
-knowledge, users and routines, so a removed plugin's agents go `inactive`, its
-routines soft-delete, and its documents archive.
+Agents and documents are never hard-deleted: the audit tables hold RESTRICT foreign keys on knowledge
+and users, so a removed plugin's agents go `inactive` and its documents archive. Subscriptions are the
+one exception — they carry no soft-delete column, so a removed plugin's subscription rows are deleted
+outright; disable instead sets them `paused` (`subscriptions.setLive`).
 
 ## Detach and restore
 
@@ -106,7 +108,7 @@ app move".
 **not** installed by default:
 
 - `document-management` — the Document Librarian agent, decay/triage/retro
-  routines, and three skills.
+  subscriptions, and three skills.
 - `role-personas` — Builder, Designer, Product Manager, QA Engineer, Growth, Ops
   and Facilitator, each with its identity. This is the roster HyperIdle used to
   ship, relocated.

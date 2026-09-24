@@ -59,37 +59,25 @@ Overlay layers stack predictably: the mobile navigation drawer sits below notifi
 
 ## Notifications
 
-Agents send in-app notifications when they need your attention. Every notification is typed so you know what kind of action is needed.
-
-### Notification types
-
-| Type | When it fires | Default urgency |
-|---|---|---|
-| **Review requests** | An agent needs your review to proceed | Immediate (may demote to ambient for low-risk reviews) |
-| **Blocker alerts** | An agent is blocked and needs you to intervene | Immediate |
-
+Your inbox fills from your own subscriptions. Subscribe to an event in **Settings → Notifications** (one toggle per event: a task, a conversation, a document, or a user — created or changed) and every occurrence you can already see — company-wide, your team's, or your own — lands a row.
 
 ### Notification inbox
 
-Click **Notifications** in the stable destination set to open your notification inbox.
+Click **Notifications** in the stable destination set to open your inbox.
 
-- **Unseen dot** — a red dot on the bell means you have unseen notifications. It clears when you open the inbox.
-- **Row anatomy** — each notification shows a colored urgency dot, the title, the type label, and how long ago it arrived. Immediate notifications sort first; within each urgency group, newest first. (Delivery order is a structural dispatch rule — see [notification primitive](../../human-interface-layer/notification-primitive.md) for detail.)
-- **Navigate** — clicking a row takes you to the conversation or item that triggered it.
-- **Dismiss** — removes this specific notification from your inbox. Future notifications of the same type still arrive.
-- **Mute type** — silences all future notifications of that type (e.g., all review requests). Existing notifications of that type are removed from view, and the type's toggle in Settings → Notifications switches off. Reversible: re-enable the type in Settings.
-- **Dismiss ≠ Mute** — dismiss clears one instance; mute suppresses all future instances of the type.
-
-Urgency dots: **red** = immediate (needs attention now), **gray** = ambient (listed for awareness, no interrupt).
+- **Unseen dot** — a red dot means you have unseen rows. It clears when you open the inbox.
+- **Row anatomy** — each row shows an unseen dot, a title built from what changed (for example "Task changed"), the object kind, and how long ago it happened, newest first.
+- **Navigate** — clicking a row opens the object the change happened to.
+- **Dismiss** — the hover-reveal **×** marks this one row read and removes it from view. It does not touch your subscription — the next occurrence of the same event still arrives.
+- **Pause a subscription** — turn its toggle off in **Settings → Notifications**. That stops future rows; it does not remove ones already in your inbox.
 
 ### Delivery
 
-- **Settings → Notifications** contains one on/off toggle per notification type — nothing else. Muting a type keeps it out of your inbox entirely.
-- **Quiet hours**, the global **factory silence** switch, delivery **channels** (ntfy push, email), and the **digest** all exist as server-side configuration — they have no settings UI yet.
-- **Queued delivery** — blocking notifications that can't deliver (quiet hours, silence) queue persistently and deliver when the window ends; the queue survives restarts.
-- **Auto-unblock is silent** — when a task's dependencies resolve, HyperIdle moves it to `in_progress` without notifying you. That's ambient housekeeping, not a call to action.
+- **Settings → Notifications** is where subscriptions live — one toggle per event, nothing else.
+- Rows older than 30 days are cleared automatically.
+- **Auto-unblock is silent** — when a task's dependencies resolve, HyperIdle moves it to `in_progress` without adding an inbox row. That's ambient housekeeping, not a call to action.
 
-Primitive depth (queue, digest, cadence discipline) lives in [the notification primitive](../../human-interface-layer/notification-primitive.md).
+An agent subscribed to the same event is woken to work on it instead of getting an inbox row — same subscription, the reader decides the effect. See [Agents](./agents.md).
 
 ## Assistant Overlay
 
@@ -99,7 +87,7 @@ The **Assistant** action sits with Search in the sidebar's top-right tool group.
 
 | Card | Meaning | Action |
 |---|---|---|
-| No API key yet | No Anthropic key is configured | Click **Settings → Credentials** to add your key |
+| No API key yet | No Anthropic key is configured | Click **Settings → Connections** to add your key |
 | Runtime not configured | No harness is selected for the assistant | Click **Open Agent settings** to pick a harness |
 | Couldn't reach the model | The provider returned a temporary error | Click **Retry** to try again |
 

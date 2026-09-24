@@ -1,33 +1,97 @@
 /**
- * AF8 — SettingsNotifications rewrite.
+ * AF8 — SettingsNotifications, now "my subscriptions": one toggle per
+ * object event, driven by the caller's own event subscriptions. Off means
+ * paused (or never subscribed) — flipping it on adds a subscription (or
+ * unpauses the existing one); flipping it off pauses it. A schedule
+ * subscription is agent-only and never shown here.
  *
- * Registry-driven: renders one Toggle per NOTIFICATION_TYPES entry.
- * Uses useNotificationMute for mute state. No hardcoded array, no
- * SERVER_KEY_MAP, no email-digests, no solo-filter.
- *
- * @lore AF8: Old version used SERVER_KEY_MAP + hardcoded NOTIFICATION_SETTINGS
- * array with solo-mode filtering. This rewrite drives everything from the
- * shared NOTIFICATION_TYPES registry so adding a new type is a registry edit
- * only — no UI changes needed.
- *
- * @lore AF8: email-digests was a UI-only toggle with no server field. It is
- * removed because digest is an egress delivery mode, not a notification type.
- * The registry only contains notification sources (review_request,
- * blocker_alert). Digest delivery is controlled via the Notifications config
- * panel. @lore AU21 Increment 14a: `cost_alert` HARD-DELETED, no replacement.
- *
- * @lore AF15 coordination: useNotificationMute currently reads/writes
- * factory-level settings. AF15 will swap in per-user persistence without
- * changing this component.
+ * @lore BC5 T10: the door swap — `open_user({}).subscriptions` replaces
+ * `GET /api/notifications/mute`; `edit_user({ id: me, subscriptions })`
+ * replaces `PUT /api/notifications/mute/:key` (architecture.md §8).
+ * `useNotificationMute` is deleted — there is no factory-wide mute left,
+ * only a person's own subscription rows.
  */
 
-import { NOTIFICATION_TYPES } from "@hyperidle/domain-model";
-import type { JSX } from "react";
+import {
+	OBJECT_EVENTS,
+	type ObjectEventName,
+	type SubscriptionView,
+} from "@hyperidle/domain-model";
+import { type JSX, useCallback, useEffect, useState } from "react";
 import { ErrorState, SkeletonList, Toggle } from "../ds";
-import { useNotificationMute } from "../hooks/useNotificationMute.js";
+import { call } from "../services/call.js";
+
+const EVENT_LABELS: Record<ObjectEventName, string> = {
+	"task.created": "A task is created",
+	"task.changed": "A task changes",
+	"thread.created": "A conversation is created",
+	"thread.message": "A conversation gets a message",
+	"thread.changed": "A conversation changes",
+	"document.created": "A document is created",
+	"document.changed": "A document changes",
+	"user.created": "A user is created",
+	"user.changed": "A user changes",
+};
+
+type LoadState = "loading" | "ready" | "error";
 
 export function SettingsNotifications(): JSX.Element {
-	const { mutedKeys, setMuted, status } = useNotificationMute();
+	const [status, setStatus] = useState<LoadState>("loading");
+	const [userId, setUserId] = useState<string | null>(null);
+	const [subscriptions, setSubscriptions] = useState<SubscriptionView[]>([]);
+
+	const load = useCallback(async (): Promise<void> => {
+		setStatus("loading");
+		try {
+			const result = await call("open_user", {});
+			if (!result.ok || result.data.user === null) {
+				setStatus("error");
+				return;
+			}
+			setUserId(result.data.user.id);
+			setSubscriptions([...result.data.subscriptions]);
+			setStatus("ready");
+		} catch {
+			setStatus("error");
+		}
+	}, []);
+
+	useEffect(() => {
+		void load();
+	}, [load]);
+
+	const subscriptionForEvent = useCallback(
+		(event: ObjectEventName): SubscriptionView | undefined =>
+			subscriptions.find((sub) => sub.event === event),
+		[subscriptions],
+	);
+
+	const setEventOn = useCallback(
+		async (event: ObjectEventName, on: boolean): Promise<void> => {
+			if (!userId) return;
+			try {
+				const existing = subscriptionForEvent(event);
+				if (existing) {
+					if (existing.paused === !on) return;
+					const result = await call("edit_user", {
+						id: userId,
+						subscriptions: { change: [{ id: existing.id, paused: !on }] },
+					});
+					if (result.ok) setSubscriptions([...result.data.subscriptions]);
+					return;
+				}
+				if (!on) return; // already off — nothing to pause
+				const result = await call("edit_user", {
+					id: userId,
+					subscriptions: { add: [{ event }] },
+				});
+				if (result.ok) setSubscriptions([...result.data.subscriptions]);
+			} catch {
+				// Non-fatal — the toggle stays as it was
+			}
+		},
+		[userId, subscriptionForEvent],
+	);
 
 	if (status === "loading") {
 		return <SkeletonList rows={2} ariaLabel="Loading notification settings" />;
@@ -46,18 +110,18 @@ export function SettingsNotifications(): JSX.Element {
 	return (
 		<div className="flex flex-col gap-[18px]">
 			<p className="type-small text-[var(--text-secondary)]">
-				Each type below is a real notification source. Muting a type silences alerts across all
-				channels.
+				Get notified when something happens, within your reach — global, your team, your own. Off
+				pauses it.
 			</p>
-			{NOTIFICATION_TYPES.map((type) => {
-				const isMuted = mutedKeys.includes(type.key);
+			{OBJECT_EVENTS.map((event) => {
+				const existing = subscriptionForEvent(event);
+				const on = existing !== undefined && !existing.paused;
 				return (
 					<Toggle
-						key={type.key}
-						on={!isMuted}
-						label={type.label}
-						description={type.description}
-						onChange={(on) => void setMuted(type.key, !on)}
+						key={event}
+						on={on}
+						label={EVENT_LABELS[event]}
+						onChange={(nextOn) => void setEventOn(event, nextOn)}
 					/>
 				);
 			})}

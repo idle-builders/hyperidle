@@ -27,7 +27,7 @@ Each ThreadRow shows sender, subject/first-line summary, timestamp, and those tw
 
 **Session dial-in.** The founder can dial into a running session to observe the agent's live activity stream — read-only tool calls and reasoning, with `All | Tools | Reasoning` filter tabs (`layers/core-ui/src/components/SessionActivityPanel.tsx`). Toggled with the `D` key inside Conversations (`layers/core-ui/src/pages/Conversations.tsx`); the panel opens as a right-hand split. UI detail: [information-architecture/conversations-view.md](../information-architecture/conversations-view.md).
 
-Artifact embeds inside review messages (the five `ArtifactView` shapes) are owned by [process-layer/artifact-primitive.md](../process-layer/artifact-primitive.md). The review page itself — canvases, verdict UI, trust surface — is [review-primitive.md](review-primitive.md); notification cadence is [notification-primitive.md](notification-primitive.md).
+Artifact embeds inside review messages (the five `ArtifactView` shapes) are owned by [process-layer/artifact-primitive.md](../process-layer/artifact-primitive.md). The review page itself — canvases, verdict UI, trust surface — is [review-primitive.md](review-primitive.md); the notification inbox is [notification-primitive.md](notification-primitive.md).
 
 ## Work — plan and track
 
@@ -43,7 +43,7 @@ The company wiki — a nested tree of documents, not a page hierarchy. Think Con
 
 **Scopes.** Documents are authored at any of three scopes — `factory, team, user` (`SCOPE_KINDS`, `framework/domain-model/src/types.ts`); `user`-scoped documents are private and show a "Private" badge. There is no topic grouping — where a document sits in the tree is what it is about, and the Curated tab renders that tree directly (`DocumentList.tsx`, `DocumentTreeList.tsx`). Store semantics: [knowledge-architecture/the-canonical-store.md](../knowledge-architecture/the-canonical-store.md).
 
-**Curation through exploration.** The corpus is too small (hundreds of documents) and interaction too infrequent for algorithmic recommendation to carry the view — no algorithm has enough signal. The view must excel at **browsing**: Curated is the tree itself, and Triage is every `proposed` document, plain recency order — there is no attention score behind it, and no scoring engine of any kind. A librarian agent (the document-management plugin's `document-triage`/`document-decay` routines) does the first pass by judgement on a schedule; the human's own Triage pass catches what it didn't.
+**Curation through exploration.** The corpus is too small (hundreds of documents) and interaction too infrequent for algorithmic recommendation to carry the view — no algorithm has enough signal. The view must excel at **browsing**: Curated is the tree itself, and Triage is every `proposed` document, plain recency order — there is no attention score behind it, and no scoring engine of any kind. A librarian agent (the document-management plugin's `document-triage`/`document-decay` subscriptions) does the first pass by judgement on a schedule; the human's own Triage pass catches what it didn't.
 
 **Read and edit in one surface.** Opening a document shows the full body, editable inline — no separate edit mode. Changes auto-save with a version check, refusing and discarding a stale save rather than silently overwriting it, and **every edit lands in the shared `changes` table** (`document.changed`, `schema.ts`) — the same history table every other primitive uses. Shipped grammar: search (case-insensitive `ILIKE` over title and body, `layers/core-api/document/src/document-store.ts`), filter, inline edit, archive (soft-delete to `archived`), create at any scope, change scope, move within the tree, and per-document threads plus per-block anchored discussion (`messages.blockId`, schema.ts — see [docs/blocks/](../blocks/index.md)).
 
@@ -59,4 +59,4 @@ Each view renders the same primitives; none owns them:
 - **Blocks** — [docs/blocks/](../blocks/index.md)
 - **Artifacts and embed shapes** — [process-layer/artifact-primitive.md](../process-layer/artifact-primitive.md)
 - **Review surface and trust** — [review-primitive.md](review-primitive.md)
-- **Notifications and cadence** — [notification-primitive.md](notification-primitive.md)
+- **Notifications and the inbox** — [notification-primitive.md](notification-primitive.md)

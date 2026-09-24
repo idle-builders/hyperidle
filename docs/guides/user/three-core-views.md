@@ -73,7 +73,7 @@ Work is organized in levels:
 
 **Work overview** — a flat list of your teams: name, in-progress task count, and a status chip (healthy / behind / blocked). Teams sort by urgency — blocked first, then behind, then healthy. If you have exactly one team, the overview is skipped and Work opens straight on your team's page.
 
-**Team page** — capacity and status, active tasks, routines, and agents. **New task** lives here and on the Work overview header.
+**Team page** — status, active tasks, and agents. **New task** lives here and on the Work overview header. An agent's subscriptions (what wakes it, on an event or a schedule) live on its own profile page, not the team page.
 
 **Task detail** — the task's description (rendered as Blocks), subtask tree, outcome section, and comment thread. A task may have subtasks to any depth; each subtask links to its own task page. Lifecycle semantics live in [tasks and sessions](../../process-layer/tasks-and-sessions.md).
 

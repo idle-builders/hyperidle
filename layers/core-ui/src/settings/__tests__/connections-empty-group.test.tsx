@@ -3,14 +3,18 @@
  *
  * AC: empty source groups (inherited/token/mcp) do not render a bare empty list;
  * groups with zero connections are fully hidden.
+ *
+ * @lore BC5 T10/T19: mocks `call` at the door (`open_user({}).connections`)
+ * instead of `apiFetch`. The inherited fixture uses the real wire shape
+ * (`ConnectionView`: id/service/via/authSource/health/removable) the
+ * connections door actually returns for inherited rows — see T19.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../../services/api-fetch.js", () => ({
-	apiFetch: vi.fn(),
-}));
+const { callMock } = vi.hoisted(() => ({ callMock: vi.fn() }));
+vi.mock("../../services/call.js", () => ({ call: callMock }));
 
 const mockShowToast = vi.fn();
 vi.mock("../../shell/ToastRegion.js", async () => {
@@ -23,21 +27,34 @@ vi.mock("../../shell/ToastRegion.js", async () => {
 
 import { SettingsConnections } from "../SettingsConnections.js";
 
+const SELF_ROW = { id: "me", kind: "human", name: "Me", team: { id: "team-1", name: "Acme" } };
+
+function openUserData(connections: unknown[], inherited: unknown[]): Record<string, unknown> {
+	return {
+		user: SELF_ROW,
+		runsOn: [],
+		runConfig: null,
+		documentIds: [],
+		folders: [],
+		subscriptions: [],
+		connections: { connections, inherited },
+		behaviour: null,
+		inbox: null,
+	};
+}
+
 const INHERITED_GITHUB = {
 	id: "inherited:claude-code:github",
 	service: "GitHub",
-	via: "claude-code · gh CLI",
+	via: "CLI · claude-code · gh CLI",
 	authSource: "inherited" as const,
 	health: "working" as const,
 	removable: false,
 };
 
 describe("SettingsConnections empty groups are hidden", () => {
-	let apiFetch: ReturnType<typeof vi.fn>;
-
-	beforeEach(async () => {
-		const module = await import("../../services/api-fetch.js");
-		apiFetch = module.apiFetch as ReturnType<typeof vi.fn>;
+	beforeEach(() => {
+		callMock.mockReset();
 		mockShowToast.mockClear();
 	});
 
@@ -46,10 +63,12 @@ describe("SettingsConnections empty groups are hidden", () => {
 	});
 
 	it("empty token and mcp groups are not rendered when zero connections", async () => {
-		// Only inherited connection — token and mcp groups are empty
-		apiFetch.mockResolvedValue({
-			ok: true,
-			json: () => Promise.resolve([INHERITED_GITHUB]),
+		// Only an inherited connection — token and mcp groups are empty
+		callMock.mockImplementation((name: string) => {
+			if (name === "open_user") {
+				return Promise.resolve({ ok: true, data: openUserData([], [INHERITED_GITHUB]) });
+			}
+			return Promise.resolve({ ok: false, problems: [{ code: "unmocked", message: name }] });
 		});
 
 		render(<SettingsConnections />);
@@ -58,35 +77,28 @@ describe("SettingsConnections empty groups are hidden", () => {
 			expect(screen.getByText("GitHub")).toBeInTheDocument();
 		});
 
-		// The inherited group renders (has a connection)
 		expect(screen.getByText(/inherited/i)).toBeInTheDocument();
 
-		// Token and MCP group headers must NOT be rendered (groups hidden when empty)
-		// The labels from SettingsConnections are "Tokens" / "API Keys" and "MCP"
-		// Check that neither empty section header appears
 		const tokenHeader = screen.queryByText(/api keys|tokens/i);
 		const mcpHeader = screen.queryByText(/^mcp$/i);
-		// If they appear, they should have content (no bare empty list)
-		// The simplest assertion: no aria-label from an empty ItemList's wrapper
-		// With D8 fix, empty groups return null entirely
 		expect(tokenHeader).toBeNull();
 		expect(mcpHeader).toBeNull();
 	});
 
 	it("all-empty state (no connections): no source group sections rendered", async () => {
-		apiFetch.mockResolvedValue({
-			ok: true,
-			json: () => Promise.resolve([]),
+		callMock.mockImplementation((name: string) => {
+			if (name === "open_user") {
+				return Promise.resolve({ ok: true, data: openUserData([], []) });
+			}
+			return Promise.resolve({ ok: false, problems: [{ code: "unmocked", message: name }] });
 		});
 
 		render(<SettingsConnections />);
 
 		await waitFor(() => {
-			// Wait for load to complete — the add button should be present
 			expect(screen.getByRole("button", { name: /add connection/i })).toBeInTheDocument();
 		});
 
-		// With zero connections, ALL groups are hidden — no section headers
 		expect(screen.queryByText(/inherited/i)).toBeNull();
 		expect(screen.queryByText(/api keys|tokens/i)).toBeNull();
 		expect(screen.queryByText(/^mcp$/i)).toBeNull();

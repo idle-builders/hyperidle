@@ -2,7 +2,7 @@
  * AU26 B1b (§D-B) — the `/api` middleware stack, built by `core-api` and
  * **applied by the Application**.
  *
- * `createAuthMiddleware` legitimately reads `@hyperidle/users` (a core-api
+ * `createAuthMiddleware` legitimately reads `@hyperidle/user` (a core-api
  * Service), so the stack is constructed here. It is NOT applied here: the
  * Application (`applications/remote-server/src/create-server.ts`, or a test harness)
  * owns the `/api` router, `use()`s these handlers on it, and only then mounts

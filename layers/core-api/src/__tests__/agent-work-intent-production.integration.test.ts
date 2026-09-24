@@ -3,8 +3,6 @@ import {
 	agentWorkIntents,
 	type HyperIdleDb,
 	messages,
-	routineRuns,
-	routines,
 	taskDispatchAttempts,
 	tasks,
 	teams,
@@ -15,7 +13,6 @@ import { checkAndUnblockDependents } from "@hyperidle/task";
 import { eq, sql } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 import { buildCoreActions } from "../actions/compose.js";
-import { fireGenericRoutine } from "./dispatch-test-helpers.js";
 
 const authHeaders = {
 	"Content-Type": "application/json",
@@ -25,9 +22,7 @@ const authHeaders = {
 async function seedExplicitSessionAuthority(db: HyperIdleDb) {
 	await db.execute(sql`drop trigger if exists au9_reject_intent_write on agent_work_intents`);
 	const now = new Date().toISOString();
-	await db
-		.insert(teams)
-		.values({ id: "au9-production-team", name: "AU9", phase: "build", createdAt: now });
+	await db.insert(teams).values({ id: "au9-production-team", name: "AU9", createdAt: now });
 	await db.insert(users).values([
 		{
 			id: "au9-production-human",
@@ -156,22 +151,6 @@ async function seedAssistantThread(db: HyperIdleDb) {
 	});
 }
 
-async function seedRoutineAuthority(db: HyperIdleDb) {
-	await seedExplicitSessionAuthority(db);
-	const now = new Date().toISOString();
-	await db.insert(routines).values({
-		id: "au9-production-routine",
-		name: "Production command",
-		ownerAgentId: "au9-production-agent",
-		triggerType: "cron",
-		triggerConfig: "0 * * * *",
-		state: "active",
-		active: true,
-		nextRunAt: new Date(Date.now() - 60_000).toISOString(),
-		createdAt: now,
-	});
-}
-
 describe("atomic production handoffs", () => {
 	beforeEach(() => vi.stubEnv("HYPERIDLE_API_KEY", "test-api-key"));
 	afterEach(async () => {
@@ -180,11 +159,13 @@ describe("atomic production handoffs", () => {
 		cleanupRejectedIntentWrites = undefined;
 	});
 
-	test("schema exposes authoritative sources for all six atomic commands", async ({ db }) => {
+	// A subscription's wake carries no run row to be an authoritative source
+	// for, so only five atomic commands have one.
+	test("schema exposes authoritative sources for all five atomic commands", async ({ db }) => {
 		const result = await db.execute(sql`
 			select table_name as "tableName" from information_schema.tables
 			where table_schema = 'public'
-			and table_name in ('messages','explicit_session_starts','documents','routine_runs','bets','task_dispatch_attempts','agent_work_intents')
+			and table_name in ('messages','explicit_session_starts','documents','bets','task_dispatch_attempts','agent_work_intents')
 		`);
 		const rows = result as { rows: Array<{ tableName: string }> };
 		expect(new Set(rows.rows.map((row) => row.tableName))).toEqual(
@@ -193,7 +174,6 @@ describe("atomic production handoffs", () => {
 				"messages",
 				"explicit_session_starts",
 				"documents",
-				"routine_runs",
 				"task_dispatch_attempts",
 				"agent_work_intents",
 			]),
@@ -325,55 +305,8 @@ describe("atomic production handoffs", () => {
 
 	// flag (POST /api/knowledge/:id/flag) §3.1 site 4 coverage moved to plugin — ritual routes left core under AU20 founder ruling; recover from git when the plugin lands.
 
-	// AU31 §3.1 site 8 — INVERTED. The routine_run row commits (outcome
-	// "running") in its own transaction before the seam's intent submit runs;
-	// on a failed submit, the founder-ruled error handling marks the SAME
-	// row `outcome:"error"` (guarded `onlyIfRunning`) rather than leaving it
-	// wedged as permanently "running" — see `routine-scheduler.ts`'s
-	// `fireGenericRoutine`.
-	test("real manual routine command: the run is marked error, not rolled back, when the intent write fails (AU31 §3.1 site 8)", async ({
-		db,
-		app,
-	}) => {
-		await seedRoutineAuthority(db);
-		await rejectIntentWrites(db);
-
-		const response = await app.request("/api/routines/au9-production-routine/trigger", {
-			method: "POST",
-			headers: authHeaders,
-		});
-
-		expect(response.status).toBe(500);
-		const runs = await db.select().from(routineRuns);
-		expect(runs).toHaveLength(1);
-		expect(runs[0]?.outcome).toBe("error");
-		expect(await db.select().from(agentWorkIntents)).toHaveLength(0);
-	});
-
-	test("real scheduler routine command: the run is marked error, not rolled back, when the intent write fails (AU31 §3.1 site 8)", async ({
-		db,
-		eventBus,
-		agentOrchestration,
-	}) => {
-		await seedRoutineAuthority(db);
-		const [routine] = await db
-			.select()
-			.from(routines)
-			.where(eq(routines.id, "au9-production-routine"));
-		await rejectIntentWrites(db);
-
-		await expect(
-			fireGenericRoutine(db, eventBus, agentOrchestration, routine!, {
-				adapterPool: {},
-				workspace: {},
-				sandboxBasePath: "/tmp/au9-production",
-			}),
-		).rejects.toThrow();
-		const runs = await db.select().from(routineRuns);
-		expect(runs).toHaveLength(1);
-		expect(runs[0]?.outcome).toBe("error");
-		expect(await db.select().from(agentWorkIntents)).toHaveLength(0);
-	});
+	// A subscription's wake carries no run row to leave wedged; the
+	// subscription fire and clock suites cover the wake path itself.
 
 	// §8 B4: `POST /tasks/:id/handoff` is deleted — handoff is
 	// `edit_task({ ownerAgentId })` now, and `toRole`/`toHuman` targeting is

@@ -9,8 +9,12 @@
  * make are gone — `call("search_plugins", …)`/`call("edit_plugin", …)` is the
  * one door now, so `call` is mocked directly (the same idiom
  * `ScopeChangeDialog`'s and `SettingsSkillsAndRules`' own tests use).
- * `useTeams` still reads `GET /api/teams` through plain `fetch` — untouched by
- * this door swap — so the team-picker test keeps its own `fetch` stub.
+ *
+ * @lore BC5 T11: `useTeams` no longer reads `GET /api/teams` — deleted with
+ * the `teams` route family — it derives teams from `search_users({})` (the
+ * distinct `team` each row carries) plus a per-team `search_tasks` call for
+ * the blocked/in-progress signal. The team-picker test drives that through
+ * the same `callMock`, not a separate `fetch` stub.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
@@ -68,17 +72,22 @@ const PLUGIN_NO_CONTRIBUTIONS = {
 	contributions: [],
 };
 
-/** `search_plugins` always resolves to `plugins`; `edit_plugin` resolves `ok: true` with the first plugin unless a caller overrides it. */
-function setupCall(plugins: unknown[]): void {
+/**
+ * `search_plugins` always resolves to `plugins`; `edit_plugin` resolves `ok: true`
+ * with the first plugin unless a caller overrides it. `search_users` resolves to
+ * `teamUsers` (one row per team is enough — `useTeams` derives the distinct set)
+ * and `search_tasks` resolves empty, so `useTeams` settles every team `healthy`.
+ */
+function setupCall(
+	plugins: unknown[],
+	teamUsers: ReadonlyArray<{ id: string; name: string; team: { id: string; name: string } }> = [],
+): void {
 	callMock.mockImplementation((name: string) => {
 		if (name === "search_plugins") return Promise.resolve({ ok: true, data: plugins });
+		if (name === "search_users") return Promise.resolve({ ok: true, data: teamUsers });
+		if (name === "search_tasks") return Promise.resolve({ ok: true, data: [] });
 		return Promise.resolve({ ok: true, data: plugins[0] ?? PLUGIN_WITH_DETACHED });
 	});
-}
-
-/** `useTeams` reads `GET /api/teams` through plain `fetch` — a separate door. */
-function setupTeamsFetch(teams: Array<{ id: string; name: string }>): void {
-	vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ teams }) }));
 }
 
 describe("SettingsPlugins", () => {
@@ -90,7 +99,6 @@ describe("SettingsPlugins", () => {
 	describe("install form", () => {
 		beforeEach(() => {
 			setupCall([]);
-			setupTeamsFetch([]);
 		});
 
 		it("renders source type select, URL input, scope select, and install button", async () => {
@@ -118,7 +126,10 @@ describe("SettingsPlugins", () => {
 
 		it("picks a team through the combobox and installs with that team's id nested in source", async () => {
 			const user = userEvent.setup();
-			setupTeamsFetch([{ id: "team-alpha", name: "Alpha Team" }]);
+			setupCall(
+				[],
+				[{ id: "u-alpha", name: "Alice", team: { id: "team-alpha", name: "Alpha Team" } }],
+			);
 			render(<SettingsPlugins />);
 			await waitFor(() => {
 				expect(screen.getByTestId("plugin-scope-kind")).toBeInTheDocument();
@@ -158,7 +169,6 @@ describe("SettingsPlugins", () => {
 	describe("plugin list", () => {
 		beforeEach(() => {
 			setupCall([PLUGIN_WITH_DETACHED, PLUGIN_NO_CONTRIBUTIONS]);
-			setupTeamsFetch([]);
 		});
 
 		it("renders a row per installed plugin", async () => {
@@ -231,7 +241,6 @@ describe("SettingsPlugins", () => {
 	describe("detached contributions", () => {
 		beforeEach(() => {
 			setupCall([PLUGIN_WITH_DETACHED]);
-			setupTeamsFetch([]);
 		});
 
 		it("shows Contributions button with detached hint when any contribution is detached", async () => {

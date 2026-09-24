@@ -6,7 +6,7 @@ Agents execute. Humans validate. That is the collaboration model. Not zero-human
 |------|---------------|---------|
 | **Founders / team leads** | Render verdicts, review high-stakes artifacts, shape tasks, curate knowledge | Reviewing a deploy proposal, pruning stale documents |
 | **Agents (team members)** | Pick up tasks, run sessions, ship artifacts, write to the team's knowledge | Mika (Builder) implementing the Stripe webhook handler |
-| **Curation routines (any role, plugin-provided)** | Triage and decay documents on a schedule, by judgement — no fixed "facilitator" role or scoring engine | The document-management plugin's librarian agent running its weekly `document-triage` |
+| **Curation subscriptions (any role, plugin-provided)** | Triage and decay documents on a schedule, by judgement — no fixed "facilitator" role or scoring engine | The document-management plugin's librarian agent running its weekly `document-triage` |
 
 ---
 
@@ -61,7 +61,7 @@ Kind registry and shared grounding (`ToolLogo`/`CanvasSourceHeader`): [review pr
 
 - **Not "zero human companies."** Humans are in every loop that matters — exactly those loops, not the ones that do not matter.
 - **Not workflow orchestration.** Agents decide at runtime what to do next and surface decisions through reviews.
-- **Not humans doing agent work.** Humans shape tasks, create routines, and record outcomes in the Work view; agents run the subtasks and sessions underneath. Founders redirect execution through thread conversations, not by micro-editing task state.
+- **Not humans doing agent work.** Humans shape tasks, create subscriptions, and record outcomes in the Work view; agents run the subtasks and sessions underneath. Founders redirect execution through thread conversations, not by micro-editing task state.
 - **Not unlimited autonomy over time.** Trust is per-agent verdict history — it grows as approvals accumulate and never becomes exemption from judgment on high-risk work.
 
 ---

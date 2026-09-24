@@ -1,12 +1,18 @@
 /**
  * L13 — Playwright e2e: Team (product) drill-down from Portfolio.
  *
- * Strategy: hermetic page.route() mocks for all /api/teams/* calls.
+ * Strategy: hermetic page.route() mocks for the team page's action-door calls.
  * No DB seeding required — the dev server serves the SPA bundle.
  *
  * @lore U6: Route renamed from /work/product/:productId to /work/team/:teamId.
- * The API URL path stays /api/teams/:id for backward compat (server not renamed).
  * The "product" concept maps 1:1 to a team in the current model.
+ *
+ * @lore BC5 T9: `GET /api/teams` and `GET /api/teams/:id` are gone —
+ * `useTeams`/`useTeam` compose the portfolio and team pages from
+ * `search_users`/`search_tasks`/`open_task` (`mockTeamPage`). A team with no
+ * member (`search_users({teamId})` empty) is the "not found" case now — a
+ * 404 status code from a REST route has no equivalent, so the (6) test
+ * relies on `mockTeamPage` simply never having seeded that team id.
  *
  * Flow covered:
  * 1. Drill-down: Portfolio → click product card → URL becomes /work/team/:id
@@ -19,98 +25,61 @@
  * 7. No-Kanban: negative assertion — no Kanban region on the Team page.
  */
 
-import { expect, test } from "./fixtures";
+import {
+	expect,
+	makeTask,
+	makeUserRow,
+	mockAgents,
+	mockSearchSessions,
+	mockSearchUsers,
+	mockTeamPage,
+	test,
+} from "./fixtures";
 
-const NOW = new Date().toISOString();
 const PRODUCT_ID = "p1";
 
-function makeProductsListResponse() {
-	return {
-		teams: [
-			{
-				id: PRODUCT_ID,
-				name: "HyperIdle Core",
-				phase: "build",
-				status: "healthy",
-				leadAgentId: "agent-lead",
-				shipped: 4,
-				shipRate: "67%",
-				progress: { done: 1, total: 3 },
-			},
-		],
-	};
-}
+const ROSTER = [
+	makeUserRow("agent-lead", { kind: "ai", name: "Lead Agent", role: "lead" }),
+	makeUserRow("agent-member", { kind: "ai", name: "Alice Agent", role: "member" }),
+];
 
-function makeProductDetailResponse() {
-	return {
-		product: {
-			id: PRODUCT_ID,
-			name: "HyperIdle Core",
-			phase: "build",
-			status: "healthy",
-			leadAgentId: "agent-lead",
-		},
-		team: { id: "t1", formedAt: NOW, dissolvedAt: null },
-		roster: [
-			{ agentId: "agent-lead", name: "Lead Agent", role: "lead", isLead: true },
-			{ agentId: "agent-member", name: "Alice Agent", role: "member", isLead: false },
-		],
-		burn: {
-			capacity: 5,
-		},
-		tasksInProgress: [
-			{
-				id: "b1",
-				title: "Auth migration",
-				status: "committed",
-				progressDone: 1,
-				progressTotal: 2,
-			},
-		],
-	};
-}
-
-function makeProductDetailEmptyBets() {
-	return {
-		...makeProductDetailResponse(),
-		tasksInProgress: [],
-	};
-}
+const ACTIVE_TASK = makeTask("b1", {
+	teamId: PRODUCT_ID,
+	title: "Auth migration",
+	state: "in_progress",
+});
 
 test.describe("L13 — Product drill-down", () => {
 	test.beforeEach(async ({ page }) => {
-		// Mock /api/teams list
-		await page.route("**/api/teams", async (route) => {
-			const req = route.request();
-			if (req.method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(makeProductsListResponse()),
-				});
-			} else {
+		await mockSearchUsers(page, { rows: ROSTER });
+		await mockAgents(page, { agents: [] });
+		await mockSearchSessions(page, { rows: [] });
+		// Fallback so an unseeded team (test 6) still resolves search_tasks
+		// instead of hitting the network — mockTeamPage's own handler
+		// (registered per-test, after this one) wins for a seeded team id.
+		await page.route("**/api/actions/search_tasks", async (route) => {
+			if (route.request().method() !== "POST") {
 				await route.continue();
+				return;
 			}
-		});
-
-		// Mock /api/teams/:id detail
-		await page.route(`**/api/teams/${PRODUCT_ID}`, async (route) => {
-			const req = route.request();
-			if (req.method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(makeProductDetailResponse()),
-				});
-			} else {
-				await route.continue();
-			}
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ ok: true, data: [] }),
+			});
 		});
 	});
 
 	test("(1) drill-down: Navigate to /work/team/:id → team page with all regions", async ({
 		page,
 	}) => {
+		await mockTeamPage(page, {
+			teamId: PRODUCT_ID,
+			teamName: "HyperIdle Core",
+			roster: ROSTER,
+			tasksInProgress: [ACTIVE_TASK],
+		});
+
 		// @lore U11: product-card click removed in U9 (WorkPortfolio renders BetCards,
 		// not team cards). Navigate directly to /work/team/:id to test team detail page.
 		await page.goto(`/work/team/${PRODUCT_ID}`);
@@ -138,14 +107,11 @@ test.describe("L13 — Product drill-down", () => {
 		page,
 	}) => {
 		const emptyProductId = "p-empty";
-
-		// Override the mock for this specific product
-		await page.route(`**/api/teams/${emptyProductId}`, async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(makeProductDetailEmptyBets()),
-			});
+		await mockTeamPage(page, {
+			teamId: emptyProductId,
+			teamName: "Empty Product",
+			roster: [makeUserRow("agent-empty", { kind: "ai", name: "Solo Agent" })],
+			tasksInProgress: [],
 		});
 
 		await page.goto(`/work/team/${emptyProductId}`);
@@ -155,6 +121,13 @@ test.describe("L13 — Product drill-down", () => {
 	});
 
 	test("(3) roster + bets visible with seeded data", async ({ page }) => {
+		await mockTeamPage(page, {
+			teamId: PRODUCT_ID,
+			teamName: "HyperIdle Core",
+			roster: ROSTER,
+			tasksInProgress: [ACTIVE_TASK],
+		});
+
 		await page.goto(`/work/team/${PRODUCT_ID}`);
 		await page.waitForSelector("[data-testid='work-team-page']");
 
@@ -162,13 +135,20 @@ test.describe("L13 — Product drill-down", () => {
 		const rosterRows = page.getByTestId("agent-row");
 		await expect(rosterRows.first()).toBeVisible();
 
-		// At least one bet in the active-bets region
-		const betsRegion = page.getByTestId("product-active-bets");
+		// At least one bet in the active-tasks region
+		const betsRegion = page.getByTestId("team-active-tasks");
 		await expect(betsRegion).toBeVisible();
 		await expect(betsRegion.getByText("Auth migration")).toBeVisible();
 	});
 
 	test("(4) breadcrumb click returns to /work/portfolio", async ({ page }) => {
+		await mockTeamPage(page, {
+			teamId: PRODUCT_ID,
+			teamName: "HyperIdle Core",
+			roster: ROSTER,
+			tasksInProgress: [ACTIVE_TASK],
+		});
+
 		await page.goto(`/work/team/${PRODUCT_ID}`);
 		await page.waitForSelector("[data-testid='work-team-page']");
 
@@ -176,10 +156,17 @@ test.describe("L13 — Product drill-down", () => {
 		await page.getByTestId("team-breadcrumb-back").click();
 
 		await expect(page).toHaveURL(/\/work\/portfolio/, { timeout: 5000 });
-		await expect(page.getByTestId("work-portfolio-page")).toBeVisible();
+		await expect(page.getByTestId("work-overview-page")).toBeVisible();
 	});
 
 	test("(5) legacy /work/product/:id redirects to /work/team/:id", async ({ page }) => {
+		await mockTeamPage(page, {
+			teamId: PRODUCT_ID,
+			teamName: "HyperIdle Core",
+			roster: ROSTER,
+			tasksInProgress: [ACTIVE_TASK],
+		});
+
 		// @lore U6: /work/product/:productId now redirects to /work/team/:productId.
 		await page.goto(`/work/product/${PRODUCT_ID}`);
 
@@ -189,15 +176,9 @@ test.describe("L13 — Product drill-down", () => {
 	});
 
 	test("(6) unknown team /work/team/does-not-exist shows 404 empty state", async ({ page }) => {
-		// Mock 404 for unknown team
-		await page.route("**/api/teams/does-not-exist", async (route) => {
-			await route.fulfill({
-				status: 404,
-				contentType: "application/json",
-				body: JSON.stringify({ error: "Not found", code: "not_found" }),
-			});
-		});
-
+		// No mockTeamPage call for "does-not-exist" — search_users({teamId})
+		// naturally answers empty (no seeded row carries that team), which is
+		// useTeam's own "404" case now.
 		await page.goto("/work/team/does-not-exist");
 		await page.waitForSelector("[data-testid='work-team-page']");
 
@@ -205,6 +186,13 @@ test.describe("L13 — Product drill-down", () => {
 	});
 
 	test("(7) no Kanban region on the Team page", async ({ page }) => {
+		await mockTeamPage(page, {
+			teamId: PRODUCT_ID,
+			teamName: "HyperIdle Core",
+			roster: ROSTER,
+			tasksInProgress: [ACTIVE_TASK],
+		});
+
 		await page.goto(`/work/team/${PRODUCT_ID}`);
 		await page.waitForSelector("[data-testid='work-team-page']");
 

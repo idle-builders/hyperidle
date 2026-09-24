@@ -5,7 +5,7 @@ import {
 	type NewChange,
 	type WriteExecutor,
 } from "@hyperidle/db";
-import { and, desc, eq, gt, type SQL } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, type SQL } from "drizzle-orm";
 
 /**
  * the event log the action mechanism writes to. Not an audit control,
@@ -27,6 +27,9 @@ export interface ListChangesFilter {
 	readonly object?: string;
 	readonly objectId?: string;
 	readonly after?: string;
+	/** `open_user`'s inbox batch-reads the change rows an inbox's
+	 * `(user_id, change_id)` rows point at, by id. */
+	readonly ids?: readonly string[];
 }
 
 /** Newest first. `after` filters to rows recorded strictly after the given ISO timestamp. */
@@ -34,10 +37,12 @@ export async function listChanges(
 	db: HyperIdleDb,
 	filter: ListChangesFilter = {},
 ): Promise<Change[]> {
+	if (filter.ids !== undefined && filter.ids.length === 0) return [];
 	const conds: SQL[] = [];
 	if (filter.object !== undefined) conds.push(eq(changes.object, filter.object));
 	if (filter.objectId !== undefined) conds.push(eq(changes.objectId, filter.objectId));
 	if (filter.after !== undefined) conds.push(gt(changes.at, filter.after));
+	if (filter.ids !== undefined) conds.push(inArray(changes.id, Array.from(filter.ids)));
 	return db
 		.select()
 		.from(changes)

@@ -72,13 +72,12 @@ The verdict grammar is defined in [Thread Primitive](../../human-interface-layer
 
 ### Killing a task
 
-Killing a task stops its in-flight work, kills its entire subtree, and frees your team's capacity.
+Killing a task stops its in-flight work and kills its entire subtree.
 
 1. Open the task, click the overflow menu (`···`), and choose **Kill**.
 2. A confirmation dialog explains exactly what happens:
    - **The entire subtask tree is killed** and their active sessions are stopped.
    - **Existing artifacts are preserved** — nothing already produced is deleted.
-   - **Team capacity is freed.**
    - **Running agents finish their current step first**, so killing is not an instant stop.
 3. Enter a reason (required) and confirm.
 
@@ -108,9 +107,6 @@ Sync and conflict mechanics live in [Sync and Conflict Resolution](../../knowled
 
 HyperIdle does not track or enforce spend. Your ceiling is the budget on your upstream provider account (OpenRouter, Anthropic), set there.
 
-What HyperIdle does bound is **concurrency** — how much runs at once:
+What HyperIdle does bound is **concurrency** — how much runs at once: each agent has a maximum number of simultaneous sessions (default 1). At the limit, new work queues or moves to a teammate.
 
-- Each agent has a maximum number of simultaneous sessions (default 1). At the limit, new work queues or moves to a teammate.
-- Each team has a capacity — the number of tasks that may be in-progress at once, counted at every depth of the task tree.
-
-You can see capacity and status on **Work → Team**. The reasoning behind bounding concurrency rather than time lives in [WIP Limits](../../process-layer/wip-and-cost-limits.md).
+You can see agent status on **Work → Team**. The reasoning behind bounding concurrency rather than time lives in [WIP Limits](../../process-layer/wip-and-cost-limits.md).

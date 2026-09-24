@@ -52,7 +52,6 @@ export interface AgentOrchestrationSessionWireRow {
 	readonly sandboxSnapshot: string | null;
 	readonly outcome: string | null;
 	readonly notes: string | null;
-	readonly routineId: string | null;
 	readonly effectivenessScore: string | null;
 	readonly effectivenessRecordedAt: string | null;
 	readonly effectivenessRecordedBy: string | null;
@@ -88,9 +87,9 @@ export type AgentOrchestrationWorkIntentKind =
 	| "thread_turn"
 	| "session_start"
 	| "knowledge_action"
-	| "routine_run"
 	| "task_run"
-	| "session_resume";
+	| "session_resume"
+	| "subscription_run";
 
 /**
  * Mirrors `AgentWorkIntentRecorderInput` — `bakedRequest` is carried opaque
@@ -252,6 +251,107 @@ export interface AgentOrchestrationFilesystemsPort {
 }
 
 /**
+ * A remove-style write's outcome — shared by every `folders`/`connections`
+ * operation that either succeeds or reports the row was never there.
+ */
+export type AgentOrchestrationRemoveResult =
+	| { readonly ok: true }
+	| { readonly ok: false; readonly code: "NOT_FOUND" };
+
+/**
+ * Mirrors `ServiceConnectionView` (`@hyperidle/domain-model`) — the port
+ * stays zero-runtime-deps, so the shape is hand-typed here rather than
+ * imported, same convention as `AgentOrchestrationRunConfigView` mirroring
+ * `AgentRunConfig`. Held and inherited connections share this one shape.
+ */
+export interface AgentOrchestrationConnectionView {
+	readonly id: string;
+	readonly service: string;
+	readonly via: string;
+	readonly authSource: "token" | "mcp" | "inherited";
+	readonly health: "working" | "needs-attention";
+	readonly removable: boolean;
+}
+
+/** §6 — held connections and the connections domain's own inherited reach, listed together. */
+export interface AgentOrchestrationConnectionsListView {
+	readonly connections: readonly AgentOrchestrationConnectionView[];
+	readonly inherited: readonly AgentOrchestrationConnectionView[];
+}
+
+/**
+ * Mirrors `createConnectionSchema`'s discriminated union
+ * (`agent-orchestration/src/routes/connections.ts`) — the exact input the
+ * extracted `createConnectionForUser` validates and encrypts.
+ */
+export type AgentOrchestrationConnectionCreateInput =
+	| { readonly service: string; readonly authSource: "token"; readonly token: string }
+	| { readonly service?: string; readonly authSource: "mcp"; readonly serverUrl: string };
+
+export type AgentOrchestrationCreateConnectionResult =
+	| { readonly ok: true; readonly connection: AgentOrchestrationConnectionView }
+	| { readonly ok: false; readonly code: "MISSING_ROOT_SECRET" | "DUPLICATE_CONNECTION" };
+
+/** §6 — the `connections` capability family, extracted from `agent-orchestration/src/routes/connections.ts`. */
+export interface AgentOrchestrationConnectionsPort {
+	list(userId: string): Promise<AgentOrchestrationConnectionsListView>;
+	add(
+		userId: string,
+		input: AgentOrchestrationConnectionCreateInput,
+	): Promise<AgentOrchestrationCreateConnectionResult>;
+	remove(userId: string, id: string): Promise<AgentOrchestrationRemoveResult>;
+}
+
+/** Mirrors `Filesystem` (`@hyperidle/filesystems`). */
+export interface AgentOrchestrationFolderView {
+	readonly id: string;
+	readonly teamId: string;
+	readonly source: string;
+	readonly kind: "code" | "doc_set";
+	readonly connectionId: string | null;
+	readonly resourceRef:
+		| { readonly kind: "code"; readonly repo: string; readonly branch: string }
+		| { readonly kind: "doc_set"; readonly folder: string };
+	readonly writeback: "git" | "file" | "none";
+	readonly state: "attached" | "reachable" | "needs_attention";
+	readonly createdAt: string;
+}
+
+/** §6 — `folders.list`'s query: a team's own folders, or the folders given to one agent. */
+export type AgentOrchestrationFolderListQuery =
+	| { readonly teamId: string }
+	| { readonly agentUserId: string };
+
+/** Mirrors today's `POST /filesystems` body, minus the `teamId` `folders.add` takes separately. */
+export interface AgentOrchestrationFolderCreateInput {
+	readonly kind: "code" | "doc_set";
+	readonly connectionId?: string | null;
+	readonly resourceRef: AgentOrchestrationFolderView["resourceRef"];
+	readonly writeback: "git" | "file" | "none";
+}
+
+export type AgentOrchestrationAddFolderResult =
+	| { readonly ok: true; readonly folder: AgentOrchestrationFolderView }
+	| { readonly ok: false; readonly code: "TEAM_NOT_FOUND" };
+
+/**
+ * §6 — the `folders` capability family, extracted from
+ * `agent-orchestration/src/routes/filesystems.ts`. `give` is today's
+ * `filesystems.persistInjection` under a second name — same route, same
+ * write — so `edit_user`'s folder verbs read as one family instead of two.
+ */
+export interface AgentOrchestrationFoldersPort {
+	list(query: AgentOrchestrationFolderListQuery): Promise<readonly AgentOrchestrationFolderView[]>;
+	add(
+		teamId: string,
+		body: AgentOrchestrationFolderCreateInput,
+	): Promise<AgentOrchestrationAddFolderResult>;
+	remove(id: string): Promise<AgentOrchestrationRemoveResult>;
+	give(id: string, agentUserId: string): Promise<AgentOrchestrationPersistInjectionResult>;
+	take(id: string, agentUserId: string): Promise<AgentOrchestrationRemoveResult>;
+}
+
+/**
  * `AgentOrchestrationPort` — agent-orchestration's own door, symmetric to
  * `CoreApiPort` (architecture.md §10, §6 Decision D) but now carrying both
  * the original read side (`sessions`) and the AU31 write side.
@@ -263,6 +363,10 @@ export interface AgentOrchestrationPort {
 	readonly runs: AgentOrchestrationRunsPort;
 	readonly runConfig: AgentOrchestrationRunConfigPort;
 	readonly filesystems: AgentOrchestrationFilesystemsPort;
+	/** A team's folders, given to and taken from an agent. */
+	readonly folders: AgentOrchestrationFoldersPort;
+	/** One user's held connections plus the machine's inherited reach. */
+	readonly connections: AgentOrchestrationConnectionsPort;
 	readonly gate: AgentOrchestrationGatePort;
 }
 

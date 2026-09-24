@@ -5,10 +5,9 @@
  * `registerWorkSessionEndReactions` (layers/core-api/src/services/
  * work-session-end-reactions.ts) does NOT YET EXIST — every test in this
  * file is RED via module resolution failure until the GREEN phase creates
- * it. This is the exact `routine-run-session-end-reactions.ts` pattern
- * (`registeredBuses` WeakSet idempotency guard, explicit
- * `register*(db, eventBus)` wiring convention) applied to `task`'s
- * post-session writeback.
+ * it. This is the same `registeredBuses` WeakSet idempotency guard, explicit
+ * `register*(db, eventBus)` wiring convention every reaction module in this
+ * directory follows, applied to `task`'s post-session writeback.
  *
  * Per architecture.md §6 Decision H / §9 Increment 10: this subscriber reacts
  * to `agent_run_lifecycle_changed` ONLY — NOT `session_ended`. `session_ended`'s
@@ -106,7 +105,7 @@ async function seedTaskAndAgent(
 	const rootId = `${id}-root`;
 	const taskId = `${id}-task`;
 	const agentId = `${id}-agent`;
-	await db.insert(teams).values({ id: teamId, name: "Team", phase: "build", createdAt: NOW });
+	await db.insert(teams).values({ id: teamId, name: "Team", createdAt: NOW });
 	await db.insert(users).values({
 		id: agentId,
 		kind: "ai",
@@ -491,8 +490,8 @@ describe("registerWorkSessionEndReactions", () => {
 		eventBus.emit(
 			lifecycleChanged({
 				requestId: "wser-ignore-req",
-				sourceKind: "routine",
-				sourceId: "routine-run-x",
+				sourceKind: "subscription",
+				sourceId: "subscription-run-x",
 				state: "completed",
 			}),
 		);

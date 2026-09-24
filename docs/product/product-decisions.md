@@ -24,7 +24,7 @@ Target user framing behind all of these: solo founder up to a small (~10-person)
 - **There is no `kind` column or taxonomy any more.** The pattern/decision/failure/brief classification the founder doubted is gone entirely, not narrowed — where a document sits in the tree says what it is about (see [The Canonical Store](../knowledge-architecture/the-canonical-store.md)). A skill is simply a document with `slot='skill'`, on the same footing as any other slot.
 - **Create-knowledge-from-discussion needs no button.** An agent can identify and capture knowledge from task discussion; the explicit UI affordance is dispensable.
 - **Org-chart settings page removal.** Founder: "nobody needs that — we have teams with a responsible human and agents inside." `layers/core-ui/src/settings/SettingsOrgChart.tsx` still exists; removal pending.
-- **Routines reframing.** A routine is a work object — or part of a strategy — not an org-level scheduler config. Shapes future Routines work; see [Routines and Retros](../process-layer/routines-and-retros.md).
+- **Routines reframing — done, further than planned.** A routine was meant to become a work object, not an org-level scheduler config; it went further — routines and the notification queue merged into one subscription mechanism on the user row. See [Subscriptions and Retros](../process-layer/subscriptions-and-retros.md).
 
 ---
 
@@ -58,7 +58,7 @@ Decisions from the June audits that already shipped; do not re-open them as gaps
 | Knowledge Flag / Archive dead buttons | Flag removed (agent operation, not user-facing); Archive wired (AD6) |
 | Task dependency auto-unblock | Wired: `checkAndUnblockDependents` in `layers/core-api/work/src/dependency-watcher.ts`, subscribed in `layers/core-api/src/app.ts:493` |
 | Assistant responder | Wired: `layers/core-api/thread/src/thread-turn-resolver.ts`, running through the durable request poller |
-| Routine scheduler (cron, silent runs, delegation) | Started at boot: `startRoutineScheduler` in `layers/core-api/src/service-bootstrap.ts:600` |
+| Routine scheduler (cron, silent runs, delegation) | Superseded — routines became subscriptions on the user row; the schedule half is `startSubscriptionClock`, wired in `layers/core-api/src/app.ts` |
 | Portfolio page | Removed (AD9); `WorkOverview` is the Work landing |
 | Per-skill autonomy product | Removed (see §1) |
 | Task pause/resume | Removed from the task lifecycle (U1; see §1) |

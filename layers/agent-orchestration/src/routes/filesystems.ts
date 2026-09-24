@@ -1,31 +1,28 @@
-// AO1 — Hono router for /api/filesystems.
-// Registry CRUD + per-bot injection wiring.
+// /api/filesystems — one plumbing route left; the rest is folder logic the
+// port calls directly.
 //
-// @lore AU26 F2 (§D-A's placement rule + the founder's 2026-08-04 ruling): this
-// module lives on `agent-orchestration`'s own app now, not core-api's — the
-// same move E4 made for `/api/connections`. Once the `filesystem` knowledge
-// scope was deleted, `filesystems` and `filesystem_injections` both became
-// agent-orchestration-owned, so a route whose whole table set is those two has
-// exactly one legal host and it is this Layer.
+// @lore BC5 T11 (architecture.md §6/§9, T4): the filesystem registry CRUD
+// routes (register/list/get/delete a filesystem, delete an injection) are
+// DELETED — a folder is a user attribute now, given and read through
+// `edit_user`/`open_user` (`folders.add|remove|give|take`). The extracted
+// `listFolders`/`registerFolder`/`removeFolder`/`takeFolder` bodies below
+// (BC5 T4) are what `AgentOrchestrationPort`'s `folders` family already
+// calls through `agent-orchestration-intake.ts`'s plumbing routes — they
+// stay, unchanged, as the one shared implementation both that seam and
+// (formerly) these HTTP routes called. `buildAuthResolver`/
+// `FilesystemsServiceConnectionResolver` are DELETED with the routes that
+// were their only callers — the seam call already took the same default
+// (Noop) resolver path, having no acting user to scope a per-user token
+// lookup by.
 //
-// **The paths do not change.** Both apps mount on the Application's one `/api`
-// router, so `/api/filesystems`, `/api/filesystems/:id`,
-// `/api/filesystems/inspect-path` and
-// `/api/filesystems/:id/injections/:agentUserId` are byte-identical to before
-// and `SettingsFilesystems.tsx` / `SettingsAgents.tsx` need no change at all.
-//
-// **One registration did NOT come with it:** `POST /:id/injections`. Its
-// team-consistency gate reads `users` and `team_members` — core-api tables —
-// so its table set is two-sided and §D-A rule 3 gives it exactly one legal
-// host, core-api. It stays in `layers/core-api/src/routes/filesystems.ts`
-// with the gate intact and delegates `saveInjection` downward, exactly as
-// §D-I item 2 designs. Moving it would make this Layer read core-api state,
-// which AU21 Decision L forbids with no carve-out.
-//
-// The middleware stack — cors, body limit, auth, fail-closed, `onError` — is
-// Application-applied to that shared router and reaches this module unchanged.
+// What survives as an HTTP route is `POST /inspect-path` — a pure local
+// path probe (exists? a git repo? which branch?) nothing else replaces,
+// called BEFORE a folder is added so the caller can build the
+// `resourceRef` body `edit_user` needs. `SetupFlow.tsx` keeps this exact
+// call.
 
 import type { FilesystemRow, HyperIdleDb } from "@hyperidle/db";
+import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model/http";
 import type { Filesystem } from "@hyperidle/filesystems";
 import {
 	deleteFilesystem,
@@ -37,49 +34,9 @@ import {
 	refreshFilesystemState,
 	saveFilesystem,
 } from "@hyperidle/filesystems";
-
-/**
- * Structural port: the shape of the service-connection resolver this route
- * needs to build per-request token resolvers. Declared here so this module
- * does not import across the Layer boundary.
- *
- * @lore AU43: formerly exported from `@hyperidle/filesystems` as
- * `FilesystemsServiceConnectionResolver`; deleted there as a dead re-export,
- * declared inline here where it is the only consumer.
- */
-interface FilesystemsServiceConnectionResolver {
-	resolve(userId: string, connectionId: string): Promise<string | null>;
-}
-
-import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model/http";
 import { Hono } from "hono";
 import { z } from "zod";
 import { createGitRunner } from "../git-runner.js";
-
-// ─── Validation schemas ───────────────────────────────────────────────────────
-
-const codeRefSchema = z.object({
-	kind: z.literal("code"),
-	repo: z.string().min(1),
-	branch: z.string().min(1),
-});
-const docSetRefSchema = z.object({ kind: z.literal("doc_set"), folder: z.string().min(1) });
-const resourceRefSchema = z.discriminatedUnion("kind", [codeRefSchema, docSetRefSchema]);
-
-/** Register body: `source` is NOT client-supplied — derived from the Connection (or 'local'). */
-const registerFilesystemSchema = z.object({
-	teamId: z.string().min(1),
-	// Kind constrained to committed kinds at create time (SoRs rejected here).
-	// @lore AU44 b2: inlined from FILESYSTEM_KINDS constant (dissolved with filesystem-contract).
-	kind: z.enum(["code", "doc_set"]),
-	connectionId: z.string().nullable().optional(),
-	resourceRef: resourceRefSchema,
-	// @lore AU44 b2: inlined from WRITEBACK_MODES constant (dissolved with filesystem-contract).
-	writeback: z.enum(["git", "file", "none"]),
-	// Optional hint: when the NoopAuthResolver can't derive source, the caller may supply it.
-	// The route trusts it only when the resolver yields null (architecture §3, open Q7).
-	sourceHint: z.string().optional(),
-});
 
 // ─── Row → wire mappers ───────────────────────────────────────────────────────
 
@@ -101,38 +58,6 @@ function rowToFilesystem(row: FilesystemRow): Filesystem {
 	};
 }
 
-// ─── Per-request resolver factory ─────────────────────────────────────────────
-
-/**
- * Build the token resolver for a specific request.
- * When a real ServiceConnectionResolver is available, creates an inline adapter
- * that closes over the request userId. Falls back to a noop resolver.
- *
- * @lore AO1 v2: The resolver MUST be constructed per-request — it closes over userId.
- * A singleton would bind to one userId across all requests.
- *
- * @lore AU26 F1 (AU21 Decision J8, bounded co-move): this route used to
- * type-import `ServiceConnectionResolver` from `@hyperidle/connections`, which
- * AU26 E2/E3 made an `agent-orchestration` Service — a core-api Layer file
- * type-importing across the Layer boundary. It now names the structural port
- * `FilesystemsServiceConnectionResolver` (`@hyperidle/filesystems`' own
- * `ports.ts`), which the concrete resolver satisfies. Zero behaviour change:
- * the Layer still composes the real resolver downward at construction.
- */
-function buildAuthResolver(
-	connectionResolver: FilesystemsServiceConnectionResolver | undefined,
-	userId: string,
-): FilesystemTokenResolver {
-	if (connectionResolver) {
-		return {
-			resolveToken: (connectionId: string) => connectionResolver.resolve(userId, connectionId),
-		};
-	}
-	return {
-		resolveToken: async (_connectionId: string) => null,
-	};
-}
-
 // ─── Reachability helper (mutates stored state) ───────────────────────────────
 
 /**
@@ -151,86 +76,115 @@ async function checkAndPersistState(
 	});
 }
 
+// ─── Extracted logic ─────────────────────────────
+//
+// The one implementation `AgentOrchestrationPort`'s `folders` family calls
+// through `agent-orchestration-intake.ts`'s plumbing routes.
+
+/** `folders.list` — a team's own folders, or the folders given to one agent. */
+export type ListFoldersQuery = { readonly teamId: string } | { readonly agentUserId: string };
+
+export async function listFolders(db: HyperIdleDb, query: ListFoldersQuery): Promise<Filesystem[]> {
+	const rows =
+		"teamId" in query
+			? await listFilesystems(db, { teamId: query.teamId })
+			: await listFilesystems(db, { agentId: query.agentUserId });
+	return rows.map(rowToFilesystem);
+}
+
+/** Mirrors `edit_user`'s `folders.add` body, minus `teamId` — that is taken separately. */
+export interface RegisterFolderInput {
+	readonly kind: "code" | "doc_set";
+	readonly connectionId?: string | null;
+	readonly resourceRef: Filesystem["resourceRef"];
+	readonly writeback: "git" | "file" | "none";
+	readonly sourceHint?: string;
+}
+
+export type RegisterFolderResult =
+	| { readonly ok: true; readonly folder: Filesystem }
+	| { readonly ok: false; readonly code: "TEAM_NOT_FOUND" };
+
+/**
+ * `folders.add` — insert + live-probe. `authResolver` defaults to the Noop
+ * resolver (no held-token probe): the seam call carries no acting user to
+ * scope a per-user token lookup by.
+ */
+export async function registerFolder(
+	db: HyperIdleDb,
+	teamId: string,
+	body: RegisterFolderInput,
+	authResolver: FilesystemTokenResolver = { resolveToken: async () => null },
+): Promise<RegisterFolderResult> {
+	const connectionId = body.connectionId ?? null;
+	const source = connectionId == null ? "local" : (body.sourceHint ?? "unknown");
+	const id = crypto.randomUUID();
+	const now = new Date().toISOString();
+
+	try {
+		await saveFilesystem(db, {
+			id,
+			teamId,
+			source,
+			kind: body.kind,
+			connectionId,
+			resourceRef: JSON.stringify(body.resourceRef),
+			writeback: body.writeback,
+			state: "attached",
+			createdAt: now,
+		});
+	} catch (err) {
+		// @lore drizzle-orm 0.45.2: wraps PGlite errors — walk cause chain to find FK message.
+		const errMsg = (e: unknown): string => {
+			if (!(e instanceof Error)) return String(e);
+			const own = e.message;
+			if (own.includes("filesystems_team_id_teams_id_fk") || own.includes("foreign key"))
+				return own;
+			return e.cause !== undefined ? errMsg(e.cause) : own;
+		};
+		const msg = errMsg(err);
+		if (msg.includes("filesystems_team_id_teams_id_fk") || msg.includes("foreign key")) {
+			return { ok: false, code: "TEAM_NOT_FOUND" };
+		}
+		throw err;
+	}
+
+	const inserted = await getFilesystem(db, id);
+	if (inserted == null) throw new Error("Filesystem disappeared after insert");
+
+	const probed = await checkAndPersistState(db, inserted, authResolver);
+	return { ok: true, folder: rowToFilesystem(probed) };
+}
+
+export type RemoveFolderResult =
+	| { readonly ok: true }
+	| { readonly ok: false; readonly code: "NOT_FOUND" };
+
+/** `folders.remove` — cascades `filesystem_injections` at the DB level. */
+export async function removeFolder(db: HyperIdleDb, id: string): Promise<RemoveFolderResult> {
+	const existing = await getFilesystem(db, id);
+	if (existing == null) return { ok: false, code: "NOT_FOUND" };
+	await deleteFilesystem(db, id);
+	return { ok: true };
+}
+
+/** `folders.take` — the eject a running agent's injection undoes. */
+export async function takeFolder(
+	db: HyperIdleDb,
+	filesystemId: string,
+	agentUserId: string,
+): Promise<RemoveFolderResult> {
+	const deleted = await deleteInjection(db, agentUserId, filesystemId);
+	return deleted ? { ok: true } : { ok: false, code: "NOT_FOUND" };
+}
+
 // ─── createFilesystemRoutes ───────────────────────────────────────────────────
 
-export function createFilesystemRoutes(
-	db: HyperIdleDb,
-	/**
-	 * Pass the real ServiceConnectionResolver for per-request adapter construction.
-	 * When absent (tests without AN1 resolver, non-db contexts), falls back to NoopAuthResolver.
-	 *
-	 * @lore AO1 v2: The resolver is passed at route-creation time, but the adapter
-	 * is constructed PER REQUEST (inside the handler) because it closes over userId
-	 * from c.get("userId"). A process-singleton adapter would bind to one userId — wrong.
-	 */
-	connectionResolver?: FilesystemsServiceConnectionResolver,
-): Hono<HyperIdleEnv> {
+export function createFilesystemRoutes(): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
-	// ── POST /api/filesystems — Register a filesystem ──────────────────────────
-	router.post("/", validateBody(registerFilesystemSchema), async (c) => {
-		const body = c.req.valid("json");
-		const userId = c.get("userId");
-		const authResolver = buildAuthResolver(connectionResolver, userId);
-
-		// Derive source from the Connection (via resolver) or fallback.
-		// NOTE: teamId FK validation is handled in the insert catch below (→ 404 on FK violation).
-		// The old "FK guard before insert" block was a dead no-op — see M1 in the AO1 review.
-		const connectionId = body.connectionId ?? null;
-		let source: string;
-		if (connectionId == null) {
-			source = "local";
-		} else {
-			source = body.sourceHint ?? "unknown";
-		}
-
-		const id = crypto.randomUUID();
-		const now = new Date().toISOString();
-
-		// Insert with 'attached' state — probe below will update if different.
-		try {
-			await saveFilesystem(db, {
-				id,
-				teamId: body.teamId,
-				source,
-				kind: body.kind,
-				connectionId,
-				resourceRef: JSON.stringify(body.resourceRef),
-				writeback: body.writeback,
-				state: "attached",
-				createdAt: now,
-			});
-		} catch (err) {
-			// FK violation on teamId → 404
-			// @lore drizzle-orm 0.45.2: wraps PGlite errors — walk cause chain to find FK message.
-			const errMsg = (e: unknown): string => {
-				if (!(e instanceof Error)) return String(e);
-				const own = e.message;
-				if (own.includes("filesystems_team_id_teams_id_fk") || own.includes("foreign key"))
-					return own;
-				return e.cause !== undefined ? errMsg(e.cause) : own;
-			};
-			const msg = errMsg(err);
-			if (msg.includes("filesystems_team_id_teams_id_fk") || msg.includes("foreign key")) {
-				return c.json({ error: "Team not found", code: "NOT_FOUND" }, 404);
-			}
-			throw err;
-		}
-
-		// Row must exist — we just inserted it.
-		const inserted = await getFilesystem(db, id);
-		if (inserted == null) throw new Error("Filesystem disappeared after insert");
-
-		// Run live probe on register — persists result, returns the updated row.
-		// @lore AO1 v2: probe on register so the caller gets the real initial state.
-		const probed = await checkAndPersistState(db, inserted, authResolver);
-		return c.json(rowToFilesystem(probed), 201);
-	});
-
 	// ── POST /api/filesystems/inspect-path — Probe a local path before register ─
-	// Separate route justified by codeRefSchema.branch.min(1): the caller must know
-	// the branch BEFORE registering a `code` fs. Folding into POST / would require
-	// loosening that schema. @lore AV1: reuses createGitRunner (currentBranch verb).
+	// @lore AV1: reuses createGitRunner (currentBranch verb).
 	router.post("/inspect-path", validateBody(z.object({ path: z.string().min(1) })), async (c) => {
 		const { path } = c.req.valid("json");
 		// AU26 A2/C1: `createGitRunner` comes from `@hyperidle/host-process`; the
@@ -238,81 +192,6 @@ export function createFilesystemRoutes(
 		// `ports.ts` top `@lore`.
 		const info = await inspectLocalPath(path, { gitRunnerFactory: createGitRunner });
 		return c.json(info, 200);
-	});
-
-	// ── GET /api/filesystems?teamId= OR ?agentUserId= ─────────────────────────
-	router.get("/", async (c) => {
-		const teamId = c.req.query("teamId");
-		const agentUserId = c.req.query("agentUserId");
-
-		if (!(teamId || agentUserId)) {
-			return c.json({ error: "Provide teamId or agentUserId", code: "INVALID_QUERY" }, 400);
-		}
-		if (teamId && agentUserId) {
-			return c.json(
-				{ error: "Provide only one of teamId or agentUserId", code: "INVALID_QUERY" },
-				400,
-			);
-		}
-
-		let rows: FilesystemRow[];
-
-		if (teamId) {
-			rows = await listFilesystems(db, { teamId });
-		} else {
-			// agentUserId: join filesystem_injections → filesystems in one query.
-			// @lore AU20 R-filesystems: listFilesystems({agentId}) replaces the old
-			// two-step listFilesystemIdsByAgent + listFilesystemsByIds with a single
-			// innerJoin query, returning [] naturally when no injections exist.
-			rows = await listFilesystems(db, { agentId: agentUserId ?? "" });
-		}
-
-		// LIST route: use STORED state (do NOT live-probe every row).
-		// @lore AO1 v2: one ls-remote per list row makes team-list latency-bound on the forge.
-		// The inspect (GET /:id) and register (POST /) paths trigger live probes.
-		return c.json({ filesystems: rows.map(rowToFilesystem) }, 200);
-	});
-
-	// ── GET /api/filesystems/:id — Inspect one filesystem ─────────────────────
-	router.get("/:id", async (c) => {
-		const id = c.req.param("id");
-		const row = await getFilesystem(db, id);
-		if (row == null) {
-			return c.json({ error: "Filesystem not found", code: "NOT_FOUND" }, 404);
-		}
-
-		const userId = c.get("userId");
-		const authResolver = buildAuthResolver(connectionResolver, userId);
-		const refreshed = await checkAndPersistState(db, row, authResolver);
-		return c.json(rowToFilesystem(refreshed), 200);
-	});
-
-	// ── DELETE /api/filesystems/:id — Remove registration (cascades injections) ─
-	router.delete("/:id", async (c) => {
-		const id = c.req.param("id");
-
-		// Check exists first
-		const existing = await getFilesystem(db, id);
-		if (existing == null) {
-			return c.json({ error: "Filesystem not found", code: "NOT_FOUND" }, 404);
-		}
-
-		// CASCADE on filesystem_injections is DB-level (onDelete: cascade).
-		await deleteFilesystem(db, id);
-		return new Response(null, { status: 204 });
-	});
-
-	// ── DELETE /api/filesystems/:id/injections/:agentUserId — Eject ───────────
-	router.delete("/:id/injections/:agentUserId", async (c) => {
-		const fsId = c.req.param("id");
-		const agentUserId = c.req.param("agentUserId");
-
-		const deleted = await deleteInjection(db, agentUserId, fsId);
-		if (!deleted) {
-			return c.json({ error: "Injection not found", code: "NOT_FOUND" }, 404);
-		}
-
-		return new Response(null, { status: 204 });
 	});
 
 	return router;

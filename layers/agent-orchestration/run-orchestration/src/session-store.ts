@@ -26,8 +26,8 @@ export async function findSessionById(
 }
 
 /**
- * `search_sessions`'s own filter: `ids`/`taskId`/`agentIds`/`state`/
- * `routineId`, newest first, `limit` always resolved by the caller (the
+ * `search_sessions`'s own filter: `ids`/`taskId`/`agentIds`/`state`,
+ * newest first, `limit` always resolved by the caller (the
  * action's own default-100 lives in `session-actions.ts`, not here — this
  * accessor never guesses a default).
  *
@@ -41,7 +41,6 @@ export interface SessionSearchFilter {
 	readonly taskId?: string;
 	readonly agentIds?: readonly string[];
 	readonly state?: string;
-	readonly routineId?: string;
 	readonly limit: number;
 	readonly offset?: number;
 }
@@ -58,7 +57,6 @@ export async function listSessions(
 		conditions.push(inArray(sessions.agentId, [...filter.agentIds]));
 	}
 	if (filter.state) conditions.push(eq(sessions.state, filter.state));
-	if (filter.routineId) conditions.push(eq(sessions.routineId, filter.routineId));
 
 	const query = db
 		.select()
@@ -78,7 +76,7 @@ export interface EndSessionByCasInput {
 	 *
 	 * @lore Not nullable, unlike `taskId`: `sessions.agent_id` is `NOT NULL` and
 	 * `SessionEndedEvent.agentId` is `string`. A run always has an agent; only
-	 * the task is optional (assistant / routine / knowledge runs have none).
+	 * the task is optional (assistant / subscription / knowledge runs have none).
 	 */
 	readonly agentId: string;
 	/** From the caller's pre-read row — the event payload, not a write. */
@@ -177,7 +175,7 @@ export async function writeSessionNotes(
  *    already-dead child) -> CAS `state='stopped'`/`outcome='stopped'`
  *    ourselves, guarded on `state='active'` exactly like
  *    `request-run-stop-for-tasks.ts`'s own disposition, and emit
- *    `session_ended` so the task page, agent health and routine reactions
+ *    `session_ended` so the task page, agent health and subscription reactions
  *    see the same end -> `"marked"`.
  */
 export async function stopSessionRun(
@@ -208,7 +206,6 @@ export async function stopSessionRun(
 		taskId: row.taskId,
 		timestamp: Date.now(),
 		outcome: "stopped",
-		...(row.routineId ? { routineRunOutcome: "error" as const } : {}),
 	} satisfies SessionEndedEvent);
 
 	return "marked";

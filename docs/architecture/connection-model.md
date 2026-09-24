@@ -30,7 +30,7 @@ The view shape and its closed sets live in `framework/domain-model/src/connectio
 
 - **id** — `sc-<uuid>` for held rows; `inherited:<source>:<name>` for projections.
 - **authSource** — closed set `token | mcp | inherited`.
-- **health** — closed 2-set `working | needs-attention`. Starts as `needs-attention` on create (unvalidated); the validate endpoint updates it. A token that stops working becomes `needs-attention` — there is no "expired" state.
+- **health** — closed 2-set `working | needs-attention`. Starts, and stays, `needs-attention` on create — there is no validate action to clear it. A token that stops working becomes `needs-attention` too — there is no "expired" state.
 - **removable** — `true` for held, `false` for inherited.
 - **via** — always server-constructed, never a raw URL or secret echo: `token` → `"API key · stored encrypted"`, `mcp` → hostname of the MCP server URL, `inherited` → `"<source> · <name>"`.
 
@@ -42,24 +42,31 @@ There is no `trustTier` field. ETHOS §2 — security is earned from real learni
 
 Inherited connections project from `InheritedConnectionFact` (`framework/domain-model/src/connection.ts`) — the connections domain's own fact type, probed and cached by `createInheritedReach()` (`layers/agent-orchestration/connections/src/inherited-reach.ts`). Each fact carries identity only — `name`, `kind` (`mcp-server | cli`), `source` (`claude-code | codex | opencode | environment` — which config the auth was found in), `health | "unknown"`. The type has no secret field: no code path can copy an env var, command, keychain value, or token into it — the invariant is enforced at the type level.
 
-`createInheritedReach().refresh()` populates the cache via four probes — claude-code, codex, **opencode**, and the `gh`-CLI environment — at boot and on `POST /api/harnesses/redetect` (composition-root wiring). The harness capability descriptor carries NO reach field — what an agent can reach is answered without reading anything about harnesses.
+`createInheritedReach().refresh()` populates the cache via four probes — claude-code, codex, **opencode**, and the `gh`-CLI environment — at boot and on `edit_user({ id: me, redetectHarnesses: true })` (composition-root wiring). The harness capability descriptor carries NO reach field — what an agent can reach is answered without reading anything about harnesses.
 
 ---
 
 ## API surface
 
+There is no `/api/connections` route family — connections are a user attribute now, read and
+written through the same door as everything else on a user:
+
 ```
-GET    /api/connections        → ServiceConnectionView[]   (held ∪ inherited)
-POST   /api/connections        → 201 ServiceConnectionView  (token or mcp)
-DELETE /api/connections/:id    → 204 | 404
-POST   /api/connections/:id/validate → { health }
+open_user({})           → { connections: { connections: ServiceConnectionView[], inherited: InheritedReachView[] }, … }  (self only)
+edit_user({ id: me, connections: { add: […] } })     → adds a token or mcp connection
+edit_user({ id: me, connections: { remove: [id] } }) → removes a held connection
 ```
 
-`GET` returns inherited projections first, then held rows. It reads the **cached** reach snapshot (`inheritedReach.list()`) — never re-probes per request. Inherited connections have `removable: false`; DELETE of an `inherited:*` id returns 404.
+`open_user`'s `connections` field is `null` for anyone but the caller — the same "your own only"
+scoping the old route enforced. It reads the **cached** reach snapshot (`inheritedReach.list()`) for
+the inherited half — never re-probes per call. Inherited connections have `removable: false`; naming
+an `inherited:*` id in `connections.remove` is refused.
 
-POST accepts a discriminated union — `authSource: "token"` or `authSource: "mcp"`. A unique-constraint violation on (user × service × authSource) returns 409. Inherited connections are never created via the API; they appear automatically from the reach probes.
-
-Rate limits: POST/DELETE 20 req/min; validate 3 req/min.
+`connections.add` takes the same discriminated union the old POST body did — `authSource: "token"` or
+`authSource: "mcp"`. A unique-constraint violation on (user × service × authSource) is refused.
+Inherited connections are never created this way; they appear automatically from the reach probes.
+There is no validate action any more — a new token connection starts and stays `needs-attention`
+until something else observes it working.
 
 ---
 

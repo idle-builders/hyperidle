@@ -100,7 +100,6 @@ async function seedTeam(db: HyperIdleDb, teamId: string, teamName: string): Prom
 	await db.insert(teams).values({
 		id: teamId,
 		name: teamName,
-		phase: "build",
 		createdAt: NOW,
 	});
 }

@@ -5,13 +5,13 @@
  * Each story injects its own data via the `_data` prop so states are rendered
  * deterministically without relying on API calls or module mocking.
  *
- * @lore AF8 W2: Stories previously all called useNotifications() with no mock,
- * rendering the same (API-error) state. Now each story passes `_data` to drive
- * its distinct loading/error/empty/populated state independently.
+ * @lore BC5 T10: rows are inbox items over `ChangeRow` now — `typeKey`/
+ * `urgency`/`sourceLink`/`createdAt` are gone with the notification-type
+ * registry; a row is `{ change, seenAt, readAt }` (architecture.md §8).
  */
 
 import type { JSX } from "react";
-import type { NotificationRow, UseNotificationsResult } from "../hooks/useNotifications.js";
+import type { InboxItem, UseNotificationsResult } from "../hooks/useNotifications.js";
 import { NotificationPopover } from "./NotificationPopover";
 
 export default {
@@ -23,7 +23,6 @@ export default {
 const noop = (): void => undefined;
 const noopAsync = async (): Promise<void> => undefined;
 const noopAsyncId = async (_id: string): Promise<void> => undefined;
-const noopAsyncKey = async (_key: string): Promise<void> => undefined;
 
 function makeData(overrides: Partial<UseNotificationsResult>): UseNotificationsResult {
 	return {
@@ -33,49 +32,64 @@ function makeData(overrides: Partial<UseNotificationsResult>): UseNotificationsR
 		refetch: noopAsync,
 		markSeen: noopAsync,
 		markRead: noopAsyncId,
-		muteType: noopAsyncKey,
 		...overrides,
 	};
 }
 
-const sampleRows: NotificationRow[] = [
+const sampleRows: InboxItem[] = [
 	{
-		id: "notif-1",
-		typeKey: "review_request",
-		urgency: "immediate",
-		title: "Review needed: Ambrovia v2 deploy plan",
-		sourceLink: "/conversations/thread-review",
-		createdAt: new Date(Date.now() - 4 * 60 * 1000).toISOString(),
+		change: {
+			id: "change-1",
+			object: "thread",
+			objectId: "thread-review",
+			kind: "message",
+			actor: "u-reviewer",
+			before: null,
+			after: {},
+			at: new Date(Date.now() - 4 * 60 * 1000).toISOString(),
+		},
 		seenAt: null,
 		readAt: null,
 	},
 	{
-		id: "notif-2",
-		typeKey: "blocker_alert",
-		urgency: "immediate",
-		title: "Build pipeline is blocked on failing type-checks",
-		sourceLink: "/conversations/thread-blocker",
-		createdAt: new Date(Date.now() - 25 * 60 * 1000).toISOString(),
+		change: {
+			id: "change-2",
+			object: "task",
+			objectId: "task-blocker",
+			kind: "changed",
+			actor: "u-founder",
+			before: {},
+			after: {},
+			at: new Date(Date.now() - 25 * 60 * 1000).toISOString(),
+		},
 		seenAt: null,
 		readAt: null,
 	},
 	{
-		id: "notif-3",
-		typeKey: "blocker_alert",
-		urgency: "immediate",
-		title: "Deploy pipeline is blocked on a failing smoke test",
-		sourceLink: "/conversations/thread-blocker-2",
-		createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+		change: {
+			id: "change-3",
+			object: "task",
+			objectId: "task-blocker-2",
+			kind: "changed",
+			actor: "u-founder",
+			before: {},
+			after: {},
+			at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+		},
 		seenAt: null,
 		readAt: null,
 	},
 	{
-		id: "notif-4",
-		typeKey: "review_request",
-		urgency: "ambient",
-		title: "Low-priority review: documentation update",
-		sourceLink: "/conversations/thread-ambient",
-		createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
+		change: {
+			id: "change-4",
+			object: "document",
+			objectId: "doc-ambient",
+			kind: "changed",
+			actor: "u-writer",
+			before: {},
+			after: {},
+			at: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
+		},
 		seenAt: "2024-01-01T00:00:00Z",
 		readAt: null,
 	},
@@ -120,7 +134,7 @@ export function ErrorState(): JSX.Element {
 	);
 }
 
-/** Populated: multiple notification rows (immediate + ambient). */
+/** Populated: multiple inbox rows. */
 export function Populated(): JSX.Element {
 	return (
 		<div style={{ height: "600px", position: "relative" }}>

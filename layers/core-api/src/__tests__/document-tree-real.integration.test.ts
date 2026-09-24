@@ -319,7 +319,7 @@ async function assembleIntoSandbox(
 				agentId: AGENT_ID,
 				agentRole: "builder",
 				teamId: TEAM_ID,
-				isRoutine: false,
+				taskFree: false,
 				sourceKind: null,
 				sourceId: null,
 				sourceCorrelation: null,

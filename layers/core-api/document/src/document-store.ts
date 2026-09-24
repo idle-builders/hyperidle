@@ -97,7 +97,7 @@ export async function walkDocumentAncestorChain(
  * from `assertParentInvariants`).
  *
  * Only evaluated when the new parent is a `document` — a task/thread/
- * routine/agent parent inherits nothing and is never part of a cycle
+ * subscription/agent parent inherits nothing and is never part of a cycle
  * (architecture.md §6.6 note; existence of those other four parent kinds is
  * not this store's job — `documents` is the only table this package owns,
  * per `table-owners.json`).

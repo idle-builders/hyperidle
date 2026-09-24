@@ -6,7 +6,7 @@ import type {
 	AgentSessionSourceKind,
 	BakedContextBundle,
 	BakedContextDocument,
-	RoutineTriggerEvent,
+	ChangeRow,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import type { Manifest, ManifestEntry } from "./manifest-types.js";
@@ -14,19 +14,17 @@ import type { Manifest, ManifestEntry } from "./manifest-types.js";
 /**
  * AU21 §9 Increment 12 (Decision H3), Wave C — `context.ts` is now pure
  * format/write. Every DB-reading path (`fetchAllForLayer`/`rankAndBudget`/
- * `buildSessionContextData`/`buildRoutineSessionContextData`/`assembleContext`)
- * is DELETED, not seam-routed — the entity content (task/bet/agent/team or
- * routine/agent/team) + the ranked+budgeted knowledge bundle are baked at
- * EMIT time by each per-kind resolver (`@hyperidle/work`'s
- * `task-run-resolver.ts`, `@hyperidle/document`'s
- * `knowledge-action-resolver.ts`, `@hyperidle/routine`'s
- * `resolveRoutineRunRequest`)
+ * `buildSessionContextData`/`assembleContext`) is DELETED, not seam-routed —
+ * the entity content (task/bet/agent/team or subscription/agent/team) + the
+ * ranked+budgeted knowledge bundle are baked at EMIT time by each per-kind
+ * resolver (`@hyperidle/work`'s `task-run-resolver.ts`, `@hyperidle/document`'s
+ * `knowledge-action-resolver.ts`, the user module's subscription fire)
  * calling the shared `@hyperidle/document`'s `assembleSessionDocuments`
  * (Wave A) — the `requireRunnableAgent` precedent. `assembleAgentContext`
  * below consumes the baked `contextBundle` carried on the session request and
  * writes `context/session.toon` + the nested `knowledge/**` tree — ZERO db
  * reads, zero `ContextAssemblyPorts` domain members (`knowledge`/`work`/
- * `users`/`routine`/`org` are gone; only `filesystems` remains, for
+ * `users`/`org` are gone; only `filesystems` remains, for
  * `beginAgentWriteback`'s watcher).
  */
 
@@ -49,7 +47,7 @@ interface FilesystemsReader {
 /**
  * The deps-free surface `assembleAgentContext`/`beginAgentWriteback` need.
  * Shrunk to `filesystems` only (Increment 12 Wave C) — every domain-reading
- * member (`knowledge`/`work`/`users`/`routine`/`org`) is deleted; nothing in
+ * member (`knowledge`/`work`/`users`/`org`) is deleted; nothing in
  * this file reads core-api domain state anymore.
  */
 interface ContextAssemblyPorts {
@@ -97,56 +95,6 @@ function sessionContextDataFromBundle(
 	};
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// AA2: Routine session context
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Context data for a routine session (AA2).
- * Contains routine + agent + team — no task or bet fields.
- *
- * @lore AA2/AU1: Routine sessions MUST NOT read task/bet context. They are
- * task-free sessions; their content comes exclusively from the baked
- * `kind:"routine"` contextBundle (Increment 12 Wave C), never a task/bet read.
- */
-interface RoutineSessionContextData {
-	routine: {
-		id: string;
-		name: string;
-		/** BA1 D3: one column, one field — replaces `description`. */
-		prompt: string | null;
-		lastRunSummary: string | null;
-	};
-	agent: {
-		id: string;
-		name: string;
-		role: string;
-	};
-	/** BA1 D4: nullable — the owner agent may belong to no team. */
-	team: {
-		id: string;
-		name: string;
-	} | null;
-	/**
-	 * BA9c: The event that caused this routine to fire. Absent for clock-fired
-	 * (heartbeat/calendar) routines.
-	 */
-	triggerEvent?: RoutineTriggerEvent;
-}
-
-/** Map a `kind:"routine"` baked `contextBundle` onto `RoutineSessionContextData` — a pure passthrough. */
-function routineSessionContextDataFromBundle(
-	bundle: Extract<BakedContextBundle, { kind: "routine" }>,
-): RoutineSessionContextData {
-	return {
-		routine: bundle.routine,
-		agent: bundle.agent,
-		team: bundle.team,
-		// BA9c: thread through the trigger event (absent for clock-fired runs).
-		...(bundle.triggerEvent !== undefined ? { triggerEvent: bundle.triggerEvent } : {}),
-	};
-}
-
 /**
  * Encode an object into TOON format (flat key-path lines).
  * Inlined from the deleted @hyperidle/toon-codec package — encode-only,
@@ -190,8 +138,55 @@ function flattenToLines(value: unknown, prefix: string, lines: string[]): void {
 	lines.push(`${prefix}: ${String(value)}`);
 }
 
-/** Build session.toon content from a task-or-routine session's derived context data. */
-function buildSessionContextToon(data: SessionContextData | RoutineSessionContextData): string {
+// ─────────────────────────────────────────────────────────────────────────────
+// Subscription session context
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Context data for a subscription session.
+ * Contains subscription + agent + team — no task/bet fields; a subscription
+ * session is task-free, its content comes exclusively from the baked
+ * `kind:"subscription"` contextBundle.
+ */
+interface SubscriptionSessionContextData {
+	subscription: {
+		id: string;
+		event: string | null;
+		schedule: string | null;
+	};
+	/** The subscription's own instruction — the `prompt` document's body, or null when it carries none. */
+	prompt: string | null;
+	/** The change that woke this subscription, or null for a schedule tick. */
+	change: ChangeRow | null;
+	agent: {
+		id: string;
+		name: string;
+		role: string;
+	};
+	/** The subscriber's effective team, or null for a factory-wide agent. */
+	team: {
+		id: string;
+		name: string;
+	} | null;
+}
+
+/** Map a `kind:"subscription"` baked `contextBundle` onto `SubscriptionSessionContextData` — a pure passthrough. */
+function subscriptionSessionContextDataFromBundle(
+	bundle: Extract<BakedContextBundle, { kind: "subscription" }>,
+): SubscriptionSessionContextData {
+	return {
+		subscription: bundle.subscription,
+		prompt: bundle.prompt,
+		change: bundle.change,
+		agent: bundle.agent,
+		team: bundle.team,
+	};
+}
+
+/** Build session.toon content from a task/subscription session's derived context data. */
+function buildSessionContextToon(
+	data: SessionContextData | SubscriptionSessionContextData,
+): string {
 	return encodeToon(data);
 }
 
@@ -443,128 +438,69 @@ function writeSandboxAgentsMd(sandboxPath: string, assembledPrompt: string): voi
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AA2: Routine prompt assembly
+// Subscription prompt assembly
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Input to routine prompt assembly (AA2). */
-interface RoutinePromptCompositionInput {
+/** Input to subscription prompt assembly. */
+interface SubscriptionPromptCompositionInput {
 	readonly systemPromptText: string;
-	/** Routine session context data — no task/bet fields. */
-	readonly context: RoutineSessionContextData;
+	/** Subscription session context data — no task/bet fields. */
+	readonly context: SubscriptionSessionContextData;
 	readonly tools: readonly ToolSummary[];
 	readonly sandboxPath: string;
+	/**
+	 * A one-line, pre-rendered reminder that this session's only satisfying
+	 * return action is `return_status` — the self-check tool, never a forced
+	 * `send_message` (a subscription wake speaks only when its own
+	 * instruction asks it to) — named with the LITERAL tool name the selected
+	 * harness exposes. Computed by the caller (`provisioner.ts`'s
+	 * `requiresReturnStatusReturn` + `literalToolNamerForAdapterType`, the
+	 * same pair `assembleTaskFreePrompt` uses) so this module never needs to
+	 * import the harness-protocol return-action vocabulary itself. A
+	 * subscription wake has no calling thread to infer this from — without
+	 * the line here, the agent's only chance to learn it must call
+	 * `return_status` is the reactive forced-return message, which is not
+	 * every harness's most reliable channel. Absent ⇒ no line (matches
+	 * `assembleTaskFreePrompt`'s empty-string degrade).
+	 */
+	readonly returnOrientation?: string;
+}
+
+/** A rendered change value over this many characters is cut, with a pointer back to the object. */
+const CHANGE_RENDER_CHAR_LIMIT = 2000;
+
+/** Render a change's `before`/`after` value, cut at the char limit rather than dumped whole. */
+function renderChangeValue(value: Record<string, unknown> | null): string {
+	if (value === null) return "(none)";
+	const json = JSON.stringify(value, null, 2);
+	if (json.length <= CHANGE_RENDER_CHAR_LIMIT) return json;
+	return `${json.slice(0, CHANGE_RENDER_CHAR_LIMIT)}\n… (open the object for the rest)`;
 }
 
 /**
- * Build the routine section markdown (AA2).
- * Replaces buildTaskSection for routine sessions — shows routine name/purpose,
- * last run summary, and (BA9c) the trigger event context when this run was
- * caused by a domain event rather than a clock tick.
+ * Build the subscription section markdown — shows the subscription's own
+ * instruction (its `prompt` document) and what happened (the change that
+ * woke it, or a note that this run came from a schedule).
  */
-function buildRoutineTaskSection(context: RoutineSessionContextData): string {
-	const parts: string[] = ["## Routine", "", `**Name:** ${context.routine.name}`];
+function buildSubscriptionSection(context: SubscriptionSessionContextData): string {
+	const trigger = context.subscription.event ?? context.subscription.schedule ?? "unknown";
+	const parts: string[] = ["## Subscription", "", `**Subscribed to:** ${trigger}`];
 
-	if (context.routine.prompt) {
-		parts.push("", "### Instruction", "", context.routine.prompt);
+	if (context.prompt) {
+		parts.push("", "### Instruction", "", context.prompt);
 	}
 
-	// BA9c: render trigger event context when present.
-	if (context.triggerEvent) {
-		const ev = context.triggerEvent;
-		const eventTime = new Date(ev.timestamp).toISOString();
-		parts.push("");
-		parts.push("### Trigger Event");
-		parts.push("");
-		parts.push(`**Event type:** ${ev.type}`);
-		parts.push(`**When:** ${eventTime}`);
-		if (ev.transition) {
-			parts.push(`**Transition:** ${ev.transition.from} → ${ev.transition.to}`);
-		}
-		if (ev.subject) {
-			if (ev.subject.kind === "task") {
-				parts.push("");
-				parts.push("**Task that triggered this run:**");
-				parts.push(`- **Title:** ${ev.subject.task.title}`);
-				parts.push(`- **ID:** ${ev.subject.task.id}`);
-				parts.push(`- **State:** ${ev.subject.task.state}`);
-				if (ev.subject.task.description) {
-					parts.push(`- **Description:** ${ev.subject.task.description}`);
-				}
-				if (ev.subject.ancestors.length > 0) {
-					parts.push("");
-					parts.push("**Ancestor tasks (root first):**");
-					for (const ancestor of ev.subject.ancestors) {
-						const detail = ancestor.description ? ` — ${ancestor.description}` : "";
-						parts.push(`- **${ancestor.title}**${detail}`);
-					}
-				}
-			} else if (ev.subject.kind === "generic") {
-				parts.push("");
-				const kindLabel =
-					ev.subject.entityKind.charAt(0).toUpperCase() + ev.subject.entityKind.slice(1);
-				parts.push(`**${kindLabel} that triggered this run:**`);
-				parts.push(`- **ID:** ${ev.subject.entityId}`);
-				if (ev.subject.actorId) {
-					parts.push(`- **Actor:** ${ev.subject.actorId}`);
-				}
-			} else if (ev.subject.kind === "thread") {
-				parts.push("");
-				parts.push("**Thread that triggered this run:**");
-				parts.push(`- **Host:** ${ev.subject.thread.hostKind} ${ev.subject.thread.hostId}`);
-				parts.push(
-					`- **State:** ${ev.subject.thread.resolvedAt ? `resolved (${ev.subject.thread.resolvedAt})` : "open"}`,
-				);
-				if (ev.subject.actorId) {
-					parts.push(`- **Actor:** ${ev.subject.actorId}`);
-				}
-			} else if (ev.subject.kind === "team") {
-				parts.push("");
-				parts.push("**Team that triggered this run:**");
-				parts.push(`- **Name:** ${ev.subject.team.name}`);
-				if (ev.subject.actorId) {
-					parts.push(`- **Actor:** ${ev.subject.actorId}`);
-				}
-			} else if (ev.subject.kind === "session") {
-				parts.push("");
-				parts.push("**Session that triggered this run:**");
-				parts.push(`- **State:** ${ev.subject.session.state}`);
-				parts.push(`- **Agent:** ${ev.subject.session.agentId}`);
-				if (ev.subject.session.outcome) {
-					parts.push(`- **Outcome:** ${ev.subject.session.outcome}`);
-				}
-				if (ev.subject.actorId) {
-					parts.push(`- **Actor:** ${ev.subject.actorId}`);
-				}
-			} else if (ev.subject.kind === "agent") {
-				parts.push("");
-				parts.push("**Agent that triggered this run:**");
-				parts.push(`- **Name:** ${ev.subject.agent.name}`);
-				parts.push(`- **Role:** ${ev.subject.agent.role}`);
-				if (ev.subject.actorId) {
-					parts.push(`- **Actor:** ${ev.subject.actorId}`);
-				}
-			} else if (ev.subject.kind === "user") {
-				parts.push("");
-				parts.push("**User that triggered this run:**");
-				parts.push(`- **Name:** ${ev.subject.user.name}`);
-				parts.push(`- **Role:** ${ev.subject.user.role}`);
-				if (ev.subject.actorId) {
-					parts.push(`- **Actor:** ${ev.subject.actorId}`);
-				}
-			}
-		} else {
-			parts.push("**Subject:** no identifiable entity in this event");
-		}
-	}
-
-	parts.push("");
-	parts.push("### Last Run Summary");
-	parts.push("");
-
-	if (context.routine.lastRunSummary) {
-		parts.push(context.routine.lastRunSummary);
+	parts.push("", "### What happened", "");
+	if (context.change) {
+		const change = context.change;
+		parts.push(`**Object:** ${change.object} ${change.objectId}`);
+		parts.push(`**Kind:** ${change.kind}`);
+		parts.push(`**Actor:** ${change.actor}`);
+		parts.push(`**At:** ${change.at}`);
+		parts.push("", "**Before:**", "", renderChangeValue(change.before));
+		parts.push("", "**After:**", "", renderChangeValue(change.after));
 	} else {
-		parts.push("This is the first run of this routine.");
+		parts.push("This run was woken by a schedule, not a change.");
 	}
 
 	parts.push("");
@@ -573,26 +509,21 @@ function buildRoutineTaskSection(context: RoutineSessionContextData): string {
 }
 
 /**
- * Assemble a complete routine session context prompt (AA2).
- * Parallel to assemblePrompt but uses buildRoutineTaskSection instead of buildTaskSection.
- *
- * @lore AA2: assembleRoutinePrompt is a standalone function (not a branch inside
- * assemblePrompt) because the context types are fundamentally different:
- * RoutineSessionContextData has no task/bet fields. Keeping them separate avoids
- * a type union that would require discriminated checks in every section builder.
- * @lore AK1: Renamed from composeRoutinePrompt (harness-vocab rename).
+ * Assemble a complete subscription session context prompt.
+ * Parallel to `assemblePrompt` but uses `buildSubscriptionSection` instead of
+ * `buildTaskSection` — a subscription session has no task/bet fields.
  */
-function assembleRoutinePrompt(input: RoutinePromptCompositionInput): PromptCompositionResult {
-	const { systemPromptText, context, tools, sandboxPath: _sandboxPath } = input;
+function assembleSubscriptionPrompt(
+	input: SubscriptionPromptCompositionInput,
+): PromptCompositionResult {
+	const { systemPromptText, context, tools, sandboxPath: _sandboxPath, returnOrientation } = input;
 
 	// Build persona section from inline text (same as assemblePrompt)
 	let personaSection = "";
 	if (systemPromptText.length > 0) {
 		const stripped = stripFrontmatter(systemPromptText);
-		// For routine sessions, use team name as the product variable. BA1 D4:
-		// the owner agent may belong to no team — `substituteTemplateVars`
-		// leaves `{{product}}` literal when a variable is absent, so the
-		// empty string is the right fallback rather than a visible defect.
+		// For subscription sessions, use team name as the product variable —
+		// a factory-wide agent's subscription may belong to no team.
 		const vars: Record<string, string> = {
 			product: context.team?.name ?? "",
 			community: context.agent.role,
@@ -609,7 +540,7 @@ function assembleRoutinePrompt(input: RoutinePromptCompositionInput): PromptComp
 
 	if (personaToolsTokens > PERSONA_TOOLS_TOKEN_BUDGET && personaSection.length > 0) {
 		logger.warn(
-			`Routine persona + tools section exceeds ${PERSONA_TOOLS_TOKEN_BUDGET} tokens (${personaToolsTokens}). Truncating persona.`,
+			`Subscription persona + tools section exceeds ${PERSONA_TOOLS_TOKEN_BUDGET} tokens (${personaToolsTokens}). Truncating persona.`,
 		);
 		personaSection = `${truncatePersona(personaSection)}\n\n(Persona truncated to fit token budget.)`;
 		personaToolsTokens = approxTokenCount(personaSection) + toolsTokens;
@@ -622,8 +553,12 @@ function assembleRoutinePrompt(input: RoutinePromptCompositionInput): PromptComp
 		parts.push("## Identity", "", personaSection.trimEnd(), "");
 	}
 
-	const routineSection = buildRoutineTaskSection(context);
-	parts.push(routineSection);
+	const subscriptionSection = buildSubscriptionSection(context);
+	parts.push(subscriptionSection);
+
+	if (returnOrientation) {
+		parts.push(returnOrientation, "");
+	}
 
 	parts.push(toolsContent);
 
@@ -968,8 +903,8 @@ interface ContextAssemblyResult {
 }
 
 /**
- * Write a full (`kind:"task"` or `kind:"routine"`) baked contextBundle into
- * the sandbox: clean + recreate the directory structure, write the
+ * Write a full (`kind:"task"` or `kind:"subscription"`) baked contextBundle
+ * into the sandbox: clean + recreate the directory structure, write the
  * ranked+budgeted knowledge items to their zones, write `context/session.toon`,
  * set `context/` read-only, and write the manifest. ZERO db reads — every
  * byte comes from `bundle`.
@@ -977,7 +912,7 @@ interface ContextAssemblyResult {
 function writeContextBundle(
 	sandboxPath: string,
 	sessionId: string,
-	bundle: Extract<BakedContextBundle, { kind: "task" | "routine" }>,
+	bundle: Extract<BakedContextBundle, { kind: "task" | "subscription" }>,
 	agentId: string,
 ): ContextAssemblyResult {
 	const start = performance.now();
@@ -993,7 +928,7 @@ function writeContextBundle(
 	const sessionToon =
 		bundle.kind === "task"
 			? buildSessionContextToon(sessionContextDataFromBundle(bundle))
-			: buildSessionContextToon(routineSessionContextDataFromBundle(bundle));
+			: buildSessionContextToon(subscriptionSessionContextDataFromBundle(bundle));
 	fs.writeFileSync(path.join(sandboxPath, "context/session.toon"), sessionToon);
 
 	setContextReadOnly(sandboxPath);
@@ -1026,14 +961,15 @@ interface AssembleAgentContextInput {
 	readonly agentId: string;
 	readonly agentRole: string;
 	readonly teamId: string | null;
-	readonly isRoutine: boolean;
+	/** True for a subscription-fired session — no task/bet context to read. */
+	readonly taskFree: boolean;
 	readonly sourceKind: AgentSessionSourceKind | null;
 	readonly sourceId: string | null;
 	readonly sourceCorrelation: AgentSessionSourceCorrelation | null;
 	/**
 	 * AU21 §9 Increment 12 (Decision H3) — the baked entity+knowledge bundle a
-	 * `task_run` (`kind:"task"`) or `routine_run`
-	 * (`kind:"routine"`) session's sandbox is built from. Absent for
+	 * `task_run` (`kind:"task"`) or `subscription_run`
+	 * (`kind:"subscription"`) session's sandbox is built from. Absent for
 	 * `knowledge_action` (`kind:"knowledge"` bundles carry no established
 	 * sandbox-context shape yet — a knowledge-review turn keeps today's
 	 * task-free minimal stub) and for any session with no bundle at all
@@ -1056,8 +992,8 @@ interface AgentWritebackHandle {
 /** A baked bundle this file's sandbox-writing path knows how to consume. */
 function isWritableBundle(
 	bundle: BakedContextBundle | undefined,
-): bundle is Extract<BakedContextBundle, { kind: "task" | "routine" }> {
-	return bundle !== undefined && (bundle.kind === "task" || bundle.kind === "routine");
+): bundle is Extract<BakedContextBundle, { kind: "task" | "subscription" }> {
+	return bundle !== undefined && (bundle.kind === "task" || bundle.kind === "subscription");
 }
 
 /**
@@ -1169,7 +1105,9 @@ interface ContextAssembler {
 		readonly eventBus: EventBus;
 	}): AgentWritebackHandle;
 	assemblePrompt(input: PromptCompositionInput): Promise<PromptCompositionResult>;
-	assembleRoutinePrompt(input: RoutinePromptCompositionInput): Promise<PromptCompositionResult>;
+	assembleSubscriptionPrompt(
+		input: SubscriptionPromptCompositionInput,
+	): Promise<PromptCompositionResult>;
 	writeSandboxAgentsMd(sandboxPath: string, assembledPrompt: string): void;
 	stripFrontmatter(content: string): string;
 	substituteTemplateVars(template: string, vars: Record<string, string>): string;
@@ -1185,7 +1123,7 @@ export function createContextAssembler(ports: ContextAssemblyPorts): ContextAsse
 		assembleAgentContext: (input) => Promise.resolve(assembleAgentContext(input)),
 		beginAgentWriteback: (input) => beginAgentWriteback(input, ports),
 		assemblePrompt: (input) => Promise.resolve(assemblePrompt(input)),
-		assembleRoutinePrompt: (input) => Promise.resolve(assembleRoutinePrompt(input)),
+		assembleSubscriptionPrompt: (input) => Promise.resolve(assembleSubscriptionPrompt(input)),
 		writeSandboxAgentsMd,
 		stripFrontmatter,
 		substituteTemplateVars,
@@ -1196,5 +1134,5 @@ export function createContextAssembler(ports: ContextAssemblyPorts): ContextAsse
 	};
 }
 
-export type { AssembleAgentContextInput, RoutineSessionContextData, SessionContextData };
-export { routineSessionContextDataFromBundle, sessionContextDataFromBundle };
+export type { AssembleAgentContextInput, SessionContextData, SubscriptionSessionContextData };
+export { sessionContextDataFromBundle, subscriptionSessionContextDataFromBundle };

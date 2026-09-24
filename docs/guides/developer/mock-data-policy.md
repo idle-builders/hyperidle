@@ -59,7 +59,7 @@ The surface is verifiable by path alone — no content inspection. Adding a new 
 The sanctioned fictional name for demo data is **`Acme`** (team id `demo-team-acme`, agents `demo-agent-*`). Use it for:
 
 - Test fixtures and stories that need a believable team name
-- Setup-cli demo mode (`--demo` flag) — seeds the lived-in six-week Acme world (tasks, threads/reviews, knowledge, sessions, routines) into a fresh database; opt-in only, never on a normal boot path
+- Setup-cli demo mode (`--demo` flag) — seeds the lived-in six-week Acme world (tasks, threads/reviews, knowledge, sessions, subscriptions) into a fresh database; opt-in only, never on a normal boot path
 - Design mockups needing realistic example content
 
 Any other clearly-fictional placeholder (`ACME Corp`, `Test Team`, `Demo Co`) is fine too — as long as it is not `Nimmly`.

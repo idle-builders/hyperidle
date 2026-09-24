@@ -37,7 +37,8 @@ describe("A2: Migration", () => {
 				"server_config",
 				"documents",
 				"messages",
-				"routines",
+				// @lore BC5 T7b migration 0089: `routines` renamed `subscriptions`.
+				"subscriptions",
 				"sessions",
 				"tasks",
 				"teams",
@@ -76,6 +77,13 @@ describe("A2: Migration", () => {
 		expect(tableNames).not.toContain("knowledge_app_projection");
 		expect(tableNames).not.toContain("knowledge_conflicts");
 		expect(tableNames).not.toContain("knowledge_access_log");
+		// @lore BC5 T7b migration 0089: `routines`/`routine_runs`/
+		// `notification_queue` dropped outright, converted to `subscriptions`
+		// (and `inbox`, added in 0088) with no replacement for the run-history
+		// table. Exact-absence proves the DROP TABLEs ran.
+		expect(tableNames).not.toContain("routines");
+		expect(tableNames).not.toContain("routine_runs");
+		expect(tableNames).not.toContain("notification_queue");
 		expect(tableNames.length).toBeGreaterThanOrEqual(12);
 	});
 
@@ -85,12 +93,9 @@ describe("A2: Migration", () => {
 		await db.insert(teams).values({
 			id: "test-prod",
 			name: "Test",
-			phase: "build",
 			createdAt: now,
-			capacity: 7,
 			// @lore BB1: `activeBets` column dropped — WIP is counted live via
 			// countTeamTasksInProgress. No insert needed.
-			formedAt: now,
 		});
 
 		const result = await db.select().from(teams);
@@ -98,9 +103,7 @@ describe("A2: Migration", () => {
 		expect(result[0]).toMatchObject({
 			id: "test-prod",
 			name: "Test",
-			capacity: 7,
-			// @lore BB1: `activeBets` column dropped — not in schema, not asserted.
-			formedAt: now,
+			createdAt: now,
 		});
 	});
 

@@ -4,10 +4,12 @@ import type {
 	ActionResult,
 	AdjustThreadInput,
 	DocumentRow,
+	EditUserInput,
 	SearchDocumentsInput,
 	SendMessageInput,
 	SendMessageOutput,
 	ThreadView,
+	UserView,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 
@@ -38,11 +40,11 @@ export interface ActionContext {
 	 * @lore document-module review fix: `true` only for an in-process,
 	 * system-initiated call — set by the composition root itself where it
 	 * builds an `ActionContext` by hand (`routes/agent-identity.ts`'s
-	 * `ctxFor`, `routes/routines-routes.ts`'s route handlers,
+	 * `ctxFor`, `@hyperidle/user`'s subscription fire/clock and user actions,
 	 * `routes/plugins.ts`'s `ctxFor`), never by the HTTP door
 	 * (`actions-router.ts`) or the MCP tool loop (`actions-as-tools.ts`). The
 	 * one thing it gates: `edit_document`'s `forbidden_parent_kind` invariant,
-	 * which refuses a client-named `agent`/`routine` parent — those two kinds
+	 * which refuses a client-named `agent`/`subscription` parent — those two kinds
 	 * are attached exclusively by the system, never by a client (the rule the
 	 * pre-item `routes/knowledge.ts`'s `CLIENT_WRITABLE_PARENT_KINDS`
 	 * enforced).
@@ -80,11 +82,19 @@ export type AdjustThreadRunFn = (
 	input: AdjustThreadInput,
 ) => Promise<ActionResult<ThreadView>>;
 /**
+ * `edit_user`'s own bound `run` — the crashed-session health
+ * reaction writes the agent's `health` through it, the same canonical-shape
+ * idiom as `SendMessageRunFn`/`AdjustThreadRunFn`.
+ */
+export type EditUserRunFn = (
+	ctx: ActionContext,
+	input: EditUserInput,
+) => Promise<ActionResult<UserView>>;
+/**
  * `search_documents`'s own bound `run` — the ONLY door a document-reading
  * neighbour ever gets onto `@hyperidle/document` (architecture.md §6.7,
  * §8.1). One canonical shape here rather than a private mirror in every
- * composition root that needs it (`compose.ts`, `task-run-resolver-bindings.ts`,
- * `routine-scheduler-bindings.ts`).
+ * composition root that needs it (`compose.ts`, `task-run-resolver-bindings.ts`).
  */
 export type SearchDocumentsRunFn = (
 	ctx: ActionContext,

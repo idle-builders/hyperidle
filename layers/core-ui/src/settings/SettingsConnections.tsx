@@ -23,7 +23,7 @@
 import type {
 	ConnectionAuthSource,
 	ConnectionHealth,
-	ServiceConnectionView,
+	ConnectionView,
 } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useState } from "react";
 // hearth-internal-padding
@@ -41,7 +41,7 @@ import {
 	type Status,
 	StatusChip,
 } from "../ds";
-import { apiFetch } from "../services/api-fetch.js";
+import { call } from "../services/call.js";
 
 // ---------------------------------------------------------------------------
 // Mappers
@@ -72,7 +72,7 @@ function ServiceMark({ service }: { service: string }): JSX.Element {
 }
 
 /** Health-sort within a group: needs-attention floats to the top. */
-function bySeverity(a: ServiceConnectionView, b: ServiceConnectionView): number {
+function bySeverity(a: ConnectionView, b: ConnectionView): number {
 	const rank = (h: ConnectionHealth) => (h === "working" ? 1 : 0);
 	return rank(a.health) - rank(b.health) || a.service.localeCompare(b.service);
 }
@@ -83,11 +83,17 @@ function bySeverity(a: ServiceConnectionView, b: ServiceConnectionView): number 
 
 interface AddConnectionDialogProps {
 	open: boolean;
+	userId: string;
 	onClose: () => void;
 	onAdded: () => void;
 }
 
-function AddConnectionDialog({ open, onClose, onAdded }: AddConnectionDialogProps): JSX.Element {
+function AddConnectionDialog({
+	open,
+	userId,
+	onClose,
+	onAdded,
+}: AddConnectionDialogProps): JSX.Element {
 	const [source, setSource] = useState<"token" | "mcp">("token");
 	const [service, setService] = useState("");
 	const [token, setToken] = useState("");
@@ -98,19 +104,14 @@ function AddConnectionDialog({ open, onClose, onAdded }: AddConnectionDialogProp
 	const handleSubmit = useCallback(async () => {
 		setSubmitting(true);
 		setError(null);
+		const entry =
+			source === "token"
+				? { service, authSource: "token" as const, token }
+				: { service: service || undefined, authSource: "mcp" as const, serverUrl };
 		try {
-			const body =
-				source === "token"
-					? { service, authSource: "token" as const, token }
-					: { service: service || undefined, authSource: "mcp" as const, serverUrl };
-			const res = await apiFetch("/api/connections", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(body),
-			});
-			if (!res.ok) {
-				const data = (await res.json()) as { error?: string };
-				setError(data.error ?? "Failed to add connection");
+			const result = await call("edit_user", { id: userId, connections: { add: [entry] } });
+			if (!result.ok) {
+				setError(result.problems[0]?.message ?? "Failed to add connection");
 				return;
 			}
 			onAdded();
@@ -124,7 +125,7 @@ function AddConnectionDialog({ open, onClose, onAdded }: AddConnectionDialogProp
 		} finally {
 			setSubmitting(false);
 		}
-	}, [source, service, token, serverUrl, onAdded, onClose]);
+	}, [source, service, token, serverUrl, userId, onAdded, onClose]);
 
 	return (
 		<Dialog
@@ -215,7 +216,7 @@ function AddConnectionDialog({ open, onClose, onAdded }: AddConnectionDialogProp
 // ---------------------------------------------------------------------------
 
 interface ConnectionRowProps {
-	connection: ServiceConnectionView;
+	connection: ConnectionView;
 	onRemove: (id: string) => Promise<void>;
 }
 
@@ -312,7 +313,7 @@ function ConnectionRow({ connection: c, onRemove }: ConnectionRowProps): JSX.Ele
 interface SourceGroupProps {
 	label: string;
 	help: string;
-	connections: ServiceConnectionView[];
+	connections: ConnectionView[];
 	autoDetected?: boolean;
 	onRemove: (id: string) => Promise<void>;
 }
@@ -357,7 +358,8 @@ function SourceGroup({
 // ---------------------------------------------------------------------------
 
 export function SettingsConnections(): JSX.Element {
-	const [connections, setConnections] = useState<ServiceConnectionView[]>([]);
+	const [connections, setConnections] = useState<ConnectionView[]>([]);
+	const [userId, setUserId] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [removeError, setRemoveError] = useState<string | null>(null);
@@ -367,13 +369,16 @@ export function SettingsConnections(): JSX.Element {
 		setLoading(true);
 		setError(null);
 		try {
-			const res = await apiFetch("/api/connections");
-			if (!res.ok) {
+			const result = await call("open_user", {});
+			if (!result.ok || result.data.user === null || result.data.connections === null) {
 				setError("failed");
 				return;
 			}
-			const data = (await res.json()) as unknown;
-			setConnections(Array.isArray(data) ? (data as ServiceConnectionView[]) : []);
+			setUserId(result.data.user.id);
+			setConnections([
+				...result.data.connections.connections,
+				...result.data.connections.inherited,
+			]);
 		} catch {
 			setError("failed");
 		} finally {
@@ -387,10 +392,11 @@ export function SettingsConnections(): JSX.Element {
 
 	const handleRemove = useCallback(
 		async (id: string): Promise<void> => {
+			if (!userId) return;
 			setRemoveError(null);
 			try {
-				const res = await apiFetch(`/api/connections/${id}`, { method: "DELETE" });
-				if (res.ok) {
+				const result = await call("edit_user", { id: userId, connections: { remove: [id] } });
+				if (result.ok) {
 					void loadConnections();
 				} else {
 					setRemoveError("Couldn't remove connection — please try again.");
@@ -399,7 +405,7 @@ export function SettingsConnections(): JSX.Element {
 				setRemoveError("Couldn't remove connection — please try again.");
 			}
 		},
-		[loadConnections],
+		[userId, loadConnections],
 	);
 
 	const inherited = connections.filter((c) => c.authSource === "inherited");
@@ -468,13 +474,16 @@ export function SettingsConnections(): JSX.Element {
 				</p>
 			) : null}
 
-			<AddConnectionDialog
-				open={dialogOpen}
-				onClose={() => setDialogOpen(false)}
-				onAdded={() => {
-					void loadConnections();
-				}}
-			/>
+			{userId ? (
+				<AddConnectionDialog
+					open={dialogOpen}
+					userId={userId}
+					onClose={() => setDialogOpen(false)}
+					onAdded={() => {
+						void loadConnections();
+					}}
+				/>
+			) : null}
 		</div>
 	);
 }

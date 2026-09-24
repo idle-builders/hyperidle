@@ -308,40 +308,12 @@ export function collectDoors(): Door[] {
 		extractScope(appFile, parse(appFile), "/api", null);
 	}
 
-	const toolFile = "layers/agent-orchestration/tool-handlers/src/tool-definitions.ts";
-	const tsf = parse(toolFile);
-	const tvisit = (node: ts.Node): void => {
-		if (
-			ts.isPropertyAssignment(node) &&
-			ts.isIdentifier(node.name) &&
-			node.name.text === "name" &&
-			ts.isStringLiteralLike(node.initializer)
-		) {
-			const name = node.initializer.text;
-			if (/^[a-z][a-z_]*$/.test(name)) {
-				let fn = "(top-level)";
-				let cur: ts.Node | undefined = node.parent;
-				while (cur) {
-					if (ts.isFunctionDeclaration(cur) && cur.name) {
-						fn = cur.name.text;
-						break;
-					}
-					cur = cur.parent;
-				}
-				doors.push({
-					kind: "agent",
-					label: `TOOL   ${name}`,
-					file: toolFile,
-					line: lineOf(tsf, node.getStart(tsf)),
-					detail: fn,
-					anchor: ts.isObjectLiteralExpression(node.parent) ? node.parent : node,
-				});
-			}
-		}
-		ts.forEachChild(node, tvisit);
-	};
-	tvisit(tsf);
-
+	// @lore BC5 T11: the hand-written tool registry (`tool-definitions.ts`,
+	// `name: "create_team" | "add_agent"`) is deleted — the last two
+	// hand-written tools go with the CoreApiPort seam they served. There is
+	// no replacement static list to scan; agent-side doors are now the
+	// action doors `collectDoors` already walks off `app.ts`, plus the
+	// worker/mcp HTTP doors below.
 	const workerFile = "layers/agent-orchestration/run-orchestration/src/worker-ingress.ts";
 	const wsf = parse(workerFile);
 	const wvisit = (node: ts.Node): void => {
@@ -696,10 +668,7 @@ export interface SeamEntry {
 	line: number;
 }
 
-const SEAM_FILES = [
-	"layers/agent-orchestration/src/services/core-api-port-composition.ts",
-	"layers/core-api/src/services/agent-orchestration-port-composition.ts",
-];
+const SEAM_FILES = ["layers/core-api/src/services/agent-orchestration-port-composition.ts"];
 
 function hcMethod(name: string): string | null {
 	switch (name) {
@@ -785,10 +754,7 @@ export interface DiBinding {
 const DI_BINDING_FILES = [
 	"layers/core-api/src/service-bootstrap.ts",
 	"layers/core-api/src/services/policy-bindings.ts",
-	"layers/core-api/src/services/routine-scheduler-bindings.ts",
 	"layers/core-api/src/services/task-run-resolver-bindings.ts",
-	"layers/agent-orchestration/src/services/tool-handlers-bindings.ts",
-	"layers/agent-orchestration/src/services/calling-thread-bindings.ts",
 	"layers/agent-orchestration/src/services/run-orchestration-composition.ts",
 ];
 

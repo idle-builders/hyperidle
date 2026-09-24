@@ -98,7 +98,7 @@ describe("agent session request repository", () => {
 	}
 	test("claimNextAgentSessionRequest claims exactly one pending request", async ({ db }) => {
 		const now = new Date().toISOString();
-		await db.insert(teams).values({ id: "team-3", name: "Team", phase: "build", createdAt: now });
+		await db.insert(teams).values({ id: "team-3", name: "Team", createdAt: now });
 		await db.insert(users).values([
 			{
 				id: "agent-3",
@@ -301,45 +301,42 @@ describe("agent session request repository", () => {
 	 * is gone; this one's subject is `insertIntentInternal`'s dedup early-return
 	 * and is very much alive — it is the case AU21 architecture §14 lists as
 	 * "Idempotency/dedup — STAY GREEN UNCHANGED". It belongs here because
-	 * `enqueueWorkIntent` lives in this package. Only the ARRANGEMENT changed:
-	 * the old routine world (teams/users/`user_skills`/routine + a real routine
-	 * run) existed to serve the four delegate-selection cases in that file —
-	 * `agent_work_intents` carries no foreign key on `source_id` or
-	 * `requested_by`, so dedup on (kind, sourceId, idempotencyKey) needs none of
-	 * it, and `user_skills` no longer exists to seed.
+	 * `enqueueWorkIntent` lives in this package. `agent_work_intents` carries no
+	 * foreign key on `source_id` or `requested_by`, so dedup on
+	 * (kind, sourceId, idempotencyKey) needs no seeded row at all.
 	 */
 	test("enqueueWorkIntent is idempotent on (kind, sourceId, idempotencyKey)", async ({ db }) => {
-		const runId = "au15-routine-idem-run";
+		const fireId = "au15-subscription-idem-fire";
 		const ownerAgentId = "au15-owner";
 		// AU44: bakedRequest required; drain is never called in this test so content is irrelevant.
 		const idemBaked = {
 			defaultAgentId: ownerAgentId,
-			sourceKind: "routine" as const,
-			sourceId: runId,
-			streamId: `routine:${runId}`,
-			sourceCorrelation: { routineId: "r", routineRunId: runId, teamId: "t" },
+			sourceKind: "subscription" as const,
+			sourceId: fireId,
+			streamId: `subscription:${fireId}`,
+			sourceCorrelation: { subscriptionId: "sub-1", teamId: "t" },
 		};
 		const first = await enqueueWorkIntent(db, {
-			kind: "routine_run",
-			sourceKind: "routine_run",
-			sourceId: runId,
+			kind: "subscription_run",
+			sourceKind: "subscription",
+			sourceId: fireId,
 			requestedBy: ownerAgentId,
-			idempotencyKey: `routine:${runId}`,
+			idempotencyKey: `subscription:${fireId}`,
 			bakedRequest: idemBaked,
 		});
 		const second = await enqueueWorkIntent(db, {
-			kind: "routine_run",
-			sourceKind: "routine_run",
-			sourceId: runId,
+			kind: "subscription_run",
+			sourceKind: "subscription",
+			sourceId: fireId,
 			requestedBy: ownerAgentId,
-			idempotencyKey: `routine:${runId}`,
+			idempotencyKey: `subscription:${fireId}`,
 			bakedRequest: idemBaked,
 		});
 		expect(second.id).toBe(first.id);
 		const rows = await db
 			.select()
 			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.sourceId, runId));
+			.where(eq(agentWorkIntents.sourceId, fireId));
 		expect(rows).toHaveLength(1);
 	});
 
@@ -377,9 +374,7 @@ describe("agent session request repository", () => {
 		db,
 	}) => {
 		const now = new Date().toISOString();
-		await db
-			.insert(teams)
-			.values({ id: "explicit-team", name: "Team", phase: "build", createdAt: now });
+		await db.insert(teams).values({ id: "explicit-team", name: "Team", createdAt: now });
 		await db.insert(users).values([
 			{
 				id: "explicit-agent",

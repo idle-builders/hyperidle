@@ -13,11 +13,14 @@ import {
 	expect,
 	makeDocumentRow,
 	makeTask,
-	makeTaskCardSummary,
+	type makeUserRow,
+	mockAgents,
 	mockDocument,
 	mockSearchDocuments,
+	mockSearchSessions,
+	mockSearchUsers,
 	mockTaskTree,
-	mockTeamDetail,
+	mockTeamPage,
 	test,
 } from "./fixtures";
 
@@ -34,44 +37,18 @@ async function mockTaskAndTeam(page: import("@playwright/test").Page) {
 			description: "# AG4 test task\n\nTest description",
 		}),
 	});
-	await mockTeamDetail(page, {
+	const roster: ReturnType<typeof makeUserRow>[] = [];
+	await mockSearchUsers(page, { rows: roster });
+	await mockTeamPage(page, {
 		teamId: TEAM_ID,
-		name: "AG4 Team",
+		teamName: "AG4 Team",
+		roster,
 		tasksInProgress: [
-			makeTaskCardSummary(ROOT_TASK_ID, {
-				title: "AG4 test task",
-				progressDone: 1,
-				progressTotal: 3,
-			}),
+			makeTask(ROOT_TASK_ID, { teamId: TEAM_ID, title: "AG4 test task", state: "in_progress" }),
 		],
-		routines: Array.from({ length: 12 }, (_, index) => ({
-			id: `routine-ag4-${index}`,
-			name: `AG4 Routine ${index}`,
-			state: "active",
-			scheduleLabel: "Daily",
-			agentName: "Agent 0",
-			agentInitials: "A0",
-			lastRunAt: null,
-			lastRunOutcome: null,
-			nextRunAt: null,
-		})),
 	});
-	await page.route("**/api/teams", async (route) => {
-		if (route.request().method() === "GET") {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({
-					teams: [{ id: TEAM_ID, name: "AG4 Team", phase: "build", active: true }],
-				}),
-			});
-		} else {
-			await route.continue();
-		}
-	});
-	await page.route("**/api/agents*", (route) =>
-		route.fulfill({ status: 200, contentType: "application/json", body: "[]" }),
-	);
+	await mockAgents(page, { agents: [] });
+	await mockSearchSessions(page, { rows: [] });
 	await page.route("**/api/artifacts*", async (route) => {
 		return route.fulfill({
 			status: 200,
@@ -82,48 +59,10 @@ async function mockTaskAndTeam(page: import("@playwright/test").Page) {
 }
 
 test.describe("AG4 — Back, Up, and Shortcuts", () => {
-	test("routine Navigate and temporal Back restore team scroll and row focus", async ({ page }) => {
-		await mockTaskAndTeam(page);
-		await page.route("**/api/routines/routine-ag4-11", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({
-					routine: {
-						id: "routine-ag4-11",
-						name: "AG4 Routine 11",
-						description: "A durable routine prompt.",
-						state: "active",
-						triggerType: "schedule",
-						triggerConfig: JSON.stringify({ cron: "0 8 * * *" }),
-						scheduleLabel: "Daily",
-						agentName: "Agent 0",
-						autonomyLevel: 2,
-						silent: false,
-						lastRunAt: null,
-						lastRunOutcome: null,
-						nextRunAt: null,
-						createdAt: "2026-08-13T08:00:00.000Z",
-					},
-					runs: [],
-				}),
-			});
-		});
-		await page.goto(`/work/team/${TEAM_ID}`);
-		const row = page.getByTestId("routine-row").filter({ hasText: "AG4 Routine 11" });
-		await row.scrollIntoViewIfNeeded();
-		await row.focus();
-		const scroller = page.locator("[data-page-scroll]").first();
-		const before = await scroller.evaluate((node) => node.scrollTop);
-		await row.click();
-		await expect(page).toHaveURL(/\/work\/routine\/routine-ag4-11$/);
-		await expect(page.getByRole("button", { name: "Edit routine" })).toBeVisible();
-
-		await page.goBack();
-		await expect(page).toHaveURL(new RegExp(`/work/team/${TEAM_ID}$`));
-		await expect(row).toBeFocused();
-		expect(await scroller.evaluate((node) => node.scrollTop)).toBe(before);
-	});
+	// @lore BC5 T9: the "routine Navigate..." test's subject (`/work/routine/:id`,
+	// a routine row on the team page) is gone with WorkRoutine and the routines
+	// table — subscriptions replace routines, and they live on AgentProfile now,
+	// not their own page. Deleted rather than repointed.
 
 	// AC-3: Every detail screen shows hierarchy breadcrumb + structural up-path
 	test("AC-3: task detail renders Breadcrumb nav with Work + parent link", async ({ page }) => {
@@ -196,19 +135,9 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 
 	test("AC-5: ⌘1 switches back to Conversations view", async ({ page }) => {
 		// Start on Work view
-		await page.route("**/api/teams", async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({ teams: [] }),
-				});
-			} else {
-				await route.continue();
-			}
-		});
+		await mockSearchUsers(page, { rows: [] });
 		await page.goto("/work/portfolio");
-		await page.waitForSelector("[data-testid='work-portfolio-page']");
+		await page.waitForSelector("[data-testid='work-overview-page']");
 
 		// ⌘1 → Conversations
 		await page.keyboard.press("Meta+1");
@@ -273,7 +202,7 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 
 		// 1. Start at portfolio (page.goto is ok for the first navigation — sets idx=0 baseline).
 		await page.goto("/work/portfolio");
-		await page.waitForSelector("[data-testid='work-portfolio-page']");
+		await page.waitForSelector("[data-testid='work-overview-page']");
 
 		// 2. Navigate to team page via in-app click (pushes history entry, idx becomes 1).
 		// The portfolio shows the team in the sidebar or as a link — navigate via URL push.

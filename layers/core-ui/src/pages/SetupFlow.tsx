@@ -5,10 +5,11 @@
  * field (repo path). Team is created silently with defaults. "Start HyperIdle"
  * is disabled until the chosen engine can actually run.
  *
- * Submits:
- * 1. POST /api/users — create human user (name only, no email)
- * 2. POST /api/teams — create first team + primaryHarness (from picker)
- * 3. POST /api/filesystems (best-effort, if folder picked)
+ * Submits three `edit_user` calls:
+ * 1. the person, with a team named from the repo folder basename or "My Team"
+ *    (and the folder, if one was picked)
+ * 2. their owned assistant, with `ASSISTANT_IDENTITY` and the picked harness
+ * 3. the team agent, with the picked harness and no identity
  * On success: navigate to /work?onboarding=true.
  *
  * @lore P4: Replaces Onboarding.tsx. Single-scroll layout from approved design.
@@ -21,13 +22,21 @@
  * spacing of 18px, design-system Input + Button components.
  * @lore AE2: Navigates to /work?onboarding=true to trigger assistant overlay auto-open.
  * @lore AV1: Harness picker added (greyed non-installed rows per Decision 4).
- * derivePrimaryHarness() wired into POST /api/teams body.
- * Folder → inspect-path + register filesystem (best-effort, writeback:"none").
+ * derivePrimaryHarness() wired into the assistant/team-agent edit_user calls.
+ * Folder → inspect-path (plumbing, kept) + folders.add on the person's edit_user
+ * call (best-effort, writeback:"none").
  * @lore AW1 + follow-up: setup collects no credential at all. A harness arrives
  * already logged in, or it is not choosable — the key lives in the harness's own
  * login, never in HyperIdle.
+ * @lore BC5 T10: the door swap — the pre-auth `POST /users` → `POST /teams` →
+ * `POST /filesystems` sequence becomes three `edit_user` calls (person with
+ * team, owned assistant, team agent); `open_user({})` replaces `GET
+ * /api/harnesses` for the picker (a rowless caller gets `user: null` and the
+ * machine's `runsOn` in the same answer, architecture.md §0.4, §7).
+ * `POST /filesystems/inspect-path` stays — it is plumbing, not an action.
  */
 
+import { type ActionResult, ASSISTANT_IDENTITY, type EditUserInput } from "@hyperidle/domain-model";
 import {
 	derivePrimaryHarness,
 	type HarnessCapabilityDescriptor,
@@ -43,6 +52,13 @@ import {
 import { useNavigate } from "react-router-dom";
 import { Button, Input, PageHeader, PageScaffold } from "../ds";
 import { apiFetch } from "../services/api-fetch.js";
+import { call } from "../services/call.js";
+
+/** First problem message off a failed action result, or a generic fallback. */
+function personResultMessage(result: ActionResult<unknown>): string {
+	if (result.ok) return "Something went wrong";
+	return result.problems[0]?.message ?? "Something went wrong";
+}
 
 // @lore BA9g: the "What are you building?" step is GONE, with the presets, the
 // custom function chips and the roster preview that promised "Creates: Builder,
@@ -162,23 +178,20 @@ export function SetupFlow(): JSX.Element {
 
 	useEffect(() => {
 		let cancelled = false;
-		apiFetch("/api/harnesses")
-			.then(async (res) => {
+		call("open_user", {})
+			.then((result) => {
 				if (cancelled) return;
-				if (!res.ok) {
+				if (!result.ok) {
 					setHarnessLoaded(true);
 					return;
 				}
-				const data = (await res.json()) as HarnessCapabilityDescriptor[];
-				if (!cancelled) {
-					const list = Array.isArray(data) ? data : [];
-					setDescriptors(list);
-					// Preselect the first harness this machine can actually run, so the
-					// form opens on a real choice rather than a name that may not be here.
-					const firstChoosable = list.find((d) => isChoosable(d));
-					if (firstChoosable) setSelectedHarnessType(firstChoosable.type);
-					setHarnessLoaded(true);
-				}
+				const list: HarnessCapabilityDescriptor[] = [...result.data.runsOn];
+				setDescriptors(list);
+				// Preselect the first harness this machine can actually run, so the
+				// form opens on a real choice rather than a name that may not be here.
+				const firstChoosable = list.find((d) => isChoosable(d));
+				if (firstChoosable) setSelectedHarnessType(firstChoosable.type);
+				setHarnessLoaded(true);
 			})
 			.catch(() => {
 				if (!cancelled) setHarnessLoaded(true);
@@ -247,27 +260,6 @@ export function SetupFlow(): JSX.Element {
 			setSubmitError(null);
 
 			try {
-				// Step 1: Create human user (no email)
-				const userRes = await apiFetch("/api/users", {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ name: name.trim() }),
-				});
-
-				if (!userRes.ok) {
-					const body = (await userRes.json().catch(() => null)) as { error?: string } | null;
-					throw new Error(body?.error ?? `Failed to create user (${userRes.status})`);
-				}
-
-				// AE2: Capture userId from user creation response to seed welcome message.
-				// AK6 P4 CRITICAL-1: POST /api/users returns { user: { id, ... } } on both
-				// 201 and 200 paths. Read .user.id — not the former flat .id.
-				const userBody = (await userRes.json().catch(() => null)) as {
-					user?: { id?: string };
-				} | null;
-				const createdUserId = userBody?.user?.id ?? undefined;
-
-				// Step 2: Create first team — derive name from repo path or default
 				// @lore R2: team name is not user-visible in setup. Derive from repo
 				// folder basename if a path was given; otherwise use "My Team".
 				// Z8-158: split on both / and \ to handle Windows paths (C:\repos\app).
@@ -278,47 +270,22 @@ export function SetupFlow(): JSX.Element {
 				// AV1: Build primaryHarness for the chosen row. Absent only when
 				// discovery never resolved — there is no default harness to fall back
 				// to any more, so the server is told nothing rather than told wrong.
-				//
 				const primaryHarness = selectedDescriptor
 					? derivePrimaryHarness(selectedDescriptor)
 					: undefined;
-
-				const teamRes = await apiFetch("/api/teams", {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						name: derivedTeamName,
-						repoPath: repoPath.trim() || undefined,
-						// AE2: pass resolved functions and userId for welcome message seeding.
-						userId: createdUserId,
-						// AV1: thread primaryHarness (omitted only when discovery gave us nothing)
-						...(primaryHarness !== undefined ? { primaryHarness } : {}),
-					}),
-				});
-
-				if (!teamRes.ok) {
-					const body = (await teamRes.json().catch(() => null)) as { error?: string } | null;
-					throw new Error(body?.error ?? `Failed to create team (${teamRes.status})`);
-				}
-
-				// Capture teamId for filesystem registration below.
-				const teamBody = (await teamRes.json().catch(() => null)) as {
-					team?: { id?: string };
-				} | null;
-				const createdTeamId = teamBody?.team?.id ?? undefined;
 
 				// @lore A step here wrote the key someone typed into HyperIdle's
 				// credential store, so a harness could be run on it. Setup asks for no
 				// key at all now — a harness arrives already logged in, or it is not
 				// choosable.
 
-				// Step 4 (best-effort): Register folder as filesystem.
-				// @lore AV1 Decision 3: inspect result determines kind (code+branch | doc_set).
-				// writeback:"none" is the literal — WRITEBACK_MODES[0] is "git", never use index-0.
-				// Failure is swallowed: team creation already succeeded.
-				if (createdTeamId && repoPath.trim()) {
-					const path = repoPath.trim();
-					// Re-inspect if folderInfo is stale or wasn't fetched (typed path, not picked).
+				// Best-effort folder body (AV1 Decision 3: inspect result determines
+				// kind code+branch | doc_set; writeback:"none" is the literal).
+				// Attached to the person's own edit_user call below — folders are a
+				// user attribute, given to the team it names.
+				let folderAdd: EditUserInput["folders"] | undefined;
+				const path = repoPath.trim();
+				if (path) {
 					let info = folderInfo?.path === path ? folderInfo : null;
 					if (info === null) {
 						try {
@@ -339,28 +306,61 @@ export function SetupFlow(): JSX.Element {
 							// inspection failed — degrade to doc_set
 						}
 					}
-
-					try {
-						const branch = info?.branch ?? null;
-						const isCode = info?.isGitRepo === true && branch != null && branch !== "";
-						const resourceRef = isCode
-							? { kind: "code", repo: path, branch }
-							: { kind: "doc_set", folder: path };
-
-						await apiFetch("/api/filesystems", {
-							method: "POST",
-							headers: { "Content-Type": "application/json" },
-							body: JSON.stringify({
-								teamId: createdTeamId,
+					const branch = info?.branch ?? null;
+					const isCode = info?.isGitRepo === true && branch != null && branch !== "";
+					folderAdd = {
+						add: [
+							{
 								kind: isCode ? "code" : "doc_set",
-								resourceRef,
+								resourceRef: isCode
+									? { kind: "code", repo: path, branch }
+									: { kind: "doc_set", folder: path },
 								writeback: "none",
 								connectionId: null,
-							}),
-						});
-					} catch {
-						// filesystem registration is best-effort; swallow failure
-					}
+							},
+						],
+					};
+				}
+
+				// 1. The person — creates their team by name, and its folder if picked.
+				const personResult = await call("edit_user", {
+					kind: "human",
+					name: name.trim(),
+					team: { name: derivedTeamName },
+					...(folderAdd ? { folders: folderAdd } : {}),
+				});
+				if (!personResult.ok || personResult.data.user === null) {
+					throw new Error(
+						personResult.ok ? "Failed to create user" : personResultMessage(personResult),
+					);
+				}
+				const createdUserId = personResult.data.user.id;
+
+				// 2. Their owned assistant — the welcome screen's own identity.
+				const assistantResult = await call("edit_user", {
+					kind: "ai",
+					name: `${name.trim()}'s Assistant`,
+					role: "assistant",
+					agentCategory: "individual",
+					ownerUserId: createdUserId,
+					identity: ASSISTANT_IDENTITY,
+					...(primaryHarness ? { runConfig: primaryHarness } : {}),
+				});
+				if (!assistantResult.ok) {
+					throw new Error(personResultMessage(assistantResult));
+				}
+
+				// 3. The team agent — no identity, as the scaffold does today.
+				const teamAgentResult = await call("edit_user", {
+					kind: "ai",
+					name: `${derivedTeamName} Agent`,
+					role: "agent",
+					agentCategory: "team",
+					team: { name: derivedTeamName },
+					...(primaryHarness ? { runConfig: primaryHarness } : {}),
+				});
+				if (!teamAgentResult.ok) {
+					throw new Error(personResultMessage(teamAgentResult));
 				}
 
 				// AE2: Navigate to /work?onboarding=true to trigger assistant overlay auto-open.

@@ -117,10 +117,6 @@ export {
 	TaskViewSchema,
 	taskInvariants,
 } from "./actions/task.js";
-// @lore BC3: `Thread`, `Message` and the four payload interfaces moved out
-// of `thread.ts` into `actions/thread.ts` as zod schemas — re-exported here
-// under the SAME names so every existing importer keeps compiling against
-// the name it already uses.
 export type {
 	AdjustThreadInput,
 	Identity,
@@ -169,6 +165,59 @@ export {
 	threadParticipantsSchema,
 	verdictPayloadSchema,
 } from "./actions/thread.js";
+// @lore BC3: `Thread`, `Message` and the four payload interfaces moved out
+// of `thread.ts` into `actions/thread.ts` as zod schemas — re-exported here
+// under the SAME names so every existing importer keeps compiling against
+// the name it already uses.
+// @lore BC5: the user action list — search, open, edit — declared alongside
+// `document`/`task`/`thread`/`session`/`platform`, same reason: `core-ui`
+// needs the exact `input`/invariant shape the server runs. `user.ts` also
+// carries the nine object-event names (`OBJECT_EVENTS`), the change-row
+// shape (`ChangeRowSchema`) and `ASSISTANT_IDENTITY`, the persona text the
+// welcome screen and the scaffold both pass as a new assistant's identity.
+export type {
+	AddSubscriptionInput,
+	BehaviourEntry,
+	ChangeKind,
+	ChangeObject,
+	ChangeRow,
+	ConnectionView,
+	EditUserInput,
+	FolderView,
+	HarnessDescriptor,
+	ObjectEventName,
+	OpenUserInput,
+	SearchUsersInput,
+	SubscriptionView,
+	UserKind,
+	UserRow,
+	UserStatus,
+	UserView,
+} from "./actions/user.js";
+export {
+	ASSISTANT_IDENTITY,
+	BehaviourEntrySchema,
+	CHANGE_KINDS,
+	CHANGE_OBJECTS,
+	ChangeRowSchema,
+	ConnectionViewSchema,
+	EditUserInputSchema,
+	editUser,
+	editUserInvariants,
+	FolderViewSchema,
+	HarnessDescriptorSchema,
+	OBJECT_EVENTS,
+	OpenUserInputSchema,
+	openUser,
+	SearchUsersInputSchema,
+	SubscriptionViewSchema,
+	searchUsers,
+	USER_ACTIONS,
+	USER_KINDS,
+	USER_STATUSES,
+	UserRowSchema,
+	UserViewSchema,
+} from "./actions/user.js";
 export type {
 	AgentBehaviorConfigKind,
 	AgentBehaviorConfigLink,
@@ -266,19 +315,15 @@ export {
 // `model-provider.js`, and the provider names are all that is left.
 export type { ModelProvider } from "./model-provider.js";
 export { MODEL_PROVIDERS } from "./model-provider.js";
-export type { NotificationType, NotificationTypeKey } from "./notifications.js";
-// NotificationUrgency unexported (SIMPLIFY): member of registry entry; no external consumer names it directly.
-// shortLabelForType MERGE → core-ui/shell/notification-display.ts (AU44 batch 8)
-export { NOTIFICATION_TYPES } from "./notifications.js";
-export type {
-	RoutineCardSummary,
-	RoutineDetail,
-	RoutineInfo,
-	RoutineRunOutcome,
-	RoutineRunSummary,
-	RoutineState,
-} from "./routine.js";
-export { ROUTINE_RUN_OUTCOMES, ROUTINE_STATES, SCHEDULE_PRESETS } from "./routine.js";
+// @lore BC5 T10/T11: notifications.ts (NotificationType/NotificationTypeKey/
+// NOTIFICATION_TYPES/shortLabelForType) is DELETED — no production consumer
+// was left once SettingsNotifications.tsx moved to per-event subscription
+// toggles over `open_user({}).subscriptions`.
+// @lore BC5 T11b: routine.ts (RoutineCardSummary/RoutineDetail/RoutineInfo/
+// RoutineRunOutcome/RoutineRunSummary/RoutineState/ROUTINE_RUN_OUTCOMES/
+// ROUTINE_STATES/SCHEDULE_PRESETS) is DELETED — its last production consumer,
+// status-mapping.ts's ROUTINE_STATE_MAP, had no reader once the routine pages
+// left in T9; a subscription has no lifecycle state of its own to chip.
 export type {
 	ActivityEntry,
 	AnswerDeltaData,
@@ -302,24 +347,10 @@ export {
 	agentSessionRequestInputSchema,
 	assistantSessionRequestInputSchema,
 	knowledgeSessionRequestInputSchema,
-	routineSessionRequestInputSchema,
+	subscriptionSessionRequestInputSchema,
 	taskSessionRequestInputSchema,
 } from "./session-request.js";
-export type {
-	AgentHealthLevel,
-	AgentOperationalStatus,
-	CreateTeamRequest,
-	CreateTeamResponse,
-	PrimaryHarnessConfig,
-	RosterMember,
-	TaskCardSummary,
-	TeamBurn,
-	TeamDetail,
-	TeamListItem,
-	TeamListResponse,
-	TeamStatus,
-	TeamSummary,
-} from "./team.js";
+export type { AgentHealthLevel, AgentOperationalStatus } from "./team.js";
 export type {
 	AgentSessionStateSnapshot,
 	AnchorRef,
@@ -408,7 +439,6 @@ export type {
 	BakedWorkIntentRequest,
 	ReviewVerdictOutcome,
 	ReviewVerdictRecorderFn,
-	RoutineTriggerEvent,
 	SessionDocumentLike,
 } from "./work-intent.js";
 export { bakeAgentRunnableConfig, toBakedContextDocuments } from "./work-intent.js";

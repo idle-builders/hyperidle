@@ -30,7 +30,7 @@ Every navigation edge in the shipped app, verified against `layers/core-ui/src/r
 |---|---|---|
 | Work overview | Team view | Click team row → `/work/team/:teamId` (`WorkOverview.tsx:186-196`); the 1-team short-circuit skips the overview entirely (`WorkOverview.tsx:194`) |
 | Team view | Task detail | Click task row (`WorkTeam.tsx`) → `/work/task/:taskId` |
-| Team view | Routine detail | Click routine row → `/work/routine/:routineId` |
+| Team view | Agent profile (subscriptions) | Click agent row → `/agents/:agentId` |
 | Team view | New task | "+ task" → full page `/work/task/new` (WorkTaskCreate, `router.tsx`) — not an overlay |
 | Task detail | Subtask detail | Click subtask row → `/work/task/:subtaskId` |
 | Task detail | Team view | Breadcrumb navigates up the ancestor chain |

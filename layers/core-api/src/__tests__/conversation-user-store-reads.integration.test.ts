@@ -14,7 +14,7 @@
 
 import { type HyperIdleDb, messages as messagesTable, teams, threads, users } from "@hyperidle/db";
 import { findThread, listMessages, listThreads, searchConversations } from "@hyperidle/thread";
-import { findUser, insertUser, listUsers } from "@hyperidle/users";
+import { findUser, insertUser, listUsers } from "@hyperidle/user";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
 
@@ -46,9 +46,7 @@ function threadValues(id: string, extra: Record<string, unknown> = {}) {
 }
 
 async function seedTeam(db: HyperIdleDb, teamId: string): Promise<void> {
-	await db
-		.insert(teams)
-		.values({ id: teamId, name: `Team ${teamId}`, phase: "build", createdAt: NOW });
+	await db.insert(teams).values({ id: teamId, name: `Team ${teamId}`, createdAt: NOW });
 }
 
 function messageValues(

@@ -21,33 +21,17 @@ import {
 // @lore U1: `teams` is the domain entity (formerly `products`). Migration 0021 renamed both
 // tables; the companion `team_members` table (formerly `teams`) folded back in per AU44 batch 1.
 // @lore AU44 B1: `team_members` is dissolved back into `teams`. The 1:1 invariant enforced by
-// app-level 500s was the schema confessing two tables were one entity. Columns `leadAgentId`,
-// `capacity`, `activeBets`, `formedAt` move here; `dissolvedAt` is dropped (teams.phase =
-// "archive" carries that signal). `users.teamId` now references `teams.id` directly.
+// app-level 500s was the schema confessing two tables were one entity. `users.teamId` now
+// references `teams.id` directly.
+// @lore BC5 T11 (migration 0090): `phase`/`briefPath`/`architecturePath`/`brandPath`/
+// `principlesPath`/`factoryDbPath`/`leadAgentId`/`capacity`/`formedAt` are all DROPPED — a team is
+// an id and a name now (D-e3zm2j). Capacity goes with the WIP-limit gate that read it
+// (`edit_task`'s `capacity_exceeded`); the rest were the setup wizard's scaffold-tracking columns,
+// unwritten on every real path (facts-user.md).
 export const teams = pgTable("teams", {
 	id: text("id").primaryKey(),
 	name: text("name").notNull(),
-	phase: text("phase").notNull(),
-	briefPath: text("brief_path"),
-	architecturePath: text("architecture_path"),
-	brandPath: text("brand_path"),
-	principlesPath: text("principles_path"),
-	factoryDbPath: text("factory_db_path"),
 	createdAt: text("created_at").notNull(),
-	// AU44 B1: folded from team_members
-	leadAgentId: text("lead_agent_id"),
-	/**
-	 * BB1: the WIP limit — how many tasks this team may have `in_progress` at
-	 * once, at any depth in the task tree.
-	 *
-	 * @lore BB1: the companion `active_bets` counter is GONE. It was a stored
-	 * tally maintained by the bet commit/complete/kill paths, and a stored
-	 * tally of a derivable fact can drift. The live count is a
-	 * `COUNT(*) WHERE state = 'in_progress'` inside the same transaction that
-	 * makes the transition, so it cannot be stale by construction.
-	 */
-	capacity: integer("capacity").notNull().default(5),
-	formedAt: text("formed_at"),
 });
 
 export const users = pgTable(
@@ -77,7 +61,7 @@ export const users = pgTable(
 		 * BA1 D6: who an agent belongs to, as a real column — a team (`teamId`),
 		 * a person (`ownerUserId`), or neither. Null for human users (the
 		 * `users_belonging_ck` check below is trivially satisfied by them).
-		 * Written only through `@hyperidle/users`' `insertUser`; `updateUser`
+		 * Written only through `@hyperidle/user`' `insertUser`; `updateUser`
 		 * is deliberately not extended (BA1 has no post-creation belonging
 		 * change — see `resolve-scaffold-specs.ts`'s `user_assistant` case).
 		 */
@@ -85,6 +69,14 @@ export const users = pgTable(
 			onDelete: "set null",
 		}),
 		/** BA9d: set when this user row was materialised by a plugin install. Used for disable/enable/remove cleanup. */
+		/**
+		 * @lore BC5 T2 (F1): a note on an agent — its crash count over the last
+		 * 7 days, counted from its own `user` change rows — or null for a
+		 * healthy row. Written by the session-ended-crashed reaction as an
+		 * `edit_user` call, landing as a `user.changed` change row so whoever
+		 * subscribes to it in reach sees it. Meaningless for a human row.
+		 */
+		health: text("health"),
 	},
 	(table) => [
 		check(
@@ -264,7 +256,7 @@ export const sessions = pgTable(
 	{
 		id: text("id").primaryKey(),
 		/**
-		 * AU1: nullable because assistant/routine/knowledge/decomposition runs are
+		 * AU1: nullable because assistant/subscription/knowledge/decomposition runs are
 		 * real sessions without fabricated task rows. Task-backed sessions keep the FK.
 		 */
 		taskId: text("task_id").references(() => tasks.id, { onDelete: "restrict" }),
@@ -283,15 +275,6 @@ export const sessions = pgTable(
 		sandboxSnapshot: text("sandbox_snapshot"),
 		outcome: text("outcome"),
 		notes: text("notes"),
-		/**
-		 * AA1/AA2-prep: links this session to a routine run. Null until AA2 wires
-		 * the scheduler to create sessions with a routine_id.
-		 *
-		 * @lore AA1: Column added now per "no incremental migrations" constraint.
-		 * Will be populated in AA2 when the routine scheduler creates sessions.
-		 * ON DELETE SET NULL ensures session records survive if a routine is retired.
-		 */
-		routineId: text("routine_id"),
 		/**
 		 * AC1: Session effectiveness score stored as text (float 0-1).
 		 *
@@ -322,7 +305,6 @@ export const sessions = pgTable(
 		index("sessions_source_idx").on(table.sourceKind, table.sourceId),
 		index("sessions_agent_id_idx").on(table.agentId),
 		index("sessions_state_idx").on(table.state),
-		index("sessions_routine_id_idx").on(table.routineId),
 	],
 );
 
@@ -413,12 +395,10 @@ export const agentWorkIntents = pgTable(
 		lastError: text("last_error"),
 		lastErrorCode: text("last_error_code"),
 		/**
-		 * @lore AU21 Increment 3 Wave 0: the emit-time-resolved request
-		 * (`resolveIntentInputInternal`'s current per-kind return shape),
-		 * populated by a migrated family's emit-side resolver. When present the
-		 * drain uses it directly (zero domain reads); when absent (the one
-		 * remaining unmigrated case, `routine_run`) the drain falls through to
-		 * its existing per-kind resolution branch.
+		 * @lore AU44: every intent kind bakes its request at emit time; the
+		 * drain reads this column directly (zero domain reads). An absent
+		 * value is production-unreachable and fails via
+		 * INVALID_WORK_SOURCE rather than falling back to a resolver.
 		 */
 		bakedRequestJson: text("baked_request_json"),
 		createdAt: text("created_at").notNull(),
@@ -438,11 +418,11 @@ export const agentWorkIntents = pgTable(
 		index("agent_work_intents_claim_expires_idx").on(table.claimExpiresAt),
 		check(
 			"agent_work_intents_kind_ck",
-			sql`${table.kind} in ('assistant_turn','session_start','knowledge_action','routine_run','task_run','session_resume')`,
+			sql`${table.kind} in ('thread_turn','session_start','knowledge_action','task_run','session_resume','subscription_run')`,
 		),
 		check(
 			"agent_work_intents_source_kind_ck",
-			sql`${table.sourceKind} in ('thread_message','explicit_session_start','knowledge_action','routine_run','task_dispatch_attempt','review_verdict')`,
+			sql`${table.sourceKind} in ('thread_message','explicit_session_start','knowledge_action','task_dispatch_attempt','review_verdict','subscription')`,
 		),
 		check(
 			"agent_work_intents_status_ck",
@@ -456,12 +436,12 @@ export const agentWorkIntents = pgTable(
 		check(
 			"agent_work_intents_kind_source_compat_ck",
 			sql`
-				(${table.kind} = 'assistant_turn' and ${table.sourceKind} = 'thread_message')
+				(${table.kind} = 'thread_turn' and ${table.sourceKind} = 'thread_message')
 				or (${table.kind} = 'session_start' and ${table.sourceKind} = 'explicit_session_start')
 				or (${table.kind} = 'knowledge_action' and ${table.sourceKind} = 'knowledge_action')
-				or (${table.kind} = 'routine_run' and ${table.sourceKind} = 'routine_run')
 				or (${table.kind} = 'task_run' and ${table.sourceKind} = 'task_dispatch_attempt')
 				or (${table.kind} = 'session_resume' and ${table.sourceKind} = 'review_verdict')
+				or (${table.kind} = 'subscription_run' and ${table.sourceKind} = 'subscription')
 			`,
 		),
 		/**
@@ -597,148 +577,7 @@ export const changes = pgTable(
 	],
 );
 
-export const routines = pgTable(
-	"routines",
-	{
-		id: text("id").primaryKey(),
-		/** AA1: human-readable name for the routine. */
-		name: text("name").notNull().default(""),
-		/**
-		 * BA1 D1: the instruction given to the owner agent when this routine
-		 * fires. Renamed from `description` — the prompt never had a home of
-		 * its own; this column IS it. Nullable: a routine with no prompt runs
-		 * the owner agent on its own persona (AC3).
-		 *
-		 * @lore knowledge-attachment-slot: `prompt_knowledge_id` (the FK that
-		 * used to live here) is dropped by migration 0077. The routine's prompt
-		 * is now the document parented to this routine
-		 * (`parentKind='routine', parentId=<this row's id>, slot='prompt'`) —
-		 * read through `getParentedItem` in `@hyperidle/document`, never a
-		 * column on this table. This closes a table-ownership violation BA9g
-		 * named but did not fix: a column here describing a document
-		 * relationship, in a table the document service does not own.
-		 */
-		ownerAgentId: text("owner_agent_id")
-			.notNull()
-			.references(() => users.id, { onDelete: "restrict" }),
-		triggerType: text("trigger_type").notNull(),
-		triggerConfig: text("trigger_config"),
-		/**
-		 * BA1 D2: the event name for a `triggerType:"event"` routine, as a real
-		 * indexable column — `trigger_config` (a JSON text blob) cannot carry an
-		 * equality index. Null for non-event routines. See
-		 * `routines_event_type_idx` below — the partial index this column exists
-		 * to serve.
-		 */
-		eventType: text("event_type"),
-		stateKey: text("state_key"),
-		/**
-		 * @lore O2: `humanReview` marks routines that must pause for human approval
-		 * before completing. Kernel-only: determines the execution handoff path,
-		 * not a strategy metric.
-		 */
-		humanReview: boolean("human_review").default(false),
-		autonomyLevel: integer("autonomy_level"),
-		silent: boolean("silent").default(false),
-		/**
-		 * @deprecated Use `state` instead. Kept for backward compat until AA2.
-		 * @lore AA1: `active` boolean is preserved so existing code that reads it
-		 * continues to work. New code reads `state`. AA2 will drop `active`.
-		 * When `state` is set via PATCH, `active` is synced for backward compat.
-		 */
-		active: boolean("active").notNull().default(true),
-		/**
-		 * AA1: Routine lifecycle state: 'active' | 'paused' | 'error'. Replaces boolean `active`.
-		 * Default 'active' matches the old boolean default (active=true).
-		 */
-		state: text("state").notNull().default("active"),
-		lastRunAt: text("last_run_at"),
-		nextRunAt: text("next_run_at"),
-		/** AA2: Soft delete timestamp. When set, routine is archived. */
-		deletedAt: text("deleted_at"),
-		/** BA9d: set when this routine was materialised by a plugin install. Used for disable/enable/remove cleanup. */
-		/** AA2: Last successful run's summary. Single-slot overwrite per concept doc. */
-		lastRunSummary: text("last_run_summary"),
-		/** AA2: Creation timestamp. Backfilled for pre-existing routines. */
-		createdAt: text("created_at"),
-		/**
-		 * AA2 legacy: optional stub task link retained for older routine rows.
-		 *
-		 * @lore AU1: New routine creation must not fabricate tasks. Routine sessions are
-		 * task-optional and correlate through agent_session_requests.sourceKind/sourceId
-		 * plus routine_runs.id. This column remains nullable for compatibility with AA2 rows.
-		 */
-		stubTaskId: text("stub_task_id").references(() => tasks.id, { onDelete: "set null" }),
-	},
-	(table) => [
-		index("routines_deleted_at_idx").on(table.deletedAt),
-		/**
-		 * BA1 D2: serves the per-event matcher's lookup
-		 * (`trigger_type = 'event' AND event_type = $1`). The partial predicate
-		 * deliberately excludes `active` — pausing a routine would otherwise
-		 * churn the index on every toggle.
-		 */
-		index("routines_event_type_idx")
-			.on(table.eventType)
-			.where(sql`${table.triggerType} = 'event' AND ${table.deletedAt} IS NULL`),
-	],
-);
-
-/**
- * AA1: Append-only log of routine execution runs. One row per trigger (manual or scheduled).
- *
- * @lore AA1: routine_runs is the lightweight audit log for execution history.
- * AA2 linked sessions.routine_id to these rows via the scheduler; `outcome` gained
- * a "running" state and is updated on session end.
- *
- * @lore AU21 Decision B″ (Increment 0 ruling, recorded 2026-07-27; COLLAPSED —
- * Increment 4, this is now the shipped state, not a target): this table STAYS
- * core-api-owned — `layers/core-api/routine/src/routine-service.ts` remains the
- * only module permitted to read or write it (AU13's boundary, unchanged) — it did
- * NOT become an orchestration-owned projection. What changed is WHO writes it.
- * Pre-Increment-3/4, three agent-orchestration modules wrote it directly via
- * composition-bundle DI (`dispatch`'s fire-time `insertRoutineRun`;
- * `session-requests`'s `failOrRelease` `updateRoutineRunIfRunning`;
- * `run-orchestration`'s `transition-run.ts`/`runtime-reapers.ts`
- * `updateRoutineRunById`). All three are now DISSOLVED: the insert is a
- * same-transaction core-api write inside the routine scheduler (relocated
- * core-side, Increment 4 Wave A, `routine-scheduler.ts`); the two update paths
- * re-homed onto core-api's own reactions to `agent_run_admission_failed`
- * (pre-handoff, `agent-run-admission-reactions.ts`, Increment 3) and
- * `session_ended`/`agent_run_lifecycle_changed` (post-session,
- * `routine-run-session-end-reactions.ts`, Increment 4). End state reached: a
- * "definition-only audit derived from events" — ZERO direct writes from
- * `agent-orchestration` into `routineRuns` anywhere in the tree (verified via
- * the anti-regrowth guard); every mutation now originates inside core-api
- * itself, either synchronously in the fire transaction or as an event-
- * subscriber reaction to orchestration's own lifecycle events. See
- * `.pipeline/work/AU21/architecture.md` Decision B″.
- */
-export const routineRuns = pgTable(
-	"routine_runs",
-	{
-		id: text("id").primaryKey(),
-		routineId: text("routine_id")
-			.notNull()
-			.references(() => routines.id, { onDelete: "restrict" }),
-		startedAt: text("started_at").notNull(),
-		endedAt: text("ended_at"),
-		/** 'success' | 'error' | 'skipped' | 'running' | 'timeout' */
-		outcome: text("outcome").notNull(),
-		errorMessage: text("error_message"),
-		/**
-		 * AA2: Link to the session that executed this run. NULL for pre-AA2 runs.
-		 * ON DELETE SET NULL: deleting a session preserves the run history record.
-		 */
-		sessionId: text("session_id").references(() => sessions.id, { onDelete: "set null" }),
-		/** AA2: Agent-produced summary of this run's outcome. */
-		summary: text("summary"),
-	},
-	(table) => [
-		index("routine_runs_routine_id_idx").on(table.routineId, table.startedAt),
-		index("routine_runs_session_id_idx").on(table.sessionId),
-	],
-);
+// Routines don't exist — a routine is a subscription now (subscriptions, below).
 
 // --- Messaging (L1a Thread primitive) ---
 
@@ -814,12 +653,10 @@ export const messages = pgTable(
 );
 
 // @lore BC3 migration 0085 step 6: the `items` table and `messages.legacyItemId`
-// are DROPPED, destructive, no compat column. `items` and the policy engine
-// die together (plan.md:71-75) — a review, a question, an escalation are
-// messages already; the table's readers were the policy engine, notification
-// links and routine subjects, all deleted with it (architecture.md §5 B7/B7b).
-// `responses` was already dropped (L1a) — verdicts project as `verdict`-typed
-// `messages` rows.
+// are DROPPED, destructive, no compat column. A review, a question, an
+// escalation are messages already (architecture.md §5 B7/B7b). `responses`
+// was already dropped (L1a) — verdicts project as `verdict`-typed `messages`
+// rows.
 
 // --- Org chart edges (P2) ---
 
@@ -849,6 +686,72 @@ export const orgEdges = pgTable(
 		uniqueIndex("org_edges_unique").on(table.fromUserId, table.mechanism, table.target),
 		index("org_edges_from_user_idx").on(table.fromUserId),
 	],
+);
+
+// --- Subscriptions and inbox ---
+
+/**
+ * @lore BC5 T2: one row shape shared by a person and an agent — `event |
+ * schedule`, never both (`subscriptions_trigger_ck`). A person's
+ * subscription only ever adds an inbox row; an agent's wakes it through the
+ * same intent door a mention uses. `nextRunAt` is written only for a
+ * schedule row (`subscriptions_next_run_ck`) — the clock advances it after
+ * each fire.
+ */
+export const subscriptions = pgTable(
+	"subscriptions",
+	{
+		id: text("id").primaryKey(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => users.id, { onDelete: "cascade" }),
+		event: text("event"),
+		schedule: text("schedule"),
+		paused: boolean("paused").notNull().default(false),
+		nextRunAt: text("next_run_at"),
+		createdAt: text("created_at").notNull(),
+		updatedAt: text("updated_at").notNull(),
+	},
+	(table) => [
+		index("subscriptions_user_idx").on(table.userId),
+		index("subscriptions_event_idx").on(table.event).where(sql`${table.event} IS NOT NULL`),
+		check("subscriptions_trigger_ck", sql`(${table.event} IS NULL) <> (${table.schedule} IS NULL)`),
+		check(
+			"subscriptions_event_ck",
+			sql`${table.event} IS NULL OR ${table.event} IN (
+				'task.created', 'task.changed',
+				'thread.created', 'thread.message', 'thread.changed',
+				'document.created', 'document.changed',
+				'user.created', 'user.changed'
+			)`,
+		),
+		check(
+			"subscriptions_next_run_ck",
+			sql`${table.nextRunAt} IS NULL OR ${table.schedule} IS NOT NULL`,
+		),
+	],
+);
+
+/**
+ * @lore BC5 T2: a person's half of a subscription firing — a pointer at the
+ * change row they have not yet seen or read, never the change's content
+ * (the UI renders the `changes` row itself). Composite PK: one row per
+ * (user, change), so a re-fire of the same event onto the same change is
+ * `onConflictDoNothing`, not a duplicate.
+ */
+export const inbox = pgTable(
+	"inbox",
+	{
+		userId: text("user_id")
+			.notNull()
+			.references(() => users.id, { onDelete: "cascade" }),
+		changeId: text("change_id")
+			.notNull()
+			.references(() => changes.id, { onDelete: "cascade" }),
+		seenAt: text("seen_at"),
+		readAt: text("read_at"),
+	},
+	(table) => [primaryKey({ columns: [table.userId, table.changeId] })],
 );
 
 // --- Documents ---
@@ -937,7 +840,7 @@ export const documents = pgTable(
 		// position. Non-partial (unlike doc_parent_slot_uq below) — the tree
 		// read walks ordinary children just as often as it resolves a named slot.
 		index("doc_parent_position_idx").on(table.parentKind, table.parentId, table.position),
-		// One document per named slot per parent — a routine's prompt, an
+		// One document per named slot per parent — a subscription's prompt, an
 		// agent's identity. `slot <> 'ordinary'` leaves a parent free to hold
 		// many ordinary children (the nested-document tree), and Postgres
 		// treats NULLs as distinct by default, so unparented rows never collide.
@@ -948,7 +851,7 @@ export const documents = pgTable(
 		index("doc_last_used_idx").on(table.lastUsedAt),
 		check(
 			"doc_parent_kind_ck",
-			sql`${table.parentKind} IS NULL OR ${table.parentKind} IN ('document', 'task', 'thread', 'routine', 'agent')`,
+			sql`${table.parentKind} IS NULL OR ${table.parentKind} IN ('document', 'task', 'thread', 'agent', 'subscription')`,
 		),
 		check(
 			"doc_parent_pair_ck",
@@ -957,63 +860,8 @@ export const documents = pgTable(
 	],
 );
 
-// --- Notification queue (H2) ---
-
-export const notificationQueue = pgTable(
-	"notification_queue",
-	{
-		id: text("id").primaryKey(),
-		eventType: text("event_type").notNull(),
-		subjectId: text("subject_id"),
-		severity: text("severity").notNull(),
-		title: text("title").notNull(),
-		body: text("body"),
-		reason: text("reason").notNull(),
-		channel: text("channel"),
-		/**
-		 * Lifecycle: pending → sending → {sent|failed|dropped}.
-		 * `sending` is a lease: the row is claimed before the adapter call
-		 * so a crash after send-before-DB-update requeues instead of
-		 * silently marking sent.
-		 */
-		status: text("status").notNull(),
-		attempts: integer("attempts").notNull().default(0),
-		lastError: text("last_error"),
-		createdAt: text("created_at").notNull(),
-		sentAt: text("sent_at"),
-		/** ISO timestamp when the row entered the `sending` state. */
-		claimedAt: text("claimed_at"),
-		// AF8: in-app notification model (popover). severity/channel stay for egress.
-		/**
-		 * Concept type key: "review_request" | "blocker_alert". Nullable for
-		 * back-compat. @lore AU21 Increment 14a: "cost_alert" deleted along
-		 * with the cost-cap feature that produced it — no replacement.
-		 */
-		typeKey: text("type_key"),
-		/** "immediate" | "ambient" — from type registry default, adjusted per-instance. Nullable for back-compat. */
-		urgency: text("urgency"),
-		/**
-		 * Persisted route. Thread-keyed `/conversations/${threadId}` for review/blocker.
-		 * NEVER reconstructed at render (concept hard rule #2).
-		 * Nullable for back-compat with existing egress rows.
-		 *
-		 * @lore AF8: The original dispatcher.ts:178 deepLink used `/conversations/item/<id>`
-		 * which 404s — the router only defines `/conversations/:threadId`. This column stores
-		 * the CORRECTED shape built by notification-listener.ts at enqueue time.
-		 */
-		sourceLink: text("source_link"),
-		/** ISO timestamp when the popover was opened (clears unread dot). */
-		seenAt: text("seen_at"),
-		/** ISO timestamp when the notification was jumped-to or dismissed. */
-		readAt: text("read_at"),
-	},
-	(table) => [
-		index("nq_status_created_idx").on(table.status, table.createdAt),
-		index("nq_severity_idx").on(table.severity),
-		// AF8: popover query — list unread notifications newest-first
-		index("nq_inapp_idx").on(table.readAt, table.createdAt),
-	],
-);
+// The notification queue doesn't exist — inbox (below, beside subscriptions)
+// is a pointer at a change row plus seen/read timestamps, no egress lifecycle.
 
 // The `artifacts` table is DELETED (migration 0078). Produced content is a
 // document whose parent is the task or the conversation that produced it —
@@ -1169,7 +1017,7 @@ export const pluginConfigurationDefaults = pgTable(
 		index("plugin_config_defaults_kind_key_idx").on(table.kind, table.key),
 		check(
 			"plugin_configuration_defaults_kind_ck",
-			sql`${table.kind} IN ('agent', 'skill', 'routine', 'tool', 'mcp_server', 'harness_descriptor')`,
+			sql`${table.kind} IN ('agent', 'skill', 'subscription', 'tool', 'mcp_server', 'harness_descriptor')`,
 		),
 	],
 );
@@ -1177,20 +1025,11 @@ export const pluginConfigurationDefaults = pgTable(
 /**
  * What a plugin contributed, and whether the person has since taken it over.
  *
- * @lore BA9g: provenance used to be recorded SEVEN different ways —
- * `users.plugin_id`, `routines.plugin_id`,
- * `plugin_configuration_defaults.plugin_id`, `knowledge_items.topic =
- * 'plugin:<id>'`, `knowledge_items.updated_by = 'plugin:<id>'`, a `<pluginId>/`
- * prefix inside a configuration key, and one-way hashed row ids. Each covered a
- * different subset, so no surface could answer "what did this plugin
- * contribute" and the lifecycle operations disagreed with each other. Two of
- * the seven were never read at all.
- *
- * Two of those were also table-ownership violations wearing a column: a
- * `plugin_id` on `users` and on `routines` is provenance the PLUGIN service
- * owns, sitting in tables it does not, which is why the write had to live in the
- * users package. This table belongs to the plugin service, and it is the only
- * answer to who contributed what.
+ * @lore BA9g: provenance lives in this one table, not as a `plugin_id`
+ * column scattered across others — a `plugin_id` on `users` would be
+ * provenance the PLUGIN service owns sitting in a table it does not. This
+ * table belongs to the plugin service, and it is the only answer to who
+ * contributed what.
  *
  * `detachedAt` replaces the `updated_by = 'plugin:<id>'` sentinel: a person
  * edited this contribution, so a reinstall must not overwrite their version.
@@ -1224,7 +1063,7 @@ export const pluginContributions = pgTable(
 		index("plugin_contributions_entity_idx").on(table.kind, table.entityId),
 		check(
 			"plugin_contributions_kind_ck",
-			sql`${table.kind} IN ('agent', 'routine', 'document', 'configuration_default')`,
+			sql`${table.kind} IN ('agent', 'subscription', 'document', 'configuration_default')`,
 		),
 	],
 );
@@ -1251,7 +1090,7 @@ export const configurationOverrides = pgTable(
 		index("configuration_overrides_default_id_idx").on(table.defaultId),
 		check(
 			"configuration_overrides_kind_ck",
-			sql`${table.kind} IN ('agent', 'skill', 'routine', 'tool', 'mcp_server', 'harness_descriptor')`,
+			sql`${table.kind} IN ('agent', 'skill', 'subscription', 'tool', 'mcp_server', 'harness_descriptor')`,
 		),
 		check("configuration_overrides_state_ck", sql`${table.state} IN ('active', 'deleted')`),
 	],
@@ -1318,6 +1157,14 @@ export type Team = typeof teams.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 
+// @lore BC5 T2: subscription and inbox row types, owned by @hyperidle/user
+// alongside User/Team/NewUser above.
+export type Subscription = typeof subscriptions.$inferSelect;
+export type NewSubscription = typeof subscriptions.$inferInsert;
+
+export type InboxRow = typeof inbox.$inferSelect;
+export type NewInboxRow = typeof inbox.$inferInsert;
+
 // @lore AU26 G1: the run-config row types. `AgentRunConfigRow` is the raw
 // table row (carries `agentUserId`); `@hyperidle/agent-run-config`'s
 // `AgentRunConfig` is the keyless value object callers actually consume.
@@ -1335,10 +1182,7 @@ export type AgentSessionRequest = typeof agentSessionRequests.$inferSelect;
 export type AgentWorkIntent = typeof agentWorkIntents.$inferSelect;
 export type ExplicitSessionStart = typeof explicitSessionStarts.$inferSelect;
 
-export type Routine = typeof routines.$inferSelect;
-export type NewRoutine = typeof routines.$inferInsert;
-
-export type NewRoutineRun = typeof routineRuns.$inferInsert;
+// @lore BC5 T7b: Routine/NewRoutine/NewRoutineRun deleted with their tables.
 
 export type Thread = typeof threads.$inferSelect;
 export type NewThread = typeof threads.$inferInsert;
@@ -1350,8 +1194,9 @@ export type NewMessage = typeof messages.$inferInsert;
 
 export type DocumentRow = typeof documents.$inferSelect;
 
-export type NotificationQueueRow = typeof notificationQueue.$inferSelect;
-export type NewNotificationQueueRow = typeof notificationQueue.$inferInsert;
+// @lore BC5 T7b: NotificationQueueRow/NewNotificationQueueRow deleted with
+// notification_queue — InboxRow/NewInboxRow (above, beside Subscription/
+// NewSubscription) replace them.
 
 export type PluginRow = typeof plugins.$inferSelect;
 

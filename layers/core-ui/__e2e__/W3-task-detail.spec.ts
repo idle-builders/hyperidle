@@ -21,7 +21,9 @@ import {
 	expect,
 	makeSessionRow,
 	makeTask,
+	makeUserRow,
 	mockSearchSessions,
+	mockSearchUsers,
 	mockTaskTree,
 	test,
 } from "./fixtures";
@@ -42,18 +44,10 @@ const SESSIONS_FIXTURE = [
 	}),
 ];
 
-const TEAMS_FIXTURE = {
-	teams: [{ id: "t1", name: "Alpha Core", phase: "build", active: true }],
-};
-
 async function seedTaskTree(page: import("@playwright/test").Page): Promise<void> {
 	await mockSearchSessions(page, { rows: SESSIONS_FIXTURE });
-	await page.route("**/api/teams", async (route) => {
-		await route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify(TEAMS_FIXTURE),
-		});
+	await mockSearchUsers(page, {
+		rows: [makeUserRow("agent-t1", { kind: "ai", team: { id: "t1", name: "Alpha Core" } })],
 	});
 
 	const root = makeTask(ROOT_TASK_ID, { title: ROOT_TITLE, teamId: "t1" });

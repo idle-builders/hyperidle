@@ -22,11 +22,11 @@
  *     propagation engine only acts on `completed`, and writing one here would
  *     re-enter it.
  *
- * @lore AU26 H1: there is NO safety net behind this write.
- * `runtime-reapers.ts`'s stale sweep selects `routineId is not null` — routine
- * sessions only — so a handed-off run left `active` stays `active` forever. It
- * must therefore be called with the caller's `tx` handle, so the run is terminal
- * at the same commit as the task claim.
+ * @lore AU26 H1: there is NO safety net behind this write. `runtime-reapers.ts`
+ * carries no stale-session sweep of any kind, so a handed-off run left
+ * `active` stays `active` forever. It must therefore be called with the
+ * caller's `tx` handle, so the run is terminal at the same commit as the task
+ * claim.
  */
 
 import { sessions, type WriteExecutor } from "@hyperidle/db";

@@ -24,9 +24,9 @@ describe("AGENT_WORK_INTENT_KINDS canonical runtime kind list", () => {
 			"thread_turn",
 			"session_start",
 			"knowledge_action",
-			"routine_run",
 			"task_run",
 			"session_resume",
+			"subscription_run",
 		]);
 	});
 
@@ -60,12 +60,6 @@ describe("AgentWorkIntentRecorderInput widened six-kind union", () => {
 				idempotencyKey: "k3",
 			},
 			{
-				kind: "routine_run",
-				sourceKind: "routine_run",
-				sourceId: "s4",
-				idempotencyKey: "k4",
-			},
-			{
 				kind: "task_run",
 				sourceKind: "task_dispatch_attempt",
 				sourceId: "s5",
@@ -86,6 +80,14 @@ describe("AgentWorkIntentRecorderInput widened six-kind union", () => {
 					agentId: "agent-1",
 				},
 			},
+			{
+				// A subscription's wake — sourceKind is "subscription", not
+				// "subscription_run", matching the DB's kind/source-kind pairing.
+				kind: "subscription_run",
+				sourceKind: "subscription",
+				sourceId: "s7",
+				idempotencyKey: "k7",
+			},
 		];
 		expect(inputs.map((i) => i.kind)).toEqual(AGENT_WORK_INTENT_KINDS);
 	});
@@ -105,9 +107,9 @@ describe("AgentWorkIntentRecorderInput widened six-kind union", () => {
 	});
 
 	it("rejects a mismatched kind/sourceKind pairing via type narrowing", () => {
-		// @ts-expect-error — "routine_run" pairs only with sourceKind "routine_run"
+		// @ts-expect-error — "subscription_run" pairs only with sourceKind "subscription"
 		acceptRecorderInput({
-			kind: "routine_run",
+			kind: "subscription_run",
 			sourceKind: "thread_message",
 			sourceId: "s1",
 			idempotencyKey: "k1",

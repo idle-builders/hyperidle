@@ -40,7 +40,6 @@
  *     route surface and the session-stream socket need no poller.
  */
 
-import type { CoreApiTransport } from "@hyperidle/api-contract";
 import {
 	createInheritedReach,
 	decryptCredentialValue,
@@ -97,10 +96,12 @@ import { SessionActivityBuffer } from "./session-activity-buffer.js";
  * come straight from `bootAgentExecution`'s `adapters` bundle
  * (`layers/agent-execution/src/boot.ts`) — opaque, structurally-typed values
  * this Layer never imports by name (architecture.md §4's spelling law).
- * `coreApiTransport` is the seam's outbound client transport (§3.2): a
- * root-local binding closing over the composed app, filled once it exists —
- * absent (a test fixture with no seam-backed tool under test) falls back to
- * the composition's own `unconfiguredCoreApiTransport()`.
+ *
+ * @lore BC5 T11: `coreApiTransport` — the `CoreApiPort` seam's outbound
+ * client transport — is DELETED with the seam itself; `create_team`/
+ * `add_agent`, its last two tools, are gone with the `org` package they
+ * wrote through. A session's tool registry is built from `actionTools()`
+ * alone now.
  */
 /**
  * AU31 §5.1: the four provisioning reads `bootAgentExecution`'s twin never
@@ -117,7 +118,6 @@ export type ApplicationProvisionSessionDeps = Omit<
 export interface AgentOrchestrationRuntimeOptions {
 	readonly harnessRuntime: RunOrchestrationHarnessRuntimeAdapter;
 	readonly returnStatusTool: RunOrchestrationReturnStatusToolAdapter;
-	readonly coreApiTransport?: CoreApiTransport;
 	/** The session-provisioning deps `startRuntime`'s poller threads to every admitted session — same shape the Application built for the deleted direct `startRuntime` call, minus the four provisioning reads this boot now builds itself (§5.1). */
 	readonly session: ApplicationProvisionSessionDeps;
 	readonly sandboxBasePath?: string;
@@ -130,10 +130,8 @@ export interface AgentOrchestrationRuntimeOptions {
 		) => HarnessAdapter;
 	};
 	/**
-	 * AU31 §2.7: no longer built by the Application — `run-orchestration-
-	 * composition.ts`'s `runtimeDeps` defaults `writeback.knowledge` to a
-	 * `CoreApiPort`-backed port over `coreApiTransport` above. This field
-	 * survives only as a test override (a fixture that wants to intercept the
+	 * AU31 §2.7: no longer built by the Application. This field survives
+	 * only as a test override (a fixture that wants to intercept the
 	 * writeback write without a real seam).
 	 */
 	readonly writeback?: RuntimeDeps["composition"]["writeback"];
@@ -142,7 +140,7 @@ export interface AgentOrchestrationRuntimeOptions {
 	 * AU26 review C2 / AU31 §5.1/§5.2: the Application's `bootCoreApi`-sourced
 	 * capability resolving the single human whose held connections a spawn
 	 * provisions — this Layer reads zero core-api state, so it can never
-	 * resolve an owner itself (`@hyperidle/users` is core-api's own service).
+	 * resolve an owner itself (`@hyperidle/user` is core-api's own service).
 	 * Absent means no held connections are ever provisioned (the same
 	 * observable outcome as today's empty-rows case).
 	 */
@@ -415,7 +413,6 @@ export async function bootAgentOrchestration(
 		const composition = buildRunOrchestrationComposition({
 			harnessRuntime: runtime.harnessRuntime,
 			returnStatusTool: runtime.returnStatusTool,
-			coreApiTransport: runtime.coreApiTransport,
 			actionTools: runtime.actionTools,
 			editDocument: runtime.editDocument,
 			searchDocuments: runtime.searchDocuments,

@@ -487,11 +487,10 @@ async function failOrRelease(
 		.where(
 			and(eq(agentWorkIntents.id, intent.id), eq(agentWorkIntents.claimToken, intent.claimToken)),
 		);
-	// @lore AU21 §6 Decision B4/§13: the OLD direct
-	// `deps.routine.updateRoutineRunIfRunning` write for a terminal
-	// `routine_run` failure is GONE — replaced by this event, reacted to by a
-	// core-api subscriber (`registerAgentRunAdmissionReactions`), for EVERY
-	// kind, not just `routine_run`. `deps.eventBus` is optional (back-compat
+	// @lore AU21 §6 Decision B4/§13: every terminal failure is reported through
+	// this event, reacted to by a core-api subscriber
+	// (`registerAgentRunAdmissionReactions`), for EVERY kind — no service here
+	// writes a run-row outcome directly. `deps.eventBus` is optional (back-compat
 	// with every pre-existing `queueDeps(db)` call site that never wired one).
 	// @lore AU29 §2.4: the typed construction+emit used to be
 	// the framework's `reportAdmissionFailure`, also called by
@@ -649,7 +648,7 @@ async function createFromBakedRequestInternal(
 		sourceCorrelation: baked.sourceCorrelation,
 		// AU21 §9 Increment 11 (Decision H2) / Increment 12 (Decision H3): the
 		// assistant_turn family's baked transcript, the
-		// task_run/routine_run/knowledge_action families' baked
+		// task_run/subscription_run/knowledge_action families' baked
 		// contextBundle, and (Wave E) EVERY kind's baked
 		// agentConfig/harnessDisabled ride the existing generic `payloadJson`
 		// pass-through column onto the created `AgentSessionRequest`.
@@ -1067,8 +1066,8 @@ function mutateRequestInternal(
 const PROMPT_MODE_BY_SOURCE: Record<string, string> = {
 	task: "task",
 	assistant: "conversation",
-	routine: "routine",
 	knowledge: "knowledge",
+	subscription: "subscription",
 };
 
 export type WorkIntentInput =
@@ -1078,14 +1077,14 @@ export type WorkIntentInput =
 				| "thread_turn"
 				| "session_start"
 				| "knowledge_action"
-				| "routine_run"
-				| "task_run";
+				| "task_run"
+				| "subscription_run";
 			readonly sourceKind:
 				| "thread_message"
 				| "explicit_session_start"
 				| "knowledge_action"
-				| "routine_run"
-				| "task_dispatch_attempt";
+				| "task_dispatch_attempt"
+				| "subscription";
 			readonly sourceId: string;
 			readonly requestedBy?: string;
 			readonly idempotencyKey: string;
@@ -1136,8 +1135,8 @@ export type BakedWorkIntentRequest = {
 	}>;
 	/**
 	 * AU21 §9 Increment 12 (Decision H3): the `task_run`/`knowledge_action`/
-	 * `routine_run` families' baked entity content (task/bet/
-	 * agent/team, or routine/agent/team) plus the ranked+budgeted knowledge
+	 * `subscription_run` families' baked entity content (task/bet/
+	 * agent/team, or subscription/agent/team) plus the ranked+budgeted knowledge
 	 * items `@hyperidle/knowledge`'s `assembleSessionKnowledge` produces.
 	 * Absent for `assistant_turn` (bakes `transcript` instead) — see
 	 * `BakedWorkIntentRequest` in `@hyperidle/work-intent-port` for the full `@lore`.
@@ -1157,7 +1156,7 @@ export type BakedWorkIntentRequest = {
 	readonly harnessDisabled?: readonly string[];
 	/**
 	 * AU27 Increment 1 (Decision 1) — the session's calling thread id. Absent
-	 * for `routine_run`/`knowledge_action` — see `BakedWorkIntentRequest` in
+	 * for `subscription_run`/`knowledge_action` — see `BakedWorkIntentRequest` in
 	 * `@hyperidle/work-intent-port` for the full `@lore`.
 	 */
 	readonly callingThreadId?: string;
@@ -1170,7 +1169,7 @@ export type BakedWorkIntentRequest = {
  * matching against `settings`'s `kind:"trigger"` entries, target-agent
  * resolution) REMOVED — confirmed via git archaeology + a full production
  * call-site grep that `createTriggeredInternal` (this variant's only
- * consumer) had ZERO real callers: routine firing has called
+ * consumer) had ZERO real callers: subscription firing has called
  * `enqueueWorkIntent` directly since before AU21 even started (verified at
  * `7b64e8d1^`'s dispatch/service.ts and AU20's original session-requests
  * rewrite, `d6dcfa2c`), and every other family's real resolve-at-emit

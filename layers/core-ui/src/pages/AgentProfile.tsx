@@ -25,7 +25,7 @@
  * - A2: Operational status derived on frontend, not from DB status column
  */
 
-import type { AgentProfileResponse, SessionOutcome } from "@hyperidle/domain-model";
+import type { SessionOutcome } from "@hyperidle/domain-model";
 import { AGENT_OPERATIONAL_STATUS_LABEL, roleLabel } from "@hyperidle/domain-model";
 import { type JSX, useState } from "react";
 import { Link as RRLink, useNavigate, useParams } from "react-router-dom";
@@ -50,6 +50,7 @@ import {
 	sessionOutcomeToStatus,
 	Tag,
 } from "../ds";
+import type { AgentProfileData } from "../hooks/useAgentProfile.js";
 import { useAgentProfile } from "../hooks/useAgentProfile.js";
 import { type AgentRunState, useAgentRunState } from "../hooks/useAgentRunState.js";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
@@ -60,6 +61,7 @@ import { createOpenHandler } from "../services/open-handler.js";
 import { NavHistoryCluster } from "../shell/NavHistoryCluster.js";
 import { deriveInitials } from "../utils/initials.js";
 import { absoluteDate } from "../utils/time.js";
+import { SubscriptionsSection } from "./SubscriptionsSection.js";
 
 // UI-041: static display names for known harness families. Matches
 // KNOWN_HARNESS_NAMES in harness-capability-descriptors.ts.
@@ -93,7 +95,7 @@ function isSessionOutcome(v: string | null): v is SessionOutcome {
 
 export interface AgentProfileProps {
 	/** Override the profile data. Used by stories and tests. */
-	overrideData?: AgentProfileResponse | null;
+	overrideData?: AgentProfileData | null;
 	overrideLoading?: boolean;
 	overrideError?: Error | null;
 	/**
@@ -208,16 +210,30 @@ export function AgentProfile({
 		);
 	}
 
-	return <AgentProfileLoaded data={data} overrideRunState={overrideRunState} />;
+	// Stories/tests own the fixture when overrideData is set — nothing to re-fetch.
+	const noopRefetch = (): void => undefined;
+
+	return (
+		<AgentProfileLoaded
+			data={data}
+			overrideRunState={overrideRunState}
+			refetch={overrideData !== undefined ? noopRefetch : fetched.refetch}
+		/>
+	);
 }
 
 /** Internal component rendered when data is fully resolved. */
 function AgentProfileLoaded({
 	data,
 	overrideRunState,
+	refetch,
 }: {
-	data: AgentProfileResponse;
+	data: AgentProfileData;
 	overrideRunState?: AgentRunState;
+	/** Re-fetches the profile — passed to SubscriptionsSection so an add/pause/
+	 * remove reflects immediately. A no-op when `overrideData` drives the page
+	 * (stories/tests own the fixture). */
+	refetch: () => void;
 }): JSX.Element {
 	const initials = deriveInitials(data.name);
 	const navigate = useNavigate();
@@ -239,8 +255,11 @@ function AgentProfileLoaded({
 	// the core api service."* This hook fetches the runs from that Layer and
 	// derives the same four with the same `computeHealthSignals` — the live chip,
 	// the recent-runs table, the success rate and the degraded banner all render
-	// exactly what they rendered before. `harnessAvailable` still comes from
-	// core-api: it is a fact about the server's adapter pool, not run state.
+	// exactly what they rendered before.
+	// @lore BC5 T18: `harnessAvailable` is a fact about the server's adapter
+	// pool (`open_user`'s `runsOn`), not run state — `useAgentProfile` derives
+	// it from the same read `harnessCapabilities` uses and hands it back here,
+	// the one input `useAgentRunState` cannot compute in the browser.
 	const fetchedRunState = useAgentRunState(
 		overrideRunState ? null : data.id,
 		data.harnessAvailable,
@@ -476,64 +495,68 @@ function AgentProfileLoaded({
 								)}
 							</section>
 
-							{/* Section 2 — Harness Capabilities */}
-							<section
-								aria-label="Harness capabilities"
-								data-testid="agent-capabilities-section"
-								className="flex flex-col gap-[12px]"
-							>
-								<SectionLabel label="Harness Capabilities" as="h2" />
-								<div className="flex flex-wrap gap-[6px]">
-									<CapabilityBadge label="Tool use" supported={data.harnessCapabilities.toolUse} />
-									<CapabilityBadge label="MCP" supported={data.harnessCapabilities.mcpSupport} />
-									<CapabilityBadge
-										label="File editing"
-										supported={data.harnessCapabilities.fileEditing}
-									/>
-									<CapabilityBadge
-										label="Sub-agents"
-										supported={data.harnessCapabilities.subAgents}
-									/>
-								</div>
-							</section>
-
-							{/* Section 3 — Review Track Record */}
-							<section
-								aria-label="Review track record"
-								data-testid="agent-track-record-section"
-								className="flex flex-col gap-[12px]"
-							>
-								<SectionLabel label="Review Track Record" as="h2" />
-								{data.reviewTrackRecord.totalVerdicts === 0 ? (
-									<p className="type-metadata  text-[var(--text-tertiary)]">
-										No reviews recorded yet.
-									</p>
-								) : (
-									<div className="flex flex-col gap-[9px]">
-										<div className="flex gap-[24px] flex-wrap">
-											<KeyValue
-												label="Approval rate"
-												value={`${Math.round(data.reviewTrackRecord.approvalRate * 100)}%`}
-											/>
-											<KeyValue
-												label="Reviews"
-												value={String(data.reviewTrackRecord.totalVerdicts)}
-											/>
-											<KeyValue
-												label="Window"
-												value={`${data.reviewTrackRecord.windowDays} days`}
-											/>
-										</div>
-										<div className="flex gap-[6px] mt-[6px]">
-											{data.reviewTrackRecord.recentVerdicts.slice(0, 10).map((v, i) => (
-												<VerdictDot key={i} decision={v.decision} createdAt={v.createdAt} />
-											))}
-										</div>
+							{/* Section 2 — Harness Capabilities (restored from
+							    open_user's runsOn, matched by harnessType). */}
+							{data.harnessCapabilities && (
+								<section
+									aria-label="Harness capabilities"
+									data-testid="agent-harness-capabilities-section"
+									className="flex flex-col gap-[12px]"
+								>
+									<SectionLabel label="Harness Capabilities" as="h2" />
+									<div className="flex flex-wrap gap-[6px]">
+										<Tag label={data.harnessCapabilities.kind} />
+										<Tag label={data.harnessCapabilities.discovery.state} />
+										{data.harnessCapabilities.returnEnforcement && (
+											<Tag label={data.harnessCapabilities.returnEnforcement} />
+										)}
+										<Tag label={`${data.harnessCapabilities.models.length} models`} />
 									</div>
-								)}
-							</section>
+								</section>
+							)}
 
-							{/* Section 4 — Recent Activity */}
+							{/* Section 3 — Subscriptions */}
+							<SubscriptionsSection
+								userId={data.id}
+								subscriptions={data.subscriptions}
+								onChanged={refetch}
+							/>
+
+							{/* Section 4 — Review Track Record (restored — computed
+							    by open_user itself now, through the deps bag). */}
+							{data.reviewTrackRecord && (
+								<section
+									aria-label="Review track record"
+									data-testid="agent-review-track-record-section"
+									className="flex flex-col gap-[12px]"
+								>
+									<SectionLabel label="Review Track Record" as="h2" />
+									<div className="flex flex-row gap-[24px]">
+										<KeyValue
+											label="Approval rate"
+											value={`${Math.round(data.reviewTrackRecord.approvalRate * 100)}%`}
+										/>
+										<KeyValue
+											label={`Verdicts (${data.reviewTrackRecord.windowDays}d)`}
+											value={String(data.reviewTrackRecord.totalVerdicts)}
+										/>
+									</div>
+									{data.reviewTrackRecord.recentVerdicts.length > 0 && (
+										<ul className="flex flex-col gap-[3px]">
+											{data.reviewTrackRecord.recentVerdicts.map((v, i) => (
+												<li
+													key={`${v.threadId}-${i}`}
+													className="type-small text-[var(--text-secondary)]"
+												>
+													{v.decision} — {absoluteDate(v.createdAt)}
+												</li>
+											))}
+										</ul>
+									)}
+								</section>
+							)}
+
+							{/* Section 5 — Recent Activity */}
 							<section
 								aria-label="Recent activity"
 								data-testid="agent-activity-section"
@@ -706,40 +729,13 @@ function AgentSessionPanel({
 	);
 }
 
-/** Green/ghost badge for a harness capability. */
-function CapabilityBadge({ label, supported }: { label: string; supported: boolean }): JSX.Element {
-	return (
-		<span
-			className={`type-label ${`  px-[9px] py-[3px] rounded-[var(--r-pill)] ${
-				supported
-					? "bg-[var(--accent-primary)] text-white"
-					: "bg-[var(--surface-elevated)] text-[var(--text-tertiary)]"
-			}`}`}
-		>
-			{label}
-		</span>
-	);
-}
-
-/** Compact verdict indicator dot for the review track record. */
-function VerdictDot({ decision, createdAt }: { decision: string; createdAt: string }): JSX.Element {
-	const isApproval = decision === "approve" || decision === "approve-with-comments";
-	const isRejection = decision === "reject";
-	return (
-		<span
-			title={`${decision} — ${absoluteDate(createdAt)}`}
-			className={`w-[9px] h-[9px] rounded-[var(--r-pill)] inline-block ${
-				isApproval
-					? "bg-[var(--accent-primary)]"
-					: isRejection
-						? "bg-[var(--status-error)]"
-						: "bg-[var(--text-tertiary)]"
-			}`}
-		/>
-	);
-}
-
 // AI4 AC1: OutcomeChip deleted — replaced with StatusChip at the call site.
 // Session outcomes now render as full StatusChip pills (deliberate visual change:
-// text-only colored label → chrome pill with dot). VerdictDot and CapabilityBadge
-// are correctly left in place (not status — Decision 3 scope ruling).
+// text-only colored label → chrome pill with dot).
+//
+// @lore BC5 T11: CapabilityBadge/VerdictDot (the old dedicated components for
+// these two sections) are NOT restored — the restored sections above render
+// with plain Tag/KeyValue instead. Harness Capabilities reads a `runsOn`
+// entry (install-wide, matched by `harnessType`); Review Track Record reads
+// `open_user`'s own `reviewTrackRecord` field, computed through the deps bag
+// (`computeApprovalRate`, unchanged) rather than a second route.

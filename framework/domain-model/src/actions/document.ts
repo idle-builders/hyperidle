@@ -36,7 +36,16 @@ export const DOCUMENT_SLOT_LABEL: Record<DocumentSlot, string> = {
 	prompt: "Prompt",
 };
 
-export const DOCUMENT_PARENT_KINDS = ["document", "task", "thread", "routine", "agent"] as const;
+/** @lore BC5 T7b: `routine` is gone — a routine's prompt used to parent
+ * there; a subscription's prompt parents to `subscription` instead
+ * (migration 0089 re-parents every surviving prompt document). */
+export const DOCUMENT_PARENT_KINDS = [
+	"document",
+	"task",
+	"thread",
+	"agent",
+	"subscription",
+] as const;
 export type DocumentParentKind = (typeof DOCUMENT_PARENT_KINDS)[number];
 
 /** The word an agent uses. Derived on read, never stored — see `documentAs` below. */
@@ -469,14 +478,19 @@ function artifactInvariants(
 }
 
 /**
- * Only a system-initiated caller may name an `agent`/`routine` parent — the
- * rule `routes/knowledge.ts`'s (now-deleted) `CLIENT_WRITABLE_PARENT_KINDS`
+ * Only a system-initiated caller may name an `agent`/`subscription` parent —
+ * the rule `routes/knowledge.ts`'s (now-deleted) `CLIENT_WRITABLE_PARENT_KINDS`
  * enforced ("`routine` and `agent` stay refused from the client: those are
  * attached exclusively by core-api's own routes") and this module's first
  * pass over `edit_document` dropped. `caller.internal` is `true` only when
- * the composition root itself built the call (the routine route, the agent
- * identity helper, the plugin installer) — never set by the HTTP door or the
- * MCP tool loop, so a client can never talk its way past this by shape alone.
+ * the composition root itself built the call (the user module's `edit_user`,
+ * the agent identity helper, the plugin installer) — never set by the HTTP
+ * door or the MCP tool loop, so a client can never talk its way past this by
+ * shape alone.
+ *
+ * @lore BC5 T7b: `routine` is gone from `DOCUMENT_PARENT_KINDS` — the
+ * `agent`/`subscription` check below is exhaustive now, not a narrowing of a
+ * wider set.
  */
 function systemParentInvariants(
 	input: EditDocumentInput,
@@ -485,13 +499,13 @@ function systemParentInvariants(
 	if (
 		input.parent !== undefined &&
 		input.parent !== null &&
-		(input.parent.kind === "agent" || input.parent.kind === "routine") &&
+		(input.parent.kind === "agent" || input.parent.kind === "subscription") &&
 		!caller.internal
 	) {
 		return [
 			{
 				code: "forbidden_parent_kind",
-				message: "Only the system attaches a document to an agent or a routine.",
+				message: "Only the system attaches a document to an agent or a subscription.",
 				path: "parent",
 			},
 		];

@@ -1,11 +1,17 @@
 /**
  * AW1 — cursor-agent is actionable when discovery reports ready/unauthenticated.
+ *
+ * @lore BC5 T10: the door swap — `open_user({}).runsOn` replaces `GET
+ * /api/harnesses`; `call` is mocked at the door instead of `fetch`.
  */
 
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { SettingsHarnesses } from "../SettingsHarnesses.js";
+
+const { callMock } = vi.hoisted(() => ({ callMock: vi.fn() }));
+vi.mock("../../services/call.js", () => ({ call: callMock }));
 
 const CURSOR_READY_DESCRIPTOR = {
 	type: "cursor-agent",
@@ -35,21 +41,26 @@ const CURSOR_READY_DESCRIPTOR = {
 };
 
 function mockFetch(descriptors: unknown[] = [CURSOR_READY_DESCRIPTOR]): void {
-	vi.stubGlobal(
-		"fetch",
-		vi.fn(async (url: string) => {
-			if (url.endsWith("/api/harnesses")) {
-				return {
-					ok: true,
-					json: async () => descriptors,
-				};
-			}
-			if (url.endsWith("/api/server-config")) {
-				return { ok: true, json: async () => ({ harnessDisabled: [] }) };
-			}
-			throw new Error(`unexpected fetch: ${url}`);
-		}),
-	);
+	callMock.mockReset();
+	callMock.mockImplementation((name: string) => {
+		if (name === "open_user") {
+			return Promise.resolve({
+				ok: true,
+				data: {
+					user: { id: "me", kind: "human", name: "Me", team: { id: "team-1", name: "Acme" } },
+					runsOn: descriptors,
+					runConfig: null,
+					documentIds: [],
+					folders: [],
+					subscriptions: [],
+					connections: null,
+					behaviour: null,
+					inbox: null,
+				},
+			});
+		}
+		throw new Error(`unexpected call: ${name}`);
+	});
 }
 
 describe("cursor-agent is actionable when supported", () => {

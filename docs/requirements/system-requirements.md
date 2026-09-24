@@ -42,9 +42,9 @@ Platform constraints and standing decisions — what the system must run on and 
 
 ## S-6: Scheduling
 
-**S-6.1** Routines support four trigger types: `heartbeat | calendar | event | continuous` (`framework/domain-model/src/types.ts`). Routine semantics: [../process-layer/routines-and-retros.md](../process-layer/routines-and-retros.md).
+**S-6.1** A subscription fires on exactly one of an event (`framework/domain-model/src/actions/user.ts`'s `OBJECT_EVENTS`) or a schedule (a cron string, agent-only). Subscription semantics: [../process-layer/subscriptions-and-retros.md](../process-layer/subscriptions-and-retros.md).
 
-**S-6.2** Scheduling runs as in-process `setInterval` services, distributed across `layers/core-api/*/src/` and `layers/agent-orchestration/*/src/` (e.g. `layers/core-api/routine/src/routine-scheduler.ts`), on the Node.js event loop — no cron daemon, no background worker process. Scale to a separate worker only when measured latency demands it.
+**S-6.2** Scheduling runs as in-process `setInterval` services, distributed across `layers/core-api/*/src/` and `layers/agent-orchestration/*/src/` (e.g. `layers/core-api/user/src/subscription-clock.ts`), on the Node.js event loop — no cron daemon, no background worker process. Scale to a separate worker only when measured latency demands it.
 
 **S-6.3** No external workflow or agentic frameworks in the process layer — no Temporal, no Inngest, no Letta, no Agent Mail. All agentic integration happens through harness adapters. Confirmed by absence of any such dependency across `layers/`, `framework/`, `applications/`, `tools/`.
 
@@ -54,7 +54,7 @@ Platform constraints and standing decisions — what the system must run on and 
 
 ## S-8: Notification Delivery
 
-**S-8.1** Notification adapters: console, ntfy, SMTP (`layers/core-api/notifications/src/`). Minimum viable delivery is ntfy or plain SMTP. Primitive behavior (queue, digest, mute): [../human-interface-layer/notification-primitive.md](../human-interface-layer/notification-primitive.md).
+**S-8.1** There is no egress channel — no push, no email. A subscribed event lands an `inbox` row for a person and a live `user:<id>` socket nudge; nothing leaves the app. Primitive behavior: [../human-interface-layer/notification-primitive.md](../human-interface-layer/notification-primitive.md).
 
 ## S-9: Security and Credentials
 

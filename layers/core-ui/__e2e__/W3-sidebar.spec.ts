@@ -8,14 +8,20 @@
  * AC-4: Conversations sub-nav shows recent threads.
  */
 
-import { expect, makeThreadListRow, mockSearchThreads, test } from "./fixtures";
+import {
+	expect,
+	makeThreadListRow,
+	makeUserRow,
+	mockSearchTasks,
+	mockSearchThreads,
+	mockSearchUsers,
+	test,
+} from "./fixtures";
 
-const TEAMS_FIXTURE = {
-	teams: [
-		{ id: "t1", name: "Alpha Core", phase: "build", active: true },
-		{ id: "t2", name: "Beta Squad", phase: "build", active: true },
-	],
-};
+const TEAM_ROSTER = [
+	makeUserRow("agent-t1", { kind: "ai", team: { id: "t1", name: "Alpha Core" } }),
+	makeUserRow("agent-t2", { kind: "ai", team: { id: "t2", name: "Beta Squad" } }),
+];
 
 // @lore BC3: no `task` host kind — a task's own thread is `team`-hosted.
 const THREADS_FIXTURE = [
@@ -34,13 +40,7 @@ const THREADS_FIXTURE = [
 
 test.describe("W3 AC-1 — Sidebar bottom strip", () => {
 	test.beforeEach(async ({ page }) => {
-		await page.route("**/api/teams", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(TEAMS_FIXTURE),
-			});
-		});
+		await mockSearchUsers(page, { rows: TEAM_ROSTER });
 		await mockSearchThreads(page, { rows: THREADS_FIXTURE });
 		await page.goto("/conversations");
 		await page.waitForSelector("[data-ds-shell='Sidebar']");
@@ -74,13 +74,7 @@ test.describe("W3 AC-1 — Sidebar bottom strip", () => {
 
 test.describe("W3 AC-3 — Knowledge section has no scope sub-items", () => {
 	test.beforeEach(async ({ page }) => {
-		await page.route("**/api/teams", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(TEAMS_FIXTURE),
-			});
-		});
+		await mockSearchUsers(page, { rows: TEAM_ROSTER });
 		await page.goto("/documents");
 		await page.waitForSelector("[data-ds-shell='Sidebar']");
 	});
@@ -100,13 +94,10 @@ test.describe("W3 AC-3 — Knowledge section has no scope sub-items", () => {
 
 test.describe("W3 AC-2 — Work section shows teams from API", () => {
 	test.beforeEach(async ({ page }) => {
-		await page.route("**/api/teams", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(TEAMS_FIXTURE),
-			});
-		});
+		await mockSearchUsers(page, { rows: TEAM_ROSTER });
+		// useTeams() also fetches each team's task stats via search_tasks —
+		// both the sidebar's own instance and WorkOverview's need it answered.
+		await mockSearchTasks(page, { rows: [] });
 		await page.goto("/work/portfolio");
 		await page.waitForSelector("[data-ds-shell='Sidebar']");
 	});
@@ -122,13 +113,7 @@ test.describe("W3 AC-2 — Work section shows teams from API", () => {
 test.describe("W3 AC-4 — Conversations sub-nav shows recent threads", () => {
 	test.beforeEach(async ({ page }) => {
 		await mockSearchThreads(page, { rows: THREADS_FIXTURE });
-		await page.route("**/api/teams", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(TEAMS_FIXTURE),
-			});
-		});
+		await mockSearchUsers(page, { rows: TEAM_ROSTER });
 		await page.goto("/conversations");
 		await page.waitForSelector("[data-ds-shell='Sidebar']");
 	});

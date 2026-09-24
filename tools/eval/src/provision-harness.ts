@@ -12,13 +12,18 @@
  * The field name is kept for backward compat (see @lore U1 in session-provisioning.ts).
  *
  * @lore artifacts-become-knowledge: eval sessions previously threw in
- * `openMcpBridge` and supplied no `coreApiTransport`, so agents had no tools
- * to call. The fix starts a real listening HTTP server (subprocess CLIs make
- * real HTTP calls, so app.fetch in-process is not enough), mounts the MCP
- * bridge as a pre-auth route, and passes the composed app's transport into
- * `buildRunOrchestrationComposition`. Pattern mirrors `startLiveServer` in
+ * `openMcpBridge`, so agents had no tools to call. The fix starts a real
+ * listening HTTP server (subprocess CLIs make real HTTP calls, so app.fetch
+ * in-process is not enough) and mounts the MCP bridge as a pre-auth route.
+ * Pattern mirrors `startLiveServer` in
  * `assistant-reply-live-harness.integration.test.ts` — the same proof the
  * harness lane uses, applied here.
+ *
+ * @lore BC5 T11: the `CoreApiPort` seam (`coreApiTransport`,
+ * `createInProcessCoreApiTransport`) this file used to build and pass into
+ * `buildRunOrchestrationComposition` is DELETED — `create_team`/`add_agent`,
+ * the seam's last two tools, are gone with the `org` package they wrote
+ * through.
  */
 
 import { randomUUID } from "node:crypto";
@@ -26,7 +31,6 @@ import { serve } from "@hono/node-server";
 import {
 	bootAgentOrchestration,
 	buildRunOrchestrationComposition,
-	createInProcessCoreApiTransport,
 	type RunOrchestrationHarnessRuntimeAdapter,
 	type RunOrchestrationReturnStatusToolAdapter,
 } from "@hyperidle/agent-orchestration";
@@ -52,11 +56,10 @@ import {
 	type McpToolBridge,
 	returnStatusTool,
 } from "@hyperidle/harness-registry/mcp";
-import { getTeam } from "@hyperidle/org";
 import { readServerConfig } from "@hyperidle/settings";
 import * as work from "@hyperidle/task";
 import { bakeTaskContextBundle } from "@hyperidle/task";
-import { requireRunnableAgent } from "@hyperidle/users";
+import { getTeam, requireRunnableAgent } from "@hyperidle/user";
 import type { TriggerResult } from "./types.js";
 
 // ---------------------------------------------------------------------------
@@ -66,7 +69,6 @@ import type { TriggerResult } from "./types.js";
 interface EvalLiveServer {
 	readonly url: string;
 	readonly mcpBridgeRegistry: McpToolBridge;
-	readonly coreApiTransport: ReturnType<typeof createInProcessCoreApiTransport>;
 	readonly close: () => Promise<void>;
 }
 
@@ -125,7 +127,6 @@ async function startEvalLiveServer(db: HyperIdleDb, eventBus: EventBus): Promise
 
 	// Close the construction cycle.
 	realAgentOrchestrationTransport = createInProcessAgentOrchestrationTransport(composedApp);
-	const coreApiTransport = createInProcessCoreApiTransport(composedApp);
 
 	// Start a real listening HTTP server (CLI subprocesses make real HTTP calls).
 	let resolvePort!: (port: number) => void;
@@ -138,7 +139,6 @@ async function startEvalLiveServer(db: HyperIdleDb, eventBus: EventBus): Promise
 	return {
 		url: `http://127.0.0.1:${port}`,
 		mcpBridgeRegistry,
-		coreApiTransport,
 		close: async () => {
 			await new Promise<void>((resolve, reject) => {
 				httpServer.close((err) => (err ? reject(err) : resolve()));
@@ -300,7 +300,6 @@ export async function runEvalSession(
 		const composition = buildRunOrchestrationComposition({
 			harnessRuntime: buildEvalHarnessRuntimeAdapter(liveServer.mcpBridgeRegistry, liveServer.url),
 			returnStatusTool: evalReturnStatusToolAdapter,
-			coreApiTransport: liveServer.coreApiTransport,
 		});
 		const result = await composition.runSession(
 			{

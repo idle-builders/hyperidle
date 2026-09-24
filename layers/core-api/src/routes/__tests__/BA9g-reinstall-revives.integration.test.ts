@@ -2,16 +2,18 @@
  * Installing a plugin makes everything it contributed live again.
  *
  * Installing is a deliberate act. After it, the plugin's agent answers, its
- * routines fire and its skills reach sessions — whatever state those rows were
- * left in by a previous disable or remove.
+ * subscriptions fire and its skills reach sessions — whatever state those
+ * rows were left in by a previous disable or remove.
  *
  * Today that is true of skills only. `upsertPluginSkill` sets `status: "active"`
  * on conflict, so a skill comes back. The agent goes through
- * `insertUserIfAbsent` and the routines through `insertRoutine(…,
+ * `insertUserIfAbsent` and the subscriptions through `insertSubscription(…,
  * { onConflictDoNothing: true })` — both no-ops on a row that already exists —
  * so a reinstall over a disabled plugin yields a plugin that reports `enabled`
- * with a dead agent and dead routines, and no route short of manual SQL fixes
- * it. Remove is worse: the routines keep their `deletedAt` forever.
+ * with a dead agent and paused subscriptions, and no route short of manual
+ * SQL fixes it. Remove is different now: a subscription has no soft-delete
+ * column, so remove hard-deletes the row, and a reinstall's
+ * `onConflictDoNothing` insert finds no conflict and creates a fresh live row.
  *
  * One lifecycle, one outcome: three operations that can disagree become one.
  *
@@ -21,7 +23,13 @@
 import { cpSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { documents, type HyperIdleDb, pluginContributions, routines, users } from "@hyperidle/db";
+import {
+	documents,
+	type HyperIdleDb,
+	pluginContributions,
+	subscriptions,
+	users,
+} from "@hyperidle/db";
 import { and, eq, inArray } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, describe, expect } from "vitest";
@@ -90,7 +98,7 @@ async function editPlugin(app: Hono, body: unknown): Promise<Response> {
 /** What the plugin contributed — the registry is the only answer now. */
 async function contributed(
 	db: HyperIdleDb,
-	kind: "agent" | "routine" | "document",
+	kind: "agent" | "subscription" | "document",
 ): Promise<readonly string[]> {
 	const rows = await db
 		.select({ entityId: pluginContributions.entityId })
@@ -100,7 +108,10 @@ async function contributed(
 }
 
 describe("installing a plugin revives everything it contributed", () => {
-	test("install over a DISABLED plugin brings its agent and routines back", async ({ db, app }) => {
+	test("install over a DISABLED plugin brings its agent and subscriptions back", async ({
+		db,
+		app,
+	}) => {
 		await install(db, app);
 		expect((await editPlugin(app, { id: PLUGIN_ID, state: "disabled" })).status).toBe(200);
 
@@ -119,8 +130,8 @@ describe("installing a plugin revives everything it contributed", () => {
 			.where(inArray(users.id, [...(await contributed(db, "agent"))]));
 		const rows = await db
 			.select()
-			.from(routines)
-			.where(inArray(routines.id, [...(await contributed(db, "routine"))]));
+			.from(subscriptions)
+			.where(inArray(subscriptions.id, [...(await contributed(db, "subscription"))]));
 		const skills = await db
 			.select()
 			.from(documents)
@@ -135,26 +146,33 @@ describe("installing a plugin revives everything it contributed", () => {
 		for (const agent of agents) {
 			expect(agent.status, `agent ${agent.id} must be live after reinstall`).toBe("active");
 		}
-		for (const routine of rows) {
-			expect(routine.active, `routine ${routine.id} must be live after reinstall`).toBe(true);
-			expect(routine.deletedAt, `routine ${routine.id} must not be deleted`).toBeNull();
+		for (const subscription of rows) {
+			expect(
+				subscription.paused,
+				`subscription ${subscription.id} must be live after reinstall`,
+			).toBe(false);
 		}
 		for (const skill of skills) {
 			expect(skill.status, `skill ${skill.id} must be live after reinstall`).toBe("active");
 		}
 	});
 
-	test("install over a REMOVED plugin brings its agent and routines back", async ({ db, app }) => {
+	test("install over a REMOVED plugin brings its agent and subscriptions back", async ({
+		db,
+		app,
+	}) => {
 		await install(db, app);
+		const contributedIds = [...(await contributed(db, "subscription"))];
 		const del = await editPlugin(app, { id: PLUGIN_ID, remove: true });
 		expect(del.status).toBe(200);
 
-		// Precondition: remove soft-deleted the routines.
+		// Precondition: remove really did delete the subscriptions — no
+		// soft-delete column, so the rows are gone outright.
 		const afterRemove = await db
 			.select()
-			.from(routines)
-			.where(inArray(routines.id, [...(await contributed(db, "routine"))]));
-		expect(afterRemove.some((r) => r.deletedAt !== null)).toBe(true);
+			.from(subscriptions)
+			.where(inArray(subscriptions.id, contributedIds));
+		expect(afterRemove).toHaveLength(0);
 
 		await install(db, app);
 
@@ -164,42 +182,36 @@ describe("installing a plugin revives everything it contributed", () => {
 			.where(inArray(users.id, [...(await contributed(db, "agent"))]));
 		const rows = await db
 			.select()
-			.from(routines)
-			.where(inArray(routines.id, [...(await contributed(db, "routine"))]));
+			.from(subscriptions)
+			.where(inArray(subscriptions.id, [...(await contributed(db, "subscription"))]));
 
 		for (const agent of agents) {
 			expect(agent.status, `agent ${agent.id} must be live after reinstall`).toBe("active");
 		}
-		for (const routine of rows) {
-			expect(routine.active, `routine ${routine.id} must be live after reinstall`).toBe(true);
-			expect(routine.deletedAt, `routine ${routine.id} must not stay deleted`).toBeNull();
+		expect(rows.length).toBeGreaterThan(0);
+		for (const subscription of rows) {
+			expect(
+				subscription.paused,
+				`subscription ${subscription.id} must be live after reinstall`,
+			).toBe(false);
 		}
 	});
 
-	test("a routine the plugin disabled comes back with state and active agreeing", async ({
-		db,
-		app,
-	}) => {
+	test("a subscription the plugin disabled comes back unpaused", async ({ db, app }) => {
 		await install(db, app);
 		expect((await editPlugin(app, { id: PLUGIN_ID, state: "disabled" })).status).toBe(200);
 		await install(db, app);
 
 		const rows = await db
 			.select()
-			.from(routines)
+			.from(subscriptions)
 			.where(
 				and(
-					inArray(routines.id, [...(await contributed(db, "routine"))]),
-					eq(routines.active, true),
+					inArray(subscriptions.id, [...(await contributed(db, "subscription"))]),
+					eq(subscriptions.paused, false),
 				),
 			);
 
 		expect(rows.length).toBeGreaterThan(0);
-		// `state` is the field the routine surfaces read; `active` is the one the
-		// scheduler reads. A row where they disagree runs while reading as paused,
-		// or the reverse.
-		for (const routine of rows) {
-			expect(routine.state, `routine ${routine.id} state must agree with active`).toBe("active");
-		}
 	});
 });

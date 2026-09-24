@@ -43,6 +43,7 @@ import {
 	type ThreadView,
 	threadParticipantsSchema,
 } from "@hyperidle/domain-model";
+import { type ChangesRow, objectEvent } from "@hyperidle/event-bus";
 import type { Action, ActionContext } from "./action-types.js";
 import { resolveMentionsForMessage } from "./mention-resolver.js";
 import * as store from "./thread-service.js";
@@ -69,7 +70,7 @@ export interface ThreadActionsDeps {
 		/**
 		 * @lore The team-scoped read `resolveMentionsForMessage` needs — AE5's
 		 * "mention any agent in the team, not only who is in the thread" rule.
-		 * A nested Service may not import `@hyperidle/users` directly.
+		 * A nested Service may not import `@hyperidle/user` directly.
 		 */
 		listByTeamIds(exec: WriteExecutor, teamIds: readonly string[]): Promise<readonly User[]>;
 		/**
@@ -328,6 +329,33 @@ function pushChanges(deps: ThreadActionsDeps, rows: readonly PushableChange[]): 
 				at: row.at,
 			},
 		});
+	}
+}
+
+/**
+ * Post-commit, once per `changes` row this call appended — the SAME rows
+ * `pushChanges` pushes over the socket — the idiom
+ * thread and document use for the socket. `objectEvent` wants the raw
+ * `changes`-row shape (JSON text); re-encoding `PushableChange`'s already
+ * decoded `before`/`after` here keeps one canonical builder shared by every
+ * module instead of a second one over decoded values.
+ */
+function emitObjectEvents(
+	eventBus: ActionContext["eventBus"],
+	rows: readonly PushableChange[],
+): void {
+	for (const row of rows) {
+		const changesRow: ChangesRow = {
+			id: row.id,
+			object: "thread",
+			objectId: row.objectId,
+			kind: row.kind,
+			actor: row.actor,
+			before: row.before === null ? null : JSON.stringify(row.before),
+			after: JSON.stringify(row.after),
+			at: row.at,
+		};
+		eventBus.emit(objectEvent(changesRow));
 	}
 }
 
@@ -676,7 +704,6 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		let membersChanged = false;
 		let resolvedAtBefore: string | null = null;
 		let resolvedAtAfter: string | null = null;
-		let willReopen = false;
 		const pushRows: PushableChange[] = [];
 
 		// Recomputed once: `creatingThread` is either a group-thread create
@@ -1027,7 +1054,6 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 					threadRow?.resolvedAt !== null &&
 					threadRow !== undefined
 				) {
-					willReopen = true;
 					resolvedAtAfter = null;
 					await store.updateThread(tx as HyperIdleDb, effectiveThreadId, {
 						resolvedAt: null,
@@ -1116,44 +1142,10 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		}
 
 		// -- 6. after commit -----------------------------------------------------
-		ctx.eventBus.emit({
-			type: "thread_message_appended",
-			streamId: effectiveThreadId,
-			threadId: effectiveThreadId,
-			messageId,
-			messageType: body.type,
-			senderId: ctx.actor,
-			timestamp: Date.now(),
-		} as never);
-		if (creatingThread) {
-			ctx.eventBus.emit({
-				type: "thread_created",
-				streamId: effectiveThreadId,
-				threadId: effectiveThreadId,
-				hostKind: creatingThread.hostKind,
-				hostId: creatingThread.hostId,
-				initiatorId: ctx.actor,
-				timestamp: Date.now(),
-			} as never);
-		}
-		if (resolvedAtAfter !== resolvedAtBefore && input.verdict !== undefined) {
-			ctx.eventBus.emit({
-				type: "thread_resolved",
-				streamId: effectiveThreadId,
-				threadId: effectiveThreadId,
-				resolvedByMessageId: messageId,
-				timestamp: Date.now(),
-			} as never);
-		}
-		if (willReopen) {
-			ctx.eventBus.emit({
-				type: "thread_reopened",
-				streamId: effectiveThreadId,
-				threadId: effectiveThreadId,
-				reopenedByMessageId: messageId,
-				timestamp: Date.now(),
-			} as never);
-		}
+		// Every row this call appended is one object event
+		// (decision 5) — `pushRows` already carries them all: the message,
+		// the create (if any) and the resolve/reopen (if any).
+		emitObjectEvents(ctx.eventBus, pushRows);
 
 		if (body.type === "review" && ctx.caller?.sessionId) {
 			await deps.linkReviewToSession(ctx.caller.sessionId, messageId);
@@ -1314,17 +1306,17 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 					await store.updateThread(tx as HyperIdleDb, threadId, { title: input.title });
 				}
 			});
-			pushChanges(deps, [
-				{
-					id: createdChangeId,
-					objectId: threadId,
-					kind: "created",
-					actor: ctx.actor,
-					before: null,
-					after: createdAfter,
-					at: now,
-				},
-			]);
+			const createdRow: PushableChange = {
+				id: createdChangeId,
+				objectId: threadId,
+				kind: "created",
+				actor: ctx.actor,
+				before: null,
+				after: createdAfter,
+				at: now,
+			};
+			pushChanges(deps, [createdRow]);
+			emitObjectEvents(ctx.eventBus, [createdRow]);
 			return openThreadRun(ctx, { id: threadId });
 		}
 
@@ -1405,17 +1397,17 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 					at: now,
 				});
 			});
-			pushChanges(deps, [
-				{
-					id: changeId,
-					objectId: input.id as string,
-					kind: "changed",
-					actor: ctx.actor,
-					before: changeBefore,
-					after: changeAfter,
-					at: now,
-				},
-			]);
+			const changedRow: PushableChange = {
+				id: changeId,
+				objectId: input.id as string,
+				kind: "changed",
+				actor: ctx.actor,
+				before: changeBefore,
+				after: changeAfter,
+				at: now,
+			};
+			pushChanges(deps, [changedRow]);
+			emitObjectEvents(ctx.eventBus, [changedRow]);
 		}
 
 		// Not `openThreadRun` — that guard would refuse a `deleted:true` adjust

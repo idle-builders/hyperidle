@@ -12,7 +12,7 @@
  *
  * @lore AX1: the skeleton grew into a LIVED-IN world — six weeks of Acme
  * history (nested tasks across every lifecycle, threads with real reviews, a
- * document corpus, sessions and routines with run history). The content
+ * document corpus, sessions and a subscription). The content
  * lives in `./demo-world/`; this file keeps the skeleton and the entry
  * point. The AF17 constraint is unchanged: demo data is OPT-IN at database
  * creation (`npm run setup -- --demo`, or `--db-path` pointed at any
@@ -39,7 +39,7 @@ import {
 	agentRunConfig,
 	documents,
 	type HyperIdleDb,
-	routines,
+	subscriptions,
 	tasks,
 	teams,
 	threads,
@@ -55,8 +55,8 @@ import { createDemoClock } from "./demo-world/time.js";
  * Creates: team "Acme" (AU44 B1: team_members dissolved), two humans, the founder's
  * assistant and five team agents, seven root tasks across every lifecycle with
  * nested subtasks to three levels deep, fifteen threads with ~100 messages,
- * a ~40-item document corpus, ~45 sessions, routines with run history, and
- * notifications — a world that reads as six weeks of use by a small team.
+ * a ~40-item document corpus, ~45 sessions, a subscription, and
+ * inbox rows — a world that reads as six weeks of use by a small team.
  *
  * Idempotent: uses onConflictDoNothing throughout; fixed `demo-*` ids.
  *
@@ -189,7 +189,6 @@ export async function seedDemoWorld(
 		.values({
 			id: teamId,
 			name: "Acme",
-			phase: "build",
 			createdAt: clock.daysAgo(44),
 		})
 		.onConflictDoNothing();
@@ -267,8 +266,8 @@ export async function seedDemoWorld(
 		.onConflictDoNothing();
 	await upsertDemoRunConfig(db, "demo-agent-pm", { maxConcurrentSessions: 1 });
 
-	// Set team lead to demo builder
-	await db.update(teams).set({ leadAgentId: "demo-agent-builder" }).where(eq(teams.id, teamId));
+	// @lore BC5 T11: `leadAgentId` is dropped (migration 0090) — a team is an
+	// id and a name now; there is no lead to set.
 
 	// Daily digest bet (disabled by default — operator enables)
 	await db
@@ -320,30 +319,27 @@ export async function seedDemoWorld(
 			teamId,
 			ownerAgentId: "seed-agent-cos",
 			title: "Daily digest anchor task",
-			description: "Anchor task for the daily digest routine.",
+			description: "Anchor task for the daily digest subscription.",
 			state: "accepted",
 			createdAt: clock.daysAgo(19),
 			updatedAt: clock.daysAgo(19),
 		})
 		.onConflictDoNothing();
 
-	// Daily digest routine (inactive by default)
+	// @lore BC5 T7b: the daily-digest routine becomes a paused schedule
+	// subscription — same row 0089's migration would produce from an
+	// `active: false` routine (`paused = true`).
 	await db
-		.insert(routines)
+		.insert(subscriptions)
 		.values({
 			id: "demo-routine-daily_digest",
-			name: "Daily digest",
-			state: "active",
-			ownerAgentId: "seed-agent-cos",
-			triggerType: "calendar",
-			triggerConfig: JSON.stringify({
-				cron: "0 8 * * *",
-				taskId: "demo-task-daily-digest",
-			}),
-			active: false,
-			humanReview: false,
-			silent: true,
+			userId: "seed-agent-cos",
+			event: null,
+			schedule: "0 8 * * *",
+			paused: true,
+			nextRunAt: null,
 			createdAt: clock.daysAgo(19),
+			updatedAt: clock.daysAgo(19),
 		})
 		.onConflictDoNothing();
 

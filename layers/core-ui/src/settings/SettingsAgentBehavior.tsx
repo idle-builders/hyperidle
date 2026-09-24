@@ -1,9 +1,4 @@
-import type {
-	AgentBehaviorConfigListResponse,
-	AgentBehaviorConfigPatchResponse,
-	AgentBehaviorConfigView,
-	AgentBehaviorEditableField,
-} from "@hyperidle/domain-model";
+import type { AgentBehaviorEditableField, BehaviourEntry } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useMemo, useState } from "react";
 import {
 	Button,
@@ -23,29 +18,27 @@ import {
 } from "../ds";
 import { useUiPreference } from "../hooks/useUiPreference.js";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
-import { apiFetch } from "../services/api-fetch.js";
+import { call } from "../services/call.js";
 import { useToast } from "../shell/ToastRegion.js";
 
 const CATEGORY_LABELS = {
 	agent: "Agents",
 	skill: "Skills",
-	routine: "Routines",
+	subscription: "Subscriptions",
 	tool: "Tools",
 	mcp: "MCP",
-} as const satisfies Record<AgentBehaviorConfigView["kind"], string>;
+} as const satisfies Record<BehaviourEntry["kind"], string>;
 
 type LoadState = "loading" | "ready" | "error";
 
-function chipStatus(item: AgentBehaviorConfigView): "healthy" | "behind" | "blocked" | "unknown" {
+function chipStatus(item: BehaviourEntry): "healthy" | "behind" | "blocked" | "unknown" {
 	if (item.statusLabel.includes("removed")) return "blocked";
 	if (item.statusLabel.includes("disabled")) return "behind";
 	if (item.valueSource === "user_override") return "healthy";
 	return "unknown";
 }
 
-function kindTone(
-	kind: AgentBehaviorConfigView["kind"],
-): "pattern" | "decision" | "failure" | undefined {
+function kindTone(kind: BehaviourEntry["kind"]): "pattern" | "decision" | "failure" | undefined {
 	if (kind === "mcp") return "pattern";
 	if (kind === "tool") return "pattern";
 	return undefined;
@@ -61,7 +54,8 @@ function mergeFieldValue(
 
 export function SettingsAgentBehavior(): JSX.Element {
 	const { showToast } = useToast();
-	const [items, setItems] = useState<AgentBehaviorConfigView[]>([]);
+	const [items, setItems] = useState<BehaviourEntry[]>([]);
+	const [selfId, setSelfId] = useState<string | null>(null);
 	const [status, setStatus] = useState<LoadState>("loading");
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [draft, setDraft] = useState<Record<string, string | boolean | null>>({});
@@ -75,10 +69,13 @@ export function SettingsAgentBehavior(): JSX.Element {
 	const load = useCallback(async (): Promise<void> => {
 		setStatus("loading");
 		try {
-			const res = await apiFetch("/api/settings/agent-behavior/config");
-			if (!res.ok) throw new Error(`HTTP ${res.status}`);
-			const body = (await res.json()) as AgentBehaviorConfigListResponse;
-			setItems([...body.items]);
+			const result = await call("open_user", {});
+			if (!result.ok || result.data.user === null || result.data.behaviour === null) {
+				setStatus("error");
+				return;
+			}
+			setSelfId(result.data.user.id);
+			setItems([...result.data.behaviour]);
 			setStatus("ready");
 		} catch {
 			setStatus("error");
@@ -90,7 +87,7 @@ export function SettingsAgentBehavior(): JSX.Element {
 	}, [load]);
 
 	const counts = useMemo(() => {
-		const byKind = new Map<AgentBehaviorConfigView["kind"], number>();
+		const byKind = new Map<BehaviourEntry["kind"], number>();
 		for (const item of items) {
 			byKind.set(item.kind, (byKind.get(item.kind) ?? 0) + 1);
 		}
@@ -99,7 +96,7 @@ export function SettingsAgentBehavior(): JSX.Element {
 
 	const selected = selectedId ? (items.find((item) => item.id === selectedId) ?? null) : null;
 
-	function selectItem(item: AgentBehaviorConfigView): void {
+	function selectItem(item: BehaviourEntry): void {
 		setSelectedId(item.id);
 		setSplitMode("split");
 		setSaveError(null);
@@ -125,27 +122,33 @@ export function SettingsAgentBehavior(): JSX.Element {
 	}
 
 	async function saveSelected(): Promise<void> {
-		if (!selected) return;
+		if (!(selected && selfId)) return;
 		setSaving(true);
 		setSaveError(null);
 		try {
-			const res = await apiFetch(
-				`/api/settings/agent-behavior/config/${encodeURIComponent(selected.id)}`,
-				{
-					method: "PATCH",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ fields: draft }),
-				},
-			);
-			if (!res.ok) throw new Error(`HTTP ${res.status}`);
-			const body = (await res.json()) as AgentBehaviorConfigPatchResponse;
-			setItems((current) => current.map((item) => (item.id === body.item.id ? body.item : item)));
-			setSelectedId(body.item.id);
-			setDraft(
-				Object.fromEntries(
-					body.item.editableFields.map((field) => [field.id, field.value]),
-				) as Record<string, string | boolean | null>,
-			);
+			const result = await call("edit_user", {
+				id: selfId,
+				behaviour: [{ id: selected.id, fields: draft }],
+			});
+			if (!result.ok || result.data.behaviour === null) {
+				const message = result.ok
+					? "Could not save agent behavior."
+					: (result.problems[0]?.message ?? "Could not save agent behavior.");
+				setSaveError(message);
+				showToast(message);
+				return;
+			}
+			const nextItems = result.data.behaviour;
+			setItems([...nextItems]);
+			const updated = nextItems.find((item) => item.id === selected.id) ?? null;
+			setSelectedId(updated?.id ?? null);
+			if (updated) {
+				setDraft(
+					Object.fromEntries(
+						updated.editableFields.map((field) => [field.id, field.value]),
+					) as Record<string, string | boolean | null>,
+				);
+			}
 			setEditing(false);
 			showToast("Agent behavior saved");
 		} catch (err) {
@@ -196,7 +199,7 @@ export function SettingsAgentBehavior(): JSX.Element {
 					>
 						<div className="type-metadata   text-[var(--text-primary)]">{label}</div>
 						<div className="type-label  text-[var(--text-tertiary)]">
-							{counts.get(kind as AgentBehaviorConfigView["kind"]) ?? 0} items
+							{counts.get(kind as BehaviourEntry["kind"]) ?? 0} items
 						</div>
 					</div>
 				))}
@@ -300,7 +303,7 @@ export function SettingsAgentBehavior(): JSX.Element {
 				<EmptyState
 					compact
 					title="Select a behavior row"
-					description="Choose an agent, skill, routine, tool, or MCP row to inspect its active value."
+					description="Choose an agent, skill, subscription, tool, or MCP row to inspect its active value."
 				/>
 			)}
 		</div>
@@ -373,7 +376,7 @@ function EditableField({
 	);
 }
 
-function rowKindLabel(kind: AgentBehaviorConfigView["kind"]): string {
+function rowKindLabel(kind: BehaviourEntry["kind"]): string {
 	if (kind === "mcp") return "Server";
 	return CATEGORY_LABELS[kind].replace(/s$/, "");
 }

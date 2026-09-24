@@ -331,9 +331,9 @@ describe("editDocumentInvariants", () => {
 		expect(problems[0]?.code).toBe("forbidden_parent_kind");
 	});
 
-	it("forbidden_parent_kind: a non-internal caller names a routine parent", () => {
+	it("forbidden_parent_kind: a non-internal caller names a subscription parent", () => {
 		const problems = editDocumentInvariants(
-			{ title: "Prompt", parent: { kind: "routine", id: "r1" } },
+			{ title: "Prompt", parent: { kind: "subscription", id: "s1" } },
 			null,
 			noCaller,
 		);
@@ -431,11 +431,11 @@ describe("combined cases (pure half)", () => {
 
 	it("case 2: a move of a slotted document is refused by I10 before D5 is ever consulted", () => {
 		const prev = makeRow({ slot: "prompt" });
-		// `internal: true` — a routine parent is internal-only
+		// `internal: true` — a subscription parent is internal-only
 		// (`forbidden_parent_kind`); this case is about I10 firing before D5,
-		// not about who may name a routine.
+		// not about who may name a subscription.
 		const problems = editDocumentInvariants(
-			{ id: prev.id, parent: { kind: "routine", id: "r1" } },
+			{ id: prev.id, parent: { kind: "subscription", id: "s1" } },
 			prev,
 			{ ...noCaller, internal: true },
 		);

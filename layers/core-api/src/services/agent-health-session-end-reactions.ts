@@ -1,5 +1,5 @@
 /**
- * AU26 — the degraded-agent notification, event-driven.
+ * AU26 — the degraded-agent notice, event-driven.
  *
  * Founder ruling: *"shouldn't the notification system anyhow allow to be event
  * based and then the notification system just keeps track of how many of the
@@ -19,85 +19,53 @@
  * `registeredBuses` WeakSet idempotency guard, and the explicit
  * `register*(db, eventBus)` wiring convention wired at `service-bootstrap.ts`.
  *
- * ## The rule changed, deliberately
+ * ## The notification queue is gone — this writes `health` now
  *
  * The old trigger was a RATIO — `failureRate7d > 0.5 || lastSessionCrashed`
  * (`deriveHealthLevel`, `framework/domain-model/src/agent-run-view.ts`), computed from
- * the agent's raw run rows. A ratio is structurally unexpressible here: the
- * notification system is told when a run CRASHES and is never told when one
- * succeeds, so it has no denominator and must never invent one. With founder
- * approval the rule becomes a COUNT:
+ * the agent's raw run rows; the team page's own health dots still compute it
+ * that way, browser-side, off `agent-orchestration`'s own API — untouched
+ * here. What this reaction drives is the NOTICE, and the notice moved onto
+ * the user module: a crashed session writes `edit_user({ id: agentId,
+ * health })`, which lands as an ordinary `user.changed` change row. Whoever
+ * subscribes to `user.changed` in reach (the agent's owner, its team) sees
+ * it, the same door a mention uses — no separate notification vocabulary,
+ * no queue.
  *
- *     notify once an agent has AGENT_FAILURE_NOTIFY_THRESHOLD crashed runs
- *     inside AGENT_FAILURE_WINDOW_DAYS.
+ * The old "silent below 3 crashes" throttle is gone with the queue it lived
+ * in: a `notification_queue` row could be written and stay `dropped`
+ * (invisible) below the threshold, which is exactly the second store this
+ * mechanism no longer has. Every crash now writes a `health` note — the
+ * note text still carries how many crashes happened in the trailing 7-day
+ * window, so a human reading the note sees the same "N failures in 7 days"
+ * framing as before, just without a gate on whether it is written at all.
  *
- * `deriveHealthLevel` / `computeHealthSignals` / `deriveHealthDetail` stay in
- * `@hyperidle/domain-model` untouched — the team page still uses them for its own
- * health dots, computed browser-side from `agent-orchestration`'s own API. What
- * changed is what drives the NOTIFICATION, not what drives the screens.
- *
- * ## Why every crash is written down, even the ones nobody sees
- *
- * The count is taken over `notification_queue` rows — the notification system
- * counting its own events, no new table and no tally state, exactly as the
- * ruling describes. That only works if every crash leaves a row: if a row were
- * written only when we notify, the count could never climb past zero and a
- * threshold above 1 would be unreachable. So a crash below the threshold is
- * RECORDED as a retired row — `status: "dropped"` (the queue's existing "in the
- * queue, never delivered" terminal state, already used by the enqueue cap
- * eviction) with `readAt`/`seenAt` stamped at insert.
- *
- * @lore AU26: the `readAt`/`seenAt` stamp is load-bearing, not cosmetic. The
- * inbox popover reads `readAt IS NULL` with NO status filter
- * (`listNotifications({kind:"unread"})` → `routes/notifications-routes.ts` GET
- * /inbox), so an unstamped ledger row would show up in the user's inbox as a
- * real notification. Stamping both makes the row invisible to every delivery
- * surface — the dispatcher only claims `status = 'pending'`, the digest only
- * reads pending, the popover only reads unread — while it still counts. The
- * retention reaper GCs it with the other terminal rows at
- * `TERMINAL_LOG_TTL_MS` = 30 days, comfortably outside the 7-day window.
- *
- * @lore AU26: the read-then-insert count is NOT transactional, so two crashes
- * landing at the same instant can both read the same count. This is the exact
- * race the deleted `maybeNotifyAgentError` had (it too did a check-then-insert
- * dedup probe), and the consequence is bounded and benign: at worst one
- * duplicate pending row, which the throttle collapses on the next crash. A
- * lock was rejected as machinery the product does not need.
+ * @lore review fix: the count used to be EVERY `user` change row on the
+ * agent in the window — a plain rename or a team move counted as a
+ * "failure" alongside an actual crash. This reaction is the only writer of
+ * `health` on an `edit_user` call (grep confirms no UI or route sets it),
+ * so `after.health` present on a row is exactly "this row is one of this
+ * reaction's own crash notes" — the filter below counts only those.
  */
 
+import { listChanges } from "@hyperidle/changes";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { EventBus, SessionEndedEvent } from "@hyperidle/event-bus";
-import { enqueue, listNotifications } from "@hyperidle/notifications";
-import { getTeam } from "@hyperidle/org";
-import { findUser } from "@hyperidle/users";
+import { findUser, getTeam } from "@hyperidle/user";
+import type { ActionContext, EditUserRunFn } from "../actions/action.js";
+
+export type { EditUserRunFn };
 
 const logger = createLogger({ pkg: "core-api.agent-health-session-end-reactions" });
 const registeredBuses = new WeakSet<EventBus>();
 
-/** The queue `eventType` this reaction both writes and counts. */
-export const AGENT_HEALTH_DEGRADED_EVENT_TYPE = "agent.health.degraded";
-
 /**
- * The window the count is taken over. Kept at 7 days so the notification says
- * the same thing the team page's own health dots say — `computeHealthSignals`
+ * The window the count is taken over. Kept at 7 days so the notice says the
+ * same thing the team page's own health dots say — `computeHealthSignals`
  * is a 7-day view too.
  */
 export const AGENT_FAILURE_WINDOW_DAYS = 7;
-
-/**
- * How many crashed runs inside the window surface a notification.
- *
- * Three, not one. Going event-driven removed an accidental throttle: the old
- * producer only ran when someone opened the team page, so in practice most
- * crashes never notified at all. Firing on every single crash instead would be
- * strictly noisier than what shipped, and one crashed run is ordinary
- * operational weather — a dropped connection, a harness hiccup, a rate limit.
- * Three inside a week is not weather, it is a pattern, and a pattern is the
- * only thing worth interrupting a human for. The first two are still written
- * down; they simply do not ring the bell.
- */
-export const AGENT_FAILURE_NOTIFY_THRESHOLD = 3;
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -118,56 +86,56 @@ async function describeAgent(
 	return { name: agent.name, teamName: team?.name ?? null };
 }
 
-async function recordAgentFailure(db: HyperIdleDb, agentId: string): Promise<void> {
+async function recordAgentFailure(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	editUser: EditUserRunFn,
+	agentId: string,
+	now: Date,
+): Promise<void> {
 	const agent = await describeAgent(db, agentId);
 	if (!agent) {
 		logger.warn("crashed run for an unknown agent — not recorded", { agentId });
 		return;
 	}
 
-	const now = new Date();
 	const since = new Date(now.getTime() - AGENT_FAILURE_WINDOW_DAYS * MS_PER_DAY).toISOString();
-
-	// The notification system counting its own events. `+ 1` is this crash.
-	const priorFailures = await listNotifications(db, {
-		kind: "by-event-since",
-		eventType: AGENT_HEALTH_DEGRADED_EVENT_TYPE,
-		subjectId: agentId,
-		since,
+	// This reaction's own prior crash notes in the window — not every `user`
+	// change row (a rename or a team move is not a crash). `after` is the
+	// change row's JSON-encoded diff; `health` is present on it only when a
+	// call set `health`, which only this reaction does. `+ 1` is this crash.
+	const priorChanges = await listChanges(db, { object: "user", objectId: agentId, after: since });
+	const priorCrashNotes = priorChanges.filter((c) => {
+		const after = JSON.parse(c.after) as Record<string, unknown>;
+		return after.health !== undefined;
 	});
-	const failureCount = priorFailures.length + 1;
+	const failureCount = priorCrashNotes.length + 1;
 
-	// The preserved throttle: never stack a second notification while one is
-	// still pending. The crash is recorded either way.
-	const [alreadyPending] = await listNotifications(db, {
-		kind: "pending-by-event",
-		eventType: AGENT_HEALTH_DEGRADED_EVENT_TYPE,
-		subjectId: agentId,
-	});
-	const surface = failureCount >= AGENT_FAILURE_NOTIFY_THRESHOLD && alreadyPending === undefined;
-
-	const nowIso = now.toISOString();
 	const subject = agent.teamName === null ? agent.name : `${agent.name} on team ${agent.teamName}`;
-	await enqueue(db, {
-		id: crypto.randomUUID(),
-		eventType: AGENT_HEALTH_DEGRADED_EVENT_TYPE,
-		subjectId: agentId,
-		severity: "blocking",
-		title: `Agent ${agent.name} needs attention`,
-		body: `${subject}: ${failureCount} failures in the last ${AGENT_FAILURE_WINDOW_DAYS} days`,
-		reason: "agent_health_transition",
-		channel: null,
-		status: surface ? "pending" : "dropped",
-		attempts: 0,
-		createdAt: nowIso,
-		// Ledger-only rows are born retired — see the @lore above.
-		...(surface ? {} : { readAt: nowIso, seenAt: nowIso }),
-	});
+	const health = `${subject}: ${failureCount} failures in the last ${AGENT_FAILURE_WINDOW_DAYS} days`;
+
+	// `eventBus` MUST be the real, shared bus this reaction was registered on
+	// — `edit_user` emits `user.changed` straight off `ctx.eventBus`
+	// (`user-actions.ts`), so a throwaway instance here would silently drop
+	// the wake every subscriber in reach depends on.
+	const ctx: ActionContext = { actor: agentId, db, eventBus, now: now.toISOString() };
+	const result = await editUser(ctx, { id: agentId, health });
+	if (!result.ok) {
+		logger.error("failed to write agent health", {
+			agentId,
+			problems: result.problems,
+		});
+	}
 }
 
-function reactToSessionEnded(db: HyperIdleDb, event: SessionEndedEvent): Promise<void> | undefined {
+function reactToSessionEnded(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	editUser: EditUserRunFn,
+	event: SessionEndedEvent,
+): Promise<void> | undefined {
 	if (event.outcome !== "crashed") return undefined;
-	return recordAgentFailure(db, event.agentId);
+	return recordAgentFailure(db, eventBus, editUser, event.agentId, new Date(event.timestamp));
 }
 
 /**
@@ -178,6 +146,7 @@ function reactToSessionEnded(db: HyperIdleDb, event: SessionEndedEvent): Promise
 export function registerAgentHealthSessionEndReactions(
 	db: HyperIdleDb,
 	eventBus: EventBus,
+	editUser: EditUserRunFn,
 ): () => void {
 	if (registeredBuses.has(eventBus)) {
 		return () => {};
@@ -185,7 +154,7 @@ export function registerAgentHealthSessionEndReactions(
 	registeredBuses.add(eventBus);
 
 	const unsubscribe = eventBus.on("session_ended", (event) => {
-		void reactToSessionEnded(db, event)?.catch((error: unknown) => {
+		void reactToSessionEnded(db, eventBus, editUser, event)?.catch((error: unknown) => {
 			logger.error("session_ended agent-health reaction failed", {
 				sessionId: event.sessionId,
 				agentId: event.agentId,

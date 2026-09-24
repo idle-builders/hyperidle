@@ -6,7 +6,7 @@
  * WorkOverview) live in the component viewer (:8098) so the founder can review
  * the chosen design (Variant A frame + B's attention-sort) on real DS components:
  *
- *   Populated — 4 teams, attention-sorted (blocked → behind → healthy, name asc)
+ *   Populated — 3 teams, attention-sorted (blocked → healthy, name asc)
  *   Loading   — SkeletonList(rows=4)
  *   Error     — ErrorState("Couldn't load teams")
  *   Empty     — EmptyState("No teams yet")
@@ -18,46 +18,33 @@
  * (hook + router) — so each state renders with no backend and no fetch stubbing.
  */
 
-import type { TeamListItem } from "@hyperidle/domain-model";
+import type { TeamsListItem } from "../hooks/useTeams.js";
 import { WorkOverviewView } from "./WorkOverview";
 
 export default { title: "Page: Work/Overview", tier: "3" as const };
 
 // ---------------------------------------------------------------------------
-// Fixtures — full TeamListItem shape; only name / status / activeBets are
-// surfaced by the row. The view sorts internally, so order here is the
-// pre-sort (insertion) order to prove the attention-sort visibly reorders.
+// Fixtures — the full TeamsListItem shape. The view sorts internally, so
+// order here is the pre-sort (insertion) order to prove the attention-sort
+// visibly reorders.
 // ---------------------------------------------------------------------------
 
 function team(
 	id: string,
 	name: string,
-	status: TeamListItem["status"],
+	status: TeamsListItem["status"],
 	tasksInProgress: number,
-): TeamListItem {
-	return {
-		id,
-		name,
-		status,
-		tasksInProgress,
-		tasksDone: 0,
-		phase: "build",
-		leadAgentId: null,
-		shipRate: "—",
-		progress: { done: 0, total: 0 },
-		routineCount: 0,
-		agentCount: 0,
-	};
+): TeamsListItem {
+	return { id, name, status, tasksInProgress };
 }
 
 // Insertion order is deliberately NOT attention-order so the rendered list
-// proves the sort: Core Platform (blocked) → Growth (behind) → Content,
-// Design Studio (healthy, name asc).
-const TEAMS: TeamListItem[] = [
+// proves the sort: Core Platform (blocked) → Content, Design Studio
+// (healthy, name asc).
+const TEAMS: TeamsListItem[] = [
 	team("t-design", "Design Studio", "healthy", 1),
 	team("t-core", "Core Platform", "blocked", 2),
 	team("t-content", "Content", "healthy", 0),
-	team("t-growth", "Growth", "behind", 1),
 ];
 
 const noop = (): void => {};

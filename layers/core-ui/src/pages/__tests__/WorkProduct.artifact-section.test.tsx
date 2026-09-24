@@ -8,11 +8,10 @@
  * @lore U5: Renamed from WorkProduct → WorkTeam. File name kept for git history tracing.
  */
 
-// @lore U1: ProductDetail → TeamDetail; `product` → `team`; `team` → `teamMembers`.
-import type { TeamDetail } from "@hyperidle/domain-model";
 import { render } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { TeamPageData } from "../../hooks/useTeam.js";
 import { WorkTeam } from "../../pages/WorkTeam";
 
 // AgentEditDialog (rendered inside WorkTeam) calls useToast on mount.
@@ -31,21 +30,16 @@ vi.mock("../../shell/ToastRegion.js", async () => {
 // ArtifactSection is NOT rendered by WorkTeam — no mock needed.
 
 // @lore U1: TeamDetail replaces ProductDetail. `team` (TeamSummary) replaces
-// `product` (ProductSummary). `teamMembers` replaces `team` (membership group).
-const MOCK_TEAM: TeamDetail = {
+// `product` (ProductSummary).
+// @lore BC5 T9: TeamPageData replaces TeamDetail — team is id + name + a
+// computed "healthy" | "blocked" status now (D-c7jgxy).
+const MOCK_TEAM: TeamPageData = {
 	team: {
 		id: "prod-l12",
 		name: "L12 Test Team",
-		// @lore U1: TeamStatus = "healthy"|"behind"|"blocked"; "active" is not valid.
 		status: "healthy",
-		phase: "build",
-		leadAgentId: null,
 	},
-	teamMembers: { id: "tm-l12", formedAt: "2024-01-01T00:00:00.000Z", dissolvedAt: null },
 	roster: [],
-	burn: {
-		capacity: 3,
-	},
 	tasksInProgress: [],
 };
 

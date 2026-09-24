@@ -2,17 +2,21 @@
  * AH3 RED — Playwright E2E specs.
  *
  * Per AH track HARD rule: NO page.route() mocking of the assistant/turn/session
- * path. The core fixtures.ts mocks (/api/auth/me, /api/settings,
- * /api/actions/search_threads, /api/teams) are allowed as shell scaffolding.
- * The assistant thread endpoint, message POST, and all turn paths must reach
- * the REAL backend.
+ * path. The core fixtures.ts mocks (open_user, /api/actions/search_threads)
+ * are allowed as shell scaffolding. The assistant thread endpoint, message
+ * POST, and all turn paths must reach the REAL backend.
  *
  * @lore BC3: repointed at `POST /api/actions/{search_threads,open_thread,
  * send_message}` — never `GET /api/threads/assistant` (deleted; the overlay
  * resolves the assistant's thread via `useThreads({host:{kind:"agent",
- * id:myAgentId}})`, `myAgentId` found from `GET /api/agents` by
+ * id:myAgentId}})`, `myAgentId` found from `search_users({kind:"ai"})` by
  * `ownerUserId`). This test is already on
  * `known-pre-existing-failures.ts`.
+ *
+ * @lore BC5 T9/T11: `GET /api/auth/me` and `GET /api/agents` are gone —
+ * `useCurrentUser` reads `open_user({})` (this file overrides the fixtures.ts
+ * auto-use default with `mockUser({ self: true })`) and `useAgents` reads
+ * `search_users({kind:"ai"})`.
  *
  * These specs are written per the plan's guidance that AH3 writes them and AH5
  * supplies the real-model lane. For paths that need a real model, the spec notes
@@ -29,32 +33,34 @@
  * is testable immediately once server rejects are wired.
  */
 
-import { expect, makeIdentity, makeThreadListRow, mockSearchThreads, test } from "./fixtures";
+import {
+	expect,
+	makeIdentity,
+	makeThreadListRow,
+	makeUserRow,
+	mockSearchThreads,
+	mockSearchUsers,
+	mockUser,
+	test,
+} from "./fixtures";
 
 // ---------------------------------------------------------------------------
 // Common scaffolding: assistant thread mock data
 // ---------------------------------------------------------------------------
 
-const FOUNDER_USER = {
-	id: "test-founder",
+const FOUNDER_ROW = makeUserRow("test-founder", {
 	name: "Test Founder",
-	email: "test@hyperidle.dev",
 	role: "founder",
-	avatarUrl: null,
-};
+	email: "test@hyperidle.dev",
+});
 
-const ASSISTANT_AGENT = {
-	id: "ast-test-founder",
+const ASSISTANT_AGENT_ROW = makeUserRow("ast-test-founder", {
+	kind: "ai",
 	name: "Assistant",
 	role: "assistant",
 	ownerUserId: "test-founder",
-	identityDocumentId: null,
-	harnessType: null,
-	modelId: null,
-	modelProvider: null,
-	maxConcurrentSessions: 1,
 	status: "active",
-};
+});
 
 const WELCOME_TEXT = "Welcome to HyperIdle! I'm your assistant.";
 
@@ -106,32 +112,12 @@ const ASSISTANT_THREAD_WITH_WELCOME = {
 
 test.describe("AH3: no-key path → missing_key notice in overlay", () => {
 	test.beforeEach(async ({ page }) => {
-		// Mock auth/me as set up (user exists)
-		await page.route("**/api/auth/me", async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(FOUNDER_USER),
-				});
-			} else {
-				await route.continue();
-			}
-		});
+		// open_user({}) as set up (user exists)
+		await mockUser(page, { row: FOUNDER_ROW, self: true });
 
-		// GET /api/agents — myAgentId resolution (AssistantOverlay finds its own
-		// agent by ownerUserId).
-		await page.route("**/api/agents", async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify([ASSISTANT_AGENT]),
-				});
-			} else {
-				await route.continue();
-			}
-		});
+		// search_users({kind:"ai"}) — myAgentId resolution (AssistantOverlay
+		// finds its own agent by ownerUserId).
+		await mockSearchUsers(page, { rows: [ASSISTANT_AGENT_ROW] });
 
 		// search_threads({host:{kind:"agent",id:"ast-test-founder"}}) — the
 		// overlay's existing-thread lookup.
@@ -279,74 +265,20 @@ test.skip("AH5 lane: send message → thinking row appears → replaced by real 
 
 test.describe("AH3: rectangular textareas in Settings (not pills)", () => {
 	test.beforeEach(async ({ page }) => {
-		// Mock auth/me
-		await page.route("**/api/auth/me", async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(FOUNDER_USER),
-				});
-			} else {
-				await route.continue();
-			}
-		});
+		// open_user({}) — the viewer.
+		await mockUser(page, { row: FOUNDER_ROW, self: true });
 
-		// Mock the user's assistant data
-		await page.route("**/api/users/*/assistant", async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({
-						id: "ast-test-founder",
-						name: "Assistant",
-						systemPrompt: "You are a helpful assistant.",
-					}),
-				});
-			} else {
-				await route.continue();
-			}
-		});
-
-		// Mock agents list for SettingsAgents (must NOT include assistant agent)
-		await page.route("**/api/agents", async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify([
-						{
-							id: "agent-builder-1",
-							name: "Builder Agent",
-							role: "builder",
-							systemPrompt: "You are a builder.",
-							harnessType: "claude-code",
-							modelId: "claude-sonnet-4-6",
-							modelProvider: "anthropic",
-							maxConcurrentSessions: 1,
-							status: "active",
-							activeSessions: 0,
-						},
-					]),
-				});
-			} else {
-				await route.continue();
-			}
-		});
-
-		await page.route("**/api/harnesses", async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify([
-						{ type: "claude-code", name: "Claude Code", modelProviders: ["anthropic"] },
-					]),
-				});
-			} else {
-				await route.continue();
-			}
+		// search_users({kind:"ai"}) — SettingsAgents' list (must NOT include the
+		// assistant agent — it is filtered client-side by role/category).
+		await mockSearchUsers(page, {
+			rows: [
+				makeUserRow("agent-builder-1", {
+					kind: "ai",
+					name: "Builder Agent",
+					role: "builder",
+					status: "active",
+				}),
+			],
 		});
 	});
 

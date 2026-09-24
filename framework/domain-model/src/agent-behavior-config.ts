@@ -1,4 +1,7 @@
-export type AgentBehaviorConfigKind = "agent" | "skill" | "routine" | "tool" | "mcp";
+// @lore BC5 T11b: "routine" respelled "subscription" — the presentation-layer
+// bucket now matches `ConfigurationKind`'s DB-facing name (migration 0089),
+// so the two-way map in agent-behavior-config-impl.ts collapses on this key.
+export type AgentBehaviorConfigKind = "agent" | "skill" | "subscription" | "tool" | "mcp";
 export type AgentBehaviorOriginType = "builtin" | "plugin" | "user";
 export type AgentBehaviorOriginState = "enabled" | "disabled" | "removed" | "user_owned";
 export type AgentBehaviorValueSource = "default" | "user_override" | "user_owned" | "fallback";
@@ -7,7 +10,7 @@ export type AgentBehaviorLinkTarget =
 	| "settings-agents"
 	| "settings-agent-backends"
 	| "settings-connections"
-	| "routine-detail";
+	| "settings-notifications";
 
 export interface AgentBehaviorOriginView {
 	readonly type: AgentBehaviorOriginType;
@@ -63,7 +66,7 @@ export interface AgentBehaviorConfigPatchResponse {
 export const AGENT_BEHAVIOR_CONFIG_KINDS = [
 	"agent",
 	"skill",
-	"routine",
+	"subscription",
 	"tool",
 	"mcp",
 ] as const satisfies readonly AgentBehaviorConfigKind[];

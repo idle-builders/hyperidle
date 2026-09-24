@@ -35,8 +35,8 @@ const COMPATIBLE_SOURCE_KIND: Record<
 	thread_turn: "thread_message",
 	session_start: "explicit_session_start",
 	knowledge_action: "knowledge_action",
-	routine_run: "routine_run",
 	task_run: "task_dispatch_attempt",
+	subscription_run: "subscription",
 };
 
 function baseIntent(
@@ -99,18 +99,21 @@ describe("agent_work_intents kind CHECK == @hyperidle/domain-model AGENT_WORK_IN
 	// AU21 §9 Increment 10a (Decision I) — the built-in `bet_decomposition`
 	// mechanism is REMOVED entirely, not migrated: the intent union shrinks
 	// from seven kinds to six. Deleting the capture machinery removes
-	// `reengagement` too, so the union is now five kinds.
+	// `reengagement` too, so the union was five kinds.
+	// Schedule and event triggers dispatch as `subscription_run`, not
+	// `routine_run`.
 	const FIVE_LIVE_KINDS = [
 		"thread_turn",
 		"session_start",
 		"knowledge_action",
-		"routine_run",
 		"task_run",
+		"subscription_run",
 	] as const;
 
-	test("AGENT_WORK_INTENT_KINDS is exactly the five live kinds (reengagement removed)", () => {
+	test("AGENT_WORK_INTENT_KINDS is exactly the five live kinds (routine_run retired)", () => {
 		expect(AGENT_WORK_INTENT_KINDS).toHaveLength(5);
 		expect([...AGENT_WORK_INTENT_KINDS].sort()).toEqual([...FIVE_LIVE_KINDS].sort());
+		expect(AGENT_WORK_INTENT_KINDS).not.toContain("routine_run");
 		expect(AGENT_WORK_INTENT_KINDS).not.toContain("bet_decomposition");
 		expect(AGENT_WORK_INTENT_KINDS).not.toContain("reengagement");
 	});

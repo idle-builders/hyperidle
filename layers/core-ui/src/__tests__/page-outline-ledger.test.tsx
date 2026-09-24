@@ -29,7 +29,6 @@ import { ReviewPage } from "../pages/review/ReviewPage.js";
 import { SettingsPage } from "../pages/SettingsPage.js";
 import { SetupFlow } from "../pages/SetupFlow.js";
 import { WorkOverviewView } from "../pages/WorkOverview.js";
-import { WorkRoutine } from "../pages/WorkRoutine.js";
 // @lore BB1: WorkTaskCreate replaces WorkBetCreate; WorkTaskPage replaces WorkBet+WorkTask.
 import { WorkTaskCreate } from "../pages/WorkTaskCreate.js";
 import { WorkTaskPage } from "../pages/WorkTaskPage.js";
@@ -74,7 +73,8 @@ describe("real route outline ledger", () => {
 		["Conversations queue", "/conversations", "Conversations", <Conversations />],
 		["Conversation detail", "/conversations/thread-1", undefined, <Conversations />],
 		["Work Team", "/work/team/t", "Team", <WorkTeam overrideLoading />],
-		["Work Routine", "/work/routine/r", "Routine", <WorkRoutine overrideLoading />],
+		// @lore BC5 T9: "Work Routine" ledger row deleted with WorkRoutine.js —
+		// subscriptions replace routines; there is no /work/routine/:id route.
 		// @lore BB1: New task routes; loading state has title "Task"
 		["New Task", "/work/task/new", "New task", <WorkTaskCreate />],
 		["Work Task (loading)", "/work/task/t", "Task", <WorkTaskPage />],

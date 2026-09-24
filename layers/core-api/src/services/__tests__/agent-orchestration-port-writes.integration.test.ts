@@ -29,9 +29,7 @@ import {
 const NOW = "2026-08-08T00:00:00.000Z";
 
 async function seedTeamAndTask(db: HyperIdleDb, prefix: string): Promise<void> {
-	await db
-		.insert(teams)
-		.values({ id: `${prefix}-team-parent`, name: prefix, phase: "build", createdAt: NOW });
+	await db.insert(teams).values({ id: `${prefix}-team-parent`, name: prefix, createdAt: NOW });
 	await db.insert(users).values([
 		{
 			id: `${prefix}-human`,
@@ -206,9 +204,7 @@ describe("AgentOrchestrationPort — write side (§3, §11 contract-test harness
 		app,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", "aop-write-key-fs");
-		await db
-			.insert(teams)
-			.values({ id: "aopw-fs-team-parent", name: "aopw-fs", phase: "build", createdAt: NOW });
+		await db.insert(teams).values({ id: "aopw-fs-team-parent", name: "aopw-fs", createdAt: NOW });
 		await db.insert(users).values({
 			id: "aopw-fs-agent",
 			kind: "ai",
@@ -324,9 +320,7 @@ describe("AgentOrchestrationPort — write side (§3, §11 contract-test harness
 		app,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", "aop-write-key-fs-team");
-		await db
-			.insert(teams)
-			.values({ id: "aopw-fst-team-parent", name: "aopw-fst", phase: "build", createdAt: NOW });
+		await db.insert(teams).values({ id: "aopw-fst-team-parent", name: "aopw-fst", createdAt: NOW });
 		await db.insert(filesystems).values({
 			id: "aopw-fst-1",
 			teamId: "aopw-fst-team-parent",

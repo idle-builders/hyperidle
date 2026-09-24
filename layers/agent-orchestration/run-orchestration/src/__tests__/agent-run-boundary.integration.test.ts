@@ -35,7 +35,7 @@ async function createRequestForTest(db: HyperIdleDb, request: AgentSessionReques
 }
 async function seedBase(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(teams).values({ id: "team-au6", name: "AU6", phase: "build", createdAt: now });
+	await db.insert(teams).values({ id: "team-au6", name: "AU6", createdAt: now });
 	await db.insert(users).values([
 		{
 			id: "agent-au6",
@@ -133,18 +133,6 @@ function sourceInput(
 					agentId: "agent-au6",
 				},
 			};
-		case "routine":
-			return {
-				...base,
-				sourceKind,
-				taskId: null,
-				promptMode: "routine",
-				sourceCorrelation: {
-					routineId: `routine-${suffix}`,
-					routineRunId: `routine-run-${suffix}`,
-					teamId: "team-au6",
-				},
-			};
 		case "knowledge":
 			return {
 				...base,
@@ -154,6 +142,18 @@ function sourceInput(
 				sourceCorrelation: {
 					knowledgeItemId: `item-${suffix}`,
 					action: "summarize",
+					teamId: "team-au6",
+				},
+			};
+		case "subscription":
+			return {
+				...base,
+				sourceKind,
+				taskId: null,
+				promptMode: "subscription",
+				sourceCorrelation: {
+					subscriptionId: `subscription-${suffix}`,
+					changeId: `change-${suffix}`,
 					teamId: "team-au6",
 				},
 			};
@@ -222,7 +222,7 @@ describe("agent run boundary", () => {
 	test("keeps failed execution lifecycle uniform when runtime throws", async ({ db }) => {
 		await seedBase(db);
 		const ports = buildTestPorts();
-		const request = await createRequestForTest(db, sourceInput("routine", "throws"));
+		const request = await createRequestForTest(db, sourceInput("subscription", "throws"));
 		vi.mocked(ports.sessionProvisioner!.admitSession).mockImplementation(async (_deps, params) => ({
 			sessionId: "session-au6-boundary",
 			sessionContext: { taskId: params.taskId },
@@ -243,7 +243,7 @@ describe("agent run boundary", () => {
 			.from(agentSessionRequests)
 			.where(eq(agentSessionRequests.id, request.id));
 		expect(ownerRow).toMatchObject({
-			sourceKind: "routine",
+			sourceKind: "subscription",
 			status: "failed",
 			errorMessage: "runtime exploded",
 		});
@@ -265,7 +265,7 @@ describe("agent run boundary", () => {
 			taskId: "task-au6",
 			forceReturnCount: 0,
 		}));
-		for (const sourceKind of ["task", "assistant", "routine", "knowledge"] as const) {
+		for (const sourceKind of ["task", "assistant", "subscription", "knowledge"] as const) {
 			const request = await createRequestForTest(db, sourceInput(sourceKind, "boundary"));
 			await executeAgentRunRequest(
 				{ db, eventBus, ports } as unknown as import("../contracts.js").RuntimeDeps,
@@ -279,7 +279,7 @@ describe("agent run boundary", () => {
 		}
 		expect(lifecycle).toHaveLength(4);
 		expect(lifecycle.map(({ sourceKind, state }) => ({ sourceKind, state }))).toEqual(
-			["task", "assistant", "routine", "knowledge"].map((sourceKind) => ({
+			["task", "assistant", "subscription", "knowledge"].map((sourceKind) => ({
 				sourceKind,
 				state: "completed",
 			})),

@@ -524,7 +524,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		// used as one. This used to be `assembledPrompt.slice(0, 200)` with newlines
 		// flattened, and a real agent replied "your initial message appears to have
 		// been cut off". "proceed" remains the default for a session with nothing to
-		// ask — a routine waking on a heartbeat has no instruction of its own.
+		// ask — a subscription waking on a heartbeat has no instruction of its own.
 		const promptSeed = config.instruction?.trim() || "proceed";
 		const templateVars: Record<TemplateVar, string> = {
 			"{{sandbox}}": config.sandboxPath,

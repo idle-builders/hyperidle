@@ -1,26 +1,21 @@
 /**
- * AX1 — demo world activity: ~45 sessions (terminal history + two live),
- * the skeleton's daily digest with run history, and the notifications.
- * @lore BA9d: ritual routines (retro, knowledge decay, knowledge promotion) removed
+ * AX1 — demo world activity: ~45 sessions (terminal history + two live).
+ * @lore BA9d: ritual subscriptions (retro, knowledge decay, knowledge promotion) removed
  * from the demo world — the plugin owns them. A demo install without the plugin
- * shows no ritual routines; installing the plugin produces exactly one of each.
+ * shows no ritual subscriptions; installing the plugin produces exactly one of each.
+ * @lore BC5 T7b: the notification-popover fixture rows and the daily-digest
+ * subscription's run-history row are deleted with `notification_queue` and
+ * `routine_runs` — no fabricated inbox row replaces them (no code path
+ * writes an inbox row except a real subscription's own wake), so the demo
+ * inbox starts empty.
  */
 
-import {
-	type HyperIdleDb,
-	notificationQueue,
-	routineRuns,
-	routines,
-	sessions,
-} from "@hyperidle/db";
-import { eq } from "drizzle-orm";
+import { type HyperIdleDb, sessions } from "@hyperidle/db";
 import {
 	ASSISTANT_ID,
 	BUILDER_ID,
 	GROWTH_ID,
-	MSG_PRICING_REVIEW,
 	PM_ID,
-	ROUTINE_DAILY_DIGEST,
 	SESSION_ACTIVE_ASSISTANT,
 	SESSION_ACTIVE_COPY,
 	TASK_MOBILE_RESEARCH,
@@ -36,8 +31,6 @@ import {
 	TASK_TRIAL_FLOW,
 	TASK_TRIAL_HEURISTIC,
 	TASK_TRIAL_MEASURE,
-	THREAD_PRICING_BLOCKED,
-	THREAD_PRICING_REVIEW,
 } from "./ids.js";
 import type { DemoClock } from "./time.js";
 
@@ -60,7 +53,6 @@ const SESSION_NOTES: readonly string[] = [
 
 export async function seedActivity(db: HyperIdleDb, clock: DemoClock): Promise<void> {
 	await seedSessions(db, clock);
-	await seedNotifications(db, clock);
 }
 
 async function seedSessions(db: HyperIdleDb, clock: DemoClock): Promise<void> {
@@ -178,104 +170,4 @@ async function seedSessions(db: HyperIdleDb, clock: DemoClock): Promise<void> {
 			})
 			.onConflictDoNothing();
 	}
-}
-
-async function seedNotifications(db: HyperIdleDb, clock: DemoClock): Promise<void> {
-	// ── Notifications waiting in the popover ──────────────────────────────
-	const notifications: readonly {
-		id: string;
-		eventType: string;
-		subjectId: string;
-		title: string;
-		body: string;
-		reason: string;
-		typeKey: string;
-		urgency: string;
-		sourceLink: string;
-		createdAt: string;
-		seenAt?: string;
-		readAt?: string;
-	}[] = [
-		{
-			id: "demo-notif-pricing-review",
-			eventType: "review_requested",
-			subjectId: MSG_PRICING_REVIEW,
-			title: "Review requested: New pricing page",
-			body: "Acme Designer requests your verdict on the pricing page build.",
-			reason: "review_request",
-			typeKey: "review_request",
-			urgency: "immediate",
-			sourceLink: `/conversations/${THREAD_PRICING_REVIEW}`,
-			createdAt: clock.hoursAgo(5),
-		},
-		{
-			id: "demo-notif-annual-blocked",
-			eventType: "task_blocked",
-			subjectId: "demo-task-pricing-annual",
-			title: "Annual billing is blocked",
-			body: "The Builder needs your discount decision to continue.",
-			reason: "blocker_alert",
-			typeKey: "blocker_alert",
-			urgency: "immediate",
-			sourceLink: `/conversations/${THREAD_PRICING_BLOCKED}`,
-			createdAt: clock.hoursAgo(26),
-		},
-		{
-			id: "demo-notif-trial-review",
-			eventType: "review_requested",
-			subjectId: MSG_PRICING_REVIEW,
-			title: "Review requested: Trial extension flow",
-			body: "Approved — the verdict landed the same day.",
-			reason: "review_request",
-			typeKey: "review_request",
-			urgency: "immediate",
-			sourceLink: `/conversations/${THREAD_PRICING_REVIEW}`,
-			createdAt: clock.daysAgo(29),
-			seenAt: clock.daysAgo(29),
-			readAt: clock.daysAgo(29),
-		},
-	];
-
-	for (const notification of notifications) {
-		await db
-			.insert(notificationQueue)
-			.values({
-				id: notification.id,
-				eventType: notification.eventType,
-				subjectId: notification.subjectId,
-				severity: "blocking",
-				title: notification.title,
-				body: notification.body,
-				reason: notification.reason,
-				status: "sent",
-				typeKey: notification.typeKey,
-				urgency: notification.urgency,
-				sourceLink: notification.sourceLink,
-				createdAt: notification.createdAt,
-				sentAt: notification.createdAt,
-				seenAt: notification.seenAt ?? null,
-				readAt: notification.readAt ?? null,
-			})
-			.onConflictDoNothing();
-	}
-
-	// The skeleton's daily-digest routine stays inactive but gets a last-run
-	// history entry so the routine pane has something to show.
-	await db
-		.update(routines)
-		.set({ lastRunAt: clock.daysAgo(1), nextRunAt: clock.daysAgo(-1) })
-		.where(eq(routines.id, ROUTINE_DAILY_DIGEST));
-	await db
-		.insert(routineRuns)
-		.values({
-			id: "demo-run-digest-1",
-			routineId: ROUTINE_DAILY_DIGEST,
-			startedAt: clock.daysAgoAt(1, 8),
-			endedAt: clock.daysAgoAt(1, 8),
-			outcome: "success",
-			errorMessage: null,
-			sessionId: null,
-			summary: "Digest compiled: two reviews waiting, one task blocked.",
-		})
-		.onConflictDoNothing();
 }

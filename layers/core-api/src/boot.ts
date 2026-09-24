@@ -30,7 +30,7 @@
  *   - `resolveProvisioningOwnerUserId` — AU26 review C2's "the human whose
  *     held connections a spawn provisions" now reads `users` (core-api's own
  *     table) from INSIDE this boot instead of the Application importing
- *     `@hyperidle/users` directly; the boot hands the resolved capability out
+ *     `@hyperidle/user` directly; the boot hands the resolved capability out
  *     as a value, and the Application threads it into `bootAgentOrchestration`'s
  *     options exactly the way it already threads the execution adapters
  *     bundle — no Layer imports another.
@@ -58,7 +58,7 @@ import {
 	findUser,
 	listUsers,
 	type UpgradeTokenStore,
-} from "@hyperidle/users";
+} from "@hyperidle/user";
 import type { Hono } from "hono";
 import type { UpgradeWebSocket } from "hono/ws";
 import { type ApiMiddlewareStack, createApiMiddlewareStack } from "./api-middleware-stack.js";
@@ -98,7 +98,7 @@ export interface CoreApiBoot {
 	readonly registerPreAuthRoutes: (apiRouter: Hono) => void;
 	/**
 	 * The `/api` middleware stack — built here (`createAuthMiddleware` reads
-	 * `@hyperidle/users`, a core-api Service), applied by the Application.
+	 * `@hyperidle/user`, a core-api Service), applied by the Application.
 	 * A single instance: the rate limiter's buckets live in its closure.
 	 */
 	readonly middleware: ApiMiddlewareStack;

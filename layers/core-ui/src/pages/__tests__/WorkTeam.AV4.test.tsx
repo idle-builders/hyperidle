@@ -2,19 +2,20 @@
  * AV4 — WorkTeam split-pane routing: RED tests.
  *
  * AC coverage:
- * AC-1: ?routine=r1 → SplitView + RoutineDetailPane in destination; ratio persisted.
- * AC-2: (covered by RoutineDetailPane.AV4.test.tsx — tested in isolation)
  * AC-3: ?agent=a1 → AgentDetailPane in SplitView + no role="dialog"; "Customize" sets ?agent.
- * AC-4: (de-grey — covered by RoutineDetailPane.AV4.test.tsx + paint check)
  *
  * These tests FAIL until WorkTeamLoaded gains SplitView wiring + useSearchParams.
+ *
+ * @lore BC5 T9: AC-1/AC-2/AC-4 (the ?routine= split pane and RoutineDetailPane)
+ * are deleted with the R5 Routines section — WorkRoutine and its pane/dialog
+ * are gone.
  */
 
-import type { RosterMember, TeamDetail } from "@hyperidle/domain-model";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { TeamPageData, TeamRosterMember } from "../../hooks/useTeam.js";
 import { WorkTeam } from "../WorkTeam";
 
 // ---------------------------------------------------------------------------
@@ -36,16 +37,6 @@ vi.mock("../../shell/ToastRegion.js", () => ({
 
 vi.mock("../../hooks/useTeamAgents", () => ({
 	useTeamAgents: vi.fn().mockReturnValue({ agents: new Map(), refetch: vi.fn() }),
-}));
-
-// RoutineDetailPane is new — mock it so we can assert it's rendered without needing
-// the full fetch chain from WorkTeam tests. The test for AC-2/AC-4 is in RoutineDetailPane.AV4.test.tsx.
-vi.mock("../work/RoutineDetailPane", () => ({
-	RoutineDetailPane: ({ routineId }: { routineId: string }) => (
-		<div data-testid="routine-detail-pane" data-routine-id={routineId}>
-			Routine pane {routineId}
-		</div>
-	),
 }));
 
 vi.mock("../work/AgentDetailPane", () => ({
@@ -90,52 +81,28 @@ vi.mock("../../hooks/useAgentRunState", async () => {
 // Fixtures
 // ---------------------------------------------------------------------------
 
-const ROSTER_MEMBER: RosterMember = {
+const ROSTER_MEMBER: TeamRosterMember = {
 	agentId: "a1",
 	name: "Atlas Builder",
 	role: "builder",
-	isLead: false,
 	agentCategory: "team",
 };
 
-const TEAM_DATA: TeamDetail = {
+const TEAM_DATA: TeamPageData = {
 	team: {
 		id: "t1",
 		name: "AV4 Team",
-		phase: "build",
 		status: "healthy",
-		leadAgentId: null,
-	},
-	teamMembers: {
-		id: "tm-av4",
-		formedAt: "2026-01-01T00:00:00.000Z",
-		dissolvedAt: null,
 	},
 	roster: [ROSTER_MEMBER],
-	burn: {
-		capacity: 5,
-	},
 	tasksInProgress: [],
-	routines: [
-		{
-			id: "r1",
-			name: "Daily digest",
-			state: "active",
-			scheduleLabel: "Every day at 8:00 AM",
-			agentName: "Atlas Builder",
-			agentInitials: "AB",
-			lastRunAt: null,
-			lastRunOutcome: null,
-			nextRunAt: null,
-		},
-	],
 };
 
 // ---------------------------------------------------------------------------
 // Render helpers
 // ---------------------------------------------------------------------------
 
-function renderAtPath(path: string, data: TeamDetail = TEAM_DATA): ReturnType<typeof render> {
+function renderAtPath(path: string, data: TeamPageData = TEAM_DATA): ReturnType<typeof render> {
 	return render(
 		<MemoryRouter initialEntries={[path]}>
 			<Routes>
@@ -155,82 +122,16 @@ afterEach(() => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-1: ?routine=r1 → SplitView present + RoutineDetailPane in destination
+// AC-3: ?agent=a1 → AgentDetailPane in SplitView + no role="dialog"
 // ---------------------------------------------------------------------------
 
-describe("routine split-pane opens when ?routine param is present in the URL", () => {
-	it("[RED] renders [data-ds-component='split-view'] when ?routine=r1 is in the URL", async () => {
-		renderAtPath("/work/team/t1?routine=r1");
-
-		await waitFor(() => {
-			const splitView = document.querySelector('[data-ds-component="split-view"]');
-			expect(splitView).not.toBeNull();
-		});
-	});
-
-	it("[RED] RoutineDetailPane is rendered inside the split view destination", async () => {
-		renderAtPath("/work/team/t1?routine=r1");
-
-		await waitFor(() => {
-			expect(screen.getByTestId("routine-detail-pane")).toBeInTheDocument();
-		});
-	});
-
-	it("[RED] RoutineDetailPane receives the correct routineId prop", async () => {
-		renderAtPath("/work/team/t1?routine=r1");
-
-		await waitFor(() => {
-			const pane = screen.getByTestId("routine-detail-pane");
-			expect(pane.getAttribute("data-routine-id")).toBe("r1");
-		});
-	});
-
-	it("[RED] no split-view when no ?routine or ?agent param (no-selection path unchanged)", () => {
+describe("agent split-pane opens when ?agent param is present in the URL", () => {
+	it("no split-view when no ?agent param (no-selection path unchanged)", () => {
 		renderAtPath("/work/team/t1");
 		const splitView = document.querySelector('[data-ds-component="split-view"]');
 		expect(splitView).toBeNull();
 	});
 
-	it("existing work-team-page testid still present when ?routine is set", async () => {
-		renderAtPath("/work/team/t1?routine=r1");
-
-		await waitFor(() => {
-			// @lore AZ2: work-team-page now lives on the outer PageScaffold root
-			// (consistent across every WorkTeam branch), not inside the SplitView
-			// origin pane — the split state uses PageScaffold's "managed" body, so
-			// the scaffold's own scroll contract (`data-page-scroll`) is absent here
-			// on purpose; SplitView's origin wrapper owns the scroll instead.
-			expect(screen.getByTestId("work-team-page")).toBeInTheDocument();
-		});
-	});
-
-	it("[RED] persisted-ratio wiring: SplitView dividerRatio reflects useUiPreference('work.routine') value", async () => {
-		// Seed localStorage before mount so the hook reads it.
-		localStorage.setItem("hyperidle.split.work.routine", "0.6");
-
-		renderAtPath("/work/team/t1?routine=r1");
-
-		await waitFor(() => {
-			// The split-view must be present.
-			const splitView = document.querySelector('[data-ds-component="split-view"]');
-			expect(splitView).not.toBeNull();
-		});
-
-		// The origin card flex-basis should reflect ratio=0.6 (60%).
-		// SplitView renders origin with style flexBasis `${ratio * 100}%` in split mode.
-		const originCard = document.querySelector('[data-ds-component="split-view"] > div:first-child');
-		expect(originCard).not.toBeNull();
-		expect((originCard as HTMLElement).style.flexBasis).toBe("60%");
-
-		localStorage.removeItem("hyperidle.split.work.routine");
-	});
-});
-
-// ---------------------------------------------------------------------------
-// AC-3: ?agent=a1 → AgentDetailPane in SplitView + no role="dialog"
-// ---------------------------------------------------------------------------
-
-describe("agent split-pane opens when ?agent param is present in the URL", () => {
 	it("[RED] renders [data-ds-component='split-view'] when ?agent=a1 is in the URL", async () => {
 		renderAtPath("/work/team/t1?agent=a1");
 

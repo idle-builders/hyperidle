@@ -6,16 +6,15 @@
  * exist yet").
  *
  * Every one of these scenarios drives the REAL, already-existing
- * `resolveIntentInputInternal` branch for that kind (none of the seven
- * resolvers are migrated in this wave — including `routine_run`, which stays
- * untouched all the way through Increment 3 per the scope note) into its
- * existing `InvalidAgentWorkSourceError` — a genuine pre-handoff failure,
- * exactly the shape the drain already produces today. What's NEW, and what
- * this file proves is currently MISSING, is the core-api-side REACTION once
- * that failure is reported back on `agent_run_admission_failed` with
+ * `resolveIntentInputInternal` branch for that kind into its existing
+ * `InvalidAgentWorkSourceError` — a genuine pre-handoff failure, exactly the
+ * shape the drain already produces today. What's NEW, and what this file
+ * proves is currently MISSING, is the core-api-side REACTION once that
+ * failure is reported back on `agent_run_admission_failed` with
  * `terminal: true`, per architecture.md §10's table:
  *
- *   routine_run       -> routine finalizes the run to outcome="error"
+ *   subscription_run  -> logged only; a subscription's wake carries no run
+ *                        row to finalize
  *   task_run          -> work marks the taskDispatchAttempts row failed
  *   session_start     -> work marks the explicitSessionStarts row failed (no retry)
  *   knowledge_action  -> a review-flagged item is created (no run-record mutation)
@@ -48,8 +47,6 @@ import {
 	explicitSessionStarts,
 	type HyperIdleDb,
 	messages,
-	routineRuns,
-	routines,
 	taskDispatchAttempts,
 	tasks,
 	teams,
@@ -137,7 +134,7 @@ const NOW = new Date().toISOString();
 
 async function seedTeam(db: HyperIdleDb, id: string): Promise<{ teamId: string }> {
 	const teamId = `${id}-team`;
-	await db.insert(teams).values({ id: teamId, name: id, phase: "build", createdAt: NOW });
+	await db.insert(teams).values({ id: teamId, name: id, createdAt: NOW });
 	return { teamId };
 }
 
@@ -158,70 +155,35 @@ async function seedAgent(
 }
 
 describe("agent_run_admission_failed — per-kind core-api reactions", () => {
-	test("routine_run: finalizes the run to outcome=error (replacing failOrRelease's deleted direct write)", async ({
+	// `agent-run-admission-reactions.ts`'s `subscription_run` case is
+	// logged-only, since a subscription's wake carries no run row to
+	// finalize. This proves the drain reaches that case without throwing,
+	// the only externally observable behavior left.
+	test("subscription_run: a refused wake is logged, no run row to finalize", async ({
 		db,
 		eventBus,
 	}) => {
-		const { teamId } = await seedTeam(db, "w0-sub-routine");
-		await seedAgent(db, "w0-sub-routine-owner", { teamId });
-		await db.insert(routines).values({
-			id: "w0-sub-routine",
-			name: "Wave 0 subscriber routine",
-			ownerAgentId: "w0-sub-routine-owner",
-			triggerType: "manual",
-			state: "active",
-			active: false, // deactivated — forces InvalidAgentWorkSourceError at drain
-		});
-		const [run] = await db
-			.insert(routineRuns)
-			.values({
-				id: "w0-sub-routine-run",
-				routineId: "w0-sub-routine",
-				startedAt: NOW,
-				outcome: "running",
-			})
-			.returning();
+		const { teamId } = await seedTeam(db, "w0-sub-subscription");
+		await seedAgent(db, "w0-sub-subscription-owner", { teamId });
 
-		// AU21 §9 Increment 9: `DurableAgentQueueDeps.routine` (the surface
-		// failOrRelease's OLD direct `updateRoutineRunIfRunning` write used) is
-		// REMOVED entirely — confirmed zero real call sites anywhere in
-		// `@hyperidle/session-requests`. There is no `deps.routine.*` path left
-		// at all, so a passing assertion below can only come from a REAL
-		// core-api subscriber reacting to the emitted event (which reaches the
-		// `routineRuns` row through its own import, not through this deps
-		// bundle) — a stronger guarantee than the no-op override this test
-		// originally installed.
 		const deps = { ...queueDeps(db), eventBus };
-		// AU44: baked intent + trigger forces terminal failure without touching resolveIntentInputInternal.
 		await rejectSessionRequestWrites(db);
 		await enqueueWorkIntent(db, {
-			kind: "routine_run",
-			sourceKind: "routine_run",
-			sourceId: run?.id ?? "",
-			idempotencyKey: "w0-sub-routine-run",
+			kind: "subscription_run",
+			sourceKind: "subscription",
+			sourceId: "w0-sub-subscription:chg-1",
+			idempotencyKey: "w0-sub-subscription-run",
 			bakedRequest: {
-				defaultAgentId: "w0-sub-routine-owner",
-				sourceKind: "routine",
-				sourceId: run?.id ?? "",
-				streamId: `routine:${run?.id}`,
-				teamId: "w0-sub-routine-team",
-				sourceCorrelation: {
-					routineId: "w0-sub-routine",
-					routineRunId: run?.id ?? "",
-					teamId: "w0-sub-routine-team",
-				},
+				defaultAgentId: "w0-sub-subscription-owner",
+				sourceKind: "subscription",
+				sourceId: "w0-sub-subscription:chg-1",
+				streamId: "subscription:w0-sub-subscription",
+				teamId,
+				sourceCorrelation: { subscriptionId: "w0-sub-subscription", changeId: "chg-1", teamId },
 			},
 		});
-		await drainIntents(deps, { maxAttempts: 1 });
 
-		await vi.waitFor(async () => {
-			const [finalized] = await db
-				.select()
-				.from(routineRuns)
-				.where(eq(routineRuns.id, run?.id ?? ""));
-			expect(finalized?.outcome).toBe("error");
-			expect(finalized?.endedAt).toBeTruthy();
-		});
+		await expect(drainIntents(deps, { maxAttempts: 1 })).resolves.not.toThrow();
 	});
 
 	test("task_run: marks the taskDispatchAttempts row failed", async ({ db, eventBus }) => {

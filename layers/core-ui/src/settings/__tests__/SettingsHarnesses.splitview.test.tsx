@@ -14,6 +14,9 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SettingsHarnesses } from "../SettingsHarnesses.js";
 
+const { callMock } = vi.hoisted(() => ({ callMock: vi.fn() }));
+vi.mock("../../services/call.js", () => ({ call: callMock }));
+
 // Mock ToastRegion — SettingsModels calls useToast which needs a provider
 vi.mock("../../shell/ToastRegion.js", async () => {
 	const actual = await vi.importActual("../../shell/ToastRegion.js");
@@ -94,58 +97,35 @@ const EMPTY_DESCRIPTOR: HarnessCapabilityDescriptor = {
 	authAction: { kind: "none", label: "" },
 };
 
-const MODEL_GATEWAY_RESPONSE = {
-	reasoning: { provider: "anthropic", model: "claude-opus-4-8", hasApiKey: true },
-	workhorse: {
-		provider: "openrouter",
-		model: "openrouter/deepseek/deepseek-v4-flash",
-		hasApiKey: false,
-	},
-	fast: { provider: "anthropic", model: "claude-haiku-4-5", hasApiKey: true },
-};
-
 // ---------------------------------------------------------------------------
 // Setup
 // ---------------------------------------------------------------------------
 
+const SELF_ROW = { id: "me", kind: "human", name: "Me", team: { id: "team-1", name: "Acme" } };
+
 function setupFetch(
 	descriptors = [OPENCODE_DESCRIPTOR, CLAUDE_CODE_DESCRIPTOR, CODEX_DESCRIPTOR],
 ): void {
-	vi.stubGlobal(
-		"fetch",
-		vi.fn().mockImplementation((url: string) => {
-			const s = String(url);
-			if (s.includes("/api/harnesses/redetect")) {
-				return Promise.resolve({
-					ok: true,
-					status: 200,
-					json: async () => descriptors,
-				});
-			}
-			if (s.includes("/api/harnesses")) {
-				return Promise.resolve({
-					ok: true,
-					status: 200,
-					json: async () => descriptors,
-				});
-			}
-			if (s.includes("/api/model-gateway")) {
-				return Promise.resolve({
-					ok: true,
-					status: 200,
-					json: async () => MODEL_GATEWAY_RESPONSE,
-				});
-			}
-			if (s.includes("/api/credentials")) {
-				return Promise.resolve({
-					ok: true,
-					status: 200,
-					json: async () => ({ credentials: [] }),
-				});
-			}
-			return Promise.resolve({ ok: false, status: 404, json: async () => ({}) });
-		}),
-	);
+	callMock.mockReset();
+	callMock.mockImplementation((name: string) => {
+		if (name === "open_user") {
+			return Promise.resolve({
+				ok: true,
+				data: {
+					user: SELF_ROW,
+					runsOn: descriptors,
+					runConfig: null,
+					documentIds: [],
+					folders: [],
+					subscriptions: [],
+					connections: null,
+					behaviour: null,
+					inbox: null,
+				},
+			});
+		}
+		return Promise.resolve({ ok: false, problems: [{ code: "unmocked", message: name }] });
+	});
 }
 
 beforeEach(() => {

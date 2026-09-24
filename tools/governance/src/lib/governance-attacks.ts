@@ -548,7 +548,7 @@ export const ATTACKS: readonly Attack[] = [
 			"`framework/db` altogether, so the DB package has no narrow-reach surface left at all",
 		rules: ["no-laundered-re-exports"],
 		overlay: {
-			[`${a.layerDir}/attack-reexport-contract.ts`]: `export type { CoreApiPort } from "@hyperidle/api-contract";\n`,
+			[`${a.layerDir}/attack-reexport-contract.ts`]: `export type { AgentOrchestrationPort } from "@hyperidle/api-contract";\n`,
 		},
 		expect: {
 			sort: "finding",
@@ -577,8 +577,8 @@ export const ATTACKS: readonly Attack[] = [
 		rules: ["no-laundered-re-exports"],
 		overlay: {
 			[`${a.layerDir}/attack-import-contract.ts`]:
-				`import type { CoreApiPort } from "@hyperidle/api-contract";\n` +
-				`export type Wrapped = { readonly value: CoreApiPort };\n`,
+				`import type { AgentOrchestrationPort } from "@hyperidle/api-contract";\n` +
+				`export type Wrapped = { readonly value: AgentOrchestrationPort };\n`,
 		},
 		expect: { sort: "clean", file: `${a.layerDir}/attack-import-contract.ts` },
 	},
@@ -1016,8 +1016,8 @@ export const ATTACKS: readonly Attack[] = [
 		rules: ["crossing-import"],
 		overlay: {
 			[`${a.frameworkDir}/attack-framework-names-framework.ts`]:
-				`import type { CoreApiPort } from "@hyperidle/api-contract";\n` +
-				`export type AttackWrapped = { readonly value: CoreApiPort };\n`,
+				`import type { AgentOrchestrationPort } from "@hyperidle/api-contract";\n` +
+				`export type AttackWrapped = { readonly value: AgentOrchestrationPort };\n`,
 		},
 		expect: { sort: "clean", file: `${a.frameworkDir}/attack-framework-names-framework.ts` },
 	},
@@ -1222,14 +1222,17 @@ export const ATTACKS: readonly Attack[] = [
 		// deleted, re-pointed at knowledge.ts. @lore document-module B20:
 		// knowledge.ts is deleted with the route; re-pointed at harnesses.ts,
 		// whose `GET /` is also a LEGACY_ROUTES entry and survives.
+		// @lore BC5 T11: harnesses.ts is deleted with the whole legacy route
+		// family; re-pointed at search.ts, whose `GET /` is still a
+		// LEGACY_ROUTES entry and survives.
 		mutate: {
-			"layers/core-api/src/routes/harnesses.ts": (existing) =>
+			"layers/core-api/src/routes/search.ts": (existing) =>
 				existing.replace(
 					'router.get("/", async (c) => {',
 					'router.get("/", async (c) => {\n\t\t// attack-actions-projected-control: no new registration here.',
 				),
 		},
-		expect: { sort: "clean", file: "layers/core-api/src/routes/harnesses.ts" },
+		expect: { sort: "clean", file: "layers/core-api/src/routes/search.ts" },
 	},
 ];
 

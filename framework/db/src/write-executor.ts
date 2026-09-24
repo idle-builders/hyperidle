@@ -1,11 +1,10 @@
 /**
  * AU13: shared executor type for domain write-owning services
- * (`work-service.ts`, `routine-service.ts`). A function typed `exec:
+ * (`task-service.ts`, `user-actions.ts`). A function typed `exec:
  * WriteExecutor` accepts either the top-level `HyperIdleDb` or a `tx` handle
  * inside an open `db.transaction(async (tx) => …)` callback, so callers that
- * already coordinate multi-table writes in one transaction (e.g.
- * `handoff-protocol.ts`, `bet-state-machine.ts`, `builtin-routine-handlers.ts`)
- * can join the service call into their existing transaction unchanged.
+ * already coordinate multi-table writes in one transaction can join the
+ * service call into their existing transaction unchanged.
  *
  * @lore AU13: `Parameters<Parameters<HyperIdleDb["transaction"]>[0]>[0]`
  * resolves to Drizzle's `PgTransaction<PgQueryResultHKT, typeof schema,
@@ -19,11 +18,4 @@
  */
 import type { HyperIdleDb } from "./connection.js";
 
-/**
- * @lore AU19 Increment 1b: moved from `packages/server/src/write-executor.ts` —
- * a generic zero-domain DB-tx helper shared by `work` (migrating this
- * increment) and `routine-service.ts` (not yet migrated); per architecture §6
- * disposition ("if generic DB tx helper → `@hyperidle/db`"), mirrors the
- * `like-escape.ts` precedent set migrating `knowledge` (Increment 1a).
- */
 export type WriteExecutor = HyperIdleDb | Parameters<Parameters<HyperIdleDb["transaction"]>[0]>[0];

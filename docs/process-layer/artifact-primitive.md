@@ -43,9 +43,9 @@ parent's table: `task` for a task, `thread` for a thread. A half-named parent
 (a kind with no id, or an id with no kind) is refused.
 
 Only `task` and `thread` may be named by a client via `edit_document`'s `parent`
-field. The other parent kinds (`document`, `routine`, `agent`) are written
+field. The other parent kinds (`document`, `subscription`, `agent`) are written
 exclusively by core-api's own composition, which already holds the parent row
-for other reasons — so nothing outside can forge a routine's prompt or an
+for other reasons — so nothing outside can forge a subscription's prompt or an
 agent's identity.
 
 ## Content is markdown. There is no preview column.

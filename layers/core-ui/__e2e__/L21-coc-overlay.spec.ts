@@ -22,15 +22,16 @@
  * send_message}` — never `GET/POST /api/threads*`. `Thread.members` replaced
  * `participants`.
  *
- * @lore BC3 review fix: the overlay resolves "my agent" via `GET /api/agents`
- * (`ownerUserId === <viewer id>`, AssistantOverlay.tsx) before it ever reaches
- * `search_threads`/`open_thread` — without that mock every CoC test saw the
- * "Couldn't find your assistant agent." empty state. The viewer id is
- * `"test-founder"`, the fixtures.ts auto-use `/api/auth/me` fallback — this
- * spec never overrides it. Conversations-submenu titles come straight from
- * `computedTitle` (server-computed, `AppShell.tsx`'s `rowToItem`) — there is
- * no client-side "${hostKind} thread" derivation any more, so the fixture
- * must spell out a title itself rather than rely on a generated one.
+ * @lore BC3 review fix, BC5 T9: the overlay resolves "my agent" via
+ * `search_users({ kind: "ai" })` (`ownerUserId === <viewer id>`,
+ * AssistantOverlay.tsx) before it ever reaches `search_threads`/
+ * `open_thread` — without that mock every CoC test saw the "Couldn't find
+ * your assistant agent." empty state. The viewer id is `"test-founder"`, the
+ * fixtures.ts auto-use `open_user({})` default — this spec never overrides
+ * it. Conversations-submenu titles come straight from `computedTitle`
+ * (server-computed, `AppShell.tsx`'s `rowToItem`) — there is no client-side
+ * "${hostKind} thread" derivation any more, so the fixture must spell out a
+ * title itself rather than rely on a generated one.
  */
 
 import {
@@ -40,6 +41,7 @@ import {
 	makeMessage,
 	makeThread,
 	makeThreadListRow,
+	makeUserRow,
 	test,
 } from "./fixtures";
 
@@ -86,18 +88,29 @@ async function setupApiMocks(page: import("@playwright/test").Page): Promise<voi
 	// a static fixture object would silently drop it on refetch.
 	const messages: ReturnType<typeof makeMessage>[] = [];
 
-	// GET /api/agents — the overlay's `myAgentId` lookup. Registered before
-	// the catch-all below so the catch-all's `route.fallback()` for an
-	// unrecognized path reaches this handler (Playwright matches LIFO).
-	await page.route("**/api/agents", async (route) => {
-		if (route.request().method() !== "GET") {
+	// POST /api/actions/search_users — the overlay's `myAgentId` lookup.
+	// Registered before the catch-all below so the catch-all's
+	// `route.fallback()` for an unrecognized path reaches this handler
+	// (Playwright matches LIFO).
+	await page.route("**/api/actions/search_users", async (route) => {
+		if (route.request().method() !== "POST") {
 			await route.continue();
 			return;
 		}
 		await route.fulfill({
 			status: 200,
 			contentType: "application/json",
-			body: JSON.stringify([COC_AGENT]),
+			body: JSON.stringify({
+				ok: true,
+				data: [
+					makeUserRow(COC_AGENT.id, {
+						kind: "ai",
+						name: COC_AGENT.name,
+						role: COC_AGENT.role,
+						ownerUserId: COC_AGENT.ownerUserId,
+					}),
+				],
+			}),
 		});
 	});
 

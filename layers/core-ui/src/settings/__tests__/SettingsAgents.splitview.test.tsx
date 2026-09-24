@@ -4,6 +4,11 @@
  * AC-1: Assistant is a row; no role filter; clicking opens the shared editor in SplitView
  * AC-2: Agent detail opens in SplitView; model dropdown uses discovered models
  * AC-5: Worker section removed (worker removed from SETTINGS_SECTIONS union)
+ *
+ * @lore BC5 T9: the door swap — `call` mocked at the door. `open_user({ id
+ * })` carries `documentIds` (agent_file slot → identityDocumentId) and
+ * `runConfig` (harness/model) per agent; `open_user({})` (self) carries the
+ * install-wide `runsOn` used to build the discovered-models dropdown.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
@@ -32,17 +37,8 @@ const MOCK_HARNESSES_WITH_MODELS = [
 			},
 		],
 		modelProviders: ["anthropic", "openrouter"],
-		accessMode: "api-gateway",
 		discovery: { state: "ready" },
 		authAction: { kind: "enter_api_key", label: "Enter API key" },
-		runtime: {
-			preCompactionTrigger: false,
-			subAgents: false,
-			mcpSupport: false,
-			modelProviders: [],
-			fileEditing: true,
-			toolUse: true,
-		},
 	},
 	{
 		type: "codex",
@@ -50,21 +46,23 @@ const MOCK_HARNESSES_WITH_MODELS = [
 		kind: "local",
 		models: [],
 		modelProviders: [],
-		accessMode: "provider-subscription-cli",
 		discovery: { state: "ready" },
 		authAction: { kind: "native_cli_login", label: "Log in to Codex", command: ["codex", "login"] },
-		runtime: {
-			preCompactionTrigger: false,
-			subAgents: false,
-			mcpSupport: false,
-			modelProviders: [],
-			fileEditing: false,
-			toolUse: false,
-		},
 	},
 ];
 
-const MOCK_AGENTS = [
+interface MockAgent {
+	id: string;
+	name: string;
+	role: string;
+	ownerUserId: string | null;
+	agentCategory: string | null;
+	harnessType: string | null;
+	modelId: string | null;
+	modelProvider: string | null;
+}
+
+const MOCK_AGENTS: MockAgent[] = [
 	{
 		id: "agent-nova",
 		name: "Nova",
@@ -72,30 +70,20 @@ const MOCK_AGENTS = [
 		// The assistant is a person-owned agent — `ownerUserId` set, not a
 		// structural id prefix.
 		ownerUserId: "user1",
-		identityDocumentId: "ki_af_demo",
 		harnessType: "opencode",
 		modelId: "deepseek/deepseek-v4-flash",
 		modelProvider: "openrouter",
-		maxConcurrentSessions: 1,
-		status: "active",
-		activeSessions: 0,
 		agentCategory: "individual",
-		filesystemIds: [],
 	},
 	{
 		id: "agent-atlas",
 		name: "Atlas",
 		role: "builder",
 		ownerUserId: null,
-		identityDocumentId: "ki_af_demo",
 		harnessType: "opencode",
 		modelId: "deepseek/deepseek-v4-flash",
 		modelProvider: "openrouter",
-		maxConcurrentSessions: 1,
-		status: "active",
-		activeSessions: 0,
 		agentCategory: "team",
-		filesystemIds: [],
 	},
 ];
 
@@ -103,39 +91,82 @@ const MOCK_AGENTS = [
 // Mock
 // ---------------------------------------------------------------------------
 
+const { callMock } = vi.hoisted(() => ({ callMock: vi.fn() }));
+vi.mock("../../services/call.js", () => ({ call: callMock }));
+
 const mockShowToast = vi.fn();
 vi.mock("../../shell/ToastRegion.js", async () => {
 	const actual = await vi.importActual("../../shell/ToastRegion.js");
 	return { ...actual, useToast: vi.fn(() => ({ showToast: mockShowToast })) };
 });
 
-function setupFetch(): void {
-	vi.stubGlobal(
-		"fetch",
-		vi.fn().mockImplementation((url: string) => {
-			const urlStr = String(url);
-			if (urlStr.includes("/api/harnesses") && !urlStr.includes("redetect")) {
+function setupCall(agents: MockAgent[] = MOCK_AGENTS): void {
+	callMock.mockImplementation((name: string, input: Record<string, unknown>) => {
+		if (name === "search_sessions") return Promise.resolve({ ok: true, data: [] });
+		if (name === "search_users") {
+			return Promise.resolve({
+				ok: true,
+				data: agents.map((a) => ({
+					id: a.id,
+					kind: "ai",
+					name: a.name,
+					role: a.role,
+					status: "active",
+					email: null,
+					avatarUrl: null,
+					createdAt: "2026-01-01T00:00:00.000Z",
+					agentCategory: a.agentCategory,
+					ownerUserId: a.ownerUserId,
+					health: null,
+					team: { id: "team-1", name: "Acme" },
+					edges: [],
+				})),
+			});
+		}
+		if (name === "open_user") {
+			const id = input.id as string | undefined;
+			if (id === undefined) {
 				return Promise.resolve({
 					ok: true,
-					status: 200,
-					json: async () => MOCK_HARNESSES_WITH_MODELS,
+					data: {
+						user: { id: "self", kind: "human", name: "Me", role: "founder", status: "active" },
+						runsOn: MOCK_HARNESSES_WITH_MODELS,
+						runConfig: null,
+						documentIds: [],
+						folders: [],
+						subscriptions: [],
+						connections: null,
+						behaviour: null,
+						inbox: null,
+					},
 				});
 			}
-			if (urlStr.includes("/api/agents/templates/")) {
-				return Promise.resolve({ ok: false, status: 404, json: async () => ({}) });
-			}
-			if (urlStr.includes("/api/agents")) {
-				return Promise.resolve({ ok: true, status: 200, json: async () => MOCK_AGENTS });
-			}
-			if (urlStr.includes("/api/filesystems")) {
-				return Promise.resolve({ ok: true, status: 200, json: async () => ({ filesystems: [] }) });
-			}
-			if (urlStr.includes("/api/org")) {
-				return Promise.resolve({ ok: true, status: 200, json: async () => ({ teams: [] }) });
-			}
-			return Promise.resolve({ ok: false, status: 404, json: async () => ({}) });
-		}),
-	);
+			const agent = agents.find((a) => a.id === id);
+			if (!agent)
+				return Promise.resolve({ ok: false, problems: [{ code: "not_found", message: id }] });
+			return Promise.resolve({
+				ok: true,
+				data: {
+					user: { id: agent.id, kind: "ai", name: agent.name, role: agent.role, status: "active" },
+					runsOn: MOCK_HARNESSES_WITH_MODELS,
+					runConfig: {
+						harnessType: agent.harnessType,
+						modelId: agent.modelId,
+						modelProvider: agent.modelProvider,
+						maxConcurrentSessions: 1,
+						modelOptions: {},
+					},
+					documentIds: [{ slot: "agent_file", id: "ki_af_demo" }],
+					folders: [],
+					subscriptions: [],
+					connections: null,
+					behaviour: null,
+					inbox: null,
+				},
+			});
+		}
+		return Promise.resolve({ ok: false, problems: [{ code: "unmocked", message: name }] });
+	});
 }
 
 // ---------------------------------------------------------------------------
@@ -144,7 +175,8 @@ function setupFetch(): void {
 
 describe("Assistant is a row in the agents list", () => {
 	beforeEach(() => {
-		setupFetch();
+		callMock.mockReset();
+		setupCall();
 		mockShowToast.mockClear();
 	});
 	afterEach(() => {
@@ -187,49 +219,10 @@ describe("Assistant is a row in the agents list", () => {
 
 	// @lore BA9f: the role template exists to PREFILL a new agent's identity, and
 	// editing an existing agent no longer has a box to prefill — it links to that
-	// agent's identity document instead. So the template fetch belongs to the add
-	// path, and editing must not fire it.
-	it("editing an existing agent does not fetch a role template — it links to the document", async () => {
+	// agent's identity document instead. The door carries `documentIds` up front
+	// (loaded with the row), so there is no separate template fetch to avoid.
+	it("editing an existing agent links to its identity document — no editable box", async () => {
 		const user = userEvent.setup();
-		const fetchedTemplates: string[] = [];
-		vi.stubGlobal(
-			"fetch",
-			vi.fn().mockImplementation((url: string) => {
-				const urlStr = String(url);
-				if (urlStr.includes("/api/harnesses") && !urlStr.includes("redetect")) {
-					return Promise.resolve({
-						ok: true,
-						status: 200,
-						json: async () => MOCK_HARNESSES_WITH_MODELS,
-					});
-				}
-				if (urlStr.includes("/api/agents/templates/")) {
-					fetchedTemplates.push(
-						decodeURIComponent(urlStr.split("/api/agents/templates/")[1] ?? ""),
-					);
-					return Promise.resolve({
-						ok: true,
-						status: 200,
-						json: async () => ({ role: "builder", content: "Build things well." }),
-					});
-				}
-				if (urlStr.includes("/api/agents")) {
-					return Promise.resolve({ ok: true, status: 200, json: async () => MOCK_AGENTS });
-				}
-				if (urlStr.includes("/api/filesystems")) {
-					return Promise.resolve({
-						ok: true,
-						status: 200,
-						json: async () => ({ filesystems: [] }),
-					});
-				}
-				if (urlStr.includes("/api/org")) {
-					return Promise.resolve({ ok: true, status: 200, json: async () => ({ teams: [] }) });
-				}
-				return Promise.resolve({ ok: false, status: 404, json: async () => ({}) });
-			}),
-		);
-
 		render(
 			<MemoryRouter>
 				<SettingsAgents />
@@ -245,7 +238,6 @@ describe("Assistant is a row in the agents list", () => {
 		await waitFor(() => {
 			expect(screen.getByTestId("edit-identity-link-agent-atlas")).toBeInTheDocument();
 		});
-		expect(fetchedTemplates).toHaveLength(0);
 	});
 });
 
@@ -255,7 +247,8 @@ describe("Assistant is a row in the agents list", () => {
 
 describe("Agent editor model dropdown uses discovered descriptor.models", () => {
 	beforeEach(() => {
-		setupFetch();
+		callMock.mockReset();
+		setupCall();
 		mockShowToast.mockClear();
 	});
 	afterEach(() => {
@@ -292,7 +285,8 @@ describe("Agent editor model dropdown uses discovered descriptor.models", () => 
 
 describe("SplitView ratio persistence is wired via useUiPreference", () => {
 	beforeEach(() => {
-		setupFetch();
+		callMock.mockReset();
+		setupCall();
 	});
 	afterEach(() => {
 		vi.restoreAllMocks();

@@ -12,52 +12,14 @@
  * detail pane appears with problem / solution / rabbit holes and the
  * "Add to canvas" button.
  */
-import { expect, test } from "./fixtures";
+import { expect, makeUserRow, mockSearchUsers, test } from "./fixtures";
 
-const TEAMS_FIXTURE = {
-	teams: [
-		{
-			id: "p1",
-			name: "Product One",
-			phase: "growth",
-			status: "healthy",
-			leadAgentId: "agent-lead",
-			shipped: 5,
-			shipRate: "71%",
-			progress: { done: 3, total: 6 },
-		},
-		{
-			id: "p2",
-			name: "Product Two",
-			phase: "growth",
-			status: "healthy",
-			leadAgentId: "agent-lead-2",
-			shipped: 3,
-			shipRate: "75%",
-			progress: { done: 1, total: 2 },
-		},
-		{
-			id: "p3",
-			name: "Product Three",
-			phase: "growth",
-			status: "behind",
-			leadAgentId: "agent-lead-3",
-			shipped: 1,
-			shipRate: "25%",
-			progress: { done: 2, total: 8 },
-		},
-		{
-			id: "p4",
-			name: "Product Four",
-			phase: "growth",
-			status: "blocked",
-			leadAgentId: "agent-lead-4",
-			shipped: 2,
-			shipRate: "100%",
-			progress: { done: 0, total: 0 },
-		},
-	],
-};
+const TEAM_ROSTER = [
+	makeUserRow("agent-lead", { kind: "ai", team: { id: "p1", name: "Product One" } }),
+	makeUserRow("agent-lead-2", { kind: "ai", team: { id: "p2", name: "Product Two" } }),
+	makeUserRow("agent-lead-3", { kind: "ai", team: { id: "p3", name: "Product Three" } }),
+	makeUserRow("agent-lead-4", { kind: "ai", team: { id: "p4", name: "Product Four" } }),
+];
 
 test.describe("J5 — Work Surface", () => {
 	test("Portfolio renders team pill filters and bet-grid structure", async ({ page }) => {
@@ -65,20 +27,15 @@ test.describe("J5 — Work Surface", () => {
 		// flat BetCard grid from useBets, not team cards from useTeams).
 		// J5 now validates that: team pills render, bet-grid container is visible.
 
-		// Mock /api/teams so the portfolio renders team pill filters.
-		await page.route("**/api/teams", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(TEAMS_FIXTURE),
-			});
-		});
+		// @lore BC5 T11: `GET /api/teams` is gone — search_users({}) is the
+		// portfolio's one team-list source now.
+		await mockSearchUsers(page, { rows: TEAM_ROSTER });
 
 		await page.goto("/work/portfolio");
-		await page.waitForSelector("[data-testid='work-portfolio-page']");
+		await page.waitForSelector("[data-testid='work-overview-page']");
 
 		// Portfolio page structure visible
-		await expect(page.getByTestId("work-portfolio-page")).toBeVisible();
+		await expect(page.getByTestId("work-overview-page")).toBeVisible();
 
 		// Team pill filters render (one per team)
 		const teamPillsContainer = page.getByTestId("team-pill-filters");

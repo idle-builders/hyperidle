@@ -35,9 +35,12 @@ import {
 	makeSessionRow,
 	makeTask,
 	makeTaskNode,
+	mockAgents,
 	mockSearchSessions,
 	mockSearchThreads,
+	mockSearchUsers,
 	mockTaskTree,
+	mockTeamPage,
 	test,
 } from "./fixtures";
 
@@ -67,36 +70,6 @@ function makeActiveSessions() {
 			state: "active",
 		}),
 	];
-}
-
-function makeTeamDetailResponse() {
-	// Must match TeamDetail shape from @hyperidle/domain-model's team.ts
-	return {
-		team: {
-			id: TEAM_ID,
-			name: "Alpha Core",
-			phase: "build",
-			status: "healthy",
-			leadAgentId: null,
-		},
-		teamMembers: { id: TEAM_ID, formedAt: new Date().toISOString(), dissolvedAt: null },
-		roster: [],
-		burn: {
-			capacity: 3,
-		},
-		tasksInProgress: [
-			{
-				id: ROOT_TASK_ID,
-				title: "AI4 Proof Task",
-				// @lore BB1: TaskCardSummary carries `state`, not `status`. A summary
-				// still spelling `status` renders with no chip at all rather than failing.
-				state: "in_progress",
-				progressDone: 1,
-				progressTotal: 3,
-			},
-		],
-		routines: [],
-	};
 }
 
 function makeEmptyMessagesResponse() {
@@ -130,27 +103,16 @@ async function setupTaskRoutes(page: Parameters<typeof setupBetRoutes>[0]) {
 
 /** Wire routes needed for WorkTeam page. */
 async function setupTeamRoutes(page: Parameters<typeof setupBetRoutes>[0]) {
-	await page.route(`**/api/teams/${TEAM_ID}`, (route) =>
-		route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify(makeTeamDetailResponse()),
-		}),
-	);
-	await page.route(`**/api/routines**`, (route) =>
-		route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify({ routines: [] }),
-		}),
-	);
-	await page.route(`**/api/agents**`, (route) =>
-		route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify({ agents: [] }),
-		}),
-	);
+	await mockSearchUsers(page, { rows: [] });
+	await mockTeamPage(page, {
+		teamId: TEAM_ID,
+		teamName: "Alpha Core",
+		tasksInProgress: [
+			makeTask(ROOT_TASK_ID, { teamId: TEAM_ID, title: "AI4 Proof Task", state: "in_progress" }),
+		],
+	});
+	await mockAgents(page, { agents: [] });
+	await mockSearchSessions(page, { rows: [] });
 }
 
 // ── Tests ──────────────────────────────────────────────────────────────────────

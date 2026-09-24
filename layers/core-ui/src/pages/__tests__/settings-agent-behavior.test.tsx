@@ -92,8 +92,8 @@ const AGENT_BEHAVIOR_ITEMS = [
 		editableFields: [],
 	},
 	{
-		id: "routine:routine.daily-product-scan",
-		kind: "routine",
+		id: "subscription:subscription.daily-product-scan",
+		kind: "subscription",
 		name: "Daily product scan",
 		origin: { type: "builtin", label: "Built-in HyperIdle", state: "enabled" },
 		valueSource: "default",
@@ -103,9 +103,9 @@ const AGENT_BEHAVIOR_ITEMS = [
 		editableFields: [],
 		links: [
 			{
-				target: "routine-detail",
-				label: "Open routine",
-				href: "/work/routines/daily-product-scan",
+				target: "settings-notifications",
+				label: "Open Notifications",
+				href: "#settings-section-notifications",
 			},
 		],
 	},
@@ -129,54 +129,87 @@ const AGENT_BEHAVIOR_ITEMS = [
 	},
 ];
 
+const SELF_ROW = {
+	id: "u-founder",
+	kind: "human",
+	name: "Test Founder",
+	role: "founder",
+	status: "active",
+	team: { id: "team-product", name: "Product" },
+};
+
+/** The full `open_user({})` self-view shape every re-pointed Settings section reads from. */
+function openUserData(behaviour: typeof AGENT_BEHAVIOR_ITEMS): Record<string, unknown> {
+	return {
+		user: SELF_ROW,
+		runsOn: [],
+		runConfig: null,
+		documentIds: [],
+		folders: [],
+		subscriptions: [],
+		connections: { connections: [], inherited: [] },
+		behaviour,
+		inbox: [],
+	};
+}
+
 function setupFetch(): void {
+	// @lore BC5 T11: SettingsAgentBehavior (and every other re-pointed
+	// section this page mounts alongside it — Profile/OrgChart/Agents/
+	// Filesystems/Harnesses/Connections) reads/writes through the actions
+	// door now (`open_user`/`edit_user`), not the deleted
+	// `/api/settings/agent-behavior/config` route.
+	let behaviour = AGENT_BEHAVIOR_ITEMS;
 	vi.stubGlobal(
 		"fetch",
 		vi.fn().mockImplementation((url: string, init?: RequestInit) => {
 			const urlStr = String(url);
-			if (urlStr.includes("/api/settings/agent-behavior/config")) {
-				if (init?.method === "PATCH") {
-					return Promise.resolve({
-						ok: true,
-						status: 200,
-						json: async () => ({
-							item: {
-								...AGENT_BEHAVIOR_ITEMS[2],
-								name: "Founder Assistant",
-								activeSummary: "Founder Assistant · opencode harness",
-								valueSource: "user_override",
-							},
-						}),
-					});
+			if (urlStr.includes("/api/actions/open_user")) {
+				return Promise.resolve({
+					ok: true,
+					status: 200,
+					json: async () => ({ ok: true, data: openUserData(behaviour) }),
+				});
+			}
+			if (urlStr.includes("/api/actions/edit_user")) {
+				const body = JSON.parse(String(init?.body ?? "{}")) as {
+					behaviour?: ReadonlyArray<{ id: string; fields: Record<string, unknown> }>;
+				};
+				const edit = body.behaviour?.[0];
+				if (edit) {
+					behaviour = behaviour.map((item) =>
+						item.id === edit.id
+							? {
+									...item,
+									name: (edit.fields.name as string | undefined) ?? item.name,
+									activeSummary: "Founder Assistant · opencode harness",
+									valueSource: "user_override",
+									editableFields: item.editableFields.map((field) =>
+										field.id in edit.fields ? { ...field, value: edit.fields[field.id] } : field,
+									),
+								}
+							: item,
+					) as typeof AGENT_BEHAVIOR_ITEMS;
 				}
 				return Promise.resolve({
 					ok: true,
 					status: 200,
-					json: async () => ({ items: AGENT_BEHAVIOR_ITEMS }),
+					json: async () => ({ ok: true, data: openUserData(behaviour) }),
 				});
 			}
-			if (urlStr.includes("/api/agents")) {
-				return Promise.resolve({ ok: true, status: 200, json: async () => [] });
-			}
-			if (urlStr.includes("/api/harnesses")) {
-				return Promise.resolve({ ok: true, status: 200, json: async () => [] });
-			}
-			if (urlStr.includes("/api/org")) {
+			if (urlStr.includes("/api/actions/search_users")) {
 				return Promise.resolve({
 					ok: true,
 					status: 200,
-					json: async () => ({
-						edges: [],
-						users: [{ id: "u-founder", name: "Test Founder", kind: "human", role: "founder" }],
-						teams: [],
-					}),
+					json: async () => ({ ok: true, data: [SELF_ROW] }),
 				});
 			}
-			if (urlStr.includes("/api/filesystems")) {
-				return Promise.resolve({ ok: true, status: 200, json: async () => ({ filesystems: [] }) });
-			}
-			if (urlStr.includes("/api/connections")) {
-				return Promise.resolve({ ok: true, status: 200, json: async () => [] });
+			if (urlStr.includes("/api/actions/search_tasks")) {
+				return Promise.resolve({
+					ok: true,
+					status: 200,
+					json: async () => ({ ok: true, data: [] }),
+				});
 			}
 			// SettingsPlugins reads through `call("search_plugins", …)` —
 			// `POST /api/actions/search_plugins`, not the deleted `/api/plugins`
@@ -187,9 +220,6 @@ function setupFetch(): void {
 					status: 200,
 					json: async () => ({ ok: true, data: [] }),
 				});
-			}
-			if (urlStr.includes("/api/notifications")) {
-				return Promise.resolve({ ok: true, status: 200, json: async () => ({}) });
 			}
 			if (urlStr.includes("/api/settings") || urlStr.includes("/api/credentials")) {
 				return Promise.resolve({ ok: true, status: 200, json: async () => ({}) });
@@ -212,8 +242,8 @@ describe("Settings Agent behavior surface", () => {
 	afterEach(() => vi.restoreAllMocks());
 
 	// BA1 D10: "Triggers" category is gone — five kinds now (agents, skills,
-	// routines, tools, MCP).
-	it("renders one Settings area for agents, skills, routines, tools, and MCP without Fabric/Strategy/trigger labels", async () => {
+	// subscriptions, tools, MCP).
+	it("renders one Settings area for agents, skills, subscriptions, tools, and MCP without Fabric/Strategy/trigger labels", async () => {
 		renderSettingsPage();
 
 		const section = await screen.findByTestId("settings-section-agent-behavior");
@@ -224,7 +254,7 @@ describe("Settings Agent behavior surface", () => {
 			"settings-agent-behavior",
 		);
 		expect(section.querySelector('[data-ds-component="split-view"]')).toBeInTheDocument();
-		for (const label of ["Agents", "Skills", "Routines", "Tools", "MCP"]) {
+		for (const label of ["Agents", "Skills", "Subscriptions", "Tools", "MCP"]) {
 			expect(within(section).getByText(label)).toBeInTheDocument();
 		}
 		expect(section.textContent ?? "").not.toMatch(/Fabric|Strategy|trigger/i);

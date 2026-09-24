@@ -14,30 +14,22 @@ const MOCK_DETAIL = {
 	team: {
 		id: "p1",
 		name: "HyperIdle Core",
-		phase: "build",
 		status: "healthy" as const,
-		leadAgentId: "agent-lead",
 	},
-	teamMembers: { id: "t1", formedAt: "2024-01-01T00:00:00.000Z", dissolvedAt: null },
 	roster: [
 		{
 			agentId: "agent-lead",
 			name: "Lead Agent",
 			role: "lead",
-			isLead: true,
 			agentCategory: "team",
 		},
 		{
 			agentId: "agent-member",
 			name: "Alice Agent",
 			role: "member",
-			isLead: false,
 			agentCategory: "team",
 		},
 	],
-	burn: {
-		capacity: 5,
-	},
 	tasksInProgress: [
 		{
 			id: "b1",

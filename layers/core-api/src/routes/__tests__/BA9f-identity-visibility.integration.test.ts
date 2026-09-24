@@ -189,9 +189,13 @@ describe("an agent's identity document is visible to everyone, not a private not
 
 /**
  * The new document action mechanism (architecture.md §8.3, B11): a created
- * agent's identity is seeded through the shared `routes/agent-identity.ts`
- * helper — `edit_document` with the caller-chosen id `doc_af_<agentId>` — and
- * read through `search_documents`/`open_document`, never `/api/knowledge`.
+ * agent's identity is seeded through the shared `agent-identity.ts` helper —
+ * `edit_document` with the caller-chosen id `doc_af_<agentId>` — and read
+ * through `search_documents`/`open_document`, never `/api/knowledge`.
+ *
+ * @lore BC5 T11: the agent is created through `edit_user` now (`POST
+ * /api/agents` is deleted with the whole `agents` route family) and read back
+ * through `search_users`/`open_user` — never `/api/agents`.
  */
 describe("agent identity through the document action mechanism", () => {
 	const CREATOR = "u-founder-ba9f-actions";
@@ -232,50 +236,80 @@ describe("agent identity through the document action mechanism", () => {
 	}) => {
 		await seedTwoHumans(db);
 
-		const createRes = await app.request("/api/agents", {
+		const createRes = await app.request("/api/actions/edit_user", {
 			method: "POST",
 			headers: authHeaders(CREATOR),
-			body: JSON.stringify({ name: "Atlas", role: "builder", systemPrompt: "You are Atlas." }),
+			body: JSON.stringify({
+				kind: "ai",
+				name: "Atlas",
+				role: "builder",
+				identity: "You are Atlas.",
+				ownerUserId: CREATOR,
+			}),
 		});
-		expect(createRes.status).toBe(201);
-		const created = (await createRes.json()) as { id: string; identityDocumentId: string };
-		expect(created.identityDocumentId).toBe(`doc_af_${created.id}`);
+		expect(createRes.status).toBe(200);
+		const created = (
+			(await createRes.json()) as {
+				ok: true;
+				data: { user: { id: string } | null; documentIds: Array<{ slot: string; id: string }> };
+			}
+		).data;
+		const agentId = created.user?.id as string;
+		const identityDocumentId = created.documentIds.find((d) => d.slot === "agent_file")?.id;
+		expect(identityDocumentId).toBe(`doc_af_${agentId}`);
 
 		const openRes = await app.request("/api/actions/open_document", {
 			method: "POST",
 			headers: authHeaders(READER),
-			body: JSON.stringify({ id: created.identityDocumentId }),
+			body: JSON.stringify({ id: identityDocumentId }),
 		});
 		expect(openRes.status).toBe(200);
 		const opened = (await openRes.json()) as {
 			ok: true;
 			data: { document: { id: string; body: string; slot: string } };
 		};
-		expect(opened.data.document.id).toBe(created.identityDocumentId);
+		expect(opened.data.document.id).toBe(identityDocumentId);
 		expect(opened.data.document.body).toBe("You are Atlas.");
 		expect(opened.data.document.slot).toBe("agent_file");
 	});
 
-	test("listing and reading an identity through search never bumps its read count", async ({
+	test("listing and reading an identity through search_users/open_user never bumps its read count", async ({
 		db,
 		app,
 	}) => {
 		await seedTwoHumans(db);
 
-		const createRes = await app.request("/api/agents", {
+		const createRes = await app.request("/api/actions/edit_user", {
 			method: "POST",
 			headers: authHeaders(CREATOR),
-			body: JSON.stringify({ name: "Ranger", role: "builder", systemPrompt: "You are Ranger." }),
+			body: JSON.stringify({
+				kind: "ai",
+				name: "Ranger",
+				role: "builder",
+				identity: "You are Ranger.",
+				ownerUserId: CREATOR,
+			}),
 		});
-		const created = (await createRes.json()) as { id: string; identityDocumentId: string };
+		const created = (
+			(await createRes.json()) as { ok: true; data: { user: { id: string } | null } }
+		).data;
+		const agentId = created.user?.id as string;
 
-		await app.request("/api/agents", { headers: authHeaders(READER) });
-		await app.request(`/api/agents/${created.id}/profile`, { headers: authHeaders(READER) });
+		await app.request("/api/actions/search_users", {
+			method: "POST",
+			headers: authHeaders(READER),
+			body: JSON.stringify({ kind: "ai" }),
+		});
+		await app.request("/api/actions/open_user", {
+			method: "POST",
+			headers: authHeaders(READER),
+			body: JSON.stringify({ id: agentId }),
+		});
 
 		const [doc] = await db
 			.select()
 			.from(documents)
-			.where(eq(documents.id, created.identityDocumentId));
+			.where(eq(documents.id, `doc_af_${agentId}`));
 		expect(doc?.readCount).toBe(0);
 	});
 });

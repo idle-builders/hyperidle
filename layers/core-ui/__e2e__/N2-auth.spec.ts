@@ -9,9 +9,15 @@
  * apiFetch reads this from import.meta.env and injects it as X-API-Key.
  *
  * AC-7a: /api/health succeeds (health endpoint does not require X-API-Key)
- * AC-7b: /api/teams request carries X-API-Key header injected by apiFetch
- *        (WorkPortfolio navigates to /work/portfolio and calls useProducts())
+ * AC-7b: /api/actions/search_users carries X-API-Key header injected by
+ *        apiFetch (navigating to /work/portfolio renders WorkOverview, which
+ *        calls useTeams() → search_users({}))
  *
+ * @lore BC5 T11: `GET /api/teams` is gone with the `teams` route family —
+ * `useTeams` now builds the portfolio's team list from
+ * `POST /api/actions/search_users`, the same action door a person's client
+ * and an agent's MCP tool both use. The X-API-Key proof re-points there;
+ * the mechanism under test (apiFetch's header injection) is unchanged.
  */
 
 import { expect, test } from "./fixtures";
@@ -22,9 +28,7 @@ const PLAYWRIGHT_TEST_KEY = "playwright-test-key";
 
 const HEALTH_FIXTURE = { status: "ok" };
 
-const PRODUCTS_LIST_FIXTURE = {
-	teams: [],
-};
+const SEARCH_USERS_FIXTURE = { ok: true, data: [] };
 
 // ── AC-7a: /api/health succeeds without X-API-Key ────────────────────────────
 
@@ -65,13 +69,14 @@ test.describe("N2 — /api/health endpoint (AC-7a)", () => {
 
 // ── AC-7b: apiFetch injects X-API-Key on real app navigations ────────────────
 
-test.describe("N2 — apiFetch injects X-API-Key on /api/teams (AC-7b)", () => {
-	test("app navigation to /work/portfolio carries X-API-Key on /api/teams via apiFetch", async ({
+test.describe("N2 — apiFetch injects X-API-Key on /api/actions/search_users (AC-7b)", () => {
+	test("app navigation to /work/portfolio carries X-API-Key on search_users via apiFetch", async ({
 		page,
 	}) => {
 		// Arrange: intercept ALL /api/* requests, capture the X-API-Key from each.
-		// WorkPortfolio calls useProducts() → apiFetch("/api/teams") on mount,
-		// which must inject the key from VITE_HYPERIDLE_API_KEY (set in playwright.config.ts).
+		// WorkOverview calls useTeams() → call("search_users", {}) → apiFetch
+		// ("/api/actions/search_users") on mount, which must inject the key from
+		// VITE_HYPERIDLE_API_KEY (set in playwright.config.ts).
 		//
 		// @lore N2: Playwright evaluates route handlers in REVERSE registration order
 		// (last-registered wins / LIFO); register the catch-all/default route FIRST
@@ -83,17 +88,17 @@ test.describe("N2 — apiFetch injects X-API-Key on /api/teams (AC-7b)", () => {
 			const url = route.request().url();
 			const key = route.request().headers()["x-api-key"] ?? null;
 
-			// Capture the header from the /api/teams request specifically
-			if (url.includes("/api/teams") && !url.includes("/api/teams/")) {
+			// Capture the header from the search_users request specifically
+			if (url.includes("/api/actions/search_users")) {
 				capturedApiKey = key;
 			}
 
 			// Return an appropriate fixture response for each route
-			if (url.includes("/api/teams")) {
+			if (url.includes("/api/actions/search_users")) {
 				return route.fulfill({
 					status: 200,
 					contentType: "application/json",
-					body: JSON.stringify(PRODUCTS_LIST_FIXTURE),
+					body: JSON.stringify(SEARCH_USERS_FIXTURE),
 				});
 			}
 			if (url.includes("/api/health")) {
@@ -110,7 +115,7 @@ test.describe("N2 — apiFetch injects X-API-Key on /api/teams (AC-7b)", () => {
 			});
 		});
 
-		// Act: navigate to WorkPortfolio — this triggers useProducts() → apiFetch
+		// Act: navigate to WorkOverview — this triggers useTeams() → apiFetch
 		await page.goto("/work/portfolio");
 		await page.waitForLoadState("networkidle");
 
@@ -128,12 +133,12 @@ test.describe("N2 — apiFetch injects X-API-Key on /api/teams (AC-7b)", () => {
 		// something has accidentally patched globalThis.fetch.
 		let capturedApiKey: string | null = null;
 
-		await page.route("**/api/teams", (route) => {
+		await page.route("**/api/actions/search_users", (route) => {
 			capturedApiKey = route.request().headers()["x-api-key"] ?? null;
 			return route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify({}),
+				body: JSON.stringify(SEARCH_USERS_FIXTURE),
 			});
 		});
 
@@ -151,7 +156,7 @@ test.describe("N2 — apiFetch injects X-API-Key on /api/teams (AC-7b)", () => {
 		// Explicitly call bare fetch() — NOT apiFetch — from the page context.
 		// This call bypasses the apiFetch wrapper and must NOT have X-API-Key.
 		await page.evaluate(async () => {
-			await fetch("/api/teams");
+			await fetch("/api/actions/search_users", { method: "POST", body: "{}" });
 		});
 
 		await page.waitForTimeout(200);

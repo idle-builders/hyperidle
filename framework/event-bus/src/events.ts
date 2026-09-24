@@ -7,11 +7,12 @@
 import type {
 	AgentSessionSourceCorrelation,
 	AgentSessionSourceKind,
-	HostKind,
-	MessageType,
+	ChangeKind,
+	ChangeObject,
+	ChangeRow,
 	ModelTier,
+	ObjectEventName,
 	SessionOutcome,
-	TaskState,
 } from "@hyperidle/domain-model";
 
 /**
@@ -30,8 +31,9 @@ export const AGENT_WORK_INTENT_KINDS = [
 	"thread_turn",
 	"session_start",
 	"knowledge_action",
-	"routine_run",
 	"task_run",
+	// A subscription's wake.
+	"subscription_run",
 ] as const;
 
 export type AgentWorkIntentKind = (typeof AGENT_WORK_INTENT_KINDS)[number];
@@ -40,7 +42,7 @@ export type AgentWorkIntentKind = (typeof AGENT_WORK_INTENT_KINDS)[number];
  * The RAW `agent_work_intents.source_kind` vocabulary (the identity an intent
  * was recorded under, pre-resolution) — distinct from `AgentSessionSourceKind`
  * (the RESOLVED "session-source" vocabulary a chosen agent's request ends up
- * carrying, e.g. `"routine"`/`"knowledge"`). `AgentRunAdmissionFailedEvent`
+ * carrying, e.g. `"subscription"`/`"knowledge"`). `AgentRunAdmissionFailedEvent`
  * fires from the drain against the STORED intent row, before (or instead of)
  * resolution succeeds, so it carries this pre-resolution vocabulary verbatim.
  */
@@ -48,19 +50,8 @@ export type AgentWorkIntentSourceKind =
 	| "thread_message"
 	| "explicit_session_start"
 	| "knowledge_action"
-	| "routine_run"
-	| "task_dispatch_attempt";
-
-export interface AgentWorkIntentEvent {
-	readonly type: "agent_work_intent_recorded";
-	readonly streamId: string;
-	readonly intentId: string;
-	readonly intentKind: AgentWorkIntentKind;
-	readonly sourceKind: AgentSessionSourceKind | "explicit_session_start";
-	readonly sourceId: string;
-	readonly idempotencyKey: string;
-	readonly timestamp: number;
-}
+	| "task_dispatch_attempt"
+	| "subscription";
 
 export type AgentRunAdmissionFailureCode =
 	| "INVALID_WORK_SOURCE" // baked payload's source no longer exists / no longer eligible (domain-state staleness)
@@ -101,9 +92,9 @@ export interface AgentRunLifecycleChangedEvent {
 	/**
 	 * Why the run ended this way, read back off the durable request row. A
 	 * subscriber that records a terminal outcome of its own (core-api's
-	 * routine-run finalizer) has no other source for the reason — without
-	 * these it can only write "it failed", which is what left every real
-	 * provisioning failure undiagnosable from the product.
+	 * task-dispatch-attempt finalizer) has no other source for the reason —
+	 * without these it can only write "it failed", which is what left every
+	 * real provisioning failure undiagnosable from the product.
 	 */
 	readonly failureCode?: string;
 	readonly errorMessage?: string;
@@ -112,39 +103,14 @@ export interface AgentRunLifecycleChangedEvent {
 
 // --- Event type discriminants ---
 
-export interface TaskStateChangedEvent {
-	type: "task_state_changed";
-	streamId: string;
-	taskId: string;
-	fromState: TaskState;
-	toState: TaskState;
-	timestamp: number;
-	/**
-	 * BB1: this transition is part of a deliberate subtree KILL, not ordinary
-	 * progress. Upward completion propagation must ignore it.
-	 *
-	 * @lore BB1: without this, killing a task with descendants raced its own
-	 * completion cascade. `cascadeTaskKill` kills deepest-first, each kill emits
-	 * this event, and the propagation handler — which listens for `killed` on
-	 * purpose, so a last child being killed can still advance its parent — found
-	 * the ancestors' children all terminal and marked them `done` before the
-	 * cascade reached them. That stamped `completedAt` on cancelled work and
-	 * raised a "Confirm shipping?" review on a killed root. The cascade already
-	 * suppresses `session_ended` for exactly this reason; this closes the other
-	 * path. Optional, so every existing emitter is unchanged and only the
-	 * cascade opts in.
-	 */
-	cascade?: boolean;
-}
-
 /**
  * @lore BB1: `BetStateChangedEvent` DELETED — a bet is now a root task.
  * A bet state change IS a task state change; `task_state_changed` is the
- * only work-state event. This NARROWS the routine extension surface:
- * routines authored against `bet_state_changed` will no longer fire. Since
- * no code emits `bet_state_changed` anymore (the bet entity is gone), no
- * routine could have matched it in practice — the deletion removes a dead
- * event type from the extension surface.
+ * only work-state event. This NARROWS the subscription extension surface:
+ * a subscription authored against `bet_state_changed` will no longer fire.
+ * Since no code emits `bet_state_changed` anymore (the bet entity is gone),
+ * no subscription could have matched it in practice — the deletion removes
+ * a dead event type from the extension surface.
  */
 
 export interface SessionStartedEvent {
@@ -180,20 +146,6 @@ export interface SessionEndedEvent {
 	timestamp: number;
 	/** Final disposition of the session. */
 	outcome: SessionOutcome;
-	/**
-	 * AU21 §9 Increment 4 (Decision B″ item 3) — additive, routine-sourced
-	 * sessions only. Carries the routine-run finalize outcome, independent of
-	 * the session's own `outcome`. Consumed by the core-api subscriber
-	 * `routine-run-session-end-reactions.ts`, the literal replacement for
-	 * `run-orchestration`'s deleted direct `routineRuns` write
-	 * (`updateRoutineRunOnSessionEnd`). `"timeout"` is the stale-session-reaper
-	 * outcome (`runtime-reapers.ts`'s `reapStaleRoutineSessions`) — the SAME
-	 * event channel, a second producer.
-	 *
-	 * @lore AU21 Increment 14a: `"budget_exhausted"` (the per-run cost-cap
-	 * outcome) is deleted along with the cap gate — no replacement.
-	 */
-	routineRunOutcome?: "success" | "error" | "timeout";
 	/**
 	 * AU21 §9 Increment 12 (Decision H3), Wave D — additive. Carries
 	 * `run-orchestration/provisioner.ts`'s per-model-tier accumulated token
@@ -268,28 +220,6 @@ export interface SessionNotReturnedEvent {
 	readonly timestamp: number;
 }
 
-export interface NotificationEvent {
-	type: "notification";
-	streamId: string;
-	targetId: string;
-	message: string;
-	timestamp: number;
-	/**
-	 * AF8: MANDATORY discriminator. Distinguishes policy-engine "attention"
-	 * push notifications from dep-watcher "auto_unblock" ambient events.
-	 *
-	 * @lore AF8: This field is MANDATORY (not optional) so TypeScript forces
-	 * both emit sites to set it. The notification listener filters on `kind`
-	 * ONLY — never on message text. auto_unblock is ambient (concept hard
-	 * rule #6) and must never produce a notification_queue row.
-	 *
-	 * Emit sites:
-	 *   policy-engine.ts   → kind: "attention"
-	 *   dependency-watcher.ts → kind: "auto_unblock"
-	 */
-	kind: "attention" | "auto_unblock";
-}
-
 /** A single detected file-level writeback change (create/modify/delete). */
 export interface SandboxWritebackChange {
 	readonly type: "create" | "modify" | "delete";
@@ -343,44 +273,6 @@ export interface ToolCallRecordedEvent {
 	timestamp: number;
 }
 
-// L1a — Thread primitive events (plan §6.3). `streamId` = `threadId` so
-// per-thread events arrive in order.
-export interface ThreadCreatedEvent {
-	type: "thread_created";
-	streamId: string;
-	threadId: string;
-	hostKind: HostKind;
-	hostId: string;
-	initiatorId: string;
-	timestamp: number;
-}
-
-export interface ThreadMessageAppendedEvent {
-	type: "thread_message_appended";
-	streamId: string;
-	threadId: string;
-	messageId: string;
-	messageType: MessageType;
-	senderId: string;
-	timestamp: number;
-}
-
-export interface ThreadResolvedEvent {
-	type: "thread_resolved";
-	streamId: string;
-	threadId: string;
-	resolvedByMessageId: string;
-	timestamp: number;
-}
-
-export interface ThreadReopenedEvent {
-	type: "thread_reopened";
-	streamId: string;
-	threadId: string;
-	reopenedByMessageId: string;
-	timestamp: number;
-}
-
 /**
  * @lore O1: PropagationLevel moved to @hyperidle/server (packages/server/src/knowledge/types.ts). This inline literal
  * union avoids importing from fabric in shared (boundary rule: kernel never
@@ -425,48 +317,67 @@ export interface PropagationFailedEvent {
 }
 
 /**
- * AK6: Emitted by POST /api/teams (and create-team tool) AFTER the team,
- * teamMembers, and all scaffolded agent users rows have been persisted.
- * streamId = teamId for per-team stream routing.
+ * The wire shape of a raw `changes` table row — `@hyperidle/db`'s `Change`
+ * (and the value its own `appendChange` returns) structurally satisfies
+ * this without a cast: `before`/`after` are still JSON text, undecoded.
+ * event-bus does not depend on `@hyperidle/db`; TypeScript's structural
+ * typing is what makes that row assignable here.
  */
-export interface TeamCreatedEvent {
-	type: "team_created";
-	streamId: string;
-	teamId: string;
-	teamMembersId: string;
-	/** Ids of every agent users row created for this team (real ids, post-persist). */
-	agentIds: readonly string[];
-	at: string;
+export interface ChangesRow {
+	readonly id: string;
+	readonly object: string;
+	readonly objectId: string;
+	readonly kind: string;
+	readonly actor: string;
+	readonly before: string | null;
+	readonly after: string;
+	readonly at: string;
 }
 
 /**
- * AK6: Emitted by the add_agent tool (and teams add-agent route) AFTER the
- * agent users row has been persisted.
- * streamId = teamId for per-team stream routing.
+ * The nine object events, one member per `ObjectEventName` — a distributive
+ * mapped type so `EventByType<"task.changed">` resolves to exactly the
+ * `task.changed` member, not the union of all nine. `change` is the decoded
+ * `ChangeRow`; `cascade` rides only on a kill loop's
+ * descendant rows.
  */
-export interface AgentAddedEvent {
-	type: "agent_added";
-	streamId: string;
-	teamId: string;
-	teamMembersId: string;
-	agentId: string;
-	role: string;
-	at: string;
-}
+export type ObjectChangeEvent = {
+	[T in ObjectEventName]: {
+		readonly type: T;
+		readonly streamId: string;
+		readonly change: ChangeRow;
+		readonly timestamp: number;
+		readonly cascade?: true;
+	};
+}[ObjectEventName];
 
 /**
- * AK6: Emitted by POST /api/users (and assistant lazy-create) AFTER the human
- * user row AND the assistant agent users row have been persisted.
- * Semantics: "human + their assistant now exist."
- * streamId = userId for per-user stream routing.
+ * Builds one object-change event from a raw `changes` row — the module that
+ * appended the row calls this once, post commit, over each row it appended
+ * Decodes `before`/`after` from JSON text into the
+ * `ChangeRow` wire shape; derives the dotted event name from `object.kind`.
  */
-export interface UserCreatedEvent {
-	type: "user_created";
-	streamId: string;
-	userId: string;
-	/** The assistant agent's users.id (real id, post-persist). */
-	assistantAgentId: string;
-	at: string;
+export function objectEvent(
+	row: ChangesRow,
+	opts?: { readonly cascade?: true },
+): ObjectChangeEvent {
+	const change: ChangeRow = {
+		id: row.id,
+		object: row.object as ChangeObject,
+		objectId: row.objectId,
+		kind: row.kind as ChangeKind,
+		actor: row.actor,
+		before: row.before === null ? null : (JSON.parse(row.before) as Record<string, unknown>),
+		after: JSON.parse(row.after) as Record<string, unknown>,
+		at: row.at,
+	};
+	return {
+		type: `${row.object}.${row.kind}` as ObjectEventName,
+		streamId: row.objectId,
+		change,
+		timestamp: Date.now(),
+		...(opts?.cascade ? { cascade: true as const } : {}),
+	} as ObjectChangeEvent;
 }
 
 /**
@@ -480,28 +391,32 @@ export interface UserCreatedEvent {
  * a kernel/strategy split that is now gone. DomainEvent is the single union.
  */
 export type DomainEvent =
-	| AgentWorkIntentEvent
+	| ObjectChangeEvent
 	| AgentRunAdmissionFailedEvent
 	| AgentRunLifecycleChangedEvent
-	| TaskStateChangedEvent
 	// @lore BB1: BetStateChangedEvent and BetRevisedEvent deleted — bet is now a root task.
+	// @lore BC5 T7b: TaskStateChangedEvent deleted — its last listener is gone;
+	// `edit_task` emits `task.changed` (an ObjectChangeEvent member) for
+	// lifecycle propagation and the dependency watcher now.
 	| SessionStartedEvent
 	| SessionEndedEvent
 	// AU19 Increment 3g: handoff EventBus inversion
 	| SessionHandoffCompletedEvent
 	// Return-gate escape surface
 	| SessionNotReturnedEvent
-	| ThreadCreatedEvent
-	| ThreadMessageAppendedEvent
-	| ThreadResolvedEvent
-	| ThreadReopenedEvent
+	// @lore BC5 T7b: ThreadCreatedEvent/ThreadMessageAppendedEvent/
+	// ThreadResolvedEvent/ThreadReopenedEvent deleted — their last listener is
+	// gone — `thread.created`/`thread.message`/`thread.changed`
+	// (ObjectChangeEvent members) carry the same change now.
 	// AU19 Increment 3f: filesystems ⚠ capture-writeback EventBus inversion
 	| SandboxWritebackChangesDetectedEvent
-	// AK6: creation events
-	| TeamCreatedEvent
-	| AgentAddedEvent
-	| UserCreatedEvent
-	| NotificationEvent
+	// @lore BC5 T11: TeamCreatedEvent/AgentAddedEvent/UserCreatedEvent deleted
+	// with the `org`/`teams-routes`/`users` routes, their last emitters —
+	// `user.created`/`user.changed` (ObjectChangeEvent members) carry the
+	// same change now.
+	// @lore BC5 T7b: NotificationEvent deleted — subscriptions replace the
+	// notification queue; `user.changed` (an ObjectChangeEvent member) plus a
+	// subscription's inbox row carry what this used to.
 	| PropagationAppliedEvent
 	| PropagationFailedEvent
 	| ToolCallRecordedEvent;
@@ -510,11 +425,12 @@ export type DomainEvent =
 export type EventType = DomainEvent["type"];
 
 /**
- * BA1 D8/D2 — the one compile-time-complete list of every event type. D2's
- * routine-event matcher subscribes to every member (all 24, nothing
- * excluded — the founder's loop ruling at §3.1 rejects a narrowed
- * allow-list); D8's create/patch validators and `GET /api/routines/event-types`
- * all read this SAME constant.
+ * BA1 D8/D2 — the one compile-time-complete list of every event type.
+ *
+ * @lore BC5 T7b: the old generic listener that used to subscribe to every
+ * member here (D2, the founder's loop ruling at §3.1) is gone — a
+ * subscription fires on one of the nine object events or a schedule
+ * (`subscriptions_event_ck`, migration 0088), never this whole list.
  *
  * `as const satisfies readonly EventType[]` is load-bearing, not cosmetic:
  * `satisfies` rejects a listed name that is not an `EventType`, and the
@@ -525,27 +441,40 @@ export type EventType = DomainEvent["type"];
  * restore) — see the architecture's §9 required step.
  */
 export const EVENT_TYPES = [
-	"agent_work_intent_recorded",
+	// The nine object events — one per `changes` row,
+	// spelled out literally so the governance lint's clause 4 (a regex over
+	// this file's source text) can see them.
+	"task.created",
+	"task.changed",
+	"thread.created",
+	"thread.message",
+	"thread.changed",
+	"document.created",
+	"document.changed",
+	"user.created",
+	"user.changed",
 	"agent_run_admission_failed",
 	"agent_run_lifecycle_changed",
-	"task_state_changed",
 	// @lore BB1: "bet_state_changed" and "bet_revised" deleted — bet is now a root task.
+	// @lore BC5 T7b: "task_state_changed" deleted — its last listener is gone;
+	// "task.changed" (above) carries a state move now.
 	"session_started",
 	"session_ended",
 	"session_handoff_completed",
 	"session_not_returned",
-	"thread_created",
-	"thread_message_appended",
-	"thread_resolved",
-	"thread_reopened",
+	// @lore BC5 T7b: "thread_created"/"thread_message_appended"/
+	// "thread_resolved"/"thread_reopened" deleted — their last listener is
+	// gone — "thread.created"/"thread.message"/"thread.changed"
+	// (above) carry the same change now.
 	// @lore BC3 architecture.md §5: "item_created" DELETED — its only backing
 	// store, the `items` table (the founder's conversation-review "block"
 	// concept), is gone, and nothing emits it anymore.
 	"sandbox_writeback_changes_detected",
-	"team_created",
-	"agent_added",
-	"user_created",
-	"notification",
+	// @lore BC5 T11: "team_created"/"agent_added"/"user_created" deleted with
+	// the `org`/`teams-routes`/`users` routes, their last emitters —
+	// "user.created"/"user.changed" (above) carry the same change now.
+	// @lore BC5 T7b: "notification" deleted — subscriptions replace the
+	// notification queue.
 	"propagation_applied",
 	"propagation_failed",
 	"tool_call_recorded",

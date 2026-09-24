@@ -1,10 +1,10 @@
 /**
- * The declared action list — five modules, fifteen names, from
- * search_tasks / open_task / edit_task to search_plugins / edit_plugin — is
- * projected onto every door: mounted on HTTP, registered on MCP, reachable
- * from the UI. This rule is the mechanical proof, over the census plus a
- * handful of scans this file owns (route registrations, tool literals, the
- * event-bus vocabulary).
+ * The declared action list — six modules, eighteen names, from
+ * search_tasks / open_task / edit_task to search_users / open_user /
+ * edit_user — is projected onto every door: mounted on HTTP, registered on
+ * MCP, reachable from the UI. This rule is the mechanical proof, over the
+ * census plus a handful of scans this file owns (route registrations, tool
+ * literals, the event-bus vocabulary).
  *
  * `src/` is the engine's own source and grows by design — `no-per-file-
  * allowances`'s closed set is scoped to `tools/governance/`'s own root, not
@@ -69,7 +69,7 @@ function scanDeclaredActionNames(
 }
 
 /**
- * The nineteen registrations that realise the eighteen plumbing doors —
+ * The twenty-six registrations that realise the twenty-six plumbing doors —
  * internal seams, auth, health. A route, never an action.
  *
  * @lore `GET /sessions/:sessionId` (a live core-api caller,
@@ -78,6 +78,12 @@ function scanDeclaredActionNames(
  * both are `AgentOrchestrationPort` seams with a real caller left, which is
  * what this list means; neither is an action, since core may not call an
  * orchestration action.
+ *
+ * @lore BC5 §6 (T4): `folders`/`connections` added seven new rows for eight
+ * new doors — `folders.give` reuses the existing
+ * `POST .../filesystems/:id/injections/persist` row under a second
+ * capability name, one row realising two doors, same idiom the two moved
+ * rows above already established.
  */
 const PLUMBING_ROUTES: readonly string[] = [
 	"layers/core-api/src/routes/auth.ts|GET /me",
@@ -101,6 +107,20 @@ const PLUMBING_ROUTES: readonly string[] = [
 	"layers/agent-execution/harness-registry/src/mcp/mcp-route.ts|POST /mcp/:token/return-status",
 	"layers/agent-orchestration/src/routes/agent-orchestration-sessions.ts|GET /sessions/:sessionId",
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /runs/stop-for-tasks",
+	// `folders`/`connections` cross the port the way `runConfig`
+	// already does. `folders.give` is `POST .../filesystems/:id/injections/persist`
+	// above under a second capability name — no new row for it.
+	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /folders/list",
+	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /folders",
+	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /folders/:id/remove",
+	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /folders/:id/take",
+	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|GET /connections/:userId",
+	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /connections/:userId",
+	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /connections/:userId/:id/remove",
+	// @lore BC5 T11 (architecture.md §0.1 clause 3): `SetupFlow.tsx` needs
+	// folder detail (git repo? which branch?) BEFORE a folder exists to
+	// register — a plumbing lookup, not an action. Moved from LEGACY_ROUTES.
+	"layers/agent-orchestration/src/routes/filesystems.ts|POST /inspect-path",
 ];
 
 /** The nine object events — task/thread/document/user, edit-in/changed-out. */
@@ -116,9 +136,8 @@ const OBJECT_EVENTS: readonly string[] = [
 	"user.changed",
 ];
 
-/** The eight platform events — extension surface, never an object door. */
+/** The seven platform events — extension surface, never an object door. */
 const PLATFORM_EVENTS: readonly string[] = [
-	"agent_work_intent_recorded",
 	"agent_run_admission_failed",
 	"agent_run_lifecycle_changed",
 	"session_handoff_completed",
@@ -145,55 +164,7 @@ const PLATFORM_EVENTS: readonly string[] = [
 const LEGACY_ROUTES: readonly string[] = [
 	"layers/agent-execution/harness-registry/src/mcp/mcp-route.ts|ALL /mcp/:token",
 	"layers/agent-orchestration/run-orchestration/src/worker-ingress.ts|GET /ws/worker",
-	"layers/agent-orchestration/src/routes/connections.ts|GET /",
-	"layers/agent-orchestration/src/routes/connections.ts|POST /",
-	"layers/agent-orchestration/src/routes/connections.ts|DELETE /:id",
-	"layers/agent-orchestration/src/routes/connections.ts|POST /:id/validate",
-	"layers/agent-orchestration/src/routes/filesystems.ts|POST /",
-	"layers/agent-orchestration/src/routes/filesystems.ts|POST /inspect-path",
-	"layers/agent-orchestration/src/routes/filesystems.ts|GET /",
-	"layers/agent-orchestration/src/routes/filesystems.ts|GET /:id",
-	"layers/agent-orchestration/src/routes/filesystems.ts|DELETE /:id",
-	"layers/agent-orchestration/src/routes/filesystems.ts|DELETE /:id/injections/:agentUserId",
-	"layers/core-api/src/routes/agents.ts|GET /:id/profile",
-	"layers/core-api/src/routes/agents.ts|GET /",
-	"layers/core-api/src/routes/agents.ts|POST /",
-	"layers/core-api/src/routes/agents.ts|PATCH /:id",
-	"layers/core-api/src/routes/agents.ts|DELETE /:id",
-	"layers/core-api/src/routes/filesystems.ts|POST /:id/injections",
-	"layers/core-api/src/routes/harnesses.ts|GET /",
-	"layers/core-api/src/routes/harnesses.ts|POST /redetect",
-	"layers/core-api/src/routes/notifications-routes.ts|GET /inbox",
-	"layers/core-api/src/routes/notifications-routes.ts|POST /seen",
-	"layers/core-api/src/routes/notifications-routes.ts|POST /:id/read",
-	"layers/core-api/src/routes/notifications-routes.ts|GET /mute",
-	"layers/core-api/src/routes/notifications-routes.ts|PUT /mute/:key",
-	"layers/core-api/src/routes/org.ts|GET /",
-	"layers/core-api/src/routes/org.ts|PUT /edges",
-	"layers/core-api/src/routes/org.ts|DELETE /edges/:id",
-	"layers/core-api/src/routes/org.ts|GET /teams/:teamId",
-	"layers/core-api/src/routes/org.ts|GET /teams/:teamId/membership",
-	"layers/core-api/src/routes/org.ts|POST /teams",
-	"layers/core-api/src/routes/org.ts|POST /scaffold-request",
-	"layers/core-api/src/routes/recipients.ts|GET /",
-	"layers/core-api/src/routes/routines-routes.ts|GET /event-types",
-	"layers/core-api/src/routes/routines-routes.ts|POST /",
-	"layers/core-api/src/routes/routines-routes.ts|GET /",
-	"layers/core-api/src/routes/routines-routes.ts|DELETE /:id",
-	"layers/core-api/src/routes/routines-routes.ts|GET /:id",
-	"layers/core-api/src/routes/routines-routes.ts|PATCH /:id",
-	"layers/core-api/src/routes/routines-routes.ts|POST /:id/trigger",
 	"layers/core-api/src/routes/search.ts|GET /",
-	"layers/core-api/src/routes/settings-agent-behavior.ts|GET /config",
-	"layers/core-api/src/routes/settings-agent-behavior.ts|PATCH /config/:id",
-	"layers/core-api/src/routes/teams-routes.ts|GET /",
-	"layers/core-api/src/routes/teams-routes.ts|POST /",
-	"layers/core-api/src/routes/teams-routes.ts|PATCH /:teamId",
-	"layers/core-api/src/routes/teams-routes.ts|GET /:teamId",
-	"layers/core-api/src/routes/users.ts|POST /",
-	"layers/core-api/src/routes/users.ts|GET /",
-	"layers/core-api/src/routes/users.ts|GET /:id",
-	"layers/core-api/src/routes/users.ts|PATCH /:id",
 	"layers/core-api/src/routes/ws.ts|GET /ws",
 ];
 
@@ -201,41 +172,39 @@ const LEGACY_ROUTES: readonly string[] = [
  * Every tool name declared in a production `ToolDefinition` literal that is
  * not an action. Re-derived after the attention-engine deletion on main
  * removed `run_knowledge_sweep`/`score_attention` with it, so
- * those two entries shrank ahead of this item. The fourteen left in
- * `tool-definitions.ts` once `create_task`/`edit_task`/`handoff_to`/
- * `log_task` are deleted, plus `return_status` (the tool twin of the
- * `POST /mcp/:token/return-status` plumbing route — never an object action).
+ * those two entries shrank ahead of this item.
+ *
+ * @lore BC5 T11: `add_agent`/`create_team` — the last two hand-written tools
+ * `tool-definitions.ts` carried — are gone with the `org` package they
+ * scaffolded through; only `return_status` (the tool twin of the
+ * `POST /mcp/:token/return-status` plumbing route — never an object action)
+ * is left in the hand-written catalog.
  */
-const LEGACY_TOOLS: readonly string[] = [
-	"add_agent",
-	"create_routine",
-	"create_team",
-	"update_routine",
-	"return_status",
-];
+const LEGACY_TOOLS: readonly string[] = ["return_status"];
 
 /**
  * Every `EVENT_TYPES` member that is neither one of the nine object events
- * nor one of the eight platform events. Re-derived after the dead-event
+ * nor one of the seven platform events. Re-derived after the dead-event
  * deletion on main removed five of these entirely (`thread_archived`,
  * `dependency_met`, `knowledge_accessed`, `work_selection_requested`,
- * `routine_fired`), so they shrank ahead of this item. `task_state_changed` is the pre-action
- * task-changed shape, still emitted from `edit_task` until subscriptions
- * replace it.
+ * `routine_fired`), so they shrank ahead of this item.
+ *
+ * @lore BC5 T7b: `task_state_changed`, `thread_created`,
+ * `thread_message_appended`, `thread_resolved`, `thread_reopened` and
+ * `notification` are gone from `EVENT_TYPES` itself now — their last
+ * listener is gone; the nine object events carry the same change. Six rows
+ * shrank ahead of this comment for the same reason the five before them did.
+ *
+ * @lore BC5 T11: `team_created`/`agent_added`/`user_created` are gone from
+ * `EVENT_TYPES` too — their emitters were the `org`/`teams-routes`/`users`
+ * routes, all deleted; `user.created`/`user.changed` (the object events)
+ * carry the same change now. `session_*` stay (D-e3zm2j) — the plumbing by
+ * which a run reports back to its task.
  */
 const LEGACY_EVENTS: readonly string[] = [
-	"task_state_changed",
 	"session_started",
 	"session_ended",
 	"session_not_returned",
-	"thread_created",
-	"thread_message_appended",
-	"thread_resolved",
-	"thread_reopened",
-	"team_created",
-	"agent_added",
-	"user_created",
-	"notification",
 ];
 
 /** Path to the event-bus vocabulary this rule's clause 4 reads. */
@@ -326,7 +295,10 @@ function scanEventTypes(readFile: (path: string) => string): readonly string[] {
 			`actions-projected: could not find EVENT_TYPES in ${EVENT_TYPES_FILE} — the file moved or its shape changed.`,
 		);
 	}
-	return [...block[1].matchAll(/["'`]([a-z_]+)["'`]/g)].map((m) => m[1] ?? "");
+	// `[a-z_.]+` — widened for the nine dotted object-event names: a plain
+	// `[a-z_]+` stops at the dot and reports "task" instead of "task.created",
+	// which OBJECT_EVENTS never matches.
+	return [...block[1].matchAll(/["'`]([a-z_.]+)["'`]/g)].map((m) => m[1] ?? "");
 }
 
 /** A `call("<name>"` reference, the UI's one way of reaching an action. */

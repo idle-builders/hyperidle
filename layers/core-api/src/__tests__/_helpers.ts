@@ -58,7 +58,7 @@ export function makeContext(
  */
 export async function seedBase(db: HyperIdleDb): Promise<void> {
 	// @lore U1: teams is the domain entity (formerly products); teamMembers is the membership group.
-	await db.insert(teams).values({ id: "p1", name: "Test", phase: "build", createdAt: NOW });
+	await db.insert(teams).values({ id: "p1", name: "Test", createdAt: NOW });
 
 	// @lore AD8c: role renamed from practice_facilitator to facilitator
 	await db.insert(users).values({
@@ -83,20 +83,17 @@ export async function seedBase(db: HyperIdleDb): Promise<void> {
 export interface SeedTeamOptions {
 	readonly id?: string;
 	readonly name?: string;
-	readonly phase?: string;
-	readonly factoryDbPath?: string | null;
 	readonly createdAt?: string;
 	readonly teamMembersId?: string;
-	readonly capacity?: number;
-	readonly formedAt?: string;
 }
 
 /**
- * Seed a `teams` row with its `teamMembers` companion in one call — mirrors the owner's writer,
- * `createTeam` (`layers/core-api/org/src/team-lookup.ts:230-259`), which always inserts both rows
- * together. Defaults match the owner's own: capacity 5, activeBets 0, formedAt = createdAt.
- */
-/**
+ * Seed a `teams` row — mirrors the owner's writer, `createTeam`
+ * (`layers/core-api/user/src/team-lookup.ts`).
+ *
+ * @lore BC5 T11: a team is an id and a name now (D-e3zm2j, migration 0090)
+ * — `phase`/`factoryDbPath`/`capacity`/`formedAt` are gone with the columns
+ * that carried them.
  * @lore AU44 B1: team_members dissolved into teams. teamMembersId is now
  * always equal to id (the team's own id). Returned for caller backward compat.
  */
@@ -109,11 +106,7 @@ export async function seedTeam(
 	await db.insert(teams).values({
 		id,
 		name: options.name ?? "Test",
-		phase: options.phase ?? "build",
-		factoryDbPath: options.factoryDbPath,
 		createdAt,
-		capacity: options.capacity ?? 5,
-		formedAt: options.formedAt ?? createdAt,
 	});
 	// teamMembersId = id after the fold — kept in return for caller backward compat.
 	return { id, teamMembersId: id };

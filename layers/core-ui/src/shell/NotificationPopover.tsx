@@ -31,19 +31,16 @@
  * defense-in-depth against future agent-authored content reaching this path.
  */
 
-import type { NotificationTypeKey } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button, EmptyState, useDialogBehavior } from "../ds";
-import type { NotificationRow, UseNotificationsResult } from "../hooks/useNotifications.js";
+import type { InboxItem, UseNotificationsResult } from "../hooks/useNotifications.js";
 import { useNotifications } from "../hooks/useNotifications.js";
 import { relativeShort } from "../utils/time.js";
-import { shortLabelForType } from "./notification-display.js";
+import { linkForChange, titleForChange } from "./notification-display.js";
 
 // Re-export for consumers
-export type { NotificationRow };
-
-// AI4 Decision 4: TYPE_LABELS deleted — derive from shortLabelForType (shared registry).
+export type { InboxItem };
 
 export interface NotificationPopoverProps {
 	open: boolean;
@@ -65,7 +62,7 @@ export function NotificationPopover({
 	const navigate = useNavigate();
 	const hookData = useNotifications();
 	// Use injected data (for stories/tests) or live hook data
-	const { unseenCount, rows, status, refetch, markSeen, markRead, muteType } = _data ?? hookData;
+	const { unseenCount, rows, status, refetch, markSeen, markRead } = _data ?? hookData;
 	const overlayRef = useRef<HTMLDivElement>(null);
 
 	// @lore AI2: Migrated to useDialogBehavior with modal=false, layer="overlay".
@@ -114,11 +111,11 @@ export function NotificationPopover({
 
 	// Must be before the early return — hook rules require all hooks called unconditionally
 	const handleRowClick = useCallback(
-		(id: string, sourceLink: string): void => {
-			// W4: sourceLink guard — only navigate to internal app routes
-			if (!sourceLink.startsWith("/")) return;
-			void markRead(id);
-			navigate(sourceLink);
+		(changeId: string, link: string): void => {
+			// W4: link guard — only navigate to internal app routes
+			if (!link.startsWith("/")) return;
+			void markRead(changeId);
+			navigate(link);
 			onClose();
 		},
 		[markRead, navigate, onClose],
@@ -227,45 +224,44 @@ export function NotificationPopover({
 				{status === "ready" && rows.length > 0 && (
 					<ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
 						{rows.map((row) => {
-							const typeLabel = shortLabelForType(row.typeKey as NotificationTypeKey);
+							const title = titleForChange(row.change);
+							const link = linkForChange(row.change);
+							const unseen = row.seenAt === null;
 							return (
 								<li
-									key={row.id}
-									data-testid={`notification-row-${row.id}`}
+									key={row.change.id}
+									data-testid={`notification-row-${row.change.id}`}
 									className="border-width-thin-b group relative  border-[var(--border-subtle)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))]"
 								>
 									{/*
 									 * Single-line dense row: div with row-level keyboard/click for jump,
-									 * plus real <button> elements for mute/dismiss at the trailing edge.
+									 * plus a real <button> for dismiss at the trailing edge.
 									 * @lore AF8 W1: cannot use <button> wrapper when trailing affordances
 									 * are also <button> — HTML spec forbids nested buttons and causes
 									 * hydration errors. Row is a div with role=row semantics; interactive
-									 * via onClick + onKeyDown. The real buttons at the end handle mute/dismiss.
+									 * via onClick + onKeyDown. The real button at the end handles dismiss.
 									 */}
 									<div
 										role="button"
 										tabIndex={0}
 										className="flex w-full min-h-[36px] items-center gap-[9px] cursor-pointer"
 										style={{ padding: "9px 12px" }}
-										onClick={() => handleRowClick(row.id, row.sourceLink)}
+										onClick={() => handleRowClick(row.change.id, link)}
 										onKeyDown={(e) => {
 											if (e.key === "Enter" || e.key === " ") {
 												e.preventDefault();
-												handleRowClick(row.id, row.sourceLink);
+												handleRowClick(row.change.id, link);
 											}
 										}}
 									>
-										{/* 1. Urgency dot */}
+										{/* 1. Unseen dot */}
 										<span
 											className="shrink-0 rounded-[var(--r-pill)]"
 											style={{
 												display: "inline-block",
 												width: "6px",
 												height: "6px",
-												background:
-													row.urgency === "immediate"
-														? "var(--status-error)"
-														: "var(--border-strong)",
+												background: unseen ? "var(--status-error)" : "var(--border-strong)",
 											}}
 											aria-hidden="true"
 										/>
@@ -277,10 +273,10 @@ export function NotificationPopover({
 												color: "var(--text-primary)",
 											}}
 										>
-											{row.title}
+											{title}
 										</span>
 
-										{/* 3. Type label */}
+										{/* 3. Object label */}
 										<span
 											style={{
 												color: "var(--text-tertiary)",
@@ -290,7 +286,7 @@ export function NotificationPopover({
 											}}
 											className="type-label"
 										>
-											{typeLabel}
+											{row.change.object}
 										</span>
 
 										{/* 4. Relative time */}
@@ -304,52 +300,14 @@ export function NotificationPopover({
 											}}
 											className="type-small"
 										>
-											{relativeShort(row.createdAt)}
+											{relativeShort(row.change.at)}
 										</span>
 
-										{/* 5. Trailing affordances — hover-reveal mute + dismiss */}
+										{/* 5. Trailing affordance — hover-reveal dismiss */}
 										<span
 											className="motion-feedback flex shrink-0 items-center gap-[3px] opacity-0  group-hover:opacity-100 focus-within:opacity-100"
 											style={{ flexShrink: 0 }}
 										>
-											{/* Mute (bell-slash SVG glyph) */}
-											<button
-												type="button"
-												aria-label={`Mute ${typeLabel} notifications`}
-												className="border-none flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
-												style={{
-													background: "none",
-													border: "none",
-													cursor: "pointer",
-													padding: "3px",
-													minWidth: "36px",
-													minHeight: "36px",
-												}}
-												onClick={(e) => {
-													e.stopPropagation();
-													void muteType(row.typeKey);
-												}}
-											>
-												{/* Bell with slash — mute icon */}
-												<svg
-													width="16"
-													height="16"
-													viewBox="0 0 24 24"
-													fill="none"
-													stroke="currentColor"
-													strokeWidth="2"
-													strokeLinecap="round"
-													strokeLinejoin="round"
-													aria-hidden="true"
-												>
-													<path d="M13.73 21a2 2 0 0 1-3.46 0" />
-													<path d="M18.63 13A17.89 17.89 0 0 1 18 8" />
-													<path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14" />
-													<path d="M18 8a6 6 0 0 0-9.33-5" />
-													<line x1="1" y1="1" x2="23" y2="23" />
-												</svg>
-											</button>
-
 											{/* Dismiss (× glyph) */}
 											<button
 												type="button"
@@ -365,7 +323,7 @@ export function NotificationPopover({
 												}}
 												onClick={(e) => {
 													e.stopPropagation();
-													void markRead(row.id);
+													void markRead(row.change.id);
 												}}
 											>
 												<svg aria-hidden="true" viewBox="0 0 16 16" className="h-[16px] w-[16px]">

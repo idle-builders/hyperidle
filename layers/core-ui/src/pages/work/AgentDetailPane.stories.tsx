@@ -7,8 +7,8 @@
  * standalone in the component viewer.)
  */
 
-import type { RosterMember } from "@hyperidle/domain-model";
 import type { JSX, ReactNode } from "react";
+import type { TeamRosterMember } from "../../hooks/useTeam.js";
 import type { AgentConfig } from "../../settings/settings-types.js";
 import { ToastRegion } from "../../shell/ToastRegion.js";
 import { AgentDetailPane } from "./AgentDetailPane.js";
@@ -46,20 +46,18 @@ const INDIVIDUAL_AGENT: AgentConfig = {
 	agentCategory: "individual",
 };
 
-const TEAM_MEMBER: RosterMember = {
+const TEAM_MEMBER: TeamRosterMember = {
 	agentId: "agent-builder-1",
 	name: "Atlas Builder",
 	role: "builder",
-	isLead: false,
 	agentCategory: "team",
 };
 
 // @lore BA9d: was STRATEGY_MEMBER. Renamed and recategorised to individual.
-const INDIVIDUAL_MEMBER: RosterMember = {
+const INDIVIDUAL_MEMBER: TeamRosterMember = {
 	agentId: "agent-scout-1",
 	name: "Scout Agent",
 	role: "scout",
-	isLead: false,
 	agentCategory: "individual",
 };
 

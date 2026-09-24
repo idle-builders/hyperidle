@@ -57,15 +57,28 @@ const MIXED_THREADS: MockThread[] = [
 function stubFetch(threads: MockThread[]): void {
 	callMock.mockImplementation(async (action: string) => {
 		if (action === "search_threads") return { ok: true, data: threads };
+		if (action === "open_user") {
+			return {
+				ok: true,
+				data: {
+					user: { ...STUB_USER, team: null },
+					runsOn: [],
+					runConfig: null,
+					documentIds: [],
+					folders: [],
+					subscriptions: [],
+					connections: null,
+					behaviour: null,
+					inbox: null,
+				},
+			};
+		}
 		return { ok: true, data: [] };
 	});
 	vi.stubGlobal(
 		"fetch",
 		vi.fn(async (input: RequestInfo | URL) => {
 			const url = typeof input === "string" ? input : input.toString();
-			if (url.includes("/api/auth/me")) {
-				return { ok: true, json: async () => STUB_USER } as Response;
-			}
 			if (url.includes("/api/teams")) {
 				return { ok: true, json: async () => ({ teams: [] }) } as Response;
 			}

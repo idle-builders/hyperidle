@@ -35,16 +35,6 @@ describe("agent session request contract", () => {
 				},
 			},
 			{
-				sourceKind: "routine",
-				sourceId: "run-1",
-				streamId: "routine:routine-1",
-				agentId: "agent-1",
-				teamId: "team-1",
-				promptMode: "routine",
-				idempotencyKey: "routine:run-1",
-				sourceCorrelation: { routineId: "routine-1", routineRunId: "run-1", teamId: "team-1" },
-			},
-			{
 				sourceKind: "knowledge",
 				sourceId: "ki-1:review",
 				streamId: "knowledge:ki-1",
@@ -53,6 +43,16 @@ describe("agent session request contract", () => {
 				promptMode: "knowledge",
 				idempotencyKey: "knowledge:ki-1:review",
 				sourceCorrelation: { knowledgeItemId: "ki-1", action: "review", teamId: "team-1" },
+			},
+			{
+				sourceKind: "subscription",
+				sourceId: "sub-1:change-1",
+				streamId: "subscription:sub-1",
+				agentId: "agent-1",
+				teamId: "team-1",
+				promptMode: "subscription",
+				idempotencyKey: "subscription:sub-1:change-1",
+				sourceCorrelation: { subscriptionId: "sub-1", changeId: "change-1", teamId: "team-1" },
 			},
 		];
 

@@ -21,7 +21,7 @@ import {
 } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import type { DocumentView, EditDocumentInput, OpenDocumentInput } from "@hyperidle/domain-model";
-import { EventBus } from "@hyperidle/event-bus";
+import { EventBus, type ObjectChangeEvent } from "@hyperidle/event-bus";
 import { and, eq } from "drizzle-orm";
 import type { Action, ActionContext } from "../action-types.js";
 import { createDocumentActions, type DocumentActionsDeps } from "../document-actions.js";
@@ -71,7 +71,6 @@ async function seedTeam(db: HyperIdleDb, id: string, name = id): Promise<void> {
 	await db.insert(teams).values({
 		id,
 		name,
-		phase: "build",
 		createdAt: "2026-01-01T00:00:00.000Z",
 	});
 }
@@ -258,7 +257,7 @@ describe("edit_document — D7 stale (architecture.md §4.3 case 4)", () => {
 	});
 });
 
-describe("edit_document — D-invariants (architecture.md §4.2)", () => {
+describe("edit_document — D-invariants (document parent/state checks)", () => {
 	test("D2 parent_not_found — a document parent that does not exist", async ({ db }) => {
 		await seedUser(db, "writer-d2-doc-1");
 		const result = await editAction(writeDeps()).run(ctxFor(db, "writer-d2-doc-1"), {
@@ -295,23 +294,23 @@ describe("edit_document — D-invariants (architecture.md §4.2)", () => {
 		expect(result.problems[0]?.code).toBe("parent_not_found");
 	}, 5000);
 
-	// @lore document-module review fix: this used to be "a routine/agent
+	// @lore document-module review fix: this used to be "a subscription/agent
 	// parent has no existence port — no check runs (today's behaviour,
-	// kept)" and asserted `result.ok === true` for a NON-existent routine —
+	// kept)" and asserted `result.ok === true` for a NON-existent subscription —
 	// today's behaviour was itself the bug (any client could attach a
-	// document to any routine or agent id, existing or not). The fix restores
-	// the pre-item rule ("`routine`/`agent` are attached exclusively by
+	// document to any subscription or agent id, existing or not). The fix restores
+	// the pre-item rule ("`subscription`/`agent` are attached exclusively by
 	// core-api's own routes") and adds the existence check the old test
 	// documented as absent.
-	test("forbidden_parent_kind: a non-internal caller may not name a routine parent", async ({
+	test("forbidden_parent_kind: a non-internal caller may not name a subscription parent", async ({
 		db,
 	}) => {
-		await seedUser(db, "writer-d2-routine-1", { kind: "ai" });
-		const result = await editAction(writeDeps()).run(ctxFor(db, "writer-d2-routine-1"), {
+		await seedUser(db, "writer-d2-subscription-1", { kind: "ai" });
+		const result = await editAction(writeDeps()).run(ctxFor(db, "writer-d2-subscription-1"), {
 			as: "document",
 			title: "Prompt body",
 			body: "x",
-			parent: { kind: "routine", id: "no-such-routine" },
+			parent: { kind: "subscription", id: "no-such-subscription" },
 		});
 		expect(result.ok).toBe(false);
 		if (result.ok) throw new Error("expected a refusal");
@@ -333,20 +332,20 @@ describe("edit_document — D-invariants (architecture.md §4.2)", () => {
 		expect(result.problems[0]?.code).toBe("forbidden_parent_kind");
 	});
 
-	test("D2 parent_not_found — a routine parent that does not exist, on the internal path", async ({
+	test("D2 parent_not_found — a subscription parent that does not exist, on the internal path", async ({
 		db,
 	}) => {
-		await seedUser(db, "writer-d2-routine-2", { kind: "ai" });
+		await seedUser(db, "writer-d2-subscription-2", { kind: "ai" });
 		const deps = writeDeps({
 			systemParentExists: async (_exec, _kind, _id) => false,
 		});
 		const result = await editAction(deps).run(
-			ctxFor(db, "writer-d2-routine-2", { internal: true }),
+			ctxFor(db, "writer-d2-subscription-2", { internal: true }),
 			{
 				as: "document",
 				title: "Prompt body",
 				body: "x",
-				parent: { kind: "routine", id: "no-such-routine" },
+				parent: { kind: "subscription", id: "no-such-subscription" },
 			},
 		);
 		expect(result.ok).toBe(false);
@@ -440,12 +439,12 @@ describe("edit_document — D-invariants (architecture.md §4.2)", () => {
 		expect(result.problems[0]?.code).toBe("depth_exceeded");
 	});
 
-	test("D5 slot_taken — a second prompt on one routine is refused, only reachable at create", async ({
+	test("D5 slot_taken — a second prompt on one subscription is refused, only reachable at create", async ({
 		db,
 	}) => {
 		await seedUser(db, "writer-d5-1", { kind: "ai" });
-		// A routine parent is internal-only (`forbidden_parent_kind`); D5 itself
-		// is about the slot, not the caller, so this simulates the routines
+		// A subscription parent is internal-only (`forbidden_parent_kind`); D5 itself
+		// is about the slot, not the caller, so this simulates the subscriptions
 		// route's own in-process binding rather than a client door.
 		const edit = editAction(writeDeps({ systemParentExists: async () => true }));
 		const ctx = ctxFor(db, "writer-d5-1", { internal: true });
@@ -454,7 +453,7 @@ describe("edit_document — D-invariants (architecture.md §4.2)", () => {
 			title: "The prompt",
 			body: "x",
 			slot: "prompt",
-			parent: { kind: "routine", id: "routine-d5-1" },
+			parent: { kind: "subscription", id: "subscription-d5-1" },
 		});
 		expect(first.ok).toBe(true);
 
@@ -463,7 +462,7 @@ describe("edit_document — D-invariants (architecture.md §4.2)", () => {
 			title: "A second prompt",
 			body: "y",
 			slot: "prompt",
-			parent: { kind: "routine", id: "routine-d5-1" },
+			parent: { kind: "subscription", id: "subscription-d5-1" },
 		});
 		expect(second.ok).toBe(false);
 		if (second.ok) throw new Error("expected a refusal");
@@ -524,9 +523,9 @@ describe("edit_document — the combined cases, architecture.md §4.3 (2-8; the 
 		db,
 	}) => {
 		await seedUser(db, "writer-case2-1", { kind: "ai" });
-		// Internal, same reason as D5 above — a routine parent is internal-only,
+		// Internal, same reason as D5 above — a subscription parent is internal-only,
 		// and this case is about I10 firing before D5, not about who may name
-		// a routine.
+		// a subscription.
 		const edit = editAction(writeDeps({ systemParentExists: async () => true }));
 		const ctx = ctxFor(db, "writer-case2-1", { internal: true });
 		const prompt = await edit.run(ctx, {
@@ -534,14 +533,14 @@ describe("edit_document — the combined cases, architecture.md §4.3 (2-8; the 
 			title: "The prompt",
 			body: "x",
 			slot: "prompt",
-			parent: { kind: "routine", id: "routine-case2-1" },
+			parent: { kind: "subscription", id: "subscription-case2-1" },
 		});
 		expect(prompt.ok).toBe(true);
 		if (!prompt.ok) throw new Error("expected success");
 
 		const moved = await edit.run(ctx, {
 			id: prompt.data.document.id,
-			parent: { kind: "routine", id: "routine-case2-2" },
+			parent: { kind: "subscription", id: "subscription-case2-2" },
 		});
 		expect(moved.ok).toBe(false);
 		if (moved.ok) throw new Error("expected a refusal");
@@ -993,6 +992,86 @@ describe("edit_document — the post-commit push, architecture.md §7", () => {
 			body: "x",
 		});
 		expect(result.ok).toBe(true);
+	});
+});
+
+describe("edit_document — object events, one per changes row post commit", () => {
+	test("create emits exactly one document.created carrying the row", async ({ db }) => {
+		await seedUser(db, "writer-event-1");
+		const ctx = ctxFor(db, "writer-event-1");
+		const events: ObjectChangeEvent[] = [];
+		ctx.eventBus.on("document.created", (e) => events.push(e));
+
+		const result = await editAction(writeDeps()).run(ctx, {
+			id: "doc-event-1",
+			title: "New doc",
+			body: "hello",
+		});
+		expect(result.ok).toBe(true);
+
+		expect(events).toHaveLength(1);
+		expect(events[0]?.change.objectId).toBe("doc-event-1");
+		expect(events[0]?.change.before).toBeNull();
+		expect(events[0]?.change.after).toMatchObject({ title: "New doc" });
+		expect(events[0]?.cascade).toBeUndefined();
+	});
+
+	test("an edit emits exactly one document.changed naming only the fields that differ", async ({
+		db,
+	}) => {
+		await seedUser(db, "writer-event-2");
+		const edit = editAction(writeDeps());
+		const ctx = ctxFor(db, "writer-event-2");
+		await edit.run(ctx, { id: "doc-event-2", title: "Before", body: "same body" });
+
+		const events: ObjectChangeEvent[] = [];
+		ctx.eventBus.on("document.changed", (e) => events.push(e));
+
+		const result = await edit.run(ctx, { id: "doc-event-2", title: "After" });
+		expect(result.ok).toBe(true);
+
+		expect(events).toHaveLength(1);
+		expect(events[0]?.change.objectId).toBe("doc-event-2");
+		expect(events[0]?.change.before).toEqual({ id: "doc-event-2", title: "Before" });
+		expect(events[0]?.change.after).toEqual({ id: "doc-event-2", title: "After" });
+	});
+
+	test("a scope-narrowing cascade emits one document.changed per narrowed child, alongside the parent's own", async ({
+		db,
+	}) => {
+		await seedUser(db, "writer-event-3");
+		const edit = editAction(writeDeps());
+		const ctx = ctxFor(db, "writer-event-3");
+
+		const parent = await edit.run(ctx, {
+			id: "doc-event-parent",
+			title: "Parent",
+			body: "p",
+			scopeKind: "factory",
+		});
+		expect(parent.ok).toBe(true);
+		const child = await edit.run(ctx, {
+			id: "doc-event-child",
+			title: "Child",
+			body: "c",
+			parent: { kind: "document", id: "doc-event-parent" },
+		});
+		expect(child.ok).toBe(true);
+
+		const events: ObjectChangeEvent[] = [];
+		ctx.eventBus.on("document.changed", (e) => events.push(e));
+
+		const narrowed = await edit.run(ctx, {
+			id: "doc-event-parent",
+			scopeKind: "team",
+			scopeId: "team-event-1",
+		});
+		expect(narrowed.ok).toBe(true);
+
+		const parentEvent = events.find((e) => e.change.objectId === "doc-event-parent");
+		const childEvent = events.find((e) => e.change.objectId === "doc-event-child");
+		expect(parentEvent).toBeDefined();
+		expect(childEvent).toBeDefined();
 	});
 });
 

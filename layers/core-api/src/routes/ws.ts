@@ -1,6 +1,6 @@
 import type { ApiErrorResponse } from "@hyperidle/domain-model";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
-import type { UpgradeTokenStore } from "@hyperidle/users";
+import type { UpgradeTokenStore } from "@hyperidle/user";
 import type { Hono } from "hono";
 import type { UpgradeWebSocket, WSContext } from "hono/ws";
 import { type WsClient, WsConnectionHub } from "../ws-connection-hub.js";

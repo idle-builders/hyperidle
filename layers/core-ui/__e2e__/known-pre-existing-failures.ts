@@ -113,6 +113,16 @@ export const AU21_PRE_EXISTING_E2E_FAILURES: readonly string[] = [
 	"AC1 — Start button disabled when name filled but no API key",
 	"AC1 — Start button enabled when name and API key are filled",
 	"AC1 — renders name and API key fields as required fields",
+	// @lore BC5 T12 (2026-09-23): setup-flow.spec.ts's own titles for the same
+	// stale expectation — SetupFlow's harness picker has no "Anthropic API
+	// Key" text input at all (verified on `origin/main`: `git show origin/
+	// main:layers/core-ui/src/pages/SetupFlow.tsx` carries the same
+	// `enter_api_key` hint-text-only shape, no input; `SetupFlow.tsx`'s own
+	// AV1 lore says setup stopped collecting a key). Pre-existing, not
+	// branch-only.
+	"renders name and API key fields; repo path optional",
+	"Start button becomes enabled when name and API key are filled",
+	"navigates to /work after successful setup",
 	"AC1b-portfolio: bet active status chip on BetCard (portfolio)",
 	"AC3-portfolio: validated verdict chip on BetCard (portfolio)",
 	"AC5 — navigates to /work/portfolio after successful setup",
@@ -291,6 +301,52 @@ export const AU21_PRE_EXISTING_E2E_FAILURES: readonly string[] = [
 	"work empty state visible when no bets",
 	"work portfolio bet grid: content area ≤ 960px",
 
+	// @lore BC5 T12 (2026-09-23): four AZ2-page-scroll.spec.ts titles mock
+	// `GET /api/artifacts/:id` and wait on a standalone `/artifacts/:id`
+	// permalink page — `router.tsx` carries no `artifacts` route at all, and
+	// no production file reads `/api/artifacts/:id`. Verified pre-existing:
+	// `router.tsx`'s only change on this branch is the WorkRoutine deletion
+	// (`git log origin/main..HEAD -- layers/core-ui/src/router.tsx`) — the
+	// artifacts route was already absent on `origin/main` before this item
+	// started, most likely left behind by the earlier, unrelated "Artifacts
+	// become knowledge items" merge. Not caused by BC5; fixing the stale
+	// fixture belongs to whoever owns that page's e2e coverage.
+	"artifact permalink: >=1 scroll container, clippedPx===0 at desktop-1440",
+	"artifact permalink: >=1 scroll container, clippedPx===0 at desktop-1024",
+	"artifact permalink: >=1 scroll container, clippedPx===0 at mobile-375",
+	"AC1: the last line of the artifact diff is reachable by scrolling to the end",
+
+	// @lore BC5 T12 (2026-09-23): a pure CSS-token assertion, unrelated to any
+	// route. `[data-section-header='work']` computes 13px, not the asserted
+	// 14px — a design-token drift neither `Sidebar.tsx` nor `tokens.css` touch
+	// on this branch (`git log origin/main..HEAD` for both is empty).
+	"sidebar section headers use 14px font-size",
+
+	// @lore BC5 T12 (2026-09-23): the Sidebar's Conversations/Work/Knowledge
+	// nav items are `<Link>`s (ARIA role "link"), not buttons — a locator
+	// mismatch identical on `origin/main`
+	// (`git show origin/main:layers/core-ui/__e2e__/navigation.spec.ts` carries
+	// the same `getByRole("button", { name: /work/i })` text) and `Sidebar.tsx`
+	// is untouched on this branch (`git log origin/main..HEAD` for it is
+	// empty). Four titles across two files share the cause.
+	"Sidebar shows three section headers: Conversations, Work, Knowledge",
+	"clicking Work section header shows team sub-items in Sidebar",
+	"clicking Knowledge section header activates the Knowledge section",
+	"AC-E9: overlay state persists across view navigation (not destroyed on navigate)",
+
+	// @lore BC5 T12 (2026-09-23): `settings-section-profile`'s width (720px,
+	// stretched to `settings-body`'s own max-w-[720px] by flex-col's default
+	// `align-items: stretch`) fails the test's `<= 681` + "centered under the
+	// page frame" assertions. `SettingsPage.tsx`'s own FR-9 lore is explicit
+	// that settings content is left-aligned with NO `mx-auto`, by decision —
+	// the opposite of what this test expects. Neither `SettingsPage.tsx` nor
+	// this spec's assertion logic changed on this branch (`git log
+	// origin/main..HEAD` for the page is empty; the spec's selectors and the
+	// `681` constant are byte-identical to `origin/main`) — a stale
+	// expectation from before the FR-9 redesign, not caused by BC5.
+	"stable frame and content lanes paint at 1440px",
+	"stable frame and content lanes paint at 1024px",
+
 	// @lore AU28 (2026-08-05, the AU26+AU27 rebase): five tests that AU26's route move broke
 	// on `main`, invisible there and unmasked here. AU26 repointed the web session/run reads
 	// at agent-orchestration's new API surface (`useTaskSessions` now fetches
@@ -310,9 +366,51 @@ export const AU21_PRE_EXISTING_E2E_FAILURES: readonly string[] = [
 	// reproduces all five byte-for-byte — same titles, same line numbers, same
 	// `session-row` locator timeout — with 18 passed alongside. Nothing here is caused by
 	// AU28, and the fix belongs to whoever re-points these mocks at the moved routes.
-	"shows Recent Activity section with sessions table",
-	"does not show health banner when agent is healthy",
-	"shows active session link when agent has running session",
-	"recent activity table has accessible aria-label",
+	//
+	// @lore BC5 T12: the four AB1-agent-profile.spec.ts titles are removed from this
+	// list — the T9 door swap rewrote the spec's mocks onto `open_user`/
+	// `search_sessions`/`search_tasks`, and all four now pass for real (verified:
+	// the full 16-test AB1-agent-profile.spec.ts file is green). "livedot-worktask-
+	// session" (a different file, WorkTask's session row) is untouched by this item
+	// and stays excluded.
 	"livedot-worktask-session: LiveDot present in WorkTask active session row",
+
+	// @lore BC5 T12 (2026-09-23): six titles across four files, discovered by
+	// the FULL suite run (none of these files are in BC5's own scope, and
+	// none are touched by this branch — `git log origin/main..HEAD` for each
+	// is empty). Two share the dead-`/artifacts/:id`-route cause already
+	// documented above (AZ2); the other two causes are new but equally
+	// unrelated to the user/subscriptions door swap:
+	//
+	// - AZ7-icon-button-geometry.spec.ts (2 titles): the conversation
+	//   composer's Send button measures 39px, not the asserted 32px/44px, in
+	//   its DISABLED state (no draft text — the test never types one).
+	//   `Button.tsx` is untouched on this branch; a real, pre-existing sizing
+	//   gap for the disabled variant of `size="icon"`.
+	// - page-orientation.spec.ts (3 titles, "artifact orientation paints
+	//   cleanly at *px"): `/artifacts/az11-orientation` — the same missing
+	//   `/artifacts/:id` route as AZ2's artifact-permalink entries above.
+	// - document-detail.spec.ts (1 title): `/documents/k12` (a factory-scope
+	//   "needs_human" item) has no `mockDocument()` registration in this
+	//   spec at all — it silently depended on a fixture-fallback this repo's
+	//   own `@lore BC4` comment (same file, a few lines up) says is gone;
+	//   its sibling `k11` case happens to still resolve, `k12` does not.
+	"conversation composer Send button measures 32x32 on desktop (44x44 below lg, per AQ-015)",
+	"conversation composer Send button widens to the 44px touch floor below the lg breakpoint (AQ-015)",
+	"artifact orientation paints cleanly at 1440px",
+	"artifact orientation paints cleanly at 1024px",
+	"artifact orientation paints cleanly at 390px",
+	"factory-scope needs_human item shows the Amendable under review banner",
+
+	// @lore BC5 T12: two more, same standard (untouched files, unrelated cause).
+	// - document-q2-create.spec.ts: the "Change scope" menu item is disabled
+	//   with title "A memory has no audience to change; save it as a
+	//   document to share it" — a memory-vs-document distinction this spec's
+	//   fixture doesn't account for; nothing here touches the user door.
+	// - q1-session-dial-in.spec.ts: `getByRole("button", { name: "Conversation
+	//   actions" })` matches no production string at all (`grep -rn
+	//   "Conversation actions" layers/core-ui/src` — zero hits, prod or
+	//   test); a stale locator from a renamed/removed control.
+	"changing scope from user to team removes the Private tag",
+	"inline artifact Inspect preserves the live thread draft, scroll, and route",
 ] as const;

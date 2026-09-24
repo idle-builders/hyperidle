@@ -5,85 +5,32 @@
  * Zod-validated JSON blob. Replaces factorySettings for new structured config.
  * Deep-merges partial updates so callers only need to supply changed keys.
  * Corrupt JSON in the DB falls back to defaults — the app always boots.
+ *
+ * @lore BC5 leftover: `notifications` (`mutedTypes`, the SMTP `delivery`
+ * block) is deleted — the mute and the SMTP dispatcher it fed are both gone
+ * now that a subscription's `paused` flag is the one mute mechanism. The
+ * schema below is a plain `z.object`, not `.strict()`, so an old row that
+ * still carries a `notifications` key parses fine — the unknown key is
+ * dropped silently, the same tolerance every earlier field removal here
+ * relied on.
  */
 
 import { type HyperIdleDb, serverConfig, type WriteExecutor } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 
-/**
- * @lore AU44 batch 4: primaryChannel, digestChannel, recipientEmail,
- * recipientNtfyTopic, ntfyBaseUrl, floodMaxPerMinute, floodCoalesceWindowMs,
- * testMaxPerHour, smtpIgnoreTls, digestCron removed — dispatcher, ntfy adapter,
- * flood cap, and digest all deleted. Only SMTP delivery config survives.
- */
-const NotificationsDeliverySchema = z.object({
-	enabled: z.boolean().default(false),
-	smtpHost: z.string().nullable().default(null),
-	smtpPort: z.number().default(587),
-	smtpSecure: z.boolean().default(false),
-	smtpUsername: z.string().nullable().default(null),
-	smtpFrom: z.string().nullable().default(null),
-});
-
-/**
- * @lore P3: The notifications sub-schema is defined separately so we can
- * call NotificationsSchema.parse({}) to build DEFAULTS. In Zod v4, calling
- * ServerConfigSchema.parse({}) does NOT recursively apply nested .default()
- * values for nested object schemas with a .default({}) — the {} literal is
- * used as-is without re-parsing through the nested schema. This means inner
- * defaults would not be applied. The fix is to explicitly construct DEFAULTS
- * by parsing each nested schema separately.
- *
- * @lore AU44 batch 4: reviewAlerts, blockerAlerts, quietHoursEnabled,
- * quietHoursStart, quietHoursEnd, mutedTeams, silence removed — alert prefs
- * and silence policy deleted along with the dispatcher.
- */
-const NotificationsSchema = z.object({
-	/** AU18: per-notification-type mute keys (notifications/mute.ts), migrated off factorySettings. */
-	mutedTypes: z.array(z.string()).default([]),
-	delivery: NotificationsDeliverySchema.optional(),
-});
-
-// @lore A ModelTierConfigSchema and a ModelGatewayConfigSchema stood here — a
-// provider, model and baseUrl per tier, for the built-in harness to call with.
-// No harness makes that call any more; each authenticates itself and runs the
-// model its agent named.
-
-/**
- * @lore P3: notifications is optional in the raw DB JSON schema. We handle
- * the missing/empty case by merging with NOTIFICATION_DEFAULTS in read/write.
- * We do NOT use .default({}) here because in Zod v4, .default(value) uses the
- * literal value WITHOUT re-parsing it through the sub-schema — inner defaults
- * (reviewAlerts: true etc.) would NOT be applied when {} is the default.
- * See test: safeParse({}) → {notifications: {}} (not {notifications: {reviewAlerts:true}}).
- */
 const ServerConfigSchema = z.object({
-	/** Notification preferences (migrated from factorySettings). */
-	notifications: NotificationsSchema.optional(),
 	harnessDisabled: z.array(z.string()).default([]),
 });
 
 type RawServerConfig = z.infer<typeof ServerConfigSchema>;
 
 export type ServerConfig = {
-	notifications: z.infer<typeof NotificationsSchema> & {
-		delivery: z.infer<typeof NotificationsDeliverySchema>;
-	};
-	/** X4: Fully-typed model gateway config (always present, defaults applied). */
 	/** AM4: List of harness types the user has disabled. Defaults to []. */
 	harnessDisabled: string[];
 };
 
-/** Deep partial type for use in updateServerConfig patches. */
-type DeepPartialNotifications = {
-	/** AU18: per-type mute keys. */
-	mutedTypes?: string[];
-	delivery?: Partial<z.infer<typeof NotificationsDeliverySchema>>;
-};
-
 export type ServerConfigPatch = {
-	notifications?: DeepPartialNotifications;
 	/**
 	 * AM4: Full-replacement write — the caller supplies the complete new list.
 	 * Use updateServerConfig to add/remove a type atomically (read-modify-write).
@@ -91,44 +38,12 @@ export type ServerConfigPatch = {
 	harnessDisabled?: string[];
 };
 
-/**
- * Apply NotificationsSchema defaults, INCLUDING its own nested `delivery`
- * sub-schema. Same Zod v4 nested-default gotcha as the top-level
- * ServerConfigSchema: `delivery` is `.optional()` (not `.default()`) on
- * NotificationsSchema, so NotificationsSchema.parse({}) alone leaves it
- * `undefined` — it must be explicitly re-parsed.
- */
-function applyNotificationsDefaults(
-	raw: RawServerConfig["notifications"],
-): ServerConfig["notifications"] {
-	const parsed = NotificationsSchema.parse(raw ?? {});
-	return {
-		...parsed,
-		delivery: NotificationsDeliverySchema.parse(parsed.delivery ?? {}),
-	};
-}
-
-/**
- * Fully-populated defaults with all nested defaults applied.
- *
- * @lore P3: Constructed explicitly rather than via ServerConfigSchema.parse({})
- * because in Zod v4, nested .default({}) values are not re-parsed through the
- * nested schema when building defaults. NotificationsSchema.parse({}) triggers
- * all the boolean/string defaults correctly.
- */
 const DEFAULTS: ServerConfig = {
-	notifications: applyNotificationsDefaults(undefined),
 	harnessDisabled: [],
 };
 
-/**
- * Merge raw parsed config with defaults, applying NotificationsSchema defaults.
- * This is needed because Zod v4 does not re-parse .default({}) values through
- * the sub-schema — we must explicitly parse the notifications sub-object.
- */
 function applyDefaults(raw: RawServerConfig): ServerConfig {
 	return {
-		notifications: applyNotificationsDefaults(raw.notifications),
 		// AM4: default to empty array when absent (legacy rows have no harnessDisabled key)
 		harnessDisabled: Array.isArray(raw.harnessDisabled) ? raw.harnessDisabled : [],
 	};
@@ -199,22 +114,6 @@ async function patchServerConfig(
 	now: string,
 ): Promise<ServerConfig> {
 	const merged: ServerConfig = {
-		...current,
-		notifications:
-			patch.notifications !== undefined
-				? {
-						...current.notifications,
-						...patch.notifications,
-						// AU18 §5 merge-hazard fix: `delivery` is a nested sub-object — a
-						// shallow `...patch.notifications` spread would silently replace the
-						// whole `delivery` object. Merge it independently so a partial patch
-						// only touches the fields supplied.
-						delivery:
-							patch.notifications.delivery !== undefined
-								? { ...current.notifications.delivery, ...patch.notifications.delivery }
-								: current.notifications.delivery,
-					}
-				: current.notifications,
 		// AM4: Full-replacement — the patch supplies the complete new list of disabled types.
 		harnessDisabled:
 			patch.harnessDisabled !== undefined ? patch.harnessDisabled : current.harnessDisabled,
@@ -230,6 +129,5 @@ async function patchServerConfig(
 	return merged;
 }
 
-// @lore AU20 Am6: ServerConfigSchema / NotificationsSchema are validation
-// internals — zero census demand from callers;
-// dropped from the public barrel. Not re-exported here.
+// @lore AU20 Am6: ServerConfigSchema is a validation internal — zero census
+// demand from callers; dropped from the public barrel. Not re-exported here.

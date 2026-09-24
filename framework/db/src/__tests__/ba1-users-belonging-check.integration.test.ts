@@ -18,9 +18,7 @@ const NOW = new Date().toISOString();
 
 describe("users_belonging_ck — a team, a person, or neither, never two", () => {
 	test("writing both team_id and owner_user_id on an ai user is rejected", async ({ db }) => {
-		await db
-			.insert(teams)
-			.values({ id: "ck-team", name: "CK Team", phase: "build", createdAt: NOW });
+		await db.insert(teams).values({ id: "ck-team", name: "CK Team", createdAt: NOW });
 		await db.insert(users).values({
 			id: "ck-owner",
 			kind: "human",

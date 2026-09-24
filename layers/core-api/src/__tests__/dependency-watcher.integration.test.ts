@@ -1,7 +1,7 @@
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
 import type { ActionResult, EditTaskInput, TaskState, TaskView } from "@hyperidle/domain-model";
-import type { NotificationEvent, TaskStateChangedEvent } from "@hyperidle/event-bus";
+import type { ObjectChangeEvent } from "@hyperidle/event-bus";
 import { checkAndUnblockDependents } from "@hyperidle/task";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
@@ -12,7 +12,7 @@ import { buildCoreActions } from "../actions/compose.js";
  * §6 row 2: `checkAndUnblockDependents` writes through `edit_task` now —
  * this test builds the real composed action off the `agentOrchestration`
  * fixture and calls it directly, the same shape `app.ts`'s ambient
- * `task_state_changed` subscription uses.
+ * `task.changed` subscription uses.
  */
 function makeEditTask(
 	agentOrchestration: AgentOrchestrationPort,
@@ -35,7 +35,7 @@ function makeCtx(db: HyperIdleDb, eventBus: ActionContext["eventBus"]): ActionCo
 
 async function seedPrerequisites(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(teams).values({ id: "p1", name: "Test Product", phase: "build", createdAt: now });
+	await db.insert(teams).values({ id: "p1", name: "Test Product", createdAt: now });
 
 	// `changes.actor` FKs to `users` — `makeCtx`'s actor "system:propagation"
 	// needs a real row for `edit_task`'s changes-row write to succeed.
@@ -199,8 +199,8 @@ describe("Dependency Watcher", () => {
 		});
 	});
 
-	describe("notification emission", () => {
-		test("emits notification event on auto-transition", async ({
+	describe("event emission", () => {
+		test("emits exactly one task.changed on auto-transition, carrying the row — no separate ambient notification", async ({
 			db,
 			eventBus,
 			agentOrchestration,
@@ -209,32 +209,8 @@ describe("Dependency Watcher", () => {
 			await insertTask(db, "dep-1", "done");
 			await insertTask(db, "dependent", "hold", ["dep-1"]);
 
-			const notifications: NotificationEvent[] = [];
-			eventBus.on("notification", (e) => notifications.push(e));
-
-			await checkAndUnblockDependents(
-				makeCtx(db, eventBus),
-				"dep-1",
-				makeEditTask(agentOrchestration),
-			);
-
-			expect(notifications).toHaveLength(1);
-			expect(notifications[0]!.targetId).toBe("dependent");
-			expect(notifications[0]!.message).toContain("dependent");
-			expect(notifications[0]!.message).toContain("accepted");
-		});
-
-		test("emits task_state_changed event on auto-transition", async ({
-			db,
-			eventBus,
-			agentOrchestration,
-		}) => {
-			await seedPrerequisites(db);
-			await insertTask(db, "dep-1", "done");
-			await insertTask(db, "dependent", "hold", ["dep-1"]);
-
-			const events: TaskStateChangedEvent[] = [];
-			eventBus.on("task_state_changed", (e) => events.push(e));
+			const events: ObjectChangeEvent[] = [];
+			eventBus.on("task.changed", (e) => events.push(e));
 
 			await checkAndUnblockDependents(
 				makeCtx(db, eventBus),
@@ -243,23 +219,23 @@ describe("Dependency Watcher", () => {
 			);
 
 			expect(events).toHaveLength(1);
-			expect(events[0]!.taskId).toBe("dependent");
-			expect(events[0]!.fromState).toBe("hold");
-			expect(events[0]!.toState).toBe("accepted");
+			expect(events[0]!.change.objectId).toBe("dependent");
+			expect(events[0]!.change.before).toMatchObject({ state: "hold" });
+			expect(events[0]!.change.after).toMatchObject({ state: "accepted" });
+			// The auto-transition's own `edit_task` call is what reaches the bus
+			// now (decision 5) — the old ambient auto_unblock notification, a
+			// second notice of the SAME edit, is gone (the "notification"
+			// event type itself no longer exists).
 		});
 
-		test("does not emit notification when task stays in hold", async ({
-			db,
-			eventBus,
-			agentOrchestration,
-		}) => {
+		test("does not emit when task stays in hold", async ({ db, eventBus, agentOrchestration }) => {
 			await seedPrerequisites(db);
 			await insertTask(db, "dep-1", "done");
 			await insertTask(db, "dep-2", "in_progress");
 			await insertTask(db, "dependent", "hold", ["dep-1", "dep-2"]);
 
-			const notifications: NotificationEvent[] = [];
-			eventBus.on("notification", (e) => notifications.push(e));
+			const events: ObjectChangeEvent[] = [];
+			eventBus.on("task.changed", (e) => events.push(e));
 
 			await checkAndUnblockDependents(
 				makeCtx(db, eventBus),
@@ -267,7 +243,7 @@ describe("Dependency Watcher", () => {
 				makeEditTask(agentOrchestration),
 			);
 
-			expect(notifications).toHaveLength(0);
+			expect(events).toHaveLength(0);
 		});
 	});
 

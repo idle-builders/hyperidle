@@ -124,6 +124,26 @@ describe("isRequiredReturnAction — return predicate narrowed to a required sub
 		expect(isRequiredReturnAction("mcp__hyperidle__edit_task", ["send_message"])).toBe(false);
 		expect(isRequiredReturnAction("hyperidle_send_message", ["send_message"])).toBe(true);
 	});
+
+	/**
+	 * `return_status` (the self-check bridge tool) is never a member of the
+	 * base closed set — a subscription wake's `required` subset is the ONLY
+	 * way it can satisfy the gate.
+	 */
+	it("required=['return_status'] IS satisfied by return_status", () => {
+		expect(isRequiredReturnAction("return_status", ["return_status"])).toBe(true);
+		expect(isRequiredReturnAction("mcp__hyperidle__return_status", ["return_status"])).toBe(true);
+		expect(isRequiredReturnAction("hyperidle_return_status", ["return_status"])).toBe(true);
+	});
+
+	it("return_status is NOT a satisfying action with no required subset (an unfiltered task session cannot stop by merely checking its status)", () => {
+		expect(isRequiredReturnAction("return_status", undefined)).toBe(false);
+		expect(isRequiredReturnAction("return_status", [])).toBe(false);
+	});
+
+	it("required=['send_message'] is NOT satisfied by return_status", () => {
+		expect(isRequiredReturnAction("return_status", ["send_message"])).toBe(false);
+	});
 });
 
 describe("buildForceReturnMessage — tailored forcing message", () => {

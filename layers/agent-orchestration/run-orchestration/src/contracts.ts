@@ -37,7 +37,6 @@ export interface RunContextBundle {
 	readonly productId: string;
 	readonly sandboxBasePath: string;
 	readonly modelTier?: ModelTier;
-	readonly routineId?: string;
 	readonly requestContext?: {
 		readonly requestId: string;
 		readonly sourceKind: AgentSessionSourceKind;
@@ -305,11 +304,6 @@ export interface RuntimeDeps {
 		readonly reapers?: {
 			readonly sandboxes?: Parameters<
 				ReturnType<typeof import("./runtime-reapers.js").createRuntimeReapers>["startSandboxes"]
-			>[0];
-			readonly routines?: Parameters<
-				ReturnType<
-					typeof import("./runtime-reapers.js").createRuntimeReapers
-				>["reapRoutineSessions"]
 			>[0];
 		};
 	};

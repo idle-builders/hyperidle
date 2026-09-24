@@ -7,9 +7,10 @@ Code-derived domain, component, and interface map. Each diagram shows domain own
 ```mermaid
 flowchart LR
   Interface["Human collaboration interface\nwork, conversations, knowledge, settings"]
-  Coordination["Coordination domain\nteams, tasks, routines"]
+  Coordination["Coordination domain\ntasks"]
   Conversation["Conversation domain\nthreads, messages, reviews, artifacts"]
   Knowledge["Document domain\ndocuments (memory/artifact/document), writeback"]
+  User["User domain\nusers, teams, org edges, subscriptions, inbox"]
   Session["Agent session domain\nsession lifecycle and execution"]
   Harness["Harness domain\nCLI + remote adapters"]
   Integration["Integration domain\nfilesystems, service connections"]
@@ -19,10 +20,12 @@ flowchart LR
   Interface -- "HTTP API + websocket topics" --> Conversation
   Interface -- "HTTP API" --> Knowledge
   Interface -- "HTTP API" --> Integration
+  Interface -- "HTTP API + websocket topics" --> User
 
-  Coordination -- "session request\naccepted tasks, routines" --> Session
+  Coordination -- "session request\naccepted tasks" --> Session
   Conversation -- "assistant turn request" --> Session
   Knowledge -- "context and prompt material" --> Session
+  User -- "subscription wake" --> Session
   Session -- "run config and event stream" --> Harness
   Session -- "tool calls" --> Conversation
   Session -- "writeback and captures" --> Knowledge
@@ -32,7 +35,9 @@ flowchart LR
   Conversation -- "domain events" --> Eventing
   Knowledge -- "domain events" --> Eventing
   Session -- "domain events" --> Eventing
-  Eventing -- "dispatch, reviews, notifications,\nrelevance, lifecycle propagation" --> Coordination
+  User -- "domain events" --> Eventing
+  Eventing -- "dispatch, reviews,\nlifecycle propagation" --> Coordination
+  Eventing -- "subscription fire" --> User
   Eventing -- "thread/session/work updates" --> Interface
 ```
 
@@ -41,10 +46,14 @@ flowchart LR
 ```mermaid
 flowchart TB
   subgraph Coordination["Coordination Domain"]
-    Team["Team membership"]
     Task["Task lifecycle (recursive tree)"]
-    Routine["Routine lifecycle"]
-    CoordinationAPI["Interface\nteams, tasks, routines APIs\nstate transition events"]
+    CoordinationAPI["Interface\ntasks API\nstate transition events"]
+  end
+
+  subgraph User["User Domain"]
+    UserRow["Users, teams, org edges"]
+    Subscription["Subscriptions and inbox"]
+    UserAPI["Interface\nsearch_users/open_user/edit_user\nuser events"]
   end
 
   subgraph Conversation["Conversation Domain"]
@@ -84,6 +93,7 @@ flowchart TB
   CoordinationAPI --> SessionAPI
   ConversationAPI --> SessionAPI
   KnowledgeAPI --> SessionAPI
+  UserAPI --> SessionAPI
   SessionAPI --> HarnessAPI
   SessionAPI --> IntegrationAPI
   HarnessAPI --> ConversationAPI
@@ -100,10 +110,11 @@ flowchart LR
   AgentLayerContract["Agent layer provider\nassembleContext\nbeginLearningIngestion\nresolve defaults\nselectAgent\nformAssistant"]
   ToolContract["Tool Invocation\nregistry.invoke(name, rawArgs)\nsession context bound at registry construction\noptional MCP exposure"]
   MountContract["Filesystem Mount\nregistered filesystems\nagent injection\nsession capture"]
-  EventContract["Domain Events\ntyped EventBus\nstate, message, knowledge,\nnotification events"]
+  EventContract["Domain Events\ntyped EventBus\nstate, message, knowledge,\nuser change events"]
 
   Coordination["Coordination"] -- "creates" --> SessionRequest
   Conversation["Conversation"] -- "creates" --> SessionRequest
+  User["User"] -- "creates (subscription wake)" --> SessionRequest
   SessionRequest --> Session["Agent session"]
   Session -- "emits" --> SessionEvents
   Session -- "calls" --> AgentLayerContract
@@ -114,6 +125,7 @@ flowchart LR
   Conversation -- "emits/subscribes" --> EventContract
   Knowledge -- "emits/subscribes" --> EventContract
   Session -- "emits/subscribes" --> EventContract
+  User -- "emits/subscribes" --> EventContract
 ```
 
 Contract anchors:
@@ -127,33 +139,45 @@ Contract anchors:
 
 ```mermaid
 flowchart TB
-  Team["Team\nproduct/work boundary"]
-  MemberGroup["Team membership group"]
-  Agent["Agent or human user"]
-  Task["Task\nunit of work (root or subtask)"]
+  Task["Task\nunit of work (root or subtask), owned by a team"]
   Subtask["Subtask\n(same shape, parentTaskId set)"]
-  Routine["Routine\nrecurring trigger"]
 
-  Team --> MemberGroup
-  MemberGroup --> Agent
-  Team --> Task
   Task --> Subtask
   Subtask --> Subtask
-  Team --> Routine
-  Agent --> Task
-  Agent --> Routine
 
   TaskState["Task state machine\nproposed→accepted→in_progress→review→done | killed\nhold, blocked as runtime states"] --> Task
-  RoutineScheduler["Routine scheduler"] --> Routine
 
-  TaskState -- "task_state_changed" --> Events["EventBus"]
-  RoutineScheduler -- "routine_fired" --> Events
+  TaskState -- "task.created / task.changed" --> Events["EventBus"]
 
   Task -- "accepted owner task" --> SessionRequest["Session request"]
-  Routine -- "trigger" --> SessionRequest
 ```
 
 Task actions, `POST /api/actions/<name>`: `search_tasks`, `open_task` (returns the task, its ancestors, and its full subtree), `edit_task` (create when `id` is omitted, otherwise edit — same door for humans and agents, no gate; `state: "killed"` cascades to the whole subtree; setting `ownerAgentId` to another user is a handoff). Lifecycle semantics: [tasks-and-sessions](../process-layer/tasks-and-sessions.md).
+
+## L2 - User Domain
+
+```mermaid
+flowchart TB
+  User["User\nhuman or agent (kind)"]
+  Team["Team\nid + name — every user's own, or its owner's"]
+  OrgEdge["Org edge\nreporting line (direct / function / team)"]
+  Subscription["Subscription\nevent or schedule, paused"]
+  Inbox["Inbox row\npointer at a change, seen/read"]
+
+  User --> Team
+  User --> OrgEdge
+  User --> Subscription
+  User --> Inbox
+
+  Fire["Subscription fire"] --> Subscription
+  Clock["Subscription clock"] --> Subscription
+  Fire -- "agent: wake" --> SessionRequest["Session request"]
+  Fire -- "person: inbox row + socket nudge" --> Inbox
+
+  User -- "user.created / user.changed" --> Events["EventBus"]
+```
+
+User actions, `POST /api/actions/<name>`: `search_users`, `open_user` (returns identity, team, run config, folders, connections, subscriptions, and — for the caller's own row — the inbox), `edit_user` (create when `id` is omitted; the one door for a person's profile and an agent's identity, harness, folders, connections, subscriptions, and inbox marks alike — same door for humans and agents, no gate). Firing, reach, and the retro loop: [subscriptions-and-retros](../process-layer/subscriptions-and-retros.md).
 
 ## L2 - Conversation Domain
 
@@ -306,21 +330,26 @@ Tables in `framework/db/src/schema.ts`: filesystems, filesystem_injections, file
 flowchart TB
   EventBus["EventBus\ntyped in-process events"]
 
-  CoordinationEvents["Coordination events\ntask_state_changed\nroutine_fired"] --> EventBus
+  CoordinationEvents["Coordination events\ntask.created\ntask.changed"] --> EventBus
   SessionEvents["Session events\nsession_started\nsession_ended\nsession_not_returned\ntool_call_recorded"] --> EventBus
-  ConversationEvents["Conversation events\nthread_created\nthread_message_appended\nthread_resolved\nthread_reopened"] --> EventBus
-  DocumentWsPush["Document websocket push\ndocument:&lt;id&gt; / documents\n(not EventBus events — pushed directly from the changes row)"]
-  NotificationEvents["Notification events\nnotification"] --> EventBus
+  ConversationEvents["Conversation events\nthread.created\nthread.message\nthread.changed"] --> EventBus
+  DocumentEvents["Document events\ndocument.created\ndocument.changed"] --> EventBus
+  UserEvents["User events\nuser.created\nuser.changed"] --> EventBus
 
   EventBus --> TaskDispatch["Task dispatch"]
   EventBus --> Lifecycle["Lifecycle propagation"]
   EventBus --> Dependency["Dependency unblock"]
   EventBus --> ReviewCreation["Review creation"]
-  EventBus --> Notifications["Notification routing"]
-  EventBus --> Routines["Routine triggers"]
+  EventBus --> SubscriptionFire["Subscription fire\n(agent wake or inbox row)"]
   EventBus --> Push["WebSocket push"]
   EventBus --> Observability["Observability"]
 ```
+
+All nine members of `EventByType` — `task.created`/`task.changed`/`thread.created`/`thread.message`/
+`thread.changed`/`document.created`/`document.changed`/`user.created`/`user.changed` — are one shape,
+`ObjectChangeEvent`, built from the `changes` row the emitting module just appended. The document
+websocket push (`document:<id>`/`documents`) is a separate direct push from the same row, not routed
+through the bus.
 
 **Guarantees** (one line — the contract lives in the `framework/event-bus/src/event-bus.ts` docblock): in-process typed pub/sub, synchronous delivery, per-stream ordering, at-least-once when `emit()` is called after database write durability; one throwing handler does not abort delivery to the rest.
 
@@ -329,7 +358,7 @@ flowchart TB
 ```mermaid
 flowchart TB
   Task["Task accepted or manually started"] --> SessionRequest["Session request"]
-  Routine["Routine trigger"] --> SessionRequest
+  SubscriptionWake["Subscription wake (event or schedule)"] --> SessionRequest
   Assistant["Assistant message"] --> ConversationSession["Conversational session request"]
 
   SessionRequest --> Provision["provisionSession"]
@@ -350,21 +379,21 @@ Verified against code 2026-08-06. Component-level facts only; primitive semantic
 
 ### Primitive store
 
-Embedded Postgres: PGlite (laptop/test) or postgres-js (VPS/cloud), one unified Drizzle type (`framework/db/src/connection.ts`). All shapes owned by `framework/db/src/schema.ts`: teams, team_members, users (humans and agents, `kind` human|ai), tasks (recursive — `parent_task_id` nullable self-FK; replaces the former `bets` + `tasks` two-table design), sessions, routines, routine_runs, threads, messages, org_edges, `documents` (one table: content, scope, slot, tree position, `confidence`/`meta`, and four usage columns — `read_count`/`last_read_at`/`session_use_count`/`last_used_at`), propagation_log, notification_queue, artifacts, filesystems (+injections/captures), agent-run tables (agent_session_requests, agent_work_intents, explicit_session_starts, agent_run_config, …), config/login/invite/proposed-call tables.
+Embedded Postgres: PGlite (laptop/test) or postgres-js (VPS/cloud), one unified Drizzle type (`framework/db/src/connection.ts`). All shapes owned by `framework/db/src/schema.ts`: teams (id + name only), users (humans and agents, `kind` human|ai; team membership is `users.teamId`, or an owned agent's owner's), subscriptions, inbox, tasks (recursive — `parent_task_id` nullable self-FK; replaces the former `bets` + `tasks` two-table design), sessions, threads, messages, org_edges, `documents` (one table: content, scope, slot, tree position, `confidence`/`meta`, and four usage columns — `read_count`/`last_read_at`/`session_use_count`/`last_used_at`), artifacts, filesystems (+injections/captures), agent-run tables (agent_session_requests, agent_work_intents, explicit_session_starts, agent_run_config, …), config/login/invite/proposed-call tables.
 
 - The `responses` table is dropped — verdicts are `verdict`-typed messages ([Thread primitive](../human-interface-layer/thread-primitive.md)).
 - There is no `items` table. A review, a question, an escalation are messages on a thread.
 - Message idempotency: UNIQUE(threadId, senderId, clientKey).
 - Sessions carry no cost columns. The cost feature was deleted with no replacement; the spend ceiling lives at the upstream LLM provider account ([WIP limits](../process-layer/wip-and-cost-limits.md)).
-- `org_edges` records org relationships per (fromUserId, mechanism, target); `propagation_log` records lifecycle-propagation applications by source level/id and status. There is no separate access-log table for documents — a read is counted directly on the row (`read_count`/`last_read_at`), and every create/edit is one `changes` row (`object='document'`).
+- `org_edges` records org relationships per (fromUserId, mechanism, target). There is no separate access-log table for documents — a read is counted directly on the row (`read_count`/`last_read_at`), and every create/edit is one `changes` row (`object='document'`).
 
 ### Item routing
 
-There is no `items` table and no item router. Review recipients are resolved by `resolveReviewRecipients` (`layers/core-api/org/src/org-routing.ts`), and notification policy lives in the notification Service (`layers/core-api/notifications/src/silence-policy.ts`, `install.ts`).
+There is no `items` table and no item router. Review recipients are resolved through `org_edges` (`(fromUserId, mechanism, target)`), read via `open_user`/`search_users`.
 
 ### Schedulers
 
-In-process `setInterval` services, no external workflow engine. Routine scheduler (`layers/core-api/routine/src/routine-scheduler.ts`) fires cron/event/heartbeat triggers and honors silent routines; dispatch lives in `layers/agent-orchestration/dispatch/`; `checkAndUnblockDependents` (`layers/core-api/work/src/dependency-watcher.ts`) moves dependent tasks off hold. The scheduler never calls models — it reads the store and emits events.
+In-process `setInterval` services, no external workflow engine. The subscription clock (`layers/core-api/user/src/subscription-clock.ts`) fires due schedule subscriptions and advances their `nextRunAt`; subscription fire (`layers/core-api/user/src/subscription-fire.ts`) wakes event subscriptions off the same nine change events every object module emits; dispatch lives in `layers/agent-orchestration/dispatch/`; `checkAndUnblockDependents` (`layers/core-api/work/src/dependency-watcher.ts`) moves dependent tasks off hold. Neither scheduler calls models — both read the store and emit events or wakes.
 
 A session runs the model its agent was configured with — `agent_run_config.model_id` reaches the harness as `SessionConfig.selectedModel`. There is no gateway and no tier→model resolution; the tier is a cost-reporting label only. Vocabulary: [model routing and cost](../agent-layer/model-routing-and-cost.md).
 
@@ -374,7 +403,7 @@ See the L2 Document Domain paragraph above; full design in [knowledge-architectu
 
 ### API layer
 
-Hono on Node. `core-api` mounts its routes under `/api` (`layers/core-api/src/app.ts`); each Layer hosts its own app, and an Application composes them (`applications/remote-server/src/create-server.ts`, `applications/desktop/src/main.ts`). Schedulers start from `layers/core-api/src/service-bootstrap.ts`. Route groups: auth, users, agents, teams, team-members, tasks (incl. `/:id/handoff`, `PATCH /:id`), actions (`search_tasks`/`open_task`/`edit_task`/`search_threads`/`open_thread`/`send_message`/`adjust_thread`/`search_documents`/`open_document`/`edit_document`/`search_plugins`/`edit_plugin`, one router over the composed action list — there is no separate `knowledge` route group), artifacts, filesystems, org, recipients, status (incl. `/digest`), workers, harnesses, hint-progress, dispatch-queue, search, settings, ws. `/connections` is served by `agent-orchestration`'s own app (`layers/agent-orchestration/src/app.ts`, `layers/agent-orchestration/src/routes/connections.ts`) — its table set (`service_connections`) is owned by that Layer (AU26 E4). Agent-orchestration mounts its own `/actions` the same way, with `search_sessions`/`watch_session`/`stop_session` — both Layer apps mount at `/` on the one `/api` router, so `POST /api/actions/<name>` resolves to whichever Layer owns that action. The two Layers' action lists are joined once, at each Application's `createServer`, into the one list an agent reaches over MCP.
+Hono on Node. `core-api` mounts its routes under `/api` (`layers/core-api/src/app.ts`); each Layer hosts its own app, and an Application composes them (`applications/remote-server/src/create-server.ts`, `applications/desktop/src/main.ts`). Schedulers start from `layers/core-api/src/service-bootstrap.ts`. `core-api`'s own route groups are down to four: `auth`, `health`, `search`, and `actions` — one router over the composed action list (`search_tasks`/`open_task`/`edit_task`/`search_threads`/`open_thread`/`send_message`/`adjust_thread`/`search_documents`/`open_document`/`edit_document`/`search_users`/`open_user`/`edit_user`/`search_plugins`/`edit_plugin`). There is no separate `users`/`agents`/`teams`/`team-members`/`org`/`recipients`/`harnesses`/`settings-agent-behavior`/`notifications` route family any more — every one of those nouns is now `search_users`/`open_user`/`edit_user` under `POST /api/actions/<name>`, mounted generically. Agent-orchestration mounts its own `/actions` the same way, with `search_sessions`/`watch_session`/`stop_session`, plus `/filesystems` (plumbing: `POST /inspect-path` only) — both Layer apps mount at `/` on the one `/api` router, so `POST /api/actions/<name>` resolves to whichever Layer owns that action. The two Layers' action lists are joined once, at each Application's `createServer`, into the one list an agent reaches over MCP. `/api/connections` and the core-hosted `/api/agents/:id/injections` route are both deleted — connections and folders are user attributes now, behind `open_user`/`edit_user`.
 
 Auth: single `HYPERIDLE_API_KEY` via `X-API-Key` header (constant-time compare) + Bearer login-session tokens + invite codes (`layers/core-api/src/middleware/auth.ts`, `layers/core-api/users/src/login-session.ts`). Boundary enforcement: [authorization model](./authorization-model.md).
 
@@ -388,7 +417,7 @@ Per-session working directory under `HYPERIDLE_WORKSPACES_DIR`; the harness runs
 
 ### Notifications
 
-`layers/core-api/notifications/`: ntfy, SMTP, and console adapters; the dispatcher owns policy, mute, drain, redaction, and runs the daily digest on its own timer (`install.ts` → `runDailyDigestInternal`, `daily-digest.ts`) — not via a routine. Primitive semantics and cadence discipline: [notification primitive](../human-interface-layer/notification-primitive.md).
+There is no notifications package and no egress adapter — `layers/core-api/notifications/` is deleted. A person's inbox is `inbox` rows, owned by `layers/core-api/user/`, filled by subscription fire (above) and pushed live over the `user:<id>` websocket topic. Primitive semantics: [notification primitive](../human-interface-layer/notification-primitive.md).
 
 ### Observability
 
@@ -396,13 +425,13 @@ Channels `"console"` | `"noop"` (`framework/diagnostics/src/observability/types.
 
 ## MCP Tool Surface
 
-Agents interact with the process layer through MCP tools served in-process (`layers/agent-execution/harness-registry/src/mcp/mcp-bridge.ts` + `tool-registry.ts`). A handful are declared directly in `layers/agent-orchestration/tool-handlers/src/tool-definitions.ts`: `create_team`, `add_agent`, `create_routine`, `update_routine`. Everything else is projected straight from the composed action list (`layers/core-api/src/actions/actions-as-tools.ts`) — `search_tasks`, `open_task`, `edit_task` (ungated — same door for humans and agents; setting `ownerAgentId` is a handoff), `search_threads`, `open_thread`, `send_message`, `adjust_thread`, and `search_documents`, `open_document`, `edit_document`. There is no `write_memory`, `create_artifact`, or knowledge-sweep/scoring/conflict/merge/split tool any more — a memory or an artifact is `edit_document` called with `as: "memory"` / `as: "artifact"`.
+Agents interact with the process layer through MCP tools served in-process (`layers/agent-execution/harness-registry/src/mcp/mcp-bridge.ts` + `tool-registry.ts`). There are no hand-declared tools any more — `create_team`/`add_agent`/`create_routine`/`update_routine` and the `CoreApiPort` seam behind them are all deleted. Every tool is projected straight from the composed action list (`layers/core-api/src/actions/actions-as-tools.ts`) — `search_tasks`, `open_task`, `edit_task` (ungated — same door for humans and agents; setting `ownerAgentId` is a handoff), `search_threads`, `open_thread`, `send_message`, `adjust_thread`, `search_documents`, `open_document`, `edit_document`, and `search_users`, `open_user`, `edit_user`. There is no `write_memory`, `create_artifact`, or knowledge-sweep/scoring/conflict/merge/split tool any more — a memory or an artifact is `edit_document` called with `as: "memory"` / `as: "artifact"`.
 
-The same nouns have real HTTP surfaces for clients: `/api/users/:id/inbox` (GET/POST, principal-self scoped), `POST /api/actions/<name>` for tasks, threads, and documents alike — there is no separate `/api/knowledge` route.
+The same nouns have one real HTTP surface for clients: `POST /api/actions/<name>` for tasks, threads, documents, and users alike — there is no separate `/api/knowledge` route and no per-noun REST family. A person's own inbox is `open_user({}).inbox`; marking it read or seen is `edit_user({ id: me, inbox })`.
 
 ## Session Flow
 
-Triggers: routine fired, dependency cleared, or an inbox/assistant message. Then:
+Triggers: a subscription wake (event or schedule), dependency cleared, or an inbox/assistant message. Then:
 
 1. The agent's own model (`model_id`) becomes `SessionConfig.selectedModel`; the tier is a cost-reporting label, resolved as explicit param → `workhorse`.
 2. Context assembly writes TOON prompt + context files.
@@ -417,7 +446,7 @@ One client endpoint, topic-based:
 
 - `GET /api/ws?token=<one-shot token>`; the token is minted by authenticated `POST /api/auth/ws-token` (`layers/core-api/src/routes/ws.ts`, `routes/auth.ts:87`). Connection acks `{type:"connected"}`.
 - Client sends `{type:"subscribe"|"unsubscribe", topic}`; server acks `{type:"subscribed"|"unsubscribed"|"forbidden", topic}`.
-- Topics: `conversations`, `work`, `thread:<threadId>`, `session:<sessionId>` (session topics are read-only observe mode, open to any authenticated client), `document:<documentId>`, `documents` (pushed once per `changes` row on a document create/edit).
+- Topics: `conversations`, `work`, `thread:<threadId>`, `session:<sessionId>` (session topics are read-only observe mode, open to any authenticated client), `document:<documentId>`, `documents` (pushed once per `changes` row on a document create/edit), `user:<userId>` (a content-free nudge telling that user's own client to refetch its inbox — admits only that user).
 - Payloads are serialized EventBus event objects per topic (`layers/core-api/src/ws-connection-hub.ts`) — not REST-shaped responses. Two topics push a plain envelope instead, straight from the write that changed something rather than through the bus: `document:<id>`/`documents` from the row that changed, and `session:<id>` from agent-orchestration's own activity gateway — a content-free `{type:"update", topic, kind:"session.activity", data:{sessionId}}` nudge telling the client to re-fetch, not the activity itself. There is no separate session websocket any more.
 - Subscribe authorization for per-thread topics goes through `canSubscribe` — see the [authorization model](./authorization-model.md).
 

@@ -131,7 +131,7 @@ function parseCorrelation(request: AgentSessionRequest): AgentSessionSourceCorre
 }
 
 /**
- * AU21 §9 Increment 12 (Decision H3): the `task_run`/`routine_run`/
+ * AU21 §9 Increment 12 (Decision H3): the `task_run`/`subscription_run`/
  * baked entity+knowledge bundle, carried on
  * `request.payloadJson` the same way Increment 11's `transcript`/`modelId`
  * ride it (`session-requests/src/service.ts`'s `createFromBakedRequestInternal`).
@@ -189,7 +189,7 @@ function parseBakedHarnessDisabled(request: AgentSessionRequest): readonly strin
  * AU27 — the session's calling thread id, carried on `request.payloadJson`
  * the same way Increment 11's `transcript`/`modelId` ride it
  * (`session-requests/src/service.ts`'s `createFromBakedRequestInternal`).
- * Absent only for `routine_run`, which has no thread host to resolve one
+ * Absent only for `subscription_run`, which has no thread host to resolve one
  * from.
  */
 function parseBakedCallingThreadId(request: AgentSessionRequest): string | undefined {
@@ -519,9 +519,6 @@ async function consumeAgentSessionRequest(
 		sandboxBasePath: options.sandboxBasePath,
 		...(options.modelTier ? { modelTier: options.modelTier } : {}),
 		...(options.sessionWorkflow ? { sessionWorkflow: options.sessionWorkflow } : {}),
-		...(claimedRequest.sourceKind === "routine" && "routineId" in sourceCorrelation
-			? { routineId: sourceCorrelation.routineId }
-			: {}),
 		...(contextBundle ? { contextBundle } : {}),
 		...(agentConfig ? { agentConfig } : {}),
 		...(harnessDisabled ? { harnessDisabled } : {}),

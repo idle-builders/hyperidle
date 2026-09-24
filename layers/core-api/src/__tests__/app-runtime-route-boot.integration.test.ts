@@ -38,10 +38,12 @@ describe("app runtime route boot", () => {
 			try {
 				const routeChecks = [
 					["/api/health", false],
-					["/api/routines", true],
-					// GET /api/notifications root (door #129) deleted
-					["/api/notifications/inbox", true],
-					["/api/harnesses", true],
+					// /api/routines and /api/notifications/inbox are deleted
+					// with their packages.
+					// /api/users and /api/harnesses are deleted with the user
+					// module cutover — /api/search takes their place as the
+					// app-owned, authed GET route proof.
+					["/api/search?q=x", true],
 				] as const;
 
 				for (const [path, authed] of routeChecks) {

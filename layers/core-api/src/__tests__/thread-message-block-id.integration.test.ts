@@ -45,7 +45,7 @@ const RECIPIENT_ID = "u-t5-recipient";
 
 async function seedBase(db: HyperIdleDb, teamId: string): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(teams).values({ id: teamId, name: teamId, phase: "build", createdAt: now });
+	await db.insert(teams).values({ id: teamId, name: teamId, createdAt: now });
 	await db.insert(users).values([
 		{
 			id: FOUNDER_ID,

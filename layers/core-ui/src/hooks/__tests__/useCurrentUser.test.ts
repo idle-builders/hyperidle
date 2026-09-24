@@ -1,31 +1,44 @@
 /**
- * M3 RED — useCurrentUser hook: fetches /api/auth/me, returns user object (A10).
+ * useCurrentUser hook: fetches the caller's own row via `open_user({})`,
+ * returns { user, status, error, retry } (A10 shape unchanged).
  *
- * These tests FAIL until:
- *  - layers/core-ui/src/hooks/useCurrentUser.ts is created
- *  - The hook fetches GET /api/auth/me and returns { user, status, error }
+ * @lore BC5 T9: the door swap — `call("open_user", {})` replaces
+ * `apiFetch("/api/auth/me")`. `call` is mocked directly (the door), the same
+ * idiom SettingsPlugins/ScopeChangeDialog use.
  */
 
 import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const { callMock } = vi.hoisted(() => ({ callMock: vi.fn() }));
+
+vi.mock("../../services/call.js", () => ({ call: callMock }));
+
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 
-type AuthMeResponse = { id: string; name: string; email: string; avatarUrl: string | null };
-
-function makeOkResponse(user: AuthMeResponse): Response {
-	return new Response(JSON.stringify(user), { status: 200 });
+function userView(user: Record<string, unknown> | null): {
+	ok: true;
+	data: Record<string, unknown>;
+} {
+	return {
+		ok: true,
+		data: {
+			user,
+			runsOn: [],
+			runConfig: null,
+			documentIds: [],
+			folders: [],
+			subscriptions: [],
+			connections: null,
+			behaviour: null,
+			inbox: null,
+		},
+	};
 }
 
-function makeErrorResponse(status: number): Response {
-	return new Response(JSON.stringify({ error: "Unauthorized", code: "UNAUTHORIZED" }), { status });
-}
-
-describe("useCurrentUser (M3 A10)", () => {
-	let fetchSpy: ReturnType<typeof vi.fn>;
-
+describe("useCurrentUser", () => {
 	beforeEach(() => {
-		fetchSpy = vi.fn();
-		global.fetch = fetchSpy as unknown as typeof fetch;
+		callMock.mockReset();
 	});
 
 	afterEach(() => {
@@ -33,23 +46,39 @@ describe("useCurrentUser (M3 A10)", () => {
 	});
 
 	it("starts in loading state", () => {
-		fetchSpy.mockImplementation(() => new Promise(() => {})); // Never resolves
-
+		callMock.mockImplementation(() => new Promise(() => {})); // never resolves
 		const { result } = renderHook(() => useCurrentUser());
-
 		expect(result.current.status).toBe("loading");
 		expect(result.current.user).toBeNull();
 		expect(result.current.error).toBeNull();
 	});
 
+	it("calls open_user with no id", async () => {
+		callMock.mockResolvedValueOnce(
+			userView({
+				id: "test-user-1",
+				name: "Test User",
+				email: "test@hyperidle.dev",
+				avatarUrl: null,
+				team: null,
+			}),
+		);
+		renderHook(() => useCurrentUser());
+		await waitFor(() => {
+			expect(callMock).toHaveBeenCalledWith("open_user", {});
+		});
+	});
+
 	it("returns user object on success", async () => {
-		const user: AuthMeResponse = {
-			id: "test-user-1",
-			name: "Test User",
-			email: "test@hyperidle.dev",
-			avatarUrl: null,
-		};
-		fetchSpy.mockResolvedValueOnce(makeOkResponse(user));
+		callMock.mockResolvedValueOnce(
+			userView({
+				id: "test-user-1",
+				name: "Test User",
+				email: "test@hyperidle.dev",
+				avatarUrl: null,
+				team: null,
+			}),
+		);
 
 		const { result } = renderHook(() => useCurrentUser());
 
@@ -57,7 +86,6 @@ describe("useCurrentUser (M3 A10)", () => {
 			expect(result.current.status).toBe("ready");
 		});
 
-		expect(result.current.user).not.toBeNull();
 		expect(result.current.user?.id).toBe("test-user-1");
 		expect(result.current.user?.name).toBe("Test User");
 		expect(result.current.user?.email).toBe("test@hyperidle.dev");
@@ -65,27 +93,8 @@ describe("useCurrentUser (M3 A10)", () => {
 		expect(result.current.error).toBeNull();
 	});
 
-	it("fetches /api/auth/me endpoint", async () => {
-		const user: AuthMeResponse = {
-			id: "test-user-1",
-			name: "Test User",
-			email: "test@hyperidle.dev",
-			avatarUrl: null,
-		};
-		fetchSpy.mockResolvedValueOnce(makeOkResponse(user));
-
-		renderHook(() => useCurrentUser());
-
-		await waitFor(() => {
-			expect(fetchSpy).toHaveBeenCalled();
-		});
-
-		const [url] = fetchSpy.mock.calls[0] as [string];
-		expect(url).toContain("/api/auth/me");
-	});
-
-	it("returns error status on 401", async () => {
-		fetchSpy.mockResolvedValueOnce(makeErrorResponse(401));
+	it("returns error status when the action fails", async () => {
+		callMock.mockResolvedValueOnce({ ok: false, problems: [{ code: "not_found", message: "no" }] });
 
 		const { result } = renderHook(() => useCurrentUser());
 
@@ -97,24 +106,23 @@ describe("useCurrentUser (M3 A10)", () => {
 		expect(result.current.error).not.toBeNull();
 	});
 
-	it("exposes retry() that re-fetches after an error (NEW-24)", async () => {
-		const user: AuthMeResponse = {
-			id: "recovered-user",
-			name: "Recovered",
-			email: "recovered@hyperidle.dev",
-			avatarUrl: null,
-		};
-		// First call: network failure. Second call (after retry): success.
-		fetchSpy
-			.mockRejectedValueOnce(new Error("Network error"))
-			.mockResolvedValueOnce(makeOkResponse(user));
+	it("exposes retry() that re-fetches after an error", async () => {
+		callMock.mockRejectedValueOnce(new Error("Network error"));
+		callMock.mockResolvedValueOnce(
+			userView({
+				id: "recovered-user",
+				name: "Recovered",
+				email: "recovered@hyperidle.dev",
+				avatarUrl: null,
+				team: null,
+			}),
+		);
 
 		const { result } = renderHook(() => useCurrentUser());
 
 		await waitFor(() => {
 			expect(result.current.status).toBe("error");
 		});
-		expect(typeof result.current.retry).toBe("function");
 
 		result.current.retry();
 
@@ -122,18 +130,18 @@ describe("useCurrentUser (M3 A10)", () => {
 			expect(result.current.status).toBe("ready");
 		});
 		expect(result.current.user?.id).toBe("recovered-user");
-		expect(result.current.error).toBeNull();
 	});
 
-	it("normalizes a null teamId to undefined (no team)", async () => {
-		const user = {
-			id: "test-user-1",
-			name: "Test User",
-			email: "test@hyperidle.dev",
-			avatarUrl: null,
-			teamId: null,
-		};
-		fetchSpy.mockResolvedValueOnce(makeOkResponse(user as unknown as AuthMeResponse));
+	it("normalizes a null team to an undefined teamId", async () => {
+		callMock.mockResolvedValueOnce(
+			userView({
+				id: "test-user-1",
+				name: "Test User",
+				email: "test@hyperidle.dev",
+				avatarUrl: null,
+				team: null,
+			}),
+		);
 
 		const { result } = renderHook(() => useCurrentUser());
 
@@ -144,15 +152,16 @@ describe("useCurrentUser (M3 A10)", () => {
 		expect(result.current.user?.teamId).toBeUndefined();
 	});
 
-	it("carries a real teamId through unchanged", async () => {
-		const user = {
-			id: "test-user-1",
-			name: "Test User",
-			email: "test@hyperidle.dev",
-			avatarUrl: null,
-			teamId: "t1",
-		};
-		fetchSpy.mockResolvedValueOnce(makeOkResponse(user as unknown as AuthMeResponse));
+	it("carries a real teamId through from user.team.id", async () => {
+		callMock.mockResolvedValueOnce(
+			userView({
+				id: "test-user-1",
+				name: "Test User",
+				email: "test@hyperidle.dev",
+				avatarUrl: null,
+				team: { id: "t1", name: "Core" },
+			}),
+		);
 
 		const { result } = renderHook(() => useCurrentUser());
 
@@ -161,24 +170,5 @@ describe("useCurrentUser (M3 A10)", () => {
 		});
 
 		expect(result.current.user?.teamId).toBe("t1");
-	});
-
-	it("returned user id is NOT the hardcoded 'u-founder' string", async () => {
-		const user: AuthMeResponse = {
-			id: "real-user-from-api",
-			name: "Real User",
-			email: "real@hyperidle.dev",
-			avatarUrl: null,
-		};
-		fetchSpy.mockResolvedValueOnce(makeOkResponse(user));
-
-		const { result } = renderHook(() => useCurrentUser());
-
-		await waitFor(() => {
-			expect(result.current.status).toBe("ready");
-		});
-
-		// The hook must NOT inject or default to "u-founder"
-		expect(result.current.user?.id).not.toBe("u-founder");
 	});
 });

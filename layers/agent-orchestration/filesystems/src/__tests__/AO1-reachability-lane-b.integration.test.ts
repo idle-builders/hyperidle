@@ -125,9 +125,7 @@ describe("AO1 Lane B: real GitHub PAT → real git ls-remote (local-only, networ
 			// Seed a minimal user + team so service_connections FK is satisfied.
 			const teamId = `lb-team-${crypto.randomUUID().slice(0, 8)}`;
 			const userId = `lb-user-${crypto.randomUUID().slice(0, 8)}`;
-			await db
-				.insert(teams)
-				.values({ id: teamId, name: "LaneB Team", phase: "build", createdAt: NOW });
+			await db.insert(teams).values({ id: teamId, name: "LaneB Team", createdAt: NOW });
 			await db.insert(users).values({
 				id: userId,
 				kind: "human",

@@ -14,8 +14,8 @@ const AGENT_WORK_INTENT_SOURCE_KINDS = [
 	"thread_message",
 	"explicit_session_start",
 	"knowledge_action",
-	"routine_run",
 	"task_dispatch_attempt",
+	"subscription",
 ] as const;
 
 /** Narrow a raw `agent_work_intents.kind` DB column value to `AgentWorkIntentKind`. */

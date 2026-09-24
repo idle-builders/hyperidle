@@ -67,9 +67,7 @@ describe("agent-layer boot recovery", () => {
 
 		// 1. A pending explicit-session-start intent — proves the awaited
 		//    first-sweep drain admits it (not merely scheduled for later).
-		await db
-			.insert(teams)
-			.values({ id: "boot-team", name: "boot", phase: "build", createdAt: nowIso });
+		await db.insert(teams).values({ id: "boot-team", name: "boot", createdAt: nowIso });
 		await db.insert(users).values([
 			{
 				id: "boot-agent",

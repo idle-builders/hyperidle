@@ -13,12 +13,15 @@ type EditTask = (ctx: ActionContext, input: EditTaskInput) => Promise<ActionResu
 /**
  * After a task completes, check all tasks that depend on it.
  * If all of a dependent task's dependencies are now done and it is in `hold`,
- * auto-transition it to `accepted` and emit a notification.
+ * auto-transition it to `accepted`.
  *
- * §6 row 2: this stays an ambient `task_state_changed` subscription
- * (`app.ts`), but writes through `edit_task` instead of `transitionTask` —
- * `edit_task` returns problems instead of throwing, so a refused accept is
- * logged and dropped rather than propagated.
+ * §6 row 2: this stays an ambient `task.changed` subscription (`app.ts`),
+ * but writes through `edit_task` instead of `transitionTask` — `edit_task`
+ * returns problems instead of throwing, so a refused accept is logged and
+ * dropped rather than propagated. The auto-transition's own `edit_task`
+ * call already appends a `changes` row and emits `task.changed` for it
+ * (decision 5) — no separate ambient notification of
+ * the same edit rides the bus anymore.
  *
  * @lore I3 (TRACK-I.md L137-139): the previous implementation loaded every
  * row in `tasks` and ran JSON.parse on each. Replaced with a SQL pre-filter:
@@ -75,18 +78,6 @@ export async function checkAndUnblockDependents(
 			});
 			continue;
 		}
-
-		// Ambient event — NOT a notification (concept hard rule #6: auto-unblock
-		// is ambient). AF8: kind="auto_unblock" → the notification listener
-		// filters this out entirely.
-		ctx.eventBus.emit({
-			type: "notification",
-			streamId: task.id,
-			targetId: task.id,
-			kind: "auto_unblock",
-			message: `Task ${task.id} auto-transitioned to accepted: all dependencies are done`,
-			timestamp: Date.now(),
-		});
 	}
 }
 
@@ -148,16 +139,5 @@ export async function handleDependencyKilled(
 			});
 			continue;
 		}
-
-		if (task.state !== "hold") continue;
-
-		ctx.eventBus.emit({
-			type: "notification",
-			streamId: task.id,
-			targetId: task.id,
-			kind: "auto_unblock",
-			message: `Task ${task.id} returned to proposed: dependency ${killedTaskId} was killed`,
-			timestamp: Date.now(),
-		});
 	}
 }
