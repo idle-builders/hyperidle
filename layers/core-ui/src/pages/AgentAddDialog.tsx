@@ -17,13 +17,13 @@
  */
 
 import { HARNESS_TYPES, type HarnessType } from "@hyperidle/domain-model";
-import { roleLabel } from "../utils/role-label.js";
 import { type JSX, useCallback, useEffect, useState } from "react";
 // hearth-internal-padding
 import { Button, Combobox, Dialog, Input, KeyValue } from "../ds";
 import { call } from "../services/call.js";
 import { roleOptions } from "../settings/role-options.js";
 import { useToast } from "../shell/ToastRegion.js";
+import { roleLabel } from "../utils/role-label.js";
 
 export interface AgentAddDialogProps {
 	open: boolean;

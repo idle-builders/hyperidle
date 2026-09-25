@@ -43,7 +43,6 @@
 // hearth-internal-padding
 
 import { HARNESS_TYPES, type HarnessType } from "@hyperidle/domain-model";
-import { roleLabel } from "../utils/role-label.js";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import { type JSX, useCallback, useEffect, useState } from "react";
 import type { FoldMode } from "../ds";
@@ -61,6 +60,7 @@ import { useUiPreference } from "../hooks/useUiPreference.js";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import { call } from "../services/call.js";
 import { useToast } from "../shell/ToastRegion.js";
+import { roleLabel } from "../utils/role-label.js";
 import type { AgentEditorDraft } from "./AgentEditor.js";
 import { AgentEditor } from "./AgentEditor.js";
 import type { AgentConfig, InjectableFilesystem } from "./settings-types.js";

@@ -384,12 +384,7 @@ describe("AN1 — connections behind open_user/edit_user", () => {
 			});
 			const aConnectionId = created.envelope.data?.connections?.connections[0]?.id as string;
 
-			const { envelope } = await removeConnection(
-				app,
-				authHeadersB(),
-				USER_B_ID,
-				aConnectionId,
-			);
+			const { envelope } = await removeConnection(app, authHeadersB(), USER_B_ID, aConnectionId);
 			expect(envelope.ok).toBe(false);
 			expect(envelope.problems?.[0]?.code).toBe("unknown_connection");
 

@@ -27,7 +27,6 @@
 
 import type { SessionOutcome } from "@hyperidle/domain-model";
 import { AGENT_OPERATIONAL_STATUS_LABEL } from "@hyperidle/domain-model";
-import { roleLabel } from "../utils/role-label.js";
 import { type JSX, useState } from "react";
 import { Link as RRLink, useNavigate, useParams } from "react-router-dom";
 import type { OpenHandler, PartAuthor } from "../components/parts";
@@ -61,6 +60,7 @@ import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import { createOpenHandler } from "../services/open-handler.js";
 import { NavHistoryCluster } from "../shell/NavHistoryCluster.js";
 import { deriveInitials } from "../utils/initials.js";
+import { roleLabel } from "../utils/role-label.js";
 import { absoluteDate } from "../utils/time.js";
 import { SubscriptionsSection } from "./SubscriptionsSection.js";
 

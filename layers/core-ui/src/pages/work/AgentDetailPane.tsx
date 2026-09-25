@@ -19,7 +19,6 @@
  */
 
 import { HARNESS_TYPES, type HarnessType } from "@hyperidle/domain-model";
-import { roleLabel as deriveRoleLabel } from "../../utils/role-label.js";
 import { type JSX, useCallback, useEffect, useState } from "react";
 import { Link as RRLink } from "react-router-dom";
 // hearth-internal-padding
@@ -29,6 +28,7 @@ import { call } from "../../services/call.js";
 import type { AgentConfig } from "../../settings/settings-types.js";
 import { useToast } from "../../shell/ToastRegion.js";
 import { deriveInitials } from "../../utils/initials.js";
+import { roleLabel as deriveRoleLabel } from "../../utils/role-label.js";
 
 export interface AgentDetailPaneProps {
 	/** Non-null = display this agent; null = empty state. */
