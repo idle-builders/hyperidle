@@ -48,6 +48,15 @@ plugins installable from the packaged app so the opinions can come back.
   stays: the founder called it "the right shape already". Not a delete candidate.
 - The welcome screen keeps its look (BC5 ruling stands).
 
+- **Full cleanup** (ruling 2026-09-25, after the first PR was up): "I want a full cleanup of
+  everything that can go now. Proper cleanup." Every opinion-era mechanism that is dead or empty
+  now that opinions live in plugins goes in this item: the `builtin` origin and reserved plugin row;
+  the contribution kinds nobody can use; the configuration-defaults and overrides engine with the
+  agent-behaviour settings page (empty on every install — this supersedes the earlier keep of the
+  configuration layer; `mcp.json` server contributions stay, the provisioner reads them); role
+  plumbing nothing branches on; email on the profile; the demo world copying persona files by hand;
+  whatever else the cleanup census finds.
+
 **Consequences the rulings settle without a question.** The three migration-inserted folders go
 (four empty lists). The baked assistant identity goes (empty prompts). The "builder" form defaults
 go. `docs/system-prompts/` and its stale references go. The hidden `system:propagation` actor row
