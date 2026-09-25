@@ -23,8 +23,7 @@ removing, disabling or enabling one team's install leaves the other's alone.
 `edit_plugin`'s `id` is always an install id.
 
 Contributed row ids hash the manifest name and the scope, so every install's
-rows are distinct; configuration keys are namespaced by the manifest name
-(`<name>/<key>`), shared by every install of that plugin.
+rows are distinct.
 
 ## What a plugin can contribute
 
@@ -33,7 +32,11 @@ rows are distinct; configuration keys are namespaced by the manifest name
 | **Agent** | a `users` row, plus its identity | `agents[]` in the manifest, with an optional `identity` file |
 | **Subscription** | a `subscriptions` row, plus its prompt | `subscriptions[]`, whose `prompt` becomes a knowledge document |
 | **Skill** | a knowledge document | a `skills/<name>/SKILL.md` file |
-| **Configuration default** | a `plugin_configuration_defaults` row | `contributions[]`, and `mcp.json` servers |
+| **MCP server** | nothing stored — read from the install folder's `mcp.json` each time a session starts | `mcp.json` |
+
+There is no fourth kind. A per-plugin configuration layer (defaults a person could
+override, shown on a Settings › Agent behavior page) existed and was deleted: every
+install's defaults were empty and nothing that runs a session read an override.
 
 Agents, subscription prompts and skills all end up as ordinary rows in the services
 that own them — `users` (agents, subscriptions, both owned by `@hyperidle/user`), `documents`. A
@@ -108,18 +111,18 @@ mapping being stored twice.
 Installing copies the plugin to `<dataDir>/installed-plugins/<installId>` — one
 folder per install, so one team's reinstall never removes the folder another
 team's restore reads — and records the path in `plugins.install_path`. Two features depend on it: restore
-reads the plugin's files from there, and `${PLUGIN_ROOT}` / `${PLUGIN_DATA}` in
-an MCP server's config expand against it at session-provisioning time.
+reads the plugin's files from there, and a session reads the plugin's MCP servers
+from the `mcp.json` there, expanding `${PLUGIN_ROOT}` / `${PLUGIN_DATA}` against
+it. An install without a folder brings no MCP servers. The desktop app and the
+remote server both hand these servers to the sessions they provision.
 
 > Not `<dataDir>/plugins`. Beside a development checkout's database that is the
 > repository's own plugin **source** directory, and install removes the
 > destination before copying.
 
-`${PLUGIN_ROOT}` expansion stays at session time deliberately. Expanding at
-install would store an absolute machine path in `default_value_json`, and
-`default_version_hash` hashes that value — a hash whose job is "did the plugin's
-shipped default change" would start answering "did the plugin change, or did the
-app move".
+Nothing about a server is stored at install: the folder is the only copy, so an
+edited `mcp.json` reaches the next session, and a moved data directory never
+leaves a stale absolute path behind in the database.
 
 ## Bundled plugins
 
