@@ -178,7 +178,6 @@ export {
 // shape (`ChangeRowSchema`).
 export type {
 	AddSubscriptionInput,
-	BehaviourEntry,
 	ChangeKind,
 	ChangeObject,
 	ChangeRow,
@@ -196,7 +195,6 @@ export type {
 	UserView,
 } from "./actions/user.js";
 export {
-	BehaviourEntrySchema,
 	CHANGE_KINDS,
 	CHANGE_OBJECTS,
 	ChangeRowSchema,
@@ -218,21 +216,6 @@ export {
 	UserRowSchema,
 	UserViewSchema,
 } from "./actions/user.js";
-export type {
-	AgentBehaviorConfigKind,
-	AgentBehaviorConfigLink,
-	AgentBehaviorConfigListResponse,
-	AgentBehaviorConfigPatchRequest,
-	AgentBehaviorConfigPatchResponse,
-	AgentBehaviorConfigView,
-	AgentBehaviorEditableField,
-	AgentBehaviorFieldKind,
-	AgentBehaviorOriginState,
-	AgentBehaviorOriginType,
-	AgentBehaviorOriginView,
-	AgentBehaviorValueSource,
-} from "./agent-behavior-config.js";
-export { AGENT_BEHAVIOR_CONFIG_KINDS, isAgentBehaviorConfigKind } from "./agent-behavior-config.js";
 // AgentActiveSession, AgentSessionSummary, AgentPerformanceStats, AgentHealthSignals
 // moved to layers/core-ui/src/hooks/agent-health.ts (AU44 batch 8).
 export type {
@@ -254,23 +237,7 @@ export type { InviteRole } from "./auth.js";
 export { INVITE_CODE_TTL_MS, INVITE_ROLES, LOGIN_SESSION_TTL_MS } from "./auth.js";
 // Block types moved to layers/core-ui/src/block/types.ts (AU44 batch8).
 // core-ui callers import from relative path; server-side uses are inlined or dropped.
-export type {
-	ConfigurationKind,
-	ConfigurationOrigin,
-	ConfigurationOriginType,
-	ConfigurationValueSource,
-	PluginContributionKind,
-	PluginScopeKind,
-	PluginState,
-	ResolvedConfigurationItem,
-} from "./configuration.js";
-export {
-	BUILTIN_PLUGIN_ID,
-	CONFIGURATION_KINDS,
-	PLUGIN_CONTRIBUTION_KINDS,
-	PLUGIN_SCOPE_KINDS,
-	PLUGIN_STATES,
-} from "./configuration.js";
+export type { PluginContributionKind, PluginScopeKind, PluginState } from "./configuration.js";
 export type {
 	ConnectionAuthSource,
 	ConnectionHealth,

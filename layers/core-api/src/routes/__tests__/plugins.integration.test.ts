@@ -11,7 +11,6 @@
  * Uses the real DB + app fixtures (no stubs).
  */
 import { plugins } from "@hyperidle/db";
-import { BUILTIN_PLUGIN_ID } from "@hyperidle/domain-model";
 import { describe, expect, test } from "../../__testing__/test-fixtures.js";
 
 const API_KEY = "test-ba9a-plugins";
@@ -98,19 +97,5 @@ describe("edit_plugin — not found", () => {
 		const body = await res.json();
 		expect(Array.isArray(body.data)).toBe(true);
 		expect(body.data).toEqual([]);
-	});
-
-	test("the builtin plugin is unknown_plugin, never a live row (reserved guard)", async ({
-		app,
-	}) => {
-		const res = await app.request("/api/actions/edit_plugin", {
-			method: "POST",
-			headers: authHeaders(),
-			body: JSON.stringify({ id: BUILTIN_PLUGIN_ID, state: "enabled" }),
-		});
-		// getInstalledPlugin returns null for BUILTIN_PLUGIN_ID → unknown_plugin
-		expect(res.status).toBe(422);
-		const body = await res.json();
-		expect(body.problems?.[0]?.code).toBe("unknown_plugin");
 	});
 });

@@ -98,15 +98,6 @@ describe("parsePluginManifest", () => {
 			expect(result.ok).toBe(false);
 		});
 
-		it("rejects when name is 'builtin' (reserved) — AC9", () => {
-			writeManifest({ $schema: VALID_SCHEMA, name: "builtin" });
-			const result = parsePluginManifest(tempDir);
-			expect(result.ok).toBe(false);
-			if (!result.ok) {
-				expect(result.reason).toMatch(/reserved/i);
-			}
-		});
-
 		it("rejects when version is a number, not a string", () => {
 			writeManifest({ $schema: VALID_SCHEMA, name: "my-plugin", version: 123 });
 			const result = parsePluginManifest(tempDir);
@@ -172,7 +163,6 @@ describe("parsePluginManifest", () => {
 			if (result.ok) {
 				expect(result.manifest.name).toBe("my-plugin");
 				expect(result.manifest.version).toBe("0");
-				expect(result.manifest.contributions).toHaveLength(0);
 				expect(result.manifest.warnings).toHaveLength(0);
 			}
 		});
@@ -204,95 +194,13 @@ describe("parsePluginManifest", () => {
 			}
 		});
 
-		it("extracts contributions from io.hyperidle extension", () => {
-			writeManifest({
-				$schema: VALID_SCHEMA,
-				name: "my-plugin",
-				extensions: {
-					"io.hyperidle": {
-						contributions: [
-							{ kind: "agent", key: "search-agent", value: { name: "Search Agent" } },
-							{ kind: "skill", key: "web-search", value: { description: "Web search" } },
-						],
-					},
-				},
-			});
-			const result = parsePluginManifest(tempDir);
-			expect(result.ok).toBe(true);
-			if (result.ok) {
-				expect(result.manifest.contributions).toHaveLength(2);
-				expect(result.manifest.contributions[0]).toMatchObject({
-					kind: "agent",
-					key: "search-agent",
-					value: { name: "Search Agent" },
-				});
-			}
-		});
-
-		it("skips contribution with invalid kind — warns, continues", () => {
-			writeManifest({
-				$schema: VALID_SCHEMA,
-				name: "my-plugin",
-				extensions: {
-					"io.hyperidle": {
-						contributions: [
-							{ kind: "bad-kind", key: "x", value: {} },
-							{ kind: "agent", key: "valid", value: { name: "OK" } },
-						],
-					},
-				},
-			});
-			const result = parsePluginManifest(tempDir);
-			expect(result.ok).toBe(true);
-			if (result.ok) {
-				expect(result.manifest.contributions).toHaveLength(1);
-				expect(result.manifest.contributions[0]?.key).toBe("valid");
-				const warn = result.manifest.warnings.find((w) => w.code === "INVALID_CONTRIBUTION");
-				expect(warn).toBeDefined();
-			}
-		});
-
-		it("skips contribution with empty key — warns", () => {
-			writeManifest({
-				$schema: VALID_SCHEMA,
-				name: "my-plugin",
-				extensions: {
-					"io.hyperidle": {
-						contributions: [{ kind: "agent", key: "", value: {} }],
-					},
-				},
-			});
-			const result = parsePluginManifest(tempDir);
-			expect(result.ok).toBe(true);
-			if (result.ok) {
-				expect(result.manifest.contributions).toHaveLength(0);
-			}
-		});
-
-		it("skips contribution whose key contains '/' — warns", () => {
-			writeManifest({
-				$schema: VALID_SCHEMA,
-				name: "my-plugin",
-				extensions: {
-					"io.hyperidle": {
-						contributions: [{ kind: "agent", key: "a/b", value: {} }],
-					},
-				},
-			});
-			const result = parsePluginManifest(tempDir);
-			expect(result.ok).toBe(true);
-			if (result.ok) {
-				expect(result.manifest.contributions).toHaveLength(0);
-			}
-		});
-
 		it("ignores unknown client namespaces without validating their contents", () => {
 			writeManifest({
 				$schema: VALID_SCHEMA,
 				name: "my-plugin",
 				extensions: {
 					"com.other.client": { anythingGoes: true },
-					"io.hyperidle": { contributions: [] },
+					"io.hyperidle": { agents: [] },
 				},
 			});
 			const result = parsePluginManifest(tempDir);
@@ -302,28 +210,6 @@ describe("parsePluginManifest", () => {
 				expect(
 					result.manifest.warnings.filter((w) => w.code === "NON_OBJECT_EXTENSIONS"),
 				).toHaveLength(0);
-			}
-		});
-
-		it("no contributions when extensions is absent", () => {
-			writeManifest({ $schema: VALID_SCHEMA, name: "my-plugin" });
-			const result = parsePluginManifest(tempDir);
-			expect(result.ok).toBe(true);
-			if (result.ok) {
-				expect(result.manifest.contributions).toHaveLength(0);
-			}
-		});
-
-		it("no contributions when io.hyperidle extension is absent from extensions", () => {
-			writeManifest({
-				$schema: VALID_SCHEMA,
-				name: "my-plugin",
-				extensions: { "com.other": {} },
-			});
-			const result = parsePluginManifest(tempDir);
-			expect(result.ok).toBe(true);
-			if (result.ok) {
-				expect(result.manifest.contributions).toHaveLength(0);
 			}
 		});
 	});

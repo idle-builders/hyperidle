@@ -1,9 +1,5 @@
 import { z } from "zod";
-import {
-	BUILTIN_PLUGIN_ID,
-	CONFIGURATION_KINDS,
-	PLUGIN_CONTRIBUTION_KINDS,
-} from "../configuration.js";
+import { PLUGIN_CONTRIBUTION_KINDS } from "../configuration.js";
 import type { ActionDeclaration, Problem } from "./action.js";
 
 /**
@@ -56,12 +52,13 @@ export type PluginScope = z.infer<typeof PluginScopeSchema>;
 // ---------------------------------------------------------------------------
 
 export const PluginContributionViewSchema = z.object({
-	kind: z.union([z.enum(CONFIGURATION_KINDS), z.enum(PLUGIN_CONTRIBUTION_KINDS)]),
-	/** The contributed row's id, or the namespaced configuration key. */
+	/** A contributed row, or `mcp_server` — a server read from the install's `mcp.json`. */
+	kind: z.enum([...PLUGIN_CONTRIBUTION_KINDS, "mcp_server"]),
+	/** The contributed row's id, or `<plugin name>/<server name>` for an MCP server. */
 	entityId: z.string(),
-	/** What a person calls it: an agent's name, a subscription's name, a document's title. */
+	/** What a person calls it: an agent's name, a subscription's name, a document's title, a server's name. */
 	label: z.string(),
-	/** Namespaced: "pluginId/manifestKey". */
+	/** What `edit_plugin`'s restore names: the same as `entityId`. */
 	key: z.string(),
 	manifestKey: z.string(),
 	/** A person has edited it, so a reinstall leaves their version alone. */
@@ -149,7 +146,7 @@ export const EditPluginInputSchema = z
 		source: EditPluginSourceSchema.optional(),
 		state: z.enum(PLUGIN_LIST_STATES).optional(),
 		remove: z.literal(true).optional(),
-		/** `contribution` is the namespaced key `search_plugins` returns as `key`. */
+		/** `contribution` is the `key` `search_plugins` returns for a contributed row. */
 		restore: z.object({ contribution: z.string().min(1) }).optional(),
 	})
 	.strict();
@@ -174,7 +171,7 @@ export const PLATFORM_ACTIONS = {
 } as const;
 
 // ---------------------------------------------------------------------------
-// editPluginInvariants — pure. The four pure invariants declared for
+// editPluginInvariants — pure. The three pure invariants declared for
 // `edit_plugin`. The DB-dependent ones it also names (`unknown_plugin`, `unknown_contribution`,
 // `install_failed`, `plugin_removed`, `unknown_team` — a team install for a team that does not
 // exist) need the database and run inside `edit_plugin.run`, not here.
@@ -209,14 +206,6 @@ export function editPluginInvariants(input: EditPluginInput): Problem[] {
 		problems.push({
 			code: "plugin_id_required",
 			message: "Name the plugin.",
-			path: "id",
-		});
-	}
-
-	if (input.id === BUILTIN_PLUGIN_ID && (input.remove === true || input.state === "disabled")) {
-		problems.push({
-			code: "builtin_locked",
-			message: "The built-in plugin cannot be disabled or removed.",
 			path: "id",
 		});
 	}

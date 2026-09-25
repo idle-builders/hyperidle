@@ -5,7 +5,6 @@
 	"description": "A team of agents with defined roles — builder, designer, product manager, QA, growth, ops, facilitator — each with its own identity.",
 	"extensions": {
 		"io.hyperidle": {
-			"contributions": [],
 			"agents": [
 				{
 					"id": "builder",

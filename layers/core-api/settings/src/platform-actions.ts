@@ -1,7 +1,7 @@
 /**
  * The platform action list — `search_plugins` / `edit_plugin`. This Service
- * owns `plugins`, `plugin_contributions` and `plugin_configuration_defaults`
- * (`table-owners.json`), so it declares the runs itself. Replaces
+ * owns `plugins` and `plugin_contributions` (`table-owners.json`), so it
+ * declares the runs itself. Replaces
  * `routes/plugins.ts` (984 lines, six routes) whole.
  *
  * `Action`/`ActionContext` below are a local structural mirror of
@@ -39,8 +39,6 @@ import {
 	type ActionDeclaration,
 	type ActionResult,
 	type AvailablePluginView,
-	BUILTIN_PLUGIN_ID,
-	type ConfigurationKind,
 	type PluginScope as DeclaredPluginScope,
 	type DocumentParentKind,
 	type DocumentRow,
@@ -64,7 +62,6 @@ import {
 import type { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import { findBundledPlugin, listBundledPlugins } from "./bundled-plugins.js";
-import { listConfiguration } from "./plugin-configuration.js";
 import type { PluginContribution } from "./plugin-contributions.js";
 import {
 	clearDetached,
@@ -84,11 +81,10 @@ import {
 	listInstalledPlugins,
 	type PluginSource,
 	removePlugin,
-	restorePluginContribution,
 	skillItemId,
 	subscriptionItemId,
 } from "./plugin-installer.js";
-import { parsePluginManifest } from "./plugin-manifest.js";
+import { parseMcpJson, parsePluginManifest } from "./plugin-manifest.js";
 
 /**
  * Local structural mirror of `layers/core-api/src/actions/action.ts`'s
@@ -182,7 +178,7 @@ export interface PlatformActionsDeps {
 	readonly editDocument: EditDocumentRunFn;
 	readonly searchDocuments: SearchDocumentsRunFn;
 	/** BA9d D12: base directory plugin files persist to. Absent → no on-disk
-	 * install (URL-based MCP servers still work; restore answers
+	 * install (no MCP servers reach a session; restore answers
 	 * `no_install_path` for anything that needs a source file). */
 	readonly pluginsBaseDir?: string;
 	/** The plugins that ship inside the app, one folder each. Never `pluginsBaseDir`
@@ -448,45 +444,32 @@ function readPluginDocumentSource(
 }
 
 // ---------------------------------------------------------------------------
-// The contributions view — the configuration-default half plus the
-// registry's half (agents, subscriptions, documents).
+// The contributions view — the MCP servers in the install's `mcp.json`, then
+// the registry's rows (agents, subscriptions, documents).
 // ---------------------------------------------------------------------------
-
-interface ConfigurationItemForPlugin {
-	readonly kind: ConfigurationKind;
-	readonly key: string;
-	readonly valueSource: string;
-}
-
-function manifestKeyOf(namespacedKey: string): string {
-	const slashIdx = namespacedKey.indexOf("/");
-	return slashIdx >= 0 ? namespacedKey.slice(slashIdx + 1) : namespacedKey;
-}
 
 async function pluginContributionsView(
 	ctx: ActionContext,
 	deps: PlatformActionsDeps,
-	pluginId: string,
-	configItemsForPlugin: readonly ConfigurationItemForPlugin[],
+	plugin: InstalledPlugin,
 ): Promise<PluginContributionView[]> {
 	const view: PluginContributionView[] = [];
-	for (const item of configItemsForPlugin) {
-		const manifestKey = manifestKeyOf(item.key);
+	for (const server of plugin.installPath ? parseMcpJson(plugin.installPath) : []) {
+		const key = `${plugin.name}/${server.name}`;
 		view.push({
-			kind: item.kind,
-			entityId: item.key,
-			label: manifestKey,
-			key: item.key,
-			manifestKey,
-			detached: item.valueSource === "user_override",
+			kind: "mcp_server",
+			entityId: key,
+			label: server.name,
+			key,
+			manifestKey: server.name,
+			detached: false,
 		});
 	}
 
-	const contributions = await listContributions(ctx.db, pluginId);
+	const contributions = await listContributions(ctx.db, plugin.id);
 	if (contributions.length > 0) {
 		const labels = await labelContributions(ctx, deps, contributions);
 		for (const c of contributions) {
-			if (c.kind === "configuration_default") continue;
 			view.push({
 				kind: c.kind,
 				entityId: c.entityId,
@@ -511,16 +494,12 @@ async function assemblePluginView(
 			`platform-actions: expected plugin "${pluginId}" to exist after a successful write`,
 		);
 	}
-	const configItems = (await listConfiguration(ctx.db)).filter(
-		(item) => item.origin.pluginId === pluginId,
-	);
-	const contributions = await pluginContributionsView(ctx, deps, pluginId, configItems);
-	return toPluginView(p, contributions);
+	return toPluginView(p, await pluginContributionsView(ctx, deps, p));
 }
 
 // ---------------------------------------------------------------------------
 // lookupPlugin — the not-found ladder every state/remove/restore change
-// needs: builtin is always unknown; a genuinely absent id is `unknown_plugin`;
+// needs: a genuinely absent id is `unknown_plugin`;
 // a plugin that WAS installed and is now `state: "removed"` is `plugin_removed`
 // — a clearer answer than folding both into one generic 404 the way
 // `routes/plugins.ts` did.
@@ -531,9 +510,6 @@ type LookupResult =
 	| { readonly ok: false; readonly problems: Problem[] };
 
 async function lookupPlugin(ctx: ActionContext, id: string): Promise<LookupResult> {
-	if (id === BUILTIN_PLUGIN_ID) {
-		return problem("unknown_plugin", `Plugin "${id}" not found.`, "id");
-	}
 	const existing = await getInstalledPlugin(ctx.db, id);
 	if (existing) return { ok: true, plugin: existing };
 
@@ -830,56 +806,46 @@ async function restoreRun(
 
 	const owned = await listContributions(ctx.db, id);
 	const registryMatch = owned.find((c) => c.entityId === contributionKey);
-	if (registryMatch) {
-		if (registryMatch.kind !== "document") {
-			await clearDetached(ctx.db, { kind: registryMatch.kind, entityId: contributionKey });
-			return { ok: true, data: await assemblePluginView(ctx, deps, id) };
-		}
-		if (!existing.installPath) {
-			return problem(
-				"no_install_path",
-				"This plugin has no recorded install path — it was installed before restore was " +
-					"supported, or on a server not configured with a plugins directory. Reinstall the " +
-					"plugin to enable restore.",
-			);
-		}
-		const sourceBody = readPluginDocumentSource(
-			existing.installPath,
-			existing.name,
-			contributionKey,
-			existing.scope.kind,
-			existing.scope.teamId,
-		);
-		if (sourceBody === null) {
-			return problem(
-				"source_not_found",
-				`Source for "${contributionKey}" not found under ${existing.installPath}. The plugin ` +
-					"install may be corrupted.",
-			);
-		}
-		const editResult = await deps.editDocument(internalCtx(ctx), {
-			id: contributionKey,
-			body: sourceBody,
-		});
-		if (!editResult.ok) {
-			return problem("restore_failed", editResult.problems.map((p) => p.message).join("; "));
-		}
-		await clearDetached(ctx.db, { kind: "document", entityId: contributionKey });
-		return { ok: true, data: await assemblePluginView(ctx, deps, id) };
-	}
-
-	const configItem = (await listConfiguration(ctx.db)).find((item) => item.key === contributionKey);
-	if (!configItem) {
+	if (!registryMatch) {
 		return problem(
 			"unknown_contribution",
 			`Plugin "${id}" did not contribute "${contributionKey}".`,
 		);
 	}
-	await restorePluginContribution(ctx.db, {
-		pluginName: existing.name,
-		manifestKey: manifestKeyOf(configItem.key),
-		kind: configItem.kind,
+	if (registryMatch.kind !== "document") {
+		await clearDetached(ctx.db, { kind: registryMatch.kind, entityId: contributionKey });
+		return { ok: true, data: await assemblePluginView(ctx, deps, id) };
+	}
+	if (!existing.installPath) {
+		return problem(
+			"no_install_path",
+			"This plugin has no recorded install path — it was installed before restore was " +
+				"supported, or on a server not configured with a plugins directory. Reinstall the " +
+				"plugin to enable restore.",
+		);
+	}
+	const sourceBody = readPluginDocumentSource(
+		existing.installPath,
+		existing.name,
+		contributionKey,
+		existing.scope.kind,
+		existing.scope.teamId,
+	);
+	if (sourceBody === null) {
+		return problem(
+			"source_not_found",
+			`Source for "${contributionKey}" not found under ${existing.installPath}. The plugin ` +
+				"install may be corrupted.",
+		);
+	}
+	const editResult = await deps.editDocument(internalCtx(ctx), {
+		id: contributionKey,
+		body: sourceBody,
 	});
+	if (!editResult.ok) {
+		return problem("restore_failed", editResult.problems.map((p) => p.message).join("; "));
+	}
+	await clearDetached(ctx.db, { kind: "document", entityId: contributionKey });
 	return { ok: true, data: await assemblePluginView(ctx, deps, id) };
 }
 
@@ -959,25 +925,9 @@ export function createPlatformActions(deps: PlatformActionsDeps): readonly Actio
 		const filtered = installed.filter((p) => matchesSearchFilter(p, input));
 		if (filtered.length === 0) return { ok: true, data: available };
 
-		const allItems = await listConfiguration(ctx.db);
-		const itemsByPlugin = new Map<string, ConfigurationItemForPlugin[]>();
-		for (const item of allItems) {
-			const pid = item.origin.pluginId;
-			if (!pid) continue;
-			const forPlugin = itemsByPlugin.get(pid) ?? [];
-			forPlugin.push({ kind: item.kind, key: item.key, valueSource: item.valueSource });
-			itemsByPlugin.set(pid, forPlugin);
-		}
-
 		const data: PluginListing[] = [];
 		for (const p of filtered) {
-			const contributions = await pluginContributionsView(
-				ctx,
-				deps,
-				p.id,
-				itemsByPlugin.get(p.id) ?? [],
-			);
-			data.push(toPluginView(p, contributions));
+			data.push(toPluginView(p, await pluginContributionsView(ctx, deps, p)));
 		}
 		return { ok: true, data: [...data, ...available] };
 	}

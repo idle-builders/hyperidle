@@ -6,7 +6,6 @@
 	"extensions": {
 		"io.hyperidle": {
 			"installScope": "factory",
-			"contributions": [],
 			"agents": [
 				{
 					"id": "librarian",

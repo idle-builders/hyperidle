@@ -1,30 +1,26 @@
 /**
- * Integration tests for the plugin installer (BA9a).
+ * Integration tests for the plugin installer.
  *
- * Uses real PGlite DB via @hyperidle/db/test-fixtures.
- * Covers AC1–AC10 as runtime behavior assertions.
- *
- * AC4 (containment) is covered by plugin-containment.test.ts as a unit test
- * (no DB needed — it's a pure path utility).
+ * Uses real PGlite DB via @hyperidle/db/test-fixtures. Covers install from
+ * every source, scope, manifest validation, the enable/disable/remove
+ * lifecycle, and the MCP servers a session reads from an install's folder.
  */
 
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { pluginConfigurationDefaults, plugins } from "@hyperidle/db";
+import { plugins } from "@hyperidle/db";
 import { test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect } from "vitest";
-import { listConfiguration, writeConfigurationOverride } from "../plugin-configuration.js";
 import {
 	disablePlugin,
 	enablePlugin,
+	getPluginMcpContributions,
 	installPlugin,
 	listInstalledPlugins,
-	pluginContributionKey,
 	removePlugin,
-	restorePluginContribution,
 } from "../plugin-installer.js";
 
 // ---------------------------------------------------------------------------
@@ -38,7 +34,7 @@ const tempDirs: string[] = [];
 function makeTempDir(suffix: string): string {
 	const dir = join(
 		tmpdir(),
-		`ba9a-test-${suffix}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+		`plugin-installer-test-${suffix}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
 	);
 	mkdirSync(dir, { recursive: true });
 	tempDirs.push(dir);
@@ -54,35 +50,24 @@ afterEach(() => {
 	tempDirs.length = 0;
 });
 
-function makePluginDir(
-	name: string,
-	contributions?: Array<{ kind: string; key: string; value: Record<string, unknown> }>,
-): string {
+function makePluginDir(name: string): string {
 	const dir = makeTempDir(name);
 	const manifest = {
 		$schema: VALID_SCHEMA,
 		name,
 		version: "1.0.0",
 		description: `Test plugin ${name}`,
-		...(contributions
-			? {
-					extensions: {
-						"io.hyperidle": { contributions },
-					},
-				}
-			: {}),
 	};
 	writeFileSync(join(dir, "plugin.json"), JSON.stringify(manifest), "utf8");
 	return dir;
 }
 
 function makeGitRepo(pluginDir: string): string {
-	// Create a bare git repo from the plugin dir and return a file:// URL
+	// Create a repo from the plugin dir and return a file:// URL
 	const repoDir = makeTempDir("repo");
 	execFileSync("git", ["init", repoDir], { stdio: "pipe" });
 	execFileSync("git", ["-C", repoDir, "config", "user.email", "test@test.com"], { stdio: "pipe" });
 	execFileSync("git", ["-C", repoDir, "config", "user.name", "Test"], { stdio: "pipe" });
-	// Copy plugin.json into the repo dir
 	const manifestContent = readFileSync(join(pluginDir, "plugin.json"), "utf8");
 	writeFileSync(join(repoDir, "plugin.json"), manifestContent, "utf8");
 	execFileSync("git", ["-C", repoDir, "add", "."], { stdio: "pipe" });
@@ -97,14 +82,12 @@ function makeZip(pluginDir: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// AC1: Install from folder, git URL, zip
+// Install from folder, repository URL, zip
 // ---------------------------------------------------------------------------
 
-describe("AC1 — install from folder", () => {
-	test("installs from a folder and writes plugins + defaults rows", async ({ db }) => {
-		const pluginDir = makePluginDir("test-plugin-folder", [
-			{ kind: "agent", key: "my-agent", value: { name: "My Agent" } },
-		]);
+describe("install from a folder", () => {
+	test("installs from a folder and writes the plugins row", async ({ db }) => {
+		const pluginDir = makePluginDir("test-plugin-folder");
 
 		const result = await installPlugin(db, {
 			source: { kind: "folder", path: pluginDir },
@@ -117,27 +100,14 @@ describe("AC1 — install from folder", () => {
 		expect(result.plugin.id).toBe("test-plugin-folder");
 		expect(result.plugin.state).toBe("enabled");
 
-		// plugins row exists
 		const pluginRows = await db.select().from(plugins).where(eq(plugins.id, "test-plugin-folder"));
 		expect(pluginRows).toHaveLength(1);
-
-		// defaults row exists with namespaced key
-		const defaultRows = await db
-			.select()
-			.from(pluginConfigurationDefaults)
-			.where(eq(pluginConfigurationDefaults.pluginId, "test-plugin-folder"));
-		expect(defaultRows).toHaveLength(1);
-		expect(defaultRows[0]?.key).toBe("test-plugin-folder/my-agent");
-		expect(defaultRows[0]?.kind).toBe("agent");
 	});
 });
 
-describe("AC1 — install from git URL", () => {
-	test("installs from a file:// git URL and writes rows", async ({ db }) => {
-		const pluginDir = makePluginDir("test-plugin-git", [
-			{ kind: "skill", key: "my-skill", value: { description: "My Skill" } },
-		]);
-		const gitUrl = makeGitRepo(pluginDir);
+describe("install from a repository URL", () => {
+	test("installs from a file:// repository URL and writes the plugins row", async ({ db }) => {
+		const gitUrl = makeGitRepo(makePluginDir("test-plugin-repo"));
 
 		const result = await installPlugin(db, {
 			source: { kind: "git", url: gitUrl },
@@ -146,24 +116,15 @@ describe("AC1 — install from git URL", () => {
 
 		expect(result.ok).toBe(true);
 		if (!result.ok) return;
-
-		expect(result.plugin.id).toBe("test-plugin-git");
-
-		const defaultRows = await db
-			.select()
-			.from(pluginConfigurationDefaults)
-			.where(eq(pluginConfigurationDefaults.pluginId, "test-plugin-git"));
-		expect(defaultRows).toHaveLength(1);
-		expect(defaultRows[0]?.key).toBe("test-plugin-git/my-skill");
+		expect(result.plugin.id).toBe("test-plugin-repo");
+		const pluginRows = await db.select().from(plugins).where(eq(plugins.id, "test-plugin-repo"));
+		expect(pluginRows).toHaveLength(1);
 	});
 });
 
-describe("AC1 — install from zip", () => {
-	test("installs from a zip file and writes rows", async ({ db }) => {
-		const pluginDir = makePluginDir("test-plugin-zip", [
-			{ kind: "tool", key: "my-tool", value: { description: "My Tool" } },
-		]);
-		const zipPath = makeZip(pluginDir);
+describe("install from a zip", () => {
+	test("installs from a zip file and writes the plugins row", async ({ db }) => {
+		const zipPath = makeZip(makePluginDir("test-plugin-zip"));
 
 		const result = await installPlugin(db, {
 			source: { kind: "zip", path: zipPath },
@@ -172,23 +133,17 @@ describe("AC1 — install from zip", () => {
 
 		expect(result.ok).toBe(true);
 		if (!result.ok) return;
-
 		expect(result.plugin.id).toBe("test-plugin-zip");
-
-		const defaultRows = await db
-			.select()
-			.from(pluginConfigurationDefaults)
-			.where(eq(pluginConfigurationDefaults.pluginId, "test-plugin-zip"));
-		expect(defaultRows).toHaveLength(1);
-		expect(defaultRows[0]?.key).toBe("test-plugin-zip/my-tool");
+		const pluginRows = await db.select().from(plugins).where(eq(plugins.id, "test-plugin-zip"));
+		expect(pluginRows).toHaveLength(1);
 	});
 });
 
 // ---------------------------------------------------------------------------
-// AC2: Scope recorded and visible
+// Scope recorded and visible
 // ---------------------------------------------------------------------------
 
-describe("AC2 — scope", () => {
+describe("scope", () => {
 	test("factory scope is recorded and returned by listInstalledPlugins", async ({ db }) => {
 		const pluginDir = makePluginDir("scope-factory");
 		await installPlugin(db, {
@@ -229,10 +184,10 @@ describe("AC2 — scope", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC3: Manifest validation
+// Manifest validation
 // ---------------------------------------------------------------------------
 
-describe("AC3 — manifest validation", () => {
+describe("manifest validation", () => {
 	test("rejects manifest with wrong $schema — reason includes expected URL", async ({ db }) => {
 		const dir = makeTempDir("bad-schema");
 		writeFileSync(
@@ -299,159 +254,28 @@ describe("AC3 — manifest validation", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC5: Contributions appear as editable config; user override wins
+// Disable / enable / remove / reinstall
 // ---------------------------------------------------------------------------
 
-describe("AC5 — editable configuration", () => {
-	test("contribution appears in listConfiguration after install", async ({ db }) => {
-		const pluginDir = makePluginDir("config-plugin", [
-			{ kind: "agent", key: "config-agent", value: { name: "Config Agent" } },
-		]);
+describe("disable, enable, remove, reinstall", () => {
+	test("disable then enable flips the plugin's state", async ({ db }) => {
+		const pluginDir = makePluginDir("toggle-plugin");
 		await installPlugin(db, {
 			source: { kind: "folder", path: pluginDir },
 			scope: { kind: "factory", teamId: null },
 		});
 
-		const items = await listConfiguration(db, { kind: "agent" });
-		const key = pluginContributionKey("config-plugin", "config-agent");
-		const item = items.find((i) => i.key === key);
+		await disablePlugin(db, "toggle-plugin");
+		let list = await listInstalledPlugins(db);
+		expect(list.find((p) => p.id === "toggle-plugin")?.state).toBe("disabled");
 
-		expect(item).toBeDefined();
-		expect(item?.activeValue).toMatchObject({ name: "Config Agent" });
-		expect(item?.origin.pluginId).toBe("config-plugin");
-		expect(item?.valueSource).toBe("default");
+		await enablePlugin(db, "toggle-plugin");
+		list = await listInstalledPlugins(db);
+		expect(list.find((p) => p.id === "toggle-plugin")?.state).toBe("enabled");
 	});
 
-	test("user override wins over plugin default", async ({ db }) => {
-		const pluginDir = makePluginDir("override-plugin", [
-			{ kind: "agent", key: "override-agent", value: { name: "Default Name" } },
-		]);
-		await installPlugin(db, {
-			source: { kind: "folder", path: pluginDir },
-			scope: { kind: "factory", teamId: null },
-		});
-
-		const key = pluginContributionKey("override-plugin", "override-agent");
-		await writeConfigurationOverride(db, {
-			kind: "agent",
-			key,
-			value: { name: "User Name" },
-		});
-
-		const items = await listConfiguration(db, { kind: "agent" });
-		const item = items.find((i) => i.key === key);
-
-		expect(item).toBeDefined();
-		expect(item?.activeValue).toMatchObject({ name: "User Name" });
-		expect(item?.userValue).toMatchObject({ name: "User Name" });
-		expect(item?.defaultValue).toMatchObject({ name: "Default Name" });
-	});
-});
-
-// ---------------------------------------------------------------------------
-// AC6: Detached + restore
-// ---------------------------------------------------------------------------
-
-describe("AC6 — detached and restore", () => {
-	test("contribution is detached after user edit", async ({ db }) => {
-		const pluginDir = makePluginDir("detach-plugin", [
-			{ kind: "agent", key: "detach-agent", value: { name: "Original" } },
-		]);
-		await installPlugin(db, {
-			source: { kind: "folder", path: pluginDir },
-			scope: { kind: "factory", teamId: null },
-		});
-
-		const key = pluginContributionKey("detach-plugin", "detach-agent");
-		await writeConfigurationOverride(db, {
-			kind: "agent",
-			key,
-			value: { name: "Edited" },
-		});
-
-		const items = await listConfiguration(db, { kind: "agent" });
-		const item = items.find((i) => i.key === key);
-
-		// Detached = valueSource is user_override (not default)
-		expect(item?.valueSource).toBe("user_override");
-	});
-
-	test("restoring returns to default — no longer detached", async ({ db }) => {
-		const pluginDir = makePluginDir("restore-plugin", [
-			{ kind: "agent", key: "restore-agent", value: { name: "Original" } },
-		]);
-		await installPlugin(db, {
-			source: { kind: "folder", path: pluginDir },
-			scope: { kind: "factory", teamId: null },
-		});
-
-		const key = pluginContributionKey("restore-plugin", "restore-agent");
-		await writeConfigurationOverride(db, {
-			kind: "agent",
-			key,
-			value: { name: "Edited" },
-		});
-
-		await restorePluginContribution(db, {
-			pluginName: "restore-plugin",
-			manifestKey: "restore-agent",
-			kind: "agent",
-		});
-
-		const items = await listConfiguration(db, { kind: "agent" });
-		const item = items.find((i) => i.key === key);
-
-		expect(item?.valueSource).toBe("default");
-		expect(item?.activeValue).toMatchObject({ name: "Original" });
-	});
-});
-
-// ---------------------------------------------------------------------------
-// AC7: Disable / enable / remove
-// ---------------------------------------------------------------------------
-
-describe("AC7 — disable, enable, remove", () => {
-	test("disabling stops contributions from applying (active=false)", async ({ db }) => {
-		const pluginDir = makePluginDir("disable-plugin", [
-			{ kind: "agent", key: "dis-agent", value: { name: "Disabled Agent" } },
-		]);
-		await installPlugin(db, {
-			source: { kind: "folder", path: pluginDir },
-			scope: { kind: "factory", teamId: null },
-		});
-
-		await disablePlugin(db, "disable-plugin");
-
-		const items = await listConfiguration(db, { kind: "agent" });
-		const key = pluginContributionKey("disable-plugin", "dis-agent");
-		const item = items.find((i) => i.key === key);
-
-		expect(item).toBeDefined();
-		// active=false when plugin disabled and no user override
-		expect(item?.active).toBe(false);
-	});
-
-	test("re-enabling makes contributions active again", async ({ db }) => {
-		const pluginDir = makePluginDir("reenable-plugin", [
-			{ kind: "agent", key: "re-agent", value: { name: "Agent" } },
-		]);
-		await installPlugin(db, {
-			source: { kind: "folder", path: pluginDir },
-			scope: { kind: "factory", teamId: null },
-		});
-		await disablePlugin(db, "reenable-plugin");
-		await enablePlugin(db, "reenable-plugin");
-
-		const items = await listConfiguration(db, { kind: "agent" });
-		const key = pluginContributionKey("reenable-plugin", "re-agent");
-		const item = items.find((i) => i.key === key);
-		expect(item?.active).toBe(true);
-	});
-
-	test("removing clears defaults and marks plugin removed", async ({ db }) => {
-		const pluginDir = makePluginDir("remove-plugin", [
-			{ kind: "agent", key: "rem-agent", value: { name: "Removed Agent" } },
-		]);
+	test("removing marks the plugin removed and drops it from the list", async ({ db }) => {
+		const pluginDir = makePluginDir("remove-plugin");
 		await installPlugin(db, {
 			source: { kind: "folder", path: pluginDir },
 			scope: { kind: "factory", teamId: null },
@@ -459,152 +283,21 @@ describe("AC7 — disable, enable, remove", () => {
 
 		await removePlugin(db, "remove-plugin");
 
-		// defaults deleted
-		const defaultRows = await db
-			.select()
-			.from(pluginConfigurationDefaults)
-			.where(eq(pluginConfigurationDefaults.pluginId, "remove-plugin"));
-		expect(defaultRows).toHaveLength(0);
-
-		// plugin row has state=removed
 		const pluginRows = await db.select().from(plugins).where(eq(plugins.id, "remove-plugin"));
 		expect(pluginRows[0]?.state).toBe("removed");
-
-		// not in listInstalledPlugins
 		const list = await listInstalledPlugins(db);
 		expect(list.find((p) => p.id === "remove-plugin")).toBeUndefined();
 	});
 
-	test("remove with user override — override survives with defaultId=null", async ({ db }) => {
-		const pluginDir = makePluginDir("remove-override-plugin", [
-			{ kind: "agent", key: "rov-agent", value: { name: "Agent" } },
-		]);
+	test("reinstall updates the version", async ({ db }) => {
+		const pluginDir = makePluginDir("reinstall-plugin");
 		await installPlugin(db, {
 			source: { kind: "folder", path: pluginDir },
 			scope: { kind: "factory", teamId: null },
 		});
-
-		const key = pluginContributionKey("remove-override-plugin", "rov-agent");
-		await writeConfigurationOverride(db, {
-			kind: "agent",
-			key,
-			value: { name: "User Value" },
-		});
-
-		await removePlugin(db, "remove-override-plugin");
-
-		// The user's override should still exist but now be user-owned (defaultId=null)
-		const items = await listConfiguration(db, { kind: "agent" });
-		const item = items.find((i) => i.key === key);
-		// The override is now user-owned (orphaned from plugin)
-		expect(item).toBeDefined();
-		expect(item?.valueSource).toBe("user_owned");
-		expect(item?.activeValue).toMatchObject({ name: "User Value" });
-	});
-});
-
-// ---------------------------------------------------------------------------
-// AC8: Two plugins with same manifest key — no collision
-// ---------------------------------------------------------------------------
-
-describe("AC8 — two plugins with same manifest key", () => {
-	test("keys are namespaced — no override collision", async ({ db }) => {
-		const pluginADir = makePluginDir("plugin-a", [
-			{ kind: "agent", key: "shared-agent", value: { name: "From A" } },
-		]);
-		const pluginBDir = makePluginDir("plugin-b", [
-			{ kind: "agent", key: "shared-agent", value: { name: "From B" } },
-		]);
-
-		await installPlugin(db, {
-			source: { kind: "folder", path: pluginADir },
-			scope: { kind: "factory", teamId: null },
-		});
-		await installPlugin(db, {
-			source: { kind: "folder", path: pluginBDir },
-			scope: { kind: "factory", teamId: null },
-		});
-
-		const keyA = pluginContributionKey("plugin-a", "shared-agent");
-		const keyB = pluginContributionKey("plugin-b", "shared-agent");
-		expect(keyA).not.toBe(keyB);
-
-		// User edits plugin-a's contribution
-		await writeConfigurationOverride(db, {
-			kind: "agent",
-			key: keyA,
-			value: { name: "User A" },
-		});
-
-		const items = await listConfiguration(db, { kind: "agent" });
-		const itemA = items.find((i) => i.key === keyA);
-		const itemB = items.find((i) => i.key === keyB);
-
-		// Plugin A is detached (user override)
-		expect(itemA?.valueSource).toBe("user_override");
-		expect(itemA?.activeValue).toMatchObject({ name: "User A" });
-
-		// Plugin B is unaffected (still default)
-		expect(itemB?.valueSource).toBe("default");
-		expect(itemB?.activeValue).toMatchObject({ name: "From B" });
-	});
-});
-
-// ---------------------------------------------------------------------------
-// AC9: builtin reserved
-// ---------------------------------------------------------------------------
-
-describe("AC9 — builtin reserved", () => {
-	test("builtin is not in listInstalledPlugins", async ({ db }) => {
-		const list = await listInstalledPlugins(db);
-		expect(list.find((p) => p.id === "builtin")).toBeUndefined();
-	});
-
-	test("cannot install a plugin with name 'builtin'", async ({ db }) => {
-		const dir = makeTempDir("builtin-attempt");
-		writeFileSync(
-			join(dir, "plugin.json"),
-			JSON.stringify({ $schema: VALID_SCHEMA, name: "builtin" }),
-			"utf8",
-		);
-		const result = await installPlugin(db, {
-			source: { kind: "folder", path: dir },
-			scope: { kind: "factory", teamId: null },
-		});
-		expect(result.ok).toBe(false);
-		if (!result.ok) {
-			expect(result.reason).toMatch(/reserved/i);
-		}
-	});
-});
-
-// ---------------------------------------------------------------------------
-// AC10: Reinstall (update)
-// ---------------------------------------------------------------------------
-
-describe("AC10 — reinstall updates defaults, leaves detached alone", () => {
-	test("reinstall updates version and default values", async ({ db }) => {
-		const pluginDir = makePluginDir("reinstall-plugin", [
-			{ kind: "agent", key: "the-agent", value: { name: "v1" } },
-		]);
-		await installPlugin(db, {
-			source: { kind: "folder", path: pluginDir },
-			scope: { kind: "factory", teamId: null },
-		});
-
-		// Update manifest in-place for v2
 		writeFileSync(
 			join(pluginDir, "plugin.json"),
-			JSON.stringify({
-				$schema: VALID_SCHEMA,
-				name: "reinstall-plugin",
-				version: "2.0.0",
-				extensions: {
-					"io.hyperidle": {
-						contributions: [{ kind: "agent", key: "the-agent", value: { name: "v2" } }],
-					},
-				},
-			}),
+			JSON.stringify({ $schema: VALID_SCHEMA, name: "reinstall-plugin", version: "2.0.0" }),
 			"utf8",
 		);
 
@@ -615,56 +308,97 @@ describe("AC10 — reinstall updates defaults, leaves detached alone", () => {
 		expect(result.ok).toBe(true);
 		if (!result.ok) return;
 		expect(result.plugin.version).toBe("2.0.0");
-
-		const key = pluginContributionKey("reinstall-plugin", "the-agent");
-		const items = await listConfiguration(db, { kind: "agent" });
-		const item = items.find((i) => i.key === key);
-		expect(item?.activeValue).toMatchObject({ name: "v2" });
 	});
+});
 
-	test("detached item stays detached after reinstall", async ({ db }) => {
-		const pluginDir = makePluginDir("detach-reinstall", [
-			{ kind: "agent", key: "d-agent", value: { name: "v1" } },
-		]);
-		await installPlugin(db, {
+// ---------------------------------------------------------------------------
+// MCP servers — read from the install's own folder when a session asks
+// ---------------------------------------------------------------------------
+
+function makeMcpPluginDir(name: string, servers: Record<string, unknown>): string {
+	const dir = makePluginDir(name);
+	writeFileSync(join(dir, "mcp.json"), JSON.stringify(servers), "utf8");
+	return dir;
+}
+
+describe("MCP servers a session reads", () => {
+	test("an installed plugin's mcp.json reaches the session from its install folder", async ({
+		db,
+	}) => {
+		const pluginsBaseDir = makeTempDir("plugins-base");
+		const pluginDir = makeMcpPluginDir("mcp-plugin", {
+			bridge: { command: "${PLUGIN_ROOT}/bin/bridge", args: ["--stdio"] },
+		});
+		const result = await installPlugin(db, {
 			source: { kind: "folder", path: pluginDir },
 			scope: { kind: "factory", teamId: null },
+			pluginsBaseDir,
+		});
+		expect(result.ok).toBe(true);
+		const installPath = join(pluginsBaseDir, "mcp-plugin");
+
+		const rows = await getPluginMcpContributions(db, null);
+		expect(rows.map(({ key, installPath }) => ({ key, installPath }))).toEqual([
+			{ key: "mcp-plugin/bridge", installPath },
+		]);
+		expect(JSON.parse(rows[0]?.defaultValueJson ?? "null")).toEqual({
+			command: "${PLUGIN_ROOT}/bin/bridge",
+			args: ["--stdio"],
 		});
 
-		const key = pluginContributionKey("detach-reinstall", "d-agent");
-		await writeConfigurationOverride(db, {
-			kind: "agent",
-			key,
-			value: { name: "User value" },
-		});
-
-		// Reinstall with v2
+		// The install folder is the source of truth: a server added to it
+		// after install reaches the next session without a reinstall.
 		writeFileSync(
-			join(pluginDir, "plugin.json"),
+			join(installPath, "mcp.json"),
 			JSON.stringify({
-				$schema: VALID_SCHEMA,
-				name: "detach-reinstall",
-				version: "2.0.0",
-				extensions: {
-					"io.hyperidle": {
-						contributions: [{ kind: "agent", key: "d-agent", value: { name: "v2" } }],
-					},
-				},
+				bridge: { command: "${PLUGIN_ROOT}/bin/bridge", args: ["--stdio"] },
+				search: { url: "https://search.example/mcp" },
 			}),
 			"utf8",
 		);
+		const after = await getPluginMcpContributions(db, null);
+		expect(after.map((r) => r.key).sort()).toEqual(["mcp-plugin/bridge", "mcp-plugin/search"]);
+	});
+
+	test("a team install's servers reach only that team; disabled and removed installs none", async ({
+		db,
+	}) => {
+		const pluginsBaseDir = makeTempDir("plugins-base");
+		const teamDir = makeMcpPluginDir("team-mcp", { tool: { url: "https://team.example/mcp" } });
+		await installPlugin(db, {
+			source: { kind: "folder", path: teamDir },
+			scope: { kind: "team", teamId: "team-a" },
+			pluginsBaseDir,
+		});
+		const factoryDir = makeMcpPluginDir("factory-mcp", {
+			tool: { url: "https://all.example/mcp" },
+		});
+		await installPlugin(db, {
+			source: { kind: "folder", path: factoryDir },
+			scope: { kind: "factory", teamId: null },
+			pluginsBaseDir,
+		});
+
+		const keysFor = async (teamId: string | null) =>
+			(await getPluginMcpContributions(db, teamId)).map((r) => r.key).sort();
+
+		expect(await keysFor("team-a")).toEqual(["factory-mcp/tool", "team-mcp/tool"]);
+		expect(await keysFor("team-b")).toEqual(["factory-mcp/tool"]);
+		expect(await keysFor(null)).toEqual(["factory-mcp/tool"]);
+
+		await disablePlugin(db, "team-mcp@team-a");
+		expect(await keysFor("team-a")).toEqual(["factory-mcp/tool"]);
+
+		await removePlugin(db, "factory-mcp");
+		expect(await keysFor("team-a")).toEqual([]);
+	});
+
+	test("an install with no folder contributes no servers", async ({ db }) => {
+		const pluginDir = makeMcpPluginDir("folderless-mcp", { tool: { url: "https://x.example" } });
 		await installPlugin(db, {
 			source: { kind: "folder", path: pluginDir },
 			scope: { kind: "factory", teamId: null },
 		});
-
-		const items = await listConfiguration(db, { kind: "agent" });
-		const item = items.find((i) => i.key === key);
-
-		// User value still wins
-		expect(item?.valueSource).toBe("user_override");
-		expect(item?.activeValue).toMatchObject({ name: "User value" });
-		// Default updated
-		expect(item?.defaultValue).toMatchObject({ name: "v2" });
+		expect(await getPluginMcpContributions(db, null)).toEqual([]);
 	});
 });

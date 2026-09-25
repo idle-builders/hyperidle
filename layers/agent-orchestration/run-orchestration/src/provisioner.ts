@@ -706,10 +706,12 @@ function expandMcpConfigValue(val: unknown, pluginRoot: string): unknown {
  * AC6: plugin mcp.json merged WITH the tool-bridge entry already written above.
  * AC7: scope filtering ensures team-scoped plugins only reach matching team sessions.
  *
- * @lore BA9b governance: plugins/pluginConfigurationDefaults are owned by settings
- * (core-api layer). run-orchestration (agent-orchestration layer) cannot query them
- * directly. The data arrives through PluginMcpContributionsPort, wired by the
- * application via CoreApiBoot.pluginMcpContributions → ApplicationProvisionSessionDeps.
+ * @lore BA9b governance: the `plugins` table is owned by settings (core-api layer),
+ * which reads each install's `mcp.json` from its folder when asked.
+ * run-orchestration (agent-orchestration layer) cannot query it directly. The data
+ * arrives through PluginMcpContributionsPort, wired by each application (desktop
+ * and remote server alike) via CoreApiBoot.pluginMcpContributions →
+ * ApplicationProvisionSessionDeps.
  */
 /** @for-testing exported so the unit test can verify expansion + routing without copy-pasting helpers. */
 export async function mergePluginMcpContributions(
@@ -831,8 +833,8 @@ async function captureMountedFilesystems(
 
 /**
  * @lore BA9b: Fetches plugin MCP server contributions scoped to a team.
- * Defined here as an opaque port — settings owns the tables, so provisioner
- * cannot query them directly. The application composition root wires the
+ * Defined here as an opaque port — settings owns the plugin installs, so
+ * provisioner cannot query them directly. The application composition root wires the
  * implementation (from @hyperidle/settings via @hyperidle/core-api's boot).
  */
 export interface PluginMcpContributionsPort {

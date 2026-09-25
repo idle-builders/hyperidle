@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { AGENT_BEHAVIOR_CONFIG_KINDS } from "../agent-behavior-config.js";
 import { CONNECTION_AUTH_SOURCES, CONNECTION_HEALTH, HELD_AUTH_SOURCES } from "../connection.js";
 import { MODEL_PROVIDERS } from "../model-provider.js";
 import { AGENT_CATEGORIES, HARNESS_TYPES, ORG_EDGE_MECHANISMS } from "../types.js";
@@ -16,7 +15,7 @@ import { DOCUMENT_SLOTS } from "./document.js";
  * exact `input`/invariant shape the server runs. The pipeline item that
  * planned this module is referenced here, in this one lore block, because
  * the shapes below reproduce a lot of pre-existing surface (harness
- * descriptors, folders, connections, behaviour) verbatim and a future reader
+ * descriptors, folders, connections) verbatim and a future reader
  * asking "why does this one file carry so much" needs the pointer; no other
  * comment, test or commit in this change names it.
  */
@@ -135,10 +134,10 @@ export const searchUsers: ActionDeclaration<SearchUsersInput, UserRow[]> = {
 
 // ---------------------------------------------------------------------------
 // open_user. The supporting views (harness, folder,
-// connection, behaviour, inbox) are declared as zod shapes in this file so
+// connection, inbox) are declared as zod shapes in this file so
 // the wire contract is self-contained; the TS interfaces this mirrors
-// (`HarnessCapabilityDescriptor`, `ServiceConnectionView`, `Filesystem`,
-// `AgentBehaviorConfigView`) keep their own server-side lives until the
+// (`HarnessCapabilityDescriptor`, `ServiceConnectionView`, `Filesystem`)
+// keep their own server-side lives until the
 // module that actually reads and writes through this door replaces their
 // callers.
 // ---------------------------------------------------------------------------
@@ -245,54 +244,6 @@ export const FolderViewSchema = z.object({
 });
 export type FolderView = z.infer<typeof FolderViewSchema>;
 
-const BehaviourOriginSchema = z.object({
-	type: z.enum(["builtin", "plugin", "user"]),
-	label: z.string(),
-	state: z.enum(["enabled", "disabled", "removed", "user_owned"]),
-});
-
-const BehaviourFieldOptionSchema = z.object({ value: z.string(), label: z.string() });
-
-const BehaviourEditableFieldSchema = z.object({
-	id: z.string(),
-	label: z.string(),
-	kind: z.enum(["text", "textarea", "select", "toggle", "url"]),
-	value: z.union([z.string(), z.boolean(), z.null()]),
-	options: z.array(BehaviourFieldOptionSchema).optional(),
-	placeholder: z.string().optional(),
-	required: z.boolean().optional(),
-	maxLength: z.number().optional(),
-	helpText: z.string().optional(),
-});
-
-const BehaviourLinkSchema = z.object({
-	target: z.enum([
-		"settings-agents",
-		"settings-agent-backends",
-		"settings-connections",
-		"settings-notifications",
-	]),
-	label: z.string(),
-	href: z.string(),
-});
-
-/** Mirrors `AgentBehaviorConfigView` as a zod shape. */
-export const BehaviourEntrySchema = z.object({
-	id: z.string(),
-	kind: z.enum(AGENT_BEHAVIOR_CONFIG_KINDS),
-	name: z.string(),
-	description: z.string().optional(),
-	origin: BehaviourOriginSchema,
-	valueSource: z.enum(["default", "user_override", "user_owned", "fallback"]),
-	activeSummary: z.string(),
-	defaultSummary: z.string().optional(),
-	statusLabel: z.string(),
-	active: z.boolean(),
-	editableFields: z.array(BehaviourEditableFieldSchema),
-	links: z.array(BehaviourLinkSchema).optional(),
-});
-export type BehaviourEntry = z.infer<typeof BehaviourEntrySchema>;
-
 export const SubscriptionViewSchema = z.object({
 	id: z.string(),
 	event: z.enum(OBJECT_EVENTS).nullable(),
@@ -353,8 +304,6 @@ export const UserViewSchema = z.object({
 			inherited: z.array(ConnectionViewSchema),
 		})
 		.nullable(),
-	/** Self view; install-wide values underneath. */
-	behaviour: z.array(BehaviourEntrySchema).nullable(),
 	/** Self only, newest 50. */
 	inbox: z.array(InboxRowViewSchema).nullable(),
 	/**
@@ -481,13 +430,6 @@ const EditUserInboxSchema = z
 	})
 	.strict();
 
-const EditUserBehaviourEntrySchema = z
-	.object({
-		id: z.string().min(1),
-		fields: z.record(z.string(), z.union([z.string(), z.boolean(), z.null()])),
-	})
-	.strict();
-
 export const EditUserInputSchema = z
 	.object({
 		/** Absent ⇒ create. Present ⇒ edit. */
@@ -514,7 +456,6 @@ export const EditUserInputSchema = z
 		connections: EditUserConnectionsSchema.optional(),
 		subscriptions: EditUserSubscriptionsSchema.optional(),
 		inbox: EditUserInboxSchema.optional(),
-		behaviour: z.array(EditUserBehaviourEntrySchema).optional(),
 		redetectHarnesses: z.literal(true).optional(),
 	})
 	.strict();

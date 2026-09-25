@@ -26,10 +26,8 @@ import type {
 import { derivePrimaryHarness } from "@hyperidle/harness-capability";
 import {
 	createPlatformActions,
-	listAgentBehaviorConfiguration,
 	markDetached,
 	type PlatformActionsDeps,
-	patchAgentBehaviorConfiguration,
 	readServerConfig,
 } from "@hyperidle/settings";
 import { createTaskActions, type TaskActionsDeps } from "@hyperidle/task";
@@ -358,8 +356,8 @@ function toHarnessDescriptors(
  * assignment is where that mirror meets the real thing.
  * `editDocument`/`searchDocuments` are extracted from the already-built
  * `documentActions`, exactly like `platform`'s own deps above;
- * `behaviour`/`readServerConfig` bind to `@hyperidle/settings`'s own typed
- * functions, because `@hyperidle/user` may not import that sibling Service
+ * `readServerConfig` binds to `@hyperidle/settings`'s own typed
+ * function, because `@hyperidle/user` may not import that sibling Service
  * either. `harnesses` is absent when no adapter pool is wired (a
  * composition without agent execution) — `open_user`'s `runsOn` then answers
  * `[]`, the same "no pool" shape `routes/harnesses.ts` itself never mounts
@@ -390,10 +388,6 @@ function buildUserActionsDeps(
 				}
 			: {}),
 		readServerConfig: (db) => readServerConfig(db),
-		behaviour: {
-			list: (db, options) => listAgentBehaviorConfiguration(db, options),
-			patch: (db, input) => patchAgentBehaviorConfiguration(db, input),
-		},
 		// @lore BC5 T11: restored from the deleted `agent-profile.ts` route —
 		// same `computeApprovalRate` call, same 30-day window, same 10-verdict cap.
 		reviewTrackRecord: async (db, agentId) => {

@@ -18,7 +18,6 @@ import {
 	changes,
 	documents,
 	type HyperIdleDb,
-	pluginConfigurationDefaults,
 	plugins,
 	subscriptions,
 	teams,
@@ -225,13 +224,17 @@ function typedActions(deps: PlatformActionsDeps): {
 }
 
 /** A minimal plugin: one agent (with an identity file), one subscription
- * (with a prompt), one skill, and one `tool`-kind configuration
- * contribution — enough to exercise every phase of the lifecycle. */
+ * (with a prompt), one skill, and one MCP server in `mcp.json` — enough to
+ * exercise every phase of the lifecycle. */
 function makePlugin(pluginId: string): string {
 	const dir = mkdtempSync(join(tmpdir(), "platform-actions-test-"));
 	mkdirSync(join(dir, "skills", "sweep"), { recursive: true });
 	writeFileSync(join(dir, "skills", "sweep", "SKILL.md"), "# Sweep\n\nDo the sweep.");
 	writeFileSync(join(dir, "identity.md"), "# You are Builder\n\nYou build things.");
+	writeFileSync(
+		join(dir, "mcp.json"),
+		JSON.stringify({ tracker: { url: "https://t.example/mcp" } }),
+	);
 	writeFileSync(
 		join(dir, "plugin.json"),
 		JSON.stringify({
@@ -258,7 +261,6 @@ function makePlugin(pluginId: string): string {
 							prompt: "Sweep the stale items.",
 						},
 					],
-					contributions: [{ kind: "tool", key: "max-items", value: { limit: 10 } }],
 				},
 			},
 		}),
@@ -277,7 +279,9 @@ describe("createPlatformActions", () => {
 
 		test("lists an installed plugin with its contributions", async ({ db }) => {
 			await seedFounder(db);
-			const { search, edit } = typedActions(buildDeps());
+			const { search, edit } = typedActions(
+				buildDeps({ pluginsBaseDir: mkdtempSync(join(tmpdir(), "platform-actions-store-")) }),
+			);
 			const dir = makePlugin("search-under-test");
 			const installed = await edit.run(ctxFor(db), {
 				source: { kind: "folder", path: dir, scope: { kind: "factory", teamId: null } },
@@ -293,7 +297,10 @@ describe("createPlatformActions", () => {
 			expect(kinds).toContain("agent");
 			expect(kinds).toContain("subscription");
 			expect(kinds).toContain("document");
-			expect(kinds).toContain("tool");
+			expect(plugin?.contributions.find((c) => c.kind === "mcp_server")).toMatchObject({
+				entityId: "search-under-test/tracker",
+				label: "tracker",
+			});
 		});
 
 		test("filters by state and by text", async ({ db }) => {
@@ -539,29 +546,6 @@ describe("createPlatformActions", () => {
 			expect(result.problems[0]?.code).toBe("no_install_path");
 		});
 
-		test("a configuration-default contribution restores by clearing the override", async ({
-			db,
-		}) => {
-			await seedFounder(db);
-			const { edit } = typedActions(buildDeps());
-			const install = await edit.run(ctxFor(db), {
-				source: {
-					kind: "folder",
-					path: makePlugin("config-restore-under-test"),
-					scope: { kind: "factory", teamId: null },
-				},
-			});
-			if (!install.ok) throw new Error("install failed");
-			const toolContribution = install.data.contributions.find((c) => c.kind === "tool");
-			expect(toolContribution, "the tool contribution exists").toBeDefined();
-
-			const result = await edit.run(ctxFor(db), {
-				id: "config-restore-under-test",
-				restore: { contribution: toolContribution?.key as string },
-			});
-			expect(result.ok).toBe(true);
-		});
-
 		test("restoring a contribution the plugin never made is unknown_contribution", async ({
 			db,
 		}) => {
@@ -590,14 +574,6 @@ describe("createPlatformActions", () => {
 		test("an id that was never installed is unknown_plugin", async ({ db }) => {
 			const { edit } = typedActions(buildDeps());
 			const result = await edit.run(ctxFor(db), { id: "never-installed", state: "enabled" });
-			expect(result.ok).toBe(false);
-			if (result.ok) throw new Error("expected refusal");
-			expect(result.problems[0]?.code).toBe("unknown_plugin");
-		});
-
-		test("the builtin plugin is unknown_plugin, never a live row", async ({ db }) => {
-			const { edit } = typedActions(buildDeps());
-			const result = await edit.run(ctxFor(db), { id: "builtin", state: "enabled" });
 			expect(result.ok).toBe(false);
 			if (result.ok) throw new Error("expected refusal");
 			expect(result.problems[0]?.code).toBe("unknown_plugin");
@@ -632,34 +608,6 @@ describe("createPlatformActions", () => {
 			expect(readdirSync(outside)).toEqual(["keep.txt"]);
 			expect(existsSync(join(outside, "plugin.json"))).toBe(false);
 		});
-
-		test("two teams' installs of a plugin with configuration defaults each keep their own defaults", async ({
-			db,
-		}) => {
-			await seedFounder(db);
-			await db.insert(teams).values([
-				{ id: "team-a", name: "Team A", createdAt: NOW },
-				{ id: "team-b", name: "Team B", createdAt: NOW },
-			]);
-			const { edit } = typedActions(buildDeps());
-			const dir = makePlugin("with-defaults");
-
-			for (const teamId of ["team-a", "team-b"]) {
-				const result = await edit.run(ctxFor(db), {
-					source: { kind: "folder", path: dir, scope: { kind: "team", teamId } },
-				});
-				if (!result.ok) throw new Error(`${teamId}: ${JSON.stringify(result.problems)}`);
-			}
-
-			const defaults = await db
-				.select()
-				.from(pluginConfigurationDefaults)
-				.where(eq(pluginConfigurationDefaults.key, "with-defaults/max-items"));
-			expect(defaults.map((d) => d.pluginId).sort()).toEqual([
-				"with-defaults@team-a",
-				"with-defaults@team-b",
-			]);
-		});
 	});
 
 	describe("edit_plugin — pure invariants surface through run", () => {
@@ -669,14 +617,6 @@ describe("createPlatformActions", () => {
 			expect(result.ok).toBe(false);
 			if (result.ok) throw new Error("expected refusal");
 			expect(result.problems.some((p) => p.code === "one_change")).toBe(true);
-		});
-
-		test("removing the builtin plugin is builtin_locked", async ({ db }) => {
-			const { edit } = typedActions(buildDeps());
-			const result = await edit.run(ctxFor(db), { id: "builtin", remove: true });
-			expect(result.ok).toBe(false);
-			if (result.ok) throw new Error("expected refusal");
-			expect(result.problems.some((p) => p.code === "builtin_locked")).toBe(true);
 		});
 	});
 });

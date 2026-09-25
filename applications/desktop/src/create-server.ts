@@ -256,6 +256,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		eventBus,
 		adapterPool: agentExecution.adapters.pool,
 		workspace: agentExecution.adapters.sandbox,
+		pluginMcpContributions: coreApi.pluginMcpContributions,
 	} satisfies ApplicationProvisionSessionDeps;
 
 	// The join — see `remote-server/src/create-server.ts`'s
