@@ -11,7 +11,7 @@
  * field can share the exact same catalog instead of re-deriving it.
  */
 
-import { roleLabel } from "@hyperidle/domain-model";
+import { roleLabel } from "../utils/role-label.js";
 
 export function roleOptions(rolesInUse: readonly string[]): ReadonlyArray<{
 	id: string;

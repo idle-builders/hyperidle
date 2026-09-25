@@ -1,5 +1,5 @@
 /**
- * AM1 — ReviewRequestPart: a COMPACT reference into the review experience.
+ * ReviewRequestPart: a COMPACT reference into the review experience.
  *
  * It does NOT take a decision inline (no Approve/Request-changes/Reject) and
  * shows NO code/diff. The change-set is an artifact ReferenceChip; the only

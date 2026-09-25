@@ -116,9 +116,9 @@ export function createMcpRouter(
 
 		// Read pre-increment state.
 		const preForceCount = entry.forceCount;
-		// AU27 Increment 3 (Decision 3): narrow to the session's specific
+		// Narrow to the session's specific
 		// required subset when the registered entry has one.
-		// AU27 Increment 8 (BLOCKER fix): this route adjudicates BOTH the
+		// This route adjudicates BOTH the
 		// settings-claude and settings-codex hook channels — both present
 		// tools to the model namespaced `mcp__hyperidle__<bare>` — so a
 		// required-subset message names the literal tool the agent can

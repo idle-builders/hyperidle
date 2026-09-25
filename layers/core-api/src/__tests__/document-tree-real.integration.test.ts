@@ -294,7 +294,6 @@ async function assembleIntoSandbox(
 ): Promise<void> {
 	const knowledge = await assembleSessionDocuments(db, {
 		teamId: TEAM_ID,
-		agentRole: "builder",
 		taskDescription: "Nested knowledge tree materialisation probe",
 		agentId: AGENT_ID,
 	});
@@ -317,7 +316,6 @@ async function assembleIntoSandbox(
 				sessionId,
 				taskId: `task-${sessionId}`,
 				agentId: AGENT_ID,
-				agentRole: "builder",
 				teamId: TEAM_ID,
 				taskFree: false,
 				sourceKind: null,

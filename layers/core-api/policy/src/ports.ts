@@ -65,13 +65,13 @@ export interface PolicyDeps {
 	readonly work: {
 		getTaskById(db: WriteExecutor, id: string): Promise<Task | undefined>;
 		/**
-		 * BB1: list all direct children of the given parent task. Used by the
+		 * List all direct children of the given parent task. Used by the
 		 * recursive completion rollup to check whether all siblings are terminal
 		 * before propagating upward.
 		 */
 		listChildTasks(db: WriteExecutor, parentTaskId: string): Promise<Task[]>;
 		/**
-		 * BB1: return ancestor IDs nearest-first, excluding the task itself.
+		 * Return ancestor IDs nearest-first, excluding the task itself.
 		 * Used by `propagateTaskToParent` to walk the full ancestor chain in
 		 * one call (rather than relying solely on the event-chain re-trigger).
 		 */

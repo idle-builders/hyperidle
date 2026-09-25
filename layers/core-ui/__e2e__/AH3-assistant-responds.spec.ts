@@ -51,7 +51,6 @@ import {
 const FOUNDER_ROW = makeUserRow("test-founder", {
 	name: "Test Founder",
 	role: "founder",
-	email: "test@hyperidle.dev",
 });
 
 const ASSISTANT_AGENT_ROW = makeUserRow("ast-test-founder", {

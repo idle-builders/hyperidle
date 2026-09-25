@@ -23,7 +23,7 @@ export {
 	TaskInvalidTransitionError,
 } from "./errors.js";
 export { createTaskActions, type TaskActionsDeps } from "./task-actions.js";
-// -- unified emit-time resolver (AU21 §6 Decision B; AU44 B3 merge) --
+// -- unified emit-time resolver --
 export type {
 	BakedTaskRunRequest,
 	ResolveInput,

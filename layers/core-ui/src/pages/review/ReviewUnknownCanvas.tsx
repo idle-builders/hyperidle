@@ -3,7 +3,7 @@ import { CanvasSourceHeader } from "./CanvasSourceHeader";
 import type { ReviewCanvasProps } from "./review-artifact";
 
 /**
- * AL2 — fallback canvas for unknown review artifact kinds.
+ * Fallback canvas for unknown review artifact kinds.
  *
  * Renders the source header (when the source href is safe) plus a safe JSON dump
  * of the payload. Never crashes or leaves a blank surface.

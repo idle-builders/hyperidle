@@ -90,7 +90,7 @@ export function taskOutcomeVerdictToStatus(v: TaskOutcomeVerdict): Status {
 }
 
 /**
- * AI4 Decision 3a: Agent operational status → presentation Status.
+ * Agent operational status → presentation Status.
  * Closed 3-value set; lives in design-system (mapping presentation).
  * The AgentOperationalStatus type + label registry live in @hyperidle/domain-model.
  */

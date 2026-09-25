@@ -4,7 +4,7 @@ import { createLogger } from "@hyperidle/diagnostics";
 import type { ApiErrorResponse } from "@hyperidle/domain-model";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import { constantTimeStringEqual, type HyperIdleEnv } from "@hyperidle/domain-model/http";
-import { findUser, validateBearerToken } from "@hyperidle/user";
+import { findUser } from "@hyperidle/user";
 import type { Context, MiddlewareHandler } from "hono";
 
 /**
@@ -24,26 +24,15 @@ import type { Context, MiddlewareHandler } from "hono";
  * The supplied API key is NEVER logged — only the failure metadata that
  * an incident responder needs to correlate against access logs.
  *
- * @lore M3 A3: converted from static export to factory function so the
- * middleware can read founder_id from factorySettings. The fallback
- * founder constant preserves backward compatibility with unseeded DBs and
- * existing tests that don't seed factorySettings.
- *
- * @lore S1 SF-2: signature changed from (db: HyperIdleDb) to
- * (options: AuthMiddlewareOptions) to support dual-strategy auth in shared
- * mode. All callers updated accordingly.
+ * The X-API-Key is the one credential, in local and shared mode alike: there
+ * are no login sessions, invite codes or bearer tokens.
  */
 
 /**
  * Options for the auth middleware factory.
- *
- * @lore S1 SF-2: The signature change from (db: HyperIdleDb) to
- * (options: AuthMiddlewareOptions) is a breaking change. All callers
- * (app.ts, test files) updated to use the new options object form.
  */
 export interface AuthMiddlewareOptions {
 	db: HyperIdleDb;
-	sharedMode: boolean;
 	/** Composition-owned key. Production omits this and reads the deployment env. */
 	apiKey?: string;
 }
@@ -76,60 +65,8 @@ function rejectUnauthorized(c: Context, message: string, logMessage: string): Re
 }
 
 /**
- * Handle Bearer token validation in shared mode.
- * Returns a Response on auth failure, or null if auth should fall through.
- *
- * @lore S1: Extracted to reduce cognitive complexity of createAuthMiddleware.
- * Returns null on INVALID_TOKEN so the caller can fall through to API key check.
- * Returns a Response on SESSION_EXPIRED or SESSION_REVOKED (hard stop).
- */
-async function handleBearerAuth(
-	c: Context<HyperIdleEnv>,
-	db: HyperIdleDb,
-	token: string,
-): Promise<Response | null | "ok"> {
-	const result = await validateBearerToken(db, token);
-
-	if (result.ok) {
-		c.set("userId", result.session.userId);
-		c.set("authMethod", "login_session");
-		c.set("loginSessionId", result.session.id);
-		return "ok";
-	}
-
-	if (result.reason === "SESSION_EXPIRED") {
-		authLogger.warn("rejected request: session expired", {
-			path: c.req.path,
-			method: c.req.method,
-			sourceIp: readSourceIp(c),
-		});
-		const response: ApiErrorResponse = {
-			error: "Session has expired",
-			code: API_ERROR_CODES.SESSION_EXPIRED,
-		};
-		return c.json(response, 401);
-	}
-
-	if (result.reason === "SESSION_REVOKED") {
-		authLogger.warn("rejected request: session revoked", {
-			path: c.req.path,
-			method: c.req.method,
-			sourceIp: readSourceIp(c),
-		});
-		const response: ApiErrorResponse = {
-			error: "Session has been revoked",
-			code: API_ERROR_CODES.SESSION_REVOKED,
-		};
-		return c.json(response, 401);
-	}
-
-	// INVALID_TOKEN — fall through to API key check
-	return null;
-}
-
-/**
  * Resolves the route actor once an X-API-Key holder has already
- * authenticated (local mode, or shared mode's API-key fallback).
+ * authenticated.
  *
  * AU21 §12: an actor-override header lets the seam's own Application-layer
  * composition root (never an external client — see
@@ -152,71 +89,24 @@ async function resolveApiKeyActorUserId(
 /**
  * Create the auth middleware with database access for identity lookup.
  *
- * In local mode (sharedMode=false):
- * - Unchanged X-API-Key behavior.
- * - Sets authMethod="api_key", loginSessionId=undefined.
+ * A valid X-API-Key resolves `userId` to the actor-override header when the
+ * composition root sets it, else the first human row.
  *
- * In shared mode (sharedMode=true):
- * 1. Checks Authorization: Bearer <token> first.
- *    - Valid → sets userId from session, authMethod="login_session".
- *    - Expired → 401 SESSION_EXPIRED.
- *    - Revoked → 401 SESSION_REVOKED.
- * 2. Falls back to X-API-Key (admin key).
- *    - Valid → resolves first human user, authMethod="api_key".
- * 3. No credentials → 401 UNAUTHORIZED.
- *
- * @lore P2: In local mode, resolves userId from users table (kind='human').
- * Fallback to "u-founder" for unseeded DBs. All production paths should
- * have a human user row.
+ * @lore P2: the placeholder "u-founder" stands in only while no human row
+ * exists — the moment before the welcome screen's `edit_user` creates the
+ * person, whose own call runs as that placeholder actor (which is how the
+ * first human gets role "founder"). Every later request resolves a real row.
  */
 export function createAuthMiddleware(
 	options: AuthMiddlewareOptions,
 ): MiddlewareHandler<HyperIdleEnv> {
-	const { db, sharedMode } = options;
+	const { db } = options;
 	const expectedApiKey = options.apiKey ?? process.env.HYPERIDLE_API_KEY ?? "";
 
 	return async (c, next) => {
-		if (sharedMode) {
-			// Shared mode: try Bearer token first
-			const authHeader = c.req.header("Authorization") ?? "";
-			if (authHeader.startsWith("Bearer ")) {
-				const token = authHeader.slice(7);
-				const bearerResult = await handleBearerAuth(c, db, token);
-
-				if (bearerResult === "ok") {
-					await next();
-					return;
-				}
-				if (bearerResult !== null) {
-					return bearerResult;
-				}
-				// null → fall through to API key check
-			}
-
-			// Shared mode: fall back to X-API-Key (admin key)
-			const apiKey = c.req.header("X-API-Key") ?? "";
-			const expectedKey = expectedApiKey;
-
-			if (apiKey.length > 0 && constantTimeStringEqual(apiKey, expectedKey)) {
-				c.set("userId", await resolveApiKeyActorUserId(c, db));
-				c.set("authMethod", "api_key");
-				c.set("loginSessionId", undefined);
-				await next();
-				return;
-			}
-
-			return rejectUnauthorized(
-				c,
-				"Missing or invalid credentials",
-				"rejected request: no valid credentials in shared mode",
-			);
-		}
-
-		// Local mode: X-API-Key only (unchanged behavior)
 		const apiKey = c.req.header("X-API-Key") ?? "";
-		const expectedKey = expectedApiKey;
 
-		if (!constantTimeStringEqual(apiKey, expectedKey)) {
+		if (!constantTimeStringEqual(apiKey, expectedApiKey)) {
 			return rejectUnauthorized(
 				c,
 				"Missing or invalid API key",
@@ -225,8 +115,6 @@ export function createAuthMiddleware(
 		}
 
 		c.set("userId", await resolveApiKeyActorUserId(c, db));
-		c.set("authMethod", "api_key");
-		c.set("loginSessionId", undefined);
 
 		await next();
 	};

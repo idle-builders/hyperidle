@@ -1,5 +1,5 @@
 export { EventBus } from "./event-bus.js";
-// Event vocabulary dissolved from framework/domain-model (AU44 batch 8).
+// Event vocabulary dissolved from framework/domain-model.
 // The union exists to type the bus; it lives where the bus lives.
 export type {
 	AgentRunAdmissionFailedEvent,

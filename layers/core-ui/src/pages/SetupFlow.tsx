@@ -165,7 +165,7 @@ export function SetupFlow(): JSX.Element {
 	const [submitting, setSubmitting] = useState(false);
 	const [submitError, setSubmitError] = useState<string | null>(null);
 
-	// AV1: Harness discovery — fetch on mount. We never block setup on it.
+	// Harness discovery — fetch on mount. We never block setup on it.
 	const [descriptors, setDescriptors] = useState<HarnessCapabilityDescriptor[]>([]);
 	const [harnessLoaded, setHarnessLoaded] = useState(false);
 	// The selected primary harness. Empty until discovery answers, which replaces
@@ -198,7 +198,7 @@ export function SetupFlow(): JSX.Element {
 		};
 	}, []);
 
-	// AV1: Folder inspection result for confirmation row.
+	// Folder inspection result for confirmation row.
 	const [folderInfo, setFolderInfo] = useState<FolderInfo | null>(null);
 
 	const selectedDescriptor = descriptors.find((d) => d.type === selectedHarnessType);
@@ -222,7 +222,7 @@ export function SetupFlow(): JSX.Element {
 		const folder = await window.__HYPERIDLE__?.shell.selectFolder();
 		if (!folder) return;
 		setRepoPath(folder);
-		// AV1: Probe the picked folder to determine git status + branch for confirm row.
+		// Probe the picked folder to determine git status + branch for confirm row.
 		// Best-effort — failure just clears folderInfo (no confirmation row shown).
 		try {
 			const res = await apiFetch("/api/filesystems/inspect-path", {
@@ -245,9 +245,9 @@ export function SetupFlow(): JSX.Element {
 		}
 	}, []);
 
-	// AV1: Derive the primaryHarness from the chosen picker row.
+	// Derive the primaryHarness from the chosen picker row.
 
-	// AE2: Submit and navigate to /work?onboarding=true (AD9: was /work/portfolio)
+	// Submit and navigate to /work?onboarding=true
 	const handleSubmit = useCallback(
 		async (e: FormEvent): Promise<void> => {
 			e.preventDefault();
@@ -264,7 +264,7 @@ export function SetupFlow(): JSX.Element {
 					? (repoPath.trim().split(/[/\\]/).filter(Boolean).pop() ?? "My Team")
 					: "My Team";
 
-				// AV1: Build primaryHarness for the chosen row. Absent only when
+				// Build primaryHarness for the chosen row. Absent only when
 				// discovery never resolved — there is no default harness to fall back
 				// to any more, so the server is told nothing rather than told wrong.
 				const primaryHarness = selectedDescriptor
@@ -276,7 +276,7 @@ export function SetupFlow(): JSX.Element {
 				// key at all now — a harness arrives already logged in, or it is not
 				// choosable.
 
-				// Best-effort folder body (AV1 Decision 3: inspect result determines
+				// Best-effort folder body (the inspect result determines
 				// kind code+branch | doc_set; writeback:"none" is the literal).
 				// Attached to the person's own edit_user call below — folders are a
 				// user attribute, given to the team it names.
@@ -355,8 +355,8 @@ export function SetupFlow(): JSX.Element {
 					throw new Error(personResultMessage(assistantResult));
 				}
 
-				// AE2: Navigate to /work?onboarding=true to trigger assistant overlay auto-open.
-				// AD9: was /work/portfolio; WorkOverview handles 1-team short-circuit.
+				// Navigate to /work?onboarding=true to trigger assistant overlay auto-open.
+				// Was /work/portfolio; WorkOverview handles 1-team short-circuit.
 				navigate("/work?onboarding=true");
 			} catch (err: unknown) {
 				setSubmitError(err instanceof Error ? err.message : "Something went wrong");
@@ -409,7 +409,7 @@ export function SetupFlow(): JSX.Element {
 						/>
 					</div>
 
-					{/* AV1: Harness picker — agent engine selection */}
+					{/* Harness picker — agent engine selection */}
 					<div className="mb-[18px]" role="radiogroup" aria-label="Agent harness">
 						<p className="type-small   text-[var(--text-primary)] mb-[6px]">
 							Agent harness{" "}
@@ -561,7 +561,7 @@ export function SetupFlow(): JSX.Element {
 							<span className="type-metadata  text-[var(--text-tertiary)]">
 								Path to a git repository for agents to work in.
 							</span>
-							{/* AV1 Step B: Folder confirm row — shows after folder picked/detected */}
+							{/* Folder confirm row — shows after folder picked/detected */}
 							{folderInfo && (
 								<div className="flex items-center gap-[6px] mt-[3px]">
 									<span className="type-data   text-[var(--text-primary)]">

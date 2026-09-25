@@ -105,7 +105,6 @@ function setupFetch(): void {
 					Promise.resolve({
 						id: "viewer-1",
 						name: "Viewer",
-						email: "v@example.com",
 						avatarUrl: null,
 					}),
 			});

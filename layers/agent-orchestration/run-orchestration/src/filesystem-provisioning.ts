@@ -1,18 +1,18 @@
 /**
- * AO2 — Mount injected filesystems into a spawned session's sandbox.
+ * Mount injected filesystems into a spawned session's sandbox.
  *
- * AU21 §9 Increment 8, Decision F2 (historical): this module was originally
+ * This module was originally
  * the RELOCATED, EXPORTED entry point for `provisioner.ts`'s private
  * `mountFilesystemsForAgent`, collapsing a two-step port dance into the ONE
  * seam call `CoreApiPort.filesystems.listFilesystemsByAgent(agentId)`.
  *
- * AU21 §9 Increment 12 follow-up (historical): that seam call was replaced by a
+ * Follow-up (historical): that seam call was replaced by a
  * BAKE — the injected-filesystem list frozen onto the request at emit time. It
  * existed only because `filesystems` still sat in core-api, and it bought the
  * closed boundary at the price of a stale snapshot (a filesystem assigned
  * between emit and drain never reached the sandbox).
  *
- * AU26 F2 (founder ruling): the tables are agent-orchestration's own now, so the
+ * The tables are agent-orchestration's own now, so the
  * bake is DELETED and the read is live and in-layer — `deps.filesystems`, one
  * injected port backed by `@hyperidle/filesystems`'
  * `listInjectedFilesystemsForProvisioning`. Not a seam: it is this Layer reading
@@ -59,7 +59,7 @@ export interface FilesystemForProvisioning {
 }
 
 /**
- * AU26 F2 — the live, in-layer injected-filesystem read one spawn performs.
+ * The live, in-layer injected-filesystem read one spawn performs.
  * Application-composed from `@hyperidle/filesystems`. Absent means "this
  * deployment mounts no filesystems" (the graceful-degradation posture the
  * optional `mounter` already has), not "read failed".

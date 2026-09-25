@@ -97,7 +97,7 @@ export function createOpenHandler(navigate: NavigateFn, ctx?: OpenHandlerContext
 				return;
 			}
 			case "session":
-				// AM3: fire the page-supplied callback to open/recurse the session view.
+				// Fire the page-supplied callback to open/recurse the session view.
 				// A sub-agent tool row carries the same `session` OpenTarget → same surface.
 				// No navigation: the surface is opened via the callback (page owns placement).
 				if (presentationFor("session", "inspect") === "pane") {

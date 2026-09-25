@@ -1,7 +1,7 @@
 /**
  * Deployment profile resolution for the `remote-server` application.
  *
- * Moved here from the deleted `@hyperidle/host-process` package (AU44-b6).
+ * Moved here from the deleted `@hyperidle/host-process` package.
  * Only the three fields remote-server needs are kept: `profile`, `dbDriver`,
  * `dbUrlDefault`. The `requiresDockerCompose` and `ports` fields are dropped
  * because no caller in this package reads them.

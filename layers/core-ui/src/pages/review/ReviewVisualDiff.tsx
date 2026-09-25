@@ -254,7 +254,7 @@ function ReviewVisualDiffView({ diff, onFlag }: ReviewVisualDiffProps): JSX.Elem
 	);
 }
 
-// AL2 — review artifact wrapper.
+// Review artifact wrapper.
 function isVisualDiffPayload(payload: unknown): payload is VisualDiffPayload {
 	return (
 		isPlainObject(payload) &&

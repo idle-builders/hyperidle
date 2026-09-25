@@ -43,10 +43,9 @@ describe("M3 — AppShell: no 'u-founder' in DOM (A11)", () => {
 					// /api/auth/me response
 					id: "real-user-id",
 					name: "Real User",
-					email: "real@hyperidle.dev",
 					avatarUrl: null,
 					// /api/settings response (for other fetch calls)
-					profile: { name: "Real User", email: "real@hyperidle.dev", avatarUrl: null },
+					profile: { name: "Real User", avatarUrl: null },
 					teams: [],
 					users: [],
 					notifications: {
@@ -98,7 +97,6 @@ describe("M3 — AppShell: knowledge submenu count:12 removed (F1)", () => {
 				Promise.resolve({
 					id: "real-user-id",
 					name: "Real User",
-					email: "real@hyperidle.dev",
 					avatarUrl: null,
 					bets: [],
 					blockers: [],

@@ -66,7 +66,6 @@ test.describe("Q2 AC-12: Change scope from user to team", () => {
 				body: JSON.stringify({
 					id: "test-founder",
 					name: "Test Founder",
-					email: "test@hyperidle.dev",
 					role: "founder",
 					avatarUrl: null,
 					teamId: "team-alpha",

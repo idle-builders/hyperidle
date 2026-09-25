@@ -34,7 +34,7 @@ export type { InheritedConnectionFact } from "./types.js";
 // -- Provisioning read — callers use listConnections({ userId, authSource }) directly --
 // (listHeldConnectionsForProvisioning deleted; @lore AU44 batch2)
 
-// -- Inherited reach (AU36 D1) — the domain's own probe + cache --
+// -- Inherited reach — the domain's own probe + cache --
 export {
 	createInheritedReach,
 	type InheritedProbeDeps,

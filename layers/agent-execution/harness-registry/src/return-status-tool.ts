@@ -73,7 +73,7 @@ async function handle(
 
 	// Read pre-increment state: "how many times have you been forced before THIS call".
 	const preForceCount = entry.forceCount;
-	// AU27 Increment 3 (Decision 3): narrow to the session's specific required
+	// Narrow to the session's specific required
 	// subset when the registered entry has one — the agent's own self-check
 	// must name the SAME action the other five force sites do.
 	const forceMessage = entry.exempt

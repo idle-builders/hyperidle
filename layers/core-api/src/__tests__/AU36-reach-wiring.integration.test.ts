@@ -91,7 +91,6 @@ async function seedHuman(db: HyperIdleDb): Promise<void> {
 		id: HUMAN_ID,
 		kind: "human",
 		name: "AU36 Human",
-		email: "au36-human@hyperidle.test",
 		role: "founder",
 		status: "active",
 		createdAt: NOW,

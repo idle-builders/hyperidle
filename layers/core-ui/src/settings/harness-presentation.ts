@@ -16,7 +16,7 @@
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import type { Status } from "../ds";
 
-// Extended discovery type — AM4 additive field (disabled? is optional in HarnessDiscoveryStatus)
+// Extended discovery type — additive field (disabled? is optional in HarnessDiscoveryStatus)
 type DiscoveryWithDisabled = HarnessCapabilityDescriptor["discovery"] & { disabled?: boolean };
 
 function getDiscovery(d: HarnessCapabilityDescriptor): DiscoveryWithDisabled {

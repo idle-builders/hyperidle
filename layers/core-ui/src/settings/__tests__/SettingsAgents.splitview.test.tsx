@@ -111,7 +111,6 @@ function setupCall(agents: MockAgent[] = MOCK_AGENTS): void {
 					name: a.name,
 					role: a.role,
 					status: "active",
-					email: null,
 					avatarUrl: null,
 					createdAt: "2026-01-01T00:00:00.000Z",
 					agentCategory: a.agentCategory,

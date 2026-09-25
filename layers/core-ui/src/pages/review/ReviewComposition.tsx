@@ -643,7 +643,7 @@ export function ReviewComposition({
 }: ReviewCompositionProps): JSX.Element {
 	const [activeId, setActiveId] = useState<string | null>(initialOpenArtifactId);
 	const [menuOpen, setMenuOpen] = useState(false);
-	// AM5 T6: SplitView ratio persistence for the review surface
+	// SplitView ratio persistence for the review surface
 	const [reviewRatio, setReviewRatio] = useUiPreference("review", 0.55);
 	const { sidebarMobile } = useViewportBreakpoint();
 

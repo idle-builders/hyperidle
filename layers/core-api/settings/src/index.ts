@@ -27,7 +27,7 @@ export {
 	markDetached,
 	recordContribution,
 } from "./plugin-contributions.js";
-// -- plugin install / manage (BA9a) --
+// -- plugin install / manage --
 export type {
 	InstalledPlugin,
 	InstallPluginInput,
@@ -48,7 +48,7 @@ export {
 	skillItemId,
 	subscriptionItemId,
 } from "./plugin-installer.js";
-// -- plugin manifest parsing (BA9a) --
+// -- plugin manifest parsing --
 export type {
 	ManifestParseResult,
 	ManifestWarning,

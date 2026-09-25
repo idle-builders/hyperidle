@@ -1,7 +1,7 @@
-// AL1 #7 — ReviewCodeDiff: the code-diff review canvas (the must-win family —
+// ReviewCodeDiff: the code-diff review canvas (the must-win family —
 // AI tooling is strongest in code, so this one has to be excellent).
 //
-// Three-layer drill-down (the locked AL1 language):
+// Three-layer drill-down (the locked review language):
 //   L1  PR header  — title + GitHub logo + +140/−31 + CI checks row + Collapse all
 //   L2  the proof  — RELEVANCE-RANKED file cards (logic → tests → generated collapsed),
 //                    each a collapsible card with a +/− change badge + reviewed checkbox
@@ -38,9 +38,9 @@ interface DiffLine {
 	/** new-file line number (blank on pure deletions). */
 	readonly newNo: number | null;
 	readonly text: string;
-	/** AL4: deterministic block id for this line (computed if omitted). */
+	/** Deterministic block id for this line (computed if omitted). */
 	readonly blockId?: import("@hyperidle/domain-model").BlockId;
-	/** AL4: human-readable spot label, e.g. `PromoField.tsx:118`. */
+	/** Human-readable spot label, e.g. `PromoField.tsx:118`. */
 	readonly spotLabel?: string;
 }
 
@@ -478,7 +478,7 @@ export interface ReviewCodeDiffProps {
 	readonly initialExpandedPath?: string;
 	/** the guarded payload so the canvas can compute deterministic line block ids. */
 	readonly payload: CodeDiffPayload;
-	/** AL4: owning artifact id for deterministic line block ids. */
+	/** Owning artifact id for deterministic line block ids. */
 	readonly artifactId: string;
 }
 
@@ -652,7 +652,7 @@ function ReviewCodeDiffView({
 	);
 }
 
-// AL2 — review artifact wrapper.
+// Review artifact wrapper.
 function isCodeDiffPayload(payload: unknown): payload is CodeDiffPayload {
 	return (
 		isPlainObject(payload) &&

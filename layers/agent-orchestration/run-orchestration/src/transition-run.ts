@@ -17,7 +17,7 @@ type SessionLifecyclePorts = Parameters<typeof createProvisioner>[0];
 /** `TransitionPorts` carries only the own-state `sessionRequests` port the "request" disposition path needs. */
 type TransitionPorts = Pick<SessionLifecyclePorts, "sessionRequests">;
 
-/** AU21 Increment 14a: `cost_cap` reason deleted — the cap gate no longer exists. */
+/** `cost_cap` reason deleted — the cap gate no longer exists. */
 const TERMINATION_REASONS = ["user_done", "user_crashed", "handoff", "shutdown"] as const;
 type AgentTerminationReason = (typeof TERMINATION_REASONS)[number];
 
@@ -150,7 +150,7 @@ interface SessionContext {
 	taskId: string | null;
 	sandboxPath: string;
 	/**
-	 * AU3: was `watcher: FileWatcher`. Renamed to
+	 * Was `watcher: FileWatcher`. Renamed to
 	 * `ingestion: IngestionHandle` during runtime boundary simplification.
 	 * The IngestionHandle.dispose() replaces FileWatcher.stop() at every
 	 * teardown site (endSession + crashSession).
@@ -193,7 +193,7 @@ async function endSession(
 	const updated = await updateSessionRow(db, context.sessionId, state, terminalOutcome, now);
 
 	// 3. Emit session_ended IFF the CAS UPDATE actually transitioned a row.
-	// HARD INVARIANT (AF7 §4.3): gate the emit on rowCount, NOT merely on "the
+	// HARD INVARIANT: gate the emit on rowCount, NOT merely on "the
 	// UPDATE ran". A handoff-ended session (already 'done') whose detached
 	// runSession tail later calls endSession would otherwise emit a spurious
 	// session_ended that handoff is forbidden to emit (handoff-protocol.ts).
@@ -216,7 +216,7 @@ async function endSession(
 			// Use terminalOutcome (not hardcoded "completed") so not_returned
 			// turns surface correctly on the bus.
 			outcome: terminalOutcome,
-			// AU21 §9 Increment 12 (Decision H3), Wave D: the session's
+			// The session's
 			// accumulated per-tier token counts ride this SAME event — no direct
 			// `bets.tokensActualJson` write here anymore. A core-api subscriber
 			// (`work-session-end-reactions.ts`) merges them onto the owning bet.
@@ -267,11 +267,11 @@ async function crashSession(
 
 	// 2. Update session row.
 	const now = new Date().toISOString();
-	// AF7 §4.3: CAS terminal write — see endSession. Crashing an already-terminal
+	// CAS terminal write — see endSession. Crashing an already-terminal
 	// session affects zero rows and emits nothing.
 	const updated = await updateSessionRow(db, context.sessionId, "crashed", "crashed", now);
 
-	// 3. Emit session_ended IFF the CAS UPDATE transitioned a row (AF7 §4.3 invariant).
+	// 3. Emit session_ended IFF the CAS UPDATE transitioned a row.
 	if (updated) {
 		eventBus.emit({
 			type: "session_ended",
@@ -289,7 +289,7 @@ async function crashSession(
 				: {}),
 			timestamp: Date.now(),
 			outcome: "crashed",
-			// AU21 §9 Increment 12 (Decision H3), Wave D: see endSession's identical
+			// See endSession's identical
 			// comment — accumulated tokens ride this same event, no direct write.
 			...(tokensByTier && Object.keys(tokensByTier).length > 0 ? { tokensByTier } : {}),
 		});
@@ -331,7 +331,7 @@ export function transitionRun(
 				readonly disposition: "end" | "crash";
 				readonly terminalOutcome?: "completed" | "not_returned" | "stopped";
 				/**
-				 * AU21 §9 Increment 12 (Decision H3), Wave D: the session's
+				 * The session's
 				 * accumulated per-tier token counts, carried through onto the
 				 * `session_ended` emit's additive `tokensByTier` field — see
 				 * `endSession`/`crashSession`'s own comment.

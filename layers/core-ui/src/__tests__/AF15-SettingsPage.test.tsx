@@ -103,7 +103,7 @@ beforeEach(async () => {
 			return Promise.resolve(
 				new Response(
 					JSON.stringify({
-						profile: { name: "Test User", email: "test@example.com", avatarUrl: "" },
+						profile: { name: "Test User", avatarUrl: "" },
 						teams: [],
 						users: [],
 						notifications: {
@@ -126,7 +126,6 @@ beforeEach(async () => {
 					JSON.stringify({
 						id: "u-test",
 						name: "Test User",
-						email: "test@example.com",
 						role: "founder",
 						kind: "human",
 					}),

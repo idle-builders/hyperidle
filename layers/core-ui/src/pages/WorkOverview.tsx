@@ -58,7 +58,7 @@ export interface WorkOverviewViewProps {
 	/** Invoked when the empty state's "Finish setup" action is pressed. */
 	onFinishSetup: () => void;
 	/**
-	 * Retry callback — wired to ErrorState.onRetry (AC4 spec §3).
+	 * Retry callback — wired to ErrorState.onRetry.
 	 * Triggers a fresh /api/teams fetch without a full page reload.
 	 */
 	onRetry: () => void;
@@ -89,7 +89,7 @@ export function WorkOverviewView({
 				header={<PageHeader title="Teams" />}
 				data-testid="work-overview-page-loading"
 			>
-				{/* AD9: pt-[18px] (--space-6) loading gap so first skeleton bar clears the header border-b */}
+				{/* pt-[18px] (--space-6) loading gap so first skeleton bar clears the header border-b */}
 				<div className="max-w-[800px] w-full pt-[18px]">
 					<SkeletonList rows={4} ariaLabel="Loading teams" />
 				</div>
@@ -172,7 +172,7 @@ export function WorkOverviewView({
 								title={team.name}
 								cells={[
 									{
-										// AD9: Active-task count as a numeric end cell (tabular-nums),
+										// Active-task count as a numeric end cell (tabular-nums),
 										// placed BEFORE the StatusChip. Row reads:
 										// [name .......... N active tasks] [StatusChip]
 										content: taskLabel,
@@ -204,7 +204,7 @@ export function WorkOverview(): JSX.Element {
 	const { data, loading, error, refetch } = useTeams();
 	const teams = data?.teams ?? [];
 
-	// AC11: 1-team short-circuit — single chokepoint, never shows a 1-row list.
+	// 1-team short-circuit — single chokepoint, never shows a 1-row list.
 	// Done before delegating to the view (a navigation concern, not a render state).
 	if (!(loading || error) && teams.length === 1 && teams[0]) {
 		return <Navigate to={`/work/team/${encodeURIComponent(teams[0].id)}`} replace />;

@@ -465,7 +465,7 @@ export function ThreadShell({
 											);
 										}
 									}
-									// AD8b B3.1: append renderMessageExtra output (tool-call rows).
+									// Append renderMessageExtra output (tool-call rows).
 									const messageExtra = renderMessageExtra ? renderMessageExtra(message) : null;
 									const afterBody = messageExtra ? messageExtra : undefined;
 									return (

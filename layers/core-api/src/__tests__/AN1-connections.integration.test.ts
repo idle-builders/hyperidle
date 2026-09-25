@@ -28,22 +28,24 @@
  *   SSRF: private/loopback/link-local/non-https serverUrl → connection_invalid
  */
 
+import { CORE_API_ACTOR_OVERRIDE_HEADER } from "@hyperidle/api-contract";
 import { type HyperIdleDb, users } from "@hyperidle/db";
-import { createLoginSession } from "@hyperidle/user";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
-import { createTestApp } from "../__testing__/test-utils.js";
 
 const TEST_API_KEY = "test-key-an1-connections";
 const CREDENTIAL_KEY = "test-credential-encryption-key-an1";
 
 const USER_A_ID = "u-an1-user-a";
-const USER_A_EMAIL = "user-a@an1test.dev";
 const USER_B_ID = "u-an1-user-b";
-const USER_B_EMAIL = "user-b@an1test.dev";
 
 function authHeadersA(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
+}
+
+/** User B as the caller: the actor-override header names the route actor. */
+function authHeadersB(): Record<string, string> {
+	return authHeadersA({ [CORE_API_ACTOR_OVERRIDE_HEADER]: USER_B_ID });
 }
 
 interface ConnectionView {
@@ -130,7 +132,6 @@ describe("AN1 — connections behind open_user/edit_user", () => {
 			id: USER_A_ID,
 			kind: "human",
 			name: "User A",
-			email: USER_A_EMAIL,
 			role: "founder",
 			status: "active",
 			createdAt: NOW,
@@ -142,7 +143,6 @@ describe("AN1 — connections behind open_user/edit_user", () => {
 			id: USER_B_ID,
 			kind: "human",
 			name: "User B",
-			email: USER_B_EMAIL,
 			role: "member",
 			status: "active",
 			createdAt: NOW,
@@ -353,13 +353,12 @@ describe("AN1 — connections behind open_user/edit_user", () => {
 	// caller's own id. Isolation is a structural property of the door now,
 	// not a per-row guard a route could regress.
 
-	describe("AC5 — per-user isolation (real two-user Bearer flow)", () => {
-		test("user B's own read never carries user A's connection", async ({ db, eventBus }) => {
-			const sharedApp = await createTestApp({ db, eventBus, sharedMode: true });
+	describe("AC5 — per-user isolation (two callers)", () => {
+		test("user B's own read never carries user A's connection", async ({ app, db }) => {
 			await seedUserA(db);
 			await seedUserB(db);
 
-			const created = await addConnection(sharedApp, authHeadersA(), USER_A_ID, {
+			const created = await addConnection(app, authHeadersA(), USER_A_ID, {
 				service: "Stripe",
 				authSource: "token",
 				token: "sk-a-iso-real-001",
@@ -367,45 +366,34 @@ describe("AN1 — connections behind open_user/edit_user", () => {
 			const aConnectionId = created.envelope.data?.connections?.connections[0]?.id as string;
 			expect(typeof aConnectionId).toBe("string");
 
-			const { token: tokenB } = await createLoginSession(db, USER_B_ID);
-			const bConnections = await openConnections(sharedApp, {
-				// biome-ignore lint/style/useNamingConvention: HTTP header name
-				Authorization: `Bearer ${tokenB}`,
-				"Content-Type": "application/json",
-			});
+			const bConnections = await openConnections(app, authHeadersB());
 			expect(bConnections.connections.find((c) => c.id === aConnectionId)).toBeUndefined();
 		});
 
 		test("user B's own remove of user A's real id finds nothing, and A's connection survives", async ({
+			app,
 			db,
-			eventBus,
 		}) => {
-			const sharedApp = await createTestApp({ db, eventBus, sharedMode: true });
 			await seedUserA(db);
 			await seedUserB(db);
 
-			const created = await addConnection(sharedApp, authHeadersA(), USER_A_ID, {
+			const created = await addConnection(app, authHeadersA(), USER_A_ID, {
 				service: "GitHub",
 				authSource: "token",
 				token: "gh-a-iso-real-delete-001",
 			});
 			const aConnectionId = created.envelope.data?.connections?.connections[0]?.id as string;
 
-			const { token: tokenB } = await createLoginSession(db, USER_B_ID);
 			const { envelope } = await removeConnection(
-				sharedApp,
-				{
-					// biome-ignore lint/style/useNamingConvention: HTTP header name
-					Authorization: `Bearer ${tokenB}`,
-					"Content-Type": "application/json",
-				},
+				app,
+				authHeadersB(),
 				USER_B_ID,
 				aConnectionId,
 			);
 			expect(envelope.ok).toBe(false);
 			expect(envelope.problems?.[0]?.code).toBe("unknown_connection");
 
-			const aConnections = await openConnections(sharedApp, authHeadersA());
+			const aConnections = await openConnections(app, authHeadersA());
 			expect(aConnections.connections.find((c) => c.id === aConnectionId)).toBeDefined();
 		});
 

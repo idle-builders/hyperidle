@@ -81,7 +81,7 @@ interface HarnessMcpConfigResult {
  * Root-level files emitted by writeCliMcpConfig, indexed by dialect.
  * - codex-toml: writes .codex-home/config.toml (covered by .codex-home root).
  * - opencode-json: writes opencode.json in the sandbox root.
- * Exported so the AO2 scaffolding-drift-guard can assert coverage.
+ * Exported so the scaffolding-drift-guard can assert coverage.
  *
  * The Codex home and OpenCode config are both rooted inside the session sandbox.
  */

@@ -78,7 +78,7 @@ const BASE_THREAD = {
 
 function mockOwnershipAndUser(): void {
 	vi.mocked(useCurrentUser).mockReturnValue({
-		user: { id: MY_USER_ID, name: "Founder", email: "founder@example.com", avatarUrl: null },
+		user: { id: MY_USER_ID, name: "Founder", avatarUrl: null },
 		status: "ready",
 		error: null,
 		retry: vi.fn(),
@@ -438,7 +438,7 @@ describe("Review fix: no-agent Retry calls useAgents().refetch, not threadSearch
 		const refetchAgents = vi.fn();
 		const retryThreads = vi.fn();
 		vi.mocked(useCurrentUser).mockReturnValue({
-			user: { id: MY_USER_ID, name: "Founder", email: "founder@example.com", avatarUrl: null },
+			user: { id: MY_USER_ID, name: "Founder", avatarUrl: null },
 			status: "ready",
 			error: null,
 			retry: vi.fn(),

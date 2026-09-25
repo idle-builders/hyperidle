@@ -1,5 +1,5 @@
 /**
- * AL2 — minimal runtime guards for agent-authored artifact payloads.
+ * Minimal runtime guards for agent-authored artifact payloads.
  *
  * Canvases receive `artifact.payload: unknown`. These helpers let mappers verify
  * the top-level shape before reading fields, so malformed payloads fall back to

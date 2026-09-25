@@ -126,13 +126,16 @@ does within its category.
 (`UserRole = string`). The roles that exist are the distinct roles among the
 agents you can see — that is what the role pickers offer — and typing a new one
 introduces it. A plugin introduces one by declaring an agent with it.
-`roleLabel` (`framework/domain-model/src/agent-roles.ts`) derives a display name
-from any string, so nothing needs a registry to render.
+`roleLabel` (`layers/core-ui/src/utils/role-label.ts`, beside the role picker)
+derives a display name from any string, so nothing needs a registry to render.
+Nothing in core branches on a role: every agent gets the same tools and the
+same context assembly. The one place a role is read is the `{{community}}`
+placeholder in an identity document, which a session prompt fills with it.
 
 The hardcoded `AGENT_ROLE_CATALOG` — 17 roles with labels, categories, template
 flags and team-function mappings — was deleted in BA9g.
 
-Category is not a permission system — tool authorization is role-based filtering, never a category check. Category is not a UI grouping: team agents are prominent in Work, individual agents (including facilitators) are visible per role. Whether category is immutable after creation is unverified in code (`users.ts` update route).
+Category is not a permission system, and neither is role: every agent gets every tool. Category is not a UI grouping: team agents are prominent in Work, individual agents (including facilitators) are visible per role. Whether category is immutable after creation is unverified in code (`users.ts` update route).
 
 ### 3.5 A new team is one agent
 

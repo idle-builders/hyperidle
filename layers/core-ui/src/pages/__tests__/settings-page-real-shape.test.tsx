@@ -22,7 +22,7 @@ import { SettingsPage } from "../SettingsPage.js";
 
 vi.mock("../../hooks/useCurrentUser", () => ({
 	useCurrentUser: () => ({
-		user: { id: "me", name: "Me", email: "me@example.com", avatarUrl: null },
+		user: { id: "me", name: "Me", avatarUrl: null },
 		status: "ready",
 		error: null,
 	}),

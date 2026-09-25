@@ -152,8 +152,8 @@ async function notifyThreadTurnAdmissionFailure(
  * moment, into the SAME thread (the document's, `document`-
  * hosted, resolved not recreated on every failure). `system:propagation`
  * posts into it — host-scoped, so it may post, and its first post joins it
- * (architecture.md §3.4) — never the synthetic `"attention_engine"` sender
- * `changes.actor`'s FK would reject.
+ * (architecture.md §3.4) — a real users row, because `changes.actor` is a
+ * foreign key and a made-up sender would be rejected.
  */
 async function flagStalledKnowledgeAction(
 	db: HyperIdleDb,

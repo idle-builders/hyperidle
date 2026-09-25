@@ -33,7 +33,7 @@ const PRODUCTION_PATHS = ["/", "/work", "/work/portfolio", "/conversations", "/d
 
 // Override settings with a custom profile to prove the panel reads from API
 const OVERRIDE_SETTINGS = {
-	profile: { name: "Alice Builder", email: "alice@example.com", avatarUrl: null },
+	profile: { name: "Alice Builder", avatarUrl: null },
 	teams: [],
 	users: [],
 	notifications: {
@@ -111,38 +111,6 @@ test.describe("M4 AC-3c — Settings panel reflects logged-in user profile", () 
 			page.getByLabel("Name"),
 			"Settings profile Name must NOT be the old hardcoded 'Founder' mock.",
 		).not.toHaveValue("Founder");
-	});
-
-	test("settings panel shows email from API override, not founder@hyperidle.com", async ({
-		page,
-	}) => {
-		await page.route("**/api/settings", async (route) => {
-			const method = route.request().method();
-			if (method === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(OVERRIDE_SETTINGS),
-				});
-			} else if (method === "PATCH") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(OVERRIDE_SETTINGS),
-				});
-			} else {
-				await route.continue();
-			}
-		});
-
-		await page.goto("/");
-		await page.waitForSelector("[data-testid='main-content']");
-		await page.getByRole("button", { name: /^user profile$/i }).click();
-		await expect(page.getByRole("dialog", { name: /settings/i })).toBeVisible();
-
-		// Must show the override email, not the old hardcoded forbidden literal
-		await expect(page.getByLabel("Email")).toHaveValue("alice@example.com");
-		await expect(page.getByLabel("Email")).not.toHaveValue("founder@hyperidle.com");
 	});
 
 	test("settings panel does not contain 'u-founder' anywhere in DOM", async ({ page }) => {

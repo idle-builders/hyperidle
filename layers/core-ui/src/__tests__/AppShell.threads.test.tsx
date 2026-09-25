@@ -69,7 +69,7 @@ function setFetchMock(threads: ThreadListRow[]): ReturnType<typeof vi.fn> {
 			return {
 				ok: true,
 				data: {
-					user: { id: "u-founder-test", name: "Founder", email: "", avatarUrl: null, team: null },
+					user: { id: "u-founder-test", name: "Founder", avatarUrl: null, team: null },
 					runsOn: [],
 					runConfig: null,
 					documentIds: [],

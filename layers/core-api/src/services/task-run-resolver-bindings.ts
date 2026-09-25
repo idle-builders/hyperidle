@@ -55,7 +55,7 @@ export async function resolveAgentIdentityBody(
 	return result.ok ? (result.data[0]?.body ?? null) : null;
 }
 
-// AU31 §7.2 (R2): each dependency is a wrapping arrow, never the raw service
+// Each dependency is a wrapping arrow, never the raw service
 // symbol — a bag of arrows over the layer's own services IS a face's
 // sanctioned content; the raw symbol itself must never be the thing that
 // escapes through an exported binding.

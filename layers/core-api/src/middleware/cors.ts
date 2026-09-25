@@ -53,7 +53,7 @@ function resolveOrigin(origin: string, _c: Context): string | undefined {
 	if (origin === ELECTRON_ORIGIN_PREFIX || origin.startsWith("http://127.0.0.1:")) {
 		return origin;
 	}
-	// AE4: configurable origins from HYPERIDLE_CORS_ORIGINS (lazy-read for testability)
+	// Configurable origins from HYPERIDLE_CORS_ORIGINS (lazy-read for testability)
 	if (parseConfiguredOrigins().includes(origin)) {
 		return origin;
 	}

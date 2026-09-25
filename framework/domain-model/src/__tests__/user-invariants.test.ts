@@ -340,7 +340,6 @@ describe("UserRowSchema", () => {
 		name: "Assistant",
 		role: "assistant",
 		status: "active" as const,
-		email: null,
 		avatarUrl: null,
 		createdAt: "2026-09-22T00:00:00.000Z",
 		agentCategory: "individual" as const,
@@ -356,6 +355,18 @@ describe("UserRowSchema", () => {
 
 	it("accepts a null team — a rowless caller in the first-run moment", () => {
 		expect(UserRowSchema.safeParse({ ...row, team: null }).success).toBe(true);
+	});
+
+	it("carries no email — a person is a name and an avatar", () => {
+		expect(Object.keys(UserRowSchema.shape)).not.toContain("email");
+	});
+});
+
+describe("EditUserInputSchema — no email", () => {
+	it("rejects an email on an edit", () => {
+		expect(EditUserInputSchema.safeParse({ id: "u1", email: "ada@example.com" }).success).toBe(
+			false,
+		);
 	});
 });
 

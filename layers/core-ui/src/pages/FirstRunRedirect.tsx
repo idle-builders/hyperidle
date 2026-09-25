@@ -3,10 +3,9 @@ import { Navigate } from "react-router-dom";
 import { call } from "../services/call.js";
 
 /**
- * @lore BC5 T10: the door swap — `search_users({ kind: "human" })` replaces
- * the `GET /api/auth/me` + `GET /api/teams` pair (architecture.md §7). A
- * human row with a team means setup is done; every user is in a team
- * (D-e3zm2j), so the row's own `team` field is the one check.
+ * `search_users({ kind: "human" })` decides it: a human row with a team
+ * means setup is done; every user is in a team, so the row's own `team`
+ * field is the one check.
  *
  * @lore N5: On API failure (network error, auth timing, etc.), default to
  * /setup rather than /conversations. On a fresh install any failure means the

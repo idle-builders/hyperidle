@@ -10,7 +10,7 @@
  */
 
 /**
- * AO1: A team-registered filesystem as the per-bot injection control sees it.
+ * A team-registered filesystem as the per-bot injection control sees it.
  * The bot's config selects WHICH registered filesystems to inject; the registry
  * itself lives in Settings → Filesystems. `source` is the easy-to-detect mark.
  */
@@ -37,9 +37,9 @@ export interface AgentConfig {
 	/** The agent's identity document, or null when it has none. */
 	identityDocumentId: string | null;
 	harnessType: string | null;
-	/** AH2: Per-agent model ID. null = use tier fallback. */
+	/** Per-agent model ID. null = use tier fallback. */
 	modelId: string | null;
-	/** AH2: Per-agent model provider. null = use tier fallback ("anthropic"). */
+	/** Per-agent model provider. null = use tier fallback ("anthropic"). */
 	modelProvider: string | null;
 	maxConcurrentSessions: number;
 	status: string;
@@ -55,7 +55,7 @@ export interface AgentConfig {
 	/** AB3: "team" | "individual" | null. Matches users.agentCategory. @lore AD8a: "personal"→"individual". @lore BA9d: "strategy" removed. */
 	agentCategory: string | null;
 	/**
-	 * AO1: Registered-filesystem ids injected into THIS bot (the per-bot injection
+	 * Registered-filesystem ids injected into THIS bot (the per-bot injection
 	 * mapping). Drawn from the team registry; defaults to [] when absent.
 	 */
 	filesystemIds?: string[];

@@ -33,7 +33,7 @@ function isArtifactEntityRef(ref: {
 }
 
 /**
- * AL4: The review's single conversation is the Thread attached to the work item.
+ * The review's single conversation is the Thread attached to the work item.
  * Map the server's messages into ReviewComment shape, extracting anchored
  * comments from the blockId + artifact ref payload fields.
  */
@@ -197,7 +197,7 @@ async function defaultLoader({
 }
 
 /**
- * AL3 — production review destination.
+ * Production review destination.
  *
  * Loads the review Subject for the canonical route `/reviews/:reviewId`
  * (flattened from `/work/bet/:betId/review/:reviewId`) and renders the

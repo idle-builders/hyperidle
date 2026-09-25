@@ -34,7 +34,7 @@ export function WorkTaskCreate(): JSX.Element {
 	const [searchParams] = useSearchParams();
 
 	const parentTaskId = searchParams.get("parentTaskId") ?? undefined;
-	// AK5: provenance carrier for the multi-team promote path.
+	// Provenance carrier for the multi-team promote path.
 	const fromDocumentId = searchParams.get("fromDocument") ?? undefined;
 
 	const { data: teamsData } = useTeams();
@@ -49,7 +49,7 @@ export function WorkTaskCreate(): JSX.Element {
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	// AK5: pre-fill title/description from the promoted document.
+	// Pre-fill title/description from the promoted document.
 	const { data: documentView } = useDocument(fromDocumentId);
 	const sourceDocument = documentView?.document ?? null;
 	useEffect(() => {
@@ -86,7 +86,7 @@ export function WorkTaskCreate(): JSX.Element {
 				setError(
 					problem?.code === "capacity_exceeded"
 						? "Team is at its concurrent task limit."
-						: // AC5: a dependency rejection names the rule it broke for the
+						: // A dependency rejection names the rule it broke for the
 							// two codes mapped below. A dangling id's `dependency_not_found`
 							// is not mapped, so it still falls through to the generic message.
 							((problem?.code === "cycle" || problem?.code === "dependency_killed") &&

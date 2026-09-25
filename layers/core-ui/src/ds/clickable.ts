@@ -6,7 +6,7 @@ type ClickableResult = Pick<
 >;
 
 /**
- * I4 KB2: every clickable surface gets a focus-visible ring so keyboard
+ * Every clickable surface gets a focus-visible ring so keyboard
  * users can see where they are. We append the focus utilities (and
  * cursor-pointer) so the helper is a single source of truth — call sites
  * pass their own classes via the second argument and the helper merges.

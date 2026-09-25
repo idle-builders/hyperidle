@@ -32,13 +32,9 @@
  * it, the same door a mention uses — no separate notification vocabulary,
  * no queue.
  *
- * The old "silent below 3 crashes" throttle is gone with the queue it lived
- * in: a `notification_queue` row could be written and stay `dropped`
- * (invisible) below the threshold, which is exactly the second store this
- * mechanism no longer has. Every crash now writes a `health` note — the
- * note text still carries how many crashes happened in the trailing 7-day
- * window, so a human reading the note sees the same "N failures in 7 days"
- * framing as before, just without a gate on whether it is written at all.
+ * Every crash writes a `health` note — no threshold decides whether it is
+ * written. The note text carries how many crashes happened in the trailing
+ * 7-day window, so a human reading it sees "N failures in 7 days".
  *
  * @lore review fix: the count used to be EVERY `user` change row on the
  * agent in the window — a plain rename or a team move counted as a

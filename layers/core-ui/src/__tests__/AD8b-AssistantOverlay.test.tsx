@@ -66,7 +66,7 @@ const BASE_THREAD = {
 /** Ready state: viewer resolved, one direct thread with their agent, no messages yet. */
 function mockReadyOverlay(): void {
 	vi.mocked(useCurrentUser).mockReturnValue({
-		user: { id: MY_USER_ID, name: "You", email: "founder@example.com", avatarUrl: null },
+		user: { id: MY_USER_ID, name: "You", avatarUrl: null },
 		status: "ready",
 		error: null,
 		retry: vi.fn(),

@@ -108,7 +108,7 @@ export interface CoreApiBoot {
 	 */
 	readonly disposers: ReadonlyArray<() => void>;
 	/**
-	 * AU21 §9 Increment 14d / AU31 §5.2: disposes the WS route (when
+	 * Disposes the WS route (when
 	 * `upgradeWebSocket` was supplied) and the work-state push gateway — kept
 	 * SEPARATE from `disposers` so the Application can run it as its own
 	 * named, awaited shutdown phase, same ordering `create-server.ts` used
@@ -116,7 +116,7 @@ export interface CoreApiBoot {
 	 */
 	readonly disposeWebSocket: () => void;
 	/**
-	 * AU31 §5.2: this Layer's own WS connection hub — the topic space
+	 * This Layer's own WS connection hub — the topic space
 	 * `conversations`/`work`/`thread:<id>` routes push onto directly. Exposed
 	 * so the Application can pass it to `registerWebSocket` overrides in
 	 * tests; production reaches it only through the WS route this boot wires
@@ -126,7 +126,7 @@ export interface CoreApiBoot {
 	/** The upgrade-token store `/api/auth/ws-token` mints from and the WS route consumes. Present whenever WS support is being wired. */
 	readonly upgradeTokenStore: UpgradeTokenStore | null;
 	/**
-	 * AU26 review C2 / AU31 §5.2: the single human whose held connections a
+	 * The single human whose held connections a
 	 * spawn provisions (oldest-row tiebreak). Reads `users` — core-api's own
 	 * table — from inside this boot; the Application hands the resulting
 	 * capability into `bootAgentOrchestration`'s options as a value. Present
@@ -188,8 +188,8 @@ export interface CoreApiBoot {
 }
 
 /**
- * AU26 review C2 (relocated, AU31 §5.2): the human whose held connections a
- * spawn provisions. AN2's deployment is single-founder
+ * The human whose held connections a
+ * spawn provisions. A deployment is single-founder
  * (`docs/architecture/authorization-model.md:32`) — one human owns the
  * deployment's connections, and every agent it runs provisions that human's
  * tokens. Deterministic under more than one human — oldest row, id as
@@ -221,10 +221,9 @@ function resolveProvisioningOwnerUserIdFor(
 // now, so the gateway, its credentials and this builder are gone.
 
 export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApiBoot> {
-	const sharedMode = options?.sharedMode ?? process.env.HYPERIDLE_SHARED_MODE === "true";
 	const db = options?.db;
 
-	// AU21 §6 Decision L4 / AU26 J3 / AU31 §5.2: the hub is built ONCE, here,
+	// The hub is built ONCE, here,
 	// carrying core-api's own topics only (`thread:<id>`, `conversations`).
 	// A caller-supplied `wsHub` (tests) is respected as-is.
 	const wsHub =
@@ -248,7 +247,7 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 					)
 				: new WsConnectionHub();
 
-	// S2-F01 / AU31 §5.2: build the production WS-route registrar from this
+	// Build the production WS-route registrar from this
 	// boot's OWN `wsHub`, when the Application supplied its Node-specific
 	// `upgradeWebSocket` adapter and did not itself override `registerWebSocket`
 	// (a test harness may still stub the hook to just activate the token
@@ -284,7 +283,7 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 		...(tokenStore ? { upgradeTokenStore: tokenStore } : {}),
 	});
 
-	// AU21 §9 Increment 14d / AU31 §5.2: kept as its OWN phase, separate from
+	// Kept as its OWN phase, separate from
 	// `disposers` — the Application's shutdown sequence disposes the socket
 	// as a distinct, named, awaited step (`create-server.ts`'s "websocket"
 	// phase), same ordering it had before this boot absorbed its construction.
@@ -352,7 +351,6 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 		},
 		middleware: createApiMiddlewareStack({
 			...(db ? { db } : {}),
-			sharedMode,
 			...(options?.authApiKey !== undefined ? { apiKey: options.authApiKey } : {}),
 		}),
 		disposers,

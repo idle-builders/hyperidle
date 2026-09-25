@@ -82,7 +82,7 @@ async function installReturnHook(opts: ReturnHookOptions): Promise<void> {
 	}
 }
 
-// ── AO2: EMITTED_ROOTS exports for scaffolding-drift-guard ───────────────────
+// ── EMITTED_ROOTS exports for scaffolding-drift-guard ───────────────────
 
 /**
  * Root directories emitted by provisionClaudeSettings.

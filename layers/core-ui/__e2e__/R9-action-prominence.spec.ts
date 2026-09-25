@@ -906,7 +906,6 @@ test.describe("R9 — Document detail page", () => {
 			row: makeUserRow("test-founder", {
 				name: "Test Founder",
 				role: "founder",
-				email: "test@hyperidle.dev",
 				team: { id: "test-team-1", name: "Test Team" },
 			}),
 			self: true,

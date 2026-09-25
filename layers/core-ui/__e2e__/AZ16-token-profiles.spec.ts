@@ -65,7 +65,6 @@ const TEAM_ID = "team-az16";
 const FOUNDER_ROW = makeUserRow("test-founder", {
 	name: "Test Founder",
 	role: "founder",
-	email: "test@hyperidle.dev",
 	team: { id: TEAM_ID, name: "Hearth" },
 });
 
@@ -103,13 +102,12 @@ async function installAz16Mocks(page: Page): Promise<void> {
 			return json(route, {
 				id: "test-founder",
 				name: "Test Founder",
-				email: "test@hyperidle.dev",
 				role: "founder",
 			});
 		}
 		if (pathname === "/api/settings") {
 			return json(route, {
-				profile: { name: "Test Founder", email: "test@hyperidle.dev", avatarUrl: null },
+				profile: { name: "Test Founder", avatarUrl: null },
 				teams: [],
 				users: [],
 				notifications: {

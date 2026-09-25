@@ -112,7 +112,6 @@ describe("AgentProfile session viewer door", () => {
 						Promise.resolve({
 							id: "viewer-1",
 							name: "Viewer",
-							email: "v@example.com",
 							avatarUrl: null,
 						}),
 				});

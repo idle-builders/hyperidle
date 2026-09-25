@@ -35,7 +35,7 @@ function ThreadRowPresenceDot({
 export interface ThreadAvatarItem {
 	initials: string;
 	agent?: boolean;
-	/** AE5: Operational status for agent avatars. When present, shows presence dot. */
+	/** Operational status for agent avatars. When present, shows presence dot. */
 	operationalStatus?: AgentOperationalStatus;
 }
 

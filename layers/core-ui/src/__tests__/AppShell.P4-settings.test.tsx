@@ -67,7 +67,6 @@ describe("AppShell — P4 Settings overlay", () => {
 									name: "Test Founder",
 									role: "founder",
 									status: "active",
-									email: "test@example.com",
 									avatarUrl: null,
 									team: null,
 									edges: [],
@@ -138,10 +137,9 @@ describe("AppShell — P4 Settings overlay", () => {
 						// auth/me response
 						id: "u-founder",
 						name: "Test Founder",
-						email: "test@example.com",
 						avatarUrl: null,
 						// settings response
-						profile: { name: "Test Founder", email: "test@example.com", avatarUrl: null },
+						profile: { name: "Test Founder", avatarUrl: null },
 						teams: [],
 						users: [],
 						notifications: {

@@ -30,7 +30,7 @@ import { ScopeChangeDialog } from "../ScopeChangeDialog";
 
 function mockUser(overrides: { teamId?: string } = {}): void {
 	vi.mocked(useCurrentUser).mockReturnValue({
-		user: { id: "user-1", name: "User", email: "u@x.com", avatarUrl: null, ...overrides },
+		user: { id: "user-1", name: "User", avatarUrl: null, ...overrides },
 		status: "ready",
 		error: null,
 		retry: vi.fn(),

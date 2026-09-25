@@ -640,7 +640,7 @@ function SessionComposer({
  * The production session view — renders through the SAME `parts/*` renderers
  * as `PartList`, with `aggregateToolRun` grouping consecutive completed tool
  * Parts within each author turn. One renderer, one extra grouping layer.
- * No parallel renderer (AM3 hard-rule 4).
+ * No parallel renderer.
  */
 export function SessionView({
 	sessionId,

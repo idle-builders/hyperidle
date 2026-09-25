@@ -184,7 +184,7 @@ export type InlineRef = EntityRef | MentionRef | CanvasArtifactRef;
 // derived from the item's blocks at render time and is not stored anywhere.
 
 /**
- * AD8b: ToolCallSummary — metadata for a single tool invocation by the assistant.
+ * ToolCallSummary — metadata for a single tool invocation by the assistant.
  * Stored on the plain message payload. Rendered as tinted rows in AssistantOverlay.
  */
 export interface ToolCallSummary {
@@ -353,6 +353,6 @@ export interface PlainPayloadWithBlockId {
 	readonly refs?: ReadonlyArray<InlineRef>;
 	/** L18: Optional block anchor — the id of the Block this message is anchored to. */
 	readonly blockId?: string;
-	/** AL4: Optional human-readable sub-block label (line/paragraph/region); opaque to the server. */
+	/** Optional human-readable sub-block label (line/paragraph/region); opaque to the server. */
 	readonly spotLabel?: string;
 }

@@ -28,11 +28,8 @@
  * `AgentProfile`, not the team page.
  */
 
-import {
-	AGENT_OPERATIONAL_STATUS_LABEL,
-	roleLabel,
-	TASK_STATE_LABEL,
-} from "@hyperidle/domain-model";
+import { AGENT_OPERATIONAL_STATUS_LABEL, TASK_STATE_LABEL } from "@hyperidle/domain-model";
+import { roleLabel } from "../utils/role-label.js";
 import type { JSX } from "react";
 import { useMemo, useState } from "react";
 import { Link as RRLink, useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -236,7 +233,7 @@ function WorkTeamLoaded({
 	 * overrideData in tests, skipping ArtifactSection prevents fetch-order races.
 	 */
 	skipArtifacts?: boolean;
-	/** AF16 T3: Callback to re-fetch team data after a mutation (e.g. an agent added). */
+	/** Callback to re-fetch team data after a mutation (e.g. an agent added). */
 	refetchTeam?: () => void;
 }): JSX.Element {
 	const navigate = useNavigate();
@@ -255,7 +252,7 @@ function WorkTeamLoaded({
 	const selectedAgentId = searchParams.get("agent");
 	const hasSelection = selectedAgentId !== null;
 
-	// AB3: dialog state
+	// Dialog state
 	const [addDialogOpen, setAddDialogOpen] = useState(false);
 
 	// AB3: fetch full agent configs for the roster.
@@ -312,7 +309,7 @@ function WorkTeamLoaded({
 					: "max-w-[960px] w-full py-[24px] flex flex-col gap-[24px]"
 			}
 		>
-			{/* R4 — Team summary stat strip (AG1: replaces KeyValue burn list) */}
+			{/* R4 — Team summary stat strip */}
 			{/*
 			 * @lore AU21 Increment 14a: the Burn/Cap stat tiles + cap-utilization
 			 * progress bar are HARD-DELETED along with the rest of the cost-cap
@@ -436,7 +433,7 @@ function WorkTeamLoaded({
 				)}
 			</section>
 
-			{/* R3 — Agents (AB2: replaces Roster/AgentCard with flat AgentRow rows) */}
+			{/* R3 — Agents as flat AgentRow rows */}
 			<section aria-label="Team agents" data-testid="team-agents">
 				<SectionLabel
 					label="Agents"
@@ -679,7 +676,7 @@ function WorkTeamLoaded({
 				)}
 			</PageScaffold>
 
-			{/* AB3: Add dialog — only mounted when open to avoid DOM content collisions */}
+			{/* Add dialog — only mounted when open to avoid DOM content collisions */}
 			{addDialogOpen && (
 				<AgentAddDialog
 					rolesInUse={(data?.roster ?? []).map((m) => m.role)}

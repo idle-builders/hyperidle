@@ -1,11 +1,11 @@
 /**
- * AU36 (D1) — inherited reach: the connections domain's own probe + cache for
+ * Inherited reach: the connections domain's own probe + cache for
  * the services the machine already holds auth for.
  *
  * The four probes moved VERBATIM from `layers/agent-execution/harness-registry/
  * src/harness-discovery.ts` (inspectClaudeTools / inspectCodexTools /
  * inspectOpenCodeTools / inspectInheritedTools) — same argv, same parsing,
- * same degrade-to-`[]` error handling, same timeouts, same AN1 lore. Their
+ * same degrade-to-`[]` error handling, same timeouts, same lore. Their
  * small CLI-runner helpers (`runCommand` / `stripAnsi` / `failedCommandResult`)
  * are deliberately DUPLICATED here (~50 lines): the originals also serve the
  * harness-family probes that stay, and no cross-layer sharing is legal
@@ -116,7 +116,7 @@ async function runCommand(
 	}
 }
 
-/** Per-probe timeout for MCP list / CLI auth-status probes (AN1). */
+/** Per-probe timeout for MCP list / CLI auth-status probes. */
 const INHERITED_PROBE_TIMEOUT_MS = 5_000;
 
 /**
@@ -452,7 +452,7 @@ export function createInheritedReach(): InheritedReach {
 				inspectCodexTools(deps),
 				inspectOpenCodeTools(deps),
 			]);
-			// AU36 D6: fixed source order — reproduces today's display order for
+			// Fixed source order — reproduces today's display order for
 			// every real configuration (see architecture.md §4 D6 for the one
 			// documented edge this deliberately does not reproduce).
 			snapshot = Object.freeze([

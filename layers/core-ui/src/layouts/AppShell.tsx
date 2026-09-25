@@ -166,7 +166,7 @@ export function AppShell(): JSX.Element {
 
 	const activeView = useMemo(() => pathToView(location.pathname), [location.pathname]);
 
-	// AE4: viewport breakpoint for mobile drawer
+	// Viewport breakpoint for mobile drawer
 	const { sidebarMobile } = useViewportBreakpoint();
 	const { canGoBack } = useHistoryAvailability(location.key);
 	const routeStateRef = useRef(
@@ -214,7 +214,7 @@ export function AppShell(): JSX.Element {
 	}, [location.key]);
 	const [drawerOpen, setDrawerOpen] = useState(false);
 
-	// AE4: close drawer whenever the pathname changes (navigation closes drawer)
+	// Close drawer whenever the pathname changes (navigation closes drawer)
 	// biome-ignore lint/correctness/useExhaustiveDependencies: location.pathname is intentional — we WANT the effect to fire on every navigation, not only when setDrawerOpen changes.
 	useEffect(() => {
 		setDrawerOpen(false);
@@ -333,7 +333,7 @@ export function AppShell(): JSX.Element {
 		setAssistantOverlayOpen(false);
 	}, []);
 
-	// AF8: Notification popover open state — wired to sidebar-notification-btn.
+	// Notification popover open state — wired to sidebar-notification-btn.
 	const [notifOpen, setNotifOpen] = useState(false);
 	const handleNotificationClick = useCallback((): void => {
 		setNotifOpen((prev) => !prev);
@@ -412,10 +412,10 @@ export function AppShell(): JSX.Element {
 				return;
 			}
 			if (view === "work") {
-				// AD3 AC-1: with exactly 1 team, skip the overview and navigate directly to
+				// With exactly 1 team, skip the overview and navigate directly to
 				// that team's page. The sidebar suppresses the sub-list in this case too,
 				// so the Work section header becomes a direct entry point.
-				// AD9: 2+ teams → /work (WorkOverview; was /work/portfolio).
+				// 2+ teams → /work (WorkOverview; was /work/portfolio).
 				// WorkOverview also enforces the 1-team short-circuit for any direct /work nav.
 				if (sidebarTeams.length === 1 && sidebarTeams[0]) {
 					navigate(`/work/team/${encodeURIComponent(sidebarTeams[0].id)}`);
@@ -447,7 +447,7 @@ export function AppShell(): JSX.Element {
 		setDrawerOpen(false);
 	}, [navigate]);
 
-	// AG4: Global keyboard shortcuts — Back (⌘[), Forward (⌘]), view switch (⌘1/2/3).
+	// Global keyboard shortcuts — Back (⌘[), Forward (⌘]), view switch (⌘1/2/3).
 	// Wired here in AppShell (desktop + mobile both — shortcuts are global).
 	// Guard: input/textarea/contentEditable targets are ignored inside useNavShortcuts.
 	useNavShortcuts({
@@ -656,10 +656,10 @@ export function AppShell(): JSX.Element {
 		[conversationsThreads.threads],
 	);
 
-	// AE4: notification dot on hamburger — signals "items need attention".
+	// Notification dot on hamburger — signals "items need attention".
 	const hasAttentionItems = conversationsBlockingCount > 0;
 
-	// AE4: page title for mobile header.
+	// Page title for mobile header.
 	const pageTitle = useMemo((): string => {
 		if (settingsOpen) return "Settings";
 		const p = location.pathname;
@@ -808,7 +808,7 @@ export function AppShell(): JSX.Element {
 		</main>
 	);
 
-	// AE4: Mobile layout branch (viewport <= 768px)
+	// Mobile layout branch (viewport <= 768px)
 	if (sidebarMobile) {
 		return (
 			<ToastRegion>
@@ -820,7 +820,7 @@ export function AppShell(): JSX.Element {
 					Skip to main content
 				</a>
 				<div className="flex flex-col h-screen bg-[var(--surface-container)] overflow-hidden">
-					{/* AV5: Desktop titlebar — null in browser → layout-neutral; shrink-0 in Electron */}
+					{/* Desktop titlebar — null in browser → layout-neutral; shrink-0 in Electron */}
 					<DesktopTitleBar />
 					{/* Mobile header — 48px + safe-area-inset-top */}
 					<header
@@ -983,10 +983,10 @@ export function AppShell(): JSX.Element {
 						onNavigate={handleSearchNavigate}
 					/>
 
-					{/* AF8: NotificationPopover — anchored to sidebar-notification-btn, z-50 */}
+					{/* NotificationPopover — anchored to sidebar-notification-btn, z-50 */}
 					<NotificationPopover open={notifOpen} onClose={handleNotificationClose} />
 
-					{/* AF14 AC5: AssistantOverlay — renders above Main (z-30), below drawer (z-40). */}
+					{/* AssistantOverlay — renders above Main (z-30), below drawer (z-40). */}
 					<AssistantOverlay
 						open={assistantOverlayOpen}
 						onClose={handleAssistantClose}
@@ -1038,10 +1038,10 @@ export function AppShell(): JSX.Element {
 					onNavigate={handleSearchNavigate}
 				/>
 
-				{/* AF8: NotificationPopover — anchored to sidebar-notification-btn, z-50 */}
+				{/* NotificationPopover — anchored to sidebar-notification-btn, z-50 */}
 				<NotificationPopover open={notifOpen} onClose={handleNotificationClose} />
 
-				{/* AF14 AC5: AssistantOverlay — renders above Main (z-30), below Settings (z-40). */}
+				{/* AssistantOverlay — renders above Main (z-30), below Settings (z-40). */}
 				<AssistantOverlay
 					open={assistantOverlayOpen}
 					onClose={handleAssistantClose}

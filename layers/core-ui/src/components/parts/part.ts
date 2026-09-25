@@ -41,7 +41,7 @@ import {
 } from "../../ds/message-payload.js";
 import type { RouteHostKind } from "../../services/host-route.js";
 
-// AM3: session-activity type (NORMALIZED union — no harness-type param in adapter).
+// Session-activity type (NORMALIZED union — no harness-type param in adapter).
 // The adapter body (and ONLY the adapter body) imports the source types.
 
 function exhaustiveAssert(value: never): never {
@@ -51,9 +51,9 @@ function exhaustiveAssert(value: never): never {
 // ── Part discriminant (closed, derived, never stored) ───────────────
 
 /**
- * AM3: Extended with `tool` + `reasoning` (concept Phase 4, locked).
+ * Extended with `tool` + `reasoning` (concept Phase 4, locked).
  * Stays closed + exhaustive + `unknown`-terminated. Adding a kind requires
- * a concept-doc update first (AM3 concept.md IS that update for these two).
+ * a concept-doc update first (the concept doc IS that update for these two).
  */
 type PartKind =
 	| "prose"
@@ -149,7 +149,7 @@ export type Part =
 			readonly options: ReadonlyArray<string>;
 	  })
 	/**
-	 * AM3: `tool` — one tool call the agent made. A compact row, not prose.
+	 * `tool` — one tool call the agent made. A compact row, not prose.
 	 * Only `failed` uses the destructive color token (`--status-error`).
 	 * A file-change carries a `diff` Embed (via `embeds`); sub-agent carries `opensSession`.
 	 * Parts derived-never-stored; status transitions (running→ok/failed) are derived updates.
@@ -170,7 +170,7 @@ export type Part =
 			readonly opensSession?: { readonly sessionId: string; readonly label: string };
 	  })
 	/**
-	 * AM3: `reasoning` — a span of agent thinking, collapsed "Thought for Ns".
+	 * `reasoning` — a span of agent thinking, collapsed "Thought for Ns".
 	 * No status glyph (reasoning is never success/failure).
 	 */
 	| (BasePart & {

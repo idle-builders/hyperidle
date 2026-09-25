@@ -177,7 +177,7 @@ export interface PlatformActionsDeps {
 	};
 	readonly editDocument: EditDocumentRunFn;
 	readonly searchDocuments: SearchDocumentsRunFn;
-	/** BA9d D12: base directory plugin files persist to. Absent → no on-disk
+	/** Base directory plugin files persist to. Absent → no on-disk
 	 * install (no MCP servers reach a session; restore answers
 	 * `no_install_path` for anything that needs a source file). */
 	readonly pluginsBaseDir?: string;

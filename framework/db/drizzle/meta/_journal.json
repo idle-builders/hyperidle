@@ -652,6 +652,13 @@
 			"when": 1790332081807,
 			"tag": "0093_drop_opinion_era_storage",
 			"breakpoints": true
+		},
+		{
+			"idx": 94,
+			"version": "7",
+			"when": 1790418481807,
+			"tag": "0094_drop_invite_and_login_sessions",
+			"breakpoints": true
 		}
 	]
 }

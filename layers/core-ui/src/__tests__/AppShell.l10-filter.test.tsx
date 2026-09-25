@@ -83,7 +83,7 @@ function renderShellAt(initialPath: string): void {
 	render(<RouterProvider router={router} />);
 }
 
-const STUB_USER = { id: "u-founder-test", name: "Founder", email: "", avatarUrl: null };
+const STUB_USER = { id: "u-founder-test", name: "Founder", avatarUrl: null };
 
 /** `open_user({})`'s door result for STUB_USER — `useCurrentUser` reads `data.user`. */
 const OPEN_USER_RESULT = {

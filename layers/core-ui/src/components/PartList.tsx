@@ -51,10 +51,10 @@ function renderPart(
 			// UI-004: onAnswer posts the chosen option as a plain message via onSend.
 			return <QuestionnairePart part={part} onAnswer={onAnswer} />;
 		case "tool":
-			// AM3: tool Part — bare one-liner row; per-kind icon; expand-to-output.
+			// Tool Part — bare one-liner row; per-kind icon; expand-to-output.
 			return <ToolPart part={part} onOpen={onOpen} />;
 		case "reasoning":
-			// AM3: reasoning Part — collapsed "Thought for Ns"; expand to quiet prose.
+			// Reasoning Part — collapsed "Thought for Ns"; expand to quiet prose.
 			return <ReasoningPart part={part} />;
 		case "unknown":
 			return <UnknownPart part={part} />;
@@ -65,7 +65,7 @@ function renderPart(
 
 /**
  * Two-letter initials from an author name (first + last word).
- * Exported so `SessionView` can reuse it without duplication (AM3 warning fix).
+ * Exported so `SessionView` can reuse it without duplication.
  */
 export function initialsOf(name: string): string {
 	const words = name.trim().split(/\s+/).filter(Boolean);
@@ -78,7 +78,7 @@ export function initialsOf(name: string): string {
 
 /**
  * Per-author round avatar — the repeatable conversation/session pattern:
- * GREEN (accent) for an agent, GREY (neutral) for a human. (AM3 unification —
+ * GREEN (accent) for an agent, GREY (neutral) for a human. (One mapping —
  * the same Avatar treatment as the ConversationSurface header.)
  */
 function GroupAvatar({ name, isAgent }: { name: string; isAgent: boolean }): JSX.Element {

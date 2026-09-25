@@ -7,7 +7,7 @@
  * id-batch preservation, order-sensitive message/thread lists, in-transaction
  * reads (a read passed a live `tx` sees the same tx's uncommitted write),
  * projected getters returning EXACTLY their route's current column set
- * (`listAgentProfiles` INCLUDES `systemPrompt`; `getUserById` INCLUDES `email`;
+ * (`listAgentProfiles` INCLUDES `systemPrompt`; `getUserById` INCLUDES `avatarUrl`;
  * `listTeamMembersSummary` returns exactly id/name/role/agentCategory), and
  * the bets.ts decomposition.
  */
@@ -69,11 +69,11 @@ function messageValues(
 
 describe("user-store reads", () => {
 	test("findUser returns the row, or undefined when absent", async ({ db }) => {
-		await insertUser(db, userValues("u1", { email: "u1@example.com" }));
+		await insertUser(db, userValues("u1", { avatarUrl: "https://example.com/u1.png" }));
 		const found = await findUser(db, { id: "u1" });
 		expect(found?.id).toBe("u1");
-		// Full-row getter preserves today's exposure incl. email (routes/users.ts CRUD).
-		expect(found?.email).toBe("u1@example.com");
+		// Full-row getter returns the whole identity row, avatar included.
+		expect(found?.avatarUrl).toBe("https://example.com/u1.png");
 		expect(await findUser(db, { id: "missing" })).toBeUndefined();
 	});
 
@@ -148,20 +148,20 @@ describe("user-store reads", () => {
 		// rides on the `users` row (AC-2). It no longer does — `systemPrompt` and the
 		// five other run-config fields moved to `agent_run_config`, so `users` is
 		// purely the identity record. The AC-2 intent (routes project the FULL row,
-		// nothing is hidden from them) is preserved by the `email` assertion; the
+		// nothing is hidden from them) is preserved by the `avatarUrl` assertion; the
 		// absence assertion is what pins the relocation.
 		await insertUser(
 			db,
 			userValues("ag1", {
 				kind: "ai",
 				role: "builder",
-				email: "secret@x",
+				avatarUrl: "https://example.com/ag1.png",
 			}),
 		);
 		const [row] = await listUsers(db, { kind: "ai" });
 		expect(row).toBeDefined();
-		// email is present in full User row (routes project only what they need)
-		expect(row?.email).toBe("secret@x");
+		// avatarUrl is present in the full User row (routes project only what they need)
+		expect(row?.avatarUrl).toBe("https://example.com/ag1.png");
 		expect(row && "systemPrompt" in row).toBe(false);
 		expect(row && "harnessType" in row).toBe(false);
 		expect(row && "maxConcurrentSessions" in row).toBe(false);

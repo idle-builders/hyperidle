@@ -110,24 +110,24 @@ export interface SidebarProps {
 	userInitials?: string;
 
 	/**
-	 * AD5: count of threads with unresolved reviews (blocking).
+	 * Count of threads with unresolved reviews (blocking).
 	 * When > 0, a numeric badge renders adjacent to the Conversations header.
 	 */
 	conversationsBlockingCount?: number;
 
 	/**
-	 * AF8: count of unseen notifications. When > 0, a red dot renders on the
+	 * Count of unseen notifications. When > 0, a red dot renders on the
 	 * notification destination at the top of the stable switcher.
 	 */
 	unseenNotificationCount?: number;
 
 	/**
-	 * AF8: handler for the notification trigger click (opens NotificationPopover).
+	 * Handler for the notification trigger click (opens NotificationPopover).
 	 */
 	onNotificationClick?: () => void;
 
 	/**
-	 * AF8: whether the NotificationPopover is currently open (for aria-expanded).
+	 * Whether the NotificationPopover is currently open (for aria-expanded).
 	 */
 	notificationPopoverOpen?: boolean;
 
@@ -169,7 +169,7 @@ export interface SidebarProps {
 
 // ---------------------------------------------------------------------------
 // Section header button (top-level selectable item)
-// AD9: active icon → --text-primary (not accent green); inactive → --text-tertiary.
+// Active icon → --text-primary (not accent green); inactive → --text-tertiary.
 // Uniform hover: accent-tinted color-mix (matches fast-nav Row hover).
 // ---------------------------------------------------------------------------
 
@@ -303,14 +303,14 @@ function SectionHeader({
 				" ",
 				"rounded-[var(--r-subtle)] mb-[3px]",
 				"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus-visible:-outline-offset-1",
-				// AD9: active item → elevated surface; inactive → accent-tinted hover
+				// Active item → elevated surface; inactive → accent-tinted hover
 				// to match the fast-nav Row hover (uniform surface grammar).
 				isActive
 					? "bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] text-[var(--text-primary)] "
 					: "text-[var(--text-secondary)]  hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))]",
 			].join(" ")}`}
 		>
-			{/* AD9: active icon → --text-primary (founder call: green clashed with
+			{/* Active icon → --text-primary (founder call: green clashed with
 			    elevated surface); inactive → --text-tertiary for quiet/active contrast. */}
 			<span
 				className={
@@ -378,7 +378,7 @@ function AssistantIconButton({
 					: "bg-[var(--surface-container)] text-[var(--text-secondary)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)]",
 			].join(" ")}
 		>
-			{/* AD9 fix 2: robot glyph. Antenna + side ears + rounded body with eyes knocked
+			{/* Robot glyph. Antenna + side ears + rounded body with eyes knocked
 			    out via fillRule="evenodd" so holes show button bg in both states. */}
 			<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
 				{/* antenna */}
@@ -481,7 +481,7 @@ function SettingsFooter({
 					}
 					aria-hidden="true"
 				>
-					{/* AD9 polish 1: Heroicons "cog-8-tooth" path (MIT), native 24 viewBox → 16px box. */}
+					{/* Heroicons "cog-8-tooth" path (MIT), native 24 viewBox → 16px box. */}
 					<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
 						<path
 							fillRule="evenodd"
@@ -610,10 +610,10 @@ export function Sidebar({
 	// Cap threads at 5 for the fast-nav head
 	const visibleThreads = threads.slice(0, 5);
 
-	// AD9: ONE shared fast-nav list — content swaps based on activeView.
-	// threads → Conversations; teams → Work (suppressed for 1 team — AD3 AC-1);
+	// ONE shared fast-nav list — content swaps based on activeView.
+	// threads → Conversations; teams → Work (suppressed for 1 team);
 	// documentItems → Knowledge.
-	// AD3 AC-1: only show teams sub-list when there are 2+ teams (same as old sidebar).
+	// Only show teams sub-list when there are 2+ teams (same as old sidebar).
 
 	const fastNavEmpty: Record<ViewId, string> = {
 		conversations: "No threads yet",
@@ -661,7 +661,7 @@ export function Sidebar({
 		}
 
 		if (activeView === "work") {
-			// AD3 AC-1: suppress the sub-list for a single team — the Work view
+			// Suppress the sub-list for a single team — the Work view
 			// short-circuits straight to that team's page, so a one-row list is
 			// noise. Suppressed is not empty: render nothing, not "No teams yet".
 			if (teams.length === 1) {

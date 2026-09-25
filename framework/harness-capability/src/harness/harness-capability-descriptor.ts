@@ -88,7 +88,7 @@ export interface HarnessDiscoveryStatus {
 	readonly version?: string;
 	readonly reason?: string;
 	/**
-	 * AM4 additive field — stamped by the route handler (not the pool, which is DB-free).
+	 * Additive field — stamped by the route handler (not the pool, which is DB-free).
 	 * true when the type is in server_config.harnessDisabled. No harness is exempt.
 	 * Undefined/absent == not disabled (same as false). Breaking: no — additive field.
 	 */
@@ -96,7 +96,7 @@ export interface HarnessDiscoveryStatus {
 }
 
 /**
- * AU36: the descriptor describes the harness — it carries NO field describing
+ * The descriptor describes the harness — it carries NO field describing
  * what an agent may reach. The inherited-reach fact lives in
  * `@hyperidle/domain-model` (`InheritedConnectionFact`), probed and cached by
  * the connections domain. `InheritedToolDescriptor` and

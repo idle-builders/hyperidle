@@ -19,8 +19,7 @@ import type {
  * The canonical runtime-checkable list `AgentWorkIntentKind` is built from —
  * kept in lockstep with `agent_work_intents_kind_ck`
  * (`framework/db/src/schema.ts`) and consumed by
- * `AgentWorkIntentRecorderInput` (`agent-work-intent-recorder.ts`, AU21 §6
- * Decision G) so a kind-set drift test (`framework/db`) can derive its
+ * `AgentWorkIntentRecorderInput` (`agent-work-intent-recorder.ts`) so a kind-set drift test (`framework/db`) can derive its
  * accept-list mechanically from this single source instead of a second
  * hardcoded copy.
  */
@@ -60,7 +59,7 @@ export type AgentRunAdmissionFailureCode =
 	| "PROVISIONING_FAILED"; // hard infra failure building/deploying the session (harness/sandbox), not a domain problem
 
 /**
- * AU21 §6 Decision B4 / §10 — the NEW pre-handoff failure report-back
+ * The pre-handoff failure report-back
  * channel: `failOrRelease` (session-requests) emits this on every failed
  * claim/dispatch attempt (before any session exists). `terminal===true`
  * means orchestration's own claim/attempt budget is spent (or the error is
@@ -147,7 +146,7 @@ export interface SessionEndedEvent {
 	/** Final disposition of the session. */
 	outcome: SessionOutcome;
 	/**
-	 * AU21 §9 Increment 12 (Decision H3), Wave D — additive. Carries
+	 * Additive. Carries
 	 * `run-orchestration/provisioner.ts`'s per-model-tier accumulated token
 	 * counts (`accumulatedTokens`, populated from `token_usage` stream events
 	 * across the session's lifetime) so a core-api `session_ended` subscriber
@@ -210,7 +209,7 @@ export interface SessionNotReturnedEvent {
 	readonly sourceId?: string;
 	readonly sourceCorrelation?: AgentSessionSourceCorrelation;
 	/**
-	 * AU27 Increment 5 (Decision 5) — the session's calling thread id, when it
+	 * The session's calling thread id, when it
 	 * has one (`params.callingThreadId` in hand at the emit site). Absent for
 	 * a `task_run`-sourced session (`sourceCorrelation` is `{taskId, teamId}`,
 	 * no thread) — the never-silent net's `conversation` subscriber no-ops
@@ -405,7 +404,7 @@ export type DomainEvent =
 	// lifecycle propagation and the dependency watcher now.
 	| SessionStartedEvent
 	| SessionEndedEvent
-	// AU19 Increment 3g: handoff EventBus inversion
+	// Handoff EventBus inversion
 	| SessionHandoffCompletedEvent
 	// Return-gate escape surface
 	| SessionNotReturnedEvent

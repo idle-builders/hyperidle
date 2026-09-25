@@ -430,7 +430,7 @@ export function buildAgentOrchestrationPort(
 }
 
 /**
- * AU31 §3.2 — the seam-backed `AgentWorkIntentRecorder` factory: the
+ * The seam-backed `AgentWorkIntentRecorder` factory: the
  * composition-root adapter that lets `@hyperidle/work`'s `transitionTask`
  * (site 6), `@hyperidle/policy`'s `handoff` (site 7), the subscription
  * clock (site 8) and `@hyperidle/review`'s proposed-call workflow

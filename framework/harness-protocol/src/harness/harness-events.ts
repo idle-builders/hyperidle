@@ -31,7 +31,7 @@ export interface ErrorEvent {
 }
 
 /**
- * AU21: `cost_update` (harness-adapter $-cost self-report) was removed —
+ * `cost_update` (harness-adapter $-cost self-report) was removed —
  * founder ruling: "very few harness can actually report cost"; keep only
  * token usage (`token_usage`), tracked by every supported harness.
  */

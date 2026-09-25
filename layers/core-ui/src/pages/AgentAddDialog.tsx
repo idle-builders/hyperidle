@@ -16,7 +16,8 @@
  * never left to a caller default.
  */
 
-import { HARNESS_TYPES, type HarnessType, roleLabel } from "@hyperidle/domain-model";
+import { HARNESS_TYPES, type HarnessType } from "@hyperidle/domain-model";
+import { roleLabel } from "../utils/role-label.js";
 import { type JSX, useCallback, useEffect, useState } from "react";
 // hearth-internal-padding
 import { Button, Combobox, Dialog, Input, KeyValue } from "../ds";
@@ -146,7 +147,7 @@ export function AgentAddDialog({
 				</>
 			}
 		>
-			{/* AH4: placement context — read-only team name shown before identity fields */}
+			{/* Placement context — read-only team name shown before identity fields */}
 			<div className="mb-[12px]">
 				<KeyValue label="TEAM" value={teamName} layout="inline" />
 			</div>

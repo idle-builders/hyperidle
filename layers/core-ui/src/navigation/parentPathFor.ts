@@ -23,8 +23,8 @@
  * pathname does not match any detail route with a defined parent.
  *
  * Matched route → parent mapping:
- *   /work/task/:id              → /work  (BB1: tasks at any depth, breadcrumb handles deep nav)
- *   /work/team/:id              → /work  (AD9: was /work/portfolio)
+ *   /work/task/:id              → /work  (tasks at any depth, breadcrumb handles deep nav)
+ *   /work/team/:id              → /work
  *   /documents/:id              → /documents  (excludes /documents/new)
  *   /agents/:id                 → /conversations
  *   /conversations/:id          → /conversations
@@ -33,12 +33,12 @@
  * @returns The explicit parent path string, or null for unmatched routes.
  */
 export function parentPathFor(pathname: string): string | null {
-	// Task detail: /work/task/:id → /work (BB1: replaces /work/bet/:id at any depth)
+	// Task detail: /work/task/:id → /work (at any depth)
 	if (/^\/work\/task\/[^/]+/.test(pathname)) {
 		return "/work";
 	}
 
-	// Team detail: /work/team/:id → /work (AD9: was /work/portfolio)
+	// Team detail: /work/team/:id → /work
 	if (/^\/work\/team\/[^/]+/.test(pathname)) {
 		return "/work";
 	}

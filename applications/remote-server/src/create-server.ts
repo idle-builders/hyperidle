@@ -67,11 +67,11 @@ import { resolveProfile } from "./profiles.js";
 // `.tsbuildinfo` mask it, which is why it passed locally and failed in CI.
 
 /**
- * AU19 Increment 5 (item 2) / AU31 §6: which shape of execution face this
+ * Which shape of execution face this
  * composition wants — `"local"` (in-process CLI harness discovery + a real
  * local sandbox, `desktop`'s shape) or `"disabled"` (an empty pool, populated
  * only by remote workers registering over the worker WS route,
- * `remote-server`'s shape). Replaces the pre-AU31 shape where an Application
+ * `remote-server`'s shape). Replaces an earlier shape where an Application
  * constructed its own concrete `AdapterPool`/`SandboxAdapter` and injected
  * them here — `bootAgentExecution` now owns that construction (§6).
  */
@@ -343,12 +343,12 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			// `ctx.readAlertPreferences` is `bootCoreApi`'s own capability
 			// (§5.2) — this Application no longer imports `@hyperidle/settings`
 			// to build it.
-			// AF7 §1: `canProvision: true` is the whole presence signal the task
+			// `canProvision: true` is the whole presence signal the task
 			// dispatcher's injection seam needs (§2.4/[P4] — the deleted
 			// harness-typed `dispatcherDeps` bundle carried no other live read;
 			// `service-bootstrap.ts:68` records that `Boolean(ctx.dispatcherDeps)`
 			// was only ever a stand-in for this same boolean).
-			// AU11: two owners register independently — core domain services
+			// Two owners register independently — core domain services
 			// (document/policy/review routing/lifecycle propagation/retention)
 			// then agent-owned services (dispatcher/reapers).
 			return [
@@ -387,13 +387,13 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	const agentOrchestration = await bootAgentOrchestration({
 		db,
 		eventBus,
-		// AU26 J3, superseded: `upgradeWebSocket` here is ONLY for worker
+		// `upgradeWebSocket` here is ONLY for worker
 		// WebSocket registration now — the live-run stream itself reaches the
 		// browser through `wsPush` below, on core's own socket.
 		upgradeWebSocket,
 		// Byte-identical to core's own action-layer binding (`core-api/src/app.ts`).
 		wsPush: (topic, envelope) => coreApi.wsHub.broadcast(topic, JSON.stringify(envelope)),
-		// AU36 D4: a `local`-topology deployment probes at boot; a `disabled`
+		// A `local`-topology deployment probes at boot; a `disabled`
 		// one keeps today's behavior — no boot probe, redetect populates (D5).
 		probeInheritedReach: deps.topology === "local",
 		runtime: {
@@ -427,10 +427,10 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	// Close the join — every session from here on sees both
 	// layers' actions through the thunk above.
 	actionTools = [...coreApi.actionTools, ...agentOrchestration.actionTools];
-	// AU36 D5: close the deferred binding — redetect now reaches the reach cache.
+	// Close the deferred binding — redetect now reaches the reach cache.
 	realInheritedReachRefresh = () => agentOrchestration.inheritedReach.refresh();
 
-	// ----- AU26 B1b (§D-B) / AU31 §5.3: the Application's own composition -----
+	// ----- The Application's own composition -----
 	//
 	// ONE Hono instance, ONE `/api` router, ONE listener, every Layer face
 	// mounted behind the SAME auth boundary — built by the layer-blind
@@ -449,7 +449,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	// Backward-compat: /health without auth, outside the /api tree.
 	app.route("/", health);
 
-	// AU31 §3.2 clause 4: close the construction cycle — the in-process
+	// Clause 4: close the construction cycle — the in-process
 	// transport (needs the COMPOSED app, since its seam URLs carry the `/api`
 	// prefix) can only be built now that `app` exists. The port built above
 	// (before either Layer booted) already resolves every subsequent request

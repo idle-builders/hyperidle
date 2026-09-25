@@ -53,8 +53,8 @@ export interface ToolContext<TDb = unknown> {
 	readonly taskId: string;
 	readonly teamId?: string;
 	/**
-	 * AU27 — the thread this session was started FOR, its calling thread.
-	 * Baked at emit time (never read on the run path — AU21 AC #2).
+	 * The thread this session was started FOR, its calling thread.
+	 * Baked at emit time (never read on the run path).
 	 */
 	readonly threadId?: string;
 	readonly requestContext?: {
@@ -93,7 +93,6 @@ export interface RegisteredTool<TDb = unknown> {
 	readonly description: string;
 	readonly inputSchema: AnySchema;
 	readonly handler: (args: unknown, ctx: ToolContext<TDb>) => Promise<ToolResult>;
-	readonly roles?: readonly string[];
 }
 
 /** Anthropic Messages API tool spec — see https://docs.anthropic.com/en/api/messages. */

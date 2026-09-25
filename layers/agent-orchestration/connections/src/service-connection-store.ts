@@ -96,7 +96,7 @@ export async function updateConnection(
 /**
  * Delete a service connection scoped to its owning user.
  * No-op if the id does not exist or belongs to a different user.
- * Provides per-user isolation (AN1 AC5 hard-rule 4).
+ * Provides per-user isolation.
  */
 export async function deleteConnection(
 	db: HyperIdleDb,

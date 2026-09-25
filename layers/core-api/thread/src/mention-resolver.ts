@@ -1,6 +1,6 @@
 /**
  * @mention resolution — moved from `routes/threads.ts`'s
- * `buildMentionLookup`/`resolveMentionsForMessage` (AE5). A nested Service
+ * `buildMentionLookup`/`resolveMentionsForMessage`. A nested Service
  * may not import `@hyperidle/user` directly, so the name lookup is built
  * from an injected read (`ThreadActionsDeps.users`) instead of `listUsers`.
  */
@@ -9,7 +9,7 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import { type InlineRef, resolveMentionsInText } from "@hyperidle/domain-model";
 
 export interface MentionResolverDeps {
-	/** Users belonging to the given teams, for team-wide mention resolution (AE5). */
+	/** Users belonging to the given teams, for team-wide mention resolution. */
 	readonly listByTeamIds: (
 		db: HyperIdleDb,
 		teamIds: readonly string[],
@@ -37,7 +37,7 @@ export interface MentionResolverDeps {
 /**
  * Case-insensitive name→identity map for mention resolution. The pool is who
  * a person reasonably addresses in this thread: the current participants,
- * the teams those participants belong to (AE5), the thread's own HOST team
+ * the teams those participants belong to, the thread's own HOST team
  * when it is team-hosted, and the sender's own agents. A name collision
  * keeps the old deterministic rule — sorted by id, first wins — except a
  * current participant always wins over a non-participant sharing the name.

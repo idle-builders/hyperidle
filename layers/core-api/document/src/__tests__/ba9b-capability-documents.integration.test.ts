@@ -62,7 +62,6 @@ describe("BA9b: assembleSessionDocuments includes capability items", () => {
 
 		const items = await assembleSessionDocuments(db, {
 			teamId: `any-team-${generateId()}`,
-			agentRole: "builder",
 			taskDescription: "Ship feature X",
 			agentId: generateId(),
 		});
@@ -86,14 +85,12 @@ describe("BA9b: assembleSessionDocuments includes capability items", () => {
 
 		const itemsForTeamA = await assembleSessionDocuments(db, {
 			teamId: teamA,
-			agentRole: "builder",
 			taskDescription: "Work item",
 			agentId: generateId(),
 		});
 
 		const itemsForTeamB = await assembleSessionDocuments(db, {
 			teamId: teamB,
-			agentRole: "builder",
 			taskDescription: "Work item",
 			agentId: generateId(),
 		});
@@ -120,14 +117,12 @@ describe("BA9b: assembleSessionDocuments includes capability items", () => {
 
 		const itemsForAgent = await assembleSessionDocuments(db, {
 			teamId,
-			agentRole: "builder",
 			taskDescription: "Task",
 			agentId,
 		});
 
 		const itemsForOther = await assembleSessionDocuments(db, {
 			teamId,
-			agentRole: "builder",
 			taskDescription: "Task",
 			agentId: otherId,
 		});
@@ -149,7 +144,6 @@ describe("BA9b: assembleSessionDocuments includes capability items", () => {
 
 		const items = await assembleSessionDocuments(db, {
 			teamId: `any-team-${generateId()}`,
-			agentRole: "builder",
 			taskDescription: "Work",
 			agentId: generateId(),
 		});
@@ -170,7 +164,6 @@ describe("BA9b: assembleSessionDocuments includes capability items", () => {
 
 		const items = await assembleSessionDocuments(db, {
 			teamId: `any-team-${generateId()}`,
-			agentRole: "builder",
 			taskDescription: "Work",
 			agentId: generateId(),
 		});
@@ -217,7 +210,6 @@ describe("a subscription prompt in reach appears in neither fetch", () => {
 
 		const items = await assembleSessionDocuments(db, {
 			teamId,
-			agentRole: "builder",
 			taskDescription: "Work",
 			agentId,
 		});
@@ -250,7 +242,6 @@ describe("capability items for a team-less agent", () => {
 		});
 
 		const assembled = await assembleSessionDocuments(db, {
-			agentRole: "assistant",
 			taskDescription: "Run the document decay sweep",
 			agentId: "agent-teamless",
 		});
@@ -275,7 +266,6 @@ describe("capability items for a team-less agent", () => {
 		});
 
 		const assembled = await assembleSessionDocuments(db, {
-			agentRole: "assistant",
 			taskDescription: "Run the document decay sweep",
 			agentId: "agent-teamless",
 		});
@@ -302,12 +292,10 @@ describe("who a capability item reaches", () => {
 
 		const forTeamAgent = await assembleSessionDocuments(db, {
 			teamId: "team-alpha",
-			agentRole: "builder",
 			taskDescription: "anything",
 			agentId: "agent-in-team",
 		});
 		const forTeamlessAgent = await assembleSessionDocuments(db, {
-			agentRole: "assistant",
 			taskDescription: "anything",
 			agentId: "agent-no-team",
 		});
@@ -327,18 +315,15 @@ describe("who a capability item reaches", () => {
 
 		const inTeam = await assembleSessionDocuments(db, {
 			teamId: "team-alpha",
-			agentRole: "builder",
 			taskDescription: "anything",
 			agentId: "agent-in-team",
 		});
 		const otherTeam = await assembleSessionDocuments(db, {
 			teamId: "team-beta",
-			agentRole: "builder",
 			taskDescription: "anything",
 			agentId: "agent-elsewhere",
 		});
 		const teamless = await assembleSessionDocuments(db, {
-			agentRole: "assistant",
 			taskDescription: "anything",
 			agentId: "agent-no-team",
 		});
@@ -359,13 +344,11 @@ describe("who a capability item reaches", () => {
 
 		const itsOwner = await assembleSessionDocuments(db, {
 			teamId: "team-alpha",
-			agentRole: "builder",
 			taskDescription: "anything",
 			agentId: "agent-in-team",
 		});
 		const teammate = await assembleSessionDocuments(db, {
 			teamId: "team-alpha",
-			agentRole: "builder",
 			taskDescription: "anything",
 			agentId: "agent-teammate",
 		});
@@ -393,7 +376,6 @@ describe("a team-less agent receives no team-scoped ordinary documents", () => {
 		});
 
 		const assembled = await assembleSessionDocuments(db, {
-			agentRole: "assistant",
 			taskDescription: "anything",
 			agentId: "agent-with-no-team",
 		});

@@ -1,5 +1,5 @@
 /**
- * AU26 B1b (§D-B) — the `/api` middleware stack, built by `core-api` and
+ * The `/api` middleware stack, built by `core-api` and
  * **applied by the Application**.
  *
  * `createAuthMiddleware` legitimately reads `@hyperidle/user` (a core-api
@@ -29,7 +29,6 @@ export interface ApiMiddlewareStack {
 
 export function createApiMiddlewareStack(deps: {
 	readonly db?: HyperIdleDb;
-	readonly sharedMode: boolean;
 	readonly apiKey?: string;
 }): ApiMiddlewareStack {
 	return {
@@ -40,7 +39,6 @@ export function createApiMiddlewareStack(deps: {
 		auth: deps.db
 			? createAuthMiddleware({
 					db: deps.db,
-					sharedMode: deps.sharedMode,
 					...(deps.apiKey !== undefined ? { apiKey: deps.apiKey } : {}),
 				})
 			: authMiddleware,

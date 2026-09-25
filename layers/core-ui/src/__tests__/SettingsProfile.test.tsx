@@ -1,12 +1,12 @@
 /**
  * P4 — SettingsProfile section component tests (Task 8, AC-13, AC-24, AC-25)
  *
- * AC-13: Profile section: name + email edits persist via edit_user
+ * Profile section: the display name edit persists via edit_user; a profile
+ * carries no email.
  * AC-24: Settings save feedback via toast (toast "Profile saved" appears)
  * AC-25: Profile edits do NOT silently revert (bug fix)
  *
- * @lore BC5 T9: the door swap — `call("edit_user", { id, name, email })`
- * replaces `apiFetch(PATCH /api/users/:id)`. `call` is mocked directly.
+ * `call` is mocked directly.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
@@ -21,7 +21,6 @@ import { SettingsProfile } from "../settings/SettingsProfile";
 const DEFAULT_USER = {
 	id: "u-founder-1",
 	name: "Alice Founder",
-	email: "alice@example.com",
 	avatarUrl: null,
 };
 
@@ -58,16 +57,14 @@ describe("SettingsProfile", () => {
 		vi.restoreAllMocks();
 	});
 
-	// AC-13: Name and email pre-filled from current user
-	it("pre-fills name and email from current user", () => {
+	it("pre-fills the display name and shows no email field", () => {
 		render(<SettingsProfile />);
 
 		expect(screen.getByLabelText(/display name/i)).toHaveValue("Alice Founder");
-		expect(screen.getByLabelText(/^email/i)).toHaveValue("alice@example.com");
+		expect(screen.queryByLabelText(/email/i)).not.toBeInTheDocument();
 	});
 
-	// AC-13: Save button calls edit_user
-	it("Save Profile button calls edit_user with updated values", async () => {
+	it("Save Profile button calls edit_user with the id and the new name only", async () => {
 		const user = userEvent.setup();
 		render(<SettingsProfile />);
 
@@ -79,10 +76,10 @@ describe("SettingsProfile", () => {
 		await user.click(saveBtn);
 
 		await waitFor(() => {
-			expect(callMock).toHaveBeenCalledWith(
-				"edit_user",
-				expect.objectContaining({ id: DEFAULT_USER.id, name: "Bob Updated" }),
-			);
+			expect(callMock).toHaveBeenCalledWith("edit_user", {
+				id: DEFAULT_USER.id,
+				name: "Bob Updated",
+			});
 		});
 	});
 

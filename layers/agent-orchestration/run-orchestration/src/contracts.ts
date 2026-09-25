@@ -276,10 +276,10 @@ export interface RuntimeDeps {
 	>[0];
 	readonly sandboxBasePath?: string;
 	/**
-	 * AU27 Increment 6 (Decision 4) — an optional per-agent model override
+	 * An optional per-agent model override
 	 * (baked onto every kind's `agentConfig.modelId`/`modelProvider`, uniform,
 	 * not assistant-only). Absent means "no override, tier only" — matches the
-	 * pre-AU27 signature's own behaviour exactly.
+	 * earlier signature's own behaviour exactly.
 	 */
 	readonly ports?: RuntimePorts;
 	readonly durableQueue?: Parameters<RuntimePorts["sessionRequests"]["drainIntents"]>[0];

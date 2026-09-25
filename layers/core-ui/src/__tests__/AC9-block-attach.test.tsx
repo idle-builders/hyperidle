@@ -80,7 +80,6 @@ function mockReadyThread(): void {
 		user: {
 			id: MY_USER_ID,
 			name: "Founder",
-			email: "x@x.com",
 			avatarUrl: null,
 			teamId: "team-1",
 		},

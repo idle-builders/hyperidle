@@ -16,8 +16,8 @@
  * `ds/status-mapping.ts` still derive them from live run state.
  */
 
-/** AB2: Operational status derived from session state. */
+/** Operational status derived from session state. */
 export type AgentOperationalStatus = "active" | "idle" | "error";
 
-/** AB2: Health indicator level for display. */
+/** Health indicator level for display. */
 export type AgentHealthLevel = "healthy" | "warning" | "critical";

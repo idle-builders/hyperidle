@@ -517,10 +517,10 @@ async function failOrRelease(
 	}
 }
 /**
- * AU21 Decision B‴ — before claiming/dispatching, check whether a FRESHER
+ * Before claiming/dispatching, check whether a FRESHER
  * pending/claimed intent already exists for the same `(kind, sourceId)` work
  * identity (a re-emit bumped `idempotencyKey` for outstanding work). Reuses
- * the existing identity shape + AU9 CAS; own-state only, no core-api read.
+ * the existing identity shape and its compare-and-set; own-state only, no core-api read.
  */
 async function findNewerPendingSiblingInternal(
 	db: HyperIdleDb,
@@ -623,7 +623,7 @@ async function createResumeRequestInternal(
 	return { request };
 }
 /**
- * AU21 §9 Increment 3 co-existence scaffolding — an already-baked request is
+ * Co-existence scaffolding — an already-baked request is
  * used DIRECTLY (zero domain reads): reconstruct the full `triggered` request
  * shape from the persisted baked fields plus the two pieces trivially
  * re-derivable from the intent row itself (`eventType`, `idempotencyKey`),
@@ -669,7 +669,7 @@ async function createFromBakedRequestInternal(
 						...(baked.harnessDisabled !== undefined
 							? { harnessDisabled: baked.harnessDisabled }
 							: {}),
-						// AU27 Increment 1 (Decision 1): the session's calling thread id.
+						// The session's calling thread id.
 						...(baked.callingThreadId !== undefined
 							? { callingThreadId: baked.callingThreadId }
 							: {}),
@@ -1122,7 +1122,7 @@ export type BakedWorkIntentRequest = {
 	readonly userId?: string;
 	readonly sourceCorrelation: AgentSessionSourceCorrelation;
 	/**
-	 * AU21 §9 Increment 11 (Decision H2): the `assistant_turn` family's baked
+	 * The `assistant_turn` family's baked
 	 * thread transcript (`conversation`'s `resolveAssistantTurnRequest`).
 	 * Absent for every other kind — carried through onto the created
 	 * `AgentSessionRequest.payloadJson` so `dispatch` sources the harness
@@ -1163,30 +1163,12 @@ export type BakedWorkIntentRequest = {
 };
 // BakedContextDocument and BakedContextBundle are now imported from @hyperidle/domain-model above.
 // The local mirrors existed because @hyperidle/work-intent-port's audience excluded session-requests;
-// work-intent-port dissolved into domain-model (reach: everyone) in AU44 batch 8.
+// work-intent-port dissolved into domain-model (reach: everyone).
 /**
- * @lore AU21 §9 Increment 9: the `"triggered"` kind (trigger-rule config
- * matching against `settings`'s `kind:"trigger"` entries, target-agent
- * resolution) REMOVED — confirmed via git archaeology + a full production
- * call-site grep that `createTriggeredInternal` (this variant's only
- * consumer) had ZERO real callers: subscription firing has called
- * `enqueueWorkIntent` directly since before AU21 even started (verified at
- * `7b64e8d1^`'s dispatch/service.ts and AU20's original session-requests
- * rewrite, `d6dcfa2c`), and every other family's real resolve-at-emit
- * migration (architecture.md §9 Increment 3) bakes straight onto
- * `enqueueWorkIntent` too. The ONLY caller anywhere in the repo was
- * `layers/core-api/src/__tests__/trigger-resolution.integration.test.ts`
- * (deleted alongside this) — test-only-reachable code is dead code (see
- * `.claude` rule: tests/stories never count as production reachability).
- * At the time, `settings`'s `kind:"trigger"` config entity
- * (`SettingsAgentBehavior.tsx`'s "Triggers" tab, `agent-behavior-config-impl.ts`)
- * remained fully editable in the UI with no code path reading it to affect
- * real agent selection — a genuine, orphaned-feature product gap, out of
- * AU21's boundary-seam scope and flagged for founder attention rather than
- * fixed there. BA1 D10 closed the gap the other way: the trigger-rule
- * entity itself (config kind, settings tab, and stored data) is deleted, not
- * wired up — this comment records why the kind existed and had no reader,
- * not a live gap to fix.
+ * @lore There is no "triggered" kind and no trigger rule to match: a
+ * subscription that fires calls `enqueueWorkIntent` with its agent already
+ * resolved, the same as every other kind that bakes its request at emit time.
+ * An agent's reactions are its subscriptions and their prompts, nothing else.
  */
 export type CreateSessionRequestInput = {
 	readonly kind: "explicitStart";

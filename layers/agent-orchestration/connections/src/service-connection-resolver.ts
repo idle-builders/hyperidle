@@ -24,7 +24,7 @@ import { and, eq } from "drizzle-orm";
  *
  * Returns the decrypted token for the OWNING USER only.
  * Returns null for:
- *   - cross-user / non-existent connection (AC5 — never leaks existence)
+ *   - cross-user / non-existent connection (never leaks existence)
  *   - mcp connections (no stored token)
  *   - missing server secret (decrypt returns null)
  *   - decryption failure (tampered / wrong key)

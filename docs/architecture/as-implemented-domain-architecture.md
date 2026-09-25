@@ -405,7 +405,7 @@ See the L2 Document Domain paragraph above; full design in [knowledge-architectu
 
 Hono on Node. `core-api` mounts its routes under `/api` (`layers/core-api/src/app.ts`); each Layer hosts its own app, and an Application composes them (`applications/remote-server/src/create-server.ts`, `applications/desktop/src/main.ts`). Schedulers start from `layers/core-api/src/service-bootstrap.ts`. `core-api`'s own route groups are down to four: `auth`, `health`, `search`, and `actions` — one router over the composed action list (`search_tasks`/`open_task`/`edit_task`/`search_threads`/`open_thread`/`send_message`/`adjust_thread`/`search_documents`/`open_document`/`edit_document`/`search_users`/`open_user`/`edit_user`/`search_plugins`/`edit_plugin`). There is no separate `users`/`agents`/`teams`/`team-members`/`org`/`recipients`/`harnesses`/`settings-agent-behavior`/`notifications` route family any more — every one of those nouns is now `search_users`/`open_user`/`edit_user` under `POST /api/actions/<name>`, mounted generically. Agent-orchestration mounts its own `/actions` the same way, with `search_sessions`/`watch_session`/`stop_session`, plus `/filesystems` (plumbing: `POST /inspect-path` only) — both Layer apps mount at `/` on the one `/api` router, so `POST /api/actions/<name>` resolves to whichever Layer owns that action. The two Layers' action lists are joined once, at each Application's `createServer`, into the one list an agent reaches over MCP. `/api/connections` and the core-hosted `/api/agents/:id/injections` route are both deleted — connections and folders are user attributes now, behind `open_user`/`edit_user`.
 
-Auth: single `HYPERIDLE_API_KEY` via `X-API-Key` header (constant-time compare) + Bearer login-session tokens + invite codes (`layers/core-api/src/middleware/auth.ts`, `layers/core-api/users/src/login-session.ts`). Boundary enforcement: [authorization model](./authorization-model.md).
+Auth: a single `HYPERIDLE_API_KEY` via the `X-API-Key` header (constant-time compare) is the one credential, locally and on the shared backend (`layers/core-api/src/middleware/auth.ts`). There are no login sessions, invite codes or bearer tokens. The current user is `open_user` with no id; there is no `/api/auth/me`. Boundary enforcement: [authorization model](./authorization-model.md).
 
 ### Harness adapters
 
@@ -437,7 +437,7 @@ Triggers: a subscription wake (event or schedule), dependency cleared, or an inb
 2. Context assembly writes TOON prompt + context files.
 3. `LocalSandboxAdapter` provisions the per-session working directory; filesystem mounts applied.
 4. Harness spawned; agent works via MCP tools.
-5. Session notes written before context compaction (the `write_session_notes` tool; fallback notes file `work/task-notes.md`).
+5. Session notes go to `work/task-notes.md` in the sandbox, which writeback reads when the session ends.
 6. Stop → `SessionResult` persisted, writeback + capture, `session_ended` emitted.
 
 ## WebSocket Push Contract

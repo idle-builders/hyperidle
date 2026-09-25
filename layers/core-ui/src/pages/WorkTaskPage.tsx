@@ -515,7 +515,7 @@ function useEditTask(onSaved?: (view: TaskView) => void): UseEditTaskResult {
 /**
  * EditPanel renders the editable task fields and issues `edit_task` on submit.
  * Title, description, goal, owner, and state are all editable — no approval
- * step, no role gate (AC7).
+ * step, no role gate.
  */
 function EditPanel({ task, onSaved }: { task: Task; onSaved: () => void }): JSX.Element {
 	const [fields, setFields] = useState<EditState>(() => taskToEditState(task));
@@ -693,7 +693,7 @@ function EditPanel({ task, onSaved }: { task: Task; onSaved: () => void }): JSX.
 							className="type-metadata text-[var(--status-error)]"
 							data-testid="task-save-error"
 						>
-							{/* AC5: show the rejection's reason (e.g. a dependency cycle)
+							{/* Show the rejection's reason (e.g. a dependency cycle)
 							    when the server sent one, instead of always the generic line. */}
 							{errorMessage ?? "Save failed — try again"}
 						</span>
@@ -950,7 +950,7 @@ export function WorkTaskPage({ overrideTaskId }: WorkTaskPageProps = {}): JSX.El
 								)}
 							</section>
 
-							{/* Artifacts — documents parented to this task (AC4) */}
+							{/* Artifacts — documents parented to this task */}
 							<ArtifactSection
 								parentKind="task"
 								parentId={taskId ?? ""}

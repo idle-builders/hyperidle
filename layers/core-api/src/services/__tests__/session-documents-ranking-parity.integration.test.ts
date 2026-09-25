@@ -167,7 +167,6 @@ describe("assembleSessionDocuments — scope-only selection (architecture.md D1)
 
 		const budgeted = await assembleSessionDocuments(db, {
 			teamId: TEAM_ID,
-			agentRole: AGENT_ROLE,
 			taskDescription: TASK_DESCRIPTION,
 			agentId: AGENT_ID,
 		});
@@ -188,7 +187,6 @@ describe("assembleSessionDocuments — scope-only selection (architecture.md D1)
 
 		const budgeted = await assembleSessionDocuments(db, {
 			teamId: TEAM_ID,
-			agentRole: AGENT_ROLE,
 			taskDescription: TASK_DESCRIPTION,
 			agentId: AGENT_ID,
 		});
@@ -221,7 +219,6 @@ describe("assembleSessionDocuments — scope-only selection (architecture.md D1)
 
 		const budgeted = await assembleSessionDocuments(db, {
 			teamId: TEAM_ID,
-			agentRole: AGENT_ROLE,
 			taskDescription: TASK_DESCRIPTION,
 			agentId: AGENT_ID,
 		});

@@ -22,7 +22,7 @@ import type { AgentHealthLevel } from "@hyperidle/domain-model";
 
 /**
  * Active session info, derived by the profile page from the runs it fetches
- * from `agent-orchestration` (AU26 J4). No longer served by core-api.
+ * from `agent-orchestration`. No longer served by core-api.
  */
 export interface AgentActiveSession {
 	readonly sessionId: string;
@@ -33,7 +33,7 @@ export interface AgentActiveSession {
 
 /**
  * One entry in the agent's recent run history, as the profile page assembles it
- * (AU26 J4: run rows from `agent-orchestration`, task titles from core-api).
+ * (run rows from `agent-orchestration`, task titles from core-api).
  */
 export interface AgentSessionSummary {
 	readonly sessionId: string;
@@ -46,7 +46,7 @@ export interface AgentSessionSummary {
 
 /**
  * Aggregate performance statistics across all runs for this agent, derived by
- * the profile page (AU26 J4).
+ * the profile page.
  */
 export interface AgentPerformanceStats {
 	readonly totalSessions: number;

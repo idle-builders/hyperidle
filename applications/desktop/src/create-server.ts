@@ -265,13 +265,13 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	const agentOrchestration = await bootAgentOrchestration({
 		db,
 		eventBus,
-		// AU26 J3, superseded: `upgradeWebSocket` here is ONLY for worker
+		// `upgradeWebSocket` here is ONLY for worker
 		// WebSocket registration now — the live-run stream itself reaches the
 		// browser through `wsPush` below, on core's own socket.
 		upgradeWebSocket,
 		// Byte-identical to core's own action-layer binding (`core-api/src/app.ts`).
 		wsPush: (topic, envelope) => coreApi.wsHub.broadcast(topic, JSON.stringify(envelope)),
-		// AU36 D4: desktop is always topology "local" (boot-server.ts) — boot
+		// Desktop is always topology "local" (boot-server.ts) — boot
 		// awaits the initial reach probe, so facts are cached by serve time.
 		probeInheritedReach: deps.topology === "local",
 		runtime: {
@@ -305,7 +305,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	// Close the join — every session from here on sees both
 	// layers' actions through the thunk above.
 	actionTools = [...coreApi.actionTools, ...agentOrchestration.actionTools];
-	// AU36 D5: close the deferred binding — redetect now reaches the reach cache.
+	// Close the deferred binding — redetect now reaches the reach cache.
 	realInheritedReachRefresh = () => agentOrchestration.inheritedReach.refresh();
 
 	const app = composeApiApplication({

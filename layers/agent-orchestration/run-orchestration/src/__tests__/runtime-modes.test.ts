@@ -26,7 +26,6 @@ describe("runSession modes", () => {
 			sessionId: "assemble-1",
 			taskId: null,
 			agentId: "agent-1",
-			agentRole: "builder",
 			teamId: null,
 			taskFree: false,
 			sourceKind: null,

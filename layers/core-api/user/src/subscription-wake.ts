@@ -44,7 +44,6 @@ export interface SubscriptionWakeDeps {
 		db: HyperIdleDb,
 		input: {
 			readonly teamId?: string;
-			readonly agentRole: string;
 			readonly taskDescription: string;
 			readonly agentId: string;
 		},
@@ -139,7 +138,6 @@ export async function resolveSubscriptionWakeRequest(
 	if (deps.assembleSessionDocuments) {
 		const knowledge = await deps.assembleSessionDocuments(ctx.db, {
 			...(team ? { teamId: team.id } : {}),
-			agentRole: agent.role,
 			taskDescription: prompt ?? input.subscription.event ?? input.subscription.schedule ?? "",
 			agentId: agent.id,
 		});

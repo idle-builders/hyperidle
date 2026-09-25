@@ -112,7 +112,6 @@ function setupCall(store: MockAgent[]): void {
 					name: a.name,
 					role: a.role,
 					status: a.status,
-					email: null,
 					avatarUrl: null,
 					createdAt: "2026-01-01T00:00:00.000Z",
 					agentCategory: a.agentCategory,

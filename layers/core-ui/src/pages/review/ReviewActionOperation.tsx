@@ -1,4 +1,4 @@
-// AL1 review canvas #3 — the action / operation canvas.
+// Canvas #3 — the action / operation canvas.
 //
 // Proof family: a staged, PRE-COMMIT *receipt* for an irreversible side-effect
 // with money attached (here: a Stripe refund). NOT a post-hoc diff — nothing has
@@ -13,7 +13,7 @@
 //   L3 — on demand: blast-radius (what it touches) + reversibility/undo (why it's
 //        irreversible). The review frame owns the pre-commit verdict gate.
 //
-// Tokens by NAME only (Hearth + CP1). Money + irreversibility lean on
+// Tokens by NAME only (Hearth). Money + irreversibility lean on
 // --status-warning / --status-error per the brief. Brand color lives only in ToolLogo.
 
 import { type JSX, useState } from "react";
@@ -251,7 +251,7 @@ function Chevron({ open }: { readonly open: boolean }): JSX.Element {
 	);
 }
 
-// AL2 — review artifact wrapper.
+// Review artifact wrapper.
 function isActionOperationPayload(payload: unknown): payload is ActionOperationPayload {
 	return (
 		isPlainObject(payload) &&

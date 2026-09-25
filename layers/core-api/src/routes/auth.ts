@@ -1,21 +1,11 @@
 /**
- * Authentication helper routes.
- *
- * `GET /api/auth/me` returns the authenticated user's identity from the users table,
- * including `teamId` (`null` when the user has no team) so the UI can gate
- * team-scoped affordances on real membership.
- * Always mounted (regardless of WebSocket support).
+ * Authentication helper routes. The current user is `open_user` with no id —
+ * there is no identity route here.
  *
  * `POST /api/auth/ws-token` mints a one-shot upgrade token that the client
  * uses to open the `/api/ws` WebSocket. The route itself is protected by
  * the standard auth middleware; successful issuance proves the caller is
  * authenticated, so handing out a derived, single-use credential is safe.
- *
- * `POST /api/auth/invite` (shared mode only) creates an invite code.
- * Admin-only: requires authMethod === "api_key".
- *
- * `POST /api/auth/logout` (shared mode only) revokes the current LoginSession.
- * Requires authMethod === "login_session" (Bearer token auth).
  *
  * @lore I2 A3: the ws-token endpoint is the only legitimate source of WS
  * upgrade tokens. The WS handler MUST NOT accept the master HYPERIDLE_API_KEY
@@ -30,55 +20,20 @@
  *   (4) the token authorizes session establishment ONLY — every
  *       subsequent WS message is gated by the established connection.
  *
- * @lore M3 A4: createAuthRoutes now accepts an optional db parameter so
- * GET /api/auth/me can read the full founder profile from factorySettings.
- * The /me endpoint is ALWAYS mounted; /ws-token is only mounted when
- * tokenStore is non-null.
- *
- * @lore S1: createAuthRoutes signature gains a `sharedMode` parameter.
- * /invite and /logout are only mounted in shared mode. /ws-token identity
- * source changes from X-Identity header to c.get("userId") in shared mode.
+ * /ws-token is only mounted when tokenStore is non-null. In shared mode its
+ * identity is the authenticated caller (`c.get("userId")`), never the
+ * X-Identity header.
  */
 
-import type { HyperIdleDb } from "@hyperidle/db";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
-import { findUser, type UpgradeTokenStore } from "@hyperidle/user";
+import type { UpgradeTokenStore } from "@hyperidle/user";
 import { Hono } from "hono";
 
 export function createAuthRoutes(
-	db: HyperIdleDb | null,
 	store: UpgradeTokenStore | null,
 	sharedMode: boolean = false,
 ): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
-
-	// GET /me — returns the authenticated user's identity.
-	// P2: reads from users table instead of factorySettings founder_name/founder_email.
-	router.get("/me", async (c) => {
-		const userId = c.get("userId") ?? "u-founder";
-
-		if (!db) {
-			// No db — return minimal identity from context
-			return c.json({
-				id: userId,
-				name: "Founder",
-				email: "",
-				avatarUrl: null,
-				teamId: null,
-			});
-		}
-
-		const userRow = await findUser(db, { id: userId });
-
-		return c.json({
-			id: userId,
-			name: userRow?.name ?? "Founder",
-			email: userRow?.email ?? "",
-			avatarUrl: userRow?.avatarUrl ?? null,
-			// Team membership so the UI can gate "Team" scope on it.
-			teamId: userRow?.teamId ?? null,
-		});
-	});
 
 	// POST /ws-token — only mounted when WebSocket support is active.
 	if (store) {
@@ -86,7 +41,7 @@ export function createAuthRoutes(
 			// Clients compute remaining seconds from `expiresAt` themselves; emitting
 			// a server-derived `expiresInSec` adds a clock-skew footgun for no value.
 			// @lore S1: In shared mode, identity comes from the auth middleware context
-			// (already authenticated via Bearer token or API key). In local mode, we
+			// (already authenticated via the API key). In local mode, we
 			// fall back to the X-Identity header for legacy client compatibility.
 			// The X-Identity header is trusted in local mode because local mode requires
 			// the master API key — the caller is already admin.

@@ -39,7 +39,7 @@ describe("X2 MCP session custody", () => {
 			sandboxPath: "/tmp/mcp-role-session",
 			ingestion: { dispose() {} },
 		};
-		const registry = buildToolRegistry(definitions, context, { role: "assistant" });
+		const registry = buildToolRegistry(definitions, context, {});
 		expect(registry.definitions.some(({ name }) => name === "search_users")).toBe(true);
 		await expect(registry.invoke("search_users", {})).resolves.toMatchObject({
 			success: true,

@@ -108,7 +108,7 @@ export function SettingsPage(): JSX.Element {
 						<SettingsFilesystems />
 					</section>
 
-					{/* AM4: Agent backends section — harness detection + enable/disable */}
+					{/* Agent backends section — harness detection + enable/disable */}
 					<section
 						id="settings-section-agent-backends"
 						data-testid="settings-section-agent-backends"
@@ -121,7 +121,7 @@ export function SettingsPage(): JSX.Element {
 
 				{/* ── Group 3: Preferences ────────────────────────────────────────── */}
 				<div className="flex flex-col gap-[24px]">
-					{/* AN1: SettingsConnections owns its own heading — no SectionTitle wrapper */}
+					{/* SettingsConnections owns its own heading — no SectionTitle wrapper */}
 					<section
 						id="settings-section-connections"
 						data-testid="settings-section-connections"

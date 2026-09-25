@@ -11,7 +11,7 @@ import { ReviewVisualDiff } from "./ReviewVisualDiff";
 import type { ReviewCanvasComponent, ReviewCanvasKind } from "./review-artifact";
 
 /**
- * AL2 — review canvas registry.
+ * Review canvas registry.
  *
  * Maps each known review artifact kind to its purpose-built canvas component.
  * Unknown kinds fall back to `ReviewUnknownCanvas`, which renders a safe source

@@ -42,7 +42,8 @@
 
 // hearth-internal-padding
 
-import { HARNESS_TYPES, type HarnessType, roleLabel } from "@hyperidle/domain-model";
+import { HARNESS_TYPES, type HarnessType } from "@hyperidle/domain-model";
+import { roleLabel } from "../utils/role-label.js";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import { type JSX, useCallback, useEffect, useState } from "react";
 import type { FoldMode } from "../ds";
@@ -425,7 +426,7 @@ export function SettingsAgents(): JSX.Element {
 					description: "Add an agent to configure name, role, harness, model, and sessions.",
 				}}
 			>
-				{/* AV2: No role filter — assistant (ast-*) appears as a row here. */}
+				{/* No role filter — the assistant appears as a row here. */}
 				{agents.map((agent) => {
 					const isSelected = selectedId === agent.id;
 

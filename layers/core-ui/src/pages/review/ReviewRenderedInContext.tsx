@@ -56,7 +56,7 @@ export interface RenderedEmail {
 	readonly flaggedClaims: readonly FlaggedClaim[];
 }
 
-// ── Small chrome atoms (Hearth/CP1 tokens by name) ───────────────────────────
+// ── Small chrome atoms (Hearth tokens by name) ───────────────────────────
 
 function ChromeLabel({ children }: { readonly children: string }): JSX.Element {
 	return (
@@ -405,7 +405,7 @@ function ReviewRenderedInContextView({
 	);
 }
 
-// AL2 — review artifact wrapper.
+// Review artifact wrapper.
 function isRenderedPayload(payload: unknown): payload is RenderedInContextPayload {
 	return (
 		isPlainObject(payload) &&

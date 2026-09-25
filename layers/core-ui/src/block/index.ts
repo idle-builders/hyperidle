@@ -1,5 +1,5 @@
-// Block derivation — merged from framework/block-derivation (AU44 batch7)
-// Block types — moved from framework/domain-model (AU44 batch8)
+// Block derivation — merged from framework/block-derivation
+// Block types — moved from framework/domain-model
 export { blockId } from "./block-id.js";
 export { deriveBlocks } from "./derive-blocks.js";
 export { derivePayloads } from "./derive-payloads.js";

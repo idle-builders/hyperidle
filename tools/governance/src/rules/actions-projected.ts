@@ -86,7 +86,6 @@ function scanDeclaredActionNames(
  * rows above already established.
  */
 const PLUMBING_ROUTES: readonly string[] = [
-	"layers/core-api/src/routes/auth.ts|GET /me",
 	"layers/core-api/src/routes/auth.ts|POST /ws-token",
 	"layers/core-api/src/routes/auth.ts|POST /worker-token",
 	"layers/core-api/src/app.ts|GET /health",

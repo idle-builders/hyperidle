@@ -79,7 +79,7 @@ function ContextChip({
 }
 
 // ---------------------------------------------------------------------------
-// AH3: Notice card rendering (missing_key / missing_harness / provider_error)
+// Notice card rendering (missing_key / missing_harness / provider_error)
 // ---------------------------------------------------------------------------
 
 interface NoticeConfig {
@@ -190,7 +190,7 @@ function AssistantNoticeCard({
 }
 
 /**
- * AH3 §1.7b: "Thinking…" indicator — shown when last message is human and
+ * "Thinking…" indicator — shown when last message is human and
  * within the turn timeout window. Client-derived from thread state.
  */
 function ThinkingRow(): JSX.Element {
@@ -219,7 +219,7 @@ function ThinkingRow(): JSX.Element {
 }
 
 /**
- * AH3 §1.7b: Stale crash-recovery Retry card — shown when last message is human
+ * Stale crash-recovery Retry card — shown when last message is human
  * AND older than ASSISTANT_TURN_TIMEOUT_MS. Never shows an infinite spinner.
  */
 function StaleRetryCard({ onRetry }: { onRetry?: () => void }): JSX.Element {
@@ -525,7 +525,7 @@ function AssistantOverlayInner({
 					))}
 				</div>
 			)}
-			{/* AH3: Notice/thinking/stale cards rendered OUTSIDE ThreadShell (avoids
+			{/* Notice/thinking/stale cards rendered OUTSIDE ThreadShell (avoids
 			    text collision with the scroll area) and ABOVE the ThreadShell wrapper
 			    so the composer stays pinned to the overlay bottom (NEW-13). */}
 			{noticeMessages.map((m) => {
@@ -537,13 +537,13 @@ function AssistantOverlayInner({
 					</div>
 				);
 			})}
-			{/* AH3 §1.7b: Thinking indicator — client-derived from thread state */}
+			{/* Thinking indicator — client-derived from thread state */}
 			{isThinking && (
 				<div className="shrink-0 px-[12px] pt-[9px]">
 					<ThinkingRow />
 				</div>
 			)}
-			{/* AH3 §1.7b: Stale crash-recovery Retry card */}
+			{/* Stale crash-recovery Retry card */}
 			{isStale && (
 				<div className="shrink-0 px-[12px] pt-[9px]">
 					<StaleRetryCard onRetry={refresh} />
@@ -635,7 +635,7 @@ export function AssistantOverlay({
 				<button
 					type="button"
 					aria-label="Close assistant"
-					/* AI5 AQ-015: 44px touch floor ≤1024px, dense 24px ≥1280px. */
+					/* AQ-015: 44px touch floor ≤1024px, dense 24px ≥1280px. */
 					className="flex items-center justify-center w-[24px] h-[24px] min-h-[44px] min-w-[44px] xl:min-h-[24px] xl:min-w-[24px] rounded-[var(--r-pill)] bg-transparent border-none text-[var(--text-secondary)] cursor-pointer hover:text-[var(--accent-deep)]  "
 					onClick={behavior.requestDismiss}
 				>

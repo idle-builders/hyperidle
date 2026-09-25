@@ -29,7 +29,7 @@ export { bootAgentOrchestration } from "./boot.js";
 // — `create_team`/`add_agent`, its last two tools, are gone with the `org`
 // package they wrote through.
 /**
- * AU31 §2.1(b)/§2.3/§5/§6: the run-orchestration composition — `bootAgent
+ * The run-orchestration composition — `bootAgent
  * Orchestration`'s own internal consumer. Exposed so a caller with no
  * composition root of its own (`tools/eval`'s `runEvalSession`, which drives
  * `run-orchestration` directly with no HTTP server in the picture) can build

@@ -35,7 +35,7 @@ import { WorkTeam } from "./pages/WorkTeam";
 function RedirectProductToTeam(): JSX.Element {
 	const { productId } = useParams<{ productId: string }>();
 	// Z8-147: empty productId → /work/team/ matches no route. Redirect to Work overview.
-	// AD9: was /work/portfolio; now /work (WorkOverview handles 1-team short-circuit).
+	// Was /work/portfolio; now /work (WorkOverview handles 1-team short-circuit).
 	if (!productId) return <Navigate to="/work" replace />;
 	return <Navigate to={`/work/team/${productId}`} replace />;
 }
@@ -68,10 +68,10 @@ function buildRoutes(): RouteObject[] {
 					path: "conversations/chat",
 					element: <RedirectLegacyConversation paramName="thread" />,
 				},
-				// AD9: New canonical Work overview at /work; /work/portfolio redirects here.
+				// New canonical Work overview at /work; /work/portfolio redirects here.
 				// WorkOverview handles the 1-team short-circuit (→ /work/team/:id) internally.
 				{ path: "work", element: <WorkOverview /> },
-				// AD9: /work/portfolio → /work (graceful redirect for bookmarks/external links).
+				// /work/portfolio → /work (graceful redirect for bookmarks/external links).
 				// The team-count branch lives in WorkOverview, not here — unconditional redirect.
 				{ path: "work/portfolio", element: <Navigate to="/work" replace /> },
 				// @lore U6: Route renamed from work/product/:productId to work/team/:teamId.

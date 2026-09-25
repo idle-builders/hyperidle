@@ -6,7 +6,7 @@ import { AppShell } from "../layouts/AppShell";
 
 // Minimal settings response (no appearance field — Contract 2).
 const STUB_SETTINGS = {
-	profile: { name: "Founder", email: "", avatarUrl: null },
+	profile: { name: "Founder", avatarUrl: null },
 	teams: [],
 	users: [],
 	notifications: {
@@ -39,7 +39,7 @@ function stubApiFetch(): void {
 		if (url.includes("/api/auth/me")) {
 			return {
 				ok: true,
-				json: async () => ({ id: "u-test", name: "Test", email: "", role: "founder" }),
+				json: async () => ({ id: "u-test", name: "Test", role: "founder" }),
 			} as unknown as Response;
 		}
 		// Fallback: threads and anything else

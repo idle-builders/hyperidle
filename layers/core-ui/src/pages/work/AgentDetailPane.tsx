@@ -18,11 +18,8 @@
  * header while that fetch is in flight.
  */
 
-import {
-	roleLabel as deriveRoleLabel,
-	HARNESS_TYPES,
-	type HarnessType,
-} from "@hyperidle/domain-model";
+import { HARNESS_TYPES, type HarnessType } from "@hyperidle/domain-model";
+import { roleLabel as deriveRoleLabel } from "../../utils/role-label.js";
 import { type JSX, useCallback, useEffect, useState } from "react";
 import { Link as RRLink } from "react-router-dom";
 // hearth-internal-padding

@@ -1,4 +1,4 @@
-// AM5 T2 — DS (code,diff) core: the generic code diff renderer.
+// DS (code,diff) core: the generic code diff renderer.
 //
 // Relocated from `kinds/code-renderer.tsx` and restructured to expose a
 // per-line SLOT SEAM — four render-prop callbacks that let the review chrome
@@ -7,7 +7,7 @@
 //
 // This is the CANONICAL diff renderer for the `code` kind — used by:
 //   1. `composeArtifactBody` (plain code diff, no chrome) — default (no slots)
-//   2. `ReviewCodeDiff` fills the slots with its chrome JSX preserving the AL1/AL2 DOM
+//   2. `ReviewCodeDiff` fills the slots with its chrome JSX preserving the review DOM
 //
 // K0 purity: no empty/error/no-changes branch — the composition owns absence.
 // The "no hunks" case renders an empty <pre> without crash.
@@ -66,7 +66,7 @@ export interface CodeDeltaProps {
 	readonly renderTrailing?: () => ReactNode;
 }
 
-// ── tints — same tokens as AI6 (CodeRenderer) + ReviewCodeDiff (LINE_TINT) ──────
+// ── tints — same tokens as CodeRenderer + ReviewCodeDiff (LINE_TINT) ──────
 const LINE_BG: Record<"add" | "del" | "ctx", string> = {
 	add: "bg-[color-mix(in_oklab,var(--status-success)_10%,transparent)]",
 	del: "bg-[color-mix(in_oklab,var(--status-error)_10%,transparent)]",

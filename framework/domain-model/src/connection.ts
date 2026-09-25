@@ -55,4 +55,4 @@ export interface ServiceConnectionView {
 	removable: boolean;
 }
 
-// InheritedConnectionFact moved to @hyperidle/connections (AU44-b8).
+// InheritedConnectionFact moved to @hyperidle/connections.

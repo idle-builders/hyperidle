@@ -10,7 +10,7 @@
 import { expect, test } from "./fixtures";
 
 const SETTINGS_FIXTURE = {
-	profile: { name: "Test Founder", email: "test@hyperidle.dev", avatarUrl: null },
+	profile: { name: "Test Founder", avatarUrl: null },
 	teams: [{ id: "team-alpha", name: "Team Alpha", active: true }],
 	users: [],
 	notifications: {
@@ -60,12 +60,6 @@ test.describe("Settings", () => {
 		await expect(page.getByRole("tab", { name: "Agents" })).toBeVisible();
 		await expect(page.getByRole("tab", { name: "Notifications" })).toBeVisible();
 		await expect(page.getByRole("tab", { name: "Appearance" })).toBeVisible();
-	});
-
-	test("Profile tab shows name and email inputs", async ({ page }) => {
-		await page.getByRole("button", { name: /^user profile$/i }).click();
-		await expect(page.getByLabel("Name")).toBeVisible();
-		await expect(page.getByLabel("Email")).toBeVisible();
 	});
 
 	test("switching tabs shows different content", async ({ page }) => {

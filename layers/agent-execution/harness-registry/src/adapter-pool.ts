@@ -415,7 +415,7 @@ const CLI_TOOL_CONFIGS: Partial<Record<HarnessType, CliAdapterConfig>> = {
 		// @lore Without this field, re-engage runs would use the
 		// same generic "proceed" prompt regardless of the forcing message.
 		seedPrompt: "positional",
-		// AL7 delta: codex reads MCP server from .codex-home/config.toml;
+		// Codex reads MCP server from .codex-home/config.toml;
 		// the token is delivered via HYPERIDLE_MCP_TOKEN env var (bearer_token_env_var).
 		mcpConfig: { dialect: "codex-toml" },
 		// @lore AR2 codex-stderr-ignore: codex emits informational messages to stderr
@@ -471,7 +471,7 @@ const CLI_TOOL_CONFIGS: Partial<Record<HarnessType, CliAdapterConfig>> = {
 		// @lore Without this, re-engage re-invocations would not carry
 		// the forcing message and the agent would not know it needs to return.
 		reEngageCarrier: "run-arg",
-		// AL7 delta: opencode reads MCP server from opencode.json in the sandbox cwd;
+		// Opencode reads MCP server from opencode.json in the sandbox cwd;
 		// the token is inline in headers.Authorization (no tokenEnv needed).
 		mcpConfig: { dialect: "opencode-json" },
 		// @lore AR2 opencode-stderr-ignore: opencode emits informational progress messages

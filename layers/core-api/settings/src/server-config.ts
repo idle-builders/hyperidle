@@ -26,13 +26,13 @@ const ServerConfigSchema = z.object({
 type RawServerConfig = z.infer<typeof ServerConfigSchema>;
 
 export type ServerConfig = {
-	/** AM4: List of harness types the user has disabled. Defaults to []. */
+	/** List of harness types the user has disabled. Defaults to []. */
 	harnessDisabled: string[];
 };
 
 export type ServerConfigPatch = {
 	/**
-	 * AM4: Full-replacement write — the caller supplies the complete new list.
+	 * Full-replacement write — the caller supplies the complete new list.
 	 * Use updateServerConfig to add/remove a type atomically (read-modify-write).
 	 */
 	harnessDisabled?: string[];
@@ -44,7 +44,7 @@ const DEFAULTS: ServerConfig = {
 
 function applyDefaults(raw: RawServerConfig): ServerConfig {
 	return {
-		// AM4: default to empty array when absent (legacy rows have no harnessDisabled key)
+		// Default to empty array when absent (legacy rows have no harnessDisabled key)
 		harnessDisabled: Array.isArray(raw.harnessDisabled) ? raw.harnessDisabled : [],
 	};
 }
@@ -114,12 +114,12 @@ async function patchServerConfig(
 	now: string,
 ): Promise<ServerConfig> {
 	const merged: ServerConfig = {
-		// AM4: Full-replacement — the patch supplies the complete new list of disabled types.
+		// Full-replacement — the patch supplies the complete new list of disabled types.
 		harnessDisabled:
 			patch.harnessDisabled !== undefined ? patch.harnessDisabled : current.harnessDisabled,
 	};
 
-	// AH1 §2: no apiKey in tiers — no encryption step needed here. Keys go to server_credentials.
+	// No apiKey in tiers — no encryption step needed here. Keys go to server_credentials.
 	const configJson = JSON.stringify(merged);
 	await db
 		.update(serverConfig)

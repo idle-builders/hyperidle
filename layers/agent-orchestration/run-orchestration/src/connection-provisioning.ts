@@ -100,7 +100,7 @@ export interface HeldConnectionForProvisioning {
 }
 
 /**
- * AU26 E3 — the live, in-layer held-connection read one spawn performs.
+ * The live, in-layer held-connection read one spawn performs.
  * Application-composed from `@hyperidle/connections`. Absent means "this
  * deployment provisions no held connections" (the graceful-degradation posture
  * `serviceConnectionResolver` already has), not "read failed".
@@ -109,7 +109,7 @@ export interface HeldConnectionsReaderPort {
 	listHeldForProvisioning(): Promise<readonly HeldConnectionForProvisioning[]>;
 }
 
-/** The decrypt step — stays an Application-composed direct dependency, never routed through `CoreApiPort` (AN1 hard-rule 1). */
+/** The decrypt step — stays an Application-composed direct dependency, never routed through `CoreApiPort`. */
 export interface ServiceConnectionResolverPort {
 	resolve(userId: string, connectionId: string): Promise<string | null>;
 }
@@ -179,7 +179,7 @@ export async function buildProvisioningPlan(deps: {
 
 	for (const conn of heldOnly) {
 		if (conn.authSource === "token") {
-			// Per-ROW owner (AU26 E3): never a single shared identity.
+			// Per-ROW owner: never a single shared identity.
 			const token = await resolver.resolve(conn.userId, conn.id);
 			if (!token) {
 				// No token (e.g. null serverSecret or decryption failure) — skip silently.

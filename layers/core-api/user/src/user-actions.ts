@@ -311,7 +311,6 @@ async function toUserRows(db: HyperIdleDb, rows: readonly User[]): Promise<UserR
 			name: r.name,
 			role: r.role,
 			status: r.status as UserStatus,
-			email: r.email ?? null,
 			avatarUrl: r.avatarUrl ?? null,
 			createdAt: r.createdAt,
 			agentCategory: (r.agentCategory as AgentCategory | null) ?? null,
@@ -856,7 +855,6 @@ async function createUserRun(
 		name,
 		role,
 		status,
-		email: input.email ?? null,
 		avatarUrl: input.avatarUrl ?? null,
 		createdAt: now,
 		agentCategory,
@@ -997,7 +995,7 @@ async function createUserRun(
 // edit_user — edit an existing user
 // ---------------------------------------------------------------------------
 
-const IDENTITY_FIELDS = ["name", "role", "email", "avatarUrl", "status", "health"] as const;
+const IDENTITY_FIELDS = ["name", "role", "avatarUrl", "status", "health"] as const;
 
 function touchesIdentityFields(input: EditUserInput): boolean {
 	return IDENTITY_FIELDS.some((f) => input[f] !== undefined);
@@ -1016,12 +1014,12 @@ async function editExistingUserRun(
 
 	if (
 		existing.kind === "human" &&
-		(input.name !== undefined || input.email !== undefined || input.avatarUrl !== undefined) &&
+		(input.name !== undefined || input.avatarUrl !== undefined) &&
 		ctx.actor !== id
 	) {
 		return problem(
 			"own_profile_only",
-			"Only this person may change their own name, email or avatar.",
+			"Only this person may change their own name or avatar.",
 			"name",
 		);
 	}

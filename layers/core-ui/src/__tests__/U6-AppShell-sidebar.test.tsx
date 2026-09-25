@@ -25,7 +25,7 @@ function stubFetch(): void {
 			if (url.includes("/api/auth/me")) {
 				return {
 					ok: true,
-					json: async () => ({ id: "u-test", name: "Test User", email: "", avatarUrl: null }),
+					json: async () => ({ id: "u-test", name: "Test User", avatarUrl: null }),
 				} as Response;
 			}
 			if (url.includes("/api/teams")) {

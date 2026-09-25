@@ -69,9 +69,9 @@ export interface ThreadHostBannerParticipant {
 	id: string;
 	name: string;
 	avatarUrl?: string;
-	/** AE5: true for AI agent participants. */
+	/** True for AI agent participants. */
 	isAgent?: boolean;
-	/** AE5: Operational status for agent participants. When present and agent, shows presence dot. */
+	/** Operational status for agent participants. When present and agent, shows presence dot. */
 	operationalStatus?: AgentOperationalStatus;
 }
 

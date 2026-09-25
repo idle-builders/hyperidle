@@ -64,14 +64,13 @@ import type { AgentConfig } from "../src/settings/settings-types.js";
 const DEFAULT_AUTH_ME = {
 	id: "test-founder",
 	name: "Test Founder",
-	email: "test@hyperidle.dev",
 	role: "founder",
 	avatarUrl: null,
 };
 
 /** Default mock response for GET /api/settings */
 const DEFAULT_SETTINGS = {
-	profile: { name: "Test Founder", email: "test@hyperidle.dev", avatarUrl: null },
+	profile: { name: "Test Founder", avatarUrl: null },
 	teams: [],
 	users: [],
 	notifications: {
@@ -97,7 +96,6 @@ const DEFAULT_THREADS: never[] = [];
 const DEFAULT_USER_ROW: UserRow = makeUserRow("test-founder", {
 	name: "Test Founder",
 	role: "founder",
-	email: "test@hyperidle.dev",
 	// A team, not null — FirstRunRedirect's own "setup done" check
 	// (`search_users({kind:"human"}).some(u => u.team !== null)`) reads this
 	// default too (`fulfillDefaultSearchUsers` below), so a spec that never
@@ -522,7 +520,6 @@ export function makeUserRow(id: string, overrides: Partial<UserRow> = {}): UserR
 		name: `User ${id}`,
 		role: "member",
 		status: "active",
-		email: null,
 		avatarUrl: null,
 		createdAt: "2026-01-01T00:00:00.000Z",
 		agentCategory: null,

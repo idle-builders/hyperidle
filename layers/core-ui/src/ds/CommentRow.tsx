@@ -122,7 +122,7 @@ function MessagePayloads({
 	refs?: ReadonlyArray<InlineRef>;
 	sanitizeHtml?: (raw: string) => string;
 }): JSX.Element {
-	// AE5: Check if any MentionRef entries exist in refs.
+	// Check if any MentionRef entries exist in refs.
 	// All hooks must be called unconditionally before any early returns.
 	const hasMentions = useMemo(
 		() => Array.isArray(refs) && refs.some((r) => r.kind === "mention"),

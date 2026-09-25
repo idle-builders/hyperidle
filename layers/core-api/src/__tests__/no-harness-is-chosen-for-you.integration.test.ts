@@ -31,7 +31,6 @@ async function seedFounder(db: HyperIdleDb): Promise<void> {
 		name: "Founder",
 		role: "founder",
 		status: "active",
-		email: "founder-nodefault@hyperidle.com",
 		createdAt: NOW,
 	});
 }

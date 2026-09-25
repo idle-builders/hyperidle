@@ -13,8 +13,6 @@
 		"orgEdges": "user",
 		"teams": "user",
 		"users": "user",
-		"loginSessions": "user",
-		"inviteCodes": "user",
 		"subscriptions": "user",
 		"inbox": "user",
 		"threads": "thread",

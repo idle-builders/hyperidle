@@ -71,7 +71,7 @@ async function checkAndPersistState(
 ): Promise<FilesystemRow> {
 	return refreshFilesystemState(db, row, {
 		authResolver,
-		// AU26 A2/C1: `createGitRunner` comes from `@hyperidle/host-process`.
+		// `createGitRunner` comes from `@hyperidle/host-process`.
 		gitRunnerFactory: createGitRunner,
 	});
 }
@@ -187,7 +187,7 @@ export function createFilesystemRoutes(): Hono<HyperIdleEnv> {
 	// @lore AV1: reuses createGitRunner (currentBranch verb).
 	router.post("/inspect-path", validateBody(z.object({ path: z.string().min(1) })), async (c) => {
 		const { path } = c.req.valid("json");
-		// AU26 A2/C1: `createGitRunner` comes from `@hyperidle/host-process`; the
+		// `createGitRunner` comes from `@hyperidle/host-process`; the
 		// `git-export` package it used to live in is deleted. See `@hyperidle/filesystems`'
 		// `ports.ts` top `@lore`.
 		const info = await inspectLocalPath(path, { gitRunnerFactory: createGitRunner });

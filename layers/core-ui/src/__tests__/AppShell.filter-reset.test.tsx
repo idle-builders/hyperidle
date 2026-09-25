@@ -37,7 +37,7 @@ beforeEach(() => {
 			return {
 				ok: true,
 				data: {
-					user: { id: "u-test", name: "Tester", email: "", avatarUrl: null, team: null },
+					user: { id: "u-test", name: "Tester", avatarUrl: null, team: null },
 					runsOn: [],
 					runConfig: null,
 					documentIds: [],
