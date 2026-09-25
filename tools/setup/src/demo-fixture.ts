@@ -92,9 +92,9 @@ export async function seedDemoWorld(
 		.onConflictDoNothing();
 
 	// Founder's personal Assistant — per-user agent, id convention `ast-<userId>`.
-	// Registration normally scaffolds this (routes/users.ts); the demo fixture
-	// seeds the founder directly, so without this the assistant thread resolves
-	// `ast-<founderId>` → requireRunnableAgent throws → assistant send 500s.
+	// The welcome screen makes it for a real person; the demo seeds the founder
+	// directly, so it seeds the assistant too, or the founder's assistant thread
+	// has no agent to answer it.
 	await db
 		.insert(users)
 		.values({
