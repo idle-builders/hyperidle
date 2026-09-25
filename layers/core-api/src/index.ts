@@ -21,6 +21,10 @@
 // stays: it is a standalone `search_documents` runner other composition
 // roots still need outside any request that already has one in scope.
 export { createStandaloneSearchDocuments } from "./actions/compose.js";
+// Tooling with a database but no running server (the demo world's seed)
+// installs a bundled plugin for a team through the real `edit_plugin` install,
+// and names the agents it brings by the ids the installer gives them.
+export { installBundledPlugin, teamPluginAgentId } from "./actions/install-bundled-plugin.js";
 // AU29 §2.5.2: the first-boot core-state face — the composition roots (desktop,
 // tools/setup) call this instead of a database package writing service-owned tables.
 export { applyFactoryCoreState } from "./bootstrap/factory-state.js";

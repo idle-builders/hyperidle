@@ -30,152 +30,35 @@
  * to call this file, not by a static import guard.
  *
  * Use neutral fictional name "Acme" — no real-product collision.
- * All ids use "demo-*" or "seed-product-1" prefixes to clearly identify them as fixtures.
+ * Rows this file inserts itself use "demo-*" ids; the team's agents carry the
+ * ids the plugin installer gives them.
  */
 
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import {
-	agentRunConfig,
-	documents,
-	type HyperIdleDb,
-	subscriptions,
-	tasks,
-	teams,
-	threads,
-	users,
-} from "@hyperidle/db";
-import { and, eq, inArray } from "drizzle-orm";
+import { fileURLToPath } from "node:url";
+import { installBundledPlugin } from "@hyperidle/core-api";
+import { type HyperIdleDb, subscriptions, tasks, teams, threads, users } from "@hyperidle/db";
+import { ROLE_PERSONAS_PLUGIN } from "./demo-world/ids.js";
 import { seedDemoWorldContent } from "./demo-world/index.js";
 import { createDemoClock } from "./demo-world/time.js";
+
+/** The folder the bundled plugins ship in: `<repo>/plugins`. */
+const BUNDLED_PLUGINS_DIR = fileURLToPath(new URL("../../../plugins", import.meta.url));
 
 /**
  * Seed a demo world for onboarding / development mode.
  *
  * Creates: team "Acme" (AU44 B1: team_members dissolved), two humans, the founder's
- * assistant and five team agents, seven root tasks across every lifecycle with
+ * assistant, the role-personas plugin installed for the team (its seven
+ * agents), seven root tasks across every lifecycle with
  * nested subtasks to three levels deep, fifteen threads with ~100 messages,
  * a ~40-item document corpus, ~45 sessions, a subscription, and
  * inbox rows — a world that reads as six weeks of use by a small team.
  *
- * Idempotent: uses onConflictDoNothing throughout; fixed `demo-*` ids.
+ * Idempotent: onConflictDoNothing throughout, fixed `demo-*` ids, and the
+ * plugin install re-runs as an in-place reinstall.
  *
  * @returns { teamId, founderId } — the demo team id and founder user id.
  */
-/**
- * AU26 G1 — write a demo agent's run config.
- *
- * @lore AU29 §2.6: a direct `agent_run_config` write, same as the rest of this
- * file's direct table writes — legal here because `tools/setup` is tooling
- * (`store-tooling-measures-everything`, Ruling 7), not because of the
- * AU26/AU29-era db-package exception this comment used to cite (that
- * exception is gone: `framework/db` no longer hosts any first-boot writer at
- * all, see `factory-bootstrap-runner.ts`).
- */
-async function upsertDemoRunConfig(
-	db: HyperIdleDb,
-	agentUserId: string,
-	patch: {
-		readonly systemPrompt?: string | null;
-		readonly agentName?: string | null;
-		readonly maxConcurrentSessions?: number;
-	},
-): Promise<void> {
-	const { systemPrompt, agentName, ...runConfigPatch } = patch;
-	// Only touch the run config when there is a run-config field to write. A
-	// patch that carries nothing but an identity leaves `runConfigPatch` empty,
-	// and drizzle rejects an empty conflict-update with "No values to set".
-	if (Object.keys(runConfigPatch).length > 0) {
-		await db
-			.insert(agentRunConfig)
-			.values({
-				agentUserId,
-				maxConcurrentSessions: patch.maxConcurrentSessions ?? 1,
-			})
-			.onConflictDoUpdate({ target: agentRunConfig.agentUserId, set: { ...runConfigPatch } });
-	} else {
-		await db
-			.insert(agentRunConfig)
-			.values({ agentUserId, maxConcurrentSessions: 1 })
-			.onConflictDoNothing();
-	}
-
-	// The agent's identity is an `agent_file` document parented to it —
-	// parent_kind='agent', parent_id=the agent — the binding context assembly
-	// reads through `getParentedItem`. scope_kind='user'/scope_id are still
-	// written too: scope answers a different question (how far the item
-	// reaches) and is never derived from the parent.
-	//
-	// Runs AFTER migrations (this fixture is app-level seed data, not a
-	// migration), so a bootstrap run always writes the current parent shape —
-	// there is no pre-parent state for it to repair.
-	if (systemPrompt) {
-		const now = new Date();
-		const ts = now.toISOString();
-		const identityId = `ki_af_${agentUserId}`;
-		// @lore BC4 §6.7: plausible usage — an identity file is bound into
-		// every session the agent runs (high, recent sessionUseCount) but is
-		// rarely opened directly from the detail page (small readCount, a few
-		// days stale). Spread by a cheap hash of the agent id so multiple demo
-		// agents don't all show identical counters.
-		const seed = agentUserId.length + agentUserId.charCodeAt(0);
-		await db
-			.insert(documents)
-			.values({
-				id: identityId,
-				scopeKind: "user",
-				scopeId: agentUserId,
-				// The agent's display name, matching what the migration and the create
-				// route write — the knowledge view shows this title.
-				title: `${agentName || agentUserId} — identity`,
-				body: systemPrompt,
-				format: "markdown",
-				status: "active",
-				version: 1,
-				slot: "agent_file",
-				parentKind: "agent",
-				parentId: agentUserId,
-				updatedBy: "demo-seed",
-				// Backdated well past the (2-6 day) lastReadAt window below — an
-				// identity file can't have been read before it existed.
-				createdAt: new Date(now.getTime() - (10 + (seed % 20)) * 86_400_000).toISOString(),
-				updatedAt: ts,
-				readCount: 1 + (seed % 4),
-				lastReadAt: new Date(now.getTime() - (2 + (seed % 5)) * 86_400_000).toISOString(),
-				sessionUseCount: 8 + (seed % 20),
-				lastUsedAt: new Date(now.getTime() - (seed % 6) * 3_600_000).toISOString(),
-			})
-			.onConflictDoUpdate({
-				target: documents.id,
-				set: { body: systemPrompt, parentKind: "agent", parentId: agentUserId },
-			});
-	}
-}
-
-/** The persona the `role-personas` plugin ships for a role, read from its files. */
-function readRolePersona(role: string): string | null {
-	const filename = ROLE_PERSONA_FILES[role];
-	if (!filename) return null;
-	try {
-		return readFileSync(
-			resolve(process.cwd(), "plugins", "role-personas", "personas", filename),
-			"utf-8",
-		);
-	} catch {
-		return null;
-	}
-}
-
-const ROLE_PERSONA_FILES: Readonly<Record<string, string>> = {
-	builder: "builder.md",
-	designer: "designer.md",
-	facilitator: "facilitator.md",
-	growth: "growth.md",
-	ops: "ops.md",
-	product_manager: "product-manager.md",
-	qa_engineer: "qa-engineer.md",
-};
-
 export async function seedDemoWorld(
 	db: HyperIdleDb,
 ): Promise<{ teamId: string; founderId: string }> {
@@ -203,7 +86,6 @@ export async function seedDemoWorld(
 			name: "Founder",
 			role: "founder",
 			status: "active",
-			email: "founder@example.com",
 			teamId: teamId,
 			createdAt: clock.daysAgo(45),
 		})
@@ -226,48 +108,17 @@ export async function seedDemoWorld(
 			createdAt: clock.daysAgo(44),
 		})
 		.onConflictDoNothing();
-	// Review-found defect: this used to be bumped to 2 because the demo world
-	// seeded a placeholder "live" session for this assistant
-	// (`SESSION_ACTIVE_ASSISTANT`) that would otherwise permanently occupy the
-	// one slot — a fake concurrency ceiling to make room for a fake session.
-	// That placeholder is now seeded terminal (`activity.ts`), so a single
-	// slot is the honest number: one assistant, one turn at a time.
-	await upsertDemoRunConfig(db, `ast-${founderId}`, { maxConcurrentSessions: 1 });
 
-	// Demo builder agent
-	await db
-		.insert(users)
-		.values({
-			id: "demo-agent-builder",
-			kind: "ai",
-			name: "Acme Builder",
-			role: "builder",
-			agentCategory: "team",
-			status: "active",
-			teamId: teamId,
-			createdAt: clock.daysAgo(43),
-		})
-		.onConflictDoNothing();
-	await upsertDemoRunConfig(db, "demo-agent-builder", { maxConcurrentSessions: 3 });
-
-	// Demo product manager agent
-	await db
-		.insert(users)
-		.values({
-			id: "demo-agent-pm",
-			kind: "ai",
-			name: "Acme Product Manager",
-			role: "product_manager",
-			agentCategory: "team",
-			teamId: teamId,
-			status: "active",
-			createdAt: clock.daysAgo(43),
-		})
-		.onConflictDoNothing();
-	await upsertDemoRunConfig(db, "demo-agent-pm", { maxConcurrentSessions: 1 });
-
-	// @lore BC5 T11: `leadAgentId` is dropped (migration 0090) — a team is an
-	// id and a name now; there is no lead to set.
+	// The team's agents: the bundled role-personas plugin, installed for the
+	// team through the same install a person's Settings › Plugins click runs,
+	// on the day the team started using agents.
+	await installBundledPlugin(db, {
+		name: ROLE_PERSONAS_PLUGIN,
+		teamId,
+		bundledPluginsDir: BUNDLED_PLUGINS_DIR,
+		actor: founderId,
+		now: clock.daysAgo(43),
+	});
 
 	// Daily digest bet (disabled by default — operator enables)
 	await db
@@ -345,42 +196,6 @@ export async function seedDemoWorld(
 
 	// ── The lived-in world: cast, documents, work, conversations, activity ──
 	await seedDemoWorldContent(db, clock);
-
-	// ── Give the demo agents the personas the role-personas plugin ships ──
-	// @lore BA9g: the personas are the `role-personas` plugin's files, and the
-	// runtime reads no persona off disk at all — a fresh install is one assistant
-	// with no identity text. The demo world is what a team looks like once
-	// somebody has installed that plugin, so the fixture reads the plugin's files
-	// directly. This is seed tooling, not the shipping runtime.
-	const DEMO_AGENT_ROLES = [
-		"builder",
-		"product_manager",
-		"designer",
-		"qa_engineer",
-		"growth",
-	] as const;
-	for (const role of DEMO_AGENT_ROLES) {
-		const content = readRolePersona(role);
-		if (content === null) continue;
-		const matching = await db
-			.select({ id: users.id, name: users.name })
-			.from(users)
-			.where(
-				and(
-					inArray(users.id, [
-						"demo-agent-builder",
-						"demo-agent-pm",
-						"demo-agent-designer",
-						"demo-agent-qa",
-						"demo-agent-growth",
-					]),
-					eq(users.role, role),
-				),
-			);
-		for (const { id, name } of matching) {
-			await upsertDemoRunConfig(db, id, { systemPrompt: content, agentName: name });
-		}
-	}
 
 	return { teamId, founderId };
 }

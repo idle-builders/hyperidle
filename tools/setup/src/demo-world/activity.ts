@@ -16,6 +16,7 @@ import {
 	BUILDER_ID,
 	GROWTH_ID,
 	PM_ID,
+	QA_ID,
 	SESSION_ACTIVE_ASSISTANT,
 	SESSION_ACTIVE_COPY,
 	TASK_MOBILE_RESEARCH,
@@ -65,10 +66,10 @@ async function seedSessions(db: HyperIdleDb, clock: DemoClock): Promise<void> {
 		{ taskId: TASK_TRIAL_FLOW, agentId: BUILDER_ID, finishedDaysAgo: 29, count: 3 },
 		{ taskId: TASK_TRIAL_EMAIL, agentId: GROWTH_ID, finishedDaysAgo: 27, count: 2 },
 		{ taskId: TASK_TRIAL_HEURISTIC, agentId: PM_ID, finishedDaysAgo: 30, count: 1 },
-		{ taskId: TASK_TRIAL_MEASURE, agentId: "demo-agent-qa", finishedDaysAgo: 15, count: 2 },
+		{ taskId: TASK_TRIAL_MEASURE, agentId: QA_ID, finishedDaysAgo: 15, count: 2 },
 		{ taskId: TASK_SEARCH_PROFILE, agentId: BUILDER_ID, finishedDaysAgo: 30, count: 2 },
 		{ taskId: TASK_SEARCH_RANKING, agentId: BUILDER_ID, finishedDaysAgo: 24, count: 3 },
-		{ taskId: TASK_SEARCH_EVAL, agentId: "demo-agent-qa", finishedDaysAgo: 21, count: 2 },
+		{ taskId: TASK_SEARCH_EVAL, agentId: QA_ID, finishedDaysAgo: 21, count: 2 },
 		{ taskId: TASK_MOBILE_RESEARCH, agentId: PM_ID, finishedDaysAgo: 12, count: 2 },
 	];
 

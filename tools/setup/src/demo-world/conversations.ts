@@ -430,7 +430,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 				taskTitle: "Build the new pricing page",
 				prompt:
 					"Implement the two-tier page from the approved structure: comparison, FAQ, hero rework. Empty states and mobile widths included.",
-				authorName: "Acme Designer",
+				authorName: "Designer",
 				reviewerName: "You",
 				blocking: true,
 				producedAgo: "5h",
@@ -474,7 +474,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 						title: "Outcome summary",
 						kind: "outcome_summary",
 						payload: {
-							agentName: "Acme Designer",
+							agentName: "Designer",
 							agentInitials: "AD",
 							reviewerName: "You",
 							achieved: "Two-tier pricing page built from the approved structure",
@@ -638,7 +638,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 				taskTitle: "Self-serve extension flow",
 				prompt:
 					"One-click, one-time, seven days. Date math on the entitlement edge — mind the timezone boundary.",
-				authorName: "Acme Builder",
+				authorName: "Builder",
 				reviewerName: "You",
 				blocking: false,
 				producedAgo: "4w",
@@ -671,7 +671,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 						title: "Outcome summary",
 						kind: "outcome_summary",
 						payload: {
-							agentName: "Acme Builder",
+							agentName: "Builder",
 							agentInitials: "AB",
 							reviewerName: "You",
 							achieved: "Self-serve trial extension with timezone-safe entitlement math",
@@ -856,7 +856,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 				taskId: TASK_SEARCH_RANKING,
 				taskTitle: "Re-rank on recency and title match",
 				prompt: "Weight recency and exact-title-match above body-match; keep it tunable.",
-				authorName: "Acme Builder",
+				authorName: "Builder",
 				reviewerName: "You",
 				blocking: false,
 				producedAgo: "3w",
@@ -897,7 +897,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 						title: "Outcome summary",
 						kind: "outcome_summary",
 						payload: {
-							agentName: "Acme Builder",
+							agentName: "Builder",
 							agentInitials: "AB",
 							reviewerName: "You",
 							achieved: "Re-ranking on recency and title match, behind a flag",

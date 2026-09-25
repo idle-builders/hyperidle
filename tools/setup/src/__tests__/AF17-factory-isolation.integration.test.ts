@@ -5,7 +5,7 @@
  *   - teams count = 0
  *   - no users with kind="human"
  *   - no rows with seed-product-1 / demo-team-acme ids
- *   - no demo-agent-* rows
+ *   - no plugin installed (the demo's team agents come from one)
  *
  * Also verifies that no Nimmly / demo-team ids survive the bootstrap path.
  *
@@ -66,13 +66,10 @@ describe("AF17 AC4: bootstrap-only DB contains no demo data", () => {
 		expect(Number(rows[0]?.count)).toBe(0);
 	});
 
-	test("no demo-agent-* users exist after bootstrap", async ({ db }) => {
+	test("no plugin is installed after bootstrap", async ({ db }) => {
 		await runFactoryBootstrap(db);
 
-		const rows = await queryRows<{ count: string }>(
-			db,
-			"SELECT COUNT(*) AS count FROM users WHERE id LIKE 'demo-agent-%'",
-		);
+		const rows = await queryRows<{ count: string }>(db, "SELECT COUNT(*) AS count FROM plugins");
 		expect(Number(rows[0]?.count)).toBe(0);
 	});
 
@@ -86,9 +83,7 @@ describe("AF17 AC4: bootstrap-only DB contains no demo data", () => {
 		expect(Number(rows[0]?.count)).toBe(0);
 	});
 
-	test("no seed-agent-pm-nimmly row exists after bootstrap (purged to demo-agent-pm)", async ({
-		db,
-	}) => {
+	test("no seed-agent-pm-nimmly row exists after bootstrap (purged)", async ({ db }) => {
 		await runFactoryBootstrap(db);
 
 		const rows = await queryRows<{ count: string }>(
