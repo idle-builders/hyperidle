@@ -108,8 +108,45 @@ plugin a team has not installed shows as available to that team.
 build shipped. A plugin only adds its own agents; it never touches the assistant. The harness is
 picked once at install; changing it later is the ordinary agent edit.
 
-## How we work on this
+## What was decided along the way
 
-## Confusions
+- **The premise moved.** The four opinions the track named were already deleted by BC5; the item
+  became "finish the empty install" plus "let a plugin arrive". Both halves ruled in by the founder.
+- **Wake once.** A change that itself starts an agent's work names that agent on its event, and that
+  agent's subscriptions skip it; a subscription hears only changes after it was created. Without this
+  a message to the assistant produced two sessions and two answers, and a new agent woke on its own
+  creation.
+- **An empty instruction is said out loud.** A subscription with no prompt tells the session that
+  nobody has written an instruction for this event yet and to decide for itself; the old "speak only
+  if the instruction asks" would have silenced the assistant for good.
+- **A plugin installs per team** (founder ruling on the critique's blocker). One `plugins` row per
+  install: the manifest name for a factory install, `<name>@<teamId>` for a team; one folder per
+  install; contributed ids keep hashing the manifest name so existing installs are untouched;
+  configuration-default ids take the install id. `installScope` in the manifest only picks the
+  Install button's default scope; document-management declares `factory`.
+- **An install refuses a team that does not exist** (review finding): a made-up team id had built an
+  install path outside the install root and the installer's delete-then-copy reached it.
+- **The system actor stays, hidden.** Boot inserts only `system:propagation`; `search_users` omits
+  role "system" rows unless named in `ids`.
+- **The three grouping roots** go only where unedited, empty and no task's source (0091); the demo
+  seed inserts its own roots.
 
-## Proposed items
+## Accepted limits and what is left
+
+- The stored identity documents of the persona plugin carry raw `{{product}}` / `{{community}}`
+  placeholders; they are substituted when a session prompt is built, not in the document. The
+  assistant's first empty-prompt wake pointed exactly this out. Pre-existing.
+- A person's configuration override of a plugin key applies to every team's install of that plugin
+  (overrides have no scope); no bundled plugin ships such keys.
+- If no harness is ready at install time a plugin's agents land without run config; the install
+  succeeds and the ordinary agent edit fixes it.
+- A plugin's agents are raw-inserted, so no `user.created` change fires for them; the assistant
+  hears the documents they bring, not the agents.
+- The shared backend always offers the repo's bundled plugins as available to every team; their
+  agents take the server's own harness pool. The desktop app still does not wire plugin MCP servers.
+- "A subscription hears only later changes" compares timestamps to the millisecond.
+- The lower-level installer function still accepts any team id; only `edit_plugin` checks, and every
+  real path goes through it.
+- The remote server runs no boot seed (unchanged): a fresh shared database needs `db:bootstrap:pg`.
+- Maintainer-owned `.claude/rules/docs.md:11` still lists `system-prompts/` — a pipeline run may not
+  edit rule files; the founder's edit.
