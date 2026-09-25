@@ -190,15 +190,16 @@ describe("SettingsPlugins", () => {
 			expect(crmRow.textContent).toContain("v1.0.4");
 		});
 
-		it("shows scope label for factory and team scope", async () => {
+		it("shows whose install each row is: the team by name, or everyone", async () => {
+			setupCall(
+				[PLUGIN_WITH_DETACHED, PLUGIN_NO_CONTRIBUTIONS],
+				[{ id: "u-sam", name: "Sam", team: { id: "team-sales", name: "Sales" } }],
+			);
 			render(<SettingsPlugins />);
-			await waitFor(() => {
-				expect(screen.getByTestId("plugins-list")).toBeInTheDocument();
-			});
-			// Team scope
-			expect(screen.getByText("Team: team-sales")).toBeInTheDocument();
+			// Team scope, by the team's name
+			expect(await screen.findByText("For Sales")).toBeInTheDocument();
 			// Factory scope
-			expect(screen.getByText("Factory")).toBeInTheDocument();
+			expect(screen.getByText("For everyone")).toBeInTheDocument();
 		});
 
 		it("shows disable/enable toggle and remove buttons per plugin", async () => {

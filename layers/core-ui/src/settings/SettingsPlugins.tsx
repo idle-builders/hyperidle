@@ -77,9 +77,14 @@ function stateChipStatus(state: PluginListState): "healthy" | "behind" {
 	return state === "enabled" ? "healthy" : "behind";
 }
 
-function scopeLabel(scope: PluginScope): string {
-	if (scope.kind === "factory") return "Factory";
-	return scope.teamId ? `Team: ${scope.teamId}` : "Team";
+/**
+ * Whose install a row is, in words: "For everyone", or "For <team name>".
+ * Never the raw team id — a team a person cannot see reads "For another team".
+ */
+function scopeLabel(scope: PluginScope, teamNames: ReadonlyMap<string, string>): string {
+	if (scope.kind === "factory") return "For everyone";
+	const name = scope.teamId ? teamNames.get(scope.teamId) : undefined;
+	return name ? `For ${name}` : "For another team";
 }
 
 // ---------------------------------------------------------------------------
@@ -88,12 +93,11 @@ function scopeLabel(scope: PluginScope): string {
 
 interface InstallFormProps {
 	onInstalled: () => void;
+	teamOptions: readonly { readonly id: string; readonly label: string }[];
 }
 
-function InstallForm({ onInstalled }: InstallFormProps): JSX.Element {
+function InstallForm({ onInstalled, teamOptions }: InstallFormProps): JSX.Element {
 	const { showToast } = useToast();
-	const { data: teamsData } = useTeams();
-	const teamOptions = (teamsData?.teams ?? []).map((t) => ({ id: t.id, label: t.name }));
 	const [sourceKind, setSourceKind] = useState<SourceKind>("git");
 	const [value, setValue] = useState("");
 	const [scopeKind, setScopeKind] = useState<ScopeKind>("factory");
@@ -272,6 +276,10 @@ function ContributionList({
 
 export function SettingsPlugins(): JSX.Element {
 	const { showToast } = useToast();
+	const { data: teamsData } = useTeams();
+	const teams = teamsData?.teams ?? [];
+	const teamOptions = teams.map((t) => ({ id: t.id, label: t.name }));
+	const teamNames = new Map(teams.map((t) => [t.id, t.name]));
 	const [plugins, setPlugins] = useState<PluginListing[]>([]);
 	const [loadState, setLoadState] = useState<LoadState>("loading");
 	const [busy, setBusy] = useState<Set<string>>(new Set());
@@ -415,7 +423,7 @@ export function SettingsPlugins(): JSX.Element {
 
 	return (
 		<div className="flex flex-col gap-[18px]" data-testid="settings-plugins">
-			<InstallForm onInstalled={() => void load()} />
+			<InstallForm onInstalled={() => void load()} teamOptions={teamOptions} />
 
 			{plugins.every(isAvailable) && (
 				<EmptyState
@@ -450,12 +458,15 @@ export function SettingsPlugins(): JSX.Element {
 								<div key={plugin.id} className="flex flex-col">
 									<Row
 										title={<PluginTitle name={plugin.name} version={plugin.version} />}
+										// @lore Whose install it is sits under the title, not in the
+										// actions: a scope tag beside three buttons took the row's width
+										// and a team install's title collapsed to nothing.
+										subtitle={scopeLabel(plugin.scope, teamNames)}
 										lead={
 											<StatusChip status={stateChipStatus(plugin.state)} label={plugin.state} />
 										}
 										actions={
 											<div className="flex items-center gap-[6px]">
-												<Tag label={scopeLabel(plugin.scope)} />
 												{hasContributions && (
 													<Button
 														variant="ghost"

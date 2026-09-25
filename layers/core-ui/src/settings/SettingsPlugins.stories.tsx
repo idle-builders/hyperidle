@@ -119,9 +119,13 @@ function stateChipStatus(s: PluginState): Status {
 	return s === "enabled" ? "healthy" : "behind";
 }
 
+/** The team names the page reads from `search_users` — a row names its team, never its id. */
+const TEAM_NAMES = new Map([["team-sales", "Sales"]]);
+
 function scopeLabel(scope: { kind: ScopeKind; teamId: string | null }): string {
-	if (scope.kind === "factory") return "Factory";
-	return scope.teamId ? `Team: ${scope.teamId}` : "Team";
+	if (scope.kind === "factory") return "For everyone";
+	const name = scope.teamId ? TEAM_NAMES.get(scope.teamId) : undefined;
+	return name ? `For ${name}` : "For another team";
 }
 
 // ---------------------------------------------------------------------------
@@ -247,10 +251,10 @@ function PluginRow({ plugin }: { plugin: PluginView }): JSX.Element {
 						</span>
 					</span>
 				}
+				subtitle={scopeLabel(plugin.scope)}
 				lead={<StatusChip status={stateChipStatus(plugin.state)} label={plugin.state} />}
 				actions={
 					<div className="flex items-center gap-[6px]">
-						<Tag label={scopeLabel(plugin.scope)} />
 						{hasContributions && (
 							<Button
 								variant="ghost"
