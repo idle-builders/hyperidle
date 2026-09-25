@@ -11,7 +11,10 @@
  * `send_message` — this test also proves no message row was written for the
  * agent, the exact desktop-walk defect (T15's send_message-forcing fix made
  * every subscription wake end with an unwanted direct message even when the
- * instruction never asked for one).
+ * instruction never asked for one). A second case wakes a subscription with
+ * no instruction at all — what every subscription on a fresh install holds —
+ * and proves the session is shown what happened, is told nobody wrote an
+ * instruction yet, and still ends returned.
  *
  * Per harness (claude / codex / opencode / cursor-agent), `requireHarness(...)`,
  * zero stubs, hard-fail if absent — never `skipIf` to green (CLAUDE.md,
@@ -292,17 +295,41 @@ function buildFireDeps(
 	};
 }
 
+type WakeVariant = "instructed" | "empty";
+
+const VARIANT_ID_SUFFIX: Record<WakeVariant, string> = { instructed: "", empty: "-empty" };
+
+/** The subscription each variant writes: the instructed one names a document; the empty one holds no prompt. */
+function subscriptionToAdd(
+	variant: WakeVariant,
+	instruction: string,
+): { readonly event: "task.changed"; readonly prompt?: string } {
+	return variant === "empty"
+		? { event: "task.changed" }
+		: { event: "task.changed", prompt: instruction };
+}
+
 describe("a real task.changed wakes a subscribed agent, who reads the change and edits the document its prompt names (real harness)", () => {
+	/**
+	 * `instructed`: the subscription's prompt names a document to edit, and the
+	 * proof is that document edited and no message sent. `empty`: the
+	 * subscription has no prompt at all — a fresh install's state — and the
+	 * proof is that the session is shown what happened with no instruction
+	 * block, decides for itself, and still ends returned rather than stalling or
+	 * crashing.
+	 */
 	async function runSubscriptionWakeProof(
 		harness: SupportedHarnessName,
 		db: HyperIdleDb,
+		variant: WakeVariant = "instructed",
 	): Promise<void> {
-		const founderId = `founder-sub-wake-${harness}`;
-		const agentId = `agent-sub-wake-${harness}`;
-		const teamId = `team-sub-wake-${harness}`;
-		const taskId = `task-sub-wake-${harness}`;
-		const threadId = `thread-sub-wake-${harness}`;
-		const documentId = `doc-sub-wake-${harness}`;
+		const suffix = `${harness}${VARIANT_ID_SUFFIX[variant]}`;
+		const founderId = `founder-sub-wake-${suffix}`;
+		const agentId = `agent-sub-wake-${suffix}`;
+		const teamId = `team-sub-wake-${suffix}`;
+		const taskId = `task-sub-wake-${suffix}`;
+		const threadId = `thread-sub-wake-${suffix}`;
+		const documentId = `doc-sub-wake-${suffix}`;
 		const harnessType = HARNESS_TYPE[harness];
 		if (!harnessType) throw new Error(`no harnessType mapping for ${harness}`);
 
@@ -361,7 +388,12 @@ describe("a real task.changed wakes a subscribed agent, who reads the change and
 				"call it now. Do not send any message to anyone.";
 			const subscribeResult = await editUser(
 				{ actor: founderId, db, eventBus, now: new Date().toISOString(), internal: true },
-				{ id: agentId, subscriptions: { add: [{ event: "task.changed", prompt: instruction }] } },
+				{
+					id: agentId,
+					subscriptions: {
+						add: [subscriptionToAdd(variant, instruction)],
+					},
+				},
 			);
 			if (!subscribeResult.ok) {
 				throw new Error(
@@ -420,7 +452,21 @@ describe("a real task.changed wakes a subscribed agent, who reads the change and
 			}
 
 			const adapterPool = await createLocalAdapterPool({ enforcement: enforcementRegistry });
+			// The prompt the harness actually reads is the sandbox's own AGENTS.md,
+			// written before the harness starts and deleted with the sandbox when
+			// the session ends — so it is read the moment the harness has started.
 			const workspace = createSandboxAdapter("local");
+			const spawnSandbox = workspace.spawn.bind(workspace);
+			let sandboxPath = "";
+			workspace.spawn = async (baseDir) => {
+				const handle = await spawnSandbox(baseDir);
+				sandboxPath = handle.path;
+				return handle;
+			};
+			let assembledPrompt = "";
+			const readAssembledPrompt = () => {
+				assembledPrompt = fs.readFileSync(path.join(sandboxPath, "AGENTS.md"), "utf8");
+			};
 			const composition = buildRunOrchestrationComposition({
 				harnessRuntime: buildLiveHarnessRuntimeAdapter(mcpBridgeRegistry, enforcementRegistry),
 				returnStatusTool: { forRegistry: (registry) => returnStatusTool.forRegistry(registry) },
@@ -428,7 +474,7 @@ describe("a real task.changed wakes a subscribed agent, who reads the change and
 			});
 
 			const result = await composition.runSession(
-				{ db, eventBus, adapterPool, workspace },
+				{ db, eventBus, adapterPool, workspace, onHarnessStarted: readAssembledPrompt },
 				{ mode: "durable", request, sandboxBasePath, completion: "await" },
 			);
 
@@ -445,22 +491,7 @@ describe("a real task.changed wakes a subscribed agent, who reads the change and
 				);
 			}
 
-			const [documentRow] = await db.select().from(documents).where(eq(documents.id, documentId));
-			expect(
-				documentRow?.body,
-				`document ${documentId} was not edited by ${harness}: ${JSON.stringify(documentRow)}`,
-			).toBe(WAKE_TOKEN);
-
-			// The desktop-walk defect: a subscription session's forced return used
-			// to be send_message, so every wake ended with an unwanted direct
-			// message even when the instruction never asked for one. return_status
-			// is the forced return now — no message row for this agent, on any
-			// harness.
-			const agentMessages = await db.select().from(messages).where(eq(messages.senderId, agentId));
-			expect(
-				agentMessages,
-				`${harness} sent an unforced message: ${JSON.stringify(agentMessages)}`,
-			).toHaveLength(0);
+			await expectVariantOutcome(variant, { db, harness, agentId, documentId, assembledPrompt });
 
 			const sessionRow = await findSessionById(db, result.sessionId);
 			expect(
@@ -479,6 +510,54 @@ describe("a real task.changed wakes a subscribed agent, who reads the change and
 			});
 			fs.rmSync(sandboxBasePath, { recursive: true, force: true });
 		}
+	}
+
+	async function expectVariantOutcome(
+		variant: WakeVariant,
+		seen: {
+			readonly db: HyperIdleDb;
+			readonly harness: SupportedHarnessName;
+			readonly agentId: string;
+			readonly documentId: string;
+			readonly assembledPrompt: string;
+		},
+	): Promise<void> {
+		if (variant === "empty") {
+			expectNoInstructionShown(seen.assembledPrompt);
+			return;
+		}
+		await expectInstructionFollowed(seen.db, seen.harness, seen.agentId, seen.documentId);
+	}
+
+	function expectNoInstructionShown(assembledPrompt: string): void {
+		expect(assembledPrompt).toContain("### What happened");
+		expect(assembledPrompt).not.toContain("### Instruction");
+		expect(assembledPrompt).toContain("Nobody has written an instruction for this event yet");
+		expect(assembledPrompt).not.toContain("Speak only if");
+	}
+
+	async function expectInstructionFollowed(
+		db: HyperIdleDb,
+		harness: SupportedHarnessName,
+		agentId: string,
+		documentId: string,
+	): Promise<void> {
+		const [documentRow] = await db.select().from(documents).where(eq(documents.id, documentId));
+		expect(
+			documentRow?.body,
+			`document ${documentId} was not edited by ${harness}: ${JSON.stringify(documentRow)}`,
+		).toBe(WAKE_TOKEN);
+
+		// The desktop-walk defect: a subscription session's forced return used
+		// to be send_message, so every wake ended with an unwanted direct
+		// message even when the instruction never asked for one. return_status
+		// is the forced return now — no message row for this agent, on any
+		// harness.
+		const agentMessages = await db.select().from(messages).where(eq(messages.senderId, agentId));
+		expect(
+			agentMessages,
+			`${harness} sent an unforced message: ${JSON.stringify(agentMessages)}`,
+		).toHaveLength(0);
 	}
 
 	describe("[harness:claude]", () => {
@@ -513,6 +592,42 @@ describe("a real task.changed wakes a subscribed agent, who reads the change and
 		dbTest(
 			"a subscription wake on cursor-agent ends with the named document edited",
 			async ({ db }) => runSubscriptionWakeProof("cursor-agent", db),
+			180_000,
+		);
+	});
+
+	describe("[harness:claude] no instruction", () => {
+		requireHarness("claude");
+		dbTest(
+			"a subscription wake with no instruction on claude-code decides for itself and ends returned",
+			async ({ db }) => runSubscriptionWakeProof("claude", db, "empty"),
+			180_000,
+		);
+	});
+
+	describe("[harness:codex] no instruction", () => {
+		requireHarness("codex");
+		dbTest(
+			"a subscription wake with no instruction on codex decides for itself and ends returned",
+			async ({ db }) => runSubscriptionWakeProof("codex", db, "empty"),
+			180_000,
+		);
+	});
+
+	describe("[harness:opencode] no instruction", () => {
+		requireHarness("opencode");
+		dbTest(
+			"a subscription wake with no instruction on opencode decides for itself and ends returned",
+			async ({ db }) => runSubscriptionWakeProof("opencode", db, "empty"),
+			180_000,
+		);
+	});
+
+	describe("[harness:cursor-agent] no instruction", () => {
+		requireHarness("cursor-agent");
+		dbTest(
+			"a subscription wake with no instruction on cursor-agent decides for itself and ends returned",
+			async ({ db }) => runSubscriptionWakeProof("cursor-agent", db, "empty"),
 			180_000,
 		);
 	});
