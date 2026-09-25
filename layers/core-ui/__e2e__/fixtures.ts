@@ -187,7 +187,6 @@ export const test = base.extend<CoreApiFixtures>({
 			// These are fallbacks — test-specific route registrations take precedence
 			// because Playwright matches routes LIFO (last registered first matched).
 
-
 			// GET /api/settings — app-wide settings for useSettings hook
 			await page.route("**/api/settings", async (route) => {
 				const method = route.request().method();
