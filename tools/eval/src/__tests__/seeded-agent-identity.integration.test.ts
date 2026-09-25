@@ -9,9 +9,23 @@ import { createStandaloneSearchDocuments } from "@hyperidle/core-api";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
-import { beforeEach } from "vitest";
-import { selectEvalHarness } from "../eval-harness.js";
+import { afterAll, vi } from "vitest";
 import { seedAgent, seedMinimalWorld, seedMultiAgentWorld, seedTeam } from "../seeding.js";
+
+// @lore The seed writes the run's harness onto each agent. Which harness is
+// beside the point of a database test, and choosing one for real checks that
+// its binary is installed, which a CI machine is not — so only the run's
+// harness choice is fixed here. The service lane shares a module cache across
+// files, so the mock is dropped and the cache reset when this file is done.
+vi.hoisted(() => vi.resetModules());
+vi.mock("../eval-harness.js", () => ({
+	evalHarnessType: () => "claude-code",
+	evalHarnessModel: () => null,
+}));
+afterAll(() => {
+	vi.doUnmock("../eval-harness.js");
+	vi.resetModules();
+});
 
 const searchDocuments = createStandaloneSearchDocuments();
 
@@ -25,9 +39,6 @@ async function identityOf(db: HyperIdleDb, agentId: string): Promise<string[]> {
 }
 
 describe("a scenario's agent identity", () => {
-	// The seed writes the run's harness onto each agent; any harness will do here.
-	beforeEach(() => selectEvalHarness("claude", null));
-
 	test("the minimal world's agent carries the scenario's identity", async ({ db }) => {
 		const world = await seedMinimalWorld(db, { agentSystemPrompt: "You are Aria." });
 
