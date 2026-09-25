@@ -153,3 +153,11 @@ picked once at install; changing it later is the ordinary agent edit.
 - The lower-level installer function still accepts any team id; only `edit_plugin` checks, and every
   real path goes through it.
 - The remote server runs no boot seed (unchanged): a fresh shared database needs `db:bootstrap:pg`.
+- After the cleanup there is one way in: the X-API-Key, in local and shared mode. Invite codes and
+  login sessions were unreachable and are gone with their tables; login for a shared backend is
+  rebuilt when that gets its own item. Before the first person exists the middleware acts as a
+  placeholder id so the welcome screen's own calls can run.
+- The demo world installs the persona plugin without an install folder, so in a demo database a
+  person's edit to a plugin-supplied document cannot be restored and no MCP servers would load.
+- Work-item ids remain in old SQL migrations and in a few single-letter forms in comments; the
+  sweep took 574 lines out of production comments.
