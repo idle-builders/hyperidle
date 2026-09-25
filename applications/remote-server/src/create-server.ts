@@ -104,6 +104,12 @@ export interface CreateServerDeps {
 	 * ignored when this is supplied.
 	 */
 	readonly agentExecutionBoot?: Awaited<ReturnType<typeof bootAgentExecution>>;
+	/**
+	 * The plugins that ship with the server, one folder each. Omitted →
+	 * `HYPERIDLE_BUNDLED_PLUGINS_DIR`, else the repo's own `plugins/` (the
+	 * server image carries the repo, so it is there too).
+	 */
+	readonly bundledPluginsDir?: string;
 }
 
 /**
@@ -203,6 +209,19 @@ function resolvePglitePath(rawPath: string): string {
 	// repoRoot        → file:///…/ (3 levels up)
 	const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../../..");
 	return path.resolve(repoRoot, rawPath);
+}
+
+/**
+ * Where the plugins that ship with the server live. Resolved from this file
+ * (three levels up is the repo root, as for `resolvePglitePath`), so it is
+ * never the `installed-plugins` directory installs are copied to.
+ */
+function resolveBundledPluginsDir(deps: CreateServerDeps): string {
+	return (
+		deps.bundledPluginsDir ??
+		process.env.HYPERIDLE_BUNDLED_PLUGINS_DIR ??
+		path.resolve(path.dirname(new URL(import.meta.url).pathname), "../../..", "plugins")
+	);
 }
 
 export async function createServer(port: number, deps: CreateServerDeps): Promise<ServerHandle> {
@@ -319,6 +338,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		adapterPool: agentExecution.adapters.pool,
 		onHarnessRedetect,
 		...(pluginsBaseDir ? { pluginsBaseDir } : {}),
+		bundledPluginsDir: resolveBundledPluginsDir(deps),
 		serviceBootstrap: (ctx) => {
 			// `ctx.readAlertPreferences` is `bootCoreApi`'s own capability
 			// (§5.2) — this Application no longer imports `@hyperidle/settings`

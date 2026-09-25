@@ -27,7 +27,7 @@
 
 import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import {
 	type HyperIdleDb,
 	type PluginRow,
@@ -42,7 +42,7 @@ import {
 } from "@hyperidle/domain-model";
 import { and, asc, eq, ne, notInArray, or } from "drizzle-orm";
 import { writeConfigurationOverride } from "./plugin-configuration.js";
-import type { PluginSource } from "./plugin-fetch.js";
+import type { FetchedPlugin, PluginSource } from "./plugin-fetch.js";
 import { fetchPlugin } from "./plugin-fetch.js";
 import type {
 	ManifestWarning,
@@ -151,16 +151,32 @@ function sha256(data: string): string {
 	return createHash("sha256").update(data).digest("hex");
 }
 
-function defaultId(pluginId: string, kind: ConfigurationKind, namespacedKey: string): string {
-	return `pcd_${sha256(`${pluginId}\0${kind}\0${namespacedKey}`).slice(0, 24)}`;
+/**
+ * A default's primary key. Takes the install id: two teams' installs of one
+ * plugin store the same namespaced key under different `plugin_id`s, and the
+ * id must differ too or the second insert collides on the primary key before
+ * the `(plugin_id, kind, key)` conflict target is ever consulted.
+ */
+function defaultId(installId: string, kind: ConfigurationKind, namespacedKey: string): string {
+	return `pcd_${sha256(`${installId}\0${kind}\0${namespacedKey}`).slice(0, 24)}`;
 }
 
 /**
- * Namespace a manifest key by plugin ID.
- * Stored key = "<pluginId>/<manifestKey>".
+ * Namespace a manifest key by the plugin's manifest name (never its install
+ * id — every install of one plugin shares its configuration keys).
+ * Stored key = "<pluginName>/<manifestKey>".
  */
-function namespacedKey(pluginId: string, manifestKey: string): string {
-	return `${pluginId}/${manifestKey}`;
+function namespacedKey(pluginName: string, manifestKey: string): string {
+	return `${pluginName}/${manifestKey}`;
+}
+
+/**
+ * The `plugins` row id of one install: the manifest name for a factory
+ * install, `<name>@<teamId>` for a team install. A manifest name never
+ * contains `@`, so the two forms cannot collide.
+ */
+function pluginInstallId(name: string, scope: PluginScope): string {
+	return scope.kind === "team" && scope.teamId ? `${name}@${scope.teamId}` : name;
 }
 
 function scopeFromRow(row: PluginRow): PluginScope {
@@ -192,13 +208,14 @@ function pluginFromRow(row: PluginRow, warnings: ManifestWarning[] = []): Instal
 async function writePluginDefaults(
 	db: HyperIdleDb,
 	pluginId: string,
+	pluginName: string,
 	contributions: ParsedContribution[],
 	ts: string,
 ): Promise<void> {
 	if (contributions.length === 0) return;
 
 	for (const contribution of contributions) {
-		const key = namespacedKey(pluginId, contribution.key);
+		const key = namespacedKey(pluginName, contribution.key);
 		const valueJson = stableJson(contribution.value);
 		const versionHash = sha256(valueJson);
 		const id = defaultId(pluginId, contribution.kind, key);
@@ -394,12 +411,13 @@ export async function getPluginMcpContributions(
 async function writeMcpServerDefaults(
 	db: HyperIdleDb,
 	pluginId: string,
+	pluginName: string,
 	mcpServers: ParsedMcpServer[],
 	ts: string,
 ): Promise<void> {
 	if (mcpServers.length === 0) return;
 	for (const server of mcpServers) {
-		const key = namespacedKey(pluginId, server.name);
+		const key = namespacedKey(pluginName, server.name);
 		const valueJson = stableJson(server.config);
 		const versionHash = sha256(valueJson);
 		const id = defaultId(pluginId, "mcp_server", key);
@@ -431,11 +449,18 @@ async function writeMcpServerDefaults(
 }
 
 /**
- * Copy plugin files to a persistent location.
+ * Copy plugin files to this install's own folder, `<pluginsBaseDir>/<installId>`.
  * Returns the destination path.
+ *
+ * @lore One folder per install: the `rmSync` below only ever removes this
+ * install's own copy, so a second team's install never deletes the folder a
+ * first team's restore reads. And a source that already IS the destination
+ * is left alone — removing it first would delete the only copy (a bundled
+ * folder or a folder install pointed at the install directory itself).
  */
-function persistPlugin(sourceDir: string, pluginsBaseDir: string, pluginId: string): string {
-	const dest = join(pluginsBaseDir, pluginId);
+function persistPlugin(sourceDir: string, pluginsBaseDir: string, installId: string): string {
+	const dest = join(pluginsBaseDir, installId);
+	if (resolve(sourceDir) === resolve(dest)) return dest;
 	// Remove any existing install first (full reinstall)
 	if (existsSync(dest)) {
 		rmSync(dest, { recursive: true, force: true });
@@ -461,7 +486,14 @@ export async function installPlugin(
 	db: HyperIdleDb,
 	input: InstallPluginInput,
 ): Promise<InstallPluginResult> {
-	const fetched = fetchPlugin(input.source);
+	// A source that cannot be fetched (no such folder, a failed clone, a zip
+	// without plugin.json) is an answer, never a thrown error.
+	let fetched: FetchedPlugin;
+	try {
+		fetched = fetchPlugin(input.source);
+	} catch (err) {
+		return { ok: false, reason: err instanceof Error ? err.message : String(err) };
+	}
 	try {
 		const parseResult = parsePluginManifest(fetched.rootDir);
 		if (!parseResult.ok) {
@@ -469,13 +501,14 @@ export async function installPlugin(
 		}
 
 		const { manifest } = parseResult;
-		const pluginId = manifest.name;
 		const ts = nowIso(input.now);
 
 		// Check scope consistency
 		if (input.scope.kind === "team" && !input.scope.teamId) {
 			return { ok: false, reason: 'scope.kind is "team" but scope.teamId is missing' };
 		}
+		// One row per install: each team's install of this plugin is its own.
+		const pluginId = pluginInstallId(manifest.name, input.scope);
 
 		// Persist plugin files whenever we have somewhere to put them.
 		//
@@ -528,19 +561,21 @@ export async function installPlugin(
 			});
 
 		// Compute the set of current namespaced keys from manifest contributions.
-		const manifestContribKeys = manifest.contributions.map((c) => namespacedKey(pluginId, c.key));
+		const manifestContribKeys = manifest.contributions.map((c) =>
+			namespacedKey(manifest.name, c.key),
+		);
 		// MCP server contributions are stored alongside manifest contributions.
-		const mcpContribKeys = manifest.mcpServers.map((s) => namespacedKey(pluginId, s.name));
+		const mcpContribKeys = manifest.mcpServers.map((s) => namespacedKey(manifest.name, s.name));
 		const currentKeys = [...manifestContribKeys, ...mcpContribKeys];
 
 		// Remove defaults for keys that no longer exist.
 		await removeStaleDefaults(db, pluginId, currentKeys);
 
 		// Write/update manifest contributions.
-		await writePluginDefaults(db, pluginId, manifest.contributions, ts);
+		await writePluginDefaults(db, pluginId, manifest.name, manifest.contributions, ts);
 
 		// Write/update MCP server contributions from mcp.json.
-		await writeMcpServerDefaults(db, pluginId, manifest.mcpServers, ts);
+		await writeMcpServerDefaults(db, pluginId, manifest.name, manifest.mcpServers, ts);
 
 		// Skill documents are synced by the core-api layer's route handler
 		// after installPlugin returns, using the document service (governance boundary:
@@ -678,20 +713,21 @@ export async function removePlugin(db: HyperIdleDb, pluginId: string, now?: stri
  *
  * AC6: After restore, the item is no longer detached (valueSource='default').
  *
- * @param pluginId - The plugin whose contribution to restore.
+ * @param pluginName - The manifest name of the plugin whose contribution to restore
+ *   (configuration keys are namespaced by name, shared by every install).
  * @param manifestKey - The ORIGINAL (non-namespaced) key from the manifest.
  * @param kind - The configuration kind.
  */
 export async function restorePluginContribution(
 	db: HyperIdleDb,
 	input: {
-		readonly pluginId: string;
+		readonly pluginName: string;
 		readonly manifestKey: string;
 		readonly kind: ConfigurationKind;
 		readonly now?: string;
 	},
 ): Promise<void> {
-	const key = namespacedKey(input.pluginId, input.manifestKey);
+	const key = namespacedKey(input.pluginName, input.manifestKey);
 	await writeConfigurationOverride(db, {
 		kind: input.kind,
 		key,

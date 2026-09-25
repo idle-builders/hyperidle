@@ -211,7 +211,8 @@ describe("AC2 — scope", () => {
 		});
 
 		const list = await listInstalledPlugins(db);
-		const plugin = list.find((p) => p.id === "scope-team");
+		const plugin = list.find((p) => p.name === "scope-team");
+		expect(plugin?.id).toBe("scope-team@team-abc");
 		expect(plugin).toBeDefined();
 		expect(plugin?.scope.kind).toBe("team");
 		expect(plugin?.scope.teamId).toBe("team-abc");
@@ -392,7 +393,7 @@ describe("AC6 — detached and restore", () => {
 		});
 
 		await restorePluginContribution(db, {
-			pluginId: "restore-plugin",
+			pluginName: "restore-plugin",
 			manifestKey: "restore-agent",
 			kind: "agent",
 		});

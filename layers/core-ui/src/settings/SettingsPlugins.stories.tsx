@@ -11,6 +11,8 @@
  *   1. Enabled · factory scope · no contributions
  *   2. Enabled · team scope · one contribution detached (user override)
  *   3. Disabled · factory scope · one clean contribution
+ * followed by the two plugins that ship with the app, available to install
+ * (one per team, one factory-wide), each with its description and Install.
  *
  * @lore BA9a scope-deferral: scope is stored and shown here. Team-scoped filtering
  * bites during session materialisation (BA9b) — operators see scope now.
@@ -78,6 +80,34 @@ const PLUGINS: PluginView[] = [
 		state: "disabled",
 		scope: { kind: "factory", teamId: null },
 		contributions: [{ kind: "tool", manifestKey: "invoice-create", detached: false }],
+	},
+];
+
+/** A plugin that ships with the app and is not installed for this viewer. */
+interface AvailablePlugin {
+	id: string;
+	name: string;
+	version: string;
+	description: string;
+	installScope: ScopeKind;
+}
+
+const AVAILABLE: AvailablePlugin[] = [
+	{
+		id: "document-management",
+		name: "document-management",
+		version: "1.0.0",
+		description:
+			"Document Librarian agent with decay, document triage, and post-task retro subscriptions.",
+		installScope: "factory",
+	},
+	{
+		id: "role-personas",
+		name: "role-personas",
+		version: "1.0.0",
+		description:
+			"A team of agents with defined roles — builder, designer, product manager, QA, growth, ops, facilitator — each with its own identity.",
+		installScope: "team",
 	},
 ];
 
@@ -249,6 +279,31 @@ function PluginRow({ plugin }: { plugin: PluginView }): JSX.Element {
 	);
 }
 
+function AvailableRow({ plugin }: { plugin: AvailablePlugin }): JSX.Element {
+	return (
+		<Row
+			title={
+				<span>
+					<span className="type-control text-[var(--text-primary)]">{plugin.name}</span>
+					<span className="type-small text-[var(--text-secondary)] ml-[6px]">
+						v{plugin.version}
+					</span>
+				</span>
+			}
+			subtitle={plugin.description}
+			lead={<StatusChip status="behind" label="available" />}
+			actions={
+				<div className="flex items-center gap-[6px]">
+					<Tag label={plugin.installScope === "factory" ? "Factory" : "Your team"} />
+					<Button variant="primary" size="sm">
+						Install
+					</Button>
+				</div>
+			}
+		/>
+	);
+}
+
 // ---------------------------------------------------------------------------
 // Story
 // ---------------------------------------------------------------------------
@@ -266,9 +321,12 @@ export const Populated = (): JSX.Element => (
 				{PLUGINS.map((plugin) => (
 					<PluginRow key={plugin.id} plugin={plugin} />
 				))}
+				{AVAILABLE.map((plugin) => (
+					<AvailableRow key={plugin.id} plugin={plugin} />
+				))}
 			</ItemList>
 		</div>
 	</div>
 );
 Populated.storyName =
-	"Plugins — installed list (factory + team scope, detached contribution expanded)";
+	"Plugins — installed list (factory + team scope, detached contribution expanded) and the bundled plugins available to install";

@@ -7,7 +7,7 @@
  */
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { appendChange, listChanges } from "@hyperidle/changes";
-import type { User, WriteExecutor } from "@hyperidle/db";
+import type { HyperIdleDb, User, WriteExecutor } from "@hyperidle/db";
 import { createDocumentActions, type DocumentActionsDeps } from "@hyperidle/document";
 import type {
 	ActionResult,
@@ -23,6 +23,7 @@ import type {
 	TaskView,
 	ThreadView,
 } from "@hyperidle/domain-model";
+import { derivePrimaryHarness } from "@hyperidle/harness-capability";
 import {
 	createPlatformActions,
 	listAgentBehaviorConfiguration,
@@ -253,9 +254,26 @@ function buildDocumentActionsDeps(
  */
 function buildPlatformActionsDeps(
 	documentActions: readonly Action[],
-	pluginsBaseDir?: string,
+	agentOrchestration: AgentOrchestrationPort,
+	dirs: { readonly pluginsBaseDir?: string; readonly bundledPluginsDir?: string },
+	adapterPool?: HarnessCapabilityReader,
 ): PlatformActionsDeps {
 	return {
+		runConfig: agentOrchestration.runConfig,
+		...(adapterPool
+			? { firstAvailableHarness: (db: HyperIdleDb) => firstAvailableHarness(db, adapterPool) }
+			: {}),
+		// @lore Own team, else the owner's: an owned agent has no team of its own
+		// (a fresh install's only agent is one), and with its own team alone it
+		// could never offer its person a team plugin. The same effective-team rule
+		// `open_user` answers with; read here with two `findUser` lookups.
+		viewerTeamId: async (exec, actorId) => {
+			const viewer = await findUser(exec, { id: actorId });
+			if (!viewer) return null;
+			if (viewer.teamId) return viewer.teamId;
+			if (!viewer.ownerUserId) return null;
+			return (await findUser(exec, { id: viewer.ownerUserId }))?.teamId ?? null;
+		},
 		agents: {
 			insertIfAbsent: (exec, values) => insertUserIfAbsent(exec, values),
 			setStatus: (exec, ids, status) => setAgentsStatus(exec, ids, status),
@@ -295,8 +313,26 @@ function buildPlatformActionsDeps(
 			documentActions,
 			"search_documents",
 		),
-		...(pluginsBaseDir ? { pluginsBaseDir } : {}),
+		...(dirs.pluginsBaseDir ? { pluginsBaseDir: dirs.pluginsBaseDir } : {}),
+		...(dirs.bundledPluginsDir ? { bundledPluginsDir: dirs.bundledPluginsDir } : {}),
 	};
+}
+
+/**
+ * The harness a plugin's agents land on: the first one this machine can run
+ * right now (discovery `ready`) that the person has not switched off — the
+ * same first-ready choice the welcome screen preselects — as `edit_user`'s
+ * run-config pick.
+ */
+async function firstAvailableHarness(
+	db: HyperIdleDb,
+	adapterPool: HarnessCapabilityReader,
+): Promise<ReturnType<typeof derivePrimaryHarness> | null> {
+	const { harnessDisabled } = await readServerConfig(db);
+	const ready = adapterPool
+		.describe()
+		.find((d) => d.discovery.state === "ready" && !harnessDisabled.includes(d.type));
+	return ready ? derivePrimaryHarness(ready) : null;
 }
 
 /**
@@ -399,6 +435,7 @@ export function buildCoreActions(bindings: {
 	readonly reviewVerdictRecorder: ReviewVerdictRecorderFn;
 	readonly wsPush?: (topic: string, envelope: unknown) => void;
 	readonly pluginsBaseDir?: string;
+	readonly bundledPluginsDir?: string;
 	readonly adapterPool?: HarnessCapabilityReader;
 	readonly onHarnessRedetect?: () => Promise<void>;
 }): readonly Action[] {
@@ -416,7 +453,12 @@ export function buildCoreActions(bindings: {
 		buildDocumentActionsDeps(taskActions, threadActions, bindings.wsPush),
 	) as readonly Action[];
 	const platformActions = createPlatformActions(
-		buildPlatformActionsDeps(documentActions, bindings.pluginsBaseDir),
+		buildPlatformActionsDeps(
+			documentActions,
+			bindings.agentOrchestration,
+			bindings,
+			bindings.adapterPool,
+		),
 	) as readonly Action[];
 	const userActions = createUserActions(
 		buildUserActionsDeps(

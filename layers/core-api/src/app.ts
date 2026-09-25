@@ -209,6 +209,13 @@ interface AppOptions {
 	 * Production wiring passes the platform config dir; tests pass a temp dir.
 	 */
 	pluginsBaseDir?: string;
+	/**
+	 * The plugins that ship inside the app, one folder each (the desktop build
+	 * copies the repo's `plugins/` beside its migrations). `search_plugins` lists
+	 * the ones a viewer's team has not installed as available; `edit_plugin`
+	 * installs one by name. Never `pluginsBaseDir`. Absent → no available rows.
+	 */
+	bundledPluginsDir?: string;
 }
 
 /**
@@ -319,8 +326,8 @@ export function registerCoreApiPreAuthRoutes(
 /**
  * `buildCoreActions`'s bindings, assembled once here rather than inline in
  * `createCoreApiApp` — that function's own cognitive-complexity budget is
- * already spent, and the two optional pass-throughs (`pluginsBaseDir`,
- * `wsHub`) are a flat, ungated read of `options`, nothing this function
+ * already spent, and the optional pass-throughs (`pluginsBaseDir`,
+ * `bundledPluginsDir`, `wsHub`) are a flat, ungated read of `options`, nothing this function
  * needs any of `createCoreApiApp`'s own state to compute.
  */
 function buildCoreActionsBindings(
@@ -334,6 +341,7 @@ function buildCoreActionsBindings(
 		agentWorkIntentRecorder,
 		reviewVerdictRecorder,
 		...(options.pluginsBaseDir ? { pluginsBaseDir: options.pluginsBaseDir } : {}),
+		...(options.bundledPluginsDir ? { bundledPluginsDir: options.bundledPluginsDir } : {}),
 		...(options.wsHub
 			? {
 					wsPush: (topic: string, envelope: unknown) =>

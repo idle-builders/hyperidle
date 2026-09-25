@@ -48,9 +48,11 @@ export {
 // that file keeps only the vocabulary this module and the settings package
 // both need.
 export type {
+	AvailablePluginView,
 	EditPluginInput,
 	EditPluginSource,
 	PluginContributionView,
+	PluginListing,
 	PluginListState,
 	PluginScope,
 	PluginView,

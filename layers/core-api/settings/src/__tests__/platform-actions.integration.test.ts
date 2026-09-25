@@ -181,6 +181,14 @@ function buildDeps(overrides: Partial<PlatformActionsDeps> = {}): PlatformAction
 		},
 		editDocument: runnerFor(documentActions, "edit_document"),
 		searchDocuments: runnerFor(documentActions, "search_documents"),
+		// No adapter pool here, so no harness is ever picked; the harness and the
+		// viewer's team are proven through the layer's own composition
+		// (`layers/core-api/src/routes/__tests__/plugins-bundled.integration.test.ts`).
+		runConfig: {
+			read: async () => ({ harnessType: null }),
+			write: async () => {},
+		},
+		viewerTeamId: async () => null,
 		...overrides,
 	};
 }
@@ -349,8 +357,7 @@ describe("createPlatformActions", () => {
 			const { edit } = typedActions(buildDeps());
 			// A plugin.json missing the required "name" — `parsePluginManifest`
 			// refuses it, so `installPlugin` answers `{ok:false, reason}` rather
-			// than throwing (unlike a missing folder, which `fetchPlugin` itself
-			// throws on, before `installPlugin` ever gets a chance to wrap it).
+			// than throwing.
 			const dir = mkdtempSync(join(tmpdir(), "platform-actions-bad-manifest-"));
 			writeFileSync(
 				join(dir, "plugin.json"),

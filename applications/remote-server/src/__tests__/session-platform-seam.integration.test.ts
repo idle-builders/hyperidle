@@ -550,9 +550,11 @@ describe("session-platform seam — the five entries answer the same to a person
 					throw new Error(`tool door refused: ${JSON.stringify(toolResult)}`);
 
 				expect(toolResult.data).toEqual(httpRes.json.data);
-				expect((httpRes.json.data as Array<{ id: string }>).map((p) => p.id)).toEqual([
-					"seam-search-plugin",
-				]);
+				// The plugins that ship with the server list beside it as available.
+				const installed = (httpRes.json.data as Array<{ id: string; state: string }>).filter(
+					(p) => p.state !== "available",
+				);
+				expect(installed.map((p) => p.id)).toEqual(["seam-search-plugin"]);
 			} finally {
 				await handle.server.dispose();
 			}

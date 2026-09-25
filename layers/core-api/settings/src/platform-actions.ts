@@ -33,10 +33,12 @@
  * (`action.ts:37-50`'s own account of why).
  */
 
+import { resolve } from "node:path";
 import { type HyperIdleDb, type NewUser, plugins, type WriteExecutor } from "@hyperidle/db";
 import {
 	type ActionDeclaration,
 	type ActionResult,
+	type AvailablePluginView,
 	BUILTIN_PLUGIN_ID,
 	type ConfigurationKind,
 	type PluginScope as DeclaredPluginScope,
@@ -51,6 +53,7 @@ import {
 	editPluginInvariants,
 	type PluginContributionKind,
 	type PluginContributionView,
+	type PluginListing,
 	type PluginView,
 	type Problem,
 	type ScopeKind,
@@ -60,6 +63,7 @@ import {
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
+import { findBundledPlugin, listBundledPlugins } from "./bundled-plugins.js";
 import { listConfiguration } from "./plugin-configuration.js";
 import type { PluginContribution } from "./plugin-contributions.js";
 import {
@@ -181,6 +185,27 @@ export interface PlatformActionsDeps {
 	 * install (URL-based MCP servers still work; restore answers
 	 * `no_install_path` for anything that needs a source file). */
 	readonly pluginsBaseDir?: string;
+	/** The plugins that ship inside the app, one folder each. Never `pluginsBaseDir`
+	 * (install removes its destination first). Absent → no available rows. */
+	readonly bundledPluginsDir?: string;
+	/** The orchestration run-config port, mirrored: an installed agent's harness is
+	 * written through it, after the install's own transaction commits. */
+	readonly runConfig: {
+		read(agentId: string): Promise<{ readonly harnessType: string | null }>;
+		write(agentId: string, patch: HarnessPick): Promise<void>;
+	};
+	/** The first ready, not-disabled harness on this machine, as a run-config pick;
+	 * null when there is none. Absent when no adapter pool is wired. */
+	readonly firstAvailableHarness?: (db: HyperIdleDb) => Promise<HarnessPick | null>;
+	/** The team a viewer judges availability by: their own, else their owner's. */
+	readonly viewerTeamId: (db: HyperIdleDb, actorId: string) => Promise<string | null>;
+}
+
+/** The three run-config fields a harness pick fills. */
+interface HarnessPick {
+	readonly harnessType: string;
+	readonly modelId?: string;
+	readonly modelProvider?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -394,7 +419,7 @@ async function labelContributions(
  */
 function readPluginDocumentSource(
 	installPath: string,
-	pluginId: string,
+	pluginName: string,
 	documentId: string,
 	scopeKind: string,
 	scopeId: string | null,
@@ -402,16 +427,16 @@ function readPluginDocumentSource(
 	const parsed = parsePluginManifest(installPath);
 	if (parsed.ok) {
 		for (const skill of parsed.manifest.skills) {
-			if (skillItemId(pluginId, skill.dirName, scopeKind, scopeId) === documentId)
+			if (skillItemId(pluginName, skill.dirName, scopeKind, scopeId) === documentId)
 				return skill.body;
 		}
 		for (const agent of parsed.manifest.agents) {
 			if (agent.identity === null) continue;
-			const agentDbId = agentItemId(pluginId, agent.id, scopeKind, scopeId);
+			const agentDbId = agentItemId(pluginName, agent.id, scopeKind, scopeId);
 			if (`ki_af_${agentDbId}` === documentId) return agent.identity;
 		}
 		for (const subscription of parsed.manifest.subscriptions) {
-			const subscriptionDbId = subscriptionItemId(pluginId, subscription.id, scopeKind, scopeId);
+			const subscriptionDbId = subscriptionItemId(pluginName, subscription.id, scopeKind, scopeId);
 			if (`ki_rp_${subscriptionDbId}` === documentId) return subscription.prompt ?? null;
 		}
 	}
@@ -523,7 +548,9 @@ async function lookupPlugin(ctx: ActionContext, id: string): Promise<LookupResul
 // edit_plugin's four change branches.
 // ---------------------------------------------------------------------------
 
-function toPluginSource(source: EditPluginSource): PluginSource {
+/** Where to fetch from. A bundled name resolves only against the server's own
+ * listing (`bundled-plugins.ts`); no match is `null`, never a path. */
+function toPluginSource(source: EditPluginSource, bundledPluginsDir?: string): PluginSource | null {
 	switch (source.kind) {
 		case "folder":
 			return { kind: "folder", path: source.path };
@@ -531,6 +558,35 @@ function toPluginSource(source: EditPluginSource): PluginSource {
 			return { kind: "git", url: source.url };
 		case "zip":
 			return { kind: "zip", path: source.path };
+		case "bundled": {
+			const bundled = findBundledPlugin(bundledPluginsDir, source.name);
+			return bundled ? { kind: "folder", path: bundled.path } : null;
+		}
+	}
+}
+
+/**
+ * Put every installed agent that has no harness yet on the first available
+ * one, through the orchestration run-config port. Runs after the install's
+ * transaction commits (the port is its own write). An agent that already has
+ * a harness — a person's later choice, or an earlier install's — keeps it.
+ * No harness ready on this machine → nothing is written; the install still
+ * stands and the agent becomes runnable by the ordinary agent edit.
+ */
+async function giveAgentsAHarness(
+	ctx: ActionContext,
+	deps: PlatformActionsDeps,
+	agentIds: readonly string[],
+): Promise<void> {
+	const { firstAvailableHarness } = deps;
+	if (!firstAvailableHarness || agentIds.length === 0) return;
+	let pick: HarnessPick | null | undefined;
+	for (const agentId of agentIds) {
+		const current = await deps.runConfig.read(agentId);
+		if (current.harnessType) continue;
+		if (pick === undefined) pick = await firstAvailableHarness(ctx.db);
+		if (pick === null) return;
+		await deps.runConfig.write(agentId, pick);
 	}
 }
 
@@ -539,8 +595,15 @@ async function installRun(
 	deps: PlatformActionsDeps,
 	source: EditPluginSource,
 ): Promise<ActionResult<PluginView>> {
+	const pluginSource = toPluginSource(source, deps.bundledPluginsDir);
+	if (!pluginSource) {
+		return problem(
+			"install_failed",
+			`No bundled plugin named "${source.kind === "bundled" ? source.name : ""}".`,
+		);
+	}
 	const result = await installPlugin(ctx.db, {
-		source: toPluginSource(source),
+		source: pluginSource,
 		scope: source.scope,
 		now: ctx.now,
 		...(deps.pluginsBaseDir ? { pluginsBaseDir: deps.pluginsBaseDir } : {}),
@@ -555,7 +618,7 @@ async function installRun(
 
 	for (const skill of skills) {
 		documentSpecs.push({
-			id: skillItemId(plugin.id, skill.dirName, scopeKind, scopeId),
+			id: skillItemId(plugin.name, skill.dirName, scopeKind, scopeId),
 			title: skill.dirName,
 			body: skill.body,
 			slot: "skill",
@@ -567,7 +630,7 @@ async function installRun(
 	}
 
 	for (const agentSpec of agents) {
-		const dbId = agentItemId(plugin.id, agentSpec.id, scopeKind, scopeId);
+		const dbId = agentItemId(plugin.name, agentSpec.id, scopeKind, scopeId);
 		agentIds.push(dbId);
 		if (agentSpec.identity) {
 			documentSpecs.push({
@@ -584,7 +647,12 @@ async function installRun(
 	}
 
 	for (const subscriptionSpec of subscriptions) {
-		const subscriptionDbId = subscriptionItemId(plugin.id, subscriptionSpec.id, scopeKind, scopeId);
+		const subscriptionDbId = subscriptionItemId(
+			plugin.name,
+			subscriptionSpec.id,
+			scopeKind,
+			scopeId,
+		);
 		subscriptionIds.push(subscriptionDbId);
 		if (subscriptionSpec.prompt) {
 			documentSpecs.push({
@@ -604,7 +672,7 @@ async function installRun(
 	// Never a document write in here (top-of-file @lore).
 	await ctx.db.transaction(async (tx) => {
 		for (const agentSpec of agents) {
-			const dbId = agentItemId(plugin.id, agentSpec.id, scopeKind, scopeId);
+			const dbId = agentItemId(plugin.name, agentSpec.id, scopeKind, scopeId);
 			await deps.agents.insertIfAbsent(tx, {
 				id: dbId,
 				kind: "ai",
@@ -619,12 +687,12 @@ async function installRun(
 
 		for (const subscriptionSpec of subscriptions) {
 			const subscriptionDbId = subscriptionItemId(
-				plugin.id,
+				plugin.name,
 				subscriptionSpec.id,
 				scopeKind,
 				scopeId,
 			);
-			const agentDbId = agentItemId(plugin.id, subscriptionSpec.agentId, scopeKind, scopeId);
+			const agentDbId = agentItemId(plugin.name, subscriptionSpec.agentId, scopeKind, scopeId);
 			await deps.subscriptions.insert(
 				tx,
 				{
@@ -640,6 +708,7 @@ async function installRun(
 
 		await setNonDocumentContributionsLive(deps, tx, { agentIds, subscriptionIds }, true);
 	});
+	await giveAgentsAHarness(ctx, deps, agentIds);
 
 	// Phase 2 — after that transaction commits: the plugin's documents,
 	// through `editDocument`'s read-then-edit upsert. BEFORE the
@@ -761,7 +830,7 @@ async function restoreRun(
 		}
 		const sourceBody = readPluginDocumentSource(
 			existing.installPath,
-			id,
+			existing.name,
 			contributionKey,
 			existing.scope.kind,
 			existing.scope.teamId,
@@ -792,7 +861,7 @@ async function restoreRun(
 		);
 	}
 	await restorePluginContribution(ctx.db, {
-		pluginId: id,
+		pluginName: existing.name,
 		manifestKey: manifestKeyOf(configItem.key),
 		kind: configItem.kind,
 	});
@@ -800,12 +869,14 @@ async function restoreRun(
 }
 
 // ---------------------------------------------------------------------------
-// search_plugins — installed plugins only (founder ruling: nothing
-// packages `plugins/` into the desktop bundle, so there is no
-// "bundled but not installed" set to list here).
+// search_plugins — every install, then the bundled plugins this viewer's
+// team (or, for a factory plugin, nobody) has not installed.
 // ---------------------------------------------------------------------------
 
-function matchesSearchFilter(p: InstalledPlugin, input: SearchPluginsInput): boolean {
+function matchesSearchFilter(
+	p: { readonly id: string; readonly name: string; readonly state: string },
+	input: SearchPluginsInput,
+): boolean {
 	if (input.ids && !input.ids.includes(p.id)) return false;
 	if (input.state && p.state !== input.state) return false;
 	if (input.text) {
@@ -816,14 +887,62 @@ function matchesSearchFilter(p: InstalledPlugin, input: SearchPluginsInput): boo
 	return true;
 }
 
+/**
+ * The bundled plugins still to install for this viewer. A factory install
+ * covers everyone; a team plugin is covered by the viewer's own team's
+ * install only, so another team's install leaves it available here. A viewer
+ * with no team (own or owner's) can only install factory-wide, so only
+ * factory plugins are offered to them. A removed install is a tombstone
+ * `listInstalledPlugins` never returns — the plugin is available again.
+ */
+function availableBundledPlugins(
+	bundledPluginsDir: string | undefined,
+	installed: readonly InstalledPlugin[],
+	viewerTeamId: string | null,
+): AvailablePluginView[] {
+	const covered = (name: string, installScope: "team" | "factory"): boolean =>
+		installed.some(
+			(p) =>
+				p.name === name &&
+				(p.scope.kind === "factory" ||
+					(installScope === "team" && p.scope.teamId === viewerTeamId)),
+		);
+	return listBundledPlugins(bundledPluginsDir)
+		.filter(({ manifest }) => manifest.installScope === "factory" || viewerTeamId !== null)
+		.filter(({ manifest }) => !covered(manifest.name, manifest.installScope))
+		.map(({ manifest }) => ({
+			id: manifest.name,
+			name: manifest.name,
+			version: manifest.version,
+			description: manifest.description,
+			state: "available",
+			installScope: manifest.installScope,
+		}));
+}
+
 export function createPlatformActions(deps: PlatformActionsDeps): readonly Action[] {
+	if (
+		deps.bundledPluginsDir &&
+		deps.pluginsBaseDir &&
+		resolve(deps.bundledPluginsDir) === resolve(deps.pluginsBaseDir)
+	) {
+		throw new Error(
+			"createPlatformActions: the bundled plugins directory cannot be where installs are copied to",
+		);
+	}
+
 	async function searchPluginsRun(
 		ctx: ActionContext,
 		input: SearchPluginsInput,
-	): Promise<ActionResult<PluginView[]>> {
+	): Promise<ActionResult<PluginListing[]>> {
 		const installed = await listInstalledPlugins(ctx.db);
+		const available = availableBundledPlugins(
+			deps.bundledPluginsDir,
+			installed,
+			await deps.viewerTeamId(ctx.db, ctx.actor),
+		).filter((p) => matchesSearchFilter(p, input));
 		const filtered = installed.filter((p) => matchesSearchFilter(p, input));
-		if (filtered.length === 0) return { ok: true, data: [] };
+		if (filtered.length === 0) return { ok: true, data: available };
 
 		const allItems = await listConfiguration(ctx.db);
 		const itemsByPlugin = new Map<string, ConfigurationItemForPlugin[]>();
@@ -835,7 +954,7 @@ export function createPlatformActions(deps: PlatformActionsDeps): readonly Actio
 			itemsByPlugin.set(pid, forPlugin);
 		}
 
-		const data: PluginView[] = [];
+		const data: PluginListing[] = [];
 		for (const p of filtered) {
 			const contributions = await pluginContributionsView(
 				ctx,
@@ -845,7 +964,7 @@ export function createPlatformActions(deps: PlatformActionsDeps): readonly Actio
 			);
 			data.push(toPluginView(p, contributions));
 		}
-		return { ok: true, data };
+		return { ok: true, data: [...data, ...available] };
 	}
 
 	async function editPluginRun(

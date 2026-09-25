@@ -57,6 +57,13 @@ export interface CreateServerDeps {
 	readonly topology: "local" | "disabled";
 	readonly sandboxBasePath?: string;
 	readonly hostname?: string;
+	/**
+	 * The plugins that ship inside the app, one folder each. Omitted →
+	 * `HYPERIDLE_BUNDLED_PLUGINS_DIR`, which `main.ts` sets (the packaged app's
+	 * `Resources/plugins`, or the repo's `plugins/` in development). This file
+	 * is bundled into `main.cjs`, so it cannot find the folder from its own path.
+	 */
+	readonly bundledPluginsDir?: string;
 }
 
 /**
@@ -160,6 +167,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		// copying — so installing would delete the sources it was built from.
 		pluginsBaseDir = path.join(path.dirname(dbUrl), "installed-plugins");
 	}
+	const bundledPluginsDir = deps.bundledPluginsDir ?? process.env.HYPERIDLE_BUNDLED_PLUGINS_DIR;
 	const eventBus = new EventBus();
 
 	const hasSecret = Boolean(process.env.HYPERIDLE_CREDENTIAL_KEY ?? process.env.HYPERIDLE_API_KEY);
@@ -228,6 +236,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		adapterPool: agentExecution.adapters.pool,
 		onHarnessRedetect,
 		...(pluginsBaseDir ? { pluginsBaseDir } : {}),
+		...(bundledPluginsDir ? { bundledPluginsDir } : {}),
 		serviceBootstrap: (ctx) => {
 			return [
 				...registerCoreDomainServices({ ...ctx, canProvision: true }),

@@ -61,6 +61,10 @@ extraResources:
       - "meta/**/*"
   - from: "../../layers/core-ui/dist"
     to: "web-dist"
+  # The plugins that ship inside the app — Settings › Plugins lists them as
+  # available; main.ts points HYPERIDLE_BUNDLED_PLUGINS_DIR here.
+  - from: "../../plugins"
+    to: "plugins"
 
 # @lore PGlite migration: no native modules — npmRebuild not needed.
 npmRebuild: false

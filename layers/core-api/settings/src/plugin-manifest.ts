@@ -69,7 +69,8 @@ export interface ManifestWarning {
 		| "UNKNOWN_TOP_LEVEL_FIELD"
 		| "NON_OBJECT_EXTENSIONS"
 		| "INVALID_CONTRIBUTION"
-		| "RESERVED_PLUGIN_ID";
+		| "RESERVED_PLUGIN_ID"
+		| "INVALID_INSTALL_SCOPE";
 	readonly message: string;
 }
 
@@ -149,6 +150,12 @@ export interface PluginManifest {
 	readonly name: string;
 	readonly version: string;
 	readonly description: string | null;
+	/**
+	 * Where the Install button puts it: `team` (the default) or `factory`, from
+	 * `extensions["io.hyperidle"].installScope`. A folder, repository or zip
+	 * install names its scope itself; this only picks a bundled plugin's.
+	 */
+	readonly installScope: "team" | "factory";
 	readonly contributions: ParsedContribution[];
 	readonly warnings: ManifestWarning[];
 	/** Skills discovered from the plugin's skills/ directory. */
@@ -257,9 +264,11 @@ export function parsePluginManifest(pluginRoot: string): ManifestParseResult {
 	const contributions: ParsedContribution[] = [];
 	const agents: ParsedPluginAgent[] = [];
 	const subscriptions: ParsedPluginSubscription[] = [];
+	let installScope: "team" | "factory" = "team";
 	if (ourExtension !== undefined) {
 		if (typeof ourExtension === "object" && ourExtension !== null && !Array.isArray(ourExtension)) {
 			const ext = ourExtension as Record<string, unknown>;
+			installScope = parseInstallScope(ext.installScope, warnings);
 			if (Array.isArray(ext.contributions)) {
 				for (const item of ext.contributions) {
 					const contribution = parseContribution(item, warnings);
@@ -300,6 +309,7 @@ export function parsePluginManifest(pluginRoot: string): ManifestParseResult {
 			name,
 			version,
 			description,
+			installScope,
 			contributions,
 			warnings,
 			skills,
@@ -308,6 +318,17 @@ export function parsePluginManifest(pluginRoot: string): ManifestParseResult {
 			subscriptions,
 		},
 	};
+}
+
+/** Absent → `team`; anything but `team` or `factory` is a warning and `team`. */
+function parseInstallScope(value: unknown, warnings: ManifestWarning[]): "team" | "factory" {
+	if (value === undefined || value === "team") return "team";
+	if (value === "factory") return "factory";
+	warnings.push({
+		code: "INVALID_INSTALL_SCOPE",
+		message: `installScope must be "team" or "factory" (got: ${JSON.stringify(value)}) — installing per team`,
+	});
+	return "team";
 }
 
 /**

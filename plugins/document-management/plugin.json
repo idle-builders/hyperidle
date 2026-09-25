@@ -5,6 +5,7 @@
 	"description": "Document Librarian agent with decay, document triage, and post-task retro subscriptions.",
 	"extensions": {
 		"io.hyperidle": {
+			"installScope": "factory",
 			"contributions": [],
 			"agents": [
 				{

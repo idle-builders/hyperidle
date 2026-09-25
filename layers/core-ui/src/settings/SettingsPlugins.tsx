@@ -4,6 +4,9 @@
  * Install from a git URL, zip path, or local folder path; choose factory
  * or team scope; list installed plugins; disable/enable/remove; restore
  * a contribution that was detached (user-overridden back to default).
+ * The plugins that ship with the app are listed beside the installed ones
+ * as available, each with an Install button: a team plugin installs into
+ * the viewer's own team, a factory plugin once for everyone.
  *
  * @lore BA9a scope-deferral: scope is stored and shown here, but team-scoped
  * plugins filter to the right team only during session materialisation (BA9b).
@@ -26,8 +29,10 @@
 // hearth-internal-padding
 
 import type {
+	AvailablePluginView,
 	EditPluginSource,
 	PluginContributionView,
+	PluginListing,
 	PluginListState,
 	PluginScope,
 	PluginView,
@@ -54,8 +59,13 @@ import { useToast } from "../shell/ToastRegion.js";
 // Types
 // ---------------------------------------------------------------------------
 
-type SourceKind = EditPluginSource["kind"];
+/** The form installs from a path or URL; a bundled plugin installs from its row. */
+type SourceKind = Exclude<EditPluginSource["kind"], "bundled">;
 type ScopeKind = PluginScope["kind"];
+
+function isAvailable(p: PluginListing): p is AvailablePluginView {
+	return p.state === "available";
+}
 
 type LoadState = "loading" | "ready" | "error";
 
@@ -262,7 +272,7 @@ function ContributionList({
 
 export function SettingsPlugins(): JSX.Element {
 	const { showToast } = useToast();
-	const [plugins, setPlugins] = useState<PluginView[]>([]);
+	const [plugins, setPlugins] = useState<PluginListing[]>([]);
 	const [loadState, setLoadState] = useState<LoadState>("loading");
 	const [busy, setBusy] = useState<Set<string>>(new Set());
 	const [restoring, setRestoring] = useState<string | null>(null);
@@ -351,6 +361,39 @@ export function SettingsPlugins(): JSX.Element {
 		}
 	}
 
+	async function installBundled(plugin: AvailablePluginView): Promise<void> {
+		setBusy((prev) => new Set([...prev, plugin.id]));
+		try {
+			let scope: PluginScope = { kind: "factory", teamId: null };
+			if (plugin.installScope === "team") {
+				const viewer = await call("open_user", {});
+				const teamId = viewer.ok ? viewer.data.user?.team?.id : undefined;
+				if (!teamId) {
+					showToast("You are not in a team, so there is no team to install it for.");
+					return;
+				}
+				scope = { kind: "team", teamId };
+			}
+			const result = await call("edit_plugin", {
+				source: { kind: "bundled", name: plugin.name, scope },
+			});
+			if (!result.ok) {
+				showToast(result.problems[0]?.message ?? "Install failed");
+				return;
+			}
+			showToast(`${plugin.name} installed.`);
+			await load();
+		} catch {
+			showToast("Network error — install failed.");
+		} finally {
+			setBusy((prev) => {
+				const next = new Set(prev);
+				next.delete(plugin.id);
+				return next;
+			});
+		}
+	}
+
 	function toggleExpand(id: string): void {
 		setExpanded((prev) => {
 			const next = new Set(prev);
@@ -374,16 +417,31 @@ export function SettingsPlugins(): JSX.Element {
 		<div className="flex flex-col gap-[18px]" data-testid="settings-plugins">
 			<InstallForm onInstalled={() => void load()} />
 
-			{plugins.length === 0 ? (
+			{plugins.every(isAvailable) && (
 				<EmptyState
 					title="No plugins installed"
-					description="Paste a git URL, zip path, or folder path above to install a plugin."
+					description={
+						plugins.length > 0
+							? "Install one that ships with the app below, or paste a git URL, zip path, or folder path above."
+							: "Paste a git URL, zip path, or folder path above to install a plugin."
+					}
 					dataTestId="plugins-empty"
 				/>
-			) : (
+			)}
+			{plugins.length > 0 && (
 				<div className="flex flex-col gap-[6px]" data-testid="plugins-list">
 					<ItemList isEmpty={false}>
 						{plugins.map((plugin) => {
+							if (isAvailable(plugin)) {
+								return (
+									<AvailableRow
+										key={plugin.id}
+										plugin={plugin}
+										busy={busy.has(plugin.id)}
+										onInstall={installBundled}
+									/>
+								);
+							}
 							const isBusy = busy.has(plugin.id);
 							const isExpanded = expanded.has(plugin.id);
 							const hasContributions = plugin.contributions.length > 0;
@@ -391,16 +449,7 @@ export function SettingsPlugins(): JSX.Element {
 							return (
 								<div key={plugin.id} className="flex flex-col">
 									<Row
-										title={
-											<span>
-												<span className="type-control text-[var(--text-primary)]">
-													{plugin.name}
-												</span>
-												<span className="type-small text-[var(--text-secondary)] ml-[6px]">
-													v{plugin.version}
-												</span>
-											</span>
-										}
+										title={<PluginTitle name={plugin.name} version={plugin.version} />}
 										lead={
 											<StatusChip status={stateChipStatus(plugin.state)} label={plugin.state} />
 										}
@@ -459,5 +508,50 @@ export function SettingsPlugins(): JSX.Element {
 				</div>
 			)}
 		</div>
+	);
+}
+
+// ---------------------------------------------------------------------------
+// A plugin that ships with the app and is not installed for this viewer
+// ---------------------------------------------------------------------------
+
+/** A plugin row's title — name and version — the same for an install and an available plugin. */
+function PluginTitle({ name, version }: { name: string; version: string }): JSX.Element {
+	return (
+		<span>
+			<span className="type-control text-[var(--text-primary)]">{name}</span>
+			<span className="type-small text-[var(--text-secondary)] ml-[6px]">v{version}</span>
+		</span>
+	);
+}
+
+interface AvailableRowProps {
+	plugin: AvailablePluginView;
+	busy: boolean;
+	onInstall: (plugin: AvailablePluginView) => Promise<void>;
+}
+
+function AvailableRow({ plugin, busy, onInstall }: AvailableRowProps): JSX.Element {
+	return (
+		<Row
+			title={<PluginTitle name={plugin.name} version={plugin.version} />}
+			{...(plugin.description ? { subtitle: plugin.description } : {})}
+			lead={<StatusChip status="behind" label="available" />}
+			actions={
+				<div className="flex items-center gap-[6px]">
+					<Tag label={plugin.installScope === "factory" ? "Factory" : "Your team"} />
+					<Button
+						variant="primary"
+						size="sm"
+						disabled={busy}
+						onClick={() => void onInstall(plugin)}
+						data-testid={`plugin-install-${plugin.id}`}
+					>
+						{busy ? "Installing…" : "Install"}
+					</Button>
+				</div>
+			}
+			data-testid={`plugin-row-${plugin.id}`}
+		/>
 	);
 }
