@@ -8,18 +8,14 @@ the person. Today a fresh install still carries opinions in code, and the other 
 is not possible at all: the bundled plugins cannot reach a user of the packaged app. This is the
 last item of the track; nothing follows it.
 
-**What exists today (census 2026-09-24, base `3407cb98f`).** The role catalog, the prompt
-templates, the assistant system prompt and the team-scaffolding route the cull list named are
-already deleted (BC5 removed the `org` package). What is left in core: boot seeds a "System Agent"
-row on every launch; the welcome screen creates two agents (an assistant with a one-line baked
-identity, a "Team Agent" with none) and no subscription; migration 0080 inserts three folders
-(Product, Practices, General) into every database; one paragraph about asking a person for review
-is appended to every agent prompt; two add-agent forms default the role to "builder";
-`docs/system-prompts/` is dead and holds merge-conflict markers. On the plugin side: nothing
-packages `plugins/` into the desktop build, nothing installs a plugin at boot or from the welcome
-screen, `search_plugins` lists installed plugins only, Settings › Plugins takes a typed git URL or
-folder path (a git URL of the repo fails — the manifest must sit at the repo root), and a plugin's
-agents land with no harness and, at factory scope, no team, so they cannot run.
+**What existed (census 2026-09-24, base `3407cb98f`).** The four opinions the cull list named
+(role catalog, prompt templates, assistant system prompt, the scaffolding route) were already
+deleted by BC5. Left in core: a "System Agent" seeded on every boot; a welcome screen making two
+agents (assistant with a one-line baked identity, a "Team Agent") and no subscription; three folders
+inserted by migration 0080; a review paragraph appended to every prompt; "builder" form defaults; a
+dead `docs/system-prompts/`. On the plugin side nothing shipped or installed the bundled plugins,
+Settings took only a typed git URL or path, and a plugin's agents landed with no harness and, at
+factory scope, no team.
 
 **Missing delta.** Both halves: finish the empty install exactly as ruled, and make the bundled
 plugins installable from the packaged app so the opinions can come back.
