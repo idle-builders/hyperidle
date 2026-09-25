@@ -1,35 +1,28 @@
 /**
- * AN2 — Connection provisioning: re-apply held connections into a spawned session.
+ * Connection provisioning: re-apply held connections into a spawned session.
  *
- * AU21 §9 Increment 8, Decision F2 (historical): this module RELOCATED from
+ * This module moved here from
  * `layers/core-api/connections/src/connection-provisioning.ts` — the
  * session-launch-time PROVISIONING OPERATION is `agent-orchestration`'s own
  * job now. The human-configured RECORD (the `serviceConnections` table, its
- * CRUD, and `/api/connections`) stays entirely in core-api. F2 originally had
- * `buildProvisioningPlan` read the held-connection record set through
- * `CoreApiPort.connections.listHeldConnectionsForProvisioning()` (a live seam
- * call at provisioning time) instead of a raw `db` handle.
+ * CRUD) is a user attribute behind `edit_user`. Earlier the held-connection
+ * set reached this module through a seam call and then as a snapshot baked
+ * onto the request at emit time, which went stale (a connection added
+ * between emit and drain never reached the sandbox).
  *
- * AU21 §9 Increment 12 follow-up part 2 (Decision K1, historical): that seam
- * call was replaced by a BAKE — the held-connection list frozen onto the
- * request at emit time. K1 was known-throwaway when it shipped: it existed only
- * because `service_connections` still sat in core-api, and it bought the closed
- * boundary at the price of a stale snapshot (a connection added between emit
- * and drain never reached the sandbox).
- *
- * AU26 E3 (Decision J3): the table is agent-orchestration's own now, so the
- * bake is DELETED and the read is live and in-layer — `deps.connections`, one
+ * The table is agent-orchestration's own now, so the read is live and
+ * in-layer — `deps.connections`, one
  * injected port backed by `@hyperidle/connections`'s
  * `listHeldConnectionsForProvisioning`. Not a seam: it is this Layer reading
  * this Layer's own table. `run-orchestration` is itself a Service, so it takes
  * the reader as a port rather than importing that Service (Mechanism C); the
  * Application wires the two together. The decrypt step
  * (`resolver.resolve(userId, connectionId)`) stays a separate
- * Application-composed dependency, never routed through a seam (AN1 hard-rule
- * 1: "the resolver is the ONLY plaintext path... wired to sandbox injection,
- * not to routes" — this file's own historical top `@lore`, carried forward).
+ * Application-composed dependency, never routed through a seam: the
+ * resolver is the ONLY plaintext path, wired to sandbox injection, never to
+ * routes.
  *
- * The central act of AN2: at spawn time, read the owning human's active held
+ * The central act: at spawn time, read the owning human's active held
  * connections, resolve each, SSRF-check each outbound URL, and write the
  * provisioned form into the session working directory so the agent's tools
  * authenticate directly. No gate; re-apply every spawn; idempotent.
@@ -377,7 +370,7 @@ function writeCodexTomlEntries(params: {
 /**
  * Write N MCP server entries to opencode.json.
  *
- * Token is inline in headers.Authorization (matches AL7's writeOpencodeJson
+ * Token is inline in headers.Authorization (matches writeOpencodeJson
  * for the inbound hyperidle entry). Merges with existing opencode.json if present.
  *
  * @lore AN2 opencode-json: opencode loads opencode.json from the spawn cwd.

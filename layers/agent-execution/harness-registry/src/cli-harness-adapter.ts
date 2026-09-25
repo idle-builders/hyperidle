@@ -166,7 +166,7 @@ interface CliAdapterConfig {
 	 */
 	readonly eventDialect?: "claude-stream-json";
 	/**
-	 * AL7 delta: Per-session MCP config file the binary reads to reach the HyperIdle bridge.
+	 * Per-session MCP config file the binary reads to reach the HyperIdle bridge.
 	 * Mirrors claude's .mcp.json. Absent ⇒ binary gets no MCP wiring (builtin/SDK paths).
 	 *
 	 * "codex-toml"   — appends [mcp_servers.hyperidle] to .codex-home/config.toml;
@@ -635,7 +635,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			resolvedEnvMap.OPENCODE_PERMISSION = '{"*":"allow"}';
 		}
 
-		// ── AL7 delta: Per-session MCP token env var injection.
+		// ── Per-session MCP token env var injection.
 		//
 		// For codex, the MCP token is delivered via HYPERIDLE_MCP_TOKEN env var
 		// (codex's bearer_token_env_var mechanism). It is injected OUTSIDE the

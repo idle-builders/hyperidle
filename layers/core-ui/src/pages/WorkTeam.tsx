@@ -255,7 +255,7 @@ function WorkTeamLoaded({
 	// Dialog state
 	const [addDialogOpen, setAddDialogOpen] = useState(false);
 
-	// AB3: fetch full agent configs for the roster.
+	// Fetch full agent configs for the roster.
 	// @lore: `useTeamAgents` fetches nothing itself (it filters `useAgents`'
 	// one shared fetch), so an unmemoized `rosterAgentIds` can no longer cause
 	// a refetch loop. Kept memoized anyway — a stable reference avoids
@@ -630,7 +630,7 @@ function WorkTeamLoaded({
 
 	return (
 		<>
-			{/* AI7: PageHeader owns the pinned title strip.
+			{/* PageHeader owns the pinned title strip.
 			    @lore AZ2: body switches "scroll" ↔ "managed" with selection state —
 			    no selection: the page owns the scroll region (teamBodyContent, shape
 			    A). A selection: SplitView owns its own scroll internally (its origin

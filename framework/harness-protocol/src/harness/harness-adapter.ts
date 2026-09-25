@@ -16,7 +16,7 @@ export interface McpConnectionInfo {
 }
 
 /**
- * AH3 §1.4: A single message from a session's calling-thread transcript.
+ * A single message from a session's calling-thread transcript.
  * Used to deliver the caller's message (and prior context) to the adapter so
  * the model answers the actual question, not a generic task-planning prompt.
  * Generic — any kind that bakes a `transcript` gets this, not assistant-only.
@@ -122,7 +122,7 @@ export interface SessionConfig {
 	 */
 	readonly returnHook?: ReturnHookConfig;
 	/**
-	 * AL7 delta: Per-session MCP token env var for CLI harnesses that require the
+	 * Per-session MCP token env var for CLI harnesses that require the
 	 * token via an environment variable rather than inline in the config file.
 	 *
 	 * codex: { HYPERIDLE_MCP_TOKEN: "<token>" } — injected OUTSIDE the envAllowlist

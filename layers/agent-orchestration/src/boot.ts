@@ -90,7 +90,7 @@ import {
 import { SessionActivityBuffer } from "./session-activity-buffer.js";
 
 /**
- * AU31 §5.1/§2.4 — the run runtime's own environment, supplied by the
+ * The run runtime's own environment, supplied by the
  * Application. `harnessRuntime`/`returnStatusTool`/`pool`/`createWorkerAdapter`
  * come straight from `bootAgentExecution`'s `adapters` bundle
  * (`layers/agent-execution/src/boot.ts`) — opaque, structurally-typed values

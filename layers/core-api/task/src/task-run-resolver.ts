@@ -1,5 +1,5 @@
 /**
- * AU21 §6 Decision B placement ruling — the `task_run` emit-time resolver,
+ * Placement ruling — the `task_run` emit-time resolver,
  * paired with its three real emit sites: `task-state-machine.ts`,
  * `bet-decomposition.ts` (same package, plain import) and
  * `layers/core-api/policy/src/handoff-protocol.ts` (a sibling package,
@@ -94,7 +94,7 @@ export interface BakedTaskRunRequest {
 		readonly teamId: string;
 	};
 	/**
-	 * AU21 §9 Increment 12 (Decision H3) — the task/bet/agent/team content +
+	 * The task/bet/agent/team content +
 	 * ranked documents a `task_run` session's sandbox needs, baked at emit time
 	 * from the SAME `task` (+ its `bet`) this resolver already loads to
 	 * validate. Present only when `deps.getTeamById`/`deps.assembleSessionDocuments`
@@ -110,7 +110,7 @@ export interface BakedTaskRunRequest {
 	 */
 	readonly agentConfig: BakedAgentRunnableConfig;
 	/**
-	 * AU21 §9 Increment 12 (Decision H3), Wave E — the server's
+	 * The server's
 	 * disabled-harness-types list. Present only when `deps.readServerConfig`
 	 * was supplied (see `TaskRunResolverDeps` `@lore`).
 	 */
@@ -254,7 +254,7 @@ export async function resolveTaskRunRequest(
 	// provisioner never touches documents.
 	const agentPersona = await deps.getAgentIdentity(db, agent.id);
 
-	// AU21 §9 Increment 12 (Decision H3): bake the contextBundle only when the
+	// Bake the contextBundle only when the
 	// caller supplied both context deps (see TaskRunResolverDeps `@lore`) —
 	// destructured into locals so TS keeps them narrowed non-optional inside
 	// the block below, no non-null assertion needed.

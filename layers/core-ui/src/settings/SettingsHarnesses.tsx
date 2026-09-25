@@ -1,7 +1,7 @@
 /**
- * SettingsHarnesses — Agent backends section (AV2 SplitView rewrite).
+ * SettingsHarnesses — Agent backends section.
  *
- * AV2: Converted from HarnessCard list to ItemList/Row + SplitView.
+ * Converted from HarnessCard list to ItemList/Row + SplitView.
  * - Left pane: ItemList of harness rows (one Row per descriptor)
  * - Right pane (destination): a configurable harness → auth/capability detail;
  *   empty caps+models → no pane

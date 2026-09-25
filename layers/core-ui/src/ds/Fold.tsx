@@ -1,5 +1,5 @@
 /**
- * Fold — the calm collapse-to-summary device (AM1, concept §Fold).
+ * Fold — the calm collapse-to-summary device.
  *
  * A quiet collapsed line: a rotated chevron · optional label · accent CTA
  * ("Show" / "Show session"). `onShow` makes it live — the session fold opens

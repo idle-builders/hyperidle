@@ -1,5 +1,5 @@
 /**
- * AM4: Harness presentation mappers — pure, descriptor-only.
+ * Harness presentation mappers — pure, descriptor-only.
  *
  * Single interpretation point: ALL presence decisions (toggle, auth zone, caps fold,
  * disabled row) flow through these functions. ZERO per-backend type branching in the

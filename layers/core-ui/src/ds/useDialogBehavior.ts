@@ -1,5 +1,5 @@
 /**
- * AI2 — useDialogBehavior: the single dismissal/guard/layer contract for all
+ * UseDialogBehavior: the single dismissal/guard/layer contract for all
  * overlay surfaces. Consumed by Dialog (box chrome) and directly by non-box
  * surfaces (TaskSheet, AssistantOverlay, NotificationPopover, GlobalSearch,
  * mobile drawer).

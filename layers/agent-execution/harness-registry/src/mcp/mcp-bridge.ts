@@ -136,8 +136,8 @@ export async function createMcpSession<TDb = unknown>(
 		{ capabilities: { tools: {} } },
 	);
 
-	// Register every tool from the registry with the MCP server.
-	// The registry is already role-filtered (toolsForRole called at buildToolRegistry time).
+	// Register every tool from the registry with the MCP server. Every agent
+	// gets the same tools; the registry already holds the session's extras.
 	for (const def of registry.definitions) {
 		mcpServer.registerTool(
 			def.name,

@@ -30,7 +30,7 @@ export interface ThreadItem {
 	tag?: string;
 	unread?: boolean;
 	/**
-	 * AF14 AC1: ISO sort key for the flat-list comparator (distinct from display `timestamp`).
+	 * ISO sort key for the flat-list comparator (distinct from display `timestamp`).
 	 * `timestamp` is a relative display string (e.g. "5m") — Date.parse("5m") → NaN → wrong order.
 	 * `lastActiveAt` is an ISO 8601 string (e.g. "2026-06-11T10:00:00.000Z") → stable sort.
 	 *

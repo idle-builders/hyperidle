@@ -1,19 +1,12 @@
 /**
  * Mount injected filesystems into a spawned session's sandbox.
  *
- * This module was originally
- * the RELOCATED, EXPORTED entry point for `provisioner.ts`'s private
- * `mountFilesystemsForAgent`, collapsing a two-step port dance into the ONE
- * seam call `CoreApiPort.filesystems.listFilesystemsByAgent(agentId)`.
+ * Earlier the injected-filesystem list reached here through a seam call and
+ * then as a snapshot baked onto the request at emit time, which went stale (a
+ * filesystem assigned between emit and drain never reached the sandbox).
  *
- * Follow-up (historical): that seam call was replaced by a
- * BAKE — the injected-filesystem list frozen onto the request at emit time. It
- * existed only because `filesystems` still sat in core-api, and it bought the
- * closed boundary at the price of a stale snapshot (a filesystem assigned
- * between emit and drain never reached the sandbox).
- *
- * The tables are agent-orchestration's own now, so the
- * bake is DELETED and the read is live and in-layer — `deps.filesystems`, one
+ * The tables are agent-orchestration's own now, so the read is live and
+ * in-layer — `deps.filesystems`, one
  * injected port backed by `@hyperidle/filesystems`'
  * `listInjectedFilesystemsForProvisioning`. Not a seam: it is this Layer reading
  * this Layer's own tables. `run-orchestration` is itself a Service, so it takes
@@ -69,7 +62,7 @@ export interface InjectedFilesystemsReaderPort {
 }
 
 /**
- * AO2: Mount every filesystem currently injected into this agent, read LIVE at
+ * Mount every filesystem currently injected into this agent, read LIVE at
  * spawn for this session.
  *
  * Called in admitSession Phase 4.5 (AFTER sandbox spawn, BEFORE context assembly).

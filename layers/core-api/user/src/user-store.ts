@@ -1,5 +1,5 @@
 /**
- * User store — the single owner of `users` row reads and writes (AU12).
+ * User store — the single owner of `users` row reads and writes.
  * Every caller that creates, modifies, or queries a user record routes
  * through here instead of touching the Drizzle table directly.
  *

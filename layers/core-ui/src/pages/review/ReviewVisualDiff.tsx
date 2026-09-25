@@ -1,4 +1,4 @@
-// AL1 review canvas #6 — ReviewVisualDiff: the visual before→after canvas.
+// Canvas #6 — ReviewVisualDiff: the visual before→after canvas.
 //
 // Proof family: visual before→after (a design frame vs the implemented screen).
 // Real content reaches this canvas as the labels an agent's `VisualDiffPayload`

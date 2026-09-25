@@ -40,7 +40,7 @@ export interface SkeletonProps {
 }
 
 /**
- * Single skeleton bar — AI5 E1.
+ * Single skeleton bar.
  *
  * @lore AI5: BlockRefEmbed + ArtifactThreadsSummary hand-rolled single
  * `animate-pulse` bars. This export reuses the shared SKELETON_BAR

@@ -1,5 +1,5 @@
 /**
- * AU26 B1a/B1b — `bootCoreApi`: everything an Application needs to run the
+ * `bootCoreApi`: everything an Application needs to run the
  * `core-api` Layer, in one call. The twin of `bootAgentOrchestration`.
  *
  * An Application opens the db and the EventBus, boots both Layers, applies the
@@ -134,7 +134,7 @@ export interface CoreApiBoot {
 	 */
 	readonly resolveProvisioningOwnerUserId?: () => Promise<string | null>;
 	/**
-	 * BA9b: plugin MCP contributions port — exposes the per-team merged
+	 * Plugin MCP contributions port — exposes the per-team merged
 	 * plugin MCP configuration to the provisioner without a direct settings →
 	 * run-orchestration import. The Application threads this into
 	 * `runtimeSessionDeps.pluginMcpContributions`. Present whenever `db` is

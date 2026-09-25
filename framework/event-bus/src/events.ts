@@ -190,7 +190,7 @@ export interface SessionHandoffCompletedEvent {
 /**
  * Emitted by `runSession` (site A) when a task-session turn exhausts its
  * event stream without having invoked any member of the accepted-return set
- * (RETURN_ACTION_NAMES). The turn is flagged — never silently completed (AC3).
+ * (RETURN_ACTION_NAMES). The turn is flagged — never silently completed.
  *
  * @lore "flag" policy (concept §3.4): the turn still settles via endSession;
  * this event makes the escape visible and attributable. "redirect" (forced re-prompt)
@@ -429,7 +429,7 @@ export type DomainEvent =
 export type EventType = DomainEvent["type"];
 
 /**
- * BA1 D8/D2 — the one compile-time-complete list of every event type.
+ * The one compile-time-complete list of every event type.
  *
  * @lore BC5 T7b: the old generic listener that used to subscribe to every
  * member here (D2, the founder's loop ruling at §3.1) is gone — a

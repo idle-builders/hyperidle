@@ -160,7 +160,7 @@ export interface CanvasArtifactRef {
 }
 
 /**
- * AE5: MentionRef — inline attention-routing element in a PlainPayload message.
+ * MentionRef — inline attention-routing element in a PlainPayload message.
  * Resolves to an IdentityId; stores displayName for render-time use without lookup.
  * sourceText preserves the original @name token as written (round-trip fidelity).
  *
@@ -195,7 +195,7 @@ export interface ToolCallSummary {
 }
 
 /**
- * AH3: Assistant notice discriminator. Extends PlainPayload with an optional
+ * Assistant notice discriminator. Extends PlainPayload with an optional
  * field so error/guidance messages share the same message type as normal chat
  * but render with special styling keyed on notice.kind.
  *

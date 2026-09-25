@@ -44,7 +44,7 @@ async function computedZIndex(
 
 // ---------------------------------------------------------------------------
 // Common route mocks for AppShell on /conversations
-// (in addition to the auto-use fixture defaults: auth/me, settings, threads, teams)
+// (in addition to the auto-use fixture defaults: open_user, settings, threads)
 // ---------------------------------------------------------------------------
 
 async function setupAppShellMocks(page: import("@playwright/test").Page): Promise<void> {

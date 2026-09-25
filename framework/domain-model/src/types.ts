@@ -21,7 +21,7 @@ export const TASK_STATES = [
 export type TaskState = (typeof TASK_STATES)[number];
 
 /**
- * AI4: Human-readable labels for each TaskState. Exhaustive `Record` so adding
+ * Human-readable labels for each TaskState. Exhaustive `Record` so adding
  * a 9th TaskState is a TS error until labelled here.
  *
  * @lore AC1: "met_with_rework"→"Rework" and "partially_met"→"Partial" preserve
@@ -82,7 +82,7 @@ export const MODEL_TIERS = ["reasoning", "workhorse", "fast"] as const;
 export type TriggerType = "heartbeat" | "calendar" | "event" | "continuous";
 
 /**
- * AB0: Agent categories. Closed enum.
+ * Agent categories. Closed enum.
  * - team: bound to a team, domain specialist
  * - individual: bound to a human user (or a factory-wide agent not tied to one team)
  *
@@ -192,7 +192,7 @@ export function scopeKindToLabel(scopeKind: string): string {
 }
 
 /**
- * AC1: Closed enum of task outcome verdicts.
+ * Closed enum of task outcome verdicts.
  * Adding a fifth value is a concept change, not a type change.
  *
  * @lore AC1: Records whether the task's done condition was met during review.
@@ -208,7 +208,7 @@ export const TASK_OUTCOME_VERDICTS = [
 export type TaskOutcomeVerdict = (typeof TASK_OUTCOME_VERDICTS)[number];
 
 /**
- * AI4: Human-readable labels for each TaskOutcomeVerdict (AC2, AC5).
+ * Human-readable labels for each TaskOutcomeVerdict.
  *
  * @lore AC1: "met_with_rework"→"Rework" and "partially_met"→"Partial" preserve
  * WorkBet's pre-existing abbreviated rendering (not a truncation error).

@@ -1,4 +1,4 @@
-// AL1 review canvas — browser preview (the LOW-fidelity end of the proof spectrum).
+// Canvas — browser preview (the LOW-fidelity end of the proof spectrum).
 //
 // Founder direction (human-design-review round 1): "not all stuff will be combined
 // and fancy — some things will be a simple browser window to look at." This canvas
@@ -212,7 +212,7 @@ function isBrowserPreviewPayload(payload: unknown): payload is BrowserPreviewPay
 	);
 }
 
-// AL2 — review artifact wrapper.
+// Review artifact wrapper.
 //
 // @lore `BrowserPreviewPayload` is `{url, title, previewBody}` — nothing else.
 // An earlier mapper invented a fixed nav bar and a "Solo / $19/mo" pricing

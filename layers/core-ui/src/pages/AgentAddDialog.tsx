@@ -1,5 +1,5 @@
 /**
- * AB3 — AgentAddDialog: create a new team agent.
+ * AgentAddDialog: create a new team agent.
  *
  * Separate from AgentEditDialog because the header is structurally different
  * (editable name + role select vs static identity display).

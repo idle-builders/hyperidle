@@ -1,5 +1,5 @@
 /**
- * AV2 — modelOptionsForHarness
+ * ModelOptionsForHarness
  *
  * Reads the harness's DISCOVERED descriptor.models (from GET /api/harnesses)
  * and returns select-friendly options. Never reads MODEL_CATALOG.

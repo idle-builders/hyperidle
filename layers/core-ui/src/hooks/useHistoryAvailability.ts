@@ -1,5 +1,5 @@
 /**
- * AG4 — History availability hook.
+ * History availability hook.
  *
  * Returns whether Back and Forward navigation are available.
  *

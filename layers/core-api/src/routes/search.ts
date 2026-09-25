@@ -1,5 +1,5 @@
 /**
- * AD7: Global search route — GET /api/search?q=<query>
+ * Global search route — GET /api/search?q=<query>
  *
  * Returns grouped results across conversations (threads), work (bets), and
  * documents. Three separate LIKE queries — not a UNION — for clarity
@@ -257,9 +257,9 @@ export function createSearchRoutes(
 		// @lore AD7: No auth boundary on bets — all authenticated users see all bets.
 		// Bets are team-scoped, not user-private.
 
-		// AF16 T7 (Z8-033): stable secondary sort by id ASC eliminates nondeterministic
+		// Stable secondary sort by id ASC eliminates nondeterministic
 		// ordering when multiple rows share the same createdAt timestamp.
-		// AF16 T8 (Z8-033): match-rank CASE biases exact/prefix matches above mid-string
+		// Match-rank CASE biases exact/prefix matches above mid-string
 		// substring matches. Order: matchRank ASC, createdAt DESC, id ASC.
 		//
 		// @lore AU13 addendum §A2/§A9: this was a `.from(bets).innerJoin(teams, …)`

@@ -21,7 +21,7 @@ import { AppShell } from "../layouts/AppShell";
 // → `call("search_threads", ...)`, not `GET /api/threads`. `call` is mocked
 // (its fallback branch — `{ok:true, data:[]}` — also covers the sidebar's own
 // `call("search_documents", ...)`); `fetch` stays mocked for the
-// surviving routes (`/api/auth/me`, `/api/teams`) AppShell still hits directly.
+// REST routes AppShell still hits directly (`/api/settings`).
 const { callMock } = vi.hoisted(() => ({ callMock: vi.fn() }));
 vi.mock("../services/call.js", () => ({ call: callMock }));
 

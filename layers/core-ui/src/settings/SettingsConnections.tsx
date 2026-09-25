@@ -1,5 +1,5 @@
 /**
- * AN1 — SettingsConnections production component (design reference scaffold).
+ * SettingsConnections production component (design reference scaffold).
  *
  * Three source groups in fixed order (inherited → token → mcp), grouped by
  * authSource. Health-sorted within each group (needs-attention first). Single
@@ -7,14 +7,14 @@
  * health state.
  *
  * Adapted from the founder-approved #353 design (commit 16c3fe62) per the locked
- * AN1 Connection concept:
+ * Connection concept:
  *   - authSource closed set { token, mcp, inherited }
  *   - health closed set { working, needs-attention }
  *   - NO trust tier (ETHOS §2 — no preemptive vetted/community badge)
  *   - NO "agents never see the secret" framing — the secret is resolved into the
  *     sandbox so tools can authenticate (concept hard-rule 2); it is only never
  *     *displayed* in this UI or *logged*.
- *   - The inherited group is live in AN1 (projected from the harness descriptor).
+ *   - The inherited group is live (projected from the harness descriptor).
  *
  * @lore AN1: ServiceMark is an inline single-use shape. Do not promote to the
  * design system. The component composes only catalogued primitives otherwise.

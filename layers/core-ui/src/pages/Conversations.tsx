@@ -1,5 +1,5 @@
 /**
- * Conversations page — L9 / AM1: single detail surface, shape-agnostic.
+ * Conversations page — single detail surface, shape-agnostic.
  *
  * Mounted on:
  *   - /conversations          → no :threadId → State A (empty, open a thread)
@@ -385,7 +385,7 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 		data.members.map((m) => [m.id, m]),
 	);
 
-	// AM1: derive the render units + header/participants ONCE for both layouts.
+	// Derive the render units + header/participants ONCE for both layouts.
 	// The conversation column comes from the Part adapter (the only Message-aware
 	// seam); the header/participants come from the values the page already has.
 	// @lore UI-003: API returns messages DESC (newest-first, dir:"desc"). Reverse

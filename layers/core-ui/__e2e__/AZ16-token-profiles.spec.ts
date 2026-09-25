@@ -98,13 +98,6 @@ async function installAz16Mocks(page: Page): Promise<void> {
 	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: one hermetic router owns the exact AZ16 route matrix.
 	await page.route("**/api/**", async (route) => {
 		const { pathname } = new URL(route.request().url());
-		if (pathname === "/api/auth/me") {
-			return json(route, {
-				id: "test-founder",
-				name: "Test Founder",
-				role: "founder",
-			});
-		}
 		if (pathname === "/api/settings") {
 			return json(route, {
 				profile: { name: "Test Founder", avatarUrl: null },

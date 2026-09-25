@@ -1,11 +1,11 @@
 /**
- * AM1 — PartList: the source-agnostic conversation renderer.
+ * PartList: the source-agnostic conversation renderer.
  *
  * Author-groups a `Part[]` (via `groupParts`), then exhaustively dispatches
  * each Part to its per-kind renderer. The renderer imports ONLY the
  * source-agnostic `Part`/`OpenHandler` vocabulary — NEVER `Message`,
- * `InlineRef`, or any `harness` type. That import-absence is the AM1↔AM3
- * reuse boundary (AC5), enforced statically by a scoped `no-restricted-imports`
+ * `InlineRef`, or any `harness` type. That import-absence is the conversation↔session
+ * reuse boundary, enforced statically by a scoped `no-restricted-imports`
  * ESLint rule (eslint.config.ts, W1). A second adapter (`derivePartsFromSession`)
  * feeds the SAME `Part[]` with zero change here.
  *

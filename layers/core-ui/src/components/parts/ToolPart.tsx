@@ -1,5 +1,5 @@
 /**
- * AM3 — ToolPart renderer: one tool call the agent made.
+ * ToolPart renderer: one tool call the agent made.
  *
  * A bare one-liner row at rest:
  *   [per-kind icon] · verb · muted truncated target · (diff chip) · (open-session) · (▾) · status glyph
@@ -7,7 +7,7 @@
  * Only `failed` uses the destructive color token (`--status-error`).
  *
  * The diff chip is a label, not a control — it has no destination.
- * No new diff renderer (AM3 hard-rule).
+ * No new diff renderer (a hard rule).
  *
  * @lore AM3: Agent-authored fields (`verb`/`target`/`output`) render as
  * React-escaped TEXT only — no `dangerouslySetInnerHTML` in the activity path

@@ -1,11 +1,11 @@
 /**
- * AU21 §9 Increment 10 (Decision H1) — core-api's POST-SESSION reaction that
+ * Core-api's POST-SESSION reaction that
  * finalizes a `task`'s `taskDispatchAttempts` row.
  *
  * Subscribes `agent_run_lifecycle_changed` ONLY for dispatch-attempt finalize.
  * Idempotent by construction via `updateIfActive`'s guard.
  *
- * AU21 §9 Increment 12 (Decision H3), BB1-adapted — a SECOND subscription on
+ * A second subscription on
  * `session_ended` merges per-tier token counts into the WORKED TASK's own
  * `tasks.tokensActualJson`. There is no ancestor rollup write — subtree totals
  * are computed at read time by `GET /api/tasks/:id/tree`.

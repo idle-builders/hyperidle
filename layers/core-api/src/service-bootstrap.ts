@@ -1,5 +1,5 @@
 /**
- * AU26 B1b — `core-api`'s Layer-level service registration.
+ * `core-api`'s Layer-level service registration.
  *
  * @lore AU26 B1b: this file used to be `server-factory.ts` and used to also hold
  * `createServer`, the whole Application composition root. That moved to
@@ -147,14 +147,14 @@ function buildPolicyDeps(
 }
 
 /**
- * AU11: registers CORE-owned application services against the event bus —
+ * Registers CORE-owned application services against the event bus —
  * document (relevance listener, FTS), policy engine, review routing,
  * lifecycle propagation and retention.
  *
  * Split from the former `app-runtime` shell's `bootstrapAppRuntime` —
  * together with `registerAgentLayerServices` this replicates the exact
  * same disposer set; only the grouping changed, not registration order
- * within each group (behavior-preserving, AU11 import-path-only invariant).
+ * within each group (behavior-preserving).
  *
  * @lore BC5 T7b: no scheduler lives here — the subscription clock (cron/
  * due-eval) is wired in `app.ts` (§ its own `@lore`).
@@ -338,7 +338,7 @@ export function registerCoreDomainServices(ctx: {
 }
 
 /**
- * AU11: registers AGENT-owned services (AU21 Increment 14a: the cost-cap
+ * Registers AGENT-owned services (the cost-cap
  * dedup release + cost sentinel this used to also register are deleted, no
  * replacement). Split from the former `bootstrapAppRuntime` shell alongside
  * `registerCoreDomainServices` (see that function's doc-comment for the

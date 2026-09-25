@@ -1,5 +1,5 @@
 /**
- * AV5 — DesktopTitleBar
+ * DesktopTitleBar
  *
  * Electron-only draggable top inset. The macOS window uses
  * `titleBarStyle: "hiddenInset"`, which floats the OS traffic-lights at the

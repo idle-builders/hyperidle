@@ -1,5 +1,5 @@
 /**
- * ReferenceChip — the single shared attachment/reference primitive (AM1, AC6).
+ * ReferenceChip — the single shared attachment/reference primitive.
  *
  * ONE chip for EVERY attachment / reference, everywhere: composer drafts,
  * in-message blocks/artifacts/images, document sources, review change-sets.

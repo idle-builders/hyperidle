@@ -2,9 +2,8 @@
  * useCurrentUser hook: fetches the caller's own row via `open_user({})`,
  * returns { user, status, error, retry } (A10 shape unchanged).
  *
- * @lore BC5 T9: the door swap — `call("open_user", {})` replaces
- * `apiFetch("/api/auth/me")`. `call` is mocked directly (the door), the same
- * idiom SettingsPlugins/ScopeChangeDialog use.
+ * `call("open_user", {})` is the current user. `call` is mocked directly (the
+ * door), the same idiom SettingsPlugins/ScopeChangeDialog use.
  */
 
 import { renderHook, waitFor } from "@testing-library/react";

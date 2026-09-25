@@ -739,7 +739,7 @@ async function probeCli(
  * readiness means the binary is installed and logged in.
  */
 /**
- * Probe the local environment for the first-class harness families AM2 cares about.
+ * Probe the local environment for the first-class harness families HyperIdle supports.
  *
  * @lore AM2: This probes public, non-destructive commands only (version, auth status,
  *  providers list). It never reads provider credential files and never starts an agent

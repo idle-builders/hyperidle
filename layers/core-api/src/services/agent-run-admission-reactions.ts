@@ -1,5 +1,5 @@
 /**
- * AU21 §6 Decision B4 / §10 — core-api's reaction to the NEW pre-handoff
+ * Core-api's reaction to the pre-handoff
  * `agent_run_admission_failed` event, one subscriber per `kind`, per the
  * finalized subscriber table:
  *
@@ -151,9 +151,9 @@ async function notifyThreadTurnAdmissionFailure(
  * admitted gets flagged for a human" is the SAME behaviour, at the SAME
  * moment, into the SAME thread (the document's, `document`-
  * hosted, resolved not recreated on every failure). `system:propagation`
- * posts into it — host-scoped, so it may post, and its first post joins it
- * (architecture.md §3.4) — a real users row, because `changes.actor` is a
- * foreign key and a made-up sender would be rejected.
+ * posts into it — host-scoped, so it may post, and its first post joins it.
+ * The sender is a real users row, because `changes.actor` is a foreign key
+ * and a made-up sender would be rejected.
  */
 async function flagStalledKnowledgeAction(
 	db: HyperIdleDb,

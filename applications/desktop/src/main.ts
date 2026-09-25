@@ -405,7 +405,7 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 	}
 	log("boot:local migrations complete");
 
-	// AF17: apply factory bootstrap after migrations — idempotent, runs every launch.
+	// Apply factory bootstrap after migrations — idempotent, runs every launch.
 	// @lore AF17: factory bootstrap must run before the server starts so the hidden
 	// system actor row is present when the first request arrives. No agent is seeded
 	// here: agents arrive from the welcome screen or a plugin. The call is idempotent

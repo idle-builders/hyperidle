@@ -64,7 +64,7 @@ interface IngestionHandle {
 // ---- ports ----
 
 // ---------------------------------------------------------------------------
-// AU21 §9 Increment 12 (Decision H3), Wave E: `SessionLifecycleRoutineAccessor`
+// `SessionLifecycleRoutineAccessor`
 // (`getRoutineById`)/`SessionLifecycleSettingsReader` (`readServerConfig`) are
 // DELETED entirely — `run-orchestration` holds ZERO `-> routine`/
 // `-> settings` edge, read or write. `admitSession`'s Phase 3 `harnessDisabled`
@@ -75,7 +75,7 @@ interface IngestionHandle {
 //     `assistant_turn`/`session_start` bake it too, at their one real emit
 //     site each, so no kind silently loses the admin's disabled-harness-types
 //     enforcement).
-//   - AU21 Increment 14a: the admission-time routine per-run cost cap this
+//   - The admission-time routine per-run cost cap this
 //     bullet used to describe (`params.contextBundle.routine
 //     .costCapPerRunMinor`) is DELETED along with the rest of the cost-cap
 //     gate — no replacement.
@@ -112,9 +112,9 @@ interface SessionLifecycleObservability {
 }
 
 // ---------------------------------------------------------------------------
-// filesystems (AU26 F2, founder ruling): `filesystems` and
+// filesystems (founder ruling): `filesystems` and
 // `filesystem_injections` are `agent-orchestration`'s OWN tables now, so the
-// spawn reads them LIVE — no seam, and no emit-time bake to go stale. AU21 §9
+// spawn reads them LIVE — no seam, and no emit-time bake to go stale. The earlier
 // Increment 12's `ProvisionSessionParams.injectedFilesystems` is DELETED;
 // `deps.injectedFilesystems` (an `InjectedFilesystemsReaderPort` the
 // Application backs with `@hyperidle/filesystems`) replaces it. A port, not a
@@ -128,9 +128,9 @@ interface SessionLifecycleServiceConnectionResolver {
 }
 
 // ---------------------------------------------------------------------------
-// connections (AU26 E3, AU21 Decision J3): `service_connections` is
+// connections: `service_connections` is
 // `agent-orchestration`'s OWN table now, so the spawn reads it LIVE — no seam,
-// and no emit-time bake to go stale. AU21 K1's `ProvisionSessionParams
+// and no emit-time bake to go stale. The earlier `ProvisionSessionParams
 // .injectedConnections` is DELETED; `deps.heldConnections` (a
 // `HeldConnectionsReaderPort` the Application backs with
 // `@hyperidle/connections`) replaces it. A port, not a direct import, because
@@ -790,7 +790,7 @@ const PROVISIONER_EMITTED_FILES = [".mcp.json"] as const;
  * working on a repo that tracks .mcp.json does not overwrite the real config.
  */
 
-// ── AO2 — Phase 4.5 mount + teardown capture-back helpers ────────────────────
+// ── Phase 4.5 mount + teardown capture-back helpers ────────────────────
 //
 // @lore AU21 §9 Increment 8 (Decision F2): the mount operation itself
 // (`mountFilesystemsForAgent`) relocated wholesale into this package's own
@@ -943,7 +943,7 @@ interface ProvisionSessionParams {
 	 */
 	readonly contextBundle?: BakedContextBundle;
 	/**
-	 * AU21 §9 Increment 12 (Decision H3), Wave E — the target agent's
+	 * The target agent's
 	 * runnable-CONFIG snapshot, baked at EMIT time by every per-kind resolver
 	 * (all six intent kinds) from the SAME `agent: User` row
 	 * `requireRunnableAgent` already loaded + validated there (no new read —
@@ -1124,7 +1124,7 @@ interface AdmittedSession {
 }
 
 /**
- * AF7 §2 — Admit a session synchronously (phases 1-7).
+ * Admit a session synchronously (phases 1-7).
  *
  * Runs the HTTP-observable prefix: load agent, adapter
  * select + concurrency check (P3), **resolvedModel presence guard (WARNING-2,
@@ -1320,7 +1320,7 @@ async function admitSession(
 		await db.insert(sessions).values(sessionValues);
 	}
 
-	// ── Phase 4.5: mount injected filesystems (AO2). AU26 F2: reads the
+	// ── Phase 4.5: mount injected filesystems. Reads the
 	// injection record LIVE, in-layer, at spawn — no seam, and no emit-time bake
 	// to go stale (see this file's own top-of-file `filesystems` `@lore`).
 	if (deps.mounter) {
@@ -2076,7 +2076,7 @@ async function runSession(
 	}
 
 	if (crashed) {
-		// ── Hook B: capture-back before crash teardown.
+		// ── Capture-back before crash teardown.
 		if (deps.mounter && mountedFilesystems.length > 0) {
 			await captureMountedFilesystems(sessionId, sandboxPath, mountedFilesystems, deps.mounter);
 		}
@@ -2128,7 +2128,7 @@ async function runSession(
 			timestamp: Date.now(),
 		});
 
-		// ── Hook B: capture-back before not_returned teardown.
+		// ── Capture-back before not_returned teardown.
 		if (deps.mounter && mountedFilesystems.length > 0) {
 			await captureMountedFilesystems(sessionId, sandboxPath, mountedFilesystems, deps.mounter);
 		}
@@ -2155,7 +2155,7 @@ async function runSession(
 		};
 	}
 
-	// ── Hook B: capture-back before normal teardown.
+	// ── Capture-back before normal teardown.
 	if (deps.mounter && mountedFilesystems.length > 0) {
 		await captureMountedFilesystems(sessionId, sandboxPath, mountedFilesystems, deps.mounter);
 	}
@@ -2297,7 +2297,7 @@ interface Provisioner {
 		params: ProvisionSessionParams,
 	): ReturnType<typeof startSessionProvision>;
 	/**
-	 * AU26 F2: takes the agent id plus the live, in-layer injected-filesystem
+	 * Takes the agent id plus the live, in-layer injected-filesystem
 	 * reader — `mountFilesystemsForAgent` reads the record itself at spawn
 	 * rather than consuming a list frozen onto the request. See
 	 * `filesystem-provisioning.ts`'s own top-of-file `@lore`.

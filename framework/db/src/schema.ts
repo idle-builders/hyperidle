@@ -42,7 +42,7 @@ export const users = pgTable(
 		avatarUrl: text("avatar_url"),
 		createdAt: text("created_at").notNull(),
 		/**
-		 * AB0: Agent category — team | individual.
+		 * Agent category — team | individual.
 		 * Null for human users and system users.
 		 * @lore AB0: This replaces the KERNEL_USER_ROLES / FABRIC_USER_ROLES
 		 * split which was about system layer, not agent category.
@@ -77,7 +77,7 @@ export const users = pgTable(
 );
 
 /**
- * AU26 G1 — one agent's run configuration, keyed on its `users` row.
+ * One agent's run configuration, keyed on its `users` row.
  *
  * @lore AU26 G1 (architecture §D-L): `users` used to carry agent-execution
  * configuration (`harness_type`,
@@ -133,7 +133,7 @@ export const tasks = pgTable(
 	{
 		id: text("id").primaryKey(),
 		/**
-		 * BB1: the task tree. NULL means a root task — the shape a bet used to
+		 * The task tree. NULL means a root task — the shape a bet used to
 		 * have. Replaces the NOT NULL `bet_id`, which hardcoded work to exactly
 		 * two levels.
 		 *
@@ -201,7 +201,7 @@ export const tasks = pgTable(
 		/** Set when the task reaches `done` (moved from `bets`). */
 		completedAt: text("completed_at"),
 		/**
-		 * BB1: display order among siblings. Defaults to creation order; ties
+		 * Display order among siblings. Defaults to creation order; ties
 		 * break on `createdAt` then `id` so the order is total and stable.
 		 *
 		 * @lore BB1: deliberately NOT derived from `dependencies`, and
@@ -214,7 +214,7 @@ export const tasks = pgTable(
 		 */
 		position: integer("position").notNull().default(0),
 		/**
-		 * BB1: does finishing this task need a human verdict?
+		 * Does finishing this task need a human verdict?
 		 *
 		 * `false` (the default) means the task closes straight to `done` when its
 		 * work finishes — a session ending, or every child reaching a terminal
@@ -266,7 +266,7 @@ export const sessions = pgTable(
 		outcome: text("outcome"),
 		notes: text("notes"),
 		/**
-		 * AC1: Session effectiveness score stored as text (float 0-1).
+		 * Session effectiveness score stored as text (float 0-1).
 		 *
 		 * @lore AC1 S-1: Stored as text (not real/float) because the existing schema
 		 * uses text for all non-integer values (timestamps are text, money is split
@@ -584,7 +584,7 @@ export const threads = pgTable(
 		lastActiveAt: text("last_active_at").notNull(),
 		createdAt: text("created_at").notNull(),
 		/**
-		 * AF14 AC6 / C2: Dedup key for direct (2-participant) threads only.
+		 * Dedup key for direct (2-participant) threads only.
 		 * Format: `${hostKind}:${hostId}:${sortedParticipants.join(",")}`
 		 * NULL for group/feed/host-scoped threads — they are never deduped.
 		 * The partial unique index (WHERE direct_key IS NOT NULL) enforces
@@ -889,7 +889,7 @@ export const filesystems = pgTable(
 		kind: text("kind").notNull(),
 		// Reference to a Connection (Track AN). NOT a DB FK — service_connections was merged
 		// (0036) then reverted (0038, AN reset); absent now, re-merged shape unsettled.
-		// An unresolvable id → needs_attention (AC5).
+		// An unresolvable id → needs_attention.
 		// @lore AO1: plain text by design — AO1 ⟂ AN; AN may add the FK in its own migration.
 		connectionId: text("connection_id"),
 		// JSON-encoded ResourceRef, discriminated by kind.

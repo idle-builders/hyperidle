@@ -1,8 +1,8 @@
 /**
- * AU26 B1a (§D-B) — `agent-orchestration`'s own Hono app.
+ * `agent-orchestration`'s own Hono app.
  *
  * The Layer that owns `sessions`, `explicit_session_starts`,
- * `agent_session_requests` and (AU26 E3) `service_connections` now serves their
+ * `agent_session_requests` and `service_connections` now serves their
  * HTTP surface itself. What it does
  * NOT do is own the middleware stack: cors / rate-limit / body-limit / auth /
  * fail-closed / `onError` / `notFound` are **Application-applied** to the `/api`

@@ -2,7 +2,7 @@
  * The closed, enumerable set of "return to HyperIdle" actions. A turn that
  * ends without invoking one is `not-returned` (see return-gate.ts). This set is
  * CLOSED: membership is a fixed list of tool names, never "any tool". Adding a
- * member is a deliberate edit here. (AC2: HyperIdle enumerates valid turn endings
+ * member is a deliberate edit here. (HyperIdle enumerates valid turn endings
  * by reading RETURN_ACTION_NAMES.)
  *
  * @lore Lives in @hyperidle/harness-protocol so the tool layer, every adapter, and
@@ -115,7 +115,7 @@ export function isReturnAction(
 }
 
 /**
- * AU27 Increment 3 (Decision 3) — return predicate that additionally binds
+ * Return predicate that additionally binds
  * to a specific REQUIRED subset of the closed return set, not just "any
  * member". Membership alone both under-binds a session with a specific
  * required action (a `task_run` agent could satisfy the gate with

@@ -1,5 +1,5 @@
 /**
- * scope-labels — AD6: Knowledge Cleanup & Scope Simplification.
+ * scope-labels — display labels for document scopes.
  *
  * Provides the static scope options for the document list filter pills
  * and the create/change flow scope picker.

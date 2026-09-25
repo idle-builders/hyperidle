@@ -1,5 +1,5 @@
 /**
- * AU21 §9 Increment 6 (Decision D) — `AgentOrchestrationPort`: Application-
+ * `AgentOrchestrationPort`: Application-
  * layer composition root, mirroring `core-api-port-composition.ts`'s exact
  * pattern (in-process/network transport duality onto `hc<AppType>`) for the
  * OPPOSITE-direction door — agent-orchestration's own read surface, backed

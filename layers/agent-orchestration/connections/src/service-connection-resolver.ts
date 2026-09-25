@@ -1,8 +1,8 @@
 /**
- * AN1 — resolveHeldToken: per-user plaintext resolver for held connections.
+ * ResolveHeldToken: per-user plaintext resolver for held connections.
  *
  * The ONLY path that returns a decrypted token value. Wired exclusively to
- * sandbox injection (AN2) — never to a route response or logger.
+ * sandbox injection — never to a route response or logger.
  *
  * @lore AN1: Concept hard-rule 1 — this is the ONLY plaintext path.
  * It is the AN2 seam: AN2 injects into the sandbox; AN1 ships + unit-tests it.

@@ -17,7 +17,7 @@ export {
 	updateFilesystemState,
 } from "./filesystem-registry.js";
 export type { Filesystem } from "./filesystem-shape.js";
-// AU26 F2 — the LIVE, in-layer read one spawn performs. It replaces AU21 §9
+// The LIVE, in-layer read one spawn performs. It replaces the earlier
 // Increment 12's emit-time bake helper outright: no per-kind resolver calls
 // anything about filesystems any more, and nothing about filesystems rides the
 // request. See this module's own top-of-file `@lore`.

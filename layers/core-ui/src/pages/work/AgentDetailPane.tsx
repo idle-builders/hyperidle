@@ -1,5 +1,5 @@
 /**
- * AV4 — AgentDetailPane: AgentEditDialog body lifted into a plain pane.
+ * AgentDetailPane: AgentEditDialog body lifted into a plain pane.
  *
  * The <Dialog> shell is STRIPPED — no role="dialog" is emitted anywhere (AC#3).
  * This is the body of AgentEditDialog, not a fork — logic must stay in sync.

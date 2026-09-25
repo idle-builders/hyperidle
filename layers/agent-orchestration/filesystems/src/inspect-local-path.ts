@@ -1,5 +1,5 @@
 /**
- * AV1 — inspectLocalPath: probe a local path for git repo + branch status.
+ * InspectLocalPath: probe a local path for git repo + branch status.
  *
  * Reuses the injected `FilesystemsGitRunner` (the existing audited git-spawn path
  * with redaction, timeouts, env allowlist). Never throws — returns safe defaults

@@ -160,7 +160,7 @@ export function DocumentCreate(): JSX.Element {
 			frame="page"
 			data-testid="document-create-page"
 			header={
-				/* AI7: PageHeader with editable title input.
+				/* PageHeader with editable title input.
 				    @lore AI7-W1: pageTitleClassName is an identifier expression so
 				    no-handrolled-page-header does not fire (rule only checks literals). */
 				<PageHeader

@@ -2,12 +2,8 @@
 // provisioning OPERATION relocated here from core-api's
 // `connections`/`filesystems` Services.
 //
-// Follow-up (+ part 2): both `SessionLifecyclePorts
-// ["filesystems"]` and `["connections"]` seam ports were DELETED entirely —
-// the agent's injected filesystems/held connections were baked at EMIT time
-// onto the request instead.
-//
-// The connections half of that bake is now gone too. Held connections
+// `SessionLifecyclePorts` has no `filesystems` or `connections` seam port
+// and nothing is baked onto the request for them. Held connections
 // are read LIVE at spawn through `HeldConnectionsReaderPort`, backed by
 // `@hyperidle/connections` — this Layer's own table, so this is not a seam.
 // A port rather than a direct import because `run-orchestration` is itself a

@@ -119,7 +119,7 @@ async function drainAgentSessionRequests(deps: RuntimeDeps): Promise<number> {
 				});
 				tier = (start?.requestedModelTier as ModelTier | null) ?? tier;
 			}
-			// AU27 Increment 6 (Decision 4, C11): the target agent's per-agent
+			// The target agent's per-agent
 			// model override applies uniformly for all six kinds, not just the
 			// @lore A model was resolved here, through the model gateway, so the
 			// built-in adapter could make its own provider API call. It came with a

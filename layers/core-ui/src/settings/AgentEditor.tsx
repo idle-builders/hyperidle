@@ -1,5 +1,5 @@
 /**
- * AV2 — AgentEditor: shared agent + assistant editor pane.
+ * AgentEditor: shared agent + assistant editor pane.
  *
  * A presentation component — it renders the edit form for any agent (including the
  * assistant). Save routing (assistant vs. agent endpoint) is the parent's

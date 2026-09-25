@@ -1,5 +1,5 @@
 /**
- * AU21 §9 Increment 12 (Decision H3), Wave C — the ONE shared,
+ * The ONE shared,
  * fully-wired `TaskRunResolverDeps` every real `task_run`-baking composition
  * site (`run-orchestration-composition.ts`'s `workAccessor.transitionTask`,
  * `policy-bindings.ts`'s pre-bound `handoffDeps.taskRunResolver`, and the

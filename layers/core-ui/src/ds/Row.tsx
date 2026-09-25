@@ -1,5 +1,5 @@
 /**
- * AG6: Shared list-row primitive for all agent/subscription/document rows.
+ * Shared list-row primitive for all agent/subscription/document rows.
  *
  * Anatomy: [lead?] [title+subtitle flex-1] [cells[] shrink-0] [actions? shrink-0]
  *

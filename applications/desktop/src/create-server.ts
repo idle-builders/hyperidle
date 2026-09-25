@@ -1,5 +1,5 @@
 /**
- * `desktop`'s own composition root (AU31 §5.3).
+ * `desktop`'s own composition root.
  *
  * @lore AU31 §5.3: `desktop` used to boot its embedded server by importing
  * `@hyperidle/remote-server/create-server` — an `application → application`

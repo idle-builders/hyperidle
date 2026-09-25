@@ -1,5 +1,5 @@
 /**
- * AF8 — useNotifications hook.
+ * UseNotifications hook.
  *
  * @lore BC5 T10: the door swap — `open_user({}).inbox` replaces `GET
  * /api/notifications/inbox`; `edit_user({ id: me, inbox: { seen, read } })`

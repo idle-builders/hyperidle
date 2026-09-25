@@ -1,9 +1,8 @@
 /**
  * Shared Playwright test fixtures for HyperIdle e2e tests.
  *
- * @lore M3: M3 wired real API calls for /api/auth/me, /api/settings,
- * /api/actions/search_threads, and /api/teams. Every page load now makes
- * these requests. In CI there is no backend server — only Vite serves the
+ * @lore Every page load calls the API (`open_user`, `/api/settings`,
+ * `search_threads` and more). In CI there is no backend server — only Vite serves the
  * SPA bundle. Without mocks every test would get ECONNREFUSED on the
  * proxied /api/* calls.
  *
@@ -16,12 +15,10 @@
  * route has been purged from the server. See packages/server/src/app.ts.
  *
  * @lore BC5 T9/T11: the user door — `POST /api/actions/{search_users,
- * open_user, edit_user}` — replaced `GET /api/auth/me`, `GET/POST/PATCH
- * /api/{users,agents,agent-profile,org,teams,recipients}*` and the routine/
- * notification queue routes. `AppShell` calls `open_user({})` (via
- * `useCurrentUser`) on EVERY page load — same role `GET /api/auth/me` used to
- * play — so this file's auto-use fixture answers it by default (a "self" row,
- * echoing `DEFAULT_AUTH_ME`) the same way it already defaults `open_task`;
+ * open_user, edit_user}` — is the only user surface. `AppShell` calls
+ * `open_user({})` (via `useCurrentUser`) on EVERY page load, so this file's
+ * auto-use fixture answers it by default (a "self" row) the same way it
+ * already defaults `open_task`;
  * without that default every spec in the suite, not only the ones that seed
  * a user, would hang on the shell's own bootstrap call. `GET /api/teams`
  * and `GET /api/agents` are gone with the `teams`/`users`/`agents` route
@@ -60,14 +57,6 @@ import type {
 import { test as base, expect } from "@playwright/test";
 import type { AgentConfig } from "../src/settings/settings-types.js";
 
-/** Default mock response for GET /api/auth/me */
-const DEFAULT_AUTH_ME = {
-	id: "test-founder",
-	name: "Test Founder",
-	role: "founder",
-	avatarUrl: null,
-};
-
 /** Default mock response for GET /api/settings */
 const DEFAULT_SETTINGS = {
 	profile: { name: "Test Founder", avatarUrl: null },
@@ -89,7 +78,7 @@ const DEFAULT_THREADS: never[] = [];
 /**
  * Default mock response for POST /api/actions/open_user with no `id` — the
  * "self" row `useCurrentUser` (and therefore `AppShell`, on every page load)
- * resolves. Echoes `DEFAULT_AUTH_ME`'s identity. Defined with `makeUserRow`
+ * resolves. Defined with `makeUserRow`
  * (declared further down — function declarations hoist) so this stays the
  * one row shape the whole file shares.
  */
@@ -198,18 +187,6 @@ export const test = base.extend<CoreApiFixtures>({
 			// These are fallbacks — test-specific route registrations take precedence
 			// because Playwright matches routes LIFO (last registered first matched).
 
-			// GET /api/auth/me — identity for useCurrentUser hook
-			await page.route("**/api/auth/me", async (route) => {
-				if (route.request().method() === "GET") {
-					await route.fulfill({
-						status: 200,
-						contentType: "application/json",
-						body: JSON.stringify(DEFAULT_AUTH_ME),
-					});
-				} else {
-					await route.continue();
-				}
-			});
 
 			// GET /api/settings — app-wide settings for useSettings hook
 			await page.route("**/api/settings", async (route) => {
@@ -301,17 +278,6 @@ export { expect };
  * own contexts must call this to get the same /api/* fallbacks.
  */
 export async function registerCoreMocks(page: import("@playwright/test").Page): Promise<void> {
-	await page.route("**/api/auth/me", async (route) => {
-		if (route.request().method() === "GET") {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(DEFAULT_AUTH_ME),
-			});
-		} else {
-			await route.continue();
-		}
-	});
 	await page.route("**/api/settings", async (route) => {
 		const m = route.request().method();
 		if (m === "GET" || m === "PATCH") {
@@ -506,8 +472,7 @@ export function makeTaskCardSummary(
 //
 // @lore BC5 T9/T11: the only user surface is `POST /api/actions/{search_users,
 // open_user, edit_user}` — `{ok:true,data}` or `{ok:false,problems}`.
-// `GET /api/auth/me`, `GET/POST/PATCH /api/{users,agents,agent-profile,org,
-// teams,recipients}*` are deleted. These helpers build the row shapes
+// There is no per-noun user REST route. These helpers build the row shapes
 // (`UserRow`, `UserView`) and register per-test mocks, the same pattern as
 // the thread/document fixtures above.
 // ---------------------------------------------------------------------------
@@ -572,7 +537,7 @@ export interface MockUserOptions {
  * Mock `open_user` (what `useCurrentUser`/`useAgentProfile`/every settings
  * page loads) and `edit_user` (what they write) for one user id — both
  * `POST /api/actions/<name>`. `edit_user` merges the row-level scalar fields
- * of the patch (name/role/status/email/avatarUrl/health) and echoes the view
+ * of the patch (name/role/status/avatarUrl/health) and echoes the view
  * back; a spec asserting a structural edit (subscriptions/edges/folders/
  * connections) registers its own narrower handler after calling this, which
  * wins by LIFO.

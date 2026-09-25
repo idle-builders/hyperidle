@@ -68,10 +68,10 @@ function rejectUnauthorized(c: Context, message: string, logMessage: string): Re
  * Resolves the route actor once an X-API-Key holder has already
  * authenticated.
  *
- * AU21 §12: an actor-override header lets the seam's own Application-layer
+ * An actor-override header lets the seam's own Application-layer
  * composition root (never an external client — see
  * `@hyperidle/api-contract`'s `CORE_API_ACTOR_OVERRIDE_HEADER` doc comment,
- * moved there in AU31 §12 so both sides of the seam read the same wire
+ * kept there so both sides of the seam read the same wire
  * constant from the contract package) carry the calling agent's own
  * identity as the route actor. Falls back to the existing human-resolution
  * behavior (`@lore P2`) when the header is absent.
@@ -121,11 +121,10 @@ export function createAuthMiddleware(
 }
 
 /**
- * Stateless auth middleware for use when db is not available (e.g. health checks
- * or the public /api route with no db). Sets userId to a hardcoded founder constant as fallback.
- *
- * @lore M3: kept for backward compat with code paths that don't have db access.
- * Primary path is createAuthMiddleware({ db, sharedMode }).
+ * Stateless auth middleware for an app built with no db (db-less test apps).
+ * It checks the API key and sets no userId — there is no users table to
+ * resolve a caller from. Every real composition has a db and uses
+ * createAuthMiddleware({ db }).
  */
 export const authMiddleware: MiddlewareHandler = async (c, next) => {
 	const apiKey = c.req.header("X-API-Key") ?? "";

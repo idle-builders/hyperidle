@@ -1,5 +1,5 @@
 /**
- * AN1 — ServiceConnection shared types.
+ * ServiceConnection shared types.
  *
  * Closed sets for auth source and health, the per-user × service UI view,
  * and runtime type guards.

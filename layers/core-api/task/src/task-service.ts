@@ -513,7 +513,7 @@ function parentCond(parentTaskId: string | null): SQL {
 }
 
 /**
- * BB1: every descendant of `rootId`, the root itself included, nearest first.
+ * Every descendant of `rootId`, the root itself included, nearest first.
  *
  * Recursive CTE rather than a loop of per-level queries: the tree has no depth
  * bound, so a loop would issue an unbounded number of round trips, and the two

@@ -120,7 +120,7 @@ beforeEach(async () => {
 				),
 			);
 		}
-		if (urlStr.includes("/api/users/me") || urlStr.includes("/api/auth/me")) {
+		if (urlStr.includes("/api/users/me")) {
 			return Promise.resolve(
 				new Response(
 					JSON.stringify({

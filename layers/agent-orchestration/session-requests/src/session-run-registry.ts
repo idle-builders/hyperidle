@@ -9,7 +9,7 @@
  */
 
 /**
- * AF7 §4/§5 — SessionRunRegistry.
+ * SessionRunRegistry.
  *
  * A process-singleton leaf module that tracks the live runtime entry for each
  * actively-running session so two collaborators can

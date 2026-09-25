@@ -59,14 +59,14 @@ export type { ComposerProps, ComposerSubmitInput } from "./Composer.js";
 export { Composer } from "./Composer.js";
 // ── Support ──
 export { clickableProps } from "./clickable.js";
-// ── AI2: Dialog primitive + behavioral hook ──
+// ── Dialog primitive + behavioral hook ──
 // @lore AU43 bundle-03: DialogPortalRoot deleted — zero mounts; AppShell calls ensureOverlayRoot directly.
 export type { DialogLayer, DialogProps, DialogSize } from "./Dialog.js";
 export { Dialog } from "./Dialog.js";
 // @lore BC4: renamed from KnowledgeRow — DocumentRow is taken by the wire type (architecture.md §2).
 export type { DocRowProps, DocRowSignals } from "./DocRow.js";
 export { DocRow } from "./DocRow.js";
-// ── AM5: DS diff core — (code,diff) structural renderer (K2b) ──
+// ── DS diff core — (code,diff) structural renderer ──
 // @lore AU43 bundle-03: getDiffRenderer/DiffRendererComponent/DiffRendererProps deleted —
 // ReviewCodeDiff imports CodeDeltaRenderer directly; the registry had one entry and zero callers.
 export type { CodeDelta, CodeDeltaProps, DiffLineRef } from "./diff/code-delta-renderer.js";

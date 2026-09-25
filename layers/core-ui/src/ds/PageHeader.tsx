@@ -1,5 +1,5 @@
 /**
- * PageHeader — Tier 1 DS component (AI7).
+ * PageHeader — Tier 1 DS component.
  *
  * Canonical page-header strip used across all 10 primary pages.
  * Encodes the one page-title treatment: 20px / 600 / tracking-[-0.01em].
@@ -9,7 +9,7 @@
  * Scroll contract: renders a <header> with `shrink-0` so it stays pinned
  * wherever it is placed. The root scaffold (the `flex flex-col h-full` +
  * scroll-body contract this header pins against) is `PageScaffold`
- * (`./PageScaffold.tsx`, AZ2) — pass this component as its `header` prop.
+ * (`./PageScaffold.tsx`) — pass this component as its `header` prop.
  * `PageHeader` does not, and should not, own that root; a page composes both.
  *
  * @lore AI7: tracking-[-0.01em] is negative-em — allowlisted by

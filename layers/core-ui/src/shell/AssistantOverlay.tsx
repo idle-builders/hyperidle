@@ -1,5 +1,5 @@
 /**
- * AD8b — AssistantOverlay
+ * AssistantOverlay
  *
  * Popover overlay that renders a ThreadShell in assistant configuration.
  * Anchored to the assistant trigger button ref.
@@ -125,7 +125,7 @@ function getNoticeConfig(notice: AssistantNotice, onRetry?: () => void): NoticeC
 }
 
 /**
- * AH3: Render a notice card for assistant error/guidance messages.
+ * Render a notice card for assistant error/guidance messages.
  * These replace the normal chat bubble when payload.notice is present.
  *
  * @lore AH3: role="alert" for accessibility — screen readers announce immediately.
@@ -458,7 +458,7 @@ function AssistantOverlayInner({
 		a.createdAt.localeCompare(b.createdAt),
 	);
 
-	// AH3 §1.7b: Compute thinking/stale state from thread state (client-derived).
+	// Compute thinking/stale state from thread state (client-derived).
 	// Show "thinking…" only when: last message is human AND within ASSISTANT_TURN_TIMEOUT_MS.
 	// Show Retry card when: last message is human AND PAST the timeout (crash recovery).
 	// @lore BC3 B5/B6: the overlay knows its own counterpart — it opened a
@@ -475,7 +475,7 @@ function AssistantOverlayInner({
 	const isThinking = lastMessageIsWithinTimeout;
 	const isStale = lastMessageIsHuman && !lastMessageIsWithinTimeout;
 
-	// AH3: Partition messages — notice messages are REMOVED from ThreadShell and
+	// Partition messages — notice messages are REMOVED from ThreadShell and
 	// rendered as standalone notice cards below the thread. This ensures getByText
 	// doesn't find the message bubble text AND the notice card title simultaneously.
 	// @lore AH3: ThreadShell's `renderMessageExtra` injects BELOW the bubble

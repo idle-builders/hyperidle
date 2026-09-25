@@ -354,7 +354,7 @@ export {
 } from "./thread.js";
 // artifactDisplayTitle, summarizePreview MERGE → core-ui/ds/artifact-display-helpers.ts
 export type { TierTokenCount, TokenUsage } from "./types/money.js";
-// Event vocabulary dissolved to framework/event-bus (AU44 batch 8).
+// Event vocabulary dissolved to framework/event-bus.
 // Callers import event types from @hyperidle/event-bus.
 // SessionOutcome is the one exception: core-ui uses it and cannot reach event-bus.
 // @lore BC1: lives in types.js now — the domain-model events fork it used to

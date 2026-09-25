@@ -1,5 +1,5 @@
 /**
- * AD9 — Attention-sort helper for the WorkOverview team list.
+ * Attention-sort helper for the WorkOverview team list.
  *
  * Rank: blocked (0) → healthy (1) — "behind" (capacity overrun) is gone
  * with capacity itself.

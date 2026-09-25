@@ -1,5 +1,5 @@
 /**
- * AG4 — Pure parent-path resolver.
+ * Pure parent-path resolver.
  *
  * Returns the explicit structural parent path for a known route, or null for
  * unmatched routes. Callers must no-op on null.

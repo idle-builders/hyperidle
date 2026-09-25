@@ -2,7 +2,7 @@
  * Harness capability reader — the narrow read-only view core-api routes hold over
  * the harness adapter pool.
  *
- * Moved from `@hyperidle/harness-protocol` (AU44 b5): this module's every namer
+ * Moved from `@hyperidle/harness-protocol`: this module's every namer
  * is core-api. The four one-line forwarders (registeredHarnessCount, workerConnections,
  * harnessCapabilityDescriptors, refreshHarnessDiscoveries) had zero callers and are
  * deleted outright. The two live functions (harnessCapabilitiesForType,

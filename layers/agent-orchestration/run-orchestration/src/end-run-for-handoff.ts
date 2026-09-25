@@ -1,5 +1,5 @@
 /**
- * AU26 H1 (§D-M.1) — the run-end write a task handoff performs.
+ * The run-end write a task handoff performs.
  *
  * `layers/core-api/policy/handoff-protocol.ts` used to write this row itself,
  * inside its own transaction, complete with a comment explaining why

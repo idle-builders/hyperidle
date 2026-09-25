@@ -1,5 +1,5 @@
 /**
- * AU26 B1b (§D-C) — the `remote-server` **Application**'s composition root.
+ * The `remote-server` **Application**'s composition root.
  *
  * This is the real Application: it opens the DB, builds the `EventBus`, boots
  * all three Layer faces (`bootAgentExecution` → `bootCoreApi` →
@@ -225,7 +225,7 @@ function resolveBundledPluginsDir(deps: CreateServerDeps): string {
 }
 
 export async function createServer(port: number, deps: CreateServerDeps): Promise<ServerHandle> {
-	// AF7 §1: when a test injects `deps.db`, use the migrated fixture DB and do NOT
+	// When a test injects `deps.db`, use the migrated fixture DB and do NOT
 	// construct/own a throwaway DB. Production passes nothing → real DB + close.
 	//
 	// @lore AU31 §8 overlap 1 (AU29's own db:util handoff): `resolveProfile` and
@@ -449,7 +449,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	// Backward-compat: /health without auth, outside the /api tree.
 	app.route("/", health);
 
-	// Clause 4: close the construction cycle — the in-process
+	// Close the construction cycle: the in-process
 	// transport (needs the COMPOSED app, since its seam URLs carry the `/api`
 	// prefix) can only be built now that `app` exists. The port built above
 	// (before either Layer booted) already resolves every subsequent request

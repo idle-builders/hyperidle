@@ -730,7 +730,7 @@ function AgentSessionPanel({
 	);
 }
 
-// AI4 AC1: OutcomeChip deleted — replaced with StatusChip at the call site.
+// OutcomeChip deleted — replaced with StatusChip at the call site.
 // Session outcomes now render as full StatusChip pills (deliberate visual change:
 // text-only colored label → chrome pill with dot).
 //

@@ -31,12 +31,15 @@ The boundary is **derived, never a user-edited ACL**. There is one pair of decis
 
 ## Trust mode
 
-A deployment switch (`sharedMode` on the auth middleware) for how identity is *established* — not what a Principal may do.
+There is one credential: the deployment's `HYPERIDLE_API_KEY`, sent as `X-API-Key` and compared in constant time (`layers/core-api/src/middleware/auth.ts`). There are no login sessions, invite codes or bearer tokens, locally or on the shared backend.
 
-- **local-trust** (desktop, single founder): the API key *is* the one founder; one human user. `X-Identity` may *attribute* multi-agent test traffic but grants **no** cross-identity authority.
-- **multi-user-trust**: identity comes only from a verified per-principal credential (Bearer login-session); `X-Identity` is ignored for authorization entirely.
+- A valid key makes the caller the first human row on `users` — before the welcome screen has created a person, a placeholder id stands in, and that first `edit_user` runs as it.
+- The Application's own composition root may name a different actor with the actor-override header (`CORE_API_ACTOR_OVERRIDE_HEADER`), so an agent's tool call acts as that agent. No external client sets it.
+- On the shared backend every key holder is therefore the same person: the key is shared by a small team that trusts each other, not a per-person login.
 
-Endpoints stay mode-agnostic — only the middleware differs. The invariant that makes one codebase safe in both modes: **authorization always reads the Principal, never the header.** Local mode stays frictionless because its single principal trivially passes host-scope checks.
+`HYPERIDLE_SHARED_MODE` changes one thing only: whose identity `POST /api/auth/ws-token` mints the WebSocket upgrade token for (`layers/core-api/src/app.ts`, `routes/auth.ts`). In shared mode it is the authenticated caller; in local mode the `X-Identity` header may name the identity, which is safe because the caller already holds the master key. `X-Identity` grants no authority anywhere else.
+
+Endpoints are mode-agnostic. The invariant: **authorization always reads the Principal the middleware resolved, never a header.**
 
 ## Worker
 

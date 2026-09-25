@@ -608,7 +608,7 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 			}) ?? [];
 		disposers.push(...serviceDisposers);
 
-		// AD5 AC-2: Auto-unblock dependent tasks when a task transitions to "done".
+		// Auto-unblock dependent tasks when a task transitions to "done".
 		// @lore AD5 option-A: handler lives in app.ts (server layer) — fabric cannot
 		// import from server (layer violation). checkAndUnblockDependents relocated
 		// to `@hyperidle/task` (renamed from `@hyperidle/work`) — it

@@ -1,12 +1,12 @@
 /**
- * AM1 — Part vocabulary + source adapters.
+ * Part vocabulary + source adapters.
  *
  * A `Part` is the typed rendering unit of a conversation. Parts are DERIVED
- * from a source (Message[] today; session events tomorrow — AM3) and NEVER
+ * from a source (Message[] today; session events tomorrow) and NEVER
  * stored. The renderer (`layers/core-ui/src/components/PartList.tsx`) imports
  * ONLY this module's `Part`/`Embed`/`OpenTarget` vocabulary — never a source
  * type (`Message`/`InlineRef`/`HarnessEvent`). That import-absence is the
- * AM1↔AM3 reuse boundary, enforced by a scoped `no-restricted-imports` ESLint
+ * conversation↔session reuse boundary, enforced by a scoped `no-restricted-imports` ESLint
  * rule (W1). The adapters below are the ONLY place that knows the source.
  *
  * @lore AM1: `prose` (the render kind) is deliberately decoupled from `plain`
@@ -65,7 +65,7 @@ type PartKind =
 	| "unknown";
 
 /**
- * AM3: Closed tool-family set — icon/verb/expanded-shape per family.
+ * Closed tool-family set — icon/verb/expanded-shape per family.
  * An unrecognized family falls back to "generic" (mirrors `unknown` Part discipline).
  *
  * @lore AM3: `generic` is the explicit fallback entry — never throw on an unknown
@@ -493,12 +493,12 @@ function diffEmbed(label: string, added: number, removed: number): Embed {
 }
 
 /**
- * AM3: Map normalized `ActivityEntry[]` → `Part[]`.
+ * Map normalized `ActivityEntry[]` → `Part[]`.
  *
  * This is the ONLY place that knows `ActivityEntry`; the renderer (`PartList`)
  * imports only the `Part`/`Embed`/`OpenHandler` vocabulary — never `ActivityEntry`
  * or any harness type. Signature takes `ActivityEntry[]` only — NO harness-type
- * parameter (compile-time proof the renderer can't branch on backend, AC4).
+ * parameter (compile-time proof the renderer can't branch on backend).
  *
  * Mapping rules (architecture.md §b):
  *  - `tool_call`    → `tool` Part (verb/target/toolKind/status/output; file-change carries `diff` Embed)

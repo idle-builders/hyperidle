@@ -422,7 +422,7 @@ function assemblePrompt(input: PromptCompositionInput): PromptCompositionResult 
  */
 /**
  * Root-level files emitted by writeSandboxAgentsMd (dual-write: AGENTS.md + CLAUDE.md).
- * Exported so the AO2 scaffolding-drift-guard can assert coverage.
+ * Exported so the scaffolding-drift-guard can assert coverage.
  *
  * @lore AO2: These tracked files are critical for the self-host case: this repo
  * itself tracks AGENTS.md and CLAUDE.md. Assembly overwrites them with the assembled

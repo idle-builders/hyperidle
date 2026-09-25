@@ -74,7 +74,7 @@ export function sessionOutcomeToStatus(outcome: SessionOutcome): Status {
 }
 
 /**
- * AI4 Decision 6: Task outcome verdict → presentation Status. Exhaustive.
+ * Task outcome verdict → presentation Status. Exhaustive.
  *
  * @lore AI4 Decision 6: partial/rework → behind (amber). "Not a clean win."
  */

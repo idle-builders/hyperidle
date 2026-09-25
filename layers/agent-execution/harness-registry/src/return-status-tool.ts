@@ -8,7 +8,7 @@
  * Key semantics:
  *   - returned=true OR exempt=true OR budgetLeft=0 → forceMessage: null (allow end)
  *   - returned=false AND !exempt AND budgetLeft>0 → forceMessage = the tailored forcing
- *     message for the session's `requiredReturnActions` (AU27 Increment 3, Decision 3),
+ *     message for the session's `requiredReturnActions`,
  *     or the default `FORCE_RETURN_MESSAGE` when the session has no specific
  *     requirement (the pre-Increment-3 default)
  *   - calling the tool with forceMessage!==null increments forceCount in registry

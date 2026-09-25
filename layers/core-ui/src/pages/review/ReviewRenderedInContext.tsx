@@ -1,4 +1,4 @@
-// AL1 review canvas #4 — rendered-in-context.
+// Canvas #4 — rendered-in-context.
 //
 // Proof family: an asset shown AS its recipient sees it. Fixture: a Mailchimp
 // marketing launch email. The reviewer's question is "does this land right in

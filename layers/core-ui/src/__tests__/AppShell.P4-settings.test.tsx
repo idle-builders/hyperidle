@@ -134,7 +134,7 @@ describe("AppShell — P4 Settings overlay", () => {
 						documents: [],
 						threads: [],
 						nextCursor: null,
-						// auth/me response
+						// current-user fields
 						id: "u-founder",
 						name: "Test Founder",
 						avatarUrl: null,

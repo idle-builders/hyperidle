@@ -1,5 +1,5 @@
 /**
- * AO1 — SettingsFilesystems: the folders a person's team can reach.
+ * SettingsFilesystems: the folders a person's team can reach.
  *
  * @lore BC5 T10: the door swap — `call("open_user", {})` replaces the
  * `/api/org` + `/api/filesystems?teamId=` pair (architecture.md §8). A

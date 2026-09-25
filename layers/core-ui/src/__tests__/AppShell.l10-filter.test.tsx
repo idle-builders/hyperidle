@@ -197,7 +197,7 @@ describe("Conversations page — L10 filter wiring (via AppShell OutletContext)"
 	});
 
 	it("loading state: shows loading skeleton while fetch is in-flight", async () => {
-		// /api/auth/me resolves quickly, then search_threads never resolves → infinite loading.
+		// open_user resolves quickly, then search_threads never resolves → infinite loading.
 		stubFetchAuthOnly();
 		callMock.mockImplementation(async (action: string) => {
 			if (action === "search_threads") return new Promise(() => {});

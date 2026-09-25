@@ -347,7 +347,7 @@ function SectionHeader({
 }
 
 // ---------------------------------------------------------------------------
-// Assistant icon button — robot glyph (AD9 fix 2)
+// Assistant icon button — robot glyph
 // @lore AD9: Assistant moved to TOP row (next to search field) per SidebarV2
 // design (founder /human-design-review). The button is still aria-accessible.
 // ---------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 /**
- * AM1 — the OpenTarget → navigation seam (CONFUSION-A; AC8 / N1).
+ * The OpenTarget → navigation seam.
  *
  * The PartList renderer carries routing DESCRIPTORS (`OpenTarget`), never
  * `navigate` calls. The page binds the renderer's `onOpen` to a handler that
@@ -10,7 +10,7 @@
  * Route map (the §6 routing contract):
  *   host    → resolveHostRoute(hostKind, hostId)   (total over HostKind; null = no-op, e.g. user)
  *   review  → /reviews/:reviewId
- *   session → fires the page-supplied `onOpenSession` callback (AM3); no route,
+ *   session → fires the page-supplied `onOpenSession` callback; no route,
  *             the page owns where the session view mounts
  *
  * @lore AM1 C1: a block/entity routes to its HOST surface via `resolveHostRoute`
@@ -35,7 +35,7 @@ export type NavigateFn = (path: string) => void;
 /** Page-supplied routing context the source-agnostic adapter cannot know. */
 export interface OpenHandlerContext {
 	/**
-	 * AM3: callback to open a session view (entry + sub-agent recursion).
+	 * Callback to open a session view (entry + sub-agent recursion).
 	 * When supplied, fires for `case "session"` instead of the old no-op.
 	 * A sub-agent `tool` row fires the SAME open seam → the same surface, recursed.
 	 *

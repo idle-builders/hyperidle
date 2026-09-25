@@ -1,5 +1,5 @@
 /**
- * AL7 delta — Per-session CLI MCP config writer.
+ * Per-session CLI MCP config writer.
  *
  * Each supported CLI binary reads MCP server configuration from a binary-specific
  * dialect file written into the per-session sandbox. This writer handles both:

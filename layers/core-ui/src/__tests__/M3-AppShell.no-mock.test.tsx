@@ -40,7 +40,7 @@ describe("M3 — AppShell: no 'u-founder' in DOM (A11)", () => {
 			ok: true,
 			json: () =>
 				Promise.resolve({
-					// /api/auth/me response
+					// current-user fields
 					id: "real-user-id",
 					name: "Real User",
 					avatarUrl: null,

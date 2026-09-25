@@ -1,5 +1,5 @@
 /**
- * deriveInitials — AI5 E5: canonical avatar-initials derivation.
+ * deriveInitials — canonical avatar-initials derivation.
  *
  * @lore AI5: Consolidates 3 distinct inline algorithms across 6 sites
  * (slice+upper, bare slice, word-initials) into ONE rendering, per AC1

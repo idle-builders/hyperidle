@@ -31,12 +31,6 @@ function stubFetch(): void {
 		"fetch",
 		vi.fn(async (input: RequestInfo | URL) => {
 			const url = typeof input === "string" ? input : input.toString();
-			if (url.includes("/api/auth/me")) {
-				return {
-					ok: true,
-					json: async () => ({ id: "u-test", name: "Tester", avatarUrl: null }),
-				} as Response;
-			}
 			if (url.includes("/api/teams")) {
 				return {
 					ok: true,

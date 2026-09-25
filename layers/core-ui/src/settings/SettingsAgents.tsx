@@ -1,7 +1,7 @@
 /**
  * SettingsAgents — Agent Configuration settings section.
  *
- * AV2: Rewritten to use SplitView + ItemList/Row. Key changes:
+ * Rewritten to use SplitView + ItemList/Row. Key changes:
  *  - Remove `role !== "assistant"` filter — assistant is now a row in the list.
  *  - Use AgentEditor (shared editor) in the SplitView destination pane.
  *  - Model dropdown reads descriptor.models (discovered), NOT MODEL_CATALOG.

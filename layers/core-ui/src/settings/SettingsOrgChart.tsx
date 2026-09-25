@@ -465,7 +465,7 @@ function AddEdgeForm({
 							options={users.map((u) => ({ id: u.id, label: u.name }))}
 						/>
 					) : mechanism === "team" ? (
-						/* AF15: Team select from real teams (each user's effective `team`).
+						/* Team select from real teams (each user's effective `team`).
 						 * value=team.id (teams.id — what the server validates for mechanism:"team").
 						 * label=team.name (human-readable).
 						 * @lore AF15: The old deriveTeams() derived from existing edges — circular.

@@ -174,7 +174,7 @@ async function endSession(
 
 	// 2. Update session row.
 	const now = new Date().toISOString();
-	// AF7 §4.3 (Z8-094/095): CAS terminal write. SET only WHERE state='active', so
+	// CAS terminal write. SET only WHERE state='active', so
 	// a duplicate teardown — or a teardown for a session a different writer already
 	// finalized (e.g. a handoff that set state='done') — affects ZERO rows and is a
 	// no-op. The runtime is the SOLE terminal-state writer for a session it runs.
@@ -182,7 +182,7 @@ async function endSession(
 	// WARNING-A: `terminalOutcome` overrides the previously hardcoded "completed"
 	// in BOTH the row write and the event emit. This ensures a not_returned turn is
 	// persisted correctly in the DB and carried on the bus — not just in the in-memory
-	// ProvisionSessionResult. Passing "not_returned" here is what gives AC1/AC3 real
+	// ProvisionSessionResult. Passing "not_returned" here is what gives the not-returned outcome real
 	// teeth at the persistence layer.
 	//
 	// @lore A stopped session writes state "stopped", not "done" — the

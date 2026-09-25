@@ -19,10 +19,10 @@ export interface ToggleProps {
 	on?: boolean;
 	label: string;
 	/**
-	 * AM4: When true, the label is rendered as sr-only (visually hidden) and no
+	 * When true, the label is rendered as sr-only (visually hidden) and no
 	 * adjacent text is shown. The `label` prop is still required for a11y — it becomes
 	 * the aria-label on the track button. Reusable for any settings row that toggles
-	 * without adjacent text (clears the 2+-context bar; founder minor decision AM4).
+	 * without adjacent text (clears the 2+-context bar; a founder decision).
 	 *
 	 * @lore AM4: Folded into DS Toggle as a reusable variant rather than hand-rolled
 	 * per-component. The label-less track has identical visual + a11y contract (role="switch",
@@ -43,7 +43,7 @@ export function Toggle({
 	onChange,
 	disabled = false,
 }: ToggleProps): JSX.Element {
-	// Label-hidden variant: inline button + sr-only span for a11y (AM4)
+	// Label-hidden variant: inline button + sr-only span for a11y
 	// @lore AM4: button is inlined (not extracted to a variable) because biome's
 	// noLabelWithoutControl rule uses static analysis and can't follow JSX variable refs.
 	// Extracting `track` caused the default variant's <label> to fail the lint rule.

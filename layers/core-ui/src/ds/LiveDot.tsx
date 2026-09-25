@@ -1,7 +1,7 @@
 import type { JSX } from "react";
 
 /**
- * AI4 Task 5: Promoted from WorkTask.tsx and TaskSheet.tsx where identical
+ * Promoted from WorkTask.tsx and TaskSheet.tsx where identical
  * inline implementations existed. The @lore AF12 comment asked for this promotion.
  *
  * @lore AI4: Two identical LiveDot inline components existed in WorkTask.tsx and

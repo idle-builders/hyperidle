@@ -98,17 +98,6 @@ function setupFetch(): void {
 				json: () => Promise.resolve({ ok: true, data: { session: SESSION_ROW, activity: [] } }),
 			});
 		}
-		if (typeof url === "string" && url.includes("/api/auth/me")) {
-			return Promise.resolve({
-				ok: true,
-				json: () =>
-					Promise.resolve({
-						id: "viewer-1",
-						name: "Viewer",
-						avatarUrl: null,
-					}),
-			});
-		}
 		return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
 	});
 }

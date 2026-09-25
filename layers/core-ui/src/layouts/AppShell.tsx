@@ -257,7 +257,7 @@ export function AppShell(): JSX.Element {
 	}, [drawerOpen]);
 
 	/**
-	 * AE4: Derive whether the current route is a "detail" route that should
+	 * Derive whether the current route is a "detail" route that should
 	 * show a back arrow instead of the hamburger.
 	 *
 	 * Matches:
@@ -286,7 +286,7 @@ export function AppShell(): JSX.Element {
 	}, [location.pathname]);
 
 	/**
-	 * AE4: Navigate to the parent list view (explicit path, not navigate(-1)).
+	 * Navigate to the parent list view (explicit path, not navigate(-1)).
 	 * @lore AE4: Using navigate(-1) would break deep links (opening a detail
 	 * page directly in a browser would navigate back to the previous session's
 	 * URL rather than the parent list). Explicit parent paths are always correct.
@@ -317,7 +317,7 @@ export function AppShell(): JSX.Element {
 		[location.pathname],
 	);
 
-	// AF14 AC5: Assistant overlay state (renamed from CoC overlay).
+	// Assistant overlay state (renamed from CoC overlay).
 	// @lore AF14: AF14 completes the Coc→Assistant rename started in AD8b.
 	// AppShell is the single mount site for AssistantOverlay (two branches: mobile + desktop).
 	const [assistantOverlayOpen, setAssistantOverlayOpen] = useState(false);
@@ -368,7 +368,7 @@ export function AppShell(): JSX.Element {
 		}
 	}, [searchParams, navigate]);
 
-	// AE2: Auto-open the assistant overlay when ?onboarding=true is in the URL.
+	// Auto-open the assistant overlay when ?onboarding=true is in the URL.
 	// Pattern mirrors the ?settings=open handler above.
 	// @lore AE2: After successful setup, SetupFlow navigates to /work/portfolio?onboarding=true.
 	// AppShell detects this param, opens AssistantOverlay, and removes the param.
@@ -647,7 +647,7 @@ export function AppShell(): JSX.Element {
 		[sidebarDocuments],
 	);
 
-	// AE4: Derive blocking count from thread list (threads with unresolved reviews).
+	// Derive blocking count from thread list (threads with unresolved reviews).
 	// @lore AE4: conversationsBlockingCount is not fetched separately — it is derived
 	// from the thread list already loaded for the sidebar. This avoids an extra API call.
 	// The same derived value is passed to Sidebar so the badge renders correctly (AD5 gap).

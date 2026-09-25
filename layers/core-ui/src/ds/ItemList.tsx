@@ -1,5 +1,5 @@
 /**
- * AG6: Container for Row-based lists. Owns the list surface and the
+ * Container for Row-based lists. Owns the list surface and the
  * empty/loading/error/populated state machine.
  *
  * State precedence: error → loading → empty (when isEmpty===true) → children.

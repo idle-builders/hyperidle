@@ -9,7 +9,7 @@
  *
  * The edit surface is the point: title, description, doneCondition,
  * ownerAgentId and state are all editable via `edit_task` with no role gate
- * or approval step (AC7 / AC10).
+ * or approval step.
  *
  * @lore BB1: bets are gone; root tasks (parentTaskId === null) are the top
  * of the work tree. The breadcrumb is built from ancestors, not from a fixed

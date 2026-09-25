@@ -1,5 +1,5 @@
 /**
- * AH2 — validate the (harnessType, modelProvider, modelId) triple an agent's
+ * Validate the (harnessType, modelProvider, modelId) triple an agent's
  * run config carries, against the adapter pool + the model catalog.
  *
  * @lore architecture.md §6: moved verbatim from `layers/core-api/src/

@@ -1,5 +1,5 @@
 /**
- * WorkOverview — AD9: Work landing page replacing WorkPortfolio.
+ * WorkOverview — the Work landing page.
  *
  * Flat, attention-sorted team list — one row per team with status chip + active-bet count.
  * Mirrors the Conversations/Knowledge overview frame.
@@ -13,7 +13,7 @@
  * State contract (in order):
  *   loading        → SkeletonList(rows=4)
  *   error          → ErrorState("Couldn't load teams")
- *   1 team         → <Navigate to="/work/team/:id" replace>    ← AC11 single chokepoint
+ *   1 team         → <Navigate to="/work/team/:id" replace>    ← single chokepoint
  *   0 teams        → EmptyState (finish setup)
  *   2+ teams       → attention-sorted ItemList of Rows
  *

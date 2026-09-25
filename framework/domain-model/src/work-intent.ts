@@ -106,7 +106,7 @@ export interface BakedWorkIntentRequest {
 }
 
 /**
- * AU21 §9 Increment 12 (Decision H3), Wave E — the target agent's
+ * The target agent's
  * admission-relevant configuration, baked at emit time from the SAME
  * `agent: User` row every per-kind resolver already loads via
  * `requireRunnableAgent` to validate the ast-`<userId>` invariant. Carries the
@@ -228,7 +228,7 @@ export interface BakedContextDocument {
 }
 
 /**
- * AU21 §9 Increment 12 (Decision H3), Wave B — the structural shape
+ * The structural shape
  * `@hyperidle/document`'s `assembleSessionDocuments` (Wave A) returns
  * (`SessionDocument`), duck-typed here so `work`/`user`/
  * `review`'s per-kind resolvers can type their INJECTED `assembleSessionDocuments`

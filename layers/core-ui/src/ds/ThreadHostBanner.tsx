@@ -41,7 +41,7 @@ function PinIcon(): JSX.Element {
 // L1b banner overflow menu; ship the smaller surface for now.
 
 /**
- * AE5: PresenceDot — 6px status indicator on agent avatars.
+ * PresenceDot — 6px status indicator on agent avatars.
  * Renders only for active/error statuses; idle renders as no dot (absence = idle).
  * The dot carries aria-label for screen reader accessibility.
  *

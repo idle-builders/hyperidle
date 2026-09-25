@@ -1,5 +1,5 @@
 /**
- * AM3 — ReasoningPart renderer: a span of agent thinking.
+ * ReasoningPart renderer: a span of agent thinking.
  *
  * Collapsed by default to "Thought for Ns" (italic, tertiary).
  * Expands to quiet/muted prose under a left rule.

@@ -1,5 +1,5 @@
 /**
- * AU21 — `AgentOrchestrationPort`: agent-orchestration's own read door
+ * `AgentOrchestrationPort`: agent-orchestration's own read door
  * (architecture.md §6 Decision D, §9 Increment 6, §10), symmetric in shape to
  * `CoreApiPort` (Decision A/C, Increment 1) but the OPPOSITE direction: it
  * serves what agent-orchestration genuinely owns — session/run history — to

@@ -55,11 +55,7 @@ beforeEach(() => {
 		}
 		return { ok: true, data: [] };
 	});
-	global.fetch = vi.fn(async (url: string | URL | Request) => {
-		const urlStr = typeof url === "string" ? url : url instanceof URL ? url.href : url.url;
-		if (urlStr.includes("/api/auth/me")) {
-			return { ok: true, json: async () => ({ id: "u-founder", name: "Founder" }) };
-		}
+	global.fetch = vi.fn(async () => {
 		return { ok: true, json: async () => ({ threads: [], nextCursor: null }) };
 	}) as unknown as typeof fetch;
 });

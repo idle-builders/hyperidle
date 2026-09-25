@@ -1,5 +1,5 @@
 /**
- * AF8 — NotificationPopover
+ * NotificationPopover
  *
  * In-app notification inbox popover. Anchored to the notification trigger
  * in the Sidebar bottom strip.
