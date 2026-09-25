@@ -144,5 +144,3 @@ picked once at install; changing it later is the ordinary agent edit.
 - The lower-level installer function still accepts any team id; only `edit_plugin` checks, and every
   real path goes through it.
 - The remote server runs no boot seed (unchanged): a fresh shared database needs `db:bootstrap:pg`.
-- Maintainer-owned `.claude/rules/docs.md:11` still lists `system-prompts/` — a pipeline run may not
-  edit rule files; the founder's edit.
