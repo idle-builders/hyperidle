@@ -199,6 +199,10 @@ export interface PlatformActionsDeps {
 	readonly firstAvailableHarness?: (db: HyperIdleDb) => Promise<HarnessPick | null>;
 	/** The team a viewer judges availability by: their own, else their owner's. */
 	readonly viewerTeamId: (db: HyperIdleDb, actorId: string) => Promise<string | null>;
+	/** Whether a team exists, asked of the module that owns teams. */
+	readonly teams: {
+		exists(exec: WriteExecutor, teamId: string): Promise<boolean>;
+	};
 }
 
 /** The three run-config fields a harness pick fills. */
@@ -595,6 +599,17 @@ async function installRun(
 	deps: PlatformActionsDeps,
 	source: EditPluginSource,
 ): Promise<ActionResult<PluginView>> {
+	// @lore A team install's id and folder are `<name>@<teamId>`, and the
+	// installer removes that folder before copying into it. A team id that is
+	// not a real team (`../../../x`) would put that remove-and-copy outside the
+	// install root, so it is refused here, before any row or folder is written.
+	if (source.scope.kind === "team" && !(await deps.teams.exists(ctx.db, source.scope.teamId))) {
+		return problem(
+			"unknown_team",
+			`No team "${source.scope.teamId}" to install the plugin for.`,
+			"source.scope.teamId",
+		);
+	}
 	const pluginSource = toPluginSource(source, deps.bundledPluginsDir);
 	if (!pluginSource) {
 		return problem(

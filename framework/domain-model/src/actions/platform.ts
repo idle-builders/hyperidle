@@ -176,8 +176,8 @@ export const PLATFORM_ACTIONS = {
 // ---------------------------------------------------------------------------
 // editPluginInvariants — pure. The four pure invariants declared for
 // `edit_plugin`. The DB-dependent ones it also names (`unknown_plugin`, `unknown_contribution`,
-// `install_failed`, `plugin_removed`) need the database and run inside
-// `edit_plugin.run` (a later task), not here.
+// `install_failed`, `plugin_removed`, `unknown_team` — a team install for a team that does not
+// exist) need the database and run inside `edit_plugin.run`, not here.
 // ---------------------------------------------------------------------------
 
 export function editPluginInvariants(input: EditPluginInput): Problem[] {

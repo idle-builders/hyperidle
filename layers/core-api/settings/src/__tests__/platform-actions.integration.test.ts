@@ -11,13 +11,15 @@
  * exists to protect (top-of-file @lore in `platform-actions.ts`) only means
  * something against the real thing.
  */
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
 	changes,
 	documents,
 	type HyperIdleDb,
+	pluginConfigurationDefaults,
+	plugins,
 	subscriptions,
 	teams,
 	users,
@@ -189,6 +191,16 @@ function buildDeps(overrides: Partial<PlatformActionsDeps> = {}): PlatformAction
 			write: async () => {},
 		},
 		viewerTeamId: async () => null,
+		teams: {
+			exists: async (exec, teamId) => {
+				const [row] = await exec
+					.select({ id: teams.id })
+					.from(teams)
+					.where(eq(teams.id, teamId))
+					.limit(1);
+				return row !== undefined;
+			},
+		},
 		...overrides,
 	};
 }
@@ -589,6 +601,64 @@ describe("createPlatformActions", () => {
 			expect(result.ok).toBe(false);
 			if (result.ok) throw new Error("expected refusal");
 			expect(result.problems[0]?.code).toBe("unknown_plugin");
+		});
+	});
+
+	describe("edit_plugin — a team install", () => {
+		test("a team id that is not a real team is unknown_team: no row, no folder, nothing outside the install root touched", async ({
+			db,
+		}) => {
+			await seedFounder(db);
+			const root = mkdtempSync(join(tmpdir(), "platform-actions-root-"));
+			const pluginsBaseDir = join(root, "installed-plugins");
+			mkdirSync(pluginsBaseDir);
+			const outside = join(root, "precious");
+			mkdirSync(outside);
+			writeFileSync(join(outside, "keep.txt"), "not a plugin");
+			const { edit } = typedActions(buildDeps({ pluginsBaseDir }));
+
+			const result = await edit.run(ctxFor(db), {
+				source: {
+					kind: "folder",
+					path: makePlugin("crafted-team"),
+					scope: { kind: "team", teamId: "../../../precious" },
+				},
+			});
+
+			expect(result.ok).toBe(false);
+			if (!result.ok) expect(result.problems[0]?.code).toBe("unknown_team");
+			expect(await db.select().from(plugins).where(eq(plugins.name, "crafted-team"))).toEqual([]);
+			expect(readdirSync(pluginsBaseDir)).toEqual([]);
+			expect(readdirSync(outside)).toEqual(["keep.txt"]);
+			expect(existsSync(join(outside, "plugin.json"))).toBe(false);
+		});
+
+		test("two teams' installs of a plugin with configuration defaults each keep their own defaults", async ({
+			db,
+		}) => {
+			await seedFounder(db);
+			await db.insert(teams).values([
+				{ id: "team-a", name: "Team A", createdAt: NOW },
+				{ id: "team-b", name: "Team B", createdAt: NOW },
+			]);
+			const { edit } = typedActions(buildDeps());
+			const dir = makePlugin("with-defaults");
+
+			for (const teamId of ["team-a", "team-b"]) {
+				const result = await edit.run(ctxFor(db), {
+					source: { kind: "folder", path: dir, scope: { kind: "team", teamId } },
+				});
+				if (!result.ok) throw new Error(`${teamId}: ${JSON.stringify(result.problems)}`);
+			}
+
+			const defaults = await db
+				.select()
+				.from(pluginConfigurationDefaults)
+				.where(eq(pluginConfigurationDefaults.key, "with-defaults/max-items"));
+			expect(defaults.map((d) => d.pluginId).sort()).toEqual([
+				"with-defaults@team-a",
+				"with-defaults@team-b",
+			]);
 		});
 	});
 

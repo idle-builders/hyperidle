@@ -267,6 +267,7 @@ function buildPlatformActionsDeps(
 		// (a fresh install's only agent is one), and with its own team alone it
 		// could never offer its person a team plugin. The same effective-team rule
 		// `open_user` answers with; read here with two `findUser` lookups.
+		teams: { exists: async (exec, teamId) => (await getTeam(exec, { id: teamId })) !== undefined },
 		viewerTeamId: async (exec, actorId) => {
 			const viewer = await findUser(exec, { id: actorId });
 			if (!viewer) return null;
