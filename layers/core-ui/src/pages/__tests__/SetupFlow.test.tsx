@@ -46,7 +46,6 @@ function openUserData(): Record<string, unknown> {
 		folders: [],
 		subscriptions: [],
 		connections: null,
-		behaviour: null,
 		inbox: null,
 	};
 }

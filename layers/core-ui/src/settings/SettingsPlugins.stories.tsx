@@ -9,16 +9,13 @@
  *
  * Renders the POPULATED real state: three plugins covering the key variants:
  *   1. Enabled · factory scope · no contributions
- *   2. Enabled · team scope · one contribution detached (user override)
+ *   2. Enabled · team scope · one contribution detached (a person edited it)
  *   3. Disabled · factory scope · one clean contribution
  * followed by the two plugins that ship with the app, available to install
  * (one per team, one factory-wide), each with its description and Install.
  *
- * @lore BA9a scope-deferral: scope is stored and shown here. Team-scoped filtering
- * bites during session materialisation (BA9b) — operators see scope now.
- *
- * @lore BA9a detached: "detached" = contribution has a user override on top
- * of the plugin default (valueSource === "user_override"). Restore clears it.
+ * "Detached" = a person edited the agent, subscription or document the plugin
+ * put there; Restore brings back the plugin's own version.
  */
 
 // hearth-internal-padding
@@ -70,7 +67,7 @@ const PLUGINS: PluginView[] = [
 		scope: { kind: "team", teamId: "team-sales" },
 		contributions: [
 			{ kind: "agent", manifestKey: "crm-agent", detached: true },
-			{ kind: "skill", manifestKey: "lookup-contact", detached: false },
+			{ kind: "document", manifestKey: "lookup-contact", detached: false },
 		],
 	},
 	{
@@ -79,7 +76,7 @@ const PLUGINS: PluginView[] = [
 		version: "0.9.2",
 		state: "disabled",
 		scope: { kind: "factory", teamId: null },
-		contributions: [{ kind: "tool", manifestKey: "invoice-create", detached: false }],
+		contributions: [{ kind: "mcp_server", manifestKey: "invoice-create", detached: false }],
 	},
 ];
 

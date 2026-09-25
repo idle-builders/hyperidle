@@ -74,7 +74,6 @@ function mockFetch(descriptors: HarnessCapabilityDescriptor[]): void {
 					folders: [],
 					subscriptions: [],
 					connections: null,
-					behaviour: null,
 					inbox: null,
 				},
 			});

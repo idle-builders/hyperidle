@@ -30,7 +30,6 @@ function userView(user: Record<string, unknown> | null): {
 			folders: [],
 			subscriptions: [],
 			connections: null,
-			behaviour: null,
 			inbox: null,
 		},
 	};

@@ -96,7 +96,6 @@ const OPEN_USER_RESULT = {
 		folders: [],
 		subscriptions: [],
 		connections: null,
-		behaviour: null,
 		inbox: null,
 	},
 };

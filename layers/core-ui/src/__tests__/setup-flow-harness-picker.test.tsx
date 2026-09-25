@@ -113,7 +113,6 @@ function openUserData(descriptors: HarnessCapabilityDescriptor[]): Record<string
 		folders: [],
 		subscriptions: [],
 		connections: null,
-		behaviour: null,
 		inbox: null,
 	};
 }

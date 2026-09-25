@@ -144,7 +144,6 @@ function setupCall(store: MockAgent[]): void {
 						folders: [],
 						subscriptions: [],
 						connections: null,
-						behaviour: null,
 						inbox: null,
 					},
 				});
@@ -174,7 +173,6 @@ function setupCall(store: MockAgent[]): void {
 					folders: [],
 					subscriptions: [],
 					connections: null,
-					behaviour: null,
 					inbox: null,
 				},
 			});

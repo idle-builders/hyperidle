@@ -111,7 +111,6 @@ describe("AH2 AC2: Agent list rows show no per-row harness warning", () => {
 						folders: [],
 						subscriptions: [],
 						connections: null,
-						behaviour: null,
 						inbox: null,
 					},
 				});

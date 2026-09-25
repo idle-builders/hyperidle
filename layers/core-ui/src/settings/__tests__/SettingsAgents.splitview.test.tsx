@@ -3,7 +3,6 @@
  *
  * AC-1: Assistant is a row; no role filter; clicking opens the shared editor in SplitView
  * AC-2: Agent detail opens in SplitView; model dropdown uses discovered models
- * AC-5: Worker section removed (worker removed from SETTINGS_SECTIONS union)
  *
  * @lore BC5 T9: the door swap — `call` mocked at the door. `open_user({ id
  * })` carries `documentIds` (agent_file slot → identityDocumentId) and
@@ -136,7 +135,6 @@ function setupCall(agents: MockAgent[] = MOCK_AGENTS): void {
 						folders: [],
 						subscriptions: [],
 						connections: null,
-						behaviour: null,
 						inbox: null,
 					},
 				});
@@ -160,7 +158,6 @@ function setupCall(agents: MockAgent[] = MOCK_AGENTS): void {
 					folders: [],
 					subscriptions: [],
 					connections: null,
-					behaviour: null,
 					inbox: null,
 				},
 			});

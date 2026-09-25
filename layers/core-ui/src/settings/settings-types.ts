@@ -1,72 +1,13 @@
 /**
- * Settings section IDs, constants, and shared settings types.
+ * Shared settings types.
  *
  * @lore P4 Decision 1: Types live in layers/core-ui/src/settings/settings-types.ts
- * (not in a framework package, because these are web-only). This is a separate file from
- * SettingsPanel.tsx so the overlay pattern can import section ids without
- * importing the old modal component.
+ * (not in a framework package, because these are web-only).
  *
  * @lore P4 fix: All types migrated here from SettingsPanel.tsx so hooks and
  * section components can import from a stable location independent of the
  * SettingsPanel component lifecycle.
  */
-
-// --- Section navigation ---
-
-/**
- * AV2: Removed "worker" (folded under backend) and "models" (which lived in the built-in
- * harness's own detail pane, and went with it).
- * "assistant" was never in this union (handled in SettingsAssistant, now deleted — the assistant
- * is a row in the Agents section).
- */
-export type SettingsSectionId =
-	| "profile"
-	| "orgchart"
-	| "credentials"
-	| "notifications"
-	| "appearance"
-	| "agents"
-	| "agent-behavior"
-	| "filesystems"
-	| "backend";
-
-export interface SettingsSection {
-	id: SettingsSectionId;
-	label: string;
-}
-
-/**
- * @lore AF15: SETTINGS_SECTIONS is consumed by AppShell.tsx (settings sidebar nav).
- * AppShell.tsx filters this array into `visibleSettingsSections`, gating the "worker"
- * entry to shared-mode Electron only (worker section hidden in local/web mode).
- * Catalog updated for AF15: removed "teams" (no SettingsTeams component mounted);
- * added "agents" + "worker" (both mounted in SettingsPage).
- *
- * GOTCHA — binary-grep trap: plain `grep` / `git grep` (text mode) reports ZERO hits
- * for "SETTINGS_SECTIONS" in AppShell.tsx because that file contains a literal
- * control-character regex at line 88 and is classified as BINARY by git/grep.
- * `git grep` shows "Binary file AppShell.tsx matches" — that IS a hit.
- * Use `sed -n` or the Read tool to inspect real consumers; never trust a plain grep
- * "no references" verdict for any symbol in AppShell.tsx. This trap caused a
- * review false-negative (WARNING-1 in the AF15 architecture-critique).
- */
-/**
- * AV2: "worker" removed (folded under Backend). "models" removed — it lived in the
- * built-in harness's own detail pane in SettingsHarnesses, and went with that
- * harness. The assistant is now part of the "agents" section.
- */
-export const SETTINGS_SECTIONS: ReadonlyArray<SettingsSection> = [
-	{ id: "profile", label: "Profile" },
-	{ id: "orgchart", label: "Org chart" },
-	{ id: "agents", label: "Agents" },
-	{ id: "agent-behavior", label: "Agent behavior" },
-	// AO1: Filesystems registry section — team-scoped file sources (code repos, doc sets).
-	{ id: "filesystems", label: "Filesystems" },
-	{ id: "appearance", label: "Appearance" },
-	{ id: "credentials", label: "Credentials" },
-	{ id: "notifications", label: "Notifications" },
-	{ id: "backend", label: "Backend" },
-];
 
 /**
  * AO1: A team-registered filesystem as the per-bot injection control sees it.

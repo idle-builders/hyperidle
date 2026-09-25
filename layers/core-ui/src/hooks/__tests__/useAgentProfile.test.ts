@@ -54,7 +54,6 @@ const OPEN_USER_OK = {
 			},
 		],
 		connections: null,
-		behaviour: null,
 		inbox: null,
 	},
 };

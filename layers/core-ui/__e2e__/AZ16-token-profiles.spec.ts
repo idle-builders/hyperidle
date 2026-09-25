@@ -175,7 +175,6 @@ async function installAz16Mocks(page: Page): Promise<void> {
 				ok: true,
 				data: makeUserView(row, {
 					connections: self ? { connections: [], inherited: [] } : null,
-					behaviour: self ? [] : null,
 					inbox: self ? [] : null,
 					runsOn: row.kind === "ai" ? [] : [],
 				}),

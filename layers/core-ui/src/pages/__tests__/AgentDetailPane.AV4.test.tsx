@@ -90,7 +90,6 @@ function setupCall(): void {
 					folders: [],
 					subscriptions: [],
 					connections: null,
-					behaviour: null,
 					inbox: null,
 				},
 			});

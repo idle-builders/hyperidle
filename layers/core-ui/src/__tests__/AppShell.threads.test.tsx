@@ -76,7 +76,6 @@ function setFetchMock(threads: ThreadListRow[]): ReturnType<typeof vi.fn> {
 					folders: [],
 					subscriptions: [],
 					connections: null,
-					behaviour: null,
 					inbox: null,
 				},
 			};

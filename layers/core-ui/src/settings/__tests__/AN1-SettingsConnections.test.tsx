@@ -76,7 +76,6 @@ function openUserData(): Record<string, unknown> {
 			connections: [TOKEN_STRIPE, TOKEN_SENDGRID_NEEDS_ATTENTION, MCP_FIGMA],
 			inherited: [INHERITED_GITHUB],
 		},
-		behaviour: null,
 		inbox: null,
 	};
 }

@@ -131,7 +131,6 @@ test.describe("AH4 AC6 — Settings Agents add form shows team placement", () =>
 						folders: [],
 						subscriptions: [],
 						connections: null,
-						behaviour: null,
 						inbox: null,
 						reviewTrackRecord: null,
 					},

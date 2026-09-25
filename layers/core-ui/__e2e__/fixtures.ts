@@ -129,7 +129,6 @@ async function fulfillDefaultOpenUser(route: import("@playwright/test").Route): 
 			ok: true,
 			data: makeUserView(DEFAULT_USER_ROW, {
 				connections: { connections: [], inherited: [] },
-				behaviour: [],
 				inbox: [],
 			}),
 		}),
@@ -545,7 +544,6 @@ export function makeUserView(row: UserRow | null, overrides: Partial<UserView> =
 		folders: [],
 		subscriptions: [],
 		connections: null,
-		behaviour: null,
 		inbox: null,
 		reviewTrackRecord: null,
 		...overrides,
@@ -567,7 +565,6 @@ export interface MockUserOptions {
 	readonly folders?: UserView["folders"];
 	readonly subscriptions?: UserView["subscriptions"];
 	readonly connections?: UserView["connections"];
-	readonly behaviour?: UserView["behaviour"];
 	readonly inbox?: UserView["inbox"];
 	readonly reviewTrackRecord?: UserView["reviewTrackRecord"];
 	/** When set, `edit_user` replies with this HTTP status instead of 200. */
@@ -599,7 +596,6 @@ export async function mockUser(
 			folders: opts.folders,
 			subscriptions: opts.subscriptions,
 			connections: opts.connections,
-			behaviour: opts.behaviour,
 			inbox: opts.inbox,
 			reviewTrackRecord: opts.reviewTrackRecord,
 		});

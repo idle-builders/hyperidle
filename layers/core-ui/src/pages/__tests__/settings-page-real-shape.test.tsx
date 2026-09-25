@@ -11,8 +11,7 @@
  * `ConnectionView` (id/service/via/authSource/health/removable), no held
  * connections, no documents. Every section under scope
  * (SettingsConnections/DocumentSlotList/SettingsSkillsAndRules/
- * SettingsFilesystems/SettingsHarnesses/SettingsAgentBehavior/
- * SettingsNotifications) reads through this one `open_user` response.
+ * SettingsFilesystems/SettingsHarnesses/SettingsNotifications) reads through this one `open_user` response.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
@@ -99,7 +98,6 @@ function openUserData(): Record<string, unknown> {
 		folders: [],
 		subscriptions: [],
 		connections: { connections: [], inherited: inheritedRows() },
-		behaviour: [],
 		inbox: [],
 	};
 }
@@ -174,7 +172,6 @@ describe("SettingsPage on the real open_user shape", () => {
 			"settings-section-skills",
 			"settings-section-filesystems",
 			"settings-section-agent-backends",
-			"settings-section-agent-behavior",
 			"settings-section-notifications",
 		]) {
 			expect(screen.getByTestId(testId)).toBeInTheDocument();

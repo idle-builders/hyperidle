@@ -54,7 +54,6 @@ function mockFetch(descriptors: unknown[] = [CURSOR_READY_DESCRIPTOR]): void {
 					folders: [],
 					subscriptions: [],
 					connections: null,
-					behaviour: null,
 					inbox: null,
 				},
 			});

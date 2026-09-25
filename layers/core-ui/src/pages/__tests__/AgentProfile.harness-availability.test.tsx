@@ -46,7 +46,6 @@ function openUserOk(runsOn: ReadonlyArray<Record<string, unknown>>) {
 			folders: [],
 			subscriptions: [],
 			connections: null,
-			behaviour: null,
 			inbox: null,
 			reviewTrackRecord: null,
 		},

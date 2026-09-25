@@ -6,13 +6,8 @@
  * - Electron, local mode (backendMode != "shared"): show "requires shared backend mode"
  * - Electron, shared mode: show worker toggle, status, pause/resume
  *
- * @lore AF15: AppShell.tsx DOES reference SETTINGS_SECTIONS and filters the "worker"
- * entry into `visibleSettingsSections`, hiding it in non-shared-mode. That is the
- * primary gate. This component ALSO self-gates internally (non-electron / non-shared
- * guards) as defense-in-depth. It is mounted unconditionally in SettingsPage; the
- * AppShell nav gate keeps the tab invisible when the conditions aren't met.
- * Note: AppShell.tsx greps as binary (control-char at line 88) — use Read, not grep,
- * to verify its imports.
+ * Mounted unconditionally in SettingsPage's Backend section; these three guards
+ * are the only gate.
  */
 
 import { type JSX, useEffect, useState } from "react";

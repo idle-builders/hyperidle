@@ -50,7 +50,7 @@ const PLUGIN_WITH_DETACHED = {
 			detached: true,
 		},
 		{
-			kind: "skill",
+			kind: "document",
 			key: "acme-crm/lookup-contact",
 			manifestKey: "lookup-contact",
 			entityId: "acme-crm/lookup-contact",

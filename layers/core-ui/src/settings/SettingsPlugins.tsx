@@ -3,26 +3,22 @@
  *
  * Install from a git URL, zip path, or local folder path; choose factory
  * or team scope; list installed plugins; disable/enable/remove; restore
- * a contribution that was detached (user-overridden back to default).
+ * a contribution a person edited (detached) back to the plugin's version.
  * The plugins that ship with the app are listed beside the installed ones
  * as available, each with an Install button: a team plugin installs into
  * the viewer's own team, a factory plugin once for everyone.
  *
- * @lore BA9a scope-deferral: scope is stored and shown here, but team-scoped
- * plugins filter to the right team only during session materialisation (BA9b).
- * Operators can already see scope on each plugin row.
- *
- * @lore BA9a detached: a contribution is "detached" when the user has written
- * a configuration override on top of the plugin default (valueSource ===
- * "user_override"). Restore clears the override, returning to the plugin default.
+ * A contribution is "detached" when a person has edited the agent,
+ * subscription or document a plugin put there; a reinstall leaves it alone
+ * and Restore brings back the plugin's own version. The plugin's MCP servers
+ * are listed too, read from its install folder; they are never detached.
  *
  * @lore `/api/plugins` (six routes) replaced by `call("search_plugins",
  * …)`/`call("edit_plugin", …)` — the door swap, not a redesign, this page's
  * own header now says. Install/enable/disable/remove/restore are each one
  * `edit_plugin` change field. Restore used to branch on `REGISTRY_KINDS` to decide whether to name a
  * contribution by its entity id or its manifest key — the action's own
- * `PluginContributionView.key` is already the one namespaced key both
- * `entityId` and a configuration default's key collapse to, so the branch is
+ * `PluginContributionView.key` is the one name it takes, so the branch is
  * gone: every restore names the contribution with `key`.
  */
 
@@ -218,7 +214,6 @@ const KIND_LABEL: Record<string, string> = {
 	subscription: "subscription",
 	document: "document",
 	mcp_server: "MCP server",
-	harness_descriptor: "harness",
 };
 
 interface ContributionListProps {
