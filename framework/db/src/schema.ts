@@ -1,8 +1,4 @@
-import type {
-	ConfigurationKind,
-	PluginContributionKind,
-	PluginState,
-} from "@hyperidle/domain-model";
+import type { PluginContributionKind, PluginState } from "@hyperidle/domain-model";
 import { sql } from "drizzle-orm";
 import {
 	type AnyPgColumn,
@@ -46,8 +42,7 @@ export const users = pgTable(
 		teamId: text("team_id").references(() => teams.id, { onDelete: "restrict" }),
 		role: text("role").notNull(),
 		status: text("status").notNull(),
-		/** P2: human-specific nullable columns. Null for AI users. */
-		email: text("email"),
+		/** Null for AI users. */
 		avatarUrl: text("avatar_url"),
 		createdAt: text("created_at").notNull(),
 		/**
@@ -964,7 +959,7 @@ export const serverConfig = pgTable("server_config", {
 	updatedAt: text("updated_at").notNull(),
 });
 
-// --- AU2: Plugin-seeded editable configuration ---
+// --- Plugins: one row per install, and what each install contributed ---
 
 export const plugins = pgTable(
 	"plugins",
@@ -998,34 +993,6 @@ export const plugins = pgTable(
 		check("plugins_state_ck", sql`${table.state} IN ('enabled', 'disabled', 'removed')`),
 		check("plugins_scope_kind_ck", sql`${table.scopeKind} IN ('factory', 'team')`),
 		uniqueIndex("plugins_name_scope_uq").on(table.name, table.scopeKind, table.scopeTeamId),
-	],
-);
-
-export const pluginConfigurationDefaults = pgTable(
-	"plugin_configuration_defaults",
-	{
-		id: text("id").primaryKey(),
-		pluginId: text("plugin_id")
-			.notNull()
-			.references(() => plugins.id, { onDelete: "restrict", onUpdate: "cascade" }),
-		kind: text("kind").$type<ConfigurationKind>().notNull(),
-		key: text("key").notNull(),
-		defaultValueJson: text("default_value_json").notNull(),
-		defaultVersionHash: text("default_version_hash").notNull(),
-		createdAt: text("created_at").notNull(),
-		updatedAt: text("updated_at").notNull(),
-	},
-	(table) => [
-		uniqueIndex("plugin_config_defaults_plugin_kind_key_uq").on(
-			table.pluginId,
-			table.kind,
-			table.key,
-		),
-		index("plugin_config_defaults_kind_key_idx").on(table.kind, table.key),
-		check(
-			"plugin_configuration_defaults_kind_ck",
-			sql`${table.kind} IN ('agent', 'skill', 'subscription', 'tool', 'mcp_server', 'harness_descriptor')`,
-		),
 	],
 );
 
@@ -1070,36 +1037,8 @@ export const pluginContributions = pgTable(
 		index("plugin_contributions_entity_idx").on(table.kind, table.entityId),
 		check(
 			"plugin_contributions_kind_ck",
-			sql`${table.kind} IN ('agent', 'subscription', 'document', 'configuration_default')`,
+			sql`${table.kind} IN ('agent', 'subscription', 'document')`,
 		),
-	],
-);
-
-export const configurationOverrides = pgTable(
-	"configuration_overrides",
-	{
-		id: text("id").primaryKey(),
-		defaultId: text("default_id").references(() => pluginConfigurationDefaults.id, {
-			onDelete: "set null",
-		}),
-		kind: text("kind").$type<ConfigurationKind>().notNull(),
-		key: text("key").notNull(),
-		userValueJson: text("user_value_json").notNull(),
-		state: text("state").$type<"active" | "deleted">().notNull(),
-		createdByUserId: text("created_by_user_id").references(() => users.id, {
-			onDelete: "set null",
-		}),
-		createdAt: text("created_at").notNull(),
-		updatedAt: text("updated_at").notNull(),
-	},
-	(table) => [
-		uniqueIndex("configuration_overrides_kind_key_uq").on(table.kind, table.key),
-		index("configuration_overrides_default_id_idx").on(table.defaultId),
-		check(
-			"configuration_overrides_kind_ck",
-			sql`${table.kind} IN ('agent', 'skill', 'subscription', 'tool', 'mcp_server', 'harness_descriptor')`,
-		),
-		check("configuration_overrides_state_ck", sql`${table.state} IN ('active', 'deleted')`),
 	],
 );
 
@@ -1206,10 +1145,6 @@ export type DocumentRow = typeof documents.$inferSelect;
 // NewSubscription) replace them.
 
 export type PluginRow = typeof plugins.$inferSelect;
-
-export type PluginConfigurationDefaultRow = typeof pluginConfigurationDefaults.$inferSelect;
-
-export type ConfigurationOverrideRow = typeof configurationOverrides.$inferSelect;
 
 export type LoginSession = typeof loginSessions.$inferSelect;
 export type NewLoginSession = typeof loginSessions.$inferInsert;
