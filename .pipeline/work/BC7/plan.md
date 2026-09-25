@@ -141,14 +141,12 @@ picked once at install; changing it later is the ordinary agent edit.
 - The stored identity documents of the persona plugin carry raw `{{product}}` / `{{community}}`
   placeholders; they are substituted when a session prompt is built, not in the document. The
   assistant's first empty-prompt wake pointed exactly this out. Pre-existing.
-- A person's configuration override of a plugin key applies to every team's install of that plugin
-  (overrides have no scope); no bundled plugin ships such keys.
 - If no harness is ready at install time a plugin's agents land without run config; the install
   succeeds and the ordinary agent edit fixes it.
 - A plugin's agents are raw-inserted, so no `user.created` change fires for them; the assistant
   hears the documents they bring, not the agents.
 - The shared backend always offers the repo's bundled plugins as available to every team; their
-  agents take the server's own harness pool. The desktop app still does not wire plugin MCP servers.
+  agents take the server's own harness pool.
 - "A subscription hears only later changes" compares timestamps to the millisecond.
 - The lower-level installer function still accepts any team id; only `edit_plugin` checks, and every
   real path goes through it.
