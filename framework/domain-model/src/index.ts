@@ -172,9 +172,8 @@ export {
 // @lore BC5: the user action list — search, open, edit — declared alongside
 // `document`/`task`/`thread`/`session`/`platform`, same reason: `core-ui`
 // needs the exact `input`/invariant shape the server runs. `user.ts` also
-// carries the nine object-event names (`OBJECT_EVENTS`), the change-row
-// shape (`ChangeRowSchema`) and `ASSISTANT_IDENTITY`, the persona text the
-// welcome screen and the scaffold both pass as a new assistant's identity.
+// carries the nine object-event names (`OBJECT_EVENTS`) and the change-row
+// shape (`ChangeRowSchema`).
 export type {
 	AddSubscriptionInput,
 	BehaviourEntry,
@@ -195,7 +194,6 @@ export type {
 	UserView,
 } from "./actions/user.js";
 export {
-	ASSISTANT_IDENTITY,
 	BehaviourEntrySchema,
 	CHANGE_KINDS,
 	CHANGE_OBJECTS,

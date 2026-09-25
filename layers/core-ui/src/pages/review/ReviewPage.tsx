@@ -39,7 +39,7 @@ function isArtifactEntityRef(ref: {
  */
 function hostMessagesToReviewComments(
 	messages: ReadonlyArray<Message>,
-	identities: Record<string, { name: string; role?: string }>,
+	identities: Record<string, { name: string; isAgent: boolean }>,
 ): ReadonlyArray<ReviewComment> {
 	const result: ReviewComment[] = [];
 	for (const m of messages) {
@@ -52,7 +52,7 @@ function hostMessagesToReviewComments(
 
 		const identity = identities[m.senderId];
 		const author = identity?.name ?? m.senderId;
-		const authorIsAgent = identity?.role === "agent" || m.senderId.startsWith("agent");
+		const authorIsAgent = identity?.isAgent === true;
 		const blockId = blockIdString ? (blockIdString as BlockId) : undefined;
 		const anchor: AnchorRef | undefined =
 			entityRef && blockId ? { artifactId: entityRef.id, blockId, spotLabel } : undefined;
@@ -237,9 +237,9 @@ export function ReviewPage({
 	const reviewSubject = useMemo<ComposedReviewSubject | null>(() => {
 		if (!subject) return null;
 		const threadMessages = threadDetail.data?.messages;
-		const identities: Record<string, { name: string; role?: string }> = threadDetail.data
+		const identities: Record<string, { name: string; isAgent: boolean }> = threadDetail.data
 			? Object.fromEntries(
-					threadDetail.data.members.map((m) => [m.id, { name: m.name, role: m.role }]),
+					threadDetail.data.members.map((m) => [m.id, { name: m.name, isAgent: m.isAgent }]),
 				)
 			: {};
 		const threadComments =

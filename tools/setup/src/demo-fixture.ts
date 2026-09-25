@@ -276,7 +276,7 @@ export async function seedDemoWorld(
 			id: "thr-demo-bet-daily-digest",
 			hostKind: "team",
 			hostId: teamId,
-			initiatorId: "seed-agent-cos",
+			initiatorId: `ast-${founderId}`,
 			participants: "[]",
 			lastActiveAt: clock.daysAgo(19),
 			createdAt: clock.daysAgo(19),
@@ -304,7 +304,7 @@ export async function seedDemoWorld(
 			id: "thr-demo-task-daily-digest",
 			hostKind: "team",
 			hostId: teamId,
-			initiatorId: "seed-agent-cos",
+			initiatorId: `ast-${founderId}`,
 			participants: "[]",
 			lastActiveAt: clock.daysAgo(19),
 			createdAt: clock.daysAgo(19),
@@ -317,7 +317,7 @@ export async function seedDemoWorld(
 			threadId: "thr-demo-task-daily-digest",
 			parentTaskId: "demo-bet-daily-digest",
 			teamId,
-			ownerAgentId: "seed-agent-cos",
+			ownerAgentId: `ast-${founderId}`,
 			title: "Daily digest anchor task",
 			description: "Anchor task for the daily digest subscription.",
 			state: "accepted",
@@ -333,7 +333,7 @@ export async function seedDemoWorld(
 		.insert(subscriptions)
 		.values({
 			id: "demo-routine-daily_digest",
-			userId: "seed-agent-cos",
+			userId: `ast-${founderId}`,
 			event: null,
 			schedule: "0 8 * * *",
 			paused: true,
@@ -347,10 +347,9 @@ export async function seedDemoWorld(
 	await seedDemoWorldContent(db, clock);
 
 	// ── Give the demo agents the personas the role-personas plugin ships ──
-	// @lore BA9g: these used to come from `docs/system-prompts/*.md` through the
-	// runtime's own reader. Those files are the `role-personas` plugin's now, and
-	// the runtime reads no persona off disk at all — HyperIdle ships a single
-	// agent with a bare AGENTS.md. The demo world is what a team looks like once
+	// @lore BA9g: the personas are the `role-personas` plugin's files, and the
+	// runtime reads no persona off disk at all — a fresh install is one assistant
+	// with no identity text. The demo world is what a team looks like once
 	// somebody has installed that plugin, so the fixture reads the plugin's files
 	// directly. This is seed tooling, not the shipping runtime.
 	const DEMO_AGENT_ROLES = [

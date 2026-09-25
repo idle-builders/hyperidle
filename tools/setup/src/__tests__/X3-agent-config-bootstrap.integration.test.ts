@@ -53,9 +53,8 @@ async function readIdentity(db: HyperIdleDb, agentId: string): Promise<string | 
 /**
  * The persona the `role-personas` plugin ships for a role.
  *
- * @lore BA9g: these were `docs/system-prompts/*.md`, read by the runtime through
- * `readSystemPromptTemplateForRole`. That reader is deleted — HyperIdle ships a
- * single agent with a bare AGENTS.md and holds no built-in idea of a "builder".
+ * @lore BA9g: the runtime reads no persona off disk — HyperIdle ships one
+ * assistant with no identity text and holds no built-in idea of a "builder".
  * The demo world is what a team looks like once the plugin is installed, so the
  * fixture and these tests read the plugin's own files.
  */
@@ -88,14 +87,6 @@ describe("X3 AC-3: seeded agents carry their role's persona as an identity docum
 		expect(identity).toBe(rolePersona("product_manager"));
 	});
 
-	// @lore AD8a: seed-agent-cos system prompt file deleted. systemPrompt is null until AD8b adds assistant.md.
-	test("seed-agent-cos has no identity (AD8a: system prompt deleted)", async ({ db }) => {
-		await runFactoryBootstrap(db);
-		await seedDemoWorld(db);
-
-		expect(await readIdentity(db, "seed-agent-cos")).toBeNull();
-	});
-
 	// @lore BA9d: factory no longer seeds seed-agent-pf-* facilitator agents —
 	// they are now plugin-provided. Neither runFactoryBootstrap nor seedDemoWorld
 	// creates any facilitator-role user row, so there is nothing to backfill.
@@ -121,7 +112,6 @@ describe("X3 AC-3: seeded agents carry their role's persona as an identity docum
 		expect(agentRows.length).toBe(0);
 	});
 
-	// AB0: builder now has a template (docs/system-prompts/builder.md added)
 	// @lore AF17: renamed from seed-agent-builder (pre-purge) to demo-agent-builder.
 	test("demo-agent-builder's identity matches the builder template", async ({ db }) => {
 		await runFactoryBootstrap(db);

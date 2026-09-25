@@ -5,11 +5,11 @@
  * field (repo path). Team is created silently with defaults. "Start HyperIdle"
  * is disabled until the chosen engine can actually run.
  *
- * Submits three `edit_user` calls:
+ * Submits two `edit_user` calls:
  * 1. the person, with a team named from the repo folder basename or "My Team"
  *    (and the folder, if one was picked)
- * 2. their owned assistant, with `ASSISTANT_IDENTITY` and the picked harness
- * 3. the team agent, with the picked harness and no identity
+ * 2. their owned assistant, on the picked harness, with no identity text and
+ *    one subscription per object event, none with a prompt
  * On success: navigate to /work?onboarding=true.
  *
  * @lore P4: Replaces Onboarding.tsx. Single-scroll layout from approved design.
@@ -22,21 +22,21 @@
  * spacing of 18px, design-system Input + Button components.
  * @lore AE2: Navigates to /work?onboarding=true to trigger assistant overlay auto-open.
  * @lore AV1: Harness picker added (greyed non-installed rows per Decision 4).
- * derivePrimaryHarness() wired into the assistant/team-agent edit_user calls.
+ * derivePrimaryHarness() wired into the assistant's edit_user call.
  * Folder → inspect-path (plumbing, kept) + folders.add on the person's edit_user
  * call (best-effort, writeback:"none").
  * @lore AW1 + follow-up: setup collects no credential at all. A harness arrives
  * already logged in, or it is not choosable — the key lives in the harness's own
  * login, never in HyperIdle.
  * @lore BC5 T10: the door swap — the pre-auth `POST /users` → `POST /teams` →
- * `POST /filesystems` sequence becomes three `edit_user` calls (person with
- * team, owned assistant, team agent); `open_user({})` replaces `GET
+ * `POST /filesystems` sequence becomes `edit_user` calls (person with
+ * team, then their owned assistant); `open_user({})` replaces `GET
  * /api/harnesses` for the picker (a rowless caller gets `user: null` and the
  * machine's `runsOn` in the same answer, architecture.md §0.4, §7).
  * `POST /filesystems/inspect-path` stays — it is plumbing, not an action.
  */
 
-import { type ActionResult, ASSISTANT_IDENTITY, type EditUserInput } from "@hyperidle/domain-model";
+import { type ActionResult, type EditUserInput, OBJECT_EVENTS } from "@hyperidle/domain-model";
 import {
 	derivePrimaryHarness,
 	type HarnessCapabilityDescriptor,
@@ -164,9 +164,6 @@ export function SetupFlow(): JSX.Element {
 
 	const [submitting, setSubmitting] = useState(false);
 	const [submitError, setSubmitError] = useState<string | null>(null);
-
-	// AE2: function selector state
-	// Default preset is "software" (development + product).
 
 	// AV1: Harness discovery — fetch on mount. We never block setup on it.
 	const [descriptors, setDescriptors] = useState<HarnessCapabilityDescriptor[]>([]);
@@ -336,31 +333,26 @@ export function SetupFlow(): JSX.Element {
 				}
 				const createdUserId = personResult.data.user.id;
 
-				// 2. Their owned assistant — the welcome screen's own identity.
+				// 2. Their owned assistant — the one agent a fresh install has.
+				// @lore The install ships empty: no identity text and nine
+				// subscriptions, one per object event, none with a prompt. The
+				// assistant is owned, so it takes its owner's team and hears that
+				// team's changes; with no prompt it is woken with what happened and
+				// decides for itself. One row per event, never a wildcard — a person
+				// edits or pauses each reaction on its own. The prompts fill only
+				// when the person writes them; a plugin brings its own agents and
+				// never writes into these.
 				const assistantResult = await call("edit_user", {
 					kind: "ai",
 					name: `${name.trim()}'s Assistant`,
 					role: "assistant",
 					agentCategory: "individual",
 					ownerUserId: createdUserId,
-					identity: ASSISTANT_IDENTITY,
 					...(primaryHarness ? { runConfig: primaryHarness } : {}),
+					subscriptions: { add: OBJECT_EVENTS.map((event) => ({ event })) },
 				});
 				if (!assistantResult.ok) {
 					throw new Error(personResultMessage(assistantResult));
-				}
-
-				// 3. The team agent — no identity, as the scaffold does today.
-				const teamAgentResult = await call("edit_user", {
-					kind: "ai",
-					name: `${derivedTeamName} Agent`,
-					role: "agent",
-					agentCategory: "team",
-					team: { name: derivedTeamName },
-					...(primaryHarness ? { runConfig: primaryHarness } : {}),
-				});
-				if (!teamAgentResult.ok) {
-					throw new Error(personResultMessage(teamAgentResult));
 				}
 
 				// AE2: Navigate to /work?onboarding=true to trigger assistant overlay auto-open.

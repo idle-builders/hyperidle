@@ -364,7 +364,13 @@ async function searchUsersRun(
 		status: input.status,
 		nameContains: input.name,
 	});
-	let views = await toUserRows(ctx.db, rows);
+	// @lore The system actor (role "system") is plumbing — the row system
+	// writes are attributed to — not a person or an agent anyone works with,
+	// so no list shows it. A caller that names it in `ids` (resolving a
+	// change's actor, a message's sender) still gets it. Presentation, not
+	// access control: `open_user` answers for it as for any row.
+	const listed = rows.filter((r) => r.role !== "system" || (input.ids ?? []).includes(r.id));
+	let views = await toUserRows(ctx.db, listed);
 	if (input.teamId !== undefined) {
 		views = views.filter((v) => v.team?.id === input.teamId);
 	}

@@ -45,7 +45,7 @@ interface AddFormValues {
 
 const INITIAL_FORM: AddFormValues = {
 	name: "",
-	role: "builder",
+	role: "agent",
 	systemPrompt: "",
 	harnessType: "",
 	maxConcurrentSessions: 1,

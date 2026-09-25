@@ -54,15 +54,6 @@ export const OBJECT_EVENTS = [
 ] as const;
 export type ObjectEventName = (typeof OBJECT_EVENTS)[number];
 
-/**
- * The persona text a welcome-screen assistant and a plugin-free scaffolded
- * assistant both start with. Moved verbatim from
- * `org/src/resolve-scaffold-specs.ts`'s `APP_ASSISTANT_SYSTEM_PROMPT` — that
- * file imports this constant instead of keeping its own copy.
- */
-export const ASSISTANT_IDENTITY =
-	"You are a helpful AI assistant. Be concise, direct, and thoughtful in your responses.";
-
 /** Matches the `changes` table's `changes_kind_ck` check verbatim. */
 export const CHANGE_KINDS = ["created", "changed", "message"] as const;
 export type ChangeKind = (typeof CHANGE_KINDS)[number];

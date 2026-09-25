@@ -530,8 +530,8 @@ export default [
 	// (b) no-restricted-syntax bans an inline persona / system-prompt const
 	//     (`*_SYSTEM_PROMPT`, `BUILTIN_*PROMPT`, `PERSONA*`). The import ban cannot see a
 	//     module-local const, so this selector is what actually holds the line. Prompt
-	//     content belongs in `docs/system-prompts/*.md`, read through
-	//     `SYSTEM_PROMPT_TEMPLATE_FILES`; an inline copy silently drifts from it.
+	//     text arrives from a plugin or from the person — never from a const in a route
+	//     or tool handler.
 	//
 	// @lore AU28 step 6: this guard used to be phrased as "the Kernel must not do X, the
 	// Strategy owns X" and pointed callers at `getActiveStrategy().scaffoldAgents()`. The
@@ -575,7 +575,7 @@ export default [
 					selector:
 						"VariableDeclarator[id.name=/_SYSTEM_PROMPT$|^BUILTIN_.*PROMPT$|PERSONA/i][init.type='Literal']",
 					message:
-						"No inline persona or system-prompt const. Prompt content lives in docs/system-prompts/*.md, read through SYSTEM_PROMPT_TEMPLATE_FILES — an inline copy drifts from the file everything else reads.",
+						"No inline persona or system-prompt const. Prompt text arrives from a plugin or from the person, never from a const in a route or tool handler.",
 				},
 			],
 		},

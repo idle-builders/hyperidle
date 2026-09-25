@@ -38,9 +38,8 @@ async function queryRows<T extends Record<string, unknown>>(
 /**
  * The persona the `role-personas` plugin ships for a role.
  *
- * @lore BA9g: these were `docs/system-prompts/*.md`, read by the runtime through
- * `readSystemPromptTemplateForRole`. That reader is deleted — HyperIdle ships a
- * single agent with a bare AGENTS.md and holds no built-in idea of a "builder".
+ * @lore BA9g: the runtime reads no persona off disk — HyperIdle ships one
+ * assistant with no identity text and holds no built-in idea of a "builder".
  * The demo world is what a team looks like once the plugin is installed, so the
  * fixture and these tests read the plugin's own files.
  */
@@ -74,17 +73,11 @@ describe("AF17 AC1: runFactoryBootstrap creates the complete factory layer", () 
 		expect(rows).toHaveLength(1);
 	});
 
-	test("System Agent singleton (seed-agent-cos) exists with individual category", async ({
-		db,
-	}) => {
+	test("bootstrap writes no agent: the system actor is the only user", async ({ db }) => {
 		await runFactoryBootstrap(db);
 
-		const rows = await queryRows<{ id: string; agent_category: string | null }>(
-			db,
-			"SELECT id, agent_category FROM users WHERE id = 'seed-agent-cos'",
-		);
-		expect(rows).toHaveLength(1);
-		expect(rows[0]?.agent_category).toBe("individual");
+		const rows = await queryRows<{ id: string }>(db, "SELECT id FROM users ORDER BY id");
+		expect(rows.map((r) => r.id)).toEqual(["system:propagation"]);
 	});
 
 	// @lore BA9d: factory no longer seeds seed-agent-pf-* facilitator agents.

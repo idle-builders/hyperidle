@@ -9,7 +9,6 @@
 
 import { describe, expect, it } from "vitest";
 import {
-	ASSISTANT_IDENTITY,
 	ChangeRowSchema,
 	EditUserInputSchema,
 	editUser,
@@ -48,13 +47,6 @@ describe("OBJECT_EVENTS", () => {
 			"user.created",
 			"user.changed",
 		]);
-	});
-});
-
-describe("ASSISTANT_IDENTITY", () => {
-	it("is a non-empty persona the welcome screen and the scaffold both pass as identity", () => {
-		expect(typeof ASSISTANT_IDENTITY).toBe("string");
-		expect(ASSISTANT_IDENTITY.trim().length).toBeGreaterThan(0);
 	});
 });
 

@@ -5,10 +5,9 @@
  * ephemeral PGlite DB. Scenarios compose these helpers rather than each
  * reinventing DB seeding.
  *
- * @lore X7: We do NOT use seed() from @hyperidle/db. The existing seed()
- * reads from docs/system-prompts/ on disk (requires monorepo root CWD) and inserts
- * far more fixtures than most eval scenarios need. These helpers insert only
- * what the scenario needs.
+ * @lore X7: We do NOT use the demo world seed (`tools/setup`). It inserts far
+ * more fixtures than most eval scenarios need. These helpers insert only what
+ * the scenario needs.
  */
 
 import { execFileSync } from "node:child_process";

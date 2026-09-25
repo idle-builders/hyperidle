@@ -83,7 +83,7 @@ function identitiesToAuthors(
 	return members.map((identity) => ({
 		id: identity.id,
 		name: identity.name,
-		isAgent: identity.isAgent === true || identity.role === "agent",
+		isAgent: identity.isAgent,
 		isMe: identity.id === viewerId,
 	}));
 }
@@ -95,7 +95,7 @@ function identitiesToParticipants(
 	return members.map((identity) => ({
 		id: identity.id,
 		name: identity.name,
-		isAgent: identity.isAgent === true || identity.role === "agent",
+		isAgent: identity.isAgent,
 	}));
 }
 

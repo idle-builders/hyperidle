@@ -157,7 +157,7 @@ export function SettingsAgents(): JSX.Element {
 	const [adding, setAdding] = useState(false);
 	const [addDraft, setAddDraft] = useState<AgentEditorDraft>({
 		name: "",
-		role: "builder",
+		role: "agent",
 		systemPrompt: "",
 		harnessType: "",
 		modelId: "",
@@ -351,7 +351,7 @@ export function SettingsAgents(): JSX.Element {
 			setAddMode(false);
 			setAddDraft({
 				name: "",
-				role: "builder",
+				role: "agent",
 				systemPrompt: "",
 				harnessType: "",
 				modelId: "",

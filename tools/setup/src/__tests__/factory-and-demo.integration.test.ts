@@ -6,7 +6,6 @@ import { sql } from "drizzle-orm";
 import { seedDemoWorld } from "../demo-fixture.js";
 import { runFactoryBootstrap } from "../factory-bootstrap-runner.js";
 
-// @lore AD8a: chief_of_staff system prompt file deleted (docs/system-prompts/chief-of-staff.md removed).
 // @lore AD8b: chief_of_staff role renamed to assistant.
 // @lore AD8c: practice_facilitator role renamed to facilitator.
 // AC2 tests only check facilitator and product_manager.
@@ -27,9 +26,8 @@ async function queryRows<T extends Record<string, unknown>>(
 /**
  * The persona the `role-personas` plugin ships for a role.
  *
- * @lore BA9g: these were `docs/system-prompts/*.md`, read by the runtime through
- * `readSystemPromptTemplateForRole`. That reader is deleted — HyperIdle ships a
- * single agent with a bare AGENTS.md and holds no built-in idea of a "builder".
+ * @lore BA9g: the runtime reads no persona off disk — HyperIdle ships one
+ * assistant with no identity text and holds no built-in idea of a "builder".
  * The demo world is what a team looks like once the plugin is installed, so the
  * fixture and these tests read the plugin's own files.
  */
@@ -125,12 +123,9 @@ describe("A2: Seed script", () => {
 	});
 
 	// --- G1 AC1: facilitator agent archetypes are seeded ---
-	// @lore AD8a: System Agent is the display name for the chief_of_staff role seed.
 	// @lore AD8b: chief_of_staff role renamed to assistant.
 	// @lore AD8c: practice_facilitator role renamed to facilitator.
-	test("seeds one System Agent (assistant), ≥5 Facilitators, ≥1 Product Manager (AC1)", async ({
-		db,
-	}) => {
+	test("seeds the founder's assistant, no facilitators, ≥1 product manager", async ({ db }) => {
 		await runFactoryBootstrap(db);
 		await seedDemoWorld(db);
 
@@ -166,7 +161,6 @@ describe("A2: Seed script", () => {
 	});
 
 	// --- G1 AC2: every seeded facilitator / product_manager carries a working system prompt ---
-	// @lore AD8a: chief_of_staff excluded — docs/system-prompts/chief-of-staff.md deleted.
 	// @lore AD8c: practice_facilitator renamed to facilitator; file renamed to facilitator.md.
 	// @lore AU26 G1 (architecture §D-L): these two tests asserted `users.system_prompt_path`
 	// — a column DROPPED, not relocated, because it had zero production readers repo-wide
@@ -276,7 +270,6 @@ describe("AF17: seed() = runFactoryBootstrap + seedDemoWorld", () => {
 	});
 
 	test("seedDemoWorld alone produces Acme team + demo founder + demo agents", async ({ db }) => {
-		// seedDemoWorld requires factory agents (seed-agent-cos) to exist for task.ownerAgentId
 		await runFactoryBootstrap(db);
 		const { teamId, founderId } = await seedDemoWorld(db);
 

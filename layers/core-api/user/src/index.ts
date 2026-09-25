@@ -53,8 +53,8 @@ export { createAgentIdentityPort } from "./agent-identity.js";
 // -- cron (used by the subscription clock's schedule trigger) --
 export type { CronFields } from "./cron.js";
 export { nextCronMatch, parseCron } from "./cron.js";
-// -- factory writers (AU29 §2.5.2 — idempotent first-boot users writes) --
-export { insertUserIfAbsent, listFactoryAgents, setAgentsStatus } from "./factory-writers.js";
+// -- factory writers (idempotent first-boot actor insert, agent status flip) --
+export { insertUserIfAbsent, setAgentsStatus } from "./factory-writers.js";
 // -- invite code (S1 — invite/claim flow) --
 export { claimInvite, createInvite } from "./invite-code.js";
 // -- login session (S1 — bearer-token auth) --
