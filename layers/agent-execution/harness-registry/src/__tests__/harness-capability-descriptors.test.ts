@@ -23,7 +23,7 @@ const BASE_CAPS: HarnessCapabilities = {
 };
 const catalog = { describe: describeHarnessCapability, missing: missingHarnessCapabilities };
 
-describe("AM2 harness capability descriptor builders", () => {
+describe("harness capability descriptor builders", () => {
 	it("describes CLI harnesses as provider-subscription CLI auth", () => {
 		const descriptor = catalog.describe(
 			{
@@ -99,7 +99,7 @@ describe("AM2 harness capability descriptor builders", () => {
 		expect(descriptor.discovery.reason).toContain("opencode login");
 	});
 
-	it("AC4: auth-status-only probe (no sessionProbe) surfaces discovery state", () => {
+	it("an auth-status-only probe (no sessionProbe) surfaces discovery state", () => {
 		// A discovery that only ran auth status (state=ready but no sessionProbe)
 		// must surface the discovery state correctly.
 		const discoveries: Record<string, HarnessDiscoveryInput> = {
@@ -120,7 +120,7 @@ describe("AM2 harness capability descriptor builders", () => {
 		expect(codex?.discovery.state).toBe("ready");
 	});
 
-	it("AC4: sessionProbe.ok = true surfaces ready state with session probe details", () => {
+	it("sessionProbe.ok = true surfaces ready state with session probe details", () => {
 		// A discovery that ran a real session probe (sessionProbe.ok=true) proves
 		// launchability — surfaces the session probe in discovery.
 		const discoveries: Record<string, HarnessDiscoveryInput> = {

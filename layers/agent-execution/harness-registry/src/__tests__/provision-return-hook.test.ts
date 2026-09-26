@@ -117,7 +117,7 @@ describe("provisionReturnHook", () => {
 			expect(hookStr).toContain(bridgeToken);
 		});
 
-		it("WARN-F1: hook command contains no shell injection characters from agent-authored content", async () => {
+		it("hook command contains no shell injection characters from agent-authored content", async () => {
 			// The bridge token and URL are server-minted. No agent-authored value enters the shell.
 			// This test guards against the injection class: no backticks, $(), <, >, |, ;, &
 			// UNLESS they are part of the deliberately written command structure.
@@ -140,7 +140,7 @@ describe("provisionReturnHook", () => {
 			expect(() => JSON.parse(raw)).not.toThrow();
 		});
 
-		it("WARN-F1 (trust): marks the sandbox as trusted so Claude Code loads the hook", async () => {
+		it("marks the sandbox as trusted so Claude Code loads the hook", async () => {
 			// Claude Code silently skips hooks in untrusted workspaces.
 			// The provisioning MUST establish trust or the hook is decorative.
 			// FAILS red until trust provisioning is implemented.
@@ -223,7 +223,7 @@ describe("provisionReturnHook", () => {
 			expect(scriptContent).toContain(mcpUrl);
 		});
 
-		it("WARN-F1 (trust): codex trust is per-invocation (--dangerously-bypass-hook-trust), no sentinel file needed", async () => {
+		it("codex trust is per-invocation (--dangerously-bypass-hook-trust), no sentinel file needed", async () => {
 			// @lore Real codex trust: Codex trust is a per-invocation flag:
 			// --dangerously-bypass-hook-trust bypasses hash-check for automation.
 			// There is NO sentinel file mechanism (no "trusted" file, no config.toml needed).
@@ -448,7 +448,7 @@ describe("provisionReturnHook", () => {
 		});
 	});
 
-	describe("AC4 route-checklist: provisionReturnHook handles all ReturnEnforcementChannel values", () => {
+	describe("provisionReturnHook handles every ReturnEnforcementChannel value", () => {
 		const allChannels: ReturnEnforcementChannel[] = [
 			"sdk-inprocess",
 			"settings-claude",

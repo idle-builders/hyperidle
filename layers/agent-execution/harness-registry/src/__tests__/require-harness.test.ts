@@ -62,7 +62,7 @@ describe("requireHarness — binary absent (claude/codex/opencode/cursor-agent)"
 		expect(() => requireHarness("cursor-agent")).toThrowError(/cursor-agent/i);
 	});
 
-	test("'gh' is NOT a harness — Ruling 15", () => {
+	test("'gh' is NOT a harness", () => {
 		// @ts-expect-error — `gh` is the GitHub CLI, never a harness name.
 		expect(() => requireHarness("gh")).toThrow();
 	});

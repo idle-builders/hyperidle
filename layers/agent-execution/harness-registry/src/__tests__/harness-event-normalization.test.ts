@@ -13,7 +13,7 @@
 import { describe, expect, it } from "vitest";
 import { normalizeHarnessEvent } from "../harness-event-normalization.js";
 
-describe("normalizeHarnessEvent — opencode pre-map (AL7 W3)", () => {
+describe("normalizeHarnessEvent — opencode pre-map", () => {
 	it("step_finish → completion (text from properties.output)", () => {
 		const input = {
 			type: "step_finish",
@@ -72,7 +72,7 @@ describe("normalizeHarnessEvent — opencode pre-map (AL7 W3)", () => {
 		}
 	});
 
-	it("step_start → benign empty completion (not an error — lifecycle event, AR2 fix)", () => {
+	it("step_start → benign empty completion (not an error — a lifecycle event)", () => {
 		// @lore AR2 opencode-events: step_start is emitted at turn-start by opencode
 		// `--format json`. Without this mapping it falls through to unknownEvent →
 		// { type:"error" } → provisionSession crashed=true. Mapped to benign completion.
@@ -81,7 +81,7 @@ describe("normalizeHarnessEvent — opencode pre-map (AL7 W3)", () => {
 		expect(result.type).toBe("completion");
 	});
 
-	it("text → completion with part.text (real opencode event shape, AR5 fix)", () => {
+	it("text → completion with part.text (real opencode event shape)", () => {
 		// @lore AR5 opencode-text-event: real opencode --format json text event carries
 		// content in part.text, NOT at the top level. Verified 2026-06-30 by running
 		// `opencode run ... --format json` manually. Without part.text extraction,
@@ -105,7 +105,7 @@ describe("normalizeHarnessEvent — opencode pre-map (AL7 W3)", () => {
 		expect((result as import("@hyperidle/harness-protocol").CompletionEvent).text).toBe("");
 	});
 
-	it("tool_use → tool_call (actual opencode --format json event shape, AR2 fix)", () => {
+	it("tool_use → tool_call (actual opencode --format json event shape)", () => {
 		// @lore AR2 opencode-tool_use: opencode --format json emits "tool_use" (not "tool")
 		// for tool calls. Discovered 2026-06-29 by running opencode manually. Real event:
 		// { type:"tool_use", part:{ type:"tool", tool:"bash", state:{ input:{ command:"echo 4" } } } }

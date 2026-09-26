@@ -42,7 +42,7 @@ import { afterEach, beforeEach, describe, expect, test } from "vitest";
 const TEST_MCP_URL = "http://127.0.0.1:9999/api/mcp/test-token-abc123";
 const TEST_TOKEN = "deadbeef1234567890abcdef1234567890abcdef1234567890abcdef12345678";
 
-describe("T1 — writeCliMcpConfig (AC5)", () => {
+describe("writeCliMcpConfig", () => {
 	let sandboxPath: string;
 
 	beforeEach(() => {

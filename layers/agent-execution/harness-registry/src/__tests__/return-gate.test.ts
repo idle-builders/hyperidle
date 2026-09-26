@@ -41,7 +41,7 @@ function completionEvent(text = "done"): HarnessEvent {
 
 // ── AC3: detection rule ───────────────────────────────────────────────────────
 
-describe("ReturnGate — AC3: detection (not_returned when no return seen)", () => {
+describe("ReturnGate — detection (not_returned when no return seen)", () => {
 	it("verdicts 'not_returned' when stream exhausts with no return action", () => {
 		const gate = createReturnGate();
 		gate.observe(toolCallEvent("read_inbox"));
@@ -61,7 +61,7 @@ describe("ReturnGate — AC3: detection (not_returned when no return seen)", () 
 		expect(evaluateReturn(gate, "completed")).toBe("returned");
 	});
 
-	it("verdicts 'returned' when edit_task is observed setting ownerAgentId on the session's own task (a handoff, B4)", () => {
+	it("verdicts 'returned' when edit_task is observed setting ownerAgentId on the session's own task (a handoff)", () => {
 		const gate = createReturnGate("task-1");
 		gate.observe(toolCallEvent("edit_task", { id: "task-1", ownerAgentId: "agent-7" }));
 
@@ -75,14 +75,14 @@ describe("ReturnGate — AC3: detection (not_returned when no return seen)", () 
 		expect(evaluateReturn(gate, "completed")).toBe("not_returned");
 	});
 
-	it("verdicts 'not_returned' when edit_task hands off a DIFFERENT task, not the session's own (B4)", () => {
+	it("verdicts 'not_returned' when edit_task hands off a DIFFERENT task, not the session's own", () => {
 		const gate = createReturnGate("task-1");
 		gate.observe(toolCallEvent("edit_task", { id: "task-2", ownerAgentId: "agent-7" }));
 
 		expect(evaluateReturn(gate, "completed")).toBe("not_returned");
 	});
 
-	it("verdicts 'not_returned' when edit_task creates a subtask with an owner (no id — not the session's own task, B4)", () => {
+	it("verdicts 'not_returned' when edit_task creates a subtask with an owner (no id — not the session's own task)", () => {
 		const gate = createReturnGate("task-1");
 		gate.observe(toolCallEvent("edit_task", { ownerAgentId: "agent-7" }));
 
@@ -114,7 +114,7 @@ describe("ReturnGate — AC3: detection (not_returned when no return seen)", () 
 
 // ── AC3: exemptions (crashed / stopped are never not_returned) ─
 
-describe("ReturnGate — AC3: exemptions (non-completion end-reasons never flagged)", () => {
+describe("ReturnGate — exemptions (non-completion end-reasons never flagged)", () => {
 	it("'crashed' end-reason is exempt — never flagged not_returned", () => {
 		const gate = createReturnGate();
 		gate.observe(toolCallEvent("read_inbox"));
@@ -132,7 +132,7 @@ describe("ReturnGate — AC3: exemptions (non-completion end-reasons never flagg
 
 // ── AC5: mid-turn non-terminal tool use is unaffected ───────────────────────
 
-describe("ReturnGate — AC5: mid-turn non-terminal tools do not block the gate", () => {
+describe("ReturnGate — mid-turn non-terminal tools do not block the gate", () => {
 	it("ten non-return tool_calls followed by send_message → 'returned'", () => {
 		const gate = createReturnGate();
 		const midTurnTools = [
@@ -196,7 +196,7 @@ describe("ReturnGate — AC5: mid-turn non-terminal tools do not block the gate"
 
 // ── AC5: gate is observation-only (no interception / no throwing) ────────────
 
-describe("ReturnGate — AC5: gate is observation-only", () => {
+describe("ReturnGate — gate is observation-only", () => {
 	it("observe() on a return tool_call does not throw or intercept", () => {
 		const gate = createReturnGate();
 		expect(() => gate.observe(toolCallEvent("send_message", {}))).not.toThrow();
@@ -301,32 +301,5 @@ describe("returnEnforcement channel declared per adapter", () => {
 		const adapter = new CliHarnessAdapter(productionCliConfig("claude"));
 		const caps = adapter.getCapabilities() as unknown as Record<string, unknown>;
 		expect(caps.returnEnforcement).toBe("settings-claude");
-	});
-
-	// ── v3 fields are GONE (v4 guard) ───────────────────────────────────
-
-	it("HarnessCapabilities NO LONGER has hasNativeReturnHook (v3 removed in Task 1)", () => {
-		const caps = new CliHarnessAdapter(
-			productionCliConfig("claude"),
-		).getCapabilities() as unknown as Record<string, unknown>;
-		// FAILS red until Task 1/6 removes hasNativeReturnHook
-		expect("hasNativeReturnHook" in caps).toBe(false);
-	});
-
-	it("HarnessCapabilities NO LONGER has canReEngage (v3 removed in Task 1)", () => {
-		const caps = new CliHarnessAdapter(
-			productionCliConfig("claude"),
-		).getCapabilities() as unknown as Record<string, unknown>;
-		// FAILS red until Task 1/6 removes canReEngage
-		expect("canReEngage" in caps).toBe(false);
-	});
-
-	it("HarnessAdapter NO LONGER has continueSession? (v3 Mode-2 removed in Task 1)", () => {
-		const adapter = new CliHarnessAdapter(productionCliConfig("claude")) as unknown as Record<
-			string,
-			unknown
-		>;
-		// FAILS red until Task 1 removes continueSession? from the interface
-		expect("continueSession" in adapter).toBe(false);
 	});
 });

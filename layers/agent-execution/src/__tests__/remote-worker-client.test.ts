@@ -188,7 +188,7 @@ function makeMockAdapter(opts: MockAdapterOptions = {}): HarnessAdapter & {
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
-describe("S4 AC-2/AC-3 — RemoteWorkerClient connect/disconnect", () => {
+describe("RemoteWorkerClient connect/disconnect", () => {
 	it("connect() calls POST /api/auth/worker-token before opening WS", async () => {
 		const { RemoteWorkerClient } = await getClient();
 
@@ -339,7 +339,7 @@ describe("S4 AC-2/AC-3 — RemoteWorkerClient connect/disconnect", () => {
 	});
 });
 
-describe("S4 AC-5 — RemoteWorkerClient dispatch", () => {
+describe("RemoteWorkerClient dispatch", () => {
 	async function makeConnectedClientWithAdapter(
 		MockWebSocket: ReturnType<typeof vi.fn>,
 		adapter: HarnessAdapter,
@@ -477,7 +477,7 @@ describe("S4 AC-5 — RemoteWorkerClient dispatch", () => {
 	});
 });
 
-describe("S4 AC-8 — RemoteWorkerClient graceful shutdown", () => {
+describe("RemoteWorkerClient graceful shutdown", () => {
 	it("disconnect() waits for active session completing within timeout then closes", async () => {
 		// biome-ignore lint/complexity/useArrowFunction: regular function required so `new MockWebSocket()` works via Reflect.construct
 		const MockWebSocket = vi.fn().mockImplementation(function () {
@@ -635,7 +635,7 @@ describe("S4 AC-8 — RemoteWorkerClient graceful shutdown", () => {
 	}, 5_000);
 });
 
-describe("S4 AC-7 — RemoteWorkerClient pause/resume", () => {
+describe("RemoteWorkerClient pause/resume", () => {
 	async function makeConnectedClient(MockWebSocket: ReturnType<typeof vi.fn>) {
 		const { RemoteWorkerClient } = await getClient();
 
@@ -696,7 +696,7 @@ describe("S4 AC-7 — RemoteWorkerClient pause/resume", () => {
 	});
 });
 
-describe("S4 AC-6 — RemoteWorkerClient getStatus()", () => {
+describe("RemoteWorkerClient getStatus()", () => {
 	it("getStatus() returns not-connected when not yet connected", async () => {
 		const { RemoteWorkerClient } = await getClient();
 		// biome-ignore lint/complexity/useArrowFunction: regular function required so `new MockWebSocket()` works via Reflect.construct
@@ -792,7 +792,7 @@ describe("S4 AC-6 — RemoteWorkerClient getStatus()", () => {
 	});
 });
 
-describe("S4 — RemoteWorkerClient onStatusChange()", () => {
+describe("RemoteWorkerClient onStatusChange()", () => {
 	it("onStatusChange() callback fired when status changes", async () => {
 		const { RemoteWorkerClient } = await getClient();
 		// biome-ignore lint/complexity/useArrowFunction: regular function required so `new MockWebSocket()` works via Reflect.construct

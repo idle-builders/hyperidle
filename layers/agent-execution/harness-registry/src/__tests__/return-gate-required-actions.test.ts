@@ -39,7 +39,7 @@ describe("createGate(requiredReturnActions) narrows the return predicate", () =>
 		expect(gate.returned).toBe(true);
 	});
 
-	it("required absent — any return action flips the gate (unchanged pre-Increment-3 default)", () => {
+	it("required absent — any return action flips the gate", () => {
 		const enforcement = createReturnEnforcement();
 		const gate = enforcement.createGate(undefined, "task-1");
 		gate.observe(toolCallEvent("edit_task", { id: "task-1", ownerAgentId: "agent-7" }));

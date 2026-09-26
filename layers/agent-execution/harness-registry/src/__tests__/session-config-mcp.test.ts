@@ -110,7 +110,7 @@ describe("Adapter mcpSupport capability declarations", () => {
 
 // ── Conditional tool_call interception logic ──────────────────────────────────
 
-describe("AC6 — conditional tool_call interception based on mcpSupport + mcpBridgeToken", () => {
+describe("conditional tool_call interception based on mcpSupport + mcpBridgeToken", () => {
 	/**
 	 * The interceptToolCalls formula from architecture.md:
 	 *   const interceptToolCalls = !adapterCapabilities.mcpSupport || !mcpBridgeToken;
