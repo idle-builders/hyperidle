@@ -1,25 +1,12 @@
 /**
- * Q1 E2E — AC7: interjection posts a message to a task thread; inline
- * document reference keeps the composer draft when opened and closed.
+ * Journeys: posting a message via a task thread's composer, and inline
+ * document Inspect preserving the live draft and scroll position when
+ * opened and closed.
  *
- * @lore BC3: the thread door is `POST /api/actions/{search_threads,
- * open_thread, send_message}` — never `GET/POST /api/threads*`. There is no
- * `task` host kind; a task's own thread is `team`-hosted (architecture.md
- * §3.9) and `Thread.members` replaced `participants`.
- *
- * @lore BC3: AC5/AC6/AC8/AC9 (the "Dial In" affordance from the generic
- * Conversations view) are deleted, not repointed. `Conversations.tsx` no
- * longer has any active-session lookup for the generic view — that
- * affordance is retired; the task page (WorkTaskPage) shows its own active
- * sessions directly (see the BC3 build report). AC7 (interjection) and the WS
- * thread-list refresh survive — neither depends on it.
- *
- * @lore artifacts-become-knowledge: the inline "artifact" reference this test
- * used to click (`kind:"artifact"` InlineRef) renders as a non-navigating
- * label now (part.ts's `inlineRefToEmbed`) — a review canvas anchor, not a
- * navigable target. A `document` EntityRef is the surviving inline reference
- * that opens inline (`onInspectPath` → the conversation's own split pane), so
- * this test now exercises that instead of the deleted artifact route.
+ * @lore the deleted `kind:"artifact"` inline reference this used to click
+ * renders as a non-navigating label now (a review canvas anchor, not a
+ * navigable target); a `document` reference is the surviving inline
+ * reference that opens inline.
  */
 
 import {
@@ -71,7 +58,7 @@ const THREAD_MESSAGES = [
 	}),
 ];
 
-test.describe("Q1 — task thread composer + inline document inspect", () => {
+test.describe("task thread composer and inline document inspect", () => {
 	test.beforeEach(async ({ page }) => {
 		await mockSearchThreads(page, {
 			rows: [{ ...TASK_THREAD, hasUnresolvedReview: false, lastMessagePreview: null }],
@@ -123,8 +110,7 @@ test.describe("Q1 — task thread composer + inline document inspect", () => {
 		);
 	});
 
-	// AC7: interjection — user can post a message via the thread composer
-	test("AC7: interjection posts a message to the task thread", async ({ page }) => {
+	test("posting a message via the thread composer", async ({ page }) => {
 		let postCalled = false;
 		const interjectMessage = makeMessage("msg-interject", TASK_THREAD.id, {
 			senderId: "test-founder",

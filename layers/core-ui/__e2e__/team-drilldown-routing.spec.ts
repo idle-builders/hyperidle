@@ -44,7 +44,7 @@ const ACTIVE_TASK = makeTask("b1", {
 	state: "in_progress",
 });
 
-test.describe("L13 — Product drill-down routing", () => {
+test.describe("Team drill-down routing", () => {
 	test.beforeEach(async ({ page }) => {
 		await mockSearchUsers(page, { rows: ROSTER });
 		await mockAgents(page, { agents: [] });

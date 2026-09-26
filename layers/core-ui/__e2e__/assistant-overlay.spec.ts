@@ -20,7 +20,7 @@ import { expect, makeUserRow, mockSearchThreads, mockSearchUsers, test } from ".
 const COC_AGENT_ID = "agent-coc";
 const CURRENT_USER_ID = "test-founder";
 
-test.describe("L21 — Assistant overlay", () => {
+test.describe("Assistant overlay", () => {
 	test.beforeEach(async ({ page }) => {
 		await mockSearchUsers(page, {
 			rows: [

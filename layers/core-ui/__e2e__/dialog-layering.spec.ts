@@ -1,27 +1,12 @@
 /**
- * AI2 — Dialog layering: computed z-index ordering spec (AC-3, runtime half).
+ * Dialog layering: computed z-index ordering.
  *
- * AC-3 (b): Runtime — open two overlay surfaces in both orders; assert the
- * one with the higher --z-* band has a strictly higher computed z-index,
- * regardless of DOM mount order. This satisfies "stack predictably regardless
- * of DOM order."
+ * Open two overlay surfaces in both orders; assert the one with the higher
+ * --z-* band has a strictly higher computed z-index, regardless of DOM mount
+ * order — surfaces must stack predictably no matter which opens first.
  *
- * Strategy: page.route() mocks — no DB required. Desktop viewport (default).
- *
- * @lore AI2: AC-3's static half (no raw z-[N] on overlays) is a lint/grep gate,
- * not a test. Only the runtime computed-z ordering is verified here.
- *
- * @lore AI2 C-2 fix round 2: The original spec used TaskSheet (drawer=30) + AssistantOverlay
- * (overlay=40). TaskSheet has no live trigger on this branch (WorkBet task-row onClick restores
- * navigate() per origin/main — AG scope). Substituting with two genuinely reachable surfaces:
- *   - AssistantOverlay (layer="overlay", --z-overlay=40): triggered by the "Assistant" button
- *     in Sidebar (wired via AppShell.handleAssistantClick → sidebarProps.onAssistantClick).
- *   - GlobalSearchPanel (layer="dialog", --z-dialog=60): triggered by the "Search" button
- *     (data-testid="sidebar-search-hint") in Sidebar (wired via AppShell.commandK.open →
- *     sidebarProps.onSearchClick).
- * Both surfaces are always rendered by AppShell on desktop viewport (default project fixture).
- * TaskSheet reachability (no live trigger on AI2 branch) is a pre-existing gap owned by AG
- * (Work-view experience workpackage).
+ * No raw z-[N] on overlays is a lint/grep gate, not a test; only the runtime
+ * computed-z ordering is verified here.
  */
 
 import { expect, makeDocumentRow, mockDocument, mockSearchThreads, test } from "./fixtures";
@@ -52,9 +37,6 @@ async function setupAppShellMocks(page: import("@playwright/test").Page): Promis
 	// the assistant's existing direct thread this way, and it's also the broad
 	// fallback for the Conversations submenu list.
 	await mockSearchThreads(page, { rows: [] });
-	// @lore BC5 T10: `GET /api/notifications*` is gone — `useNotifications`
-	// reads the inbox off `open_user({}).inbox`, which the fixtures.ts
-	// auto-use default already answers.
 }
 
 // ---------------------------------------------------------------------------
@@ -62,7 +44,7 @@ async function setupAppShellMocks(page: import("@playwright/test").Page): Promis
 // AssistantOverlay (--z-overlay=40) vs GlobalSearchPanel (--z-dialog=60)
 // ---------------------------------------------------------------------------
 
-test.describe("AI2 — overlay z-layer ordering (AC-3 runtime)", () => {
+test.describe("overlay z-layer ordering", () => {
 	test.beforeEach(async ({ page }) => {
 		await setupAppShellMocks(page);
 	});
@@ -81,7 +63,6 @@ test.describe("AI2 — overlay z-layer ordering (AC-3 runtime)", () => {
 		).toBeVisible({ timeout: 15000 });
 
 		// Step 1: Open AssistantOverlay (overlay layer) first.
-		// @lore AI2 C-2 round2: "Assistant" button in Sidebar is wired via AppShell.handleAssistantClick.
 		// Non-modal: no scrim, no focus trap → other Sidebar elements remain clickable.
 		const assistantBtn = page.getByRole("button", { name: /^assistant$/i });
 		await expect(assistantBtn, "Assistant button must be visible in Sidebar").toBeVisible();
@@ -147,7 +128,7 @@ test.describe("AI2 — overlay z-layer ordering (AC-3 runtime)", () => {
 		).toBeGreaterThan(0);
 
 		// Step 2: Open AssistantOverlay (overlay layer) WHILE GlobalSearchPanel is already open.
-		// @lore AI2: GlobalSearchPanel FocusTrap uses allowOutsideClick=true — clicks outside
+		// GlobalSearchPanel's FocusTrap uses allowOutsideClick=true — clicks outside
 		// the panel are not blocked by the trap. However, the scrim (position:fixed, inset:0,
 		// z=50) sits above the Sidebar visually and blocks Playwright pointer-event hit-tests.
 		// We use page.evaluate to fire a native click() on the Assistant button directly,
@@ -187,11 +168,8 @@ test.describe("AI2 — overlay z-layer ordering (AC-3 runtime)", () => {
 	test("modal Dialog (--z-dialog=60) stacks above NotificationPopover (--z-overlay=40)", async ({
 		page,
 	}) => {
-		// @lore BB1: this opened the kill-bet ConsequencePreviewDialog through the
-		// WorkBet overflow menu. Both are deleted — no production component emits
-		// data-bet-action any more — so the modal comes from ScopeChangeDialog on
-		// document detail instead. The assertion is about the z-index SCALE, not
-		// about which dialog opened, so any real modal proves the same contract.
+		// The assertion is about the z-index SCALE, not which dialog opened —
+		// ScopeChangeDialog on document detail proves the same contract.
 		const KNOWLEDGE_ID = "k-dialog-layer-test";
 		await mockDocument(page, {
 			row: makeDocumentRow(KNOWLEDGE_ID, {

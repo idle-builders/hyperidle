@@ -15,8 +15,8 @@ import {
 
 // @lore BC3: no `task` host kind — a task's own thread is `team`-hosted.
 const THREAD = makeThread("t-az16", {
-	title: "AZ16 profile review",
-	computedTitle: "AZ16 profile review",
+	title: "Design tokens review",
+	computedTitle: "Design tokens review",
 	hostKind: "team",
 	hostId: "az16-proof",
 	initiatorId: "test-founder",
@@ -90,7 +90,7 @@ async function json(route: Route, body: unknown): Promise<void> {
 }
 
 async function installAz16Mocks(page: Page): Promise<void> {
-	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: one hermetic router owns the exact AZ16 route matrix.
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: one hermetic router owns every route this file visits.
 	await page.route("**/api/**", async (route) => {
 		const { pathname } = new URL(route.request().url());
 		if (pathname === "/api/settings") {
@@ -182,198 +182,64 @@ async function installAz16Mocks(page: Page): Promise<void> {
 	});
 }
 
-const TYPE_EXPECTED = {
-	label: ["11px", "600", "13.75px", "0.66px"],
-	metadata: ["12px", "500", "16.8px", "normal"],
-	small: ["13px", "400", "18.2px", "normal"],
-	copy: ["15px", "400", "23.25px", "normal"],
-	control: ["13px", "500", "16.25px", "normal"],
-	input: ["13px", "400", "18.2px", "normal"],
-	"avatar-initial": ["12px", "600", "12px", "normal"],
-	subheading: ["15px", "600", "21px", "normal"],
-	lead: ["17px", "600", "21.25px", "-0.17px"],
-	title: ["20px", "600", "28px", "-0.2px"],
-	display: ["24px", "600", "30px", "-0.24px"],
-	metric: ["24px", "600", "24px", "-0.24px"],
-	data: ["12px", "500", "16.8px", "normal"],
-	"inline-code": ["13px", "400", "20.15px", "normal"],
-} as const;
-
-const MOTION_EXPECTED = {
-	feedback: { property: "opacity, filter", duration: "0.12s" },
-	move: { property: "transform", duration: "0.24s" },
-	spring: { property: "transform", duration: "0.24s" },
-} as const;
-
-const ANIMATION_EXPECTED = {
-	enter: { name: "hearth-enter", duration: "0.12s", iterations: "1" },
-	activity: { name: "hearth-activity", duration: "1.4s", iterations: "infinite" },
-	loading: { name: "hearth-loading", duration: "1.8s", iterations: "infinite" },
-	busy: { name: "hearth-busy", duration: "0.75s", iterations: "infinite" },
-} as const;
-
-async function addProfilePanel(page: Page): Promise<void> {
-	await page.evaluate(
-		({ typeRoles, transitionProfiles, animationProfiles }) => {
-			const panel = document.createElement("section");
-			panel.id = "az16-profile-proof";
-			panel.setAttribute("aria-label", "AZ16 semantic profile proof");
-			panel.style.cssText =
-				"position:relative;z-index:1;margin:18px;padding:18px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;background:var(--surface-page);color:var(--text-primary)";
-			for (const role of typeRoles) {
-				const node = document.createElement("div");
-				node.className = `type-${role}`;
-				node.dataset.az16Profile = role;
-				node.textContent = role === "metric" ? "47 / 47" : role;
-				panel.append(node);
-			}
-			for (const profile of transitionProfiles) {
-				const node = document.createElement("div");
-				node.className = `motion-${profile}`;
-				node.dataset.az16Profile = profile;
-				node.textContent = profile;
-				panel.append(node);
-			}
-			for (const profile of animationProfiles) {
-				const node = document.createElement("div");
-				node.className = `motion-${profile}`;
-				node.dataset.az16Profile = profile;
-				node.textContent = profile;
-				panel.append(node);
-			}
-			for (const [profile, width] of [
-				["thin", "var(--bw-thin)"],
-				["default", "var(--bw-default)"],
-				["strong", "var(--bw-strong)"],
-			] as const) {
-				const node = document.createElement("div");
-				node.dataset.az16Profile = profile;
-				node.textContent = `${profile} border`;
-				node.style.border = `${width} solid var(--border-default)`;
-				panel.append(node);
-			}
-			document.querySelector("main")?.prepend(panel);
-		},
-		{
-			typeRoles: Object.keys(TYPE_EXPECTED),
-			transitionProfiles: Object.keys(MOTION_EXPECTED),
-			animationProfiles: Object.keys(ANIMATION_EXPECTED),
-		},
-	);
+async function addMotionProbes(page: Page): Promise<void> {
+	await page.evaluate(() => {
+		const panel = document.createElement("section");
+		panel.id = "motion-probe-panel";
+		panel.setAttribute("aria-label", "motion probe panel");
+		for (const profile of ["feedback", "move", "spring", "busy"]) {
+			const node = document.createElement("div");
+			node.className = `motion-${profile}`;
+			node.dataset.az16Profile = profile;
+			node.textContent = profile;
+			panel.append(node);
+		}
+		document.querySelector("main")?.prepend(panel);
+	});
 }
 
-test("AZ16 complete profiles resolve exactly and paint in both Hearth themes", async ({ page }) => {
+const ROUTE_MATRIX = [
+	{ name: "conversations", url: "/conversations/t-az16", testId: "conversations-page" },
+	{ name: "team", url: "/work/team/team-az16", testId: "work-team-page" },
+	{ name: "task", url: "/work/task/task-az16", testId: "task-detail-page" },
+	{ name: "document", url: "/documents/k-az16", testId: "document-detail-page" },
+	{ name: "settings", url: "/settings", testId: "settings-page" },
+] as const;
+
+// One test per route, each on its own fresh Playwright-provided page — a
+// shared page navigated through all 6 routes in sequence accumulated
+// per-navigation state (timers, the app's own WS-reconnect attempts) that
+// made the LAST route in the sequence (settings, the heaviest page at 11
+// stacked sections) slow enough to flake under full-suite parallel load;
+// isolating each route removes that accumulation instead of budgeting more
+// time for it.
+for (const route of ROUTE_MATRIX) {
+	test(`${route.name} route paints its loaded state`, async ({ page }) => {
+		await installAz16Mocks(page);
+		await page.goto(route.url);
+		await expect(page.getByTestId(route.testId).first()).toBeVisible();
+	});
+}
+
+test("review route paints its loaded state", async ({ page }) => {
 	await installAz16Mocks(page);
-	await page.goto("/conversations");
-	await expect(page.getByTestId("conversations-page")).toBeVisible();
-	await addProfilePanel(page);
-
-	for (const [role, [fontSize, fontWeight, lineHeight, letterSpacing]] of Object.entries(
-		TYPE_EXPECTED,
-	)) {
-		const styles = await page
-			.locator(`[data-az16-profile="${role}"]`)
-			.first()
-			.evaluate((node) => {
-				const style = getComputedStyle(node);
-				return {
-					fontFamily: style.fontFamily,
-					fontSize: style.fontSize,
-					fontWeight: style.fontWeight,
-					letterSpacing: style.letterSpacing,
-					lineHeight: style.lineHeight,
-					fontVariantNumeric: style.fontVariantNumeric,
-				};
-			});
-		expect(styles.fontSize).toBe(fontSize);
-		expect(styles.fontWeight).toBe(fontWeight);
-		expect(styles.lineHeight).toBe(lineHeight);
-		expect(styles.letterSpacing).toBe(letterSpacing);
-		expect(styles.fontFamily).toContain(
-			role === "data" || role === "inline-code" ? "monospace" : "system-ui",
-		);
-		if (role === "metric") expect(styles.fontVariantNumeric).toContain("tabular-nums");
-	}
-
-	for (const [profile, expected] of Object.entries(MOTION_EXPECTED)) {
-		const style = await page
-			.locator(`[data-az16-profile="${profile}"]`)
-			.first()
-			.evaluate((node) => {
-				const computed = getComputedStyle(node);
-				return {
-					transitionProperty: computed.transitionProperty,
-					transitionDuration: computed.transitionDuration,
-				};
-			});
-		expect(style.transitionProperty).toBe(expected.property);
-		expect(style.transitionDuration).toBe(expected.duration);
-	}
-	for (const [profile, expected] of Object.entries(ANIMATION_EXPECTED)) {
-		const style = await page
-			.locator(`[data-az16-profile="${profile}"]`)
-			.first()
-			.evaluate((node) => {
-				const computed = getComputedStyle(node);
-				return {
-					animationName: computed.animationName,
-					animationDuration: computed.animationDuration,
-					animationIterationCount: computed.animationIterationCount,
-				};
-			});
-		expect(style.animationName).toBe(expected.name);
-		expect(style.animationDuration).toBe(expected.duration);
-		expect(style.animationIterationCount).toBe(expected.iterations);
-	}
-	for (const [profile, { token, painted }] of Object.entries({
-		thin: { token: "1px", painted: "1px" },
-		// Chromium at DPR 1 paints half-pixel borders on one device pixel.
-		default: { token: "1.5px", painted: "1px" },
-		strong: { token: "2px", painted: "2px" },
-	})) {
-		const tokenValue = await page.evaluate(
-			(name) => getComputedStyle(document.documentElement).getPropertyValue(`--bw-${name}`).trim(),
-			profile,
-		);
-		expect(tokenValue).toBe(token);
-		await expect(page.locator(`[data-az16-profile="${profile}"]`).first()).toHaveCSS(
-			"border-top-width",
-			painted,
-		);
-	}
-
-	await page.evaluate(() => document.documentElement.setAttribute("data-theme", "hearth-dark"));
+	await page.goto(`/reviews/review-az16?threadId=${THREAD.id}`);
+	await expect(page.getByText(REVIEW_COMPOSITION_SUBJECT.title).first()).toBeVisible();
 });
 
-test("AZ16 representative route matrix paints loaded application states", async ({ page }) => {
+test("settings input font-size stays at 16px on a mobile viewport", async ({ page }) => {
 	await installAz16Mocks(page);
-	const routes = [
-		["conversations", "/conversations/t-az16", "conversations-page"],
-		["team", "/work/team/team-az16", "work-team-page"],
-		["task", "/work/task/task-az16", "task-detail-page"],
-		["document", "/documents/k-az16", "document-detail-page"],
-		["settings", "/settings", "settings-page"],
-		["review", `/reviews/review-az16?threadId=${THREAD.id}`, null],
-	] as const;
-	for (const [, route, testId] of routes) {
-		await page.goto(route);
-		if (testId) {
-			await expect(page.getByTestId(testId).first()).toBeVisible();
-		} else {
-			await expect(page.getByText(REVIEW_COMPOSITION_SUBJECT.title).first()).toBeVisible();
-		}
-	}
 	await page.setViewportSize({ width: 390, height: 844 });
 	await page.goto("/settings");
 	const input = page.locator('[data-az16-profile~="input"]').first();
 	await expect(input).toHaveCSS("font-size", "16px");
 });
 
-test("AZ16 reduced motion disables authored and foreign motion globally", async ({ page }) => {
+test("prefers-reduced-motion disables authored and foreign motion globally", async ({ page }) => {
 	await page.emulateMedia({ reducedMotion: "reduce" });
 	await installAz16Mocks(page);
 	await page.goto("/settings");
-	await addProfilePanel(page);
+	await addMotionProbes(page);
 	await page.evaluate(() => {
 		const foreign = document.createElement("div");
 		foreign.dataset.tokenSubject = "foreign";

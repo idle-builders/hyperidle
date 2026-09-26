@@ -1,13 +1,6 @@
 /**
- * E2E tests for the shell navigation: Sidebar view switching and overall
- * layout structure.
- *
- * @lore U6: The old IconRail | Submenu | Rail quad-column layout was replaced
- * by a 200px Sidebar on the left. Tests updated to reflect the new structure.
- *
- * AG4: Added AC-1 through AC-6 tests for back/forward + keyboard shortcuts.
- * @lore AG4: Breadcrumb nav orientation strip + NavHistoryCluster (history back/forward).
- * Back (⌘[) = temporal history, Up (breadcrumb) = structural parent.
+ * E2E tests for the shell navigation: Sidebar view switching, breadcrumb
+ * up-navigation, back/forward history, and keyboard shortcuts.
  */
 import {
 	expect,
@@ -24,27 +17,27 @@ import {
 	test,
 } from "./fixtures";
 
-// ── AG4 fixtures ──────────────────────────────────────────────────────────────
+// ── fixtures ──────────────────────────────────────────────────────────────
 
-const ROOT_TASK_ID = "task-ag4-1";
-const TEAM_ID = "team-ag4-1";
+const ROOT_TASK_ID = "task-nav-1";
+const TEAM_ID = "team-nav-1";
 
 async function mockTaskAndTeam(page: import("@playwright/test").Page) {
 	await mockTaskTree(page, {
 		task: makeTask(ROOT_TASK_ID, {
-			title: "AG4 test task",
+			title: "nav test task",
 			teamId: TEAM_ID,
-			description: "# AG4 test task\n\nTest description",
+			description: "# nav test task\n\nTest description",
 		}),
 	});
 	const roster: ReturnType<typeof makeUserRow>[] = [];
 	await mockSearchUsers(page, { rows: roster });
 	await mockTeamPage(page, {
 		teamId: TEAM_ID,
-		teamName: "AG4 Team",
+		teamName: "Nav Team",
 		roster,
 		tasksInProgress: [
-			makeTask(ROOT_TASK_ID, { teamId: TEAM_ID, title: "AG4 test task", state: "in_progress" }),
+			makeTask(ROOT_TASK_ID, { teamId: TEAM_ID, title: "nav test task", state: "in_progress" }),
 		],
 	});
 	await mockAgents(page, { agents: [] });
@@ -58,14 +51,8 @@ async function mockTaskAndTeam(page: import("@playwright/test").Page) {
 	});
 }
 
-test.describe("AG4 — Back, Up, and Shortcuts", () => {
-	// @lore BC5 T9: the "routine Navigate..." test's subject (`/work/routine/:id`,
-	// a routine row on the team page) is gone with WorkRoutine and the routines
-	// table — subscriptions replace routines, and they live on AgentProfile now,
-	// not their own page. Deleted rather than repointed.
-
-	// AC-3: Every detail screen shows hierarchy breadcrumb + structural up-path
-	test("AC-3: task detail renders Breadcrumb nav with Work + parent link", async ({ page }) => {
+test.describe("breadcrumb up-navigation, history back, and view-switch shortcuts", () => {
+	test("task detail renders a Breadcrumb nav with a Work parent link", async ({ page }) => {
 		await mockTaskAndTeam(page);
 		await page.goto(`/work/task/${ROOT_TASK_ID}`);
 		await page.waitForSelector("[data-testid='task-detail-page']");
@@ -79,10 +66,7 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 		await expect(workLink).toBeVisible();
 	});
 
-	// AC-4: Deep-link fresh screen: sane up path, Back disabled (no history)
-	test("AC-4: deep-link to task detail — Back button disabled when no history", async ({
-		page,
-	}) => {
+	test("deep-linking to task detail disables Back (no history yet)", async ({ page }) => {
 		await mockTaskAndTeam(page);
 		// Fresh navigation — no history
 		await page.goto(`/work/task/${ROOT_TASK_ID}`);
@@ -94,8 +78,7 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 		await expect(backBtn).toBeDisabled();
 	});
 
-	// AC-3 (up path): clicking breadcrumb segment navigates to parent route
-	test("AC-3 up: clicking Work breadcrumb from task detail → portfolio", async ({ page }) => {
+	test("clicking the Work breadcrumb from task detail returns to portfolio", async ({ page }) => {
 		await mockTaskAndTeam(page);
 		await page.goto(`/work/task/${ROOT_TASK_ID}`);
 		await page.waitForSelector("[data-testid='task-detail-page']");
@@ -108,8 +91,7 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 		await expect(page).toHaveURL(/\/work$/, { timeout: 5000 });
 	});
 
-	// AC-5: ⌘1/2/3 view-switch shortcuts
-	test("AC-5: ⌘2 switches to Work view", async ({ page }) => {
+	test("⌘2 switches to Work view", async ({ page }) => {
 		await page.goto("/conversations");
 		await expect(page.getByTestId("conversations-page")).toBeVisible();
 
@@ -118,7 +100,7 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 		await expect(page).toHaveURL(/\/work/, { timeout: 3000 });
 	});
 
-	test("AC-5: ⌘3 switches to Knowledge view", async ({ page }) => {
+	test("⌘3 switches to Knowledge view", async ({ page }) => {
 		// Mock document list
 		await mockSearchDocuments(page, { rows: [] });
 
@@ -130,7 +112,7 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 		await expect(page).toHaveURL(/\/documents/, { timeout: 3000 });
 	});
 
-	test("AC-5: ⌘1 switches back to Conversations view", async ({ page }) => {
+	test("⌘1 switches back to Conversations view", async ({ page }) => {
 		// Start on Work view
 		await mockSearchUsers(page, { rows: [] });
 		await page.goto("/work/portfolio");
@@ -141,16 +123,10 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 		await expect(page).toHaveURL(/\/conversations/, { timeout: 3000 });
 	});
 
-	// AC-5: shortcut guard — does NOT fire while typing in an input
-	// W2: deterministic — the document create page at /documents/new has a real
-	// <input> for the title. We navigate there, focus the title input (which is
-	// always present and clickable), then press ⌘2 and assert it does NOT navigate.
-	//
-	// Note: the global-search dialog's SearchField auto-focus is unreliable in the
-	// headless Playwright runner (the focusRef fires but Playwright shows the element
-	// as "inactive"). Using the DocumentCreate title input is deterministic because
-	// it's a plain <input type="text"> we can directly focus via click().
-	test("AC-5: ⌘2 does not switch views while typing in input", async ({ page }) => {
+	// The global-search dialog's SearchField auto-focus is unreliable in the
+	// headless Playwright runner, so this uses the document-create title input
+	// instead — a plain <input type="text"> that is deterministic to focus.
+	test("⌘2 does not switch views while typing in an input", async ({ page }) => {
 		// Navigate to a page with a real text input (document create).
 		await page.goto("/documents/new");
 		await page.waitForSelector("[data-testid='document-create-page']");
@@ -172,16 +148,10 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 		await expect(titleInput).toBeFocused();
 	});
 
-	// C1 — AC-1: portfolio → team → bet; click Back chevron → team; ⌘[ → portfolio.
-	// Asserts Back affordance visible at each step (desktop width = 1280×720 default).
-	//
-	// Strategy: use in-app navigation (clicks on breadcrumb links and sidebar) rather than
-	// page.goto() for the second and third hops. This ensures React Router pushes real
-	// history entries (idx increments), making canGoBack=true on the bet page.
-	// page.goto() creates a fresh navigation that resets history.state.idx to 0.
-	test("AC-1: portfolio→team→task — Back chevron returns to team, ⌘[ returns to portfolio", async ({
-		page,
-	}) => {
+	// Strategy: use in-app navigation (history.pushState + popstate) rather than
+	// page.goto() for the second and third hops, so React Router pushes real
+	// history entries (idx increments) and canGoBack becomes true on the task page.
+	test("Back chevron returns to team, then ⌘[ returns to portfolio", async ({ page }) => {
 		await mockTaskAndTeam(page);
 
 		// 1. Start at portfolio (page.goto is ok for the first navigation — sets idx=0 baseline).
@@ -240,19 +210,18 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 		await expect(page).toHaveURL(/\/work$/, { timeout: 5000 });
 	});
 
-	// C1 — AC-2: cross-view history traversal — bet → document → Back → bet.
-	// This is the heart of the workpackage: Back traverses temporal history across views.
-	//
-	// Strategy: navigate bet → document via history.pushState (simulates in-app navigation
-	// from ⌘K search result click). The global-search dialog focus is unreliable in headless
-	// Playwright, so we simulate the navigation outcome directly. The AC verifies the
-	// temporal history traversal, not the search UI itself (that's covered by global-search.spec.ts).
-	test("AC-2: cross-view history — task→document→Back returns to task", async ({ page }) => {
+	// Strategy: navigate task → document via history.pushState (simulates a
+	// ⌘K search-result click). The global-search dialog focus is unreliable in
+	// headless Playwright, so this simulates the navigation outcome directly —
+	// the search UI itself is covered by global-search.spec.ts.
+	test("Back traverses history across views: task→document→Back returns to task", async ({
+		page,
+	}) => {
 		const DOCUMENT_ID = "k1";
 
 		await mockTaskAndTeam(page);
 		await mockDocument(page, {
-			row: makeDocumentRow(DOCUMENT_ID, { title: "AG4 fixture document" }),
+			row: makeDocumentRow(DOCUMENT_ID, { title: "nav fixture document" }),
 		});
 
 		// 1. Navigate to bet detail (establishes history base).
@@ -312,7 +281,6 @@ test.describe("Navigation", () => {
 		await expect(sidebar.getByRole("link", { name: /knowledge/i })).toBeVisible();
 	});
 
-	// @lore U6: The Work section in the Sidebar shows team sub-items.
 	// Clicking the Work section header navigates to /work/portfolio.
 	test("clicking Work section header shows team sub-items in Sidebar", async ({ page }) => {
 		await page.getByRole("link", { name: /work/i }).click();
@@ -321,9 +289,6 @@ test.describe("Navigation", () => {
 	});
 
 	test("clicking Knowledge section header activates the Knowledge section", async ({ page }) => {
-		// @lore W3: Knowledge scope sub-items (Practices, Products, Factory) were
-		// removed from the Sidebar in W3 AC-3. The Knowledge section header activates
-		// and navigates to /documents without scope sub-items.
 		await page.getByRole("link", { name: /knowledge/i }).click();
 		// Knowledge section becomes active
 		await expect(page.locator("[data-section='knowledge'][data-active='true']")).toBeVisible();

@@ -17,12 +17,10 @@ test.describe("Keyboard Navigation", () => {
 		expect(["BUTTON", "A", "INPUT", "SELECT"]).toContain(focusedTag);
 	});
 
-	test("L11: pressing 'a' on the conversations page does NOT trigger any verdict shortcut", async ({
-		page,
-	}) => {
-		// L11 plan §6.3 + AC-3 — verdict-keyboard shortcuts (A/R/X/S/C/I/E)
-		// were removed alongside the deleted top toolbar. The page must
-		// remain stable after a stray 'a' keypress and not focus an INPUT.
+	test("pressing 'a' on the conversations page does not trigger any shortcut", async ({ page }) => {
+		// The verdict-keyboard shortcuts (A/R/X/S/C/I/E) were removed alongside
+		// the deleted top toolbar. The page must remain stable after a stray
+		// 'a' keypress and not focus an INPUT.
 		await page.click("[data-testid='main-content']");
 		await page.keyboard.press("a");
 		await expect(page.getByTestId("conversations-page")).toBeVisible();
@@ -49,9 +47,9 @@ test.describe("Responsive Layout", () => {
 		});
 	}
 
-	// @lore U6: at the 768px mobile cut (useViewportBreakpoint.ts), the shell
-	// swaps to its mobile chrome — Main content staying visible is the
-	// contract that survives the swap.
+	// At the 768px mobile cut (useViewportBreakpoint.ts), the shell swaps to
+	// its mobile chrome — Main content staying visible is the contract that
+	// survives the swap.
 	test("Main content stays visible at the 768px mobile breakpoint", async ({ page }) => {
 		await page.setViewportSize({ width: 768, height: 800 });
 		await page.goto("/conversations");

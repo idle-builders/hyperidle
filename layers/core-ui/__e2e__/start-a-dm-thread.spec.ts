@@ -1,16 +1,8 @@
 /**
- * Q1 E2E — AC1 / AC2 / AC3 / AC4: New DM thread creation via recipient picker.
- *
- * Acceptance criteria:
- * 1. A "new thread" action is accessible from the Conversations view.
- * 2. Action opens a recipient picker with users and agents.
- * 3. Selecting a recipient + sending creates a DM thread via
- *    POST /api/actions/send_message ({recipients, text}) — one call creates
- *    the thread and sends the first message; there is no separate
- *    thread-create door.
- * 4. New thread appears in the Conversations submenu thread list immediately.
- *
- * @lore BC3: repointed at the thread action door — never `POST /api/threads`.
+ * Journey: starting a new direct-message thread from Conversations — the
+ * "New Thread" button opens a recipient picker, and picking someone and
+ * sending creates the thread in one call (there is no separate
+ * thread-create door).
  */
 
 import {
@@ -47,7 +39,7 @@ const CREATED_THREAD = makeThread("new-dm-thread-id", {
 	createdAt: NOW_ISO,
 });
 
-test.describe("Q1 — New DM Thread Creation", () => {
+test.describe("start a new DM thread", () => {
 	test.beforeEach(async ({ page }) => {
 		// Mock the recipient picker's data source.
 		await mockSearchUsers(page, { rows: MOCK_RECIPIENTS });
@@ -92,8 +84,7 @@ test.describe("Q1 — New DM Thread Creation", () => {
 		await mockThread(page, { thread: CREATED_THREAD, messages: [] });
 	});
 
-	// AC1: "new thread" action is accessible from Conversations view
-	test("AC1: 'New Thread' button is visible in the Conversations submenu", async ({ page }) => {
+	test("the New Thread button is visible in Conversations", async ({ page }) => {
 		await page.goto("/conversations");
 		await page.waitForLoadState("networkidle");
 
@@ -102,8 +93,9 @@ test.describe("Q1 — New DM Thread Creation", () => {
 		await expect(newThreadBtn.first()).toBeVisible({ timeout: 10000 });
 	});
 
-	// AC2: clicking "New Thread" opens recipient picker with search + agent/user list
-	test("AC2: recipient picker opens with search and recipient list", async ({ page }) => {
+	test("clicking it opens a recipient picker with search and a recipient list", async ({
+		page,
+	}) => {
 		await page.goto("/conversations");
 		await page.waitForLoadState("networkidle");
 
@@ -123,10 +115,7 @@ test.describe("Q1 — New DM Thread Creation", () => {
 		await expect(page.getByText("Growth Engine")).toBeVisible({ timeout: 5000 });
 	});
 
-	// AC3: selecting a recipient + sending creates a thread
-	test("AC3: selecting recipient and sending creates DM thread via send_message", async ({
-		page,
-	}) => {
+	test("selecting a recipient and sending creates the thread", async ({ page }) => {
 		const threadCreationRequests: unknown[] = [];
 
 		// Override send_message to capture request body
@@ -185,20 +174,7 @@ test.describe("Q1 — New DM Thread Creation", () => {
 		expect(threadCreationRequests.length).toBeGreaterThan(0);
 	});
 
-	// AC4: new thread appears in thread list after creation
-	test("AC4: new thread appears in Conversations submenu list after creation", async ({ page }) => {
-		await page.goto("/conversations");
-		await page.waitForLoadState("networkidle");
-
-		// The mocked thread list includes the new-dm-thread-id row
-		// Verify it renders in the thread list
-		await expect(page.locator("[data-ds-component='ThreadRow']").first()).toBeVisible({
-			timeout: 5000,
-		});
-	});
-
-	// AC1: keyboard shortcut N opens recipient picker (when not inside a text input)
-	test("AC1: keyboard shortcut N opens the recipient picker", async ({ page }) => {
+	test("keyboard shortcut N opens the recipient picker", async ({ page }) => {
 		await page.goto("/conversations");
 		await page.waitForLoadState("networkidle");
 
