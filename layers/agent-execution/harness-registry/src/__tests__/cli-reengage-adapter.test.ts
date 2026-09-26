@@ -168,6 +168,7 @@ describe("CliHarnessAdapter.streamEvents process-reengage loop", () => {
 		const adapter = new CliHarnessAdapter(makeProcessReEngageConfig(), {
 			spawnFn,
 			enforcement: enforcementRegistry,
+			killFn: vi.fn(),
 		});
 
 		// Register the session in the enforcement registry BEFORE streamEvents.
@@ -232,6 +233,7 @@ describe("CliHarnessAdapter.streamEvents process-reengage loop", () => {
 		const adapter = new CliHarnessAdapter(makeProcessReEngageConfig(), {
 			spawnFn,
 			enforcement: enforcementRegistry,
+			killFn: vi.fn(),
 		});
 
 		// gate.returned=true means agent already returned voluntarily.
@@ -262,6 +264,7 @@ describe("CliHarnessAdapter.streamEvents process-reengage loop", () => {
 		const adapter = new CliHarnessAdapter(makeProcessReEngageConfig(), {
 			spawnFn,
 			enforcement: enforcementRegistry,
+			killFn: vi.fn(),
 		});
 
 		const gate = { returned: false };
@@ -307,6 +310,7 @@ describe("CliHarnessAdapter.streamEvents process-reengage loop", () => {
 		const adapter = new CliHarnessAdapter(makeProcessReEngageConfig(), {
 			spawnFn,
 			enforcement: enforcementRegistry,
+			killFn: vi.fn(),
 		});
 
 		const gate = { returned: false };
@@ -358,6 +362,7 @@ describe("CliHarnessAdapter.streamEvents process-reengage loop", () => {
 		const adapter = new CliHarnessAdapter(makeProcessReEngageConfig(), {
 			spawnFn,
 			enforcement: enforcementRegistry,
+			killFn: vi.fn(),
 		});
 
 		const gate = { returned: false };
@@ -408,6 +413,7 @@ describe("CliHarnessAdapter.streamEvents process-reengage loop", () => {
 		const adapter = new CliHarnessAdapter(makeProcessReEngageConfig(), {
 			spawnFn,
 			enforcement: enforcementRegistry,
+			killFn: vi.fn(),
 		});
 
 		const gate = { returned: false };
@@ -440,7 +446,7 @@ describe("CliHarnessAdapter.streamEvents process-reengage loop", () => {
 
 		const adapter = new CliHarnessAdapter(
 			makeProcessReEngageConfig({ returnEnforcementChannel: "settings-claude" }),
-			{ spawnFn, enforcement: enforcementRegistry },
+			{ spawnFn, enforcement: enforcementRegistry, killFn: vi.fn() },
 		);
 
 		const gate = { returned: false };

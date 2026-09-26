@@ -17,7 +17,7 @@ import { EventEmitter } from "node:events";
 import type { HarnessEvent, SessionConfig, SessionResumeConfig } from "@hyperidle/harness-protocol";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CliAdapterConfig } from "../cli-harness-adapter.js";
-import { CliHarnessAdapter } from "../cli-harness-adapter.js";
+import { CliHarnessAdapter, stopAllLiveHarnessSessions } from "../cli-harness-adapter.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -88,6 +88,7 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 
 		const adapter = new CliHarnessAdapter(makeConfig({ args: ["--dir", "{{sandbox}}"] }), {
 			spawnFn: spawnSpy,
+			killFn: vi.fn(),
 		});
 		const sessionConfig = makeSessionConfig();
 		const handle = await adapter.startSession(sessionConfig);
@@ -105,6 +106,7 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 
 		const adapter = new CliHarnessAdapter(makeConfig({ args: ["--model", "{{model}}"] }), {
 			spawnFn: spawnSpy,
+			killFn: vi.fn(),
 		});
 		const handle = await adapter.startSession(makeSessionConfig());
 		expect(handle.sessionId).toBeTruthy();
@@ -130,7 +132,7 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 				envMap: { MCP_URL: "{{mcpUrl}}" },
 				envAllowlist: [],
 			}),
-			{ spawnFn: spawnSpy },
+			{ spawnFn: spawnSpy, killFn: vi.fn() },
 		);
 		await adapter.startSession(makeSessionConfig());
 
@@ -150,7 +152,7 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 				envMap: { MCP_URL: "{{mcpUrl}}" },
 				envAllowlist: [],
 			}),
-			{ spawnFn: spawnSpy },
+			{ spawnFn: spawnSpy, killFn: vi.fn() },
 		);
 		const sessionConfigNoMcp = makeSessionConfig({ mcpConnectionInfo: undefined });
 		await adapter.startSession(sessionConfigNoMcp);
@@ -176,7 +178,7 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 				envMap: {},
 				envAllowlist: [],
 			}),
-			{ spawnFn: spawnSpy },
+			{ spawnFn: spawnSpy, killFn: vi.fn() },
 		);
 		await adapter.startSession(makeSessionConfig({ selectedModel: undefined }));
 
@@ -207,7 +209,7 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 
 		const adapter = new CliHarnessAdapter(
 			makeConfig({ args: ["exec", "{{prompt}}"], envMap: {}, envAllowlist: [] }),
-			{ spawnFn: spawnSpy },
+			{ spawnFn: spawnSpy, killFn: vi.fn() },
 		);
 		await adapter.startSession(makeSessionConfig({ instruction }));
 
@@ -229,7 +231,7 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 
 		const adapter = new CliHarnessAdapter(
 			makeConfig({ args: ["exec", "{{prompt}}"], envMap: {}, envAllowlist: [] }),
-			{ spawnFn: spawnSpy },
+			{ spawnFn: spawnSpy, killFn: vi.fn() },
 		);
 		await adapter.startSession(
 			makeSessionConfig({
@@ -256,7 +258,7 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 				envMap: {},
 				envAllowlist: [],
 			}),
-			{ spawnFn: spawnSpy },
+			{ spawnFn: spawnSpy, killFn: vi.fn() },
 		);
 		await adapter.startSession(makeSessionConfig({ selectedModel: "gpt-5.4-mini" }));
 
@@ -298,7 +300,7 @@ describe("CliHarnessAdapter startSession", () => {
 
 		const adapter = new CliHarnessAdapter(
 			makeConfig({ args: ["--dir", "{{sandbox}}", "--model", "{{model}}"] }),
-			{ spawnFn: spawnSpy },
+			{ spawnFn: spawnSpy, killFn: vi.fn() },
 		);
 		await adapter.startSession(makeSessionConfig());
 
@@ -321,7 +323,10 @@ describe("CliHarnessAdapter startSession", () => {
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
 
-		const adapter = new CliHarnessAdapter(makeConfig({ args: [] }), { spawnFn: spawnSpy });
+		const adapter = new CliHarnessAdapter(makeConfig({ args: [] }), {
+			spawnFn: spawnSpy,
+			killFn: vi.fn(),
+		});
 		await adapter.startSession(makeSessionConfig({ sandboxPath: "/my/workspace" }));
 
 		const options = spawnSpy!.mock.calls[0]![2] as Record<string, unknown>;
@@ -333,7 +338,10 @@ describe("CliHarnessAdapter startSession", () => {
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
 
-		const adapter = new CliHarnessAdapter(makeConfig({ args: [] }), { spawnFn: spawnSpy });
+		const adapter = new CliHarnessAdapter(makeConfig({ args: [] }), {
+			spawnFn: spawnSpy,
+			killFn: vi.fn(),
+		});
 		const handle = await adapter.startSession(makeSessionConfig());
 		expect(typeof handle.sessionId).toBe("string");
 		expect(handle.sessionId.length).toBeGreaterThan(0);
@@ -357,6 +365,7 @@ describe("CliHarnessAdapter startSession", () => {
 
 		const adapter = new CliHarnessAdapter(makeConfig({ binary: "fake-tool", args: [] }), {
 			spawnFn: spawnSpy,
+			killFn: vi.fn(),
 		});
 		await expect(adapter.startSession(makeSessionConfig())).rejects.toThrow(
 			/binary not found.*fake-tool/i,
@@ -384,7 +393,7 @@ describe("CliHarnessAdapter env sandboxing", () => {
 				envMap: { FAKE_MCP: "{{mcpUrl}}" },
 				envAllowlist: ["PATH"], // Only PATH is allowlisted, not HYPERIDLE_SECRET
 			}),
-			{ spawnFn: spawnSpy },
+			{ spawnFn: spawnSpy, killFn: vi.fn() },
 		);
 		await adapter.startSession(makeSessionConfig());
 
@@ -411,7 +420,7 @@ describe("CliHarnessAdapter env sandboxing", () => {
 		process.env["DATABASE_URL"] = "postgres://should-not-leak";
 		const adapter = new CliHarnessAdapter(
 			makeConfig({ args: [], envMap: {}, envAllowlist: ["PATH"] }),
-			{ spawnFn: spawnSpy },
+			{ spawnFn: spawnSpy, killFn: vi.fn() },
 		);
 		await adapter.startSession(makeSessionConfig());
 
@@ -452,7 +461,7 @@ describe("CliHarnessAdapter resumeSession — env construction", () => {
 				eventFormat: "ndjson",
 				envAllowlist: [],
 			},
-			{ spawnFn: spawnSpy },
+			{ spawnFn: spawnSpy, killFn: vi.fn() },
 		);
 
 		const startConfig = makeSessionConfig({ selectedModel: "claude-haiku-4-5" });
@@ -486,7 +495,7 @@ describe("CliHarnessAdapter resumeSession — env construction", () => {
 				eventFormat: "ndjson",
 				envAllowlist: [],
 			},
-			{ spawnFn: spawnSpy },
+			{ spawnFn: spawnSpy, killFn: vi.fn() },
 		);
 
 		const resumeConfig: SessionResumeConfig = {
@@ -513,6 +522,7 @@ describe("CliHarnessAdapter streamEvents — ndjson mode", () => {
 
 		const adapter = new CliHarnessAdapter(makeConfig({ args: [], eventFormat: "ndjson" }), {
 			spawnFn: spawnSpy,
+			killFn: vi.fn(),
 		});
 		const handle = await adapter.startSession(makeSessionConfig());
 
@@ -545,6 +555,7 @@ describe("CliHarnessAdapter streamEvents — ndjson mode", () => {
 
 		const adapter = new CliHarnessAdapter(makeConfig({ args: [], eventFormat: "ndjson" }), {
 			spawnFn: spawnSpy,
+			killFn: vi.fn(),
 		});
 		const handle = await adapter.startSession(makeSessionConfig());
 
@@ -571,6 +582,7 @@ describe("CliHarnessAdapter streamEvents — ndjson mode", () => {
 
 		const adapter = new CliHarnessAdapter(makeConfig({ args: [], eventFormat: "ndjson" }), {
 			spawnFn: spawnSpy,
+			killFn: vi.fn(),
 		});
 		const handle = await adapter.startSession(makeSessionConfig());
 
@@ -603,7 +615,7 @@ describe("CliHarnessAdapter streamEvents — ndjson mode", () => {
 		// Config with a pattern that matches the benign line we'll emit.
 		const adapter = new CliHarnessAdapter(
 			makeConfig({ args: [], eventFormat: "ndjson", stderrIgnorePatterns: [/benign/] }),
-			{ spawnFn: spawnSpy },
+			{ spawnFn: spawnSpy, killFn: vi.fn() },
 		);
 		const handle = await adapter.startSession(makeSessionConfig());
 
@@ -637,6 +649,7 @@ describe("CliHarnessAdapter streamEvents — ndjson mode", () => {
 
 		const adapter = new CliHarnessAdapter(makeConfig({ args: [], eventFormat: "ndjson" }), {
 			spawnFn: spawnSpy,
+			killFn: vi.fn(),
 		});
 		const handle = await adapter.startSession(makeSessionConfig());
 
@@ -667,6 +680,7 @@ describe("CliHarnessAdapter streamEvents — text mode", () => {
 
 		const adapter = new CliHarnessAdapter(makeConfig({ args: [], eventFormat: "text" }), {
 			spawnFn: spawnSpy,
+			killFn: vi.fn(),
 		});
 		const handle = await adapter.startSession(makeSessionConfig());
 
@@ -694,6 +708,7 @@ describe("CliHarnessAdapter streamEvents — text mode", () => {
 
 		const adapter = new CliHarnessAdapter(makeConfig({ args: [], eventFormat: "text" }), {
 			spawnFn: spawnSpy,
+			killFn: vi.fn(),
 		});
 		const handle = await adapter.startSession(makeSessionConfig());
 
@@ -941,30 +956,54 @@ describe("CliHarnessAdapter stopSession — parent already exited (session.done)
 	}, 15_000);
 });
 
-// ── process 'exit' backstop (D-akgvxh) ───────────────────────────────────────
+// ── process exit sweep (D-akgvxh / B3) ───────────────────────────────────────
 //
 // @lore D-akgvxh: detached:true means a spawned harness CLI no longer gets
 // the terminal's SIGINT/SIGHUP on a forced `npm run dev` exit or crash. A
-// single shared `process.on("exit", ...)` handler is the backstop — this test
-// invokes it exactly as Node would (by emitting "exit" on `process`, never by
-// calling `process.exit()`) and proves it SIGKILLs a still-live session.
+// single shared `process.on("exit", ...)` handler is the backstop, and
+// `stopAllLiveHarnessSessions` is the exact function it calls.
+//
+// @lore B3: this test calls `stopAllLiveHarnessSessions()` directly — never
+// `process.emit("exit", ...)` on the real `process` object. Emitting the real
+// event fires the ACTUAL shared handler, which sweeps every CliHarnessAdapter
+// constructed anywhere else in this file, not just this test's own adapter —
+// a real cross-test entanglement that is exactly how a prior version of this
+// test (before every fake-child test in this file injected its own killFn)
+// reached real `process.kill(-12345, "SIGKILL")` / `process.kill(-99999,
+// "SIGKILL")` calls against the host, dozens of times per run. Calling the
+// exported sweep function directly, with an adapter whose killFn is injected
+// right here, tests the identical logic without touching global process
+// state or any other test's adapter.
+//
+// @lore B3 reused-pid gap: a `done` session (its CLI already exited) must NOT
+// be swept here — see killAllLiveSessionGroups's own @lore for why. This test
+// proves both halves in one pass: the still-running session is swept, the
+// done one is not.
 
-describe("CliHarnessAdapter — process exit backstop", () => {
-	it("SIGKILLs every live session's process group when process 'exit' fires", async () => {
+describe("CliHarnessAdapter — process exit sweep", () => {
+	it("SIGKILLs every still-running session's process group, and skips a done one", async () => {
 		const killFn = vi.fn();
 		const spawnSpy = vi.fn();
-		const fakeChild = makeFakeChild();
-		spawnSpy.mockReturnValue(fakeChild.proc);
+		const runningChild = makeFakeChild();
+		const doneChild = makeFakeChild();
+		spawnSpy.mockReturnValueOnce(runningChild.proc).mockReturnValueOnce(doneChild.proc);
 
 		const adapter = new CliHarnessAdapter(makeConfig({ args: [] }), {
 			spawnFn: spawnSpy,
 			killFn,
 		});
+
+		// Session 1: still running when the sweep fires.
 		await adapter.startSession(makeSessionConfig());
+		// Session 2: its CLI already exited. A caller that never calls
+		// stopSession leaves it in `this.sessions` indefinitely — the sweep
+		// must not re-signal it (B3 reused-pid gap).
+		await adapter.startSession(makeSessionConfig());
+		doneChild.emitExit(0, null);
 
-		// The session is still running (no exit emitted) when the process exits.
-		process.emit("exit", 0);
+		stopAllLiveHarnessSessions();
 
+		expect(killFn).toHaveBeenCalledTimes(1);
 		expect(killFn).toHaveBeenCalledWith(-12345, "SIGKILL");
 	});
 });

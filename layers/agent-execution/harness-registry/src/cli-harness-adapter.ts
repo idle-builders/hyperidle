@@ -1148,14 +1148,27 @@ export class CliHarnessAdapter implements HarnessAdapter {
 	}
 
 	/**
-	 * D-akgvxh: SIGKILLs every session this adapter still holds a live child
-	 * for. Called by the shared process 'exit' handler above; also callable
-	 * directly, which is how the unit test drives it without ever calling
-	 * `process.exit()` (it emits "exit" on `process` and lets the real
+	 * D-akgvxh: SIGKILLs every still-RUNNING session this adapter holds a live
+	 * child for. Called by the shared process 'exit' handler above; also
+	 * callable directly, which is how the unit test drives it without ever
+	 * calling `process.exit()` (it emits "exit" on `process` and lets the real
 	 * registered listener run instead).
+	 *
+	 * @lore B3 reused-pid gap: a `session.done` entry (the CLI already exited —
+	 * `stopSession`'s own done-branch already signalled its group once, right
+	 * after exit, when the pid was still certainly the same process) can sit in
+	 * `this.sessions` for an UNBOUNDED time if the caller never calls
+	 * `stopSession` at all. By the time this sweep runs — a crash, a forced
+	 * exit, an arbitrarily later moment — the OS may have long since recycled
+	 * that pid for an unrelated process. Signalling it then would SIGKILL
+	 * whatever now holds that pid, not the harness that used to. Skipping
+	 * `session.done` here closes that: the done-branch's OWN signal (fired in
+	 * the same tick as the exit, before any reuse is plausible) is the only
+	 * kill a done session ever gets.
 	 */
 	killAllLiveSessionGroups(): void {
 		for (const session of this.sessions.values()) {
+			if (session.done) continue;
 			// A session whose child never got a pid (spawn failed before or during
 			// ENOENT handling) has no process group to signal — skip it rather than
 			// fall into killProcessGroup's single-child fallback, which assumes a
