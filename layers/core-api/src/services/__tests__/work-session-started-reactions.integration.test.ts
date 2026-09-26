@@ -157,10 +157,13 @@ async function readTaskState(db: HyperIdleDb, taskId: string): Promise<string | 
 
 /**
  * A "this event is a no-op" assertion has no completion signal of its own to
- * wait on. Instead of a blind sleep, drive one REAL, unrelated task through
- * the same registered reaction to a verified `in_progress` transition — by
- * the time that resolves, the no-op event's own (equally fire-and-forget)
- * handler invocation has long since had its turn on the microtask queue.
+ * wait on — it does not wait on the ignored event's own handler invocation
+ * directly. Instead of a blind sleep, it drives one REAL, unrelated task
+ * through the same registered reaction (same EventBus, same handler) to a
+ * verified `in_progress` transition; since both events are emitted in order
+ * on the same fire-and-forget handler, the earlier one's turn on the
+ * microtask queue is guaranteed to have passed by the time the later one's
+ * effect is observed.
  */
 async function settleIgnoredReaction(
 	db: HyperIdleDb,

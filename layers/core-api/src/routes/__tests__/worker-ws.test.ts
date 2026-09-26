@@ -2,12 +2,14 @@
  * The worker WebSocket route: accepts connections with a valid token,
  * rejects with an invalid one, registers/unregisters the adapter with the
  * pool as the connection opens/closes, and routes runtime messages (event,
- * session_result, error) to the right adapter after registration. Malformed
- * incoming messages fail Zod validation and are dropped, never thrown.
+ * session_result, error, pause, resume) to the right adapter after
+ * registration. Malformed incoming messages fail Zod validation and are
+ * dropped, never thrown. Pause/resume before registration are ignored — no
+ * crash, pool unchanged.
  */
 
 import { AdapterPool } from "@hyperidle/harness-registry";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { registerWorkerTestSocket, startWorkerTestRuntime } from "./worker-runtime-test-helper.js";
 
 async function registerWorkerWsRoute(app: MockHono, pool: AdapterPool): Promise<() => void> {
@@ -300,4 +302,68 @@ describe("WorkerConnectionManager — post-registration message routing", () => 
 		// Pool must remain empty (malformed messages don't register anything)
 		expect(pool.size).toBe(0);
 	});
+});
+
+// ── Pause/resume message handling ────────────────────────────────────────────
+
+describe("WorkerConnectionManager — pause/resume", () => {
+	it("pause message after registration calls pool.pause(workerId)", async () => {
+		const pool = makePool();
+		const ws = new MockWsContext();
+		const pauseSpy = vi.spyOn(pool, "pause");
+		const manager = await createWorkerConnectionManager(pool);
+
+		manager.onMessage(
+			JSON.stringify({
+				type: "register",
+				id: "w-p1",
+				name: "pause-worker",
+				modelProviders: ["anthropic"],
+				maxConcurrent: 2,
+			}),
+			ws as never,
+		);
+		expect(pool.size).toBe(1);
+
+		manager.onMessage(JSON.stringify({ type: "pause" }), ws as never);
+
+		expect(pauseSpy).toHaveBeenCalledWith("w-p1");
+	});
+
+	it("resume message after registration calls pool.resume(workerId)", async () => {
+		const pool = makePool();
+		const ws = new MockWsContext();
+		const resumeSpy = vi.spyOn(pool, "resume");
+		const manager = await createWorkerConnectionManager(pool);
+
+		manager.onMessage(
+			JSON.stringify({
+				type: "register",
+				id: "w-r1",
+				name: "resume-worker",
+				modelProviders: ["anthropic"],
+				maxConcurrent: 2,
+			}),
+			ws as never,
+		);
+		manager.onMessage(JSON.stringify({ type: "pause" }), ws as never);
+
+		manager.onMessage(JSON.stringify({ type: "resume" }), ws as never);
+
+		expect(resumeSpy).toHaveBeenCalledWith("w-r1");
+	});
+
+	it.each(["pause", "resume"] as const)(
+		"%s message before registration is ignored — no crash, pool unchanged",
+		async (type) => {
+			const pool = makePool();
+			const ws = new MockWsContext();
+			const spy = vi.spyOn(pool, type);
+			const manager = await createWorkerConnectionManager(pool);
+
+			expect(() => manager.onMessage(JSON.stringify({ type }), ws as never)).not.toThrow();
+			expect(spy).not.toHaveBeenCalled();
+			expect(pool.size).toBe(0);
+		},
+	);
 });
