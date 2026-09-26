@@ -406,7 +406,6 @@ function WorkTeamLoaded({
 						<Button
 							variant="ghost"
 							size="sm"
-							touchAlways
 							type="button"
 							onClick={() => navigate("/work/task/new")}
 							data-testid="new-task-btn"
@@ -443,7 +442,6 @@ function WorkTeamLoaded({
 						<Button
 							variant="ghost"
 							size="sm"
-							touchAlways
 							type="button"
 							onClick={() => setAddDialogOpen(true)}
 							data-testid="add-agent-btn"
@@ -575,7 +573,6 @@ function WorkTeamLoaded({
 										<Button
 											variant="ghost"
 											size="sm"
-											touchAlways
 											className="shrink-0"
 											onClick={(e) => {
 												e.stopPropagation();

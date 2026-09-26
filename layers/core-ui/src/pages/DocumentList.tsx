@@ -336,7 +336,7 @@ function DocumentListContent({
 						}}
 						className="type-input hidden sm:inline"
 					/>
-					<Button variant="primary" size="sm" touchAlways onClick={onNewItem}>
+					<Button variant="primary" size="sm" onClick={onNewItem}>
 						+ New
 					</Button>
 				</div>

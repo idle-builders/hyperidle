@@ -10,7 +10,6 @@ import AxeBuilder from "@axe-core/playwright";
 import {
 	expect,
 	makeDocumentRow,
-	makeSessionRow,
 	makeTask,
 	makeTaskNode,
 	makeUserRow,
@@ -74,9 +73,12 @@ test.describe("zero WCAG 2.1 AA violations", () => {
 			],
 		});
 		await mockAgents(page, { agents: [] });
-		await mockSearchSessions(page, {
-			rows: [makeSessionRow("a11y-session-1", { agentId: "agent-1", state: "active" })],
-		});
+		// No active sessions — both roster agents fall back to the idle/"paused"
+		// default (DEFAULT_ROSTER_RUN_STATE), which is what actually renders the
+		// paused StatusChip this suite must be able to catch a contrast
+		// regression on. The team-level header chip renders healthy
+		// independently, so both StatusChip tones are on screen together.
+		await mockSearchSessions(page, { rows: [] });
 		await mockSearchDocuments(page, { rows: [makeDocumentRow("k1", { title: "Doc one" })] });
 		await mockDocument(page, { row: makeDocumentRow("k1", { title: "Doc one", body: "# Hi" }) });
 		await page.route("**/api/artifacts*", (route) =>
