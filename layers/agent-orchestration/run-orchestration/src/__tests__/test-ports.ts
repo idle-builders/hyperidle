@@ -3,26 +3,19 @@
  * tests. `sessionRequests` wires to REAL `@hyperidle/session-requests`
  * exports (same-layer, real target — Mechanism C exempts `__tests__/` from
  * source-import scanning, but these tests want REAL durable-write behavior
- * to assert against, not a stub). `sessionLifecycle`'s
- * `transitionAgentRunLifecycle` is reproduced directly against
- * `@hyperidle/session-requests`'s own `transitionSessionRequest` (the
- * same durable write used by the real implementation). These tests never set
- * a termination reason, so precedence behavior is not exercised here.
+ * to assert against, not a stub). `sessionLifecycle.transitionAgentRunLifecycle`
+ * calls the package's own real `transitionRun` — never a hand-rewritten
+ * duplicate of its logic — so a field this Service's real composition drops
+ * (`run-orchestration-composition.ts`'s own top `@lore`: `errorMessage` did,
+ * for months) fails here too, instead of a parallel reimplementation
+ * quietly forwarding it while production doesn't.
  * `sessionProvisioner`/`crashSession`/`requestAgentTermination`/
  * `recoverRequestedTerminations` are `vi.fn()` stubs — overridden per test
  * where behavior matters (matching the pre-move tests' own
  * `vi.mock("../session-provisioning.js")` stand-in for the same harness-
  * execution edge).
- *
- * @lore AU20 Ag3b: `findAgentSessionRequestById`, `findAgentWorkIntentSourceByRequestId`,
- * `isAgentSessionRequestClaimActive`, `markRequestRunning`, and
- * `terminalizeAgentSessionRequest` are no longer barrel-exported. Replaced by
- * `findSessionRequest` + `transitionSessionRequest`. `testTerminalize` updated to
- * call the new unified API; the `{state}` field in its callers becomes `{to}`.
  */
-import type { AgentSessionRequest, HyperIdleDb } from "@hyperidle/db";
-import type { AgentSessionSourceKind } from "@hyperidle/domain-model";
-import type { EventBus } from "@hyperidle/event-bus";
+import type { AgentSessionRequest } from "@hyperidle/db";
 import {
 	claimSessionRequest,
 	drainIntents,
@@ -35,72 +28,53 @@ import {
 } from "@hyperidle/session-requests";
 import { vi } from "vitest";
 import type { RuntimePorts } from "../contracts.js";
+import { transitionRun } from "../transition-run.js";
 
-type RunOrchestrationPorts = RuntimePorts;
 type RunOrchestrationSessionLifecycleRuntime = RuntimePorts["sessionLifecycle"];
-
-/** `transitionSessionRequest` terminal — AU20 B1a: no deps needed (table owned directly). */
-export async function testTerminalize(
-	db: HyperIdleDb,
-	input: Extract<
-		Parameters<RunOrchestrationPorts["sessionRequests"]["transitionSessionRequest"]>[1],
-		{ readonly precondition: string }
-	>,
-): Promise<AgentSessionRequest | null> {
-	const row = await transitionSessionRequest(db, input);
-	return row && typeof row === "object" && "id" in row ? row : null;
-}
 
 const realSessionLifecyclePort: RunOrchestrationSessionLifecycleRuntime = {
 	requestAgentTermination: vi.fn(async () => "accepted" as const),
 	recoverRequestedTerminations: vi.fn(async () => 0),
-	async transitionAgentRunLifecycle(
-		db: HyperIdleDb,
-		eventBus: EventBus,
-		input: {
-			readonly requestId: string;
-			readonly state: "completed" | "failed" | "cancelled";
-			readonly sessionId?: string;
-			readonly claimToken?: string;
-			readonly failureCode?: string;
-			readonly errorMessage?: string;
-		},
-	): Promise<void> {
-		const row = input.sessionId
-			? await testTerminalize(db, {
-					requestId: input.requestId,
-					precondition: "running",
-					sessionId: input.sessionId,
-					to: input.state,
-					failureCode: input.failureCode,
-					errorMessage: input.errorMessage,
-				})
-			: await testTerminalize(db, {
-					requestId: input.requestId,
-					precondition: "claimed",
-					claimToken: input.claimToken ?? "",
-					to: "failed",
-					failureCode: input.failureCode,
-					errorMessage: input.errorMessage,
-				});
-		if (!row) throw new Error(`Unknown agent request ${input.requestId}`);
-		eventBus.emit({
-			type: "agent_run_lifecycle_changed",
-			streamId: row.streamId,
-			requestId: row.id,
-			sourceKind: row.sourceKind as AgentSessionSourceKind,
-			sourceId: row.sourceId,
-			state: row.status as "completed" | "failed" | "cancelled",
-			sessionId: row.sessionId ?? undefined,
-			timestamp: Date.now(),
-		});
+	async transitionAgentRunLifecycle(db, eventBus, input) {
+		await transitionRun(
+			{
+				db,
+				eventBus,
+				ports: {
+					sessionRequests: {
+						findSessionRequest,
+						listSessionRequests,
+						transitionSessionRequest: async (exec, transition) =>
+							(await transitionSessionRequest(exec, transition)) as AgentSessionRequest | null,
+						// The live-runtime registry ops (`stopSessionRun`/registration) —
+						// `transitionAgentRunLifecycle` never calls these; only the
+						// terminalize path above does.
+						abortSessionRun: () => {
+							throw new Error("abortSessionRun: not exercised by transitionAgentRunLifecycle");
+						},
+						registerSessionRun: () => undefined,
+						deregisterSessionRun: () => undefined,
+					},
+				},
+			},
+			{
+				target: "request",
+				intent: "terminalize",
+				requestId: input.requestId,
+				state: input.state,
+				sessionId: input.sessionId,
+				claimToken: input.claimToken,
+				failureCode: input.failureCode,
+				errorMessage: input.errorMessage,
+			},
+		);
 	},
 	crashSession: vi.fn(async () => {
 		/* no-op */
 	}),
 };
 
-export function buildTestPorts(): RunOrchestrationPorts {
+export function buildTestPorts(): RuntimePorts {
 	return {
 		sessionRequests: {
 			claimSessionRequest,
