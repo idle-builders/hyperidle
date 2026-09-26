@@ -1,8 +1,5 @@
 /**
- * AO2 — LocalFolderAdapter integration test (thin).
- *
- * AC1: mount symlinks the folder into sandboxPath; files accessible.
- * AC2: captureBack is a declared no-op (AU43 stage 2 — write code removed).
+ * LocalFolderAdapter symlinks a doc_set folder into the sandbox.
  */
 
 import { randomUUID } from "node:crypto";
@@ -72,24 +69,6 @@ describe("LocalFolderAdapter integration (thin)", () => {
 		const stat = fs.lstatSync(linkPath);
 		expect(stat.isSymbolicLink()).toBe(true);
 		expect(fs.realpathSync(linkPath)).toBe(fs.realpathSync(vaultDir));
-	});
-
-	it("captureBack: returns success no-op (write code removed in AU43 stage 2)", async () => {
-		const sessionId = randomUUID();
-		const sandboxPath = path.join(tmpDir, `sandbox-${sessionId}`);
-		fs.mkdirSync(sandboxPath, { recursive: true });
-
-		const adapter = new RegistryFilesystemMounter(makeDeps());
-		await adapter.mount({ filesystem: makeFs(vaultDir), sandboxPath });
-
-		const result = await adapter.captureBack({
-			filesystem: makeFs(vaultDir),
-			sandboxPath,
-			sessionId,
-		});
-
-		expect(result.success).toBe(true);
-		expect(result.captured).toBe(false);
 	});
 
 	it("mount: returns success:false when folder does not exist", async () => {

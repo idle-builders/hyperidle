@@ -790,44 +790,10 @@ const PROVISIONER_EMITTED_FILES = [".mcp.json"] as const;
  * working on a repo that tracks .mcp.json does not overwrite the real config.
  */
 
-// ── Phase 4.5 mount + teardown capture-back helpers ────────────────────
-//
 // @lore AU21 §9 Increment 8 (Decision F2): the mount operation itself
 // (`mountFilesystemsForAgent`) relocated wholesale into this package's own
 // `filesystem-provisioning.ts` (imported above) — only the seam-facing
 // `SessionLifecycleFilesystemsReader` port type stays declared in this file.
-
-/**
- * Capture-back mounted filesystems before endSession/crashSession.
- *
- * Called BEFORE each endSession (which holds the rm -rf) and before crashSession
- * on the in-runSession crash path. Best-effort: a capture failure is logged but
- * never blocks teardown (uncommitted-but-failed = same loss as today).
- *
- * The delete lives in the terminal transition, not workspace.destroy
- * (adapter-map cleanup only, runs after the delete).
- * Anchoring capture "before workspace.destroy" would capture an already-deleted tree.
- * Must be called BEFORE endSession.
- */
-async function captureMountedFilesystems(
-	sessionId: string,
-	sandboxPath: string,
-	mountedFilesystems: Filesystem[],
-	mounter: FilesystemMounterPort,
-): Promise<void> {
-	if (mountedFilesystems.length === 0) return;
-
-	for (const filesystem of mountedFilesystems) {
-		try {
-			await mounter.captureBack({ filesystem, sandboxPath, sessionId });
-		} catch (err) {
-			// biome-ignore lint/suspicious/noConsole: observability adapter not yet stood up
-			console.warn(
-				`[session-provisioning] AO2 captureBack threw for filesystem ${filesystem.id}: ${err instanceof Error ? err.message : String(err)}`,
-			);
-		}
-	}
-}
 
 /**
  * @lore BA9b: Fetches plugin MCP server contributions scoped to a team.
@@ -900,10 +866,9 @@ interface ProvisionSessionDeps {
 	 */
 	readonly onHarnessStarted?: () => void;
 	/**
-	 * Optional mounter for filesystem placement + capture-back.
+	 * Optional mounter for filesystem placement.
 	 * When absent, sessions run without any filesystem mount (degrade to today's behavior).
-	 * When present, mount runs after sandbox spawn (Phase 4.5) and captureBack runs before
-	 * each endSession/crashSession call.
+	 * When present, mount runs after sandbox spawn (Phase 4.5).
 	 */
 	readonly mounter?: FilesystemMounterPort;
 	/**
@@ -2076,10 +2041,6 @@ async function runSession(
 	}
 
 	if (crashed) {
-		// ── Capture-back before crash teardown.
-		if (deps.mounter && mountedFilesystems.length > 0) {
-			await captureMountedFilesystems(sessionId, sandboxPath, mountedFilesystems, deps.mounter);
-		}
 		await transitionRun(
 			{ db, eventBus, ports },
 			{
@@ -2128,10 +2089,6 @@ async function runSession(
 			timestamp: Date.now(),
 		});
 
-		// ── Capture-back before not_returned teardown.
-		if (deps.mounter && mountedFilesystems.length > 0) {
-			await captureMountedFilesystems(sessionId, sandboxPath, mountedFilesystems, deps.mounter);
-		}
 		await transitionRun(
 			{ db, eventBus, ports },
 			{
@@ -2155,10 +2112,6 @@ async function runSession(
 		};
 	}
 
-	// ── Capture-back before normal teardown.
-	if (deps.mounter && mountedFilesystems.length > 0) {
-		await captureMountedFilesystems(sessionId, sandboxPath, mountedFilesystems, deps.mounter);
-	}
 	// @lore `stopRequested` (set only inside `signalAbort` above, when the run
 	// registry's own `abort` is called) threads through as `terminalOutcome:
 	// "stopped"` so a genuinely stopped session's row reads state "stopped" /
@@ -2308,7 +2261,6 @@ interface Provisioner {
 		sandboxPath: string,
 		mounter: FilesystemMounterPort,
 	): Promise<Filesystem[]>;
-	capture: typeof captureMountedFilesystems;
 }
 
 export function createProvisioner(ports: SessionLifecyclePorts): Provisioner {
@@ -2326,6 +2278,5 @@ export function createProvisioner(ports: SessionLifecyclePorts): Provisioner {
 				sandboxPath,
 				mounter,
 			}),
-		capture: (...args) => captureMountedFilesystems(...args),
 	};
 }

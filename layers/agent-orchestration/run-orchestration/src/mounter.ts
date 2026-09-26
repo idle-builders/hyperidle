@@ -6,8 +6,7 @@
  * `layers/core-api/filesystems/src/mounter-registry.ts`. The relocation is a
  * package move, not a rewrite: the four adapters, `SANDBOX_SCAFFOLDING_PATHS`
  * and the capture-root containment check are unchanged, and their tests moved
- * with them. `captureBack` is a declared no-op — the capture write code and
- * its table (`filesystem_captures`) were removed in AU43.
+ * with them.
  */
 
 import { execFileSync } from "node:child_process";
@@ -60,14 +59,6 @@ export interface AdapterDeps {
 interface MountContext {
 	readonly filesystem: Filesystem;
 	readonly sandboxPath: string;
-}
-
-interface AdapterCaptureResult {
-	readonly success: boolean;
-	readonly captured: boolean;
-	readonly error?: string;
-	readonly capturePath?: string;
-	readonly commitSha?: string;
 }
 
 interface MountAdapter {
@@ -291,14 +282,6 @@ export class RegistryFilesystemMounter {
 			sandboxPath: input.sandboxPath,
 		};
 		return adapter.mount(ctx);
-	}
-
-	async captureBack(_input: {
-		filesystem: Filesystem;
-		sandboxPath: string;
-		sessionId: string;
-	}): Promise<AdapterCaptureResult> {
-		return { success: true, captured: false };
 	}
 }
 

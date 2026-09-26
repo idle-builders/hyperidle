@@ -1,23 +1,12 @@
 /**
- * AU26 F2 — `admitSession` Phase 4.5 mounts what the LIVE record says.
- *
- * History: Decision F2 (AU21 §9 Increment 8) had Phase 4.5 call the seam
- * `CoreApiPort.filesystems.listFilesystemsByAgent(agentId)`. AU21 §9 Increment
- * 12 replaced that seam with an emit-time BAKE frozen onto the request. AU26 F2
- * deletes the bake: `filesystems` / `filesystem_injections` are
- * agent-orchestration's own tables now, so Phase 4.5 asks
- * `ProvisionSessionDeps.injectedFilesystems` — an in-layer reader port the
- * Application backs with `@hyperidle/filesystems` — at spawn time.
- *
- * This file proves the closure at the `admitSession` level (any of the six
- * intent kinds can reach this Phase — this test exercises it directly via
- * `provisioner.admit`, kind-agnostic). The structural half of the proof is
- * unchanged and still stronger than a runtime spy: `SessionLifecyclePorts`
- * declares no `filesystems` field at all, so there is no core-api seam left for
- * Phase 4.5 to reach even if it wanted to. What changed is where the list comes
- * from — the port is asked for THIS agent, and nothing about filesystems rides
- * the request. The end-to-end staleness proof (assign after emit, still
- * mounted) lives in `filesystems-added-after-emit.integration.test.ts`.
+ * `admitSession` Phase 4.5 mounts what `ProvisionSessionDeps.injectedFilesystems`
+ * — an in-layer reader port the Application backs with `@hyperidle/filesystems`
+ * — says LIVE at spawn time. `SessionLifecyclePorts` declares no `filesystems`
+ * field at all, so there is no other seam Phase 4.5 could reach. The mount
+ * loop itself (every row mounted, a failed mount excluded) is unit-tested in
+ * `filesystem-provisioning.test.ts`; this proves only the `admitSession`-level
+ * wiring — the port is asked for THIS agent and nothing about filesystems
+ * rides the request.
  */
 
 import * as fs from "node:fs";
@@ -25,104 +14,22 @@ import { type HyperIdleDb, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import { describe, vi } from "vitest";
+import {
+	buildNeverCalledPorts,
+	type ProvisionSessionDeps,
+	type ProvisionSessionParams,
+	rejectingHarnessAdapter,
+} from "../__testing__/test-fixtures.js";
 import type { FilesystemMounterPort } from "../filesystem-provisioning.js";
 // Filesystem is a local type in mounter.ts (AU44 b2: dissolved from domain-model).
 import type { Filesystem } from "../mounter.js";
 import { createProvisioner } from "../provisioner.js";
 
-type CreateProvisioner = typeof createProvisioner;
-type SessionLifecyclePorts = Parameters<CreateProvisioner>[0];
-type Provisioner = ReturnType<CreateProvisioner>;
-type AdmitArgs = Parameters<Provisioner["admit"]>;
-type ProvisionSessionDeps = AdmitArgs[0];
-type ProvisionSessionParams = AdmitArgs[1];
-type FakeAdapterPoolEntry = NonNullable<ReturnType<ProvisionSessionDeps["adapterPool"]["select"]>>;
 type InjectedFilesystem = Awaited<
 	ReturnType<
 		NonNullable<ProvisionSessionDeps["injectedFilesystems"]>["listInjectedForProvisioning"]
 	>
 >[number];
-type FakeHarnessAdapter = FakeAdapterPoolEntry["adapter"];
-
-/** A harness adapter that is never actually invoked by `admitSession` (Phases 1-7 stop short of harness spawn). */
-function buildFakeHarnessAdapter(): FakeHarnessAdapter {
-	return {
-		startSession: () => Promise.reject(new Error("must not be called by admitSession")),
-		streamEvents: () => ({
-			[Symbol.asyncIterator]() {
-				throw new Error("must not be called by admitSession");
-			},
-		}),
-		stopSession: () => Promise.reject(new Error("must not be called by admitSession")),
-		getCapabilities: () => ({
-			preCompactionTrigger: false,
-			subAgents: false,
-			modelProviders: [],
-			mcpSupport: false,
-			returnEnforcement: "none" as const,
-		}),
-	};
-}
-
-/**
- * Every field admitSession's Phases 1-7 do not exercise in this test's
- * scenario is a `vi.fn()` that throws if ever called — an unexpected
- * invocation fails loudly instead of silently no-op'ing.
- */
-function buildHarnessPorts(overrides: Partial<SessionLifecyclePorts>): SessionLifecyclePorts {
-	const neverCalled = (label: string) =>
-		vi.fn(() => {
-			throw new Error(`${label}: must not be called in this test scenario`);
-		});
-	const base: SessionLifecyclePorts = {
-		sessionRequests: {
-			findSessionRequest: neverCalled("sessionRequests.findSessionRequest"),
-			listSessionRequests: neverCalled("sessionRequests.listSessionRequests"),
-			transitionSessionRequest: neverCalled("sessionRequests.transitionSessionRequest"),
-			abortSessionRun: neverCalled("sessionRequests.abortSessionRun"),
-			registerSessionRun: neverCalled("sessionRequests.registerSessionRun"),
-			deregisterSessionRun: neverCalled("sessionRequests.deregisterSessionRun"),
-		},
-		observability: {
-			summarizeToolArgs: () => "",
-		},
-		// The `filesystems` seam reader is DELETED from `SessionLifecyclePorts`
-		// entirely (not merely wired as `neverCalled`) — a stronger proof than a
-		// runtime spy: there is no core-api port left to call. AU26 F2: the only
-		// source `mountFilesystemsForAgent` reads from is the in-layer
-		// `ProvisionSessionDeps.injectedFilesystems` port these tests supply.
-		// AU21 Increment 14a: `SessionLifecyclePorts` no longer carries a `cost`
-		// field at all — the cap-gate port is deleted, no replacement.
-		harnessRuntime: {
-			enforcementRegistry: {
-				register: neverCalled("harnessRuntime.enforcementRegistry.register"),
-				get: neverCalled("harnessRuntime.enforcementRegistry.get"),
-				incrementForce: neverCalled("harnessRuntime.enforcementRegistry.incrementForce"),
-				unregister: neverCalled("harnessRuntime.enforcementRegistry.unregister"),
-			},
-			createReturnGate: neverCalled("harnessRuntime.createReturnGate"),
-			evaluateReturn: neverCalled("harnessRuntime.evaluateReturn"),
-			provisionReturnHook: neverCalled("harnessRuntime.provisionReturnHook"),
-			writeCliMcpConfig: neverCalled("harnessRuntime.writeCliMcpConfig"),
-			writePluginStdioMcpEntries: neverCalled("harnessRuntime.writePluginStdioMcpEntries"),
-			openMcpBridge: neverCalled("harnessRuntime.openMcpBridge"),
-			closeMcpBridge: neverCalled("harnessRuntime.closeMcpBridge"),
-		},
-		toolProvider: {
-			buildToolRegistry: neverCalled("toolProvider.buildToolRegistry"),
-			toolsForRole: () => [],
-			returnStatusToolForRegistry: neverCalled("toolProvider.returnStatusToolForRegistry"),
-		},
-		contextAssembly: {
-			assembleAgentContext: neverCalled("contextAssembly.assembleAgentContext"),
-			beginAgentWriteback: () => ({ dispose: () => undefined }),
-			assemblePrompt: neverCalled("contextAssembly.assemblePrompt"),
-			assembleSubscriptionPrompt: neverCalled("contextAssembly.assembleSubscriptionPrompt"),
-			writeSandboxAgentsMd: neverCalled("contextAssembly.writeSandboxAgentsMd"),
-		},
-	};
-	return { ...base, ...overrides };
-}
 
 function buildDeps(
 	db: HyperIdleDb,
@@ -132,7 +39,7 @@ function buildDeps(
 ): ProvisionSessionDeps {
 	return {
 		db,
-		// AU26 F2: the in-layer reader port. Production backs it with
+		// The in-layer reader port. Production backs it with
 		// `@hyperidle/filesystems`' `listInjectedFilesystemsForProvisioning`;
 		// here it records which agent Phase 4.5 asked about.
 		injectedFilesystems: {
@@ -145,7 +52,7 @@ function buildDeps(
 		adapterPool: {
 			select: () => ({
 				id: "fake-adapter",
-				adapter: buildFakeHarnessAdapter(),
+				adapter: rejectingHarnessAdapter(),
 				meta: {
 					name: "Fake",
 					kind: "local",
@@ -160,8 +67,7 @@ function buildDeps(
 		workspace: {
 			// A real workspace adapter always materializes the directory it hands
 			// back (LocalSandboxAdapter.spawn) — admitSession's post-mount
-			// `ensureSandboxGitRepo` step now depends on that, so this fake must
-			// honor it too.
+			// `ensureSandboxGitRepo` step depends on that, so this fake must honor it too.
 			spawn: async () => {
 				fs.mkdirSync("/tmp/au21-admit-session-baked-fs", { recursive: true });
 				return { sandboxId: "sbx-1", path: "/tmp/au21-admit-session-baked-fs" };
@@ -170,7 +76,7 @@ function buildDeps(
 			adopt: (path: string) => Promise.resolve({ sandboxId: "sb-adopted", path }),
 			destroy: async () => undefined,
 		},
-		// AO2 Phase 4.5 only runs mount when a mounter is present.
+		// Phase 4.5 only runs mount when a mounter is present.
 		mounter,
 	};
 }
@@ -193,10 +99,9 @@ describe("admitSession mounts what the live injection record says", () => {
 				mountCalls.push(input.filesystem);
 				return { success: true, sandboxPath: input.sandboxPath };
 			},
-			captureBack: async () => ({ success: true, captured: true }),
 		};
 
-		const ports = buildHarnessPorts({});
+		const ports = buildNeverCalledPorts();
 		const provisioner = createProvisioner(ports);
 
 		const liveFilesystem: InjectedFilesystem = {
@@ -254,10 +159,9 @@ describe("admitSession mounts what the live injection record says", () => {
 
 		const mounter: FilesystemMounterPort = {
 			mount: vi.fn(),
-			captureBack: vi.fn(),
 		} as unknown as FilesystemMounterPort;
 
-		const ports = buildHarnessPorts({});
+		const ports = buildNeverCalledPorts();
 		const provisioner = createProvisioner(ports);
 
 		const params: ProvisionSessionParams = {
