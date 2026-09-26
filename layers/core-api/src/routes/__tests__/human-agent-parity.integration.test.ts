@@ -1,32 +1,19 @@
 /**
  * A human and an agent put a document into a conversation the same way.
  *
- * This is the goal the change is measured against, not a nice-to-have. Before
- * it, an agent had no path at all: the writeback that turns its files into
- * documents is session-scoped, and the (now-deleted) `create_artifact` tool
- * needed a task. A person could attach something to a conversation and an
- * agent could not.
- *
- * Both paths now go through one door — `POST /api/actions/edit_document` with
+ * Both paths go through one door — `POST /api/actions/edit_document` with
  * `parent: { kind: "thread", id }`. That single door is what makes them
  * indistinguishable, and this test pins the properties that must not drift:
  * same parent, same status, same role, same shape on the way back out.
+ * `search_documents({ parent })` reads "what's in this conversation" and
+ * `search_documents({ inTree: true })` reads "what's in the browsable tree".
  *
- * **What this does not prove.** The agent payload below is the shape
- * `create_artifact` used to send (the tool is deleted with the rest of the
- * document-tool sextet; a document-module successor is the agent's new real
- * call site, tracked separately) — but this test transcribes the payload
- * rather than driving a real call site: one lives behind the agent harness
- * and the other (`AssistantOverlay`'s send path, for the human) in the
- * browser. Each side asserts its own payload in its own package. Closing the
- * gap end to end is a harness-lane job, and the harness lane has no CI
- * runner by design.
- *
- * @lore document-module B20: re-pointed off the deleted `POST`/`GET
- * /api/knowledge` onto `POST /api/actions/edit_document` and
- * `search_documents` — `search_documents({ parent })` for "what's in this
- * conversation" and `search_documents({ inTree: true })` for "what's in the
- * browsable tree" (the old bare `GET /api/knowledge`'s exact shape).
+ * **What this does not prove.** The agent payload below transcribes the shape
+ * the agent's real call site sends rather than driving that call site: one
+ * lives behind the agent harness and the other (`AssistantOverlay`'s send
+ * path, for the human) in the browser. Each side asserts its own payload in
+ * its own package. Closing the gap end to end is a harness-lane job, and the
+ * harness lane has no CI runner by design.
  */
 
 import { type HyperIdleDb, teams, threads, users } from "@hyperidle/db";

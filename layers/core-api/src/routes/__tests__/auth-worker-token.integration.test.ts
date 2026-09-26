@@ -1,10 +1,7 @@
 /**
- * S4 — Worker token endpoint: integration tests (AC-9).
- *
- * Tests that POST /api/auth/worker-token:
- * - returns 200 with { token } when authenticated and HYPERIDLE_WORKER_TOKEN is set
- * - returns 404 when HYPERIDLE_WORKER_TOKEN is not configured
- * - returns 401 when not authenticated
+ * POST /api/auth/worker-token: returns 200 with { token } when authenticated
+ * and HYPERIDLE_WORKER_TOKEN is set, 404 (code NOT_FOUND) when it is not
+ * configured, and 401 when not authenticated.
  */
 
 import { describe, expect } from "vitest";
@@ -58,19 +55,21 @@ async function callWorkerToken(
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
-describe("S4: POST /api/auth/worker-token", () => {
+describe("POST /api/auth/worker-token", () => {
 	test("returns 401 without authentication", async ({}) => {
 		const result = await callWorkerToken({ workerToken: "test-secret-token" });
 		expect(result.status).toBe(401);
 	});
 
-	test("returns 404 when HYPERIDLE_WORKER_TOKEN is not set (worker registration disabled)", async ({}) => {
+	test("returns 404 with error code NOT_FOUND when HYPERIDLE_WORKER_TOKEN is not set", async ({}) => {
 		// workerToken undefined → env var deleted
 		const result = await callWorkerToken({
 			apiKey: TEST_API_KEY,
 			workerToken: undefined,
 		});
 		expect(result.status).toBe(404);
+		const body = result.body as { code: string };
+		expect(body.code).toBe("NOT_FOUND");
 	});
 
 	test("returns 200 with { token } when authenticated and HYPERIDLE_WORKER_TOKEN is set", async ({}) => {
@@ -81,15 +80,5 @@ describe("S4: POST /api/auth/worker-token", () => {
 		expect(result.status).toBe(200);
 		const body = result.body as { token: string };
 		expect(body.token).toBe("my-worker-secret");
-	});
-
-	test("404 response body includes error code NOT_FOUND", async ({}) => {
-		const result = await callWorkerToken({
-			apiKey: TEST_API_KEY,
-			workerToken: undefined,
-		});
-		expect(result.status).toBe(404);
-		const body = result.body as { code: string };
-		expect(body.code).toBe("NOT_FOUND");
 	});
 });

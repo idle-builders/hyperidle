@@ -2,16 +2,12 @@
  * Editing a plugin's contribution makes it yours; restoring hands it back.
  *
  * A plugin ships a skill. You edit it. A reinstall must not overwrite your
- * version — that is D5, "your edit wins" — and the view must say the row is
- * yours now, so you can see which of a plugin's contributions you have taken
- * over. Restore re-imports the plugin's version and hands ownership back.
+ * version — "your edit wins" — and the view must say the row is yours now, so
+ * you can see which of a plugin's contributions you have taken over. Restore
+ * re-imports the plugin's version and hands ownership back.
  *
- * Detachment used to be `knowledge_items.updated_by <> 'plugin:<id>'`, a
- * sentinel nothing ever read: the view showed every skill as attached, and the
- * restore route's skill branch was unreachable from the UI because skills never
- * appeared in the list to click Restore on. It is a registry column now.
- *
- * Re-pointed onto `POST /api/actions/edit_plugin` / `search_plugins`.
+ * Detachment is a registry column, read by the view and by the restore route,
+ * driven through `POST /api/actions/edit_plugin` / `search_plugins`.
  */
 
 import { cpSync, mkdirSync, rmSync } from "node:fs";
@@ -23,10 +19,10 @@ import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
-const API_KEY = "test-ba9g-detach";
+const API_KEY = "test-detach";
 const PLUGIN_ROOT = resolve("plugins/document-management");
 const PLUGIN_ID = "document-management";
-const FOUNDER = "u-founder-ba9g";
+const FOUNDER = "u-founder";
 
 function auth(): Record<string, string> {
 	return { "X-API-Key": API_KEY, "Content-Type": "application/json", "X-Identity": FOUNDER };
@@ -57,7 +53,7 @@ async function editPlugin(app: Hono, body: unknown): Promise<Response> {
 }
 
 async function install(app: Hono): Promise<void> {
-	const dir = join(tmpdir(), `ba9g-dr-${Date.now()}-${Math.round(performance.now())}`);
+	const dir = join(tmpdir(), `detach-restore-${Date.now()}-${Math.round(performance.now())}`);
 	mkdirSync(dir, { recursive: true });
 	cpSync(PLUGIN_ROOT, dir, { recursive: true });
 	tempDirs.push(dir);

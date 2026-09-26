@@ -28,7 +28,7 @@ import { buildCoreActions } from "../../actions/compose.js";
 import { registerWorkSessionEndReactions } from "../work-session-end-reactions.js";
 import { registerWorkSessionStartedReactions } from "../work-session-started-reactions.js";
 
-/** B3/B7 fix: both reactions take `edit_task`'s bound `run`, not a bare `update()`. */
+/** Both reactions take `edit_task`'s bound `run`, not a bare `update()`. */
 function editTaskFrom(
 	agentOrchestration: AgentOrchestrationPort,
 ): Parameters<typeof registerWorkSessionEndReactions>[2] {
@@ -146,12 +146,11 @@ async function seedSession(db: HyperIdleDb, id: string, agentId: string): Promis
 }
 
 /**
- * B7 fix: seeds the row the way `insertAttempt` really leaves it —
- * `status: "requested"`, no `requestId`, no `sessionId`. A test that needs
- * the row `running` with a real `requestId` primes it through a genuine
- * `session_started` event (`primeAttemptRunning` below) instead of hand-
- * setting the column, which is the exact shape that let the original defect
- * (§1) ship unnoticed.
+ * Seeds the row the way `insertAttempt` really leaves it — `status:
+ * "requested"`, no `requestId`, no `sessionId`. A test that needs the row
+ * `running` with a real `requestId` primes it through a genuine
+ * `session_started` event (`primeAttemptRunning` below) instead of
+ * hand-setting the column, which would mask a real reaction defect.
  */
 async function seedAttempt(
 	db: HyperIdleDb,
@@ -187,10 +186,10 @@ function sessionStarted(input: {
 }
 
 /**
- * B7 fix — the repair, driven for real: registers the started-reaction and
- * emits a genuine `session_started` carrying `requestId`, so `markRunning`
- * (not the test) fills the attempt row's `requestId`/`sessionId` and flips
- * it to `running`. Requires `sessionId` to already exist (a real FK target).
+ * Registers the started-reaction and emits a genuine `session_started`
+ * carrying `requestId`, so `markRunning` (not the test) fills the attempt
+ * row's `requestId`/`sessionId` and flips it to `running`. Requires
+ * `sessionId` to already exist (a real FK target).
  */
 async function primeAttemptRunning(
 	db: HyperIdleDb,

@@ -1,16 +1,11 @@
 /**
- * AU26 F2 — the filesystems twin of E3's AC1(c) staleness proof.
+ * The agent's injected-filesystem list is read live, in-layer, at spawn — not
+ * baked onto the emitted intent as a snapshot. A filesystem an operator
+ * assigns to an agent after an intent is emitted but before it drains must
+ * still be mounted. The filesystems twin of
+ * `connections-added-after-emit.integration.test.ts`.
  *
- * AU21 §9 Increment 12 baked the agent's injected-filesystem list onto every
- * emitted intent, because `filesystems`/`filesystem_injections` still lived in
- * core-api and `run-orchestration` was forbidden to read them. That bake is a
- * SNAPSHOT: a filesystem an operator assigns to an agent after an intent is
- * emitted but before it drains was simply absent from the sandbox, silently.
- * The founder's 2026-08-04 ruling moved the record into agent-orchestration, so
- * F2 deletes the bake and reads the record live, in-layer, at spawn.
- *
- * The order below is the whole test — it mirrors
- * `connections-added-after-emit.integration.test.ts` line for line:
+ * The order below is the whole test:
  *   1. emit a real intent through the real recorder and drain it into a real
  *      `agent_session_requests` row (the emit is genuinely over)
  *   2. THEN assign the filesystem to the agent
@@ -18,9 +13,8 @@
  *   4. the filesystem is mounted — a real symlink in a real sandbox, made by
  *      the real `RegistryFilesystemMounter`, not a stub
  *
- * Against the bake step 4 fails: the request was frozen at step 1, before the
- * injection existed. Sanity-checked exactly that way — restoring a frozen
- * emit-time list reds this test.
+ * A frozen emit-time list would fail step 4: the request was frozen at
+ * step 1, before the injection existed.
  */
 
 import * as fs from "node:fs";
@@ -43,16 +37,16 @@ import { queueDeps } from "../../__testing__/durable-agent-queue-test-deps.js";
 import { afterEach, beforeEach, describe, expect, test } from "../../__testing__/test-fixtures.js";
 
 const NOW = "2026-08-04T00:00:00.000Z";
-const HUMAN_ID = "u-au26-f2-owner";
-const AGENT_ID = "agent-au26-f2-target";
-const TEAM_ID = "team-au26-f2";
+const HUMAN_ID = "u-owner";
+const AGENT_ID = "agent-target";
+const TEAM_ID = "team-fs-added-after-emit";
 
 let tmpDir: string;
 let sandboxPath: string;
 let vaultDir: string;
 
 beforeEach(() => {
-	tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "au26-f2-add-after-emit-"));
+	tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "fs-add-after-emit-"));
 	sandboxPath = path.join(tmpDir, "sandbox");
 	vaultDir = path.join(tmpDir, "late-vault");
 	fs.mkdirSync(sandboxPath, { recursive: true });
@@ -65,12 +59,12 @@ afterEach(() => {
 });
 
 async function seedPrincipals(db: HyperIdleDb): Promise<void> {
-	await db.insert(teams).values({ id: TEAM_ID, name: "AU26 F2", createdAt: NOW });
+	await db.insert(teams).values({ id: TEAM_ID, name: "FS Added After Emit", createdAt: NOW });
 	await db.insert(users).values([
 		{
 			id: HUMAN_ID,
 			kind: "human",
-			name: "AU26 Owner",
+			name: "Owner",
 			role: "founder",
 			status: "active",
 			teamId: TEAM_ID,
@@ -79,7 +73,7 @@ async function seedPrincipals(db: HyperIdleDb): Promise<void> {
 		{
 			id: AGENT_ID,
 			kind: "ai",
-			name: "AU26 Target Agent",
+			name: "Target Agent",
 			role: "builder",
 			status: "active",
 			teamId: TEAM_ID,
@@ -182,7 +176,7 @@ describe("injected filesystems are read live at spawn, never carried on the requ
 		await seedPrincipals(db);
 
 		// 1. The emit is genuinely over before the filesystem exists.
-		const { payloadJson } = await emitAndDrain(db, eventBus, "au26-f2-add-after-emit");
+		const { payloadJson } = await emitAndDrain(db, eventBus, "add-after-emit");
 		expect(await db.select().from(filesystems)).toEqual([]);
 
 		// The request carries NOTHING about filesystems — the bake is gone, so
@@ -190,14 +184,14 @@ describe("injected filesystems are read live at spawn, never carried on the requ
 		expect(payloadJson ?? "").not.toContain("injectedFilesystems");
 
 		// 2. NOW the operator assigns the filesystem to the agent.
-		await assignFilesystem(db, "fs-au26-f2-added-late");
+		await assignFilesystem(db, "fs-added-late");
 
 		// 3. The session spawns.
 		const mounted = await provisionFilesystems(db);
 
 		// 4. The late-assigned filesystem is mounted — a real symlink into the
 		//    real sandbox, made by the real mounter.
-		expect(mounted.map((m) => m.id)).toEqual(["fs-au26-f2-added-late"]);
+		expect(mounted.map((m) => m.id)).toEqual(["fs-added-late"]);
 		const linkPath = path.join(sandboxPath, "late-vault");
 		expect(fs.lstatSync(linkPath).isSymbolicLink()).toBe(true);
 		expect(fs.readFileSync(path.join(linkPath, "index.md"), "utf-8")).toBe("# Late vault\n");
@@ -208,13 +202,13 @@ describe("injected filesystems are read live at spawn, never carried on the requ
 		eventBus,
 	}) => {
 		await seedPrincipals(db);
-		await assignFilesystem(db, "fs-au26-f2-removed-late");
+		await assignFilesystem(db, "fs-removed-late");
 
-		await emitAndDrain(db, eventBus, "au26-f2-remove-after-emit");
+		await emitAndDrain(db, eventBus, "remove-after-emit");
 
 		await db
 			.delete(filesystemInjections)
-			.where(eq(filesystemInjections.filesystemId, "fs-au26-f2-removed-late"));
+			.where(eq(filesystemInjections.filesystemId, "fs-removed-late"));
 
 		const mounted = await provisionFilesystems(db);
 

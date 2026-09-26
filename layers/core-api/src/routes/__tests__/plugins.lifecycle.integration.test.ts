@@ -1,6 +1,6 @@
 /**
- * BA9d plugin lifecycle: disable/enable/remove must stop/restart/clean
- * materialised rows. Re-pointed onto `POST /api/actions/edit_plugin`.
+ * Plugin lifecycle: disable/enable/remove must stop/restart/clean materialised
+ * rows, through `POST /api/actions/edit_plugin`.
  */
 
 import { cpSync, mkdirSync, rmSync } from "node:fs";
@@ -18,7 +18,7 @@ import type { Hono } from "hono";
 import { afterEach, describe, expect } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
-const API_KEY = "test-ba9d-lifecycle";
+const API_KEY = "test-plugin-lifecycle";
 const PLUGIN_ROOT = resolve("plugins/document-management");
 const PLUGIN_ID = "document-management";
 
@@ -38,7 +38,7 @@ afterEach(() => {
 });
 
 function copyPlugin(): string {
-	const dir = join(tmpdir(), `ba9d-lc-${Date.now()}`);
+	const dir = join(tmpdir(), `plugin-lifecycle-${Date.now()}`);
 	mkdirSync(dir, { recursive: true });
 	cpSync(PLUGIN_ROOT, dir, { recursive: true });
 	tempDirs.push(dir);
@@ -111,7 +111,7 @@ async function contributed(
 	return rows.map((r) => r.entityId);
 }
 
-describe("BA9d lifecycle: install materialises pluginId on rows", () => {
+describe("plugin lifecycle: install materialises pluginId on rows", () => {
 	test("after install: subscriptions and agent have pluginId set and are active", async ({
 		db,
 		app,
@@ -132,7 +132,7 @@ describe("BA9d lifecycle: install materialises pluginId on rows", () => {
 	});
 });
 
-describe("BA9d lifecycle: disable deactivates materialised rows", () => {
+describe("plugin lifecycle: disable deactivates materialised rows", () => {
 	test("after disable: subscriptions paused, agent inactive", async ({ db, app }) => {
 		await installKmPlugin(db, app);
 		const res = await disableKmPlugin(app);
@@ -167,7 +167,7 @@ describe("BA9d lifecycle: disable deactivates materialised rows", () => {
 	});
 });
 
-describe("BA9d lifecycle: enable reactivates materialised rows", () => {
+describe("plugin lifecycle: enable reactivates materialised rows", () => {
 	test("after enable: subscriptions live, agent active", async ({ db, app }) => {
 		await installKmPlugin(db, app);
 		await disableKmPlugin(app);
@@ -188,7 +188,7 @@ describe("BA9d lifecycle: enable reactivates materialised rows", () => {
 	});
 });
 
-describe("BA9d lifecycle: remove deletes materialised rows", () => {
+describe("plugin lifecycle: remove deletes materialised rows", () => {
 	test("after remove: subscriptions gone (no soft-delete column), agent inactive", async ({
 		db,
 		app,

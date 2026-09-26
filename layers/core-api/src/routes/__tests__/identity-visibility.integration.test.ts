@@ -6,16 +6,10 @@
  * person's private note. A capability document — `agent_file`, `skill`, `rule` —
  * with the same scope is a BINDING: it names the agent it applies to.
  *
- * Spelled as "user scope is private, full stop", every agent identity was 404
- * to everyone, through the one endpoint that is now the only place to edit one.
- * Found by driving the live API against a seeded database, not by a test.
- *
- * @lore document-module B20: the first describe block below drove the deleted
- * `GET`/`PATCH /api/knowledge/:id` and `GET /api/knowledge`; re-pointed onto
- * `open_document`/`edit_document`/`search_documents`. A refused read now
- * answers `{ ok: false, problems: [{ code: "not_found" }] }` at HTTP 422 —
- * the same "existence must not leak" contract, carried by the envelope
- * instead of the status code (architecture.md §4.2, D1).
+ * A refused read answers `{ ok: false, problems: [{ code: "not_found" }] }` at
+ * HTTP 422 through `open_document`/`edit_document`/`search_documents` — the
+ * "existence must not leak" contract, carried by the envelope instead of the
+ * status code.
  */
 
 import { documents, type HyperIdleDb, users } from "@hyperidle/db";
@@ -23,10 +17,10 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
-const TEST_API_KEY = "test-key-ba9f-visibility";
-const FOUNDER = "u-founder-ba9f";
-const OTHER_HUMAN = "u-other-ba9f";
-const AGENT = "agent-ba9f";
+const TEST_API_KEY = "test-key-identity-visibility";
+const FOUNDER = "u-founder-identity";
+const OTHER_HUMAN = "u-other-identity";
+const AGENT = "agent-identity";
 
 function authHeaders(identity: string): Record<string, string> {
 	return {
@@ -66,7 +60,7 @@ async function seed(db: HyperIdleDb): Promise<void> {
 	// is never parentless.
 	await db.insert(documents).values([
 		{
-			id: "ki_af_agent-ba9f",
+			id: "ki_af_agent-identity",
 			scopeKind: "user",
 			scopeId: AGENT,
 			parentKind: "agent",
@@ -112,7 +106,7 @@ describe("an agent's identity document is visible to everyone, not a private not
 		const res = await app.request("/api/actions/open_document", {
 			method: "POST",
 			headers: authHeaders(FOUNDER),
-			body: JSON.stringify({ id: "ki_af_agent-ba9f" }),
+			body: JSON.stringify({ id: "ki_af_agent-identity" }),
 		});
 
 		expect(res.status).toBe(200);
@@ -136,7 +130,7 @@ describe("an agent's identity document is visible to everyone, not a private not
 			method: "POST",
 			headers: authHeaders(FOUNDER),
 			body: JSON.stringify({
-				id: "ki_af_agent-ba9f",
+				id: "ki_af_agent-identity",
 				version: 1,
 				body: "You are Atlas, rewritten.",
 			}),
@@ -146,7 +140,7 @@ describe("an agent's identity document is visible to everyone, not a private not
 		const after = await app.request("/api/actions/open_document", {
 			method: "POST",
 			headers: authHeaders(FOUNDER),
-			body: JSON.stringify({ id: "ki_af_agent-ba9f" }),
+			body: JSON.stringify({ id: "ki_af_agent-identity" }),
 		});
 		expect(
 			((await after.json()) as { data: { document: { body: string } } }).data.document.body,
@@ -182,24 +176,21 @@ describe("an agent's identity document is visible to everyone, not a private not
 		const payload = (await res.json()) as { data?: Array<{ id: string }> };
 		const ids = (payload.data ?? []).map((i) => i.id);
 
-		expect(ids).toContain("ki_af_agent-ba9f");
+		expect(ids).toContain("ki_af_agent-identity");
 		expect(ids).not.toContain("ki_note_other");
 	});
 });
 
 /**
- * The new document action mechanism (architecture.md §8.3, B11): a created
- * agent's identity is seeded through the shared `agent-identity.ts` helper —
- * `edit_document` with the caller-chosen id `doc_af_<agentId>` — and read
- * through `search_documents`/`open_document`, never `/api/knowledge`.
- *
- * @lore BC5 T11: the agent is created through `edit_user` now (`POST
- * /api/agents` is deleted with the whole `agents` route family) and read back
- * through `search_users`/`open_user` — never `/api/agents`.
+ * A created agent's identity is seeded through the shared `agent-identity.ts`
+ * helper — `edit_document` with the caller-chosen id `doc_af_<agentId>` — and
+ * read through `search_documents`/`open_document`, never `/api/knowledge`.
+ * The agent itself is created through `edit_user`
+ * and read back through `search_users`/`open_user`, never `/api/agents`.
  */
 describe("agent identity through the document action mechanism", () => {
-	const CREATOR = "u-founder-ba9f-actions";
-	const READER = "u-other-ba9f-actions";
+	const CREATOR = "u-founder-identity-actions";
+	const READER = "u-other-identity-actions";
 
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);

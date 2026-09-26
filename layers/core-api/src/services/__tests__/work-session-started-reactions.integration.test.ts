@@ -1,51 +1,27 @@
 /**
- * AU21 §9 Increment 12 (Decision H3), Wave D — RED.
- *
- * `registerWorkSessionStartedReactions` (layers/core-api/src/services/
- * work-session-started-reactions.ts) does NOT YET EXIST — every test in this
- * file is RED via module resolution failure until the GREEN phase creates it.
- * Same shape as `work-session-end-reactions.ts`: a per-eventBus-instance
+ * `registerWorkSessionStartedReactions` reacts to the `session_started` event
+ * — the same shape as `work-session-end-reactions.ts`: a per-eventBus-instance
  * idempotency guard (`registeredBuses` WeakSet) and an explicit
- * `register*(db, eventBus)` wiring convention — NOT auto-wired onto
+ * `register*(db, eventBus)` wiring convention, not auto-wired onto
  * `test-fixtures.ts`'s `eventBus` fixture.
  *
- * Per architecture.md §6 Decision H3 / §9 Increment 12: this subscriber
- * replaces `run-orchestration/provisioner.ts`'s direct
- * `ports.work.transitionTask(db, eventBus, taskId, "in_progress")` call
- * (`provisioner.ts:1077`, fired at launch when the task is not already
- * `in_progress`) with a reaction to the EXISTING `session_started` event
- * (emitted at `provisioner.ts:1191` after the sandbox/session row/context are
- * committed, and also emitted by `sessions-routes.ts`'s legacy bare-insert
- * path) — `session_started` already carries `taskId` (`SessionStartedEvent`,
- * `events.ts:120-131`), so no payload growth is needed for this half of Wave D
- * (unlike the `session_ended` token-writeback half).
+ * `session_started` already carries `taskId` (`SessionStartedEvent`).
  *
- * Target behavior:
+ * Behavior:
  *   - `session_started` with a `taskId` whose task is currently `accepted` (or
  *     `blocked`, the other valid `canTransitionTaskState` source per
  *     `task-transition.ts`) transitions it to `in_progress` via
- *     `@hyperidle/work`'s real `transitionTask` state machine (the SAME
- *     function `run-orchestration-composition.ts`'s deleted `workAccessor`
- *     used to call, now invoked core-side).
+ *     `@hyperidle/work`'s real `transitionTask` state machine.
  *   - `session_started` for a task ALREADY `in_progress` (a handoff
  *     re-dispatch launching a second session for a task already mid-flight,
- *     mirroring `provisioner.ts:1076`'s `state !== "in_progress"` launch
- *     guard, OR a duplicate/redelivered event) is a safe no-op — the reaction
- *     must swallow `TaskInvalidTransitionError` (accepted/blocked are the only
+ *     or a duplicate/redelivered event) is a safe no-op — the reaction
+ *     swallows `TaskInvalidTransitionError` (accepted/blocked are the only
  *     valid `-> in_progress` sources; `in_progress -> in_progress` is not a
- *     member of `TASK_STATE_TRANSITIONS` and throws), never propagate it into
- *     the EventBus's handler-isolation logging path as an unexpected failure.
+ *     member of `TASK_STATE_TRANSITIONS` and throws), never propagating it
+ *     into the EventBus's handler-isolation logging path as an unexpected
+ *     failure.
  *   - `session_started` with `taskId: null` (a task-free session — an
- *     `assistant_turn`/explicit non-task session request) is a
- *     no-op.
- *
- * This is the literal replacement for `run-orchestration`'s deleted direct
- * `ports.work.transitionTask` write — see the companion structural RED test
- * in `../../__tests__/work-composition-anti-regrowth.test.ts` proving the
- * `run-orchestration -> work` composition-bundle edge that carried this write
- * (and the `getTaskById`/`getBetById`/`updateTaskById`/`updateBetById` reads
- * that only ever supported it and the token-writeback below) is gone once
- * Wave D's GREEN deletes `workAccessor` wholesale.
+ *     `assistant_turn`/explicit non-task session request) is a no-op.
  */
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
@@ -66,7 +42,7 @@ import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
 import { buildCoreActions } from "../../actions/compose.js";
 import { registerWorkSessionStartedReactions } from "../work-session-started-reactions.js";
 
-/** §6 row 1: the reaction takes `edit_task`'s bound `run` now, not `agentOrchestration` directly. */
+/** The reaction takes `edit_task`'s bound `run`, not `agentOrchestration` directly. */
 function editTaskFrom(
 	agentOrchestration: AgentOrchestrationPort,
 ): Parameters<typeof registerWorkSessionStartedReactions>[2] {
@@ -180,9 +156,34 @@ async function readTaskState(db: HyperIdleDb, taskId: string): Promise<string | 
 }
 
 /**
- * §1's repair, seeded honestly: a `requested` dispatch attempt with NO
- * `requestId`/`sessionId` yet — the real shape an accept leaves behind
- * before any session exists (`insertAttempt` sets neither).
+ * A "this event is a no-op" assertion has no completion signal of its own to
+ * wait on — it does not wait on the ignored event's own handler invocation
+ * directly. Instead of a blind sleep, it drives one REAL, unrelated task
+ * through the same registered reaction (same EventBus, same handler) to a
+ * verified `in_progress` transition; since both events are emitted in order
+ * on the same fire-and-forget handler, the earlier one's turn on the
+ * microtask queue is guaranteed to have passed by the time the later one's
+ * effect is observed.
+ */
+async function settleIgnoredReaction(
+	db: HyperIdleDb,
+	eventBus: Parameters<typeof registerWorkSessionStartedReactions>[1],
+	editTask: Parameters<typeof registerWorkSessionStartedReactions>[2],
+	sentinelId: string,
+): Promise<void> {
+	const { taskId, agentId } = await seedTaskAndAgent(db, sentinelId, { taskState: "accepted" });
+	await seedSession(db, `${sentinelId}-session`, { agentId, taskId });
+	registerWorkSessionStartedReactions(db, eventBus, editTask);
+	eventBus.emit(sessionStarted({ sessionId: `${sentinelId}-session`, agentId, taskId }));
+	await vi.waitFor(async () => {
+		expect(await readTaskState(db, taskId)).toBe("in_progress");
+	});
+}
+
+/**
+ * A `requested` dispatch attempt with no `requestId`/`sessionId` yet — the
+ * real shape an accept leaves behind before any session exists
+ * (`insertAttempt` sets neither).
  */
 async function seedRequestedAttempt(
 	db: HyperIdleDb,
@@ -287,9 +288,14 @@ describe("registerWorkSessionStartedReactions", () => {
 
 		eventBus.emit(sessionStarted({ sessionId: "wssr-handoff-session", agentId, taskId }));
 
-		// Give the async reaction a beat, then assert the task is untouched —
-		// still in_progress, no thrown/unhandled rejection escaped the handler.
-		await new Promise((resolve) => setTimeout(resolve, 30));
+		// The task is untouched — still in_progress, no thrown/unhandled
+		// rejection escaped the handler.
+		await settleIgnoredReaction(
+			db,
+			eventBus,
+			editTaskFrom(agentOrchestration),
+			"wssr-handoff-settle",
+		);
 		expect(await readTaskState(db, taskId)).toBe("in_progress");
 	});
 
@@ -309,15 +315,17 @@ describe("registerWorkSessionStartedReactions", () => {
 			expect(await readTaskState(db, taskId)).toBe("in_progress");
 		});
 
-		// Redelivery of the SAME event — must not throw, must not move the task
-		// to any other state, and must not append a second audit-trail entry.
+		// Redelivery of the SAME event — must not throw and must not move the
+		// task to any other state.
 		eventBus.emit(sessionStarted({ sessionId: "wssr-idempotent-session", agentId, taskId }));
-		await new Promise((resolve) => setTimeout(resolve, 30));
+		await settleIgnoredReaction(
+			db,
+			eventBus,
+			editTaskFrom(agentOrchestration),
+			"wssr-idempotent-settle",
+		);
 
-		const [row] = await db.select().from(tasks).where(eq(tasks.id, taskId));
-		// @lore AU20 repair: audit trail check removed — tasks.auditTrail writes were deleted by
-		// the AU20 destroyer pass. The idempotency check (state stays in_progress) is preserved.
-		expect(row?.state).toBe("in_progress");
+		expect(await readTaskState(db, taskId)).toBe("in_progress");
 	});
 
 	test("session_started with taskId: null (task-free session) is a no-op", async ({
@@ -333,16 +341,20 @@ describe("registerWorkSessionStartedReactions", () => {
 		expect(() =>
 			eventBus.emit(sessionStarted({ sessionId: "wssr-taskfree-session", agentId, taskId: null })),
 		).not.toThrow();
-		await new Promise((resolve) => setTimeout(resolve, 30));
+		await settleIgnoredReaction(
+			db,
+			eventBus,
+			editTaskFrom(agentOrchestration),
+			"wssr-taskfree-settle",
+		);
 	});
 
-	// B7 — the repair (§1/§6 row 1) proven against a REAL session_started
-	// event, not a hand-seeded column. `insertAttempt` leaves the attempt row
-	// with no `requestId`/`sessionId`; a `session_started` carrying a real
-	// `requestId` is what fills both, via `markRunning`, before the
-	// `in_progress` transition — this is what makes `work-session-end-
-	// reactions`' `updateIfActive` finalize a real row for the first time.
-	test("session_started with a real requestId fills the dispatch attempt's requestId and sessionId (the repair)", async ({
+	// Proven against a REAL session_started event, not a hand-seeded column.
+	// `insertAttempt` leaves the attempt row with no `requestId`/`sessionId`;
+	// a `session_started` carrying a real `requestId` is what fills both, via
+	// `markRunning`, before the `in_progress` transition — this is what makes
+	// `work-session-end-reactions`' `updateIfActive` finalize a real row.
+	test("session_started with a real requestId fills the dispatch attempt's requestId and sessionId", async ({
 		db,
 		eventBus,
 		agentOrchestration,
@@ -373,9 +385,8 @@ describe("registerWorkSessionStartedReactions", () => {
 	});
 
 	// The legacy bare-insert path (`sessions-routes.ts`) emits `session_started`
-	// with no `requestId` — §6 row 1's own wording: "marks nothing and is not
-	// an error." The attempt row must stay untouched, but the `in_progress`
-	// transition still fires.
+	// with no `requestId`: marks nothing and is not an error. The attempt row
+	// must stay untouched, but the `in_progress` transition still fires.
 	test("session_started with NO requestId (legacy bare-insert path) leaves the dispatch attempt untouched", async ({
 		db,
 		eventBus,

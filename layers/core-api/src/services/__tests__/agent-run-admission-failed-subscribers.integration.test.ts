@@ -1,7 +1,6 @@
 /**
  * `registerAgentRunAdmissionReactions`'s per-kind reaction to a terminal
- * `agent_run_admission_failed` event (architecture.md §10's per-kind
- * subscriber table):
+ * `agent_run_admission_failed` event:
  *
  *   subscription_run  -> logged only; a subscription's wake carries no run
  *                        row to finalize
@@ -15,11 +14,11 @@
  *
  * @lore each reaction is registered as an async-fire-and-forget
  * `eventBus.on(...)` handler — `EventHandler<T>` is strictly `(event) =>
- * void`, so an async body can only be a detached promise (see
- * `lifecycle-propagation.ts`'s AF3 note on the same pattern). `emit()` itself
- * is synchronous (the handler was CALLED), not that its internal `await`s
- * resolved before `drainIntents` returns — every assertion below wraps in
- * `vi.waitFor(...)` for that reason.
+ * void`, so an async body can only be a detached promise (the same pattern
+ * `lifecycle-propagation.ts` uses). `emit()` itself is synchronous (the
+ * handler was CALLED), not that its internal `await`s resolved before
+ * `drainIntents` returns — every assertion below wraps in `vi.waitFor(...)`
+ * for that reason.
  */
 
 import {
@@ -140,23 +139,23 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		db,
 		eventBus,
 	}) => {
-		const { teamId } = await seedTeam(db, "w0-sub-subscription");
-		await seedAgent(db, "w0-sub-subscription-owner", { teamId });
+		const { teamId } = await seedTeam(db, "sub-subscription");
+		await seedAgent(db, "sub-subscription-owner", { teamId });
 
 		const deps = { ...queueDeps(db), eventBus };
 		await rejectSessionRequestWrites(db);
 		await enqueueWorkIntent(db, {
 			kind: "subscription_run",
 			sourceKind: "subscription",
-			sourceId: "w0-sub-subscription:chg-1",
-			idempotencyKey: "w0-sub-subscription-run",
+			sourceId: "sub-subscription:chg-1",
+			idempotencyKey: "sub-subscription-run",
 			bakedRequest: {
-				defaultAgentId: "w0-sub-subscription-owner",
+				defaultAgentId: "sub-subscription-owner",
 				sourceKind: "subscription",
-				sourceId: "w0-sub-subscription:chg-1",
-				streamId: "subscription:w0-sub-subscription",
+				sourceId: "sub-subscription:chg-1",
+				streamId: "subscription:sub-subscription",
 				teamId,
-				sourceCorrelation: { subscriptionId: "w0-sub-subscription", changeId: "chg-1", teamId },
+				sourceCorrelation: { subscriptionId: "sub-subscription", changeId: "chg-1", teamId },
 			},
 		});
 
@@ -164,12 +163,12 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 	});
 
 	test("task_run: marks the taskDispatchAttempts row failed", async ({ db, eventBus }) => {
-		const { teamId } = await seedTeam(db, "w0-sub-task");
+		const { teamId } = await seedTeam(db, "sub-task");
 		// The dispatch attempt's agent is not runnable (paused) — forces
 		// requireRunnableActor's InvalidAgentWorkSourceError at drain.
-		await seedAgent(db, "w0-sub-task-agent", { teamId, status: "paused" });
+		await seedAgent(db, "sub-task-agent", { teamId, status: "paused" });
 		await db.insert(threads).values({
-			id: `thr-${"w0-sub-task-bet"}`,
+			id: `thr-${"sub-task-bet"}`,
 			hostKind: "team",
 			hostId: teamId,
 			initiatorId: "system:propagation",
@@ -178,8 +177,8 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 			createdAt: NOW,
 		});
 		await db.insert(tasks).values({
-			threadId: `thr-${"w0-sub-task-bet"}`,
-			id: "w0-sub-task-bet",
+			threadId: `thr-${"sub-task-bet"}`,
+			id: "sub-task-bet",
 			parentTaskId: null,
 			teamId: teamId,
 			title: "Subscriber test bet",
@@ -189,7 +188,7 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 			updatedAt: NOW,
 		});
 		await db.insert(threads).values({
-			id: `thr-${"w0-sub-task"}`,
+			id: `thr-${"sub-task"}`,
 			hostKind: "team",
 			hostId: teamId,
 			initiatorId: "system:propagation",
@@ -198,9 +197,9 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 			createdAt: NOW,
 		});
 		await db.insert(tasks).values({
-			threadId: `thr-${"w0-sub-task"}`,
-			id: "w0-sub-task",
-			parentTaskId: "w0-sub-task-bet",
+			threadId: `thr-${"sub-task"}`,
+			id: "sub-task",
+			parentTaskId: "sub-task-bet",
 			teamId,
 			title: "Subscriber test task",
 			state: "accepted",
@@ -210,10 +209,10 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		const [attempt] = await db
 			.insert(taskDispatchAttempts)
 			.values({
-				id: "w0-sub-task-attempt",
-				taskId: "w0-sub-task",
+				id: "sub-task-attempt",
+				taskId: "sub-task",
 				occasion: "accepted",
-				agentId: "w0-sub-task-agent",
+				agentId: "sub-task-agent",
 				ordinal: 1,
 				status: "requested",
 				createdAt: NOW,
@@ -228,15 +227,15 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 			kind: "task_run",
 			sourceKind: "task_dispatch_attempt",
 			sourceId: attempt?.id ?? "",
-			idempotencyKey: "w0-sub-task-run",
+			idempotencyKey: "sub-task-run",
 			bakedRequest: {
-				defaultAgentId: "w0-sub-task-agent",
+				defaultAgentId: "sub-task-agent",
 				sourceKind: "task",
-				sourceId: "w0-sub-task",
-				streamId: "task:w0-sub-task",
-				taskId: "w0-sub-task",
-				teamId: "w0-sub-task-team",
-				sourceCorrelation: { taskId: "w0-sub-task", teamId: "w0-sub-task-team" },
+				sourceId: "sub-task",
+				streamId: "task:sub-task",
+				taskId: "sub-task",
+				teamId: "sub-task-team",
+				sourceCorrelation: { taskId: "sub-task", teamId: "sub-task-team" },
 			},
 		});
 		await drainIntents(deps, { maxAttempts: 1 });
@@ -261,10 +260,10 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		eventBus,
 		app,
 	}) => {
-		const { teamId } = await seedTeam(db, "w0-sub-turn");
-		await seedAgent(db, "w0-sub-turn-agent", { teamId });
+		const { teamId } = await seedTeam(db, "sub-turn");
+		await seedAgent(db, "sub-turn-agent", { teamId });
 		await db.insert(users).values({
-			id: "w0-sub-turn-human",
+			id: "sub-turn-human",
 			kind: "human",
 			name: "Human",
 			role: "founder",
@@ -272,21 +271,21 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 			createdAt: NOW,
 		});
 		await db.insert(threads).values({
-			id: "w0-sub-turn-thread",
+			id: "sub-turn-thread",
 			hostKind: "team",
 			hostId: teamId,
-			initiatorId: "w0-sub-turn-human",
-			participants: JSON.stringify(["w0-sub-turn-human", "w0-sub-turn-agent"]),
+			initiatorId: "sub-turn-human",
+			participants: JSON.stringify(["sub-turn-human", "sub-turn-agent"]),
 			lastActiveAt: NOW,
 			createdAt: NOW,
 		});
 		await db.insert(messages).values({
-			id: "w0-sub-turn-message",
-			senderId: "w0-sub-turn-human",
-			threadId: "w0-sub-turn-thread",
+			id: "sub-turn-message",
+			senderId: "sub-turn-human",
+			threadId: "sub-turn-thread",
 			type: "plain",
 			payload: JSON.stringify({ text: "@agent are you there?" }),
-			clientKey: "w0-sub-turn-message",
+			clientKey: "sub-turn-message",
 			createdAt: NOW,
 		});
 
@@ -296,31 +295,31 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		await enqueueWorkIntent(db, {
 			kind: "thread_turn",
 			sourceKind: "thread_message",
-			sourceId: "w0-sub-turn-message:w0-sub-turn-agent",
-			idempotencyKey: "w0-sub-turn-intent",
+			sourceId: "sub-turn-message:sub-turn-agent",
+			idempotencyKey: "sub-turn-intent",
 			bakedRequest: {
-				defaultAgentId: "w0-sub-turn-agent",
+				defaultAgentId: "sub-turn-agent",
 				sourceKind: "assistant",
-				sourceId: "w0-sub-turn-message",
-				streamId: "assistant:w0-sub-turn-message",
-				userId: "w0-sub-turn-human",
+				sourceId: "sub-turn-message",
+				streamId: "assistant:sub-turn-message",
+				userId: "sub-turn-human",
 				sourceCorrelation: {
-					threadId: "w0-sub-turn-thread",
-					messageId: "w0-sub-turn-message",
-					userId: "w0-sub-turn-human",
-					agentId: "w0-sub-turn-agent",
+					threadId: "sub-turn-thread",
+					messageId: "sub-turn-message",
+					userId: "sub-turn-human",
+					agentId: "sub-turn-agent",
 				},
 			},
 		});
 		await drainIntents(deps, { maxAttempts: 1 });
 
 		await vi.waitFor(async () => {
-			const opened = await openThread(app, "w0-sub-turn-thread");
+			const opened = await openThread(app, "sub-turn-thread");
 			expect(opened.status).toBe(200);
 			expect(opened.body.data?.messages).toHaveLength(2);
 		});
-		const opened = await openThread(app, "w0-sub-turn-thread");
-		const notice = opened.body.data?.messages.find((m) => m.senderId === "w0-sub-turn-agent");
+		const opened = await openThread(app, "sub-turn-thread");
+		const notice = opened.body.data?.messages.find((m) => m.senderId === "sub-turn-agent");
 		expect(notice).toBeDefined();
 		const payload = notice?.payload as { text?: string };
 		expect(payload.text).toBe(
@@ -333,7 +332,7 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 			.where(
 				and(
 					eq(changes.object, "thread"),
-					eq(changes.objectId, "w0-sub-turn-thread"),
+					eq(changes.objectId, "sub-turn-thread"),
 					eq(changes.kind, "message"),
 				),
 			);
@@ -354,10 +353,10 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		eventBus,
 		app,
 	}) => {
-		const { teamId } = await seedTeam(db, "w0-sub-turn2");
-		await seedAgent(db, "w0-sub-turn2-agent", { teamId });
+		const { teamId } = await seedTeam(db, "sub-turn2");
+		await seedAgent(db, "sub-turn2-agent", { teamId });
 		await db.insert(users).values({
-			id: "w0-sub-turn2-human",
+			id: "sub-turn2-human",
 			kind: "human",
 			name: "Human",
 			role: "founder",
@@ -365,38 +364,38 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 			createdAt: NOW,
 		});
 		await db.insert(threads).values({
-			id: "w0-sub-turn2-thread",
+			id: "sub-turn2-thread",
 			hostKind: "team",
 			hostId: teamId,
-			initiatorId: "w0-sub-turn2-human",
-			participants: JSON.stringify(["w0-sub-turn2-human", "w0-sub-turn2-agent"]),
+			initiatorId: "sub-turn2-human",
+			participants: JSON.stringify(["sub-turn2-human", "sub-turn2-agent"]),
 			lastActiveAt: NOW,
 			createdAt: NOW,
 		});
 		await db.insert(messages).values({
-			id: "w0-sub-turn2-message",
-			senderId: "w0-sub-turn2-human",
-			threadId: "w0-sub-turn2-thread",
+			id: "sub-turn2-message",
+			senderId: "sub-turn2-human",
+			threadId: "sub-turn2-thread",
 			type: "plain",
 			payload: JSON.stringify({ text: "hello" }),
-			clientKey: "w0-sub-turn2-message",
+			clientKey: "sub-turn2-message",
 			createdAt: NOW,
 		});
 
 		const event = {
 			type: "agent_run_admission_failed" as const,
-			streamId: "thread_turn:w0-sub-turn2-message:w0-sub-turn2-agent",
-			intentId: "w0-sub-turn2-intent",
+			streamId: "thread_turn:sub-turn2-message:sub-turn2-agent",
+			intentId: "sub-turn2-intent",
 			kind: "thread_turn" as const,
 			sourceKind: "thread_message" as const,
-			sourceId: "w0-sub-turn2-message:w0-sub-turn2-agent",
+			sourceId: "sub-turn2-message:sub-turn2-agent",
 			failureCode: "PROVISIONING_FAILED" as const,
 			terminal: true,
 			timestamp: Date.now(),
 		};
 		eventBus.emit(event);
 		await vi.waitFor(async () => {
-			const opened = await openThread(app, "w0-sub-turn2-thread");
+			const opened = await openThread(app, "sub-turn2-thread");
 			expect(opened.body.data?.messages).toHaveLength(2);
 		});
 
@@ -405,7 +404,7 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		// second post a no-op, not a duplicate.
 		eventBus.emit(event);
 		await vi.waitFor(async () => {
-			const opened = await openThread(app, "w0-sub-turn2-thread");
+			const opened = await openThread(app, "sub-turn2-thread");
 			expect(opened.body.data?.messages).toHaveLength(2);
 		});
 	});
@@ -415,36 +414,36 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		eventBus,
 		app,
 	}) => {
-		const { teamId } = await seedTeam(db, "w0-sub-turn-pp");
-		await seedAgent(db, "w0-sub-turn-pp-a", { teamId });
-		await seedAgent(db, "w0-sub-turn-pp-b", { teamId });
+		const { teamId } = await seedTeam(db, "sub-turn-pp");
+		await seedAgent(db, "sub-turn-pp-a", { teamId });
+		await seedAgent(db, "sub-turn-pp-b", { teamId });
 		await db.insert(threads).values({
-			id: "w0-sub-turn-pp-thread",
+			id: "sub-turn-pp-thread",
 			hostKind: "agent",
-			hostId: "w0-sub-turn-pp-b",
-			initiatorId: "w0-sub-turn-pp-b",
+			hostId: "sub-turn-pp-b",
+			initiatorId: "sub-turn-pp-b",
 			// both members are agents — nobody in this thread is human
-			participants: JSON.stringify(["w0-sub-turn-pp-a", "w0-sub-turn-pp-b"]),
+			participants: JSON.stringify(["sub-turn-pp-a", "sub-turn-pp-b"]),
 			lastActiveAt: NOW,
 			createdAt: NOW,
 		});
 		await db.insert(messages).values({
-			id: "w0-sub-turn-pp-message",
-			senderId: "w0-sub-turn-pp-b",
-			threadId: "w0-sub-turn-pp-thread",
+			id: "sub-turn-pp-message",
+			senderId: "sub-turn-pp-b",
+			threadId: "sub-turn-pp-thread",
 			type: "plain",
 			payload: JSON.stringify({ text: "are you there?" }),
-			clientKey: "w0-sub-turn-pp-message",
+			clientKey: "sub-turn-pp-message",
 			createdAt: NOW,
 		});
 
 		const event = {
 			type: "agent_run_admission_failed" as const,
-			streamId: "thread_turn:w0-sub-turn-pp-message:w0-sub-turn-pp-a",
-			intentId: "w0-sub-turn-pp-intent",
+			streamId: "thread_turn:sub-turn-pp-message:sub-turn-pp-a",
+			intentId: "sub-turn-pp-intent",
 			kind: "thread_turn" as const,
 			sourceKind: "thread_message" as const,
-			sourceId: "w0-sub-turn-pp-message:w0-sub-turn-pp-a",
+			sourceId: "sub-turn-pp-message:sub-turn-pp-a",
 			failureCode: "PROVISIONING_FAILED" as const,
 			terminal: true,
 			timestamp: Date.now(),
@@ -453,7 +452,7 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		eventBus.emit(event);
 		await flush();
 
-		const opened = await openThread(app, "w0-sub-turn-pp-thread", "w0-sub-turn-pp-b");
+		const opened = await openThread(app, "sub-turn-pp-thread", "sub-turn-pp-b");
 		expect(opened.status).toBe(200);
 		// Only the original message — no notice was posted as A (which would
 		// have woken B, whose own failure would then have woken A again).
@@ -470,10 +469,10 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		db,
 		eventBus,
 	}) => {
-		const { teamId } = await seedTeam(db, "w0-sub-turn-refuse");
-		await seedAgent(db, "w0-sub-turn-refuse-agent", { teamId });
+		const { teamId } = await seedTeam(db, "sub-turn-refuse");
+		await seedAgent(db, "sub-turn-refuse-agent", { teamId });
 		await db.insert(users).values({
-			id: "w0-sub-turn-refuse-human",
+			id: "sub-turn-refuse-human",
 			kind: "human",
 			name: "Human",
 			role: "founder",
@@ -481,33 +480,33 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 			createdAt: NOW,
 		});
 		await db.insert(threads).values({
-			id: "w0-sub-turn-refuse-thread",
+			id: "sub-turn-refuse-thread",
 			hostKind: "user",
-			hostId: "w0-sub-turn-refuse-human",
-			initiatorId: "w0-sub-turn-refuse-human",
+			hostId: "sub-turn-refuse-human",
+			initiatorId: "sub-turn-refuse-human",
 			// the agent was removed from the thread before its admission failed
-			participants: JSON.stringify(["w0-sub-turn-refuse-human"]),
+			participants: JSON.stringify(["sub-turn-refuse-human"]),
 			lastActiveAt: NOW,
 			createdAt: NOW,
 		});
 		await db.insert(messages).values({
-			id: "w0-sub-turn-refuse-message",
-			senderId: "w0-sub-turn-refuse-human",
-			threadId: "w0-sub-turn-refuse-thread",
+			id: "sub-turn-refuse-message",
+			senderId: "sub-turn-refuse-human",
+			threadId: "sub-turn-refuse-thread",
 			type: "plain",
 			payload: JSON.stringify({ text: "@agent still there?" }),
-			clientKey: "w0-sub-turn-refuse-message",
+			clientKey: "sub-turn-refuse-message",
 			createdAt: NOW,
 		});
 
 		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 		const event = {
 			type: "agent_run_admission_failed" as const,
-			streamId: "thread_turn:w0-sub-turn-refuse-message:w0-sub-turn-refuse-agent",
-			intentId: "w0-sub-turn-refuse-intent",
+			streamId: "thread_turn:sub-turn-refuse-message:sub-turn-refuse-agent",
+			intentId: "sub-turn-refuse-intent",
 			kind: "thread_turn" as const,
 			sourceKind: "thread_message" as const,
-			sourceId: "w0-sub-turn-refuse-message:w0-sub-turn-refuse-agent",
+			sourceId: "sub-turn-refuse-message:sub-turn-refuse-agent",
 			failureCode: "PROVISIONING_FAILED" as const,
 			terminal: true,
 			timestamp: Date.now(),
@@ -519,7 +518,7 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		const posted = await db
 			.select()
 			.from(messages)
-			.where(eq(messages.threadId, "w0-sub-turn-refuse-thread"));
+			.where(eq(messages.threadId, "sub-turn-refuse-thread"));
 		expect(posted).toHaveLength(1); // only the original — the notice was refused
 		expect(errorSpy).toHaveBeenCalledTimes(1);
 		errorSpy.mockRestore();
@@ -529,17 +528,17 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		db,
 		eventBus,
 	}) => {
-		const { teamId } = await seedTeam(db, "w0-sub-turn3");
-		await seedAgent(db, "w0-sub-turn3-agent", { teamId });
+		const { teamId } = await seedTeam(db, "sub-turn3");
+		await seedAgent(db, "sub-turn3-agent", { teamId });
 
 		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 		const event = {
 			type: "agent_run_admission_failed" as const,
-			streamId: "thread_turn:w0-sub-turn3-missing:w0-sub-turn3-agent",
-			intentId: "w0-sub-turn3-intent",
+			streamId: "thread_turn:sub-turn3-missing:sub-turn3-agent",
+			intentId: "sub-turn3-intent",
 			kind: "thread_turn" as const,
 			sourceKind: "thread_message" as const,
-			sourceId: "w0-sub-turn3-missing:w0-sub-turn3-agent",
+			sourceId: "sub-turn3-missing:sub-turn3-agent",
 			failureCode: "PROVISIONING_FAILED" as const,
 			terminal: true,
 			timestamp: Date.now(),

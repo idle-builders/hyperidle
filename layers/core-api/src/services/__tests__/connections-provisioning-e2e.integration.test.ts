@@ -1,30 +1,15 @@
 /**
- * AU21 §9 Increment 8, Wave F2 (credentials/filesystems provisioning split) —
- * GREEN-phase real-DB round-trip proof.
+ * The session-launch-time PROVISIONING OPERATION
+ * (`buildProvisioningPlan`/`applyProvisioningPlan`, `@hyperidle/run-orchestration`)
+ * reads the held-connection RECORD live at spawn through
+ * `@hyperidle/connections`'s `listHeldConnectionsForProvisioning` —
+ * `service_connections` is `agent-orchestration`'s own table, zero HTTP/seam
+ * involvement. A real-DB round-trip proof, exercised end-to-end through the
+ * real in-layer read + real encryption.
  *
- * Decision F2 (historical) relocated the session-launch-time PROVISIONING
- * OPERATION (`buildProvisioningPlan`/`applyProvisioningPlan`) out of
- * `@hyperidle/connections` into `@hyperidle/run-orchestration`, originally
- * reading the held-connection RECORD through `CoreApiPort.connections.
- * listHeldConnectionsForProvisioning()` (a live seam call at provisioning
- * time) instead of a raw `db` handle.
- *
- * AU21 §9 Increment 12 follow-up part 2 (Decision K1, historical): that seam
- * call — and the `GET /connections/provisioning` route + `CoreApiPort
- * .connections` backing it — went away, replaced by an emit-time bake.
- *
- * AU26 E3: the bake is gone too. `service_connections` is
- * `agent-orchestration`'s own table, so `buildProvisioningPlan` reads it LIVE
- * at spawn through `@hyperidle/connections`'s
- * `listHeldConnectionsForProvisioning`. Still the SAME real-DB round-trip
- * proof (AC1, AC4, AC5, AC6, HR3, C2), now exercised end-to-end through the
- * real in-layer read + real encryption + the relocated function — zero
- * HTTP/seam involvement.
- *
- * `ServiceConnectionResolver` stays an Application-composed direct
- * dependency (never routed through any seam — AN1 hard-rule 1); this test
- * constructs a REAL one against the fixture's real `db`, proving the
- * decrypt step still works unaffected by this move.
+ * `ServiceConnectionResolver` is an Application-composed direct dependency,
+ * never routed through a seam; this test constructs a REAL one against the
+ * fixture's real `db`, proving the decrypt step works.
  */
 
 import * as fs from "node:fs";
@@ -49,16 +34,16 @@ import {
 	vi,
 } from "../../__testing__/test-fixtures.js";
 
-const SERVER_SECRET = "au21-inc8-e2e-secret-xyz";
+const SERVER_SECRET = "provisioning-e2e-secret-xyz";
 const NOW = "2026-07-30T00:00:00.000Z";
-const USER_HUMAN_ID = "u-inc8-e2e-human";
-const AGENT_CALLER_ID = "agent-inc8-e2e-caller";
+const USER_HUMAN_ID = "u-provisioning-e2e-human";
+const AGENT_CALLER_ID = "agent-provisioning-e2e-caller";
 
 let sandboxPath: string;
 beforeEach(() => {
-	sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "au21-inc8-e2e-"));
+	sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "provisioning-e2e-"));
 	vi.stubEnv("HYPERIDLE_CREDENTIAL_KEY", SERVER_SECRET);
-	vi.stubEnv("HYPERIDLE_API_KEY", "au21-inc8-e2e-key");
+	vi.stubEnv("HYPERIDLE_API_KEY", "provisioning-e2e-key");
 });
 afterEach(() => {
 	fs.rmSync(sandboxPath, { recursive: true, force: true });
@@ -98,7 +83,7 @@ async function seedHumanUser(db: import("@hyperidle/db").HyperIdleDb): Promise<v
 		.values({
 			id: USER_HUMAN_ID,
 			kind: "human",
-			name: "Inc8 E2E Human",
+			name: "E2E Human",
 			role: "founder",
 			status: "active",
 			createdAt: NOW,
@@ -112,7 +97,7 @@ async function seedAgentCaller(db: import("@hyperidle/db").HyperIdleDb): Promise
 		.values({
 			id: AGENT_CALLER_ID,
 			kind: "ai",
-			name: "Inc8 E2E Agent",
+			name: "E2E Agent",
 			role: "engineer",
 			status: "active",
 			createdAt: NOW,
@@ -154,7 +139,7 @@ describe("real end-to-end: DB row -> listHeldConnectionsForProvisioning (live at
 		await seedHumanUser(db);
 		await seedAgentCaller(db);
 		await seedConnection(db, {
-			id: "sc-inc8-e2e-stripe",
+			id: "sc-e2e-stripe",
 			service: "stripe",
 			authSource: "token",
 			serverUrl: "https://mcp.stripe.com",
@@ -184,7 +169,7 @@ describe("real end-to-end: DB row -> listHeldConnectionsForProvisioning (live at
 		await seedHumanUser(db);
 		await seedAgentCaller(db);
 		await seedConnection(db, {
-			id: "sc-inc8-e2e-ac4",
+			id: "sc-respawn",
 			service: "stripe",
 			authSource: "token",
 			serverUrl: "https://mcp.stripe.com",
@@ -193,7 +178,7 @@ describe("real end-to-end: DB row -> listHeldConnectionsForProvisioning (live at
 		const { connections, resolver } = buildRealDeps(db);
 
 		const plan1 = await buildProvisioningPlan({ connections, resolver });
-		const sandboxA = fs.mkdtempSync(path.join(os.tmpdir(), "au21-inc8-e2e-ac4-a-"));
+		const sandboxA = fs.mkdtempSync(path.join(os.tmpdir(), "respawn-a-"));
 		await applyProvisioningPlan({
 			plan: plan1,
 			sandboxPath: sandboxA,
@@ -204,7 +189,7 @@ describe("real end-to-end: DB row -> listHeldConnectionsForProvisioning (live at
 		fs.rmSync(sandboxA, { recursive: true, force: true });
 
 		const plan2 = await buildProvisioningPlan({ connections, resolver });
-		const sandboxB = fs.mkdtempSync(path.join(os.tmpdir(), "au21-inc8-e2e-ac4-b-"));
+		const sandboxB = fs.mkdtempSync(path.join(os.tmpdir(), "respawn-b-"));
 		await applyProvisioningPlan({
 			plan: plan2,
 			sandboxPath: sandboxB,
@@ -223,14 +208,14 @@ describe("real end-to-end: DB row -> listHeldConnectionsForProvisioning (live at
 		await seedHumanUser(db);
 		await seedAgentCaller(db);
 		await seedConnection(db, {
-			id: "sc-inc8-e2e-ac5-stripe",
+			id: "sc-two-services-stripe",
 			service: "stripe",
 			authSource: "token",
 			serverUrl: "https://mcp.stripe.com",
-			token: "sk_ac5",
+			token: "sk_two_services",
 		});
 		await seedConnection(db, {
-			id: "sc-inc8-e2e-ac5-figma",
+			id: "sc-two-services-figma",
 			service: "figma",
 			authSource: "mcp",
 			serverUrl: "https://mcp.figma.com",
@@ -258,14 +243,14 @@ describe("real end-to-end: DB row -> listHeldConnectionsForProvisioning (live at
 		await seedHumanUser(db);
 		await seedAgentCaller(db);
 		await seedConnection(db, {
-			id: "sc-inc8-e2e-ac6",
+			id: "sc-disconnect",
 			service: "stripe",
 			authSource: "mcp",
 			serverUrl: "https://mcp.stripe.com",
 		});
 		const { connections, resolver } = buildRealDeps(db);
 
-		const sandbox1 = fs.mkdtempSync(path.join(os.tmpdir(), "au21-inc8-e2e-ac6-1-"));
+		const sandbox1 = fs.mkdtempSync(path.join(os.tmpdir(), "disconnect-1-"));
 		const plan1 = await buildProvisioningPlan({ connections, resolver });
 		await applyProvisioningPlan({
 			plan: plan1,
@@ -279,14 +264,14 @@ describe("real end-to-end: DB row -> listHeldConnectionsForProvisioning (live at
 		expect(mcpJson1.mcpServers.stripe).toBeDefined();
 		fs.rmSync(sandbox1, { recursive: true, force: true });
 
-		await db.delete(serviceConnections).where(eq(serviceConnections.id, "sc-inc8-e2e-ac6"));
+		await db.delete(serviceConnections).where(eq(serviceConnections.id, "sc-disconnect"));
 
-		// AU26 E3: the reader is live, so the SAME deps object honors the
-		// disconnect on the next spawn — no re-bake, nothing to refresh. Kept
-		// re-built here only to mirror how a real second spawn composes.
+		// The reader is live, so the SAME deps object honors the disconnect on
+		// the next spawn — no re-bake, nothing to refresh. Kept re-built here
+		// only to mirror how a real second spawn composes.
 		const { connections: connectionsAfterDisconnect, resolver: resolverAfterDisconnect } =
 			buildRealDeps(db);
-		const sandbox2 = fs.mkdtempSync(path.join(os.tmpdir(), "au21-inc8-e2e-ac6-2-"));
+		const sandbox2 = fs.mkdtempSync(path.join(os.tmpdir(), "disconnect-2-"));
 		const plan2 = await buildProvisioningPlan({
 			connections: connectionsAfterDisconnect,
 			resolver: resolverAfterDisconnect,
@@ -313,13 +298,13 @@ describe("real end-to-end: DB row -> listHeldConnectionsForProvisioning (live at
 		await seedHumanUser(db);
 		await seedAgentCaller(db);
 		await seedConnection(db, {
-			id: "sc-inc8-e2e-hr3-gh",
+			id: "sc-e2e-clikey-gh",
 			service: "github",
 			authSource: "token",
 			token: "ghs_e2e_github_pat",
 		});
 		await seedConnection(db, {
-			id: "sc-inc8-e2e-hr3-stripe",
+			id: "sc-e2e-mcpbearer-stripe",
 			service: "stripe",
 			authSource: "token",
 			serverUrl: "https://mcp.stripe.com",
@@ -329,10 +314,10 @@ describe("real end-to-end: DB row -> listHeldConnectionsForProvisioning (live at
 		const { connections, resolver } = buildRealDeps(db);
 		const plan = await buildProvisioningPlan({ connections, resolver });
 
-		// C2a: CLI-key envInjections populated for github.
+		// CLI-key envInjections populated for github.
 		expect(plan.envInjections.GH_TOKEN).toBe("ghs_e2e_github_pat");
 		expect(plan.envInjections.GITHUB_TOKEN).toBe("ghs_e2e_github_pat");
-		// C2b: MCP-bearer envInjections populated for stripe.
+		// MCP-bearer envInjections populated for stripe.
 		expect(plan.envInjections.STRIPE_MCP_TOKEN).toBe("sk_test_e2e_secret");
 
 		const result = await applyProvisioningPlan({
@@ -342,7 +327,7 @@ describe("real end-to-end: DB row -> listHeldConnectionsForProvisioning (live at
 			claudeNative: false,
 		});
 
-		// HR3: config file is under sandboxPath, and the secret is never inlined
+		// Config file is under sandboxPath, and the secret is never inlined
 		// into the written config — only referenced by env-var name.
 		const configPath = path.join(sandboxPath, ".codex-home", "config.toml");
 		expect(configPath.startsWith(sandboxPath)).toBe(true);
@@ -350,8 +335,8 @@ describe("real end-to-end: DB row -> listHeldConnectionsForProvisioning (live at
 		expect(toml).not.toContain("sk_test_e2e_secret");
 		expect(toml).not.toContain("ghs_e2e_github_pat");
 
-		// C2b: applyProvisioningPlan returns the MCP-bearer token in mcpTokenEnv
-		// (the CLI-key token flows only via plan.envInjections, never mcpTokenEnv).
+		// applyProvisioningPlan returns the MCP-bearer token in mcpTokenEnv (the
+		// CLI-key token flows only via plan.envInjections, never mcpTokenEnv).
 		expect(result.mcpTokenEnv).toMatchObject({ STRIPE_MCP_TOKEN: "sk_test_e2e_secret" });
 	});
 });

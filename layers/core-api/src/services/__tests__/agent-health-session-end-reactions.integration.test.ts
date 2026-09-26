@@ -1,5 +1,5 @@
 /**
- * AU26 — the degraded-agent notice, event-driven.
+ * The degraded-agent notice is event-driven.
  *
  * Founder ruling: *"shouldn't the notification system anyhow allow to be event
  * based and then the notification system just keeps track of how many of the
@@ -185,9 +185,9 @@ describe("registerAgentHealthSessionEndReactions writes health, not a queue row"
 		).not.toThrow();
 	});
 
-	// N4: the count used to be every `user` change row on the agent, so an
-	// unrelated rename between two crashes inflated the count to 3 instead
-	// of 2. It must count only this reaction's own crash notes.
+	// The crash count must count only this reaction's own crash notes, not
+	// every `user` change row on the agent — an unrelated rename between two
+	// crashes must not inflate it.
 	test("a rename between crashes does not count toward the crash total", async ({
 		db,
 		eventBus,

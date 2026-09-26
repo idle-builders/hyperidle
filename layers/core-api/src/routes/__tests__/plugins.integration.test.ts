@@ -1,19 +1,14 @@
 /**
- * BA9a — plugin lifecycle integration tests, re-pointed onto the platform
- * module: `POST /api/actions/edit_plugin` / `search_plugins` replace
- * `routes/plugins.ts`'s six routes.
- *
- * Tests the not-found refusals for enable, disable, remove, and restore
- * when the plugin ID does not exist or is removed — `unknown_plugin`/
- * `plugin_removed` now, where the deleted route answered a blanket 404
- * `NOT_FOUND` either way.
+ * Plugin lifecycle through `POST /api/actions/edit_plugin` / `search_plugins`:
+ * the not-found refusals for enable, disable, remove, and restore when the
+ * plugin ID does not exist or is removed — `unknown_plugin`/`plugin_removed`.
  *
  * Uses the real DB + app fixtures (no stubs).
  */
 import { plugins } from "@hyperidle/db";
 import { describe, expect, test } from "../../__testing__/test-fixtures.js";
 
-const API_KEY = "test-ba9a-plugins";
+const API_KEY = "test-plugins";
 
 function authHeaders(): Record<string, string> {
 	return { "X-API-Key": API_KEY, "Content-Type": "application/json" };
