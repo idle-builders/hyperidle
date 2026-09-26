@@ -60,21 +60,19 @@ class RecordingHarnessAdapter implements HarnessAdapter {
 
 async function seedWork(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
-	await db
-		.insert(teams)
-		.values({ id: "team-au3-agent", name: "Agent Sources Team", createdAt: now });
+	await db.insert(teams).values({ id: "team-src", name: "Agent Sources Team", createdAt: now });
 	await db.insert(users).values([
 		{
-			id: "agent-au3-agent",
+			id: "agent-src",
 			kind: "ai",
 			name: "Builder",
 			role: "builder",
 			status: "active",
-			teamId: "team-au3-agent",
+			teamId: "team-src",
 			createdAt: now,
 		},
 		{
-			id: "u-au3-agent",
+			id: "u-src",
 			kind: "human",
 			name: "Founder",
 			role: "founder",
@@ -84,24 +82,24 @@ async function seedWork(db: HyperIdleDb): Promise<void> {
 	]);
 	// @lore the run config lives in `agent_run_config`, not `users`.
 	await db.insert(agentRunConfig).values({
-		agentUserId: "agent-au3-agent",
+		agentUserId: "agent-src",
 		harnessType: "recording",
 		modelProvider: "test",
 	});
 	await db.insert(threads).values({
-		id: `thr-${"bet-au3-agent"}`,
+		id: `thr-${"bet-src"}`,
 		hostKind: "team",
-		hostId: "team-au3-agent",
+		hostId: "team-src",
 		initiatorId: "system:propagation",
 		participants: "[]",
 		lastActiveAt: now,
 		createdAt: now,
 	});
 	await db.insert(tasks).values({
-		threadId: `thr-${"bet-au3-agent"}`,
-		id: "bet-au3-agent",
+		threadId: `thr-${"bet-src"}`,
+		id: "bet-src",
 		parentTaskId: null,
-		teamId: "team-au3-agent",
+		teamId: "team-src",
 		title: "Agent layer execution",
 		description: "Agent layer execution",
 		doneCondition: "Tasks exist",
@@ -110,44 +108,44 @@ async function seedWork(db: HyperIdleDb): Promise<void> {
 		updatedAt: now,
 	});
 	await db.insert(threads).values({
-		id: `thr-${"task-au3-agent"}`,
+		id: `thr-${"task-src"}`,
 		hostKind: "team",
-		hostId: "team-au3-agent",
+		hostId: "team-src",
 		initiatorId: "system:propagation",
 		participants: "[]",
 		lastActiveAt: now,
 		createdAt: now,
 	});
 	await db.insert(tasks).values({
-		threadId: `thr-${"task-au3-agent"}`,
-		id: "task-au3-agent",
-		parentTaskId: "bet-au3-agent",
-		teamId: "team-au3-agent",
+		threadId: `thr-${"task-src"}`,
+		id: "task-src",
+		parentTaskId: "bet-src",
+		teamId: "team-src",
 		title: "Execute through agent layer",
 		state: "accepted",
-		ownerAgentId: "agent-au3-agent",
+		ownerAgentId: "agent-src",
 		createdAt: now,
 		updatedAt: now,
 	});
 	// Subscriptions carry no FK to a backing row, so this seed only ever
-	// needed the "subscription-au3-agent" id string used below as a
+	// needed the "subscription-src" id string used below as a
 	// `sourceId`, never a real backing row.
 	await db.insert(threads).values({
-		id: "thread-au3-agent",
+		id: "thread-src",
 		hostKind: "user",
-		hostId: "u-au3-agent",
-		initiatorId: "u-au3-agent",
-		participants: JSON.stringify(["u-au3-agent", "ast-u-au3-agent"]),
+		hostId: "u-src",
+		initiatorId: "u-src",
+		participants: JSON.stringify(["u-src", "ast-u-src"]),
 		createdAt: now,
 		lastActiveAt: now,
 	});
 	await db.insert(messages).values({
-		id: "msg-au3-agent",
-		threadId: "thread-au3-agent",
-		senderId: "u-au3-agent",
+		id: "msg-src",
+		threadId: "thread-src",
+		senderId: "u-src",
 		type: "plain",
 		payload: JSON.stringify({ text: "Help" }),
-		clientKey: "msg-au3-agent",
+		clientKey: "msg-src",
 		createdAt: now,
 	});
 }
@@ -186,7 +184,7 @@ describe("agent session request sources", () => {
 			modelProviders: ["test"],
 			maxConcurrent: 8,
 		});
-		const sandboxBasePath = fs.mkdtempSync(path.join(os.tmpdir(), "au3-agent-layer-"));
+		const sandboxBasePath = fs.mkdtempSync(path.join(os.tmpdir(), "src-layer-"));
 		tmpDirs.push(sandboxBasePath);
 		const deps = {
 			db,
@@ -213,13 +211,13 @@ describe("agent session request sources", () => {
 		// resolver pipeline entirely, so it must bake the `agentConfig`
 		// `admitSession` requires directly onto `payloadJson`, matching exactly
 		// what the real emit-time resolvers bake from the SAME seeded
-		// `agent-au3-agent` row above.
+		// `agent-src` row above.
 		const bakedAgentConfigPayload = JSON.stringify({
 			agentConfig: {
 				kind: "ai",
 				status: "active",
 				role: "builder",
-				teamId: "team-au3-agent",
+				teamId: "team-src",
 				systemPrompt: null,
 				harnessType: "recording",
 				modelProvider: "test",
@@ -230,46 +228,46 @@ describe("agent session request sources", () => {
 		const sources: AgentSessionRequestInput[] = [
 			{
 				sourceKind: "task",
-				sourceId: "task-au3-agent",
-				streamId: "task:task-au3-agent",
-				taskId: "task-au3-agent",
-				agentId: "agent-au3-agent",
-				teamId: "team-au3-agent",
+				sourceId: "task-src",
+				streamId: "task:task-src",
+				taskId: "task-src",
+				agentId: "agent-src",
+				teamId: "team-src",
 				promptMode: "task",
-				idempotencyKey: "au3:task",
-				sourceCorrelation: { taskId: "task-au3-agent", teamId: "team-au3-agent" },
+				idempotencyKey: "src:task",
+				sourceCorrelation: { taskId: "task-src", teamId: "team-src" },
 				payloadJson: bakedAgentConfigPayload,
 			},
 			{
 				sourceKind: "subscription",
-				sourceId: "subscription-fire-au3-agent",
-				streamId: "subscription:subscription-au3-agent",
+				sourceId: "subscription-fire-src",
+				streamId: "subscription:subscription-src",
 				taskId: null,
-				agentId: "agent-au3-agent",
-				teamId: "team-au3-agent",
+				agentId: "agent-src",
+				teamId: "team-src",
 				promptMode: "subscription",
-				idempotencyKey: "au3:subscription",
+				idempotencyKey: "src:subscription",
 				sourceCorrelation: {
-					subscriptionId: "subscription-au3-agent",
-					teamId: "team-au3-agent",
+					subscriptionId: "subscription-src",
+					teamId: "team-src",
 				},
 				payloadJson: bakedAgentConfigPayload,
 			},
 			{
 				sourceKind: "assistant",
-				sourceId: "msg-au3-agent",
-				streamId: "thread:thread-au3-agent",
+				sourceId: "msg-src",
+				streamId: "thread:thread-src",
 				taskId: null,
-				agentId: "agent-au3-agent",
-				teamId: "team-au3-agent",
-				userId: "u-au3-agent",
+				agentId: "agent-src",
+				teamId: "team-src",
+				userId: "u-src",
 				promptMode: "conversation",
-				idempotencyKey: "au3:assistant",
+				idempotencyKey: "src:assistant",
 				sourceCorrelation: {
-					threadId: "thread-au3-agent",
-					messageId: "msg-au3-agent",
-					userId: "u-au3-agent",
-					agentId: "ast-u-au3-agent",
+					threadId: "thread-src",
+					messageId: "msg-src",
+					userId: "u-src",
+					agentId: "ast-u-src",
 				},
 				payloadJson: bakedAgentConfigPayload,
 			},

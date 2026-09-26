@@ -35,7 +35,7 @@ async function seedFounder(db: HyperIdleDb): Promise<void> {
 		.onConflictDoNothing();
 }
 
-const API_KEY = "test-ba9g-agent-identity";
+const API_KEY = "test-agent-identity";
 const PLUGIN_ID = "personas-under-test";
 
 function auth(): Record<string, string> {
@@ -61,7 +61,7 @@ const PERSONA = "# You are a Builder\n\nYou implement features from plans.";
 
 /** A minimal plugin whose one agent carries an identity file. */
 function makePlugin(): string {
-	const dir = join(tmpdir(), `ba9g-pa-${Date.now()}-${Math.round(performance.now())}`);
+	const dir = join(tmpdir(), `plugin-agent-${Date.now()}-${Math.round(performance.now())}`);
 	mkdirSync(join(dir, "personas"), { recursive: true });
 	writeFileSync(join(dir, "personas", "builder.md"), PERSONA);
 	writeFileSync(
@@ -213,7 +213,7 @@ describe("a plugin's agent comes with an identity", () => {
 		app,
 	}) => {
 		await seedFounder(db);
-		const dir = join(tmpdir(), `ba9g-subscription-prompt-${Date.now()}`);
+		const dir = join(tmpdir(), `subscription-prompt-${Date.now()}`);
 		mkdirSync(dir, { recursive: true });
 		writeFileSync(
 			join(dir, "plugin.json"),
@@ -259,7 +259,7 @@ describe("a plugin's agent comes with an identity", () => {
 
 	test("an agent with no identity file is still installed, just bare", async ({ db, app }) => {
 		await seedFounder(db);
-		const dir = join(tmpdir(), `ba9g-bare-${Date.now()}`);
+		const dir = join(tmpdir(), `bare-${Date.now()}`);
 		mkdirSync(dir, { recursive: true });
 		writeFileSync(
 			join(dir, "plugin.json"),

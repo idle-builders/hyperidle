@@ -176,7 +176,7 @@ describe("injected filesystems are read live at spawn, never carried on the requ
 		await seedPrincipals(db);
 
 		// 1. The emit is genuinely over before the filesystem exists.
-		const { payloadJson } = await emitAndDrain(db, eventBus, "au26-f2-add-after-emit");
+		const { payloadJson } = await emitAndDrain(db, eventBus, "add-after-emit");
 		expect(await db.select().from(filesystems)).toEqual([]);
 
 		// The request carries NOTHING about filesystems — the bake is gone, so
@@ -184,14 +184,14 @@ describe("injected filesystems are read live at spawn, never carried on the requ
 		expect(payloadJson ?? "").not.toContain("injectedFilesystems");
 
 		// 2. NOW the operator assigns the filesystem to the agent.
-		await assignFilesystem(db, "fs-au26-f2-added-late");
+		await assignFilesystem(db, "fs-added-late");
 
 		// 3. The session spawns.
 		const mounted = await provisionFilesystems(db);
 
 		// 4. The late-assigned filesystem is mounted — a real symlink into the
 		//    real sandbox, made by the real mounter.
-		expect(mounted.map((m) => m.id)).toEqual(["fs-au26-f2-added-late"]);
+		expect(mounted.map((m) => m.id)).toEqual(["fs-added-late"]);
 		const linkPath = path.join(sandboxPath, "late-vault");
 		expect(fs.lstatSync(linkPath).isSymbolicLink()).toBe(true);
 		expect(fs.readFileSync(path.join(linkPath, "index.md"), "utf-8")).toBe("# Late vault\n");
@@ -202,13 +202,13 @@ describe("injected filesystems are read live at spawn, never carried on the requ
 		eventBus,
 	}) => {
 		await seedPrincipals(db);
-		await assignFilesystem(db, "fs-au26-f2-removed-late");
+		await assignFilesystem(db, "fs-removed-late");
 
-		await emitAndDrain(db, eventBus, "au26-f2-remove-after-emit");
+		await emitAndDrain(db, eventBus, "remove-after-emit");
 
 		await db
 			.delete(filesystemInjections)
-			.where(eq(filesystemInjections.filesystemId, "fs-au26-f2-removed-late"));
+			.where(eq(filesystemInjections.filesystemId, "fs-removed-late"));
 
 		const mounted = await provisionFilesystems(db);
 

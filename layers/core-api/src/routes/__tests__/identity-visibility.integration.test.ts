@@ -17,10 +17,10 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
-const TEST_API_KEY = "test-key-ba9f-visibility";
-const FOUNDER = "u-founder-ba9f";
-const OTHER_HUMAN = "u-other-ba9f";
-const AGENT = "agent-ba9f";
+const TEST_API_KEY = "test-key-identity-visibility";
+const FOUNDER = "u-founder-identity";
+const OTHER_HUMAN = "u-other-identity";
+const AGENT = "agent-identity";
 
 function authHeaders(identity: string): Record<string, string> {
 	return {
@@ -60,7 +60,7 @@ async function seed(db: HyperIdleDb): Promise<void> {
 	// is never parentless.
 	await db.insert(documents).values([
 		{
-			id: "ki_af_agent-ba9f",
+			id: "ki_af_agent-identity",
 			scopeKind: "user",
 			scopeId: AGENT,
 			parentKind: "agent",
@@ -106,7 +106,7 @@ describe("an agent's identity document is visible to everyone, not a private not
 		const res = await app.request("/api/actions/open_document", {
 			method: "POST",
 			headers: authHeaders(FOUNDER),
-			body: JSON.stringify({ id: "ki_af_agent-ba9f" }),
+			body: JSON.stringify({ id: "ki_af_agent-identity" }),
 		});
 
 		expect(res.status).toBe(200);
@@ -130,7 +130,7 @@ describe("an agent's identity document is visible to everyone, not a private not
 			method: "POST",
 			headers: authHeaders(FOUNDER),
 			body: JSON.stringify({
-				id: "ki_af_agent-ba9f",
+				id: "ki_af_agent-identity",
 				version: 1,
 				body: "You are Atlas, rewritten.",
 			}),
@@ -140,7 +140,7 @@ describe("an agent's identity document is visible to everyone, not a private not
 		const after = await app.request("/api/actions/open_document", {
 			method: "POST",
 			headers: authHeaders(FOUNDER),
-			body: JSON.stringify({ id: "ki_af_agent-ba9f" }),
+			body: JSON.stringify({ id: "ki_af_agent-identity" }),
 		});
 		expect(
 			((await after.json()) as { data: { document: { body: string } } }).data.document.body,
@@ -176,7 +176,7 @@ describe("an agent's identity document is visible to everyone, not a private not
 		const payload = (await res.json()) as { data?: Array<{ id: string }> };
 		const ids = (payload.data ?? []).map((i) => i.id);
 
-		expect(ids).toContain("ki_af_agent-ba9f");
+		expect(ids).toContain("ki_af_agent-identity");
 		expect(ids).not.toContain("ki_note_other");
 	});
 });
@@ -189,8 +189,8 @@ describe("an agent's identity document is visible to everyone, not a private not
  * and read back through `search_users`/`open_user`, never `/api/agents`.
  */
 describe("agent identity through the document action mechanism", () => {
-	const CREATOR = "u-founder-ba9f-actions";
-	const READER = "u-other-ba9f-actions";
+	const CREATOR = "u-founder-identity-actions";
+	const READER = "u-other-identity-actions";
 
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);

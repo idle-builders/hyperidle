@@ -22,7 +22,7 @@ import type { Hono } from "hono";
 import { afterEach, describe, expect } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
-const API_KEY = "test-ba9d-km-plugin";
+const API_KEY = "test-km-plugin";
 const PLUGIN_ROOT = resolve("plugins/document-management");
 const PLUGIN_ID = "document-management";
 const SKILL_DIR = "post-task-retro";

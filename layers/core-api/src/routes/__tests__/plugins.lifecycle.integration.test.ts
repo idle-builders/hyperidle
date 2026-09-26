@@ -18,7 +18,7 @@ import type { Hono } from "hono";
 import { afterEach, describe, expect } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
-const API_KEY = "test-ba9d-lifecycle";
+const API_KEY = "test-plugin-lifecycle";
 const PLUGIN_ROOT = resolve("plugins/document-management");
 const PLUGIN_ID = "document-management";
 
@@ -38,7 +38,7 @@ afterEach(() => {
 });
 
 function copyPlugin(): string {
-	const dir = join(tmpdir(), `ba9d-lc-${Date.now()}`);
+	const dir = join(tmpdir(), `plugin-lifecycle-${Date.now()}`);
 	mkdirSync(dir, { recursive: true });
 	cpSync(PLUGIN_ROOT, dir, { recursive: true });
 	tempDirs.push(dir);

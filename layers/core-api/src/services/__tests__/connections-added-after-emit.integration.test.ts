@@ -174,7 +174,7 @@ describe("held connections are read live at spawn, never carried on the request"
 		await seedPrincipals(db);
 
 		// 1. The emit is genuinely over before the connection exists.
-		const { payloadJson } = await emitAndDrain(db, eventBus, "au26-e3-add-after-emit");
+		const { payloadJson } = await emitAndDrain(db, eventBus, "add-after-emit");
 		expect(await db.select().from(serviceConnections)).toEqual([]);
 
 		// The request carries NOTHING about connections — nothing is baked, so
@@ -183,11 +183,11 @@ describe("held connections are read live at spawn, never carried on the request"
 
 		// 2. NOW the user adds the connection.
 		await db.insert(serviceConnections).values({
-			id: "sc-au26-e3-added-late",
+			id: "sc-added-late",
 			userId: HUMAN_ID,
 			service: "stripe",
 			authSource: "token",
-			encryptedToken: encryptCredentialValue("sk_au26_e3_added_late"),
+			encryptedToken: encryptCredentialValue("sk_added_late"),
 			serverUrl: "https://mcp.stripe.com",
 			health: "needs-attention",
 			lastValidatedAt: null,
@@ -200,15 +200,15 @@ describe("held connections are read live at spawn, never carried on the request"
 
 		// 4. The late-added connection is provisioned, token and all.
 		expect(plan.mcpServers).toEqual([
-			{ name: "stripe", url: "https://mcp.stripe.com", bearerToken: "sk_au26_e3_added_late" },
+			{ name: "stripe", url: "https://mcp.stripe.com", bearerToken: "sk_added_late" },
 		]);
-		expect(plan.envInjections).toEqual({ STRIPE_MCP_TOKEN: "sk_au26_e3_added_late" });
+		expect(plan.envInjections).toEqual({ STRIPE_MCP_TOKEN: "sk_added_late" });
 
 		const written = JSON.parse(fs.readFileSync(path.join(sandboxPath, ".mcp.json"), "utf-8")) as {
 			mcpServers: Record<string, { url: string; headers?: Record<string, string> }>;
 		};
 		expect(written.mcpServers.stripe?.url).toBe("https://mcp.stripe.com");
-		expect(written.mcpServers.stripe?.headers?.Authorization).toBe("Bearer sk_au26_e3_added_late");
+		expect(written.mcpServers.stripe?.headers?.Authorization).toBe("Bearer sk_added_late");
 	});
 
 	test("a connection REMOVED after the intent is emitted and drained is not provisioned at spawn", async ({
@@ -217,11 +217,11 @@ describe("held connections are read live at spawn, never carried on the request"
 	}) => {
 		await seedPrincipals(db);
 		await db.insert(serviceConnections).values({
-			id: "sc-au26-e3-removed-late",
+			id: "sc-removed-late",
 			userId: HUMAN_ID,
 			service: "stripe",
 			authSource: "token",
-			encryptedToken: encryptCredentialValue("sk_au26_e3_removed_late"),
+			encryptedToken: encryptCredentialValue("sk_removed_late"),
 			serverUrl: "https://mcp.stripe.com",
 			health: "needs-attention",
 			lastValidatedAt: null,
@@ -229,9 +229,9 @@ describe("held connections are read live at spawn, never carried on the request"
 			updatedAt: NOW,
 		});
 
-		await emitAndDrain(db, eventBus, "au26-e3-remove-after-emit");
+		await emitAndDrain(db, eventBus, "remove-after-emit");
 
-		await db.delete(serviceConnections).where(eq(serviceConnections.id, "sc-au26-e3-removed-late"));
+		await db.delete(serviceConnections).where(eq(serviceConnections.id, "sc-removed-late"));
 
 		const plan = await provisionConnections(db, HUMAN_ID);
 
@@ -246,7 +246,7 @@ describe("held connections are read live at spawn, never carried on the request"
 		await seedPrincipals(db);
 		await db.insert(serviceConnections).values([
 			{
-				id: "sc-au26-e3-owner-github",
+				id: "sc-owner-github",
 				userId: HUMAN_ID,
 				service: "github",
 				authSource: "token",
@@ -258,7 +258,7 @@ describe("held connections are read live at spawn, never carried on the request"
 				updatedAt: NOW,
 			},
 			{
-				id: "sc-au26-e3-other-stripe",
+				id: "sc-other-stripe",
 				userId: OTHER_HUMAN_ID,
 				service: "stripe",
 				authSource: "token",
@@ -305,7 +305,7 @@ describe("held connections are read live at spawn, never carried on the request"
 	}) => {
 		await seedPrincipals(db);
 		await db.insert(serviceConnections).values({
-			id: "sc-au26-e3-isolation",
+			id: "sc-isolation",
 			userId: HUMAN_ID,
 			service: "github",
 			authSource: "token",
@@ -317,11 +317,11 @@ describe("held connections are read live at spawn, never carried on the request"
 			updatedAt: NOW,
 		});
 
+		expect(await resolveHeldToken(db, HUMAN_ID, "sc-isolation", decryptCredentialValue)).toBe(
+			"gh_isolation_token",
+		);
 		expect(
-			await resolveHeldToken(db, HUMAN_ID, "sc-au26-e3-isolation", decryptCredentialValue),
-		).toBe("gh_isolation_token");
-		expect(
-			await resolveHeldToken(db, OTHER_HUMAN_ID, "sc-au26-e3-isolation", decryptCredentialValue),
+			await resolveHeldToken(db, OTHER_HUMAN_ID, "sc-isolation", decryptCredentialValue),
 		).toBeNull();
 	});
 });

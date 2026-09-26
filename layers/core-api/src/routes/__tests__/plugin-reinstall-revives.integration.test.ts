@@ -35,7 +35,7 @@ import type { Hono } from "hono";
 import { afterEach, describe, expect } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
-const API_KEY = "test-ba9g-reinstall";
+const API_KEY = "test-reinstall";
 const PLUGIN_ROOT = resolve("plugins/document-management");
 const PLUGIN_ID = "document-management";
 
@@ -74,7 +74,7 @@ async function seedFounder(db: HyperIdleDb): Promise<void> {
 
 async function install(db: HyperIdleDb, app: Hono): Promise<void> {
 	await seedFounder(db);
-	const dir = join(tmpdir(), `ba9g-${Date.now()}-${Math.round(performance.now())}`);
+	const dir = join(tmpdir(), `reinstall-${Date.now()}-${Math.round(performance.now())}`);
 	mkdirSync(dir, { recursive: true });
 	cpSync(PLUGIN_ROOT, dir, { recursive: true });
 	tempDirs.push(dir);

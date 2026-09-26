@@ -61,7 +61,7 @@ afterEach(() => {
 });
 
 function copyPlugin(): string {
-	const dir = join(tmpdir(), `ba9d-sr-${Date.now()}`);
+	const dir = join(tmpdir(), `skill-restore-${Date.now()}`);
 	mkdirSync(dir, { recursive: true });
 	cpSync(PLUGIN_ROOT, dir, { recursive: true });
 	tempDirs.push(dir);

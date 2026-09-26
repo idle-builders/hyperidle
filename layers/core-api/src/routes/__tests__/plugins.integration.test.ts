@@ -8,7 +8,7 @@
 import { plugins } from "@hyperidle/db";
 import { describe, expect, test } from "../../__testing__/test-fixtures.js";
 
-const API_KEY = "test-ba9a-plugins";
+const API_KEY = "test-plugins";
 
 function authHeaders(): Record<string, string> {
 	return { "X-API-Key": API_KEY, "Content-Type": "application/json" };

@@ -14,7 +14,7 @@ import type { Hono } from "hono";
 import { afterEach, describe, expect } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
-const API_KEY = "test-ba9g-contributions";
+const API_KEY = "test-contributions";
 const PLUGIN_ROOT = resolve("plugins/document-management");
 const PLUGIN_ID = "document-management";
 
@@ -57,7 +57,7 @@ async function editPlugin(app: Hono, body: unknown): Promise<Response> {
 
 async function install(db: HyperIdleDb, app: Hono): Promise<void> {
 	await seedFounder(db);
-	const dir = join(tmpdir(), `ba9g-cv-${Date.now()}-${Math.round(performance.now())}`);
+	const dir = join(tmpdir(), `contributions-${Date.now()}-${Math.round(performance.now())}`);
 	mkdirSync(dir, { recursive: true });
 	cpSync(PLUGIN_ROOT, dir, { recursive: true });
 	tempDirs.push(dir);

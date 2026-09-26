@@ -1,7 +1,7 @@
 /**
  * Constructs a REAL AdapterPool (registers a real adapter instance implementing
  * the HarnessAdapter contract, mirroring the pattern in
- * harness/__tests__/adapter-pool-ab1.test.ts) and asserts each of the 6 exported
+ * harness-registry/src/__tests__/adapter-pool.test.ts) and asserts each of the 6 exported
  * read functions forwards the exact value the corresponding AdapterPool member
  * returns. Also asserts the two optional-reader forwarders fall back to
  * null/[] when passed undefined, and that a real AdapterPool instance is

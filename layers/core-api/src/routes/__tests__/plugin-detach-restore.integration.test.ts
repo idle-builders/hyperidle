@@ -19,10 +19,10 @@ import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
-const API_KEY = "test-ba9g-detach";
+const API_KEY = "test-detach";
 const PLUGIN_ROOT = resolve("plugins/document-management");
 const PLUGIN_ID = "document-management";
-const FOUNDER = "u-founder-ba9g";
+const FOUNDER = "u-founder";
 
 function auth(): Record<string, string> {
 	return { "X-API-Key": API_KEY, "Content-Type": "application/json", "X-Identity": FOUNDER };
@@ -53,7 +53,7 @@ async function editPlugin(app: Hono, body: unknown): Promise<Response> {
 }
 
 async function install(app: Hono): Promise<void> {
-	const dir = join(tmpdir(), `ba9g-dr-${Date.now()}-${Math.round(performance.now())}`);
+	const dir = join(tmpdir(), `detach-restore-${Date.now()}-${Math.round(performance.now())}`);
 	mkdirSync(dir, { recursive: true });
 	cpSync(PLUGIN_ROOT, dir, { recursive: true });
 	tempDirs.push(dir);

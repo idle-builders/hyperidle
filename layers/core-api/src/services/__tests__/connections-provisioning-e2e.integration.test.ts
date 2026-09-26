@@ -169,7 +169,7 @@ describe("real end-to-end: DB row -> listHeldConnectionsForProvisioning (live at
 		await seedHumanUser(db);
 		await seedAgentCaller(db);
 		await seedConnection(db, {
-			id: "sc-inc8-e2e-ac4",
+			id: "sc-respawn",
 			service: "stripe",
 			authSource: "token",
 			serverUrl: "https://mcp.stripe.com",
@@ -178,7 +178,7 @@ describe("real end-to-end: DB row -> listHeldConnectionsForProvisioning (live at
 		const { connections, resolver } = buildRealDeps(db);
 
 		const plan1 = await buildProvisioningPlan({ connections, resolver });
-		const sandboxA = fs.mkdtempSync(path.join(os.tmpdir(), "au21-inc8-e2e-ac4-a-"));
+		const sandboxA = fs.mkdtempSync(path.join(os.tmpdir(), "respawn-a-"));
 		await applyProvisioningPlan({
 			plan: plan1,
 			sandboxPath: sandboxA,
@@ -189,7 +189,7 @@ describe("real end-to-end: DB row -> listHeldConnectionsForProvisioning (live at
 		fs.rmSync(sandboxA, { recursive: true, force: true });
 
 		const plan2 = await buildProvisioningPlan({ connections, resolver });
-		const sandboxB = fs.mkdtempSync(path.join(os.tmpdir(), "au21-inc8-e2e-ac4-b-"));
+		const sandboxB = fs.mkdtempSync(path.join(os.tmpdir(), "respawn-b-"));
 		await applyProvisioningPlan({
 			plan: plan2,
 			sandboxPath: sandboxB,
@@ -208,14 +208,14 @@ describe("real end-to-end: DB row -> listHeldConnectionsForProvisioning (live at
 		await seedHumanUser(db);
 		await seedAgentCaller(db);
 		await seedConnection(db, {
-			id: "sc-inc8-e2e-ac5-stripe",
+			id: "sc-two-services-stripe",
 			service: "stripe",
 			authSource: "token",
 			serverUrl: "https://mcp.stripe.com",
-			token: "sk_ac5",
+			token: "sk_two_services",
 		});
 		await seedConnection(db, {
-			id: "sc-inc8-e2e-ac5-figma",
+			id: "sc-two-services-figma",
 			service: "figma",
 			authSource: "mcp",
 			serverUrl: "https://mcp.figma.com",
@@ -243,14 +243,14 @@ describe("real end-to-end: DB row -> listHeldConnectionsForProvisioning (live at
 		await seedHumanUser(db);
 		await seedAgentCaller(db);
 		await seedConnection(db, {
-			id: "sc-inc8-e2e-ac6",
+			id: "sc-disconnect",
 			service: "stripe",
 			authSource: "mcp",
 			serverUrl: "https://mcp.stripe.com",
 		});
 		const { connections, resolver } = buildRealDeps(db);
 
-		const sandbox1 = fs.mkdtempSync(path.join(os.tmpdir(), "au21-inc8-e2e-ac6-1-"));
+		const sandbox1 = fs.mkdtempSync(path.join(os.tmpdir(), "disconnect-1-"));
 		const plan1 = await buildProvisioningPlan({ connections, resolver });
 		await applyProvisioningPlan({
 			plan: plan1,
@@ -264,14 +264,14 @@ describe("real end-to-end: DB row -> listHeldConnectionsForProvisioning (live at
 		expect(mcpJson1.mcpServers.stripe).toBeDefined();
 		fs.rmSync(sandbox1, { recursive: true, force: true });
 
-		await db.delete(serviceConnections).where(eq(serviceConnections.id, "sc-inc8-e2e-ac6"));
+		await db.delete(serviceConnections).where(eq(serviceConnections.id, "sc-disconnect"));
 
 		// The reader is live, so the SAME deps object honors the disconnect on
 		// the next spawn — no re-bake, nothing to refresh. Kept re-built here
 		// only to mirror how a real second spawn composes.
 		const { connections: connectionsAfterDisconnect, resolver: resolverAfterDisconnect } =
 			buildRealDeps(db);
-		const sandbox2 = fs.mkdtempSync(path.join(os.tmpdir(), "au21-inc8-e2e-ac6-2-"));
+		const sandbox2 = fs.mkdtempSync(path.join(os.tmpdir(), "disconnect-2-"));
 		const plan2 = await buildProvisioningPlan({
 			connections: connectionsAfterDisconnect,
 			resolver: resolverAfterDisconnect,
