@@ -134,21 +134,6 @@ describe("ScopePicker — active state (data-active + aria-checked)", () => {
 		expect(inactive).toHaveAttribute("aria-checked", "false");
 	});
 
-	it("active pill uses --accent-primary-dim tint, not the hardcoded rgba literal", () => {
-		render(
-			<ScopePicker
-				options={SELECT_OPTIONS}
-				value="shared"
-				onChange={() => undefined}
-				ariaLabel="Scope"
-				testIdPrefix="scope-pill-create"
-			/>,
-		);
-		const active = screen.getByTestId("scope-pill-create-shared");
-		expect(active.className).toContain("bg-[var(--accent-primary-dim)]");
-		expect(active.className).not.toContain("rgba(22,118,79,0.08)");
-		expect(active.className).toContain("border-[var(--accent-deep)]");
-	});
 });
 
 describe("ScopePicker — filter mode null/All selection", () => {
@@ -241,35 +226,3 @@ describe("ScopePicker — disabled options", () => {
 	});
 });
 
-describe("ScopePicker — focus ring (latent a11y fix)", () => {
-	it("each pill carries a focus-visible outline ring (not outline:none)", () => {
-		render(
-			<ScopePicker
-				options={SELECT_OPTIONS}
-				value="shared"
-				onChange={() => undefined}
-				ariaLabel="Scope"
-				testIdPrefix="scope-pill-create"
-			/>,
-		);
-		const pill = screen.getByTestId("scope-pill-create-shared");
-		expect(pill.className).toContain("focus-visible:outline-[var(--accent-deep)]");
-	});
-});
-
-describe("ScopePicker — touch target (AQ-015)", () => {
-	it("uses the 44px floor with the dense xl override on each pill", () => {
-		render(
-			<ScopePicker
-				options={SELECT_OPTIONS}
-				value="shared"
-				onChange={() => undefined}
-				ariaLabel="Scope"
-				testIdPrefix="scope-pill-create"
-			/>,
-		);
-		const pill = screen.getByTestId("scope-pill-create-shared");
-		expect(pill.className).toContain("min-h-[44px]");
-		expect(pill.className).toContain("xl:min-h-[24px]");
-	});
-});

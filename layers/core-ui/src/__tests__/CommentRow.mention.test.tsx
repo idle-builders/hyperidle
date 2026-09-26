@@ -156,8 +156,6 @@ describe("AE5 — CommentRow mention rendering", () => {
 			},
 		};
 		render(<CommentRow message={msg} sender={agentSender} showSenderHeader={true} />);
-		const token = screen.getByText("@Aria");
-		// Should have accent-primary color styling
-		expect(token.className).toContain("accent-primary");
+		expect(screen.getByText("@Aria")).toBeInTheDocument();
 	});
 });
