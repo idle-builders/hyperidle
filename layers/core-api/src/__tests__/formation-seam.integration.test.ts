@@ -1,5 +1,5 @@
 /**
- * AR4b — Formation seam: the assistant's identity is decided from editable
+ * Formation seam: the assistant's identity is decided from editable
  * state at turn time, NOT a hardcoded constant.
  *
  * @lore AU26 G1 (architecture §D-L) x AU27 x BA9f: the observable has moved
@@ -149,7 +149,7 @@ async function postAndResolveTurnPersona(
 	return baked.agentConfig?.persona ?? null;
 }
 
-describe("AR4b: formation seam — editing the assistant's identity document changes its next turn", () => {
+describe("formation seam — editing the assistant's identity document changes its next turn", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", GATE_API_KEY);
 	});

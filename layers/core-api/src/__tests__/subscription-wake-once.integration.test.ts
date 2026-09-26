@@ -49,7 +49,6 @@ async function call<T>(
 	return envelope;
 }
 
-
 async function seedFounder(db: HyperIdleDb, id: string, teamId: string): Promise<void> {
 	await db.insert(teams).values({ id: teamId, name: teamId, createdAt: EARLIER });
 	await db.insert(users).values({

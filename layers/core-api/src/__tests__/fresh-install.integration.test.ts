@@ -166,8 +166,6 @@ async function installed(result: Promise<ActionResult<PluginView>>): Promise<Plu
 	return done.data;
 }
 
-
-
 function availableIn(listing: readonly PluginListing[]): string[] {
 	return listing
 		.filter((p) => p.state === "available")

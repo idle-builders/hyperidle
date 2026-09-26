@@ -1,5 +1,5 @@
 /**
- * AD7 RED — Search backend integration tests.
+ * Search backend integration tests.
  *
  * AC-1: Cmd+K search returns grouped results from conversations, bets, and documents.
  * AC-2: Results are clickable and navigate to the correct detail page (correct IDs returned).
@@ -26,7 +26,7 @@ import { documents, type HyperIdleDb, messages, tasks, teams, threads, users } f
 import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
-const TEST_API_KEY = "test-key-ad7-search";
+const TEST_API_KEY = "test-key-search";
 const NOW = new Date().toISOString();
 
 function authHeaders(extra?: Record<string, string>): Record<string, string> {
@@ -161,7 +161,7 @@ async function seedDocument(
 
 // ─── TC-1: Missing `q` parameter returns 400 ────────────────────────────────
 
-describe("GET /api/search — AD7 search backend", () => {
+describe("GET /api/search — search backend", () => {
 	test("TC-1: returns 400 when q parameter is missing", async ({ app }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		const res = await app.request("/api/search", { headers: authHeaders() });

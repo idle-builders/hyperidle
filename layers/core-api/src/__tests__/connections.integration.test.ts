@@ -1,5 +1,5 @@
 /**
- * AN1 — connections, behind `open_user`/`edit_user`.
+ * Connections, behind `open_user`/`edit_user`.
  *
  * @lore BC5 T11: the `/api/connections` route family (`createConnectionRoutes`,
  * its `/:id/validate` SSRF re-check) is DELETED — connections are a user
@@ -115,7 +115,7 @@ async function openConnections(
 	return connections;
 }
 
-describe("AN1 — connections behind open_user/edit_user", () => {
+describe("connections behind open_user/edit_user", () => {
 	const NOW = new Date().toISOString();
 
 	beforeEach(() => {

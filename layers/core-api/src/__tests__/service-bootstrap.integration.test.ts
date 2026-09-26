@@ -45,7 +45,7 @@ function fullServiceBootstrap(
 	return [...registerCoreDomainServices(fullCtx), ...registerAgentLayerServices(fullCtx)];
 }
 
-describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () => {
+describe("registerCoreDomainServices + registerAgentLayerServices", () => {
 	test("both are exported as functions", () => {
 		expect(typeof registerCoreDomainServices).toBe("function");
 		expect(typeof registerAgentLayerServices).toBe("function");
@@ -311,7 +311,7 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 	});
 });
 
-describe("O3 AC-6: AppOptions.serviceBootstrap type field", () => {
+describe("AppOptions.serviceBootstrap type field", () => {
 	test("AppOptions accepts serviceBootstrap as a function", async ({ db, eventBus }) => {
 		const options: AppOptions = {
 			db,
@@ -333,7 +333,7 @@ describe("O3 AC-6: AppOptions.serviceBootstrap type field", () => {
 	});
 });
 
-describe("O3 AC-8: kernel-only boot (no serviceBootstrap)", () => {
+describe("kernel-only boot (no serviceBootstrap)", () => {
 	test("createTestApp() without any options boots without throwing", async () => {
 		await expect(createTestApp()).resolves.not.toThrow();
 	}, 120_000);
@@ -349,7 +349,7 @@ describe("O3 AC-8: kernel-only boot (no serviceBootstrap)", () => {
 	}, 120_000);
 });
 
-describe("O3 AC-9: full boot with registerCoreDomainServices + registerAgentLayerServices", () => {
+describe("full boot with registerCoreDomainServices + registerAgentLayerServices", () => {
 	test("createTestApp({ db, eventBus, serviceBootstrap: fullServiceBootstrap }) boots without throwing", async ({
 		db,
 		eventBus,

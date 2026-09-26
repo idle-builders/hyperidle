@@ -1,7 +1,7 @@
-import { EventBus } from "@hyperidle/event-bus";
 import { test as base } from "@hyperidle/db/test-fixtures";
-import { createThreadActions } from "../thread-actions.js";
+import { EventBus } from "@hyperidle/event-bus";
 import type { Action } from "../action-types.js";
+import { createThreadActions } from "../thread-actions.js";
 import { fakeThreadActionsDeps } from "./fake-thread-actions-deps.js";
 
 export interface ThreadFixtures {

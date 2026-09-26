@@ -1,5 +1,5 @@
 /**
- * AH6 §7 — Service-integration tests for the assistant-turn trigger.
+ * Service-integration tests for the assistant-turn trigger.
  *
  * AU27 Increment 6 rewrite: the old Term 1 premise ("without assistantTurnDeps,
  * no reply") named a mechanism (`assistantTurnDeps`, the `dispatch` package's
@@ -18,7 +18,7 @@
  *   to control callLlm behavior. The error→notice mapping is already covered by
  *   AH3 AC2 via persistTurnFailure (no harness needed). Demoted.
  * Term 2b (empty-content → S1 false): mock-scripted degenerate output.
- *   Moved to AH6-lane-gate-verdict.test.ts unit (W-2 honest decomposition).
+ *   Moved to assistant-lane-gate-verdict.test.ts unit.
  * Sanity (normal run → S1 true): covered by the real-harness lane
  * (AU9-assistant-handoff-realbinary.integration.test.ts).
  *
@@ -142,7 +142,7 @@ async function seedFounderAndThread(
 
 const GATE_API_KEY = "ah6-gate-test-key";
 
-describe("AH6 §7 — the assistant-turn trigger (service-integration)", () => {
+describe("the assistant-turn trigger (service-integration)", () => {
 	beforeEach(() => {
 		// Set the API key so the app fixture accepts requests with GATE_API_KEY
 		vi.stubEnv("HYPERIDLE_API_KEY", GATE_API_KEY);

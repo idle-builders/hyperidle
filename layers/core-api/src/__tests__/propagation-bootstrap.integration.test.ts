@@ -1,5 +1,5 @@
 /**
- * AF17 — AC5: Bet→review never fails because system:propagation is missing.
+ * Bet -> review never fails because system:propagation is missing.
  *
  * After bootstrap only (no demo data), drive a bet into review state and assert
  * that the review thread authored by system:propagation is created without FK error.
@@ -17,7 +17,7 @@ import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 import { applyFactoryCoreState } from "../bootstrap/factory-state.js";
 
-const TEST_API_KEY = "test-key-AF17-ac5";
+const TEST_API_KEY = "test-key-propagation-bootstrap";
 const NOW = new Date().toISOString();
 
 function authHeaders(): Record<string, string> {
@@ -81,7 +81,7 @@ async function seedMinimalWorld(
 	return { teamId, rootTaskId, sessionId, founderId };
 }
 
-describe("AF17 AC5: system:propagation is present after bootstrap; review thread succeeds", () => {
+describe("system:propagation is present after bootstrap; review thread succeeds", () => {
 	test("system:propagation user exists after applyFactoryCoreState", async ({ db }) => {
 		await applyFactoryCoreState(db);
 

@@ -29,7 +29,11 @@ import {
 	type WriteExecutor,
 } from "@hyperidle/db";
 import type { ActionResult, ThreadView } from "@hyperidle/domain-model";
-import type { EventBus, PropagationAppliedEvent, PropagationFailedEvent } from "@hyperidle/event-bus";
+import type {
+	EventBus,
+	PropagationAppliedEvent,
+	PropagationFailedEvent,
+} from "@hyperidle/event-bus";
 import { type PolicyDeps, registerLifecyclePropagation } from "@hyperidle/policy";
 import * as work from "@hyperidle/task";
 import { listMessages } from "@hyperidle/thread";
@@ -175,7 +179,11 @@ async function seedSession(
  * completion signal for the fire-and-forget reaction, in place of a fixed
  * wait, before a negative case asserts its own task stayed untouched.
  */
-async function settlePropagation(db: HyperIdleDb, eventBus: EventBus, sentinelId: string): Promise<void> {
+async function settlePropagation(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	sentinelId: string,
+): Promise<void> {
 	const taskId = `${sentinelId}-task`;
 	const sessionId = `${sentinelId}-session`;
 	await seedTask(db, taskId, "in_progress");

@@ -148,7 +148,7 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 		);
 		// The never-silent-net reaction posts through send_message — this
 		// fixture's own throwaway action bag, same shape
-		// `O3-service-move-bootstrap.integration.test.ts` builds.
+		// `service-bootstrap.integration.test.ts` builds.
 		const fixtureActions = buildCoreActions({
 			agentOrchestration,
 			agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),

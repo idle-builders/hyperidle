@@ -1,5 +1,5 @@
 /**
- * AU36 RED — reach wiring end to end: the ONE service-lane evidence piece for
+ * Reach wiring end to end: the ONE service-lane evidence piece for
  * the inherited-reach relocation (architecture.md §7.2).
  *
  * Drives the REAL composed app through `createTestApp` (the production
@@ -177,7 +177,7 @@ function trackTemporaryDirectory(path: string): string {
 	return path;
 }
 
-describe("AU36 — reach wiring end to end", () => {
+describe("reach wiring end to end", () => {
 	describe("boot wire — probeInheritedReach populates GET /api/connections", () => {
 		test("seeded inherited entries appear with exact view JSON, no adapter pool in the boot", async ({
 			db,

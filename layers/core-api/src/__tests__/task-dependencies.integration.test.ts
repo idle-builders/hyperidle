@@ -474,7 +474,7 @@ describe("task dependencies — the edit_task door, the guard, cycle rejection",
 		});
 
 		// @lore fixture injection doesn't compose with `test.each` (vitest) — see
-		// AN1-connections.integration.test.ts's own note — so each transition
+		// connections.integration.test.ts's own note — so each transition
 		// gets its own `test`, sharing one assertion helper instead of a table.
 		async function expectStillRefused(
 			db: HyperIdleDb,

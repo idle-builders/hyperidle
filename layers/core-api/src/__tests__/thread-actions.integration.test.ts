@@ -1039,8 +1039,6 @@ describe("send_message — the agent fallback via ctx.caller", () => {
 	});
 });
 
-
-
 describe("send_message — review link and verdict resume", () => {
 	test("a review with caller.sessionId links the session; a verdict on it calls the recorder", async ({
 		db,
@@ -1421,8 +1419,6 @@ describe("send_message — the four dead-end paths it keeps alive", () => {
 	});
 });
 
-
-
 // ============================================================================
 // open_thread
 // ============================================================================
@@ -1507,7 +1503,6 @@ describe("edit_task — every task gets a thread", () => {
 		expect(members.sort()).toEqual([FOUNDER_ID, "et-owner-2"].sort());
 	});
 });
-
 
 // ============================================================================
 // invariant wiring — the codes themselves are owned by domain-model's
