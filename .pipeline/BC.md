@@ -36,6 +36,17 @@ ask; deletions never count. Each item leaves `verify` green and the app usable. 
 same way: the seam test drives every action as an agent and as a human and gets the same answer; the
 governance rule is green for what the item claims; the screen is looked at.
 
+**Track complete (2026-09-26).** All seven items merged. Audit of the plan against `main` at
+`7e01fc3d8`: 18 actions (platform is `search_plugins` + `edit_plugin`), 9 object events, 7 platform
+events, 3 `session_*` events kept as plumbing; 126 routes became 18 action routes, 26 plumbing and 4
+transports; 20 tools became the 18 actions plus `return_status`; 95 raw UI fetches became 3. Not built,
+because the seven steps never scheduled it: the layer below the contract as LAYER-BELOW.md §3/§8 drew
+it — the core→orchestration seam is still an in-process HTTP client over the plumbing routes with the
+actor-override header, session end reaches the task through bus reactions rather than a bound port,
+`policy` (lifecycle propagation, approval rate) is not folded into invariants, the websocket pushes
+per topic rather than one per-user stream of the nine events, pure invariants exist for task and
+document only, and the cross-object `GET /api/search` is hand-written. A new track if wanted.
+
 **Out of scope for this track:** the UI rebuild and the agent workspace — the phase after this one.
 Each item here only re-points existing screens at `call` and `invariants`.
 
@@ -51,7 +62,7 @@ Each item here only re-points existing screens at `call` and `invariants`.
 | BC4 | Document as a module: search · open · edit; knowledge item renamed; tree, status, merge, split as edit | backend + frontend | suite | BC3 | done — PR #556 merged 2026-09-22 as `b3ffde4f3`; conflicts, merge, split, sweeps, the logs and the side table deleted outright; memory and artifact are words on edit; usage counts real |
 | BC5 | User as a module with subscriptions: routines and notifications become one mechanism; team an attribute; setup dissolves | backend + frontend | suite | BC6 | done — PR #559 merged 2026-09-24 as `3407cb98f`; subscriptions replace routines and notifications, team is a name, the user module owns setup and settings, 47 routes and four tools gone |
 | BC6 | Session and platform as modules: see what's running · watch · stop; manage plugins | backend + frontend | feature | BC4 | done — PR #558 merged 2026-09-22 as `84b4626fb`; stop kills the process for real, activity stays in memory, plugins are search + edit, the server-side key and the second websocket are gone |
-| BC7 | Opinions out: role catalog, prompt templates, team scaffolding move to a plugin; fresh install is empty | backend + plugin | feature | BC5 | shipped to PR — branch `feature/opinions-out`; a fresh install is one assistant with nine empty subscriptions, the bundled plugins ship in the app and install per team from Settings; then the full cleanup of the opinion era — configuration engine, builtin plugin, behaviour page, role plumbing, email, invite/login sessions and their tables deleted |
+| BC7 | Opinions out: role catalog, prompt templates, team scaffolding move to a plugin; fresh install is empty | backend + plugin | feature | BC5 | done — PR #560 merged 2026-09-26 as `7e01fc3d8`; a fresh install is one assistant with nine empty subscriptions, the bundled plugins ship in the app and install per team from Settings; then the full cleanup of the opinion era — configuration engine, builtin plugin, behaviour page, role plumbing, email, invite/login sessions and their tables deleted |
 
 ## Dependency graph
 
