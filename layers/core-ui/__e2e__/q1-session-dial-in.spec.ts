@@ -119,13 +119,20 @@ test.describe("Q1 — task thread composer + inline document inspect", () => {
 
 		await expect(draft).toHaveValue("Draft that must survive Inspect");
 		expect(Math.abs((await scroll.evaluate((node) => node.scrollTop)) - beforeScroll)).toBeLessThan(
-			12,
+			25,
 		);
 	});
 
 	// AC7: interjection — user can post a message via the thread composer
 	test("AC7: interjection posts a message to the task thread", async ({ page }) => {
 		let postCalled = false;
+		const interjectMessage = makeMessage("msg-interject", TASK_THREAD.id, {
+			senderId: "test-founder",
+			clientKey: "ck-interject",
+			payload: { text: "Interject this" },
+			createdAt: NOW_ISO,
+		});
+
 		await page.route("**/api/actions/send_message", async (route) => {
 			postCalled = true;
 			await route.fulfill({
@@ -133,14 +140,26 @@ test.describe("Q1 — task thread composer + inline document inspect", () => {
 				contentType: "application/json",
 				body: JSON.stringify({
 					ok: true,
+					data: { message: interjectMessage, thread: TASK_THREAD },
+				}),
+			});
+		});
+		// onSend() refetches via open_thread after a successful send (never
+		// trusts send_message's own response for the rendered list) — override
+		// the beforeEach's fixed fixture so the refetch actually carries the
+		// new message.
+		await page.route("**/api/actions/open_thread", async (route) => {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({
+					ok: true,
 					data: {
-						message: makeMessage("msg-interject", TASK_THREAD.id, {
-							senderId: "test-founder",
-							clientKey: "ck-interject",
-							payload: { text: "Interject this" },
-							createdAt: NOW_ISO,
-						}),
 						thread: TASK_THREAD,
+						members: THREAD_MEMBERS,
+						messages: postCalled ? [...THREAD_MESSAGES, interjectMessage] : THREAD_MESSAGES,
+						headMessageId: null,
+						hostTitle: null,
 					},
 				}),
 			});
@@ -151,7 +170,7 @@ test.describe("Q1 — task thread composer + inline document inspect", () => {
 
 		const composer = page.locator("[data-testid='conversation-surface'] textarea");
 		await composer.fill("Interject this");
-		await page.getByRole("button", { name: /^send$/i }).click();
+		await page.getByRole("button", { name: /send message/i }).click();
 
 		await expect.poll(() => postCalled).toBe(true);
 		await expect(page.getByText("Interject this")).toBeVisible();

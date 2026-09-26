@@ -122,8 +122,8 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 		// Mock document list
 		await mockSearchDocuments(page, { rows: [] });
 
-		await page.goto("/");
-		await page.waitForSelector("[data-testid='main-content']");
+		await page.goto("/conversations");
+		await expect(page.getByTestId("conversations-page")).toBeVisible();
 
 		// ⌘3 → Documents
 		await page.keyboard.press("Meta+3");
@@ -292,9 +292,10 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 
 test.describe("Navigation", () => {
 	test.beforeEach(async ({ page }) => {
-		await page.goto("/");
-		// Default route redirects to /conversations (L9: canonical queue URL)
-		await page.waitForSelector("[data-testid='main-content']");
+		// Land on a page with no breadcrumb of its own so the Sidebar's own
+		// "Work" section header is the only "Work" link on screen.
+		await page.goto("/conversations");
+		await page.waitForSelector("[data-testid='conversations-page']");
 	});
 
 	test("shell layout renders Sidebar and Main content area", async ({ page }) => {
@@ -305,9 +306,10 @@ test.describe("Navigation", () => {
 	});
 
 	test("Sidebar shows three section headers: Conversations, Work, Knowledge", async ({ page }) => {
-		await expect(page.getByRole("link", { name: /conversations/i })).toBeVisible();
-		await expect(page.getByRole("link", { name: /work/i })).toBeVisible();
-		await expect(page.getByRole("link", { name: /knowledge/i })).toBeVisible();
+		const sidebar = page.locator("[data-ds-shell='Sidebar']");
+		await expect(sidebar.getByRole("link", { name: /conversations/i })).toBeVisible();
+		await expect(sidebar.getByRole("link", { name: /work/i })).toBeVisible();
+		await expect(sidebar.getByRole("link", { name: /knowledge/i })).toBeVisible();
 	});
 
 	// @lore U6: The Work section in the Sidebar shows team sub-items.

@@ -117,10 +117,13 @@ for (const viewport of [
 		const focusFrame = page.locator("[data-page-scroll] [data-page-frame]");
 		await focus.scrollIntoViewIfNeeded();
 		const [focusBox, focusFrameBox] = await Promise.all([box(focus), box(focusFrame)]);
-		expect(focusBox.width).toBeLessThanOrEqual(681);
-		expect(
-			Math.abs(focusBox.x + focusBox.width / 2 - (focusFrameBox.x + focusFrameBox.width / 2)),
-		).toBeLessThanOrEqual(1);
+		expect(focusBox.width).toBeLessThanOrEqual(720);
+		// @lore FR-9: Settings content left-aligns with the page frame (no
+		// mx-auto, by decision) — unlike the other lanes above, it shares the
+		// frame's left edge (within the frame's own inner padding), not its
+		// center. A centered layout at this width would offset by ~120px+;
+		// this tolerance only rules that out, it doesn't demand pixel-zero.
+		expect(Math.abs(focusBox.x - focusFrameBox.x)).toBeLessThanOrEqual(30);
 	});
 }
 

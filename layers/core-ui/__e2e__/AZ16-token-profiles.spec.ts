@@ -352,7 +352,7 @@ test("AZ16 representative route matrix paints loaded application states", async 
 		["team", "/work/team/team-az16", "work-team-page"],
 		["task", "/work/task/task-az16", "task-detail-page"],
 		["document", "/documents/k-az16", "document-detail-page"],
-		["settings", "/conversations?settings=open", "settings-page"],
+		["settings", "/settings", "settings-page"],
 		["review", `/reviews/review-az16?threadId=${THREAD.id}`, null],
 	] as const;
 	for (const [, route, testId] of routes) {
@@ -364,7 +364,7 @@ test("AZ16 representative route matrix paints loaded application states", async 
 		}
 	}
 	await page.setViewportSize({ width: 390, height: 844 });
-	await page.goto("/conversations?settings=open");
+	await page.goto("/settings");
 	const input = page.locator('[data-az16-profile~="input"]').first();
 	await expect(input).toHaveCSS("font-size", "16px");
 });
@@ -372,7 +372,7 @@ test("AZ16 representative route matrix paints loaded application states", async 
 test("AZ16 reduced motion disables authored and foreign motion globally", async ({ page }) => {
 	await page.emulateMedia({ reducedMotion: "reduce" });
 	await installAz16Mocks(page);
-	await page.goto("/conversations?settings=open");
+	await page.goto("/settings");
 	await addProfilePanel(page);
 	await page.evaluate(() => {
 		const foreign = document.createElement("div");

@@ -97,8 +97,12 @@ test.describe("Theme persistence", () => {
 		});
 		const page = await ctx.newPage();
 		await registerCoreMocks(page);
-		await page.goto("/");
-		await page.waitForSelector("[data-testid='main-content']");
+		// useTheme()'s live matchMedia subscription is only mounted while
+		// Settings → Appearance is on screen (its one call site) — the rest of
+		// the shell paints from the boot script's one-time read. Land there so
+		// the "no reload" claim has a live listener to prove.
+		await page.goto("/settings");
+		await page.waitForSelector("[data-testid='settings-page']");
 
 		const initial = await page.evaluate(() => document.documentElement.dataset.theme);
 		expect(initial).toBe("hearth-light");

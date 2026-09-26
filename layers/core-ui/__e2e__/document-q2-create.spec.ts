@@ -24,10 +24,16 @@ import { expect, makeDocumentRow, mockSearchDocuments, mockSearchThreads, test }
 
 const MOCK_ITEM = makeDocumentRow("ki-test-1", { title: "Test document" });
 
+// A tree document (has a parent), not a root memory — a parentless
+// scopeKind="user" document reads back as a memory and ScopeChangeDialog
+// refuses to widen it (ScopeChangeDialog.tsx's own review-found-defect
+// lore). AC-12 needs a real scope change, so this fixture carries a parent.
 const MOCK_USER_ITEM = makeDocumentRow("ki-user-1", {
 	title: "My private note",
 	status: "proposed",
 	scopeKind: "user",
+	parentKind: "document",
+	parentId: "ki-parent-1",
 });
 
 // ---------------------------------------------------------------------------
@@ -167,7 +173,9 @@ test.describe("Q2 AC-20: Private tag for user-scoped items in list", () => {
 		await page.goto("/documents");
 		await page.waitForSelector("[data-testid='document-list-page']");
 
-		await expect(page.getByText("Private", { exact: true })).toBeVisible();
+		// Scoped to the row's own badge — the toolbar's "Private" scope-filter
+		// pill also matches an unscoped text locator.
+		await expect(page.getByTestId("private-badge")).toBeVisible();
 	});
 
 	test("non-user-scoped item does NOT render Private tag", async ({ page }) => {
@@ -176,6 +184,6 @@ test.describe("Q2 AC-20: Private tag for user-scoped items in list", () => {
 		await page.goto("/documents");
 		await page.waitForSelector("[data-testid='document-list-page']");
 
-		await expect(page.getByText("Private", { exact: true })).not.toBeVisible();
+		await expect(page.getByTestId("private-badge")).not.toBeVisible();
 	});
 });

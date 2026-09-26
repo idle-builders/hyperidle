@@ -39,6 +39,7 @@ import {
 	makeDocumentRow,
 	makeThreadListRow,
 	makeUserRow,
+	mockDocument,
 	mockSearchDocuments,
 	mockSearchTasks,
 	mockSearchThreads,
@@ -353,16 +354,33 @@ test.describe("AC-3: invalid timestamps → TIME_PLACEHOLDER or hidden chip", ()
 	test("CommentRow with bad timestamp: row renders, no time chip, no '—' glyph", async ({
 		page,
 	}) => {
-		// Seed a thread detail with a message carrying a bad timestamp.
+		// CommentRow only renders inside HostThreadSection now (Conversations'
+		// own detail surface moved to the Part-based ConversationSurface) — seed
+		// a document's host thread instead of a bare conversation thread.
 		const THREAD_ID = "ai3-bad-comment-thread";
+		const DOCUMENT_ID = "ai3-bad-comment-doc";
 
-		// useThread calls POST /api/actions/open_thread and expects a combined
-		// { thread, members, messages, headMessageId, hostTitle } response.
+		await mockDocument(page, {
+			row: makeDocumentRow(DOCUMENT_ID, { scopeKind: "team", scopeId: "team-a" }),
+		});
+		await mockSearchThreads(page, {
+			rows: [
+				makeThreadListRow(THREAD_ID, {
+					hostKind: "document",
+					hostId: DOCUMENT_ID,
+					initiatorId: "test-founder",
+					members: ["test-founder"],
+					lastActiveAt: SEED_CREATED_AT,
+					createdAt: SEED_CREATED_AT,
+					hasUnresolvedReview: false,
+				}),
+			],
+		});
 		await mockThread(page, {
 			thread: {
 				id: THREAD_ID,
-				hostKind: "user",
-				hostId: "test-founder",
+				hostKind: "document",
+				hostId: DOCUMENT_ID,
 				initiatorId: "test-founder",
 				members: ["test-founder"],
 				title: "Bad comment thread",
@@ -391,7 +409,8 @@ test.describe("AC-3: invalid timestamps → TIME_PLACEHOLDER or hidden chip", ()
 			],
 		});
 
-		await page.goto(`/conversations/${THREAD_ID}`);
+		await page.goto(`/documents/${DOCUMENT_ID}`);
+		await page.waitForSelector("[data-testid='document-detail-page']");
 
 		// The comment row must render (body visible)
 		const commentRow = page.locator("[data-testid='comment-row']").first();
