@@ -15,7 +15,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import type { ThreadItem } from "../../components/ThreadSections";
 import { ThreadSections } from "../../components/ThreadSections";
-import { Composer, ThreadRow } from "../../ds";
+import { ThreadRow } from "../../ds";
 import { Conversations } from "../../pages/Conversations";
 
 // Conversations does not call a thread-list/thread-detail hook itself —
