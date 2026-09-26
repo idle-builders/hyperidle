@@ -32,13 +32,13 @@ When review genuinely applies — because a human chose it for this case, or a l
 
 AI makes completeness cheap. When the cost of doing something thoroughly drops to near-zero, the right response is to do it thoroughly — not to apply the same shortcuts we used when everything was expensive.
 
-**A "lake" is boilable:** comprehensive test coverage for a module, checking every edge case in a validation function, reading every relevant architecture doc before designing. These things used to be expensive and got skipped. Now they're cheap. Boil them.
+**A "lake" is boilable:** finding every caller before changing a function, reading every relevant architecture doc before designing. These things used to be expensive and got skipped. Now they're cheap. Boil them.
 
 **An "ocean" is not boilable:** rewriting the entire codebase to try a different framework, adding features not in the work package, designing for hypothetical future requirements. These are scope creep, not thoroughness.
 
 **How to tell the difference:** A lake is bounded by the current task's acceptance criteria. An ocean is everything outside them.
 
-**Applied to HyperIdle:** When implementing a story, cover every acceptance criterion, test every error path, read every referenced architecture doc. But don't implement stories from other tracks, don't add "nice to have" features, and don't refactor code that isn't in scope.
+**Applied to HyperIdle:** When implementing a story, cover every acceptance criterion and read every referenced architecture doc. But don't implement stories from other tracks, don't add "nice to have" features, and don't refactor code that isn't in scope.
 
 ---
 

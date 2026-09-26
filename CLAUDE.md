@@ -29,17 +29,13 @@ If you estimate a change will require adding 1,000 or more lines of code, assume
 
 ## First Principle: Validation Before Implementation
 
-**No code is written until the definition of done and validation setup exist.** This is non-negotiable. For every work package or task:
+**No code is written until the definition of done and validation setup exist.** This is non-negotiable. For every task:
 
-1. Extract the acceptance criteria from the work package's own spec, `.pipeline/work/<id>/plan.md`. A package that has not been refined yet has no plan — its registry row in `.pipeline/<track>.md` is all there is, and the plan is written with the maintainer at refinement.
-2. Define the verification method for each criterion — pick the right tool for each:
-   - **Runtime behavior** (function returns X, API responds Y, component renders Z) → automated test
-   - **Static codebase property** (no forbidden imports, naming conventions, config shape) → ESLint rule or type system
-   - **Visual correctness** → Playwright E2E or screenshot
-3. Write the failing tests for runtime behavior criteria (red phase).
-4. Only then begin implementation.
+1. Take the goal and acceptance criteria from the task record (the idle task brief).
+2. For each criterion, decide how it's proven: an existing or new automated test (what earns one is in `.claude/rules/testing.md`), the type system or a lint rule, or looking at the running app.
+3. Where a test is the right proof, write it failing first, then implement to green.
 
-Tests are for application logic. A test imports code and asserts on its behavior. Reading source files with `readFileSync` or grepping the filesystem is not a test — it's a lint rule or build script. If an AC describes a static property, enforce it with the type system or a lint rule, not a test.
+What earns a test, what doesn't, and how a test is structured: `.claude/rules/testing.md`. Not restated here.
 
 ## Validation
 
@@ -68,7 +64,7 @@ Before any work is complete: `npm run check` (zero type errors) + `npm run lint`
 |---|---|---|
 | `*.test.ts` | Unit tests (pure logic, no DB/server) | <1s per file |
 | `*.test.tsx` | Component/UI tests (React rendering) | <1s per file |
-| `*.integration.test.ts` | Integration — a real integration point, no stub of it. **Service**: real DB + app (`{ db, app, eventBus }` fixtures). **Harness-facing**: the real installed binary, zero stubs, hard-fail if absent. See `.claude/rules/testing.md` §Integration tests: two archetypes. | 1-10s service / 30-90s harness |
+| `*.integration.test.ts` | Integration — a real integration point, no stub of it. See `.claude/rules/testing.md` §Integration tests: two archetypes. | 1-10s service / 30-90s harness |
 | `*.spec.ts` | E2E (Playwright, separate from vitest) | 5-30s per test |
 
 ### Production and development files
@@ -81,7 +77,7 @@ A file is **development** if its name declares it (`.test.ts(x)`, `.spec.ts(x)`,
 
 No production-path file is misplaced into the development world today — the shrink-only ledger that used to track exceptions here was deleted along with its lint rule once its last entry was fixed, rather than kept around empty.
 
-**Harness-facing integration tests use the REAL installed harness binary — never a stub.** Decide by "is the harness/agent/CLI the thing under test?"; if yes, a stubbed/scripted/mocked adapter makes it a mislabeled unit test, not an integration test. Gate with `requireHarness(<name>)` (claude/codex/opencode/cursor-agent = binary on PATH; there are four, and `builtin` was retired) — a missing harness hard-fails the run (the work can't be completed), never `skipIf` to green. Non-harness binaries (e.g. `gh`) use `requireBinary(<name>)` instead. Enforced via `requireHarness`. **The harness lane has no CI job at all** — it needs four real CLI binaries and real LLM credentials, so it stays a local command in the `verify:release` checklist. Nothing mechanically blocks a release whose harness lane never ran; that is a deliberate trade, not an oversight. Per-merge CI runs the service integration project only.
+Harness-facing integration test rules (real binary, `requireHarness`, all four, no CI job): `.claude/rules/testing.md` § Harness. Non-harness binaries (e.g. `gh`) use `requireBinary(<name>)` instead.
 
 `verify` is pure npm script chaining — no custom process orchestrator. The shell owns every child process. Every per-merge gate runs live in GitHub Actions (`.github/workflows/ci.yml`); nothing is trusted from a local machine, and no signed attestation exists.
 
@@ -93,7 +89,8 @@ You can only say that something is done if you looked at the actual output of yo
 
 ## Capture Lore
 
-When you make a non-obvious decision, encounter a cross-cutting constraint, or discover a gotcha that would surprise the next agent — capture it as a `@lore` comment in the code. Use `/pipeline:lore` to scan and index these. Every workaround, every "why not the obvious approach", every platform-specific quirk should be documented where it lives.
+What earns a `@lore` comment and how to write one: the `lore` skill. Comment rules generally:
+`.claude/rules/comments.md`.
 
 ---
 

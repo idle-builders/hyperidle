@@ -6,7 +6,7 @@ Pipeline phases, skill routing, and orchestration mechanics are owned by [.claud
 
 ## Build flow
 
-TDD, always: red tests from the acceptance criteria → implement to green → refactor → verify. The full validation doctrine (which criterion gets a test vs a lint rule, verify commands) is in the repo root [CLAUDE.md](../../../CLAUDE.md).
+TDD, always: red test → implement to green → refactor → verify. What earns a test vs a lint rule vs the type system: [`.claude/rules/testing.md`](../../../.claude/rules/testing.md). Verify commands: the repo root [CLAUDE.md](../../../CLAUDE.md).
 
 ## Design phase
 
