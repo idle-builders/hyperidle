@@ -1,17 +1,10 @@
 /**
- * @lore T5 — Block Discussion Completion: server-side blockId tests,
- * re-pointed onto the thread action surface after `routes/threads.ts` was
- * deleted. Was `routes/__tests__/threads.blockId.integration.test.ts`,
- * driving the deleted `POST /api/threads` / `GET /api/threads/:id?block_id=X`;
- * now drives `POST /api/actions/send_message` / `POST /api/actions/open_thread`.
- *
- * AC coverage (unchanged from the original):
- *  - AC-1: blockId persisted in a structured, queryable column (not only in
- *    the JSON payload) — `Message.blockId` (`framework/domain-model/src/actions/thread.ts`).
- *  - AC-4: anchored messages outlive their block (no cascade delete).
- *  - AC-5: `open_thread({ id, blockId })` filters messages by blockId.
- *
- * Tests run against the real server + real PGlite DB (no mocks).
+ * `blockId` is persisted in a structured, queryable column (`Message.blockId`,
+ * `framework/domain-model/src/actions/thread.ts`), not only in the JSON
+ * payload; anchored messages outlive their block (no cascade delete); and
+ * `open_thread({ id, blockId })` filters messages by blockId. Driven through
+ * `POST /api/actions/send_message` / `POST /api/actions/open_thread` against
+ * the real server + real PGlite DB (no mocks).
  */
 
 import { type HyperIdleDb, messages, teams, users } from "@hyperidle/db";
@@ -50,7 +43,7 @@ async function seedBase(db: HyperIdleDb, teamId: string): Promise<void> {
 		{
 			id: FOUNDER_ID,
 			kind: "human",
-			name: "Founder T5",
+			name: "Founder",
 			role: "founder",
 			status: "active",
 			teamId,
@@ -59,7 +52,7 @@ async function seedBase(db: HyperIdleDb, teamId: string): Promise<void> {
 		{
 			id: RECIPIENT_ID,
 			kind: "human",
-			name: "Recipient T5",
+			name: "Recipient",
 			role: "member",
 			teamId,
 			status: "active",
@@ -101,9 +94,7 @@ async function createFilterThread(app: RequestingApp): Promise<string> {
 	return threadId;
 }
 
-// ── AC-1: blockId written to the column when creating a thread + initial message ──
-
-describe("AC-1 — blockId written to the column on send_message (new thread)", () => {
+describe("blockId written to the column on send_message (new thread)", () => {
 	test("message row has block_id column populated when blockId is in the payload", async ({
 		db,
 		app,
@@ -140,9 +131,7 @@ describe("AC-1 — blockId written to the column on send_message (new thread)", 
 	});
 });
 
-// ── AC-1: blockId written to the column when appending a message ──
-
-describe("AC-1 — blockId written to the column on send_message (append)", () => {
+describe("blockId written to the column on send_message (append)", () => {
 	test("appended message row has block_id column populated when blockId is in the payload", async ({
 		db,
 		app,
@@ -184,9 +173,7 @@ describe("AC-1 — blockId written to the column on send_message (append)", () =
 	});
 });
 
-// ── AC-5: open_thread({ id, blockId }) returns only matching messages ──
-
-describe("AC-5 — open_thread({ id, blockId }) returns only matching messages", () => {
+describe("open_thread({ id, blockId }) returns only matching messages", () => {
 	test("blockId: 'block-filter-A' returns only the 2 messages anchored to block-A", async ({
 		db,
 		app,
@@ -257,7 +244,7 @@ describe("AC-5 — open_thread({ id, blockId }) returns only matching messages",
 		expect(body.code).toBe("VALIDATION_ERROR");
 	});
 
-	test("a blockId exceeding 128 chars is rejected with 400 VALIDATION_ERROR (T5 max-length guard)", async ({
+	test("a blockId exceeding 128 chars is rejected with 400 VALIDATION_ERROR", async ({
 		db,
 		app,
 	}) => {
@@ -276,9 +263,7 @@ describe("AC-5 — open_thread({ id, blockId }) returns only matching messages",
 	});
 });
 
-// ── AC-4: anchored messages persist independently (no cascade) ──
-
-describe("AC-4 — anchored messages outlive their block (no cascade delete)", () => {
+describe("anchored messages outlive their block (no cascade delete)", () => {
 	test("a message with blockId persists in its own structured column when the thread is not deleted", async ({
 		db,
 		app,

@@ -6,13 +6,10 @@ import type { AppOptions } from "../app.js";
 import { registerAgentLayerServices, registerCoreDomainServices } from "../service-bootstrap.js";
 
 /**
- * AU11: former app-runtime `bootstrapAppRuntime` split into two owner-scoped
- * registration functions (server-factory.ts) — `registerCoreDomainServices`
- * (document/policy/review routing/lifecycle propagation/retention) and
- * `registerAgentLayerServices` (dispatcher/reapers — AU21 Increment 14a:
- * cost-cap sentinel HARD-DELETED, no replacement).
- * Composing them replicates the exact same disposer set bootstrapAppRuntime
- * returned; only the grouping is new.
+ * Two owner-scoped registration functions compose the app's full service
+ * set: `registerCoreDomainServices` (document/policy/review routing/
+ * lifecycle propagation/retention) and `registerAgentLayerServices`
+ * (dispatcher/reapers — currently registers no disposers of its own).
  *
  * `editTask`/`sendMessage` are derived from the SAME composed action list
  * `app.ts` builds, off the ctx's own `agentOrchestration`.
@@ -79,13 +76,11 @@ describe("registerCoreDomainServices + registerAgentLayerServices", () => {
 			readonly cleanupEffect: string;
 			readonly constituents: readonly string[];
 		};
+		// The lifecycle-projection drain lives in `bootAgentOrchestration`
+		// (`layers/agent-orchestration/src/boot.ts`) — see
+		// `agent-orchestration/src/__tests__/boot-lifecycle-drain.integration.test.ts`
+		// for its coverage; it is not one of `registerCoreDomainServices`'s owners.
 		const expectedOwnership = [
-			// @lore AU31 B2 (§5, §12 lifecycle-drain cluster): "lifecycle-projection
-			// drain" relocated into `bootAgentOrchestration`
-			// (`layers/agent-orchestration/src/boot.ts`) — it is no longer one of
-			// `registerCoreDomainServices`'s named owners. See
-			// `agent-orchestration/src/__tests__/boot-lifecycle-drain.integration.test.ts`
-			// for its new home's coverage.
 			{
 				owner: "agent-run-admission reactions",
 				cleanupEffect: "unsubscribe",
@@ -93,85 +88,39 @@ describe("registerCoreDomainServices + registerAgentLayerServices", () => {
 			},
 			// There is no routine-run session-end reactions owner — a
 			// subscription's wake carries no run row to finalize.
-			// @lore AU26: the POST-SESSION agent-health reaction — the event-driven
-			// degraded-agent notification that replaced `routes/teams-routes.ts`'s
-			// `maybeNotifyAgentError`, closing core-api's last `sessions` read.
 			{
 				owner: "agent-health session-end reactions",
 				cleanupEffect: "unsubscribe",
 				constituents: ["session_ended subscription"],
 			},
-			// @lore AU21: the POST-SESSION `task` dispatch-attempt finalize reaction
-			// PLUS the bet per-tier token-writeback reaction (an additive
-			// `session_ended` subscription), replacing `session-requests`'s/
-			// `run-orchestration`'s own former direct cross-layer writes.
 			{
 				owner: "work session-end reactions",
 				cleanupEffect: "unsubscribe",
 				constituents: ["agent_run_lifecycle_changed subscription", "session_ended subscription"],
 			},
-			// @lore AU21: the POST-SESSION-START
-			// task `in_progress` transition reaction — replaces
-			// `run-orchestration/provisioner.ts`'s deleted direct
-			// `ports.work.transitionTask` write.
 			{
 				owner: "work session-started reactions",
 				cleanupEffect: "unsubscribe",
 				constituents: ["session_started subscription"],
 			},
-			// @lore Thread module step 4 (8ca3e03f6): "assistant thread pin
-			// reaction" and "assistant-turn B‴ coherence trigger" are
-			// HARD-DELETED with `assistant-thread-pin-reaction.ts`/
-			// `assistant-turn-coherence-trigger.ts` — the wake rule
-			// (`agentsToWake`) replaces the structural `ast-` recognition both
-			// depended on; no coherence re-bake replaces them.
-			// @lore AU27 Increment 5 (Decision 5): the never-silent net — a
-			// `@hyperidle/conversation`-owned reaction to the EXISTING
-			// `session_not_returned` event (previously observed only by the
-			// observability dispatcher's own internal logging subscription,
-			// which is not part of this disposer list).
 			{
 				owner: "session-not-returned notice",
 				cleanupEffect: "unsubscribe",
 				constituents: ["session_not_returned subscription"],
 			},
-			// @lore AU21 Increment 14a: the "session-cost recorder" owner
-			// (agent-orchestration's own per-session-cost write reaction,
-			// `session-requests`'s subscriber) is HARD-DELETED along with the
-			// rest of the cost feature — no replacement.
-			// @lore AU20 row 38/40: the "relevance listener" (knowledge_accessed
-			// subscriber that called recomputeRelevance) is HARD-DELETED — the
-			// whole relevance engine goes. The knowledge_accessed event itself
-			// was later retired outright — the knowledge read route no longer
-			// emits it.
-			// @lore BC3 architecture.md §5 R2: `register-policy.ts`/`registerPolicy`
-			// (which collapsed `registerPolicyEngine` + `registerLifecyclePropagation`
-			// into one "policy registration" owner) is DELETED with the policy
-			// engine — one registration is no longer worth collapsing, so the owner
-			// is renamed to what it now is, `registerLifecyclePropagation` alone.
 			{
 				owner: "lifecycle propagation registration",
 				cleanupEffect: "unsubscribe",
-				// @lore AU44 batch6: "retry interval" removed — 30s heartbeat deleted with propagation_log.
 				constituents: ["lifecycle propagation"],
 			},
-			// @lore BC3 architecture.md §5 B7: the "notifications installation"
-			// owner (`installNotifications`'s inbox-enqueue listener) is
-			// HARD-DELETED — its only production trigger was the policy engine's
-			// "attention" event, deleted with the `items` table (R2). No
-			// replacement registration.
 			{
 				owner: "retention reaper",
 				cleanupEffect: "interval cleared",
 				constituents: ["retention interval"],
 			},
-			// `registerAgentLayerServices` now returns no disposers at all — no
-			// scheduler lives here; the assistant still runs through the SAME
-			// durable poller (`startRuntime`) as every other kind, which is
-			// wired elsewhere, not here.
-			// @lore AU21 Increment 14a: the "cost sentinel" owner (15-minute
-			// scheduled job + its dedup subscription) is HARD-DELETED along with
-			// the rest of the cost feature — no replacement.
+			// `registerAgentLayerServices` returns no disposers at all — no
+			// scheduler lives here; the assistant runs through the SAME durable
+			// poller (`startRuntime`) as every other kind, wired elsewhere.
 		] as const;
 		const disposers = fullServiceBootstrap({
 			db,
@@ -213,86 +162,35 @@ describe("registerCoreDomainServices + registerAgentLayerServices", () => {
 			}
 
 			expect(observedEffects).toEqual([
-				// @lore AU31 B2: the "lifecycle-projection drain" entry (previously
-				// first, `clearedIntervals: 1`) relocated into
-				// `bootAgentOrchestration` — see this file's `expectedOwnership`
-				// note above.
-				// @lore AU21 Increment 3 Wave 0: `registerAgentRunAdmissionReactions`
-				// is idempotent PER eventBus instance — the `eventBus` test fixture
-				// already registered it before this test's own
-				// `fullServiceBootstrap` call reaches it here, so THIS registration
-				// is a no-op disposer (no `off()` call, no interval).
+				// `registerAgentRunAdmissionReactions` is idempotent PER eventBus
+				// instance — the `eventBus` test fixture already registered it
+				// before this test's own `fullServiceBootstrap` call reaches it
+				// here, so THIS registration is a no-op disposer (no `off()`
+				// call, no interval).
 				{ unsubscribedEvents: [], clearedIntervals: 0 },
-				// @lore BC5 T7b: `registerRoutineRunSessionEndReactions`'s observed
-				// effect entry is deleted with its owner above.
-				// @lore AU26: `registerAgentHealthSessionEndReactions` — the
-				// event-driven degraded-agent notification that replaced
-				// `routes/teams-routes.ts`'s `maybeNotifyAgentError` (and with it
-				// core-api's last `sessions` read). Not pre-registered on the
-				// `eventBus` test fixture, so its single subscription unsubscribes
-				// for real.
 				{
 					unsubscribedEvents: ["session_ended"],
 					clearedIntervals: 0,
 				},
-				// @lore AU21: `registerWorkSessionEndReactions` is NOT pre-registered on the
-				// `eventBus` test fixture either — this is its first, real registration
-				// on this eventBus instance. A second subscription was later added
-				// (`session_ended`, the bet token-writeback reaction) onto the SAME
-				// owner — both unsubscribe here, in registration order.
 				{
 					unsubscribedEvents: ["agent_run_lifecycle_changed", "session_ended"],
 					clearedIntervals: 0,
 				},
-				// @lore AU21: `registerWorkSessionStartedReactions` is NOT pre-registered on the
-				// `eventBus` test fixture either — its own first, real registration on
-				// this eventBus instance.
 				{
 					unsubscribedEvents: ["session_started"],
 					clearedIntervals: 0,
 				},
-				// @lore Thread module step 4 (8ca3e03f6): the two no-op disposer
-				// entries for `registerAssistantThreadPinReaction`/
-				// `registerAssistantTurnCoherenceTrigger` are removed — both
-				// registrations are HARD-DELETED, no replacement.
-				// @lore AU27 Increment 5: `registerSessionNotReturnedNotice`'s first,
-				// real registration on this eventBus instance — its one
-				// `session_not_returned` subscription unsubscribes for real.
 				{ unsubscribedEvents: ["session_not_returned"], clearedIntervals: 0 },
-				// @lore AU21 Increment 14a: `registerSessionCostRecorder`'s owned
-				// disposer (previously here, "session_ended" only) is HARD-DELETED
-				// along with the rest of the cost feature — no replacement.
-				// @lore AU20 row 38/40: the "relevance listener" disposer
-				// ({ unsubscribedEvents: ["knowledge_accessed"], clearedIntervals: 0 })
-				// is removed here — the listener itself was deleted with the
-				// whole relevance engine.
 				{
-					// @lore AU44 batch6: clearedIntervals 1→0 — the 30s retry
-					// heartbeat (retryFailedPropagations) is deleted with propagation_log.
-					// @lore BB1: bet_state_changed subscription removed with the bet entity.
-					// @lore BC3 architecture.md §5: "item_created" removed —
-					// lifecycle-propagation never subscribed to it; the event type
-					// itself is deleted with the `items` table.
 					unsubscribedEvents: ["session_ended", "task.changed"],
 					clearedIntervals: 0,
 				},
-				// @lore AU26 C1: the "git-export handler" owner (its one
-				// `knowledge_updated` subscription) is HARD-DELETED along with the
-				// exporter — no replacement.
-				// @lore AU21 Increment 14a: "cost_cap_breached"/"cost_cap_warning"
-				// removed from this owner's unsubscribe list — both events are
-				// HARD-DELETED along with the rest of the cost feature, no
-				// replacement subscription.
 				// The notification dispatcher, drain, alert-routing, daily-digest
 				// worker and adapter abstraction don't exist — nothing left to
 				// unsubscribe or clear.
 				{ unsubscribedEvents: [], clearedIntervals: 1 },
 				// `registerAgentLayerServices` registers nothing now, so there is no
 				// trailing entry here.
-				// @lore AU21 Increment 14a: the "cost sentinel" owner (previously
-				// here, ["session_ended", "session_handoff_completed"] unsubscribe +
-				// 1 cleared interval) is HARD-DELETED along with the rest of the
-				// cost feature — no replacement.
 			]);
 			expect(
 				disposers.map(({ owner, cleanupEffect, constituents }) => ({

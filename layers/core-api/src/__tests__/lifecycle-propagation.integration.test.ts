@@ -1,20 +1,16 @@
 /**
- * L20 — Lifecycle Propagation Engine: Vitest tests.
+ * Lifecycle propagation engine tests. Assertions read state via EventBus
+ * event capture (propagation_applied / propagation_failed) or direct state
+ * reads — there is no propagation log table and no retry mechanism.
  *
- * @lore AU44 batch6: propagation_log table dropped (AU20 Ruling 2). All test
- * assertions previously querying the log table now use EventBus event capture
- * (propagation_applied / propagation_failed) or direct state assertions.
- * The entire "retry mechanism" describe block is deleted — the retry apparatus
- * is gone. `retryFailedPropagations` no longer exists.
+ * `messages.senderId` references `agents.id` (FK) — any test that exercises
+ * review-thread creation must seed a "system:propagation" agent row, or the
+ * insert fails with a FK constraint violation.
  *
- * @lore L20: messages.senderId references agents.id (FK). Any test that
- * exercises review-thread creation must seed a "system:propagation" agent row,
- * or the insert will fail with a FK constraint violation (F6 from arch review).
- *
- * @lore code-review finding, BC3: the ship-confirmation review used to post
- * through a raw `conversation.insertMessage` — no `changes` row, no websocket
- * nudge, no `lastActiveAt` bump. It now posts through the composed
- * `send_message.run`, injected the same way `editTask` already is, below.
+ * The ship-confirmation review posts through the composed `send_message.run`,
+ * injected the same way `editTask` already is, below — never a raw store
+ * write, so it gets a `changes` row, a websocket nudge and a `lastActiveAt`
+ * bump like every other message.
  */
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
@@ -42,13 +38,11 @@ import { afterEach, describe, expect, test, vi } from "../__testing__/test-fixtu
 import { buildCoreActions } from "../actions/compose.js";
 
 /**
- * @lore BC3 architecture.md §5: `registerLifecyclePropagation`'s
- * `LifecyclePropagationDeps` is now `Pick<PolicyDeps, "work"|"editTask"|
- * "sendMessage">` — the item-table reads (`getItemById`/`updateItemById`/
- * `listItemIdsBySourceAgent`) and the `users` founder lookup are gone with
- * `policy-engine.ts` (R2) and the ship-confirmation thread's own founder
- * participant computation (it now posts into the task's existing thread —
- * see `lifecycle-propagation.ts`'s `createShipConfirmationThread`).
+ * `registerLifecyclePropagation`'s `LifecyclePropagationDeps` is
+ * `Pick<PolicyDeps, "work"|"editTask"|"sendMessage">` — no item-table reads,
+ * no `users` founder lookup; the ship-confirmation thread posts into the
+ * task's existing thread (`lifecycle-propagation.ts`'s
+ * `createShipConfirmationThread`).
  */
 function buildPolicyDeps(agentOrchestration: AgentOrchestrationPort): PolicyDeps {
 	const actions = buildCoreActions({
@@ -88,7 +82,7 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(teams).values({ id: "prod-1", name: "Test Product", createdAt: now });
 
-	// BB1: bets replaced by root tasks (parentTaskId: null)
+	// A root task (parentTaskId: null) — bets don't exist.
 	await db.insert(threads).values({
 		id: `thr-${"bet-1"}`,
 		hostKind: "team",
@@ -117,7 +111,7 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 		createdAt: now,
 	});
 
-	// F6: Seed the system propagation agent so review-thread messages can insert
+	// The system propagation agent — review-thread messages insert as it.
 	await db.insert(users).values({
 		id: SYSTEM_PROPAGATION_ID,
 		name: "Propagation System",
@@ -271,9 +265,8 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		// is async fire-and-forget.
 		await vi.waitFor(async () => {
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
-			// @lore BB1: `done`, not `review`. A finished task closes to `done`
-			// unless it asked for a verdict via `needsReview`; before BB1 every
-			// finished task went to `review`, which made the queue meaningless.
+			// `done`, not `review` — a finished task closes to `done` unless it
+			// asked for a verdict via `needsReview`.
 			expect(task?.state).toBe("done");
 		});
 	});
@@ -304,11 +297,11 @@ describe("registerLifecyclePropagation — session -> task", () => {
 
 		// Assert: propagation_applied event emitted — use vi.waitFor because the handler is async fire-and-forget
 		await vi.waitFor(() => {
-			// @lore BB1: was `toHaveLength(1)`. The cascade no longer stops at the
-			// task — the task closes to `done`, which makes its parent's children
-			// all-terminal, so the parent closes too, and so on up. More than one
-			// applied event is the CORRECT new behaviour; assert the session->task
-			// hop is present rather than that it is the only hop.
+			// The cascade does not stop at the task — the task closes to `done`,
+			// which makes its parent's children all-terminal, so the parent
+			// closes too, and so on up. More than one applied event is correct;
+			// assert the session->task hop is present rather than that it is the
+			// only hop.
 			expect(appliedEvents.length).toBeGreaterThanOrEqual(1);
 			expect(appliedEvents[0]!.sourceLevel).toBe("session");
 			expect(appliedEvents[0]!.targetLevel).toBe("task");
@@ -382,16 +375,16 @@ describe("registerLifecyclePropagation — session -> task", () => {
 	});
 
 	/**
-	 * @lore AU26 J2: the "is another run still active on this task" guard is
-	 * DELETED — with it, core-api's last policy-side read of the `sessions` table.
-	 * The state it defended is not reachable through any normal path (a run
-	 * request is only created when a task enters `accepted`, and the lifecycle
-	 * grammar has no edge from `in_progress` back to `accepted`; a handoff closes
-	 * the old run and opens the new one in ONE transaction). A completed run now
-	 * moves its task to review on the event alone. If the contrived two-live-runs
-	 * state ever occurs, the second run's end sees a task that is no longer
-	 * `in_progress` and quietly does nothing (the branch below), and `review ->
-	 * in_progress` is a legal move anyone can make.
+	 * A completed run moves its task to review on the event alone — there is
+	 * no "is another run still active on this task" guard, and no policy-side
+	 * read of the `sessions` table. A run request is only created when a task
+	 * enters `accepted`, and the lifecycle grammar has no edge from
+	 * `in_progress` back to `accepted`, so two live runs on one task is not
+	 * reachable through any normal path (a handoff closes the old run and
+	 * opens the new one in ONE transaction). If it ever did occur, the second
+	 * run's end sees a task that is no longer `in_progress` and quietly does
+	 * nothing (the branch below), and `review -> in_progress` is a legal move
+	 * anyone can make.
 	 */
 	test("transitions task to review on a completed run even with a sibling run still active", async ({
 		db,
@@ -452,8 +445,8 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		await settlePropagation(db, eventBus, "already-moved-sentinel");
 		const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 		// Unchanged: the task was seeded in `review` and the handler returns early
-		// because it is not `in_progress`. This one is NOT the BB1 done-by-default
-		// rule — it is the guard that stops a second session end re-transitioning
+		// because it is not `in_progress`. This is not the done-by-default rule —
+		// it is the guard that stops a second session end re-transitioning
 		// a task someone already moved.
 		expect(task?.state).toBe("review");
 		expect(appliedEvents.filter((e) => e.targetId === "task-1")).toHaveLength(0);
@@ -537,11 +530,11 @@ describe("registerLifecyclePropagation — propagation events", () => {
 
 		// Assert: propagation_applied event was emitted — use vi.waitFor because the handler is async fire-and-forget
 		await vi.waitFor(() => {
-			// @lore BB1: was `toHaveLength(1)`. The cascade no longer stops at the
-			// task — the task closes to `done`, which makes its parent's children
-			// all-terminal, so the parent closes too, and so on up. More than one
-			// applied event is the CORRECT new behaviour; assert the session->task
-			// hop is present rather than that it is the only hop.
+			// The cascade does not stop at the task — the task closes to `done`,
+			// which makes its parent's children all-terminal, so the parent
+			// closes too, and so on up. More than one applied event is correct;
+			// assert the session->task hop is present rather than that it is the
+			// only hop.
 			expect(appliedEvents.length).toBeGreaterThanOrEqual(1);
 			expect(appliedEvents[0]!.sourceLevel).toBe("session");
 			expect(appliedEvents[0]!.targetLevel).toBe("task");
