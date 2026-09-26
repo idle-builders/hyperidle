@@ -1,5 +1,5 @@
-import type { HealthResponse } from "@hyperidle/domain-model";
 import { users } from "@hyperidle/db";
+import type { HealthResponse } from "@hyperidle/domain-model";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
 
 describe("health", () => {
