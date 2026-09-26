@@ -6,7 +6,7 @@
  * install, and it is what makes removing the slot selector from the
  * document content view safe.
  *
- * @lore BC4: repointed off raw `apiFetch`/`GET /api/knowledge` onto
+ * @lore: repointed off raw `apiFetch`/`GET /api/knowledge` onto
  * `useDocuments`/`call("edit_document", …)`.
  */
 import { render, screen, waitFor } from "@testing-library/react";
@@ -101,7 +101,7 @@ describe("SettingsSkillsAndRules", () => {
 
 	/**
 	 * @lore knowledge-attachment-slot: this row is deliberately NOT a real <a
-	 * href> (UI-080's usual contract). The Delete button is a real button in
+	 * href> (the usual link contract). The Delete button is a real button in
 	 * `actions`, which Row's href mode forbids nesting — an earlier version of
 	 * this test asserted the opposite and passed while Delete was completely
 	 * broken in the packaged app (a real anchor swallowed the "Delete" click
@@ -163,7 +163,7 @@ describe("SettingsSkillsAndRules", () => {
 	/**
 	 * Founder call: no double confirmation. A plain "Delete" button in the
 	 * row's `actions` deletes on the first click — no kebab, no Menu, no
-	 * inline Confirm/Cancel step (that FR-10 shape is what SettingsAgents'
+	 * inline Confirm/Cancel step (that shape is what SettingsAgents'
 	 * own rows still use, via RowDeleteAction; this list deliberately does
 	 * not).
 	 *

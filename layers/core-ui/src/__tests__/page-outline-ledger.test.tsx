@@ -4,7 +4,7 @@ import type { ReactElement } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-// @lore BB1: useBet mock removed — useBet is deleted; `call("open_task", …)` replaces it.
+// @lore: useBet mock removed — useBet is deleted; `call("open_task", …)` replaces it.
 vi.mock("../services/call.js", () => ({
 	call: () => new Promise(() => undefined),
 }));
@@ -29,7 +29,7 @@ import { ReviewPage } from "../pages/review/ReviewPage.js";
 import { SettingsPage } from "../pages/SettingsPage.js";
 import { SetupFlow } from "../pages/SetupFlow.js";
 import { WorkOverviewView } from "../pages/WorkOverview.js";
-// @lore BB1: WorkTaskCreate replaces WorkBetCreate; WorkTaskPage replaces WorkBet+WorkTask.
+// @lore: WorkTaskCreate replaces WorkBetCreate; WorkTaskPage replaces WorkBet+WorkTask.
 import { WorkTaskCreate } from "../pages/WorkTaskCreate.js";
 import { WorkTaskPage } from "../pages/WorkTaskPage.js";
 import { WorkTeam } from "../pages/WorkTeam.js";
@@ -73,9 +73,9 @@ describe("real route outline ledger", () => {
 		["Conversations queue", "/conversations", "Conversations", <Conversations />],
 		["Conversation detail", "/conversations/thread-1", undefined, <Conversations />],
 		["Work Team", "/work/team/t", "Team", <WorkTeam overrideLoading />],
-		// @lore BC5 T9: "Work Routine" ledger row deleted with WorkRoutine.js —
+		// @lore: "Work Routine" ledger row deleted with WorkRoutine.js —
 		// subscriptions replace routines; there is no /work/routine/:id route.
-		// @lore BB1: New task routes; loading state has title "Task"
+		// @lore: New task routes; loading state has title "Task"
 		["New Task", "/work/task/new", "New task", <WorkTaskCreate />],
 		["Work Task (loading)", "/work/task/t", "Task", <WorkTaskPage />],
 		["Review", "/reviews/r", "Review", <ReviewPage loader={pendingReview} />],

@@ -1,10 +1,8 @@
 /**
- * AG6 red phase — RowDot component tests.
+ * RowDot component tests.
  *
- * AC-1: RowDot is a catalogued design-system primitive.
- * AC-3: Rows share one treatment — RowDot is the canonical status dot.
- *
- * Tests FAIL until framework/design-system/src/RowDot.tsx is created (T1).
+ * Covers: RowDot is a catalogued design-system primitive; rows share one
+ * treatment — RowDot is the canonical status dot.
  */
 
 import React from "react";
@@ -13,7 +11,7 @@ import { describe, expect, it } from "vitest";
 
 import { RowDot } from "../RowDot.js";
 
-describe("RowDot (AG6 T1)", () => {
+describe("RowDot", () => {
 	describe("exports", () => {
 		it("is exported from RowDot.tsx as a function", () => {
 			expect(typeof RowDot).toBe("function");

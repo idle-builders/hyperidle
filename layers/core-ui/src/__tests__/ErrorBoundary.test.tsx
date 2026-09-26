@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 
 /**
- * I4 E1: An `ErrorBoundary` component catches render errors in its children
+ * An `ErrorBoundary` component catches render errors in its children
  * and renders a fallback UI. The spec requires that it wraps `<Outlet />` in
  * AppShell so a page render error does not produce a white screen.
  *
@@ -77,7 +77,7 @@ describe("ErrorBoundary", () => {
 		spy.mockRestore();
 	});
 
-	it("calls componentDidCatch and logs via console.error (adversary C2 / W2)", () => {
+	it("calls componentDidCatch and logs via console.error", () => {
 		const spy = vi.spyOn(console, "error").mockImplementation(() => {});
 		render(
 			<ErrorBoundary>
@@ -92,7 +92,7 @@ describe("ErrorBoundary", () => {
 		spy.mockRestore();
 	});
 
-	it("renders a generic message and does not leak error.message (security MED-2)", () => {
+	it("renders a generic message and does not leak error.message", () => {
 		// Test env has import.meta.env.DEV=true so dev message shows,
 		// but the generic copy MUST still be present. In production the
 		// dev message is elided — covered by the next test with MODE stubbing.
@@ -109,7 +109,7 @@ describe("ErrorBoundary", () => {
 		spy.mockRestore();
 	});
 
-	it("hides error.message when import.meta.env.DEV is false (security MED-2)", () => {
+	it("hides error.message when import.meta.env.DEV is false", () => {
 		const spy = vi.spyOn(console, "error").mockImplementation(() => {});
 		const originalDev = import.meta.env.DEV;
 		vi.stubEnv("DEV", false);
@@ -127,7 +127,7 @@ describe("ErrorBoundary", () => {
 		}
 	});
 
-	it("exposes error.message in dev via a dev-only disclosure (adversary C2)", () => {
+	it("exposes error.message in dev via a dev-only disclosure", () => {
 		const spy = vi.spyOn(console, "error").mockImplementation(() => {});
 		render(
 			<ErrorBoundary>
@@ -141,7 +141,7 @@ describe("ErrorBoundary", () => {
 		spy.mockRestore();
 	});
 
-	it("invokes the onReload prop when the user clicks the Reload button (adversary C2)", () => {
+	it("invokes the onReload prop when the user clicks the Reload button", () => {
 		const spy = vi.spyOn(console, "error").mockImplementation(() => {});
 		const onReload = vi.fn();
 		render(

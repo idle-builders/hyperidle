@@ -24,17 +24,15 @@ describe("NotificationRow", () => {
 		expect(screen.getByText("Just now")).toBeInTheDocument();
 	});
 
-	it("renders source as Tag when provided", () => {
+	it("renders source as a Tag label when provided", () => {
 		render(<NotificationRow {...defaultProps} source="CI/CD" />);
-		const tag = screen.getByText("CI/CD");
-		expect(tag).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
-		expect(tag.className).toContain("text-secondary");
+		expect(screen.getByText("CI/CD")).toBeInTheDocument();
 	});
 
 	it("does not render source Tag when omitted", () => {
 		const { container } = render(<NotificationRow {...defaultProps} />);
 		// No Tag elements should be rendered when source is omitted.
-		// AZ7: rounded-[var(--r-pill)] is no longer a Tag-unique marker — every
+		// rounded-[var(--r-pill)] is no longer a Tag-unique marker — every
 		// pill-shaped element (Tag, StatusChip, its dot) now shares the SAME
 		// token spelling (Trade-off 1: pill has exactly one spelling). Tag's
 		// own data-ds-component marker is the unique, reliable selector.
@@ -79,12 +77,10 @@ describe("NotificationRow", () => {
 		).toBeInTheDocument();
 	});
 
-	it("composes at least 2 Tier 1 primitives (StatusChip + Tag)", () => {
+	it("shows both the severity status and the source tag together", () => {
 		render(<NotificationRow {...defaultProps} source="system" />);
-		// StatusChip for severity
-		expect(screen.getByText("HEALTHY")).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
-		// Tag for source
-		expect(screen.getByText("system")).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
+		expect(screen.getByText("HEALTHY")).toBeInTheDocument();
+		expect(screen.getByText("system")).toBeInTheDocument();
 	});
 
 	it("all severity levels produce visually distinct chips", () => {

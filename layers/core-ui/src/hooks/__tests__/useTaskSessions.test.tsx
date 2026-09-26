@@ -79,7 +79,7 @@ describe("useTaskSessions", () => {
 		await waitFor(() => expect(result.current.data).not.toBeNull());
 
 		const sessions = result.current.data?.sessions ?? [];
-		// UI-036: titles are formatted dates, not ordinals ("Session N").
+		// titles are formatted dates, not ordinals ("Session N").
 		// Oldest-first order preserved; session-old (2026-08-01) precedes session-new (2026-08-03).
 		expect(sessions.map((s) => s.id)).toEqual(["session-old", "session-new"]);
 		expect(sessions[0]?.title).toMatch(/Aug.*1.*2026|1.*Aug.*2026/);

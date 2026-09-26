@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 /**
- * AG5 — Menu primitive: open/close, Escape, click-outside, roles, keyboard nav, dataAttrs passthrough.
+ * Menu primitive: open/close, Escape, click-outside, roles, keyboard nav, dataAttrs passthrough.
  *
  * Red phase: all tests FAIL until Menu.tsx is created in framework/design-system/src/.
  */
@@ -10,7 +10,6 @@ import { act, createElement, type ReactElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-// @lore AG5: Menu does not exist yet — this import drives the red phase.
 import { Menu, type MenuItem, type MenuProps } from "../Menu.js";
 
 // biome-ignore lint/style/useNamingConvention: React's flag name is fixed.
@@ -23,7 +22,7 @@ const DEFAULT_ITEMS: MenuItem[] = [
 	{ id: "kill", label: "Kill", onSelect: noop, destructive: true },
 ];
 
-describe("AG5 — Menu: rendering", () => {
+describe("Menu: rendering", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 
@@ -126,7 +125,7 @@ describe("AG5 — Menu: rendering", () => {
 	});
 });
 
-describe("AG5 — Menu: Escape closes the menu", () => {
+describe("Menu: Escape closes the menu", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 
@@ -162,7 +161,7 @@ describe("AG5 — Menu: Escape closes the menu", () => {
 	});
 });
 
-describe("AG5 — Menu: click-outside closes the menu", () => {
+describe("Menu: click-outside closes the menu", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 
@@ -220,7 +219,7 @@ describe("AG5 — Menu: click-outside closes the menu", () => {
 	});
 });
 
-describe("AG5 — Menu: keyboard navigation", () => {
+describe("Menu: keyboard navigation", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 
@@ -261,7 +260,7 @@ describe("AG5 — Menu: keyboard navigation", () => {
 		await act(async () => {
 			items[0]?.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
 		});
-		// @lore AJ1-ship: Extra act() flush ensures React event handler's focus()
+		// @lore: Extra act() flush ensures React event handler's focus()
 		// call has settled in JSDOM before asserting document.activeElement.
 		// Without this, the focus change can be deferred under parallel test load.
 		await act(async () => {});
@@ -370,7 +369,7 @@ describe("AG5 — Menu: keyboard navigation", () => {
 	});
 });
 
-describe("AG5 — Menu: dataAttrs passthrough (C4)", () => {
+describe("Menu: dataAttrs passthrough", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 
@@ -459,7 +458,7 @@ describe("AG5 — Menu: dataAttrs passthrough (C4)", () => {
 	});
 });
 
-describe("AG5 — Menu: focus management (WARNING-A)", () => {
+describe("Menu: focus management (WARNING-A)", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 
@@ -562,7 +561,7 @@ describe("AG5 — Menu: focus management (WARNING-A)", () => {
 	});
 });
 
-describe("AG5 — Menu: align prop", () => {
+describe("Menu: align prop", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 

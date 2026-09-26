@@ -1,5 +1,5 @@
 /**
- * AM1 task 11 — ConversationSurface real-props contract.
+ * ConversationSurface real-props contract.
  *
  * ConversationSurface is now prop-driven (story passes a fixture; page passes
  * real data). This test mounts it with a fixture `parts` + spy `onSend`/`onOpen`
@@ -64,7 +64,7 @@ function renderSurface(
 	);
 }
 
-describe("ConversationSurface — real props (AM1 task 11)", () => {
+describe("ConversationSurface — real props", () => {
 	it("renders the header title and host context link", () => {
 		renderSurface();
 		expect(screen.getByRole("heading", { name: "Passkey login" })).toBeInTheDocument();

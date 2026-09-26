@@ -1,6 +1,5 @@
 /**
- * MoveDialog — plan.md AC2, "a person can nest and move knowledge items, and
- * the tree keeps up". Mocks `call` and `useDocuments`, asserts on the
+ * MoveDialog — a person can nest and move knowledge items, and the tree keeps up. Mocks `call` and `useDocuments`, asserts on the
  * `edit_document` input and on error surfacing.
  */
 

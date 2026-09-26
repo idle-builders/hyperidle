@@ -80,6 +80,7 @@ export function NavItem({
 				)}
 				{statusDot && (
 					<span
+						data-testid="nav-item-status-dot"
 						className={`h-[8px] w-[8px] rounded-[var(--r-pill)] shrink-0 ${STATUS_DOT_COLORS[statusDot]}`}
 					/>
 				)}
