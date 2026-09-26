@@ -20,7 +20,6 @@
 		"layers/agent-execution/harness-registry/src/__tests__/require-harness.ts",
 		"layers/core-api/src/__testing__/test-fixtures.ts",
 		"layers/core-ui/__e2e__/fixtures.ts",
-		"layers/core-ui/__e2e__/known-pre-existing-failures.ts",
 		"layers/core-ui/src/pages/**/__fixtures__/**",
 		"layers/core-ui/src/__preview__/**",
 		"layers/agent-execution/harness-registry/src/re-engage.ts",
