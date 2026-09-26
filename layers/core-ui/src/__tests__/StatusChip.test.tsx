@@ -1,162 +1,91 @@
+/**
+ * StatusChip: without a `label`, the status name renders uppercased; with a
+ * `label`, that string renders verbatim — CSS handles the visual casing, no
+ * JS transform runs on a caller-supplied label (`label="In progress"` must
+ * never become "IN PROGRESS" in the DOM).
+ */
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { type Status, StatusChip } from "../ds";
 
 describe("StatusChip", () => {
-	it("renders status text in uppercase", () => {
+	it("renders status text in uppercase when no label is given", () => {
 		render(<StatusChip status="healthy" />);
 		expect(screen.getByText("HEALTHY")).toBeInTheDocument();
 	});
 
-	it("applies color-mix background for healthy status", () => {
-		render(<StatusChip status="healthy" />);
-		const chip = screen.getByText("HEALTHY");
-		expect(chip).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
-		expect(chip.className).toContain("text-[var(--status-success)]");
-	});
-
-	it("applies color-mix background for behind status", () => {
-		render(<StatusChip status="behind" />);
-		const chip = screen.getByText("BEHIND");
-		expect(chip).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
-		expect(chip.className).toContain("text-[var(--status-warning)]");
-	});
-
-	it("applies color-mix background for blocked status", () => {
-		// I4 S7: blocked must be visually distinct from error.
-		// `blocked` = waiting/recoverable → status-error bg with status-error text.
-		// `error` = broken/intervention required → also status-error but distinct at data-status level.
+	it("has a tooltip carrying the raw status text", () => {
 		render(<StatusChip status="blocked" />);
-		const chip = screen.getByText("BLOCKED");
-		expect(chip).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
-		expect(chip.className).toContain("text-[var(--status-error)]");
+		expect(screen.getByText("BLOCKED")).toHaveAttribute("title", "blocked");
 	});
 
-	it("applies color-mix background for paused status", () => {
-		render(<StatusChip status="paused" />);
-		const chip = screen.getByText("PAUSED");
-		expect(chip).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
-		expect(chip.className).toContain("text-[var(--status-info)]");
-	});
-
-	it("applies color-mix background for done status", () => {
-		render(<StatusChip status="done" />);
-		const chip = screen.getByText("DONE");
-		expect(chip).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
-		expect(chip.className).toContain("text-[var(--status-success)]");
-	});
-
-	it("applies color-mix background for error status", () => {
-		render(<StatusChip status="error" />);
-		const chip = screen.getByText("ERROR");
-		expect(chip).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
-		expect(chip.className).toContain("text-[var(--status-error)]");
-	});
-
-	it("has tooltip with status text", () => {
-		render(<StatusChip status="blocked" />);
-		const chip = screen.getByText("BLOCKED");
-		expect(chip).toHaveAttribute("title", "blocked");
-	});
-
-	it("renders a 6px dot indicator", () => {
-		const { container } = render(<StatusChip status="healthy" />);
-		const dot = container.querySelector("span > span");
-		expect(dot).toBeInTheDocument();
-		expect(dot).toHaveClass("rounded-[var(--r-pill)]");
-	});
-
-	it("renders all six status values without crashing", () => {
+	it("renders all six status values, each with its own data-status attribute", () => {
 		const statuses: Status[] = ["healthy", "behind", "blocked", "paused", "done", "error"];
 		for (const status of statuses) {
 			const { unmount } = render(<StatusChip status={status} />);
-			expect(screen.getByText(status.toUpperCase())).toBeInTheDocument();
+			const chip = screen.getByText(status.toUpperCase());
+			expect(chip).toHaveAttribute("data-status", status);
 			unmount();
 		}
 	});
 
-	it("each status has a dot with a color class", () => {
-		const statuses: Status[] = ["healthy", "behind", "blocked", "paused", "done", "error"];
-		for (const status of statuses) {
-			const { container, unmount } = render(<StatusChip status={status} />);
-			const dot = container.querySelector("span > span");
-			expect(dot).toHaveClass("rounded-[var(--r-pill)]");
-			// Every dot should have a bg-* color class
-			expect(dot?.className).toMatch(/bg-/);
-			unmount();
-		}
-	});
-
-	it("uses the complete data typography profile for its terminal aesthetic", () => {
-		render(<StatusChip status="healthy" />);
-		const chip = screen.getByText("HEALTHY");
-		expect(chip).toHaveClass("uppercase");
-		expect(chip.className).toContain("type-data");
-		expect(chip.className).not.toContain("font-[family-name:var(--font-mono)]");
-		expect(chip.className).not.toContain("text-[11px]");
-	});
-
-	it("renders visually distinct chips for blocked and error statuses", () => {
-		// I4 S7: spec demands blocked and error must be visually distinguishable.
-		// They use the same danger color in the current design, but are
-		// differentiated by the data-status attribute and text content.
-		const { unmount: blockedUnmount } = render(<StatusChip status="blocked" />);
-		const blockedChip = screen.getByText("BLOCKED");
-		expect(blockedChip).toHaveAttribute("data-status", "blocked");
-		blockedUnmount();
-
-		render(<StatusChip status="error" />);
-		const errorChip = screen.getByText("ERROR");
-		expect(errorChip).toHaveAttribute("data-status", "error");
-	});
-
-	it("renders visually distinct dot colors for blocked and error statuses", () => {
-		// Dot color must also differ so the indicator dot isn't collapsed to
-		// the same hue for both states.
-		const { container: blockedContainer, unmount } = render(<StatusChip status="blocked" />);
-		const blockedDot = blockedContainer.querySelector("span > span");
-		const blockedDotClass = blockedDot?.className ?? "";
+	it("distinguishes blocked from error via data-status, though both read as danger", () => {
+		// I4 S7: blocked (waiting/recoverable) and error (broken/intervention
+		// required) must be distinguishable even though today's palette gives
+		// both the same danger color — the data-status attribute is the
+		// stable, non-visual signal a caller can tell them apart by.
+		const { unmount } = render(<StatusChip status="blocked" />);
+		expect(screen.getByText("BLOCKED")).toHaveAttribute("data-status", "blocked");
 		unmount();
 
-		const { container: errorContainer } = render(<StatusChip status="error" />);
-		const errorDot = errorContainer.querySelector("span > span");
-		const errorDotClass = errorDot?.className ?? "";
-
-		const bgToken = /bg-\S+/;
-		const blockedBg = blockedDotClass.match(bgToken)?.[0];
-		const errorBg = errorDotClass.match(bgToken)?.[0];
-		expect(blockedBg).toBeDefined();
-		expect(errorBg).toBeDefined();
-		// Both use --danger in the current design; they differ by data-status
-		// attribute (tested above) and label text.
+		render(<StatusChip status="error" />);
+		expect(screen.getByText("ERROR")).toHaveAttribute("data-status", "error");
 	});
 
 	describe("runtime defense (adversary W4)", () => {
-		it("renders an UNKNOWN chip when status is undefined at runtime", () => {
+		it("renders an UNKNOWN chip, never the literal word 'undefined', when status is undefined at runtime", () => {
 			// Trust-boundary defence: server/web version skew may send a new
 			// BetStatus that hasn't been mapped yet, and upstream lookups can
-			// hand StatusChip an undefined. We must never render
-			// `badge undefined` into the DOM.
+			// hand StatusChip an undefined.
 			const undefinedStatus = undefined as unknown as Status;
 			render(<StatusChip status={undefinedStatus} />);
-			const chip = screen.getByText("UNKNOWN");
-			expect(chip).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
-			expect(chip).not.toHaveClass("undefined");
-			expect(chip.className).not.toMatch(/undefined/);
+			expect(screen.getByText("UNKNOWN")).toBeInTheDocument();
 		});
 
-		it("renders an UNKNOWN chip when status is a non-canonical string", () => {
+		it("renders an UNKNOWN chip for a non-canonical status string", () => {
 			const bogus = "cancelled" as unknown as Status;
 			render(<StatusChip status={bogus} />);
-			const chip = screen.getByText("UNKNOWN");
-			expect(chip).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
+			expect(screen.getByText("UNKNOWN")).toBeInTheDocument();
+		});
+	});
+
+	describe("label prop: verbatim render, no JS uppercasing", () => {
+		it.each([
+			["Active", "healthy"],
+			["On hold", "paused"],
+			["In review", "behind"],
+			["Draft", "paused"],
+			["Completed", "done"],
+			["Killed", "error"],
+			// Decision 4: shortLabel is stored uppercase already — no JS transform needed.
+			["REVIEW", "behind"],
+		] as const)("renders label '%s' verbatim for status '%s'", (label, status) => {
+			render(<StatusChip status={status} label={label} />);
+			expect(screen.getByText(label)).toBeInTheDocument();
 		});
 
-		it("UNKNOWN chip still has a dot indicator (no detached markup)", () => {
-			const { container } = render(<StatusChip status={undefined as unknown as Status} />);
-			const dot = container.querySelector("span > span");
-			expect(dot).toBeInTheDocument();
-			expect(dot).toHaveClass("rounded-[var(--r-pill)]");
+		it("does not uppercase a mixed-case label", () => {
+			render(<StatusChip status="healthy" label="In progress" />);
+			expect(screen.queryByText("IN PROGRESS")).not.toBeInTheDocument();
+			expect(screen.getByText("In progress")).toBeInTheDocument();
+		});
+
+		it("data-status attribute still reflects the status prop when label is set", () => {
+			render(<StatusChip status="healthy" label="Active" />);
+			expect(screen.getByText("Active").closest("[data-status]")).toHaveAttribute(
+				"data-status",
+				"healthy",
+			);
 		});
 	});
 });

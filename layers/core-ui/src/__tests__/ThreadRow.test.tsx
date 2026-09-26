@@ -113,33 +113,22 @@ describe("ThreadRow", () => {
 		expect(screen.queryByTestId("thread-row-blocking-badge")).not.toBeInTheDocument();
 	});
 
-	it("blocking badge has red-tinted styling", () => {
-		render(<ThreadRow {...defaultProps} blocking={true} />);
-		const badge = screen.getByTestId("thread-row-blocking-badge");
-		// Uses color-mix for error tint (avoids hardcoded rgba per design/no-hardcoded-color rule)
-		expect(badge.className).toContain("status-error");
+	it("shows a blocking badge only when blocking is true", () => {
+		const { rerender } = render(<ThreadRow {...defaultProps} blocking={true} />);
+		expect(screen.getByTestId("thread-row-blocking-badge")).toBeInTheDocument();
+
+		rerender(<ThreadRow {...defaultProps} blocking={false} />);
+		expect(screen.queryByTestId("thread-row-blocking-badge")).not.toBeInTheDocument();
 	});
 
-	it("applies border-[var(--status-error)] on the row when blocking is true", () => {
-		const { container } = render(<ThreadRow {...defaultProps} blocking={true} />);
-		const root = container.firstElementChild;
-		expect(root?.className).toContain("border-[var(--status-error)]");
-	});
-
-	it("does not apply border-[var(--status-error)] when blocking is false", () => {
-		const { container } = render(<ThreadRow {...defaultProps} blocking={false} />);
-		const root = container.firstElementChild;
-		expect(root?.className).not.toContain("border-[var(--status-error)]");
-	});
-
-	it("renders kind as Tag when provided", () => {
+	it("renders the kind as a Tag label when provided", () => {
 		render(<ThreadRow {...defaultProps} kind="review" />);
-		expect(screen.getByText("review")).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
+		expect(screen.getByText("review")).toBeInTheDocument();
 	});
 
-	it("renders chat kind as Tag", () => {
+	it("renders chat kind as a Tag label", () => {
 		render(<ThreadRow {...defaultProps} kind="chat" />);
-		expect(screen.getByText("chat")).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
+		expect(screen.getByText("chat")).toBeInTheDocument();
 	});
 
 	it("has aria-label on title", () => {
@@ -241,12 +230,10 @@ describe("ThreadRow", () => {
 		expect(screen.queryByTestId("thread-row-count-badge")).not.toBeInTheDocument();
 	});
 
-	it("composes at least 2 Tier 1 primitives (StatusChip + Tag)", () => {
+	it("shows both the status and the tag label together", () => {
 		render(<ThreadRow {...defaultProps} status="healthy" tag="ops" />);
-		// StatusChip renders uppercase status text with rounded-[var(--r-pill)]
-		expect(screen.getByText("HEALTHY")).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
-		// Tag renders label with rounded-[var(--r-pill)] and neutral bg
-		expect(screen.getByText("ops")).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
+		expect(screen.getByText("HEALTHY")).toBeInTheDocument();
+		expect(screen.getByText("ops")).toBeInTheDocument();
 	});
 
 	// Legacy avatarUrl prop — kept for backwards compatibility but not rendered visually

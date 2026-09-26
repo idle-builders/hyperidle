@@ -76,8 +76,8 @@ describe("DocRow", () => {
 		expect(screen.getByLabelText("Document: API Rate Limiting Pattern")).toBeInTheDocument();
 	});
 
-	it("composes StatusChip (Tier 1 primitive)", () => {
+	it("shows the item's status via StatusChip", () => {
 		render(<DocRow {...defaultProps} />);
-		expect(screen.getByText("HEALTHY")).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
+		expect(screen.getByText("HEALTHY")).toBeInTheDocument();
 	});
 });

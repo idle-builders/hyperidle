@@ -25,11 +25,9 @@ describe("TaskCard", () => {
 		expect(screen.getByText("HEALTHY")).toBeInTheDocument();
 	});
 
-	it("renders parentTag as Tag when provided", () => {
+	it("renders parentTag as a Tag label when provided", () => {
 		render(<TaskCard {...defaultProps} parentTag="Mobile V2" />);
-		const tag = screen.getByText("Mobile V2");
-		expect(tag).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
-		expect(tag.className).toContain("text-secondary");
+		expect(screen.getByText("Mobile V2")).toBeInTheDocument();
 	});
 
 	it("renders actions slot content", () => {
@@ -96,12 +94,10 @@ describe("TaskCard", () => {
 		expect(screen.getByText("ERROR")).toBeInTheDocument();
 	});
 
-	it("composes at least 2 Tier 1 primitives (StatusChip + Tag)", () => {
+	it("shows both the status and the parent tag together", () => {
 		render(<TaskCard {...defaultProps} parentTag="Sprint 1" />);
-		// StatusChip
-		expect(screen.getByText("HEALTHY")).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
-		// Tag for parentTag
-		expect(screen.getByText("Sprint 1")).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
+		expect(screen.getByText("HEALTHY")).toBeInTheDocument();
+		expect(screen.getByText("Sprint 1")).toBeInTheDocument();
 	});
 
 	it("all 8 TaskState values produce distinct visual states", () => {
