@@ -19,7 +19,7 @@ const ELECTRON_ORIGIN_PREFIX = "http://127.0.0.1";
  * that vi.stubEnv() in integration tests takes effect. If parsed once at
  * module load, CONFIGURED_ORIGINS is frozen before test env-stubs run.
  */
-function parseConfiguredOrigins(): ReadonlyArray<string> {
+export function parseConfiguredOrigins(): ReadonlyArray<string> {
 	const raw = process.env.HYPERIDLE_CORS_ORIGINS;
 	if (!raw) return [];
 	return raw
@@ -44,7 +44,7 @@ function parseConfiguredOrigins(): ReadonlyArray<string> {
  * header → no CORS headers added (correct).
  * See architecture section 2.4 for the full CORS strategy.
  */
-function resolveOrigin(origin: string, _c: Context): string | undefined {
+export function resolveOrigin(origin: string, _c: Context): string | undefined {
 	if (origin === ALLOWED_DEV_ORIGIN) {
 		return origin;
 	}
