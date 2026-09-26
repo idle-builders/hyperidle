@@ -44,7 +44,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CliAdapterConfig } from "../cli-harness-adapter.js";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
 import { createReturnEnforcement } from "../return-enforcement.js";
-import { cliAdapterFixture } from "./cli-adapter-fixtures.js";
+import { productionCliConfig } from "./production-cli-config.js";
 
 const enforcementRegistry = createReturnEnforcement();
 
@@ -61,7 +61,7 @@ const enforcementRegistry = createReturnEnforcement();
  * production code path, not a fabricated config that hid the real bug.
  */
 function makeProcessReEngageConfig(overrides: Partial<CliAdapterConfig> = {}): CliAdapterConfig {
-	const opencodeConfig = cliAdapterFixture("opencode");
+	const opencodeConfig = productionCliConfig("opencode");
 	return {
 		...opencodeConfig,
 		// eventFormat override: the real config uses "text" (opencode streams text events);

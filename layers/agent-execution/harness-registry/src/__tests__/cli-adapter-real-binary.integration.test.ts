@@ -55,16 +55,16 @@
 
 import { execFile } from "node:child_process";
 import * as fs from "node:fs";
-import * as os from "node:os";
 import * as path from "node:path";
 import { promisify } from "node:util";
 import type { HarnessEvent, SessionConfig } from "@hyperidle/harness-protocol";
 import { ensureSandboxGitRepo } from "@hyperidle/run-orchestration";
 import { describe, expect, test } from "vitest";
-import { cliAdapterFixture } from "./cli-adapter-fixtures.js";
+import { createHarnessSandbox, provisionCodexHome } from "./harness-sandbox.js";
+import { productionCliConfig } from "./production-cli-config.js";
 
-const CLAUDE_CLI_CONFIG = cliAdapterFixture("claude");
-const CURSOR_AGENT_CLI_CONFIG = cliAdapterFixture("cursor-agent");
+const CLAUDE_CLI_CONFIG = productionCliConfig("claude");
+const CURSOR_AGENT_CLI_CONFIG = productionCliConfig("cursor-agent");
 
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
 import { LocalSandboxAdapter } from "../local-sandbox-adapter.js";
@@ -77,23 +77,6 @@ import { trackHarnessSessions } from "./session-handle-tracker.js";
 const { track } = trackHarnessSessions();
 
 const execFileAsync = promisify(execFile);
-
-async function rmSandboxWithRetry(sandboxPath: string): Promise<void> {
-	for (let attempt = 0; attempt < 5; attempt += 1) {
-		try {
-			fs.rmSync(sandboxPath, { recursive: true, force: true });
-			return;
-		} catch (err) {
-			const code = (err as NodeJS.ErrnoException).code;
-			if (code !== "ENOTEMPTY" && code !== "EBUSY") throw err;
-			// @lore AV3-ship: real CLI harnesses can leave a just-exited helper touching
-			// the temp sandbox for a tick on macOS. The proof already passed; cleanup retries
-			// prevent a non-product ENOTEMPTY race from failing the run.
-			await new Promise((resolve) => setTimeout(resolve, 50 * (attempt + 1)));
-		}
-	}
-	fs.rmSync(sandboxPath, { recursive: true, force: true });
-}
 
 // ── Binary detection (same pattern as the return-enforcement/AL7 lanes) ──────
 
@@ -158,40 +141,6 @@ function provisionClaudeSandbox(sandboxPath: string): void {
 	fs.writeFileSync(path.join(sandboxPath, ".claude", "settings.json"), JSON.stringify({}), "utf-8");
 }
 
-/**
- * Copy codex auth (auth.json + config.toml only, no SQLite) into .codex-home/.
- *
- * @lore BA2 ruling 18 (kept under ruling 22): this test drives `CliHarnessAdapter` directly against
- * `CLI_TOOL_CONFIGS.codex` with the git-repo-check bypass flag removed, so the
- * sandbox's own trust declaration (production's job — `writeCliMcpConfig`'s
- * codex-toml dialect) is not exercised here; this harness-adapter-level test
- * has no bridge/mcpUrl/token to call it with. Declare trust for the ephemeral
- * sandbox directly, in the same shape codex itself writes (`codex mcp add` /
- * accepting a trust prompt): `[projects."<path>"] trust_level = "trusted"`.
- * The home config.toml this test copies in has this same block for the
- * developer's real, durable directories — never for an mkdtemp path, which is
- * why the block is appended here rather than relied upon from the copy.
- */
-function provisionCodexHome(sandboxPath: string): boolean {
-	const codexHomeDir = path.join(sandboxPath, ".codex-home");
-	fs.mkdirSync(codexHomeDir, { recursive: true });
-	const homeCodexDir = path.join(os.homedir(), ".codex");
-	let authFound = false;
-	for (const fname of ["auth.json", "config.toml"]) {
-		const src = path.join(homeCodexDir, fname);
-		if (fs.existsSync(src)) {
-			fs.copyFileSync(src, path.join(codexHomeDir, fname));
-			if (fname === "auth.json") authFound = true;
-		}
-	}
-	fs.appendFileSync(
-		path.join(codexHomeDir, "config.toml"),
-		`\n[projects."${sandboxPath}"]\ntrust_level = "trusted"\n`,
-		"utf-8",
-	);
-	return authFound;
-}
-
 // ── CLAUDE-CODE CLI adapter (production path, real binary) ───────────────────
 //
 // MANDATORY: This is the primary test. The PR added `CLAUDE_CLI_CONFIG` +
@@ -233,7 +182,8 @@ describe("claude-code CLI adapter (real binary, production CliHarnessAdapter pat
 			return;
 		}
 
-		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "cli-adapter-real-"));
+		const sandbox = createHarnessSandbox("cli-adapter-real");
+		const sandboxPath = sandbox.path;
 
 		try {
 			provisionClaudeSandbox(sandboxPath);
@@ -333,7 +283,7 @@ describe("claude-code CLI adapter (real binary, production CliHarnessAdapter pat
 			expect(result.outcome).toBe("completed");
 			expect(result).not.toHaveProperty("cost");
 		} finally {
-			await rmSandboxWithRetry(sandboxPath);
+			await sandbox.cleanup();
 		}
 	}, 90_000);
 });
@@ -381,7 +331,8 @@ async function runCodexAdapterTest({ skip }: { skip: () => void }): Promise<void
 	// `ensureSandboxGitRepo` is the exact function it calls afterwards (Phase
 	// 4.5, after filesystem mounting — there is none to mount here). Same two
 	// calls, same order, as the real session-provisioning flow.
-	const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-adapter-codex-base-"));
+	const baseSandbox = createHarnessSandbox("cli-adapter-codex-base");
+	const baseDir = baseSandbox.path;
 	const sandboxAdapter = new LocalSandboxAdapter();
 	const sandboxHandle = await sandboxAdapter.spawn(baseDir);
 	const sandboxPath = sandboxHandle.path;
@@ -399,7 +350,7 @@ async function runCodexAdapterTest({ skip }: { skip: () => void }): Promise<void
 			return;
 		}
 
-		const codexConfig = cliAdapterFixture("codex");
+		const codexConfig = productionCliConfig("codex");
 
 		const config: SessionConfig = {
 			sessionId: `cli-adapter-codex-${Math.random().toString(36).slice(2, 10)}`,
@@ -481,7 +432,7 @@ async function runCodexAdapterTest({ skip }: { skip: () => void }): Promise<void
 			);
 		}
 	} finally {
-		await rmSandboxWithRetry(baseDir);
+		await baseSandbox.cleanup();
 	}
 }
 
@@ -523,10 +474,11 @@ describe("opencode CLI adapter (real binary, production CliHarnessAdapter path)"
 			return;
 		}
 
-		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "cli-adapter-opencode-"));
+		const sandbox = createHarnessSandbox("cli-adapter-opencode");
+		const sandboxPath = sandbox.path;
 
 		try {
-			const opencodeConfig = cliAdapterFixture("opencode");
+			const opencodeConfig = productionCliConfig("opencode");
 
 			const config: SessionConfig = {
 				sessionId: `cli-adapter-opencode-${Math.random().toString(36).slice(2, 10)}`,
@@ -558,7 +510,7 @@ describe("opencode CLI adapter (real binary, production CliHarnessAdapter path)"
 			// Assert: result.outcome "completed".
 			expect(result.outcome).toBe("completed");
 		} finally {
-			await rmSandboxWithRetry(sandboxPath);
+			await sandbox.cleanup();
 		}
 	}, 90_000);
 });
@@ -576,7 +528,8 @@ describe("cursor-agent CLI adapter (real binary, production CliHarnessAdapter pa
 			return;
 		}
 
-		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "cli-adapter-cursor-"));
+		const sandbox = createHarnessSandbox("cli-adapter-cursor");
+		const sandboxPath = sandbox.path;
 
 		try {
 			const config: SessionConfig = {
@@ -607,7 +560,7 @@ describe("cursor-agent CLI adapter (real binary, production CliHarnessAdapter pa
 			);
 			expect(result.outcome).toBe("completed");
 		} finally {
-			await rmSandboxWithRetry(sandboxPath);
+			await sandbox.cleanup();
 		}
 	}, 120_000);
 });

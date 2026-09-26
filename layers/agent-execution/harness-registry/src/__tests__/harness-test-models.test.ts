@@ -13,7 +13,7 @@
  */
 
 import { describe, expect, test } from "vitest";
-import { cliAdapterFixture } from "./cli-adapter-fixtures.js";
+import { productionCliConfig } from "./production-cli-config.js";
 import { HARNESS_TEST_MODELS } from "./require-harness.js";
 
 // ── Matrix shape ──────────────────────────────────────────────────────────────
@@ -58,7 +58,7 @@ describe("CLI_TOOL_CONFIGS.codex — model is argument-enforced", () => {
 		// Regression: codex must pass --model {{model}} so the locked model from
 		// HARNESS_TEST_MODELS is enforced at the subprocess level (not left to
 		// the inherited CODEX_HOME config default).
-		const args = cliAdapterFixture("codex").args;
+		const args = productionCliConfig("codex").args;
 		const modelFlagIdx = args.indexOf("--model");
 		expect(modelFlagIdx).toBeGreaterThanOrEqual(0);
 		expect(args[modelFlagIdx + 1]).toBe("{{model}}");
@@ -69,20 +69,20 @@ describe("CLI_TOOL_CONFIGS.codex — model is argument-enforced", () => {
 		// CLAUDE_CLI_CONFIG is imported from adapter-pool as a named export;
 		// CLI_TOOL_CONFIGS does not include claude (it has its own const).
 		// We verify the codex args inline here; claude is covered by existing tests.
-		const args = cliAdapterFixture("claude").args;
+		const args = productionCliConfig("claude").args;
 		// This test is about codex; claude consistency verified by adapter-pool.test.ts.
 		expect(args).toContain("{{model}}");
 	});
 
 	test("opencode args contain --model immediately followed by {{model}}", () => {
-		const args = cliAdapterFixture("opencode").args;
+		const args = productionCliConfig("opencode").args;
 		const modelFlagIdx = args.indexOf("--model");
 		expect(modelFlagIdx).toBeGreaterThanOrEqual(0);
 		expect(args[modelFlagIdx + 1]).toBe("{{model}}");
 	});
 
 	test("cursor-agent args contain --model immediately followed by {{model}}", () => {
-		const args = cliAdapterFixture("cursor-agent").args;
+		const args = productionCliConfig("cursor-agent").args;
 		const modelFlagIdx = args.indexOf("--model");
 		expect(modelFlagIdx).toBeGreaterThanOrEqual(0);
 		expect(args[modelFlagIdx + 1]).toBe("{{model}}");

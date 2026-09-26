@@ -45,7 +45,7 @@ import type { HarnessEvent, SessionConfig } from "@hyperidle/harness-protocol";
 import { describe, expect, test } from "vitest";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
 import { discoverLocalHarnesses } from "../harness-discovery.js";
-import { cliAdapterFixture } from "./cli-adapter-fixtures.js";
+import { productionCliConfig } from "./production-cli-config.js";
 import { requireHarness } from "./require-harness.js";
 import { trackHarnessSessions } from "./session-handle-tracker.js";
 
@@ -56,10 +56,10 @@ const { track } = trackHarnessSessions();
 
 const execFileAsync = promisify(execFile);
 
-const CLAUDE_CLI_CONFIG = cliAdapterFixture("claude");
-const CURSOR_AGENT_CLI_CONFIG = cliAdapterFixture("cursor-agent");
-const CODEX_CLI_CONFIG = cliAdapterFixture("codex");
-const OPENCODE_CLI_CONFIG = cliAdapterFixture("opencode");
+const CLAUDE_CLI_CONFIG = productionCliConfig("claude");
+const CURSOR_AGENT_CLI_CONFIG = productionCliConfig("cursor-agent");
+const CODEX_CLI_CONFIG = productionCliConfig("codex");
+const OPENCODE_CLI_CONFIG = productionCliConfig("opencode");
 
 const PROMPT = "Reply with exactly the token MODEL_OK and nothing else.";
 
@@ -113,7 +113,7 @@ async function rmSandboxWithRetry(sandboxPath: string): Promise<void> {
 
 /** Run one session through the production adapter, returning its raw stdout. */
 async function runWithModel(
-	config: ReturnType<typeof cliAdapterFixture>,
+	config: ReturnType<typeof productionCliConfig>,
 	sessionConfig: Omit<SessionConfig, "modelTier" | "tools">,
 ): Promise<{ stdout: string; events: HarnessEvent[] }> {
 	const sink = { text: "" };
