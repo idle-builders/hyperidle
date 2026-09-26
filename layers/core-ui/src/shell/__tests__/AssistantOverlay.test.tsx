@@ -1,22 +1,11 @@
 /**
- * AH3 — AssistantOverlay notice rendering + crash-recovery component tests.
- *
- * AC2 (overlay side):
- *   - when thread last message has payload.notice.kind=missing_key → renders
- *     the "No API key yet" guidance card, message names Settings → Credentials
- *   - missing_harness → "Runtime not configured", message names Agent settings
- *   - provider_error → "Couldn't reach the model" + Retry ghost button
- *
- * AC1/§1.7b (crash recovery):
- *   - thread whose last message is a human message AND older than
- *     ASSISTANT_TURN_TIMEOUT_MS shows Retry card, NOT infinite spinner
+ * AssistantOverlay component tests: open/close, message thread rendering,
+ * context chips, layout, and notice/crash-recovery rendering.
  *
  * @lore BC3: re-pointed off the deleted `useAssistantThread` onto
  * `useThread`/`useThreads`/`useAgents`/`useCurrentUser` — the overlay
  * resolves its own agent's direct thread via `useThreads({host:{kind:"agent"}})`
- * then reads it with `useThread(id)` (architecture.md §5 B6). `notice` stays
- * on the READ shape only (Reconciliation R9) — `AssistantOverlay.tsx`'s
- * renderer is unchanged, so this test is kept and re-pointed, not deleted.
+ * then reads it with `useThread(id)` (architecture.md §5 B6).
  *
  * @lore BC3: `useAgentOwnership` (a second fetch of every AI-role user) is
  * deleted — `GET /api/agents` carries `ownerUserId` directly, so the overlay
@@ -27,7 +16,10 @@ import type { Message } from "@hyperidle/domain-model";
 import { ASSISTANT_TURN_TIMEOUT_MS } from "@hyperidle/domain-model";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { createRef } from "react";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { AssistantContextRef } from "../../contexts/AssistantContext";
 import type { UseAgentsResult } from "../../hooks/useAgents.js";
 import type { UseCurrentUserResult } from "../../hooks/useCurrentUser.js";
 import type { UseThreadResult } from "../../hooks/useThread.js";
@@ -50,19 +42,13 @@ import { useAgents } from "../../hooks/useAgents.js";
 import { useCurrentUser } from "../../hooks/useCurrentUser.js";
 import { useThread } from "../../hooks/useThread.js";
 import { useThreads } from "../../hooks/useThreads.js";
-import { AssistantOverlay } from "../../shell/AssistantOverlay.js";
+import { AssistantOverlay } from "../AssistantOverlay.js";
 
-const NOW_ISO = new Date().toISOString();
-// A timestamp older than the turn timeout
-const STALE_ISO = new Date(Date.now() - ASSISTANT_TURN_TIMEOUT_MS - 10_000).toISOString();
-// A timestamp within the turn timeout window
-const RECENT_ISO = new Date(Date.now() - 30_000).toISOString();
-
-const MY_AGENT_ID = "agent-ast-founder";
+const MY_AGENT_ID = "agent-founder-assistant";
 const MY_USER_ID = "u-founder";
 
 const BASE_THREAD = {
-	id: "t-overlay-ah3",
+	id: "thr-ast-u-founder",
 	hostKind: "user" as const,
 	hostId: MY_USER_ID,
 	initiatorId: MY_USER_ID,
@@ -72,13 +58,14 @@ const BASE_THREAD = {
 	pinned: false,
 	resolvedAt: null,
 	deletedAt: null,
-	lastActiveAt: NOW_ISO,
-	createdAt: NOW_ISO,
+	lastActiveAt: "2026-06-09T10:00:00.000Z",
+	createdAt: "2026-06-09T10:00:00.000Z",
 };
 
-function mockOwnershipAndUser(): void {
+/** Ready state: viewer resolved, one direct thread with their agent, no messages yet. */
+function mockReadyOverlay(): void {
 	vi.mocked(useCurrentUser).mockReturnValue({
-		user: { id: MY_USER_ID, name: "Founder", avatarUrl: null },
+		user: { id: MY_USER_ID, name: "You", avatarUrl: null },
 		status: "ready",
 		error: null,
 		retry: vi.fn(),
@@ -95,7 +82,178 @@ function mockOwnershipAndUser(): void {
 		error: null,
 		retry: vi.fn(),
 	} as UseThreadsResult);
+	vi.mocked(useThread).mockReturnValue({
+		status: "ready",
+		data: {
+			thread: BASE_THREAD,
+			members: [
+				{ id: MY_USER_ID, name: "You", role: "human", isAgent: false },
+				{ id: MY_AGENT_ID, name: "Assistant", role: "assistant", isAgent: true },
+			],
+			messages: [],
+			headMessageId: null,
+			hostTitle: "Assistant",
+		},
+		error: null,
+		refresh: vi.fn(),
+	} as UseThreadResult);
 }
+
+const mockAnchorRef = createRef<HTMLButtonElement>();
+
+function renderOverlay(
+	open: boolean,
+	contextRefs: ReadonlyArray<AssistantContextRef> = [],
+	onClose = vi.fn(),
+	onRemoveContextRef = vi.fn(),
+): ReturnType<typeof render> {
+	return render(
+		<MemoryRouter>
+			<AssistantOverlay
+				open={open}
+				onClose={onClose}
+				anchorRef={mockAnchorRef}
+				contextRefs={contextRefs}
+				onRemoveContextRef={onRemoveContextRef}
+			/>
+		</MemoryRouter>,
+	);
+}
+
+describe("AssistantOverlay open/close", () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it("renders nothing when open=false", () => {
+		renderOverlay(false);
+		expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+	});
+
+	it("renders the overlay panel when open=true", () => {
+		mockReadyOverlay();
+		renderOverlay(true);
+		expect(screen.getByRole("dialog")).toBeInTheDocument();
+	});
+
+	it("overlay has aria-label containing 'assistant'", () => {
+		mockReadyOverlay();
+		renderOverlay(true);
+		expect(screen.getByRole("dialog", { name: /assistant/i })).toBeInTheDocument();
+	});
+
+	it("calls onClose when Escape is pressed", async () => {
+		mockReadyOverlay();
+		const user = userEvent.setup();
+		const onClose = vi.fn();
+		renderOverlay(true, [], onClose);
+		await user.keyboard("{Escape}");
+		expect(onClose).toHaveBeenCalledOnce();
+	});
+});
+
+describe("AssistantOverlay message thread rendering", () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it("renders ThreadShell when overlay is open", () => {
+		mockReadyOverlay();
+		renderOverlay(true);
+		expect(screen.getByTestId("thread-shell")).toBeInTheDocument();
+	});
+});
+
+describe("AssistantOverlay context chips", () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it("renders context chips when contextRefs is non-empty", () => {
+		mockReadyOverlay();
+		const contextRefs: ReadonlyArray<AssistantContextRef> = [
+			{ kind: "task", id: "task-1", label: "Test Bet" },
+		];
+		renderOverlay(true, contextRefs);
+		expect(screen.getByText("Test Bet")).toBeInTheDocument();
+	});
+
+	it("renders no context chips when contextRefs is empty", () => {
+		mockReadyOverlay();
+		renderOverlay(true, []);
+		expect(screen.queryByTestId("assistant-context-chips")).not.toBeInTheDocument();
+	});
+
+	it("renders context chip container with correct data-testid", () => {
+		mockReadyOverlay();
+		const contextRefs: ReadonlyArray<AssistantContextRef> = [
+			{ kind: "task", id: "task-1", label: "Fix bug" },
+		];
+		renderOverlay(true, contextRefs);
+		expect(screen.getByTestId("assistant-context-chips")).toBeInTheDocument();
+	});
+
+	it("calls onRemoveContextRef when chip dismiss button is clicked", async () => {
+		mockReadyOverlay();
+		const user = userEvent.setup();
+		const onRemoveContextRef = vi.fn();
+		const contextRefs: ReadonlyArray<AssistantContextRef> = [
+			{ kind: "task", id: "task-1", label: "My Bet" },
+		];
+		renderOverlay(true, contextRefs, vi.fn(), onRemoveContextRef);
+		const dismissButton = screen.getByRole("button", { name: /remove|dismiss|×/i });
+		await user.click(dismissButton);
+		expect(onRemoveContextRef).toHaveBeenCalledWith(0);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Layout fixes: composer/message-list height, no duplicate "Assistant" header
+// ---------------------------------------------------------------------------
+
+describe("AssistantOverlay layout fixes", () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it("overlay bar contains no heading — ThreadShell banner is the only title", () => {
+		mockReadyOverlay();
+		renderOverlay(true);
+
+		// The overlay's own bar used to have an <h2>Assistant</h2> which duplicated
+		// ThreadShell's host banner. That h2 is now removed. The close button
+		// is the only interactive element in the bar.
+		const closeBtn = screen.getByRole("button", { name: /close assistant/i });
+		expect(closeBtn).toBeInTheDocument();
+
+		// No semantic headings — ThreadHostBanner renders non-heading text.
+		const headings = screen.queryAllByRole("heading");
+		expect(headings).toHaveLength(0);
+	});
+
+	it("ThreadShell mounts inside the overlay dialog", () => {
+		mockReadyOverlay();
+		renderOverlay(true);
+
+		expect(screen.getByTestId("thread-shell")).toBeInTheDocument();
+		expect(screen.getByRole("dialog", { name: /assistant conversation/i })).toBeInTheDocument();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Notice rendering: missing_key / missing_harness / provider_error guidance,
+// plus crash-recovery (stale thinking state)
+// ---------------------------------------------------------------------------
+//
+// `notice` stays on the READ shape only (Reconciliation R9) —
+// `AssistantOverlay.tsx`'s renderer is unchanged, so this coverage is kept
+// and re-pointed rather than deleted.
+
+const NOW_ISO = new Date().toISOString();
+// A timestamp older than the turn timeout
+const STALE_ISO = new Date(Date.now() - ASSISTANT_TURN_TIMEOUT_MS - 10_000).toISOString();
+// A timestamp within the turn timeout window
+const RECENT_ISO = new Date(Date.now() - 30_000).toISOString();
 
 function makeData(messages: ReadonlyArray<Record<string, unknown>>): UseThreadResult {
 	return {
@@ -115,7 +273,7 @@ function makeData(messages: ReadonlyArray<Record<string, unknown>>): UseThreadRe
 	};
 }
 
-function renderOverlay() {
+function renderNoticeOverlay() {
 	return render(
 		<AssistantOverlay
 			open={true}
@@ -132,12 +290,12 @@ describe("AssistantOverlay notice rendering", () => {
 	});
 
 	it("renders missing_key guidance card naming Settings → Credentials", () => {
-		mockOwnershipAndUser();
+		mockReadyOverlay();
 		vi.mocked(useThread).mockReturnValue(
 			makeData([
 				{
 					id: "msg-mk-1",
-					threadId: "t-overlay-ah3",
+					threadId: BASE_THREAD.id,
 					senderId: MY_AGENT_ID,
 					type: "plain",
 					payload: {
@@ -154,7 +312,7 @@ describe("AssistantOverlay notice rendering", () => {
 			]),
 		);
 
-		renderOverlay();
+		renderNoticeOverlay();
 
 		// Must render guidance card for missing_key
 		expect(screen.getByText(/no api key/i)).toBeInTheDocument();
@@ -163,12 +321,12 @@ describe("AssistantOverlay notice rendering", () => {
 	});
 
 	it("renders missing_harness guidance card naming Agent settings", () => {
-		mockOwnershipAndUser();
+		mockReadyOverlay();
 		vi.mocked(useThread).mockReturnValue(
 			makeData([
 				{
 					id: "msg-mh-1",
-					threadId: "t-overlay-ah3",
+					threadId: BASE_THREAD.id,
 					senderId: MY_AGENT_ID,
 					type: "plain",
 					payload: {
@@ -185,7 +343,7 @@ describe("AssistantOverlay notice rendering", () => {
 			]),
 		);
 
-		renderOverlay();
+		renderNoticeOverlay();
 
 		// Must render guidance card for missing_harness
 		expect(screen.getByText(/runtime not configured/i)).toBeInTheDocument();
@@ -194,12 +352,12 @@ describe("AssistantOverlay notice rendering", () => {
 	});
 
 	it("renders provider_error guidance card with Retry ghost button", () => {
-		mockOwnershipAndUser();
+		mockReadyOverlay();
 		vi.mocked(useThread).mockReturnValue(
 			makeData([
 				{
 					id: "msg-pe-1",
-					threadId: "t-overlay-ah3",
+					threadId: BASE_THREAD.id,
 					senderId: MY_AGENT_ID,
 					type: "plain",
 					payload: {
@@ -216,7 +374,7 @@ describe("AssistantOverlay notice rendering", () => {
 			]),
 		);
 
-		renderOverlay();
+		renderNoticeOverlay();
 
 		// Must render provider_error card copy
 		expect(screen.getByText(/couldn't reach the model/i)).toBeInTheDocument();
@@ -225,12 +383,12 @@ describe("AssistantOverlay notice rendering", () => {
 	});
 
 	it("renders notice card with role=alert (accessibility)", () => {
-		mockOwnershipAndUser();
+		mockReadyOverlay();
 		vi.mocked(useThread).mockReturnValue(
 			makeData([
 				{
 					id: "msg-alert-1",
-					threadId: "t-overlay-ah3",
+					threadId: BASE_THREAD.id,
 					senderId: MY_AGENT_ID,
 					type: "plain",
 					payload: {
@@ -247,18 +405,18 @@ describe("AssistantOverlay notice rendering", () => {
 			]),
 		);
 
-		renderOverlay();
+		renderNoticeOverlay();
 
 		expect(screen.getByRole("alert")).toBeInTheDocument();
 	});
 
 	it("regular plain messages without notice render as normal chat (no guidance card)", () => {
-		mockOwnershipAndUser();
+		mockReadyOverlay();
 		vi.mocked(useThread).mockReturnValue(
 			makeData([
 				{
 					id: "msg-normal-1",
-					threadId: "t-overlay-ah3",
+					threadId: BASE_THREAD.id,
 					senderId: MY_AGENT_ID,
 					type: "plain",
 					payload: {
@@ -274,7 +432,7 @@ describe("AssistantOverlay notice rendering", () => {
 			]),
 		);
 
-		renderOverlay();
+		renderNoticeOverlay();
 
 		expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 		expect(screen.getByText("Hello! How can I help you today?")).toBeInTheDocument();
@@ -287,13 +445,13 @@ describe("Crash-recovery: stale thinking state renders Retry card", () => {
 	});
 
 	it("thread whose last message is human AND older than ASSISTANT_TURN_TIMEOUT_MS shows Retry card (not spinner)", () => {
-		mockOwnershipAndUser();
+		mockReadyOverlay();
 		// Last message is a human message, older than the timeout window
 		vi.mocked(useThread).mockReturnValue(
 			makeData([
 				{
 					id: "msg-stale-1",
-					threadId: "t-overlay-ah3",
+					threadId: BASE_THREAD.id,
 					senderId: MY_USER_ID,
 					type: "plain",
 					payload: { text: "Can you help me with this?" },
@@ -307,7 +465,7 @@ describe("Crash-recovery: stale thinking state renders Retry card", () => {
 			]),
 		);
 
-		renderOverlay();
+		renderNoticeOverlay();
 
 		// Must NOT show an infinite spinner
 		expect(screen.queryByText(/thinking/i)).not.toBeInTheDocument();
@@ -321,12 +479,12 @@ describe("Crash-recovery: stale thinking state renders Retry card", () => {
 	});
 
 	it("thread whose last message is human AND within ASSISTANT_TURN_TIMEOUT_MS shows thinking indicator", () => {
-		mockOwnershipAndUser();
+		mockReadyOverlay();
 		vi.mocked(useThread).mockReturnValue(
 			makeData([
 				{
 					id: "msg-recent-1",
-					threadId: "t-overlay-ah3",
+					threadId: BASE_THREAD.id,
 					senderId: MY_USER_ID,
 					type: "plain",
 					payload: { text: "What do you think?" },
@@ -340,19 +498,19 @@ describe("Crash-recovery: stale thinking state renders Retry card", () => {
 			]),
 		);
 
-		renderOverlay();
+		renderNoticeOverlay();
 
 		// Must show "thinking…" indicator (not the Retry card for a stale turn)
 		expect(screen.getByText(/thinking/i)).toBeInTheDocument();
 	});
 
 	it("thread whose last message is from the assistant shows neither thinking nor Retry", () => {
-		mockOwnershipAndUser();
+		mockReadyOverlay();
 		vi.mocked(useThread).mockReturnValue(
 			makeData([
 				{
 					id: "msg-ast-1",
-					threadId: "t-overlay-ah3",
+					threadId: BASE_THREAD.id,
 					senderId: MY_USER_ID,
 					type: "plain",
 					payload: { text: "Help me." },
@@ -365,7 +523,7 @@ describe("Crash-recovery: stale thinking state renders Retry card", () => {
 				},
 				{
 					id: "msg-ast-2",
-					threadId: "t-overlay-ah3",
+					threadId: BASE_THREAD.id,
 					senderId: MY_AGENT_ID,
 					type: "plain",
 					payload: { text: "Sure, here is my answer." },
@@ -379,7 +537,7 @@ describe("Crash-recovery: stale thinking state renders Retry card", () => {
 			]),
 		);
 
-		renderOverlay();
+		renderNoticeOverlay();
 
 		// The assistant replied — no thinking indicator, no stale Retry
 		expect(screen.queryByText(/thinking/i)).not.toBeInTheDocument();
@@ -422,7 +580,7 @@ describe("Review fix: loading guard covers useCurrentUser too", () => {
 			refresh: vi.fn(),
 		} as UseThreadResult);
 
-		const { container } = renderOverlay();
+		const { container } = renderNoticeOverlay();
 
 		expect(screen.queryByText(/couldn't find your assistant agent/i)).not.toBeInTheDocument();
 		expect(container.querySelector(".loading-spinner")).not.toBeNull();
@@ -463,7 +621,7 @@ describe("Review fix: no-agent Retry calls useAgents().refetch, not threadSearch
 		} as UseThreadResult);
 
 		const user = userEvent.setup();
-		renderOverlay();
+		renderNoticeOverlay();
 
 		expect(screen.getByText(/couldn't find your assistant agent/i)).toBeInTheDocument();
 		await user.click(screen.getByRole("button", { name: /retry/i }));
@@ -479,8 +637,8 @@ describe("Review fix: useThread 'idle' status is the empty say-hello state, not 
 	});
 
 	it("renders the compose-only empty state, not a spinner, when useThread reports 'idle'", () => {
-		mockOwnershipAndUser();
-		// No existing thread — overrides mockOwnershipAndUser's default thread row.
+		mockReadyOverlay();
+		// No existing thread — overrides mockReadyOverlay's default thread row.
 		vi.mocked(useThreads).mockReturnValue({
 			status: "ready",
 			threads: [],
@@ -496,7 +654,7 @@ describe("Review fix: useThread 'idle' status is the empty say-hello state, not 
 			refresh: vi.fn(),
 		} as unknown as UseThreadResult);
 
-		renderOverlay();
+		renderNoticeOverlay();
 
 		expect(screen.getByText(/say something to start/i)).toBeInTheDocument();
 		expect(screen.queryByText(/couldn't find your assistant agent/i)).not.toBeInTheDocument();
