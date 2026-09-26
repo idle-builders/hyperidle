@@ -1,10 +1,9 @@
 /**
  * `blockId` is persisted in a structured, queryable column (`Message.blockId`,
  * `framework/domain-model/src/actions/thread.ts`), not only in the JSON
- * payload; anchored messages outlive their block (no cascade delete); and
- * `open_thread({ id, blockId })` filters messages by blockId. Driven through
- * `POST /api/actions/send_message` / `POST /api/actions/open_thread` against
- * the real server + real PGlite DB (no mocks).
+ * payload, and `open_thread({ id, blockId })` filters messages by it. Driven
+ * through `POST /api/actions/send_message` / `POST /api/actions/open_thread`
+ * against the real server + real PGlite DB (no mocks).
  */
 
 import { type HyperIdleDb, messages, teams, users } from "@hyperidle/db";
@@ -33,8 +32,8 @@ async function call<T>(
 }
 
 /** `resolveApiKeyActorUserId` resolves the actor to the sole seeded human. */
-const FOUNDER_ID = "u-t5-founder";
-const RECIPIENT_ID = "u-t5-recipient";
+const FOUNDER_ID = "u-blockid-founder";
+const RECIPIENT_ID = "u-blockid-recipient";
 
 async function seedBase(db: HyperIdleDb, teamId: string): Promise<void> {
 	const now = new Date().toISOString();
@@ -99,7 +98,7 @@ describe("blockId written to the column on send_message (new thread)", () => {
 		db,
 		app,
 	}) => {
-		await seedBase(db, "t5-team-1");
+		await seedBase(db, "blockid-team-1");
 		const blockId = "block-abc123def456";
 
 		const res = await call<{ message: { id: string } }>(app, "send_message", {
@@ -116,7 +115,7 @@ describe("blockId written to the column on send_message (new thread)", () => {
 	});
 
 	test("message row has null block_id when no blockId is in the payload", async ({ db, app }) => {
-		await seedBase(db, "t5-team-2");
+		await seedBase(db, "blockid-team-2");
 
 		const res = await call<{ message: { id: string } }>(app, "send_message", {
 			recipients: [RECIPIENT_ID],
@@ -136,7 +135,7 @@ describe("blockId written to the column on send_message (append)", () => {
 		db,
 		app,
 	}) => {
-		await seedBase(db, "t5-team-3");
+		await seedBase(db, "blockid-team-3");
 		const threadId = await createThread(app);
 		const blockId = "block-append-xyz789";
 
@@ -157,7 +156,7 @@ describe("blockId written to the column on send_message (append)", () => {
 		db,
 		app,
 	}) => {
-		await seedBase(db, "t5-team-4");
+		await seedBase(db, "blockid-team-4");
 		const threadId = await createThread(app);
 
 		const res = await call<{ message: { id: string } }>(app, "send_message", {
@@ -178,7 +177,7 @@ describe("open_thread({ id, blockId }) returns only matching messages", () => {
 		db,
 		app,
 	}) => {
-		await seedBase(db, "t5-team-5");
+		await seedBase(db, "blockid-team-5");
 		const threadId = await createFilterThread(app);
 
 		const res = await call<ThreadView>(app, "open_thread", {
@@ -192,7 +191,7 @@ describe("open_thread({ id, blockId }) returns only matching messages", () => {
 	});
 
 	test("no blockId filter returns all 5 messages", async ({ db, app }) => {
-		await seedBase(db, "t5-team-6");
+		await seedBase(db, "blockid-team-6");
 		const threadId = await createFilterThread(app);
 
 		const res = await call<ThreadView>(app, "open_thread", { id: threadId });
@@ -204,7 +203,7 @@ describe("open_thread({ id, blockId }) returns only matching messages", () => {
 		db,
 		app,
 	}) => {
-		await seedBase(db, "t5-team-7");
+		await seedBase(db, "blockid-team-7");
 		const threadId = await createFilterThread(app);
 
 		const res = await call<ThreadView>(app, "open_thread", {
@@ -216,7 +215,7 @@ describe("open_thread({ id, blockId }) returns only matching messages", () => {
 	});
 
 	test("a nonexistent blockId returns 0 messages", async ({ db, app }) => {
-		await seedBase(db, "t5-team-8");
+		await seedBase(db, "blockid-team-8");
 		const threadId = await createFilterThread(app);
 
 		const res = await call<ThreadView>(app, "open_thread", {
@@ -231,7 +230,7 @@ describe("open_thread({ id, blockId }) returns only matching messages", () => {
 		db,
 		app,
 	}) => {
-		await seedBase(db, "t5-team-9");
+		await seedBase(db, "blockid-team-9");
 		const threadId = await createFilterThread(app);
 
 		const res = await app.request("/api/actions/open_thread", {
@@ -248,7 +247,7 @@ describe("open_thread({ id, blockId }) returns only matching messages", () => {
 		db,
 		app,
 	}) => {
-		await seedBase(db, "t5-team-10");
+		await seedBase(db, "blockid-team-10");
 		const threadId = await createFilterThread(app);
 		const oversizedBlockId = "x".repeat(129);
 
@@ -260,28 +259,5 @@ describe("open_thread({ id, blockId }) returns only matching messages", () => {
 		expect(res.status).toBe(400);
 		const body = (await res.json()) as { code: string };
 		expect(body.code).toBe("VALIDATION_ERROR");
-	});
-});
-
-describe("anchored messages outlive their block (no cascade delete)", () => {
-	test("a message with blockId persists in its own structured column when the thread is not deleted", async ({
-		db,
-		app,
-	}) => {
-		await seedBase(db, "t5-team-11");
-		const blockId = "block-persist-test";
-
-		const res = await call<{ message: { id: string } }>(app, "send_message", {
-			recipients: [RECIPIENT_ID],
-			text: "Anchored message that outlives its block",
-			blockId,
-		});
-		expect(res.status).toBe(200);
-		const messageId = (res.body.data as { message: { id: string } }).message.id;
-
-		const messageRows = await db.select().from(messages).where(eq(messages.id, messageId));
-		expect(messageRows).toHaveLength(1);
-		expect(messageRows[0]?.blockId).toBe(blockId);
-		expect(Object.keys(messageRows[0] ?? {})).toContain("blockId");
 	});
 });
