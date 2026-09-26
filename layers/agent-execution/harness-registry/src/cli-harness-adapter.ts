@@ -390,8 +390,8 @@ let exitHandlerRegistered = false;
  * every `CliHarnessAdapter` instance constructed in this process. This is
  * the exact sweep the shared `process.on("exit", ...)` handler below performs
  * — kept as a named, standalone, EXPORTED function for two reasons: a unit
- * test can invoke real process-exit handling via `process.emit("exit", ...)`
- * and assert on the result without ever calling `process.exit()`; and a
+ * test can call it directly, with an injected killFn, and assert on the
+ * result without calling `process.exit()` or emitting "exit"; and a
  * live-harness integration test in another package (core-api) can call it
  * directly from its own `afterEach` as a "stop everything now" safety net —
  * a vitest test timeout skips a test's own `finally` block, but `afterEach`
@@ -1150,21 +1150,23 @@ export class CliHarnessAdapter implements HarnessAdapter {
 	/**
 	 * D-akgvxh: SIGKILLs every still-RUNNING session this adapter holds a live
 	 * child for. Called by the shared process 'exit' handler above; also
-	 * callable directly, which is how the unit test drives it without ever
-	 * calling `process.exit()` (it emits "exit" on `process` and lets the real
-	 * registered listener run instead).
+	 * callable directly: the unit test calls `stopAllLiveHarnessSessions()`
+	 * itself, with an injected killFn, and never emits "exit" on the real
+	 * `process` (that would sweep every other test's adapter too).
 	 *
-	 * @lore B3 reused-pid gap: a `session.done` entry (the CLI already exited —
-	 * `stopSession`'s own done-branch already signalled its group once, right
-	 * after exit, when the pid was still certainly the same process) can sit in
+	 * @lore B3 reused-pid gap: a `session.done` entry (the CLI already exited;
+	 * if the caller calls `stopSession`, its done-branch signals the group once,
+	 * soon after the exit) can sit in
 	 * `this.sessions` for an UNBOUNDED time if the caller never calls
 	 * `stopSession` at all. By the time this sweep runs — a crash, a forced
 	 * exit, an arbitrarily later moment — the OS may have long since recycled
 	 * that pid for an unrelated process. Signalling it then would SIGKILL
 	 * whatever now holds that pid, not the harness that used to. Skipping
-	 * `session.done` here closes that: the done-branch's OWN signal (fired in
-	 * the same tick as the exit, before any reuse is plausible) is the only
-	 * kill a done session ever gets.
+	 * `session.done` here closes that: the done-branch's OWN signal is the only
+	 * kill a done session ever gets. That signal is not in the same tick as the
+	 * exit — it fires when the caller calls `stopSession`, which on the normal
+	 * drain-then-stop path is right after the drain finishes, so a reused pid is
+	 * unlikely there but not impossible.
 	 */
 	killAllLiveSessionGroups(): void {
 		for (const session of this.sessions.values()) {
