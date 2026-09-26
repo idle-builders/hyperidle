@@ -17,8 +17,9 @@ import type {
 } from "@hyperidle/harness-protocol";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AdapterPool, createLocalAdapterPool } from "../adapter-pool.js";
+import type { CliAvailabilityDeps } from "../cli-harness-adapter.js";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
-import type { HarnessDiscoveryInput } from "../harness-discovery.js";
+import type { HarnessDiscoveryInput, HarnessProbeDeps } from "../harness-discovery.js";
 import * as harnessDiscovery from "../harness-discovery.js";
 
 function makeAdapter(caps?: Partial<HarnessCapabilities>): HarnessAdapter {
@@ -488,38 +489,42 @@ describe("AdapterPool.refresh", () => {
 		vi.restoreAllMocks();
 	});
 
-	it("re-runs discovery and replaces the stale snapshot", async () => {
+	it("re-runs discovery and replaces the stale snapshot, not just the internal call", async () => {
 		const fresh: Record<string, HarnessDiscoveryInput> = {
 			opencode: { state: "ready", version: "fresh" },
 		};
-		const discoverSpy = vi
-			.spyOn(harnessDiscovery, "discoverLocalHarnesses")
+		vi.spyOn(harnessDiscovery, "discoverLocalHarnesses")
 			// biome-ignore lint/suspicious/noExplicitAny: test mock requires partial shape
 			.mockResolvedValue(fresh as any);
 		const pool = new AdapterPool({ opencode: { state: "ready", version: "stale" } });
 
 		await pool.refresh();
 
-		expect(discoverSpy).toHaveBeenCalledOnce();
-	});
-
-	it("does not run the session probe — runtime caps stay unset after a refresh", async () => {
-		const fresh: Record<string, HarnessDiscoveryInput> = {
-			"claude-code": { state: "ready", version: "2.1.178" },
-		};
-		vi.spyOn(harnessDiscovery, "discoverLocalHarnesses")
-			// biome-ignore lint/suspicious/noExplicitAny: test mock requires partial shape
-			.mockResolvedValue(fresh as any);
-		const pool = new AdapterPool();
-
-		await pool.refresh();
-
-		const claudeCode = pool.describe().find((d) => d.type === "claude-code");
-		expect(claudeCode?.discovery.state).toBeDefined();
+		// The proof is in what a caller can observe afterward, not that the spy
+		// fired — a version still reading "stale" here would mean refresh() never
+		// replaced the pool's own snapshot, whatever discoverLocalHarnesses returned.
+		const opencode = pool.describe().find((d) => d.type === "opencode");
+		expect(opencode?.discovery.version).toBe("fresh");
 	});
 });
 
 describe("createLocalAdapterPool — hermetic behavior", () => {
+	// No real binary is ever spawned or shelled out to here: both discovery and
+	// availability are injected with stubs that report "nothing installed" —
+	// the same seam discoverLocalHarnesses/checkAvailability already expose for
+	// production callers, not a test-only export.
+	const noDiscovery: HarnessProbeDeps = {
+		run: async () => ({ stdout: "", stderr: "not found", exitCode: 1 }),
+	};
+	const noBinaries: CliAvailabilityDeps = {
+		whichFn: async () => {
+			throw new Error("not found");
+		},
+	};
+	function fakeLocalAdapterPool() {
+		return createLocalAdapterPool({ discoveryDeps: noDiscovery, availabilityDeps: noBinaries });
+	}
+
 	beforeEach(() => {
 		vi.unstubAllEnvs();
 	});
@@ -529,7 +534,7 @@ describe("createLocalAdapterPool — hermetic behavior", () => {
 	});
 
 	it("returns null for an unknown harnessType", async () => {
-		const pool = await createLocalAdapterPool();
+		const pool = await fakeLocalAdapterPool();
 		expect(pool.select({ harnessType: "totally-unknown-harness-xyz" })).toBeNull();
 	});
 
@@ -578,7 +583,7 @@ describe("createLocalAdapterPool — hermetic behavior", () => {
 	});
 
 	it("registers no id matching the retired isolation machinery", async () => {
-		const pool = await createLocalAdapterPool();
+		const pool = await fakeLocalAdapterPool();
 		expect(pool.has("isolated-worker")).toBe(false);
 		expect(pool.has("docker-worker")).toBe(false);
 	});
@@ -590,7 +595,7 @@ describe("createLocalAdapterPool — hermetic behavior", () => {
 		vi.stubEnv("HYPERIDLE_ENABLE_ISOLATED", "1");
 		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-		await createLocalAdapterPool();
+		await fakeLocalAdapterPool();
 
 		const isolatedWarnings = warnSpy.mock.calls
 			.map((args) => args.map(String).join(" "))
@@ -599,7 +604,7 @@ describe("createLocalAdapterPool — hermetic behavior", () => {
 	});
 
 	it("registers no adapter that is not a real CLI harness type", async () => {
-		const pool = await createLocalAdapterPool();
+		const pool = await fakeLocalAdapterPool();
 		expect(pool.has("local-builtin")).toBe(false);
 		for (const d of pool.describe({ includeKnownMissing: false })) {
 			expect(["claude-code", "codex", "opencode", "cursor-agent"]).toContain(d.type);

@@ -9,13 +9,17 @@
 import type { HarnessType } from "@hyperidle/domain-model";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import type { AdapterInfo, AdapterMeta, HarnessAdapter } from "@hyperidle/harness-protocol";
-import { type CliAdapterConfig, CliHarnessAdapter } from "./cli-harness-adapter.js";
+import {
+	type CliAdapterConfig,
+	type CliAvailabilityDeps,
+	CliHarnessAdapter,
+} from "./cli-harness-adapter.js";
 import type { EnforcementRegistry } from "./enforcement-registry.js";
 import {
 	describeHarnessCapability,
 	missingHarnessCapabilities,
 } from "./harness-capability-descriptors.js";
-import type { HarnessDiscoveryInput } from "./harness-discovery.js";
+import type { HarnessDiscoveryInput, HarnessProbeDeps } from "./harness-discovery.js";
 import { discoverLocalHarnesses, type HarnessDiscoveryResult } from "./harness-discovery.js";
 
 /** Internal pool entry. */
@@ -82,9 +86,13 @@ export class AdapterPool {
 	 *
 	 * @lore AM4: Called by POST /api/harnesses/redetect. The pool is DB-free so
 	 * the caller (route handler) stamps discovery.disabled separately from readServerConfig.
+	 *
+	 * `discoveryDeps` is the same injectable command-runner discoverLocalHarnesses
+	 * already takes — a unit test passes a stub here so refresh() never spawns a
+	 * real binary; production never passes it, so real discovery runs unchanged.
 	 */
-	async refresh(): Promise<void> {
-		const fresh = await discoverLocalHarnesses();
+	async refresh(discoveryDeps?: HarnessProbeDeps): Promise<void> {
+		const fresh = await discoverLocalHarnesses(discoveryDeps);
 		this.discoveries = Object.freeze(
 			Object.fromEntries(
 				Object.entries(fresh).map(([k, v]) => [k, v as HarnessDiscoveryInput]),
@@ -612,11 +620,12 @@ export const CURSOR_AGENT_CLI_CONFIG: CliAdapterConfig = {
 async function registerCliAdaptersIfAvailable(
 	pool: AdapterPool,
 	enforcement?: EnforcementRegistry,
+	availabilityDeps?: CliAvailabilityDeps,
 ): Promise<void> {
 	const maxConcurrent = Number.parseInt(process.env.HYPERIDLE_LOCAL_MAX_CONCURRENT ?? "2", 10);
 
 	for (const [name, config] of Object.entries(CLI_TOOL_CONFIGS)) {
-		const available = await CliHarnessAdapter.checkAvailability(config.binary);
+		const available = await CliHarnessAdapter.checkAvailability(config.binary, availabilityDeps);
 		if (available) {
 			const adapter = new CliHarnessAdapter(config, { enforcement });
 			pool.register(`local-cli-${name}`, adapter, {
@@ -663,14 +672,24 @@ async function registerCliAdaptersIfAvailable(
  */
 export async function createLocalAdapterPool(opts?: {
 	enforcement?: EnforcementRegistry;
+	/**
+	 * Injectable command-runner for binary discovery — the same seam
+	 * discoverLocalHarnesses/checkAvailability already expose for tests. A unit
+	 * test passes stubs here so createLocalAdapterPool never spawns a real CLI's
+	 * `--version` or shells out to `which`; production never passes them, so real
+	 * discovery runs unchanged.
+	 */
+	discoveryDeps?: HarnessProbeDeps;
+	availabilityDeps?: CliAvailabilityDeps;
 }): Promise<AdapterPool> {
-	const discoveries = await discoverLocalHarnesses();
+	const discoveries = await discoverLocalHarnesses(opts?.discoveryDeps);
 	const pool = new AdapterPool(discoveries);
 	const maxConcurrent = Number.parseInt(process.env.HYPERIDLE_LOCAL_MAX_CONCURRENT ?? "4", 10);
 	const enforcement = opts?.enforcement;
+	const availabilityDeps = opts?.availabilityDeps;
 
 	// 1. claude-code adapter (CliHarnessAdapter, registered only if `claude` binary is on PATH)
-	if (await CliHarnessAdapter.checkAvailability(CLAUDE_CLI_CONFIG.binary)) {
+	if (await CliHarnessAdapter.checkAvailability(CLAUDE_CLI_CONFIG.binary, availabilityDeps)) {
 		pool.register("local-claude-code", new CliHarnessAdapter(CLAUDE_CLI_CONFIG, { enforcement }), {
 			name: "Claude Code",
 			kind: "local",
@@ -685,7 +704,7 @@ export async function createLocalAdapterPool(opts?: {
 	}
 
 	// 1b. cursor-agent adapter (CliHarnessAdapter, registered only if binary is on PATH)
-	if (await CliHarnessAdapter.checkAvailability(CURSOR_AGENT_CLI_CONFIG.binary)) {
+	if (await CliHarnessAdapter.checkAvailability(CURSOR_AGENT_CLI_CONFIG.binary, availabilityDeps)) {
 		pool.register(
 			"local-cursor-agent",
 			new CliHarnessAdapter(CURSOR_AGENT_CLI_CONFIG, { enforcement }),
@@ -700,7 +719,7 @@ export async function createLocalAdapterPool(opts?: {
 	}
 
 	// 3. CLI adapters: registered dynamically when available
-	await registerCliAdaptersIfAvailable(pool, enforcement);
+	await registerCliAdaptersIfAvailable(pool, enforcement, availabilityDeps);
 
 	return pool;
 }
