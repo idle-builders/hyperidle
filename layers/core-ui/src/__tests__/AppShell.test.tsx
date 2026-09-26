@@ -221,7 +221,13 @@ describe("AppShell", () => {
 				json: () =>
 					Promise.resolve({
 						conversations: [
-							{ id: "c9", title: "Review session", snippet: "...", timestamp: "1m ago", kind: "review" },
+							{
+								id: "c9",
+								title: "Review session",
+								snippet: "...",
+								timestamp: "1m ago",
+								kind: "review",
+							},
 						],
 						work: [],
 						documents: [],
@@ -297,7 +303,9 @@ describe("AppShell wires the thread list into the Sidebar Conversations section"
 			}
 			return { ok: true, data: [] };
 		});
-		global.fetch = vi.fn(async () => ({ ok: true, json: async () => ({}) }) as Response) as unknown as typeof fetch;
+		global.fetch = vi.fn(
+			async () => ({ ok: true, json: async () => ({}) }) as Response,
+		) as unknown as typeof fetch;
 	}
 
 	function MainStub(): JSX.Element {
@@ -310,7 +318,9 @@ describe("AppShell wires the thread list into the Sidebar Conversations section"
 		return <div data-testid="threads-status-stub">{ctx?.threadsStatus ?? "none"}</div>;
 	}
 
-	function renderShell(initialPath = "/conversations"): { router: ReturnType<typeof createMemoryRouter> } {
+	function renderShell(initialPath = "/conversations"): {
+		router: ReturnType<typeof createMemoryRouter>;
+	} {
 		const router = createMemoryRouter(
 			[
 				{
@@ -380,7 +390,8 @@ describe("AppShell wires the thread list into the Sidebar Conversations section"
 
 	it("shows 'Couldn't load threads' (not the empty copy) when the user fetch fails", async () => {
 		callMock.mockImplementation(async (action: string) => {
-			if (action === "open_user") return { ok: false, problems: [{ code: "boom", message: "Network error" }] };
+			if (action === "open_user")
+				return { ok: false, problems: [{ code: "boom", message: "Network error" }] };
 			return { ok: true, data: [] };
 		});
 		renderShell();
@@ -392,11 +403,18 @@ describe("AppShell wires the thread list into the Sidebar Conversations section"
 
 	it("passes threadsStatus='error' (not 'ready') through Outlet context when the user fetch fails", async () => {
 		callMock.mockImplementation(async (action: string) => {
-			if (action === "open_user") return { ok: false, problems: [{ code: "boom", message: "Network error" }] };
+			if (action === "open_user")
+				return { ok: false, problems: [{ code: "boom", message: "Network error" }] };
 			return { ok: true, data: [] };
 		});
 		const router = createMemoryRouter(
-			[{ path: "/", element: <AppShell />, children: [{ path: "conversations", element: <ThreadsStatusStub /> }] }],
+			[
+				{
+					path: "/",
+					element: <AppShell />,
+					children: [{ path: "conversations", element: <ThreadsStatusStub /> }],
+				},
+			],
 			{ initialEntries: ["/conversations"] },
 		);
 		render(<RouterProvider router={router} />);
@@ -444,13 +462,22 @@ describe("AppShell sidebar Knowledge fast-nav list", () => {
 					ok: true,
 					data: [
 						docRow({ id: "k1", title: "Auth" }),
-						docRow({ id: "k-skill", title: "write-tests-skill", slot: "skill", parentKind: "agent", parentId: "agent-1" }),
+						docRow({
+							id: "k-skill",
+							title: "write-tests-skill",
+							slot: "skill",
+							parentKind: "agent",
+							parentId: "agent-1",
+						}),
 					],
 				};
 			}
 			return { ok: true, data: [] };
 		});
-		global.fetch = vi.fn(async () => ({ ok: true, json: async () => ({ threads: [], nextCursor: null }) })) as unknown as typeof fetch;
+		global.fetch = vi.fn(async () => ({
+			ok: true,
+			json: async () => ({ threads: [], nextCursor: null }),
+		})) as unknown as typeof fetch;
 	});
 
 	function renderShellAt(initialPath: string): ReturnType<typeof createMemoryRouter> {
@@ -626,8 +653,20 @@ describe("AppShell settings", () => {
 		await user.click(screen.getByRole("button", { name: /settings/i }));
 
 		await waitFor(() => {
-			expect(screen.getByRole("button", { name: /settings/i })).toHaveAttribute("aria-current", "page");
-			for (const label of ["Profile", "Org chart", "Worker", "Plugins", "Notifications", "Appearance", "Agents", "Backend"]) {
+			expect(screen.getByRole("button", { name: /settings/i })).toHaveAttribute(
+				"aria-current",
+				"page",
+			);
+			for (const label of [
+				"Profile",
+				"Org chart",
+				"Worker",
+				"Plugins",
+				"Notifications",
+				"Appearance",
+				"Agents",
+				"Backend",
+			]) {
 				expect(screen.getAllByText(label).length).toBeGreaterThanOrEqual(1);
 			}
 		});
@@ -641,7 +680,10 @@ describe("AppShell settings", () => {
 		});
 		await user.click(screen.getByRole("button", { name: /settings/i }));
 		await waitFor(() => {
-			expect(screen.getByRole("button", { name: /settings/i })).toHaveAttribute("aria-current", "page");
+			expect(screen.getByRole("button", { name: /settings/i })).toHaveAttribute(
+				"aria-current",
+				"page",
+			);
 		});
 		expect(screen.getByTestId("main-content").getAttribute("aria-hidden")).toBeNull();
 	});
@@ -670,7 +712,10 @@ describe("AppShell settings", () => {
 		});
 		await user.click(screen.getByRole("button", { name: /settings/i }));
 		await waitFor(() => {
-			expect(screen.getByRole("button", { name: /settings/i })).toHaveAttribute("aria-current", "page");
+			expect(screen.getByRole("button", { name: /settings/i })).toHaveAttribute(
+				"aria-current",
+				"page",
+			);
 		});
 
 		await user.keyboard("{Meta>}k{/Meta}");
@@ -827,12 +872,15 @@ describe("AppShell + Conversations: thread list error/loading states", () => {
 	}
 
 	beforeEach(() => {
-		global.fetch = vi.fn(async () => ({ ok: true, json: async () => ({}) }) as Response) as unknown as typeof fetch;
+		global.fetch = vi.fn(
+			async () => ({ ok: true, json: async () => ({}) }) as Response,
+		) as unknown as typeof fetch;
 	});
 
 	it("shows the thread-sections error state when search_threads fails", async () => {
 		callMock.mockImplementation(async (action: string) => {
-			if (action === "search_threads") return { ok: false, problems: [{ code: "boom", message: "boom", path: "" }] };
+			if (action === "search_threads")
+				return { ok: false, problems: [{ code: "boom", message: "boom", path: "" }] };
 			if (action === "open_user") return OPEN_USER_RESULT;
 			return { ok: true, data: [] };
 		});

@@ -17,7 +17,14 @@
 import type { ThreadView } from "@hyperidle/domain-model";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { createMemoryRouter, MemoryRouter, Route, RouterProvider, Routes, useLocation } from "react-router-dom";
+import {
+	createMemoryRouter,
+	MemoryRouter,
+	Route,
+	RouterProvider,
+	Routes,
+	useLocation,
+} from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Conversations, resolveSessionAgentAuthor } from "../pages/Conversations.js";
 import { ReviewPage } from "../pages/review/ReviewPage";
@@ -332,7 +339,10 @@ describe("Conversations — mobile header collapses when empty", () => {
 		const threadId = "t-mobile-empty";
 		callMock.mockImplementation(async (action: string) => {
 			if (action === "open_thread") {
-				return makeOpenThreadResult([], makeThread({ title: null, computedTitle: "Founder / Aria" }));
+				return makeOpenThreadResult(
+					[],
+					makeThread({ title: null, computedTitle: "Founder / Aria" }),
+				);
 			}
 			return { ok: true, data: [] };
 		});
@@ -377,7 +387,8 @@ describe("Conversations — review Parts carry no inline verdict or reasoning to
 			if (action === "open_thread") {
 				return makeOpenThreadResult([FAKE_PLAIN_MESSAGE, reviewWithReasoning]);
 			}
-			if (action === "send_message") return { ok: true, data: { message: { id: "m-new" }, thread: makeThread() } };
+			if (action === "send_message")
+				return { ok: true, data: { message: { id: "m-new" }, thread: makeThread() } };
 			return { ok: true, data: [] };
 		});
 
@@ -523,14 +534,19 @@ describe("ReviewPage — the verdict is a send_message into the thread named by 
 	}
 
 	it("submitting Approve sends a send_message verdict into the ?threadId= thread", async () => {
-		const sends: Array<{ threadId?: string; verdict?: { decision: string; resolvesMessageId: string } }> = [];
+		const sends: Array<{
+			threadId?: string;
+			verdict?: { decision: string; resolvesMessageId: string };
+		}> = [];
 		callMock.mockImplementation(async (action: string, input?: unknown) => {
 			if (action === "open_thread") {
 				const { id } = input as { id: string };
 				return { ok: true, data: threadViewFor(id) };
 			}
 			if (action === "send_message") {
-				sends.push(input as { threadId?: string; verdict?: { decision: string; resolvesMessageId: string } });
+				sends.push(
+					input as { threadId?: string; verdict?: { decision: string; resolvesMessageId: string } },
+				);
 				return { ok: true, data: { message: { id: "x" }, thread: makeThread() } };
 			}
 			return { ok: true, data: [] };
@@ -587,10 +603,12 @@ describe("Conversations — header context link and task links", () => {
 	it("does not render a context link for a user-hosted thread (resolveHostRoute returns null)", async () => {
 		callMock.mockImplementation(async (action: string) => {
 			if (action === "open_thread") {
-				return makeOpenThreadResult(
-					[],
-					{ ...makeThread(), hostKind: "user", hostId: "u-founder", computedTitle: "My Test Task" },
-				);
+				return makeOpenThreadResult([], {
+					...makeThread(),
+					hostKind: "user",
+					hostId: "u-founder",
+					computedTitle: "My Test Task",
+				});
 			}
 			return { ok: true, data: [] };
 		});
@@ -606,7 +624,10 @@ describe("Conversations — header context link and task links", () => {
 				expect(input).toEqual({ threadId: THREAD_ID });
 				return {
 					ok: true,
-					data: [makeTask("task-1", "Write the doc", "in_progress"), makeTask("task-2", "Ship the PR", "review")],
+					data: [
+						makeTask("task-1", "Write the doc", "in_progress"),
+						makeTask("task-2", "Ship the PR", "review"),
+					],
 				};
 			}
 			return { ok: true, data: [] };
@@ -618,7 +639,10 @@ describe("Conversations — header context link and task links", () => {
 			"href",
 			"/work/task/task-1",
 		);
-		expect(screen.getByRole("link", { name: /Ship the PR/i })).toHaveAttribute("href", "/work/task/task-2");
+		expect(screen.getByRole("link", { name: /Ship the PR/i })).toHaveAttribute(
+			"href",
+			"/work/task/task-2",
+		);
 	});
 });
 
@@ -638,7 +662,9 @@ describe("Conversations — session panel agent identity", () => {
 	});
 
 	it("resolves the agent's display name from identities when known", () => {
-		const identities = { "agent-7": { id: "agent-7", name: "Atlas", role: "agent", isAgent: true } };
+		const identities = {
+			"agent-7": { id: "agent-7", name: "Atlas", role: "agent", isAgent: true },
+		};
 		const author = resolveSessionAgentAuthor({ agentId: "agent-7" }, identities);
 		expect(author.name).toBe("Atlas");
 		expect(author.isAgent).toBe(true);

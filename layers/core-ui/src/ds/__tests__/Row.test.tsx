@@ -161,7 +161,6 @@ describe("Row (AG6 T2)", () => {
 			});
 			expect(container.textContent).toContain("Test Title");
 		});
-
 	});
 
 	// ── Subtitle slot ────────────────────────────────────────────────────────
@@ -295,7 +294,6 @@ describe("Row (AG6 T2)", () => {
 			const el = container.firstElementChild as HTMLElement;
 			expect(el?.getAttribute("aria-current")).toBeNull();
 		});
-
 	});
 
 	// ── data-testid passthrough ──────────────────────────────────────────────

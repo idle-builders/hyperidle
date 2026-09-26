@@ -221,7 +221,11 @@ describe("ThreadSections component", () => {
 
 describe("ThreadSections — flat mode (groupBySection=false)", () => {
 	it("renders no section headers and shows every thread in one flat list", () => {
-		const flat: ThreadItem[] = [mk({ id: "t1" }), mk({ id: "t2", blocking: true }), mk({ id: "t3" })];
+		const flat: ThreadItem[] = [
+			mk({ id: "t1" }),
+			mk({ id: "t2", blocking: true }),
+			mk({ id: "t3" }),
+		];
 		const { container } = render(<ThreadSections threads={flat} groupBySection={false} />);
 		expect(container.querySelector("[data-thread-section]")).toBeNull();
 		expect(container.querySelectorAll("[data-ds-component='ThreadRow']")).toHaveLength(3);

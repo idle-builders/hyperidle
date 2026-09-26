@@ -61,7 +61,9 @@ describe("ThreadHostBanner (approved.md §2.1)", () => {
 			const { rerender } = render(
 				<ThreadHostBanner
 					{...baseProps}
-					participants={[{ id: "agent-1", name: "Aria", isAgent: true, operationalStatus: "active" }]}
+					participants={[
+						{ id: "agent-1", name: "Aria", isAgent: true, operationalStatus: "active" },
+					]}
 				/>,
 			);
 			expect(screen.getByLabelText(/Aria.*active/i)).toBeInTheDocument();
@@ -69,7 +71,9 @@ describe("ThreadHostBanner (approved.md §2.1)", () => {
 			rerender(
 				<ThreadHostBanner
 					{...baseProps}
-					participants={[{ id: "agent-1", name: "Aria", isAgent: true, operationalStatus: "error" }]}
+					participants={[
+						{ id: "agent-1", name: "Aria", isAgent: true, operationalStatus: "error" },
+					]}
 				/>,
 			);
 			expect(screen.getByLabelText(/Aria.*error/i)).toBeInTheDocument();
@@ -85,7 +89,10 @@ describe("ThreadHostBanner (approved.md §2.1)", () => {
 			expect(screen.queryByLabelText(/Aria.*idle/i)).toBeNull();
 
 			rerender(
-				<ThreadHostBanner {...baseProps} participants={[{ id: "u-founder", name: "Alice", isAgent: false }]} />,
+				<ThreadHostBanner
+					{...baseProps}
+					participants={[{ id: "u-founder", name: "Alice", isAgent: false }]}
+				/>,
 			);
 			expect(screen.queryByLabelText(/Alice.*active/i)).toBeNull();
 			expect(screen.queryByLabelText(/Alice.*error/i)).toBeNull();

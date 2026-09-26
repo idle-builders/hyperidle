@@ -205,4 +205,3 @@ describe("W3 AC-37 — Curated/Triage tab switching", () => {
 		expect(curatedTab).toHaveAttribute("aria-selected", "true");
 	});
 });
-

@@ -195,5 +195,3 @@ describe("W3 AC-51 — Backend section showing mode", () => {
 		expect(backendSection).toHaveTextContent(/web|local|shared/i);
 	});
 });
-
-

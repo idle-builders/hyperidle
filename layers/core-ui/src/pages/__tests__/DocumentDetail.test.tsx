@@ -145,7 +145,9 @@ describe("DocumentDetail — discussion mounts with the document host", () => {
 		renderPage("doc-2");
 
 		await waitFor(() => {
-			expect(callMock).toHaveBeenCalledWith("search_threads", { host: { kind: "document", id: "doc-2" } });
+			expect(callMock).toHaveBeenCalledWith("search_threads", {
+				host: { kind: "document", id: "doc-2" },
+			});
 		});
 	});
 });
@@ -326,7 +328,9 @@ describe("DocumentDetail — a pure-invariant refusal greys the control", () => 
 	it("greys Move for a slotted document, with I10's own message, but not for an ordinary one", async () => {
 		const slotted = makeDocumentRow({ id: "doc-1", title: "House rule", slot: "rule" });
 		callMock.mockImplementation(
-			makeCallRouter({ open_document: async () => ({ ok: true, data: makeDocumentView(slotted) }) }),
+			makeCallRouter({
+				open_document: async () => ({ ok: true, data: makeDocumentView(slotted) }),
+			}),
 		);
 
 		const user = userEvent.setup();
@@ -419,7 +423,10 @@ describe("DocumentDetail — ancestry breadcrumb", () => {
 		renderPage("doc-1");
 
 		const nav = await screen.findByRole("navigation", { name: "Breadcrumb" });
-		expect(within(nav).getByRole("link", { name: "Knowledge" })).toHaveAttribute("href", "/documents");
+		expect(within(nav).getByRole("link", { name: "Knowledge" })).toHaveAttribute(
+			"href",
+			"/documents",
+		);
 	});
 });
 

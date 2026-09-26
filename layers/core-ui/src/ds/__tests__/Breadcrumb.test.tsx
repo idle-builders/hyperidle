@@ -254,5 +254,4 @@ describe("AG4 — Breadcrumb component", () => {
 			expect(screen.queryAllByRole("link")).toHaveLength(0);
 		});
 	});
-
 });

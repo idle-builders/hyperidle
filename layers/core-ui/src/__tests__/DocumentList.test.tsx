@@ -141,7 +141,10 @@ describe("DocumentList tabs: status decides Triage vs Curated", () => {
 		renderAt();
 
 		await waitFor(() => {
-			expect(screen.getByRole("tab", { name: /curated/i })).toHaveAttribute("aria-selected", "true");
+			expect(screen.getByRole("tab", { name: /curated/i })).toHaveAttribute(
+				"aria-selected",
+				"true",
+			);
 		});
 		expect(screen.getByText("Only Active Item")).toBeInTheDocument();
 	});
@@ -259,9 +262,24 @@ describe("DocumentList scope pills", () => {
 describe("DocumentList sort pills reorder the active tab", () => {
 	it("Recency pill reorders curated items by updatedAt desc", async () => {
 		mockDocuments([
-			makeDoc({ id: "old", status: "active", updatedAt: "2024-01-01T00:00:00Z", title: "Oldest Item" }),
-			makeDoc({ id: "new", status: "active", updatedAt: "2024-06-01T00:00:00Z", title: "Newest Item" }),
-			makeDoc({ id: "mid", status: "active", updatedAt: "2024-03-01T00:00:00Z", title: "Middle Item" }),
+			makeDoc({
+				id: "old",
+				status: "active",
+				updatedAt: "2024-01-01T00:00:00Z",
+				title: "Oldest Item",
+			}),
+			makeDoc({
+				id: "new",
+				status: "active",
+				updatedAt: "2024-06-01T00:00:00Z",
+				title: "Newest Item",
+			}),
+			makeDoc({
+				id: "mid",
+				status: "active",
+				updatedAt: "2024-03-01T00:00:00Z",
+				title: "Middle Item",
+			}),
 		]);
 
 		const user = userEvent.setup();
@@ -288,8 +306,18 @@ describe("DocumentList sort pills reorder the active tab", () => {
 
 	it("Recency pill reorders triage items by updatedAt desc", async () => {
 		mockDocuments([
-			makeDoc({ id: "draft-old", status: "proposed", updatedAt: "2024-01-01T00:00:00Z", title: "Old Draft" }),
-			makeDoc({ id: "draft-new", status: "proposed", updatedAt: "2024-06-01T00:00:00Z", title: "New Draft" }),
+			makeDoc({
+				id: "draft-old",
+				status: "proposed",
+				updatedAt: "2024-01-01T00:00:00Z",
+				title: "Old Draft",
+			}),
+			makeDoc({
+				id: "draft-new",
+				status: "proposed",
+				updatedAt: "2024-06-01T00:00:00Z",
+				title: "New Draft",
+			}),
 		]);
 
 		const user = userEvent.setup();
@@ -356,19 +384,43 @@ describe("DocumentList: role-carrying bindings and skill/rule rows are excluded"
 	it.each([
 		{
 			name: "an agent identity",
-			row: { id: "ki_af_agent-1", title: "Agent One — identity", slot: "agent_file", parentKind: "agent", parentId: "agent-1" },
+			row: {
+				id: "ki_af_agent-1",
+				title: "Agent One — identity",
+				slot: "agent_file",
+				parentKind: "agent",
+				parentId: "agent-1",
+			},
 		},
 		{
 			name: "a subscription prompt",
-			row: { id: "ki_rp_subscription-1", title: "Subscription One — prompt", slot: "prompt", parentKind: "subscription", parentId: "subscription-1" },
+			row: {
+				id: "ki_rp_subscription-1",
+				title: "Subscription One — prompt",
+				slot: "prompt",
+				parentKind: "subscription",
+				parentId: "subscription-1",
+			},
 		},
 		{
 			name: "a skill",
-			row: { id: "k-skill", title: "write-tests-skill", slot: "skill", parentKind: "agent", parentId: "agent-1" },
+			row: {
+				id: "k-skill",
+				title: "write-tests-skill",
+				slot: "skill",
+				parentKind: "agent",
+				parentId: "agent-1",
+			},
 		},
 		{
 			name: "a rule",
-			row: { id: "k-rule", title: "no-console-rule", slot: "rule", parentKind: "agent", parentId: "agent-1" },
+			row: {
+				id: "k-rule",
+				title: "no-console-rule",
+				slot: "rule",
+				parentKind: "agent",
+				parentId: "agent-1",
+			},
 		},
 	])("shows an ordinary root item but never $name", async ({ row }) => {
 		mockDocuments([
@@ -435,7 +487,10 @@ describe("DocumentList triage keyboard navigation", () => {
 		renderAt();
 
 		await waitFor(() => {
-			expect(screen.getByRole("tab", { name: /curated/i })).toHaveAttribute("aria-selected", "true");
+			expect(screen.getByRole("tab", { name: /curated/i })).toHaveAttribute(
+				"aria-selected",
+				"true",
+			);
 		});
 
 		await user.keyboard("j");
@@ -454,7 +509,10 @@ describe("DocumentList triage validate/reject", () => {
 		ok: true;
 		data: { document: DocumentRow; ancestors: []; children: []; siblings: []; scopeName: string };
 	} {
-		return { ok: true, data: { document: row, ancestors: [], children: [], siblings: [], scopeName: "" } };
+		return {
+			ok: true,
+			data: { document: row, ancestors: [], children: [], siblings: [], scopeName: "" },
+		};
 	}
 
 	it("pressing v validates the focused item: calls edit_document(active), removes it from triage, and adds it to curated", async () => {
@@ -476,7 +534,11 @@ describe("DocumentList triage validate/reject", () => {
 		await user.keyboard("j");
 		await user.keyboard("v");
 
-		expect(mockCall).toHaveBeenCalledWith("edit_document", { id: "k1", status: "active", version: 1 });
+		expect(mockCall).toHaveBeenCalledWith("edit_document", {
+			id: "k1",
+			status: "active",
+			version: 1,
+		});
 		await waitFor(() => {
 			expect(within(triageView).queryByText("Item to validate")).not.toBeInTheDocument();
 		});
@@ -499,7 +561,11 @@ describe("DocumentList triage validate/reject", () => {
 		await user.keyboard("j");
 		await user.keyboard("x");
 
-		expect(mockCall).toHaveBeenCalledWith("edit_document", { id: "k1", status: "archived", version: 1 });
+		expect(mockCall).toHaveBeenCalledWith("edit_document", {
+			id: "k1",
+			status: "archived",
+			version: 1,
+		});
 
 		await user.click(screen.getByRole("tab", { name: /curated/i }));
 		const curatedView = await screen.findByTestId("document-curated-view");
@@ -522,7 +588,9 @@ describe("DocumentList triage validate/reject", () => {
 		mockDocuments([makeDoc({ id: "k1", status: "proposed", title: "Item that will be refused" })]);
 		mockCall.mockResolvedValue({
 			ok: false,
-			problems: [{ code: "stale", message: "Someone else saved this first — reopen it and retry." }],
+			problems: [
+				{ code: "stale", message: "Someone else saved this first — reopen it and retry." },
+			],
 		});
 
 		const user = userEvent.setup();
@@ -552,7 +620,13 @@ describe("DocumentList triage auto-advance", () => {
 	beforeEach(() => {
 		mockCall.mockResolvedValue({
 			ok: true,
-			data: { document: makeDoc({ id: "k1", status: "active" }), ancestors: [], children: [], siblings: [], scopeName: "" },
+			data: {
+				document: makeDoc({ id: "k1", status: "active" }),
+				ancestors: [],
+				children: [],
+				siblings: [],
+				scopeName: "",
+			},
 		});
 	});
 
@@ -660,7 +734,12 @@ describe("DocumentList — 500 error handling", () => {
 	});
 
 	it("shows neither the empty nor the error copy while loading", () => {
-		mockUseDocuments.mockReturnValue({ documents: [], status: "loading", error: null, retry: vi.fn() });
+		mockUseDocuments.mockReturnValue({
+			documents: [],
+			status: "loading",
+			error: null,
+			retry: vi.fn(),
+		});
 		renderAt();
 		expect(screen.queryByText("No documents yet")).not.toBeInTheDocument();
 		expect(screen.queryByText(/couldn't load/i)).not.toBeInTheDocument();

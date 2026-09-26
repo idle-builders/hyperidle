@@ -196,7 +196,11 @@ describe("ItemList (AG6 T3)", () => {
 			for (const variant of ["contained", "flush"] as const) {
 				act(() => {
 					root.render(
-						createElement(ItemList, { isEmpty: false, variant }, createElement(FakeRow, { label: "Row" })),
+						createElement(
+							ItemList,
+							{ isEmpty: false, variant },
+							createElement(FakeRow, { label: "Row" }),
+						),
 					);
 				});
 				expect(container.textContent).toContain("Row");

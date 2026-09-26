@@ -231,7 +231,6 @@ describe("AgentProfile UI-014 — user-friendly error messages", () => {
 		expect(screen.getByText(/failed to load agent profile/i)).toBeInTheDocument();
 		expect(screen.getByText(/couldn't be loaded/i)).toBeInTheDocument();
 	});
-
 });
 
 // ---------------------------------------------------------------------------

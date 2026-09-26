@@ -94,8 +94,6 @@ describe("<Block />", () => {
 		});
 	};
 
-
-
 	describe("Semantic HTML per kind (AC-29)", () => {
 		it("demotes authored headings, caps h6, and suppresses only a matching first heading", async () => {
 			for (const level of [1, 2, 3, 4, 5, 6] as const) {

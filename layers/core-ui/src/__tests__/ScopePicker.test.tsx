@@ -133,7 +133,6 @@ describe("ScopePicker — active state (data-active + aria-checked)", () => {
 		expect(inactive).toHaveAttribute("data-active", "false");
 		expect(inactive).toHaveAttribute("aria-checked", "false");
 	});
-
 });
 
 describe("ScopePicker — filter mode null/All selection", () => {
@@ -225,4 +224,3 @@ describe("ScopePicker — disabled options", () => {
 		expect(onChange).not.toHaveBeenCalled();
 	});
 });
-
