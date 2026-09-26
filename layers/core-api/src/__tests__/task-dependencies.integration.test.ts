@@ -479,8 +479,8 @@ describe("task dependencies — the edit_task door, the guard, cycle rejection",
 		async function expectStillRefused(
 			db: HyperIdleDb,
 			app: Hono,
-			fromState: string,
-			toState: string,
+			fromState: TaskState,
+			toState: TaskState,
 		): Promise<void> {
 			const teamId = `dep-b2b-${fromState}-${toState}`;
 			await seedTeam(db, teamId);

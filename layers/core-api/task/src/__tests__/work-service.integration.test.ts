@@ -20,10 +20,9 @@
  *     must see an uncommitted row written earlier in the same `tx`.
  */
 import { type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
-import * as work from "@hyperidle/task";
+import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
-import { describe, expect } from "vitest";
-import { test } from "../__testing__/test-fixtures.js";
+import * as work from "../task-service.js";
 
 async function seedTeamAndAgent(db: HyperIdleDb): Promise<void> {
 	await db.insert(teams).values({
