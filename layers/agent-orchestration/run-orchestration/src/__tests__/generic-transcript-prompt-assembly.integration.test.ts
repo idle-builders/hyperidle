@@ -42,7 +42,7 @@ function buildHarnessPorts(opts: { readonly allowContextAssembly?: boolean } = {
 	});
 }
 
-describe("generic transcript delivery (Increment 4)", () => {
+describe("generic transcript delivery", () => {
 	const sandboxDirs: string[] = [];
 	afterEach(() => {
 		for (const dir of sandboxDirs.splice(0)) {
@@ -209,12 +209,12 @@ describe("generic transcript delivery (Increment 4)", () => {
 		} as ProvisionSessionParams;
 	}
 
-	// @lore Increment 4 delivered the transcript twice: as the `## Conversation`
+	// @lore The transcript once delivered twice: as the `## Conversation`
 	// prompt section, and as `SessionConfig.messages`, which only the built-in
 	// adapter read — their presence is what selected its chat loop over its
 	// planning loop. A CLI harness only ever saw the prompt section. With that
-	// adapter gone the second delivery had no reader, so the prompt section is the
-	// single delivery and this test asserts it alone.
+	// adapter gone the second delivery has no reader, so the prompt section is
+	// the single delivery and this test asserts it alone.
 	test("a session with a baked transcript + calling thread + no task gets ## Conversation and requiredReturnActions:['send_message']", async ({
 		db,
 	}) => {

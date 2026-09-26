@@ -164,8 +164,8 @@ describe("startWatcher", () => {
 			| undefined;
 		const stop = vi.fn();
 		const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
-		// `ContextAssemblyPorts` is just `filesystems` (Increment 12 Wave C) —
-		// `beginAgentWriteback` only ever touches it.
+		// `ContextAssemblyPorts` is just `filesystems` — `beginAgentWriteback`
+		// only ever touches it.
 		const assembler = createContextAssembler({
 			filesystems: {
 				startWatcher: (config) => {

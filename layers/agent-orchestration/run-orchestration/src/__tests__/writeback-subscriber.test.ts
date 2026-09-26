@@ -25,7 +25,7 @@ function ok(
 	};
 }
 
-describe("registerCaptureWriteback (§10.3 filesystems ⚠ capture-writeback EventBus inversion)", () => {
+describe("registerCaptureWriteback (filesystems ⚠ capture-writeback EventBus inversion)", () => {
 	let tmpDir: string;
 	let manifestPath: string;
 

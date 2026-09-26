@@ -81,14 +81,14 @@ describe("admitSession — baked agent-runnability config", () => {
 		// cannot: `SessionLifecyclePorts` carries no `users` field at all)
 		// consult it. Only the BAKED snapshot on `params.agentConfig` governs.
 		await db.insert(users).values({
-			id: "wave-e-agent-1",
+			id: "runnable-agent",
 			kind: "ai",
 			name: "Agent One",
 			role: "builder",
 			status: "active",
 			createdAt: now,
 		});
-		const [liveRunnableAgent] = await db.select().from(users).where(eq(users.id, "wave-e-agent-1"));
+		const [liveRunnableAgent] = await db.select().from(users).where(eq(users.id, "runnable-agent"));
 		if (!liveRunnableAgent) throw new Error("fixture insert failed");
 
 		const sandboxPath = freshSandbox();
@@ -97,7 +97,7 @@ describe("admitSession — baked agent-runnability config", () => {
 
 		const params: ProvisionSessionParams = {
 			taskId: null,
-			agentId: "wave-e-agent-1",
+			agentId: "runnable-agent",
 			productId: "task-free",
 			sandboxBasePath: sandboxPath,
 			// The BAKED snapshot (what the emit-time resolver produced) says this
@@ -141,7 +141,7 @@ describe("admitSession — baked agent-runnability config", () => {
 	}) => {
 		const now = new Date().toISOString();
 		await db.insert(users).values({
-			id: "wave-e-agent-2",
+			id: "deactivated-live-agent",
 			kind: "ai",
 			name: "Agent Two",
 			role: "builder",
@@ -151,7 +151,10 @@ describe("admitSession — baked agent-runnability config", () => {
 		// The agent is deactivated in the LIVE row after the snapshot below was
 		// baked. There is no mechanism left to consult this live row at all —
 		// admission must succeed purely from the bake.
-		await db.update(users).set({ status: "archived" }).where(eq(users.id, "wave-e-agent-2"));
+		await db
+			.update(users)
+			.set({ status: "archived" })
+			.where(eq(users.id, "deactivated-live-agent"));
 
 		const sandboxPath = freshSandbox();
 		const ports = buildNeverCalledPorts();
@@ -159,7 +162,7 @@ describe("admitSession — baked agent-runnability config", () => {
 
 		const params: ProvisionSessionParams = {
 			taskId: null,
-			agentId: "wave-e-agent-2",
+			agentId: "deactivated-live-agent",
 			productId: "task-free",
 			sandboxBasePath: sandboxPath,
 			agentConfig: {
