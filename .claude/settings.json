@@ -129,5 +129,9 @@
 			}
 		]
 	},
-	"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": true
+	"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": true,
+	"enabledPlugins": {
+		"idle-tasks@idle-agent-tools": true,
+		"idle-skills@idle-agent-tools": true
+	}
 }
