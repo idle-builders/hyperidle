@@ -97,8 +97,8 @@ describe("AgentOrchestrationPort — write side (contract-test harness)", () => 
 		const port = buildAgentOrchestrationPort(createInProcessAgentOrchestrationTransport(app));
 
 		const receipt = await port.intents.submit({
-			kind: "knowledge_action",
-			sourceKind: "knowledge_action",
+			kind: "thread_turn",
+			sourceKind: "thread_message",
 			sourceId: "knowledge:aop-write-1",
 			idempotencyKey: "knowledge:aop-write-1:review:e1",
 		});
@@ -120,14 +120,14 @@ describe("AgentOrchestrationPort — write side (contract-test harness)", () => 
 		const port = buildAgentOrchestrationPort(createInProcessAgentOrchestrationTransport(app));
 
 		const first = await port.intents.submit({
-			kind: "knowledge_action",
-			sourceKind: "knowledge_action",
+			kind: "thread_turn",
+			sourceKind: "thread_message",
 			sourceId: "knowledge:aop-write-idem",
 			idempotencyKey: "knowledge:aop-write-idem:review:e1",
 		});
 		const second = await port.intents.submit({
-			kind: "knowledge_action",
-			sourceKind: "knowledge_action",
+			kind: "thread_turn",
+			sourceKind: "thread_message",
 			sourceId: "knowledge:aop-write-idem",
 			idempotencyKey: "knowledge:aop-write-idem:review:e1",
 		});

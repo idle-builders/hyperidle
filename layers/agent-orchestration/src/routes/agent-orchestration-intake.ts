@@ -60,8 +60,6 @@ import { listFolders, registerFolder, removeFolder, takeFolder } from "./filesys
 const WORK_INTENT_KINDS = [
 	// @lore BC3 architecture.md §5 B5: renamed from "assistant_turn".
 	"thread_turn",
-	"session_start",
-	"knowledge_action",
 	"task_run",
 	"session_resume",
 	"subscription_run",
@@ -205,14 +203,11 @@ export function createAgentOrchestrationIntakeRoutes(
 		return c.json(outcome);
 	});
 
-	// @lore BC3 architecture.md §3.10/§5 B5: `GET .../requests/pending-intents`
-	// and (later) `POST .../requests/explicit-starts/:startId/fail` are both
-	// DELETED with their only callers (the deleted coherence trigger; the
-	// session_start admission-failure reaction, which no producer ever
-	// reaches). Their `PLUMBING_ROUTES` rows (`actions-projected.ts`) are
-	// removed in the same step — a stale plumbing row is inert (clause 2's
-	// reverse check only covers `LEGACY_ROUTES`), so nothing would have
-	// caught it otherwise.
+	// @lore `GET .../requests/pending-intents` and
+	// `POST .../requests/explicit-starts/:startId/fail` do not exist — no
+	// producer ever emits a `session_start`/`knowledge_action` intent, so
+	// this route only ever accepts `thread_turn`/`task_run`/`session_resume`/
+	// `subscription_run`.
 
 	// ── runs.stopForTasks — POST /agent-orchestration/runs/stop-for-tasks ────
 	//
