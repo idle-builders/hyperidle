@@ -473,42 +473,38 @@ describe("task dependencies — the edit_task door, the guard, cycle rejection",
 			expect(row?.state).toBe("review");
 		});
 
-		test("-> accepted is still refused with a problem naming the dependency", async ({
-			db,
-			app,
-		}) => {
-			await seedTeam(db, "dep-b2b-accepted");
-			await insertTask(db, "dep-b2b-accepted-dep", "dep-b2b-accepted", "proposed");
-			await insertTask(db, "dep-b2b-accepted-task", "dep-b2b-accepted", "hold", [
-				"dep-b2b-accepted-dep",
-			]);
+		// @lore fixture injection doesn't compose with `test.each` (vitest) — see
+		// AN1-connections.integration.test.ts's own note — so each transition
+		// gets its own `test`, sharing one assertion helper instead of a table.
+		async function expectStillRefused(
+			db: HyperIdleDb,
+			app: Hono,
+			fromState: TaskState,
+			toState: TaskState,
+		): Promise<void> {
+			const teamId = `dep-b2b-${fromState}-${toState}`;
+			await seedTeam(db, teamId);
+			await insertTask(db, `${teamId}-dep`, teamId, "proposed");
+			await insertTask(db, `${teamId}-task`, teamId, fromState, [`${teamId}-dep`]);
 
-			const { status, json } = await editTask(app, {
-				id: "dep-b2b-accepted-task",
-				state: "accepted",
-			});
+			const { status, json } = await editTask(app, { id: `${teamId}-task`, state: toState });
 
 			expect(status).toBe(422);
 			expect(json.problems?.[0]?.code).toBe("dependency_blocked");
+		}
+
+		test("hold -> accepted is still refused with a problem naming the dependency", async ({
+			db,
+			app,
+		}) => {
+			await expectStillRefused(db, app, "hold", "accepted");
 		});
 
 		test("accepted -> in_progress is still refused with a problem naming the dependency", async ({
 			db,
 			app,
 		}) => {
-			await seedTeam(db, "dep-b2b-accepted2");
-			await insertTask(db, "dep-b2b-accepted2-dep", "dep-b2b-accepted2", "proposed");
-			await insertTask(db, "dep-b2b-accepted2-task", "dep-b2b-accepted2", "accepted", [
-				"dep-b2b-accepted2-dep",
-			]);
-
-			const { status, json } = await editTask(app, {
-				id: "dep-b2b-accepted2-task",
-				state: "in_progress",
-			});
-
-			expect(status).toBe(422);
-			expect(json.problems?.[0]?.code).toBe("dependency_blocked");
+			await expectStillRefused(db, app, "accepted", "in_progress");
 		});
 	});
 

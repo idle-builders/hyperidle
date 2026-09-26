@@ -20,7 +20,6 @@ import {
 	users,
 } from "@hyperidle/db";
 import type { ActionResult, SendMessageInput, ThreadView } from "@hyperidle/domain-model";
-import { adjustThreadInvariants } from "@hyperidle/domain-model";
 import type { ObjectChangeEvent } from "@hyperidle/event-bus";
 import { drainIntents } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
@@ -2428,76 +2427,22 @@ describe("send_message / adjust_thread — object events fire from the change ro
 });
 
 // ============================================================================
-// pure invariants
+// invariant wiring — the codes themselves are owned by domain-model's
+// thread-actions-invariants.test.ts; this proves the HTTP door surfaces one
+// of them unchanged.
 // ============================================================================
 
-describe("pure invariants", () => {
-	test("send_message: two_targets, no_body, two_bodies, plain_fields_on_non_plain, overwrite rules, verdict_on_new_thread", async ({
-		app,
-	}) => {
-		const twoTargets = await call(app, "send_message", {
+describe("invariant wiring", () => {
+	test("send_message: two_targets reaches the HTTP door as a 422 problem", async ({ app }) => {
+		const res = await call(app, "send_message", {
 			threadId: "x",
 			recipients: [FOUNDER_ID],
 			text: "x",
 		});
-		expect((twoTargets.body as ActionEnvelope<unknown>).problems?.[0]?.code).toBe("two_targets");
-
-		const noBody = await call(app, "send_message", { threadId: "x" });
-		expect(
-			(noBody.body as ActionEnvelope<unknown>).problems?.some((p) => p.code === "no_body"),
-		).toBe(true);
-
-		const twoBodies = await call(app, "send_message", {
-			threadId: "x",
-			text: "a",
-			review: { title: "b", reasoning: [] },
-		});
-		expect(
-			(twoBodies.body as ActionEnvelope<unknown>).problems?.some((p) => p.code === "two_bodies"),
-		).toBe(true);
-
-		const plainFieldsOnNonPlain = await call(app, "send_message", {
-			threadId: "x",
-			review: { title: "b", reasoning: [] },
-			blockId: "b1",
-		});
-		expect(
-			(plainFieldsOnNonPlain.body as ActionEnvelope<unknown>).problems?.some(
-				(p) => p.code === "plain_fields_on_non_plain",
-			),
-		).toBe(true);
-
-		const overwriteNoThread = await call(app, "send_message", { messageId: "m1", text: "x" });
-		expect(
-			(overwriteNoThread.body as ActionEnvelope<unknown>).problems?.some(
-				(p) => p.code === "overwrite_needs_thread",
-			),
-		).toBe(true);
-
-		const overwriteWithRecipients = await call(app, "send_message", {
-			threadId: "x",
-			messageId: "m1",
-			recipients: [FOUNDER_ID],
-			text: "x",
-		});
-		expect(
-			(overwriteWithRecipients.body as ActionEnvelope<unknown>).problems?.some(
-				(p) => p.code === "two_targets" || p.code === "overwrite_with_recipients",
-			),
-		).toBe(true);
-
-		const verdictOnNewThread = await call(app, "send_message", {
-			recipients: [FOUNDER_ID],
-			verdict: { decision: "approve", resolvesMessageId: "m1" },
-		});
-		expect(
-			(verdictOnNewThread.body as ActionEnvelope<unknown>).problems?.some(
-				(p) => p.code === "verdict_on_new_thread",
-			),
-		).toBe(true);
+		expect((res.body as ActionEnvelope<unknown>).problems?.[0]?.code).toBe("two_targets");
 	});
 
-	test("adjust_thread: adjust_empty, adjust_host_on_existing, members_empty", async ({
+	test("adjust_thread: adjust_empty reaches the HTTP door as a 422 problem", async ({
 		app,
 		db,
 	}) => {
@@ -2507,21 +2452,8 @@ describe("pure invariants", () => {
 			initiatorId: FOUNDER_ID,
 			members: [FOUNDER_ID],
 		});
-		const empty = await call(app, "adjust_thread", { id: "pi-adjust-1" });
-		expect((empty.body as ActionEnvelope<unknown>).problems?.[0]?.code).toBe("adjust_empty");
-
-		const hostOnExisting = await call(app, "adjust_thread", {
-			id: "pi-adjust-1",
-			host: { kind: "team", id: "t" },
-		});
-		expect((hostOnExisting.body as ActionEnvelope<unknown>).problems?.[0]?.code).toBe(
-			"adjust_host_on_existing",
-		);
-
-		// `members: []` never reaches the action's own invariant over HTTP — the
-		// wire schema's own `z.array(...).min(1)` refuses it first (a 400, not a
-		// Problem). `members_empty` is exercised as the pure function it is.
-		expect(adjustThreadInvariants({ members: [] })[0]?.code).toBe("members_empty");
+		const res = await call(app, "adjust_thread", { id: "pi-adjust-1" });
+		expect((res.body as ActionEnvelope<unknown>).problems?.[0]?.code).toBe("adjust_empty");
 	});
 });
 

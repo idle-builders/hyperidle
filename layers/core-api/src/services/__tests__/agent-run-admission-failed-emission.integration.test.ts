@@ -22,6 +22,12 @@ import { eq, sql } from "drizzle-orm";
 import { queueDeps } from "../../__testing__/durable-agent-queue-test-deps.js";
 import { describe, expect, test } from "../../__testing__/test-fixtures.js";
 
+async function dropRejectSessionRequestWritesTrigger(db: HyperIdleDb): Promise<void> {
+	await db.execute(
+		sql`drop trigger if exists reject_session_request_write_emission on agent_session_requests`,
+	);
+}
+
 const NOW = new Date().toISOString();
 
 /**
@@ -32,18 +38,16 @@ const NOW = new Date().toISOString();
  * `agent_session_requests` insert is rejected by a real Postgres trigger.
  */
 async function rejectSessionRequestWrites(db: HyperIdleDb): Promise<void> {
-	await db.execute(
-		sql`drop trigger if exists au21_reject_session_request_write_emission on agent_session_requests`,
-	);
+	await dropRejectSessionRequestWritesTrigger(db);
 	await db.execute(sql`
-		create or replace function au21_reject_session_request_write_emission() returns trigger as $$
-		begin raise exception 'AU21 injected agent_session_requests write failure (emission vehicle)'; end;
+		create or replace function reject_session_request_write_emission() returns trigger as $$
+		begin raise exception 'injected agent_session_requests write failure (emission vehicle)'; end;
 		$$ language plpgsql
 	`);
 	await db.execute(sql`
-		create trigger au21_reject_session_request_write_emission
+		create trigger reject_session_request_write_emission
 		before insert on agent_session_requests
-		for each row execute function au21_reject_session_request_write_emission()
+		for each row execute function reject_session_request_write_emission()
 	`);
 }
 
@@ -101,11 +105,10 @@ function captureAdmissionFailures(eventBus: {
 }
 
 describe("agent_run_admission_failed — emission from failOrRelease", () => {
-	// @lore AU44: The "terminal INVALID_WORK_SOURCE failure" test was deleted here.
-	// It relied on the unbaked-intent drain path (resolveIntentInputInternal) which
-	// AU44 removed — bakedRequest is now required, unbaked intents are unreachable.
-	// The MAX_ATTEMPTS_EXCEEDED and non-terminal tests below (baked + Postgres
-	// trigger) remain as the live emission proofs.
+	// A bare (unbaked) intent is unreachable — `bakedRequest` is required, so
+	// every drain takes the baked path; the two tests below (baked + a
+	// Postgres trigger forcing the write to fail) are the live emission
+	// proofs.
 
 	test("terminal MAX_ATTEMPTS_EXCEEDED failure (non-InvalidAgentWorkSourceError) emits the event", async ({
 		db,
@@ -113,31 +116,35 @@ describe("agent_run_admission_failed — emission from failOrRelease", () => {
 	}) => {
 		await seedSubscriptionVehicleFks(db, "max-attempts");
 		await rejectSessionRequestWrites(db);
-		const deps = { ...queueDeps(db), eventBus };
-		const { events } = captureAdmissionFailures(eventBus);
+		try {
+			const deps = { ...queueDeps(db), eventBus };
+			const { events } = captureAdmissionFailures(eventBus);
 
-		const intent = await enqueueWorkIntent(db, {
-			kind: "subscription_run",
-			sourceKind: "subscription",
-			sourceId: "wave0-max-attempts-subscription-run",
-			idempotencyKey: "wave0-max-attempts",
-			bakedRequest: bakedSubscriptionRunRequest("max-attempts"),
-		});
+			const intent = await enqueueWorkIntent(db, {
+				kind: "subscription_run",
+				sourceKind: "subscription",
+				sourceId: "emission-max-attempts-subscription-run",
+				idempotencyKey: "emission-max-attempts",
+				bakedRequest: bakedSubscriptionRunRequest("max-attempts"),
+			});
 
-		await drainIntents(deps, { maxAttempts: 1 });
+			await drainIntents(deps, { maxAttempts: 1 });
 
-		expect(events).toHaveLength(1);
-		expect(events[0]).toMatchObject({
-			intentId: intent.id,
-			kind: "subscription_run",
-			failureCode: "MAX_ATTEMPTS_EXCEEDED",
-			terminal: true,
-		});
-		const [row] = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.id, intent.id));
-		expect(row?.status).toBe("failed");
+			expect(events).toHaveLength(1);
+			expect(events[0]).toMatchObject({
+				intentId: intent.id,
+				kind: "subscription_run",
+				failureCode: "MAX_ATTEMPTS_EXCEEDED",
+				terminal: true,
+			});
+			const [row] = await db
+				.select()
+				.from(agentWorkIntents)
+				.where(eq(agentWorkIntents.id, intent.id));
+			expect(row?.status).toBe("failed");
+		} finally {
+			await dropRejectSessionRequestWritesTrigger(db);
+		}
 	});
 
 	test("a non-terminal (retryable) failure emits an informational event with terminal: false", async ({
@@ -146,36 +153,33 @@ describe("agent_run_admission_failed — emission from failOrRelease", () => {
 	}) => {
 		await seedSubscriptionVehicleFks(db, "non-terminal");
 		await rejectSessionRequestWrites(db);
-		const deps = { ...queueDeps(db), eventBus };
-		const { events } = captureAdmissionFailures(eventBus);
+		try {
+			const deps = { ...queueDeps(db), eventBus };
+			const { events } = captureAdmissionFailures(eventBus);
 
-		const intent = await enqueueWorkIntent(db, {
-			kind: "subscription_run",
-			sourceKind: "subscription",
-			sourceId: "wave0-non-terminal-subscription-run",
-			idempotencyKey: "wave0-non-terminal",
-			bakedRequest: bakedSubscriptionRunRequest("non-terminal"),
-		});
+			const intent = await enqueueWorkIntent(db, {
+				kind: "subscription_run",
+				sourceKind: "subscription",
+				sourceId: "emission-non-terminal-subscription-run",
+				idempotencyKey: "emission-non-terminal",
+				bakedRequest: bakedSubscriptionRunRequest("non-terminal"),
+			});
 
-		await drainIntents(deps, { maxAttempts: 5 });
+			await drainIntents(deps, { maxAttempts: 5 });
 
-		expect(events).toHaveLength(1);
-		expect(events[0]).toMatchObject({ intentId: intent.id, terminal: false });
-		const [row] = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.id, intent.id));
-		expect(row?.status).toBe("pending");
-
-		// Schema-level trigger cleanup — see `rejectSessionRequestWrites`'s
-		// @lore above; drop it so it can't leak into a sibling test/file sharing
-		// the pooled PGlite instance.
-		await db.execute(
-			sql`drop trigger if exists au21_reject_session_request_write_emission on agent_session_requests`,
-		);
+			expect(events).toHaveLength(1);
+			expect(events[0]).toMatchObject({ intentId: intent.id, terminal: false });
+			const [row] = await db
+				.select()
+				.from(agentWorkIntents)
+				.where(eq(agentWorkIntents.id, intent.id));
+			expect(row?.status).toBe("pending");
+		} finally {
+			await dropRejectSessionRequestWritesTrigger(db);
+		}
 	});
 
-	// @lore AU44: the type system is the live proof that a direct run-row
-	// write from `failOrRelease` can't come back — no such dependency exists
-	// on `DurableQueueDeps` any more.
+	// @lore The type system is the live proof that a direct run-row write
+	// from `failOrRelease` can't come back — no such dependency exists on
+	// `DurableQueueDeps`.
 });
