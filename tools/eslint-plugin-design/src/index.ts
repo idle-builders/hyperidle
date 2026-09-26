@@ -12,6 +12,7 @@ import { borderWidthProfileOnly } from "./rules/border-width-profile-only.js";
 import { motionProfileOnly } from "./rules/motion-profile-only.js";
 import { noAiAesthetic } from "./rules/no-ai-aesthetic.js";
 import { noDialogBoilerplate } from "./rules/no-dialog-boilerplate.js";
+import { noDomMarkerAssert } from "./rules/no-dom-marker-assert.js";
 import { noHandrolledChip } from "./rules/no-handrolled-chip.js";
 import { noHandrolledControl } from "./rules/no-handrolled-control.js";
 import { noHandrolledPageHeader } from "./rules/no-handrolled-page-header.js";
@@ -25,9 +26,11 @@ import { noOffGridSpacing } from "./rules/no-off-grid-spacing.js";
 import { noOffScaleDuration } from "./rules/no-off-scale-duration.js";
 import { noOffScaleFontSize } from "./rules/no-off-scale-font-size.js";
 import { noOpButton } from "./rules/no-op-button.js";
+import { noPlanningIdInTest } from "./rules/no-planning-id-in-test.js";
 import { noRawActorFetch } from "./rules/no-raw-actor-fetch.js";
 import { noRawOverlayZ } from "./rules/no-raw-overlay-z.js";
 import { noRawTailwindColor } from "./rules/no-raw-tailwind-color.js";
+import { noRepoIntrospectionInTest } from "./rules/no-repo-introspection-in-test.js";
 import { noUndefinedFontHeading } from "./rules/no-undefined-font-heading.js";
 import { noUngatedStreamDrain } from "./rules/no-ungated-stream-drain.js";
 import { noUnknownCast } from "./rules/no-unknown-cast.js";
@@ -63,6 +66,9 @@ export const rules: Record<string, Rule.RuleModule> = {
 	"no-raw-overlay-z": noRawOverlayZ,
 	"no-dialog-boilerplate": noDialogBoilerplate,
 	"no-unknown-cast": noUnknownCast,
+	"no-dom-marker-assert": noDomMarkerAssert,
+	"no-planning-id-in-test": noPlanningIdInTest,
+	"no-repo-introspection-in-test": noRepoIntrospectionInTest,
 	"require-ds-attribute": requireDsAttribute,
 	"require-stories-sibling": requireStoriesSibling,
 	"require-focus-on-interactive": requireFocusOnInteractive,
