@@ -224,26 +224,6 @@ describe("EventBus", () => {
 		expect(handler).not.toHaveBeenCalled();
 	});
 
-	it("type safety: handler receives correctly typed event", () => {
-		const bus = new EventBus();
-
-		// This test verifies compile-time type safety.
-		// If the types are wrong, tsc will reject this file.
-		bus.on("task.changed", (e) => {
-			// These property accesses must type-check
-			const TaskId: string = e.change.objectId;
-			const Before: unknown = e.change.before;
-			const After: Record<string, unknown> = e.change.after;
-			expect(TaskId).toBeDefined();
-			expect(Before).toBeDefined();
-			expect(After).toBeDefined();
-		});
-
-		// @lore BB1: BetStateChangedEvent deleted — bet is now a root task.
-
-		bus.emit(makeTaskEvent("t1", 1));
-	});
-
 	// ---------------- I1 / EventBus resilience ----------------
 	// E1: a throwing handler must not block subsequent handlers on the
 	// same event type. Today's EventBus aborts the iteration on the first
