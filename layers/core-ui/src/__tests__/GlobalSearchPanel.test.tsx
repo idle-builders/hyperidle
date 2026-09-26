@@ -370,4 +370,20 @@ describe("GlobalSearchPanel", () => {
 		await user.click(screen.getByText("Mobile App V2"));
 		expect(onNavigate).toHaveBeenCalledWith("work", "w1");
 	});
+	// UI-001: panel is portalled into #overlay-root (sibling of #root).
+	// Use document.querySelector — portal content is outside the RTL container.
+	it("renders a recent-queries row region at the bottom, labeled for assistive tech", () => {
+		render(<GlobalSearchPanel {...defaultProps} />);
+		const recent = document.querySelector('[data-testid="search-recent-queries"]');
+		expect(recent).not.toBeNull();
+		expect(
+			recent?.getAttribute("aria-label") ?? recent?.getAttribute("aria-labelledby") ?? "",
+		).not.toBe("");
+	});
+
+	it("recent-queries row reports initial empty state", () => {
+		render(<GlobalSearchPanel {...defaultProps} />);
+		// Default placeholder message when no recent queries exist.
+		expect(screen.getByText(/no recent/i)).toBeInTheDocument();
+	});
 });
