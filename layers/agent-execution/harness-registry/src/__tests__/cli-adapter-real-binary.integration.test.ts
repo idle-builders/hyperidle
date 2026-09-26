@@ -185,14 +185,20 @@ describe("CLI adapter (real binary, production CliHarnessAdapter path)", () => {
 				// ── real (or honestly-absent) token usage, never a cost field ──────
 				expect(events.some((e) => (e.type as string) === "cost_update")).toBe(false);
 				const tokenEvent = events.find((e) => e.type === "token_usage");
+				// A real per-harness run may honestly omit token_usage; the per-harness
+				// expected-value branch below is a per-harness shape, not a skippable check.
 				if (tokenEvent && tokenEvent.type === "token_usage") {
+					// eslint-disable-next-line vitest/no-conditional-expect
 					expect(tokenEvent.inputTokens).toBeGreaterThanOrEqual(0);
+					// eslint-disable-next-line vitest/no-conditional-expect
 					expect(tokenEvent.outputTokens).toBeGreaterThanOrEqual(0);
 					if (expectsPositiveTokenUsage) {
+						// eslint-disable-next-line vitest/no-conditional-expect
 						expect(
 							tokenEvent.inputTokens,
 							`${name}: real LLM turn must consume input tokens`,
 						).toBeGreaterThan(0);
+						// eslint-disable-next-line vitest/no-conditional-expect
 						expect(
 							tokenEvent.outputTokens,
 							`${name}: real LLM turn must consume output tokens`,

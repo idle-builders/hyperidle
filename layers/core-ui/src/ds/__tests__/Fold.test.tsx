@@ -25,11 +25,6 @@ describe("Fold — calm collapse-to-summary device", () => {
 		expect(screen.getByText("Show")).toBeDefined();
 	});
 
-	it("carries the data-ds-component=Fold marker", () => {
-		render(<Fold cta="Show" />);
-		expect(document.querySelector('[data-ds-component="Fold"]')).not.toBeNull();
-	});
-
 	it("fires onShow when clicked (the live dial-in hook)", () => {
 		const onShow = vi.fn();
 		render(<Fold cta="Show session" onShow={onShow} />);

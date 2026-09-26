@@ -23,7 +23,6 @@ async function json(route: Route, body: unknown): Promise<void> {
 
 async function box(locator: Locator) {
 	const value = await locator.boundingBox();
-	expect(value).not.toBeNull();
 	if (!value) throw new Error("Visible layout target has no painted box");
 	return value;
 }

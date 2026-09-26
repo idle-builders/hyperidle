@@ -28,7 +28,7 @@ function writeManifest(content: unknown): void {
 }
 
 describe("parsePluginManifest", () => {
-	describe("AC3 — fatal violations", () => {
+	describe("fatal violations", () => {
 		it.each([
 			["plugin.json is missing", undefined, /Cannot read plugin\.json/],
 			["plugin.json is not an object", "not-an-object", /must be a JSON object/],
@@ -53,11 +53,13 @@ describe("parsePluginManifest", () => {
 			if (content !== undefined) writeManifest(content);
 			const result = parsePluginManifest(tempDir);
 			expect(result.ok).toBe(false);
-			if (!result.ok && reasonMatch) expect(result.reason).toMatch(reasonMatch);
+			if (result.ok) throw new Error("expected a fatal violation");
+			if (!reasonMatch) return;
+			expect(result.reason).toMatch(reasonMatch);
 		});
 	});
 
-	describe("AC3 — non-fatal (warning, install continues)", () => {
+	describe("non-fatal (warning, install continues)", () => {
 		it("succeeds with warning when there is an unknown top-level field", () => {
 			writeManifest({
 				$schema: VALID_SCHEMA,
@@ -66,11 +68,10 @@ describe("parsePluginManifest", () => {
 			});
 			const result = parsePluginManifest(tempDir);
 			expect(result.ok).toBe(true);
-			if (result.ok) {
-				const warn = result.manifest.warnings.find((w) => w.code === "UNKNOWN_TOP_LEVEL_FIELD");
-				expect(warn).toBeDefined();
-				expect(warn?.message).toContain("unknownField");
-			}
+			if (!result.ok) throw new Error("expected a successful parse");
+			const warn = result.manifest.warnings.find((w) => w.code === "UNKNOWN_TOP_LEVEL_FIELD");
+			expect(warn).toBeDefined();
+			expect(warn?.message).toContain("unknownField");
 		});
 
 		it("succeeds with warning when extensions is not an object", () => {
@@ -81,10 +82,9 @@ describe("parsePluginManifest", () => {
 			});
 			const result = parsePluginManifest(tempDir);
 			expect(result.ok).toBe(true);
-			if (result.ok) {
-				const warn = result.manifest.warnings.find((w) => w.code === "NON_OBJECT_EXTENSIONS");
-				expect(warn).toBeDefined();
-			}
+			if (!result.ok) throw new Error("expected a successful parse");
+			const warn = result.manifest.warnings.find((w) => w.code === "NON_OBJECT_EXTENSIONS");
+			expect(warn).toBeDefined();
 		});
 
 		it("succeeds with warning when extensions is an array", () => {
@@ -103,11 +103,10 @@ describe("parsePluginManifest", () => {
 			writeManifest({ $schema: VALID_SCHEMA, name: "my-plugin" });
 			const result = parsePluginManifest(tempDir);
 			expect(result.ok).toBe(true);
-			if (result.ok) {
-				expect(result.manifest.name).toBe("my-plugin");
-				expect(result.manifest.version).toBe("0");
-				expect(result.manifest.warnings).toHaveLength(0);
-			}
+			if (!result.ok) throw new Error("expected a successful parse");
+			expect(result.manifest.name).toBe("my-plugin");
+			expect(result.manifest.version).toBe("0");
+			expect(result.manifest.warnings).toHaveLength(0);
 		});
 
 		it.each([
@@ -128,10 +127,9 @@ describe("parsePluginManifest", () => {
 			});
 			const result = parsePluginManifest(tempDir);
 			expect(result.ok).toBe(true);
-			if (result.ok) {
-				expect(result.manifest.version).toBe("1.2.3");
-				expect(result.manifest.description).toBe("A great plugin");
-			}
+			if (!result.ok) throw new Error("expected a successful parse");
+			expect(result.manifest.version).toBe("1.2.3");
+			expect(result.manifest.description).toBe("A great plugin");
 		});
 
 		it("ignores unknown client namespaces without validating their contents", () => {
@@ -145,12 +143,11 @@ describe("parsePluginManifest", () => {
 			});
 			const result = parsePluginManifest(tempDir);
 			expect(result.ok).toBe(true);
-			if (result.ok) {
-				// No warnings about the unknown client namespace
-				expect(
-					result.manifest.warnings.filter((w) => w.code === "NON_OBJECT_EXTENSIONS"),
-				).toHaveLength(0);
-			}
+			if (!result.ok) throw new Error("expected a successful parse");
+			// No warnings about the unknown client namespace
+			expect(
+				result.manifest.warnings.filter((w) => w.code === "NON_OBJECT_EXTENSIONS"),
+			).toHaveLength(0);
 		});
 	});
 });

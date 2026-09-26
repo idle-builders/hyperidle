@@ -71,13 +71,12 @@ function mkTeam(id: string, name: string): SidebarTeam {
 // ---------------------------------------------------------------------------
 
 describe("Sidebar — structure and brand", () => {
-	it("renders the Sidebar shell element (data-ds-shell='Sidebar')", () => {
+	it("renders the Sidebar as a navigation landmark", () => {
 		// @lore AD9: SidebarV2 design (founder /human-design-review) removed the
 		// wordmark from the sidebar layout to reduce visual noise in the 200px column.
 		// The brand is represented by the product chrome (window title / about page).
-		// This test was updated to assert the sidebar renders at all (data-ds-shell).
-		const { container } = render(<Sidebar {...defaultProps} />);
-		expect(container.querySelector("[data-ds-shell='Sidebar']")).toBeInTheDocument();
+		render(<Sidebar {...defaultProps} />);
+		expect(screen.getByRole("complementary")).toBeInTheDocument();
 	});
 
 	it("renders three section headers: Conversations, Work, Knowledge", () => {
@@ -95,12 +94,6 @@ describe("Sidebar — structure and brand", () => {
 		expect(screen.getByRole("button", { name: /assistant/i })).toBeInTheDocument();
 		// Settings button (avatar)
 		expect(screen.getByRole("button", { name: /settings/i })).toBeInTheDocument();
-	});
-
-	it("has data-ds-shell='Sidebar' attribute for AppShell integration tests", () => {
-		const { container } = render(<Sidebar {...defaultProps} />);
-		const sidebarEl = container.querySelector("[data-ds-shell='Sidebar']");
-		expect(sidebarEl).toBeInTheDocument();
 	});
 });
 

@@ -317,7 +317,7 @@ async function spawnWithClosedStdin(
 // Without #2, we have no proof the harness actually uses the materialised skill.
 // ---------------------------------------------------------------------------
 
-describe("BA9b: skill materialisation via production writeSkillItem — real harnesses", () => {
+describe("skill materialisation via production writeSkillItem — real harnesses", () => {
 	// @lore The built-in harness had a lane here. It was a direct in-process LLM
 	// call with no binary to interrogate, so it could only assert the half of this
 	// test that is deterministic — that writeSkillItem put SKILL.md on both

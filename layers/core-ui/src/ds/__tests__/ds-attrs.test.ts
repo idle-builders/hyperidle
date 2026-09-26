@@ -129,7 +129,7 @@ const TIER_2: ComponentCase[] = [
 
 const ALL_CASES: ComponentCase[] = [...TIER_1, ...TIER_2];
 
-describe("K2 — design-system DOM markers", () => {
+describe("design-system DOM markers", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 

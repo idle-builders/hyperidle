@@ -91,7 +91,8 @@ test.describe("Settings → Skills & rules: delete", () => {
 		// confirm step: this single click is the whole delete flow.
 		await row.getByRole("button", { name: /delete write-tests/i }).click();
 
-		await expect(archiveRequest).resolves.toBeTruthy();
+		// A timeout here (no matching request) fails the test on its own.
+		await archiveRequest;
 		await expect(page).toHaveURL(/\/settings$/);
 		await expect(page.getByText("write-tests")).not.toBeVisible();
 	});

@@ -20,28 +20,19 @@ describe("normalizeHarnessEvent — opencode pre-map", () => {
 			properties: { output: "The task is done." },
 		};
 		const result = normalizeHarnessEvent(input);
-		expect(result.type).toBe("completion");
-		if (result.type === "completion") {
-			expect(result.text).toBe("The task is done.");
-		}
+		expect(result).toMatchObject({ type: "completion", text: "The task is done." });
 	});
 
 	it("step_finish → completion (text from top-level output when no properties)", () => {
 		const input = { type: "step_finish", output: "Turn complete." };
 		const result = normalizeHarnessEvent(input);
-		expect(result.type).toBe("completion");
-		if (result.type === "completion") {
-			expect(result.text).toBe("Turn complete.");
-		}
+		expect(result).toMatchObject({ type: "completion", text: "Turn complete." });
 	});
 
 	it("step_finish → completion (empty text when no extractable output)", () => {
 		const input = { type: "step_finish" };
 		const result = normalizeHarnessEvent(input);
-		expect(result.type).toBe("completion");
-		if (result.type === "completion") {
-			expect(result.text).toBe("");
-		}
+		expect(result).toMatchObject({ type: "completion", text: "" });
 	});
 
 	it("tool → tool_call (toolName from tool field, args from input)", () => {
@@ -51,11 +42,11 @@ describe("normalizeHarnessEvent — opencode pre-map", () => {
 			input: { path: "proof.txt", content: "al7-proof" },
 		};
 		const result = normalizeHarnessEvent(input);
-		expect(result.type).toBe("tool_call");
-		if (result.type === "tool_call") {
-			expect(result.toolName).toBe("commit_file");
-			expect(result.args).toEqual({ path: "proof.txt", content: "al7-proof" });
-		}
+		expect(result).toMatchObject({
+			type: "tool_call",
+			toolName: "commit_file",
+			args: { path: "proof.txt", content: "al7-proof" },
+		});
 	});
 
 	it("tool → tool_call (toolName from name field when tool absent)", () => {
@@ -65,11 +56,11 @@ describe("normalizeHarnessEvent — opencode pre-map", () => {
 			args: { path: "out.txt" },
 		};
 		const result = normalizeHarnessEvent(input);
-		expect(result.type).toBe("tool_call");
-		if (result.type === "tool_call") {
-			expect(result.toolName).toBe("write_file");
-			expect(result.args).toEqual({ path: "out.txt" });
-		}
+		expect(result).toMatchObject({
+			type: "tool_call",
+			toolName: "write_file",
+			args: { path: "out.txt" },
+		});
 	});
 
 	it("step_start → benign empty completion (not an error — a lifecycle event)", () => {
@@ -125,11 +116,11 @@ describe("normalizeHarnessEvent — opencode pre-map", () => {
 			},
 		};
 		const result = normalizeHarnessEvent(input);
-		expect(result.type).toBe("tool_call");
-		if (result.type === "tool_call") {
-			expect(result.toolName).toBe("bash");
-			expect(result.args).toEqual({ command: "echo 4" });
-		}
+		expect(result).toMatchObject({
+			type: "tool_call",
+			toolName: "bash",
+			args: { command: "echo 4" },
+		});
 	});
 
 	it("tool_use → tool_call (fallback toolName from top-level tool field when part absent)", () => {
@@ -139,10 +130,7 @@ describe("normalizeHarnessEvent — opencode pre-map", () => {
 			input: { path: "out.txt" },
 		};
 		const result = normalizeHarnessEvent(input);
-		expect(result.type).toBe("tool_call");
-		if (result.type === "tool_call") {
-			expect(result.toolName).toBe("write_file");
-		}
+		expect(result).toMatchObject({ type: "tool_call", toolName: "write_file" });
 	});
 
 	it("genuinely unknown opencode type → error/UnknownHarnessEvent (not silently dropped)", () => {
@@ -150,9 +138,6 @@ describe("normalizeHarnessEvent — opencode pre-map", () => {
 		const input = { type: "opencode_future_unknown_event", id: "x1" };
 		const result = normalizeHarnessEvent(input);
 		// Unmapped types fall through to unknownEvent → error event with UnknownHarnessEvent code
-		expect(result.type).toBe("error");
-		if (result.type === "error") {
-			expect(result.code).toBe("UnknownHarnessEvent");
-		}
+		expect(result).toMatchObject({ type: "error", code: "UnknownHarnessEvent" });
 	});
 });

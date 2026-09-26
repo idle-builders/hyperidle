@@ -298,15 +298,16 @@ describe("runRules — a rule that scans nothing is a build error", () => {
 	});
 
 	it("names the dead rule in the error", () => {
+		let thrown: unknown;
 		try {
 			runRules([inert], emptyCensus());
-			expect.unreachable("expected a throw");
 		} catch (error) {
-			expect(error).toBeInstanceOf(DeadRuleError);
-			expect((error as DeadRuleError).ruleId).toBe("inert");
-			expect((error as Error).message).toContain("inert");
-			expect((error as Error).message).toContain("build error");
+			thrown = error;
 		}
+		expect(thrown).toBeInstanceOf(DeadRuleError);
+		expect((thrown as DeadRuleError).ruleId).toBe("inert");
+		expect((thrown as Error).message).toContain("inert");
+		expect((thrown as Error).message).toContain("build error");
 	});
 
 	it("throws when live scope is merely below the floor, not only at zero", () => {

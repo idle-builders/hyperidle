@@ -46,7 +46,6 @@ async function assertBottomAnchored(
 		};
 	}, viewportHeight);
 
-	expect(box, "Dialog box must exist in the DOM").not.toBeNull();
 	// No horizontal overflow
 	expect(box!.scrollWidth, "No horizontal overflow on mobile dialog").toBeLessThanOrEqual(
 		box!.clientWidth + 1, // 1px tolerance for border-box rounding

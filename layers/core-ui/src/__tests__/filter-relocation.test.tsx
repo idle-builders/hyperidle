@@ -132,11 +132,10 @@ describe("Conversations page — filter controls live in the main pane", () => {
 		});
 
 		// The sidebar should not contain any aria-pressed buttons
-		const sidebar = container.querySelector("[data-ds-shell='Sidebar']");
-		if (sidebar) {
-			const pressedInSidebar = sidebar.querySelector("[aria-pressed]");
-			expect(pressedInSidebar).toBeNull();
-		}
+		const sidebar = container.querySelector("aside");
+		if (!sidebar) throw new Error("expected the Sidebar to render");
+		const pressedInSidebar = sidebar.querySelector("[aria-pressed]");
+		expect(pressedInSidebar).toBeNull();
 		// The main content area has no chip buttons either
 		const mainContent = container.querySelector("[data-testid='main-content']");
 		expect(mainContent).toBeInTheDocument();

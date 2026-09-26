@@ -29,39 +29,27 @@ describe("normalizeHarnessEvent — codex pre-map (preMapCodexEvent branches)", 
 		// Real codex JSONL shape: { type: "item.completed", item: { text: "..." } }
 		const input = { type: "item.completed", item: { text: "hello" } };
 		const result = normalizeHarnessEvent(input);
-		expect(result.type).toBe("completion");
-		if (result.type === "completion") {
-			expect(result.text).toBe("hello");
-		}
+		expect(result).toMatchObject({ type: "completion", text: "hello" });
 	});
 
 	it("item.completed with empty item.text → completion('')", () => {
 		const input = { type: "item.completed", item: { text: "" } };
 		const result = normalizeHarnessEvent(input);
-		expect(result.type).toBe("completion");
-		if (result.type === "completion") {
-			expect(result.text).toBe("");
-		}
+		expect(result).toMatchObject({ type: "completion", text: "" });
 	});
 
 	it("item.completed with non-string item.text → completion('')", () => {
 		// item.text absent or wrong type → falls back to ""
 		const input = { type: "item.completed", item: { role: "assistant" } };
 		const result = normalizeHarnessEvent(input);
-		expect(result.type).toBe("completion");
-		if (result.type === "completion") {
-			expect(result.text).toBe("");
-		}
+		expect(result).toMatchObject({ type: "completion", text: "" });
 	});
 
 	it("item.completed with no item field → completion('')", () => {
 		// Missing item entirely → empty text
 		const input = { type: "item.completed" };
 		const result = normalizeHarnessEvent(input);
-		expect(result.type).toBe("completion");
-		if (result.type === "completion") {
-			expect(result.text).toBe("");
-		}
+		expect(result).toMatchObject({ type: "completion", text: "" });
 	});
 
 	// ── turn.completed → token_usage ──────────────────────────────────────────
@@ -79,34 +67,26 @@ describe("normalizeHarnessEvent — codex pre-map (preMapCodexEvent branches)", 
 			},
 		};
 		const result = normalizeHarnessEvent(input);
-		expect(result.type).toBe("token_usage");
-		if (result.type === "token_usage") {
-			expect(result.inputTokens).toBe(10);
-			expect(result.outputTokens).toBe(5);
-			expect(result.cachedInputTokens).toBe(7);
-			expect(result.reasoningOutputTokens).toBe(2);
-		}
+		expect(result).toMatchObject({
+			type: "token_usage",
+			inputTokens: 10,
+			outputTokens: 5,
+			cachedInputTokens: 7,
+			reasoningOutputTokens: 2,
+		});
 	});
 
 	it("turn.completed with zero usage → token_usage(0, 0)", () => {
 		const input = { type: "turn.completed", usage: { input_tokens: 0, output_tokens: 0 } };
 		const result = normalizeHarnessEvent(input);
-		expect(result.type).toBe("token_usage");
-		if (result.type === "token_usage") {
-			expect(result.inputTokens).toBe(0);
-			expect(result.outputTokens).toBe(0);
-		}
+		expect(result).toMatchObject({ type: "token_usage", inputTokens: 0, outputTokens: 0 });
 	});
 
 	it("turn.completed with missing usage → token_usage(0, 0) (graceful fallback)", () => {
 		// usage absent → preMapCodexEvent falls back to 0 for both fields
 		const input = { type: "turn.completed" };
 		const result = normalizeHarnessEvent(input);
-		expect(result.type).toBe("token_usage");
-		if (result.type === "token_usage") {
-			expect(result.inputTokens).toBe(0);
-			expect(result.outputTokens).toBe(0);
-		}
+		expect(result).toMatchObject({ type: "token_usage", inputTokens: 0, outputTokens: 0 });
 	});
 
 	it("turn.completed with non-finite token values → token_usage(0, 0)", () => {
@@ -116,11 +96,7 @@ describe("normalizeHarnessEvent — codex pre-map (preMapCodexEvent branches)", 
 			usage: { input_tokens: Number.NaN, output_tokens: Number.POSITIVE_INFINITY },
 		};
 		const result = normalizeHarnessEvent(input);
-		expect(result.type).toBe("token_usage");
-		if (result.type === "token_usage") {
-			expect(result.inputTokens).toBe(0);
-			expect(result.outputTokens).toBe(0);
-		}
+		expect(result).toMatchObject({ type: "token_usage", inputTokens: 0, outputTokens: 0 });
 	});
 
 	// ── Lifecycle events → benign completion ───────────────────────────────────
@@ -128,19 +104,13 @@ describe("normalizeHarnessEvent — codex pre-map (preMapCodexEvent branches)", 
 	it("thread.started → completion('') (lifecycle event, no content)", () => {
 		const input = { type: "thread.started", thread_id: "t1" };
 		const result = normalizeHarnessEvent(input);
-		expect(result.type).toBe("completion");
-		if (result.type === "completion") {
-			expect(result.text).toBe("");
-		}
+		expect(result).toMatchObject({ type: "completion", text: "" });
 	});
 
 	it("turn.started → completion('') (lifecycle event, no content)", () => {
 		const input = { type: "turn.started", turn_id: "turn-1" };
 		const result = normalizeHarnessEvent(input);
-		expect(result.type).toBe("completion");
-		if (result.type === "completion") {
-			expect(result.text).toBe("");
-		}
+		expect(result).toMatchObject({ type: "completion", text: "" });
 	});
 
 	// ── Unknown codex type → UnknownHarnessEvent error (does not crash) ────────
@@ -151,10 +121,7 @@ describe("normalizeHarnessEvent — codex pre-map (preMapCodexEvent branches)", 
 		const input = { type: "item.updated", item_id: "i1" };
 		const result = normalizeHarnessEvent(input);
 		// Unrecognized type → error event (UnknownHarnessEvent)
-		expect(result.type).toBe("error");
-		if (result.type === "error") {
-			expect(result.code).toBe("UnknownHarnessEvent");
-		}
+		expect(result).toMatchObject({ type: "error", code: "UnknownHarnessEvent" });
 	});
 
 	// ── Regression guards: canonical and claude-shaped events are NOT mis-transformed ──
@@ -163,20 +130,13 @@ describe("normalizeHarnessEvent — codex pre-map (preMapCodexEvent branches)", 
 		// A canonical completion event must pass through unchanged
 		const input = { type: "completion", text: "x" };
 		const result = normalizeHarnessEvent(input);
-		expect(result.type).toBe("completion");
-		if (result.type === "completion") {
-			expect(result.text).toBe("x");
-		}
+		expect(result).toMatchObject({ type: "completion", text: "x" });
 	});
 
 	it("canonical token_usage event is NOT mis-transformed by codex pre-map", () => {
 		const input = { type: "token_usage", inputTokens: 7, outputTokens: 3 };
 		const result = normalizeHarnessEvent(input);
-		expect(result.type).toBe("token_usage");
-		if (result.type === "token_usage") {
-			expect(result.inputTokens).toBe(7);
-			expect(result.outputTokens).toBe(3);
-		}
+		expect(result).toMatchObject({ type: "token_usage", inputTokens: 7, outputTokens: 3 });
 	});
 
 	it("claude-shaped assistant event is NOT mis-transformed by codex pre-map", () => {
@@ -190,9 +150,6 @@ describe("normalizeHarnessEvent — codex pre-map (preMapCodexEvent branches)", 
 		const result = normalizeHarnessEvent(input);
 		// "assistant" is not a canonical type and not handled by preMapCodexEvent default
 		// → falls to unknownEvent
-		expect(result.type).toBe("error");
-		if (result.type === "error") {
-			expect(result.code).toBe("UnknownHarnessEvent");
-		}
+		expect(result).toMatchObject({ type: "error", code: "UnknownHarnessEvent" });
 	});
 });

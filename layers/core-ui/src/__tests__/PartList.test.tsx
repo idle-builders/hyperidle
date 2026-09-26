@@ -107,7 +107,7 @@ describe("PartList — inline embeds", () => {
 				onOpen={vi.fn()}
 			/>,
 		);
-		expect(document.querySelector('[data-ds-component="Fold"]')).not.toBeNull();
+		expect(screen.getByRole("button", { name: /show/i })).toBeInTheDocument();
 		// The session is a Fold — never a chip.
 		const chips = document.querySelectorAll('[data-ds-component="ReferenceChip"]');
 		expect(chips.length).toBe(0);
@@ -209,8 +209,8 @@ describe("PartList — unknown fallback", () => {
 			embeds: [],
 			reason: "wire-unrecognised-type",
 		} as Part;
-		expect(() => render(<PartList parts={[unknownPart]} onOpen={vi.fn()} />)).not.toThrow();
-		expect(document.querySelector('[data-ds-component="UnknownPart"]')).not.toBeNull();
+		render(<PartList parts={[unknownPart]} onOpen={vi.fn()} />);
+		expect(screen.getByText("Unsupported message")).toBeInTheDocument();
 	});
 });
 

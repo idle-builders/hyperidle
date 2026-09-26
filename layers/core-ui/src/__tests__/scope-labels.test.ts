@@ -10,7 +10,7 @@
 import { describe, expect, it } from "vitest";
 import { SCOPE_PILL_OPTIONS, scopeKindToLabel } from "../utils/scope-labels.js";
 
-describe("AE1 — scopeKindToLabel: the 3-value contract", () => {
+describe("scopeKindToLabel: the 3-value contract", () => {
 	it('scopeKindToLabel("team") returns "Team"', () => {
 		expect(scopeKindToLabel("team")).toBe("Team");
 	});
@@ -31,7 +31,7 @@ describe("AE1 — scopeKindToLabel: the 3-value contract", () => {
 	});
 });
 
-describe("AE1 — SCOPE_PILL_OPTIONS: the 3 real scope kinds", () => {
+describe("SCOPE_PILL_OPTIONS: the 3 real scope kinds", () => {
 	it('Team pill filterKinds is exactly ["team"]', () => {
 		const teamPill = SCOPE_PILL_OPTIONS.find((o) => o.id === "team");
 		expect(teamPill?.filterKinds).toEqual(["team"]);

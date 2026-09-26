@@ -78,7 +78,7 @@ describe("Mobile drawer: hamburger, open, close", () => {
 		setViewportWidth(1920);
 		const { container } = renderShell();
 		await waitFor(() => {
-			expect(container.querySelector("[data-ds-shell='Sidebar']")).toBeInTheDocument();
+			expect(container.querySelector("aside")).toBeInTheDocument();
 		});
 		expect(screen.queryByTestId("mobile-hamburger")).not.toBeInTheDocument();
 		expect(screen.queryByTestId("mobile-drawer")).not.toBeInTheDocument();
@@ -101,7 +101,7 @@ describe("Mobile drawer: hamburger, open, close", () => {
 		// Sidebar should not be in normal flow at mobile
 		expect(
 			container.querySelector(
-				"[data-ds-shell='Sidebar']:not([data-testid='mobile-drawer'] [data-ds-shell='Sidebar'])",
+				"aside:not([data-testid='mobile-drawer'] aside)",
 			),
 		).not.toBeInTheDocument();
 	});
@@ -144,7 +144,7 @@ describe("Mobile drawer: hamburger, open, close", () => {
 
 		await waitFor(() => {
 			const drawer = screen.getByTestId("mobile-drawer");
-			expect(drawer.querySelector("[data-ds-shell='Sidebar']")).toBeInTheDocument();
+			expect(drawer.querySelector("aside")).toBeInTheDocument();
 		});
 	});
 

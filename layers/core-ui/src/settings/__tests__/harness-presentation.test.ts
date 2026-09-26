@@ -122,7 +122,7 @@ const KEY_ACCEPTING_DESCRIPTOR = makeDescriptor({
 
 // ── statusLine ────────────────────────────────────────────────────────────────
 
-describe("AM4 harness-presentation — statusLine()", () => {
+describe("harness-presentation — statusLine()", () => {
 	it("ready → tone: healthy", () => {
 		const sl = statusLine(READY_DESCRIPTOR);
 		expect(sl.tone).toBe("healthy");
@@ -173,7 +173,7 @@ describe("AM4 harness-presentation — statusLine()", () => {
 
 // ── hasActionableNextStep ─────────────────────────────────────────────────────
 
-describe("AM4 harness-presentation — hasActionableNextStep()", () => {
+describe("harness-presentation — hasActionableNextStep()", () => {
 	it("true for unauthenticated with native_cli_login", () => {
 		expect(hasActionableNextStep(UNAUTHENTICATED_DESCRIPTOR)).toBe(true);
 	});
@@ -202,7 +202,7 @@ describe("AM4 harness-presentation — hasActionableNextStep()", () => {
 
 // ── showsToggle ───────────────────────────────────────────────────────────────
 
-describe("AM4 harness-presentation — showsToggle() (AC2 key contract)", () => {
+describe("harness-presentation — showsToggle() (key contract)", () => {
 	it("true for ready", () => {
 		expect(showsToggle(READY_DESCRIPTOR)).toBe(true);
 	});
@@ -239,7 +239,7 @@ describe("AM4 harness-presentation — showsToggle() (AC2 key contract)", () => 
 
 // ── isEnabled ────────────────────────────────────────────────────────────────
 
-describe("AM4 harness-presentation — isEnabled()", () => {
+describe("harness-presentation — isEnabled()", () => {
 	it("true when discovery.disabled is absent/false", () => {
 		expect(isEnabled(READY_DESCRIPTOR)).toBe(true);
 	});
@@ -251,7 +251,7 @@ describe("AM4 harness-presentation — isEnabled()", () => {
 
 // ── provenCapabilities ────────────────────────────────────────────────────────
 
-describe("AM4 harness-presentation — provenCapabilities()", () => {
+describe("harness-presentation — provenCapabilities()", () => {
 	it("returns empty array (runtime caps removed from descriptor)", () => {
 		expect(provenCapabilities(READY_DESCRIPTOR)).toHaveLength(0);
 		expect(provenCapabilities(KEY_ACCEPTING_DESCRIPTOR)).toHaveLength(0);
@@ -260,7 +260,7 @@ describe("AM4 harness-presentation — provenCapabilities()", () => {
 
 // ── capabilitySummary ─────────────────────────────────────────────────────────
 
-describe("AM4 harness-presentation — capabilitySummary() (AC2-production-shape)", () => {
+describe("harness-presentation — capabilitySummary() (production-shape)", () => {
 	it("returns 'confirmed after first run' when no caps proven (production shape)", () => {
 		// This is the AC2-production-shape requirement (WARNING 4)
 		const summary = capabilitySummary(READY_DESCRIPTOR);
@@ -276,7 +276,7 @@ describe("AM4 harness-presentation — capabilitySummary() (AC2-production-shape
 
 // ── hasCaps ───────────────────────────────────────────────────────────────────
 
-describe("AM4 harness-presentation — hasCaps()", () => {
+describe("harness-presentation — hasCaps()", () => {
 	it("true when descriptor has models (even with all-false runtime caps)", () => {
 		// Production shape: models declared, caps all-false → fold still visible
 		expect(hasCaps(READY_DESCRIPTOR)).toBe(true);
@@ -296,7 +296,7 @@ describe("AM4 harness-presentation — hasCaps()", () => {
 
 // ── commandText ───────────────────────────────────────────────────────────────
 
-describe("AM4 harness-presentation — commandText()", () => {
+describe("harness-presentation — commandText()", () => {
 	it("returns joined command string for CLI harnesses", () => {
 		const text = commandText(READY_DESCRIPTOR);
 		expect(text).toBe("claude auth login");
@@ -313,7 +313,7 @@ describe("AM4 harness-presentation — commandText()", () => {
 
 // ── Contract: descriptor-driven, no per-family branching ─────────────────────
 
-describe("AM4 Contract — descriptor-driven / no per-backend branching (two-descriptor structural test)", () => {
+describe("Contract — descriptor-driven / no per-backend branching (two-descriptor structural test)", () => {
 	/**
 	 * Two structurally-different `ready` descriptors (a key-accepting harness vs a login-only CLI).
 	 * The mapper functions produce the same OUTPUT STRUCTURE from the same INPUT SHAPE —

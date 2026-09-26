@@ -93,10 +93,8 @@ test.describe("team page content column stays capped at every desktop width", ()
 			// the body's column, not the header's.
 			const innerColumn = page.locator("[data-page-scroll] [data-page-frame] > div").first();
 			const box = await innerColumn.boundingBox();
-			expect(box).not.toBeNull();
-			if (box) {
-				expect(box.width).toBeLessThanOrEqual(MAX_CONTENT_WIDTH);
-			}
+			if (!box) throw new Error("Content column has no painted box");
+			expect(box.width).toBeLessThanOrEqual(MAX_CONTENT_WIDTH);
 		});
 
 		test(`empty team at ${width}px`, async ({ page }) => {
@@ -113,10 +111,8 @@ test.describe("team page content column stays capped at every desktop width", ()
 
 			const innerColumn = page.locator("[data-page-scroll] [data-page-frame] > div").first();
 			const box = await innerColumn.boundingBox();
-			expect(box).not.toBeNull();
-			if (box) {
-				expect(box.width).toBeLessThanOrEqual(MAX_CONTENT_WIDTH);
-			}
+			if (!box) throw new Error("Content column has no painted box");
+			expect(box.width).toBeLessThanOrEqual(MAX_CONTENT_WIDTH);
 
 			const tiles = page.locator("[data-testid='stat-tile']");
 			await expect(tiles).toHaveCount(2);
@@ -156,7 +152,7 @@ test("a stat tile's label and value paint within the tile's own bounds", async (
 	for (let i = 0; i < count; i++) {
 		const tile = statTiles.nth(i);
 		const tileBox = await tile.boundingBox();
-		expect(tileBox).not.toBeNull();
+		if (!tileBox) throw new Error("Stat tile has no painted box");
 
 		const spans = tile.locator("span");
 		const spanCount = await spans.count();
@@ -164,12 +160,10 @@ test("a stat tile's label and value paint within the tile's own bounds", async (
 
 		const valueSpan = spans.nth(1);
 		const valueBox = await valueSpan.boundingBox();
-		expect(valueBox).not.toBeNull();
+		if (!valueBox) throw new Error("Stat tile's value span has no painted box");
 
-		if (tileBox && valueBox) {
-			expect(valueBox.x).toBeGreaterThanOrEqual(tileBox.x - 1);
-			expect(valueBox.x + valueBox.width).toBeLessThanOrEqual(tileBox.x + tileBox.width + 1);
-		}
+		expect(valueBox.x).toBeGreaterThanOrEqual(tileBox.x - 1);
+		expect(valueBox.x + valueBox.width).toBeLessThanOrEqual(tileBox.x + tileBox.width + 1);
 	}
 });
 

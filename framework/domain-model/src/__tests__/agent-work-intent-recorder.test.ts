@@ -73,6 +73,7 @@ describe("AgentWorkIntentRecorderInput four-kind union", () => {
 		expectTypeOf<AgentWorkIntentRecorderInput["kind"]>().toEqualTypeOf<AgentWorkIntentKind>();
 	});
 
+	// eslint-disable-next-line vitest/expect-expect -- compile-time proof via @ts-expect-error, no runtime assertion needed
 	it("rejects an invented kind via type narrowing", () => {
 		acceptRecorderInput({
 			// @ts-expect-error — "not_a_real_kind" is not one of the four canonical kinds
@@ -83,6 +84,7 @@ describe("AgentWorkIntentRecorderInput four-kind union", () => {
 		});
 	});
 
+	// eslint-disable-next-line vitest/expect-expect -- compile-time proof via @ts-expect-error, no runtime assertion needed
 	it("rejects a mismatched kind/sourceKind pairing via type narrowing", () => {
 		// @ts-expect-error — "subscription_run" pairs only with sourceKind "subscription"
 		acceptRecorderInput({
@@ -93,6 +95,7 @@ describe("AgentWorkIntentRecorderInput four-kind union", () => {
 		});
 	});
 
+	// eslint-disable-next-line vitest/expect-expect -- compile-time proof via @ts-expect-error, no runtime assertion needed
 	it("rejects the removed bet_decomposition kind entirely", () => {
 		acceptRecorderInput({
 			// @ts-expect-error — "bet_decomposition" no longer exists in the four-kind union

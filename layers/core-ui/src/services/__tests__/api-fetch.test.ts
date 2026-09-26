@@ -66,6 +66,7 @@ describe("apiFetch (N2)", () => {
 		const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit | undefined];
 		if (init?.headers) {
 			const headers = new Headers(init.headers);
+			// eslint-disable-next-line vitest/no-conditional-expect -- either outcome (no init, or init without the header) proves the header was never added
 			expect(headers.has("X-API-Key")).toBe(false);
 		}
 		// If init is undefined, the header was never added — which is correct

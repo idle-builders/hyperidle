@@ -179,7 +179,7 @@ async function ordinalOf(db: HyperIdleDb, attemptId: string): Promise<number | u
 }
 
 describe("taskDispatchAttemptStore.insertAttempt — the ordinal invariant lives at the owner", () => {
-	test("A1: three successive calls for one task produce ordinals 1, 2, 3", async ({ db }) => {
+	test("three successive calls for one task produce ordinals 1, 2, 3", async ({ db }) => {
 		await seedWorld(db);
 		await seedTask(db, "task-a1");
 
@@ -209,9 +209,7 @@ describe("taskDispatchAttemptStore.insertAttempt — the ordinal invariant lives
 		expect(row?.predecessorSessionId).toBe(SESSION_IDS[0]);
 	});
 
-	test("A2: the count is scoped to one task — task B's first attempt is 1, not 4", async ({
-		db,
-	}) => {
+	test("the count is scoped to one task — task B's first attempt is 1, not 4", async ({ db }) => {
 		await seedWorld(db);
 		await seedTask(db, "task-a2-a");
 		await seedTask(db, "task-a2-b");
@@ -226,9 +224,7 @@ describe("taskDispatchAttemptStore.insertAttempt — the ordinal invariant lives
 		expect(await ordinalsFor(db, "task-a2-b")).toEqual([1]);
 	});
 
-	test("A3: the rule is count-based, not max-based — one row at ordinal 9 yields 2", async ({
-		db,
-	}) => {
+	test("the rule is count-based, not max-based — one row at ordinal 9 yields 2", async ({ db }) => {
 		await seedWorld(db);
 		await seedTask(db, "task-a3");
 		const now = new Date().toISOString();
@@ -255,7 +251,7 @@ describe("taskDispatchAttemptStore.insertAttempt — the ordinal invariant lives
 		expect(await ordinalsFor(db, "task-a3")).toHaveLength(2);
 	});
 
-	test("A4: two calls inside one transaction see each other — 1 then 2, readable through tx", async ({
+	test("two calls inside one transaction see each other — 1 then 2, readable through tx", async ({
 		db,
 	}) => {
 		await seedWorld(db);
@@ -277,7 +273,7 @@ describe("taskDispatchAttemptStore.insertAttempt — the ordinal invariant lives
 		expect(await ordinalsFor(db, "task-a4")).toEqual([1, 2]);
 	});
 
-	test("A5: a throwing transaction leaves zero attempt rows", async ({ db }) => {
+	test("a throwing transaction leaves zero attempt rows", async ({ db }) => {
 		await seedWorld(db);
 		await seedTask(db, "task-a5");
 

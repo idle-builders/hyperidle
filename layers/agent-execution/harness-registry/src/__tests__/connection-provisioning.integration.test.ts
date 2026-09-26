@@ -212,30 +212,6 @@ async function startMcpTestServer(): Promise<McpTestServer> {
 	};
 }
 
-// ── BUILTIN: Scoped out ────────────────────────────────────────────────────────
-
-describe("builtin: scoped out of connection provisioning", () => {
-	test("builtin has no held-connection carrier — documented scope-out", () => {
-		// @lore AN2 C1: builtin has mcpSupport:false, runs an in-process callLlm() loop
-		// via ToolRegistry — it never spawns a child process and never reads mcpTokenEnv.
-		// Neither the MCP-bearer carrier nor the CLI-key carrier exists for builtin.
-		// Builtin's external-tool story is the inbound MCP bridge (HyperIdle's own
-		// registry tools), a separate path AN2 does not own.
-		// AC3's builtin cell = scoped out with reason. No live run required or possible.
-		process.stdout.write(
-			"[AN2 real-harness builtin] SCOPED OUT: builtin has mcpSupport:false, " +
-				"runs in-process callLlm() loop via ToolRegistry, never spawns a child, " +
-				"never reads mcpTokenEnv. Neither MCP-bearer nor CLI-key carrier exists. " +
-				"Builtin's external reach is the inbound MCP bridge (HyperIdle's own " +
-				"registry tools), out of AN2 scope.\n",
-		);
-		// Verify the scope-out is correctly documented: if builtin ever gains mcpSupport,
-		// this test should fail and the carrier should be added.
-		// For now: the scope-out is the correct documented outcome — assert nothing.
-		// (N3 fix: removed the filler expect(true).toBe(true))
-	});
-});
-
 // ── CLAUDE-CODE: real .mcp.json bearer MCP ────────────────────────────────────
 
 describe("claude-code: real CLI connects to the provisioned MCP server via .mcp.json Bearer", () => {

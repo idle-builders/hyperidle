@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createOpenHandler } from "../services/open-handler.js";
 
 // ── 1. open-handler: host(document, id, blockId) → /documents/:id#block-:blockId ───
-describe("AC2: open-handler block anchor", () => {
+describe("open-handler block anchor", () => {
 	it("host with blockId → path#block-<encodeURIComponent(blockId)>", () => {
 		const nav = vi.fn();
 		const handler = createOpenHandler(nav, {});
@@ -45,7 +45,7 @@ describe("AC2: open-handler block anchor", () => {
 // "artifact" is no longer a valid HostKind; the /artifacts/:id page is deleted.
 
 // ── 2. AC6: same target from two contexts → identical path ────────────────────
-describe("AC6: block-anchored target → same path from any context", () => {
+describe("block-anchored target → same path from any context", () => {
 	it("host+blockId resolves identically regardless of context", () => {
 		const nav1 = vi.fn();
 		const nav2 = vi.fn();

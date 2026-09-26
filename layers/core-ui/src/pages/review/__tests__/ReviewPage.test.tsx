@@ -382,6 +382,7 @@ describe("ReviewPage default loader — task naming", () => {
 		});
 		postMessageSpy.mockImplementation((action: unknown, input: unknown) => {
 			if (action === "open_task") {
+				// eslint-disable-next-line vitest/no-conditional-expect -- verifying the mocked call's own args only makes sense inside its dispatch branch
 				expect(input).toEqual({ id: "task-1" });
 				return Promise.resolve({ ok: true, data: taskViewFor("task-1", "Fix the webhook") });
 			}

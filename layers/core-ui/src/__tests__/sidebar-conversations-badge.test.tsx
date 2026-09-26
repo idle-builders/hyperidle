@@ -101,9 +101,8 @@ describe("Sidebar conversations blocking badge", () => {
 		const badge = screen.getByTestId("conversations-blocking-badge");
 		expect(badge).toBeInTheDocument();
 
-		if (convSectionArea) {
-			expect(convSectionArea.contains(badge)).toBe(true);
-		}
+		if (!convSectionArea) throw new Error("expected the conversations section to render");
+		expect(convSectionArea.contains(badge)).toBe(true);
 	});
 
 	it("only ONE conversations badge is rendered (no duplication)", () => {

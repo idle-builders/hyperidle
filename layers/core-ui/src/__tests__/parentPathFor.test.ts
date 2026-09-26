@@ -14,7 +14,7 @@
 import { describe, expect, it } from "vitest";
 import { parentPathFor } from "../navigation/parentPathFor.js";
 
-describe("AG4 — parentPathFor", () => {
+describe("parentPathFor", () => {
 	describe("work routes", () => {
 		// AD9: /work is now the Work overview root (was /work/portfolio)
 		it("bet detail → /work (was /work/portfolio)", () => {
