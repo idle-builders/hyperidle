@@ -1,16 +1,18 @@
 /**
- * A task's transition into review never fails with a foreign-key error
- * because system:propagation is missing — core-api's own first-boot state
- * (`applyFactoryCoreState`) must plant that user before anything else runs.
+ * `applyFactoryCoreState`, core-api's own first-boot state, plants
+ * `system:propagation` before anything else runs — every FK a `changes`/
+ * `threads` row takes on it (lifecycle propagation's ship-confirmation
+ * review, proven end to end in lifecycle-propagation.integration.test.ts)
+ * depends on this row already existing.
  */
 
-import { threads, users } from "@hyperidle/db";
+import { users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 import { applyFactoryCoreState } from "../bootstrap/factory-state.js";
 
-describe("system:propagation is present after bootstrap; review thread succeeds", () => {
+describe("system:propagation is present after bootstrap", () => {
 	test("system:propagation user exists after applyFactoryCoreState", async ({ db }) => {
 		await applyFactoryCoreState(db);
 
@@ -21,33 +23,5 @@ describe("system:propagation is present after bootstrap; review thread succeeds"
 			.limit(1);
 
 		expect(row?.id).toBe("system:propagation");
-	});
-
-	test("a thread can be inserted with system:propagation as initiator without a foreign-key error", async ({
-		db,
-	}) => {
-		await applyFactoryCoreState(db);
-		const threadId = "thread-review";
-		const isoNow = new Date().toISOString();
-
-		await expect(
-			db.insert(threads).values({
-				id: threadId,
-				hostKind: "task",
-				hostId: "task-review",
-				initiatorId: "system:propagation",
-				participants: JSON.stringify(["system:propagation"]),
-				lastActiveAt: isoNow,
-				createdAt: isoNow,
-			}),
-		).resolves.not.toThrow();
-
-		const [inserted] = await db
-			.select({ id: threads.id, initiatorId: threads.initiatorId })
-			.from(threads)
-			.where(eq(threads.id, threadId))
-			.limit(1);
-
-		expect(inserted?.initiatorId).toBe("system:propagation");
 	});
 });
