@@ -1,6 +1,6 @@
 /**
- * BA9b: Unit tests for capability item materialisation.
- * Proves that skill/rule/agent_file items are written to the correct sandbox locations.
+ * Capability item materialisation writes skill/rule/agent_file items to the
+ * correct sandbox locations.
  */
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -56,7 +56,7 @@ afterEach(() => {
 	fs.rmSync(sandboxPath, { recursive: true, force: true });
 });
 
-describe("BA9b: skill items materialise to harness skill dirs", () => {
+describe("skill items materialise to harness skill dirs", () => {
 	it("writes SKILL.md to .claude/skills/<dirName>/SKILL.md", async () => {
 		const bundle = makeBundle("agent-1", [
 			{ id: "skill-1", title: "write-tests", body: "# Write Tests\nDo TDD.", slot: "skill" },
@@ -134,7 +134,7 @@ describe("BA9b: skill items materialise to harness skill dirs", () => {
 	});
 });
 
-describe("BA9b: rule items materialise to knowledge/rules/", () => {
+describe("rule items materialise to knowledge/rules/", () => {
 	it("writes rule body as a markdown file under knowledge/rules/", async () => {
 		const bundle = makeBundle("agent-1", [
 			{ id: "rule-1", title: "no-console", body: "Never use console.log.", slot: "rule" },
@@ -163,7 +163,7 @@ describe("BA9b: rule items materialise to knowledge/rules/", () => {
 	});
 });
 
-describe("BA9b: agent_file items are bound to a specific agent", () => {
+describe("agent_file items are bound to a specific agent", () => {
 	// @lore BA9f: the agent file bound to THIS agent is its identity, and its home
 	// in the sandbox is the "## Identity" section of AGENTS.md — baked at emit and
 	// assembled by the provisioner. Materialising it into `knowledge/rules/` too
@@ -314,7 +314,7 @@ describe("a prompt item never reaches the sandbox", () => {
 	});
 });
 
-describe("BA9b: ordinary items are unaffected", () => {
+describe("ordinary items are unaffected", () => {
 	// @lore nested-knowledge-items D1: layer zones (context/factory etc.) are
 	// gone — an ordinary item now materialises into knowledge/, shaped by its
 	// (baked) parent chain rather than routed by layer.

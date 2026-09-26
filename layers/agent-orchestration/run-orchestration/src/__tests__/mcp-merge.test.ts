@@ -1,24 +1,9 @@
 /**
- * BA9b: Unit tests for plugin MCP contribution merge logic.
- *
- * Tests the real `mergePluginMcpContributions` from provisioner.ts — NOT a
- * copy of its internal helpers. Importing the real function is the only way
- * to guarantee the test exercises production behaviour (mock-validation trap:
- * a copy of the helper validates itself, not the code that ships).
- *
- * Each test provides a stubbed `PluginMcpContributionsPort` (the only boundary)
- * and a real temp-directory sandbox path — no DB, no binaries.
- *
- * @lore BA9b-B5: the previous version copy-pasted `expandPluginVars` and
- *   `expandMcpConfigValue` from provisioner.ts and asserted against those copies.
- *   A bug in the production copy would pass these tests while shipping broken MCP
- *   config. The fix: export `mergePluginMcpContributions` (@for-testing) and call
- *   it directly, treating the port as the test boundary.
- *
- * @lore BA9b-B2: the second parameter changed from `mcpJsonPath` to `sandboxPath`
- *   so the function can write to the appropriate dialect-specific file within the
- *   sandbox directory. The function derives mcpJsonPath = sandboxPath/.mcp.json
- *   internally for the no-dialect (claude-code) case.
+ * Plugin MCP contribution merge logic — calls the real
+ * `mergePluginMcpContributions` from provisioner.ts, never a copy of its
+ * helpers, so a production bug fails here too. Each test stubs
+ * `PluginMcpContributionsPort` (the only boundary) and writes into a real
+ * temp sandbox path — no DB, no binaries.
  */
 
 import * as fs from "node:fs";
@@ -67,7 +52,7 @@ function readMcpJson(): { mcpServers: Record<string, unknown> } {
 // No-dialect tests (claude-code: .mcp.json in sandbox root)
 // ---------------------------------------------------------------------------
 
-describe("BA9b: mergePluginMcpContributions — no dialect (claude-code)", () => {
+describe("mergePluginMcpContributions — no dialect (claude-code)", () => {
 	it("writes nothing when port is undefined", async () => {
 		await mergePluginMcpContributions(undefined, tmpDir, null);
 		expect(fs.existsSync(path.join(tmpDir, ".mcp.json"))).toBe(false);
@@ -277,7 +262,7 @@ function makeWriteSpy(): { calls: WriteStdioCall[]; spy: (params: WriteStdioCall
 	};
 }
 
-describe("BA9b: mergePluginMcpContributions — codex-toml dialect", () => {
+describe("mergePluginMcpContributions — codex-toml dialect", () => {
 	it("calls writeStdioEntries with correct dialect and expanded servers", async () => {
 		const { calls, spy } = makeWriteSpy();
 		await mergePluginMcpContributions(
@@ -340,7 +325,7 @@ describe("BA9b: mergePluginMcpContributions — codex-toml dialect", () => {
 	});
 });
 
-describe("BA9b: mergePluginMcpContributions — opencode-json dialect", () => {
+describe("mergePluginMcpContributions — opencode-json dialect", () => {
 	it("calls writeStdioEntries with opencode-json dialect and expanded servers", async () => {
 		const { calls, spy } = makeWriteSpy();
 		await mergePluginMcpContributions(
@@ -373,7 +358,7 @@ describe("BA9b: mergePluginMcpContributions — opencode-json dialect", () => {
 	});
 });
 
-describe("BA9b: mergePluginMcpContributions — cursor-json dialect", () => {
+describe("mergePluginMcpContributions — cursor-json dialect", () => {
 	it("calls writeStdioEntries with cursor-json dialect and expanded servers", async () => {
 		const { calls, spy } = makeWriteSpy();
 		await mergePluginMcpContributions(

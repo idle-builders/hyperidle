@@ -1,25 +1,9 @@
 /**
- * AN1 real-harness inherited-reach pin — MOVED from
- * `layers/agent-execution/harness-registry/src/__tests__/AN1-real-harness-inherited.integration.test.ts`
- * (architecture.md §7.3 / §8 step 8): the probes' new home is the connections
- * package, so the pin drives the moved entry (`createInheritedReach`) directly
- * — seeded isolated homes, `assertIdentityOnly`, real binaries, zero stubs.
- *
- * Hard-rule 4 survives the move: every produced view is identity-only
- * (service/via/authSource/health/removable — no secret, token, env, or command value).
- *
- * @lore AU36: gate divergence from the AN1 original, deliberately: the
- * opencode probe parses a config file and execs NOTHING, so it carries no
- * binary gate (the original's requireHarness("opencode") gated a discovery
- * that ran every family probe; the reach entry runs only the four reach
- * probes). claude/codex gates stay — their probes exec the real binary.
- *
- * @lore AU44 batch2: list() now returns ServiceConnectionView[] — assertIdentityOnly
- * updated to check the view shape (authSource/health/id/removable/service/via).
- * Source filtering now uses id.startsWith("inherited:<source>:").
- *
- * FAILS until layers/agent-orchestration/connections/src/inherited-reach.ts
- * exists and exports createInheritedReach (D1).
+ * `createInheritedReach` probes each harness family's own config/binary for
+ * an inherited connection and returns identity-only views (service/via/
+ * authSource/health/removable — never a secret, token, env, or command
+ * value). The opencode probe only parses a config file so it needs no binary
+ * gate; claude/codex exec the real binary and gate on it via `requireBinary`.
  */
 
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
