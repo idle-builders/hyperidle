@@ -239,14 +239,30 @@ describe("resolveFilesystemState — pure reachability logic (AC5)", () => {
 		);
 		expect(state).toBe("needs_attention");
 	});
+
+	it("normalizes an owner/repo shorthand to its github https URL before probing", async () => {
+		let observed = "";
+		const factory = (() => ({
+			lsRemote: async (url: string) => {
+				observed = url;
+				return { reachable: true };
+			},
+		})) as unknown as Parameters<typeof resolveFilesystemState>[1]["gitRunnerFactory"];
+		const state = await resolveFilesystemState(
+			{
+				id: "fs-shorthand",
+				teamId: "team-1",
+				source: "github",
+				kind: "code",
+				connectionId: "conn-1",
+				resourceRef: JSON.stringify({ kind: "code", repo: "owner/repo", branch: "main" }),
+				writeback: "git",
+				state: "attached",
+				createdAt: "2026-06-26T00:00:00.000Z",
+			},
+			{ authResolver: noopAuthResolver, gitRunnerFactory: factory },
+		);
+		expect(state).toBe("reachable");
+		expect(observed).toBe("https://github.com/owner/repo.git");
+	});
 });
-
-// probeLocalPath, probeGitRemote, repoToUrl suites moved to
-// layers/core-api/filesystems/src/__tests__/probe-internals.test.ts
-// (AU20 Ag2 barrel collapse — these are internal probe functions).
-
-// @lore AU44 b2: FILESYSTEM_KINDS and WRITEBACK_MODES were dissolved from
-// @hyperidle/domain-model; the literals are inlined in the route's Zod enum
-// where the single reader was. Tests for those constants are removed here.
-
-// repoToUrl suite moved to probe-internals.test.ts (AU20 Ag2 barrel collapse).
