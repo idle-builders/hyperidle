@@ -558,8 +558,7 @@ describe("open_thread — computedTitle reads real ownership", () => {
 		await seedHuman(db, "tw-owner-1", "tw-1");
 		await seedHuman(db, "tw-other-1", "tw-1");
 		const now = new Date().toISOString();
-		// An owned agent (BA1 D6 `users_belonging_ck`): ownerUserId set ⇒ teamId
-		// must be null.
+		// An owned agent (`users_belonging_ck`): ownerUserId set => teamId must be null.
 		await db.insert(users).values({
 			id: "tw-agent-1",
 			kind: "ai",
