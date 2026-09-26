@@ -17,7 +17,7 @@
  * not the harness's own environment.
  */
 
-import { execFile } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import {
 	appendFileSync,
 	copyFileSync,
@@ -30,9 +30,19 @@ import {
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
+import { afterEach } from "vitest";
 import type { HarnessName } from "./require-harness.js";
 
 const execFileAsync = promisify(execFile);
+
+// @lore cursor-agent-worker-sweep: registered once, at module scope, so every
+// real-binary test file gets the sweep below for free just by importing this
+// module's exports (directly or through the published test-fixtures subpath)
+// — the same "no per-file wiring" shape stopAllLiveHarnessSessions's own exit
+// handler uses (cli-harness-adapter.ts).
+afterEach(() => {
+	killOrphanedCursorAgentWorkers();
+});
 
 export interface HarnessSandbox {
 	readonly path: string;
@@ -189,6 +199,52 @@ export async function requireHarnessAuthed(name: HarnessName, context?: string):
 		`${name} is on PATH but not authenticated (${LOGIN_HINT[name]})` +
 			`${context ? ` — ${context}` : ""}. Never skip to green.`,
 	);
+}
+
+/**
+ * cursor-agent's own `worker-server`: a detached process the binary spawns on
+ * every real `-p` invocation (verified independent of any of our own spawn
+ * code — a bare manual `cursor-agent -p ...` outside vitest reproduces it
+ * too) and immediately reparents to init (`ppid=1`). It shares no process
+ * group with the CLI's own direct child, so a caller's own process-group
+ * kill (`killAllLiveSessionGroups`, cli-harness-adapter.ts) never reaches
+ * it — this sweeps for it by binary path and start time instead, the same
+ * proof shape `killAllLiveSessionGroups` uses (kill what THIS run started,
+ * never a person's own earlier cursor-agent process).
+ *
+ * `sinceMs` defaults to this Node process's own start time — a worker-server
+ * that predates the current test worker was never spawned by anything this
+ * run did, and is left alone.
+ */
+export function killOrphanedCursorAgentWorkers(
+	sinceMs: number = Date.now() - process.uptime() * 1000,
+): void {
+	let output: string;
+	try {
+		output = execFileSync("ps", ["-axo", "pid,lstart,command"], {
+			encoding: "utf8",
+			timeout: 5_000,
+		});
+	} catch {
+		// `ps` itself failing is not this sweep's problem to solve — never throw
+		// out of a cleanup hook over it.
+		return;
+	}
+
+	const ROW = /^\s*(\d+)\s+(\w{3}\s+\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}\s+\d{4})\s+(.*)$/;
+	for (const line of output.split("\n")) {
+		const match = ROW.exec(line);
+		if (!match) continue;
+		const [, pidText, lstartText, command] = match;
+		if (!(command?.includes("cursor-agent") && command.includes("worker-server"))) continue;
+		const startedAt = new Date(lstartText ?? "").getTime();
+		if (Number.isNaN(startedAt) || startedAt < sinceMs) continue;
+		try {
+			process.kill(Number(pidText), "SIGKILL");
+		} catch {
+			// Already gone.
+		}
+	}
 }
 
 /**

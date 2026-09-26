@@ -16,6 +16,7 @@ export {
 	createHarnessSandbox,
 	type HarnessSandbox,
 	isHarnessAuthed,
+	killOrphanedCursorAgentWorkers,
 	provisionClaudeSandbox,
 	provisionCodexHome,
 	requireHarnessAuthed,
