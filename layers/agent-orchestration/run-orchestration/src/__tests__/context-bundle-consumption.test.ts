@@ -1,29 +1,9 @@
 /**
- * AU21 §9 Increment 12 (Decision H3), Wave C (RED) — architecture.md's
- * Increment 12 test (a): "a launched task_run/routine_run/knowledge_action/
- * session assembles its sandbox context from the baked bundle
- * with ZERO run-orchestration -> core read."
- *
- * This is the function-level half of that proof obligation: `context.ts`'s
- * `assembleAgentContext` must become pure format/write once a `contextBundle`
- * is supplied on its input — ZERO calls into `ContextAssemblyPorts`'
- * `knowledge`/`work`/`users`/`routine`/`org` members (the DB-reading
- * `fetchAllForLayer`/`rankAndBudget`/`buildSessionContextData` path deleted
- * entirely, per §6 Decision H3 / §9 Increment 12).
- *
- * Proof mechanism: every port method is wired to THROW if called at all (a
- * "poisoned" ports object) — reaching the assertions below without a throw is
- * itself the zero-read proof; there is no separate call-count bookkeeping to
- * get wrong.
- *
- * Currently RED two ways:
- *  - `npm run check`: `AssembleAgentContextInput` has no `contextBundle`
- *    field yet — the object literal below is a TS2353 excess-property error.
- *  - `npm run test` (this file, vitest's transpile-only run still executes
- *    it): `assembleAgentContext`'s current implementation ignores
- *    `contextBundle` entirely and, because `input.taskId` is set, still calls
- *    the DB-reading `assembleContext(input.db, ..., ports)` path — the very
- *    FIRST poisoned port call (`ports.work.getTaskById`) throws.
+ * When a `contextBundle` is supplied, `assembleAgentContext` is pure
+ * format/write: zero calls into `ContextAssemblyPorts`' `knowledge`/`work`/
+ * `users`/`routine`/`org` members. Proof mechanism: every port method is
+ * wired to throw if called at all (a "poisoned" ports object) — reaching the
+ * assertions below without a throw is itself the zero-read proof.
  */
 
 import * as fs from "node:fs";

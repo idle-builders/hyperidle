@@ -1,24 +1,14 @@
 /**
- * AU31 §2.7 (B1): `SessionActivityBuffer` relocated from
- * `@hyperidle/agent-execution` back into this Layer — supersedes AU21 §6
- * Decision E's placement (founder-ratified). [P8] proved zero execution
- * coupling: the class imports only framework types/`EventBus`,
- * touches no DB/Drizzle, and its only production consumers were always this
- * Layer's own boot and routes — the buffer is judged by the domain it
- * serves, not by where its raw event data originates.
- *
- * This suite is a straight behavioral port of
- * `layers/agent-execution/src/__tests__/session-activity-buffer.test.ts`
- * (itself a port of the pre-AU21 `agent-orchestration/run-orchestration`
- * suite) — same assertions, new home — proving the relocation changes
- * ownership, not behavior.
+ * `SessionActivityBuffer` buffers per-session tool-call/lifecycle activity
+ * off the event bus for a bounded window, with no DB/Drizzle coupling — it is
+ * judged by the domain it serves (this Layer's boot and routes), not by
+ * where its raw event data originates.
  */
 
 import type { ActivityEntry } from "@hyperidle/domain-model";
 import type { ToolCallRecordedEvent } from "@hyperidle/event-bus";
 import { EventBus } from "@hyperidle/event-bus";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-// NOT YET CREATED — this import failing to resolve is this file's primary RED signal.
 import { SessionActivityBuffer } from "../session-activity-buffer.js";
 
 type ToolCallData = Extract<ActivityEntry, { type: "tool_call" }>["data"];
