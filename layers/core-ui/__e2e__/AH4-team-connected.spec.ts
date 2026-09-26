@@ -23,7 +23,6 @@
  * own `edges` array and effective `team` (architecture.md §8).
  */
 
-import * as path from "node:path";
 import { expect, makeUserRow, mockSearchUsers, test } from "./fixtures";
 
 const FOUNDER_ID = "test-founder";
@@ -52,13 +51,6 @@ test.describe("AH4 AC5 — Org chart shows founder→team edge after team creati
 
 		// The edge table must contain a row with "team" mechanism
 		await expect(orgChartSection.getByText("team")).toBeVisible({ timeout: 5000 });
-
-		// Screenshot for proof
-		const screenshotDir = "test-results";
-		await page.screenshot({
-			path: path.join(screenshotDir, "AH4-org-chart-team-edge.png"),
-			fullPage: false,
-		});
 	});
 
 	test("Org Chart edge row target matches the created team's id", async ({ page }) => {

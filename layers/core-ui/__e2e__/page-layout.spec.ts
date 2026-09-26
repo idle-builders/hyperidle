@@ -1,5 +1,3 @@
-import { mkdir } from "node:fs/promises";
-import { resolve } from "node:path";
 import type { Locator, Page, Route } from "@playwright/test";
 import { REVIEW_COMPOSITION_SUBJECT } from "../src/pages/review/__fixtures__/review-composition.fixture.js";
 import {
@@ -17,7 +15,6 @@ import {
 	test,
 } from "./fixtures";
 
-const EVIDENCE = resolve(process.cwd(), "test-results/page-layout");
 const NOW = "2026-08-14T08:00:00.000Z";
 
 async function json(route: Route, body: unknown): Promise<void> {
@@ -91,7 +88,6 @@ for (const viewport of [
 	{ width: 1024, height: 768 },
 ]) {
 	test(`stable frame and content lanes paint at ${viewport.width}px`, async ({ page }) => {
-		await mkdir(EVIDENCE, { recursive: true });
 		await page.setViewportSize(viewport);
 		await mockPrimarySurfaces(page);
 
@@ -101,8 +97,6 @@ for (const viewport of [
 			page.getByRole("heading", { level: 1 }),
 			page.getByTestId("team-row").first(),
 		);
-		if (viewport.width === 1440)
-			await page.screenshot({ path: resolve(EVIDENCE, "scan-work.png") });
 
 		await page.goto("/conversations/layout-thread");
 		const readLane = page.locator("[data-ds-component='PartList']").locator("xpath=..");
@@ -112,15 +106,11 @@ for (const viewport of [
 		expect(
 			Math.abs(readBox.x + readBox.width / 2 - (frameBox.x + frameBox.width / 2)),
 		).toBeLessThanOrEqual(1);
-		if (viewport.width === 1440)
-			await page.screenshot({ path: resolve(EVIDENCE, "read-conversation.png") });
 
 		await page.goto("/documents/k1");
 		await expect(page.getByTestId("document-body")).toBeVisible();
 		const workbench = page.getByTestId("document-metadata-aside").locator("xpath=..");
 		await expectSameX(page.getByRole("heading", { level: 1 }), workbench);
-		if (viewport.width === 1440)
-			await page.screenshot({ path: resolve(EVIDENCE, "workbench-document.png") });
 
 		await page.goto("/settings");
 		const focus = page.getByTestId("settings-section-profile");
@@ -131,8 +121,6 @@ for (const viewport of [
 		expect(
 			Math.abs(focusBox.x + focusBox.width / 2 - (focusFrameBox.x + focusFrameBox.width / 2)),
 		).toBeLessThanOrEqual(1);
-		if (viewport.width === 1440)
-			await page.screenshot({ path: resolve(EVIDENCE, "focus-settings.png") });
 	});
 }
 
@@ -142,7 +130,6 @@ for (const viewport of [
 // selection only now (`?agent=:id`), and there is no routine pane to open.
 
 test("review with an artifact open uses two local panes", async ({ page }) => {
-	await mkdir(EVIDENCE, { recursive: true });
 	// ReviewPage's default loader reads
 	// the review message straight off `open_thread`. `artifacts` passes
 	// through the loader unchanged, so reusing the composed fixture's
@@ -215,7 +202,5 @@ test("review with an artifact open uses two local panes", async ({ page }) => {
 		.getByText(REVIEW_COMPOSITION_SUBJECT.artifacts[0]?.title ?? "", { exact: true });
 	await expect(destinationTitle).toBeVisible();
 	expect((await box(destinationTitle)).width).toBeGreaterThan(96);
-	await page.screenshot({ path: resolve(EVIDENCE, "inspect-review.png") });
 	await page.evaluate(() => document.documentElement.setAttribute("data-theme", "hearth-dark"));
-	await page.screenshot({ path: resolve(EVIDENCE, "inspect-review-dark.png") });
 });

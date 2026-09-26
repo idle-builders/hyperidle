@@ -268,10 +268,6 @@ test.describe("AC-1: one-clock label agreement across surfaces", () => {
 
 		// Capture surface-1 screenshot
 		fs.mkdirSync(PROOF_DIR, { recursive: true });
-		await page.screenshot({
-			path: path.join(PROOF_DIR, "AI3-surface-1-thread-list.png"),
-			fullPage: false,
-		});
 
 		// ── Surface 2: document list ───────────────────────────────────────────
 		await page.goto("/documents");
@@ -280,12 +276,6 @@ test.describe("AC-1: one-clock label agreement across surfaces", () => {
 		const documentTimeEl = documentRow.locator("[data-testid='document-time']").first();
 		await expect(documentTimeEl).not.toBeEmpty();
 		const documentLabel = (await documentTimeEl.textContent()) ?? "";
-
-		// Capture surface-2 screenshot
-		await page.screenshot({
-			path: path.join(PROOF_DIR, "AI3-surface-2-document-list.png"),
-			fullPage: false,
-		});
 
 		// ── Surface 3: notification popover ────────────────────────────────────
 		await page.goto("/");
@@ -296,12 +286,6 @@ test.describe("AC-1: one-clock label agreement across surfaces", () => {
 		const notifTimeEl = popover.locator("[data-testid='notification-time']").first();
 		await expect(notifTimeEl).not.toBeEmpty();
 		const notifLabel = (await notifTimeEl.textContent()) ?? "";
-
-		// Capture surface-3 screenshot
-		await page.screenshot({
-			path: path.join(PROOF_DIR, "AI3-surface-3-notification-popover.png"),
-			fullPage: false,
-		});
 
 		// ── Cross-surface agreement assertion ───────────────────────────────────
 		// Surfaces 1-3 use relativeShort (compact register); surface 4 uses

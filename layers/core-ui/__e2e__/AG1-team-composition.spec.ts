@@ -156,12 +156,6 @@ test.describe("AG1 populated team — section visibility & column width per view
 			if (box) {
 				expect(box.width).toBeLessThanOrEqual(MAX_CONTENT_WIDTH);
 			}
-
-			// AC-5(b): screenshot for visual review
-			await page.screenshot({
-				path: `test-results/AG1-${frameNum}-populated-${width}.png`,
-				fullPage: false,
-			});
 		});
 	}
 });
@@ -223,12 +217,6 @@ test.describe("AG1 empty team — intentional composition & column width per vie
 
 			// AC-3: empty section state present
 			await expect(page.getByTestId("team-active-tasks-empty")).toBeVisible();
-
-			// AC-5(b): screenshot
-			await page.screenshot({
-				path: `test-results/AG1-${frameNum}-empty-${width}.png`,
-				fullPage: false,
-			});
 		});
 	}
 });

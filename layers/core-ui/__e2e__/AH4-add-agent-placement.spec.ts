@@ -28,7 +28,6 @@
  * data (`data.team.name`), not a separate fetch.
  */
 
-import * as path from "node:path";
 import {
 	expect,
 	makeUserRow,
@@ -72,13 +71,6 @@ test.describe("AH4 AC6 — Settings Agents add form shows team placement", () =>
 		// Team Select must appear
 		const teamSelect = agentsSection.getByRole("combobox", { name: /team/i });
 		await expect(teamSelect).toBeVisible({ timeout: 5000 });
-
-		// Screenshot — add form with Team select visible
-		const screenshotDir = "test-results";
-		await page.screenshot({
-			path: path.join(screenshotDir, "AH4-settings-agents-team-select.png"),
-			fullPage: false,
-		});
 	});
 
 	test("After agent creation in Settings, agent appears in the agents list", async ({ page }) => {
@@ -185,12 +177,5 @@ test.describe("AH4 AC6 — WorkTeam AgentAddDialog shows placement KeyValue", ()
 		await expect(dialogBox).toBeVisible({ timeout: 5000 });
 		await expect(dialogBox.getByText("TEAM", { exact: true })).toBeVisible({ timeout: 5000 });
 		await expect(dialogBox.getByText(TEAM_NAME)).toBeVisible({ timeout: 5000 });
-
-		// Screenshot — dialog with placement KeyValue visible
-		const screenshotDir = "test-results";
-		await page.screenshot({
-			path: path.join(screenshotDir, "AH4-workteam-agent-add-placement.png"),
-			fullPage: false,
-		});
 	});
 });

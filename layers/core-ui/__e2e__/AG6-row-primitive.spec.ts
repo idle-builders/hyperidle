@@ -146,10 +146,6 @@ test.describe("AG6 AC-6 — Surface 1: WorkTeam agents + routines via Row primit
 
 		// Capture proof screenshot
 		fs.mkdirSync(PROOF_DIR, { recursive: true });
-		await page.screenshot({
-			path: path.join(PROOF_DIR, "AG6-surface1-workteam-agents-routines.png"),
-			fullPage: false,
-		});
 	});
 });
 
@@ -189,9 +185,5 @@ test.describe("AG6 AC-6 — Surface 2: Document triage rows via Row primitive", 
 
 		// Capture proof screenshot
 		fs.mkdirSync(PROOF_DIR, { recursive: true });
-		await page.screenshot({
-			path: path.join(PROOF_DIR, "AG6-surface2-document-triage.png"),
-			fullPage: false,
-		});
 	});
 });

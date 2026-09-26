@@ -67,10 +67,6 @@ test.describe("W3 AC-44 — Document edit mode transition", () => {
 			await page.setViewportSize(viewport);
 			await expect(page.getByRole("button", { name: /^edit$/i })).toBeVisible();
 			await expect(page.getByTestId("document-edit-panel")).toHaveCount(0);
-			await page.screenshot({
-				path: `test-results/document-read-${viewport.name}.png`,
-				fullPage: true,
-			});
 		});
 	}
 });

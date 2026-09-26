@@ -116,8 +116,6 @@ test.describe("AI2 — overlay z-layer ordering (AC-3 runtime)", () => {
 			dialogZ,
 			"GlobalSearchPanel z-index (--z-dialog=60) must exceed AssistantOverlay z-index (--z-overlay=40) when dialog mounts after overlay",
 		).toBeGreaterThan(overlayZ);
-
-		await page.screenshot({ path: "test-results/ai2-z-order-overlay-first.png" });
 	});
 
 	test("GlobalSearchPanel (--z-dialog=60) stacks above AssistantOverlay (--z-overlay=40): open dialog first then overlay", async ({
@@ -184,8 +182,6 @@ test.describe("AI2 — overlay z-layer ordering (AC-3 runtime)", () => {
 			dialogZ,
 			"GlobalSearchPanel z-index (--z-dialog=60) must exceed AssistantOverlay z-index (--z-overlay=40) even when dialog was DOM-first and overlay is DOM-second",
 		).toBeGreaterThan(overlayZ);
-
-		await page.screenshot({ path: "test-results/ai2-z-order-dialog-first.png" });
 	});
 
 	test("modal Dialog (--z-dialog=60) stacks above NotificationPopover (--z-overlay=40)", async ({

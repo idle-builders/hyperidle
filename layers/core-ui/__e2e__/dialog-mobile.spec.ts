@@ -109,8 +109,6 @@ test.describe("AI2 — Mobile bottom-sheet at 375px (AC-4)", () => {
 		await expect(page.getByRole("dialog")).toBeVisible();
 
 		await assertBottomAnchored(page, VIEWPORT_MOBILE.height);
-
-		await page.screenshot({ path: "test-results/ai2-mobile-scope-change-375px.png" });
 	});
 
 	// Dialog 3: Kill-confirm (WorkBet kill action)
