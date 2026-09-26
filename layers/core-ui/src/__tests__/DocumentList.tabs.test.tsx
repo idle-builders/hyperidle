@@ -8,7 +8,7 @@ import type { DocumentRow, DocumentStatus } from "@hyperidle/domain-model";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { DocumentList } from "../pages/DocumentList";
 
 const mockUseDocuments = vi.fn();
@@ -78,7 +78,10 @@ describe("DocumentList tabs: status decides Triage vs Curated", () => {
 		renderPage();
 
 		await waitFor(() => {
-			expect(screen.getByRole("tab", { name: /curated/i })).toHaveAttribute("aria-selected", "true");
+			expect(screen.getByRole("tab", { name: /curated/i })).toHaveAttribute(
+				"aria-selected",
+				"true",
+			);
 		});
 		expect(screen.getByText("Only Active Item")).toBeInTheDocument();
 	});

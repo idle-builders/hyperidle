@@ -135,7 +135,13 @@ const POPULATED_TEAM: TeamPageData = {
 	team: { id: "team-1", name: "Team One", status: "healthy" },
 	roster: [AGENT_HEALTHY, AGENT_WARNING],
 	tasksInProgress: [
-		{ id: "bet-1", title: "Auth migration", state: "in_progress" as const, progressDone: 1, progressTotal: 2 },
+		{
+			id: "bet-1",
+			title: "Auth migration",
+			state: "in_progress" as const,
+			progressDone: 1,
+			progressTotal: 2,
+		},
 	],
 };
 
@@ -146,7 +152,10 @@ const EMPTY_TEAM: TeamPageData = {
 };
 
 const TEAM_ALL_HEALTHY: TeamPageData = { ...POPULATED_TEAM, roster: [AGENT_HEALTHY] };
-const TEAM_WITH_WARNING: TeamPageData = { ...POPULATED_TEAM, roster: [AGENT_HEALTHY, AGENT_WARNING] };
+const TEAM_WITH_WARNING: TeamPageData = {
+	...POPULATED_TEAM,
+	roster: [AGENT_HEALTHY, AGENT_WARNING],
+};
 
 function renderTeam(
 	data: TeamPageData | null = POPULATED_TEAM,
@@ -158,11 +167,7 @@ function renderTeam(
 				<Route
 					path="/work/team/:teamId"
 					element={
-						<WorkTeam
-							overrideData={data}
-							overrideLoading={opts.loading ?? false}
-							skipArtifacts
-						/>
+						<WorkTeam overrideData={data} overrideLoading={opts.loading ?? false} skipArtifacts />
 					}
 				/>
 				<Route
@@ -260,9 +265,24 @@ describe("WorkTeam stat tiles", () => {
 // ---------------------------------------------------------------------------
 
 describe("WorkTeam agent roster rows", () => {
-	const AGENT_IDLE: TeamRosterMember = { agentId: "agent-idle", name: "Idle Agent", role: "builder", agentCategory: null };
-	const AGENT_ACTIVE: TeamRosterMember = { agentId: "agent-active", name: "Active Agent", role: "builder", agentCategory: null };
-	const AGENT_ERROR: TeamRosterMember = { agentId: "agent-error", name: "Error Agent", role: "builder", agentCategory: null };
+	const AGENT_IDLE: TeamRosterMember = {
+		agentId: "agent-idle",
+		name: "Idle Agent",
+		role: "builder",
+		agentCategory: null,
+	};
+	const AGENT_ACTIVE: TeamRosterMember = {
+		agentId: "agent-active",
+		name: "Active Agent",
+		role: "builder",
+		agentCategory: null,
+	};
+	const AGENT_ERROR: TeamRosterMember = {
+		agentId: "agent-error",
+		name: "Error Agent",
+		role: "builder",
+		agentCategory: null,
+	};
 	const TEAM_WITH_AGENTS: TeamPageData = {
 		team: { id: "team-1", name: "Team One", status: "healthy" },
 		roster: [AGENT_IDLE, AGENT_ACTIVE, AGENT_ERROR],
@@ -323,7 +343,10 @@ describe("WorkTeam agent roster rows", () => {
 // ---------------------------------------------------------------------------
 
 describe("WorkTeam active tasks", () => {
-	function renderWithApiFetch(ui: ReactNode, path = "/work/team/f1-team-1"): ReturnType<typeof render> {
+	function renderWithApiFetch(
+		ui: ReactNode,
+		path = "/work/team/f1-team-1",
+	): ReturnType<typeof render> {
 		return render(
 			<MemoryRouter initialEntries={[path]}>
 				<Routes>
@@ -339,14 +362,22 @@ describe("WorkTeam active tasks", () => {
 		team: { id: "f1-team-1", name: "F1 Test Team", status: "healthy" },
 		roster: [],
 		tasksInProgress: [
-			{ id: "bet-1", title: "Ship the MVP", state: "in_progress" as const, progressDone: 2, progressTotal: 5 },
+			{
+				id: "bet-1",
+				title: "Ship the MVP",
+				state: "in_progress" as const,
+				progressDone: 2,
+				progressTotal: 5,
+			},
 		],
 	};
 	const TEAM_NO_TASKS: TeamPageData = { ...TEAM_WITH_TASKS, tasksInProgress: [] };
 
 	beforeEach(() => {
 		mockApiFetch.mockResolvedValue(new Response(JSON.stringify([]), { status: 200 }));
-		global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ dismissed: [] }), { status: 200 }));
+		global.fetch = vi
+			.fn()
+			.mockResolvedValue(new Response(JSON.stringify({ dismissed: [] }), { status: 200 }));
 	});
 
 	afterEach(() => {
@@ -380,7 +411,12 @@ describe("WorkTeam active tasks", () => {
 // ---------------------------------------------------------------------------
 
 describe("WorkTeam agent split-pane", () => {
-	const ROSTER_MEMBER: TeamRosterMember = { agentId: "a1", name: "Atlas Builder", role: "builder", agentCategory: "team" };
+	const ROSTER_MEMBER: TeamRosterMember = {
+		agentId: "a1",
+		name: "Atlas Builder",
+		role: "builder",
+		agentCategory: "team",
+	};
 	const TEAM_DATA: TeamPageData = {
 		team: { id: "t1", name: "AV4 Team", status: "healthy" },
 		roster: [ROSTER_MEMBER],
@@ -421,7 +457,10 @@ describe("WorkTeam agent split-pane", () => {
 		return render(
 			<MemoryRouter initialEntries={[path]}>
 				<Routes>
-					<Route path="/work/team/:teamId" element={<WorkTeam overrideData={TEAM_DATA} skipArtifacts />} />
+					<Route
+						path="/work/team/:teamId"
+						element={<WorkTeam overrideData={TEAM_DATA} skipArtifacts />}
+					/>
 				</Routes>
 			</MemoryRouter>,
 		);
@@ -461,7 +500,12 @@ describe("WorkTeam agent configuration", () => {
 		roster: [
 			{ agentId: "agent-builder-1", name: "Atlas Builder", role: "builder", agentCategory: "team" },
 			{ agentId: "agent-scout-1", name: "Scout Agent", role: "scout", agentCategory: "individual" },
-			{ agentId: "agent-cos-1", name: "System Agent", role: "assistant", agentCategory: "individual" },
+			{
+				agentId: "agent-cos-1",
+				name: "System Agent",
+				role: "assistant",
+				agentCategory: "individual",
+			},
 		],
 		tasksInProgress: [],
 	};
@@ -470,9 +514,21 @@ describe("WorkTeam agent configuration", () => {
 		string,
 		{ harnessType: string | null; maxConcurrentSessions: number; identityDocumentId: string | null }
 	> = {
-		"agent-builder-1": { harnessType: "claude-code", maxConcurrentSessions: 2, identityDocumentId: "ki_af_demo" },
-		"agent-scout-1": { harnessType: null, maxConcurrentSessions: 1, identityDocumentId: "ki_af_demo" },
-		"agent-cos-1": { harnessType: null, maxConcurrentSessions: 1, identityDocumentId: "ki_af_demo" },
+		"agent-builder-1": {
+			harnessType: "claude-code",
+			maxConcurrentSessions: 2,
+			identityDocumentId: "ki_af_demo",
+		},
+		"agent-scout-1": {
+			harnessType: null,
+			maxConcurrentSessions: 1,
+			identityDocumentId: "ki_af_demo",
+		},
+		"agent-cos-1": {
+			harnessType: null,
+			maxConcurrentSessions: 1,
+			identityDocumentId: "ki_af_demo",
+		},
 	};
 
 	function setupCall(): void {
@@ -519,7 +575,8 @@ describe("WorkTeam agent configuration", () => {
 					},
 				});
 			}
-			if (name === "edit_user") return Promise.resolve({ ok: true, data: { user: { id: "agent-new" } } });
+			if (name === "edit_user")
+				return Promise.resolve({ ok: true, data: { user: { id: "agent-new" } } });
 			if (name === "search_users") {
 				return Promise.resolve({
 					ok: true,
@@ -551,7 +608,10 @@ describe("WorkTeam agent configuration", () => {
 						path="/work/team/:teamId"
 						element={<WorkTeam overrideData={TEAM_WITH_CATEGORIES} skipArtifacts />}
 					/>
-					<Route path="*" element={<WorkTeam overrideData={TEAM_WITH_CATEGORIES} skipArtifacts />} />
+					<Route
+						path="*"
+						element={<WorkTeam overrideData={TEAM_WITH_CATEGORIES} skipArtifacts />}
+					/>
 				</Routes>
 			</MemoryRouter>,
 		);
@@ -594,7 +654,9 @@ describe("WorkTeam agent configuration", () => {
 		const builderRow = screen
 			.getAllByTestId("agent-row")
 			.find((c) => c.textContent?.includes("Atlas Builder")) as HTMLElement;
-		await user.click(builderRow.querySelector('[data-testid="agent-customize-btn"]') as HTMLElement);
+		await user.click(
+			builderRow.querySelector('[data-testid="agent-customize-btn"]') as HTMLElement,
+		);
 
 		await waitFor(() => {
 			const link = screen.getByTestId("agent-detail-identity-link");
@@ -611,8 +673,12 @@ describe("WorkTeam agent configuration", () => {
 		const builderRow = screen
 			.getAllByTestId("agent-row")
 			.find((c) => c.textContent?.includes("Atlas Builder")) as HTMLElement;
-		await user.click(builderRow.querySelector('[data-testid="agent-customize-btn"]') as HTMLElement);
-		await waitFor(() => expect(screen.getByTestId("agent-detail-identity-link")).toBeInTheDocument());
+		await user.click(
+			builderRow.querySelector('[data-testid="agent-customize-btn"]') as HTMLElement,
+		);
+		await waitFor(() =>
+			expect(screen.getByTestId("agent-detail-identity-link")).toBeInTheDocument(),
+		);
 
 		await user.click(screen.getByRole("button", { name: /show configuration/i }));
 		await waitFor(() => expect(screen.getByLabelText(/harness/i)).toBeInTheDocument());
