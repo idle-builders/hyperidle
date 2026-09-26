@@ -1,9 +1,8 @@
 /**
- * AU27 Increment 5 (Decision 5) — `provisioner.ts` forwards
- * `params.callingThreadId` onto the `session_not_returned` event it already
- * emits on a not-returned verdict, giving the never-silent net's
- * `conversation` subscriber somewhere to post. Zero new read: the value is
- * the same already-baked field Increment 1 introduced.
+ * `provisioner.ts` forwards `params.callingThreadId` onto the
+ * `session_not_returned` event it already emits on a not-returned verdict,
+ * giving the never-silent net's `conversation` subscriber somewhere to post.
+ * Zero new read: the value is the same already-baked field admission uses.
  */
 import * as fs from "node:fs";
 import * as os from "node:os";

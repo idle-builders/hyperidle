@@ -19,19 +19,19 @@ import { buildTestPorts } from "./test-ports.js";
 
 async function seedBoundaryFixture(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(teams).values({ id: "team-au6", name: "AU6", createdAt: now });
+	await db.insert(teams).values({ id: "team-boundary", name: "Boundary", createdAt: now });
 	await db.insert(users).values([
 		{
-			id: "agent-au6",
+			id: "agent-boundary",
 			kind: "ai",
 			name: "Agent",
 			role: "builder",
 			status: "active",
-			teamId: "team-au6",
+			teamId: "team-boundary",
 			createdAt: now,
 		},
 		{
-			id: "user-au6",
+			id: "user-boundary",
 			kind: "human",
 			name: "Founder",
 			role: "founder",
@@ -40,19 +40,19 @@ async function seedBoundaryFixture(db: HyperIdleDb): Promise<void> {
 		},
 	]);
 	await db.insert(threads).values({
-		id: "thr-bet-au6",
+		id: "thr-bet-boundary",
 		hostKind: "team",
-		hostId: "team-au6",
-		initiatorId: "agent-au6",
+		hostId: "team-boundary",
+		initiatorId: "agent-boundary",
 		participants: "[]",
 		lastActiveAt: now,
 		createdAt: now,
 	});
 	await db.insert(tasks).values({
-		id: "bet-au6",
-		threadId: "thr-bet-au6",
+		id: "bet-boundary",
+		threadId: "thr-bet-boundary",
 		parentTaskId: null,
-		teamId: "team-au6",
+		teamId: "team-boundary",
 		title: "Close agent execution boundary",
 		description: "Close agent execution boundary",
 		state: "in_progress",
@@ -60,22 +60,22 @@ async function seedBoundaryFixture(db: HyperIdleDb): Promise<void> {
 		updatedAt: now,
 	});
 	await db.insert(threads).values({
-		id: "thr-task-au6",
+		id: "thr-task-boundary",
 		hostKind: "team",
-		hostId: "team-au6",
-		initiatorId: "agent-au6",
+		hostId: "team-boundary",
+		initiatorId: "agent-boundary",
 		participants: "[]",
 		lastActiveAt: now,
 		createdAt: now,
 	});
 	await db.insert(tasks).values({
-		id: "task-au6",
-		threadId: "thr-task-au6",
-		parentTaskId: "bet-au6",
-		teamId: "team-au6",
+		id: "task-boundary",
+		threadId: "thr-task-boundary",
+		parentTaskId: "bet-boundary",
+		teamId: "team-boundary",
 		title: "Boundary task",
 		state: "accepted",
-		ownerAgentId: "agent-au6",
+		ownerAgentId: "agent-boundary",
 		createdAt: now,
 		updatedAt: now,
 	});
@@ -88,8 +88,8 @@ function boundarySourceInput(
 	const base = {
 		sourceId: `${sourceKind}-${suffix}`,
 		streamId: `${sourceKind}:${suffix}`,
-		agentId: "agent-au6",
-		teamId: "team-au6",
+		agentId: "agent-boundary",
+		teamId: "team-boundary",
 		idempotencyKey: `${sourceKind}:${suffix}`,
 	} as const;
 
@@ -98,23 +98,23 @@ function boundarySourceInput(
 			return {
 				...base,
 				sourceKind,
-				sourceId: "task-au6",
-				streamId: "task:task-au6",
-				taskId: "task-au6",
+				sourceId: "task-boundary",
+				streamId: "task:task-boundary",
+				taskId: "task-boundary",
 				promptMode: "task",
-				sourceCorrelation: { taskId: "task-au6", teamId: "team-au6" },
+				sourceCorrelation: { taskId: "task-boundary", teamId: "team-boundary" },
 			};
 		case "assistant":
 			return {
 				...base,
 				sourceKind,
-				userId: "user-au6",
+				userId: "user-boundary",
 				promptMode: "conversation",
 				sourceCorrelation: {
-					threadId: "thread-au6",
+					threadId: "thread-boundary",
 					messageId: `msg-${suffix}`,
-					userId: "user-au6",
-					agentId: "agent-au6",
+					userId: "user-boundary",
+					agentId: "agent-boundary",
 				},
 			};
 		case "knowledge":
@@ -126,7 +126,7 @@ function boundarySourceInput(
 				sourceCorrelation: {
 					knowledgeItemId: `item-${suffix}`,
 					action: "summarize",
-					teamId: "team-au6",
+					teamId: "team-boundary",
 				},
 			};
 		case "subscription":
@@ -138,7 +138,7 @@ function boundarySourceInput(
 				sourceCorrelation: {
 					subscriptionId: `subscription-${suffix}`,
 					changeId: `change-${suffix}`,
-					teamId: "team-au6",
+					teamId: "team-boundary",
 				},
 			};
 		case "review_resume":
@@ -149,7 +149,7 @@ function boundarySourceInput(
 				promptMode: "resume",
 				sourceCorrelation: {
 					reviewMessageId: `review-${suffix}`,
-					threadId: "thread-au6",
+					threadId: "thread-boundary",
 					resumedSessionId: `sess-${suffix}`,
 				},
 			};
@@ -569,20 +569,20 @@ describe("agent session runtime consumer", () => {
 		const lifecycle: Array<{ sourceKind: string; sourceId: string; state: string }> = [];
 		eventBus.on("agent_run_lifecycle_changed", (event) => lifecycle.push(event));
 		vi.mocked(ports.sessionProvisioner!.admitSession).mockImplementation(async (_deps, params) => ({
-			sessionId: "session-au6-boundary",
+			sessionId: "session-boundary-boundary",
 			sessionContext: { taskId: params.taskId },
 		}));
 		vi.mocked(ports.sessionProvisioner!.runSession).mockImplementation(async () => ({
-			sessionId: "session-au6-boundary",
+			sessionId: "session-boundary-boundary",
 			outcome: "completed",
-			taskId: "task-au6",
+			taskId: "task-boundary",
 			forceReturnCount: 0,
 		}));
 		for (const sourceKind of ["task", "assistant", "subscription", "knowledge"] as const) {
 			const request = await createRequestForTest(db, boundarySourceInput(sourceKind, "boundary"));
 			await runSession(
 				{ db, eventBus, ports } as unknown as import("../contracts.js").RuntimeDeps,
-				{ mode: "durable", request, sandboxBasePath: "/tmp/au6-boundary" },
+				{ mode: "durable", request, sandboxBasePath: "/tmp/boundary-boundary" },
 			);
 			const [row] = await db
 				.select()

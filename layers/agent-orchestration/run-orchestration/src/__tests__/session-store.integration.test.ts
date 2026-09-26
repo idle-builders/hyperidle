@@ -1,9 +1,8 @@
 /**
- * `endSessionByCas` — the no-live-runtime terminal transition, at the owner.
- *
- * This used to sit in an HTTP route in the layer above: the compare-and-set
- * write, the `session_ended` emit gated on its rowcount, and the read-back.
- * Three properties hold it together, and none of them is local to any one line:
+ * `endSessionByCas` — the no-live-runtime terminal transition, at the owner:
+ * the compare-and-set write, the `session_ended` emit gated on its rowcount,
+ * and the read-back. Three properties hold it together, and none of them is
+ * local to any one line:
  *
  *   - the write may only move an `active` row, so a concurrent runtime teardown
  *     cannot be overwritten;
@@ -17,11 +16,10 @@
  * test exercised — so "tidying" them into one variable would have shipped
  * green.
  *
- * @lore The accessor takes an `EventBus`, not just a db handle, and that is the
- * whole reason it is a transition rather than a setter. Splitting them — a
- * `setTerminal(db, …)` here and an emit at the caller — puts the rowcount and
- * the thing gated on the rowcount in two different packages, which is the
- * arrangement this replaced.
+ * @lore The accessor takes an `EventBus`, not just a db handle, and that is
+ * the whole reason it is a transition rather than a setter: splitting it into
+ * a `setTerminal(db, …)` plus an emit at the caller would put the rowcount
+ * and the thing gated on the rowcount in two different packages.
  */
 
 import { type HyperIdleDb, sessions, tasks, teams, threads, users } from "@hyperidle/db";

@@ -101,7 +101,7 @@ const BUNDLE: BakedContextBundle = {
 	],
 };
 
-describe("assembleAgentContext — contextBundle consumption (Increment 12 Wave C, RED)", () => {
+describe("assembleAgentContext — contextBundle consumption", () => {
 	let sandboxPath: string | undefined;
 	afterEach(() => {
 		if (sandboxPath) fs.rmSync(sandboxPath, { recursive: true, force: true });
@@ -111,8 +111,6 @@ describe("assembleAgentContext — contextBundle consumption (Increment 12 Wave 
 		sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "i12-context-bundle-"));
 		const assembler = createContextAssembler(poisonedPorts());
 
-		// `contextBundle` does not exist on `AssembleAgentContextInput` yet — see
-		// this file's top @lore for the two independent RED signals.
 		const input = {
 			sandboxPath,
 			sessionId: "session-i12-c1",
@@ -135,8 +133,8 @@ describe("assembleAgentContext — contextBundle consumption (Increment 12 Wave 
 		expect(toon).toContain("Alpha");
 		expect(toon).toContain("Ada");
 
-		// @lore nested-knowledge-items D1: layer zones are gone — every ordinary
-		// item (empty parentChain here) materialises flat into knowledge/.
+		// @lore Layer zones are gone — every ordinary item (empty parentChain
+		// here) materialises flat into knowledge/.
 		const knowledgeDir = path.join(sandboxPath, "knowledge");
 		expect(fs.existsSync(knowledgeDir)).toBe(true);
 		const knowledgeFiles = fs

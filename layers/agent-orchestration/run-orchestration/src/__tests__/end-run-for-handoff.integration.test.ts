@@ -1,23 +1,11 @@
 /**
- * AU26 H1 (§D-M.1) — RED. `endRunForHandoff` does not exist yet; the import
- * fails to resolve until the green phase.
- *
- * This is the run-end write `layers/core-api/policy/handoff-protocol.ts`
- * hand-copied one Layer up. It comes down here because it is
- * `run-orchestration`'s state transition, and the three properties below are
- * the whole reason it cannot be expressed as a call into `endSession`
- * (§D-M.1 trap (b) — `endSession` CASes on `state = "active"` and its caller
- * emits `session_ended`):
- *
- *  1. **Unconditional** — no CAS on `state = "active"`. A handoff on a run
- *     that is not `active` must still leave the row terminal.
- *  2. **Caller's transaction** — it takes a `WriteExecutor`, so the caller's
- *     `tx` handle drives it and the row is terminal at the caller's commit,
- *     never before and never after.
- *  3. **Emits nothing** — enforced by the type system, not by a test: the
- *     signature takes no `EventBus`, so it structurally cannot emit
- *     `session_ended` (which would create a spurious review item on every
- *     handoff via `review/session-review-creator.ts`).
+ * `endRunForHandoff` is the run-end write for a handoff, distinct from
+ * `endSession`: it is unconditional (no CAS on `state = "active"` — a
+ * handoff on a non-active run must still leave the row terminal), it takes
+ * a `WriteExecutor` so the caller's own transaction drives it and commits
+ * the terminal row, and it emits nothing — enforced by the type system (no
+ * `EventBus` in its signature), since a `session_ended` here would create a
+ * spurious review item on every handoff via `review/session-review-creator.ts`.
  */
 
 import { type HyperIdleDb, sessions, tasks, teams, threads, users } from "@hyperidle/db";

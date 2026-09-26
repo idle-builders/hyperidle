@@ -49,20 +49,20 @@ describe("real-harness inherited reach", () => {
 	describe("codex", () => {
 		requireBinary("codex");
 
-		test("reads isolated MCP identity through the moved entry", async () => {
-			const home = await temporaryDirectory("an1-codex-");
+		test("reads isolated MCP identity", async () => {
+			const home = await temporaryDirectory("isolated-codex-");
 			await writeFile(
 				join(home, "config.toml"),
-				'[mcp_servers.an1-codex]\ncommand = "node"\nargs = ["index.js"]\n',
+				'[mcp_servers.isolated-codex]\ncommand = "node"\nargs = ["index.js"]\n',
 			);
 			const reach = createInheritedReach();
 			await reach.refresh({ env: { ...process.env, CODEX_HOME: home } });
 			const facts = reach.list();
-			// @lore AU44 batch2: InheritedConnectionFact.health "unknown" maps to
-			// ServiceConnectionView.health "working" (anything != "needs-attention").
+			// InheritedConnectionFact.health "unknown" maps to ServiceConnectionView.health
+			// "working" (anything != "needs-attention").
 			expect(facts).toContainEqual(
 				expect.objectContaining({
-					service: "an1-codex",
+					service: "isolated-codex",
 					authSource: "inherited",
 					health: "working",
 				}),
@@ -71,7 +71,7 @@ describe("real-harness inherited reach", () => {
 		});
 
 		test("reports an honest none-state from an empty isolated home", async () => {
-			const home = await temporaryDirectory("an1-codex-empty-");
+			const home = await temporaryDirectory("isolated-codex-empty-");
 			const reach = createInheritedReach();
 			await reach.refresh({ env: { ...process.env, CODEX_HOME: home } });
 			expect(reach.list().filter((fact) => fact.id.startsWith("inherited:codex:"))).toEqual([]);
@@ -81,13 +81,13 @@ describe("real-harness inherited reach", () => {
 	describe("claude", () => {
 		requireBinary("claude");
 
-		test("reads isolated project MCP identity through the moved entry", async () => {
-			const cwd = await temporaryDirectory("an1-claude-");
+		test("reads isolated project MCP identity", async () => {
+			const cwd = await temporaryDirectory("isolated-claude-");
 			await writeFile(
 				join(cwd, ".mcp.json"),
 				JSON.stringify({
 					mcpServers: {
-						"an1-claude": { command: "node", args: ["/tmp/not-present.js"], type: "stdio" },
+						"isolated-claude": { command: "node", args: ["/tmp/not-present.js"], type: "stdio" },
 					},
 				}),
 			);
@@ -96,7 +96,7 @@ describe("real-harness inherited reach", () => {
 			const facts = reach.list().filter((fact) => fact.id.startsWith("inherited:claude-code:"));
 			expect(facts).toContainEqual(
 				expect.objectContaining({
-					service: "an1-claude",
+					service: "isolated-claude",
 					// "unknown" → "working"; "needs-attention" stays "needs-attention"
 					health: expect.stringMatching(/^(needs-attention|working)$/),
 				}),
@@ -107,10 +107,10 @@ describe("real-harness inherited reach", () => {
 
 	describe("opencode", () => {
 		// No binary gate: this probe parses $XDG_CONFIG_HOME/opencode/opencode.jsonc
-		// and execs nothing (@lore AU36 above).
+		// and execs nothing.
 
-		test("reads isolated JSONC MCP identity through the moved entry", async () => {
-			const configHome = await temporaryDirectory("an1-opencode-");
+		test("reads isolated JSONC MCP identity", async () => {
+			const configHome = await temporaryDirectory("isolated-opencode-");
 			const configDirectory = join(configHome, "opencode");
 			await mkdir(configDirectory);
 			await writeFile(
@@ -118,7 +118,7 @@ describe("real-harness inherited reach", () => {
 				JSON.stringify({
 					// biome-ignore lint/style/useNamingConvention: external OpenCode config key.
 					$schema: "https://opencode.ai/config.json",
-					mcp: { "an1-opencode": { type: "remote", url: "http://localhost:19998/mcp" } },
+					mcp: { "isolated-opencode": { type: "remote", url: "http://localhost:19998/mcp" } },
 				}),
 			);
 			const reach = createInheritedReach();
@@ -126,7 +126,7 @@ describe("real-harness inherited reach", () => {
 			const facts = reach.list();
 			expect(facts).toContainEqual(
 				expect.objectContaining({
-					service: "an1-opencode",
+					service: "isolated-opencode",
 					authSource: "inherited",
 					health: "working",
 				}),
@@ -135,7 +135,7 @@ describe("real-harness inherited reach", () => {
 		});
 
 		test("reports honest none when config exists without MCP entries", async () => {
-			const configHome = await temporaryDirectory("an1-opencode-empty-config-");
+			const configHome = await temporaryDirectory("isolated-opencode-empty-config-");
 			const configDirectory = join(configHome, "opencode");
 			await mkdir(configDirectory);
 			await writeFile(join(configDirectory, "opencode.jsonc"), JSON.stringify({ theme: "system" }));
@@ -145,7 +145,7 @@ describe("real-harness inherited reach", () => {
 		});
 
 		test("reports honest none when config is absent", async () => {
-			const configHome = await temporaryDirectory("an1-opencode-no-config-");
+			const configHome = await temporaryDirectory("isolated-opencode-no-config-");
 			const reach = createInheritedReach();
 			await reach.refresh({ env: { ...process.env, XDG_CONFIG_HOME: configHome } });
 			expect(reach.list().filter((fact) => fact.id.startsWith("inherited:opencode:"))).toEqual([]);

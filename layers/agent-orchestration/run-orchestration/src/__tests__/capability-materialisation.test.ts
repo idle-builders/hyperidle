@@ -83,7 +83,7 @@ describe("skill items materialise to harness skill dirs", () => {
 	it("writes SKILL.md to .agents/skills/ (for codex and cursor-agent)", async () => {
 		// .agents/skills covers codex (only dir it reads) and cursor-agent.
 		// .opencode/skills is omitted — opencode also reads .claude/skills.
-		// .codex-home/skills is dead — nothing reads it (see BA9b plan.md, "As built").
+		// .codex-home/skills is dead — nothing reads it.
 		const bundle = makeBundle("agent-1", [
 			{ id: "skill-2", title: "my-skill", body: "Body.", slot: "skill" },
 		]);
@@ -127,7 +127,7 @@ describe("skill items materialise to harness skill dirs", () => {
 			contextBundle: bundle,
 		});
 
-		// skill must NOT be written to context/factory even though layer=L4
+		// skill must NOT be written to context/factory
 		const factoryDir = path.join(sandboxPath, "context/factory");
 		const factoryFiles = fs.existsSync(factoryDir) ? fs.readdirSync(factoryDir) : [];
 		expect(factoryFiles).toHaveLength(0);
@@ -164,7 +164,7 @@ describe("rule items materialise to knowledge/rules/", () => {
 });
 
 describe("agent_file items are bound to a specific agent", () => {
-	// @lore BA9f: the agent file bound to THIS agent is its identity, and its home
+	// @lore The agent file bound to THIS agent is its identity, and its home
 	// in the sandbox is the "## Identity" section of AGENTS.md — baked at emit and
 	// assembled by the provisioner. Materialising it into `knowledge/rules/` too
 	// would put the same text in the sandbox twice, so it is deliberately absent
@@ -288,8 +288,8 @@ describe("a prompt item never reaches the sandbox", () => {
 			contextBundle: bundle,
 		});
 
-		// Nowhere: not a skill dir, not knowledge/rules, not context/factory (the
-		// L4 layer route an ordinary item would take).
+		// Nowhere: not a skill dir, not knowledge/rules, not context/factory
+		// (the route an ordinary item would take).
 		const knowledgeDir = path.join(sandboxPath, "knowledge");
 		const walkFiles = (dir: string): string[] => {
 			if (!fs.existsSync(dir)) return [];
@@ -315,9 +315,9 @@ describe("a prompt item never reaches the sandbox", () => {
 });
 
 describe("ordinary items are unaffected", () => {
-	// @lore nested-knowledge-items D1: layer zones (context/factory etc.) are
-	// gone — an ordinary item now materialises into knowledge/, shaped by its
-	// (baked) parent chain rather than routed by layer.
+	// @lore Layer zones (context/factory etc.) are gone — an ordinary item
+	// materialises into knowledge/, shaped by its (baked) parent chain rather
+	// than routed by layer.
 	it("ordinary item materialises into knowledge/", async () => {
 		const bundle = makeBundle("agent-1", [
 			{

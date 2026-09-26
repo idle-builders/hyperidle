@@ -13,10 +13,8 @@
  * value it does not interpret. `kind` here is a websocket word only; it is
  * never added to `EVENT_TYPES` (that vocabulary is the nine object events).
  *
- * @lore AU26 B1a: relocated from `layers/core-api/src/services/__tests__/`
- * with the gateway itself, and reclassified from `.integration.test.ts` to a
- * unit test — it touches no DB and no app, only the EventBus, so it never met
- * the integration bar.
+ * @lore A unit test, not `.integration.test.ts` — it touches no DB and no
+ * app, only the EventBus, so it never meets the integration bar.
  */
 
 import { describe, expect, test } from "../../__testing__/test-fixtures.js";

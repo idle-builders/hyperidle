@@ -1,7 +1,7 @@
 /**
  * Context assembly has to work in a directory it has already written once.
  *
- * BA2: a resumed session runs in the directory of the session it is resuming —
+ * A resumed session runs in the directory of the session it is resuming —
  * the agent is coming back to its own work, and cursor-agent finds its chat by
  * an md5 of the cwd string, so anywhere else is contextless. Context files are
  * chmod-ed to 0444 after assembly so an agent cannot edit its own context, and a

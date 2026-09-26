@@ -1,15 +1,8 @@
 /**
- * AU21 §9 Increment 8, Decision F2: relocated wholesale from
- * `layers/core-api/filesystems/src/__tests__/filesystems-completeness-contract.integration.test.ts`
- * — `startWatcher` moved into this package (see `../file-watcher.ts`'s top
- * `@lore`); these are the same watcher-behavior assertions, unchanged,
- * following the implementation to its new home. The registry-CRUD/mounter
- * coverage in the old contract test is unaffected and stays in
- * `@hyperidle/filesystems` (that Service still owns those tables/rows).
- *
- * The final describe block (context.ts's failure-callback wiring) also moves
- * here — it exercises `createContextAssembler`, which lives in THIS package,
- * so a relative import replaces the old dynamic cross-package import.
+ * `startWatcher` lives in this package — the registry-CRUD/mounter coverage
+ * stays in `@hyperidle/filesystems` (that Service still owns those
+ * tables/rows). The final describe block exercises `createContextAssembler`'s
+ * failure-callback wiring, which also lives in this package.
  */
 import { EventEmitter } from "node:events";
 import * as fs from "node:fs";
@@ -53,7 +46,7 @@ type FakeWatch = (
 	listener: (eventType: string, filename: string | null) => void,
 ) => fs.FSWatcher;
 
-describe("startWatcher (relocated wholesale from @hyperidle/filesystems)", () => {
+describe("startWatcher", () => {
 	test("watcher emits one debounced batch for watched roots, ignores outside paths, and stop flushes", async () => {
 		const sandbox = temporaryDirectory("watcher");
 		fs.mkdirSync(path.join(sandbox, "knowledge"));

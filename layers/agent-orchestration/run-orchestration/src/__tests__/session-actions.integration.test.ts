@@ -438,7 +438,7 @@ describe("stopSessionRun — a live runtime entry (the abort path)", () => {
 
 		await runPromise;
 
-		// F2: the adapter tolerated a second `stopSession` call (registry, then
+		// The adapter tolerated a second `stopSession` call (registry, then
 		// the provisioner's own post-drain teardown).
 		expect(stopSessionCalls.length).toBe(2);
 

@@ -1,7 +1,7 @@
 /**
  * The filesystem belongs to the work, not to the session.
  *
- * BA2: a session that ends by calling `submit_review` is not finished — it is
+ * A session that ends by calling `submit_review` is not finished — it is
  * waiting, and a human may take days. When the verdict comes the agent is
  * resumed IN THAT DIRECTORY. Destroying it at teardown does not merely lose the
  * agent's files: the resume spawns the harness with a working directory that no
@@ -64,7 +64,7 @@ function buildFakeHarnessAdapter(
 }
 
 /**
- * @lore BA2: `bridgeCall` models the path PRODUCTION takes. With the MCP bridge
+ * @lore `bridgeCall` models the path PRODUCTION takes. With the MCP bridge
  * open, a tool call arrives through `openMcpBridge`'s `onToolCall` and never
  * appears in `streamEvents` at all. A version of this suite that only drove the
  * stream passed while every real run destroyed the sandbox anyway.
@@ -183,7 +183,7 @@ async function runOnce(
 	const admitted = await provisioner.admit(deps, params);
 	sessionIdForLink = admitted.sessionId;
 	await provisioner.run(deps, params, admitted);
-	// @lore BA2: assert the DIRECTORY, not the `workspace.destroy` spy. The
+	// @lore Assert the DIRECTORY, not the `workspace.destroy` spy. The
 	// delete that matters is the `fs.rm` in the terminal transition; the adapter's
 	// destroy removes an already-removed tree. A version of this suite that
 	// watched only the spy passed while every real run deleted the sandbox.

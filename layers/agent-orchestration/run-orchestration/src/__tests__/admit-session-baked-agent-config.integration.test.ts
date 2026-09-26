@@ -179,8 +179,8 @@ describe("admitSession — baked agent-runnability config", () => {
 		expect(fs.existsSync(path.join(sandboxPath, ".git"))).toBe(true);
 	});
 
-	// @lore BA9f: the link between "an agent's identity is a knowledge document"
-	// and what the agent actually reads. `getAgentIdentity` bakes the document's
+	// @lore The link between "an agent's identity is a knowledge document"
+	// and what the agent actually reads: `getAgentIdentity` bakes the document's
 	// body onto the request as `agentConfig.persona`; `admitSession` resolves it
 	// into `systemPromptText`, which `runSession` hands the prompt assembler to
 	// become the "## Identity" section of the sandbox AGENTS.md.
@@ -230,9 +230,9 @@ describe("admitSession — baked agent-runnability config", () => {
 
 		const admitted = await provisioner.admit(buildDeps(db as HyperIdleDb, sandboxPath), params);
 
-		// BA2: every session's context also carries the standing instruction to ask
-		// for a review when work deserves a person's agreement, so the persona is the
-		// start of this rather than the whole of it.
+		// Every session's context also carries the standing instruction to ask
+		// for a review when work deserves a person's agreement, so the persona is
+		// the start of this rather than the whole of it.
 		expect(admitted.systemPromptText).toContain("You are Atlas. You never ship broken builds.");
 		expect(admitted.systemPromptText.startsWith("You are Atlas.")).toBe(true);
 	});
@@ -274,7 +274,7 @@ describe("admitSession — baked agent-runnability config", () => {
 
 		// Empty, so `assemblePrompt` emits no "## Identity" section at all —
 		// proven by `context-assembly-prompt.test.ts`.
-		// BA2: no identity document means no persona — but the review instruction is
+		// No identity document means no persona — but the review instruction is
 		// unconditional, so what remains is that and nothing else.
 		expect(admitted.systemPromptText).not.toContain("You are");
 		expect(admitted.systemPromptText).toContain("send_message");

@@ -1,10 +1,9 @@
 /**
- * AU27 Increment 1 (Decision 1) — `provisioner.ts`'s Phase 8 forwards
- * `params.callingThreadId` straight onto the session-scoped
- * `ToolContext.threadId` the `reply` tool (Increment 2) reads. Proven by
- * capturing the `ToolContext` the harness's tool registry is built with, over
- * a real (fake-adapter) `admit` + `run` pass — no live orchestration -> core
- * read, the value is forwarded verbatim from `params`.
+ * `provisioner.ts`'s Phase 8 forwards `params.callingThreadId` straight onto
+ * the session-scoped `ToolContext.threadId` the `reply` tool reads. Proven
+ * by capturing the `ToolContext` the harness's tool registry is built with,
+ * over a real (fake-adapter) `admit` + `run` pass — no live orchestration ->
+ * core read, the value is forwarded verbatim from `params`.
  */
 import * as fs from "node:fs";
 import * as os from "node:os";

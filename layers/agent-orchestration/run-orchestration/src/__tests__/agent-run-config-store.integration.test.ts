@@ -1,17 +1,11 @@
 /**
- * AU26 G1 — `agent-run-config-store` is the SQL-owning Service for the
- * run-config columns relocated off `users`/`teams` (architecture §D-L).
- *
- * Folded into run-orchestration by AU44 batch6; test recovered and
- * re-pointed here.
- *
- * The behavioural contract these tests pin:
+ * `agent-run-config-store` is the SQL-owning Service for the run-config
+ * columns off `users`/`teams`. The behavioural contract these tests pin:
  *  - a written config round-trips verbatim (including `maxConcurrentSessions`,
  *    the one NOT NULL DEFAULT 1 column);
- *  - an agent with NO row resolves the SAME effective config an agent whose
- *    columns were all-null resolved before the move — `maxConcurrentSessions`
- *    1, everything else null (§D-L's backfill invariant, stated for the
- *    steady state as well as the migration);
+ *  - an agent with NO row resolves the same effective config as an agent
+ *    whose columns are all-null: `maxConcurrentSessions` 1, everything else
+ *    null;
  *  - a partial write patches only the named fields and leaves the rest;
  *  - an explicit `null` in a patch clears the field (the `"x" in data`
  *    semantics `PATCH /api/agents/:id` has always had).

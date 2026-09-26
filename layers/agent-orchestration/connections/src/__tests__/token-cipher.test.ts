@@ -255,8 +255,8 @@ describe("credential cipher — on-disk format is stable across the move to shar
 	});
 
 	test("the primitive reads no database — it depends only on env + node:crypto", () => {
-		// The J1 no-DB proof, re-discharged as behaviour: the cipher is callable
-		// with no db handle, no connection, nothing injected but the env secret.
+		// The cipher is callable with no db handle, no connection, nothing
+		// injected but the env secret.
 		const encrypted = withFixedSecret(FIXED_KEY, () => encryptCredentialValue("no-db-needed"));
 		expect(withFixedSecret(FIXED_KEY, () => decryptCredentialValue(encrypted))).toBe(
 			"no-db-needed",

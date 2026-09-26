@@ -51,15 +51,15 @@ afterAll(() => {
 });
 
 // ─── Inline noop resolver ────────────────────────────────────────────────────
-// @lore AU20 R-filesystems: NoopAuthResolver class deleted from @hyperidle/filesystems
-// barrel. Tests that needed a noop use this inline structural object instead.
+// @lore NoopAuthResolver is not exported from @hyperidle/filesystems' barrel;
+// a noop uses this inline structural object instead.
 const noopAuthResolver = {
 	resolveToken: async (_connectionId: string) => null,
 };
 
 // ─── resolveFilesystemState — pure logic ─────────────────────────────────────
 
-describe("resolveFilesystemState — pure reachability logic (AC5)", () => {
+describe("resolveFilesystemState — pure reachability logic", () => {
 	it("writeback:'none' → 'reachable' regardless of connectionId (no probe)", async () => {
 		const state = await resolveFilesystemState(
 			{

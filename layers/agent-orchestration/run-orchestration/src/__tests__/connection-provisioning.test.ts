@@ -1,7 +1,8 @@
 /**
  * `buildProvisioningPlan`/`applyProvisioningPlan` turn a session's held
- * connections into MCP server entries: SVC_MCP_TOKEN naming, the N3 dialect
- * suffix, SSRF-drop of an unsafe target, and a secret that is never logged.
+ * connections into MCP server entries: SVC_MCP_TOKEN naming, the "-mcp"
+ * dialect suffix for a service with both a token and an MCP connection,
+ * SSRF-drop of an unsafe target, and a secret that is never logged.
  * `connections` is the `CoreApiPort.connections` seam-shaped reader; `resolver`
  * (`ServiceConnectionResolver`-shaped) is an Application-composed direct
  * dependency, never routed through `CoreApiPort` — the only plaintext path,
@@ -34,8 +35,8 @@ type MockConnection = {
 };
 
 /**
- * Builds the live in-layer `connections` reader (AU26 E3 — no bake, no seam)
- * + `resolver` (Application-composed, never through a seam) —
+ * Builds the live in-layer `connections` reader (no bake, no seam) +
+ * `resolver` (Application-composed, never through a seam) —
  * `buildProvisioningPlan`'s ONLY two deps. No `db`.
  */
 function buildPlanSeamDeps(
@@ -200,7 +201,7 @@ describe("buildProvisioningPlan (relocated to agent-orchestration, seam-shaped d
 		expect(plan.mcpServers[0]?.name).toBe("figma");
 	});
 
-	test("stripe token + stripe mcp → deterministic key suffix (stripe vs stripe-mcp) — N3", async () => {
+	test("stripe token + stripe mcp → deterministic key suffix (stripe vs stripe-mcp)", async () => {
 		const { connections, resolver } = buildPlanSeamDeps([
 			{
 				id: "sc-stripe-token",

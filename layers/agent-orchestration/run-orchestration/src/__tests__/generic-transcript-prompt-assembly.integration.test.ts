@@ -388,7 +388,7 @@ describe("generic transcript delivery (Increment 4)", () => {
 	 * A gated agent has to be told, once, that some actions need a person and how
 	 * to ask — because the deny message deliberately will not tell it.
 	 *
-	 * @lore BA2 (ruling 6): the push-back is two pieces. The gate's deny carries
+	 * @lore The push-back is two pieces. The gate's deny carries
 	 * only the fact that a rule blocked the call; an imperative in a deny message
 	 * is what a real model once refused as a suspected injection, arriving as it
 	 * does through the same channel an attacker could write to. So the instruction
@@ -424,7 +424,7 @@ describe("generic transcript delivery (Increment 4)", () => {
 	/**
 	 * A task session's instruction is the task.
 	 *
-	 * @lore BA10: `assembledPrompt` is CONTEXT — it is written to AGENTS.md and
+	 * @lore `assembledPrompt` is CONTEXT — it is written to AGENTS.md and
 	 * CLAUDE.md, and its own doc comment says so. What the agent is being ASKED to
 	 * do is a different thing, and for a task session it is the task. It used to be
 	 * neither: the durable path rendered the task's id and its raw correlation JSON
@@ -483,7 +483,7 @@ describe("generic transcript delivery (Increment 4)", () => {
 	});
 
 	/**
-	 * @lore BA10: the instruction used to be `assembledPrompt.slice(0, 200)` with
+	 * @lore The instruction used to be `assembledPrompt.slice(0, 200)` with
 	 * newlines flattened. A real agent read the result and replied "your initial
 	 * message appears to have been cut off" — it had been, at 200 characters.
 	 */

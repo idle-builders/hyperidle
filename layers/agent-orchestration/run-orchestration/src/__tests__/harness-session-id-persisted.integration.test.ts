@@ -6,7 +6,7 @@
  * the id in memory during the run; if nothing writes it down, there is nothing
  * to resume and the agent can never be brought back.
  *
- * @lore BA2: A session whose harness reported no id genuinely cannot be resumed.
+ * @lore A session whose harness reported no id genuinely cannot be resumed.
  * The column stays null in that case rather than holding a fabricated value, so
  * the verdict path can tell the human the truth instead of resuming nothing.
  */

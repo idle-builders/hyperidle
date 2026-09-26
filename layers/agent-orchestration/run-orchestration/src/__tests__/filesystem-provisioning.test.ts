@@ -15,7 +15,7 @@ import {
 	type InjectedFilesystemsReaderPort,
 	mountFilesystemsForAgent,
 } from "../filesystem-provisioning.js";
-// Filesystem is a local type in mounter.ts (AU44 b2: dissolved from domain-model).
+// Filesystem is a local type in mounter.ts, not imported from domain-model.
 import type { Filesystem } from "../mounter.js";
 
 let sandboxPath: string;
