@@ -1,18 +1,13 @@
 /**
- * L1a step9 — WsConnectionHub subscribe-authz unit tests.
- *
- * Adv-C1 / Plan §6.2 contract:
+ * WsConnectionHub subscribe-authz contract:
  *  - global topics (`conversations`) accept any authenticated identity.
  *  - `thread:<id>` topics require `senderId ∈ thread.participants`.
  *  - subscribe returns `forbidden` on a non-participant attempt; the WS
  *    handler then sends a structured forbidden ack and DOES NOT join the
  *    topic. Subsequent broadcasts must skip the would-be subscriber.
  *
- * @lore AU21 §6 Decision L4 / §9 Increment 14d: renamed from `WsBroadcaster`
- * to `WsConnectionHub` — the class no longer takes an `EventBus` (the
- * generic forwarder it used to drive was deleted). These tests now call
- * `hub.broadcast()` directly to prove the transport/authz mechanics, instead
- * of emitting on an EventBus the hub no longer subscribes to.
+ * Calls `hub.broadcast()` directly to prove the transport/authz mechanics —
+ * the hub takes no EventBus and subscribes to none.
  */
 
 import {
@@ -44,15 +39,9 @@ function createMockClient(): WsClient & { messages: string[] } {
 }
 
 /**
- * Real Mechanism C deps — mirrors `create-server.ts`'s production wiring
- * (`boot.ts`'s own `createDbSubscribeAuthorizer` call).
- *
- * @lore AU26 J3: was four ports, then three once `session:<id>` moved to
- * `agent-orchestration`'s (deleted) second socket — `org`/`work` only ever
- * served that branch. `document`/`users` are new —
- * `users` back for `document:<id>`'s subject resolution, not the session-team
- * check AU26 removed. `session:<id>` folding back onto this authorizer needs
- * no port at all — it admits on identity alone.
+ * Real deps, mirroring `create-server.ts`'s production wiring (`boot.ts`'s
+ * own `createDbSubscribeAuthorizer` call). `session:<id>` needs no port at
+ * all — it admits on identity alone.
  */
 const REALTIME_DEPS: SubscribeAuthorizerDeps = {
 	conversation: { getThreadById: (db: HyperIdleDb, id: string) => findThread(db, { id }) },
@@ -66,7 +55,7 @@ const REALTIME_DEPS: SubscribeAuthorizerDeps = {
 	},
 };
 
-describe("WsConnectionHub — subscribe authorization (L1 Adv-C1)", () => {
+describe("WsConnectionHub — subscribe authorization", () => {
 	test("participant subscribe to thread:<id> → ok", async ({ db }) => {
 		const hub = new WsConnectionHub(createDbSubscribeAuthorizer(db, REALTIME_DEPS));
 		// Seed a thread
@@ -122,11 +111,10 @@ describe("WsConnectionHub — subscribe authorization (L1 Adv-C1)", () => {
 	});
 
 	/**
-	 * @lore BC3 bug fix: `canReadThread`'s host-scoped bypass (`team`/
-	 * `document`/`factory` hosts admit any signed-in identity, not just
-	 * listed `participants`) must be mirrored by the WS authorizer — this is
-	 * what a task's (team-hosted, BC3) thread relies on for every team member
-	 * who never explicitly posted to it.
+	 * `canReadThread`'s host-scoped bypass (`team`/`document`/`factory` hosts
+	 * admit any signed-in identity, not just listed `participants`) is
+	 * mirrored by the WS authorizer — a team-hosted thread relies on this for
+	 * every team member who never explicitly posted to it.
 	 */
 	test("non-participant subscribe to a team-hosted thread:<id> → ok (host-scoped bypass)", async ({
 		db,
@@ -189,12 +177,10 @@ describe("WsConnectionHub — subscribe authorization (L1 Adv-C1)", () => {
 	});
 
 	/**
-	 * @lore AU26 J3, superseded: `session:<id>` folds back onto core's socket —
-	 * the live-run stream still lives and is read entirely inside
+	 * The live-run stream lives and is read entirely inside
 	 * `agent-orchestration`, which only ever hands this socket a content-free
-	 * nudge, so admitting the topic here reads no orchestration table. Any
-	 * signed-in identity is enough, exactly what the deleted second socket's
-	 * own authorizer already granted; an empty id still denies.
+	 * nudge, so admitting `session:<id>` here reads no orchestration table —
+	 * any signed-in identity is enough; an empty id still denies.
 	 */
 	test("session:<id> admits any signed-in identity, with no table read", async ({ db }) => {
 		const hub = new WsConnectionHub(createDbSubscribeAuthorizer(db, REALTIME_DEPS));
@@ -215,12 +201,11 @@ describe("WsConnectionHub — subscribe authorization (L1 Adv-C1)", () => {
 });
 
 /**
- * architecture.md §7: `document:<id>` and `documents` — the subscribe rule is
- * exactly `canReadDocument`, the same pure predicate `open_document` reads
- * through. An earlier bug report on this file (host-scoped bypass silently
- * refused) is exactly the divergence this shared predicate avoids.
+ * `document:<id>` and `documents`: the subscribe rule is exactly
+ * `canReadDocument`, the same pure predicate `open_document` reads through
+ * — a host-scoped bypass silently refusing here would diverge from it.
  */
-describe("WsConnectionHub — document subscribe authorization (architecture.md §7)", () => {
+describe("WsConnectionHub — document subscribe authorization", () => {
 	const now = "2026-06-01T00:00:00.000Z";
 
 	function docValues(overrides: Partial<typeof documentsTable.$inferInsert> & { id: string }) {

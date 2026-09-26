@@ -642,7 +642,7 @@ describe("send_message — @mention pool includes the host team and the sender's
 		await seedTeam(db, "mn-host-2");
 		await seedHuman(db, "mn-human-2"); // no teamId
 		const now = new Date().toISOString();
-		// BA1 D6 `users_belonging_ck`: ownerUserId set ⇒ teamId must be null.
+		// `users_belonging_ck`: ownerUserId set ⇒ teamId must be null.
 		await db.insert(users).values({
 			id: "mn-nova-2",
 			kind: "ai",

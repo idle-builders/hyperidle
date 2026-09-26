@@ -1,18 +1,8 @@
 /**
- * @lore AU21 §9 Increment 11 (H2 re-derived) — Decision H's H2
- * subsection: the wake rule's bake (`@hyperidle/thread`'s
- * `resolveThreadTurnRequest`, generalised from the deleted
- * `resolveAssistantTurnRequest`) must carry the FULL current transcript
- * (every prior message in the thread, in order, PLUS the just-appended
- * triggering message) onto the recorded `agent_work_intents` row.
- *
- * Was `routes/__tests__/threads.assistant-turn-transcript-bake.integration.test.ts`,
- * driving the deleted `POST /api/threads/:id/messages` route; the wake rule
- * that replaced the assistant-thread pin reaction bakes the same
- * `transcript` field under the renamed `thread_turn` kind, so this drives
- * `POST /api/actions/send_message` — the human posts as the default
- * fixture actor, the agent posts with the `x-hyperidle-actor-id` override
- * header (the seam `agentHeaders` already uses elsewhere).
+ * The wake rule's bake (`@hyperidle/thread`'s `resolveThreadTurnRequest`)
+ * carries the FULL current transcript (every prior message in the thread,
+ * in order, PLUS the just-appended triggering message) onto the recorded
+ * `agent_work_intents` row.
  */
 
 import { agentWorkIntents, type HyperIdleDb, threads, users } from "@hyperidle/db";
@@ -80,14 +70,14 @@ async function seedTwoMemberThread(
 	});
 }
 
-describe("the wake rule bakes the thread's conversational transcript at emit time (Increment 11)", () => {
+describe("the wake rule bakes the thread's conversational transcript at emit time", () => {
 	test("the baked intent's transcript includes prior thread history AND the just-posted triggering message, in order", async ({
 		db,
 		app,
 	}) => {
-		const threadId = "thread-au21-inc11-transcript-1";
-		const senderId = "user-au21-inc11-transcript-1";
-		const agentId = "agent-au21-inc11-transcript-1";
+		const threadId = "thread-transcript-bake-1";
+		const senderId = "user-transcript-bake-1";
+		const agentId = "agent-transcript-bake-1";
 		await seedTwoMemberThread(db, { threadId, senderId, agentId });
 
 		// Prior turn: a human message + the agent's earlier reply, posted

@@ -572,7 +572,7 @@ describe("registerLifecyclePropagation — propagation events", () => {
 	});
 });
 
-describe("registerLifecyclePropagation — ship-confirmation review (code-review finding)", () => {
+describe("registerLifecyclePropagation — ship-confirmation review", () => {
 	let unsubscribe: (() => void) | undefined;
 
 	afterEach(() => {
@@ -609,9 +609,8 @@ describe("registerLifecyclePropagation — ship-confirmation review (code-review
 		});
 
 		// A `changes` row of object `thread`, kind `message`, actor
-		// `system:propagation` on the root's own thread — the module-link rule
-		// (through the action, never the table). Before this fix a raw
-		// `insertMessage` wrote no `changes` row at all.
+		// `system:propagation` on the root's own thread — the ship-confirmation
+		// posts through the action, never a raw table write, so it gets one.
 		const rows = await db.select().from(changes).where(eq(changes.objectId, "thr-bet-1"));
 		const messageChange = rows.find((r) => r.kind === "message");
 		expect(messageChange).toBeDefined();

@@ -473,18 +473,14 @@ describe("task dependencies — the edit_task door, the guard, cycle rejection",
 			expect(json.problems?.[0]?.code).toBe("dependency_blocked");
 		}
 
+		// accepted -> in_progress is covered above ("edit_task also refuses
+		// accepted -> in_progress while a dependency is unfinished"); this
+		// covers the other guarded pick-up transition.
 		test("hold -> accepted is still refused with a problem naming the dependency", async ({
 			db,
 			app,
 		}) => {
 			await expectStillRefused(db, app, "hold", "accepted");
-		});
-
-		test("accepted -> in_progress is still refused with a problem naming the dependency", async ({
-			db,
-			app,
-		}) => {
-			await expectStillRefused(db, app, "accepted", "in_progress");
 		});
 	});
 
