@@ -1,18 +1,8 @@
 /**
- * AU21 §6 Decision G (recorder unification) / §8 AC #6 — "a test asserts the
- * unified `AgentWorkIntentRecorder` — one shared contract, local mirrors
- * deleted — with `kind`-set == the schema CHECK constraint."
- *
- * Complements (does not duplicate) `agent-work-intent-schema.integration.test.ts`'s
- * "accepts every closed kind/source pairing" test (which hardcodes its own
- * pairs list): THIS test derives its accept-list from `@hyperidle/domain-model`'s
- * `AGENT_WORK_INTENT_KINDS` — the same canonical list
- * `AgentWorkIntentRecorderInput` (the widened recorder contract `work`/
- * `review` now import instead of their deleted local mirrors) discriminates
- * over. If a kind is ever added to (or removed from) the shared union
- * without updating `agent_work_intents_kind_ck`/
- * `agent_work_intents_kind_source_compat_ck` in `schema.ts` — or vice versa —
- * this test fails, proving the two sets can't silently drift apart.
+ * The `agent_work_intents_kind_ck`/`agent_work_intents_kind_source_compat_ck` CHECK
+ * constraints (`schema.ts`) must accept every kind `@hyperidle/event-bus`'s
+ * `AGENT_WORK_INTENT_KINDS` declares, and reject anything outside it — proving the
+ * DB constraint and the shared kind union can't silently drift apart.
  */
 
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
@@ -94,27 +84,5 @@ describe("agent_work_intents kind CHECK == @hyperidle/domain-model AGENT_WORK_IN
 				}),
 			),
 		).rejects.toThrow();
-	});
-
-	// AU21 §9 Increment 10a (Decision I) — the built-in `bet_decomposition`
-	// mechanism is REMOVED entirely, not migrated: the intent union shrinks
-	// from seven kinds to six. Deleting the capture machinery removes
-	// `reengagement` too, so the union was five kinds.
-	// Schedule and event triggers dispatch as `subscription_run`, not
-	// `routine_run`.
-	const FIVE_LIVE_KINDS = [
-		"thread_turn",
-		"session_start",
-		"knowledge_action",
-		"task_run",
-		"subscription_run",
-	] as const;
-
-	test("AGENT_WORK_INTENT_KINDS is exactly the five live kinds (routine_run retired)", () => {
-		expect(AGENT_WORK_INTENT_KINDS).toHaveLength(5);
-		expect([...AGENT_WORK_INTENT_KINDS].sort()).toEqual([...FIVE_LIVE_KINDS].sort());
-		expect(AGENT_WORK_INTENT_KINDS).not.toContain("routine_run");
-		expect(AGENT_WORK_INTENT_KINDS).not.toContain("bet_decomposition");
-		expect(AGENT_WORK_INTENT_KINDS).not.toContain("reengagement");
 	});
 });

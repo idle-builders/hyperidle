@@ -14,25 +14,11 @@ async function queryRows<T extends Record<string, unknown>>(
 }
 
 describe("A2: Seed script", () => {
-	// --- AC4: Seed populates ≥1 row per major table ---
 	test("populates at least 1 row per major table", async ({ db }) => {
 		await runFactoryBootstrap(db);
 		await seedDemoWorld(db);
 
-		// @lore U1: `products` renamed to `teams`; old `teams` renamed to `team_members`.
-		// @lore P2: agents → users table
-		// @lore AF17: seed() now calls runFactoryBootstrap + seedDemoWorld.
-		// factory_bootstrap inserts users/documents; demo_fixture inserts teams/team_members.
-		// @lore AU18: `factory_settings` dropped from this list — factory-bootstrap no
-		// longer writes to it (cost_cap/cost_cycle/system_template rows retired).
-		// @lore BC4: `knowledge_app_projection` dropped from this list — the table is
-		// dropped; `documents` is the row itself now (architecture.md §6.2, §6.4).
-		const majorTables = [
-			"users",
-			"teams",
-			// @lore AU44 B1: team_members folded into teams — no longer a separate table
-			"documents",
-		];
+		const majorTables = ["users", "teams", "documents"];
 
 		for (const table of majorTables) {
 			const rows = await queryRows<{ count: string }>(db, `SELECT COUNT(*) AS count FROM ${table}`);
@@ -44,17 +30,13 @@ describe("A2: Seed script", () => {
 		await runFactoryBootstrap(db);
 		await seedDemoWorld(db);
 
-		// Verify we can read back with all fields.
-		// @lore U1: `products` table renamed to `teams`.
-		// @lore AF17: demo team id is now "demo-team-acme"
-		const products = await queryRows<{ id: string; name: string }>(
+		const teamRow = await queryRows<{ id: string; name: string }>(
 			db,
 			"SELECT id, name FROM teams LIMIT 1",
 		);
-		expect(products[0]?.id).toBeTruthy();
-		expect(products[0]?.name).toBeTruthy();
+		expect(teamRow[0]?.id).toBeTruthy();
+		expect(teamRow[0]?.name).toBeTruthy();
 
-		// @lore P2: agents → users table
 		const agents = await queryRows<{ id: string; name: string; role: string }>(
 			db,
 			"SELECT id, name, role FROM users LIMIT 1",
@@ -63,13 +45,6 @@ describe("A2: Seed script", () => {
 		expect(agents[0]?.name).toBeTruthy();
 		expect(agents[0]?.role).toBeTruthy();
 
-		// @lore AU44 B1: team_members folded into teams.
-		// @lore BC5 T11 (migration 0090, D-e3zm2j): capacity is dropped — a team
-		// is an id and a name now, no capacity gate left to read back.
-
-		// @lore BC4: `knowledge_app_projection` is dropped (architecture.md §6.2,
-		// §6.4) — the row it used to project (`confidence`) is a plain column on
-		// `documents` now, so there is no separate projection row left to assert.
 		const kiRows = await queryRows<{ id: string; version: number }>(
 			db,
 			"SELECT id, version FROM documents LIMIT 1",
@@ -107,7 +82,9 @@ describe("AF17: seed() = runFactoryBootstrap + seedDemoWorld", () => {
 		expect(acme[0]?.name).toBe("Acme");
 	});
 
-	test("runFactoryBootstrap alone produces 0 teams (factory isolation)", async ({ db }) => {
+	test("runFactoryBootstrap alone produces no demo data — no teams, no human users, no plugins", async ({
+		db,
+	}) => {
 		await runFactoryBootstrap(db);
 
 		const teamRows = await queryRows<{ count: string }>(db, "SELECT COUNT(*) AS count FROM teams");
@@ -118,6 +95,12 @@ describe("AF17: seed() = runFactoryBootstrap + seedDemoWorld", () => {
 			"SELECT COUNT(*) AS count FROM users WHERE kind = 'human'",
 		);
 		expect(Number(humanRows[0]?.count)).toBe(0);
+
+		const pluginRows = await queryRows<{ count: string }>(
+			db,
+			"SELECT COUNT(*) AS count FROM plugins",
+		);
+		expect(Number(pluginRows[0]?.count)).toBe(0);
 	});
 
 	test("seedDemoWorld alone produces Acme team + demo founder + demo agents", async ({ db }) => {
