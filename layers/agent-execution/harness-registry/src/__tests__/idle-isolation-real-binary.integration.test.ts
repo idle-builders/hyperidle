@@ -30,7 +30,7 @@
  * production and forward the real $HOME for their keychain-based auth, so a
  * session on either still sees its plugin surface. Fixing that means moving
  * the idle plugin from user level to repo level (tracked separately,
- * founder decision, D-v5z4br); this file proves isolation only for the two
+ * founder decision); this file proves isolation only for the two
  * mechanisms this repo already owns and controls today — codex's
  * CODEX_HOME redirect and opencode's XDG_CONFIG_HOME redirect — and
  * hard-fails (never skips) when it cannot prove that, including when the
@@ -68,6 +68,17 @@ const execFileAsync = promisify(execFile);
 const IDLE_LEAK_PATTERN = /idle-tasks|idle-skills|plugin-idle|mcp__idle/i;
 
 /**
+ * Proves the audit instruction actually produced a real tool enumeration
+ * (never an empty, refused, or unrelated reply) — without this, a session
+ * that skips the instruction entirely still passes the leak check above for
+ * the wrong reason. codex always has at least one built-in MCP-style tool
+ * (`mcp__codex_apps`, `mcp__node_repl`, etc., seen on every successful run
+ * against this account) so `mcp__` is a reliable "the listing happened"
+ * marker independent of the idle plugin.
+ */
+const CODEX_LISTED_SOMETHING = /mcp__/i;
+
+/**
  * Matches this machine's real user-level opencode MCP server name
  * (`~/.config/opencode/opencode.jsonc` → `mcp.hyperidle`, a bearer token
  * pointed at a dead local URL). Sanity-broken 2026-09-26: with
@@ -80,6 +91,17 @@ const IDLE_LEAK_PATTERN = /idle-tasks|idle-skills|plugin-idle|mcp__idle/i;
  * XDG_CONFIG_HOME injection.
  */
 const OPENCODE_LEAK_PATTERN = /\bhyperidle\b/i;
+
+/**
+ * Proves the probe actually ran `opencode mcp list` (never an empty,
+ * refused, or unrelated reply) — without this, a session that skips the
+ * instruction entirely still passes the leak check above for the wrong
+ * reason. This is opencode's OWN literal "no servers" message, so matching
+ * it proves both that the command ran AND that it found no configured MCP
+ * server (real config would print the `hyperidle` entry instead — see
+ * OPENCODE_LEAK_PATTERN above).
+ */
+const OPENCODE_ISOLATED_MARKER = /No MCP servers configured/i;
 
 async function codexAuthed(): Promise<boolean> {
 	try {
@@ -176,6 +198,11 @@ describe("codex CLI adapter (real binary) — per-session CODEX_HOME hides the u
 			const combined = texts.join("\n");
 			expect(
 				combined,
+				`codex must have actually listed its tools (proves the audit instruction ran) — ` +
+					`got no "mcp__" marker at all. Got: ${combined}`,
+			).toMatch(CODEX_LISTED_SOMETHING);
+			expect(
+				combined,
 				`codex must not see the idle plugin via its per-session CODEX_HOME. Got: ${combined}`,
 			).not.toMatch(IDLE_LEAK_PATTERN);
 		} finally {
@@ -229,6 +256,12 @@ describe("opencode CLI adapter (real binary) — per-session XDG_CONFIG_HOME hid
 				`opencode must not see the user-level hyperidle MCP server via its per-session ` +
 					`XDG_CONFIG_HOME. Got: ${combined}`,
 			).not.toMatch(OPENCODE_LEAK_PATTERN);
+			expect(
+				combined,
+				`opencode must have actually run "opencode mcp list" (proves the probe ran) — got ` +
+					`neither the isolated "No MCP servers configured" message nor a leaked entry. ` +
+					`Got: ${combined}`,
+			).toMatch(OPENCODE_ISOLATED_MARKER);
 		} finally {
 			await sandbox.cleanup();
 		}
