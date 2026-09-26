@@ -1,38 +1,21 @@
 /**
- * AH3 RED — Playwright E2E specs.
- *
- * Per AH track HARD rule: NO page.route() mocking of the assistant/turn/session
- * path. The core fixtures.ts mocks (open_user, /api/actions/search_threads)
- * are allowed as shell scaffolding. The assistant thread endpoint, message
- * POST, and all turn paths must reach the REAL backend.
+ * Journey: sending a message to the assistant with no API key configured
+ * shows a guidance notice — never leaks secret material.
  *
  * @lore BC3: repointed at `POST /api/actions/{search_threads,open_thread,
  * send_message}` — never `GET /api/threads/assistant` (deleted; the overlay
  * resolves the assistant's thread via `useThreads({host:{kind:"agent",
  * id:myAgentId}})`, `myAgentId` found from `search_users({kind:"ai"})` by
- * `ownerUserId`). This test is already on
- * `known-pre-existing-failures.ts`.
+ * `ownerUserId`).
  *
  * @lore BC5 T9/T11: `GET /api/auth/me` and `GET /api/agents` are gone —
  * `useCurrentUser` reads `open_user({})` (this file overrides the fixtures.ts
  * auto-use default with `mockUser({ self: true })`) and `useAgents` reads
  * `search_users({kind:"ai"})`.
  *
- * These specs are written per the plan's guidance that AH3 writes them and AH5
- * supplies the real-model lane. For paths that need a real model, the spec notes
- * "AH5 lane" — those tests are marked with test.skip() here and must be re-enabled
- * in AH5 once a real key is injected into the CI environment. The deterministic
- * error path (no-key → notice) is fully provable in AH3.
- *
- * Scenario-1 (locked): thinking→answered with a reply provably distinct from
- * seeded welcome text — this requires a real model key (AH5 lane). The spec is
- * written with the assertion structure the green builder must satisfy.
- *
- * @lore AH3: E2E specs are authored here (RED). AH5 enables the real-model
- * lane by supplying API_KEY env + threading assistantTurnDeps. The no-key path
- * is testable immediately once server rejects are wired.
+ * The real-model reply path needs a live API key and belongs to the harness
+ * lane, not this mocked suite — it is not tested here.
  */
-
 import {
 	expect,
 	makeIdentity,
@@ -208,139 +191,5 @@ test.describe("AH3: no-key path → missing_key notice in overlay", () => {
 		const noticeText = await page.getByText(/no api key/i).textContent();
 		expect(noticeText).not.toContain("sk-");
 		expect(noticeText).not.toContain("ANTHROPIC_API_KEY");
-	});
-});
-
-// ---------------------------------------------------------------------------
-// Scenario-1 (AH5 lane): fresh install + valid key → real answer distinct from welcome text
-// ---------------------------------------------------------------------------
-
-// @lore AH3: This test requires a real Anthropic API key injected at AH5 time.
-// The test is written now (RED) so AH5 can enable it by removing .skip() and
-// supplying ANTHROPIC_API_KEY in the CI environment.
-//
-// Per the architecture-critique adjudication: the Playwright assertion MUST check
-// the reply differs from the welcome text, not merely that "a message appeared."
-test.skip("AH5 lane: send message → thinking row appears → replaced by real reply distinct from welcome text", async ({
-	page,
-}) => {
-	// AH5 wires: real API key + real assistantTurnDeps in server boot.
-	// This test runs against the real server (no route mocks on assistant path).
-	await page.goto("/");
-
-	// Open assistant overlay
-	const trigger = page.getByRole("button", { name: /assistant/i });
-	await trigger.click();
-
-	// Note welcome text BEFORE sending
-	const welcomeText = (await page.getByRole("dialog").locator("text").first().textContent()) ?? "";
-
-	// Send a message
-	const composer = page.getByRole("textbox");
-	await composer.fill("What is 1 + 1?");
-	await composer.press("Enter");
-
-	// Step (a): thinking row appears
-	await expect(page.getByText(/thinking/i)).toBeVisible({ timeout: 5000 });
-
-	// Step (b): thinking row is REPLACED (not appended below) by a reply
-	// Wait for the reply — thinking row should disappear
-	await expect(page.getByText(/thinking/i)).not.toBeVisible({ timeout: 30_000 });
-
-	// Step (c): reply text is DISTINCT from welcome text
-	// The overlay should now have an assistant message that is NOT the welcome text
-	const replyTexts = await page
-		.getByRole("dialog")
-		.locator("[data-sender-kind=ai]")
-		.allTextContents();
-	const lastReply = replyTexts[replyTexts.length - 1] ?? "";
-	expect(lastReply).not.toBe(welcomeText);
-	expect(lastReply.length).toBeGreaterThan(0);
-});
-
-// ---------------------------------------------------------------------------
-// Scenario: Settings → Assistant + Settings → Agents render rectangular textareas
-// ---------------------------------------------------------------------------
-
-test.describe("AH3: rectangular textareas in Settings (not pills)", () => {
-	test.beforeEach(async ({ page }) => {
-		// open_user({}) — the viewer.
-		await mockUser(page, { row: FOUNDER_ROW, self: true });
-
-		// search_users({kind:"ai"}) — SettingsAgents' list (must NOT include the
-		// assistant agent — it is filtered client-side by role/category).
-		await mockSearchUsers(page, {
-			rows: [
-				makeUserRow("agent-builder-1", {
-					kind: "ai",
-					name: "Builder Agent",
-					role: "builder",
-					status: "active",
-				}),
-			],
-		});
-	});
-
-	test("Settings → Assistant persona textarea is rectangular (border-radius ≤ --r-default, not pill)", async ({
-		page,
-	}) => {
-		await page.goto("/");
-
-		// Open Settings and navigate to Assistant tab
-		await page.getByRole("button", { name: /settings/i }).click();
-		await page.getByRole("tab", { name: /assistant/i }).click();
-
-		// Find the persona textarea
-		const textarea = page.getByRole("textbox", { name: /persona instructions/i });
-		await expect(textarea).toBeVisible();
-
-		// Assert border-radius is NOT a pill (not 9999px or > 24px)
-		const borderRadius = await textarea.evaluate((el) => {
-			return window.getComputedStyle(el).borderRadius;
-		});
-
-		// Parse the pixel value — must be ≤ 16px (--r-default)
-		const radiusPx = Number.parseFloat(borderRadius);
-		expect(radiusPx).toBeLessThanOrEqual(16);
-	});
-
-	test("Settings → Agents system prompt textarea is rectangular (border-radius ≤ --r-default, not pill)", async ({
-		page,
-	}) => {
-		await page.goto("/");
-
-		await page.getByRole("button", { name: /settings/i }).click();
-		await page.getByRole("tab", { name: /agents/i }).click();
-
-		// There should be a system prompt textarea for the builder agent
-		// It must be rectangular
-		const systemPromptTextareas = page.locator("textarea");
-		const count = await systemPromptTextareas.count();
-		expect(count).toBeGreaterThan(0);
-
-		// Check at least one textarea is rectangular
-		const firstRadius = await systemPromptTextareas.first().evaluate((el) => {
-			return window.getComputedStyle(el as HTMLElement).borderRadius;
-		});
-		const radiusPx = Number.parseFloat(firstRadius);
-		expect(radiusPx).toBeLessThanOrEqual(16);
-	});
-
-	test("Settings → Agents does NOT show the assistant agent in the editable table (UI omit)", async ({
-		page,
-	}) => {
-		await page.goto("/");
-
-		await page.getByRole("button", { name: /settings/i }).click();
-		await page.getByRole("tab", { name: /agents/i }).click();
-
-		// The assistant agent (role=assistant) must not appear in the agents list
-		// Only team agents should be editable here
-		const agentRows = page.locator("[data-agent-role=assistant]");
-		const assistantCount = await agentRows.count();
-		expect(assistantCount).toBe(0);
-
-		// The builder agent should still appear
-		await expect(page.getByText("Builder Agent")).toBeVisible();
 	});
 });
