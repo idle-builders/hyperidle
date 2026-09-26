@@ -9,7 +9,7 @@
  * A refused read answers `{ ok: false, problems: [{ code: "not_found" }] }` at
  * HTTP 422 through `open_document`/`edit_document`/`search_documents` — the
  * "existence must not leak" contract, carried by the envelope instead of the
- * status code (architecture.md §4.2).
+ * status code.
  */
 
 import { documents, type HyperIdleDb, users } from "@hyperidle/db";
@@ -184,8 +184,8 @@ describe("an agent's identity document is visible to everyone, not a private not
 /**
  * A created agent's identity is seeded through the shared `agent-identity.ts`
  * helper — `edit_document` with the caller-chosen id `doc_af_<agentId>` — and
- * read through `search_documents`/`open_document`, never `/api/knowledge`
- * (architecture.md §8.3). The agent itself is created through `edit_user`
+ * read through `search_documents`/`open_document`, never `/api/knowledge`.
+ * The agent itself is created through `edit_user`
  * and read back through `search_users`/`open_user`, never `/api/agents`.
  */
 describe("agent identity through the document action mechanism", () => {

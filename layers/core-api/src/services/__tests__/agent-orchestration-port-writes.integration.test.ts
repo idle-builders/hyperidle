@@ -88,7 +88,7 @@ async function seedTeamAndTask(db: HyperIdleDb, prefix: string): Promise<void> {
 	});
 }
 
-describe("AgentOrchestrationPort — write side (§3, §11 contract-test harness)", () => {
+describe("AgentOrchestrationPort — write side (contract-test harness)", () => {
 	test("intents.submit reaches the real route and durably inserts an agent_work_intents row", async ({
 		db,
 		app,

@@ -5,8 +5,7 @@
  * scope-aware ids: two teams installing at team scope each compute their own
  * deterministic id from `scopeKind`/`scopeId` in the hash, so each team's
  * install is its own `plugins` row and its own skill documents, and neither
- * overwrites the other (`not_found` under the visibility rule, architecture.md
- * §5.1, if it tried).
+ * overwrites the other (`not_found` under the visibility rule, if it tried).
  *
  * Uses the real DB + app fixture. Each test is self-contained.
  */
@@ -189,9 +188,8 @@ describe("document-management plugin — team-scope isolation", () => {
 			{ id: "team-alpha", name: "Alpha", createdAt: "2026-01-01T00:00:00.000Z" },
 			{ id: "team-beta", name: "Beta", createdAt: "2026-01-01T00:00:00.000Z" },
 		]);
-		// A real team member per team — the visibility rule (architecture.md
-		// §5.1) reads the actor's own `teamId` off their `users` row, not off
-		// any header.
+		// A real team member per team — the visibility rule reads the actor's
+		// own `teamId` off their `users` row, not off any header.
 		await db.insert(users).values([
 			{
 				id: "u-alpha-member",

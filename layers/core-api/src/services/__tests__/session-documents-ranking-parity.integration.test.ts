@@ -78,7 +78,7 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 
 	// factory — always included regardless of team/agent.
 	await db.insert(documents).values({
-		id: "item-i12-factory",
+		id: "item-factory",
 		scopeKind: "factory",
 		scopeId: null,
 		title: "Factory-wide practice",
@@ -93,7 +93,7 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 
 	// team — scoped to TEAM_ID (must be included).
 	await db.insert(documents).values({
-		id: "item-i12-team-in",
+		id: "item-team-in",
 		scopeKind: "team",
 		scopeId: TEAM_ID,
 		title: "Team-scoped product knowledge",
@@ -108,7 +108,7 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 
 	// team — scoped to OTHER_TEAM_ID (must be EXCLUDED from a TEAM_ID assembly).
 	await db.insert(documents).values({
-		id: "item-i12-team-out",
+		id: "item-team-out",
 		scopeKind: "team",
 		scopeId: OTHER_TEAM_ID,
 		title: "Other team's product knowledge",
@@ -123,7 +123,7 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 
 	// user — bound to AGENT_ID (must be included: "its own").
 	await db.insert(documents).values({
-		id: "item-i12-own-in",
+		id: "item-own-in",
 		scopeKind: "user",
 		scopeId: AGENT_ID,
 		title: "The agent's own note",
@@ -138,7 +138,7 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 
 	// user — bound to a DIFFERENT agent, must be EXCLUDED.
 	await db.insert(documents).values({
-		id: "item-i12-own-out",
+		id: "item-own-out",
 		scopeKind: "user",
 		scopeId: OTHER_AGENT_ID,
 		title: "Someone else's note",
@@ -168,11 +168,9 @@ describe("assembleSessionDocuments — scope-only selection", () => {
 		// Anchor the actual expected membership — the corpus mixes in-scope and
 		// out-of-scope items on purpose (team + agent exclusion), so a
 		// coincidental empty-set match can't silently pass.
-		expect([...ids].sort()).toEqual(
-			["item-i12-team-in", "item-i12-own-in", "item-i12-factory"].sort(),
-		);
-		expect(ids.has("item-i12-team-out")).toBe(false);
-		expect(ids.has("item-i12-own-out")).toBe(false);
+		expect([...ids].sort()).toEqual(["item-team-in", "item-own-in", "item-factory"].sort());
+		expect(ids.has("item-team-out")).toBe(false);
+		expect(ids.has("item-own-out")).toBe(false);
 	});
 
 	test("each returned item carries the scope that put it in reach", async ({ db }) => {
@@ -185,9 +183,9 @@ describe("assembleSessionDocuments — scope-only selection", () => {
 		});
 
 		const expectedScopeById: Record<string, string> = {
-			"item-i12-factory": "factory",
-			"item-i12-team-in": "team",
-			"item-i12-own-in": "user",
+			"item-factory": "factory",
+			"item-team-in": "team",
+			"item-own-in": "user",
 		};
 
 		expect(budgeted.length).toBe(3);
@@ -207,7 +205,7 @@ describe("assembleSessionDocuments — scope-only selection", () => {
 		const [row] = await db
 			.select({ id: documents.id })
 			.from(documents)
-			.where(eq(documents.id, "item-i12-team-out"));
+			.where(eq(documents.id, "item-team-out"));
 		expect(row).toBeDefined();
 
 		const budgeted = await assembleSessionDocuments(db, {
@@ -216,8 +214,8 @@ describe("assembleSessionDocuments — scope-only selection", () => {
 			agentId: AGENT_ID,
 		});
 		const ids = new Set(budgeted.map((item) => item.id));
-		expect(ids.has("item-i12-team-out")).toBe(false);
-		expect(ids.has("item-i12-own-out")).toBe(false);
-		expect(ids.has("item-i12-factory")).toBe(true);
+		expect(ids.has("item-team-out")).toBe(false);
+		expect(ids.has("item-own-out")).toBe(false);
+		expect(ids.has("item-factory")).toBe(true);
 	});
 });

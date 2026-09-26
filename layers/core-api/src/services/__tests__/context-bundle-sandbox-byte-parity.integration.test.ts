@@ -37,14 +37,14 @@ import { createStandaloneSearchDocuments } from "../../actions/compose.js";
 const { getAgentIdentity } = makeDocumentReadPorts(createStandaloneSearchDocuments());
 
 const NOW = "2026-08-01T00:00:00.000Z";
-const TEAM_ID = "team-i12c-parity";
-const AGENT_ID = "agent-i12c-parity";
+const TEAM_ID = "team-byteparity-parity";
+const AGENT_ID = "agent-byteparity-parity";
 // @lore the practice an agent belongs to IS its role — `knowledge.ts`
 // documents the truth ("practice scopeId is a role id").
 const AGENT_ROLE = "builder";
-const TASK_ID = "task-i12c-parity";
-const ROOT_TASK_ID = "bet-i12c-parity";
-const ATTEMPT_ID = "attempt-i12c-parity";
+const TASK_ID = "task-byteparity-parity";
+const ROOT_TASK_ID = "bet-byteparity-parity";
+const ATTEMPT_ID = "attempt-byteparity-parity";
 const TASK_DESCRIPTION = "Ship the byte-parity check.";
 
 async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
@@ -111,7 +111,7 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 	});
 
 	await db.insert(documents).values({
-		id: "item-i12c-l4",
+		id: "item-parity-l4",
 		scopeKind: "factory",
 		scopeId: null,
 		title: "Factory-wide practice",
@@ -125,7 +125,7 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 	});
 
 	await db.insert(documents).values({
-		id: "item-i12c-l2",
+		id: "item-parity-l2",
 		scopeKind: "team",
 		scopeId: TEAM_ID,
 		title: "Team-scoped product knowledge",
@@ -139,7 +139,7 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 	});
 
 	await db.insert(documents).values({
-		id: "item-i12c-l3",
+		id: "item-parity-l3",
 		scopeKind: "user",
 		scopeId: AGENT_ID,
 		title: "The agent's own note",
@@ -187,7 +187,7 @@ describe("context.ts sandbox output — bundle-consuming byte parity for a fixed
 	}) => {
 		await seedFixedCorpus(db);
 
-		const newSandbox = fs.mkdtempSync(path.join(os.tmpdir(), "i12c-new-"));
+		const newSandbox = fs.mkdtempSync(path.join(os.tmpdir(), "byteparity-new-"));
 		try {
 			// -- Real production bake: resolveTaskRunRequest
 			// derives the contextBundle from the SAME seeded rows. --
@@ -209,7 +209,7 @@ describe("context.ts sandbox output — bundle-consuming byte parity for a fixed
 			const assembler = createContextAssembler(poisonedPorts());
 			await assembler.assembleAgentContext({
 				sandboxPath: newSandbox,
-				sessionId: "session-i12c-new",
+				sessionId: "session-byteparity-new",
 				taskId: TASK_ID,
 				agentId: AGENT_ID,
 				teamId: TEAM_ID,
@@ -227,24 +227,24 @@ describe("context.ts sandbox output — bundle-consuming byte parity for a fixed
 			expect(newKnowledgeFiles.length).toBeGreaterThan(0);
 			expect(newKnowledgeFiles).toEqual(
 				[
-					"Factory-wide_practice_item-i12.md",
-					"The_agent_s_own_note_item-i12.md",
-					"Team-scoped_product_knowledge_item-i12.md",
+					"Factory-wide_practice_item-par.md",
+					"The_agent_s_own_note_item-par.md",
+					"Team-scoped_product_knowledge_item-par.md",
 				].sort(),
 			);
 
 			const factoryBody = fs.readFileSync(
-				path.join(newSandbox, "knowledge/Factory-wide_practice_item-i12.md"),
+				path.join(newSandbox, "knowledge/Factory-wide_practice_item-par.md"),
 			);
 			expect(factoryBody.toString("utf8")).toBe("Applies to every team and every community.");
 
 			const productBody = fs.readFileSync(
-				path.join(newSandbox, "knowledge/Team-scoped_product_knowledge_item-i12.md"),
+				path.join(newSandbox, "knowledge/Team-scoped_product_knowledge_item-par.md"),
 			);
 			expect(productBody.toString("utf8")).toBe("Specific to the parity team's product.");
 
 			const ownBody = fs.readFileSync(
-				path.join(newSandbox, "knowledge/The_agent_s_own_note_item-i12.md"),
+				path.join(newSandbox, "knowledge/The_agent_s_own_note_item-par.md"),
 			);
 			expect(ownBody.toString("utf8")).toBe("Relevant only to this agent.");
 
@@ -259,7 +259,7 @@ describe("context.ts sandbox output — bundle-consuming byte parity for a fixed
 				fs.readFileSync(path.join(newSandbox, ".fabric/manifest.json"), "utf8"),
 			) as { items: Record<string, { source_path: string }> };
 			expect(Object.keys(manifest.items).sort()).toEqual(
-				["item-i12c-l4", "item-i12c-l2", "item-i12c-l3"].sort(),
+				["item-parity-l4", "item-parity-l2", "item-parity-l3"].sort(),
 			);
 		} finally {
 			fs.rmSync(newSandbox, { recursive: true, force: true });

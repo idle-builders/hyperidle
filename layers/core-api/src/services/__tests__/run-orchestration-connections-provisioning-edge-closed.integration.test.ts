@@ -89,9 +89,9 @@ describe("run-orchestration's connection-provisioning path makes ZERO CoreApiPor
 				createdAt: NOW,
 			})
 			.onConflictDoNothing();
-		const encryptedToken = encryptCredentialValue("sk_test_k1_edge_closed");
+		const encryptedToken = encryptCredentialValue("sk_test_edge_closed");
 		await db.insert(serviceConnections).values({
-			id: "sc-k1-edge-closed-stripe",
+			id: "sc-edge-closed-stripe",
 			userId: USER_HUMAN_ID,
 			service: "stripe",
 			authSource: "token",

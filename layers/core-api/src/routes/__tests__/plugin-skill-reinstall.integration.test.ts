@@ -1,7 +1,6 @@
 /**
  * A plugin's skill is a document, upserted through `edit_document`'s
- * read-then-edit path via `POST /api/actions/edit_plugin` (architecture.md
- * §8.3).
+ * read-then-edit path via `POST /api/actions/edit_plugin`.
  *
  * Three things, one plugin, one install:
  *   (i)   the contributed document exists with `slot: "skill"`;
@@ -129,7 +128,7 @@ describe("a plugin's skill is a document, upserted through edit_document", () =>
 		await db.update(documents).set({ body: EDITED_BODY }).where(eq(documents.id, documentId));
 
 		// Reinstall — `edit_document`'s upsert never sends `body` on an id that
-		// already exists (architecture.md §8.3), so the person's edit survives.
+		// already exists, so the person's edit survives.
 		await install(app);
 
 		const [reinstalled] = await db.select().from(documents).where(eq(documents.id, documentId));

@@ -4,9 +4,8 @@
  * the original SKILL.md content back, through `POST /api/actions/edit_plugin`.
  *
  * @lore restore writes through `edit_document`, so `updatedBy` is always the
- * requesting person (architecture.md §3.5 — never on the input, always
- * `ctx.actor`), carried by the `x-hyperidle-actor-id` override header, never
- * a body field.
+ * requesting person — never on the input, always `ctx.actor` — carried by
+ * the `x-hyperidle-actor-id` override header, never a body field.
  */
 
 import { cpSync, mkdirSync, readFileSync, rmSync } from "node:fs";

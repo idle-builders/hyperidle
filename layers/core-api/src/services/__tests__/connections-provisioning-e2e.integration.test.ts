@@ -83,7 +83,7 @@ async function seedHumanUser(db: import("@hyperidle/db").HyperIdleDb): Promise<v
 		.values({
 			id: USER_HUMAN_ID,
 			kind: "human",
-			name: "Inc8 E2E Human",
+			name: "E2E Human",
 			role: "founder",
 			status: "active",
 			createdAt: NOW,
@@ -97,7 +97,7 @@ async function seedAgentCaller(db: import("@hyperidle/db").HyperIdleDb): Promise
 		.values({
 			id: AGENT_CALLER_ID,
 			kind: "ai",
-			name: "Inc8 E2E Agent",
+			name: "E2E Agent",
 			role: "engineer",
 			status: "active",
 			createdAt: NOW,
@@ -139,7 +139,7 @@ describe("real end-to-end: DB row -> listHeldConnectionsForProvisioning (live at
 		await seedHumanUser(db);
 		await seedAgentCaller(db);
 		await seedConnection(db, {
-			id: "sc-inc8-e2e-stripe",
+			id: "sc-e2e-stripe",
 			service: "stripe",
 			authSource: "token",
 			serverUrl: "https://mcp.stripe.com",
@@ -298,13 +298,13 @@ describe("real end-to-end: DB row -> listHeldConnectionsForProvisioning (live at
 		await seedHumanUser(db);
 		await seedAgentCaller(db);
 		await seedConnection(db, {
-			id: "sc-inc8-e2e-hr3-gh",
+			id: "sc-e2e-clikey-gh",
 			service: "github",
 			authSource: "token",
 			token: "ghs_e2e_github_pat",
 		});
 		await seedConnection(db, {
-			id: "sc-inc8-e2e-hr3-stripe",
+			id: "sc-e2e-mcpbearer-stripe",
 			service: "stripe",
 			authSource: "token",
 			serverUrl: "https://mcp.stripe.com",
