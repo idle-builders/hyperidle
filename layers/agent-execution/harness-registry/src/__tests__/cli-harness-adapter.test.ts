@@ -1,5 +1,5 @@
 /**
- * X5 — CliHarnessAdapter unit tests (red phase).
+ * CliHarnessAdapter unit tests.
  *
  * Tests all runtime behaviors of the CLI harness adapter:
  * - Template variable resolution

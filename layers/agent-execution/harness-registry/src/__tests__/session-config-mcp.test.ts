@@ -1,5 +1,5 @@
 /**
- * X5 — SessionConfig MCP connection info + HarnessCapabilities.mcpSupport tests (red phase).
+ * SessionConfig MCP connection info + HarnessCapabilities.mcpSupport tests.
  *
  * Tests:
  * - McpConnectionInfo type is correctly shaped

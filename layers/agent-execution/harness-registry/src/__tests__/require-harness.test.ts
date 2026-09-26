@@ -1,5 +1,5 @@
 /**
- * AR1 — requireHarness unit tests (TDD red phase).
+ * requireHarness unit tests.
  *
  * Tests runtime behavior of the requireHarness() hard-fail helper against the
  * STRICT harness model:

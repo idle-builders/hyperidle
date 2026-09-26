@@ -1,8 +1,8 @@
 /**
- * BA9b — Plugin stdio MCP dialect shape live-proof (AC6).
+ * Plugin stdio MCP dialect shape live-proof.
  *
- * AC6: "the dialect config file produced by writePluginStdioMcpEntries is read and
- *       accepted by the real binary in a sandbox."
+ * The dialect config file produced by writePluginStdioMcpEntries is read and
+ * accepted by the real binary in a sandbox.
  *
  * Proof method (codex-toml and opencode-json dialects):
  *   1. Write a minimal stdio MCP server script that advertises one uniquely-named tool

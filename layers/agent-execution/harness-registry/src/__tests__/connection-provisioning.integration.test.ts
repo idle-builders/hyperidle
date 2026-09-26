@@ -1,5 +1,5 @@
 /**
- * AN2 — Connection provisioning real-harness live-proof tests (AC2, AC3).
+ * Connection provisioning real-harness live-proof tests.
  *
  * ⚠️  LOCAL-ONLY LANE — runs via test:integration's serial `harness` project. CI
  *     runs the unit and service-integration lanes, but NOT this one: it needs real
