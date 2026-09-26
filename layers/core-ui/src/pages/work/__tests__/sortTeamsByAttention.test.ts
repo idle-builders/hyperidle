@@ -19,29 +19,7 @@ function team(id: string, name: string, status: TeamsListItem["status"]): TeamsL
 }
 
 describe("sortTeamsByAttention", () => {
-	it("blocked → healthy ordering", () => {
-		const input = [team("h", "Healthy Team", "healthy"), team("b", "Blocked Team", "blocked")];
-		const result = sortTeamsByAttention(input);
-		expect(result.map((t) => t.status)).toEqual(["blocked", "healthy"]);
-	});
-
-	it("returns only blocked when all blocked (preserves input order within rank — name asc)", () => {
-		const input = [team("b2", "Zeta Team", "blocked"), team("b1", "Alpha Team", "blocked")];
-		const result = sortTeamsByAttention(input);
-		expect(result.map((t) => t.id)).toEqual(["b1", "b2"]);
-	});
-
-	it("within same rank, tie-breaks by name ascending", () => {
-		const input = [
-			team("3", "Zebra", "healthy"),
-			team("1", "Apple", "healthy"),
-			team("2", "Mango", "healthy"),
-		];
-		const result = sortTeamsByAttention(input);
-		expect(result.map((t) => t.name)).toEqual(["Apple", "Mango", "Zebra"]);
-	});
-
-	it("mixed ranks + ties: blocked before healthy, names asc within rank", () => {
+	it("ranks blocked before healthy, and breaks ties by name ascending", () => {
 		const input = [
 			team("h2", "Zeta Health", "healthy"),
 			team("b1", "Bravo Block", "blocked"),
@@ -50,13 +28,6 @@ describe("sortTeamsByAttention", () => {
 		];
 		const result = sortTeamsByAttention(input);
 		expect(result.map((t) => t.id)).toEqual(["b2", "b1", "h1", "h2"]);
-	});
-
-	it("single team returns array with same team", () => {
-		const input = [team("x", "Only Team", "blocked")];
-		const result = sortTeamsByAttention(input);
-		expect(result).toHaveLength(1);
-		expect(result[0]?.id).toBe("x");
 	});
 
 	it("empty array returns empty array", () => {

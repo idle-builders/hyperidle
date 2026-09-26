@@ -5,12 +5,9 @@
  *   canGoBack  = (window.history.state?.idx ?? 0) > 0
  *   canGoForward = window.navigation?.canGoForward ?? false
  *
- * @lore AG4: RR v7 has no public canGoBack/canGoForward.
- * We read `idx` from window.history.state — an RR internal.
- * If RR changes its state shape this breaks. The test asserting
- * idx presence after navigation is the canary.
- *
- * These tests FAIL until layers/core-ui/src/hooks/useHistoryAvailability.ts exists.
+ * @lore RR v7 has no public canGoBack/canGoForward. We read `idx` from
+ * window.history.state — an RR internal. If RR changes its state shape this
+ * breaks; the popstate test below is the canary.
  */
 
 // @vitest-environment jsdom
@@ -43,7 +40,7 @@ function stubNavigationApi(canGoForward: boolean | undefined): void {
 	}
 }
 
-describe("AG4 — useHistoryAvailability", () => {
+describe("useHistoryAvailability", () => {
 	let originalHistory: History;
 	let originalNavigation: typeof window.navigation | undefined;
 
@@ -85,13 +82,6 @@ describe("AG4 — useHistoryAvailability", () => {
 
 		it("returns true when history.state.idx > 0", () => {
 			stubHistoryState(1);
-			stubNavigationApi(false);
-			const { result } = renderHook(() => useHistoryAvailability());
-			expect(result.current.canGoBack).toBe(true);
-		});
-
-		it("returns true when history.state.idx is 5", () => {
-			stubHistoryState(5);
 			stubNavigationApi(false);
 			const { result } = renderHook(() => useHistoryAvailability());
 			expect(result.current.canGoBack).toBe(true);

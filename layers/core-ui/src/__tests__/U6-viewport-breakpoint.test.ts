@@ -64,18 +64,6 @@ describe("useViewportBreakpoint — AC-12: simplified hook", () => {
 		expect(result.current.sidebarMobile).toBe(true);
 	});
 
-	it("does NOT return submenuCollapsed property (old API removed)", () => {
-		setViewportWidth(1920);
-		const { result } = renderHook(() => useViewportBreakpoint());
-		expect("submenuCollapsed" in result.current).toBe(false);
-	});
-
-	it("does NOT return railExpanded property (old API removed)", () => {
-		setViewportWidth(1920);
-		const { result } = renderHook(() => useViewportBreakpoint());
-		expect("railExpanded" in result.current).toBe(false);
-	});
-
 	it("returns exactly { sidebarMobile } — no extra properties", () => {
 		setViewportWidth(1920);
 		const { result } = renderHook(() => useViewportBreakpoint());

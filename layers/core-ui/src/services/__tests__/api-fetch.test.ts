@@ -44,41 +44,22 @@ describe("apiFetch (N2)", () => {
 
 	// ── AC-2 + AC-3: Vite env var path ───────────────────────────────────────────
 
-	it("adds X-API-Key header when VITE_HYPERIDLE_API_KEY is set", async () => {
-		// Arrange
+	it("adds X-API-Key header with the configured value when VITE_HYPERIDLE_API_KEY is set", async () => {
 		vi.stubEnv("VITE_HYPERIDLE_API_KEY", TEST_KEY);
 
-		// Act
 		await apiFetch("/api/teams");
 
-		// Assert
 		expect(fetchSpy).toHaveBeenCalledOnce();
-		const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
-		const headers = new Headers(init?.headers);
-		expect(headers.has("X-API-Key")).toBe(true);
-	});
-
-	it("adds the correct key value from VITE_HYPERIDLE_API_KEY", async () => {
-		// Arrange
-		vi.stubEnv("VITE_HYPERIDLE_API_KEY", TEST_KEY);
-
-		// Act
-		await apiFetch("/api/teams");
-
-		// Assert
 		const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
 		const headers = new Headers(init?.headers);
 		expect(headers.get("X-API-Key")).toBe(TEST_KEY);
 	});
 
 	it("does NOT add X-API-Key header to non-/api/* URLs", async () => {
-		// Arrange
 		vi.stubEnv("VITE_HYPERIDLE_API_KEY", TEST_KEY);
 
-		// Act
 		await apiFetch("/static/main.js");
 
-		// Assert
 		expect(fetchSpy).toHaveBeenCalledOnce();
 		// fetch is called with the original input, either without init or with
 		// init that does NOT have X-API-Key
@@ -91,28 +72,22 @@ describe("apiFetch (N2)", () => {
 	});
 
 	it("does NOT override an existing X-API-Key header", async () => {
-		// Arrange
 		vi.stubEnv("VITE_HYPERIDLE_API_KEY", TEST_KEY);
 		const callerKey = "caller-supplied-key";
 
-		// Act
 		await apiFetch("/api/teams", {
 			headers: { "X-API-Key": callerKey },
 		});
 
-		// Assert
 		const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
 		const headers = new Headers(init?.headers);
 		expect(headers.get("X-API-Key")).toBe(callerKey);
 	});
 
 	it("falls back to dev default key when no explicit key is configured", async () => {
-		// Arrange: no env var, no window key (cleared in afterEach)
-
-		// Act
+		// no env var, no window key (cleared in afterEach)
 		await apiFetch("/api/teams");
 
-		// Assert: dev default key is injected
 		expect(fetchSpy).toHaveBeenCalledOnce();
 		const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit | undefined];
 		const headers = new Headers(init?.headers);
@@ -120,19 +95,16 @@ describe("apiFetch (N2)", () => {
 	});
 
 	it("preserves method, body, and signal from init", async () => {
-		// Arrange
 		vi.stubEnv("VITE_HYPERIDLE_API_KEY", TEST_KEY);
 		const controller = new AbortController();
 		const body = JSON.stringify({ name: "test" });
 
-		// Act
 		await apiFetch("/api/teams", {
 			method: "POST",
 			body,
 			signal: controller.signal,
 		});
 
-		// Assert
 		const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
 		expect(init.method).toBe("POST");
 		expect(init.body).toBe(body);
@@ -142,14 +114,11 @@ describe("apiFetch (N2)", () => {
 	// ── Robustness: URL and Request object inputs ─────────────────────────────────
 
 	it("handles URL object input for /api/* path", async () => {
-		// Arrange
 		vi.stubEnv("VITE_HYPERIDLE_API_KEY", TEST_KEY);
 		const url = new URL("http://localhost:3001/api/teams");
 
-		// Act
 		await apiFetch(url);
 
-		// Assert: X-API-Key header is injected
 		expect(fetchSpy).toHaveBeenCalledOnce();
 		const [, init] = fetchSpy.mock.calls[0] as [URL, RequestInit];
 		const headers = new Headers(init?.headers);
@@ -157,16 +126,13 @@ describe("apiFetch (N2)", () => {
 	});
 
 	it("handles Request object input for /api/* path", async () => {
-		// Arrange
 		vi.stubEnv("VITE_HYPERIDLE_API_KEY", TEST_KEY);
 		const request = new Request("http://localhost:3001/api/teams", {
 			method: "GET",
 		});
 
-		// Act
 		await apiFetch(request);
 
-		// Assert: X-API-Key header is injected
 		expect(fetchSpy).toHaveBeenCalledOnce();
 		const [, init] = fetchSpy.mock.calls[0] as [Request, RequestInit];
 		const headers = new Headers(init?.headers);
@@ -176,14 +142,12 @@ describe("apiFetch (N2)", () => {
 	// ── AC-4: Electron preload window.__HYPERIDLE__.apiKey priority ──────────────
 
 	it("prefers window.__HYPERIDLE__.apiKey over VITE_HYPERIDLE_API_KEY", async () => {
-		// Arrange: both keys set, window key should win
+		// both keys set — window key must win
 		vi.stubEnv("VITE_HYPERIDLE_API_KEY", TEST_KEY);
 		window.__HYPERIDLE__ = { apiKey: ELECTRON_KEY } as HyperIdleElectronBridge;
 
-		// Act
 		await apiFetch("/api/teams");
 
-		// Assert: the Electron key is used, not the Vite env key
 		const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
 		const headers = new Headers(init?.headers);
 		expect(headers.get("X-API-Key")).toBe(ELECTRON_KEY);
@@ -192,13 +156,10 @@ describe("apiFetch (N2)", () => {
 	// ── Architecture critique condition M-1: bare /api path ──────────────────────
 
 	it("handles bare /api path (no trailing slash) as an API URL", async () => {
-		// Arrange
 		vi.stubEnv("VITE_HYPERIDLE_API_KEY", TEST_KEY);
 
-		// Act
 		await apiFetch("/api");
 
-		// Assert: X-API-Key header is injected even for bare /api (no trailing slash)
 		expect(fetchSpy).toHaveBeenCalledOnce();
 		const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
 		const headers = new Headers(init?.headers);

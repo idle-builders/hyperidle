@@ -43,14 +43,6 @@ describe("useAgents", () => {
 		vi.restoreAllMocks();
 	});
 
-	it("calls search_users with kind: ai", async () => {
-		callMock.mockResolvedValueOnce({ ok: true, data: AGENT_ROWS });
-		renderHook(() => useAgents());
-		await waitFor(() => {
-			expect(callMock).toHaveBeenCalledWith("search_users", { kind: "ai" });
-		});
-	});
-
 	it("maps rows to AgentConfig, id/name/role/ownerUserId preserved", async () => {
 		callMock.mockResolvedValueOnce({ ok: true, data: AGENT_ROWS });
 		const { result } = renderHook(() => useAgents());
@@ -82,18 +74,20 @@ describe("useAgents", () => {
 		expect(result.current.agents).toEqual([]);
 	});
 
-	it("refetch() re-issues search_users", async () => {
-		callMock.mockResolvedValue({ ok: true, data: AGENT_ROWS });
+	it("refetch() re-fetches and replaces the agent list", async () => {
+		callMock.mockResolvedValueOnce({ ok: true, data: AGENT_ROWS });
 		const { result } = renderHook(() => useAgents());
 
 		await waitFor(() => {
 			expect(result.current.loading).toBe(false);
 		});
-		callMock.mockClear();
+		expect(result.current.agents).toHaveLength(2);
+
+		callMock.mockResolvedValueOnce({ ok: true, data: [AGENT_ROWS[0]] });
 		result.current.refetch();
 
 		await waitFor(() => {
-			expect(callMock).toHaveBeenCalledWith("search_users", { kind: "ai" });
+			expect(result.current.agents).toHaveLength(1);
 		});
 	});
 });

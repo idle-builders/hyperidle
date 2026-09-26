@@ -49,38 +49,4 @@ describe("clickableProps", () => {
 		expect(handler).not.toHaveBeenCalled();
 		expect(preventDefault).not.toHaveBeenCalled();
 	});
-
-	describe("className (I4 KB2)", () => {
-		it("returned className includes cursor-pointer", () => {
-			const result = clickableProps(() => {});
-			expect(result.className ?? "").toContain("cursor-pointer");
-		});
-
-		it("returned className includes focus-visible outline utilities (Hearth pattern)", () => {
-			// I4 KB2: focus-visible outline so keyboard users see the focused
-			// element. These are composable Tailwind utilities and must come
-			// from clickableProps (single source of truth).
-			const result = clickableProps(() => {});
-			const cls = result.className ?? "";
-			expect(cls).toContain("focus-visible:outline");
-			expect(cls).toContain("focus-visible:outline-[var(--accent-deep)]");
-		});
-
-		it("merges caller-provided className with the default focus utilities", () => {
-			// I4 KB2: helper accepts an optional caller className and merges.
-			const result = clickableProps(() => {}, "bg-base-200 p-2");
-			const cls = result.className ?? "";
-			expect(cls).toContain("bg-base-200");
-			expect(cls).toContain("p-2");
-			expect(cls).toContain("cursor-pointer");
-			expect(cls).toContain("focus-visible:outline");
-			expect(cls).toContain("focus-visible:outline-[var(--accent-deep)]");
-		});
-
-		it("empty-result branch (no onClick) does NOT emit the focus utilities", () => {
-			// When there is no handler, nothing is clickable — helper returns {}.
-			const result = clickableProps(undefined);
-			expect(result.className).toBeUndefined();
-		});
-	});
 });

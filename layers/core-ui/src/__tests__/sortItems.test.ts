@@ -1,14 +1,6 @@
 /**
- * sortItems unit tests.
- *
- * sortItems is a pure helper at module scope in DocumentList.tsx (formerly
- * KnowledgeList.tsx). These tests define the exact ordering contract:
- *   - recency: updatedAt desc, tie-break title asc
- * (frequency/relevance sorting was removed in an earlier batch — FULL-AUDIT.md
- * row 13 — leaving recency as the only surviving mode this file tests.)
- *
- * SUGGESTION from architecture-critique: add a tie-break test with equal updatedAt
- * to lock the title tie-break — included here.
+ * sortItems: pure ordering helper for DocumentList — updatedAt desc, tie-break
+ * title asc.
  */
 
 import { describe, expect, it } from "vitest";
@@ -20,29 +12,13 @@ interface TestItem {
 	id: string;
 	title: string;
 	updatedAt: string;
-	signals?: {
-		relevanceScore?: number | null;
-		accessCount30d?: number | null;
-	} | null;
 }
 
-function item(
-	id: string,
-	updatedAt: string,
-	opts: {
-		title?: string;
-		relevanceScore?: number | null;
-		accessCount30d?: number | null;
-	} = {},
-): TestItem {
+function item(id: string, updatedAt: string, opts: { title?: string } = {}): TestItem {
 	return {
 		id,
 		title: opts.title ?? id,
 		updatedAt,
-		signals: {
-			relevanceScore: opts.relevanceScore ?? null,
-			accessCount30d: opts.accessCount30d ?? null,
-		},
 	};
 }
 
@@ -88,7 +64,3 @@ describe("sortItems — recency", () => {
 		expect(items).toEqual(original);
 	});
 });
-
-// ---------------------------------------------------------------------------
-// Frequency sort: accessCount30d desc null-last, tie-break updatedAt desc
-// ---------------------------------------------------------------------------

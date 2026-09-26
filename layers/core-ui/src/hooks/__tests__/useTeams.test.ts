@@ -155,10 +155,15 @@ describe("useTeams", () => {
 			if (name === "search_users") return pending;
 			throw new Error(`unexpected call: ${name}`);
 		});
+		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
 		const { unmount } = renderHook(() => useTeams());
 		unmount();
 		resolveUsers({ ok: true, data: [USER_A] });
-		// No assertion — verifying no throw on unmounted state update
+		await Promise.resolve();
+
+		// React logs an error if a state update fires after unmount — the hook's
+		// cancellation guard must prevent that.
+		expect(errorSpy).not.toHaveBeenCalled();
 	});
 });

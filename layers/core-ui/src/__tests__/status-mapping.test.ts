@@ -1,9 +1,4 @@
-import {
-	DOCUMENT_STATUSES,
-	type DocumentStatus,
-	TASK_STATES,
-	type TaskState,
-} from "@hyperidle/domain-model";
+import { DOCUMENT_STATUSES, TASK_STATES } from "@hyperidle/domain-model";
 import { describe, expect, it } from "vitest";
 import { documentStatusToStatus, type Status, taskStateToStatus } from "../ds";
 
@@ -53,23 +48,6 @@ describe("taskStateToStatus", () => {
 		expect(taskStateToStatus("killed")).toBe("error" satisfies Status);
 	});
 
-	it("covers all TaskState values", () => {
-		const allStates: TaskState[] = [
-			"proposed",
-			"accepted",
-			"hold",
-			"in_progress",
-			"blocked",
-			"review",
-			"done",
-			"killed",
-		];
-		for (const state of allStates) {
-			const result = taskStateToStatus(state);
-			expect(typeof result).toBe("string");
-		}
-	});
-
 	it("exhaustively maps every TASK_STATES value to a valid Status", () => {
 		// I4 S3/S6: runtime-iterable TASK_STATES ensures the type and runtime
 		// coverage cannot drift.
@@ -103,14 +81,6 @@ describe("documentStatusToStatus", () => {
 
 	it("maps archived to done", () => {
 		expect(documentStatusToStatus("archived")).toBe("done" satisfies Status);
-	});
-
-	it("covers all DocumentStatus values", () => {
-		const allStatuses: DocumentStatus[] = ["proposed", "active", "stale", "archived"];
-		for (const ds of allStatuses) {
-			const result = documentStatusToStatus(ds);
-			expect(typeof result).toBe("string");
-		}
 	});
 
 	it("exhaustively maps every DOCUMENT_STATUSES value to a valid Status", () => {

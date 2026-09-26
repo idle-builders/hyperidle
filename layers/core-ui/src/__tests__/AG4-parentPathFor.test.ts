@@ -27,11 +27,7 @@ describe("AG4 — parentPathFor", () => {
 		});
 
 		// @lore BB1: tasks have no URL-visible parent (breadcrumb uses ancestors API)
-		it("task detail → /work (BB1: flat URL, depth via ancestors API)", () => {
-			expect(parentPathFor("/work/task/task-2")).toBe("/work");
-		});
-
-		it("task detail (any id) → /work (BB1: all tasks share same flat parent)", () => {
+		it("task detail (any id) → /work — flat URL, depth via ancestors API", () => {
 			expect(parentPathFor("/work/task/xyz-456")).toBe("/work");
 		});
 

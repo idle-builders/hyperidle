@@ -175,6 +175,54 @@ describe("useTeam", () => {
 		expect(result.current.error?.message).toBe("Network error");
 	});
 
+	it("counts subtask progress from the whole descendant subtree, not the task itself", async () => {
+		callMock.mockImplementation((name: string, input: Record<string, unknown>) => {
+			if (name === "search_users") return Promise.resolve({ ok: true, data: MEMBERS });
+			if (name === "search_tasks") {
+				if (input.state === "blocked") return Promise.resolve({ ok: true, data: [] });
+				return Promise.resolve({ ok: true, data: [ROOT_TASK] });
+			}
+			if (name === "open_task") {
+				return Promise.resolve({
+					ok: true,
+					data: {
+						task: ROOT_TASK,
+						ancestors: [],
+						children: [
+							{ id: "c1", state: "done", children: [] },
+							{
+								id: "c2",
+								state: "in_progress",
+								children: [
+									{ id: "c2a", state: "done", children: [] },
+									{ id: "c2b", state: "open", children: [] },
+								],
+							},
+						],
+						tokensActualRollup: null,
+						threadId: "t1",
+						attachments: [],
+					},
+				});
+			}
+			return Promise.resolve({ ok: true, data: [] });
+		});
+
+		const { result } = renderHook(() => useTeam("p1"));
+
+		await waitFor(() => {
+			expect(result.current.loading).toBe(false);
+		});
+
+		// Root task (ROOT_TASK) itself is excluded; c1, c2, c2a, c2b are counted;
+		// c1 and c2a are done → 2 of 4.
+		expect(result.current.data?.tasksInProgress[0]).toMatchObject({
+			id: ROOT_TASK.id,
+			progressDone: 2,
+			progressTotal: 4,
+		});
+	});
+
 	it("calls search_users with the teamId", async () => {
 		setupOk();
 		renderHook(() => useTeam("p1"));
@@ -193,17 +241,16 @@ describe("useTeam", () => {
 			if (name === "search_users") return pending;
 			return Promise.resolve({ ok: true, data: [] });
 		});
+		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
 		const { result, unmount } = renderHook(() => useTeam("p1"));
 		expect(result.current.loading).toBe(true);
-
-		// Unmount before fetch resolves
 		unmount();
-
-		// Resolve the fetch — should not cause a state update
 		resolveUsers({ ok: true, data: MEMBERS });
+		await Promise.resolve();
 
-		// No assertion on result.current after unmount — the point is it doesn't throw
-		// (React strict mode guards against state updates on unmounted components)
+		// React logs an error if a state update fires after unmount — the hook's
+		// cancellation guard must prevent that.
+		expect(errorSpy).not.toHaveBeenCalled();
 	});
 });
