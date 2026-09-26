@@ -1,13 +1,10 @@
 /**
- * @lore `send_message`'s single-recipient find-or-create used to catch
- * `threads_direct_key_uq`'s unique violation by string-matching the error
- * message (`isDirectKeyConflict`) and retry the whole send in a second
- * transaction. Replaced with `INSERT … ON CONFLICT (direct_key) DO NOTHING
- * RETURNING *` inside the ONE transaction, falling back to a locked read of
- * the winner's row when nothing comes back
- * (`layers/core-api/thread/src/thread-service.ts`'s `insertDirectThread` +
- * `findThreadForUpdate`). Proven here against real concurrent sends through
- * the real door, never against a hand-built `Error`.
+ * `send_message`'s single-recipient find-or-create resolves a race with
+ * `INSERT … ON CONFLICT (direct_key) DO NOTHING RETURNING *` inside one
+ * transaction, falling back to a locked read of the winner's row when
+ * nothing comes back (`layers/core-api/thread/src/thread-service.ts`'s
+ * `insertDirectThread` + `findThreadForUpdate`). Proven here against real
+ * concurrent sends through the real door, never a hand-built `Error`.
  */
 
 import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";

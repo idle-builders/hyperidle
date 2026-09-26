@@ -1,22 +1,6 @@
 /**
- * AU20 C1 — retention package dissolved. Each TTL sweep is now exercised
- * through its owning service directly (users / document).
- *
- * Exact-behavior lock against the former `reapRetentionOnce` integration
- * test (AU19 Increment 2g): same predicates, same cutoffs, same per-table
- * survivor sets — no behavior change.
- *
- * @lore BC5 T7b: the notification_queue sweep is replaced by `reapInbox` —
- * same rule (a read row older than the TTL is deleted), moved onto the
- * subscription mechanism's own `inbox` table (`inbox-reaper.ts`'s own
- * `@lore`).
- *
- * @lore AU21: `reapTerminalTaskDispatchAttempts` is relocated OUT of `session-requests`'s `reapExpired` single atomic
- * transaction (`service.ts`, bundled with the intent/start deletes) and INTO
- * this composition root's generic retention reaper, calling
- * `taskDispatchAttemptStore.reapTerminal` directly. Exported from
- * `server-factory.ts` so the predicate is directly testable without waiting
- * on the real 6h `setInterval`.
+ * Each TTL sweep is exercised through its owning service directly (users /
+ * document), not a shared retention module.
  */
 import { appendChange } from "@hyperidle/changes";
 import {
@@ -30,8 +14,6 @@ import {
 	users,
 } from "@hyperidle/db";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
-// NOT YET CREATED — this import failing to resolve is this file's primary RED
-// signal for the "task-dispatch-attempt reaper — relocated home" describe block.
 import { reapTerminalTaskDispatchAttempts, TERMINAL_LOG_TTL_MS } from "../service-bootstrap.js";
 import { reapInbox } from "../services/inbox-reaper.js";
 
@@ -115,13 +97,11 @@ async function seedTaskDispatchAttempt(
 describe("retention reaper — individual owning-service sweeps", () => {
 	test("prunes old read inbox rows older than the TTL, keeps unread/recent", async ({ db }) => {
 		/**
-		 * @lore BC5 T7b: same predicate the deleted notification_queue reap used
-		 * (`readAt IS NOT NULL AND <age> < cutoff`), moved onto `inbox` — whose
-		 * own age is its `changes` row's `at`, since `inbox` carries no
-		 * timestamp of its own (`inbox-reaper.ts`'s own `@lore`).
-		 *   - ib-old-read: old change + readAt set → REAPED
-		 *   - ib-old-unread: old change + readAt null → KEPT (still in inbox)
-		 *   - ib-recent-read: recent change + readAt set → KEPT (not old enough)
+		 * inbox carries no timestamp of its own; its age is its `changes` row's
+		 * `at`. A row is reaped only once read AND past the TTL.
+		 *   - ib-old-read: old change + readAt set → reaped
+		 *   - ib-old-unread: old change + readAt null → kept (still in inbox)
+		 *   - ib-recent-read: recent change + readAt set → kept (not old enough)
 		 */
 		const agentId = "rr-agent";
 		await db.insert(users).values({
@@ -178,15 +158,7 @@ describe("retention reaper — individual owning-service sweeps", () => {
 	});
 });
 
-/**
- * @lore AU21: `reapTerminalTaskDispatchAttempts`
- * is relocated out of `session-requests`'s `reapExpired` atomic transaction
- * into this composition root's generic retention reaper — same pattern as
- * `reapTerminalPropagationLog` above (an owning-service predicate, exported from
- * `server-factory.ts` purely so the composition-root wiring is directly
- * testable without waiting on the real 6h interval).
- */
-describe("retention reaper — task-dispatch-attempt reaper (relocated home)", () => {
+describe("retention reaper — task-dispatch-attempt reaper", () => {
 	test("prunes terminal task_dispatch_attempts rows older than the TTL, keeps live/recent ones", async ({
 		db,
 	}) => {
