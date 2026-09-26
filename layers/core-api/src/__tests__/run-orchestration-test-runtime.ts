@@ -120,12 +120,9 @@ export function realDocumentWritebackPort(
 }
 
 /**
- * @lore AU31 §2.1(b)/§5: `runtimeDeps`/`startRuntime` are no longer module-
- * level exports of a `services/run-orchestration-composition.js` this file
- * used to import by relative path (the file relocated into agent-
- * orchestration and its runtime composition became per-composition, not a
- * process-wide singleton — §3.2). This harness builds its OWN throwaway
- * execution adapters, the same real `createReturnEnforcement`/
+ * `runtimeDeps`/`startRuntime` come from a per-composition root, never a
+ * process-wide singleton. This harness builds its OWN throwaway execution
+ * adapters, the same real `createReturnEnforcement`/
  * `provisionHarnessEnvironment`/`returnStatusTool` pieces `bootAgentExecution`
  * wires production-side, then gets `runtimeDeps`/`startRuntime` off
  * `buildRunOrchestrationComposition` like any other composition root.

@@ -31,13 +31,11 @@ const shutdown = vi.hoisted(() => {
 });
 
 /**
- * @lore AU31 §5.1: `startRuntime` is no longer a module-level export this
- * test can override directly — `bootAgentOrchestration` (`@hyperidle/agent-
- * orchestration`) now starts the runtime internally and exposes its
+ * `bootAgentOrchestration` starts the runtime internally and exposes its
  * disposer separately as `disposeRuntime`. Wrap the REAL
  * `bootAgentOrchestration` and override only `disposeRuntime`'s behavior —
  * everything else (the app, the session-stream socket, the lifecycle drain)
- * stays real, same as before this boot absorbed the runtime.
+ * stays real.
  */
 vi.mock("@hyperidle/agent-orchestration", async (importOriginal) => {
 	const actual = await importOriginal<typeof import("@hyperidle/agent-orchestration")>();
@@ -142,7 +140,7 @@ async function bootOwnedServer(db: HyperIdleDb): Promise<AsyncServerHandle> {
 	shutdown.state.nextOwnedDb = db;
 	return createServer(0, {
 		topology: "disabled",
-		sandboxBasePath: "/tmp/au20-server-disposal",
+		sandboxBasePath: "/tmp/server-disposal",
 	}) as Promise<AsyncServerHandle>;
 }
 
@@ -154,7 +152,7 @@ describe("ordered asynchronous server disposal", () => {
 		shutdown.state.recordDurableShutdown = null;
 		shutdown.state.verifyDurableShutdown = null;
 		shutdown.state.ownedDbSawDurableShutdown = false;
-		vi.stubEnv("HYPERIDLE_API_KEY", "au20-server-disposal");
+		vi.stubEnv("HYPERIDLE_API_KEY", "test-key-server-disposal");
 	});
 
 	afterEach(async () => {
@@ -209,7 +207,7 @@ describe("ordered asynchronous server disposal", () => {
 		const server = (await createServer(0, {
 			db,
 			topology: "disabled",
-			sandboxBasePath: "/tmp/au20-server-disposal-injected",
+			sandboxBasePath: "/tmp/server-disposal-injected",
 		})) as AsyncServerHandle;
 
 		await server.dispose();
@@ -220,12 +218,12 @@ describe("ordered asynchronous server disposal", () => {
 	test("awaits the durable runtime shutdown write before closing its owned database", async ({
 		db,
 	}) => {
-		await db.execute(sql`create temporary table au20_shutdown_proof (value text not null)`);
+		await db.execute(sql`create temporary table shutdown_proof (value text not null)`);
 		shutdown.state.recordDurableShutdown = async () => {
-			await db.execute(sql`insert into au20_shutdown_proof (value) values ('shutdown')`);
+			await db.execute(sql`insert into shutdown_proof (value) values ('shutdown')`);
 		};
 		shutdown.state.verifyDurableShutdown = async () => {
-			const result = (await db.execute(sql`select value from au20_shutdown_proof`)) as {
+			const result = (await db.execute(sql`select value from shutdown_proof`)) as {
 				rows: Array<{ value: string }>;
 			};
 			shutdown.state.ownedDbSawDurableShutdown =

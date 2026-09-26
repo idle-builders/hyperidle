@@ -29,18 +29,17 @@ function makeCtx(db: HyperIdleDb, eventBus: ActionContext["eventBus"]): ActionCo
 }
 
 /**
- * I3 — dependency-watcher SQL filter & benchmark.
+ * dependency-watcher SQL filter & benchmark.
  *
- * Per AC (TRACK-I.md L137-139):
- *  - `checkAndUnblockDependents` must use SQL-level filtering (LIKE the JSON
- *    representation of the completed taskId) rather than loading every row.
- *  - With 500 tasks, must complete in <10ms; this test relaxes the bound to
- *    50ms to account for CI / cold-cache jitter (the AC value is enforced by
- *    a separate benchmark in CI).
+ * `checkAndUnblockDependents` must use SQL-level filtering (LIKE the JSON
+ * representation of the completed taskId) rather than loading every row.
+ * With 500 tasks, must complete in <10ms; this test relaxes the bound to
+ * 50ms to account for CI / cold-cache jitter (the tighter value is enforced
+ * by a separate benchmark in CI).
  *
- * Adversary note (H-2 in I3-plan): the LIKE pattern wraps the taskId in
- * double quotes ("dep-1") to prevent prefix collisions ("dep-1" matching
- * "dep-12"). The collision test below pins that behaviour.
+ * The LIKE pattern wraps the taskId in double quotes ("dep-1") to prevent
+ * prefix collisions ("dep-1" matching "dep-12"). The collision test below
+ * pins that behaviour.
  */
 
 async function seedPrerequisites(db: HyperIdleDb): Promise<void> {
@@ -111,7 +110,7 @@ async function insertTask(
 	});
 }
 
-describe("I3: dependency-watcher SQL filter benchmark", () => {
+describe("dependency-watcher SQL filter benchmark", () => {
 	test("completes in <50ms with 500 tasks (1 dependent, 499 unrelated)", async ({
 		db,
 		eventBus,
@@ -205,7 +204,7 @@ describe("I3: dependency-watcher SQL filter benchmark", () => {
 	});
 });
 
-describe("I3: dependency-watcher LIKE prefix-collision guard", () => {
+describe("dependency-watcher LIKE prefix-collision guard", () => {
 	test("completing 'dep-1' does NOT unblock a task waiting on 'dep-12'", async ({
 		db,
 		eventBus,

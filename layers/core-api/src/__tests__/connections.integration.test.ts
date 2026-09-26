@@ -1,7 +1,7 @@
 /**
- * AN1 — connections, behind `open_user`/`edit_user`.
+ * Connections, behind `open_user`/`edit_user`.
  *
- * @lore BC5 T11: the `/api/connections` route family (`createConnectionRoutes`,
+ * There is no `/api/connections` route family (`createConnectionRoutes`,
  * its `/:id/validate` SSRF re-check) is DELETED — connections are a user
  * attribute now, read through `open_user({}).connections` and written
  * through `edit_user({ connections: { add | remove } })`. Every failure
@@ -14,18 +14,6 @@
  * never re-exposes which one fired. `validate` (a live health re-probe) has
  * no successor — nothing in `edit_user`'s schema carries it, and
  * `SettingsConnections.tsx` doesn't call for one.
- *
- * AC coverage:
- *   AC1: add token → recorded with authSource:"token"; add mcp → authSource:"mcp"
- *   AC1 (inherited): open_user unions held + inherited rows from the reach cache
- *   AC2: remove own connection → gone from the next open_user read
- *   AC3: freshly-added token → health:"needs-attention"
- *   AC4: no response ever carries the raw token or an encrypted_token field
- *   AC5: user B's own read never carries user A's connection; user B's own
- *        remove of user A's id finds nothing (both self-scoped by construction)
- *   AC7: remove of an `inherited:` id finds nothing (never persisted)
- *   Duplicate (user, service, authSource) → connection_invalid
- *   SSRF: private/loopback/link-local/non-https serverUrl → connection_invalid
  */
 
 import { CORE_API_ACTOR_OVERRIDE_HEADER } from "@hyperidle/api-contract";
@@ -33,11 +21,11 @@ import { type HyperIdleDb, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
-const TEST_API_KEY = "test-key-an1-connections";
-const CREDENTIAL_KEY = "test-credential-encryption-key-an1";
+const TEST_API_KEY = "test-key-connections";
+const CREDENTIAL_KEY = "test-credential-encryption-key";
 
-const USER_A_ID = "u-an1-user-a";
-const USER_B_ID = "u-an1-user-b";
+const USER_A_ID = "u-conn-user-a";
+const USER_B_ID = "u-conn-user-b";
 
 function authHeadersA(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
@@ -115,7 +103,7 @@ async function openConnections(
 	return connections;
 }
 
-describe("AN1 — connections behind open_user/edit_user", () => {
+describe("connections behind open_user/edit_user", () => {
 	const NOW = new Date().toISOString();
 
 	beforeEach(() => {
@@ -175,9 +163,7 @@ describe("AN1 — connections behind open_user/edit_user", () => {
 		});
 	});
 
-	// ─── AC1: Connect a token/mcp service ──────────────────────────────────
-
-	describe("AC1 — adding a connection records it with its auth source", () => {
+	describe("adding a connection records it with its auth source", () => {
 		test("add token → recorded with authSource:'token'", async ({ app, db }) => {
 			await seedUserA(db);
 			const { status, envelope } = await addConnection(app, authHeadersA(), USER_A_ID, {
@@ -226,9 +212,7 @@ describe("AN1 — connections behind open_user/edit_user", () => {
 		});
 	});
 
-	// ─── AC2: Remove a connection ───────────────────────────────────────────
-
-	describe("AC2 — removing a held connection", () => {
+	describe("removing a held connection", () => {
 		test("remove own connection succeeds", async ({ app, db }) => {
 			await seedUserA(db);
 			const created = await addConnection(app, authHeadersA(), USER_A_ID, {
@@ -259,9 +243,7 @@ describe("AN1 — connections behind open_user/edit_user", () => {
 		});
 	});
 
-	// ─── AC3: Health starts needs-attention ────────────────────────────────
-
-	describe("AC3 — a freshly-added token connection starts with health:'needs-attention'", () => {
+	describe("a freshly-added token connection starts with health:'needs-attention'", () => {
 		test("freshly-added token connection starts with health:'needs-attention'", async ({
 			app,
 			db,
@@ -270,7 +252,7 @@ describe("AN1 — connections behind open_user/edit_user", () => {
 			const { envelope } = await addConnection(app, authHeadersA(), USER_A_ID, {
 				service: "GitHub",
 				authSource: "token",
-				token: "gh-test-ac3-001",
+				token: "gh-test-conn-001",
 			});
 			// Architecture §Phase-0 decision 2: health on create = needs-attention
 			const [connection] = envelope.data?.connections?.connections ?? [];
@@ -278,12 +260,10 @@ describe("AN1 — connections behind open_user/edit_user", () => {
 		});
 	});
 
-	// ─── AC4: Secret never in response ─────────────────────────────────────
-
-	describe("AC4 — pasted secret stored encrypted, NEVER in any response", () => {
+	describe("pasted secret stored encrypted, NEVER in any response", () => {
 		test("add response body does not contain the raw token", async ({ app, db }) => {
 			await seedUserA(db);
-			const SECRET_TOKEN = "super-secret-sk-stripe-ac4-001";
+			const SECRET_TOKEN = "super-secret-sk-stripe-conn-001";
 			const res = await app.request("/api/actions/edit_user", {
 				method: "POST",
 				headers: authHeadersA(),
@@ -298,7 +278,7 @@ describe("AN1 — connections behind open_user/edit_user", () => {
 
 		test("open_user response does not contain any raw token value", async ({ app, db }) => {
 			await seedUserA(db);
-			const SECRET_TOKEN = "super-secret-sk-stripe-ac4-002";
+			const SECRET_TOKEN = "super-secret-sk-stripe-conn-002";
 			await addConnection(app, authHeadersA(), USER_A_ID, {
 				service: "Stripe",
 				authSource: "token",
@@ -345,15 +325,13 @@ describe("AN1 — connections behind open_user/edit_user", () => {
 		});
 	});
 
-	// ─── AC5: Per-user isolation ─────────────────────────────────────────────
-	//
-	// @lore BC5 T11: `connections` on `UserView` is self-only (`isSelf` in
+	// `connections` on `UserView` is self-only (`isSelf` in
 	// `buildUserView`) — a caller never reaches another user's connections
 	// field at all, and `removeConnection`'s own DB read is scoped to the
 	// caller's own id. Isolation is a structural property of the door now,
 	// not a per-row guard a route could regress.
 
-	describe("AC5 — per-user isolation (two callers)", () => {
+	describe("per-user isolation (two callers)", () => {
 		test("user B's own read never carries user A's connection", async ({ app, db }) => {
 			await seedUserA(db);
 			await seedUserB(db);
@@ -406,9 +384,7 @@ describe("AN1 — connections behind open_user/edit_user", () => {
 		});
 	});
 
-	// ─── AC7: inherited id → not found ──────────────────────────────────────
-
-	describe("AC7 — removing an inherited: id finds nothing (never persisted)", () => {
+	describe("removing an inherited: id finds nothing (never persisted)", () => {
 		test("remove inherited:claude-code:github finds nothing", async ({ app, db }) => {
 			await seedUserA(db);
 			const { status, envelope } = await removeConnection(

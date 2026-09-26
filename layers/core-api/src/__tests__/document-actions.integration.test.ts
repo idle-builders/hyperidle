@@ -804,8 +804,8 @@ describe("case 5b — ancestors are filtered through the viewer's own visibility
 		await seedHuman(db, "c5b-a-viewer", "c5b-a");
 
 		// The team-B owner can see their own team-B parent, so they may nest a
-		// narrower team-A-scoped child under it (D6 only compares scope RANK,
-		// both are "team" rank — architecture.md §4.2's D6 note).
+		// narrower team-A-scoped child under it — the visibility check only
+		// compares scope RANK (architecture.md §4.2), and both are "team" rank.
 		const parent = requireDoc(
 			await callHuman<DocumentView>(
 				app,
@@ -1026,7 +1026,7 @@ describe("case 8 — a batched parent.ids search returns one row per subscriptio
 // ---------------------------------------------------------------------------
 
 describe("case 9 — an invariant refusal round-trips through both doors", () => {
-	test("I1 title_required: a pure invariant refusal reaches both doors with the same code", async ({
+	test("a pure invariant refusal (title_required) reaches both doors with the same code", async ({
 		app,
 		db,
 		eventBus,
@@ -1157,7 +1157,7 @@ describe("case 9b — forbidden_parent_kind refuses client doors, not the intern
 // ---------------------------------------------------------------------------
 
 describe("case 10 — the combined cases of §4.3 (2, 3, 4, 5, 6, 7, 8)", () => {
-	test("§4.3 case 2 — a move of a prompt document is refused by I10, never reaching D5", async ({
+	test("a move of a prompt document is refused before it ever reaches the scope-move rule", async ({
 		app,
 		db,
 		eventBus,
@@ -1283,7 +1283,7 @@ describe("case 10 — the combined cases of §4.3 (2, 3, 4, 5, 6, 7, 8)", () => 
 		// Distinct explicit ids per door — the same id would make the door
 		// that runs second (`buildDoors`'s `both()` always human-then-agent)
 		// land on an EDIT of the first door's just-created row instead of its
-		// own create, tripping D7 `stale` on the mismatched version.
+		// own create, tripping a `stale` refusal on the mismatched version.
 		const human = await callHuman<DocumentView>(app, "edit_document", {
 			id: "c10c6-brand-new-human",
 			title: "brand new",
@@ -1404,13 +1404,11 @@ describe("case 10 — the combined cases of §4.3 (2, 3, 4, 5, 6, 7, 8)", () => 
 });
 
 // ---------------------------------------------------------------------------
-// @lore document-module B20: carried over from the deleted
-// `knowledge-graduation.integration.test.ts` — the dedicated
-// `POST /:id/graduate` route is gone with no successor route; graduating a
-// task/thread-parented artifact into the document tree is now an ordinary
-// `edit_document` parent change (§3.4/§3.5). `as` is derived, never stored,
-// so moving `parent` from `{kind:"task",…}` to a `document` parent (or to
-// the top of the tree, `parent: null`) is all "graduation" is.
+// Graduating a task/thread-parented artifact into the document tree is an
+// ordinary `edit_document` parent change (architecture.md §3.4/§3.5) — there
+// is no dedicated graduate route. `as` is derived, never stored, so moving
+// `parent` from `{kind:"task",…}` to a `document` parent (or to the top of
+// the tree, `parent: null`) is all "graduation" is.
 // ---------------------------------------------------------------------------
 
 describe("graduation — a task-parented artifact moves into the document tree via a plain parent change", () => {
@@ -1596,10 +1594,10 @@ describe("case 12 — version bumps by exactly 1 on every successful edit, inclu
 });
 
 // ---------------------------------------------------------------------------
-// Case 13 — the A4 default-scope derivation, all three arms.
+// Case 13 — the default-scope derivation, all three arms.
 // ---------------------------------------------------------------------------
 
-describe("case 13 — A4: actor's team, else the calling task's team, else factory", () => {
+describe("case 13 — default-scope derivation: actor's team, else the calling task's team, else factory", () => {
 	test("an agent with a team gets team/teamId", async ({ db, eventBus, agentOrchestration }) => {
 		await seedTeam(db, "c13-team");
 		await seedAgent(db, "c13-teamed-agent", { teamId: "c13-team" });
@@ -1736,8 +1734,8 @@ describe("case 14 — the scope cascade family", () => {
 		db,
 	}) => {
 		// A team member throughout — creating a child under a team-scoped
-		// parent needs to SEE that parent (D8's own gate), which is a separate
-		// concern from the widening-never-cascades property this case proves.
+		// parent needs to SEE that parent, which is a separate concern from the
+		// widening-never-cascades property this case proves.
 		await seedTeam(db, "c14b");
 		await seedHuman(db, "c14b-human", "c14b");
 		const headers = actorHeaders("c14b-human");
@@ -1862,7 +1860,7 @@ describe("case 14 — the scope cascade family", () => {
 		expect(childRow.scopeKind).toBe("team");
 	});
 
-	test("1f a memory can never be in the tree — refused by I4, so no cascade can ever touch it", async ({
+	test("1f a memory can never be in the tree — refused before it can ever be, so no cascade can touch it", async ({
 		app,
 		db,
 	}) => {

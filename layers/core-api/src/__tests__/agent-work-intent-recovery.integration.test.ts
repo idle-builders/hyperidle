@@ -1,8 +1,7 @@
 /**
- * AU9 Remediation-2 — R2: intent claim/reclaim races drive the real
- * `drainIntents` entrypoint (the sanctioned drain export from the
- * R2-banned `agent-work-intent-worker.ts` module) — never `claimAgentWorkIntent`
- * or `reclaimAgentWorkIntent` directly.
+ * Intent claim/reclaim races drive the real `drainIntents` entrypoint (the
+ * sanctioned drain export) — never `claimAgentWorkIntent` or
+ * `reclaimAgentWorkIntent` directly.
  */
 
 import {
@@ -102,12 +101,11 @@ async function seedExplicitStartIntent(
 		requestedBy: `${id}-human`,
 		idempotencyKey: `explicit-session-start:${id}-start`,
 		status: options.claimed ? "claimed" : "pending",
-		// AU21 §6 Decision B / Increment 3: `session_start`'s
-		// `resolveIntentInputInternal` drain-time case is deleted — every real
-		// `session_start` intent now carries a baked payload from emit time
-		// (`routes/sessions-routes.ts`). Mirror that here so this fixture stays
-		// production-realistic (an unbaked `session_start` row is now
-		// production-unreachable, per `session-requests/src/service.ts`'s
+		// `session_start` carries no drain-time `resolveIntentInputInternal`
+		// case — every real `session_start` intent now carries a baked payload
+		// from emit time (`routes/sessions-routes.ts`). Mirror that here so
+		// this fixture stays production-realistic (an unbaked `session_start`
+		// row is production-unreachable, per `session-requests/src/service.ts`'s
 		// updated top-of-switch comment).
 		bakedRequestJson: JSON.stringify({
 			defaultAgentId: `${id}-agent`,
@@ -173,7 +171,7 @@ describe("intent recovery drives the real drain", () => {
 			.where(eq(agentWorkIntents.id, "expired-race"));
 		expect(intent).toMatchObject({ status: "handed_off", requestId: requests[0]?.id });
 	});
-	// The "invalid source is terminal failure" test is deleted: unbaked intent
-	// rows are production-unreachable since AU44 (bakedRequest is required on
-	// WorkIntentInput; the unbaked else branch in the drain is removed).
+	// There is no "invalid source is terminal failure" test: unbaked intent
+	// rows are production-unreachable (bakedRequest is required on
+	// WorkIntentInput; the drain has no unbaked branch).
 });

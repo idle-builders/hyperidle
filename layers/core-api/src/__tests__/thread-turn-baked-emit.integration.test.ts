@@ -1,18 +1,8 @@
 /**
- * AU21 Increment 3, thread_turn wave — the wake rule
- * (`@hyperidle/thread`'s `send_message` action, `thread-actions.ts`'s
- * "wake" block) must resolve + validate the woken agent AT EMIT TIME and
- * bake the full request onto the `agent_work_intents` row, instead of
- * enqueuing a bare identity-only intent for the drain to resolve later.
- *
- * Was `routes/__tests__/threads.assistant-turn-baked-emit.integration.test.ts`,
- * driving the deleted `POST /api/threads/:id/messages` route and the
- * `assistant_turn` kind; the wake rule that replaced the assistant-thread
- * pin reaction fires the same bake under the kind `thread_turn`, for any
- * agent in the thread — not only an `ast-`-prefixed assistant — so this
- * drives `POST /api/actions/send_message` and asserts on the renamed
- * `thread_turn` intent and its `agentId` (was `assistantAgentId`)
- * correlation field.
+ * The wake rule (`@hyperidle/thread`'s `send_message` action) resolves and
+ * validates the woken agent AT EMIT TIME and bakes the full request onto the
+ * `agent_work_intents` row, instead of enqueuing a bare identity-only intent
+ * for the drain to resolve later:
  *
  *   1. The emitted intent's `bakedRequestJson` is populated at emit time.
  *   2. The drain hands the intent off from its baked payload alone — zero
@@ -91,13 +81,13 @@ describe("the wake rule bakes the thread_turn request at emit time (send_message
 		app,
 	}) => {
 		await seedTwoMemberThread(db, {
-			threadId: "thread-au21-emit-1",
-			senderId: "user-au21-emit-1",
-			agentId: "agent-au21-emit-1",
+			threadId: "thread-bake-emit-1",
+			senderId: "user-bake-emit-1",
+			agentId: "agent-bake-emit-1",
 		});
 
 		const res = await call<{ message: { id: string } }>(app, "send_message", {
-			threadId: "thread-au21-emit-1",
+			threadId: "thread-bake-emit-1",
 			text: "hello agent",
 		});
 		expect(res.status).toBe(200);
@@ -106,7 +96,7 @@ describe("the wake rule bakes the thread_turn request at emit time (send_message
 		const [intent] = await db
 			.select()
 			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.sourceId, `${messageId}:agent-au21-emit-1`));
+			.where(eq(agentWorkIntents.sourceId, `${messageId}:agent-bake-emit-1`));
 		expect(intent).toBeDefined();
 		expect(intent?.kind).toBe("thread_turn");
 
@@ -115,16 +105,16 @@ describe("the wake rule bakes the thread_turn request at emit time (send_message
 			? (JSON.parse(intent.bakedRequestJson) as Record<string, unknown>)
 			: undefined;
 		expect(baked).toMatchObject({
-			defaultAgentId: "agent-au21-emit-1",
+			defaultAgentId: "agent-bake-emit-1",
 			sourceKind: "assistant",
 			sourceId: messageId,
-			streamId: "thread:thread-au21-emit-1",
-			userId: "user-au21-emit-1",
+			streamId: "thread:thread-bake-emit-1",
+			userId: "user-bake-emit-1",
 			sourceCorrelation: {
-				threadId: "thread-au21-emit-1",
+				threadId: "thread-bake-emit-1",
 				messageId,
-				userId: "user-au21-emit-1",
-				agentId: "agent-au21-emit-1",
+				userId: "user-bake-emit-1",
+				agentId: "agent-bake-emit-1",
 			},
 		});
 	});
@@ -135,13 +125,13 @@ describe("the wake rule bakes the thread_turn request at emit time (send_message
 		eventBus,
 	}) => {
 		await seedTwoMemberThread(db, {
-			threadId: "thread-au21-emit-2",
-			senderId: "user-au21-emit-2",
-			agentId: "agent-au21-emit-2",
+			threadId: "thread-bake-emit-2",
+			senderId: "user-bake-emit-2",
+			agentId: "agent-bake-emit-2",
 		});
 
 		const res = await call<{ message: { id: string } }>(app, "send_message", {
-			threadId: "thread-au21-emit-2",
+			threadId: "thread-bake-emit-2",
 			text: "hello agent",
 		});
 		expect(res.status).toBe(200);
@@ -158,7 +148,7 @@ describe("the wake rule bakes the thread_turn request at emit time (send_message
 		const [intent] = await db
 			.select()
 			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.sourceId, `${messageId}:agent-au21-emit-2`));
+			.where(eq(agentWorkIntents.sourceId, `${messageId}:agent-bake-emit-2`));
 		expect(intent?.status).toBe("handed_off");
 		expect(intent?.requestId).toBeTruthy();
 	});

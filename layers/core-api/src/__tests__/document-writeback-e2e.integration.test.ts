@@ -1,23 +1,17 @@
 /**
- * @lore document-module B15 — the writeback processor exercised against the
- * REAL `edit_document`/`search_documents` actions (`@hyperidle/document`'s
- * `createDocumentActions`, reached through `run-orchestration-test-runtime.ts`'s
- * `realDocumentWritebackPort`), not a hand-rolled Drizzle stub. The predecessor
- * of this file (`nested-knowledge-writeback.integration.test.ts`, before that
- * a raw repository stub) proved the same lesson twice: bypassing the real
- * write path lets a real production defect (scope inheritance, an invariant
- * that never runs) ship behind a green assertion that cannot fail.
- *
- * Re-pointed from `knowledge-writeback-e2e.integration.test.ts` — same file,
- * against the document module's own actions rather than the legacy
- * repository, `git mv`'d (architecture.md B15).
+ * The writeback processor exercised against the REAL `edit_document`/
+ * `search_documents` actions (`@hyperidle/document`'s `createDocumentActions`,
+ * reached through `run-orchestration-test-runtime.ts`'s
+ * `realDocumentWritebackPort`), never a hand-rolled Drizzle stub — bypassing
+ * the real write path lets a real production defect (scope inheritance, an
+ * invariant that never runs) ship behind an assertion that can't fail.
  *
  * This file lives in `core-api`'s own test directory, not
  * `run-orchestration`'s, because it needs BOTH `createWritebackProcessor`
  * (public, `run-orchestration/src/index.ts`) AND the real composed document
- * actions, and `run-orchestration` may not import `core-api` (the
- * agent-orchestration → core-api edge AU26 B1a forbids, enforced by `npm run
- * lint`). `core-api` is the one place both are legal.
+ * actions, and `run-orchestration` may not import `core-api` (governance
+ * forbids the agent-orchestration -> core-api edge). `core-api` is the one
+ * place both are legal.
  *
  * A second describe block drives the REAL `startWatcher` (real `fs.watch`)
  * end to end. It is gated behind `HYPERIDLE_REAL_FS_WATCH_TESTS=1` and
@@ -33,7 +27,7 @@ import { documents, type HyperIdleDb, sessions, teams, users } from "@hyperidle/
 import { EventBus } from "@hyperidle/event-bus";
 import { createWritebackProcessor, startWatcher } from "@hyperidle/run-orchestration";
 import { eq } from "drizzle-orm";
-import { describe, expect, test } from "../__testing__/test-fixtures.js";
+import { describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 import { realDocumentWritebackPort, seedDocument } from "./run-orchestration-test-runtime.js";
 
 const NOW = "2026-09-21T00:00:00.000Z";
@@ -68,7 +62,6 @@ async function seedAgent(db: HyperIdleDb): Promise<void> {
 const writeback = createWritebackProcessor();
 
 describe("document writeback end-to-end: real files, real sandbox, real database, REAL edit_document/search_documents", () => {
-	// @lore document-module B15's named red-first case.
 	test("a stale writeback: the server's body is unchanged and the manifest holds the server's version", async ({
 		db,
 	}) => {
@@ -228,8 +221,8 @@ describe("document writeback end-to-end: real files, real sandbox, real database
 		expect(childItem[0]?.readCount).toBe(0);
 
 		// A root-level file (no wrapping directory) gets the agent's OWN team —
-		// A4's derivation, never a hardcoded "factory" — because the writeback
-		// omits `scopeKind` entirely rather than guessing.
+		// the team's own default-scope derivation, never a hardcoded "factory" —
+		// because the writeback omits `scopeKind` entirely rather than guessing.
 		const rootFilePath = path.join(root, "knowledge", "root-note.md");
 		fs.writeFileSync(rootFilePath, "A root-level note.");
 		const rootResult = await writeback.process(
@@ -394,20 +387,15 @@ describe.skipIf(!REAL_FS_WATCH)(
 				const filePath = path.join(root, "knowledge", "objections.md");
 				fs.writeFileSync(filePath, "Lead with value, not discount.");
 
-				// Bounded poll — the debounce + real fs event delivery is not
-				// instantaneous. No fixed sleep: poll until the row appears or
-				// the deadline passes.
-				const deadline = Date.now() + 10_000;
-				let found: unknown;
-				while (Date.now() < deadline) {
-					const rows = await db.select().from(documents).where(eq(documents.title, "objections"));
-					if (rows.length > 0) {
-						found = rows[0];
-						break;
-					}
-					await new Promise((resolve) => setTimeout(resolve, 100));
-				}
-				expect(found).toBeDefined();
+				// The debounce + real fs event delivery is not instantaneous —
+				// poll for the real row instead of a fixed sleep.
+				await vi.waitFor(
+					async () => {
+						const rows = await db.select().from(documents).where(eq(documents.title, "objections"));
+						expect(rows.length).toBeGreaterThan(0);
+					},
+					{ timeout: 10_000 },
+				);
 			} finally {
 				watcher.stop();
 				dispose();

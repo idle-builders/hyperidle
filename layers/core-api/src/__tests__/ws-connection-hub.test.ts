@@ -1,14 +1,10 @@
 /**
- * AU21 §6 Decision L4 / §9 Increment 14d.
- *
  * `WsConnectionHub` is pure connection/subscription/authz/broadcast
- * transport — it owns zero event→topic routing of its own (the old
- * `WsBroadcaster`'s generic `BROADCAST_ROUTES` forwarder + `start()`/
- * `stop()` lifecycle are deleted). These tests exercise the transport
- * mechanics directly via `broadcast(topic, data)` — no EventBus involved,
- * proving the class has no EventBus dependency at all.
+ * transport — it owns zero event→topic routing of its own. These tests
+ * exercise the transport mechanics directly via `broadcast(topic, data)` —
+ * no EventBus involved, proving the class has no EventBus dependency at all.
  */
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { type WsClient, WsConnectionHub } from "../ws-connection-hub.js";
 
 function createMockClient(): WsClient & { messages: string[] } {
@@ -26,10 +22,6 @@ describe("WsConnectionHub — pure transport", () => {
 
 	beforeEach(() => {
 		hub = new WsConnectionHub();
-	});
-
-	afterEach(() => {
-		// No stop() lifecycle anymore — nothing to dispose.
 	});
 
 	it("delivers a direct broadcast() call to a subscribed client", () => {

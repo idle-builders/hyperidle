@@ -1,9 +1,7 @@
 /**
- * @lore The never-silent net (AU27 Increment 5, Decision 5), re-pointed at
- * today's door. Recreates `conversation/src/__tests__/session-not-returned-notice.integration.test.ts`
- * (deleted with the `@hyperidle/conversation` package), asserting the same
- * behaviour through `send_message`/`open_thread` instead of a raw
- * `insertMessage`/direct `messages` read.
+ * The never-silent net: a session that never returns still gets a notice
+ * posted into its thread, proven through `send_message`/`open_thread` —
+ * the real doors — never a raw `insertMessage`/direct `messages` read.
  */
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";

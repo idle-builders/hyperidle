@@ -3,7 +3,7 @@ import { createServer, type ServerHandle } from "@hyperidle/remote-server/create
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test as fixtureTest } from "../__testing__/test-fixtures.js";
 
-const TEST_API_KEY = "test-key-au3-boot";
+const TEST_API_KEY = "test-key-app-runtime-boot";
 
 function authHeaders(): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY };
@@ -13,7 +13,7 @@ async function boot(db: HyperIdleDb): Promise<{ handle: ServerHandle; baseUrl: s
 	const handle = await createServer(0, {
 		db,
 		topology: "disabled",
-		sandboxBasePath: "/tmp/au3-boot-workspaces",
+		sandboxBasePath: "/tmp/app-runtime-boot-workspaces",
 	});
 	const address = handle.httpServer.address();
 	if (!address || typeof address === "string") {

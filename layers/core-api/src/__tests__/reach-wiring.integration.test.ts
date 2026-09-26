@@ -1,37 +1,19 @@
 /**
- * AU36 RED — reach wiring end to end: the ONE service-lane evidence piece for
- * the inherited-reach relocation (architecture.md §7.2).
+ * Reach wiring end to end, through the REAL composed app and the REAL
+ * probes reading real seeded files — no stubbed integration point.
  *
- * Drives the REAL composed app through `createTestApp` (the production
- * composition shape) with the REAL probes reading real seeded files — no
- * stubbed integration point, no test-only production export.
- *
- * AC coverage:
- *   AC1 — `open_user({})` is answerable from connections-domain state alone:
- *         the boot wire test boots orchestration WITHOUT an adapter pool and
- *         still sees the seeded inherited entries.
- *   AC2 — switching an agent's harness type A→B→A leaves `open_user({})`'s
- *         inherited reach byte-identical at every step (harness independence,
- *         exercised both).
- *   AC3 — the view JSON of inherited entries is exactly the AN1 contract
- *         (id/service/via/authSource/health/removable).
- *   AC5 (boot moment) — `probeInheritedReach: true` awaits the initial probe,
- *         so facts are cached by serve time.
- *
- * Wiring proven (each test catches a broken hook at a different point):
- *   boot wire    — bootAgentOrchestration(probeInheritedReach) → cache → route
- *   redetect wire — `edit_user({ redetectHarnesses: true })` → onHarnessRedetect → refresh
- *
- * @lore AU36: architecture.md §7.2's AC2 wording says "switch an agent's
- * `users.harnessType`" — that citation is stale (pre-AU26). The harness type
- * column lives on `agent_run_config` (framework/db/src/schema.ts, AU26 G1);
- * `users` carries identity only. This test switches the real column.
- *
- * @lore BC5 T11: `GET /api/connections` and `POST /api/harnesses/redetect`
- * are deleted with the `harnesses`/`connections` route families —
- * connections are a user attribute now, read through `open_user({}).
+ * Connections are a user attribute, read through `open_user({}).
  * connections.inherited` and refreshed through `edit_user({ id: me,
- * redetectHarnesses: true })`, both self-only (architecture.md §8).
+ * redetectHarnesses: true })`, both self-only. The harness type an agent
+ * runs on lives on `agent_run_config`, not `users`.
+ *
+ * Covers: `open_user({})` answerable from connections-domain state alone
+ * (the boot wire test boots orchestration WITHOUT an adapter pool and still
+ * sees the seeded inherited entries); switching an agent's harness type
+ * A->B->A leaves `open_user({})`'s inherited reach byte-identical at every
+ * step; the view JSON of inherited entries is exactly the connections
+ * contract (id/service/via/authSource/health/removable); `probeInheritedReach:
+ * true` awaits the initial probe at boot, so facts are cached by serve time.
  */
 
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -46,11 +28,11 @@ import { test } from "../__testing__/test-fixtures.js";
 import { createTestApp } from "../__testing__/test-utils.js";
 import { disposeApp } from "../app.js";
 
-const TEST_API_KEY = "test-key-au36-reach-wiring";
+const TEST_API_KEY = "test-key-reach-wiring";
 const NOW = new Date().toISOString();
 
-const HUMAN_ID = "u-au36-human";
-const AGENT_ID = "u-au36-agent";
+const HUMAN_ID = "u-reach-human";
+const AGENT_ID = "u-reach-agent";
 
 function authHeaders(): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json" };
@@ -73,7 +55,7 @@ async function openInherited(app: {
 	return body.data.connections?.inherited ?? [];
 }
 
-/** The exact AN1 view contract an inherited fact projects to (architecture §2). */
+/** The exact view contract an inherited fact projects to. */
 function inheritedView(source: string, name: string): Record<string, unknown> {
 	return {
 		id: `inherited:${source}:${name}`,
@@ -90,7 +72,7 @@ async function seedHuman(db: HyperIdleDb): Promise<void> {
 	await db.insert(users).values({
 		id: HUMAN_ID,
 		kind: "human",
-		name: "AU36 Human",
+		name: "Reach Human",
 		role: "founder",
 		status: "active",
 		createdAt: NOW,
@@ -101,7 +83,7 @@ async function seedAgentWithHarness(db: HyperIdleDb, harnessType: string): Promi
 	await db.insert(users).values({
 		id: AGENT_ID,
 		kind: "ai",
-		name: "AU36 Agent",
+		name: "Reach Agent",
 		role: "builder",
 		status: "idle",
 		createdAt: NOW,
@@ -118,7 +100,7 @@ async function switchAgentHarness(db: HyperIdleDb, harnessType: string): Promise
 
 /** Seed a codex config.toml carrying one MCP server name (names only, as the probe reads). */
 async function seedCodexHome(serverName: string): Promise<string> {
-	const home = await mkdtemp(join(tmpdir(), "au36-codex-"));
+	const home = await mkdtemp(join(tmpdir(), "reach-codex-"));
 	await writeFile(
 		join(home, "config.toml"),
 		`[mcp_servers.${serverName}]\ncommand = "node"\nargs = ["index.js"]\n`,
@@ -128,7 +110,7 @@ async function seedCodexHome(serverName: string): Promise<string> {
 
 /** Seed an opencode.jsonc carrying one MCP server name under $XDG_CONFIG_HOME. */
 async function seedOpenCodeHome(serverName: string): Promise<string> {
-	const configHome = await mkdtemp(join(tmpdir(), "au36-opencode-"));
+	const configHome = await mkdtemp(join(tmpdir(), "reach-opencode-"));
 	const configDirectory = join(configHome, "opencode");
 	await mkdir(configDirectory);
 	await writeFile(
@@ -142,15 +124,14 @@ async function seedOpenCodeHome(serverName: string): Promise<string> {
 
 /** Empty codex home — honest none-state until seeded. */
 async function emptyCodexHome(): Promise<string> {
-	return mkdtemp(join(tmpdir(), "au36-codex-empty-"));
+	return mkdtemp(join(tmpdir(), "reach-codex-empty-"));
 }
 
 /**
  * `edit_user({ redetectHarnesses: true })` only calls through when a
  * `HarnessCapabilityReader` is wired (`compose.ts` binds `deps.harnesses`
- * only when `adapterPool` is present). Same minimal static pool shape
- * AM4/AH2 used — the pool is NOT the thing under test here; the reach
- * wiring is.
+ * only when `adapterPool` is present) — the pool is NOT the thing under
+ * test here; the reach wiring is.
  */
 function makePool(): AdapterPool {
 	const pool = new AdapterPool();
@@ -177,18 +158,18 @@ function trackTemporaryDirectory(path: string): string {
 	return path;
 }
 
-describe("AU36 — reach wiring end to end", () => {
+describe("reach wiring end to end", () => {
 	describe("boot wire — probeInheritedReach populates GET /api/connections", () => {
 		test("seeded inherited entries appear with exact view JSON, no adapter pool in the boot", async ({
 			db,
 			eventBus,
 		}) => {
-			const codexHome = trackTemporaryDirectory(await seedCodexHome("au36-codex-reach"));
-			const opencodeHome = trackTemporaryDirectory(await seedOpenCodeHome("au36-opencode-reach"));
+			const codexHome = trackTemporaryDirectory(await seedCodexHome("reach-codex-boot"));
+			const opencodeHome = trackTemporaryDirectory(await seedOpenCodeHome("reach-opencode-boot"));
 			vi.stubEnv("CODEX_HOME", codexHome);
 			vi.stubEnv("XDG_CONFIG_HOME", opencodeHome);
 
-			// AC1: the boot carries NO adapter pool — reach must come from the
+			// The boot carries NO adapter pool — reach must come from the
 			// connections domain's own probe + cache, not the harness model.
 			const boot = await bootAgentOrchestration({
 				db,
@@ -203,16 +184,16 @@ describe("AU36 — reach wiring end to end", () => {
 
 			const inherited = await openInherited(app);
 
-			// AC3/AC5: exact view JSON, cached by serve time (boot awaited the probe).
-			expect(inherited).toContainEqual(inheritedView("codex", "au36-codex-reach"));
-			expect(inherited).toContainEqual(inheritedView("opencode", "au36-opencode-reach"));
+			// Exact view JSON, cached by serve time (boot awaited the probe).
+			expect(inherited).toContainEqual(inheritedView("codex", "reach-codex-boot"));
+			expect(inherited).toContainEqual(inheritedView("opencode", "reach-opencode-boot"));
 		});
 	});
 
-	describe("redetect wire — POST /api/harnesses/redetect refreshes inherited reach", () => {
+	describe("redetect wire — edit_user({ redetectHarnesses: true }) refreshes inherited reach", () => {
 		test("facts seeded after boot appear in GET after redetect", async ({ db, eventBus }) => {
 			const codexHome = trackTemporaryDirectory(await emptyCodexHome());
-			const opencodeHome = trackTemporaryDirectory(await seedOpenCodeHome("au36-opencode-stable"));
+			const opencodeHome = trackTemporaryDirectory(await seedOpenCodeHome("reach-opencode-stable"));
 			vi.stubEnv("CODEX_HOME", codexHome);
 			vi.stubEnv("XDG_CONFIG_HOME", opencodeHome);
 
@@ -235,12 +216,12 @@ describe("AU36 — reach wiring end to end", () => {
 
 			// Boot saw the empty codex home — honest none-state first.
 			const before = await openInherited(app);
-			expect(before).not.toContainEqual(inheritedView("codex", "au36-redetect-codex"));
+			expect(before).not.toContainEqual(inheritedView("codex", "reach-redetect-codex"));
 
 			// The user changes harness config, then hits Refresh (redetect).
 			await writeFile(
 				join(codexHome, "config.toml"),
-				'[mcp_servers.au36-redetect-codex]\ncommand = "node"\nargs = ["index.js"]\n',
+				'[mcp_servers.reach-redetect-codex]\ncommand = "node"\nargs = ["index.js"]\n',
 			);
 
 			const redetect = await app.request("/api/actions/edit_user", {
@@ -252,16 +233,16 @@ describe("AU36 — reach wiring end to end", () => {
 
 			// The response returns after the probes completed — the read reflects the fact.
 			const after = await openInherited(app);
-			expect(after).toContainEqual(inheritedView("codex", "au36-redetect-codex"));
+			expect(after).toContainEqual(inheritedView("codex", "reach-redetect-codex"));
 			// the stable opencode fact survived the refresh
-			expect(after).toContainEqual(inheritedView("opencode", "au36-opencode-stable"));
+			expect(after).toContainEqual(inheritedView("opencode", "reach-opencode-stable"));
 		});
 	});
 
-	describe("AC2 — harness switch A→B→A leaves reach identical", () => {
+	describe("harness switch A->B->A leaves reach identical", () => {
 		test("GET /api/connections is byte-identical across the switch", async ({ db, eventBus }) => {
-			const codexHome = trackTemporaryDirectory(await seedCodexHome("au36-switch-codex"));
-			const opencodeHome = trackTemporaryDirectory(await seedOpenCodeHome("au36-switch-opencode"));
+			const codexHome = trackTemporaryDirectory(await seedCodexHome("reach-switch-codex"));
+			const opencodeHome = trackTemporaryDirectory(await seedOpenCodeHome("reach-switch-opencode"));
 			vi.stubEnv("CODEX_HOME", codexHome);
 			vi.stubEnv("XDG_CONFIG_HOME", opencodeHome);
 
@@ -281,8 +262,8 @@ describe("AU36 — reach wiring end to end", () => {
 
 			// Non-vacuity: the response genuinely carries the seeded reach facts,
 			// so byte-identity below cannot pass on two empty arrays.
-			expect(first).toContainEqual(inheritedView("codex", "au36-switch-codex"));
-			expect(first).toContainEqual(inheritedView("opencode", "au36-switch-opencode"));
+			expect(first).toContainEqual(inheritedView("codex", "reach-switch-codex"));
+			expect(first).toContainEqual(inheritedView("opencode", "reach-switch-opencode"));
 
 			// A → B
 			await switchAgentHarness(db, "codex");

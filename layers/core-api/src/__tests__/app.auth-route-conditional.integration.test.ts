@@ -1,5 +1,5 @@
 /**
- * I2 review arch H-3 — `/api/auth/ws-token` is only exposed when the
+ * `/api/auth/ws-token` is only exposed when the
  * caller wires `registerWebSocket`. An app built without WS support must
  * not advertise (or accept requests on) the upgrade-token mint route —
  * the issued tokens would never be consumable.
@@ -11,7 +11,7 @@ import { createTestApp } from "../__testing__/test-utils.js";
 
 const TEST_API_KEY = "test-key-app-auth-conditional";
 
-describe("I2 review arch H-3 — `/api/auth/ws-token` is conditional on WS registration", () => {
+describe("`/api/auth/ws-token` is conditional on WS registration", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 	});

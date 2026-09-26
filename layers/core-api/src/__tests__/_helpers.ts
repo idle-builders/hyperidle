@@ -1,21 +1,17 @@
 /**
  * Shared test helpers for G1 facilitator tool suites. Each tool test only
  * seeds the rows it needs beyond the common base; the base helpers stay
- * deliberately minimal so assertions remain local to their test file.
- *
- * @lore AU19 Increment 4: a near-identical copy of `@hyperidle/tool-handlers`'s
- * own `src/__tests__/_helpers.ts` lives here too — these integration tests
- * (real `{db}` fixture, `packages/server`'s composition-root-wired tools via
- * `@hyperidle/tool-handlers`'s factories + `toolHandlersPorts`) are a
- * different test surface than tool-handlers' own unit tests, and a test-only
- * helper file isn't worth a shared `@hyperidle/test-utils` package for two
- * call sites (memory: tests/stories never knip entry points — this file is
- * exempt from the "no duplication" ideal the same way).
+ * deliberately minimal so assertions remain local to their test file. This
+ * file is a near-identical copy of `@hyperidle/tool-handlers`'s own
+ * `src/__tests__/_helpers.ts` because these integration tests (real `{db}`
+ * fixture, the composition-root-wired tools via `@hyperidle/tool-handlers`'s
+ * factories + `toolHandlersPorts`) are a different test surface than
+ * tool-handlers' own unit tests, and a test-only helper file isn't worth a
+ * shared package for two call sites.
  */
 
 import * as os from "node:os";
 import * as path from "node:path";
-// @lore U1: `products` renamed to `teams`; `teamMembers` dissolved into `teams` (AU44 B1).
 import { documents, type HyperIdleDb, teams, threads, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/harness-protocol";
@@ -57,10 +53,9 @@ export function makeContext(
  * product, team, an active facilitator agent, and an item thread.
  */
 export async function seedBase(db: HyperIdleDb): Promise<void> {
-	// @lore U1: teams is the domain entity (formerly products); teamMembers is the membership group.
+	// `teams` is the domain entity; there is no separate teamMembers table.
 	await db.insert(teams).values({ id: "p1", name: "Test", createdAt: NOW });
 
-	// @lore AD8c: role renamed from practice_facilitator to facilitator
 	await db.insert(users).values({
 		id: "agent-fac",
 		name: "Facilitator",
@@ -89,13 +84,9 @@ export interface SeedTeamOptions {
 
 /**
  * Seed a `teams` row — mirrors the owner's writer, `createTeam`
- * (`layers/core-api/user/src/team-lookup.ts`).
- *
- * @lore BC5 T11: a team is an id and a name now (D-e3zm2j, migration 0090)
- * — `phase`/`factoryDbPath`/`capacity`/`formedAt` are gone with the columns
- * that carried them.
- * @lore AU44 B1: team_members dissolved into teams. teamMembersId is now
- * always equal to id (the team's own id). Returned for caller backward compat.
+ * (`layers/core-api/user/src/team-lookup.ts`). A team is an id and a name;
+ * there is no separate team_members table, so `teamMembersId` is always
+ * equal to `id` — kept in the return shape for caller backward compat.
  */
 export async function seedTeam(
 	db: HyperIdleDb,

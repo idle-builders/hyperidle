@@ -115,7 +115,7 @@ describe("conversation-store row writes", () => {
 		expect(row?.pinned).toBe(true);
 	});
 
-	// @lore BC3: `resolveMessageIfUnresolved`'s first-wins race is already
+	// `resolveMessageIfUnresolved`'s first-wins race is already
 	// proven end to end by "a second concurrent verdict returns verdict_race"
 	// in thread-actions.integration.test.ts (one 200, one verdict_race) — no
 	// separate case needed here now that the store helper is unexported.

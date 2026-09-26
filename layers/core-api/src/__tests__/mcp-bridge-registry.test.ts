@@ -13,16 +13,13 @@ const registry: ToolRegistry = {
 	toClaudeToolSpecs: () => [],
 };
 
-describe("X2 MCP session custody", () => {
+describe("MCP session custody", () => {
 	test("opens a production tool registry and preserves result codes", async ({
 		db,
 		agentOrchestration,
 	}) => {
-		// @lore BC5 T11: the hand-written management catalog (`create_team`/
-		// `add_agent`) is DELETED with the `CoreApiPort` seam it wrote through
-		// — a session's registry is the composed action list's own tool
-		// projection now, exactly what `run-orchestration-composition.ts`'s
-		// `buildToolProvider` assembles.
+		// A session's tool registry is the composed action list's own tool
+		// projection — no separate hand-written management catalog.
 		const definitions = actionsAsTools(
 			buildCoreActions({
 				agentOrchestration,

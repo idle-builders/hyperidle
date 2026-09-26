@@ -18,8 +18,8 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 	await db.insert(users).values([
 		{
 			id: "agent-1",
-			// AF11: kind='human' so auth middleware resolves this user as the principal.
-			// GET /api/users/:id/inbox is self-only (AC5); the resolved principal must
+			// kind='human' so auth middleware resolves this user as the principal.
+			// GET /api/users/:id/inbox is self-only; the resolved principal must
 			// match the inbox owner. All seedBase tests resolve principal = "agent-1".
 			kind: "human",
 			name: "Test Agent",
@@ -28,10 +28,9 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 			teamId: "prod-1",
 			createdAt: new Date().toISOString(),
 		},
-		// L1a: synthetic sender for verdict-typed messages emitted by
-		// the legacy `POST /responses` route (plan §6.4 wraps the new
-		// repo path). The new `messages.sender_id` FK requires the
-		// row to exist.
+		// A synthetic sender for verdict-typed messages emitted by the legacy
+		// `POST /responses` route — `messages.sender_id` FK requires the row
+		// to exist.
 		{
 			id: "policy_engine",
 			name: "Policy Engine",
@@ -43,7 +42,7 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 }
 
 async function seedTaskData(db: HyperIdleDb): Promise<void> {
-	// @lore U1: teamId references `teams` domain entity (not teamMembers).
+	// teamId references the `teams` domain entity (not teamMembers).
 	await db.insert(threads).values({
 		id: `thr-${"bet-1"}`,
 		hostKind: "team",
@@ -86,7 +85,7 @@ async function seedTaskData(db: HyperIdleDb): Promise<void> {
 	});
 }
 
-describe("E2E API Integration (I5)", () => {
+describe("E2E API integration", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 	});

@@ -21,7 +21,7 @@ import {
 } from "@hyperidle/db";
 import type { ObjectChangeEvent } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
-import { describe, expect } from "vitest";
+import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
 const EARLIER = "2026-01-01T00:00:00.000Z";
@@ -47,11 +47,6 @@ async function call<T>(
 		throw new Error(`${name} failed (${res.status}): ${JSON.stringify(envelope)}`);
 	}
 	return envelope;
-}
-
-/** Subscription wakes run post commit in a `void` handler — give them time to land. */
-async function settle(): Promise<void> {
-	await new Promise((r) => setTimeout(r, 300));
 }
 
 async function seedFounder(db: HyperIdleDb, id: string, teamId: string): Promise<void> {
@@ -108,9 +103,53 @@ describe("an agent subscribed to everything wakes once per change", () => {
 			createdAt: EARLIER,
 		});
 		await subscribe(db, "assistant-once-dm", ["thread.created", "thread.message"]);
+		// A DM is only readable by its two participants, and `agentsToWake`
+		// auto-wakes the sole other party directly (never via a subscription)
+		// — so the sentinel needs its OWN thread with a THIRD member, where
+		// nobody is auto-woken and only its subscription reaches it. Posted
+		// right after the real send: same subscription-fire code path, same
+		// eventBus, so its real completion is the signal that the pass for
+		// the DM's send has ALSO had the same number of ticks to run, before
+		// checking the assistant's own intents settled to exactly one (a
+		// later duplicate can otherwise land after the first intent is seen
+		// and go unnoticed).
+		await db.insert(users).values({
+			id: "sentinel-once-dm",
+			kind: "ai",
+			name: "Sentinel",
+			role: "assistant",
+			status: "active",
+			agentCategory: "individual",
+			ownerUserId: "founder-once-dm",
+			createdAt: EARLIER,
+		});
+		await subscribe(db, "sentinel-once-dm", ["thread.message"]);
+		await db.insert(users).values({
+			id: "third-party-once-dm",
+			kind: "human",
+			name: "Third party",
+			role: "member",
+			status: "active",
+			teamId: "team-once-dm",
+			createdAt: EARLIER,
+		});
+		await db.insert(threads).values({
+			id: "sentinel-thread-once-dm",
+			hostKind: "user",
+			hostId: "founder-once-dm",
+			initiatorId: "founder-once-dm",
+			participants: JSON.stringify(["founder-once-dm", "sentinel-once-dm", "third-party-once-dm"]),
+			lastActiveAt: EARLIER,
+			createdAt: EARLIER,
+		});
 
 		await call(app, "send_message", { recipients: ["assistant-once-dm"], text: "hello" });
-		await settle();
+		await call(app, "send_message", { threadId: "sentinel-thread-once-dm", text: "sentinel ping" });
+
+		await vi.waitFor(async () => {
+			const sentinelIntents = await intentsFor(db, "sentinel-once-dm");
+			expect(sentinelIntents.map((i) => i.kind)).toEqual(["subscription_run"]);
+		});
 
 		const intents = await intentsFor(db, "assistant-once-dm");
 		expect(intents.map((i) => i.kind)).toEqual(["thread_turn"]);
@@ -129,6 +168,22 @@ describe("an agent subscribed to everything wakes once per change", () => {
 			createdAt: EARLIER,
 		});
 		await subscribe(db, "agent-once-task", ["task.changed"]);
+		// A subscriber to the same event, unrelated to the handoff - its own
+		// wake is a real signal the subscription pass for THIS change has
+		// finished before checking the owner's own intents settled to exactly
+		// one (a later duplicate subscription_run can otherwise land after the
+		// task_run intent is seen and go unnoticed).
+		await db.insert(users).values({
+			id: "sentinel-once-task",
+			kind: "ai",
+			name: "Sentinel",
+			role: "agent",
+			status: "active",
+			agentCategory: "team",
+			teamId: "team-once-task",
+			createdAt: EARLIER,
+		});
+		await subscribe(db, "sentinel-once-task", ["task.changed"]);
 		await db.insert(threads).values({
 			id: "thread-once-task",
 			hostKind: "team",
@@ -154,7 +209,11 @@ describe("an agent subscribed to everything wakes once per change", () => {
 			ownerAgentId: "agent-once-task",
 			state: "accepted",
 		});
-		await settle();
+
+		await vi.waitFor(async () => {
+			const sentinelIntents = await intentsFor(db, "sentinel-once-task");
+			expect(sentinelIntents.map((i) => i.kind)).toEqual(["subscription_run"]);
+		});
 
 		const intents = await intentsFor(db, "agent-once-task");
 		expect(intents.map((i) => i.kind)).toEqual(["task_run"]);
@@ -165,6 +224,21 @@ describe("an agent subscribed to everything wakes once per change", () => {
 		app,
 	}) => {
 		await seedFounder(db, "founder-once-new", "team-once-new");
+		// A subscriber that EXISTS BEFORE the create — it DOES wake on it. Its
+		// real intent is the completion signal that the same user.created
+		// subscription pass has run, in place of a fixed wait, before checking
+		// the just-created agent's own subscriptions produced nothing.
+		await db.insert(users).values({
+			id: "sentinel-once-new",
+			kind: "ai",
+			name: "Sentinel",
+			role: "assistant",
+			status: "active",
+			agentCategory: "individual",
+			ownerUserId: "founder-once-new",
+			createdAt: EARLIER,
+		});
+		await subscribe(db, "sentinel-once-new", ["user.created"]);
 
 		const created = await call<{ user: { id: string } | null }>(app, "edit_user", {
 			kind: "ai",
@@ -173,12 +247,16 @@ describe("an agent subscribed to everything wakes once per change", () => {
 			ownerUserId: "founder-once-new",
 			subscriptions: { add: [{ event: "user.created" }, { event: "user.changed" }] },
 		});
-		await settle();
+
+		await vi.waitFor(async () => {
+			const intents = await intentsFor(db, "sentinel-once-new");
+			expect(intents.map((i) => i.kind)).toEqual(["subscription_run"]);
+		});
 
 		const agentId = created.data?.user?.id ?? "";
 		expect(agentId).not.toBe("");
-		const rows = await db.select().from(agentWorkIntents);
-		expect(rows.filter((r) => r.kind === "subscription_run")).toEqual([]);
+		const ownIntents = await intentsFor(db, agentId);
+		expect(ownIntents.filter((r) => r.kind === "subscription_run")).toEqual([]);
 	});
 
 	test("a verdict on an agent's review names the agent on every change it makes", async ({

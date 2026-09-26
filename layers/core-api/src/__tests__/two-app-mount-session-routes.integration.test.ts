@@ -1,29 +1,16 @@
 /**
- * AU26 B1a — the two-app mount.
- *
  * `agent-orchestration` has its own Hono app, mounted beside core-api's on
- * the same `/api` router at unchanged paths, so this file
- * proves the interleaved routing shape the checked-in probe
- * (`.pipeline/work/AU26/probes/two-app-mount/poc4.ts`) predicts:
+ * the same `/api` router at unchanged paths. This proves the interleaved
+ * routing shape:
  *
- *   - `AgentOrchestrationPort.sessions.getById` returns the full wire shape
- *     (AC5(d));
- *   - the two apps do not shadow each other — zero duplicate `method + path`
- *     (AC10);
+ *   - `AgentOrchestrationPort.sessions.getById` returns the full wire shape;
+ *   - the two apps do not shadow each other — zero duplicate `method + path`;
  *   - an unknown `/api/*` path still gets the canonical JSON 404, not Hono's
- *     `text/plain` default — only the ROOT app's `notFound` fires for a mounted
- *     sub-app (AC9, the feasibility P1 trap).
+ *     `text/plain` default — only the ROOT app's `notFound` fires for a
+ *     mounted sub-app.
  *
- * Removed tests (AU43 delete pass):
- *   - GET /api/sessions/starts/:startId (#142 DELETE)
- *   - PATCH /api/sessions/:id (#144 DELETE)
- *   - GET /api/agent-orchestration/sessions (#145 DELETE)
- *   - POST /api/sessions (#114 DELETE)
- *
- * @lore `GET /api/sessions` and `GET /api/sessions/:id/activity` are
- * DELETED — `search_sessions`/`watch_session` are the door now
- * (`POST /api/actions/<name>`), proven by the integrate task's seam test,
- * not here. `routes/sessions.ts` (the file both lived in) is gone.
+ * `GET /api/sessions` and `GET /api/sessions/:id/activity` do not exist —
+ * `search_sessions`/`watch_session` are the door now (`POST /api/actions/<name>`).
  */
 
 import { bootAgentOrchestration } from "@hyperidle/agent-orchestration";
@@ -38,7 +25,7 @@ import {
 	createInProcessAgentOrchestrationTransport,
 } from "../services/agent-orchestration-port-composition.js";
 
-const TEST_API_KEY = "test-key-au26-b1a";
+const TEST_API_KEY = "test-key-two-app-mount";
 
 function authHeaders(): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY };
@@ -135,13 +122,6 @@ describe("agent-orchestration's own app, mounted beside core-api's", () => {
 		vi.unstubAllEnvs();
 	});
 
-	// GET /api/sessions/starts/:startId (#142) deleted — test removed
-	// PATCH /api/sessions/:id (#144) deleted — test removed
-	// GET /api/agent-orchestration/sessions (#145) deleted — test removed
-	// POST /api/sessions (#114) deleted — test removed
-	// GET /api/sessions deleted — search_sessions is the door now
-	// GET /api/sessions/:id/activity deleted — watch_session is the door now
-
 	test("AgentOrchestrationPort.sessions.getById returns the full session wire row", async ({
 		db,
 		app,
@@ -156,8 +136,6 @@ describe("agent-orchestration's own app, mounted beside core-api's", () => {
 
 	test("the plumbing session route 401s without auth", async ({ db, requestWithoutAuth }) => {
 		await seed(db);
-		// Deleted: #114 POST /sessions, #142 GET /starts/:startId, #144 PATCH /:id,
-		// #145 GET /agent-orchestration/sessions, GET /sessions, GET /sessions/:id/activity.
 		const res = await requestWithoutAuth("/api/agent-orchestration/sessions/sess-1", {
 			method: "GET",
 		});
@@ -179,9 +157,9 @@ describe("agent-orchestration's own app, mounted beside core-api's", () => {
 			agentOrchestration: buildAgentOrchestrationPort(async (req) => orchestration.app.fetch(req)),
 		});
 
-		// @lore AU26 B1b: BOTH Layer apps are now bare route tables that the
-		// Application mounts at `/` on its own `/api` router, so their path
-		// strings are directly comparable — neither carries the `/api` prefix.
+		// Both Layer apps are bare route tables the Application mounts at `/`
+		// on its own `/api` router, so their path strings are directly
+		// comparable — neither carries the `/api` prefix.
 		const orchKeys = new Set(routeKeys(orchestration.app));
 		const collisions = [...routeKeys(coreOnly)].filter((k) => orchKeys.has(k));
 		expect(collisions).toEqual([]);
@@ -193,7 +171,6 @@ describe("agent-orchestration's own app, mounted beside core-api's", () => {
 		// never on core's own mount.
 		expect([...routeKeys(coreOnly)]).not.toContain("POST /actions/stop_session");
 		expect(orchKeys.has("POST /actions/stop_session")).toBe(true);
-		// POST /sessions (#114) deleted — assertion removed
 		orchestration.dispose();
 	});
 

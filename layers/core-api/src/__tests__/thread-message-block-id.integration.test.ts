@@ -1,17 +1,9 @@
 /**
- * @lore T5 — Block Discussion Completion: server-side blockId tests,
- * re-pointed onto the thread action surface after `routes/threads.ts` was
- * deleted. Was `routes/__tests__/threads.blockId.integration.test.ts`,
- * driving the deleted `POST /api/threads` / `GET /api/threads/:id?block_id=X`;
- * now drives `POST /api/actions/send_message` / `POST /api/actions/open_thread`.
- *
- * AC coverage (unchanged from the original):
- *  - AC-1: blockId persisted in a structured, queryable column (not only in
- *    the JSON payload) — `Message.blockId` (`framework/domain-model/src/actions/thread.ts`).
- *  - AC-4: anchored messages outlive their block (no cascade delete).
- *  - AC-5: `open_thread({ id, blockId })` filters messages by blockId.
- *
- * Tests run against the real server + real PGlite DB (no mocks).
+ * `blockId` is persisted in a structured, queryable column (`Message.blockId`,
+ * `framework/domain-model/src/actions/thread.ts`), not only in the JSON
+ * payload, and `open_thread({ id, blockId })` filters messages by it. Driven
+ * through `POST /api/actions/send_message` / `POST /api/actions/open_thread`
+ * against the real server + real PGlite DB (no mocks).
  */
 
 import { type HyperIdleDb, messages, teams, users } from "@hyperidle/db";
@@ -40,8 +32,8 @@ async function call<T>(
 }
 
 /** `resolveApiKeyActorUserId` resolves the actor to the sole seeded human. */
-const FOUNDER_ID = "u-t5-founder";
-const RECIPIENT_ID = "u-t5-recipient";
+const FOUNDER_ID = "u-blockid-founder";
+const RECIPIENT_ID = "u-blockid-recipient";
 
 async function seedBase(db: HyperIdleDb, teamId: string): Promise<void> {
 	const now = new Date().toISOString();
@@ -50,7 +42,7 @@ async function seedBase(db: HyperIdleDb, teamId: string): Promise<void> {
 		{
 			id: FOUNDER_ID,
 			kind: "human",
-			name: "Founder T5",
+			name: "Founder",
 			role: "founder",
 			status: "active",
 			teamId,
@@ -59,7 +51,7 @@ async function seedBase(db: HyperIdleDb, teamId: string): Promise<void> {
 		{
 			id: RECIPIENT_ID,
 			kind: "human",
-			name: "Recipient T5",
+			name: "Recipient",
 			role: "member",
 			teamId,
 			status: "active",
@@ -101,14 +93,12 @@ async function createFilterThread(app: RequestingApp): Promise<string> {
 	return threadId;
 }
 
-// ── AC-1: blockId written to the column when creating a thread + initial message ──
-
-describe("AC-1 — blockId written to the column on send_message (new thread)", () => {
+describe("blockId written to the column on send_message (new thread)", () => {
 	test("message row has block_id column populated when blockId is in the payload", async ({
 		db,
 		app,
 	}) => {
-		await seedBase(db, "t5-team-1");
+		await seedBase(db, "blockid-team-1");
 		const blockId = "block-abc123def456";
 
 		const res = await call<{ message: { id: string } }>(app, "send_message", {
@@ -125,7 +115,7 @@ describe("AC-1 — blockId written to the column on send_message (new thread)", 
 	});
 
 	test("message row has null block_id when no blockId is in the payload", async ({ db, app }) => {
-		await seedBase(db, "t5-team-2");
+		await seedBase(db, "blockid-team-2");
 
 		const res = await call<{ message: { id: string } }>(app, "send_message", {
 			recipients: [RECIPIENT_ID],
@@ -140,14 +130,12 @@ describe("AC-1 — blockId written to the column on send_message (new thread)", 
 	});
 });
 
-// ── AC-1: blockId written to the column when appending a message ──
-
-describe("AC-1 — blockId written to the column on send_message (append)", () => {
+describe("blockId written to the column on send_message (append)", () => {
 	test("appended message row has block_id column populated when blockId is in the payload", async ({
 		db,
 		app,
 	}) => {
-		await seedBase(db, "t5-team-3");
+		await seedBase(db, "blockid-team-3");
 		const threadId = await createThread(app);
 		const blockId = "block-append-xyz789";
 
@@ -168,7 +156,7 @@ describe("AC-1 — blockId written to the column on send_message (append)", () =
 		db,
 		app,
 	}) => {
-		await seedBase(db, "t5-team-4");
+		await seedBase(db, "blockid-team-4");
 		const threadId = await createThread(app);
 
 		const res = await call<{ message: { id: string } }>(app, "send_message", {
@@ -184,14 +172,12 @@ describe("AC-1 — blockId written to the column on send_message (append)", () =
 	});
 });
 
-// ── AC-5: open_thread({ id, blockId }) returns only matching messages ──
-
-describe("AC-5 — open_thread({ id, blockId }) returns only matching messages", () => {
+describe("open_thread({ id, blockId }) returns only matching messages", () => {
 	test("blockId: 'block-filter-A' returns only the 2 messages anchored to block-A", async ({
 		db,
 		app,
 	}) => {
-		await seedBase(db, "t5-team-5");
+		await seedBase(db, "blockid-team-5");
 		const threadId = await createFilterThread(app);
 
 		const res = await call<ThreadView>(app, "open_thread", {
@@ -205,7 +191,7 @@ describe("AC-5 — open_thread({ id, blockId }) returns only matching messages",
 	});
 
 	test("no blockId filter returns all 5 messages", async ({ db, app }) => {
-		await seedBase(db, "t5-team-6");
+		await seedBase(db, "blockid-team-6");
 		const threadId = await createFilterThread(app);
 
 		const res = await call<ThreadView>(app, "open_thread", { id: threadId });
@@ -217,7 +203,7 @@ describe("AC-5 — open_thread({ id, blockId }) returns only matching messages",
 		db,
 		app,
 	}) => {
-		await seedBase(db, "t5-team-7");
+		await seedBase(db, "blockid-team-7");
 		const threadId = await createFilterThread(app);
 
 		const res = await call<ThreadView>(app, "open_thread", {
@@ -229,7 +215,7 @@ describe("AC-5 — open_thread({ id, blockId }) returns only matching messages",
 	});
 
 	test("a nonexistent blockId returns 0 messages", async ({ db, app }) => {
-		await seedBase(db, "t5-team-8");
+		await seedBase(db, "blockid-team-8");
 		const threadId = await createFilterThread(app);
 
 		const res = await call<ThreadView>(app, "open_thread", {
@@ -244,7 +230,7 @@ describe("AC-5 — open_thread({ id, blockId }) returns only matching messages",
 		db,
 		app,
 	}) => {
-		await seedBase(db, "t5-team-9");
+		await seedBase(db, "blockid-team-9");
 		const threadId = await createFilterThread(app);
 
 		const res = await app.request("/api/actions/open_thread", {
@@ -257,11 +243,11 @@ describe("AC-5 — open_thread({ id, blockId }) returns only matching messages",
 		expect(body.code).toBe("VALIDATION_ERROR");
 	});
 
-	test("a blockId exceeding 128 chars is rejected with 400 VALIDATION_ERROR (T5 max-length guard)", async ({
+	test("a blockId exceeding 128 chars is rejected with 400 VALIDATION_ERROR", async ({
 		db,
 		app,
 	}) => {
-		await seedBase(db, "t5-team-10");
+		await seedBase(db, "blockid-team-10");
 		const threadId = await createFilterThread(app);
 		const oversizedBlockId = "x".repeat(129);
 
@@ -273,30 +259,5 @@ describe("AC-5 — open_thread({ id, blockId }) returns only matching messages",
 		expect(res.status).toBe(400);
 		const body = (await res.json()) as { code: string };
 		expect(body.code).toBe("VALIDATION_ERROR");
-	});
-});
-
-// ── AC-4: anchored messages persist independently (no cascade) ──
-
-describe("AC-4 — anchored messages outlive their block (no cascade delete)", () => {
-	test("a message with blockId persists in its own structured column when the thread is not deleted", async ({
-		db,
-		app,
-	}) => {
-		await seedBase(db, "t5-team-11");
-		const blockId = "block-persist-test";
-
-		const res = await call<{ message: { id: string } }>(app, "send_message", {
-			recipients: [RECIPIENT_ID],
-			text: "Anchored message that outlives its block",
-			blockId,
-		});
-		expect(res.status).toBe(200);
-		const messageId = (res.body.data as { message: { id: string } }).message.id;
-
-		const messageRows = await db.select().from(messages).where(eq(messages.id, messageId));
-		expect(messageRows).toHaveLength(1);
-		expect(messageRows[0]?.blockId).toBe(blockId);
-		expect(Object.keys(messageRows[0] ?? {})).toContain("blockId");
 	});
 });
