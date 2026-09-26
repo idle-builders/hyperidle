@@ -11,10 +11,7 @@ import { actionsAsTools } from "../actions/actions-as-tools.js";
 import { buildCoreActions } from "../actions/compose.js";
 
 /**
- * @lore BC5 T11: `create_team`/`add_agent` (the hand-written management
- * catalog `buildToolDefinitions` built) are DELETED with the `CoreApiPort`
- * seam they wrote through — the `org` package they scaffolded is gone. What
- * an agent gets today is exactly the composed core action list's own tool
+ * What an agent gets is exactly the composed core action list's own tool
  * projection (`actionsAsTools(buildCoreActions(...))`), the same union
  * `run-orchestration-composition.ts`'s `buildToolProvider` assembles.
  */
@@ -52,10 +49,9 @@ function makeContext(db: HyperIdleDb, eventBus: EventBus): ToolContext<HyperIdle
 }
 
 describe("buildToolRegistry", () => {
-	// @lore BC5 T11: what an agent gets today is exactly the composed core
-	// action list's own tool projection — never asserted with `toContain`,
-	// always exact set equality, so a future action addition or removal is
-	// caught here rather than assumed. task's own three, thread's own four,
+	// The composed action list — never asserted with `toContain`, always
+	// exact set equality, so a future action addition or removal is caught
+	// here rather than assumed. task's own three, thread's own four,
 	// document's own three (search/open/edit), platform's own two
 	// (search_plugins/edit_plugin), user's own three (search_users/open_user/
 	// edit_user) — fifteen.

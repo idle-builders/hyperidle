@@ -45,7 +45,6 @@ import {
 import {
 	enqueueWorkIntent,
 	sessionRunRegistry,
-	transitionSessionRequest,
 	type WorkIntentInput,
 } from "@hyperidle/session-requests";
 import { Hono } from "hono";
@@ -207,30 +206,13 @@ export function createAgentOrchestrationIntakeRoutes(
 	});
 
 	// @lore BC3 architecture.md §3.10/§5 B5: `GET .../requests/pending-intents`
-	// DELETED with its only caller, the deleted coherence trigger. Its
-	// `PLUMBING_ROUTES` row (`actions-projected.ts`) is removed in the same
-	// step — a stale plumbing row is inert (clause 2's reverse check only
-	// covers `LEGACY_ROUTES`), so nothing would have caught it otherwise.
-
-	// ── requests.failExplicitSessionStart — POST /agent-orchestration/requests/explicit-starts/:startId/fail ──
-	// Called by core-api's `session_start` admission-failure reaction to mark the
-	// explicitSessionStarts row failed. No retry — explicit session starts are
-	// human/agent-requested and must not be silently restarted.
-	router.post(
-		"/requests/explicit-starts/:startId/fail",
-		validateBody(z.object({ failureCode: z.string().min(1) })),
-		async (c) => {
-			const startId = c.req.param("startId");
-			const { failureCode } = c.req.valid("json");
-			await transitionSessionRequest(db, {
-				target: "explicitStart",
-				to: "failed",
-				startId,
-				failureCode,
-			});
-			return c.json({ ok: true });
-		},
-	);
+	// and (later) `POST .../requests/explicit-starts/:startId/fail` are both
+	// DELETED with their only callers (the deleted coherence trigger; the
+	// session_start admission-failure reaction, which no producer ever
+	// reaches). Their `PLUMBING_ROUTES` rows (`actions-projected.ts`) are
+	// removed in the same step — a stale plumbing row is inert (clause 2's
+	// reverse check only covers `LEGACY_ROUTES`), so nothing would have
+	// caught it otherwise.
 
 	// ── runs.stopForTasks — POST /agent-orchestration/runs/stop-for-tasks ────
 	//

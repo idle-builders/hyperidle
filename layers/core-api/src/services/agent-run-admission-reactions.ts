@@ -36,9 +36,9 @@ import type {
 import * as work from "@hyperidle/task";
 import { findThread, listMessages } from "@hyperidle/thread";
 import { findUser, listUsers } from "@hyperidle/user";
-import type { AdjustThreadRunFn, SendMessageRunFn } from "../actions/action.js";
+import type { SendMessageRunFn } from "../actions/action.js";
 
-export type { AdjustThreadRunFn, SendMessageRunFn };
+export type { SendMessageRunFn };
 
 const logger = createLogger({ pkg: "core-api.agent-run-admission-reactions" });
 const registeredBuses = new WeakSet<EventBus>();
@@ -139,7 +139,7 @@ async function reactToAdmissionFailure(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	event: AgentRunAdmissionFailedEvent,
-	threadDeps: { readonly sendMessage: SendMessageRunFn; readonly adjustThread: AdjustThreadRunFn },
+	threadDeps: { readonly sendMessage: SendMessageRunFn },
 ): Promise<void> {
 	switch (event.kind) {
 		// A subscription's wake carries no run row to finalize, so a refused
@@ -169,7 +169,7 @@ async function reactToAdmissionFailure(
 export function registerAgentRunAdmissionReactions(
 	db: HyperIdleDb,
 	eventBus: EventBus,
-	threadDeps: { readonly sendMessage: SendMessageRunFn; readonly adjustThread: AdjustThreadRunFn },
+	threadDeps: { readonly sendMessage: SendMessageRunFn },
 ): () => void {
 	if (registeredBuses.has(eventBus)) {
 		return () => {};

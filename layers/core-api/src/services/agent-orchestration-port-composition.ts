@@ -82,18 +82,6 @@ interface AgentOrchestrationHcClient {
 				readonly json: { readonly sessionId: string; readonly reviewMessageId: string };
 			}): Promise<Response>;
 		};
-		readonly requests: {
-			readonly "explicit-starts": {
-				readonly ":startId": {
-					readonly fail: {
-						$post(args: {
-							readonly param: { readonly startId: string };
-							readonly json: { readonly failureCode: string };
-						}): Promise<Response>;
-					};
-				};
-			};
-		};
 		readonly runs: {
 			readonly "stop-for-tasks": {
 				// @lore AU44 batch6: `reason` dropped from request body.
@@ -255,16 +243,6 @@ export function buildAgentOrchestrationPort(
 				const res = await client["agent-orchestration"]["review-verdicts"].$post({ json: input });
 				if (!res.ok) return throwSeamError("intents.recordReviewVerdict", res);
 				return (await res.json()) as AgentOrchestrationReviewVerdictOutcome;
-			},
-		},
-		requests: {
-			// @lore BC3 architecture.md §3.10/§5 B5: `listPendingIntentsByKind`
-			// DELETED with its only caller, the deleted coherence trigger.
-			async failExplicitSessionStart(startId: string, failureCode: string): Promise<void> {
-				const res = await client["agent-orchestration"].requests["explicit-starts"][
-					":startId"
-				].fail.$post({ param: { startId }, json: { failureCode } });
-				if (!res.ok) return throwSeamError("requests.failExplicitSessionStart", res);
 			},
 		},
 		runs: {

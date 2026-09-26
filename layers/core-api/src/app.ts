@@ -84,16 +84,6 @@ interface AppOptions {
 			>
 		>;
 		/**
-		 * `adjust_thread`'s own bound `run`, so the stalled-knowledge-action
-		 * reaction can resolve-or-create the document's thread.
-		 */
-		adjustThread: (
-			ctx: import("./actions/action.js").ActionContext,
-			input: import("@hyperidle/domain-model").AdjustThreadInput,
-		) => Promise<
-			import("@hyperidle/domain-model").ActionResult<import("@hyperidle/domain-model").ThreadView>
-		>;
-		/**
 		 * `edit_user`'s own bound `run` — the crashed-session
 		 * health reaction writes the agent's `health` through it instead of a
 		 * notification-queue row.
@@ -496,20 +486,10 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 				import("@hyperidle/domain-model").SendMessageOutput
 			>
 		>;
-		const adjustThreadAction = actions.find((a) => a.declaration.name === "adjust_thread");
-		if (!adjustThreadAction) {
-			throw new Error("buildCoreActions did not produce an adjust_thread action");
-		}
-		const adjustThreadRun = adjustThreadAction.run as (
-			ctx: ActionContext,
-			input: import("@hyperidle/domain-model").AdjustThreadInput,
-		) => Promise<
-			import("@hyperidle/domain-model").ActionResult<import("@hyperidle/domain-model").ThreadView>
-		>;
 		// @lore `/search`'s scope=document branch and its own document category
 		// (architecture.md §8.3) go through the composed `search_documents`
-		// action, extracted the same way `sendMessage`/`adjustThreadRun` are —
-		// never `open_document` (a search result is not a read).
+		// action, extracted the same way `sendMessage` is — never
+		// `open_document` (a search result is not a read).
 		const searchDocumentsAction = actions.find((a) => a.declaration.name === "search_documents");
 		if (!searchDocumentsAction) {
 			throw new Error("buildCoreActions did not produce a search_documents action");
@@ -603,7 +583,6 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 				agentOrchestration,
 				editTask,
 				sendMessage,
-				adjustThread: adjustThreadRun,
 				editUser: editUserRun,
 			}) ?? [];
 		disposers.push(...serviceDisposers);

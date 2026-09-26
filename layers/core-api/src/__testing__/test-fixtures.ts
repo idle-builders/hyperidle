@@ -15,10 +15,7 @@ import type { Hono } from "hono";
 import { buildCoreActions } from "../actions/compose.js";
 import { disposeApp } from "../app.js";
 import { buildAgentOrchestrationPort } from "../services/agent-orchestration-port-composition.js";
-import type {
-	AdjustThreadRunFn,
-	SendMessageRunFn,
-} from "../services/agent-run-admission-reactions.js";
+import type { SendMessageRunFn } from "../services/agent-run-admission-reactions.js";
 import { registerAgentRunAdmissionReactions } from "../services/agent-run-admission-reactions.js";
 import { registerTestRoutes } from "./test-routes.js";
 import { createTestApp } from "./test-utils.js";
@@ -149,22 +146,20 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 		const agentOrchestration: AgentOrchestrationPort = buildAgentOrchestrationPort(
 			createFixtureAgentOrchestrationTransport(orchestrationBoot.app),
 		);
-		// The stalled-knowledge-action reaction posts through
-		// send_message/adjust_thread — this fixture's own throwaway
-		// action bag, same shape `O3-service-move-bootstrap.integration.test.ts` builds.
+		// The never-silent-net reaction posts through send_message — this
+		// fixture's own throwaway action bag, same shape
+		// `O3-service-move-bootstrap.integration.test.ts` builds.
 		const fixtureActions = buildCoreActions({
 			agentOrchestration,
 			agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
 			reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
 		});
 		const sendMessageAction = fixtureActions.find((a) => a.declaration.name === "send_message");
-		const adjustThreadAction = fixtureActions.find((a) => a.declaration.name === "adjust_thread");
-		if (!(sendMessageAction && adjustThreadAction)) {
-			throw new Error("buildCoreActions did not produce send_message/adjust_thread");
+		if (!sendMessageAction) {
+			throw new Error("buildCoreActions did not produce send_message");
 		}
 		const unregister = registerAgentRunAdmissionReactions(db, eventBus, {
 			sendMessage: sendMessageAction.run as SendMessageRunFn,
-			adjustThread: adjustThreadAction.run as AdjustThreadRunFn,
 		});
 		await use(eventBus);
 		unregister();

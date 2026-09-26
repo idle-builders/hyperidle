@@ -2,13 +2,11 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import type {
 	ActionDeclaration,
 	ActionResult,
-	AdjustThreadInput,
 	DocumentRow,
 	EditUserInput,
 	SearchDocumentsInput,
 	SendMessageInput,
 	SendMessageOutput,
-	ThreadView,
 	UserView,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
@@ -66,25 +64,21 @@ export interface Action<I = unknown, O = unknown> {
 }
 
 /**
- * `send_message`/`adjust_thread`'s own bound `run`, as the composed action
- * list's `sendMessageAction.run`/`adjustThreadAction.run` are cast to —
- * ONE canonical shape so every consumer that threads them through
- * (`session-not-returned-notice.ts`, `agent-run-admission-reactions.ts`,
- * `service-bootstrap.ts`, `app.ts`) agrees on the same type rather than
- * each declaring its own narrower mirror.
+ * `send_message`'s own bound `run`, as the composed action list's
+ * `sendMessageAction.run` is cast to — ONE canonical shape so every
+ * consumer that threads it through (`session-not-returned-notice.ts`,
+ * `agent-run-admission-reactions.ts`, `service-bootstrap.ts`, `app.ts`)
+ * agrees on the same type rather than each declaring its own narrower
+ * mirror.
  */
 export type SendMessageRunFn = (
 	ctx: ActionContext,
 	input: SendMessageInput,
 ) => Promise<ActionResult<SendMessageOutput>>;
-export type AdjustThreadRunFn = (
-	ctx: ActionContext,
-	input: AdjustThreadInput,
-) => Promise<ActionResult<ThreadView>>;
 /**
  * `edit_user`'s own bound `run` — the crashed-session health
  * reaction writes the agent's `health` through it, the same canonical-shape
- * idiom as `SendMessageRunFn`/`AdjustThreadRunFn`.
+ * idiom as `SendMessageRunFn`.
  */
 export type EditUserRunFn = (
 	ctx: ActionContext,
