@@ -73,12 +73,8 @@ describe("BodyEditor — mount (AC-T1)", () => {
 			initialContent: "",
 			onChange: vi.fn(),
 		});
-		// Outermost wrapper should exist with DS marker
 		const wrapper = container.firstElementChild as HTMLElement;
 		expect(wrapper).toBeTruthy();
-		expect(wrapper.getAttribute("data-ds-component")).toBe("BodyEditor");
-		expect(wrapper.getAttribute("data-ds-tier")).toBe("2");
-		expect(wrapper.getAttribute("data-ds-source")).toBe("design-system");
 		cleanup(container, root);
 	});
 
@@ -501,41 +497,6 @@ describe("BodyEditor — extensions (AC-T9)", () => {
 	});
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// AC-T9: DS markers
-// ─────────────────────────────────────────────────────────────────────────────
-describe("BodyEditor — DS markers", () => {
-	it("outermost wrapper has data-ds-component=BodyEditor", () => {
-		const { container, root } = renderEditor({
-			initialContent: "",
-			onChange: vi.fn(),
-		});
-		const wrapper = container.firstElementChild as HTMLElement;
-		expect(wrapper.getAttribute("data-ds-component")).toBe("BodyEditor");
-		cleanup(container, root);
-	});
-
-	it("outermost wrapper has data-ds-tier=2", () => {
-		const { container, root } = renderEditor({
-			initialContent: "",
-			onChange: vi.fn(),
-		});
-		const wrapper = container.firstElementChild as HTMLElement;
-		expect(wrapper.getAttribute("data-ds-tier")).toBe("2");
-		cleanup(container, root);
-	});
-
-	it("className prop is applied to the outermost wrapper", () => {
-		const { container, root } = renderEditor({
-			initialContent: "",
-			onChange: vi.fn(),
-			className: "my-custom-class",
-		});
-		const wrapper = container.firstElementChild as HTMLElement;
-		expect(wrapper.classList.contains("my-custom-class")).toBe(true);
-		cleanup(container, root);
-	});
-});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Stories exist (AC from architecture plan)

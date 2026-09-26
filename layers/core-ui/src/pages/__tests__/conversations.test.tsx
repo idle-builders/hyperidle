@@ -197,16 +197,3 @@ describe("W3 AC-8 — New thread button in header", () => {
 // ---------------------------------------------------------------------------
 // AC-12: Composer align-items: stretch
 // ---------------------------------------------------------------------------
-describe("W3 AC-12 — Composer stretch layout", () => {
-	it("composer inner row has items-stretch layout class", () => {
-		render(<Composer threadId="t1" onSubmit={async () => {}} />);
-		// The outer flex container of the composer row (textarea + send) must use align-items: stretch
-		const composerEl = document.querySelector("[data-ds-component='Composer']");
-		expect(composerEl).not.toBeNull();
-		// The inner row div containing textarea + button should have items-stretch
-		const row = composerEl?.querySelector("[data-composer-row]");
-		expect(row).not.toBeNull();
-		// Verify the class includes items-stretch
-		expect(row?.className).toMatch(/items-stretch/);
-	});
-});

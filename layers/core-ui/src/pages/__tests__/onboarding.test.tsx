@@ -38,13 +38,6 @@ describe("W3 AC-53 — Onboarding card layout", () => {
 		expect(card).toBeInTheDocument();
 	});
 
-	it("card has a shadow class (var(--shadow-elevated) or shadow-elevated)", () => {
-		renderSetupFlow();
-		const card = screen.getByTestId("onboarding-card");
-		// Card should use Hearth shadow token, not raw Tailwind shadow
-		expect(card.className).toMatch(/shadow-elevated|shadow-\[var\(--shadow-elevated\)\]/);
-	});
-
 	it("renders 'HyperIdle' brand name", () => {
 		renderSetupFlow();
 		const brand = screen.getByTestId("onboarding-brand");

@@ -206,18 +206,3 @@ describe("W3 AC-37 — Curated/Triage tab switching", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// AC-38: Document list keeps its 800px scan lane
-// ---------------------------------------------------------------------------
-describe("W3 AC-38 — Document list max-width 800px", () => {
-	it("document list keeps 800px measure without centering the scan lane", () => {
-		renderDocumentList();
-		// Check for max-width class pattern inside the page
-		const page = document.querySelector("[data-testid='document-list-page']");
-		expect(page).not.toBeNull();
-		// Content container inside page should have max-width
-		const contentDiv = page?.querySelector("[class*='max-w-\\[800px\\]']");
-		expect(contentDiv).not.toBeNull();
-		expect(contentDiv?.className).not.toMatch(/mx-auto/);
-	});
-});

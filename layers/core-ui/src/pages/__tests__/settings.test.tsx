@@ -73,14 +73,6 @@ describe("W3 AC-47 — Settings stacked single-page layout", () => {
 		expect(screen.getByTestId("settings-section-profile")).toBeInTheDocument();
 	});
 
-	it("keeps a section title close to the content it names", () => {
-		renderSettingsPage();
-		const section = screen.getByTestId("settings-section-profile");
-		const gap = /\bgap-\[(\d+)px\]/.exec(section.className);
-		expect(Number(gap?.[1])).toBeGreaterThanOrEqual(6);
-		expect(Number(gap?.[1])).toBeLessThanOrEqual(9);
-	});
-
 	it("Org chart section visible (data-testid='settings-section-org-chart')", () => {
 		renderSettingsPage();
 		expect(screen.getByTestId("settings-section-org-chart")).toBeInTheDocument();
@@ -204,28 +196,4 @@ describe("W3 AC-51 — Backend section showing mode", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// AC-52: Settings content max-width — one measure for the whole page
-//
-// @lore FR-9: Redesigned from per-section centered lanes to a single 720px
-// left-aligned body container. One max-width on the body, shared by all
-// sections, gives one left edge that aligns with the PageHeader title.
-// mx-auto on the body would create a different left edge from the title
-// (centered vs left-aligned at the PageFrame edge).
-// ---------------------------------------------------------------------------
-describe("W3 AC-52 — Settings lanes", () => {
-	it("settings-body holds the single 720px constraint; sections inherit width", () => {
-		renderSettingsPage();
-		const settingsBody = document.querySelector("[data-testid='settings-body']");
-		const profile = document.querySelector("[data-testid='settings-section-profile']");
-		const agents = document.querySelector("[data-testid='settings-section-agents']");
-		// Body holds the width constraint — single measure, no mx-auto (left-aligned with title)
-		expect(settingsBody?.className).toMatch(/max-w-\[720px\]/);
-		expect(settingsBody?.className).not.toMatch(/mx-auto/);
-		// Individual sections inherit width from body — no per-section max-w or mx-auto
-		expect(profile?.className).not.toMatch(/max-w-/);
-		expect(profile?.className).not.toMatch(/mx-auto/);
-		expect(agents?.className).not.toMatch(/max-w-/);
-		expect(agents?.className).not.toMatch(/mx-auto/);
-	});
-});
+

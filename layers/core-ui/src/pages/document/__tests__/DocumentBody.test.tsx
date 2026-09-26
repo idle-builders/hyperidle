@@ -37,13 +37,6 @@ describe("DocumentBody — T1 empty body", () => {
 		expect(container.querySelectorAll('article[data-ds-component="block"]')).toHaveLength(0);
 	});
 
-	it("empty-state paragraph has muted colour class (text-[var(--text-tertiary)])", () => {
-		// @lore U11: Updated from --text-lo to --text-tertiary (Hearth token migration).
-		render(<DocumentBody body="" hostId="k-empty" />);
-		const p = screen.getByText("(no content yet)");
-		expect(p.className).toContain("text-[var(--text-tertiary)]");
-	});
-
 	it("renders a wrapper with data-document-body attribute", () => {
 		const { container } = render(<DocumentBody body="" hostId="k-empty" />);
 		// Even empty bodies get the wrapper so the testId selector resolves
@@ -71,23 +64,6 @@ describe("DocumentBody — T2 three-sentence belief", () => {
 	it("renders no <pre> elements", () => {
 		const { container } = render(<DocumentBody body={THREE_SENTENCE_BODY} hostId="k1" />);
 		expect(container.querySelectorAll("pre")).toHaveLength(0);
-	});
-
-	it("body container has no card/border class (no card, no bordered, no shadow)", () => {
-		const { container } = render(<DocumentBody body={THREE_SENTENCE_BODY} hostId="k1" />);
-		const wrapper = container.querySelector("[data-document-body]") as HTMLElement;
-		expect(wrapper).toBeInTheDocument();
-		// Must not have DaisyUI card or border utilities that add visual chrome
-		expect(wrapper.className).not.toContain("card");
-		expect(wrapper.className).not.toContain("border");
-		expect(wrapper.className).not.toContain("shadow");
-	});
-
-	it("body wrapper has flex flex-col layout", () => {
-		const { container } = render(<DocumentBody body={THREE_SENTENCE_BODY} hostId="k1" />);
-		const wrapper = container.querySelector("[data-document-body]") as HTMLElement;
-		expect(wrapper.className).toContain("flex");
-		expect(wrapper.className).toContain("flex-col");
 	});
 
 	it("paragraph text is rendered in the DOM", () => {

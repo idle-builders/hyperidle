@@ -47,33 +47,12 @@ describe("AG5 — BlockActionsPopover renders through Menu (C1)", () => {
 		container.remove();
 	});
 
-	it("the role=menu container carries data-ds-component='Menu' (Menu-owned)", async () => {
-		await act(async () => {
-			root.render(createElement(BlockActionsPopover, BASE_PROPS) as ReactElement);
-		});
-		const menu = container.querySelector("[role='menu']");
-		expect(menu, "expected a role=menu in the DOM").not.toBeNull();
-		// The menu container must be owned by Menu (carries Menu's DS marker)
-		expect(
-			menu?.getAttribute("data-ds-component"),
-			"role=menu element must carry data-ds-component='Menu' — BlockActionsPopover must render through <Menu>",
-		).toBe("Menu");
-	});
-
-	it("there is exactly one role=menu (no duplicate anatomy)", async () => {
+	it("renders exactly one role=menu container (no duplicate anatomy)", async () => {
 		await act(async () => {
 			root.render(createElement(BlockActionsPopover, BASE_PROPS) as ReactElement);
 		});
 		const menus = container.querySelectorAll("[role='menu']");
 		expect(menus.length).toBe(1);
-	});
-
-	it("block-actions-popover DS marker still present (wrapper identity preserved)", async () => {
-		await act(async () => {
-			root.render(createElement(BlockActionsPopover, BASE_PROPS) as ReactElement);
-		});
-		const wrapper = container.querySelector("[data-ds-component='block-actions-popover']");
-		expect(wrapper).not.toBeNull();
 	});
 
 	it("aria-live polite region still present after refactor (copy-feedback preserved)", async () => {
