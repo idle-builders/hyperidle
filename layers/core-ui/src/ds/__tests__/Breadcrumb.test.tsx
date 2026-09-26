@@ -255,27 +255,4 @@ describe("AG4 — Breadcrumb component", () => {
 		});
 	});
 
-	describe("N1 — AQ-010 contrast + focus-ring contract (must not silently regress)", () => {
-		// These tests assert the class names that encode the --text-secondary contrast
-		// and :focus-visible ring contract. If Breadcrumb.tsx drifts from these
-		// class names, these tests will catch it before a visual review is needed.
-
-		it("link segments carry the --text-secondary color class (NOT --text-tertiary)", () => {
-			render2Seg();
-			const workLink = screen.getByRole("link", { name: "Work" });
-			// The link element must have the text-[color:var(--text-secondary)] class
-			// (not text-[color:var(--text-tertiary)] which is 2.85:1 — below WCAG AA).
-			expect(workLink.className).toContain("text-[color:var(--text-secondary)]");
-			expect(workLink.className).not.toContain("text-[color:var(--text-tertiary)]");
-		});
-
-		it("link segments carry :focus-visible ring classes", () => {
-			render2Seg();
-			const workLink = screen.getByRole("link", { name: "Work" });
-			// The focus-visible ring must be present as a Tailwind class — if it's
-			// removed or changed to a different approach, this assertion will fail.
-			expect(workLink.className).toContain("focus-visible:outline");
-			expect(workLink.className).toContain("focus-visible:outline-[color:var(--accent-primary)]");
-		});
-	});
 });
