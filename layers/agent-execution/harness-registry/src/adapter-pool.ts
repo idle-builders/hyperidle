@@ -333,11 +333,12 @@ export class AdapterPool {
  * Exported so integration tests can verify the per-session prompt-carrier
  * mechanism is wired (the codex args template must include a seed-prompt carrier slot).
  *
- * @lore CLI_TOOL_CONFIGS is exported (was unexported) so the real-harness
- * test can assert that codex config has a {{prompt}} or {{seed}} template arg. Without
- * a per-session prompt carrier codex sessions get a generic system prompt only.
+ * @lore CLI_TOOL_CONFIGS is exported so real-binary integration tests spawn
+ * CliHarnessAdapter from the exact object registerCliAdaptersIfAvailable
+ * registers from, so a wrong flag or a dropped template var fails that lane
+ * too — not just this module's own callers.
  */
-const CLI_TOOL_CONFIGS: Partial<Record<HarnessType, CliAdapterConfig>> = {
+export const CLI_TOOL_CONFIGS: Partial<Record<HarnessType, CliAdapterConfig>> = {
 	codex: {
 		binary: "codex",
 		// @lore X5: `codex exec` runs a single-turn headless session; --json emits
@@ -501,8 +502,12 @@ const CLI_TOOL_CONFIGS: Partial<Record<HarnessType, CliAdapterConfig>> = {
  * - --mcp-config .mcp.json: session-provisioning.ts writes this file in claude-native
  *   format ({mcpServers:{hyperidle:{type:"http",url}}}) for every MCP session.
  *   No dialect entry in writeCliMcpConfig needed — claude uses its own format.
+ *
+ * @lore Exported so the real-binary integration lane drives CliHarnessAdapter
+ * from this same object instead of a hand-copied duplicate — same reasoning
+ * as CLI_TOOL_CONFIGS above.
  */
-const CLAUDE_CLI_CONFIG: CliAdapterConfig = {
+export const CLAUDE_CLI_CONFIG: CliAdapterConfig = {
 	binary: "claude",
 	// @lore claude-cli-adapter: `-p <prompt>` is the headless prompt flag;
 	// `--output-format stream-json --verbose` emits one JSON object per line;
@@ -563,8 +568,12 @@ const CLAUDE_CLI_CONFIG: CliAdapterConfig = {
  * with the same event shapes as claude (assistant/result/system). Auth is inherited
  * via Cursor login — no API key in envMap. `--trust` + `--approve-mcps` allow
  * headless workspace + MCP without interactive prompts.
+ *
+ * @lore Exported so the real-binary integration lane drives CliHarnessAdapter
+ * from this same object instead of a hand-copied duplicate — same reasoning
+ * as CLI_TOOL_CONFIGS above.
  */
-const CURSOR_AGENT_CLI_CONFIG: CliAdapterConfig = {
+export const CURSOR_AGENT_CLI_CONFIG: CliAdapterConfig = {
 	binary: "cursor-agent",
 	args: [
 		"-p",

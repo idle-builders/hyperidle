@@ -35,7 +35,7 @@ import { ensureSandboxGitRepo } from "@hyperidle/run-orchestration";
 import { describe, expect, test } from "vitest";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
 import { LocalSandboxAdapter } from "../local-sandbox-adapter.js";
-import { cliAdapterFixture } from "./cli-adapter-fixtures.js";
+import { productionCliConfig } from "./production-cli-config.js";
 import { HARNESS_TEST_MODELS, requireHarness } from "./require-harness.js";
 import { trackHarnessSessions } from "./session-handle-tracker.js";
 
@@ -197,7 +197,7 @@ describe("session handles — claude-code", () => {
 		try {
 			provisionClaudeSandbox(sandboxA);
 
-			const claudeConfig = cliAdapterFixture("claude");
+			const claudeConfig = productionCliConfig("claude");
 			const adapter = new CliHarnessAdapter(claudeConfig);
 
 			// ── Proof 1: native id is assigned BEFORE any stream event ───────
@@ -324,7 +324,7 @@ describe("session handles — codex", () => {
 				return;
 			}
 
-			const codexConfig = cliAdapterFixture("codex");
+			const codexConfig = productionCliConfig("codex");
 			const adapter = new CliHarnessAdapter(codexConfig);
 
 			// ── Phase 1: run session, capture native thread id ────────────────
@@ -438,7 +438,7 @@ describe("session handles — codex", () => {
 				return;
 			}
 
-			const codexConfig = cliAdapterFixture("codex");
+			const codexConfig = productionCliConfig("codex");
 			const adapter = new CliHarnessAdapter(codexConfig);
 
 			// Phase 1: write a sentinel file, capture thread id.
@@ -531,7 +531,7 @@ describe("session handles — cursor-agent", () => {
 		const sandboxB = fs.mkdtempSync(path.join(os.tmpdir(), "sh-cursor-b-"));
 
 		try {
-			const cursorConfig = cliAdapterFixture("cursor-agent");
+			const cursorConfig = productionCliConfig("cursor-agent");
 			const adapter = new CliHarnessAdapter(cursorConfig);
 
 			// ── Phase 1: run session, plant codeword ──────────────────────────
@@ -636,7 +636,7 @@ describe("session handles — opencode", () => {
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "sh-opencode-"));
 
 		try {
-			const opencodeConfig = cliAdapterFixture("opencode");
+			const opencodeConfig = productionCliConfig("opencode");
 			const adapter = new CliHarnessAdapter(opencodeConfig);
 
 			// ── Phase 1: run session, plant codeword ──────────────────────────

@@ -19,7 +19,7 @@ import {
 import { describe, expect, it } from "vitest";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
 import { createReturnEnforcement } from "../return-enforcement.js";
-import { cliAdapterFixture } from "./cli-adapter-fixtures.js";
+import { productionCliConfig } from "./production-cli-config.js";
 
 const enforcement = createReturnEnforcement();
 const createReturnGate = (taskId?: string) => enforcement.createGate(undefined, taskId);
@@ -298,7 +298,7 @@ describe("returnEnforcement channel declared per adapter", () => {
 	// ── Hard-block adapters ────────────────────────────────────────────────
 
 	it("claude CLI adapter (CliHarnessAdapter): returnEnforcement='settings-claude'", () => {
-		const adapter = new CliHarnessAdapter(cliAdapterFixture("claude"));
+		const adapter = new CliHarnessAdapter(productionCliConfig("claude"));
 		const caps = adapter.getCapabilities() as unknown as Record<string, unknown>;
 		expect(caps.returnEnforcement).toBe("settings-claude");
 	});
@@ -307,7 +307,7 @@ describe("returnEnforcement channel declared per adapter", () => {
 
 	it("HarnessCapabilities NO LONGER has hasNativeReturnHook (v3 removed in Task 1)", () => {
 		const caps = new CliHarnessAdapter(
-			cliAdapterFixture("claude"),
+			productionCliConfig("claude"),
 		).getCapabilities() as unknown as Record<string, unknown>;
 		// FAILS red until Task 1/6 removes hasNativeReturnHook
 		expect("hasNativeReturnHook" in caps).toBe(false);
@@ -315,14 +315,14 @@ describe("returnEnforcement channel declared per adapter", () => {
 
 	it("HarnessCapabilities NO LONGER has canReEngage (v3 removed in Task 1)", () => {
 		const caps = new CliHarnessAdapter(
-			cliAdapterFixture("claude"),
+			productionCliConfig("claude"),
 		).getCapabilities() as unknown as Record<string, unknown>;
 		// FAILS red until Task 1/6 removes canReEngage
 		expect("canReEngage" in caps).toBe(false);
 	});
 
 	it("HarnessAdapter NO LONGER has continueSession? (v3 Mode-2 removed in Task 1)", () => {
-		const adapter = new CliHarnessAdapter(cliAdapterFixture("claude")) as unknown as Record<
+		const adapter = new CliHarnessAdapter(productionCliConfig("claude")) as unknown as Record<
 			string,
 			unknown
 		>;

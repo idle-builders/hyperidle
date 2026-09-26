@@ -61,10 +61,10 @@ import { promisify } from "node:util";
 import type { HarnessEvent, SessionConfig } from "@hyperidle/harness-protocol";
 import { ensureSandboxGitRepo } from "@hyperidle/run-orchestration";
 import { describe, expect, test } from "vitest";
-import { cliAdapterFixture } from "./cli-adapter-fixtures.js";
+import { productionCliConfig } from "./production-cli-config.js";
 
-const CLAUDE_CLI_CONFIG = cliAdapterFixture("claude");
-const CURSOR_AGENT_CLI_CONFIG = cliAdapterFixture("cursor-agent");
+const CLAUDE_CLI_CONFIG = productionCliConfig("claude");
+const CURSOR_AGENT_CLI_CONFIG = productionCliConfig("cursor-agent");
 
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
 import { LocalSandboxAdapter } from "../local-sandbox-adapter.js";
@@ -399,7 +399,7 @@ async function runCodexAdapterTest({ skip }: { skip: () => void }): Promise<void
 			return;
 		}
 
-		const codexConfig = cliAdapterFixture("codex");
+		const codexConfig = productionCliConfig("codex");
 
 		const config: SessionConfig = {
 			sessionId: `cli-adapter-codex-${Math.random().toString(36).slice(2, 10)}`,
@@ -526,7 +526,7 @@ describe("opencode CLI adapter (real binary, production CliHarnessAdapter path)"
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "cli-adapter-opencode-"));
 
 		try {
-			const opencodeConfig = cliAdapterFixture("opencode");
+			const opencodeConfig = productionCliConfig("opencode");
 
 			const config: SessionConfig = {
 				sessionId: `cli-adapter-opencode-${Math.random().toString(36).slice(2, 10)}`,

@@ -40,7 +40,7 @@ import { promisify } from "node:util";
 import type { HarnessEvent, SessionConfig } from "@hyperidle/harness-protocol";
 import { describe, expect, test } from "vitest";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
-import { cliAdapterFixture } from "./cli-adapter-fixtures.js";
+import { productionCliConfig } from "./production-cli-config.js";
 import { requireHarness } from "./require-harness.js";
 import { trackHarnessSessions } from "./session-handle-tracker.js";
 
@@ -51,8 +51,8 @@ const { track } = trackHarnessSessions();
 
 const execFileAsync = promisify(execFile);
 
-const CLAUDE_CLI_CONFIG = cliAdapterFixture("claude");
-const CODEX_CLI_CONFIG = cliAdapterFixture("codex");
+const CLAUDE_CLI_CONFIG = productionCliConfig("claude");
+const CODEX_CLI_CONFIG = productionCliConfig("codex");
 
 /** The real `spawn`, with the child's stdout duplicated into `sink`. */
 function teeingSpawn(sink: { text: string }): typeof spawn {
@@ -95,7 +95,7 @@ async function rmSandboxWithRetry(sandboxPath: string): Promise<void> {
 }
 
 async function runSession(
-	config: ReturnType<typeof cliAdapterFixture>,
+	config: ReturnType<typeof productionCliConfig>,
 	sessionConfig: Omit<SessionConfig, "modelTier" | "tools">,
 ): Promise<{ stdout: string; events: HarnessEvent[] }> {
 	const sink = { text: "" };
