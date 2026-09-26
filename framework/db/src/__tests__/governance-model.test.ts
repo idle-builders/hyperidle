@@ -1,30 +1,12 @@
 /**
- * AU28 — the compact architecture model reproduces every decided verdict.
+ * The compact architecture model must reproduce every verdict in `tools/governance/decided-rules.json`
+ * — 139 role-pair x crossing-kind rows the founder decided one at a time, each with a separate
+ * production-world and development-world answer. `governance-model.ts`'s clauses must *derive* all
+ * 278 answers; a clause tuned to fix one crossing can silently flip another, so this asserts the
+ * derivation against the decided set, not a hand-picked sample.
  *
- * `tools/governance/decided-rules.json` holds 139 verdicts the founder decided one at a time: every
- * role pair × crossing kind, with a separate answer for the production and development worlds. They
- * are the decision artifact. `tools/governance/src/lib/governance-model.ts` is fifteen clauses that
- * must *derive* all 278 answers (139 rows × 2 worlds).
- *
- * AU44 B3 dissolved `framework/cron` into `layers/core-api/routine`. Its four decided rows (two
- * import + two manifest, across core-api and tooling) are removed.
- *
- * The row count moved four times, by founder ruling: AU28 Ruling 14 collapsed `raw runtime` and
- * `harness` into one target, merging the two `harness-registry` capability rows that had the same
- * verdict. AU29 deleted the `db:util` and `db:bootstrap` surfaces (Ruling 12.3) along with their six
- * rows — their exports left `framework/db` entirely, so the surfaces no longer exist to have a
- * verdict. The substrate split added the three `framework → db:*` rows that bound the framework-to-
- * framework widening: they are the only rows whose verdict differs between the scoped reading of that
- * ruling and the literal one, so they are what stops a later edit widening it back by accident. The
- * same change retired the twelve `framework/shared` rows with the surface itself — the substrate split into
- * eighteen packages, each with its own decided audience, so the blanket those twelve recorded has no
- * target left to name — and recorded eighty-six in their place, one set per new surface: the roles it
- * grants, the first package it names, and a `tooling` contrast that no surface admits. That contrast
- * is the row that discriminates; without it a surface's audience could be widened to everyone and
- * every remaining row would still reproduce.
- *
- * That is the whole point of this file. Without it, a clause tuned to fix one crossing can silently
- * flip another, and the compact model quietly stops meaning what the founder decided.
+ * Stays in `framework/db` (not `tools/governance`) because it needs this package's live `schema.js`
+ * to test real `PgTable` ownership.
  */
 
 import { readFileSync } from "node:fs";
