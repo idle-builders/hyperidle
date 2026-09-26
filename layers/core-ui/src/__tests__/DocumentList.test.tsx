@@ -237,7 +237,7 @@ describe("DocumentList scope pills", () => {
 		});
 	});
 
-	it("sort controls expose the active sort via aria-checked", async () => {
+	it("sort controls expose the active sort via aria-pressed", async () => {
 		const user = userEvent.setup();
 		renderAt();
 
@@ -245,7 +245,7 @@ describe("DocumentList scope pills", () => {
 
 		await waitFor(() => {
 			const sortControls = screen.getByTestId("document-sort-bar");
-			expect(sortControls.querySelector("[aria-checked='true']")).not.toBeNull();
+			expect(sortControls.querySelector("[aria-pressed='true']")).not.toBeNull();
 		});
 	});
 

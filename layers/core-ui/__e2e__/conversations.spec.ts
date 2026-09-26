@@ -2,7 +2,7 @@
  * Journey: legacy conversation URLs redirect to the canonical queue, and the
  * queue shows an honest empty state with nothing seeded.
  *
- * @lore BC3: the thread door is `POST /api/actions/search_threads` — never
+ * @lore The thread door is `POST /api/actions/search_threads` — never
  * `GET /api/threads*`.
  */
 import { expect, mockSearchThreads, test } from "./fixtures";

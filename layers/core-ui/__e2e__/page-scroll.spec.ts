@@ -255,8 +255,8 @@ const ROUTES: readonly RouteCase[] = [
 		},
 	},
 	{
-		// @lore BB1: was two rows, "work-bet" and "work-task" — a bet page and the
-		// task page nested under it. They are the same page now, so this is one row.
+		// @lore The bet page and its nested task page are the same page now,
+		// so this is one row.
 		name: "work-task",
 		url: `/work/task/${ROOT_TASK_ID}`,
 		readySelector: "[data-testid='task-detail-page']",
@@ -265,7 +265,7 @@ const ROUTES: readonly RouteCase[] = [
 		},
 	},
 	{
-		// @lore BC5 T9: `/work/routine/:id` and WorkRoutine are gone — subscriptions
+		// @lore `/work/routine/:id` and WorkRoutine are gone — subscriptions
 		// replace routines, and they live on AgentProfile now, not their own page.
 		name: "agent-profile",
 		url: `/agents/${AGENT_ID}`,
@@ -341,7 +341,7 @@ const ROUTES: readonly RouteCase[] = [
 		url: `/conversations/${THREAD_ID}`,
 		readySelector: "[data-testid='conversations-page']",
 		setup: async (page) => {
-			// @lore BC3: no `bet` host kind — a task's own thread is `team`-hosted.
+			// @lore No `bet` host kind — a task's own thread is `team`-hosted.
 			await mockThread(page, {
 				thread: makeThread(THREAD_ID, { hostKind: "team", hostId: ROOT_TASK_ID }),
 				messages: [],

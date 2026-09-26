@@ -4,8 +4,8 @@
  * history) that WorkTeam.test.tsx's component-level rendering checks don't
  * cover.
  *
- * @lore U6: Route renamed from /work/product/:productId to /work/team/:teamId.
- * @lore BC5 T9: `GET /api/teams` and `GET /api/teams/:id` are gone —
+ * @lore The route was renamed from /work/product/:productId to
+ * /work/team/:teamId. `GET /api/teams` and `GET /api/teams/:id` are gone —
  * `useTeams`/`useTeam` compose from `search_users`/`search_tasks`/`open_task`.
  */
 

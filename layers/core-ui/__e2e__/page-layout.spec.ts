@@ -75,9 +75,6 @@ async function mockPrimarySurfaces(page: Page): Promise<void> {
 	});
 	await mockSearchSessions(page, { rows: [] });
 	await mockSearchThreads(page, { rows: [] });
-	// @lore BC4: KnowledgeDetail's LEGACY_DETAILS/fixture fallback ("k1, known
-	// fixture id with content") is gone — DocumentDetail only ever reads
-	// `open_document`, so this id needs an explicit mock now.
 	await mockDocument(page, {
 		row: makeDocumentRow("k1", { scopeKind: "team", scopeId: "team-a" }),
 	});
@@ -127,10 +124,9 @@ for (const viewport of [
 	});
 }
 
-// @lore BC5 T9: "team split uses local pane headers..." deleted. Its subject
-// — a routine's split pane opened via `/work/team/:id?routine=:id` — is gone
-// with WorkRoutine and the routines table; WorkTeam's split view is agent-
-// selection only now (`?agent=:id`), and there is no routine pane to open.
+// @lore WorkTeam's split view is agent-selection only (`?agent=:id`) — a
+// routine's split pane (`?routine=:id`) is gone with WorkRoutine and the
+// routines table.
 
 test("review with an artifact open uses two local panes", async ({ page }) => {
 	// ReviewPage's default loader reads

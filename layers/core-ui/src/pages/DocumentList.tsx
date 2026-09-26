@@ -336,7 +336,7 @@ function DocumentListContent({
 						}}
 						className="type-input hidden sm:inline"
 					/>
-					<Button variant="primary" size="sm" onClick={onNewItem}>
+					<Button variant="primary" size="sm" touchAlways onClick={onNewItem}>
 						+ New
 					</Button>
 				</div>
@@ -400,10 +400,6 @@ function DocumentListContent({
 							key={option}
 							type="button"
 							aria-pressed={isActive}
-							// @lore AF13: aria-checked kept alongside aria-pressed so U9 test
-							// [aria-checked='true'] query still passes. role="radio" was removed
-							// because it prevents getByRole("button") from finding these pills.
-							aria-checked={isActive}
 							onClick={() => onSortChange(option)}
 							className={`type-control ${
 								isActive

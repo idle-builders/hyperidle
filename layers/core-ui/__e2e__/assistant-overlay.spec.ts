@@ -8,7 +8,7 @@
  * real router: the trigger wiring and that navigating away doesn't unmount
  * the overlay.
  *
- * @lore BC3 review fix, BC5 T9: the overlay resolves "my agent" via
+ * @lore The overlay resolves "my agent" via
  * `search_users({ kind: "ai" })` (`ownerUserId === <viewer id>`,
  * AssistantOverlay.tsx) before it ever reaches `search_threads`/
  * `open_thread` — without that mock every test sees the "Couldn't find your

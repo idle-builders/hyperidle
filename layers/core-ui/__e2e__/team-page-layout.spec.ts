@@ -151,6 +151,7 @@ test("a stat tile's label and value paint within the tile's own bounds", async (
 	const burnSection = page.getByTestId("team-burn-vs-cap");
 	const statTiles = burnSection.locator("[data-testid='stat-tile']");
 	const count = await statTiles.count();
+	expect(count).toBeGreaterThan(0);
 
 	for (let i = 0; i < count; i++) {
 		const tile = statTiles.nth(i);

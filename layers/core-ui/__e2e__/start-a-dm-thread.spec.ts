@@ -19,7 +19,7 @@ import {
 
 const NOW_ISO = new Date().toISOString();
 
-// @lore BC5 T9: `GET /api/recipients` is gone — `useRecipients` reads
+// @lore `GET /api/recipients` is gone — `useRecipients` reads
 // `search_users({status:"active"})`, mapping `kind` ("human"|"ai") onto the
 // picker's own vocabulary ("user"|"agent").
 // `useRecipients` queries `search_users({status:"active", ...})` — every row

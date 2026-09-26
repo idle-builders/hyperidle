@@ -13,7 +13,7 @@ import {
 	test,
 } from "./fixtures";
 
-// @lore BC3: no `task` host kind — a task's own thread is `team`-hosted.
+// @lore No `task` host kind — a task's own thread is `team`-hosted.
 const THREAD = makeThread("t-az16", {
 	title: "Design tokens review",
 	computedTitle: "Design tokens review",
@@ -37,7 +37,7 @@ const REVIEW_MESSAGE = makeMessage("review-az16", THREAD.id, {
 	createdAt: "2026-08-14T09:00:00.000Z",
 });
 
-// @lore BB1: was a BetDetail for GET /api/bets/:id. WorkTaskPage loads
+// @lore WorkTaskPage loads
 // `open_task` (POST /api/actions/open_task), so this is that action's
 // result instead. The catch-all below answers `{}` for anything it does
 // not recognise, so an unmatched open_task request would render the page
@@ -145,7 +145,7 @@ async function installAz16Mocks(page: Page): Promise<void> {
 		if (pathname === "/api/actions/search_documents") {
 			return json(route, { ok: true, data: [KNOWLEDGE] });
 		}
-		// @lore BC5 T9/T11: `GET /api/{teams,teams/:id,org,harnesses,agents,
+		// @lore `GET /api/{teams,teams/:id,org,harnesses,agents,
 		// connections,filesystems}` and `/api/settings/agent-behavior/config`
 		// are gone with the users/agents/org/teams/recipients/connections/
 		// filesystems/harnesses/agent-behavior route families — the user door

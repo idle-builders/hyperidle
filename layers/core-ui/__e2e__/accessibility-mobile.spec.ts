@@ -10,11 +10,14 @@
 import AxeBuilder from "@axe-core/playwright";
 import {
 	expect,
+	makeDocumentRow,
 	makeSessionRow,
 	makeTask,
 	makeTaskNode,
 	makeUserRow,
 	mockAgents,
+	mockDocument,
+	mockSearchDocuments,
 	mockSearchSessions,
 	mockSearchUsers,
 	mockTaskTree,
@@ -27,6 +30,10 @@ const MOBILE = { width: 1024, height: 900 };
 const ROUTES = [
 	{ path: "/conversations", selector: "[data-testid='conversations-page']" },
 	{ path: "/work/portfolio", selector: "[data-testid='work-overview-page']" },
+	{ path: "/work/team/p1", selector: "[data-testid='work-team-page']" },
+	{ path: "/work/task/task-a11y-1", selector: "[data-testid='task-detail-page']" },
+	{ path: "/documents", selector: "[data-testid='document-list-page']" },
+	{ path: "/documents/k1", selector: "[data-testid='document-detail-page']" },
 ] as const;
 
 const A11Y_ROSTER = [
@@ -75,6 +82,15 @@ test.describe("zero WCAG 2.1 AA violations at mobile viewport", () => {
 		await mockSearchSessions(page, {
 			rows: [makeSessionRow("a11y-session-1", { agentId: "agent-1", state: "active" })],
 		});
+		await mockSearchDocuments(page, { rows: [makeDocumentRow("k1", { title: "Doc one" })] });
+		await mockDocument(page, { row: makeDocumentRow("k1", { title: "Doc one", body: "# Hi" }) });
+		await page.route("**/api/artifacts*", (route) =>
+			route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ items: [], nextCursor: null }),
+			}),
+		);
 	});
 
 	for (const route of ROUTES) {

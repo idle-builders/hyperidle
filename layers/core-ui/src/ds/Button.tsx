@@ -35,6 +35,12 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 	 * button has no text content for assistive tech to read otherwise.
 	 */
 	size?: "sm" | "default" | "icon";
+	/**
+	 * Keeps the 44px touch-target floor at every viewport instead of relaxing
+	 * to the smaller desktop height. Use for a header/section action button —
+	 * a primary way to act on a page, not a dense settings-form control.
+	 */
+	touchAlways?: boolean;
 }
 
 const VARIANT_CLASSES: Record<NonNullable<ButtonProps["variant"]>, string> = {
@@ -57,7 +63,15 @@ const VARIANT_CLASSES: Record<NonNullable<ButtonProps["variant"]>, string> = {
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-	{ variant = "primary", size = "default", className = "", children, disabled, ...rest },
+	{
+		variant = "primary",
+		size = "default",
+		touchAlways = false,
+		className = "",
+		children,
+		disabled,
+		...rest
+	},
 	ref,
 ): JSX.Element {
 	// @lore POLISH-060 A3: AQ-015 requires touch targets ≥ 44px at ≤ 1024px.
@@ -67,10 +81,16 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
 	// overrides at 1024px+. No JS needed — pure responsive utility.
 	const sizeClass =
 		size === "sm"
-			? "py-[7px] px-[12px] min-h-[44px] lg:min-h-[32px]"
+			? touchAlways
+				? "py-[7px] px-[12px] min-h-[44px]"
+				: "py-[7px] px-[12px] min-h-[44px] lg:min-h-[32px]"
 			: size === "icon"
-				? "p-0 w-[44px] h-[44px] min-h-[44px] lg:w-[32px] lg:h-[32px] lg:min-h-[32px]"
-				: "py-[10px] px-[18px] min-h-[44px] lg:min-h-[36px]";
+				? touchAlways
+					? "p-0 w-[44px] h-[44px] min-h-[44px]"
+					: "p-0 w-[44px] h-[44px] min-h-[44px] lg:w-[32px] lg:h-[32px] lg:min-h-[32px]"
+				: touchAlways
+					? "py-[10px] px-[18px] min-h-[44px]"
+					: "py-[10px] px-[18px] min-h-[44px] lg:min-h-[36px]";
 
 	const variantClass = VARIANT_CLASSES[variant];
 

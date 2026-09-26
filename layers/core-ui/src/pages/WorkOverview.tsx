@@ -150,7 +150,7 @@ export function WorkOverviewView({
 						</span>
 					}
 					actions={
-						<Button variant="primary" size="sm" onClick={onNewBet}>
+						<Button variant="primary" size="sm" touchAlways onClick={onNewBet}>
 							New task
 						</Button>
 					}

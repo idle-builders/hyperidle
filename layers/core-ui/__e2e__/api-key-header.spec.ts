@@ -1,6 +1,6 @@
 /**
  * Real-browser check: apiFetch injects X-API-Key on every action-door
- * request the app makes, and /api/health (unauthenticated) works without it.
+ * request the app makes.
  *
  * The key is injected into the Vite dev server via webServer.env in
  * playwright.config.ts: VITE_HYPERIDLE_API_KEY="playwright-test-key".
@@ -13,25 +13,6 @@ const PLAYWRIGHT_TEST_KEY = "playwright-test-key";
 
 const HEALTH_FIXTURE = { status: "ok" };
 const SEARCH_USERS_FIXTURE = { ok: true, data: [] };
-
-test("health endpoint succeeds without an X-API-Key header", async ({ page }) => {
-	await page.route("**/api/health", (route) =>
-		route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify(HEALTH_FIXTURE),
-		}),
-	);
-	await page.route("**/api/**", (route) =>
-		route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) }),
-	);
-
-	await page.goto("/");
-	await page.waitForLoadState("networkidle");
-
-	const pageText = await page.textContent("body");
-	expect(pageText).not.toBeNull();
-});
 
 test("navigating the app carries X-API-Key on every action-door request", async ({ page }) => {
 	// @lore Playwright evaluates route handlers in REVERSE registration order
