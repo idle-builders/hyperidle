@@ -1,3 +1,4 @@
+import { globSync } from "node:fs";
 import { join } from "node:path";
 import { defineConfig } from "vitest/config";
 
@@ -35,19 +36,32 @@ const HARNESS_INCLUDE = [
 	// `layers/**` include and hard-fails CI where the binaries are absent.
 	"layers/agent-orchestration/connections/src/__tests__/real-harness-inherited.integration.test.ts",
 	"layers/core-api/src/__tests__/real-harness-return-enforcement-realbinary.integration.test.ts",
-	"layers/core-api/src/__tests__/AU9-assistant-handoff-realbinary.integration.test.ts",
 	"layers/core-api/src/__tests__/thread-turn-live-harness.integration.test.ts",
 	"layers/core-api/src/__tests__/document-tools-live-harness.integration.test.ts",
 	"layers/core-api/src/__tests__/subscription-wake-live-harness.integration.test.ts",
-	// @lore real-harness serial: *-real.integration.test.ts files in src/__tests__ and
-	// routes/__tests__ drive real CLI harnesses (codex/claude/opencode). They must run
-	// SERIALLY (harness project, fileParallelism:false) — concurrent codex sessions
-	// collide on .codex-home/.tmp/plugins-clone dirs → ENOTEMPTY teardown errors.
-	// The service project's 4-worker parallel pool caused this regression when real route-dispatch tests added
-	// route-dispatch real tests alongside the existing real-session/cli-adapter harness tests.
+	// @lore real-harness serial: *-real.integration.test.ts files in src/__tests__
+	// drive real CLI harnesses (codex/claude/opencode). They must run SERIALLY
+	// (harness project, fileParallelism:false) — concurrent codex sessions collide
+	// on .codex-home/.tmp/plugins-clone dirs → ENOTEMPTY teardown errors.
 	"layers/core-api/src/__tests__/*-real.integration.test.ts",
-	"layers/core-api/src/routes/__tests__/*-real.integration.test.ts",
 ];
+
+// Every entry above is a naming-convention scan (a directory + suffix glob), not
+// a maintained list of literal filenames — but a glob that matches zero files is
+// the same silent failure a stale literal filename would be (a rename drops the
+// file out of the harness lane and into the service lane's plain
+// `*.integration.test.ts` include, where it fails hard when the real binaries
+// it needs are absent). Hard-fail here rather than let that happen quietly.
+for (const pattern of HARNESS_INCLUDE) {
+	const matches = globSync(pattern, { cwd: import.meta.dirname, exclude: SHARED_EXCLUDE });
+	if (matches.length === 0) {
+		throw new Error(
+			`vitest.integration.config.ts: HARNESS_INCLUDE pattern matched no files: "${pattern}". ` +
+				`A rename or move silently drops a real-binary test into the service lane — fix the ` +
+				`pattern (or the file it should still match) before running the integration suite.`,
+		);
+	}
+}
 
 export default defineConfig({
 	test: {
