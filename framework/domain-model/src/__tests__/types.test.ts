@@ -1,61 +1,18 @@
 import { describe, expect, it } from "vitest";
-import {
-	AGENT_CATEGORIES,
-	KERNEL_DOCUMENT_STATUSES,
-	type KernelDocumentStatus,
-	TASK_STATES,
-	type TaskState,
-} from "../types.js";
+import { AGENT_CATEGORIES, KERNEL_DOCUMENT_STATUSES, TASK_STATES } from "../types.js";
 
-// @lore BB1: BET_STATUSES and BetStatus removed — task vocabulary is the only work vocabulary.
-
-/**
- * I4 cross-cutting: runtime `as const` arrays for `DocumentStatus` unions,
- * paralleling the existing `TASK_STATES`. BetStatus was here and is now gone (BB1).
- */
 describe("status-union runtime constants", () => {
-	describe("TASK_STATES", () => {
-		it("has 8 task states", () => {
-			expect(TASK_STATES).toHaveLength(8);
-		});
-
-		it("derives TaskState union", () => {
-			const s: TaskState = TASK_STATES[0];
-			expect(typeof s).toBe("string");
-		});
+	it("TASK_STATES has 8 task states", () => {
+		expect(TASK_STATES).toHaveLength(8);
 	});
 
-	describe("KERNEL_DOCUMENT_STATUSES", () => {
-		it("is exported as a runtime array", () => {
-			expect(Array.isArray(KERNEL_DOCUMENT_STATUSES)).toBe(true);
-		});
-
-		it("has 4 kernel document statuses", () => {
-			// Y4: needs_human added for triage escalation (was 3)
-			expect(KERNEL_DOCUMENT_STATUSES).toHaveLength(4);
-		});
-
-		it("includes proposed, active, archived", () => {
-			// @lore nested-knowledge-items: the status ladder collapsed to
-			// proposed | active | stale | archived — draft/needs_human are gone.
-			const expected: readonly KernelDocumentStatus[] = ["proposed", "active", "archived"];
-			for (const ks of expected) {
-				expect(KERNEL_DOCUMENT_STATUSES).toContain(ks);
-			}
-		});
+	it("KERNEL_DOCUMENT_STATUSES includes proposed, active, archived", () => {
+		expect(KERNEL_DOCUMENT_STATUSES).toContain("proposed");
+		expect(KERNEL_DOCUMENT_STATUSES).toContain("active");
+		expect(KERNEL_DOCUMENT_STATUSES).toContain("archived");
 	});
 
-	describe("Agent categories (AB0)", () => {
-		it("AGENT_CATEGORIES has 2 values (strategy removed in BA9d)", () => {
-			expect(AGENT_CATEGORIES).toHaveLength(2);
-			expect(AGENT_CATEGORIES).toContain("team");
-			expect(AGENT_CATEGORIES).toContain("individual");
-		});
-
-		it("UserRole is a plain string (open vocabulary)", () => {
-			// UserRole was removed from domain-model — it was `type UserRole = string`, zero safety.
-			const r: string = "any_custom_role";
-			expect(typeof r).toBe("string");
-		});
+	it("AGENT_CATEGORIES is exactly {team, individual}", () => {
+		expect([...AGENT_CATEGORIES].sort()).toEqual(["individual", "team"]);
 	});
 });

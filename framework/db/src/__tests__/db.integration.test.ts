@@ -7,10 +7,8 @@ import { describe, expect, it } from "vitest";
 import { createTestDb } from "../__testing__/test-utils.js";
 import { serverConfig } from "../schema.js";
 
-// @lore AU18: this file previously exercised the generic KV `factory_settings`
-// table (retired). `server_config` is its typed singleton-row successor —
-// still a real table with a text PK, adequate to prove createTestDb's basic
-// CRUD + uniqueness behavior.
+// @lore server_config is a real table with a text PK, adequate to prove createTestDb's
+// basic CRUD + uniqueness behavior.
 describe("createTestDb", () => {
 	it("creates an in-memory database that can execute queries", { timeout: 30_000 }, async () => {
 		const { db, close } = await createTestDb();

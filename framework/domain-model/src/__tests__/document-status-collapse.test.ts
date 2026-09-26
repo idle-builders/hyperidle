@@ -8,8 +8,7 @@
  * collapse into exactly one four-value ladder: proposed | active | stale |
  * archived.
  *
- * @lore B22: `KNOWLEDGE_STATUSES` (`knowledge.ts`) is deleted — `DOCUMENT_STATUSES`
- * (`actions/document.ts`) is the same four-value ladder going forward.
+ * `DOCUMENT_STATUSES` (`actions/document.ts`) is the canonical four-value ladder.
  */
 import { describe, expect, it } from "vitest";
 import { DOCUMENT_STATUSES } from "../actions/document.js";

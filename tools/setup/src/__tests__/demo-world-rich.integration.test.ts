@@ -1,12 +1,12 @@
 /**
- * AX1 — the lived-in demo world.
+ * The lived-in demo world.
  *
  * Proves `seedDemoWorld` fills a fresh database with a coherent, weeks-old
  * world: bet history across all lifecycles, tasks in every state, threads
  * with real reviews/verdicts, a document corpus, sessions and a paused
  * daily-digest subscription — everything the three views need to look alive.
  *
- * @lore BC5 T7b: "and notifications" dropped from that list — the demo
+ * @lore "and notifications" dropped from that list — the demo
  * world no longer fabricates unread popover rows (no demo data fabricated
  * in code); a person's inbox is real, and starts empty.
  */
@@ -33,7 +33,7 @@ async function seedWorld(db: HyperIdleDb): Promise<void> {
 }
 
 describe("lived-in demo world", () => {
-	// @lore BB1: bets table dropped. Root tasks (parent_task_id IS NULL) replace bets.
+	// Root tasks (parent_task_id IS NULL) — there is no bets table.
 	// State mapping: draft→proposed, active→in_progress, completed→done, killed→killed.
 	test("root tasks span all four states with outcomes on closed tasks", async ({ db }) => {
 		await seedWorld(db);
@@ -72,7 +72,7 @@ describe("lived-in demo world", () => {
 		expect(promoted.length).toBeGreaterThanOrEqual(1);
 	});
 
-	// @lore BB1: tasks now form a tree (root → child → grandchild). The dangling
+	// @lore Tasks form a tree (root → child → grandchild). The dangling
 	// check no longer joins bets; it verifies team + owner FKs for child tasks.
 	test("tasks cover all eight states, teams, and owners", async ({ db }) => {
 		await seedWorld(db);
@@ -147,7 +147,7 @@ describe("lived-in demo world", () => {
 		}
 
 		// The pinned assistant thread for the founder.
-		// @lore BC3: the assistant thread is host-kind "agent" like any other
+		// @lore The assistant thread is host-kind "agent" like any other
 		// direct thread now — the ast-<userId> structural convention is gone.
 		const assistantThreads = await rows<{ id: string; participants: string; pinned: boolean }>(
 			db,
@@ -172,8 +172,7 @@ describe("lived-in demo world", () => {
 		expect(await count(db, "messages", "WHERE type = 'questionnaire'")).toBeGreaterThanOrEqual(1);
 
 		// Every thread host resolves; every message sender resolves.
-		// @lore BB1: 'bet' host_kind removed — those threads used host_kind = 'task'.
-		// @lore BC3: no thread is task-hosted any more — a task's conversation is
+		// @lore No thread is task-hosted any more — a task's conversation is
 		// team-hosted (architecture.md §3.9, §4 step 7), so 'task' is gone from
 		// this check.
 		const badHosts = await rows<{ id: string }>(
@@ -196,7 +195,7 @@ describe("lived-in demo world", () => {
 		expect(await count(db, "messages")).toBeGreaterThanOrEqual(100);
 	});
 
-	// @lore BC4: the projection/edit-log/access-log/conflicts tables are dropped
+	// @lore The projection/edit-log/access-log/conflicts tables are dropped
 	// (architecture.md §6.2, §6.4) — `confidence`/`meta` folded onto `documents`,
 	// and the demo corpus (re-seeded 3a99a022b/205659d1d) no longer writes a
 	// conflict row or any edit-log/access-log rows, so those assertions are gone,
@@ -223,7 +222,7 @@ describe("lived-in demo world", () => {
 		// Provenance loop: a done/killed root task produced a retro item under it.
 		// @lore nested-knowledge-items: task-scoped items are no longer
 		// `scope_kind='task'` — they are `parent_kind='task'`/`parent_id=<taskId>`,
-		// factory-scoped (D4/architecture §7 step 7).
+		// factory-scoped (architecture §7 step 7).
 		const retro = await rows<{ id: string }>(
 			db,
 			`SELECT d.id FROM documents d
@@ -232,7 +231,7 @@ describe("lived-in demo world", () => {
 		);
 		expect(retro.length).toBeGreaterThanOrEqual(1);
 
-		// @lore BC4 §6.7: the desktop walk's decay routine (`unusedSince` +
+		// @lore The desktop walk's decay routine (`unusedSince` +
 		// `sort:"least_used"`) needs active, ordinary documents that read stale
 		// on both usage clocks — the seed backdates four of them past 90 days.
 		const usage = await rows<{
@@ -270,7 +269,7 @@ describe("lived-in demo world", () => {
 	test("sessions: terminal history plus live ones, all resolving", async ({ db }) => {
 		await seedWorld(db);
 
-		// @lore BA9d wave 3: three ritual subscriptions removed from demo world
+		// @lore Three ritual subscriptions removed from demo world
 		// (document-decay, document-triage, post-task-retro) — their associated
 		// sessions are gone. Actual count is 34 (26 task + 2 live-or-just-ended +
 		// 6 assistant turns).
@@ -305,11 +304,11 @@ describe("lived-in demo world", () => {
 		expect(dangling).toHaveLength(0);
 	});
 
-	// @lore BA9d: builtin routine mechanism deleted (provisionTeamRoutines removed).
+	// There is no builtin routine mechanism (no provisionTeamRoutines).
 	// Only demo-routine-daily_digest remains. The three ritual subscriptions
 	// (document-decay, document-triage, post-task-retro) were also removed
 	// from demo world per coordinator instruction. No builtin:* rows exist.
-	// @lore BC5 T7b: there is no run-history table on the subscriptions side
+	// @lore There is no run-history table on the subscriptions side
 	// (`routine_runs` is dropped with no replacement, migration 0089) — the
 	// daily-digest fixture is a paused schedule subscription.
 	test("subscriptions: daily_digest subscription, paused, no builtin:* rows", async ({ db }) => {
@@ -322,14 +321,14 @@ describe("lived-in demo world", () => {
 		);
 		expect(digestRows, "demo-routine-daily_digest").toHaveLength(1);
 		expect(digestRows[0]?.paused, "starts paused").toBe(true);
-		// No builtin:* subscriptions (mechanism deleted in BA9d aa260893c).
+		// No builtin:* subscriptions — the mechanism does not exist.
 		expect(
 			await count(db, "subscriptions", "WHERE id LIKE 'builtin:%'"),
 			"no builtin:* subscriptions",
 		).toBe(0);
 	});
 
-	// @lore BC5 T7b: `notification_queue` is dropped with no replacement —
+	// @lore `notification_queue` is dropped with no replacement —
 	// a person's inbox is `open_user({}).inbox` now, backed by the `inbox`
 	// table, and the demo world seeds no fabricated unread rows into it
 	// (no demo data fabricated in code, only seeded — this fixture no longer
@@ -338,7 +337,7 @@ describe("lived-in demo world", () => {
 	test("the world has weeks of history, anchored to seed time", async ({ db }) => {
 		await seedWorld(db);
 
-		// @lore BB1: bets table gone — use root tasks (parent_task_id IS NULL) for age anchor.
+		// Use root tasks (parent_task_id IS NULL) for age anchor — there is no bets table.
 		const oldest = await rows<{ min: string }>(
 			db,
 			"SELECT MIN(created_at) AS min FROM tasks WHERE parent_task_id IS NULL",
@@ -354,11 +353,11 @@ describe("lived-in demo world", () => {
 	test("seeding twice changes nothing", async ({ db }) => {
 		await seedWorld(db);
 
-		// @lore BB1: "bets" removed from table list — the table is dropped.
+		// "bets" is not in the table list — the table does not exist.
 		// @lore artifacts-become-knowledge: "artifacts" removed — the table is dropped.
-		// @lore BC4: "knowledge_app_projection"/"knowledge_edit_log"/
+		// @lore "knowledge_app_projection"/"knowledge_edit_log"/
 		// "knowledge_access_log"/"knowledge_conflicts" removed — the tables are dropped.
-		// @lore BC5 T7b: "routines"/"routine_runs"/"notification_queue" removed
+		// @lore "routines"/"routine_runs"/"notification_queue" removed
 		// from this list — the tables are dropped (migration 0089); "subscriptions"
 		// (and "inbox", added in 0088) take their place.
 		const tables = [
@@ -386,9 +385,9 @@ describe("lived-in demo world", () => {
 	test("team state reflects the live workload", async ({ db }) => {
 		await seedWorld(db);
 
-		// @lore BB1: `active_bets` column dropped from teams — WIP is counted
+		// @lore There is no `active_bets` column on teams — WIP is counted
 		// live via countTeamTasksInProgress. The bets table is gone too.
-		// @lore BC5 T11 (migration 0090, D-e3zm2j): `lead_agent_id` (and every
+		// @lore `lead_agent_id` (and every
 		// other setup-wizard scaffold column) is dropped too — a team is an id
 		// and a name now, so this test verifies root tasks exist instead.
 		const teamRow = await rows<{ id: string }>(

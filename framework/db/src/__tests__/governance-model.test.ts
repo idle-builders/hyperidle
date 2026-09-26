@@ -237,36 +237,11 @@ describe("the decided rule set is intact", () => {
 		expect(decided.totals.rows).toBe(139);
 		const count = (world: "production" | "development", verdict: string): number =>
 			decided.rows.filter((r) => r[world] === verdict).length;
-		// These four numbers are the founder's decisions. A regeneration that moves any of them has
-		// re-derived what was decided instead of reading it — that happened once and cost hours.
-		// AU44 AU20-fd dissolved framework/factory-defaults, removing 4 rows (2 prod-allowed,
-		// 2 prod-forbidden; 4 dev-allowed, 0 dev-forbidden):
-		// prod: 79-2=77 allowed, 64-2=62 forbidden; dev: 137-4=133 allowed, 6 forbidden.
+		// These four numbers are the founder's decisions, read from decided-rules.json — never
+		// re-derived. A regeneration that moves any of them has re-derived what was decided
+		// instead of reading it, which happened once and cost hours.
 		expect(count("production", "allowed")).toBe(77);
 		expect(count("production", "forbidden")).toBe(62);
-		// Ruling 13 moved the two `db:table (other) [table:write]` rows from forbidden to allowed:
-		// the flat rule is replaced by the companion clause, which no row can express.
-		// AU32 Ruling A (ruling14narrowing) moved two more, `service -> raw runtime [capability]` and
-		// `tooling -> raw runtime [capability]`, from development forbidden to allowed (the AI
-		// one-seam requirement narrows to production-only; production stays untouched): +2 allowed,
-		// -2 forbidden. AU29 (Ruling 12.3) separately deleted the six `db:util`/`db:bootstrap` rows —
-		// one development-allowed and two development-forbidden `db:util` row, plus all three
-		// `db:bootstrap` rows development-allowed: -4 allowed, -2 forbidden. Combined against the
-		// pre-AU29/AU32 baseline (114 allowed / 10 forbidden): 114 + 2 - 4 = 112 allowed;
-		// 10 - 2 - 2 = 6 forbidden.
-		// The substrate split's three `framework → db:*` rows are all production-forbidden (53 + 3 = 56)
-		// and split in development: `db:schema-ns` and `db:unknown` are one-door surfaces and stay
-		// forbidden (6 + 2 = 8), `db:testing` is not one and relaxes (112 + 1 = 113). It then retired the
-		// twelve `framework/shared` rows, every one of them allowed in both worlds: 65 - 12 = 53
-		// production allowed, 113 - 12 = 101 development allowed; neither forbidden count moves.
-		// AU44-b2 dissolved framework/credential-access + framework/filesystem-contract, removing 8 rows:
-		// prod: -4 allowed (105→101), -4 forbidden (90→86); dev: -8 allowed (179→179), 0 forbidden.
-		// AU44-b8 dissolved framework/work-intent-port, removing 4 rows:
-		// prod: -2 allowed (83→81), -2 forbidden (68→66); dev: -4 allowed (145→141), 0 forbidden.
-		// AU44-b8 dissolved framework/http-middleware, removing 4 more rows:
-		// prod: -2 allowed (81→79), -2 forbidden (66→64); dev: -4 allowed (141→137), 0 forbidden.
-		// AU44 AU20-fd dissolved framework/factory-defaults, removing 4 rows:
-		// prod: -2 allowed (79→77), -2 forbidden (64→62); dev: -4 allowed (137→133), 0 forbidden.
 		expect(count("development", "allowed")).toBe(133);
 		expect(count("development", "forbidden")).toBe(6);
 	});
@@ -648,9 +623,7 @@ describe("the registries are honest", () => {
 	it("fails when an owner names a package that does not exist", () => {
 		const broken = {
 			...tableOwners,
-			// @lore BB1: was `bets`, which is no longer a live table — the registry
-			// then failed on "names a table the schema does not declare" before it
-			// could reach the branch under test. Any LIVE table works here.
+			// Any LIVE table works here — the branch under test needs a real table name.
 			owners: { ...tableOwners.owners, tasks: "a-package-that-was-deleted" },
 		};
 		expect(() => validateTableOwners(broken as TableOwners, liveTables, packageNames)).toThrow(

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-// @lore test-infra: createTestDb is kept here because the H4 AC3/AC4 test
-// manages its own instance lifecycle via try/finally close(). These tests
-// explicitly test the createTestDb API itself and need direct handle access.
+// @lore test-infra: createTestDb is kept here because these tests manage their own
+// instance lifecycle via try/finally close() — they test the createTestDb API itself
+// and need direct handle access.
 import { createTestDb } from "../__testing__/test-utils.js";
 import { DEFAULT_PG_POOL_SIZE, parsePgPoolSize } from "../connection.js";
 

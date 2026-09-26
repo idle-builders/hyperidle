@@ -6,7 +6,7 @@ import { ruleTester } from "./setup.js";
 RuleTester.describe = describe as unknown as typeof RuleTester.describe;
 RuleTester.it = it as unknown as typeof RuleTester.it;
 
-// AZ7 Set 4: the only permitted radius spellings are rounded-none (0px) and
+// The only permitted radius spellings are rounded-none (0px) and
 // the three --r-* tokens (subtle/default/pill). Everything else — named
 // Tailwind radii, arbitrary pixel values, and rounded-full (the pill's OTHER
 // spelling) — is a violation.
@@ -33,7 +33,7 @@ ruleTester.run("radius-token-only", radiusTokenOnly, {
 			filename: "layers/core-ui/src/ds/Checkbox.tsx",
 			code: 'const J = <div className="rounded-[6px]" />;',
 		},
-		// @lore AZ7 review-round-2 NEW-1: the deliberately conservative boundary of
+		// @lore the deliberately conservative boundary of
 		// createConstIdentifierResolver — a `let` is never followed, even when
 		// it happens to hold a token-legal string, because the resolver cannot
 		// prove it isn't reassigned to something else elsewhere.
@@ -98,7 +98,7 @@ ruleTester.run("radius-token-only", radiusTokenOnly, {
 			code: 'const J = <div className={["rounded-[6px]", "border"].join(" ")} />;',
 			errors: [{ messageId: "notAToken" }],
 		},
-		// @lore AZ7 review-round-2 NEW-1: CommentRow.tsx’s exact shape — a ternary
+		// @lore CommentRow.tsx’s exact shape — a ternary
 		// of two class strings assigned to a `const`, only THEN passed to
 		// className. Reproduces `avatarClass` (both branches carry
 		// `rounded-full`); must report through the identifier.

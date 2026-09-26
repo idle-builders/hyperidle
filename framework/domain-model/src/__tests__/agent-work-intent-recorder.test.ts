@@ -1,15 +1,6 @@
-// AU21 §6 Decision G (recorder unification) — `AgentWorkIntentRecorderInput`
-// widens from the AC-9 2-kind scope to the full six-kind union matching
-// `agent_work_intents_kind_ck` (framework/db/src/schema.ts). This proves the
-// widened type + its canonical runtime kind list stay in lockstep with
-// `AgentWorkIntentKind` (events.ts) so `work`/`review`'s deleted local
-// mirrors can't be silently reintroduced.
-//
-// AU21 §9 Increment 10a (Decision I): `bet_decomposition` is REMOVED — the
-// built-in bet_decomposition mechanism no longer exists, so the union shrinks
-// from seven kinds to six.
-// `reengagement` is REMOVED with the capture machinery it belonged to,
-// so the union shrinks from six kinds to five.
+// `AgentWorkIntentRecorderInput`'s discriminant matches `agent_work_intents_kind_ck`
+// (framework/db/src/schema.ts) exactly, keeping it in lockstep with `AgentWorkIntentKind`
+// (events.ts) so callers can't silently reintroduce a local mirror of the kind union.
 
 import { describe, expect, expectTypeOf, it } from "vitest";
 import {
@@ -66,8 +57,8 @@ describe("AgentWorkIntentRecorderInput widened six-kind union", () => {
 				idempotencyKey: "k5",
 			},
 			{
-				// BA2: the only kind that resumes a session rather than starting one,
-				// so it bakes a resume instead of a BakedWorkIntentRequest.
+				// The only kind that resumes a session rather than starting one, so it
+				// bakes a resume instead of a BakedWorkIntentRequest.
 				kind: "session_resume",
 				sourceKind: "review_verdict",
 				sourceId: "review-message-1",
@@ -116,7 +107,7 @@ describe("AgentWorkIntentRecorderInput widened six-kind union", () => {
 		});
 	});
 
-	it("rejects the removed bet_decomposition kind entirely (Decision I)", () => {
+	it("rejects the removed bet_decomposition kind entirely", () => {
 		acceptRecorderInput({
 			// @ts-expect-error — "bet_decomposition" no longer exists in the five-kind union
 			kind: "bet_decomposition",

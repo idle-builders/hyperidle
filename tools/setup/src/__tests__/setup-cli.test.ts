@@ -38,12 +38,11 @@ describe("`bun run setup --profile laptop`", () => {
 		const dataDir = path.join(tmpdir, "hyperidle-pg");
 		const { io, captured } = makeIo();
 
-		// @lore AU29 N7: `--root` is a repo-root override consumed by the vps
-		// docker-compose lookup and the `--db-path` default — it must NOT reach
+		// @lore `--root` is a repo-root override consumed by the vps docker-compose
+		// lookup and the `--db-path` default — it must NOT reach
 		// the migrations lookup (that resolves off this file's own directory,
 		// not `root`). An arbitrary, non-repo root here proves the laptop path
-		// stays correct even when `--root` points somewhere migrations don't
-		// exist; this is the exact combination that regressed (B1).
+		// stays correct even when `--root` points somewhere migrations don't exist.
 		const fakeRoot = path.join(tmpdir, "not-a-repo-root");
 		fs.mkdirSync(fakeRoot);
 
@@ -61,8 +60,8 @@ describe("`bun run setup --profile laptop`", () => {
 		const client = new PGlite(dataDir);
 		await client.waitReady;
 		try {
-			// @lore AF17: applyFactoryBootstrap does NOT insert teams — teams are
-			// created at onboarding, not at setup time. Assert factory agents present.
+			// applyFactoryBootstrap does NOT insert teams — teams are created at
+			// onboarding, not at setup time. Assert factory agents present.
 			const usersResult = await client.query<{ id: string }>("SELECT id FROM users");
 			expect(usersResult.rows.length).toBeGreaterThan(0);
 
@@ -279,10 +278,9 @@ describe("laptop setup is safe to run twice", () => {
 		const client = new PGlite(dataDir);
 		await client.waitReady;
 		try {
-			// @lore P2: agents → users table
 			const agentsResult = await client.query<{ id: string }>("SELECT id FROM users");
 			expect(agentsResult.rows.length).toBeGreaterThan(0);
-			// @lore AF17: factory bootstrap does NOT insert teams (teams come from onboarding).
+			// Factory bootstrap does NOT insert teams (teams come from onboarding).
 			// Assert the factory system:propagation row is still present after second run.
 			const propagationResult = await client.query<{ n: string }>(
 				"SELECT COUNT(*) AS n FROM users WHERE id = 'system:propagation'",

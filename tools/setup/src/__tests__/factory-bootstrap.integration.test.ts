@@ -17,7 +17,7 @@ async function queryRows<T extends Record<string, unknown>>(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AC1: Factory layer is complete after a single runFactoryBootstrap call
+// Factory layer is complete after a single runFactoryBootstrap call
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("runFactoryBootstrap creates the complete factory layer", () => {
@@ -38,9 +38,8 @@ describe("runFactoryBootstrap creates the complete factory layer", () => {
 		expect(rows.map((r) => r.id)).toEqual(["system:propagation"]);
 	});
 
-	// @lore BA9d: factory no longer seeds seed-agent-pf-* facilitator agents.
-	// They are now provided by the rituals plugin. The factory bootstrap must
-	// not create them — 0 pf-* rows after bootstrap proves the clean boundary.
+	// Facilitator agents (seed-agent-pf-*) are provided by the rituals plugin, not the
+	// factory bootstrap — 0 pf-* rows after bootstrap proves the clean boundary.
 	test("factory no longer seeds facilitator agents (now plugin-provided)", async ({ db }) => {
 		await runFactoryBootstrap(db);
 
@@ -51,10 +50,8 @@ describe("runFactoryBootstrap creates the complete factory layer", () => {
 		expect(rows.length).toBe(0);
 	});
 
-	// @lore AU18: `cost_cap`/`cost_cycle` factory_settings seeds are retired.
-	// cost_cap now lives as server_config.cost.capMinor with a schema default
-	// (20000) — bootstrap relies on the default rather than seeding it
-	// explicitly. cost_cycle had zero readers and was dropped entirely.
+	// cost_cap lives as server_config.cost.capMinor with a schema default (20000) —
+	// bootstrap relies on the default rather than seeding it explicitly.
 	test("bootstrap writes no server_config row (cost_cap default now lives server-side)", async ({
 		db,
 	}) => {
@@ -64,8 +61,7 @@ describe("runFactoryBootstrap creates the complete factory layer", () => {
 		expect(rows).toHaveLength(0);
 	});
 
-	// @lore AU43 repair: seed-ki-1 tests removed — ensureFactoryKnowledgeSeed deleted by AU43 bundle-4.
-	// Bootstrap no longer seeds documents or the strategy fabric projection row.
+	// Bootstrap does not seed documents.
 
 	test("no teams row is created by bootstrap (team_id null constraint)", async ({ db }) => {
 		await runFactoryBootstrap(db);
@@ -74,10 +70,8 @@ describe("runFactoryBootstrap creates the complete factory layer", () => {
 		expect(Number(rows[0]?.count)).toBe(0);
 	});
 
-	// @lore AU44 B1: team_members table dissolved into teams — test removed
-
-	// @lore BC5 T7b: `routines` renamed `subscriptions` — factory bootstrap
-	// creates factory-scoped system identities, never a team or a subscription.
+	// Factory bootstrap creates factory-scoped system identities, never a team or a
+	// subscription.
 	test("no subscriptions row is created by bootstrap", async ({ db }) => {
 		await runFactoryBootstrap(db);
 
@@ -97,23 +91,10 @@ describe("runFactoryBootstrap creates the complete factory layer", () => {
 		);
 		expect(Number(rows[0]?.count)).toBe(0);
 	});
-
-	// @lore BA9d: factory no longer seeds seed-agent-pf-* facilitator agents.
-	// Verified above; this companion test is now a no-op guard (0 rows → loop
-	// never runs — confirms no spurious pf-* row exists with a team_id set).
-	test("no facilitator agents seeded by factory (BA9d: plugin-provided)", async ({ db }) => {
-		await runFactoryBootstrap(db);
-
-		const rows = await queryRows<{ id: string; team_id: string | null }>(
-			db,
-			"SELECT id, team_id FROM users WHERE id LIKE 'seed-agent-pf-%'",
-		);
-		expect(rows.length).toBe(0);
-	});
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AC2: Bootstrap is idempotent — second call produces identical state
+// Bootstrap is idempotent — second call produces identical state
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("runFactoryBootstrap is idempotent", () => {

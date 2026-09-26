@@ -43,7 +43,7 @@ describe("agent run config carries harnessType", () => {
 		);
 		expect(rows).toHaveLength(1);
 		expect(rows[0]?.harnessType).toBeNull();
-		// @lore AU26 G1: the one NOT NULL DEFAULT 1 column — its exact pre-move shape on `users`.
+		// The one NOT NULL DEFAULT 1 column.
 		expect(Number(rows[0]?.maxConcurrentSessions)).toBe(1);
 	});
 

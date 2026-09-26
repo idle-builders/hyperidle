@@ -87,9 +87,9 @@ describe("design/no-handrolled-page-header rule", () => {
 		});
 	});
 
-	// ---- VALID: DocumentCreate identifier-reference escape hatch (W1) ----
+	// ---- VALID: DocumentCreate identifier-reference escape hatch ----
 
-	it("does NOT flag a template-literal className that references the pageTitleClassName identifier (W1)", () => {
+	it("does NOT flag a template-literal className that references the pageTitleClassName identifier", () => {
 		tester.run("no-handrolled-page-header", noHandrolledPageHeader, {
 			valid: [
 				{

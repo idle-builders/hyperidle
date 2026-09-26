@@ -1,11 +1,7 @@
 /**
- * L1a — `isBlocking` unit tests.
- *
- * Concept §4.5.5: a thread is blocking iff the agent participating in
- * the thread cannot continue to work without an answer.
- * Plan §4: derived from (a) presence of an unresolved review/questionnaire
- * + agent active for the thread, OR (b) head-null + agent paused on the
- * thread (the "plain quick question" case).
+ * `isBlocking`: a thread is blocking iff the agent participating in it cannot continue to work
+ * without an answer — derived from (a) an unresolved review/questionnaire + agent active for the
+ * thread, OR (b) head-null + agent paused on the thread (the "plain quick question" case).
  */
 
 import { describe, expect, it } from "vitest";
@@ -18,9 +14,8 @@ function isoAt(offsetMin: number): string {
 	return new Date(NOW + offsetMin * 60_000).toISOString();
 }
 
-// @lore BC3: hostKind "task" removed from HOST_KINDS — a task's thread is
-// team-hosted now (architecture.md §3.7, §3.9). "team" here is that host,
-// not a claim this thread belongs to a specific team row.
+// "team" here is a task's thread host (architecture.md §3.7, §3.9), not a claim this
+// thread belongs to a specific team row.
 const baseThread: Thread = {
 	id: "t1",
 	hostKind: "team",

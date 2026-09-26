@@ -16,9 +16,8 @@ import {
 } from "../return-actions.js";
 
 /**
- * B4 — `edit_task`'s own-task-and-moves-away-from-the-agent gate
- * (`isReturnAction`'s `@lore`). Terminal only when the edit is the session's
- * OWN task AND moves it away from the calling agent.
+ * `edit_task`'s own-task-and-moves-away-from-the-agent gate (`isReturnAction`'s `@lore`).
+ * Terminal only when the edit is the session's OWN task AND moves it away from the calling agent.
  */
 describe("isReturnAction — edit_task is gated on the session's own task moving away from the agent", () => {
 	it("own task + owner change ⇒ terminal (the handoff case)", () => {
@@ -58,7 +57,7 @@ describe("isReturnAction — edit_task is gated on the session's own task moving
 	});
 
 	/**
-	 * @lore BC3 R1: `isReturnAction` already returns false on `!taskId` before
+	 * @lore `isReturnAction` already returns false on `!taskId` before
 	 * the `args.id === taskId` comparison ever runs, so a thread turn (no
 	 * session task) cannot be ended by `edit_task` no matter what it creates.
 	 * Pinned here so a future edit cannot silently widen the guard.

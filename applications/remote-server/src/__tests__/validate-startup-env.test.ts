@@ -1,11 +1,6 @@
 /**
- * I2 — A6: Server validates HYPERIDLE_API_KEY at startup.
- *
- * Laptop/dev profile auto-defaults to a well-known dev key.
- * VPS/cloud profiles fail fast when the key is unset.
- *
- * Moved here from layers/core-api/src/__tests__/ when validateStartupEnv
- * moved from @hyperidle/host-process to this application (AU44-b6).
+ * The server validates HYPERIDLE_API_KEY at startup: the laptop/dev profile auto-defaults to a
+ * well-known dev key; VPS/cloud profiles fail fast when the key is unset.
  */
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { validateStartupEnv } from "../validate-startup-env.js";

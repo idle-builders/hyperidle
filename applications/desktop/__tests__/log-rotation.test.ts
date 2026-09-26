@@ -1,16 +1,7 @@
 /**
- * N4 — log-rotation tests
- *
- * AC coverage:
- *  - createLogRotator() creates the log directory if it does not exist
- *  - createLogRotator() returns a LogRotator with attach(), detach(), writeSync()
- *  - writeSync() writes to server.log in the specified directory
- *  - writeSync() creates the log file on first write
- *  - size-based rotation: when log exceeds maxBytes, old file is rotated to .1
- *  - rotation keeps at most maxFiles rotated copies
- *  - attach() tees process.stdout.write to the log file
- *  - detach() restores the original process.stdout.write
- *  - logPath is server.log inside the provided logDir
+ * createLogRotator() creates the log directory and writes server.log inside it, rotating to .1/.2/…
+ * when it exceeds maxBytes (keeping at most maxFiles copies), and attach()/detach() tee and restore
+ * process.stdout.write.
  */
 
 import * as fs from "node:fs";

@@ -109,7 +109,7 @@ describe("editDocumentInvariants", () => {
 		expect(problems.map((p) => p.code)).not.toContain("memory_needs_ordinary_slot");
 	});
 
-	it("memory_needs_ordinary_slot: an edit reaching the same shape by narrowing scope on an already-root slotted document, without touching parent/slot/as, still refuses — I10 cannot save it, since the parent never changes", () => {
+	it("memory_needs_ordinary_slot: an edit reaching the same shape by narrowing scope on an already-root slotted document, without touching parent/slot/as, still refuses — slotted_document_cannot_move cannot save it, since the parent never changes", () => {
 		const prev = makeRow({
 			scopeKind: "team",
 			scopeId: "team-1",
@@ -297,7 +297,7 @@ describe("editDocumentInvariants", () => {
 		expect(problems[0]?.code).toBe("artifact_cannot_be_private");
 	});
 
-	it("graduating an existing artifact by moving its parent to a document root, WITHOUT repeating `as`, raises no problem — I5 stays keyed on the caller's explicit `as`, not the row's derived one", () => {
+	it("graduating an existing artifact by moving its parent to a document root, WITHOUT repeating `as`, raises no problem — artifact_parent_kind stays keyed on the caller's explicit `as`, not the row's derived one", () => {
 		const prev = makeRow({
 			parentKind: "task",
 			parentId: "t1",
@@ -420,7 +420,7 @@ describe("searchDocumentsInvariants", () => {
 // ---------------------------------------------------------------------------
 
 describe("combined cases (pure half)", () => {
-	it("case 1f: a memory can never be in the tree — refused by I4, which is what makes the cascade walk safe", () => {
+	it("case 1f: a memory can never be in the tree — refused by memory_has_parent, which is what makes the cascade walk safe", () => {
 		const problems = editDocumentInvariants(
 			{ as: "memory", parent: { kind: "document", id: "p1" }, title: "Note" },
 			null,
@@ -429,11 +429,11 @@ describe("combined cases (pure half)", () => {
 		expect(problems[0]?.code).toBe("memory_has_parent");
 	});
 
-	it("case 2: a move of a slotted document is refused by I10 before D5 is ever consulted", () => {
+	it("case 2: a move of a slotted document is refused by slotted_document_cannot_move before forbidden_parent_kind is ever consulted", () => {
 		const prev = makeRow({ slot: "prompt" });
 		// `internal: true` — a subscription parent is internal-only
-		// (`forbidden_parent_kind`); this case is about I10 firing before D5,
-		// not about who may name a subscription.
+		// (`forbidden_parent_kind`); this case is about slotted_document_cannot_move firing
+		// before forbidden_parent_kind, not about who may name a subscription.
 		const problems = editDocumentInvariants(
 			{ id: prev.id, parent: { kind: "subscription", id: "s1" } },
 			prev,

@@ -15,12 +15,12 @@ describe("task transition contract", () => {
 	});
 
 	/**
-	 * BB1: `review` must be reachable from every non-terminal state so the
+	 * `review` must be reachable from every non-terminal state so the
 	 * parent auto-completion cascade can advance a container task that was
 	 * never itself worked (e.g. `proposed` or `accepted`). Without these edges
 	 * the cascade throws InvalidTransitionError and silently dies.
 	 */
-	it("allows review from every non-terminal state (BB1 parent auto-completion)", () => {
+	it("allows review from every non-terminal state (parent auto-completion)", () => {
 		const nonTerminal = ["proposed", "accepted", "hold", "in_progress", "blocked"] as const;
 		for (const state of nonTerminal) {
 			expect(canTransitionTaskState(state, "review")).toBe(true);
@@ -33,13 +33,13 @@ describe("task transition contract", () => {
 	});
 
 	/**
-	 * BB1: `done` must also be reachable from every non-terminal state.
+	 * `done` must also be reachable from every non-terminal state.
 	 * When `task.needsReview = false`, the parent auto-completion cascade
 	 * transitions the parent directly to `done`, bypassing `review`. Without
 	 * these edges, a container in `accepted` with needsReview=false had no
 	 * legal path to `done` and the cascade threw InvalidTransitionError.
 	 */
-	it("allows done from every non-terminal state (BB1 parent auto-completion)", () => {
+	it("allows done from every non-terminal state (parent auto-completion)", () => {
 		const nonTerminal = ["proposed", "accepted", "hold", "in_progress", "blocked"] as const;
 		for (const state of nonTerminal) {
 			expect(canTransitionTaskState(state, "done")).toBe(true);

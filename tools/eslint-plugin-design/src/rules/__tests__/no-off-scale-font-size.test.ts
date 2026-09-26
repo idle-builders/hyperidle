@@ -6,8 +6,8 @@ import { ruleTester } from "./setup.js";
 RuleTester.describe = describe as unknown as typeof RuleTester.describe;
 RuleTester.it = it as unknown as typeof RuleTester.it;
 
-// U10 Hearth type scale allowlist: {9,10,11,12,13,14,15,16,17,18,20,24,30}
-// Added: 9px (count badges), 10px (micro-typography), 17px (--text-lg), 30px (--text-3xl).
+// Type scale allowlist: {9,10,11,12,13,14,15,16,17,18,20,24,30} — 9px (count badges),
+// 10px (micro-typography), 17px (--text-lg), 30px (--text-3xl).
 ruleTester.run("no-off-scale-font-size", noOffScaleFontSize, {
 	valid: [
 		{

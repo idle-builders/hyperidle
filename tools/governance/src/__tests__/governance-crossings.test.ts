@@ -1,5 +1,5 @@
 /**
- * AU28 — the measurement layer: detectors and database surfaces.
+ * The measurement layer: detectors and database surfaces.
  *
  * The model decides; these modules measure. A detector that under-detects is invisible to every
  * internal consistency check — a crossing never emitted cannot unbalance anything — so each detector
@@ -932,9 +932,8 @@ describe("companion rows (Ruling 13)", () => {
 	});
 
 	it("crossingRules — a violation is reported at error, unconditionally", () => {
-		// AU31 removed the severity dial (`governance/rule-severity.json`, `severityOf`) entirely — a
-		// new architectural rule now lands with its violations already fixed, so every crossing
-		// `decide()` calls forbidden reports at `error`. No declaration to consult, no flip to prove.
+		// There is no severity dial (`severityOf`) — every crossing `decide()` calls forbidden
+		// reports at `error`. No declaration to consult, no flip to prove.
 		const architecture = {
 			containment: { compositionRootRoles: ["application"], repoRootIsCompositionRoot: true },
 			surfaces: {},

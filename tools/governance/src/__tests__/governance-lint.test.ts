@@ -430,11 +430,6 @@ describe("classification-total", () => {
 	});
 });
 
-// AU28's misplacement-ledger rule and its own registry (tools/governance/misplaced-files.json)
-// were deleted together once the ledger's last entry (fixtures/knowledge-data.ts, since cleared)
-// emptied it — "a ledger that has emptied is not a rule with nothing to say, it is a rule with
-// nothing left to be about." This describe block tested that rule directly; nothing survives it.
-
 describe("--fixtures self-test — the detector proves itself on a synthetic tree", () => {
 	// The only technique that would have caught au6/au9 going no-op, because it
 	// proves the detector works independently of whether the live tree happens to be clean.

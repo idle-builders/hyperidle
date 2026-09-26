@@ -291,7 +291,7 @@ describe("EditUserInputSchema", () => {
 		expect(EditUserInputSchema.safeParse({ id: "u1", inbox: { seen: "all" } }).success).toBe(true);
 	});
 
-	// B1: a create (no `id`) carries `folders`/`connections` too — nothing in
+	// A create (no `id`) carries `folders`/`connections` too — nothing in
 	// the schema, nor in `editUserInvariants`, is create-only for them, so a
 	// welcome-screen call that picks a folder is never silently ignored.
 	it("parses folders and connections on a create — no id required for either", () => {

@@ -23,8 +23,7 @@ function makeItem(overrides: {
 		format: overrides.format ?? "markdown",
 		version: overrides.version ?? 1,
 		layer: overrides.layer ?? null,
-		// architecture.md §5/D4: required, not defaulted inside
-		// toBakedContextDocuments — every caller supplies its own.
+		// Required, not defaulted inside toBakedContextDocuments — every caller supplies its own.
 		parentChain: [],
 		scopeKind: "factory",
 		slot: overrides.slot,

@@ -1,25 +1,17 @@
 /**
- * N4 — desktop migrate orchestrator tests
- *
- * AC coverage:
- *  - runMigrations() calls applyMigrations from @hyperidle/db
- *  - runMigrations() throws when isDowngrade() returns true
- *  - runMigrations() succeeds on a fresh database
- *  - resolveMigrationsFolder() returns a path ending with drizzle
- *
- * @lore AU28 Ruling 9 / AU29 §2.8: `framework/db` has never exported a `seed`
- * symbol under this name — this mock used to invent one and assert the
- * migration path never calls it, guarding a function that cannot exist. The
- * mock surface is re-derived from the real post-AU29 barrel (`applyMigrations`
- * / `isDowngrade` only) so it cannot invent a symbol the barrel does not have.
+ * runMigrations() calls applyMigrations from @hyperidle/db and throws when isDowngrade() returns
+ * true; resolveMigrationsFolder() returns a path ending with drizzle, resolving to
+ * process.resourcesPath/drizzle in a packaged app. The mock surface here is derived from the real
+ * `@hyperidle/db` barrel (`applyMigrations`/`isDowngrade` only), so it cannot invent a symbol the
+ * barrel does not export.
  */
 
 import { describe, expect, it, vi } from "vitest";
 import { resolveMigrationsFolder, runMigrations } from "../src/migrate.js";
 
 // ---------------------------------------------------------------------------
-// Mock electron — app.isPackaged defaults to false (dev mode) for N4 tests.
-// N5 tests override isPackaged per-test via vi.mocked().
+// Mock electron — app.isPackaged defaults to false (dev mode). The packaged-app
+// tests below override isPackaged per-test via vi.doMock().
 // ---------------------------------------------------------------------------
 vi.mock("electron", () => ({
 	app: {
@@ -104,14 +96,13 @@ describe("runMigrations", () => {
 });
 
 // ---------------------------------------------------------------------------
-// N5: Production path resolution (app.isPackaged branch)
+// Production path resolution (app.isPackaged branch)
 // ---------------------------------------------------------------------------
-// @lore N5: vi.mock() is hoisted and cannot be used inside it() for
-// per-test module control. Use vi.doMock() (not hoisted) + vi.resetModules()
-// before the dynamic import so each test gets its own module instance with
-// the correct mock applied.
+// @lore vi.mock() is hoisted and cannot be used inside it() for per-test module
+// control. Use vi.doMock() (not hoisted) + vi.resetModules() before the dynamic
+// import so each test gets its own module instance with the correct mock applied.
 
-describe("resolveMigrationsFolder — packaged app (AC11)", () => {
+describe("resolveMigrationsFolder — packaged app", () => {
 	it("returns process.resourcesPath/drizzle when app.isPackaged is true", async () => {
 		// Set up process.resourcesPath before the module loads
 		Object.defineProperty(process, "resourcesPath", {

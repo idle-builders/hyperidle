@@ -5,12 +5,10 @@ import { describe, expect, it, vi } from "vitest";
 import { runEvalSession } from "./provision-harness.js";
 
 /**
- * @lore AU31 §2.3/§5: `runSession` moved off a free function
- * (`@hyperidle/core-api/session`) onto `buildRunOrchestrationComposition(...)
- * .runSession` (`@hyperidle/agent-orchestration`) — mock the FACTORY to
- * return an object whose `runSession` is the spy, same mocking intent as
- * before (this test's concern is adapter-pool selection, not the
- * composition's own wiring).
+ * @lore `runSession` lives on `buildRunOrchestrationComposition(...).runSession`
+ * (`@hyperidle/agent-orchestration`) — mock the FACTORY to return an object whose
+ * `runSession` is the spy; this test's concern is adapter-pool selection, not the
+ * composition's own wiring.
  *
  * @lore artifacts-become-knowledge: `runEvalSession` now boots a real HTTP
  * server (`startEvalLiveServer`) before calling `runSession`. The new
@@ -96,12 +94,10 @@ vi.mock("@hyperidle/harness-registry/mcp", () => ({
 	})),
 }));
 
-// AU21 §9 Increment 12 (Decision H3), Wave E: `runEvalSession` now performs a
-// real `requireRunnableAgent`/`readServerConfig` bake before calling
-// `runSession` (mocked above) — this test's concern is adapter-pool
-// selection, not agent runnability, so those two reads are mocked here
-// rather than pulled onto a real DB (this is a `.test.ts` unit test, no DB
-// fixture).
+// `runEvalSession` performs a real `requireRunnableAgent`/`readServerConfig` bake
+// before calling `runSession` (mocked above) — this test's concern is adapter-pool
+// selection, not agent runnability, so those two reads are mocked here rather than
+// pulled onto a real DB (this is a `.test.ts` unit test, no DB fixture).
 vi.mock("@hyperidle/user", () => ({
 	requireRunnableAgent: vi.fn(
 		async () =>
