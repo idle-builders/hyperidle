@@ -1,23 +1,9 @@
 /**
- * AF1 RED — Failing tests for the typecheck gate verdict function.
- *
- * Tests the pure computeVerdict() function from tools/repo-gates/src/lib/typecheck-verdict.ts.
- * All tests import the module and assert on return values — no filesystem reads,
- * no execSync, no mocking. This is a proper unit test per CLAUDE.md.
- *
- * Acceptance criteria covered:
- * AC1: Gate covers all packages (structural — enforced by dynamic discovery in gate script).
- * AC2: Non-excepted file with type error → exit non-zero + file named.
- * AC3: Exception list contains exactly broken units (enforced by typecheck-debt.json contents).
- * AC4: npm run verify passes (integration — tested by running verify itself).
- * AC5: Removing a still-broken unit → gate fails.
- * Extra: Crashed package → gate fails (W1 crash-guard requirement).
- * Extra: Excepted-but-clean package → gate fails (stale ratchet).
- * Extra: Orphaned debt entry (package name not on disk) → validated separately by gate script.
- *
- * @lore AU37: moved here from framework/api-contract, where it was parked because the
- * module under test lived in scripts/lib/ (not a workspace package) and vitest projects
- * only cover workspace packages. tools/repo-gates is now that package.
+ * The pure `computeVerdict()` function from `tools/repo-gates/src/lib/typecheck-verdict.ts`:
+ * a non-excepted package with a type error fails the gate and is named in the result; an
+ * excepted package's errors are tolerated unless it crashes, or unless it has gone clean
+ * (a stale exception must be removed, not kept as dead tolerance); removing a still-broken
+ * unit from the exception list fails the gate.
  */
 
 import { describe, expect, it } from "vitest";
@@ -55,7 +41,6 @@ describe("computeVerdict — happy path", () => {
 	});
 
 	it("excepted package with errors → PASS (tolerated)", () => {
-		// AC3 + AC2 negative: errors inside an excepted unit do not fail the gate.
 		const results = [makeResult("api-contract", 0, false), makeResult("shared", 155, true)];
 		const verdict = computeVerdict(results);
 		expect(verdict.outcome).toBe("PASS");
@@ -74,7 +59,7 @@ describe("computeVerdict — happy path", () => {
 	});
 });
 
-describe("computeVerdict — AC2: non-excepted package with errors → FAIL", () => {
+describe("computeVerdict — a non-excepted package with errors → FAIL", () => {
 	it("single non-excepted package with errors → FAIL", () => {
 		// Simulates: const x: string = 123 injected into api-contract
 		const results = [
@@ -90,7 +75,7 @@ describe("computeVerdict — AC2: non-excepted package with errors → FAIL", ()
 		expect(verdict.failedNonExcepted[0]?.name).toBe("api-contract");
 	});
 
-	it("failed package is named in the result (AC2: names the file)", () => {
+	it("failed package is named in the result", () => {
 		const errorLine =
 			"framework/api-contract/src/index.ts:5:7 - error TS2322: Type 'number' is not assignable to type 'string'.";
 		const results = [makeResult("api-contract", 1, false, { errorLines: [errorLine] })];
@@ -113,7 +98,7 @@ describe("computeVerdict — AC2: non-excepted package with errors → FAIL", ()
 	});
 });
 
-describe("computeVerdict — AC5: removing still-broken unit from list → FAIL", () => {
+describe("computeVerdict — removing a still-broken unit from the list → FAIL", () => {
 	it("previously-excepted package now non-excepted with errors → FAIL", () => {
 		// Simulates removing 'shared' from typecheck-debt.json while it still has 155 errors.
 		const results = [
@@ -126,7 +111,7 @@ describe("computeVerdict — AC5: removing still-broken unit from list → FAIL"
 	});
 });
 
-describe("computeVerdict — crash guard (W1)", () => {
+describe("computeVerdict — crash guard", () => {
 	it("crashed package (tsc exit!=0, zero parseable lines) → FAIL regardless of exception status", () => {
 		// Simulates: corrupted tsconfig.json → tsc exits non-zero with no parseable output.
 		const results = [
@@ -198,8 +183,6 @@ describe("computeVerdict — stale ratchet", () => {
 
 describe("computeVerdict — combined scenarios", () => {
 	it("full passing scenario: clean non-excepted + broken excepted packages → PASS", () => {
-		// Represents the expected state after AF1 ships: api-contract clean,
-		// all 10 broken packages quarantined.
 		const brokenPackages = [
 			"shared",
 			"db",

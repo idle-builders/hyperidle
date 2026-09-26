@@ -1,12 +1,10 @@
 /**
- * AU27 Increment 3 (Decision 3) — the return-gate's required-subset
- * narrowing. Plain membership in the closed return set both under-binds a
- * session with a specific required action (a session could satisfy the gate
- * with either of the two names, not the one it actually needs) and
- * over-permits one (the assistant has both `send_message` and `edit_task` in
- * its ordinary registry too). `isRequiredReturnAction`/
- * `buildForceReturnMessage`/`shouldForceReturn`'s `required` param close
- * that gap — the requirement is a SET, never a lone string.
+ * The return-gate's required-subset narrowing: plain membership in the closed return set both
+ * under-binds a session with a specific required action (it could satisfy the gate with either of
+ * two names, not the one it actually needs) and over-permits one (the assistant has both
+ * `send_message` and `edit_task` in its ordinary registry too). `isRequiredReturnAction`/
+ * `buildForceReturnMessage`/`shouldForceReturn`'s `required` param close that gap — the requirement
+ * is a SET, never a lone string.
  */
 import { describe, expect, it } from "vitest";
 import {

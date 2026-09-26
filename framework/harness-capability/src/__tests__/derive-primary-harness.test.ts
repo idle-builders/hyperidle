@@ -1,9 +1,7 @@
 /**
- * AV1 — derivePrimaryHarness unit tests
- *
- * AC1: Picker derives a PrimaryHarnessConfig from a HarnessCapabilityDescriptor.
- * - Model selection filters on selectable === true
- * - Falls back to claude-sonnet-4-6 / anthropic when no selectable model
+ * `derivePrimaryHarness` picks a `PrimaryHarnessConfig` from a `HarnessCapabilityDescriptor`: model
+ * selection filters on `selectable === true`, falling back to claude-sonnet-4-6/anthropic when no
+ * model is selectable.
  */
 
 import { describe, expect, it } from "vitest";

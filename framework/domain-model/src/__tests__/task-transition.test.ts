@@ -73,4 +73,4 @@ describe("task transition contract", () => {
 		expect(sourcesIntoBlocked).toEqual(["in_progress"]);
 	});
 });
-// TaskInvalidTransitionError is tested in @hyperidle/work (layers/core-api/work/src/__tests__/errors.test.ts)
+// TaskInvalidTransitionError is tested in layers/core-api/task/src/__tests__/errors.test.ts

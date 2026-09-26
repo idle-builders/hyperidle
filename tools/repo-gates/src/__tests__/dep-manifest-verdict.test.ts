@@ -1,12 +1,6 @@
 /**
- * AU28 — unit tests for the import-vs-manifest verdict.
- *
- * Tests the pure functions from tools/repo-gates/src/lib/dep-manifest-verdict.ts: facts in,
- * divergences out. No filesystem, no mocks.
- *
- * @lore AU37: moved here from framework/api-contract, where it was parked for the same
- * reason typecheck-verdict.test.ts was — the module under test lived in scripts/lib/ (not
- * a workspace package) and vitest projects only cover workspace packages.
+ * The pure functions from tools/repo-gates/src/lib/dep-manifest-verdict.ts: facts in,
+ * divergences out.
  */
 
 import { describe, expect, it } from "vitest";

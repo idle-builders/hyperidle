@@ -32,7 +32,7 @@ async function seedWorld(db: HyperIdleDb): Promise<void> {
 	await seedDemoWorld(db);
 }
 
-describe("AX1: lived-in demo world", () => {
+describe("lived-in demo world", () => {
 	// @lore BB1: bets table dropped. Root tasks (parent_task_id IS NULL) replace bets.
 	// State mapping: draft→proposed, active→in_progress, completed→done, killed→killed.
 	test("root tasks span all four states with outcomes on closed tasks", async ({ db }) => {

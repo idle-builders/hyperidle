@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-describe("L18 — plain message payload with blockId", () => {
+describe("plain message payload with blockId", () => {
 	it("plain payload round-trips with blockId", () => {
 		// The payload schema must accept blockId as an optional string
 		const payload = { text: "Discuss this block", blockId: "block-abc-123" };

@@ -11,7 +11,7 @@ describe("docEntryId", () => {
 		expect(docEntryId("docs/product/index.md")).toBe("product");
 	});
 
-	test("keeps nested guide paths intact for the follow-up docs WP", () => {
+	test("keeps nested guide paths intact", () => {
 		expect(docEntryId("docs/guides/user/agents.md")).toBe("guides/user/agents");
 	});
 });

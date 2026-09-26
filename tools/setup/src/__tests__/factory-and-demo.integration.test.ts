@@ -13,7 +13,7 @@ async function queryRows<T extends Record<string, unknown>>(
 	return (result as { rows: T[] }).rows;
 }
 
-describe("A2: Seed script", () => {
+describe("seed script", () => {
 	test("populates at least 1 row per major table", async ({ db }) => {
 		await runFactoryBootstrap(db);
 		await seedDemoWorld(db);
@@ -61,7 +61,7 @@ describe("A2: Seed script", () => {
 	});
 });
 
-describe("AF17: seed() = runFactoryBootstrap + seedDemoWorld", () => {
+describe("seed() = runFactoryBootstrap + seedDemoWorld", () => {
 	test("seed() produces factory layer (bootstrap) + demo world (Acme team)", async ({ db }) => {
 		await runFactoryBootstrap(db);
 		await seedDemoWorld(db);

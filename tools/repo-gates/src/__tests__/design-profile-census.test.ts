@@ -4,7 +4,7 @@ import {
 	findLiveBorderCountMismatches,
 } from "../lib/design-profile-census.js";
 
-describe("AZ16 live profile census", () => {
+describe("live profile census", () => {
 	test("counts semantic consumers separately from raw fields and foreign subjects", () => {
 		const census = collectDesignProfileCensus([
 			{

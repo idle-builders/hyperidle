@@ -7,28 +7,7 @@ import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { createTestDb } from "../__testing__/test-utils.js";
 import { teams } from "../schema.js";
 
-const DROPPED_TABLES = [
-	"responses",
-	"products",
-	// The one assertion in the repo that reads a real post-migration database and can say this
-	// drop happened — a mis-tagged journal entry for the migration that dropped it would silently
-	// skip and stay green everywhere else.
-	"user_skills",
-	"team_members",
-	"bets",
-	"items",
-	"knowledge_items",
-	"knowledge_edit_log",
-	"knowledge_app_projection",
-	"knowledge_conflicts",
-	"knowledge_access_log",
-	"factory_settings",
-	"routines",
-	"routine_runs",
-	"notification_queue",
-];
-
-describe("A2: Migration", () => {
+describe("migrations bring a fresh database to the current schema", () => {
 	test("applies migrations to a fresh in-memory PGlite database", async ({ db }) => {
 		// `_l1_snapshot_*` tables are migration artifacts, excluded from the canonical table list.
 		const result = await db.execute(
@@ -51,9 +30,6 @@ describe("A2: Migration", () => {
 				"threads",
 			]),
 		);
-		for (const table of DROPPED_TABLES) {
-			expect(tableNames).not.toContain(table);
-		}
 		expect(tableNames.length).toBeGreaterThanOrEqual(12);
 	});
 

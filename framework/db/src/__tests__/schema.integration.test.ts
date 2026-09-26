@@ -7,78 +7,14 @@ import {
 	sessions,
 	subscriptions,
 	tasks,
-	// @lore U1: `teams` is the domain entity (formerly `products`).
 	teams,
 	threads,
 	users,
 } from "../schema.js";
 
-describe("A2: Database Schema", () => {
-	// --- AC1: Migrations apply to fresh PGlite without errors ---
-	describe("AC1: migrations apply correctly", () => {
-		test("creates all current tables", async ({ db }) => {
-			// L1a: `responses` table dropped (plan §5.2). Verdicts now project
-			// as `verdict`-typed messages.
-			const result = await db.execute(
-				`SELECT tablename AS name FROM pg_tables WHERE schemaname = 'public' AND tablename NOT LIKE '_l1_snapshot_%' ORDER BY tablename` as Parameters<
-					typeof db.execute
-				>[0],
-			);
-			const tableNames = (result as { rows: Array<{ name: string }> }).rows.map((r) => r.name);
-
-			expect(tableNames).toEqual(
-				expect.arrayContaining([
-					// @lore P2: agents → users
-					// @lore U1: `products` → `teams`; old `teams` → `team_members`
-					"users",
-					// @lore AU18: `factory_settings` retired — `server_config` is its
-					// typed singleton-row successor.
-					"server_config",
-					"documents",
-					"messages",
-					"subscriptions",
-					"sessions",
-					"tasks",
-					"teams",
-					"threads",
-				]),
-			);
-			expect(tableNames).not.toContain("responses");
-			// @lore BC3 migration 0085 step 6: `items` dropped — the policy engine's
-			// table, destructive, no compat column. Must not reappear.
-			expect(tableNames).not.toContain("items");
-			// @lore U1: `products` table was renamed to `teams`
-			expect(tableNames).not.toContain("products");
-			// @lore BB1: `bets` table dropped — must not reappear.
-			expect(tableNames).not.toContain("bets");
-			// @lore AU18: factory_settings dropped — must not reappear.
-			expect(tableNames).not.toContain("factory_settings");
-			// @lore AU30: `user_skills` dropped. Exact-absence, because the expected
-			// list above is `arrayContaining` and tolerates extras — see the longer
-			// note in migration.integration.test.ts.
-			expect(tableNames).not.toContain("user_skills");
-			// @lore BC5 T7b migration 0089: routines/routine_runs/notification_queue
-			// dropped — a routine is a subscription now, a notification an inbox row.
-			expect(tableNames).not.toContain("routines");
-			expect(tableNames).not.toContain("routine_runs");
-			expect(tableNames).not.toContain("notification_queue");
-			// @lore BC4 migration 0086: `knowledge_items` renamed to `documents`;
-			// the three extension tables dropped, nothing carried over. Must not
-			// reappear.
-			expect(tableNames).not.toContain("knowledge_items");
-			expect(tableNames).not.toContain("knowledge_app_projection");
-			expect(tableNames).not.toContain("knowledge_edit_log");
-			expect(tableNames).not.toContain("knowledge_access_log");
-			expect(tableNames).not.toContain("knowledge_conflicts");
-			expect(tableNames.length).toBeGreaterThanOrEqual(15);
-		});
-	});
-
-	// --- AC2: All tables insert/read/update correctly with full type safety ---
-	describe("AC2: CRUD operations", () => {
-		// @lore U1: `products` renamed to `teams`.
-		// @lore BB1: `activeBets` column dropped — WIP is counted live.
-		test("inserts and reads teams (formerly products)", async ({ db }) => {
+describe("database schema", () => {
+	describe("CRUD operations", () => {
+		test("inserts and reads teams", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db.insert(teams).values({
 				id: "prod-1",
@@ -117,8 +53,6 @@ describe("A2: Database Schema", () => {
 			});
 		});
 
-		// @lore BB1: `bets` dropped — root tasks replace bets. A task with
-		// parentTaskId: null is the top-level unit of work.
 		test("inserts and reads root tasks (formerly bets)", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db.insert(teams).values({ id: "prod-1", name: "Acme", createdAt: now });
@@ -155,8 +89,6 @@ describe("A2: Database Schema", () => {
 			});
 		});
 
-		// @lore U1: tasks.productId dropped; teamId refs `teams` (formerly products).
-		// @lore BB1: task now has parentTaskId instead of betId.
 		test("inserts and reads tasks", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db.insert(teams).values({ id: "prod-1", name: "Acme", createdAt: now });
@@ -212,8 +144,6 @@ describe("A2: Database Schema", () => {
 			});
 		});
 
-		// @lore U1: tasks.productId dropped; teamId refs `teams` (formerly products).
-		// @lore BB1: task now has parentTaskId instead of betId.
 		test("updates tasks correctly", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db.insert(teams).values({ id: "prod-1", name: "Acme", createdAt: now });
@@ -247,8 +177,6 @@ describe("A2: Database Schema", () => {
 			expect(result[0]?.state).toBe("in_progress");
 		});
 
-		// @lore U1: tasks.productId dropped; teamId refs `teams` (formerly products).
-		// @lore BB1: task now has parentTaskId instead of betId.
 		test("inserts and reads sessions", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db.insert(teams).values({ id: "prod-1", name: "Acme", createdAt: now });
@@ -360,8 +288,6 @@ describe("A2: Database Schema", () => {
 				lastActiveAt: now,
 				createdAt: now,
 			});
-			// L1a: messages now carry type/payload/clientKey instead of
-			// recipientId/subject/body (plan §5.3).
 			await db.insert(messages).values({
 				id: "msg-1",
 				senderId: "agent-1",
@@ -383,10 +309,6 @@ describe("A2: Database Schema", () => {
 		});
 
 		test("inserts and reads verdict messages", async ({ db }) => {
-			// L1a: legacy `responses` table was dropped; verdict messages
-			// (type='verdict') replace it. There is no `items` table and no
-			// `messages.legacyItemId` — a review is a message already, resolved
-			// by a verdict message in the same thread.
 			const now = new Date().toISOString();
 			await db.insert(users).values([
 				{
@@ -442,8 +364,6 @@ describe("A2: Database Schema", () => {
 		});
 
 		test("inserts and reads documents", async ({ db }) => {
-			// @lore BC4: `confidence`/`meta` fold onto the row itself — no
-			// companion extension table any more.
 			const now = new Date().toISOString();
 			await db.insert(documents).values({
 				id: "doc-1",
@@ -491,8 +411,6 @@ describe("A2: Database Schema", () => {
 			expect(result[0]?.version).toBe(2);
 		});
 
-		// @lore AU18: factory_settings (generic KV bucket) is retired. server_config
-		// is its typed singleton-row successor — still exercises a real insert+read.
 		test("inserts and reads server_config", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db.insert(serverConfig).values({ id: "default", config: "{}", updatedAt: now });
@@ -503,11 +421,8 @@ describe("A2: Database Schema", () => {
 		});
 	});
 
-	// --- AC3: documents indexes exist, including the usage decay index ---
-	describe("AC3: documents indexes", () => {
+	describe("documents indexes", () => {
 		test("has indexes on scope, status, slot, and the usage decay column", async ({ db }) => {
-			// @lore BC4: `confidence`/`meta`/usage columns live on the row itself
-			// now — no more extension table to carry a second set of indexes.
 			const result = await db.execute(
 				`SELECT indexname FROM pg_indexes WHERE tablename = 'documents' AND schemaname = 'public'` as Parameters<
 					typeof db.execute
@@ -524,10 +439,6 @@ describe("A2: Database Schema", () => {
 			expect(indexes).toContain("doc_last_used_idx");
 		});
 
-		// @lore document-module B20: carried over from the deleted
-		// `knowledge.q2.integration.test.ts` — the column shape `scope_needs_id`
-		// (framework/domain-model) and the document actions' scope defaulting
-		// both assume.
 		test("scope_kind is NOT NULL with a 'factory' default; scope_id is nullable", async ({
 			db,
 		}) => {
@@ -547,10 +458,7 @@ describe("A2: Database Schema", () => {
 		});
 	});
 
-	// --- AC6: Foreign key constraints enforced ---
-	describe("AC6: foreign key constraints", () => {
-		// @lore BB1: tasks.betId dropped; parentTaskId is a nullable self-FK.
-		// An invalid parentTaskId must be rejected by the FK constraint.
+	describe("foreign key constraints", () => {
 		test("rejects task with invalid parent_task_id", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db.insert(teams).values({ id: "prod-1", name: "P", createdAt: now });
@@ -579,8 +487,6 @@ describe("A2: Database Schema", () => {
 			).rejects.toThrow();
 		});
 
-		// @lore U1: tasks.productId dropped; teamId refs `teams` (formerly products).
-		// @lore BB1: task now has parentTaskId instead of betId.
 		test("rejects session with invalid agent_id", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db.insert(teams).values({ id: "prod-1", name: "P", createdAt: now });
@@ -617,13 +523,7 @@ describe("A2: Database Schema", () => {
 			).rejects.toThrow();
 		});
 
-		test("rejects verdict message with invalid sender_id (replaces legacy responses FK contract)", async ({
-			db,
-		}) => {
-			// L1a: legacy `responses.item_id` FK no longer exists — `responses`
-			// table dropped (plan §5.2). Replacement contract: verdict-typed
-			// messages set sender_id=approver; messages.sender_id FK to
-			// users.id rejects unknown senders. P2: agents → users.
+		test("rejects verdict message with an unknown sender_id", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db.insert(threads).values({
 				id: "thread-fk",

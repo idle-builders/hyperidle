@@ -231,7 +231,7 @@ const label = (row: DecidedRow): string => `${row.source} → ${row.target} [${r
 
 // -------------------------------------------------------------------------------------------
 
-describe("AU28 — the decided rule set is intact", () => {
+describe("the decided rule set is intact", () => {
 	it("holds exactly the 139 decided rows with the decided totals", () => {
 		expect(decided.rows).toHaveLength(139);
 		expect(decided.totals.rows).toBe(139);
@@ -277,7 +277,7 @@ describe("AU28 — the decided rule set is intact", () => {
 	});
 });
 
-describe("AU28 — fifteen clauses derive all 358 decided verdicts", () => {
+describe("fifteen clauses derive all 358 decided verdicts", () => {
 	// W-TEST-2: `expect(wrong).toEqual([])` over a `.filter()` passes vacuously when `rows` is empty
 	// — a mis-parsed or emptied decided-rules.json would read as a total green. The counter is what
 	// makes the loop assert that it RAN, and it is the reason the row count is stated twice.
@@ -344,7 +344,7 @@ describe("AU28 — fifteen clauses derive all 358 decided verdicts", () => {
 	});
 });
 
-describe("AU28 — the clauses hold beyond the decided rows", () => {
+describe("the clauses hold beyond the decided rows", () => {
 	const layerPkg = (name: string): Crossing["source"] => ({ sort: "package", name, role: "layer" });
 	const servicePkg = (name: string, layer: string): Crossing["source"] => ({
 		sort: "package",
@@ -623,7 +623,7 @@ const packageNames = new Set(
 	).map((p) => p.name),
 );
 
-describe("AU28 — the registries are honest", () => {
+describe("the registries are honest", () => {
 	it("claims every table the schema declares, and no phantom ones", () => {
 		// A collapse guard, not a census: the next two assertions are what prove the
 		// registry honest. The pass that dropped five unused tables took this from 44 to 39.
@@ -708,7 +708,7 @@ describe("AU28 — the registries are honest", () => {
 	});
 });
 
-describe("AU28 — the model reads the real table registry", () => {
+describe("the model reads the real table registry", () => {
 	it("lets the owner in and keeps everyone else out, for every owned table", () => {
 		const wrong: string[] = [];
 		for (const [table, owner] of Object.entries(tableOwners.owners)) {
@@ -757,7 +757,7 @@ describe("AU28 — the model reads the real table registry", () => {
 	});
 });
 
-describe("AU28 — a package's role comes from the workspace declaration, never its path", () => {
+describe("a package's role comes from the workspace declaration, never its path", () => {
 	const rules = architecture.roles.byWorkspacePattern;
 	const read = (p: string): string => JSON.stringify({ name: `@hyperidle/${p.split("/").at(-2)}` });
 

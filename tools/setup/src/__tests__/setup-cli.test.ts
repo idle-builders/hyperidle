@@ -31,7 +31,7 @@ afterEach(() => {
 	fs.rmSync(tmpdir, { recursive: true, force: true });
 });
 
-describe("H4 AC1: `bun run setup --profile laptop`", () => {
+describe("`bun run setup --profile laptop`", () => {
 	it("creates PGlite data dir, runs migrations, seeds — end to end", {
 		timeout: 60_000,
 	}, async () => {
@@ -91,7 +91,7 @@ describe("H4 AC1: `bun run setup --profile laptop`", () => {
 	});
 });
 
-describe("H4 AC2: `bun run setup --profile vps`", () => {
+describe("`bun run setup --profile vps`", () => {
 	it("prints Docker Compose bring-up instructions", async () => {
 		const { io, captured } = makeIo();
 		const exit = await runSetup(["--profile", "vps", "--dry-run"], io, { env: {} });
@@ -110,7 +110,7 @@ describe("H4 AC2: `bun run setup --profile vps`", () => {
 	});
 });
 
-describe("H4: CLI argument errors", () => {
+describe("CLI argument errors", () => {
 	it("rejects unknown profile", async () => {
 		const { io, captured } = makeIo();
 		const exit = await runSetup(["--profile", "bogus"], io, { env: {} });
@@ -135,7 +135,7 @@ describe("H4: CLI argument errors", () => {
 	});
 });
 
-describe("H4 security: --db-path validation", () => {
+describe("--db-path validation", () => {
 	it("rejects paths with .. traversal segments", () => {
 		expect(() => validateDbPath("../../../etc/passwd", tmpdir)).toThrow(/'\.\.'/);
 		expect(() => validateDbPath("a/b/../c.db", tmpdir)).toThrow(/'\.\.'/);
@@ -183,7 +183,7 @@ describe("H4 security: --db-path validation", () => {
 	});
 });
 
-describe("AF17 CRITICAL-2: --demo flag behavior", () => {
+describe("--demo flag behavior", () => {
 	it("without --demo: setup produces no demo team (factory only)", {
 		timeout: 60_000,
 	}, async () => {
@@ -257,7 +257,7 @@ describe("AF17 CRITICAL-2: --demo flag behavior", () => {
 	});
 });
 
-describe("H4 idempotency: laptop setup is safe to run twice", () => {
+describe("laptop setup is safe to run twice", () => {
 	it("running setup --profile laptop twice does not corrupt the DB", {
 		timeout: 60_000,
 	}, async () => {

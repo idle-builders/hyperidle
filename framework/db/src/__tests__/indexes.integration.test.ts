@@ -8,7 +8,7 @@ import type { HyperIdleDb } from "../connection.js";
  * PGlite runs real Postgres semantics so index presence is authoritative.
  */
 
-describe("I3: secondary index coverage", () => {
+describe("secondary index coverage", () => {
 	async function indexesFor(db: HyperIdleDb, table: string): Promise<string[]> {
 		const result = await db.execute(
 			`SELECT indexname FROM pg_indexes WHERE tablename = '${table}' AND schemaname = 'public'` as Parameters<

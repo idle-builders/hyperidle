@@ -82,7 +82,7 @@ const kinds = (found: ReturnType<typeof detect>, kind: string): string[] =>
 
 // -------------------------------------------------------------------------------------------
 
-describe("AU28 — the table detector", () => {
+describe("the table detector", () => {
 	it("tells a read from a write, and names the table", () => {
 		const found = detect({
 			"layers/core-api/work/src/q.ts": `
@@ -174,7 +174,7 @@ describe("AU28 — the table detector", () => {
 	});
 });
 
-describe("AU28 — raw SQL names the table as a string", () => {
+describe("raw SQL names the table as a string", () => {
 	it("tells a write statement from a read one, and names the export symbol", () => {
 		const found = detect({
 			"layers/core-api/work/src/raw.ts": `
@@ -247,7 +247,7 @@ describe("AU28 — raw SQL names the table as a string", () => {
 	});
 });
 
-describe("AU28 — a production file in no package fails CLOSED", () => {
+describe("a production file in no package fails CLOSED", () => {
 	const rogue = {
 		"layers/rogue/src/backdoor.ts": `
 				import { bets } from "@hyperidle/db";
@@ -284,7 +284,7 @@ describe("AU28 — a production file in no package fails CLOSED", () => {
 	});
 });
 
-describe("AU28 — the event detector", () => {
+describe("the event detector", () => {
 	it("counts an emit and a subscribe of a declared event", () => {
 		const found = detect({
 			"layers/core-api/work/src/e.ts": `
@@ -312,7 +312,7 @@ describe("AU28 — the event detector", () => {
 	});
 });
 
-describe("AU28 — the capability detector", () => {
+describe("the capability detector", () => {
 	it("catches a vendor SDK import and an agent CLI spawn", () => {
 		const found = detect({
 			"layers/core-api/work/src/c.ts": `
@@ -338,7 +338,7 @@ describe("AU28 — the capability detector", () => {
 	});
 });
 
-describe("AU28 — the dependency-injection detector", () => {
+describe("the dependency-injection detector", () => {
 	it("records the crossing between the CALLED package and the package the value came from", () => {
 		const found = detect({
 			"layers/core-api/work/src/thing.ts": "export const makeThing = (_dep: unknown) => 1;",
@@ -382,7 +382,7 @@ describe("AU28 — the dependency-injection detector", () => {
 	});
 });
 
-describe("AU28 — resolving a dialled path to the layer that serves it", () => {
+describe("resolving a dialled path to the layer that serves it", () => {
 	const routes = [
 		{ path: "/ws/worker", layer: "agent-orchestration" },
 		{ path: "/ws", layer: "core-api" },
@@ -404,7 +404,7 @@ describe("AU28 — resolving a dialled path to the layer that serves it", () => 
 	});
 });
 
-describe("AU28 — database surfaces", () => {
+describe("database surfaces", () => {
 	const config: DatabasePackageConfig = {
 		packageName: "db",
 		sourceRoot: "db/src",
@@ -459,7 +459,7 @@ describe("AU28 — database surfaces", () => {
 	});
 });
 
-describe("AU28 — re-export laundering", () => {
+describe("re-export laundering", () => {
 	/**
 	 * A real-shaped database package plus a service barrel, because the whole bypass lives in the
 	 * relationship between the two: both hops are individually legal and the composition is not.
@@ -666,7 +666,7 @@ describe("AU28 — re-export laundering", () => {
 	});
 });
 
-describe("AU28 — how a crossing is named", () => {
+describe("how a crossing is named", () => {
 	const service: Actor = { sort: "package", name: "work", role: "service", layer: "core-api" };
 	const application: Actor = { sort: "package", name: "desktop", role: "application" };
 
@@ -722,7 +722,7 @@ describe("AU28 — how a crossing is named", () => {
 	});
 });
 
-describe("AU28 — companion rows (Ruling 13)", () => {
+describe("companion rows (Ruling 13)", () => {
 	/** An owner that writes two rows in one call, and one that dispatches to a single insert. */
 	const OWNERS = {
 		"layers/core-api/org/src/team-lookup.ts": `

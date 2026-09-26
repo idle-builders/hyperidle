@@ -22,7 +22,7 @@ import { tasks, teams, threads } from "../schema.js";
 
 const NOW = new Date().toISOString();
 
-describe("I3: FK actions — RESTRICT on reference data", () => {
+describe("FK actions — RESTRICT on reference data", () => {
 	test("rejects deleting a team while a task references it", async ({ db }) => {
 		// @lore BB1: tasks.team_id → teams.id must block team deletion.
 		await db.insert(teams).values({

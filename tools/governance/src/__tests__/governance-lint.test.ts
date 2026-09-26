@@ -34,7 +34,7 @@ const emptyCensus = () => buildCensus({ files: [], readFile: () => "" });
  */
 // ---------------------------------------------------------------------------
 
-describe("AU28 classifyFile — the settled production/development rule", () => {
+describe("classifyFile — the settled production/development rule", () => {
 	it.each([
 		["framework/db/src/__testing__/test-utils.ts", "dunder-segment"],
 		["layers/core-ui/src/pages/__fixtures__/x.ts", "dunder-segment"],
@@ -98,7 +98,7 @@ describe("AU28 classifyFile — the settled production/development rule", () => 
 	});
 });
 
-describe("AU28 step 2 — classification by ROLE ROOT", () => {
+describe("step 2 — classification by ROLE ROOT", () => {
 	it("keeps the production and development roots disjoint and non-empty", () => {
 		expect(PRODUCTION_ROOTS.length).toBeGreaterThan(0);
 		expect(DEVELOPMENT_ROOTS.length).toBeGreaterThan(0);
@@ -138,7 +138,7 @@ describe("AU28 step 2 — classification by ROLE ROOT", () => {
 	});
 });
 
-describe("AU28 clause precedence — declared, not incidental", () => {
+describe("clause precedence — declared, not incidental", () => {
 	it("array order of CLASSIFICATION_PATTERNS is the precedence", () => {
 		expect(CLASSIFICATION_PATTERNS.map((p) => p.clause)).toEqual([
 			"stories-suffix",
@@ -206,7 +206,7 @@ describe("AU28 clause precedence — declared, not incidental", () => {
 	});
 });
 
-describe("AU28 buildCensus — totality and injection", () => {
+describe("buildCensus — totality and injection", () => {
 	it("classifies every injected file with no residue", () => {
 		const files = [
 			"layers/app/src/index.ts",
@@ -256,7 +256,7 @@ describe("AU28 buildCensus — totality and injection", () => {
 	});
 });
 
-describe("AU28 collectSpecifiers — AST, never regex", () => {
+describe("collectSpecifiers — AST, never regex", () => {
 	it.each([
 		['import { a } from "./x.js";', "./x.js"],
 		['export { a } from "./x.js";', "./x.js"],
@@ -282,7 +282,7 @@ describe("AU28 collectSpecifiers — AST, never regex", () => {
 	});
 });
 
-describe("AU28 runRules — a rule that scans nothing is a build error", () => {
+describe("runRules — a rule that scans nothing is a build error", () => {
 	// This is the single defect that killed the entire inherited guard set: au6 and au9 both scanned
 	// `packages/server/src`, deleted two tracks earlier, and both printed PASS over zero files.
 	const inert: Rule = {
@@ -360,7 +360,7 @@ describe("AU28 runRules — a rule that scans nothing is a build error", () => {
 	});
 });
 
-describe("AU28 no-production-imports-development — the crossing rule", () => {
+describe("no-production-imports-development — the crossing rule", () => {
 	const treeCensus = (tree: Record<string, string>) =>
 		buildCensus({ files: Object.keys(tree), readFile: (p) => tree[p] ?? "" });
 
@@ -414,7 +414,7 @@ describe("AU28 no-production-imports-development — the crossing rule", () => {
 	});
 });
 
-describe("AU28 classification-total", () => {
+describe("classification-total", () => {
 	it("is clean for a well-formed census", () => {
 		const census = buildCensus({ files: ["layers/a/src/x.ts", "docs/y.md"], readFile: () => "" });
 		expect(classificationTotal.evaluate(census)).toHaveLength(0);
@@ -435,7 +435,7 @@ describe("AU28 classification-total", () => {
 // emptied it — "a ledger that has emptied is not a rule with nothing to say, it is a rule with
 // nothing left to be about." This describe block tested that rule directly; nothing survives it.
 
-describe("AU28 --fixtures self-test — the detector proves itself on a synthetic tree", () => {
+describe("--fixtures self-test — the detector proves itself on a synthetic tree", () => {
 	// The only technique that would have caught au6/au9 going no-op, because it
 	// proves the detector works independently of whether the live tree happens to be clean.
 	it("has cases", () => {

@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { createTestDb } from "../__testing__/test-utils.js";
 import { DEFAULT_PG_POOL_SIZE, parsePgPoolSize } from "../connection.js";
 
-describe("H4 AC5: PostgreSQL pool-size parsing", () => {
+describe("PostgreSQL pool-size parsing", () => {
 	it("parsePgPoolSize returns default when undefined", () => {
 		expect(parsePgPoolSize(undefined)).toBe(DEFAULT_PG_POOL_SIZE);
 		expect(DEFAULT_PG_POOL_SIZE).toBe(10);
@@ -27,7 +27,7 @@ describe("H4 AC5: PostgreSQL pool-size parsing", () => {
 	});
 });
 
-describe("H4 AC3/AC4: In-memory Postgres via pglite (drizzle-orm/pglite)", () => {
+describe("in-memory Postgres via pglite (drizzle-orm/pglite)", () => {
 	// @lore test-infra: Uses createTestDb() directly because this test exercises
 	// the createTestDb API itself and needs explicit close() via try/finally.
 	it("createTestDb returns a usable Drizzle instance", { timeout: 15_000 }, async () => {

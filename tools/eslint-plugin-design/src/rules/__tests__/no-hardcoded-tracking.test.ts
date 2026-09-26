@@ -1,12 +1,7 @@
 /**
- * AI6 — RED phase: no-hardcoded-tracking rule tests.
- *
- * Rule: every tracking-[<number>em] in DS .tsx files (uppercase labels) must
- * use a token form instead. Allowlisted: negative-em title kerning
+ * `design/no-hardcoded-tracking` flags every `tracking-[<number>em]` in DS .tsx files (uppercase
+ * labels) — a token form must be used instead. Allowlisted: negative-em title kerning
  * (tracking-[-0.01em], tracking-[-0.005em]).
- *
- * These tests fail until the rule is created at
- * tools/eslint-plugin-design/src/rules/no-hardcoded-tracking.ts.
  */
 
 import { RuleTester } from "eslint";

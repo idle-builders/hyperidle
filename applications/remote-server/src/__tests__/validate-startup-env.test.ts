@@ -10,7 +10,7 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { validateStartupEnv } from "../validate-startup-env.js";
 
-describe("I2 A6 — validateStartupEnv", () => {
+describe("validateStartupEnv", () => {
 	afterEach(() => {
 		vi.unstubAllEnvs();
 	});

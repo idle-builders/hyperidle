@@ -225,11 +225,7 @@ describe("EventBus", () => {
 	});
 
 	// ---------------- I1 / EventBus resilience ----------------
-	// E1: a throwing handler must not block subsequent handlers on the
-	// same event type. Today's EventBus aborts the iteration on the first
-	// throw — this test is RED until the green phase wraps each handler in
-	// try/catch.
-	describe("I1 E1: throwing handler does not block subsequent handlers", () => {
+	describe("a throwing handler does not block subsequent handlers", () => {
 		it("continues delivering to remaining type-specific subscribers when one throws", () => {
 			const bus = new EventBus();
 			const subsequent = vi.fn();
@@ -245,9 +241,7 @@ describe("EventBus", () => {
 		});
 	});
 
-	// E2: the handler exception must be logged via `createLogger`. The
-	// mock at the top of this file captures calls to `.error(...)`.
-	describe("I1 E2: handler errors are logged", () => {
+	describe("handler errors are logged via createLogger", () => {
 		it("logs via createLogger.error when a handler throws", () => {
 			const bus = new EventBus();
 
@@ -266,9 +260,7 @@ describe("EventBus", () => {
 		});
 	});
 
-	// E3: wildcard subscribers must also isolate errors. A throwing
-	// wildcard handler must not block other wildcard handlers.
-	describe("I1 E3: wildcard path also isolates errors", () => {
+	describe("the wildcard subscriber path also isolates errors", () => {
 		it("continues delivering to remaining wildcard subscribers when one throws", () => {
 			const bus = new EventBus();
 			const subsequent = vi.fn();
