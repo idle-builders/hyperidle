@@ -1,23 +1,8 @@
 /**
- * AU13 red-phase: Work service owns reads AND writes to `bets`, `tasks`, `items`.
- *
- * Write-side coverage (plan §5.4, shipped PR #436):
- *   - createBet / createTask / createItem: plain inserts.
- *   - updateBetById / updateTaskById / updateItemById: plain by-id field-set.
- *   - transitionBetStatus / transitionTaskState: guarded CAS predicate +
- *     `.returning()`; returns `{ applied }`, never throws itself.
- *
- * Read-side coverage (reopened 2026-07-12, plan addendum §A3/§A5), written
- * BEFORE the read functions exist on `../work-service.ts`:
- *   - get*ById collapses (getBetById/getTaskById/getItemById).
- *   - list/filter AND-composition (listTasks), exact aggregate predicates
- *     (countBetsByTeamAndStatus), empty-ids short-circuit (listTasksByIds/
- *     listBetsByIds), the owned-primary + foreign-join functions
- *     (listBetTasksWithLatestSessionOutcome imports sessions;
- *     findRetroItemByThreadIds is items-only — the former threads join was
- *     decomposed per founder ruling 2026-07-12, zero cross-owned-table joins).
- *   - R5 tx-visibility: a read fn called with `tx` inside an open transaction
- *     must see an uncommitted row written earlier in the same `tx`.
+ * `task-service.ts` owns reads and writes to `tasks`: create/update are
+ * plain inserts and by-id field-sets, transition is a guarded CAS predicate
+ * returning `{ applied }` (never throws), get/list compose filters, and a
+ * read passed a live `tx` sees that tx's own uncommitted write.
  */
 import { type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
@@ -40,10 +25,7 @@ async function seedTeamAndAgent(db: HyperIdleDb): Promise<void> {
 	});
 }
 
-/**
- * @lore BC3 architecture.md §5: `tasks.threadId` is `NOT NULL` now — every
- * `work.create(db, "task", ...)` call needs a real thread row first.
- */
+/** @lore `tasks.threadId` is `NOT NULL` — every `work.create(db, "task", ...)` call needs a real thread row first. */
 async function seedTaskThread(db: HyperIdleDb, id: string): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(threads).values({
@@ -199,13 +181,6 @@ describe("work-service", () => {
 		});
 	});
 
-	// @lore BC3 architecture.md §5: describe("createItem / updateItemById")
-	// DELETED — both wrote the `items` table, which no longer exists.
-
-	// -------------------------------------------------------------------------
-	// AU13 read-ownership addendum — reads
-	// -------------------------------------------------------------------------
-
 	describe("getTaskById", () => {
 		test("returns the full row for an existing task", async ({ db }) => {
 			await seedTeamAndAgent(db);
@@ -278,7 +253,7 @@ describe("work-service", () => {
 
 		test("returns every task when opts are omitted", async ({ db }) => {
 			await seedTwoTasks(db);
-			// BB1: work.list(db, "task") returns ALL tasks including root (bet-1, task-1, task-2)
+			// work.list(db, "task") returns every task, including the root.
 			const rows = await work.list(db, "task");
 			expect(rows).toHaveLength(3);
 		});
@@ -343,9 +318,4 @@ describe("work-service", () => {
 			expect(empty).toEqual([]);
 		});
 	});
-
-	// @lore BC3 architecture.md §5: describe("getItemById / listItemsByThread"),
-	// describe("listQueuedItemsSince"), describe("findItemByReasoningMarker"),
-	// and describe("findRetroItemByThreadIds") all DELETED — every one read
-	// the `items` table, which no longer exists.
 });

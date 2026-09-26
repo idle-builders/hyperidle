@@ -206,12 +206,12 @@ export function registerCoreDomainServices(ctx: {
 	 */
 	readonly dispatcherDeps?: Omit<TaskDispatcherDeps, "db" | "eventBus">;
 }): Array<() => void> {
-	const { db, eventBus, agentOrchestration, editTask, sendMessage, adjustThread, editUser } = ctx;
+	const { db, eventBus, editTask, sendMessage, adjustThread, editUser } = ctx;
 	const disposers: Array<() => void> = [];
 
 	disposers.push(
 		identifyBootstrapOwner(
-			registerAgentRunAdmissionReactions(db, eventBus, agentOrchestration, {
+			registerAgentRunAdmissionReactions(db, eventBus, {
 				sendMessage,
 				adjustThread,
 			}),

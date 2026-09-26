@@ -162,7 +162,7 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 		if (!(sendMessageAction && adjustThreadAction)) {
 			throw new Error("buildCoreActions did not produce send_message/adjust_thread");
 		}
-		const unregister = registerAgentRunAdmissionReactions(db, eventBus, agentOrchestration, {
+		const unregister = registerAgentRunAdmissionReactions(db, eventBus, {
 			sendMessage: sendMessageAction.run as SendMessageRunFn,
 			adjustThread: adjustThreadAction.run as AdjustThreadRunFn,
 		});

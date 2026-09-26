@@ -1,11 +1,8 @@
 /**
- * User store READ behavior (AU12 rework).
- *
- * Proves the read functions return the same data, order, and projection the
- * migrated call sites relied on before the ownership cut: full-row getters
- * (present + absent), id-batch preservation, filter composition, in-
- * transaction reads (a read passed a live `tx` sees the same tx's
- * uncommitted write), and the full-row projection (no run-config fields).
+ * User store reads: full-row getters (present + absent), id-batch
+ * preservation, filter composition, in-transaction reads (a read passed a
+ * live `tx` sees the same tx's uncommitted write), and the full-row
+ * projection (no run-config fields — those live on `agent_run_config`).
  */
 
 import { type HyperIdleDb, teams } from "@hyperidle/db";
@@ -106,9 +103,8 @@ describe("user-store reads", () => {
 	test("listUsers(kind:ai) returns the full identity row, and no run-config fields", async ({
 		db,
 	}) => {
-		// @lore AU26 G1 (architecture §D-L): `systemPrompt` and the five other
-		// run-config fields moved to `agent_run_config` — `users` is purely the
-		// identity record now; the absence assertion pins that relocation.
+		// `systemPrompt` and the other run-config fields live on
+		// `agent_run_config` — `users` is purely the identity record.
 		await insertUser(
 			db,
 			userValues("ag1", {

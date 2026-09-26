@@ -70,24 +70,21 @@ async function flush(): Promise<void> {
 }
 
 /**
- * @lore AU44: The original vehicle for terminal failures (unbaked intent →
- * INVALID_WORK_SOURCE via resolveIntentInputInternal) is gone — bakedRequest is
- * now required and the unbaked drain path was removed. Each test now uses a
- * BAKED intent + a Postgres trigger that rejects the agent_session_requests
- * insert, forcing a MAX_ATTEMPTS_EXCEEDED terminal failure. The subscriber
- * reactions are unchanged — they fire on any terminal agent_run_admission_failed
- * regardless of failureCode.
+ * Every test drives a BAKED intent through a Postgres trigger that rejects
+ * the `agent_session_requests` insert, forcing a MAX_ATTEMPTS_EXCEEDED
+ * terminal failure — the subscriber reactions fire on any terminal
+ * `agent_run_admission_failed`, regardless of failureCode.
  *
- * @lore pool-trigger-leak: the service test pool shares one PGlite instance per
- * worker (isolate:false). truncateAllTables clears data but not DDL. The trigger
- * must be explicitly dropped after each test that installs it — via afterEach —
- * or it leaks into subsequent test files running on the same worker.
+ * @lore the service test pool shares one PGlite instance per worker
+ * (isolate:false); `truncateAllTables` clears data but not DDL, so the
+ * trigger must be dropped after each test that installs it (via
+ * `afterEach`) or it leaks into a sibling test file on the same worker.
  */
 let TriggerDb: HyperIdleDb | null = null;
 afterEach(async () => {
 	if (TriggerDb) {
 		await TriggerDb.execute(
-			sql`drop trigger if exists au44_reject_session_request_write_sub on agent_session_requests`,
+			sql`drop trigger if exists reject_session_request_write_sub on agent_session_requests`,
 		);
 		TriggerDb = null;
 	}
@@ -96,17 +93,17 @@ afterEach(async () => {
 async function rejectSessionRequestWrites(db: HyperIdleDb): Promise<void> {
 	TriggerDb = db;
 	await db.execute(
-		sql`drop trigger if exists au44_reject_session_request_write_sub on agent_session_requests`,
+		sql`drop trigger if exists reject_session_request_write_sub on agent_session_requests`,
 	);
 	await db.execute(sql`
-		create or replace function au44_reject_session_request_write_sub() returns trigger as $$
-		begin raise exception 'AU44 injected agent_session_requests write failure (subscriber vehicle)'; end;
+		create or replace function reject_session_request_write_sub() returns trigger as $$
+		begin raise exception 'injected agent_session_requests write failure (subscriber vehicle)'; end;
 		$$ language plpgsql
 	`);
 	await db.execute(sql`
-		create trigger au44_reject_session_request_write_sub
+		create trigger reject_session_request_write_sub
 		before insert on agent_session_requests
-		for each row execute function au44_reject_session_request_write_sub()
+		for each row execute function reject_session_request_write_sub()
 	`);
 }
 
@@ -185,8 +182,8 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 			id: "w0-sub-task-bet",
 			parentTaskId: null,
 			teamId: teamId,
-			title: "Wave 0 subscriber bet",
-			description: "Wave 0 subscriber bet",
+			title: "Subscriber test bet",
+			description: "Subscriber test bet",
 			state: "in_progress",
 			createdAt: NOW,
 			updatedAt: NOW,
@@ -205,7 +202,7 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 			id: "w0-sub-task",
 			parentTaskId: "w0-sub-task-bet",
 			teamId,
-			title: "Wave 0 subscriber task",
+			title: "Subscriber test task",
 			state: "accepted",
 			createdAt: NOW,
 			updatedAt: NOW,
@@ -225,7 +222,7 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 			.returning();
 
 		const deps = { ...queueDeps(db), eventBus };
-		// AU44: baked intent + trigger forces terminal failure.
+		// A baked intent + trigger forces terminal failure.
 		await rejectSessionRequestWrites(db);
 		await enqueueWorkIntent(db, {
 			kind: "task_run",
@@ -294,7 +291,7 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		});
 
 		const deps = { ...queueDeps(db), eventBus };
-		// AU44: baked intent + trigger forces terminal failure.
+		// A baked intent + trigger forces terminal failure.
 		await rejectSessionRequestWrites(db);
 		await enqueueWorkIntent(db, {
 			kind: "thread_turn",

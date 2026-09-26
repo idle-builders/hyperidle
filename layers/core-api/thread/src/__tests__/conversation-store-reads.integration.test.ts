@@ -1,10 +1,7 @@
 /**
- * Conversation store READ behavior (AU12 rework).
- *
- * Proves the read functions return the same data, order, and projection the
- * migrated call sites relied on before the ownership cut: full-row getters
- * (present + absent), order-sensitive message/thread lists, host-pair
- * scoping, and search's projected shape.
+ * Conversation store reads: full-row getters (present + absent),
+ * order-sensitive message/thread lists, host-pair scoping, and search's
+ * projected shape.
  */
 
 import { messages as messagesTable, threads, users } from "@hyperidle/db";
@@ -65,9 +62,9 @@ describe("conversation-store reads", () => {
 		await db.insert(threads).values(threadValues("t1"));
 		await db.insert(messagesTable).values(messageValues("m1", "t1", NOW));
 		expect((await findThread(db, { id: "t1" }))?.id).toBe("t1");
-		// @lore BC3: `findMessage` (the store's single-row-by-id read) has no
-		// production caller outside `@hyperidle/thread` itself — unexported.
-		// This is a plain fixture readback, not a call through the barrel.
+		// `findMessage` (the store's single-row-by-id read) has no production
+		// caller outside `@hyperidle/thread` itself — unexported. This is a
+		// plain fixture readback, not a call through the barrel.
 		const [messageRow] = await db.select().from(messagesTable).where(eq(messagesTable.id, "m1"));
 		expect(messageRow?.id).toBe("m1");
 		expect(await findThread(db, { id: "nope" })).toBeUndefined();

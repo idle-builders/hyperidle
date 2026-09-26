@@ -1,61 +1,9 @@
 /**
- * AU21 §9 Increment 10 (Decision H1, task-only — the `decomposition` half is
- * gone entirely via Increment 10a/Decision I) — RED.
- *
- * `registerWorkSessionEndReactions` (layers/core-api/src/services/
- * work-session-end-reactions.ts) does NOT YET EXIST — every test in this
- * file is RED via module resolution failure until the GREEN phase creates
- * it. This is the same `registeredBuses` WeakSet idempotency guard, explicit
- * `register*(db, eventBus)` wiring convention every reaction module in this
- * directory follows, applied to `task`'s post-session writeback.
- *
- * Per architecture.md §6 Decision H / §9 Increment 10: this subscriber reacts
- * to `agent_run_lifecycle_changed` ONLY — NOT `session_ended`. `session_ended`'s
- * `SessionOutcome` vocabulary ("completed"|"crashed"|"stopped"|"not_returned")
- * does not match `taskDispatchAttemptStore.updateIfActive`'s expected status
- * values ("completed"|"failed"|"cancelled"|"requested"|"running"), while
- * `AgentRunLifecycleChangedEvent.state` matches exactly and fires on every
- * terminal state including "completed" (`transition-run.ts`'s
- * `transitionAgentRunLifecycle`, `:115-124`).
- *
- * Target behavior:
- *   - `agent_run_lifecycle_changed` with `sourceKind:"task"` calls
- *     `taskDispatchAttemptStore.updateIfActive(tx, event.requestId, {status:
- *     event.state, sessionId})` — finalizing the `taskDispatchAttempts` row
- *     matched by `requestId` (NOT by its own `id`).
- *   - Idempotent: `updateIfActive`'s own `status IN ('requested','running')`
- *     guard means a duplicate/redelivered terminal event for an
- *     already-finalized row is a safe no-op — it can never move a row
- *     backwards or re-apply a stale `sessionId`.
- *   - A `sourceKind` other than `"task"` is a no-op (no `decomposition` case
- *     exists anymore — Decision I removed the entire mechanism).
- *
- * This is the literal replacement for `session-requests`'s own direct write
- * (`lifecycleProjectors.task` → `projectTask`, `service.ts:92-100`, calling
- * `deps.work.updateTaskDispatchAttemptIfActive` via raw cross-layer DI) — see
- * the companion RED test in `agent-lifecycle-projectors.integration.test.ts`
- * proving that path goes to zero calls once `lifecycleProjectors.task` flips
- * to `observeOnly`. Together: zero orchestration→core-api write for `task_run`
- * post-session finalize, the reaction lives entirely core-side, keyed off an
- * event orchestration already emits.
- *
- * AU21 §9 Increment 12 (Decision H3), Wave D (RED, added onto the file
- * above): `registerWorkSessionEndReactions` gains a SECOND, independent
- * subscription — `session_ended` — reacting to a task-sourced session's
- * accumulated per-tier token counts (`SessionEndedEvent.tokensByTier`,
- * additive payload growth — see the companion RED test in
- * `framework/domain-model/src/__tests__/session-ended-event-tokens-by-tier-payload.test.ts`)
- * by merging them into the owning bet's `bets.tokensActualJson`. This is the
- * literal replacement for `run-orchestration/provisioner.ts`'s deleted direct
- * `ports.work.updateBetById` write (`accumulateSessionTokensOnBet`,
- * `provisioner.ts:649-683`) — called at every one of the four session-end
- * branches (crash / budget_exhausted / not_returned / normal completion),
- * always AFTER that branch's own `session_ended`-emitting `transitionRun`
- * call, so `session_ended` is a clean always-fires-before hook for this
- * writeback. See the `describe("registerWorkSessionEndReactions — Wave D
- * session_ended bet-token writeback")` block below — every test in it is RED
- * today because the production reaction does not yet subscribe to
- * `session_ended` at all for this purpose.
+ * `registerWorkSessionEndReactions` finalizes a task's dispatch-attempt row
+ * on `agent_run_lifecycle_changed` (matched by `requestId`, idempotent via
+ * `updateIfActive`'s status guard; a non-`task` sourceKind is a no-op), and
+ * separately merges `session_ended`'s per-tier token counts onto the worked
+ * task's own `tokensActualJson`.
  */
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
@@ -77,7 +25,6 @@ import type {
 import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
 import { buildCoreActions } from "../../actions/compose.js";
-// NOT YET CREATED — this import failing to resolve is this file's primary RED signal.
 import { registerWorkSessionEndReactions } from "../work-session-end-reactions.js";
 import { registerWorkSessionStartedReactions } from "../work-session-started-reactions.js";
 
@@ -114,7 +61,7 @@ async function seedTaskAndAgent(
 		status: "active",
 		createdAt: NOW,
 	});
-	// BB1: root task replaces bet
+	// A root task (parentTaskId: null) needs its own thread first.
 	await db.insert(threads).values({
 		id: `thr-${rootId}`,
 		hostKind: "team",
@@ -549,9 +496,9 @@ describe("registerWorkSessionEndReactions", () => {
 });
 
 /**
- * BB1-adapted Wave D — token writeback onto the WORKED TASK's own
- * `tasks.tokensActualJson` (not an ancestor/bet). Subtree totals are
- * computed at read time by `GET /api/tasks/:id/tree`.
+ * Token writeback lands on the worked task's own `tasks.tokensActualJson`
+ * (not an ancestor). Subtree totals are computed at read time by
+ * `GET /api/tasks/:id/tree`.
  */
 function sessionEnded(input: {
 	readonly sessionId: string;

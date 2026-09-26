@@ -24,7 +24,7 @@ import { describe, expect, test } from "../../__testing__/test-fixtures.js";
 
 async function dropRejectSessionRequestWritesTrigger(db: HyperIdleDb): Promise<void> {
 	await db.execute(
-		sql`drop trigger if exists au21_reject_session_request_write_emission on agent_session_requests`,
+		sql`drop trigger if exists reject_session_request_write_emission on agent_session_requests`,
 	);
 }
 
@@ -40,14 +40,14 @@ const NOW = new Date().toISOString();
 async function rejectSessionRequestWrites(db: HyperIdleDb): Promise<void> {
 	await dropRejectSessionRequestWritesTrigger(db);
 	await db.execute(sql`
-		create or replace function au21_reject_session_request_write_emission() returns trigger as $$
-		begin raise exception 'AU21 injected agent_session_requests write failure (emission vehicle)'; end;
+		create or replace function reject_session_request_write_emission() returns trigger as $$
+		begin raise exception 'injected agent_session_requests write failure (emission vehicle)'; end;
 		$$ language plpgsql
 	`);
 	await db.execute(sql`
-		create trigger au21_reject_session_request_write_emission
+		create trigger reject_session_request_write_emission
 		before insert on agent_session_requests
-		for each row execute function au21_reject_session_request_write_emission()
+		for each row execute function reject_session_request_write_emission()
 	`);
 }
 
@@ -105,11 +105,10 @@ function captureAdmissionFailures(eventBus: {
 }
 
 describe("agent_run_admission_failed — emission from failOrRelease", () => {
-	// @lore AU44: The "terminal INVALID_WORK_SOURCE failure" test was deleted here.
-	// It relied on the unbaked-intent drain path (resolveIntentInputInternal) which
-	// AU44 removed — bakedRequest is now required, unbaked intents are unreachable.
-	// The MAX_ATTEMPTS_EXCEEDED and non-terminal tests below (baked + Postgres
-	// trigger) remain as the live emission proofs.
+	// A bare (unbaked) intent is unreachable — `bakedRequest` is required, so
+	// every drain takes the baked path; the two tests below (baked + a
+	// Postgres trigger forcing the write to fail) are the live emission
+	// proofs.
 
 	test("terminal MAX_ATTEMPTS_EXCEEDED failure (non-InvalidAgentWorkSourceError) emits the event", async ({
 		db,
@@ -124,8 +123,8 @@ describe("agent_run_admission_failed — emission from failOrRelease", () => {
 			const intent = await enqueueWorkIntent(db, {
 				kind: "subscription_run",
 				sourceKind: "subscription",
-				sourceId: "wave0-max-attempts-subscription-run",
-				idempotencyKey: "wave0-max-attempts",
+				sourceId: "emission-max-attempts-subscription-run",
+				idempotencyKey: "emission-max-attempts",
 				bakedRequest: bakedSubscriptionRunRequest("max-attempts"),
 			});
 
@@ -161,8 +160,8 @@ describe("agent_run_admission_failed — emission from failOrRelease", () => {
 			const intent = await enqueueWorkIntent(db, {
 				kind: "subscription_run",
 				sourceKind: "subscription",
-				sourceId: "wave0-non-terminal-subscription-run",
-				idempotencyKey: "wave0-non-terminal",
+				sourceId: "emission-non-terminal-subscription-run",
+				idempotencyKey: "emission-non-terminal",
 				bakedRequest: bakedSubscriptionRunRequest("non-terminal"),
 			});
 
@@ -180,7 +179,7 @@ describe("agent_run_admission_failed — emission from failOrRelease", () => {
 		}
 	});
 
-	// @lore AU44: the type system is the live proof that a direct run-row
-	// write from `failOrRelease` can't come back — no such dependency exists
-	// on `DurableQueueDeps` any more.
+	// @lore The type system is the live proof that a direct run-row write
+	// from `failOrRelease` can't come back — no such dependency exists on
+	// `DurableQueueDeps`.
 });

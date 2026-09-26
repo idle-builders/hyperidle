@@ -154,12 +154,11 @@ describe("E2E API Integration (I5)", () => {
 	});
 
 	// -------------------------------------------------------
-	// 3. Root Tasks (replaced Bets in BB1) — edit_task/open_task/search_tasks
+	// 3. Root Tasks — edit_task/open_task/search_tasks
 	// -------------------------------------------------------
 	describe("Root Tasks", () => {
-		// BB1: bets are now root tasks (parentTaskId=null). Test task creation and listing.
-		// the architecture doc §8: the eight-route /api/tasks CRUD surface is
-		// deleted — task is an action, POST /api/actions/<name>.
+		// A root task is a task with parentTaskId=null. There is no separate
+		// CRUD route surface — task is an action, POST /api/actions/<name>.
 		test("edit_task (no id) creates a root task, and search_tasks lists it", async ({
 			db,
 			app,
