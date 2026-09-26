@@ -33,6 +33,7 @@
 	},
 	"devDependencies": {
 		"@hono/node-server": "^2.0.6",
+		"@hyperidle/agent-execution": "*",
 		"@hyperidle/agent-orchestration": "*",
 		"@hyperidle/connections": "*",
 		"@hyperidle/filesystems": "*",

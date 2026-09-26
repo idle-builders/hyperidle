@@ -13,10 +13,8 @@
  * Per project rule: "e2e/expensive/live-LLM tests run locally only; never a
  * GitHub Actions job." These tests prove the real hook transport end-to-end
  * (binary → provisioned hook → real HyperIdle route → real enforcement registry).
- * They have already been run and proved enforcement (callCount >= 1 confirmed
- * for claude, codex, opencode).
  *
- * Runs via npm run test:integration (serial harness project)
+ * Runs via npm run test:integration:harness (the serial harness project).
  *
  * Deterministic real-loop coverage (route/registry/injected-spawn/builtin) stays in
  * test:all via the unit tests in this package (return-status-route.test.ts,
@@ -67,16 +65,17 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { promisify } from "node:util";
 
-import { serve } from "@hono/node-server";
-import type { EnforcementRegistry } from "@hyperidle/harness-registry";
-import { createReturnEnforcement, provisionHarnessEnvironment } from "@hyperidle/harness-registry";
-import { createMcpToolBridge, type McpToolBridge } from "@hyperidle/harness-registry/mcp";
+import { provisionHarnessEnvironment } from "@hyperidle/harness-registry";
+import type { SupportedHarnessName } from "@hyperidle/harness-registry/test-utils";
 import { HARNESS_TEST_MODELS, requireHarness } from "@hyperidle/harness-registry/test-utils";
-import { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
+import {
+	buildCleanEnv,
+	createHarnessSandbox,
+	setUpLiveHarnessMcpServer,
+} from "../__testing__/live-harness-test-support.js";
 
 const execFileAsync = promisify(execFile);
-const createEnforcementRegistry = () => createReturnEnforcement();
 const provisionReturnHook = (options: {
 	readonly sandboxPath: string;
 	readonly channel: Parameters<typeof provisionHarnessEnvironment>[0]["channel"];
@@ -84,173 +83,6 @@ const provisionReturnHook = (options: {
 	readonly mcpUrl: string;
 	readonly forceBudget: number;
 }) => provisionHarnessEnvironment({ ...options, token: options.bridgeToken });
-
-// ── Real HyperIdle server for hook callback capture ──────────────────────────
-//
-// CRIT-1 FIX: Replace the bespoke `startBridgeServer` mock with a REAL
-// Hono server that mounts the REAL `/api/mcp/:token/return-status` route and
-// the REAL enforcement registry. This proves the full loop:
-//   real binary → real provisioned hook → real HyperIdle route →
-//   real return-enforcement-registry → real block → forceCount from a real fire.
-//
-// @lore CRIT-1: The fake bridge stub (token + sessionId only) is registered
-// in the bridge registry so the route can resolve token → sessionId without
-// needing a real McpServer or transport (the route only reads bridge.sessionId).
-// The enforcement registry entry is registered with gate.returned=false and
-// forceCount=0 so shouldForceReturn returns the force message on first call.
-// After the binary's Stop hook fires, the real route increments the registry
-// forceCount. Tests assert forceCount >= 1 to prove the REAL fire.
-
-interface RealHyperIdleServer {
-	port: number;
-	url: string;
-	bridgeRegistry: McpToolBridge;
-	enforcementReg: EnforcementRegistry;
-	sessionId: string;
-	token: string;
-	close(): Promise<void>;
-}
-
-/**
- * Start the REAL HyperIdle Hono app on a random port, mount the REAL
- * /api/mcp/:token/return-status route, open a real MCP bridge session
- * (token → sessionId) and an enforcement registry entry (gate.returned=false,
- * forceCount=0).
- *
- * The bridge MINTS the token — a caller cannot choose it. Every consumer (hook
- * script, adapter poll, direct fetch) must use the returned `token`.
- *
- * @lore AU20 x AU26: this helper used to take the token as its first argument
- * and hand it to the bridge's since-deleted `register()`. AU20's harness-registry
- * rewrite replaced that with `open()`, which mints a 64-char hex token of its
- * own — so the argument silently became dead while six call sites carried on
- * building hook URLs from their own fabricated string. AU20 also tightened the
- * route: an unissued token used to fall through to `200`/empty ("allow stop"),
- * and now correctly answers `401`. That pair turned the whole real-binary lane
- * red (this lane has no CI job at all, so it merged red unnoticed). The
- * argument is gone so a fabricated token cannot come back.
- *
- * After the binary runs and the hook fires, assert:
- *   enforcementReg.get(sessionId)?.forceCount >= 1
- * This proves the real route + real registry loop end-to-end.
- *
- * @lore CRIT-1 real-server: Uses @hono/node-server `serve()` on port 0
- * (OS-assigned random port). The app only mounts the /api/mcp route (no DB,
- * no auth, no session routes) — just enough for the hook to reach the real
- * /return-status adjudicator. Sessions are registered directly in the in-process
- * registries rather than via provisionSession (no DB needed for the binary proof).
- *
- * @lore CRIT-1 sanity-break: To verify the test FAILS if the route is broken,
- * temporarily change the token used in provisionReturnHook to a wrong value —
- * the lookup fails, forceCount stays 0, and the assertion fails. This confirms
- * the test is not vacuous.
- */
-async function startRealServer(testSessionId: string): Promise<RealHyperIdleServer> {
-	const enforcementReg = createEnforcementRegistry();
-	const bridgeRegistry = createMcpToolBridge({ enforcement: enforcementReg });
-	const bridge = await bridgeRegistry.open({
-		sessionId: testSessionId,
-		registry: {
-			definitions: [],
-			invoke: async () => ({ success: false, code: "NOT_FOUND", error: "none" }),
-			toClaudeToolSpecs: () => [],
-		},
-	});
-	const bridgeToken = bridge.token;
-
-	// Register the enforcement entry: gate.returned=false → shouldForceReturn returns force message.
-	const gate = { returned: false };
-	enforcementReg.register(testSessionId, { gate, forceCount: 0, exempt: false });
-
-	// Build the minimal Hono app with the REAL /return-status route.
-	const app = new Hono();
-	const api = new Hono();
-	const mcpRouter = bridgeRegistry.router;
-	api.route("/", mcpRouter);
-	app.route("/api", api);
-
-	// Start the server on a random OS-assigned port.
-	let resolvePort: (port: number) => void;
-	const portPromise = new Promise<number>((resolve) => {
-		resolvePort = resolve;
-	});
-
-	const server = serve(
-		{
-			fetch: app.fetch,
-			port: 0,
-		},
-		(info) => {
-			resolvePort(info.port);
-		},
-	);
-
-	const port = await portPromise;
-	const url = `http://127.0.0.1:${port}`;
-
-	return {
-		port,
-		url,
-		bridgeRegistry,
-		enforcementReg,
-		sessionId: testSessionId,
-		token: bridgeToken,
-		close: async () => {
-			enforcementReg.unregister(testSessionId);
-			await bridgeRegistry.close(bridgeToken);
-			await new Promise<void>((resolve, reject) => {
-				server.close((err) => (err ? reject(err) : resolve()));
-			});
-		},
-	};
-}
-
-// ── Clean env for headless binary spawning ─────────────────────────────────
-
-/**
- * Build a clean child process env that zeros out Claude Code's own env vars so
- * the nested-session detection in the `claude` binary does not fire.
- *
- * Strategy: start from `process.env` (inheriting PATH, HOME, security frameworks,
- * keychain access credentials, etc.) and zero out only the CC-specific vars.
- * The zeroing (not deletion) is important because some env-var checks in shells
- * distinguish "unset" from "empty string" — we use empty string to avoid that.
- *
- * Vars zeroed (sourced from `env | grep -i claude` inside a CC session):
- *   CLAUDECODE, CLAUDE_CODE_ENTRYPOINT, CLAUDE_CODE_EXECPATH,
- *   CLAUDE_CODE_SESSION_ID, AI_AGENT, CLAUDE_EFFORT, CLAUDE_CODE_SIMPLE,
- *   CLAUDE_CODE_SAFE_MODE
- *
- * Keychain auth (claude.ai OAuth) uses the macOS Security framework via HOME.
- * Zeroing the CC session vars does NOT break keychain lookup — verified manually.
- *
- * @lore Real-claude-full-binary: These exact vars must be zeroed. Deleting
- * them (via `process.env` spread minus keys) does not work because the CC binary
- * checks for the presence of these vars, not their values.
- */
-function buildCleanEnv(): Record<string, string> {
-	const env: Record<string, string> = {};
-	for (const [k, v] of Object.entries(process.env)) {
-		if (v !== undefined) {
-			env[k] = v;
-		}
-	}
-	// Zero out Claude Code session-detection env vars.
-	const ccVars = [
-		"CLAUDECODE",
-		"CLAUDE_CODE_ENTRYPOINT",
-		"CLAUDE_CODE_EXECPATH",
-		"CLAUDE_CODE_SESSION_ID",
-		"AI_AGENT",
-		"CLAUDE_EFFORT",
-		"CLAUDE_CODE_SIMPLE",
-		"CLAUDE_CODE_SAFE_MODE",
-	];
-	for (const v of ccVars) {
-		env[v] = "";
-	}
-	return env;
-}
 
 /**
  * Spawn a process in its own process group (detached) and return a promise that
@@ -321,16 +153,6 @@ async function spawnDetached(
 // ── Lifecycle ──────────────────────────────────────────────────────────────
 
 describe("LIVE real-binary harness return-enforcement (local-only lane)", () => {
-	let sandboxBasePath: string;
-
-	beforeEach(() => {
-		sandboxBasePath = fs.mkdtempSync(path.join(os.tmpdir(), "rgate-live-"));
-	});
-
-	afterEach(() => {
-		fs.rmSync(sandboxBasePath, { recursive: true, force: true });
-	});
-
 	// ── CLAUDE-CODE CLI (binary+auth gated, LIVE ENFORCEMENT) ───────────────
 	//
 	// Spawns the REAL claude binary headless in an ISOLATED
@@ -342,7 +164,8 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 	//      completes; the Stop hook fires at turn-end; bridge callCount>=1.
 	//      This is the DEFINITIVE proof the injection/wiring works end-to-end.
 	//   2. Hook script execution: proves the exact script semantics (exit 2 + stderr
-	//      re-prompt when bridge returns forcing message). Kept for fast CI.
+	//      re-prompt when bridge returns forcing message) without paying for a
+	//      full LLM turn.
 	//
 	// @lore Real-claude-full-binary: The nested-session detection is bypassed
 	// by zeroing CLAUDECODE, CLAUDE_CODE_ENTRYPOINT, CLAUDE_CODE_EXECPATH,
@@ -354,30 +177,23 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 	describe("[harness:claude] claude-code CLI (settings-claude channel, LIVE hook fire proof)", () => {
 		requireHarness("claude");
 		test("FULL BINARY PROOF: spawn real claude -p headless → LLM turn completes → Stop hook POSTs to bridge (callCount>=1)", async () => {
-			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "rgate-claude-fb-"));
+			const sandbox = createHarnessSandbox("rgate-claude-fb");
+			const sandboxPath = sandbox.path;
 			const testSessionId = `rgate-claude-fb-${Math.random().toString(36).slice(2, 10)}`;
 
 			try {
-				// CRIT-1 FIX: Start the REAL HyperIdle server (not startBridgeServer mock).
-				// The real server mounts POST /api/mcp/:token/return-status with the REAL
-				// enforcement registry. After the hook fires, we assert forceCount >= 1
-				// in the REAL registry — proving the full loop: binary → real route → real registry.
-				//
-				// @lore CRIT-1: The mcpUrl points at the REAL server. The provisioned hook
-				// script curls this URL. The route resolves token → sessionId → registry entry →
-				// shouldForceReturn → forceMessage (or empty). The registry forceCount is incremented
-				// by the route on each block. This proves the real hook→adjudicator loop.
-				//
-				// Sanity-break: if you change bridgeToken to a wrong value in provisionReturnHook,
-				// the bridge lookup fails, forceCount stays 0, and the assertion fails. Test is not vacuous.
-				const realServer = await startRealServer(testSessionId);
+				// The provisioned hook script curls the real MCP bridge; the route
+				// resolves token → sessionId → registry entry → shouldForceReturn →
+				// forceMessage (or empty), incrementing forceCount on each block —
+				// proving the real hook → adjudicator loop, not a stand-in.
+				const realServer = await setUpLiveHarnessMcpServer(testSessionId);
 				// The bridge mints the token — a fabricated one is not an issued credential.
 				const bridgeToken = realServer.token;
 
 				try {
 					// mcpUrl points at the REAL server's /api/mcp/:token path.
 					// The hook script will POST to /api/mcp/:token/return-status.
-					const mcpUrl = `${realServer.url}/api/mcp/${bridgeToken}`;
+					const mcpUrl = `${realServer.serverUrl}/api/mcp/${bridgeToken}`;
 
 					await provisionReturnHook({
 						sandboxPath,
@@ -395,22 +211,21 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 					// Spawn the REAL claude binary headless.
 					// --dangerously-skip-permissions: required for non-interactive mode.
 					// --output-format json: machine-readable; no TTY required.
-					// --model: locked to AR7 matrix (HARNESS_TEST_MODELS.claude.model → haiku).
+					// --model: the locked test-model matrix (HARNESS_TEST_MODELS.claude.model → haiku).
 					// detached: true (inside spawnDetached): own process group → CC's
 					//   SIGTERM cascade does not reach the child before hook fires.
 					//
 					// @lore Real-claude-full-binary: The prompt MUST be short and
 					// trivial so the LLM call completes quickly (~3s). The Stop hook
 					// fires when the session ends — before the claude process exits.
-					// @lore AR7: model is AR7-locked via HARNESS_TEST_MODELS.claude — never hardcode.
+					// @lore the model comes from HARNESS_TEST_MODELS.claude — never hardcoded.
 					//
-					// @lore codex-force-budget-timing: "~3s" is one turn, and this spawn
-					// absorbs three — `forceBudget: 2` blocks the stop twice, and each block
-					// costs a full extra LLM round trip before the process may exit. The
-					// budget below is the kill timer for all three, and at 30s it was thin
-					// enough to flake. The failure reads as `exitCode: null`, which looks
-					// like "the binary never completed" long after the hook assertions have
-					// already passed. Same measurement and same fix as the codex lane.
+					// @lore force-budget-timing: "~3s" is one turn, and this spawn absorbs
+					// three — `forceBudget: 2` blocks the stop twice, and each block costs a
+					// full extra LLM round trip before the process may exit. The timeout
+					// below carries real headroom over that three-turn cost; a tight budget
+					// reads a real in-flight turn as `exitCode: null` ("never completed")
+					// even once the hook assertions above have already passed.
 					const result = await spawnDetached(
 						"claude",
 						[
@@ -441,7 +256,7 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 								`Binary stdout: "${result.stdout.slice(0, 400)}" ` +
 								`stderr: "${result.stderr.slice(0, 400)}" ` +
 								`exitCode: ${result.exitCode}. ` +
-								`Real server URL: ${realServer.url}. ` +
+								`Real server URL: ${realServer.serverUrl}. ` +
 								`Check that: (1) settings.json has hooks.Stop, ` +
 								`(2) real server is reachable from the hook script at ${mcpUrl}/return-status, ` +
 								`(3) claude completed at least one turn (exitCode should be 0 or 1).`,
@@ -455,25 +270,26 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 					await realServer.close();
 				}
 			} finally {
-				fs.rmSync(sandboxPath, { recursive: true, force: true });
+				await sandbox.cleanup();
 			}
 		}, 180_000);
 
 		test("LIVE: provision .claude/settings.json Stop hook script → execute script → POSTs to bridge (callCount>=1)", async () => {
-			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "rgate-claude-live-"));
+			const sandbox = createHarnessSandbox("rgate-claude-live");
+			const sandboxPath = sandbox.path;
 			const testSessionId = `rgate-claude-live-${Math.random().toString(36).slice(2, 10)}`;
 
 			try {
-				// CRIT-1 FIX: Start the REAL HyperIdle server.
-				// The real route returns forceMessage when gate.returned=false (the default).
-				// The hook script receives the forceMessage and exits 2 (stderr carries it).
-				const realServer = await startRealServer(testSessionId);
+				// The real route returns forceMessage when gate.returned=false (the
+				// default). The hook script receives the forceMessage and exits 2
+				// (stderr carries it).
+				const realServer = await setUpLiveHarnessMcpServer(testSessionId);
 				// The bridge mints the token — a fabricated one is not an issued credential.
 				const bridgeToken = realServer.token;
 
 				try {
 					// mcpUrl points at the REAL route.
-					const mcpUrl = `${realServer.url}/api/mcp/${bridgeToken}`;
+					const mcpUrl = `${realServer.serverUrl}/api/mcp/${bridgeToken}`;
 
 					await provisionReturnHook({
 						sandboxPath,
@@ -494,7 +310,7 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 					const hookStr = JSON.stringify(hooks.Stop);
 					// Use new RegExp() to avoid a backtick literal in the regex,
 					// which confuses the honest-harness-guard's string-parsing state machine.
-					// @lore AR6 guard-backtick: /[`$<>|;&]/ uses a backtick in a regex literal;
+					// @lore guard-backtick: /[`$<>|;&]/ uses a backtick in a regex literal;
 					// the guard parser misidentifies it as a template literal start → subsequent
 					// requireHarness() calls are treated as "inside a string" and ignored.
 					// biome-ignore lint/complexity/useRegexLiterals: guard-backtick — see @lore above
@@ -508,9 +324,9 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 					// executes when a session stops. The script POSTs to the REAL route.
 					// This proves the TRANSPORT end-to-end: hook script → real route → real registry.
 					//
-					// @lore CRIT-1 real-claude-hook-transport: The script is executed
-					// directly (not via full claude session) to isolate the transport proof.
-					// The real route returns FORCE_RETURN_MESSAGE (because gate.returned=false),
+					// @lore real-claude-hook-transport: The script is executed directly
+					// (not via full claude session) to isolate the transport proof. The
+					// real route returns FORCE_RETURN_MESSAGE (because gate.returned=false),
 					// the script sees non-empty body → exits 2 + stderr = forceMessage.
 					const scriptResult = await new Promise<{
 						stdout: string;
@@ -555,15 +371,15 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 					await realServer.close();
 				}
 			} finally {
-				fs.rmSync(sandboxPath, { recursive: true, force: true });
+				await sandbox.cleanup();
 			}
 		}, 30_000);
 
 		test("provision .claude/settings.json → hook file structure correct, injection-safe", async () => {
-			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "rgate-claude-"));
+			const sandbox = createHarnessSandbox("rgate-claude");
+			const sandboxPath = sandbox.path;
 
 			try {
-				const registry = createEnforcementRegistry();
 				const bridgeToken = `test-bridge-token-${Math.random().toString(36).slice(2)}`;
 				const mcpUrl = `http://localhost:3001/api/mcp/${bridgeToken}`;
 
@@ -596,21 +412,11 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 
 				// settings.json hook command must NOT contain shell expansion chars.
 				const hookStr = JSON.stringify(hooks.Stop);
-				// Use new RegExp() to avoid guard backtick-parse issue (see @lore AR6 guard-backtick).
-				// biome-ignore lint/complexity/useRegexLiterals: guard-backtick — see @lore AR6 guard-backtick
+				// Use new RegExp() to avoid guard backtick-parse issue (see @lore guard-backtick above).
+				// biome-ignore lint/complexity/useRegexLiterals: guard-backtick — see @lore guard-backtick above
 				expect(hookStr).not.toMatch(new RegExp("[`$<>|;&]"));
-
-				const sessionId = `rgate-claude-test-${Math.random().toString(36).slice(2)}`;
-				const gate = { returned: false };
-				registry.register(sessionId, { gate, forceCount: 0, exempt: false });
-
-				const state = registry.get(sessionId);
-				expect(state).toBeDefined();
-				expect(state?.forceCount).toBe(0);
-
-				registry.unregister(sessionId);
 			} finally {
-				fs.rmSync(sandboxPath, { recursive: true, force: true });
+				await sandbox.cleanup();
 			}
 		}, 120_000);
 
@@ -619,46 +425,6 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 				timeout: 10_000,
 			});
 			expect(`${stdout}${stderr}`.trim().length).toBeGreaterThan(0);
-		}, 30_000);
-
-		test("AU27 Increment 8 (BLOCKER fix): the REAL /return-status route names the harness-literal 'mcp__hyperidle__reply' tool for a required-action session, not the trio", async () => {
-			// Decision 3's AC: "the forcing message names the action that
-			// session actually needs" — proven here against the REAL route
-			// (the same one the real claude Stop hook script curls), not a
-			// gate-unit-only check of buildForceReturnMessage in isolation.
-			const testSessionId = `rgate-claude-required-${Math.random().toString(36).slice(2)}`;
-			// The bridge mints its OWN token internally; the real callable token
-			// is `realServer.token`, never a locally-fabricated string.
-			const realServer = await startRealServer(testSessionId);
-
-			try {
-				const gate = { returned: false };
-				realServer.enforcementReg.register(testSessionId, {
-					gate,
-					forceCount: 0,
-					exempt: false,
-					requiredReturnActions: ["reply"],
-				});
-
-				const returnStatusUrl = `${realServer.url}/api/mcp/${realServer.token}/return-status`;
-				const res = await fetch(returnStatusUrl, {
-					method: "POST",
-					headers: { Authorization: `Bearer ${realServer.token}` },
-				});
-				expect(res.status).toBe(200);
-				const body = await res.text();
-
-				// The literal, callable tool name Claude's MCP client exposes
-				// for a "hyperidle" MCP server tool — not the bare name.
-				expect(body).toContain("mcp__hyperidle__reply");
-				// Must NOT fall back to the full-trio default message (this
-				// session has a SPECIFIC required action).
-				expect(body).not.toContain("submit_review");
-				expect(body).not.toContain("handoff_to");
-				expect(body).not.toContain("send_message");
-			} finally {
-				await realServer.close();
-			}
 		}, 30_000);
 	});
 
@@ -685,20 +451,21 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 	describe("[harness:codex] codex CLI (settings-codex channel, LIVE hook fire proof)", () => {
 		requireHarness("codex");
 		test("LIVE: provision .codex/hooks.json Stop hook script → execute script → POSTs to bridge (callCount>=1), decision:block on stdout", async () => {
-			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "rgate-codex-live-"));
+			const sandbox = createHarnessSandbox("rgate-codex-live");
+			const sandboxPath = sandbox.path;
 			const testSessionId = `rgate-codex-live-${Math.random().toString(36).slice(2, 10)}`;
 
 			try {
-				// CRIT-1 FIX: Start the REAL HyperIdle server.
-				// The real route returns forceMessage (gate.returned=false → shouldForceReturn → message).
-				// The codex hook script receives it and outputs {"decision":"block","reason":message}.
-				const realServer = await startRealServer(testSessionId);
+				// The real route returns forceMessage (gate.returned=false →
+				// shouldForceReturn → message); the codex hook script receives it and
+				// outputs {"decision":"block","reason":message}.
+				const realServer = await setUpLiveHarnessMcpServer(testSessionId);
 				// The bridge mints the token — a fabricated one is not an issued credential.
 				const bridgeToken = realServer.token;
 
 				try {
 					// mcpUrl points at the REAL route.
-					const mcpUrl = `${realServer.url}/api/mcp/${bridgeToken}`;
+					const mcpUrl = `${realServer.serverUrl}/api/mcp/${bridgeToken}`;
 
 					await provisionReturnHook({
 						sandboxPath,
@@ -724,9 +491,9 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 					// at turn-end. The script POSTs to the REAL route and prints
 					// {"decision":"block","reason":"..."} on stdout when blocking.
 					//
-					// @lore CRIT-1 real-codex-hook-transport: Script execution proves the
-					// full transport: hook → real route → real registry. The codex blocking
-					// behavior (decision:block JSON stdout) was verified manually.
+					// @lore real-codex-hook-transport: script execution proves the full
+					// transport (hook → real route → real registry); the codex blocking
+					// behavior is decision:block JSON stdout, not exit-2 + stderr.
 					const scriptResult = await new Promise<{
 						stdout: string;
 						stderr: string;
@@ -769,15 +536,15 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 					await realServer.close();
 				}
 			} finally {
-				fs.rmSync(sandboxPath, { recursive: true, force: true });
+				await sandbox.cleanup();
 			}
 		}, 30_000);
 
 		test("provision .codex/hooks.json → CORRECT nested format (not flat top-level Stop)", async () => {
-			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "rgate-codex-"));
+			const sandbox = createHarnessSandbox("rgate-codex");
+			const sandboxPath = sandbox.path;
 
 			try {
-				const registry = createEnforcementRegistry();
 				const bridgeToken = `codex-test-token-${Math.random().toString(36).slice(2)}`;
 				const mcpUrl = `http://localhost:3001/api/mcp/${bridgeToken}`;
 
@@ -811,8 +578,8 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 				const stopHooks = hooksObj.Stop as unknown[];
 				const hookStr = JSON.stringify(stopHooks);
 				// No shell expansion chars in JSON config.
-				// Use new RegExp() to avoid guard backtick-parse issue (see @lore AR6 guard-backtick).
-				// biome-ignore lint/complexity/useRegexLiterals: guard-backtick — see @lore AR6 guard-backtick
+				// Use new RegExp() to avoid guard backtick-parse issue (see @lore guard-backtick above).
+				// biome-ignore lint/complexity/useRegexLiterals: guard-backtick — see @lore guard-backtick above
 				expect(hookStr).not.toMatch(new RegExp("[`$<>|;&]"));
 
 				// The shell script must exist and reference the bridge URL.
@@ -823,24 +590,15 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 
 				// Trust: codex uses --dangerously-bypass-hook-trust at spawn time.
 				// No sentinel file needed (trust is per-invocation, not filesystem).
-
-				const sessionId = `rgate-codex-test-${Math.random().toString(36).slice(2)}`;
-				const gate = { returned: false };
-				registry.register(sessionId, { gate, forceCount: 0, exempt: false });
-
-				const state = registry.get(sessionId);
-				expect(state).toBeDefined();
-				expect(state?.gate).toBeDefined();
-
-				registry.unregister(sessionId);
 			} finally {
-				fs.rmSync(sandboxPath, { recursive: true, force: true });
+				await sandbox.cleanup();
 			}
 		}, 120_000);
 
 		test("FULL BINARY PROOF (CODEX_HOME): spawn real codex exec with per-session CODEX_HOME → LLM turn completes → Stop hook POSTs to real route → enforcementReg.forceCount>=1", async () => {
 			// Create a git-init'd sandbox (codex requires a git repo).
-			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "rgate-codex-fb-"));
+			const sandbox = createHarnessSandbox("rgate-codex-fb");
+			const sandboxPath = sandbox.path;
 
 			try {
 				// codex requires a git repo in the working directory.
@@ -860,17 +618,16 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 
 				const testSessionId = `codex-fb-session-${Math.random().toString(36).slice(2)}`;
 
-				// CRIT-1 FIX: Start the REAL HyperIdle server (not startBridgeServer mock).
-				// The real server mounts /api/mcp/:token/return-status with the real enforcement
-				// registry. forceCount>=1 proves the hook fired against the REAL route.
-				const realServer = await startRealServer(testSessionId);
+				// forceCount>=1 on the real enforcement registry proves the hook fired
+				// against the real route, not a stand-in.
+				const realServer = await setUpLiveHarnessMcpServer(testSessionId);
 				// The bridge mints the token — a fabricated one is not an issued credential.
 				const bridgeToken = realServer.token;
 
 				try {
 					// mcpUrl points at the REAL server's /api/mcp/:token path.
 					// The hook script appends /return-status → full URL: /api/mcp/:token/return-status.
-					const mcpUrl = `${realServer.url}/api/mcp/${bridgeToken}`;
+					const mcpUrl = `${realServer.serverUrl}/api/mcp/${bridgeToken}`;
 
 					// provisionCodexHome writes:
 					//   sandboxPath/.codex/hooks.json (compat)
@@ -899,17 +656,12 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 					const cleanEnv = buildCleanEnv();
 					cleanEnv.CODEX_HOME = codexHomeDir;
 
-					// @lore codex-force-budget-timing (measured live 2026-08-31, codex
-					// 0.150.1): this run takes ~29s against a 30s budget, and the failure
-					// mode is `exitCode: null` — the timeout SIGKILLs the process group
-					// mid-turn, which reads as "the binary never completed" while the hook
-					// assertions above have already passed.
-					//
-					// It is slow BECAUSE enforcement works. `forceBudget: 2` means the Stop
-					// hook blocks twice, and each block costs codex a full extra LLM round
-					// trip before it may stop. Three turns, not one. A budget an inch above
-					// the measured time is a coin flip; this one has real headroom, and the
-					// assertions it protects are unchanged.
+					// @lore codex-force-budget-timing: `forceBudget: 2` means the Stop
+					// hook blocks the codex process twice, and each block costs a full
+					// extra LLM round trip before it may stop — three turns, not one. The
+					// timeout below carries real headroom over that cost; a budget flush
+					// against it reads a real hang as `exitCode: null` ("never completed")
+					// even once the hook assertions above have already passed.
 					const result = await spawnDetached(
 						"codex",
 						["exec", "say: HOOK_TEST_DONE", "--json", "--dangerously-bypass-hook-trust"],
@@ -920,10 +672,9 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 						},
 					);
 
-					// CRIT-1: Assert against the REAL enforcement registry, NOT a mock callCount.
 					// If the Stop hook POSTed to the real /api/mcp/:token/return-status route,
-					// enforcementRegistry.incrementForce was called → forceCount >= 1.
-					// This test FAILS if the route is removed or the hook posts to the wrong URL.
+					// enforcementRegistry.incrementForce was called → forceCount >= 1. This
+					// test fails if the route is removed or the hook posts to the wrong URL.
 					const entry = realServer.enforcementReg.get(testSessionId);
 					if (!entry || entry.forceCount < 1) {
 						throw new Error(
@@ -947,7 +698,7 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 					await realServer.close();
 				}
 			} finally {
-				fs.rmSync(sandboxPath, { recursive: true, force: true });
+				await sandbox.cleanup();
 			}
 		}, 180_000);
 
@@ -966,41 +717,6 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 			);
 			const authText = `${authOut}\n${authErr}`.toLowerCase();
 			expect(authText).toMatch(/authenticated|logged in|login|account/);
-		}, 30_000);
-
-		test("AU27 Increment 8 (BLOCKER fix): the REAL /return-status route names the harness-literal 'mcp__hyperidle__reply' tool for a required-action session, not the trio", async () => {
-			// Same route + adjudication code (site 3, mcp-route.ts) serves BOTH
-			// the settings-claude and settings-codex hook channels — proven
-			// here for codex's channel specifically.
-			const testSessionId = `rgate-codex-required-${Math.random().toString(36).slice(2)}`;
-			// The bridge mints its OWN token internally; the real callable token
-			// is `realServer.token`, never a locally-fabricated string.
-			const realServer = await startRealServer(testSessionId);
-
-			try {
-				const gate = { returned: false };
-				realServer.enforcementReg.register(testSessionId, {
-					gate,
-					forceCount: 0,
-					exempt: false,
-					requiredReturnActions: ["reply"],
-				});
-
-				const returnStatusUrl = `${realServer.url}/api/mcp/${realServer.token}/return-status`;
-				const res = await fetch(returnStatusUrl, {
-					method: "POST",
-					headers: { Authorization: `Bearer ${realServer.token}` },
-				});
-				expect(res.status).toBe(200);
-				const body = await res.text();
-
-				expect(body).toContain("mcp__hyperidle__reply");
-				expect(body).not.toContain("submit_review");
-				expect(body).not.toContain("handoff_to");
-				expect(body).not.toContain("send_message");
-			} finally {
-				await realServer.close();
-			}
 		}, 30_000);
 	});
 
@@ -1038,16 +754,16 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 			// detached: true (inside spawnDetached) — own process group so CC's
 			// SIGTERM cascade doesn't reach it before the session completes.
 			//
-			// @lore Opencode-full-binary: Uses AR7-locked model (HARNESS_TEST_MODELS.opencode.model
+			// @lore Opencode-full-binary: Uses the locked test model (HARNESS_TEST_MODELS.opencode.model
 			// → openrouter/z-ai/glm-4.7-flash). Pure mode (--pure) skips external plugin loading. JSON
 			// output streamed per-event; step_finish proves turn completed.
-			// @lore The spawn budget was 30s, and this exact invocation takes ~42s
-			// against that model — measured live, exit 0 with step_finish present. The
-			// lane read as "opencode never completes a turn" when what actually
-			// happened was the kill timer firing mid-turn: stdout held step_start and
-			// nothing after it, and exitCode was null rather than a real code. Same
-			// shape as the codex lane's own budget. 120s is the claude/codex figure.
-			// @lore AR7: model replaced from openrouter/~anthropic/claude-haiku-latest to AR7 matrix model.
+			// @lore this model's opencode invocation takes ~42s to complete a real
+			// turn — the 120s timeout below carries real headroom over that, not a
+			// bare minimum; a tight budget reads a real in-flight turn as
+			// "opencode never completes" (a kill-timer SIGKILL mid-turn, not a
+			// genuine failure — stdout holds step_start and nothing after it,
+			// exitCode null rather than a real code).
+			// @lore the model comes from HARNESS_TEST_MODELS.opencode — never hardcoded.
 			const result = await spawnDetached(
 				"opencode",
 				[
@@ -1085,7 +801,8 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 		}, 180_000);
 
 		test("provision .opencode/plugins/return-signal.ts → plugin file written, process-reengage armed", async () => {
-			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "rgate-opencode-"));
+			const sandbox = createHarnessSandbox("rgate-opencode");
+			const sandboxPath = sandbox.path;
 
 			try {
 				const bridgeToken = `opencode-test-token-${Math.random().toString(36).slice(2)}`;
@@ -1113,7 +830,7 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 				// The plugin must reference the bridge URL for the re-engage callback.
 				expect(pluginContent).toContain(mcpUrl);
 			} finally {
-				fs.rmSync(sandboxPath, { recursive: true, force: true });
+				await sandbox.cleanup();
 			}
 		}, 120_000);
 
@@ -1159,8 +876,8 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 
 			const FORCING_MESSAGE =
 				"IMPORTANT: You must call a return action (submit_review) before stopping. Please do so now.";
-			// @lore AR7: model AR7-locked via HARNESS_TEST_MODELS.opencode → openrouter/z-ai/glm-4.7-flash.
-			// Old value was openrouter/~anthropic/claude-haiku-latest (hardcoded, demoted by AR7).
+			// @lore the model comes from HARNESS_TEST_MODELS.opencode → openrouter/z-ai/glm-4.7-flash,
+			// never hardcoded.
 			const MODEL = HARNESS_TEST_MODELS.opencode.model;
 
 			// First spawn: trivial no-return prompt (agent just says something, doesn't return).
@@ -1225,8 +942,58 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 	describe("[harness:cursor-agent] cursor-agent CLI (soft-continue channel)", () => {
 		requireHarness("cursor-agent");
 
+		test("FULL BINARY PROOF: spawn real cursor-agent headless → LLM turn completes", async () => {
+			// cursor-agent's own `returnEnforcementChannel` is "none" (CURSOR_AGENT_CLI_CONFIG,
+			// adapter-pool.ts) — its turns are held only by the drain-end gate, not a hook or
+			// re-engage loop, so this proves the same floor claude/codex/opencode each prove
+			// with their own FULL BINARY PROOF: the real binary completes a headless turn.
+			const result = await spawnDetached(
+				"cursor-agent",
+				[
+					"-p",
+					"Say exactly: HOOK_TEST_DONE",
+					"--print",
+					"--output-format",
+					"stream-json",
+					"--model",
+					HARNESS_TEST_MODELS["cursor-agent"].model,
+					"--trust",
+					"--approve-mcps",
+				],
+				{
+					cwd: os.tmpdir(),
+					env: buildCleanEnv(),
+					timeoutMs: 120_000,
+				},
+			);
+
+			if (result.exitCode === null) {
+				throw new Error(
+					`cursor-agent did not complete a headless turn. ` +
+						`stdout: "${result.stdout.slice(0, 500)}" ` +
+						`stderr: "${result.stderr.slice(0, 300)}" ` +
+						`exitCode: ${result.exitCode}`,
+				);
+			}
+			expect(result.exitCode).not.toBeNull();
+			expect(result.stdout).toContain("HOOK_TEST_DONE");
+		}, 120_000);
+
+		test("LIVE: cursor-agent binary is reachable, auth present, and version is valid", async () => {
+			const { stdout: versionOut } = await execFileAsync("cursor-agent", ["--version"], {
+				timeout: 10_000,
+			});
+			expect(versionOut.trim().length).toBeGreaterThan(0);
+
+			const { stdout: statusOut } = await execFileAsync("cursor-agent", ["status"], {
+				timeout: 10_000,
+			});
+			expect(statusOut.toLowerCase()).toContain("logged in");
+		}, 30_000);
+
 		test("LIVE: provision soft-continue channel without throw", async () => {
-			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "rgate-cursor-agent-"));
+			const sandbox = createHarnessSandbox("rgate-cursor-agent");
+			const sandboxPath = sandbox.path;
 
 			try {
 				const bridgeToken = `cursor-agent-test-token-${Math.random().toString(36).slice(2)}`;
@@ -1242,35 +1009,59 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 					}),
 				).resolves.not.toThrow();
 			} finally {
-				fs.rmSync(sandboxPath, { recursive: true, force: true });
+				await sandbox.cleanup();
 			}
 		});
 	});
 
-	// ── BUILTIN (OpenRouter in-process, builtin-loop channel) ────────────────
-	//
-	// The builtin harness uses the in-process BuiltinHarnessAdapter driven by
-	// OPENROUTER_API_KEY. It does not fire an OS hook (no shell script, no Stop
-	// hook file). Return enforcement is via the builtin-loop channel:
-	//   provisionReturnHook({ channel: "builtin-loop", ... }) writes a sentinel
-	//   file that the adapter checks between turns to decide whether to re-prompt.
-	//
-	// This lane proves:
-	//   1. provisionReturnHook correctly dispatches to the builtin-loop channel.
-	//   2. The enforcement registry registers + returns gate state correctly.
-	//   3. The real route (startRealServer) is reachable and returns a forcing
-	//      message when gate.returned=false — proves the real server loop is wired.
-	//
-	// No vi.mock(llm-client) — uses real BuiltinHarnessAdapter + OPENROUTER_API_KEY.
-	//
-	// @lore AR6 builtin-lane: builtin-loop channel writes a return-check.json sentinel
-	// file (not a shell script). The adapter polls it between turns. The OS hook path
-	// (settings-claude/settings-codex/process-reengage) is not used for builtin.
+	// One behavior, looped over all four harnesses with the same body: the
+	// route-level adjudication code is harness-agnostic, so a required-action
+	// session gets the identical, correct forcing message regardless of which
+	// harness's Stop hook curls it.
+	describe("the REAL /return-status route names the harness-literal 'mcp__hyperidle__reply' tool for a required-action session, not the trio", () => {
+		const HARNESSES: readonly SupportedHarnessName[] = [
+			"claude",
+			"codex",
+			"opencode",
+			"cursor-agent",
+		];
 
-	// @lore The `[harness:builtin]` lane that lived here is gone with the harness
-	// it drove. It proved the `builtin-loop` enforcement channel, which was a
-	// no-op by construction — an in-process loop writes no hook file and spawns
-	// no process, so the "live proof" was that nothing happened. What that
-	// channel does is still covered where it belongs, as a unit case in
-	// `provision-return-hook.test.ts`.
+		for (const harness of HARNESSES) {
+			test(`on ${harness}`, async () => {
+				requireHarness(harness);
+				const testSessionId = `rgate-${harness}-required-${Math.random().toString(36).slice(2)}`;
+				// The bridge mints its OWN token internally; the real callable token
+				// is `realServer.token`, never a locally-fabricated string.
+				const realServer = await setUpLiveHarnessMcpServer(testSessionId);
+
+				try {
+					realServer.enforcementReg.register(testSessionId, {
+						gate: { returned: false },
+						forceCount: 0,
+						exempt: false,
+						requiredReturnActions: ["reply"],
+					});
+
+					const returnStatusUrl = `${realServer.serverUrl}/api/mcp/${realServer.token}/return-status`;
+					const res = await fetch(returnStatusUrl, {
+						method: "POST",
+						headers: { Authorization: `Bearer ${realServer.token}` },
+					});
+					expect(res.status).toBe(200);
+					const body = await res.text();
+
+					// The literal, callable tool name a harness's MCP client exposes
+					// for a "hyperidle" MCP server tool — not the bare name.
+					expect(body).toContain("mcp__hyperidle__reply");
+					// Must NOT fall back to the full-trio default message (this
+					// session has a SPECIFIC required action).
+					expect(body).not.toContain("submit_review");
+					expect(body).not.toContain("handoff_to");
+					expect(body).not.toContain("send_message");
+				} finally {
+					await realServer.close();
+				}
+			}, 30_000);
+		}
+	});
 });
