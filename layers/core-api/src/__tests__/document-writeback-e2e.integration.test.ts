@@ -33,7 +33,7 @@ import { documents, type HyperIdleDb, sessions, teams, users } from "@hyperidle/
 import { EventBus } from "@hyperidle/event-bus";
 import { createWritebackProcessor, startWatcher } from "@hyperidle/run-orchestration";
 import { eq } from "drizzle-orm";
-import { describe, expect, test } from "../__testing__/test-fixtures.js";
+import { describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 import { realDocumentWritebackPort, seedDocument } from "./run-orchestration-test-runtime.js";
 
 const NOW = "2026-09-21T00:00:00.000Z";
@@ -394,20 +394,15 @@ describe.skipIf(!REAL_FS_WATCH)(
 				const filePath = path.join(root, "knowledge", "objections.md");
 				fs.writeFileSync(filePath, "Lead with value, not discount.");
 
-				// Bounded poll — the debounce + real fs event delivery is not
-				// instantaneous. No fixed sleep: poll until the row appears or
-				// the deadline passes.
-				const deadline = Date.now() + 10_000;
-				let found: unknown;
-				while (Date.now() < deadline) {
-					const rows = await db.select().from(documents).where(eq(documents.title, "objections"));
-					if (rows.length > 0) {
-						found = rows[0];
-						break;
-					}
-					await new Promise((resolve) => setTimeout(resolve, 100));
-				}
-				expect(found).toBeDefined();
+				// The debounce + real fs event delivery is not instantaneous —
+				// poll for the real row instead of a fixed sleep.
+				await vi.waitFor(
+					async () => {
+						const rows = await db.select().from(documents).where(eq(documents.title, "objections"));
+						expect(rows.length).toBeGreaterThan(0);
+					},
+					{ timeout: 10_000 },
+				);
 			} finally {
 				watcher.stop();
 				dispose();

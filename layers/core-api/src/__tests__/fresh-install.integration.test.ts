@@ -50,7 +50,7 @@ import {
 import type { EventBus } from "@hyperidle/event-bus";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import type { Hono } from "hono";
-import { afterEach, describe, expect } from "vitest";
+import { afterEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 import type { ActionContext } from "../actions/action.js";
 import { buildCoreActions } from "../actions/compose.js";
@@ -166,10 +166,7 @@ async function installed(result: Promise<ActionResult<PluginView>>): Promise<Plu
 	return done.data;
 }
 
-/** Wakes run after commit in a detached handler — give them time to land. */
-async function settle(): Promise<void> {
-	await new Promise((r) => setTimeout(r, 300));
-}
+
 
 function availableIn(listing: readonly PluginListing[]): string[] {
 	return listing
@@ -243,17 +240,26 @@ describe("a fresh install, end to end", () => {
 		expect(await db.select().from(threads)).toEqual([]);
 
 		// A message to the assistant starts its thread turn and nothing else.
-		await new Promise((r) => setTimeout(r, 5));
+		// The subscription-wake rule only counts a change strictly after the
+		// subscription's own `createdAt` — spin until the clock ticks past the
+		// millisecond the subscribe-on-create call above landed in, a real
+		// (deterministic) tick rather than a guessed sleep duration.
+		const beforeMessageMs = Date.now();
+		while (Date.now() === beforeMessageMs) {
+			// intentionally empty: waiting for Date.now() to advance
+		}
 		await call(app, "send_message", { recipients: [assistantId], text: "Hello" });
-		await settle();
-		const afterMessage = await db.select().from(agentWorkIntents);
-		expect(afterMessage.map((i) => i.kind)).toEqual(["thread_turn"]);
+		await vi.waitFor(async () => {
+			const afterMessage = await db.select().from(agentWorkIntents);
+			expect(afterMessage.map((i) => i.kind)).toEqual(["thread_turn"]);
+		});
 
 		// The subscriptions are live: a change the assistant did not start does wake it.
 		await call(app, "edit_task", { teamId: teamA, title: "Plan the week" }, adaId);
-		await settle();
-		const afterTask = await db.select().from(agentWorkIntents);
-		expect(afterTask.some((i) => i.kind === "subscription_run")).toBe(true);
+		await vi.waitFor(async () => {
+			const afterTask = await db.select().from(agentWorkIntents);
+			expect(afterTask.some((i) => i.kind === "subscription_run")).toBe(true);
+		});
 
 		// A second person on a second team.
 		const bo = await call<UserView>(app, "edit_user", {
