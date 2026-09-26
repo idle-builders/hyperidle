@@ -15,7 +15,7 @@
  */
 
 import type { ThreadView } from "@hyperidle/domain-model";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
 	createMemoryRouter,
@@ -154,6 +154,7 @@ function renderNoThreadId(): void {
 
 describe("Conversations page (L9)", () => {
 	afterEach(() => {
+		cleanup();
 		callMock.mockReset();
 		vi.restoreAllMocks();
 	});
