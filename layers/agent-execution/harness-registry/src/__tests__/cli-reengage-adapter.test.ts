@@ -346,7 +346,7 @@ describe("CliHarnessAdapter.streamEvents process-reengage loop", () => {
 		await streamDone;
 	}, 15_000);
 
-	it("AU27 Increment 8 (BLOCKER fix): with requiredReturnActions:['reply'], the re-engage message names the opencode-LITERAL 'hyperidle_reply' tool, not a bare name or the trio", async () => {
+	it("with requiredReturnActions:['reply'], the re-engage message names the opencode-LITERAL 'hyperidle_reply' tool, not a bare name or the trio", async () => {
 		// Decision 3's AC: "the forcing message names the action that
 		// session actually needs" — proven here on the REAL production
 		// re-engage code path (CliHarnessAdapter.streamEvents), not a

@@ -38,20 +38,21 @@
  * passing test.
  */
 
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import type { SessionConfig } from "@hyperidle/harness-protocol";
 import { ensureSandboxGitRepo } from "@hyperidle/run-orchestration";
 import { describe, expect, test } from "vitest";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
 import { LocalSandboxAdapter } from "../local-sandbox-adapter.js";
-import { createHarnessSandbox, provisionCodexHome } from "./harness-sandbox.js";
+import {
+	createHarnessSandbox,
+	provisionCodexHome,
+	requireHarnessAuthed,
+} from "./harness-sandbox.js";
 import { productionCliConfig } from "./production-cli-config.js";
 import { HARNESS_TEST_MODELS, requireHarness } from "./require-harness.js";
 import { trackHarnessSessions } from "./session-handle-tracker.js";
 
 const { track } = trackHarnessSessions();
-const execFileAsync = promisify(execFile);
 
 /**
  * Matches the idle plugin's own tool/namespace vocabulary across harness
@@ -103,26 +104,6 @@ const OPENCODE_LEAK_PATTERN = /\bhyperidle\b/i;
  */
 const OPENCODE_ISOLATED_MARKER = /No MCP servers configured/i;
 
-async function codexAuthed(): Promise<boolean> {
-	try {
-		const { stdout, stderr } = await execFileAsync("codex", ["login", "status"], {
-			timeout: 10_000,
-		});
-		return (stdout + stderr).trim().startsWith("Logged in");
-	} catch {
-		return false;
-	}
-}
-
-async function opencodeAuthed(): Promise<boolean> {
-	try {
-		const { stdout } = await execFileAsync("opencode", ["providers", "list"], { timeout: 10_000 });
-		return /\d+\s+credentials/.test(stdout) || stdout.includes("environment variable");
-	} catch {
-		return false;
-	}
-}
-
 const TOOL_AUDIT_INSTRUCTION =
 	"This is a technical tool-audit, not a task. Output ONLY a plain list of the exact name of " +
 	"every tool/function and MCP server available to you right now from ANY source — built-in, " +
@@ -147,14 +128,10 @@ const MCP_LIST_INSTRUCTION =
 describe("codex CLI adapter (real binary) — per-session CODEX_HOME hides the user's idle plugin", () => {
 	requireHarness("codex");
 	test("a codex session sees no idle-tasks/idle-skills tool", async () => {
-		const authed = await codexAuthed();
-		if (!authed) {
-			throw new Error(
-				"codex is not authenticated (`codex login status` did not report Logged in) — " +
-					"idle-isolation cannot prove CODEX_HOME isolation without it. Run `codex login`. " +
-					"(never skip to green.)",
-			);
-		}
+		await requireHarnessAuthed(
+			"codex",
+			"idle-isolation cannot prove CODEX_HOME isolation without a real logged-in session",
+		);
 
 		const baseSandbox = createHarnessSandbox("idle-isolation-codex-base");
 		const sandboxAdapter = new LocalSandboxAdapter();
@@ -214,14 +191,10 @@ describe("codex CLI adapter (real binary) — per-session CODEX_HOME hides the u
 describe("opencode CLI adapter (real binary) — per-session XDG_CONFIG_HOME hides the user's opencode MCP config", () => {
 	requireHarness("opencode");
 	test("an opencode session sees no user-level hyperidle MCP server", async () => {
-		const authed = await opencodeAuthed();
-		if (!authed) {
-			throw new Error(
-				"opencode is not authenticated (`opencode providers list` found no configured " +
-					"provider) — idle-isolation cannot prove XDG_CONFIG_HOME isolation without it. " +
-					"Run `opencode auth login`. (never skip to green.)",
-			);
-		}
+		await requireHarnessAuthed(
+			"opencode",
+			"idle-isolation cannot prove XDG_CONFIG_HOME isolation without a real configured provider",
+		);
 
 		const sandbox = createHarnessSandbox("idle-isolation-opencode");
 		const sandboxPath = sandbox.path;

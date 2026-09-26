@@ -17,9 +17,22 @@
  * not the harness's own environment.
  */
 
-import { appendFileSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { execFile } from "node:child_process";
+import {
+	appendFileSync,
+	copyFileSync,
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
+import { promisify } from "node:util";
+import type { HarnessName } from "./require-harness.js";
+
+const execFileAsync = promisify(execFile);
 
 export interface HarnessSandbox {
 	readonly path: string;
@@ -79,4 +92,126 @@ export function provisionCodexHome(sandboxPath: string): boolean {
 		"utf-8",
 	);
 	return authFound;
+}
+
+/** Writes the sandbox files CLAUDE_CLI_CONFIG's args reference (--mcp-config, --settings). */
+export function provisionClaudeSandbox(sandboxPath: string): void {
+	// --mcp-config .mcp.json: dead URL is fine; claude marks it pending and proceeds.
+	writeFileSync(
+		join(sandboxPath, ".mcp.json"),
+		JSON.stringify({
+			mcpServers: { hyperidle: { type: "http", url: "http://localhost:9/api/mcp/x" } },
+		}),
+		"utf-8",
+	);
+	// --settings .claude/settings.json: empty object = no Stop hook → no re-prompt loop.
+	mkdirSync(join(sandboxPath, ".claude"), { recursive: true });
+	writeFileSync(join(sandboxPath, ".claude", "settings.json"), JSON.stringify({}), "utf-8");
+}
+
+// ── Auth probes ───────────────────────────────────────────────────────────────
+//
+// A harness binary can be on PATH (requireHarness passes) but not logged in.
+// These probes answer that separately, and requireHarnessAuthed below turns a
+// "not logged in" into the same hard-fail requireHarness uses for "not
+// installed" — never a skip. One probe per harness, used by every real-binary
+// test file so the login-detection logic exists exactly once.
+
+async function claudeAuthed(): Promise<boolean> {
+	try {
+		const { stdout } = await execFileAsync("claude", ["auth", "status"], { timeout: 10_000 });
+		const parsed = JSON.parse(stdout.trim()) as { loggedIn?: boolean };
+		return parsed.loggedIn === true;
+	} catch {
+		return false;
+	}
+}
+
+async function codexAuthed(): Promise<boolean> {
+	try {
+		const { stdout, stderr } = await execFileAsync("codex", ["login", "status"], {
+			timeout: 10_000,
+		});
+		return (stdout + stderr).trim().startsWith("Logged in");
+	} catch {
+		return false;
+	}
+}
+
+async function opencodeAuthed(): Promise<boolean> {
+	try {
+		// opencode reads OPENROUTER_API_KEY from its own environment — HyperIdle
+		// holds no model credential to inject.
+		if (!process.env.OPENROUTER_API_KEY) return false;
+		const { stdout } = await execFileAsync("opencode", ["providers", "list"], { timeout: 10_000 });
+		return /\d+\s+credentials/.test(stdout) || stdout.includes("environment variable");
+	} catch {
+		return false;
+	}
+}
+
+async function cursorAgentAuthed(): Promise<boolean> {
+	try {
+		const { stdout } = await execFileAsync("cursor-agent", ["status"], { timeout: 10_000 });
+		return stdout.includes("Logged in");
+	} catch {
+		return false;
+	}
+}
+
+const AUTH_CHECK: Record<HarnessName, () => Promise<boolean>> = {
+	claude: claudeAuthed,
+	codex: codexAuthed,
+	opencode: opencodeAuthed,
+	"cursor-agent": cursorAgentAuthed,
+};
+
+const LOGIN_HINT: Record<HarnessName, string> = {
+	claude: "run `claude auth status` / sign in via the app",
+	codex: "run `codex login`",
+	opencode: "run `opencode auth login` (or export OPENROUTER_API_KEY)",
+	"cursor-agent": "run `cursor-agent login`",
+};
+
+/** True iff the named harness is both on PATH and logged in / credentialed. */
+export function isHarnessAuthed(name: HarnessName): Promise<boolean> {
+	return AUTH_CHECK[name]();
+}
+
+/**
+ * Throws (never skips) when a harness binary is on PATH but not authenticated.
+ * Pairs with `requireHarness` (which checks PATH only) so a missing credential
+ * hard-fails the run exactly like a missing binary does.
+ */
+export async function requireHarnessAuthed(name: HarnessName, context?: string): Promise<void> {
+	if (await isHarnessAuthed(name)) return;
+	throw new Error(
+		`${name} is on PATH but not authenticated (${LOGIN_HINT[name]})` +
+			`${context ? ` — ${context}` : ""}. Never skip to green.`,
+	);
+}
+
+/**
+ * A copy of the current environment with every Claude-Code session-detection
+ * var cleared, so a real-binary test spawned from inside an agent session
+ * (this repo's own CI runner, a developer's Claude Code terminal, etc.) never
+ * trips a harness's own nested-session guard.
+ */
+export function buildCleanEnv(): Record<string, string> {
+	const env: Record<string, string> = {};
+	for (const [k, v] of Object.entries(process.env)) {
+		if (v !== undefined) env[k] = v;
+	}
+	const ccVars = [
+		"CLAUDECODE",
+		"CLAUDE_CODE_ENTRYPOINT",
+		"CLAUDE_CODE_EXECPATH",
+		"CLAUDE_CODE_SESSION_ID",
+		"AI_AGENT",
+		"CLAUDE_EFFORT",
+		"CLAUDE_CODE_SIMPLE",
+		"CLAUDE_CODE_SAFE_MODE",
+	];
+	for (const v of ccVars) env[v] = "";
+	return env;
 }

@@ -1,8 +1,8 @@
 /**
- * BA9b — Plugin stdio MCP dialect shape live-proof (AC6).
+ * Plugin stdio MCP dialect shape live-proof.
  *
- * AC6: "the dialect config file produced by writePluginStdioMcpEntries is read and
- *       accepted by the real binary in a sandbox."
+ * The dialect config file produced by writePluginStdioMcpEntries is read and
+ * accepted by the real binary in a sandbox.
  *
  * Proof method (codex-toml and opencode-json dialects):
  *   1. Write a minimal stdio MCP server script that advertises one uniquely-named tool
@@ -51,10 +51,10 @@
 
 import { execFileSync, execSync } from "node:child_process";
 import * as fs from "node:fs";
-import * as os from "node:os";
 import * as path from "node:path";
 import { writePluginStdioMcpEntries } from "@hyperidle/harness-registry";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { createHarnessSandbox, type HarnessSandbox } from "./harness-sandbox.js";
 import { requireHarness } from "./require-harness.js";
 
 // ---------------------------------------------------------------------------
@@ -96,24 +96,26 @@ const NODE_BIN = "/opt/homebrew/opt/node@24/bin/node";
 // Per-test sandbox state
 // ---------------------------------------------------------------------------
 
+let sandbox: HarnessSandbox;
 let sandboxPath: string;
 let probeServerScript: string;
 
 beforeEach(() => {
-	sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "ba9b-dialect-probe-"));
+	sandbox = createHarnessSandbox("plugin-mcp-dialect-probe");
+	sandboxPath = sandbox.path;
 	probeServerScript = path.join(sandboxPath, "probe-server.mjs");
 	fs.writeFileSync(probeServerScript, PROBE_SERVER_SCRIPT, { mode: 0o755 });
 });
 
-afterEach(() => {
-	fs.rmSync(sandboxPath, { recursive: true, force: true });
+afterEach(async () => {
+	await sandbox.cleanup();
 });
 
 // ---------------------------------------------------------------------------
 // codex-toml dialect
 // ---------------------------------------------------------------------------
 
-describe("BA9b AC6: codex-toml dialect", () => {
+describe("codex-toml dialect", () => {
 	it("writePluginStdioMcpEntries writes .codex-home/config.toml that codex mcp list accepts", () => {
 		requireHarness("codex");
 
@@ -185,7 +187,7 @@ describe("BA9b AC6: codex-toml dialect", () => {
 // opencode-json dialect
 // ---------------------------------------------------------------------------
 
-describe("BA9b AC6: opencode-json dialect", () => {
+describe("opencode-json dialect", () => {
 	it("writePluginStdioMcpEntries writes opencode.json with command array that opencode connects to", () => {
 		requireHarness("opencode");
 

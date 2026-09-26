@@ -45,9 +45,11 @@ import type {
 import type { EnforcementRegistry as BaseEnforcementRegistry } from "@hyperidle/harness-registry";
 import {
 	AdapterPool,
+	type CliAvailabilityDeps,
 	createLocalAdapterPool,
 	createReturnEnforcement,
 	createSandboxAdapter,
+	type HarnessProbeDeps,
 	provisionHarnessEnvironment,
 	RemoteHarnessAdapter,
 	type SandboxAdapter,
@@ -72,6 +74,14 @@ export interface AgentExecutionBootOptions {
 	readonly topology: "local" | "disabled";
 	/** The Application's own origin — spells the MCP bridge's dialable URL (`${mcpBaseUrl}/api/mcp/:token`). */
 	readonly mcpBaseUrl: string;
+	/**
+	 * Injectable command-runner for local harness discovery — the same seam
+	 * `createLocalAdapterPool` already exposes. A unit test passes stubs here so
+	 * booting with topology "local" never spawns a real CLI's `--version` or
+	 * shells out to `which`; the real Application never passes them.
+	 */
+	readonly discoveryDeps?: HarnessProbeDeps;
+	readonly availabilityDeps?: CliAvailabilityDeps;
 }
 
 /**
@@ -174,7 +184,11 @@ export async function bootAgentExecution(
 	const enforcementRegistry = createReturnEnforcement();
 	const pool =
 		options.topology === "local"
-			? await createLocalAdapterPool({ enforcement: enforcementRegistry })
+			? await createLocalAdapterPool({
+					enforcement: enforcementRegistry,
+					discoveryDeps: options.discoveryDeps,
+					availabilityDeps: options.availabilityDeps,
+				})
 			: new AdapterPool();
 	const bridge = createMcpToolBridge({
 		enforcement: enforcementRegistry,

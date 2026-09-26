@@ -1,5 +1,5 @@
 /**
- * X5 — CliHarnessAdapter unit tests (red phase).
+ * CliHarnessAdapter unit tests.
  *
  * Tests all runtime behaviors of the CLI harness adapter:
  * - Template variable resolution
@@ -8,8 +8,7 @@
  * - streamEvents ndjson and text modes
  * - stopSession SIGTERM/SIGKILL escalation
  * - Env sandboxing
- * - W2: ENOENT from spawn produces clear error
- * - W4: specific assertions, not just toBeDefined
+ * - ENOENT from spawn produces a clear error
  */
 
 import type { ChildProcess } from "node:child_process";
@@ -162,7 +161,7 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 		expect(spawnEnv["MCP_URL"]).toBe("");
 	});
 
-	it("drops --model flag when the agent named no model (WARNING-D1 conditional-model fix)", async () => {
+	it("drops --model flag when the agent named no model", async () => {
 		// @lore AR4 WARNING-D1: When the agent named no model, {{model}} resolves to "".
 		// Passing --model "" to codex sends an empty model string to the OpenAI API →
 		// 400 invalid_request_error. The fix: strip --model + "" pairs when model is empty,
@@ -245,7 +244,7 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 		expect(spawnArgs.join(" ")).not.toContain("everything you know");
 	});
 
-	it("keeps --model flag when the agent named one (WARNING-D1 non-empty path)", async () => {
+	it("keeps --model flag when the agent named one", async () => {
 		// @lore AR4 WARNING-D1: Non-empty model must still inject --model <value>.
 		// Proves the conditional strip only fires on empty string, not on valid model IDs.
 		const spawnSpy = vi.fn();
@@ -347,7 +346,7 @@ describe("CliHarnessAdapter startSession", () => {
 		expect(handle.sessionId.length).toBeGreaterThan(0);
 	});
 
-	it("W2: ENOENT from spawn throws a clear 'binary not found' error", async () => {
+	it("ENOENT from spawn throws a clear 'binary not found' error", async () => {
 		const spawnSpy = vi.fn().mockImplementation(() => {
 			const error = new Error("spawn fake-tool ENOENT") as NodeJS.ErrnoException;
 			error.code = "ENOENT";

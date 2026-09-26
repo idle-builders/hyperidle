@@ -165,7 +165,7 @@ async function startT0bServer(sandboxPath: string): Promise<T0bTestServer> {
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
-describe("T0b — production MCP bridge stateful session-capability (AC9)", () => {
+describe("production MCP bridge stateful session-capability", () => {
 	let sandboxPath: string;
 	let testServer: T0bTestServer;
 
@@ -179,7 +179,7 @@ describe("T0b — production MCP bridge stateful session-capability (AC9)", () =
 		fs.rmSync(sandboxPath, { recursive: true, force: true });
 	});
 
-	test("multi-request session: initialize → list_tools → call_tool succeeds via mcp-session-id (AC9)", async () => {
+	test("multi-request session: initialize → list_tools → call_tool succeeds via mcp-session-id", async () => {
 		// Use the SDK Client + StreamableHTTPClientTransport pointed at the
 		// PRODUCTION server. This avoids the mcp-protocol-version foot-gun (N11)
 		// and naturally carries the mcp-session-id header on requests 2+.

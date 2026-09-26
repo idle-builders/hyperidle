@@ -6,7 +6,7 @@ import { requireHarness } from "./require-harness.js";
 
 const execFileAsync = promisify(execFile);
 
-describe("AM2 real harness discovery", () => {
+describe("real harness discovery", () => {
 	describe("codex", () => {
 		requireHarness("codex");
 		test("codex CLI discovery reflects installed/authenticated state", async () => {

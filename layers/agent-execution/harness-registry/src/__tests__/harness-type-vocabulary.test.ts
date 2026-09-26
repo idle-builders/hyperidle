@@ -22,6 +22,26 @@ import type {
 } from "@hyperidle/harness-protocol";
 import { describe, expect, it } from "vitest";
 import { AdapterPool, createLocalAdapterPool } from "../adapter-pool.js";
+import type { CliAvailabilityDeps } from "../cli-harness-adapter.js";
+import type { HarnessProbeDeps } from "../harness-discovery.js";
+
+// No real binary is ever spawned or shelled out to here: both discovery and
+// availability are injected with stubs that report "nothing installed" — the
+// same seam discoverLocalHarnesses/checkAvailability already expose for
+// production callers, not a test-only export. The assertions below hold
+// whatever the pool discovers (see each test's own comment), so a fully
+// hermetic pool proves the same thing a real one would.
+const noDiscovery: HarnessProbeDeps = {
+	run: async () => ({ stdout: "", stderr: "not found", exitCode: 1 }),
+};
+const noBinaries: CliAvailabilityDeps = {
+	whichFn: async () => {
+		throw new Error("not found");
+	},
+};
+function fakeLocalAdapterPool() {
+	return createLocalAdapterPool({ discoveryDeps: noDiscovery, availabilityDeps: noBinaries });
+}
 
 function makeAdapter(): HarnessAdapter {
 	return {
@@ -54,14 +74,14 @@ describe("harness type vocabulary", () => {
 		// known-missing families too, and that full set is host-independent — so
 		// the claim becomes the stronger, bidirectional one: what the pool can
 		// account for and what the vocabulary offers are the same set.
-		const pool = await createLocalAdapterPool();
+		const pool = await fakeLocalAdapterPool();
 		const accounted = new Set(pool.describe().map((d) => d.type));
 
 		expect([...accounted].sort()).toEqual([...HARNESS_TYPES].sort());
 	});
 
 	it("registers nothing under a type outside the vocabulary", async () => {
-		const pool = await createLocalAdapterPool();
+		const pool = await fakeLocalAdapterPool();
 		const known = new Set<string>(HARNESS_TYPES);
 
 		for (const descriptor of pool.describe({ includeKnownMissing: false })) {

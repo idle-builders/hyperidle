@@ -25,21 +25,22 @@
  * error_during_execution and empty result, detected via content check).
  */
 
-import { execFile } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { promisify } from "node:util";
 import type { HarnessEvent, SessionConfig, SessionResumeConfig } from "@hyperidle/harness-protocol";
 import { ensureSandboxGitRepo } from "@hyperidle/run-orchestration";
 import { describe, expect, test } from "vitest";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
 import { LocalSandboxAdapter } from "../local-sandbox-adapter.js";
+import {
+	provisionClaudeSandbox,
+	provisionCodexHome,
+	requireHarnessAuthed,
+} from "./harness-sandbox.js";
 import { productionCliConfig } from "./production-cli-config.js";
 import { HARNESS_TEST_MODELS, requireHarness } from "./require-harness.js";
 import { trackHarnessSessions } from "./session-handle-tracker.js";
-
-const execFileAsync = promisify(execFile);
 
 // @lore process-group kill only helps once stopSession runs. `track` stops any
 // handle a test leaves unstopped — timeout or thrown assertion included — in
@@ -99,84 +100,6 @@ function knownCodeword(completionTexts: string[]): boolean {
 	return completionTexts.some((t) => t.includes(CODEWORD));
 }
 
-// ── Auth probe helpers ────────────────────────────────────────────────────────
-
-async function claudeAuthed(): Promise<boolean> {
-	try {
-		const { stdout } = await execFileAsync("claude", ["auth", "status"], { timeout: 10_000 });
-		const parsed = JSON.parse(stdout.trim()) as { loggedIn?: boolean };
-		return parsed.loggedIn === true;
-	} catch {
-		return false;
-	}
-}
-
-async function codexAuthed(): Promise<boolean> {
-	try {
-		const { stdout, stderr } = await execFileAsync("codex", ["login", "status"], {
-			timeout: 10_000,
-		});
-		return (stdout + stderr).trim().startsWith("Logged in");
-	} catch {
-		return false;
-	}
-}
-
-async function opencodeAuthed(): Promise<boolean> {
-	try {
-		if (!process.env.OPENROUTER_API_KEY) return false;
-		const { stdout } = await execFileAsync("opencode", ["providers", "list"], { timeout: 10_000 });
-		return /\d+\s+credentials/.test(stdout) || stdout.includes("environment variable");
-	} catch {
-		return false;
-	}
-}
-
-async function cursorAgentAuthed(): Promise<boolean> {
-	try {
-		const { stdout } = await execFileAsync("cursor-agent", ["status"], { timeout: 10_000 });
-		return stdout.includes("Logged in");
-	} catch {
-		return false;
-	}
-}
-
-// ── claude sandbox provisioning ───────────────────────────────────────────────
-
-function provisionClaudeSandbox(sandboxPath: string): void {
-	fs.writeFileSync(
-		path.join(sandboxPath, ".mcp.json"),
-		JSON.stringify({
-			mcpServers: { hyperidle: { type: "http", url: "http://localhost:9/api/mcp/x" } },
-		}),
-		"utf-8",
-	);
-	fs.mkdirSync(path.join(sandboxPath, ".claude"), { recursive: true });
-	fs.writeFileSync(path.join(sandboxPath, ".claude", "settings.json"), JSON.stringify({}), "utf-8");
-}
-
-// ── codex sandbox provisioning ────────────────────────────────────────────────
-
-function provisionCodexHome(sandboxPath: string): boolean {
-	const codexHomeDir = path.join(sandboxPath, ".codex-home");
-	fs.mkdirSync(codexHomeDir, { recursive: true });
-	const homeCodexDir = path.join(os.homedir(), ".codex");
-	let authFound = false;
-	for (const fname of ["auth.json", "config.toml"]) {
-		const src = path.join(homeCodexDir, fname);
-		if (fs.existsSync(src)) {
-			fs.copyFileSync(src, path.join(codexHomeDir, fname));
-			if (fname === "auth.json") authFound = true;
-		}
-	}
-	fs.appendFileSync(
-		path.join(codexHomeDir, "config.toml"),
-		`\n[projects."${sandboxPath}"]\ntrust_level = "trusted"\n`,
-		"utf-8",
-	);
-	return authFound;
-}
-
 // ═════════════════════════════════════════════════════════════════════════════
 // claude-code
 // ═════════════════════════════════════════════════════════════════════════════
@@ -184,13 +107,8 @@ function provisionCodexHome(sandboxPath: string): boolean {
 describe("session handles — claude-code", () => {
 	requireHarness("claude");
 
-	test("assigns session id immediately at start, resumes with prior context, bogus-id resume detected", async ({
-		skip,
-	}) => {
-		if (!(await claudeAuthed())) {
-			skip();
-			return;
-		}
+	test("assigns session id immediately at start, resumes with prior context, bogus-id resume detected", async () => {
+		await requireHarnessAuthed("claude");
 
 		const sandboxA = fs.mkdtempSync(path.join(os.tmpdir(), "sh-claude-a-"));
 
@@ -302,13 +220,8 @@ describe("session handles — claude-code", () => {
 describe("session handles — codex", () => {
 	requireHarness("codex");
 
-	test("captures thread_id from thread.started, resumes with prior context, wrong-id fails loudly", async ({
-		skip,
-	}) => {
-		if (!(await codexAuthed())) {
-			skip();
-			return;
-		}
+	test("captures thread_id from thread.started, resumes with prior context, wrong-id fails loudly", async () => {
+		await requireHarnessAuthed("codex");
 
 		const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), "sh-codex-base-"));
 		const sandboxAdapter = new LocalSandboxAdapter();
@@ -320,8 +233,9 @@ describe("session handles — codex", () => {
 
 			const authFound = provisionCodexHome(sandboxPath);
 			if (!authFound) {
-				skip();
-				return;
+				throw new Error(
+					"codex: no ~/.codex/auth.json to copy into the per-session sandbox — run `codex login`. Never skip to green.",
+				);
 			}
 
 			const codexConfig = productionCliConfig("codex");
@@ -408,9 +322,7 @@ describe("session handles — codex", () => {
 		}
 	}, 120_000);
 
-	test("resumed codex session can write files — sandbox mode is thread-scoped not config-scoped", async ({
-		skip,
-	}) => {
+	test("resumed codex session can write files — sandbox mode is thread-scoped not config-scoped", async () => {
 		// @lore BA2 codex-sandbox-inherit: `exec resume` has no --sandbox flag.
 		// The original thread's sandbox mode (workspace-write) is INHERITED by the
 		// resumed session. This test proves it by having the resumed session create
@@ -420,10 +332,7 @@ describe("session handles — codex", () => {
 		// fail or produce an error event, and the file would not exist — failing
 		// this assertion. A guard you cannot show red is a passenger; this test
 		// goes red if sandbox mode stops being inherited.
-		if (!(await codexAuthed())) {
-			skip();
-			return;
-		}
+		await requireHarnessAuthed("codex");
 
 		const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), "codex-sbox-"));
 		const sandboxAdapter = new LocalSandboxAdapter();
@@ -434,8 +343,9 @@ describe("session handles — codex", () => {
 			ensureSandboxGitRepo(sandboxPath);
 			const authFound = provisionCodexHome(sandboxPath);
 			if (!authFound) {
-				skip();
-				return;
+				throw new Error(
+					"codex: no ~/.codex/auth.json to copy into the per-session sandbox — run `codex login`. Never skip to green.",
+				);
 			}
 
 			const codexConfig = productionCliConfig("codex");
@@ -519,13 +429,8 @@ describe("session handles — codex", () => {
 describe("session handles — cursor-agent", () => {
 	requireHarness("cursor-agent");
 
-	test("captures session_id from system/init, resumes with prior context, wrong-dir resume detected as context-free", async ({
-		skip,
-	}) => {
-		if (!(await cursorAgentAuthed())) {
-			skip();
-			return;
-		}
+	test("captures session_id from system/init, resumes with prior context, wrong-dir resume detected as context-free", async () => {
+		await requireHarnessAuthed("cursor-agent");
 
 		const sandboxA = fs.mkdtempSync(path.join(os.tmpdir(), "sh-cursor-a-"));
 		const sandboxB = fs.mkdtempSync(path.join(os.tmpdir(), "sh-cursor-b-"));
@@ -625,13 +530,8 @@ describe("session handles — cursor-agent", () => {
 describe("session handles — opencode", () => {
 	requireHarness("opencode");
 
-	test("captures sessionID from first event, resumes with prior context, wrong-id fails loudly", async ({
-		skip,
-	}) => {
-		if (!(await opencodeAuthed())) {
-			skip();
-			return;
-		}
+	test("captures sessionID from first event, resumes with prior context, wrong-id fails loudly", async () => {
+		await requireHarnessAuthed("opencode");
 
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "sh-opencode-"));
 
