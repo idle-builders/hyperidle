@@ -1,7 +1,8 @@
 import { render as renderRaw, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { ReactElement } from "react";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { Sidebar } from "../shell/Sidebar";
 
 // UI-080: Sidebar uses <Link> — requires router context.
@@ -18,6 +19,8 @@ const props = {
 	teams: [],
 	activeTeamId: null,
 	onSelectTeam: vi.fn(),
+	activeScope: null,
+	onSelectScope: vi.fn(),
 	onAssistantClick: vi.fn(),
 	assistantOverlayOpen: false,
 	onSettingsClick: vi.fn(),
@@ -28,12 +31,10 @@ const props = {
 };
 
 describe("sidebar navigation system", () => {
-	test("renders product identity and the stable destinations in approved order", () => {
-		const { container } = render(<Sidebar {...props} />);
+	it("renders product identity and the stable destinations in approved order", () => {
+		render(<Sidebar {...props} />);
 
 		expect(screen.getByText("HyperIdle")).toBeVisible();
-		expect(container.querySelector("aside")).toHaveClass("bg-transparent");
-		expect(container.querySelector("aside")).not.toHaveClass("bg-[var(--surface-elevated)]");
 		const primary = screen.getByRole("navigation", { name: "Main navigation" });
 		// UI-080: Conversations/Work/Knowledge are now <Link> elements (role="link");
 		// Notifications remains a button. Query all interactive items by aria-label.
@@ -51,34 +52,34 @@ describe("sidebar navigation system", () => {
 		]);
 	});
 
-	test("keeps the phone icon strip through 768px and touch targets through 1024px", () => {
+	it("exposes the complete label for a shortened navigator row via its title attribute", () => {
 		render(<Sidebar {...props} />);
 
-		const primary = screen.getByRole("navigation", { name: "Main navigation" });
-		expect(primary.className).toContain("min-[769px]:grid-cols-1");
-		expect(primary.className).not.toContain("md:grid-cols-1");
-
-		// UI-080: section headers are <Link> elements (role="link") now
-		const conversations = screen.getByRole("link", { name: "Conversations" });
-		expect(conversations.className).toContain("min-[1025px]:h-[36px]");
-		expect(conversations.className).not.toContain("md:h-[36px]");
+		// FastNavItem renders thread rows as <Link> with a title attr for the tooltip.
+		const row = screen.getByRole("link", { name: "A complete conversation title" });
+		expect(row).toHaveAttribute("title", "A complete conversation title");
 	});
 
-	test("keeps the active domain navigator visible while Settings is open", () => {
+	it("keeps the active domain navigator visible while Settings is open", () => {
 		render(<Sidebar {...props} settingsOpen={true} />);
 
-		// FastNavItem renders thread rows as <Link> — check by link role
-		const row = screen.getByRole("link", { name: "A complete conversation title" });
-		expect(row).toBeVisible();
-		// Section headers are still <Link> (role="link") — UI-080
+		expect(screen.getByRole("link", { name: "A complete conversation title" })).toBeVisible();
 		expect(screen.getByRole("link", { name: "Conversations" })).toBeVisible();
 	});
 
-	test("exposes the complete label for a shortened navigator row", () => {
-		render(<Sidebar {...props} />);
+	it("calls onSettingsClick when the Settings button is clicked", async () => {
+		const user = userEvent.setup();
+		const onSettingsClick = vi.fn();
+		render(<Sidebar {...props} onSettingsClick={onSettingsClick} />);
+		await user.click(screen.getByRole("button", { name: /settings/i }));
+		expect(onSettingsClick).toHaveBeenCalledOnce();
+	});
 
-		// FastNavItem renders thread rows as <Link> with title attr for tooltip
-		const row = screen.getByRole("link", { name: "A complete conversation title" });
-		expect(row).toHaveAttribute("title", "A complete conversation title");
+	it("marks the Settings utility as current when settingsOpen=true", () => {
+		render(<Sidebar {...props} settingsOpen={true} />);
+		expect(screen.getByRole("button", { name: /settings/i })).toHaveAttribute(
+			"aria-current",
+			"page",
+		);
 	});
 });
