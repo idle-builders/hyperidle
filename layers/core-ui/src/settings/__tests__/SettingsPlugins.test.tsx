@@ -17,7 +17,7 @@
  * the same `callMock`, not a separate `fetch` stub.
  */
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -90,12 +90,12 @@ function setupCall(
 	});
 }
 
-describe("SettingsPlugins", () => {
-	afterEach(() => {
-		vi.restoreAllMocks();
-		callMock.mockReset();
-	});
+afterEach(() => {
+	vi.restoreAllMocks();
+	callMock.mockReset();
+});
 
+describe("SettingsPlugins", () => {
 	describe("install form", () => {
 		beforeEach(() => {
 			setupCall([]);
@@ -188,18 +188,6 @@ describe("SettingsPlugins", () => {
 			const crmRow = screen.getByTestId("plugin-row-acme-crm");
 			expect(crmRow.textContent).toContain("acme-crm");
 			expect(crmRow.textContent).toContain("v1.0.4");
-		});
-
-		it("shows whose install each row is: the team by name, or everyone", async () => {
-			setupCall(
-				[PLUGIN_WITH_DETACHED, PLUGIN_NO_CONTRIBUTIONS],
-				[{ id: "u-sam", name: "Sam", team: { id: "team-sales", name: "Sales" } }],
-			);
-			render(<SettingsPlugins />);
-			// Team scope, by the team's name
-			expect(await screen.findByText("For Sales")).toBeInTheDocument();
-			// Factory scope
-			expect(screen.getByText("For everyone")).toBeInTheDocument();
 		});
 
 		it("shows disable/enable toggle and remove buttons per plugin", async () => {
@@ -303,5 +291,177 @@ describe("SettingsPlugins", () => {
 				});
 			});
 		});
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Available bundled plugins
+// ---------------------------------------------------------------------------
+
+describe("SettingsPlugins — available bundled plugins", () => {
+	const ROLE_PERSONAS = {
+		id: "role-personas",
+		name: "role-personas",
+		version: "1.0.0",
+		description: "A team of agents with defined roles.",
+		state: "available",
+		installScope: "team",
+	};
+
+	const DOCUMENT_MANAGEMENT = {
+		id: "document-management",
+		name: "document-management",
+		version: "1.0.0",
+		description: "Document Librarian agent.",
+		state: "available",
+		installScope: "factory",
+	};
+
+	const INSTALLED_BUNDLED = {
+		id: "acme-search",
+		name: "acme-search",
+		version: "2.1.0",
+		state: "enabled",
+		scope: { kind: "factory", teamId: null },
+		installedAt: "2026-01-01T00:00:00.000Z",
+		updatedAt: "2026-01-01T00:00:00.000Z",
+		disabledAt: null,
+		contributions: [],
+	};
+
+	function setupAvailableCall(listing: unknown[]): void {
+		callMock.mockImplementation((name: string) => {
+			if (name === "search_plugins") return Promise.resolve({ ok: true, data: listing });
+			if (name === "open_user") {
+				return Promise.resolve({
+					ok: true,
+					data: { user: { id: "u-ada", team: { id: "team-a", name: "Team A" } } },
+				});
+			}
+			if (name === "search_users") return Promise.resolve({ ok: true, data: [] });
+			return Promise.resolve({ ok: true, data: INSTALLED_BUNDLED });
+		});
+	}
+
+	it("lists each available plugin with its description and an Install button, beside the installed ones", async () => {
+		setupAvailableCall([INSTALLED_BUNDLED, ROLE_PERSONAS, DOCUMENT_MANAGEMENT]);
+		render(<SettingsPlugins />);
+
+		const row = await screen.findByTestId("plugin-row-role-personas");
+		expect(within(row).getByText("role-personas")).toBeInTheDocument();
+		expect(within(row).getByText("v1.0.0")).toBeInTheDocument();
+		expect(within(row).getByText("A team of agents with defined roles.")).toBeInTheDocument();
+		expect(within(row).getByRole("button", { name: "Install" })).toBeInTheDocument();
+		expect(screen.getByTestId("plugin-install-document-management")).toBeInTheDocument();
+		// An available row is not an install: nothing to disable or remove yet.
+		expect(screen.queryByTestId("plugin-toggle-role-personas")).not.toBeInTheDocument();
+		expect(screen.getByTestId("plugin-toggle-acme-search")).toBeInTheDocument();
+	});
+
+	it("installs a team plugin by name into the viewer's own team", async () => {
+		const user = userEvent.setup();
+		setupAvailableCall([ROLE_PERSONAS]);
+		render(<SettingsPlugins />);
+
+		await user.click(await screen.findByTestId("plugin-install-role-personas"));
+
+		await waitFor(() => {
+			expect(callMock).toHaveBeenCalledWith("edit_plugin", {
+				source: {
+					kind: "bundled",
+					name: "role-personas",
+					scope: { kind: "team", teamId: "team-a" },
+				},
+			});
+		});
+		// Reloads the list after installing.
+		expect(callMock.mock.calls.filter(([name]) => name === "search_plugins").length).toBe(2);
+	});
+
+	it("installs a factory plugin by name for everyone", async () => {
+		const user = userEvent.setup();
+		setupAvailableCall([DOCUMENT_MANAGEMENT]);
+		render(<SettingsPlugins />);
+		await user.click(await screen.findByTestId("plugin-install-document-management"));
+
+		await waitFor(() => {
+			expect(callMock).toHaveBeenCalledWith("edit_plugin", {
+				source: {
+					kind: "bundled",
+					name: "document-management",
+					scope: { kind: "factory", teamId: null },
+				},
+			});
+		});
+	});
+});
+
+// ---------------------------------------------------------------------------
+// An installed row a person can read
+// ---------------------------------------------------------------------------
+
+describe("SettingsPlugins — an installed row a person can read", () => {
+	const TEAM_ID = "team-ad503683-56e0-487b-b67d-6dccd4a595b4";
+
+	const TEAM_INSTALL = {
+		id: `role-personas@${TEAM_ID}`,
+		name: "role-personas",
+		version: "1.0.0",
+		state: "enabled",
+		scope: { kind: "team", teamId: TEAM_ID },
+		installedAt: "2026-09-25T00:00:00.000Z",
+		updatedAt: "2026-09-25T00:00:00.000Z",
+		disabledAt: null,
+		contributions: [
+			{
+				kind: "agent",
+				key: "pa_builder",
+				manifestKey: "pa_builder",
+				entityId: "pa_builder",
+				label: "Builder",
+				detached: false,
+			},
+		],
+	};
+
+	const FACTORY_INSTALL = {
+		...TEAM_INSTALL,
+		id: "document-management",
+		name: "document-management",
+		scope: { kind: "factory", teamId: null },
+	};
+
+	function setupRowCall(listing: unknown[]): void {
+		callMock.mockImplementation((name: string) => {
+			if (name === "search_plugins") return Promise.resolve({ ok: true, data: listing });
+			if (name === "search_users") {
+				return Promise.resolve({
+					ok: true,
+					data: [{ id: "u-ada", name: "Ada", team: { id: TEAM_ID, name: "My Team" } }],
+				});
+			}
+			if (name === "search_tasks") return Promise.resolve({ ok: true, data: [] });
+			return Promise.resolve({ ok: true, data: listing[0] });
+		});
+	}
+
+	it("shows a team install's name, version and team name, never the raw team id", async () => {
+		setupRowCall([TEAM_INSTALL]);
+		render(<SettingsPlugins />);
+
+		const row = await screen.findByTestId(`plugin-row-role-personas@${TEAM_ID}`);
+		expect(within(row).getByText("role-personas")).toBeInTheDocument();
+		expect(within(row).getByText("v1.0.0")).toBeInTheDocument();
+		expect(await within(row).findByText(/My Team/)).toBeInTheDocument();
+		expect(row.textContent).not.toContain(TEAM_ID);
+	});
+
+	it("says a factory install is for everyone", async () => {
+		setupRowCall([FACTORY_INSTALL]);
+		render(<SettingsPlugins />);
+
+		const row = await screen.findByTestId("plugin-row-document-management");
+		expect(within(row).getByText("document-management")).toBeInTheDocument();
+		expect(within(row).getByText(/everyone/i)).toBeInTheDocument();
 	});
 });
