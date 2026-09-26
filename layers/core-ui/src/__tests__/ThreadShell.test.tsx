@@ -328,3 +328,139 @@ describe("computeSenderGrouping (approved.md §2.4)", () => {
 		expect(result.map((g) => g.showSenderHeader)).toEqual([true, true]);
 	});
 });
+
+// ---------------------------------------------------------------------------
+// Promotion rule: at most one RichMessageCard per thread
+// ---------------------------------------------------------------------------
+
+function review(id: string, createdAt: string, resolvedAt: string | null = null): Message {
+	return {
+		id,
+		threadId: "t-1",
+		senderId: "agent-1",
+		clientKey: id,
+		blockId: null,
+		deletedAt: null,
+		redactedAt: null,
+		resolvedAt,
+		createdAt,
+		type: "review",
+		payload: {
+			title: `Review ${id}`,
+			reasoning: ["short"],
+			producedItemId: `art-${id}`,
+		},
+	};
+}
+
+describe("ThreadShell promotion (L11 — approved.md §3, plan §5.5)", () => {
+	it("mounts at most ONE RichMessageCard for a thread with two unresolved reviews", () => {
+		render(
+			<ThreadShell
+				thread={baseThread}
+				messages={[
+					review("r-old", "2026-04-19T12:00:00.000Z"),
+					review("r-new", "2026-04-19T12:30:00.000Z"),
+				]}
+				identities={identities}
+				onAppendMessage={vi.fn()}
+			/>,
+		);
+		expect(screen.queryAllByTestId("rich-message-card").length).toBe(1);
+	});
+
+	it("the OLDEST unresolved review is the one promoted to a card", () => {
+		render(
+			<ThreadShell
+				thread={baseThread}
+				messages={[
+					review("r-old", "2026-04-19T12:00:00.000Z"),
+					review("r-new", "2026-04-19T12:30:00.000Z"),
+				]}
+				identities={identities}
+				onAppendMessage={vi.fn()}
+			/>,
+		);
+		const card = screen.getByTestId("rich-message-card");
+		expect(card.getAttribute("data-message-id")).toBe("r-old");
+	});
+
+	it("non-promoted unresolved reviews render as a CommentRow with data-variant='rich-review'", () => {
+		render(
+			<ThreadShell
+				thread={baseThread}
+				messages={[
+					review("r-old", "2026-04-19T12:00:00.000Z"),
+					review("r-new", "2026-04-19T12:30:00.000Z"),
+				]}
+				identities={identities}
+				onAppendMessage={vi.fn()}
+			/>,
+		);
+		const richRows = screen
+			.queryAllByTestId("comment-row")
+			.filter((el) => el.getAttribute("data-variant") === "rich-review");
+		expect(richRows.length).toBe(1);
+	});
+
+	it("does NOT mount the legacy thread-head section after L11 (plan §6.3 — file deleted)", () => {
+		render(
+			<ThreadShell
+				thread={baseThread}
+				messages={[review("r-1", "2026-04-19T12:00:00.000Z")]}
+				identities={identities}
+				onAppendMessage={vi.fn()}
+			/>,
+		);
+		expect(screen.queryByTestId("thread-head")).toBeNull();
+	});
+
+	it("does NOT render the legacy 'Unresolved review · acting required' link (plan §6.2)", () => {
+		render(
+			<ThreadShell
+				thread={baseThread}
+				messages={[review("r-1", "2026-04-19T12:00:00.000Z")]}
+				identities={identities}
+				onAppendMessage={vi.fn()}
+			/>,
+		);
+		expect(screen.queryByText(/unresolved review/i)).toBeNull();
+	});
+
+	it("renders zero RichMessageCards when no rich messages exist (chat-shape)", () => {
+		const plain: Message = {
+			id: "p1",
+			threadId: "t-1",
+			senderId: "u-founder",
+			clientKey: "p1",
+			blockId: null,
+			deletedAt: null,
+			redactedAt: null,
+			resolvedAt: null,
+			createdAt: "2026-04-19T12:00:00.000Z",
+			type: "plain",
+			payload: { text: "hi" },
+		};
+		render(
+			<ThreadShell
+				thread={baseThread}
+				messages={[plain]}
+				identities={identities}
+				onAppendMessage={vi.fn()}
+			/>,
+		);
+		expect(screen.queryAllByTestId("rich-message-card").length).toBe(0);
+	});
+
+	it("renders zero RichMessageCards when every rich message is resolved", () => {
+		render(
+			<ThreadShell
+				thread={baseThread}
+				messages={[review("r-resolved", "2026-04-19T12:00:00.000Z", "2026-04-19T12:30:00.000Z")]}
+				identities={identities}
+				onAppendMessage={vi.fn()}
+			/>,
+		);
+		expect(screen.queryAllByTestId("rich-message-card").length).toBe(0);
+	});
+});
