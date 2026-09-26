@@ -17,7 +17,6 @@ import {
 	teams,
 	threads,
 	users,
-	type WriteExecutor,
 } from "@hyperidle/db";
 import type { ReviewVerdictOutcome } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
@@ -203,7 +202,17 @@ export function threadDeps(overrides: Partial<ThreadActionsDeps> = {}): ThreadAc
 					: [],
 			listOwnedBy: async (exec, ownerId) =>
 				exec.select().from(users).where(eq(users.ownerUserId, ownerId)),
-			soleHumanForAgent: (exec, agentId) => soleHumanForAgent(exec, agentId),
+			// The moved tests seed at most one human, so any consistent pick
+			// answers the agent-fallback case without the production tie-break
+			// ladder (compose.ts's own soleHumanForAgent owns that rule).
+			soleHumanForAgent: async (exec, agentId) => {
+				const [agent] = await exec.select().from(users).where(eq(users.id, agentId));
+				const scope = agent?.teamId
+					? and(eq(users.kind, "human"), eq(users.teamId, agent.teamId))
+					: eq(users.kind, "human");
+				const [human] = await exec.select().from(users).where(scope);
+				return human;
+			},
 		},
 		searchDocuments: async () => ({ ok: true, data: [] }),
 		org: {
@@ -233,20 +242,4 @@ export function threadDeps(overrides: Partial<ThreadActionsDeps> = {}): ThreadAc
 		linkReviewToSession: vi.fn(async () => undefined),
 		...overrides,
 	};
-}
-
-/** Team-then-any-human ladder, first by `(createdAt, id)` — mirrors compose.ts's real rule. */
-async function soleHumanForAgent(exec: WriteExecutor, agentId: string) {
-	const byCreated = (a: { createdAt: string; id: string }, b: { createdAt: string; id: string }) =>
-		a.createdAt === b.createdAt ? a.id.localeCompare(b.id) : a.createdAt.localeCompare(b.createdAt);
-	const [agent] = await exec.select().from(users).where(eq(users.id, agentId));
-	if (agent?.teamId) {
-		const teamHumans = await exec
-			.select()
-			.from(users)
-			.where(and(eq(users.kind, "human"), eq(users.teamId, agent.teamId)));
-		if (teamHumans.length > 0) return [...teamHumans].sort(byCreated)[0];
-	}
-	const anyHumans = await exec.select().from(users).where(eq(users.kind, "human"));
-	return [...anyHumans].sort(byCreated)[0];
 }

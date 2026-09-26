@@ -50,7 +50,9 @@ again.
 - Variants are table-driven — one row per distinct branch, not one test each.
 - Deleting code deletes its tests and its test-only support code in the same change.
 - A repeated setup gets one shared helper per package. Integration tests drive the production
-  composition root — never a hand-built stand-in for a real port.
+  composition root — never a hand-built stand-in for a real port. A module-tier test may inject
+  small fakes for the ports the module doesn't own, over a real DB — what's banned is
+  re-implementing the port or the composition actually being proven.
 - Test names say the behavior. No planning labels (track letters, work-item ids) — `taste.md` already
   rules that out everywhere. Keep file headers to ~5 lines. Comments in test files follow
   `.claude/rules/comments.md`, same as production code.
