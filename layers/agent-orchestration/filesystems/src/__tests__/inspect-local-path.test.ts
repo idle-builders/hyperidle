@@ -1,8 +1,6 @@
 /**
- * AV1 — inspectLocalPath unit tests
- *
- * AC3: Folder registered as filesystem with detected branch.
- * Tests use a fake FilesystemsGitRunner for injection (no real git).
+ * `inspectLocalPath` registers a folder as a filesystem with its detected
+ * branch. Uses a fake FilesystemsGitRunner for injection (no real git).
  */
 
 import { describe, expect, it } from "vitest";

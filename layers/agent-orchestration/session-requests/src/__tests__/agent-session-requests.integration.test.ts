@@ -1,16 +1,9 @@
 /**
- * @lore AU19 Increment 3b: moved from
- * `packages/server/src/services/__tests__/agent-session-requests.test.ts` —
- * this test only needs `{ db }` (no `{ app }`), so it moves into the owning
- * package's own `src/__tests__/` and switches its fixture import from
- * `packages/server`'s `{ db, app, eventBus }` fixture to
- * `@hyperidle/db/test-fixtures`'s `{ db }`-only fixture, same precedent as
- * `@hyperidle/org`'s `org-edges.integration.test.ts` (Increment 1c). Renamed
- * `.test.ts` → `.integration.test.ts` to match the DB-fixture test-naming
- * convention every other migrated package's DB-touching test follows.
+ * This test only needs `{ db }` (no `{ app }`), so it uses
+ * `@hyperidle/db/test-fixtures`'s `{ db }`-only fixture.
  *
- * `markRequestRunning` now takes a `MarkRequestRunningDeps` param (the
- * `SessionRequestsTriggerHistoryWriter` port, §11/`ports.ts`) — this test
+ * `markRequestRunning` takes a `MarkRequestRunningDeps` param (the
+ * `SessionRequestsTriggerHistoryWriter` port, `ports.ts`) — this test
  * supplies a no-op fake (it asserts on `agent_session_requests`'
  * status/session-id transition only, never on `trigger_resolution_history`,
  * which this test never seeds a row for).
@@ -295,20 +288,15 @@ describe("agent session request repository", () => {
 	});
 
 	/**
-	 * @lore AU30: re-homed verbatim (assertions unchanged) from the deleted
-	 * `layers/core-api/src/services/__tests__/agent-work-intent-worker.routine-selection.integration.test.ts`.
-	 * That file's other four cases were routine delegate-selection, whose subject
-	 * is gone; this one's subject is `insertIntentInternal`'s dedup early-return
-	 * and is very much alive — it is the case AU21 architecture §14 lists as
-	 * "Idempotency/dedup — STAY GREEN UNCHANGED". It belongs here because
-	 * `enqueueWorkIntent` lives in this package. `agent_work_intents` carries no
-	 * foreign key on `source_id` or `requested_by`, so dedup on
+	 * @lore `insertIntentInternal`'s dedup early-return belongs here because
+	 * `enqueueWorkIntent` lives in this package. `agent_work_intents` carries
+	 * no foreign key on `source_id` or `requested_by`, so dedup on
 	 * (kind, sourceId, idempotencyKey) needs no seeded row at all.
 	 */
 	test("enqueueWorkIntent is idempotent on (kind, sourceId, idempotencyKey)", async ({ db }) => {
-		const fireId = "au15-subscription-idem-fire";
-		const ownerAgentId = "au15-owner";
-		// AU44: bakedRequest required; drain is never called in this test so content is irrelevant.
+		const fireId = "subscription-idem-fire";
+		const ownerAgentId = "idem-owner";
+		// bakedRequest required; drain is never called in this test so content is irrelevant.
 		const idemBaked = {
 			defaultAgentId: ownerAgentId,
 			sourceKind: "subscription" as const,

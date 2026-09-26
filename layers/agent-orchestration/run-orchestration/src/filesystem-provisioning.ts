@@ -25,11 +25,6 @@ import type { Filesystem, MountResult } from "./mounter.js";
 /** Structural mounter port — run-orchestration declares the shape it needs (Mechanism C). */
 export interface FilesystemMounterPort {
 	mount(input: { filesystem: Filesystem; sandboxPath: string }): Promise<MountResult>;
-	captureBack(input: {
-		filesystem: Filesystem;
-		sandboxPath: string;
-		sessionId: string;
-	}): Promise<unknown>;
 }
 
 /**

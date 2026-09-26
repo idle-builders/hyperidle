@@ -3,17 +3,10 @@
  *
  * These tests go through the REAL composition root
  * (`buildRunOrchestrationComposition`), never `run-orchestration`'s own
- * `__tests__/test-ports.ts`. That distinction is the whole point: `test-ports`
- * REIMPLEMENTS the `transitionAgentRunLifecycle` port and forwards
- * `errorMessage` correctly, so `agent-run-boundary.integration.test.ts` has
- * asserted `errorMessage: "runtime exploded"` green for months while the
- * production adapter in `run-orchestration-composition.ts` silently dropped
- * the field on the floor. Every failed subscription request in a real
- * database carries `error_code: "Error"` and `error_message: null`.
- *
- * Same shape as this Layer's `boot-provisioning-wiring.integration.test.ts`
- * headline: a port tested only through a hand-built stand-in proves nothing
- * about the wiring the server actually runs.
+ * `__tests__/test-fixtures.ts` — a port tested only through a hand-built
+ * stand-in proves nothing about the wiring the server actually runs, the
+ * same reason this Layer's `boot-provisioning-wiring.integration.test.ts`
+ * exists.
  */
 
 import { agentSessionRequests, type HyperIdleDb, sessions, teams, users } from "@hyperidle/db";

@@ -1,28 +1,10 @@
 /**
- * AO1 — Unit + Lane A live-proof tests for filesystem reachability.
- *
- * Lane A: CI-live, hermetic, real git + real fs, NO network/secret.
- *   - Real temp git repo → file:// ls-remote → reachable (exit 0)
- *   - Non-existent file:// path → needs_attention (exit non-zero)
- *   - Real existing folder → reachable (fs.access R_OK)
- *   - Non-existent folder → needs_attention (ENOENT)
- *
- * Lane B: LOCAL-ONLY, real PAT + real GitHub → see AO1-reachability-lane-b.integration.test.ts
- *
- * Coverage:
- *   AC5  — resolveFilesystemState: writeback:none → reachable; local probe → real result;
- *            NoopAuthResolver + connectionId → needs_attention
- *   AC3  — FILESYSTEM_KINDS does not include SoR kinds
- *   AC2  — FilesystemTokenResolver seam: resolveToken
- *   LIVE — Lane A: hermetic git ls-remote (file://) + fs.access probes (no network, no secrets)
- *
- * @lore AU19 Increment 2b: `filesystem-reachability.ts` moved to
- * `@hyperidle/filesystems`; imports repointed there. This test file itself
- * STAYS in `packages/server` — `probeGitRemote`/`resolveFilesystemState` now
- * take a REQUIRED `gitRunnerFactory` port (`FilesystemsGitRunnerFactory`).
- * AU26 A2/C1: `createGitRunner` now comes from `@hyperidle/host-process` (the
- * `git-export` package that used to host it is deleted), closing this
- * forward-reference (same "closing" idiom as `work`'s `UserStoreReader` → `users`).
+ * `resolveFilesystemState` decides reachable/needs_attention for a
+ * filesystem: writeback:none short-circuits to reachable; a bare-local path
+ * probes real git (file://) or the real fs; a connection-backed source
+ * without a resolvable token is needs_attention; a shorthand `owner/repo`
+ * normalizes to its github URL before probing. Hermetic — real temp git
+ * repos and real fs, no network, no secrets.
  */
 
 import * as cp from "node:child_process";
@@ -69,15 +51,15 @@ afterAll(() => {
 });
 
 // ─── Inline noop resolver ────────────────────────────────────────────────────
-// @lore AU20 R-filesystems: NoopAuthResolver class deleted from @hyperidle/filesystems
-// barrel. Tests that needed a noop use this inline structural object instead.
+// @lore NoopAuthResolver is not exported from @hyperidle/filesystems' barrel;
+// a noop uses this inline structural object instead.
 const noopAuthResolver = {
 	resolveToken: async (_connectionId: string) => null,
 };
 
 // ─── resolveFilesystemState — pure logic ─────────────────────────────────────
 
-describe("resolveFilesystemState — pure reachability logic (AC5)", () => {
+describe("resolveFilesystemState — pure reachability logic", () => {
 	it("writeback:'none' → 'reachable' regardless of connectionId (no probe)", async () => {
 		const state = await resolveFilesystemState(
 			{
@@ -239,14 +221,30 @@ describe("resolveFilesystemState — pure reachability logic (AC5)", () => {
 		);
 		expect(state).toBe("needs_attention");
 	});
+
+	it("normalizes an owner/repo shorthand to its github https URL before probing", async () => {
+		let observed = "";
+		const factory = (() => ({
+			lsRemote: async (url: string) => {
+				observed = url;
+				return { reachable: true };
+			},
+		})) as unknown as Parameters<typeof resolveFilesystemState>[1]["gitRunnerFactory"];
+		const state = await resolveFilesystemState(
+			{
+				id: "fs-shorthand",
+				teamId: "team-1",
+				source: "github",
+				kind: "code",
+				connectionId: "conn-1",
+				resourceRef: JSON.stringify({ kind: "code", repo: "owner/repo", branch: "main" }),
+				writeback: "git",
+				state: "attached",
+				createdAt: "2026-06-26T00:00:00.000Z",
+			},
+			{ authResolver: noopAuthResolver, gitRunnerFactory: factory },
+		);
+		expect(state).toBe("reachable");
+		expect(observed).toBe("https://github.com/owner/repo.git");
+	});
 });
-
-// probeLocalPath, probeGitRemote, repoToUrl suites moved to
-// layers/core-api/filesystems/src/__tests__/probe-internals.test.ts
-// (AU20 Ag2 barrel collapse — these are internal probe functions).
-
-// @lore AU44 b2: FILESYSTEM_KINDS and WRITEBACK_MODES were dissolved from
-// @hyperidle/domain-model; the literals are inlined in the route's Zod enum
-// where the single reader was. Tests for those constants are removed here.
-
-// repoToUrl suite moved to probe-internals.test.ts (AU20 Ag2 barrel collapse).

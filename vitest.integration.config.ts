@@ -33,7 +33,7 @@ const HARNESS_INCLUDE = [
 	// into the connections package. Explicit entry required — the list is
 	// explicit, and without it the file matches the service lane's
 	// `layers/**` include and hard-fails CI where the binaries are absent.
-	"layers/agent-orchestration/connections/src/__tests__/AN1-real-harness-inherited.integration.test.ts",
+	"layers/agent-orchestration/connections/src/__tests__/real-harness-inherited.integration.test.ts",
 	"layers/core-api/src/__tests__/real-harness-return-enforcement-realbinary.integration.test.ts",
 	"layers/core-api/src/__tests__/AU9-assistant-handoff-realbinary.integration.test.ts",
 	"layers/core-api/src/__tests__/thread-turn-live-harness.integration.test.ts",

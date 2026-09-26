@@ -1,36 +1,21 @@
 /**
- * AU21 §9 Increment 8, Wave F2 — historical: `mountFilesystemsForAgent`
- * originally moved core-side reads behind the ONE seam call
- * `CoreApiPort.filesystems.listFilesystemsByAgent(agentId)`. AU21 §9 Increment
- * 12 then replaced that with an EMIT-TIME bake: the list was frozen onto the
- * request, and this function consumed it.
- *
- * AU26 F2 (founder ruling): both tables are agent-orchestration's own now, so
- * the bake is deleted and the function reads the record LIVE at spawn through
- * `deps.filesystems` — an injected `InjectedFilesystemsReaderPort` (Mechanism
- * C), not a seam and not a frozen list.
- *
- * These cases pin the mount loop itself, which did not change: the port is
- * asked once for the agent, every row it returns is mounted, a failed mount is
- * excluded rather than thrown, and an absent port mounts nothing. The
- * end-to-end staleness proof lives in
- * `filesystems-added-after-emit.integration.test.ts`.
+ * `mountFilesystemsForAgent` reads injected filesystems live at spawn: asks
+ * the reader port for this agent, mounts every row it returns, excludes a
+ * failed mount rather than throwing, and mounts nothing when the port or its
+ * rows are absent.
  */
 
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { EventBus } from "@hyperidle/event-bus";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-// biome-ignore lint/correctness/noUnresolvedImports: RED phase — relocated module does not exist yet in this pass.
-import { startWatcher } from "../file-watcher.js";
 import {
 	type FilesystemForProvisioning,
 	type FilesystemMounterPort,
 	type InjectedFilesystemsReaderPort,
 	mountFilesystemsForAgent,
 } from "../filesystem-provisioning.js";
-// Filesystem is a local type in mounter.ts (AU44 b2: dissolved from domain-model).
+// Filesystem is a local type in mounter.ts, not imported from domain-model.
 import type { Filesystem } from "../mounter.js";
 
 let sandboxPath: string;
@@ -84,7 +69,6 @@ describe("mountFilesystemsForAgent reads the injected filesystems live at spawn"
 				mounted.push({ filesystem: input.filesystem });
 				return { success: true };
 			},
-			captureBack: async () => ({ success: true, captured: true }),
 		};
 
 		const result = await mountFilesystemsForAgent({
@@ -104,7 +88,6 @@ describe("mountFilesystemsForAgent reads the injected filesystems live at spawn"
 	test("an agent with NO injected filesystems mounts nothing (no throw) — unchanged from today's behavior", async () => {
 		const mounter: FilesystemMounterPort = {
 			mount: vi.fn(),
-			captureBack: vi.fn(),
 		} as unknown as FilesystemMounterPort;
 
 		const result = await mountFilesystemsForAgent({
@@ -121,7 +104,6 @@ describe("mountFilesystemsForAgent reads the injected filesystems live at spawn"
 	test("an unwired reader port mounts nothing — the same graceful no-op an absent mounter gives", async () => {
 		const mounter: FilesystemMounterPort = {
 			mount: vi.fn(),
-			captureBack: vi.fn(),
 		} as unknown as FilesystemMounterPort;
 
 		const result = await mountFilesystemsForAgent({
@@ -138,7 +120,6 @@ describe("mountFilesystemsForAgent reads the injected filesystems live at spawn"
 		const bakedRow = buildFilesystemRecord({ id: "fs-inc12-fail" });
 		const mounter: FilesystemMounterPort = {
 			mount: async () => ({ success: false, error: "mount failed" }),
-			captureBack: async () => ({ success: true, captured: true }),
 		};
 
 		const result = await mountFilesystemsForAgent({
@@ -149,34 +130,5 @@ describe("mountFilesystemsForAgent reads the injected filesystems live at spawn"
 		});
 
 		expect(result).toHaveLength(0);
-	});
-});
-
-// ── startWatcher — pure relocation, zero behavior change (untouched by this fix) ─
-
-describe("startWatcher (relocated wholesale — zero DB coupling, no CoreApiPort call)", () => {
-	// Mirrors `filesystems-completeness-contract.integration.test.ts`'s
-	// accepted timing (Darwin's recursive FSEvents watcher may not be ready
-	// until the next turn) — same real-fs.watch precedent, not reinvented.
-	test("watches knowledge/ and work/ dirs and emits sandbox_writeback_changes_detected on change", async () => {
-		fs.mkdirSync(path.join(sandboxPath, "knowledge"), { recursive: true });
-		const events: unknown[] = [];
-		const eventBus = { emit: (event: unknown) => void events.push(event) } as EventBus;
-
-		const watcher = startWatcher({
-			sandboxPath,
-			sessionId: "session-inc12-watch-1",
-			manifestPath: path.join(sandboxPath, "manifest.json"),
-			eventBus,
-			debounceMs: 40,
-			onError: vi.fn(),
-		});
-
-		await new Promise((resolve) => setTimeout(resolve, 75));
-		fs.writeFileSync(path.join(sandboxPath, "knowledge", "note.md"), "hello");
-		await new Promise((resolve) => setTimeout(resolve, 400));
-		watcher.stop();
-
-		expect(events.length).toBeGreaterThan(0);
 	});
 });

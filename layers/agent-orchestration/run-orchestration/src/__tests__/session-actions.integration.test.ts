@@ -25,6 +25,12 @@ import type { SessionEndedEvent } from "@hyperidle/event-bus";
 import { EventBus } from "@hyperidle/event-bus";
 import { sessionRunRegistry } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
+import {
+	buildNeverCalledPorts,
+	neverCalled,
+	type ProvisionSessionDeps,
+	type ProvisionSessionParams,
+} from "../__testing__/test-fixtures.js";
 import { createProvisioner } from "../provisioner.js";
 import { type Action, createSessionActions, type SessionActionsDeps } from "../session-actions.js";
 import { findSessionById, listSessions, stopSessionRun } from "../session-store.js";
@@ -256,13 +262,6 @@ describe("stopSessionRun — no live runtime entry", () => {
 // `endSession`, not by `stopSessionRun` itself.
 // ---------------------------------------------------------------------------
 
-type CreateProvisioner = typeof createProvisioner;
-type SessionLifecyclePorts = Parameters<CreateProvisioner>[0];
-type Provisioner = ReturnType<CreateProvisioner>;
-type AdmitArgs = Parameters<Provisioner["admit"]>;
-type ProvisionSessionDeps = AdmitArgs[0];
-type ProvisionSessionParams = AdmitArgs[1];
-
 /** Streams `token_usage` events on a short interval until `stopSession` fires — long enough for the test to call abort mid-run, short enough to bound the test. */
 function buildLiveHarnessAdapter(onStopSession: () => void) {
 	let stopped = false;
@@ -302,12 +301,8 @@ function buildLiveHarnessAdapter(onStopSession: () => void) {
 	};
 }
 
-function buildLivePorts(): SessionLifecyclePorts {
-	const neverCalled = (label: string) =>
-		vi.fn(() => {
-			throw new Error(`${label}: must not be called in this test scenario`);
-		});
-	return {
+function buildLivePorts() {
+	return buildNeverCalledPorts({
 		sessionRequests: {
 			findSessionRequest: neverCalled("sessionRequests.findSessionRequest"),
 			listSessionRequests: neverCalled("sessionRequests.listSessionRequests"),
@@ -354,7 +349,7 @@ function buildLivePorts(): SessionLifecyclePorts {
 			assembleSubscriptionPrompt: neverCalled("contextAssembly.assembleSubscriptionPrompt"),
 			writeSandboxAgentsMd: vi.fn(),
 		},
-	} as SessionLifecyclePorts;
+	});
 }
 
 describe("stopSessionRun — a live runtime entry (the abort path)", () => {
@@ -443,7 +438,7 @@ describe("stopSessionRun — a live runtime entry (the abort path)", () => {
 
 		await runPromise;
 
-		// F2: the adapter tolerated a second `stopSession` call (registry, then
+		// The adapter tolerated a second `stopSession` call (registry, then
 		// the provisioner's own post-drain teardown).
 		expect(stopSessionCalls.length).toBe(2);
 

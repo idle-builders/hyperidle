@@ -1,25 +1,17 @@
 /**
- * AN1 — ServiceConnectionResolver REAL integration tests (C1 fix).
+ * `resolveHeldToken` against a REAL PGlite DB with real inserted rows — a
+ * resolver test that never calls resolve() against real data cannot catch a
+ * dropped ownership guard. Proves:
  *
- * The prior unit test (AN1-service-connection-resolver.test.ts) was hollow:
- * it constructed the resolver with `null as any` DB and never called resolve().
- * Replacing the guard body with a constant or removing the userId scope left
- * all assertions green — proof of hollowness.
- *
- * These tests use a REAL PGlite DB via the vitest fixture, insert real rows,
- * and call resolve() against them.  They prove:
- *
- *   (a) resolve(userA, tokenRowId) → EXACT original plaintext secret (AC4 owner-resolve)
- *   (b) resolve(userB, tokenRowId) → null (AC5 cross-user isolation)
+ *   (a) resolve(userA, tokenRowId) → the exact original plaintext secret
+ *   (b) resolve(userB, tokenRowId) → null (cross-user isolation)
  *   (c) resolve(userA, mcpRowId)   → null (no token stored)
  *   (d) resolve(userA, absentId)   → null (non-existent row)
- *   (e) tampered encryptedToken    → null and NEVER throws
+ *   (e) tampered encryptedToken    → null, never throws
  *
- * Sanity-break verification (documented at the bottom of each test):
- *   Reviewer broke the prod guard (removed `eq(userId)` from the WHERE clause)
- *   and confirmed test (b) went RED, then restored the guard → GREEN.
- *   Reviewer zeroed `encryptedToken` in the DB and confirmed test (a) went RED,
- *   then restored → GREEN.
+ * Sanity-break property, verifiable by inspection: dropping `eq(userId)` from
+ * the production WHERE clause makes test (b) fail; zeroing `encryptedToken`
+ * in the DB makes test (a) fail.
  */
 
 import { type HyperIdleDb, serviceConnections, users } from "@hyperidle/db";
@@ -71,7 +63,7 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 			.onConflictDoNothing();
 	}
 
-	// ─── (a) AC4: owner resolves to exact original plaintext ─────────────────
+	// ─── (a) owner resolves to exact original plaintext ─────────────────────
 
 	test("(a) resolve(userA, tokenRowId) returns the exact original plaintext secret", async ({
 		db,
@@ -101,19 +93,15 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 		// Must return the EXACT plaintext — not null, not a different string.
 		expect(result).toBe(PLAINTEXT);
 
-		// Sanity-break evidence (manual verification documented here):
-		// When the prod resolve() WHERE clause was changed to omit `eq(userId)`:
-		//   resolve(USER_A_ID, rowId) still returned PLAINTEXT — test (a) stayed GREEN.
-		// This test on its own cannot catch the isolation guard removal; test (b) does.
-		// Breakage of the encryption path (zeroing encryptedToken in the DB before calling
-		// resolve) caused this test to return null → RED.  Restoring encrypted → GREEN.
+		// This test alone cannot catch a dropped ownership guard — omitting
+		// `eq(userId)` from the production WHERE clause still returns PLAINTEXT
+		// here; test (b) is what catches that. It does catch a broken encryption
+		// path: zeroing `encryptedToken` in the DB makes this return null instead.
 	});
 
-	// ─── (b) AC5: cross-user lookup → null, never leaks existence ────────────
+	// ─── (b) cross-user lookup → null, never leaks existence ────────────────
 
-	test("(b) resolve(userB, tokenRowId) returns null — cross-user isolation (AC5)", async ({
-		db,
-	}) => {
+	test("(b) resolve(userB, tokenRowId) returns null — cross-user isolation", async ({ db }) => {
 		await seedUsers(db);
 
 		const PLAINTEXT = "sk-stripe-user-a-secret-xyz";
@@ -139,13 +127,11 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 		const result = await resolveHeldToken(db, USER_B_ID, rowId, decryptCredentialValue);
 		expect(result).toBeNull();
 
-		// Sanity-break evidence:
-		// The WHERE clause in service-connection-resolver.ts line 46 is:
-		//   .where(and(eq(serviceConnections.id, connectionId), eq(serviceConnections.userId, userId)))
-		// When we temporarily removed the `eq(serviceConnections.userId, userId)` clause
-		// and re-ran this test, resolve(USER_B_ID, rowId) returned PLAINTEXT → RED.
-		// Restoring `eq(serviceConnections.userId, userId)` → GREEN again.
-		// This confirms the test exercises the real isolation guard.
+		// Sanity-break property: the production WHERE clause is
+		// `.where(and(eq(serviceConnections.id, connectionId), eq(serviceConnections.userId, userId)))`
+		// — dropping the `eq(userId)` clause makes resolve(USER_B_ID, rowId)
+		// return PLAINTEXT instead of null, so this test exercises the real
+		// isolation guard, not a stand-in for it.
 	});
 
 	// ─── (c) mcp row (no encryptedToken) → null ──────────────────────────────
@@ -225,9 +211,9 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 
 	// ─── missing server secret in env → null (graceful degradation) ──────────
 	//
-	// @lore AU20 Am4: The old API took `serverSecret: string | null` and short-circuited
-	// on null. The new API reads HYPERIDLE_CREDENTIAL_KEY from env (cipher-owns-key).
-	// This test proves the same graceful-null behavior when no env secret is configured.
+	// @lore The cipher owns its own key: it reads HYPERIDLE_CREDENTIAL_KEY from
+	// env directly rather than taking a `serverSecret` parameter. This test
+	// proves the graceful-null behavior when no env secret is configured.
 
 	test("resolve returns null when no HYPERIDLE_CREDENTIAL_KEY in env", async ({ db }) => {
 		await seedUsers(db);

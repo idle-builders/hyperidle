@@ -214,7 +214,7 @@ describe("a written-back item hangs off what the session is working on, attribut
 		expect(call.input).not.toHaveProperty("parent");
 	});
 
-	// @lore document-module B15: an unresolvable session has no real `users.id`
+	// @lore An unresolvable session has no real `users.id`
 	// to attribute a write to — `changes.actor` is an FK, so nothing here may
 	// fabricate one (no fallback string satisfies it). Unlike the parent (an
 	// honest "don't know" is fine and was always the behaviour), a missing

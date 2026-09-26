@@ -1,20 +1,10 @@
 /**
- * AU26 F2 — the LIVE, in-layer injected-filesystem read one spawn performs.
- *
- * AU21 §9 Increment 12 introduced this function as an EMIT-TIME bake helper
- * (`resolveInjectedFilesystemsForAgent`), because `filesystems` /
- * `filesystem_injections` still lived in core-api and `run-orchestration` was
- * forbidden to read them. The founder's 2026-08-04 ruling moved both tables
- * into this Layer, so the same query is now what a spawn runs directly —
- * renamed `listInjectedFilesystemsForProvisioning`, the twin of E3's
- * `listHeldConnectionsForProvisioning`.
- *
- * The behaviour these cases pin did NOT change with the rename, which is the
- * point: test 1 is a real regression PIN written out by hand against the
- * fixture data — the EXACT shape `routes/filesystems.ts`'s `rowToFilesystem`
- * mapping produces (parsed `resourceRef`, same field set) — never re-derived
- * from the function under test itself. What a session gets mounted is
- * byte-identical; only WHEN it is read moved.
+ * `listInjectedFilesystemsForProvisioning` is the LIVE, in-layer injected-
+ * filesystem read a spawn performs — the twin of
+ * `listHeldConnectionsForProvisioning`. Test 1 is a hand-written regression
+ * pin against the fixture data: the EXACT shape `routes/filesystems.ts`'s
+ * `rowToFilesystem` mapping produces (parsed `resourceRef`, same field set),
+ * never re-derived from the function under test itself.
  */
 
 import { filesystemInjections, filesystems as filesystemsTable, teams, users } from "@hyperidle/db";

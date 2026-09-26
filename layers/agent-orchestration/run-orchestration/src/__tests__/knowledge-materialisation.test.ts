@@ -1,6 +1,5 @@
 /**
- * @lore nested-knowledge-items architecture.md §5 / review.md B4 & B5 — a
- * `BakedContextDocument` carrying a real `parentChain` materialises as
+ * @lore A `BakedContextDocument` carrying a real `parentChain` materialises as
  * nested directories (not flat), and every ancestor directory gets its own
  * `.fabric/manifest.json` entry (id → {source_path, scopeKind, version}) so
  * a later writeback session finds it instead of minting a duplicate folder
@@ -60,7 +59,7 @@ const BUNDLE: BakedContextBundle = {
 				{ id: "k-mid", title: "Pricing", scopeKind: "team", version: 2 },
 			],
 		},
-		// @lore BC4: proves `slot` (not a stale `role` field) is what routes an
+		// @lore Proves `slot` (not a stale `role` field) is what routes an
 		// item away from the ordinary tree — a "rule" item must land in
 		// knowledge/rules/, never nested under its parentChain. If the reader
 		// fell back to a default (the old cast-hiding-a-typo failure mode),
@@ -82,7 +81,7 @@ const BUNDLE: BakedContextBundle = {
 	],
 };
 
-describe("writeContextBundle: nested materialisation (review.md B4/B5)", () => {
+describe("writeContextBundle: nested materialisation", () => {
 	let sandboxPath: string | undefined;
 	afterEach(() => {
 		if (sandboxPath) fs.rmSync(sandboxPath, { recursive: true, force: true });
@@ -120,7 +119,7 @@ describe("writeContextBundle: nested materialisation (review.md B4/B5)", () => {
 			),
 		).toBe("leaf body");
 
-		// @lore BC4: a "rule"-slotted item lands in knowledge/rules/, not nested
+		// @lore A "rule"-slotted item lands in knowledge/rules/, not nested
 		// under its parentChain — proves the reader keys off `slot`, not a
 		// default that would fall through to the ordinary-tree path.
 		const ruleDirEntries = fs.readdirSync(path.join(sandboxPath, "knowledge/rules"));
@@ -141,7 +140,7 @@ describe("writeContextBundle: nested materialisation (review.md B4/B5)", () => {
 			fs.readFileSync(path.join(sandboxPath, "knowledge/Product/Pricing/index.md"), "utf8"),
 		).toBe("# Pricing\n");
 
-		// review.md B5: every ancestor directory gets its own manifest entry —
+		// Every ancestor directory gets its own manifest entry —
 		// not just the leaf — so writeback's ensureDirectoryChainItem finds it
 		// instead of minting a duplicate.
 		const manifest = JSON.parse(
@@ -165,7 +164,7 @@ describe("writeContextBundle: nested materialisation (review.md B4/B5)", () => {
 			version: 2,
 			format: "markdown",
 		});
-		// review.md B6: the leaf's own manifest entry carries its real
+		// The leaf's own manifest entry carries its real
 		// scopeKind too, not an undefined field the reader defaults away.
 		expect(manifest.items["k-leaf"]).toMatchObject({ scopeKind: "team" });
 	});

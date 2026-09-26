@@ -1,9 +1,8 @@
 /**
- * AU27 Increment 5 (Decision 5) — `provisioner.ts` forwards
- * `params.callingThreadId` onto the `session_not_returned` event it already
- * emits on a not-returned verdict, giving the never-silent net's
- * `conversation` subscriber somewhere to post. Zero new read: the value is
- * the same already-baked field Increment 1 introduced.
+ * `provisioner.ts` forwards `params.callingThreadId` onto the
+ * `session_not_returned` event it already emits on a not-returned verdict,
+ * giving the never-silent net's `conversation` subscriber somewhere to post.
+ * Zero new read: the value is the same already-baked field admission uses.
  */
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -12,81 +11,18 @@ import { type HyperIdleDb, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import type { SessionNotReturnedEvent } from "@hyperidle/event-bus";
 import { EventBus } from "@hyperidle/event-bus";
-import { afterEach, describe, vi } from "vitest";
+import { afterEach, describe } from "vitest";
+import {
+	buildRunningHarnessPorts,
+	completingHarnessAdapter,
+	type ProvisionSessionDeps,
+	type ProvisionSessionParams,
+} from "../__testing__/test-fixtures.js";
 import { createProvisioner } from "../provisioner.js";
 
-type CreateProvisioner = typeof createProvisioner;
-type SessionLifecyclePorts = Parameters<CreateProvisioner>[0];
-type Provisioner = ReturnType<CreateProvisioner>;
-type AdmitArgs = Parameters<Provisioner["admit"]>;
-type ProvisionSessionDeps = AdmitArgs[0];
-type ProvisionSessionParams = AdmitArgs[1];
-type FakeAdapterPoolEntry = NonNullable<ReturnType<ProvisionSessionDeps["adapterPool"]["select"]>>;
-type FakeHarnessAdapter = FakeAdapterPoolEntry["adapter"];
-
-function buildFakeHarnessAdapter(): FakeHarnessAdapter {
-	return {
-		startSession: async (config) => ({ sessionId: config.sessionId }),
-		streamEvents: () => ({
-			async *[Symbol.asyncIterator]() {
-				/* no events — the agent never calls a return action */
-			},
-		}),
-		stopSession: async () => ({ outcome: "completed" as const, tokenUsage: { byTier: {} } }),
-		getCapabilities: () => ({
-			preCompactionTrigger: false,
-			subAgents: false,
-			modelProviders: [],
-			mcpSupport: false,
-			returnEnforcement: "none" as const,
-		}),
-	};
-}
-
-function buildHarnessPorts(): SessionLifecyclePorts {
-	const neverCalled = (label: string) =>
-		vi.fn(() => {
-			throw new Error(`${label}: must not be called in this test scenario`);
-		});
-	return {
-		sessionRequests: {
-			findSessionRequest: neverCalled("sessionRequests.findSessionRequest"),
-			listSessionRequests: neverCalled("sessionRequests.listSessionRequests"),
-			transitionSessionRequest: neverCalled("sessionRequests.transitionSessionRequest"),
-			abortSessionRun: neverCalled("sessionRequests.abortSessionRun"),
-			registerSessionRun: vi.fn(),
-			deregisterSessionRun: vi.fn(),
-		},
-		observability: { summarizeToolArgs: () => "" },
-		harnessRuntime: {
-			enforcementRegistry: {
-				register: vi.fn(),
-				get: vi.fn(() => undefined),
-				incrementForce: vi.fn(),
-				unregister: vi.fn(),
-			},
-			createReturnGate: () => ({ observe: () => undefined, returned: false }),
-			// Force the not_returned verdict this test observes.
-			evaluateReturn: () => "not_returned" as const,
-			provisionReturnHook: async () => undefined,
-			writeCliMcpConfig: neverCalled("harnessRuntime.writeCliMcpConfig"),
-			writePluginStdioMcpEntries: neverCalled("harnessRuntime.writePluginStdioMcpEntries"),
-			openMcpBridge: neverCalled("harnessRuntime.openMcpBridge"),
-			closeMcpBridge: neverCalled("harnessRuntime.closeMcpBridge"),
-		},
-		toolProvider: {
-			buildToolRegistry: () => ({ invoke: async () => ({ success: true, data: undefined }) }),
-			toolsForRole: () => [],
-			returnStatusToolForRegistry: () => ({ name: "return_status" }),
-		},
-		contextAssembly: {
-			assembleAgentContext: neverCalled("contextAssembly.assembleAgentContext"),
-			beginAgentWriteback: () => ({ dispose: () => undefined }),
-			assemblePrompt: neverCalled("contextAssembly.assemblePrompt"),
-			assembleSubscriptionPrompt: neverCalled("contextAssembly.assembleSubscriptionPrompt"),
-			writeSandboxAgentsMd: vi.fn(),
-		},
-	};
+function buildHarnessPorts() {
+	// Force the not_returned verdict this test observes.
+	return buildRunningHarnessPorts({ evaluateReturn: () => "not_returned" as const });
 }
 
 describe("session_not_returned carries callingThreadId (Increment 5)", () => {
@@ -125,7 +61,7 @@ describe("session_not_returned carries callingThreadId (Increment 5)", () => {
 			adapterPool: {
 				select: () => ({
 					id: "fake-adapter",
-					adapter: buildFakeHarnessAdapter(),
+					adapter: completingHarnessAdapter(),
 					meta: {
 						name: "Fake",
 						kind: "local",
@@ -196,7 +132,7 @@ describe("session_not_returned carries callingThreadId (Increment 5)", () => {
 			adapterPool: {
 				select: () => ({
 					id: "fake-adapter",
-					adapter: buildFakeHarnessAdapter(),
+					adapter: completingHarnessAdapter(),
 					meta: {
 						name: "Fake",
 						kind: "local",

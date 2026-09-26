@@ -1,11 +1,9 @@
 /**
- * AU27 Increment 4 (Decision 2) — `consumeAgentSessionRequest`'s
- * `parseBakedTranscript` + `mapTranscriptToMessages` (relocated verbatim
- * from `dispatch/src/service.ts` as a pure orchestration-side formatting
- * helper) parse the drained request's baked raw transcript rows off
- * `payloadJson` and map them to generic chat messages onto
+ * `consumeAgentSessionRequest`'s `parseBakedTranscript` +
+ * `mapTranscriptToMessages` parse the drained request's baked raw transcript
+ * rows off `payloadJson` and map them to generic chat messages onto
  * `provisionParams.transcript` — a JSON.parse + pure mapping of the
- * already-drained payload, ZERO orchestration -> core read.
+ * already-drained payload, zero orchestration -> core read.
  */
 import {
 	agentSessionRequests,

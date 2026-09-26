@@ -5,10 +5,9 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createContextAssembler } from "../context.js";
 
 /**
- * AU21 §9 Increment 12 (Decision H3), Wave C: `assemblePrompt`/
- * `assembleSubscriptionPrompt` are pure now (token counting is a local
- * `approxTokenCount`, no `knowledge` port) — `ContextAssemblyPorts` is just
- * `filesystems`, unused by any function this file exercises.
+ * `assemblePrompt`/`assembleSubscriptionPrompt` are pure: token counting is
+ * a local `approxTokenCount`, no `knowledge` port — `ContextAssemblyPorts`
+ * is just `filesystems`, unused by any function this file exercises.
  */
 const assembler = createContextAssembler({
 	filesystems: {

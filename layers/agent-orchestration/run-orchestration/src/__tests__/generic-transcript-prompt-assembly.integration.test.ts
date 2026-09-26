@@ -1,22 +1,11 @@
 /**
- * AU27 Increment 4 (Decision 2) — the generic transcript, re-provided as a
- * capability every kind can use, not assistant-specific. `params.transcript`
- * (baked at emit — Increment 1's `callingThreadId` sibling) reaches:
- *   1. the `## Conversation` prompt section (every harness reads it from
- *      AGENTS.md/CLAUDE.md), replacing the raw machine-id Correlation line;
- *   2. `SessionConfig.requiredReturnActions` — the structural rule for every
- *      task-free session (`taskId == null`): a session with a calling
- *      thread (`callingThreadId != null`) resolves to `["send_message"]`,
- *      plus the one-line orientation in the prompt.
- *
- * A subscription wake (`requestContext.sourceKind === "subscription"`, which
- * never bakes a calling thread — there is no thread to reply into) resolves
- * to `["return_status"]` instead, never `send_message` — a subscription
- * session has no work-output action and no structural place a forced
- * message is guaranteed to belong; forcing one made every wake end with an
- * unwanted direct message even when the subscription's own instruction
- * never asked for one. It reports its status with the self-check
- * `return_status` tool and speaks only when its instruction says to.
+ * `params.transcript` reaches the `## Conversation` prompt section (every
+ * harness reads it from AGENTS.md/CLAUDE.md) and
+ * `SessionConfig.requiredReturnActions`: a task-free session with a calling
+ * thread resolves to `["send_message"]`; a subscription wake (no calling
+ * thread to reply into) resolves to `["return_status"]` instead — it has no
+ * work-output action and no place a forced message is guaranteed to belong,
+ * and reports status with the self-check tool instead.
  *
  * Uses `deps.onBeforeHarnessStart`'s abort return to observe the fully
  * assembled `SessionConfig` without spawning a real harness process.
@@ -29,93 +18,31 @@ import { expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import type { SessionConfig } from "@hyperidle/harness-protocol";
 import { afterEach, describe, vi } from "vitest";
+import {
+	buildRunningHarnessPorts,
+	neverCalled,
+	type ProvisionSessionDeps,
+	type ProvisionSessionParams,
+	rejectingHarnessAdapter,
+	type SessionLifecyclePorts,
+} from "../__testing__/test-fixtures.js";
 import { createProvisioner } from "../provisioner.js";
 
-type CreateProvisioner = typeof createProvisioner;
-type SessionLifecyclePorts = Parameters<CreateProvisioner>[0];
-type Provisioner = ReturnType<CreateProvisioner>;
-type AdmitArgs = Parameters<Provisioner["admit"]>;
-type ProvisionSessionDeps = AdmitArgs[0];
-type ProvisionSessionParams = AdmitArgs[1];
-type FakeAdapterPoolEntry = NonNullable<ReturnType<ProvisionSessionDeps["adapterPool"]["select"]>>;
-type FakeHarnessAdapter = FakeAdapterPoolEntry["adapter"];
-
-function buildFakeHarnessAdapter(): FakeHarnessAdapter {
-	return {
-		startSession: () =>
-			Promise.reject(new Error("must not be called — onBeforeHarnessStart aborts")),
-		streamEvents: () => ({
-			[Symbol.asyncIterator]() {
-				throw new Error("must not be called — onBeforeHarnessStart aborts");
-			},
-		}),
-		stopSession: () =>
-			Promise.reject(new Error("must not be called — onBeforeHarnessStart aborts")),
-		getCapabilities: () => ({
-			preCompactionTrigger: false,
-			subAgents: false,
-			modelProviders: [],
-			mcpSupport: false,
-			returnEnforcement: "none" as const,
-		}),
-	};
+/**
+ * Phase 6 calls assembleAgentContext whenever params.requestContext is set
+ * (task-free durable-request path) — a no-op stub for the one scenario here
+ * that sets requestContext (no-transcript regression check); every other
+ * scenario omits requestContext, so the never-called guard still applies.
+ */
+function buildHarnessPorts(opts: { readonly allowContextAssembly?: boolean } = {}) {
+	return buildRunningHarnessPorts({
+		assembleAgentContext: opts.allowContextAssembly
+			? vi.fn(async () => ({ itemCount: 0, durationMs: 0, manifestPath: "" }))
+			: neverCalled("contextAssembly.assembleAgentContext"),
+	});
 }
 
-function buildHarnessPorts(
-	opts: { readonly allowContextAssembly?: boolean } = {},
-): SessionLifecyclePorts {
-	const neverCalled = (label: string) =>
-		vi.fn(() => {
-			throw new Error(`${label}: must not be called in this test scenario`);
-		});
-	return {
-		sessionRequests: {
-			findSessionRequest: neverCalled("sessionRequests.findSessionRequest"),
-			listSessionRequests: neverCalled("sessionRequests.listSessionRequests"),
-			transitionSessionRequest: neverCalled("sessionRequests.transitionSessionRequest"),
-			abortSessionRun: neverCalled("sessionRequests.abortSessionRun"),
-			registerSessionRun: vi.fn(),
-			deregisterSessionRun: vi.fn(),
-		},
-		observability: { summarizeToolArgs: () => "" },
-		harnessRuntime: {
-			enforcementRegistry: {
-				register: vi.fn(),
-				get: vi.fn(() => undefined),
-				incrementForce: vi.fn(),
-				unregister: vi.fn(),
-			},
-			createReturnGate: () => ({ observe: () => undefined, returned: false }),
-			evaluateReturn: () => "returned" as const,
-			provisionReturnHook: async () => undefined,
-			writeCliMcpConfig: neverCalled("harnessRuntime.writeCliMcpConfig"),
-			writePluginStdioMcpEntries: neverCalled("harnessRuntime.writePluginStdioMcpEntries"),
-			openMcpBridge: neverCalled("harnessRuntime.openMcpBridge"),
-			closeMcpBridge: neverCalled("harnessRuntime.closeMcpBridge"),
-		},
-		toolProvider: {
-			buildToolRegistry: () => ({ invoke: async () => ({ success: true, data: undefined }) }),
-			toolsForRole: () => [],
-			returnStatusToolForRegistry: () => ({ name: "return_status" }),
-		},
-		contextAssembly: {
-			// Phase 6 calls assembleAgentContext whenever params.requestContext is
-			// set (task-free durable-request path) — a no-op stub for the one
-			// scenario here that sets requestContext (no-transcript regression
-			// check); every other scenario omits requestContext, so the
-			// never-called guard still applies there.
-			assembleAgentContext: opts.allowContextAssembly
-				? vi.fn(async () => ({ itemCount: 0, durationMs: 0, manifestPath: "" }))
-				: neverCalled("contextAssembly.assembleAgentContext"),
-			beginAgentWriteback: () => ({ dispose: () => undefined }),
-			assemblePrompt: neverCalled("contextAssembly.assemblePrompt"),
-			assembleSubscriptionPrompt: neverCalled("contextAssembly.assembleSubscriptionPrompt"),
-			writeSandboxAgentsMd: vi.fn(),
-		},
-	};
-}
-
-describe("generic transcript delivery (Increment 4)", () => {
+describe("generic transcript delivery", () => {
 	const sandboxDirs: string[] = [];
 	afterEach(() => {
 		for (const dir of sandboxDirs.splice(0)) {
@@ -241,7 +168,7 @@ describe("generic transcript delivery (Increment 4)", () => {
 			adapterPool: {
 				select: () => ({
 					id: "fake-adapter",
-					adapter: buildFakeHarnessAdapter(),
+					adapter: rejectingHarnessAdapter("must not be called — onBeforeHarnessStart aborts"),
 					meta: {
 						name: "Fake",
 						kind: "local",
@@ -282,12 +209,12 @@ describe("generic transcript delivery (Increment 4)", () => {
 		} as ProvisionSessionParams;
 	}
 
-	// @lore Increment 4 delivered the transcript twice: as the `## Conversation`
+	// @lore The transcript once delivered twice: as the `## Conversation`
 	// prompt section, and as `SessionConfig.messages`, which only the built-in
 	// adapter read — their presence is what selected its chat loop over its
 	// planning loop. A CLI harness only ever saw the prompt section. With that
-	// adapter gone the second delivery had no reader, so the prompt section is the
-	// single delivery and this test asserts it alone.
+	// adapter gone the second delivery has no reader, so the prompt section is
+	// the single delivery and this test asserts it alone.
 	test("a session with a baked transcript + calling thread + no task gets ## Conversation and requiredReturnActions:['send_message']", async ({
 		db,
 	}) => {
@@ -461,7 +388,7 @@ describe("generic transcript delivery (Increment 4)", () => {
 	 * A gated agent has to be told, once, that some actions need a person and how
 	 * to ask — because the deny message deliberately will not tell it.
 	 *
-	 * @lore BA2 (ruling 6): the push-back is two pieces. The gate's deny carries
+	 * @lore The push-back is two pieces. The gate's deny carries
 	 * only the fact that a rule blocked the call; an imperative in a deny message
 	 * is what a real model once refused as a suspected injection, arriving as it
 	 * does through the same channel an attacker could write to. So the instruction
@@ -497,7 +424,7 @@ describe("generic transcript delivery (Increment 4)", () => {
 	/**
 	 * A task session's instruction is the task.
 	 *
-	 * @lore BA10: `assembledPrompt` is CONTEXT — it is written to AGENTS.md and
+	 * @lore `assembledPrompt` is CONTEXT — it is written to AGENTS.md and
 	 * CLAUDE.md, and its own doc comment says so. What the agent is being ASKED to
 	 * do is a different thing, and for a task session it is the task. It used to be
 	 * neither: the durable path rendered the task's id and its raw correlation JSON
@@ -556,7 +483,7 @@ describe("generic transcript delivery (Increment 4)", () => {
 	});
 
 	/**
-	 * @lore BA10: the instruction used to be `assembledPrompt.slice(0, 200)` with
+	 * @lore The instruction used to be `assembledPrompt.slice(0, 200)` with
 	 * newlines flattened. A real agent read the result and replied "your initial
 	 * message appears to have been cut off" — it had been, at 200 characters.
 	 */
