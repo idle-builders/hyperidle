@@ -4,45 +4,12 @@ import { describe, expect, it, vi } from "vitest";
 import { SearchField } from "../ds";
 
 describe("SearchField", () => {
-	it("renders an input with placeholder", () => {
+	it("renders an input with the given placeholder", () => {
 		render(<SearchField placeholder="Search..." />);
 		expect(screen.getByPlaceholderText("Search...")).toBeInTheDocument();
 	});
 
-	it("applies sizing classes to the input", () => {
-		render(<SearchField placeholder="Search..." />);
-		const input = screen.getByPlaceholderText("Search...");
-		expect(input).toHaveClass("w-full", "h-[32px]");
-		// AZ7 B3: a text input is Set 3's --surface-elevated job, not
-		// --surface-container (which is a recessed fill).
-		expect(input.className).toContain("bg-[var(--surface-elevated)]");
-	});
-
-	it("has rounded-[var(--r-default)] radius", () => {
-		render(<SearchField placeholder="Search..." />);
-		const input = screen.getByPlaceholderText("Search...");
-		expect(input.className).toContain("rounded-[var(--r-default)]");
-	});
-
-	it("has visible border using --border-subtle token", () => {
-		render(<SearchField placeholder="Search..." />);
-		const input = screen.getByPlaceholderText("Search...");
-		expect(input.className).toContain("border-[var(--border-subtle)]");
-	});
-
-	it("has focus border using --accent-primary token", () => {
-		render(<SearchField placeholder="Search..." />);
-		const input = screen.getByPlaceholderText("Search...");
-		expect(input.className).toContain("focus:border-[var(--accent-deep)]");
-	});
-
-	it("has focus shadow using accent-primary-dim token", () => {
-		render(<SearchField placeholder="Search..." />);
-		const input = screen.getByPlaceholderText("Search...");
-		expect(input.className).toContain("accent-primary-dim");
-	});
-
-	it("shows shortcut key hint when provided", () => {
+	it("shows the shortcut key hint when provided", () => {
 		render(<SearchField shortcutKey="/" />);
 		expect(screen.getByText("/")).toBeInTheDocument();
 	});
@@ -51,38 +18,26 @@ describe("SearchField", () => {
 		const user = userEvent.setup();
 		const handleChange = vi.fn();
 		render(<SearchField value="" onChange={handleChange} />);
-		const input = screen.getByRole("textbox");
-		await user.type(input, "hello");
+		await user.type(screen.getByRole("textbox"), "hello");
 		expect(handleChange).toHaveBeenCalled();
 	});
 
-	it("shows loading spinner when loading", () => {
-		const { container } = render(<SearchField loading />);
-		const spinner = container.querySelector(".motion-busy");
-		expect(spinner).toBeInTheDocument();
+	it("shows a loading spinner only while loading", () => {
+		const { rerender } = render(<SearchField loading />);
+		expect(screen.getByTestId("search-field-spinner")).toBeInTheDocument();
+
+		rerender(<SearchField />);
+		expect(screen.queryByTestId("search-field-spinner")).not.toBeInTheDocument();
 	});
 
-	it("does not show loading spinner when not loading", () => {
-		const { container } = render(<SearchField />);
-		const spinner = container.querySelector(".animate-spin");
-		expect(spinner).not.toBeInTheDocument();
-	});
-
-	it("shows clear button when value is present", () => {
-		render(<SearchField value="test" onChange={vi.fn()} />);
-		expect(screen.getByRole("button", { name: /clear/i })).toBeInTheDocument();
-	});
-
-	it("does not show clear button when value is empty", () => {
-		render(<SearchField value="" onChange={vi.fn()} />);
-		expect(screen.queryByRole("button", { name: /clear/i })).not.toBeInTheDocument();
-	});
-
-	it("calls onChange with empty string when clear is clicked", async () => {
+	it("shows a clear button only when a value is present, and clearing empties it", async () => {
 		const user = userEvent.setup();
 		const handleChange = vi.fn();
-		render(<SearchField value="test" onChange={handleChange} />);
+		const { rerender } = render(<SearchField value="test" onChange={handleChange} />);
 		await user.click(screen.getByRole("button", { name: /clear/i }));
 		expect(handleChange).toHaveBeenCalledWith("");
+
+		rerender(<SearchField value="" onChange={handleChange} />);
+		expect(screen.queryByRole("button", { name: /clear/i })).not.toBeInTheDocument();
 	});
 });

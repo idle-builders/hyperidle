@@ -77,7 +77,7 @@ describe("ErrorBoundary", () => {
 		spy.mockRestore();
 	});
 
-	it("calls componentDidCatch and logs via console.error (adversary C2 / W2)", () => {
+	it("calls componentDidCatch and logs via console.error", () => {
 		const spy = vi.spyOn(console, "error").mockImplementation(() => {});
 		render(
 			<ErrorBoundary>
@@ -127,7 +127,7 @@ describe("ErrorBoundary", () => {
 		}
 	});
 
-	it("exposes error.message in dev via a dev-only disclosure (adversary C2)", () => {
+	it("exposes error.message in dev via a dev-only disclosure", () => {
 		const spy = vi.spyOn(console, "error").mockImplementation(() => {});
 		render(
 			<ErrorBoundary>
@@ -141,7 +141,7 @@ describe("ErrorBoundary", () => {
 		spy.mockRestore();
 	});
 
-	it("invokes the onReload prop when the user clicks the Reload button (adversary C2)", () => {
+	it("invokes the onReload prop when the user clicks the Reload button", () => {
 		const spy = vi.spyOn(console, "error").mockImplementation(() => {});
 		const onReload = vi.fn();
 		render(

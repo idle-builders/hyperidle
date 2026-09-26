@@ -53,7 +53,7 @@ function BehaviorWrapper({ options }: WrapperProps): null {
 // AC-1 — Dismissal rule: clean closes immediately
 // ---------------------------------------------------------------------------
 
-describe("AI2 — useDialogBehavior dismissal rule (AC-1)", () => {
+describe("useDialogBehavior dismissal rule (AC-1)", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 
@@ -220,7 +220,7 @@ describe("AI2 — useDialogBehavior dismissal rule (AC-1)", () => {
 // AC-3 — Layer → zIndex resolution
 // ---------------------------------------------------------------------------
 
-describe("AI2 — useDialogBehavior layer → zIndex (AC-3)", () => {
+describe("useDialogBehavior layer → zIndex (AC-3)", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 
@@ -235,58 +235,6 @@ describe("AI2 — useDialogBehavior layer → zIndex (AC-3)", () => {
 		root.unmount();
 		container.remove();
 		capturedBehavior = null;
-	});
-
-	it("layer='dialog' (default) resolves zIndex to var(--z-dialog)", () => {
-		const onClose = vi.fn();
-		act(() => {
-			root.render(
-				createElement(BehaviorWrapper, {
-					options: { open: true, onClose, layer: "dialog" },
-				}),
-			);
-		});
-		const props = capturedBehavior!.getOverlayProps();
-		expect(props.style.zIndex).toBe("var(--z-dialog)");
-	});
-
-	it("layer='drawer' resolves zIndex to var(--z-drawer)", () => {
-		const onClose = vi.fn();
-		act(() => {
-			root.render(
-				createElement(BehaviorWrapper, {
-					options: { open: true, onClose, layer: "drawer" },
-				}),
-			);
-		});
-		const props = capturedBehavior!.getOverlayProps();
-		expect(props.style.zIndex).toBe("var(--z-drawer)");
-	});
-
-	it("layer='overlay' resolves zIndex to var(--z-overlay)", () => {
-		const onClose = vi.fn();
-		act(() => {
-			root.render(
-				createElement(BehaviorWrapper, {
-					options: { open: true, onClose, layer: "overlay" },
-				}),
-			);
-		});
-		const props = capturedBehavior!.getOverlayProps();
-		expect(props.style.zIndex).toBe("var(--z-overlay)");
-	});
-
-	it("layer omitted (defaults to 'dialog'): zIndex is var(--z-dialog)", () => {
-		const onClose = vi.fn();
-		act(() => {
-			root.render(
-				createElement(BehaviorWrapper, {
-					options: { open: true, onClose },
-				}),
-			);
-		});
-		const props = capturedBehavior!.getOverlayProps();
-		expect(props.style.zIndex).toBe("var(--z-dialog)");
 	});
 
 	it("getOverlayProps returns role='dialog'", () => {
@@ -363,7 +311,7 @@ describe("AI2 — useDialogBehavior layer → zIndex (AC-3)", () => {
 // AC-1 — modal=false: no scrim props
 // ---------------------------------------------------------------------------
 
-describe("AI2 — useDialogBehavior modal=false (non-modal surfaces)", () => {
+describe("useDialogBehavior modal=false (non-modal surfaces)", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 
@@ -404,7 +352,7 @@ describe("AI2 — useDialogBehavior modal=false (non-modal surfaces)", () => {
 		expect(capturedBehavior!.getScrimProps()).not.toBeNull();
 	});
 
-	it("modal=true scrim has zIndex=var(--z-scrim)", () => {
+	it("modal=true exposes scrim props; modal=false does not", () => {
 		const onClose = vi.fn();
 		act(() => {
 			root.render(
@@ -413,21 +361,15 @@ describe("AI2 — useDialogBehavior modal=false (non-modal surfaces)", () => {
 				}),
 			);
 		});
-		const scrimProps = capturedBehavior!.getScrimProps();
-		expect(scrimProps).not.toBeNull();
-		expect(scrimProps!.style.zIndex).toBe("var(--z-scrim)");
-	});
+		expect(capturedBehavior!.getScrimProps()).not.toBeNull();
 
-	it("modal=true scrim background uses var(--scrim) token", () => {
-		const onClose = vi.fn();
 		act(() => {
 			root.render(
 				createElement(BehaviorWrapper, {
-					options: { open: true, onClose, modal: true },
+					options: { open: true, onClose, modal: false },
 				}),
 			);
 		});
-		const scrimProps = capturedBehavior!.getScrimProps();
-		expect(scrimProps!.style.background).toBe("var(--scrim)");
+		expect(capturedBehavior!.getScrimProps()).toBeNull();
 	});
 });

@@ -40,7 +40,7 @@ function RedirectProductToTeam(): JSX.Element {
 	return <Navigate to={`/work/team/${productId}`} replace />;
 }
 
-function buildRoutes(): RouteObject[] {
+export function buildRoutes(): RouteObject[] {
 	const routes: RouteObject[] = [
 		{
 			// P4: /setup replaces /onboarding. SetupFlow is the initial setup page.

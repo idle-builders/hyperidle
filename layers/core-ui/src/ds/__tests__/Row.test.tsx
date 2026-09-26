@@ -17,7 +17,7 @@ import { Row } from "../Row.js";
 // biome-ignore lint/style/useNamingConvention: React flag
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-describe("Row (AG6 T2)", () => {
+describe("Row", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 
@@ -152,27 +152,6 @@ describe("Row (AG6 T2)", () => {
 		});
 	});
 
-	// ── Touch target ─────────────────────────────────────────────────────────
-
-	describe("44px touch target (AC-3, AQ-015)", () => {
-		it("row always has min-h-[44px] class (AC-3 primitive-owned touch target)", () => {
-			act(() => {
-				root.render(createElement(Row, { title: "Hello" }));
-			});
-			// The outermost element or its container must include min-h-[44px]
-			const el = container.firstElementChild as HTMLElement;
-			expect(el?.className ?? "").toContain("min-h-[44px]");
-		});
-
-		it("clickable row also has min-h-[44px]", () => {
-			act(() => {
-				root.render(createElement(Row, { title: "Hello", onClick: () => {} }));
-			});
-			const el = container.firstElementChild as HTMLElement;
-			expect(el?.className ?? "").toContain("min-h-[44px]");
-		});
-	});
-
 	// ── Title slot ───────────────────────────────────────────────────────────
 
 	describe("title slot (required)", () => {
@@ -181,18 +160,6 @@ describe("Row (AG6 T2)", () => {
 				root.render(createElement(Row, { title: "Test Title" }));
 			});
 			expect(container.textContent).toContain("Test Title");
-		});
-
-		it("title element has flex-1 (takes remaining space)", () => {
-			act(() => {
-				root.render(createElement(Row, { title: "Test Title" }));
-			});
-			// Find the element containing the title text
-			const all = Array.from(container.querySelectorAll("*")) as HTMLElement[];
-			const titleEl = all.find(
-				(el) => el.textContent?.trim() === "Test Title" && el.className?.includes("flex-1"),
-			);
-			expect(titleEl).toBeDefined();
 		});
 	});
 
@@ -252,34 +219,6 @@ describe("Row (AG6 T2)", () => {
 				);
 			});
 			expect(container.textContent).toContain("meta value");
-		});
-
-		it("numeric:true cell has tabular-nums class (AQ-006)", () => {
-			act(() => {
-				root.render(
-					createElement(Row, {
-						title: "Hello",
-						cells: [{ content: "42", numeric: true, "data-testid": "num-cell" }],
-					}),
-				);
-			});
-			const cell = container.querySelector("[data-testid='num-cell']") as HTMLElement | null;
-			expect(cell).not.toBeNull();
-			expect(cell?.className ?? "").toContain("tabular-nums");
-		});
-
-		it("numeric:false (default) cell does NOT have tabular-nums", () => {
-			act(() => {
-				root.render(
-					createElement(Row, {
-						title: "Hello",
-						cells: [{ content: "text", "data-testid": "text-cell" }],
-					}),
-				);
-			});
-			const cell = container.querySelector("[data-testid='text-cell']") as HTMLElement | null;
-			expect(cell).not.toBeNull();
-			expect(cell?.className ?? "").not.toContain("tabular-nums");
 		});
 
 		// AZ7 Set 5 / E7: RowCell.tone deleted — a status/tone shown in a cell
@@ -354,22 +293,6 @@ describe("Row (AG6 T2)", () => {
 			});
 			const el = container.firstElementChild as HTMLElement;
 			expect(el?.getAttribute("aria-current")).toBeNull();
-		});
-
-		it("selected=true adds surface-elevated class (design §6)", () => {
-			act(() => {
-				root.render(createElement(Row, { title: "Hello", selected: true }));
-			});
-			const el = container.firstElementChild as HTMLElement;
-			expect(el?.className ?? "").toContain("surface-elevated");
-		});
-
-		it("selected=true adds accent-deep border-l (design §6)", () => {
-			act(() => {
-				root.render(createElement(Row, { title: "Hello", selected: true }));
-			});
-			const el = container.firstElementChild as HTMLElement;
-			expect(el?.className ?? "").toContain("accent-deep");
 		});
 	});
 

@@ -23,7 +23,7 @@ const DEFAULT_ITEMS: MenuItem[] = [
 	{ id: "kill", label: "Kill", onSelect: noop, destructive: true },
 ];
 
-describe("AG5 — Menu: rendering", () => {
+describe("Menu: rendering", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 
@@ -126,7 +126,7 @@ describe("AG5 — Menu: rendering", () => {
 	});
 });
 
-describe("AG5 — Menu: Escape closes the menu", () => {
+describe("Menu: Escape closes the menu", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 
@@ -162,7 +162,7 @@ describe("AG5 — Menu: Escape closes the menu", () => {
 	});
 });
 
-describe("AG5 — Menu: click-outside closes the menu", () => {
+describe("Menu: click-outside closes the menu", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 
@@ -220,7 +220,7 @@ describe("AG5 — Menu: click-outside closes the menu", () => {
 	});
 });
 
-describe("AG5 — Menu: keyboard navigation", () => {
+describe("Menu: keyboard navigation", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 
@@ -370,7 +370,7 @@ describe("AG5 — Menu: keyboard navigation", () => {
 	});
 });
 
-describe("AG5 — Menu: dataAttrs passthrough (C4)", () => {
+describe("Menu: dataAttrs passthrough", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 
@@ -459,7 +459,7 @@ describe("AG5 — Menu: dataAttrs passthrough (C4)", () => {
 	});
 });
 
-describe("AG5 — Menu: focus management (WARNING-A)", () => {
+describe("Menu: focus management (WARNING-A)", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 
@@ -562,7 +562,7 @@ describe("AG5 — Menu: focus management (WARNING-A)", () => {
 	});
 });
 
-describe("AG5 — Menu: align prop", () => {
+describe("Menu: align prop", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 

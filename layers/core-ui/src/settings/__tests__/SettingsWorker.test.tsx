@@ -100,7 +100,7 @@ function clearBridgeFromWindow() {
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
-describe("S4 AC-6 — SettingsWorker: no bridge (web-only)", () => {
+describe("SettingsWorker: no bridge (web-only)", () => {
 	beforeEach(() => {
 		clearBridgeFromWindow();
 	});
@@ -115,7 +115,7 @@ describe("S4 AC-6 — SettingsWorker: no bridge (web-only)", () => {
 	});
 });
 
-describe("S4 AC-6 — SettingsWorker: local mode electron", () => {
+describe("SettingsWorker: local mode electron", () => {
 	beforeEach(() => {
 		const bridge = makeWorkerBridge();
 		// In local mode, the backend mode is "local"
@@ -132,7 +132,7 @@ describe("S4 AC-6 — SettingsWorker: local mode electron", () => {
 	});
 });
 
-describe("S4 AC-6 — SettingsWorker: shared mode, worker disabled", () => {
+describe("SettingsWorker: shared mode, worker disabled", () => {
 	let workerBridge: ReturnType<typeof makeWorkerBridge>;
 
 	beforeEach(() => {
@@ -172,7 +172,7 @@ describe("S4 AC-6 — SettingsWorker: shared mode, worker disabled", () => {
 	});
 });
 
-describe("S4 AC-6 — SettingsWorker: shared mode, worker enabled+connected", () => {
+describe("SettingsWorker: shared mode, worker enabled+connected", () => {
 	let workerBridge: ReturnType<typeof makeWorkerBridge>;
 
 	beforeEach(() => {
@@ -228,7 +228,7 @@ describe("S4 AC-6 — SettingsWorker: shared mode, worker enabled+connected", ()
 	});
 });
 
-describe("S4 AC-6/AC-7 — SettingsWorker: shared mode, worker paused", () => {
+describe("SettingsWorker: shared mode, worker paused", () => {
 	let workerBridge: ReturnType<typeof makeWorkerBridge>;
 
 	beforeEach(() => {
@@ -256,7 +256,7 @@ describe("S4 AC-6/AC-7 — SettingsWorker: shared mode, worker paused", () => {
 	});
 });
 
-describe("S4 AC-1/AC-7 — SettingsWorker: interactions", () => {
+describe("SettingsWorker: interactions", () => {
 	let workerBridge: ReturnType<typeof makeWorkerBridge>;
 
 	beforeEach(() => {
@@ -335,7 +335,7 @@ describe("S4 AC-1/AC-7 — SettingsWorker: interactions", () => {
 	});
 });
 
-describe("S4 AC-3 — SettingsWorker: connecting state", () => {
+describe("SettingsWorker: connecting state", () => {
 	let workerBridge: ReturnType<typeof makeWorkerBridge>;
 
 	beforeEach(() => {
@@ -358,7 +358,7 @@ describe("S4 AC-3 — SettingsWorker: connecting state", () => {
 	});
 });
 
-describe("S4 AC-6 — SettingsWorker: status change subscription", () => {
+describe("SettingsWorker: status change subscription", () => {
 	let workerBridge: ReturnType<typeof makeWorkerBridge>;
 
 	beforeEach(() => {
@@ -396,7 +396,7 @@ describe("S4 AC-6 — SettingsWorker: status change subscription", () => {
 	});
 });
 
-describe("S4 — SettingsWorker: shared backend key field", () => {
+describe("SettingsWorker: shared backend key field", () => {
 	let workerBridge: ReturnType<typeof makeWorkerBridge>;
 
 	beforeEach(() => {

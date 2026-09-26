@@ -5,24 +5,16 @@
  * Agent variant uses forest green accent styling.
  *
  * @lore W2: Tier 0 primitive. No DaisyUI — custom CSS matching Avatar.html.
- * AvatarGroup uses React.cloneElement to inject size="sm" into children when
- * small=true, so callers can pass any size and the group overrides it.
  * @lore S3/W2: Button uses forwardRef; Avatar does not (no focus management needed).
  */
 
-import { Children, cloneElement, isValidElement, type JSX, type ReactNode } from "react";
+import type { JSX } from "react";
 import { dsProps } from "./ds-attrs.js";
 
 export interface AvatarProps {
 	initials: string;
 	size?: "sm" | "md" | "lg";
 	agent?: boolean;
-	className?: string;
-}
-
-export interface AvatarGroupProps {
-	children?: ReactNode;
-	small?: boolean;
 	className?: string;
 }
 
@@ -50,35 +42,6 @@ export function Avatar({
 			className={`type-avatar-initial ${`inline-flex items-center justify-center rounded-[var(--r-pill)] overflow-hidden  shrink-0 ${sizeClass} ${colorClass} ${className}`}`}
 		>
 			{initials}
-		</div>
-	);
-}
-
-export function AvatarGroup({
-	children,
-	small = false,
-	className = "",
-}: AvatarGroupProps): JSX.Element {
-	// @lore W2 C2: cloneElement injects size="sm" into Avatar children when small=true.
-	// CSS parent-context override is not possible with Tailwind, so we propagate
-	// size via React composition instead.
-	const items = Children.map(children, (child) => {
-		if (!isValidElement(child)) return child;
-		return small ? cloneElement(child as React.ReactElement<AvatarProps>, { size: "sm" }) : child;
-	});
-
-	const overlapClass = small ? "-ml-[6px]" : "-ml-[8px]";
-
-	return (
-		<div {...dsProps("AvatarGroup", "0")} className={`flex flex-row ${className}`}>
-			{Children.map(items, (item, i) => (
-				<div
-					key={i}
-					className={`${i > 0 ? overlapClass : ""} ring-[2px] ring-[var(--surface-elevated)] rounded-[var(--r-pill)]`}
-				>
-					{item}
-				</div>
-			))}
 		</div>
 	);
 }

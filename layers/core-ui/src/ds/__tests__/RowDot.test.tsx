@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 
 import { RowDot } from "../RowDot.js";
 
-describe("RowDot (AG6 T1)", () => {
+describe("RowDot", () => {
 	describe("exports", () => {
 		it("is exported from RowDot.tsx as a function", () => {
 			expect(typeof RowDot).toBe("function");

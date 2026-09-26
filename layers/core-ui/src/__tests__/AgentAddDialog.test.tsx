@@ -33,7 +33,7 @@ function renderDialog(
 	);
 }
 
-describe("AH4 AC2 — AgentAddDialog placement affordance", () => {
+describe("AgentAddDialog placement affordance", () => {
 	it("renders TEAM label and team name when teamName is 'Acme'", () => {
 		renderDialog("Acme");
 		// The KeyValue label is "TEAM" (uppercase) and value is "Acme"

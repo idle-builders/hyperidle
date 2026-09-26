@@ -54,7 +54,7 @@ function renderRedirect(
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("RedirectLegacyConversation (L9)", () => {
+describe("RedirectLegacyConversation", () => {
 	// -----------------------------------------------------------------------
 	// ?id= forms (paramName="id" at /conversations/review)
 	// -----------------------------------------------------------------------

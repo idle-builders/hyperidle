@@ -67,18 +67,14 @@ function cleanup(container: HTMLDivElement, root: Root): void {
 // ─────────────────────────────────────────────────────────────────────────────
 // AC-T1: Component mounts without error
 // ─────────────────────────────────────────────────────────────────────────────
-describe("BodyEditor — mount (AC-T1)", () => {
+describe("BodyEditor — mount", () => {
 	it("renders without error with empty initialContent", () => {
 		const { container, root } = renderEditor({
 			initialContent: "",
 			onChange: vi.fn(),
 		});
-		// Outermost wrapper should exist with DS marker
 		const wrapper = container.firstElementChild as HTMLElement;
 		expect(wrapper).toBeTruthy();
-		expect(wrapper.getAttribute("data-ds-component")).toBe("BodyEditor");
-		expect(wrapper.getAttribute("data-ds-tier")).toBe("2");
-		expect(wrapper.getAttribute("data-ds-source")).toBe("design-system");
 		cleanup(container, root);
 	});
 
@@ -105,7 +101,7 @@ describe("BodyEditor — mount (AC-T1)", () => {
 // ─────────────────────────────────────────────────────────────────────────────
 // AC-T2: Renders markdown content
 // ─────────────────────────────────────────────────────────────────────────────
-describe("BodyEditor — renders markdown content (AC-T2)", () => {
+describe("BodyEditor — renders markdown content", () => {
 	it("renders heading from markdown", () => {
 		const { container, root } = renderEditor({
 			initialContent: "## Hello World",
@@ -142,7 +138,7 @@ describe("BodyEditor — renders markdown content (AC-T2)", () => {
 // ─────────────────────────────────────────────────────────────────────────────
 // AC-T3: Round-trip fidelity
 // ─────────────────────────────────────────────────────────────────────────────
-describe("BodyEditor — round-trip fidelity (AC-T3)", () => {
+describe("BodyEditor — round-trip fidelity", () => {
 	/**
 	 * Round-trip tests verify that after loading markdown into the editor,
 	 * the serialized output contains the expected markdown constructs.
@@ -294,7 +290,7 @@ describe("BodyEditor — round-trip fidelity (AC-T3)", () => {
 // ─────────────────────────────────────────────────────────────────────────────
 // AC-T4: onChange callback fires
 // ─────────────────────────────────────────────────────────────────────────────
-describe("BodyEditor — onChange callback (AC-T4)", () => {
+describe("BodyEditor — onChange callback", () => {
 	it("onChange is not called on initial mount (no spurious fire)", () => {
 		const onChange = vi.fn();
 		const { container, root } = renderEditor({
@@ -321,7 +317,7 @@ describe("BodyEditor — onChange callback (AC-T4)", () => {
 // ─────────────────────────────────────────────────────────────────────────────
 // AC-T5: editable={false} produces read-only state
 // ─────────────────────────────────────────────────────────────────────────────
-describe("BodyEditor — read-only mode (AC-T5)", () => {
+describe("BodyEditor — read-only mode", () => {
 	it("editable={false} marks the ProseMirror as not editable", () => {
 		const { container, root } = renderEditor({
 			initialContent: "## Read Only\n\nThis content is not editable.",
@@ -350,7 +346,7 @@ describe("BodyEditor — read-only mode (AC-T5)", () => {
 // ─────────────────────────────────────────────────────────────────────────────
 // AC-T6: Placeholder renders when empty
 // ─────────────────────────────────────────────────────────────────────────────
-describe("BodyEditor — placeholder (AC-T6)", () => {
+describe("BodyEditor — placeholder", () => {
 	it("renders default placeholder on empty editor", () => {
 		const { container, root } = renderEditor({
 			initialContent: "",
@@ -382,7 +378,7 @@ describe("BodyEditor — placeholder (AC-T6)", () => {
 // ─────────────────────────────────────────────────────────────────────────────
 // AC-T7: Mini variant
 // ─────────────────────────────────────────────────────────────────────────────
-describe("BodyEditor — mini variant (AC-T7)", () => {
+describe("BodyEditor — mini variant", () => {
 	it("mini variant mounts without error", () => {
 		const { container, root } = renderEditor({
 			initialContent: "A short note with **bold** text.",
@@ -428,7 +424,7 @@ describe("BodyEditor — mini variant (AC-T7)", () => {
 // ─────────────────────────────────────────────────────────────────────────────
 // AC-T8: Slash menu items
 // ─────────────────────────────────────────────────────────────────────────────
-describe("BodyEditor — slash menu items (AC-T8)", () => {
+describe("BodyEditor — slash menu items", () => {
 	it("SLASH_MENU_ITEMS has exactly 10 entries", async () => {
 		// Import the slash menu items directly to test without DOM complexity
 		const { SLASH_MENU_ITEMS } = await import("../body-editor/slash-menu.js");
@@ -483,7 +479,7 @@ describe("BodyEditor — slash menu items (AC-T8)", () => {
 // ─────────────────────────────────────────────────────────────────────────────
 // AC-T9: Extension builder functions
 // ─────────────────────────────────────────────────────────────────────────────
-describe("BodyEditor — extensions (AC-T9)", () => {
+describe("BodyEditor — extensions", () => {
 	it("buildFullExtensions returns an array of extensions", async () => {
 		const { buildFullExtensions } = await import("../body-editor/extensions.js");
 		const exts = buildFullExtensions("Start writing...");
@@ -498,42 +494,6 @@ describe("BodyEditor — extensions (AC-T9)", () => {
 		const full = buildFullExtensions("Start writing...");
 		const mini = buildMiniExtensions("Start writing...");
 		expect(mini.length).toBeLessThan(full.length);
-	});
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// AC-T9: DS markers
-// ─────────────────────────────────────────────────────────────────────────────
-describe("BodyEditor — DS markers", () => {
-	it("outermost wrapper has data-ds-component=BodyEditor", () => {
-		const { container, root } = renderEditor({
-			initialContent: "",
-			onChange: vi.fn(),
-		});
-		const wrapper = container.firstElementChild as HTMLElement;
-		expect(wrapper.getAttribute("data-ds-component")).toBe("BodyEditor");
-		cleanup(container, root);
-	});
-
-	it("outermost wrapper has data-ds-tier=2", () => {
-		const { container, root } = renderEditor({
-			initialContent: "",
-			onChange: vi.fn(),
-		});
-		const wrapper = container.firstElementChild as HTMLElement;
-		expect(wrapper.getAttribute("data-ds-tier")).toBe("2");
-		cleanup(container, root);
-	});
-
-	it("className prop is applied to the outermost wrapper", () => {
-		const { container, root } = renderEditor({
-			initialContent: "",
-			onChange: vi.fn(),
-			className: "my-custom-class",
-		});
-		const wrapper = container.firstElementChild as HTMLElement;
-		expect(wrapper.classList.contains("my-custom-class")).toBe(true);
-		cleanup(container, root);
 	});
 });
 

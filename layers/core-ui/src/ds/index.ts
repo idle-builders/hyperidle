@@ -9,8 +9,8 @@ export type { AgentOperationalStatus } from "@hyperidle/domain-model";
 export type { ArtifactFrameProps } from "./ArtifactFrame.js";
 export { ArtifactFrame } from "./ArtifactFrame.js";
 // ── Tier 0: Foundation primitives (W2) ──
-export type { AvatarGroupProps, AvatarProps } from "./Avatar.js";
-export { Avatar, AvatarGroup } from "./Avatar.js";
+export type { AvatarProps } from "./Avatar.js";
+export { Avatar } from "./Avatar.js";
 // @lore BB1: BetCard deleted — tasks are now the one work primitive.
 // ── Tier 2: Block primitive (L2) ──
 export type { BlockProps, BlockSlots } from "./Block.js";
@@ -49,8 +49,6 @@ export type { QuotePayloadProps } from "./block/QuotePayload.js";
 export { QuotePayload } from "./block/QuotePayload.js";
 export type { TablePayloadProps } from "./block/TablePayload.js";
 export { TablePayload } from "./block/TablePayload.js";
-export type { CheckboxProps } from "./Checkbox.js";
-export { Checkbox } from "./Checkbox.js";
 export type { ComboboxOption, ComboboxProps } from "./Combobox.js";
 export { Combobox } from "./Combobox.js";
 export type { CommentRowProps, CommentRowSender } from "./CommentRow.js";
@@ -91,7 +89,7 @@ export type { ItemListEmpty, ItemListError, ItemListProps } from "./ItemList.js"
 export { ItemList } from "./ItemList.js";
 export type { KeyValueProps } from "./KeyValue.js";
 export { KeyValue } from "./KeyValue.js";
-// ── KpiStat + Sparkline — extracted base primitives from data-renderer ──
+// ── KpiStat — extracted base primitive from data-renderer ──
 export type { KpiStatMetric, KpiStatProps } from "./KpiStat.js";
 export { KpiStat } from "./KpiStat.js";
 // ── LiveDot — promoted from WorkTask/TaskSheet ──
@@ -110,8 +108,6 @@ export { PageHeader, pageTitleClassName, paneTitleClassName } from "./PageHeader
 // ── PageScaffold — canonical page scroll contract (Tier 1) ──
 export type { PageScaffoldProps } from "./PageScaffold.js";
 export { PageScaffold } from "./PageScaffold.js";
-export type { ProgressProps } from "./Progress.js";
-export { Progress } from "./Progress.js";
 // U8: PitchCard deleted from design-system exports.
 // ── ReferenceChip — single shared attachment/reference primitive ──
 export type { ReferenceChipKind, ReferenceChipMode, ReferenceChipProps } from "./ReferenceChip.js";
@@ -141,8 +137,6 @@ export type { SelectProps } from "./Select.js";
 export { Select } from "./Select.js";
 export type { SkeletonCardProps, SkeletonListProps, SkeletonProps } from "./Skeleton.js";
 export { Skeleton, SkeletonCard, SkeletonList } from "./Skeleton.js";
-export type { SparklineProps } from "./Sparkline.js";
-export { Sparkline } from "./Sparkline.js";
 export type { FoldMode, SplitViewProps } from "./SplitView.js";
 export { SplitView } from "./SplitView.js";
 export type { Status, StatusChipProps } from "./StatusChip.js";
@@ -161,8 +155,6 @@ export {
 	taskOutcomeVerdictToStatus,
 	taskStateToStatus,
 } from "./status-mapping.js";
-export type { TabBarProps } from "./TabBar.js";
-export { TabBar } from "./TabBar.js";
 export type { TagProps } from "./Tag.js";
 export { Tag } from "./Tag.js";
 export type { TaskCardProps } from "./TaskCard.js";

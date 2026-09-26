@@ -28,7 +28,7 @@ function renderWithContext(
 	);
 }
 
-describe("AF14 — AssistantAttachButton", () => {
+describe("AssistantAttachButton", () => {
 	it("renders nothing when overlayOpen=false (default context)", () => {
 		// No Provider — uses default context value (overlayOpen=false).
 		render(<AssistantAttachButton ref={testRef} />);
