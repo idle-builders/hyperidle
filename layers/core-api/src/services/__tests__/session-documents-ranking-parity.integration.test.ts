@@ -1,18 +1,11 @@
 /**
- * AU21 §9 Increment 12 (Decision H3) — the regression-pin architecture.md's
- * Increment 12 test (b) requires: "baked ranking output matches the
- * pre-migration ranking for a fixed corpus."
- *
  * Exercises `@hyperidle/document`'s `assembleSessionDocuments` against a
  * fixed corpus (two teams, one agent-bound item, one factory-wide item) so a
  * genuine relocation bug (wrong scope, wrong budget cutoff) shows up as a set
  * mismatch against the hardcoded expected membership below.
  *
- * @lore nested-knowledge-items D1: "what an agent receives" collapses onto
- * scope alone — factory + its team + its own — replacing the L4/L2/L3 layer
- * fetch and the practice/community matching this test originally pinned.
- * The corpus below is rewritten to exercise the surviving three scope kinds
- * instead of the deleted layer/practice vocabulary.
+ * @lore "what an agent receives" collapses onto scope alone — factory + its
+ * team + its own.
  */
 
 import { documents, type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
@@ -21,13 +14,13 @@ import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../../__testing__/test-fixtures.js";
 
 const NOW = "2026-07-31T00:00:00.000Z";
-const TEAM_ID = "team-i12-parity";
-const OTHER_TEAM_ID = "team-i12-other";
-const AGENT_ID = "agent-i12-parity";
-const OTHER_AGENT_ID = "agent-i12-other";
+const TEAM_ID = "team-doc-parity";
+const OTHER_TEAM_ID = "team-doc-other";
+const AGENT_ID = "agent-doc-parity";
+const OTHER_AGENT_ID = "agent-doc-other";
 const AGENT_ROLE = "builder";
-const TASK_ID = "task-i12-parity";
-const ROOT_TASK_ID = "bet-i12-parity";
+const TASK_ID = "task-doc-parity";
+const ROOT_TASK_ID = "bet-doc-parity";
 const TASK_DESCRIPTION = "Ship the boundary seam parity check.";
 
 async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
@@ -56,8 +49,8 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 		id: ROOT_TASK_ID,
 		parentTaskId: null,
 		teamId: TEAM_ID,
-		title: "I12 parity bet",
-		description: "I12 parity bet",
+		title: "Doc parity bet",
+		description: "Doc parity bet",
 		state: "in_progress",
 		createdAt: NOW,
 		updatedAt: NOW,
@@ -76,7 +69,7 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 		id: TASK_ID,
 		parentTaskId: ROOT_TASK_ID,
 		teamId: TEAM_ID,
-		title: "I12 parity task",
+		title: "Doc parity task",
 		description: TASK_DESCRIPTION,
 		state: "in_progress",
 		createdAt: NOW,
@@ -159,7 +152,7 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 	});
 }
 
-describe("assembleSessionDocuments — scope-only selection (architecture.md D1)", () => {
+describe("assembleSessionDocuments — scope-only selection", () => {
 	test("returns exactly the expected item-id set for the fixed corpus (budget/scope filter)", async ({
 		db,
 	}) => {

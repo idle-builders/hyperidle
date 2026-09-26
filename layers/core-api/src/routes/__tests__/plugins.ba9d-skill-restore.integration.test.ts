@@ -1,19 +1,12 @@
 /**
- * BA9d D12: skill restore re-imports body from plugin source on disk.
- * Proves that editing a skill's body in the DB and then calling
- * `edit_plugin`'s restore change puts the original SKILL.md content back.
- * Re-pointed onto `POST /api/actions/edit_plugin`.
+ * Skill restore re-imports body from plugin source on disk. Editing a
+ * skill's body in the DB and then calling `edit_plugin`'s restore change puts
+ * the original SKILL.md content back, through `POST /api/actions/edit_plugin`.
  *
- * @lore document-module B10: restore now writes through `edit_document`, so
- * `updatedBy` becomes the requesting person (architecture.md §3.5 — the
- * field is never on the input, always `ctx.actor`), not the `plugin:<id>`
- * sentinel the legacy repository write used.
- *
- * @lore document-module B20: the read/patch this test drives through moved
- * off the deleted `GET`/`PATCH /api/knowledge/:id` onto
- * `POST /api/actions/open_document` and `POST /api/actions/edit_document` —
- * the actor is carried by the `x-hyperidle-actor-id` override header now,
- * never a body field.
+ * @lore restore writes through `edit_document`, so `updatedBy` is always the
+ * requesting person (architecture.md §3.5 — never on the input, always
+ * `ctx.actor`), carried by the `x-hyperidle-actor-id` override header, never
+ * a body field.
  */
 
 import { cpSync, mkdirSync, readFileSync, rmSync } from "node:fs";
@@ -75,7 +68,7 @@ function copyPlugin(): string {
 	return dir;
 }
 
-describe("BA9d skill restore", () => {
+describe("skill restore", () => {
 	// pluginsApp is a per-test app instance with a temp pluginsBaseDir already
 	// configured in the composition root — no pluginsBaseDir in the request body.
 	test("restore re-imports skill body from plugin source", async ({ db, pluginsApp }) => {

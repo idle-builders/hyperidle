@@ -1,12 +1,8 @@
 /**
- * AU26 E3 — AC1(c): the staleness defect this work package exists to prove gone.
- *
- * AU21's Decision K1 baked the owning human's held-connection list onto every
- * emitted intent, because `service_connections` still lived in core-api and
- * `run-orchestration` was forbidden to read it. That bake is a SNAPSHOT: a
- * connection the user adds after an intent is emitted but before it drains was
- * simply absent from the sandbox, silently. K1 was known-throwaway when it
- * shipped; AU26 E3 deletes it and reads the record live, in-layer, at spawn.
+ * The owning human's held-connection list is read live, in-layer, at spawn —
+ * not baked onto the emitted intent as a snapshot. A connection the user
+ * adds after an intent is emitted but before it drains must still be
+ * provisioned.
  *
  * The order below is the whole test:
  *   1. emit a real intent through the real recorder and drain it into a real
@@ -15,9 +11,8 @@
  *   3. run the spawn-time connections step the provisioner runs
  *   4. the connection is provisioned
  *
- * Against K1's bake step 4 fails: the request was frozen at step 1, before the
- * row existed. Sanity-checked exactly that way — reverting
- * `buildProvisioningPlan` to a request-carried list reds this test.
+ * A request-carried (baked) list would fail step 4: the request was frozen at
+ * step 1, before the row existed.
  */
 
 import * as fs from "node:fs";
@@ -46,14 +41,14 @@ import {
 } from "../../__testing__/test-fixtures.js";
 
 const NOW = "2026-08-04T00:00:00.000Z";
-const SERVER_SECRET = "au26-e3-add-after-emit-secret";
-const HUMAN_ID = "u-au26-e3-owner";
-const AGENT_ID = "agent-au26-e3-target";
-const OTHER_HUMAN_ID = "u-au26-e3-other";
+const SERVER_SECRET = "add-after-emit-secret";
+const HUMAN_ID = "u-owner";
+const AGENT_ID = "agent-target";
+const OTHER_HUMAN_ID = "u-other";
 
 let sandboxPath: string;
 beforeEach(() => {
-	sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "au26-e3-add-after-emit-"));
+	sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "add-after-emit-"));
 	vi.stubEnv("HYPERIDLE_CREDENTIAL_KEY", SERVER_SECRET);
 });
 afterEach(() => {
@@ -66,7 +61,7 @@ async function seedPrincipals(db: HyperIdleDb): Promise<void> {
 		{
 			id: HUMAN_ID,
 			kind: "human",
-			name: "AU26 Owner",
+			name: "Owner",
 			role: "founder",
 			status: "active",
 			createdAt: NOW,
@@ -74,7 +69,7 @@ async function seedPrincipals(db: HyperIdleDb): Promise<void> {
 		{
 			id: OTHER_HUMAN_ID,
 			kind: "human",
-			name: "AU26 Other",
+			name: "Other",
 			role: "member",
 			status: "active",
 			createdAt: NOW,
@@ -82,7 +77,7 @@ async function seedPrincipals(db: HyperIdleDb): Promise<void> {
 		{
 			id: AGENT_ID,
 			kind: "ai",
-			name: "AU26 Target Agent",
+			name: "Target Agent",
 			role: "builder",
 			status: "active",
 			createdAt: NOW,
@@ -182,7 +177,7 @@ describe("held connections are read live at spawn, never carried on the request"
 		const { payloadJson } = await emitAndDrain(db, eventBus, "au26-e3-add-after-emit");
 		expect(await db.select().from(serviceConnections)).toEqual([]);
 
-		// The request carries NOTHING about connections — K1's bake is gone, so
+		// The request carries NOTHING about connections — nothing is baked, so
 		// there is no snapshot for the spawn to go stale against.
 		expect(payloadJson ?? "").not.toContain("injectedConnections");
 

@@ -1,16 +1,11 @@
 /**
- * A plugin that contributes an agent contributes who that agent is.
- *
- * This was the gap BA9f named: "a plugin contributing an agent had nothing to
- * contribute its identity to". The identity is a document now, so a
- * plugin's agent gets one — sourced from a file in the plugin, the way a skill
- * is.
+ * A plugin that contributes an agent contributes who that agent is: the
+ * identity is a document, sourced from a file in the plugin, the way a skill
+ * is, and installed through `POST /api/actions/edit_plugin` / `search_plugins`.
  *
  * It is what lets the role personas leave the runtime. HyperIdle ships a single
  * agent with a bare AGENTS.md; a builder, a designer, a PM are things a plugin
  * brings, not things the product has opinions about.
- *
- * Re-pointed onto `POST /api/actions/edit_plugin` / `search_plugins`.
  */
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
@@ -134,17 +129,6 @@ describe("a plugin's agent comes with an identity", () => {
 		expect(identity?.parentId).toBe(agent?.id);
 	});
 
-	// @lore document-module B10: the legacy `upsertKnowledgeDocument` repaired
-	// a parentless row's binding on every reinstall (a pre-parent-column
-	// migration artifact). `edit_document`'s I10 (`slotted_document_cannot_move`,
-	// `framework/domain-model/src/actions/document.ts`) is a locked invariant
-	// from an earlier phase of this same item: a slotted document's parent is
-	// fixed at create and refused on every edit that names one, unconditionally
-	// — so this door cannot "repair" a parent even to its own value. Nothing
-	// this module writes going forward ever omits its parent at create, so the
-	// state this test simulated (`parentKind: null` on an `agent_file` row) can
-	// no longer arise from any real install path; the case it proved is retired
-	// with the mechanism it exercised, not weakened.
 	test("the identity appears in the plugin's contributions", async ({ db, app }) => {
 		await install(db, app);
 
@@ -179,11 +163,6 @@ describe("a plugin's agent comes with an identity", () => {
 		expect(identity?.status, "a removed plugin's persona reaches no session").toBe("archived");
 	});
 
-	// @lore BA9g: restore was DEAD for exactly this plugin shape. `install_path`
-	// was persisted only when a plugin had skills or MCP servers, and a personas
-	// plugin has neither — so restore answered NO_INSTALL_PATH forever, and even
-	// past that, the source reader had no branch for an identity id. Tests stayed
-	// green because none of them restored an identity.
 	test("restoring an edited identity brings the plugin's version back", async ({
 		db,
 		pluginsApp,

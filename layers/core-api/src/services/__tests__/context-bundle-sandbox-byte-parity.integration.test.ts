@@ -1,33 +1,17 @@
 /**
- * AU21 §9 Increment 12 (Decision H3), Wave C — architecture.md's Increment 12
- * test (b): "the sandbox files' actual content is byte-for-byte equivalent to
- * pre-migration for the same fixed corpus, not just 'some content'."
+ * The sandbox files' actual content is byte-for-byte equivalent to KNOWN
+ * EXPECTED byte content for a fixed corpus, not just "some content".
  *
- * Exercises the REAL end-to-end bake→consume path against a real seeded DB
+ * Exercises the REAL end-to-end bake -> consume path against a real seeded DB
  * corpus (task, bet, agent, team, one L4/L2/L3 knowledge item each — the same
- * corpus shape `session-documents-ranking-parity.integration.test.ts`
- * (Wave A) pins for the ranking/budget SET): `@hyperidle/work`'s real,
- * already-GREEN (Wave B) `resolveTaskRunRequest` bakes a genuine
- * `contextBundle` from the seeded rows; that bundle is handed to the
- * bundle-consuming `assembleAgentContext` (Wave C) via POISONED ports (proving
+ * corpus shape `session-documents-ranking-parity.integration.test.ts` pins
+ * for the ranking/budget SET): `@hyperidle/work`'s real `resolveTaskRunRequest`
+ * bakes a genuine `contextBundle` from the seeded rows; that bundle is handed
+ * to the bundle-consuming `assembleAgentContext` via POISONED ports (proving
  * zero reads — a thrown poisoned-port call would fail the test, same
- * technique as `context-bundle-consumption.test.ts`).
- *
- * @lore CONFUSION (Wave C, resolved — flagged for reviewer): the RED-phase
- * version of this test compared the bundle-consuming output against a LIVE
- * run of the pre-migration DB-reading path (`runSession(...,{mode:"assemble",
- * input:{db,...}})`, no `contextBundle`). That comparison is no longer
- * buildable post-GREEN: Wave C deletes `context.ts`'s entire DB-reading path
- * AND `run-orchestration-composition.ts`'s `contextPorts.knowledge`/`.org`
- * wiring (required for `context-assembly-anti-regrowth.test.ts` to prove
- * ZERO `run-orchestration -> knowledge/org` edges) — there is no "old path"
- * left to run in the SAME tree as the new one. This rewrite proves the
- * IDENTICAL acceptance criterion (byte-for-byte sandbox output for a fixed
- * corpus) by asserting the real bundle-consuming path's output against KNOWN
- * EXPECTED byte content derived from the same seeded rows — same strength
- * (every zone's file content, the manifest's item set, and session.toon's
- * encoded fields are all asserted), different mechanism (expected-value
- * assertion instead of a live dual-path diff, since only one path exists now).
+ * technique as `context-bundle-consumption.test.ts`). Every zone's file
+ * content, the manifest's item set, and session.toon's encoded fields are all
+ * asserted against expected values derived from the same seeded rows.
  */
 
 import * as fs from "node:fs";
@@ -55,15 +39,13 @@ const { getAgentIdentity } = makeDocumentReadPorts(createStandaloneSearchDocumen
 const NOW = "2026-08-01T00:00:00.000Z";
 const TEAM_ID = "team-i12c-parity";
 const AGENT_ID = "agent-i12c-parity";
-// @lore BA9g: the practice an agent belongs to IS its role. This said
-// `communityForRole("builder") === "building"` — the catalog's mapping of 16
-// roles onto four communities, gone with the catalog. `knowledge.ts` already
-// documented the truth ("practice scopeId is a role id").
+// @lore the practice an agent belongs to IS its role — `knowledge.ts`
+// documents the truth ("practice scopeId is a role id").
 const AGENT_ROLE = "builder";
 const TASK_ID = "task-i12c-parity";
 const ROOT_TASK_ID = "bet-i12c-parity";
 const ATTEMPT_ID = "attempt-i12c-parity";
-const TASK_DESCRIPTION = "Ship the Wave C byte-parity check.";
+const TASK_DESCRIPTION = "Ship the byte-parity check.";
 
 async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 	await db.insert(teams).values({ id: TEAM_ID, name: "Byte Parity Team", createdAt: NOW });
@@ -89,8 +71,8 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 		id: ROOT_TASK_ID,
 		parentTaskId: null,
 		teamId: TEAM_ID,
-		title: "I12 Wave C byte-parity bet",
-		description: "I12 Wave C byte-parity bet",
+		title: "Byte-parity bet",
+		description: "Byte-parity bet",
 		doneCondition: "Byte-identical sandboxes",
 		state: "in_progress",
 		createdAt: NOW,
@@ -111,7 +93,7 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 		parentTaskId: ROOT_TASK_ID,
 		teamId: TEAM_ID,
 		ownerAgentId: AGENT_ID,
-		title: "I12 Wave C byte-parity task",
+		title: "Byte-parity task",
 		description: TASK_DESCRIPTION,
 		state: "in_progress",
 		createdAt: NOW,
@@ -199,7 +181,7 @@ function poisonedPorts(): Parameters<typeof createContextAssembler>[0] {
 	} as unknown as Parameters<typeof createContextAssembler>[0];
 }
 
-describe("context.ts sandbox output — bundle-consuming byte parity for a fixed corpus (Increment 12 Wave C)", () => {
+describe("context.ts sandbox output — bundle-consuming byte parity for a fixed corpus", () => {
 	test("context/session.toon + knowledge/ are byte-exact for the baked bundle, with ZERO port reads", async ({
 		db,
 	}) => {
@@ -207,7 +189,7 @@ describe("context.ts sandbox output — bundle-consuming byte parity for a fixed
 
 		const newSandbox = fs.mkdtempSync(path.join(os.tmpdir(), "i12c-new-"));
 		try {
-			// -- Real production bake (Wave B, already GREEN): resolveTaskRunRequest
+			// -- Real production bake: resolveTaskRunRequest
 			// derives the contextBundle from the SAME seeded rows. --
 			const baked = await resolveTaskRunRequest(
 				db,
@@ -223,7 +205,7 @@ describe("context.ts sandbox output — bundle-consuming byte parity for a fixed
 			const bundle = baked.contextBundle;
 			if (bundle?.kind !== "task") throw new Error("expected a kind:'task' contextBundle");
 
-			// -- Real Wave C consuming path, poisoned ports proving zero reads. --
+			// -- Real consuming path, poisoned ports proving zero reads. --
 			const assembler = createContextAssembler(poisonedPorts());
 			await assembler.assembleAgentContext({
 				sandboxPath: newSandbox,
@@ -239,7 +221,7 @@ describe("context.ts sandbox output — bundle-consuming byte parity for a fixed
 			});
 
 			// -- Assert: every knowledge/ file's content is byte-exact, matching
-			// the SAME seeded item bodies (architecture.md D1: scope
+			// the SAME seeded item bodies (architecture.md: scope
 			// alone selects reach now — no more layer zones under context/). --
 			const newKnowledgeFiles = listFilesRecursive(path.join(newSandbox, "knowledge"));
 			expect(newKnowledgeFiles.length).toBeGreaterThan(0);
@@ -269,7 +251,7 @@ describe("context.ts sandbox output — bundle-consuming byte parity for a fixed
 			// -- session.toon encodes the exact baked task/bet/agent/team fields. --
 			const toon = fs.readFileSync(path.join(newSandbox, "context/session.toon"), "utf8");
 			expect(toon).toContain(TASK_ID);
-			expect(toon).toContain("I12 Wave C byte-parity task");
+			expect(toon).toContain("Byte-parity task");
 			expect(toon).toContain("Byte Parity Agent");
 			expect(toon).toContain("Byte Parity Team");
 

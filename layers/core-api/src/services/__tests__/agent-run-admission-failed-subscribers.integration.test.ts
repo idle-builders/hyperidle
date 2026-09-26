@@ -15,11 +15,11 @@
  *
  * @lore each reaction is registered as an async-fire-and-forget
  * `eventBus.on(...)` handler — `EventHandler<T>` is strictly `(event) =>
- * void`, so an async body can only be a detached promise (see
- * `lifecycle-propagation.ts`'s AF3 note on the same pattern). `emit()` itself
- * is synchronous (the handler was CALLED), not that its internal `await`s
- * resolved before `drainIntents` returns — every assertion below wraps in
- * `vi.waitFor(...)` for that reason.
+ * void`, so an async body can only be a detached promise (the same pattern
+ * `lifecycle-propagation.ts` uses). `emit()` itself is synchronous (the
+ * handler was CALLED), not that its internal `await`s resolved before
+ * `drainIntents` returns — every assertion below wraps in `vi.waitFor(...)`
+ * for that reason.
  */
 
 import {

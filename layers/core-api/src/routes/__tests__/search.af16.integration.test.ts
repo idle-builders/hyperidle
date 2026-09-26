@@ -1,17 +1,15 @@
 /**
- * AF16 T7, T8 — Search determinism + relevance ordering (RED).
- *
- * T7: Two bets with identical createdAt → same order both queries (stable tiebreaker by id ASC).
- * T8: Exact-title match older than substring match → exact-title ranks first (match-rank).
- *
- * Z8-033.
+ * Search result ordering is deterministic and relevance-ranked: two bets
+ * with identical createdAt return the same order both queries (stable
+ * tiebreaker by id ASC), and an exact-title match ranks before a substring
+ * match even when it is older (match-rank).
  */
 
 import { type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
-const TEST_API_KEY = "test-key-search-af16";
+const TEST_API_KEY = "test-key-search";
 
 function authHeaders(): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY };
@@ -30,7 +28,7 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 	});
 }
 
-describe("AF16 T7 — Search determinism (Z8-033)", () => {
+describe("search determinism", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 	});
@@ -114,7 +112,7 @@ describe("AF16 T7 — Search determinism (Z8-033)", () => {
 	});
 });
 
-describe("AF16 T8 — Search relevance ordering (Z8-033)", () => {
+describe("search relevance ordering", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 	});

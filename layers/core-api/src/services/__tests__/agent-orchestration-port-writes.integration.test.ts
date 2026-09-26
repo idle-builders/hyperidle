@@ -1,11 +1,8 @@
 /**
- * AU31 §3 — the WRITE side of `AgentOrchestrationPort`, RED phase → GREEN.
- *
- * Mirrors `agent-orchestration-port.integration.test.ts`'s pattern (real
- * in-process transport, both layers' apps composed via the `app` fixture,
- * §11's "reaches its real backing route" obligation) for the new write
- * families §2.1a/§2.2/§2.3/§2.6 need: `intents`, `requests`, `runs`,
- * `runConfig`, `filesystems`.
+ * The WRITE side of `AgentOrchestrationPort`: `intents`, `requests`, `runs`,
+ * `runConfig`, `filesystems` each reach their real backing route through a
+ * real in-process transport, both layers' apps composed via the `app`
+ * fixture — mirrors `agent-orchestration-port.integration.test.ts`'s pattern.
  */
 
 import {
@@ -45,7 +42,7 @@ async function seedTeamAndTask(db: HyperIdleDb, prefix: string): Promise<void> {
 			name: "Agent",
 			role: "builder",
 			status: "idle",
-			// @lore AU44 B1: users.teamId references teams.id directly (no teamMembers hop).
+			// @lore users.teamId references teams.id directly (no teamMembers hop).
 			teamId: `${prefix}-team-parent`,
 			createdAt: NOW,
 		},
@@ -137,10 +134,6 @@ describe("AgentOrchestrationPort — write side (§3, §11 contract-test harness
 
 		expect(second.id).toBe(first.id);
 	});
-
-	// @lore BC3 architecture.md §5 B5/§9: `requests.listPendingIntentsByKind`
-	// deleted with its only caller, the deleted coherence trigger — this
-	// test's subject no longer exists.
 
 	test("runConfig.write then runConfig.read round-trips through the real route", async ({
 		db,
@@ -306,15 +299,12 @@ describe("AgentOrchestrationPort — write side (§3, §11 contract-test harness
 		requestWithoutAuth,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", "aop-write-key-auth-boundary");
-		// @lore BC3: re-pointed off the deleted `requests/pending-intents` route
-		// (architecture.md §5 B5) onto another GET on the same mount — the
-		// assertion is about the auth middleware, not this specific route.
+		// The assertion is about the auth middleware, not this specific route —
+		// any GET on the same mount proves it.
 		const res = await requestWithoutAuth("/api/agent-orchestration/run-config/agent-1");
 		expect(res.status).not.toBe(200);
 	});
 
-	// AU31 §2.6: the team-consistency gate's pre-write read — RED-phase gap
-	// closed. `filesystems.getTeamId` had no standalone written-first test.
 	test("filesystems.getTeamId reaches the real route and returns null for an unknown filesystem", async ({
 		db,
 		app,

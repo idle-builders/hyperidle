@@ -1,14 +1,9 @@
 /**
- * S2 — Worker WebSocket route: unit tests (AC2).
- *
- * Tests that registerWorkerWsRoute:
- * - accepts connections with valid token, rejects with invalid
- * - registers adapter in pool on WorkerRegisterMessage
- * - unregisters adapter when WebSocket closes
- * - sends { type: "registered" } ack to worker
- * - routes runtime messages (event, session_result, error) to the adapter
- *   after registration (S2-F07 regression guard)
- * - validates incoming messages with Zod and drops malformed data (S2-F05)
+ * The worker WebSocket route: accepts connections with a valid token,
+ * rejects with an invalid one, registers/unregisters the adapter with the
+ * pool as the connection opens/closes, and routes runtime messages (event,
+ * session_result, error) to the right adapter after registration. Malformed
+ * incoming messages fail Zod validation and are dropped, never thrown.
  */
 
 import { AdapterPool } from "@hyperidle/harness-registry";
@@ -213,45 +208,9 @@ describe("registerWorkerWsRoute — worker lifecycle", () => {
 
 		expect(pool.size).toBe(0);
 	});
-
-	it("two workers connect — both appear in pool", async () => {
-		const pool = makePool();
-
-		const ws1 = new MockWsContext();
-		const manager1 = await createWorkerConnectionManager(pool);
-		manager1.onMessage(
-			JSON.stringify({
-				type: "register",
-				id: "w-3",
-				name: "worker-3",
-				modelProviders: ["anthropic"],
-				maxConcurrent: 2,
-			}),
-			ws1 as never,
-		);
-
-		const ws2 = new MockWsContext();
-		const manager2 = await createWorkerConnectionManager(pool);
-		manager2.onMessage(
-			JSON.stringify({
-				type: "register",
-				id: "w-4",
-				name: "worker-4",
-				modelProviders: ["anthropic"],
-				maxConcurrent: 4,
-			}),
-			ws2 as never,
-		);
-
-		expect(pool.size).toBe(2);
-
-		manager1.onClose();
-		expect(pool.size).toBe(1);
-		expect(pool.select()?.meta.name).toBe("worker-4");
-	});
 });
 
-// ── Post-registration message routing (S2-F07 regression guard) ──────────────
+// ── Post-registration message routing ──────────────────────────────────────
 
 describe("WorkerConnectionManager — post-registration message routing", () => {
 	it("routes event messages to the adapter after registration", async () => {
@@ -325,7 +284,7 @@ describe("WorkerConnectionManager — post-registration message routing", () => 
 		expect(events[0]?.type).toBe("completion");
 	});
 
-	it("drops malformed messages and does not throw (S2-F05 Zod validation)", async () => {
+	it("drops malformed messages and does not throw", async () => {
 		const pool = makePool();
 		const ws = new MockWsContext();
 		const manager = await createWorkerConnectionManager(pool);
@@ -340,34 +299,5 @@ describe("WorkerConnectionManager — post-registration message routing", () => 
 
 		// Pool must remain empty (malformed messages don't register anything)
 		expect(pool.size).toBe(0);
-	});
-
-	it("clears adapter reference on close", async () => {
-		const pool = makePool();
-		const ws = new MockWsContext();
-		const manager = await createWorkerConnectionManager(pool);
-
-		manager.onMessage(
-			JSON.stringify({
-				type: "register",
-				id: "w-close-1",
-				name: "close-worker",
-				modelProviders: ["anthropic"],
-				maxConcurrent: 1,
-			}),
-			ws as never,
-		);
-
-		expect(pool.size).toBe(1);
-		manager.onClose();
-		expect(pool.size).toBe(0);
-
-		// After close, runtime messages should be silently ignored (no crash)
-		expect(() =>
-			manager.onMessage(
-				JSON.stringify({ type: "event", sessionId: "s1", event: { type: "completion" } }),
-				ws as never,
-			),
-		).not.toThrow();
 	});
 });

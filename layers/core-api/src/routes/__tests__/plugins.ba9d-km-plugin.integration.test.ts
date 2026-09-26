@@ -1,27 +1,12 @@
 /**
- * BA9d — document-management plugin installation integration tests.
- *
- * Proves AC4: installing the plugin materializes the librarian agent
+ * Installing the document-management plugin materializes the librarian agent
  * (users row) and three subscription rows. A second factory install is
  * idempotent. Global upkeep runs once, not once per team — guaranteed by
- * scope-aware ids.
- *
- * Proves scope-aware ids: two teams installing at team scope each compute
- * their own deterministic id (different ids from different scopeId in the
- * hash) — and each team's install is its own `plugins` row, so a second
- * team's install runs alongside the first rather than replacing it.
- *
- * @lore document-module B10 follow-up: also proves scope isolation for the
- * SKILL documents a team-scoped install contributes (`skillItemId` now folds
- * `scopeKind`/`scopeId` into its hash, same as `agentItemId`/`subscriptionItemId`
- * already did) — before this, two teams installing at team scope resolved
- * the SAME skill document id, and the second team's install failed
- * `not_found` under the visibility rule (architecture.md §5.1) rather than
- * silently overwriting the first team's row.
- *
- * @lore BC5 T7b: routine rows become subscription rows —
- * `routineItemId`/`routines` renamed `subscriptionItemId`/`subscriptions`
- * (the hash input stays byte-for-byte so an install's ids don't churn).
+ * scope-aware ids: two teams installing at team scope each compute their own
+ * deterministic id from `scopeKind`/`scopeId` in the hash, so each team's
+ * install is its own `plugins` row and its own skill documents, and neither
+ * overwrites the other (`not_found` under the visibility rule, architecture.md
+ * §5.1, if it tried).
  *
  * Uses the real DB + app fixture. Each test is self-contained.
  */
@@ -122,7 +107,7 @@ async function installKmPluginForTeam(
 	});
 }
 
-describe("document-management plugin install — AC4: global agent + subscriptions", () => {
+describe("document-management plugin install — global agent + subscriptions", () => {
 	test("install answers ok with plugin name document-management", async ({ db, app }) => {
 		const res = await installKmPlugin(db, app);
 		expect(res.status).toBe(200);
@@ -199,10 +184,10 @@ describe("document-management plugin install — AC4: global agent + subscriptio
 		expect(retro!.schedule).toBeNull();
 	});
 
-	// @lore BC5 T11 founder ruling: post-task-retro converts task.changed
-	// (every edit, not just a completion) into a subscription with no filter
-	// of its own — the prompt itself must carry both guards, or a status
-	// tweak or a note edit fires a full retro session for nothing.
+	// @lore post-task-retro converts task.changed (every edit, not just a
+	// completion) into a subscription with no filter of its own — the prompt
+	// itself must carry both guards, or a status tweak or a note edit fires a
+	// full retro session for nothing.
 	test("post-task-retro's prompt carries both guards: not-done and not-root", async ({
 		db,
 		app,
@@ -220,7 +205,7 @@ describe("document-management plugin install — AC4: global agent + subscriptio
 		expect(promptDoc!.body).toContain("if the task is not a root task (it has a parent), stop");
 	});
 
-	test("AC4: second factory install is idempotent — same agent and subscription row counts", async ({
+	test("second factory install is idempotent — same agent and subscription row counts", async ({
 		db,
 		app,
 	}) => {

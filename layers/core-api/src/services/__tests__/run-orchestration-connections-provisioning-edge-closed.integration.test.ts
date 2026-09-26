@@ -1,36 +1,28 @@
 /**
- * AU21 Decision K1 (§6 K1, "finish it in AU21" verdict; guard blind-spot
- * closure — see `composition-edge-anti-regrowth-guard.ts`'s own top-of-file
- * `@lore Decision K1` entry for the full finding).
- *
  * The static anti-regrowth guard classifies an `agent-orchestration ->
  * core-api` edge by KIND (raw-port vs. seam-routed) — a seam-routed READ for
  * a decision/provisioning purpose is invisible to it purely because it rides
  * the SAME sanctioned mechanism (`SEAM_INTERFACES`/`SEAM_GROUPS`) as a
- * legitimate seam WRITE. This is exactly how the original
- * `CoreApiPort.connections.listHeldConnectionsForProvisioning()` live read
- * went undetected pre-K1 despite `inspect()` reporting zero findings. This
- * test proves the closure a different way: not via the graph scanner, but by
- * intercepting the ONE choke point every `CoreApiPort` call — of ANY kind,
- * ANY sub-port, in-process — must physically go through:
- * `createInProcessCoreApiTransport(app)` (`core-api-port-composition.ts`)
- * dispatches every seam call as `app.fetch(req)`. Spying on `app.fetch`
- * itself, then running the REAL connections-provisioning path end-to-end
- * (real in-layer `listHeldConnectionsForProvisioning` read + real
+ * legitimate seam WRITE. This test proves the closure a different way: not
+ * via the graph scanner, but by intercepting the ONE choke point every
+ * `CoreApiPort` call — of ANY kind, ANY sub-port, in-process — must
+ * physically go through: `createInProcessCoreApiTransport(app)`
+ * (`core-api-port-composition.ts`) dispatches every seam call as
+ * `app.fetch(req)`. Spying on `app.fetch` itself, then running the REAL
+ * connections-provisioning path end-to-end (real in-layer
+ * `listHeldConnectionsForProvisioning` read + real
  * `buildProvisioningPlan`/`applyProvisioningPlan`, the same real functions
  * `connections-provisioning-e2e.integration.test.ts` exercises), proves ZERO
- * `CoreApiPort` calls of ANY kind happen at provisioning time — not merely
- * that the OLD named method is gone, but that NO seam call (old, renamed, or
- * disguised as reuse of an already-sanctioned seam member) fires along this
- * path. Mirrors the throwing-stub/spy idiom of
+ * `CoreApiPort` calls of ANY kind happen at provisioning time. Mirrors the
+ * throwing-stub/spy idiom of
  * `admit-session-defense-in-depth-only.integration.test.ts` and the
  * "edge genuinely gone, not deferred" idiom of
  * `run-orchestration-users-edge-closed.test.ts`.
  *
- * @lore AU26 E3: the path this guards changed from K1's emit-time bake to a
- * live in-layer read, and the assertion is unchanged and still load-bearing —
- * a live read is exactly the shape that COULD regrow a seam call, so proving
- * `app.fetch` never fires now proves more than it did against a frozen list.
+ * @lore the connections-provisioning path reads the held-connection record
+ * live, in-layer, at spawn — a live read is exactly the shape that could
+ * regrow a seam call, so proving `app.fetch` never fires here proves more
+ * than it would against a frozen, request-carried list.
  */
 
 import * as fs from "node:fs";
@@ -54,16 +46,16 @@ import {
 	vi,
 } from "../../__testing__/test-fixtures.js";
 
-const SERVER_SECRET = "au21-k1-edge-closed-secret";
+const SERVER_SECRET = "edge-closed-secret";
 const NOW = "2026-08-02T00:00:00.000Z";
-const USER_HUMAN_ID = "u-k1-edge-closed-human";
-const AGENT_CALLER_ID = "agent-k1-edge-closed-caller";
+const USER_HUMAN_ID = "u-edge-closed-human";
+const AGENT_CALLER_ID = "agent-edge-closed-caller";
 
 let sandboxPath: string;
 beforeEach(() => {
-	sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "au21-k1-edge-closed-"));
+	sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "edge-closed-"));
 	vi.stubEnv("HYPERIDLE_CREDENTIAL_KEY", SERVER_SECRET);
-	vi.stubEnv("HYPERIDLE_API_KEY", "au21-k1-edge-closed-key");
+	vi.stubEnv("HYPERIDLE_API_KEY", "edge-closed-key");
 });
 afterEach(() => {
 	fs.rmSync(sandboxPath, { recursive: true, force: true });
@@ -80,7 +72,7 @@ describe("run-orchestration's connection-provisioning path makes ZERO CoreApiPor
 			.values({
 				id: USER_HUMAN_ID,
 				kind: "human",
-				name: "K1 Edge-Closed Human",
+				name: "Edge-Closed Human",
 				role: "founder",
 				status: "active",
 				createdAt: NOW,
@@ -91,7 +83,7 @@ describe("run-orchestration's connection-provisioning path makes ZERO CoreApiPor
 			.values({
 				id: AGENT_CALLER_ID,
 				kind: "ai",
-				name: "K1 Edge-Closed Agent",
+				name: "Edge-Closed Agent",
 				role: "engineer",
 				status: "active",
 				createdAt: NOW,
@@ -154,14 +146,11 @@ describe("run-orchestration's connection-provisioning path makes ZERO CoreApiPor
 		fetchSpy.mockRestore();
 	});
 
-	// @lore AU26 E3: this used to assert the `?? "u-founder"` owner fallback K1's
-	// bake helper carried over from the deleted seam route. The owner is not
-	// resolved down here any more — the Application resolves it and hands the id
-	// to the read (`create-server.ts`'s `resolveProvisioningOwnerUserId`), and no
-	// human means no connections rather than a sentinel — so the sibling case
-	// worth holding is the empty one: a
-	// deployment with no held connections must still reach zero seam calls,
-	// rather than quietly taking some other path.
+	// The Application resolves the owner and hands the id to the read
+	// (`create-server.ts`'s `resolveProvisioningOwnerUserId`), and no human
+	// means no connections rather than a sentinel — so the sibling case worth
+	// holding is the empty one: a deployment with no held connections must
+	// still reach zero seam calls, rather than quietly taking some other path.
 	test("the same proof holds when there is no held connection at all — still zero CoreApiPort calls", async ({
 		db,
 		app,

@@ -1,21 +1,11 @@
 /**
- * B. Composite Schema Tests — common schemas
- *
- * These tests verify that `packages/server/src/schemas/common.schema.ts`
- * (not yet created) exports common response Zod schemas.
- *
- * @lore api-typesafety RED phase: will fail until common.schema.ts is created.
+ * Common response Zod schemas: progress, error response, pagination.
  */
 
 import { describe, expect, it } from "vitest";
 import { errorResponseSchema, paginationSchema, progressSchema } from "../common.schema.js";
 
-describe("B6. progressSchema", () => {
-	it("is defined", () => {
-		expect(progressSchema).toBeDefined();
-		expect(typeof progressSchema.safeParse).toBe("function");
-	});
-
+describe("progressSchema", () => {
 	it("accepts valid progress { done, total }", () => {
 		const result = progressSchema.safeParse({ done: 1, total: 5 });
 		expect(result.success).toBe(true);
@@ -42,12 +32,7 @@ describe("B6. progressSchema", () => {
 	});
 });
 
-describe("B7. errorResponseSchema", () => {
-	it("is defined", () => {
-		expect(errorResponseSchema).toBeDefined();
-		expect(typeof errorResponseSchema.safeParse).toBe("function");
-	});
-
+describe("errorResponseSchema", () => {
 	it("accepts valid error response { error, code }", () => {
 		const result = errorResponseSchema.safeParse({
 			error: "Not found",
@@ -76,12 +61,7 @@ describe("B7. errorResponseSchema", () => {
 	});
 });
 
-describe("B8. paginationSchema", () => {
-	it("is defined", () => {
-		expect(paginationSchema).toBeDefined();
-		expect(typeof paginationSchema.safeParse).toBe("function");
-	});
-
+describe("paginationSchema", () => {
 	it("accepts valid pagination { limit, offset }", () => {
 		const result = paginationSchema.safeParse({ limit: 50, offset: 0 });
 		expect(result.success).toBe(true);

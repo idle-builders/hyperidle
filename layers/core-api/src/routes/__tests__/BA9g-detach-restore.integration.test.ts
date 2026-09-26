@@ -2,16 +2,12 @@
  * Editing a plugin's contribution makes it yours; restoring hands it back.
  *
  * A plugin ships a skill. You edit it. A reinstall must not overwrite your
- * version — that is D5, "your edit wins" — and the view must say the row is
- * yours now, so you can see which of a plugin's contributions you have taken
- * over. Restore re-imports the plugin's version and hands ownership back.
+ * version — "your edit wins" — and the view must say the row is yours now, so
+ * you can see which of a plugin's contributions you have taken over. Restore
+ * re-imports the plugin's version and hands ownership back.
  *
- * Detachment used to be `knowledge_items.updated_by <> 'plugin:<id>'`, a
- * sentinel nothing ever read: the view showed every skill as attached, and the
- * restore route's skill branch was unreachable from the UI because skills never
- * appeared in the list to click Restore on. It is a registry column now.
- *
- * Re-pointed onto `POST /api/actions/edit_plugin` / `search_plugins`.
+ * Detachment is a registry column, read by the view and by the restore route,
+ * driven through `POST /api/actions/edit_plugin` / `search_plugins`.
  */
 
 import { cpSync, mkdirSync, rmSync } from "node:fs";

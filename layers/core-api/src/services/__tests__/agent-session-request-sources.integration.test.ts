@@ -60,7 +60,9 @@ class RecordingHarnessAdapter implements HarnessAdapter {
 
 async function seedWork(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(teams).values({ id: "team-au3-agent", name: "AU3 Agent", createdAt: now });
+	await db
+		.insert(teams)
+		.values({ id: "team-au3-agent", name: "Agent Sources Team", createdAt: now });
 	await db.insert(users).values([
 		{
 			id: "agent-au3-agent",
@@ -80,7 +82,7 @@ async function seedWork(db: HyperIdleDb): Promise<void> {
 			createdAt: now,
 		},
 	]);
-	// @lore AU26 G1: the run config left `users` for `agent_run_config`.
+	// @lore the run config lives in `agent_run_config`, not `users`.
 	await db.insert(agentRunConfig).values({
 		agentUserId: "agent-au3-agent",
 		harnessType: "recording",
@@ -160,11 +162,10 @@ describe("agent session request sources", () => {
 	});
 
 	fixtureTest("all execution sources enter real session provisioning", async ({ db }) => {
-		// @lore AU31 §3.2/§5: the "recording" harness kind never invokes a
-		// domain tool, so the composition's own default (unconfigured
-		// transport, throws only if actually dialled) is honest here — each
-		// test builds its own composition, so there is no ambient bleed to
-		// guard against either.
+		// @lore the "recording" harness kind never invokes a domain tool, so
+		// the composition's own default (unconfigured transport, throws only
+		// if actually dialled) is honest here — each test builds its own
+		// composition, so there is no ambient bleed to guard against either.
 		const composition = buildTestRunOrchestrationComposition();
 		await seedWork(db);
 		const eventBus = new EventBus();
@@ -208,14 +209,11 @@ describe("agent session request sources", () => {
 			},
 		};
 
-		// AU21 §9 Increment 12 (Decision H3), Wave E: `createSessionRequest(...,
-		// {kind:"direct"})` bypasses the emit-time resolver pipeline entirely
-		// (this `kind` has zero real production callers — see
-		// `CreateSessionRequestInput`'s own doc comment on the sibling
-		// `"triggered"` kind's identical fate), so it must bake the
-		// `agentConfig` `admitSession`'s Phase 1 now requires directly onto
-		// `payloadJson`, matching exactly what the real emit-time resolvers
-		// bake from the SAME seeded `agent-au3-agent` row above.
+		// `createSessionRequest(..., {kind:"direct"})` bypasses the emit-time
+		// resolver pipeline entirely, so it must bake the `agentConfig`
+		// `admitSession` requires directly onto `payloadJson`, matching exactly
+		// what the real emit-time resolvers bake from the SAME seeded
+		// `agent-au3-agent` row above.
 		const bakedAgentConfigPayload = JSON.stringify({
 			agentConfig: {
 				kind: "ai",
