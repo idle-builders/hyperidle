@@ -1,9 +1,9 @@
 /**
- * Avatar + AvatarGroup stories.
+ * Avatar stories.
  */
 
 import type { JSX } from "react";
-import { Avatar, AvatarGroup } from "./Avatar.js";
+import { Avatar } from "./Avatar.js";
 
 export default { title: "Avatar" };
 
@@ -23,23 +23,6 @@ export function AgentVariant(): JSX.Element {
 			<Avatar initials="AI" agent size="sm" />
 			<Avatar initials="AI" agent size="md" />
 			<Avatar initials="AI" agent size="lg" />
-		</div>
-	);
-}
-
-export function Group(): JSX.Element {
-	return (
-		<div className="p-[18px] flex flex-col gap-[12px]">
-			<AvatarGroup>
-				<Avatar initials="AB" />
-				<Avatar initials="CD" />
-				<Avatar initials="EF" />
-			</AvatarGroup>
-			<AvatarGroup small>
-				<Avatar initials="AB" />
-				<Avatar initials="CD" />
-				<Avatar initials="EF" />
-			</AvatarGroup>
 		</div>
 	);
 }
