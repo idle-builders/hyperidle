@@ -18,8 +18,8 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 	await db.insert(users).values([
 		{
 			id: "agent-1",
-			// AF11: kind='human' so auth middleware resolves this user as the principal.
-			// GET /api/users/:id/inbox is self-only (AC5); the resolved principal must
+			// kind='human' so auth middleware resolves this user as the principal.
+			// GET /api/users/:id/inbox is self-only; the resolved principal must
 			// match the inbox owner. All seedBase tests resolve principal = "agent-1".
 			kind: "human",
 			name: "Test Agent",

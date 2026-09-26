@@ -23,7 +23,7 @@
  *      own item inheriting the (root) parent's scope.
  *   4. Move — a real agent moves an EXISTING materialised file (one that
  *      therefore already carries the `_<id8>` filename suffix, architecture.md
- *      §5 D3) into a different folder. The real reparent() runs: same item,
+ *      §5) into a different folder. The real reparent() runs: same item,
  *      new parent, body untouched.
  *
  * @lore nested-knowledge-real: a probe run against `writeContextBundle`
@@ -86,8 +86,8 @@ const OTHER_USER_ID = "user-nkt-other";
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// Spawn helper — identical shape to BA9b's, kept file-local per the
-// established per-file idiom (no shared harness-spawn export exists).
+// Spawn helper — kept file-local per the established per-file idiom (no
+// shared harness-spawn export exists).
 // ---------------------------------------------------------------------------
 
 async function spawnWithClosedStdin(
@@ -212,12 +212,11 @@ async function runHarness(
 }
 
 /**
- * @lore nested-knowledge-real-opencode-model: the "read + reason across
- * several files" probe is the same class of task that earned BA9b's
- * coordinator-authorized qwen3-8b override (the locked baseline cannot drive
- * multi-file recall reliably). The create/move probes are mechanical file
- * operations with no comprehension requirement, so they run on the LOCKED
- * baseline (glm-4.7-flash) — no override without a fresh authorization.
+ * The "read + reason across several files" probe cannot drive multi-file
+ * recall reliably on the locked baseline model, so it runs on an authorized
+ * override (qwen3-8b). The create/move probes are mechanical file operations
+ * with no comprehension requirement, so they run on the LOCKED baseline
+ * (glm-4.7-flash) — no override without a fresh authorization.
  */
 const OPENCODE_READ_MODEL = "openrouter/qwen/qwen3-8b";
 
@@ -597,7 +596,7 @@ for (const harness of HARNESSES) {
 				const folderRows = await db.select().from(documents).where(eq(documents.title, "newideas"));
 				expect(folderRows).toHaveLength(1);
 				expect(folderRows[0]?.parentId).toBeNull();
-				// D4: a new directory at the knowledge/ root inherits the implicit
+				// A new directory at the knowledge/ root inherits the implicit
 				// root scope, "factory" — and the created leaf inherits ITS scope.
 				expect(folderRows[0]?.scopeKind).toBe("factory");
 				expect(roadmapRows[0]?.parentId).toBe(folderRows[0]?.id);
