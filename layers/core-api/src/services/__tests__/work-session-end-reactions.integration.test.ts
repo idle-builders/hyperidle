@@ -295,6 +295,47 @@ function lifecycleChanged(input: {
 	};
 }
 
+/**
+ * A "this event is ignored" assertion has no completion signal of its own to
+ * wait on. Instead of a blind sleep, drive one REAL, unrelated attempt
+ * through the same registered reaction to a verified terminal state — by the
+ * time that resolves, the ignored event's own (equally fire-and-forget)
+ * handler invocation has long since had its turn on the microtask queue.
+ */
+async function settleIgnoredReaction(
+	db: HyperIdleDb,
+	eventBus: Parameters<typeof registerWorkSessionStartedReactions>[1],
+	editTask: Parameters<typeof registerWorkSessionStartedReactions>[2],
+	sentinelId: string,
+): Promise<void> {
+	const { taskId, agentId } = await seedTaskAndAgent(db, sentinelId);
+	await seedSessionRequest(db, `${sentinelId}-req`, { taskId, agentId });
+	await seedSession(db, `${sentinelId}-session`, agentId);
+	await seedAttempt(db, { attemptId: `${sentinelId}-attempt`, taskId, agentId });
+	await primeAttemptRunning(db, eventBus, editTask, {
+		attemptId: `${sentinelId}-attempt`,
+		taskId,
+		agentId,
+		requestId: `${sentinelId}-req`,
+		sessionId: `${sentinelId}-session`,
+	});
+	eventBus.emit(
+		lifecycleChanged({
+			requestId: `${sentinelId}-req`,
+			sourceKind: "task",
+			sourceId: taskId,
+			state: "completed",
+		}),
+	);
+	await vi.waitFor(async () => {
+		const [row] = await db
+			.select()
+			.from(taskDispatchAttempts)
+			.where(eq(taskDispatchAttempts.id, `${sentinelId}-attempt`));
+		expect(row?.status).toBe("completed");
+	});
+}
+
 describe("registerWorkSessionEndReactions", () => {
 	test("agent_run_lifecycle_changed completed finalizes the task dispatch-attempt row (NEW event path, zero orchestration->work write)", async ({
 		db,
@@ -458,7 +499,7 @@ describe("registerWorkSessionEndReactions", () => {
 				sessionId: "wser-idempotent-session-2",
 			}),
 		);
-		await new Promise((resolve) => setTimeout(resolve, 30));
+		await settleIgnoredReaction(db, eventBus, editTask, "wser-idempotent-sentinel");
 
 		const [row] = await db
 			.select()
@@ -496,9 +537,9 @@ describe("registerWorkSessionEndReactions", () => {
 			}),
 		);
 
-		// Unrelated sourceKind — give the async reaction a beat, then assert the
-		// attempt row this test cares about is untouched.
-		await new Promise((resolve) => setTimeout(resolve, 30));
+		// Unrelated sourceKind — drive a sentinel reaction to completion first,
+		// then assert the attempt row this test cares about is untouched.
+		await settleIgnoredReaction(db, eventBus, editTask, "wser-ignore-sentinel");
 		const [row] = await db
 			.select()
 			.from(taskDispatchAttempts)
@@ -539,6 +580,34 @@ async function readTaskTokensActualJson(
 	return JSON.parse(row.tokensActualJson) as {
 		byTier: Record<string, { prompt: number; completion: number }>;
 	};
+}
+
+/**
+ * Same rationale as `settleIgnoredReaction` above, for the session_ended
+ * writeback: drive one real sentinel session_ended to a verified terminal
+ * write before asserting an unrelated case stayed a no-op.
+ */
+async function settleIgnoredSessionEnded(
+	db: HyperIdleDb,
+	eventBus: Parameters<typeof registerWorkSessionEndReactions>[1],
+	editTask: Parameters<typeof registerWorkSessionEndReactions>[2],
+	sentinelId: string,
+): Promise<void> {
+	const { taskId, agentId } = await seedTaskAndAgent(db, sentinelId);
+	await seedSession(db, `${sentinelId}-session`, agentId);
+	registerWorkSessionEndReactions(db, eventBus, editTask);
+	eventBus.emit(
+		sessionEnded({
+			sessionId: `${sentinelId}-session`,
+			agentId,
+			taskId,
+			tokensByTier: { workhorse: { prompt: 1, completion: 1 } },
+		}),
+	);
+	await vi.waitFor(async () => {
+		const parsed = await readTaskTokensActualJson(db, taskId);
+		expect(parsed?.byTier.workhorse).toEqual({ prompt: 1, completion: 1 });
+	});
 }
 
 describe("registerWorkSessionEndReactions — session_ended task-token writeback", () => {
@@ -609,7 +678,12 @@ describe("registerWorkSessionEndReactions — session_ended task-token writeback
 
 		eventBus.emit(sessionEnded({ sessionId: "wser-tok-empty-session", agentId, taskId }));
 
-		await new Promise((resolve) => setTimeout(resolve, 30));
+		await settleIgnoredSessionEnded(
+			db,
+			eventBus,
+			editTaskFrom(agentOrchestration),
+			"wser-tok-empty-sentinel",
+		);
 		expect(await readTaskTokensActualJson(db, taskId)).toBeUndefined();
 	});
 
@@ -632,7 +706,12 @@ describe("registerWorkSessionEndReactions — session_ended task-token writeback
 				}),
 			),
 		).not.toThrow();
-		await new Promise((resolve) => setTimeout(resolve, 30));
+		await settleIgnoredSessionEnded(
+			db,
+			eventBus,
+			editTaskFrom(agentOrchestration),
+			"wser-tok-notask-sentinel",
+		);
 	});
 
 	test("duplicate session_ended for the same session is idempotent (no double-apply)", async ({
@@ -659,7 +738,12 @@ describe("registerWorkSessionEndReactions — session_ended task-token writeback
 
 		// Redelivery — must NOT double-apply
 		eventBus.emit(event);
-		await new Promise((resolve) => setTimeout(resolve, 30));
+		await settleIgnoredSessionEnded(
+			db,
+			eventBus,
+			editTaskFrom(agentOrchestration),
+			"wser-tok-idem-sentinel",
+		);
 
 		const parsed = await readTaskTokensActualJson(db, taskId);
 		expect(parsed?.byTier.workhorse).toEqual({ prompt: 100, completion: 200 });

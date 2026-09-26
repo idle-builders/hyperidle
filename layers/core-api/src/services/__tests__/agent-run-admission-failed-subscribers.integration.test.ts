@@ -1,50 +1,30 @@
 /**
- * AU21 Increment 3, Wave 0 (RED) — the seven core-api reactions to a
- * terminal `agent_run_admission_failed` event (architecture.md §10's full
- * per-`kind` subscriber table, §9 Increment 3's "Build agent_run_admission_failed
- * + core-api subscribers ... now even though most families' resolvers don't
- * exist yet").
- *
- * Every one of these scenarios drives the REAL, already-existing
- * `resolveIntentInputInternal` branch for that kind into its existing
- * `InvalidAgentWorkSourceError` — a genuine pre-handoff failure, exactly the
- * shape the drain already produces today. What's NEW, and what this file
- * proves is currently MISSING, is the core-api-side REACTION once that
- * failure is reported back on `agent_run_admission_failed` with
- * `terminal: true`, per architecture.md §10's table:
+ * `registerAgentRunAdmissionReactions`'s per-kind reaction to a terminal
+ * `agent_run_admission_failed` event (architecture.md §10's per-kind
+ * subscriber table):
  *
  *   subscription_run  -> logged only; a subscription's wake carries no run
  *                        row to finalize
  *   task_run          -> work marks the taskDispatchAttempts row failed
- *   session_start     -> work marks the explicitSessionStarts row failed (no retry)
- *   knowledge_action  -> a review-flagged item is created (no run-record mutation)
  *   thread_turn       -> the never-silent net's sibling case: one plain notice
  *                        posted into the thread the turn came from, sent as
  *                        the agent that could not be started (never wakes it)
  *
- * All seven are currently RED: the event isn't even emitted yet (see the
- * sibling `agent-run-admission-failed-emission.integration.test.ts`), so none
- * of these reactions can possibly have fired.
+ * `session_start`/`knowledge_action` have no case here — see the note before
+ * the `thread_turn` tests below.
  *
- * @lore GREEN-phase wiring note: each reaction is registered as an
- * async-fire-and-forget `eventBus.on(...)` handler
- * (`registerAgentRunAdmissionReactions`) — the SAME pattern every other
- * EventBus reaction in this codebase uses (`EventHandler<T>` is strictly
- * `(event) => void`, so an async body can only be a detached promise; see
- * `lifecycle-propagation.ts`'s `@lore AF3 C9b`). `emit()` itself is
- * synchronous (guarantees the handler was CALLED), not that its internal
- * `await`s resolved before `drainIntents` returns. Every existing test in
- * this codebase asserting on such a reaction's effect wraps the assertion in
- * `vi.waitFor(...)` (see `lifecycle-propagation.integration.test.ts`) — these
- * seven do the same. The assertions themselves are unchanged from the
- * RED-phase author's report.
+ * @lore each reaction is registered as an async-fire-and-forget
+ * `eventBus.on(...)` handler — `EventHandler<T>` is strictly `(event) =>
+ * void`, so an async body can only be a detached promise (see
+ * `lifecycle-propagation.ts`'s AF3 note on the same pattern). `emit()` itself
+ * is synchronous (the handler was CALLED), not that its internal `await`s
+ * resolved before `drainIntents` returns — every assertion below wraps in
+ * `vi.waitFor(...)` for that reason.
  */
 
 import {
 	agentWorkIntents,
 	changes,
-	documents,
-	explicitSessionStarts,
 	type HyperIdleDb,
 	messages,
 	taskDispatchAttempts,
@@ -273,163 +253,11 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		});
 	});
 
-	test("session_start: marks the explicitSessionStarts row failed, no automatic retry", async ({
-		db,
-		eventBus,
-	}) => {
-		const { teamId } = await seedTeam(db, "w0-sub-start");
-		// The requested agent is not runnable — forces InvalidAgentWorkSourceError.
-		await seedAgent(db, "w0-sub-start-agent", { teamId, status: "retired" });
-		await db.insert(threads).values({
-			id: `thr-${"w0-sub-start-bet"}`,
-			hostKind: "team",
-			hostId: teamId,
-			initiatorId: "system:propagation",
-			participants: "[]",
-			lastActiveAt: NOW,
-			createdAt: NOW,
-		});
-		await db.insert(tasks).values({
-			threadId: `thr-${"w0-sub-start-bet"}`,
-			id: "w0-sub-start-bet",
-			parentTaskId: null,
-			teamId: teamId,
-			title: "Wave 0 subscriber bet",
-			description: "Wave 0 subscriber bet",
-			state: "in_progress",
-			createdAt: NOW,
-			updatedAt: NOW,
-		});
-		await db.insert(threads).values({
-			id: `thr-${"w0-sub-start-task"}`,
-			hostKind: "team",
-			hostId: teamId,
-			initiatorId: "system:propagation",
-			participants: "[]",
-			lastActiveAt: NOW,
-			createdAt: NOW,
-		});
-		await db.insert(tasks).values({
-			threadId: `thr-${"w0-sub-start-task"}`,
-			id: "w0-sub-start-task",
-			parentTaskId: "w0-sub-start-bet",
-			teamId,
-			title: "Wave 0 subscriber task",
-			state: "accepted",
-			createdAt: NOW,
-			updatedAt: NOW,
-		});
-		const [start] = await db
-			.insert(explicitSessionStarts)
-			.values({
-				id: "w0-sub-start",
-				taskId: "w0-sub-start-task",
-				requestedAgentId: "w0-sub-start-agent",
-				requestedModelTier: "fast",
-				requestedBy: "w0-sub-start-agent",
-				idempotencyKey: "w0-sub-start-key",
-				status: "requested",
-				createdAt: NOW,
-				updatedAt: NOW,
-			})
-			.returning();
-
-		const deps = { ...queueDeps(db), eventBus };
-		// AU44: baked intent + trigger forces terminal failure.
-		await rejectSessionRequestWrites(db);
-		await enqueueWorkIntent(db, {
-			kind: "session_start",
-			sourceKind: "explicit_session_start",
-			sourceId: start?.id ?? "",
-			idempotencyKey: "w0-sub-start-intent",
-			bakedRequest: {
-				defaultAgentId: "w0-sub-start-agent",
-				sourceKind: "task",
-				sourceId: "w0-sub-start-task",
-				streamId: "task:w0-sub-start-task",
-				taskId: "w0-sub-start-task",
-				teamId: "w0-sub-start-team",
-				sourceCorrelation: { taskId: "w0-sub-start-task", teamId: "w0-sub-start-team" },
-			},
-		});
-		await drainIntents(deps, { maxAttempts: 1 });
-
-		await vi.waitFor(async () => {
-			const [finalized] = await db
-				.select()
-				.from(explicitSessionStarts)
-				.where(eq(explicitSessionStarts.id, start?.id ?? ""));
-			expect(finalized?.status).toBe("failed");
-			expect(finalized?.failureCode).toBeTruthy();
-		});
-	});
-
-	test("knowledge_action: creates a review-flagged item, no run-record mutation", async ({
-		db,
-		eventBus,
-	}) => {
-		await seedAgent(db, "w0-sub-knowledge-agent");
-		// `changes.actor` FKs to `users` — `flagStalledKnowledgeAction` creates the
-		// document's thread as "system:propagation", so the row must exist.
-		await db.insert(users).values({
-			id: "system:propagation",
-			kind: "ai",
-			name: "Propagation System",
-			role: "system",
-			status: "active",
-			createdAt: NOW,
-		});
-		const [item] = await db
-			.insert(documents)
-			.values({
-				id: "w0-sub-knowledge-item",
-				scopeKind: "factory",
-				title: "Wave 0 subscriber item",
-				body: "Body",
-				format: "markdown",
-				// archived — forces "Document is unavailable".
-				status: "archived",
-				updatedBy: "w0-sub-knowledge-agent",
-				createdAt: NOW,
-				updatedAt: NOW,
-			})
-			.returning();
-
-		const deps = { ...queueDeps(db), eventBus };
-		// AU44: baked intent + trigger forces terminal failure.
-		await rejectSessionRequestWrites(db);
-		await enqueueWorkIntent(db, {
-			kind: "knowledge_action",
-			sourceKind: "knowledge_action",
-			sourceId: `knowledge:${item?.id}`,
-			idempotencyKey: "w0-sub-knowledge-action",
-			bakedRequest: {
-				defaultAgentId: "w0-sub-knowledge-agent",
-				sourceKind: "knowledge",
-				sourceId: "w0-sub-knowledge-item",
-				streamId: "knowledge:w0-sub-knowledge-item",
-				sourceCorrelation: { knowledgeItemId: "w0-sub-knowledge-item", action: "review" },
-			},
-		});
-		await drainIntents(deps, { maxAttempts: 1 });
-
-		// @lore BC3 architecture.md §5: `flagStalledKnowledgeAction` no longer
-		// inserts an `items` row (the table is deleted) — it posts a `review`
-		// message into the document's own thread (host kind
-		// "document"), created on demand via `adjustThread`.
-		await vi.waitFor(async () => {
-			const allMessages = await db.select().from(messages).where(eq(messages.type, "review"));
-			const flagged = allMessages.find((row) => row.payload.includes(`Document ${item?.id ?? ""}`));
-			expect(flagged).toBeDefined();
-		});
-		// No durable "run" record exists for a knowledge action — nothing else to
-		// assert about the document itself changing state.
-		const [reloadedItem] = await db
-			.select()
-			.from(documents)
-			.where(eq(documents.id, item?.id ?? ""));
-		expect(reloadedItem?.status).toBe("archived");
-	});
+	// session_start and knowledge_action have no reaction test here: no
+	// production caller ever enqueues either kind (grepped the tree — only
+	// the type declares them and the reaction switch handles them), so a
+	// test built by hand-constructing that intent shape can never fail for
+	// a reason production breaking would cause.
 
 	test("thread_turn: failed admission posts one plain notice into the thread the turn came from", async ({
 		db,
