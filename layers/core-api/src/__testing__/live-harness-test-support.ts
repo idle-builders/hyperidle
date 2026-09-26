@@ -9,11 +9,10 @@
  * `boot-provisioning-wiring.integration.test.ts` already takes as a
  * devDependency — never a hand-copied field-for-field stand-in.
  *
- * The sandbox-directory and clean-env helpers ride harness-registry's own
- * `__tests__/harness-sandbox.ts` by relative import (no public subpath
- * export exists for it; a relative path resolves it directly, and
- * `governance-lint`/`tsc` both pass with the cross-package reach — the
- * project reference in `layers/core-api/tsconfig.json` already covers it).
+ * The sandbox-directory and clean-env helpers ride
+ * `@hyperidle/harness-registry/test-fixtures` — the published subpath for
+ * this package's own real-harness test helpers, the same shape as
+ * `@hyperidle/db/test-fixtures`.
  */
 
 import * as net from "node:net";
@@ -30,7 +29,7 @@ import { type AgentSessionRequest, agentSessionRequests, type HyperIdleDb } from
 import type { ActionResult } from "@hyperidle/domain-model";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import { EventBus } from "@hyperidle/event-bus";
-import type { AdapterPool, SandboxAdapter } from "@hyperidle/harness-registry";
+import type { AdapterPool, EnforcementRegistry, SandboxAdapter } from "@hyperidle/harness-registry";
 import type { SupportedHarnessName } from "@hyperidle/harness-registry/test-utils";
 import { findSessionById, type RunResult } from "@hyperidle/run-orchestration";
 import { eq } from "drizzle-orm";
@@ -174,6 +173,72 @@ export async function setUpLiveHarnessRun(
 				httpServer.close((err: Error | undefined) => (err ? reject(err) : resolve()));
 			});
 			await sandbox.cleanup();
+		},
+	};
+}
+
+/**
+ * The real `agent-execution` boot, exposing just the MCP bridge + return-
+ * enforcement registry a real-binary hook-fire proof needs — no agent-
+ * orchestration composition, no action list, no db. Every real-binary test
+ * that proves a hook/route/registry loop end-to-end (never a session run)
+ * uses this instead of hand-assembling its own bridge + registry stand-in.
+ */
+export interface LiveHarnessMcpServer {
+	/** The server's own origin — `${serverUrl}/api/mcp/<token>` is the dialable MCP URL. */
+	readonly serverUrl: string;
+	readonly token: string;
+	readonly enforcementReg: EnforcementRegistry;
+	readonly sessionId: string;
+	close(): Promise<void>;
+}
+
+/**
+ * Boots the real `bootAgentExecution` MCP bridge + enforcement registry on a
+ * random port, opens one bridge session for `sessionId`, and registers a
+ * default enforcement entry (`gate.returned=false`, `forceCount=0`) — the
+ * same starting state every real-binary proof needs before the binary's own
+ * hook can fire against it.
+ */
+export async function setUpLiveHarnessMcpServer(sessionId: string): Promise<LiveHarnessMcpServer> {
+	const port = await getFreePort();
+	const serverUrl = `http://127.0.0.1:${port}`;
+	const execution = await bootAgentExecution({ topology: "local", mcpBaseUrl: serverUrl });
+
+	const bridgeApp = new Hono();
+	const bridgeApi = new Hono();
+	execution.mountMcpRouter(bridgeApi);
+	bridgeApp.route("/api", bridgeApi);
+	const httpServer = await new Promise<ReturnType<typeof serve>>((resolve) => {
+		const server = serve({ fetch: bridgeApp.fetch, port }, () => resolve(server));
+	});
+
+	const { token } = await execution.adapters.harnessRuntime.openMcpBridge({
+		sessionId,
+		// No real tool ever gets called through this bridge — every real-binary
+		// proof here exercises the hook/return-status transport, not a tool call.
+		toolRegistry: {
+			definitions: [],
+			invoke: async () => ({ success: false, code: "NOT_FOUND", error: "none" }),
+			toClaudeToolSpecs: () => [],
+		},
+	});
+
+	const enforcementReg = execution.adapters.harnessRuntime.enforcementRegistry;
+	enforcementReg.register(sessionId, { gate: { returned: false }, forceCount: 0, exempt: false });
+
+	return {
+		serverUrl,
+		token,
+		enforcementReg,
+		sessionId,
+		async close() {
+			enforcementReg.unregister(sessionId);
+			await execution.adapters.harnessRuntime.closeMcpBridge(token);
+			execution.dispose();
+			await new Promise<void>((resolve, reject) => {
+				httpServer.close((err: Error | undefined) => (err ? reject(err) : resolve()));
+			});
 		},
 	};
 }

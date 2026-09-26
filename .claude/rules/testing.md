@@ -129,8 +129,12 @@ describe("Feature", () => {
 ```
 
 Each package keeps its own fixtures in `src/__testing__/test-fixtures.ts`:
-`layers/core-api`, `layers/agent-orchestration`, and `framework/db` (published as
-`@hyperidle/db/test-fixtures`). Import a layer's own fixtures by relative path.
+`layers/core-api`, `layers/agent-orchestration`, `framework/db` (published as
+`@hyperidle/db/test-fixtures`), and `harness-registry` (published as
+`@hyperidle/harness-registry/test-fixtures`, the real-harness sandbox/env
+helpers a cross-package caller needs). Import a layer's own fixtures by
+relative path; import another package's through its published subpath, never
+a relative path into its `__tests__/`.
 
 Service integration shares one PGlite instance per worker and `TRUNCATE`s before each test, so clean up
 background work and file-local mocks before a test ends. Harness integration keeps file isolation and
