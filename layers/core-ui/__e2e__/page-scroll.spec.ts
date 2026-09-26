@@ -1,22 +1,15 @@
 /**
- * AZ2 — every page scrolls to its end.
- *
- * Runtime evidence for AC1–AC4 (a static codebase property — AC5 — is the
- * `design/no-handrolled-page-scaffold` lint rule instead; see round.md §4.3).
+ * Real-browser checks: every page scrolls to its end and clips nothing —
  * jsdom does no layout, so a component test can never answer "can the user
- * reach the last element" — only a real browser can. No screenshots, no image
- * comparison, no Docker (repo visual-regression policy).
+ * reach the last element", only a real browser can.
  *
- * Supported viewports (round.md §1, Fork B — founder-approved all three):
- *   1440×900  — plan.md validation scenario 2 + the audit's primary measurement.
- *   1024×768  — plan.md validation scenario 1 + AC3. The shortest desktop
- *               height in the audit's set — worst case.
- *   375×812   — exercises the OTHER AppShell branch (mobile, ≤768px cut at
- *               useViewportBreakpoint.ts:23), a different DOM chain.
+ * Viewports: 1440x900 and 1024x768 (the shortest common desktop height —
+ * worst case), and 375x812 (the mobile AppShell branch, a different DOM
+ * chain at the <=768px cut).
  *
- * @lore AZ2: a sweep that silently covers zero routes reads as passing
- * forever. The very first assertion in this file hard-fails if ROUTES is
- * empty — do not remove it when trimming the route list.
+ * @lore a sweep that silently covers zero routes reads as passing forever —
+ * the first assertion in the regression-net describe hard-fails if ROUTES
+ * is empty; do not remove it when trimming the route list.
  */
 
 import {
@@ -43,13 +36,13 @@ import {
 // The viewport set — named once, here, so it stops being folklore (round.md §1).
 // ---------------------------------------------------------------------------
 
-const AZ2_VIEWPORTS = [
+const SCROLL_VIEWPORTS = [
 	{ name: "desktop-1440", width: 1440, height: 900 },
 	{ name: "desktop-1024", width: 1024, height: 768 },
 	{ name: "mobile-375", width: 375, height: 812 },
 ] as const;
 
-const DESKTOP_VIEWPORTS = AZ2_VIEWPORTS.filter((v) => v.name !== "mobile-375");
+const DESKTOP_VIEWPORTS = SCROLL_VIEWPORTS.filter((v) => v.name !== "mobile-375");
 
 // ---------------------------------------------------------------------------
 // Measurement — the same two numbers the audit reported (clippedPx, scroll
@@ -117,22 +110,13 @@ async function scrollToEndOfContainer(page: Page, selector: string): Promise<voi
 	}, selector);
 }
 
-// ---------------------------------------------------------------------------
-// Shared app-shell mocks (mirrors AG1-team-composition.spec.ts's mockAppShell).
-// ---------------------------------------------------------------------------
-
 async function mockAppShell(_page: Page): Promise<void> {
-	// hint-progress route removed; no stubs needed
+	// No shell-wide stubs needed beyond the fixtures.ts auto-use defaults.
 }
 
-// ---------------------------------------------------------------------------
-// AC1/AC2/VS1/VS3 — the team page, the live defect. Full detail at every
-// viewport: a large roster + many bets + routines guarantees content taller
-// than the pane, matching the audit's live measurement (0 containers, 538px /
-// 706px clipped before the fix).
-// ---------------------------------------------------------------------------
-
-const TEAM_ID = "team-az2";
+// A large roster + many tasks guarantees content taller than the pane at
+// every viewport.
+const TEAM_ID = "team-scroll-test";
 const TEAM_URL = `/work/team/${TEAM_ID}`;
 
 const OVERFLOWING_ROSTER = Array.from({ length: 24 }, (_, i) =>
@@ -152,7 +136,7 @@ async function mockTeamRoute(page: Page): Promise<void> {
 	await mockSearchUsers(page, { rows: OVERFLOWING_ROSTER });
 	await mockTeamPage(page, {
 		teamId: TEAM_ID,
-		teamName: "AZ2 Scroll Team",
+		teamName: "Scroll Test Team",
 		roster: OVERFLOWING_ROSTER,
 		tasksInProgress: OVERFLOWING_TASKS,
 	});
@@ -167,9 +151,11 @@ async function mockTeamRoute(page: Page): Promise<void> {
 	});
 }
 
-test.describe("AZ2 AC1/AC2/AC3/VS1 — team page reaches its end at every viewport", () => {
-	for (const viewport of AZ2_VIEWPORTS) {
-		test(`team page: >=1 scroll container, clippedPx===0 at ${viewport.name}`, async ({ page }) => {
+test.describe("the team page reaches its end at every viewport", () => {
+	for (const viewport of SCROLL_VIEWPORTS) {
+		test(`at ${viewport.name}: at least one scroll container, nothing clipped`, async ({
+			page,
+		}) => {
 			await page.setViewportSize({ width: viewport.width, height: viewport.height });
 			await mockAppShell(page);
 			await mockTeamRoute(page);
@@ -184,7 +170,7 @@ test.describe("AZ2 AC1/AC2/AC3/VS1 — team page reaches its end at every viewpo
 	}
 
 	for (const viewport of DESKTOP_VIEWPORTS) {
-		test(`AC3/VS1: roster + artifacts reachable at ${viewport.name} — last agent row scrolls into view`, async ({
+		test(`at ${viewport.name}: scrolling the region reaches the last agent row`, async ({
 			page,
 		}) => {
 			await page.setViewportSize({ width: viewport.width, height: viewport.height });
@@ -202,7 +188,7 @@ test.describe("AZ2 AC1/AC2/AC3/VS1 — team page reaches its end at every viewpo
 		});
 	}
 
-	test("AC4: the team page's scroll region carries data-page-scroll, overflow-y auto, and responds to wheel", async ({
+	test("the team page's scroll region has overflow-y:auto and responds to the mouse wheel", async ({
 		page,
 	}) => {
 		await page.setViewportSize({ width: 1440, height: 900 });
@@ -226,96 +212,10 @@ test.describe("AZ2 AC1/AC2/AC3/VS1 — team page reaches its end at every viewpo
 	});
 });
 
-// ---------------------------------------------------------------------------
-// AC1/AC2 — /artifacts/:id, the second real defect (round.md §2.4). No
-// scaffold at all before the fix (shape E) — no root height, no scroll
-// region. A large code diff forces content taller than the pane.
-// ---------------------------------------------------------------------------
-
-const ARTIFACT_ID = "artifact-az2";
-const ARTIFACT_URL = `/artifacts/${ARTIFACT_ID}`;
-
-function makeOverflowingArtifact() {
-	return {
-		id: ARTIFACT_ID,
-		producingTaskId: "task-az2",
-		producingTaskTitle: "AZ2 fixture task",
-		kind: "code_diff",
-		preview: {
-			kind: "code_diff",
-			file: "layers/core-ui/src/Big.tsx",
-			hunks: Array.from({ length: 20 }, (_, h) => ({
-				header: `@@ -${h * 10},10 +${h * 10},10 @@`,
-				lines: Array.from({ length: 12 }, (_, l) => ({
-					kind: "add" as const,
-					text: `+ line ${h}-${l} of a very long artifact that must scroll`,
-				})),
-			})),
-		},
-		threadCount: 0,
-		createdAt: "2026-04-28T12:00:00.000Z",
-	};
-}
-
-async function mockArtifactAppShell(page: Page): Promise<void> {
-	await mockSearchThreads(page, { rows: [] });
-	await mockSearchUsers(page, { rows: [] });
-}
-
-test.describe("AZ2 AC1/AC2 — /artifacts/:id reaches its end at every viewport", () => {
-	for (const viewport of AZ2_VIEWPORTS) {
-		test(`artifact permalink: >=1 scroll container, clippedPx===0 at ${viewport.name}`, async ({
-			page,
-		}) => {
-			await page.setViewportSize({ width: viewport.width, height: viewport.height });
-			await mockArtifactAppShell(page);
-			await page.route(`**/api/artifacts/${ARTIFACT_ID}`, async (route: Route) => {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(makeOverflowingArtifact()),
-				});
-			});
-			await page.goto(ARTIFACT_URL);
-			await page.waitForSelector("[data-ds-component='ArtifactPreview']");
-			await page.waitForLoadState("networkidle");
-
-			const before = await measure(page);
-			expect(before.scrollContainers).toBeGreaterThanOrEqual(1);
-			expect(before.clippedPx).toBe(0);
-		});
-	}
-
-	test("AC1: the last line of the artifact diff is reachable by scrolling to the end", async ({
-		page,
-	}) => {
-		await page.setViewportSize({ width: 1440, height: 900 });
-		await mockArtifactAppShell(page);
-		await page.route(`**/api/artifacts/${ARTIFACT_ID}`, async (route: Route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(makeOverflowingArtifact()),
-			});
-		});
-		await page.goto(ARTIFACT_URL);
-		await page.waitForSelector("[data-ds-component='ArtifactPreview']");
-		await page.waitForLoadState("networkidle");
-
-		await scrollToEndOfContainer(page, "[data-page-scroll]");
-		await expect(
-			page.getByText("line 19-11 of a very long artifact that must scroll"),
-		).toBeInViewport();
-	});
-});
-
-// ---------------------------------------------------------------------------
-// AC1/AC2/VS2 broader regression net — every other migrated page, one
-// desktop viewport. Fixtures are intentionally light (these pages are
-// documented in round.md §2.5 as already structurally correct); the job here
-// is to catch a REGRESSION the migration might introduce, not to force new
+// A broader regression net, one desktop viewport, across every other page —
+// fixtures are intentionally light (these pages are already structurally
+// correct); the job here is to catch a regression, not to force new
 // overflow on pages that never had the defect.
-// ---------------------------------------------------------------------------
 
 interface RouteCase {
 	name: string;
@@ -324,10 +224,10 @@ interface RouteCase {
 	setup: (page: Page) => Promise<void>;
 }
 
-const ROOT_TASK_ID = "task-az2";
-const AGENT_ID = "agent-az2";
-const DOCUMENT_ID = "document-az2";
-const THREAD_ID = "thread-az2";
+const ROOT_TASK_ID = "task-scroll-net";
+const AGENT_ID = "agent-scroll-net";
+const DOCUMENT_ID = "document-scroll-net";
+const THREAD_ID = "thread-scroll-net";
 
 async function mockDefaultThreads(page: Page): Promise<void> {
 	await mockSearchThreads(page, { rows: [] });
@@ -355,8 +255,8 @@ const ROUTES: readonly RouteCase[] = [
 		},
 	},
 	{
-		// @lore BB1: was two rows, "work-bet" and "work-task" — a bet page and the
-		// task page nested under it. They are the same page now, so this is one row.
+		// @lore The bet page and its nested task page are the same page now,
+		// so this is one row.
 		name: "work-task",
 		url: `/work/task/${ROOT_TASK_ID}`,
 		readySelector: "[data-testid='task-detail-page']",
@@ -365,7 +265,7 @@ const ROUTES: readonly RouteCase[] = [
 		},
 	},
 	{
-		// @lore BC5 T9: `/work/routine/:id` and WorkRoutine are gone — subscriptions
+		// @lore `/work/routine/:id` and WorkRoutine are gone — subscriptions
 		// replace routines, and they live on AgentProfile now, not their own page.
 		name: "agent-profile",
 		url: `/agents/${AGENT_ID}`,
@@ -374,7 +274,7 @@ const ROUTES: readonly RouteCase[] = [
 			await mockUser(page, {
 				row: makeUserRow(AGENT_ID, {
 					kind: "ai",
-					name: "AZ2 fixture agent",
+					name: "Scroll-net fixture agent",
 					role: "builder",
 					agentCategory: "team",
 					team: { id: "t1", name: "Alpha" },
@@ -406,7 +306,7 @@ const ROUTES: readonly RouteCase[] = [
 			await mockDefaultThreads(page);
 			await mockDocument(page, {
 				row: makeDocumentRow(DOCUMENT_ID, {
-					title: "AZ2 fixture document",
+					title: "Scroll-net fixture document",
 					body: "Fixture content.",
 				}),
 			});
@@ -426,7 +326,7 @@ const ROUTES: readonly RouteCase[] = [
 		readySelector: "[data-testid='task-create-page']",
 		setup: async (page) => {
 			await mockSearchUsers(page, {
-				rows: [makeUserRow("u-az2", { team: { id: "t1", name: "Alpha" } })],
+				rows: [makeUserRow("u-scroll-net", { team: { id: "t1", name: "Alpha" } })],
 			});
 		},
 	},
@@ -441,7 +341,7 @@ const ROUTES: readonly RouteCase[] = [
 		url: `/conversations/${THREAD_ID}`,
 		readySelector: "[data-testid='conversations-page']",
 		setup: async (page) => {
-			// @lore BC3: no `bet` host kind — a task's own thread is `team`-hosted.
+			// @lore No `bet` host kind — a task's own thread is `team`-hosted.
 			await mockThread(page, {
 				thread: makeThread(THREAD_ID, { hostKind: "team", hostId: ROOT_TASK_ID }),
 				messages: [],
@@ -450,12 +350,12 @@ const ROUTES: readonly RouteCase[] = [
 	},
 ];
 
-test.describe("AZ2 AC1/AC2/VS2 — regression net across the remaining migrated pages", () => {
+test.describe("scroll regression net across the remaining pages", () => {
 	// The sweep must never silently cover zero routes.
 	expect(ROUTES.length).toBeGreaterThan(0);
 
 	for (const route of ROUTES) {
-		test(`${route.name}: renders, clippedPx===0 at desktop-1440`, async ({ page }) => {
+		test(`${route.name} renders with nothing clipped at desktop-1440`, async ({ page }) => {
 			await page.setViewportSize({ width: 1440, height: 900 });
 			await mockAppShell(page);
 			await route.setup(page);

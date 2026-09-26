@@ -1,45 +1,31 @@
 /**
- * Q2 E2E tests — Document list surface, scope change, and scope tags.
- *
- * AC-3: "+ New" button visible in DocumentList header.
- * AC-12: Change scope from user→team → "Private" tag disappears.
- * AC-20: "Private" tag renders for user-scoped items in list.
- *
- * @lore BC4: `KnowledgeCreateDialog` (AC-3's dialog assertions, AC-4's
- * validation flow) no longer exists — create is a full page now
- * (`DocumentCreate`, at `/documents/new`); `AZ2-page-scroll.spec.ts` covers
- * that route. AC-5/AC-11 ("Add knowledge" from a WorkBet) are deleted too —
- * bets are gone (BB1, one task primitive) and a task's produced documents go
- * through `ArtifactSection`, not a knowledge-creation dialog on the task
- * page. AC-12's mechanism is rewritten, not just re-pointed: the old free
- * scope-kind `<select>` + "product ID" text input is a `ScopePicker` (pill
- * buttons: Shared/Team/Private) + a labeled "Scope ID" input now, and
- * "product" is not a scope kind (`SCOPE_KINDS` = factory|team|user).
- *
- * Repointed at `POST /api/actions/{search_documents,open_document,
- * edit_document}` — never `GET/PATCH /api/knowledge*`.
+ * Journeys: the document list's "+ New" button is reachable, a private
+ * document's scope can be widened to a team (its Private tag then
+ * disappears), and only user-scoped documents show that tag.
  */
 
 import { expect, makeDocumentRow, mockSearchDocuments, mockSearchThreads, test } from "./fixtures";
 
 const MOCK_ITEM = makeDocumentRow("ki-test-1", { title: "Test document" });
 
+// A tree document (has a parent), not a root memory — a parentless
+// scopeKind="user" document reads back as a memory and ScopeChangeDialog
+// refuses to widen it. The scope-change journey needs a real scope change,
+// so this fixture carries a parent.
 const MOCK_USER_ITEM = makeDocumentRow("ki-user-1", {
 	title: "My private note",
 	status: "proposed",
 	scopeKind: "user",
+	parentKind: "document",
+	parentId: "ki-parent-1",
 });
 
-// ---------------------------------------------------------------------------
-// AC-3: "+ New" button in DocumentList
-// ---------------------------------------------------------------------------
-
-test.describe("Q2 AC-3: + New button in DocumentList", () => {
+test.describe("+ New button in the document list", () => {
 	test.beforeEach(async ({ page }) => {
 		await mockSearchDocuments(page, { rows: [MOCK_ITEM] });
 	});
 
-	test("Document list page shows + New button in header", async ({ page }) => {
+	test("the button is visible in the header", async ({ page }) => {
 		await page.goto("/documents");
 		await page.waitForSelector("[data-testid='document-list-page']");
 
@@ -48,12 +34,8 @@ test.describe("Q2 AC-3: + New button in DocumentList", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// AC-12: E2E — Change scope from user→team → Private tag disappears
-// ---------------------------------------------------------------------------
-
-test.describe("Q2 AC-12: Change scope from user to team", () => {
-	test("changing scope from user to team removes the Private tag", async ({ page }) => {
+test.describe("changing a document's scope from user to team", () => {
+	test("removes the Private tag", async ({ page }) => {
 		let currentRow = MOCK_USER_ITEM;
 
 		// ScopeChangeDialog gates the "Team" pill on the current user having a
@@ -156,26 +138,24 @@ test.describe("Q2 AC-12: Change scope from user to team", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// AC-20: "Private" tag renders for user-scoped items in list
-// ---------------------------------------------------------------------------
-
-test.describe("Q2 AC-20: Private tag for user-scoped items in list", () => {
-	test("user-scoped item renders Private tag", async ({ page }) => {
+test.describe("the Private tag in the document list", () => {
+	test("renders for a user-scoped item", async ({ page }) => {
 		await mockSearchDocuments(page, { rows: [MOCK_USER_ITEM] });
 
 		await page.goto("/documents");
 		await page.waitForSelector("[data-testid='document-list-page']");
 
-		await expect(page.getByText("Private", { exact: true })).toBeVisible();
+		// Scoped to the row's own badge — the toolbar's "Private" scope-filter
+		// pill also matches an unscoped text locator.
+		await expect(page.getByTestId("private-badge")).toBeVisible();
 	});
 
-	test("non-user-scoped item does NOT render Private tag", async ({ page }) => {
+	test("does not render for a non-user-scoped item", async ({ page }) => {
 		await mockSearchDocuments(page, { rows: [MOCK_ITEM] });
 
 		await page.goto("/documents");
 		await page.waitForSelector("[data-testid='document-list-page']");
 
-		await expect(page.getByText("Private", { exact: true })).not.toBeVisible();
+		await expect(page.getByTestId("private-badge")).not.toBeVisible();
 	});
 });

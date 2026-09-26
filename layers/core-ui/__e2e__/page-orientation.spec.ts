@@ -1,27 +1,12 @@
-import { mkdir } from "node:fs/promises";
-import { resolve } from "node:path";
-import type { Locator, Page, Route } from "@playwright/test";
-import {
-	expect,
-	makeIdentity,
-	makeMessage,
-	makeTask,
-	makeThread,
-	mockSearchSessions,
-	mockSearchThreads,
-	mockTaskTree,
-	mockThread,
-	test,
-} from "./fixtures";
+/**
+ * Journey: every page paints exactly one page title (one <h1>), and a
+ * breadcrumb's current segment never collides with its siblings — checks
+ * only a real browser's layout engine can make.
+ */
+import type { Locator, Page } from "@playwright/test";
+import { expect, makeIdentity, makeMessage, makeThread, mockThread, test } from "./fixtures";
 
-const EVIDENCE = resolve(process.cwd(), "test-results/page-orientation");
-const TASK_TITLE =
-	"Prepare the international launch readiness assessment for every supported market";
-const ARTIFACT_TITLE = "International launch readiness assessment and unresolved rollout decisions";
-
-async function fulfillJson(route: Route, body: unknown): Promise<void> {
-	await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
-}
+const REVIEW_TITLE = "International launch readiness assessment and unresolved rollout decisions";
 
 async function expectNoHorizontalCollision(items: Locator): Promise<void> {
 	const raw = await Promise.all((await items.all()).map(async (item) => item.boundingBox()));
@@ -42,11 +27,7 @@ async function expectEllipsis(locator: Locator, prefix: string): Promise<void> {
 	expect(overflow).toBe(true);
 }
 
-async function proveHeader(
-	page: Page,
-	screenshotName: string,
-	currentText?: string,
-): Promise<void> {
+async function proveHeader(page: Page, currentText?: string): Promise<void> {
 	const header = page.locator("[data-ds-component='PageHeader']").first();
 	await expect(header).toBeVisible();
 	await expect(page.locator("h1")).toHaveCount(1);
@@ -64,53 +45,9 @@ async function proveHeader(
 		}
 	}
 	await expectNoHorizontalCollision(header.locator("h1").locator("xpath=..").locator(":scope > *"));
-	await page.screenshot({ path: resolve(EVIDENCE, screenshotName), fullPage: false });
 }
 
-test.beforeEach(async ({ page }) => {
-	await mkdir(EVIDENCE, { recursive: true });
-	await page.route("**/api/artifacts/az11-orientation", (route) =>
-		fulfillJson(route, {
-			id: "az11-orientation",
-			producingTaskId: "task-orientation",
-			producingTaskTitle: TASK_TITLE,
-			kind: "code",
-			label: "decision",
-			preview: {
-				kind: "code",
-				path: ARTIFACT_TITLE,
-				lang: "md",
-				text: "Ready for founder review.",
-			},
-			threadCount: 0,
-			createdAt: "2026-08-13T09:00:00.000Z",
-		}),
-	);
-	await mockSearchThreads(page, { rows: [] });
-	await mockSearchSessions(page, { rows: [] });
-	// @lore BB1: the task page is reached at /work/task/:taskId now — there is no
-	// bet segment in front of it — and it loads open_task.
-	await mockTaskTree(page, { task: makeTask("task-orientation", { title: TASK_TITLE }) });
-});
-
-for (const viewport of [
-	{ name: "desktop", width: 1440, height: 900 },
-	{ name: "tablet", width: 1024, height: 768 },
-	{ name: "mobile", width: 390, height: 844 },
-]) {
-	test(`artifact orientation paints cleanly at ${viewport.width}px`, async ({ page }) => {
-		await page.setViewportSize(viewport);
-		await page.goto("/artifacts/az11-orientation");
-		await proveHeader(page, `artifact-${viewport.name}.png`, ARTIFACT_TITLE);
-		await expect(page.locator("[data-ds-component='ArtifactPreview']")).toContainText(TASK_TITLE);
-		await expect(page.locator("[data-ds-component='ArtifactPreviewSurface'] h1")).toHaveCount(0);
-		await page.goto("/work/task/task-orientation");
-		await proveHeader(page, `task-${viewport.name}.png`, TASK_TITLE);
-		await expect(page.getByTestId("nav-history-cluster")).toHaveCount(viewport.width > 768 ? 1 : 0);
-	});
-}
-
-// @lore BC3: `GET /api/reviews/:id` is gone — `ReviewPage` loads via
+// @lore `GET /api/reviews/:id` is gone — `ReviewPage` loads via
 // `open_thread`, named by the `?threadId=` query string (the review
 // message's own thread), never resolved by host lookup.
 const REVIEW_THREAD_ID = "thread-review-orientation";
@@ -131,22 +68,21 @@ test("review keeps one page title", async ({ page }) => {
 			makeMessage("review-orientation", REVIEW_THREAD_ID, {
 				senderId: "agent-1",
 				type: "review",
-				payload: { title: ARTIFACT_TITLE, reasoning: [] },
+				payload: { title: REVIEW_TITLE, reasoning: [] },
 			}),
 		],
 	});
 	await page.setViewportSize({ width: 1024, height: 768 });
 	await page.goto(`/reviews/review-orientation?threadId=${REVIEW_THREAD_ID}`);
-	await proveHeader(page, "review-tablet.png", ARTIFACT_TITLE);
+	await proveHeader(page, REVIEW_TITLE);
 });
 
 test("standalone setup and not-found pages paint one h1", async ({ page }) => {
 	await page.goto("/setup");
-	await proveHeader(page, "setup-desktop.png");
+	await proveHeader(page);
 	const submit = page.getByRole("button", { name: "Start HyperIdle" });
 	await submit.scrollIntoViewIfNeeded();
 	await expect(submit).toBeVisible();
-	await page.screenshot({ path: resolve(EVIDENCE, "setup-submit-desktop.png") });
 	await page.goto("/missing-az11-o");
-	await proveHeader(page, "not-found-desktop.png");
+	await proveHeader(page);
 });

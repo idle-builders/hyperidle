@@ -16,7 +16,7 @@
  * actually proves that first click both fires the archive request and
  * leaves the row's own click-to-navigate path alone.
  *
- * @lore BC4: repointed at `POST /api/actions/{search_documents,
+ * @lore Repointed at `POST /api/actions/{search_documents,
  * edit_document}` — never `GET/POST /api/knowledge*`.
  */
 import { expect, makeDocumentRow, test } from "./fixtures";

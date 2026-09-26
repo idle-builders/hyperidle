@@ -13,25 +13,6 @@
  */
 import { expect, registerCoreMocks, test } from "./fixtures";
 
-/**
- * Stub PATCH /api/settings so Save closes the Settings dialog in e2e.
- * @lore M3: AppShell.handleSettingsSave calls PATCH /api/settings — without
- * a real server in e2e this throws and the dialog never closes.
- */
-async function stubSettingsPatch(page: import("@playwright/test").Page): Promise<void> {
-	await page.route("**/api/settings", async (route) => {
-		if (route.request().method() === "PATCH") {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ ok: true }),
-			});
-		} else {
-			await route.continue();
-		}
-	});
-}
-
 test.describe("Theme persistence", () => {
 	// @lore Each test creates its own browser.newContext so localStorage is
 	// isolated per test (fresh contexts start empty). We deliberately do NOT
@@ -77,17 +58,12 @@ test.describe("Theme persistence", () => {
 		const ctx = await browser.newContext({ colorScheme: "light" });
 		const page = await ctx.newPage();
 		await registerCoreMocks(page);
-		await stubSettingsPatch(page);
-		await page.goto("/");
-		await page.waitForSelector("[data-testid='main-content']");
+		await page.goto("/settings");
+		await page.waitForSelector("[data-testid='settings-page']");
 
-		// Open Settings → Appearance → choose dark → save.
-		await page.getByRole("button", { name: /^user profile$/i }).click();
-		await expect(page.getByRole("dialog", { name: /settings/i })).toBeVisible();
-		await page.getByRole("tab", { name: "Appearance" }).click();
-		await page.getByLabel("Theme").selectOption("dark");
-		await page.getByRole("button", { name: "Save" }).click();
-		await expect(page.getByRole("dialog", { name: /settings/i })).not.toBeVisible();
+		// Theme is a swatch card, not a <select> — clicking applies immediately
+		// (no explicit Save step).
+		await page.getByRole("button", { name: "Dark theme" }).click();
 
 		await expect
 			.poll(async () => page.evaluate(() => document.documentElement.dataset.theme))
@@ -121,8 +97,12 @@ test.describe("Theme persistence", () => {
 		});
 		const page = await ctx.newPage();
 		await registerCoreMocks(page);
-		await page.goto("/");
-		await page.waitForSelector("[data-testid='main-content']");
+		// useTheme()'s live matchMedia subscription is only mounted while
+		// Settings → Appearance is on screen (its one call site) — the rest of
+		// the shell paints from the boot script's one-time read. Land there so
+		// the "no reload" claim has a live listener to prove.
+		await page.goto("/settings");
+		await page.waitForSelector("[data-testid='settings-page']");
 
 		const initial = await page.evaluate(() => document.documentElement.dataset.theme);
 		expect(initial).toBe("hearth-light");
@@ -136,9 +116,9 @@ test.describe("Theme persistence", () => {
 		await ctx.close();
 	});
 
-	test("Settings Appearance toggle reflects the live persisted value", async ({ browser }) => {
+	test("Settings Appearance swatch reflects the live persisted value", async ({ browser }) => {
 		const ctx = await browser.newContext({ colorScheme: "dark" });
-		// Pre-seed localStorage with light so the Appearance tab should show "light".
+		// Pre-seed localStorage with light so the Appearance section should show "light" active.
 		await ctx.addInitScript(() => {
 			try {
 				window.localStorage.setItem("hyperidle-theme", "light");
@@ -148,13 +128,13 @@ test.describe("Theme persistence", () => {
 		});
 		const page = await ctx.newPage();
 		await registerCoreMocks(page);
-		await page.goto("/");
-		await page.waitForSelector("[data-testid='main-content']");
+		await page.goto("/settings");
+		await page.waitForSelector("[data-testid='settings-page']");
 
-		await page.getByRole("button", { name: /^user profile$/i }).click();
-		await page.getByRole("tab", { name: "Appearance" }).click();
-		const themeSelect = page.getByLabel("Theme");
-		await expect(themeSelect).toHaveValue("light");
+		await expect(page.getByRole("button", { name: "Light theme" })).toHaveAttribute(
+			"aria-pressed",
+			"true",
+		);
 		await ctx.close();
 	});
 });

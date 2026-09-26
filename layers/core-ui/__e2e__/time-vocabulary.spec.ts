@@ -1,33 +1,11 @@
 /**
- * AI3 — One clock — E2E tests for the shared time vocabulary.
+ * One shared clock: every surface that shows a relative age (thread list,
+ * document list, notification popover) renders the same label for the same
+ * age, and every surface shows the placeholder "—" for an unparseable
+ * timestamp — except CommentRow's sender-header chip, which hides instead.
  *
- * RED phase: tests fail until green phase migrates all 17 call sites to the
- * shared time formatter (framework/presentation-format/src/format/time.ts).
- *
- * Acceptance criteria verified:
- *   AC-1: Same age → same label across ≥ 4 surfaces within each register
- *   AC-3: Invalid/unparseable timestamp → TIME_PLACEHOLDER "—" on all surfaces
- *         EXCEPT CommentRow sender-header chip (carve-out: hides chip, no "—")
- *   AC-4: absoluteDate renders MMM D, YYYY
- *
- * Strategy: page.route() overrides (LIFO) inject seeded timestamps into the
- * core API mocks. Import from ./fixtures for the base M3 mocks.
- *
- * @lore AI3: E2E verifies one-clock consolidation. page.route() LIFO means
- * test-specific routes registered AFTER the fixture's auto-use routes win.
- * No real DB or server is required — all data comes from mock responses.
- *
- * @lore AI3 selectors: ThreadRow uses data-testid="thread-time" (added AI3).
- * The document list row uses data-testid="document-row" and data-testid="document-time"
- * (added AI3 — the shared Row primitive, not the design-system DocRow primitive).
- * NotificationPopover uses data-testid="notification-time" (added AI3).
- * AppShell wires NotificationPopover via onNotificationClick → notifOpen state (added AI3).
- * WorkTask metadata strip uses data-testid="task-started-at" (added AI3).
- *
- * @lore AI3 cross-surface agreement: AC-1 Phase 4 strengthened to capture each
- * surface's textContent and assert all four are strictly equal (Set.size === 1).
- * Surface-4 (work-task) uses overrideTaskId seam — page.route() mocks /api/bets/:id
- * with a task whose startedAt = SEED_CREATED_AT. Screenshot saved to test-results/.
+ * page.route() overrides (LIFO) inject seeded timestamps into the core API
+ * mocks — no real DB or server is required.
  */
 
 import * as fs from "node:fs";
@@ -39,6 +17,7 @@ import {
 	makeDocumentRow,
 	makeThreadListRow,
 	makeUserRow,
+	mockDocument,
 	mockSearchDocuments,
 	mockSearchTasks,
 	mockSearchThreads,
@@ -50,14 +29,14 @@ import {
 // ── Shared seed timestamps ──────────────────────────────────────────────────
 
 /**
- * A single "old" ISO timestamp injected into all surfaces for AC-1.
+ * A single "old" ISO timestamp injected into all surfaces for the label-agreement checks.
  * Exactly 3 hours before the reference point — all relative surfaces
  * must render "3h" (relativeShort) or "3h ago" (relativeLong).
  */
 const SEED_CREATED_AT = "2026-06-12T11:32:07.000Z"; // 3h before 14:32:07Z
 
 /**
- * An unparseable timestamp injected into surfaces for AC-3.
+ * An unparseable timestamp injected into surfaces for the placeholder checks.
  */
 const BAD_TIMESTAMP = "not-a-valid-date";
 
@@ -69,13 +48,12 @@ const BAD_TIMESTAMP = "not-a-valid-date";
  * hostId, initiatorId, participants (string[]), pinned, lastActiveAt, createdAt,
  * hasUnresolvedReview. Optional: blocking, title.
  */
-// @lore BC3: no `task` host kind — a task's own thread is `team`-hosted.
 function makeSeedThread() {
-	return makeThreadListRow("ai3-seed-thread", {
-		title: "AI3 seed thread",
-		computedTitle: "AI3 seed thread",
+	return makeThreadListRow("time-seed-thread", {
+		title: "time seed thread",
+		computedTitle: "time seed thread",
 		hostKind: "team",
-		hostId: "ai3-seed-task",
+		hostId: "time-seed-task",
 		initiatorId: "test-founder",
 		members: ["test-founder"],
 		lastActiveAt: SEED_CREATED_AT,
@@ -85,11 +63,11 @@ function makeSeedThread() {
 }
 
 function makeBadThread() {
-	return makeThreadListRow("ai3-bad-thread", {
-		title: "AI3 bad-timestamp thread",
-		computedTitle: "AI3 bad-timestamp thread",
+	return makeThreadListRow("time-bad-thread", {
+		title: "time bad-timestamp thread",
+		computedTitle: "time bad-timestamp thread",
 		hostKind: "team",
-		hostId: "ai3-bad-task",
+		hostId: "time-bad-task",
 		initiatorId: "test-founder",
 		members: ["test-founder"],
 		lastActiveAt: BAD_TIMESTAMP,
@@ -99,8 +77,8 @@ function makeBadThread() {
 }
 
 function makeSeedDocument() {
-	return makeDocumentRow("ai3-seed-item", {
-		title: "AI3 Seed Item",
+	return makeDocumentRow("time-seed-item", {
+		title: "Time Seed Item",
 		body: "Seeded for one-clock AC tests",
 		updatedBy: "human",
 		createdAt: SEED_CREATED_AT,
@@ -111,24 +89,18 @@ function makeSeedDocument() {
 function makeBadDocument() {
 	return {
 		...makeSeedDocument(),
-		id: "ai3-bad-item",
-		title: "AI3 Bad Timestamp Item",
+		id: "time-bad-item",
+		title: "Time Bad Timestamp Item",
 		createdAt: BAD_TIMESTAMP,
 		updatedAt: BAD_TIMESTAMP,
 	};
 }
 
-/**
- * @lore BC5 T10: the inbox carries a `ChangeRow` now (`open_user({}).inbox`),
- * not a notification-type registry row — `NotificationPopover` renders
- * `row.change.at` as the time label and links via `linkForChange` (object +
- * objectId), so a seed row needs a real `ChangeRow` shape.
- */
 function makeChangeRow(id: string, overrides: Partial<ChangeRow> = {}): ChangeRow {
 	return {
 		id,
 		object: "thread",
-		objectId: "ai3-seed-thread",
+		objectId: "time-seed-thread",
 		kind: "message",
 		actor: "test-founder",
 		before: null,
@@ -139,12 +111,12 @@ function makeChangeRow(id: string, overrides: Partial<ChangeRow> = {}): ChangeRo
 }
 
 function makeSeedNotificationRow() {
-	return { change: makeChangeRow("ai3-seed-notif"), seenAt: null, readAt: null };
+	return { change: makeChangeRow("time-seed-notif"), seenAt: null, readAt: null };
 }
 
 function makeBadNotificationRow() {
 	return {
-		change: makeChangeRow("ai3-bad-notif", { at: BAD_TIMESTAMP }),
+		change: makeChangeRow("time-bad-notif", { at: BAD_TIMESTAMP }),
 		seenAt: null,
 		readAt: null,
 	};
@@ -167,14 +139,14 @@ async function mockInbox(
 }
 
 // ── Proof directory (absolute path from the worktree root) ─────────────────
-// @lore AI3: Use import.meta.url + fileURLToPath because this spec runs as ESM
-// (Playwright transpiles .ts files). __dirname is not available in ESM scope.
+// import.meta.url + fileURLToPath because this spec runs as ESM (Playwright
+// transpiles .ts files) — __dirname is not available in ESM scope.
 const SpecDir = path.dirname(fileURLToPath(import.meta.url));
 const PROOF_DIR = path.resolve(SpecDir, "../../../test-results");
 
-// ── AC-1: Same age → same label across every compact-register surface ─────
+// ── Same age → same label across every compact-register surface ─────────────
 
-test.describe("AC-1: one-clock label agreement across surfaces", () => {
+test.describe("one-clock label agreement across surfaces", () => {
 	test.beforeEach(async ({ page }) => {
 		// Override threads with seed data. LIFO ensures this handler wins over
 		// the fixture's empty-array response.
@@ -231,29 +203,25 @@ test.describe("AC-1: one-clock label agreement across surfaces", () => {
 		await expect(timeEl).not.toBeEmpty();
 		const text = await timeEl.textContent();
 		expect(text).not.toBe("—");
-		await page.getByTestId("notification-row-ai3-seed-notif").locator("[role='button']").click();
+		await page.getByTestId("notification-row-time-seed-notif").locator("[role='button']").click();
 		await expect(popover).toHaveCount(0);
-		await expect(page).toHaveURL(/\/conversations\/ai3-seed-thread$/);
+		await expect(page).toHaveURL(/\/conversations\/time-seed-thread$/);
 		await page.goBack();
 		await expect(page).toHaveURL(originUrl);
 	});
 
 	/**
 	 * Cross-surface agreement: every compact-register surface renders the
-	 * identical label.
+	 * identical label. Presence assertions alone (not.toBeEmpty, not.toBe("—"))
+	 * only prove each surface is non-empty independently — this test captures
+	 * each surface's textContent and asserts they are strictly equal, so a
+	 * drift in any surface's register would break this even if non-empty.
 	 *
-	 * @lore AI3 Phase 4: Presence assertions (not.toBeEmpty, not.toBe("—")) only
-	 * prove each surface is non-empty independently. This test captures each
-	 * surface's textContent and asserts they are strictly equal — a drift in
-	 * any surface's register would break this even if it's non-empty.
-	 *
-	 * @lore BB1: there was a fourth surface here, the work-task page, and it was
-	 * the ONLY prose-register (relativeLong) surface in this test. WorkTaskPage
-	 * renders no timestamp at all, so there is nothing left to read: the meta
-	 * strip carries owner, status, depth and session counts only. The
-	 * cross-register guarantee (relativeLong === relativeShort + " ago") is
-	 * asserted directly in utils/__tests__/time.test.ts, and ArtifactTimestamp
-	 * is the remaining prose-register surface.
+	 * WorkTaskPage renders no timestamp at all (its meta strip carries owner,
+	 * status, depth and session counts only), so it is not one of the surfaces
+	 * compared here; the cross-register guarantee (relativeLong ===
+	 * relativeShort + " ago") is asserted directly in
+	 * utils/__tests__/time.test.ts.
 	 */
 	test("all compact surfaces render identical relative label for same-age seed", async ({
 		page,
@@ -268,10 +236,6 @@ test.describe("AC-1: one-clock label agreement across surfaces", () => {
 
 		// Capture surface-1 screenshot
 		fs.mkdirSync(PROOF_DIR, { recursive: true });
-		await page.screenshot({
-			path: path.join(PROOF_DIR, "AI3-surface-1-thread-list.png"),
-			fullPage: false,
-		});
 
 		// ── Surface 2: document list ───────────────────────────────────────────
 		await page.goto("/documents");
@@ -280,12 +244,6 @@ test.describe("AC-1: one-clock label agreement across surfaces", () => {
 		const documentTimeEl = documentRow.locator("[data-testid='document-time']").first();
 		await expect(documentTimeEl).not.toBeEmpty();
 		const documentLabel = (await documentTimeEl.textContent()) ?? "";
-
-		// Capture surface-2 screenshot
-		await page.screenshot({
-			path: path.join(PROOF_DIR, "AI3-surface-2-document-list.png"),
-			fullPage: false,
-		});
 
 		// ── Surface 3: notification popover ────────────────────────────────────
 		await page.goto("/");
@@ -296,12 +254,6 @@ test.describe("AC-1: one-clock label agreement across surfaces", () => {
 		const notifTimeEl = popover.locator("[data-testid='notification-time']").first();
 		await expect(notifTimeEl).not.toBeEmpty();
 		const notifLabel = (await notifTimeEl.textContent()) ?? "";
-
-		// Capture surface-3 screenshot
-		await page.screenshot({
-			path: path.join(PROOF_DIR, "AI3-surface-3-notification-popover.png"),
-			fullPage: false,
-		});
 
 		// ── Cross-surface agreement assertion ───────────────────────────────────
 		// Surfaces 1-3 use relativeShort (compact register); surface 4 uses
@@ -320,7 +272,7 @@ test.describe("AC-1: one-clock label agreement across surfaces", () => {
 		// Write updated labels.txt proof
 		const now = new Date().toISOString();
 		const labelsContent = [
-			`AI3 One-Clock Proof — ${now}`,
+			`One-Clock Proof — ${now}`,
 			`Seed timestamp: ${SEED_CREATED_AT}`,
 			"",
 			`Surface 1 (thread list):      "${threadLabel}" [relativeShort]`,
@@ -329,13 +281,13 @@ test.describe("AC-1: one-clock label agreement across surfaces", () => {
 			"",
 			`Compact register identical (surfaces 1-3): ${compactLabels.size === 1}`,
 		].join("\n");
-		fs.writeFileSync(path.join(PROOF_DIR, "AI3-labels.txt"), labelsContent, "utf8");
+		fs.writeFileSync(path.join(PROOF_DIR, "one-clock-labels.txt"), labelsContent, "utf8");
 	});
 });
 
-// ── AC-3: Invalid timestamps → placeholder on all surfaces ─────────────────
+// ── Invalid timestamps → placeholder on all surfaces ────────────────────────
 
-test.describe("AC-3: invalid timestamps → TIME_PLACEHOLDER or hidden chip", () => {
+test.describe("invalid timestamps render a placeholder or hide the chip", () => {
 	test("thread list with bad timestamp shows '—' placeholder", async ({ page }) => {
 		await mockSearchThreads(page, { rows: [makeBadThread()] });
 
@@ -369,16 +321,33 @@ test.describe("AC-3: invalid timestamps → TIME_PLACEHOLDER or hidden chip", ()
 	test("CommentRow with bad timestamp: row renders, no time chip, no '—' glyph", async ({
 		page,
 	}) => {
-		// Seed a thread detail with a message carrying a bad timestamp.
+		// CommentRow only renders inside HostThreadSection now (Conversations'
+		// own detail surface moved to the Part-based ConversationSurface) — seed
+		// a document's host thread instead of a bare conversation thread.
 		const THREAD_ID = "ai3-bad-comment-thread";
+		const DOCUMENT_ID = "ai3-bad-comment-doc";
 
-		// useThread calls POST /api/actions/open_thread and expects a combined
-		// { thread, members, messages, headMessageId, hostTitle } response.
+		await mockDocument(page, {
+			row: makeDocumentRow(DOCUMENT_ID, { scopeKind: "team", scopeId: "team-a" }),
+		});
+		await mockSearchThreads(page, {
+			rows: [
+				makeThreadListRow(THREAD_ID, {
+					hostKind: "document",
+					hostId: DOCUMENT_ID,
+					initiatorId: "test-founder",
+					members: ["test-founder"],
+					lastActiveAt: SEED_CREATED_AT,
+					createdAt: SEED_CREATED_AT,
+					hasUnresolvedReview: false,
+				}),
+			],
+		});
 		await mockThread(page, {
 			thread: {
 				id: THREAD_ID,
-				hostKind: "user",
-				hostId: "test-founder",
+				hostKind: "document",
+				hostId: DOCUMENT_ID,
 				initiatorId: "test-founder",
 				members: ["test-founder"],
 				title: "Bad comment thread",
@@ -407,25 +376,20 @@ test.describe("AC-3: invalid timestamps → TIME_PLACEHOLDER or hidden chip", ()
 			],
 		});
 
-		await page.goto(`/conversations/${THREAD_ID}`);
+		await page.goto(`/documents/${DOCUMENT_ID}`);
+		await page.waitForSelector("[data-testid='document-detail-page']");
 
 		// The comment row must render (body visible)
 		const commentRow = page.locator("[data-testid='comment-row']").first();
 		await expect(commentRow).toBeVisible();
 		await expect(commentRow).toContainText("Hello bad timestamp");
 
-		// AC-3 CommentRow carve-out: NO time chip in sender header
+		// CommentRow carve-out: NO time chip in sender header
 		const timeChip = commentRow.locator(".text-tertiary").filter({ hasText: /\d{1,2}:\d{2}/ });
 		await expect(timeChip).toHaveCount(0);
 
-		// AC-3 CommentRow carve-out: NO "—" glyph rendered anywhere in the row
+		// CommentRow carve-out: NO "—" glyph rendered anywhere in the row
 		const rowText = await commentRow.textContent();
 		expect(rowText ?? "").not.toContain("—");
 	});
 });
-
-// ── AC-4: Absolute format ────────────────────────────────────────────────
-//
-// @lore BC5 T9: "WorkRoutine 'Created' field renders MMM D, YYYY format"
-// deleted. Its subject — `/work/routine/:id`, WorkRoutine's "Created" field —
-// is gone with WorkRoutine and the routines table.

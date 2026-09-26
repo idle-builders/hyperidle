@@ -1,22 +1,12 @@
 /**
- * L20 — Lifecycle Propagation: Playwright E2E tests.
+ * Journeys: a task's state propagates up through its parent — a session
+ * ending with outcome=completed puts the task in review, a manually-done
+ * task puts its parent in review too, and the team page shows that review
+ * state. The chain stops at review; review->shipped needs a human approving
+ * a review thread, which this suite does not automate.
  *
- * Strategy: hermetic page.route() mocks for all API calls.
- * No DB seeding — dev server serves only the SPA bundle.
- *
- * AC coverage (F3 corrected: stop at 'review', NOT 'done' — review->shipped
- * requires human confirmation and is outside L20 scope):
- * 1. Session ends with outcome=completed -> task transitions to 'review'
- * 2. Task manually transitions to 'done' -> bet transitions to 'review'
- * 3. Product page shows the bet in 'review' state
- *
- * @lore L20: The E2E verifies the propagation chain up to bet=review.
- * The review->shipped transition requires a human approving a review thread —
- * that is explicitly out of scope for L20. See F3 in the architecture review.
- *
- * @lore L20: All API calls fired by AppShell + WorkBet must be mocked or
- * absorbed, otherwise Vite proxy hits port 3001 (not running during E2E)
- * and returns 502, causing timeout on hydration. Pattern from L19.
+ * All API calls fired by AppShell + WorkTaskPage must be mocked or absorbed,
+ * otherwise the Vite proxy hits the (not running) API port and 502s.
  */
 
 import {
@@ -29,11 +19,11 @@ import {
 	test,
 } from "./fixtures";
 
-const PRODUCT_ID = "prod-l20";
-const BET_ID = "bet-l20";
-const TASK_ID = "task-l20-1";
-const SESSION_ID = "session-l20-1";
-const AGENT_ID = "agent-l20-1";
+const PRODUCT_ID = "prod-lifecycle";
+const BET_ID = "bet-lifecycle";
+const TASK_ID = "task-lifecycle-1";
+const SESSION_ID = "session-lifecycle-1";
+const AGENT_ID = "agent-lifecycle-1";
 
 // ── Fixture factories ─────────────────────────────────────────────────────────
 
@@ -41,7 +31,7 @@ function makeTask(state: string) {
 	return {
 		id: TASK_ID,
 		betId: BET_ID,
-		title: "L20 Lifecycle Task",
+		title: "Lifecycle Task",
 		ownerAgentId: AGENT_ID,
 		state,
 		latestSessionOutcome: state === "review" ? "completed" : null,
@@ -54,8 +44,8 @@ function makeTask(state: string) {
 function _makeBetResponse(betStatus: string, taskState: string) {
 	return {
 		id: BET_ID,
-		title: "L20 Lifecycle Bet",
-		product: "L20 Product",
+		title: "Lifecycle Bet",
+		product: "Lifecycle Product",
 		team: "Alpha Core",
 		status: betStatus,
 		tokensActual: null,
@@ -112,10 +102,11 @@ async function setupCommonRoutes(
 	// Sessions list for the task, via search_sessions.
 	await mockSearchSessions(page, { rows: makeSessionsResponse(TASK_ID, "done", "completed") });
 
-	// @lore BC5 T9: `GET /api/teams` and `GET /api/teams/:id` are gone —
-	// `useTeams`/`useTeam` compose from `search_users`/`search_tasks`.
 	const roster = [
-		makeUserRow("agent-l20", { kind: "ai", team: { id: PRODUCT_ID, name: "L20 Product" } }),
+		makeUserRow("agent-lifecycle", {
+			kind: "ai",
+			team: { id: PRODUCT_ID, name: "Lifecycle Product" },
+		}),
 	];
 	await mockSearchUsers(page, { rows: roster });
 	await page.route("**/api/actions/search_tasks", (route) => {
@@ -127,7 +118,7 @@ async function setupCommonRoutes(
 		const data =
 			input.state === "blocked"
 				? []
-				: [{ id: BET_ID, teamId: PRODUCT_ID, title: "L20 Lifecycle Bet", state: "in_progress" }];
+				: [{ id: BET_ID, teamId: PRODUCT_ID, title: "Lifecycle Bet", state: "in_progress" }];
 		return route.fulfill({
 			status: 200,
 			contentType: "application/json",
@@ -154,7 +145,7 @@ async function setupCommonRoutes(
 						parentTaskId: null,
 						teamId: PRODUCT_ID,
 						ownerAgentId: null,
-						title: "L20 Lifecycle Bet",
+						title: "Lifecycle Bet",
 						description: null,
 						doneCondition: null,
 						state: betStatus,
@@ -212,7 +203,7 @@ async function setupCommonRoutes(
 
 // ── Test: task shows 'review' state after session completes ──────────────────
 
-test("L20: task shows review state after session ends with outcome=completed", async ({ page }) => {
+test("task shows review state after session ends with outcome=completed", async ({ page }) => {
 	// Arrange: bet is in_progress, task is in 'review' (post-propagation state)
 	await setupCommonRoutes(page, "in_progress", "review");
 
@@ -223,16 +214,14 @@ test("L20: task shows review state after session ends with outcome=completed", a
 	await expect(page.locator('[data-testid="task-detail-page"]')).toBeVisible({ timeout: 10000 });
 
 	// Assert: a task row is visible containing our task title
-	// @lore the architecture doc's UI re-point: WorkTaskPage's subtask rows
-	// carry `data-testid="subtask-row"` (BB1), not the pre-BB1 `bet-task-row`.
-	const taskRow = page
-		.locator('[data-testid="subtask-row"]:has-text("L20 Lifecycle Task")')
-		.first();
+	// WorkTaskPage's subtask rows
+	// carry `data-testid="subtask-row"`.
+	const taskRow = page.locator('[data-testid="subtask-row"]:has-text("Lifecycle Task")').first();
 	await expect(taskRow).toBeVisible({ timeout: 10000 });
 
 	// The task state chip for 'review' maps to status='behind' in StatusChip
 	// (taskStateToStatus('review') === 'behind' — see framework/design-system/src/status-mapping.ts)
-	// @lore L20: 'review' task state renders as data-status="behind" because it means
+	// 'review' task state renders as data-status="behind" because it means
 	// "action required" — the design system maps review/action-required to the warn/behind color.
 	const stateChip = taskRow.locator('[data-status="behind"]').first();
 	await expect(stateChip).toBeVisible({ timeout: 5000 });
@@ -240,7 +229,7 @@ test("L20: task shows review state after session ends with outcome=completed", a
 
 // ── Test: bet shows 'review' state after all tasks complete ──────────────────
 
-test("L20: bet shows review state after all tasks are done", async ({ page }) => {
+test("parent task shows review state after its subtask is done", async ({ page }) => {
 	// Arrange: bet is in 'review', task is 'done'
 	await setupCommonRoutes(page, "review", "done");
 
@@ -253,36 +242,33 @@ test("L20: bet shows review state after all tasks are done", async ({ page }) =>
 	// Assert: a bet-status chip is visible with data-status="behind"
 	// betStatusToStatus('review') === 'behind' — review means "action required" in the design system
 	// BetCard renders StatusChip with betStatusToStatus(status), which for 'review' yields 'behind'.
-	// @lore L20: bet status 'review' renders as data-status="behind" chip via BetCard > StatusChip.
 	const betStatusChip = page.locator('[data-status="behind"]').first();
 	await expect(betStatusChip).toBeVisible({ timeout: 10000 });
 });
 
 // ── Test: product page shows bet in 'review' state ───────────────────────────
 
-test("L20: product page shows bet in review state after propagation", async ({ page }) => {
+test("team page shows the task in review state after propagation", async ({ page }) => {
 	// Arrange: bet is in review state
 	await setupCommonRoutes(page, "review", "done");
 
-	// Act: navigate to the team page (U6: route renamed from /work/product/ to /work/team/)
+	// Act: navigate to the team page
 	await page.goto(`/work/team/${PRODUCT_ID}`);
 
 	// Assert: the team page renders
 	const productPage = page.locator('[data-testid="work-team-page"]').first();
 	await expect(productPage).toBeVisible({ timeout: 10000 });
 
-	// Assert: the page body contains "L20" (from product name or bet title in the response)
-	await expect(page.locator("body")).toContainText("L20", { timeout: 10000 });
+	// Assert: the page body contains "Lifecycle" (from product name or bet title in the response)
+	await expect(page.locator("body")).toContainText("Lifecycle", { timeout: 10000 });
 });
 
 // ── Note: shipped transition requires human confirmation (out of scope) ───────
 
-test("L20: bet stays in review — shipped transition requires human confirmation (stop condition)", async ({
-	page,
-}) => {
+test("review is the final automatic state — shipped needs human confirmation", async ({ page }) => {
 	// This test documents that the propagation chain stops at 'review' for bets.
 	// The review->shipped transition requires human approval via a review thread.
-	// L20 does NOT automate this step. This test verifies the 'review' state is
+	// This test verifies the 'review' state is
 	// the final automatically-reachable state.
 	await setupCommonRoutes(page, "review", "done");
 
@@ -294,7 +280,6 @@ test("L20: bet stays in review — shipped transition requires human confirmatio
 
 	// The bet-level status chip should be data-status="behind" (review → behind in design system)
 	// NOT data-status="done" (shipped → done). BetCard renders the first StatusChip on the page.
-	// @lore L20: betStatusToStatus('review') === 'behind'. betStatusToStatus('shipped') === 'done'.
 	// The BetCard's StatusChip is the first [data-status] on the page.
 	const firstStatusChip = page.locator("[data-status]").first();
 	await expect(firstStatusChip).toBeVisible({ timeout: 10000 });

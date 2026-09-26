@@ -15,7 +15,7 @@
  *
  * @lore AZ7 Set 1: `amber` deleted — zero production uses (plan.md
  * §1.2, Trade-off 2). `size="icon"` added — AQ-003 "one size per component":
- * a square 32×32 control (44×44 touch floor below `lg`, matching `sm`/`default`'s
+ * a square 32×32 control (44×44 touch floor at ≤1024px, matching `sm`/`default`'s
  * existing pattern) whose entire label is its icon. This is the migration
  * target for ~20 hand-rolled icon buttons measured at 16–32px across core-ui
  * (plan.md §2 Set 1) — they get visibly larger; that is a deliberate,
@@ -60,17 +60,18 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
 	{ variant = "primary", size = "default", className = "", children, disabled, ...rest },
 	ref,
 ): JSX.Element {
-	// @lore POLISH-060 A3: AQ-015 requires touch targets ≥ 44px at ≤ 1024px.
-	// On desktop (lg: = 1024px+) we relax with a smaller min-height so settings
-	// forms don't read too tall. The 44px floor stays at smaller viewports via
-	// Tailwind's mobile-first order: min-h-[44px] is the base; lg:min-h-[N]
-	// overrides at 1024px+. No JS needed — pure responsive utility.
+	// @lore AQ-015 requires touch targets ≥ 44px at viewports ≤ 1024px wide.
+	// Tailwind's `lg:` breakpoint fires AT 1024px (min-width: 1024px), which
+	// made every Button 32/36px exactly at the 1024px boundary the rule
+	// still covers — an off-by-one. `min-[1025px]:` relaxes strictly ABOVE
+	// 1024px instead, so the 44px floor holds through 1024px inclusive and
+	// only desktop widths above it get the smaller, less-tall sizing.
 	const sizeClass =
 		size === "sm"
-			? "py-[7px] px-[12px] min-h-[44px] lg:min-h-[32px]"
+			? "py-[7px] px-[12px] min-h-[44px] min-[1025px]:min-h-[32px]"
 			: size === "icon"
-				? "p-0 w-[44px] h-[44px] min-h-[44px] lg:w-[32px] lg:h-[32px] lg:min-h-[32px]"
-				: "py-[10px] px-[18px] min-h-[44px] lg:min-h-[36px]";
+				? "p-0 w-[44px] h-[44px] min-h-[44px] min-[1025px]:w-[32px] min-[1025px]:h-[32px] min-[1025px]:min-h-[32px]"
+				: "py-[10px] px-[18px] min-h-[44px] min-[1025px]:min-h-[36px]";
 
 	const variantClass = VARIANT_CLASSES[variant];
 
