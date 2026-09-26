@@ -1,28 +1,10 @@
 /**
- * AO1 — Unit + Lane A live-proof tests for filesystem reachability.
- *
- * Lane A: CI-live, hermetic, real git + real fs, NO network/secret.
- *   - Real temp git repo → file:// ls-remote → reachable (exit 0)
- *   - Non-existent file:// path → needs_attention (exit non-zero)
- *   - Real existing folder → reachable (fs.access R_OK)
- *   - Non-existent folder → needs_attention (ENOENT)
- *
- * Lane B: LOCAL-ONLY, real PAT + real GitHub → see AO1-reachability-lane-b.integration.test.ts
- *
- * Coverage:
- *   AC5  — resolveFilesystemState: writeback:none → reachable; local probe → real result;
- *            NoopAuthResolver + connectionId → needs_attention
- *   AC3  — FILESYSTEM_KINDS does not include SoR kinds
- *   AC2  — FilesystemTokenResolver seam: resolveToken
- *   LIVE — Lane A: hermetic git ls-remote (file://) + fs.access probes (no network, no secrets)
- *
- * @lore AU19 Increment 2b: `filesystem-reachability.ts` moved to
- * `@hyperidle/filesystems`; imports repointed there. This test file itself
- * STAYS in `packages/server` — `probeGitRemote`/`resolveFilesystemState` now
- * take a REQUIRED `gitRunnerFactory` port (`FilesystemsGitRunnerFactory`).
- * AU26 A2/C1: `createGitRunner` now comes from `@hyperidle/host-process` (the
- * `git-export` package that used to host it is deleted), closing this
- * forward-reference (same "closing" idiom as `work`'s `UserStoreReader` → `users`).
+ * `resolveFilesystemState` decides reachable/needs_attention for a
+ * filesystem: writeback:none short-circuits to reachable; a bare-local path
+ * probes real git (file://) or the real fs; a connection-backed source
+ * without a resolvable token is needs_attention; a shorthand `owner/repo`
+ * normalizes to its github URL before probing. Hermetic — real temp git
+ * repos and real fs, no network, no secrets.
  */
 
 import * as cp from "node:child_process";

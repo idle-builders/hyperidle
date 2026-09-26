@@ -29,12 +29,8 @@ afterEach(async () => {
 });
 
 /**
- * AN1 hard-rule 4, re-pinned on the ServiceConnectionView shape.
- * list() projects facts into views — all fields are identity/display only,
- * no secret/token/env/command value may appear.
- *
- * @lore AU44 batch2: keys updated from [health,kind,name,source] to the
- * ServiceConnectionView shape [authSource,health,id,removable,service,via].
+ * `list()` projects facts into views — every field is identity/display only;
+ * no secret, token, env, or command value may appear.
  */
 function assertIdentityOnly(facts: readonly ServiceConnectionView[]): void {
 	for (const fact of facts) {
@@ -49,7 +45,7 @@ function assertIdentityOnly(facts: readonly ServiceConnectionView[]): void {
 	}
 }
 
-describe("AN1 real-harness inherited reach (moved pin)", () => {
+describe("real-harness inherited reach", () => {
 	describe("codex", () => {
 		requireBinary("codex");
 

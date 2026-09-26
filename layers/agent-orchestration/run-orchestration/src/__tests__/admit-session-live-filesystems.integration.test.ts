@@ -13,7 +13,7 @@ import * as fs from "node:fs";
 import { type HyperIdleDb, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
-import { describe, vi } from "vitest";
+import { describe } from "vitest";
 import {
 	buildNeverCalledPorts,
 	type ProvisionSessionDeps,
@@ -144,43 +144,6 @@ describe("admitSession mounts what the live injection record says", () => {
 		expect(mountCalls[0]?.resourceRef).toEqual({ kind: "doc_set", folder: "/docs" });
 	});
 
-	test("an agent with NO injected filesystems mounts nothing — unchanged from today's behavior", async ({
-		db,
-	}) => {
-		const now = new Date().toISOString();
-		await db.insert(users).values({
-			id: "agent-baked-fs-2",
-			kind: "ai",
-			name: "Baked FS Agent 2",
-			role: "builder",
-			status: "active",
-			createdAt: now,
-		});
-
-		const mounter: FilesystemMounterPort = {
-			mount: vi.fn(),
-		} as unknown as FilesystemMounterPort;
-
-		const ports = buildNeverCalledPorts();
-		const provisioner = createProvisioner(ports);
-
-		const params: ProvisionSessionParams = {
-			taskId: null,
-			agentId: "agent-baked-fs-2",
-			productId: "task-free",
-			sandboxBasePath: "/tmp/au21-admit-session-baked-fs",
-			agentConfig: {
-				kind: "ai",
-				status: "active",
-				role: "builder",
-				teamId: null,
-			},
-			harnessDisabled: [],
-		} as ProvisionSessionParams;
-
-		const admitted = await provisioner.admit(buildDeps(db as HyperIdleDb, mounter), params);
-
-		expect(admitted.mountedFilesystems).toHaveLength(0);
-		expect(mounter.mount).not.toHaveBeenCalled();
-	});
+	// The no-injected-filesystems/absent-port no-op cases are `mountFilesystemsForAgent`'s
+	// own rule, proven directly in filesystem-provisioning.test.ts — not repeated here.
 });
