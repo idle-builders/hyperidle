@@ -20,38 +20,22 @@
  * zero stubs, hard-fail if absent — never `skipIf` to green (CLAUDE.md,
  * testing.md).
  *
- * @lore This file builds its own minimal composition rather than reusing
- * `createTestApp`: `layers/core-api` may not import `@hyperidle/agent-
- * execution` (not a declared dependency — that boot is an Application's
- * job), and `bootCoreApi`'s own composed `actionTools` are "read exactly
- * once" (`app.ts`'s `takeAppActionTools`), so a caller that already went
- * through `createTestApp` cannot recover them afterwards. Building the
- * action list directly with `buildCoreActions` (the same real recorders
- * `thread-actions.integration.test.ts`'s `buildRealActions` wires) sidesteps
- * both: one call gets a real, runnable action list AND its MCP tool
- * projection (`actionsAsTools`), fed straight into
- * `buildRunOrchestrationComposition({ actionTools })`. The human's
- * `send_message` and the read-back `open_thread` call `action.run()`
- * directly (the exact door `actionsAsTools`'s MCP loop calls in-process,
- * architecture.md §3.2's "no `caller`" HTTP-equivalent shape) — the brief's
- * two doors, `POST /api/actions/send_message` or `action.run`, are
- * interchangeable, and this is the smaller one. Only the MCP bridge the real
- * spawned CLI binary curls over the network needs an actual listening
- * server.
+ * @lore This file, like `document-tools-live-harness` and
+ * `subscription-wake-live-harness`, builds its composition through
+ * `../__testing__/live-harness-test-support.js`'s shared `setUpLiveHarnessRun`
+ * rather than `createTestApp`: `layers/core-api` may not import
+ * `@hyperidle/agent-execution` (that boot is an Application's job), and
+ * `bootCoreApi`'s own composed `actionTools` are "read exactly once"
+ * (`app.ts`'s `takeAppActionTools`). The human's `send_message` and the
+ * read-back `open_thread` call `action.run()` directly (the exact door
+ * `actionsAsTools`'s MCP loop calls in-process, architecture.md §3.2's "no
+ * `caller`" HTTP-equivalent shape) — the brief's two doors, `POST
+ * /api/actions/send_message` or `action.run`, are interchangeable, and this
+ * is the smaller one. Only the MCP bridge the real spawned CLI binary curls
+ * over the network needs an actual listening server.
  */
 
 import { randomUUID } from "node:crypto";
-import * as fs from "node:fs";
-import * as net from "node:net";
-import * as os from "node:os";
-import * as path from "node:path";
-import { serve } from "@hono/node-server";
-import {
-	bootAgentOrchestration,
-	buildRunOrchestrationComposition,
-	type RunOrchestrationHarnessRuntimeAdapter,
-} from "@hyperidle/agent-orchestration";
-import type { AgentOrchestrationTransport } from "@hyperidle/api-contract";
 import {
 	type AgentSessionRequest,
 	agentRunConfig,
@@ -62,46 +46,32 @@ import {
 } from "@hyperidle/db";
 import { test as dbTest } from "@hyperidle/db/test-fixtures";
 import type {
-	ActionResult,
 	OpenThreadInput,
 	SendMessageInput,
 	SendMessageOutput,
 	ThreadView,
 } from "@hyperidle/domain-model";
-import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
-import { EventBus } from "@hyperidle/event-bus";
-import {
-	createLocalAdapterPool,
-	createReturnEnforcement,
-	createSandboxAdapter,
-	provisionHarnessEnvironment,
-	writePluginStdioMcpEntries,
-} from "@hyperidle/harness-registry";
-import {
-	createMcpToolBridge,
-	type McpToolBridge,
-	returnStatusTool,
-} from "@hyperidle/harness-registry/mcp";
+import type { EventBus } from "@hyperidle/event-bus";
+import { createSandboxAdapter } from "@hyperidle/harness-registry";
 import {
 	HARNESS_TEST_MODELS,
 	requireHarness,
 	type SupportedHarnessName,
 	stopAllLiveHarnessSessions,
 } from "@hyperidle/harness-registry/test-utils";
-import { findSessionById } from "@hyperidle/run-orchestration";
 import { drainIntents } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
-import { Hono } from "hono";
 import { afterEach, describe, expect } from "vitest";
 import { queueDeps } from "../__testing__/durable-agent-queue-test-deps.js";
-import type { Action, ActionContext } from "../actions/action.js";
-import { actionsAsTools } from "../actions/actions-as-tools.js";
-import { buildCoreActions } from "../actions/compose.js";
 import {
-	buildAgentOrchestrationPort,
-	buildSeamBackedReviewVerdictRecorder,
-	buildSeamBackedWorkIntentRecorder,
-} from "../services/agent-orchestration-port-composition.js";
+	assertRunOutcomeCompleted,
+	assertSessionRowDone,
+	buildLiveHarnessAdapterPool,
+	HARNESS_TYPE,
+	runnerFor,
+	setUpLiveHarnessRun,
+} from "../__testing__/live-harness-test-support.js";
+import type { Action } from "../actions/action.js";
 import { SESSION_NOT_RETURNED_NOTICE_TEXT } from "../services/session-not-returned-notice.js";
 
 const NOW = "2026-09-18T00:00:00.000Z";
@@ -117,91 +87,6 @@ afterEach(() => {
 	stopAllLiveHarnessSessions();
 });
 const PROMPT = "Reply with exactly: THREAD_TURN_OK";
-
-/** Test-vocabulary harness name -> the exact `agent_run_config.harness_type` `createLocalAdapterPool` registers under (`AdapterMeta.type`, matched by `SelectRequirements.harnessType`). */
-const HARNESS_TYPE: Partial<Record<SupportedHarnessName, string>> = {
-	claude: "claude-code",
-	codex: "codex",
-	opencode: "opencode",
-	"cursor-agent": "cursor-agent",
-};
-
-/**
- * Deliberately skips the middleware stack (auth, fail-closed) — this proves
- * the seam route's effect, not the door's authentication. Same shape as
- * `test-fixtures.ts`'s own `createFixtureAgentOrchestrationTransport`
- * (file-local per that file's own idiom; no shared export exists).
- */
-function fixtureAgentOrchestrationTransport(app: Hono<HyperIdleEnv>): AgentOrchestrationTransport {
-	return async (req: Request) => {
-		const url = new URL(req.url);
-		const strippedPath = url.pathname.replace(/^\/api/, "");
-		const target = new URL(`${strippedPath}${url.search}`, url.origin);
-		const hasBody = req.method !== "GET" && req.method !== "HEAD";
-		const body = hasBody ? await req.text() : undefined;
-		return app.fetch(new Request(target, { method: req.method, headers: req.headers, body }));
-	};
-}
-
-function runnerFor<I, O>(actions: readonly Action[], name: string) {
-	const found = actions.find((a) => a.declaration.name === name);
-	if (!found) throw new Error(`no "${name}" action`);
-	return found.run as (ctx: ActionContext, input: I) => Promise<ActionResult<O>>;
-}
-
-/** An OS-assigned free port, reserved just long enough to read it back — `createMcpToolBridge({baseUrl})` must know the origin before the first `open()` call, so the port has to be chosen before the bridge exists. */
-async function getFreePort(): Promise<number> {
-	return new Promise((resolve, reject) => {
-		const probe = net.createServer();
-		probe.once("error", reject);
-		probe.listen(0, "127.0.0.1", () => {
-			const addr = probe.address();
-			if (addr === null || typeof addr === "string") {
-				probe.close(() => reject(new Error("could not determine a free port")));
-				return;
-			}
-			const { port } = addr;
-			probe.close(() => resolve(port));
-		});
-	});
-}
-
-/** The concrete registry `createReturnEnforcement()` builds — never exported by name from `@hyperidle/harness-registry` (mirrors `bootAgentExecution`'s own derivation), so derived from the factory's own return type instead of duplicating its shape by hand. */
-type EnforcementRegistry = ReturnType<typeof createReturnEnforcement>;
-
-/**
- * The session-scoped harness-runtime port `run-orchestration`'s provisioner
- * consumes, built directly over `@hyperidle/harness-registry` — the same real
- * pieces `bootAgentExecution` wires production-side (`layers/agent-execution/
- * src/boot.ts`), hand-assembled here because `layers/core-api` does not
- * depend on `@hyperidle/agent-execution` (that boot is an Application's job).
- */
-function buildLiveHarnessRuntimeAdapter(
-	mcpBridgeRegistry: McpToolBridge,
-	enforcementRegistry: EnforcementRegistry,
-): RunOrchestrationHarnessRuntimeAdapter {
-	return {
-		enforcementRegistry,
-		createReturnGate: (requiredReturnActions, taskId) =>
-			enforcementRegistry.createGate(requiredReturnActions, taskId),
-		evaluateReturn: (gate, endReason) => enforcementRegistry.evaluate(gate, endReason),
-		provisionReturnHook: async (options) => {
-			await provisionHarnessEnvironment({ ...options, token: options.bridgeToken });
-		},
-		writeCliMcpConfig: (options) => provisionHarnessEnvironment(options),
-		writePluginStdioMcpEntries: (params) => writePluginStdioMcpEntries(params),
-		// `bridge.open()` already returns the fully-spelled `/api/mcp/<token>`
-		// URL (`baseUrl` was given to `createMcpToolBridge` at construction) —
-		// no per-call URL assembly needed here.
-		openMcpBridge: (session) =>
-			mcpBridgeRegistry.open({
-				sessionId: session.sessionId,
-				registry: session.toolRegistry,
-				onToolCall: session.onToolCall,
-			}),
-		closeMcpBridge: (token) => mcpBridgeRegistry.close(token),
-	};
-}
 
 async function seedFounderAndAgent(
 	db: HyperIdleDb,
@@ -309,7 +194,6 @@ describe("a human's send_message wakes an agent, whose own send_message ends the
 		const founderId = `founder-thread-turn-${harness}`;
 		const agentId = `agent-thread-turn-${harness}`;
 		const harnessType = HARNESS_TYPE[harness];
-		if (!harnessType) throw new Error(`no harnessType mapping for ${harness}`);
 
 		await seedFounderAndAgent(db, {
 			founderId,
@@ -320,76 +204,30 @@ describe("a human's send_message wakes an agent, whose own send_message ends the
 			modelId: HARNESS_TEST_MODELS[harness].model,
 		});
 
-		const eventBus = new EventBus();
-		const orchestrationBoot = await bootAgentOrchestration({ db, eventBus });
-		const agentOrchestration = buildAgentOrchestrationPort(
-			fixtureAgentOrchestrationTransport(orchestrationBoot.app),
-		);
-		const actions = buildCoreActions({
-			agentOrchestration,
-			agentWorkIntentRecorder: buildSeamBackedWorkIntentRecorder(agentOrchestration),
-			reviewVerdictRecorder: buildSeamBackedReviewVerdictRecorder(agentOrchestration),
-		});
-		const actionTools = actionsAsTools(actions);
-
-		const port = await getFreePort();
-		const mcpBaseUrl = `http://127.0.0.1:${port}`;
-		const enforcementRegistry = createReturnEnforcement();
-		const mcpBridgeRegistry = createMcpToolBridge({
-			enforcement: enforcementRegistry,
-			baseUrl: mcpBaseUrl,
-		});
-		const bridgeApp = new Hono();
-		const bridgeApi = new Hono();
-		bridgeApi.route("/", mcpBridgeRegistry.router);
-		bridgeApp.route("/api", bridgeApi);
-		const httpServer = await new Promise<ReturnType<typeof serve>>((resolve) => {
-			const server = serve({ fetch: bridgeApp.fetch, port }, () => resolve(server));
-		});
-
-		const sandboxBasePath = fs.mkdtempSync(path.join(os.tmpdir(), `thread-turn-${harness}-`));
+		const run = await setUpLiveHarnessRun(db, `thread-turn-${harness}`);
 
 		try {
-			const { request, threadId } = await postAndDrainThreadTurnRequest(db, eventBus, actions, {
-				founderId,
-				agentId,
-				text: PROMPT,
-			});
+			const { request, threadId } = await postAndDrainThreadTurnRequest(
+				db,
+				run.eventBus,
+				run.actions,
+				{ founderId, agentId, text: PROMPT },
+			);
 
-			const adapterPool = await createLocalAdapterPool({ enforcement: enforcementRegistry });
+			const adapterPool = await buildLiveHarnessAdapterPool(run);
 			const workspace = createSandboxAdapter("local");
-			const composition = buildRunOrchestrationComposition({
-				harnessRuntime: buildLiveHarnessRuntimeAdapter(mcpBridgeRegistry, enforcementRegistry),
-				returnStatusTool: { forRegistry: (registry) => returnStatusTool.forRegistry(registry) },
-				// `actionTools` is a thunk now — this test's list never
-				// changes mid-run, so a constant-returning closure is enough.
-				actionTools: () => actionTools,
-			});
-
-			const result = await composition.runSession(
-				{ db, eventBus, adapterPool, workspace },
-				{ mode: "durable", request, sandboxBasePath, completion: "await" },
+			const result = await run.composition.runSession(
+				{ db, eventBus: run.eventBus, adapterPool, workspace },
+				{ mode: "durable", request, sandboxBasePath: run.sandboxBasePath, completion: "await" },
 			);
 
 			expect(result.mode).toBe("completed");
 			if (result.mode !== "completed") return;
-			if (result.outcome !== "completed") {
-				// Diagnostic only — surfaces the real failure reason
-				// (`agent_session_requests.error_code`/`error_message`, written by
-				// `transitionAgentRunLifecycle`) instead of a bare outcome mismatch.
-				const [failedRequest] = await db
-					.select()
-					.from(agentSessionRequests)
-					.where(eq(agentSessionRequests.id, request.id));
-				throw new Error(
-					`session on ${harness} did not complete: outcome=${result.outcome} ` +
-						`errorCode=${failedRequest?.errorCode ?? "none"} errorMessage=${failedRequest?.errorMessage ?? "none"}`,
-				);
-			}
+			await assertRunOutcomeCompleted(db, request, result, harness);
 
-			const openThread = runnerFor<OpenThreadInput, ThreadView>(actions, "open_thread");
+			const openThread = runnerFor<OpenThreadInput, ThreadView>(run.actions, "open_thread");
 			const view = await openThread(
-				{ actor: founderId, db, eventBus, now: new Date().toISOString() },
+				{ actor: founderId, db, eventBus: run.eventBus, now: new Date().toISOString() },
 				{ id: threadId },
 			);
 			if (!view.ok) {
@@ -423,21 +261,9 @@ describe("a human's send_message wakes an agent, whose own send_message ends the
 			// the same verdict — the bug this test guards against (opencode's own
 			// return persisted as state/outcome "stopped" while the in-memory
 			// result said "completed") passed on the in-memory assertions alone.
-			const sessionRow = await findSessionById(db, result.sessionId);
-			expect(
-				sessionRow?.state,
-				`session row for ${harness} (session ${result.sessionId}) was not marked done`,
-			).toBe("done");
-			expect(
-				sessionRow?.outcome,
-				`session row for ${harness} (session ${result.sessionId}) was not marked completed`,
-			).toBe("completed");
+			await assertSessionRowDone(db, result.sessionId, harness);
 		} finally {
-			orchestrationBoot.dispose();
-			await new Promise<void>((resolve, reject) => {
-				httpServer.close((err: Error | undefined) => (err ? reject(err) : resolve()));
-			});
-			fs.rmSync(sandboxBasePath, { recursive: true, force: true });
+			await run.teardown();
 		}
 	}
 
