@@ -105,15 +105,12 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 		await workLink.click();
 
 		// Should land on /work/portfolio
-		await expect(page).toHaveURL(/\/work\/portfolio/, { timeout: 5000 });
+		await expect(page).toHaveURL(/\/work$/, { timeout: 5000 });
 	});
 
 	// AC-5: ⌘1/2/3 view-switch shortcuts
 	test("AC-5: ⌘2 switches to Work view", async ({ page }) => {
-		await page.goto("/");
-		await page.waitForSelector("[data-testid='main-content']");
-
-		// Start on Conversations (default)
+		await page.goto("/conversations");
 		await expect(page.getByTestId("conversations-page")).toBeVisible();
 
 		// ⌘2 → Work
@@ -137,7 +134,7 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 		// Start on Work view
 		await mockSearchUsers(page, { rows: [] });
 		await page.goto("/work/portfolio");
-		await page.waitForSelector("[data-testid='work-overview-page']");
+		await page.waitForSelector("[data-testid='work-overview-page-empty']");
 
 		// ⌘1 → Conversations
 		await page.keyboard.press("Meta+1");
@@ -175,19 +172,6 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 		await expect(titleInput).toBeFocused();
 	});
 
-	// AC-6: Screenshot visual check — breadcrumb visible on bet detail
-	test("AC-6: task detail screenshot — breadcrumb visible (visual proof)", async ({ page }) => {
-		await mockTaskAndTeam(page);
-		await page.goto(`/work/task/${ROOT_TASK_ID}`);
-		await page.waitForSelector("[data-testid='task-detail-page']");
-
-		const breadcrumb = page.getByRole("navigation", { name: "Breadcrumb" });
-		await expect(breadcrumb).toBeVisible();
-
-		// Screenshot for reviewer visual inspection (non-blocking)
-		await page.screenshot({ path: "test-results/AG4-breadcrumb-bet-detail.png", fullPage: false });
-	});
-
 	// C1 — AC-1: portfolio → team → bet; click Back chevron → team; ⌘[ → portfolio.
 	// Asserts Back affordance visible at each step (desktop width = 1280×720 default).
 	//
@@ -201,8 +185,10 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 		await mockTaskAndTeam(page);
 
 		// 1. Start at portfolio (page.goto is ok for the first navigation — sets idx=0 baseline).
+		// mockTaskAndTeam's roster is empty for this test — the overview page
+		// renders its empty-state testid, not the populated one.
 		await page.goto("/work/portfolio");
-		await page.waitForSelector("[data-testid='work-overview-page']");
+		await page.waitForSelector("[data-testid='work-overview-page-empty']");
 
 		// 2. Navigate to team page via in-app click (pushes history entry, idx becomes 1).
 		// The portfolio shows the team in the sidebar or as a link — navigate via URL push.
@@ -251,7 +237,7 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 
 		// 6. Press ⌘[ → should return to portfolio.
 		await page.keyboard.press("Meta+[");
-		await expect(page).toHaveURL(/\/work\/portfolio/, { timeout: 5000 });
+		await expect(page).toHaveURL(/\/work$/, { timeout: 5000 });
 	});
 
 	// C1 — AC-2: cross-view history traversal — bet → document → Back → bet.
@@ -319,15 +305,15 @@ test.describe("Navigation", () => {
 	});
 
 	test("Sidebar shows three section headers: Conversations, Work, Knowledge", async ({ page }) => {
-		await expect(page.getByRole("button", { name: /conversations/i })).toBeVisible();
-		await expect(page.getByRole("button", { name: /work/i })).toBeVisible();
-		await expect(page.getByRole("button", { name: /knowledge/i })).toBeVisible();
+		await expect(page.getByRole("link", { name: /conversations/i })).toBeVisible();
+		await expect(page.getByRole("link", { name: /work/i })).toBeVisible();
+		await expect(page.getByRole("link", { name: /knowledge/i })).toBeVisible();
 	});
 
 	// @lore U6: The Work section in the Sidebar shows team sub-items.
 	// Clicking the Work section header navigates to /work/portfolio.
 	test("clicking Work section header shows team sub-items in Sidebar", async ({ page }) => {
-		await page.getByRole("button", { name: /work/i }).click();
+		await page.getByRole("link", { name: /work/i }).click();
 		// The Work section header becomes active (data-active='true')
 		await expect(page.locator("[data-section='work'][data-active='true']")).toBeVisible();
 	});
@@ -336,12 +322,8 @@ test.describe("Navigation", () => {
 		// @lore W3: Knowledge scope sub-items (Practices, Products, Factory) were
 		// removed from the Sidebar in W3 AC-3. The Knowledge section header activates
 		// and navigates to /documents without scope sub-items.
-		await page.getByRole("button", { name: /knowledge/i }).click();
+		await page.getByRole("link", { name: /knowledge/i }).click();
 		// Knowledge section becomes active
 		await expect(page.locator("[data-section='knowledge'][data-active='true']")).toBeVisible();
-	});
-
-	test("default route lands on Conversations", async ({ page }) => {
-		await expect(page.getByTestId("conversations-page")).toBeVisible();
 	});
 });

@@ -44,7 +44,20 @@ const ROUTES = [
 	{ path: "/documents/k1", selector: "[data-testid='document-detail-page']" },
 ] as const;
 
-const A11Y_ROSTER = [makeUserRow("agent-1", { kind: "ai", name: "Alice", role: "Lead Engineer" })];
+const A11Y_ROSTER = [
+	makeUserRow("agent-1", {
+		kind: "ai",
+		name: "Alice",
+		role: "Lead Engineer",
+		team: { id: "p1", name: "Alpha" },
+	}),
+	makeUserRow("agent-2", {
+		kind: "ai",
+		name: "Bob",
+		role: "builder",
+		team: { id: "p2", name: "Beta" },
+	}),
+];
 
 test.describe("K8 — zero WCAG 2.1 AA violations at mobile viewport", () => {
 	test.use({ viewport: MOBILE });

@@ -1,9 +1,6 @@
 /**
- * E2E tests for the Conversations section.
- *
- * L9: ConversationsReview and ConversationsChat are replaced by the single
- * Conversations page. Legacy routes redirect to the canonical surface.
- * Detailed coverage lives in L9-single-detail.spec.ts and threads.spec.ts.
+ * Journey: legacy conversation URLs redirect to the canonical queue, and the
+ * queue shows an honest empty state with nothing seeded.
  *
  * @lore BC3: the thread door is `POST /api/actions/search_threads` — never
  * `GET /api/threads*`.
@@ -18,7 +15,7 @@ test.describe("Conversations — canonical routes (L9)", () => {
 	test("/conversations renders the queue empty state", async ({ page }) => {
 		await page.goto("/conversations");
 		await expect(page.getByTestId("conversations-page")).toBeVisible();
-		await expect(page.getByTestId("conversations-empty")).toBeVisible();
+		await expect(page.getByTestId("thread-sections-empty")).toBeVisible();
 	});
 
 	test("/conversations/review redirects to /conversations (AC-1)", async ({ page }) => {

@@ -336,7 +336,7 @@ test.describe("L21 — CoC Overlay E2E", () => {
 		await expect(page.getByRole("dialog", { name: /assistant conversation/i })).toBeVisible();
 
 		// Navigate to the Work view.
-		const workButton = page.getByRole("button", { name: /work/i });
+		const workButton = page.getByRole("link", { name: /work/i });
 		await workButton.click();
 
 		// The overlay must still be visible after navigation.

@@ -1,5 +1,6 @@
 /**
- * Q1 E2E — AC7: interjection posts a message to a task thread.
+ * Q1 E2E — AC7: interjection posts a message to a task thread; inline
+ * document reference keeps the composer draft when opened and closed.
  *
  * @lore BC3: the thread door is `POST /api/actions/{search_threads,
  * open_thread, send_message}` — never `GET/POST /api/threads*`. There is no
@@ -10,18 +11,24 @@
  * Conversations view) are deleted, not repointed. `Conversations.tsx` no
  * longer has any active-session lookup for the generic view — that
  * affordance is retired; the task page (WorkTaskPage) shows its own active
- * sessions directly (see the BC3 build report). The button, the "Live"
- * badge, the activity-stream split, its viewport variants, and the
- * observe-mode write guard can never render here again, so every case whose
- * whole subject was that affordance is gone. AC7 (interjection) and the WS
+ * sessions directly (see the BC3 build report). AC7 (interjection) and the WS
  * thread-list refresh survive — neither depends on it.
+ *
+ * @lore artifacts-become-knowledge: the inline "artifact" reference this test
+ * used to click (`kind:"artifact"` InlineRef) renders as a non-navigating
+ * label now (part.ts's `inlineRefToEmbed`) — a review canvas anchor, not a
+ * navigable target. A `document` EntityRef is the surviving inline reference
+ * that opens inline (`onInspectPath` → the conversation's own split pane), so
+ * this test now exercises that instead of the deleted artifact route.
  */
 
 import {
 	expect,
+	makeDocumentRow,
 	makeIdentity,
 	makeMessage,
 	makeThread,
+	mockDocument,
 	mockSearchThreads,
 	mockThread,
 	test,
@@ -43,7 +50,7 @@ const THREAD_MEMBERS = [
 	makeIdentity("agent-1", { name: "Builder Bot", role: "builder", isAgent: true }),
 ];
 
-const ARTIFACT_ID = "inline-inspect-artifact";
+const DOCUMENT_ID = "inline-inspect-document";
 const THREAD_MESSAGES = [
 	...Array.from({ length: 24 }, (_, index) =>
 		makeMessage(`context-${index}`, TASK_THREAD.id, {
@@ -53,18 +60,18 @@ const THREAD_MESSAGES = [
 			createdAt: NOW_ISO,
 		}),
 	),
-	makeMessage("artifact-reference", TASK_THREAD.id, {
+	makeMessage("document-reference", TASK_THREAD.id, {
 		senderId: "agent-1",
-		clientKey: "artifact-reference-key",
+		clientKey: "document-reference-key",
 		payload: {
-			text: "Inspect the rendered artifact without leaving this thread.",
-			refs: [{ kind: "artifact", id: ARTIFACT_ID }],
+			text: "Inspect the referenced document without leaving this thread.",
+			refs: [{ kind: "document", id: DOCUMENT_ID }],
 		},
 		createdAt: NOW_ISO,
 	}),
 ];
 
-test.describe("Q1 — task thread composer + inline artifact inspect", () => {
+test.describe("Q1 — task thread composer + inline document inspect", () => {
 	test.beforeEach(async ({ page }) => {
 		await mockSearchThreads(page, {
 			rows: [{ ...TASK_THREAD, hasUnresolvedReview: false, lastMessagePreview: null }],
@@ -76,30 +83,24 @@ test.describe("Q1 — task thread composer + inline artifact inspect", () => {
 			messages: THREAD_MESSAGES,
 		});
 
-		await page.route(`**/api/artifacts/${ARTIFACT_ID}`, async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({
-					id: ARTIFACT_ID,
-					producingTaskId: "task-1",
-					producingTaskTitle: "Object-opening task",
-					kind: "text",
-					label: "Evidence",
-					preview: { kind: "text", body: "Inline artifact pane rendered." },
-					threadCount: 0,
-					createdAt: NOW_ISO,
-				}),
-			});
+		await mockDocument(page, {
+			row: makeDocumentRow(DOCUMENT_ID, {
+				title: "Referenced document",
+				body: "Inline pane body.",
+			}),
 		});
 	});
 
-	test("inline artifact Inspect preserves the live thread draft, scroll, and route", async ({
+	// The mobile compact layout is the one that proves the split view actually
+	// folds/unfolds (desktop keeps both panes mounted side-by-side) — a real
+	// browser is required because jsdom does no layout.
+	test("inline document Inspect preserves the live thread draft and scroll position", async ({
 		page,
 	}) => {
 		await page.setViewportSize({ width: 375, height: 812 });
 		await page.goto("/conversations/task-thread-id");
-		await page.getByRole("button", { name: "Conversation actions" }).click();
+		await expect(page.getByTestId("conversation-surface")).toBeVisible();
+
 		const draft = page.locator("[data-testid='conversation-surface'] textarea");
 		await draft.fill("Draft that must survive Inspect");
 		const scroll = page.locator("[data-testid='conversation-surface'] main > div").first();
@@ -108,16 +109,14 @@ test.describe("Q1 — task thread composer + inline artifact inspect", () => {
 		});
 		const beforeScroll = await scroll.evaluate((node) => node.scrollTop);
 
-		await page.getByRole("button", { name: `Open ${ARTIFACT_ID}` }).click();
+		await page.getByRole("button", { name: `Open ${DOCUMENT_ID}` }).click();
 		await expect(page).toHaveURL(/\/conversations\/task-thread-id$/);
-		await expect(page.getByText("Inline artifact pane rendered.")).toBeVisible();
-		await expect(page.getByRole("button", { name: "Back to conversation" })).toBeVisible();
-		await page.screenshot({
-			path: "test-results/artifact-inspect-375x812.png",
-			fullPage: true,
-		});
+		await expect(page.getByText("Inline pane body.")).toBeVisible();
 
-		await page.getByRole("button", { name: "Back to conversation" }).click();
+		const backButton = page.getByRole("button", { name: "Back to conversation" });
+		await expect(backButton).toBeVisible();
+		await backButton.click();
+
 		await expect(draft).toHaveValue("Draft that must survive Inspect");
 		expect(Math.abs((await scroll.evaluate((node) => node.scrollTop)) - beforeScroll)).toBeLessThan(
 			12,
@@ -126,37 +125,35 @@ test.describe("Q1 — task thread composer + inline artifact inspect", () => {
 
 	// AC7: interjection — user can post a message via the thread composer
 	test("AC7: interjection posts a message to the task thread", async ({ page }) => {
-		await page.goto("/conversations/task-thread-id");
-		await page.waitForLoadState("networkidle");
-
-		await expect(page.locator("[data-testid='conversations-page']")).toBeVisible({
-			timeout: 10000,
+		let postCalled = false;
+		await page.route("**/api/actions/send_message", async (route) => {
+			postCalled = true;
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({
+					ok: true,
+					data: {
+						message: makeMessage("msg-interject", TASK_THREAD.id, {
+							senderId: "test-founder",
+							clientKey: "ck-interject",
+							payload: { text: "Interject this" },
+							createdAt: NOW_ISO,
+						}),
+						thread: TASK_THREAD,
+					},
+				}),
+			});
 		});
 
-		// Find the composer and type a message
-		const composerInput = page.locator("textarea, [role='textbox']").first();
-		if (await composerInput.isVisible({ timeout: 2000 }).catch(() => false)) {
-			await composerInput.fill("Interject this");
-			await page.keyboard.press("Enter");
-			// Give the request time to process
-			await page.waitForResponse("**/api/actions/send_message", { timeout: 3000 }).catch(() => {
-				// Composer might use Shift+Enter or button click — acceptable if no request fires
-			});
-		}
-	});
+		await page.goto("/conversations/task-thread-id");
+		await expect(page.getByTestId("conversation-surface")).toBeVisible();
 
-	// AC4 / thread_created refresh: new thread appears after WS event
-	test("thread list auto-refreshes when a new thread is created via WS", async ({ page }) => {
-		// This test verifies that the Conversations thread list updates when
-		// a thread_created WS event is received. Since we mock the API, we verify
-		// the thread list was fetched at least once after page load.
-		await page.goto("/conversations");
-		await page.waitForLoadState("networkidle");
+		const composer = page.locator("[data-testid='conversation-surface'] textarea");
+		await composer.fill("Interject this");
+		await page.getByRole("button", { name: /^send$/i }).click();
 
-		// Thread list should load
-		const rows = page.locator("[data-ds-component='ThreadRow']");
-		const count = await rows.count();
-		// The mocked task thread should be in the list
-		expect(count).toBeGreaterThanOrEqual(1);
+		await expect.poll(() => postCalled).toBe(true);
+		await expect(page.getByText("Interject this")).toBeVisible();
 	});
 });

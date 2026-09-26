@@ -170,7 +170,20 @@ test.describe("K8 — Touch-target audit at mobile viewport (≤ 1024px)", () =>
 				}),
 			],
 		});
-		const roster = [makeUserRow("agent-1", { kind: "ai", name: "Alice", role: "Lead Engineer" })];
+		const roster = [
+			makeUserRow("agent-1", {
+				kind: "ai",
+				name: "Alice",
+				role: "Lead Engineer",
+				team: { id: "p1", name: "Alpha" },
+			}),
+			makeUserRow("agent-2", {
+				kind: "ai",
+				name: "Bob",
+				role: "builder",
+				team: { id: "p2", name: "Beta" },
+			}),
+		];
 		await mockSearchUsers(page, { rows: roster });
 		await mockTeamPage(page, {
 			teamId: "p1",
