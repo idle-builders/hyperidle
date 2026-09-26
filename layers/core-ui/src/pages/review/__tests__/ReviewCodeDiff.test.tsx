@@ -86,7 +86,7 @@ describe("ReviewCodeDiff canvas", () => {
 	// Proof strategy: CodeDeltaRenderer (the DS core) is what emits `data-diff-type`
 	// attributes and the `aria-label="Code diff: <file>"` on the <pre> element.
 	// If FileDiff stops composing the DS core these attributes vanish from the DOM.
-	it("K2b — FileDiff delegates structure to DS CodeDeltaRenderer (diff-type attrs + aria-label present)", () => {
+	it("FileDiff delegates structure to DS CodeDeltaRenderer (diff-type attrs + aria-label present)", () => {
 		// Confirm CodeDeltaRenderer is exported from the DS (import succeeds).
 		expect(CodeDeltaRenderer).toBeDefined();
 

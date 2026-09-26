@@ -22,7 +22,7 @@ describe("ReviewComposition", () => {
 		};
 	}
 
-	it("AC1: renders the bet/task breadcrumb, prompt, outcome and KPIs", () => {
+	it("renders the bet/task breadcrumb, prompt, outcome and KPIs", () => {
 		renderComposition();
 
 		expect(
@@ -41,7 +41,7 @@ describe("ReviewComposition", () => {
 		// dropped rather than preserving the mock to keep it green.
 	});
 
-	it("AC2: surfaces derived needs with jump links", () => {
+	it("surfaces derived needs with jump links", () => {
 		renderComposition();
 
 		for (const need of REVIEW_COMPOSITION_SUBJECT.needs) {
@@ -50,7 +50,7 @@ describe("ReviewComposition", () => {
 		}
 	});
 
-	it("AC3: clicking a need opens the linked artifact in the right pane", async () => {
+	it("clicking a need opens the linked artifact in the right pane", async () => {
 		const user = userEvent.setup();
 		const linkedNeed = REVIEW_COMPOSITION_SUBJECT.needs.find((n) => n.artifactId);
 		const target = REVIEW_COMPOSITION_SUBJECT.artifacts.find(
@@ -65,7 +65,7 @@ describe("ReviewComposition", () => {
 		expect(within(pane).getAllByText(target!.title).length).toBeGreaterThan(0);
 	});
 
-	it("AC4: clicking an artifact row opens the family canvas in the right pane", async () => {
+	it("clicking an artifact row opens the family canvas in the right pane", async () => {
 		const user = userEvent.setup();
 		const artifact = REVIEW_COMPOSITION_SUBJECT.artifacts.find((a) => a.kind === "code_diff")!;
 		renderComposition();
@@ -78,7 +78,7 @@ describe("ReviewComposition", () => {
 		expect(within(pane).getByText(codePayload.description)).toBeInTheDocument();
 	});
 
-	it("AC5: closing the pane returns the composition to full width", async () => {
+	it("closing the pane returns the composition to full width", async () => {
 		const user = userEvent.setup();
 		renderComposition({ initialOpenArtifactId: "artifact:code:1" });
 
@@ -88,7 +88,7 @@ describe("ReviewComposition", () => {
 		expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
 	});
 
-	it("AC6: Esc closes the right pane", async () => {
+	it("Esc closes the right pane", async () => {
 		const user = userEvent.setup();
 		renderComposition({ initialOpenArtifactId: "artifact:code:1" });
 
@@ -98,7 +98,7 @@ describe("ReviewComposition", () => {
 		expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
 	});
 
-	it("AC7: renders one global conversation with reference chips", () => {
+	it("renders one global conversation with reference chips", () => {
 		renderComposition();
 
 		const conversation = screen.getByText("Conversation").closest("section")!;
@@ -110,7 +110,7 @@ describe("ReviewComposition", () => {
 		expect(within(conversation).getByText(ref!.label)).toBeInTheDocument();
 	});
 
-	it("AC8: verdict buttons submit one binding verdict over the Subject", async () => {
+	it("verdict buttons submit one binding verdict over the Subject", async () => {
 		const user = userEvent.setup();
 		const { onSubmitVerdict } = renderComposition();
 
@@ -121,7 +121,7 @@ describe("ReviewComposition", () => {
 		expect(onSubmitVerdict).toHaveBeenCalledWith("request-changes");
 	});
 
-	it("AC9: overflow verdict options submit the corresponding decision", async () => {
+	it("overflow verdict options submit the corresponding decision", async () => {
 		const user = userEvent.setup();
 		const { onSubmitVerdict } = renderComposition();
 

@@ -43,7 +43,7 @@ const defaultProps = {
 // AD5 — AC-4: Conversations blocking badge
 // ---------------------------------------------------------------------------
 
-describe("AD5 — AC-4: Sidebar conversations blocking badge", () => {
+describe("Sidebar conversations blocking badge", () => {
 	it("renders badge with count when conversationsBlockingCount is 3", () => {
 		render(<Sidebar {...defaultProps} conversationsBlockingCount={3} />);
 

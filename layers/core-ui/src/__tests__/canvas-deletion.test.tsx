@@ -20,7 +20,7 @@ import { describe, expect, it } from "vitest";
 const SHELL_DIR = path.resolve(__dirname, "../shell");
 const HOOKS_DIR = path.resolve(__dirname, "../hooks");
 
-describe("U9 AC-10: Canvas/Kanban files removed", () => {
+describe("Canvas/Kanban files removed", () => {
 	it("Canvas.tsx does not exist in shell/", () => {
 		expect(existsSync(path.join(SHELL_DIR, "Canvas.tsx"))).toBe(false);
 	});

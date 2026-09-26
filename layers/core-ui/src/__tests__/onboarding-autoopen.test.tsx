@@ -66,7 +66,7 @@ afterEach(() => {
 	vi.restoreAllMocks();
 });
 
-describe("AE2 — AppShell ?onboarding=true auto-open", () => {
+describe("AppShell ?onboarding=true auto-open", () => {
 	// AC-4: ?onboarding=true opens the CoC overlay
 	it("opens the CoC/Assistant overlay when ?onboarding=true is in the URL", async () => {
 		// AD9: navigate to /work?onboarding=true (was /work/portfolio?onboarding=true)

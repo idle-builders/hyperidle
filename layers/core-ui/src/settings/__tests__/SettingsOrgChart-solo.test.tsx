@@ -50,7 +50,7 @@ function setupCall(users: MockUserRow[]): void {
 	});
 }
 
-describe("AD3 AC-2: SettingsOrgChart — solo contextual message", () => {
+describe("SettingsOrgChart — solo contextual message", () => {
 	beforeEach(() => {
 		callMock.mockReset();
 		mockShowToast.mockClear();

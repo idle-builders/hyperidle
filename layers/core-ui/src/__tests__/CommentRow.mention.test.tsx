@@ -27,7 +27,7 @@ const baseMsg: Message = {
 	payload: { text: "Hello world" },
 };
 
-describe("AE5 — CommentRow mention rendering", () => {
+describe("CommentRow mention rendering", () => {
 	it("renders plain text message without mention spans (no refs)", () => {
 		const msg: Message = {
 			...baseMsg,

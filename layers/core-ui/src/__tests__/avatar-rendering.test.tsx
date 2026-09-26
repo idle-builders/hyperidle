@@ -38,7 +38,7 @@ function makeItem(overrides: Partial<ThreadItem> = {}): ThreadItem {
 	};
 }
 
-describe("M3 — Thread row rendering: no left-side avatar (visual parity pass)", () => {
+describe("Thread row rendering: no left-side avatar (visual parity pass)", () => {
 	afterEach(() => {
 		// no teardown needed
 	});

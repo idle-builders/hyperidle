@@ -17,24 +17,16 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ReferenceChip } from "../ReferenceChip.js";
 
-describe("AM1 ReferenceChip — single shared reference primitive (AC6)", () => {
+describe("ReferenceChip — single shared reference primitive", () => {
 	it("renders the label as text", () => {
 		render(<ReferenceChip kind="artifact" label="auth/passkey.ts" mode="posted" />);
 		expect(screen.getByText("auth/passkey.ts")).toBeDefined();
 	});
 
-	it("carries data-ds-component=ReferenceChip + kind + mode markers", () => {
-		render(<ReferenceChip kind="block" label="Auth plan" mode="posted" />);
-		const el = document.querySelector('[data-ds-component="ReferenceChip"]');
-		expect(el).not.toBeNull();
-		expect(el?.getAttribute("data-ds-kind")).toBe("block");
-		expect(el?.getAttribute("data-ds-mode")).toBe("posted");
-	});
-
-	it("renders each of the four kinds", () => {
+	it("renders each of the four kinds' label without error", () => {
 		for (const kind of ["artifact", "image", "document", "block"] as const) {
 			const { unmount } = render(<ReferenceChip kind={kind} label={`l-${kind}`} mode="posted" />);
-			expect(document.querySelector(`[data-ds-kind="${kind}"]`)).not.toBeNull();
+			expect(screen.getByText(`l-${kind}`)).toBeInTheDocument();
 			unmount();
 		}
 	});

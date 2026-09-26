@@ -30,7 +30,7 @@ function stripAtLayer(css: string): string {
 	return css.replace(/@layer\s+base\s*\{/, "").replace(/^\}$/m, ""); // remove the final closing brace
 }
 
-describe("AI6 — token presence: 5 new tokens + --scrim resolve on :root", () => {
+describe("Token presence: 5 new tokens + --scrim resolve on :root", () => {
 	let styleEl: HTMLStyleElement;
 
 	beforeEach(() => {

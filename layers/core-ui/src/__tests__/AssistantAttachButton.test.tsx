@@ -28,7 +28,7 @@ function renderWithContext(
 	);
 }
 
-describe("AD8b — AssistantAttachButton", () => {
+describe("AssistantAttachButton", () => {
 	it("renders nothing when overlayOpen=false (default context)", () => {
 		render(<AssistantAttachButton ref={testRef} />);
 		expect(screen.queryByTestId("assistant-attach-button")).not.toBeInTheDocument();

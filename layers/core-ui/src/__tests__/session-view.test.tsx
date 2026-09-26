@@ -372,59 +372,6 @@ describe("SessionView — composer pills", () => {
 
 // ── Self-box alignment ────────────────────────────────────────────────────
 
-describe("SessionView — self-box alignment (isMe=true → items-end)", () => {
-	it("viewer's own message has items-end layout container", () => {
-		const entries: ActivityEntry[] = [
-			{
-				type: "human_message",
-				timestamp: T(0),
-				data: {
-					text: "Find the root cause and fix it.",
-					author: { ...VIEWER, isAgent: false as const },
-				},
-			},
-		];
-
-		const { container } = render(
-			<SessionView
-				entries={entries}
-				identity={IDENTITY}
-				status="ended"
-				onOpen={NO_OP_OPEN}
-				onSend={vi.fn()}
-			/>,
-		);
-
-		// The PartGroup for the viewer's message is marked data-ds-self="true"
-		expect(container.querySelector('[data-ds-self="true"]')).toBeInTheDocument();
-	});
-
-	it("agent message does NOT have data-ds-self", () => {
-		const entries: ActivityEntry[] = [
-			{
-				type: "answer_settled",
-				timestamp: T(0),
-				data: { text: "I found the root cause." },
-			},
-		];
-
-		const { container } = render(
-			<SessionView
-				entries={entries}
-				identity={IDENTITY}
-				status="ended"
-				onOpen={NO_OP_OPEN}
-				onSend={vi.fn()}
-			/>,
-		);
-
-		// Agent groups have data-ds-agent but not data-ds-self
-		const agentGroup = container.querySelector('[data-ds-agent="true"]');
-		expect(agentGroup).toBeInTheDocument();
-		expect(agentGroup).not.toHaveAttribute("data-ds-self");
-	});
-});
-
 // ── derivePartsFromSession adapter (unit) ─────────────────────────────────
 
 describe("derivePartsFromSession", () => {

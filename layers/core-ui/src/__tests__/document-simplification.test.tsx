@@ -129,7 +129,7 @@ function renderCreate(): ReturnType<typeof render> {
 // 1. Static scope pills (All/Shared/Team/Private) always render
 // ---------------------------------------------------------------------------
 
-describe("AD6 — DocumentList static scope pills", () => {
+describe("DocumentList static scope pills", () => {
 	beforeEach(() => {
 		// Items with various scopeKinds
 		mockUseDocuments.mockReturnValue({
@@ -192,7 +192,7 @@ describe("AD6 — DocumentList static scope pills", () => {
 // SCOPE_PILL_OPTIONS collapsed from {factory,practice}/{team,product} to a
 // direct 1:1 with the 3 real scope kinds. This test now locks that: Shared
 // shows factory only.
-describe("AD6 — DocumentList Shared scope filter", () => {
+describe("DocumentList Shared scope filter", () => {
 	const MIXED_ITEMS = [
 		makeItem("k-factory", "active", "factory", "Factory knowledge"),
 		makeItem("k-team", "active", "team", "Team knowledge"),
@@ -233,7 +233,7 @@ describe("AD6 — DocumentList Shared scope filter", () => {
 // 3. "Private" filter shows only user-scoped items
 // ---------------------------------------------------------------------------
 
-describe("AD6 — DocumentList Private scope filter", () => {
+describe("DocumentList Private scope filter", () => {
 	const MIXED_ITEMS = [
 		makeItem("k-factory", "active", "factory", "Factory knowledge"),
 		makeItem("k-user", "active", "user", "My private note"),
@@ -269,7 +269,7 @@ describe("AD6 — DocumentList Private scope filter", () => {
 // 4. Kind badge NOT rendered in list rows
 // ---------------------------------------------------------------------------
 
-describe("AD6 — DocumentList kind badge removed from rows", () => {
+describe("DocumentList kind badge removed from rows", () => {
 	beforeEach(() => {
 		mockUseDocuments.mockReturnValue({
 			documents: [
@@ -316,7 +316,7 @@ describe("AD6 — DocumentList kind badge removed from rows", () => {
 // 8. Create page has 3-pill scope picker (not a dropdown)
 // ---------------------------------------------------------------------------
 
-describe("AD6 — DocumentCreate 3-pill scope picker", () => {
+describe("DocumentCreate 3-pill scope picker", () => {
 	afterEach(() => {
 		vi.clearAllMocks();
 	});
@@ -365,7 +365,7 @@ describe("AD6 — DocumentCreate 3-pill scope picker", () => {
 // 9. Create page has no kind selector
 // ---------------------------------------------------------------------------
 
-describe("AD6 — DocumentCreate no kind selector", () => {
+describe("DocumentCreate no kind selector", () => {
 	afterEach(() => {
 		vi.clearAllMocks();
 	});
@@ -390,7 +390,7 @@ describe("AD6 — DocumentCreate no kind selector", () => {
 // 10. Team pill is disabled when no team context
 // ---------------------------------------------------------------------------
 
-describe("AD6 — DocumentCreate Team pill disabled without team", () => {
+describe("DocumentCreate Team pill disabled without team", () => {
 	afterEach(() => {
 		vi.clearAllMocks();
 	});
@@ -426,7 +426,7 @@ describe("AD6 — DocumentCreate Team pill disabled without team", () => {
 // 12. scope-labels utility exports correct constants
 // ---------------------------------------------------------------------------
 
-describe("AD6 — scope-labels utility", () => {
+describe("Scope-labels utility", () => {
 	it("SCOPE_PILL_OPTIONS has exactly 4 items with correct labels", async () => {
 		const { SCOPE_PILL_OPTIONS } = await import("../utils/scope-labels");
 		expect(SCOPE_PILL_OPTIONS).toHaveLength(4);

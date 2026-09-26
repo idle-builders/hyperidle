@@ -86,6 +86,11 @@ async function openOverflow(user: ReturnType<typeof userEvent.setup>): Promise<v
 }
 
 afterEach(() => {
+	// Unmount every rendered tree before resetting the mock — a component with
+	// a pending async effect (e.g. HostThreadSection's real useThreads) that
+	// fires after callMock.mockReset() would call a mock with no
+	// implementation, and `call(...).then(...)` on `undefined` throws.
+	cleanup();
 	callMock.mockReset();
 	vi.restoreAllMocks();
 });

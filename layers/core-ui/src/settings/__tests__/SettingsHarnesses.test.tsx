@@ -137,7 +137,7 @@ afterEach(() => {
 
 // ── AC1: Detection/status ─────────────────────────────────────────────────────
 
-describe("AM4 AC1 — SettingsHarnesses renders in-scope backends with status/version/auth", () => {
+describe("SettingsHarnesses renders in-scope backends with status/version/auth", () => {
 	it("renders each backend name from the descriptor list", async () => {
 		mockCall();
 		render(<SettingsHarnesses />);
@@ -162,7 +162,7 @@ describe("AM4 AC1 — SettingsHarnesses renders in-scope backends with status/ve
 
 // ── AC4: Scope — only in-scope kinds surface ─────────────────────────────────
 
-describe("AM4 AC4 — SettingsHarnesses respects AM2 scope", () => {
+describe("SettingsHarnesses respects AM2 scope", () => {
 	it("renders exactly the descriptor-provided names (no out-of-scope kind fabricated)", async () => {
 		mockCall();
 		render(<SettingsHarnesses />);
@@ -195,7 +195,7 @@ describe("AM4 AC4 — SettingsHarnesses respects AM2 scope", () => {
 
 // ── Loading state ─────────────────────────────────────────────────────────────
 
-describe("AM4 — SettingsHarnesses loading state", () => {
+describe("SettingsHarnesses loading state", () => {
 	it("renders a skeleton/loading indicator while fetching", () => {
 		callMock.mockReset();
 		callMock.mockImplementation(() => new Promise(() => {}));
@@ -208,7 +208,7 @@ describe("AM4 — SettingsHarnesses loading state", () => {
 
 // ── Error state ───────────────────────────────────────────────────────────────
 
-describe("AM4 — SettingsHarnesses error state", () => {
+describe("SettingsHarnesses error state", () => {
 	it("renders error state when open_user fails", async () => {
 		callMock.mockReset();
 		callMock.mockResolvedValue({ ok: false, problems: [{ code: "server_error", message: "no" }] });
@@ -223,7 +223,7 @@ describe("AM4 — SettingsHarnesses error state", () => {
 
 // ── Empty state ───────────────────────────────────────────────────────────────
 
-describe("AM4 — SettingsHarnesses empty state", () => {
+describe("SettingsHarnesses empty state", () => {
 	it("renders empty state when no descriptors returned", async () => {
 		mockCall([]);
 
@@ -237,7 +237,7 @@ describe("AM4 — SettingsHarnesses empty state", () => {
 
 // ── Re-detect (Refresh) button ────────────────────────────────────────────────
 
-describe("AM4 — SettingsHarnesses Re-detect (Refresh) button", () => {
+describe("SettingsHarnesses Re-detect (Refresh) button", () => {
 	it("renders a Refresh/Re-detect button in the section header", async () => {
 		mockCall();
 		render(<SettingsHarnesses />);
@@ -264,7 +264,7 @@ describe("AM4 — SettingsHarnesses Re-detect (Refresh) button", () => {
 
 // ── Disabled row ──────────────────────────────────────────────────────────────
 
-describe("AM4 — SettingsHarnesses disabled row renders correctly", () => {
+describe("SettingsHarnesses disabled row renders correctly", () => {
 	it("renders 'Disabled —' status line for discovery.disabled=true", async () => {
 		const descriptorsWithDisabled = [
 			MOCK_DESCRIPTORS[0],

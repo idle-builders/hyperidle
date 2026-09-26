@@ -31,7 +31,7 @@ function renderSetupFlow(): ReturnType<typeof render> {
 // ---------------------------------------------------------------------------
 // AC-53: Card container with shadow, brand + tagline, illustration
 // ---------------------------------------------------------------------------
-describe("W3 AC-53 — Onboarding card layout", () => {
+describe("Onboarding card layout", () => {
 	it("renders a card container with an onboarding card testid", () => {
 		renderSetupFlow();
 		const card = screen.getByTestId("onboarding-card");
@@ -61,7 +61,7 @@ describe("W3 AC-53 — Onboarding card layout", () => {
 // ---------------------------------------------------------------------------
 // AC-54: Three fields
 // ---------------------------------------------------------------------------
-describe("W3 AC-54 — Three fields in onboarding", () => {
+describe("Three fields in onboarding", () => {
 	it("renders 'Your name' label (not just 'Name')", () => {
 		renderSetupFlow();
 		// AC-54 specifies "Your name" label
@@ -105,7 +105,7 @@ describe("W3 AC-54 — Three fields in onboarding", () => {
 // ---------------------------------------------------------------------------
 // AC-55: "Start HyperIdle" button text and disabled state
 // ---------------------------------------------------------------------------
-describe("W3 AC-55 — Start HyperIdle button", () => {
+describe("Start HyperIdle button", () => {
 	it("button text is 'Start HyperIdle'", () => {
 		renderSetupFlow();
 		const btn = screen.getByRole("button", { name: /start hyperidle/i });
@@ -130,7 +130,7 @@ describe("W3 AC-55 — Start HyperIdle button", () => {
 // ---------------------------------------------------------------------------
 // AC-56: No step indicator, no email field, no team name field
 // ---------------------------------------------------------------------------
-describe("W3 AC-56 — No step indicator or extra fields", () => {
+describe("No step indicator or extra fields", () => {
 	it("does NOT render a step indicator", () => {
 		renderSetupFlow();
 		// Step indicators usually have step numbers or a progress bar

@@ -56,7 +56,7 @@ function renderSettingsAgents(): ReturnType<typeof render> {
 	);
 }
 
-describe("AH4 AC2 — SettingsAgents add form", () => {
+describe("SettingsAgents add form", () => {
 	// AV2: Team picker moved out of Add Agent form — AgentEditor is used instead.
 	// Tests updated to match the new Add Agent flow (AgentEditor inline form).
 	beforeEach(() => {

@@ -16,7 +16,7 @@ import {
 	type AssistantContextValue,
 } from "../contexts/AssistantContext";
 
-describe("AD8b — AssistantContext", () => {
+describe("AssistantContext", () => {
 	it("AssistantContext default value has overlayOpen=false", () => {
 		let capturedValue: AssistantContextValue | null = null;
 

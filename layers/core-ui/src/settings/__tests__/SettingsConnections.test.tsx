@@ -80,7 +80,7 @@ function openUserData(): Record<string, unknown> {
 	};
 }
 
-describe("AN1 — SettingsConnections component", () => {
+describe("SettingsConnections component", () => {
 	beforeEach(() => {
 		callMock.mockReset();
 		callMock.mockImplementation((name: string) => {
@@ -155,7 +155,7 @@ describe("AN1 — SettingsConnections component", () => {
 	});
 
 	// AC3: needs-attention health chip
-	describe("AC3 — needs-attention health chip shown", () => {
+	describe("Needs-attention health chip shown", () => {
 		it("shows 'Needs attention' chip for SendGrid connection", async () => {
 			render(<SettingsConnections />);
 			const chip = await screen.findByText(/needs attention/i);
@@ -164,7 +164,7 @@ describe("AN1 — SettingsConnections component", () => {
 	});
 
 	// AC4: no trust tier, no secret in DOM
-	describe("AC4 — no trust-tier badge, no secret value in DOM", () => {
+	describe("No trust-tier badge, no secret value in DOM", () => {
 		it("does not render any trust tier text", async () => {
 			render(<SettingsConnections />);
 			await screen.findByText("GitHub"); // wait for load
@@ -230,7 +230,7 @@ describe("AN1 — SettingsConnections component", () => {
 
 // ── Story existence check ─────────────────────────────────────────────────────
 
-describe("AN1 — SettingsConnections story", () => {
+describe("SettingsConnections story", () => {
 	it("story module exports a Populated story", async () => {
 		const stories = await import("../SettingsConnections.stories.js");
 		expect(typeof stories.Populated).toBe("function");

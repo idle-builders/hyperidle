@@ -39,7 +39,7 @@ function setBridge(backendMode: "local" | "shared" | null | undefined, present: 
 	});
 }
 
-describe("AF15 AC-3 — SettingsBackend: reads backendMode from bridge", () => {
+describe("SettingsBackend: reads backendMode from bridge", () => {
 	afterEach(() => {
 		Object.defineProperty(window, "__HYPERIDLE__", {
 			value: undefined,

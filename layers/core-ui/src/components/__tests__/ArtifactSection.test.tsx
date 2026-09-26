@@ -299,7 +299,7 @@ describe("ArtifactSection", () => {
 
 	// ── AC10: click → split detail ────────────────────────────────────────────
 
-	it("AC10: clicking an item row renders the split detail pane", async () => {
+	it("clicking an item row renders the split detail pane", async () => {
 		vi.mocked(useDocuments).mockReturnValue({
 			status: "ready",
 			documents: [ITEM_A],

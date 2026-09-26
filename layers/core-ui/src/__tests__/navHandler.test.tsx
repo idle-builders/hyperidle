@@ -21,7 +21,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { OpenHandler, OpenTarget } from "../components/parts";
 import { createOpenHandler } from "../services/open-handler";
 
-describe("AM1 navHandler — OpenTarget → navigate (N1, AC8)", () => {
+describe("navHandler — OpenTarget → navigate", () => {
 	it("host + document → navigate('/documents/:id')", () => {
 		const navigate = vi.fn();
 		const handler: OpenHandler = createOpenHandler(navigate);

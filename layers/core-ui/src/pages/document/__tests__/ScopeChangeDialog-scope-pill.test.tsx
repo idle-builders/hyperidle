@@ -49,7 +49,7 @@ const BASE_PROPS = {
 	hasParent: true,
 };
 
-describe("AI5: ScopeChangeDialog — scope-pill-change picker", () => {
+describe("ScopeChangeDialog — scope-pill-change picker", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mockUser();

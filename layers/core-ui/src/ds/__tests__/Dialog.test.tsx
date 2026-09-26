@@ -44,7 +44,7 @@ function makeProps(overrides: Partial<DialogProps> = {}): DialogProps {
 // AC-1 — Chrome renders (title, role, close button)
 // ---------------------------------------------------------------------------
 
-describe("AI2 — Dialog chrome (AC-1)", () => {
+describe("Dialog chrome (AC-1)", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 
@@ -153,7 +153,7 @@ describe("AI2 — Dialog chrome (AC-1)", () => {
 // AC-1 — Dismissal guard: dirty dialog shows DiscardConfirmStrip
 // ---------------------------------------------------------------------------
 
-describe("AI2 — Dialog dismissal guard (AC-1)", () => {
+describe("Dialog dismissal guard (AC-1)", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 
@@ -273,7 +273,7 @@ describe("AI2 — Dialog dismissal guard (AC-1)", () => {
 // AC-1 — Portal: renders into #overlay-root (body sibling of #root)
 // ---------------------------------------------------------------------------
 
-describe("AI2 — Dialog portal mount (AC-1, D3)", () => {
+describe("Dialog portal mount (AC-1, D3)", () => {
 	let appRoot: HTMLDivElement;
 	let container: HTMLDivElement;
 	let root: Root;
@@ -329,7 +329,7 @@ describe("AI2 — Dialog portal mount (AC-1, D3)", () => {
 // AC-2 — Focus trap: focus enters dialog on open
 // ---------------------------------------------------------------------------
 
-describe("AI2 — Dialog focus behavior (AC-2)", () => {
+describe("Dialog focus behavior (AC-2)", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 
@@ -442,7 +442,7 @@ describe("AI2 — Dialog focus behavior (AC-2)", () => {
 // AC-4 — Mobile bottom-sheet class
 // ---------------------------------------------------------------------------
 
-describe("AI2 — Dialog mobile adaptation (AC-4)", () => {
+describe("Dialog mobile adaptation (AC-4)", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 
@@ -478,7 +478,7 @@ describe("AI2 — Dialog mobile adaptation (AC-4)", () => {
 // AC-1 — Guard strip: keyboard discard path (§1.2)
 // ---------------------------------------------------------------------------
 
-describe("AI2 — Dialog guard strip keyboard discard path (§1.2)", () => {
+describe("Dialog guard strip keyboard discard path (§1.2)", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 

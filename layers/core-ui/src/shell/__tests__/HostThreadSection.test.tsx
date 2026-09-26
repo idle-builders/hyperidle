@@ -91,7 +91,12 @@ describe("HostThreadSection states", () => {
 
 	it("renders error state", () => {
 		mockNoHostSearch();
-		useThreadMock.mockReturnValue({ status: "error", data: null, error: "HTTP 500", refresh: vi.fn() });
+		useThreadMock.mockReturnValue({
+			status: "error",
+			data: null,
+			error: "HTTP 500",
+			refresh: vi.fn(),
+		});
 
 		render(<HostThreadSection threadId="t-host-001" title="Discussion" />);
 
@@ -102,7 +107,13 @@ describe("HostThreadSection states", () => {
 		mockNoHostSearch();
 		useThreadMock.mockReturnValue({
 			status: "ready",
-			data: { thread: THREAD_FIXTURE, members: [], messages: [], headMessageId: null, hostTitle: null },
+			data: {
+				thread: THREAD_FIXTURE,
+				members: [],
+				messages: [],
+				headMessageId: null,
+				hostTitle: null,
+			},
 			error: null,
 			refresh: vi.fn(),
 		});
@@ -158,7 +169,14 @@ describe("HostThreadSection states", () => {
 	it("resolves via useThreads({host}) when only a host is given (document page)", () => {
 		useThreadsMock.mockReturnValue({
 			status: "ready",
-			threads: [{ ...THREAD_FIXTURE, id: "t-resolved", hasUnresolvedReview: false, lastMessagePreview: null }],
+			threads: [
+				{
+					...THREAD_FIXTURE,
+					id: "t-resolved",
+					hasUnresolvedReview: false,
+					lastMessagePreview: null,
+				},
+			],
 			error: null,
 			retry: vi.fn(),
 		});
@@ -243,7 +261,13 @@ describe("HostThreadSection — create-on-first-post", () => {
 			if (name === "adjust_thread") {
 				return {
 					ok: true,
-					data: { thread: createdRow, members: [], messages: [], headMessageId: null, hostTitle: null },
+					data: {
+						thread: createdRow,
+						members: [],
+						messages: [],
+						headMessageId: null,
+						hostTitle: null,
+					},
 				};
 			}
 			if (name === "send_message") {
@@ -270,7 +294,9 @@ describe("HostThreadSection — create-on-first-post", () => {
 
 		render(<HostThreadSection host={HOST} title="Discussion" />);
 
-		await waitFor(() => expect(screen.getByTestId("host-thread-section-empty")).toBeInTheDocument());
+		await waitFor(() =>
+			expect(screen.getByTestId("host-thread-section-empty")).toBeInTheDocument(),
+		);
 
 		await user.type(screen.getByTestId("composer-textarea"), "Hello there");
 		await user.click(screen.getByRole("button", { name: "Send" }));
@@ -290,19 +316,26 @@ describe("HostThreadSection — create-on-first-post", () => {
 		callMock.mockImplementation(async (name: string) => {
 			if (name === "search_threads") return { ok: true, data: [] };
 			if (name === "adjust_thread") {
-				return { ok: false, problems: [{ code: "forbidden", message: "Cannot start a thread here." }] };
+				return {
+					ok: false,
+					problems: [{ code: "forbidden", message: "Cannot start a thread here." }],
+				};
 			}
 			throw new Error(`unexpected call: ${name}`);
 		});
 
 		render(<HostThreadSection host={HOST} title="Discussion" />);
 
-		await waitFor(() => expect(screen.getByTestId("host-thread-section-empty")).toBeInTheDocument());
+		await waitFor(() =>
+			expect(screen.getByTestId("host-thread-section-empty")).toBeInTheDocument(),
+		);
 
 		await user.type(screen.getByTestId("composer-textarea"), "Hello there");
 		await user.click(screen.getByRole("button", { name: "Send" }));
 
-		await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Cannot start a thread here."));
+		await waitFor(() =>
+			expect(screen.getByRole("alert")).toHaveTextContent("Cannot start a thread here."),
+		);
 		expect(callMock.mock.calls.some((c) => c[0] === "send_message")).toBe(false);
 	});
 });
@@ -375,7 +408,13 @@ describe("HostThreadSection — filterBlockId", () => {
 		// blocks it filtered out.
 		mockReadyThread();
 
-		render(<HostThreadSection threadId="t-filter-001" title="Discussion" filterBlockId="block-filter-A" />);
+		render(
+			<HostThreadSection
+				threadId="t-filter-001"
+				title="Discussion"
+				filterBlockId="block-filter-A"
+			/>,
+		);
 
 		expect(useThreadMock).toHaveBeenCalledWith("t-filter-001");
 	});
@@ -383,14 +422,24 @@ describe("HostThreadSection — filterBlockId", () => {
 	it("shows only the messages matching filterBlockId, or all when it is not set", () => {
 		mockReadyThread();
 		const { rerender } = render(
-			<HostThreadSection threadId="t-filter-001" title="Discussion" filterBlockId="block-filter-A" />,
+			<HostThreadSection
+				threadId="t-filter-001"
+				title="Discussion"
+				filterBlockId="block-filter-A"
+			/>,
 		);
 		expect(screen.getByText("Block A message 1")).toBeInTheDocument();
 		expect(screen.getByText("Block A message 2")).toBeInTheDocument();
 		expect(screen.queryByText("Block B message 1")).not.toBeInTheDocument();
 		expect(screen.queryByText("Unanchored message 1")).not.toBeInTheDocument();
 
-		rerender(<HostThreadSection threadId="t-filter-001" title="Discussion" filterBlockId="block-filter-B" />);
+		rerender(
+			<HostThreadSection
+				threadId="t-filter-001"
+				title="Discussion"
+				filterBlockId="block-filter-B"
+			/>,
+		);
 		expect(screen.getByText("Block B message 1")).toBeInTheDocument();
 		expect(screen.queryByText("Block A message 1")).not.toBeInTheDocument();
 
@@ -409,7 +458,11 @@ describe("HostThreadSection — filterBlockId", () => {
 		expect(screen.queryByRole("button", { name: /show all messages/i })).not.toBeInTheDocument();
 
 		rerender(
-			<HostThreadSection threadId="t-filter-001" title="Discussion" filterBlockId="block-filter-A" />,
+			<HostThreadSection
+				threadId="t-filter-001"
+				title="Discussion"
+				filterBlockId="block-filter-A"
+			/>,
 		);
 		const showAllButton = screen.getByRole("button", { name: /show all messages/i });
 		await user.click(showAllButton);
@@ -428,13 +481,21 @@ describe("HostThreadSection — filterBlockId", () => {
 		mockReadyThread();
 
 		const { rerender } = render(
-			<HostThreadSection threadId="t-filter-001" title="Discussion" filterBlockId="block-filter-A" />,
+			<HostThreadSection
+				threadId="t-filter-001"
+				title="Discussion"
+				filterBlockId="block-filter-A"
+			/>,
 		);
 		await user.click(screen.getByRole("button", { name: /show all messages/i }));
 		expect(screen.getByText("Block B message 1")).toBeInTheDocument();
 
 		rerender(
-			<HostThreadSection threadId="t-filter-001" title="Discussion" filterBlockId="block-filter-B" />,
+			<HostThreadSection
+				threadId="t-filter-001"
+				title="Discussion"
+				filterBlockId="block-filter-B"
+			/>,
 		);
 
 		expect(screen.getByText("Block B message 1")).toBeInTheDocument();

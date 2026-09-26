@@ -44,7 +44,7 @@ function mkTeam(id: string, name: string): SidebarTeam {
 	return { id, name };
 }
 
-describe("AD3 AC-1: Sidebar — single-team hides team list", () => {
+describe("Sidebar — single-team hides team list", () => {
 	it("does NOT render the team sub-list when there is exactly 1 team", () => {
 		const teams = [mkTeam("team-1", "Alpha Team")];
 		render(<Sidebar {...BASE_PROPS} teams={teams} activeView="work" />);

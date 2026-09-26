@@ -157,7 +157,7 @@ afterEach(() => {
 	});
 });
 
-describe("AF15 AC-1 — SettingsPage: new sections mounted", () => {
+describe("SettingsPage: new sections mounted", () => {
 	it("renders settings-section-agents testid", async () => {
 		const { SettingsPage } = await import("../pages/SettingsPage.js");
 		render(
@@ -208,7 +208,7 @@ describe("AF15 AC-1 — SettingsPage: new sections mounted", () => {
 	});
 });
 
-describe("AF15 AC-5 — SettingsPage: no email digests control", () => {
+describe("SettingsPage: no email digests control", () => {
 	it("does not render any email digests control", async () => {
 		const { SettingsPage } = await import("../pages/SettingsPage.js");
 		render(

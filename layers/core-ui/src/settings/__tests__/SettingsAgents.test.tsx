@@ -229,7 +229,7 @@ vi.mock("../../shell/ToastRegion.js", async () => {
 // AC-9: SettingsAgents renders agent list
 // ---------------------------------------------------------------------------
 
-describe("X3 AC-9: SettingsAgents renders agent list", () => {
+describe("SettingsAgents renders agent list", () => {
 	beforeEach(() => {
 		callMock.mockReset();
 		setupCall(seedAgents());
@@ -318,7 +318,7 @@ describe("X3 AC-9: SettingsAgents renders agent list", () => {
 // AC-11: Settings add form creates agent
 // ---------------------------------------------------------------------------
 
-describe("X3 AC-11: Settings UI add form creates agent", () => {
+describe("Settings UI add form creates agent", () => {
 	let store: MockAgent[];
 
 	beforeEach(() => {
@@ -394,7 +394,7 @@ describe("X3 AC-11: Settings UI add form creates agent", () => {
 // AC-12: Settings UI delete with two-click confirmation
 // ---------------------------------------------------------------------------
 
-describe("X3 AC-12: Settings UI delete with two-click confirmation", () => {
+describe("Settings UI delete with two-click confirmation", () => {
 	let store: MockAgent[];
 
 	beforeEach(() => {
@@ -491,7 +491,7 @@ describe("X3 AC-12: Settings UI delete with two-click confirmation", () => {
 // Keyboard navigation: menu + two-step delete are fully keyboard-accessible
 // ---------------------------------------------------------------------------
 
-describe("X3 keyboard: actions menu is fully keyboard-navigable", () => {
+describe("Keyboard: actions menu is fully keyboard-navigable", () => {
 	let store: MockAgent[];
 
 	beforeEach(() => {

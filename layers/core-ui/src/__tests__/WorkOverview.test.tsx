@@ -76,7 +76,7 @@ function renderInRouter(): ReturnType<typeof render> {
 // ---------------------------------------------------------------------------
 // AC4 — Loading state
 // ---------------------------------------------------------------------------
-describe("AC4 — Loading state", () => {
+describe("Loading state", () => {
 	it("renders SkeletonList when loading", () => {
 		mockUseTeams.mockReturnValue({ data: null, loading: true, error: null, refetch: mockRefetch });
 		renderInRouter();
@@ -94,7 +94,7 @@ describe("AC4 — Loading state", () => {
 // ---------------------------------------------------------------------------
 // AC4 — Error state
 // ---------------------------------------------------------------------------
-describe("AC4 — Error state", () => {
+describe("Error state", () => {
 	it("renders ErrorState when fetch fails", () => {
 		mockUseTeams.mockReturnValue({
 			data: null,
@@ -148,7 +148,7 @@ describe("AC4 — Error state", () => {
 // ---------------------------------------------------------------------------
 // AC4 — Empty state (0 teams)
 // ---------------------------------------------------------------------------
-describe("AC4 — Empty state (0 teams)", () => {
+describe("Empty state (0 teams)", () => {
 	it("renders EmptyState when teams array is empty", () => {
 		mockUseTeams.mockReturnValue({
 			data: { teams: [] },
@@ -179,7 +179,7 @@ describe("AC4 — Empty state (0 teams)", () => {
 // ---------------------------------------------------------------------------
 // AC11 — 1-team short-circuit
 // ---------------------------------------------------------------------------
-describe("AC11 — 1-team short-circuit (WorkOverview redirects to the single team)", () => {
+describe("1-team short-circuit (WorkOverview redirects to the single team)", () => {
 	it("navigates to /work/team/:id when exactly 1 team", async () => {
 		mockUseTeams.mockReturnValue({
 			data: { teams: [TEAM_A] },
@@ -238,7 +238,7 @@ describe("AC11 — 1-team short-circuit (WorkOverview redirects to the single te
 // ---------------------------------------------------------------------------
 // AC2 — Populated team list
 // ---------------------------------------------------------------------------
-describe("AC2 — Populated team list (2+ teams)", () => {
+describe("Populated team list (2+ teams)", () => {
 	it("renders work-overview-page testid", () => {
 		mockUseTeams.mockReturnValue({
 			data: { teams: [TEAM_A, TEAM_B] },

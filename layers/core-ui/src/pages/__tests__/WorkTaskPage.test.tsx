@@ -143,7 +143,10 @@ describe("WorkTaskPage — basic page render", () => {
 		mockApiFetch.mockResolvedValue({
 			ok: true,
 			json: () =>
-				Promise.resolve({ ok: false, problems: [{ code: "not_found", message: "Task not found" }] }),
+				Promise.resolve({
+					ok: false,
+					problems: [{ code: "not_found", message: "Task not found" }],
+				}),
 		});
 		renderPage("task-error");
 		await waitFor(() => {
@@ -267,7 +270,7 @@ describe("WorkTaskPage — edit submit issues edit_task", () => {
 			const editCall = mockApiFetch.mock.calls.find(
 				([url]) => typeof url === "string" && url.includes("/api/actions/edit_task"),
 			);
-			const body = JSON.parse(String((editCall?.[1] as RequestInit).body)) as {
+			const body = JSON.parse(String((editCall![1] as RequestInit).body)) as {
 				ownerAgentId: string | null;
 			};
 			expect(body.ownerAgentId).toBe("agent-7");
@@ -281,7 +284,7 @@ describe("WorkTaskPage — edit submit issues edit_task", () => {
 			const editCalls = mockApiFetch.mock.calls.filter(
 				([url]) => typeof url === "string" && url.includes("/api/actions/edit_task"),
 			);
-			const body = JSON.parse(String((editCalls.at(-1)?.[1] as RequestInit).body)) as {
+			const body = JSON.parse(String((editCalls.at(-1)![1] as RequestInit).body)) as {
 				ownerAgentId: string | null;
 			};
 			expect(body.ownerAgentId).toBeNull();
@@ -305,7 +308,7 @@ describe("WorkTaskPage — edit submit issues edit_task", () => {
 			const editCall = mockApiFetch.mock.calls.find(
 				([url]) => typeof url === "string" && url.includes("/api/actions/edit_task"),
 			);
-			const body = JSON.parse(String((editCall?.[1] as RequestInit).body)) as { title: string };
+			const body = JSON.parse(String((editCall![1] as RequestInit).body)) as { title: string };
 			expect(body.title).toBe("New title");
 		});
 	});
@@ -317,10 +320,9 @@ describe("WorkTaskPage — edit submit issues edit_task", () => {
 		await waitFor(() => expect(screen.getByTestId("task-title-input")).toBeInTheDocument());
 		fireEvent.change(screen.getByTestId("task-title-input"), { target: { value: "Edited title" } });
 		fireEvent.click(screen.getByTestId("task-save-btn"));
-		await waitFor(
-			() => expect(screen.getByTestId("task-save-confirmation")).toBeInTheDocument(),
-			{ timeout: SAVE_ROUND_TRIP_TIMEOUT_MS },
-		);
+		await waitFor(() => expect(screen.getByTestId("task-save-confirmation")).toBeInTheDocument(), {
+			timeout: SAVE_ROUND_TRIP_TIMEOUT_MS,
+		});
 	});
 
 	it("shows the named error when edit_task is refused", async () => {
@@ -367,24 +369,62 @@ describe("WorkTaskPage subtask reorder controls", () => {
 	const childA = makeTask({ id: CHILD_A_ID, parentTaskId: ROOT_ID, title: "Child A" });
 	const childB = makeTask({ id: CHILD_B_ID, parentTaskId: ROOT_ID, title: "Child B" });
 	const childC = makeTask({ id: CHILD_C_ID, parentTaskId: ROOT_ID, title: "Child C" });
-	const grandchildX = makeTask({ id: GRANDCHILD_X_ID, parentTaskId: CHILD_A_ID, title: "Grandchild X" });
-	const grandchildY = makeTask({ id: GRANDCHILD_Y_ID, parentTaskId: CHILD_A_ID, title: "Grandchild Y" });
+	const grandchildX = makeTask({
+		id: GRANDCHILD_X_ID,
+		parentTaskId: CHILD_A_ID,
+		title: "Grandchild X",
+	});
+	const grandchildY = makeTask({
+		id: GRANDCHILD_Y_ID,
+		parentTaskId: CHILD_A_ID,
+		title: "Grandchild Y",
+	});
 
-	const INITIAL_TREE = openTaskBody(rootTask, [], [
-		{ ...childA, children: [{ ...grandchildX, children: [] }, { ...grandchildY, children: [] }] },
-		{ ...childB, children: [] },
-		{ ...childC, children: [] },
-	]);
-	const AFTER_MOVE_A_DOWN = openTaskBody(rootTask, [], [
-		{ ...childB, children: [] },
-		{ ...childA, children: [{ ...grandchildX, children: [] }, { ...grandchildY, children: [] }] },
-		{ ...childC, children: [] },
-	]);
-	const AFTER_MOVE_X_DOWN = openTaskBody(rootTask, [], [
-		{ ...childA, children: [{ ...grandchildY, children: [] }, { ...grandchildX, children: [] }] },
-		{ ...childB, children: [] },
-		{ ...childC, children: [] },
-	]);
+	const INITIAL_TREE = openTaskBody(
+		rootTask,
+		[],
+		[
+			{
+				...childA,
+				children: [
+					{ ...grandchildX, children: [] },
+					{ ...grandchildY, children: [] },
+				],
+			},
+			{ ...childB, children: [] },
+			{ ...childC, children: [] },
+		],
+	);
+	const AFTER_MOVE_A_DOWN = openTaskBody(
+		rootTask,
+		[],
+		[
+			{ ...childB, children: [] },
+			{
+				...childA,
+				children: [
+					{ ...grandchildX, children: [] },
+					{ ...grandchildY, children: [] },
+				],
+			},
+			{ ...childC, children: [] },
+		],
+	);
+	const AFTER_MOVE_X_DOWN = openTaskBody(
+		rootTask,
+		[],
+		[
+			{
+				...childA,
+				children: [
+					{ ...grandchildY, children: [] },
+					{ ...grandchildX, children: [] },
+				],
+			},
+			{ ...childB, children: [] },
+			{ ...childC, children: [] },
+		],
+	);
 
 	/** open_task returns `initial` first, `after` on every re-read (following edit_task's refresh). */
 	function setupReorderFetch(
@@ -490,7 +530,10 @@ describe("WorkTaskPage — dependency picker exclusion", () => {
 				return Promise.resolve({
 					ok: true,
 					json: () =>
-						Promise.resolve({ ok: true, data: [{ id: "dep-excl-fresh", title: "A fresh candidate" }] }),
+						Promise.resolve({
+							ok: true,
+							data: [{ id: "dep-excl-fresh", title: "A fresh candidate" }],
+						}),
 				});
 			}
 			return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });

@@ -232,7 +232,8 @@ describe("useRosterRunState", () => {
 			operationalStatus: "idle",
 			healthLevel: "healthy",
 		});
-		// An agent with no run at all is simply absent — the caller's default.
+		// Every roster member gets an entry, even with zero fetched runs — it
+		// defaults to idle/healthy rather than being left out of the map.
 		expect(result.current.byAgent.has("a3")).toBe(true);
 	});
 

@@ -49,7 +49,7 @@ const TASK = {
 	needsReview: false,
 };
 
-describe("AJ3: MockProviders mounts a real data-fed page in isolation, no backend", () => {
+describe("MockProviders mounts a real data-fed page in isolation, no backend", () => {
 	beforeEach(() => {
 		vi.stubGlobal(
 			"fetch",

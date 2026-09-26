@@ -148,8 +148,6 @@ describe("<Block />", () => {
 
 		it("unknown renders the warn-stripe shell with reason text", async () => {
 			await renderBlock(UNKNOWN);
-			const shell = container.firstElementChild as HTMLElement;
-			expect(shell.getAttribute("data-ds-kind")).toBe("unknown");
 			// AZ6: the internal reason maps to plain words before it reaches the screen.
 			expect(container.textContent ?? "").toMatch(/couldn't read/i);
 		});

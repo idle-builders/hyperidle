@@ -41,7 +41,7 @@ function makeProps(overrides: Partial<SidebarProps> = {}): SidebarProps {
 	};
 }
 
-describe("W3 AC-1 — Sidebar utility controls", () => {
+describe("Sidebar utility controls", () => {
 	it("renders the compact search control", () => {
 		render(<Sidebar {...makeProps()} />);
 		// Sidebar must show a search hint element
@@ -102,7 +102,7 @@ describe("W3 AC-1 — Sidebar utility controls", () => {
 	});
 });
 
-describe("W3 AC-3 — Knowledge section has no scope sub-items", () => {
+describe("Knowledge section has no scope sub-items", () => {
 	it("does NOT render 'Practices' scope item in knowledge sub-nav", () => {
 		render(<Sidebar {...makeProps({ activeView: "knowledge" })} />);
 		expect(screen.queryByRole("button", { name: /^practices$/i })).not.toBeInTheDocument();
@@ -119,7 +119,7 @@ describe("W3 AC-3 — Knowledge section has no scope sub-items", () => {
 	});
 });
 
-describe("W3 AC-4 — Conversations sub-nav shows recent threads", () => {
+describe("Conversations sub-nav shows recent threads", () => {
 	it("renders thread titles in conversations sub-nav", () => {
 		const threads = [
 			{ id: "t1", title: "Thread One", hasUnresolvedReview: false },

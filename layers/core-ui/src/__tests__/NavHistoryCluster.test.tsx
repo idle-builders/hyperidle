@@ -28,7 +28,7 @@ import { useHistoryAvailability } from "../hooks/useHistoryAvailability.js";
 
 const mockUseHistoryAvailability = vi.mocked(useHistoryAvailability);
 
-describe("AG4 — NavHistoryCluster", () => {
+describe("NavHistoryCluster", () => {
 	describe("Back button", () => {
 		it("renders a Back button", () => {
 			mockUseHistoryAvailability.mockReturnValue({ canGoBack: false, canGoForward: false });

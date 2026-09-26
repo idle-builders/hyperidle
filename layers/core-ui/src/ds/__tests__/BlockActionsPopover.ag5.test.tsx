@@ -32,7 +32,7 @@ const BASE_PROPS = {
 	liveRegionId: "live-1",
 };
 
-describe("AG5 — BlockActionsPopover renders through Menu (C1)", () => {
+describe("BlockActionsPopover renders through Menu (C1)", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 

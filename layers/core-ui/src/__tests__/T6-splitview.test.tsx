@@ -7,24 +7,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 afterEach(cleanup);
 
-// ── 1. SplitViewProps.surfaceKey ─────────────────────────────────────────────────
-describe("SplitView: surfaceKey prop", () => {
-	it("SplitViewProps accepts surfaceKey (TypeScript structural test)", async () => {
-		const { SplitView } = await import("../ds");
-		// If this renders without error, surfaceKey is accepted
-		const { container } = render(
-			<SplitView
-				origin={<div>origin</div>}
-				destination={<div>dest</div>}
-				mode="split"
-				dividerRatio={0.5}
-				surfaceKey="test.surface"
-			/>,
-		);
-		expect(container.querySelector("[data-ds-component='split-view']")).toBeTruthy();
-	});
-});
-
 // ── 2. useUiPreference ───────────────────────────────────────────────────────────
 describe("useUiPreference", () => {
 	beforeEach(() => {
@@ -164,7 +146,7 @@ describe("SplitView: modes", () => {
 });
 
 // ── 4. AC3 regression: review route stays green (open-handler) ──────────────────
-describe("AC3: review open-handler route (regression guard)", () => {
+describe("review open-handler route (regression guard)", () => {
 	it("maps every product object by opening intent", async () => {
 		const { PRODUCT_OBJECT_KINDS, presentationFor } = await import(
 			"../services/object-presentation.js"

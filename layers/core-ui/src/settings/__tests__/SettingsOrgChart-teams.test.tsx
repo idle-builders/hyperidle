@@ -84,7 +84,7 @@ function setupCall(users: MockUserRow[]): void {
 	});
 }
 
-describe("AF15 AC-6 — SettingsOrgChart: team select from real teams", () => {
+describe("SettingsOrgChart: team select from real teams", () => {
 	beforeEach(() => {
 		callMock.mockReset();
 		mockShowToast.mockClear();
@@ -234,7 +234,7 @@ describe("AF15 AC-6 — SettingsOrgChart: team select from real teams", () => {
 	});
 });
 
-describe("AF15 AC-6 — SettingsOrgChart: solo short-circuit relaxed", () => {
+describe("SettingsOrgChart: solo short-circuit relaxed", () => {
 	beforeEach(() => {
 		callMock.mockReset();
 		mockShowToast.mockClear();

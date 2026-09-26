@@ -90,7 +90,7 @@ function renderDocumentList(): ReturnType<typeof render> {
 // ---------------------------------------------------------------------------
 // AC-33: Data-driven scope pills (not hardcoded)
 // ---------------------------------------------------------------------------
-describe("W3 AC-33 — Data-driven scope pills", () => {
+describe("Data-driven scope pills", () => {
 	it("does NOT render hardcoded 'Practices' scope pill", () => {
 		renderDocumentList();
 		// Old hardcoded pills should be gone
@@ -125,7 +125,7 @@ describe("W3 AC-33 — Data-driven scope pills", () => {
 // ---------------------------------------------------------------------------
 // AC-34: Sort controls visible in both views
 // ---------------------------------------------------------------------------
-describe("W3 AC-34 — Sort controls always visible", () => {
+describe("Sort controls always visible", () => {
 	it("renders sort controls on the list page", () => {
 		renderDocumentList();
 		// Sort controls: Relevance, Recency, Frequency
@@ -153,7 +153,7 @@ describe("W3 AC-34 — Sort controls always visible", () => {
 // ---------------------------------------------------------------------------
 // AC-35: Document rows show preview; no status dots
 // ---------------------------------------------------------------------------
-describe("W3 AC-35 — DocRow preview and no status dots", () => {
+describe("DocRow preview and no status dots", () => {
 	it("DocRow renders preview text when preview prop provided", () => {
 		render(
 			<DocRow
@@ -179,7 +179,7 @@ describe("W3 AC-35 — DocRow preview and no status dots", () => {
 // ---------------------------------------------------------------------------
 // AC-36: "+ New" button in header
 // ---------------------------------------------------------------------------
-describe("W3 AC-36 — '+New' button in document list header", () => {
+describe("'+New' button in document list header", () => {
 	it("renders a '+ New' button in the document list header", () => {
 		renderDocumentList();
 		const newBtn = screen.getByRole("button", { name: /\+\s*new|new document/i });
@@ -190,7 +190,7 @@ describe("W3 AC-36 — '+New' button in document list header", () => {
 // ---------------------------------------------------------------------------
 // AC-37: Curated/Triage tab switching
 // ---------------------------------------------------------------------------
-describe("W3 AC-37 — Curated/Triage tab switching", () => {
+describe("Curated/Triage tab switching", () => {
 	it("renders Curated and Triage tabs", () => {
 		renderDocumentList();
 		expect(screen.getByRole("tab", { name: /curated/i })).toBeInTheDocument();

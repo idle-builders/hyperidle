@@ -53,7 +53,7 @@ const sessionEmbed: Embed = {
 
 // ── AC1 — calm author-grouped column ─────────────────────────────
 
-describe("AM1 PartList — calm author-grouped column (AC1)", () => {
+describe("PartList — calm author-grouped column", () => {
 	it("renders a head (name) per author group", () => {
 		render(
 			<PartList
@@ -94,7 +94,7 @@ describe("AM1 PartList — calm author-grouped column (AC1)", () => {
 
 // ── AC2 — embeds render inline ───────────────────────────────────
 
-describe("AM1 PartList — inline embeds (AC2)", () => {
+describe("PartList — inline embeds", () => {
 	it("renders an artifact embed as a ReferenceChip", () => {
 		render(
 			<PartList
@@ -121,7 +121,7 @@ describe("AM1 PartList — inline embeds (AC2)", () => {
 
 // ── AC3 — every message-type Part renders its contract ───────────
 
-describe("AM1 PartList — message-type Parts (AC3)", () => {
+describe("PartList — message-type Parts", () => {
 	const reviewPart = {
 		id: "rv1",
 		kind: "review",
@@ -188,7 +188,7 @@ describe("AM1 PartList — message-type Parts (AC3)", () => {
 
 // ── AC4 — no work-log content in the column ──────────────────────
 
-describe("AM1 PartList — session is referenced, never inlined (AC4)", () => {
+describe("PartList — session is referenced, never inlined", () => {
 	it("renders no tool-call / work-log rows for a session reference", () => {
 		render(
 			<PartList
@@ -204,7 +204,7 @@ describe("AM1 PartList — session is referenced, never inlined (AC4)", () => {
 
 // ── AC7 — unknown fallback renders quietly, no throw ─────────────
 
-describe("AM1 PartList — unknown fallback (AC7)", () => {
+describe("PartList — unknown fallback", () => {
 	it("renders a quiet placeholder for an unknown Part without throwing", () => {
 		const unknownPart = {
 			id: "u1",
@@ -221,8 +221,8 @@ describe("AM1 PartList — unknown fallback (AC7)", () => {
 
 // ── AC8 — routing seam: onOpen fires with the resolved OpenTarget ─
 
-describe("AM1 PartList — onOpen routing seam (AC8)", () => {
-	it("clicking an artifact chip fires onOpen({route:artifact})", () => {
+describe("PartList — onOpen routing seam", () => {
+	it("clicking a file-diff chip does not fire onOpen (no destination to navigate to)", () => {
 		const onOpen = vi.fn();
 		render(
 			<PartList
@@ -281,7 +281,7 @@ describe("AM1 PartList — onOpen routing seam (AC8)", () => {
 
 // ── UI-104 — day separators ──────────────────────────────────────
 
-describe("AM1 PartList — day separators (UI-104)", () => {
+describe("PartList — day separators", () => {
 	it("renders NO day separator when all messages are on the same day", () => {
 		render(
 			<PartList

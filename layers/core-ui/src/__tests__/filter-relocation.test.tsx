@@ -110,7 +110,7 @@ afterEach(() => {
 });
 
 describe("Conversations page — AC-16: filter controls in main pane (W3 toggle pattern)", () => {
-	it("AF14 AC4: Blocking/Unread chips NOT in the main pane (removed by AF14)", async () => {
+	it("Blocking/Unread chips NOT in the main pane (removed by AF14)", async () => {
 		stubFetch(MIXED_THREADS);
 		renderShell("/conversations");
 		// Wait for threads to render
@@ -147,7 +147,7 @@ describe("Conversations page — AC-16: filter controls in main pane (W3 toggle 
 		expect(chipsInMain).toBeNull();
 	});
 
-	it("AF14 AC4: all threads render unfiltered (no chip to narrow list)", async () => {
+	it("all threads render unfiltered (no chip to narrow list)", async () => {
 		stubFetch(MIXED_THREADS);
 		renderShell("/conversations");
 		await waitFor(() => {
@@ -155,7 +155,7 @@ describe("Conversations page — AC-16: filter controls in main pane (W3 toggle 
 		});
 	});
 
-	it("AF14 AC4: no All/Async tabs (removed in W3) and no Blocking/Unread chips (removed in AF14)", async () => {
+	it("no All/Async tabs (removed in W3) and no Blocking/Unread chips (removed in AF14)", async () => {
 		stubFetch(MIXED_THREADS);
 		renderShell("/conversations");
 		await waitFor(() => {

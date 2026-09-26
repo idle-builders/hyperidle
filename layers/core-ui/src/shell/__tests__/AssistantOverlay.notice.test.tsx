@@ -126,7 +126,7 @@ function renderOverlay() {
 	);
 }
 
-describe("AH3: AssistantOverlay notice rendering", () => {
+describe("AssistantOverlay notice rendering", () => {
 	afterEach(() => {
 		vi.restoreAllMocks();
 	});
@@ -281,7 +281,7 @@ describe("AH3: AssistantOverlay notice rendering", () => {
 	});
 });
 
-describe("AH3 §1.7b: crash-recovery — stale thinking state renders Retry card", () => {
+describe("Crash-recovery: stale thinking state renders Retry card", () => {
 	afterEach(() => {
 		vi.restoreAllMocks();
 	});

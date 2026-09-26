@@ -125,7 +125,7 @@ function renderOverlay(
 // AC-8: Overlay renders with "Assistant" label (not "Coach" or "Chief of Staff")
 // ---------------------------------------------------------------------------
 
-describe("AD8b — AssistantOverlay open/close", () => {
+describe("AssistantOverlay open/close", () => {
 	afterEach(() => {
 		vi.restoreAllMocks();
 	});
@@ -172,7 +172,7 @@ describe("AD8b — AssistantOverlay open/close", () => {
 // AC-7: ThreadShell renders the overlay's message thread.
 // ---------------------------------------------------------------------------
 
-describe("AD8b — AssistantOverlay message thread rendering", () => {
+describe("AssistantOverlay message thread rendering", () => {
 	afterEach(() => {
 		vi.restoreAllMocks();
 	});
@@ -188,7 +188,7 @@ describe("AD8b — AssistantOverlay message thread rendering", () => {
 // AC-9: Context chips (unchanged from CocOverlay, now under AssistantContext)
 // ---------------------------------------------------------------------------
 
-describe("AD8b — AssistantOverlay context chips", () => {
+describe("AssistantOverlay context chips", () => {
 	afterEach(() => {
 		vi.restoreAllMocks();
 	});

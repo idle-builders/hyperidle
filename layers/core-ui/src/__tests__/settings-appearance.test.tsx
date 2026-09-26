@@ -32,7 +32,7 @@ vi.mock("../hooks/useDensity.js", () => ({
 
 import { SettingsAppearance } from "../settings/SettingsAppearance.js";
 
-describe("W2 AC-7 — SettingsAppearance theme-only layout", () => {
+describe("SettingsAppearance theme-only layout", () => {
 	it("renders the theme selector as swatch cards", () => {
 		const { container } = render(<SettingsAppearance />);
 		// W3 AC-50: theme options are swatch card buttons with aria-label="<Name> theme"

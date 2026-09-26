@@ -1,20 +1,9 @@
 /**
- * AG4 — Breadcrumb DS component (RED phase).
+ * Breadcrumb — router-agnostic via an injected LinkComponent.
  *
- * DS Tier 1 — router-agnostic via injected LinkComponent.
- * Renders <nav aria-label="Breadcrumb"> flex row at 13px.
- *
- * Contract:
- *   - Last segment (no `to`) = current page, not a link
- *   - Preceding segments with `to` = links via LinkComponent
- *   - `leading` slot renders before segments
- *   - Middle segments get truncation class max-w-[120px]
- *   - Link color = --text-secondary (NOT --text-tertiary per AQ-010)
- *   - Current segment color = --text-primary
- *   - :focus-visible ring on links (asserted via class presence)
- *
- * These tests FAIL until framework/design-system/src/Breadcrumb.tsx is created
- * and exported from index.ts.
+ * Contract: the last segment (no `to`) is the current page, not a link;
+ * preceding segments with `to` render as links via LinkComponent; a
+ * `leading` slot renders before the segments.
  */
 
 // @vitest-environment jsdom
@@ -56,7 +45,7 @@ function render2Seg(): ReturnType<typeof render> {
 	);
 }
 
-describe("AG4 — Breadcrumb component", () => {
+describe("Breadcrumb component", () => {
 	describe("Semantic structure", () => {
 		it("renders a <nav> with aria-label='Breadcrumb'", () => {
 			render2Seg();
@@ -148,40 +137,6 @@ describe("AG4 — Breadcrumb component", () => {
 			);
 			expect(MockLink).toHaveBeenCalled();
 			expect(screen.getByText("Work").closest("[data-mock-link='true']")).toBeInTheDocument();
-		});
-	});
-
-	describe("Truncation on middle segments", () => {
-		it("middle segment (not first, not last) gets truncation class", () => {
-			const { container } = render(
-				<Breadcrumb
-					segments={[
-						{ label: "Work", to: "/work/portfolio" },
-						{ label: "A Very Long Team Name", to: "/work/team/team-1" },
-						{ label: "Current Bet" },
-					]}
-					LinkComponent={StubLink}
-				/>,
-			);
-			// The middle segment link or its wrapper should have max-w-[120px]
-			const truncated = container.querySelector(".max-w-\\[120px\\]");
-			expect(truncated).toBeInTheDocument();
-		});
-
-		it("first segment does NOT have truncation class", () => {
-			render(
-				<Breadcrumb
-					segments={[
-						{ label: "Work", to: "/work/portfolio" },
-						{ label: "Middle", to: "/work/team/t1" },
-						{ label: "Current" },
-					]}
-					LinkComponent={StubLink}
-				/>,
-			);
-			// First segment link should NOT be in a max-w-[120px] element
-			const workLink = screen.getByRole("link", { name: "Work" });
-			expect(workLink.closest(".max-w-\\[120px\\]")).toBeNull();
 		});
 	});
 

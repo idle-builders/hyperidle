@@ -16,7 +16,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { Fold } from "../Fold.js";
 
-describe("AM1 Fold — calm collapse-to-summary device", () => {
+describe("Fold — calm collapse-to-summary device", () => {
 	it("renders the CTA text", () => {
 		render(<Fold cta="Show session" />);
 		expect(screen.getByText("Show session")).toBeDefined();

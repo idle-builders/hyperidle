@@ -61,7 +61,7 @@ function renderSettingsPage(): ReturnType<typeof render> {
 // ---------------------------------------------------------------------------
 // AC-47: Stacked single-page layout
 // ---------------------------------------------------------------------------
-describe("W3 AC-47 — Settings stacked single-page layout", () => {
+describe("Settings stacked single-page layout", () => {
 	it("renders SettingsPage component with data-testid='settings-page'", () => {
 		renderSettingsPage();
 		// Fails until SettingsPage has this testid
@@ -100,7 +100,7 @@ describe("W3 AC-47 — Settings stacked single-page layout", () => {
 // ---------------------------------------------------------------------------
 // AC-48: "Save profile" button text
 // ---------------------------------------------------------------------------
-describe("W3 AC-48 — Save profile button text", () => {
+describe("Save profile button text", () => {
 	it("renders 'Save profile' (exact case, lowercase p)", () => {
 		renderSettingsPage();
 		const btn = screen.getByRole("button", { name: /save profile/i });
@@ -117,7 +117,7 @@ describe("W3 AC-48 — Save profile button text", () => {
 // ---------------------------------------------------------------------------
 // AC-49: "Org chart" section label
 // ---------------------------------------------------------------------------
-describe("W3 AC-49 — Org chart section label", () => {
+describe("Org chart section label", () => {
 	it("renders org chart section with lowercase 'Org chart' title", () => {
 		renderSettingsPage();
 		const orgSection = screen.getByTestId("settings-section-org-chart");
@@ -130,7 +130,7 @@ describe("W3 AC-49 — Org chart section label", () => {
 // ---------------------------------------------------------------------------
 // AC-50: Theme selector as visual swatch cards
 // ---------------------------------------------------------------------------
-describe("W3 AC-50 — Theme swatch cards (not select)", () => {
+describe("Theme swatch cards (not select)", () => {
 	it("SettingsAppearance does NOT render a <select> for theme", () => {
 		render(
 			<MemoryRouter>
@@ -179,7 +179,7 @@ describe("W3 AC-50 — Theme swatch cards (not select)", () => {
 // ---------------------------------------------------------------------------
 // AC-51: "Backend" section showing mode
 // ---------------------------------------------------------------------------
-describe("W3 AC-51 — Backend section showing mode", () => {
+describe("Backend section showing mode", () => {
 	it("renders a Backend section", () => {
 		renderSettingsPage();
 		expect(screen.getByTestId("settings-section-backend")).toBeInTheDocument();

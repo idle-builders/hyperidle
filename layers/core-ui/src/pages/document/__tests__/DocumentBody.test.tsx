@@ -562,7 +562,7 @@ function makeMessage(id: string, blockId?: string): Message {
 
 // ── AC-2: Orphan messages show "anchor lost" indicator ──
 
-describe("AC-2 — anchor-lost indicator appears for orphan messages", () => {
+describe("Anchor-lost indicator appears for orphan messages", () => {
 	it("renders 'anchor lost' text when messages are anchored to a non-existent block", () => {
 		// Arrange: one message anchored to a blockId not present in the body.
 		const orphanMessage = makeMessage("msg-orphan-1", ORPHAN_BLOCK_ID);
@@ -620,7 +620,7 @@ describe("AC-2 — anchor-lost indicator appears for orphan messages", () => {
 
 // ── AC-2: Anchored messages with a live block do NOT show indicator ──
 
-describe("AC-2 — no anchor-lost indicator for messages anchored to existing blocks", () => {
+describe("No anchor-lost indicator for messages anchored to existing blocks", () => {
 	it("does NOT render 'anchor lost' for messages whose blockId matches a rendered block", () => {
 		// Arrange: message anchored to a block that IS in the current body.
 		const liveMessage = makeMessage("msg-live-1", LIVE_BLOCK_ID);
@@ -642,7 +642,7 @@ describe("AC-2 — no anchor-lost indicator for messages anchored to existing bl
 
 // ── AC-3: Indicator is honest — same signal for deleted vs edited block ──
 
-describe("AC-3 — anchor lost indicator does not distinguish deleted vs edited", () => {
+describe("Anchor lost indicator does not distinguish deleted vs edited", () => {
 	it("shows the same 'anchor lost' text for a blockId that never existed (simulating deletion)", () => {
 		const deletedBlockId = "block-was-deleted-entirely";
 		const msg = makeMessage("msg-deleted-1", deletedBlockId);

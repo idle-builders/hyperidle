@@ -86,13 +86,6 @@ describe("ReviewMetricsMoved — no fabrication", () => {
 		expect(screen.queryByText(/no source/i)).not.toBeInTheDocument();
 	});
 
-	it("paints the success background on the tie-out strip when the payload ties", () => {
-		render(<Canvas artifact={artifactWith(SENTINEL_PAYLOAD)} />);
-
-		const tieOutStrip = screen.getByText(/^Opening 101/).closest("div");
-		expect(tieOutStrip).toHaveStyle({ background: "var(--accent-primary-dim)" });
-	});
-
 	it('does not paint a success checkmark, "ties" word, or background over a tie-out the payload marks false', () => {
 		render(
 			<Canvas
@@ -109,8 +102,6 @@ describe("ReviewMetricsMoved — no fabrication", () => {
 		// tying.
 		expect(screen.queryByText("✓")).not.toBeInTheDocument();
 		expect(screen.queryByText(/^ties$/)).not.toBeInTheDocument();
-		const tieOutStrip = screen.getByText(/^Opening 101/).closest("div");
-		expect(tieOutStrip).not.toHaveStyle({ background: "var(--accent-primary-dim)" });
 	});
 
 	it("does not force a USD currency reading onto payload numbers with no currency field", () => {

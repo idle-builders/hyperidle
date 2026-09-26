@@ -138,7 +138,7 @@ function renderOverlay(
 	);
 }
 
-describe("AF14 — AssistantOverlay open/close behavior", () => {
+describe("AssistantOverlay open/close behavior", () => {
 	afterEach(() => {
 		vi.restoreAllMocks();
 	});
@@ -179,7 +179,7 @@ describe("AF14 — AssistantOverlay open/close behavior", () => {
 	});
 });
 
-describe("AF14 — AssistantOverlay ThreadShell integration (assistant configuration)", () => {
+describe("AssistantOverlay ThreadShell integration (assistant configuration)", () => {
 	afterEach(() => {
 		vi.restoreAllMocks();
 	});
@@ -213,7 +213,7 @@ describe("AF14 — AssistantOverlay ThreadShell integration (assistant configura
 		expect(screen.getByText(/no messages yet/i)).toBeInTheDocument();
 	});
 
-	it("AC-8: thread hostKind is 'agent' — assistant threads never attached to bet/task", () => {
+	it("thread hostKind is 'agent' — assistant threads never attached to bet/task", () => {
 		renderOverlay(true);
 		// ThreadShell is mounted with the assistant thread; a direct thread with a
 		// single AI recipient is hosted by that agent (thread-actions.ts), never
@@ -226,7 +226,7 @@ describe("AF14 — AssistantOverlay ThreadShell integration (assistant configura
 	});
 });
 
-describe("AF14 — AssistantOverlay context attachment (AC-7)", () => {
+describe("AssistantOverlay context attachment (AC-7)", () => {
 	afterEach(() => {
 		vi.restoreAllMocks();
 	});
@@ -278,7 +278,7 @@ describe("AF14 — AssistantOverlay context attachment (AC-7)", () => {
 	});
 });
 
-describe("AF14 — AssistantContext (AC-10)", () => {
+describe("AssistantContext (AC-10)", () => {
 	it("AssistantContext is importable and has correct default shape", () => {
 		// Verify the context exports exist and have the expected interface.
 		// The context default value must have overlayOpen=false and attachContext as a function.

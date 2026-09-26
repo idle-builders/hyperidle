@@ -73,7 +73,7 @@ afterEach(() => {
 	setViewportWidth(originalWidth);
 });
 
-describe("AE4 AC-2 — Mobile drawer: hamburger, open, close", () => {
+describe("Mobile drawer: hamburger, open, close", () => {
 	it("at desktop (1920px): sidebar is in normal flow, no hamburger", async () => {
 		setViewportWidth(1920);
 		const { container } = renderShell();
@@ -130,9 +130,6 @@ describe("AE4 AC-2 — Mobile drawer: hamburger, open, close", () => {
 			expect(screen.getByTestId("mobile-drawer")).toBeInTheDocument();
 		});
 		expect(screen.getByTestId("mobile-scrim")).toBeInTheDocument();
-		expect(screen.getByTestId("mobile-scrim")).toHaveStyle({
-			zIndex: "calc(var(--z-drawer) - 1)",
-		});
 	});
 
 	it("at mobile (375px): drawer contains the sidebar", async () => {

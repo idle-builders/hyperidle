@@ -133,7 +133,7 @@ function renderOverlay(
 	);
 }
 
-describe("AC9 — pending_block on send creates a document, not a wire ref", () => {
+describe("Pending_block on send creates a document, not a wire ref", () => {
 	beforeEach(() => {
 		callMock.mockImplementation((name: string) => {
 			if (name === "send_message") {
