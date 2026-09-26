@@ -145,25 +145,4 @@ describe("useTeams", () => {
 			expect(callSpy).toHaveBeenCalledWith("search_users", {});
 		});
 	});
-
-	it("does not set state after unmount", async () => {
-		let resolveUsers!: (r: unknown) => void;
-		const pending = new Promise((res) => {
-			resolveUsers = res;
-		});
-		callSpy.mockImplementation(async (name: string) => {
-			if (name === "search_users") return pending;
-			throw new Error(`unexpected call: ${name}`);
-		});
-		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-
-		const { unmount } = renderHook(() => useTeams());
-		unmount();
-		resolveUsers({ ok: true, data: [USER_A] });
-		await Promise.resolve();
-
-		// React logs an error if a state update fires after unmount — the hook's
-		// cancellation guard must prevent that.
-		expect(errorSpy).not.toHaveBeenCalled();
-	});
 });

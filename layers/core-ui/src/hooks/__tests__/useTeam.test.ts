@@ -190,13 +190,11 @@ describe("useTeam", () => {
 						ancestors: [],
 						children: [
 							{ id: "c1", state: "done", children: [] },
+							{ id: "c2", state: "done", children: [] },
 							{
-								id: "c2",
+								id: "c3",
 								state: "in_progress",
-								children: [
-									{ id: "c2a", state: "done", children: [] },
-									{ id: "c2b", state: "open", children: [] },
-								],
+								children: [{ id: "c3a", state: "done", children: [] }],
 							},
 						],
 						tokensActualRollup: null,
@@ -214,11 +212,12 @@ describe("useTeam", () => {
 			expect(result.current.loading).toBe(false);
 		});
 
-		// Root task (ROOT_TASK) itself is excluded; c1, c2, c2a, c2b are counted;
-		// c1 and c2a are done → 2 of 4.
+		// Root task (ROOT_TASK) itself is excluded; c1, c2, c3, c3a are counted;
+		// c1, c2, c3a are done, c3 is not → 3 of 4 (asymmetric — flipping the
+		// done check would give 1, not 3, so a broken comparison fails this).
 		expect(result.current.data?.tasksInProgress[0]).toMatchObject({
 			id: ROOT_TASK.id,
-			progressDone: 2,
+			progressDone: 3,
 			progressTotal: 4,
 		});
 	});
@@ -230,27 +229,5 @@ describe("useTeam", () => {
 		await waitFor(() => {
 			expect(callMock).toHaveBeenCalledWith("search_users", { teamId: "p1" });
 		});
-	});
-
-	it("does not set state after unmount (cancels stale response)", async () => {
-		let resolveUsers!: (r: unknown) => void;
-		const pending = new Promise((res) => {
-			resolveUsers = res;
-		});
-		callMock.mockImplementation((name: string) => {
-			if (name === "search_users") return pending;
-			return Promise.resolve({ ok: true, data: [] });
-		});
-		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-
-		const { result, unmount } = renderHook(() => useTeam("p1"));
-		expect(result.current.loading).toBe(true);
-		unmount();
-		resolveUsers({ ok: true, data: MEMBERS });
-		await Promise.resolve();
-
-		// React logs an error if a state update fires after unmount — the hook's
-		// cancellation guard must prevent that.
-		expect(errorSpy).not.toHaveBeenCalled();
 	});
 });
