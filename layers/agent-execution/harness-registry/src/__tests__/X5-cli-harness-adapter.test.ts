@@ -889,6 +889,86 @@ describe("CliHarnessAdapter stopSession — real process-group kill", () => {
 	}, 15_000);
 });
 
+// ── stopSession — process-group kill when the parent already exited (B2) ────
+//
+// @lore B2: stopSession's `session.done` branch (the CLI process already
+// exited — the normal drain-then-stop sequence: exit fires, THEN the caller
+// calls stopSession) used to return the buffered result WITHOUT signalling
+// the process group at all. A grandchild that outlives its own exited parent
+// was never touched. This test proves the fix: the parent exits on its own
+// FIRST, then stopSession is called, and the grandchild still has to die.
+
+describe("CliHarnessAdapter stopSession — parent already exited (session.done)", () => {
+	it("still kills a grandchild when the parent process exited before stopSession was called", async () => {
+		const script =
+			"const {spawn}=require('child_process');" +
+			"const c=spawn('sleep',['30']);" +
+			'process.stdout.write(String(c.pid)+"\\n", () => process.exit(0));';
+
+		// NO spawnFn injected — real node:child_process.spawn, same as the test above.
+		const adapter = new CliHarnessAdapter({
+			binary: process.execPath,
+			args: ["-e", script],
+			envMap: {},
+			eventFormat: "text",
+			envAllowlist: ["PATH"],
+		});
+
+		const handle = await adapter.startSession(makeSessionConfig({ sandboxPath: process.cwd() }));
+
+		let grandchildPid = -1;
+		for await (const event of adapter.streamEvents(handle)) {
+			if (event.type === "completion") {
+				grandchildPid = Number((event as { type: "completion"; text: string }).text.trim());
+				break;
+			}
+		}
+		expect(grandchildPid).toBeGreaterThan(0);
+
+		// Give the parent (the "node -e" process) time to actually exit on its
+		// own — session.done must already be true by the time we call
+		// stopSession, or this test proves nothing about the `done` branch.
+		await new Promise((resolve) => setTimeout(resolve, 500));
+		expect(() => process.kill(grandchildPid, 0)).not.toThrow();
+
+		const result = await adapter.stopSession(handle);
+		expect(result.outcome).toBe("completed");
+
+		await new Promise((resolve) => setTimeout(resolve, 300));
+		// The grandchild must be dead even though stopSession only saw an
+		// already-exited parent — that used to leave it running forever.
+		expect(() => process.kill(grandchildPid, 0)).toThrow();
+	}, 15_000);
+});
+
+// ── process 'exit' backstop (D-akgvxh) ───────────────────────────────────────
+//
+// @lore D-akgvxh: detached:true means a spawned harness CLI no longer gets
+// the terminal's SIGINT/SIGHUP on a forced `npm run dev` exit or crash. A
+// single shared `process.on("exit", ...)` handler is the backstop — this test
+// invokes it exactly as Node would (by emitting "exit" on `process`, never by
+// calling `process.exit()`) and proves it SIGKILLs a still-live session.
+
+describe("CliHarnessAdapter — process exit backstop", () => {
+	it("SIGKILLs every live session's process group when process 'exit' fires", async () => {
+		const killFn = vi.fn();
+		const spawnSpy = vi.fn();
+		const fakeChild = makeFakeChild();
+		spawnSpy.mockReturnValue(fakeChild.proc);
+
+		const adapter = new CliHarnessAdapter(makeConfig({ args: [] }), {
+			spawnFn: spawnSpy,
+			killFn,
+		});
+		await adapter.startSession(makeSessionConfig());
+
+		// The session is still running (no exit emitted) when the process exits.
+		process.emit("exit", 0);
+
+		expect(killFn).toHaveBeenCalledWith(-12345, "SIGKILL");
+	});
+});
+
 // ── getCapabilities ───────────────────────────────────────────────────────────
 
 describe("CliHarnessAdapter getCapabilities", () => {

@@ -360,6 +360,56 @@ function buildSandboxedEnv(
 
 let nextId = 1;
 
+// ── Process-exit backstop (D-akgvxh) ────────────────────────────────────────
+//
+// @lore D-akgvxh: detached:true (needed for killProcessGroup) means a spawned
+// harness CLI no longer receives the terminal's SIGINT/SIGHUP when `npm run
+// dev` is Ctrl-C'd or its terminal closes — that used to be exactly what
+// killed a leftover agent. The graceful shutdown path (dispose →
+// markRunningSessionsForShutdown → stopSession, remote-server index.ts) still
+// covers a clean exit. This single, shared 'exit' handler is the backstop for
+// everything else Node still runs a handler for on the way out: an uncaught
+// exception, an unhandled rejection that crashes the process, or a caught
+// SIGTERM/SIGINT a signal handler turns into `process.exit()`. It SIGKILLs
+// every still-running session's process group across every CliHarnessAdapter
+// instance ever constructed. Registered ONCE at module scope (not once per
+// adapter instance) — every real-harness test constructs its own adapter, and
+// a per-instance `process.on` would accumulate one listener per instance for
+// the life of the worker process, tripping Node's max-listeners warning.
+//
+// @lore NOT covered: SIGKILL of the server process itself. Node cannot run
+// ANY JS — including this handler — in response to SIGKILL: the kernel
+// terminates the process immediately and unconditionally, before any handler
+// gets a chance to run. A detached agent survives a SIGKILL of its parent,
+// same as it always would.
+const liveAdapters = new Set<CliHarnessAdapter>();
+let exitHandlerRegistered = false;
+
+/**
+ * Stops (SIGKILLs the process group of) every still-running session across
+ * every `CliHarnessAdapter` instance constructed in this process. This is
+ * the exact sweep the shared `process.on("exit", ...)` handler below performs
+ * — kept as a named, standalone, EXPORTED function for two reasons: a unit
+ * test can invoke real process-exit handling via `process.emit("exit", ...)`
+ * and assert on the result without ever calling `process.exit()`; and a
+ * live-harness integration test in another package (core-api) can call it
+ * directly from its own `afterEach` as a "stop everything now" safety net —
+ * a vitest test timeout skips a test's own `finally` block, but `afterEach`
+ * still runs, and `dispose()`-ing the composition it built does not stop any
+ * harness session that composition started. Re-exported from `test-utils.ts`.
+ */
+export function stopAllLiveHarnessSessions(): void {
+	for (const adapter of liveAdapters) {
+		adapter.killAllLiveSessionGroups();
+	}
+}
+
+function registerExitHandlerOnce(): void {
+	if (exitHandlerRegistered) return;
+	exitHandlerRegistered = true;
+	process.on("exit", stopAllLiveHarnessSessions);
+}
+
 /**
  * Derive the return-enforcement channel from the CLI binary name.
  * codex → settings-codex (writes .codex/hooks.json Stop hook before startSession)
@@ -505,6 +555,11 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		// Default: create an isolated registry. Production always injects the shared one.
 		this.enforcement = deps?.enforcement ?? createIsolatedEnforcementRegistry();
 		this.killFn = deps?.killFn ?? ((pid, signal) => process.kill(pid, signal));
+		// D-akgvxh: every instance registers itself with the single shared 'exit'
+		// backstop above — see registerExitHandlerOnce for why this is shared,
+		// not per-instance.
+		liveAdapters.add(this);
+		registerExitHandlerOnce();
 	}
 
 	/**
@@ -1071,6 +1126,13 @@ export class CliHarnessAdapter implements HarnessAdapter {
 	 * `process.kill(-pid, signal)` then reaches every process in that group in
 	 * one syscall, dead process tree included. Falls back to signalling the
 	 * child directly when it has no pid (spawn failed before a pid was assigned).
+	 *
+	 * @lore This alone does NOT cover every stopSession path: `session.done`
+	 * (the CLI's own process already exited — the normal drain-then-stop
+	 * sequence: exit fires, THEN the caller calls stopSession) used to return
+	 * without calling this at all. A grandchild the CLI spawned can outlive its
+	 * own exited parent, so the `session.done` branch below signals the group
+	 * too — the parent being gone does not mean the group is empty.
 	 */
 	private killProcessGroup(child: ChildProcess, signal: NodeJS.Signals): void {
 		if (child.pid === undefined) {
@@ -1085,6 +1147,25 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		}
 	}
 
+	/**
+	 * D-akgvxh: SIGKILLs every session this adapter still holds a live child
+	 * for. Called by the shared process 'exit' handler above; also callable
+	 * directly, which is how the unit test drives it without ever calling
+	 * `process.exit()` (it emits "exit" on `process` and lets the real
+	 * registered listener run instead).
+	 */
+	killAllLiveSessionGroups(): void {
+		for (const session of this.sessions.values()) {
+			// A session whose child never got a pid (spawn failed before or during
+			// ENOENT handling) has no process group to signal — skip it rather than
+			// fall into killProcessGroup's single-child fallback, which assumes a
+			// real ChildProcess with a working `.kill`.
+			if (session.child.pid !== undefined) {
+				this.killProcessGroup(session.child, "SIGKILL");
+			}
+		}
+	}
+
 	async stopSession(handle: SessionHandle): Promise<SessionResult> {
 		const session = this.sessions.get(handle.sessionId);
 		if (!session) {
@@ -1095,6 +1176,14 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		}
 
 		if (session.done) {
+			// @lore process-group kill (done branch): the CLI's own process already
+			// exited (this is the normal drain-then-stop path — provisionSession
+			// drains the stream to completion, THEN calls stopSession), but a
+			// grandchild it spawned is not guaranteed to have exited with it. SIGKILL
+			// immediately — there is no live parent left to gracefully shut down, so
+			// there is nothing SIGTERM's grace period buys here. ESRCH (group already
+			// empty, the common case) is tolerated inside killProcessGroup.
+			this.killProcessGroup(session.child, "SIGKILL");
 			const result = this.buildResult(session, session.exitCode, session.exitSignal);
 			this.sessions.delete(handle.sessionId);
 			return result;
