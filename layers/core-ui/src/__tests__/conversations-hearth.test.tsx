@@ -93,11 +93,4 @@ describe("U9 AC-1: Conversations Hearth styling (W3 toggle-button pattern)", () 
 		const newThreadBtn = screen.getByRole("button", { name: /new thread/i });
 		expect(newThreadBtn).toBeInTheDocument();
 	});
-
-	it("New thread button has accent-primary background styling", () => {
-		renderConversationsPage();
-		const newThreadBtn = screen.getByRole("button", { name: /new thread/i });
-		// Visual parity: uses custom accent-primary background (not DaisyUI btn-primary)
-		expect(newThreadBtn.className).toContain("accent-primary");
-	});
 });

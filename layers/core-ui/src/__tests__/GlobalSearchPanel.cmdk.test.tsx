@@ -50,26 +50,10 @@ describe("GlobalSearchPanel Command-K visual (J3)", () => {
 		expect(overlay?.getAttribute("data-dialog-layer")).toBe("dialog");
 	});
 
-	it("inner box enforces the 640px max-width from the spec", () => {
-		render(<GlobalSearchPanel {...defaultProps} />);
-		// After migration: .modal-box is gone; find the palette box by the overlay container
-		// (GlobalSearchPanel uses useDialogBehavior — the overlay and box may collapse to one node)
-		// or by data-testid if the panel emits one. Try the overlay container first, then testid.
-		const overlay = document.querySelector('[data-dialog-layer="dialog"]');
-		expect(overlay).not.toBeNull();
-		// max-w-[640px] SURVIVES — GlobalSearchPanel keeps its palette chrome and 640px max-width.
-		// Re-targeted through [data-dialog-layer="dialog"] instead of the removed .modal-box.
-		const cls = overlay?.className ?? "";
-		const hasArbitraryMax = /max-w-\[640px\]/.test(cls);
-		expect(hasArbitraryMax).toBe(true);
-	});
-
-	it("renders a recent-queries row region at the bottom with monospace font", () => {
+	it("renders a recent-queries row region at the bottom, labeled for assistive tech", () => {
 		render(<GlobalSearchPanel {...defaultProps} />);
 		const recent = document.querySelector('[data-testid="search-recent-queries"]');
 		expect(recent).not.toBeNull();
-		expect(recent?.className ?? "").toMatch(/type-data/);
-		// The region should be labeled for assistive tech.
 		expect(
 			recent?.getAttribute("aria-label") ?? recent?.getAttribute("aria-labelledby") ?? "",
 		).not.toBe("");

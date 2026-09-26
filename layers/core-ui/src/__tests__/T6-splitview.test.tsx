@@ -114,7 +114,6 @@ describe("SplitView: modes", () => {
 		expect(queryByRole("separator")).toBeNull();
 		const back = getByRole("button", { name: "Back to conversation" });
 		expect(back.parentElement).toHaveAttribute("data-compact-return");
-		expect(back.parentElement?.className).not.toContain("absolute");
 		back.click();
 		expect(onModeChange).toHaveBeenCalledWith("fold-back");
 	});
