@@ -1,17 +1,19 @@
 /**
- * L8 — Conversations-mode classifier + render tests for ThreadSections.
- *
- * Plan §3.2: ThreadSections gains `mode: 'conversations' | 'legacy'`. The
- * conversations classifier yields three sections only: blocking | active |
- * resolved. Pinned threads sort to row 1 of Active.
- *
- * Protected test §7.1: counts equal rendered list length — never literal.
+ * ThreadSections: the conversations-mode classifier (blocking/active/resolved
+ * buckets, pinned-first sort), the activeFilter prop (all/blocking/async),
+ * and the filter-empty state with its Clear-filter action.
  */
 
 import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
-import type { ThreadItem } from "../ThreadSections";
-import { groupThreadsForConversations, ThreadSections } from "../ThreadSections";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
+import {
+	type ConversationsFilter,
+	groupThreadsForConversations,
+	predicateFor,
+	type ThreadItem,
+	ThreadSections,
+} from "../ThreadSections";
 
 const NOW = Date.parse("2026-04-30T12:00:00Z");
 const AVATAR =
@@ -229,5 +231,153 @@ describe("ThreadSections — flat mode (groupBySection=false)", () => {
 		const { container } = render(<ThreadSections threads={flat} groupBySection={false} />);
 		expect(container.querySelector("[data-thread-section]")).toBeNull();
 		expect(container.querySelectorAll("[data-ds-component='ThreadRow']")).toHaveLength(3);
+	});
+});
+
+const FIXTURE: ThreadItem[] = [
+	mk({ id: "b1", title: "API key needed", blocking: true }),
+	mk({ id: "b2", title: "OAuth scopes review", blocking: true }),
+	mk({ id: "a1", title: "Pricing experiment", blocking: false }),
+	mk({ id: "a2", title: "Migration script", blocking: false }),
+	mk({ id: "a3", title: "Doc cleanup", blocking: false }),
+];
+
+describe("predicateFor (L10 — closed `ConversationsFilter` vocabulary)", () => {
+	it("'all' returns true for every thread", () => {
+		const p = predicateFor("all");
+		for (const t of FIXTURE) expect(p(t)).toBe(true);
+	});
+
+	it("'blocking' returns true only for `blocking === true`", () => {
+		const p = predicateFor("blocking");
+		expect(
+			FIXTURE.filter(p)
+				.map((t) => t.id)
+				.sort(),
+		).toEqual(["b1", "b2"]);
+	});
+
+	it("'async' returns true only for `blocking === false`", () => {
+		const p = predicateFor("async");
+		expect(
+			FIXTURE.filter(p)
+				.map((t) => t.id)
+				.sort(),
+		).toEqual(["a1", "a2", "a3"]);
+	});
+
+	it("type contract: every member of the closed union has a defined predicate", () => {
+		const ids: ConversationsFilter[] = ["all", "blocking", "async"];
+		for (const id of ids) {
+			expect(typeof predicateFor(id)).toBe("function");
+		}
+	});
+});
+
+describe("ThreadSections — activeFilter prop narrows the rendered list", () => {
+	it("renders all rows when activeFilter is 'all'", () => {
+		const { container } = render(<ThreadSections threads={FIXTURE} now={NOW} activeFilter="all" />);
+		const rows = container.querySelectorAll("[data-ds-component='ThreadRow']");
+		expect(rows.length).toBe(FIXTURE.length);
+	});
+
+	it("renders only blocking rows when activeFilter is 'blocking'", () => {
+		const { container } = render(
+			<ThreadSections threads={FIXTURE} now={NOW} activeFilter="blocking" />,
+		);
+		const rows = container.querySelectorAll("[data-ds-component='ThreadRow']");
+		expect(rows.length).toBe(2);
+		// Async section header must not be rendered while blocking filter is active.
+		expect(container.querySelector("[data-thread-section='active']")).toBeNull();
+		expect(container.querySelector("[data-thread-section='resolved']")).toBeNull();
+	});
+
+	it("renders only async (non-blocking) rows when activeFilter is 'async'", () => {
+		const { container } = render(
+			<ThreadSections threads={FIXTURE} now={NOW} activeFilter="async" />,
+		);
+		const rows = container.querySelectorAll("[data-ds-component='ThreadRow']");
+		expect(rows.length).toBe(3);
+		// Blocking section must not be rendered while async filter is active.
+		expect(container.querySelector("[data-thread-section='blocking']")).toBeNull();
+	});
+
+	it("defaults to 'all' when activeFilter is omitted (back-compat)", () => {
+		const { container } = render(<ThreadSections threads={FIXTURE} now={NOW} />);
+		const rows = container.querySelectorAll("[data-ds-component='ThreadRow']");
+		expect(rows.length).toBe(FIXTURE.length);
+	});
+});
+
+describe("ThreadSections — selected thread independence (L8 §5.7 preserved)", () => {
+	it("filtered-out selected thread renders no aria-current row and does not throw", () => {
+		// b1 is blocking — selecting it while activeFilter='async' must filter
+		// the row out (Submenu hides it) without crashing.
+		const { container } = render(
+			<ThreadSections threads={FIXTURE} now={NOW} selectedId="b1" activeFilter="async" />,
+		);
+		expect(
+			container.querySelector("[data-ds-component='ThreadRow'][aria-current='true']"),
+		).toBeNull();
+	});
+});
+
+describe("ThreadSections — filter-empty EmptyState", () => {
+	it("renders the filter-empty EmptyState when activeFilter='blocking' and no rows match", () => {
+		const onlyAsync: ThreadItem[] = [
+			mk({ id: "a1", blocking: false }),
+			mk({ id: "a2", blocking: false }),
+		];
+		render(
+			<ThreadSections
+				threads={onlyAsync}
+				now={NOW}
+				activeFilter="blocking"
+				onClearFilter={vi.fn()}
+			/>,
+		);
+		const emptyState = screen.getByTestId("thread-sections-filter-empty");
+		expect(emptyState).toBeInTheDocument();
+		// Section regions must NOT be rendered alongside the filter-empty state.
+		expect(screen.queryByRole("heading", { name: /blocking/i })).not.toBeInTheDocument();
+	});
+
+	it("renders chip-specific description copy for the 'blocking' filter", () => {
+		render(
+			<ThreadSections threads={[]} now={NOW} activeFilter="blocking" onClearFilter={vi.fn()} />,
+		);
+		const emptyState = screen.getByTestId("thread-sections-filter-empty");
+		expect(emptyState.textContent ?? "").toMatch(/no blocking threads/i);
+	});
+
+	it("renders chip-specific description copy for the 'async' filter", () => {
+		render(<ThreadSections threads={[]} now={NOW} activeFilter="async" onClearFilter={vi.fn()} />);
+		const emptyState = screen.getByTestId("thread-sections-filter-empty");
+		expect(emptyState.textContent ?? "").toMatch(/no async/i);
+	});
+
+	it("renders a Clear filter action button that invokes onClearFilter on click", async () => {
+		const onClearFilter = vi.fn();
+		const user = userEvent.setup();
+		render(
+			<ThreadSections
+				threads={[]}
+				now={NOW}
+				activeFilter="blocking"
+				onClearFilter={onClearFilter}
+			/>,
+		);
+		const clearButton = screen.getByRole("button", { name: /clear filter/i });
+		expect(clearButton).toBeInTheDocument();
+		await user.click(clearButton);
+		expect(onClearFilter).toHaveBeenCalledTimes(1);
+	});
+
+	it("does NOT render the filter-empty state when activeFilter='all' and the list is empty", () => {
+		// activeFilter='all' on a globally empty list keeps the existing L8
+		// "No threads yet" empty state — not the filter-empty variant.
+		render(<ThreadSections threads={[]} now={NOW} activeFilter="all" />);
+		expect(screen.queryByTestId("thread-sections-filter-empty")).not.toBeInTheDocument();
+		expect(screen.getByTestId("thread-sections-empty")).toBeInTheDocument();
 	});
 });
