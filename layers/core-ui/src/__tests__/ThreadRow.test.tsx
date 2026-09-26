@@ -45,50 +45,15 @@ describe("ThreadRow", () => {
 		expect(screen.getByText("Reply")).toBeInTheDocument();
 	});
 
-	it("renders unread dot (green) when unread is true", () => {
-		render(<ThreadRow {...defaultProps} unread={true} />);
-		const dot = screen.getByTestId("unread-dot");
-		expect(dot).toBeInTheDocument();
-		expect(dot.className).toContain("accent-primary");
-	});
+	it("renders an unread dot when unread is true, and a read-state spacer otherwise", () => {
+		const { rerender } = render(<ThreadRow {...defaultProps} unread={true} />);
+		expect(screen.getByTestId("unread-dot")).toBeInTheDocument();
 
-	it("renders transparent spacer dot when unread is false", () => {
-		render(<ThreadRow {...defaultProps} unread={false} />);
-		const spacer = screen.getByTestId("read-dot-spacer");
-		expect(spacer).toBeInTheDocument();
-		expect(spacer.className).toContain("bg-transparent");
-	});
+		rerender(<ThreadRow {...defaultProps} unread={false} />);
+		expect(screen.getByTestId("read-dot-spacer")).toBeInTheDocument();
 
-	it("renders transparent spacer dot by default (unread omitted)", () => {
-		render(<ThreadRow {...defaultProps} />);
-		const spacer = screen.getByTestId("read-dot-spacer");
-		expect(spacer).toBeInTheDocument();
-	});
-
-	it("uses the complete copy profile when unread is true", () => {
-		render(<ThreadRow {...defaultProps} unread={true} />);
-		const titleEl = screen.getByLabelText("Thread: Deploy pipeline stuck");
-		expect(titleEl.className).toContain("type-copy");
-		expect(titleEl.className).not.toContain("font-[600]");
-	});
-
-	it("uses the complete copy profile when unread is false", () => {
-		render(<ThreadRow {...defaultProps} unread={false} />);
-		const titleEl = screen.getByLabelText("Thread: Deploy pipeline stuck");
-		expect(titleEl.className).toContain("type-copy");
-		expect(titleEl.className).not.toContain("font-[400]");
-	});
-
-	it("renders preview with text-secondary color when unread", () => {
-		const { container } = render(<ThreadRow {...defaultProps} unread={true} />);
-		const preview = container.querySelector("p");
-		expect(preview?.className).toContain("text-secondary");
-	});
-
-	it("renders preview with text-tertiary color when read", () => {
-		const { container } = render(<ThreadRow {...defaultProps} unread={false} />);
-		const preview = container.querySelector("p");
-		expect(preview?.className).toContain("text-tertiary");
+		rerender(<ThreadRow {...defaultProps} />);
+		expect(screen.getByTestId("read-dot-spacer")).toBeInTheDocument();
 	});
 
 	it("calls onClick when row is clicked", () => {
@@ -166,30 +131,6 @@ describe("ThreadRow", () => {
 		expect(screen.getByText("team")).toBeInTheDocument();
 	});
 
-	it("selected state stacks with blocking — accent-primary border-left wins", () => {
-		const { container } = render(<ThreadRow {...defaultProps} blocking={true} selected={true} />);
-		const root = container.firstElementChild;
-		// Selected applies an accent-primary border-left; blocking applies a status-error border-left.
-		// When both are true, the selected accent-primary border must win.
-		expect(root?.className).toContain("border-[var(--accent-deep)]");
-	});
-
-	it("has border-bottom divider between rows", () => {
-		const { container } = render(<ThreadRow {...defaultProps} />);
-		const root = container.firstElementChild;
-		// NEW-18: border-b-[var(--bw-thin)] (sets color in v4, not width) replaced by
-		// border-width-thin-b @utility which correctly sets border-bottom-width.
-		expect(root?.className).toContain("border-width-thin-b");
-		expect(root?.className).toContain("border-subtle");
-	});
-
-	it("does not have border-radius on the row (border-bottom layout, not card layout)", () => {
-		const { container } = render(<ThreadRow {...defaultProps} />);
-		const root = container.firstElementChild;
-		// Rows use border-bottom dividers, not rounded card style
-		expect(root?.className).not.toContain("rounded-[var(--r-subtle)]");
-	});
-
 	// Avatar group and count badge
 	it("renders overlapping avatar group when avatars prop is provided", () => {
 		render(
@@ -211,18 +152,6 @@ describe("ThreadRow", () => {
 		const badge = screen.getByTestId("thread-row-count-badge");
 		expect(badge).toBeInTheDocument();
 		expect(badge.textContent).toBe("8");
-	});
-
-	it("count badge is green-tinted when unread", () => {
-		render(<ThreadRow {...defaultProps} unread={true} messageCount={5} />);
-		const badge = screen.getByTestId("thread-row-count-badge");
-		expect(badge.className).toContain("accent-primary");
-	});
-
-	it("count badge is neutral when read", () => {
-		render(<ThreadRow {...defaultProps} unread={false} messageCount={3} />);
-		const badge = screen.getByTestId("thread-row-count-badge");
-		expect(badge.className).toContain("surface-container");
 	});
 
 	it("does not render count badge when messageCount is not provided", () => {

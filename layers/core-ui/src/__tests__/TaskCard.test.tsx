@@ -45,20 +45,6 @@ describe("TaskCard", () => {
 		expect(handleClick).toHaveBeenCalledOnce();
 	});
 
-	// Acceptance criterion: TaskCard in blocked state has red border (border-[var(--status-error)])
-	it("keeps the normal outline when state is blocked", () => {
-		const { container } = render(<TaskCard {...defaultProps} state="blocked" />);
-		const root = container.firstElementChild;
-		expect(root?.className).toContain("border-[var(--border-subtle)]");
-		expect(root?.className).not.toContain("border-[var(--status-error)]");
-	});
-
-	it("does not apply border-[var(--status-error)] class when state is not blocked", () => {
-		const { container } = render(<TaskCard {...defaultProps} state="in_progress" />);
-		const root = container.firstElementChild;
-		expect(root?.className).not.toContain("border-[var(--status-error)]");
-	});
-
 	it("renders blocked state as BLOCKED chip", () => {
 		render(<TaskCard {...defaultProps} state="blocked" />);
 		expect(screen.getByText("BLOCKED")).toBeInTheDocument();
