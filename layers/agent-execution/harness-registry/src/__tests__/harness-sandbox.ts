@@ -12,13 +12,13 @@
  * @lore This does NOT close every isolation gap — a CLI's *global*,
  * HOME-scoped plugins (e.g. cursor-agent's ~/.cursor/plugins/local) load
  * regardless of cwd, proven empirically for cursor-agent's idle-tasks
- * plugin (T-f46a6x). Fixing that needs a founder call on trading HOME-scoped
- * auth for HOME-scoped plugin exposure; this helper only owns the sandbox
- * directory, not the harness's own environment.
+ * plugin. Fixing that needs a founder call on trading HOME-scoped auth for
+ * HOME-scoped plugin exposure; this helper only owns the sandbox directory,
+ * not the harness's own environment.
  */
 
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { appendFileSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
 export interface HarnessSandbox {
@@ -49,4 +49,34 @@ export function createHarnessSandbox(prefix: string): HarnessSandbox {
 			rmSync(path, { recursive: true, force: true });
 		},
 	};
+}
+
+/**
+ * Copies ONLY the developer's real codex auth.json + config.toml into a
+ * per-session `.codex-home/` (no `plugins/`) so a real-binary test can
+ * authenticate a real codex turn without a production seam to call: unlike
+ * the MCP server entries production writes to `.codex-home/config.toml`
+ * (`writeCodexTomlEntries`, connection-provisioning.ts), production never
+ * carries a developer's personal ChatGPT login into a session — that
+ * credential only exists so a *test* can drive a real LLM turn.
+ * Returns whether a real auth.json was found (false ⇒ caller should skip).
+ */
+export function provisionCodexHome(sandboxPath: string): boolean {
+	const codexHomeDir = join(sandboxPath, ".codex-home");
+	mkdirSync(codexHomeDir, { recursive: true });
+	const homeCodexDir = join(homedir(), ".codex");
+	let authFound = false;
+	for (const fname of ["auth.json", "config.toml"]) {
+		const src = join(homeCodexDir, fname);
+		if (existsSync(src)) {
+			copyFileSync(src, join(codexHomeDir, fname));
+			if (fname === "auth.json") authFound = true;
+		}
+	}
+	appendFileSync(
+		join(codexHomeDir, "config.toml"),
+		`\n[projects."${sandboxPath}"]\ntrust_level = "trusted"\n`,
+		"utf-8",
+	);
+	return authFound;
 }
