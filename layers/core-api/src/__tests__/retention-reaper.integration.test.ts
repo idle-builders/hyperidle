@@ -11,8 +11,7 @@
  * subscription mechanism's own `inbox` table (`inbox-reaper.ts`'s own
  * `@lore`).
  *
- * @lore AU21 §9 Increment 10 (Decision H1) — RED. `reapTerminalTaskDispatchAttempts`
- * is relocated OUT of `session-requests`'s `reapExpired` single atomic
+ * @lore AU21: `reapTerminalTaskDispatchAttempts` is relocated OUT of `session-requests`'s `reapExpired` single atomic
  * transaction (`service.ts`, bundled with the intent/start deletes) and INTO
  * this composition root's generic retention reaper, calling
  * `taskDispatchAttemptStore.reapTerminal` directly. Exported from
@@ -180,14 +179,14 @@ describe("retention reaper — individual owning-service sweeps", () => {
 });
 
 /**
- * AU21 §9 Increment 10 (Decision H1) — RED. `reapTerminalTaskDispatchAttempts`
+ * @lore AU21: `reapTerminalTaskDispatchAttempts`
  * is relocated out of `session-requests`'s `reapExpired` atomic transaction
  * into this composition root's generic retention reaper — same pattern as
  * `reapTerminalPropagationLog` above (an owning-service predicate, exported from
  * `server-factory.ts` purely so the composition-root wiring is directly
  * testable without waiting on the real 6h interval).
  */
-describe("retention reaper — task-dispatch-attempt reaper (relocated home, Decision H1)", () => {
+describe("retention reaper — task-dispatch-attempt reaper (relocated home)", () => {
 	test("prunes terminal task_dispatch_attempts rows older than the TTL, keeps live/recent ones", async ({
 		db,
 	}) => {

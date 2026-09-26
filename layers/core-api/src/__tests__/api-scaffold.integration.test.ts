@@ -5,7 +5,7 @@ import { test } from "../__testing__/test-fixtures.js";
 const TEST_API_KEY = "test-key-12345";
 
 describe("API Scaffold", () => {
-	describe("AC1: GET /api/health returns 200 with status", () => {
+	describe("GET /api/health returns 200 with status", () => {
 		test("returns 200 with status ok and timestamp", async ({ app }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const res = await app.request("/api/health");
@@ -19,7 +19,7 @@ describe("API Scaffold", () => {
 		});
 	});
 
-	describe("AC2: Request without API key returns 401", () => {
+	describe("request without API key returns 401", () => {
 		test("returns 401 with UNAUTHORIZED code for /api routes", async ({ requestWithoutAuth }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
@@ -46,7 +46,7 @@ describe("API Scaffold", () => {
 		});
 	});
 
-	describe("AC3: Request with valid API key passes auth", () => {
+	describe("request with valid API key passes auth", () => {
 		test("passes auth with valid X-API-Key header", async ({ app }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const res = await app.request("/api/health", {
@@ -70,7 +70,7 @@ describe("API Scaffold", () => {
 		});
 	});
 
-	describe("AC4: Invalid JSON body returns 400 with validation errors", () => {
+	describe("invalid JSON body returns 400 with validation errors", () => {
 		test("returns 400 with VALIDATION_ERROR for invalid body", async ({ app }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const res = await app.request("/api/test-validate", {
@@ -108,7 +108,7 @@ describe("API Scaffold", () => {
 		});
 	});
 
-	describe("AC5: Unhandled error returns 500 with consistent error shape", () => {
+	describe("unhandled error returns 500 with consistent error shape", () => {
 		test("returns 500 with INTERNAL_ERROR code", async ({ app }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const res = await app.request("/api/test-error", {
@@ -135,7 +135,7 @@ describe("API Scaffold", () => {
 		});
 	});
 
-	describe("AC7: CORS allows localhost:5173", () => {
+	describe("CORS allows localhost:5173", () => {
 		test("includes CORS headers for localhost:5173 origin", async ({ app }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const res = await app.request("/api/health", {

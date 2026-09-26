@@ -8,7 +8,7 @@ const registry: ToolRegistry = {
 	toClaudeToolSpecs: () => [],
 };
 
-describe("X2 MCP tool bridge", () => {
+describe("MCP tool bridge", () => {
 	test("opens cryptographically random 256-bit path tokens", async () => {
 		const bridge = createMcpToolBridge();
 		const one = await bridge.open({ sessionId: "one", registry });

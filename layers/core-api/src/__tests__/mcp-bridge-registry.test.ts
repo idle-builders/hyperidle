@@ -13,7 +13,7 @@ const registry: ToolRegistry = {
 	toClaudeToolSpecs: () => [],
 };
 
-describe("X2 MCP session custody", () => {
+describe("MCP session custody", () => {
 	test("opens a production tool registry and preserves result codes", async ({
 		db,
 		agentOrchestration,

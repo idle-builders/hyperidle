@@ -86,7 +86,7 @@ async function seedTaskData(db: HyperIdleDb): Promise<void> {
 	});
 }
 
-describe("E2E API Integration (I5)", () => {
+describe("E2E API integration", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 	});

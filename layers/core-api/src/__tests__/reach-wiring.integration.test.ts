@@ -6,17 +6,14 @@
  * composition shape) with the REAL probes reading real seeded files — no
  * stubbed integration point, no test-only production export.
  *
- * AC coverage:
- *   AC1 — `open_user({})` is answerable from connections-domain state alone:
- *         the boot wire test boots orchestration WITHOUT an adapter pool and
- *         still sees the seeded inherited entries.
- *   AC2 — switching an agent's harness type A→B→A leaves `open_user({})`'s
- *         inherited reach byte-identical at every step (harness independence,
- *         exercised both).
- *   AC3 — the view JSON of inherited entries is exactly the AN1 contract
- *         (id/service/via/authSource/health/removable).
- *   AC5 (boot moment) — `probeInheritedReach: true` awaits the initial probe,
- *         so facts are cached by serve time.
+ * Covers: `open_user({})` answerable from connections-domain state alone
+ * (the boot wire test boots orchestration WITHOUT an adapter pool and still
+ * sees the seeded inherited entries); switching an agent's harness type
+ * A->B->A leaves `open_user({})`'s inherited reach byte-identical at every
+ * step (harness independence, exercised both); the view JSON of inherited
+ * entries is exactly the connections contract (id/service/via/authSource/
+ * health/removable); `probeInheritedReach: true` awaits the initial probe at
+ * boot, so facts are cached by serve time.
  *
  * Wiring proven (each test catches a broken hook at a different point):
  *   boot wire    — bootAgentOrchestration(probeInheritedReach) → cache → route
@@ -188,7 +185,7 @@ describe("reach wiring end to end", () => {
 			vi.stubEnv("CODEX_HOME", codexHome);
 			vi.stubEnv("XDG_CONFIG_HOME", opencodeHome);
 
-			// AC1: the boot carries NO adapter pool — reach must come from the
+			// The boot carries NO adapter pool — reach must come from the
 			// connections domain's own probe + cache, not the harness model.
 			const boot = await bootAgentOrchestration({
 				db,
@@ -203,7 +200,7 @@ describe("reach wiring end to end", () => {
 
 			const inherited = await openInherited(app);
 
-			// AC3/AC5: exact view JSON, cached by serve time (boot awaited the probe).
+			// Exact view JSON, cached by serve time (boot awaited the probe).
 			expect(inherited).toContainEqual(inheritedView("codex", "au36-codex-reach"));
 			expect(inherited).toContainEqual(inheritedView("opencode", "au36-opencode-reach"));
 		});
@@ -258,7 +255,7 @@ describe("reach wiring end to end", () => {
 		});
 	});
 
-	describe("AC2 — harness switch A→B→A leaves reach identical", () => {
+	describe("harness switch A->B->A leaves reach identical", () => {
 		test("GET /api/connections is byte-identical across the switch", async ({ db, eventBus }) => {
 			const codexHome = trackTemporaryDirectory(await seedCodexHome("au36-switch-codex"));
 			const opencodeHome = trackTemporaryDirectory(await seedOpenCodeHome("au36-switch-opencode"));

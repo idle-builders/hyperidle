@@ -247,11 +247,11 @@ describe("Dependency Watcher", () => {
 		});
 	});
 
-	// I3 review W3 / sec MEDIUM-2: LIKE wildcards (`%`, `_`) in the
+	// LIKE wildcards (`%`, `_`) in the
 	// completedTaskId must be escaped so a malformed/exotic ID can't
 	// match unrelated dependents. UUIDs don't contain these chars but
 	// the escape is defence-in-depth for future ID formats.
-	describe("LIKE wildcard escape (W3)", () => {
+	describe("LIKE wildcard escape", () => {
 		test("treats `%` in completedTaskId as a literal, not a wildcard", async ({
 			db,
 			eventBus,

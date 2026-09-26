@@ -208,7 +208,7 @@ async function settlePropagation(
 describe("registerLifecyclePropagation — session -> task", () => {
 	let unsubscribe: (() => void) | undefined;
 
-	test("emits propagation_failed when task read throws (F2-A: first-failure path)", async ({
+	test("emits propagation_failed when task read throws", async ({
 		db,
 		eventBus,
 		agentOrchestration,
@@ -317,7 +317,7 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		});
 	});
 
-	test("does NOT transition task when session ends with outcome=crashed (F2: crashed stays in_progress)", async ({
+	test("does NOT transition task when session ends with outcome=crashed (crashed stays in_progress)", async ({
 		db,
 		eventBus,
 		agentOrchestration,
@@ -349,7 +349,7 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		expect(appliedEvents.filter((e) => e.targetId === "task-1")).toHaveLength(0);
 	});
 
-	test("does NOT transition task when session ends with outcome=stopped (F2: stopped same as crashed)", async ({
+	test("does NOT transition task when session ends with outcome=stopped (stopped same as crashed)", async ({
 		db,
 		eventBus,
 		agentOrchestration,
@@ -459,7 +459,7 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		expect(appliedEvents.filter((e) => e.targetId === "task-1")).toHaveLength(0);
 	});
 
-	test("handles concurrent race: InvalidTransitionError is caught silently (F1)", async ({
+	test("handles concurrent race: InvalidTransitionError is caught silently", async ({
 		db,
 		eventBus,
 		agentOrchestration,

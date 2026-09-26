@@ -101,9 +101,8 @@ describe("registerCoreDomainServices + registerAgentLayerServices", () => {
 				cleanupEffect: "unsubscribe",
 				constituents: ["session_ended subscription"],
 			},
-			// @lore AU21 §9 Increment 10 (Decision H1)/Increment 12 (Decision H3)
-			// Wave D: the POST-SESSION `task` dispatch-attempt finalize reaction
-			// PLUS the bet per-tier token-writeback reaction (Wave D's additive
+			// @lore AU21: the POST-SESSION `task` dispatch-attempt finalize reaction
+			// PLUS the bet per-tier token-writeback reaction (an additive
 			// `session_ended` subscription), replacing `session-requests`'s/
 			// `run-orchestration`'s own former direct cross-layer writes.
 			{
@@ -111,7 +110,7 @@ describe("registerCoreDomainServices + registerAgentLayerServices", () => {
 				cleanupEffect: "unsubscribe",
 				constituents: ["agent_run_lifecycle_changed subscription", "session_ended subscription"],
 			},
-			// @lore AU21 §9 Increment 12 (Decision H3) Wave D: the POST-SESSION-START
+			// @lore AU21: the POST-SESSION-START
 			// task `in_progress` transition reaction — replaces
 			// `run-orchestration/provisioner.ts`'s deleted direct
 			// `ports.work.transitionTask` write.
@@ -236,18 +235,16 @@ describe("registerCoreDomainServices + registerAgentLayerServices", () => {
 					unsubscribedEvents: ["session_ended"],
 					clearedIntervals: 0,
 				},
-				// @lore AU21 §9 Increment 10 (Decision H1)/Increment 12 (Decision H3)
-				// Wave D: `registerWorkSessionEndReactions` is NOT pre-registered on the
+				// @lore AU21: `registerWorkSessionEndReactions` is NOT pre-registered on the
 				// `eventBus` test fixture either — this is its first, real registration
-				// on this eventBus instance. Wave D added a second subscription
+				// on this eventBus instance. A second subscription was later added
 				// (`session_ended`, the bet token-writeback reaction) onto the SAME
 				// owner — both unsubscribe here, in registration order.
 				{
 					unsubscribedEvents: ["agent_run_lifecycle_changed", "session_ended"],
 					clearedIntervals: 0,
 				},
-				// @lore AU21 §9 Increment 12 (Decision H3) Wave D:
-				// `registerWorkSessionStartedReactions` is NOT pre-registered on the
+				// @lore AU21: `registerWorkSessionStartedReactions` is NOT pre-registered on the
 				// `eventBus` test fixture either — its own first, real registration on
 				// this eventBus instance.
 				{

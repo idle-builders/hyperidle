@@ -1,10 +1,10 @@
 /**
  * What happens when a task's last dependency finishes.
  *
- * AC3: an agent-owned task moves all the way into `in_progress` with no
- * human action — the existing chain (watcher hold->accepted, dispatch,
+ * An agent-owned task moves all the way into `in_progress` with no human
+ * action — the existing chain (watcher hold->accepted, dispatch,
  * `session_started`, the promotion reaction) carries it the rest of the way.
- * AC4: an unowned task stops at `accepted` and waits for a human.
+ * An unowned task stops at `accepted` and waits for a human.
  *
  * re-pointed off the deleted `POST/PATCH /tasks` routes — both tasks
  * are created and edited through `POST /api/actions/edit_task` now.
@@ -99,7 +99,7 @@ async function seedRunnableAgent(db: HyperIdleDb, agentId: string, teamId: strin
 	});
 }
 
-describe("AC3: last dependency finishes, agent owns it -> in_progress with no human action", () => {
+describe("last dependency finishes, agent owns it -> in_progress with no human action", () => {
 	test("hold -> accepted (watcher) -> in_progress (session_started reaction), unattended", async ({
 		db,
 		app,
@@ -164,7 +164,7 @@ describe("AC3: last dependency finishes, agent owns it -> in_progress with no hu
 	});
 });
 
-describe("AC4: last dependency finishes, nobody owns it -> waits at accepted", () => {
+describe("last dependency finishes, nobody owns it -> waits at accepted", () => {
 	test("hold -> accepted, and stays there with no dispatch", async ({ db, app }) => {
 		await seedTeam(db, "dep-freed-unowned");
 		await seedRunnableAgent(db, "dep-freed-sentinel-agent", "dep-freed-unowned");

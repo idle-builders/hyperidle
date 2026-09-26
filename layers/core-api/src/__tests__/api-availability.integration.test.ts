@@ -8,17 +8,17 @@ function auth(): Record<string, string> {
 }
 
 /**
- * API Availability Regression Guard (I6).
+ * API availability regression guard.
  *
  * On every CI run, verify every route module returns non-404 for its
  * base path. This is a regression guard — if a route is accidentally
  * un-mounted (the S1 showstopper that started Track I), this test fails.
  *
- * @lore I6: Each route module is tested by hitting its base GET endpoint.
+ * Each route module is tested by hitting its base GET endpoint.
  * We expect a status other than 404. Some routes return 200 (list endpoints),
  * others may return 400 (missing params) — but never 404 (not mounted).
  */
-describe("API Availability Regression Guard (I6)", () => {
+describe("API availability regression guard", () => {
 	/**
 	 * Every route module mounted in app.ts. The base path is the first
 	 * segment after /api/. For each, a GET to the base path must return

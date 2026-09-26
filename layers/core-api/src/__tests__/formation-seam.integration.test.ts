@@ -11,7 +11,7 @@
  * bake, exactly like the context bundle beside it (AU21 §H3: the provisioner
  * consumes a baked bundle and reads zero core-api state).
  *
- * What the test proves has NOT moved: AC3 — changing the identity changes what
+ * What the test proves has NOT moved: changing the identity changes what
  * the assistant's next turn runs with. It still drives the same flow (send a
  * message through `send_message` -> a `thread_turn` intent is emitted for the
  * woken agent; edit the identity; send again) and reads the persona back off
@@ -161,10 +161,7 @@ describe("formation seam — editing the assistant's identity document changes i
 		expect(persona).toBe("Original row persona — the app default.");
 	});
 
-	test("editing the identity document in Knowledge drives the NEXT turn (AC3)", async ({
-		db,
-		app,
-	}) => {
+	test("editing the identity document in Knowledge drives the NEXT turn", async ({ db, app }) => {
 		await seedFixtures(db);
 
 		const before = await postAndResolveTurnPersona(app, db, "msg-ar4b-before-patch");
