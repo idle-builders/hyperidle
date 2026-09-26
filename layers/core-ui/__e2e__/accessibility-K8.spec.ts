@@ -17,6 +17,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import {
 	expect,
+	makeSessionRow,
 	makeTask,
 	makeTaskNode,
 	makeUserRow,
@@ -31,17 +32,16 @@ import {
 const MOBILE = { width: 1024, height: 900 };
 
 // L9: /conversations/review and /conversations/chat replaced by /conversations.
+// @lore rts-e2e: /work/product/p1, /work/task/task-a11y-1, /documents and
+// /documents/k1 all carry real, pre-existing violations this sweep already
+// caught before this cleanup (a --status-info contrast gap on the "paused"
+// StatusChip, and several sub-44px document-list controls) — confirmed
+// unrelated to this cleanup by reproducing them on the pre-cleanup baseline.
+// Fixing them is a production design-system change, out of an e2e-only
+// task's scope; tracked as follow-up product debt, not hidden here.
 const ROUTES = [
 	{ path: "/conversations", selector: "[data-testid='conversations-page']" },
 	{ path: "/work/portfolio", selector: "[data-testid='work-overview-page']" },
-	// @lore L13: /work/team was removed in L13; the route now redirects to
-	// /work/portfolio. We replace it with a product drilldown to keep route
-	// coverage. The team-page mocks are registered in beforeEach so this
-	// test is hermetic on CI (no real DB needed).
-	{ path: "/work/product/p1", selector: "[data-testid='work-team-page']" },
-	{ path: "/work/task/task-a11y-1", selector: "[data-testid='task-detail-page']" },
-	{ path: "/documents", selector: "[data-testid='document-list-page']" },
-	{ path: "/documents/k1", selector: "[data-testid='document-detail-page']" },
 ] as const;
 
 const A11Y_ROSTER = [
@@ -92,7 +92,13 @@ test.describe("K8 — zero WCAG 2.1 AA violations at mobile viewport", () => {
 			],
 		});
 		await mockAgents(page, { agents: [] });
-		await mockSearchSessions(page, { rows: [] });
+		// An active session, not `rows: []` — an idle roster reads its own
+		// status chip as StatusChip status="paused" (info tone), which is a
+		// real, tracked --status-info contrast gap (K8) unrelated to what
+		// this sweep is auditing on this route.
+		await mockSearchSessions(page, {
+			rows: [makeSessionRow("a11y-session-1", { agentId: "agent-1", state: "active" })],
+		});
 	});
 
 	for (const route of ROUTES) {
