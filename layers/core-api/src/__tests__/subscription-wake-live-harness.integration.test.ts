@@ -105,12 +105,12 @@ import {
 
 const NOW = "2026-09-23T00:00:00.000Z";
 
-// @lore B1: see thread-turn-live-harness.integration.test.ts's identical
+// @lore stop-all afterEach: see thread-turn-live-harness.integration.test.ts's identical
 // afterEach for the full rationale — a vitest timeout skips this file's own
 // try/finally cleanup, and dispose() alone does not stop a running session.
 // The deliberate no-instruction ("proceed") cases below keep sending the
-// product's real default seed — this is cleanup, not a prompt change; see
-// D-akgvxh/the planner's note on why that stays out of scope.
+// product's real default seed on purpose — they test what the product
+// really sends, so this change adds cleanup only and leaves their prompt alone.
 afterEach(() => {
 	stopAllLiveHarnessSessions();
 });

@@ -904,9 +904,9 @@ describe("CliHarnessAdapter stopSession — real process-group kill", () => {
 	}, 15_000);
 });
 
-// ── stopSession — process-group kill when the parent already exited (B2) ────
+// ── stopSession — process-group kill when the parent already exited ─────────
 //
-// @lore B2: stopSession's `session.done` branch (the CLI process already
+// @lore process-group kill (done branch): stopSession's `session.done` branch (the CLI process already
 // exited — the normal drain-then-stop sequence: exit fires, THEN the caller
 // calls stopSession) used to return the buffered result WITHOUT signalling
 // the process group at all. A grandchild that outlives its own exited parent
@@ -956,14 +956,14 @@ describe("CliHarnessAdapter stopSession — parent already exited (session.done)
 	}, 15_000);
 });
 
-// ── process exit sweep (D-akgvxh / B3) ───────────────────────────────────────
+// ── process exit sweep ───────────────────────────────────────────────────────
 //
-// @lore D-akgvxh: detached:true means a spawned harness CLI no longer gets
+// @lore process-exit backstop: detached:true means a spawned harness CLI no longer gets
 // the terminal's SIGINT/SIGHUP on a forced `npm run dev` exit or crash. A
 // single shared `process.on("exit", ...)` handler is the backstop, and
 // `stopAllLiveHarnessSessions` is the exact function it calls.
 //
-// @lore B3: this test calls `stopAllLiveHarnessSessions()` directly — never
+// @lore no real exit event: this test calls `stopAllLiveHarnessSessions()` directly — never
 // `process.emit("exit", ...)` on the real `process` object. Emitting the real
 // event fires the ACTUAL shared handler, which sweeps every CliHarnessAdapter
 // constructed anywhere else in this file, not just this test's own adapter —
@@ -975,7 +975,7 @@ describe("CliHarnessAdapter stopSession — parent already exited (session.done)
 // right here, tests the identical logic without touching global process
 // state or any other test's adapter.
 //
-// @lore B3 reused-pid gap: a `done` session (its CLI already exited) must NOT
+// @lore reused-pid gap: a `done` session (its CLI already exited) must NOT
 // be swept here — see killAllLiveSessionGroups's own @lore for why. This test
 // proves both halves in one pass: the still-running session is swept, the
 // done one is not.
@@ -997,7 +997,7 @@ describe("CliHarnessAdapter — process exit sweep", () => {
 		await adapter.startSession(makeSessionConfig());
 		// Session 2: its CLI already exited. A caller that never calls
 		// stopSession leaves it in `this.sessions` indefinitely — the sweep
-		// must not re-signal it (B3 reused-pid gap).
+		// must not re-signal it (its pid may since belong to another process).
 		await adapter.startSession(makeSessionConfig());
 		doneChild.emitExit(0, null);
 

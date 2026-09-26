@@ -84,7 +84,7 @@ import {
 
 const NOW = "2026-09-22T00:00:00.000Z";
 
-// @lore B1: see thread-turn-live-harness.integration.test.ts's identical
+// @lore stop-all afterEach: see thread-turn-live-harness.integration.test.ts's identical
 // afterEach for the full rationale — a vitest timeout skips this file's own
 // try/finally cleanup, and dispose() alone does not stop a running session.
 afterEach(() => {

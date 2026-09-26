@@ -106,7 +106,7 @@ import { SESSION_NOT_RETURNED_NOTICE_TEXT } from "../services/session-not-return
 
 const NOW = "2026-09-18T00:00:00.000Z";
 
-// @lore B1: `runThreadTurnProof`'s own `finally` block (dispose + close +
+// @lore stop-all afterEach: `runThreadTurnProof`'s own `finally` block (dispose + close +
 // rmSync) is skipped by a vitest test timeout — the async function keeps
 // running in the background, but `afterEach` still fires on the timeout
 // outcome. `dispose()` alone does not stop a harness session that composition

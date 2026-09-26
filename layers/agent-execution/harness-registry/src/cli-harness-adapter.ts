@@ -360,9 +360,9 @@ function buildSandboxedEnv(
 
 let nextId = 1;
 
-// ── Process-exit backstop (D-akgvxh) ────────────────────────────────────────
+// ── Process-exit backstop ───────────────────────────────────────────────────
 //
-// @lore D-akgvxh: detached:true (needed for killProcessGroup) means a spawned
+// @lore process-exit backstop: detached:true (needed for killProcessGroup) means a spawned
 // harness CLI no longer receives the terminal's SIGINT/SIGHUP when `npm run
 // dev` is Ctrl-C'd or its terminal closes — that used to be exactly what
 // killed a leftover agent. The graceful shutdown path (dispose →
@@ -555,7 +555,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		// Default: create an isolated registry. Production always injects the shared one.
 		this.enforcement = deps?.enforcement ?? createIsolatedEnforcementRegistry();
 		this.killFn = deps?.killFn ?? ((pid, signal) => process.kill(pid, signal));
-		// D-akgvxh: every instance registers itself with the single shared 'exit'
+		// Every instance registers itself with the single shared 'exit'
 		// backstop above — see registerExitHandlerOnce for why this is shared,
 		// not per-instance.
 		liveAdapters.add(this);
@@ -1148,13 +1148,13 @@ export class CliHarnessAdapter implements HarnessAdapter {
 	}
 
 	/**
-	 * D-akgvxh: SIGKILLs every still-RUNNING session this adapter holds a live
+	 * SIGKILLs every still-RUNNING session this adapter holds a live
 	 * child for. Called by the shared process 'exit' handler above; also
 	 * callable directly: the unit test calls `stopAllLiveHarnessSessions()`
 	 * itself, with an injected killFn, and never emits "exit" on the real
 	 * `process` (that would sweep every other test's adapter too).
 	 *
-	 * @lore B3 reused-pid gap: a `session.done` entry (the CLI already exited;
+	 * @lore reused-pid gap: a `session.done` entry (the CLI already exited;
 	 * if the caller calls `stopSession`, its done-branch signals the group once,
 	 * soon after the exit) can sit in
 	 * `this.sessions` for an UNBOUNDED time if the caller never calls

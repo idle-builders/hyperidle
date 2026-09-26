@@ -1,5 +1,5 @@
 /**
- * AR1-style test-support helper (development world — lives in `__tests__/`,
+ * Test-support helper (development world — lives in `__tests__/`,
  * never imported by production code).
  *
  * @lore process-group kill only helps once `stopSession` is actually called.
