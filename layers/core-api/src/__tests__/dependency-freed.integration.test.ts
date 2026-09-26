@@ -17,7 +17,7 @@
  * reaction (session admission itself is a different layer, out of scope).
  */
 
-import { type HyperIdleDb, tasks, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, taskDispatchAttempts, tasks, teams, users } from "@hyperidle/db";
 import type { SessionStartedEvent } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
@@ -50,6 +50,14 @@ async function editTaskRequest(
 async function readTaskState(db: HyperIdleDb, taskId: string): Promise<string | undefined> {
 	const [row] = await db.select().from(tasks).where(eq(tasks.id, taskId));
 	return row?.state;
+}
+
+async function hasDispatchAttempt(db: HyperIdleDb, taskId: string): Promise<boolean> {
+	const rows = await db
+		.select()
+		.from(taskDispatchAttempts)
+		.where(eq(taskDispatchAttempts.taskId, taskId));
+	return rows.length > 0;
 }
 
 async function seedTeam(db: HyperIdleDb, teamId: string): Promise<void> {
@@ -159,6 +167,7 @@ describe("AC3: last dependency finishes, agent owns it -> in_progress with no hu
 describe("AC4: last dependency finishes, nobody owns it -> waits at accepted", () => {
 	test("hold -> accepted, and stays there with no dispatch", async ({ db, app }) => {
 		await seedTeam(db, "dep-freed-unowned");
+		await seedRunnableAgent(db, "dep-freed-sentinel-agent", "dep-freed-unowned");
 
 		const depRes = await editTaskRequest(app, { teamId: "dep-freed-unowned", title: "Dependency" });
 		const dep = depRes.json.data?.task;
@@ -172,14 +181,31 @@ describe("AC4: last dependency finishes, nobody owns it -> waits at accepted", (
 		const dependent = dependentRes.json.data?.task;
 		expect(await readTaskState(db, dependent?.id ?? "")).toBe("hold");
 
+		// An owned sentinel, freed the same way, DOES dispatch — its real
+		// `task_dispatch_attempts` row is the completion signal that the
+		// watcher's fire-and-forget reaction has run its course, in place of
+		// a fixed wait "hoping" the unowned task's chain settled by then too.
+		const sentinelDepRes = await editTaskRequest(app, {
+			teamId: "dep-freed-unowned",
+			title: "Sentinel dependency",
+		});
+		const sentinelDep = sentinelDepRes.json.data?.task;
+		const sentinelRes = await editTaskRequest(app, {
+			teamId: "dep-freed-unowned",
+			title: "Sentinel dependent, owned",
+			ownerAgentId: "dep-freed-sentinel-agent",
+			dependencies: [sentinelDep?.id],
+		});
+		const sentinel = sentinelRes.json.data?.task;
+
 		await editTaskRequest(app, { id: dep?.id, state: "done" });
+		await editTaskRequest(app, { id: sentinelDep?.id, state: "done" });
 
 		await vi.waitFor(async () => {
-			expect(await readTaskState(db, dependent?.id ?? "")).toBe("accepted");
+			expect(await hasDispatchAttempt(db, sentinel?.id ?? "")).toBe(true);
 		});
 
-		// Give any stray dispatch a beat, then confirm it never left accepted.
-		await new Promise((resolve) => setTimeout(resolve, 30));
 		expect(await readTaskState(db, dependent?.id ?? "")).toBe("accepted");
+		expect(await hasDispatchAttempt(db, dependent?.id ?? "")).toBe(false);
 	});
 });

@@ -21,7 +21,7 @@ import {
 } from "@hyperidle/db";
 import type { ObjectChangeEvent } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
-import { describe, expect } from "vitest";
+import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
 const EARLIER = "2026-01-01T00:00:00.000Z";
@@ -49,10 +49,6 @@ async function call<T>(
 	return envelope;
 }
 
-/** Subscription wakes run post commit in a `void` handler — give them time to land. */
-async function settle(): Promise<void> {
-	await new Promise((r) => setTimeout(r, 300));
-}
 
 async function seedFounder(db: HyperIdleDb, id: string, teamId: string): Promise<void> {
 	await db.insert(teams).values({ id: teamId, name: teamId, createdAt: EARLIER });
@@ -110,10 +106,11 @@ describe("an agent subscribed to everything wakes once per change", () => {
 		await subscribe(db, "assistant-once-dm", ["thread.created", "thread.message"]);
 
 		await call(app, "send_message", { recipients: ["assistant-once-dm"], text: "hello" });
-		await settle();
 
-		const intents = await intentsFor(db, "assistant-once-dm");
-		expect(intents.map((i) => i.kind)).toEqual(["thread_turn"]);
+		await vi.waitFor(async () => {
+			const intents = await intentsFor(db, "assistant-once-dm");
+			expect(intents.map((i) => i.kind)).toEqual(["thread_turn"]);
+		});
 	});
 
 	test("a task handed to an agent starts its task run and nothing else", async ({ db, app }) => {
@@ -154,10 +151,11 @@ describe("an agent subscribed to everything wakes once per change", () => {
 			ownerAgentId: "agent-once-task",
 			state: "accepted",
 		});
-		await settle();
 
-		const intents = await intentsFor(db, "agent-once-task");
-		expect(intents.map((i) => i.kind)).toEqual(["task_run"]);
+		await vi.waitFor(async () => {
+			const intents = await intentsFor(db, "agent-once-task");
+			expect(intents.map((i) => i.kind)).toEqual(["task_run"]);
+		});
 	});
 
 	test("an agent created with subscriptions does not wake on its own creation", async ({
@@ -165,6 +163,21 @@ describe("an agent subscribed to everything wakes once per change", () => {
 		app,
 	}) => {
 		await seedFounder(db, "founder-once-new", "team-once-new");
+		// A subscriber that EXISTS BEFORE the create — it DOES wake on it. Its
+		// real intent is the completion signal that the same user.created
+		// subscription pass has run, in place of a fixed wait, before checking
+		// the just-created agent's own subscriptions produced nothing.
+		await db.insert(users).values({
+			id: "sentinel-once-new",
+			kind: "ai",
+			name: "Sentinel",
+			role: "assistant",
+			status: "active",
+			agentCategory: "individual",
+			ownerUserId: "founder-once-new",
+			createdAt: EARLIER,
+		});
+		await subscribe(db, "sentinel-once-new", ["user.created"]);
 
 		const created = await call<{ user: { id: string } | null }>(app, "edit_user", {
 			kind: "ai",
@@ -173,12 +186,16 @@ describe("an agent subscribed to everything wakes once per change", () => {
 			ownerUserId: "founder-once-new",
 			subscriptions: { add: [{ event: "user.created" }, { event: "user.changed" }] },
 		});
-		await settle();
+
+		await vi.waitFor(async () => {
+			const intents = await intentsFor(db, "sentinel-once-new");
+			expect(intents.map((i) => i.kind)).toEqual(["subscription_run"]);
+		});
 
 		const agentId = created.data?.user?.id ?? "";
 		expect(agentId).not.toBe("");
-		const rows = await db.select().from(agentWorkIntents);
-		expect(rows.filter((r) => r.kind === "subscription_run")).toEqual([]);
+		const ownIntents = await intentsFor(db, agentId);
+		expect(ownIntents.filter((r) => r.kind === "subscription_run")).toEqual([]);
 	});
 
 	test("a verdict on an agent's review names the agent on every change it makes", async ({

@@ -29,7 +29,7 @@ import {
 	type WriteExecutor,
 } from "@hyperidle/db";
 import type { ActionResult, ThreadView } from "@hyperidle/domain-model";
-import type { PropagationAppliedEvent, PropagationFailedEvent } from "@hyperidle/event-bus";
+import type { EventBus, PropagationAppliedEvent, PropagationFailedEvent } from "@hyperidle/event-bus";
 import { type PolicyDeps, registerLifecyclePropagation } from "@hyperidle/policy";
 import * as work from "@hyperidle/task";
 import { listMessages } from "@hyperidle/thread";
@@ -166,6 +166,32 @@ async function seedSession(
 		startedAt: new Date().toISOString(),
 		state,
 		outcome: outcome ?? null,
+	});
+}
+
+/**
+ * Drives one real completing session_ended (its own task+session) through
+ * the ALREADY-registered handler and waits for its real `done` write — a
+ * completion signal for the fire-and-forget reaction, in place of a fixed
+ * wait, before a negative case asserts its own task stayed untouched.
+ */
+async function settlePropagation(db: HyperIdleDb, eventBus: EventBus, sentinelId: string): Promise<void> {
+	const taskId = `${sentinelId}-task`;
+	const sessionId = `${sentinelId}-session`;
+	await seedTask(db, taskId, "in_progress");
+	await seedSession(db, sessionId, taskId, "active");
+	eventBus.emit({
+		type: "session_ended",
+		streamId: sessionId,
+		sessionId,
+		agentId: "agent-1",
+		taskId,
+		timestamp: Date.now(),
+		outcome: "completed",
+	});
+	await vi.waitFor(async () => {
+		const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId));
+		expect(task?.state).toBe("done");
 	});
 }
 
@@ -307,11 +333,12 @@ describe("registerLifecyclePropagation — session -> task", () => {
 			outcome: "crashed",
 		});
 
-		// Handler returns early for non-completed outcomes — wait briefly then assert
-		await new Promise((r) => setTimeout(r, 80));
+		// A real sentinel session_ended through the same handler proves the
+		// fire-and-forget reaction has run before checking task-1 stayed put.
+		await settlePropagation(db, eventBus, "crashed-sentinel");
 		const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 		expect(task?.state).toBe("in_progress");
-		expect(appliedEvents).toHaveLength(0);
+		expect(appliedEvents.filter((e) => e.targetId === "task-1")).toHaveLength(0);
 	});
 
 	test("does NOT transition task when session ends with outcome=stopped (F2: stopped same as crashed)", async ({
@@ -338,11 +365,12 @@ describe("registerLifecyclePropagation — session -> task", () => {
 			outcome: "stopped",
 		});
 
-		// Handler returns early for non-completed outcomes — wait briefly then assert
-		await new Promise((r) => setTimeout(r, 80));
+		// A real sentinel session_ended through the same handler proves the
+		// fire-and-forget reaction has run before checking task-1 stayed put.
+		await settlePropagation(db, eventBus, "stopped-sentinel");
 		const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 		expect(task?.state).toBe("in_progress");
-		expect(appliedEvents).toHaveLength(0);
+		expect(appliedEvents.filter((e) => e.targetId === "task-1")).toHaveLength(0);
 	});
 
 	/**
@@ -411,15 +439,16 @@ describe("registerLifecyclePropagation — session -> task", () => {
 			outcome: "completed",
 		});
 
-		// Handler returns early — wait briefly then assert task unchanged
-		await new Promise((r) => setTimeout(r, 80));
+		// A real sentinel session_ended through the same handler proves the
+		// fire-and-forget reaction has run before checking task-1 stayed put.
+		await settlePropagation(db, eventBus, "already-moved-sentinel");
 		const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 		// Unchanged: the task was seeded in `review` and the handler returns early
 		// because it is not `in_progress`. This one is NOT the BB1 done-by-default
 		// rule — it is the guard that stops a second session end re-transitioning
 		// a task someone already moved.
 		expect(task?.state).toBe("review");
-		expect(appliedEvents).toHaveLength(0);
+		expect(appliedEvents.filter((e) => e.targetId === "task-1")).toHaveLength(0);
 	});
 
 	test("handles concurrent race: InvalidTransitionError is caught silently (F1)", async ({
@@ -454,11 +483,12 @@ describe("registerLifecyclePropagation — session -> task", () => {
 			outcome: "completed",
 		});
 
-		// Handler silently returns on InvalidTransitionError — wait briefly, then confirm
-		// no applied event fired and no failed event (just silent early return)
-		await new Promise((r) => setTimeout(r, 80));
-		expect(appliedEvents).toHaveLength(0);
-		// task stays in 'done' — not double-transitioned
+		// A real sentinel session_ended through the same handler proves the
+		// fire-and-forget reaction has run — no applied event for task-1 and no
+		// failed event (just silent early return), and it stays 'done'.
+		await settlePropagation(db, eventBus, "race-sentinel");
+		expect(appliedEvents.filter((e) => e.targetId === "task-1")).toHaveLength(0);
+		expect(failedEvents).toHaveLength(0);
 		const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 		expect(task?.state).toBe("done");
 	});
