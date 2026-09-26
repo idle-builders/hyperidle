@@ -100,9 +100,7 @@ describe("Mobile drawer: hamburger, open, close", () => {
 		});
 		// Sidebar should not be in normal flow at mobile
 		expect(
-			container.querySelector(
-				"aside:not([data-testid='mobile-drawer'] aside)",
-			),
+			container.querySelector("aside:not([data-testid='mobile-drawer'] aside)"),
 		).not.toBeInTheDocument();
 	});
 
