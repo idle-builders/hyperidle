@@ -63,30 +63,9 @@ import * as path from "node:path";
 // job now (the pure-fs `applyProvisioningPlan` half is unchanged behavior).
 import { applyProvisioningPlan } from "@hyperidle/run-orchestration";
 import { describe, expect, test } from "vitest";
+import { buildCleanEnv, createHarnessSandbox, requireHarnessAuthed } from "./harness-sandbox.js";
 import { requireBinary } from "./require-binary.js";
 import { requireHarness } from "./require-harness.js";
-
-// ── Clean env for headless binary spawning ────────────────────────────────────
-// Same recipe as AL7 — zero CC session-detection vars, keep keychain auth.
-
-function buildCleanEnv(): Record<string, string> {
-	const env: Record<string, string> = {};
-	for (const [k, v] of Object.entries(process.env)) {
-		if (v !== undefined) env[k] = v;
-	}
-	const ccVars = [
-		"CLAUDECODE",
-		"CLAUDE_CODE_ENTRYPOINT",
-		"CLAUDE_CODE_EXECPATH",
-		"CLAUDE_CODE_SESSION_ID",
-		"AI_AGENT",
-		"CLAUDE_EFFORT",
-		"CLAUDE_CODE_SIMPLE",
-		"CLAUDE_CODE_SAFE_MODE",
-	];
-	for (const v of ccVars) env[v] = "";
-	return env;
-}
 
 /**
  * Spawn a process in its own process group (detached), wait for exit.
@@ -235,7 +214,7 @@ async function startMcpTestServer(): Promise<McpTestServer> {
 
 // ── BUILTIN: Scoped out ────────────────────────────────────────────────────────
 
-describe("builtin: scoped out of AN2 connection provisioning (C1)", () => {
+describe("builtin: scoped out of connection provisioning", () => {
 	test("builtin has no held-connection carrier — documented scope-out", () => {
 		// @lore AN2 C1: builtin has mcpSupport:false, runs an in-process callLlm() loop
 		// via ToolRegistry — it never spawns a child process and never reads mcpTokenEnv.
@@ -259,18 +238,13 @@ describe("builtin: scoped out of AN2 connection provisioning (C1)", () => {
 
 // ── CLAUDE-CODE: real .mcp.json bearer MCP ────────────────────────────────────
 
-describe("claude-code: real CLI connects to AN2-provisioned MCP server via .mcp.json Bearer", () => {
+describe("claude-code: real CLI connects to the provisioned MCP server via .mcp.json Bearer", () => {
 	requireHarness("claude");
 	test("provision .mcp.json with bearer token → claude connects + ping_test returns AN2_PROBE_OK", async () => {
-		try {
-			execFileSync("claude", ["auth", "status"], { stdio: "ignore", timeout: 10_000 });
-		} catch (cause) {
-			throw new Error("[AN2 real-harness claude] authentication prerequisite failed", {
-				cause,
-			});
-		}
+		await requireHarnessAuthed("claude");
 
-		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "an2-rh-claude-"));
+		const sandbox = createHarnessSandbox("an2-rh-claude");
+		const sandboxPath = sandbox.path;
 		let mcpServer: McpTestServer | null = null;
 
 		try {
@@ -420,27 +394,20 @@ describe("claude-code: real CLI connects to AN2-provisioned MCP server via .mcp.
 			);
 		} finally {
 			await mcpServer?.close();
-			fs.rmSync(sandboxPath, { recursive: true, force: true });
+			await sandbox.cleanup();
 		}
 	}, 120_000);
 });
 
 // ── CODEX: real config.toml bearer MCP ────────────────────────────────────────
 
-describe("codex: real CLI connects to AN2-provisioned MCP server via config.toml bearer", () => {
+describe("codex: real CLI connects to the provisioned MCP server via config.toml bearer", () => {
 	requireHarness("codex");
 	test("provision .codex-home/config.toml bearer → codex calls ping_test → AN2_PROBE_OK", async () => {
-		const authResult = await spawnDetached("codex", ["login", "status"], {
-			cwd: os.tmpdir(),
-			env: buildCleanEnv(),
-			timeoutMs: 10_000,
-		});
-		const authOutput = (authResult.stdout + authResult.stderr).trim();
-		if (authResult.exitCode !== 0 || !authOutput.startsWith("Logged in")) {
-			throw new Error(`[AN2 real-harness codex] authentication prerequisite failed: ${authOutput}`);
-		}
+		await requireHarnessAuthed("codex");
 
-		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "an2-rh-codex-"));
+		const sandbox = createHarnessSandbox("an2-rh-codex");
+		const sandboxPath = sandbox.path;
 		let mcpServer: McpTestServer | null = null;
 
 		try {
@@ -566,29 +533,20 @@ describe("codex: real CLI connects to AN2-provisioned MCP server via config.toml
 			);
 		} finally {
 			await mcpServer?.close();
-			fs.rmSync(sandboxPath, { recursive: true, force: true });
+			await sandbox.cleanup();
 		}
 	}, 120_000);
 });
 
 // ── OPENCODE: real opencode.json inline header ────────────────────────────────
 
-describe("opencode: real CLI connects to AN2-provisioned MCP server via opencode.json inline header", () => {
+describe("opencode: real CLI connects to the provisioned MCP server via opencode.json inline header", () => {
 	requireHarness("opencode");
 	test("provision opencode.json inline Authorization → opencode calls ping_test → AN2_PROBE_OK", async () => {
-		const authResult = await spawnDetached("opencode", ["providers", "list"], {
-			cwd: os.tmpdir(),
-			env: buildCleanEnv(),
-			timeoutMs: 10_000,
-		});
-		const authOutput = authResult.stdout + authResult.stderr;
-		if (authResult.exitCode !== 0 || !/\d+\s+credentials|environment variable/i.test(authOutput)) {
-			throw new Error(
-				`[AN2 real-harness opencode] authentication prerequisite failed: ${authOutput}`,
-			);
-		}
+		await requireHarnessAuthed("opencode");
 
-		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "an2-rh-opencode-"));
+		const sandbox = createHarnessSandbox("an2-rh-opencode");
+		const sandboxPath = sandbox.path;
 		let mcpServer: McpTestServer | null = null;
 
 		try {
@@ -682,7 +640,7 @@ describe("opencode: real CLI connects to AN2-provisioned MCP server via opencode
 			);
 		} finally {
 			await mcpServer?.close();
-			fs.rmSync(sandboxPath, { recursive: true, force: true });
+			await sandbox.cleanup();
 		}
 	}, 120_000);
 });
@@ -725,7 +683,8 @@ describe("CLI-key: GH_TOKEN env injection → real gh CLI op succeeds", () => {
 			throw new Error("[AN2 real-harness gh] credential prerequisite produced an empty token");
 		}
 
-		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "an2-rh-gh-"));
+		const sandbox = createHarnessSandbox("an2-rh-gh");
+		const sandboxPath = sandbox.path;
 
 		try {
 			// Build the plan with CLI-key env injections (no MCP server entry for github).
@@ -780,7 +739,7 @@ describe("CLI-key: GH_TOKEN env injection → real gh CLI op succeeds", () => {
 					"gh auth status succeeded with injected token.\n",
 			);
 		} finally {
-			fs.rmSync(sandboxPath, { recursive: true, force: true });
+			await sandbox.cleanup();
 		}
 	}, 30_000);
 });

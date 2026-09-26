@@ -190,3 +190,28 @@ export async function requireHarnessAuthed(name: HarnessName, context?: string):
 			`${context ? ` — ${context}` : ""}. Never skip to green.`,
 	);
 }
+
+/**
+ * A copy of the current environment with every Claude-Code session-detection
+ * var cleared, so a real-binary test spawned from inside an agent session
+ * (this repo's own CI runner, a developer's Claude Code terminal, etc.) never
+ * trips a harness's own nested-session guard.
+ */
+export function buildCleanEnv(): Record<string, string> {
+	const env: Record<string, string> = {};
+	for (const [k, v] of Object.entries(process.env)) {
+		if (v !== undefined) env[k] = v;
+	}
+	const ccVars = [
+		"CLAUDECODE",
+		"CLAUDE_CODE_ENTRYPOINT",
+		"CLAUDE_CODE_EXECPATH",
+		"CLAUDE_CODE_SESSION_ID",
+		"AI_AGENT",
+		"CLAUDE_EFFORT",
+		"CLAUDE_CODE_SIMPLE",
+		"CLAUDE_CODE_SAFE_MODE",
+	];
+	for (const v of ccVars) env[v] = "";
+	return env;
+}
