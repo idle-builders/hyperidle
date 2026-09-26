@@ -2,21 +2,42 @@
  * `send_message`/`adjust_thread`/`search_threads`/`open_thread`'s own rules —
  * thread resolution and idempotency, verdict trio, direct-thread
  * find-or-create, computed titles, member replacement, search scoping and
- * the object events a change row fires. Real db, real event bus, and a
- * fake `ThreadActionsDeps` (`__testing__/fake-thread-actions-deps.ts`) for
- * the outward ports this module never depends on directly. Cases needing a
- * cross-module effect this module doesn't own (document search, the
- * agent-orchestration work-intent/review-verdict pipeline) stay at
- * `layers/core-api/src/__tests__/thread-actions.integration.test.ts`, the
+ * the object events a change row fires. Proven against the REAL production
+ * composition (`buildCoreActions`) and the real `{ db, app, eventBus }`
+ * fixture — a module test may not fake the ports the rest of the app really
+ * wires (testing.md), so this reaches across the package boundary to
+ * core-api's own composition root rather than a hand-built stand-in for it
+ * (governance's dev-world files may cross any boundary to build the world).
+ * Cases needing a cross-module effect this module doesn't own (document
+ * search, the agent-orchestration work-intent/review-verdict pipeline) stay
+ * at `layers/core-api/src/__tests__/thread-actions.integration.test.ts`, the
  * layer that composes those modules together.
  */
 
+import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { changes, type HyperIdleDb, messages, tasks, teams, threads, users } from "@hyperidle/db";
 import type { ActionResult, SendMessageInput, ThreadView } from "@hyperidle/domain-model";
 import type { ObjectChangeEvent } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
-import { describe, expect, test } from "../__testing__/test-fixtures.js";
-import type { Action } from "../action-types.js";
+import { describe, expect } from "vitest";
+import { test } from "../../../src/__testing__/test-fixtures.js";
+import type { ActionContext } from "../../../src/actions/action.js";
+import { buildCoreActions } from "../../../src/actions/compose.js";
+import {
+	buildSeamBackedReviewVerdictRecorder,
+	buildSeamBackedWorkIntentRecorder,
+} from "../../../src/services/agent-orchestration-port-composition.js";
+
+const TEST_API_KEY = "test-key-thread-rules";
+
+function authHeaders(extra?: Record<string, string>): Record<string, string> {
+	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
+}
+
+/** The agent actor-override header the seam already uses. */
+function agentHeaders(agentId: string): Record<string, string> {
+	return authHeaders({ "x-hyperidle-actor-id": agentId });
+}
 
 interface ActionEnvelope<T> {
 	readonly ok: boolean;
@@ -28,7 +49,21 @@ interface ActionEnvelope<T> {
 	}>;
 }
 
-/** `changes.actor` FKs to `users` — every seeded team gets this real row. */
+async function call<T>(
+	app: { request: (path: string, init: RequestInit) => Response | Promise<Response> },
+	name: string,
+	body: Record<string, unknown>,
+	headers: Record<string, string> = authHeaders(),
+): Promise<{ readonly status: number; readonly body: ActionEnvelope<T> }> {
+	const res = await app.request(`/api/actions/${name}`, {
+		method: "POST",
+		headers,
+		body: JSON.stringify(body),
+	});
+	return { status: res.status, body: (await res.json()) as ActionEnvelope<T> };
+}
+
+/** `changes.actor` FKs to `users` — every seeded team gets these two real rows. */
 const FOUNDER_ID = "u-founder";
 
 async function seedTeam(db: HyperIdleDb, teamId: string): Promise<void> {
@@ -149,47 +184,24 @@ async function readChanges(db: HyperIdleDb, threadId: string) {
 }
 
 /**
- * Dispatches straight to the action list — no HTTP hop. Schema failures and
- * business refusals both come back as `{ ok: false, problems }` off
- * `ActionResult` itself, so `status` mirrors the real router's mapping
- * (200/422) without needing one.
+ * The `ctx.caller`-dependent door — `actionsAsTools` is the only production
+ * code that fills `caller`, so these cases call `action.run()` directly with
+ * a hand-built `ActionContext`. Real recorders (over a throwaway
+ * `agentOrchestration` boot) so the wake/verdict-resume paths are the real
+ * seam, not a stub of the thing under test.
  */
-async function call<T>(
-	actions: readonly Action[],
-	db: HyperIdleDb,
-	eventBus: import("@hyperidle/event-bus").EventBus,
-	name: string,
-	body: Record<string, unknown>,
-	actorId: string = FOUNDER_ID,
-): Promise<{ readonly status: number; readonly body: ActionEnvelope<T> }> {
-	const action = actions.find((a) => a.declaration.name === name);
-	if (!action) throw new Error(`no "${name}" action`);
-	const parsed = action.declaration.input.safeParse(body);
-	if (!parsed.success) {
-		return {
-			status: 422,
-			body: {
-				ok: false,
-				problems: parsed.error.issues.map((issue) => ({
-					code: issue.code,
-					message: issue.message,
-					path: issue.path.join("."),
-				})),
-			},
-		};
-	}
-	const result = await action.run(
-		{ actor: actorId, db, eventBus, now: new Date().toISOString() },
-		parsed.data,
-	);
-	return { status: result.ok ? 200 : 422, body: result as ActionEnvelope<T> };
+function buildRealActions(agentOrchestration: AgentOrchestrationPort) {
+	return buildCoreActions({
+		agentOrchestration,
+		agentWorkIntentRecorder: buildSeamBackedWorkIntentRecorder(agentOrchestration),
+		reviewVerdictRecorder: buildSeamBackedReviewVerdictRecorder(agentOrchestration),
+	});
 }
 
-/** The `ctx.caller`-dependent cases: `actionsAsTools` is the only production code that fills it. */
-function runnerFor<I, O>(actions: readonly Action[], name: string) {
+function runnerFor<I, O>(actions: ReturnType<typeof buildRealActions>, name: string) {
 	const found = actions.find((a) => a.declaration.name === name);
 	if (!found) throw new Error(`no "${name}" action`);
-	return found.run as (ctx: Parameters<Action["run"]>[0], input: I) => Promise<ActionResult<O>>;
+	return found.run as (ctx: ActionContext, input: I) => Promise<ActionResult<O>>;
 }
 
 // ============================================================================
@@ -199,16 +211,13 @@ function runnerFor<I, O>(actions: readonly Action[], name: string) {
 describe("send_message — thread resolution and idempotency", () => {
 	test("recipients create a thread with sender+recipients as members and write created+message rows", async ({
 		db,
-		actions,
-		eventBus,
+		app,
 	}) => {
 		await seedTeam(db, "sm-team-1");
 		await seedHuman(db, "sm-human-1", "sm-team-1");
 
 		const res = await call<{ message: { id: string }; thread: { id: string; members: string[] } }>(
-			actions,
-			db,
-			eventBus,
+			app,
 			"send_message",
 			{ recipients: ["sm-human-1"], text: "hello" },
 		);
@@ -226,15 +235,12 @@ describe("send_message — thread resolution and idempotency", () => {
 
 	test("a second send with the same clientKey returns the same message and writes no second row; a divergent payload conflicts", async ({
 		db,
-		actions,
-		eventBus,
+		app,
 	}) => {
 		await seedTeam(db, "sm-team-2");
 		await seedHuman(db, "sm-recipient-2", "sm-team-2");
 		const first = await call<{ message: { id: string }; thread: { id: string } }>(
-			actions,
-			db,
-			eventBus,
+			app,
 			"send_message",
 			{
 				recipients: ["sm-recipient-2"],
@@ -246,7 +252,7 @@ describe("send_message — thread resolution and idempotency", () => {
 		const threadId = first.body.data?.thread.id as string;
 		const messageId = first.body.data?.message.id as string;
 
-		const again = await call<{ message: { id: string } }>(actions, db, eventBus, "send_message", {
+		const again = await call<{ message: { id: string } }>(app, "send_message", {
 			threadId,
 			text: "one",
 			clientKey: "sm-idem-key-1",
@@ -256,7 +262,7 @@ describe("send_message — thread resolution and idempotency", () => {
 		const rows = await db.select().from(messages).where(eq(messages.threadId, threadId));
 		expect(rows).toHaveLength(1);
 
-		const divergent = await call(actions, db, eventBus, "send_message", {
+		const divergent = await call(app, "send_message", {
 			threadId,
 			text: "different text",
 			clientKey: "sm-idem-key-1",
@@ -267,15 +273,12 @@ describe("send_message — thread resolution and idempotency", () => {
 
 	test("a messageId overwrites and writes a message row whose before carries the old payload", async ({
 		db,
-		actions,
-		eventBus,
+		app,
 	}) => {
 		await seedTeam(db, "sm-team-3");
 		await seedHuman(db, "sm-recipient-3", "sm-team-3");
 		const created = await call<{ message: { id: string }; thread: { id: string } }>(
-			actions,
-			db,
-			eventBus,
+			app,
 			"send_message",
 			{
 				recipients: ["sm-recipient-3"],
@@ -285,11 +288,7 @@ describe("send_message — thread resolution and idempotency", () => {
 		const threadId = created.body.data?.thread.id as string;
 		const messageId = created.body.data?.message.id as string;
 
-		const overwritten = await call(actions, db, eventBus, "send_message", {
-			threadId,
-			messageId,
-			text: "edited",
-		});
+		const overwritten = await call(app, "send_message", { threadId, messageId, text: "edited" });
 		expect(overwritten.status).toBe(200);
 
 		const rows = await readChanges(db, threadId);
@@ -307,11 +306,7 @@ describe("send_message — thread resolution and idempotency", () => {
 });
 
 describe("send_message — verdict trio and races", () => {
-	test("a verdict from a non-human returns verdict_not_human", async ({
-		db,
-		actions,
-		eventBus,
-	}) => {
+	test("a verdict from a non-human returns verdict_not_human", async ({ db, app }) => {
 		await seedTeam(db, "sm-vt-1");
 		await seedAgent(db, "sm-agent-vt1", "sm-vt-1");
 		const threadId = await seedTaskWithThread(db, "sm-vt1-task", "sm-vt-1");
@@ -321,33 +316,25 @@ describe("send_message — verdict trio and races", () => {
 			.where(eq(threads.id, threadId));
 
 		const review = await call<{ message: { id: string } }>(
-			actions,
-			db,
-			eventBus,
+			app,
 			"send_message",
 			{ threadId, review: { title: "r1", reasoning: ["because"] } },
-			"sm-agent-vt1",
+			agentHeaders("sm-agent-vt1"),
 		);
 		expect(review.status).toBe(200);
 		const reviewMessageId = review.body.data?.message.id as string;
 
 		const verdict = await call(
-			actions,
-			db,
-			eventBus,
+			app,
 			"send_message",
 			{ threadId, verdict: { decision: "approve", resolvesMessageId: reviewMessageId } },
-			"sm-agent-vt1",
+			agentHeaders("sm-agent-vt1"),
 		);
 		expect(verdict.status).toBe(422);
 		expect((verdict.body as ActionEnvelope<unknown>).problems?.[0]?.code).toBe("verdict_not_human");
 	});
 
-	test("a verdict from the review's own author returns verdict_self", async ({
-		db,
-		actions,
-		eventBus,
-	}) => {
+	test("a verdict from the review's own author returns verdict_self", async ({ db, app }) => {
 		await seedTeam(db, "sm-vt-2");
 		const threadId = await seedTaskWithThread(db, "sm-vt2-task", "sm-vt-2");
 		await db
@@ -355,13 +342,13 @@ describe("send_message — verdict trio and races", () => {
 			.set({ participants: JSON.stringify([FOUNDER_ID]) })
 			.where(eq(threads.id, threadId));
 
-		const review = await call<{ message: { id: string } }>(actions, db, eventBus, "send_message", {
+		const review = await call<{ message: { id: string } }>(app, "send_message", {
 			threadId,
 			review: { title: "r2", reasoning: ["because"] },
 		});
 		const reviewMessageId = review.body.data?.message.id as string;
 
-		const verdict = await call(actions, db, eventBus, "send_message", {
+		const verdict = await call(app, "send_message", {
 			threadId,
 			verdict: { decision: "approve", resolvesMessageId: reviewMessageId },
 		});
@@ -369,11 +356,7 @@ describe("send_message — verdict trio and races", () => {
 		expect((verdict.body as ActionEnvelope<unknown>).problems?.[0]?.code).toBe("verdict_self");
 	});
 
-	test("naming a review in another thread returns verdict_foreign_review", async ({
-		db,
-		actions,
-		eventBus,
-	}) => {
+	test("naming a review in another thread returns verdict_foreign_review", async ({ db, app }) => {
 		await seedTeam(db, "sm-vt-3");
 		await seedAgent(db, "sm-agent-vt3", "sm-vt-3");
 		const threadA = await seedTaskWithThread(db, "sm-vt3-task-a", "sm-vt-3");
@@ -388,16 +371,14 @@ describe("send_message — verdict trio and races", () => {
 			.where(eq(threads.id, threadB));
 
 		const review = await call<{ message: { id: string } }>(
-			actions,
-			db,
-			eventBus,
+			app,
 			"send_message",
 			{ threadId: threadA, review: { title: "r3", reasoning: ["because"] } },
-			"sm-agent-vt3",
+			agentHeaders("sm-agent-vt3"),
 		);
 		const reviewMessageId = review.body.data?.message.id as string;
 
-		const verdict = await call(actions, db, eventBus, "send_message", {
+		const verdict = await call(app, "send_message", {
 			threadId: threadB,
 			verdict: { decision: "approve", resolvesMessageId: reviewMessageId },
 		});
@@ -407,7 +388,7 @@ describe("send_message — verdict trio and races", () => {
 		);
 	});
 
-	test("a second concurrent verdict returns verdict_race", async ({ db, actions, eventBus }) => {
+	test("a second concurrent verdict returns verdict_race", async ({ db, app }) => {
 		await seedTeam(db, "sm-vt-4");
 		await seedAgent(db, "sm-agent-vt4", "sm-vt-4");
 		await seedHuman(db, "sm-human-vt4", "sm-vt-4");
@@ -418,27 +399,23 @@ describe("send_message — verdict trio and races", () => {
 			.where(eq(threads.id, threadId));
 
 		const review = await call<{ message: { id: string } }>(
-			actions,
-			db,
-			eventBus,
+			app,
 			"send_message",
 			{ threadId, review: { title: "r4", reasoning: ["because"] } },
-			"sm-agent-vt4",
+			agentHeaders("sm-agent-vt4"),
 		);
 		const reviewMessageId = review.body.data?.message.id as string;
 
 		const [first, second] = await Promise.all([
-			call(actions, db, eventBus, "send_message", {
+			call(app, "send_message", {
 				threadId,
 				verdict: { decision: "approve", resolvesMessageId: reviewMessageId },
 			}),
 			call(
-				actions,
-				db,
-				eventBus,
+				app,
 				"send_message",
 				{ threadId, verdict: { decision: "reject", resolvesMessageId: reviewMessageId } },
-				"sm-human-vt4",
+				agentHeaders("sm-human-vt4"),
 			),
 		]);
 		const results = [first, second];
@@ -456,20 +433,19 @@ describe("send_message — verdict trio and races", () => {
 describe("send_message — direct thread find-or-create", () => {
 	test("two sends from the same sender to the same single recipient return the same thread.id and the thread holds both messages", async ({
 		db,
-		actions,
-		eventBus,
+		app,
 	}) => {
 		await seedTeam(db, "b3-1");
 		await seedHuman(db, "b3-recipient-1", "b3-1");
 
-		const first = await call<{ thread: { id: string } }>(actions, db, eventBus, "send_message", {
+		const first = await call<{ thread: { id: string } }>(app, "send_message", {
 			recipients: ["b3-recipient-1"],
 			text: "first",
 		});
 		expect(first.status).toBe(200);
 		const threadId = first.body.data?.thread.id as string;
 
-		const second = await call<{ thread: { id: string } }>(actions, db, eventBus, "send_message", {
+		const second = await call<{ thread: { id: string } }>(app, "send_message", {
 			recipients: ["b3-recipient-1"],
 			text: "second",
 		});
@@ -482,18 +458,17 @@ describe("send_message — direct thread find-or-create", () => {
 
 	test("two simultaneous first sends to the same recipient land in one thread, not an error", async ({
 		db,
-		actions,
-		eventBus,
+		app,
 	}) => {
 		await seedTeam(db, "b3-race-1");
 		await seedHuman(db, "b3-race-recipient-1", "b3-race-1");
 
 		const [first, second] = await Promise.all([
-			call<{ thread: { id: string } }>(actions, db, eventBus, "send_message", {
+			call<{ thread: { id: string } }>(app, "send_message", {
 				recipients: ["b3-race-recipient-1"],
 				text: "racer one",
 			}),
-			call<{ thread: { id: string } }>(actions, db, eventBus, "send_message", {
+			call<{ thread: { id: string } }>(app, "send_message", {
 				recipients: ["b3-race-recipient-1"],
 				text: "racer two",
 			}),
@@ -519,12 +494,13 @@ describe("send_message — direct thread find-or-create", () => {
 
 	test("the agent no-calling-thread fallback sent twice lands in one thread", async ({
 		db,
-		actions,
+		agentOrchestration,
 		eventBus,
 	}) => {
 		await seedTeam(db, "b3-2");
 		await seedAgent(db, "b3-agent-2", "b3-2");
 		await seedHuman(db, "b3-human-2", "b3-2");
+		const actions = buildRealActions(agentOrchestration);
 		const run = runnerFor<SendMessageInput, { thread: { id: string } }>(actions, "send_message");
 
 		const first = await run(
@@ -555,32 +531,24 @@ describe("send_message — direct thread find-or-create", () => {
 		expect(second.data.thread.id).toBe(first.data.thread.id);
 	});
 
-	test("A sending to B then B sending to A reuse the same thread", async ({
-		db,
-		actions,
-		eventBus,
-	}) => {
+	test("A sending to B then B sending to A reuse the same thread", async ({ db, app }) => {
 		await seedTeam(db, "b3-3");
 		await seedHuman(db, "b3-a", "b3-3");
 		await seedHuman(db, "b3-b", "b3-3");
 
 		const aToB = await call<{ thread: { id: string } }>(
-			actions,
-			db,
-			eventBus,
+			app,
 			"send_message",
 			{ recipients: ["b3-b"], text: "hi from a" },
-			"b3-a",
+			agentHeaders("b3-a"),
 		);
 		expect(aToB.status).toBe(200);
 
 		const bToA = await call<{ thread: { id: string } }>(
-			actions,
-			db,
-			eventBus,
+			app,
 			"send_message",
 			{ recipients: ["b3-a"], text: "hi from b" },
-			"b3-b",
+			agentHeaders("b3-b"),
 		);
 		expect(bToA.status).toBe(200);
 		expect(bToA.body.data?.thread.id).toBe(aToB.body.data?.thread.id);
@@ -588,20 +556,17 @@ describe("send_message — direct thread find-or-create", () => {
 
 	test("an agent sending to a human first hosts the thread on the agent, not whoever is named recipients", async ({
 		db,
-		actions,
-		eventBus,
+		app,
 	}) => {
 		await seedTeam(db, "b3-4");
 		await seedAgent(db, "b3-agent-4", "b3-4");
 		await seedHuman(db, "b3-human-4", "b3-4");
 
 		const res = await call<{ thread: { id: string; hostKind: string; hostId: string } }>(
-			actions,
-			db,
-			eventBus,
+			app,
 			"send_message",
 			{ recipients: ["b3-human-4"], text: "hi from the agent" },
-			"b3-agent-4",
+			agentHeaders("b3-agent-4"),
 		);
 		expect(res.status).toBe(200);
 		expect(res.body.data?.thread.hostKind).toBe("agent");
@@ -610,32 +575,27 @@ describe("send_message — direct thread find-or-create", () => {
 
 	test("a human sending to an agent first, then the same agent replying, land in the same agent-hosted thread", async ({
 		db,
-		actions,
-		eventBus,
+		app,
 	}) => {
 		await seedTeam(db, "b3-5");
 		await seedAgent(db, "b3-agent-5", "b3-5");
 		await seedHuman(db, "b3-human-5", "b3-5");
 
 		const humanFirst = await call<{ thread: { id: string; hostKind: string; hostId: string } }>(
-			actions,
-			db,
-			eventBus,
+			app,
 			"send_message",
 			{ recipients: ["b3-agent-5"], text: "hi from the human" },
-			"b3-human-5",
+			agentHeaders("b3-human-5"),
 		);
 		expect(humanFirst.status).toBe(200);
 		expect(humanFirst.body.data?.thread.hostKind).toBe("agent");
 		expect(humanFirst.body.data?.thread.hostId).toBe("b3-agent-5");
 
 		const agentReply = await call<{ thread: { id: string; hostKind: string; hostId: string } }>(
-			actions,
-			db,
-			eventBus,
+			app,
 			"send_message",
 			{ recipients: ["b3-human-5"], text: "reply from the agent" },
-			"b3-agent-5",
+			agentHeaders("b3-agent-5"),
 		);
 		expect(agentReply.status).toBe(200);
 		expect(agentReply.body.data?.thread.id).toBe(humanFirst.body.data?.thread.id);
@@ -645,12 +605,14 @@ describe("send_message — direct thread find-or-create", () => {
 
 	test("the agent no-calling-thread fallback hosts the thread on the agent, and a human's first send to that same agent finds it", async ({
 		db,
-		actions,
+		agentOrchestration,
 		eventBus,
+		app,
 	}) => {
 		await seedTeam(db, "b3-6");
 		await seedAgent(db, "b3-agent-6", "b3-6");
 		await seedHuman(db, "b3-human-6", "b3-6");
+		const actions = buildRealActions(agentOrchestration);
 		const run = runnerFor<
 			SendMessageInput,
 			{ thread: { id: string; hostKind: string; hostId: string } }
@@ -672,12 +634,10 @@ describe("send_message — direct thread find-or-create", () => {
 		expect(fallback.data.thread.hostId).toBe("b3-agent-6");
 
 		const humanSend = await call<{ thread: { id: string } }>(
-			actions,
-			db,
-			eventBus,
+			app,
 			"send_message",
 			{ recipients: ["b3-agent-6"], text: "hi, replying to the fallback" },
-			"b3-human-6",
+			agentHeaders("b3-human-6"),
 		);
 		expect(humanSend.status).toBe(200);
 		expect(humanSend.body.data?.thread.id).toBe(fallback.data.thread.id);
@@ -687,8 +647,7 @@ describe("send_message — direct thread find-or-create", () => {
 describe("open_thread — computedTitle reads real ownership", () => {
 	test("a direct thread between the owner and their own agent titles 'Assistant' for the owner, and the agent's own name for someone else it also DMs", async ({
 		db,
-		actions,
-		eventBus,
+		app,
 	}) => {
 		await seedTeam(db, "tw-1");
 		await seedHuman(db, "tw-owner-1", "tw-1");
@@ -711,12 +670,10 @@ describe("open_thread — computedTitle reads real ownership", () => {
 		// branch), never `hostKind:"user"` — go through the real `send_message`
 		// action rather than hand-inserting a shape production no longer makes.
 		const ownerSend = await call<{ thread: { id: string; hostKind: string } }>(
-			actions,
-			db,
-			eventBus,
+			app,
 			"send_message",
 			{ recipients: ["tw-agent-1"], text: "hi" },
-			"tw-owner-1",
+			agentHeaders("tw-owner-1"),
 		);
 		expect(ownerSend.status).toBe(200);
 		expect(ownerSend.body.data?.thread.hostKind).toBe("agent");
@@ -724,12 +681,10 @@ describe("open_thread — computedTitle reads real ownership", () => {
 		if (ownerThreadId === undefined) throw new Error("send_message did not return a thread id");
 
 		const otherSend = await call<{ thread: { id: string; hostKind: string } }>(
-			actions,
-			db,
-			eventBus,
+			app,
 			"send_message",
 			{ recipients: ["tw-agent-1"], text: "hi from someone else" },
-			"tw-other-1",
+			agentHeaders("tw-other-1"),
 		);
 		expect(otherSend.status).toBe(200);
 		expect(otherSend.body.data?.thread.hostKind).toBe("agent");
@@ -737,23 +692,19 @@ describe("open_thread — computedTitle reads real ownership", () => {
 		if (otherThreadId === undefined) throw new Error("send_message did not return a thread id");
 
 		const asOwner = await call<ThreadView>(
-			actions,
-			db,
-			eventBus,
+			app,
 			"open_thread",
 			{ id: ownerThreadId },
-			"tw-owner-1",
+			agentHeaders("tw-owner-1"),
 		);
 		expect(asOwner.status).toBe(200);
 		expect(asOwner.body.data?.thread.computedTitle).toBe("Assistant");
 
 		const asOther = await call<ThreadView>(
-			actions,
-			db,
-			eventBus,
+			app,
 			"open_thread",
 			{ id: otherThreadId },
-			"tw-other-1",
+			agentHeaders("tw-other-1"),
 		);
 		expect(asOther.status).toBe(200);
 		expect(asOther.body.data?.thread.computedTitle).toBe("tw-agent-1");
@@ -762,12 +713,11 @@ describe("open_thread — computedTitle reads real ownership", () => {
 
 describe("adjust_thread", () => {
 	test("with no id, creates a thread with the actor as its only member and host {user, actor}", async ({
+		app,
 		db,
-		actions,
-		eventBus,
 	}) => {
 		await seedTeam(db, "at-0");
-		const res = await call<ThreadView>(actions, db, eventBus, "adjust_thread", {});
+		const res = await call<ThreadView>(app, "adjust_thread", {});
 		expect(res.status).toBe(200);
 		expect(res.body.data?.thread.hostKind).toBe("user");
 		expect(res.body.data?.thread.hostId).toBe(FOUNDER_ID);
@@ -776,8 +726,7 @@ describe("adjust_thread", () => {
 
 	test("deleted:true hides the thread from search and makes open_thread return not_found; false restores it", async ({
 		db,
-		actions,
-		eventBus,
+		app,
 	}) => {
 		await seedTeam(db, "at-1");
 		await seedThreadRow(db, "at-thread-1", {
@@ -787,31 +736,22 @@ describe("adjust_thread", () => {
 			members: [FOUNDER_ID],
 		});
 
-		const del = await call(actions, db, eventBus, "adjust_thread", {
-			id: "at-thread-1",
-			deleted: true,
-		});
+		const del = await call(app, "adjust_thread", { id: "at-thread-1", deleted: true });
 		expect(del.status).toBe(200);
-		const searched = await call<unknown[]>(actions, db, eventBus, "search_threads", {
-			ids: ["at-thread-1"],
-		});
+		const searched = await call<unknown[]>(app, "search_threads", { ids: ["at-thread-1"] });
 		expect(searched.body.data).toEqual([]);
-		const opened = await call(actions, db, eventBus, "open_thread", { id: "at-thread-1" });
+		const opened = await call(app, "open_thread", { id: "at-thread-1" });
 		expect(opened.status).toBe(422);
 
-		const restored = await call(actions, db, eventBus, "adjust_thread", {
-			id: "at-thread-1",
-			deleted: false,
-		});
+		const restored = await call(app, "adjust_thread", { id: "at-thread-1", deleted: false });
 		expect(restored.status).toBe(200);
-		const reopened = await call(actions, db, eventBus, "open_thread", { id: "at-thread-1" });
+		const reopened = await call(app, "open_thread", { id: "at-thread-1" });
 		expect(reopened.status).toBe(200);
 	});
 
 	test("a stored title wins over the computed one; title:null restores the fallback", async ({
 		db,
-		actions,
-		eventBus,
+		app,
 	}) => {
 		await seedTeam(db, "at-2");
 		await seedThreadRow(db, "at-thread-2", {
@@ -820,13 +760,13 @@ describe("adjust_thread", () => {
 			initiatorId: FOUNDER_ID,
 			members: [FOUNDER_ID],
 		});
-		const withTitle = await call<ThreadView>(actions, db, eventBus, "adjust_thread", {
+		const withTitle = await call<ThreadView>(app, "adjust_thread", {
 			id: "at-thread-2",
 			title: "My custom title",
 		});
 		expect(withTitle.body.data?.thread.title).toBe("My custom title");
 
-		const cleared = await call<ThreadView>(actions, db, eventBus, "adjust_thread", {
+		const cleared = await call<ThreadView>(app, "adjust_thread", {
 			id: "at-thread-2",
 			title: null,
 		});
@@ -836,12 +776,11 @@ describe("adjust_thread", () => {
 
 	test("open_thread and adjust_thread's create-empty write no message rows", async ({
 		db,
-		actions,
-		eventBus,
+		app,
 	}) => {
 		await seedTeam(db, "at-3");
 		const before = await db.select().from(messages);
-		const res = await call(actions, db, eventBus, "adjust_thread", {});
+		const res = await call(app, "adjust_thread", {});
 		expect(res.status).toBe(200);
 		const after = await db.select().from(messages);
 		expect(after).toHaveLength(before.length);
@@ -849,8 +788,7 @@ describe("adjust_thread", () => {
 
 	test("members is a full replacement — removing and adding in one call; a non-member cannot use it to add themselves", async ({
 		db,
-		actions,
-		eventBus,
+		app,
 	}) => {
 		await seedTeam(db, "at-4");
 		await seedHuman(db, "at-member-a", "at-4");
@@ -863,7 +801,7 @@ describe("adjust_thread", () => {
 			members: [FOUNDER_ID, "at-member-a"],
 		});
 
-		const replaced = await call<ThreadView>(actions, db, eventBus, "adjust_thread", {
+		const replaced = await call<ThreadView>(app, "adjust_thread", {
 			id: "at-thread-4",
 			members: [FOUNDER_ID, "at-member-b"],
 		});
@@ -875,12 +813,10 @@ describe("adjust_thread", () => {
 		expect(membersAfterReplace).not.toContain("at-member-a");
 
 		const refused = await call(
-			actions,
-			db,
-			eventBus,
+			app,
 			"adjust_thread",
 			{ id: "at-thread-4", members: [FOUNDER_ID, "at-member-b", "at-stranger"] },
-			"at-stranger",
+			agentHeaders("at-stranger"),
 		);
 		expect(refused.status).toBe(422);
 		expect((refused.body as ActionEnvelope<unknown>).problems?.[0]?.code).toBe("not_a_member");
@@ -888,7 +824,7 @@ describe("adjust_thread", () => {
 		expect(membersAfterRefusal).not.toContain("at-stranger");
 	});
 
-	test("pinned toggles and appends a changed row naming it", async ({ db, actions, eventBus }) => {
+	test("pinned toggles and appends a changed row naming it", async ({ db, app }) => {
 		await seedTeam(db, "at-5");
 		await seedThreadRow(db, "at-thread-5", {
 			hostKind: "user",
@@ -897,14 +833,14 @@ describe("adjust_thread", () => {
 			members: [FOUNDER_ID],
 		});
 
-		const pinned = await call<ThreadView>(actions, db, eventBus, "adjust_thread", {
+		const pinned = await call<ThreadView>(app, "adjust_thread", {
 			id: "at-thread-5",
 			pinned: true,
 		});
 		expect(pinned.status).toBe(200);
 		expect(pinned.body.data?.thread.pinned).toBe(true);
 
-		const unpinned = await call<ThreadView>(actions, db, eventBus, "adjust_thread", {
+		const unpinned = await call<ThreadView>(app, "adjust_thread", {
 			id: "at-thread-5",
 			pinned: false,
 		});
@@ -917,11 +853,7 @@ describe("adjust_thread", () => {
 		);
 	});
 
-	test("resolved:true resolves the thread; resolved:false reopens it", async ({
-		db,
-		actions,
-		eventBus,
-	}) => {
+	test("resolved:true resolves the thread; resolved:false reopens it", async ({ db, app }) => {
 		await seedTeam(db, "at-6");
 		await seedThreadRow(db, "at-thread-6", {
 			hostKind: "user",
@@ -930,14 +862,14 @@ describe("adjust_thread", () => {
 			members: [FOUNDER_ID],
 		});
 
-		const resolved = await call<ThreadView>(actions, db, eventBus, "adjust_thread", {
+		const resolved = await call<ThreadView>(app, "adjust_thread", {
 			id: "at-thread-6",
 			resolved: true,
 		});
 		expect(resolved.status).toBe(200);
 		expect(resolved.body.data?.thread.resolvedAt).not.toBeNull();
 
-		const reopened = await call<ThreadView>(actions, db, eventBus, "adjust_thread", {
+		const reopened = await call<ThreadView>(app, "adjust_thread", {
 			id: "at-thread-6",
 			resolved: false,
 		});
@@ -949,8 +881,7 @@ describe("adjust_thread", () => {
 describe("search_threads", () => {
 	test("mine returns only threads the actor is in, and carries hasUnresolvedReview correctly", async ({
 		db,
-		actions,
-		eventBus,
+		app,
 	}) => {
 		await seedTeam(db, "st-1");
 		await seedHuman(db, "st-outsider-1", "st-1");
@@ -968,19 +899,17 @@ describe("search_threads", () => {
 			members: ["st-outsider-1"],
 		});
 
-		await call<{ message: { id: string } }>(actions, db, eventBus, "send_message", {
+		await call<{ message: { id: string } }>(app, "send_message", {
 			threadId: "st-mine-1",
 			review: { title: "open review", reasoning: ["x"] },
 		});
 		const resolvedReview = await call<{ message: { id: string } }>(
-			actions,
-			db,
-			eventBus,
+			app,
 			"send_message",
 			{ threadId: "st-mine-1", review: { title: "resolved review", reasoning: ["y"] } },
-			"st-agent-1",
+			agentHeaders("st-agent-1"),
 		);
-		await call(actions, db, eventBus, "send_message", {
+		await call(app, "send_message", {
 			threadId: "st-mine-1",
 			verdict: {
 				decision: "approve",
@@ -989,9 +918,7 @@ describe("search_threads", () => {
 		});
 
 		const res = await call<Array<{ id: string; hasUnresolvedReview: boolean }>>(
-			actions,
-			db,
-			eventBus,
+			app,
 			"search_threads",
 			{ mine: true },
 		);
@@ -1005,8 +932,7 @@ describe("search_threads", () => {
 
 	test("an empty input ({}) takes the same mine branch as {mine:true} — the sentence's own promise", async ({
 		db,
-		actions,
-		eventBus,
+		app,
 	}) => {
 		await seedTeam(db, "st-2");
 		await seedHuman(db, "st-outsider-2", "st-2");
@@ -1023,7 +949,7 @@ describe("search_threads", () => {
 			members: ["st-outsider-2"],
 		});
 
-		const res = await call<Array<{ id: string }>>(actions, db, eventBus, "search_threads", {});
+		const res = await call<Array<{ id: string }>>(app, "search_threads", {});
 		expect(res.status).toBe(200);
 		const ids = res.body.data?.map((r) => r.id) ?? [];
 		expect(ids).toContain("st-mine-2");
@@ -1032,8 +958,7 @@ describe("search_threads", () => {
 
 	test("lastMessagePreview is batched, not one query per thread, and is null for a thread with no messages", async ({
 		db,
-		actions,
-		eventBus,
+		app,
 	}) => {
 		await seedTeam(db, "st-3");
 		await seedThreadRow(db, "st-preview-a", {
@@ -1055,21 +980,13 @@ describe("search_threads", () => {
 			members: [FOUNDER_ID],
 		});
 
-		await call(actions, db, eventBus, "send_message", {
-			threadId: "st-preview-a",
-			text: "a first",
-		});
-		await call(actions, db, eventBus, "send_message", {
-			threadId: "st-preview-a",
-			text: "a latest",
-		});
-		await call(actions, db, eventBus, "send_message", { threadId: "st-preview-b", text: "b only" });
+		await call(app, "send_message", { threadId: "st-preview-a", text: "a first" });
+		await call(app, "send_message", { threadId: "st-preview-a", text: "a latest" });
+		await call(app, "send_message", { threadId: "st-preview-b", text: "b only" });
 		// st-preview-c gets no message at all.
 
 		const res = await call<Array<{ id: string; lastMessagePreview: string | null }>>(
-			actions,
-			db,
-			eventBus,
+			app,
 			"search_threads",
 			{ ids: ["st-preview-a", "st-preview-b", "st-preview-c"] },
 		);
@@ -1082,8 +999,7 @@ describe("search_threads", () => {
 
 	test("text matches message content across threads the actor can read, and canReadThread still filters a DM they are not in", async ({
 		db,
-		actions,
-		eventBus,
+		app,
 	}) => {
 		// `searchConversations` (message-content matches) is already gated by a
 		// participant-probe in its own SQL, so it can only ever return threads
@@ -1118,9 +1034,7 @@ describe("search_threads", () => {
 			title: "Zylophone Team Channel",
 		});
 
-		const res = await call<Array<{ id: string }>>(actions, db, eventBus, "search_threads", {
-			text: "Zylophone",
-		});
+		const res = await call<Array<{ id: string }>>(app, "search_threads", { text: "Zylophone" });
 		expect(res.status).toBe(200);
 		const ids = res.body.data?.map((r) => r.id) ?? [];
 		expect(ids).toContain("st-text-mine");
@@ -1132,7 +1046,7 @@ describe("search_threads", () => {
 describe("send_message / adjust_thread — object events fire from the change rows", () => {
 	test("thread.created, thread.message, thread.changed fire from send_message's own appended rows", async ({
 		db,
-		actions,
+		app,
 		eventBus,
 	}) => {
 		await seedTeam(db, "lb-1");
@@ -1147,26 +1061,22 @@ describe("send_message / adjust_thread — object events fire from the change ro
 		];
 
 		const created = await call<{ message: { id: string }; thread: { id: string } }>(
-			actions,
-			db,
-			eventBus,
+			app,
 			"send_message",
 			{ recipients: [FOUNDER_ID], review: { title: "will be resolved", reasoning: ["x"] } },
-			"lb-agent-1",
+			agentHeaders("lb-agent-1"),
 		);
 		const threadId = created.body.data?.thread.id as string;
 		const reviewMessageId = created.body.data?.message.id as string;
-		await call(actions, db, eventBus, "send_message", {
+		await call(app, "send_message", {
 			threadId,
 			verdict: { decision: "approve", resolvesMessageId: reviewMessageId },
 		});
 		await call(
-			actions,
-			db,
-			eventBus,
+			app,
 			"send_message",
 			{ threadId, review: { title: "reopens it", reasoning: ["y"] } },
-			"lb-agent-1",
+			agentHeaders("lb-agent-1"),
 		);
 
 		const types = seen.map((e) => e.type);
@@ -1180,7 +1090,7 @@ describe("send_message / adjust_thread — object events fire from the change ro
 
 	test("adjust_thread's own create and edit each fire their own object event", async ({
 		db,
-		actions,
+		app,
 		eventBus,
 	}) => {
 		await seedTeam(db, "lb-2");
@@ -1189,12 +1099,10 @@ describe("send_message / adjust_thread — object events fire from the change ro
 		const unsubCreated = eventBus.on("thread.created", (e) => seen.push(e));
 		const unsubChanged = eventBus.on("thread.changed", (e) => seen.push(e));
 
-		const created = await call<ThreadView>(actions, db, eventBus, "adjust_thread", {
-			title: "New thread",
-		});
+		const created = await call<ThreadView>(app, "adjust_thread", { title: "New thread" });
 		const threadId = created.body.data?.thread.id as string;
 
-		await call(actions, db, eventBus, "adjust_thread", { id: threadId, pinned: true });
+		await call(app, "adjust_thread", { id: threadId, pinned: true });
 
 		unsubCreated();
 		unsubChanged();

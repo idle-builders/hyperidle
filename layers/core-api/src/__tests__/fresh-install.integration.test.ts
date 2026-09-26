@@ -32,12 +32,15 @@ import {
 } from "@hyperidle/api-contract";
 import {
 	agentWorkIntents,
+	changes,
 	documents,
 	type HyperIdleDb,
+	messages,
 	plugins,
 	subscriptions,
 	tasks,
 	threads,
+	users,
 } from "@hyperidle/db";
 import {
 	type ActionResult,
@@ -49,6 +52,7 @@ import {
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
+import { eq, or } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
@@ -246,11 +250,83 @@ describe("a fresh install, end to end", () => {
 		while (Date.now() === beforeMessageMs) {
 			// intentionally empty: waiting for Date.now() to advance
 		}
-		await call(app, "send_message", { recipients: [assistantId], text: "Hello" });
-		await vi.waitFor(async () => {
-			const afterMessage = await db.select().from(agentWorkIntents);
-			expect(afterMessage.map((i) => i.kind)).toEqual(["thread_turn"]);
+		// The assistant's own thread.created/thread.message subscriptions ALSO
+		// match the very thread its direct wake just fired on (it can read its
+		// own DM) — a real duplicate that lands after the first intent is seen
+		// would otherwise go unnoticed. A DM only its two members can read, and
+		// a 2-member thread auto-wakes its other party directly (never via a
+		// subscription), so the sentinel needs its OWN 3-member thread, where
+		// nobody is auto-woken and only its subscription reaches it.
+		await db.insert(users).values({
+			id: "sentinel-once-install",
+			kind: "ai",
+			name: "Sentinel",
+			role: "assistant",
+			status: "active",
+			agentCategory: "individual",
+			ownerUserId: adaId,
+			createdAt: new Date().toISOString(),
 		});
+		await db.insert(subscriptions).values({
+			id: "sub-sentinel-once-install",
+			userId: "sentinel-once-install",
+			event: "thread.message",
+			schedule: null,
+			paused: false,
+			nextRunAt: null,
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
+		});
+		await db.insert(users).values({
+			id: "third-party-once-install",
+			kind: "human",
+			name: "Third party",
+			role: "member",
+			status: "active",
+			teamId: teamA,
+			createdAt: new Date().toISOString(),
+		});
+		const sentinelThreadId = "sentinel-thread-once-install";
+		await db.insert(threads).values({
+			id: sentinelThreadId,
+			hostKind: "user",
+			hostId: adaId,
+			initiatorId: adaId,
+			participants: JSON.stringify([adaId, "sentinel-once-install", "third-party-once-install"]),
+			lastActiveAt: new Date().toISOString(),
+			createdAt: new Date().toISOString(),
+		});
+
+		await call(app, "send_message", { recipients: [assistantId], text: "Hello" });
+		await call(app, "send_message", { threadId: sentinelThreadId, text: "sentinel ping" });
+
+		await vi.waitFor(async () => {
+			const sentinelIntents = (await db.select().from(agentWorkIntents)).filter((i) =>
+				i.sourceId.includes("sentinel-once-install"),
+			);
+			expect(sentinelIntents.map((i) => i.kind)).toEqual(["subscription_run"]);
+		});
+		const afterMessage = await db.select().from(agentWorkIntents);
+		expect(
+			afterMessage.filter((i) => !i.sourceId.includes("sentinel-once-install")).map((i) => i.kind),
+		).toEqual(["thread_turn"]);
+
+		// The sentinel was scaffolding for the completion signal above, not a
+		// fixture this end-to-end test's later agent-count assertions expect —
+		// remove it and everything it touched, FK-dependent rows first.
+		const sentinelIntentRows = (await db.select().from(agentWorkIntents)).filter((i) =>
+			i.sourceId.includes("sentinel-once-install"),
+		);
+		for (const row of sentinelIntentRows) {
+			await db.delete(agentWorkIntents).where(eq(agentWorkIntents.id, row.id));
+		}
+		await db.delete(messages).where(eq(messages.threadId, sentinelThreadId));
+		await db.delete(changes).where(eq(changes.objectId, sentinelThreadId));
+		await db.delete(threads).where(eq(threads.id, sentinelThreadId));
+		await db.delete(subscriptions).where(eq(subscriptions.id, "sub-sentinel-once-install"));
+		await db
+			.delete(users)
+			.where(or(eq(users.id, "sentinel-once-install"), eq(users.id, "third-party-once-install")));
 
 		// The subscriptions are live: a change the assistant did not start does wake it.
 		await call(app, "edit_task", { teamId: teamA, title: "Plan the week" }, adaId);
