@@ -141,7 +141,10 @@ describe("CliHarnessAdapter(CLAUDE_CLI_CONFIG) spawn behavior", () => {
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
 
-		const adapter = new CliHarnessAdapter(CLAUDE_CLI_CONFIG, { spawnFn: spawnSpy });
+		const adapter = new CliHarnessAdapter(CLAUDE_CLI_CONFIG, {
+			spawnFn: spawnSpy,
+			killFn: vi.fn(),
+		});
 		const config = makeSessionConfig();
 
 		// Kick off session (don't await full stream)
@@ -167,7 +170,10 @@ describe("CliHarnessAdapter(CLAUDE_CLI_CONFIG) spawn behavior", () => {
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
 
-		const adapter = new CliHarnessAdapter(CLAUDE_CLI_CONFIG, { spawnFn: spawnSpy });
+		const adapter = new CliHarnessAdapter(CLAUDE_CLI_CONFIG, {
+			spawnFn: spawnSpy,
+			killFn: vi.fn(),
+		});
 		// The shape a subscription-authenticated machine actually has: an agent
 		// configured with a model, and NO credential anywhere to resolve one.
 		const sessionP = adapter.startSession({ ...makeSessionConfig(), selectedModel: "haiku" });
@@ -184,7 +190,10 @@ describe("CliHarnessAdapter(CLAUDE_CLI_CONFIG) spawn behavior", () => {
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
 
-		const adapter = new CliHarnessAdapter(CLAUDE_CLI_CONFIG, { spawnFn: spawnSpy });
+		const adapter = new CliHarnessAdapter(CLAUDE_CLI_CONFIG, {
+			spawnFn: spawnSpy,
+			killFn: vi.fn(),
+		});
 		// makeSessionConfig resolves to claude-sonnet-4-6 through the gateway; the
 		// agent's own choice is what the person picked and what must win.
 		const sessionP = adapter.startSession({ ...makeSessionConfig(), selectedModel: "opus" });
@@ -216,7 +225,10 @@ describe("CliHarnessAdapter(CLAUDE_CLI_CONFIG) spawn behavior", () => {
 		};
 
 		try {
-			const adapter = new CliHarnessAdapter(CLAUDE_CLI_CONFIG, { spawnFn: spawnSpy });
+			const adapter = new CliHarnessAdapter(CLAUDE_CLI_CONFIG, {
+				spawnFn: spawnSpy,
+				killFn: vi.fn(),
+			});
 			const sessionP = adapter.startSession(makeSessionConfig());
 			await Promise.resolve();
 			fakeChild.emitExit(0, null);
@@ -391,7 +403,10 @@ describe("CliHarnessAdapter(CLAUDE_CLI_CONFIG) stream — no error events from c
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
 
-		const adapter = new CliHarnessAdapter(CLAUDE_CLI_CONFIG, { spawnFn: spawnSpy });
+		const adapter = new CliHarnessAdapter(CLAUDE_CLI_CONFIG, {
+			spawnFn: spawnSpy,
+			killFn: vi.fn(),
+		});
 		const handle = await adapter.startSession(makeSessionConfig());
 
 		const events: HarnessEvent[] = [];

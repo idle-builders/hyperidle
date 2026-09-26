@@ -77,7 +77,7 @@ describe("CLI native metrics capture — tokens, turns, duration", () => {
 
 		const adapter = new CliHarnessAdapter(
 			makeConfig({ eventFormat: "ndjson", eventDialect: "claude-stream-json" }),
-			{ spawnFn: spawnSpy },
+			{ spawnFn: spawnSpy, killFn: vi.fn() },
 		);
 		const handle = await adapter.startSession(makeSessionConfig());
 
@@ -150,7 +150,7 @@ describe("CLI native metrics capture — tokens, turns, duration", () => {
 				eventFormat: "ndjson",
 				eventDialect: "claude-stream-json",
 			}),
-			{ spawnFn: spawnSpy },
+			{ spawnFn: spawnSpy, killFn: vi.fn() },
 		);
 		const handle = await adapter.startSession(makeSessionConfig());
 
@@ -207,6 +207,7 @@ describe("CLI native metrics capture — tokens, turns, duration", () => {
 
 		const adapter = new CliHarnessAdapter(makeConfig({ eventFormat: "ndjson" }), {
 			spawnFn: spawnSpy,
+			killFn: vi.fn(),
 		});
 		const handle = await adapter.startSession(makeSessionConfig());
 
@@ -266,6 +267,7 @@ describe("CLI native metrics capture — tokens, turns, duration", () => {
 
 		const adapter = new CliHarnessAdapter(makeConfig({ eventFormat: "ndjson" }), {
 			spawnFn: spawnSpy,
+			killFn: vi.fn(),
 		});
 		const handle = await adapter.startSession(makeSessionConfig());
 

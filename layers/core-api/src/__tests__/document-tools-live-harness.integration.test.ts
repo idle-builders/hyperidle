@@ -66,11 +66,12 @@ import {
 	HARNESS_TEST_MODELS,
 	requireHarness,
 	type SupportedHarnessName,
+	stopAllLiveHarnessSessions,
 } from "@hyperidle/harness-registry/test-utils";
 import { drainIntents } from "@hyperidle/session-requests";
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
-import { describe, expect } from "vitest";
+import { afterEach, describe, expect } from "vitest";
 import { queueDeps } from "../__testing__/durable-agent-queue-test-deps.js";
 import type { Action, ActionContext } from "../actions/action.js";
 import { actionsAsTools } from "../actions/actions-as-tools.js";
@@ -82,6 +83,13 @@ import {
 } from "../services/agent-orchestration-port-composition.js";
 
 const NOW = "2026-09-22T00:00:00.000Z";
+
+// @lore stop-all afterEach: see thread-turn-live-harness.integration.test.ts's identical
+// afterEach for the full rationale — a vitest timeout skips this file's own
+// try/finally cleanup, and dispose() alone does not stop a running session.
+afterEach(() => {
+	stopAllLiveHarnessSessions();
+});
 
 /** Test-vocabulary harness name -> the exact `agent_run_config.harness_type` `createLocalAdapterPool` registers under. Same map as `thread-turn-live-harness.integration.test.ts`. */
 const HARNESS_TYPE: Partial<Record<SupportedHarnessName, string>> = {

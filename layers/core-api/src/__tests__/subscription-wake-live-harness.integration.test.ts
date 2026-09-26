@@ -84,6 +84,7 @@ import {
 	HARNESS_TEST_MODELS,
 	requireHarness,
 	type SupportedHarnessName,
+	stopAllLiveHarnessSessions,
 } from "@hyperidle/harness-registry/test-utils";
 import { findSessionById } from "@hyperidle/run-orchestration";
 import { drainIntents } from "@hyperidle/session-requests";
@@ -91,7 +92,7 @@ import type { SubscriptionFireDeps } from "@hyperidle/user";
 import { registerSubscriptionFire } from "@hyperidle/user";
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
-import { describe, expect } from "vitest";
+import { afterEach, describe, expect } from "vitest";
 import { queueDeps } from "../__testing__/durable-agent-queue-test-deps.js";
 import type { Action, ActionContext } from "../actions/action.js";
 import { actionsAsTools } from "../actions/actions-as-tools.js";
@@ -103,6 +104,16 @@ import {
 } from "../services/agent-orchestration-port-composition.js";
 
 const NOW = "2026-09-23T00:00:00.000Z";
+
+// @lore stop-all afterEach: see thread-turn-live-harness.integration.test.ts's identical
+// afterEach for the full rationale — a vitest timeout skips this file's own
+// try/finally cleanup, and dispose() alone does not stop a running session.
+// The deliberate no-instruction ("proceed") cases below keep sending the
+// product's real default seed on purpose — they test what the product
+// really sends, so this change adds cleanup only and leaves their prompt alone.
+afterEach(() => {
+	stopAllLiveHarnessSessions();
+});
 const WAKE_TOKEN = "SUBSCRIPTION_WAKE_OK";
 
 /** Test-vocabulary harness name -> the exact `agent_run_config.harness_type` `createLocalAdapterPool` registers under. */

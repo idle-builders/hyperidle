@@ -17,7 +17,7 @@ import { EventEmitter } from "node:events";
 import type { HarnessEvent, SessionConfig, SessionResumeConfig } from "@hyperidle/harness-protocol";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CliAdapterConfig } from "../cli-harness-adapter.js";
-import { CliHarnessAdapter } from "../cli-harness-adapter.js";
+import { CliHarnessAdapter, stopAllLiveHarnessSessions } from "../cli-harness-adapter.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -88,6 +88,7 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 
 		const adapter = new CliHarnessAdapter(makeConfig({ args: ["--dir", "{{sandbox}}"] }), {
 			spawnFn: spawnSpy,
+			killFn: vi.fn(),
 		});
 		const sessionConfig = makeSessionConfig();
 		const handle = await adapter.startSession(sessionConfig);
@@ -105,6 +106,7 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 
 		const adapter = new CliHarnessAdapter(makeConfig({ args: ["--model", "{{model}}"] }), {
 			spawnFn: spawnSpy,
+			killFn: vi.fn(),
 		});
 		const handle = await adapter.startSession(makeSessionConfig());
 		expect(handle.sessionId).toBeTruthy();
@@ -130,7 +132,7 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 				envMap: { MCP_URL: "{{mcpUrl}}" },
 				envAllowlist: [],
 			}),
-			{ spawnFn: spawnSpy },
+			{ spawnFn: spawnSpy, killFn: vi.fn() },
 		);
 		await adapter.startSession(makeSessionConfig());
 
@@ -150,7 +152,7 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 				envMap: { MCP_URL: "{{mcpUrl}}" },
 				envAllowlist: [],
 			}),
-			{ spawnFn: spawnSpy },
+			{ spawnFn: spawnSpy, killFn: vi.fn() },
 		);
 		const sessionConfigNoMcp = makeSessionConfig({ mcpConnectionInfo: undefined });
 		await adapter.startSession(sessionConfigNoMcp);
@@ -176,7 +178,7 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 				envMap: {},
 				envAllowlist: [],
 			}),
-			{ spawnFn: spawnSpy },
+			{ spawnFn: spawnSpy, killFn: vi.fn() },
 		);
 		await adapter.startSession(makeSessionConfig({ selectedModel: undefined }));
 
@@ -207,7 +209,7 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 
 		const adapter = new CliHarnessAdapter(
 			makeConfig({ args: ["exec", "{{prompt}}"], envMap: {}, envAllowlist: [] }),
-			{ spawnFn: spawnSpy },
+			{ spawnFn: spawnSpy, killFn: vi.fn() },
 		);
 		await adapter.startSession(makeSessionConfig({ instruction }));
 
@@ -229,7 +231,7 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 
 		const adapter = new CliHarnessAdapter(
 			makeConfig({ args: ["exec", "{{prompt}}"], envMap: {}, envAllowlist: [] }),
-			{ spawnFn: spawnSpy },
+			{ spawnFn: spawnSpy, killFn: vi.fn() },
 		);
 		await adapter.startSession(
 			makeSessionConfig({
@@ -256,7 +258,7 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 				envMap: {},
 				envAllowlist: [],
 			}),
-			{ spawnFn: spawnSpy },
+			{ spawnFn: spawnSpy, killFn: vi.fn() },
 		);
 		await adapter.startSession(makeSessionConfig({ selectedModel: "gpt-5.4-mini" }));
 
@@ -298,7 +300,7 @@ describe("CliHarnessAdapter startSession", () => {
 
 		const adapter = new CliHarnessAdapter(
 			makeConfig({ args: ["--dir", "{{sandbox}}", "--model", "{{model}}"] }),
-			{ spawnFn: spawnSpy },
+			{ spawnFn: spawnSpy, killFn: vi.fn() },
 		);
 		await adapter.startSession(makeSessionConfig());
 
@@ -321,7 +323,10 @@ describe("CliHarnessAdapter startSession", () => {
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
 
-		const adapter = new CliHarnessAdapter(makeConfig({ args: [] }), { spawnFn: spawnSpy });
+		const adapter = new CliHarnessAdapter(makeConfig({ args: [] }), {
+			spawnFn: spawnSpy,
+			killFn: vi.fn(),
+		});
 		await adapter.startSession(makeSessionConfig({ sandboxPath: "/my/workspace" }));
 
 		const options = spawnSpy!.mock.calls[0]![2] as Record<string, unknown>;
@@ -333,7 +338,10 @@ describe("CliHarnessAdapter startSession", () => {
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
 
-		const adapter = new CliHarnessAdapter(makeConfig({ args: [] }), { spawnFn: spawnSpy });
+		const adapter = new CliHarnessAdapter(makeConfig({ args: [] }), {
+			spawnFn: spawnSpy,
+			killFn: vi.fn(),
+		});
 		const handle = await adapter.startSession(makeSessionConfig());
 		expect(typeof handle.sessionId).toBe("string");
 		expect(handle.sessionId.length).toBeGreaterThan(0);
@@ -357,6 +365,7 @@ describe("CliHarnessAdapter startSession", () => {
 
 		const adapter = new CliHarnessAdapter(makeConfig({ binary: "fake-tool", args: [] }), {
 			spawnFn: spawnSpy,
+			killFn: vi.fn(),
 		});
 		await expect(adapter.startSession(makeSessionConfig())).rejects.toThrow(
 			/binary not found.*fake-tool/i,
@@ -384,7 +393,7 @@ describe("CliHarnessAdapter env sandboxing", () => {
 				envMap: { FAKE_MCP: "{{mcpUrl}}" },
 				envAllowlist: ["PATH"], // Only PATH is allowlisted, not HYPERIDLE_SECRET
 			}),
-			{ spawnFn: spawnSpy },
+			{ spawnFn: spawnSpy, killFn: vi.fn() },
 		);
 		await adapter.startSession(makeSessionConfig());
 
@@ -411,7 +420,7 @@ describe("CliHarnessAdapter env sandboxing", () => {
 		process.env["DATABASE_URL"] = "postgres://should-not-leak";
 		const adapter = new CliHarnessAdapter(
 			makeConfig({ args: [], envMap: {}, envAllowlist: ["PATH"] }),
-			{ spawnFn: spawnSpy },
+			{ spawnFn: spawnSpy, killFn: vi.fn() },
 		);
 		await adapter.startSession(makeSessionConfig());
 
@@ -452,7 +461,7 @@ describe("CliHarnessAdapter resumeSession — env construction", () => {
 				eventFormat: "ndjson",
 				envAllowlist: [],
 			},
-			{ spawnFn: spawnSpy },
+			{ spawnFn: spawnSpy, killFn: vi.fn() },
 		);
 
 		const startConfig = makeSessionConfig({ selectedModel: "claude-haiku-4-5" });
@@ -486,7 +495,7 @@ describe("CliHarnessAdapter resumeSession — env construction", () => {
 				eventFormat: "ndjson",
 				envAllowlist: [],
 			},
-			{ spawnFn: spawnSpy },
+			{ spawnFn: spawnSpy, killFn: vi.fn() },
 		);
 
 		const resumeConfig: SessionResumeConfig = {
@@ -513,6 +522,7 @@ describe("CliHarnessAdapter streamEvents — ndjson mode", () => {
 
 		const adapter = new CliHarnessAdapter(makeConfig({ args: [], eventFormat: "ndjson" }), {
 			spawnFn: spawnSpy,
+			killFn: vi.fn(),
 		});
 		const handle = await adapter.startSession(makeSessionConfig());
 
@@ -545,6 +555,7 @@ describe("CliHarnessAdapter streamEvents — ndjson mode", () => {
 
 		const adapter = new CliHarnessAdapter(makeConfig({ args: [], eventFormat: "ndjson" }), {
 			spawnFn: spawnSpy,
+			killFn: vi.fn(),
 		});
 		const handle = await adapter.startSession(makeSessionConfig());
 
@@ -571,6 +582,7 @@ describe("CliHarnessAdapter streamEvents — ndjson mode", () => {
 
 		const adapter = new CliHarnessAdapter(makeConfig({ args: [], eventFormat: "ndjson" }), {
 			spawnFn: spawnSpy,
+			killFn: vi.fn(),
 		});
 		const handle = await adapter.startSession(makeSessionConfig());
 
@@ -603,7 +615,7 @@ describe("CliHarnessAdapter streamEvents — ndjson mode", () => {
 		// Config with a pattern that matches the benign line we'll emit.
 		const adapter = new CliHarnessAdapter(
 			makeConfig({ args: [], eventFormat: "ndjson", stderrIgnorePatterns: [/benign/] }),
-			{ spawnFn: spawnSpy },
+			{ spawnFn: spawnSpy, killFn: vi.fn() },
 		);
 		const handle = await adapter.startSession(makeSessionConfig());
 
@@ -637,6 +649,7 @@ describe("CliHarnessAdapter streamEvents — ndjson mode", () => {
 
 		const adapter = new CliHarnessAdapter(makeConfig({ args: [], eventFormat: "ndjson" }), {
 			spawnFn: spawnSpy,
+			killFn: vi.fn(),
 		});
 		const handle = await adapter.startSession(makeSessionConfig());
 
@@ -667,6 +680,7 @@ describe("CliHarnessAdapter streamEvents — text mode", () => {
 
 		const adapter = new CliHarnessAdapter(makeConfig({ args: [], eventFormat: "text" }), {
 			spawnFn: spawnSpy,
+			killFn: vi.fn(),
 		});
 		const handle = await adapter.startSession(makeSessionConfig());
 
@@ -694,6 +708,7 @@ describe("CliHarnessAdapter streamEvents — text mode", () => {
 
 		const adapter = new CliHarnessAdapter(makeConfig({ args: [], eventFormat: "text" }), {
 			spawnFn: spawnSpy,
+			killFn: vi.fn(),
 		});
 		const handle = await adapter.startSession(makeSessionConfig());
 
@@ -724,17 +739,24 @@ describe("CliHarnessAdapter stopSession", () => {
 		vi.useRealTimers();
 	});
 
-	it("sends SIGTERM on stop", async () => {
+	it("sends SIGTERM to the whole process group on stop", async () => {
+		// @lore process-group kill: stopSession signals -pid (the process group),
+		// not the child's own pid, so a grandchild the CLI forked dies too. Kill is
+		// routed through an injected killFn — never a real kill(2) syscall on this
+		// fake child's fabricated pid — see the grandchild-kill test below for the
+		// real-process proof.
 		const spawnSpy = vi.fn();
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
+		const killFn = vi.fn();
 
-		const adapter = new CliHarnessAdapter(makeConfig({ args: [] }), { spawnFn: spawnSpy });
+		const adapter = new CliHarnessAdapter(makeConfig({ args: [] }), { spawnFn: spawnSpy, killFn });
 		const handle = await adapter.startSession(makeSessionConfig());
 
 		// Simulate process exiting after SIGTERM (within 5s)
 		const stopPromise = adapter.stopSession(handle);
-		expect(fakeChild.killSpy).toHaveBeenCalledWith("SIGTERM");
+		expect(killFn).toHaveBeenCalledWith(-12345, "SIGTERM");
+		expect(fakeChild.killSpy).not.toHaveBeenCalled();
 
 		// Simulate graceful exit
 		fakeChild.emitExit(0, null);
@@ -742,20 +764,21 @@ describe("CliHarnessAdapter stopSession", () => {
 		expect(result.outcome).toBe("completed");
 	});
 
-	it("sends SIGKILL after 5s timeout if process does not exit", async () => {
+	it("sends SIGKILL to the whole process group after 5s timeout if process does not exit", async () => {
 		const spawnSpy = vi.fn();
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
+		const killFn = vi.fn();
 
-		const adapter = new CliHarnessAdapter(makeConfig({ args: [] }), { spawnFn: spawnSpy });
+		const adapter = new CliHarnessAdapter(makeConfig({ args: [] }), { spawnFn: spawnSpy, killFn });
 		const handle = await adapter.startSession(makeSessionConfig());
 
 		const stopPromise = adapter.stopSession(handle);
-		expect(fakeChild.killSpy).toHaveBeenCalledWith("SIGTERM");
+		expect(killFn).toHaveBeenCalledWith(-12345, "SIGTERM");
 
 		// Advance timer past 5s without exit — should SIGKILL
 		await vi.advanceTimersByTimeAsync(5001);
-		expect(fakeChild.killSpy).toHaveBeenCalledWith("SIGKILL");
+		expect(killFn).toHaveBeenCalledWith(-12345, "SIGKILL");
 
 		// Now exit
 		fakeChild.emitExit(null, "SIGKILL");
@@ -768,7 +791,10 @@ describe("CliHarnessAdapter stopSession", () => {
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
 
-		const adapter = new CliHarnessAdapter(makeConfig({ args: [] }), { spawnFn: spawnSpy });
+		const adapter = new CliHarnessAdapter(makeConfig({ args: [] }), {
+			spawnFn: spawnSpy,
+			killFn: vi.fn(),
+		});
 		const handle = await adapter.startSession(makeSessionConfig());
 
 		const stopPromise = adapter.stopSession(handle);
@@ -782,7 +808,10 @@ describe("CliHarnessAdapter stopSession", () => {
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
 
-		const adapter = new CliHarnessAdapter(makeConfig({ args: [] }), { spawnFn: spawnSpy });
+		const adapter = new CliHarnessAdapter(makeConfig({ args: [] }), {
+			spawnFn: spawnSpy,
+			killFn: vi.fn(),
+		});
 		const handle = await adapter.startSession(makeSessionConfig());
 
 		const stopPromise = adapter.stopSession(handle);
@@ -796,7 +825,10 @@ describe("CliHarnessAdapter stopSession", () => {
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
 
-		const adapter = new CliHarnessAdapter(makeConfig({ args: [] }), { spawnFn: spawnSpy });
+		const adapter = new CliHarnessAdapter(makeConfig({ args: [] }), {
+			spawnFn: spawnSpy,
+			killFn: vi.fn(),
+		});
 		const handle = await adapter.startSession(makeSessionConfig());
 
 		const stopPromise = adapter.stopSession(handle);
@@ -810,7 +842,10 @@ describe("CliHarnessAdapter stopSession", () => {
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
 
-		const adapter = new CliHarnessAdapter(makeConfig({ args: [] }), { spawnFn: spawnSpy });
+		const adapter = new CliHarnessAdapter(makeConfig({ args: [] }), {
+			spawnFn: spawnSpy,
+			killFn: vi.fn(),
+		});
 		const handle = await adapter.startSession(makeSessionConfig());
 
 		const stopPromise = adapter.stopSession(handle);
@@ -819,6 +854,157 @@ describe("CliHarnessAdapter stopSession", () => {
 		// AU21 (harness-telemetry narrowing): no cost field on SessionResult anymore.
 		expect(result).not.toHaveProperty("cost");
 		expect(result.tokenUsage.byTier).toEqual({});
+	});
+});
+
+// ── stopSession — real process-group kill (no mocks) ────────────────────────
+//
+// @lore process-group kill: proves the fix for the leak on 2026-09-26 — a real
+// cursor-agent, spawned by a test, outlived the test process because
+// child.kill(signal) only ever reached the one process we held a handle to.
+// This test never mocks spawnFn: it spawns a real node subprocess that forks
+// its own grandchild ('sleep'), then proves stopSession kills BOTH.
+
+describe("CliHarnessAdapter stopSession — real process-group kill", () => {
+	it("kills a grandchild process the harness child spawned", async () => {
+		const script =
+			"const {spawn}=require('child_process');" +
+			"const c=spawn('sleep',['30']);" +
+			'process.stdout.write(String(c.pid)+"\\n");';
+
+		// NO spawnFn injected — this drives the real node:child_process.spawn.
+		const adapter = new CliHarnessAdapter({
+			binary: process.execPath,
+			args: ["-e", script],
+			envMap: {},
+			eventFormat: "text",
+			envAllowlist: ["PATH"],
+		});
+
+		const handle = await adapter.startSession(makeSessionConfig({ sandboxPath: process.cwd() }));
+
+		let grandchildPid = -1;
+		for await (const event of adapter.streamEvents(handle)) {
+			if (event.type === "completion") {
+				grandchildPid = Number((event as { type: "completion"; text: string }).text.trim());
+				break;
+			}
+		}
+		expect(grandchildPid).toBeGreaterThan(0);
+		// The grandchild is alive before stop.
+		expect(() => process.kill(grandchildPid, 0)).not.toThrow();
+
+		await adapter.stopSession(handle);
+		// Give the OS a moment to deliver the signal to the whole group.
+		await new Promise((resolve) => setTimeout(resolve, 300));
+
+		// The grandchild died with its parent — this is what child.kill(signal)
+		// alone (no process group) could never prove.
+		expect(() => process.kill(grandchildPid, 0)).toThrow();
+	}, 15_000);
+});
+
+// ── stopSession — process-group kill when the parent already exited ─────────
+//
+// @lore process-group kill (done branch): stopSession's `session.done` branch (the CLI process already
+// exited — the normal drain-then-stop sequence: exit fires, THEN the caller
+// calls stopSession) used to return the buffered result WITHOUT signalling
+// the process group at all. A grandchild that outlives its own exited parent
+// was never touched. This test proves the fix: the parent exits on its own
+// FIRST, then stopSession is called, and the grandchild still has to die.
+
+describe("CliHarnessAdapter stopSession — parent already exited (session.done)", () => {
+	it("still kills a grandchild when the parent process exited before stopSession was called", async () => {
+		const script =
+			"const {spawn}=require('child_process');" +
+			"const c=spawn('sleep',['30']);" +
+			'process.stdout.write(String(c.pid)+"\\n", () => process.exit(0));';
+
+		// NO spawnFn injected — real node:child_process.spawn, same as the test above.
+		const adapter = new CliHarnessAdapter({
+			binary: process.execPath,
+			args: ["-e", script],
+			envMap: {},
+			eventFormat: "text",
+			envAllowlist: ["PATH"],
+		});
+
+		const handle = await adapter.startSession(makeSessionConfig({ sandboxPath: process.cwd() }));
+
+		let grandchildPid = -1;
+		for await (const event of adapter.streamEvents(handle)) {
+			if (event.type === "completion") {
+				grandchildPid = Number((event as { type: "completion"; text: string }).text.trim());
+				break;
+			}
+		}
+		expect(grandchildPid).toBeGreaterThan(0);
+
+		// Give the parent (the "node -e" process) time to actually exit on its
+		// own — session.done must already be true by the time we call
+		// stopSession, or this test proves nothing about the `done` branch.
+		await new Promise((resolve) => setTimeout(resolve, 500));
+		expect(() => process.kill(grandchildPid, 0)).not.toThrow();
+
+		const result = await adapter.stopSession(handle);
+		expect(result.outcome).toBe("completed");
+
+		await new Promise((resolve) => setTimeout(resolve, 300));
+		// The grandchild must be dead even though stopSession only saw an
+		// already-exited parent — that used to leave it running forever.
+		expect(() => process.kill(grandchildPid, 0)).toThrow();
+	}, 15_000);
+});
+
+// ── process exit sweep ───────────────────────────────────────────────────────
+//
+// @lore process-exit backstop: detached:true means a spawned harness CLI no longer gets
+// the terminal's SIGINT/SIGHUP on a forced `npm run dev` exit or crash. A
+// single shared `process.on("exit", ...)` handler is the backstop, and
+// `stopAllLiveHarnessSessions` is the exact function it calls.
+//
+// @lore no real exit event: this test calls `stopAllLiveHarnessSessions()` directly — never
+// `process.emit("exit", ...)` on the real `process` object. Emitting the real
+// event fires the ACTUAL shared handler, which sweeps every CliHarnessAdapter
+// constructed anywhere else in this file, not just this test's own adapter —
+// a real cross-test entanglement that is exactly how a prior version of this
+// test (before every fake-child test in this file injected its own killFn)
+// reached real `process.kill(-12345, "SIGKILL")` / `process.kill(-99999,
+// "SIGKILL")` calls against the host, dozens of times per run. Calling the
+// exported sweep function directly, with an adapter whose killFn is injected
+// right here, tests the identical logic without touching global process
+// state or any other test's adapter.
+//
+// @lore reused-pid gap: a `done` session (its CLI already exited) must NOT
+// be swept here — see killAllLiveSessionGroups's own @lore for why. This test
+// proves both halves in one pass: the still-running session is swept, the
+// done one is not.
+
+describe("CliHarnessAdapter — process exit sweep", () => {
+	it("SIGKILLs every still-running session's process group, and skips a done one", async () => {
+		const killFn = vi.fn();
+		const spawnSpy = vi.fn();
+		const runningChild = makeFakeChild();
+		const doneChild = makeFakeChild();
+		spawnSpy.mockReturnValueOnce(runningChild.proc).mockReturnValueOnce(doneChild.proc);
+
+		const adapter = new CliHarnessAdapter(makeConfig({ args: [] }), {
+			spawnFn: spawnSpy,
+			killFn,
+		});
+
+		// Session 1: still running when the sweep fires.
+		await adapter.startSession(makeSessionConfig());
+		// Session 2: its CLI already exited. A caller that never calls
+		// stopSession leaves it in `this.sessions` indefinitely — the sweep
+		// must not re-signal it (its pid may since belong to another process).
+		await adapter.startSession(makeSessionConfig());
+		doneChild.emitExit(0, null);
+
+		stopAllLiveHarnessSessions();
+
+		expect(killFn).toHaveBeenCalledTimes(1);
+		expect(killFn).toHaveBeenCalledWith(-12345, "SIGKILL");
 	});
 });
 

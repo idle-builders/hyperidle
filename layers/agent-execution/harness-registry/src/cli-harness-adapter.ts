@@ -202,6 +202,12 @@ interface CliAdapterDeps {
 	readonly spawnFn?: typeof spawn;
 	/** Return-enforcement registry. Injected so the adapter and boot share one instance. */
 	readonly enforcement?: EnforcementRegistry;
+	/**
+	 * Sends a signal to a pid (or, negated, a whole process group). Defaults to
+	 * node:process.kill. Injected in tests so a fake child's fabricated pid never
+	 * reaches a real kill(2) syscall.
+	 */
+	readonly killFn?: (pid: number, signal: NodeJS.Signals) => void;
 }
 
 /** Injected dependencies for checkAvailability (for testing). */
@@ -354,6 +360,56 @@ function buildSandboxedEnv(
 
 let nextId = 1;
 
+// ── Process-exit backstop ───────────────────────────────────────────────────
+//
+// @lore process-exit backstop: detached:true (needed for killProcessGroup) means a spawned
+// harness CLI no longer receives the terminal's SIGINT/SIGHUP when `npm run
+// dev` is Ctrl-C'd or its terminal closes — that used to be exactly what
+// killed a leftover agent. The graceful shutdown path (dispose →
+// markRunningSessionsForShutdown → stopSession, remote-server index.ts) still
+// covers a clean exit. This single, shared 'exit' handler is the backstop for
+// everything else Node still runs a handler for on the way out: an uncaught
+// exception, an unhandled rejection that crashes the process, or a caught
+// SIGTERM/SIGINT a signal handler turns into `process.exit()`. It SIGKILLs
+// every still-running session's process group across every CliHarnessAdapter
+// instance ever constructed. Registered ONCE at module scope (not once per
+// adapter instance) — every real-harness test constructs its own adapter, and
+// a per-instance `process.on` would accumulate one listener per instance for
+// the life of the worker process, tripping Node's max-listeners warning.
+//
+// @lore NOT covered: SIGKILL of the server process itself. Node cannot run
+// ANY JS — including this handler — in response to SIGKILL: the kernel
+// terminates the process immediately and unconditionally, before any handler
+// gets a chance to run. A detached agent survives a SIGKILL of its parent,
+// same as it always would.
+const liveAdapters = new Set<CliHarnessAdapter>();
+let exitHandlerRegistered = false;
+
+/**
+ * Stops (SIGKILLs the process group of) every still-running session across
+ * every `CliHarnessAdapter` instance constructed in this process. This is
+ * the exact sweep the shared `process.on("exit", ...)` handler below performs
+ * — kept as a named, standalone, EXPORTED function for two reasons: a unit
+ * test can call it directly, with an injected killFn, and assert on the
+ * result without calling `process.exit()` or emitting "exit"; and a
+ * live-harness integration test in another package (core-api) can call it
+ * directly from its own `afterEach` as a "stop everything now" safety net —
+ * a vitest test timeout skips a test's own `finally` block, but `afterEach`
+ * still runs, and `dispose()`-ing the composition it built does not stop any
+ * harness session that composition started. Re-exported from `test-utils.ts`.
+ */
+export function stopAllLiveHarnessSessions(): void {
+	for (const adapter of liveAdapters) {
+		adapter.killAllLiveSessionGroups();
+	}
+}
+
+function registerExitHandlerOnce(): void {
+	if (exitHandlerRegistered) return;
+	exitHandlerRegistered = true;
+	process.on("exit", stopAllLiveHarnessSessions);
+}
+
 /**
  * Derive the return-enforcement channel from the CLI binary name.
  * codex → settings-codex (writes .codex/hooks.json Stop hook before startSession)
@@ -484,6 +540,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 	private readonly config: CliAdapterConfig;
 	private readonly spawnFn: typeof spawn;
 	private readonly enforcement: EnforcementRegistry;
+	private readonly killFn: (pid: number, signal: NodeJS.Signals) => void;
 	private readonly sessions = new Map<string, CliSession>();
 	/**
 	 * Persists harness-native session ids even after a session is removed
@@ -497,6 +554,12 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		this.spawnFn = deps?.spawnFn ?? spawn;
 		// Default: create an isolated registry. Production always injects the shared one.
 		this.enforcement = deps?.enforcement ?? createIsolatedEnforcementRegistry();
+		this.killFn = deps?.killFn ?? ((pid, signal) => process.kill(pid, signal));
+		// Every instance registers itself with the single shared 'exit'
+		// backstop above — see registerExitHandlerOnce for why this is shared,
+		// not per-instance.
+		liveAdapters.add(this);
+		registerExitHandlerOnce();
 	}
 
 	/**
@@ -674,10 +737,15 @@ export class CliHarnessAdapter implements HarnessAdapter {
 
 		// Spawn the child process
 		// @lore X5 W1: args ARRAY form is the security boundary — no shell: true
+		// @lore process-group kill: detached: true makes this process the leader of
+		// its own new process group, so any grandchild it forks (without its own
+		// detached: true) inherits that same group. stopSession kills the whole
+		// group in one signal — see the @lore there for why that matters.
 		const child = this.spawnFn(this.config.binary, finalArgs, {
 			cwd: config.sandboxPath,
 			env: sandboxedEnv,
 			stdio: ["pipe", "pipe", "pipe"],
+			detached: true,
 		});
 
 		// @lore cli-adapter-stdin: Close stdin immediately after spawn.
@@ -980,6 +1048,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 									cwd: session.sandboxPath,
 									env: session.spawnEnv,
 									stdio: ["pipe", "pipe", "pipe"],
+									detached: true,
 								});
 
 								// @lore cli-adapter-stdin: Close stdin on re-engage spawns too.
@@ -1041,6 +1110,77 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		})();
 	}
 
+	/**
+	 * Signals the whole process group a session's child is the leader of — not
+	 * just the child itself.
+	 *
+	 * @lore process-group kill: a real cursor-agent, started by a test that set
+	 * only `assembledPrompt` (not `instruction`), was left running after the test
+	 * process exited: it read the on-disk task record, found an open tree plus
+	 * its worktree path, and worked it unsupervised for ~45 minutes — commits,
+	 * decisions, claims — because `child.kill(signal)` only ever reached the one
+	 * process object we hold a handle to, never a grandchild it spawned or a
+	 * process that outlived its parent's own exit. Every startSession /
+	 * resumeSession / re-engage spawn above sets `detached: true`, making that
+	 * child the leader of its own new process group (pgid === its own pid);
+	 * `process.kill(-pid, signal)` then reaches every process in that group in
+	 * one syscall, dead process tree included. Falls back to signalling the
+	 * child directly when it has no pid (spawn failed before a pid was assigned).
+	 *
+	 * @lore This alone does NOT cover every stopSession path: `session.done`
+	 * (the CLI's own process already exited — the normal drain-then-stop
+	 * sequence: exit fires, THEN the caller calls stopSession) used to return
+	 * without calling this at all. A grandchild the CLI spawned can outlive its
+	 * own exited parent, so the `session.done` branch below signals the group
+	 * too — the parent being gone does not mean the group is empty.
+	 */
+	private killProcessGroup(child: ChildProcess, signal: NodeJS.Signals): void {
+		if (child.pid === undefined) {
+			child.kill(signal);
+			return;
+		}
+		try {
+			this.killFn(-child.pid, signal);
+		} catch {
+			// ESRCH — the group is already gone (process exited between our done-check
+			// and this call). Nothing left to signal.
+		}
+	}
+
+	/**
+	 * SIGKILLs every still-RUNNING session this adapter holds a live
+	 * child for. Called by the shared process 'exit' handler above; also
+	 * callable directly: the unit test calls `stopAllLiveHarnessSessions()`
+	 * itself, with an injected killFn, and never emits "exit" on the real
+	 * `process` (that would sweep every other test's adapter too).
+	 *
+	 * @lore reused-pid gap: a `session.done` entry (the CLI already exited;
+	 * if the caller calls `stopSession`, its done-branch signals the group once,
+	 * soon after the exit) can sit in
+	 * `this.sessions` for an UNBOUNDED time if the caller never calls
+	 * `stopSession` at all. By the time this sweep runs — a crash, a forced
+	 * exit, an arbitrarily later moment — the OS may have long since recycled
+	 * that pid for an unrelated process. Signalling it then would SIGKILL
+	 * whatever now holds that pid, not the harness that used to. Skipping
+	 * `session.done` here closes that: the done-branch's OWN signal is the only
+	 * kill a done session ever gets. That signal is not in the same tick as the
+	 * exit — it fires when the caller calls `stopSession`, which on the normal
+	 * drain-then-stop path is right after the drain finishes, so a reused pid is
+	 * unlikely there but not impossible.
+	 */
+	killAllLiveSessionGroups(): void {
+		for (const session of this.sessions.values()) {
+			if (session.done) continue;
+			// A session whose child never got a pid (spawn failed before or during
+			// ENOENT handling) has no process group to signal — skip it rather than
+			// fall into killProcessGroup's single-child fallback, which assumes a
+			// real ChildProcess with a working `.kill`.
+			if (session.child.pid !== undefined) {
+				this.killProcessGroup(session.child, "SIGKILL");
+			}
+		}
+	}
+
 	async stopSession(handle: SessionHandle): Promise<SessionResult> {
 		const session = this.sessions.get(handle.sessionId);
 		if (!session) {
@@ -1051,13 +1191,21 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		}
 
 		if (session.done) {
+			// @lore process-group kill (done branch): the CLI's own process already
+			// exited (this is the normal drain-then-stop path — provisionSession
+			// drains the stream to completion, THEN calls stopSession), but a
+			// grandchild it spawned is not guaranteed to have exited with it. SIGKILL
+			// immediately — there is no live parent left to gracefully shut down, so
+			// there is nothing SIGTERM's grace period buys here. ESRCH (group already
+			// empty, the common case) is tolerated inside killProcessGroup.
+			this.killProcessGroup(session.child, "SIGKILL");
 			const result = this.buildResult(session, session.exitCode, session.exitSignal);
 			this.sessions.delete(handle.sessionId);
 			return result;
 		}
 
 		// Send SIGTERM first (graceful shutdown)
-		session.child.kill("SIGTERM");
+		this.killProcessGroup(session.child, "SIGTERM");
 
 		// Escalate to SIGKILL after 5 seconds if process hasn't exited
 		// @lore X5 W1: SIGTERM -> 5s wait -> SIGKILL — graceful shutdown gives the process
@@ -1065,7 +1213,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		session.killTimer = setTimeout(() => {
 			const s = this.sessions.get(handle.sessionId);
 			if (s && !s.done) {
-				s.child.kill("SIGKILL");
+				this.killProcessGroup(s.child, "SIGKILL");
 			}
 		}, 5_000);
 
@@ -1244,6 +1392,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			cwd: sandboxPath,
 			env: sandboxedEnv,
 			stdio: ["pipe", "pipe", "pipe"],
+			detached: true,
 		});
 		child.stdin?.end();
 

@@ -86,12 +86,13 @@ import {
 	HARNESS_TEST_MODELS,
 	requireHarness,
 	type SupportedHarnessName,
+	stopAllLiveHarnessSessions,
 } from "@hyperidle/harness-registry/test-utils";
 import { findSessionById } from "@hyperidle/run-orchestration";
 import { drainIntents } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
-import { describe, expect } from "vitest";
+import { afterEach, describe, expect } from "vitest";
 import { queueDeps } from "../__testing__/durable-agent-queue-test-deps.js";
 import type { Action, ActionContext } from "../actions/action.js";
 import { actionsAsTools } from "../actions/actions-as-tools.js";
@@ -104,6 +105,17 @@ import {
 import { SESSION_NOT_RETURNED_NOTICE_TEXT } from "../services/session-not-returned-notice.js";
 
 const NOW = "2026-09-18T00:00:00.000Z";
+
+// @lore stop-all afterEach: `runThreadTurnProof`'s own `finally` block (dispose + close +
+// rmSync) is skipped by a vitest test timeout — the async function keeps
+// running in the background, but `afterEach` still fires on the timeout
+// outcome. `dispose()` alone does not stop a harness session that composition
+// already started, so this is the actual backstop: sweep every live
+// CliHarnessAdapter session's process group, in this file's own afterEach,
+// same as the harness-registry package's own real-harness tests.
+afterEach(() => {
+	stopAllLiveHarnessSessions();
+});
 const PROMPT = "Reply with exactly: THREAD_TURN_OK";
 
 /** Test-vocabulary harness name -> the exact `agent_run_config.harness_type` `createLocalAdapterPool` registers under (`AdapterMeta.type`, matched by `SelectRequirements.harnessType`). */

@@ -42,6 +42,12 @@ import { describe, expect, test } from "vitest";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
 import { cliAdapterFixture } from "./cli-adapter-fixtures.js";
 import { requireHarness } from "./require-harness.js";
+import { trackHarnessSessions } from "./session-handle-tracker.js";
+
+// @lore process-group kill only helps once stopSession runs. `track` stops any
+// handle a test leaves unstopped — timeout or thrown assertion included — in
+// afterEach. See session-handle-tracker.ts.
+const { track } = trackHarnessSessions();
 
 const execFileAsync = promisify(execFile);
 
@@ -94,11 +100,14 @@ async function runSession(
 ): Promise<{ stdout: string; events: HarnessEvent[] }> {
 	const sink = { text: "" };
 	const adapter = new CliHarnessAdapter(config, { spawnFn: teeingSpawn(sink) });
-	const handle = await adapter.startSession({
-		...sessionConfig,
-		modelTier: "workhorse" as const,
-		tools: [],
-	} as SessionConfig);
+	const handle = track(
+		adapter,
+		await adapter.startSession({
+			...sessionConfig,
+			modelTier: "workhorse" as const,
+			tools: [],
+		} as SessionConfig),
+	);
 	const events: HarnessEvent[] = [];
 	for await (const ev of adapter.streamEvents(handle)) {
 		events.push(ev);
@@ -141,6 +150,7 @@ describe("[harness:claude] the configured effort is the effort claude runs with"
 					sessionId: sessionId("model-opt-claude"),
 					sandboxPath,
 					assembledPrompt: "/model",
+					instruction: "/model",
 					selectedModel: "haiku",
 					modelOptions: { effort },
 					mcpConnectionInfo: undefined,
@@ -245,6 +255,7 @@ describe("[harness:codex] the configured reasoning effort is the effort codex ru
 					sessionId: sessionId("model-opt-codex"),
 					sandboxPath,
 					assembledPrompt: "Reply with exactly the token OPTION_OK and nothing else.",
+					instruction: "Reply with exactly the token OPTION_OK and nothing else.",
 					selectedModel: "gpt-5.6-luna",
 					modelOptions: { model_reasoning_effort: effort },
 					mcpConnectionInfo: undefined,
