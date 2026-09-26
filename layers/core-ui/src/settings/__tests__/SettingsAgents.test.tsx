@@ -23,6 +23,7 @@
 
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SettingsAgents } from "../SettingsAgents.js";
 
@@ -98,6 +99,138 @@ const HARNESSES = [
 		discovery: { state: "ready" },
 	},
 ];
+
+const MOCK_HARNESSES_WITH_MODELS = [
+	{
+		type: "opencode",
+		name: "OpenCode",
+		kind: "local",
+		models: [
+			{
+				id: "deepseek/deepseek-v4-flash",
+				label: "DeepSeek V4 Flash",
+				provider: "openrouter",
+				contextWindow: 128000,
+				selectable: true,
+				options: [],
+			},
+		],
+		modelProviders: ["anthropic", "openrouter"],
+		discovery: { state: "ready" },
+		authAction: { kind: "enter_api_key", label: "Enter API key" },
+	},
+	{
+		type: "codex",
+		name: "Codex",
+		kind: "local",
+		models: [],
+		modelProviders: [],
+		discovery: { state: "ready" },
+		authAction: { kind: "native_cli_login", label: "Log in to Codex", command: ["codex", "login"] },
+	},
+];
+
+const SPLITVIEW_AGENTS: MockAgent[] = [
+	{
+		id: "agent-nova",
+		name: "Nova",
+		role: "assistant",
+		// The assistant is a person-owned agent — `ownerUserId` set, not a
+		// structural id prefix.
+		ownerUserId: "user1",
+		status: "active",
+		agentCategory: "individual",
+		harnessType: "opencode",
+		modelId: "deepseek/deepseek-v4-flash",
+		modelProvider: "openrouter",
+		maxConcurrentSessions: 1,
+		modelOptions: {},
+	},
+	{
+		id: "agent-atlas",
+		name: "Atlas",
+		role: "builder",
+		ownerUserId: null,
+		status: "active",
+		agentCategory: "team",
+		harnessType: "opencode",
+		modelId: "deepseek/deepseek-v4-flash",
+		modelProvider: "openrouter",
+		maxConcurrentSessions: 1,
+		modelOptions: {},
+	},
+];
+
+/**
+ * Variant of `setupCall` used by the SplitView describes below: routes
+ * `open_user` with `documentIds` (agent_file slot) and discovered-models
+ * `runsOn`, matching the shared editor's SplitView door contract.
+ */
+function setupSplitViewCall(agents: MockAgent[] = SPLITVIEW_AGENTS): void {
+	callMock.mockImplementation((name: string, input: Record<string, unknown>) => {
+		if (name === "search_sessions") return Promise.resolve({ ok: true, data: [] });
+		if (name === "search_users") {
+			return Promise.resolve({
+				ok: true,
+				data: agents.map((a) => ({
+					id: a.id,
+					kind: "ai",
+					name: a.name,
+					role: a.role,
+					status: "active",
+					avatarUrl: null,
+					createdAt: "2026-01-01T00:00:00.000Z",
+					agentCategory: a.agentCategory,
+					ownerUserId: a.ownerUserId,
+					health: null,
+					team: { id: "team-1", name: "Acme" },
+					edges: [],
+				})),
+			});
+		}
+		if (name === "open_user") {
+			const id = input.id as string | undefined;
+			if (id === undefined) {
+				return Promise.resolve({
+					ok: true,
+					data: {
+						user: { id: "self", kind: "human", name: "Me", role: "founder", status: "active" },
+						runsOn: MOCK_HARNESSES_WITH_MODELS,
+						runConfig: null,
+						documentIds: [],
+						folders: [],
+						subscriptions: [],
+						connections: null,
+						inbox: null,
+					},
+				});
+			}
+			const agent = agents.find((a) => a.id === id);
+			if (!agent)
+				return Promise.resolve({ ok: false, problems: [{ code: "not_found", message: id }] });
+			return Promise.resolve({
+				ok: true,
+				data: {
+					user: { id: agent.id, kind: "ai", name: agent.name, role: agent.role, status: "active" },
+					runsOn: MOCK_HARNESSES_WITH_MODELS,
+					runConfig: {
+						harnessType: agent.harnessType,
+						modelId: agent.modelId,
+						modelProvider: agent.modelProvider,
+						maxConcurrentSessions: 1,
+						modelOptions: {},
+					},
+					documentIds: [{ slot: "agent_file", id: "ki_af_demo" }],
+					folders: [],
+					subscriptions: [],
+					connections: null,
+					inbox: null,
+				},
+			});
+		}
+		return Promise.resolve({ ok: false, problems: [{ code: "unmocked", message: name }] });
+	});
+}
 
 /** Routes `search_users`/`open_user`/`edit_user`/`search_sessions` against `store`. */
 function setupCall(store: MockAgent[]): void {
@@ -540,6 +673,115 @@ describe("Keyboard: actions menu is fully keyboard-navigable", () => {
 		});
 		await waitFor(() => {
 			expect(mockShowToast).toHaveBeenCalledWith(expect.stringMatching(/agent deleted/i));
+		});
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Assistant is a row in the agents list (no role filter, shared editor)
+// ---------------------------------------------------------------------------
+
+describe("Assistant is a row in the agents list", () => {
+	beforeEach(() => {
+		callMock.mockReset();
+		setupSplitViewCall();
+		mockShowToast.mockClear();
+	});
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it("renders Nova (the person-owned assistant agent) as a row alongside normal agents", async () => {
+		render(
+			<MemoryRouter>
+				<SettingsAgents />
+			</MemoryRouter>,
+		);
+
+		await waitFor(() => {
+			expect(screen.getByText("Nova")).toBeInTheDocument();
+			expect(screen.getByText("Atlas")).toBeInTheDocument();
+		});
+	});
+
+	it("a generic agent row rests read-only and opens the shared editor only from Edit", async () => {
+		const user = userEvent.setup();
+		render(
+			<MemoryRouter>
+				<SettingsAgents />
+			</MemoryRouter>,
+		);
+
+		await waitFor(() => screen.getByText("Nova"));
+		expect(screen.queryByLabelText(/name/i)).toBeNull();
+		// @lore FR-10: Edit is now behind the "..." actions menu — open menu then click Edit.
+		await user.click(screen.getByRole("button", { name: "Actions for Nova" }));
+		await waitFor(() => screen.getByRole("menuitem", { name: /^edit$/i }));
+		await user.click(screen.getByRole("menuitem", { name: /^edit$/i }));
+
+		await waitFor(() => {
+			expect(screen.getByLabelText(/name/i)).toBeInTheDocument();
+		});
+	});
+
+	// @lore BA9f: the role template exists to PREFILL a new agent's identity, and
+	// editing an existing agent no longer has a box to prefill — it links to that
+	// agent's identity document instead. The door carries `documentIds` up front
+	// (loaded with the row), so there is no separate template fetch to avoid.
+	it("editing an existing agent links to its identity document — no editable box", async () => {
+		const user = userEvent.setup();
+		render(
+			<MemoryRouter>
+				<SettingsAgents />
+			</MemoryRouter>,
+		);
+
+		await waitFor(() => screen.getByText("Atlas"));
+		// @lore FR-10: Edit is now behind the "..." actions menu — open menu then click Edit.
+		await user.click(screen.getByRole("button", { name: "Actions for Atlas" }));
+		await waitFor(() => screen.getByRole("menuitem", { name: /^edit$/i }));
+		await user.click(screen.getByRole("menuitem", { name: /^edit$/i }));
+
+		await waitFor(() => {
+			expect(screen.getByTestId("edit-identity-link-agent-atlas")).toBeInTheDocument();
+		});
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Agent editor model dropdown uses discovered descriptor.models
+// ---------------------------------------------------------------------------
+
+describe("Agent editor model dropdown uses discovered descriptor.models", () => {
+	beforeEach(() => {
+		callMock.mockReset();
+		setupSplitViewCall();
+		mockShowToast.mockClear();
+	});
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it("selects Atlas and the model dropdown shows the discovered model id", async () => {
+		const user = userEvent.setup();
+		render(
+			<MemoryRouter>
+				<SettingsAgents />
+			</MemoryRouter>,
+		);
+
+		await waitFor(() => screen.getByText("Atlas"));
+		// @lore FR-10: Edit is now behind the "..." actions menu — open menu then click Edit.
+		await user.click(screen.getByRole("button", { name: "Actions for Atlas" }));
+		await waitFor(() => screen.getByRole("menuitem", { name: /^edit$/i }));
+		await user.click(screen.getByRole("menuitem", { name: /^edit$/i }));
+
+		await waitFor(() => {
+			const modelSelect = screen.getByRole("combobox", { name: /model/i });
+			const options = Array.from(modelSelect.querySelectorAll("option")).map(
+				(o) => (o as HTMLOptionElement).value,
+			);
+			expect(options).toContain("deepseek/deepseek-v4-flash");
 		});
 	});
 });
