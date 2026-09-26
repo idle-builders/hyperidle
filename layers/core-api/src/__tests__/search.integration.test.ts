@@ -1,25 +1,5 @@
 /**
  * Search backend integration tests.
- *
- * AC-1: Cmd+K search returns grouped results from conversations, bets, and documents.
- * AC-2: Results are clickable and navigate to the correct detail page (correct IDs returned).
- * AC-3: Search within 300ms for interactive use.
- * AC-4: Empty queries return no results (not all items).
- * AC-5: "Search coming soon" empty state no longer appears (backend returns real results).
- *
- * Test cases:
- * TC-1:  Returns 400 for missing `q` parameter
- * TC-2:  Returns 400 for empty/whitespace query
- * TC-3:  Returns empty results for non-matching query
- * TC-4:  Returns matching conversations (thread + message match)
- * TC-5:  Excludes conversations where user is not a participant (AUTH BOUNDARY)
- * TC-6:  Returns matching work items (bets with team name)
- * TC-7:  Returns matching documents
- * TC-8:  Excludes user-scoped documents from other users (AUTH BOUNDARY)
- * TC-9:  Returns results across all three categories
- * TC-10: Limits results to 5 per category
- * TC-11: Escapes LIKE wildcards in query (security)
- * TC-12: Rejects overly long query (>200 chars)
  */
 
 import { documents, type HyperIdleDb, messages, tasks, teams, threads, users } from "@hyperidle/db";
@@ -104,7 +84,7 @@ async function seedTeam(db: HyperIdleDb, teamId: string, teamName: string): Prom
 	});
 }
 
-/** Seed a root task (replaces seedBet — BB1) */
+/** Seed a root task (replaces seedBet) */
 async function seedRootTask(
 	db: HyperIdleDb,
 	taskId: string,
@@ -159,10 +139,8 @@ async function seedDocument(
 	});
 }
 
-// ─── TC-1: Missing `q` parameter returns 400 ────────────────────────────────
-
 describe("GET /api/search — search backend", () => {
-	test("TC-1: returns 400 when q parameter is missing", async ({ app }) => {
+	test("returns 400 when q parameter is missing", async ({ app }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		const res = await app.request("/api/search", { headers: authHeaders() });
 		expect(res.status).toBe(400);
@@ -171,25 +149,21 @@ describe("GET /api/search — search backend", () => {
 		vi.unstubAllEnvs();
 	});
 
-	// ─── TC-2: Empty / whitespace query returns 400 ─────────────────────────
-
-	test("TC-2: returns 400 for empty query string", async ({ app }) => {
+	test("returns 400 for empty query string", async ({ app }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		const res = await app.request("/api/search?q=", { headers: authHeaders() });
 		expect(res.status).toBe(400);
 		vi.unstubAllEnvs();
 	});
 
-	test("TC-2: returns 400 for whitespace-only query", async ({ app }) => {
+	test("returns 400 for whitespace-only query", async ({ app }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		const res = await app.request("/api/search?q=%20%20%20", { headers: authHeaders() });
 		expect(res.status).toBe(400);
 		vi.unstubAllEnvs();
 	});
 
-	// ─── TC-3: Non-matching query returns empty results ──────────────────────
-
-	test("TC-3: returns empty grouped results for non-matching query", async ({ app }) => {
+	test("returns empty grouped results for non-matching query", async ({ app }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		const res = await app.request("/api/search?q=xyzzy_no_match_ever", {
 			headers: authHeaders(),
@@ -206,9 +180,7 @@ describe("GET /api/search — search backend", () => {
 		vi.unstubAllEnvs();
 	});
 
-	// ─── TC-4: Matching conversations ───────────────────────────────────────
-
-	test("TC-4: returns matching conversations with id, title, snippet, timestamp, kind", async ({
+	test("returns matching conversations with id, title, snippet, timestamp, kind", async ({
 		app,
 		db,
 	}) => {
@@ -256,12 +228,7 @@ describe("GET /api/search — search backend", () => {
 		vi.unstubAllEnvs();
 	});
 
-	// ─── TC-5: Auth boundary — excludes conversations where user is not a participant
-
-	test("TC-5: excludes conversations where current user is not a participant", async ({
-		app,
-		db,
-	}) => {
+	test("excludes conversations where current user is not a participant", async ({ app, db }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 		const userId = "api-key-user";
@@ -289,12 +256,7 @@ describe("GET /api/search — search backend", () => {
 		vi.unstubAllEnvs();
 	});
 
-	// ─── TC-6: Matching work items (root tasks with team name) ────────────────
-
-	test("TC-6: returns matching root tasks with id, title, team name, status", async ({
-		app,
-		db,
-	}) => {
+	test("returns matching root tasks with id, title, team name, status", async ({ app, db }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 		await seedTeam(db, "team-a", "Alpha Team");
@@ -364,12 +326,7 @@ describe("GET /api/search — search backend", () => {
 		vi.unstubAllEnvs();
 	});
 
-	// ─── TC-7: Matching documents ──────────────
-
-	test("TC-7: returns matching documents with id, title, status, timestamp", async ({
-		app,
-		db,
-	}) => {
+	test("returns matching documents with id, title, status, timestamp", async ({ app, db }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 		const userId = "api-key-user";
@@ -405,9 +362,7 @@ describe("GET /api/search — search backend", () => {
 		vi.unstubAllEnvs();
 	});
 
-	// ─── TC-8: Auth boundary — excludes user-scoped documents from other users
-
-	test("TC-8: excludes user-scoped documents belonging to another user", async ({ app, db }) => {
+	test("excludes user-scoped documents belonging to another user", async ({ app, db }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 		const userId = "api-key-user";
@@ -434,12 +389,7 @@ describe("GET /api/search — search backend", () => {
 		vi.unstubAllEnvs();
 	});
 
-	// ─── TC-9: Cross-category results ────────────────────────────────────────
-
-	test("TC-9: returns results across all three categories for a broad query", async ({
-		app,
-		db,
-	}) => {
+	test("returns results across all three categories for a broad query", async ({ app, db }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 		const userId = "api-key-user";
@@ -455,7 +405,7 @@ describe("GET /api/search — search backend", () => {
 			firstMessageText: "Release planning discussion",
 		});
 
-		// Root task matching "release" (BB1)
+		// Root task matching "release"
 		await seedTeam(db, "team-b", "Beta Team");
 		await seedRootTask(db, "task-release-1", "team-b", "Release the v2 feature");
 
@@ -482,19 +432,14 @@ describe("GET /api/search — search backend", () => {
 		vi.unstubAllEnvs();
 	});
 
-	// ─── TC-10: 5 result cap per category ────────────────────────────────────
-
-	test("TC-10: limits results to 5 per category even when more matches exist", async ({
-		app,
-		db,
-	}) => {
+	test("limits results to 5 per category even when more matches exist", async ({ app, db }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 		const userId = "api-key-user";
 		await seedUser(db, userId);
 		await seedTeam(db, "team-cap", "Cap Team");
 
-		// Seed 7 root tasks that all match "captest" (BB1)
+		// Seed 7 root tasks that all match "captest"
 		for (let i = 1; i <= 7; i++) {
 			await seedRootTask(db, `task-cap-${i}`, "team-cap", `Captest task number ${i}`);
 		}
@@ -506,16 +451,14 @@ describe("GET /api/search — search backend", () => {
 		vi.unstubAllEnvs();
 	});
 
-	// ─── TC-11: LIKE wildcard escaping ───────────────────────────────────────
-
-	test("TC-11: escapes LIKE wildcards so % does not match all rows", async ({ app, db }) => {
+	test("escapes LIKE wildcards so % does not match all rows", async ({ app, db }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 		const userId = "api-key-user";
 		await seedUser(db, userId);
 		await seedTeam(db, "team-escape", "Escape Team");
 
-		// Root task that should NOT match a query of "%" (wildcard) — BB1
+		// Root task that should NOT match a query of "%" (wildcard)
 		await seedRootTask(db, "task-escape-1", "team-escape", "Unrelated task title");
 
 		// Query with raw `%` — must not match all rows
@@ -528,17 +471,14 @@ describe("GET /api/search — search backend", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("TC-11: escapes LIKE wildcards so _ does not match single characters", async ({
-		app,
-		db,
-	}) => {
+	test("escapes LIKE wildcards so _ does not match single characters", async ({ app, db }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 		const userId = "api-key-user";
 		await seedUser(db, userId);
 		await seedTeam(db, "team-escape2", "Escape Team 2");
 
-		// Seed tasks — BB1: root tasks instead of bets
+		// Seed tasks
 		await seedRootTask(db, "task-escape-2", "team-escape2", "Short task title");
 		await seedRootTask(db, "task-escape-3", "team-escape2", "Longer task title here");
 
@@ -551,9 +491,7 @@ describe("GET /api/search — search backend", () => {
 		vi.unstubAllEnvs();
 	});
 
-	// ─── TC-12: Query too long (>200 chars) returns 400 ─────────────────────
-
-	test("TC-12: rejects queries longer than 200 characters with 400", async ({ app }) => {
+	test("rejects queries longer than 200 characters with 400", async ({ app }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		const longQuery = "a".repeat(201);
 		const res = await app.request(`/api/search?q=${encodeURIComponent(longQuery)}`, {
@@ -563,7 +501,7 @@ describe("GET /api/search — search backend", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("TC-12: accepts queries of exactly 200 characters", async ({ app }) => {
+	test("accepts queries of exactly 200 characters", async ({ app }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		const maxQuery = "a".repeat(200);
 		const res = await app.request(`/api/search?q=${encodeURIComponent(maxQuery)}`, {
