@@ -187,8 +187,11 @@ describe("scope", () => {
 // Manifest validation
 // ---------------------------------------------------------------------------
 
-describe("manifest validation", () => {
-	test("rejects manifest with wrong $schema — reason includes expected URL", async ({ db }) => {
+// The manifest rule matrix itself (which shapes are fatal vs a warning) is
+// `plugin-manifest.test.ts`'s job; this proves only that the installer wires
+// the parser's verdict through to its own result — one refusal, one warning.
+describe("manifest validation is wired through to the install result", () => {
+	test("a parser refusal reaches installPlugin's own result, reason intact", async ({ db }) => {
 		const dir = makeTempDir("bad-schema");
 		writeFileSync(
 			join(dir, "plugin.json"),
@@ -202,21 +205,10 @@ describe("manifest validation", () => {
 		expect(result.ok).toBe(false);
 		if (!result.ok) {
 			expect(result.reason).toMatch(/\$schema/);
-			expect(result.reason).toContain("https://agent-plugins.org/schemas/1.0.0/plugin.schema.json");
 		}
 	});
 
-	test("rejects manifest without $schema", async ({ db }) => {
-		const dir = makeTempDir("no-schema");
-		writeFileSync(join(dir, "plugin.json"), JSON.stringify({ name: "bad-plugin" }), "utf8");
-		const result = await installPlugin(db, {
-			source: { kind: "folder", path: dir },
-			scope: { kind: "factory", teamId: null },
-		});
-		expect(result.ok).toBe(false);
-	});
-
-	test("succeeds with warning on unknown top-level field", async ({ db }) => {
+	test("a parser warning reaches the installed plugin's own warnings", async ({ db }) => {
 		const dir = makeTempDir("unknown-field");
 		writeFileSync(
 			join(dir, "plugin.json"),
@@ -230,24 +222,6 @@ describe("manifest validation", () => {
 		expect(result.ok).toBe(true);
 		if (result.ok) {
 			const warn = result.plugin.warnings.find((w) => w.code === "UNKNOWN_TOP_LEVEL_FIELD");
-			expect(warn).toBeDefined();
-		}
-	});
-
-	test("succeeds with warning when extensions is not an object", async ({ db }) => {
-		const dir = makeTempDir("bad-extensions");
-		writeFileSync(
-			join(dir, "plugin.json"),
-			JSON.stringify({ $schema: VALID_SCHEMA, name: "warn-ext", extensions: "not-an-object" }),
-			"utf8",
-		);
-		const result = await installPlugin(db, {
-			source: { kind: "folder", path: dir },
-			scope: { kind: "factory", teamId: null },
-		});
-		expect(result.ok).toBe(true);
-		if (result.ok) {
-			const warn = result.plugin.warnings.find((w) => w.code === "NON_OBJECT_EXTENSIONS");
 			expect(warn).toBeDefined();
 		}
 	});

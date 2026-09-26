@@ -22,29 +22,7 @@ import {
 	searchDocumentRows,
 	updateDocument,
 } from "../document-store.js";
-
-type Insertable = typeof documents.$inferInsert;
-
-/** Sensible defaults for a document row; every field is overridable. */
-function docValues(overrides: Partial<Insertable> & { id: string }): Insertable {
-	const ts = "2026-01-01T00:00:00.000Z";
-	return {
-		scopeKind: "factory",
-		scopeId: null,
-		title: "Untitled",
-		body: "body",
-		format: "markdown",
-		status: "active",
-		slot: "ordinary",
-		parentKind: null,
-		parentId: null,
-		position: 0,
-		updatedBy: "seed",
-		createdAt: ts,
-		updatedAt: ts,
-		...overrides,
-	};
-}
+import { docValues } from "./_helpers.js";
 
 /** No `scope: 'user'`/`'team'` rows are visible-by-default fixtures use — every
  * capability test that isn't specifically about visibility uses this viewer

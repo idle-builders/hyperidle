@@ -1,34 +1,15 @@
 /**
- * AU21 Increment 3, Wave 0 (RED) — the shared ast-<userId> runnability
- * invariant (architecture.md §6 Decision B's placement ruling: "the one
- * truly cross-cutting piece — `requireRunnableActor`
- * (`session-requests/src/service.ts:700-705`; identical in every branch,
- * reads only `users`) — moves to ONE exported helper in
- * `layers/core-api/users/src/` (alongside `user-store.ts`)").
- *
- * Every family resolver (built in later Increment-3 waves) imports this ONE
- * helper via ordinary same-layer core-api DI instead of re-implementing the
- * `kind==="ai"` + `active`/`idle` check inline. This is Wave 0's job to
- * build; `session-requests`'s own `requireRunnableActor` is untouched for
- * now — it is still needed until every kind resolves at emit time.
- *
- * Currently RED: no such export exists anywhere under
- * `layers/core-api/users/src/` (nor from its barrel, `@hyperidle/users`) —
- * this import will fail to resolve at runtime.
- *
- * @lore naming: the architecture doc does not pin an exact export name for
- * this NEW shared copy (only `session-requests`'s existing internal
- * `requireRunnableActor` is named). `requireRunnableAgent` is this test's
- * best-guess interpretation, flagged for reviewer confirmation — if the
- * implementer picks a different name, only this import line changes.
+ * `requireRunnableAgent` — the shared runnability invariant every family
+ * resolver imports instead of re-implementing the `kind==="ai"` +
+ * `active`/`idle` check inline (architecture.md §6 Decision B).
  */
 
 import { users } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
+import { requireRunnableAgent } from "../index.js";
 
 describe("requireRunnableAgent — shared ast-<userId> runnability invariant", () => {
 	test("resolves the real user row for an active AI agent", async ({ db }) => {
-		const { requireRunnableAgent } = await import("../index.js");
 		const now = new Date().toISOString();
 		await db.insert(users).values({
 			id: "wave0-runnable-agent",
@@ -44,7 +25,6 @@ describe("requireRunnableAgent — shared ast-<userId> runnability invariant", (
 	});
 
 	test("resolves an idle AI agent as runnable", async ({ db }) => {
-		const { requireRunnableAgent } = await import("../index.js");
 		const now = new Date().toISOString();
 		await db.insert(users).values({
 			id: "wave0-idle-agent",
@@ -61,7 +41,6 @@ describe("requireRunnableAgent — shared ast-<userId> runnability invariant", (
 	});
 
 	test("rejects a human user id (never trusts the human sender as the agent)", async ({ db }) => {
-		const { requireRunnableAgent } = await import("../index.js");
 		const now = new Date().toISOString();
 		await db.insert(users).values({
 			id: "wave0-human-sender",
@@ -76,7 +55,6 @@ describe("requireRunnableAgent — shared ast-<userId> runnability invariant", (
 	});
 
 	test("rejects a deactivated (non active/idle) AI agent", async ({ db }) => {
-		const { requireRunnableAgent } = await import("../index.js");
 		const now = new Date().toISOString();
 		await db.insert(users).values({
 			id: "wave0-retired-agent",
@@ -91,7 +69,6 @@ describe("requireRunnableAgent — shared ast-<userId> runnability invariant", (
 	});
 
 	test("rejects an id that does not correspond to any user row", async ({ db }) => {
-		const { requireRunnableAgent } = await import("../index.js");
 		await expect(requireRunnableAgent(db, "wave0-does-not-exist")).rejects.toThrow();
 	});
 });

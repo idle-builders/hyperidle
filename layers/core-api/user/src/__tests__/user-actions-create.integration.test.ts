@@ -14,20 +14,11 @@
  * fixture in the sibling file always refuses — this one actually stores
  * state, since B1 needs to prove a folder that was added is later found).
  */
-import { changes, type HyperIdleDb, teams, users, type WriteExecutor } from "@hyperidle/db";
+import { changes, type HyperIdleDb } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import { createDocumentActions, type DocumentActionsDeps } from "@hyperidle/document";
-import type {
-	ActionResult,
-	EditUserInput,
-	OpenUserInput,
-	SearchUsersInput,
-	UserView,
-} from "@hyperidle/domain-model";
+import type { EditUserInput, OpenUserInput, SearchUsersInput, UserView } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
-import { eq } from "drizzle-orm";
-import type { Action, ActionContext } from "../action-types.js";
-import { getSubscription } from "../subscriptions-store.js";
+import type { ActionContext } from "../action-types.js";
 import {
 	createUserActions,
 	type UserActionsConnectionCreateInput,
@@ -35,73 +26,7 @@ import {
 	type UserActionsDeps,
 	type UserActionsFolderView,
 } from "../user-actions.js";
-
-const NOW = "2026-01-01T00:00:00.000Z";
-
-async function seedFounder(db: HyperIdleDb, id = "u-founder"): Promise<void> {
-	await db
-		.insert(users)
-		.values({
-			id,
-			kind: "human",
-			name: "Founder",
-			role: "founder",
-			status: "active",
-			createdAt: NOW,
-		})
-		.onConflictDoNothing();
-}
-
-function realDocumentActions(): readonly Action[] {
-	const deps: DocumentActionsDeps = {
-		changes: {
-			appendChange: async (exec: WriteExecutor, row) => {
-				await exec.insert(changes).values(row);
-			},
-		},
-		users: {
-			getUserById: async (exec, id) => {
-				const [row] = await exec.select().from(users).where(eq(users.id, id)).limit(1);
-				return row;
-			},
-			listOwnedBy: async (exec, ownerId) =>
-				exec.select().from(users).where(eq(users.ownerUserId, ownerId)),
-		},
-		org: {
-			getTeam: async (exec, q) => {
-				const [row] = await exec.select().from(teams).where(eq(teams.id, q.id)).limit(1);
-				return row;
-			},
-		},
-		openParent: () => {
-			throw new Error("user-actions-create test: openParent is unreachable");
-		},
-		systemParentExists: async (exec, kind, id) => {
-			if (kind === "agent") {
-				const [row] = await exec
-					.select({ id: users.id })
-					.from(users)
-					.where(eq(users.id, id))
-					.limit(1);
-				return row !== undefined;
-			}
-			if (kind === "subscription")
-				return (await getSubscription(exec as HyperIdleDb, id)) !== undefined;
-			return false;
-		},
-		onBodyChanged: async () => undefined,
-	};
-	return createDocumentActions(deps) as readonly Action[];
-}
-
-function runnerFor<I, O>(
-	actions: readonly Action[],
-	name: string,
-): (ctx: ActionContext, input: I) => Promise<ActionResult<O>> {
-	const found = actions.find((a) => a.declaration.name === name);
-	if (!found) throw new Error(`no "${name}" action in the bag`);
-	return found.run as never;
-}
+import { NOW, realDocumentActions, runnerFor, seedFounder } from "./_helpers.js";
 
 /** A working in-memory folders fake — unlike the sibling file's fixture
  * (which always refuses), this one actually stores what it is given, so a

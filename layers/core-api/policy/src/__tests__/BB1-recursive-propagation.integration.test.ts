@@ -1,23 +1,10 @@
 /**
- * BB1 AC3 — Parent auto-completion with needsReview fork.
- *
- * Rule (2026-08-31 founder call): when all children of a task reach a terminal
- * state (`done` or `killed`), the parent advances automatically.
- *   - `task.needsReview = false` → parent goes to `done` and the cascade
- *     continues upward in the same pass (all the way to root if no ancestor
- *     has needsReview=true).
- *   - `task.needsReview = true`  → parent goes to `review` and the cascade
- *     stops there until a human gives a verdict.
- *
- * The same fork applies to session→task propagation:
- *   - Session completes, task.needsReview=false → task goes to `done`.
- *   - Session completes, task.needsReview=true  → task goes to `review`.
- *
- * EACH TEST IS PROVED REDUCIBLE TO RED: how to break each is documented inline.
- *
- * The old test seeded all tasks in `review` (the one state where `review -> done`
- * was previously legal) — hiding the real defect. These tests use `accepted` or
- * `in_progress` as parent states to surface the actual regression.
+ * Parent auto-completion with the needsReview fork: when every child of a
+ * task reaches a terminal state (`done`/`killed`), the parent advances —
+ * `needsReview:false` moves it straight to `done` and the cascade continues
+ * upward in the same pass; `needsReview:true` moves it to `review` and the
+ * cascade stops there until a human gives a verdict. Session completion
+ * drives the same fork one level down (task, not parent).
  */
 
 import {
@@ -266,16 +253,6 @@ async function completeTask(
 // ─── Session → Task propagation tests ────────────────────────────────────────
 
 describe("BB1 AC3 — session→task propagation (needsReview fork)", () => {
-	/**
-	 * TEST 1: session ends, needsReview=false → task reaches `done`.
-	 *
-	 * HOW TO PROVE IT CAN FAIL:
-	 * In lifecycle-propagation.ts, remove the needsReview fork — always use "review":
-	 *   const targetState: TaskState = "review";  // was: task.needsReview ? "review" : "done"
-	 * Result: task goes to `review` instead of `done` → test fails with
-	 *   Expected: "done"  Received: "review"
-	 * Restore and test is green.
-	 */
 	dbTest("session ends on needsReview=false task → task reaches done", async ({ db }) => {
 		const teamId = "bb1-s1-team";
 		await seedTeam(db, teamId);
@@ -318,16 +295,6 @@ describe("BB1 AC3 — session→task propagation (needsReview fork)", () => {
 		}
 	});
 
-	/**
-	 * TEST 2: session ends, needsReview=true → task reaches `review`.
-	 *
-	 * HOW TO PROVE IT CAN FAIL:
-	 * In lifecycle-propagation.ts, force the target to "done" always:
-	 *   const targetState: TaskState = "done";  // was: task.needsReview ? "review" : "done"
-	 * Result: task goes to `done` instead of `review` → test fails with
-	 *   Expected: "review"  Received: "done"
-	 * Restore and test is green.
-	 */
 	dbTest("session ends on needsReview=true task → task reaches review", async ({ db }) => {
 		const teamId = "bb1-s2-team";
 		await seedTeam(db, teamId);
@@ -374,24 +341,8 @@ describe("BB1 AC3 — session→task propagation (needsReview fork)", () => {
 // ─── Task → Parent propagation tests ─────────────────────────────────────────
 
 describe("BB1 AC3 — parent auto-completion cascade (needsReview fork)", () => {
-	/**
-	 * TEST 3: all children terminal, parent needsReview=false → parent done,
-	 * and cascade CONTINUES to grandparent in the same pass.
-	 *
-	 * This also covers TEST 5 (parent in `accepted`, never worked, still advances)
-	 * because both root and middle start in `accepted`.
-	 *
-	 * HOW TO PROVE IT CAN FAIL:
-	 * In lifecycle-propagation.ts, change the propagation target to always "review":
-	 *   const targetState: TaskState = "review";  // was: ancestor.needsReview ? "review" : "done"
-	 * Result: middle goes to `review` (not terminal), root does not advance →
-	 *   test times out waiting for root to reach `done`.
-	 * Restore and test is green.
-	 *
-	 * Alternatively, remove `done` from `accepted`'s transitions in task-transition.ts:
-	 *   accepted: ["in_progress", "hold", "review", "killed"],  // no "done"
-	 * Result: `accepted -> done` throws InvalidTransitionError → middle stays `accepted` → timeout.
-	 */
+	// A 3-level tree, parent in `accepted` (never worked) with needsReview=false at
+	// every ancestor: all children terminal cascades all the way to root in one pass.
 	dbTest(
 		"parent in accepted (needsReview=false): all children terminal → cascade continues to root in one pass",
 		async ({ db }) => {
@@ -449,17 +400,6 @@ describe("BB1 AC3 — parent auto-completion cascade (needsReview fork)", () => 
 		},
 	);
 
-	/**
-	 * TEST 4: all children terminal, parent needsReview=true → parent review,
-	 * cascade stops there (root stays `accepted` until human gives a verdict).
-	 *
-	 * HOW TO PROVE IT CAN FAIL:
-	 * In lifecycle-propagation.ts, force the target to "done" always:
-	 *   const targetState: TaskState = "done";  // was: ancestor.needsReview ? "review" : "done"
-	 * Result: middle goes to `done` (terminal), root's propagation fires,
-	 *   root also goes to `done` → expect(root).toBe("accepted") fails.
-	 * Restore and test is green.
-	 */
 	dbTest(
 		"parent in accepted (needsReview=true): all children terminal → parent review, cascade stops",
 		async ({ db }) => {
@@ -516,16 +456,6 @@ describe("BB1 AC3 — parent auto-completion cascade (needsReview fork)", () => 
 		},
 	);
 
-	/**
-	 * TEST 6a: mixed done+killed children count as all-terminal → parent advances.
-	 *
-	 * HOW TO PROVE IT CAN FAIL:
-	 * In lifecycle-propagation.ts, change TERMINAL_TASK_STATES to only include `done`:
-	 *   const TERMINAL_TASK_STATES = new Set(["done"]);
-	 * Result: `killed` child is not terminal → `allTerminal` is false → parent stays
-	 *   `accepted` → test times out.
-	 * Restore and test is green.
-	 */
 	dbTest("mixed done+killed children count as all-terminal → parent advances", async ({ db }) => {
 		const teamId = "bb1-p6a-team";
 		await seedTeam(db, teamId);
@@ -574,16 +504,6 @@ describe("BB1 AC3 — parent auto-completion cascade (needsReview fork)", () => 
 		}
 	});
 
-	/**
-	 * TEST 6b: one live child → parent does NOT advance.
-	 *
-	 * HOW TO PROVE IT CAN FAIL:
-	 * In lifecycle-propagation.ts, remove the allTerminal guard:
-	 *   // if (!allTerminal) break;   ← comment this out
-	 * Result: propagation advances root even though child-b is still active →
-	 *   expect(root).toBe("accepted") fails (root is now "done").
-	 * Restore and test is green.
-	 */
 	dbTest("one live child → parent does NOT advance", async ({ db }) => {
 		const teamId = "bb1-p6b-team";
 		await seedTeam(db, teamId);

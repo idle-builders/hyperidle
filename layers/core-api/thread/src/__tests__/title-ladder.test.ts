@@ -125,30 +125,6 @@ describe("resolveThreadTitles — rung 3 (document-hosted), batched title lookup
 		expect(titles.get("d3")).toBe("Title for doc-3");
 	});
 
-	test("reverted to a per-id call, the same list makes THREE calls — proves the guard is red without the batch", async () => {
-		const calls: (readonly string[])[] = [];
-		const rows = [
-			threadRow({ id: "d1", hostKind: "document", hostId: "doc-1", participants: "[]" }),
-			threadRow({ id: "d2", hostKind: "document", hostId: "doc-2", participants: "[]" }),
-			threadRow({ id: "d3", hostKind: "document", hostId: "doc-3", participants: "[]" }),
-		];
-		// A per-id loop, the shape this block replaces — proves the counting
-		// spy above actually catches an N+1, not just the presence of a call.
-		const perIdDeps: TitleLadderDeps = {
-			listUserNames: async () => new Map(),
-			getDocumentTitles: async (_db, ids) => {
-				const out = new Map<string, string>();
-				for (const id of ids) {
-					calls.push([id]);
-					out.set(id, `Title for ${id}`);
-				}
-				return out;
-			},
-		};
-		await resolveThreadTitles(fakeDb, rows, "u1", perIdDeps);
-		expect(calls.length).toBe(3);
-	});
-
 	test("a missing/invisible host document falls back to 'Deleted document', not an error", async () => {
 		const row = threadRow({
 			id: "d4",

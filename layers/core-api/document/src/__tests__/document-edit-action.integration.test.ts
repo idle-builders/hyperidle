@@ -8,204 +8,27 @@
  * a recorder. The cascade over a narrowed scope's descendants (§6.6) is out
  * of scope here — B6b.
  */
-import {
-	changes,
-	documents,
-	type HyperIdleDb,
-	tasks,
-	teams,
-	threads,
-	type User,
-	users,
-	type WriteExecutor,
-} from "@hyperidle/db";
+import { changes, documents } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import type { DocumentView, EditDocumentInput, OpenDocumentInput } from "@hyperidle/domain-model";
-import { EventBus, type ObjectChangeEvent } from "@hyperidle/event-bus";
-import { and, eq } from "drizzle-orm";
-import type { Action, ActionContext } from "../action-types.js";
+import type { ObjectChangeEvent } from "@hyperidle/event-bus";
+import { eq } from "drizzle-orm";
+import type { Action } from "../action-types.js";
 import { createDocumentActions, type DocumentActionsDeps } from "../document-actions.js";
 import { insertDocument } from "../document-store.js";
-
-type Insertable = typeof documents.$inferInsert;
-
-/** Sensible defaults for a document row; every field is overridable — the
- * same helper `document-store.integration.test.ts` uses. */
-function docValues(overrides: Partial<Insertable> & { id: string }): Insertable {
-	const ts = "2026-01-01T00:00:00.000Z";
-	return {
-		scopeKind: "factory",
-		scopeId: null,
-		title: "Untitled",
-		body: "body",
-		format: "markdown",
-		status: "active",
-		slot: "ordinary",
-		parentKind: null,
-		parentId: null,
-		position: 0,
-		updatedBy: "seed",
-		createdAt: ts,
-		updatedAt: ts,
-		...overrides,
-	};
-}
-
-async function seedUser(
-	db: HyperIdleDb,
-	id: string,
-	overrides: Partial<typeof users.$inferInsert> = {},
-): Promise<void> {
-	await db.insert(users).values({
-		id,
-		kind: "human",
-		name: id,
-		role: "member",
-		status: "active",
-		createdAt: "2026-01-01T00:00:00.000Z",
-		...overrides,
-	});
-}
-
-async function seedTeam(db: HyperIdleDb, id: string, name = id): Promise<void> {
-	await db.insert(teams).values({
-		id,
-		name,
-		createdAt: "2026-01-01T00:00:00.000Z",
-	});
-}
-
-async function seedThread(
-	db: HyperIdleDb,
-	id: string,
-	overrides: Partial<typeof threads.$inferInsert> & { hostId: string; initiatorId: string },
-): Promise<void> {
-	const ts = "2026-01-01T00:00:00.000Z";
-	await db.insert(threads).values({
-		id,
-		hostKind: "team",
-		participants: "[]",
-		lastActiveAt: ts,
-		createdAt: ts,
-		...overrides,
-	});
-}
-
-async function seedTask(
-	db: HyperIdleDb,
-	id: string,
-	overrides: Partial<typeof tasks.$inferInsert> & { teamId: string; threadId: string },
-): Promise<void> {
-	const ts = "2026-01-01T00:00:00.000Z";
-	await db.insert(tasks).values({
-		id,
-		title: id,
-		state: "proposed",
-		createdAt: ts,
-		updatedAt: ts,
-		...overrides,
-	});
-}
-
-/**
- * A genuinely DB-querying `openParent` — real `SELECT`s against the real
- * `tasks`/`threads` tables through the `ctx.db` handle the action is given,
- * the same shape `compose.ts`'s `buildOpenParent` wires in production. Unlike
- * the canned stubs the other cases use, this reproduces the outer-`ctx.db`
- * hang if `edit_document` ever calls it from inside its own open transaction
- * again — the bug this suite guards against.
- */
-function realOpenParent(): DocumentActionsDeps["openParent"] {
-	return async (ctx, kind, id) => {
-		if (kind === "task") {
-			const [row] = await ctx.db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
-			return row ? { exists: true, teamId: row.teamId } : { exists: false };
-		}
-		const [row] = await ctx.db.select().from(threads).where(eq(threads.id, id)).limit(1);
-		return row ? { exists: true } : { exists: false };
-	};
-}
-
-function ctxFor(
-	db: HyperIdleDb,
-	actor: string,
-	opts: { now?: string; caller?: ActionContext["caller"]; internal?: boolean } = {},
-): ActionContext {
-	return {
-		actor,
-		db,
-		eventBus: new EventBus(),
-		now: opts.now ?? "2026-06-01T00:00:00.000Z",
-		...(opts.caller ? { caller: opts.caller } : {}),
-		...(opts.internal ? { internal: true } : {}),
-	};
-}
-
-function actionFor<I, O>(actions: readonly Action[], name: string): Action<I, O> {
-	const found = actions.find((a) => a.declaration.name === name);
-	if (!found) throw new Error(`no "${name}" action in the bag`);
-	return found as unknown as Action<I, O>;
-}
-
-interface DepsOptions {
-	readonly openParent?: DocumentActionsDeps["openParent"];
-	readonly systemParentExists?: DocumentActionsDeps["systemParentExists"];
-	readonly onBodyChanged?: DocumentActionsDeps["onBodyChanged"];
-	readonly wsPush?: DocumentActionsDeps["wsPush"];
-}
-
-/** Real queries against the real `users`/`teams`/`changes` tables — never a
- * stub of the visibility predicate or the change log itself. `openParent` is
- * the one genuinely external crossing (a sibling module's action) and is
- * faked per test, exactly like the seam it will be bound through in B7. */
-function writeDeps(opts: DepsOptions = {}): DocumentActionsDeps {
-	const deps: DocumentActionsDeps = {
-		changes: {
-			appendChange: async (exec: WriteExecutor, row) => {
-				await exec.insert(changes).values(row).returning();
-			},
-		},
-		users: {
-			getUserById: async (exec: WriteExecutor, id: string): Promise<User | undefined> => {
-				const [row] = await exec.select().from(users).where(eq(users.id, id)).limit(1);
-				return row;
-			},
-			listOwnedBy: async (exec: WriteExecutor, ownerId: string) =>
-				exec.select().from(users).where(eq(users.ownerUserId, ownerId)),
-		},
-		org: {
-			getTeam: async (exec: WriteExecutor, q: { id: string }) => {
-				const [row] = await exec.select().from(teams).where(eq(teams.id, q.id)).limit(1);
-				return row;
-			},
-		},
-		openParent:
-			opts.openParent ??
-			(async () => {
-				throw new Error("openParent not stubbed for this test");
-			}),
-		systemParentExists:
-			opts.systemParentExists ??
-			(async () => {
-				throw new Error("systemParentExists not stubbed for this test");
-			}),
-		onBodyChanged: opts.onBodyChanged ?? (async () => {}),
-		...(opts.wsPush ? { wsPush: opts.wsPush } : {}),
-	};
-	return deps;
-}
-
-async function readRow(db: HyperIdleDb, id: string) {
-	const [row] = await db.select().from(documents).where(eq(documents.id, id)).limit(1);
-	return row;
-}
-
-async function readChanges(db: HyperIdleDb, objectId: string) {
-	return db
-		.select()
-		.from(changes)
-		.where(and(eq(changes.object, "document"), eq(changes.objectId, objectId)));
-}
+import {
+	actionFor,
+	ctxFor,
+	docValues,
+	readChanges,
+	readRow,
+	realOpenParent,
+	seedTask,
+	seedTeam,
+	seedThread,
+	seedUser,
+	writeDeps,
+} from "./_helpers.js";
 
 function editAction(deps: DocumentActionsDeps): Action<EditDocumentInput, DocumentView> {
 	return actionFor<EditDocumentInput, DocumentView>(createDocumentActions(deps), "edit_document");
@@ -1089,5 +912,43 @@ describe("edit_document — never a read, architecture.md §6.7", () => {
 		expect(result.data.document.readCount).toBe(0);
 		const row = await readRow(db, result.data.document.id);
 		expect(row?.readCount).toBe(0);
+	});
+});
+
+describe("edit_document — a user-scoped write with no scopeId defaults to the actor (readability fix)", () => {
+	test("scopeKind:'user' with no scopeId stores the actor as scopeId, so the writer can open it and a stranger gets not_found", async ({
+		db,
+	}) => {
+		await seedUser(db, "writer-scope-default");
+		await seedUser(db, "stranger-scope-default");
+		const deps = writeDeps();
+		const openAction = (d: DocumentActionsDeps) =>
+			actionFor<OpenDocumentInput, DocumentView>(createDocumentActions(d), "open_document");
+
+		const created = await editAction(deps).run(ctxFor(db, "writer-scope-default"), {
+			as: "document",
+			title: "User-scoped, no id given",
+			body: "x",
+			scopeKind: "user",
+		});
+		expect(created.ok).toBe(true);
+		if (!created.ok) throw new Error("expected success");
+		expect(created.data.document.scopeKind).toBe("user");
+		expect(created.data.document.scopeId).toBe("writer-scope-default");
+
+		const row = await readRow(db, created.data.document.id);
+		expect(row?.scopeId).toBe("writer-scope-default");
+
+		const seenByWriter = await openAction(deps).run(ctxFor(db, "writer-scope-default"), {
+			id: created.data.document.id,
+		});
+		expect(seenByWriter.ok).toBe(true);
+
+		const seenByStranger = await openAction(deps).run(ctxFor(db, "stranger-scope-default"), {
+			id: created.data.document.id,
+		});
+		expect(seenByStranger.ok).toBe(false);
+		if (seenByStranger.ok) throw new Error("expected a refusal");
+		expect(seenByStranger.problems[0]?.code).toBe("not_found");
 	});
 });
