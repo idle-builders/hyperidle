@@ -1,8 +1,8 @@
 /**
  * A page's primary header/section action button ("+ New", "New task",
- * "+ Add agent", "Customize") stays at the 44px touch floor through
- * 1024px wide — the product's touch-target rule covers every width up to
- * and including 1024px, not just narrower "mobile" viewports.
+ * "+ Add agent", "Customize") and a ds Input stay at the 44px touch floor
+ * through 1024px wide — the product's touch-target rule covers every width
+ * up to and including 1024px, not just narrower "mobile" viewports.
  */
 import {
 	expect,
@@ -16,6 +16,8 @@ import {
 	mockTeamPage,
 	test,
 } from "./fixtures";
+
+const SETUP_ROSTER: ReturnType<typeof makeUserRow>[] = [];
 
 const TEAM_ID = "team-header-touch";
 const MIN_TOUCH_PX = 44;
@@ -102,6 +104,19 @@ test.describe("header action buttons stay at the touch floor through 1024px", ()
 			const newButton = page.getByRole("button", { name: "+ New" });
 			await expect(newButton).toBeVisible();
 			const box = await newButton.boundingBox();
+			expect(Math.round(box?.height ?? 0)).toBeGreaterThanOrEqual(MIN_TOUCH_PX);
+		});
+
+		test(`the ds Input on the setup page is at least 44px tall at ${width}px`, async ({ page }) => {
+			await mockSearchUsers(page, { rows: SETUP_ROSTER });
+
+			await page.setViewportSize({ width, height: 900 });
+			await page.goto("/setup");
+			await expect(page).toHaveURL(/\/setup/);
+
+			const nameInput = page.getByLabel(/your name/i);
+			await expect(nameInput).toBeVisible();
+			const box = await nameInput.boundingBox();
 			expect(Math.round(box?.height ?? 0)).toBeGreaterThanOrEqual(MIN_TOUCH_PX);
 		});
 	}
