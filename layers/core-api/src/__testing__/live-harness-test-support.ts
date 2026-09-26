@@ -30,16 +30,16 @@ import type { ActionResult } from "@hyperidle/domain-model";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import { EventBus } from "@hyperidle/event-bus";
 import type { AdapterPool, EnforcementRegistry, SandboxAdapter } from "@hyperidle/harness-registry";
+import {
+	buildCleanEnv,
+	createHarnessSandbox,
+	type HarnessSandbox,
+} from "@hyperidle/harness-registry/test-fixtures";
 import type { SupportedHarnessName } from "@hyperidle/harness-registry/test-utils";
 import { findSessionById, type RunResult } from "@hyperidle/run-orchestration";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { expect } from "vitest";
-import {
-	buildCleanEnv,
-	createHarnessSandbox,
-	type HarnessSandbox,
-} from "../../../agent-execution/harness-registry/src/__tests__/harness-sandbox.js";
 import type { Action, ActionContext } from "../actions/action.js";
 import { actionsAsTools } from "../actions/actions-as-tools.js";
 import { buildCoreActions } from "../actions/compose.js";

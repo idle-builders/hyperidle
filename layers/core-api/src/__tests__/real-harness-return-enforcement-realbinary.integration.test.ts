@@ -13,10 +13,8 @@
  * Per project rule: "e2e/expensive/live-LLM tests run locally only; never a
  * GitHub Actions job." These tests prove the real hook transport end-to-end
  * (binary → provisioned hook → real HyperIdle route → real enforcement registry).
- * They have already been run and proved enforcement (callCount >= 1 confirmed
- * for claude, codex, opencode).
  *
- * Runs via npm run test:integration (serial harness project)
+ * Runs via npm run test:integration:harness (the serial harness project).
  *
  * Deterministic real-loop coverage (route/registry/injected-spawn/builtin) stays in
  * test:all via the unit tests in this package (return-status-route.test.ts,
@@ -67,7 +65,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { promisify } from "node:util";
 
-import { createReturnEnforcement, provisionHarnessEnvironment } from "@hyperidle/harness-registry";
+import { provisionHarnessEnvironment } from "@hyperidle/harness-registry";
 import type { SupportedHarnessName } from "@hyperidle/harness-registry/test-utils";
 import { HARNESS_TEST_MODELS, requireHarness } from "@hyperidle/harness-registry/test-utils";
 import { describe, expect, test } from "vitest";
@@ -166,7 +164,8 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 	//      completes; the Stop hook fires at turn-end; bridge callCount>=1.
 	//      This is the DEFINITIVE proof the injection/wiring works end-to-end.
 	//   2. Hook script execution: proves the exact script semantics (exit 2 + stderr
-	//      re-prompt when bridge returns forcing message). Kept for fast CI.
+	//      re-prompt when bridge returns forcing message) without paying for a
+	//      full LLM turn.
 	//
 	// @lore Real-claude-full-binary: The nested-session detection is bypassed
 	// by zeroing CLAUDECODE, CLAUDE_CODE_ENTRYPOINT, CLAUDE_CODE_EXECPATH,
@@ -221,13 +220,12 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 					// fires when the session ends — before the claude process exits.
 					// @lore the model comes from HARNESS_TEST_MODELS.claude — never hardcoded.
 					//
-					// @lore codex-force-budget-timing: "~3s" is one turn, and this spawn
-					// absorbs three — `forceBudget: 2` blocks the stop twice, and each block
-					// costs a full extra LLM round trip before the process may exit. The
-					// budget below is the kill timer for all three, and at 30s it was thin
-					// enough to flake. The failure reads as `exitCode: null`, which looks
-					// like "the binary never completed" long after the hook assertions have
-					// already passed. Same measurement and same fix as the codex lane.
+					// @lore force-budget-timing: "~3s" is one turn, and this spawn absorbs
+					// three — `forceBudget: 2` blocks the stop twice, and each block costs a
+					// full extra LLM round trip before the process may exit. The timeout
+					// below carries real headroom over that three-turn cost; a tight budget
+					// reads a real in-flight turn as `exitCode: null` ("never completed")
+					// even once the hook assertions above have already passed.
 					const result = await spawnDetached(
 						"claude",
 						[
@@ -382,7 +380,6 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 			const sandboxPath = sandbox.path;
 
 			try {
-				const registry = createReturnEnforcement();
 				const bridgeToken = `test-bridge-token-${Math.random().toString(36).slice(2)}`;
 				const mcpUrl = `http://localhost:3001/api/mcp/${bridgeToken}`;
 
@@ -418,16 +415,6 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 				// Use new RegExp() to avoid guard backtick-parse issue (see @lore guard-backtick above).
 				// biome-ignore lint/complexity/useRegexLiterals: guard-backtick — see @lore guard-backtick above
 				expect(hookStr).not.toMatch(new RegExp("[`$<>|;&]"));
-
-				const sessionId = `rgate-claude-test-${Math.random().toString(36).slice(2)}`;
-				const gate = { returned: false };
-				registry.register(sessionId, { gate, forceCount: 0, exempt: false });
-
-				const state = registry.get(sessionId);
-				expect(state).toBeDefined();
-				expect(state?.forceCount).toBe(0);
-
-				registry.unregister(sessionId);
 			} finally {
 				await sandbox.cleanup();
 			}
@@ -558,7 +545,6 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 			const sandboxPath = sandbox.path;
 
 			try {
-				const registry = createReturnEnforcement();
 				const bridgeToken = `codex-test-token-${Math.random().toString(36).slice(2)}`;
 				const mcpUrl = `http://localhost:3001/api/mcp/${bridgeToken}`;
 
@@ -604,16 +590,6 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 
 				// Trust: codex uses --dangerously-bypass-hook-trust at spawn time.
 				// No sentinel file needed (trust is per-invocation, not filesystem).
-
-				const sessionId = `rgate-codex-test-${Math.random().toString(36).slice(2)}`;
-				const gate = { returned: false };
-				registry.register(sessionId, { gate, forceCount: 0, exempt: false });
-
-				const state = registry.get(sessionId);
-				expect(state).toBeDefined();
-				expect(state?.gate).toBeDefined();
-
-				registry.unregister(sessionId);
 			} finally {
 				await sandbox.cleanup();
 			}
