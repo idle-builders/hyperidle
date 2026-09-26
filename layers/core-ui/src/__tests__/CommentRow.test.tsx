@@ -116,7 +116,11 @@ describe("CommentRow rich-row variant", () => {
 			resolvedAt: null,
 			createdAt: "2026-04-19T12:30:00.000Z",
 			type: "review",
-			payload: { title: "Second review", reasoning: ["Renders as a rich row"], producedItemId: "art-2" },
+			payload: {
+				title: "Second review",
+				reasoning: ["Renders as a rich row"],
+				producedItemId: "art-2",
+			},
 		};
 	}
 
@@ -167,7 +171,9 @@ describe("CommentRow rich-row variant", () => {
 				{...richSlots}
 			/>,
 		);
-		expect(screen.getAllByTestId("comment-row")[0]!.getAttribute("data-variant")).toBe("rich-review");
+		expect(screen.getAllByTestId("comment-row")[0]!.getAttribute("data-variant")).toBe(
+			"rich-review",
+		);
 
 		rerender(
 			<CommentRow
@@ -211,7 +217,11 @@ describe("CommentRow mention rendering", () => {
 
 	it("renders plain text without mention spans when there are no refs", () => {
 		render(
-			<CommentRow message={plain("Just a plain message no mentions")} sender={sender} showSenderHeader={true} />,
+			<CommentRow
+				message={plain("Just a plain message no mentions")}
+				sender={sender}
+				showSenderHeader={true}
+			/>,
 		);
 		expect(screen.getByText(/Just a plain message no mentions/)).toBeInTheDocument();
 	});
@@ -221,7 +231,10 @@ describe("CommentRow mention rendering", () => {
 			...plain("Hey @Aria and @Bob please help"),
 			payload: {
 				text: "Hey @Aria and @Bob please help",
-				refs: [mentionRef, { ...mentionRef, identityId: "u-bob", displayName: "Bob", sourceText: "@Bob" }],
+				refs: [
+					mentionRef,
+					{ ...mentionRef, identityId: "u-bob", displayName: "Bob", sourceText: "@Bob" },
+				],
 			},
 		};
 		render(<CommentRow message={msg} sender={sender} showSenderHeader={true} />);
@@ -265,11 +278,17 @@ describe("CommentRow markdown rendering", () => {
 		);
 		expect(document.querySelector("strong")?.textContent).toContain("bold message");
 
-		rerender(<CommentRow message={plain("*italic message*")} sender={sender} showSenderHeader={true} />);
+		rerender(
+			<CommentRow message={plain("*italic message*")} sender={sender} showSenderHeader={true} />,
+		);
 		expect(document.querySelector("em")?.textContent).toContain("italic message");
 
 		rerender(
-			<CommentRow message={plain("use `const x = 1` here")} sender={sender} showSenderHeader={true} />,
+			<CommentRow
+				message={plain("use `const x = 1` here")}
+				sender={sender}
+				showSenderHeader={true}
+			/>,
 		);
 		expect(document.querySelector("code")?.textContent).toContain("const x = 1");
 	});
@@ -294,11 +313,17 @@ describe("CommentRow markdown rendering", () => {
 		expect(listItems.length).toBe(3);
 
 		rerender(
-			<CommentRow message={plain("1. first\n2. second\n3. third")} sender={sender} showSenderHeader={true} />,
+			<CommentRow
+				message={plain("1. first\n2. second\n3. third")}
+				sender={sender}
+				showSenderHeader={true}
+			/>,
 		);
 		expect(document.querySelector("ol")).not.toBeNull();
 
-		rerender(<CommentRow message={plain("## Section heading")} sender={sender} showSenderHeader={true} />);
+		rerender(
+			<CommentRow message={plain("## Section heading")} sender={sender} showSenderHeader={true} />,
+		);
 		expect(document.querySelector("h2")?.textContent).toContain("Section heading");
 	});
 
@@ -340,7 +365,12 @@ describe("CommentRow HTML sanitization", () => {
 		const sanitizeHtml = vi.fn((raw: string) => raw);
 		const md = "<details><summary>click</summary>content</details>";
 		render(
-			<CommentRow message={plain(md)} sender={sender} showSenderHeader={true} sanitizeHtml={sanitizeHtml} />,
+			<CommentRow
+				message={plain(md)}
+				sender={sender}
+				showSenderHeader={true}
+				sanitizeHtml={sanitizeHtml}
+			/>,
 		);
 		expect(sanitizeHtml).toHaveBeenCalled();
 	});
@@ -358,7 +388,12 @@ describe("CommentRow HTML sanitization", () => {
 		const sanitizeHtml = vi.fn((_raw: string) => "<p>safe content</p>");
 		const md = "<script>alert('xss')</script>";
 		const { container } = render(
-			<CommentRow message={plain(md)} sender={sender} showSenderHeader={true} sanitizeHtml={sanitizeHtml} />,
+			<CommentRow
+				message={plain(md)}
+				sender={sender}
+				showSenderHeader={true}
+				sanitizeHtml={sanitizeHtml}
+			/>,
 		);
 		expect(container.textContent).toContain("safe content");
 	});
