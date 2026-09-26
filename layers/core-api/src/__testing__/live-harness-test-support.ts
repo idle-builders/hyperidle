@@ -1,48 +1,46 @@
 /**
  * Shared setup for core-api's real-agent (live-harness) integration tests
  * (`subscription-wake-live-harness`, `thread-turn-live-harness`,
- * `document-tools-live-harness`) — each drives a real installed harness
- * binary through the identical MCP-bridge-server + agent-orchestration
- * composition and only differs in the one action call that dispatches its
- * session. One copy here instead of three: `layers/core-api` may not depend
- * on `@hyperidle/agent-execution` (that boot is an Application's job), so
- * this hand-assembles the same real pieces `bootAgentExecution` wires
- * production-side.
+ * `document-tools-live-harness`, `real-harness-return-enforcement-realbinary`)
+ * — each drives a real installed harness binary and only differs in the one
+ * call that dispatches its session or fires its hook. One copy here instead
+ * of several: the composition rides `@hyperidle/agent-execution`'s own real
+ * boot (`bootAgentExecution`), the same boot `agent-orchestration`'s own
+ * `boot-provisioning-wiring.integration.test.ts` already takes as a
+ * devDependency — never a hand-copied field-for-field stand-in.
+ *
+ * The sandbox-directory and clean-env helpers ride harness-registry's own
+ * `__tests__/harness-sandbox.ts` by relative import (no public subpath
+ * export exists for it; a relative path resolves it directly, and
+ * `governance-lint`/`tsc` both pass with the cross-package reach — the
+ * project reference in `layers/core-api/tsconfig.json` already covers it).
  */
 
-import * as fs from "node:fs";
 import * as net from "node:net";
-import * as os from "node:os";
-import * as path from "node:path";
 import { serve } from "@hono/node-server";
+import { bootAgentExecution } from "@hyperidle/agent-execution";
 import {
 	type AgentOrchestrationBoot,
 	bootAgentOrchestration,
 	buildRunOrchestrationComposition,
 	type RunOrchestrationComposition,
-	type RunOrchestrationHarnessRuntimeAdapter,
 } from "@hyperidle/agent-orchestration";
 import type { AgentOrchestrationTransport } from "@hyperidle/api-contract";
 import { type AgentSessionRequest, agentSessionRequests, type HyperIdleDb } from "@hyperidle/db";
 import type { ActionResult } from "@hyperidle/domain-model";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import { EventBus } from "@hyperidle/event-bus";
-import {
-	createLocalAdapterPool,
-	createReturnEnforcement,
-	provisionHarnessEnvironment,
-	writePluginStdioMcpEntries,
-} from "@hyperidle/harness-registry";
-import {
-	createMcpToolBridge,
-	type McpToolBridge,
-	returnStatusTool,
-} from "@hyperidle/harness-registry/mcp";
+import type { AdapterPool, SandboxAdapter } from "@hyperidle/harness-registry";
 import type { SupportedHarnessName } from "@hyperidle/harness-registry/test-utils";
 import { findSessionById, type RunResult } from "@hyperidle/run-orchestration";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { expect } from "vitest";
+import {
+	buildCleanEnv,
+	createHarnessSandbox,
+	type HarnessSandbox,
+} from "../../../agent-execution/harness-registry/src/__tests__/harness-sandbox.js";
 import type { Action, ActionContext } from "../actions/action.js";
 import { actionsAsTools } from "../actions/actions-as-tools.js";
 import { buildCoreActions } from "../actions/compose.js";
@@ -51,6 +49,8 @@ import {
 	buildSeamBackedReviewVerdictRecorder,
 	buildSeamBackedWorkIntentRecorder,
 } from "../services/agent-orchestration-port-composition.js";
+
+export { buildCleanEnv, createHarnessSandbox, type HarnessSandbox };
 
 /** Test-vocabulary harness name -> the exact `agent_run_config.harness_type` `createLocalAdapterPool` registers under. */
 export const HARNESS_TYPE: Record<SupportedHarnessName, string> = {
@@ -83,7 +83,7 @@ export function runnerFor<I, O>(actions: readonly Action[], name: string) {
 	return found.run as (ctx: ActionContext, input: I) => Promise<ActionResult<O>>;
 }
 
-/** An OS-assigned free port — `createMcpToolBridge({baseUrl})` must know the origin before the first `open()` call. */
+/** An OS-assigned free port — `bootAgentExecution({ mcpBaseUrl })` must know the origin before the bridge exists. */
 export async function getFreePort(): Promise<number> {
 	return new Promise((resolve, reject) => {
 		const probe = net.createServer();
@@ -100,55 +100,25 @@ export async function getFreePort(): Promise<number> {
 	});
 }
 
-/** The concrete registry `createReturnEnforcement()` builds — never exported by name from `@hyperidle/harness-registry`. */
-export type EnforcementRegistry = ReturnType<typeof createReturnEnforcement>;
-
-/**
- * The session-scoped harness-runtime port `run-orchestration`'s provisioner
- * consumes, built directly over `@hyperidle/harness-registry` — the same real
- * pieces `bootAgentExecution` wires production-side.
- */
-export function buildLiveHarnessRuntimeAdapter(
-	mcpBridgeRegistry: McpToolBridge,
-	enforcementRegistry: EnforcementRegistry,
-): RunOrchestrationHarnessRuntimeAdapter {
-	return {
-		enforcementRegistry,
-		createReturnGate: (requiredReturnActions, taskId) =>
-			enforcementRegistry.createGate(requiredReturnActions, taskId),
-		evaluateReturn: (gate, endReason) => enforcementRegistry.evaluate(gate, endReason),
-		provisionReturnHook: async (options) => {
-			await provisionHarnessEnvironment({ ...options, token: options.bridgeToken });
-		},
-		writeCliMcpConfig: (options) => provisionHarnessEnvironment(options),
-		writePluginStdioMcpEntries: (params) => writePluginStdioMcpEntries(params),
-		openMcpBridge: (session) =>
-			mcpBridgeRegistry.open({
-				sessionId: session.sessionId,
-				registry: session.toolRegistry,
-				onToolCall: session.onToolCall,
-			}),
-		closeMcpBridge: (token) => mcpBridgeRegistry.close(token),
-	};
-}
-
 export interface LiveHarnessRun {
 	readonly eventBus: EventBus;
 	readonly orchestrationBoot: AgentOrchestrationBoot;
 	readonly actions: readonly Action[];
 	readonly agentWorkIntentRecorder: ReturnType<typeof buildSeamBackedWorkIntentRecorder>;
-	readonly enforcementRegistry: EnforcementRegistry;
-	readonly mcpBridgeRegistry: McpToolBridge;
 	readonly composition: RunOrchestrationComposition;
+	readonly adapterPool: AdapterPool;
+	readonly workspace: SandboxAdapter;
 	readonly sandboxBasePath: string;
-	/** Disposes the orchestration boot, closes the bridge server, and removes the sandbox dir. */
+	/** Disposes the execution boot, the orchestration boot, closes the bridge server, and removes the sandbox dir. */
 	teardown(): Promise<void>;
 }
 
 /**
  * Builds the full live-harness composition every real-agent proof needs: a
- * booted agent-orchestration Layer wired to a real action list, a listening
- * MCP bridge server, and a fresh sandbox dir.
+ * booted agent-orchestration Layer wired to a real action list, `agent-
+ * execution`'s own real boot (adapter pool, sandbox adapter, MCP bridge
+ * server, return enforcement — the identical pieces an Application boots),
+ * and a fresh sandbox dir.
  */
 export async function setUpLiveHarnessRun(
 	db: HyperIdleDb,
@@ -169,24 +139,21 @@ export async function setUpLiveHarnessRun(
 
 	const port = await getFreePort();
 	const mcpBaseUrl = `http://127.0.0.1:${port}`;
-	const enforcementRegistry = createReturnEnforcement();
-	const mcpBridgeRegistry = createMcpToolBridge({
-		enforcement: enforcementRegistry,
-		baseUrl: mcpBaseUrl,
-	});
+	const execution = await bootAgentExecution({ topology: "local", mcpBaseUrl });
+
 	const bridgeApp = new Hono();
 	const bridgeApi = new Hono();
-	bridgeApi.route("/", mcpBridgeRegistry.router);
+	execution.mountMcpRouter(bridgeApi);
 	bridgeApp.route("/api", bridgeApi);
 	const httpServer = await new Promise<ReturnType<typeof serve>>((resolve) => {
 		const server = serve({ fetch: bridgeApp.fetch, port }, () => resolve(server));
 	});
 
-	const sandboxBasePath = fs.mkdtempSync(path.join(os.tmpdir(), `${sandboxPrefix}-`));
+	const sandbox = createHarnessSandbox(sandboxPrefix);
 
 	const composition = buildRunOrchestrationComposition({
-		harnessRuntime: buildLiveHarnessRuntimeAdapter(mcpBridgeRegistry, enforcementRegistry),
-		returnStatusTool: { forRegistry: (registry) => returnStatusTool.forRegistry(registry) },
+		harnessRuntime: execution.adapters.harnessRuntime,
+		returnStatusTool: execution.adapters.returnStatusTool,
 		// `actionTools` never changes mid-run, so a constant-returning closure is enough.
 		actionTools: () => actionTools,
 	});
@@ -196,23 +163,19 @@ export async function setUpLiveHarnessRun(
 		orchestrationBoot,
 		actions,
 		agentWorkIntentRecorder,
-		enforcementRegistry,
-		mcpBridgeRegistry,
 		composition,
-		sandboxBasePath,
+		adapterPool: execution.adapters.pool,
+		workspace: execution.adapters.sandbox,
+		sandboxBasePath: sandbox.path,
 		async teardown() {
+			execution.dispose();
 			orchestrationBoot.dispose();
 			await new Promise<void>((resolve, reject) => {
 				httpServer.close((err: Error | undefined) => (err ? reject(err) : resolve()));
 			});
-			fs.rmSync(sandboxBasePath, { recursive: true, force: true });
+			await sandbox.cleanup();
 		},
 	};
-}
-
-/** `createLocalAdapterPool` bound to a run's own enforcement registry — the last piece a proof needs before calling `composition.runSession`. */
-export function buildLiveHarnessAdapterPool(run: LiveHarnessRun) {
-	return createLocalAdapterPool({ enforcement: run.enforcementRegistry });
 }
 
 /**

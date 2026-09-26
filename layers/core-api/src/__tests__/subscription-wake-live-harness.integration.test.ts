@@ -9,9 +9,9 @@
  * session's own forced return action is `return_status` (the self-check
  * bridge tool, `provisioner.ts`'s `requiresReturnStatusReturn`), never
  * `send_message` — this test also proves no message row was written for the
- * agent, the exact desktop-walk defect (T15's send_message-forcing fix made
- * every subscription wake end with an unwanted direct message even when the
- * instruction never asked for one). A second case wakes a subscription with
+ * agent, guarding a defect where every subscription wake ended with an
+ * unwanted direct message even when the instruction never asked for one. A
+ * second case wakes a subscription with
  * no instruction at all — what every subscription on a fresh install holds —
  * and proves the session is shown what happened, is told nobody wrote an
  * instruction yet, and still ends returned.
@@ -56,7 +56,6 @@ import type {
 	UserView,
 } from "@hyperidle/domain-model";
 import { canReadThread, type HostKind } from "@hyperidle/domain-model";
-import { createSandboxAdapter } from "@hyperidle/harness-registry";
 import {
 	HARNESS_TEST_MODELS,
 	requireHarness,
@@ -72,7 +71,6 @@ import { afterEach, describe, expect } from "vitest";
 import { queueDeps } from "../__testing__/durable-agent-queue-test-deps.js";
 import {
 	assertRunOutcomeCompleted,
-	buildLiveHarnessAdapterPool,
 	HARNESS_TYPE,
 	runnerFor,
 	setUpLiveHarnessRun,
@@ -125,9 +123,9 @@ async function seedFounderTeamAgentAndDocument(
 		teamId: opts.teamId,
 		createdAt: NOW,
 	});
-	// @lore AU26 G1: the run-config selector (`harnessType`) lives in
-	// `agent_run_config`, an agent-orchestration-owned table the drain reads
-	// live — not on the `users` identity row.
+	// @lore the run-config selector (`harnessType`) lives in `agent_run_config`,
+	// an agent-orchestration-owned table the drain reads live — not on the
+	// `users` identity row.
 	await db.insert(agentRunConfig).values({
 		agentUserId: opts.agentId,
 		harnessType: opts.harnessType,
@@ -348,11 +346,11 @@ describe("a real task.changed wakes a subscribed agent, who reads the change and
 				);
 			}
 
-			const adapterPool = await buildLiveHarnessAdapterPool(run);
+			const adapterPool = run.adapterPool;
 			// The prompt the harness actually reads is the sandbox's own AGENTS.md,
 			// written before the harness starts and deleted with the sandbox when
 			// the session ends — so it is read the moment the harness has started.
-			const workspace = createSandboxAdapter("local");
+			const workspace = run.workspace;
 			const spawnSandbox = workspace.spawn.bind(workspace);
 			let sandboxPath = "";
 			workspace.spawn = async (baseDir) => {

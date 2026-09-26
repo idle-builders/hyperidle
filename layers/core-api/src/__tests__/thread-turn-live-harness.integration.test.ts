@@ -2,13 +2,8 @@
  * @lore The live-harness proof for the thread turn: a human `send_message`
  * into a two-member direct thread with an agent wakes that agent for real,
  * and the agent's own real `send_message` tool call is the only way its
- * turn ends.
- *
- * Restores the AU27 Increment 8 proof that a prior commit (576d3f28d) deleted
- * without a replacement — `assistant-reply-live-harness.integration.test.ts`,
- * whose subject (the assistant's reply reaching its calling thread through
- * its own `reply` tool call) survives under the thread module's shape: there
- * is no assistant thread, no `reply` tool — a human's `send_message` with
+ * turn ends. There is no assistant thread, no `reply` tool — a human's
+ * `send_message` with
  * `recipients:[agentId]` opens a direct thread and enqueues a `thread_turn`
  * work intent (`thread-actions.ts`'s wake block); the real
  * harness runs; the agent answers by calling `send_message` itself (the only
@@ -52,7 +47,6 @@ import type {
 	ThreadView,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { createSandboxAdapter } from "@hyperidle/harness-registry";
 import {
 	HARNESS_TEST_MODELS,
 	requireHarness,
@@ -66,7 +60,6 @@ import { queueDeps } from "../__testing__/durable-agent-queue-test-deps.js";
 import {
 	assertRunOutcomeCompleted,
 	assertSessionRowDone,
-	buildLiveHarnessAdapterPool,
 	HARNESS_TYPE,
 	runnerFor,
 	setUpLiveHarnessRun,
@@ -113,9 +106,9 @@ async function seedFounderAndAgent(
 		status: "active",
 		createdAt: NOW,
 	});
-	// @lore AU26 G1: the run-config selector (`harnessType`) lives in
-	// `agent_run_config`, an agent-orchestration-owned table the drain reads
-	// live — not on the `users` identity row.
+	// @lore the run-config selector (`harnessType`) lives in `agent_run_config`,
+	// an agent-orchestration-owned table the drain reads live — not on the
+	// `users` identity row.
 	await db.insert(agentRunConfig).values({
 		agentUserId: opts.agentId,
 		harnessType: opts.harnessType,
@@ -187,8 +180,7 @@ describe("a human's send_message wakes an agent, whose own send_message ends the
 	 * Shared proof body — every harness runs the identical real path. Each
 	 * caller below wraps this in its OWN `describe` with a LITERAL
 	 * `requireHarness("<name>")` call, one per harness — kept ungreppable-proof
-	 * by not collapsing these into a loop (AU28 lore on `RETURN_ACTION_NAMES`'s
-	 * sibling convention, `assistant-reply-live-harness`'s own precedent).
+	 * by not collapsing these into a loop.
 	 */
 	async function runThreadTurnProof(harness: SupportedHarnessName, db: HyperIdleDb): Promise<void> {
 		const founderId = `founder-thread-turn-${harness}`;
@@ -214,8 +206,8 @@ describe("a human's send_message wakes an agent, whose own send_message ends the
 				{ founderId, agentId, text: PROMPT },
 			);
 
-			const adapterPool = await buildLiveHarnessAdapterPool(run);
-			const workspace = createSandboxAdapter("local");
+			const adapterPool = run.adapterPool;
+			const workspace = run.workspace;
 			const result = await run.composition.runSession(
 				{ db, eventBus: run.eventBus, adapterPool, workspace },
 				{ mode: "durable", request, sandboxBasePath: run.sandboxBasePath, completion: "await" },
@@ -241,7 +233,7 @@ describe("a human's send_message wakes an agent, whose own send_message ends the
 			// reply — assert the actual reply TEXT, and explicitly rule out the
 			// never-silent net's fixed notice (unwired in this fixture, so this
 			// guards against a coincidental match rather than that specific
-			// reaction, same defensive shape the deleted AU27 test used).
+			// reaction).
 			const payload = agentReply?.payload as { text?: string } | undefined;
 			expect(
 				payload?.text,

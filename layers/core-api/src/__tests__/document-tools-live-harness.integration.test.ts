@@ -39,7 +39,6 @@ import {
 import { test as dbTest } from "@hyperidle/db/test-fixtures";
 import type { EditTaskInput, TaskView } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { createSandboxAdapter } from "@hyperidle/harness-registry";
 import {
 	HARNESS_TEST_MODELS,
 	requireHarness,
@@ -52,7 +51,6 @@ import { afterEach, describe, expect } from "vitest";
 import { queueDeps } from "../__testing__/durable-agent-queue-test-deps.js";
 import {
 	assertRunOutcomeCompleted,
-	buildLiveHarnessAdapterPool,
 	HARNESS_TYPE,
 	runnerFor,
 	setUpLiveHarnessRun,
@@ -257,8 +255,8 @@ describe("a real agent writes a memory, writes a task artifact, and reads a docu
 				{ founderId, agentId, teamId, title: taskTitle, description: taskDescription },
 			);
 
-			const adapterPool = await buildLiveHarnessAdapterPool(run);
-			const workspace = createSandboxAdapter("local");
+			const adapterPool = run.adapterPool;
+			const workspace = run.workspace;
 			const result = await run.composition.runSession(
 				{ db, eventBus: run.eventBus, adapterPool, workspace },
 				{ mode: "durable", request, sandboxBasePath: run.sandboxBasePath, completion: "await" },
