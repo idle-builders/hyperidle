@@ -37,8 +37,15 @@ import { CliHarnessAdapter } from "../cli-harness-adapter.js";
 import { LocalSandboxAdapter } from "../local-sandbox-adapter.js";
 import { cliAdapterFixture } from "./cli-adapter-fixtures.js";
 import { HARNESS_TEST_MODELS, requireHarness } from "./require-harness.js";
+import { trackHarnessSessions } from "./session-handle-tracker.js";
 
 const execFileAsync = promisify(execFile);
+
+// @lore process-group kill only helps once stopSession runs. `track` stops any
+// handle a test leaves unstopped — timeout or thrown assertion included — in
+// afterEach, so a real CLI session can never outlive its test. See
+// session-handle-tracker.ts.
+const { track } = trackHarnessSessions();
 
 // ── Context marker planted in session 1, tested in the resumed session ────────
 // A non-guessable task-ID token so "did the model know this?" is meaningful.
@@ -205,6 +212,7 @@ describe("session handles — claude-code", () => {
 			};
 
 			const handleP1 = await adapter.startSession(configPhase1);
+			track(adapter, handleP1);
 
 			// For claude, the id is assigned at start time (via --session-id).
 			// It must be readable immediately — not after streaming.
@@ -234,6 +242,7 @@ describe("session handles — claude-code", () => {
 			};
 
 			const handleP2 = await adapter.resumeSession?.(nativeId!, PHASE2_PROMPT, resumeConfigA);
+			track(adapter, handleP2);
 			expect(handleP2, "resumeSession must return a handle").toBeDefined();
 			if (!handleP2) return;
 
@@ -263,6 +272,7 @@ describe("session handles — claude-code", () => {
 			let bogusIdDetected = false;
 			try {
 				const handleWrong = await adapter.resumeSession?.(bogusId, PHASE2_PROMPT, resumeConfigA);
+				track(adapter, handleWrong);
 				if (handleWrong) {
 					const { completionTexts: wrongTexts } = await drainEvents(adapter, handleWrong);
 					const resultWrong = await adapter.stopSession(handleWrong);
@@ -329,6 +339,7 @@ describe("session handles — codex", () => {
 			};
 
 			const handleP1 = await adapter.startSession(configP1);
+			track(adapter, handleP1);
 
 			// Native id is NOT available before the stream (codex emits it on thread.started).
 			// Stream to completion so the event is consumed.
@@ -356,6 +367,7 @@ describe("session handles — codex", () => {
 			};
 
 			const handleP2 = await adapter.resumeSession?.(nativeId!, PHASE2_PROMPT, resumeConfig);
+			track(adapter, handleP2);
 			expect(handleP2, "resumeSession must return a handle").toBeDefined();
 			if (!handleP2) return;
 
@@ -375,6 +387,7 @@ describe("session handles — codex", () => {
 			let wrongIdDetected = false;
 			try {
 				const handleWrong = await adapter.resumeSession?.(bogusId, PHASE2_PROMPT, resumeConfig);
+				track(adapter, handleWrong);
 				if (handleWrong) {
 					await drainEvents(adapter, handleWrong);
 					const rWrong = await adapter.stopSession(handleWrong);
@@ -444,6 +457,7 @@ describe("session handles — codex", () => {
 			};
 
 			const handleP1 = await adapter.startSession(configP1);
+			track(adapter, handleP1);
 			const { completionTexts: p1Texts } = await drainEvents(adapter, handleP1);
 			const r1 = await adapter.stopSession(handleP1);
 			expect(r1.outcome).toBe("completed");
@@ -474,6 +488,7 @@ describe("session handles — codex", () => {
 					"Reply with exactly: PHASE2_DONE",
 				resumeConfig,
 			);
+			track(adapter, handleP2);
 			expect(handleP2, "resumeSession must return a handle").toBeDefined();
 			if (!handleP2) return;
 
@@ -531,6 +546,7 @@ describe("session handles — cursor-agent", () => {
 			};
 
 			const handleP1 = await adapter.startSession(configP1);
+			track(adapter, handleP1);
 			const { completionTexts: p1Texts } = await drainEvents(adapter, handleP1);
 			const r1 = await adapter.stopSession(handleP1);
 			expect(r1.outcome).toBe("completed");
@@ -555,6 +571,7 @@ describe("session handles — cursor-agent", () => {
 			};
 
 			const handleP2 = await adapter.resumeSession?.(nativeId!, PHASE2_PROMPT, resumeConfigA);
+			track(adapter, handleP2);
 			expect(handleP2, "resumeSession must return a handle").toBeDefined();
 			if (!handleP2) return;
 
@@ -579,6 +596,7 @@ describe("session handles — cursor-agent", () => {
 			};
 
 			const handleWrong = await adapter.resumeSession?.(nativeId!, PHASE2_PROMPT, resumeConfigB);
+			track(adapter, handleWrong);
 			expect(handleWrong, "resumeSession must return a handle even for wrong dir").toBeDefined();
 			if (!handleWrong) return;
 
@@ -633,6 +651,7 @@ describe("session handles — opencode", () => {
 			};
 
 			const handleP1 = await adapter.startSession(configP1);
+			track(adapter, handleP1);
 			const { completionTexts: p1Texts } = await drainEvents(adapter, handleP1);
 			const r1 = await adapter.stopSession(handleP1);
 			expect(r1.outcome).toBe("completed");
@@ -657,6 +676,7 @@ describe("session handles — opencode", () => {
 			};
 
 			const handleP2 = await adapter.resumeSession?.(nativeId!, PHASE2_PROMPT, resumeConfig);
+			track(adapter, handleP2);
 			expect(handleP2, "resumeSession must return a handle").toBeDefined();
 			if (!handleP2) return;
 
@@ -676,6 +696,7 @@ describe("session handles — opencode", () => {
 			let wrongIdDetected = false;
 			try {
 				const handleWrong = await adapter.resumeSession?.(bogusId, PHASE2_PROMPT, resumeConfig);
+				track(adapter, handleWrong);
 				if (handleWrong) {
 					await drainEvents(adapter, handleWrong);
 					const rWrong = await adapter.stopSession(handleWrong);

@@ -69,6 +69,12 @@ const CURSOR_AGENT_CLI_CONFIG = cliAdapterFixture("cursor-agent");
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
 import { LocalSandboxAdapter } from "../local-sandbox-adapter.js";
 import { requireHarness } from "./require-harness.js";
+import { trackHarnessSessions } from "./session-handle-tracker.js";
+
+// @lore process-group kill only helps once stopSession runs. `track` stops any
+// handle a test leaves unstopped — timeout or thrown assertion included — in
+// afterEach. See session-handle-tracker.ts.
+const { track } = trackHarnessSessions();
 
 const execFileAsync = promisify(execFile);
 
@@ -247,6 +253,7 @@ describe("claude-code CLI adapter (real binary, production CliHarnessAdapter pat
 			const adapter = new CliHarnessAdapter(CLAUDE_CLI_CONFIG);
 
 			const handle = await adapter.startSession(config);
+			track(adapter, handle);
 
 			const events: HarnessEvent[] = [];
 			for await (const ev of adapter.streamEvents(handle)) {
@@ -409,6 +416,7 @@ async function runCodexAdapterTest({ skip }: { skip: () => void }): Promise<void
 		const adapter = new CliHarnessAdapter(codexConfig);
 
 		const handle = await adapter.startSession(config);
+		track(adapter, handle);
 
 		const events: HarnessEvent[] = [];
 		for await (const ev of adapter.streamEvents(handle)) {
@@ -535,6 +543,7 @@ describe("opencode CLI adapter (real binary, production CliHarnessAdapter path)"
 			const adapter = new CliHarnessAdapter(opencodeConfig);
 
 			const handle = await adapter.startSession(config);
+			track(adapter, handle);
 
 			const events: HarnessEvent[] = [];
 			for await (const ev of adapter.streamEvents(handle)) {
@@ -583,6 +592,7 @@ describe("cursor-agent CLI adapter (real binary, production CliHarnessAdapter pa
 
 			const adapter = new CliHarnessAdapter(CURSOR_AGENT_CLI_CONFIG);
 			const handle = await adapter.startSession(config);
+			track(adapter, handle);
 
 			const events: HarnessEvent[] = [];
 			for await (const ev of adapter.streamEvents(handle)) {
