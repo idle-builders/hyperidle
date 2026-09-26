@@ -43,11 +43,6 @@ function fullServiceBootstrap(
 }
 
 describe("registerCoreDomainServices + registerAgentLayerServices", () => {
-	test("both are exported as functions", () => {
-		expect(typeof registerCoreDomainServices).toBe("function");
-		expect(typeof registerAgentLayerServices).toBe("function");
-	});
-
 	test("returns an array of disposer functions when called with db and eventBus", async ({
 		db,
 		eventBus,
@@ -129,7 +124,7 @@ describe("registerCoreDomainServices + registerAgentLayerServices", () => {
 			dispatcherDeps: {
 				adapterPool: {},
 				workspace: {},
-				sandboxBasePath: "/tmp/au20-bootstrap-ownership",
+				sandboxBasePath: "/tmp/bootstrap-ownership",
 			},
 		}) as OwnedDisposer[];
 		// Dispatch startup is asynchronous. Let all four constituents install
@@ -233,10 +228,6 @@ describe("kernel-only boot (no serviceBootstrap)", () => {
 		await expect(createTestApp()).resolves.not.toThrow();
 	}, 120_000);
 
-	test("createTestApp({ serviceBootstrap: undefined }) boots without throwing", async () => {
-		await expect(createTestApp({ serviceBootstrap: undefined })).resolves.not.toThrow();
-	}, 120_000);
-
 	test("GET /api/health returns 200 in kernel-only mode", async () => {
 		const app = await createTestApp({ serviceBootstrap: undefined });
 		const res = await app.request("/api/health");
@@ -245,15 +236,6 @@ describe("kernel-only boot (no serviceBootstrap)", () => {
 });
 
 describe("full boot with registerCoreDomainServices + registerAgentLayerServices", () => {
-	test("createTestApp({ db, eventBus, serviceBootstrap: fullServiceBootstrap }) boots without throwing", async ({
-		db,
-		eventBus,
-	}) => {
-		const app = await createTestApp({ db, eventBus, serviceBootstrap: fullServiceBootstrap });
-
-		void app?.request("/api/health");
-	}, 120_000);
-
 	test("GET /api/health returns 200 with full app boot (core + agent-layer services)", async ({
 		db,
 		eventBus,
