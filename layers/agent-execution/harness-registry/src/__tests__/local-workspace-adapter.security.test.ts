@@ -72,4 +72,20 @@ describe("I2 S4 / review A3 — LocalSandboxAdapter production guard", () => {
 		process.env.HYPERIDLE_PROFILE = "vps";
 		expect(() => new LocalSandboxAdapter()).toThrow(/not allowed/i);
 	});
+
+	it("does not throw when NODE_ENV=production and HYPERIDLE_PROFILE=laptop (the desktop build)", async () => {
+		process.env.NODE_ENV = "production";
+		process.env.HYPERIDLE_PROFILE = "laptop";
+		const adapter = new LocalSandboxAdapter();
+
+		const handle = await adapter.spawn(baseDir);
+		expect(handle.sandboxId).toBeDefined();
+		await adapter.destroy(handle);
+	});
+
+	it("does not throw when NODE_ENV=production and HYPERIDLE_PROFILE is unset (laptop is the default)", () => {
+		process.env.NODE_ENV = "production";
+		process.env.HYPERIDLE_PROFILE = undefined;
+		expect(() => new LocalSandboxAdapter()).not.toThrow();
+	});
 });

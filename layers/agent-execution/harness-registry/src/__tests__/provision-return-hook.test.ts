@@ -14,13 +14,18 @@
  *   - ReturnEnforcementChannel type exists in @hyperidle/harness-capability (green phase Task 1)
  */
 
+import { execFile } from "node:child_process";
 import * as fs from "node:fs";
+import * as http from "node:http";
 import * as os from "node:os";
 import * as path from "node:path";
+import { promisify } from "node:util";
 // FAILS red: module does not exist yet
 import type { ReturnEnforcementChannel } from "@hyperidle/harness-capability";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { provisionHarnessEnvironment } from "../provision-harness-environment.js";
+
+const execFileAsync = promisify(execFile);
 
 const provisionReturnHook = (options: {
 	readonly sandboxPath: string;
@@ -336,6 +341,112 @@ describe("provisionReturnHook", () => {
 	});
 
 	// ── AC4 route-checklist: all channels handled ─────────────────────────
+
+	// ── the generated scripts, actually run ────────────────────────────────
+	//
+	// Every test above inspects return-check.sh as text. None of them run it.
+	// A shell script that only ever gets read is not proven — it is asserted
+	// about. These spawn a real local bridge and execute the real script with
+	// `sh`, the way Claude Code / Codex actually invoke it.
+
+	async function withLocalBridge(
+		respond: () => string,
+		run: (mcpUrl: string) => Promise<void>,
+	): Promise<void> {
+		const server = http.createServer((_req, res) => {
+			res.writeHead(200);
+			res.end(respond());
+		});
+		await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+		const address = server.address();
+		const port = typeof address === "object" && address ? address.port : 0;
+		try {
+			await run(`http://127.0.0.1:${port}`);
+		} finally {
+			await new Promise<void>((resolve) => server.close(() => resolve()));
+		}
+	}
+
+	describe("return-check.sh (claude) — actually executed against a real bridge", () => {
+		it("exits 0 with empty stdout/stderr when the bridge allows the stop", async () => {
+			await withLocalBridge(
+				() => "",
+				async (mcpUrl) => {
+					await provisionReturnHook({
+						sandboxPath,
+						channel: "settings-claude",
+						bridgeToken,
+						mcpUrl,
+						forceBudget,
+					});
+					const scriptPath = path.join(sandboxPath, ".claude", "return-check.sh");
+					const { stdout, stderr } = await execFileAsync("sh", [scriptPath]);
+					expect(stdout.trim()).toBe("");
+					expect(stderr.trim()).toBe("");
+				},
+			);
+		});
+
+		it("exits 2 and relays the force message on stderr when the bridge blocks the stop", async () => {
+			await withLocalBridge(
+				() => "finish the task before stopping",
+				async (mcpUrl) => {
+					await provisionReturnHook({
+						sandboxPath,
+						channel: "settings-claude",
+						bridgeToken,
+						mcpUrl,
+						forceBudget,
+					});
+					const scriptPath = path.join(sandboxPath, ".claude", "return-check.sh");
+					await expect(execFileAsync("sh", [scriptPath])).rejects.toMatchObject({
+						code: 2,
+						stderr: expect.stringContaining("finish the task before stopping"),
+					});
+				},
+			);
+		});
+	});
+
+	describe("return-check.sh (codex) — actually executed against a real bridge", () => {
+		it('prints {"decision":"approve"} and exits 0 when the bridge allows the stop', async () => {
+			await withLocalBridge(
+				() => "",
+				async (mcpUrl) => {
+					await provisionReturnHook({
+						sandboxPath,
+						channel: "settings-codex",
+						bridgeToken,
+						mcpUrl,
+						forceBudget,
+					});
+					const scriptPath = path.join(sandboxPath, ".codex", "return-check.sh");
+					const { stdout } = await execFileAsync("sh", [scriptPath]);
+					expect(JSON.parse(stdout)).toEqual({ decision: "approve" });
+				},
+			);
+		});
+
+		it("prints decision:block with the bridge reason and exits 0 when the bridge blocks the stop", async () => {
+			await withLocalBridge(
+				() => "finish the task before stopping",
+				async (mcpUrl) => {
+					await provisionReturnHook({
+						sandboxPath,
+						channel: "settings-codex",
+						bridgeToken,
+						mcpUrl,
+						forceBudget,
+					});
+					const scriptPath = path.join(sandboxPath, ".codex", "return-check.sh");
+					const { stdout } = await execFileAsync("sh", [scriptPath]);
+					const parsed = JSON.parse(stdout) as { decision: string; reason: string };
+					expect(parsed.decision).toBe("block");
+					expect(parsed.reason).toContain("finish the task before stopping");
+				},
+			);
+		});
+	});
 
 	describe("AC4 route-checklist: provisionReturnHook handles all ReturnEnforcementChannel values", () => {
 		const allChannels: ReturnEnforcementChannel[] = [
