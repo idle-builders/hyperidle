@@ -33,7 +33,7 @@ import type { PolicyEditTask, PolicySendMessage } from "../ports.js";
 
 // ─── Manual port implementations (raw Drizzle, no @hyperidle/work dep) ────────
 //
-// @lore BB1 test: policy package cannot import @hyperidle/work directly
+// @lore policy package cannot import @hyperidle/work directly
 // (Mechanism C). The test wires the ports manually using raw Drizzle so the
 // test stays inside the policy package's own dependency set.
 
@@ -222,7 +222,7 @@ async function completeTask(
 	taskId: string,
 	fromState: TaskState,
 	toState: "done" | "killed",
-	/** BB1: mark the emit as part of a deliberate subtree kill. */
+	/** Marks the emit as part of a deliberate subtree kill. */
 	cascade = false,
 ): Promise<void> {
 	// Direct write + emit — this simulates a leaf task reaching a terminal
@@ -252,7 +252,7 @@ async function completeTask(
 
 // ─── Session → Task propagation tests ────────────────────────────────────────
 
-describe("BB1 AC3 — session→task propagation (needsReview fork)", () => {
+describe("session→task propagation (needsReview fork)", () => {
 	dbTest("session ends on needsReview=false task → task reaches done", async ({ db }) => {
 		const teamId = "bb1-s1-team";
 		await seedTeam(db, teamId);
@@ -340,7 +340,7 @@ describe("BB1 AC3 — session→task propagation (needsReview fork)", () => {
 
 // ─── Task → Parent propagation tests ─────────────────────────────────────────
 
-describe("BB1 AC3 — parent auto-completion cascade (needsReview fork)", () => {
+describe("parent auto-completion cascade (needsReview fork)", () => {
 	// A 3-level tree, parent in `accepted` (never worked) with needsReview=false at
 	// every ancestor: all children terminal cascades all the way to root in one pass.
 	dbTest(
@@ -552,9 +552,9 @@ describe("BB1 AC3 — parent auto-completion cascade (needsReview fork)", () => 
 	});
 });
 
-// ─── BB1 regression: a kill cascade must not run the COMPLETION cascade ───────
+// ─── A kill cascade must not run the COMPLETION cascade ───────
 
-describe("BB1 — a cascade kill does not complete its ancestors", () => {
+describe("a cascade kill does not complete its ancestors", () => {
 	/**
 	 * `cascadeTaskKill` kills deepest-first and every kill emits
 	 * `task.changed(killed)`. This handler listens for `killed` on purpose
@@ -602,7 +602,7 @@ describe("BB1 — a cascade kill does not complete its ancestors", () => {
 	/**
 	 * The suppression must be scoped to the CASCADE, not to `killed` in general.
 	 * Killing the last live child by hand still advances the parent — that is
-	 * what AC3 promises, and narrowing it would be a silent regression.
+	 * what this rule promises, and narrowing it would be a silent regression.
 	 */
 	dbTest("an ordinary kill of the last child still advances the parent", async ({ db }) => {
 		const eventBus = new EventBus();

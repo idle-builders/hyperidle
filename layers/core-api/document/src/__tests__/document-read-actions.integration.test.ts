@@ -6,7 +6,14 @@
  * `deps.changes`/`openParent`/`onBodyChanged` throw if called at all: the
  * read half must never reach them (that is the write half's job, B6a).
  */
-import { changes, type HyperIdleDb, teams, type User, users, type WriteExecutor } from "@hyperidle/db";
+import {
+	changes,
+	type HyperIdleDb,
+	teams,
+	type User,
+	users,
+	type WriteExecutor,
+} from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import type {
 	DocumentRow,
@@ -126,9 +133,12 @@ describe("open_document (architecture.md §3.4, §6.7)", () => {
 
 		const actions = createDocumentActions(readOnlyDeps());
 		const openDocument = actionFor<OpenDocumentInput, DocumentView>(actions, "open_document");
-		const result = await openDocument.run(ctxFor(db, "writer-open-2", { now: "2026-06-01T00:00:00.000Z" }), {
-			id: "doc-open-mine-1",
-		});
+		const result = await openDocument.run(
+			ctxFor(db, "writer-open-2", { now: "2026-06-01T00:00:00.000Z" }),
+			{
+				id: "doc-open-mine-1",
+			},
+		);
 
 		expect(result.ok).toBe(true);
 		if (!result.ok) throw new Error("expected success");

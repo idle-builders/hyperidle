@@ -16,7 +16,12 @@
  */
 import { changes, type HyperIdleDb } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import type { EditUserInput, OpenUserInput, SearchUsersInput, UserView } from "@hyperidle/domain-model";
+import type {
+	EditUserInput,
+	OpenUserInput,
+	SearchUsersInput,
+	UserView,
+} from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
 import type { ActionContext } from "../action-types.js";
 import {

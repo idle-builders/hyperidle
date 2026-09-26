@@ -675,7 +675,7 @@ describe("edit_document — the `changes` row, architecture.md §6.3", () => {
 	});
 });
 
-describe("edit_document — O1 onBodyChanged, architecture.md §0", () => {
+describe("edit_document — onBodyChanged fires on a body change, architecture.md §0", () => {
 	test("called once on create, and again only when body actually changes — not on a title-only edit", async ({
 		db,
 	}) => {

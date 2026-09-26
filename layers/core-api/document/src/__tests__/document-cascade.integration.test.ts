@@ -22,7 +22,15 @@ import { eq } from "drizzle-orm";
 import type { Action } from "../action-types.js";
 import { createDocumentActions, type DocumentActionsDeps } from "../document-actions.js";
 import { insertDocument } from "../document-store.js";
-import { actionFor, ctxFor, docValues, readRow, seedTeam, seedUser, writeDeps } from "./_helpers.js";
+import {
+	actionFor,
+	ctxFor,
+	docValues,
+	readRow,
+	seedTeam,
+	seedUser,
+	writeDeps,
+} from "./_helpers.js";
 
 async function readDocumentChanges(db: HyperIdleDb) {
 	return db.select().from(changes).where(eq(changes.object, "document"));

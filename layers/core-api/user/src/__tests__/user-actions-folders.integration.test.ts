@@ -15,7 +15,12 @@
  */
 import { changes, type HyperIdleDb, teams, users } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import type { EditUserInput, OpenUserInput, SearchUsersInput, UserView } from "@hyperidle/domain-model";
+import type {
+	EditUserInput,
+	OpenUserInput,
+	SearchUsersInput,
+	UserView,
+} from "@hyperidle/domain-model";
 import { EventBus, type ObjectChangeEvent } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import type { ActionContext } from "../action-types.js";

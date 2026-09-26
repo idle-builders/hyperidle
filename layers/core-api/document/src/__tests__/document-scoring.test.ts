@@ -1,18 +1,7 @@
 /**
- * AU20 completeness contract — pure-logic unit tests for the document service.
- *
- * These tests cover capabilities that are pure functions (no DB needed):
- *   - sanitizeFtsQuery: FTS injection prevention + token normalization
- *   - countTokens: token estimation for budget enforcement
- *   - rankAndBudget / enforceBudget: factory-scoped items always included,
- *     greedy budget fill
- *
- * These tests pin the pure algorithmic behavior the rewrite must preserve.
- * They deliberately import from individual source modules (not the barrel) so
- * they survive barrel reorganization during Stage 2.
- *
- * @lore nested-knowledge-items D1: `layer==='L4'` is replaced by
- * `scopeKind==='factory'` as the "always included" rule — see `session-documents.ts`.
+ * The session-document budget algorithm: `countTokens` (whitespace-split
+ * estimate) and `enforceBudget` (factory-scoped items always included,
+ * greedy fill of the rest by score) — pure functions, no DB needed.
  */
 import type { DocumentRow } from "@hyperidle/db";
 import { describe, expect, test } from "vitest";

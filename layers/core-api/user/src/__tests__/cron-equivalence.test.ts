@@ -1,12 +1,6 @@
 /**
- * AU44 B3 — cron equivalence proof, the `parseCron`/`nextCronMatch` half.
- *
- * Before the fold, this logic lived in framework/cron/src/cron.ts and was
- * re-exported from @hyperidle/cron; this file asserts it still produces the
- * same outputs as the original implementation.
- *
- * @lore BC5 T2: lives here with `cron.ts` itself — the subscription clock is
- * this module's own caller now.
+ * `parseCron`/`nextCronMatch` — the cron schedule the subscription clock
+ * matches against, kept here with `cron.ts` itself, its own caller.
  */
 
 import { describe, expect, test } from "vitest";
@@ -19,7 +13,7 @@ const REFERENCE_NOW = new Date("2025-01-15T10:00:00.000Z");
 const CALENDAR_CRON = "*/5 * * * *";
 const CALENDAR_EXPECTED = "2025-01-15T10:05:00.000Z";
 
-describe("parseCron / nextCronMatch — @hyperidle/user's cron module (AU44 B3)", () => {
+describe("parseCron / nextCronMatch", () => {
 	test("parseCron produces correct CronFields for '*/5 * * * *'", () => {
 		const fields = parseCron("*/5 * * * *");
 		expect(fields.minute).toEqual([0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]);

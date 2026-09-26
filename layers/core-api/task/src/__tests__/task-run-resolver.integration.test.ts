@@ -314,7 +314,6 @@ describe("resolveTaskRunRequest — contextBundle baking", () => {
 	test("bakes a contextBundle (kind:'task') with task/ancestors/agent/team content + ranked documents", async ({
 		db,
 	}) => {
-
 		await seedTeamAndRootTask(db, { teamId: "team-trun-ctx-1", rootTaskId: "bet-trun-ctx-1" });
 		await db
 			.update(tasks)
@@ -374,9 +373,8 @@ describe("resolveTaskRunRequest — contextBundle baking", () => {
 				description: "Ship the contextBundle wiring.",
 				state: "accepted",
 			},
-			// BB1: the single `bet` became the ancestor chain, root first. This task
-			// sits one level down, so the chain is exactly its parent — the same
-			// row the old `bet` assertion named.
+			// The ancestor chain is root first; this task sits one level down, so
+			// the chain is exactly its parent.
 			ancestors: [
 				{
 					id: "bet-trun-ctx-1",
@@ -475,9 +473,7 @@ describe("resolveTaskRunRequest — callingThreadId baking", () => {
 });
 
 /**
- * session_start path of resolveTaskRunRequest — ported from the deleted
- * session-start-resolver.integration.test.ts. The session_start branch was
- * folded into task-run-resolver.ts (AU44 B3); these cases cover the
+ * `resolveTaskRunRequest`'s `session_start` branch: the
  * `{ kind: "session_start", taskId, requestedAgentId }` input shape.
  *
  * Key difference from task_run: no dispatch-attempt lookup, no task-state

@@ -1,7 +1,7 @@
 /**
- * Unit tests for the plugin manifest parser (BA9a AC3).
- *
- * Tests run against real temp files (no DB needed — pure filesystem).
+ * The plugin manifest parser: fatal violations refuse the install, some
+ * shapes only warn, and valid manifests parse cleanly. Runs against real
+ * temp files (no DB needed — pure filesystem).
  */
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";

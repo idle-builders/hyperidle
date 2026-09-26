@@ -1,11 +1,8 @@
 /**
- * BA9b — Service integration tests for capability documents.
- *
- * Proves:
- * - assembleSessionDocuments returns skill/rule items alongside ordinary ones
- * - Factory-scoped capability items reach all sessions (AC7)
- * - Team-scoped capability items only reach the matching team's sessions (AC7)
- * - agent_file items have agentBindingId derived from scopeId
+ * Capability documents (skill/rule/agent_file) in `assembleSessionDocuments`:
+ * factory-scoped items reach every session, team-scoped items reach only
+ * that team's sessions, and an agent_file's reach is derived from its own
+ * scopeId.
  */
 import { documents, type HyperIdleDb } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
@@ -51,7 +48,7 @@ async function insertDocument(
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
-describe("BA9b: assembleSessionDocuments includes capability items", () => {
+describe("assembleSessionDocuments includes capability items", () => {
 	test("factory-scoped skill is returned for any team session", async ({ db }) => {
 		await insertDocument(db, {
 			title: "write-tests",

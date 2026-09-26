@@ -1,22 +1,11 @@
 /**
- * P3 RED — Server-persisted config table (AC-10)
+ * The server-persisted config singleton: read returns defaults on an empty
+ * table, write merges partial patches, and a corrupt or superseded config
+ * column falls back to defaults instead of throwing.
  *
- * AC coverage:
- *  - readServerConfig() on empty table returns defaults
- *  - updateServerConfig() merges partial updates
- *  - readServerConfig() after update returns merged config
- *  - Corrupt JSON in DB falls back to defaults
- *  - An old row's dead `notifications` key is ignored, not a parse failure
- *
- * @lore BC5 leftover: `notifications` (`mutedTypes`, the SMTP `delivery`
- * block) deleted — the mute and the dispatcher it fed are both gone now that
- * a subscription's `paused` flag is the one mute mechanism.
- *
- * @lore AU19 Increment 1f: moved from `packages/server/src/services/
- * __tests__/server-config.integration.test.ts` — only needs `{ db }` (no
- * `{ app }`), so it moves into the owning package's own `src/__tests__/` and
- * switches its fixture import to `@hyperidle/db/test-fixtures`, same
- * precedent as `@hyperidle/org`'s `org-edges.integration.test.ts`.
+ * @lore `notifications` is never read: the mute and dispatcher it fed are
+ * gone now that a subscription's `paused` flag is the one mute mechanism, so
+ * an old row carrying that dead key must parse, not fail.
  */
 
 import { serverConfig } from "@hyperidle/db";
