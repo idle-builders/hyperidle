@@ -1,22 +1,11 @@
 /**
- * AU27 Increment 4 (Decision 2) — the generic transcript, re-provided as a
- * capability every kind can use, not assistant-specific. `params.transcript`
- * (baked at emit — Increment 1's `callingThreadId` sibling) reaches:
- *   1. the `## Conversation` prompt section (every harness reads it from
- *      AGENTS.md/CLAUDE.md), replacing the raw machine-id Correlation line;
- *   2. `SessionConfig.requiredReturnActions` — the structural rule for every
- *      task-free session (`taskId == null`): a session with a calling
- *      thread (`callingThreadId != null`) resolves to `["send_message"]`,
- *      plus the one-line orientation in the prompt.
- *
- * A subscription wake (`requestContext.sourceKind === "subscription"`, which
- * never bakes a calling thread — there is no thread to reply into) resolves
- * to `["return_status"]` instead, never `send_message` — a subscription
- * session has no work-output action and no structural place a forced
- * message is guaranteed to belong; forcing one made every wake end with an
- * unwanted direct message even when the subscription's own instruction
- * never asked for one. It reports its status with the self-check
- * `return_status` tool and speaks only when its instruction says to.
+ * `params.transcript` reaches the `## Conversation` prompt section (every
+ * harness reads it from AGENTS.md/CLAUDE.md) and
+ * `SessionConfig.requiredReturnActions`: a task-free session with a calling
+ * thread resolves to `["send_message"]`; a subscription wake (no calling
+ * thread to reply into) resolves to `["return_status"]` instead — it has no
+ * work-output action and no place a forced message is guaranteed to belong,
+ * and reports status with the self-check tool instead.
  *
  * Uses `deps.onBeforeHarnessStart`'s abort return to observe the fully
  * assembled `SessionConfig` without spawning a real harness process.
@@ -30,7 +19,7 @@ import { EventBus } from "@hyperidle/event-bus";
 import type { SessionConfig } from "@hyperidle/harness-protocol";
 import { afterEach, describe, vi } from "vitest";
 import {
-	buildNeverCalledPorts,
+	buildRunningHarnessPorts,
 	neverCalled,
 	type ProvisionSessionDeps,
 	type ProvisionSessionParams,
@@ -39,50 +28,17 @@ import {
 } from "../__testing__/test-fixtures.js";
 import { createProvisioner } from "../provisioner.js";
 
+/**
+ * Phase 6 calls assembleAgentContext whenever params.requestContext is set
+ * (task-free durable-request path) — a no-op stub for the one scenario here
+ * that sets requestContext (no-transcript regression check); every other
+ * scenario omits requestContext, so the never-called guard still applies.
+ */
 function buildHarnessPorts(opts: { readonly allowContextAssembly?: boolean } = {}) {
-	return buildNeverCalledPorts({
-		sessionRequests: {
-			findSessionRequest: neverCalled("sessionRequests.findSessionRequest"),
-			listSessionRequests: neverCalled("sessionRequests.listSessionRequests"),
-			transitionSessionRequest: neverCalled("sessionRequests.transitionSessionRequest"),
-			abortSessionRun: neverCalled("sessionRequests.abortSessionRun"),
-			registerSessionRun: vi.fn(),
-			deregisterSessionRun: vi.fn(),
-		},
-		harnessRuntime: {
-			enforcementRegistry: {
-				register: vi.fn(),
-				get: vi.fn(() => undefined),
-				incrementForce: vi.fn(),
-				unregister: vi.fn(),
-			},
-			createReturnGate: () => ({ observe: () => undefined, returned: false }),
-			evaluateReturn: () => "returned" as const,
-			provisionReturnHook: async () => undefined,
-			writeCliMcpConfig: neverCalled("harnessRuntime.writeCliMcpConfig"),
-			writePluginStdioMcpEntries: neverCalled("harnessRuntime.writePluginStdioMcpEntries"),
-			openMcpBridge: neverCalled("harnessRuntime.openMcpBridge"),
-			closeMcpBridge: neverCalled("harnessRuntime.closeMcpBridge"),
-		},
-		toolProvider: {
-			buildToolRegistry: () => ({ invoke: async () => ({ success: true, data: undefined }) }),
-			toolsForRole: () => [],
-			returnStatusToolForRegistry: () => ({ name: "return_status" }),
-		},
-		contextAssembly: {
-			// Phase 6 calls assembleAgentContext whenever params.requestContext is
-			// set (task-free durable-request path) — a no-op stub for the one
-			// scenario here that sets requestContext (no-transcript regression
-			// check); every other scenario omits requestContext, so the
-			// never-called guard still applies there.
-			assembleAgentContext: opts.allowContextAssembly
-				? vi.fn(async () => ({ itemCount: 0, durationMs: 0, manifestPath: "" }))
-				: neverCalled("contextAssembly.assembleAgentContext"),
-			beginAgentWriteback: () => ({ dispose: () => undefined }),
-			assemblePrompt: neverCalled("contextAssembly.assemblePrompt"),
-			assembleSubscriptionPrompt: neverCalled("contextAssembly.assembleSubscriptionPrompt"),
-			writeSandboxAgentsMd: vi.fn(),
-		},
+	return buildRunningHarnessPorts({
+		assembleAgentContext: opts.allowContextAssembly
+			? vi.fn(async () => ({ itemCount: 0, durationMs: 0, manifestPath: "" }))
+			: neverCalled("contextAssembly.assembleAgentContext"),
 	});
 }
 

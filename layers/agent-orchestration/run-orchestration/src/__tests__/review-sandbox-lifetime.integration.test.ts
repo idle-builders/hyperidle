@@ -20,11 +20,10 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import { users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
-import { afterEach, describe, vi } from "vitest";
+import { afterEach, describe } from "vitest";
 import {
-	buildNeverCalledPorts,
+	buildRunningHarnessPorts,
 	type FakeHarnessAdapter,
-	neverCalled,
 	type ProvisionSessionDeps,
 	type ProvisionSessionParams,
 	type SessionLifecyclePorts,
@@ -74,55 +73,17 @@ function buildHarnessPorts(
 	bridgeCall: string | undefined,
 	onReturnAction: (toolName: string) => Promise<void>,
 ): SessionLifecyclePorts {
-	return buildNeverCalledPorts({
-		sessionRequests: {
-			findSessionRequest: neverCalled("sessionRequests.findSessionRequest"),
-			listSessionRequests: neverCalled("sessionRequests.listSessionRequests"),
-			transitionSessionRequest: neverCalled("sessionRequests.transitionSessionRequest"),
-			abortSessionRun: neverCalled("sessionRequests.abortSessionRun"),
-			registerSessionRun: vi.fn(),
-			deregisterSessionRun: vi.fn(),
-		},
-		harnessRuntime: {
-			enforcementRegistry: {
-				register: vi.fn(),
-				get: vi.fn(() => undefined),
-				incrementForce: vi.fn(),
-				unregister: vi.fn(),
-			},
-			createReturnGate: () => ({ observe: () => undefined, returned: true }),
-			evaluateReturn: () => "returned" as const,
-			provisionReturnHook: async () => undefined,
-			writeCliMcpConfig: neverCalled("harnessRuntime.writeCliMcpConfig"),
-			writePluginStdioMcpEntries: neverCalled("harnessRuntime.writePluginStdioMcpEntries"),
-			openMcpBridge: bridgeCall
-				? async ({
-						onToolCall,
-					}: {
-						onToolCall: (c: { toolName: string; args: unknown }) => void;
-					}) => {
-						await onReturnAction(bridgeCall);
-						onToolCall({ toolName: bridgeCall, args: {} });
-						return { token: "tok", url: "http://127.0.0.1:0/mcp" };
-					}
-				: neverCalled("harnessRuntime.openMcpBridge"),
-			closeMcpBridge: bridgeCall
-				? async () => undefined
-				: neverCalled("harnessRuntime.closeMcpBridge"),
-		},
-		toolProvider: {
-			buildToolRegistry: () => ({ invoke: async () => ({ success: true, data: undefined }) }),
-			toolsForRole: () => [],
-			returnStatusToolForRegistry: () => ({ name: "return_status" }),
-		},
-		contextAssembly: {
-			assembleAgentContext: neverCalled("contextAssembly.assembleAgentContext"),
-			beginAgentWriteback: () => ({ dispose: () => undefined }),
-			assemblePrompt: neverCalled("contextAssembly.assemblePrompt"),
-			assembleSubscriptionPrompt: neverCalled("contextAssembly.assembleSubscriptionPrompt"),
-			writeSandboxAgentsMd: vi.fn(),
-		},
-	} as unknown as SessionLifecyclePorts);
+	return buildRunningHarnessPorts({
+		createReturnGate: () => ({ observe: () => undefined, returned: true }),
+		openMcpBridge: bridgeCall
+			? async ({ onToolCall }) => {
+					await onReturnAction(bridgeCall);
+					onToolCall?.({ toolName: bridgeCall, args: {} });
+					return { token: "tok", url: "http://127.0.0.1:0/mcp" };
+				}
+			: undefined,
+		closeMcpBridge: bridgeCall ? async () => undefined : undefined,
+	});
 }
 
 interface RunOutcome {

@@ -12,55 +12,18 @@ import { type HyperIdleDb, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import type { SessionNotReturnedEvent } from "@hyperidle/event-bus";
 import { EventBus } from "@hyperidle/event-bus";
-import { afterEach, describe, vi } from "vitest";
+import { afterEach, describe } from "vitest";
 import {
-	buildNeverCalledPorts,
+	buildRunningHarnessPorts,
 	completingHarnessAdapter,
-	neverCalled,
 	type ProvisionSessionDeps,
 	type ProvisionSessionParams,
 } from "../__testing__/test-fixtures.js";
 import { createProvisioner } from "../provisioner.js";
 
 function buildHarnessPorts() {
-	return buildNeverCalledPorts({
-		sessionRequests: {
-			findSessionRequest: neverCalled("sessionRequests.findSessionRequest"),
-			listSessionRequests: neverCalled("sessionRequests.listSessionRequests"),
-			transitionSessionRequest: neverCalled("sessionRequests.transitionSessionRequest"),
-			abortSessionRun: neverCalled("sessionRequests.abortSessionRun"),
-			registerSessionRun: vi.fn(),
-			deregisterSessionRun: vi.fn(),
-		},
-		harnessRuntime: {
-			enforcementRegistry: {
-				register: vi.fn(),
-				get: vi.fn(() => undefined),
-				incrementForce: vi.fn(),
-				unregister: vi.fn(),
-			},
-			createReturnGate: () => ({ observe: () => undefined, returned: false }),
-			// Force the not_returned verdict this test observes.
-			evaluateReturn: () => "not_returned" as const,
-			provisionReturnHook: async () => undefined,
-			writeCliMcpConfig: neverCalled("harnessRuntime.writeCliMcpConfig"),
-			writePluginStdioMcpEntries: neverCalled("harnessRuntime.writePluginStdioMcpEntries"),
-			openMcpBridge: neverCalled("harnessRuntime.openMcpBridge"),
-			closeMcpBridge: neverCalled("harnessRuntime.closeMcpBridge"),
-		},
-		toolProvider: {
-			buildToolRegistry: () => ({ invoke: async () => ({ success: true, data: undefined }) }),
-			toolsForRole: () => [],
-			returnStatusToolForRegistry: () => ({ name: "return_status" }),
-		},
-		contextAssembly: {
-			assembleAgentContext: neverCalled("contextAssembly.assembleAgentContext"),
-			beginAgentWriteback: () => ({ dispose: () => undefined }),
-			assemblePrompt: neverCalled("contextAssembly.assemblePrompt"),
-			assembleSubscriptionPrompt: neverCalled("contextAssembly.assembleSubscriptionPrompt"),
-			writeSandboxAgentsMd: vi.fn(),
-		},
-	});
+	// Force the not_returned verdict this test observes.
+	return buildRunningHarnessPorts({ evaluateReturn: () => "not_returned" as const });
 }
 
 describe("session_not_returned carries callingThreadId (Increment 5)", () => {

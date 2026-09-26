@@ -27,8 +27,7 @@ import { EventBus } from "@hyperidle/event-bus";
 import type { SessionConfig } from "@hyperidle/harness-protocol";
 import { afterEach, describe, vi } from "vitest";
 import {
-	buildNeverCalledPorts,
-	neverCalled,
+	buildRunningHarnessPorts,
 	type ProvisionSessionDeps,
 	type ProvisionSessionParams,
 	rejectingHarnessAdapter,
@@ -37,44 +36,10 @@ import { writeAgentRunConfig } from "../agent-run-config-store.js";
 import { createProvisioner } from "../provisioner.js";
 
 function buildHarnessPorts() {
-	return buildNeverCalledPorts({
-		sessionRequests: {
-			findSessionRequest: neverCalled("sessionRequests.findSessionRequest"),
-			listSessionRequests: neverCalled("sessionRequests.listSessionRequests"),
-			transitionSessionRequest: neverCalled("sessionRequests.transitionSessionRequest"),
-			abortSessionRun: neverCalled("sessionRequests.abortSessionRun"),
-			registerSessionRun: vi.fn(),
-			deregisterSessionRun: vi.fn(),
-		},
-		harnessRuntime: {
-			enforcementRegistry: {
-				register: vi.fn(),
-				get: vi.fn(() => undefined),
-				incrementForce: vi.fn(),
-				unregister: vi.fn(),
-			},
-			createReturnGate: () => ({ observe: () => undefined, returned: false }),
-			evaluateReturn: () => "returned" as const,
-			provisionReturnHook: async () => undefined,
-			writeCliMcpConfig: neverCalled("harnessRuntime.writeCliMcpConfig"),
-			writePluginStdioMcpEntries: neverCalled("harnessRuntime.writePluginStdioMcpEntries"),
-			openMcpBridge: neverCalled("harnessRuntime.openMcpBridge"),
-			closeMcpBridge: neverCalled("harnessRuntime.closeMcpBridge"),
-		},
-		toolProvider: {
-			buildToolRegistry: () => ({ invoke: async () => ({ success: true, data: undefined }) }),
-			toolsForRole: () => [],
-			returnStatusToolForRegistry: () => ({ name: "return_status" }),
-		},
-		contextAssembly: {
-			// A task-bearing session assembles context; a no-op stub keeps this test
-			// about the model and nothing else.
-			assembleAgentContext: vi.fn(async () => ({ itemCount: 0, durationMs: 0, manifestPath: "" })),
-			beginAgentWriteback: () => ({ dispose: () => undefined }),
-			assemblePrompt: neverCalled("contextAssembly.assemblePrompt"),
-			assembleSubscriptionPrompt: neverCalled("contextAssembly.assembleSubscriptionPrompt"),
-			writeSandboxAgentsMd: vi.fn(),
-		},
+	// A task-bearing session assembles context; a no-op stub keeps this test
+	// about the model and nothing else.
+	return buildRunningHarnessPorts({
+		assembleAgentContext: vi.fn(async () => ({ itemCount: 0, durationMs: 0, manifestPath: "" })),
 	});
 }
 
