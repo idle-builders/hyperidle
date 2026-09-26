@@ -43,7 +43,7 @@ The surface is verifiable by path alone — no content inspection. Adding a new 
 1. **No mock data in runtime production code paths.** Enforced by `design/no-mock-data-import` + `design/no-mock-data-symbol` (error-level in `eslint.config.ts`) and the literal-id detector in `tools/repo-gates/src/mock-inventory.ts`.
 2. **Every surviving mock instance is tracked with its remediation plan** under [Tracked-out survivors](#tracked-out-survivors) below — the API, table, or context it stands in for.
 3. **Removing a mock removes its fallback.** The pattern `useFoo() ?? FALLBACK_FOO` is forbidden; the UI must render an honest empty / loading / error state when the source is silent.
-4. **The guard is non-bypassable.** Per-line `eslint-disable` for these rules requires a tracking issue id in the comment (enforced by the meta-test in `tools/eslint-plugin-design/src/__tests__/eslint-disable-meta.test.ts`).
+4. **Per-line `eslint-disable` for these rules requires a tracking issue id in the comment.** Convention only — nothing currently enforces it; none exist in the codebase today.
 5. **The inventory is machine-generated.** `tools/repo-gates/src/mock-inventory.ts` emits `tools/repo-gates/mock-inventory/inventory.json`; `npm run mock-inventory:check` (in `npm run verify`) exits non-zero when it's stale. PRs that change the offender set must commit the regenerated inventory.
 
 ## Forbidden symbol-name prefixes (in runtime production code)

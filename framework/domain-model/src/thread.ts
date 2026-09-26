@@ -184,17 +184,6 @@ export type InlineRef = EntityRef | MentionRef | CanvasArtifactRef;
 // derived from the item's blocks at render time and is not stored anywhere.
 
 /**
- * ToolCallSummary — metadata for a single tool invocation by the assistant.
- * Stored on the plain message payload. Rendered as tinted rows in AssistantOverlay.
- */
-export interface ToolCallSummary {
-	readonly name: string;
-	readonly input: Record<string, unknown>;
-	readonly output: string;
-	readonly status: "ok" | "error";
-}
-
-/**
  * Assistant notice discriminator. Extends PlainPayload with an optional
  * field so error/guidance messages share the same message type as normal chat
  * but render with special styling keyed on notice.kind.
