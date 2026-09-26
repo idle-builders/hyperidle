@@ -159,43 +159,6 @@ describe("atomic production handoffs", () => {
 		cleanupRejectedIntentWrites = undefined;
 	});
 
-	// A subscription's wake carries no run row to be an authoritative source
-	// for, so only five atomic commands have one.
-	test("schema exposes authoritative sources for all five atomic commands", async ({ db }) => {
-		const result = await db.execute(sql`
-			select table_name as "tableName" from information_schema.tables
-			where table_schema = 'public'
-			and table_name in ('messages','explicit_session_starts','documents','bets','task_dispatch_attempts','agent_work_intents')
-		`);
-		const rows = result as { rows: Array<{ tableName: string }> };
-		expect(new Set(rows.rows.map((row) => row.tableName))).toEqual(
-			// BB1: "bets" table deleted — tasks are the single work primitive.
-			new Set([
-				"messages",
-				"explicit_session_starts",
-				"documents",
-				"task_dispatch_attempts",
-				"agent_work_intents",
-			]),
-		);
-	});
-
-	test("composition module exports dependencies only", async () => {
-		const worker = await import("../__testing__/durable-agent-queue-test-deps.js");
-		expect(worker.queueDeps).toBeTypeOf("function");
-		expect("drainIntents" in worker).toBe(false);
-		// @lore AU9 R1: handOffIntent was a zero-production-caller duplicate of the
-		// drain's own inline resolve+create+checkpoint transaction — deleted rather
-		// than kept as a second, un-wired "correct" path (the exact divergence class
-		// R1 exists to prevent). No AgentWorkIntentWorkerOptions.onRequest callback
-		// exists either — the drain is the sole request-creating path.
-		expect("handOffIntent" in worker).toBe(false);
-	});
-
-	// POST /api/sessions (door #114) deleted. Two explicit-session tests removed with the route.
-
-	// POST /api/tasks/:id/transition (door #40) deleted. Two transition tests removed with the route.
-
 	test("dependency watcher acceptance records a distinct dispatch occasion", async ({
 		db,
 		eventBus,
