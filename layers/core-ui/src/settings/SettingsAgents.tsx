@@ -1,7 +1,7 @@
 /**
  * SettingsAgents — Agent Configuration settings section.
  *
- * AV2: Rewritten to use SplitView + ItemList/Row. Key changes:
+ * Rewritten to use SplitView + ItemList/Row. Key changes:
  *  - Remove `role !== "assistant"` filter — assistant is now a row in the list.
  *  - Use AgentEditor (shared editor) in the SplitView destination pane.
  *  - Model dropdown reads descriptor.models (discovered), NOT MODEL_CATALOG.
@@ -42,7 +42,7 @@
 
 // hearth-internal-padding
 
-import { HARNESS_TYPES, type HarnessType, roleLabel } from "@hyperidle/domain-model";
+import { HARNESS_TYPES, type HarnessType } from "@hyperidle/domain-model";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import { type JSX, useCallback, useEffect, useState } from "react";
 import type { FoldMode } from "../ds";
@@ -60,6 +60,7 @@ import { useUiPreference } from "../hooks/useUiPreference.js";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import { call } from "../services/call.js";
 import { useToast } from "../shell/ToastRegion.js";
+import { roleLabel } from "../utils/role-label.js";
 import type { AgentEditorDraft } from "./AgentEditor.js";
 import { AgentEditor } from "./AgentEditor.js";
 import type { AgentConfig, InjectableFilesystem } from "./settings-types.js";
@@ -157,7 +158,7 @@ export function SettingsAgents(): JSX.Element {
 	const [adding, setAdding] = useState(false);
 	const [addDraft, setAddDraft] = useState<AgentEditorDraft>({
 		name: "",
-		role: "builder",
+		role: "agent",
 		systemPrompt: "",
 		harnessType: "",
 		modelId: "",
@@ -351,7 +352,7 @@ export function SettingsAgents(): JSX.Element {
 			setAddMode(false);
 			setAddDraft({
 				name: "",
-				role: "builder",
+				role: "agent",
 				systemPrompt: "",
 				harnessType: "",
 				modelId: "",
@@ -425,7 +426,7 @@ export function SettingsAgents(): JSX.Element {
 					description: "Add an agent to configure name, role, harness, model, and sessions.",
 				}}
 			>
-				{/* AV2: No role filter — assistant (ast-*) appears as a row here. */}
+				{/* No role filter — the assistant appears as a row here. */}
 				{agents.map((agent) => {
 					const isSelected = selectedId === agent.id;
 

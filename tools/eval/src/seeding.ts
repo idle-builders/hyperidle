@@ -5,10 +5,9 @@
  * ephemeral PGlite DB. Scenarios compose these helpers rather than each
  * reinventing DB seeding.
  *
- * @lore X7: We do NOT use seed() from @hyperidle/db. The existing seed()
- * reads from docs/system-prompts/ on disk (requires monorepo root CWD) and inserts
- * far more fixtures than most eval scenarios need. These helpers insert only
- * what the scenario needs.
+ * @lore X7: We do NOT use the demo world seed (`tools/setup`). It inserts far
+ * more fixtures than most eval scenarios need. These helpers insert only what
+ * the scenario needs.
  */
 
 import { execFileSync } from "node:child_process";
@@ -65,7 +64,6 @@ export async function seedFounder(
 	opts?: Partial<{
 		founderId: string;
 		name: string;
-		email: string;
 	}>,
 ): Promise<{ founderId: string }> {
 	const founderId = opts?.founderId ?? randomUUID();
@@ -77,14 +75,21 @@ export async function seedFounder(
 		name: opts?.name ?? "Eval Founder",
 		role: "product_manager",
 		status: "active",
-		email: opts?.email ?? `founder-${founderId}@eval.local`,
 		createdAt: now,
 	});
 
 	return { founderId };
 }
 
-/** Create an AI agent with system prompt, role, tools, and optional harness preference. */
+/**
+ * Create an AI agent with a role, the run's harness and, when the scenario
+ * gives one, an identity.
+ *
+ * The identity is what a plugin gives the agents it brings: an `agent_file`
+ * document parented to the agent, which every session bake reads. Without a
+ * `systemPrompt` the agent has no identity at all — the same as an agent a
+ * person creates and never describes.
+ */
 export async function seedAgent(
 	db: HyperIdleDb,
 	opts: {
@@ -123,6 +128,24 @@ export async function seedAgent(
 		harnessType: opts.harnessType ?? evalHarnessType(),
 		modelId: evalHarnessModel(),
 	});
+	if (opts.systemPrompt) {
+		await db.insert(documents).values({
+			id: `ki_af_${agentId}`,
+			scopeKind: "user",
+			scopeId: agentId,
+			title: `${opts.name} — identity`,
+			body: opts.systemPrompt,
+			format: "markdown",
+			status: "active",
+			version: 1,
+			slot: "agent_file",
+			parentKind: "agent",
+			parentId: agentId,
+			updatedBy: agentId,
+			createdAt: now,
+			updatedAt: now,
+		});
+	}
 
 	return { agentId };
 }
@@ -315,7 +338,7 @@ export async function seedMinimalWorld(
 		role: agentRole,
 		teamId,
 		agentCategory,
-		systemPrompt: opts?.agentSystemPrompt ?? buildDefaultSystemPrompt(agentRole),
+		...(opts?.agentSystemPrompt ? { systemPrompt: opts.agentSystemPrompt } : {}),
 	});
 
 	const { rootTaskId } = await seedRootTask(db, {
@@ -516,23 +539,11 @@ export async function seedMultiAgentWorld(
 		role: secondRole,
 		teamId: base.teamId,
 		agentCategory: secondAgentCategory,
-		systemPrompt: opts?.secondAgentSystemPrompt ?? buildDefaultSystemPrompt(secondRole),
+		...(opts?.secondAgentSystemPrompt ? { systemPrompt: opts.secondAgentSystemPrompt } : {}),
 	});
 
 	return {
 		...base,
 		secondAgentId,
 	};
-}
-
-// ---------------------------------------------------------------------------
-// Internals
-// ---------------------------------------------------------------------------
-
-function buildDefaultSystemPrompt(role: string): string {
-	return `You are an AI ${role} agent in an agentic operating system.
-Your job is to complete assigned tasks using the available tools.
-Be thorough, accurate, and document your work with session notes.
-Always write session notes when you complete a task.
-When asked to create documents, use the edit_document tool.`;
 }

@@ -121,7 +121,6 @@ function setupCall(): void {
 						folders: [],
 						subscriptions: [],
 						connections: null,
-						behaviour: null,
 						inbox: null,
 					},
 				});
@@ -147,7 +146,6 @@ function setupCall(): void {
 					folders: [],
 					subscriptions: [],
 					connections: null,
-					behaviour: null,
 					inbox: null,
 				},
 			});
@@ -165,7 +163,6 @@ function setupCall(): void {
 					name: id,
 					role: "builder",
 					status: "active",
-					email: null,
 					avatarUrl: null,
 					createdAt: "2026-01-01T00:00:00.000Z",
 					agentCategory: "team",

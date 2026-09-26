@@ -1,5 +1,5 @@
 /**
- * P2 — User schema: users table shape, kind column, email/avatarUrl nullable.
+ * P2 — User schema: users table shape, kind column, avatarUrl nullable.
  *
  * @lore P2: "founder" role is NOT in the USER_ROLES union — it is valid text
  * stored in the role column of a human user. Tests must not assert that "founder"
@@ -77,7 +77,6 @@ describe("P2 — users table schema (AC1, AC2, AC9)", () => {
 				name: "Founder",
 				role: "founder",
 				status: "active",
-				email: "founder@hyperidle.com",
 				createdAt: NOW,
 			};
 
@@ -89,52 +88,48 @@ describe("P2 — users table schema (AC1, AC2, AC9)", () => {
 			expect(rows[0]).toMatchObject({ kind: "human", role: "founder" });
 		});
 
-		test("inferred User type has kind, email, avatarUrl fields", () => {
+		test("inferred User type has kind and avatarUrl fields", () => {
 			// Type-level check: compile-time assertion that the inferred type has the fields.
 			// If the schema is wrong this file will fail to compile (red phase).
 			const user = {} as User;
 			// Access the new fields — this will be a type error if the fields don't exist
 			const Kind: string = user.kind;
-			const Email: string | null = user.email;
 			const AvatarUrl: string | null = user.avatarUrl;
 			// Suppress unused variable lint
 			void Kind;
-			void Email;
 			void AvatarUrl;
 		});
 	});
 
 	// -------------------------------------------------------------------------
-	// AC2: human-specific nullable columns: email, avatarUrl
+	// AC2: human-specific nullable column: avatarUrl
 	// -------------------------------------------------------------------------
-	describe("AC2: email and avatarUrl are nullable", () => {
-		test("inserts an AI user with null email and null avatarUrl", async ({ db }) => {
+	describe("AC2: avatarUrl is nullable", () => {
+		test("inserts an AI user with null avatarUrl", async ({ db }) => {
 			const aiUser: NewUser = {
-				id: "u-ai-no-email",
+				id: "u-ai-no-avatar",
 				kind: "ai",
-				name: "No Email Bot",
+				name: "No Avatar Bot",
 				role: "builder",
 				status: "active",
-				email: null,
 				avatarUrl: null,
 				createdAt: NOW,
 			};
 
 			await db.insert(users).values(aiUser);
 
-			const rows = await db.select().from(users).where(eq(users.id, "u-ai-no-email"));
+			const rows = await db.select().from(users).where(eq(users.id, "u-ai-no-avatar"));
 			expect(rows[0]).toBeDefined();
-			expect(rows[0]).toMatchObject({ email: null, avatarUrl: null });
+			expect(rows[0]).toMatchObject({ avatarUrl: null });
 		});
 
-		test("inserts a human user with email and avatarUrl populated", async ({ db }) => {
+		test("inserts a human user with avatarUrl populated", async ({ db }) => {
 			const humanUser: NewUser = {
 				id: "u-human-with-profile",
 				kind: "human",
 				name: "Test Human",
 				role: "founder",
 				status: "active",
-				email: "human@example.com",
 				avatarUrl: "https://cdn.example.com/avatar.png",
 				createdAt: NOW,
 			};
@@ -144,12 +139,13 @@ describe("P2 — users table schema (AC1, AC2, AC9)", () => {
 			const rows = await db.select().from(users).where(eq(users.id, "u-human-with-profile"));
 			expect(rows[0]).toBeDefined();
 			expect(rows[0]).toMatchObject({
-				email: "human@example.com",
 				avatarUrl: "https://cdn.example.com/avatar.png",
 			});
 		});
 
-		test("email column exists and allows null", async ({ db }) => {
+		test("avatar_url column exists and allows null; the users table has no email column", async ({
+			db,
+		}) => {
 			const result = await db.execute(
 				`SELECT column_name, is_nullable FROM information_schema.columns WHERE table_name = 'users' AND table_schema = 'public' AND column_name IN ('email', 'avatar_url')` as Parameters<
 					typeof db.execute
@@ -163,7 +159,7 @@ describe("P2 — users table schema (AC1, AC2, AC9)", () => {
 				]),
 			);
 
-			expect(cols.get("email")).toBe("YES"); // nullable
+			expect(cols.has("email")).toBe(false);
 			expect(cols.get("avatar_url")).toBe("YES"); // nullable
 		});
 	});

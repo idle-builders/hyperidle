@@ -1,16 +1,15 @@
 /**
- * AU29 §2.5.2 — owner writers the core-api first-boot face needs.
+ * Owner writers for callers outside the user module: the first-boot face's
+ * system actor and the plugin service's agents (inserted at install, their
+ * status flipped on disable/enable).
  *
- * `insertUser` (user-store.ts) is a plain insert and throws on a relaunch —
- * factory bootstrap must be idempotent, so it needs the `onConflictDoNothing`
- * shape instead. `setAgentCategoryForRole` and `listFactoryAgents` are the
- * owner-side primitives the face's category backfill and roster-resolution
- * steps route through, so `framework/db`'s writes (deleted this task) never
- * need to come back.
+ * `insertUser` (user-store.ts) is a plain insert and throws on a relaunch or
+ * a reinstall — these callers must be idempotent, so they need the
+ * `onConflictDoNothing` shape instead.
  */
 
-import { type HyperIdleDb, type NewUser, users, type WriteExecutor } from "@hyperidle/db";
-import { and, eq, inArray } from "drizzle-orm";
+import { type NewUser, users, type WriteExecutor } from "@hyperidle/db";
+import { inArray } from "drizzle-orm";
 
 /**
  * Insert a user row, doing nothing if a row with the same id already exists.
@@ -19,22 +18,6 @@ import { and, eq, inArray } from "drizzle-orm";
  */
 export async function insertUserIfAbsent(exec: WriteExecutor, values: NewUser): Promise<void> {
 	await exec.insert(users).values(values).onConflictDoNothing();
-}
-
-/**
- * Resolve the roster agents' `{id, role}` by id. Returning the queried rows
- * (not the roster constant) preserves the upgrade-path semantics: an
- * existing row's actual role decides which template it gets.
- */
-export async function listFactoryAgents(
-	db: HyperIdleDb,
-	ids: readonly string[],
-): Promise<ReadonlyArray<{ readonly id: string; readonly role: string }>> {
-	if (ids.length === 0) return [];
-	return db
-		.select({ id: users.id, role: users.role })
-		.from(users)
-		.where(and(eq(users.kind, "ai"), inArray(users.id, [...ids])));
 }
 
 /**

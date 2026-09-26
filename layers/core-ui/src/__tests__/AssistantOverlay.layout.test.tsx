@@ -60,7 +60,7 @@ const BASE_THREAD = {
 };
 
 vi.mocked(useCurrentUser).mockReturnValue({
-	user: { id: MY_USER_ID, name: "You", email: "founder@example.com", avatarUrl: null },
+	user: { id: MY_USER_ID, name: "You", avatarUrl: null },
 	status: "ready",
 	error: null,
 	retry: vi.fn(),

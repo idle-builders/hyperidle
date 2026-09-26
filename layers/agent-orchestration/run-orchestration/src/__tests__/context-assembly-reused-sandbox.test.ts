@@ -49,7 +49,6 @@ function inputFor(sandboxPath: string, sessionId: string): AssembleAgentContextI
 		sessionId,
 		taskId: null,
 		agentId: "agent-reuse",
-		agentRole: "builder",
 		teamId: "team-reuse",
 		taskFree: false,
 	} as unknown as AssembleAgentContextInput;

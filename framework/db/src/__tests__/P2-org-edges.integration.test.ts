@@ -24,7 +24,6 @@ async function seedHumanUser(db: HyperIdleDb, id = "u-human-1"): Promise<void> {
 			name: "Test Human",
 			role: "founder",
 			status: "active",
-			email: "human@example.com",
 			createdAt: NOW,
 		} satisfies NewUser)
 		.onConflictDoNothing();

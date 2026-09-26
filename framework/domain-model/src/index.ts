@@ -48,9 +48,11 @@ export {
 // that file keeps only the vocabulary this module and the settings package
 // both need.
 export type {
+	AvailablePluginView,
 	EditPluginInput,
 	EditPluginSource,
 	PluginContributionView,
+	PluginListing,
 	PluginListState,
 	PluginScope,
 	PluginView,
@@ -172,12 +174,10 @@ export {
 // @lore BC5: the user action list — search, open, edit — declared alongside
 // `document`/`task`/`thread`/`session`/`platform`, same reason: `core-ui`
 // needs the exact `input`/invariant shape the server runs. `user.ts` also
-// carries the nine object-event names (`OBJECT_EVENTS`), the change-row
-// shape (`ChangeRowSchema`) and `ASSISTANT_IDENTITY`, the persona text the
-// welcome screen and the scaffold both pass as a new assistant's identity.
+// carries the nine object-event names (`OBJECT_EVENTS`) and the change-row
+// shape (`ChangeRowSchema`).
 export type {
 	AddSubscriptionInput,
-	BehaviourEntry,
 	ChangeKind,
 	ChangeObject,
 	ChangeRow,
@@ -195,8 +195,6 @@ export type {
 	UserView,
 } from "./actions/user.js";
 export {
-	ASSISTANT_IDENTITY,
-	BehaviourEntrySchema,
 	CHANGE_KINDS,
 	CHANGE_OBJECTS,
 	ChangeRowSchema,
@@ -218,66 +216,32 @@ export {
 	UserRowSchema,
 	UserViewSchema,
 } from "./actions/user.js";
-export type {
-	AgentBehaviorConfigKind,
-	AgentBehaviorConfigLink,
-	AgentBehaviorConfigListResponse,
-	AgentBehaviorConfigPatchRequest,
-	AgentBehaviorConfigPatchResponse,
-	AgentBehaviorConfigView,
-	AgentBehaviorEditableField,
-	AgentBehaviorFieldKind,
-	AgentBehaviorOriginState,
-	AgentBehaviorOriginType,
-	AgentBehaviorOriginView,
-	AgentBehaviorValueSource,
-} from "./agent-behavior-config.js";
-export { AGENT_BEHAVIOR_CONFIG_KINDS, isAgentBehaviorConfigKind } from "./agent-behavior-config.js";
 // AgentActiveSession, AgentSessionSummary, AgentPerformanceStats, AgentHealthSignals
-// moved to layers/core-ui/src/hooks/agent-health.ts (AU44 batch 8).
+// moved to layers/core-ui/src/hooks/agent-health.ts.
 export type {
 	AgentHarnessCapabilities,
 	AgentProfileResponse,
 	AgentReviewTrackRecord,
 	AgentVerdictEntry,
 } from "./agent-profile.js";
-export { roleLabel } from "./agent-roles.js";
 // HealthSignalInput, computeHealthSignals, deriveHealthLevel, deriveHealthDetail
-// moved to layers/core-ui/src/hooks/agent-health.ts (AU44 batch 8).
+// moved to layers/core-ui/src/hooks/agent-health.ts.
 // AgentRunSummary, AgentRunsResponse, AgentRunActiveCountsResponse (agent-run-view.ts)
 // deleted with the run-read routes: the session action list's `SessionRow`
 // (./actions/session.js) is the browser's health-derivation input now.
-// isAgentWorkIntentKind, isAgentWorkIntentSourceKind moved to agent-orchestration (AU44-b8)
+// isAgentWorkIntentKind, isAgentWorkIntentSourceKind moved to agent-orchestration
 export type { ApiErrorResponse } from "./api-types.js";
 export { API_ERROR_CODES } from "./api-types.js";
-export type { InviteRole } from "./auth.js";
-export { INVITE_CODE_TTL_MS, INVITE_ROLES, LOGIN_SESSION_TTL_MS } from "./auth.js";
-// Block types moved to layers/core-ui/src/block/types.ts (AU44 batch8).
+// Block types moved to layers/core-ui/src/block/types.ts.
 // core-ui callers import from relative path; server-side uses are inlined or dropped.
-export type {
-	ConfigurationKind,
-	ConfigurationOrigin,
-	ConfigurationOriginType,
-	ConfigurationValueSource,
-	PluginContributionKind,
-	PluginScopeKind,
-	PluginState,
-	ResolvedConfigurationItem,
-} from "./configuration.js";
-export {
-	BUILTIN_PLUGIN_ID,
-	CONFIGURATION_KINDS,
-	PLUGIN_CONTRIBUTION_KINDS,
-	PLUGIN_SCOPE_KINDS,
-	PLUGIN_STATES,
-} from "./configuration.js";
+export type { PluginContributionKind, PluginScopeKind, PluginState } from "./configuration.js";
 export type {
 	ConnectionAuthSource,
 	ConnectionHealth,
 	HeldAuthSource,
 	ServiceConnectionView,
 } from "./connection.js";
-// InheritedConnectionFact moved to @hyperidle/connections (AU44-b8).
+// InheritedConnectionFact moved to @hyperidle/connections.
 // HeldAuthSource/HELD_AUTH_SOURCES: survivor in domain-model (run-orchestration service cannot cross to connections service).
 export {
 	CONNECTION_AUTH_SOURCES,
@@ -301,12 +265,12 @@ export {
 // Import from "@hyperidle/domain-model/http" — never via the barrel (Vite bundles barrel into core-ui).
 // ArtifactKind, TextPreview, CodePreview, ImagePreview, DataPreview, HtmlPreview, UrlPreview
 // unexported (SIMPLIFY): derived from closed sets; no external consumer names them directly.
-// MentionSegment MERGE → core-ui/ds/mention-segments.ts (AU44 batch 8)
+// MentionSegment MERGE → core-ui/ds/mention-segments.ts
 export type { ResolvedMention } from "./mention.js";
 export {
 	MAX_MENTIONS_PER_MESSAGE,
 	resolveMentionsInText,
-	// segmentMentions MERGE → core-ui/ds/mention-segments.ts (AU44 batch 8)
+	// segmentMentions MERGE → core-ui/ds/mention-segments.ts
 } from "./mention.js";
 // @lore `model-gateway.js` exported a resolution layer — ModelGatewayConfig,
 // ModelTierConfig, ResolvedModel, ModelRequest, MODEL_CATALOG,
@@ -356,7 +320,7 @@ export type {
 	AnchorRef,
 	AssistantNotice,
 	// BlockId + BlockHostKind: wire types embedded in AnchorRef; inlined in
-	// thread.ts after blocks/types.ts dissolved into core-ui (AU44 batch 8).
+	// thread.ts after blocks/types.ts dissolved into core-ui.
 	BlockHostKind,
 	BlockId,
 	CanvasArtifactRef,
@@ -382,15 +346,15 @@ export {
 	isBlocking,
 	isRedactedPayload,
 	MESSAGE_TYPES,
-	// promotedRichMessageId MERGE → core-ui/ds/thread-display.ts (AU44 batch 8)
+	// promotedRichMessageId MERGE → core-ui/ds/thread-display.ts
 	REVIEW_CANVAS_KINDS,
 	VERDICT_DECISIONS,
 	verdictDecisionLabel,
-	// verdictDecisionToStatus MERGE → core-ui/ds/status-mapping.ts (AU44 batch 8)
+	// verdictDecisionToStatus MERGE → core-ui/ds/status-mapping.ts
 } from "./thread.js";
-// artifactDisplayTitle, summarizePreview MERGE → core-ui/ds/artifact-display-helpers.ts (AU44 batch 8)
+// artifactDisplayTitle, summarizePreview MERGE → core-ui/ds/artifact-display-helpers.ts
 export type { TierTokenCount, TokenUsage } from "./types/money.js";
-// Event vocabulary dissolved to framework/event-bus (AU44 batch 8).
+// Event vocabulary dissolved to framework/event-bus.
 // Callers import event types from @hyperidle/event-bus.
 // SessionOutcome is the one exception: core-ui uses it and cannot reach event-bus.
 // @lore BC1: lives in types.js now — the domain-model events fork it used to

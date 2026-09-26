@@ -1,4 +1,4 @@
-// AL1 review canvas #8 — ReviewBatch: the batch / per-item container.
+// Canvas #8 — ReviewBatch: the batch / per-item container.
 //
 // Half of real agent work is a SET — N items decided in one pass. The reviewer
 // can't read 41 tickets; the canvas does the reading FOR them and surfaces only
@@ -9,7 +9,7 @@
 //   L3  the expanded item — a flagged ticket opened: customer card + the agent's
 //                           drafted reply rendered for read-through.
 //
-// Tool-grounded (Zendesk mini-logo + real-shaped fixture). Hearth + CP1 tokens by
+// Tool-grounded (Zendesk mini-logo + real-shaped fixture). Hearth tokens by
 // NAME only; no hex lives here (brand color is owned by ToolLogo). 6px grid, pill
 // buttons, left-aligned, transform/opacity-only motion.
 //
@@ -389,7 +389,7 @@ function ReviewBatchView({ batch, initialExpandedId }: ReviewBatchProps): JSX.El
 	);
 }
 
-// AL2 — review artifact wrapper.
+// Review artifact wrapper.
 function isBatchPayload(payload: unknown): payload is BatchPayload {
 	return (
 		isPlainObject(payload) &&

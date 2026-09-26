@@ -3,7 +3,7 @@
  * helpers used by tool-handlers' own 22 tool bodies and tool-registry.ts.
  *
  * Moved from `@hyperidle/tool-protocol` (dissolved). These were shared with
- * `tool-provider` (AU19), but `tool-provider` itself was dissolved in AU31.
+ * `tool-provider`, but `tool-provider` itself was dissolved.
  * The only remaining consumers are within this package, making the framework
  * home pure tidiness — not value.
  */
@@ -32,7 +32,6 @@ export interface ToolDefinition<Input = unknown, TDb = unknown> {
 	readonly description: string;
 	readonly inputSchema: z.ZodType<Input>;
 	readonly handler: ToolHandler<Input, TDb>;
-	readonly roles?: readonly string[];
 }
 
 /**
@@ -47,7 +46,6 @@ export function toRegistered<Input, TDb = unknown>(
 		description: def.description,
 		inputSchema: def.inputSchema,
 		handler: (args, ctx) => def.handler(args as Input, ctx),
-		...(def.roles ? { roles: def.roles } : {}),
 	};
 }
 
@@ -74,7 +72,5 @@ export function toClaudeToolSpec<TDb = unknown>(def: RegisteredTool<TDb>): Claud
 
 /** Options bag for `buildToolRegistry`. Not exported — callers infer from the signature. */
 export interface BuildToolRegistryOptions<TDb = unknown> {
-	readonly role: string;
 	readonly extraTools?: readonly RegisteredTool<TDb>[];
-	readonly useOnlyExtraTools?: boolean;
 }

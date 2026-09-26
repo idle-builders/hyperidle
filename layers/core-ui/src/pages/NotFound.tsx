@@ -70,7 +70,7 @@ export function NotFound(): JSX.Element {
 					iconBg="rgba(217,119,6,0.08)"
 					action={
 						<>
-							{/* AI5: shared Button primitive (primary/secondary). */}
+							{/* Shared Button primitive (primary/secondary). */}
 							<Button
 								variant="primary"
 								onClick={() => navigate("/conversations")}
@@ -82,7 +82,7 @@ export function NotFound(): JSX.Element {
 								variant="secondary"
 								// Z8-148: navigate(-1) exits the app on direct entry (history.length === 1).
 								// Fall back to /work (WorkOverview) when there is no history to go back to.
-								// AD9: was /work/portfolio.
+								// Was /work/portfolio.
 								onClick={() => (window.history.length > 1 ? navigate(-1) : navigate("/work"))}
 								data-testid="not-found-go-back"
 							>

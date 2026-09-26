@@ -22,9 +22,6 @@ export type {
 	ApplicationProvisionSessionDeps,
 } from "./boot.js";
 export { bootAgentOrchestration } from "./boot.js";
-// AU29 §2.5.3: the first-boot run-config face — the composition roots call this
-// AFTER core-api's applyFactoryCoreState (agent_run_config.agentUserId has an FK
-// to users.id), instead of a database package writing an orchestration-owned table.
 // @lore BC5 T11: the `CoreApiPort` seam's outbound client construction
 // (`buildCoreApiPort`/`createInProcessCoreApiTransport`/
 // `createNetworkCoreApiTransport`/`unconfiguredCoreApiTransport`/
@@ -32,7 +29,7 @@ export { bootAgentOrchestration } from "./boot.js";
 // — `create_team`/`add_agent`, its last two tools, are gone with the `org`
 // package they wrote through.
 /**
- * AU31 §2.1(b)/§2.3/§5/§6: the run-orchestration composition — `bootAgent
+ * The run-orchestration composition — `bootAgent
  * Orchestration`'s own internal consumer. Exposed so a caller with no
  * composition root of its own (`tools/eval`'s `runEvalSession`, which drives
  * `run-orchestration` directly with no HTTP server in the picture) can build

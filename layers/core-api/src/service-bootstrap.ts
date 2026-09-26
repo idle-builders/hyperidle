@@ -1,5 +1,5 @@
 /**
- * AU26 B1b — `core-api`'s Layer-level service registration.
+ * `core-api`'s Layer-level service registration.
  *
  * @lore AU26 B1b: this file used to be `server-factory.ts` and used to also hold
  * `createServer`, the whole Application composition root. That moved to
@@ -147,14 +147,14 @@ function buildPolicyDeps(
 }
 
 /**
- * AU11: registers CORE-owned application services against the event bus —
+ * Registers CORE-owned application services against the event bus —
  * document (relevance listener, FTS), policy engine, review routing,
  * lifecycle propagation and retention.
  *
  * Split from the former `app-runtime` shell's `bootstrapAppRuntime` —
  * together with `registerAgentLayerServices` this replicates the exact
  * same disposer set; only the grouping changed, not registration order
- * within each group (behavior-preserving, AU11 import-path-only invariant).
+ * within each group (behavior-preserving).
  *
  * @lore BC5 T7b: no scheduler lives here — the subscription clock (cron/
  * due-eval) is wired in `app.ts` (§ its own `@lore`).
@@ -163,7 +163,7 @@ export function registerCoreDomainServices(ctx: {
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
 	/**
-	 * AU31 §3.2 — the seam's one port for this composition, required (not
+	 * The seam's one port for this composition, required (not
 	 * optional): every reaction that used to reach `@hyperidle/session-requests`
 	 * directly now goes through it, handed in as a value by the caller
 	 * (`app.ts`'s `serviceBootstrap` invocation) — never an ambient global.
@@ -193,14 +193,14 @@ export function registerCoreDomainServices(ctx: {
 	 * through it instead of a notification-queue row.
 	 */
 	readonly editUser: import("./services/agent-health-session-end-reactions.js").EditUserRunFn;
-	/** AF6 scope (iii): when true, generic (taskId) subscriptions auto-fire. */
+	/** Scope (iii): when true, generic (taskId) subscriptions auto-fire. */
 	readonly canProvision?: boolean;
-	/** AF6 §4: subscription-session reaper staleness bound (ms). Default 1h. */
+	/** Subscription-session reaper staleness bound (ms). Default 1h. */
 	readonly reaperStaleAfterMs?: number;
-	/** AF6 §4: in-process periodic reaper cadence (ms). 0 = every poll (tests). */
+	/** In-process periodic reaper cadence (ms). 0 = every poll (tests). */
 	readonly reaperCadenceMs?: number;
 	/**
-	 * AD2: provisioning deps threaded into the subscription clock's fire-time
+	 * Provisioning deps threaded into the subscription clock's fire-time
 	 * session creation. Omitted from the type here to avoid a core-module
 	 * dependency on server harness types — passed through as-is.
 	 */
@@ -224,7 +224,7 @@ export function registerCoreDomainServices(ctx: {
 	// The routine-run session-end reaction doesn't exist — a subscription's
 	// wake carries no run row to finalize.
 
-	// AU26: the degraded-agent notification, event-driven. Replaces
+	// The degraded-agent notification, event-driven. Replaces
 	// `routes/teams-routes.ts`'s deleted `maybeNotifyAgentError` — a notification
 	// that only fired when a human opened the team page, via a GET that wrote.
 	// Removing it closed core-api's last read of `agent-orchestration`'s
@@ -238,8 +238,7 @@ export function registerCoreDomainServices(ctx: {
 		),
 	);
 
-	// AU21 §9 Increment 10 (Decision H1)/Increment 12 (Decision H3) Wave D:
-	// task's post-session writebacks — finalizes `taskDispatchAttempts` off
+	// The task's post-session writebacks — finalizes `taskDispatchAttempts` off
 	// `agent_run_lifecycle_changed` and merges accumulated per-tier tokens
 	// onto the owning bet off `session_ended`, replacing
 	// `run-orchestration/provisioner.ts`'s deleted direct
@@ -253,7 +252,7 @@ export function registerCoreDomainServices(ctx: {
 		),
 	);
 
-	// AU21 §9 Increment 12 (Decision H3) Wave D: a task's `in_progress`
+	// A task's `in_progress`
 	// transition at session launch — replaces `run-orchestration/
 	// provisioner.ts`'s deleted direct `ports.work.transitionTask` write.
 	disposers.push(
@@ -272,7 +271,7 @@ export function registerCoreDomainServices(ctx: {
 	// anyway. The wake rule (`@hyperidle/thread`'s `agentsToWake`) replaces
 	// the structural `ast-` recognition both reactions depended on.
 
-	// AU27 Increment 5 (Decision 5): the never-silent net — a reaction to the
+	// The never-silent net — a reaction to the
 	// existing `session_not_returned` event (today only observed by the
 	// observability dispatcher), posting one plain notice into the session's
 	// calling thread when the force budget is spent without a return,
@@ -314,12 +313,11 @@ export function registerCoreDomainServices(ctx: {
 	const runRetentionSweep = async (): Promise<void> => {
 		const nowMs = Date.now();
 		const termCutoff = new Date(nowMs - TERMINAL_LOG_TTL_MS).toISOString();
-		// @lore BC5 T7b: `inbox` (owned by `user`) replaces `notification_queue`
-		// (owned by the deleted `notifications`) — same rule, a read row older
-		// than cutoff is deleted.
+		// A person's inbox (owned by `user`): a read row older than the cutoff
+		// is deleted.
 		await reapInbox(db, termCutoff);
-		// task_dispatch_attempts (owned by `work`) — AU21 §9 Increment 10
-		// (Decision H1): relocated out of session-requests's reapExpired.
+		// task_dispatch_attempts (owned by `work`), reaped here rather
+		// than in session-requests's reapExpired.
 		await reapTerminalTaskDispatchAttempts(db, termCutoff, TASK_DISPATCH_ATTEMPT_REAP_BATCH_SIZE);
 	};
 	const retentionHandle = setInterval(() => {
@@ -340,7 +338,7 @@ export function registerCoreDomainServices(ctx: {
 }
 
 /**
- * AU11: registers AGENT-owned services (AU21 Increment 14a: the cost-cap
+ * Registers AGENT-owned services (the cost-cap
  * dedup release + cost sentinel this used to also register are deleted, no
  * replacement). Split from the former `bootstrapAppRuntime` shell alongside
  * `registerCoreDomainServices` (see that function's doc-comment for the
@@ -357,13 +355,13 @@ export function registerCoreDomainServices(ctx: {
 export function registerAgentLayerServices(ctx: {
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
-	/** AU31 §3.2 — required, same shape as `registerCoreDomainServices`'s ctx. */
+	/** Required, same shape as `registerCoreDomainServices`'s ctx. */
 	readonly agentOrchestration: AgentOrchestrationPort;
 	readonly dispatcherDeps?: Omit<TaskDispatcherDeps, "db" | "eventBus">;
 	readonly reaperStaleAfterMs?: number;
-	/** AF6 scope (iii): when true, generic (taskId) subscriptions auto-fire. */
+	/** Scope (iii): when true, generic (taskId) subscriptions auto-fire. */
 	readonly canProvision?: boolean;
-	/** AF6 §4: in-process periodic reaper cadence (ms). 0 = every poll (tests). */
+	/** In-process periodic reaper cadence (ms). 0 = every poll (tests). */
 	readonly reaperCadenceMs?: number;
 }): Array<() => void> {
 	const disposers: Array<() => void> = [];
@@ -372,7 +370,7 @@ export function registerAgentLayerServices(ctx: {
 	// @lore AU21 Increment 14a: the cost sentinel (15-minute scheduled job) is
 	// deleted along with the rest of the cost feature — no replacement.
 
-	// AF7 §6: TTL workspace reaper — the durable poller (`startRuntime`, wired
+	// TTL workspace reaper — the durable poller (`startRuntime`, wired
 	// by the Application's composition root) is the sole trigger for every kind.
 	void reaperStaleAfterMs;
 

@@ -95,34 +95,6 @@ describe("createAgentIdentityPort", () => {
 		expect(editCallCount).toBe(0);
 	});
 
-	it("substitutes the system actor for the scaffold sentinel, which is not a real user", async () => {
-		let seenActor: string | undefined;
-		const port = createAgentIdentityPort({
-			eventBus: new EventBus(),
-			searchDocuments: async (ctx): Promise<ActionResult<readonly DocumentRow[]>> => {
-				seenActor = ctx.actor;
-				return { ok: true, data: [] };
-			},
-			editDocument: async (ctx): Promise<ActionResult<DocumentView>> => {
-				seenActor = ctx.actor;
-				const row = makeRow();
-				return {
-					ok: true,
-					data: { document: row, ancestors: [], children: [], siblings: [], scopeName: "" },
-				};
-			},
-		});
-
-		await port.upsertAgentIdentity(FAKE_DB, {
-			agentId: "agent-1",
-			agentName: "Atlas",
-			body: "You are Atlas.",
-			updatedBy: "scaffold",
-		});
-
-		expect(seenActor).toBe("system:propagation");
-	});
-
 	it("archives every document found under the agent's parent, and nothing else", async () => {
 		const children = [
 			makeRow({ id: "doc_af_agent-1" }),

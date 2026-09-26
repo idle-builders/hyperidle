@@ -38,7 +38,6 @@ function openUserData(connections: unknown[], inherited: unknown[]): Record<stri
 		folders: [],
 		subscriptions: [],
 		connections: { connections, inherited },
-		behaviour: null,
 		inbox: null,
 	};
 }

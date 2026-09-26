@@ -15,7 +15,7 @@
 
 import { EventBus } from "@hyperidle/event-bus";
 import type { RegisteredTool, ToolContext } from "@hyperidle/harness-protocol";
-import { ok } from "@hyperidle/harness-protocol";
+import { err, ok } from "@hyperidle/harness-protocol";
 import { describe, expect, it } from "vitest";
 import z from "zod";
 import { buildToolRegistry } from "../tool-registry.js";
@@ -45,26 +45,30 @@ function makeFixtureExtraTool(): RegisteredTool {
 describe("buildToolRegistry", () => {
 	it("merges extraTools into the built registry's definitions", () => {
 		const registry = buildToolRegistry([], makeCtx(), {
-			role: "builder",
 			extraTools: [makeFixtureExtraTool()],
 		});
 
 		expect(registry.definitions.some((d) => d.name === "fixture_extra_tool")).toBe(true);
 	});
 
-	it("role-filters the base definitions, independent of extraTools", () => {
-		const builderOnly: RegisteredTool = {
-			name: "builder_only_tool",
-			description: "Visible to builders only.",
+	it("carries every base definition — no tool is scoped to a role", async () => {
+		const base: RegisteredTool = {
+			name: "base_tool",
+			description: "Any agent may call it.",
 			inputSchema: z.object({}),
-			handler: async () => ok({}),
-			roles: ["builder"],
+			handler: async () => ok({ called: true }),
 		};
 
-		const forAssistant = buildToolRegistry([builderOnly], makeCtx(), { role: "assistant" });
-		const forBuilder = buildToolRegistry([builderOnly], makeCtx(), { role: "builder" });
+		const registry = buildToolRegistry([base], makeCtx(), {});
 
-		expect(forAssistant.definitions.some((d) => d.name === "builder_only_tool")).toBe(false);
-		expect(forBuilder.definitions.some((d) => d.name === "builder_only_tool")).toBe(true);
+		expect(registry.definitions.map((d) => d.name)).toEqual(["base_tool"]);
+		expect(await registry.invoke("base_tool", {})).toEqual(ok({ called: true }));
+	});
+
+	it("answers NOT_FOUND for a name it does not carry", async () => {
+		const registry = buildToolRegistry([], makeCtx(), {});
+		expect(await registry.invoke("no_such_tool", {})).toEqual(
+			err("NOT_FOUND", "Unknown tool: no_such_tool"),
+		);
 	});
 });

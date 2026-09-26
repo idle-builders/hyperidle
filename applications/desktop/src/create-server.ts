@@ -1,5 +1,5 @@
 /**
- * `desktop`'s own composition root (AU31 §5.3).
+ * `desktop`'s own composition root.
  *
  * @lore AU31 §5.3: `desktop` used to boot its embedded server by importing
  * `@hyperidle/remote-server/create-server` — an `application → application`
@@ -57,6 +57,13 @@ export interface CreateServerDeps {
 	readonly topology: "local" | "disabled";
 	readonly sandboxBasePath?: string;
 	readonly hostname?: string;
+	/**
+	 * The plugins that ship inside the app, one folder each. Omitted →
+	 * `HYPERIDLE_BUNDLED_PLUGINS_DIR`, which `main.ts` sets (the packaged app's
+	 * `Resources/plugins`, or the repo's `plugins/` in development). This file
+	 * is bundled into `main.cjs`, so it cannot find the folder from its own path.
+	 */
+	readonly bundledPluginsDir?: string;
 }
 
 /**
@@ -160,6 +167,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		// copying — so installing would delete the sources it was built from.
 		pluginsBaseDir = path.join(path.dirname(dbUrl), "installed-plugins");
 	}
+	const bundledPluginsDir = deps.bundledPluginsDir ?? process.env.HYPERIDLE_BUNDLED_PLUGINS_DIR;
 	const eventBus = new EventBus();
 
 	const hasSecret = Boolean(process.env.HYPERIDLE_CREDENTIAL_KEY ?? process.env.HYPERIDLE_API_KEY);
@@ -228,6 +236,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		adapterPool: agentExecution.adapters.pool,
 		onHarnessRedetect,
 		...(pluginsBaseDir ? { pluginsBaseDir } : {}),
+		...(bundledPluginsDir ? { bundledPluginsDir } : {}),
 		serviceBootstrap: (ctx) => {
 			return [
 				...registerCoreDomainServices({ ...ctx, canProvision: true }),
@@ -247,6 +256,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		eventBus,
 		adapterPool: agentExecution.adapters.pool,
 		workspace: agentExecution.adapters.sandbox,
+		pluginMcpContributions: coreApi.pluginMcpContributions,
 	} satisfies ApplicationProvisionSessionDeps;
 
 	// The join — see `remote-server/src/create-server.ts`'s
@@ -255,13 +265,13 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	const agentOrchestration = await bootAgentOrchestration({
 		db,
 		eventBus,
-		// AU26 J3, superseded: `upgradeWebSocket` here is ONLY for worker
+		// `upgradeWebSocket` here is ONLY for worker
 		// WebSocket registration now — the live-run stream itself reaches the
 		// browser through `wsPush` below, on core's own socket.
 		upgradeWebSocket,
 		// Byte-identical to core's own action-layer binding (`core-api/src/app.ts`).
 		wsPush: (topic, envelope) => coreApi.wsHub.broadcast(topic, JSON.stringify(envelope)),
-		// AU36 D4: desktop is always topology "local" (boot-server.ts) — boot
+		// Desktop is always topology "local" (boot-server.ts) — boot
 		// awaits the initial reach probe, so facts are cached by serve time.
 		probeInheritedReach: deps.topology === "local",
 		runtime: {
@@ -295,7 +305,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	// Close the join — every session from here on sees both
 	// layers' actions through the thunk above.
 	actionTools = [...coreApi.actionTools, ...agentOrchestration.actionTools];
-	// AU36 D5: close the deferred binding — redetect now reaches the reach cache.
+	// Close the deferred binding — redetect now reaches the reach cache.
 	realInheritedReachRefresh = () => agentOrchestration.inheritedReach.refresh();
 
 	const app = composeApiApplication({

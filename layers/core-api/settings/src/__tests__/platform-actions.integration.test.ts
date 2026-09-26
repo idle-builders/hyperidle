@@ -11,13 +11,14 @@
  * exists to protect (top-of-file @lore in `platform-actions.ts`) only means
  * something against the real thing.
  */
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
 	changes,
 	documents,
 	type HyperIdleDb,
+	plugins,
 	subscriptions,
 	teams,
 	users,
@@ -181,6 +182,24 @@ function buildDeps(overrides: Partial<PlatformActionsDeps> = {}): PlatformAction
 		},
 		editDocument: runnerFor(documentActions, "edit_document"),
 		searchDocuments: runnerFor(documentActions, "search_documents"),
+		// No adapter pool here, so no harness is ever picked; the harness and the
+		// viewer's team are proven through the layer's own composition
+		// (`layers/core-api/src/routes/__tests__/plugins-bundled.integration.test.ts`).
+		runConfig: {
+			read: async () => ({ harnessType: null }),
+			write: async () => {},
+		},
+		viewerTeamId: async () => null,
+		teams: {
+			exists: async (exec, teamId) => {
+				const [row] = await exec
+					.select({ id: teams.id })
+					.from(teams)
+					.where(eq(teams.id, teamId))
+					.limit(1);
+				return row !== undefined;
+			},
+		},
 		...overrides,
 	};
 }
@@ -205,13 +224,17 @@ function typedActions(deps: PlatformActionsDeps): {
 }
 
 /** A minimal plugin: one agent (with an identity file), one subscription
- * (with a prompt), one skill, and one `tool`-kind configuration
- * contribution — enough to exercise every phase of the lifecycle. */
+ * (with a prompt), one skill, and one MCP server in `mcp.json` — enough to
+ * exercise every phase of the lifecycle. */
 function makePlugin(pluginId: string): string {
 	const dir = mkdtempSync(join(tmpdir(), "platform-actions-test-"));
 	mkdirSync(join(dir, "skills", "sweep"), { recursive: true });
 	writeFileSync(join(dir, "skills", "sweep", "SKILL.md"), "# Sweep\n\nDo the sweep.");
 	writeFileSync(join(dir, "identity.md"), "# You are Builder\n\nYou build things.");
+	writeFileSync(
+		join(dir, "mcp.json"),
+		JSON.stringify({ tracker: { url: "https://t.example/mcp" } }),
+	);
 	writeFileSync(
 		join(dir, "plugin.json"),
 		JSON.stringify({
@@ -238,7 +261,6 @@ function makePlugin(pluginId: string): string {
 							prompt: "Sweep the stale items.",
 						},
 					],
-					contributions: [{ kind: "tool", key: "max-items", value: { limit: 10 } }],
 				},
 			},
 		}),
@@ -257,7 +279,9 @@ describe("createPlatformActions", () => {
 
 		test("lists an installed plugin with its contributions", async ({ db }) => {
 			await seedFounder(db);
-			const { search, edit } = typedActions(buildDeps());
+			const { search, edit } = typedActions(
+				buildDeps({ pluginsBaseDir: mkdtempSync(join(tmpdir(), "platform-actions-store-")) }),
+			);
 			const dir = makePlugin("search-under-test");
 			const installed = await edit.run(ctxFor(db), {
 				source: { kind: "folder", path: dir, scope: { kind: "factory", teamId: null } },
@@ -273,7 +297,10 @@ describe("createPlatformActions", () => {
 			expect(kinds).toContain("agent");
 			expect(kinds).toContain("subscription");
 			expect(kinds).toContain("document");
-			expect(kinds).toContain("tool");
+			expect(plugin?.contributions.find((c) => c.kind === "mcp_server")).toMatchObject({
+				entityId: "search-under-test/tracker",
+				label: "tracker",
+			});
 		});
 
 		test("filters by state and by text", async ({ db }) => {
@@ -349,8 +376,7 @@ describe("createPlatformActions", () => {
 			const { edit } = typedActions(buildDeps());
 			// A plugin.json missing the required "name" — `parsePluginManifest`
 			// refuses it, so `installPlugin` answers `{ok:false, reason}` rather
-			// than throwing (unlike a missing folder, which `fetchPlugin` itself
-			// throws on, before `installPlugin` ever gets a chance to wrap it).
+			// than throwing.
 			const dir = mkdtempSync(join(tmpdir(), "platform-actions-bad-manifest-"));
 			writeFileSync(
 				join(dir, "plugin.json"),
@@ -520,29 +546,6 @@ describe("createPlatformActions", () => {
 			expect(result.problems[0]?.code).toBe("no_install_path");
 		});
 
-		test("a configuration-default contribution restores by clearing the override", async ({
-			db,
-		}) => {
-			await seedFounder(db);
-			const { edit } = typedActions(buildDeps());
-			const install = await edit.run(ctxFor(db), {
-				source: {
-					kind: "folder",
-					path: makePlugin("config-restore-under-test"),
-					scope: { kind: "factory", teamId: null },
-				},
-			});
-			if (!install.ok) throw new Error("install failed");
-			const toolContribution = install.data.contributions.find((c) => c.kind === "tool");
-			expect(toolContribution, "the tool contribution exists").toBeDefined();
-
-			const result = await edit.run(ctxFor(db), {
-				id: "config-restore-under-test",
-				restore: { contribution: toolContribution?.key as string },
-			});
-			expect(result.ok).toBe(true);
-		});
-
 		test("restoring a contribution the plugin never made is unknown_contribution", async ({
 			db,
 		}) => {
@@ -575,13 +578,35 @@ describe("createPlatformActions", () => {
 			if (result.ok) throw new Error("expected refusal");
 			expect(result.problems[0]?.code).toBe("unknown_plugin");
 		});
+	});
 
-		test("the builtin plugin is unknown_plugin, never a live row", async ({ db }) => {
-			const { edit } = typedActions(buildDeps());
-			const result = await edit.run(ctxFor(db), { id: "builtin", state: "enabled" });
+	describe("edit_plugin — a team install", () => {
+		test("a team id that is not a real team is unknown_team: no row, no folder, nothing outside the install root touched", async ({
+			db,
+		}) => {
+			await seedFounder(db);
+			const root = mkdtempSync(join(tmpdir(), "platform-actions-root-"));
+			const pluginsBaseDir = join(root, "installed-plugins");
+			mkdirSync(pluginsBaseDir);
+			const outside = join(root, "precious");
+			mkdirSync(outside);
+			writeFileSync(join(outside, "keep.txt"), "not a plugin");
+			const { edit } = typedActions(buildDeps({ pluginsBaseDir }));
+
+			const result = await edit.run(ctxFor(db), {
+				source: {
+					kind: "folder",
+					path: makePlugin("crafted-team"),
+					scope: { kind: "team", teamId: "../../../precious" },
+				},
+			});
+
 			expect(result.ok).toBe(false);
-			if (result.ok) throw new Error("expected refusal");
-			expect(result.problems[0]?.code).toBe("unknown_plugin");
+			if (!result.ok) expect(result.problems[0]?.code).toBe("unknown_team");
+			expect(await db.select().from(plugins).where(eq(plugins.name, "crafted-team"))).toEqual([]);
+			expect(readdirSync(pluginsBaseDir)).toEqual([]);
+			expect(readdirSync(outside)).toEqual(["keep.txt"]);
+			expect(existsSync(join(outside, "plugin.json"))).toBe(false);
 		});
 	});
 
@@ -592,14 +617,6 @@ describe("createPlatformActions", () => {
 			expect(result.ok).toBe(false);
 			if (result.ok) throw new Error("expected refusal");
 			expect(result.problems.some((p) => p.code === "one_change")).toBe(true);
-		});
-
-		test("removing the builtin plugin is builtin_locked", async ({ db }) => {
-			const { edit } = typedActions(buildDeps());
-			const result = await edit.run(ctxFor(db), { id: "builtin", remove: true });
-			expect(result.ok).toBe(false);
-			if (result.ok) throw new Error("expected refusal");
-			expect(result.problems.some((p) => p.code === "builtin_locked")).toBe(true);
 		});
 	});
 });

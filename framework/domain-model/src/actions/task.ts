@@ -149,7 +149,7 @@ const OpenTaskInputSchema = z.object({ id: z.string() }).strict();
  * What `open_task` returns, and therefore what `edit_task` returns too.
  *
  * `sessions` is deliberately NOT here — founder ruling 2026-09-13, upholding
- * AU26 J4: the browser keeps combining orchestration data itself
+ * The browser keeps combining orchestration data itself
  * (`useTaskSessions`, untouched by this item). See architecture.md §5.
  */
 export const TaskViewSchema = z.object({

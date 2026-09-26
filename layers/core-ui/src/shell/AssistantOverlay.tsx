@@ -1,5 +1,5 @@
 /**
- * AD8b — AssistantOverlay
+ * AssistantOverlay
  *
  * Popover overlay that renders a ThreadShell in assistant configuration.
  * Anchored to the assistant trigger button ref.
@@ -79,7 +79,7 @@ function ContextChip({
 }
 
 // ---------------------------------------------------------------------------
-// AH3: Notice card rendering (missing_key / missing_harness / provider_error)
+// Notice card rendering (missing_key / missing_harness / provider_error)
 // ---------------------------------------------------------------------------
 
 interface NoticeConfig {
@@ -125,7 +125,7 @@ function getNoticeConfig(notice: AssistantNotice, onRetry?: () => void): NoticeC
 }
 
 /**
- * AH3: Render a notice card for assistant error/guidance messages.
+ * Render a notice card for assistant error/guidance messages.
  * These replace the normal chat bubble when payload.notice is present.
  *
  * @lore AH3: role="alert" for accessibility — screen readers announce immediately.
@@ -190,7 +190,7 @@ function AssistantNoticeCard({
 }
 
 /**
- * AH3 §1.7b: "Thinking…" indicator — shown when last message is human and
+ * "Thinking…" indicator — shown when last message is human and
  * within the turn timeout window. Client-derived from thread state.
  */
 function ThinkingRow(): JSX.Element {
@@ -219,7 +219,7 @@ function ThinkingRow(): JSX.Element {
 }
 
 /**
- * AH3 §1.7b: Stale crash-recovery Retry card — shown when last message is human
+ * Stale crash-recovery Retry card — shown when last message is human
  * AND older than ASSISTANT_TURN_TIMEOUT_MS. Never shows an infinite spinner.
  */
 function StaleRetryCard({ onRetry }: { onRetry?: () => void }): JSX.Element {
@@ -458,7 +458,7 @@ function AssistantOverlayInner({
 		a.createdAt.localeCompare(b.createdAt),
 	);
 
-	// AH3 §1.7b: Compute thinking/stale state from thread state (client-derived).
+	// Compute thinking/stale state from thread state (client-derived).
 	// Show "thinking…" only when: last message is human AND within ASSISTANT_TURN_TIMEOUT_MS.
 	// Show Retry card when: last message is human AND PAST the timeout (crash recovery).
 	// @lore BC3 B5/B6: the overlay knows its own counterpart — it opened a
@@ -475,7 +475,7 @@ function AssistantOverlayInner({
 	const isThinking = lastMessageIsWithinTimeout;
 	const isStale = lastMessageIsHuman && !lastMessageIsWithinTimeout;
 
-	// AH3: Partition messages — notice messages are REMOVED from ThreadShell and
+	// Partition messages — notice messages are REMOVED from ThreadShell and
 	// rendered as standalone notice cards below the thread. This ensures getByText
 	// doesn't find the message bubble text AND the notice card title simultaneously.
 	// @lore AH3: ThreadShell's `renderMessageExtra` injects BELOW the bubble
@@ -525,7 +525,7 @@ function AssistantOverlayInner({
 					))}
 				</div>
 			)}
-			{/* AH3: Notice/thinking/stale cards rendered OUTSIDE ThreadShell (avoids
+			{/* Notice/thinking/stale cards rendered OUTSIDE ThreadShell (avoids
 			    text collision with the scroll area) and ABOVE the ThreadShell wrapper
 			    so the composer stays pinned to the overlay bottom (NEW-13). */}
 			{noticeMessages.map((m) => {
@@ -537,13 +537,13 @@ function AssistantOverlayInner({
 					</div>
 				);
 			})}
-			{/* AH3 §1.7b: Thinking indicator — client-derived from thread state */}
+			{/* Thinking indicator — client-derived from thread state */}
 			{isThinking && (
 				<div className="shrink-0 px-[12px] pt-[9px]">
 					<ThinkingRow />
 				</div>
 			)}
-			{/* AH3 §1.7b: Stale crash-recovery Retry card */}
+			{/* Stale crash-recovery Retry card */}
 			{isStale && (
 				<div className="shrink-0 px-[12px] pt-[9px]">
 					<StaleRetryCard onRetry={refresh} />
@@ -635,7 +635,7 @@ export function AssistantOverlay({
 				<button
 					type="button"
 					aria-label="Close assistant"
-					/* AI5 AQ-015: 44px touch floor ≤1024px, dense 24px ≥1280px. */
+					/* AQ-015: 44px touch floor ≤1024px, dense 24px ≥1280px. */
 					className="flex items-center justify-center w-[24px] h-[24px] min-h-[44px] min-w-[44px] xl:min-h-[24px] xl:min-w-[24px] rounded-[var(--r-pill)] bg-transparent border-none text-[var(--text-secondary)] cursor-pointer hover:text-[var(--accent-deep)]  "
 					onClick={behavior.requestDismiss}
 				>

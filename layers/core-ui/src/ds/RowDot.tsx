@@ -1,7 +1,7 @@
 import type { JSX } from "react";
 
 /**
- * AG6: Static 6px status dot — canonical tone-keyed indicator for list rows.
+ * Static 6px status dot — canonical tone-keyed indicator for list rows.
  *
  * @lore AG6: Justified-distinct from LiveDot (AI4). LiveDot is a pulsing
  * accent dot for live-activity signals. RowDot is a static, tone-keyed dot

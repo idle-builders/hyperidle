@@ -13,7 +13,6 @@ import {
 	PluginViewSchema,
 	SearchPluginsInputSchema,
 } from "../actions/platform.js";
-import { BUILTIN_PLUGIN_ID } from "../configuration.js";
 
 const factoryScope = { kind: "factory" as const, teamId: null };
 const teamScope = { kind: "team" as const, teamId: "team-1" };
@@ -66,21 +65,6 @@ describe("editPluginInvariants", () => {
 	it("plugin_id_required does not fire on a well-formed state edit", () => {
 		const problems = editPluginInvariants({ id: "p1", state: "disabled" });
 		expect(problems.map((p) => p.code)).not.toContain("plugin_id_required");
-	});
-
-	it("builtin_locked: removing the built-in plugin", () => {
-		const problems = editPluginInvariants({ id: BUILTIN_PLUGIN_ID, remove: true });
-		expect(problems[0]?.code).toBe("builtin_locked");
-	});
-
-	it("builtin_locked: disabling the built-in plugin", () => {
-		const problems = editPluginInvariants({ id: BUILTIN_PLUGIN_ID, state: "disabled" });
-		expect(problems[0]?.code).toBe("builtin_locked");
-	});
-
-	it("builtin_locked does not fire on enabling the built-in plugin", () => {
-		const problems = editPluginInvariants({ id: BUILTIN_PLUGIN_ID, state: "enabled" });
-		expect(problems.map((p) => p.code)).not.toContain("builtin_locked");
 	});
 
 	it("a well-formed source install has no problems", () => {

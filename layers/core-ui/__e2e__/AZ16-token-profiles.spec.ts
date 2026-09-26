@@ -65,7 +65,6 @@ const TEAM_ID = "team-az16";
 const FOUNDER_ROW = makeUserRow("test-founder", {
 	name: "Test Founder",
 	role: "founder",
-	email: "test@hyperidle.dev",
 	team: { id: TEAM_ID, name: "Hearth" },
 });
 
@@ -99,17 +98,9 @@ async function installAz16Mocks(page: Page): Promise<void> {
 	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: one hermetic router owns the exact AZ16 route matrix.
 	await page.route("**/api/**", async (route) => {
 		const { pathname } = new URL(route.request().url());
-		if (pathname === "/api/auth/me") {
-			return json(route, {
-				id: "test-founder",
-				name: "Test Founder",
-				email: "test@hyperidle.dev",
-				role: "founder",
-			});
-		}
 		if (pathname === "/api/settings") {
 			return json(route, {
-				profile: { name: "Test Founder", email: "test@hyperidle.dev", avatarUrl: null },
+				profile: { name: "Test Founder", avatarUrl: null },
 				teams: [],
 				users: [],
 				notifications: {
@@ -175,7 +166,6 @@ async function installAz16Mocks(page: Page): Promise<void> {
 				ok: true,
 				data: makeUserView(row, {
 					connections: self ? { connections: [], inherited: [] } : null,
-					behaviour: self ? [] : null,
 					inbox: self ? [] : null,
 					runsOn: row.kind === "ai" ? [] : [],
 				}),

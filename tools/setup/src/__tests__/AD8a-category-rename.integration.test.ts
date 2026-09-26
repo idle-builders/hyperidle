@@ -42,12 +42,4 @@ describe("AD8a — agentCategory 'individual' rename", () => {
 		const rows = await db.select().from(users).where(eq(users.agentCategory, oldValue));
 		expect(rows).toHaveLength(0);
 	});
-
-	test("after seeding, seed-agent-cos has agentCategory 'individual'", async ({ db }) => {
-		await runFactoryBootstrap(db);
-		await seedDemoWorld(db);
-
-		const [cosRow] = await db.select().from(users).where(eq(users.id, "seed-agent-cos"));
-		expect(cosRow?.agentCategory).toBe("individual");
-	});
 });

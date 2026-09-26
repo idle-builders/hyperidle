@@ -8,7 +8,7 @@
  * Key semantics:
  *   - returned=true OR exempt=true OR budgetLeft=0 → forceMessage: null (allow end)
  *   - returned=false AND !exempt AND budgetLeft>0 → forceMessage = the tailored forcing
- *     message for the session's `requiredReturnActions` (AU27 Increment 3, Decision 3),
+ *     message for the session's `requiredReturnActions`,
  *     or the default `FORCE_RETURN_MESSAGE` when the session has no specific
  *     requirement (the pre-Increment-3 default)
  *   - calling the tool with forceMessage!==null increments forceCount in registry
@@ -26,6 +26,7 @@
 import {
 	MAX_FORCE_RETURNS,
 	ok,
+	RETURN_ACTION_NAMES,
 	type RegisteredTool,
 	shouldForceReturn,
 	type ToolContext,
@@ -72,7 +73,7 @@ async function handle(
 
 	// Read pre-increment state: "how many times have you been forced before THIS call".
 	const preForceCount = entry.forceCount;
-	// AU27 Increment 3 (Decision 3): narrow to the session's specific required
+	// Narrow to the session's specific required
 	// subset when the registered entry has one — the agent's own self-check
 	// must name the SAME action the other five force sites do.
 	const forceMessage = entry.exempt
@@ -110,7 +111,7 @@ const returnStatusDefinition = {
 	name: "return_status" as const,
 	description:
 		"Check whether HyperIdle requires you to return your work before stopping. " +
-		"If forceMessage is non-null, call exactly one of: submit_review, edit_task, send_message, or reply. " +
+		`If forceMessage is non-null, call exactly one of: ${RETURN_ACTION_NAMES.join(", ")}. ` +
 		"If forceMessage is null, you may stop normally.",
 	inputSchema,
 

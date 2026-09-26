@@ -49,7 +49,6 @@ describe("AppShell — Settings overlay + Command-K priority (J3)", () => {
 					nextCursor: null,
 					id: "u-test",
 					name: "Tester",
-					email: "",
 					avatarUrl: null,
 				}),
 		}) as typeof fetch;

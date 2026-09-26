@@ -1,5 +1,5 @@
 /**
- * AD8b — AssistantContext
+ * AssistantContext
  *
  * Provides the assistant overlay open state and context-attachment function to
  * components rendered inside Main. This allows BetCard, TaskCard, DocRow,

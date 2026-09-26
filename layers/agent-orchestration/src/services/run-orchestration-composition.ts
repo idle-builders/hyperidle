@@ -70,22 +70,18 @@ import {
 } from "@hyperidle/session-requests";
 import { buildToolRegistry as buildToolRegistryFromDefinitions } from "@hyperidle/tool-handlers";
 
-// AU21 §9 Increment 12 follow-up part 2 (F2 gap closure): this composition
-// root's own `seamPortForActor` helper (a fresh in-process `CoreApiPort` per
-// call, wrapped with the calling agent's identity — Decision F2's
-// session-launch-time `connections`/`filesystems` provisioning reads) is
-// DELETED — it had exactly two callers (the `connectionsProvisioner` and
-// `filesystemsReader` seam wirings) and both are now gone (baked at emit
-// time instead). No composition-root `CoreApiPort` construction is needed
-// in this file anymore.
+// This composition root builds no `CoreApiPort`: the session-launch reads
+// of an agent's connections and filesystems are this Layer's own tables,
+// read live in-layer, so there is no seam call to wrap with the calling
+// agent's identity.
 
-// AU21 §9 Increment 12 (Decision H3), Wave C: shrunk to `filesystems` only —
+// Shrunk to `filesystems` only —
 // `knowledge`/`work`/`users`/`routine`/`org` are DELETED (not seam-routed).
 // `context.ts` is pure format/write now, consuming the baked `contextBundle`
 // carried on the session request; it reads zero core-api domain state.
-// `startWatcher` has zero DB coupling — it relocated wholesale into
-// `@hyperidle/run-orchestration` (Decision F2) but is still wired through
-// this same context-assembly port shape, unchanged.
+// `startWatcher` has zero DB coupling — it lives in
+// `@hyperidle/run-orchestration` and is wired through this same
+// context-assembly port shape.
 const contextPorts: RuntimeDeps["composition"]["context"] = {
 	filesystems: { startWatcher },
 };
@@ -103,7 +99,7 @@ export type ProvisionSessionDeps = Pick<RuntimeInput, "db" | "eventBus" | "onHar
 type SessionLifecycleToolContext = Parameters<typeof buildToolRegistryFromDefinitions>[1];
 type ToolRegistryOptions = Parameters<typeof buildToolRegistryFromDefinitions>[2];
 
-// AU21 §9 Increment 12 (Decision H3), Wave D: `workAccessor` DELETED entirely
+// `workAccessor` DELETED entirely
 // (reads AND writes) — `run-orchestration/provisioner.ts` no longer carries
 // a `work` port at all. Its former call sites are core-api-side event
 // subscribers instead: `work-session-started-reactions.ts` (session_started
@@ -111,13 +107,13 @@ type ToolRegistryOptions = Parameters<typeof buildToolRegistryFromDefinitions>[2
 // -> bet token-writeback). See `provisioner.ts`'s own Wave D note for the
 // full per-caller migration map.
 //
-// AU21 §9 Increment 12 (Decision H3), Wave E: `routineAccessor`/`settingsReader`
+// `routineAccessor`/`settingsReader`
 // (this file's own `getRoutineById`/`readServerConfig` bindings) are DELETED
 // entirely — `SessionLifecyclePorts` no longer carries `routine`/`settings`
 // fields at all. `admitSession`'s Phase 3 `harnessDisabled` read is replaced
 // by baked data every per-kind resolver now supplies on the drained request
 // (`params.harnessDisabled` — see `provisioner.ts`'s own Wave E top-of-file
-// note; AU21 Increment 14a deleted the admission-time routine per-run cost
+// note; the admission-time routine per-run cost
 // cap this bullet used to also describe, no replacement). `run-orchestration`
 // now holds ZERO `-> routine`/`-> settings` edge, read or write — closing
 // architecture.md §6 H3 and the anti-regrowth guard's `DEFERRED_FOLLOWUP`
@@ -136,21 +132,13 @@ type ToolRegistryOptions = Parameters<typeof buildToolRegistryFromDefinitions>[2
 // defer.
 const observabilityAccessor: SessionLifecyclePorts["observability"] = { summarizeToolArgs };
 
-// AU21 §9 Increment 12 follow-up (F2 gap closure): the `filesystemsReader`
-// seam wiring that used to live here (`seamPortForActor(agentId).filesystems
-// .listFilesystemsByAgent(agentId)`) is DELETED — `SessionLifecyclePorts` no
-// longer carries a `filesystems` field at all. AU26 F2: the emit-time bake that
-// replaced it is deleted too. The spawn reads the injection record live and
-// in-layer through `ProvisionSessionDeps.injectedFilesystems`, wired at the
-// Application composition root from `@hyperidle/filesystems`.
+// `SessionLifecyclePorts` carries no `filesystems` or `connections` field.
+// The spawn reads the injection record live and in-layer through
+// `ProvisionSessionDeps.injectedFilesystems`, wired at the Application
+// composition root from `@hyperidle/filesystems`; held connections come the
+// same way from `@hyperidle/connections`.
 //
-// AU21 §9 Increment 12 follow-up part 2 (F2 gap closure): the
-// `connectionsProvisioner` seam wiring that used to live here
-// (`seamPortForActor(agentId).connections.listHeldConnectionsForProvisioning()`)
-// is DELETED — `SessionLifecyclePorts` no longer carries a `connections`
-// field at all.
-//
-// AU26 E3: nor does the emit-time bake that briefly replaced it.
+// Nor does the emit-time bake that briefly replaced it.
 // `service_connections` is `agent-orchestration`'s own table now, so the spawn
 // reads it live through `ProvisionSessionDeps.heldConnections`, wired at the
 // composition root beside `serviceConnectionResolver` — a downward hand-off of
@@ -313,14 +301,12 @@ function buildToolProvider(
 		buildToolRegistry(ctx, options) {
 			const toolCtx = widenToToolContext(ctx);
 			return buildToolRegistryFromDefinitions([...actionTools()], toolCtx, {
-				role: options.role,
 				extraTools: options.extraTools as ToolRegistryOptions["extraTools"],
-				useOnlyExtraTools: options.useOnlyExtraTools,
 			});
 		},
-		toolsForRole(role) {
-			// Names and roles only — no handler runs.
-			return [...actionTools()].filter((d) => d.roles === undefined || d.roles.includes(role));
+		toolsForRole() {
+			// Names only — no handler runs. Every agent gets every tool.
+			return [...actionTools()];
 		},
 		returnStatusToolForRegistry(registry) {
 			return returnStatusToolAdapter.forRegistry(registry);
@@ -328,7 +314,7 @@ function buildToolProvider(
 	};
 }
 
-// AU21 §9 Increment 4 (Decision B″ item 3): `transitionRunInternal`'s
+// `transitionRunInternal`'s
 // `TransitionPorts` no longer carries a `routine` key at all — `endSession`/
 // `crashSession` finalize a routine run by emitting `session_ended`, never a
 // direct `routineRuns` write. Pure session-requests wiring, unaffected by
@@ -428,8 +414,7 @@ const sessionLifecyclePort: SessionLifecycleRuntime = {
 };
 
 // ---------------------------------------------------------------------------
-// session-lifecycle's admission/execution surface — REAL since AU19
-// Increment 3i, `@hyperidle/harness-protocol`'s `HarnessPort` (§7.4) satisfied by
+// session-lifecycle's admission/execution surface — `@hyperidle/harness-protocol`'s `HarnessPort` satisfied by
 // `session-lifecycle-bindings.ts`'s `harnessPort` export.
 // ---------------------------------------------------------------------------
 

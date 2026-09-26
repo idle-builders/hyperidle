@@ -582,7 +582,7 @@ function ExaminePane({
 }): JSX.Element {
 	const Canvas = getReviewCanvas(artifact.kind);
 	return (
-		// AM5 T6: w-[620px] + border-l REMOVED — ExaminePane now fills its SplitView destination slot.
+		// W-[620px] + border-l REMOVED — ExaminePane now fills its SplitView destination slot.
 		// @lore AZ2: <aside> keeps the landmark + surface background; <PageScaffold>
 		// nested inside owns the pinned-header/scroll-body contract. Without it,
 		// ExaminePane's own scroll region would double up with SplitView's
@@ -643,7 +643,7 @@ export function ReviewComposition({
 }: ReviewCompositionProps): JSX.Element {
 	const [activeId, setActiveId] = useState<string | null>(initialOpenArtifactId);
 	const [menuOpen, setMenuOpen] = useState(false);
-	// AM5 T6: SplitView ratio persistence for the review surface
+	// SplitView ratio persistence for the review surface
 	const [reviewRatio, setReviewRatio] = useUiPreference("review", 0.55);
 	const { sidebarMobile } = useViewportBreakpoint();
 
@@ -685,7 +685,7 @@ export function ReviewComposition({
 		[subject.conversation, activeArtifactId, resolved, onPostComment, openArtifact],
 	);
 
-	// AM5 T6: ExaminePane reconciled onto SplitView (surfaceKey="review").
+	// ExaminePane reconciled onto SplitView (surfaceKey="review").
 	// The review list is the origin; ExaminePane fills the destination.
 	//
 	// @lore AZ2: reviewListPane is a self-contained header+scroll-body unit —

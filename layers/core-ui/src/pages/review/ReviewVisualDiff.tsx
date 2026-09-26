@@ -1,4 +1,4 @@
-// AL1 review canvas #6 — ReviewVisualDiff: the visual before→after canvas.
+// Canvas #6 — ReviewVisualDiff: the visual before→after canvas.
 //
 // Proof family: visual before→after (a design frame vs the implemented screen).
 // Real content reaches this canvas as the labels an agent's `VisualDiffPayload`
@@ -254,7 +254,7 @@ function ReviewVisualDiffView({ diff, onFlag }: ReviewVisualDiffProps): JSX.Elem
 	);
 }
 
-// AL2 — review artifact wrapper.
+// Review artifact wrapper.
 function isVisualDiffPayload(payload: unknown): payload is VisualDiffPayload {
 	return (
 		isPlainObject(payload) &&

@@ -154,7 +154,7 @@ class WorkerConnectionManager {
 		const msg = parsed.data;
 
 		if (msg.type === "register") {
-			// AF11 Hole 3: reject duplicate-active-id to prevent identity hijack.
+			// Reject duplicate-active-id to prevent identity hijack.
 			// A second connection claiming an in-use worker id is rejected unless the
 			// incumbent socket is already dead (closed/closing) — in which case it is
 			// a legitimate reconnect and the stale entry is evicted.

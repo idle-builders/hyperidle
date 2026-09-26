@@ -1,5 +1,5 @@
 /**
- * AV2 — AgentEditor: shared agent + assistant editor pane.
+ * AgentEditor: shared agent + assistant editor pane.
  *
  * A presentation component — it renders the edit form for any agent (including the
  * assistant). Save routing (assistant vs. agent endpoint) is the parent's
@@ -25,8 +25,7 @@
  *
  * @lore BC3: whether an agent's role is locked is decided by `ownerUserId !== null`
  * (a person-owned agent, of which the assistant is the only instance today), never
- * by an `agentId` prefix — a team agent could be named anything, including
- * something that happens to start with "ast-".
+ * by an id prefix — an agent's id says nothing about who owns it.
  *
  * @lore AV2: The model dropdown source is descriptor.models (discovered at probe time),
  * NOT MODEL_CATALOG. An empty discovered list means the harness manages its own model
@@ -66,7 +65,7 @@ export interface AgentEditorDraft {
 	systemPrompt: string;
 	harnessType: string;
 	modelId: string;
-	/** AH2: current modelProvider selection — null when the harness doesn't surface providers. */
+	/** Current modelProvider selection — null when the harness doesn't surface providers. */
 	modelProvider: string | null;
 	maxConcurrentSessions: number;
 	filesystemIds: string[];
@@ -103,7 +102,7 @@ export interface AgentEditorProps {
 	/** Inline error (from 422 or save failure). */
 	error: string | null;
 	/**
-	 * AO1: the team's registered filesystems — pool for the per-bot injection control.
+	 * The team's registered filesystems — pool for the per-bot injection control.
 	 * Absent → the filesystem control is not rendered.
 	 */
 	filesystems?: InjectableFilesystem[];
@@ -126,7 +125,7 @@ export interface AgentEditorProps {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** AO1: human label for a filesystem source — the easy-to-detect mark text. */
+/** Human label for a filesystem source — the easy-to-detect mark text. */
 function fsSourceLabel(source: string): string {
 	if (source === "github") return "GitHub";
 	if (source === "gdrive") return "Google Drive";

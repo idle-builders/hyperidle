@@ -126,7 +126,7 @@ async function propagateSessionToTask(
 		if (!task) return;
 		if (task.state !== "in_progress") return;
 
-		// BB1 needsReview fork: only tasks that explicitly asked for review go
+		// NeedsReview fork: only tasks that explicitly asked for review go
 		// to `review`; everything else completes directly to `done`, keeping the
 		// upward cascade moving without requiring a verdict at every leaf.
 		const targetState: TaskState = task.needsReview ? "review" : "done";
@@ -228,14 +228,14 @@ async function propagateTaskToParent(
 
 			const fromState = ancestor.state;
 
-			// BB1 needsReview fork: parent goes to `review` only when it asked for
+			// NeedsReview fork: parent goes to `review` only when it asked for
 			// one; otherwise it goes straight to `done`. When the parent goes to
 			// `done`, transitionTask emits task.changed(done) for it, which
 			// re-triggers this handler for the GRANDPARENT — the cascade continues
 			// upward without requiring a human verdict at every level. A task with
 			// needsReview=true is where the chain deliberately stops until a person
 			// acts. Every non-terminal state has a legal edge to both `review` and
-			// `done` (BB1 founder ruling, 2026-08-31).
+			// `done` (founder ruling, 2026-08-31).
 			const targetState: TaskState = ancestor.needsReview ? "review" : "done";
 			await transitionTask(db, eventBus, ancestorId, targetState, deps);
 

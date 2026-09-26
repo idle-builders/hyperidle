@@ -1,5 +1,5 @@
 /**
- * AM1 — ReviewResolvedPart: the verdict ONCE TAKEN, echoed into the
+ * ReviewResolvedPart: the verdict ONCE TAKEN, echoed into the
  * conversation. The decision label comes from the merged verdictDecisionLabel
  * vocabulary (carried on `part.label`); no buttons, no code. Quiet "View
  * review" → onOpen(reviewTarget).

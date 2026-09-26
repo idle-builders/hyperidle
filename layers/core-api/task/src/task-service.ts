@@ -285,7 +285,7 @@ export interface WorkFilter {
 	state?: string;
 	/** The task's own `thread_id` column — every branch honours it. */
 	threadId?: string;
-	/** BB1: direct children of this task. `null` selects ROOT tasks (no parent). */
+	/** Direct children of this task. `null` selects ROOT tasks (no parent). */
 	parentTaskId?: string | null;
 	ownerAgentId?: string;
 	dependencyId?: string;
@@ -386,7 +386,7 @@ export async function list(
 				.where(and(...conds));
 		}
 		if (f.text !== undefined) {
-			// BB1: moved off the deleted bet dispatch. A task's searchable prose is
+			// Moved off the deleted bet dispatch. A task's searchable prose is
 			// its title, description and goal — `hypothesis` is cut, and `title`
 			// is a real column now rather than the first line of the description.
 			const escaped = f.text.replace(/[\\%_]/g, "\\$&");
@@ -419,7 +419,7 @@ export async function list(
 		if (f.ownerAgentId !== undefined) conditions.push(eq(tasks.ownerAgentId, f.ownerAgentId));
 		if (f.teamId !== undefined) conditions.push(eq(tasks.teamId, f.teamId));
 		if (f.threadId !== undefined) conditions.push(eq(tasks.threadId, f.threadId));
-		// BB1: siblings come back in display order, always. `position` alone is not
+		// Siblings come back in display order, always. `position` alone is not
 		// a total order (it defaults to 0 and nothing forces uniqueness), so
 		// createdAt then id break ties — otherwise the tree can render in a
 		// different order on two successive reads.
@@ -505,7 +505,7 @@ function isNullGuard(guard: TransitionGuard): guard is TransitionFieldIsNullGuar
 }
 
 /**
- * BB1: `parentTaskId: null` means "root tasks", not "ignore this filter". The
+ * `parentTaskId: null` means "root tasks", not "ignore this filter". The
  * distinction matters — `undefined` is absence, `null` is a value.
  */
 function parentCond(parentTaskId: string | null): SQL {
@@ -513,7 +513,7 @@ function parentCond(parentTaskId: string | null): SQL {
 }
 
 /**
- * BB1: every descendant of `rootId`, the root itself included, nearest first.
+ * Every descendant of `rootId`, the root itself included, nearest first.
  *
  * Recursive CTE rather than a loop of per-level queries: the tree has no depth
  * bound, so a loop would issue an unbounded number of round trips, and the two
@@ -547,7 +547,7 @@ export async function listSubtreeIds(exec: WriteExecutor, rootId: string): Promi
 }
 
 /**
- * BB1: every ancestor of `taskId`, nearest parent first, excluding the task.
+ * Every ancestor of `taskId`, nearest parent first, excluding the task.
  * Drives the upward completion rollup, which is no longer a single hop.
  */
 export async function listAncestorIds(exec: WriteExecutor, taskId: string): Promise<string[]> {
@@ -566,7 +566,7 @@ export async function listAncestorIds(exec: WriteExecutor, taskId: string): Prom
 }
 
 /**
- * BB1: how many tasks this team currently has `in_progress`, at any depth.
+ * How many tasks this team currently has `in_progress`, at any depth.
  *
  * This is the WIP limit's live count. It replaces the stored `teams.activeBets`
  * tally, which the bet commit/complete/kill paths maintained by hand and which

@@ -131,7 +131,7 @@ function parseCorrelation(request: AgentSessionRequest): AgentSessionSourceCorre
 }
 
 /**
- * AU21 §9 Increment 12 (Decision H3): the `task_run`/`subscription_run`/
+ * The `task_run`/`subscription_run`/
  * baked entity+knowledge bundle, carried on
  * `request.payloadJson` the same way Increment 11's `transcript`/`modelId`
  * ride it (`session-requests/src/service.ts`'s `createFromBakedRequestInternal`).
@@ -151,7 +151,7 @@ function parseBakedContextBundle(request: AgentSessionRequest): BakedContextBund
 }
 
 /**
- * AU21 §9 Increment 12 (Decision H3), Wave E — every intent kind's baked
+ * Every intent kind's baked
  * agent-runnability snapshot, carried on `request.payloadJson` the same way
  * `contextBundle`/`transcript`/`modelId` ride it
  * (`session-requests/src/service.ts`'s `createFromBakedRequestInternal`).
@@ -174,7 +174,7 @@ function parseBakedAgentConfig(request: AgentSessionRequest): BakedAgentRunnable
 }
 
 /**
- * AU21 §9 Increment 12 (Decision H3), Wave E — the server's baked
+ * The server's baked
  * disabled-harness-types list, carried on `request.payloadJson` alongside
  * `agentConfig`. Feeds `admitSession`'s Phase 3 adapter-selection filter.
  */
@@ -186,7 +186,7 @@ function parseBakedHarnessDisabled(request: AgentSessionRequest): readonly strin
 }
 
 /**
- * AU27 — the session's calling thread id, carried on `request.payloadJson`
+ * The session's calling thread id, carried on `request.payloadJson`
  * the same way Increment 11's `transcript`/`modelId` ride it
  * (`session-requests/src/service.ts`'s `createFromBakedRequestInternal`).
  * Absent only for `subscription_run`, which has no thread host to resolve one
@@ -207,7 +207,7 @@ interface BakedTranscriptRow {
 }
 
 /**
- * AU27 Increment 4 (Decision 2) — the session's baked raw transcript rows,
+ * The session's baked raw transcript rows,
  * carried on `request.payloadJson` the same way `callingThreadId`/
  * `contextBundle`/`agentConfig` ride it. Absent for a session with no
  * transcript (every kind except `assistant_turn`, today).
@@ -222,7 +222,7 @@ function parseBakedTranscript(
 }
 
 /**
- * AU27 Increment 4 (Decision 2) — relocated VERBATIM from
+ * Relocated VERBATIM from
  * `dispatch/src/service.ts`'s `mapTranscriptToMessages` (the row -> generic
  * chat-message mapping is pure formatting, which belongs orchestration-side
  * under H2, not core-side). Generalized: `assistantAgentId` becomes
@@ -279,7 +279,7 @@ async function ensureClaimedRequest(
 }
 
 /**
- * AU21 §12 (traced, not guessed): a PRE-admission failure in
+ * A PRE-admission failure in
  * `runClaimedRequest` is the real "provisioning failed" gap — a deactivated
  * agent (`TargetAgentNotRunnableError`, `provisioner.ts`'s Phase 1 status
  * check) or any other hard infra failure building the session, before it

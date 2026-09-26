@@ -1,7 +1,7 @@
 /**
- * AU26 F2 — the session-launch-time injected-filesystem read, in-layer.
+ * The session-launch-time injected-filesystem read, in-layer.
  *
- * This replaces AU21 §9 Increment 12's bake-at-emit mechanism outright. That
+ * This replaces the earlier bake-at-emit mechanism outright. That
  * bake froze the agent's injected-filesystem list onto every emitted intent,
  * because `filesystems` / `filesystem_injections` still lived in core-api and
  * `run-orchestration` was forbidden to read them. The snapshot went stale

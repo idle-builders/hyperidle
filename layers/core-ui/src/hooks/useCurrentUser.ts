@@ -1,16 +1,11 @@
 /**
  * useCurrentUser — the caller's own row via `open_user({})`.
  *
- * @lore M3 A10: replaces the hardcoded founder-id / demo-founder-id constants
- * used across AppShell, WorkBet, HostThreadSection, and task-thread callers.
  * Returns a { user, status, error } result so callers can handle loading and
  * error states without blocking render.
  *
- * @lore BC5 T9: the door swap — `call("open_user", {})` replaces
- * `apiFetch("/api/auth/me")`. No id opens the caller (architecture.md §1).
- * The hook's own return shape (`CurrentUser`) is untouched — every consumer
- * across the app (AppShell, DocumentCreate, ScopeChangeDialog, …) keeps
- * reading id/name/email/avatarUrl/teamId exactly as before.
+ * No id opens the caller. A person is a name and an avatar — there is no
+ * email on a profile.
  */
 
 import { useCallback, useEffect, useState } from "react";
@@ -19,7 +14,6 @@ import { call } from "../services/call.js";
 export interface CurrentUser {
 	id: string;
 	name: string;
-	email: string;
 	avatarUrl: string | null;
 	/** Team membership — present when the user belongs to a team. */
 	teamId?: string;
@@ -68,7 +62,6 @@ export function useCurrentUser(): UseCurrentUserResult {
 				setUser({
 					id: row.id,
 					name: row.name,
-					email: row.email ?? "",
 					avatarUrl: row.avatarUrl,
 					// `team` is the wire's "no team"; CurrentUser.teamId stays an
 					// optional string so every `!== undefined` gate downstream

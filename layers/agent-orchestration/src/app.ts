@@ -1,8 +1,8 @@
 /**
- * AU26 B1a (§D-B) — `agent-orchestration`'s own Hono app.
+ * `agent-orchestration`'s own Hono app.
  *
  * The Layer that owns `sessions`, `explicit_session_starts`,
- * `agent_session_requests` and (AU26 E3) `service_connections` now serves their
+ * `agent_session_requests` and `service_connections` now serves their
  * HTTP surface itself. What it does
  * NOT do is own the middleware stack: cors / rate-limit / body-limit / auth /
  * fail-closed / `onError` / `notFound` are **Application-applied** to the `/api`
@@ -50,7 +50,7 @@ export interface AgentOrchestrationAppOptions {
 	 */
 	readonly sessionActionsDeps: SessionActionsDeps;
 	/**
-	 * AU36 D7: the connections domain's own reach cache, for `/connections`'
+	 * The connections domain's own reach cache, for `/connections`'
 	 * inherited projection. Read-only and DB-free (`list()`), never a
 	 * per-request probe. Absent → the inherited group is empty, exactly as it
 	 * was when this route read no pool (kernel-only/bare test apps).
@@ -86,7 +86,7 @@ export function createAgentOrchestrationApp(
 	const actionTools = actionsAsTools(sessionActions);
 
 	app.route("/agent-orchestration", createAgentOrchestrationSessionsRoutes(db));
-	// AU31 §3: the write side of `AgentOrchestrationPort`, mounted beside the
+	// The write side of `AgentOrchestrationPort`, mounted beside the
 	// read routes above — same internal `/agent-orchestration` seam prefix.
 	// The `folders`/`connections` families reuse the SAME
 	// `inheritedReach`/`cipher` the public `/connections` route below is

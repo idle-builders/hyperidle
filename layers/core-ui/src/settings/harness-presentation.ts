@@ -1,5 +1,5 @@
 /**
- * AM4: Harness presentation mappers — pure, descriptor-only.
+ * Harness presentation mappers — pure, descriptor-only.
  *
  * Single interpretation point: ALL presence decisions (toggle, auth zone, caps fold,
  * disabled row) flow through these functions. ZERO per-backend type branching in the
@@ -16,7 +16,7 @@
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import type { Status } from "../ds";
 
-// Extended discovery type — AM4 additive field (disabled? is optional in HarnessDiscoveryStatus)
+// Extended discovery type — additive field (disabled? is optional in HarnessDiscoveryStatus)
 type DiscoveryWithDisabled = HarnessCapabilityDescriptor["discovery"] & { disabled?: boolean };
 
 function getDiscovery(d: HarnessCapabilityDescriptor): DiscoveryWithDisabled {

@@ -1,4 +1,4 @@
-// AL1 review canvas #2 — ReviewFieldChangeSet.
+// Canvas #2 — ReviewFieldChangeSet.
 //
 // Proof family: record/field change-set (a CRM record write). Tool: Salesforce.
 // The signature is a before→after FIELD GRID with approve-per-field.
@@ -13,7 +13,7 @@
 //        The Amount row carries a needs-you flag.
 //
 // Presentational isolation: local useState for expand.
-// Hearth + CP1 tokens by NAME only (no hex outside ToolLogo). 6px grid. Pill
+// Hearth tokens by NAME only (no hex outside ToolLogo). 6px grid. Pill
 // buttons. Left-aligned. tabular-nums on money. Animate transform/opacity only.
 //
 // States: populated (default, this story) · empty (no changed fields → nothing to
@@ -252,7 +252,7 @@ export function ReviewFieldChangeSetView({
 	);
 }
 
-// AL2 — payload mapper, then source header + view.
+// Payload mapper, then source header + view.
 function isFieldChangePayload(payload: unknown): payload is FieldChangeSetPayload {
 	return (
 		isPlainObject(payload) &&

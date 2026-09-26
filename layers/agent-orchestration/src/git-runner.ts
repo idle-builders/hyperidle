@@ -1,7 +1,7 @@
 /**
  * Git subprocess runner for the agent-orchestration layer.
  *
- * Moved here from the deleted `@hyperidle/host-process` package (AU44-b6).
+ * Moved here from the deleted `@hyperidle/host-process` package.
  * The framework package existed because the runner was once shared across the
  * core-api/filesystems probe AND agent-orchestration. That sharing never
  * materialised — the filesystems probe now lives entirely inside

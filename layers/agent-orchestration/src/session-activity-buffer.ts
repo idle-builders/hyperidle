@@ -39,7 +39,7 @@ import type { EventBus, SessionEndedEvent, ToolCallRecordedEvent } from "@hyperi
 
 const MAX_PER_SESSION = 100;
 
-// AM3: ActivityEntry is now the canonical type from @hyperidle/domain-model.
+// ActivityEntry is now the canonical type from @hyperidle/domain-model.
 // ToolCallData is preserved as a re-export for the server-side test that imports it.
 
 // Eviction delay after session ends (ms). Entries are cleaned up after this window

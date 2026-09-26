@@ -40,7 +40,7 @@ interface AppOptions {
 	db?: HyperIdleDb;
 	eventBus?: EventBus;
 	/**
-	 * AU31 §3.2 — the seam's ONE port for this composition, built by the caller
+	 * The seam's ONE port for this composition, built by the caller
 	 * (`buildAgentOrchestrationPort(transport)`) and handed in as a value —
 	 * there is no ambient/module-level transport to fall back on. Required
 	 * whenever `db` is provided: every route and reaction that used to reach
@@ -120,22 +120,22 @@ interface AppOptions {
 	 */
 	registerWebSocket?: (apiRouter: Hono, tokenStore: UpgradeTokenStore) => void;
 	/**
-	 * AU28: optional hook letting a caller mount extra routes on the `/api`
+	 * Optional hook letting a caller mount extra routes on the `/api`
 	 * sub-router. The only caller is the development test fixture, which mounts
 	 * the middleware-exercising routes that used to be statically imported here.
 	 */
 	registerExtraRoutes?: (apiRouter: Hono) => void;
 	/**
-	 * AU36 D5: awaited inside POST /api/harnesses/redetect ALONGSIDE the
+	 * Awaited inside POST /api/harnesses/redetect ALONGSIDE the
 	 * harness discovery refresh, BEFORE the response returns — the inherited
 	 * reach re-probe rides the same rate-limited moment (1 req/5s) with
-	 * identical observable effect to the pre-AU36 wiring. The Application
+	 * identical observable effect. The Application
 	 * wires the orchestration Layer's `inheritedReach.refresh` here; absent
 	 * (kernel-only) the redetect refreshes harness discoveries only.
 	 */
 	onHarnessRedetect?: () => Promise<void>;
 	/**
-	 * AU21 §6 Decision L4 / §9 Increment 14d: the WS connection hub's
+	 * The WS connection hub's
 	 * broadcast-only surface. `send_message`/`adjust_thread` push the
 	 * `changes` row itself, once per row, on both topics — `wsPush` on
 	 * `buildCoreActions`'s bindings wraps this same hub. Optional so
@@ -184,7 +184,7 @@ interface AppOptions {
 	 */
 	sharedMode?: boolean;
 	/**
-	 * AU19 §11 (AC-9) / AU31 §3.2: Application-injected cross-Layer
+	 * Application-injected cross-Layer
 	 * `agent_work_intents` recorder (`@hyperidle/work-intent-port`-typed,
 	 * Mechanism C) — `routes/threads.ts` must not cross by importing
 	 * `@hyperidle/session-requests` directly. Defaults to the seam-backed
@@ -200,7 +200,7 @@ interface AppOptions {
 	 */
 	reviewVerdictRecorder?: import("@hyperidle/domain-model").ReviewVerdictRecorderFn;
 	/**
-	 * BA9d D12: base directory where plugin files are persisted on install.
+	 * Base directory where plugin files are persisted on install.
 	 * When provided, `installPlugin` copies the plugin source to
 	 * `{pluginsBaseDir}/{pluginId}/` and stores the path in `plugins.install_path`.
 	 * Required for skill restore to work (restore reads from install_path on disk).
@@ -209,6 +209,13 @@ interface AppOptions {
 	 * Production wiring passes the platform config dir; tests pass a temp dir.
 	 */
 	pluginsBaseDir?: string;
+	/**
+	 * The plugins that ship inside the app, one folder each (the desktop build
+	 * copies the repo's `plugins/` beside its migrations). `search_plugins` lists
+	 * the ones a viewer's team has not installed as available; `edit_plugin`
+	 * installs one by name. Never `pluginsBaseDir`. Absent → no available rows.
+	 */
+	bundledPluginsDir?: string;
 }
 
 /**
@@ -319,8 +326,8 @@ export function registerCoreApiPreAuthRoutes(
 /**
  * `buildCoreActions`'s bindings, assembled once here rather than inline in
  * `createCoreApiApp` — that function's own cognitive-complexity budget is
- * already spent, and the two optional pass-throughs (`pluginsBaseDir`,
- * `wsHub`) are a flat, ungated read of `options`, nothing this function
+ * already spent, and the optional pass-throughs (`pluginsBaseDir`,
+ * `bundledPluginsDir`, `wsHub`) are a flat, ungated read of `options`, nothing this function
  * needs any of `createCoreApiApp`'s own state to compute.
  */
 function buildCoreActionsBindings(
@@ -334,6 +341,7 @@ function buildCoreActionsBindings(
 		agentWorkIntentRecorder,
 		reviewVerdictRecorder,
 		...(options.pluginsBaseDir ? { pluginsBaseDir: options.pluginsBaseDir } : {}),
+		...(options.bundledPluginsDir ? { bundledPluginsDir: options.bundledPluginsDir } : {}),
 		...(options.wsHub
 			? {
 					wsPush: (topic: string, envelope: unknown) =>
@@ -418,14 +426,10 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 	const sharedMode = options?.sharedMode ?? process.env.HYPERIDLE_SHARED_MODE === "true";
 	const tokenStore = options?.upgradeTokenStore ?? null;
 
-	// M3 A4: /api/auth/me is always mounted (regardless of tokenStore).
-	// The /ws-token endpoint is conditionally mounted only when WS support exists.
-	// @lore S1: createAuthRoutes takes sharedMode to conditionally mount
-	// /invite and /logout (shared mode only) and to bind ws-token identity
-	// from auth context rather than X-Identity header.
-	// @lore S4: worker-token endpoint requires auth routes even without db or
-	// tokenStore — createAuthRoutes handles null db gracefully.
-	api.route("/auth", createAuthRoutes(options?.db ?? null, tokenStore, sharedMode));
+	// The /ws-token endpoint is mounted only when WS support exists; sharedMode
+	// binds its identity to the authenticated caller rather than the
+	// X-Identity header. The worker-token endpoint is always mounted.
+	api.route("/auth", createAuthRoutes(tokenStore, sharedMode));
 
 	// @lore AU28 Ruling 8.1: this used to be a static
 	// `import { registerTestRoutes } from "./routes/test-routes.js"` plus a
@@ -441,7 +445,7 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 	// Register work endpoints if db is provided
 	if (options?.db) {
 		const eventBus = options.eventBus ?? new EventBus();
-		// AU31 §3.2: the seam's one port for this composition — a required
+		// The seam's one port for this composition — a required
 		// value, never an ambient global. `createTestApp`/`create-server.ts`
 		// build it before calling `createCoreApiApp`.
 		const agentOrchestration = options.agentOrchestration;
@@ -582,8 +586,6 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		// app; that route family is deleted too — connections are a
 		// user attribute now, behind `open_user`/`edit_user`.
 		api.route("/search", createSearchRoutes(options.db, eventBus, searchDocumentsRun));
-		// @lore BC5 T11: `/settings/agent-behavior` is deleted — behaviour is a
-		// user attribute now, behind `open_user`/`edit_user`.
 		// Plugin management is the platform module now —
 		// `search_plugins`/`edit_plugin`, mounted generically by
 		// `createActionsRouter` above (`compose.ts`'s fourth action group).
@@ -606,7 +608,7 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 			}) ?? [];
 		disposers.push(...serviceDisposers);
 
-		// AD5 AC-2: Auto-unblock dependent tasks when a task transitions to "done".
+		// Auto-unblock dependent tasks when a task transitions to "done".
 		// @lore AD5 option-A: handler lives in app.ts (server layer) — fabric cannot
 		// import from server (layer violation). checkAndUnblockDependents relocated
 		// to `@hyperidle/task` (renamed from `@hyperidle/work`) — it

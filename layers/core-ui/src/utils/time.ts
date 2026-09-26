@@ -1,5 +1,5 @@
 /**
- * AI3 — One clock — shared time formatter.
+ * One clock — shared time formatter.
  *
  * Single source for all timestamp display across the app.
  * Collapsed 8 relative-time impls + 4 absolute-date shapes into one module.

@@ -1,5 +1,5 @@
 /**
- * AM1 — Embed → render mapping (shared by the per-kind Part renderers).
+ * Embed → render mapping (shared by the per-kind Part renderers).
  *
  * Maps the closed `Embed` set onto the design-system render vocabulary:
  *   artifact/diff       → <ReferenceChip kind="artifact">  → onOpen(target)

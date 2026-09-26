@@ -1,12 +1,12 @@
 /**
- * AM1 — Part vocabulary + source adapters.
+ * Part vocabulary + source adapters.
  *
  * A `Part` is the typed rendering unit of a conversation. Parts are DERIVED
- * from a source (Message[] today; session events tomorrow — AM3) and NEVER
+ * from a source (Message[] today; session events tomorrow) and NEVER
  * stored. The renderer (`layers/core-ui/src/components/PartList.tsx`) imports
  * ONLY this module's `Part`/`Embed`/`OpenTarget` vocabulary — never a source
  * type (`Message`/`InlineRef`/`HarnessEvent`). That import-absence is the
- * AM1↔AM3 reuse boundary, enforced by a scoped `no-restricted-imports` ESLint
+ * conversation↔session reuse boundary, enforced by a scoped `no-restricted-imports` ESLint
  * rule (W1). The adapters below are the ONLY place that knows the source.
  *
  * @lore AM1: `prose` (the render kind) is deliberately decoupled from `plain`
@@ -41,7 +41,7 @@ import {
 } from "../../ds/message-payload.js";
 import type { RouteHostKind } from "../../services/host-route.js";
 
-// AM3: session-activity type (NORMALIZED union — no harness-type param in adapter).
+// Session-activity type (NORMALIZED union — no harness-type param in adapter).
 // The adapter body (and ONLY the adapter body) imports the source types.
 
 function exhaustiveAssert(value: never): never {
@@ -51,9 +51,9 @@ function exhaustiveAssert(value: never): never {
 // ── Part discriminant (closed, derived, never stored) ───────────────
 
 /**
- * AM3: Extended with `tool` + `reasoning` (concept Phase 4, locked).
+ * Extended with `tool` + `reasoning` (concept Phase 4, locked).
  * Stays closed + exhaustive + `unknown`-terminated. Adding a kind requires
- * a concept-doc update first (AM3 concept.md IS that update for these two).
+ * a concept-doc update first (the concept doc IS that update for these two).
  */
 type PartKind =
 	| "prose"
@@ -65,7 +65,7 @@ type PartKind =
 	| "unknown";
 
 /**
- * AM3: Closed tool-family set — icon/verb/expanded-shape per family.
+ * Closed tool-family set — icon/verb/expanded-shape per family.
  * An unrecognized family falls back to "generic" (mirrors `unknown` Part discipline).
  *
  * @lore AM3: `generic` is the explicit fallback entry — never throw on an unknown
@@ -149,7 +149,7 @@ export type Part =
 			readonly options: ReadonlyArray<string>;
 	  })
 	/**
-	 * AM3: `tool` — one tool call the agent made. A compact row, not prose.
+	 * `tool` — one tool call the agent made. A compact row, not prose.
 	 * Only `failed` uses the destructive color token (`--status-error`).
 	 * A file-change carries a `diff` Embed (via `embeds`); sub-agent carries `opensSession`.
 	 * Parts derived-never-stored; status transitions (running→ok/failed) are derived updates.
@@ -170,7 +170,7 @@ export type Part =
 			readonly opensSession?: { readonly sessionId: string; readonly label: string };
 	  })
 	/**
-	 * AM3: `reasoning` — a span of agent thinking, collapsed "Thought for Ns".
+	 * `reasoning` — a span of agent thinking, collapsed "Thought for Ns".
 	 * No status glyph (reasoning is never success/failure).
 	 */
 	| (BasePart & {
@@ -493,12 +493,12 @@ function diffEmbed(label: string, added: number, removed: number): Embed {
 }
 
 /**
- * AM3: Map normalized `ActivityEntry[]` → `Part[]`.
+ * Map normalized `ActivityEntry[]` → `Part[]`.
  *
  * This is the ONLY place that knows `ActivityEntry`; the renderer (`PartList`)
  * imports only the `Part`/`Embed`/`OpenHandler` vocabulary — never `ActivityEntry`
  * or any harness type. Signature takes `ActivityEntry[]` only — NO harness-type
- * parameter (compile-time proof the renderer can't branch on backend, AC4).
+ * parameter (compile-time proof the renderer can't branch on backend).
  *
  * Mapping rules (architecture.md §b):
  *  - `tool_call`    → `tool` Part (verb/target/toolKind/status/output; file-change carries `diff` Embed)

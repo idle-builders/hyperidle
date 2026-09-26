@@ -19,8 +19,7 @@ import type {
  * The canonical runtime-checkable list `AgentWorkIntentKind` is built from —
  * kept in lockstep with `agent_work_intents_kind_ck`
  * (`framework/db/src/schema.ts`) and consumed by
- * `AgentWorkIntentRecorderInput` (`agent-work-intent-recorder.ts`, AU21 §6
- * Decision G) so a kind-set drift test (`framework/db`) can derive its
+ * `AgentWorkIntentRecorderInput` (`agent-work-intent-recorder.ts`) so a kind-set drift test (`framework/db`) can derive its
  * accept-list mechanically from this single source instead of a second
  * hardcoded copy.
  */
@@ -60,7 +59,7 @@ export type AgentRunAdmissionFailureCode =
 	| "PROVISIONING_FAILED"; // hard infra failure building/deploying the session (harness/sandbox), not a domain problem
 
 /**
- * AU21 §6 Decision B4 / §10 — the NEW pre-handoff failure report-back
+ * The pre-handoff failure report-back
  * channel: `failOrRelease` (session-requests) emits this on every failed
  * claim/dispatch attempt (before any session exists). `terminal===true`
  * means orchestration's own claim/attempt budget is spent (or the error is
@@ -147,7 +146,7 @@ export interface SessionEndedEvent {
 	/** Final disposition of the session. */
 	outcome: SessionOutcome;
 	/**
-	 * AU21 §9 Increment 12 (Decision H3), Wave D — additive. Carries
+	 * Additive. Carries
 	 * `run-orchestration/provisioner.ts`'s per-model-tier accumulated token
 	 * counts (`accumulatedTokens`, populated from `token_usage` stream events
 	 * across the session's lifetime) so a core-api `session_ended` subscriber
@@ -191,7 +190,7 @@ export interface SessionHandoffCompletedEvent {
 /**
  * Emitted by `runSession` (site A) when a task-session turn exhausts its
  * event stream without having invoked any member of the accepted-return set
- * (RETURN_ACTION_NAMES). The turn is flagged — never silently completed (AC3).
+ * (RETURN_ACTION_NAMES). The turn is flagged — never silently completed.
  *
  * @lore "flag" policy (concept §3.4): the turn still settles via endSession;
  * this event makes the escape visible and attributable. "redirect" (forced re-prompt)
@@ -210,7 +209,7 @@ export interface SessionNotReturnedEvent {
 	readonly sourceId?: string;
 	readonly sourceCorrelation?: AgentSessionSourceCorrelation;
 	/**
-	 * AU27 Increment 5 (Decision 5) — the session's calling thread id, when it
+	 * The session's calling thread id, when it
 	 * has one (`params.callingThreadId` in hand at the emit site). Absent for
 	 * a `task_run`-sourced session (`sourceCorrelation` is `{taskId, teamId}`,
 	 * no thread) — the never-silent net's `conversation` subscriber no-ops
@@ -339,7 +338,10 @@ export interface ChangesRow {
  * mapped type so `EventByType<"task.changed">` resolves to exactly the
  * `task.changed` member, not the union of all nine. `change` is the decoded
  * `ChangeRow`; `cascade` rides only on a kill loop's
- * descendant rows.
+ * descendant rows. `woke` names the agents this change's own path already
+ * started work for — a person's message to their assistant, a task handed to
+ * an agent, a verdict on an agent's review — so their subscriptions skip it
+ * and each agent wakes once. Both live in memory only, never on the row.
  */
 export type ObjectChangeEvent = {
 	[T in ObjectEventName]: {
@@ -348,6 +350,7 @@ export type ObjectChangeEvent = {
 		readonly change: ChangeRow;
 		readonly timestamp: number;
 		readonly cascade?: true;
+		readonly woke?: readonly string[];
 	};
 }[ObjectEventName];
 
@@ -359,7 +362,7 @@ export type ObjectChangeEvent = {
  */
 export function objectEvent(
 	row: ChangesRow,
-	opts?: { readonly cascade?: true },
+	opts?: { readonly cascade?: true; readonly woke?: readonly string[] },
 ): ObjectChangeEvent {
 	const change: ChangeRow = {
 		id: row.id,
@@ -377,6 +380,7 @@ export function objectEvent(
 		change,
 		timestamp: Date.now(),
 		...(opts?.cascade ? { cascade: true as const } : {}),
+		...(opts?.woke && opts.woke.length > 0 ? { woke: opts.woke } : {}),
 	} as ObjectChangeEvent;
 }
 
@@ -400,7 +404,7 @@ export type DomainEvent =
 	// lifecycle propagation and the dependency watcher now.
 	| SessionStartedEvent
 	| SessionEndedEvent
-	// AU19 Increment 3g: handoff EventBus inversion
+	// Handoff EventBus inversion
 	| SessionHandoffCompletedEvent
 	// Return-gate escape surface
 	| SessionNotReturnedEvent
@@ -425,7 +429,7 @@ export type DomainEvent =
 export type EventType = DomainEvent["type"];
 
 /**
- * BA1 D8/D2 — the one compile-time-complete list of every event type.
+ * The one compile-time-complete list of every event type.
  *
  * @lore BC5 T7b: the old generic listener that used to subscribe to every
  * member here (D2, the founder's loop ruling at §3.1) is gone — a

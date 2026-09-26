@@ -1,5 +1,5 @@
 /**
- * AU21 — `AgentOrchestrationPort`: agent-orchestration's own read door
+ * `AgentOrchestrationPort`: agent-orchestration's own read door
  * (architecture.md §6 Decision D, §9 Increment 6, §10), symmetric in shape to
  * `CoreApiPort` (Decision A/C, Increment 1) but the OPPOSITE direction: it
  * serves what agent-orchestration genuinely owns — session/run history — to
@@ -68,11 +68,10 @@ export interface AgentOrchestrationSessionsPort {
 }
 
 /**
- * AU31 §3 — the write side of `AgentOrchestrationPort`. Core converses with
+ * The write side of `AgentOrchestrationPort`. Core converses with
  * `session-requests`/`run-orchestration`/`agent-run-config`/`filesystems`
  * (all agent-orchestration-owned) exclusively through these operations from
- * this WP onward — supersedes AU26 H1/H2's "the door stays read-only"
- * (architecture.md §13 item 2). Every type below is a hand-typed mirror of
+ * now on — the door is no longer read-only. Every type below is a hand-typed mirror of
  * the real backing route, same zero-runtime-deps convention as the read
  * side above — in particular `AgentOrchestrationWorkIntentInput` mirrors
  * `@hyperidle/shared`'s `AgentWorkIntentRecorderInput` structurally (the two
@@ -354,7 +353,7 @@ export interface AgentOrchestrationFoldersPort {
 /**
  * `AgentOrchestrationPort` — agent-orchestration's own door, symmetric to
  * `CoreApiPort` (architecture.md §10, §6 Decision D) but now carrying both
- * the original read side (`sessions`) and the AU31 write side.
+ * the original read side (`sessions`) and the write side.
  */
 export interface AgentOrchestrationPort {
 	readonly sessions: AgentOrchestrationSessionsPort;

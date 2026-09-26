@@ -83,7 +83,7 @@ function renderShellAt(initialPath: string): void {
 	render(<RouterProvider router={router} />);
 }
 
-const STUB_USER = { id: "u-founder-test", name: "Founder", email: "", avatarUrl: null };
+const STUB_USER = { id: "u-founder-test", name: "Founder", avatarUrl: null };
 
 /** `open_user({})`'s door result for STUB_USER — `useCurrentUser` reads `data.user`. */
 const OPEN_USER_RESULT = {
@@ -96,7 +96,6 @@ const OPEN_USER_RESULT = {
 		folders: [],
 		subscriptions: [],
 		connections: null,
-		behaviour: null,
 		inbox: null,
 	},
 };
@@ -198,7 +197,7 @@ describe("Conversations page — L10 filter wiring (via AppShell OutletContext)"
 	});
 
 	it("loading state: shows loading skeleton while fetch is in-flight", async () => {
-		// /api/auth/me resolves quickly, then search_threads never resolves → infinite loading.
+		// open_user resolves quickly, then search_threads never resolves → infinite loading.
 		stubFetchAuthOnly();
 		callMock.mockImplementation(async (action: string) => {
 			if (action === "search_threads") return new Promise(() => {});

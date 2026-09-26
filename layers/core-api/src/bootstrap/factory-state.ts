@@ -1,42 +1,21 @@
 /**
- * AU29 §2.5.2 — the core-api first-boot face.
+ * The core-api first-boot face: writes the hidden system actor and nothing
+ * else. Idempotent — the desktop app calls it on every launch.
  *
- * Seeds the system:propagation user and the System Agent singleton.
- * Idempotent — safe on every launch. Returns the roster agents' `{id, role}`
- * for the agent-orchestration face's run-config backfill.
- *
- * @lore AU44 AU20-fd: `framework/factory-defaults` dissolved into @hyperidle/org.
- * @lore BA9d: The five seeded facilitator agents are removed. They are now provided
- * by the document-management plugin (wave 2). Their DB rows on existing installs
- * are migrated to agentCategory="individual" by migration 0065. The
- * COMMUNITY_DISPLAY_NAMES and FACILITATORS constants are gone; the plugin owns them.
- * The "App-managed" lock (UI label for category="strategy") is deleted with the category.
- * The every-launch system-prompt overwrite is no longer a silent surprise:
- * - The factory roster now contains only system:propagation (infra) and the System Agent.
- * - The System Agent's persona is protected by a separate API guard (ast-* prefix check).
- * - Plugin agents use BA9a's detach-and-restore mechanism so user edits win.
+ * @lore The install ships empty: the person's own assistant arrives from the
+ * welcome screen, every other agent from a plugin or from the person. The
+ * one row boot still writes is not an agent — it is the actor system writes
+ * are attributed to (`changes.actor`, `messages.senderId` and friends
+ * reference `users.id`), so it must exist before the first system write.
+ * Role "system" is its structural marker: it cannot be retired and
+ * `search_users` leaves it out unless a caller names it.
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import { insertUserIfAbsent, listFactoryAgents } from "@hyperidle/user";
+import { insertUserIfAbsent } from "@hyperidle/user";
 
-const SYSTEM_ASSISTANT = { role: "assistant", idHint: "seed-agent-cos" } as const;
-
-/**
- * Apply core-api's half of the factory bootstrap: the propagation user and
- * the System Agent singleton. Idempotent — safe on every launch.
- * Returns the roster agents' `{id, role}` for the agent-orchestration face's
- * run-config backfill.
- */
-export async function applyFactoryCoreState(
-	db: HyperIdleDb,
-): Promise<ReadonlyArray<{ readonly id: string; readonly role: string }>> {
-	const now = new Date().toISOString();
-
-	// ── system:propagation — DB infra, ALWAYS written unconditionally ──
-	// @lore L20: messages.senderId references users.id. This user must exist
-	// before any propagation-triggered review thread can be created.
-	// AB0: system users have null agentCategory (they are not real agents).
+/** Write the hidden system actor if it is not there yet. */
+export async function applyFactoryCoreState(db: HyperIdleDb): Promise<void> {
 	await insertUserIfAbsent(db, {
 		id: "system:propagation",
 		kind: "ai",
@@ -44,21 +23,6 @@ export async function applyFactoryCoreState(
 		role: "system",
 		agentCategory: null,
 		status: "active",
-		createdAt: now,
+		createdAt: new Date().toISOString(),
 	});
-
-	// ── System Agent singleton ──
-	// @lore AD8a: seed-agent-cos renamed from "Chief of Staff" to "System Agent".
-	// @lore AD8b: chief_of_staff role renamed to assistant; agentCategory: individual.
-	await insertUserIfAbsent(db, {
-		id: SYSTEM_ASSISTANT.idHint,
-		kind: "ai",
-		name: "System Agent",
-		role: "assistant",
-		agentCategory: "individual",
-		status: "active",
-		createdAt: now,
-	});
-
-	return listFactoryAgents(db, [SYSTEM_ASSISTANT.idHint]);
 }

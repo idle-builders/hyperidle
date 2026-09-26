@@ -1,8 +1,8 @@
 /**
- * ScopePicker — AI5 E4: Tier 1 document-scope picker.
+ * ScopePicker — Tier 1 document-scope picker.
  *
  * Consolidates 3 hand-rolled scope pill rows + 1 DaisyUI Select into ONE
- * radiogroup-of-pills primitive (AC4 "one implementation in all 4 locations").
+ * radiogroup-of-pills primitive (one implementation in all 4 locations).
  *
  * @lore AI5: The hand-rolled pills shipped `outline:none` (latent a11y gap)
  * and hardcoded `rgba(240,196,25,0.14)`. This primitive adds the

@@ -1,5 +1,5 @@
 /**
- * AU21 §9 Increment 8, Decision F2: relocated WHOLESALE from
+ * Relocated wholesale from
  * `layers/core-api/filesystems/src/file-watcher.ts` — `startWatcher` has
  * ZERO database coupling (only `fs`/`EventBus`, given a `sandboxPath`/
  * `sessionId`/`manifestPath` directly). It was only ever called at

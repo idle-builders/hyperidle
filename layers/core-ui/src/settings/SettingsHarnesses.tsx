@@ -1,7 +1,7 @@
 /**
- * SettingsHarnesses — Agent backends section (AV2 SplitView rewrite).
+ * SettingsHarnesses — Agent backends section.
  *
- * AV2: Converted from HarnessCard list to ItemList/Row + SplitView.
+ * Converted from HarnessCard list to ItemList/Row + SplitView.
  * - Left pane: ItemList of harness rows (one Row per descriptor)
  * - Right pane (destination): a configurable harness → auth/capability detail;
  *   empty caps+models → no pane
@@ -64,7 +64,7 @@ function sortDescriptors(
 /**
  * Returns true if a descriptor has meaningful detail to show in the split pane.
  *
- * A login command counts as detail. The AU20 delete pass removed the runtime
+ * A login command counts as detail. A cleanup removed the runtime
  * capability flags, whose only reader was `provenCapabilities` behind `hasCaps` —
  * so a CLI harness that declares no models stopped being clickable, and the one
  * thing a user needs from it, how to authenticate it, became unreachable. The

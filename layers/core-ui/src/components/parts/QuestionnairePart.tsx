@@ -1,9 +1,9 @@
 /**
- * AM1 — QuestionnairePart: an agent "quick ask" survey.
+ * QuestionnairePart: an agent "quick ask" survey.
  *
  * Options read as EVEN / NEUTRAL choices — no biased/recommended styling (W2:
  * the source `QuestionnairePayload.options` is flat strings with no per-option
- * metadata, so no "Recommended" tag is rendered in AM1). Prominence comes from
+ * metadata, so no "Recommended" tag is rendered yet). Prominence comes from
  * layering (elevated surface + shadow), never from an accent border or biasing
  * one answer.
  *

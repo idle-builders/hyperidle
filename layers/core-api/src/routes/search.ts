@@ -1,5 +1,5 @@
 /**
- * AD7: Global search route — GET /api/search?q=<query>
+ * Global search route — GET /api/search?q=<query>
  *
  * Returns grouped results across conversations (threads), work (bets), and
  * documents. Three separate LIKE queries — not a UNION — for clarity
@@ -34,7 +34,7 @@ import type { EventBus } from "@hyperidle/event-bus";
 import * as work from "@hyperidle/task";
 import { listMessages, listThreads, searchConversations } from "@hyperidle/thread";
 import { listTeams } from "@hyperidle/user";
-// BB1: deriveTitle removed — tasks use .title directly
+// DeriveTitle removed — tasks use .title directly
 import { Hono } from "hono";
 import z from "zod";
 import type { ActionContext } from "../actions/action.js";
@@ -96,7 +96,7 @@ export function createSearchRoutes(
 	const router = new Hono<HyperIdleEnv>();
 
 	// I2 review M-4 / HIGH-5: cap query length to prevent long full-table LIKE scans.
-	// Max 200 chars per AD7 architecture spec (knowledge route uses 500 — search is tighter).
+	// Max 200 chars (knowledge route uses 500 — search is tighter).
 	const SEARCH_QUERY_SCHEMA = z.string().min(1).max(200);
 
 	// GET / — global search across conversations, work (bets), and documents
@@ -204,7 +204,7 @@ export function createSearchRoutes(
 		if (verifiedThreadIds.length > 0) {
 			// Batch 1: thread rows for hostKind and lastActiveAt
 			const threadRowMap = new Map<string, { hostKind: string; lastActiveAt: string }>();
-			// AF16 T7: id ASC tiebreaker for deterministic order on tied lastActiveAt
+			// Id ASC tiebreaker for deterministic order on tied lastActiveAt
 			const threadRowsBatch = await listThreads(db, {
 				ids: verifiedThreadIds,
 				order: "lastActive",
@@ -257,9 +257,9 @@ export function createSearchRoutes(
 		// @lore AD7: No auth boundary on bets — all authenticated users see all bets.
 		// Bets are team-scoped, not user-private.
 
-		// AF16 T7 (Z8-033): stable secondary sort by id ASC eliminates nondeterministic
+		// Stable secondary sort by id ASC eliminates nondeterministic
 		// ordering when multiple rows share the same createdAt timestamp.
-		// AF16 T8 (Z8-033): match-rank CASE biases exact/prefix matches above mid-string
+		// Match-rank CASE biases exact/prefix matches above mid-string
 		// substring matches. Order: matchRank ASC, createdAt DESC, id ASC.
 		//
 		// @lore AU13 addendum §A2/§A9: this was a `.from(bets).innerJoin(teams, …)`

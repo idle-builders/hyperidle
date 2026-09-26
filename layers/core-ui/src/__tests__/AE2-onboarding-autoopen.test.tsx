@@ -57,7 +57,6 @@ beforeEach(() => {
 				nextCursor: null,
 				id: "u-test",
 				name: "Tester",
-				email: "",
 				avatarUrl: null,
 			}),
 	}) as typeof fetch;

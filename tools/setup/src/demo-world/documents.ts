@@ -35,20 +35,28 @@ import {
 import type { DemoClock } from "./time.js";
 
 /**
- * @lore nested-knowledge-items: this seed used to place items by
- * `scopeKind: "product" | "practice" | "task"` plus a free-text `topic`.
- * Migration 0078 retired all three scope values and the topic/kind/layer
- * vocabularies in favor of a real tree (`parentKind`/`parentId`). This
- * fixture runs AFTER migrations (see `demo-fixture.ts`), so the three
- * grouping roots the migration seeds (`ki-mig-root-product`,
- * `ki-mig-root-practices`, `ki-mig-root-general`) already exist — demo
- * items are parented under them (or under a per-practice folder nested
- * under Practices) directly, rather than replaying the migration's
- * topic-bucketing SQL.
+ * @lore nested-knowledge-items: the demo corpus is a real tree
+ * (`parentKind`/`parentId`) under three grouping roots of its own —
+ * Product, Practices (one folder per practice beneath it) and General. A
+ * fresh install carries no folders at all (the migration-inserted roots of
+ * the same names are gone), so the demo inserts its roots before anything
+ * is filed under them.
  */
-const PRODUCT_ROOT_ID = "ki-mig-root-product";
-const PRACTICES_ROOT_ID = "ki-mig-root-practices";
-const GENERAL_ROOT_ID = "ki-mig-root-general";
+const PRODUCT_ROOT_ID = "demo-ki-root-product";
+const PRACTICES_ROOT_ID = "demo-ki-root-practices";
+const GENERAL_ROOT_ID = "demo-ki-root-general";
+
+/** The demo's grouping roots: top-level factory folders, filed under nothing. */
+const ROOTS: ReadonlyArray<{ readonly id: string; readonly title: string; readonly body: string }> =
+	[
+		{ id: PRODUCT_ROOT_ID, title: "Product", body: "Product knowledge." },
+		{
+			id: PRACTICES_ROOT_ID,
+			title: "Practices",
+			body: "Practice knowledge, one folder per practice.",
+		},
+		{ id: GENERAL_ROOT_ID, title: "General", body: "Knowledge with no more specific home." },
+	];
 
 interface DocumentSpec {
 	readonly id: string;
@@ -148,6 +156,25 @@ function practiceFolderId(practiceId: string): string {
 }
 
 export async function seedDocuments(db: HyperIdleDb, clock: DemoClock): Promise<void> {
+	for (const [position, root] of ROOTS.entries()) {
+		await db
+			.insert(documents)
+			.values({
+				id: root.id,
+				scopeKind: "factory",
+				scopeId: null,
+				title: root.title,
+				body: root.body,
+				format: "markdown",
+				status: "active",
+				version: 1,
+				position,
+				updatedBy: "demo-seed",
+				createdAt: clock.daysAgo(45),
+				updatedAt: clock.daysAgo(45),
+			})
+			.onConflictDoNothing();
+	}
 	for (const [practiceId, folderId] of Object.entries(PRACTICE_FOLDER_ID)) {
 		await db
 			.insert(documents)

@@ -160,7 +160,7 @@ export interface CanvasArtifactRef {
 }
 
 /**
- * AE5: MentionRef — inline attention-routing element in a PlainPayload message.
+ * MentionRef — inline attention-routing element in a PlainPayload message.
  * Resolves to an IdentityId; stores displayName for render-time use without lookup.
  * sourceText preserves the original @name token as written (round-trip fidelity).
  *
@@ -184,7 +184,7 @@ export type InlineRef = EntityRef | MentionRef | CanvasArtifactRef;
 // derived from the item's blocks at render time and is not stored anywhere.
 
 /**
- * AD8b: ToolCallSummary — metadata for a single tool invocation by the assistant.
+ * ToolCallSummary — metadata for a single tool invocation by the assistant.
  * Stored on the plain message payload. Rendered as tinted rows in AssistantOverlay.
  */
 export interface ToolCallSummary {
@@ -195,7 +195,7 @@ export interface ToolCallSummary {
 }
 
 /**
- * AH3: Assistant notice discriminator. Extends PlainPayload with an optional
+ * Assistant notice discriminator. Extends PlainPayload with an optional
  * field so error/guidance messages share the same message type as normal chat
  * but render with special styling keyed on notice.kind.
  *
@@ -353,6 +353,6 @@ export interface PlainPayloadWithBlockId {
 	readonly refs?: ReadonlyArray<InlineRef>;
 	/** L18: Optional block anchor — the id of the Block this message is anchored to. */
 	readonly blockId?: string;
-	/** AL4: Optional human-readable sub-block label (line/paragraph/region); opaque to the server. */
+	/** Optional human-readable sub-block label (line/paragraph/region); opaque to the server. */
 	readonly spotLabel?: string;
 }

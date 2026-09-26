@@ -1,6 +1,6 @@
 /**
  * The Filesystem wire/domain type.
- * Moved here from @hyperidle/filesystem-contract (AU44 batch 2 dissolution).
+ * Moved here from @hyperidle/filesystem-contract when that package dissolved.
  *
  * All auxiliary named types (FilesystemKind, WriteBack, ResourceRef, FilesystemState)
  * are inlined — their single consumers use the literals directly.

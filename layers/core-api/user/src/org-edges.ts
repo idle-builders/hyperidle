@@ -1,5 +1,5 @@
 /**
- * AH4 — Shared upsertOrgEdge helper.
+ * Shared upsertOrgEdge helper.
  *
  * Idempotent by construction: uses INSERT … ON CONFLICT DO NOTHING against the
  * composite unique index (from_user_id, mechanism, target), then re-selects.

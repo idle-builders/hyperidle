@@ -171,7 +171,7 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 			{(pickerState === "selected" || pickerState === "sending") && selected && (
 				<>
 					<div className="flex items-center gap-[9px] mb-[6px]">
-						{/* AI5: shared Avatar primitive. */}
+						{/* Shared Avatar primitive. */}
 						<Avatar initials={deriveInitials(selected.name)} size="sm" className="flex-shrink-0" />
 						<span className="type-small  text-[var(--text-primary)] ">{selected.name}</span>
 						<button

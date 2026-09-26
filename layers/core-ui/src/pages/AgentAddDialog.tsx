@@ -1,5 +1,5 @@
 /**
- * AB3 — AgentAddDialog: create a new team agent.
+ * AgentAddDialog: create a new team agent.
  *
  * Separate from AgentEditDialog because the header is structurally different
  * (editable name + role select vs static identity display).
@@ -16,13 +16,14 @@
  * never left to a caller default.
  */
 
-import { HARNESS_TYPES, type HarnessType, roleLabel } from "@hyperidle/domain-model";
+import { HARNESS_TYPES, type HarnessType } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useState } from "react";
 // hearth-internal-padding
 import { Button, Combobox, Dialog, Input, KeyValue } from "../ds";
 import { call } from "../services/call.js";
 import { roleOptions } from "../settings/role-options.js";
 import { useToast } from "../shell/ToastRegion.js";
+import { roleLabel } from "../utils/role-label.js";
 
 export interface AgentAddDialogProps {
 	open: boolean;
@@ -45,7 +46,7 @@ interface AddFormValues {
 
 const INITIAL_FORM: AddFormValues = {
 	name: "",
-	role: "builder",
+	role: "agent",
 	systemPrompt: "",
 	harnessType: "",
 	maxConcurrentSessions: 1,
@@ -146,7 +147,7 @@ export function AgentAddDialog({
 				</>
 			}
 		>
-			{/* AH4: placement context — read-only team name shown before identity fields */}
+			{/* Placement context — read-only team name shown before identity fields */}
 			<div className="mb-[12px]">
 				<KeyValue label="TEAM" value={teamName} layout="inline" />
 			</div>

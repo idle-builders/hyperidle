@@ -2,7 +2,7 @@
  * The closed, enumerable set of "return to HyperIdle" actions. A turn that
  * ends without invoking one is `not-returned` (see return-gate.ts). This set is
  * CLOSED: membership is a fixed list of tool names, never "any tool". Adding a
- * member is a deliberate edit here. (AC2: HyperIdle enumerates valid turn endings
+ * member is a deliberate edit here. (HyperIdle enumerates valid turn endings
  * by reading RETURN_ACTION_NAMES.)
  *
  * @lore Lives in @hyperidle/harness-protocol so the tool layer, every adapter, and
@@ -115,7 +115,7 @@ export function isReturnAction(
 }
 
 /**
- * AU27 Increment 3 (Decision 3) — return predicate that additionally binds
+ * Return predicate that additionally binds
  * to a specific REQUIRED subset of the closed return set, not just "any
  * member". Membership alone both under-binds a session with a specific
  * required action (a `task_run` agent could satisfy the gate with
@@ -192,7 +192,7 @@ export type LiteralToolNamer = (name: string) => string;
 const identityToolName: LiteralToolNamer = (name) => name;
 
 /**
- * AU27 Increment 8 (BLOCKER fix) — `mcp__<server>__<bare>` is the MCP-client
+ * `mcp__<server>__<bare>` is the MCP-client
  * namespacing convention Claude Code, codex, and cursor-agent all present to
  * the model for a tool registered on our "hyperidle" MCP server (mirrors the
  * `mcp__` leg `stripMcpNamespace` already parses back to bare form for the
@@ -205,7 +205,7 @@ const identityToolName: LiteralToolNamer = (name) => name;
 export const mcpNamespacedToolName: LiteralToolNamer = (name) => `mcp__hyperidle__${name}`;
 
 /**
- * AU27 Increment 8 (BLOCKER fix) — `hyperidle_<bare>` is opencode's own
+ * `hyperidle_<bare>` is opencode's own
  * MCP-client namespacing convention (the `hyperidle_` leg `stripMcpNamespace`
  * already parses back to bare form for the GATE). Unlike Claude/codex,
  * opencode's tested model does not resolve a bare mention to this namespaced
@@ -220,7 +220,7 @@ export const opencodeToolName: LiteralToolNamer = (name) => `hyperidle_${name}`;
 export type HarnessAdapterType = "claude-code" | "codex" | "opencode" | "cursor-agent";
 
 /**
- * AU27 Increment 8 (BLOCKER fix) — resolve the right `LiteralToolNamer` for a
+ * Resolve the right `LiteralToolNamer` for a
  * given harness adapter type, so any call site that names a return-action
  * tool in agent-facing text can say a name the agent can actually invoke.
  * An unrecognized or absent type falls back to the bare name — the
@@ -242,14 +242,14 @@ export function literalToolNamerForAdapterType(
 }
 
 /**
- * AU27 Increment 3 (Decision 3) — the forcing message, tailored to a
+ * The forcing message, tailored to a
  * SPECIFIC required subset of the return set when one applies (e.g. the
  * assistant must be told to call `reply`, not the trio `FORCE_RETURN_MESSAGE`
  * names). `required` absent or empty returns the byte-identical
  * `FORCE_RETURN_MESSAGE` (the pre-Increment-3 default, full-set message)
  * — no behavior change for every session that has no specific requirement.
  *
- * `literalToolName` (AU27 Increment 8) — optional, defaults to the bare name
+ * `literalToolName` — optional, defaults to the bare name
  * — lets a caller substitute the harness-literal tool name (e.g.
  * `mcp__hyperidle__reply` / `hyperidle_reply`) for the name that appears in
  * the message, instead of the canonical bare name.
@@ -302,14 +302,14 @@ export function shouldForceReturn(
 	gate: { readonly returned: boolean },
 	forceCount: number,
 	/**
-	 * AU27 Increment 3 (Decision 3) — the session's specific required return
+	 * The session's specific required return
 	 * subset, when it has one (e.g. `["reply"]` for a session whose output
 	 * belongs in a calling thread). Absent ⇒ the pre-Increment-3 default
 	 * (byte-identical `FORCE_RETURN_MESSAGE`, membership-only).
 	 */
 	required?: readonly string[],
 	/**
-	 * AU27 Increment 8 (BLOCKER fix) — the harness-literal namer to use when
+	 * The harness-literal namer to use when
 	 * building a required-subset message (see `buildForceReturnMessage`).
 	 * Omitted ⇒ bare names (unchanged pre-Increment-8 behavior).
 	 */

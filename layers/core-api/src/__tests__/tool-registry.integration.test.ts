@@ -65,7 +65,7 @@ describe("buildToolRegistry", () => {
 		agentOrchestration,
 		buildToolRegistry,
 	}) => {
-		const registry = buildToolRegistry(makeContext(db, eventBus), { role: "assistant" });
+		const registry = buildToolRegistry(makeContext(db, eventBus), {});
 		const names = new Set(registry.definitions.map((d) => d.name));
 
 		const composedActionNames = new Set(
@@ -87,7 +87,7 @@ describe("buildToolRegistry", () => {
 		eventBus,
 		buildToolRegistry,
 	}) => {
-		const registry = buildToolRegistry(makeContext(db, eventBus), { role: "assistant" });
+		const registry = buildToolRegistry(makeContext(db, eventBus), {});
 		for (const def of registry.definitions) {
 			expect(typeof def.name).toBe("string");
 			expect(def.name.length).toBeGreaterThan(0);
@@ -105,7 +105,7 @@ describe("buildToolRegistry", () => {
 			eventBus,
 			buildToolRegistry,
 		}) => {
-			const registry = buildToolRegistry(makeContext(db, eventBus), { role: "assistant" });
+			const registry = buildToolRegistry(makeContext(db, eventBus), {});
 			const result = await registry.invoke("does_not_exist", {});
 			expect(result.success).toBe(false);
 			if (!result.success) {
@@ -114,7 +114,7 @@ describe("buildToolRegistry", () => {
 		});
 
 		test("routes to the matching handler by name", async ({ db, eventBus, buildToolRegistry }) => {
-			const registry = buildToolRegistry(makeContext(db, eventBus), { role: "assistant" });
+			const registry = buildToolRegistry(makeContext(db, eventBus), {});
 			const result = await registry.invoke("search_users", {});
 			expect(result.success).toBe(true);
 		});
@@ -124,7 +124,7 @@ describe("buildToolRegistry", () => {
 			eventBus,
 			buildToolRegistry,
 		}) => {
-			const registry = buildToolRegistry(makeContext(db, eventBus), { role: "assistant" });
+			const registry = buildToolRegistry(makeContext(db, eventBus), {});
 			// `open_task`'s `id` is a bare required string — no business
 			// invariant runs before the zod shape itself refuses `{}`.
 			const result = await registry.invoke("open_task", {});
@@ -137,7 +137,7 @@ describe("buildToolRegistry", () => {
 
 	describe("toClaudeToolSpecs()", () => {
 		test("returns one Claude tool spec per definition", ({ db, eventBus, buildToolRegistry }) => {
-			const registry = buildToolRegistry(makeContext(db, eventBus), { role: "assistant" });
+			const registry = buildToolRegistry(makeContext(db, eventBus), {});
 			const specs = registry.toClaudeToolSpecs();
 			expect(specs).toHaveLength(registry.definitions.length);
 			for (const spec of specs) {
@@ -150,7 +150,7 @@ describe("buildToolRegistry", () => {
 		});
 
 		test("preserves tool names exactly", ({ db, eventBus, buildToolRegistry }) => {
-			const registry = buildToolRegistry(makeContext(db, eventBus), { role: "assistant" });
+			const registry = buildToolRegistry(makeContext(db, eventBus), {});
 			const specNames = registry
 				.toClaudeToolSpecs()
 				.map((s) => s.name)

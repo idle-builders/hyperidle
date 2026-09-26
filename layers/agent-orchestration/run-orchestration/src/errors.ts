@@ -55,7 +55,7 @@ export class TargetAgentNotRunnableError extends Error {
 }
 
 /**
- * AH2: Thrown by session provisioning when no registered adapter matches the
+ * Thrown by session provisioning when no registered adapter matches the
  * agent's harnessType.
  *
  * @lore AH2: Distinct from MissingCredentialError — this is a configuration

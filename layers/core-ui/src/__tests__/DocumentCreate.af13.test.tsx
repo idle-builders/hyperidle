@@ -64,7 +64,7 @@ describe("DocumentCreate sends status:active in create payload", () => {
 	beforeEach(async () => {
 		const { useCurrentUser } = await import("../hooks/useCurrentUser.js");
 		vi.mocked(useCurrentUser).mockReturnValue({
-			user: { id: "u1", name: "Founder", email: "f@example.com", avatarUrl: null },
+			user: { id: "u1", name: "Founder", avatarUrl: null },
 			status: "ready",
 			error: null,
 			retry: vi.fn(),
@@ -131,7 +131,7 @@ describe("DocumentCreate nests in one write", () => {
 	beforeEach(async () => {
 		const { useCurrentUser } = await import("../hooks/useCurrentUser.js");
 		vi.mocked(useCurrentUser).mockReturnValue({
-			user: { id: "u1", name: "Founder", email: "f@example.com", avatarUrl: null },
+			user: { id: "u1", name: "Founder", avatarUrl: null },
 			status: "ready",
 			error: null,
 			retry: vi.fn(),
@@ -226,7 +226,6 @@ describe("Team scope pill is data-driven (WARNING 3 positive-path proof)", () =>
 			user: {
 				id: "u1",
 				name: "Founder",
-				email: "f@example.com",
 				avatarUrl: null,
 				teamId: "t1", // has a team
 			},
@@ -257,7 +256,6 @@ describe("Team scope pill is data-driven (WARNING 3 positive-path proof)", () =>
 			user: {
 				id: "u1",
 				name: "Founder",
-				email: "f@example.com",
 				avatarUrl: null,
 				// no teamId field
 			},
@@ -283,7 +281,7 @@ describe("Team scope pill is data-driven (WARNING 3 positive-path proof)", () =>
 	it("Team pill has tooltip when disabled", async () => {
 		const { useCurrentUser } = await import("../hooks/useCurrentUser.js");
 		vi.mocked(useCurrentUser).mockReturnValue({
-			user: { id: "u1", name: "Founder", email: "f@example.com", avatarUrl: null },
+			user: { id: "u1", name: "Founder", avatarUrl: null },
 			status: "ready",
 			error: null,
 			retry: vi.fn(),
@@ -315,7 +313,6 @@ describe("Team scope pill is data-driven (WARNING 3 positive-path proof)", () =>
 			user: {
 				id: "u1",
 				name: "Founder",
-				email: "f@example.com",
 				avatarUrl: null,
 				teamId: "t1",
 			},
@@ -362,7 +359,7 @@ describe("UI-127 — DocumentCreate editor card has no fixed minHeight cap", () 
 	it("editor card wrapper has no hardcoded minHeight:300px inline style", async () => {
 		const { useCurrentUser } = await import("../hooks/useCurrentUser.js");
 		vi.mocked(useCurrentUser).mockReturnValue({
-			user: { id: "u1", name: "Founder", email: "f@example.com", avatarUrl: null },
+			user: { id: "u1", name: "Founder", avatarUrl: null },
 			status: "ready",
 			error: null,
 			retry: vi.fn(),

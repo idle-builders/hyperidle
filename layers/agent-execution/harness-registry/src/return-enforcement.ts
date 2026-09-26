@@ -8,7 +8,7 @@ interface ReturnGate {
 
 interface ReturnEnforcement extends EnforcementRegistry {
 	/**
-	 * AU27 Increment 3 (Decision 3) — `requiredReturnActions`, when supplied,
+	 * `requiredReturnActions`, when supplied,
 	 * narrows the predicate in the closure: only a tool call naming one of
 	 * THESE specific return actions flips `returned`. Absent ⇒ the
 	 * pre-Increment-3 default (any member of the closed return set).

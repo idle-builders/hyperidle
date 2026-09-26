@@ -49,11 +49,13 @@ The `--` before `--profile` is required — it separates npm's flags from the se
 ```
 
 This creates a `hyperidle-pg/` data directory, runs all schema migrations, and
-applies the factory bootstrap — the System Agent and factory settings, on every
-install. That is all you get: one agent, with a bare identity. Roles and the
-agents that hold them come from plugins or from you. To start with a demo team
-pre-populated, add `--demo`: it seeds an example team, as it would look once you
-had installed a plugin that brings one.
+applies the factory bootstrap — one hidden system row that system writes are
+attributed to, and nothing else. The welcome screen then creates you, your team
+and one agent: your assistant, on the harness you picked, with an empty prompt
+and one subscription per kind of change, each without a prompt of its own.
+Roles and the agents that hold them come from plugins or from you. To start with
+a demo team pre-populated, add `--demo`: it seeds an example team, as it would
+look once you had installed a plugin that brings one.
 
 **Troubleshooting:**
 - `--db-path must not contain '..' segments` — specify an absolute path: `npm run setup -- --profile laptop --db-path /Users/you/hyperidle-data`.

@@ -51,7 +51,7 @@ export function DocumentCreate(): JSX.Element {
 	const [title, setTitle] = useState("");
 	const [body, setBody] = useState("");
 	/**
-	 * AD6: 3-pill scope picker replaces 7-item SCOPE_KINDS dropdown.
+	 * 3-pill scope picker replaces 7-item SCOPE_KINDS dropdown.
 	 * Default: Shared (→ factory scopeKind).
 	 */
 	// SCOPE_CREATE_OPTIONS is a constant array of 3 items; index 0 is always defined.
@@ -74,9 +74,8 @@ export function DocumentCreate(): JSX.Element {
 	const [error, setError] = useState<string | null>(null);
 
 	// Team pill is data-driven — enabled only when the user belongs to a team.
-	// @lore AF13: CurrentUser.teamId is now populated from the API (GET /api/auth/me).
-	// The previous hardcoded false is replaced by a live check so the team scope
-	// pill becomes available as soon as the user joins a team.
+	// CurrentUser.teamId comes from `open_user`, so the team scope pill is
+	// available as soon as the user belongs to a team.
 	const hasTeam: boolean = user?.teamId !== undefined;
 	// Review-found defect: this create page offered "Private" with NO parent
 	// chosen. A parentless, user-scoped write reads back as a memory
@@ -161,12 +160,12 @@ export function DocumentCreate(): JSX.Element {
 			frame="page"
 			data-testid="document-create-page"
 			header={
-				/* AI7: PageHeader with editable title input.
+				/* PageHeader with editable title input.
 				    @lore AI7-W1: pageTitleClassName is an identifier expression so
 				    no-handrolled-page-header does not fire (rule only checks literals). */
 				<PageHeader
 					leading={
-						/* AG4: DS Breadcrumb — create page, NO leading cluster (not a detail route) */
+						/* DS Breadcrumb — create page, NO leading cluster (not a detail route) */
 						<Breadcrumb
 							segments={[{ label: "Documents", to: "/documents" }, { label: "New document" }]}
 							LinkComponent={RRLink}
@@ -187,7 +186,7 @@ export function DocumentCreate(): JSX.Element {
 					}
 					actions={
 						<div className="flex items-center gap-[9px]">
-							{/* AI5: shared Button primitive (secondary/primary). */}
+							{/* Shared Button primitive (secondary/primary). */}
 							<Button variant="secondary" onClick={handleCancel} disabled={submitting}>
 								Cancel
 							</Button>
@@ -239,7 +238,7 @@ export function DocumentCreate(): JSX.Element {
 
 				{/*
 				 * Right: metadata card.
-				 * AD6: Kind selector removed. Scope replaced by 3-pill segmented control.
+				 * Kind selector removed. Scope replaced by 3-pill segmented control.
 				 * Shared → factory | Team → team (disabled without teamId) | Private → user.
 				 */}
 				<aside className="shrink-0 flex flex-col gap-[12px]" style={{ width: "240px" }}>
@@ -250,7 +249,7 @@ export function DocumentCreate(): JSX.Element {
 						{/* Scope picker — 3 static pills */}
 						<div className="flex flex-col gap-[6px]">
 							<span className="type-label   uppercase  text-[var(--text-tertiary)]">Scope</span>
-							{/* AI5: consolidated to the shared ScopePicker primitive (select mode).
+							{/* The shared ScopePicker primitive (select mode).
 								    Team is disabled while submitting or when the user has no team. */}
 							<ScopePicker
 								options={SCOPE_CREATE_OPTIONS.map((option) => ({

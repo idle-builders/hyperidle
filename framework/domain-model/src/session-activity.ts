@@ -1,5 +1,5 @@
 /**
- * AM3 — Normalized session ActivityEntry union.
+ * Normalized session ActivityEntry union.
  *
  * Lifted from `layers/core-ui/src/hooks/useSessionActivity.ts` and
  * `packages/server/src/services/session-activity-buffer.ts` (both had
@@ -10,7 +10,7 @@
  * normalizes raw harness events into `ActivityEntry[]`; the web hook
  * consumes the same shape; `derivePartsFromSession` (framework/conversation-parts/src/part.ts)
  * adapts ActivityEntry[] → Part[] through this type only — no harness-type
- * parameter, no per-backend branch (AM3 AC3/AC4 uniformity proof).
+ * parameter, no per-backend branch.
  *
  * @lore AM3: ActivityEntry is intentionally richer than the Q1 shape to
  * support the session adapter. The Q1 shape (tool_call/reasoning) is

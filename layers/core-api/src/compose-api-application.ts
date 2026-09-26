@@ -1,5 +1,5 @@
 /**
- * `composeApiApplication` — the layer-blind Hono mount recipe (AU31 §5.3).
+ * `composeApiApplication` — the layer-blind Hono mount recipe.
  *
  * Every composition root (`applications/remote-server/src/create-server.ts`,
  * `applications/desktop/src/create-server.ts`, and the `core-api` test
@@ -11,7 +11,7 @@
  * parameter is a plain Hono value, a middleware handler, or a registrar
  * callback — so it lives in `core-api` whose callers are the two composition
  * roots already importing this package. Moved from `@hyperidle/http-middleware`
- * (AU44 batch 8).
+ *.
  *
  * @lore AU26 B1b (AC9/AC10, the Hono `notFound` trap): Hono applies a
  * mounted sub-app's parent middleware, context vars and `onError`, but NOT

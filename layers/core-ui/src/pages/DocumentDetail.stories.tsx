@@ -93,13 +93,6 @@ function setupFetchMock(documentView: object | null): void {
 			return { ok: true, json: async () => ({ teams: [] }) } as Response;
 		}
 
-		if (urlStr.includes("/api/auth/me")) {
-			return {
-				ok: true,
-				json: async () => ({ id: "user-1", name: "Founder", email: "f@x.com", avatarUrl: null }),
-			} as Response;
-		}
-
 		return { ok: true, json: async () => ({}) } as Response;
 	};
 }

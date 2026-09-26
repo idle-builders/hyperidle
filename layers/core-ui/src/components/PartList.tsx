@@ -1,11 +1,11 @@
 /**
- * AM1 — PartList: the source-agnostic conversation renderer.
+ * PartList: the source-agnostic conversation renderer.
  *
  * Author-groups a `Part[]` (via `groupParts`), then exhaustively dispatches
  * each Part to its per-kind renderer. The renderer imports ONLY the
  * source-agnostic `Part`/`OpenHandler` vocabulary — NEVER `Message`,
- * `InlineRef`, or any `harness` type. That import-absence is the AM1↔AM3
- * reuse boundary (AC5), enforced statically by a scoped `no-restricted-imports`
+ * `InlineRef`, or any `harness` type. That import-absence is the conversation↔session
+ * reuse boundary, enforced statically by a scoped `no-restricted-imports`
  * ESLint rule (eslint.config.ts, W1). A second adapter (`derivePartsFromSession`)
  * feeds the SAME `Part[]` with zero change here.
  *
@@ -51,10 +51,10 @@ function renderPart(
 			// UI-004: onAnswer posts the chosen option as a plain message via onSend.
 			return <QuestionnairePart part={part} onAnswer={onAnswer} />;
 		case "tool":
-			// AM3: tool Part — bare one-liner row; per-kind icon; expand-to-output.
+			// Tool Part — bare one-liner row; per-kind icon; expand-to-output.
 			return <ToolPart part={part} onOpen={onOpen} />;
 		case "reasoning":
-			// AM3: reasoning Part — collapsed "Thought for Ns"; expand to quiet prose.
+			// Reasoning Part — collapsed "Thought for Ns"; expand to quiet prose.
 			return <ReasoningPart part={part} />;
 		case "unknown":
 			return <UnknownPart part={part} />;
@@ -65,7 +65,7 @@ function renderPart(
 
 /**
  * Two-letter initials from an author name (first + last word).
- * Exported so `SessionView` can reuse it without duplication (AM3 warning fix).
+ * Exported so `SessionView` can reuse it without duplication.
  */
 export function initialsOf(name: string): string {
 	const words = name.trim().split(/\s+/).filter(Boolean);
@@ -78,7 +78,7 @@ export function initialsOf(name: string): string {
 
 /**
  * Per-author round avatar — the repeatable conversation/session pattern:
- * GREEN (accent) for an agent, GREY (neutral) for a human. (AM3 unification —
+ * GREEN (accent) for an agent, GREY (neutral) for a human. (One mapping —
  * the same Avatar treatment as the ConversationSurface header.)
  */
 function GroupAvatar({ name, isAgent }: { name: string; isAgent: boolean }): JSX.Element {

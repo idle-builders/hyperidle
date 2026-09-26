@@ -105,18 +105,6 @@ describe("AgentProfile session viewer door", () => {
 						}),
 				});
 			}
-			if (typeof url === "string" && url.includes("/api/auth/me")) {
-				return Promise.resolve({
-					ok: true,
-					json: () =>
-						Promise.resolve({
-							id: "viewer-1",
-							name: "Viewer",
-							email: "v@example.com",
-							avatarUrl: null,
-						}),
-				});
-			}
 			return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
 		});
 	});

@@ -1,5 +1,5 @@
 /**
- * AU31 §3 — `AgentOrchestrationPort`'s WRITE side, hosted here for the same
+ * `AgentOrchestrationPort`'s WRITE side, hosted here for the same
  * reason `agent-orchestration-sessions.ts` hosts the read side: the data,
  * the query/write logic and now the HTTP door are all on the layer that
  * owns `session-requests`/`run-orchestration`/`agent-run-config`/

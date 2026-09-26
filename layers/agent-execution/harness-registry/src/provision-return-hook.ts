@@ -82,11 +82,11 @@ async function installReturnHook(opts: ReturnHookOptions): Promise<void> {
 	}
 }
 
-// ── AO2: EMITTED_ROOTS exports for scaffolding-drift-guard ───────────────────
+// ── EMITTED_ROOTS exports for scaffolding-drift-guard ───────────────────
 
 /**
  * Root directories emitted by provisionClaudeSettings.
- * Exported so the AO2 scaffolding-drift-guard can assert coverage without
+ * Exported so the scaffolding-drift-guard can assert coverage without
  * re-hardcoding the path list in the test.
  *
  * @lore AO2 C2: Exported separately per provisioner so the drift-guard can

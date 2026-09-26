@@ -30,7 +30,13 @@ vi.mock("@hyperidle/agent-orchestration", () => ({
 	})),
 }));
 
+/*
+ * The agent's identity document, as the `search_documents` read every session
+ * bake uses returns it.
+ */
+const searchDocuments = vi.fn(async () => ({ ok: true, data: [{ body: "You are Aria." }] }));
 vi.mock("@hyperidle/core-api", () => ({
+	createStandaloneSearchDocuments: () => searchDocuments,
 	buildAgentOrchestrationPort: vi.fn(() => ({})),
 	composeApiApplication: vi.fn(() => ({ fetch: vi.fn() })),
 	createInProcessAgentOrchestrationTransport: vi.fn(() => vi.fn()),
@@ -105,7 +111,6 @@ vi.mock("@hyperidle/user", () => ({
 				status: "active",
 				role: "builder",
 				teamId: null,
-				systemPrompt: null,
 				harnessType: null,
 				modelProvider: null,
 				maxConcurrentSessions: 5,
@@ -166,5 +171,38 @@ describe("eval harness provisioning", () => {
 		expect(poolSeenByRunSession).toBe(productionPool);
 		expect(result).toMatchObject({ sessionId: "eval-session", outcome: "completed" });
 		expect(runSession).toHaveBeenCalledOnce();
+	});
+
+	/**
+	 * The eval calls the session runner directly, so it must bake what the
+	 * emit-time pipeline bakes — the agent's identity included. Without it a
+	 * scenario that gives its agent a persona runs an agent without one.
+	 */
+	it("bakes the agent's identity document into the session's agent config", async () => {
+		let personaSeenByRunSession: unknown;
+		vi.mocked(runSession).mockImplementationOnce(async (_deps, request) => {
+			personaSeenByRunSession = (
+				request as unknown as { input: { agentConfig: { persona?: string } } }
+			).input.agentConfig.persona;
+			return {
+				mode: "completed",
+				sessionId: "eval-session",
+				outcome: "completed",
+				taskId: "task",
+				forceReturnCount: 0,
+			};
+		});
+
+		await runEvalSession(
+			{ db: {} as HyperIdleDb, eventBus: {} as EventBus, sandboxBasePath: "/tmp/eval" },
+			{ taskId: "task", agentId: "agent", teamId: "team" },
+		);
+
+		expect(searchDocuments).toHaveBeenCalledWith(expect.objectContaining({ actor: "agent" }), {
+			parent: { kind: "agent", id: "agent" },
+			slot: "agent_file",
+			status: "active",
+		});
+		expect(personaSeenByRunSession).toBe("You are Aria.");
 	});
 });

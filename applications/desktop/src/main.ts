@@ -405,10 +405,11 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 	}
 	log("boot:local migrations complete");
 
-	// AF17: apply factory bootstrap after migrations — idempotent, runs every launch.
-	// @lore AF17: factory bootstrap must run before the server starts so system:propagation
-	// and facilitator agents are present when the first request arrives. The call is
-	// idempotent (onConflictDoNothing) so repeated launches are safe.
+	// Apply factory bootstrap after migrations — idempotent, runs every launch.
+	// @lore AF17: factory bootstrap must run before the server starts so the hidden
+	// system actor row is present when the first request arrives. No agent is seeded
+	// here: agents arrive from the welcome screen or a plugin. The call is idempotent
+	// (onConflictDoNothing) so repeated launches are safe.
 	// @lore AU29 §2.5.4: `applyFactoryBootstrap` (framework/db) dissolved into layer
 	// faces — `framework/db` may not import a layer, so first-boot composition moved to
 	// this composition root. Only the core-state face is left: the run-config face wrote
@@ -434,6 +435,12 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 
 	process.env.DATABASE_URL = dbPath;
 	process.env.HYPERIDLE_API_KEY = apiKey;
+	// The plugins that ship inside the app: electron-builder copies the repo's
+	// `plugins/` into Resources beside the migrations; in development they are read
+	// straight from the repo (same split as `resolveMigrationsFolder`).
+	process.env.HYPERIDLE_BUNDLED_PLUGINS_DIR = IS_DEV
+		? path.resolve(Dirname, "..", "..", "..", "plugins")
+		: path.join(process.resourcesPath ?? "", "plugins");
 	if (!IS_DEV) {
 		process.env.NODE_ENV = "production";
 		const staticDir = path.join(process.resourcesPath ?? "", "web-dist");
@@ -450,6 +457,7 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 	log("boot:local starting server", {
 		DATABASE_URL: dbPath,
 		HYPERIDLE_STATIC_DIR: process.env.HYPERIDLE_STATIC_DIR ?? "(unset)",
+		HYPERIDLE_BUNDLED_PLUGINS_DIR: process.env.HYPERIDLE_BUNDLED_PLUGINS_DIR,
 		PORT: process.env.PORT ?? "(default)",
 	});
 

@@ -12,7 +12,7 @@ import type { EventBus } from "@hyperidle/event-bus";
 import type { Manifest, ManifestEntry } from "./manifest-types.js";
 
 /**
- * AU21 §9 Increment 12 (Decision H3), Wave C — `context.ts` is now pure
+ * `context.ts` is now pure
  * format/write. Every DB-reading path (`fetchAllForLayer`/`rankAndBudget`/
  * `buildSessionContextData`/`assembleContext`) is DELETED, not seam-routed —
  * the entity content (task/bet/agent/team or subscription/agent/team) + the
@@ -354,7 +354,7 @@ Your workspace is organized as follows:
   - \`rules/\` -- Rules and guidelines that apply to your work.
 - \`work/\` -- Your working area.
   - \`artifacts/\` -- Output artifacts.
-  - \`task-notes.md\` -- Your session notes (use write_session_notes tool).
+  - \`task-notes.md\` -- Your session notes.
 - \`.fabric/manifest.json\` -- Manifest of assembled context items (do not modify).
 `;
 
@@ -422,7 +422,7 @@ function assemblePrompt(input: PromptCompositionInput): PromptCompositionResult 
  */
 /**
  * Root-level files emitted by writeSandboxAgentsMd (dual-write: AGENTS.md + CLAUDE.md).
- * Exported so the AO2 scaffolding-drift-guard can assert coverage.
+ * Exported so the scaffolding-drift-guard can assert coverage.
  *
  * @lore AO2: These tracked files are critical for the self-host case: this repo
  * itself tracks AGENTS.md and CLAUDE.md. Assembly overwrites them with the assembled
@@ -875,7 +875,7 @@ function writeBundleKnowledge(
 			if (item.agentBindingId !== null && item.agentBindingId !== undefined) {
 				continue;
 			}
-			// Unbound: applies to every session, so it is materialised (BA9b).
+			// Unbound: applies to every session, so it is materialised.
 			const relativePath = writeItem(sandboxPath, item, "knowledge/rules");
 			manifestItems[item.id] = {
 				version: item.version,
@@ -959,7 +959,6 @@ interface AssembleAgentContextInput {
 	readonly sessionId: string;
 	readonly taskId: string | null;
 	readonly agentId: string;
-	readonly agentRole: string;
 	readonly teamId: string | null;
 	/** True for a subscription-fired session — no task/bet context to read. */
 	readonly taskFree: boolean;
@@ -967,7 +966,7 @@ interface AssembleAgentContextInput {
 	readonly sourceId: string | null;
 	readonly sourceCorrelation: AgentSessionSourceCorrelation | null;
 	/**
-	 * AU21 §9 Increment 12 (Decision H3) — the baked entity+knowledge bundle a
+	 * The baked entity+knowledge bundle a
 	 * `task_run` (`kind:"task"`) or `subscription_run`
 	 * (`kind:"subscription"`) session's sandbox is built from. Absent for
 	 * `knowledge_action` (`kind:"knowledge"` bundles carry no established

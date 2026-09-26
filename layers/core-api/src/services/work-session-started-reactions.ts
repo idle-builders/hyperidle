@@ -1,10 +1,10 @@
 /**
- * AU21 §9 Increment 12 (Decision H3), Wave D — core-api's POST-SESSION-START
+ * Core-api's POST-SESSION-START
  * reaction that transitions a task to `in_progress`, replacing
  * `run-orchestration/provisioner.ts`'s direct
  * `ports.work.transitionTask(db, eventBus, taskId, "in_progress")` call
  * (fired synchronously at launch, immediately before phase 4's sandbox spawn,
- * when the task is not already `in_progress` — the AD2 handoff-re-dispatch
+ * when the task is not already `in_progress` — the handoff-re-dispatch
  * guard).
  *
  * Reacts to the EXISTING `session_started` event instead — emitted once the

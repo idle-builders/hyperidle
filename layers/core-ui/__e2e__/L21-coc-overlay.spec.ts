@@ -174,7 +174,7 @@ async function setupApiMocks(page: import("@playwright/test").Page): Promise<voi
 		}
 
 		// Unrecognized paths: fall through to auto-use fixture handlers
-		// @lore AD8a: historical — (auth/me, settings, rail [deleted], threads, products).
+		// Historical — the shell's bootstrap calls (settings, threads).
 		await route.fallback();
 	});
 }

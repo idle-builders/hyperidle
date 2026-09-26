@@ -16,7 +16,7 @@
  * layer" — so the shapes are hand-typed here, the way `AgentOrchestrationPort`
  * itself mirrors `AgentRunConfig`/`ServiceConnectionView` rather than
  * importing them), documents through the composed `search_documents`/
- * `edit_document` runners, harnesses/behaviour/server config through thin
+ * `edit_document` runners, harnesses/server config through thin
  * function seams.
  *
  * @lore the deps bag omits `agentWorkIntentRecorder`/`searchTasks`/
@@ -40,8 +40,6 @@ import type {
 } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import {
-	type AgentBehaviorConfigKind,
-	type AgentBehaviorConfigView,
 	type AgentCategory,
 	type EditUserInput,
 	editUser as editUserDeclaration,
@@ -216,20 +214,6 @@ export interface UserActionsDeps {
 	readonly readServerConfig: (
 		db: HyperIdleDb,
 	) => Promise<{ readonly harnessDisabled: readonly string[] }>;
-	readonly behaviour: {
-		list(
-			db: HyperIdleDb,
-			options?: { readonly kind?: AgentBehaviorConfigKind },
-		): Promise<AgentBehaviorConfigView[]>;
-		patch(
-			db: HyperIdleDb,
-			input: {
-				readonly id: string;
-				readonly fields: Record<string, string | boolean | null>;
-				readonly createdByUserId?: string | null;
-			},
-		): Promise<AgentBehaviorConfigView>;
-	};
 	readonly searchDocuments: SearchDocumentsRunFn;
 	readonly editDocument: EditDocumentRunFn;
 }
@@ -327,7 +311,6 @@ async function toUserRows(db: HyperIdleDb, rows: readonly User[]): Promise<UserR
 			name: r.name,
 			role: r.role,
 			status: r.status as UserStatus,
-			email: r.email ?? null,
 			avatarUrl: r.avatarUrl ?? null,
 			createdAt: r.createdAt,
 			agentCategory: (r.agentCategory as AgentCategory | null) ?? null,
@@ -364,7 +347,13 @@ async function searchUsersRun(
 		status: input.status,
 		nameContains: input.name,
 	});
-	let views = await toUserRows(ctx.db, rows);
+	// @lore The system actor (role "system") is plumbing — the row system
+	// writes are attributed to — not a person or an agent anyone works with,
+	// so no list shows it. A caller that names it in `ids` (resolving a
+	// change's actor, a message's sender) still gets it. Presentation, not
+	// access control: `open_user` answers for it as for any row.
+	const listed = rows.filter((r) => r.role !== "system" || (input.ids ?? []).includes(r.id));
+	let views = await toUserRows(ctx.db, listed);
 	if (input.teamId !== undefined) {
 		views = views.filter((v) => v.team?.id === input.teamId);
 	}
@@ -395,7 +384,6 @@ async function buildUserView(
 			folders: [],
 			subscriptions: [],
 			connections: null,
-			behaviour: null,
 			inbox: null,
 			reviewTrackRecord: null,
 		};
@@ -453,7 +441,6 @@ async function buildUserView(
 	}));
 
 	const connections = isSelf ? await deps.connections.list(userRow.id) : null;
-	const behaviour = isSelf ? await deps.behaviour.list(ctx.db) : null;
 
 	let inbox: UserView["inbox"] = null;
 	if (isSelf) {
@@ -471,9 +458,8 @@ async function buildUserView(
 
 	// Cast: `runConfig`/`folders`/`connections` come straight off
 	// `AgentOrchestrationPort` (`AgentOrchestrationRunConfigView`/
-	// `AgentOrchestrationFolderView`/`AgentOrchestrationConnectionView`), and
-	// `behaviour` off `AgentBehaviorConfigView` — both structural mirrors of
-	// the wire shape `UserView` names, which the domain-model action file may
+	// `AgentOrchestrationFolderView`/`AgentOrchestrationConnectionView`) —
+	// structural mirrors of the wire shape `UserView` names, which the domain-model action file may
 	// not import (zero-runtime-deps). `readonly` arrays don't structurally
 	// satisfy a mutable wire array either. The real values are always one of
 	// the wire enum's members; the cast is the same trust boundary
@@ -487,7 +473,6 @@ async function buildUserView(
 		folders,
 		subscriptions,
 		connections,
-		behaviour,
 		inbox,
 		reviewTrackRecord,
 	} as UserView;
@@ -870,7 +855,6 @@ async function createUserRun(
 		name,
 		role,
 		status,
-		email: input.email ?? null,
 		avatarUrl: input.avatarUrl ?? null,
 		createdAt: now,
 		agentCategory,
@@ -937,7 +921,7 @@ async function createUserRun(
 
 	// -- post-commit: run config, folders + connections (§6 — the welcome
 	// screen's own folder pick arrives here, B1), identity + subscription
-	// prompt documents, behaviour, redetect. No port or document call inside
+	// prompt documents, redetect. No port or document call inside
 	// the transaction above. A folder/connection problem is held, not
 	// returned, so every step below still runs and the row's own
 	// `user.created` still reaches every subscriber in reach (see the
@@ -963,15 +947,6 @@ async function createUserRun(
 	}
 	for (const sub of addedSubscriptions) {
 		if (sub.prompt) await writeSubscriptionPrompt(ctx, deps, name, id, sub.id, sub.prompt);
-	}
-	if (input.behaviour) {
-		for (const entry of input.behaviour) {
-			await deps.behaviour.patch(ctx.db, {
-				id: entry.id,
-				fields: entry.fields,
-				createdByUserId: ctx.actor,
-			});
-		}
 	}
 	if (input.redetectHarnesses && deps.harnesses) await deps.harnesses.redetect();
 
@@ -1020,7 +995,7 @@ async function createUserRun(
 // edit_user — edit an existing user
 // ---------------------------------------------------------------------------
 
-const IDENTITY_FIELDS = ["name", "role", "email", "avatarUrl", "status", "health"] as const;
+const IDENTITY_FIELDS = ["name", "role", "avatarUrl", "status", "health"] as const;
 
 function touchesIdentityFields(input: EditUserInput): boolean {
 	return IDENTITY_FIELDS.some((f) => input[f] !== undefined);
@@ -1039,12 +1014,12 @@ async function editExistingUserRun(
 
 	if (
 		existing.kind === "human" &&
-		(input.name !== undefined || input.email !== undefined || input.avatarUrl !== undefined) &&
+		(input.name !== undefined || input.avatarUrl !== undefined) &&
 		ctx.actor !== id
 	) {
 		return problem(
 			"own_profile_only",
-			"Only this person may change their own name, email or avatar.",
+			"Only this person may change their own name or avatar.",
 			"name",
 		);
 	}
@@ -1059,9 +1034,6 @@ async function editExistingUserRun(
 	}
 	if (input.inbox !== undefined && ctx.actor !== id) {
 		return problem("yourself_only", "Your inbox is edited on your own view only.", "inbox");
-	}
-	if (input.behaviour !== undefined && ctx.actor !== id) {
-		return problem("yourself_only", "Behaviour is edited on your own view only.", "behaviour");
 	}
 
 	for (const e of input.edges?.add ?? []) {
@@ -1238,7 +1210,7 @@ async function editExistingUserRun(
 		}
 	});
 
-	// -- post-commit: ports, documents, behaviour, redetect, retire archive.
+	// -- post-commit: ports, documents, redetect, retire archive.
 	// No port or document call sits inside the transaction above. A
 	// folder/connection problem is held, not returned, so the rest of this
 	// sequence — including the `user.changed` emit below — still runs (see
@@ -1280,15 +1252,6 @@ async function editExistingUserRun(
 		await identity.archiveChildren(ctx.db, ctx.actor, id);
 	}
 
-	if (input.behaviour) {
-		for (const entry of input.behaviour) {
-			await deps.behaviour.patch(ctx.db, {
-				id: entry.id,
-				fields: entry.fields,
-				createdByUserId: ctx.actor,
-			});
-		}
-	}
 	if (input.redetectHarnesses && deps.harnesses) await deps.harnesses.redetect();
 
 	if (mainChangeRow) ctx.eventBus.emit(objectEvent(mainChangeRow));

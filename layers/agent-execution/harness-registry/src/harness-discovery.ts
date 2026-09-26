@@ -20,7 +20,7 @@ function stripAnsi(value: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// AV2 — CLI model parsers
+// CLI model parsers
 // ---------------------------------------------------------------------------
 
 /**
@@ -291,14 +291,14 @@ function parseOpenCodeCatalog(output: string): HarnessModelDescriptor[] {
 }
 
 /**
- * AC5 result of the harmless real one-shot session probe.
+ * Result of the harmless real one-shot session probe.
  * `runtimeFromDiscovery` only sets fileEditing/toolUse `true` when
  * `sessionProbe?.ok === true` — auth status alone proves login, NOT launchability.
  */
 interface HarnessSessionProbeResult {
 	readonly ok: boolean;
 	readonly family: "codex" | "claude-code" | "opencode";
-	/** First captured usage-bearing event line; committed as a fixture for AC6. */
+	/** First captured usage-bearing event line; committed as a test fixture. */
 	readonly capturedLine?: string;
 	/** Parsed native event type, e.g. "turn.completed" | "result". */
 	readonly eventType?: string;
@@ -317,7 +317,7 @@ interface HarnessDiscoveryInput {
 	readonly authAction?: HarnessAuthActionDescriptor;
 	readonly models?: readonly HarnessModelDescriptor[];
 	/**
-	 * AC5: result of the harmless real one-shot session probe. `runtimeFromDiscovery`
+	 * Result of the harmless real one-shot session probe. `runtimeFromDiscovery`
 	 * only sets fileEditing/toolUse `true` when `sessionProbe?.ok === true` — auth status
 	 * alone proves login, NOT launchability. Absent ⇒ no session probe ran ⇒ caps stay false.
 	 */
@@ -642,7 +642,7 @@ const CLI_PROBE_CONFIGS: readonly [CliProbeConfig, CliProbeConfig, CliProbeConfi
 				const hasCredentials =
 					/\d+\s+credentials/.test(stdout) || stdout.includes("environment variable");
 				if (hasCredentials) {
-					// AV2: run `opencode models --verbose` to discover available models.
+					// Run `opencode models --verbose` to discover available models.
 					// ⚠️ UNVERIFIED — format captured 2026-07-06 from `opencode models --verbose`.
 					let models: readonly HarnessModelDescriptor[] = [];
 					try {
@@ -739,7 +739,7 @@ async function probeCli(
  * readiness means the binary is installed and logged in.
  */
 /**
- * Probe the local environment for the first-class harness families AM2 cares about.
+ * Probe the local environment for the first-class harness families HyperIdle supports.
  *
  * @lore AM2: This probes public, non-destructive commands only (version, auth status,
  *  providers list). It never reads provider credential files and never starts an agent

@@ -19,7 +19,7 @@ import { SettingsAppearance } from "../../settings/SettingsAppearance";
 // Mock hooks used by settings components
 vi.mock("../../hooks/useCurrentUser", () => ({
 	useCurrentUser: () => ({
-		user: { id: "u-founder", name: "Test Founder", email: "test@example.com", avatarUrl: null },
+		user: { id: "u-founder", name: "Test Founder", avatarUrl: null },
 		status: "ready",
 		error: null,
 	}),

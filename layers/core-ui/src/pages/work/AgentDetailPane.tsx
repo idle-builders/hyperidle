@@ -1,5 +1,5 @@
 /**
- * AV4 — AgentDetailPane: AgentEditDialog body lifted into a plain pane.
+ * AgentDetailPane: AgentEditDialog body lifted into a plain pane.
  *
  * The <Dialog> shell is STRIPPED — no role="dialog" is emitted anywhere (AC#3).
  * This is the body of AgentEditDialog, not a fork — logic must stay in sync.
@@ -18,11 +18,7 @@
  * header while that fetch is in flight.
  */
 
-import {
-	roleLabel as deriveRoleLabel,
-	HARNESS_TYPES,
-	type HarnessType,
-} from "@hyperidle/domain-model";
+import { HARNESS_TYPES, type HarnessType } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useState } from "react";
 import { Link as RRLink } from "react-router-dom";
 // hearth-internal-padding
@@ -32,6 +28,7 @@ import { call } from "../../services/call.js";
 import type { AgentConfig } from "../../settings/settings-types.js";
 import { useToast } from "../../shell/ToastRegion.js";
 import { deriveInitials } from "../../utils/initials.js";
+import { roleLabel as deriveRoleLabel } from "../../utils/role-label.js";
 
 export interface AgentDetailPaneProps {
 	/** Non-null = display this agent; null = empty state. */

@@ -1,4 +1,4 @@
-// AL1 review canvases — shared source-attribution header.
+// Canvases — shared source-attribution header.
 //
 // Founder feedback (human-design-review round 1): every canvas should make the
 // SOURCE APP obvious at the top and offer a jump-off link back to the original

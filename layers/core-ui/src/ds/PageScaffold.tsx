@@ -1,9 +1,9 @@
 /**
- * PageScaffold — Tier 1 DS component (AZ2).
+ * PageScaffold — Tier 1 DS component.
  *
- * The one place a page declares its scroll contract. Before AZ2, the contract
+ * The one place a page declares its scroll contract. Before it, the contract
  * was prose in `docs/ui-design/page-anatomy.md` that each page hand-copied —
- * incompletely, in three places (see AZ2 round.md §2.2). PageScaffold makes it
+ * incompletely, in three places. PageScaffold makes it
  * a component: a page that wants to scroll calls this; it cannot hand-write the
  * combination of classes that scrolls (or that silently clips) instead.
  *
@@ -13,7 +13,7 @@
  *   "managed" — the child owns its own scrolling (SplitView, ConversationSurface,
  *             a detail pane). The scaffold still guarantees the child a bounded
  *             flex column to size against — that bound is the whole fix for the
- *             WorkTeam live defect (AZ2 round.md §2.3 shape C → the managed body).
+ *             WorkTeam live defect (the managed body).
  *
  * @lore AZ2 §2.3: the scroll body below is `flex-1 overflow-y-auto` with
  * **no `min-h-0`**. This is deliberate, not an oversight — a headless Chromium

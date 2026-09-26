@@ -82,7 +82,7 @@ const BASE_THREAD = {
 /** Wires the hooks so the overlay resolves an existing, empty assistant thread. */
 function mockReadyThread(): void {
 	vi.mocked(useCurrentUser).mockReturnValue({
-		user: { id: MY_USER_ID, name: "Founder", email: "founder@example.com", avatarUrl: null },
+		user: { id: MY_USER_ID, name: "Founder", avatarUrl: null },
 		status: "ready",
 		error: null,
 		retry: vi.fn(),

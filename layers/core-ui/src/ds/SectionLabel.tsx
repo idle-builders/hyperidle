@@ -1,5 +1,5 @@
 /**
- * SectionLabel — Tier 1 DS component (AI7).
+ * SectionLabel — Tier 1 DS component.
  *
  * Canonical uppercase section heading used across all primary pages.
  * Encodes the one section-label treatment: 13px / 600 / uppercase /

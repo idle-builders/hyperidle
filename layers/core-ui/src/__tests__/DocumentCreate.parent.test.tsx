@@ -40,7 +40,7 @@ vi.mock("../services/call.js", () => ({
 
 vi.mock("../hooks/useCurrentUser.js", () => ({
 	useCurrentUser: () => ({
-		user: { id: "u1", name: "Founder", email: "f@example.com", avatarUrl: null },
+		user: { id: "u1", name: "Founder", avatarUrl: null },
 		status: "ready",
 		error: null,
 		retry: vi.fn(),

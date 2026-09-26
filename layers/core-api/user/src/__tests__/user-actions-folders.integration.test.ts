@@ -185,12 +185,6 @@ function buildDeps(
 			remove: async () => ({ ok: false, code: "NOT_FOUND" }) as const,
 		},
 		readServerConfig: async () => ({ harnessDisabled: [] }),
-		behaviour: {
-			list: async () => [],
-			patch: async () => {
-				throw new Error("behaviour.patch: not exercised in this test");
-			},
-		},
 		searchDocuments: runnerFor(documentActions, "search_documents"),
 		editDocument: runnerFor(documentActions, "edit_document"),
 	};

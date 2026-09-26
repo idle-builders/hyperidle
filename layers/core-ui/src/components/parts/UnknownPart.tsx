@@ -1,5 +1,5 @@
 /**
- * AM1 — UnknownPart: the quiet fallback for an unrecognised source shape.
+ * UnknownPart: the quiet fallback for an unrecognised source shape.
  *
  * A redacted payload or a wire-unrecognised message type degrades to this
  * one-line placeholder (never throws — mirrors Block `unknown`). The

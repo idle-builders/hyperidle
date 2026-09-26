@@ -1,6 +1,6 @@
 /**
  * Batched thread title resolver — moved from `routes/threads.ts`'s
- * `resolveThreadTitles` (AF14 AC1), one query per host-kind bucket, never
+ * `resolveThreadTitles`, one query per host-kind bucket, never
  * N+1. Rung 0 is the stored `threads.title`; there is no host-`task` rung —
  * a task's thread is `team`-hosted now, and nothing computes a
  * team-conversation title from a task.

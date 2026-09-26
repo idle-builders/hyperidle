@@ -103,7 +103,7 @@ beforeEach(async () => {
 			return Promise.resolve(
 				new Response(
 					JSON.stringify({
-						profile: { name: "Test User", email: "test@example.com", avatarUrl: "" },
+						profile: { name: "Test User", avatarUrl: "" },
 						teams: [],
 						users: [],
 						notifications: {
@@ -120,13 +120,12 @@ beforeEach(async () => {
 				),
 			);
 		}
-		if (urlStr.includes("/api/users/me") || urlStr.includes("/api/auth/me")) {
+		if (urlStr.includes("/api/users/me")) {
 			return Promise.resolve(
 				new Response(
 					JSON.stringify({
 						id: "u-test",
 						name: "Test User",
-						email: "test@example.com",
 						role: "founder",
 						kind: "human",
 					}),

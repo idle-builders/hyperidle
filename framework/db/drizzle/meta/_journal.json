@@ -631,6 +631,34 @@
 			"when": 1790072881807,
 			"tag": "0090_team_is_a_name",
 			"breakpoints": true
+		},
+		{
+			"idx": 91,
+			"version": "7",
+			"when": 1790159281807,
+			"tag": "0091_drop_unfiled_grouping_roots",
+			"breakpoints": true
+		},
+		{
+			"idx": 92,
+			"version": "7",
+			"when": 1790245681807,
+			"tag": "0092_plugin_install_per_scope",
+			"breakpoints": true
+		},
+		{
+			"idx": 93,
+			"version": "7",
+			"when": 1790332081807,
+			"tag": "0093_drop_opinion_era_storage",
+			"breakpoints": true
+		},
+		{
+			"idx": 94,
+			"version": "7",
+			"when": 1790418481807,
+			"tag": "0094_drop_invite_and_login_sessions",
+			"breakpoints": true
 		}
 	]
 }

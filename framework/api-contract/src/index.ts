@@ -6,13 +6,8 @@
  * No runtime code — only TypeScript interfaces and type aliases.
  */
 
-// @lore BC5 T11: `CoreApiPort` and every type it carried
-// (`CoreApiOrgPort`/`CoreApiTransport`/`CoreApiUsersPort`/`CreateOrgTeamRequest`/
-// `OrgTeamMembershipView`/`OrgTeamView`/`PersistScaffoldedAgentsResponse`/
-// `ScaffoldFromRequestInput`/`UpdateOrgTeamRequest`/`UserView`) are DELETED —
-// `create_team`/`add_agent`, the seam's last two tools, are gone with the
-// `org` package they wrote through. Only the wire-protocol header both sides
-// of that seam agreed on survives, moved to its own file.
+// Orchestration reaches core only through actions; the actor-override header
+// is the one wire constant both sides share.
 export { CORE_API_ACTOR_OVERRIDE_HEADER } from "./actor-override-header.js";
 export type {
 	// Sub-port interfaces reachable as AgentOrchestrationPort["<member>"] —

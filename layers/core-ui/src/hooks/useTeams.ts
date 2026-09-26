@@ -31,7 +31,7 @@ export interface UseTeamsResult {
 	data: { readonly teams: readonly TeamsListItem[] } | null;
 	loading: boolean;
 	error: Error | null;
-	/** Trigger a fresh fetch — used by ErrorState onRetry (AC4). */
+	/** Trigger a fresh fetch — used by ErrorState onRetry. */
 	refetch: () => void;
 }
 

@@ -43,7 +43,7 @@ export interface ResolvedMention {
 	sourceText: string;
 }
 
-// MentionSegment moved to layers/core-ui/src/ds/mention-segments.ts (AU44-b8).
+// MentionSegment moved to layers/core-ui/src/ds/mention-segments.ts.
 
 // ── resolveMentionsInText ───────────────────────────────────────────────────
 
@@ -110,4 +110,4 @@ export function resolveMentionsInText(
 	return resolved;
 }
 
-// segmentMentions moved to layers/core-ui/src/ds/mention-segments.ts (AU44-b8).
+// segmentMentions moved to layers/core-ui/src/ds/mention-segments.ts.

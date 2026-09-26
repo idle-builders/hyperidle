@@ -1,5 +1,5 @@
 /**
- * AU21 §6 Decision B placement ruling — the `task_run` emit-time resolver,
+ * Placement ruling — the `task_run` emit-time resolver,
  * paired with its three real emit sites: `task-state-machine.ts`,
  * `bet-decomposition.ts` (same package, plain import) and
  * `layers/core-api/policy/src/handoff-protocol.ts` (a sibling package,
@@ -48,7 +48,7 @@ export interface TaskRunResolverDeps {
 	 */
 	getAgentIdentity(db: HyperIdleDb, agentId: string): Promise<string | null>;
 	/**
-	 * AU21 §9 Increment 12 (Decision H3) — optional: `@hyperidle/user`'s
+	 * Optional: `@hyperidle/user`'s
 	 * `getTeam`, injected (Mechanism C — `@hyperidle/work`'s `package.json`
 	 * depends only on `@hyperidle/db` + framework packages, never
 	 * `@hyperidle/user`). Absent at a call site not yet wired to bake context
@@ -58,7 +58,7 @@ export interface TaskRunResolverDeps {
 	 */
 	getTeamById?(db: HyperIdleDb, id: string): Promise<Team | undefined>;
 	/**
-	 * AU21 §9 Increment 12 (Decision H3) — optional: `@hyperidle/document`'s
+	 * Optional: `@hyperidle/document`'s
 	 * `assembleSessionDocuments` (Wave A), injected for the same Mechanism C
 	 * reason as `getTeamById` above.
 	 */
@@ -66,13 +66,12 @@ export interface TaskRunResolverDeps {
 		db: HyperIdleDb,
 		input: {
 			readonly teamId: string;
-			readonly agentRole: string;
 			readonly taskDescription: string;
 			readonly agentId: string;
 		},
 	): Promise<readonly SessionDocumentLike[]>;
 	/**
-	 * AU21 §9 Increment 12 (Decision H3), Wave E — optional: `@hyperidle/settings`'s
+	 * Optional: `@hyperidle/settings`'s
 	 * `readServerConfig`, injected (Mechanism C — `@hyperidle/work` cannot
 	 * import `@hyperidle/settings` directly) for the `harnessDisabled` bake.
 	 * Absent at a call site not yet wired — the resolver bakes no
@@ -95,7 +94,7 @@ export interface BakedTaskRunRequest {
 		readonly teamId: string;
 	};
 	/**
-	 * AU21 §9 Increment 12 (Decision H3) — the task/bet/agent/team content +
+	 * The task/bet/agent/team content +
 	 * ranked documents a `task_run` session's sandbox needs, baked at emit time
 	 * from the SAME `task` (+ its `bet`) this resolver already loads to
 	 * validate. Present only when `deps.getTeamById`/`deps.assembleSessionDocuments`
@@ -103,7 +102,7 @@ export interface BakedTaskRunRequest {
 	 */
 	readonly contextBundle?: BakedContextBundle;
 	/**
-	 * AU21 §9 Increment 12 (Decision H3), Wave E — the target agent's
+	 * The target agent's
 	 * runnable-config snapshot, baked from the SAME already-`requireRunnableAgent`
 	 * -validated `agent: User` row (`BakedAgentRunnableConfig`, `@hyperidle/work-intent-port`).
 	 * Always present (no optional-deps gate) — `admitSession`'s Phase 1/3 need
@@ -111,7 +110,7 @@ export interface BakedTaskRunRequest {
 	 */
 	readonly agentConfig: BakedAgentRunnableConfig;
 	/**
-	 * AU21 §9 Increment 12 (Decision H3), Wave E — the server's
+	 * The server's
 	 * disabled-harness-types list. Present only when `deps.readServerConfig`
 	 * was supplied (see `TaskRunResolverDeps` `@lore`).
 	 */
@@ -150,14 +149,13 @@ export async function bakeTaskContextBundle(
 	if (!team) return undefined;
 	const knowledge = await assembleSessionDocuments(db, {
 		teamId: task.teamId,
-		agentRole: agent.role,
 		taskDescription: task.description ?? task.title,
 		agentId: agent.id,
 	});
 	return {
 		kind: "task",
 		task: { id: task.id, title: task.title, description: task.description, state: task.state },
-		// BB1: root-first, so the agent reads the goal chain top-down.
+		// Root-first, so the agent reads the goal chain top-down.
 		ancestors: ancestors.map((a) => ({
 			id: a.id,
 			title: a.title,
@@ -180,7 +178,7 @@ const AGENT_WORK_ELIGIBLE_TASK_STATES: ReadonlySet<string> = new Set([
 /**
  * Discriminated input for the unified resolver.
  *
- * AU44 B3: `resolveSessionStartRequest` (session_start resolver, a strict
+ * `resolveSessionStartRequest` (session_start resolver, a strict
  * subset of the task_run resolver) merged here. The `session_start` path
  * takes the taskId/agentId directly — the route has them in hand from the
  * just-inserted explicitSessionStarts row and does not re-read it.
@@ -256,14 +254,14 @@ export async function resolveTaskRunRequest(
 	// provisioner never touches documents.
 	const agentPersona = await deps.getAgentIdentity(db, agent.id);
 
-	// AU21 §9 Increment 12 (Decision H3): bake the contextBundle only when the
+	// Bake the contextBundle only when the
 	// caller supplied both context deps (see TaskRunResolverDeps `@lore`) —
 	// destructured into locals so TS keeps them narrowed non-optional inside
 	// the block below, no non-null assertion needed.
 	let contextBundle: BakedContextBundle | undefined;
 	const { getTeamById, assembleSessionDocuments, readServerConfig } = deps;
 	if (getTeamById && assembleSessionDocuments) {
-		// BB1: the containing work is now a chain, not a single bet.
+		// The containing work is now a chain, not a single bet.
 		// `listAncestorIds` returns nearest-first; the bundle wants root-first.
 		const ancestorIds = await work.listAncestorIds(db, task.id);
 		const ancestorRows =

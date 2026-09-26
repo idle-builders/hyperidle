@@ -58,18 +58,15 @@ to make a deploy easier.
 
 ## Factory bootstrap (AF17)
 
-The **factory bootstrap** (`applyFactoryCoreState` +
-`applyFactoryRunConfigDefaults`, two layer faces —
-`layers/core-api/src/bootstrap/factory-state.ts` and
-`layers/agent-orchestration/src/factory-run-config.ts`) is the team-agnostic
-baseline row-set every HyperIdle instance needs to function: the
-`system:propagation` identity, the System Agent singleton, the AH2 runnable
-defaults, and the `scope_kind="factory"` principle. It seeds no roster and no
-personas — those come from plugins (BA9d retired the facilitator agents; BA9g
-removed the roster concept from the core). It is **idempotent** (safe
-to re-run) and **carries no user-facing `team_id`**. It runs on every desktop
-launch after the desktop migrate step (`applications/desktop/src/main.ts`),
-which calls the two faces directly, in order.
+The **factory bootstrap** (`applyFactoryCoreState`,
+`layers/core-api/src/bootstrap/factory-state.ts`) writes the one row every
+HyperIdle instance needs to function: the hidden `system:propagation` actor that
+system writes are attributed to. No list of users shows it. It seeds no agent,
+no roster and no personas — the person's assistant comes from the welcome
+screen, everything else from plugins or from the person. It is **idempotent**
+(safe to re-run) and **carries no user-facing `team_id`**. It runs on every
+desktop launch after the desktop migrate step
+(`applications/desktop/src/main.ts`).
 
 **Gap:** `tools/setup/src/bootstrap-pg.ts` (the deploy-time bootstrap CLI,
 meant to run as a second init-container after migrate) is **not wired into the

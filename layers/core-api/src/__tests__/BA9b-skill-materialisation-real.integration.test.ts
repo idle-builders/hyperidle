@@ -192,7 +192,6 @@ async function assembleSkillIntoSandbox(db: import("@hyperidle/db").HyperIdleDb)
 
 	const knowledge = await assembleSessionDocuments(db, {
 		teamId: TEAM_ID,
-		agentRole: "builder",
 		taskDescription: "Probe task",
 		agentId: AGENT_ID,
 	});
@@ -227,7 +226,6 @@ async function assembleSkillIntoSandbox(db: import("@hyperidle/db").HyperIdleDb)
 				sessionId: "session-ba9b-probe",
 				taskId: "task-ba9b-probe",
 				agentId: AGENT_ID,
-				agentRole: "builder",
 				teamId: TEAM_ID,
 				taskFree: false,
 				sourceKind: null,

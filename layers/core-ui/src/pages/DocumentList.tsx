@@ -104,7 +104,7 @@ function deriveSort(searchParams: URLSearchParams): DocumentSortOption {
 	return isDocumentSortOption(raw) ? raw : "recency";
 }
 
-// AG6: KnowledgeListRow deleted. Rows now rendered via Row + ItemList variant="flush".
+// KnowledgeListRow deleted. Rows now rendered via Row + ItemList variant="flush".
 
 /**
  * A triage row's trailing meta cells — private badge, status badge, relative
@@ -149,7 +149,7 @@ function triageRowCells(item: DocumentRow): RowCell[] {
 interface DocumentListContentProps {
 	tab: DocumentTab;
 	sort: DocumentSortOption;
-	/** AD6: The currently selected static scope pill option. null = "All". */
+	/** The currently selected static scope pill option. null = "All". */
 	selectedScopePill: ScopePillOption | null;
 	onScopePillChange: (pill: ScopePillOption | null) => void;
 	onSortChange: (option: DocumentSortOption) => void;
@@ -342,9 +342,9 @@ function DocumentListContent({
 				</div>
 			</div>
 			{/*
-			 * AD6: Static 4-pill scope filter row.
+			 * Static 4-pill scope filter row.
 			 * All → no filter | Shared → factory+product+practice | Team → team | Private → user.
-			 * AI5: consolidated to the shared ScopePicker primitive (filter mode).
+			 * Consolidated to the shared ScopePicker primitive (filter mode).
 			 * The "All" pill (filterKinds=null) maps to value=null; selecting any
 			 * other pill resolves the id back to its SCOPE_PILL_OPTIONS entry.
 			 */}
@@ -603,7 +603,7 @@ export function DocumentList({
 	const [tab, setTab] = useState<DocumentTab>("triage");
 	const tabManuallySelectedRef = useRef(false);
 	/**
-	 * AD6: selectedScopePill — null means "All" (no filter).
+	 * SelectedScopePill — null means "All" (no filter).
 	 * Replaces the old dynamic string-keyed selectedScopeFilter.
 	 */
 	const [selectedScopePill, setSelectedScopePill] = useState<ScopePillOption | null>(null);
@@ -662,7 +662,7 @@ export function DocumentList({
 	);
 
 	/**
-	 * AD6: Apply static scope filter before triage/curated split.
+	 * Apply static scope filter before triage/curated split.
 	 * null pill → all items | specific pill → only items whose scopeKind is in filterKinds.
 	 * Also applies optimisticStatuses overrides so triage/curated split reflects
 	 * the immediate user action without waiting for refetch.
@@ -787,7 +787,7 @@ export function DocumentList({
 			frame="page"
 			data-testid="document-list-page"
 			header={
-				/* AI7: PageHeader — Documents title + tabs + search + New button in actions.
+				/* PageHeader — Documents title + tabs + search + New button in actions.
 				    When systemEmpty: title only. When populated: tabs + search + New in actions. */
 				<PageHeader
 					title={
@@ -822,7 +822,7 @@ export function DocumentList({
 						}
 						iconBg="rgba(46,125,186,0.08)"
 						action={
-							/* AI5: shared Button primitive. */
+							/* Shared Button primitive. */
 							<Button variant="primary" onClick={() => navigate("/documents/new")}>
 								Create first document
 							</Button>

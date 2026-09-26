@@ -1,5 +1,5 @@
 /**
- * AL7 delta — Per-session CLI MCP config writer.
+ * Per-session CLI MCP config writer.
  *
  * Each supported CLI binary reads MCP server configuration from a binary-specific
  * dialect file written into the per-session sandbox. This writer handles both:
@@ -81,7 +81,7 @@ interface HarnessMcpConfigResult {
  * Root-level files emitted by writeCliMcpConfig, indexed by dialect.
  * - codex-toml: writes .codex-home/config.toml (covered by .codex-home root).
  * - opencode-json: writes opencode.json in the sandbox root.
- * Exported so the AO2 scaffolding-drift-guard can assert coverage.
+ * Exported so the scaffolding-drift-guard can assert coverage.
  *
  * The Codex home and OpenCode config are both rooted inside the session sandbox.
  */

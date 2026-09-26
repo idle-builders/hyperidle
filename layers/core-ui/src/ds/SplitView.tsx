@@ -1,6 +1,6 @@
-// AM5 — The shared fold / SplitView primitive (the open presentation).
+// The shared fold / SplitView primitive (the open presentation).
 //
-// EXTRACTED, not reinvented. This is the ONE net-new container shape AM5 requires
+// EXTRACTED, not reinvented. This is the ONE net-new container shape the design requires
 // — the generalization of chat's proportional `flex-row` split (Conversations.tsx)
 // into a content-agnostic `origin | seam | destination` with a single draggable
 // seam and contextual icon mode-controls floated over the destination half.

@@ -3,7 +3,7 @@
  *
  * @lore BC4 gate-walk finding: widening a private tree document to Team
  * requires a `scopeId`. The person's own team is already carried from
- * `/auth/me` (`useCurrentUser`), so the field prefills with it instead of
+ * `open_user` (`useCurrentUser`), so the field prefills with it instead of
  * asking the person to know and type their own team's id — the field stays
  * editable, this is a default, not a lock.
  */
@@ -24,7 +24,7 @@ import { ScopeChangeDialog } from "../ScopeChangeDialog";
 
 function mockUser(overrides: { teamId?: string } = {}): void {
 	vi.mocked(useCurrentUser).mockReturnValue({
-		user: { id: "user-1", name: "User", email: "u@x.com", avatarUrl: null, ...overrides },
+		user: { id: "user-1", name: "User", avatarUrl: null, ...overrides },
 		status: "ready",
 		error: null,
 		retry: vi.fn(),

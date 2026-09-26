@@ -1,6 +1,6 @@
 // @hyperidle/design-system — barrel export
 
-// ── AI4: Re-export AgentOperationalStatus type (lives in shared, needed by ds consumers) ──
+// ── Re-export AgentOperationalStatus type (lives in shared, needed by ds consumers) ──
 export type { AgentOperationalStatus } from "@hyperidle/domain-model";
 // ── Artifact view family (closed: 3 sub-primitives + 3 layouts; L3) ──
 // @lore AU21 Increment 14a: ArtifactCostChip deleted along with the rest of
@@ -23,12 +23,12 @@ export { BlockActionsPopover } from "./BlockActionsPopover.js";
 // ── T1: BodyEditor — TipTap WYSIWYG editor ──
 export type { BodyEditorProps } from "./BodyEditor.js";
 export { BodyEditor } from "./BodyEditor.js";
-// ── AG4: Breadcrumb — Tier 1 DS nav orientation strip ──
+// ── Breadcrumb — Tier 1 DS nav orientation strip ──
 export type { BreadcrumbProps, BreadcrumbSegment } from "./Breadcrumb.js";
 export { Breadcrumb } from "./Breadcrumb.js";
 export type { ButtonProps } from "./Button.js";
 export { Button } from "./Button.js";
-// ── AM5: base-primitive content foundations (the block-payload layer, promoted
+// ── Base-primitive content foundations (the block-payload layer, promoted
 // to first-class DS foundations so each is individually reviewable). The diff is
 // NOT in here (K0) — it lives in the Review composition. ──
 export type { CodePayloadProps } from "./block/CodePayload.js";
@@ -59,14 +59,14 @@ export type { ComposerProps, ComposerSubmitInput } from "./Composer.js";
 export { Composer } from "./Composer.js";
 // ── Support ──
 export { clickableProps } from "./clickable.js";
-// ── AI2: Dialog primitive + behavioral hook ──
+// ── Dialog primitive + behavioral hook ──
 // @lore AU43 bundle-03: DialogPortalRoot deleted — zero mounts; AppShell calls ensureOverlayRoot directly.
 export type { DialogLayer, DialogProps, DialogSize } from "./Dialog.js";
 export { Dialog } from "./Dialog.js";
 // @lore BC4: renamed from KnowledgeRow — DocumentRow is taken by the wire type (architecture.md §2).
 export type { DocRowProps, DocRowSignals } from "./DocRow.js";
 export { DocRow } from "./DocRow.js";
-// ── AM5: DS diff core — (code,diff) structural renderer (K2b) ──
+// ── DS diff core — (code,diff) structural renderer ──
 // @lore AU43 bundle-03: getDiffRenderer/DiffRendererComponent/DiffRendererProps deleted —
 // ReviewCodeDiff imports CodeDeltaRenderer directly; the registry had one entry and zero callers.
 export type { CodeDelta, CodeDeltaProps, DiffLineRef } from "./diff/code-delta-renderer.js";
@@ -81,20 +81,20 @@ export type { EmptyStateProps } from "./EmptyState.js";
 export { EmptyState } from "./EmptyState.js";
 export type { ErrorStateProps } from "./ErrorState.js";
 export { ErrorState } from "./ErrorState.js";
-// ── AM1: Fold — calm collapse-to-summary device ──
+// ── Fold — calm collapse-to-summary device ──
 export type { FoldProps } from "./Fold.js";
 export { Fold } from "./Fold.js";
 export type { InputProps } from "./Input.js";
 export { Input } from "./Input.js";
-// ── AG6: Row + ItemList + RowDot shared list-row primitives ──
+// ── Row + ItemList + RowDot shared list-row primitives ──
 export type { ItemListEmpty, ItemListError, ItemListProps } from "./ItemList.js";
 export { ItemList } from "./ItemList.js";
 export type { KeyValueProps } from "./KeyValue.js";
 export { KeyValue } from "./KeyValue.js";
-// ── AM5: KpiStat + Sparkline — extracted base primitives from data-renderer ──
+// ── KpiStat + Sparkline — extracted base primitives from data-renderer ──
 export type { KpiStatMetric, KpiStatProps } from "./KpiStat.js";
 export { KpiStat } from "./KpiStat.js";
-// ── AI4 Task 5: LiveDot — promoted from WorkTask/TaskSheet ──
+// ── LiveDot — promoted from WorkTask/TaskSheet ──
 export { LiveDot } from "./LiveDot.js";
 export type { MenuItem, MenuProps } from "./Menu.js";
 export { Menu } from "./Menu.js";
@@ -104,16 +104,16 @@ export type { NotificationRowProps } from "./NotificationRow.js";
 export { NotificationRow } from "./NotificationRow.js";
 export type { PageFrameProps } from "./PageFrame.js";
 export { PageFrame } from "./PageFrame.js";
-// ── AI7: PageHeader — canonical page-title strip (Tier 1) ──
+// ── PageHeader — canonical page-title strip (Tier 1) ──
 export type { PageHeaderProps } from "./PageHeader.js";
 export { PageHeader, pageTitleClassName, paneTitleClassName } from "./PageHeader.js";
-// ── AZ2: PageScaffold — canonical page scroll contract (Tier 1) ──
+// ── PageScaffold — canonical page scroll contract (Tier 1) ──
 export type { PageScaffoldProps } from "./PageScaffold.js";
 export { PageScaffold } from "./PageScaffold.js";
 export type { ProgressProps } from "./Progress.js";
 export { Progress } from "./Progress.js";
 // U8: PitchCard deleted from design-system exports.
-// ── AM1: ReferenceChip — single shared attachment/reference primitive ──
+// ── ReferenceChip — single shared attachment/reference primitive ──
 export type { ReferenceChipKind, ReferenceChipMode, ReferenceChipProps } from "./ReferenceChip.js";
 export { ReferenceChip } from "./ReferenceChip.js";
 export type {
@@ -134,7 +134,7 @@ export type { ScopePickerOption, ScopePickerProps } from "./ScopePicker.js";
 export { ScopePicker } from "./ScopePicker.js";
 export type { SearchFieldProps } from "./SearchField.js";
 export { SearchField } from "./SearchField.js";
-// ── AI7: SectionLabel — canonical uppercase section heading (Tier 1) ──
+// ── SectionLabel — canonical uppercase section heading (Tier 1) ──
 export type { SectionLabelProps } from "./SectionLabel.js";
 export { SectionLabel } from "./SectionLabel.js";
 export type { SelectProps } from "./Select.js";

@@ -10,7 +10,7 @@ import { updateFilesystemState } from "./filesystem-registry.js";
  *  - needs_attention: unresolvable / unauthenticated connection.
  *
  * Declared here — next to resolveFilesystemState which returns it — not as a
- * named export in @hyperidle/domain-model (AU44 b2 dissolution). */
+ * named export in @hyperidle/domain-model. */
 export type FilesystemState = "attached" | "reachable" | "needs_attention";
 
 import type { FilesystemsGitRunnerFactory, FilesystemTokenResolver } from "./ports.js";

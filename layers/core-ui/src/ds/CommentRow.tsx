@@ -77,7 +77,7 @@ export interface CommentRowProps extends CommentRowRichSlots {
 }
 
 /**
- * AE5: MentionToken — inline highlighted span for @mention rendering.
+ * MentionToken — inline highlighted span for @mention rendering.
  *
  * Visual treatment per design spec:
  * - Background: var(--accent-primary) at 8% opacity
@@ -101,7 +101,7 @@ function MentionToken({ displayName }: { displayName: string }): JSX.Element {
 
 /**
  * Renders the payloads for a plain message through the block payload pipeline.
- * AE5: When the message has MentionRef entries in refs[], the text is first
+ * When the message has MentionRef entries in refs[], the text is first
  * segmented by segmentMentions() so @name tokens render as MentionToken spans.
  *
  * @lore R3: plain messages are rendered through derivePayloads() → renderPayload()
@@ -122,7 +122,7 @@ function MessagePayloads({
 	refs?: ReadonlyArray<InlineRef>;
 	sanitizeHtml?: (raw: string) => string;
 }): JSX.Element {
-	// AE5: Check if any MentionRef entries exist in refs.
+	// Check if any MentionRef entries exist in refs.
 	// All hooks must be called unconditionally before any early returns.
 	const hasMentions = useMemo(
 		() => Array.isArray(refs) && refs.some((r) => r.kind === "mention"),

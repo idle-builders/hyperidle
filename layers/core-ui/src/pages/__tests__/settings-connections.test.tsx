@@ -63,7 +63,6 @@ function openUserData(): Record<string, unknown> {
 			connections: [],
 			inherited: inheritedRows(),
 		},
-		behaviour: null,
 		inbox: null,
 		reviewTrackRecord: null,
 	};

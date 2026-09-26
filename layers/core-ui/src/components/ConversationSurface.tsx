@@ -1,13 +1,13 @@
 /**
  * Conversation Surface — the FULL-SCOPE conversation embodied in the REAL app
- * container, INTERACTIVE. (The approved AM1 conversation design; story title
+ * container, INTERACTIVE. (The approved conversation design; story title
  * "Conversation Surface".)
  *
  * SCOPE = THE OPEN CONVERSATION (the open thread's content). Header ·
  * author-grouped messages · composer. Navigating BETWEEN threads is the app
  * sidebar (app-shell chrome, NOT part of this design).
  *
- * ── PROP-DRIVEN, ONE SURFACE FOR STORY + PAGE (AM1 task 11) ─────────────────
+ * ── PROP-DRIVEN, ONE SURFACE FOR STORY + PAGE ─────────────────
  * `ConversationSurface` is prop-driven. The STORY passes its fixture (PARTS +
  * fixture header/participants + a console-`onOpen` noop + a noop `onSend`); the
  * PAGE (`Conversations.tsx`) passes real data (`derivePartsFromMessages(...)`,
@@ -16,12 +16,12 @@
  * component — they cannot drift (extends the round-10 no-drift guarantee from
  * the message column to the whole surface).
  *
- * ── COMPOSES THE PRODUCTION RENDERER (AM1 task 10) ──────────────────────────
+ * ── COMPOSES THE PRODUCTION RENDERER ──────────────────────────
  * The message column is rendered by the SAME source-agnostic `<PartList>` the
  * production page uses, over the passed-in `Part[]`. The composer + header
  * chrome (not owned by PartList) stay hand-rolled here so the surface renders
  * stand-alone in the viewer without AppShell's router/context. Reference chips +
- * the Fold come from the design system (promoted in AM1).
+ * the Fold come from the design system.
  *
  * ── THE CONVERSATION OWNS NO VIEWING SURFACE (round-8, founder) ──────────────
  * Reference chips are NAVIGATION HOOKS into the existing OWNED surfaces via the

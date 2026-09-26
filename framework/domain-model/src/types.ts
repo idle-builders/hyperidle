@@ -21,7 +21,7 @@ export const TASK_STATES = [
 export type TaskState = (typeof TASK_STATES)[number];
 
 /**
- * AI4: Human-readable labels for each TaskState. Exhaustive `Record` so adding
+ * Human-readable labels for each TaskState. Exhaustive `Record` so adding
  * a 9th TaskState is a TS error until labelled here.
  *
  * @lore AC1: "met_with_rework"→"Rework" and "partially_met"→"Partial" preserve
@@ -82,7 +82,7 @@ export const MODEL_TIERS = ["reasoning", "workhorse", "fast"] as const;
 export type TriggerType = "heartbeat" | "calendar" | "event" | "continuous";
 
 /**
- * AB0: Agent categories. Closed enum.
+ * Agent categories. Closed enum.
  * - team: bound to a team, domain specialist
  * - individual: bound to a human user (or a factory-wide agent not tied to one team)
  *
@@ -92,8 +92,7 @@ export type TriggerType = "heartbeat" | "calendar" | "event" | "continuous";
  * @lore AD8a: Renamed "personal" → "individual". Migration 0027_AD8a_agent_type_rename.sql
  * updates existing DB rows.
  * @lore BA9d: "strategy" removed. Migration 0065 migrates all strategy rows to "individual".
- * The five seeded facilitators are dropped from factory-state.ts; factory-wide roles
- * (facilitator, scout, infra, platform) now use "individual".
+ * An agent that reaches every team (a plugin's no-team agent) is "individual".
  */
 export const AGENT_CATEGORIES = ["team", "individual"] as const;
 export type AgentCategory = (typeof AGENT_CATEGORIES)[number];
@@ -119,14 +118,6 @@ export type AgentCategory = (typeof AGENT_CATEGORIES)[number];
 export const HARNESS_TYPES = ["claude-code", "codex", "opencode", "cursor-agent"] as const;
 export type HarnessType = (typeof HARNESS_TYPES)[number];
 
-/**
- * AB0: Agent role is an open string. The role catalog in agent-roles.ts provides
- * known roles with metadata, but any non-empty string is a valid role.
- *
- * @lore AB0: This replaces the closed USER_ROLES tuple. The old 6-value enum
- * could not accommodate new domain-specific roles (designer, QA, ops, etc.)
- * without code changes. Open string + catalog avoids the enum expansion problem.
- */
 /**
  * P2: OrgChart edge mechanisms.
  * "direct" = edge targets a specific userId,
@@ -201,7 +192,7 @@ export function scopeKindToLabel(scopeKind: string): string {
 }
 
 /**
- * AC1: Closed enum of task outcome verdicts.
+ * Closed enum of task outcome verdicts.
  * Adding a fifth value is a concept change, not a type change.
  *
  * @lore AC1: Records whether the task's done condition was met during review.
@@ -217,7 +208,7 @@ export const TASK_OUTCOME_VERDICTS = [
 export type TaskOutcomeVerdict = (typeof TASK_OUTCOME_VERDICTS)[number];
 
 /**
- * AI4: Human-readable labels for each TaskOutcomeVerdict (AC2, AC5).
+ * Human-readable labels for each TaskOutcomeVerdict.
  *
  * @lore AC1: "met_with_rework"→"Rework" and "partially_met"→"Partial" preserve
  * WorkBet's pre-existing abbreviated rendering (not a truncation error).
@@ -230,7 +221,7 @@ export const TASK_OUTCOME_VERDICT_LABEL: Record<TaskOutcomeVerdict, string> = {
 };
 
 /**
- * AI4: Human-readable labels for each AgentOperationalStatus (Decision 3a, AC2).
+ * Human-readable labels for each AgentOperationalStatus.
  * AgentOperationalStatus type lives in `team.ts` (pre-existing).
  */
 export const AGENT_OPERATIONAL_STATUS_LABEL: Record<"active" | "error" | "idle", string> = {

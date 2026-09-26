@@ -1,5 +1,5 @@
 /**
- * Conversations page — L9 / AM1: single detail surface, shape-agnostic.
+ * Conversations page — single detail surface, shape-agnostic.
  *
  * Mounted on:
  *   - /conversations          → no :threadId → State A (empty, open a thread)
@@ -68,11 +68,11 @@ import { DocumentDetail } from "./DocumentDetail.js";
 import { ReviewPage } from "./review/ReviewPage.js";
 
 // ---------------------------------------------------------------------------
-// AF14 AC4: Blocking/Unread chip bar removed from Conversations page — neither chip
-// matched real state. The blocking/unread fields remain on ThreadItem for AF7 forward-compat.
+// Blocking/Unread chip bar removed from Conversations page — neither chip
+// matched real state. The blocking/unread fields remain on ThreadItem.
 
 /**
- * AM1: map `open_thread`'s `members` (an Identity[]) into the source-agnostic
+ * Map `open_thread`'s `members` (an Identity[]) into the source-agnostic
  * `PartAuthor[]` the `derivePartsFromMessages` adapter consumes. `isMe` marks
  * the viewer's own messages (the "You" label + own-message styling).
  */
@@ -83,24 +83,24 @@ function identitiesToAuthors(
 	return members.map((identity) => ({
 		id: identity.id,
 		name: identity.name,
-		isAgent: identity.isAgent === true || identity.role === "agent",
+		isAgent: identity.isAgent,
 		isMe: identity.id === viewerId,
 	}));
 }
 
-/** AM1: header participant chips for the ConversationSurface AvatarGroup. */
+/** Header participant chips for the ConversationSurface AvatarGroup. */
 function identitiesToParticipants(
 	members: ThreadView["members"],
 ): ReadonlyArray<ConversationSurfaceParticipant> {
 	return members.map((identity) => ({
 		id: identity.id,
 		name: identity.name,
-		isAgent: identity.isAgent === true || identity.role === "agent",
+		isAgent: identity.isAgent,
 	}));
 }
 
 // ---------------------------------------------------------------------------
-// AM3: SessionViewPanel — wraps useSessionActivity + SessionView.
+// SessionViewPanel — wraps useSessionActivity + SessionView.
 // Opened by the `session` OpenTarget (session-reference Embed or sub-agent row).
 // Placement: right-panel split. The page owns the placement; the session view
 // has no route of its own (architecture §entry).
@@ -279,7 +279,7 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 	const { tasks: threadTasks } = useThreadTasks(threadId);
 	const navigate = useNavigate();
 	const { sidebarMobile } = useViewportBreakpoint();
-	// AM1: viewer identity for own-message ("You") styling in the Part column.
+	// Viewer identity for own-message ("You") styling in the Part column.
 	const { user } = useCurrentUser();
 	const viewerId = user?.id ?? "";
 	// @lore L9: read ToastContext directly (not useToast) so the page renders
@@ -288,13 +288,13 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 	// silently — the response still commits, the toast just doesn't fire.
 	const toast = useContext(ToastContext);
 
-	// AM5 T6: SplitView ratio persistence per surface (hooks must be unconditional)
+	// SplitView ratio persistence per surface (hooks must be unconditional)
 	const [inspectRatio, setInspectRatio] = useUiPreference("conversation.inspect", 0.6);
 	const [inspection, setInspection] = useState<
 		{ kind: "session"; sessionId: string } | { kind: "path"; path: string } | null
 	>(null);
 
-	// AM1: the conversation send path. Sends a `plain` message via
+	// The conversation send path. Sends a `plain` message via
 	// `send_message`, then refreshes. The conversation no longer emits a
 	// verdict — no verdict send is reachable from here (the decision UI
 	// lives on ReviewPage), so the old verdict /
@@ -385,7 +385,7 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 		data.members.map((m) => [m.id, m]),
 	);
 
-	// AM1: derive the render units + header/participants ONCE for both layouts.
+	// Derive the render units + header/participants ONCE for both layouts.
 	// The conversation column comes from the Part adapter (the only Message-aware
 	// seam); the header/participants come from the values the page already has.
 	// @lore UI-003: API returns messages DESC (newest-first, dir:"desc"). Reverse
@@ -397,14 +397,14 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 		identitiesToAuthors(data.members, viewerId),
 	);
 	const participants = identitiesToParticipants(data.members);
-	// AM1: the OpenTarget routing seam. Reference/host navigation flows through the
+	// The OpenTarget routing seam. Reference/host navigation flows through the
 	// one `OpenHandler` — the same descriptor-driven seam the PartList renderer uses.
 	// host targets resolve through resolveHostRoute (total over BlockHostKind);
 	// user/factory are documented no-ops. The review route no longer needs a
 	// page-sourced betId — `/reviews/:reviewId` resolves for every host, bet or
 	// task.
-	// AM3: onOpenSession fills the `case "session"` no-op — fires when a
-	// `session-reference` Embed or a sub-agent tool row is clicked (AC1).
+	// OnOpenSession fills the `case "session"` no-op — fires when a
+	// `session-reference` Embed or a sub-agent tool row is clicked.
 	const openTarget = createOpenHandler(navigate, {
 		onInspectPath: (path) => setInspection({ kind: "path", path }),
 		onOpenSession: (sessionId) => setInspection({ kind: "session", sessionId }),
@@ -558,8 +558,8 @@ export function Conversations(): JSX.Element {
 	};
 	const navigate = useNavigate();
 
-	// AF14 AC4: toggleFilter state removed — Blocking/Unread chips never matched
-	// real state (unread has no backing concept; blocking lands in AF7).
+	// ToggleFilter state removed — Blocking/Unread chips never matched
+	// real state (neither has a backing concept yet).
 	// The header now shows title + New-thread button only.
 
 	const handleSelectThread = useCallback(
@@ -580,7 +580,7 @@ export function Conversations(): JSX.Element {
 				frame="page"
 				data-testid="conversations-page"
 				header={
-					/* AI7: PageHeader — Conversations title + New thread button in actions.
+					/* PageHeader — Conversations title + New thread button in actions.
 					 * Button sits in the PageFrame right edge aligned with the content header.
 					 * data-conversations-header wrapper preserved for e2e + unit test selectors. */
 					<div data-conversations-header>
@@ -630,7 +630,7 @@ export function Conversations(): JSX.Element {
 								</svg>
 							}
 							action={
-								/* AI5: shared Button primitive. */
+								/* Shared Button primitive. */
 								<Button
 									variant="primary"
 									onClick={onNewThread ?? (() => undefined)}

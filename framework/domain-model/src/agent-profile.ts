@@ -1,5 +1,5 @@
 /**
- * AB1 — Agent Profile wire types.
+ * Agent Profile wire types.
  *
  * 7 types that describe the GET /api/agents/:id/profile response shape.
  * These live in @hyperidle/domain-model so both server (response construction)

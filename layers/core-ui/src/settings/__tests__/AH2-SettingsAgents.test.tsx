@@ -73,7 +73,6 @@ describe("AH2 AC2: Agent list rows show no per-row harness warning", () => {
 							name: "Opus Agent",
 							role: "builder",
 							status: "active",
-							email: null,
 							avatarUrl: null,
 							createdAt: "2026-01-01T00:00:00.000Z",
 							agentCategory: "team",
@@ -111,7 +110,6 @@ describe("AH2 AC2: Agent list rows show no per-row harness warning", () => {
 						folders: [],
 						subscriptions: [],
 						connections: null,
-						behaviour: null,
 						inbox: null,
 					},
 				});

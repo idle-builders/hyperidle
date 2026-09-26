@@ -38,6 +38,7 @@ import {
 	buildAgentOrchestrationPort,
 	composeApiApplication,
 	createInProcessAgentOrchestrationTransport,
+	createStandaloneSearchDocuments,
 } from "@hyperidle/core-api";
 import { bootCoreApi } from "@hyperidle/core-api/boot";
 import type { HyperIdleDb } from "@hyperidle/db";
@@ -296,6 +297,13 @@ export async function runEvalSession(
 			assembleSessionDocuments,
 		);
 		const { harnessDisabled } = await readServerConfig(deps.db);
+		// The agent's identity: the `agent_file` document bound to it, read the way
+		// the emit-time pipeline reads it, with the agent as the reader.
+		const identity = await createStandaloneSearchDocuments()(
+			{ actor: agent.id, db: deps.db, eventBus: deps.eventBus, now: new Date().toISOString() },
+			{ parent: { kind: "agent", id: agent.id }, slot: "agent_file", status: "active" },
+		);
+		const persona = identity.ok ? (identity.data[0]?.body ?? null) : null;
 
 		const composition = buildRunOrchestrationComposition({
 			harnessRuntime: buildEvalHarnessRuntimeAdapter(liveServer.mcpBridgeRegistry, liveServer.url),
@@ -325,7 +333,7 @@ export async function runEvalSession(
 					// OPENAI_API_KEY shadows the ChatGPT login it actually authenticates
 					// with. A CLI harness brings its own auth; the model it should run
 					// arrives as `selectedModel`, off the agent's own `model_id`.
-					agentConfig: bakeAgentRunnableConfig(agent),
+					agentConfig: bakeAgentRunnableConfig(agent, persona),
 					...(contextBundle ? { contextBundle } : {}),
 					harnessDisabled,
 					// No cost cap during eval — cost is tracked but not capped.

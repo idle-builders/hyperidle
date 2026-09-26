@@ -1,5 +1,5 @@
 /**
- * AM1 — ProsePart: a plain text body + inline mention accents + ref embeds.
+ * ProsePart: a plain text body + inline mention accents + ref embeds.
  *
  * Mentions render inline as accent tokens (the `mention` Embed abstracts the
  * source `MentionRef` to `{identityId, displayName}`, so this file needs no

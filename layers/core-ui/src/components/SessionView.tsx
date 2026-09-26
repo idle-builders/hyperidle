@@ -1,9 +1,9 @@
 /**
- * AM3 — SessionView: the production session view.
+ * SessionView: the production session view.
  *
  * A streaming human+agent conversation rendered through the SHARED `PartList` /
  * `ConversationSurface` component vocabulary — a session is a slightly different
- * FORM of conversation. No parallel renderer (AM3 hard-rule). No duplicated diff
+ * FORM of conversation. No parallel renderer (a hard rule). No duplicated diff
  * renderer (reuses `ReviewCodeDiff` via the `diff` Embed's `OpenTarget`).
  *
  * Architecture:
@@ -640,7 +640,7 @@ function SessionComposer({
  * The production session view — renders through the SAME `parts/*` renderers
  * as `PartList`, with `aggregateToolRun` grouping consecutive completed tool
  * Parts within each author turn. One renderer, one extra grouping layer.
- * No parallel renderer (AM3 hard-rule 4).
+ * No parallel renderer.
  */
 export function SessionView({
 	sessionId,

@@ -124,7 +124,7 @@ export async function createMcpSession<TDb = unknown>(
 	// D2: 64-char hex token = 256 bits of entropy. Brute-force infeasible.
 	const token = crypto.randomBytes(32).toString("hex");
 
-	// D1 (AL7 delta — STATEFUL): sessionIdGenerator assigns one mcp-session-id per
+	// Stateful: sessionIdGenerator assigns one mcp-session-id per
 	// per-session transport. Real CLI clients (codex, opencode, claude via .mcp.json) issue
 	// separate HTTP requests per session; stateless mode would throw on request 2.
 	const transport = new WebStandardStreamableHTTPServerTransport({
@@ -136,8 +136,8 @@ export async function createMcpSession<TDb = unknown>(
 		{ capabilities: { tools: {} } },
 	);
 
-	// Register every tool from the registry with the MCP server.
-	// The registry is already role-filtered (toolsForRole called at buildToolRegistry time).
+	// Register every tool from the registry with the MCP server. Every agent
+	// gets the same tools; the registry already holds the session's extras.
 	for (const def of registry.definitions) {
 		mcpServer.registerTool(
 			def.name,

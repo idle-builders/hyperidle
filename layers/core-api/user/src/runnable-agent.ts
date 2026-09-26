@@ -1,5 +1,5 @@
 /**
- * AU21 §6 Decision B placement ruling — the ONE truly cross-cutting piece of
+ * Placement ruling — the ONE truly cross-cutting piece of
  * the drain's per-kind resolution: the ast-`<userId>` runnability invariant
  * (`session-requests/src/service.ts:700-705`'s `requireRunnableActor`,
  * identical in every branch, reads only `users`). Every family's emit-time

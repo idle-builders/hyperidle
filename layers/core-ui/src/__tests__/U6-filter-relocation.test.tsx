@@ -20,7 +20,7 @@ import { Conversations } from "../pages/Conversations";
 const { callMock } = vi.hoisted(() => ({ callMock: vi.fn() }));
 vi.mock("../services/call.js", () => ({ call: callMock }));
 
-const STUB_USER = { id: "u-test", name: "Tester", email: "", avatarUrl: null };
+const STUB_USER = { id: "u-test", name: "Tester", avatarUrl: null };
 
 type MockThread = ThreadListRow;
 
@@ -68,7 +68,6 @@ function stubFetch(threads: MockThread[]): void {
 					folders: [],
 					subscriptions: [],
 					connections: null,
-					behaviour: null,
 					inbox: null,
 				},
 			};

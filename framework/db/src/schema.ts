@@ -1,8 +1,4 @@
-import type {
-	ConfigurationKind,
-	PluginContributionKind,
-	PluginState,
-} from "@hyperidle/domain-model";
+import type { PluginContributionKind, PluginState } from "@hyperidle/domain-model";
 import { sql } from "drizzle-orm";
 import {
 	type AnyPgColumn,
@@ -23,11 +19,7 @@ import {
 // @lore AU44 B1: `team_members` is dissolved back into `teams`. The 1:1 invariant enforced by
 // app-level 500s was the schema confessing two tables were one entity. `users.teamId` now
 // references `teams.id` directly.
-// @lore BC5 T11 (migration 0090): `phase`/`briefPath`/`architecturePath`/`brandPath`/
-// `principlesPath`/`factoryDbPath`/`leadAgentId`/`capacity`/`formedAt` are all DROPPED — a team is
-// an id and a name now (D-e3zm2j). Capacity goes with the WIP-limit gate that read it
-// (`edit_task`'s `capacity_exceeded`); the rest were the setup wizard's scaffold-tracking columns,
-// unwritten on every real path (facts-user.md).
+// A team is an id and a name: no capacity, phase or lead agent.
 export const teams = pgTable("teams", {
 	id: text("id").primaryKey(),
 	name: text("name").notNull(),
@@ -46,29 +38,27 @@ export const users = pgTable(
 		teamId: text("team_id").references(() => teams.id, { onDelete: "restrict" }),
 		role: text("role").notNull(),
 		status: text("status").notNull(),
-		/** P2: human-specific nullable columns. Null for AI users. */
-		email: text("email"),
+		/** Null for AI users. */
 		avatarUrl: text("avatar_url"),
 		createdAt: text("created_at").notNull(),
 		/**
-		 * AB0: Agent category — team | individual.
+		 * Agent category — team | individual.
 		 * Null for human users and system users.
 		 * @lore AB0: This replaces the KERNEL_USER_ROLES / FABRIC_USER_ROLES
 		 * split which was about system layer, not agent category.
 		 */
 		agentCategory: text("agent_category"),
 		/**
-		 * BA1 D6: who an agent belongs to, as a real column — a team (`teamId`),
+		 * Who an agent belongs to, as a real column — a team (`teamId`),
 		 * a person (`ownerUserId`), or neither. Null for human users (the
 		 * `users_belonging_ck` check below is trivially satisfied by them).
-		 * Written only through `@hyperidle/user`' `insertUser`; `updateUser`
-		 * is deliberately not extended (BA1 has no post-creation belonging
-		 * change — see `resolve-scaffold-specs.ts`'s `user_assistant` case).
+		 * Written only when the agent is created, through `@hyperidle/user`'
+		 * `insertUser`; `updateUser` deliberately never changes it. An owned
+		 * agent takes its owner's team.
 		 */
 		ownerUserId: text("owner_user_id").references((): AnyPgColumn => users.id, {
 			onDelete: "set null",
 		}),
-		/** BA9d: set when this user row was materialised by a plugin install. Used for disable/enable/remove cleanup. */
 		/**
 		 * @lore BC5 T2 (F1): a note on an agent — its crash count over the last
 		 * 7 days, counted from its own `user` change rows — or null for a
@@ -87,7 +77,7 @@ export const users = pgTable(
 );
 
 /**
- * AU26 G1 — one agent's run configuration, keyed on its `users` row.
+ * One agent's run configuration, keyed on its `users` row.
  *
  * @lore AU26 G1 (architecture §D-L): `users` used to carry agent-execution
  * configuration (`harness_type`,
@@ -143,7 +133,7 @@ export const tasks = pgTable(
 	{
 		id: text("id").primaryKey(),
 		/**
-		 * BB1: the task tree. NULL means a root task — the shape a bet used to
+		 * The task tree. NULL means a root task — the shape a bet used to
 		 * have. Replaces the NOT NULL `bet_id`, which hardcoded work to exactly
 		 * two levels.
 		 *
@@ -183,35 +173,35 @@ export const tasks = pgTable(
 		// makes true rather than stale.
 		createdAt: text("created_at").notNull(),
 		updatedAt: text("updated_at").notNull(),
-		/** AC1: Task outcome verdict. Closed enum: met|met_with_rework|partially_met|not_met. Null = not evaluated. */
+		/** Task outcome verdict. Closed enum: met|met_with_rework|partially_met|not_met. Null = not evaluated. */
 		outcomeVerdict: text("outcome_verdict"),
 		/**
-		 * BB1: free-text explanation of the outcome (moved from `bets`, where it
+		 * Free-text explanation of the outcome (moved from `bets`, where it
 		 * was the only half of the outcome pair tasks lacked).
 		 */
 		outcomeSummary: text("outcome_summary"),
-		/** AC1: ISO 8601 timestamp when the task outcome was last recorded. */
+		/** ISO 8601 timestamp when the task outcome was last recorded. */
 		outcomeRecordedAt: text("outcome_recorded_at"),
-		/** AC1: User ID of the actor who last recorded the task outcome. */
+		/** User ID of the actor who last recorded the task outcome. */
 		outcomeRecordedBy: text("outcome_recorded_by"),
 		/**
-		 * BB1: accumulated TokenUsage actuals for THIS task's own sessions
+		 * Accumulated TokenUsage actuals for THIS task's own sessions
 		 * (moved from `bets`). Ancestors are never written — a subtree total is
 		 * summed at read time, so there is no rollup column to drift.
 		 */
 		tokensActualJson: text("tokens_actual_json"),
 		/**
-		 * BB1: provenance — the document this task was promoted from (moved
-		 * from `bets`, AK5). RESTRICT so provenance outlives a convenience
+		 * Provenance — the document this task was promoted from (moved
+		 * from `bets`). RESTRICT so provenance outlives a convenience
 		 * delete. Renamed `sourceKnowledgeItemId`→`sourceDocumentId`.
 		 */
 		sourceDocumentId: text("source_document_id").references(() => documents.id, {
 			onDelete: "restrict",
 		}),
-		/** BB1: set when the task reaches `done` (moved from `bets`). */
+		/** Set when the task reaches `done` (moved from `bets`). */
 		completedAt: text("completed_at"),
 		/**
-		 * BB1: display order among siblings. Defaults to creation order; ties
+		 * Display order among siblings. Defaults to creation order; ties
 		 * break on `createdAt` then `id` so the order is total and stable.
 		 *
 		 * @lore BB1: deliberately NOT derived from `dependencies`, and
@@ -224,7 +214,7 @@ export const tasks = pgTable(
 		 */
 		position: integer("position").notNull().default(0),
 		/**
-		 * BB1: does finishing this task need a human verdict?
+		 * Does finishing this task need a human verdict?
 		 *
 		 * `false` (the default) means the task closes straight to `done` when its
 		 * work finishes — a session ending, or every child reaching a terminal
@@ -256,7 +246,7 @@ export const sessions = pgTable(
 	{
 		id: text("id").primaryKey(),
 		/**
-		 * AU1: nullable because assistant/subscription/knowledge/decomposition runs are
+		 * Nullable because assistant/subscription/knowledge/decomposition runs are
 		 * real sessions without fabricated task rows. Task-backed sessions keep the FK.
 		 */
 		taskId: text("task_id").references(() => tasks.id, { onDelete: "restrict" }),
@@ -276,7 +266,7 @@ export const sessions = pgTable(
 		outcome: text("outcome"),
 		notes: text("notes"),
 		/**
-		 * AC1: Session effectiveness score stored as text (float 0-1).
+		 * Session effectiveness score stored as text (float 0-1).
 		 *
 		 * @lore AC1 S-1: Stored as text (not real/float) because the existing schema
 		 * uses text for all non-integer values (timestamps are text, money is split
@@ -284,9 +274,9 @@ export const sessions = pgTable(
 		 * Always guard with Number.isNaN() after parseFloat.
 		 */
 		effectivenessScore: text("effectiveness_score"),
-		/** AC1: ISO 8601 timestamp when the effectiveness score was last recorded. */
+		/** ISO 8601 timestamp when the effectiveness score was last recorded. */
 		effectivenessRecordedAt: text("effectiveness_recorded_at"),
-		/** AC1: User ID (or agent ID) of the actor who last recorded the effectiveness score. */
+		/** User ID (or agent ID) of the actor who last recorded the effectiveness score. */
 		effectivenessRecordedBy: text("effectiveness_recorded_by"),
 		/**
 		 * The harness's own id for this session, which is what `resumeSession`
@@ -594,7 +584,7 @@ export const threads = pgTable(
 		lastActiveAt: text("last_active_at").notNull(),
 		createdAt: text("created_at").notNull(),
 		/**
-		 * AF14 AC6 / C2: Dedup key for direct (2-participant) threads only.
+		 * Dedup key for direct (2-participant) threads only.
 		 * Format: `${hostKind}:${hostId}:${sortedParticipants.join(",")}`
 		 * NULL for group/feed/host-scoped threads — they are never deduped.
 		 * The partial unique index (WHERE direct_key IS NOT NULL) enforces
@@ -616,7 +606,7 @@ export const threads = pgTable(
 	(table) => [
 		index("threads_host_idx").on(table.hostKind, table.hostId, table.lastActiveAt),
 		index("threads_initiator_idx").on(table.initiatorId, table.lastActiveAt),
-		// AF14 C2: partial unique index — only for direct (DM) threads.
+		// Partial unique index — only for direct (DM) threads.
 		// WHERE clause prevents group/host-scoped threads from colliding.
 		uniqueIndex("threads_direct_key_uq")
 			.on(table.directKey)
@@ -869,7 +859,7 @@ export const documents = pgTable(
 // edit history, none of which an artifact row had. The word survives as the name
 // for produced content; nothing stores one.
 
-// --- AO1: Filesystem registry + per-bot injection ---
+// --- Filesystem registry + per-bot injection ---
 
 /**
  * Registered, team-scoped file source. NOT owned by a single agent.
@@ -899,7 +889,7 @@ export const filesystems = pgTable(
 		kind: text("kind").notNull(),
 		// Reference to a Connection (Track AN). NOT a DB FK — service_connections was merged
 		// (0036) then reverted (0038, AN reset); absent now, re-merged shape unsettled.
-		// An unresolvable id → needs_attention (AC5).
+		// An unresolvable id → needs_attention.
 		// @lore AO1: plain text by design — AO1 ⟂ AN; AN may add the FK in its own migration.
 		connectionId: text("connection_id"),
 		// JSON-encoded ResourceRef, discriminated by kind.
@@ -965,12 +955,19 @@ export const serverConfig = pgTable("server_config", {
 	updatedAt: text("updated_at").notNull(),
 });
 
-// --- AU2: Plugin-seeded editable configuration ---
+// --- Plugins: one row per install, and what each install contributed ---
 
 export const plugins = pgTable(
 	"plugins",
 	{
+		/**
+		 * The install id: one row per install, so two teams each hold their
+		 * own install of one plugin. The manifest name for a factory install,
+		 * `<name>@<teamId>` for a team install (a manifest name never contains
+		 * `@`). Child rows follow a renamed id by `ON UPDATE CASCADE`.
+		 */
 		id: text("id").primaryKey(),
+		/** The manifest name; unique per scope and team (`plugins_name_scope_uq`). */
 		name: text("name").notNull(),
 		version: text("version").notNull(),
 		state: text("state").$type<PluginState>().notNull(),
@@ -991,34 +988,7 @@ export const plugins = pgTable(
 	(table) => [
 		check("plugins_state_ck", sql`${table.state} IN ('enabled', 'disabled', 'removed')`),
 		check("plugins_scope_kind_ck", sql`${table.scopeKind} IN ('factory', 'team')`),
-	],
-);
-
-export const pluginConfigurationDefaults = pgTable(
-	"plugin_configuration_defaults",
-	{
-		id: text("id").primaryKey(),
-		pluginId: text("plugin_id")
-			.notNull()
-			.references(() => plugins.id, { onDelete: "restrict" }),
-		kind: text("kind").$type<ConfigurationKind>().notNull(),
-		key: text("key").notNull(),
-		defaultValueJson: text("default_value_json").notNull(),
-		defaultVersionHash: text("default_version_hash").notNull(),
-		createdAt: text("created_at").notNull(),
-		updatedAt: text("updated_at").notNull(),
-	},
-	(table) => [
-		uniqueIndex("plugin_config_defaults_plugin_kind_key_uq").on(
-			table.pluginId,
-			table.kind,
-			table.key,
-		),
-		index("plugin_config_defaults_kind_key_idx").on(table.kind, table.key),
-		check(
-			"plugin_configuration_defaults_kind_ck",
-			sql`${table.kind} IN ('agent', 'skill', 'subscription', 'tool', 'mcp_server', 'harness_descriptor')`,
-		),
+		uniqueIndex("plugins_name_scope_uq").on(table.name, table.scopeKind, table.scopeTeamId),
 	],
 );
 
@@ -1040,7 +1010,7 @@ export const pluginContributions = pgTable(
 		id: text("id").primaryKey(),
 		pluginId: text("plugin_id")
 			.notNull()
-			.references(() => plugins.id, { onDelete: "cascade" }),
+			.references(() => plugins.id, { onDelete: "cascade", onUpdate: "cascade" }),
 		/** Which table `entityId` points into. */
 		kind: text("kind").$type<PluginContributionKind>().notNull(),
 		/** The contributed row's primary key, in the table `kind` names. */
@@ -1063,90 +1033,9 @@ export const pluginContributions = pgTable(
 		index("plugin_contributions_entity_idx").on(table.kind, table.entityId),
 		check(
 			"plugin_contributions_kind_ck",
-			sql`${table.kind} IN ('agent', 'subscription', 'document', 'configuration_default')`,
+			sql`${table.kind} IN ('agent', 'subscription', 'document')`,
 		),
 	],
-);
-
-export const configurationOverrides = pgTable(
-	"configuration_overrides",
-	{
-		id: text("id").primaryKey(),
-		defaultId: text("default_id").references(() => pluginConfigurationDefaults.id, {
-			onDelete: "set null",
-		}),
-		kind: text("kind").$type<ConfigurationKind>().notNull(),
-		key: text("key").notNull(),
-		userValueJson: text("user_value_json").notNull(),
-		state: text("state").$type<"active" | "deleted">().notNull(),
-		createdByUserId: text("created_by_user_id").references(() => users.id, {
-			onDelete: "set null",
-		}),
-		createdAt: text("created_at").notNull(),
-		updatedAt: text("updated_at").notNull(),
-	},
-	(table) => [
-		uniqueIndex("configuration_overrides_kind_key_uq").on(table.kind, table.key),
-		index("configuration_overrides_default_id_idx").on(table.defaultId),
-		check(
-			"configuration_overrides_kind_ck",
-			sql`${table.kind} IN ('agent', 'skill', 'subscription', 'tool', 'mcp_server', 'harness_descriptor')`,
-		),
-		check("configuration_overrides_state_ck", sql`${table.state} IN ('active', 'deleted')`),
-	],
-);
-
-// --- S1: Authentication tables ---
-
-/**
- * LoginSession — stores per-user bearer token hashes (SHA-256).
- * Plaintext tokens are NEVER stored; only the hash.
- *
- * @lore S1: tokenHash has both a UNIQUE constraint (for data integrity) and an
- * explicit index (for query planning intent). The unique constraint implies an
- * index in Postgres; the named index makes the auth hot-path explicit.
- * onDelete: cascade — sessions have no audit value beyond the user's lifetime.
- */
-export const loginSessions = pgTable(
-	"login_sessions",
-	{
-		id: text("id").primaryKey(),
-		userId: text("user_id")
-			.notNull()
-			.references(() => users.id, { onDelete: "cascade" }),
-		tokenHash: text("token_hash").notNull().unique(),
-		expiresAt: text("expires_at").notNull(),
-		createdAt: text("created_at").notNull(),
-		revokedAt: text("revoked_at"),
-	},
-	(table) => [
-		index("login_sessions_user_id_idx").on(table.userId),
-		index("login_sessions_token_hash_idx").on(table.tokenHash),
-	],
-);
-
-/**
- * InviteCode — URL-safe random codes for on-boarding new users.
- *
- * @lore S1: createdBy uses RESTRICT — the creator's record must not be deleted
- * while their invite codes exist (audit trail). claimedBy uses SET NULL — if the
- * claiming user is deleted the invite becomes unclaimed rather than cascading.
- * role defaults to "member"; the role system is minimal in S1 (admin vs member).
- */
-export const inviteCodes = pgTable(
-	"invite_codes",
-	{
-		id: text("id").primaryKey(),
-		code: text("code").notNull().unique(),
-		createdBy: text("created_by")
-			.notNull()
-			.references(() => users.id, { onDelete: "restrict" }),
-		claimedBy: text("claimed_by").references(() => users.id, { onDelete: "set null" }),
-		role: text("role").notNull().default("member"),
-		expiresAt: text("expires_at").notNull(),
-		createdAt: text("created_at").notNull(),
-	},
-	(table) => [uniqueIndex("invite_codes_code_uq").on(table.code)],
 );
 
 // --- Inferred types ---
@@ -1194,23 +1083,9 @@ export type NewMessage = typeof messages.$inferInsert;
 
 export type DocumentRow = typeof documents.$inferSelect;
 
-// @lore BC5 T7b: NotificationQueueRow/NewNotificationQueueRow deleted with
-// notification_queue — InboxRow/NewInboxRow (above, beside Subscription/
-// NewSubscription) replace them.
-
 export type PluginRow = typeof plugins.$inferSelect;
 
-export type PluginConfigurationDefaultRow = typeof pluginConfigurationDefaults.$inferSelect;
-
-export type ConfigurationOverrideRow = typeof configurationOverrides.$inferSelect;
-
-export type LoginSession = typeof loginSessions.$inferSelect;
-export type NewLoginSession = typeof loginSessions.$inferInsert;
-
-export type InviteCode = typeof inviteCodes.$inferSelect;
-export type NewInviteCode = typeof inviteCodes.$inferInsert;
-
-// --- AN1: Service connections (per-user external tool connections) ---
+// --- Service connections (per-user external tool connections) ---
 
 /**
  * Per-(user × service × authSource) connection record.

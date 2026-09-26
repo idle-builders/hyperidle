@@ -1,5 +1,5 @@
 /**
- * AF8 — SettingsNotifications, now "my subscriptions": one toggle per
+ * SettingsNotifications, now "my subscriptions": one toggle per
  * object event, driven by the caller's own event subscriptions. Off means
  * paused (or never subscribed) — flipping it on adds a subscription (or
  * unpauses the existing one); flipping it off pauses it. A schedule

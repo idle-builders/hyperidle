@@ -93,7 +93,7 @@ export interface ThreadShellProps {
 	 */
 	sanitizeHtml?: (raw: string) => string;
 	/**
-	 * AD8b B3.1: Optional render function for per-message extra content.
+	 * Optional render function for per-message extra content.
 	 * Called per plain message; return value is appended after the message
 	 * body (afterBody). Used by AssistantOverlay to render tinted tool-call
 	 * summary rows for messages with payload.toolCalls.
@@ -465,7 +465,7 @@ export function ThreadShell({
 											);
 										}
 									}
-									// AD8b B3.1: append renderMessageExtra output (tool-call rows).
+									// Append renderMessageExtra output (tool-call rows).
 									const messageExtra = renderMessageExtra ? renderMessageExtra(message) : null;
 									const afterBody = messageExtra ? messageExtra : undefined;
 									return (

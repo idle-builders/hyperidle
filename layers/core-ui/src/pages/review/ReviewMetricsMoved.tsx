@@ -1,4 +1,4 @@
-// AL1 review canvas #5 — metrics-that-moved / data-diff.
+// Canvas #5 — metrics-that-moved / data-diff.
 // Tool: QuickBooks month-end close (revenue roll-forward + reconciliation).
 //
 // Three layers (brief §1):
@@ -9,7 +9,7 @@
 //       EXCEPTIONS list; the two real exceptions carry needs-you flags.
 //
 // Presentational isolation story: local useState for figure expand; callbacks no-op.
-// Hearth + CP1 tokens by NAME only (no hex outside ToolLogo). 6px grid. Left-aligned.
+// Hearth tokens by NAME only (no hex outside ToolLogo). 6px grid. Left-aligned.
 // Animate transform/opacity only. tabular-nums on every number.
 
 import { type JSX, useState } from "react";
@@ -361,7 +361,7 @@ function ReviewMetricsMovedView({ fixture }: ReviewMetricsMovedProps): JSX.Eleme
 	);
 }
 
-// AL2 — review artifact wrapper.
+// Review artifact wrapper.
 function isMetricsMovedPayload(payload: unknown): payload is MetricsMovedPayload {
 	return (
 		isPlainObject(payload) &&

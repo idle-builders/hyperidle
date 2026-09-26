@@ -166,7 +166,7 @@ interface CliAdapterConfig {
 	 */
 	readonly eventDialect?: "claude-stream-json";
 	/**
-	 * AL7 delta: Per-session MCP config file the binary reads to reach the HyperIdle bridge.
+	 * Per-session MCP config file the binary reads to reach the HyperIdle bridge.
 	 * Mirrors claude's .mcp.json. Absent ⇒ binary gets no MCP wiring (builtin/SDK paths).
 	 *
 	 * "codex-toml"   — appends [mcp_servers.hyperidle] to .codex-home/config.toml;
@@ -255,7 +255,7 @@ interface CliSession {
 	 * observed in the event stream. Used to skip re-engage when the agent
 	 * already returned voluntarily.
 	 *
-	 * AU27 Increment 6 (Decision 3): must be REQUIRED-SET-aware, not plain
+	 * Must be REQUIRED-SET-aware, not plain
 	 * membership — `isReturnAction` alone let a session with a specific
 	 * required action (e.g. the assistant's `["reply"]`) mark itself
 	 * "returned" by calling an unrelated member (`send_message`), which
@@ -268,7 +268,7 @@ interface CliSession {
 	 */
 	returnSeen: boolean;
 	/**
-	 * AU27 Increment 6 (Decision 3) — this session's required-return subset,
+	 * This session's required-return subset,
 	 * threaded from `SessionConfig.requiredReturnActions` at spawn time so
 	 * `returnSeen` tracking (and any future re-engage spawn) can stay
 	 * required-set-aware without re-reading the original `SessionConfig`.
@@ -635,7 +635,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			resolvedEnvMap.OPENCODE_PERMISSION = '{"*":"allow"}';
 		}
 
-		// ── AL7 delta: Per-session MCP token env var injection.
+		// ── Per-session MCP token env var injection.
 		//
 		// For codex, the MCP token is delivered via HYPERIDLE_MCP_TOKEN env var
 		// (codex's bearer_token_env_var mechanism). It is injected OUTSIDE the
@@ -912,9 +912,9 @@ export class CliHarnessAdapter implements HarnessAdapter {
 							// adjudicate from the registry's forceCount (single source).
 							// Previously used session.reEngageCount which could diverge from the registry
 							// if other paths also incremented forceCount. The registry is authoritative.
-							// AU27 Increment 3 (Decision 3): narrow to the session's specific
+							// Narrow to the session's specific
 							// required subset when the registered entry has one.
-							// AU27 Increment 8 (BLOCKER fix): this branch is structurally
+							// This branch is structurally
 							// opencode-only (`isReEngage` ⟺ `channel === "process-reengage"`,
 							// and only opencode's CLI_TOOL_CONFIGS entry sets that channel) —
 							// `opencodeToolName` names the literal `hyperidle_<bare>` tool the
@@ -959,7 +959,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 									finalReEngageArgs = runArgs;
 								} else {
 									// No carrier configured — use the tailored forcing message
-									// (AU27 Increment 3: was the static FORCE_RETURN_MESSAGE
+									// (was the static FORCE_RETURN_MESSAGE
 									// constant; now the same `forceMsg` this session was just
 									// adjudicated with, so a required session sees ITS message,
 									// not the always-full-trio default).
@@ -1330,7 +1330,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			// unknown → none (drain-gate floor backstop only)
 			returnEnforcement:
 				this.config.returnEnforcementChannel ?? deriveCliChannel(this.config.binary),
-			// AL7 delta: expose the MCP config dialect so session-provisioning can
+			// Expose the MCP config dialect so session-provisioning can
 			// call writeCliMcpConfig with the right dialect. Absent if no mcpConfig set.
 			...(this.config.mcpConfig ? { cliMcpDialect: this.config.mcpConfig.dialect } : {}),
 		};
@@ -1465,7 +1465,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 
 				// track return actions for process-reengage decisions.
 				// When the agent calls a return action satisfying this session's
-				// required subset (AU27 Increment 6, Decision 3), mark returnSeen so
+				// required subset, mark returnSeen so
 				// we skip re-engage on process exit.
 				if (
 					session &&

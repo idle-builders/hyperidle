@@ -8,7 +8,7 @@ paths:
 `docs/` is the authoritative account of the product — not a changelog, not a design journal. It is
 split by topic (`architecture/`, `process-layer/`, `agent-layer/`, `ui-design/`,
 `knowledge-architecture/`, `human-interface-layer/`, `information-architecture/`, `blocks/`,
-`requirements/`, `deployment/`, `guides/`, `system-prompts/`), each folder carrying an `index.md` with
+`requirements/`, `deployment/`, `guides/`), each folder carrying an `index.md` with
 its section links. Superseded pages move to `docs/archive/` rather than lingering with a warning on
 top.
 

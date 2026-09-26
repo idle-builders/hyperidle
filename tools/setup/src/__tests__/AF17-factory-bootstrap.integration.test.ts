@@ -1,8 +1,8 @@
 /**
  * AF17 — AC1 + AC2: Factory Bootstrap
  *
- * AC1: Fresh environment has complete factory layer (system identities, facilitators,
- *      system prompt templates, factory principle) without manual step.
+ * AC1: Fresh environment has the factory layer — the hidden system actor and
+ *      nothing else — without a manual step.
  *
  * AC2: Re-applying factory bootstrap is idempotent — row counts and values are
  *      identical after the second call.
@@ -10,14 +10,8 @@
  * @lore AU29: relocated verbatim from `framework/db/src/__tests__/` (task D)
  * — `applyFactoryBootstrap` dissolved into the two layer faces, and the
  * composed sequence now lives in this package's `factory-bootstrap-runner.ts`.
- *
- * @lore AU44 AU20-fd: `framework/factory-defaults` dissolved into @hyperidle/org.
- * `readSystemPromptTemplateForRole` import changed from @hyperidle/factory-defaults to
- * @hyperidle/org — same function, moved to the owning service package.
  */
 
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { sql } from "drizzle-orm";
@@ -35,34 +29,6 @@ async function queryRows<T extends Record<string, unknown>>(
 // AC1: Factory layer is complete after a single runFactoryBootstrap call
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * The persona the `role-personas` plugin ships for a role.
- *
- * @lore BA9g: these were `docs/system-prompts/*.md`, read by the runtime through
- * `readSystemPromptTemplateForRole`. That reader is deleted — HyperIdle ships a
- * single agent with a bare AGENTS.md and holds no built-in idea of a "builder".
- * The demo world is what a team looks like once the plugin is installed, so the
- * fixture and these tests read the plugin's own files.
- */
-function rolePersona(role: string): string | null {
-	const files: Readonly<Record<string, string>> = {
-		builder: "builder.md",
-		designer: "designer.md",
-		facilitator: "facilitator.md",
-		growth: "growth.md",
-		ops: "ops.md",
-		product_manager: "product-manager.md",
-		qa_engineer: "qa-engineer.md",
-	};
-	const filename = files[role];
-	if (!filename) return null;
-	try {
-		return readFileSync(resolve("plugins/role-personas/personas", filename), "utf-8");
-	} catch {
-		return null;
-	}
-}
-
 describe("AF17 AC1: runFactoryBootstrap creates the complete factory layer", () => {
 	test("system:propagation user exists after bootstrap", async ({ db }) => {
 		await runFactoryBootstrap(db);
@@ -74,17 +40,11 @@ describe("AF17 AC1: runFactoryBootstrap creates the complete factory layer", () 
 		expect(rows).toHaveLength(1);
 	});
 
-	test("System Agent singleton (seed-agent-cos) exists with individual category", async ({
-		db,
-	}) => {
+	test("bootstrap writes no agent: the system actor is the only user", async ({ db }) => {
 		await runFactoryBootstrap(db);
 
-		const rows = await queryRows<{ id: string; agent_category: string | null }>(
-			db,
-			"SELECT id, agent_category FROM users WHERE id = 'seed-agent-cos'",
-		);
-		expect(rows).toHaveLength(1);
-		expect(rows[0]?.agent_category).toBe("individual");
+		const rows = await queryRows<{ id: string }>(db, "SELECT id FROM users ORDER BY id");
+		expect(rows.map((r) => r.id)).toEqual(["system:propagation"]);
 	});
 
 	// @lore BA9d: factory no longer seeds seed-agent-pf-* facilitator agents.
@@ -98,27 +58,6 @@ describe("AF17 AC1: runFactoryBootstrap creates the complete factory layer", () 
 			"SELECT id, role FROM users WHERE id LIKE 'seed-agent-pf-%' ORDER BY id",
 		);
 		expect(rows.length).toBe(0);
-	});
-
-	// @lore AU18: previously asserted a `factory_settings.system_template:<role>`
-	// cache row; that table is retired. Templates now resolve directly via the
-	// shared `readSystemPromptTemplateForRole` docs-backed resolver — bootstrap
-	// no longer needs to have run first (the resolver reads docs directly), but
-	// we still call it here to prove it doesn't error/interfere.
-	test("product_manager system prompt template resolves (docs-backed)", async ({ db }) => {
-		await runFactoryBootstrap(db);
-
-		const content = rolePersona("product_manager");
-		expect(content).toBeTruthy();
-		expect((content ?? "").length).toBeGreaterThan(50);
-	});
-
-	test("facilitator system prompt template resolves (docs-backed)", async ({ db }) => {
-		await runFactoryBootstrap(db);
-
-		const content = rolePersona("facilitator");
-		expect(content).toBeTruthy();
-		expect((content ?? "").length).toBeGreaterThan(50);
 	});
 
 	// @lore AU18: `cost_cap`/`cost_cycle` factory_settings seeds are retired.
@@ -197,22 +136,6 @@ describe("AF17 AC2: runFactoryBootstrap is idempotent", () => {
 		const count2 = Number(rows2[0]?.count);
 
 		expect(count2).toBe(count1);
-	});
-
-	// @lore AU18: `factory_settings` count no longer applies (table retired).
-	// server_config is the successor — bootstrap still writes zero rows to it
-	// (see AC1's "bootstrap writes no server_config row" test), so idempotency
-	// there is trivial. This test now asserts idempotency on the docs-backed
-	// template resolver instead (calling bootstrap twice must not change what
-	// it resolves).
-	test("running bootstrap twice produces identical resolved templates", async ({ db }) => {
-		await runFactoryBootstrap(db);
-		const first = rolePersona("product_manager");
-
-		await runFactoryBootstrap(db);
-		const second = rolePersona("product_manager");
-
-		expect(second).toEqual(first);
 	});
 
 	test("running bootstrap twice does not throw", async ({ db }) => {

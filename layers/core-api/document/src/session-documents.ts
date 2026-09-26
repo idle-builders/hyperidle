@@ -59,9 +59,6 @@ interface ScoringWeights {
 interface ScoringContext {
 	taskDescription: string;
 	taskTags: string[];
-	agentRole: string;
-	/** Optional: absent for a team-less agent. No scorer reads it today. */
-	productId?: string;
 }
 
 const DEFAULT_WEIGHTS: ScoringWeights = {
@@ -327,7 +324,6 @@ export interface SessionDocumentsInput {
 	 * the honest answer rather than a reason to assemble nothing at all.
 	 */
 	readonly teamId?: string;
-	readonly agentRole: string;
 	readonly taskDescription: string;
 	/**
 	 * @lore BA9b: agentId is required to fetch agent_file items bound to this agent.
@@ -474,8 +470,6 @@ export async function assembleSessionDocuments(
 	const rankedItems = await rank(db, allItems, {
 		taskDescription: input.taskDescription,
 		taskTags: [],
-		agentRole: input.agentRole,
-		productId: input.teamId,
 	});
 
 	// architecture.md §5: an ordinary item's ancestor chain can only be

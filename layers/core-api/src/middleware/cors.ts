@@ -33,7 +33,7 @@ function parseConfiguredOrigins(): ReadonlyArray<string> {
  *
  * - Dev (Vite): allows http://localhost:5173 exactly.
  * - Electron: allows any http://127.0.0.1:{port} (random OS-assigned port).
- * - AE4: configured origins from HYPERIDLE_CORS_ORIGINS env var (exact match).
+ * - Configured origins from HYPERIDLE_CORS_ORIGINS env var (exact match).
  * - Same-origin production: no Origin header → function not called → no CORS
  *   headers added (correct; same-origin requests do not require CORS).
  * - All other origins: denied (return undefined).
@@ -53,7 +53,7 @@ function resolveOrigin(origin: string, _c: Context): string | undefined {
 	if (origin === ELECTRON_ORIGIN_PREFIX || origin.startsWith("http://127.0.0.1:")) {
 		return origin;
 	}
-	// AE4: configurable origins from HYPERIDLE_CORS_ORIGINS (lazy-read for testability)
+	// Configurable origins from HYPERIDLE_CORS_ORIGINS (lazy-read for testability)
 	if (parseConfiguredOrigins().includes(origin)) {
 		return origin;
 	}

@@ -1,5 +1,5 @@
 /**
- * AE5 — Host route resolution utility.
+ * Host route resolution utility.
  *
  * Maps a (hostKind, hostId) pair to a client-side route path.
  * Returns null for host kinds that don't have navigable pages (user, factory).

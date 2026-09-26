@@ -30,7 +30,7 @@ export interface ThreadItem {
 	tag?: string;
 	unread?: boolean;
 	/**
-	 * AF14 AC1: ISO sort key for the flat-list comparator (distinct from display `timestamp`).
+	 * ISO sort key for the flat-list comparator (distinct from display `timestamp`).
 	 * `timestamp` is a relative display string (e.g. "5m") — Date.parse("5m") → NaN → wrong order.
 	 * `lastActiveAt` is an ISO 8601 string (e.g. "2026-06-11T10:00:00.000Z") → stable sort.
 	 *
@@ -43,7 +43,7 @@ export interface ThreadItem {
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
 /**
- * AF14 AC1: Sort comparator for the flat thread list.
+ * Sort comparator for the flat thread list.
  * Sorts by ISO `lastActiveAt` DESC; falls back to `id.localeCompare` when either
  * timestamp is missing or unparseable (NaN).
  *
@@ -195,9 +195,9 @@ export interface ThreadSectionsProps {
 	/** Handler for the filter-empty `Clear filter` action. Only fires when `activeFilter !== 'all'`. */
 	onClearFilter?: () => void;
 	/**
-	 * AF14 AC4: when false, renders a flat chronological list ordered by lastActiveAt DESC.
+	 * When false, renders a flat chronological list ordered by lastActiveAt DESC.
 	 * Filter chips (Blocking, Unread) have been removed — they never matched real state.
-	 * The blocking/unread fields on ThreadItem remain for forward-compatibility (AF7).
+	 * The blocking/unread fields on ThreadItem remain for forward-compatibility.
 	 * Defaults to true for backwards compatibility.
 	 */
 	groupBySection?: boolean;
@@ -235,16 +235,16 @@ export function ThreadSections({
 			);
 		}
 
-		// AF14 AC4: chip filtering removed — render the full list directly.
-		// The blocking/unread fields remain on ThreadItem (forward-compatible for AF7).
+		// Chip filtering removed — render the full list directly.
+		// The blocking/unread fields remain on ThreadItem (forward-compatible).
 		const flatFiltered = [...threads];
-		// AF14 AC1: sort by ISO lastActiveAt DESC (not display timestamp — "5m" → NaN).
+		// Sort by ISO lastActiveAt DESC (not display timestamp — "5m" → NaN).
 		flatFiltered.sort(compareThreadsByLastActive);
 
 		return (
 			<div className="flex flex-col flex-1 overflow-y-auto">
-				{/* AF14 AC4: Blocking/Unread chip bar removed — neither chip matched real state.
-				    The blocking/unread FIELDS remain on ThreadItem for AF7 forward-compat. */}
+				{/* Blocking/Unread chip bar removed — neither chip matched real state.
+				    The blocking/unread FIELDS remain on ThreadItem. */}
 				{flatFiltered.length === 0 ? (
 					<div className="flex flex-1 items-center justify-center p-[48px_24px]">
 						<EmptyState

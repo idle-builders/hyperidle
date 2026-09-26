@@ -13,17 +13,12 @@ import { API_ERROR_CODES, type ApiErrorResponse } from "./api-types.js";
  * Now domain-model: `http-middleware` dissolves (AU44 batch 8) and this type
  * belongs in the wire-contract layer, next to `validateBody`/`ApiErrorResponse`.
  *
- * @lore A7 (FINISH): `authMethod` and `loginSessionId` reflect the current
- * API-key / LoginSession dual strategy. When A7 ships OIDC for the shared
- * backend the identity members here will grow — that work belongs to the A7
- * finisher, not this verdict.
+ * `userId` is the caller the auth middleware resolved from the API key.
  */
 export type HyperIdleEnv = {
 	// biome-ignore lint/style/useNamingConvention: `Variables` is the Hono Env property name; the framework requires this exact PascalCase key.
 	Variables: {
 		userId: string;
-		authMethod: "api_key" | "login_session";
-		loginSessionId: string | undefined;
 	};
 };
 

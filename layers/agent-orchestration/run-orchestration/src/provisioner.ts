@@ -64,7 +64,7 @@ interface IngestionHandle {
 // ---- ports ----
 
 // ---------------------------------------------------------------------------
-// AU21 §9 Increment 12 (Decision H3), Wave E: `SessionLifecycleRoutineAccessor`
+// `SessionLifecycleRoutineAccessor`
 // (`getRoutineById`)/`SessionLifecycleSettingsReader` (`readServerConfig`) are
 // DELETED entirely — `run-orchestration` holds ZERO `-> routine`/
 // `-> settings` edge, read or write. `admitSession`'s Phase 3 `harnessDisabled`
@@ -75,7 +75,7 @@ interface IngestionHandle {
 //     `assistant_turn`/`session_start` bake it too, at their one real emit
 //     site each, so no kind silently loses the admin's disabled-harness-types
 //     enforcement).
-//   - AU21 Increment 14a: the admission-time routine per-run cost cap this
+//   - The admission-time routine per-run cost cap this
 //     bullet used to describe (`params.contextBundle.routine
 //     .costCapPerRunMinor`) is DELETED along with the rest of the cost-cap
 //     gate — no replacement.
@@ -112,9 +112,9 @@ interface SessionLifecycleObservability {
 }
 
 // ---------------------------------------------------------------------------
-// filesystems (AU26 F2, founder ruling): `filesystems` and
+// filesystems (founder ruling): `filesystems` and
 // `filesystem_injections` are `agent-orchestration`'s OWN tables now, so the
-// spawn reads them LIVE — no seam, and no emit-time bake to go stale. AU21 §9
+// spawn reads them LIVE — no seam, and no emit-time bake to go stale. The earlier
 // Increment 12's `ProvisionSessionParams.injectedFilesystems` is DELETED;
 // `deps.injectedFilesystems` (an `InjectedFilesystemsReaderPort` the
 // Application backs with `@hyperidle/filesystems`) replaces it. A port, not a
@@ -128,9 +128,9 @@ interface SessionLifecycleServiceConnectionResolver {
 }
 
 // ---------------------------------------------------------------------------
-// connections (AU26 E3, AU21 Decision J3): `service_connections` is
+// connections: `service_connections` is
 // `agent-orchestration`'s OWN table now, so the spawn reads it LIVE — no seam,
-// and no emit-time bake to go stale. AU21 K1's `ProvisionSessionParams
+// and no emit-time bake to go stale. The earlier `ProvisionSessionParams
 // .injectedConnections` is DELETED; `deps.heldConnections` (a
 // `HeldConnectionsReaderPort` the Application backs with
 // `@hyperidle/connections`) replaces it. A port, not a direct import, because
@@ -208,7 +208,7 @@ interface SessionLifecycleEnforcementEntry {
 	readonly gate: { readonly returned: boolean };
 	forceCount: number;
 	readonly exempt: boolean;
-	/** AU27 Increment 3 (Decision 3) — the session's specific required return subset, when it has one. */
+	/** The session's specific required return subset, when it has one. */
 	readonly requiredReturnActions?: readonly string[];
 }
 
@@ -243,7 +243,7 @@ interface SessionLifecycleSandboxAdapter {
 interface SessionLifecycleHarnessRuntime {
 	enforcementRegistry: SessionLifecycleEnforcementRegistry;
 	/**
-	 * AU27 Increment 3 (Decision 3) — `requiredReturnActions`, when supplied,
+	 * `requiredReturnActions`, when supplied,
 	 * narrows the predicate in the closure to only that subset. Absent ⇒ the
 	 * pre-Increment-3 default (any member of the closed return set).
 	 */
@@ -280,7 +280,7 @@ interface SessionLifecycleHarnessRuntime {
 		}>;
 	}): void;
 	/**
-	 * AU31 §2.7/§3.1 sites 12,14 (B1): the session-scoped MCP dial —
+	 * The session-scoped MCP dial —
 	 * bridge-open plus the `/api/mcp/` URL spelling — folded into
 	 * `harness-registry`'s own session provisioning (`openMcpBridgeSession`,
 	 * `layers/agent-execution/harness-registry/src/mcp/index.ts`); this
@@ -292,7 +292,7 @@ interface SessionLifecycleHarnessRuntime {
 	 * `writeCliMcpConfig` above.
 	 */
 	openMcpBridge(options: {
-		// AU31 vestige: the execution face now owns the ONE bridge registry +
+		// Vestige: the execution face now owns the ONE bridge registry +
 		// mcpBaseUrl (closed over in `bootAgentExecution`); these per-call values
 		// are ignored by the adapter and are no longer wired in production. Kept
 		// optional only so the (now harness-gated) call site still type-checks.
@@ -335,7 +335,7 @@ interface SessionLifecycleToolContext {
 	readonly ingestion: { dispose(): void };
 	readonly onAbortSession?: (sessionId: string) => void;
 	/**
-	 * AU27 Increment 1 (Decision 1) — the session's calling thread, forwarded
+	 * The session's calling thread, forwarded
 	 * straight from `params.callingThreadId` (baked at emit — zero
 	 * orchestration -> core read). Absent for `subscription_run`/`knowledge_action`.
 	 */
@@ -350,12 +350,11 @@ interface SessionLifecycleToolProvider {
 	buildToolRegistry(
 		ctx: SessionLifecycleToolContext,
 		options: {
-			readonly role: string;
 			readonly extraTools?: readonly unknown[];
-			readonly useOnlyExtraTools?: boolean;
 		},
 	): SessionLifecycleToolRegistry;
-	toolsForRole(role: string): readonly { readonly name: string; readonly description: string }[];
+	/** Every tool an agent gets — the same list for every agent. */
+	toolsForRole(): readonly { readonly name: string; readonly description: string }[];
 	/** `returnStatusTool.forRegistry(enforcementRegistry)` — opaque `RegisteredTool`, never inspected here. */
 	returnStatusToolForRegistry(registry: SessionLifecycleEnforcementRegistry): unknown;
 }
@@ -414,7 +413,6 @@ interface SessionLifecycleContextAssembly {
 		readonly sessionId: string;
 		readonly taskId: string | null;
 		readonly agentId: string;
-		readonly agentRole: string;
 		readonly teamId: string | null;
 		/** True for a subscription-fired session — no task/bet context to read. */
 		readonly taskFree: boolean;
@@ -543,9 +541,9 @@ function requiresSendMessageReturn(params: ProvisionSessionParams): boolean {
  * no conversation to answer), woken by an event or schedule rather than a
  * person. It has no work-output return action to call at all, so its only
  * satisfying return action is the self-check `return_status` tool —
- * reporting that it is done IS its return. It speaks only when the
- * subscription's own instruction tells it to, by calling `send_message`
- * itself — never forced, because a subscription session has nowhere
+ * reporting that it is done IS its return. It speaks when the subscription's
+ * own instruction tells it to — or, with none written, when it judges the
+ * change needs it — by calling `send_message` itself; never forced, because a subscription session has nowhere
  * structural for a forced message to go that is guaranteed to be right (see
  * `requiresSendMessageReturn`'s note).
  */
@@ -570,7 +568,7 @@ async function assembleTaskFreePrompt(
 	toolSummaries: readonly SessionLifecycleToolSummary[],
 	_ports: SessionLifecyclePorts,
 	/**
-	 * AU27 Increment 8 (BLOCKER fix) — the selected adapter's registration
+	 * The selected adapter's registration
 	 * `type` (e.g. "opencode", "claude-code"), used to name the `send_message`
 	 * tool literally in the orientation line below — see `literalToolNamerForAdapterType`.
 	 */
@@ -581,7 +579,7 @@ async function assembleTaskFreePrompt(
 			? `\n\n## Tools\n${toolSummaries.map((tool) => `- ${tool.name}: ${tool.description}`).join("\n")}`
 			: "";
 
-	// AU27 Increment 4 (Decision 2, item 2): when a transcript is present,
+	// When a transcript is present,
 	// render a human-readable source line instead of the raw machine-id
 	// Correlation JSON (`threadId`/`messageId`) — raw ids in the system
 	// prompt of the most user-facing session is a rough edge, not a
@@ -601,10 +599,10 @@ async function assembleTaskFreePrompt(
 			? `## Conversation\n${params.transcript.map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`).join("\n")}`
 			: "";
 
-	// AU27 Increment 4 (Decision 3 orientation): a one-line reminder when this
+	// A one-line reminder when this
 	// session's only satisfying return action is `send_message`, not the trio.
 	//
-	// AU27 Increment 8 (BLOCKER fix): name the LITERAL tool the harness
+	// Name the LITERAL tool the harness
 	// exposes (e.g. `mcp__hyperidle__send_message` / `hyperidle_send_message`),
 	// not the bare name — a model that must resolve a bare mention itself
 	// either burns an extra round trip doing so (Claude's internal tool
@@ -623,9 +621,11 @@ async function assembleTaskFreePrompt(
 	// graceful-degrade fallback prompt (no `kind:"subscription"` bundle to
 	// build the real `assembleSubscriptionPrompt` from); the real composer
 	// carries the same line (`context.ts`'s `returnOrientation`).
+	// No bundle means no instruction reached this prompt, so it is the
+	// no-instruction line whatever the subscription holds.
 	const returnStatusToolName = literalToolNamerForAdapterType(adapterType)("return_status");
 	const returnStatusOrientation = requiresReturnStatusReturn(params)
-		? `When you are done, call \`${returnStatusToolName}\` to report your status. Speak only if the subscription's instruction asks you to.`
+		? subscriptionReturnOrientation(returnStatusToolName, false)
 		: "";
 
 	return [
@@ -641,7 +641,7 @@ async function assembleTaskFreePrompt(
 }
 
 /**
- * AR2: Read-only context passed to `onBeforeTeardown` observers.
+ * Read-only context passed to `onBeforeTeardown` observers.
  * Exposes the session identity and sandbox location — sufficient for a
  * harness integration test to read the real files a real agent produced.
  */
@@ -704,10 +704,12 @@ function expandMcpConfigValue(val: unknown, pluginRoot: string): unknown {
  * AC6: plugin mcp.json merged WITH the tool-bridge entry already written above.
  * AC7: scope filtering ensures team-scoped plugins only reach matching team sessions.
  *
- * @lore BA9b governance: plugins/pluginConfigurationDefaults are owned by settings
- * (core-api layer). run-orchestration (agent-orchestration layer) cannot query them
- * directly. The data arrives through PluginMcpContributionsPort, wired by the
- * application via CoreApiBoot.pluginMcpContributions → ApplicationProvisionSessionDeps.
+ * @lore BA9b governance: the `plugins` table is owned by settings (core-api layer),
+ * which reads each install's `mcp.json` from its folder when asked.
+ * run-orchestration (agent-orchestration layer) cannot query it directly. The data
+ * arrives through PluginMcpContributionsPort, wired by each application (desktop
+ * and remote server alike) via CoreApiBoot.pluginMcpContributions →
+ * ApplicationProvisionSessionDeps.
  */
 /** @for-testing exported so the unit test can verify expansion + routing without copy-pasting helpers. */
 export async function mergePluginMcpContributions(
@@ -782,13 +784,13 @@ const PROVISIONER_EMITTED_FILES = [".mcp.json"] as const;
 /**
  * Root-level files emitted into the sandbox.
  * Currently: .mcp.json (Claude MCP auto-discovery config).
- * Exported so the AO2 scaffolding-drift-guard can assert coverage.
+ * Exported so the scaffolding-drift-guard can assert coverage.
  *
  * .mcp.json must be excluded from authored commits so the agent
  * working on a repo that tracks .mcp.json does not overwrite the real config.
  */
 
-// ── AO2 — Phase 4.5 mount + teardown capture-back helpers ────────────────────
+// ── Phase 4.5 mount + teardown capture-back helpers ────────────────────
 //
 // @lore AU21 §9 Increment 8 (Decision F2): the mount operation itself
 // (`mountFilesystemsForAgent`) relocated wholesale into this package's own
@@ -796,7 +798,7 @@ const PROVISIONER_EMITTED_FILES = [".mcp.json"] as const;
 // `SessionLifecycleFilesystemsReader` port type stays declared in this file.
 
 /**
- * AO2 Hook B: Capture-back mounted filesystems before endSession/crashSession.
+ * Capture-back mounted filesystems before endSession/crashSession.
  *
  * Called BEFORE each endSession (which holds the rm -rf) and before crashSession
  * on the in-runSession crash path. Best-effort: a capture failure is logged but
@@ -829,8 +831,8 @@ async function captureMountedFilesystems(
 
 /**
  * @lore BA9b: Fetches plugin MCP server contributions scoped to a team.
- * Defined here as an opaque port — settings owns the tables, so provisioner
- * cannot query them directly. The application composition root wires the
+ * Defined here as an opaque port — settings owns the plugin installs, so
+ * provisioner cannot query them directly. The application composition root wires the
  * implementation (from @hyperidle/settings via @hyperidle/core-api's boot).
  */
 export interface PluginMcpContributionsPort {
@@ -853,26 +855,26 @@ interface ProvisionSessionDeps {
 	/** X2: Base URL for MCP bridge (e.g., "http://localhost:3001"). */
 	readonly mcpBaseUrl?: string;
 	/**
-	 * AN2: Already-constructed ServiceConnectionResolver (encapsulates serverSecret).
+	 * Already-constructed ServiceConnectionResolver (encapsulates serverSecret).
 	 * When present, held connections are provisioned into the session sandbox.
 	 * Mirrors the mcpBridgeRegistry? optional pattern: absent → graceful no-op.
 	 */
 	readonly serviceConnectionResolver?: SessionLifecycleServiceConnectionResolver;
 	/**
-	 * AU26 E3: the live, in-layer held-connection read one spawn performs.
+	 * The live, in-layer held-connection read one spawn performs.
 	 * Application-composed from `@hyperidle/connections`. Absent → the
 	 * provisioning plan is empty, the same graceful no-op an absent
 	 * `serviceConnectionResolver` already gives.
 	 */
 	readonly heldConnections?: HeldConnectionsReaderPort;
 	/**
-	 * AU26 F2: the live, in-layer injected-filesystem read one spawn performs.
+	 * The live, in-layer injected-filesystem read one spawn performs.
 	 * Application-composed from `@hyperidle/filesystems`. Absent → nothing is
 	 * mounted, the same graceful no-op an absent `mounter` already gives.
 	 */
 	readonly injectedFilesystems?: InjectedFilesystemsReaderPort;
 	/**
-	 * AR2: optional observation hook, fired once after the agent's turn fully
+	 * Optional observation hook, fired once after the agent's turn fully
 	 * drains and the sandbox is completely written, BEFORE teardown deletes it.
 	 * Observes only — it cannot pause, defer, or cancel teardown, which runs
 	 * unconditionally afterward even if this callback throws. Absent → no-op
@@ -898,14 +900,14 @@ interface ProvisionSessionDeps {
 	 */
 	readonly onHarnessStarted?: () => void;
 	/**
-	 * AO2: Optional mounter for filesystem placement + capture-back.
+	 * Optional mounter for filesystem placement + capture-back.
 	 * When absent, sessions run without any filesystem mount (degrade to today's behavior).
 	 * When present, mount runs after sandbox spawn (Phase 4.5) and captureBack runs before
 	 * each endSession/crashSession call.
 	 */
 	readonly mounter?: FilesystemMounterPort;
 	/**
-	 * BA9b: Plugin MCP server contributions for this session's team scope.
+	 * Plugin MCP server contributions for this session's team scope.
 	 * When absent, no plugin MCP servers are merged into the session config.
 	 * Provided by the application via CoreApiBoot.pluginMcpContributions.
 	 */
@@ -932,7 +934,7 @@ interface ProvisionSessionParams {
 		readonly sourceCorrelation: AgentSessionSourceCorrelation;
 	};
 	/**
-	 * AU21 §9 Increment 12 (Decision H3) — the baked entity+knowledge bundle
+	 * The baked entity+knowledge bundle
 	 * this session's sandbox context (Phase 6) and prompt persona (Phase 8.5)
 	 * are built from — `kind:"task"` for `task_run`,
 	 * `kind:"subscription"` for `subscription_run`. Sourced from the emit-time
@@ -941,7 +943,7 @@ interface ProvisionSessionParams {
 	 */
 	readonly contextBundle?: BakedContextBundle;
 	/**
-	 * AU21 §9 Increment 12 (Decision H3), Wave E — the target agent's
+	 * The target agent's
 	 * runnable-CONFIG snapshot, baked at EMIT time by every per-kind resolver
 	 * (all six intent kinds) from the SAME `agent: User` row
 	 * `requireRunnableAgent` already loaded + validated there (no new read —
@@ -972,7 +974,7 @@ interface ProvisionSessionParams {
 	 */
 	readonly agentConfig?: BakedAgentRunnableConfig;
 	/**
-	 * AU21 §9 Increment 12 (Decision H3), Wave E — the server's
+	 * The server's
 	 * disabled-harness-types list, baked at emit time (global `settings`
 	 * config, not per-agent) so Phase 3's adapter-selection filter no longer
 	 * needs a live `ports.settings.readServerConfig` read. Absent defaults to
@@ -982,7 +984,7 @@ interface ProvisionSessionParams {
 	 */
 	readonly harnessDisabled?: readonly string[];
 	/**
-	 * AU27 Increment 1 (Decision 1) — the session's calling thread id, baked at
+	 * The session's calling thread id, baked at
 	 * EMIT time by every per-kind resolver that has one (`assistant_turn` from
 	 * the triggering message's thread; `task_run`/`session_start`/
 	 * resolve-or-create). Absent for
@@ -1050,21 +1052,49 @@ interface ProvisionSessionResult {
  * agents choose to ask about is the evidence any future interception list would
  * be built from, so the wording deliberately leaves the judgement with them
  * rather than enumerating what to ask about.
+ *
+ * @lore Every fact here is what the thread module does today, and it must stay
+ * so: a review is `send_message`'s `review` field (a title, short reasoning
+ * points, optional artifacts), not a message "type"; with no thread named it
+ * lands in the conversation the session was called from, else with the one
+ * person the agent answers to (`soleHumanForAgent`); the session ends there and
+ * the verdict resumes it with `buildVerdictMessage`'s words. It names the
+ * LITERAL tool the selected harness exposes, so it is composed after the
+ * adapter is picked — a small model cannot resolve a bare `send_message`
+ * (see `assembleTaskFreePrompt`'s note on literal tool names).
  */
-const REVIEW_ORIENTATION = `
+function reviewOrientation(sendMessageToolName: string): string {
+	return `
 
 ## When work needs a person
-Nothing here stops you. You decide when work deserves a person's agreement before you do it — an irreversible change, something that reaches beyond this workspace, a call where being wrong would be expensive, or anything you would want a second opinion on. When you judge that it does, ask with \`send_message\` with type "review": say what you have done, what you want to do next and why, and attach the real evidence a person needs to decide. Your session ends there. A human reads it, decides, and you are brought back to carry on with their answer. A declined review declines that solution, not the task — keep working toward the same goal another way.`;
+Nothing here stops you. You decide when work deserves a person's agreement before you do it — an irreversible change, something that reaches beyond this workspace, a call where being wrong would be expensive, or anything you would want a second opinion on. When you judge that it does, ask by calling \`${sendMessageToolName}\` with a \`review\`: a \`title\`, short \`reasoning\` points — what you have done, what you want to do next and why — and \`artifacts\` when you have real evidence a person needs to decide. It goes to the conversation you were called from, or else to your person. That call ends your session. A person approves or declines it, and you are brought back with their answer. A decline declines the approach you proposed, not the task — keep working toward the same goal another way.`;
+}
 
 /**
- * AF7 §2: The synchronous result of admission (phases 1-7). Carries everything
+ * The line a subscription session ends its prompt with. With an instruction
+ * written, the session speaks only if that instruction asks it to. With none
+ * — a fresh subscription nobody has given taste to yet — it is told so and
+ * left to judge for itself; telling it to speak only if an absent instruction
+ * asks would silence every empty subscription for good.
+ */
+function subscriptionReturnOrientation(
+	returnStatusToolName: string,
+	hasInstruction: boolean,
+): string {
+	const done = `When you are done, call \`${returnStatusToolName}\` to report your status.`;
+	return hasInstruction
+		? `${done} Speak only if the subscription's instruction above asks you to.`
+		: `Nobody has written an instruction for this event yet — decide for yourself whether it needs anything from you. ${done}`;
+}
+
+/**
+ * The synchronous result of admission (phases 1-7). Carries everything
  * `runSession` (phases 8-11) needs to run the harness and tear down. Produced by
  * `admitSession` AFTER the session row is committed and `session_started` emitted.
  */
 interface AdmittedSession {
 	readonly sessionId: string;
 	readonly sessionContext: SessionContext;
-	readonly agentRole: string;
 	readonly teamId: string | undefined;
 	readonly systemPromptText: string;
 	readonly modelTier: ModelTier;
@@ -1082,19 +1112,19 @@ interface AdmittedSession {
 	readonly selectedModel: string | null;
 	readonly sandboxHandle: SessionLifecycleSandboxHandle;
 	readonly sandboxPath: string;
-	/** AK2: was `watcher: FileWatcher` — renamed to `ingestion: IngestionHandle` as part of Strategy port decoupling. */
+	/** Was `watcher: FileWatcher` — renamed to `ingestion: IngestionHandle` as part of Strategy port decoupling. */
 	readonly ingestion: IngestionHandle;
 	readonly selectedAdapter: SessionLifecycleSelectedEntry;
 	readonly harness: SessionLifecycleHarnessAdapter;
 	readonly adapterId: string;
 	/**
-	 * AO2: Filesystems that were successfully mounted in Phase 4.5 for this session.
+	 * Filesystems that were successfully mounted in Phase 4.5 for this session.
 	 */
 	readonly mountedFilesystems: Filesystem[];
 }
 
 /**
- * AF7 §2 — Admit a session synchronously (phases 1-7).
+ * Admit a session synchronously (phases 1-7).
  *
  * Runs the HTTP-observable prefix: load agent, adapter
  * select + concurrency check (P3), **resolvedModel presence guard (WARNING-2,
@@ -1141,10 +1171,9 @@ async function admitSession(
 	if (agentConfig.kind !== "ai" || !["active", "idle"].includes(agentConfig.status)) {
 		throw new TargetAgentNotRunnableError(params.agentId);
 	}
-	const agentRole = agentConfig.role;
 	const teamId = agentConfig.teamId ?? undefined;
 
-	// AU26 G1 (§D-L): the run-config fields are read LIVE here from
+	// The run-config fields are read LIVE here from
 	// `agent_run_config` — orchestration's OWN table — instead of coming off the
 	// emit-time bake. An agent with no row resolves the all-null default, which
 	// is exactly what an all-null `users` row resolved before the move.
@@ -1155,8 +1184,6 @@ async function admitSession(
 	// belongs to the document service, while `agent_run_config` — read just above
 	// — is orchestration's own.
 	const persona = agentConfig.persona ?? "";
-
-	const systemPromptText = `${persona}${REVIEW_ORIENTATION}`;
 
 	// @lore The tier used to be chosen: explicit param > the agent's own
 	// `modelTierPreference` > "workhorse". That dial is gone. It named which model
@@ -1196,6 +1223,10 @@ async function admitSession(
 	const harness = selectedAdapter.adapter;
 	const adapterId = selectedAdapter.id;
 
+	const systemPromptText = `${persona}${reviewOrientation(
+		literalToolNamerForAdapterType(selectedAdapter.meta.type)("send_message"),
+	)}`;
+
 	// @lore AU9: request-mediated admission already reserved/adopted this exact
 	// request's session before this concurrency check runs. Exclude the request's
 	// own correlated session so it does not self-block against its own limit.
@@ -1222,7 +1253,7 @@ async function admitSession(
 	// A CLI harness authenticates itself — its own login, its own key — so there
 	// is nothing for orchestration to pre-check, and the guard went with it.
 
-	// AU21 §9 Increment 12 (Decision H3), Wave D: the AD2 "only transition if
+	// The "only transition if
 	// not already in_progress" guard moved core-side — a task's `in_progress`
 	// transition now fires as a `session_started` reaction
 	// (`core-api/src/services/work-session-started-reactions.ts`), AFTER
@@ -1230,7 +1261,7 @@ async function admitSession(
 
 	// ── Phases 4-7 (wrapped): spawn workspace → insert session row →
 	// context assembly → start watcher. If any step throws here, the session
-	// row/harness never fully launched — see the AU21 Wave D note above
+	// row/harness never fully launched — see the note above
 	// `SessionLifecycleWorkAccessor`'s deletion for why no task-state revert
 	// is needed: the task's `in_progress` transition itself only fires
 	// reactively on `session_started`, emitted AFTER this block succeeds, so
@@ -1289,7 +1320,7 @@ async function admitSession(
 		await db.insert(sessions).values(sessionValues);
 	}
 
-	// ── Phase 4.5: mount injected filesystems (AO2). AU26 F2: reads the
+	// ── Phase 4.5: mount injected filesystems. Reads the
 	// injection record LIVE, in-layer, at spawn — no seam, and no emit-time bake
 	// to go stale (see this file's own top-of-file `filesystems` `@lore`).
 	if (deps.mounter) {
@@ -1316,7 +1347,6 @@ async function admitSession(
 			sessionId,
 			taskId: params.taskId,
 			agentId: params.agentId,
-			agentRole,
 			teamId: params.productId,
 			taskFree: params.contextBundle?.kind === "subscription",
 			sourceKind: params.requestContext?.sourceKind ?? null,
@@ -1330,7 +1360,6 @@ async function admitSession(
 			sessionId,
 			taskId: null,
 			agentId: params.agentId,
-			agentRole,
 			teamId: params.productId,
 			taskFree: params.contextBundle?.kind === "subscription",
 			sourceKind: params.requestContext.sourceKind,
@@ -1382,7 +1411,6 @@ async function admitSession(
 	return {
 		sessionId,
 		sessionContext,
-		agentRole,
 		teamId,
 		systemPromptText,
 		modelTier,
@@ -1402,13 +1430,13 @@ async function admitSession(
 }
 
 /**
- * AF7 §2 — Run an admitted session (phases 8-11).
+ * Run an admitted session (phases 8-11).
  *
  * Builds the session-scoped tool registry, composes the prompt, starts the
  * harness (P9), drains the event stream (P10), and tears down (P11). Normal
  * completion calls `endSession`; an error mid-stream calls `crashSession`.
  *
- * Registers itself in the `sessionRunRegistry` (AF7 §4/§5) at harness-start so a
+ * Registers itself in the `sessionRunRegistry` at harness-start so a
  * PATCH/handoff can cooperatively abort it, and deregisters at teardown.
  */
 /**
@@ -1471,7 +1499,7 @@ async function runSession(
 	admitted: AdmittedSession,
 	ports: SessionLifecyclePorts,
 	/**
-	 * AF7 §2: fired exactly once right after `harness.startSession` resolves
+	 * Fired exactly once right after `harness.startSession` resolves
 	 * (success OR failure). The dispatcher/await callers omit it.
 	 */
 	onHarnessStarted?: () => void,
@@ -1489,7 +1517,6 @@ async function runSession(
 	const {
 		sessionId,
 		sessionContext,
-		agentRole,
 		teamId,
 		systemPromptText,
 		modelTier,
@@ -1504,7 +1531,7 @@ async function runSession(
 		mountedFilesystems,
 	} = admitted;
 
-	// AF7 §5: cooperative abort flag — the provisioning event loop checks it each
+	// Cooperative abort flag — the provisioning event loop checks it each
 	// iteration. Several things flip it (a registry abort, an adapter's own
 	// return action, an onBeforeHarnessStart failure) and all of them must stop
 	// the loop, but only one of them is an actual user stop — see
@@ -1535,11 +1562,8 @@ async function runSession(
 		sandboxPath,
 		ingestion,
 	};
-	// Every session, assistant included, gets the ordinary role-scoped tool
-	// registry — the assistant's tool surface spans every `roles: undefined`
-	// tool, deliberately, per the founder's own direction.
+	// Every session, assistant included, gets every tool.
 	const registry: SessionLifecycleToolRegistry = ports.toolProvider.buildToolRegistry(toolContext, {
-		role: agentRole,
 		extraTools: [
 			ports.toolProvider.returnStatusToolForRegistry(ports.harnessRuntime.enforcementRegistry),
 		],
@@ -1547,7 +1571,7 @@ async function runSession(
 
 	// ── Phase 8.5: compose prompt and write CLAUDE.md.
 	const toolSummaries: SessionLifecycleToolSummary[] = ports.toolProvider
-		.toolsForRole(agentRole)
+		.toolsForRole()
 		.map((d) => ({
 			name: d.name,
 			description: d.description,
@@ -1555,7 +1579,7 @@ async function runSession(
 
 	let assembledPrompt: string;
 	if (params.contextBundle?.kind === "subscription") {
-		// AU21 §9 Increment 12 (Decision H3): subscription session — derive
+		// Subscription session — derive
 		// subscription+agent+team context from the baked `kind:"subscription"`
 		// bundle, ZERO db read.
 		const subscriptionContextData = subscriptionSessionContextDataFromBundle(params.contextBundle);
@@ -1576,12 +1600,15 @@ async function runSession(
 			sandboxPath,
 			...(requiresReturnStatusReturn(params)
 				? {
-						returnOrientation: `When you are done, call \`${subscriptionReturnStatusToolName}\` to report your status. Speak only if the subscription's instruction above asks you to.`,
+						returnOrientation: subscriptionReturnOrientation(
+							subscriptionReturnStatusToolName,
+							Boolean(subscriptionContextData.prompt),
+						),
 					}
 				: {}),
 		}));
 	} else if (params.taskId && !params.requestContext && params.contextBundle?.kind === "task") {
-		// AU21 §9 Increment 12 (Decision H3): normal (non-durable, no
+		// Normal (non-durable, no
 		// requestContext) task session — derive task+ancestors+agent+team context
 		// from the baked `kind:"task"` bundle, ZERO db read (the task/
 		// users/org reads this used to make via `buildSessionContextData` are
@@ -1594,7 +1621,7 @@ async function runSession(
 			sandboxPath,
 		}));
 	} else {
-		// AU21 §9 Increment 12 (Decision H3): every durable session (the
+		// Every durable session (the
 		// primary production path — `requestContext` is always set by
 		// `consumeAgentSessionRequest`) already took this generic, db-free
 		// branch pre-migration regardless of source kind (unchanged here) —
@@ -1621,7 +1648,7 @@ async function runSession(
 
 	ports.contextAssembly.writeSandboxAgentsMd(sandboxPath, assembledPrompt);
 
-	// BA10: what the agent is asked to do, as opposed to what it is told about
+	// What the agent is asked to do, as opposed to what it is told about
 	// itself. Composed from the task the session was dispatched for.
 	const taskInstruction = composeTaskInstruction(params);
 
@@ -1667,7 +1694,7 @@ async function runSession(
 	);
 	let mcpBridgeToken: string | undefined;
 	let mcpUrl: string | undefined;
-	/** AL7 delta: per-session MCP token env for CLI harnesses (codex: HYPERIDLE_MCP_TOKEN). */
+	/** Per-session MCP token env for CLI harnesses (codex: HYPERIDLE_MCP_TOKEN). */
 	let mcpTokenEnv: Record<string, string> | undefined;
 	try {
 		const bridge = await ports.harnessRuntime.openMcpBridge({
@@ -1723,7 +1750,7 @@ async function runSession(
 		fs.writeFileSync(mcpJsonPath, JSON.stringify(mcpJsonConfig, null, 2), "utf-8");
 
 		if (adapterCapabilities.cliMcpDialect) {
-			// The session's mounted filesystems (AO2, phase 4.5
+			// The session's mounted filesystems (phase 4.5
 			// above) are the trusted directories — tell the harness what the
 			// filesystem primitive already declared, alongside the sandbox.
 			const trustedPaths = mountedFilesystems
@@ -1748,9 +1775,9 @@ async function runSession(
 		);
 	}
 
-	// ── Phase 8b-connections: AN2 Connection provisioning (parallel to inbound bridge).
-	// AU26 E3: reads the held-connection record LIVE, in-layer, at spawn — no
-	// seam, and no emit-time bake to go stale (AC1(c)).
+	// ── Phase 8b-connections: connection provisioning (parallel to inbound bridge).
+	// Reads the held-connection record LIVE, in-layer, at spawn — no
+	// seam, and no emit-time bake to go stale.
 	if (serviceConnectionResolver) {
 		try {
 			const plan = await buildProvisioningPlan({
@@ -1813,7 +1840,7 @@ async function runSession(
 	// real gate exists.
 	// The assistant is not exempt from return enforcement — it must call
 	// `send_message` like every other required-return session.
-	const exempt = ports.toolProvider.toolsForRole(agentRole).length === 0;
+	const exempt = ports.toolProvider.toolsForRole().length === 0;
 	ports.harnessRuntime.enforcementRegistry.register(sessionId, {
 		gate: returnGate,
 		forceCount: 0,
@@ -1826,7 +1853,7 @@ async function runSession(
 	const accumulatedTokens: Partial<Record<ModelTier, { prompt: number; completion: number }>> = {};
 
 	// Shared session config fields across runs.
-	const allowedToolNames = ports.toolProvider.toolsForRole(agentRole).map((d) => d.name);
+	const allowedToolNames = ports.toolProvider.toolsForRole().map((d) => d.name);
 	const returnHookConfig =
 		mcpBridgeToken && mcpUrl
 			? {
@@ -1839,7 +1866,7 @@ async function runSession(
 		sessionId,
 		sandboxPath,
 		assembledPrompt,
-		// BA10: the ask, whole and separate from the context above.
+		// The ask, whole and separate from the context above.
 		...(taskInstruction ? { instruction: taskInstruction } : {}),
 		modelTier,
 		tools: allowedToolNames,
@@ -2017,7 +2044,7 @@ async function runSession(
 	}
 
 	// ── Phase 11: teardown.
-	// AF7 §4/§5: the run is over — drop the abort affordance.
+	// The run is over — drop the abort affordance.
 	ports.sessionRequests.deregisterSessionRun(sessionId);
 
 	// X2: Unregister the MCP bridge BEFORE calling endSession/crashSession.
@@ -2034,7 +2061,7 @@ async function runSession(
 		return registryForceCount + adapterForceCount;
 	}
 
-	// AR2: observation seam.
+	// Observation seam.
 	if (deps.onBeforeTeardown) {
 		try {
 			await deps.onBeforeTeardown({ sessionId, sandboxPath });
@@ -2049,7 +2076,7 @@ async function runSession(
 	}
 
 	if (crashed) {
-		// ── Hook B: capture-back before crash teardown (AO2 §9).
+		// ── Capture-back before crash teardown.
 		if (deps.mounter && mountedFilesystems.length > 0) {
 			await captureMountedFilesystems(sessionId, sandboxPath, mountedFilesystems, deps.mounter);
 		}
@@ -2079,7 +2106,7 @@ async function runSession(
 	const returnVerdict = ports.harnessRuntime.evaluateReturn(returnGate, returnEndReason);
 
 	if (returnVerdict === "not_returned") {
-		// AC3: never silently complete a not-returned turn — surface the escape.
+		// Never silently complete a not-returned turn — surface the escape.
 		eventBus.emit({
 			type: "session_not_returned",
 			streamId: sessionId,
@@ -2094,14 +2121,14 @@ async function runSession(
 						sourceCorrelation: params.requestContext.sourceCorrelation,
 					}
 				: {}),
-			// AU27 Increment 5 (Decision 5): the never-silent net's `conversation`
+			// The never-silent net's `conversation`
 			// subscriber needs somewhere to post — forward the already-baked
 			// calling thread id (Increment 1), zero extra read.
 			...(params.callingThreadId ? { callingThreadId: params.callingThreadId } : {}),
 			timestamp: Date.now(),
 		});
 
-		// ── Hook B: capture-back before not_returned teardown (AO2 §9).
+		// ── Capture-back before not_returned teardown.
 		if (deps.mounter && mountedFilesystems.length > 0) {
 			await captureMountedFilesystems(sessionId, sandboxPath, mountedFilesystems, deps.mounter);
 		}
@@ -2128,7 +2155,7 @@ async function runSession(
 		};
 	}
 
-	// ── Hook B: capture-back before normal teardown (AO2 §9).
+	// ── Capture-back before normal teardown.
 	if (deps.mounter && mountedFilesystems.length > 0) {
 		await captureMountedFilesystems(sessionId, sandboxPath, mountedFilesystems, deps.mounter);
 	}
@@ -2158,7 +2185,7 @@ async function runSession(
 	// resume spawns the harness with a working directory that no longer exists,
 	// and it hangs instead of failing, so the answer reaches nobody and nothing
 	// says why. The question is asked of the `review_sessions` row `send_message`
-	// (type "review") wrote, not of the tool-call event: a return action reaches this function by
+	// (with a `review`) wrote, not of the tool-call event: a return action reaches this function by
 	// one of two paths depending on whether the MCP bridge is open, and watching
 	// only the stream was green in a test and dead on every real run.
 	if (!(await sessionAwaitsVerdict(db, sessionId))) {
@@ -2181,7 +2208,7 @@ async function runSession(
 }
 
 /**
- * AF7 §2 — Admit a session synchronously and DETACH its run.
+ * Admit a session synchronously and DETACH its run.
  *
  * `POST /api/sessions` calls this: it awaits `admitSession` (phases 1-7, all
  * admission errors throw pre-insert) and then fires the long-running `runSession`
@@ -2239,7 +2266,7 @@ async function startSessionProvision(
 /**
  * Provision an end-to-end agent session, awaiting the full run.
  *
- * AF7 §2: retained as a thin wrapper over `admitSession` + `runSession` for the
+ * Retained as a thin wrapper over `admitSession` + `runSession` for the
  * dispatcher (which is already off the request path in a fire-and-forget drain)
  * and for tests that assert on the final outcome.
  */
@@ -2270,7 +2297,7 @@ interface Provisioner {
 		params: ProvisionSessionParams,
 	): ReturnType<typeof startSessionProvision>;
 	/**
-	 * AU26 F2: takes the agent id plus the live, in-layer injected-filesystem
+	 * Takes the agent id plus the live, in-layer injected-filesystem
 	 * reader — `mountFilesystemsForAgent` reads the record itself at spawn
 	 * rather than consuming a list frozen onto the request. See
 	 * `filesystem-provisioning.ts`'s own top-of-file `@lore`.

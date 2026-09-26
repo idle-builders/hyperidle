@@ -56,7 +56,6 @@ describe("P3 AC-6 — Health check for shared mode", () => {
 				name: "Health Test User",
 				role: "founder",
 				status: "active",
-				email: "health@test.com",
 				createdAt: NOW,
 			});
 
@@ -73,7 +72,6 @@ describe("P3 AC-6 — Health check for shared mode", () => {
 				name: "Health Status User",
 				role: "founder",
 				status: "active",
-				email: "health-status@test.com",
 				createdAt: NOW,
 			});
 
@@ -91,7 +89,6 @@ describe("P3 AC-6 — Health check for shared mode", () => {
 				name: "Timestamp User",
 				role: "founder",
 				status: "active",
-				email: "ts@test.com",
 				createdAt: NOW,
 			});
 
@@ -110,7 +107,6 @@ describe("P3 AC-6 — Health check for shared mode", () => {
 				name: "User ID Test",
 				role: "founder",
 				status: "active",
-				email: "userid@test.com",
 				createdAt: NOW,
 			});
 
@@ -129,7 +125,6 @@ describe("P3 AC-6 — Health check for shared mode", () => {
 				name: "Expected User",
 				role: "founder",
 				status: "active",
-				email: "expected@test.com",
 				createdAt: NOW,
 			});
 

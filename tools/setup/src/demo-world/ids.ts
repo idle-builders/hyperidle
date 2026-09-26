@@ -1,28 +1,31 @@
 /**
  * AX1 — stable ids for the demo world, in one place.
  *
- * Every row the demo world inserts carries a `demo-*` id (or the existing
- * skeleton's ids / factory `seed-*` agents). Fixed ids + `onConflictDoNothing`
- * = idempotent reseeding, and demo data stays distinguishable from anything
- * a real instance produces.
+ * Every row the demo world inserts itself carries a `demo-*` id; the team's
+ * agents carry the ids the plugin installer gives them. Fixed ids +
+ * `onConflictDoNothing` = idempotent reseeding.
  */
+
+import { teamPluginAgentId } from "@hyperidle/core-api";
 
 // ── Cast ────────────────────────────────────────────────────────────────────
 export const TEAM_ID = "demo-team-acme";
 export const FOUNDER_ID = "demo-founder";
 export const MAYA_ID = "demo-human-maya";
 export const ASSISTANT_ID = "ast-demo-founder";
-export const BUILDER_ID = "demo-agent-builder";
-export const PM_ID = "demo-agent-pm";
-export const DESIGNER_ID = "demo-agent-designer";
-export const QA_ID = "demo-agent-qa";
-export const GROWTH_ID = "demo-agent-growth";
-/**
- * @lore BA9d: seed-agent-pf-facilitation removed from factory bootstrap.
- * Knowledge-management plugin will provide facilitators. Demo world uses
- * the demo founder's assistant as stand-in for knowledge-subscription activity.
- */
-export const FACILITATOR_ID = "ast-demo-founder";
+
+// The team's agents are the bundled `role-personas` plugin's, installed for the
+// demo team by `seedDemoWorld`; each id is the one the installer gives it.
+export const ROLE_PERSONAS_PLUGIN = "role-personas";
+const personaAgent = (agentId: string): string =>
+	teamPluginAgentId(ROLE_PERSONAS_PLUGIN, agentId, TEAM_ID);
+export const BUILDER_ID = personaAgent("builder");
+export const PM_ID = personaAgent("product-manager");
+export const DESIGNER_ID = personaAgent("designer");
+export const QA_ID = personaAgent("qa-engineer");
+export const GROWTH_ID = personaAgent("growth");
+export const OPS_ID = personaAgent("ops");
+export const FACILITATOR_ID = personaAgent("facilitator");
 export const PROPAGATION_ID = "system:propagation";
 
 // ── Root tasks (formerly bets) ───────────────────────────────────────────────

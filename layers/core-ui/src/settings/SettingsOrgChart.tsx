@@ -233,8 +233,8 @@ export function SettingsOrgChart(): JSX.Element {
 
 	const { edges, users, teams } = data;
 
-	// AD3 AC-2 / AF15: solo contextual hint when exactly 1 human user.
-	// AF15: RELAXED — we still render the Add-Edge form but show guidance above it.
+	// Solo contextual hint when exactly 1 human user.
+	// RELAXED — we still render the Add-Edge form but show guidance above it.
 	// Default mechanism to "function" in solo mode (zero-dependency path).
 	// 0 humans (all-agent org) sees the full UI.
 	const humanUsers = users.filter((u) => u.kind === "human");
@@ -387,9 +387,9 @@ export function SettingsOrgChart(): JSX.Element {
 
 interface AddEdgeFormProps {
 	users: OrgUser[];
-	/** AF15: Real teams, derived from every user's effective `team`. */
+	/** Real teams, derived from every user's effective `team`. */
 	teams: OrgTeam[];
-	/** AF15: True when exactly 1 human — defaults mechanism to "function". */
+	/** True when exactly 1 human — defaults mechanism to "function". */
 	isSolo: boolean;
 	fromUserId: string;
 	mechanism: OrgEdgeMechanism;
@@ -465,7 +465,7 @@ function AddEdgeForm({
 							options={users.map((u) => ({ id: u.id, label: u.name }))}
 						/>
 					) : mechanism === "team" ? (
-						/* AF15: Team select from real teams (each user's effective `team`).
+						/* Team select from real teams (each user's effective `team`).
 						 * value=team.id (teams.id — what the server validates for mechanism:"team").
 						 * label=team.name (human-readable).
 						 * @lore AF15: The old deriveTeams() derived from existing edges — circular.

@@ -1,5 +1,5 @@
 /**
- * AG4 — Navigation keyboard shortcuts hook.
+ * Navigation keyboard shortcuts hook.
  *
  * Binds global keyboard shortcuts for history traversal and view switching.
  * Guards against firing while focus is in a text field (input/textarea/contentEditable).

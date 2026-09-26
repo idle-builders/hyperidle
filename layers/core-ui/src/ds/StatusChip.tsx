@@ -19,7 +19,7 @@ export interface StatusChipProps {
 	 */
 	status: Status | "unknown";
 	/**
-	 * AI4 Decision 1 / Decision 1a — Casing contract:
+	 * Casing contract:
 	 * When provided, renders the string VERBATIM into the DOM — no JS
 	 * `.toUpperCase()`. The CSS `uppercase` class in CHIP_BASE provides
 	 * visual uppercasing so the chip still reads uppercase, but `textContent`

@@ -4,10 +4,7 @@
  * After `runFactoryBootstrap(db)` only (no demo helper):
  *   - teams count = 0
  *   - no users with kind="human"
- *   - no rows with seed-product-1 / demo-team-acme ids
- *   - no demo-agent-* rows
- *
- * Also verifies that no Nimmly / demo-team ids survive the bootstrap path.
+ *   - no plugin installed (the demo's team agents come from one)
  *
  * @lore AU29: relocated verbatim from `framework/db/src/__tests__/` (task D) —
  * `applyFactoryBootstrap` dissolved into the two layer faces; see `factory-bootstrap-runner.ts`.
@@ -46,67 +43,10 @@ describe("AF17 AC4: bootstrap-only DB contains no demo data", () => {
 		expect(Number(rows[0]?.count)).toBe(0);
 	});
 
-	test("no seed-product-1 row exists after bootstrap", async ({ db }) => {
+	test("no plugin is installed after bootstrap", async ({ db }) => {
 		await runFactoryBootstrap(db);
 
-		const rows = await queryRows<{ count: string }>(
-			db,
-			"SELECT COUNT(*) AS count FROM teams WHERE id = 'seed-product-1'",
-		);
-		expect(Number(rows[0]?.count)).toBe(0);
-	});
-
-	test("no demo-team-acme row exists after bootstrap", async ({ db }) => {
-		await runFactoryBootstrap(db);
-
-		const rows = await queryRows<{ count: string }>(
-			db,
-			"SELECT COUNT(*) AS count FROM teams WHERE id = 'demo-team-acme'",
-		);
-		expect(Number(rows[0]?.count)).toBe(0);
-	});
-
-	test("no demo-agent-* users exist after bootstrap", async ({ db }) => {
-		await runFactoryBootstrap(db);
-
-		const rows = await queryRows<{ count: string }>(
-			db,
-			"SELECT COUNT(*) AS count FROM users WHERE id LIKE 'demo-agent-%'",
-		);
-		expect(Number(rows[0]?.count)).toBe(0);
-	});
-
-	test("no u-founder row exists after bootstrap", async ({ db }) => {
-		await runFactoryBootstrap(db);
-
-		const rows = await queryRows<{ count: string }>(
-			db,
-			"SELECT COUNT(*) AS count FROM users WHERE id = 'u-founder'",
-		);
-		expect(Number(rows[0]?.count)).toBe(0);
-	});
-
-	test("no seed-agent-pm-nimmly row exists after bootstrap (purged to demo-agent-pm)", async ({
-		db,
-	}) => {
-		await runFactoryBootstrap(db);
-
-		const rows = await queryRows<{ count: string }>(
-			db,
-			"SELECT COUNT(*) AS count FROM users WHERE id = 'seed-agent-pm-nimmly'",
-		);
-		expect(Number(rows[0]?.count)).toBe(0);
-	});
-
-	test("no seed-agent-builder row exists after bootstrap (demo agent, not factory)", async ({
-		db,
-	}) => {
-		await runFactoryBootstrap(db);
-
-		const rows = await queryRows<{ count: string }>(
-			db,
-			"SELECT COUNT(*) AS count FROM users WHERE id = 'seed-agent-builder'",
-		);
+		const rows = await queryRows<{ count: string }>(db, "SELECT COUNT(*) AS count FROM plugins");
 		expect(Number(rows[0]?.count)).toBe(0);
 	});
 });

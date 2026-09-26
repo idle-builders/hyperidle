@@ -1,12 +1,6 @@
 /**
  * The one place an agent's identity document is written or looked up —
- * moved verbatim from `layers/core-api/src/routes/
- * agent-identity.ts` into this package. `routes/agents.ts`, `routes/org.ts`,
- * `routes/users.ts` and `routes/teams-routes.ts` all reduce to this one
- * shared helper (imported from `@hyperidle/user` now) instead of each
- * calling the retired `upsertAgentIdentity`/`getAgentIdentityIds`
- * repository functions directly; `user-actions.ts`'s `edit_user` uses the
- * same port for the identity a create/retire touches.
+ * `edit_user` uses it for the identity a create/retire touches.
  *
  * An agent's identity is an `agent_file`-slotted document parented to the
  * agent (`parentKind:"agent"`, `parentId:<agentId>`), `scopeKind:"user"`,
@@ -28,11 +22,9 @@ export interface AgentIdentityDeps {
 
 export interface AgentIdentityPort {
 	/**
-	 * `OrgUserDirectory.upsertAgentIdentity`-shaped — the signature
-	 * `@hyperidle/org`'s `persistScaffoldedAgents` (scaffold creation) and
-	 * `routes/agents.ts` (direct creation) both call. Give the agent its
-	 * identity document, or return the one it already has — the body is
-	 * NEVER overwritten once the document exists (a person's edit is theirs).
+	 * Give the agent its identity document, or return the one it already
+	 * has — the body is NEVER overwritten once the document exists (a
+	 * person's edit is theirs). `updatedBy` is the acting user's id.
 	 */
 	readonly upsertAgentIdentity: (
 		db: WriteExecutor,
@@ -64,29 +56,11 @@ function ctxFor(db: HyperIdleDb, deps: AgentIdentityDeps, actor: string): Action
 	return { actor, db, eventBus: deps.eventBus, now: new Date().toISOString(), internal: true };
 }
 
-/**
- * @lore architecture.md §8.3 (carried over from the route this file was
- * moved from) names the shape of a scaffold-created identity
- * (`doc_af_${agentId}`, read-then-edit) but not an actor for it:
- * `persistScaffoldedAgents` passes the literal "scaffold" through
- * `input.updatedBy`, which is not a row in `users` at all — and
- * `edit_document`'s `changes.actor` FK (`references users.id`, restrict)
- * needs a real one, unlike the free-text `documents.updated_by` this
- * replaces. `system:propagation` is the codebase's own established
- * system-initiated `ActionContext.actor` (`app.ts`'s dependency-watcher uses
- * the same sentinel for the same reason: no human triggered this write), so
- * a scaffolded agent's identity is attributed to it rather than invented.
- * `routes/agents.ts`'s direct, human-driven create already resolves a real
- * `users.id` before calling this, so that path is untouched.
- */
-const SYSTEM_ACTOR = "system:propagation";
-
 export function createAgentIdentityPort(deps: AgentIdentityDeps): AgentIdentityPort {
 	return {
 		async upsertAgentIdentity(db, input) {
 			const realDb = db as HyperIdleDb;
-			const actor = input.updatedBy === "scaffold" ? SYSTEM_ACTOR : input.updatedBy;
-			const ctx = ctxFor(realDb, deps, actor);
+			const ctx = ctxFor(realDb, deps, input.updatedBy);
 			const existing = await deps.searchDocuments(ctx, {
 				parent: { kind: "agent", id: input.agentId },
 				slot: "agent_file",

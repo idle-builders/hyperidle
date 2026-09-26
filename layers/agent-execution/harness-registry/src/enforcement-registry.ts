@@ -28,10 +28,10 @@ export interface EnforcementEntry {
 	/** Exempt sessions (internal-extraction drains) skip enforcement entirely. */
 	readonly exempt: boolean;
 	/**
-	 * AU27 Increment 3 (Decision 3) — the session's specific required return
+	 * The session's specific required return
 	 * subset, when it has one (structural rule: `["reply"]` for a session
 	 * whose output belongs in a calling thread and has no task — the
-	 * assistant, post-AU27; unchanged `undefined` for every session that
+	 * assistant; unchanged `undefined` for every session that
 	 * still satisfies the gate via plain membership in the full return set).
 	 */
 	readonly requiredReturnActions?: readonly string[];

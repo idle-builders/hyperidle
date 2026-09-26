@@ -1,11 +1,11 @@
 /**
- * AU36 (D1) — inherited reach: the connections domain's own probe + cache for
+ * Inherited reach: the connections domain's own probe + cache for
  * the services the machine already holds auth for.
  *
  * The four probes moved VERBATIM from `layers/agent-execution/harness-registry/
  * src/harness-discovery.ts` (inspectClaudeTools / inspectCodexTools /
  * inspectOpenCodeTools / inspectInheritedTools) — same argv, same parsing,
- * same degrade-to-`[]` error handling, same timeouts, same AN1 lore. Their
+ * same degrade-to-`[]` error handling, same timeouts, same lore. Their
  * small CLI-runner helpers (`runCommand` / `stripAnsi` / `failedCommandResult`)
  * are deliberately DUPLICATED here (~50 lines): the originals also serve the
  * harness-family probes that stay, and no cross-layer sharing is legal
@@ -116,11 +116,11 @@ async function runCommand(
 	}
 }
 
-/** Per-probe timeout for MCP list / CLI auth-status probes (AN1). */
+/** Per-probe timeout for MCP list / CLI auth-status probes. */
 const INHERITED_PROBE_TIMEOUT_MS = 5_000;
 
 /**
- * AN1: Probe Claude Code's configured MCP servers (identity only, no token values).
+ * Probe Claude Code's configured MCP servers (identity only, no token values).
  *
  * Runs `claude mcp list` and parses each output line:
  *   "<name>: <command|url> - <status>"
@@ -222,7 +222,7 @@ function parseCodexMcpListOutput(stdout: string): readonly InheritedConnectionFa
 }
 
 /**
- * AN1: Probe Codex's configured MCP servers (identity only).
+ * Probe Codex's configured MCP servers (identity only).
  *
  * Tries `codex mcp list`; on failure, parses `~/.codex/config.toml` for
  * `[mcp_servers.<name>]` table keys. Health is always "unknown" (list shows
@@ -284,7 +284,7 @@ async function inspectCodexTools(
 }
 
 /**
- * AN1: Probe OpenCode's configured MCP servers (identity only).
+ * Probe OpenCode's configured MCP servers (identity only).
  *
  * Reads `~/.config/opencode/opencode.jsonc` (or `$XDG_CONFIG_HOME/opencode/opencode.jsonc`)
  * and extracts the `mcp` object's top-level keys as server names.
@@ -342,7 +342,7 @@ async function inspectOpenCodeTools(
 }
 
 /**
- * AN1: Probe the PATH-level environment for logged-in CLIs.
+ * Probe the PATH-level environment for logged-in CLIs.
  *
  * Currently checks `gh auth status --json hosts` (GitHub CLI).
  * gh always exits 0; the JSON hosts list shows which accounts are logged in.
@@ -398,7 +398,7 @@ async function inspectInheritedTools(
 }
 
 /**
- * AU36 (D1) — the reach cache face. Built by `bootAgentOrchestration` (always)
+ * The reach cache face. Built by `bootAgentOrchestration` (always)
  * and read by `/api/connections`' inherited projection; refreshed at the boot
  * and redetect moments through composition-root wiring (D4/D5).
  *
@@ -452,7 +452,7 @@ export function createInheritedReach(): InheritedReach {
 				inspectCodexTools(deps),
 				inspectOpenCodeTools(deps),
 			]);
-			// AU36 D6: fixed source order — reproduces today's display order for
+			// Fixed source order — reproduces today's display order for
 			// every real configuration (see architecture.md §4 D6 for the one
 			// documented edge this deliberately does not reproduce).
 			snapshot = Object.freeze([

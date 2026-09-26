@@ -3,7 +3,7 @@
  *
  * AC1: Harness picker renders all descriptors; choosability gated on discovery.state.
  * AC4b: the person is created before navigating; the picked harness reaches
- *       the assistant and team-agent edit_user calls; no credential is written.
+ *       the assistant's edit_user call; no credential is written.
  * AC5: graceful degrade — discovery failing must not block setup.
  *
  * @lore The always-present built-in gateway row this file was written around is
@@ -12,7 +12,7 @@
  * are now answered by the discovered harnesses themselves.
  *
  * @lore BC5 T10: the door swap — `open_user({}).runsOn` replaces `GET
- * /api/harnesses`; the three `edit_user` calls replace `POST /api/users` →
+ * /api/harnesses`; the `edit_user` calls replace `POST /api/users` →
  * `POST /api/teams` → `POST /api/filesystems` (architecture.md §7). `call`
  * is mocked at the door; `apiFetch` stays mocked for the plumbing
  * `POST /api/filesystems/inspect-path` route.
@@ -113,7 +113,6 @@ function openUserData(descriptors: HarnessCapabilityDescriptor[]): Record<string
 		folders: [],
 		subscriptions: [],
 		connections: null,
-		behaviour: null,
 		inbox: null,
 	};
 }
@@ -284,7 +283,7 @@ describe("harness picker graceful degrade", () => {
 
 // ── AC4b: person created first + picked harness reaches the agents ───────────
 
-describe("setup submit ordering — person before agents, no credential", () => {
+describe("setup submit ordering — person before their assistant, no credential", () => {
 	afterEach(() => {
 		vi.restoreAllMocks();
 	});
@@ -292,9 +291,9 @@ describe("setup submit ordering — person before agents, no credential", () => 
 	// @lore This asserted a PUT /api/credentials landed before the navigate, back
 	// when setup collected an API key and stored it for a harness to run on. Setup
 	// asks for no credential now — the harness holds its own — so the ordering
-	// guarantee is that the person is created before the agents that need their
-	// id, and no credential write ever happens.
-	it("creates the person before the agents, and writes no credential", async () => {
+	// guarantee is that the person is created before the assistant that needs
+	// their id, and no credential write ever happens.
+	it("creates the person before their assistant, and writes no credential", async () => {
 		const user = userEvent.setup();
 		const { editUserCalls } = setupCallMock({ descriptors: [OPENCODE_READY] });
 		renderSetupFlow();
@@ -310,16 +309,15 @@ describe("setup submit ordering — person before agents, no credential", () => 
 		expect(searchEl.textContent).toContain("onboarding=true");
 
 		const calls = editUserCalls();
-		expect(calls).toHaveLength(3);
+		expect(calls).toHaveLength(2);
 		expect(calls[0]?.kind).toBe("human");
 		expect(calls[1]?.kind).toBe("ai");
-		expect(calls[2]?.kind).toBe("ai");
-		// No credential write: the only door calls are open_user + three edit_user.
+		// No credential write: the only door calls are open_user + two edit_user.
 		const names = callMock.mock.calls.map(([name]) => name);
 		expect(names.every((name) => name === "open_user" || name === "edit_user")).toBe(true);
 	});
 
-	it("primaryHarness reaches the assistant and team-agent edit_user calls when a ready harness is selected", async () => {
+	it("primaryHarness reaches the assistant's edit_user call when a ready harness is selected", async () => {
 		const user = userEvent.setup();
 		const { editUserCalls } = setupCallMock({ descriptors: [OPENCODE_READY, CLAUDE_CODE_READY] });
 		renderSetupFlow();
@@ -339,9 +337,7 @@ describe("setup submit ordering — person before agents, no credential", () => 
 
 		const calls = editUserCalls();
 		const assistantCall = calls[1] as { runConfig?: { harnessType?: string } };
-		const teamAgentCall = calls[2] as { runConfig?: { harnessType?: string } };
 		expect(assistantCall.runConfig?.harnessType).toBe("claude-code");
-		expect(teamAgentCall.runConfig?.harnessType).toBe("claude-code");
 	});
 
 	// @lore This used to assert the opposite: builtin was the server-side default,

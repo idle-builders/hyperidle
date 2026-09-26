@@ -57,22 +57,8 @@ test.describe("Q2 AC-12: Change scope from user to team", () => {
 		let currentRow = MOCK_USER_ITEM;
 
 		// ScopeChangeDialog gates the "Team" pill on the current user having a
-		// team (`hasTeam = user?.teamId !== undefined`) — the fixture default
-		// `/api/auth/me` has no team, which leaves it permanently disabled.
-		await page.route("**/api/auth/me", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({
-					id: "test-founder",
-					name: "Test Founder",
-					email: "test@hyperidle.dev",
-					role: "founder",
-					avatarUrl: null,
-					teamId: "team-alpha",
-				}),
-			});
-		});
+		// team (`hasTeam = user?.teamId !== undefined`) — the fixture's default
+		// `open_user` row already carries one.
 
 		await page.route("**/api/actions/search_documents", async (route) => {
 			await route.fulfill({

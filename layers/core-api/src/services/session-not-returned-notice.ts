@@ -1,5 +1,5 @@
 /**
- * AU27 Increment 5 (Decision 5) — the never-silent net. The force budget
+ * The never-silent net. The force budget
  * (`MAX_FORCE_RETURNS`) is finite, so a session can still end without
  * calling its required return action. `provisioner.ts` already emits
  * `session_not_returned` on that verdict (existing event); its only

@@ -123,7 +123,7 @@ export interface AnchoredThreadCardProps {
 	readonly anchor: AnchorRef;
 	readonly comments: ReadonlyArray<ReviewComment>;
 	readonly readOnly: boolean;
-	/** AL4: the referenced block no longer resolves in the current rendered artifact. */
+	/** The referenced block no longer resolves in the current rendered artifact. */
 	readonly orphan?: boolean;
 	readonly onReply?: (text: string) => Promise<void>;
 }

@@ -8,7 +8,7 @@ Click the **Settings** button pinned at the bottom of the Sidebar. All sections 
 | **Org chart** | Reporting lines between humans (direct / function / team relationships) |
 | **Agents** | Per-agent model, harness, and system prompt; add new agents |
 | **Skills & rules** | Skill and rule documents attached to agents |
-| **Agent behavior** | Configuration that controls agent work: agents, subscriptions, skills, tools, and MCP |
+| **Plugins** | The plugins that ship with the app (Install), plus install from a folder, repository or zip; enable, disable, remove |
 | **Filesystems** | Team-registered file sources — code repos and document sets |
 | **Agent backends** | Which AI execution environments (harnesses) are detected, authenticated, and enabled |
 | **Connections** | External services your agents can use — see [Connections](connections.md) |
@@ -60,13 +60,11 @@ An amber warning chip appears next to an agent if its harness type is not curren
 
 There is no per-agent autonomy dial. How much an agent's work gets reviewed is derived from its verdict history — approval rate crossed with the risk tier of the action. See the [review primitive](../../human-interface-layer/review-primitive.md).
 
-## Agent Behavior
+## Plugins
 
-**Settings → Agent behavior** shows the configuration that controls when agents act and what context they use.
+**Settings → Plugins** is where agents with opinions come from. The plugins that ship with the app are listed as available, each with an **Install** button: a team plugin installs for your team, a factory plugin once for everyone. You can also install one from a folder, a repository URL or a zip.
 
-The section groups configuration across agents, skills, tools, and MCP. Each row shows the active value, where it came from, and whether a user override is active. Built-in and plugin defaults remain visible when you override them, so you can tell what changed without reading plugin internals.
-
-Some edits happen directly in Agent behavior. Deep edits still link to the existing canonical sections: agent identity in **Agents**, backend setup in **Agent backends**, service/MCP credentials in **Connections**, and an agent's own subscriptions on its profile page.
+Expand an installed plugin to see what it brought: its agents, subscriptions and documents, and the MCP servers in its `mcp.json`. Edit one of its agents, subscriptions or documents and it is marked **detached** — a reinstall leaves your version alone, and **Restore** brings back the plugin's own. Disable, enable or remove a plugin from its row.
 
 ## Filesystems
 

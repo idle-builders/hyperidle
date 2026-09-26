@@ -16,7 +16,7 @@ export interface McpConnectionInfo {
 }
 
 /**
- * AH3 §1.4: A single message from a session's calling-thread transcript.
+ * A single message from a session's calling-thread transcript.
  * Used to deliver the caller's message (and prior context) to the adapter so
  * the model answers the actual question, not a generic task-planning prompt.
  * Generic — any kind that bakes a `transcript` gets this, not assistant-only.
@@ -34,7 +34,7 @@ export interface ConversationMessage {
 
 export interface SessionConfig {
 	/**
-	 * AF7 §3: The provisioning-assigned session id. This is the isolation
+	 * The provisioning-assigned session id. This is the isolation
 	 * contract — adapters key their per-session state on this exact id rather
 	 * than minting their own. Only the builtin adapter's correctness depends on
 	 * it (it pre-registers a tool registry under this id before startSession);
@@ -122,7 +122,7 @@ export interface SessionConfig {
 	 */
 	readonly returnHook?: ReturnHookConfig;
 	/**
-	 * AL7 delta: Per-session MCP token env var for CLI harnesses that require the
+	 * Per-session MCP token env var for CLI harnesses that require the
 	 * token via an environment variable rather than inline in the config file.
 	 *
 	 * codex: { HYPERIDLE_MCP_TOKEN: "<token>" } — injected OUTSIDE the envAllowlist
@@ -135,7 +135,7 @@ export interface SessionConfig {
 	 */
 	readonly mcpTokenEnv?: Readonly<Record<string, string>>;
 	/**
-	 * AU27 Increment 3 (Decision 3) — the session's specific required return
+	 * The session's specific required return
 	 * subset, when it has one (structural rule computed by `run-orchestration`
 	 * — e.g. `["reply"]` for a session whose output belongs in a calling
 	 * thread and has no task). Absent ⇒ the pre-Increment-3 default: any
@@ -232,7 +232,7 @@ export interface HarnessCapabilities {
 	readonly fileEditing?: boolean;
 	readonly toolUse?: boolean;
 	/**
-	 * AL7 delta: Per-session MCP config dialect for CLI harnesses that need a
+	 * Per-session MCP config dialect for CLI harnesses that need a
 	 * config file written into the sandbox for the binary to discover the bridge.
 	 * Absent for a harness that discovers the bridge some other way.
 	 *

@@ -12,12 +12,12 @@
 import type { ConnectionHealth } from "@hyperidle/domain-model";
 
 /**
- * AU36 — one inherited-reach fact: a service the machine already holds auth
+ * One inherited-reach fact: a service the machine already holds auth
  * for, found by a connections-domain probe (harness MCP configs, logged-in
  * CLIs). The connections domain owns the probe, the cache and the projection
  * of these facts — the harness capability descriptor carries NO reach field.
  *
- * Identity only (AN1 hard-rule 4, re-pinned in this home): name, kind,
+ * Identity only — never a token value: name, kind,
  * provenance, health — no secret, token, env, or command field may ever
  * appear here. Adding one requires editing this type — a visible, reviewable
  * act.

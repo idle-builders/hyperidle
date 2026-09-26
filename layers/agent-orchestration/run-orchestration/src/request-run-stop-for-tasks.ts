@@ -1,5 +1,5 @@
 /**
- * AU26 H2 (§D-M.2) — the run-stop write a bet kill cascades downward.
+ * The run-stop write a bet kill cascades downward.
  *
  * `layers/core-api/work/bet-kill-cascade.ts` selected the active runs per
  * task and CAS-stopped each itself. Killing a bet must stop its runs — that is

@@ -230,7 +230,6 @@ describe("context.ts sandbox output — bundle-consuming byte parity for a fixed
 				sessionId: "session-i12c-new",
 				taskId: TASK_ID,
 				agentId: AGENT_ID,
-				agentRole: AGENT_ROLE,
 				teamId: TEAM_ID,
 				taskFree: false,
 				sourceKind: null,

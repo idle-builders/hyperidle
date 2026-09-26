@@ -53,8 +53,8 @@ export interface ComposedReviewArtifact extends ReviewArtifact {
 }
 
 /**
- * AL3 — a full review Subject as seen on the composition surface.
- * Extends the AL2 artifact-only Subject with the frame metadata the
+ * A full review Subject as seen on the composition surface.
+ * Extends the artifact-only Subject with the frame metadata the
  * reviewer needs to orient, judge, and decide without opening anything.
  */
 export interface ComposedReviewSubject extends ReviewSubject {

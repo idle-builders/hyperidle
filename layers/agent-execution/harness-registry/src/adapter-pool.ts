@@ -35,7 +35,7 @@ export interface SelectRequirements {
 	/** X3: If set, only adapters with matching type are eligible. */
 	readonly harnessType?: string;
 	/**
-	 * AM4 CHANGE 1: Caller-supplied list of disabled harness types (pool is DB-free and
+	 * Caller-supplied list of disabled harness types (pool is DB-free and
 	 * select() is synchronous — cannot read server_config itself). The caller (admitSession)
 	 * reads harnessDisabled from readServerConfig(db) and passes it here.
 	 *
@@ -76,9 +76,9 @@ export class AdapterPool {
 	}
 
 	/**
-	 * AM4: Re-run discoverLocalHarnesses() and replace the discovery snapshot.
+	 * Re-run discoverLocalHarnesses() and replace the discovery snapshot.
 	 * Refreshes readiness/version/auth state — does NOT run the session probe
-	 * (same probe-gating as boot; runtime caps stay false until AM3).
+	 * (same probe-gating as boot; runtime caps stay false).
 	 *
 	 * @lore AM4: Called by POST /api/harnesses/redetect. The pool is DB-free so
 	 * the caller (route handler) stamps discovery.disabled separately from readServerConfig.
@@ -180,7 +180,7 @@ export class AdapterPool {
 				if (entry.meta.type !== requirements.harnessType) continue;
 			}
 
-			// AM4 CHANGE 1: disabledTypes gate. The caller (admitSession) passes
+			// disabledTypes gate. The caller (admitSession) passes
 			// `harnessDisabled` from server_config here.
 			//
 			// @lore There used to be a hard exemption here for the built-in harness —
@@ -267,7 +267,7 @@ export class AdapterPool {
 	}
 
 	/**
-	 * AB1: Return the HarnessCapabilities for the first adapter matching the given
+	 * Return the HarnessCapabilities for the first adapter matching the given
 	 * harnessType. When harnessType is null, returns capabilities from any adapter
 	 * (useful when the agent has no preference — any adapter will do).
 	 * Returns null when no matching adapter is registered.
@@ -415,7 +415,7 @@ const CLI_TOOL_CONFIGS: Partial<Record<HarnessType, CliAdapterConfig>> = {
 		// @lore Without this field, re-engage runs would use the
 		// same generic "proceed" prompt regardless of the forcing message.
 		seedPrompt: "positional",
-		// AL7 delta: codex reads MCP server from .codex-home/config.toml;
+		// Codex reads MCP server from .codex-home/config.toml;
 		// the token is delivered via HYPERIDLE_MCP_TOKEN env var (bearer_token_env_var).
 		mcpConfig: { dialect: "codex-toml" },
 		// @lore AR2 codex-stderr-ignore: codex emits informational messages to stderr
@@ -429,7 +429,7 @@ const CLI_TOOL_CONFIGS: Partial<Record<HarnessType, CliAdapterConfig>> = {
 	},
 	opencode: {
 		binary: "opencode",
-		// AL7 delta: opencode headless `run` form (was ["--dir","{{sandbox}}"] which
+		// Opencode headless `run` form (was ["--dir","{{sandbox}}"] which
 		// launches the interactive TUI, never completing a headless turn).
 		// - `run <prompt>` delivers the seed prompt.
 		// - `--dir {{sandbox}}` sets cwd for config resolution (opencode.json).
@@ -450,7 +450,7 @@ const CLI_TOOL_CONFIGS: Partial<Record<HarnessType, CliAdapterConfig>> = {
 		// its own login like every other harness, and HyperIdle holds no model
 		// credential to pass on.
 		envMap: {},
-		// AL7 delta: changed from "text" → "ndjson" because opencode --format json emits JSONL.
+		// Changed from "text" → "ndjson" because opencode --format json emits JSONL.
 		// @lore AL7 W3: opencode JSONL events (step_finish, tool) may normalize to `unknown` via
 		// normalizeHarnessEvent until the opencode pre-map is added (T6 verify). The router capture
 		// (captured>=1) is on the MCP router path and does NOT depend on event normalization.
@@ -471,7 +471,7 @@ const CLI_TOOL_CONFIGS: Partial<Record<HarnessType, CliAdapterConfig>> = {
 		// @lore Without this, re-engage re-invocations would not carry
 		// the forcing message and the agent would not know it needs to return.
 		reEngageCarrier: "run-arg",
-		// AL7 delta: opencode reads MCP server from opencode.json in the sandbox cwd;
+		// Opencode reads MCP server from opencode.json in the sandbox cwd;
 		// the token is inline in headers.Authorization (no tokenEnv needed).
 		mcpConfig: { dialect: "opencode-json" },
 		// @lore AR2 opencode-stderr-ignore: opencode emits informational progress messages

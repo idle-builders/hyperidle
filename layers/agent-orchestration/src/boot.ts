@@ -1,5 +1,5 @@
 /**
- * AU26 B1a — `bootAgentOrchestration`: everything an Application needs to run
+ * `bootAgentOrchestration`: everything an Application needs to run
  * this Layer, in one call.
  *
  * The twin of `bootCoreApi`. An Application (`remote-server`, `desktop`, a test
@@ -11,22 +11,21 @@
  * rather than a bare `Hono`.
  *
  * What this boot owns that core-api's used to:
- *   - the `SessionActivityBuffer` (AU31 §2.7: relocated in-Layer, this
- *     package's own `session-activity-buffer.js` — supersedes AU21 Decision
- *     E's `@hyperidle/agent-execution` placement) — the buffer's one REST
+ *   - the `SessionActivityBuffer` (this package's own
+ *     `session-activity-buffer.js`) — the buffer's one REST
  *     reader and its one gateway reader are both on this side now, so
  *     core-api has no reason to instantiate it;
  *   - the session-activity gateway, which tees `session_started` /
  *     `session_ended` / `tool_call_recorded` onto the `session:<id>` topic as
  *     a content-free nudge;
- *   - **AU26 J3, superseded: the browser holds ONE socket, core-api's.** This
+ *   - **The browser holds ONE socket, core-api's.** This
  *     Layer never sees `WsConnectionHub` or any other core-api transport —
  *     the Application binds `options.wsPush` to
  *     `coreApi.wsHub.broadcast(topic, JSON.stringify(envelope))`, byte-
  *     identical to core's own action-layer binding (`core-api/src/app.ts`),
  *     and hands this boot only that one narrow function. Session content
  *     stays this Layer's own — `wsPush` carries a nudge, never the event.
- *   - **AU31 §5.1: the run runtime itself.** `startRuntime` (poller/drain/
+ *   - **The run runtime itself.** `startRuntime` (poller/drain/
  *     watcher) used to be called by the Application directly
  *     (`applications/remote-server/src/create-server.ts`), importing the
  *     composition root by a deep subpath. This boot now starts it internally
@@ -91,7 +90,7 @@ import {
 import { SessionActivityBuffer } from "./session-activity-buffer.js";
 
 /**
- * AU31 §5.1/§2.4 — the run runtime's own environment, supplied by the
+ * The run runtime's own environment, supplied by the
  * Application. `harnessRuntime`/`returnStatusTool`/`pool`/`createWorkerAdapter`
  * come straight from `bootAgentExecution`'s `adapters` bundle
  * (`layers/agent-execution/src/boot.ts`) — opaque, structurally-typed values
@@ -104,7 +103,7 @@ import { SessionActivityBuffer } from "./session-activity-buffer.js";
  * alone now.
  */
 /**
- * AU31 §5.1: the four provisioning reads `bootAgentExecution`'s twin never
+ * The four provisioning reads `bootAgentExecution`'s twin never
  * owned — `mounter`, `heldConnections`, `injectedFilesystems`,
  * `serviceConnectionResolver` — are built INSIDE this boot now (`connections`,
  * `filesystems`, `filesystem-mounting` are all this Layer's own services), so
@@ -130,14 +129,14 @@ export interface AgentOrchestrationRuntimeOptions {
 		) => HarnessAdapter;
 	};
 	/**
-	 * AU31 §2.7: no longer built by the Application. This field survives
+	 * No longer built by the Application. This field survives
 	 * only as a test override (a fixture that wants to intercept the
 	 * writeback write without a real seam).
 	 */
 	readonly writeback?: RuntimeDeps["composition"]["writeback"];
 	readonly reapers?: RuntimeDeps["composition"]["reapers"];
 	/**
-	 * AU26 review C2 / AU31 §5.1/§5.2: the Application's `bootCoreApi`-sourced
+	 * The Application's `bootCoreApi`-sourced
 	 * capability resolving the single human whose held connections a spawn
 	 * provisions — this Layer reads zero core-api state, so it can never
 	 * resolve an owner itself (`@hyperidle/user` is core-api's own service).
@@ -191,7 +190,7 @@ export interface AgentOrchestrationBootOptions {
 	 */
 	readonly upgradeWebSocket?: UpgradeWebSocket;
 	/**
-	 * AU26 J3, superseded: the one narrow function this Layer's live-run
+	 * The one narrow function this Layer's live-run
 	 * stream reaches the browser through — bound by the Application to
 	 * `coreApi.wsHub.broadcast(topic, JSON.stringify(envelope))`, the exact
 	 * binding core's own actions use (`core-api/src/app.ts`). Absent means no
@@ -200,14 +199,14 @@ export interface AgentOrchestrationBootOptions {
 	 */
 	readonly wsPush?: SessionActivityPush;
 	/**
-	 * AU36 D4: await the initial inherited-reach probe before returning, so
+	 * Await the initial inherited-reach probe before returning, so
 	 * facts are cached by serve time (exactly as when `createLocalAdapterPool`
 	 * awaited discovery). Absent → the cache exists but stays empty until the
 	 * first redetect (the `disabled`-topology behavior — D5's unconditional
 	 * redetect refresh populates it there, as today).
 	 */
 	readonly probeInheritedReach?: boolean;
-	/** AU31 §5.1 — absent means "no runtime": the route surface and session-stream socket exist, but no poller starts (the shape every existing bare-app test fixture already relies on). */
+	/** Absent means "no runtime": the route surface and session-stream socket exist, but no poller starts (the shape every existing bare-app test fixture already relies on). */
 	readonly runtime?: AgentOrchestrationRuntimeOptions;
 }
 
@@ -223,7 +222,7 @@ export interface AgentOrchestrationBoot {
 	 */
 	readonly actionTools: readonly RegisteredTool<HyperIdleDb>[];
 	/**
-	 * AU36 D4/D5: this Layer's own inherited-reach cache. Always built; the
+	 * This Layer's own inherited-reach cache. Always built; the
 	 * Application wires `inheritedReach.refresh` into core-api's
 	 * `onHarnessRedetect` (the redetect moment) and chooses whether boot awaits
 	 * the initial probe (`probeInheritedReach`).
@@ -231,10 +230,10 @@ export interface AgentOrchestrationBoot {
 	readonly inheritedReach: InheritedReach;
 	/** Registered by the Application on its `/api` router, BEFORE the auth middleware. */
 	readonly registerPreAuthRoutes: (apiRouter: Hono) => void;
-	/** AU31 §5.1 — the one-shot session runner, bound to this boot's execution adapters and seam transport. Absent when `options.runtime` was not supplied. */
+	/** The one-shot session runner, bound to this boot's execution adapters and seam transport. Absent when `options.runtime` was not supplied. */
 	readonly runSession?: (deps: ProvisionSessionDeps, spec: RunOptions) => Promise<RunResult>;
 	/**
-	 * AU31 §5.1 — the run runtime's own disposer (poller/drain/watcher),
+	 * The run runtime's own disposer (poller/drain/watcher),
 	 * exposed SEPARATELY from `dispose` rather than folded into it: the
 	 * Application's own shutdown sequence (`create-server.ts`) disposes the
 	 * run runtime as its own named, awaited phase BEFORE the rest of the
@@ -248,7 +247,7 @@ export interface AgentOrchestrationBoot {
 	/** Stops the activity buffer, unsubscribes the gateway, drops WS adapters. Does NOT dispose the run runtime — call `disposeRuntime()` first, same ordering as before this boot absorbed `startRuntime`. */
 	readonly dispose: () => void;
 	/**
-	 * AU31 §5.1/§5.2: this Layer's own `service_connections` read, by auth
+	 * This Layer's own `service_connections` read, by auth
 	 * source — the second, display-only consumer of the connections record
 	 * (`settings`' boot-time MCP plugin seed). Stateless (takes its own `db`
 	 * argument, same shape `settings`' `BackfillLegacyConfigurationDeps.
@@ -263,7 +262,7 @@ export interface AgentOrchestrationBoot {
 		) => Promise<ServiceConnectionRow[]>;
 	};
 	/**
-	 * AU26 review C1/C2 / AU31 §5.1: the three session-provisioning ports this
+	 * The three session-provisioning ports this
 	 * boot now builds itself, exposed for the same reason the Application used
 	 * to expose them on `ServerHandle` — so the production wiring is
 	 * assertable functionally, against a real DB, without an indirect
@@ -304,7 +303,7 @@ function buildRuntimeComposition(
 }
 
 /**
- * AU31 §5.1: builds this Layer's own provisioning reads — `mounter` (via
+ * Builds this Layer's own provisioning reads — `mounter` (via
  * `filesystem-mounting`), `heldConnections` (via `connections`),
  * `injectedFilesystems` (via `filesystems`), `serviceConnectionResolver`
  * (via `connections`) — all in-layer now, off the same `db` handle this boot
@@ -384,7 +383,7 @@ export async function bootAgentOrchestration(
 	// `@hyperidle/connections` now owns the cipher outright.
 	const decrypt = decryptCredentialValue;
 
-	// AU36 D4: the reach cache is ALWAYS built; `probeInheritedReach` only
+	// The reach cache is ALWAYS built; `probeInheritedReach` only
 	// decides whether boot awaits the initial probe (refresh never rejects, so
 	// the awaited probe cannot fail boot — worst case an empty inherited group).
 	const inheritedReach = createInheritedReach();
@@ -395,12 +394,12 @@ export async function bootAgentOrchestration(
 	const activityBuffer = new SessionActivityBuffer(eventBus);
 	activityBuffer.start();
 
-	// AU26 J3, superseded: the gateway pushes straight through the
+	// The gateway pushes straight through the
 	// Application-bound `wsPush` — absent means no push happens (a bare test
 	// fixture), never a hub this Layer would have to own.
 	const disposeGateway = registerSessionActivityGateway(eventBus, wsPush ?? (() => {}));
 
-	// AU31 §5.1: the run runtime — poller, drain, watcher — starts HERE now,
+	// The run runtime — poller, drain, watcher — starts HERE now,
 	// not in the Application. `options.runtime` absent (every existing
 	// bare-app test fixture) means no poller: the route surface works exactly
 	// as before.

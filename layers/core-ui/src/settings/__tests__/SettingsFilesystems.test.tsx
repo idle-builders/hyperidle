@@ -40,7 +40,6 @@ describe("SettingsFilesystems", () => {
 					],
 					subscriptions: [],
 					connections: null,
-					behaviour: null,
 					inbox: null,
 				},
 			});
@@ -67,7 +66,6 @@ describe("SettingsFilesystems", () => {
 				folders: [],
 				subscriptions: [],
 				connections: null,
-				behaviour: null,
 				inbox: null,
 			},
 		});

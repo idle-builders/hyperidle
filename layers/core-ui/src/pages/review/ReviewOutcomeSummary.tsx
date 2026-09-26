@@ -1,9 +1,9 @@
-// AL1 — ReviewOutcomeSummary: the FRAME LEAD of every review canvas (component #1).
+// ReviewOutcomeSummary: the FRAME LEAD of every review canvas (component #1).
 //
 // Function-agnostic. This is what a reviewer reads FIRST, before any artifact —
 // the "what was achieved + what needs you" header that frames the proof below.
 //
-// 3-layer drill-down (the AL1 signature):
+// 3-layer drill-down (the review signature):
 //   L1 — one glance: agent author -> human reviewer, what was achieved (1 sentence),
 //        the tools used as a mini-logo row, tokens, standing.
 //   L2 — proof-of-readiness: the intent's done-conditions as +/x ("3 of 4 met", the
@@ -11,7 +11,7 @@
 //   L3 — on demand: each needs-you / done-condition links DOWN to its proof canvas
 //        (rendered as a "Jump" affordance; no-op in this isolation story).
 //
-// Tokens by NAME only (Hearth + CP1). No hex anywhere here (logo color lives in ToolLogo).
+// Tokens by NAME only (Hearth). No hex anywhere here (logo color lives in ToolLogo).
 // 6px grid {3,6,9,12,18,24,36,48}. Pill buttons. Agent avatar green-distinct (AQ-012).
 // Left-aligned. Animate transform/opacity only.
 
@@ -360,7 +360,7 @@ function isOutcomeSummaryPayload(payload: unknown): payload is OutcomeSummaryPay
 	);
 }
 
-/** AL2 wrapper: receives a uniform review artifact and mounts the frame lead. */
+/** Wrapper: receives a uniform review artifact and mounts the frame lead. */
 export function ReviewOutcomeSummary({ artifact }: ReviewCanvasProps): JSX.Element {
 	if (!isOutcomeSummaryPayload(artifact.payload)) {
 		// A malformed payload gets the honest unknown-canvas

@@ -2,13 +2,8 @@
  * A plugin's contributions view lists what it actually contributed.
  *
  * The shipped `document-management` plugin brings one agent, three subscriptions
- * and three skills. Its contributions view rendered COMPLETELY EMPTY, because
- * the view read `plugin_configuration_defaults` and none of those things is a
- * row in that table — the plugin declares `"contributions": []` in its manifest,
- * and its real contributions are `users`, `subscriptions` and `documents` rows.
- * The expand button did not even appear.
- *
- * The registry knows all of it now, so the view asks the registry.
+ * and three skills — `users`, `subscriptions` and `documents` rows. The view
+ * asks the contribution registry, which names every one of them.
  */
 
 import { cpSync, mkdirSync, rmSync } from "node:fs";

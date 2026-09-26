@@ -1,5 +1,5 @@
 /**
- * AB1 — Agent Profile page at /agents/:agentId.
+ * Agent Profile page at /agents/:agentId.
  *
  * Read-only profile showing complete operational picture of an AI agent:
  * identity, configuration, harness capabilities, skills, recent activity,
@@ -26,7 +26,7 @@
  */
 
 import type { SessionOutcome } from "@hyperidle/domain-model";
-import { AGENT_OPERATIONAL_STATUS_LABEL, roleLabel } from "@hyperidle/domain-model";
+import { AGENT_OPERATIONAL_STATUS_LABEL } from "@hyperidle/domain-model";
 import { type JSX, useState } from "react";
 import { Link as RRLink, useNavigate, useParams } from "react-router-dom";
 import type { OpenHandler, PartAuthor } from "../components/parts";
@@ -60,6 +60,7 @@ import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import { createOpenHandler } from "../services/open-handler.js";
 import { NavHistoryCluster } from "../shell/NavHistoryCluster.js";
 import { deriveInitials } from "../utils/initials.js";
+import { roleLabel } from "../utils/role-label.js";
 import { absoluteDate } from "../utils/time.js";
 import { SubscriptionsSection } from "./SubscriptionsSection.js";
 
@@ -314,8 +315,8 @@ function AgentProfileLoaded({
 		<PageScaffold
 			body="managed"
 			header={
-				/* AI7: PageHeader owns the pinned title strip.
-				    AG4: DS Breadcrumb in leading prop. Identity block stays in body scroll. */
+				/* PageHeader owns the pinned title strip.
+				    DS Breadcrumb in leading prop. Identity block stays in body scroll. */
 				<PageHeader
 					title={data.name}
 					leading={
@@ -355,7 +356,7 @@ function AgentProfileLoaded({
 				origin={
 					<PageFrame>
 						<div className="flex max-w-[960px] flex-col gap-[24px] py-[24px]">
-							{/* AU26 W6: run state could not be read — say so, never imply health. */}
+							{/* Run state could not be read — say so, never imply health. */}
 							{runStateUnavailable && (
 								<div
 									role="alert"
@@ -427,13 +428,13 @@ function AgentProfileLoaded({
 								</div>
 							)}
 
-							{/* Identity block — Avatar + meta. Name/status live in PageHeader (AI7). */}
+							{/* Identity block — Avatar + meta. Name/status live in PageHeader. */}
 							<section aria-label="Agent identity" className="flex flex-col gap-[12px]">
 								<div className="flex items-start gap-[12px]">
 									<Avatar initials={initials} size="md" agent />
 									<div className="flex-1 min-w-0">
 										<div className="flex items-center gap-[9px] flex-wrap">
-											{/* AI4 Decision 3a: Category tag (name + status are in PageHeader) */}
+											{/* Category tag (name + status are in PageHeader) */}
 											{data.agentCategory && data.agentCategory !== "team" && (
 												<Tag
 													label={
@@ -606,7 +607,7 @@ function AgentProfileLoaded({
 														{session.taskTitle}
 													</td>
 													<td className="py-[6px]">
-														{/* AI4 AC1: session outcome via StatusChip (was text-only OutcomeChip).
+														{/* Session outcome via StatusChip (was text-only OutcomeChip).
 										     F2: narrowed from `as SessionOutcome` cast; label omitted so chip
 										     renders the presentation status name (DONE/ERROR/PAUSED) from
 										     SESSION_OUTCOME_MAP — no SESSION_OUTCOME_LABEL registry in plan. */}
@@ -634,7 +635,7 @@ function AgentProfileLoaded({
 							>
 								<SectionLabel label="Performance" as="h2" />
 								<div className="flex gap-[24px] flex-wrap">
-									{/* AU26 W6: an unread run set is "—", never a confident 0. */}
+									{/* An unread run set is "—", never a confident 0. */}
 									<KeyValue
 										label="Sessions"
 										value={runStateSettled ? String(performance.totalSessions) : "—"}
@@ -729,7 +730,7 @@ function AgentSessionPanel({
 	);
 }
 
-// AI4 AC1: OutcomeChip deleted — replaced with StatusChip at the call site.
+// OutcomeChip deleted — replaced with StatusChip at the call site.
 // Session outcomes now render as full StatusChip pills (deliberate visual change:
 // text-only colored label → chrome pill with dot).
 //

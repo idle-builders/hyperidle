@@ -1,5 +1,5 @@
 /**
- * AB1 — useAgentProfile: fetches the agent profile via `open_user({ id })`.
+ * UseAgentProfile: fetches the agent profile via `open_user({ id })`.
  *
  * Follows the same pattern as useTeam — thin one-shot fetch, no caching.
  * When agentId is undefined, returns idle state (no fetch).

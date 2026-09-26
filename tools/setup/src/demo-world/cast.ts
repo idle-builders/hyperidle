@@ -1,10 +1,10 @@
 /**
  * AX1 — demo world cast: the Acme team.
  *
- * Two humans and five team agents beside the founder's assistant. Ids are
- * stable (`demo-*`) so reseeding is idempotent and existing tests keep
- * working. The founder is the FIRST human by `created_at` — local-mode auth
- * resolves the first human user, so the founder is who lands in the app.
+ * Two humans, the founder's assistant, and the seven agents the role-personas
+ * plugin brought to the team. The founder is the FIRST human by `created_at` —
+ * local-mode auth resolves the first human user, so the founder is who lands
+ * in the app.
  */
 
 import { agentRunConfig, type HyperIdleDb, orgEdges, users } from "@hyperidle/db";
@@ -13,23 +13,16 @@ import {
 	ASSISTANT_ID,
 	BUILDER_ID,
 	DESIGNER_ID,
+	FACILITATOR_ID,
 	FOUNDER_ID,
 	GROWTH_ID,
 	MAYA_ID,
+	OPS_ID,
 	PM_ID,
 	QA_ID,
 	TEAM_ID,
 } from "./ids.js";
 import type { DemoClock } from "./time.js";
-
-interface AgentSpec {
-	readonly id: string;
-	readonly name: string;
-	readonly role: string;
-	readonly createdAt: string;
-	readonly harnessType: HarnessType;
-	readonly maxConcurrentSessions: number;
-}
 
 export async function seedCast(db: HyperIdleDb, clock: DemoClock): Promise<void> {
 	// Second human — joined a month ago to run operations. Inserted AFTER the
@@ -43,76 +36,29 @@ export async function seedCast(db: HyperIdleDb, clock: DemoClock): Promise<void>
 			name: "Maya Chen",
 			role: "operations",
 			status: "active",
-			email: "maya@acme.example",
 			createdAt: clock.daysAgo(31),
 		})
 		.onConflictDoNothing();
 
-	const agents: readonly AgentSpec[] = [
-		{
-			id: DESIGNER_ID,
-			name: "Acme Designer",
-			role: "designer",
-			createdAt: clock.daysAgo(40),
-			harnessType: "opencode",
-			maxConcurrentSessions: 1,
-		},
-		{
-			id: QA_ID,
-			name: "Acme QA Engineer",
-			role: "qa_engineer",
-			createdAt: clock.daysAgo(36),
-			harnessType: "codex",
-			maxConcurrentSessions: 1,
-		},
-		{
-			id: GROWTH_ID,
-			name: "Acme Growth",
-			role: "growth",
-			createdAt: clock.daysAgo(29),
-			harnessType: "cursor-agent",
-			maxConcurrentSessions: 1,
-		},
-	];
-
-	for (const agent of agents) {
-		await db
-			.insert(users)
-			.values({
-				id: agent.id,
-				kind: "ai",
-				name: agent.name,
-				role: agent.role,
-				agentCategory: "team",
-				status: "active",
-				teamId: TEAM_ID,
-				createdAt: agent.createdAt,
-			})
-			.onConflictDoNothing();
+	// The team's agents came with the role-personas plugin, which gives them no
+	// harness outside a running server. Spread them across all four installable
+	// harnesses so the Agents view has something to distinguish.
+	for (const [agentId, harnessType, maxConcurrentSessions] of [
+		[BUILDER_ID, "claude-code", 3],
+		[PM_ID, "codex", 1],
+		[DESIGNER_ID, "opencode", 1],
+		[QA_ID, "codex", 1],
+		[GROWTH_ID, "cursor-agent", 1],
+		[OPS_ID, "claude-code", 1],
+		[FACILITATOR_ID, "opencode", 1],
+		[ASSISTANT_ID, "claude-code", 1],
+	] as const satisfies readonly (readonly [string, HarnessType, number])[]) {
 		await db
 			.insert(agentRunConfig)
-			.values({
-				agentUserId: agent.id,
-				harnessType: agent.harnessType,
-				maxConcurrentSessions: agent.maxConcurrentSessions,
-			})
-			.onConflictDoNothing();
-	}
-
-	// Harness variety on the pre-existing skeleton agents — gives the Agents view
-	// something to distinguish. The demo cast now spreads across all four
-	// installable harnesses; the built-in one it used to lean on is gone.
-	for (const [agentId, harnessType] of [
-		[BUILDER_ID, "claude-code"],
-		[PM_ID, "codex"],
-		[ASSISTANT_ID, "claude-code"],
-	] as const satisfies readonly (readonly [string, HarnessType])[]) {
-		await db
-			.insert(agentRunConfig)
-			.values({ agentUserId: agentId, harnessType, maxConcurrentSessions: 1 })
+			.values({ agentUserId: agentId, harnessType, maxConcurrentSessions })
 			.onConflictDoUpdate({
 				target: agentRunConfig.agentUserId,
-				set: { harnessType },
+				set: { harnessType, maxConcurrentSessions },
 			});
 	}
 

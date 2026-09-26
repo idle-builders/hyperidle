@@ -1,12 +1,12 @@
 /**
- * SetupFlow: three `edit_user` calls (person with team name; owned
- * assistant with ASSISTANT_IDENTITY and the picked harness; the team agent)
- * and it still calls `POST /api/filesystems/inspect-path` for the folder
- * detail. `call` is mocked at the door; `apiFetch` is
+ * SetupFlow: two `edit_user` calls (person with team name; their owned
+ * assistant on the picked harness, with no identity text and one
+ * subscription per object event, none with a prompt) and it still calls
+ * `POST /api/filesystems/inspect-path` for the folder detail. `call` is mocked at the door; `apiFetch` is
  * mocked for the plumbing inspect-path route only.
  */
 
-import { ASSISTANT_IDENTITY } from "@hyperidle/domain-model";
+import { OBJECT_EVENTS } from "@hyperidle/domain-model";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
@@ -46,7 +46,6 @@ function openUserData(): Record<string, unknown> {
 		folders: [],
 		subscriptions: [],
 		connections: null,
-		behaviour: null,
 		inbox: null,
 	};
 }
@@ -86,7 +85,7 @@ describe("SetupFlow", () => {
 		});
 	});
 
-	it("submits three edit_user calls (person+team, owned assistant, team agent) and still calls inspect-path", async () => {
+	it("submits two edit_user calls (person+team, owned assistant with nine empty subscriptions) and still calls inspect-path", async () => {
 		callMock.mockImplementation((name: string, input: Record<string, unknown>) => {
 			if (name === "open_user") return Promise.resolve({ ok: true, data: openUserData() });
 			if (name === "edit_user") {
@@ -125,7 +124,7 @@ describe("SetupFlow", () => {
 
 		await waitFor(() => {
 			const editUserCalls = callMock.mock.calls.filter(([name]) => name === "edit_user");
-			expect(editUserCalls).toHaveLength(3);
+			expect(editUserCalls).toHaveLength(2);
 		});
 
 		const editUserCalls = callMock.mock.calls.filter(([name]) => name === "edit_user");
@@ -147,26 +146,24 @@ describe("SetupFlow", () => {
 			},
 		});
 
-		// 2. their owned assistant, with ASSISTANT_IDENTITY and the picked harness
-		expect(editUserCalls.at(1)?.[1]).toMatchObject({
+		// 2. their owned assistant: the picked harness, no identity, one
+		// subscription per object event and no prompt on any of them
+		const assistantInput = editUserCalls.at(1)?.[1] as Record<string, unknown>;
+		expect(assistantInput).toMatchObject({
 			kind: "ai",
 			name: "Ada's Assistant",
 			role: "assistant",
 			agentCategory: "individual",
 			ownerUserId: "u-founder",
-			identity: ASSISTANT_IDENTITY,
 			runConfig: { harnessType: "claude-code" },
+		});
+		expect(assistantInput).not.toHaveProperty("identity");
+		expect(assistantInput.subscriptions).toEqual({
+			add: OBJECT_EVENTS.map((event) => ({ event })),
 		});
 
-		// 3. the team agent, no identity
-		expect(editUserCalls.at(2)?.[1]).toMatchObject({
-			kind: "ai",
-			name: "my-repo Agent",
-			role: "agent",
-			agentCategory: "team",
-			team: { name: "my-repo" },
-			runConfig: { harnessType: "claude-code" },
-		});
-		expect(editUserCalls.at(2)?.[1]).not.toHaveProperty("identity");
+		// Nothing after the assistant: no second agent.
+		await new Promise((r) => setTimeout(r, 50));
+		expect(callMock.mock.calls.filter(([name]) => name === "edit_user")).toHaveLength(2);
 	});
 });

@@ -2,20 +2,16 @@
  * Barrel for @hyperidle/user (core-api Layer, SQL-owning Service).
  *
  * Typed functions only. This barrel MUST NOT re-export the raw `users`/
- * `teams`/`orgEdges`/`loginSessions`/`inviteCodes` pgTable objects — that
+ * `teams`/`orgEdges` pgTable objects — that
  * would let a consumer obtain a table transitively and defeat Table ACL
  * (Mechanism A). Consumers get typed functions; the tables stay private to
  * this Service.
  *
- * @lore BC5 T2: users, teams, org edges, login sessions and invite codes are
- * one Service now — a user (human or agent) with its team and who it reports
- * to is one row of state, not three packages agreeing by convention.
- * `user-store.ts`, `factory-writers.ts`, `invite-code.ts`, `login-session.ts`,
- * `runnable-agent.ts` and `upgrade-token-store.ts` moved here unchanged from
- * `@hyperidle/users`; `team-lookup.ts` and `org-edges.ts` moved here
- * unchanged from `@hyperidle/org`. `cron.ts` lives here — this Service's
- * subscription clock is its caller, so `parseCron`/`nextCronMatch` are
- * exported here.
+ * @lore BC5 T2: users, teams and org edges are one Service — a user (human
+ * or agent) with its team and who it reports to is one row of state, not
+ * three packages agreeing by convention. `cron.ts` lives here — this
+ * Service's subscription clock is its caller, so `parseCron`/`nextCronMatch`
+ * are exported here.
  *
  * @lore BC5 T5: `search_users`/`open_user`/`edit_user` (`user-actions.ts`)
  * are this Service's own action list now, the way `@hyperidle/task`/
@@ -26,18 +22,10 @@
  * `routes/teams-routes.ts`) are deleted along with the rest of the user/org
  * route surface; `user-actions.ts` is their only caller now.
  *
- * @lore AU19 Increment 1d: this is the real cut-over — `user-store.ts`
- * (users), `login-session.ts` (loginSessions), `invite-code.ts`
- * (inviteCodes), and `upgrade-token-store.ts` (pure in-memory, no table)
- * moved here from `packages/server/src/services/`/`packages/server/src/auth/`
- * unchanged (behavior-preserving move).
- *
  * @lore AU20 Am11: 14 bespoke read variants collapsed into `findUser` +
  * `listUsers` + `UserFilter`. The two projected getters (`listAgentProfiles` /
  * `listUserDirectory`) and their row types are deleted — routes project full
- * rows themselves. `generateToken`, `hashToken`, `findLoginSessionByTokenHash`,
- * `generateInviteCode` internalized (only external callers were tests).
- * `reapLoginSessions` + `reapInviteCodes` merged into `reapExpiredCredentials`.
+ * rows themselves.
  *
  * @lore AU44 B1: `team_members` dissolved into `teams`. `AU20 Am7`: 22
  * per-call-site team exports collapsed into `getTeam`/`listTeams`/
@@ -53,16 +41,12 @@ export { createAgentIdentityPort } from "./agent-identity.js";
 // -- cron (used by the subscription clock's schedule trigger) --
 export type { CronFields } from "./cron.js";
 export { nextCronMatch, parseCron } from "./cron.js";
-// -- factory writers (AU29 §2.5.2 — idempotent first-boot users writes) --
-export { insertUserIfAbsent, listFactoryAgents, setAgentsStatus } from "./factory-writers.js";
-// -- invite code (S1 — invite/claim flow) --
-export { claimInvite, createInvite } from "./invite-code.js";
-// -- login session (S1 — bearer-token auth) --
-export { createLoginSession, revokeLoginSession, validateBearerToken } from "./login-session.js";
+// -- factory writers (idempotent first-boot actor insert, agent status flip) --
+export { insertUserIfAbsent, setAgentsStatus } from "./factory-writers.js";
 // -- org edges (P2 — org chart edge CRUD, survivor from batch 0) --
 export type { UpsertOrgEdgeInput } from "./org-edges.js";
 export { deleteOrgEdge, listOrgEdges, upsertOrgEdge } from "./org-edges.js";
-// -- runnable-agent invariant (AU21 §6 Decision B — the shared ast-<userId> check) --
+// -- runnable-agent invariant (the shared runnable check) --
 export { AgentNotRunnableError, requireRunnableAgent } from "./runnable-agent.js";
 // -- subscription clock (the schedule half — cron due rows) --
 export type {
@@ -104,7 +88,7 @@ export {
 	setSubscriptionsPaused,
 	updateSubscription,
 } from "./subscriptions-store.js";
-// -- team lookup (AU20 Am7 / AU44 B1 — team_members dissolved) --
+// -- team lookup --
 export type { CreateTeamInput } from "./team-lookup.js";
 export { createTeam, getTeam, listTeams } from "./team-lookup.js";
 // -- upgrade token store (I2 — WS-handshake one-shot tokens, no table) --
@@ -113,7 +97,7 @@ export { createUpgradeTokenStore } from "./upgrade-token-store.js";
 // -- user actions (search_users / open_user / edit_user) --
 export type { UserActionsDeps } from "./user-actions.js";
 export { createUserActions } from "./user-actions.js";
-// -- user store (AU12 / AU20 Am11 — single owner of `users` row read/write) --
+// -- user store (single owner of `users` row read/write) --
 export type { UserFilter } from "./user-store.js";
 export { findUser, getOrCreateUser, insertUser, listUsers, updateUser } from "./user-store.js";
 // -- run-config validation (moved verbatim from routes/validate-agent-config.ts) --

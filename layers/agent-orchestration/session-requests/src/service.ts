@@ -517,10 +517,10 @@ async function failOrRelease(
 	}
 }
 /**
- * AU21 Decision B‴ — before claiming/dispatching, check whether a FRESHER
+ * Before claiming/dispatching, check whether a FRESHER
  * pending/claimed intent already exists for the same `(kind, sourceId)` work
  * identity (a re-emit bumped `idempotencyKey` for outstanding work). Reuses
- * the existing identity shape + AU9 CAS; own-state only, no core-api read.
+ * the existing identity shape and its compare-and-set; own-state only, no core-api read.
  */
 async function findNewerPendingSiblingInternal(
 	db: HyperIdleDb,
@@ -623,7 +623,7 @@ async function createResumeRequestInternal(
 	return { request };
 }
 /**
- * AU21 §9 Increment 3 co-existence scaffolding — an already-baked request is
+ * Co-existence scaffolding — an already-baked request is
  * used DIRECTLY (zero domain reads): reconstruct the full `triggered` request
  * shape from the persisted baked fields plus the two pieces trivially
  * re-derivable from the intent row itself (`eventType`, `idempotencyKey`),
@@ -646,10 +646,9 @@ async function createFromBakedRequestInternal(
 		promptMode: PROMPT_MODE_BY_SOURCE[baked.sourceKind],
 		idempotencyKey: intent.idempotencyKey,
 		sourceCorrelation: baked.sourceCorrelation,
-		// AU21 §9 Increment 11 (Decision H2) / Increment 12 (Decision H3): the
-		// assistant_turn family's baked transcript, the
+		// The assistant_turn family's baked transcript, the
 		// task_run/subscription_run/knowledge_action families' baked
-		// contextBundle, and (Wave E) EVERY kind's baked
+		// contextBundle, and EVERY kind's baked
 		// agentConfig/harnessDisabled ride the existing generic `payloadJson`
 		// pass-through column onto the created `AgentSessionRequest`.
 		//
@@ -669,7 +668,7 @@ async function createFromBakedRequestInternal(
 						...(baked.harnessDisabled !== undefined
 							? { harnessDisabled: baked.harnessDisabled }
 							: {}),
-						// AU27 Increment 1 (Decision 1): the session's calling thread id.
+						// The session's calling thread id.
 						...(baked.callingThreadId !== undefined
 							? { callingThreadId: baked.callingThreadId }
 							: {}),
@@ -727,9 +726,9 @@ async function processIntentsInternal(
 		}
 
 		try {
-			// AU21 §6 Decision B / §9 Increment 4: every intent kind now bakes at
+			// Every intent kind bakes at
 			// emit time; an unbaked intent row is production-unreachable. bakedRequest
-			// is required on WorkIntentInput since AU44.
+			// is required on WorkIntentInput.
 			// @lore AU44: unbaked intents are production-unreachable (bakedRequest is
 			// required at emit time), but legacy rows with bakedRequestJson=null must
 			// fail cleanly via INVALID_WORK_SOURCE rather than being stuck claimed.
@@ -1122,7 +1121,7 @@ export type BakedWorkIntentRequest = {
 	readonly userId?: string;
 	readonly sourceCorrelation: AgentSessionSourceCorrelation;
 	/**
-	 * AU21 §9 Increment 11 (Decision H2): the `assistant_turn` family's baked
+	 * The `assistant_turn` family's baked
 	 * thread transcript (`conversation`'s `resolveAssistantTurnRequest`).
 	 * Absent for every other kind — carried through onto the created
 	 * `AgentSessionRequest.payloadJson` so `dispatch` sources the harness
@@ -1134,7 +1133,7 @@ export type BakedWorkIntentRequest = {
 		readonly type: string;
 	}>;
 	/**
-	 * AU21 §9 Increment 12 (Decision H3): the `task_run`/`knowledge_action`/
+	 * The `task_run`/`knowledge_action`/
 	 * `subscription_run` families' baked entity content (task/bet/
 	 * agent/team, or subscription/agent/team) plus the ranked+budgeted knowledge
 	 * items `@hyperidle/knowledge`'s `assembleSessionKnowledge` produces.
@@ -1143,7 +1142,7 @@ export type BakedWorkIntentRequest = {
 	 */
 	readonly contextBundle?: BakedContextBundle;
 	/**
-	 * AU21 §9 Increment 12 (Decision H3), Wave E — every kind's baked
+	 * Every kind's baked
 	 * agent-runnability snapshot / disabled-harness-types list. See
 	 * `BakedWorkIntentRequest` in `@hyperidle/work-intent-port` for the full `@lore`.
 	 */
@@ -1155,7 +1154,7 @@ export type BakedWorkIntentRequest = {
 	};
 	readonly harnessDisabled?: readonly string[];
 	/**
-	 * AU27 Increment 1 (Decision 1) — the session's calling thread id. Absent
+	 * The session's calling thread id. Absent
 	 * for `subscription_run`/`knowledge_action` — see `BakedWorkIntentRequest` in
 	 * `@hyperidle/work-intent-port` for the full `@lore`.
 	 */
@@ -1163,30 +1162,12 @@ export type BakedWorkIntentRequest = {
 };
 // BakedContextDocument and BakedContextBundle are now imported from @hyperidle/domain-model above.
 // The local mirrors existed because @hyperidle/work-intent-port's audience excluded session-requests;
-// work-intent-port dissolved into domain-model (reach: everyone) in AU44 batch 8.
+// work-intent-port dissolved into domain-model (reach: everyone).
 /**
- * @lore AU21 §9 Increment 9: the `"triggered"` kind (trigger-rule config
- * matching against `settings`'s `kind:"trigger"` entries, target-agent
- * resolution) REMOVED — confirmed via git archaeology + a full production
- * call-site grep that `createTriggeredInternal` (this variant's only
- * consumer) had ZERO real callers: subscription firing has called
- * `enqueueWorkIntent` directly since before AU21 even started (verified at
- * `7b64e8d1^`'s dispatch/service.ts and AU20's original session-requests
- * rewrite, `d6dcfa2c`), and every other family's real resolve-at-emit
- * migration (architecture.md §9 Increment 3) bakes straight onto
- * `enqueueWorkIntent` too. The ONLY caller anywhere in the repo was
- * `layers/core-api/src/__tests__/trigger-resolution.integration.test.ts`
- * (deleted alongside this) — test-only-reachable code is dead code (see
- * `.claude` rule: tests/stories never count as production reachability).
- * At the time, `settings`'s `kind:"trigger"` config entity
- * (`SettingsAgentBehavior.tsx`'s "Triggers" tab, `agent-behavior-config-impl.ts`)
- * remained fully editable in the UI with no code path reading it to affect
- * real agent selection — a genuine, orphaned-feature product gap, out of
- * AU21's boundary-seam scope and flagged for founder attention rather than
- * fixed there. BA1 D10 closed the gap the other way: the trigger-rule
- * entity itself (config kind, settings tab, and stored data) is deleted, not
- * wired up — this comment records why the kind existed and had no reader,
- * not a live gap to fix.
+ * @lore There is no "triggered" kind and no trigger rule to match: a
+ * subscription that fires calls `enqueueWorkIntent` with its agent already
+ * resolved, the same as every other kind that bakes its request at emit time.
+ * An agent's reactions are its subscriptions and their prompts, nothing else.
  */
 export type CreateSessionRequestInput = {
 	readonly kind: "explicitStart";

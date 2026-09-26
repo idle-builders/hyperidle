@@ -1,4 +1,4 @@
-// AM5 — Graph / Sparkline base primitive (EXTRACT from data-renderer.tsx Sparkline SVG).
+// Graph / Sparkline base primitive (EXTRACT from data-renderer.tsx Sparkline SVG).
 //
 // Lifted from `kinds/data-renderer.tsx:28-58` — the hand-rolled `Sparkline()` SVG.
 // 80×24 polyline, auto-scaled to own min/max, 1.5px `--accent-primary` stroke.

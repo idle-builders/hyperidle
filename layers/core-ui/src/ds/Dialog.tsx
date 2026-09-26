@@ -1,5 +1,5 @@
 /**
- * AI2 — Dialog: the single public dialog primitive for the Hearth design system.
+ * Dialog: the single public dialog primitive for the Hearth design system.
  *
  * Every dialog in HyperIdle renders through this component. It owns:
  *   - Portal into #overlay-root (body sibling of #root, never nested inside it)

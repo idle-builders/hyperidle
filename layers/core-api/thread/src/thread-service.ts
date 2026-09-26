@@ -1,7 +1,7 @@
 /**
  * The thread module's private row store — `threads` + `messages` writes and
  * reads. Moved from `@hyperidle/conversation`'s `conversation-store.ts`
- * (behavior-preserving move, AU20 Am5's shape). `threads` has `title`/
+ * (behavior-preserving move). `threads` has `title`/
  * `deletedAt`; `messages` has no `legacyItemId` — the two filter fields
  * that would read it (`legacyItemIds`/`noLegacyItem`) don't exist.
  *

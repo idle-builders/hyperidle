@@ -1,6 +1,6 @@
 /**
  * MoveDialog — moves an existing document to a new parent, including back to
- * the top level. plan.md AC2: "a person can nest and move knowledge items,
+ * the top level. The rule: "a person can nest and move knowledge items,
  * and the tree keeps up."
  *
  * @lore BC4: PATCH `/api/knowledge/:id` replaced by

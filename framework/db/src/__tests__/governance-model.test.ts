@@ -646,8 +646,9 @@ describe("AU28 — the registries are honest", () => {
 		// A collapse guard, not a census: the next two assertions are what prove the
 		// registry honest. The pass that dropped five unused tables took this from 44 to 39.
 		// The document module fold (five knowledge tables into one `documents` table) took this
-		// from 33 to 29.
-		expect(liveTables.size).toBeGreaterThan(25);
+		// from 33 to 29. Dropping the plugin configuration defaults and overrides took it from 27
+		// to 25.
+		expect(liveTables.size).toBeGreaterThan(20);
 		expect(() => validateTableOwners(tableOwners, liveTables, packageNames)).not.toThrow();
 		expect(tableOwners.totals.tables).toBe(liveTables.size);
 	});

@@ -1,4 +1,4 @@
-// AM5 — KPI / Stat base primitive (EXTRACT from data-renderer.tsx headlines flex-grid).
+// KPI / Stat base primitive (EXTRACT from data-renderer.tsx headlines flex-grid).
 //
 // Lifted from `kinds/data-renderer.tsx:71-83` — the `headlines` flex-wrap grid of
 // `{label, value}` metric figures. 11px mono caps label over base semibold tabular-nums

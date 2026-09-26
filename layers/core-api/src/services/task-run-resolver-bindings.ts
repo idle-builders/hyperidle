@@ -1,5 +1,5 @@
 /**
- * AU21 §9 Increment 12 (Decision H3), Wave C — the ONE shared,
+ * The ONE shared,
  * fully-wired `TaskRunResolverDeps` every real `task_run`-baking composition
  * site (`run-orchestration-composition.ts`'s `workAccessor.transitionTask`,
  * `policy-bindings.ts`'s pre-bound `handoffDeps.taskRunResolver`, and the
@@ -55,7 +55,7 @@ export async function resolveAgentIdentityBody(
 	return result.ok ? (result.data[0]?.body ?? null) : null;
 }
 
-// AU31 §7.2 (R2): each dependency is a wrapping arrow, never the raw service
+// Each dependency is a wrapping arrow, never the raw service
 // symbol — a bag of arrows over the layer's own services IS a face's
 // sanctioned content; the raw symbol itself must never be the thing that
 // escapes through an exported binding.

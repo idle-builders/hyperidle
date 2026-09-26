@@ -1,5 +1,5 @@
 /**
- * AU13: shared executor type for domain write-owning services
+ * Shared executor type for domain write-owning services
  * (`task-service.ts`, `user-actions.ts`). A function typed `exec:
  * WriteExecutor` accepts either the top-level `HyperIdleDb` or a `tx` handle
  * inside an open `db.transaction(async (tx) => …)` callback, so callers that

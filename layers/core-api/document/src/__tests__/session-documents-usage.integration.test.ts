@@ -15,7 +15,6 @@ import { assembleSessionDocuments } from "../session-documents.js";
 
 const NOW = "2026-08-01T00:00:00.000Z";
 const AGENT_ID = "agent-usage-probe";
-const AGENT_ROLE = "builder";
 const TASK_DESCRIPTION = "Prove the usage bump end to end.";
 
 async function seedCorpus(db: HyperIdleDb): Promise<void> {
@@ -57,7 +56,6 @@ describe("assembleSessionDocuments — session_use_count (architecture.md §6.7)
 		await seedCorpus(db);
 
 		const budgeted = await assembleSessionDocuments(db, {
-			agentRole: AGENT_ROLE,
 			taskDescription: TASK_DESCRIPTION,
 			agentId: AGENT_ID,
 		});
@@ -85,12 +83,10 @@ describe("assembleSessionDocuments — session_use_count (architecture.md §6.7)
 		await seedCorpus(db);
 
 		await assembleSessionDocuments(db, {
-			agentRole: AGENT_ROLE,
 			taskDescription: TASK_DESCRIPTION,
 			agentId: AGENT_ID,
 		});
 		await assembleSessionDocuments(db, {
-			agentRole: AGENT_ROLE,
 			taskDescription: TASK_DESCRIPTION,
 			agentId: AGENT_ID,
 		});
@@ -105,7 +101,6 @@ describe("assembleSessionDocuments — session_use_count (architecture.md §6.7)
 		await expect(
 			db.transaction(async (tx) => {
 				await assembleSessionDocuments(tx as HyperIdleDb, {
-					agentRole: AGENT_ROLE,
 					taskDescription: TASK_DESCRIPTION,
 					agentId: AGENT_ID,
 				});
@@ -171,7 +166,6 @@ describe("assembleSessionDocuments: parentChain (review.md B4)", () => {
 
 		const items = await assembleSessionDocuments(db, {
 			agentId: "agent-parent-chain",
-			agentRole: "builder",
 			taskDescription: "",
 		});
 

@@ -6,7 +6,7 @@ import { AppShell } from "../layouts/AppShell";
 
 // Minimal settings response (no appearance field — Contract 2).
 const STUB_SETTINGS = {
-	profile: { name: "Founder", email: "", avatarUrl: null },
+	profile: { name: "Founder", avatarUrl: null },
 	teams: [],
 	users: [],
 	notifications: {
@@ -18,7 +18,7 @@ const STUB_SETTINGS = {
 	},
 };
 
-// L8: AppShell fetches /api/threads, /api/settings, /api/auth/me on mount.
+// AppShell fetches /api/settings on mount; the current user comes from `open_user`.
 // @lore U6: /api/rail is no longer fetched (Rail component deleted). Stub covers
 // all routes that AppShell uses.
 // @lore M3 review C2: stub must cover PATCH /api/settings so handleSettingsSave
@@ -34,13 +34,6 @@ function stubApiFetch(): void {
 		// /api/settings (GET and PATCH) — return ok so SettingsPanel closes on save
 		if (url.includes("/api/settings")) {
 			return { ok: true, json: async () => STUB_SETTINGS } as unknown as Response;
-		}
-		// GET /api/auth/me
-		if (url.includes("/api/auth/me")) {
-			return {
-				ok: true,
-				json: async () => ({ id: "u-test", name: "Test", email: "", role: "founder" }),
-			} as unknown as Response;
 		}
 		// Fallback: threads and anything else
 		return {

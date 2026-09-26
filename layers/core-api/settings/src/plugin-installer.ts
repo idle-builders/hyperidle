@@ -1,58 +1,26 @@
 /**
- * Plugin install / manage operations.
- *
- * The installer writes to the three plugin-related tables owned by the
- * settings service (plugins, plugin_configuration_defaults, configuration_overrides).
- *
- * @lore BA9a: Key namespacing — every contribution from plugin P with manifest
- * key K is stored as key "P/K" in the DB. This guarantees that the global unique
- * constraint on configuration_overrides(kind, key) is never violated by two
- * plugins declaring the same manifest key.
- *
- * @lore BA9a: Remove sequence — hard-delete defaults first (cascade sets
- * defaultId=null on any overrides), then set plugins.state='removed'. The
- * onDelete:restrict constraint on pluginConfigurationDefaults.pluginId is
- * satisfied because defaults are gone before we touch the plugin row.
- *
- * @lore BA9a scope-deferral: Scope (factory | team) is stored on the plugin
- * row but the resolver (listConfiguration) does not yet filter by it — it has
- * no team context and returns all enabled plugin contributions globally. The
- * biting point is session materialisation in BA9b/c: when the run-orchestration
- * layer assembles an agent session it will query plugins WHERE scope_kind =
- * 'factory' OR (scope_kind = 'team' AND scope_team_id = currentTeamId). That
- * query lives in layers/agent-orchestration/ and is owned by BA9b. Scope is
- * stored now so BA9b has the data; the UI shows it today so operators can see
- * how each plugin is scoped.
+ * Plugin install / manage operations over the `plugins` table, owned by the
+ * settings service. What a plugin contributes (agents, subscriptions,
+ * documents) is recorded in `plugin_contributions` by `platform-actions.ts`;
+ * its MCP servers are never stored — they are read from the install's own
+ * folder whenever a session asks (`getPluginMcpContributions`).
  */
 
 import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs";
-import { join } from "node:path";
-import {
-	type HyperIdleDb,
-	type PluginRow,
-	pluginConfigurationDefaults,
-	plugins,
-} from "@hyperidle/db";
-import {
-	BUILTIN_PLUGIN_ID,
-	type ConfigurationKind,
-	type PluginScopeKind,
-	type PluginState,
-} from "@hyperidle/domain-model";
-import { and, asc, eq, ne, notInArray, or } from "drizzle-orm";
-import { writeConfigurationOverride } from "./plugin-configuration.js";
-import type { PluginSource } from "./plugin-fetch.js";
+import { join, resolve } from "node:path";
+import { type HyperIdleDb, type PluginRow, plugins } from "@hyperidle/db";
+import type { PluginScopeKind, PluginState } from "@hyperidle/domain-model";
+import { and, asc, eq, isNotNull, ne, or } from "drizzle-orm";
+import type { FetchedPlugin, PluginSource } from "./plugin-fetch.js";
 import { fetchPlugin } from "./plugin-fetch.js";
 import type {
 	ManifestWarning,
-	ParsedContribution,
-	ParsedMcpServer,
 	ParsedPluginAgent,
 	ParsedPluginSubscription,
 	ParsedSkill,
 } from "./plugin-manifest.js";
-import { parsePluginManifest } from "./plugin-manifest.js";
+import { parseMcpJson, parsePluginManifest } from "./plugin-manifest.js";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -73,11 +41,12 @@ export interface InstallPluginInput {
 	/**
 	 * Base directory for persistent plugin storage.
 	 * When provided, plugin files are copied to {pluginsBaseDir}/{pluginId}/
-	 * and the path is stored for ${PLUGIN_ROOT} expansion in MCP servers.
-	 * When absent, command-based MCP servers are stored unexpanded.
+	 * and the path is stored: sessions read the plugin's MCP servers from it and
+	 * expand ${PLUGIN_ROOT} against it, and restore reads source files from it.
+	 * When absent, the install has no folder, so it brings no MCP servers.
 	 *
-	 * @lore BA9b: This is the userDataDir-derived plugins directory from the
-	 * desktop app. Without it, only URL-based MCP servers work fully.
+	 * @lore BA9b: This is the plugins directory beside the database that each
+	 * application passes.
 	 */
 	readonly pluginsBaseDir?: string;
 }
@@ -133,34 +102,17 @@ function nowIso(override?: string): string {
 	return override ?? new Date().toISOString();
 }
 
-function stableJson(value: unknown): string {
-	return JSON.stringify(sortForJson(value));
-}
-
-function sortForJson(value: unknown): unknown {
-	if (Array.isArray(value)) return value.map(sortForJson);
-	if (!value || typeof value !== "object") return value;
-	return Object.fromEntries(
-		Object.entries(value as Record<string, unknown>)
-			.sort(([a], [b]) => a.localeCompare(b))
-			.map(([k, v]) => [k, sortForJson(v)]),
-	);
-}
-
 function sha256(data: string): string {
 	return createHash("sha256").update(data).digest("hex");
 }
 
-function defaultId(pluginId: string, kind: ConfigurationKind, namespacedKey: string): string {
-	return `pcd_${sha256(`${pluginId}\0${kind}\0${namespacedKey}`).slice(0, 24)}`;
-}
-
 /**
- * Namespace a manifest key by plugin ID.
- * Stored key = "<pluginId>/<manifestKey>".
+ * The `plugins` row id of one install: the manifest name for a factory
+ * install, `<name>@<teamId>` for a team install. A manifest name never
+ * contains `@`, so the two forms cannot collide.
  */
-function namespacedKey(pluginId: string, manifestKey: string): string {
-	return `${pluginId}/${manifestKey}`;
+function pluginInstallId(name: string, scope: PluginScope): string {
+	return scope.kind === "team" && scope.teamId ? `${name}@${scope.teamId}` : name;
 }
 
 function scopeFromRow(row: PluginRow): PluginScope {
@@ -183,77 +135,6 @@ function pluginFromRow(row: PluginRow, warnings: ManifestWarning[] = []): Instal
 		installPath: row.installPath ?? null,
 		warnings,
 	};
-}
-
-// ---------------------------------------------------------------------------
-// Core install logic
-// ---------------------------------------------------------------------------
-
-async function writePluginDefaults(
-	db: HyperIdleDb,
-	pluginId: string,
-	contributions: ParsedContribution[],
-	ts: string,
-): Promise<void> {
-	if (contributions.length === 0) return;
-
-	for (const contribution of contributions) {
-		const key = namespacedKey(pluginId, contribution.key);
-		const valueJson = stableJson(contribution.value);
-		const versionHash = sha256(valueJson);
-		const id = defaultId(pluginId, contribution.kind, key);
-
-		await db
-			.insert(pluginConfigurationDefaults)
-			.values({
-				id,
-				pluginId,
-				kind: contribution.kind,
-				key,
-				defaultValueJson: valueJson,
-				defaultVersionHash: versionHash,
-				createdAt: ts,
-				updatedAt: ts,
-			})
-			.onConflictDoUpdate({
-				target: [
-					pluginConfigurationDefaults.pluginId,
-					pluginConfigurationDefaults.kind,
-					pluginConfigurationDefaults.key,
-				],
-				set: {
-					defaultValueJson: valueJson,
-					defaultVersionHash: versionHash,
-					updatedAt: ts,
-				},
-			});
-	}
-}
-
-async function removeStaleDefaults(
-	db: HyperIdleDb,
-	pluginId: string,
-	currentKeys: string[],
-): Promise<void> {
-	// Removes defaults for this plugin whose keys are no longer in the manifest.
-	// Called on every install (including first-time) to keep defaults in sync
-	// with the current manifest contributions; currentKeys is the full set of
-	// namespaced keys that should remain after this operation.
-	if (currentKeys.length === 0) {
-		// Remove all defaults
-		await db
-			.delete(pluginConfigurationDefaults)
-			.where(eq(pluginConfigurationDefaults.pluginId, pluginId));
-		return;
-	}
-	await db
-		.delete(pluginConfigurationDefaults)
-		.where(
-			and(
-				eq(pluginConfigurationDefaults.pluginId, pluginId),
-				notInArray(pluginConfigurationDefaults.key, currentKeys),
-			),
-		);
 }
 
 /**
@@ -339,20 +220,28 @@ export function subscriptionItemId(
 // Cross-layer read: plugin MCP contributions for session provisioning
 // ---------------------------------------------------------------------------
 
+/** One MCP server a plugin brings: key `<plugin name>/<server name>`, the
+ * server object as JSON, and the install folder `${PLUGIN_ROOT}` expands to. */
 export interface PluginMcpContributionRow {
 	key: string;
 	defaultValueJson: string;
-	installPath: string | null;
+	installPath: string;
 }
 
 /**
- * Return MCP server contributions for all plugins in scope for the given team.
+ * The MCP servers of every enabled plugin in scope for the given team (factory
+ * installs always, a team install only for its own team), read from each
+ * install's `mcp.json` at the moment a session is provisioned.
  *
- * @lore BA9b: The provisioner (run-orchestration, a different layer) cannot
- * query plugins/pluginConfigurationDefaults directly — those tables are owned
- * by settings. This function is the settings-service door: exposed from
- * @hyperidle/settings, imported by @hyperidle/core-api (the layer), which
- * wraps it in a CoreApiBoot capability the application hands to bootAgentOrchestration.
+ * @lore The install folder is the only copy: nothing is written to the database
+ * at install time, so an edit to the installed `mcp.json` reaches the next
+ * session, and an install without a folder (no plugins directory configured)
+ * brings no servers — there is no `${PLUGIN_ROOT}` to expand for it anyway.
+ *
+ * @lore The provisioner (run-orchestration, a different layer) cannot read
+ * `plugins` — settings owns it. This is the settings-service door, wrapped by
+ * the core-api layer in a boot capability the application hands to
+ * orchestration as its plugin MCP port.
  */
 export async function getPluginMcpContributions(
 	db: HyperIdleDb,
@@ -360,82 +249,44 @@ export async function getPluginMcpContributions(
 ): Promise<readonly PluginMcpContributionRow[]> {
 	const scopeFilter = teamId
 		? or(
-				and(eq(plugins.scopeKind, "factory")),
+				eq(plugins.scopeKind, "factory"),
 				and(eq(plugins.scopeKind, "team"), eq(plugins.scopeTeamId, teamId)),
 			)
 		: eq(plugins.scopeKind, "factory");
 
-	return db
-		.select({
-			defaultValueJson: pluginConfigurationDefaults.defaultValueJson,
-			key: pluginConfigurationDefaults.key,
-			installPath: plugins.installPath,
-		})
-		.from(pluginConfigurationDefaults)
-		.innerJoin(plugins, eq(pluginConfigurationDefaults.pluginId, plugins.id))
-		.where(
-			and(
-				eq(pluginConfigurationDefaults.kind, "mcp_server"),
-				eq(plugins.state, "enabled"),
-				scopeFilter,
-			),
-		);
-}
+	const installs = await db
+		.select({ name: plugins.name, installPath: plugins.installPath })
+		.from(plugins)
+		.where(and(eq(plugins.state, "enabled"), isNotNull(plugins.installPath), scopeFilter))
+		.orderBy(asc(plugins.installedAt));
 
-/**
- * Write MCP server entries from mcp.json as plugin_configuration_defaults.
- * Each server is stored as kind='mcp_server' with key '<pluginId>/<serverName>'.
- *
- * Written directly (not through writePluginDefaults) so the namespaced key is
- * explicit at this call site rather than being derived inside writePluginDefaults.
- * Two plugins with the same server name get distinct keys: pluginA/bridge vs
- * pluginB/bridge — no collision on the mcp_server (kind, key) unique constraint.
- */
-async function writeMcpServerDefaults(
-	db: HyperIdleDb,
-	pluginId: string,
-	mcpServers: ParsedMcpServer[],
-	ts: string,
-): Promise<void> {
-	if (mcpServers.length === 0) return;
-	for (const server of mcpServers) {
-		const key = namespacedKey(pluginId, server.name);
-		const valueJson = stableJson(server.config);
-		const versionHash = sha256(valueJson);
-		const id = defaultId(pluginId, "mcp_server", key);
-		await db
-			.insert(pluginConfigurationDefaults)
-			.values({
-				id,
-				pluginId,
-				kind: "mcp_server",
-				key,
-				defaultValueJson: valueJson,
-				defaultVersionHash: versionHash,
-				createdAt: ts,
-				updatedAt: ts,
-			})
-			.onConflictDoUpdate({
-				target: [
-					pluginConfigurationDefaults.pluginId,
-					pluginConfigurationDefaults.kind,
-					pluginConfigurationDefaults.key,
-				],
-				set: {
-					defaultValueJson: valueJson,
-					defaultVersionHash: versionHash,
-					updatedAt: ts,
-				},
+	const rows: PluginMcpContributionRow[] = [];
+	for (const { name, installPath } of installs) {
+		if (!installPath) continue;
+		for (const server of parseMcpJson(installPath)) {
+			rows.push({
+				key: `${name}/${server.name}`,
+				defaultValueJson: JSON.stringify(server.config),
+				installPath,
 			});
+		}
 	}
+	return rows;
 }
 
 /**
- * Copy plugin files to a persistent location.
+ * Copy plugin files to this install's own folder, `<pluginsBaseDir>/<installId>`.
  * Returns the destination path.
+ *
+ * @lore One folder per install: the `rmSync` below only ever removes this
+ * install's own copy, so a second team's install never deletes the folder a
+ * first team's restore reads. And a source that already IS the destination
+ * is left alone — removing it first would delete the only copy (a bundled
+ * folder or a folder install pointed at the install directory itself).
  */
-function persistPlugin(sourceDir: string, pluginsBaseDir: string, pluginId: string): string {
-	const dest = join(pluginsBaseDir, pluginId);
+function persistPlugin(sourceDir: string, pluginsBaseDir: string, installId: string): string {
+	const dest = join(pluginsBaseDir, installId);
+	if (resolve(sourceDir) === resolve(dest)) return dest;
 	// Remove any existing install first (full reinstall)
 	if (existsSync(dest)) {
 		rmSync(dest, { recursive: true, force: true });
@@ -452,16 +303,20 @@ function persistPlugin(sourceDir: string, pluginsBaseDir: string, pluginId: stri
 /**
  * Install a plugin from a source (folder, git URL, or zip).
  *
- * Idempotent: reinstalling the same plugin ID updates the defaults without
- * touching user overrides (detached items stay detached per D5 / AC10).
- *
- * AC9: plugin ID "builtin" is reserved and always rejected.
+ * Idempotent: reinstalling the same plugin updates its row and folder in place.
  */
 export async function installPlugin(
 	db: HyperIdleDb,
 	input: InstallPluginInput,
 ): Promise<InstallPluginResult> {
-	const fetched = fetchPlugin(input.source);
+	// A source that cannot be fetched (no such folder, a failed clone, a zip
+	// without plugin.json) is an answer, never a thrown error.
+	let fetched: FetchedPlugin;
+	try {
+		fetched = fetchPlugin(input.source);
+	} catch (err) {
+		return { ok: false, reason: err instanceof Error ? err.message : String(err) };
+	}
 	try {
 		const parseResult = parsePluginManifest(fetched.rootDir);
 		if (!parseResult.ok) {
@@ -469,13 +324,14 @@ export async function installPlugin(
 		}
 
 		const { manifest } = parseResult;
-		const pluginId = manifest.name;
 		const ts = nowIso(input.now);
 
 		// Check scope consistency
 		if (input.scope.kind === "team" && !input.scope.teamId) {
 			return { ok: false, reason: 'scope.kind is "team" but scope.teamId is missing' };
 		}
+		// One row per install: each team's install of this plugin is its own.
+		const pluginId = pluginInstallId(manifest.name, input.scope);
 
 		// Persist plugin files whenever we have somewhere to put them.
 		//
@@ -491,8 +347,8 @@ export async function installPlugin(
 			try {
 				installPath = persistPlugin(fetched.rootDir, input.pluginsBaseDir, pluginId);
 			} catch {
-				// Non-fatal: URL-based MCP servers still work without persistent storage.
-				// Skills are stored as document bodies (no disk path needed).
+				// Non-fatal: the install stands without a folder — skills are stored as
+				// document bodies — it just brings no MCP servers and cannot restore.
 			}
 		}
 
@@ -527,21 +383,6 @@ export async function installPlugin(
 				},
 			});
 
-		// Compute the set of current namespaced keys from manifest contributions.
-		const manifestContribKeys = manifest.contributions.map((c) => namespacedKey(pluginId, c.key));
-		// MCP server contributions are stored alongside manifest contributions.
-		const mcpContribKeys = manifest.mcpServers.map((s) => namespacedKey(pluginId, s.name));
-		const currentKeys = [...manifestContribKeys, ...mcpContribKeys];
-
-		// Remove defaults for keys that no longer exist.
-		await removeStaleDefaults(db, pluginId, currentKeys);
-
-		// Write/update manifest contributions.
-		await writePluginDefaults(db, pluginId, manifest.contributions, ts);
-
-		// Write/update MCP server contributions from mcp.json.
-		await writeMcpServerDefaults(db, pluginId, manifest.mcpServers, ts);
-
 		// Skill documents are synced by the core-api layer's route handler
 		// after installPlugin returns, using the document service (governance boundary:
 		// settings cannot write to documents — owned by document).
@@ -567,16 +408,12 @@ export async function installPlugin(
 	}
 }
 
-/**
- * List installed plugins — excludes 'builtin' and state='removed'.
- *
- * AC9: builtin is never listed.
- */
+/** List installed plugins — every row but a removed one. */
 export async function listInstalledPlugins(db: HyperIdleDb): Promise<InstalledPlugin[]> {
 	const rows = await db
 		.select()
 		.from(plugins)
-		.where(and(ne(plugins.id, BUILTIN_PLUGIN_ID), ne(plugins.state, "removed")))
+		.where(ne(plugins.state, "removed"))
 		.orderBy(asc(plugins.installedAt));
 	return rows.map((row) => pluginFromRow(row));
 }
@@ -589,7 +426,6 @@ export async function getInstalledPlugin(
 	db: HyperIdleDb,
 	pluginId: string,
 ): Promise<InstalledPlugin | null> {
-	if (pluginId === BUILTIN_PLUGIN_ID) return null;
 	const rows = await db
 		.select()
 		.from(plugins)
@@ -600,11 +436,7 @@ export async function getInstalledPlugin(
 }
 
 /**
- * Disable a plugin — its contributions stop applying (active=false for
- * non-overridden items). User-edited (detached) items remain active.
- *
- * AC7: the resolver's `active: hasOverride || plugin.state === 'enabled'`
- * handles this automatically.
+ * Disable a plugin — its MCP servers stop reaching sessions at once.
  *
  * @lore BA9d: This function only flips plugins.state. The real disable work —
  * deactivating materialised subscriptions, agents, and skills that the
@@ -618,9 +450,6 @@ export async function disablePlugin(
 	pluginId: string,
 	now?: string,
 ): Promise<void> {
-	if (pluginId === BUILTIN_PLUGIN_ID) {
-		throw new Error(`Cannot disable the reserved plugin "${BUILTIN_PLUGIN_ID}"`);
-	}
 	const ts = nowIso(now);
 	await db
 		.update(plugins)
@@ -632,9 +461,6 @@ export async function disablePlugin(
  * Enable a previously disabled plugin.
  */
 export async function enablePlugin(db: HyperIdleDb, pluginId: string, now?: string): Promise<void> {
-	if (pluginId === BUILTIN_PLUGIN_ID) {
-		throw new Error(`Cannot enable/disable the reserved plugin "${BUILTIN_PLUGIN_ID}"`);
-	}
 	const ts = nowIso(now);
 	await db
 		.update(plugins)
@@ -642,23 +468,9 @@ export async function enablePlugin(db: HyperIdleDb, pluginId: string, now?: stri
 		.where(eq(plugins.id, pluginId));
 }
 
-/**
- * Remove a plugin.
- *
- * AC7 + design notes: hard-delete defaults first (sets defaultId=null on overrides
- * via FK cascade), then mark plugin as removed. The onDelete:restrict constraint is
- * satisfied because defaults are deleted before the plugin state changes.
- */
+/** Remove a plugin: its row stays as a `removed` tombstone. */
 export async function removePlugin(db: HyperIdleDb, pluginId: string, now?: string): Promise<void> {
-	if (pluginId === BUILTIN_PLUGIN_ID) {
-		throw new Error(`Cannot remove the reserved plugin "${BUILTIN_PLUGIN_ID}"`);
-	}
 	const ts = nowIso(now);
-	// Step 1: delete all defaults (cascade sets defaultId=null on overrides)
-	await db
-		.delete(pluginConfigurationDefaults)
-		.where(eq(pluginConfigurationDefaults.pluginId, pluginId));
-	// Step 2: mark plugin as removed (restrict constraint now satisfied)
 	// @lore BA9d: All domain-row cleanup (subscriptions, agents, skills)
 	// happens in `platform-actions.ts` after this call — settings cannot
 	// write to those tables (governance boundary). `platform-actions.ts`
@@ -670,40 +482,4 @@ export async function removePlugin(db: HyperIdleDb, pluginId: string, now?: stri
 		.update(plugins)
 		.set({ state: "removed", removedAt: ts, updatedAt: ts })
 		.where(eq(plugins.id, pluginId));
-}
-
-/**
- * Restore a plugin contribution to its plugin default value by clearing
- * the user's override.
- *
- * AC6: After restore, the item is no longer detached (valueSource='default').
- *
- * @param pluginId - The plugin whose contribution to restore.
- * @param manifestKey - The ORIGINAL (non-namespaced) key from the manifest.
- * @param kind - The configuration kind.
- */
-export async function restorePluginContribution(
-	db: HyperIdleDb,
-	input: {
-		readonly pluginId: string;
-		readonly manifestKey: string;
-		readonly kind: ConfigurationKind;
-		readonly now?: string;
-	},
-): Promise<void> {
-	const key = namespacedKey(input.pluginId, input.manifestKey);
-	await writeConfigurationOverride(db, {
-		kind: input.kind,
-		key,
-		value: null,
-		now: input.now,
-	});
-}
-
-/**
- * Returns the stored (namespaced) key for a plugin contribution.
- * Exported for tests and BA9b to build on.
- */
-export function pluginContributionKey(pluginId: string, manifestKey: string): string {
-	return namespacedKey(pluginId, manifestKey);
 }

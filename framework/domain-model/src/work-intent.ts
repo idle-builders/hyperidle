@@ -1,5 +1,5 @@
 /**
- * AU19 §11 (AC-9) — the cross-Layer `AgentWorkIntentRecorder`/`AgentWorkIntentReader`
+ * The cross-Layer `AgentWorkIntentRecorder`/`AgentWorkIntentReader`
  * seam. `agent_work_intents` is owned by the `agent-orchestration` Layer's
  * `session-requests` Service; `routes/threads.ts` and `routes/sessions-routes.ts`
  * are core-api-Layer code (still physically in `packages/server` pending
@@ -23,7 +23,7 @@ import type { ChangeRow } from "./actions/user.js";
 import type { AgentSessionSourceCorrelation, AgentSessionSourceKind } from "./session-request.js";
 
 /**
- * AU21 §6 Decision B / §10 — the emit-time-resolved request a migrated
+ * The emit-time-resolved request a migrated
  * family's core-api resolver produces (the exact shape
  * `resolveIntentInputInternal` used to return per kind, minus the fields
  * trivially re-derivable from the intent row at drain time). Carried on the
@@ -40,7 +40,7 @@ export interface BakedWorkIntentRequest {
 	readonly userId?: string;
 	readonly sourceCorrelation: AgentSessionSourceCorrelation;
 	/**
-	 * AU21 §9 Increment 11 (Decision H2): the `assistant_turn` family's baked
+	 * The `assistant_turn` family's baked
 	 * thread transcript (`@hyperidle/conversation`'s `resolveAssistantTurnRequest`).
 	 * Absent for every other kind — `task_run`/`knowledge_action`/`subscription_run`/
 	 * Others instead bake a `contextBundle` (Decision H3, Increment 12).
@@ -51,7 +51,7 @@ export interface BakedWorkIntentRequest {
 		readonly type: string;
 	}>;
 	/**
-	 * AU21 §9 Increment 12 (Decision H3): the `task_run`/`knowledge_action`/
+	 * The `task_run`/`knowledge_action`/
 	 * `subscription_run` families' baked entity content (task/bet/
 	 * agent/team, or subscription/agent/team) plus the ranked+budgeted
 	 * documents `@hyperidle/document`'s `assembleSessionDocuments` produces —
@@ -64,7 +64,7 @@ export interface BakedWorkIntentRequest {
 	 */
 	readonly contextBundle?: BakedContextBundle;
 	/**
-	 * AU21 §9 Increment 12 (Decision H3), Wave E — the target agent's
+	 * The target agent's
 	 * runnable-config snapshot, baked at emit time by EVERY per-kind resolver
 	 * (all six kinds — `admitSession`'s Phase 1 applies uniformly, not just to
 	 * the four `contextBundle`-baking families) from the SAME `agent: User` row
@@ -76,7 +76,7 @@ export interface BakedWorkIntentRequest {
 	 */
 	readonly agentConfig?: BakedAgentRunnableConfig;
 	/**
-	 * AU21 §9 Increment 12 (Decision H3), Wave E — the server's
+	 * The server's
 	 * disabled-harness-types list (`server_config.harnessDisabled`), baked at
 	 * emit time (global config, not per-agent) so `admitSession`'s Phase 3
 	 * adapter-selection filter no longer needs a live
@@ -86,7 +86,7 @@ export interface BakedWorkIntentRequest {
 	 */
 	readonly harnessDisabled?: readonly string[];
 	/**
-	 * AU27 — the session's calling thread id, baked at emit time by every
+	 * The session's calling thread id, baked at emit time by every
 	 * resolver whose kind has a real thread host: `assistant_turn` (the
 	 * conversation thread), `task_run`/`session_start`/
 	 * `knowledge_action` (the
@@ -106,7 +106,7 @@ export interface BakedWorkIntentRequest {
 }
 
 /**
- * AU21 §9 Increment 12 (Decision H3), Wave E — the target agent's
+ * The target agent's
  * admission-relevant configuration, baked at emit time from the SAME
  * `agent: User` row every per-kind resolver already loads via
  * `requireRunnableAgent` to validate the ast-`<userId>` invariant. Carries the
@@ -228,7 +228,7 @@ export interface BakedContextDocument {
 }
 
 /**
- * AU21 §9 Increment 12 (Decision H3), Wave B — the structural shape
+ * The structural shape
  * `@hyperidle/document`'s `assembleSessionDocuments` (Wave A) returns
  * (`SessionDocument`), duck-typed here so `work`/`user`/
  * `review`'s per-kind resolvers can type their INJECTED `assembleSessionDocuments`
@@ -310,7 +310,7 @@ export function toBakedContextDocuments(
 }
 
 /**
- * AU21 §9 Increment 12 (Decision H3) — the baked entity content a
+ * The baked entity content a
  * `task_run` session needs (`kind:"task"`, matching
  * `context.ts`'s `SessionContextData`), a `subscription_run` session needs
  * (`kind:"subscription"`, matching `SubscriptionSessionContextData`), or a
@@ -328,7 +328,7 @@ export type BakedContextBundle =
 				readonly state: string;
 			};
 			/**
-			 * BB1: the containing work, root first, down to the immediate
+			 * The containing work, root first, down to the immediate
 			 * parent. Empty for a root task.
 			 *
 			 * Replaces the single `bet` this carried. A task used to sit
@@ -378,10 +378,10 @@ export type BakedContextBundle =
 	  };
 
 /**
- * AU21 §6 Decision G (recorder unification) — widened from the AC-9 2-kind
+ * Widened from the AC-9 2-kind
  * (`assistant_turn`/`session_start`) scope to the FULL six-kind
- * discriminated union (AU21 §9 Increment 10a / Decision I removed
- * `bet_decomposition`, shrinking the union from seven to six), matching
+ * discriminated union (`bet_decomposition` was removed, shrinking the
+ * union from seven to six), matching
  * `agent_work_intents_kind_ck` + `agent_work_intents_kind_source_compat_ck`
  * (`framework/db/src/schema.ts`) exactly. `work` (`task_run`) and `review`
  * used to re-declare their own narrower local mirrors of
@@ -410,7 +410,7 @@ export type AgentWorkIntentRecorderInput =
 			readonly sourceId: string;
 			readonly requestedBy?: string;
 			readonly idempotencyKey: string;
-			/** See `BakedWorkIntentRequest`. Populated at emit time by the `work` resolver (AU21 Increment 3). */
+			/** See `BakedWorkIntentRequest`. Populated at emit time by the `work` resolver. */
 			readonly bakedRequest?: BakedWorkIntentRequest;
 	  }
 	| {
@@ -419,7 +419,7 @@ export type AgentWorkIntentRecorderInput =
 			readonly sourceId: string;
 			readonly requestedBy?: string;
 			readonly idempotencyKey: string;
-			/** See `BakedWorkIntentRequest`. Populated at emit time by the `knowledge` resolver (AU21 Increment 3). */
+			/** See `BakedWorkIntentRequest`. Populated at emit time by the `knowledge` resolver. */
 			readonly bakedRequest?: BakedWorkIntentRequest;
 	  }
 	| {
@@ -428,7 +428,7 @@ export type AgentWorkIntentRecorderInput =
 			readonly sourceId: string;
 			readonly requestedBy?: string;
 			readonly idempotencyKey: string;
-			/** See `BakedWorkIntentRequest`. Populated at emit time by `task-run-resolver.ts` (AU21 Increment 3). */
+			/** See `BakedWorkIntentRequest`. Populated at emit time by `task-run-resolver.ts`. */
 			readonly bakedRequest?: BakedWorkIntentRequest;
 	  }
 	| {

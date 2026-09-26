@@ -83,7 +83,7 @@ Settings opens **in-shell**: Main renders `SettingsPage`, while the primary dest
 
 `SettingsPage` is a **stacked single scrollable page** (content max-width 680px, no per-section tabs — W3 AC-47/AC-52) with 11 sections in order (`SettingsPage.tsx`):
 
-Profile · Org chart · Agents · Skills & rules · Agent behavior · Filesystems · Agent backends · Connections · Appearance (theme only) · Notifications (one toggle per event, over your own subscriptions) · Backend (mode label + desktop hint, no switch button; Worker folded in, shared-mode only).
+Profile · Org chart · Agents · Skills & rules · Plugins · Filesystems · Agent backends · Connections · Appearance (theme only) · Notifications (one toggle per event, over your own subscriptions) · Backend (mode label + desktop hint, no switch button; Worker folded in, shared-mode only).
 
 Models and Assistant are no longer standalone sections (AV2): Assistant is a row inside Agents. Model tiers moved into the built-in harness's own detail pane inside Agent backends, and went with that harness — there is no tier screen.
 

@@ -9,7 +9,7 @@ import { DocumentCreate } from "../DocumentCreate.js";
 
 vi.mock("../../hooks/useCurrentUser.js", () => ({
 	useCurrentUser: () => ({
-		user: { id: "u-founder", name: "Founder", email: "f@x.com", avatarUrl: null },
+		user: { id: "u-founder", name: "Founder", avatarUrl: null },
 		retry: vi.fn(),
 	}),
 }));

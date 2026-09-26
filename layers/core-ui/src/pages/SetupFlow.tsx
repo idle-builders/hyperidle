@@ -5,11 +5,11 @@
  * field (repo path). Team is created silently with defaults. "Start HyperIdle"
  * is disabled until the chosen engine can actually run.
  *
- * Submits three `edit_user` calls:
+ * Submits two `edit_user` calls:
  * 1. the person, with a team named from the repo folder basename or "My Team"
  *    (and the folder, if one was picked)
- * 2. their owned assistant, with `ASSISTANT_IDENTITY` and the picked harness
- * 3. the team agent, with the picked harness and no identity
+ * 2. their owned assistant, on the picked harness, with no identity text and
+ *    one subscription per object event, none with a prompt
  * On success: navigate to /work?onboarding=true.
  *
  * @lore P4: Replaces Onboarding.tsx. Single-scroll layout from approved design.
@@ -22,21 +22,21 @@
  * spacing of 18px, design-system Input + Button components.
  * @lore AE2: Navigates to /work?onboarding=true to trigger assistant overlay auto-open.
  * @lore AV1: Harness picker added (greyed non-installed rows per Decision 4).
- * derivePrimaryHarness() wired into the assistant/team-agent edit_user calls.
+ * derivePrimaryHarness() wired into the assistant's edit_user call.
  * Folder → inspect-path (plumbing, kept) + folders.add on the person's edit_user
  * call (best-effort, writeback:"none").
  * @lore AW1 + follow-up: setup collects no credential at all. A harness arrives
  * already logged in, or it is not choosable — the key lives in the harness's own
  * login, never in HyperIdle.
  * @lore BC5 T10: the door swap — the pre-auth `POST /users` → `POST /teams` →
- * `POST /filesystems` sequence becomes three `edit_user` calls (person with
- * team, owned assistant, team agent); `open_user({})` replaces `GET
+ * `POST /filesystems` sequence becomes `edit_user` calls (person with
+ * team, then their owned assistant); `open_user({})` replaces `GET
  * /api/harnesses` for the picker (a rowless caller gets `user: null` and the
  * machine's `runsOn` in the same answer, architecture.md §0.4, §7).
  * `POST /filesystems/inspect-path` stays — it is plumbing, not an action.
  */
 
-import { type ActionResult, ASSISTANT_IDENTITY, type EditUserInput } from "@hyperidle/domain-model";
+import { type ActionResult, type EditUserInput, OBJECT_EVENTS } from "@hyperidle/domain-model";
 import {
 	derivePrimaryHarness,
 	type HarnessCapabilityDescriptor,
@@ -165,10 +165,7 @@ export function SetupFlow(): JSX.Element {
 	const [submitting, setSubmitting] = useState(false);
 	const [submitError, setSubmitError] = useState<string | null>(null);
 
-	// AE2: function selector state
-	// Default preset is "software" (development + product).
-
-	// AV1: Harness discovery — fetch on mount. We never block setup on it.
+	// Harness discovery — fetch on mount. We never block setup on it.
 	const [descriptors, setDescriptors] = useState<HarnessCapabilityDescriptor[]>([]);
 	const [harnessLoaded, setHarnessLoaded] = useState(false);
 	// The selected primary harness. Empty until discovery answers, which replaces
@@ -201,7 +198,7 @@ export function SetupFlow(): JSX.Element {
 		};
 	}, []);
 
-	// AV1: Folder inspection result for confirmation row.
+	// Folder inspection result for confirmation row.
 	const [folderInfo, setFolderInfo] = useState<FolderInfo | null>(null);
 
 	const selectedDescriptor = descriptors.find((d) => d.type === selectedHarnessType);
@@ -225,7 +222,7 @@ export function SetupFlow(): JSX.Element {
 		const folder = await window.__HYPERIDLE__?.shell.selectFolder();
 		if (!folder) return;
 		setRepoPath(folder);
-		// AV1: Probe the picked folder to determine git status + branch for confirm row.
+		// Probe the picked folder to determine git status + branch for confirm row.
 		// Best-effort — failure just clears folderInfo (no confirmation row shown).
 		try {
 			const res = await apiFetch("/api/filesystems/inspect-path", {
@@ -248,9 +245,9 @@ export function SetupFlow(): JSX.Element {
 		}
 	}, []);
 
-	// AV1: Derive the primaryHarness from the chosen picker row.
+	// Derive the primaryHarness from the chosen picker row.
 
-	// AE2: Submit and navigate to /work?onboarding=true (AD9: was /work/portfolio)
+	// Submit and navigate to /work?onboarding=true
 	const handleSubmit = useCallback(
 		async (e: FormEvent): Promise<void> => {
 			e.preventDefault();
@@ -267,7 +264,7 @@ export function SetupFlow(): JSX.Element {
 					? (repoPath.trim().split(/[/\\]/).filter(Boolean).pop() ?? "My Team")
 					: "My Team";
 
-				// AV1: Build primaryHarness for the chosen row. Absent only when
+				// Build primaryHarness for the chosen row. Absent only when
 				// discovery never resolved — there is no default harness to fall back
 				// to any more, so the server is told nothing rather than told wrong.
 				const primaryHarness = selectedDescriptor
@@ -279,7 +276,7 @@ export function SetupFlow(): JSX.Element {
 				// key at all now — a harness arrives already logged in, or it is not
 				// choosable.
 
-				// Best-effort folder body (AV1 Decision 3: inspect result determines
+				// Best-effort folder body (the inspect result determines
 				// kind code+branch | doc_set; writeback:"none" is the literal).
 				// Attached to the person's own edit_user call below — folders are a
 				// user attribute, given to the team it names.
@@ -336,35 +333,30 @@ export function SetupFlow(): JSX.Element {
 				}
 				const createdUserId = personResult.data.user.id;
 
-				// 2. Their owned assistant — the welcome screen's own identity.
+				// 2. Their owned assistant — the one agent a fresh install has.
+				// @lore The install ships empty: no identity text and nine
+				// subscriptions, one per object event, none with a prompt. The
+				// assistant is owned, so it takes its owner's team and hears that
+				// team's changes; with no prompt it is woken with what happened and
+				// decides for itself. One row per event, never a wildcard — a person
+				// edits or pauses each reaction on its own. The prompts fill only
+				// when the person writes them; a plugin brings its own agents and
+				// never writes into these.
 				const assistantResult = await call("edit_user", {
 					kind: "ai",
 					name: `${name.trim()}'s Assistant`,
 					role: "assistant",
 					agentCategory: "individual",
 					ownerUserId: createdUserId,
-					identity: ASSISTANT_IDENTITY,
 					...(primaryHarness ? { runConfig: primaryHarness } : {}),
+					subscriptions: { add: OBJECT_EVENTS.map((event) => ({ event })) },
 				});
 				if (!assistantResult.ok) {
 					throw new Error(personResultMessage(assistantResult));
 				}
 
-				// 3. The team agent — no identity, as the scaffold does today.
-				const teamAgentResult = await call("edit_user", {
-					kind: "ai",
-					name: `${derivedTeamName} Agent`,
-					role: "agent",
-					agentCategory: "team",
-					team: { name: derivedTeamName },
-					...(primaryHarness ? { runConfig: primaryHarness } : {}),
-				});
-				if (!teamAgentResult.ok) {
-					throw new Error(personResultMessage(teamAgentResult));
-				}
-
-				// AE2: Navigate to /work?onboarding=true to trigger assistant overlay auto-open.
-				// AD9: was /work/portfolio; WorkOverview handles 1-team short-circuit.
+				// Navigate to /work?onboarding=true to trigger assistant overlay auto-open.
+				// Was /work/portfolio; WorkOverview handles 1-team short-circuit.
 				navigate("/work?onboarding=true");
 			} catch (err: unknown) {
 				setSubmitError(err instanceof Error ? err.message : "Something went wrong");
@@ -417,7 +409,7 @@ export function SetupFlow(): JSX.Element {
 						/>
 					</div>
 
-					{/* AV1: Harness picker — agent engine selection */}
+					{/* Harness picker — agent engine selection */}
 					<div className="mb-[18px]" role="radiogroup" aria-label="Agent harness">
 						<p className="type-small   text-[var(--text-primary)] mb-[6px]">
 							Agent harness{" "}
@@ -569,7 +561,7 @@ export function SetupFlow(): JSX.Element {
 							<span className="type-metadata  text-[var(--text-tertiary)]">
 								Path to a git repository for agents to work in.
 							</span>
-							{/* AV1 Step B: Folder confirm row — shows after folder picked/detected */}
+							{/* Folder confirm row — shows after folder picked/detected */}
 							{folderInfo && (
 								<div className="flex items-center gap-[6px] mt-[3px]">
 									<span className="type-data   text-[var(--text-primary)]">

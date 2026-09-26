@@ -1,5 +1,5 @@
 /**
- * AV1 — Derive a run-config harness/model pick from a HarnessCapabilityDescriptor.
+ * Derive a run-config harness/model pick from a HarnessCapabilityDescriptor.
  *
  * @lore BC5 T7: maps the chosen descriptor to `edit_user`'s `runConfig` shape —
  * SetupFlow.tsx wires it straight into the assistant/team-agent `edit_user`

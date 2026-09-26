@@ -6,14 +6,13 @@
  * Fatal violations: missing $schema or name, wrong $schema value, invalid name format.
  * Non-fatal: unknown top-level fields, non-object extensions — reported as warnings.
  *
- * Our client extension namespace is "io.hyperidle". Contributions live at
- * extensions["io.hyperidle"].contributions[].
+ * Our client extension namespace is "io.hyperidle": a plugin's agents and
+ * subscriptions live at extensions["io.hyperidle"].agents[] / .subscriptions[].
  */
 
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, resolve, sep } from "node:path";
-import type { ConfigurationKind } from "@hyperidle/domain-model";
-import { BUILTIN_PLUGIN_ID, CONFIGURATION_KINDS, OBJECT_EVENTS } from "@hyperidle/domain-model";
+import { OBJECT_EVENTS } from "@hyperidle/domain-model";
 
 // ---------------------------------------------------------------------------
 // Spec constants
@@ -69,14 +68,8 @@ export interface ManifestWarning {
 		| "UNKNOWN_TOP_LEVEL_FIELD"
 		| "NON_OBJECT_EXTENSIONS"
 		| "INVALID_CONTRIBUTION"
-		| "RESERVED_PLUGIN_ID";
+		| "INVALID_INSTALL_SCOPE";
 	readonly message: string;
-}
-
-export interface ParsedContribution {
-	readonly kind: ConfigurationKind;
-	readonly key: string;
-	readonly value: Record<string, unknown>;
 }
 
 /**
@@ -149,12 +142,15 @@ export interface PluginManifest {
 	readonly name: string;
 	readonly version: string;
 	readonly description: string | null;
-	readonly contributions: ParsedContribution[];
+	/**
+	 * Where the Install button puts it: `team` (the default) or `factory`, from
+	 * `extensions["io.hyperidle"].installScope`. A folder, repository or zip
+	 * install names its scope itself; this only picks a bundled plugin's.
+	 */
+	readonly installScope: "team" | "factory";
 	readonly warnings: ManifestWarning[];
 	/** Skills discovered from the plugin's skills/ directory. */
 	readonly skills: ParsedSkill[];
-	/** MCP servers from the plugin's mcp.json. */
-	readonly mcpServers: ParsedMcpServer[];
 	/** Agents declared in extensions["io.hyperidle"].agents[]. */
 	readonly agents: ParsedPluginAgent[];
 	/** Subscriptions declared in extensions["io.hyperidle"].subscriptions[]. */
@@ -174,9 +170,6 @@ export type ManifestParseResult =
  *
  * Returns ok:false with a human-readable reason for fatal violations.
  * Returns ok:true with a manifest that includes non-fatal warnings.
- *
- * @lore BA9a: "builtin" is a reserved plugin ID — rejected at parse time so
- * the installer never needs to handle it as a special case.
  */
 export function parsePluginManifest(pluginRoot: string): ManifestParseResult {
 	const manifestPath = join(pluginRoot, "plugin.json");
@@ -218,14 +211,6 @@ export function parsePluginManifest(pluginRoot: string): ManifestParseResult {
 	}
 	const name = obj.name;
 
-	// builtin is reserved
-	if (name === BUILTIN_PLUGIN_ID) {
-		return {
-			ok: false,
-			reason: `plugin.json "name" "${BUILTIN_PLUGIN_ID}" is reserved and cannot be used for an installed plugin`,
-		};
-	}
-
 	// Unknown top-level fields — non-fatal
 	for (const field of Object.keys(obj)) {
 		if (!PERMITTED_TOP_LEVEL_FIELDS.has(field)) {
@@ -253,19 +238,14 @@ export function parsePluginManifest(pluginRoot: string): ManifestParseResult {
 		}
 	}
 
-	// Extract contributions, agents, and subscriptions from our namespace
-	const contributions: ParsedContribution[] = [];
+	// Extract agents and subscriptions from our namespace
 	const agents: ParsedPluginAgent[] = [];
 	const subscriptions: ParsedPluginSubscription[] = [];
+	let installScope: "team" | "factory" = "team";
 	if (ourExtension !== undefined) {
 		if (typeof ourExtension === "object" && ourExtension !== null && !Array.isArray(ourExtension)) {
 			const ext = ourExtension as Record<string, unknown>;
-			if (Array.isArray(ext.contributions)) {
-				for (const item of ext.contributions) {
-					const contribution = parseContribution(item, warnings);
-					if (contribution) contributions.push(contribution);
-				}
-			}
+			installScope = parseInstallScope(ext.installScope, warnings);
 			if (Array.isArray(ext.agents)) {
 				for (const item of ext.agents) {
 					const agent = parsePluginAgent(item, warnings, pluginRoot);
@@ -292,7 +272,6 @@ export function parsePluginManifest(pluginRoot: string): ManifestParseResult {
 	const description = typeof obj.description === "string" ? obj.description : null;
 
 	const skills = scanSkills(pluginRoot, warnings);
-	const mcpServers = parseMcpJson(pluginRoot, warnings);
 
 	return {
 		ok: true,
@@ -300,14 +279,24 @@ export function parsePluginManifest(pluginRoot: string): ManifestParseResult {
 			name,
 			version,
 			description,
-			contributions,
+			installScope,
 			warnings,
 			skills,
-			mcpServers,
 			agents,
 			subscriptions,
 		},
 	};
+}
+
+/** Absent → `team`; anything but `team` or `factory` is a warning and `team`. */
+function parseInstallScope(value: unknown, warnings: ManifestWarning[]): "team" | "factory" {
+	if (value === undefined || value === "team") return "team";
+	if (value === "factory") return "factory";
+	warnings.push({
+		code: "INVALID_INSTALL_SCOPE",
+		message: `installScope must be "team" or "factory" (got: ${JSON.stringify(value)}) — installing per team`,
+	});
+	return "team";
 }
 
 /**
@@ -373,10 +362,11 @@ function scanSkills(pluginRoot: string, warnings: ManifestWarning[]): ParsedSkil
 
 /**
  * Parse the plugin's mcp.json file.
- * Returns an empty array if the file is absent or invalid.
+ * Returns an empty array if the file is absent or not a JSON object; a server
+ * entry that is not an object is skipped.
  * Per spec, the top-level object has server names as keys.
  */
-function parseMcpJson(pluginRoot: string, warnings: ManifestWarning[]): ParsedMcpServer[] {
+export function parseMcpJson(pluginRoot: string): ParsedMcpServer[] {
 	const mcpPath = join(pluginRoot, "mcp.json");
 	if (!existsSync(mcpPath)) return [];
 
@@ -384,86 +374,16 @@ function parseMcpJson(pluginRoot: string, warnings: ManifestWarning[]): ParsedMc
 	try {
 		raw = JSON.parse(readFileSync(mcpPath, "utf8"));
 	} catch {
-		warnings.push({
-			code: "UNKNOWN_TOP_LEVEL_FIELD",
-			message: "mcp.json is not valid JSON — ignored",
-		});
 		return [];
 	}
-
-	if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
-		warnings.push({
-			code: "UNKNOWN_TOP_LEVEL_FIELD",
-			message: "mcp.json must be a JSON object — ignored",
-		});
-		return [];
-	}
+	if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return [];
 
 	const servers: ParsedMcpServer[] = [];
 	for (const [name, config] of Object.entries(raw as Record<string, unknown>)) {
-		if (typeof config !== "object" || config === null || Array.isArray(config)) {
-			warnings.push({
-				code: "UNKNOWN_TOP_LEVEL_FIELD",
-				message: `mcp.json server "${name}" is not an object — skipped`,
-			});
-			continue;
-		}
+		if (typeof config !== "object" || config === null || Array.isArray(config)) continue;
 		servers.push({ name, config: config as Record<string, unknown> });
 	}
 	return servers;
-}
-
-function parseContribution(item: unknown, warnings: ManifestWarning[]): ParsedContribution | null {
-	if (typeof item !== "object" || item === null || Array.isArray(item)) {
-		warnings.push({
-			code: "INVALID_CONTRIBUTION",
-			message: "Contribution entry is not an object — skipped",
-		});
-		return null;
-	}
-	const obj = item as Record<string, unknown>;
-
-	const { kind, key, value } = obj;
-
-	// kind must be a valid ConfigurationKind
-	if (typeof kind !== "string" || !CONFIGURATION_KINDS.includes(kind as ConfigurationKind)) {
-		warnings.push({
-			code: "INVALID_CONTRIBUTION",
-			message: `Contribution has invalid "kind" ${JSON.stringify(kind)} — skipped (valid: ${CONFIGURATION_KINDS.join(", ")})`,
-		});
-		return null;
-	}
-
-	// key must be a non-empty string without "/"
-	if (typeof key !== "string" || key.trim() === "") {
-		warnings.push({
-			code: "INVALID_CONTRIBUTION",
-			message: `Contribution has invalid "key" ${JSON.stringify(key)} — skipped (must be a non-empty string)`,
-		});
-		return null;
-	}
-	if (key.includes("/")) {
-		warnings.push({
-			code: "INVALID_CONTRIBUTION",
-			message: `Contribution key ${JSON.stringify(key)} contains "/" which is not allowed — skipped`,
-		});
-		return null;
-	}
-
-	// value must be a plain object (not array, not null)
-	if (typeof value !== "object" || value === null || Array.isArray(value)) {
-		warnings.push({
-			code: "INVALID_CONTRIBUTION",
-			message: `Contribution "${key}" has invalid "value" — must be a JSON object, skipped`,
-		});
-		return null;
-	}
-
-	return {
-		kind: kind as ConfigurationKind,
-		key,
-		value: value as Record<string, unknown>,
-	};
 }
 
 function parsePluginAgent(

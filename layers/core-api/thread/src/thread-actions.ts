@@ -343,6 +343,7 @@ function pushChanges(deps: ThreadActionsDeps, rows: readonly PushableChange[]): 
 function emitObjectEvents(
 	eventBus: ActionContext["eventBus"],
 	rows: readonly PushableChange[],
+	woke: readonly string[] = [],
 ): void {
 	for (const row of rows) {
 		const changesRow: ChangesRow = {
@@ -355,7 +356,7 @@ function emitObjectEvents(
 			after: JSON.stringify(row.after),
 			at: row.at,
 		};
-		eventBus.emit(objectEvent(changesRow));
+		eventBus.emit(objectEvent(changesRow, { woke }));
 	}
 }
 
@@ -1142,10 +1143,29 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		}
 
 		// -- 6. after commit -----------------------------------------------------
+		// The agents this send itself starts work for: the thread turns below,
+		// and on a verdict the review's sender, whom the verdict brings back.
+		// Resolved before the events go out so every event names them.
+		let woken: readonly string[] = [];
+		if (finalMembers.length > 0) {
+			const identityRows = await deps.users.listByIds(ctx.db, finalMembers);
+			const isAgent = (id: string) => identityRows.some((u) => u.id === id && u.kind === "ai");
+			woken = agentsToWake({
+				members: finalMembers,
+				senderId: ctx.actor,
+				mentionedIds,
+				isAgent,
+			});
+		}
+		const woke =
+			input.verdict !== undefined && resolvesMessageRow
+				? [...new Set([...woken, resolvesMessageRow.senderId])]
+				: woken;
+
 		// Every row this call appended is one object event
 		// (decision 5) — `pushRows` already carries them all: the message,
 		// the create (if any) and the resolve/reopen (if any).
-		emitObjectEvents(ctx.eventBus, pushRows);
+		emitObjectEvents(ctx.eventBus, pushRows, woke);
 
 		if (body.type === "review" && ctx.caller?.sessionId) {
 			await deps.linkReviewToSession(ctx.caller.sessionId, messageId);
@@ -1190,43 +1210,33 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		}
 
 		// wake
-		if (finalMembers.length > 0) {
-			const identityRows = await deps.users.listByIds(ctx.db, finalMembers);
-			const isAgent = (id: string) => identityRows.some((u) => u.id === id && u.kind === "ai");
-			const woken = agentsToWake({
-				members: finalMembers,
-				senderId: ctx.actor,
-				mentionedIds,
-				isAgent,
-			});
-			for (const agentId of woken) {
-				try {
-					const bakedRequest = await resolveThreadTurnRequest(ctx.db, messageId, agentId, {
-						requireRunnableAgent: deps.agents.requireRunnableAgent,
-						// `resolveThreadTurnRequest`'s own dep shape only threads `db`,
-						// not the full ctx `getAgentIdentity` now needs (§8.3) — close
-						// over `ctx` here rather than widen that module's interface.
-						getAgentIdentity: (_db, id) => deps.agents.getAgentIdentity(ctx, id),
-						readServerConfig: deps.settings.readServerConfig,
-					});
-					await deps.agentWorkIntentRecorder({
-						kind: "thread_turn",
-						sourceKind: "thread_message",
-						sourceId: `${messageId}:${agentId}`,
-						requestedBy: ctx.actor,
-						idempotencyKey: `thread-turn:${messageId}:${agentId}`,
-						bakedRequest,
-					} as AgentWorkIntentRecorderInput);
-				} catch (error) {
-					// a bake failure (e.g. a deactivated agent) drops that one wake —
-					// the message stays committed and the other wakes are unaffected —
-					// but the drop must be LOGGED, never silent.
-					logger.error("thread turn wake failed", {
-						messageId,
-						agentId,
-						error: error instanceof Error ? error.message : String(error),
-					});
-				}
+		for (const agentId of woken) {
+			try {
+				const bakedRequest = await resolveThreadTurnRequest(ctx.db, messageId, agentId, {
+					requireRunnableAgent: deps.agents.requireRunnableAgent,
+					// `resolveThreadTurnRequest`'s own dep shape only threads `db`,
+					// not the full ctx `getAgentIdentity` now needs (§8.3) — close
+					// over `ctx` here rather than widen that module's interface.
+					getAgentIdentity: (_db, id) => deps.agents.getAgentIdentity(ctx, id),
+					readServerConfig: deps.settings.readServerConfig,
+				});
+				await deps.agentWorkIntentRecorder({
+					kind: "thread_turn",
+					sourceKind: "thread_message",
+					sourceId: `${messageId}:${agentId}`,
+					requestedBy: ctx.actor,
+					idempotencyKey: `thread-turn:${messageId}:${agentId}`,
+					bakedRequest,
+				} as AgentWorkIntentRecorderInput);
+			} catch (error) {
+				// a bake failure (e.g. a deactivated agent) drops that one wake —
+				// the message stays committed and the other wakes are unaffected —
+				// but the drop must be LOGGED, never silent.
+				logger.error("thread turn wake failed", {
+					messageId,
+					agentId,
+					error: error instanceof Error ? error.message : String(error),
+				});
 			}
 		}
 

@@ -11,7 +11,7 @@
  * keeps this list to exactly the produced items under this host (§5.1's
  * artifact visibility exemption, §5.2).
  *
- * Interaction (AC10): clicking a row enters split mode — the list stays as
+ * Interaction: clicking a row enters split mode — the list stays as
  * origin, the selected item's body renders as destination. Uses SplitView from
  * the DS, the standard pattern across settings surfaces.
  *

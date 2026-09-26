@@ -33,7 +33,6 @@ function openUserData(subscriptions: unknown[]): Record<string, unknown> {
 		folders: [],
 		subscriptions,
 		connections: null,
-		behaviour: null,
 		inbox: null,
 	};
 }

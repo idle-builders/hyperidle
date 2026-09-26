@@ -1,5 +1,5 @@
 /**
- * AU21 §6 Decision E / §9 Increment 7 — the (c) session/harness-streaming
+ * The session/harness-streaming
  * gateway: forwards `session_started`/`session_ended`/`tool_call_recorded`
  * off the EventBus as a `session:<id>` NUDGE onto the browser's one
  * websocket.

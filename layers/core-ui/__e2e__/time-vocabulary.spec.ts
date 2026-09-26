@@ -163,7 +163,6 @@ async function mockInbox(
 		self: true,
 		inbox: rows,
 		connections: { connections: [], inherited: [] },
-		behaviour: [],
 	});
 }
 

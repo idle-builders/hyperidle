@@ -1,7 +1,7 @@
 /**
  * SSRF (Server-Side Request Forgery) defences.
  *
- * Moved here from the deleted `@hyperidle/host-process` package (AU44-b6).
+ * Moved here from the deleted `@hyperidle/host-process` package.
  * `isPrivateHostLiteral` is the only symbol callers in this package need; the
  * IP-level predicates stay module-private.
  *

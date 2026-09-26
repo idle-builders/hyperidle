@@ -206,7 +206,7 @@ const taUnknownRoleFallback: EvalScenario = {
 		return await seedMinimalWorld(ctx.db, {
 			// AB0: "custom_analyst" is not in the role catalog — tests fallback path.
 			// communityForRole returns "ops", findRoleCatalogEntry returns undefined.
-			// No system prompt template — agent gets buildDefaultSystemPrompt generic text.
+			// No identity given — the agent runs with none, like an agent nobody described.
 			// UserRole is string so no cast needed; any string is valid.
 			agentRole: "custom_analyst",
 			taskTitle: "Analyze project status and document findings",

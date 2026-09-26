@@ -27,14 +27,14 @@
 
 // -- Cipher (2) — AES-256-GCM encrypt/decrypt for connection tokens --
 export { decryptCredentialValue, encryptCredentialValue } from "./token-cipher.js";
-// -- Connection vocabulary (AU44-b8): InheritedConnectionFact moved from domain-model --
+// -- Connection vocabulary: InheritedConnectionFact moved from domain-model --
 // @lore AU44-b8: HeldAuthSource/HELD_AUTH_SOURCES survivor in domain-model (service→service crossing).
 export type { InheritedConnectionFact } from "./types.js";
 
 // -- Provisioning read — callers use listConnections({ userId, authSource }) directly --
 // (listHeldConnectionsForProvisioning deleted; @lore AU44 batch2)
 
-// -- Inherited reach (AU36 D1) — the domain's own probe + cache --
+// -- Inherited reach — the domain's own probe + cache --
 export {
 	createInheritedReach,
 	type InheritedProbeDeps,

@@ -8,7 +8,7 @@ import { Tag } from "./Tag";
 import type { TagKind } from "./tag-kinds";
 
 /**
- * AE5: PresenceDot for ThreadRow — same visual treatment as ThreadHostBanner.
+ * PresenceDot for ThreadRow — same visual treatment as ThreadHostBanner.
  * Extracted to a function to avoid cross-file imports of a 10-line component.
  *
  * @lore AE5 (SUGGESTION from arch-critique): shared with ThreadHostBanner's PresenceDot
@@ -35,7 +35,7 @@ function ThreadRowPresenceDot({
 export interface ThreadAvatarItem {
 	initials: string;
 	agent?: boolean;
-	/** AE5: Operational status for agent avatars. When present, shows presence dot. */
+	/** Operational status for agent avatars. When present, shows presence dot. */
 	operationalStatus?: AgentOperationalStatus;
 }
 

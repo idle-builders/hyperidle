@@ -121,7 +121,6 @@ The one rule that is stated above rather than pointed at is which **world** a fi
 - `deployment/` — laptop, self-hosting, releases, shared backend
 - `guides/developer/` — onboarding, project structure, commands, conventions
 - `guides/user/` — end-user guide: interface, views, agents, daily rhythms
-- `system-prompts/` — agent system prompt templates
 - `archive/` — superseded docs
 
 Each folder has an `index.md` with section links. `/pipeline:refine` and `/pipeline:architecture` identify which docs are relevant for a workpackage — downstream skills read the plan, not docs directly.

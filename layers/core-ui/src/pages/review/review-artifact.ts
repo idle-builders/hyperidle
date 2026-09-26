@@ -1,13 +1,13 @@
 import type { ComponentType } from "react";
 
 /**
- * AL2 — Review canvas vocabulary and contracts.
+ * Review canvas vocabulary and contracts.
  *
  * These shapes are intentionally separate from the primitive `Artifact` type in
  * `framework/domain-model/src/types/artifact.ts`. The review experience maps proof
  * families (code, field-change, action, render, metrics, visual, batch) onto
  * dedicated canvases, plus two utility canvases (outcome_summary frame lead and
- * browser_preview escape hatch) approved in AL1.
+ * browser_preview escape hatch) approved for review.
  *
  * @lore this nine-value list is byte-identical to `REVIEW_CANVAS_KINDS`
  * (`framework/domain-model/src/thread.ts`), the single-homed copy
@@ -45,8 +45,8 @@ export interface ReviewCanvasProps<TPayload = unknown> {
 export type ReviewCanvasComponent<TPayload = unknown> = ComponentType<ReviewCanvasProps<TPayload>>;
 
 /**
- * A review Subject is the top-level thing being approved. AL2 only populates the
- * artifact list; AL3 composition will add intent, rationale, needs-you,
+ * A review Subject is the top-level thing being approved. The artifact-only shape populates the
+ * artifact list; composition adds intent, rationale, needs-you,
  * verdict, and conversation.
  */
 export interface ReviewSubject {
@@ -57,7 +57,7 @@ export interface ReviewSubject {
 
 // Per-family payload shapes, aligned with the fixtures in
 // `review-subject.fixture.ts`. Canvases may enrich these locally when building
-// their internal view models; these types are the canonical AL2 shape.
+// their internal view models; these types are the canonical shape.
 
 export interface OutcomeSummaryPayload {
 	readonly agentName: string;

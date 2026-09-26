@@ -1,5 +1,5 @@
 /**
- * AU26 G1 — the sole reader/writer of `agent_run_config` (architecture §D-L).
+ * The sole reader/writer of `agent_run_config`.
  *
  * @lore AU26 G1: these fields (six at the time) lived on `users` until AU26. Core administers
  * them (Settings → Agents writes them, the agent profile renders them) but

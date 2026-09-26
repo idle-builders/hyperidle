@@ -1,5 +1,5 @@
 /**
- * AI2 — DiscardConfirmStrip: the guard strip that replaces the dialog footer
+ * DiscardConfirmStrip: the guard strip that replaces the dialog footer
  * when a dirty dialog receives a dismissal intent.
  *
  * Button order: Keep editing (safe default, first/focused) → Discard (second,

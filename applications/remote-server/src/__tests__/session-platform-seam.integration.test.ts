@@ -22,8 +22,8 @@
  * plugin is disabled twice — first through one door, then (already disabled)
  * again through the other — so the compared rows are literally the same
  * entity and only the write-time timestamps (`updatedAt`/`disabledAt`) are
- * stripped before comparing. `edit_plugin`'s refused builtin-remove case
- * needs no seed at all: `editPluginInvariants` answers `builtin_locked`
+ * stripped before comparing. `edit_plugin`'s refused no-change case
+ * needs no seed at all: `editPluginInvariants` answers `one_change`
  * before either door touches the database.
  *
  * @lore governance: `CORE_API_ACTOR_OVERRIDE_HEADER` lives in
@@ -337,7 +337,6 @@ function makePlugin(pluginId: string): string {
 							prompt: "Sweep the stale items.",
 						},
 					],
-					contributions: [{ kind: "tool", key: "max-items", value: { limit: 10 } }],
 				},
 			},
 		}),
@@ -550,9 +549,11 @@ describe("session-platform seam — the five entries answer the same to a person
 					throw new Error(`tool door refused: ${JSON.stringify(toolResult)}`);
 
 				expect(toolResult.data).toEqual(httpRes.json.data);
-				expect((httpRes.json.data as Array<{ id: string }>).map((p) => p.id)).toEqual([
-					"seam-search-plugin",
-				]);
+				// The plugins that ship with the server list beside it as available.
+				const installed = (httpRes.json.data as Array<{ id: string; state: string }>).filter(
+					(p) => p.state !== "available",
+				);
+				expect(installed.map((p) => p.id)).toEqual(["seam-search-plugin"]);
 			} finally {
 				await handle.server.dispose();
 			}
@@ -608,30 +609,32 @@ describe("session-platform seam — the five entries answer the same to a person
 			}
 		}, 30_000);
 
-		test("a refused edit (builtin remove) — both doors return the same problem", async ({ db }) => {
+		test("a refused edit (no change named) — both doors return the same problem", async ({
+			db,
+		}) => {
 			const handle = await boot(db);
 			try {
-				await seedHuman(db, "seam-founder-builtin");
-				await seedAgent(db, "seam-agent-builtin", "seam-founder-builtin");
+				await seedHuman(db, "seam-founder-refused");
+				await seedAgent(db, "seam-agent-refused", "seam-founder-refused");
 
 				const httpRes = await callAction(
 					handle,
 					"edit_plugin",
-					{ id: "builtin", remove: true },
-					"seam-founder-builtin",
+					{ id: "seam-plugin-refused" },
+					"seam-founder-refused",
 				);
 				expect(httpRes.status).toBe(422);
 				const problems = httpRes.json.problems as Array<{ code: string; message: string }>;
 				expect(problems).toHaveLength(1);
-				expect(problems[0]?.code).toBe("builtin_locked");
+				expect(problems[0]?.code).toBe("one_change");
 
 				const tool = toolFor(handle, "edit_plugin");
 				const toolResult = await tool.handler(
-					{ id: "builtin", remove: true },
-					agentToolCtx(db, "seam-agent-builtin", "seam-tool-session-builtin"),
+					{ id: "seam-plugin-refused" },
+					agentToolCtx(db, "seam-agent-refused", "seam-tool-session-refused"),
 				);
 				if (toolResult.success) throw new Error("expected the tool door to refuse too");
-				expect(toolResult.code).toBe("builtin_locked");
+				expect(toolResult.code).toBe("one_change");
 				expect(toolResult.error).toBe(problems[0]?.message);
 			} finally {
 				await handle.server.dispose();

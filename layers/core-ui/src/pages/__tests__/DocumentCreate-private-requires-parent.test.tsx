@@ -45,7 +45,7 @@ import { DocumentCreate } from "../DocumentCreate.js";
 
 function mockUser(overrides: { teamId?: string } = {}): void {
 	vi.mocked(useCurrentUser).mockReturnValue({
-		user: { id: "u1", name: "Founder", email: "f@example.com", avatarUrl: null, ...overrides },
+		user: { id: "u1", name: "Founder", avatarUrl: null, ...overrides },
 		status: "ready",
 		error: null,
 		retry: vi.fn(),
