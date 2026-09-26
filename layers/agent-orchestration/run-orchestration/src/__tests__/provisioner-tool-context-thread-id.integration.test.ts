@@ -13,49 +13,18 @@ import { type HyperIdleDb, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import { afterEach, describe, vi } from "vitest";
+import {
+	buildNeverCalledPorts,
+	completingHarnessAdapter,
+	neverCalled,
+	type ProvisionSessionDeps,
+	type ProvisionSessionParams,
+} from "../__testing__/test-fixtures.js";
 import { createProvisioner } from "../provisioner.js";
 
-type CreateProvisioner = typeof createProvisioner;
-type SessionLifecyclePorts = Parameters<CreateProvisioner>[0];
-type Provisioner = ReturnType<CreateProvisioner>;
-type AdmitArgs = Parameters<Provisioner["admit"]>;
-type ProvisionSessionDeps = AdmitArgs[0];
-type ProvisionSessionParams = AdmitArgs[1];
-type FakeAdapterPoolEntry = NonNullable<ReturnType<ProvisionSessionDeps["adapterPool"]["select"]>>;
-type FakeHarnessAdapter = FakeAdapterPoolEntry["adapter"];
-
-/** A harness adapter that starts, streams zero events, and stops cleanly. */
-function buildFakeHarnessAdapter(): FakeHarnessAdapter {
-	return {
-		startSession: async (config) => ({ sessionId: config.sessionId }),
-		streamEvents: () => ({
-			async *[Symbol.asyncIterator]() {
-				/* no events — the drain completes immediately */
-			},
-		}),
-		stopSession: async () => ({
-			outcome: "completed" as const,
-			tokenUsage: { byTier: {} },
-		}),
-		getCapabilities: () => ({
-			preCompactionTrigger: false,
-			subAgents: false,
-			modelProviders: [],
-			mcpSupport: false,
-			returnEnforcement: "none" as const,
-		}),
-	};
-}
-
 /** Every port method not exercised by this scenario throws if called. */
-function buildHarnessPorts(captured: {
-	toolContext?: { readonly threadId?: string };
-}): SessionLifecyclePorts {
-	const neverCalled = (label: string) =>
-		vi.fn(() => {
-			throw new Error(`${label}: must not be called in this test scenario`);
-		});
-	const base: SessionLifecyclePorts = {
+function buildHarnessPorts(captured: { toolContext?: { readonly threadId?: string } }) {
+	return buildNeverCalledPorts({
 		sessionRequests: {
 			findSessionRequest: neverCalled("sessionRequests.findSessionRequest"),
 			listSessionRequests: neverCalled("sessionRequests.listSessionRequests"),
@@ -63,9 +32,6 @@ function buildHarnessPorts(captured: {
 			abortSessionRun: neverCalled("sessionRequests.abortSessionRun"),
 			registerSessionRun: vi.fn(),
 			deregisterSessionRun: vi.fn(),
-		},
-		observability: {
-			summarizeToolArgs: () => "",
 		},
 		harnessRuntime: {
 			enforcementRegistry: {
@@ -97,8 +63,7 @@ function buildHarnessPorts(captured: {
 			assembleSubscriptionPrompt: neverCalled("contextAssembly.assembleSubscriptionPrompt"),
 			writeSandboxAgentsMd: vi.fn(),
 		},
-	};
-	return base;
+	});
 }
 
 function buildDeps(db: HyperIdleDb, sandboxPath: string): ProvisionSessionDeps {
@@ -108,7 +73,7 @@ function buildDeps(db: HyperIdleDb, sandboxPath: string): ProvisionSessionDeps {
 		adapterPool: {
 			select: () => ({
 				id: "fake-adapter",
-				adapter: buildFakeHarnessAdapter(),
+				adapter: completingHarnessAdapter(),
 				meta: {
 					name: "Fake",
 					kind: "local",

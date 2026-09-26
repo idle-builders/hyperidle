@@ -18,16 +18,14 @@ import { expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, vi } from "vitest";
+import {
+	buildNeverCalledPorts,
+	type FakeHarnessAdapter,
+	neverCalled,
+	type ProvisionSessionDeps,
+	type ProvisionSessionParams,
+} from "../__testing__/test-fixtures.js";
 import { createProvisioner } from "../provisioner.js";
-
-type CreateProvisioner = typeof createProvisioner;
-type SessionLifecyclePorts = Parameters<CreateProvisioner>[0];
-type Provisioner = ReturnType<CreateProvisioner>;
-type AdmitArgs = Parameters<Provisioner["admit"]>;
-type ProvisionSessionDeps = AdmitArgs[0];
-type ProvisionSessionParams = AdmitArgs[1];
-type FakeAdapterPoolEntry = NonNullable<ReturnType<ProvisionSessionDeps["adapterPool"]["select"]>>;
-type FakeHarnessAdapter = FakeAdapterPoolEntry["adapter"];
 
 /**
  * `nativeId` undefined models a harness that never reported one — an error
@@ -56,12 +54,8 @@ function buildFakeHarnessAdapter(nativeId: string | undefined): FakeHarnessAdapt
 	} as FakeHarnessAdapter;
 }
 
-function buildHarnessPorts(): SessionLifecyclePorts {
-	const neverCalled = (label: string) =>
-		vi.fn(() => {
-			throw new Error(`${label}: must not be called in this test scenario`);
-		});
-	return {
+function buildHarnessPorts() {
+	return buildNeverCalledPorts({
 		sessionRequests: {
 			findSessionRequest: neverCalled("sessionRequests.findSessionRequest"),
 			listSessionRequests: neverCalled("sessionRequests.listSessionRequests"),
@@ -70,7 +64,6 @@ function buildHarnessPorts(): SessionLifecyclePorts {
 			registerSessionRun: vi.fn(),
 			deregisterSessionRun: vi.fn(),
 		},
-		observability: { summarizeToolArgs: () => "" },
 		harnessRuntime: {
 			enforcementRegistry: {
 				register: vi.fn(),
@@ -98,7 +91,7 @@ function buildHarnessPorts(): SessionLifecyclePorts {
 			assembleSubscriptionPrompt: neverCalled("contextAssembly.assembleSubscriptionPrompt"),
 			writeSandboxAgentsMd: vi.fn(),
 		},
-	};
+	});
 }
 
 function buildDeps(
