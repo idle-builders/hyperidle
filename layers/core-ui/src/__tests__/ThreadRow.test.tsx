@@ -171,4 +171,28 @@ describe("ThreadRow", () => {
 			render(<ThreadRow {...defaultProps} avatarUrl="https://example.com/avatar.png" />),
 		).not.toThrow();
 	});
+
+	describe("agent avatar presence dots", () => {
+		it("shows a presence dot only for an active agent avatar, not idle or status-less", () => {
+			const { rerender } = render(
+				<ThreadRow
+					{...defaultProps}
+					avatars={[{ initials: "A", agent: true, operationalStatus: "active" }]}
+				/>,
+			);
+			expect(screen.getByLabelText(/active/i)).toBeInTheDocument();
+
+			rerender(
+				<ThreadRow
+					{...defaultProps}
+					avatars={[{ initials: "A", agent: true, operationalStatus: "idle" }]}
+				/>,
+			);
+			expect(screen.queryByLabelText(/idle/i)).toBeNull();
+
+			rerender(<ThreadRow {...defaultProps} avatars={[{ initials: "A", agent: true }]} />);
+			expect(screen.queryByLabelText(/active/i)).toBeNull();
+			expect(screen.queryByLabelText(/error/i)).toBeNull();
+		});
+	});
 });
