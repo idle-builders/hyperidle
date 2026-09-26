@@ -1,26 +1,12 @@
 /**
- * Assistant lane-gate verdict unit.
- *
- * The broken-lane AC3 leg: asserts the S1 distinct-reply condition is FALSE
- * over a CRAFTED empty/degenerate transcript — no real harness, no vi.mock.
- *
- * A real model essentially never returns an empty content array, so the broken
- * leg CANNOT be forced on real harness output reliably. This is the honest
- * decomposition: the gate verdict logic is pure — test it over crafted inputs,
- * not by coercing a real model into degenerate output.
- *
- * Inheritor of the broken-lane verdict protected test.
- *
- * @lore assistant-lane-gate: The distinct-reply condition has two legs:
- *   (i) REAL leg: real full-matrix turn → real output → condition = true
- *   (ii) UNIT leg: crafted empty transcript → S1 = false        (THIS FILE)
- * This is not hiding a skip — it is an honest decomposition by what each leg
- * can actually prove. Stated plainly in the plan DoD.
- *
- * W-2 fix: no local predicate function. Plain assertions on the actual conditions
- * (length > 0 and !== welcomeText) prove the logic directly without the tautology
- * risk of a locally-defined predicate that duplicates itself under test.
- * Variables typed as `string` (not literal) avoid TS2367 overlap errors.
+ * The distinct-reply verdict is pure logic: a reply counts only if it has
+ * content and differs from the welcome text. A real model essentially never
+ * returns an empty content array, so the false leg can't be forced on real
+ * harness output reliably — tested here over a crafted empty transcript
+ * instead. Plain assertions on the actual conditions (length > 0 and !==
+ * welcomeText), never a local predicate function that would just duplicate
+ * the logic under test. Variables are typed as `string` (not literal) so the
+ * comparison doesn't collapse to a type-level always-false.
  */
 
 import { describe, expect, test } from "vitest";
@@ -30,7 +16,7 @@ const WELCOME_TEXT: string = "Welcome to HyperIdle! I'm your assistant.";
 describe("assistant lane-gate verdict over crafted inputs", () => {
 	test("empty content makes the distinct-reply condition false", () => {
 		// Simulates a degenerate completion that yields empty text,
-		// which fails the S1 gate (not a distinct reply).
+		// which fails the distinct-reply gate.
 		const lastReply: string = ""; // empty content array → drainStreamEvents produces empty text
 		expect(lastReply.length > 0 && lastReply !== WELCOME_TEXT).toBe(false);
 	});

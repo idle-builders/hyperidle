@@ -12,7 +12,7 @@ function auth(): Record<string, string> {
  *
  * On every CI run, verify every route module returns non-404 for its
  * base path. This is a regression guard — if a route is accidentally
- * un-mounted (the S1 showstopper that started Track I), this test fails.
+ * un-mounted, this test fails.
  *
  * Each route module is tested by hitting its base GET endpoint.
  * We expect a status other than 404. Some routes return 200 (list endpoints),
@@ -29,12 +29,11 @@ describe("API availability regression guard", () => {
 	// the architecture doc §8: /api/tasks (the eight-route CRUD surface) is
 	// deleted outright — task is an action, `POST /api/actions/<name>`, not a
 	// route module with a GET base path. See the actions-router POST check below.
-	// @lore BC5 T7b: /api/routines and /api/notifications/inbox move to
-	// RETIRED_ROUTES below — both packages and routes are deleted with the
-	// routine/notification cutover.
-	// @lore BC5 T11: /api/users moves to RETIRED_ROUTES below — user is an
-	// action now, `search_users`/`open_user`/`edit_user` under
-	// `POST /api/actions/<name>`, not a route module with a GET base path.
+	// /api/routines and /api/notifications/inbox: both packages and routes are
+	// deleted with the routine/notification cutover — see RETIRED_ROUTES below.
+	// /api/users: user is an action now, `search_users`/`open_user`/`edit_user`
+	// under `POST /api/actions/<name>`, not a route module with a GET base
+	// path — see RETIRED_ROUTES below.
 	const ROUTE_MODULES = [{ path: "/api/health", description: "Health (public)" }] as const;
 
 	for (const route of ROUTE_MODULES) {
@@ -57,18 +56,18 @@ describe("API availability regression guard", () => {
 	});
 
 	/**
-	 * AU26 C1 (§D-F) — the git exporter is deleted by founder verdict. Its four
-	 * routes must be GONE, not merely disabled: the same canonical JSON 404 any
-	 * unknown `/api/*` path returns. The mirror image of the guard above.
+	 * The git exporter's four routes must be GONE, not merely disabled: the
+	 * same canonical JSON 404 any unknown `/api/*` path returns. The mirror
+	 * image of the guard above.
 	 */
 	const RETIRED_ROUTES = [
-		// BB1: bets dissolved into tasks — /api/bets route deleted.
+		// Bets dissolved into tasks — /api/bets route deleted.
 		"/api/bets",
 		// the architecture doc §8: the eight-route /api/tasks CRUD surface is
 		// deleted — task is an action now, not a route module.
 		"/api/tasks",
-		// document-module B20: /api/knowledge is deleted — document is an
-		// action now, `search_documents`/`open_document`/`edit_document` under
+		// /api/knowledge is deleted — document is an action now,
+		// `search_documents`/`open_document`/`edit_document` under
 		// `POST /api/actions/<name>`, not a route module with a GET base path.
 		"/api/knowledge",
 		// /api/sessions is deleted — session is an action now,

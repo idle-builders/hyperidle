@@ -16,7 +16,7 @@ import { vi } from "vitest";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
 
 const exec = promisify(execFile);
-const TEST_API_KEY = "test-key-AV1-fs";
+const TEST_API_KEY = "test-key-fs";
 
 function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
@@ -40,7 +40,7 @@ describe("filesystem path inspection and registration", () => {
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
-		const dir = join(tmpdir(), `av1-git-${Date.now()}`);
+		const dir = join(tmpdir(), `fs-git-${Date.now()}`);
 		await mkdir(dir, { recursive: true });
 		try {
 			await initGitRepo(dir, true);
@@ -71,8 +71,8 @@ describe("filesystem path inspection and registration", () => {
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
-		// @lore AV1: os.tmpdir() on macOS may be inside a git worktree (/var/folders/…)
-		// so `git rev-parse --is-inside-work-tree` returns true for tmpdir children.
+		// os.tmpdir() on macOS may be inside a git worktree (/var/folders/...) so
+		// `git rev-parse --is-inside-work-tree` returns true for tmpdir children.
 		// os.homedir() is confirmed outside any git repo on dev machines.
 		const dir = join(homedir(), `.hyperidle-test-nongit-${Date.now()}`);
 		await mkdir(dir, { recursive: true });
@@ -103,7 +103,7 @@ describe("filesystem path inspection and registration", () => {
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
-		const dir = join(tmpdir(), `av1-empty-git-${Date.now()}`);
+		const dir = join(tmpdir(), `fs-empty-git-${Date.now()}`);
 		await mkdir(dir, { recursive: true });
 		try {
 			await initGitRepo(dir, false); // no commits
@@ -129,10 +129,9 @@ describe("filesystem path inspection and registration", () => {
 		}
 	});
 
-	// @lore BC5 T11: `POST /api/teams` and `POST /api/filesystems` are deleted
-	// with the `teams`/`filesystems` route families — a folder is a user
-	// attribute now, given through `edit_user({ folders: { add } })` and read
-	// back through `open_user({ id }).folders`.
+	// There is no `POST /api/teams`/`POST /api/filesystems` route — a folder
+	// is a user attribute, given through `edit_user({ folders: { add } })`
+	// and read back through `open_user({ id }).folders`.
 	async function createHumanWithTeam(
 		app: { request: (path: string, init?: RequestInit) => Response | Promise<Response> },
 		name: string,
@@ -189,7 +188,7 @@ describe("filesystem path inspection and registration", () => {
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
-		const dir = join(tmpdir(), `av1-reg-git-${Date.now()}`);
+		const dir = join(tmpdir(), `fs-reg-git-${Date.now()}`);
 		await mkdir(dir, { recursive: true });
 		try {
 			await initGitRepo(dir, true);
@@ -217,7 +216,7 @@ describe("filesystem path inspection and registration", () => {
 	test("empty-branch git repo → registered as doc_set, never refused", async ({ app }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
-		const dir = join(tmpdir(), `av1-empty-reg-${Date.now()}`);
+		const dir = join(tmpdir(), `fs-empty-reg-${Date.now()}`);
 		await mkdir(dir, { recursive: true });
 		try {
 			await initGitRepo(dir, false); // no commits → no resolvable branch
@@ -246,7 +245,7 @@ describe("filesystem path inspection and registration", () => {
 	test("non-git folder → registered as doc_set with writeback:none", async ({ app }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
-		const dir = join(tmpdir(), `av1-doc-${Date.now()}`);
+		const dir = join(tmpdir(), `fs-doc-${Date.now()}`);
 		await mkdir(dir, { recursive: true });
 		try {
 			const id = await createHumanWithTeam(app, "Doc Human");

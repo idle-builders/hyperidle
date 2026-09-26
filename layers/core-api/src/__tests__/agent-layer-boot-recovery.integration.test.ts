@@ -1,5 +1,4 @@
 /**
- * AU9 Remediation-2 — new suite (architecture.md §Test-matrix additions).
  * Boots the real composition root (`bootAgentLayer`) over seeded durable state
  * and asserts each recoverable row is reconciled exactly once by the awaited
  * first sweep: pending intents, expired claims, running-request recovery,
@@ -42,9 +41,9 @@ const sessionProvisioner: NonNullable<RuntimePorts["sessionProvisioner"]> = {
 				sessionId,
 				agentId: params.agentId,
 				taskId: params.taskId,
-				sandboxPath: "/tmp/au9-boot-recovery",
+				sandboxPath: "/tmp/boot-recovery",
 				ingestion: { dispose: vi.fn() },
-				traceId: "trace-au9-boot-recovery",
+				traceId: "trace-boot-recovery",
 				requestContext: params.requestContext,
 			},
 		};
@@ -146,11 +145,9 @@ describe("agent-layer boot recovery", () => {
 			requestedBy: "boot-human",
 			idempotencyKey: "explicit-session-start:boot-pending-start",
 			status: "pending",
-			// AU21 §6 Decision B / Increment 3: `session_start`'s drain-time case
-			// is deleted — every real intent now carries a baked payload from
-			// emit time. Mirror that here so this fixture stays
-			// production-realistic (see `session-requests/src/service.ts`'s
-			// updated top-of-switch comment).
+			// `session_start` carries no drain-time case — every real intent now
+			// carries a baked payload from emit time. Mirror that here so this
+			// fixture stays production-realistic (see `session-requests/src/service.ts`).
 			bakedRequestJson: JSON.stringify({
 				defaultAgentId: "boot-agent",
 				sourceKind: "task",
@@ -185,7 +182,7 @@ describe("agent-layer boot recovery", () => {
 			requestedBy: "boot-human",
 			idempotencyKey: "explicit-session-start:boot-expired-start",
 			status: "claimed",
-			// AU21 §6 Decision B / Increment 3 — see the `boot-pending-intent` `@lore` above.
+			// See the `boot-pending-intent` note above.
 			bakedRequestJson: JSON.stringify({
 				defaultAgentId: "boot-agent",
 				sourceKind: "task",

@@ -1,9 +1,7 @@
 /**
- * AU9 Remediation-2 — Durable-rows checks (enumerated in architecture.md
- * "Durable-rows checks (enumerated)"). One insert-and-expect-rejection case per
- * enumerated check, plus one accept case per valid state, driven directly
- * against the real DB fixture — these are constraint tests, not custody-surface
- * helper tests, so there is no R2 banned-import concern here.
+ * Durable-rows checks (architecture.md's "Durable-rows checks (enumerated)").
+ * One insert-and-expect-rejection case per enumerated check, plus one accept
+ * case per valid state, driven directly against the real DB fixture.
  */
 
 import {
@@ -363,9 +361,8 @@ describe("agent_session_requests durable-rows checks", () => {
 		await expect(db.insert(agentSessionRequests).values(values)).rejects.toThrow();
 	});
 
-	// @lore AU21 Increment 14a: "cost_cap" removed from the closed set — the
-	// cap gate that produced it is HARD-DELETED, no replacement termination
-	// reason.
+	// "cost_cap" is not in the closed set — there is no cap gate that could
+	// produce it.
 	test("accepts every closed termination_reason value", async ({ db }) => {
 		const reasons = ["user_done", "user_crashed", "handoff", "shutdown"] as const;
 		for (const reason of reasons) {
