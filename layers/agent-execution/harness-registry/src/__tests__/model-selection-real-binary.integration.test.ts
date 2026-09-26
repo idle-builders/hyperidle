@@ -183,6 +183,7 @@ describe("[harness:claude] the model asked for is the model claude runs", () => 
 					sessionId: sessionId("model-sel-claude"),
 					sandboxPath,
 					assembledPrompt: PROMPT,
+					instruction: PROMPT,
 					// The shape a subscription-authenticated machine has: a chosen model,
 					// no gateway credential anywhere.
 					selectedModel: model,
@@ -231,6 +232,7 @@ describe("[harness:cursor-agent] the model asked for is the model cursor runs", 
 					sessionId: sessionId("model-sel-cursor"),
 					sandboxPath,
 					assembledPrompt: PROMPT,
+					instruction: PROMPT,
 					selectedModel: model,
 					mcpConnectionInfo: undefined,
 				});
@@ -335,6 +337,7 @@ describe("[harness:codex] the model asked for is the model codex runs", () => {
 				sessionId: sessionId("model-sel-codex"),
 				sandboxPath,
 				assembledPrompt: PROMPT,
+				instruction: PROMPT,
 				selectedModel: model as string,
 				mcpConnectionInfo: undefined,
 			});
@@ -382,6 +385,7 @@ describe("[harness:opencode] the model asked for is the model opencode runs", ()
 				sessionId: sessionId("model-sel-opencode"),
 				sandboxPath,
 				assembledPrompt: PROMPT,
+				instruction: PROMPT,
 				selectedModel: model,
 				mcpConnectionInfo: undefined,
 			});

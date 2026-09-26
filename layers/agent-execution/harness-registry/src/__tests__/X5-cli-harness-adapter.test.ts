@@ -724,17 +724,24 @@ describe("CliHarnessAdapter stopSession", () => {
 		vi.useRealTimers();
 	});
 
-	it("sends SIGTERM on stop", async () => {
+	it("sends SIGTERM to the whole process group on stop", async () => {
+		// @lore process-group kill: stopSession signals -pid (the process group),
+		// not the child's own pid, so a grandchild the CLI forked dies too. Kill is
+		// routed through an injected killFn — never a real kill(2) syscall on this
+		// fake child's fabricated pid — see the grandchild-kill test below for the
+		// real-process proof.
 		const spawnSpy = vi.fn();
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
+		const killFn = vi.fn();
 
-		const adapter = new CliHarnessAdapter(makeConfig({ args: [] }), { spawnFn: spawnSpy });
+		const adapter = new CliHarnessAdapter(makeConfig({ args: [] }), { spawnFn: spawnSpy, killFn });
 		const handle = await adapter.startSession(makeSessionConfig());
 
 		// Simulate process exiting after SIGTERM (within 5s)
 		const stopPromise = adapter.stopSession(handle);
-		expect(fakeChild.killSpy).toHaveBeenCalledWith("SIGTERM");
+		expect(killFn).toHaveBeenCalledWith(-12345, "SIGTERM");
+		expect(fakeChild.killSpy).not.toHaveBeenCalled();
 
 		// Simulate graceful exit
 		fakeChild.emitExit(0, null);
@@ -742,20 +749,21 @@ describe("CliHarnessAdapter stopSession", () => {
 		expect(result.outcome).toBe("completed");
 	});
 
-	it("sends SIGKILL after 5s timeout if process does not exit", async () => {
+	it("sends SIGKILL to the whole process group after 5s timeout if process does not exit", async () => {
 		const spawnSpy = vi.fn();
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
+		const killFn = vi.fn();
 
-		const adapter = new CliHarnessAdapter(makeConfig({ args: [] }), { spawnFn: spawnSpy });
+		const adapter = new CliHarnessAdapter(makeConfig({ args: [] }), { spawnFn: spawnSpy, killFn });
 		const handle = await adapter.startSession(makeSessionConfig());
 
 		const stopPromise = adapter.stopSession(handle);
-		expect(fakeChild.killSpy).toHaveBeenCalledWith("SIGTERM");
+		expect(killFn).toHaveBeenCalledWith(-12345, "SIGTERM");
 
 		// Advance timer past 5s without exit — should SIGKILL
 		await vi.advanceTimersByTimeAsync(5001);
-		expect(fakeChild.killSpy).toHaveBeenCalledWith("SIGKILL");
+		expect(killFn).toHaveBeenCalledWith(-12345, "SIGKILL");
 
 		// Now exit
 		fakeChild.emitExit(null, "SIGKILL");
@@ -768,7 +776,10 @@ describe("CliHarnessAdapter stopSession", () => {
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
 
-		const adapter = new CliHarnessAdapter(makeConfig({ args: [] }), { spawnFn: spawnSpy });
+		const adapter = new CliHarnessAdapter(makeConfig({ args: [] }), {
+			spawnFn: spawnSpy,
+			killFn: vi.fn(),
+		});
 		const handle = await adapter.startSession(makeSessionConfig());
 
 		const stopPromise = adapter.stopSession(handle);
@@ -782,7 +793,10 @@ describe("CliHarnessAdapter stopSession", () => {
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
 
-		const adapter = new CliHarnessAdapter(makeConfig({ args: [] }), { spawnFn: spawnSpy });
+		const adapter = new CliHarnessAdapter(makeConfig({ args: [] }), {
+			spawnFn: spawnSpy,
+			killFn: vi.fn(),
+		});
 		const handle = await adapter.startSession(makeSessionConfig());
 
 		const stopPromise = adapter.stopSession(handle);
@@ -796,7 +810,10 @@ describe("CliHarnessAdapter stopSession", () => {
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
 
-		const adapter = new CliHarnessAdapter(makeConfig({ args: [] }), { spawnFn: spawnSpy });
+		const adapter = new CliHarnessAdapter(makeConfig({ args: [] }), {
+			spawnFn: spawnSpy,
+			killFn: vi.fn(),
+		});
 		const handle = await adapter.startSession(makeSessionConfig());
 
 		const stopPromise = adapter.stopSession(handle);
@@ -810,7 +827,10 @@ describe("CliHarnessAdapter stopSession", () => {
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
 
-		const adapter = new CliHarnessAdapter(makeConfig({ args: [] }), { spawnFn: spawnSpy });
+		const adapter = new CliHarnessAdapter(makeConfig({ args: [] }), {
+			spawnFn: spawnSpy,
+			killFn: vi.fn(),
+		});
 		const handle = await adapter.startSession(makeSessionConfig());
 
 		const stopPromise = adapter.stopSession(handle);
@@ -820,6 +840,53 @@ describe("CliHarnessAdapter stopSession", () => {
 		expect(result).not.toHaveProperty("cost");
 		expect(result.tokenUsage.byTier).toEqual({});
 	});
+});
+
+// ── stopSession — real process-group kill (no mocks) ────────────────────────
+//
+// @lore process-group kill: proves the fix for the leak on 2026-09-26 — a real
+// cursor-agent, spawned by a test, outlived the test process because
+// child.kill(signal) only ever reached the one process we held a handle to.
+// This test never mocks spawnFn: it spawns a real node subprocess that forks
+// its own grandchild ('sleep'), then proves stopSession kills BOTH.
+
+describe("CliHarnessAdapter stopSession — real process-group kill", () => {
+	it("kills a grandchild process the harness child spawned", async () => {
+		const script =
+			"const {spawn}=require('child_process');" +
+			"const c=spawn('sleep',['30']);" +
+			'process.stdout.write(String(c.pid)+"\\n");';
+
+		// NO spawnFn injected — this drives the real node:child_process.spawn.
+		const adapter = new CliHarnessAdapter({
+			binary: process.execPath,
+			args: ["-e", script],
+			envMap: {},
+			eventFormat: "text",
+			envAllowlist: ["PATH"],
+		});
+
+		const handle = await adapter.startSession(makeSessionConfig({ sandboxPath: process.cwd() }));
+
+		let grandchildPid = -1;
+		for await (const event of adapter.streamEvents(handle)) {
+			if (event.type === "completion") {
+				grandchildPid = Number((event as { type: "completion"; text: string }).text.trim());
+				break;
+			}
+		}
+		expect(grandchildPid).toBeGreaterThan(0);
+		// The grandchild is alive before stop.
+		expect(() => process.kill(grandchildPid, 0)).not.toThrow();
+
+		await adapter.stopSession(handle);
+		// Give the OS a moment to deliver the signal to the whole group.
+		await new Promise((resolve) => setTimeout(resolve, 300));
+
+		// The grandchild died with its parent — this is what child.kill(signal)
+		// alone (no process group) could never prove.
+		expect(() => process.kill(grandchildPid, 0)).toThrow();
+	}, 15_000);
 });
 
 // ── getCapabilities ───────────────────────────────────────────────────────────

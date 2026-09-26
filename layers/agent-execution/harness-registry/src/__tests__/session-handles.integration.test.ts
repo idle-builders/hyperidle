@@ -198,6 +198,7 @@ describe("session handles — claude-code", () => {
 				sessionId: `sh-claude-p1-${Math.random().toString(36).slice(2, 8)}`,
 				sandboxPath: sandboxA,
 				assembledPrompt: PHASE1_PROMPT,
+				instruction: PHASE1_PROMPT,
 				modelTier: "workhorse",
 				tools: [],
 				selectedModel: HARNESS_TEST_MODELS.claude.model,
@@ -321,6 +322,7 @@ describe("session handles — codex", () => {
 				sessionId: `sh-codex-p1-${Math.random().toString(36).slice(2, 8)}`,
 				sandboxPath,
 				assembledPrompt: PHASE1_PROMPT,
+				instruction: PHASE1_PROMPT,
 				modelTier: "workhorse",
 				tools: [],
 				selectedModel: HARNESS_TEST_MODELS.codex.model,
@@ -433,6 +435,9 @@ describe("session handles — codex", () => {
 				assembledPrompt:
 					"Write the text 'phase1' to a new file called sandbox-phase1.txt. " +
 					"Reply with exactly: PHASE1_DONE",
+				instruction:
+					"Write the text 'phase1' to a new file called sandbox-phase1.txt. " +
+					"Reply with exactly: PHASE1_DONE",
 				modelTier: "workhorse",
 				tools: [],
 				selectedModel: HARNESS_TEST_MODELS.codex.model,
@@ -519,6 +524,7 @@ describe("session handles — cursor-agent", () => {
 				sessionId: `sh-cursor-p1-${Math.random().toString(36).slice(2, 8)}`,
 				sandboxPath: sandboxA,
 				assembledPrompt: PHASE1_PROMPT,
+				instruction: PHASE1_PROMPT,
 				modelTier: "workhorse",
 				tools: [],
 				selectedModel: HARNESS_TEST_MODELS["cursor-agent"].model,
@@ -620,6 +626,7 @@ describe("session handles — opencode", () => {
 				sessionId: `sh-oc-p1-${Math.random().toString(36).slice(2, 8)}`,
 				sandboxPath,
 				assembledPrompt: PHASE1_PROMPT,
+				instruction: PHASE1_PROMPT,
 				modelTier: "workhorse",
 				tools: [],
 				selectedModel: HARNESS_TEST_MODELS.opencode.model,

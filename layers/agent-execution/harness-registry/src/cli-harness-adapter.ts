@@ -202,6 +202,12 @@ interface CliAdapterDeps {
 	readonly spawnFn?: typeof spawn;
 	/** Return-enforcement registry. Injected so the adapter and boot share one instance. */
 	readonly enforcement?: EnforcementRegistry;
+	/**
+	 * Sends a signal to a pid (or, negated, a whole process group). Defaults to
+	 * node:process.kill. Injected in tests so a fake child's fabricated pid never
+	 * reaches a real kill(2) syscall.
+	 */
+	readonly killFn?: (pid: number, signal: NodeJS.Signals) => void;
 }
 
 /** Injected dependencies for checkAvailability (for testing). */
@@ -484,6 +490,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 	private readonly config: CliAdapterConfig;
 	private readonly spawnFn: typeof spawn;
 	private readonly enforcement: EnforcementRegistry;
+	private readonly killFn: (pid: number, signal: NodeJS.Signals) => void;
 	private readonly sessions = new Map<string, CliSession>();
 	/**
 	 * Persists harness-native session ids even after a session is removed
@@ -497,6 +504,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		this.spawnFn = deps?.spawnFn ?? spawn;
 		// Default: create an isolated registry. Production always injects the shared one.
 		this.enforcement = deps?.enforcement ?? createIsolatedEnforcementRegistry();
+		this.killFn = deps?.killFn ?? ((pid, signal) => process.kill(pid, signal));
 	}
 
 	/**
@@ -674,10 +682,15 @@ export class CliHarnessAdapter implements HarnessAdapter {
 
 		// Spawn the child process
 		// @lore X5 W1: args ARRAY form is the security boundary — no shell: true
+		// @lore process-group kill: detached: true makes this process the leader of
+		// its own new process group, so any grandchild it forks (without its own
+		// detached: true) inherits that same group. stopSession kills the whole
+		// group in one signal — see the @lore there for why that matters.
 		const child = this.spawnFn(this.config.binary, finalArgs, {
 			cwd: config.sandboxPath,
 			env: sandboxedEnv,
 			stdio: ["pipe", "pipe", "pipe"],
+			detached: true,
 		});
 
 		// @lore cli-adapter-stdin: Close stdin immediately after spawn.
@@ -980,6 +993,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 									cwd: session.sandboxPath,
 									env: session.spawnEnv,
 									stdio: ["pipe", "pipe", "pipe"],
+									detached: true,
 								});
 
 								// @lore cli-adapter-stdin: Close stdin on re-engage spawns too.
@@ -1041,6 +1055,36 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		})();
 	}
 
+	/**
+	 * Signals the whole process group a session's child is the leader of — not
+	 * just the child itself.
+	 *
+	 * @lore process-group kill: a real cursor-agent, started by a test that set
+	 * only `assembledPrompt` (not `instruction`), was left running after the test
+	 * process exited: it read the on-disk task record, found an open tree plus
+	 * its worktree path, and worked it unsupervised for ~45 minutes — commits,
+	 * decisions, claims — because `child.kill(signal)` only ever reached the one
+	 * process object we hold a handle to, never a grandchild it spawned or a
+	 * process that outlived its parent's own exit. Every startSession /
+	 * resumeSession / re-engage spawn above sets `detached: true`, making that
+	 * child the leader of its own new process group (pgid === its own pid);
+	 * `process.kill(-pid, signal)` then reaches every process in that group in
+	 * one syscall, dead process tree included. Falls back to signalling the
+	 * child directly when it has no pid (spawn failed before a pid was assigned).
+	 */
+	private killProcessGroup(child: ChildProcess, signal: NodeJS.Signals): void {
+		if (child.pid === undefined) {
+			child.kill(signal);
+			return;
+		}
+		try {
+			this.killFn(-child.pid, signal);
+		} catch {
+			// ESRCH — the group is already gone (process exited between our done-check
+			// and this call). Nothing left to signal.
+		}
+	}
+
 	async stopSession(handle: SessionHandle): Promise<SessionResult> {
 		const session = this.sessions.get(handle.sessionId);
 		if (!session) {
@@ -1057,7 +1101,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		}
 
 		// Send SIGTERM first (graceful shutdown)
-		session.child.kill("SIGTERM");
+		this.killProcessGroup(session.child, "SIGTERM");
 
 		// Escalate to SIGKILL after 5 seconds if process hasn't exited
 		// @lore X5 W1: SIGTERM -> 5s wait -> SIGKILL — graceful shutdown gives the process
@@ -1065,7 +1109,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		session.killTimer = setTimeout(() => {
 			const s = this.sessions.get(handle.sessionId);
 			if (s && !s.done) {
-				s.child.kill("SIGKILL");
+				this.killProcessGroup(s.child, "SIGKILL");
 			}
 		}, 5_000);
 
@@ -1244,6 +1288,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			cwd: sandboxPath,
 			env: sandboxedEnv,
 			stdio: ["pipe", "pipe", "pipe"],
+			detached: true,
 		});
 		child.stdin?.end();
 
