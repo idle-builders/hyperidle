@@ -1,7 +1,7 @@
 /**
  * Connections, behind `open_user`/`edit_user`.
  *
- * @lore BC5 T11: the `/api/connections` route family (`createConnectionRoutes`,
+ * There is no `/api/connections` route family (`createConnectionRoutes`,
  * its `/:id/validate` SSRF re-check) is DELETED — connections are a user
  * attribute now, read through `open_user({}).connections` and written
  * through `edit_user({ connections: { add | remove } })`. Every failure
@@ -21,11 +21,11 @@ import { type HyperIdleDb, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
-const TEST_API_KEY = "test-key-an1-connections";
-const CREDENTIAL_KEY = "test-credential-encryption-key-an1";
+const TEST_API_KEY = "test-key-connections";
+const CREDENTIAL_KEY = "test-credential-encryption-key";
 
-const USER_A_ID = "u-an1-user-a";
-const USER_B_ID = "u-an1-user-b";
+const USER_A_ID = "u-conn-user-a";
+const USER_B_ID = "u-conn-user-b";
 
 function authHeadersA(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
@@ -252,7 +252,7 @@ describe("connections behind open_user/edit_user", () => {
 			const { envelope } = await addConnection(app, authHeadersA(), USER_A_ID, {
 				service: "GitHub",
 				authSource: "token",
-				token: "gh-test-ac3-001",
+				token: "gh-test-conn-001",
 			});
 			// Architecture §Phase-0 decision 2: health on create = needs-attention
 			const [connection] = envelope.data?.connections?.connections ?? [];
@@ -263,7 +263,7 @@ describe("connections behind open_user/edit_user", () => {
 	describe("pasted secret stored encrypted, NEVER in any response", () => {
 		test("add response body does not contain the raw token", async ({ app, db }) => {
 			await seedUserA(db);
-			const SECRET_TOKEN = "super-secret-sk-stripe-ac4-001";
+			const SECRET_TOKEN = "super-secret-sk-stripe-conn-001";
 			const res = await app.request("/api/actions/edit_user", {
 				method: "POST",
 				headers: authHeadersA(),
@@ -278,7 +278,7 @@ describe("connections behind open_user/edit_user", () => {
 
 		test("open_user response does not contain any raw token value", async ({ app, db }) => {
 			await seedUserA(db);
-			const SECRET_TOKEN = "super-secret-sk-stripe-ac4-002";
+			const SECRET_TOKEN = "super-secret-sk-stripe-conn-002";
 			await addConnection(app, authHeadersA(), USER_A_ID, {
 				service: "Stripe",
 				authSource: "token",
@@ -325,7 +325,7 @@ describe("connections behind open_user/edit_user", () => {
 		});
 	});
 
-	// @lore BC5 T11: `connections` on `UserView` is self-only (`isSelf` in
+	// `connections` on `UserView` is self-only (`isSelf` in
 	// `buildUserView`) — a caller never reaches another user's connections
 	// field at all, and `removeConnection`'s own DB read is scoped to the
 	// caller's own id. Isolation is a structural property of the door now,

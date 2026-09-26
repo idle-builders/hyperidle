@@ -1,26 +1,20 @@
 /**
  * Service-integration tests for the assistant-turn trigger.
  *
- * AU27 Increment 6 rewrite: the old Term 1 premise ("without assistantTurnDeps,
- * no reply") named a mechanism (`assistantTurnDeps`, the `dispatch` package's
- * bespoke execution entry) that this WP deletes entirely — the assistant now
- * flows through the SAME `agent_work_intents` → durable-poller path as every
- * other kind (Increment 6, Decision 4). The load-bearing property the gate
- * actually needs is: **posting a message is what records the trigger** — an
- * `agent_work_intents` row of kind `assistant_turn` — and this fixture's bare
- * `app` (no `startRuntime` poller wired, see `test-fixtures.ts`) never drains
- * it, so no reply appears. Absence of a reply alone proved nothing before
- * (nothing drains ANY intent in this fixture); the row's presence is what
- * proves the trigger actually fired.
+ * The assistant flows through the SAME `agent_work_intents` -> durable-poller
+ * path as every other kind. The load-bearing property the gate needs is:
+ * **posting a message is what records the trigger** — an `agent_work_intents`
+ * row of kind `assistant_turn` — and this fixture's bare `app` (no
+ * `startRuntime` poller wired, see `test-fixtures.ts`) never drains it, so no
+ * reply appears. Absence of a reply alone proves nothing (nothing drains ANY
+ * intent in this fixture); the row's presence is what proves the trigger
+ * actually fired.
  *
- * ── What moved out of this file in AR4 ────────────────────────────────────────
- * Term 2a (cassette-miss → provider_error notice): depended on a llm-client mock
- *   to control callLlm behavior. The error→notice mapping is already covered by
- *   AH3 AC2 via persistTurnFailure (no harness needed). Demoted.
- * Term 2b (empty-content → S1 false): mock-scripted degenerate output.
- *   Moved to assistant-lane-gate-verdict.test.ts unit.
- * Sanity (normal run → S1 true): covered by the real-harness lane
- * (AU9-assistant-handoff-realbinary.integration.test.ts).
+ * Two cases live elsewhere: the cassette-miss -> provider_error notice
+ * mapping is covered by `persistTurnFailure` (no harness needed); the
+ * empty-content -> verdict-false case is in
+ * `assistant-lane-gate-verdict.test.ts` (unit, mock-scripted degenerate
+ * output). A real-harness lane covers the normal-run sanity case end to end.
  *
  * No mocks, no harness doubles in this file.
  * Guard: this file is NOT in EXPLICIT_HARNESS_INTEGRATION (service-integration only).
@@ -87,7 +81,7 @@ async function seedFounderAndThread(
 		status: "active",
 		createdAt: new Date().toISOString(),
 	});
-	// AU26 G1: the run config lives in `agent_run_config` now.
+	// The run config lives in `agent_run_config`.
 	await db.insert(agentRunConfig).values({
 		agentUserId: assistantId,
 		harnessType: "opencode",
@@ -140,7 +134,7 @@ async function seedFounderAndThread(
 // Tests
 // ---------------------------------------------------------------------------
 
-const GATE_API_KEY = "ah6-gate-test-key";
+const GATE_API_KEY = "gate-test-key";
 
 describe("the assistant-turn trigger (service-integration)", () => {
 	beforeEach(() => {
@@ -196,7 +190,7 @@ describe("the assistant-turn trigger (service-integration)", () => {
 		const body = (await res.json()) as { ok: boolean };
 		expect(body.ok).toBe(true);
 
-		// AU27 Increment 6: the load-bearing property is the
+		// The load-bearing property is the
 		// recorded intent, not a reply (this fixture never drains it —
 		// `test-fixtures.ts` builds `app` with no `startRuntime` poller
 		// wired). The intent kind is `thread_turn` now (the wake rule,
@@ -254,7 +248,7 @@ describe("the assistant-turn trigger (service-integration)", () => {
 		// override header (`CORE_API_ACTOR_OVERRIDE_HEADER`) — the SAME
 		// mechanism `reply`'s `insertMessage` call uses internally
 		// (`seamPortForActor(ctx.agentId)`). `X-Identity` does not control
-		// senderId at all (AF11-IDOR) — only this header, consulted after
+		// senderId at all — only this header, consulted after
 		// X-API-Key auth already succeeded, can attribute a write to a
 		// non-human actor. The door is `POST /api/actions/send_message`.
 		const res = await app.request("/api/actions/send_message", {

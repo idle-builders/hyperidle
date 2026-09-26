@@ -1,31 +1,17 @@
 /**
- * Formation seam: the assistant's identity is decided from editable
- * state at turn time, NOT a hardcoded constant.
+ * Formation seam: the assistant's identity is decided from editable state at
+ * turn time, NOT a hardcoded constant. The persona lives in an `agent_file`
+ * document bound to the agent (core-owned state) and rides the bake, exactly
+ * like the context bundle beside it — the provisioner consumes a baked
+ * bundle and reads zero core-api state.
  *
- * @lore AU26 G1 (architecture §D-L) x AU27 x BA9f: the observable has moved
- * twice, because the persona has. AU27 proved it at the bake boundary (a
- * `users` column core baked at emit); AU26 moved it to `agent_run_config`,
- * which orchestration owns, so it was read live at drain instead. BA9f made it
- * an `agent_file` document bound to the agent — which is what an
- * agent file has always meant — so it is core-owned state again and rides the
- * bake, exactly like the context bundle beside it (AU21 §H3: the provisioner
- * consumes a baked bundle and reads zero core-api state).
- *
- * What the test proves has NOT moved: changing the identity changes what
- * the assistant's next turn runs with. It still drives the same flow (send a
- * message through `send_message` -> a `thread_turn` intent is emitted for the
- * woken agent; edit the identity; send again) and reads the persona back off
- * the bake the drain will actually use. It also pins that the run config no
- * longer carries a persona: one home for the identity, not two.
- *
- * @lore this file drove the deleted `POST /api/threads/:id/messages` route and
- * the `assistant_turn` intent kind keyed by bare `messageId`. The thread
- * module (architecture.md §3.10/§7) replaced both: the door is
- * `POST /api/actions/send_message`, the intent kind is `thread_turn`, and its
- * `sourceId` is `${messageId}:${agentId}` because one message can wake more
- * than one agent. The target agent is no longer derived from an
- * `ast-<userId>` convention — it comes out of `agentsToWake` (the two-member
- * thread here has exactly one other member, so it wakes with no @mention).
+ * Changing the identity changes what the assistant's next turn runs with:
+ * send a message through `send_message` -> a `thread_turn` intent is emitted
+ * for the woken agent (via `agentsToWake` — the two-member thread here has
+ * exactly one other member, so it wakes with no @mention); edit the
+ * identity; send again; the persona read back off the bake reflects the
+ * edit. The run config never carries a persona: one home for the identity,
+ * not two.
  */
 
 import { agentRunConfig, agentWorkIntents, type HyperIdleDb, threads, users } from "@hyperidle/db";
@@ -35,28 +21,23 @@ import { and, eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { beforeEach, describe, expect, vi } from "vitest";
 import { makeAgentIdentityTestPort } from "../__testing__/document-read-test-ports.js";
-/**
- * @lore AU31 §3.2/§5: the `coreApiSeamRegistration` auto-fixture used to
- * register this test's `app` on the `CoreApiPort` ambient global — deleted
- * (no ambient global left to register). This file never calls a tool
- * dispatch or the `CoreApiPort` seam directly (it drives real HTTP routes
- * only), so nothing here needs a seam transport at all.
- */
+// This file drives real HTTP routes only, never a tool dispatch or the
+// `CoreApiPort` seam directly, so nothing here needs a seam transport.
 import { test } from "../__testing__/test-fixtures.js";
 
 const agentIdentity = makeAgentIdentityTestPort();
 
-const FOUNDER_ID = "founder-ar4b-formation";
+const FOUNDER_ID = "founder-formation";
 const ASSISTANT_ID = `ast-${FOUNDER_ID}`;
-const THREAD_ID = "thread-ar4b-formation";
-const GATE_API_KEY = "ar4b-formation-key";
-const ALPHA_PERSONA = "AR4b-test-persona-alpha — you are the Alpha test assistant.";
+const THREAD_ID = "thread-formation";
+const GATE_API_KEY = "formation-key";
+const ALPHA_PERSONA = "test-persona-alpha — you are the Alpha test assistant.";
 
 async function seedFixtures(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(users).values({
 		id: FOUNDER_ID,
-		name: "AR4b Formation Founder",
+		name: "Formation Founder",
 		role: "founder",
 		status: "active",
 		kind: "human",
@@ -116,7 +97,7 @@ async function postAndResolveTurnPersona(
 		},
 		body: JSON.stringify({
 			threadId: THREAD_ID,
-			text: `AR4b formation seam test (${clientKey})`,
+			text: `formation seam test (${clientKey})`,
 			clientKey,
 		}),
 	});
@@ -157,14 +138,14 @@ describe("formation seam — editing the assistant's identity document changes i
 	test("the seeded identity drives the turn when nothing has been edited", async ({ db, app }) => {
 		await seedFixtures(db);
 
-		const persona = await postAndResolveTurnPersona(app, db, "msg-ar4b-default");
+		const persona = await postAndResolveTurnPersona(app, db, "msg-formation-default");
 		expect(persona).toBe("Original row persona — the app default.");
 	});
 
 	test("editing the identity document in Knowledge drives the NEXT turn", async ({ db, app }) => {
 		await seedFixtures(db);
 
-		const before = await postAndResolveTurnPersona(app, db, "msg-ar4b-before-patch");
+		const before = await postAndResolveTurnPersona(app, db, "msg-formation-before-patch");
 		expect(before).toBe("Original row persona — the app default.");
 
 		// The one document edit door — the same one every other document is
@@ -183,7 +164,7 @@ describe("formation seam — editing the assistant's identity document changes i
 		});
 		expect(patchRes.status).toBe(200);
 
-		const after = await postAndResolveTurnPersona(app, db, "msg-ar4b-after-patch");
+		const after = await postAndResolveTurnPersona(app, db, "msg-formation-after-patch");
 		expect(after).toBe(ALPHA_PERSONA);
 
 		// Changing the formation response changes the assistant's form.
