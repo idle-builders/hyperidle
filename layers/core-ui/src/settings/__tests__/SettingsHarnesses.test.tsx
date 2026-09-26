@@ -1,17 +1,13 @@
 /**
- * AM4 — SettingsHarnesses component tests (Task 9, AC1/AC4)
+ * SettingsHarnesses component tests.
  *
- * AC1: Renders each in-scope backend with name, status, version, auth
- * AC4: Only in-scope backend kinds surface (codex, claude-code, opencode, cursor-agent;
- *      cursor-agent present as unavailable/no-toggle)
- *      UI renders exactly what the descriptor list contains — no out-of-scope families fabricated
- *
- * Additional:
- *  - Loading state: SkeletonList shown while fetching
- *  - Error state: ErrorState shown on fetch failure
- *  - Empty state: EmptyState shown when no descriptors returned
- *  - Re-detect button fires edit_user({ id, redetectHarnesses: true })
- *  - Disabled row: discovery.disabled=true renders "Disabled — …" status
+ * Covers: renders each in-scope backend with name, status, version, auth;
+ * only in-scope backend kinds surface (codex, claude-code, opencode,
+ * cursor-agent; cursor-agent present as unavailable/no-toggle) — UI renders
+ * exactly what the descriptor list contains, no out-of-scope families
+ * fabricated; loading/error/empty states; re-detect button fires
+ * edit_user({ id, redetectHarnesses: true }); a disabled row renders
+ * "Disabled — …" status.
  *
  * @lore BC5 T10: the door swap — `open_user({}).runsOn` replaces `GET
  * /api/harnesses`; `edit_user({ id: me, redetectHarnesses: true })` replaces
@@ -145,7 +141,7 @@ afterEach(() => {
 	vi.restoreAllMocks();
 });
 
-// ── AC1: Detection/status ─────────────────────────────────────────────────────
+// ── Detection/status ──────────────────────────────────────────────────────────
 
 describe("SettingsHarnesses renders in-scope backends with status/version/auth", () => {
 	it("renders each backend name from the descriptor list", async () => {
@@ -170,9 +166,9 @@ describe("SettingsHarnesses renders in-scope backends with status/version/auth",
 	});
 });
 
-// ── AC4: Scope — only in-scope kinds surface ─────────────────────────────────
+// ── Scope — only in-scope kinds surface ──────────────────────────────────────
 
-describe("SettingsHarnesses respects AM2 scope", () => {
+describe("SettingsHarnesses respects scope", () => {
 	it("renders exactly the descriptor-provided names (no out-of-scope kind fabricated)", async () => {
 		mockCall();
 		render(<SettingsHarnesses />);

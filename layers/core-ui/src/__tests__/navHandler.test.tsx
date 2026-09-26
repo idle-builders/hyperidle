@@ -58,7 +58,7 @@ describe("navHandler — OpenTarget → navigate", () => {
 		expect(navigate).not.toHaveBeenCalled();
 	});
 
-	it("session route (no destination yet — AM3) does NOT navigate to a fabricated path", () => {
+	it("session route (no destination yet) does NOT navigate to a fabricated path", () => {
 		const navigate = vi.fn();
 		createOpenHandler(navigate)({ route: "session", sessionId: "s-1" });
 		// AM3 owns the destination; AM1 must not invent one.

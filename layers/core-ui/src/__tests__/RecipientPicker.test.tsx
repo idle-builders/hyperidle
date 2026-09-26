@@ -101,7 +101,7 @@ function renderPicker(
 	);
 }
 
-describe("RecipientPicker (Q1 §4.4)", () => {
+describe("RecipientPicker", () => {
 	afterEach(() => {
 		vi.restoreAllMocks();
 	});

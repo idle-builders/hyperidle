@@ -67,7 +67,10 @@ describe("ScopeChangeDialog — Private disabled for a parentless document", () 
 
 		await user.click(screen.getByTestId("scope-pill-change-private"));
 
-		expect(screen.getByTestId("scope-pill-change-shared")).toHaveAttribute("data-active", "true");
-		expect(screen.getByTestId("scope-pill-change-private")).toHaveAttribute("data-active", "false");
+		expect(screen.getByTestId("scope-pill-change-shared")).toHaveAttribute("aria-checked", "true");
+		expect(screen.getByTestId("scope-pill-change-private")).toHaveAttribute(
+			"aria-checked",
+			"false",
+		);
 	});
 });

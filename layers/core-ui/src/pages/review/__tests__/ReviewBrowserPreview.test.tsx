@@ -22,7 +22,7 @@ function renderCanvas(a: ReviewArtifact = artifact) {
 }
 
 describe("ReviewBrowserPreview canvas", () => {
-	it("renders the artifact title (L1)", () => {
+	it("renders the artifact title", () => {
 		renderCanvas();
 
 		expect(screen.getByText(artifact.title)).toBeInTheDocument();

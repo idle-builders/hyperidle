@@ -105,7 +105,7 @@ describe("PartList — inline embeds", () => {
 		expect(screen.getByText("auth/passkey.ts")).toBeDefined();
 	});
 
-	it("renders a session reference as a Fold, NOT a ReferenceChip (AC4)", () => {
+	it("renders a session reference as a Fold, NOT a ReferenceChip", () => {
 		render(
 			<PartList
 				parts={[prose({ id: "m1", author: ATLAS, text: "done", embeds: [sessionEmbed] })]}
@@ -169,7 +169,7 @@ describe("PartList — message-type Parts", () => {
 		expect(screen.getByText("auth/passkey.ts")).toBeDefined();
 	});
 
-	it("questionnaire Part: question + neutral option buttons (no biased/recommended tag — W2)", () => {
+	it("questionnaire Part: question + neutral option buttons, no biased/recommended tag", () => {
 		render(<PartList parts={[questionnairePart]} onOpen={vi.fn()} />);
 		expect(screen.getByText("Which DB?")).toBeDefined();
 		expect(screen.getByText("Postgres")).toBeDefined();

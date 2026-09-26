@@ -117,7 +117,7 @@ describe("Error state", () => {
 		expect(screen.queryByTestId("team-row")).not.toBeInTheDocument();
 	});
 
-	it("renders a retry affordance in the error state (AC4 §3 spec)", () => {
+	it("renders a retry affordance in the error state", () => {
 		// Spec §3: error state must offer retry → refetch. Verifies the button exists
 		// so users can recover without a full page reload.
 		mockUseTeams.mockReturnValue({
@@ -131,7 +131,7 @@ describe("Error state", () => {
 		expect(screen.getByRole("button", { name: /^retry$/i })).toBeInTheDocument();
 	});
 
-	it("clicking retry triggers refetch (AC4 §3 spec)", async () => {
+	it("clicking retry triggers refetch", async () => {
 		const user = userEvent.setup();
 		mockUseTeams.mockReturnValue({
 			data: null,

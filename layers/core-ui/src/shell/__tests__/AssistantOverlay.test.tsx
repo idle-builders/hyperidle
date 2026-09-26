@@ -162,6 +162,17 @@ describe("AssistantOverlay message thread rendering", () => {
 		renderOverlay(true);
 		expect(screen.getByTestId("thread-shell")).toBeInTheDocument();
 	});
+
+	it("shows the assistant agent's own identity in the thread", () => {
+		mockReadyOverlay();
+		const { container } = renderOverlay(true);
+		// The identity renders as an avatar with a title attribute — the visible
+		// text content is abbreviated to initials, so query by title instead.
+		const agentEl =
+			container.querySelector("[title='Assistant']") ??
+			container.querySelector("[aria-label*='Assistant' i]");
+		expect(agentEl).not.toBeNull();
+	});
 });
 
 describe("AssistantOverlay context chips", () => {

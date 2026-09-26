@@ -330,7 +330,7 @@ describe("DocumentDetail — Move", () => {
 });
 
 describe("DocumentDetail — a pure-invariant refusal greys the control", () => {
-	it("greys Move for a slotted document, with I10's own message, but not for an ordinary one", async () => {
+	it("greys Move for a slotted document, with its own message, but not for an ordinary one", async () => {
 		const slotted = makeDocumentRow({ id: "doc-1", title: "House rule", slot: "rule" });
 		callMock.mockImplementation(
 			makeCallRouter({

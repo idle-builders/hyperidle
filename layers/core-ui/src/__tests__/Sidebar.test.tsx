@@ -191,7 +191,7 @@ describe("Sidebar — AC-4: Work section team list", () => {
 		expect(screen.queryByText("Alpha Team")).not.toBeInTheDocument();
 	});
 
-	it("single team suppresses the list without showing the empty state (AD3 AC-1)", () => {
+	it("single team suppresses the list without showing the empty state", () => {
 		// A suppressed list is not an empty one: with exactly one team the Work
 		// view short-circuits to that team's page, so the sidebar shows neither
 		// the list nor "No teams yet".
@@ -377,10 +377,10 @@ describe("Sidebar — accessibility: aria-current on active nav items", () => {
 });
 
 // ---------------------------------------------------------------------------
-// W2 — Knowledge fast-nav: documentItems render + swap + click (AD9 §1 item 4)
+// Knowledge fast-nav: documentItems render + swap + click
 // ---------------------------------------------------------------------------
 
-describe("Sidebar — Knowledge fast-nav (AD9 §1 item 4)", () => {
+describe("Sidebar — Knowledge fast-nav", () => {
 	const documentItems = [
 		{ id: "ki-1", title: "Engineering handbook" },
 		{ id: "ki-2", title: "Onboarding guide" },

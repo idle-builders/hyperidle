@@ -9,7 +9,7 @@
  */
 
 import type { AgentSessionStateSnapshot, Message, Thread } from "@hyperidle/domain-model";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { computeSenderGrouping, ThreadShell } from "../ds";
 
@@ -209,7 +209,7 @@ describe("ThreadShell (approved.md §2.6 + §4 states)", () => {
 	// to scroll to. The previous J3 fallback test inverts: assert the link
 	// is NEVER rendered, even when the most recent message is an unresolved
 	// review.
-	it("L11: 'Unresolved review' link is NOT rendered (card replaces sticky bar)", () => {
+	it("'Unresolved review' link is NOT rendered — the card replaces the sticky bar", () => {
 		render(
 			<ThreadShell
 				thread={baseThread}
@@ -353,7 +353,7 @@ function review(id: string, createdAt: string, resolvedAt: string | null = null)
 	};
 }
 
-describe("ThreadShell promotion (L11 — approved.md §3, plan §5.5)", () => {
+describe("ThreadShell promotion", () => {
 	it("mounts at most ONE RichMessageCard for a thread with two unresolved reviews", () => {
 		render(
 			<ThreadShell
@@ -382,10 +382,10 @@ describe("ThreadShell promotion (L11 — approved.md §3, plan §5.5)", () => {
 			/>,
 		);
 		const card = screen.getByTestId("rich-message-card");
-		expect(card.getAttribute("data-message-id")).toBe("r-old");
+		expect(within(card).getByText("Review r-old")).toBeInTheDocument();
 	});
 
-	it("non-promoted unresolved reviews render as a CommentRow with data-variant='rich-review'", () => {
+	it("non-promoted unresolved reviews render as a CommentRow, not a second RichMessageCard", () => {
 		render(
 			<ThreadShell
 				thread={baseThread}
@@ -397,13 +397,11 @@ describe("ThreadShell promotion (L11 — approved.md §3, plan §5.5)", () => {
 				onAppendMessage={vi.fn()}
 			/>,
 		);
-		const richRows = screen
-			.queryAllByTestId("comment-row")
-			.filter((el) => el.getAttribute("data-variant") === "rich-review");
-		expect(richRows.length).toBe(1);
+		const newRow = screen.getByText("Review r-new").closest("[data-testid='comment-row']");
+		expect(newRow).not.toBeNull();
 	});
 
-	it("does NOT mount the legacy thread-head section after L11 (plan §6.3 — file deleted)", () => {
+	it("does NOT mount the legacy thread-head section — that file is deleted", () => {
 		render(
 			<ThreadShell
 				thread={baseThread}

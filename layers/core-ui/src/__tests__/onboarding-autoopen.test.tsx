@@ -149,7 +149,7 @@ describe("AppShell ?onboarding=true auto-open", () => {
 	});
 
 	// Negative: ?settings=open still works (existing behavior unaffected)
-	it("?settings=open still triggers the settings overlay (not broken by AE2 changes)", async () => {
+	it("?settings=open still triggers the settings overlay", async () => {
 		// AD9: /work (was /work/portfolio)
 		renderShell("/work?settings=open");
 

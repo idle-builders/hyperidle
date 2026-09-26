@@ -1,13 +1,11 @@
 /**
- * AN1 — SettingsConnections component tests.
+ * SettingsConnections component tests.
  *
- * AC coverage:
- *   AC1: renders inherited group + held groups (token/mcp) from props
- *   AC3: shows a 'needs-attention' health chip for unhealthy connections
- *   AC4: no trust-tier badge rendered; no raw secret value in DOM
- *   Design: inherited group appears first
- *   Design: removable held rows show overflow menu; inherited rows do not
- *   Story: SettingsConnections.stories.tsx Populated story exists and renders
+ * Covers: renders inherited group + held groups (token/mcp) from props;
+ * shows a 'needs-attention' health chip for unhealthy connections; no
+ * trust-tier badge rendered; no raw secret value in DOM; inherited group
+ * appears first; removable held rows show overflow menu, inherited rows
+ * do not.
  *
  * @lore `open_user({}).connections` is the door (architecture.md §8). Both
  * groups — held and inherited — are `ConnectionView` rows
@@ -95,8 +93,7 @@ describe("SettingsConnections component", () => {
 		vi.clearAllMocks();
 	});
 
-	// AC1: renders inherited group
-	describe("inherited group renders (AC1)", () => {
+	describe("inherited group renders", () => {
 		it("shows the inherited group heading", async () => {
 			render(<SettingsConnections />);
 			const heading = await screen.findByText(/inherited from your environment/i);
@@ -117,8 +114,7 @@ describe("SettingsConnections component", () => {
 		});
 	});
 
-	// AC1: renders held token group
-	describe("token group renders (AC1)", () => {
+	describe("token group renders", () => {
 		it("shows the token group heading", async () => {
 			render(<SettingsConnections />);
 			const heading = await screen.findByText(/connected with a token/i);
@@ -139,8 +135,7 @@ describe("SettingsConnections component", () => {
 		});
 	});
 
-	// AC1: renders held mcp group
-	describe("mcp group renders (AC1)", () => {
+	describe("mcp group renders", () => {
 		it("shows the mcp group heading", async () => {
 			render(<SettingsConnections />);
 			const heading = await screen.findByText(/connected via an mcp server/i);
@@ -154,7 +149,6 @@ describe("SettingsConnections component", () => {
 		});
 	});
 
-	// AC3: needs-attention health chip
 	describe("Needs-attention health chip shown", () => {
 		it("shows 'Needs attention' chip for SendGrid connection", async () => {
 			render(<SettingsConnections />);
@@ -163,7 +157,6 @@ describe("SettingsConnections component", () => {
 		});
 	});
 
-	// AC4: no trust tier, no secret in DOM
 	describe("No trust-tier badge, no secret value in DOM", () => {
 		it("does not render any trust tier text", async () => {
 			render(<SettingsConnections />);

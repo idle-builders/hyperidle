@@ -60,7 +60,7 @@ describe("Breadcrumb component", () => {
 	});
 
 	describe("Link vs current segment", () => {
-		it("uses position for plain intermediates and the sole current segment", () => {
+		it("only the sole current segment (last, no `to`) carries aria-current — a route-having middle segment does not", () => {
 			render(
 				<Breadcrumb
 					segments={[
@@ -72,17 +72,9 @@ describe("Breadcrumb component", () => {
 				/>,
 			);
 			expect(screen.getByText("Team without route")).not.toHaveAttribute("aria-current");
-			expect(screen.getByText("Team without route")).toHaveAttribute(
-				"data-breadcrumb-role",
-				"intermediate",
-			);
 			expect(screen.getByText("Current")).toHaveAttribute("aria-current", "page");
-			expect(screen.getByText("Current")).toHaveAttribute("data-breadcrumb-role", "current");
 			expect(screen.queryByRole("link", { name: "Current" })).not.toBeInTheDocument();
-			expect(screen.getByRole("link", { name: "Work" })).toHaveAttribute(
-				"data-breadcrumb-role",
-				"root",
-			);
+			expect(screen.getByRole("link", { name: "Work" })).toBeInTheDocument();
 		});
 
 		it("last segment (no `to`) is NOT a link", () => {

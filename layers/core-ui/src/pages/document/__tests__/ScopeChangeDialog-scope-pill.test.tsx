@@ -75,7 +75,7 @@ describe("ScopeChangeDialog — scope-pill-change picker", () => {
 	it("marks the current scope pill active via data-active", () => {
 		// currentScopeKind "factory" resolves to the "Shared" option.
 		render(<ScopeChangeDialog {...BASE_PROPS} />);
-		expect(screen.getByTestId("scope-pill-change-shared")).toHaveAttribute("data-active", "true");
+		expect(screen.getByTestId("scope-pill-change-shared")).toHaveAttribute("aria-checked", "true");
 	});
 
 	it("disables the Team pill when the user has no teamId", () => {
@@ -91,6 +91,6 @@ describe("ScopeChangeDialog — scope-pill-change picker", () => {
 
 	it("marks the Team pill active when currentScopeKind is team", () => {
 		render(<ScopeChangeDialog {...BASE_PROPS} currentScopeKind="team" />);
-		expect(screen.getByTestId("scope-pill-change-team")).toHaveAttribute("data-active", "true");
+		expect(screen.getByTestId("scope-pill-change-team")).toHaveAttribute("aria-checked", "true");
 	});
 });

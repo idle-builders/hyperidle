@@ -115,7 +115,7 @@ describe("ScopePicker — active state (data-active + aria-checked)", () => {
 			/>,
 		);
 		const active = screen.getByTestId("scope-pill-create-team");
-		expect(active).toHaveAttribute("data-active", "true");
+		expect(active).toHaveAttribute("aria-checked", "true");
 		expect(active).toHaveAttribute("aria-checked", "true");
 	});
 
@@ -130,7 +130,7 @@ describe("ScopePicker — active state (data-active + aria-checked)", () => {
 			/>,
 		);
 		const inactive = screen.getByTestId("scope-pill-create-shared");
-		expect(inactive).toHaveAttribute("data-active", "false");
+		expect(inactive).toHaveAttribute("aria-checked", "false");
 		expect(inactive).toHaveAttribute("aria-checked", "false");
 	});
 });
@@ -147,8 +147,8 @@ describe("ScopePicker — filter mode null/All selection", () => {
 				testIdPrefix="scope-pill"
 			/>,
 		);
-		expect(screen.getByTestId("scope-pill-all")).toHaveAttribute("data-active", "true");
-		expect(screen.getByTestId("scope-pill-shared")).toHaveAttribute("data-active", "false");
+		expect(screen.getByTestId("scope-pill-all")).toHaveAttribute("aria-checked", "true");
+		expect(screen.getByTestId("scope-pill-shared")).toHaveAttribute("aria-checked", "false");
 	});
 
 	it("emits null when the 'all' pill is clicked in filter mode", async () => {

@@ -89,7 +89,7 @@ afterEach(() => {
 
 describe("useAgentRunState", () => {
 	// @lore BB1: betId removed from activeSession — tasks link via /work/task/:taskId
-	it("resolves the active run, its task title, and the success rate (BB1: no betId)", async () => {
+	it("resolves the active run, its task title, and the success rate", async () => {
 		stubFetch(
 			[
 				row({
@@ -138,7 +138,7 @@ describe("useAgentRunState", () => {
 		expect(sessionCalls).toHaveLength(1);
 	});
 
-	it("fetches task titles in ONE batched request, not one per task (W4)", async () => {
+	it("fetches task titles in ONE batched request, not one per task", async () => {
 		const runs = Array.from({ length: 8 }, (_, i) =>
 			row({ id: `r${i}`, agentId: "a1", taskId: `t${i}` }),
 		);

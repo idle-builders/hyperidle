@@ -151,7 +151,7 @@ describe("WorkTeam", () => {
 	// In jsdom + MemoryRouter, <a href> clicks don't trigger SPA navigation; the correct
 	// assertion is that the row has the right href attribute.
 	// @lore BB1: bet rows now link to /work/task/:id (root tasks replace bets)
-	it("7. task row has href to /work/task/:id (BB1: was /work/bet/:id)", () => {
+	it("7. task row has href to /work/task/:id (root tasks replace bets; was /work/bet/:id)", () => {
 		renderPage("p1", MOCK_PRODUCT_DETAIL);
 
 		// The task title is inside the anchor row; find the closest <a> ancestor.

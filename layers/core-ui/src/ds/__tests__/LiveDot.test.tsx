@@ -24,7 +24,7 @@ import * as ReactDOMServer from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { LiveDot } from "../index.js";
 
-describe("LiveDot (AI4 AC3, Task 5)", () => {
+describe("LiveDot", () => {
 	it("is exported from the design-system index", () => {
 		expect(LiveDot).toBeDefined();
 		expect(typeof LiveDot).toBe("function");

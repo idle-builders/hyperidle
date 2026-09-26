@@ -1,5 +1,5 @@
 /**
- * AD3 — AC-2: SettingsOrgChart solo contextual message.
+ * SettingsOrgChart solo contextual message.
  *
  * When there is exactly 1 human user:
  *   - The contextual message is shown (no table, no "Add Edge" button)
@@ -91,7 +91,7 @@ describe("SettingsOrgChart — solo contextual message", () => {
 		expect(screen.queryByRole("table")).not.toBeInTheDocument();
 	});
 
-	it("DOES render the Add Edge button when solo (AF15: solo short-circuit relaxed)", async () => {
+	it("DOES render the Add Edge button when solo (the solo short-circuit no longer hides it)", async () => {
 		setupCall([mkUser({ id: "u1", kind: "human", name: "Solo Founder", role: "owner" })]);
 		render(<SettingsOrgChart />);
 

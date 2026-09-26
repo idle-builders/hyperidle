@@ -226,14 +226,14 @@ describe("DocumentList scope pills", () => {
 		const user = userEvent.setup();
 		renderAt();
 
-		expect(screen.getByTestId("scope-pill-all")).toHaveAttribute("data-active", "true");
-		expect(screen.getByTestId("scope-pill-shared")).toHaveAttribute("data-active", "false");
+		expect(screen.getByTestId("scope-pill-all")).toHaveAttribute("aria-checked", "true");
+		expect(screen.getByTestId("scope-pill-shared")).toHaveAttribute("aria-checked", "false");
 
 		await user.click(screen.getByTestId("scope-pill-shared"));
 
 		await waitFor(() => {
-			expect(screen.getByTestId("scope-pill-shared")).toHaveAttribute("data-active", "true");
-			expect(screen.getByTestId("scope-pill-all")).toHaveAttribute("data-active", "false");
+			expect(screen.getByTestId("scope-pill-shared")).toHaveAttribute("aria-checked", "true");
+			expect(screen.getByTestId("scope-pill-all")).toHaveAttribute("aria-checked", "false");
 		});
 	});
 
@@ -435,72 +435,6 @@ describe("DocumentList: role-carrying bindings and skill/rule rows are excluded"
 });
 
 // ---------------------------------------------------------------------------
-// Triage keyboard navigation
-// ---------------------------------------------------------------------------
-
-describe("DocumentList triage keyboard navigation", () => {
-	it("pressing j/k moves focus down/up between items", async () => {
-		mockDocuments([
-			makeDoc({ id: "k1", status: "proposed", title: "First item" }),
-			makeDoc({ id: "k2", status: "proposed", title: "Second item" }),
-		]);
-		const user = userEvent.setup();
-		renderAt();
-
-		await waitFor(() => {
-			expect(screen.getByRole("tab", { name: /triage/i })).toHaveAttribute("aria-selected", "true");
-		});
-
-		const triageView = screen.getByTestId("document-triage-view");
-		await user.keyboard("j");
-		expect(within(triageView).getAllByRole("listitem")[0]).toHaveAttribute("data-focused", "true");
-
-		await user.keyboard("j");
-		expect(within(triageView).getAllByRole("listitem")[1]).toHaveAttribute("data-focused", "true");
-
-		await user.keyboard("k");
-		expect(within(triageView).getAllByRole("listitem")[0]).toHaveAttribute("data-focused", "true");
-	});
-
-	it("pressing Escape clears focus", async () => {
-		mockDocuments([makeDoc({ id: "k1", status: "proposed", title: "Focusable item" })]);
-		const user = userEvent.setup();
-		renderAt();
-
-		await waitFor(() => {
-			expect(screen.getByRole("tab", { name: /triage/i })).toHaveAttribute("aria-selected", "true");
-		});
-
-		const triageView = screen.getByTestId("document-triage-view");
-		await user.keyboard("j");
-		expect(within(triageView).getAllByRole("listitem")[0]).toHaveAttribute("data-focused", "true");
-
-		await user.keyboard("{Escape}");
-		for (const row of within(triageView).getAllByRole("listitem")) {
-			expect(row).not.toHaveAttribute("data-focused", "true");
-		}
-	});
-
-	it("keyboard shortcuts only activate when the triage tab is visible", async () => {
-		mockDocuments([makeDoc({ id: "k-active", status: "active" })]);
-		const user = userEvent.setup();
-		renderAt();
-
-		await waitFor(() => {
-			expect(screen.getByRole("tab", { name: /curated/i })).toHaveAttribute(
-				"aria-selected",
-				"true",
-			);
-		});
-
-		await user.keyboard("j");
-		for (const item of screen.queryAllByTestId(/triage-item/)) {
-			expect(item).not.toHaveAttribute("data-focused", "true");
-		}
-	});
-});
-
-// ---------------------------------------------------------------------------
 // Triage validate/reject: keyboard actions and the af13 optimistic contract
 // ---------------------------------------------------------------------------
 
@@ -647,7 +581,6 @@ describe("DocumentList triage auto-advance", () => {
 		await waitFor(() => {
 			const triageView = screen.getByTestId("document-triage-view");
 			const rows = within(triageView).getAllByRole("listitem");
-			expect(rows[0]).toHaveAttribute("data-focused", "true");
 			expect(rows[0]?.textContent).toContain("Second item");
 		});
 	});

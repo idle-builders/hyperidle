@@ -370,7 +370,7 @@ describe("Menu: keyboard navigation", () => {
 	});
 });
 
-describe("Menu: dataAttrs passthrough (C4)", () => {
+describe("Menu: dataAttrs passthrough", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 

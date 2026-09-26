@@ -61,7 +61,7 @@ function makeMockRow(overrides: Partial<ChangeRow> = {}): InboxItem {
 	};
 }
 
-describe("NotificationPopover component (AC10)", () => {
+describe("NotificationPopover component", () => {
 	let markSeenMock: ReturnType<typeof vi.fn>;
 	let markReadMock: ReturnType<typeof vi.fn>;
 	let refetchMock: ReturnType<typeof vi.fn>;
@@ -212,7 +212,7 @@ describe("NotificationPopover component (AC10)", () => {
 	});
 });
 
-describe("Sidebar unread dot affordance (AC10)", () => {
+describe("Sidebar unread dot affordance", () => {
 	it("renders unread dot when unseenCount > 0", async () => {
 		vi.mock("../hooks/useNotifications", () => ({
 			useNotifications: vi.fn(() => ({

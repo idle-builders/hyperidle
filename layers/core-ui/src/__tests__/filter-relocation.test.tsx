@@ -109,8 +109,8 @@ afterEach(() => {
 	vi.restoreAllMocks();
 });
 
-describe("Conversations page — AC-16: filter controls in main pane (W3 toggle pattern)", () => {
-	it("Blocking/Unread chips NOT in the main pane (removed by AF14)", async () => {
+describe("Conversations page — filter controls live in the main pane", () => {
+	it("Blocking/Unread chips are not in the main pane — they were removed", async () => {
 		stubFetch(MIXED_THREADS);
 		renderShell("/conversations");
 		// Wait for threads to render
@@ -155,7 +155,7 @@ describe("Conversations page — AC-16: filter controls in main pane (W3 toggle 
 		});
 	});
 
-	it("no All/Async tabs (removed in W3) and no Blocking/Unread chips (removed in AF14)", async () => {
+	it("no All/Async tabs and no Blocking/Unread chips — both were removed", async () => {
 		stubFetch(MIXED_THREADS);
 		renderShell("/conversations");
 		await waitFor(() => {

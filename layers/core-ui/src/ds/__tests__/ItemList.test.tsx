@@ -23,7 +23,7 @@ function FakeRow({ label }: { label: string }) {
 	return createElement("div", { "data-testid": "fake-row" }, label);
 }
 
-describe("ItemList (AG6 T3)", () => {
+describe("ItemList", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 

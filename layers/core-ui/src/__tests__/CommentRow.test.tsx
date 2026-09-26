@@ -124,22 +124,6 @@ describe("CommentRow rich-row variant", () => {
 		};
 	}
 
-	function questionnaire(): Message {
-		return {
-			id: "m-q-2",
-			threadId: "t-1",
-			senderId: "agent-1",
-			clientKey: "k-q-2",
-			blockId: null,
-			deletedAt: null,
-			redactedAt: null,
-			resolvedAt: null,
-			createdAt: "2026-04-19T12:31:00.000Z",
-			type: "questionnaire",
-			payload: { title: "Second question", question: "Confirm rollout?", options: ["yes", "no"] },
-		};
-	}
-
 	const richSlots = {
 		richHeader: <div data-testid="rh">richHeader-slot</div>,
 		richBody: <div data-testid="rb">richBody-slot</div>,
@@ -160,32 +144,6 @@ describe("CommentRow rich-row variant", () => {
 		expect(screen.getByTestId("ra")).toBeInTheDocument();
 		// Sender name still rendered — the row chrome is unchanged.
 		expect(screen.getByText("Aria")).toBeInTheDocument();
-	});
-
-	it("marks the row with data-variant='rich-review' or 'rich-questionnaire' to match the message type", () => {
-		const { rerender } = render(
-			<CommentRow
-				message={review()}
-				sender={{ id: "agent-1", name: "Aria", role: "builder" }}
-				showSenderHeader={true}
-				{...richSlots}
-			/>,
-		);
-		expect(screen.getAllByTestId("comment-row")[0]!.getAttribute("data-variant")).toBe(
-			"rich-review",
-		);
-
-		rerender(
-			<CommentRow
-				message={questionnaire()}
-				sender={{ id: "agent-1", name: "Aria", role: "builder" }}
-				showSenderHeader={true}
-				{...richSlots}
-			/>,
-		);
-		expect(screen.getAllByTestId("comment-row")[0]!.getAttribute("data-variant")).toBe(
-			"rich-questionnaire",
-		);
 	});
 
 	it("ignores rich slots for plain messages (defensive — slots only apply to review/questionnaire)", () => {

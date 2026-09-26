@@ -270,10 +270,10 @@ describe("Dialog dismissal guard (AC-1)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-1 — Portal: renders into #overlay-root (body sibling of #root)
+// Portal: renders into #overlay-root (body sibling of #root)
 // ---------------------------------------------------------------------------
 
-describe("Dialog portal mount (AC-1, D3)", () => {
+describe("Dialog portal mount", () => {
 	let appRoot: HTMLDivElement;
 	let container: HTMLDivElement;
 	let root: Root;
@@ -313,7 +313,7 @@ describe("Dialog portal mount (AC-1, D3)", () => {
 		expect(dialogInContainer).toBeNull();
 	});
 
-	it("#overlay-root is created as a sibling of #root under body (D3)", async () => {
+	it("#overlay-root is created as a sibling of #root under body", async () => {
 		await act(async () => {
 			root.render(createElement(Dialog, makeProps({ open: true })));
 		});

@@ -14,7 +14,7 @@ import { DocumentBody } from "../DocumentBody.js";
 
 // ── T1 — Empty body renders (no content yet) with no <pre> and no Block shells ──
 
-describe("DocumentBody — T1 empty body", () => {
+describe("DocumentBody — empty body", () => {
 	it("renders (no content yet) paragraph when body is empty string", () => {
 		render(<DocumentBody body="" hostId="k-empty" />);
 		expect(screen.getByText("(no content yet)")).toBeInTheDocument();
@@ -51,7 +51,7 @@ Refresh tokens last 7 days; rotation is automatic.
 
 All tokens are stored in httpOnly cookies, never localStorage.`;
 
-describe("DocumentBody — T2 three-sentence belief", () => {
+describe("DocumentBody — three-sentence belief", () => {
 	it("renders exactly 3 Block shells for a 3-paragraph body", () => {
 		const { container } = render(<DocumentBody body={THREE_SENTENCE_BODY} hostId="k1" />);
 		const blocks = container.querySelectorAll(
@@ -93,7 +93,7 @@ Read-only routines need only routines:run.
 
 Confirm with bun run check and the smoke test.`;
 
-describe("DocumentBody — T3 heading hierarchy", () => {
+describe("DocumentBody — heading hierarchy", () => {
 	it("renders a <h1> for a level-1 heading", () => {
 		const { container } = render(<DocumentBody body={HEADING_BODY} hostId="k-playbook" />);
 		const h1s = container.querySelectorAll("h1");
@@ -135,7 +135,7 @@ describe("DocumentBody — T3 heading hierarchy", () => {
 
 // ── T4 — sanitizeHtml pass-through for kind:html blocks ──
 
-describe("DocumentBody — T4 html block sanitizer pass-through", () => {
+describe("DocumentBody — html block sanitizer pass-through", () => {
 	it("renders an html-kind body without falling back to UnknownPayload", () => {
 		// DOMPurify-safe HTML — will not be stripped
 		const body = "<div>Hello from raw HTML</div>";
@@ -151,7 +151,7 @@ describe("DocumentBody — T4 html block sanitizer pass-through", () => {
 
 // ── T5 — memo re-invokes deriveBlocks when body/hostId changes ──
 
-describe("DocumentBody — T5 memo re-render on prop change", () => {
+describe("DocumentBody — memo re-render on prop change", () => {
 	it("re-renders with new content when body prop changes", () => {
 		const { rerender } = render(<DocumentBody body="Initial paragraph content." hostId="k-memo" />);
 		expect(screen.getByText("Initial paragraph content.")).toBeInTheDocument();
@@ -170,7 +170,7 @@ describe("DocumentBody — T5 memo re-render on prop change", () => {
 
 // ── T-SEC-1 — XSS defence: DOMPurify strips active payloads ──
 
-describe("DocumentBody — T-SEC-1 XSS defence", () => {
+describe("DocumentBody — XSS defence", () => {
 	it("(a) strips <script> tags — no script elements in DOM and window.__pwn undefined", () => {
 		// The body must be parsed as a raw HTML block by deriveBlocks.
 		// remark-gfm treats a bare <script> line as an HTML block.
@@ -364,7 +364,7 @@ Content of section C, unchanged.`;
 
 const HOST = { kind: "document" as const, id: "k-stability" };
 
-describe("DocumentBody — T6 block-id stability", () => {
+describe("DocumentBody — block-id stability", () => {
 	it("blocks with unchanged content have the same id after editing another section", () => {
 		const v1 = deriveBlocks(BODY_V1, HOST);
 		const v2 = deriveBlocks(BODY_V2, HOST);
@@ -482,7 +482,7 @@ const x = 1;
 <div class="raw">raw html block</div>
 `;
 
-describe("DocumentBody — T7 round-trip lossless", () => {
+describe("DocumentBody — round-trip lossless", () => {
 	it("derives blocks for all supported kinds from the fixture body", () => {
 		const { blocks } = deriveBlocks(ALL_KINDS_BODY, {
 			kind: "document",

@@ -2,7 +2,7 @@
 //
 // The "Approve refund" button used to render on ANY operation, not only a
 // refund. `IrreversibleBadge` used to render unconditionally regardless of
-// `payload.irreversible`, contradicting the L3 reversibility text a few lines
+// `payload.irreversible`, contradicting the reversibility text a few lines
 // below it, which was already conditional on the same field.
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -51,14 +51,14 @@ describe("ReviewActionOperation — no fabrication", () => {
 			/>,
 		);
 
-		// IrreversibleBadge AND the L3 section title (ReviewActionOperation.tsx)
+		// IrreversibleBadge AND the section title (ReviewActionOperation.tsx)
 		// both render "Irreversible" unconditionally today — neither reads
 		// `operation.irreversible`, unlike the reversibility paragraph inside
 		// that same section, which does.
 		expect(screen.queryAllByText(/^Irreversible$/i)).toHaveLength(0);
 	});
 
-	it("renders only what the payload supplies, chrome aside (L3 starts expanded by default)", () => {
+	it("renders only what the payload supplies, chrome aside (starts expanded by default)", () => {
 		const { container } = render(<Canvas artifact={artifactWith(SENTINEL_PAYLOAD)} />);
 
 		expect(screen.getAllByText(SENTINEL_PAYLOAD.verb).length).toBeGreaterThan(0);

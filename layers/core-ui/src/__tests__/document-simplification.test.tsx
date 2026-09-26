@@ -177,10 +177,10 @@ describe("DocumentList static scope pills", () => {
 	it("All pill is active by default (no scope filter applied)", () => {
 		renderList();
 		const allPill = screen.getByTestId("scope-pill-all");
-		expect(allPill).toHaveAttribute("data-active", "true");
-		expect(screen.getByTestId("scope-pill-shared")).toHaveAttribute("data-active", "false");
-		expect(screen.getByTestId("scope-pill-team")).toHaveAttribute("data-active", "false");
-		expect(screen.getByTestId("scope-pill-private")).toHaveAttribute("data-active", "false");
+		expect(allPill).toHaveAttribute("aria-checked", "true");
+		expect(screen.getByTestId("scope-pill-shared")).toHaveAttribute("aria-checked", "false");
+		expect(screen.getByTestId("scope-pill-team")).toHaveAttribute("aria-checked", "false");
+		expect(screen.getByTestId("scope-pill-private")).toHaveAttribute("aria-checked", "false");
 	});
 });
 
@@ -340,9 +340,12 @@ describe("DocumentCreate 3-pill scope picker", () => {
 		renderCreate();
 
 		const sharedPill = screen.getByTestId("scope-pill-create-shared");
-		expect(sharedPill).toHaveAttribute("data-active", "true");
-		expect(screen.getByTestId("scope-pill-create-team")).toHaveAttribute("data-active", "false");
-		expect(screen.getByTestId("scope-pill-create-private")).toHaveAttribute("data-active", "false");
+		expect(sharedPill).toHaveAttribute("aria-checked", "true");
+		expect(screen.getByTestId("scope-pill-create-team")).toHaveAttribute("aria-checked", "false");
+		expect(screen.getByTestId("scope-pill-create-private")).toHaveAttribute(
+			"aria-checked",
+			"false",
+		);
 	});
 
 	it("Private pill is offered only once a parent is chosen", async () => {
@@ -356,8 +359,8 @@ describe("DocumentCreate 3-pill scope picker", () => {
 		expect(privatePill).toBeDisabled();
 		await user.click(privatePill);
 
-		expect(privatePill).toHaveAttribute("data-active", "false");
-		expect(screen.getByTestId("scope-pill-create-shared")).toHaveAttribute("data-active", "true");
+		expect(privatePill).toHaveAttribute("aria-checked", "false");
+		expect(screen.getByTestId("scope-pill-create-shared")).toHaveAttribute("aria-checked", "true");
 	});
 });
 
@@ -414,7 +417,7 @@ describe("DocumentCreate Team pill disabled without team", () => {
 		});
 
 		// Team pill should still not be active
-		expect(teamPill).toHaveAttribute("data-active", "false");
+		expect(teamPill).toHaveAttribute("aria-checked", "false");
 	});
 });
 

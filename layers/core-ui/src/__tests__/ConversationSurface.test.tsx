@@ -64,7 +64,7 @@ function renderSurface(
 	);
 }
 
-describe("ConversationSurface — real props (AM1 task 11)", () => {
+describe("ConversationSurface — real props", () => {
 	it("renders the header title and host context link", () => {
 		renderSurface();
 		expect(screen.getByRole("heading", { name: "Passkey login" })).toBeInTheDocument();

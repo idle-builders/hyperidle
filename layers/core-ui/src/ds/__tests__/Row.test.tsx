@@ -17,7 +17,7 @@ import { Row } from "../Row.js";
 // biome-ignore lint/style/useNamingConvention: React flag
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-describe("Row (AG6 T2)", () => {
+describe("Row", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 

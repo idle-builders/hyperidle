@@ -97,7 +97,7 @@ describe("CodeDeltaRenderer (DS diff core)", () => {
 		expect(screen.getAllByTestId(/below-line-/)).toHaveLength(2);
 	});
 
-	it("has NO empty/no-changes/error state branch (K0 purity — pure content renderer)", () => {
+	it("has no empty/no-changes/error state branch — a pure content renderer", () => {
 		// Empty hunks renders without crash (the composition handles empty, not the primitive)
 		const { container } = render(<CodeDeltaRenderer delta={{ file: "test.ts", hunks: [] }} />);
 		// Section is present with no crash

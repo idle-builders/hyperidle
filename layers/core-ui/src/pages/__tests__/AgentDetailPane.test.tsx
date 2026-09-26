@@ -1,9 +1,5 @@
 /**
- * AV4 — AgentDetailPane: RED tests.
- *
- * AC-3: AgentDetailPane body renders without role="dialog"; Save calls edit_user.
- *
- * These tests FAIL until AgentDetailPane is implemented.
+ * AgentDetailPane: renders without dialog chrome; Save calls edit_user.
  *
  * @lore BC5 T9: the door swap — `call` mocked at the door. The pane fetches
  * its own `open_user({ id: agent.id })` the moment an agent is selected (see
@@ -135,7 +131,7 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("AgentDetailPane renders as a detail pane without dialog chrome", () => {
-	it("[RED] renders without any role='dialog' element (Dialog shell stripped)", async () => {
+	it("renders without any role='dialog' element (Dialog shell stripped)", async () => {
 		const { container } = renderAgentPane();
 
 		await waitFor(() => {
@@ -146,7 +142,7 @@ describe("AgentDetailPane renders as a detail pane without dialog chrome", () =>
 		expect(dialogs.length).toBe(0);
 	});
 
-	it("[RED] shows the agent name in the pane", async () => {
+	it("shows the agent name in the pane", async () => {
 		renderAgentPane();
 
 		await waitFor(() => {
@@ -168,7 +164,7 @@ describe("AgentDetailPane renders as a detail pane without dialog chrome", () =>
 		expect(screen.queryByRole("textbox", { name: /system prompt/i })).toBeNull();
 	});
 
-	it("[RED] Save button calls edit_user with id: a1", async () => {
+	it("Save button calls edit_user with id: a1", async () => {
 		const user = userEvent.setup();
 
 		renderAgentPane();

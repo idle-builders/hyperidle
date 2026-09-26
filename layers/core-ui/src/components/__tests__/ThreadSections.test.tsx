@@ -242,7 +242,7 @@ const FIXTURE: ThreadItem[] = [
 	mk({ id: "a3", title: "Doc cleanup", blocking: false }),
 ];
 
-describe("predicateFor (L10 — closed `ConversationsFilter` vocabulary)", () => {
+describe("predicateFor — closed `ConversationsFilter` vocabulary", () => {
 	it("'all' returns true for every thread", () => {
 		const p = predicateFor("all");
 		for (const t of FIXTURE) expect(p(t)).toBe(true);
@@ -309,7 +309,7 @@ describe("ThreadSections — activeFilter prop narrows the rendered list", () =>
 	});
 });
 
-describe("ThreadSections — selected thread independence (L8 §5.7 preserved)", () => {
+describe("ThreadSections — selected thread independence", () => {
 	it("filtered-out selected thread renders no aria-current row and does not throw", () => {
 		// b1 is blocking — selecting it while activeFilter='async' must filter
 		// the row out (Submenu hides it) without crashing.

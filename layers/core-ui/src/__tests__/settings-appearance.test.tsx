@@ -51,13 +51,10 @@ describe("SettingsAppearance theme-only layout", () => {
 	});
 
 	it("theme swatch cards include light, dark, and system options", () => {
-		const { container } = render(<SettingsAppearance />);
-		// W3 AC-50: theme options are swatch cards with data-theme-option attribute
-		const swatches = container.querySelectorAll("[data-theme-option]");
-		const swatchValues = Array.from(swatches).map((s) => s.getAttribute("data-theme-option"));
-		expect(swatchValues).toContain("light");
-		expect(swatchValues).toContain("dark");
-		expect(swatchValues).toContain("system");
+		render(<SettingsAppearance />);
+		expect(screen.getByRole("button", { name: /light theme/i })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: /dark theme/i })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: /system theme/i })).toBeInTheDocument();
 	});
 
 	it("renders exactly three swatch cards (no select element)", () => {

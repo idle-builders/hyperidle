@@ -16,7 +16,7 @@ import { DesktopTitleBar } from "../DesktopTitleBar";
 // The property is optional so delete is valid.
 type PartialBridgeWindow = { __HYPERIDLE__?: Partial<HyperIdleElectronBridge> };
 
-describe("DesktopTitleBar (AV5)", () => {
+describe("DesktopTitleBar", () => {
 	afterEach(() => {
 		// Clean up any __HYPERIDLE__ stub installed during the test.
 		if (typeof window !== "undefined") {

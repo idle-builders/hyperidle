@@ -152,7 +152,7 @@ function renderNoThreadId(): void {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("Conversations page (L9)", () => {
+describe("Conversations page", () => {
 	afterEach(() => {
 		cleanup();
 		callMock.mockReset();

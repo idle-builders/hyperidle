@@ -450,11 +450,11 @@ describe("DocumentCreate — Private requires a chosen parent", () => {
 
 		await pickParent(user, "Root A");
 		await user.click(screen.getByTestId("scope-pill-create-private"));
-		expect(screen.getByTestId("scope-pill-create-private")).toHaveAttribute("data-active", "true");
+		expect(screen.getByTestId("scope-pill-create-private")).toHaveAttribute("aria-checked", "true");
 
 		await pickParent(user, "No parent (top level)");
 
-		expect(screen.getByTestId("scope-pill-create-team")).toHaveAttribute("data-active", "true");
+		expect(screen.getByTestId("scope-pill-create-team")).toHaveAttribute("aria-checked", "true");
 		expect(screen.getByTestId("scope-pill-create-private")).toBeDisabled();
 	});
 
@@ -472,6 +472,6 @@ describe("DocumentCreate — Private requires a chosen parent", () => {
 
 		await pickParent(user, "No parent (top level)");
 
-		expect(screen.getByTestId("scope-pill-create-shared")).toHaveAttribute("data-active", "true");
+		expect(screen.getByTestId("scope-pill-create-shared")).toHaveAttribute("aria-checked", "true");
 	});
 });

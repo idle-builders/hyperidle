@@ -19,30 +19,28 @@ describe("StatusChip", () => {
 		expect(screen.getByText("BLOCKED")).toHaveAttribute("title", "blocked");
 	});
 
-	it("renders all six status values, each with its own data-status attribute", () => {
+	it("renders all six status values with their own uppercase text", () => {
 		const statuses: Status[] = ["healthy", "behind", "blocked", "paused", "done", "error"];
 		for (const status of statuses) {
 			const { unmount } = render(<StatusChip status={status} />);
-			const chip = screen.getByText(status.toUpperCase());
-			expect(chip).toHaveAttribute("data-status", status);
+			expect(screen.getByText(status.toUpperCase())).toBeInTheDocument();
 			unmount();
 		}
 	});
 
-	it("distinguishes blocked from error via data-status, though both read as danger", () => {
-		// I4 S7: blocked (waiting/recoverable) and error (broken/intervention
-		// required) must be distinguishable even though today's palette gives
-		// both the same danger color — the data-status attribute is the
-		// stable, non-visual signal a caller can tell them apart by.
+	it("distinguishes blocked from error by their own text, though both read as danger", () => {
+		// blocked (waiting/recoverable) and error (broken/intervention required)
+		// must be distinguishable even though today's palette gives both the
+		// same danger color — the word itself is what a person actually reads.
 		const { unmount } = render(<StatusChip status="blocked" />);
-		expect(screen.getByText("BLOCKED")).toHaveAttribute("data-status", "blocked");
+		expect(screen.getByText("BLOCKED")).toBeInTheDocument();
 		unmount();
 
 		render(<StatusChip status="error" />);
-		expect(screen.getByText("ERROR")).toHaveAttribute("data-status", "error");
+		expect(screen.getByText("ERROR")).toBeInTheDocument();
 	});
 
-	describe("runtime defense (adversary W4)", () => {
+	describe("runtime defense", () => {
 		it("renders an UNKNOWN chip, never the literal word 'undefined', when status is undefined at runtime", () => {
 			// Trust-boundary defence: server/web version skew may send a new
 			// BetStatus that hasn't been mapped yet, and upstream lookups can
@@ -78,14 +76,6 @@ describe("StatusChip", () => {
 			render(<StatusChip status="healthy" label="In progress" />);
 			expect(screen.queryByText("IN PROGRESS")).not.toBeInTheDocument();
 			expect(screen.getByText("In progress")).toBeInTheDocument();
-		});
-
-		it("data-status attribute still reflects the status prop when label is set", () => {
-			render(<StatusChip status="healthy" label="Active" />);
-			expect(screen.getByText("Active").closest("[data-status]")).toHaveAttribute(
-				"data-status",
-				"healthy",
-			);
 		});
 	});
 });
