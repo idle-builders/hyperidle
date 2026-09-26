@@ -1,5 +1,5 @@
 /**
- * AU26 review W4/W6/W7 — the run-state hooks the J4 move introduced.
+ * Run-state hooks tests.
  *
  * @lore `GET /api/agent-orchestration/runs?agent_ids=…` is deleted; both
  * hooks now call `search_sessions({ agentIds })` — `POST
@@ -7,13 +7,13 @@
  * agent's MCP tool use.
  *
  * Three properties, none of which the move shipped with:
- *   - **W6, fail-closed.** A failed orchestration read must NOT render a
+ *   - **Fail-closed.** A failed orchestration read must NOT render a
  *     crashed agent as healthy and idle. The hook reports `status: "error"`
  *     and the screens surface it; before this it silently swallowed the
  *     failure and returned the same empty state an agent with no runs has.
- *   - **W4, one request per screen.** Task titles are fetched in ONE batched
+ *   - **One request per screen.** Task titles are fetched in ONE batched
  *     `search_tasks` call (its `ids` filter), not one call per task.
- *   - **W7, the orchestration is tested at all.** Active-run selection,
+ *   - **The orchestration is tested at all.** Active-run selection,
  *     group-by-agent, the task-ref resolution and the 10-item slice
  *     were untested — every consumer mocked the hook out.
  */
@@ -88,7 +88,7 @@ afterEach(() => {
 });
 
 describe("useAgentRunState", () => {
-	// @lore BB1: betId removed from activeSession — tasks link via /work/task/:taskId
+	// @lore: betId removed from activeSession — tasks link via /work/task/:taskId
 	it("resolves the active run, its task title, and the success rate", async () => {
 		stubFetch(
 			[
@@ -167,7 +167,7 @@ describe("useAgentRunState", () => {
 		expect(result.current.performance.totalSessions).toBe(14);
 	});
 
-	it("reports status 'error' when search_sessions answers a problem — it never claims healthy (W6)", async () => {
+	it("reports status 'error' when search_sessions answers a problem — it never claims healthy", async () => {
 		vi.stubGlobal(
 			"fetch",
 			vi.fn().mockImplementation((url: string) =>
@@ -194,7 +194,7 @@ describe("useAgentRunState", () => {
 		expect(result.current.recentSessions).toEqual([]);
 	});
 
-	it("starts in 'loading', so a screen never paints zeros as fact (W5)", () => {
+	it("starts in 'loading', so a screen never paints zeros as fact", () => {
 		stubFetch([], []);
 		const { result } = renderHook(() => useAgentRunState("a1", true));
 		expect(result.current.status).toBe("loading");
@@ -237,7 +237,7 @@ describe("useRosterRunState", () => {
 		expect(result.current.byAgent.has("a3")).toBe(true);
 	});
 
-	it("reports status 'error' when search_sessions answers a problem, rather than a healthy roster (W6)", async () => {
+	it("reports status 'error' when search_sessions answers a problem, rather than a healthy roster", async () => {
 		vi.stubGlobal(
 			"fetch",
 			vi.fn().mockResolvedValue({

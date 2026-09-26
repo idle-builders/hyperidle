@@ -1,7 +1,7 @@
 /**
- * AM1 — ReferenceChip (promoted to the design system). RED phase.
+ * ReferenceChip (promoted to the design system).
  *
- * AC6: ReferenceChip is the SINGLE shared attachment/reference primitive.
+ * ReferenceChip is the SINGLE shared attachment/reference primitive.
  *  - kinds {artifact, image, document, block} × modes {draft, posted}.
  *  - draft mode = TWO distinct hit targets: open body + remove ✕.
  *  - posted mode = whole chip opens; NO remove ✕.

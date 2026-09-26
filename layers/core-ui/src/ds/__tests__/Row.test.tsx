@@ -1,11 +1,9 @@
 // @vitest-environment jsdom
 /**
- * AG6 red phase — Row component tests.
+ * Row component tests.
  *
- * AC-1: Row primitive exists with correct slots.
- * AC-3: Rows share one alignment/separator/hover/focus + 44px touch target.
- *
- * Tests FAIL until framework/design-system/src/Row.tsx is created (T2).
+ * Covers: the Row primitive exists with correct slots; rows share one
+ * alignment/separator/hover/focus + 44px touch target.
  */
 
 import { act, createElement } from "react";
@@ -184,7 +182,7 @@ describe("Row", () => {
 
 	// ── Lead slot ────────────────────────────────────────────────────────────
 
-	describe("lead slot (optional — AQ-113 no placeholder)", () => {
+	describe("lead slot (optional — no placeholder)", () => {
 		it("renders lead when provided", () => {
 			act(() => {
 				root.render(
@@ -197,7 +195,7 @@ describe("Row", () => {
 			expect(container.querySelector("[data-testid='lead-el']")).not.toBeNull();
 		});
 
-		it("omitting lead renders NO placeholder element (AQ-113)", () => {
+		it("omitting lead renders NO placeholder element", () => {
 			act(() => {
 				root.render(createElement(Row, { title: "Only title" }));
 			});
@@ -310,7 +308,7 @@ describe("Row", () => {
 	// ── ds-attrs marker ─────────────────────────────────────────────────────
 
 	describe("design-system marker (AC-2 check target)", () => {
-		it("renders data-ds-component=Row marker (AC-2 migration verifiable)", () => {
+		it("renders data-ds-component=Row marker", () => {
 			act(() => {
 				root.render(createElement(Row, { title: "Hello" }));
 			});

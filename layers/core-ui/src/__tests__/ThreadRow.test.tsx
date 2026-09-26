@@ -101,7 +101,7 @@ describe("ThreadRow", () => {
 		expect(screen.getByLabelText("Thread: Deploy pipeline stuck")).toBeInTheDocument();
 	});
 
-	// L8 — selected / pinned / hostTag props
+	// selected / pinned / hostTag props
 	it("applies aria-current='true' when selected", () => {
 		const { container } = render(<ThreadRow {...defaultProps} selected={true} />);
 		const root = container.firstElementChild;
@@ -125,7 +125,7 @@ describe("ThreadRow", () => {
 	});
 
 	it("renders the host tag pill when hostTag is provided", () => {
-		// @lore BB1: hostTag="team" renders "team", not "bet" (BC3: "task" host
+		// @lore: hostTag="team" renders "team", not "bet" ("task" host
 		// kind is gone — a task's thread is team-hosted).
 		render(<ThreadRow {...defaultProps} hostTag="team" />);
 		expect(screen.getByText("team")).toBeInTheDocument();
@@ -139,7 +139,7 @@ describe("ThreadRow", () => {
 				avatars={[{ initials: "TG" }, { initials: "AT", agent: true }]}
 			/>,
 		);
-		// AE5: Avatar spans no longer carry aria-hidden (presence dots inside carry aria-label).
+		// Avatar spans no longer carry aria-hidden (presence dots inside carry aria-label).
 		// Find avatars by their initials text content instead.
 		const tgAvatar = screen.getByText("TG");
 		const atAvatar = screen.getByText("AT");

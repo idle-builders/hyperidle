@@ -1,5 +1,5 @@
 /**
- * AC9 — Clicking "+" on a block creates a document parented to the thread.
+ * Clicking "+" on a block creates a document parented to the thread.
  *
  * After the rewire:
  *   - AssistantContextRef gains kind:"pending_block" with { content, label }
@@ -9,14 +9,14 @@
  *   - The document carries the block's content verbatim — editing the source
  *     afterwards leaves the item unchanged (no pointer, no rotting blockId).
  *
- * @lore BC3: re-pointed off the deleted `useAssistantThread` onto
+ * @lore: re-pointed off the deleted `useAssistantThread` onto
  * `useThread`/`useThreads`/`useAgents`/`useCurrentUser`, same pattern as
- * `shell/__tests__/AH3-AssistantOverlay.notice.test.tsx`. The thread message
+ * the assistant overlay test. The thread message
  * send itself no longer POSTs `/api/threads/<id>` — `sendToThread` in
  * `shell/AssistantOverlay.tsx` sends it via
  * `call("send_message", {threadId, text, refs, clientKey})`.
  *
- * @lore BC4: the document creation call moved off `apiFetch("/api/knowledge",
+ * @lore: the document creation call moved off `apiFetch("/api/knowledge",
  * …)` onto `call("edit_document", …)` too — both calls now go through the
  * same mocked `call()` door (architecture.md §9.2).
  */

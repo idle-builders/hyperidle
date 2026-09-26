@@ -1,5 +1,5 @@
 /**
- * S4 RED — SettingsWorker component tests (AC-1, AC-6, AC-7).
+ * SettingsWorker component tests.
  *
  * AC coverage:
  *  - Without bridge (__HYPERIDLE__ undefined): renders "requires desktop app" message

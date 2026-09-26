@@ -1,16 +1,13 @@
 /**
- * AE2 — AppShell onboarding auto-open tests
+ * AppShell onboarding auto-open tests.
  *
- * AC-4: A first-time user is guided to a first meaningful action through
- * conversation with the Assistant.
- *
- * Tests:
- * - AppShell with ?onboarding=true opens the assistant (CoC) overlay
+ * A first-time user is guided to a first meaningful action through
+ * conversation with the Assistant:
+ * - AppShell with ?onboarding=true opens the assistant overlay
  * - The ?onboarding=true query param is removed after opening
  *
- * @lore AE2: Red-phase tests. They fail until Task 4 (add ?onboarding=true
- * handler to AppShell) is implemented. The existing ?settings=open pattern
- * (AppShell.tsx lines 241-253) is the reference for the implementation.
+ * @lore: The existing ?settings=open pattern (AppShell.tsx) is the
+ * reference for this implementation.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
@@ -35,7 +32,7 @@ function renderShell(initialPath: string): ReturnType<typeof render> {
 					{ path: "work/portfolio", element: <div>Portfolio Page (redirects to /work)</div> },
 					{ path: "work/team", element: <div>Team Page</div> },
 					{ path: "documents", element: <div>Document Page</div> },
-					// @lore FR-18: /settings is now a real route — stub avoids 404 error.
+					// @lore: /settings is now a real route — stub avoids 404 error.
 					{ path: "settings", element: <div>Settings</div> },
 				],
 			},
@@ -67,9 +64,9 @@ afterEach(() => {
 });
 
 describe("AppShell ?onboarding=true auto-open", () => {
-	// AC-4: ?onboarding=true opens the CoC overlay
+	// ?onboarding=true opens the assistant overlay
 	it("opens the CoC/Assistant overlay when ?onboarding=true is in the URL", async () => {
-		// AD9: navigate to /work?onboarding=true (was /work/portfolio?onboarding=true)
+		// navigate to /work?onboarding=true (was /work/portfolio?onboarding=true)
 		renderShell("/work?onboarding=true");
 
 		// The AssistantOverlay renders with data-testid="coc-overlay" or similar when open.
@@ -93,7 +90,7 @@ describe("AppShell ?onboarding=true auto-open", () => {
 	// AC-4: ?onboarding=true is removed from URL after opening
 	it("removes the ?onboarding=true query param after the overlay opens", async () => {
 		// Capture URL changes by observing the router
-		// AD9: /work?onboarding=true (was /work/portfolio?onboarding=true)
+		// /work?onboarding=true (was /work/portfolio?onboarding=true)
 		const router = createMemoryRouter(
 			[
 				{
@@ -131,7 +128,7 @@ describe("AppShell ?onboarding=true auto-open", () => {
 
 	// Negative: no ?onboarding param → overlay does NOT auto-open
 	it("does NOT open the CoC overlay when ?onboarding=true is absent", async () => {
-		// AD9: /work (was /work/portfolio)
+		// /work (was /work/portfolio)
 		renderShell("/work");
 
 		// Wait for the component to settle
@@ -150,7 +147,7 @@ describe("AppShell ?onboarding=true auto-open", () => {
 
 	// Negative: ?settings=open still works (existing behavior unaffected)
 	it("?settings=open still triggers the settings overlay", async () => {
-		// AD9: /work (was /work/portfolio)
+		// /work (was /work/portfolio)
 		renderShell("/work?settings=open");
 
 		await waitFor(

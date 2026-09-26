@@ -69,7 +69,7 @@ describe("groupThreadsForConversations classifier", () => {
 		];
 		const sections = groupThreadsForConversations(threads, { now: NOW });
 		const active = sections.find((s) => s.id === "active");
-		expect(active?.items[0]?.id).toBe("coach"); // @lore AD8a: thread ID "coach" stays; route/type renamed in AD8b
+		expect(active?.items[0]?.id).toBe("coach"); // @lore: thread ID "coach" stays; route/type renamed since
 	});
 
 	it("re-opened blocking thread (resolved past 24h) lands in Active when not blocking", () => {
@@ -141,7 +141,7 @@ describe("ThreadSections component", () => {
 	});
 
 	it("section header count badge text equals the literal section size on a fixed fixture", () => {
-		// Adversary M2: the prior section-level test is from-the-same-render
+		// Note: the prior section-level test is from-the-same-render
 		// and tautological (header reads from items.length, rows render from
 		// items.length — both pass with the same hardcoded literal injected
 		// in either place). This test pins exact literals against an
@@ -184,7 +184,7 @@ describe("ThreadSections component", () => {
 		expect(container.querySelector("[data-thread-section='blocking']")).toBeNull();
 	});
 
-	// UI-080: ThreadRow now renders as <a href> — navigation is via the link,
+	// ThreadRow now renders as <a href> — navigation is via the link,
 	// not via the onSelect callback. Verify that each row has an href pointing
 	// to its conversation route.
 	it("each thread row is an anchor with href to /conversations/:id", () => {
@@ -198,7 +198,7 @@ describe("ThreadSections component", () => {
 	});
 
 	it("renders skeleton rows while loading instead of EmptyState", () => {
-		// Architecture C1: when loading=true the EmptyState must NOT flash.
+		// When loading=true the EmptyState must NOT flash.
 		const { container } = render(<ThreadSections threads={[]} now={NOW} loading={true} />);
 		expect(container.querySelector("[data-testid='thread-sections-loading']")).not.toBeNull();
 		expect(container.querySelector("[data-testid='thread-sections-empty']")).toBeNull();
@@ -374,7 +374,7 @@ describe("ThreadSections — filter-empty EmptyState", () => {
 	});
 
 	it("does NOT render the filter-empty state when activeFilter='all' and the list is empty", () => {
-		// activeFilter='all' on a globally empty list keeps the existing L8
+		// activeFilter='all' on a globally empty list keeps the existing
 		// "No threads yet" empty state — not the filter-empty variant.
 		render(<ThreadSections threads={[]} now={NOW} activeFilter="all" />);
 		expect(screen.queryByTestId("thread-sections-filter-empty")).not.toBeInTheDocument();

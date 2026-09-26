@@ -7,7 +7,7 @@
  * email field, and no "First Product" section (the product is created
  * silently). After setup completes the app routes to /work.
  *
- * @lore BC5 T10: the door swap — `call` is mocked at the door instead of
+ * @lore: the door swap — `call` is mocked at the door instead of
  * `global.fetch`; `POST /api/users` → `POST /api/teams` becomes three
  * `edit_user` calls (architecture.md §7). `apiFetch` is mocked separately
  * for the one plumbing route this page still calls directly,
@@ -58,7 +58,7 @@ function openUserData(): Record<string, unknown> {
 	};
 }
 
-// AD9: /work/portfolio retired → /work is the new landing
+// /work/portfolio retired → /work is the new landing
 function WorkOverviewStub(): React.JSX.Element {
 	return <div data-testid="landing">work-overview</div>;
 }

@@ -1,10 +1,7 @@
 /**
- * AD8b — AssistantContext tests (RED phase).
+ * AssistantContext tests.
  *
- * AC-9: Context can be attached (AssistantContext exports the correct shape).
- * AC-10: Rename from CocContext to AssistantContext (imports from the new path).
- *
- * Will FAIL until AssistantContext.tsx is created.
+ * Context can be attached: AssistantContext exports the correct shape.
  */
 
 import { render } from "@testing-library/react";
@@ -83,7 +80,7 @@ describe("AssistantContext", () => {
 
 	it("AssistantContextRef supports all attachment kinds", () => {
 		// Type-level test: all 5 context kinds compile
-		// @lore BB1: betRef now uses kind:"task" (root tasks replace bets)
+		// @lore: betRef now uses kind:"task" (root tasks replace bets)
 		const betRef: AssistantContextRef = { kind: "task", id: "b1", label: "Bet" };
 		const taskRef: AssistantContextRef = { kind: "task", id: "t1", label: "Task" };
 		const documentRef: AssistantContextRef = { kind: "document", id: "ki1", label: "KB" };

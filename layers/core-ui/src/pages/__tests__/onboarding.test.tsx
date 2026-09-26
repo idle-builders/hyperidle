@@ -1,12 +1,12 @@
 /**
- * W3 — Onboarding AC-53 through AC-56: Red phase tests.
+ * Onboarding page tests.
  *
- * AC-53: Card container with shadow, brand + tagline, illustration.
- * AC-54: Two always-present fields: Your name (required), Project folder
- *        (optional). The API key that was the third belonged to the built-in
- *        gateway; it now appears only under a harness that can run on one.
- * AC-55: "Start HyperIdle" button — disabled until the name is filled.
- * AC-56: No step indicator, no email field, no team name field.
+ * Covers: a card container with shadow, brand + tagline, illustration; two
+ * always-present fields — Your name (required) and Project folder
+ * (optional); the API key that was the third belonged to the built-in
+ * gateway and now appears only under a harness that can run on one;
+ * a "Start HyperIdle" button disabled until the name is filled; no step
+ * indicator, no email field, no team name field.
  */
 
 import { render, screen } from "@testing-library/react";
@@ -29,7 +29,7 @@ function renderSetupFlow(): ReturnType<typeof render> {
 }
 
 // ---------------------------------------------------------------------------
-// AC-53: Card container with shadow, brand + tagline, illustration
+// Card container with shadow, brand + tagline, illustration
 // ---------------------------------------------------------------------------
 describe("Onboarding card layout", () => {
 	it("renders a card container with an onboarding card testid", () => {
@@ -59,12 +59,12 @@ describe("Onboarding card layout", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-54: Three fields
+// Three fields
 // ---------------------------------------------------------------------------
 describe("Three fields in onboarding", () => {
 	it("renders 'Your name' label (not just 'Name')", () => {
 		renderSetupFlow();
-		// AC-54 specifies "Your name" label
+		// specifies "Your name" label
 		expect(screen.getByLabelText(/your name/i)).toBeInTheDocument();
 	});
 
@@ -89,13 +89,13 @@ describe("Three fields in onboarding", () => {
 
 	it("renders exactly 2 text/password form fields (name, folder — harness radios excluded)", () => {
 		renderSetupFlow();
-		// AC-54: two always-present text/password/file fields: name and folder.
+		// two always-present text/password/file fields: name and folder.
 		// Harness picker adds radio buttons — exclude them from this AC count.
 		const inputs = document.querySelectorAll("input:not([type='radio']), textarea");
 		expect(inputs.length).toBe(2);
 	});
 
-	it("name field placeholder is 'Your name' (C1)", () => {
+	it("name field placeholder is 'Your name'", () => {
 		renderSetupFlow();
 		const nameInput = screen.getByLabelText(/your name/i);
 		expect(nameInput).toHaveAttribute("placeholder", "Your name");
@@ -103,7 +103,7 @@ describe("Three fields in onboarding", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-55: "Start HyperIdle" button text and disabled state
+// "Start HyperIdle" button text and disabled state
 // ---------------------------------------------------------------------------
 describe("Start HyperIdle button", () => {
 	it("button text is 'Start HyperIdle'", () => {
@@ -128,7 +128,7 @@ describe("Start HyperIdle button", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-56: No step indicator, no email field, no team name field
+// No step indicator, no email field, no team name field
 // ---------------------------------------------------------------------------
 describe("No step indicator or extra fields", () => {
 	it("does NOT render a step indicator", () => {

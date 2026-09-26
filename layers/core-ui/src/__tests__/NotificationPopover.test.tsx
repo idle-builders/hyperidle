@@ -1,14 +1,12 @@
 /**
- * AF8 — NotificationPopover component tests
+ * NotificationPopover component tests.
  *
- * Covers:
- *   AC10 — popover renders rows (title + link jump + relative time + dismiss)
- *         — unseen dot shown when unseenCount > 0
- *         — opening calls mark-seen
- *         — dismiss calls mark-read and removes row
- *         — empty/loading/error states render
+ * Covers: the popover renders rows (title + link jump + relative time +
+ * dismiss); an unseen dot shows when unseenCount > 0; opening calls
+ * mark-seen; dismiss calls mark-read and removes the row; empty/loading/
+ * error states render.
  *
- * @lore BC5 T10: rows are inbox items over `ChangeRow` now — a row is
+ * @lore: rows are inbox items over `ChangeRow` now — a row is
  * `{ change, seenAt, readAt }` and there is no per-type mute in the popover
  * any more (a subscription's own pause lives in Settings → Notifications).
  *

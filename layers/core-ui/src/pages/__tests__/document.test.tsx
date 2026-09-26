@@ -1,18 +1,17 @@
 /**
- * W3 — Document Pages AC-33 through AC-38: Red phase tests.
+ * Document Pages tests.
  *
- * AC-33: Scope filter pills from data (not fixed Practices/Products/Factory).
- * AC-34: Sort controls visible in both Curated and Triage views.
- * AC-35: Document rows show preview text; no status dots.
- * AC-36: "+ New" button in header.
- * AC-37: Curated/Triage tab switching.
- * AC-38: Content max-width 800px, centered.
+ * Covers: scope filter pills come from data (not fixed
+ * Practices/Products/Factory); sort controls are visible in both Curated
+ * and Triage views; document rows show preview text with no status dots;
+ * a "+ New" button sits in the header; Curated/Triage tab switching; the
+ * content column has an 800px max-width, centered.
  *
- * AC-39 through AC-46 tested `KnowledgeDetail` directly — moved to
+ * (`KnowledgeDetail`'s own coverage moved to
  * `pages/__tests__/DocumentDetail.*.test.tsx` when that page was
- * rewritten against `call("open_document"/"edit_document", …)`.
+ * rewritten against `call("open_document"/"edit_document", …)`.)
  *
- * @lore BC4: re-pointed onto `DocumentList`/`useDocuments` — `KnowledgeList`
+ * @lore: re-pointed onto `DocumentList`/`useDocuments` — `KnowledgeList`
  * and its `useFetch("/api/knowledge")` read are gone.
  */
 
@@ -88,7 +87,7 @@ function renderDocumentList(): ReturnType<typeof render> {
 }
 
 // ---------------------------------------------------------------------------
-// AC-33: Data-driven scope pills (not hardcoded)
+// Data-driven scope pills (not hardcoded)
 // ---------------------------------------------------------------------------
 describe("Data-driven scope pills", () => {
 	it("does NOT render hardcoded 'Practices' scope pill", () => {
@@ -108,7 +107,7 @@ describe("Data-driven scope pills", () => {
 	});
 
 	it("renders 'All' pill first", () => {
-		// AD6: scope pills use role="radio" (accessibility improvement) — query by testid.
+		// scope pills use role="radio" (accessibility improvement) — query by testid.
 		renderDocumentList();
 		const allPill = screen.getByTestId("scope-pill-all");
 		expect(allPill).toBeInTheDocument();
@@ -123,7 +122,7 @@ describe("Data-driven scope pills", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-34: Sort controls visible in both views
+// Sort controls visible in both views
 // ---------------------------------------------------------------------------
 describe("Sort controls always visible", () => {
 	it("renders sort controls on the list page", () => {
@@ -151,7 +150,7 @@ describe("Sort controls always visible", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-35: Document rows show preview; no status dots
+// Document rows show preview; no status dots
 // ---------------------------------------------------------------------------
 describe("DocRow preview and no status dots", () => {
 	it("DocRow renders preview text when preview prop provided", () => {
@@ -177,7 +176,7 @@ describe("DocRow preview and no status dots", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-36: "+ New" button in header
+// "+ New" button in header
 // ---------------------------------------------------------------------------
 describe("'+New' button in document list header", () => {
 	it("renders a '+ New' button in the document list header", () => {
@@ -188,7 +187,7 @@ describe("'+New' button in document list header", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-37: Curated/Triage tab switching
+// Curated/Triage tab switching
 // ---------------------------------------------------------------------------
 describe("Curated/Triage tab switching", () => {
 	it("renders Curated and Triage tabs", () => {

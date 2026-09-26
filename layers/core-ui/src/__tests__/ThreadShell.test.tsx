@@ -1,5 +1,5 @@
 /**
- * L1a — `ThreadShell` composition tests.
+ * `ThreadShell` composition tests.
  *
  * Approved-design: §2.6 + §4 (states). The shell mounts:
  *   - ThreadHostBanner (always)
@@ -139,7 +139,7 @@ describe("ThreadShell (approved.md §2.6 + §4 states)", () => {
 		expect(screen.queryByPlaceholderText(/reply to thread/i)).toBeNull();
 	});
 
-	// L1 step9 (Design-C2): sender-grouping per approved.md §2.4 + §8 hard-rule 3.
+	// sender-grouping per approved.md §2.4 + §8 hard-rule 3.
 	it("sender-grouping: shows the sender header on the FIRST of three same-sender messages within 5 minutes", () => {
 		const thread = baseThread;
 		const make = (id: string, ts: string): Message => ({
@@ -173,7 +173,7 @@ describe("ThreadShell (approved.md §2.6 + §4 states)", () => {
 		expect(founderEls.length).toBe(1);
 	});
 
-	// L1 step9 (Design-C2): a 6+ minute gap breaks the group → 2 headers.
+	// a 6+ minute gap breaks the group → 2 headers.
 	it("sender-grouping: a 6-minute gap creates a new group", () => {
 		const thread = baseThread;
 		const make = (id: string, ts: string): Message => ({
@@ -204,11 +204,10 @@ describe("ThreadShell (approved.md §2.6 + §4 states)", () => {
 		expect(screen.getAllByText("Founder").length).toBe(2);
 	});
 
-	// L11 plan §6.2: the legacy 'Unresolved review · acting required' link
-	// is removed. The card sits in-stream, so there is nothing for the link
-	// to scroll to. The previous J3 fallback test inverts: assert the link
-	// is NEVER rendered, even when the most recent message is an unresolved
-	// review.
+	// The legacy 'Unresolved review · acting required' link is removed. The
+	// card sits in-stream, so there is nothing for the link to scroll to.
+	// This inverts the previous fallback test: assert the link is NEVER
+	// rendered, even when the most recent message is an unresolved review.
 	it("'Unresolved review' link is NOT rendered — the card replaces the sticky bar", () => {
 		render(
 			<ThreadShell
@@ -233,7 +232,7 @@ describe("ThreadShell (approved.md §2.6 + §4 states)", () => {
 		expect(screen.queryByText(/unresolved review/i)).toBeNull();
 	});
 
-	// L1 step9 (Arch): isBlocking wired into the host banner.
+	// isBlocking wired into the host banner.
 	it("isBlocking: shows BLOCKED chip when an unresolved-review thread has the agent's session active", () => {
 		const snapshot: AgentSessionStateSnapshot = {
 			pausedOnThreadId: null,
@@ -248,7 +247,7 @@ describe("ThreadShell (approved.md §2.6 + §4 states)", () => {
 				agentSessionState={snapshot}
 			/>,
 		);
-		// L11: both the banner AND the in-stream RichMessageCard surface the
+		// Both the banner AND the in-stream RichMessageCard surface the
 		// blocking signal as a "BLOCKED" chip (text + colour, not colour-only).
 		// Assert at least one renders; the banner one specifically lives in the
 		// host-banner region.
@@ -273,7 +272,7 @@ describe("ThreadShell (approved.md §2.6 + §4 states)", () => {
 		expect(screen.queryByText("BLOCKED")).toBeNull();
 	});
 
-	// L1 step9 (Design-C4): shape-transition region carries aria-live="polite".
+	// shape-transition region carries aria-live="polite".
 	it("a11y: container exposes aria-live='polite' for shape-change announcements", () => {
 		render(
 			<ThreadShell

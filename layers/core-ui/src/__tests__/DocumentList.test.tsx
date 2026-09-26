@@ -435,7 +435,7 @@ describe("DocumentList: role-carrying bindings and skill/rule rows are excluded"
 });
 
 // ---------------------------------------------------------------------------
-// Triage validate/reject: keyboard actions and the af13 optimistic contract
+// Triage validate/reject: keyboard actions and the optimistic contract
 // ---------------------------------------------------------------------------
 
 describe("DocumentList triage validate/reject", () => {
@@ -631,7 +631,7 @@ describe("DocumentList — the Memories filter chip", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 500 error handling (UI-010/UI-015)
+// 500 error handling
 // ---------------------------------------------------------------------------
 
 describe("DocumentList — 500 error handling", () => {

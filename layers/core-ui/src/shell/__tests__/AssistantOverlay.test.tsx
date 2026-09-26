@@ -2,12 +2,12 @@
  * AssistantOverlay component tests: open/close, message thread rendering,
  * context chips, layout, and notice/crash-recovery rendering.
  *
- * @lore BC3: re-pointed off the deleted `useAssistantThread` onto
+ * @lore: re-pointed off the deleted `useAssistantThread` onto
  * `useThread`/`useThreads`/`useAgents`/`useCurrentUser` — the overlay
  * resolves its own agent's direct thread via `useThreads({host:{kind:"agent"}})`
- * then reads it with `useThread(id)` (architecture.md §5 B6).
+ * then reads it with `useThread(id)` (see architecture.md).
  *
- * @lore BC3: `useAgentOwnership` (a second fetch of every AI-role user) is
+ * @lore: `useAgentOwnership` (a second fetch of every AI-role user) is
  * deleted — `GET /api/agents` carries `ownerUserId` directly, so the overlay
  * finds "my agent" off the same `useAgents` fetch every agent picker shares.
  */
@@ -256,7 +256,7 @@ describe("AssistantOverlay layout fixes", () => {
 // plus crash-recovery (stale thinking state)
 // ---------------------------------------------------------------------------
 //
-// `notice` stays on the READ shape only (Reconciliation R9) —
+// `notice` stays on the READ shape only —
 // `AssistantOverlay.tsx`'s renderer is unchanged, so this coverage is kept
 // and re-pointed rather than deleted.
 

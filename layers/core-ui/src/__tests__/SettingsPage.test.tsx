@@ -1,5 +1,5 @@
 /**
- * AF15 RED — SettingsPage section reachability (AC-1).
+ * SettingsPage section reachability.
  *
  * Tests that:
  * - settings-section-agents testid is present after mounting SettingsPage
@@ -8,9 +8,9 @@
  * - The Agents section appears after Models in DOM order (design spec)
  * - The Worker section appears before Backend in DOM order (design spec)
  *
- * Also: AC-5 partial — no "Email digests" control in SettingsPage.
+ * Also: no "Email digests" control in SettingsPage.
  *
- * @lore AF15: SettingsPage is a stacked page; sections are mounted unconditionally.
+ * @lore: SettingsPage is a stacked page; sections are mounted unconditionally.
  * SettingsWorker self-gates (renders an explanatory message in web/local mode).
  * SettingsAgents fetches /api/agents independently.
  */
@@ -50,7 +50,7 @@ beforeEach(async () => {
 		if (urlStr.includes("/api/harnesses")) {
 			return Promise.resolve(
 				new Response(
-					// AM4: SettingsHarnesses now renders in SettingsPage and requires full descriptors.
+					// SettingsHarnesses now renders in SettingsPage and requires full descriptors.
 					// Return a minimal but complete HarnessCapabilityDescriptor to avoid render errors.
 					JSON.stringify([
 						{
@@ -170,8 +170,8 @@ describe("SettingsPage: new sections mounted", () => {
 		});
 	});
 
-	// AV2: "worker" section removed (folded under Backend) — test deleted.
-	// AV2: "models" section removed (folded into builtin harness detail) — test deleted.
+	// "worker" section removed (folded under Backend) — test deleted.
+	// "models" section removed (folded into builtin harness detail) — test deleted.
 
 	it("agents section co-exists with profile and backend sections", async () => {
 		const { SettingsPage } = await import("../pages/SettingsPage.js");
@@ -184,7 +184,7 @@ describe("SettingsPage: new sections mounted", () => {
 			expect(screen.getByTestId("settings-section-profile")).toBeInTheDocument();
 			expect(screen.getByTestId("settings-section-agents")).toBeInTheDocument();
 			expect(screen.getByTestId("settings-section-backend")).toBeInTheDocument();
-			// AV2: worker and models sections removed
+			// worker and models sections removed
 			expect(screen.queryByTestId("settings-section-worker")).toBeNull();
 			expect(screen.queryByTestId("settings-section-models")).toBeNull();
 		});
@@ -200,7 +200,7 @@ describe("SettingsPage: new sections mounted", () => {
 		await waitFor(() => {
 			const agents = screen.getByTestId("settings-section-agents");
 			const backend = screen.getByTestId("settings-section-backend");
-			// agents should appear before backend in the DOM (AV2: models removed)
+			// agents should appear before backend in the DOM (models removed)
 			expect(
 				agents.compareDocumentPosition(backend) & Node.DOCUMENT_POSITION_FOLLOWING,
 			).toBeTruthy();

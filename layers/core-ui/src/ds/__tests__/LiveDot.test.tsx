@@ -1,18 +1,18 @@
 /**
- * AI4 — One status language: LiveDot component tests (red phase)
+ * One status language: LiveDot component tests.
  *
- * AC3: The live-activity pulse appears wherever an in-progress/live state is
+ * The live-activity pulse appears wherever an in-progress/live state is
  * shown — one component, same signal, every surface.
  *
- * Plan Task 5: Promote LiveDot from WorkTask/TaskSheet to the design system
- * as a standalone component with the exact body:
+ * Promote LiveDot from WorkTask/TaskSheet to the design system as a
+ * standalone component with the exact body:
  *   aria-hidden inline-block w-[6px] h-[6px] rounded-[var(--r-pill)]
  *   bg-[var(--accent-primary)] animate-pulse shrink-0
  *
  * NOTE: This test lives in design-system/__tests__ because LiveDot is a
  * design-system primitive. The test uses renderToStaticMarkup / lightweight
  * snapshot assertions that don't need a full DOM, OR we rely on the
- * no-jsdom pattern that the design-system W2-primitives.test uses.
+ * no-jsdom pattern used elsewhere in the design system.
  *
  * These tests FAIL until LiveDot is created at
  * `framework/design-system/src/LiveDot.tsx` and exported from index.ts.

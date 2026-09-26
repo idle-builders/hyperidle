@@ -12,7 +12,7 @@ import { deriveBlocks } from "../../../block/index.js";
 import { buildArtifactSrcdoc } from "../../../ds/artifact-frame/build-srcdoc.js";
 import { DocumentBody } from "../DocumentBody.js";
 
-// ── T1 — Empty body renders (no content yet) with no <pre> and no Block shells ──
+// ── Empty body renders (no content yet) with no <pre> and no Block shells ──
 
 describe("DocumentBody — empty body", () => {
 	it("renders (no content yet) paragraph when body is empty string", () => {
@@ -43,7 +43,7 @@ describe("DocumentBody — empty body", () => {
 	});
 });
 
-// ── T2 — 3-paragraph body renders 3 Block shells with no card / border / <pre> ──
+// ── 3-paragraph body renders 3 Block shells with no card / border / <pre> ──
 
 const THREE_SENTENCE_BODY = `JWT-based authentication with refresh tokens. Access tokens expire in 15 minutes.
 
@@ -71,7 +71,7 @@ describe("DocumentBody — three-sentence belief", () => {
 	});
 });
 
-// ── T3 — Heading hierarchy ──
+// ── Heading hierarchy ──
 
 const HEADING_BODY = `# Onboarding playbook
 
@@ -149,7 +149,7 @@ describe("DocumentBody — html block sanitizer pass-through", () => {
 	});
 });
 
-// ── T5 — memo re-invokes deriveBlocks when body/hostId changes ──
+// ── memo re-invokes deriveBlocks when body/hostId changes ──
 
 describe("DocumentBody — memo re-render on prop change", () => {
 	it("re-renders with new content when body prop changes", () => {
@@ -168,7 +168,7 @@ describe("DocumentBody — memo re-render on prop change", () => {
 	});
 });
 
-// ── T-SEC-1 — XSS defence: DOMPurify strips active payloads ──
+// ── XSS defence: DOMPurify strips active payloads ──
 
 describe("DocumentBody — XSS defence", () => {
 	it("(a) strips <script> tags — no script elements in DOM and window.__pwn undefined", () => {
@@ -220,8 +220,8 @@ describe("DocumentBody — XSS defence", () => {
 	it("(f) markdown javascript: link href is sanitised — regression guard", () => {
 		// @lore deriveBlocks itself already strips javascript: hrefs from markdown
 		// links (inlineFromMd degrades hostile links to plain text). This test is
-		// a regression guard at the L23 boundary: if L2 behaviour changes, this
-		// test catches it. If it fails, it means L2's renderInline has a bug —
+		// a regression guard at the inline-render boundary: if that behaviour
+		// changes, this test catches it. If it fails, it means renderInline has a bug —
 		// file it as a follow-up.
 		const body = "[click](javascript:alert(1))\n";
 		const { container } = render(<DocumentBody body={body} hostId="k-xss-f" />);
@@ -441,7 +441,7 @@ describe("DocumentBody — block-id stability", () => {
 	});
 });
 
-// ── T7 — Round-trip lossless: fixture body covers all supported kinds ──
+// ── Round-trip lossless: fixture body covers all supported kinds ──
 
 // A body that exercises heading, paragraph, list, quote, code, table, divider,
 // image, and html. (The "unknown" kind is exercised separately via oversize gate.)
@@ -560,7 +560,7 @@ function makeMessage(id: string, blockId?: string): Message {
 	};
 }
 
-// ── AC-2: Orphan messages show "anchor lost" indicator ──
+// ── Orphan messages show "anchor lost" indicator ──
 
 describe("Anchor-lost indicator appears for orphan messages", () => {
 	it("renders 'anchor lost' text when messages are anchored to a non-existent block", () => {
@@ -594,7 +594,7 @@ describe("Anchor-lost indicator appears for orphan messages", () => {
 			/>,
 		);
 
-		// The message content must still be visible (AC-4 corollary: messages are shown)
+		// The message content must still be visible
 		expect(screen.getByText(/anchored to block-orphan/i)).toBeInTheDocument();
 		expect(screen.getByTestId("anchor-lost-indicator")).toBeInTheDocument();
 	});
@@ -618,7 +618,7 @@ describe("Anchor-lost indicator appears for orphan messages", () => {
 	});
 });
 
-// ── AC-2: Anchored messages with a live block do NOT show indicator ──
+// ── Anchored messages with a live block do NOT show indicator ──
 
 describe("No anchor-lost indicator for messages anchored to existing blocks", () => {
 	it("does NOT render 'anchor lost' for messages whose blockId matches a rendered block", () => {

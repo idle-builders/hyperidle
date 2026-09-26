@@ -1,13 +1,13 @@
 /**
- * D8 (POLISH-060) — SettingsConnections: empty groups are hidden, not bare grey boxes.
+ * SettingsConnections: empty groups are hidden, not bare grey boxes.
  *
- * AC: empty source groups (inherited/token/mcp) do not render a bare empty list;
- * groups with zero connections are fully hidden.
+ * Empty source groups (inherited/token/mcp) do not render a bare empty
+ * list; groups with zero connections are fully hidden.
  *
- * @lore BC5 T10/T19: mocks `call` at the door (`open_user({}).connections`)
- * instead of `apiFetch`. The inherited fixture uses the real wire shape
+ * @lore: mocks `call` at the door (`open_user({}).connections`) instead of
+ * `apiFetch`. The inherited fixture uses the real wire shape
  * (`ConnectionView`: id/service/via/authSource/health/removable) the
- * connections door actually returns for inherited rows — see T19.
+ * connections door actually returns for inherited rows.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";

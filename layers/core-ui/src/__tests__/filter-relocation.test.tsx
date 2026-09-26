@@ -1,11 +1,10 @@
 /**
- * U6 — Filter relocation tests (AC-16, updated for AF14).
+ * Filter relocation tests.
  *
- * AC-16: Conversations filter controls live in the main pane (Conversations page),
- *        NOT in the Sidebar.
- *
- * AF14 AC4 update: Blocking/Unread chips have been removed from the flat list.
- * Tests now verify absence of chip elements and that threads render without filtering.
+ * Conversations filter controls live in the main pane (Conversations
+ * page), NOT in the Sidebar. Blocking/Unread chips have been removed from
+ * the flat list — tests verify their absence and that threads render
+ * without filtering.
  */
 
 import type { ThreadListRow } from "@hyperidle/domain-model";
@@ -15,7 +14,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { AppShell } from "../layouts/AppShell";
 import { Conversations } from "../pages/Conversations";
 
-// @lore BC3: the thread list now comes from `useThreads({mine:true})` →
+// @lore: the thread list now comes from `useThreads({mine:true})` →
 // `call("search_threads", ...)`, not `GET /api/threads`.
 const { callMock } = vi.hoisted(() => ({ callMock: vi.fn() }));
 vi.mock("../services/call.js", () => ({ call: callMock }));
@@ -119,7 +118,7 @@ describe("Conversations page — filter controls live in the main pane", () => {
 				0,
 			);
 		});
-		// AF14 AC4: chips removed
+		// chips removed
 		expect(screen.queryByRole("button", { name: /^blocking$/i })).not.toBeInTheDocument();
 		expect(screen.queryByRole("button", { name: /^unread$/i })).not.toBeInTheDocument();
 	});
@@ -138,7 +137,7 @@ describe("Conversations page — filter controls live in the main pane", () => {
 			const pressedInSidebar = sidebar.querySelector("[aria-pressed]");
 			expect(pressedInSidebar).toBeNull();
 		}
-		// The main content area has no chip buttons either (AF14 AC4)
+		// The main content area has no chip buttons either
 		const mainContent = container.querySelector("[data-testid='main-content']");
 		expect(mainContent).toBeInTheDocument();
 		const chipsInMain = mainContent?.querySelector(
@@ -166,7 +165,7 @@ describe("Conversations page — filter controls live in the main pane", () => {
 		// Old tab pattern must not exist
 		expect(screen.queryByRole("tab", { name: /^all$/i })).not.toBeInTheDocument();
 		expect(screen.queryByRole("tab", { name: /^async$/i })).not.toBeInTheDocument();
-		// AF14: chip buttons also removed
+		// chip buttons also removed
 		expect(screen.queryByRole("button", { name: /^blocking$/i })).not.toBeInTheDocument();
 		expect(screen.queryByRole("button", { name: /^unread$/i })).not.toBeInTheDocument();
 	});

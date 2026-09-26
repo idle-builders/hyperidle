@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * AI6 — RED phase: token-presence test.
+ * Token-presence test.
  *
  * Asserts that the 5 new tokens (+ the pre-existing --scrim) all resolve to
  * non-empty values on :root after tokens.css is injected into jsdom.
@@ -8,7 +8,7 @@
  * AC: "Zero hardcoded colors; tints + scrim have tokens" — token-presence half.
  * Fails until tokens.css adds the 5 new declarations.
  *
- * @lore AI6: jsdom does not evaluate `@layer base { :root { ... } }` cascade
+ * @lore: jsdom does not evaluate `@layer base { :root { ... } }` cascade
  * layers — getComputedStyle returns "" for all custom properties inside @layer.
  * We strip the `@layer base {` wrapper before injection so the :root block is
  * a direct top-level rule. This is still "load the CSS module so jsdom can

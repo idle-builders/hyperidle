@@ -1,9 +1,9 @@
 /**
- * AH4 — Component tests: AgentAddDialog placement affordance.
+ * AgentAddDialog placement affordance.
  *
- * AC2: AgentAddDialog renders a read-only "TEAM {teamName}" KeyValue
- * placement line when the teamName prop is provided.
- * The label is "TEAM" (uppercase) and the value is the team name.
+ * AgentAddDialog renders a read-only "TEAM {teamName}" KeyValue placement
+ * line when the teamName prop is provided. The label is "TEAM" (uppercase)
+ * and the value is the team name.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";

@@ -1,18 +1,18 @@
 /**
- * Q1 — AC1 / AC2 / AC3: RecipientPicker component.
+ * RecipientPicker component.
  *
  * Architecture plan §4.4: inline recipient picker for new DM thread creation.
  * States: browsing (search + list), selected (recipient + message input), sending.
  *
- * @lore AU26 J4: `useRecipients` combines the recipient list with a live busy dot.
+ * @lore: `useRecipients` combines the recipient list with a live busy dot.
  *
- * @lore BC5 T9: the recipient list itself is now `call("search_users", { status:
+ * @lore: the recipient list itself is now `call("search_users", { status:
  * "active", name? })` — the door swap replacing `apiFetch("/api/recipients")`.
  * `search_sessions` (the live busy dot) and `send_message` (starting the DM
  * thread) already rode `call`. All three now go through the one module-wide
  * `call` mock, routed by action name.
  *
- * @lore BC3: sending the first message POSTs no route — the picker's
+ * @lore: sending the first message POSTs no route — the picker's
  * `handleSend` starts the thread via
  * `call("send_message", {recipients, text, clientKey})`
  * (`components/RecipientPicker.tsx`).
@@ -106,7 +106,7 @@ describe("RecipientPicker", () => {
 		vi.restoreAllMocks();
 	});
 
-	// AC1: opening "New thread" puts focus in the search field immediately —
+	// opening "New thread" puts focus in the search field immediately —
 	// no click needed to start typing a recipient's name.
 	it("renders a search input on mount and focuses it", async () => {
 		stubCall();
@@ -116,7 +116,7 @@ describe("RecipientPicker", () => {
 		expect(input).toHaveFocus();
 	});
 
-	// AC1: the trigger has a real accessible name — a <span> next to the
+	// the trigger has a real accessible name — a <span> next to the
 	// button (pre-fix) leaves it name:"" for assistive tech.
 	it("names the combobox trigger for assistive tech", () => {
 		stubCall();
@@ -125,7 +125,7 @@ describe("RecipientPicker", () => {
 		expect(screen.getByRole("combobox", { name: "Recipient" })).toBeInTheDocument();
 	});
 
-	// AC2: recipient list is rendered from search_users, once loaded
+	// recipient list is rendered from search_users, once loaded
 	it("renders a list of recipients after loading", async () => {
 		stubCall();
 
@@ -137,7 +137,7 @@ describe("RecipientPicker", () => {
 		expect(screen.getByText("Founder")).toBeInTheDocument();
 	});
 
-	// AC2: agents with active sessions show a "Live" indicator
+	// agents with active sessions show a "Live" indicator
 	it("shows a live indicator for agents with an active session", async () => {
 		stubCall();
 
@@ -163,7 +163,7 @@ describe("RecipientPicker", () => {
 		expect(avatars.length).toBeGreaterThanOrEqual(MOCK_USERS.length);
 	});
 
-	// AC2: clicking a recipient transitions to selected state (message input visible)
+	// clicking a recipient transitions to selected state (message input visible)
 	it("clicking a recipient shows a message input", async () => {
 		const user = (await import("@testing-library/user-event")).default.setup();
 
@@ -183,7 +183,7 @@ describe("RecipientPicker", () => {
 		});
 	});
 
-	// AC1: Escape (while the popover's search is open) calls onCancel
+	// Escape (while the popover's search is open) calls onCancel
 	it("pressing Escape calls onCancel", async () => {
 		const user = (await import("@testing-library/user-event")).default.setup();
 		const onCancel = vi.fn();
@@ -198,7 +198,7 @@ describe("RecipientPicker", () => {
 		expect(onCancel).toHaveBeenCalled();
 	});
 
-	// AC2: empty state when no recipients found
+	// empty state when no recipients found
 	it("shows empty state when search yields no results", async () => {
 		stubCall({ users: [] });
 
@@ -210,7 +210,7 @@ describe("RecipientPicker", () => {
 		});
 	});
 
-	// AC3: submitting starts a DM thread via send_message(recipients)
+	// submitting starts a DM thread via send_message(recipients)
 	it("submitting a message calls send_message with recipients to create a DM thread", async () => {
 		const user = (await import("@testing-library/user-event")).default.setup();
 		const onSelect = vi.fn();

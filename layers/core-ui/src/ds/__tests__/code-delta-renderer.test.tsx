@@ -1,5 +1,4 @@
-// AM5 T2 — Tests for the DS (code,diff) core: CodeDeltaRenderer.
-// RED phase — these fail until the diff/ directory and files are created.
+// Tests for the DS (code,diff) core: CodeDeltaRenderer.
 
 // @vitest-environment jsdom
 import { cleanup, render, screen } from "@testing-library/react";

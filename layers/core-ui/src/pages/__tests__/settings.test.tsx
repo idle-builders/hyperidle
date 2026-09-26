@@ -1,12 +1,11 @@
 /**
- * W3 — Settings AC-47 through AC-52: Red phase tests.
+ * Settings page tests.
  *
- * AC-47: Stacked single-page layout (all sections visible, scrollable).
- * AC-48: "Save profile" button text (lowercase p).
- * AC-49: "Org chart" section label (lowercase c).
- * AC-50: Theme selector as visual swatch cards (not a <select>).
- * AC-51: "Backend" section showing mode.
- * AC-52: Content max-width 680px, centered.
+ * Covers: a stacked single-page layout (all sections visible, scrollable);
+ * "Save profile" button text (lowercase p); "Org chart" section label
+ * (lowercase c); a theme selector as visual swatch cards (not a <select>);
+ * a "Backend" section showing mode; a content column with a 680px
+ * max-width, centered.
  *
  * Also: SettingsPage.tsx must exist (critique CRITICAL-5: missing stories/component).
  */
@@ -59,7 +58,7 @@ function renderSettingsPage(): ReturnType<typeof render> {
 }
 
 // ---------------------------------------------------------------------------
-// AC-47: Stacked single-page layout
+// Stacked single-page layout
 // ---------------------------------------------------------------------------
 describe("Settings stacked single-page layout", () => {
 	it("renders SettingsPage component with data-testid='settings-page'", () => {
@@ -98,7 +97,7 @@ describe("Settings stacked single-page layout", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-48: "Save profile" button text
+// "Save profile" button text
 // ---------------------------------------------------------------------------
 describe("Save profile button text", () => {
 	it("renders 'Save profile' (exact case, lowercase p)", () => {
@@ -115,7 +114,7 @@ describe("Save profile button text", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-49: "Org chart" section label
+// "Org chart" section label
 // ---------------------------------------------------------------------------
 describe("Org chart section label", () => {
 	it("renders org chart section with lowercase 'Org chart' title", () => {
@@ -128,7 +127,7 @@ describe("Org chart section label", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-50: Theme selector as visual swatch cards
+// Theme selector as visual swatch cards
 // ---------------------------------------------------------------------------
 describe("Theme swatch cards (not select)", () => {
 	it("SettingsAppearance does NOT render a <select> for theme", () => {
@@ -177,7 +176,7 @@ describe("Theme swatch cards (not select)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-51: "Backend" section showing mode
+// "Backend" section showing mode
 // ---------------------------------------------------------------------------
 describe("Backend section showing mode", () => {
 	it("renders a Backend section", () => {
@@ -186,7 +185,7 @@ describe("Backend section showing mode", () => {
 	});
 
 	it("Backend section shows mode text (Web, Local, or Shared)", () => {
-		// AF15 AC-3: SettingsBackend now derives mode from window.__HYPERIDLE__
+		// SettingsBackend now derives mode from window.__HYPERIDLE__
 		// instead of hardcoding isLocal=true. In the test environment there is no
 		// bridge, so resolveBackendState() returns "web" → label "Web".
 		renderSettingsPage();

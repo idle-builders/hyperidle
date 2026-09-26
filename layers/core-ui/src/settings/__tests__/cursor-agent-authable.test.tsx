@@ -1,7 +1,7 @@
 /**
- * AW1 — cursor-agent is actionable when discovery reports ready/unauthenticated.
+ * cursor-agent is actionable when discovery reports ready/unauthenticated.
  *
- * @lore BC5 T10: the door swap — `open_user({}).runsOn` replaces `GET
+ * @lore: the door swap — `open_user({}).runsOn` replaces `GET
  * /api/harnesses`; `call` is mocked at the door instead of `fetch`.
  */
 

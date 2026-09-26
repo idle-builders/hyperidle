@@ -1,17 +1,15 @@
 /**
- * U9 AC-10: Canvas/Kanban removal verification.
+ * Canvas/Kanban removal verification.
  *
  * Verifies at the filesystem level that Canvas.tsx, Kanban.tsx, and
  * useCanvasBets.ts have been deleted. Uses existsSync — no dynamic import
  * needed (and avoids Vite's compile-time import resolution that would error
  * on the test file itself).
  *
- * RED PHASE: these tests are written before implementation.
- * GREEN PHASE: tests pass once files are deleted.
- *
- * @lore U9: Dynamic import was tried but Vite's import analysis runs before
- * the test body executes, causing the test *file* to fail to load. Filesystem
- * check is the correct approach for "file must not exist" assertions.
+ * @lore: Dynamic import was tried but Vite's import analysis runs before
+ * the test body executes, causing the test *file* to fail to load.
+ * Filesystem check is the correct approach for "file must not exist"
+ * assertions.
  */
 import { existsSync } from "node:fs";
 import path from "node:path";

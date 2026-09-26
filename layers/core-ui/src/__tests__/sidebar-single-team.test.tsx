@@ -1,13 +1,13 @@
 /**
- * AD3 — AC-1: Sidebar single-team conditional rendering.
+ * Sidebar single-team conditional rendering.
  *
  * When there is exactly 1 team:
  *   - The team list (ul with team sub-items) is NOT rendered in the sidebar Work section.
  *
- * Reviewer note: The existing Sidebar.test.tsx AC-4 uses 1-team scenarios for
- * onSelectTeam testing. Those tests use a single team but assert on click behavior,
- * not on whether the list renders. These AD3 tests assert on the conditional rendering
- * specifically — the list should be suppressed with 1 team.
+ * The existing Sidebar.test.tsx uses 1-team scenarios for onSelectTeam
+ * testing. Those tests use a single team but assert on click behavior, not
+ * on whether the list renders. These tests assert on the conditional
+ * rendering specifically — the list should be suppressed with 1 team.
  */
 
 import { render as renderRaw, screen } from "@testing-library/react";
@@ -17,7 +17,7 @@ import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { Sidebar } from "../shell/Sidebar";
 
-// UI-080: Sidebar uses <Link> — requires router context.
+// Sidebar uses <Link> — requires router context.
 function render(element: ReactElement): ReturnType<typeof renderRaw> {
 	return renderRaw(<MemoryRouter>{element}</MemoryRouter>);
 }

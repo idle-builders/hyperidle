@@ -1,5 +1,5 @@
 /**
- * L1a — `ThreadHostBanner` rendering tests.
+ * `ThreadHostBanner` rendering tests.
  *
  * Red phase: the component throws "Not implemented"; every render
  * test surfaces the error.

@@ -134,7 +134,7 @@ describe("ReviewBatch — no fabrication", () => {
 
 	it("does not claim a policy routed the item to you when no draft field exists at all", () => {
 		// The sole flagged item starts expanded by default, derived from the
-		// payload's own first flagged item, so the L3 panel this assertion
+		// payload's own first flagged item, so the panel this assertion
 		// reads is already open — no click needed.
 		render(<Canvas artifact={artifactWith(SENTINEL_PAYLOAD)} />);
 

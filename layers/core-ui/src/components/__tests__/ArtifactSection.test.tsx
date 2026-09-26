@@ -10,9 +10,9 @@
  *  - emptyDescription prop forwarded to EmptyState
  *  - populated: renders one Row per item
  *  - heading rendered when provided
- *  - AC10: clicking a row enters split mode, renders detail pane
+ *  - clicking a row enters split mode, renders detail pane
  *
- * @lore BC4: repointed off `useParentedKnowledgeItems`/`useKnowledgeItem` onto
+ * @lore: repointed off `useParentedKnowledgeItems`/`useKnowledgeItem` onto
  * `useDocuments`/`useDocument` (architecture.md §9.2, §5.2).
  */
 
@@ -298,7 +298,7 @@ describe("ArtifactSection", () => {
 		});
 	});
 
-	// ── AC10: click → split detail ────────────────────────────────────────────
+	// ── click → split detail ────────────────────────────────────────────────────
 
 	it("clicking an item row renders the split detail pane", async () => {
 		vi.mocked(useDocuments).mockReturnValue({

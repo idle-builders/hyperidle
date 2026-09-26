@@ -1,5 +1,5 @@
 /**
- * AE4 AC-2 — Mobile drawer tests.
+ * Mobile drawer tests.
  *
  * At viewport <= 768px, the sidebar collapses to a drawer. A hamburger button
  * opens the drawer. Clicking the scrim closes the drawer. On desktop, the

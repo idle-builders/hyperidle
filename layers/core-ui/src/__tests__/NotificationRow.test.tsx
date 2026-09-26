@@ -32,7 +32,7 @@ describe("NotificationRow", () => {
 	it("does not render source Tag when omitted", () => {
 		const { container } = render(<NotificationRow {...defaultProps} />);
 		// No Tag elements should be rendered when source is omitted.
-		// AZ7: rounded-[var(--r-pill)] is no longer a Tag-unique marker — every
+		// rounded-[var(--r-pill)] is no longer a Tag-unique marker — every
 		// pill-shaped element (Tag, StatusChip, its dot) now shares the SAME
 		// token spelling (Trade-off 1: pill has exactly one spelling). Tag's
 		// own data-ds-component marker is the unique, reliable selector.

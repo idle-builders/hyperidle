@@ -1,7 +1,7 @@
 /**
  * useRecipients hook.
  *
- * @lore BC5 T9: the door swap — `call("search_users", { status: "active", name?
+ * @lore: the door swap — `call("search_users", { status: "active", name?
  * })` replaces `apiFetch("/api/recipients")`. `search_sessions` (the active-session
  * count) is untouched. `call` is mocked directly (the same idiom SettingsPlugins'
  * own test uses); the two calls are routed by action name.

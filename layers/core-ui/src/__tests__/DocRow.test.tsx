@@ -190,8 +190,8 @@ describe("DocRow signals prop", () => {
 		expect(container.textContent).toContain("—");
 	});
 
-	// citation null (staged) → em dash — AC-3
-	it("renders em dash for null citation (staged — AC-3)", () => {
+	// citation null (staged) → em dash
+	it("renders em dash for null citation (staged)", () => {
 		act(() => {
 			root.render(
 				createElement(DocRow, {

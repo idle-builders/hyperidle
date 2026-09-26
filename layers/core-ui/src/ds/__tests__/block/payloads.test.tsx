@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 /**
- * L2 AC-29 (per-kind payload renderers): each per-kind payload component
+ * Per-kind payload renderers: each per-kind payload component
  * mounts and produces the expected primary semantic element. Per-kind
  * renderers live in framework/design-system/src/block/ and are NOT exported
  * from the package barrel.
@@ -14,7 +14,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 // biome-ignore lint/style/useNamingConvention: React's flag name is fixed.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-// @lore R3: dynamic imports under jsdom take 10-30s due to remark/unified
+// @lore: dynamic imports under jsdom take 10-30s due to remark/unified
 // (via @hyperidle/block-derivation) cold module loading. All tests in this file use
 // { timeout: 60_000 } to match the pattern in framework/block-derivation and framework/db.
 const TEST_TIMEOUT = { timeout: 60_000 };
@@ -191,7 +191,7 @@ describe("Per-kind payload renderers", () => {
 				reason: "parser-unrecognised",
 			}) as ReactElement,
 		);
-		// AZ6: the internal reason maps to plain words before it reaches the screen.
+		// the internal reason maps to plain words before it reaches the screen.
 		expect(container.textContent ?? "").toMatch(/couldn't read/i);
 		// Raw source rendered as text content (not inner HTML).
 		expect(container.querySelector("pre, code")).toBeTruthy();

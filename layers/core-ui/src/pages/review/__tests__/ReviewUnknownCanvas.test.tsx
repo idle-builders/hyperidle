@@ -79,7 +79,7 @@ describe("ReviewUnknownCanvas", () => {
 		expect(canvas).not.toBeEmptyDOMElement();
 	});
 
-	it("UI-108: renders 'No dedicated canvas' explanation text", () => {
+	it("renders 'No dedicated canvas' explanation text", () => {
 		// Users land on this canvas when no renderer exists for the artifact kind.
 		// They must see an explanation rather than a blank or silent surface.
 		render(

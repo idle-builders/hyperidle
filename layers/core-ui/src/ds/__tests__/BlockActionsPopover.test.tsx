@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 /**
- * L2 AC-31, AC-42 — <BlockActionsPopover /> coverage.
+ * <BlockActionsPopover /> coverage.
  */
 
 import { act, createElement, type ReactElement } from "react";

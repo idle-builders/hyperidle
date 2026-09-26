@@ -1,9 +1,9 @@
 /**
- * AD9 — WorkOverview component tests (AC2, AC4, AC11).
+ * WorkOverview component tests.
  *
- * AC2: Team list with per-row status chip + active-bet count subtitle.
- * AC4: All four states — loading, error, empty, populated.
- * AC11: 1-team short-circuit → <Navigate to="/work/team/:id" replace>.
+ * Covers: a team list with a per-row status chip + active-bet count
+ * subtitle; all four states — loading, error, empty, populated; a
+ * 1-team short-circuit → <Navigate to="/work/team/:id" replace>.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
@@ -74,7 +74,7 @@ function renderInRouter(): ReturnType<typeof render> {
 }
 
 // ---------------------------------------------------------------------------
-// AC4 — Loading state
+// Loading state
 // ---------------------------------------------------------------------------
 describe("Loading state", () => {
 	it("renders SkeletonList when loading", () => {
@@ -92,7 +92,7 @@ describe("Loading state", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC4 — Error state
+// Error state
 // ---------------------------------------------------------------------------
 describe("Error state", () => {
 	it("renders ErrorState when fetch fails", () => {
@@ -146,7 +146,7 @@ describe("Error state", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC4 — Empty state (0 teams)
+// Empty state (0 teams)
 // ---------------------------------------------------------------------------
 describe("Empty state (0 teams)", () => {
 	it("renders EmptyState when teams array is empty", () => {
@@ -177,7 +177,7 @@ describe("Empty state (0 teams)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC11 — 1-team short-circuit
+// 1-team short-circuit
 // ---------------------------------------------------------------------------
 describe("1-team short-circuit (WorkOverview redirects to the single team)", () => {
 	it("navigates to /work/team/:id when exactly 1 team", async () => {
@@ -236,7 +236,7 @@ describe("1-team short-circuit (WorkOverview redirects to the single team)", () 
 });
 
 // ---------------------------------------------------------------------------
-// AC2 — Populated team list
+// Populated team list
 // ---------------------------------------------------------------------------
 describe("Populated team list (2+ teams)", () => {
 	it("renders work-overview-page testid", () => {
@@ -392,7 +392,7 @@ describe("Populated team list (2+ teams)", () => {
 		expect(screen.getByText("2 teams")).toBeInTheDocument();
 	});
 
-	// @lore BB1: "New bet" renamed to "New task" — root tasks replace bets
+	// @lore: "New bet" renamed to "New task" — root tasks replace bets
 	it("header renders 'New task' button", () => {
 		mockUseTeams.mockReturnValue({
 			data: { teams: [TEAM_A, TEAM_B] },
@@ -404,7 +404,7 @@ describe("Populated team list (2+ teams)", () => {
 		expect(screen.getByRole("button", { name: /new task/i })).toBeInTheDocument();
 	});
 
-	it("'New task' button navigates to /work/task/new (BB1: was /work/bet/new)", async () => {
+	it("'New task' button navigates to /work/task/new (was /work/bet/new)", async () => {
 		const user = userEvent.setup();
 		mockUseTeams.mockReturnValue({
 			data: { teams: [TEAM_A, TEAM_B] },

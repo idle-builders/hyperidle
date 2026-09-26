@@ -1,11 +1,8 @@
 /**
- * AD5 — Sidebar Conversations Blocking Badge (AC-4)
+ * Sidebar Conversations Blocking Badge.
  *
- * Tests that the Sidebar renders a count badge on the Conversations section header
- * when conversationsBlockingCount > 0, and hides it when count is 0.
- *
- * Red phase: Sidebar does NOT yet accept a conversationsBlockingCount prop.
- * These tests will FAIL until the prop is added to Sidebar and the badge rendered.
+ * Tests that the Sidebar renders a count badge on the Conversations section
+ * header when conversationsBlockingCount > 0, and hides it when count is 0.
  */
 
 import { render as renderRaw, screen } from "@testing-library/react";
@@ -14,7 +11,7 @@ import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { Sidebar } from "../shell/Sidebar";
 
-// UI-080: Sidebar uses <Link> — requires router context.
+// Sidebar uses <Link> — requires router context.
 function render(element: ReactElement): ReturnType<typeof renderRaw> {
 	return renderRaw(<MemoryRouter>{element}</MemoryRouter>);
 }
@@ -40,7 +37,7 @@ const defaultProps = {
 };
 
 // ---------------------------------------------------------------------------
-// AD5 — AC-4: Conversations blocking badge
+// Conversations blocking badge
 // ---------------------------------------------------------------------------
 
 describe("Sidebar conversations blocking badge", () => {

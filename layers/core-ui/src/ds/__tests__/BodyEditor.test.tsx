@@ -1,16 +1,13 @@
 // @vitest-environment jsdom
 /**
- * T1 — BodyEditor component tests.
- * Tests cover all 9 acceptance criteria from TRACK-T.md:
- * AC-T1: Component mounts without error
- * AC-T2: Renders markdown content (heading + paragraph)
- * AC-T3: Round-trip fidelity for each block type
- * AC-T4: onChange callback fires on content change
- * AC-T5: editable={false} produces read-only state
- * AC-T6: Placeholder renders when empty
- * AC-T7: Mini variant has no slash menu, inline formatting works
- * AC-T8: Slash menu has 10 items, filtering works
- * AC-T9: Storybook stories exist
+ * BodyEditor component tests.
+ *
+ * Covers: mounts without error; renders markdown content (heading +
+ * paragraph); round-trip fidelity for each block type; onChange fires on
+ * content change; editable={false} produces read-only state; placeholder
+ * renders when empty; the mini variant has no slash menu but inline
+ * formatting works; the slash menu has 10 items and filters; Storybook
+ * stories exist.
  */
 
 import { act, createElement } from "react";
@@ -65,7 +62,7 @@ function cleanup(container: HTMLDivElement, root: Root): void {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AC-T1: Component mounts without error
+// Component mounts without error
 // ─────────────────────────────────────────────────────────────────────────────
 describe("BodyEditor — mount", () => {
 	it("renders without error with empty initialContent", () => {
@@ -99,7 +96,7 @@ describe("BodyEditor — mount", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AC-T2: Renders markdown content
+// Renders markdown content
 // ─────────────────────────────────────────────────────────────────────────────
 describe("BodyEditor — renders markdown content", () => {
 	it("renders heading from markdown", () => {
@@ -136,14 +133,14 @@ describe("BodyEditor — renders markdown content", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AC-T3: Round-trip fidelity
+// Round-trip fidelity
 // ─────────────────────────────────────────────────────────────────────────────
 describe("BodyEditor — round-trip fidelity", () => {
 	/**
 	 * Round-trip tests verify that after loading markdown into the editor,
 	 * the serialized output contains the expected markdown constructs.
 	 * We test structural equivalence by verifying key markers are preserved.
-	 * @lore T1: We can't easily call editor.storage.markdown.getMarkdown() from
+	 * @lore: We can't easily call editor.storage.markdown.getMarkdown() from
 	 * outside the component, so these tests verify the DOM rendering instead,
 	 * plus the onChange output captured from the component.
 	 */
@@ -288,7 +285,7 @@ describe("BodyEditor — round-trip fidelity", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AC-T4: onChange callback fires
+// onChange callback fires
 // ─────────────────────────────────────────────────────────────────────────────
 describe("BodyEditor — onChange callback", () => {
 	it("onChange is not called on initial mount (no spurious fire)", () => {
@@ -315,7 +312,7 @@ describe("BodyEditor — onChange callback", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AC-T5: editable={false} produces read-only state
+// editable={false} produces read-only state
 // ─────────────────────────────────────────────────────────────────────────────
 describe("BodyEditor — read-only mode", () => {
 	it("editable={false} marks the ProseMirror as not editable", () => {
@@ -344,7 +341,7 @@ describe("BodyEditor — read-only mode", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AC-T6: Placeholder renders when empty
+// Placeholder renders when empty
 // ─────────────────────────────────────────────────────────────────────────────
 describe("BodyEditor — placeholder", () => {
 	it("renders default placeholder on empty editor", () => {
@@ -376,7 +373,7 @@ describe("BodyEditor — placeholder", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AC-T7: Mini variant
+// Mini variant
 // ─────────────────────────────────────────────────────────────────────────────
 describe("BodyEditor — mini variant", () => {
 	it("mini variant mounts without error", () => {
@@ -422,7 +419,7 @@ describe("BodyEditor — mini variant", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AC-T8: Slash menu items
+// Slash menu items
 // ─────────────────────────────────────────────────────────────────────────────
 describe("BodyEditor — slash menu items", () => {
 	it("SLASH_MENU_ITEMS has exactly 10 entries", async () => {
@@ -477,7 +474,7 @@ describe("BodyEditor — slash menu items", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AC-T9: Extension builder functions
+// Extension builder functions
 // ─────────────────────────────────────────────────────────────────────────────
 describe("BodyEditor — extensions", () => {
 	it("buildFullExtensions returns an array of extensions", async () => {

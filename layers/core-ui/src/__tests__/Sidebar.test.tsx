@@ -1,18 +1,17 @@
 /**
- * U6 — Sidebar component tests.
+ * Sidebar component tests.
  *
- * AC-1: Sidebar component exists and renders correctly (brand, sections, icons, dividers, bottom strip)
- * AC-3: Conversations section shows up to 5 recent threads; empty state
- * AC-4: Work section shows team sub-items; empty state
- * AC-5: Knowledge section shows scope sub-items (Practices, Products, Factory)
- * AC-6: Active view highlighted on section header
- * AC-7: Active sub-item has elevated bg with shadow
- * AC-9: CoC trigger in sidebar bottom strip
+ * Covers: renders correctly (brand, sections, icons, dividers, bottom strip);
+ * Conversations section shows up to 5 recent threads with an empty state;
+ * Work section shows team sub-items with an empty state; Knowledge section
+ * shows scope sub-items (Practices, Products, Factory); active view is
+ * highlighted on the section header; an active sub-item has an elevated
+ * background with shadow; the Assistant trigger sits in the sidebar bottom
+ * strip.
  *
- * Reviewer note (CRITICAL): Touch targets ≥ 44px (AQ-015) at tablet (768–1024px).
- * Tests verify interactive elements render with appropriate min-height classes.
- *
- * Reviewer note (WARNING): aria-current="page" on active nav items.
+ * Touch targets stay ≥ 44px at tablet widths (768–1024px) — interactive
+ * elements render with appropriate min-height classes. Active nav items
+ * carry aria-current="page".
  */
 
 import { render as renderRaw, screen } from "@testing-library/react";
@@ -23,10 +22,10 @@ import { describe, expect, it, vi } from "vitest";
 import { Sidebar } from "../shell/Sidebar";
 
 /**
- * UI-080: Sidebar now renders <Link> elements (real nav hrefs), which
- * require a router context. Shadow the testing-library render to wrap all
- * renders in MemoryRouter so existing test calls need no changes.
- * Also patches `rerender` so rerenders keep the MemoryRouter context.
+ * Sidebar renders <Link> elements (real nav hrefs), which require a router
+ * context. Shadow the testing-library render to wrap all renders in
+ * MemoryRouter so existing test calls need no changes. Also patches
+ * `rerender` so rerenders keep the MemoryRouter context.
  */
 function render(element: ReactElement): ReturnType<typeof renderRaw> {
 	const result = renderRaw(<MemoryRouter>{element}</MemoryRouter>);
@@ -51,7 +50,7 @@ const defaultProps = {
 	teams: [] as SidebarTeam[],
 	activeTeamId: null,
 	onSelectTeam: vi.fn(),
-	// W3 AC-3: activeScope/onSelectScope removed — scope pills are now in DocumentList
+	// activeScope/onSelectScope removed — scope pills are now in DocumentList
 	onAssistantClick: vi.fn(),
 	assistantOverlayOpen: false,
 	onSettingsClick: vi.fn(),
@@ -68,10 +67,10 @@ function mkTeam(id: string, name: string): SidebarTeam {
 }
 
 // ---------------------------------------------------------------------------
-// AC-1: Brand wordmark and structure
+// Brand wordmark and structure
 // ---------------------------------------------------------------------------
 
-describe("Sidebar — AC-1: structure and brand", () => {
+describe("Sidebar — structure and brand", () => {
 	it("renders the Sidebar shell element (data-ds-shell='Sidebar')", () => {
 		// @lore AD9: SidebarV2 design (founder /human-design-review) removed the
 		// wordmark from the sidebar layout to reduce visual noise in the 200px column.
@@ -84,7 +83,7 @@ describe("Sidebar — AC-1: structure and brand", () => {
 	it("renders three section headers: Conversations, Work, Knowledge", () => {
 		render(<Sidebar {...defaultProps} />);
 		// All three section headers now render visible text labels (visual-parity-audit fix)
-		// UI-080: section headers are <Link> elements (role="link"), not buttons.
+		// Section headers are <Link> elements (role="link"), not buttons.
 		expect(screen.getByRole("link", { name: /^conversations$/i })).toBeInTheDocument();
 		expect(screen.getByRole("link", { name: /^work$/i })).toBeInTheDocument();
 		expect(screen.getByRole("link", { name: /^knowledge$/i })).toBeInTheDocument();
@@ -92,7 +91,7 @@ describe("Sidebar — AC-1: structure and brand", () => {
 
 	it("renders bottom strip with Assistant trigger and Settings (avatar) button", () => {
 		render(<Sidebar {...defaultProps} />);
-		// @lore AD8a: Assistant button (W3 AC-1: sidebar trigger for the assistant overlay)
+		// @lore: the Assistant button is the sidebar trigger for the assistant overlay
 		expect(screen.getByRole("button", { name: /assistant/i })).toBeInTheDocument();
 		// Settings button (avatar)
 		expect(screen.getByRole("button", { name: /settings/i })).toBeInTheDocument();
@@ -106,16 +105,16 @@ describe("Sidebar — AC-1: structure and brand", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-1 (continued): Section header labels visible
+// Section header labels visible
 // visual-parity-audit: icons removed from section headers per mockup spec.
 // All three labels are now visible text (not icon-only).
 // ---------------------------------------------------------------------------
 
-describe("Sidebar — AC-1: section header labels", () => {
+describe("Sidebar — section header labels", () => {
 	it("renders visible text labels on all three section headers", () => {
 		render(<Sidebar {...defaultProps} />);
 		// visual-parity-audit: section headers now use visible mixed-case text, no SVG icons
-		// UI-080: section headers are <Link> elements (role="link"), not buttons.
+		// Section headers are <Link> elements (role="link"), not buttons.
 		expect(screen.getByRole("link", { name: /^conversations$/i })).toBeInTheDocument();
 		expect(screen.getByRole("link", { name: /^work$/i })).toBeInTheDocument();
 		expect(screen.getByRole("link", { name: /^knowledge$/i })).toBeInTheDocument();
@@ -123,10 +122,10 @@ describe("Sidebar — AC-1: section header labels", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-3: Conversations section — up to 5 threads, empty state
+// Conversations section — up to 5 threads, empty state
 // ---------------------------------------------------------------------------
 
-describe("Sidebar — AC-3: Conversations section thread list", () => {
+describe("Sidebar — Conversations section thread list", () => {
 	it("renders up to 5 threads when 7 are provided", () => {
 		const sevenThreads = [1, 2, 3, 4, 5, 6, 7].map((n) => mkThread(`t${n}`));
 		render(<Sidebar {...defaultProps} threads={sevenThreads} />);
@@ -165,10 +164,10 @@ describe("Sidebar — AC-3: Conversations section thread list", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-4: Work section — team sub-items, empty state
+// Work section — team sub-items, empty state
 // ---------------------------------------------------------------------------
 
-describe("Sidebar — AC-4: Work section team list", () => {
+describe("Sidebar — Work section team list", () => {
 	// @lore visual-parity: team sub-items only visible when activeView="work"
 	it("renders 3 team sub-items when 3 teams are provided", () => {
 		const teams = [
@@ -207,7 +206,7 @@ describe("Sidebar — AC-4: Work section team list", () => {
 	});
 
 	it("calls onSelectTeam with team id when a team sub-item is clicked", async () => {
-		// AD3: 2 teams required — single-team hides the list, so clicking would fail.
+		// 2 teams required — single-team hides the list, so clicking would fail.
 		// The test intent is to verify onSelectTeam fires; use 2 teams to keep the list visible.
 		const user = userEvent.setup();
 		const onSelectTeam = vi.fn();
@@ -221,15 +220,15 @@ describe("Sidebar — AC-4: Work section team list", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-5: Knowledge section — no scope sub-items (W3 AC-3)
-// Scope sub-items removed from sidebar per W3 AC-3. Scopes are now handled
+// Knowledge section — no scope sub-items.
+// Scope sub-items removed from the sidebar. Scopes are now handled
 // as inline pills on the DocumentList page.
 // ---------------------------------------------------------------------------
 
-describe("Sidebar — AC-5: Knowledge section scope sub-items", () => {
+describe("Sidebar — Knowledge section scope sub-items", () => {
 	it("does NOT render scope sub-items (Practices/Products/Factory) in the Knowledge section", () => {
 		render(<Sidebar {...defaultProps} />);
-		// W3 AC-3: scope sub-items removed from sidebar — now inline pills on DocumentList
+		// scope sub-items removed from sidebar — now inline pills on DocumentList
 		expect(screen.queryByText("Practices")).not.toBeInTheDocument();
 		expect(screen.queryByText("Products")).not.toBeInTheDocument();
 		expect(screen.queryByText("Factory")).not.toBeInTheDocument();
@@ -237,16 +236,16 @@ describe("Sidebar — AC-5: Knowledge section scope sub-items", () => {
 
 	it("renders the Knowledge section header", () => {
 		render(<Sidebar {...defaultProps} />);
-		// UI-080: section headers are links now
+		// section headers are links now
 		expect(screen.getByRole("link", { name: /^knowledge$/i })).toBeInTheDocument();
 	});
 });
 
 // ---------------------------------------------------------------------------
-// AC-6: Active view highlighted on section header
+// Active view highlighted on section header
 // ---------------------------------------------------------------------------
 
-describe("Sidebar — AC-6: Active view highlighting", () => {
+describe("Sidebar — Active view highlighting", () => {
 	it("Conversations section header has active styling when activeView='conversations'", () => {
 		const { container } = render(<Sidebar {...defaultProps} activeView="conversations" />);
 		// visual-parity-audit: All section headers now render visible text labels.
@@ -285,17 +284,17 @@ describe("Sidebar — AC-6: Active view highlighting", () => {
 		const user = userEvent.setup();
 		const onViewChange = vi.fn();
 		render(<Sidebar {...defaultProps} onViewChange={onViewChange} />);
-		// UI-080: section headers are <Link> elements (role="link"), not buttons.
+		// Section headers are <Link> elements (role="link"), not buttons.
 		await user.click(screen.getByRole("link", { name: /^work$/i }));
 		expect(onViewChange).toHaveBeenCalledWith("work");
 	});
 });
 
 // ---------------------------------------------------------------------------
-// AC-7: Active sub-item has elevated bg with shadow
+// Active sub-item has elevated bg with shadow
 // ---------------------------------------------------------------------------
 
-describe("Sidebar — AC-7: Active sub-item is marked", () => {
+describe("Sidebar — Active sub-item is marked", () => {
 	it("renders the selected thread sub-item", () => {
 		const threads = [mkThread("t-selected"), mkThread("t-other")];
 		const { container } = render(
@@ -315,11 +314,11 @@ describe("Sidebar — AC-7: Active sub-item is marked", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-9: CoC trigger in sidebar bottom strip
+// Assistant trigger in sidebar bottom strip
 // ---------------------------------------------------------------------------
 
-describe("Sidebar — AC-9: CoC trigger", () => {
-	// @lore AD8a: CoC trigger is the "Assistant" button in the sidebar bottom strip
+describe("Sidebar — Assistant trigger", () => {
+	// @lore: the Assistant trigger is the "Assistant" button in the sidebar bottom strip
 	it('CoC trigger button is present with aria-label "Assistant"', () => {
 		render(<Sidebar {...defaultProps} />);
 		expect(screen.getByRole("button", { name: /assistant/i })).toBeInTheDocument();
@@ -354,7 +353,7 @@ describe("Sidebar — AQ-015: Touch target minimum sizes", () => {
 		// Section headers rendered as buttons must have sufficient height
 		// Check the header elements have at least h-8 (32px) — actual enforcement is
 		// in the visual layer; this test ensures the elements exist as buttons
-		// UI-080: section headers are now <a> links (rendered by <Link>), not buttons.
+		// section headers are now <a> links (rendered by <Link>), not buttons.
 		const sectionButtons = container.querySelectorAll("a[data-section-header]");
 		expect(sectionButtons.length).toBeGreaterThanOrEqual(3);
 	});
@@ -448,7 +447,7 @@ describe("Sidebar — Knowledge fast-nav", () => {
 		const noItemsEl = screen.queryByText(/no .*(knowledge|items|threads)/i);
 		// At minimum the fast-nav area renders (no crash) — empty state text varies by impl
 		// Check the knowledge section renders at all (section header present)
-		// UI-080: section headers are links now
+		// section headers are links now
 		expect(screen.getByRole("link", { name: /^knowledge$/i })).toBeInTheDocument();
 		// And no document items render (empty list)
 		expect(screen.queryByText("Engineering handbook")).not.toBeInTheDocument();
@@ -458,12 +457,12 @@ describe("Sidebar — Knowledge fast-nav", () => {
 });
 
 // ---------------------------------------------------------------------------
-// UI-011/012/013: honest error states in sidebar fast-nav
+// Honest error states in sidebar fast-nav
 // When an API call fails, the sidebar must NOT show "No X yet" (which implies
 // success). It must show a short error message instead.
 // ---------------------------------------------------------------------------
 
-describe("Sidebar — UI-011/012/013: honest error states", () => {
+describe("Sidebar — honest error states", () => {
 	it("shows 'Couldn't load threads' (not 'No threads yet') when threadsError=true", () => {
 		render(<Sidebar {...defaultProps} threads={[]} threadsError={true} />);
 		expect(screen.queryByText(/no threads yet/i)).not.toBeInTheDocument();
@@ -490,7 +489,7 @@ describe("Sidebar — UI-011/012/013: honest error states", () => {
 	});
 });
 
-// UI-083 — FastNavItem links are keyboard-focusable
+// FastNavItem links are keyboard-focusable
 // ---------------------------------------------------------------------------
 // The visual defect (focus ring overlapping the item below) requires browser
 // verification — jsdom does not compute layout. The test below proves the
@@ -502,7 +501,7 @@ describe("Sidebar — UI-011/012/013: honest error states", () => {
 // only omission. The fix is in Sidebar.tsx; visual overlap verification is
 // handled by the coordinator in the running app.
 
-describe("Sidebar — UI-083: FastNavItem links are keyboard-focusable", () => {
+describe("Sidebar — FastNavItem links are keyboard-focusable", () => {
 	it("Tab navigation reaches a thread FastNavItem link", async () => {
 		const user = userEvent.setup();
 		render(

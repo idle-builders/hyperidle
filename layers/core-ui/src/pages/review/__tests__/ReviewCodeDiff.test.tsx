@@ -87,7 +87,7 @@ describe("ReviewCodeDiff canvas", () => {
 	});
 
 	// Inverse-proof: ReviewCodeDiff composes the DS CodeDeltaRenderer slot seam.
-	// This test verifies the C1 wiring is real. It will go RED if FileDiff reverts to its
+	// This test verifies the wiring is real. It will fail if FileDiff reverts to its
 	// own hand-rolled hunk/line DOM and stops using CodeDeltaRenderer.
 	//
 	// Proof strategy: CodeDeltaRenderer (the DS core) is what emits `data-diff-type`

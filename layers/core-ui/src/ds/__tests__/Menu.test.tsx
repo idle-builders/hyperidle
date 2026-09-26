@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 /**
- * AG5 — Menu primitive: open/close, Escape, click-outside, roles, keyboard nav, dataAttrs passthrough.
+ * Menu primitive: open/close, Escape, click-outside, roles, keyboard nav, dataAttrs passthrough.
  *
  * Red phase: all tests FAIL until Menu.tsx is created in framework/design-system/src/.
  */
@@ -10,7 +10,6 @@ import { act, createElement, type ReactElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-// @lore AG5: Menu does not exist yet — this import drives the red phase.
 import { Menu, type MenuItem, type MenuProps } from "../Menu.js";
 
 // biome-ignore lint/style/useNamingConvention: React's flag name is fixed.
@@ -261,7 +260,7 @@ describe("Menu: keyboard navigation", () => {
 		await act(async () => {
 			items[0]?.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
 		});
-		// @lore AJ1-ship: Extra act() flush ensures React event handler's focus()
+		// @lore: Extra act() flush ensures React event handler's focus()
 		// call has settled in JSDOM before asserting document.activeElement.
 		// Without this, the focus change can be deferred under parallel test load.
 		await act(async () => {});

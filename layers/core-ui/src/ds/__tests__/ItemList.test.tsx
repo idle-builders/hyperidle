@@ -1,11 +1,10 @@
 // @vitest-environment jsdom
 /**
- * AG6 red phase — ItemList component tests.
+ * ItemList component tests.
  *
- * AC-1: ItemList primitive exists, handles empty/loading/error/populated.
- * AC-5: Empty+loading handled consistently via the primitive/companions.
- *
- * Tests FAIL until framework/design-system/src/ItemList.tsx is created (T3).
+ * Covers: the ItemList primitive exists and handles
+ * empty/loading/error/populated; empty+loading are handled consistently
+ * via the primitive/companions.
  */
 
 import { act, createElement } from "react";

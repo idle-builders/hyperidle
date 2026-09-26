@@ -197,7 +197,7 @@ describe("Conversations page", () => {
 	});
 
 	// -----------------------------------------------------------------------
-	// State D — populated (review-shape) — AM1: ConversationSurface (Part model)
+	// State D — populated (review-shape): ConversationSurface (Part model)
 	// -----------------------------------------------------------------------
 	it("State D: mounts ConversationSurface with a review-shape fetched thread", async () => {
 		callMock.mockImplementation(async (action: string) => {

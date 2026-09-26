@@ -1,7 +1,7 @@
 /**
- * M3 — Thread row rendering: title display, no left-side avatar (E1, E2).
+ * Thread row rendering: title display, no left-side avatar.
  *
- * After the visual parity pass (audit L-25), ThreadRow no longer renders
+ * After the visual parity pass, ThreadRow no longer renders
  * a left-side avatar (img or initials chip). The layout is now:
  *   unread-dot → info (title + preview) → meta (avatars, count, time)
  *

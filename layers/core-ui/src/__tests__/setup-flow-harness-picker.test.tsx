@@ -1,10 +1,11 @@
 /**
  * SetupFlow harness picker — component tests.
  *
- * AC1: Harness picker renders all descriptors; choosability gated on discovery.state.
- * AC4b: the person is created before navigating; the picked harness reaches
- *       the assistant's edit_user call; no credential is written.
- * AC5: graceful degrade — discovery failing must not block setup.
+ * Covers: the harness picker renders all descriptors, with choosability
+ * gated on discovery.state; the person is created before navigating, and
+ * the picked harness reaches the assistant's edit_user call with no
+ * credential written; a graceful degrade — discovery failing must not
+ * block setup.
  *
  * @lore The always-present built-in gateway row this file was written around is
  * gone. It used to be the default selection, the fallback when discovery failed,
@@ -162,7 +163,7 @@ function renderSetupFlow(initialPath = "/setup"): void {
 	);
 }
 
-// ── AC1: All harnesses render; choosability gated on state ───────────────────
+// ── All harnesses render; choosability gated on state ────────────────────────
 
 describe("harness picker renders all descriptors", () => {
 	afterEach(() => {
@@ -245,7 +246,7 @@ describe("harness picker renders all descriptors", () => {
 	});
 });
 
-// ── AC5: Graceful degrade when discovery fails ────────────────────────────────
+// ── Graceful degrade when discovery fails ─────────────────────────────────────
 
 describe("harness picker graceful degrade", () => {
 	afterEach(() => {
@@ -281,7 +282,7 @@ describe("harness picker graceful degrade", () => {
 	});
 });
 
-// ── AC4b: person created first + picked harness reaches the agents ───────────
+// ── person created first + picked harness reaches the agents ─────────────────
 
 describe("setup submit ordering — person before their assistant, no credential", () => {
 	afterEach(() => {

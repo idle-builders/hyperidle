@@ -1,24 +1,18 @@
 /**
- * AD6 — Knowledge Cleanup & Scope Simplification: failing tests (red phase).
+ * Knowledge Cleanup & Scope Simplification tests.
  *
- * Tests assert the NEW behavior. They will fail against current implementation
- * and pass once the implementation is complete.
+ * Covers: static scope pills (All/Shared/Team/Private) always render in
+ * DocumentList; "Shared" filter shows factory items (product/practice
+ * retired as scope values — Shared is factory alone now); "Private" filter
+ * shows only user-scoped items; kind badge NOT rendered in list rows; the
+ * create page has a 3-pill scope picker (not a 7-item dropdown) and no
+ * kind selector; the Team pill is disabled when there is no team context.
  *
- * AC coverage:
- * 1. Static scope pills (All/Shared/Team/Private) always render in DocumentList
- * 2. "Shared" filter shows factory items (product/practice retired as
- *    scope values — Shared is factory alone now)
- * 3. "Private" filter shows only user-scoped items
- * 4. Kind badge NOT rendered in list rows
- * 8. Create page has 3-pill scope picker (not 7-item dropdown)
- * 9. Create page has no kind selector
- * 10. Team pill is disabled when no team context
+ * (Archive and Flag-removed coverage tested `KnowledgeDetail` directly —
+ * moved to `pages/__tests__/DocumentDetail.dialogs.test.tsx` when that page
+ * was rewritten against `call("edit_document", …)`.)
  *
- * Items 5-7 (Archive) and 11 (Flag removed) tested `KnowledgeDetail`
- * directly — moved to `pages/__tests__/DocumentDetail.dialogs.test.tsx`
- * when that page was rewritten against `call("edit_document", …)`.
- *
- * @lore BC4: re-pointed onto `DocumentList`/`useDocuments` — `KnowledgeList`
+ * @lore: re-pointed onto `DocumentList`/`useDocuments` — `KnowledgeList`
  * and its `useFetch("/api/knowledge")` read are gone.
  */
 
@@ -307,7 +301,7 @@ describe("DocumentList kind badge removed from rows", () => {
 	});
 });
 
-// AD6's items 5, 6, 7 (Archive button/navigation/failure) and 11 (Flag
+// Items 5, 6, 7 (Archive button/navigation/failure) and 11 (Flag
 // removed) tested `KnowledgeDetail` directly — moved to
 // `pages/__tests__/DocumentDetail.dialogs.test.tsx`, which now
 // exercises the same archive behavior through `call("edit_document", …)`.
@@ -421,7 +415,7 @@ describe("DocumentCreate Team pill disabled without team", () => {
 	});
 });
 
-// AD6 item 11 (Flag removed from overflow menu) tested `KnowledgeDetail`
+// Item 11 (Flag removed from overflow menu) tested `KnowledgeDetail`
 // directly — the overflow menu no longer has a Flag item at all
 // (architecture.md); nothing left to pin here.
 
@@ -451,7 +445,7 @@ describe("Scope-labels utility", () => {
 		expect(labels).toContain("Team");
 		expect(labels).toContain("Private");
 		expect(labels).not.toContain("Role");
-		// AU26 F2 (founder ruling): the Filesystem scope is gone.
+		// Founder ruling: the Filesystem scope is gone.
 		expect(labels).not.toContain("Filesystem");
 	});
 

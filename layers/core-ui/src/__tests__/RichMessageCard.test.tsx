@@ -1,12 +1,9 @@
 /**
- * L11 step5 (write-tests) — `RichMessageCard` Tier 2 component.
+ * `RichMessageCard` Tier 2 component tests.
  *
- * Approved.md §2.1 (review variant), §2.2 (CommentRow rich-row extension is
- * covered separately), §4 (states), §5.7 (sticky-within-card), §8 (a11y).
- * Plan §5.3 (props), §6.1 (file path), §9 (failure modes).
- *
- * @lore L11 step5: until plan T4 lands the component, the import below
- * fails with "Module not found". This is the desired red-phase failure.
+ * Covers: the review variant, states, sticky-within-card, accessibility,
+ * props, and failure modes. (CommentRow's rich-row extension is covered
+ * separately.)
  */
 
 import type { Message } from "@hyperidle/domain-model";
@@ -65,7 +62,7 @@ function questionnaireMessage(): Message {
 	};
 }
 
-describe("RichMessageCard — review variant (AC-1, AC-8, AC-11)", () => {
+describe("RichMessageCard — review variant", () => {
 	it("mounts and embeds the artifact slot inline", () => {
 		render(
 			<RichMessageCard
@@ -160,7 +157,7 @@ describe("RichMessageCard — review variant (AC-1, AC-8, AC-11)", () => {
 	});
 
 	it("blocking=true exposes a redundant text signal (not just the danger left-border)", () => {
-		// AQ-010 / approved.md §8: blocking must not be color-only.
+		// Blocking must not be color-only.
 		render(
 			<RichMessageCard
 				message={reviewMessage()}
@@ -175,7 +172,7 @@ describe("RichMessageCard — review variant (AC-1, AC-8, AC-11)", () => {
 	});
 });
 
-describe("RichMessageCard — questionnaire variant (AC-9)", () => {
+describe("RichMessageCard — questionnaire variant", () => {
 	it("renders one button per option inside an Answer-options toolbar", () => {
 		render(
 			<RichMessageCard

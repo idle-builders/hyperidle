@@ -1,12 +1,8 @@
 /**
- * AD8b — AssistantAttachButton component tests (RED phase).
+ * AssistantAttachButton component tests.
  *
- * AC-9: Context can be attached from bet cards, task cards, documents,
- *       blocks, and thread messages.
- *
- * This is a rename of CocAttachButton → AssistantAttachButton.
- * Tests import from AssistantAttachButton (the new path) and AssistantContext.
- * Will FAIL until rename is complete.
+ * Context can be attached from bet cards, task cards, documents, blocks,
+ * and thread messages.
  */
 
 import { render, screen } from "@testing-library/react";

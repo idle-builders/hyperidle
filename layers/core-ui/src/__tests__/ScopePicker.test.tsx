@@ -1,5 +1,5 @@
 /**
- * AI5 E4 — `ScopePicker` new DS Tier-1 primitive (RED phase).
+ * `ScopePicker` new DS Tier-1 primitive.
  *
  * Consolidates the 3 hand-rolled scope pill rows + 1 Select into one component.
  * radiogroup of pills; required `testIdPrefix` → per-pill `${prefix}-${id}`;

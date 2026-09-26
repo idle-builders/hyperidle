@@ -1,7 +1,7 @@
 /**
  * DocumentCreate component tests.
  *
- * @lore BC4: repointed off `apiFetch`/`POST /api/knowledge` onto
+ * @lore: repointed off `apiFetch`/`POST /api/knowledge` onto
  * `call("edit_document", …)`; ParentPicker's own read is `useDocuments`, not
  * `useFetch` (architecture.md §9.2).
  *
@@ -9,7 +9,7 @@
  * item is ONE write — the chosen parent rides `edit_document`'s `parent`
  * field. There is no follow-up call.
  *
- * @lore AF13: vi.mock() calls are hoisted to top regardless of scope
+ * @lore: vi.mock() calls are hoisted to top regardless of scope
  * (describe/it/beforeEach). Multiple vi.mock() calls for the same module
  * path in one file → LAST factory wins for ALL tests. This file uses a
  * single file-level vi.mock per module, configured per-describe via

@@ -1,12 +1,12 @@
 /**
- * AM3 — Session View component tests.
+ * Session View component tests.
  *
  * Covers Fix 4 (review finding): zero component/DOM tests existed for
  * ToolPart / ReasoningPart / SessionView aggregation / ChangedFilesPanel /
  * composer pills / self-box alignment.
  *
  * Every test exercises the PRODUCTION component via import — no parallel
- * renderer, no fixture fork (AM3 hard-rule: one message renderer).
+ * renderer, no fixture fork (hard-rule: one message renderer).
  */
 
 import type { ActivityEntry } from "@hyperidle/domain-model";
@@ -350,7 +350,7 @@ describe("SessionView — ChangedFilesPanel", () => {
 // ── Composer pills ────────────────────────────────────────────────────────
 
 describe("SessionView — composer pills", () => {
-	// @lore AU44 B0: deriveComposerPills deleted; per-option pill rendering removed from SessionView.
+	// @lore: deriveComposerPills deleted; per-option pill rendering removed from SessionView.
 	// The test for "renders effort pill when descriptor has effort option" was deleted with the feature.
 
 	it("renders no pills when no descriptor is provided", () => {

@@ -1,18 +1,16 @@
 // @vitest-environment jsdom
 
 /**
- * AI2 — useDialogBehavior hook: dismissal rule + layer resolution (RED phase).
+ * useDialogBehavior hook: dismissal rule + layer resolution.
  *
- * AC-1: One dismissal grammar; dirty input never lost to one Esc/backdrop;
- *       confirmations (isDirty=false) always close.
- * AC-2: Focus in on open, trapped, returns to trigger on close.
- * AC-3: Layer → zIndex resolution.
+ * Covers: one dismissal grammar — dirty input is never lost to a single
+ * Esc/backdrop, and confirmations (isDirty=false) always close; focus
+ * enters on open, is trapped, and returns to the trigger on close; layer →
+ * zIndex resolution.
  *
- * These tests FAIL in the red phase because useDialogBehavior.ts does not exist.
- *
- * @lore AI2: jsdom does not implement `inert` — tests assert focus-trap path
- * and treat `inert` as a graceful no-op. Do NOT assert the `inert` attribute
- * under jsdom; assert it via Playwright (AC-2).
+ * @lore: jsdom does not implement `inert` — tests assert the focus-trap
+ * path and treat `inert` as a graceful no-op. Do NOT assert the `inert`
+ * attribute under jsdom; assert it via a real-browser E2E test instead.
  *
  * @lore AI2: focus-trap-react requires `displayCheck:"none"` under jsdom
  * because jsdom doesn't lay out elements (all computed sizes are 0).
@@ -50,10 +48,10 @@ function BehaviorWrapper({ options }: WrapperProps): null {
 }
 
 // ---------------------------------------------------------------------------
-// AC-1 — Dismissal rule: clean closes immediately
+// Dismissal rule: clean closes immediately
 // ---------------------------------------------------------------------------
 
-describe("useDialogBehavior dismissal rule (AC-1)", () => {
+describe("useDialogBehavior dismissal rule", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 
@@ -217,10 +215,10 @@ describe("useDialogBehavior dismissal rule (AC-1)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-3 — Layer → zIndex resolution
+// Layer → zIndex resolution
 // ---------------------------------------------------------------------------
 
-describe("useDialogBehavior layer → zIndex (AC-3)", () => {
+describe("useDialogBehavior layer → zIndex", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 
@@ -308,7 +306,7 @@ describe("useDialogBehavior layer → zIndex (AC-3)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-1 — modal=false: no scrim props
+// modal=false: no scrim props
 // ---------------------------------------------------------------------------
 
 describe("useDialogBehavior modal=false (non-modal surfaces)", () => {

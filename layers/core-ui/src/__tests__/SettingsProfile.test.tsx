@@ -1,10 +1,9 @@
 /**
- * P4 — SettingsProfile section component tests (Task 8, AC-13, AC-24, AC-25)
+ * SettingsProfile section component tests.
  *
- * Profile section: the display name edit persists via edit_user; a profile
- * carries no email.
- * AC-24: Settings save feedback via toast (toast "Profile saved" appears)
- * AC-25: Profile edits do NOT silently revert (bug fix)
+ * Covers: the display name edit persists via edit_user; a profile carries
+ * no email; save feedback appears via toast ("Profile saved"); profile
+ * edits do NOT silently revert.
  *
  * `call` is mocked directly.
  */
@@ -83,7 +82,7 @@ describe("SettingsProfile", () => {
 		});
 	});
 
-	// AC-24: Toast "Profile saved" on success
+	// Toast "Profile saved" on success
 	it("shows toast 'Profile saved' on successful save", async () => {
 		const user = userEvent.setup();
 		render(<SettingsProfile />);
@@ -101,7 +100,7 @@ describe("SettingsProfile", () => {
 		});
 	});
 
-	// AC-24: Toast on error
+	// Toast on error
 	it("shows error toast when save fails", async () => {
 		callMock.mockResolvedValue({
 			ok: false,
@@ -123,7 +122,7 @@ describe("SettingsProfile", () => {
 		});
 	});
 
-	// AC-25: Save button disabled when form is clean (no changes)
+	// Save button disabled when form is clean (no changes)
 	it("Save Profile button is disabled when form matches saved values", () => {
 		render(<SettingsProfile />);
 
@@ -131,7 +130,7 @@ describe("SettingsProfile", () => {
 		expect(saveBtn).toBeDisabled();
 	});
 
-	// AC-25: Save button enabled when form is dirty
+	// Save button enabled when form is dirty
 	it("Save Profile button is enabled when values differ from saved", async () => {
 		const user = userEvent.setup();
 		render(<SettingsProfile />);
@@ -157,7 +156,7 @@ describe("SettingsProfile", () => {
 		render(<SettingsProfile />);
 		// Should not crash and should show some loading indicator
 		expect(screen.queryByRole("button", { name: /save profile/i })).not.toBeInTheDocument();
-		// AG7: SkeletonList renders role="status" for loading state
+		// SkeletonList renders role="status" for loading state
 		expect(document.querySelector('[role="status"]')).toBeInTheDocument();
 	});
 });

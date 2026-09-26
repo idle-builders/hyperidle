@@ -1,12 +1,9 @@
 /**
- * AI5 E4 migration — ScopeChangeDialog scope picker (RED phase).
+ * ScopeChangeDialog scope picker tests.
  *
- * ScopeChangeDialog is the ONLY scope site that uses a DaisyUI <Select> today.
- * AI5 migrates it to the canonical ScopePicker pill group with a NEW
- * `scope-pill-change` testid prefix (none exists today). These assertions fail
- * now because the Select renders a combobox, not pills.
- *
- * Mirrors the AD3 KnowledgeCreateDialog scope-pill behavioral contract.
+ * ScopeChangeDialog uses the canonical ScopePicker pill group (testid
+ * prefix `scope-pill-change`), mirroring the KnowledgeCreateDialog
+ * scope-pill behavioral contract.
  */
 
 import { render, screen } from "@testing-library/react";
@@ -60,7 +57,7 @@ describe("ScopeChangeDialog — scope-pill-change picker", () => {
 		expect(screen.getByTestId("scope-pill-change-shared")).toBeInTheDocument();
 		expect(screen.getByTestId("scope-pill-change-team")).toBeInTheDocument();
 		expect(screen.getByTestId("scope-pill-change-private")).toBeInTheDocument();
-		// AU26 F2 (founder ruling): the Filesystem scope is gone.
+		// Founder ruling: the Filesystem scope is gone.
 		expect(screen.queryByTestId("scope-pill-change-filesystem")).not.toBeInTheDocument();
 		// @lore nested-knowledge-items: the Role option (scopeKind: "practice")
 		// is gone with the practice scope value.

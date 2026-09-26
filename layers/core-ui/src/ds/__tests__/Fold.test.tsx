@@ -1,13 +1,10 @@
 /**
- * AM1 — Fold (promoted to the design system). RED phase.
+ * Fold (promoted to the design system).
  *
  * The calm collapse-to-summary device (concept §Fold). A quiet collapsed line:
  * optional label · accent CTA ("Show" / "Show session"). `onShow` makes it live
  * — the session fold opens the session dial-in; the work-fold expands the trace.
- * No card, no border (round-7 lock — the heavy session card is dead).
- *
- * RED until `framework/design-system/src/Fold.tsx` exists + is barrel-exported
- * (green-phase task 4).
+ * No card, no border (the heavy session card is dead).
  */
 
 // @vitest-environment jsdom

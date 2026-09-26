@@ -1,19 +1,15 @@
 /**
- * X3 — SettingsAgents component unit tests (updated for AV2, then for subscriptions)
+ * SettingsAgents component unit tests.
  *
- * AC-9: Settings UI Agents section renders agent list (ItemList/Row, not a table)
- * AC-10: REMOVED — inline edit via Edit button replaced by SplitView row-click.
- *         Edit behavior now tested in AV2-SettingsAgents.test.tsx.
- * AC-11: Settings UI add form creates agent with template pre-fill
- * AC-12: Settings UI delete with two-click confirmation
+ * Covers: the Agents section renders an agent list (ItemList/Row, not a
+ * table); an inline edit via row click opens the shared SplitView editor
+ * (Table layout removed in favor of ItemList + Row, no role="table", no
+ * column headers; the Role field is a Combobox, not a native select; the
+ * Delete button has aria-label="Delete <agentName>" — match by label not by
+ * text content); the add form creates an agent with template pre-fill;
+ * delete uses a two-click confirmation.
  *
- * AV2 changes vs original X3:
- *  - Table layout removed → ItemList + Row (no role="table", no column headers)
- *  - Edit button removed → clicking a row opens SplitView destination (AgentEditor)
- *  - Role field changed from <select> to Combobox (custom combobox, not a native select)
- *  - Delete button has aria-label="Delete <agentName>" — match by label not by text content
- *
- * @lore BC5 T9: the door swap — `call("search_users", { kind: "ai" })` +
+ * @lore: the door swap — `call("search_users", { kind: "ai" })` +
  * one `call("open_user", { id })` per row replace `GET /api/agents`;
  * `call("edit_user", ...)` replaces the agent PATCH/POST/DELETE routes
  * (delete is `status: "retired"`, never a hard delete). `call` is mocked at
@@ -359,7 +355,7 @@ vi.mock("../../shell/ToastRegion.js", async () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-9: SettingsAgents renders agent list
+// SettingsAgents renders agent list
 // ---------------------------------------------------------------------------
 
 describe("SettingsAgents renders agent list", () => {
@@ -386,7 +382,7 @@ describe("SettingsAgents renders agent list", () => {
 		render(<SettingsAgents />);
 
 		await waitFor(() => {
-			// UI-042: role displayed as human label via roleLabel(), not raw slug.
+			// role displayed as human label via roleLabel(), not raw slug.
 			expect(screen.getAllByText(/Product Manager/).length).toBeGreaterThan(0);
 			expect(screen.getAllByText(/Builder ·/).length).toBeGreaterThan(0);
 			expect(screen.queryByText(/product_manager/)).not.toBeInTheDocument();
@@ -448,7 +444,7 @@ describe("SettingsAgents renders agent list", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-11: Settings add form creates agent
+// Settings add form creates agent
 // ---------------------------------------------------------------------------
 
 describe("Settings UI add form creates agent", () => {
@@ -714,7 +710,7 @@ describe("Assistant is a row in the agents list", () => {
 
 		await waitFor(() => screen.getByText("Nova"));
 		expect(screen.queryByLabelText(/name/i)).toBeNull();
-		// @lore FR-10: Edit is now behind the "..." actions menu — open menu then click Edit.
+		// @lore: Edit is now behind the "..." actions menu — open menu then click Edit.
 		await user.click(screen.getByRole("button", { name: "Actions for Nova" }));
 		await waitFor(() => screen.getByRole("menuitem", { name: /^edit$/i }));
 		await user.click(screen.getByRole("menuitem", { name: /^edit$/i }));
@@ -724,7 +720,7 @@ describe("Assistant is a row in the agents list", () => {
 		});
 	});
 
-	// @lore BA9f: the role template exists to PREFILL a new agent's identity, and
+	// @lore: the role template exists to PREFILL a new agent's identity, and
 	// editing an existing agent no longer has a box to prefill — it links to that
 	// agent's identity document instead. The door carries `documentIds` up front
 	// (loaded with the row), so there is no separate template fetch to avoid.
@@ -737,7 +733,7 @@ describe("Assistant is a row in the agents list", () => {
 		);
 
 		await waitFor(() => screen.getByText("Atlas"));
-		// @lore FR-10: Edit is now behind the "..." actions menu — open menu then click Edit.
+		// @lore: Edit is now behind the "..." actions menu — open menu then click Edit.
 		await user.click(screen.getByRole("button", { name: "Actions for Atlas" }));
 		await waitFor(() => screen.getByRole("menuitem", { name: /^edit$/i }));
 		await user.click(screen.getByRole("menuitem", { name: /^edit$/i }));
@@ -771,7 +767,7 @@ describe("Agent editor model dropdown uses discovered descriptor.models", () => 
 		);
 
 		await waitFor(() => screen.getByText("Atlas"));
-		// @lore FR-10: Edit is now behind the "..." actions menu — open menu then click Edit.
+		// @lore: Edit is now behind the "..." actions menu — open menu then click Edit.
 		await user.click(screen.getByRole("button", { name: "Actions for Atlas" }));
 		await waitFor(() => screen.getByRole("menuitem", { name: /^edit$/i }));
 		await user.click(screen.getByRole("menuitem", { name: /^edit$/i }));

@@ -5,7 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { Sidebar } from "../shell/Sidebar";
 
-// UI-080: Sidebar uses <Link> — requires router context.
+// Sidebar uses <Link> — requires router context.
 function render(element: ReactElement): ReturnType<typeof renderRaw> {
 	return renderRaw(<MemoryRouter>{element}</MemoryRouter>);
 }
@@ -36,7 +36,7 @@ describe("sidebar navigation system", () => {
 
 		expect(screen.getByText("HyperIdle")).toBeVisible();
 		const primary = screen.getByRole("navigation", { name: "Main navigation" });
-		// UI-080: Conversations/Work/Knowledge are now <Link> elements (role="link");
+		// Conversations/Work/Knowledge are now <Link> elements (role="link");
 		// Notifications remains a button. Query all interactive items by aria-label.
 		const navItems = [
 			...within(primary).queryAllByRole("button"),

@@ -1,21 +1,16 @@
 /**
- * AM1 — PartList: the source-agnostic renderer + per-kind dispatch. RED phase.
+ * PartList: the source-agnostic renderer + per-kind dispatch.
  *
- * Covers:
- *  - AC1: calm author-grouped column — group heads (name+time), consecutive
- *         same-author parts under one head, agent group marked by an agent cue.
- *  - AC2: a block renders as a ReferenceChip; a session reference renders as a
- *         Fold (NOT a chip).
- *  - AC3: each message-type Part renders its contract (prose/review/
- *         questionnaire/resolved); verdict echoes onto the resolved Part.
- *  - AC4: a session renders as a Fold; NO work-log/tool-call rows in the column.
- *  - AC7: an `unknown` Part renders a quiet placeholder (no throw).
- *  - AC8: clicking chips/folds/review buttons fires onOpen with the resolved
- *         OpenTarget — incl. the non-document (bet) host case (C1). NO
- *         destination view mounts.
- *
- * RED until `../components/PartList` (and the `parts/*` sub-renderers) exist
- * (green-phase tasks 5-6).
+ * Covers: a calm author-grouped column — group heads (name+time),
+ * consecutive same-author parts under one head, agent groups marked by an
+ * agent cue; a block renders as a ReferenceChip while a session reference
+ * renders as a Fold (NOT a chip); each message-type Part renders its own
+ * contract (prose/review/questionnaire/resolved), and a verdict echoes onto
+ * the resolved Part; a session renders as a Fold with no work-log/tool-call
+ * rows in the column; an `unknown` Part renders a quiet placeholder (no
+ * throw); clicking chips/folds/review buttons fires onOpen with the
+ * resolved OpenTarget — including the non-document (task) host case — and
+ * no destination view mounts.
  */
 
 import { fireEvent, render, screen, within } from "@testing-library/react";
@@ -51,7 +46,7 @@ const sessionEmbed: Embed = {
 	summary: "Worked for 1m 12s",
 };
 
-// ── AC1 — calm author-grouped column ─────────────────────────────
+// ── calm author-grouped column ─────────────────────────────
 
 describe("PartList — calm author-grouped column", () => {
 	it("renders a head (name) per author group", () => {
@@ -92,7 +87,7 @@ describe("PartList — calm author-grouped column", () => {
 	});
 });
 
-// ── AC2 — embeds render inline ───────────────────────────────────
+// ── embeds render inline ───────────────────────────────────
 
 describe("PartList — inline embeds", () => {
 	it("renders an artifact embed as a ReferenceChip", () => {
@@ -119,7 +114,7 @@ describe("PartList — inline embeds", () => {
 	});
 });
 
-// ── AC3 — every message-type Part renders its contract ───────────
+// ── every message-type Part renders its contract ───────────
 
 describe("PartList — message-type Parts", () => {
 	const reviewPart = {
@@ -174,7 +169,7 @@ describe("PartList — message-type Parts", () => {
 		expect(screen.getByText("Which DB?")).toBeDefined();
 		expect(screen.getByText("Postgres")).toBeDefined();
 		expect(screen.getByText("SQLite")).toBeDefined();
-		// W2: no "Recommended" tag rendered in AM1.
+		// no "Recommended" tag rendered.
 		expect(screen.queryByText(/recommended/i)).toBeNull();
 	});
 
@@ -186,7 +181,7 @@ describe("PartList — message-type Parts", () => {
 	});
 });
 
-// ── AC4 — no work-log content in the column ──────────────────────
+// ── no work-log content in the column ──────────────────────
 
 describe("PartList — session is referenced, never inlined", () => {
 	it("renders no tool-call / work-log rows for a session reference", () => {
@@ -202,7 +197,7 @@ describe("PartList — session is referenced, never inlined", () => {
 	});
 });
 
-// ── AC7 — unknown fallback renders quietly, no throw ─────────────
+// ── unknown fallback renders quietly, no throw ─────────────
 
 describe("PartList — unknown fallback", () => {
 	it("renders a quiet placeholder for an unknown Part without throwing", () => {
@@ -279,7 +274,7 @@ describe("PartList — onOpen routing seam", () => {
 	});
 });
 
-// ── UI-104 — day separators ──────────────────────────────────────
+// ── day separators ──────────────────────────────────────
 
 describe("PartList — day separators", () => {
 	it("renders NO day separator when all messages are on the same day", () => {

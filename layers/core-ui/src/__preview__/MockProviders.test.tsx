@@ -1,13 +1,13 @@
 /**
- * AJ3 — isolation harness proving test (the AC2 proof).
+ * Isolation harness proving test.
  *
- * Discharges AC2 directly: a page-level / data-fed surface mounts via thin
- * mock providers, with NO server, database, or real data. It mounts the REAL
+ * Proves a page-level / data-fed surface mounts via thin mock providers,
+ * with NO server, database, or real data. It mounts the REAL
  * `WorkTaskPage` — fed by a mocked window.fetch returning `open_task`'s
  * `ActionResult<TaskView>` — wrapped in `MockProviders`, and asserts the page
  * renders its real heading.
  *
- * @lore BB1: WorkBet + MOCK_BETS are deleted — WorkTaskPage replaces both.
+ * @lore: WorkBet + MOCK_BETS are deleted — WorkTaskPage replaces both.
  * The overrideBet prop is gone; this test mocks window.fetch to return an
  * `open_task` result so the page short-circuits to the populated state.
  *

@@ -4,7 +4,7 @@
  * tree, edit mode with auto-save and the version-clash banner, Move/Change
  * scope/Archive, and Promote to task.
  *
- * @lore BC4: replaces `KnowledgeDetail.*` — see git history for the mapping;
+ * @lore: replaces `KnowledgeDetail.*` — see git history for the mapping;
  * the fixture fallback (`LEGACY_DETAILS`/`FALLBACK_DETAIL`) it used to
  * exercise is deleted. With nothing returned the page renders an honest
  * not-found state and none of the old fixture strings.

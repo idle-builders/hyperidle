@@ -1,7 +1,7 @@
 /**
  * AgentDetailPane: renders without dialog chrome; Save calls edit_user.
  *
- * @lore BC5 T9: the door swap — `call` mocked at the door. The pane fetches
+ * @lore: the door swap — `call` mocked at the door. The pane fetches
  * its own `open_user({ id: agent.id })` the moment an agent is selected (see
  * AgentDetailPane.tsx's own header comment) — the roster's `AgentConfig`
  * carries no harness/identity data, so the mock's `open_user` branch is what
@@ -27,7 +27,7 @@ vi.mock("../../shell/ToastRegion.js", () => ({
 	useToast: () => ({ showToast: vi.fn() }),
 }));
 
-// @lore AU26 J4: the roster's run state is fetched from `agent-orchestration`
+// @lore: the roster's run state is fetched from `agent-orchestration`
 // (`useRosterRunState`), not stamped onto `RosterMember` by core-api. Stub the
 // hook with the values the wire fixtures used to carry — the row's rendering
 // contract is what these tests cover and it is unchanged.
@@ -127,7 +127,7 @@ afterEach(() => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-3: AgentDetailPane has no role="dialog" + links to the identity document
+// AgentDetailPane has no role="dialog" + links to the identity document
 // ---------------------------------------------------------------------------
 
 describe("AgentDetailPane renders as a detail pane without dialog chrome", () => {
@@ -151,7 +151,7 @@ describe("AgentDetailPane renders as a detail pane without dialog chrome", () =>
 		});
 	});
 
-	// @lore BA9f: the pane used to hold a system-prompt textarea. An agent's
+	// @lore: the pane used to hold a system-prompt textarea. An agent's
 	// identity is a document now, so the pane links to it — one editor
 	// for it, not a third copy.
 	it("links to the agent's identity document instead of editing it inline", async () => {

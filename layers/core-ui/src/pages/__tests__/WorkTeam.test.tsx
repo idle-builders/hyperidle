@@ -2,10 +2,10 @@
  * WorkTeam: team detail page — roster, active tasks, agent health rollup,
  * agent configuration, and the agent split-pane.
  *
- * @lore AU26 J4: the roster's run state is fetched from `agent-orchestration`
+ * @lore: the roster's run state is fetched from `agent-orchestration`
  * (`useRosterRunState`), not stamped onto `RosterMember` by core-api — stub
  * the hook with the values the wire fixtures used to carry.
- * @lore AZ7 B4: the Agent Health tile rolls up per-agent RosterRunState.healthLevel
+ * @lore: the Agent Health tile rolls up per-agent RosterRunState.healthLevel
  * and deliberately does not reuse team.status's own vocabulary
  * ("healthy" | "behind" | "blocked") — it is a different signal.
  */
@@ -359,7 +359,7 @@ describe("WorkTeam active tasks", () => {
 	}
 
 	const TEAM_WITH_TASKS: TeamPageData = {
-		team: { id: "f1-team-1", name: "F1 Test Team", status: "healthy" },
+		team: { id: "f1-team-1", name: "Sample Team", status: "healthy" },
 		roster: [],
 		tasksInProgress: [
 			{
@@ -418,7 +418,7 @@ describe("WorkTeam agent split-pane", () => {
 		agentCategory: "team",
 	};
 	const TEAM_DATA: TeamPageData = {
-		team: { id: "t1", name: "AV4 Team", status: "healthy" },
+		team: { id: "t1", name: "Sample Team", status: "healthy" },
 		roster: [ROSTER_MEMBER],
 		tasksInProgress: [],
 	};
@@ -496,7 +496,7 @@ describe("WorkTeam agent split-pane", () => {
 
 describe("WorkTeam agent configuration", () => {
 	const TEAM_WITH_CATEGORIES: TeamPageData = {
-		team: { id: "ab3-team-1", name: "AB3 Test Team", status: "healthy" },
+		team: { id: "ab3-team-1", name: "Sample Team", status: "healthy" },
 		roster: [
 			{ agentId: "agent-builder-1", name: "Atlas Builder", role: "builder", agentCategory: "team" },
 			{ agentId: "agent-scout-1", name: "Scout Agent", role: "scout", agentCategory: "individual" },
@@ -539,7 +539,7 @@ describe("WorkTeam agent configuration", () => {
 					return Promise.resolve({
 						ok: true,
 						data: {
-							user: { id: "self", team: { id: "ab3-team-1", name: "AB3 Test Team" } },
+							user: { id: "self", team: { id: "ab3-team-1", name: "Sample Team" } },
 							runsOn: [],
 							runConfig: null,
 							documentIds: [],
@@ -728,7 +728,7 @@ describe("WorkTeam agent configuration", () => {
 				expect.objectContaining({
 					kind: "ai",
 					name: "New Custom Agent",
-					team: { name: "AB3 Test Team" },
+					team: { name: "Sample Team" },
 				}),
 			);
 		});

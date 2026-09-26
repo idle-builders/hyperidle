@@ -1,5 +1,5 @@
 /**
- * AF15 RED — SettingsBackend: reads backendMode from window.__HYPERIDLE__ (AC-3).
+ * SettingsBackend: reads backendMode from window.__HYPERIDLE__.
  *
  * Tests three states:
  * - bridge undefined (web mode) → "Web" / "Running in a browser against a remote server."
@@ -7,7 +7,7 @@
  * - bridge, backendMode === "local" → "Local (laptop)"
  * - bridge, backendMode null/undefined → "Local (laptop)" (fallback)
  *
- * @lore AF15: The fix reads backendMode (not platform) from the bridge. The old
+ * @lore: The fix reads backendMode (not platform) from the bridge. The old
  * code had isLocal = true hardcoded — the "Shared (remote)" branch was dead UI.
  */
 

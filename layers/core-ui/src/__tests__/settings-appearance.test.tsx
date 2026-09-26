@@ -1,11 +1,8 @@
 /**
- * W2 — SettingsAppearance density removal test (AC-7).
+ * SettingsAppearance density removal test.
  *
- * AC-7: SettingsAppearance renders only a theme selector.
- *       No density selector exists in the DOM.
- *
- * These tests FAIL in the red phase because SettingsAppearance
- * currently renders both a density select and a theme select.
+ * SettingsAppearance renders only a theme selector — no density selector
+ * exists in the DOM.
  */
 
 // @vitest-environment jsdom
@@ -35,7 +32,7 @@ import { SettingsAppearance } from "../settings/SettingsAppearance.js";
 describe("SettingsAppearance theme-only layout", () => {
 	it("renders the theme selector as swatch cards", () => {
 		const { container } = render(<SettingsAppearance />);
-		// W3 AC-50: theme options are swatch card buttons with aria-label="<Name> theme"
+		// theme options are swatch card buttons with aria-label="<Name> theme"
 		expect(screen.getByLabelText(/light theme/i)).toBeInTheDocument();
 		expect(container.querySelectorAll("[data-theme-option]").length).toBe(3);
 	});
@@ -59,7 +56,7 @@ describe("SettingsAppearance theme-only layout", () => {
 
 	it("renders exactly three swatch cards (no select element)", () => {
 		const { container } = render(<SettingsAppearance />);
-		// W3 AC-50: swatch card pattern — no <select>, exactly 3 swatch buttons
+		// swatch card pattern — no <select>, exactly 3 swatch buttons
 		const selects = container.querySelectorAll("select");
 		expect(selects.length, "SettingsAppearance must not render any <select> elements").toBe(0);
 		const swatches = container.querySelectorAll("[data-theme-option]");
