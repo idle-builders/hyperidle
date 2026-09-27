@@ -70,6 +70,15 @@ export interface RowProps {
 	actions?: ReactNode;
 	onClick?: () => void;
 	/**
+	 * Disables the button-branch row (real `disabled` attribute — button
+	 * only receives an `onClick` handler in that branch, see the wrapper
+	 * heuristic above). A clickable row with no destination (e.g. a "need"
+	 * with no linked artifact) is a dead control without this; a plain
+	 * static row (no `onClick`) has no button to disable, so this is a
+	 * no-op there.
+	 */
+	disabled?: boolean;
+	/**
 	 * When set, the whole row renders as an <a href> link so ⌘-click,
 	 * middle-click, "copy link" and hover-preview all work natively.
 	 * Actions in this mode MUST be display-only (no nested <button>/<a>).
@@ -84,6 +93,22 @@ export interface RowProps {
 	"data-testid"?: string;
 	/** DocumentList triage keyboard focus */
 	"data-focused"?: string;
+	/**
+	 * Renders with a permanent subtle radius and no list-row bottom
+	 * separator — for a standalone nav-style row used outside a bordered
+	 * list (e.g. a sidebar popover trigger sitting among other rounded nav
+	 * rows), as opposed to Row's default list-row shape (square corners
+	 * except when `selected`, a bottom separator between rows).
+	 */
+	rounded?: boolean;
+	/**
+	 * Accessible name override — for a row whose visible `title` is hidden
+	 * at some breakpoint (e.g. icon-only below a width), so the row still
+	 * has a name for assistive tech regardless of what's visually shown.
+	 */
+	"aria-label"?: string;
+	/** For a row that toggles a popover/panel it owns. */
+	"aria-expanded"?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -107,7 +132,6 @@ function renderCell(cell: RowCell, i: number): JSX.Element {
 	const hideClass = cell.hideBelow !== undefined ? `max-[${cell.hideBelow}px]:hidden` : "";
 	return (
 		<span
-			// biome-ignore lint/suspicious/noArrayIndexKey: fixed-position cell columns — order is stable by design
 			key={i}
 			data-testid={cell["data-testid"]}
 			className={`type-data ${[
@@ -136,11 +160,15 @@ export function Row({
 	cells,
 	actions,
 	onClick,
+	disabled = false,
 	href,
 	selected = false,
 	as: asProp,
 	"data-testid": dataTestId,
 	"data-focused": dataFocused,
+	rounded = false,
+	"aria-label": ariaLabel,
+	"aria-expanded": ariaExpanded,
 }: RowProps): JSX.Element {
 	const { variant } = useContext(ItemListContext);
 
@@ -159,11 +187,25 @@ export function Row({
 			].join(" ")
 		: "";
 
+	// A standalone nav-style row (rounded) owns its own permanent radius and
+	// has no list separator to draw; a list row keeps the separator and only
+	// rounds when selected (selectedClasses, above).
+	const shapeClasses = rounded
+		? "rounded-[var(--r-subtle)]"
+		: "border-width-thin-b border-[var(--border-subtle)] last:border-none";
+
+	// A standalone nav-style row sits among sibling nav rows that compact to
+	// 36px on desktop (Sidebar's SectionHeader/NotificationButton) — the
+	// 44px AQ-015 touch floor stays for mobile/tablet, `lg:` (1024px+, the
+	// same breakpoint Button.tsx's own size classes use) restores the dense
+	// height. A list row has no such sibling convention and stays 44px.
+	const heightClasses = rounded ? "min-h-[44px] lg:min-h-[36px]" : "min-h-[44px]";
+
 	const baseClasses = [
 		"flex items-center gap-[12px]",
-		"min-h-[44px]",
+		heightClasses,
 		px,
-		"border-width-thin-b border-[var(--border-subtle)] last:border-none",
+		shapeClasses,
 		selectedClasses,
 	]
 		.filter(Boolean)
@@ -176,15 +218,21 @@ export function Row({
 	const resolvedAs =
 		asProp ?? (onClick && !hasActions ? "button" : hasActions && onClick ? "div" : "div");
 
+	// A standalone nav-style row's title matches its sibling nav rows' own
+	// text style (Sidebar's SectionHeader/FastNavItem both author
+	// type-control directly, not Row's default type-small) rather than the
+	// list-row title weight.
+	const titleClass = rounded
+		? "type-control block text-[var(--text-primary)] truncate flex-1"
+		: "type-small block   text-[var(--text-primary)] truncate flex-1";
+
 	const inner = (
 		<>
 			{lead !== undefined && lead !== null && (
 				<span className="shrink-0 inline-flex items-center">{lead}</span>
 			)}
 			<span className="flex-1 min-w-0">
-				<span className="type-small block   text-[var(--text-primary)] truncate flex-1">
-					{title}
-				</span>
+				<span className={titleClass}>{title}</span>
 				{subtitle !== undefined && subtitle !== null && (
 					<span className="type-metadata block  text-[var(--text-tertiary)] truncate">
 						{subtitle}
@@ -201,6 +249,8 @@ export function Row({
 	const commonProps = {
 		...dsProps("Row", "2"),
 		"aria-current": selected ? ("true" as const) : undefined,
+		"aria-label": ariaLabel,
+		"aria-expanded": ariaExpanded,
 		"data-testid": dataTestId,
 		"data-focused": dataFocused,
 		className: baseClasses,
@@ -241,7 +291,8 @@ export function Row({
 			<button
 				type="button"
 				{...commonProps}
-				className={`w-full text-left ${clickable?.className ?? baseClasses}`}
+				disabled={disabled}
+				className={`w-full text-left disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none ${clickable?.className ?? baseClasses}`}
 				onClick={onClick}
 			>
 				{inner}
@@ -293,7 +344,6 @@ export function Row({
 						.filter(Boolean)
 						.join(" ")}
 				>
-					{/* biome-ignore lint/a11y/useSemanticElements: div[role=button] required — inner <button> elements (actions) cannot be nested inside a <button>; li keeps listitem role */}
 					<div {...clickableProps(onClick, "")} className={innerClickableClass}>
 						{lead !== undefined && lead !== null && (
 							<span className="shrink-0 inline-flex items-center">{lead}</span>
@@ -337,7 +387,6 @@ export function Row({
 					aria-current={commonProps["aria-current"]}
 					className={[liSeparatorClass, selectedClasses].filter(Boolean).join(" ")}
 				>
-					{/* biome-ignore lint/a11y/useSemanticElements: div[role=button] required — li must keep listitem role; inner button not possible without actions (nested button would duplicate semantic) */}
 					<div
 						{...clickableProps(onClick, "")}
 						className={innerClickableClass}
@@ -396,7 +445,6 @@ export function Row({
 					.filter(Boolean)
 					.join(" ")}
 			>
-				{/* biome-ignore lint/a11y/useSemanticElements: div[role=button] required — inner <button> elements (actions) cannot be nested inside it */}
 				<div {...clickableProps(onClick, "")} className={innerClickableClass}>
 					{lead !== undefined && lead !== null && (
 						<span className="shrink-0 inline-flex items-center">{lead}</span>
@@ -422,7 +470,6 @@ export function Row({
 		// This case is covered by button branch above (no actions), but as="div" override
 		// W2 fix: route through clickableProps for consistent hover/focus.
 		return (
-			// biome-ignore lint/a11y/useSemanticElements: forced via as="div" prop override
 			<div {...commonProps} {...clickableProps(onClick, baseClasses)}>
 				{inner}
 			</div>

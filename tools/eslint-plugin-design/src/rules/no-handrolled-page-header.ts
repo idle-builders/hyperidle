@@ -78,7 +78,6 @@ export const noHandrolledPageHeader: Rule.RuleModule = createRule({
 		if (!isInPages(filename)) return {};
 
 		return {
-			// biome-ignore lint/style/useNamingConvention: ESLint visitor methods must match AST node type names
 			JSXAttribute(rawNode: unknown) {
 				const node = rawNode as JSXAttribute;
 				if (node.type !== "JSXAttribute") return;

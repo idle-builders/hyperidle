@@ -56,12 +56,9 @@ export async function getTeam(
  * @example listTeams(db)               — all teams
  * @example listTeams(db, { ids })      — batch by id
  */
-export async function listTeams(
-	db: HyperIdleDb,
-	filter?: { ids?: readonly string[] },
-): Promise<Team[]> {
+export function listTeams(db: HyperIdleDb, filter?: { ids?: readonly string[] }): Promise<Team[]> {
 	if (filter?.ids !== undefined) {
-		if (filter.ids.length === 0) return [];
+		if (filter.ids.length === 0) return Promise.resolve([]);
 		return db
 			.select()
 			.from(teams)

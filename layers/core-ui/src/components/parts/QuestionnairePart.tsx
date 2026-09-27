@@ -15,6 +15,7 @@
  */
 
 import { type JSX, useState } from "react";
+import { Button } from "../../ds";
 import type { Part } from ".";
 
 type QuestionnairePartValue = Extract<Part, { kind: "questionnaire" }>;
@@ -62,6 +63,7 @@ export function QuestionnairePart({
 		>
 			<div className="flex items-start gap-[9px]">
 				<span
+					role="img"
 					aria-label="Quick ask"
 					title="Quick ask"
 					className="mt-[1px] flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] text-[var(--accent-deep)]"
@@ -86,23 +88,11 @@ export function QuestionnairePart({
 				{part.options.map((option) =>
 					onAnswer ? (
 						<li key={option}>
-							<button
-								type="button"
+							<Button
+								variant={selectedAnswer === option ? "secondary" : "ghost"}
+								tone="neutral"
+								size="sm"
 								aria-pressed={selectedAnswer === option}
-								className={
-									selectedAnswer === option
-										? `${CHIP_CLASS} cursor-pointer shadow-[var(--shadow-default)]`
-										: `${CHIP_CLASS} cursor-pointer hover:border-[var(--border-active)] hover:shadow-[var(--shadow-default)] hover:text-[var(--text-primary)]`
-								}
-								style={
-									selectedAnswer === option
-										? {
-												backgroundColor: "var(--accent-primary-dim)",
-												borderColor: "var(--accent-deep)",
-												color: "var(--accent-deep)",
-											}
-										: undefined
-								}
 								onClick={() => {
 									// NEW-16: Re-clicking the already-selected option is a no-op —
 									// don't post a duplicate message to the thread.
@@ -117,7 +107,7 @@ export function QuestionnairePart({
 								}}
 							>
 								{option}
-							</button>
+							</Button>
 						</li>
 					) : (
 						// Static chip when answering is not wired (e.g. story fixtures).

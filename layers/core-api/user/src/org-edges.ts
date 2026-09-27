@@ -41,7 +41,7 @@ import { and, eq, inArray } from "drizzle-orm";
  * @lore `fromUserIds` added — `open_user`'s "edges are the user's outgoing
  * org_edges" needs one batched read, not N single-user ones.
  */
-export async function listOrgEdges(
+export function listOrgEdges(
 	db: HyperIdleDb,
 	filter?: { id?: string; fromUserIds?: readonly string[] },
 ): Promise<Array<typeof orgEdges.$inferSelect>> {
@@ -49,7 +49,7 @@ export async function listOrgEdges(
 		return db.select().from(orgEdges).where(eq(orgEdges.id, filter.id));
 	}
 	if (filter?.fromUserIds !== undefined) {
-		if (filter.fromUserIds.length === 0) return [];
+		if (filter.fromUserIds.length === 0) return Promise.resolve([]);
 		return db
 			.select()
 			.from(orgEdges)

@@ -87,7 +87,7 @@ export function DocRow({
 		>
 			<div className="flex-1 min-w-0">
 				<div className="flex items-center gap-[12px]">
-					<span className={`type-copy ${titleClass}`} aria-label={`Document: ${title}`}>
+					<span data-testid="document-row-title" className={`type-copy ${titleClass}`}>
 						{title}
 					</span>
 					<StatusChip status={documentStatusToStatus(status)} />

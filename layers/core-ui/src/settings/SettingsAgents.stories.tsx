@@ -16,7 +16,8 @@
  */
 
 import type React from "react";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
+import { useStoryFetch } from "../__storybook__/use-story-globals.js";
 import { ToastRegion } from "../shell/ToastRegion.js";
 import { SettingsAgents } from "./SettingsAgents.js";
 
@@ -146,7 +147,7 @@ function mockFetch(
 
 /** Loading state — fetch never resolves. */
 export const Loading = (): React.JSX.Element => {
-	globalThis.fetch = (() => new Promise(() => {})) as typeof fetch;
+	useStoryFetch(useMemo(() => (() => new Promise(() => {})) as typeof fetch, []));
 	return (
 		<Frame>
 			<SettingsAgents />
@@ -157,7 +158,7 @@ Loading.storyName = "Loading State";
 
 /** Error state — fetch fails. */
 export const ErrorState = (): React.JSX.Element => {
-	globalThis.fetch = mockFetch([], true) as typeof fetch;
+	useStoryFetch(useMemo(() => mockFetch([], true) as typeof fetch, []));
 	return (
 		<Frame>
 			<SettingsAgents />
@@ -168,7 +169,7 @@ ErrorState.storyName = "Error State";
 
 /** Empty state — no agents. */
 export const Empty = (): React.JSX.Element => {
-	globalThis.fetch = mockFetch([]) as typeof fetch;
+	useStoryFetch(useMemo(() => mockFetch([]) as typeof fetch, []));
 	return (
 		<Frame>
 			<SettingsAgents />
@@ -179,7 +180,7 @@ Empty.storyName = "Empty State";
 
 /** Populated state — agents listed with harness + model selects. */
 export const Populated = (): React.JSX.Element => {
-	globalThis.fetch = mockFetch(MOCK_AGENTS) as typeof fetch;
+	useStoryFetch(useMemo(() => mockFetch(MOCK_AGENTS) as typeof fetch, []));
 	return (
 		<Frame>
 			<SettingsAgents />
@@ -194,7 +195,7 @@ Populated.storyName = "Populated (two agents)";
  * led by its source Tag), plus the "Add from registry…" Select.
  */
 export const FilesystemInjection = (): React.JSX.Element => {
-	globalThis.fetch = mockFetch(MOCK_AGENTS) as typeof fetch;
+	useStoryFetch(useMemo(() => mockFetch(MOCK_AGENTS) as typeof fetch, []));
 	const rootRef = useRef<HTMLDivElement>(null);
 
 	// Open Builder Bot's edit row after the table paints so the injection control
@@ -225,7 +226,7 @@ FilesystemInjection.storyName = "Per-bot Filesystems injection";
 
 /** Harness unavailable warning — agent's harnessType not in registry. */
 export const HarnessUnavailable = (): React.JSX.Element => {
-	globalThis.fetch = mockFetch(MOCK_AGENT_UNAVAILABLE_HARNESS) as typeof fetch;
+	useStoryFetch(useMemo(() => mockFetch(MOCK_AGENT_UNAVAILABLE_HARNESS) as typeof fetch, []));
 	return (
 		<Frame>
 			<SettingsAgents />

@@ -10,7 +10,7 @@ export type TagKind = "pattern" | "decision" | "failure";
 export interface TagKindMeta {
 	icon: ReactNode;
 	tintClass: string;
-	/** Screen-reader prefix; the wrapper's aria-label becomes `${ariaLabel}: ${label}`. */
+	/** Screen-reader prefix, rendered as an sr-only `${ariaLabel}: ` span before the label. */
 	ariaLabel: string;
 }
 

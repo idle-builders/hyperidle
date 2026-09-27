@@ -8,7 +8,10 @@
  */
 
 import type React from "react";
+import { useMemo } from "react";
 import { MemoryRouter } from "react-router-dom";
+import { useStoryFetch } from "../__storybook__/use-story-globals.js";
+import { DocumentSlotList } from "./DocumentSlotList.js";
 
 interface StoryItem {
 	id: string;
@@ -82,10 +85,14 @@ export default {
 	group: "Settings" as const,
 };
 
-function render(items: readonly StoryItem[], opts?: { listStatus?: number }) {
-	globalThis.fetch = makeMockFetch(items, opts) as typeof fetch;
-	// eslint-disable-next-line @typescript-eslint/no-require-imports
-	const { DocumentSlotList } = require("./DocumentSlotList");
+function SlotListStory({
+	items,
+	opts,
+}: {
+	items: readonly StoryItem[];
+	opts?: { listStatus?: number };
+}): React.JSX.Element {
+	useStoryFetch(useMemo(() => makeMockFetch(items, opts) as typeof fetch, [items, opts]));
 	return (
 		<MemoryRouter>
 			<div className="p-[24px] max-w-[680px] bg-[var(--surface-page)]">
@@ -101,14 +108,16 @@ function render(items: readonly StoryItem[], opts?: { listStatus?: number }) {
 	);
 }
 
-export const Populated = (): React.JSX.Element => render(ITEMS_POPULATED);
+export const Populated = (): React.JSX.Element => <SlotListStory items={ITEMS_POPULATED} />;
 Populated.storyName = "Populated";
 
-export const Empty = (): React.JSX.Element => render([]);
+export const Empty = (): React.JSX.Element => <SlotListStory items={[]} />;
 Empty.storyName = "Empty State";
 
-export const ErrorLoading = (): React.JSX.Element => render([], { listStatus: 500 });
+export const ErrorLoading = (): React.JSX.Element => (
+	<SlotListStory items={[]} opts={{ listStatus: 500 }} />
+);
 ErrorLoading.storyName = "Error State";
 
-export const DeleteConfirm = (): React.JSX.Element => render(ITEMS_POPULATED);
+export const DeleteConfirm = (): React.JSX.Element => <SlotListStory items={ITEMS_POPULATED} />;
 DeleteConfirm.storyName = "Delete (click 'Delete' on a row — one click, no confirm)";

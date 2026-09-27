@@ -1754,7 +1754,7 @@ export const STANDALONE_ATTACKS: readonly StandaloneAttack[] = [
 				"tools/governance/src/governance-new-cells.ts",
 			];
 			const cleanCli =
-				'process.argv.includes("--fixtures");\nprocess.argv.includes("--attacks");\nprocess.argv.includes("--errors-only");\n';
+				'process.argv.includes("--fixtures");\nprocess.argv.includes("--attacks");\n';
 			const run = (files: readonly string[], cliSource: string): readonly Finding[] => {
 				const contents: Record<string, string> = {
 					"tools/governance/src/governance-lint.ts": cliSource,

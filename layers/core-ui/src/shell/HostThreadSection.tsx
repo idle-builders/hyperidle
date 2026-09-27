@@ -40,7 +40,7 @@
 import type { HostKind, Message, ThreadView } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import type { CommentRowSender, ComposerSubmitInput } from "../ds";
-import { CommentRow, Composer, ErrorState, SkeletonList } from "../ds";
+import { CommentRow, Composer, ErrorState, ReferenceChip, SkeletonList } from "../ds";
 import { useThread } from "../hooks/useThread.js";
 import { useThreads } from "../hooks/useThreads.js";
 import { call } from "../services/call.js";
@@ -157,6 +157,10 @@ export function HostThreadSection({
 		}
 	}, [prefill]);
 
+	// Only `resolved.retry` is called below; depending on the whole `resolved`
+	// object (a fresh instance from `useThreads` every render) would rebuild
+	// this callback — and anything keyed on it — on every render.
+	const { retry: retryResolved } = resolved;
 	const handleComposerSubmit = useCallback(
 		async (input: ComposerSubmitInput): Promise<void> => {
 			let targetThreadId = activeThreadId;
@@ -180,9 +184,9 @@ export function HostThreadSection({
 				throw new Error(sent.problems[0]?.message ?? "Failed to post message");
 			}
 			refresh();
-			if (targetThreadId !== activeThreadId) resolved.retry();
+			if (targetThreadId !== activeThreadId) retryResolved();
 		},
-		[activeThreadId, host, prefill?.blockId, refresh, resolved.retry],
+		[activeThreadId, host, prefill?.blockId, refresh, retryResolved],
 	);
 
 	// @lore BC3 review: `useThread(undefined)` is "idle", not "loading" — a
@@ -271,24 +275,21 @@ export function HostThreadSection({
 			)}
 
 			{prefill && (
-				<div
-					data-testid="host-thread-prefill-chip"
-					data-spacing-role="compact-pill"
-					className="type-metadata flex items-center gap-1 px-2 py-1  bg-[var(--surface-elevated)] rounded-[var(--r-pill)] text-[var(--text-tertiary)]"
-				>
-					<span>Re:</span>
-					<span className="truncate">{prefill.blockExcerpt}</span>
-					{onClearPrefill && (
-						<button
-							type="button"
-							aria-label="Cancel block reply"
-							className="type-control ml-auto shrink-0 "
-							onClick={onClearPrefill}
-						>
-							×
-						</button>
-					)}
-				</div>
+				// B2 fix: was a hand-rolled pill+fill div — dodged
+				// no-handrolled-chip only by dropping the pill radius to
+				// rounded-subtle while keeping the fill (still hand-rolled, just
+				// no longer pattern-matched). ReferenceChip's draft mode (no
+				// onOpen) is exactly this shape — a non-interactive reply preview
+				// + a trailing remove control — already used elsewhere for
+				// exactly this "reference to something" chip family.
+				<ReferenceChip
+					kind="block"
+					label={prefill.blockExcerpt}
+					mode="draft"
+					dataTestId="host-thread-prefill-chip"
+					onRemove={onClearPrefill}
+					removeAriaLabel="Cancel block reply"
+				/>
 			)}
 
 			<div ref={composerWrapperRef}>

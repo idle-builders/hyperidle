@@ -408,7 +408,7 @@ function registerSubscriptionServices(
  *   - the pre-auth half of core-api's surface lives in
  *     `registerCoreApiPreAuthRoutes`, not here.
  */
-async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
+function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 	const api = new Hono();
 
 	// S1: shared mode — read from options (test-injectable) or env var (production).
@@ -636,7 +636,7 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		APP_DISPOSERS.set(api, disposers);
 	}
 
-	return api;
+	return Promise.resolve(api);
 }
 
 /**

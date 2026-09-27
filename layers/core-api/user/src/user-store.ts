@@ -121,10 +121,10 @@ export async function findUser(exec: HyperIdleDb, filter: UserFilter): Promise<U
  * `searchUsersByName` (`{nameContains:q}`),
  * plus the former projected getters whose call sites now project inline.
  */
-export async function listUsers(exec: HyperIdleDb, filter: UserFilter = {}): Promise<User[]> {
+export function listUsers(exec: HyperIdleDb, filter: UserFilter = {}): Promise<User[]> {
 	// Fast-path: an empty ids/teamIds array can never match any row.
-	if (filter.ids !== undefined && filter.ids.length === 0) return [];
-	if (filter.teamIds !== undefined && filter.teamIds.length === 0) return [];
+	if (filter.ids !== undefined && filter.ids.length === 0) return Promise.resolve([]);
+	if (filter.teamIds !== undefined && filter.teamIds.length === 0) return Promise.resolve([]);
 
 	const q = exec.select().from(users).where(buildWhere(filter));
 	if (filter.orderById) return q.orderBy(users.id);

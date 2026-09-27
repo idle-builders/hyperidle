@@ -205,9 +205,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	let realAgentOrchestrationTransport:
 		| Parameters<typeof buildAgentOrchestrationPort>[0]
 		| undefined;
-	const agentOrchestrationTransport: Parameters<typeof buildAgentOrchestrationPort>[0] = async (
-		req,
-	) => {
+	const agentOrchestrationTransport: Parameters<typeof buildAgentOrchestrationPort>[0] = (req) => {
 		if (!realAgentOrchestrationTransport) {
 			throw new Error("AgentOrchestrationTransport called before the composed app was built.");
 		}

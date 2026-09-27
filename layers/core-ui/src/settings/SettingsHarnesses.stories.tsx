@@ -10,6 +10,9 @@
  */
 
 import type React from "react";
+import { useMemo } from "react";
+import { useStoryFetch } from "../__storybook__/use-story-globals.js";
+import { SettingsHarnesses } from "./SettingsHarnesses";
 
 export default {
 	title: "SettingsHarnesses",
@@ -124,7 +127,6 @@ const DESCRIPTORS_WITH_DISABLED = MOCK_DESCRIPTORS.map((d) =>
 		: d,
 );
 
-// biome-ignore lint/suspicious/noExplicitAny: Story fixture uses partial descriptor shapes that don't align with the full type
 function makeMockFetch(
 	// biome-ignore lint/suspicious/noExplicitAny: same
 	descriptors: any[] | null,
@@ -152,9 +154,7 @@ function makeMockFetch(
 
 /** Loading state — fetch never resolves. */
 export const Loading = (): React.JSX.Element => {
-	globalThis.fetch = makeMockFetch(null) as typeof fetch;
-	// eslint-disable-next-line @typescript-eslint/no-require-imports
-	const { SettingsHarnesses } = require("./SettingsHarnesses");
+	useStoryFetch(useMemo(() => makeMockFetch(null) as typeof fetch, []));
 	return (
 		<div className="p-[24px] max-w-[680px]">
 			<SettingsHarnesses />
@@ -165,9 +165,7 @@ Loading.storyName = "Loading State";
 
 /** Error state — fetch fails. */
 export const ErrorStory = (): React.JSX.Element => {
-	globalThis.fetch = makeMockFetch([], true) as typeof fetch;
-	// eslint-disable-next-line @typescript-eslint/no-require-imports
-	const { SettingsHarnesses } = require("./SettingsHarnesses");
+	useStoryFetch(useMemo(() => makeMockFetch([], true) as typeof fetch, []));
 	return (
 		<div className="p-[24px] max-w-[680px]">
 			<SettingsHarnesses />
@@ -178,9 +176,7 @@ ErrorStory.storyName = "Error State";
 
 /** Empty state — no descriptors returned. */
 export const Empty = (): React.JSX.Element => {
-	globalThis.fetch = makeMockFetch([]) as typeof fetch;
-	// eslint-disable-next-line @typescript-eslint/no-require-imports
-	const { SettingsHarnesses } = require("./SettingsHarnesses");
+	useStoryFetch(useMemo(() => makeMockFetch([]) as typeof fetch, []));
 	return (
 		<div className="p-[24px] max-w-[680px]">
 			<SettingsHarnesses />
@@ -191,9 +187,7 @@ Empty.storyName = "Empty State";
 
 /** Populated — 5 AM4-scope backends, production shape (caps all-false). */
 export const Populated = (): React.JSX.Element => {
-	globalThis.fetch = makeMockFetch(MOCK_DESCRIPTORS) as typeof fetch;
-	// eslint-disable-next-line @typescript-eslint/no-require-imports
-	const { SettingsHarnesses } = require("./SettingsHarnesses");
+	useStoryFetch(useMemo(() => makeMockFetch(MOCK_DESCRIPTORS) as typeof fetch, []));
 	return (
 		<div className="p-[24px] max-w-[680px]">
 			<SettingsHarnesses />
@@ -204,9 +198,7 @@ Populated.storyName = "Populated (5 backends)";
 
 /** Disabled row — claude-code is turned off (discovery.disabled=true). */
 export const WithDisabledRow = (): React.JSX.Element => {
-	globalThis.fetch = makeMockFetch(DESCRIPTORS_WITH_DISABLED) as typeof fetch;
-	// eslint-disable-next-line @typescript-eslint/no-require-imports
-	const { SettingsHarnesses } = require("./SettingsHarnesses");
+	useStoryFetch(useMemo(() => makeMockFetch(DESCRIPTORS_WITH_DISABLED) as typeof fetch, []));
 	return (
 		<div className="p-[24px] max-w-[680px]">
 			<SettingsHarnesses />

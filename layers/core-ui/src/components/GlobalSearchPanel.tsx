@@ -149,7 +149,6 @@ export function GlobalSearchPanel({
 	return createPortal(
 		<>
 			{/* Scrim / backdrop — closes on click */}
-			{/* biome-ignore lint/a11y/useKeyWithClickEvents: Backdrop is a visual overlay; keyboard close is handled by Escape via useKeyboardNavigation */}
 			<div
 				aria-hidden="true"
 				style={{
@@ -158,7 +157,7 @@ export function GlobalSearchPanel({
 					zIndex: "var(--z-scrim)",
 					background: "var(--scrim)",
 				}}
-				onClick={onClose}
+				onMouseDown={onClose}
 			/>
 			{/*
 			 * @lore focus-trap-react requires tabbableOptions.displayCheck="none" in jsdom
@@ -174,6 +173,8 @@ export function GlobalSearchPanel({
 				}}
 			>
 				{/* Panel — data-dialog-layer + max-w-[640px] on the same node (sanctioned assertion) */}
+				{/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: role is statically typed "dialog" in useDialogBehavior.getOverlayProps — biome can't see through the indirection to know aria-modal is valid here. */}
+				{/* biome-ignore lint/a11y/noStaticElementInteractions: same indirection — role is "dialog", which supports onKeyDown for the Escape-to-close handler. */}
 				<div
 					role={overlayProps.role}
 					aria-modal={overlayProps["aria-modal"]}
@@ -314,7 +315,9 @@ export function GlobalSearchPanel({
 					 * the result list is empty (no query or no matches).
 					 */}
 					{!search.hasResults && (
+						// biome-ignore lint/a11y/useSemanticElements: not a form — <fieldset> doesn't apply to this region; role="group" is what makes the aria-label below take effect.
 						<div
+							role="group"
 							data-testid="search-recent-queries"
 							aria-label="Recent queries"
 							className="type-data border-width-thin-t   text-[var(--text-tertiary)]  border-[var(--border-subtle)] pt-2 px-1"

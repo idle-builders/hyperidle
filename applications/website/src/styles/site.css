@@ -793,7 +793,9 @@ footer {
 	*,
 	*::before,
 	*::after {
+		/* biome-ignore lint/complexity/noImportantStyles: global accessibility override must beat authored component selectors. */
 		animation: none !important;
+		/* biome-ignore lint/complexity/noImportantStyles: global accessibility override must beat authored component selectors. */
 		transition: none !important;
 	}
 	html.js-reveal .reveal {

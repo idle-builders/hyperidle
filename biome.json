@@ -7,7 +7,7 @@
 	"linter": {
 		"enabled": true,
 		"rules": {
-			"recommended": true,
+			"preset": "recommended",
 			"correctness": {
 				"noUnusedImports": "error",
 				"noUnusedVariables": "error",
@@ -19,35 +19,30 @@
 			"suspicious": {
 				"noExplicitAny": "error",
 				"noConsole": "error",
-				"noArrayIndexKey": "warn",
+				"noArrayIndexKey": "error",
 				"noImplicitAnyLet": "error",
 				"noDoubleEquals": "error",
 				"noFallthroughSwitchClause": "error",
 				"noRedeclare": "error",
 				"noShadowRestrictedNames": "error",
-				"noEmptyBlockStatements": "warn",
+				"noEmptyBlockStatements": "error",
 				"noMisleadingCharacterClass": "error",
-				"useAwait": "warn",
+				"useAwait": "error",
 				"useIsArray": "error",
 				"noAssignInExpressions": "error",
-				"noUnknownAtRules": "warn",
-				"useIterableCallbackReturn": "warn"
+				"noUnknownAtRules": "error",
+				"useIterableCallbackReturn": "error",
+				"noTemplateCurlyInString": "off"
 			},
 			"performance": {
-				"noDynamicNamespaceImportAccess": "warn"
+				"noDynamicNamespaceImportAccess": "error"
 			},
 			"complexity": {
 				"noUselessTypeConstraint": "error",
 				"noBannedTypes": "error",
-				"noExcessiveCognitiveComplexity": {
-					"level": "warn",
-					"options": {
-						"maxAllowedComplexity": 25
-					}
-				},
-				"noForEach": "warn",
+				"noForEach": "error",
 				"useFlatMap": "error",
-				"useSimplifiedLogicExpression": "warn",
+				"useSimplifiedLogicExpression": "error",
 				"useNumericLiterals": "error"
 			},
 			"style": {
@@ -57,7 +52,7 @@
 				"useExportType": "error",
 				"noParameterAssign": "error",
 				"useNamingConvention": {
-					"level": "warn",
+					"level": "error",
 					"options": {
 						"strictCase": false,
 						"conventions": [
@@ -75,9 +70,24 @@
 							},
 							{
 								"selector": {
-									"kind": "objectLiteralProperty"
+									"kind": "objectLiteralMember"
 								},
-								"formats": ["camelCase", "snake_case", "CONSTANT_CASE"]
+								"formats": ["camelCase", "snake_case", "CONSTANT_CASE", "PascalCase"],
+								"match": "[:$]?_*(.+?)_*"
+							},
+							{
+								"selector": {
+									"kind": "typeProperty"
+								},
+								"formats": ["camelCase", "snake_case", "CONSTANT_CASE", "PascalCase"],
+								"match": "[:$]?_*(.+?)_*"
+							},
+							{
+								"selector": {
+									"kind": "typeMethod"
+								},
+								"formats": ["camelCase"],
+								"match": "[:$]?_*(.+?)_*"
 							},
 							{
 								"selector": {
@@ -101,7 +111,7 @@
 				"useExponentiationOperator": "error",
 				"useNumberNamespace": "error",
 				"useConsistentCurlyBraces": "error",
-				"noDescendingSpecificity": "warn"
+				"noDescendingSpecificity": "error"
 			},
 			"security": {
 				"noDangerouslySetInnerHtml": "error",
@@ -110,7 +120,7 @@
 			},
 			"a11y": {
 				"noAriaUnsupportedElements": "error",
-				"noNoninteractiveElementToInteractiveRole": "warn",
+				"noNoninteractiveElementToInteractiveRole": "error",
 				"noRedundantAlt": "error",
 				"useAltText": "error",
 				"useAnchorContent": "error",
@@ -121,9 +131,9 @@
 				"useKeyWithClickEvents": "error",
 				"useValidAnchor": "error",
 				"useValidAriaRole": "error",
-				"useAriaPropsSupportedByRole": "warn",
-				"noStaticElementInteractions": "warn",
-				"useSemanticElements": "warn"
+				"useAriaPropsSupportedByRole": "error",
+				"noStaticElementInteractions": "error",
+				"useSemanticElements": "error"
 			}
 		}
 	},
@@ -154,6 +164,7 @@
 			"!.claude/references",
 			"!.claude/rules",
 			"!.claude/skills",
+			"!.hermes",
 			"!.claude/settings.json",
 			"!.claude/settings.local.json",
 			"!.worktrees",
@@ -223,16 +234,6 @@
 					"suspicious": {
 						"noConsole": "off",
 						"noEmptyBlockStatements": "off"
-					}
-				}
-			}
-		},
-		{
-			"includes": ["tools/trace/*.ts"],
-			"linter": {
-				"rules": {
-					"complexity": {
-						"noExcessiveCognitiveComplexity": "off"
 					}
 				}
 			}

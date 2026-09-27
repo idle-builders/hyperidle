@@ -59,7 +59,7 @@ export function NotificationRow({
 				style={{ backgroundColor: `color-mix(in oklab, ${color} 14%, transparent)` }}
 			/>
 			<StatusChip status={severity} />
-			<span className="type-copy flex-1  truncate" aria-label={`Notification: ${message}`}>
+			<span data-testid="notification-row-message" className="type-copy flex-1  truncate">
 				{message}
 			</span>
 			{source && <Tag label={source} />}

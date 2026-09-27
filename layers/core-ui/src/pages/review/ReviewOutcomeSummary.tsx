@@ -16,6 +16,7 @@
 // Left-aligned. Animate transform/opacity only.
 
 import { type JSX, useState } from "react";
+import { Button, Row } from "../../ds";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
 import { isPlainObject, isString } from "./payload-guard";
 import { ReviewUnknownCanvas } from "./ReviewUnknownCanvas";
@@ -120,33 +121,24 @@ function NeedsYouChip({
 }): JSX.Element {
 	const isError = item.severity === "error";
 	return (
-		<button
-			type="button"
+		<Row
+			as="button"
 			onClick={() => onJump?.(item.jumpLabel)}
-			className="motion-feedback border-width-thin group flex w-full items-start gap-[9px] rounded-[var(--r-subtle)] px-[12px] py-[9px] text-left hover:opacity-90 active:translate-y-[1px]"
-			style={{
-				borderColor: isError ? "var(--status-error)" : "var(--border-default)",
-				background: isError ? "var(--status-error-dim)" : "var(--surface-page)",
-			}}
-		>
-			<span
-				data-spacing-role="optical-offset"
-				className="type-label mt-[2px] inline-flex shrink-0 items-center rounded-[var(--r-pill)] px-[6px] py-[2px]   uppercase"
-				style={{
-					background: isError ? "var(--status-error)" : "var(--surface-container)",
-					color: isError ? "var(--surface-elevated)" : "var(--status-warning)",
-				}}
-			>
-				{RISK_LABEL[item.category]}
-			</span>
-			<span className="type-small min-w-0 flex-1   text-[var(--text-primary)]">{item.detail}</span>
-			<span
-				data-spacing-role="optical-offset"
-				className="type-metadata mt-[1px] shrink-0   text-[var(--text-tertiary)]   group-hover:text-[var(--accent-deep)]"
-			>
-				Jump ↓
-			</span>
-		</button>
+			lead={
+				<span
+					data-spacing-role="optical-offset"
+					className="type-label inline-flex shrink-0 items-center rounded-[var(--r-pill)] px-[6px] py-[2px]   uppercase"
+					style={{
+						background: isError ? "var(--status-error)" : "var(--surface-container)",
+						color: isError ? "var(--surface-elevated)" : "var(--status-warning)",
+					}}
+				>
+					{RISK_LABEL[item.category]}
+				</span>
+			}
+			title={item.detail}
+			cells={[{ content: "Jump ↓" }]}
+		/>
 	);
 }
 
@@ -297,13 +289,9 @@ function ReviewOutcomeSummaryView(props: ReviewOutcomeSummaryProps): JSX.Element
 								{metCount} of {total} met
 							</span>
 							{unmet.length > 0 ? (
-								<button
-									type="button"
-									onClick={() => setExpanded((v) => !v)}
-									className="motion-feedback type-control border-width-thin rounded-[var(--r-pill)]  border-[var(--border-default)] bg-[var(--surface-page)] px-[12px] py-[3px]   text-[var(--text-secondary)]   hover:opacity-80"
-								>
+								<Button variant="secondary" size="sm" onClick={() => setExpanded((v) => !v)}>
 									{expanded ? "Collapse" : "Expand all"}
-								</button>
+								</Button>
 							) : null}
 						</span>
 					</div>
@@ -319,7 +307,14 @@ function ReviewOutcomeSummaryView(props: ReviewOutcomeSummaryProps): JSX.Element
 								className="type-metadata inline-flex h-[18px] w-[18px] items-center justify-center rounded-[var(--r-pill)]  "
 								style={{ background: "var(--surface-container)", color: "var(--status-success)" }}
 							>
-								✓
+								<svg
+									viewBox="0 0 16 16"
+									fill="currentColor"
+									style={{ width: 11, height: 11 }}
+									aria-hidden="true"
+								>
+									<path d="M6.5 11.5L3 8l1.2-1.2 2.3 2.3L11.8 4 13 5.2l-6.5 6.3z" />
+								</svg>
 							</span>
 							{metCount} condition{metCount === 1 ? "" : "s"} met — collapsed
 						</div>

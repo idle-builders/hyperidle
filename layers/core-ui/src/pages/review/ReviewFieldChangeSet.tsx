@@ -21,6 +21,7 @@
 // Resolved is out of scope — the review frame owns the final verdict.
 
 import { type JSX, useState } from "react";
+import { Button } from "../../ds";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
 import { isPlainObject, isString } from "./payload-guard";
 import { ReviewUnknownCanvas } from "./ReviewUnknownCanvas";
@@ -123,14 +124,16 @@ function FieldRow({ field, tool, expanded, onToggleExpand }: RowProps): JSX.Elem
 							) : null}
 						</div>
 
-						<button
-							type="button"
+						<Button
+							variant="ghost"
+							tone="neutral"
+							size="sm"
 							onClick={() => onToggleExpand(field.id)}
 							aria-expanded={expanded}
-							className="type-control shrink-0 rounded-[var(--r-pill)] px-[9px] py-[3px]   text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+							className="shrink-0"
 						>
 							{expanded ? "Hide source" : "Source"}
-						</button>
+						</Button>
 					</div>
 
 					{/* L3 — per-field provenance + needs-you detail, on demand */}

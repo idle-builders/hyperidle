@@ -97,7 +97,7 @@ export class RemoteHarnessAdapter implements HarnessAdapter {
 		};
 	}
 
-	// biome-ignore lint/suspicious/useAwait: interface HarnessAdapter requires async signature
+	// biome-ignore lint/suspicious/useAwait: this.ws.send() below can throw synchronously; async is what turns that throw into a rejected promise for callers.
 	async startSession(config: SessionConfig): Promise<SessionHandle> {
 		const sessionId = randomUUID();
 
@@ -115,7 +115,6 @@ export class RemoteHarnessAdapter implements HarnessAdapter {
 	streamEvents(handle: SessionHandle): AsyncIterable<HarnessEvent> {
 		const sessionId = handle.sessionId;
 
-		// biome-ignore lint/suspicious/useAwait: async generator requires async keyword
 		return (async function* (
 			adapter: RemoteHarnessAdapter,
 		): AsyncGenerator<HarnessEvent, void, unknown> {
@@ -174,6 +173,7 @@ export class RemoteHarnessAdapter implements HarnessAdapter {
 		})(this);
 	}
 
+	// biome-ignore lint/suspicious/useAwait: this.ws.send() below can throw synchronously; async is what turns that throw into a rejected promise for callers.
 	async stopSession(handle: SessionHandle): Promise<SessionResult> {
 		const sessionId = handle.sessionId;
 
@@ -197,7 +197,9 @@ export class RemoteHarnessAdapter implements HarnessAdapter {
 					sessionId,
 					resolve,
 					reject,
-					pushEvent: () => {},
+					pushEvent: () => {
+						// This path never streams intermediate events — stopSession only cares about the final result.
+					},
 					close: () => reject(new Error("WebSocket closed before session result")),
 				});
 			}

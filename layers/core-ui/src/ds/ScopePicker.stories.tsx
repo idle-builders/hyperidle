@@ -1,10 +1,17 @@
 import { useState } from "react";
-import { ScopePicker, type ScopePickerOption } from "./ScopePicker.js";
+import { ScopePicker, type ScopePickerOption, ScopePickerToggle } from "./ScopePicker.js";
 
 export default {
 	title: "ScopePicker",
 	tier: "primitive" as const,
-	order: ["FilterMode", "SelectMode", "WithDisabledOption", "Focused", "MobileTouchTarget"],
+	order: [
+		"FilterMode",
+		"SelectMode",
+		"WithDisabledOption",
+		"Focused",
+		"MobileTouchTarget",
+		"Toggle",
+	],
 };
 
 const SELECT_OPTIONS: ScopePickerOption[] = [
@@ -78,6 +85,16 @@ export const Focused = (): React.JSX.Element => (
 		/>
 	</div>
 );
+
+// The same pill look as the scope pills, but as a real aria-pressed toggle —
+// for a standalone boolean filter (e.g. DocumentList's "Memories" chip)
+// rather than a member of a radiogroup.
+export const Toggle = (): React.JSX.Element => {
+	const [pressed, setPressed] = useState(false);
+	return (
+		<ScopePickerToggle label="Memories" pressed={pressed} onToggle={() => setPressed((v) => !v)} />
+	);
+};
 
 export const MobileTouchTarget = (): React.JSX.Element => (
 	<div style={{ width: "1024px", maxWidth: "100%" }}>

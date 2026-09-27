@@ -348,7 +348,7 @@ async function finishRequestInTxInternal(tx: WriteExecutor, input: TerminalInput
 	if (!winner) return null;
 	return winner;
 }
-async function finishRequestInternal(db: HyperIdleDb, input: TerminalInput) {
+function finishRequestInternal(db: HyperIdleDb, input: TerminalInput) {
 	return db.transaction((tx: WriteExecutor) => finishRequestInTxInternal(tx, input));
 }
 async function findTerminationInternal(tx: WriteExecutor, requestId: string) {

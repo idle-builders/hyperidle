@@ -43,15 +43,15 @@ export function buildToolRegistry<TDb = unknown>(
 
 	const byName = new Map(definitions.map((d) => [d.name, d]));
 
-	async function invoke(name: string, rawArgs: unknown): Promise<ToolResult> {
+	function invoke(name: string, rawArgs: unknown): Promise<ToolResult> {
 		const def = byName.get(name);
 		if (!def) {
-			return err("NOT_FOUND", `Unknown tool: ${name}`);
+			return Promise.resolve(err("NOT_FOUND", `Unknown tool: ${name}`));
 		}
 
 		const parsed = def.inputSchema.safeParse(rawArgs ?? {});
 		if (!parsed.success) {
-			return err("INVALID_INPUT", parsed.error.message);
+			return Promise.resolve(err("INVALID_INPUT", parsed.error.message));
 		}
 
 		return def.handler(parsed.data, ctx);

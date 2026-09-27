@@ -29,7 +29,7 @@
  */
 
 import type { AgentHealthLevel, AgentOperationalStatus, SessionRow } from "@hyperidle/domain-model";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { call } from "../services/call.js";
 import type {
 	AgentActiveSession,
@@ -145,9 +145,15 @@ export function useRosterRunState(members: ReadonlyArray<RosterMemberRef>): Rost
 		() => members.map((m) => `${m.agentId}:${m.harnessAvailable !== false}`).join(","),
 		[members],
 	);
+	const membersRef = useRef(members);
+	membersRef.current = members;
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: idsKey is the content-stable key for `members`
+	// idsKey is the content-stable key for `members`; membersRef holds the latest
+	// array so the effect body reads current data without depending on `members`
+	// itself (a fresh array identity every render would thrash the fetch).
+	// biome-ignore lint/correctness/useExhaustiveDependencies: idsKey is a deliberate trigger-only dep — it is never read in the body, only compared for change; that is the point of the ref indirection above.
 	useEffect(() => {
+		const members = membersRef.current;
 		if (members.length === 0) {
 			setState(new Map());
 			setStatus("ready");

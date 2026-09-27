@@ -724,11 +724,11 @@ async function bootSharedMode(ctx: BootContext, serverUrl: string): Promise<void
 		saveClientConfig(ctx.configPath, { workerEnabled: false });
 	});
 
-	ipcMain.handle("worker:pause", async (): Promise<void> => {
+	ipcMain.handle("worker:pause", (): void => {
 		workerClient?.pause();
 	});
 
-	ipcMain.handle("worker:resume", async (): Promise<void> => {
+	ipcMain.handle("worker:resume", (): void => {
 		workerClient?.resume();
 	});
 

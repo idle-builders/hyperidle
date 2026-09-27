@@ -25,6 +25,24 @@ export const WithTaskRow = () => (
 	</div>
 );
 
+/**
+ * @lore control/chip migration fix: tone="secondary" is the --accent-secondary
+ * (orange) "in progress" pulse several running/elapsed-time indicators need —
+ * a color LiveDot didn't expose before.
+ */
+export const Tones = () => (
+	<div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+		<div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+			<LiveDot tone="primary" />
+			<span style={{ fontSize: 13 }}>primary (default)</span>
+		</div>
+		<div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+			<LiveDot tone="secondary" />
+			<span style={{ fontSize: 13 }}>secondary</span>
+		</div>
+	</div>
+);
+
 export const MultipleInstances = () => (
 	<div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 		{["WorkBet task row", "WorkTask header", "TaskSheet session", "AgentProfile active"].map(

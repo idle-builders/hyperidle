@@ -19,7 +19,7 @@
 // review frame owns the final verdict.
 
 import { type JSX, useState } from "react";
-import { StatusChip } from "../../ds";
+import { Avatar, RowDot, StatusChip, Tag } from "../../ds";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
 import { isNumber, isPlainObject } from "./payload-guard";
 import { ReviewUnknownCanvas } from "./ReviewUnknownCanvas";
@@ -87,15 +87,7 @@ const FLAG_LABEL: Record<FlagKind, string> = {
 
 /** A red flag pill — the reason this single item floated to the top. */
 function FlagPill({ kind }: { readonly kind: FlagKind }): JSX.Element {
-	return (
-		<span
-			className="type-label inline-flex items-center gap-[6px] px-[8px] py-[2px] rounded-[var(--r-pill)]   uppercase   whitespace-nowrap shrink-0 bg-[color-mix(in_oklab,var(--status-error)_14%,transparent)] text-[var(--status-error)]"
-			title={FLAG_LABEL[kind]}
-		>
-			<span className="h-[6px] w-[6px] rounded-[var(--r-pill)] shrink-0 bg-[var(--status-error)]" />
-			{FLAG_LABEL[kind]}
-		</span>
-	);
+	return <StatusChip status="error" label={FLAG_LABEL[kind]} />;
 }
 
 const SENTIMENT_LABEL: Record<NonNullable<FlaggedItem["sentiment"]>, string> = {
@@ -187,7 +179,7 @@ function ReviewBatchView({ batch, initialExpandedId }: ReviewBatchProps): JSX.El
 				    actually supplies a metric. */}
 				{batch.metric ? (
 					<div className="border-width-thin-t flex items-center gap-[9px] px-[18px] py-[9px]  border-[var(--border-subtle)] bg-[color-mix(in_oklab,var(--status-success)_6%,transparent)]">
-						<span className="h-[6px] w-[6px] rounded-[var(--r-pill)] bg-[var(--status-success)] shrink-0" />
+						<RowDot tone="success" />
 						<span className="type-small  text-[var(--text-secondary)]">
 							{batch.metric.label} would drop{" "}
 							<span className="line-through text-[var(--text-tertiary)] tabular-nums">
@@ -228,12 +220,10 @@ function ReviewBatchView({ batch, initialExpandedId }: ReviewBatchProps): JSX.El
 									type="button"
 									onClick={() => toggleItem(item.id)}
 									aria-expanded={open}
-									className="w-full flex items-center gap-[12px] px-[15px] py-[12px] text-left cursor-pointer hover:bg-[var(--surface-page)]   "
+									className="w-full flex items-center gap-[12px] px-[15px] py-[12px] text-left cursor-pointer hover:bg-[var(--accent-primary-dim)]   "
 								>
 									{/* left edge: priority index */}
-									<span className="type-metadata flex items-center justify-center h-[22px] w-[22px] shrink-0 rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--status-error)_12%,transparent)]   tabular-nums text-[var(--status-error)]">
-										{i + 1}
-									</span>
+									<Tag label={String(i + 1)} />
 
 									<div className="flex flex-col gap-[3px] min-w-0 flex-1">
 										<div className="flex items-center gap-[9px] min-w-0">
@@ -290,9 +280,7 @@ function ReviewBatchView({ batch, initialExpandedId }: ReviewBatchProps): JSX.El
 										{item.draftedReply ? (
 											<div className="border-width-thin rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] overflow-hidden">
 												<div className="border-width-thin-b flex items-center gap-[6px] px-[12px] py-[6px]  border-[var(--border-subtle)]">
-													<span className="type-metadata h-[16px] w-[16px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] text-[var(--text-on-accent)]   inline-flex items-center justify-center shrink-0">
-														AI
-													</span>
+													<Avatar initials="AI" agent size="sm" />
 													<span className="type-metadata   text-[var(--text-secondary)]">
 														Drafted reply — held for review
 													</span>
@@ -310,7 +298,8 @@ function ReviewBatchView({ batch, initialExpandedId }: ReviewBatchProps): JSX.El
 										<div className="flex flex-col gap-[6px] rounded-[var(--r-subtle)]  border-[var(--status-error)] bg-[color-mix(in_oklab,var(--status-error)_8%,transparent)] px-[12px] py-[9px]">
 											<div className="flex items-center gap-[6px]">
 												<span
-													aria-hidden="true"
+													role="img"
+													aria-label="Warning"
 													className="type-metadata inline-flex h-[16px] w-[16px] items-center justify-center rounded-[var(--r-pill)] bg-[var(--status-error)] text-[var(--text-on-accent)]    shrink-0"
 												>
 													!
@@ -342,11 +331,9 @@ function ReviewBatchView({ batch, initialExpandedId }: ReviewBatchProps): JSX.El
 									type="button"
 									onClick={() => toggleGroup(g.id)}
 									aria-expanded={open}
-									className="w-full flex items-center gap-[12px] px-[15px] py-[9px] text-left cursor-pointer hover:bg-[var(--surface-page)]   "
+									className="w-full flex items-center gap-[12px] px-[15px] py-[9px] text-left cursor-pointer hover:bg-[var(--accent-primary-dim)]   "
 								>
-									<span className="type-metadata flex items-center justify-center h-[22px] min-w-[22px] px-[6px] shrink-0 rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--text-tertiary)_12%,transparent)]   tabular-nums text-[var(--text-secondary)]">
-										{g.count}
-									</span>
+									<Tag label={String(g.count)} />
 									<div className="flex flex-col gap-[3px] min-w-0 flex-1">
 										<span className="type-small   text-[var(--text-primary)] truncate">
 											{g.count} {g.label.toLowerCase()}

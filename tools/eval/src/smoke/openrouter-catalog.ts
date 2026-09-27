@@ -122,12 +122,11 @@ export function narrowModels(raw: unknown[]): readonly OpenRouterModel[] {
 	return raw
 		.filter((item): item is Record<string, unknown> => typeof item === "object" && item !== null)
 		.map((item) => ({
-			id: String(item["id"] ?? ""),
-			created: typeof item["created"] === "number" ? item["created"] : 0,
-			pricing: narrowPricing(item["pricing"]),
-			supported_parameters: narrowStringArray(item["supported_parameters"]),
-			context_length:
-				typeof item["context_length"] === "number" ? item["context_length"] : undefined,
+			id: String(item.id ?? ""),
+			created: typeof item.created === "number" ? item.created : 0,
+			pricing: narrowPricing(item.pricing),
+			supported_parameters: narrowStringArray(item.supported_parameters),
+			context_length: typeof item.context_length === "number" ? item.context_length : undefined,
 		}));
 }
 
@@ -146,13 +145,13 @@ export function narrowModelEndpoints(
 
 function narrowEndpoint(raw: Record<string, unknown>): OpenRouterEndpoint {
 	return {
-		provider_name: String(raw["provider_name"] ?? ""),
-		supported_parameters: narrowStringArray(raw["supported_parameters"]),
-		pricing: narrowPricing(raw["pricing"]),
-		uptime_last_30m: typeof raw["uptime_last_30m"] === "number" ? raw["uptime_last_30m"] : null,
-		throughput_last_30m: narrowPercentileObj(raw["throughput_last_30m"]),
-		latency_last_30m: narrowPercentileObj(raw["latency_last_30m"]),
-		status: String(raw["status"] ?? ""),
+		provider_name: String(raw.provider_name ?? ""),
+		supported_parameters: narrowStringArray(raw.supported_parameters),
+		pricing: narrowPricing(raw.pricing),
+		uptime_last_30m: typeof raw.uptime_last_30m === "number" ? raw.uptime_last_30m : null,
+		throughput_last_30m: narrowPercentileObj(raw.throughput_last_30m),
+		latency_last_30m: narrowPercentileObj(raw.latency_last_30m),
+		status: String(raw.status ?? ""),
 	};
 }
 
@@ -160,8 +159,8 @@ function narrowPricing(raw: unknown): { readonly prompt: string; readonly comple
 	if (typeof raw === "object" && raw !== null) {
 		const r = raw as Record<string, unknown>;
 		return {
-			prompt: String(r["prompt"] ?? "0"),
-			completion: String(r["completion"] ?? "0"),
+			prompt: String(r.prompt ?? "0"),
+			completion: String(r.completion ?? "0"),
 		};
 	}
 	return { prompt: "0", completion: "0" };
@@ -177,8 +176,8 @@ function narrowStringArray(raw: unknown): readonly string[] {
 function narrowPercentileObj(raw: unknown): { readonly p50: number } | null {
 	if (typeof raw === "object" && raw !== null) {
 		const r = raw as Record<string, unknown>;
-		if (typeof r["p50"] === "number") {
-			return { p50: r["p50"] };
+		if (typeof r.p50 === "number") {
+			return { p50: r.p50 };
 		}
 	}
 	return null;

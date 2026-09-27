@@ -13,6 +13,7 @@ import type { JSX } from "react";
 import { useContext } from "react";
 import type { AssistantContextRef } from "../contexts/AssistantContext";
 import { AssistantContext } from "../contexts/AssistantContext";
+import { Button } from "../ds";
 
 export interface AssistantAttachButtonProps {
 	/** The context ref that will be attached when the button is clicked. */
@@ -31,12 +32,13 @@ export function AssistantAttachButton({
 	if (!overlayOpen) return null;
 
 	return (
-		<button
-			type="button"
+		<Button
+			variant="ghost"
+			tone="neutral"
+			size="icon"
 			aria-label={`Attach ${contextRef.label} to Assistant`}
 			data-testid="assistant-attach-button"
-			/* AQ-015: 44px touch floor ≤1024px, dense 24px ≥1280px. */
-			className="ml-auto shrink-0 flex items-center justify-center h-[24px] w-[24px] min-h-[44px] min-w-[44px] xl:min-h-[24px] xl:min-w-[24px] rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-overlay)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]  "
+			className="ml-auto shrink-0"
 			onClick={(e) => {
 				// Prevent the card's own onClick from triggering (e.g. navigate to bet detail).
 				e.stopPropagation();
@@ -46,6 +48,6 @@ export function AssistantAttachButton({
 			<svg aria-hidden="true" viewBox="0 0 16 16" className="h-[14px] w-[14px]">
 				<path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" strokeWidth="1.5" />
 			</svg>
-		</button>
+		</Button>
 	);
 }

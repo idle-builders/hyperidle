@@ -4,8 +4,8 @@
  * Forbids any import in runtime production code from paths that are on the
  * permitted-mock surface (fixtures/, __fixtures__/). Generalizes the L16
  * no-restricted-imports block: the existing block fires at `error` for
- * __fixtures__/ imports; this rule fires at `warn` with broader coverage
- * (also catches fixtures/ without the double-underscore prefix).
+ * __fixtures__/ imports; this rule fires at `error` too, with broader
+ * coverage (also catches fixtures/ without the double-underscore prefix).
  *
  * Architecture ref: M1 architecture.md § Phase B, File 2
  *

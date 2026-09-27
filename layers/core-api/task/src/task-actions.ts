@@ -733,7 +733,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 				});
 			}
 
-			if (resolvedState === "killed" && (!prev || prev.state !== "killed")) {
+			if (resolvedState === "killed" && prev?.state !== "killed") {
 				killedTasks = await killSubtreeInTx(tx, taskId, ctx.actor, now, prev?.state ?? "proposed");
 			}
 

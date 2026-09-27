@@ -7,7 +7,7 @@
  *   The Tailwind config has no `heading` fontFamily — only `sans` and `mono`.
  *   Any `font-heading` class silently drops with no visual effect. This is a
  *   real defect (not a style choice) so the rule reports on ALL files it runs on.
- *   Severity is set by eslint.config.ts (error on pages/**, warn elsewhere).
+ *   Severity is set by eslint.config.ts (error everywhere the rule runs).
  *
  * ARM 2 — `tracking-wider` (valid Tailwind utility, but a page-title deviation):
  *   `tracking-wider` = 0.05em. Pages should use the Hearth caps token
@@ -16,11 +16,11 @@
  *   (ArtifactSection, ArtifactThreadsSummary, TaskSheet, BlockRefEmbed,
  *   SessionView, ThreadSections, DesignSystem).
  *   → This arm fires ONLY when `context.filename` contains a `pages/` path segment.
- *   The eslint.config.ts warn-level web-src block for this rule never triggers
+ *   The eslint.config.ts error-level web-src block for this rule never triggers
  *   the tracking-wider arm because those files are not under pages/.
  *
  * @lore AI7: tracking-wider is self-gated to /pages/ paths inside the rule so
- * a single warn-level web-src config block never red-lines legitimate usages in
+ * a single error-level web-src config block never red-lines legitimate usages in
  * components, shell, or design-system. Font-heading fires everywhere because it
  * is never legitimate.
  */
@@ -66,7 +66,6 @@ export const noUndefinedFontHeading: Rule.RuleModule = createRule({
 		const inPages = isInPages(filename);
 
 		return {
-			// biome-ignore lint/style/useNamingConvention: ESLint visitor methods must match AST node type names
 			JSXAttribute(rawNode: unknown) {
 				const node = rawNode as JSXAttribute;
 				if (node.type !== "JSXAttribute") return;

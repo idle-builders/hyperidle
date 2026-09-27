@@ -29,10 +29,13 @@ export function useThreads(filter: SearchThreadsInput | undefined): UseThreadsRe
 	const [error, setError] = useState<string | null>(null);
 	const [tick, setTick] = useState(0);
 	const filterKey = filter ? JSON.stringify(filter) : null;
+	const filterRef = useRef(filter);
+	filterRef.current = filter;
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: `filterKey` stands in for `filter` (referential stability); `tick` drives retry().
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `filterKey` stands in for `filter` (referential stability); `tick` drives retry(). filterRef holds the latest filter for the call.
 	useEffect(() => {
-		if (!filter) {
+		const current = filterRef.current;
+		if (!current) {
 			setThreads([]);
 			setStatus("ready");
 			setError(null);
@@ -42,7 +45,7 @@ export function useThreads(filter: SearchThreadsInput | undefined): UseThreadsRe
 		setStatus("loading");
 		setError(null);
 
-		call("search_threads", filter)
+		call("search_threads", current)
 			.then((result) => {
 				if (cancelled) return;
 				if (!result.ok) {
@@ -64,7 +67,6 @@ export function useThreads(filter: SearchThreadsInput | undefined): UseThreadsRe
 		return () => {
 			cancelled = true;
 		};
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [filterKey, tick]);
 
 	const retry = useCallback((): void => {
@@ -75,9 +77,8 @@ export function useThreads(filter: SearchThreadsInput | undefined): UseThreadsRe
 	// "some thread this viewer might see changed"; re-run search_threads
 	// rather than reconciling the row locally.
 	const cancelledRef = useRef(false);
-	// biome-ignore lint/correctness/useExhaustiveDependencies: `filterKey` stands in for `filter` (referential stability) — subscribing/unsubscribing on every render would thrash the socket.
 	useEffect(() => {
-		if (!filter) return;
+		if (filterKey === null) return;
 		cancelledRef.current = false;
 		const ws = getWsClient();
 		const unsubscribe = ws.subscribe("conversations", (raw) => {

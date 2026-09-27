@@ -13,6 +13,7 @@
  */
 
 import { type JSX, useCallback, useMemo, useState } from "react";
+import { Button } from "../../ds";
 import { clipExcerpt } from "../../utils/clip-excerpt.js";
 import { stripMarkdown } from "../../utils/strip-markdown.js";
 import { relativeShort } from "../../utils/time.js";
@@ -50,6 +51,7 @@ export function DocumentTreeList({
 
 	return (
 		<ul
+			// biome-ignore lint/a11y/noNoninteractiveElementToInteractiveRole: WAI-ARIA treeview pattern requires role="tree" on the list container to pair with each row's role="treeitem".
 			role="tree"
 			aria-label="Document tree"
 			data-ds-component="DocumentTreeList"
@@ -98,6 +100,7 @@ export function DocumentTreeList({
 						 */}
 						{Array.from({ length: cappedDepth }, (_, i) => (
 							<span
+								// biome-ignore lint/suspicious/noArrayIndexKey: a fixed-length run of purely positional indent guides — nothing to identify them by but position.
 								key={i}
 								aria-hidden="true"
 								className="absolute top-0 bottom-0 pointer-events-none"
@@ -116,15 +119,16 @@ export function DocumentTreeList({
 						{/* Chevron column — 44px touch target (AQ-015) */}
 						<span className="flex-none flex items-center justify-center w-[44px]">
 							{hasChildren ? (
-								<button
-									type="button"
+								<Button
+									variant="ghost"
+									tone="neutral"
+									size="icon"
 									aria-label={isCollapsed ? "Expand" : "Collapse"}
 									aria-expanded={!isCollapsed}
 									onClick={(e) => {
 										e.stopPropagation();
 										toggleCollapsed(item.id);
 									}}
-									className="flex items-center justify-center min-w-[44px] min-h-[44px] border-none bg-transparent text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_8%,transparent)] rounded-[var(--r-subtle)] cursor-pointer focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]"
 								>
 									<svg
 										width="10"
@@ -136,7 +140,7 @@ export function DocumentTreeList({
 									>
 										<path d={CHEVRON_PATH} />
 									</svg>
-								</button>
+								</Button>
 							) : null}
 						</span>
 
@@ -169,15 +173,17 @@ export function DocumentTreeList({
 							>
 								{relativeShort(item.updatedAt)}
 							</span>
-							<button
-								type="button"
+							<Button
+								variant="ghost"
+								tone="neutral"
+								size="icon"
 								aria-label="Add child item"
 								title="Add child"
 								onClick={(e) => {
 									e.stopPropagation();
 									onNewChild(item.id);
 								}}
-								className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 flex items-center justify-center min-w-[44px] min-h-[44px] border-none bg-transparent text-[var(--text-tertiary)] hover:text-[var(--accent-deep)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_8%,transparent)] rounded-[var(--r-subtle)] cursor-pointer focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]"
+								className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
 							>
 								<svg
 									width="12"
@@ -191,7 +197,7 @@ export function DocumentTreeList({
 								>
 									<path d={PLUS_PATH} />
 								</svg>
-							</button>
+							</Button>
 						</span>
 					</li>
 				);

@@ -133,6 +133,30 @@ function classNameAttrOf(el: JSXOpeningElement): unknown {
 	return null;
 }
 
+function hasAttr(el: JSXOpeningElement, name: string): boolean {
+	return el.attributes.some(
+		(attr) =>
+			attr.type === "JSXAttribute" && attr.name.type === "JSXIdentifier" && attr.name.name === name,
+	);
+}
+
+// @lore SettingsAppearance's theme-swatch picker is a `<button
+// aria-pressed>` laid out `flex-col` — a preview swatch stacked over a
+// label, ~120px wide. It is a selection CARD, not a repainted Button: Button
+// is `inline-flex items-center justify-center` with fixed compact padding
+// and a pill radius, a shape this component cannot use without breaking its
+// own layout (the swatch preview and the label stack vertically, at a fixed
+// card width, inside their own border/radius). Clauses 3-5 assume a control
+// is shaped like Button/Input's inline chrome; a `flex-col` card-shaped
+// toggle is a different UI object with no closed-set primitive to adopt —
+// inventing one for a single call site is the standing exemption AZ7 N1
+// already ruled out. Both conditions are required (not `flex-col` alone) so
+// this stays narrow: an icon-over-label `flex-col` button with no pressed
+// state is still exactly the population this rule targets.
+function isSelectionCard(el: JSXOpeningElement, classText: string): boolean {
+	return hasAttr(el, "aria-pressed") && /(^|\s)flex-col(\s|$)/.test(classText);
+}
+
 export const noHandrolledControl: Rule.RuleModule = createRule({
 	meta: {
 		type: "problem",
@@ -168,6 +192,12 @@ export const noHandrolledControl: Rule.RuleModule = createRule({
 				const attr = classNameAttrOf(node);
 				if (!attr) return;
 				const strings = collectClassStringsFromJSXAttributeDeep(attr, resolveIdentifier);
+				// Clauses 3-5 (fill/border/radius) target a control repainting
+				// Button/Input's inline chrome — see isSelectionCard's @lore for
+				// why a flex-col, aria-pressed selection card is a different UI
+				// object those clauses don't apply to. Clauses 1-2 (DaisyUI
+				// classes, accent/status fill) still fire even on a card.
+				const skipShapeClauses = isSelectionCard(node, strings.map((s) => s.text).join(" "));
 				// Clauses 3-5 are per-element: remember the first token that names
 				// each axis, report once after the whole class list is read.
 				let fill: string | null = null;
@@ -197,21 +227,21 @@ export const noHandrolledControl: Rule.RuleModule = createRule({
 						}
 					}
 				}
-				if (fill !== null) {
+				if (fill !== null && !skipShapeClauses) {
 					context.report({
 						node: asReportNode(node),
 						messageId: "tokenFill",
 						data: { tag, cls: fill },
 					});
 				}
-				if (border !== null) {
+				if (border !== null && !skipShapeClauses) {
 					context.report({
 						node: asReportNode(node),
 						messageId: "tokenBorder",
 						data: { tag, cls: border },
 					});
 				}
-				if (radius !== null) {
+				if (radius !== null && !skipShapeClauses) {
 					context.report({
 						node: asReportNode(node),
 						messageId: "controlRadius",

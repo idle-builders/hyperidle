@@ -288,8 +288,10 @@ export function SettingsOrgChart(): JSX.Element {
 							cells={[{ content: edge.mechanism }]}
 							actions={
 								<div className="relative">
-									<button
-										type="button"
+									<Button
+										variant="ghost"
+										tone="neutral"
+										size="icon"
 										aria-label={`Actions for edge from ${userName(edge.fromUserId)}`}
 										aria-haspopup="menu"
 										aria-expanded={openMenuId === edge.id}
@@ -298,7 +300,6 @@ export function SettingsOrgChart(): JSX.Element {
 											e.stopPropagation();
 											setOpenMenuId(openMenuId === edge.id ? null : edge.id);
 										}}
-										className="type-control cursor-pointer inline-flex h-[28px] w-[28px] items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] hover:text-[var(--text-primary)] disabled:opacity-40"
 									>
 										{deletingId === edge.id ? (
 											<span className="type-metadata">…</span>
@@ -315,7 +316,7 @@ export function SettingsOrgChart(): JSX.Element {
 												<circle cx="12" cy="19" r="2" />
 											</svg>
 										)}
-									</button>
+									</Button>
 									<Menu
 										open={openMenuId === edge.id}
 										onClose={() => setOpenMenuId(null)}

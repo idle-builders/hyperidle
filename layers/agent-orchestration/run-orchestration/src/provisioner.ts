@@ -560,7 +560,7 @@ function requiresReturnStatusReturn(params: ProvisionSessionParams): boolean {
  * unreachable). Every task-free session now goes through the generic
  * `sourceSection` below.
  */
-async function assembleTaskFreePrompt(
+function assembleTaskFreePrompt(
 	_db: HyperIdleDb,
 	params: ProvisionSessionParams,
 	systemPromptText: string,
@@ -627,16 +627,18 @@ async function assembleTaskFreePrompt(
 		? subscriptionReturnOrientation(returnStatusToolName, false)
 		: "";
 
-	return [
-		systemPromptText,
-		sourceSection,
-		conversationSection,
-		sendMessageOrientation,
-		returnStatusOrientation,
-		toolSection,
-	]
-		.filter(Boolean)
-		.join("\n\n");
+	return Promise.resolve(
+		[
+			systemPromptText,
+			sourceSection,
+			conversationSection,
+			sendMessageOrientation,
+			returnStatusOrientation,
+			toolSection,
+		]
+			.filter(Boolean)
+			.join("\n\n"),
+	);
 }
 
 /**
@@ -1101,7 +1103,6 @@ interface AdmittedSession {
  * 422) is deleted — no replacement gate. Phase numbering below keeps its
  * historical P3/P4/... labels rather than renumbering.
  */
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: admission coordinates multi-phase pre-flight with error handling
 async function admitSession(
 	deps: ProvisionSessionDeps,
 	params: ProvisionSessionParams,
@@ -1456,7 +1457,6 @@ function composeTaskInstruction(params: ProvisionSessionParams): string | undefi
 	return parts.join("\n\n");
 }
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: run coordinates harness lifecycle, event-stream consumption, abort, and teardown
 async function runSession(
 	deps: ProvisionSessionDeps,
 	params: ProvisionSessionParams,

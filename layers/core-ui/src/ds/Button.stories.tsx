@@ -60,6 +60,28 @@ export function IconSize(): JSX.Element {
 	);
 }
 
+/**
+ * @lore control/chip migration fix: ghost's default text is --accent-deep
+ * (a text-link look); tone="neutral" swaps it for --text-secondary for a
+ * ghost button that is a plain icon/utility affordance.
+ */
+export function GhostTone(): JSX.Element {
+	return (
+		<div className="flex flex-wrap items-center gap-[12px] p-[18px]">
+			<Button variant="ghost">Accent (default)</Button>
+			<Button variant="ghost" tone="neutral">
+				Neutral
+			</Button>
+			<Button variant="ghost" size="icon" tone="neutral" aria-label="Close">
+				×
+			</Button>
+			<Button variant="ghost" tone="danger">
+				Delete
+			</Button>
+		</div>
+	);
+}
+
 export function DisabledState(): JSX.Element {
 	return (
 		<div className="flex flex-wrap gap-[12px] p-[18px]">

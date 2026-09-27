@@ -18,7 +18,7 @@ export interface ProvisionOptions {
 	readonly trustedPaths?: readonly string[];
 }
 
-export async function provisionHarnessEnvironment(
+export function provisionHarnessEnvironment(
 	options: ProvisionOptions,
 ): Promise<{ readonly tokenEnv?: Record<string, string> }> {
 	const configured = options.dialect
@@ -31,7 +31,7 @@ export async function provisionHarnessEnvironment(
 			})
 		: {};
 	if (options.channel) {
-		await installReturnHook({
+		installReturnHook({
 			sandboxPath: options.sandboxPath,
 			channel: options.channel,
 			bridgeToken: options.token,
@@ -39,5 +39,5 @@ export async function provisionHarnessEnvironment(
 			forceBudget: options.forceBudget ?? 0,
 		});
 	}
-	return configured;
+	return Promise.resolve(configured);
 }

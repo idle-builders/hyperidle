@@ -76,7 +76,6 @@ class CloudNotBuiltAdapter implements MountAdapter {
 }
 
 class LocalFolderAdapter implements MountAdapter {
-	constructor() {}
 	mount(ctx: MountContext): Promise<MountResult> {
 		const ref = ctx.filesystem.resourceRef;
 		if (ref.kind !== "doc_set")
@@ -275,6 +274,7 @@ function selectMountAdapter(fs: Filesystem, deps: AdapterDeps): MountAdapter {
 export class RegistryFilesystemMounter {
 	constructor(private readonly deps: AdapterDeps) {}
 
+	// biome-ignore lint/suspicious/useAwait: selectMountAdapter throws synchronously on a malformed filesystem; async is what turns that throw into a rejected promise for callers.
 	async mount(input: { filesystem: Filesystem; sandboxPath: string }): Promise<MountResult> {
 		const adapter = selectMountAdapter(input.filesystem, this.deps);
 		const ctx: MountContext = {

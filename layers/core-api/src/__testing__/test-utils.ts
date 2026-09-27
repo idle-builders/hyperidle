@@ -79,7 +79,7 @@ export async function createTestApp(options?: TestAppOptions): Promise<Hono> {
 	// handlers only READ the port's methods when a request arrives, never at
 	// construction time), so this is safe.
 	let realTransport: AgentOrchestrationTransport | undefined;
-	const transport: AgentOrchestrationTransport = async (req) => {
+	const transport: AgentOrchestrationTransport = (req) => {
 		if (!realTransport) {
 			throw new Error(
 				"AgentOrchestrationPort transport called before the composed app was built " +
@@ -150,7 +150,7 @@ export async function createTestApp(options?: TestAppOptions): Promise<Hono> {
 	// Close the construction cycle — every request from here on resolves.
 	const inProcessTransport = createInProcessAgentOrchestrationTransport(app);
 	realTransport = options?.authApiKey
-		? async (request) => {
+		? (request) => {
 				const headers = new Headers(request.headers);
 				headers.set("X-API-Key", options.authApiKey as string);
 				return inProcessTransport(new Request(request, { headers }));
@@ -164,7 +164,9 @@ export async function createTestApp(options?: TestAppOptions): Promise<Hono> {
 				TRACE_FILE,
 				`${JSON.stringify({ ts: Date.now(), pid: process.pid, event: "createTestApp", ms })}\n`,
 			);
-		} catch {}
+		} catch {
+			// Best-effort trace write — a failure here must never break the test run.
+		}
 	}
 	return app;
 }

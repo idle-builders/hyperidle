@@ -98,6 +98,7 @@ export function Breadcrumb({ segments, leading, LinkComponent }: BreadcrumbProps
 		if (i > 0) {
 			items.push(
 				<span
+					// biome-ignore lint/suspicious/noArrayIndexKey: segments is the breadcrumb path for this render — static and positional, never reordered.
 					key={`sep-${i}`}
 					aria-hidden="true"
 					className="shrink-0 text-[color:var(--text-secondary)] select-none mx-[3px]"
@@ -110,6 +111,7 @@ export function Breadcrumb({ segments, leading, LinkComponent }: BreadcrumbProps
 		if (seg.to !== undefined && !isLast) {
 			items.push(
 				<Link
+					// biome-ignore lint/suspicious/noArrayIndexKey: segments is the breadcrumb path for this render — static and positional, never reordered.
 					key={`seg-${i}`}
 					to={seg.to}
 					className={[LINK_CLASS, isMiddle ? "min-w-0 max-w-[120px] truncate" : "shrink-0"]
@@ -124,6 +126,7 @@ export function Breadcrumb({ segments, leading, LinkComponent }: BreadcrumbProps
 		} else {
 			items.push(
 				<span
+					// biome-ignore lint/suspicious/noArrayIndexKey: segments is the breadcrumb path for this render — static and positional, never reordered.
 					key={`seg-${i}`}
 					className={[
 						isLast ? CURRENT_CLASS : "text-[color:var(--text-secondary)]",

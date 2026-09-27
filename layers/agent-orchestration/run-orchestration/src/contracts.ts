@@ -195,6 +195,7 @@ export interface RuntimePorts {
 			| AgentSessionRequest
 			| null
 			| boolean
+			// biome-ignore lint/suspicious/noConfusingVoidType: matches another overload of this port that returns Promise<void>; replacing with `undefined` breaks overload-signature compatibility.
 			| void
 			| "accepted"
 			| "idempotent"

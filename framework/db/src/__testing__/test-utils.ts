@@ -27,7 +27,9 @@ function trace(event: string, durationMs: number, meta?: Record<string, unknown>
 	};
 	try {
 		appendFileSync(TRACE_FILE, `${JSON.stringify(entry)}\n`);
-	} catch {}
+	} catch {
+		// Best-effort trace write — a failure here must never break the test run.
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -173,8 +175,9 @@ export async function createTestDb(): Promise<TestDbHandle> {
 		runMigrations: async () => {
 			await migrate(capturedSlot.instance.db, { migrationsFolder: migrationsFolder() });
 		},
-		close: async () => {
+		close: () => {
 			capturedSlot.checkedOut = false;
+			return Promise.resolve();
 		},
 	};
 }
@@ -191,7 +194,9 @@ if (typeof process.send === "function") {
 		for (const s of slots) {
 			try {
 				s.instance.client.close();
-			} catch {}
+			} catch {
+				// Process is exiting either way — a close failure here is moot.
+			}
 		}
 		process.exit(0);
 	});

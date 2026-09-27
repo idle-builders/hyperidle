@@ -186,7 +186,7 @@ function buildGitEnv(extraConfigs?: readonly GitConfigInjection[]): Record<strin
 	return env;
 }
 
-async function spawnGit(
+function spawnGit(
 	args: readonly string[],
 	cwd: string,
 	timeoutMs: number,

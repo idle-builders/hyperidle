@@ -33,11 +33,8 @@ export interface ListChangesFilter {
 }
 
 /** Newest first. `after` filters to rows recorded strictly after the given ISO timestamp. */
-export async function listChanges(
-	db: HyperIdleDb,
-	filter: ListChangesFilter = {},
-): Promise<Change[]> {
-	if (filter.ids !== undefined && filter.ids.length === 0) return [];
+export function listChanges(db: HyperIdleDb, filter: ListChangesFilter = {}): Promise<Change[]> {
+	if (filter.ids !== undefined && filter.ids.length === 0) return Promise.resolve([]);
 	const conds: SQL[] = [];
 	if (filter.object !== undefined) conds.push(eq(changes.object, filter.object));
 	if (filter.objectId !== undefined) conds.push(eq(changes.objectId, filter.objectId));

@@ -16,8 +16,8 @@ paths:
 - **Drizzle for every query**, raw SQL only in migration files. `drizzle/enforce-delete-with-where`
   and `enforce-update-with-where` are errors in `framework/db` and `layers/core-api`.
 - **Naming** — camelCase functions and variables, PascalCase types and components,
-  SCREAMING_SNAKE_CASE constants (biome `useNamingConvention`). It is wired at `warn`: biome prints
-  it and does not fail the build, so it is visible but not blocking.
+  SCREAMING_SNAKE_CASE constants (biome `useNamingConvention`). It is wired at `error`: biome fails
+  the build on it.
 - **Types must be clean.** `npm run check` typechecks every package it discovers by scanning, against
   `typecheck-debt.json`. That file is currently empty — no package is allowed to have a type error,
   and a stale entry fails the gate rather than being ignored.

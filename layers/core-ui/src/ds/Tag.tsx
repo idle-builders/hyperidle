@@ -6,6 +6,17 @@ export interface TagProps {
 	label: string;
 	/** Optional Tier-2 kind. When omitted, renders the legacy neutral chip. */
 	kind?: TagKind;
+	/**
+	 * `"neutral"` (default) is the muted gray pill. `"accent"` is an
+	 * uppercase, accent-tinted badge (bg-accent-primary-dim, text-accent-deep)
+	 * — for a chip that names something distinctive (a source kind, a count,
+	 * a role) rather than a plain inline label. `"solid"` is a solid
+	 * accent-fill badge (bg-accent-primary, text-on-accent) — the attention
+	 * signal for an unread/blocking count, where the tinted `"accent"` look
+	 * reads as too quiet. Only applies when `kind` is omitted — a kind-tagged
+	 * chip keeps its own tint.
+	 */
+	tone?: "neutral" | "accent" | "solid";
 }
 
 /**
@@ -29,7 +40,7 @@ export interface TagProps {
 const TAG_BASE =
 	"inline-flex items-center gap-[4px] px-[8px] py-[2px] rounded-[var(--r-pill)] whitespace-nowrap border-none";
 
-export function Tag({ label, kind }: TagProps): JSX.Element {
+export function Tag({ label, kind, tone = "neutral" }: TagProps): JSX.Element {
 	// @lore J1 review: defensive guard — if a caller passes an arbitrary
 	// string typed as `TagKind` (e.g. `kind={item.kind as TagKind}` for a
 	// document kind not in the Tier-2 set), `meta` would be undefined
@@ -37,6 +48,28 @@ export function Tag({ label, kind }: TagProps): JSX.Element {
 	// neutral chip in that case so the page stays up.
 	const meta = kind ? TAG_KIND_ICONS[kind] : undefined;
 	if (!meta) {
+		if (tone === "accent") {
+			return (
+				<span
+					{...dsProps("Tag", "1")}
+					data-spacing-role="compact-pill"
+					className={`type-label ${`${TAG_BASE} uppercase tabular-nums bg-[var(--accent-primary-dim)] text-[var(--accent-deep)]`}`}
+				>
+					{label}
+				</span>
+			);
+		}
+		if (tone === "solid") {
+			return (
+				<span
+					{...dsProps("Tag", "1")}
+					data-spacing-role="compact-pill"
+					className={`type-label ${`${TAG_BASE} uppercase tabular-nums bg-[var(--accent-primary)] text-[var(--text-on-accent)]`}`}
+				>
+					{label}
+				</span>
+			);
+		}
 		return (
 			<span
 				{...dsProps("Tag", "1")}
@@ -52,9 +85,9 @@ export function Tag({ label, kind }: TagProps): JSX.Element {
 			{...dsProps("Tag", "1")}
 			data-spacing-role="compact-pill"
 			className={`type-metadata ${`${TAG_BASE} ${meta.tintClass}`}`}
-			aria-label={`${meta.ariaLabel}: ${label}`}
 		>
 			<span className="inline-flex items-center shrink-0">{meta.icon}</span>
+			<span className="sr-only">{meta.ariaLabel}: </span>
 			{label}
 		</span>
 	);

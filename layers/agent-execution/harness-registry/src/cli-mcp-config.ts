@@ -225,7 +225,6 @@ function writeOpencodeJson(params: {
 				type: "remote",
 				url: mcpUrl,
 				headers: {
-					// biome-ignore lint/style/useNamingConvention: HTTP header name is canonical RFC case
 					Authorization: `Bearer ${token}`,
 				},
 				enabled: true,

@@ -29,15 +29,15 @@ function renderText(text: string, mentions: ReadonlyArray<{ displayName: string 
 		<>
 			{segments.map((seg, i) =>
 				tokens.includes(seg) ? (
-					// biome-ignore lint/suspicious/noArrayIndexKey: stable positional segments
 					<span
+						// biome-ignore lint/suspicious/noArrayIndexKey: segments are a stable split of static text — never reordered or filtered.
 						key={i}
 						className="type-small rounded-[var(--r-subtle)] bg-[var(--accent-primary-dim)] px-[3px]  text-[var(--accent-deep)]"
 					>
 						{seg}
 					</span>
 				) : (
-					// biome-ignore lint/suspicious/noArrayIndexKey: stable positional segments
+					// biome-ignore lint/suspicious/noArrayIndexKey: segments are a stable split of static text — never reordered or filtered.
 					<span key={i}>{seg}</span>
 				),
 			)}

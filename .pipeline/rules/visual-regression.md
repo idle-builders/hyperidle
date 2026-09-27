@@ -74,9 +74,8 @@ radius and colour all resolve correctly. Spacing gets judged in the app, never h
 
 ## 7. What the lints add
 
-- `npm run lint:design` runs the design rule set standalone, warnings included — currently 0 errors and
-  ~180 warnings. `npm run lint` runs the same rules under `--quiet`, which drops every warn-level rule,
-  so those warnings cannot fail a build. Severities live in
+- `npm run lint` runs the design rule set with `--max-warnings=0` — every rule is `error` or `off`,
+  and any warning fails the build. Severities live in
   `tools/eslint-plugin-design/src/hearth-config.ts`; read it before claiming a rule protects you.
 - `npm run check` catches a removed or renamed component variant — the quietest way a story stops
   representing its component.

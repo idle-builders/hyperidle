@@ -33,7 +33,7 @@ const LOOPBACK = "127.0.0.1";
  * its async-disposal handle. Environment variables DATABASE_URL,
  * HYPERIDLE_API_KEY, and HYPERIDLE_STATIC_DIR must be set before calling this.
  */
-export async function startServer(): Promise<ServerHandle> {
+export function startServer(): Promise<ServerHandle> {
 	return _createServer(0, {
 		topology: "local",
 		hostname: LOOPBACK,

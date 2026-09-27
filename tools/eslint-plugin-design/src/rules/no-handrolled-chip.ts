@@ -104,6 +104,30 @@ function classNameAttrOf(el: JSXOpeningElement): unknown {
 	return null;
 }
 
+// @lore A self-labeled icon glyph (role="img", named via aria-label/title, an
+// SVG or icon child rather than rendered text) is not a chip in this rule's
+// sense — a chip carries a LABEL as visible text; an icon badge's accessible
+// name comes entirely from the attribute, not from content a Tag/StatusChip
+// would otherwise own. QuestionnairePart/ReviewRequestPart's 20px "part-kind"
+// icon badges (a circular accent-tinted glyph marking Quick-ask / Review
+// request) matched the pill+fill predicate despite being neither a control
+// nor a chip — there is no ds/ primitive for "icon in a tinted circle" today,
+// and inventing one to satisfy this rule would be exactly the standing
+// exemption AZ7 N1 already learned not to build. `role="img"` is the
+// principled, narrow signal: it is what marks an element as an accessible
+// image rather than a text label, and nothing in the closed chip set uses it
+// for chip meaning (RowDot uses it for its own dot, which is excluded by tag
+// name already).
+function hasImgRole(el: JSXOpeningElement): boolean {
+	for (const attr of el.attributes) {
+		if (attr.type !== "JSXAttribute" || attr.name.type !== "JSXIdentifier") continue;
+		if (attr.name.name !== "role") continue;
+		const val = attr.value as { type?: string; value?: unknown } | null | undefined;
+		if (val?.type === "Literal" && val.value === "img") return true;
+	}
+	return false;
+}
+
 export const noHandrolledChip: Rule.RuleModule = createRule({
 	meta: {
 		type: "problem",
@@ -128,6 +152,7 @@ export const noHandrolledChip: Rule.RuleModule = createRule({
 				const tag = node.name.type === "JSXIdentifier" ? node.name.name : null;
 				if (!tag) return;
 				if (CONTROL_TAGS.has(tag) || DS_CHIPS.has(tag)) return;
+				if (hasImgRole(node)) return;
 				const attr = classNameAttrOf(node);
 				if (!attr) return;
 				const strings = collectClassStringsFromJSXAttributeDeep(attr, resolveIdentifier);

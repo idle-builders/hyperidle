@@ -55,7 +55,6 @@ Default test commands run the **affected slice** against `origin/main` (AT1); `:
 | `npm run lint:biome` | Biome only |
 | `npm run lint:eslint` | ESLint only |
 | `npm run lint:fix` | Auto-fix lint issues |
-| `npm run lint:design` | ESLint scoped to design-system surfaces only (`layers/core-ui/src/**/*.tsx`, `framework/design-system/src/**/*.tsx`) |
 | `npm run knip` | Find unused files/exports/dependencies |
 | `npm run knip:production` | Same, restricted to production files (test/story-only reachability doesn't count) |
 | `npm run deps:check` | Import-vs-manifest gate — fails when a package imports something undeclared or declares something it never reaches (`tools/repo-gates/src/dep-manifest-lint.ts`) |

@@ -332,7 +332,14 @@ export function SettingsHarnesses(): JSX.Element {
 						<div className="border-width-thin-b flex items-center justify-between px-[18px] py-[12px]  border-[var(--border-subtle)]">
 							<p className="type-small   text-[var(--text-primary)]">{selectedDescriptor.name}</p>
 							<Button variant="ghost" size="sm" aria-label="Close detail" onClick={handleClose}>
-								✕
+								<svg
+									viewBox="0 0 16 16"
+									fill="currentColor"
+									style={{ width: 12, height: 12 }}
+									aria-hidden="true"
+								>
+									<path d="M4.2 3.1L3.1 4.2 6.9 8l-3.8 3.8 1.1 1.1L8 9.1l3.8 3.8 1.1-1.1L9.1 8l3.8-3.8-1.1-1.1L8 6.9 4.2 3.1z" />
+								</svg>
 							</Button>
 						</div>
 						<div className="flex-1 min-h-0 overflow-y-auto">
@@ -340,6 +347,7 @@ export function SettingsHarnesses(): JSX.Element {
 						</div>
 					</div>
 				) : (
+					// biome-ignore lint/complexity/noUselessFragments: SplitView.destination is typed JSX.Element (non-nullable) — an empty fragment is the only valid "render nothing" value.
 					<></>
 				)
 			}

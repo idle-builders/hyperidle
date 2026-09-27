@@ -15,7 +15,7 @@
 
 import type { Census } from "./repo-census.js";
 
-export type Severity = "error" | "warn";
+export type Severity = "error";
 
 export interface Finding {
 	readonly ruleId: string;

@@ -15,7 +15,7 @@
  * non-root task by title at any depth.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { call } from "../services/call.js";
 
 export interface TaskSearchResult {
@@ -54,7 +54,12 @@ export function useTaskSearch(query: string, excludeIds: readonly string[]): Use
 	// back on the value it already held — see the retry comment below.
 	const [retryToken, setRetryToken] = useState(0);
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: debounced/error are read for their value AT THE MOMENT the timer fires, not to retrigger scheduling — only `trimmed` should reset the debounce timer.
+	const debouncedRef = useRef(debounced);
+	const errorRef = useRef(error);
+	debouncedRef.current = debounced;
+	errorRef.current = error;
+
+	// Only `trimmed` resets the debounce timer; refs hold debounced/error at fire time.
 	useEffect(() => {
 		const timer = setTimeout(() => {
 			setDebounced(trimmed);
@@ -64,7 +69,9 @@ export function useTaskSearch(query: string, excludeIds: readonly string[]): Use
 			// bails out as a no-op since the value didn't change. After an error
 			// that same string must still be retryable, so bump `retryToken`
 			// explicitly whenever the settled query matches the one that just failed.
-			if (trimmed === debounced && trimmed !== "" && error !== null) setRetryToken((t) => t + 1);
+			if (trimmed === debouncedRef.current && trimmed !== "" && errorRef.current !== null) {
+				setRetryToken((t) => t + 1);
+			}
 		}, DEBOUNCE_MS);
 		return () => clearTimeout(timer);
 	}, [trimmed]);

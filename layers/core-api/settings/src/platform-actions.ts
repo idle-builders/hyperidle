@@ -932,12 +932,12 @@ export function createPlatformActions(deps: PlatformActionsDeps): readonly Actio
 		return { ok: true, data: [...data, ...available] };
 	}
 
-	async function editPluginRun(
+	function editPluginRun(
 		ctx: ActionContext,
 		input: EditPluginInput,
 	): Promise<ActionResult<PluginView>> {
 		const pureProblems = editPluginInvariants(input);
-		if (pureProblems.length > 0) return { ok: false, problems: pureProblems };
+		if (pureProblems.length > 0) return Promise.resolve({ ok: false, problems: pureProblems });
 
 		if (input.source) return installRun(ctx, deps, input.source);
 

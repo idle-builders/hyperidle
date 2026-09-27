@@ -50,7 +50,7 @@ export function CanvasSourceHeader({
 					href={href}
 					target="_blank"
 					rel="noopener noreferrer"
-					className="type-control shrink-0 inline-flex items-center gap-[3px] rounded-[var(--r-pill)] px-[9px] py-[3px]   text-[var(--accent-deep)] hover:bg-[var(--accent-primary-dim)]  "
+					className="type-control shrink-0 inline-flex items-center gap-[3px]   text-[var(--accent-deep)] hover:underline"
 				>
 					{linkContent}
 				</a>

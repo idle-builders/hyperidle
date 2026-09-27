@@ -38,6 +38,7 @@
 // hearth-internal-padding
 import type { JSX } from "react";
 import { Link } from "react-router-dom";
+import { Button, LiveDot, Row, Tag } from "../ds";
 import type { ViewId } from "./shell-types";
 import { VIEW_ICONS, VIEW_IDS } from "./shell-types";
 
@@ -232,40 +233,58 @@ function NotificationButton({
 	drawerMode?: boolean;
 }): JSX.Element {
 	const hasUnread = (unseenNotificationCount ?? 0) > 0;
+	// A full-width sidebar nav row, same shape as the sibling SectionHeader
+	// <Link> rows. Button's fixed-floor inline-control shape doesn't fit a
+	// w-full row (and its radius is a fixed pill, not the 10px r-subtle the
+	// sibling rows use), so this adopts Row itself instead — the actual
+	// ds/ list-row primitive, not a hand-rolled lookalike. `rounded` is
+	// Row's own small option for a standalone nav-style row outside a
+	// bordered list (permanent radius, no separator); `aria-label`/
+	// `aria-expanded` are Row's passthrough for a row that is a popover
+	// trigger rather than a plain click target.
 	return (
-		<button
-			type="button"
+		<Row
+			as="button"
 			data-testid="sidebar-notification-btn"
-			onClick={onClick}
 			aria-label="Notifications"
 			aria-expanded={open}
-			className={`type-control cursor-pointer relative flex h-[44px] w-full items-center gap-[9px] rounded-[var(--r-subtle)] px-[9px] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus-visible:-outline-offset-1 text-[var(--text-secondary)] hover:bg-[color-mix(in_oklab,var(--text-secondary)_4%,transparent)] min-[1025px]:h-[36px] ${drawerMode ? "justify-start" : "justify-center min-[769px]:justify-start"}`}
-		>
-			<span className="inline-flex text-[var(--text-tertiary)]" aria-hidden="true">
-				<svg
-					width="17"
-					height="17"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					strokeWidth="1.8"
-					strokeLinecap="round"
-					strokeLinejoin="round"
-					aria-hidden="true"
-				>
-					<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
-					<path d="M10 21h4" />
-				</svg>
-			</span>
-			<span className={drawerMode ? "inline" : "hidden min-[769px]:inline"}>Notifications</span>
-			{hasUnread && (
-				<span
-					className="ml-auto h-[6px] w-[6px] rounded-[var(--r-pill)] bg-[var(--accent-primary)]"
-					data-testid="notification-unread-dot"
-					aria-hidden="true"
-				/>
-			)}
-		</button>
+			rounded
+			onClick={onClick}
+			lead={
+				<span className="text-[var(--text-tertiary)]" aria-hidden="true">
+					<svg
+						width="17"
+						height="17"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						strokeWidth="1.8"
+						strokeLinecap="round"
+						strokeLinejoin="round"
+						aria-hidden="true"
+					>
+						<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+						<path d="M10 21h4" />
+					</svg>
+				</span>
+			}
+			title={
+				<span className={drawerMode ? "inline" : "hidden min-[769px]:inline"}>Notifications</span>
+			}
+			cells={
+				hasUnread
+					? [
+							{
+								content: (
+									<span data-testid="notification-unread-dot">
+										<LiveDot />
+									</span>
+								),
+							},
+						]
+					: undefined
+			}
+		/>
 	);
 }
 
@@ -330,7 +349,7 @@ function SectionHeader({
 			</span>
 			{badgeCount != null && badgeCount > 0 && (
 				<span
-					className="type-data inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-[var(--r-pill)]   tabular-nums bg-[var(--accent-primary)] text-[var(--text-on-accent)] ml-auto"
+					className="ml-auto"
 					data-testid={
 						view === "knowledge"
 							? "document-triage-badge"
@@ -339,7 +358,7 @@ function SectionHeader({
 								: `${view}-blocking-badge`
 					}
 				>
-					{badgeCount > 99 ? "99+" : badgeCount}
+					<Tag label={badgeCount > 99 ? "99+" : String(badgeCount)} tone="solid" />
 				</span>
 			)}
 		</Link>
@@ -359,24 +378,22 @@ function AssistantIconButton({
 	open: boolean;
 	onClick: () => void;
 }): JSX.Element {
+	// Today's look was a square (not pill) icon tile with per-state fill —
+	// Button's shared base always paints the pill radius, and the maintainer
+	// accepted that as a small redesign rather than adding a square variant.
+	// Toggle look comes entirely from Button's own variant/tone (no inline style):
+	// open → secondary (bg-surface-elevated/border/text-primary, the same
+	// "pressed" look every other sidebar toggle icon uses); closed → ghost
+	// tone="neutral" (transparent, text-secondary).
 	return (
-		<button
-			type="button"
+		<Button
+			variant={open ? "secondary" : "ghost"}
+			tone="neutral"
+			size="icon"
 			data-testid="sidebar-assistant-btn"
 			onClick={onClick}
 			aria-label="Assistant"
 			aria-expanded={open}
-			// A pressed/open TOGGLE state, not an action Button (Button has no
-			// built-in pressed treatment distinct from its 4 action variants).
-			className={[
-				"inline-flex cursor-pointer h-[44px] w-[44px] shrink-0 items-center justify-center min-[1025px]:h-[32px] min-[1025px]:w-[32px]",
-				"  ",
-				// @lore AZ7 N1: bg-[var(--accent-primary-dim)] is Set 3's row-hover /
-				// selected tint — not a no-handrolled-control violation.
-				open
-					? "bg-[var(--accent-primary-dim)] border-[var(--accent-deep)] text-[var(--accent-deep)]"
-					: "bg-[var(--surface-container)] text-[var(--text-secondary)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)]",
-			].join(" ")}
 		>
 			{/* Robot glyph. Antenna + side ears + rounded body with eyes knocked
 			    out via fillRule="evenodd" so holes show button bg in both states. */}
@@ -393,7 +410,7 @@ function AssistantIconButton({
 					d="M4 3.5h8a1.5 1.5 0 011.5 1.5v6A1.5 1.5 0 0112 12.5H4A1.5 1.5 0 012.5 11V5A1.5 1.5 0 014 3.5zM6 6.6a1.15 1.15 0 100 2.3 1.15 1.15 0 000-2.3zm4 0a1.15 1.15 0 100 2.3 1.15 1.15 0 000-2.3z"
 				/>
 			</svg>
-		</button>
+		</Button>
 	);
 }
 
@@ -456,22 +473,21 @@ function SettingsFooter({
 			data-sidebar-bottom
 			aria-label="App utilities"
 		>
-			<button
-				type="button"
+			{/* Today's look used r-subtle and a shadow on the active state — both
+			    dropped for Button's own chrome; the maintainer accepted the pill
+			    radius as a small redesign rather than adding a square variant.
+			    Active → secondary (bg-surface-elevated/border/text-primary);
+			    inactive → ghost tone="neutral" (transparent, text-secondary),
+			    matching every other sidebar toggle icon. */}
+			<Button
+				variant={active ? "secondary" : "ghost"}
+				tone="neutral"
+				size="icon"
 				data-testid="sidebar-settings-btn"
 				data-active={active ? "true" : "false"}
 				onClick={onClick}
 				aria-label="Settings"
 				aria-current={active ? "page" : undefined}
-				className={`type-control cursor-pointer ${[
-					"flex h-[44px] w-[44px] items-center justify-center min-[1025px]:h-[32px] min-[1025px]:w-[32px]",
-					" ",
-					"rounded-[var(--r-subtle)]",
-					"  ",
-					active
-						? "bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] text-[var(--text-primary)] "
-						: "text-[var(--text-secondary)]  hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))]",
-				].join(" ")}`}
 			>
 				<span
 					className={
@@ -490,7 +506,7 @@ function SettingsFooter({
 						/>
 					</svg>
 				</span>
-			</button>
+			</Button>
 		</nav>
 	);
 }

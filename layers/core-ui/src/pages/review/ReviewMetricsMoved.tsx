@@ -252,7 +252,14 @@ function RollForwardTable({ fixture }: { fixture: CloseFixture }): JSX.Element {
 						style={{ color: "var(--status-success)" }}
 						aria-hidden="true"
 					>
-						✓
+						<svg
+							viewBox="0 0 16 16"
+							fill="currentColor"
+							style={{ width: 12, height: 12 }}
+							aria-hidden="true"
+						>
+							<path d="M6.5 11.5L3 8l1.2-1.2 2.3 2.3L11.8 4 13 5.2l-6.5 6.3z" />
+						</svg>
 					</span>
 				) : null}
 				<span className={`type-small ${` text-[var(--text-primary)] ${NUM}`}`}>

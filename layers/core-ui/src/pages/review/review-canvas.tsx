@@ -3,7 +3,7 @@ import type { ComponentType, JSX, ReactNode } from "react";
 import { createContext, useCallback, useContext, useState } from "react";
 import { blockId, deriveBlocks, normalisedPayload } from "../../block/index.js";
 import type { Block, BlockId } from "../../block/types.js";
-import { CommentRow, Composer } from "../../ds";
+import { CommentRow, Composer, LiveDot, Tag } from "../../ds";
 import type { ReviewComment } from "./review-composition.js";
 
 export interface ReviewCanvasContextValue {
@@ -163,20 +163,17 @@ export function AnchoredThreadCard({
 	return (
 		<div className="border-width-thin rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] overflow-hidden">
 			<div className="border-width-thin-b flex items-center gap-[6px]  border-[var(--border-subtle)] px-[12px] py-[6px]">
-				<span
-					className="h-[6px] w-[6px] rounded-[var(--r-pill)] bg-[var(--accent-primary)]"
-					aria-hidden="true"
-				/>
+				<LiveDot />
 				<span className="type-data   text-[var(--text-secondary)]">
 					{anchor.spotLabel ?? "anchor"}
 				</span>
 				{orphan ? (
-					<span className="type-metadata ml-auto rounded-[var(--r-pill)] bg-[var(--surface-container)] px-[6px] py-[1px]  text-[var(--text-tertiary)]">
-						source changed
+					<span className="ml-auto">
+						<Tag label="source changed" />
 					</span>
 				) : readOnly ? (
-					<span className="type-metadata ml-auto rounded-[var(--r-pill)] bg-[var(--surface-container)] px-[6px] py-[1px]  text-[var(--text-tertiary)]">
-						resolved
+					<span className="ml-auto">
+						<Tag label="resolved" />
 					</span>
 				) : null}
 			</div>

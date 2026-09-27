@@ -17,6 +17,7 @@
 // --status-warning / --status-error per the brief. Brand color lives only in ToolLogo.
 
 import { type JSX, useState } from "react";
+import { RowDot } from "../../ds";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
 import { isPlainObject, isString } from "./payload-guard";
 import { ReviewUnknownCanvas } from "./ReviewUnknownCanvas";
@@ -214,10 +215,7 @@ function IrreversibleBadge(): JSX.Element {
 				background: "var(--accent-secondary-dim)",
 			}}
 		>
-			<span
-				aria-hidden="true"
-				className="h-[5px] w-[5px] rounded-[var(--r-pill)] bg-[var(--status-warning)]"
-			/>
+			<RowDot tone="warning" />
 			Irreversible
 		</span>
 	);

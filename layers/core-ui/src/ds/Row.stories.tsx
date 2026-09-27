@@ -19,6 +19,8 @@ export default {
 		"Selected",
 		"Subtitle",
 		"NoLeadNoPlaceholder",
+		"DisabledButtonRow",
+		"RoundedNavRow",
 	],
 };
 
@@ -149,4 +151,26 @@ export const NoLeadNoPlaceholder = (): React.JSX.Element => (
 		<Row title="Row without lead (no placeholder renders)" onClick={() => {}} />
 		<Row title="Another leadless row" onClick={() => {}} />
 	</ItemList>
+);
+
+export const DisabledButtonRow = (): React.JSX.Element => (
+	<ItemList isEmpty={false} variant="contained">
+		<Row title="Has a destination" onClick={() => {}} />
+		<Row title="No destination — disabled" onClick={() => {}} disabled />
+	</ItemList>
+);
+
+// A standalone nav-style row (e.g. a sidebar popover trigger among other
+// rounded nav rows) — permanent radius, no list separator, no ItemList
+// wrapper. aria-label/aria-expanded are for a row that is a popover trigger.
+export const RoundedNavRow = (): React.JSX.Element => (
+	<div className="flex w-[240px] flex-col gap-[3px]">
+		<Row
+			title="Notifications"
+			onClick={() => {}}
+			rounded
+			aria-label="Notifications"
+			aria-expanded={false}
+		/>
+	</div>
 );

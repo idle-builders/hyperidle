@@ -16,7 +16,6 @@ import { API_ERROR_CODES, type ApiErrorResponse } from "./api-types.js";
  * `userId` is the caller the auth middleware resolved from the API key.
  */
 export type HyperIdleEnv = {
-	// biome-ignore lint/style/useNamingConvention: `Variables` is the Hono Env property name; the framework requires this exact PascalCase key.
 	Variables: {
 		userId: string;
 	};
@@ -57,7 +56,7 @@ export function constantTimeStringEqual(actual: string, expected: string): boole
 function validationHook(
 	result: { success: boolean; error?: { issues: unknown[] } },
 	c: Context,
-): Response | void {
+): Response | undefined {
 	if (!result.success) {
 		const response: ApiErrorResponse = {
 			error: "Validation failed",

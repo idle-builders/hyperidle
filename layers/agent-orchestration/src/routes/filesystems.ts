@@ -64,7 +64,7 @@ function rowToFilesystem(row: FilesystemRow): Filesystem {
  * @lore AO1 v2: list = cached state; inspect/register = live probe.
  * Delegates to refreshFilesystemState (probe + persist in one call).
  */
-async function checkAndPersistState(
+function checkAndPersistState(
 	db: HyperIdleDb,
 	row: FilesystemRow,
 	authResolver: FilesystemTokenResolver,

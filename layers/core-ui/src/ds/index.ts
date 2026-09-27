@@ -126,8 +126,12 @@ export type { RowDeleteActionProps } from "./RowDeleteAction.js";
 export { RowDeleteAction } from "./RowDeleteAction.js";
 export type { RowDotProps, RowTone } from "./RowDot.js";
 export { RowDot, TONE_COLOR } from "./RowDot.js";
-export type { ScopePickerOption, ScopePickerProps } from "./ScopePicker.js";
-export { ScopePicker } from "./ScopePicker.js";
+export type {
+	ScopePickerOption,
+	ScopePickerProps,
+	ScopePickerToggleProps,
+} from "./ScopePicker.js";
+export { ScopePicker, ScopePickerToggle } from "./ScopePicker.js";
 export type { SearchFieldProps } from "./SearchField.js";
 export { SearchField } from "./SearchField.js";
 // ── SectionLabel — canonical uppercase section heading (Tier 1) ──

@@ -50,8 +50,8 @@ export const DEFAULT_PREFIX_DATA_PATHS: readonly string[] = [
  * in any location.
  *
  * @lore M1: _ID is broader than needed (catches any DEFAULT_SESSION_ID etc.)
- * but is acceptable at warn-level. M4 promotion audit will narrow if needed.
- * See architecture-critique Important Suggestion #3.
+ * but is acceptable at error-level. Narrow further if a real false positive
+ * surfaces. See architecture-critique Important Suggestion #3.
  */
 export const DEFAULT_SUFFIX_TRIGGERS: readonly string[] = ["_DATA", "_SETTINGS", "_ID"];
 

@@ -36,7 +36,7 @@ import { and, eq } from "drizzle-orm";
  * a cross-user or non-existent id yields [] so the caller can 404 without
  * leaking existence (never returns a 403 on mismatch).
  */
-export async function listConnections(
+export function listConnections(
 	db: HyperIdleDb,
 	filter: { userId?: string; authSource?: string; id?: string } = {},
 ): Promise<ServiceConnectionRow[]> {

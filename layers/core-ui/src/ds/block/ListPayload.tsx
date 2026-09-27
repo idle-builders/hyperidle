@@ -35,8 +35,13 @@ export function ListPayload({ ordered, start, items }: ListPayloadProps): JSX.El
 			style: { listStyleType: ordered ? "decimal" : "disc" },
 		},
 		items.map((it, i) => (
-			<li key={i} className="type-small text-[var(--text-primary)] ">
+			<li
+				// biome-ignore lint/suspicious/noArrayIndexKey: a parsed markdown list is immutable content re-rendered from scratch each time, never reordered.
+				key={i}
+				className="type-small text-[var(--text-primary)] "
+			>
 				{it.children.map((c: BlockPayload, j: number) => (
+					// biome-ignore lint/suspicious/noArrayIndexKey: a parsed markdown list is immutable content re-rendered from scratch each time, never reordered.
 					<span key={j}>{renderPayload(c)}</span>
 				))}
 			</li>

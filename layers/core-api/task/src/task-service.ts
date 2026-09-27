@@ -700,6 +700,7 @@ export async function update(
 	entity: string,
 	id: string,
 	patch: Record<string, unknown>,
+	// biome-ignore lint/suspicious/noConfusingVoidType: `void` here matches the overload above (Promise<void>); replacing it with `undefined` breaks overload-signature compatibility (TS2394).
 ): Promise<void | { id: string } | undefined> {
 	if (entity === "task") {
 		const notes = patch.notes;

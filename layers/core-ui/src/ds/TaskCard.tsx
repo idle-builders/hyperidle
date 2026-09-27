@@ -51,12 +51,7 @@ export function TaskCard({
 				"motion-move border-width-thin border-[var(--border-subtle)] bg-[var(--surface-elevated)] rounded-[var(--r-default)] p-[18px] flex flex-col gap-[6px] max-w-[320px] shadow-[var(--shadow-default)] hover:translate-y-[-2px] hover:shadow-[var(--shadow-elevated)]",
 			)}
 		>
-			<span
-				className="type-copy   truncate text-[var(--text-primary)]"
-				aria-label={`Task: ${title}`}
-			>
-				{title}
-			</span>
+			<span className="type-copy   truncate text-[var(--text-primary)]">{title}</span>
 			<div className="flex items-center gap-[12px]">
 				{parentTag && <Tag label={parentTag} />}
 				<StatusChip status={taskStateToStatus(state)} />

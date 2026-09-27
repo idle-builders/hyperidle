@@ -99,7 +99,6 @@ export interface RegisteredTool<TDb = unknown> {
 export interface ClaudeToolSpec {
 	readonly name: string;
 	readonly description: string;
-	// biome-ignore lint/style/useNamingConvention: Claude API wire format uses snake_case
 	readonly input_schema: {
 		readonly type: "object";
 		readonly properties: Record<string, unknown>;

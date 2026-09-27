@@ -85,7 +85,7 @@ const TSC_MAX_BUFFER = 64 * 1024 * 1024;
 const MAX_CONCURRENCY = 6;
 
 function resolveConcurrency(): number {
-	const override = process.env["TYPECHECK_CONCURRENCY"];
+	const override = process.env.TYPECHECK_CONCURRENCY;
 	if (override !== undefined && override !== "") {
 		const n = Number(override);
 		if (!Number.isInteger(n) || n <= 0) {
@@ -632,7 +632,7 @@ async function main(): Promise<void> {
 	// Preference order: explicit override, then the TS 7 alias, then the classic
 	// compiler. Which one ran is PRINTED, never silent — a gate whose verdict
 	// depends on an invisible choice of compiler is a gate you cannot trust.
-	const override = process.env["TYPECHECK_TSC"];
+	const override = process.env.TYPECHECK_TSC;
 	const nativeBin = resolve(root, "node_modules", "typescript-native", "bin", "tsc");
 	const classicBin = resolve(root, "node_modules", ".bin", "tsc");
 	const tscBin = override

@@ -15,6 +15,7 @@
  */
 
 import { Fragment, type JSX } from "react";
+import { Avatar } from "../ds";
 import { absoluteDate, clockTime } from "../utils/time.js";
 import type { OpenHandler, Part } from "./parts";
 import { groupParts } from "./parts";
@@ -82,16 +83,10 @@ export function initialsOf(name: string): string {
  * the same Avatar treatment as the ConversationSurface header.)
  */
 function GroupAvatar({ name, isAgent }: { name: string; isAgent: boolean }): JSX.Element {
-	const tint = isAgent
-		? "bg-[var(--accent-primary-dim)] border-[var(--accent-deep)] text-[var(--accent-deep)]"
-		: "bg-[var(--surface-container)] border-[var(--border-default)] text-[var(--text-secondary)]";
+	// Decorative — the author's name renders as text right next to it.
 	return (
-		<span
-			aria-hidden="true"
-			data-ds-component="GroupAvatar"
-			className={`type-avatar-initial type-avatar-initial--sm inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[var(--r-pill)] ${tint}`}
-		>
-			{initialsOf(name)}
+		<span aria-hidden="true">
+			<Avatar initials={initialsOf(name)} size="sm" agent={isAgent} />
 		</span>
 	);
 }
@@ -143,7 +138,9 @@ function groupDayUTCKey(group: ReturnType<typeof groupParts>[number]): string {
  */
 function DaySeparator({ label }: { label: string }): JSX.Element {
 	return (
+		// biome-ignore lint/a11y/useSemanticElements: not a form — <fieldset> doesn't apply to a chat date divider; role="group" is what makes the aria-label below take effect.
 		<div
+			role="group"
 			data-ds-component="DaySeparator"
 			aria-label={`Messages from ${label}`}
 			className="flex items-center gap-[12px] py-[6px]"

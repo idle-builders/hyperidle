@@ -16,7 +16,7 @@ import { GlobalSearchPanel } from "../components/GlobalSearchPanel";
 import { RecipientPicker } from "../components/RecipientPicker";
 import type { ConversationsFilter, ThreadItem } from "../components/ThreadSections";
 import { AssistantContext, type AssistantContextRef } from "../contexts/AssistantContext";
-import { ensureOverlayRoot, useDialogBehavior } from "../ds";
+import { ensureOverlayRoot, LiveDot, useDialogBehavior } from "../ds";
 import { useCommandK } from "../hooks/useCommandK";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { useDocuments } from "../hooks/useDocuments.js";
@@ -881,10 +881,9 @@ export function AppShell(): JSX.Element {
 							</svg>
 							{/* Notification dot — signals "items need attention" */}
 							{hasAttentionItems && (
-								<span
-									className="absolute top-[8px] right-[8px] w-[6px] h-[6px] rounded-[var(--r-pill)] bg-[var(--accent-primary)]"
-									aria-hidden="true"
-								/>
+								<span className="absolute top-[8px] right-[8px]">
+									<LiveDot />
+								</span>
 							)}
 						</button>
 						{/* @lore UI-144/145: h1 in PageHeader provides the semantic title; this span is visual-only */}

@@ -878,7 +878,6 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		const adapter = this;
 		const sessionId = handle.sessionId;
 
-		// biome-ignore lint/suspicious/useAwait: async generator requires async keyword
 		return (async function* (): AsyncGenerator<HarnessEvent, void, unknown> {
 			const session = adapter.sessions.get(sessionId);
 			if (!session) return;
@@ -1181,6 +1180,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		}
 	}
 
+	// biome-ignore lint/suspicious/useAwait: killProcessGroup below can throw synchronously (its child.kill fallback); async is what turns that throw into a rejected promise for callers.
 	async stopSession(handle: SessionHandle): Promise<SessionResult> {
 		const session = this.sessions.get(handle.sessionId);
 		if (!session) {
@@ -1234,6 +1234,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		);
 	}
 
+	// biome-ignore lint/suspicious/useAwait: throws synchronously for an unsupported binary below; async is what turns that throw into a rejected promise for callers.
 	async resumeSession(
 		nativeSessionId: string,
 		message: string,

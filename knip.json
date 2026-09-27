@@ -10,6 +10,7 @@
 		".pipeline/**",
 		"viewer/**",
 		"layers/core-ui/src/**/*.stories.tsx",
+		"layers/core-ui/src/__storybook__/**",
 		"**/vitest-setup.ts",
 		"**/vitest-integration-setup.ts",
 		"**/test-setup.ts",
@@ -34,7 +35,11 @@
 	},
 	"workspaces": {
 		".": {
-			"entry": ["vitest.integration.config.ts!", "eslint.design.config.ts!"]
+			"entry": ["vitest.integration.config.ts!"],
+			// Never imported by us: eslint-plugin-drizzle requires @typescript-eslint/utils at
+			// runtime but lists it only as its own devDependency. Declared here so ESLint can
+			// load that plugin on a clean install.
+			"ignoreDependencies": ["@typescript-eslint/utils"]
 		},
 		"framework/domain-model": {},
 		"framework/diagnostics": {},

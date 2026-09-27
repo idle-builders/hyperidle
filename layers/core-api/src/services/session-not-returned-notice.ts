@@ -56,7 +56,9 @@ export function registerSessionNotReturnedNotice(
 	sendMessage: SendMessageRunFn,
 ): () => void {
 	if (registeredBuses.has(eventBus)) {
-		return () => {};
+		return () => {
+			// Already registered for this bus — nothing new to dispose.
+		};
 	}
 	registeredBuses.add(eventBus);
 

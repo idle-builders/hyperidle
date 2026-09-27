@@ -1,7 +1,7 @@
 import type { AnchorRef, Message, ThreadView, VerdictDecision } from "@hyperidle/domain-model";
 import { isRedactedPayload } from "@hyperidle/domain-model";
 import type { JSX } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import type { BlockId } from "../../block/types.js";
 import { ErrorState, PageHeader, PageScaffold } from "../../ds";
@@ -257,10 +257,14 @@ export function ReviewPage({
 		};
 	}, [subject, threadDetail.data]);
 
-	// `threadDetail.data` is read inside but deliberately excluded from the deps below —
-	// its later changes are handled by the `reviewSubject` overlay above (conversation/
-	// verdict), not by re-invoking `loader`.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: see comment above
+	// `threadDetail.data` is read through this ref rather than as a dep so its
+	// later changes never re-invoke `loader` — those changes are handled by the
+	// `reviewSubject` overlay above (conversation/verdict). Reading via a ref
+	// (never a listed dependency) is the honest way to keep this effect keyed
+	// on `threadDetail.status` transitioning to "ready", not on data identity.
+	const threadDataRef = useRef(threadDetail.data);
+	threadDataRef.current = threadDetail.data;
+
 	useEffect(() => {
 		// No thread id at all is a bad link, not a loading state — handled by
 		// the dedicated render branch below. Never wait
@@ -270,9 +274,10 @@ export function ReviewPage({
 			setError(new Error(threadDetail.error ?? "Could not load review"));
 			return;
 		}
-		if (threadDetail.status !== "ready" || !threadDetail.data) return;
+		const data = threadDataRef.current;
+		if (threadDetail.status !== "ready" || !data) return;
 		let cancelled = false;
-		loader({ reviewId, threadId, thread: threadDetail.data })
+		loader({ reviewId, threadId, thread: data })
 			.then((s) => {
 				if (!cancelled) {
 					setSubject(s);

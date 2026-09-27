@@ -112,13 +112,9 @@ function getNoticeConfig(notice: AssistantNotice, onRetry?: () => void): NoticeC
 				description: "The model provider returned an error. This is usually temporary.",
 				colorToken: "var(--status-error)",
 				affordance: (
-					<button
-						type="button"
-						className="type-control border-width-thin   px-[9px] py-[6px] rounded-[var(--r-subtle)]  border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-						onClick={onRetry}
-					>
+					<Button variant="secondary" size="sm" onClick={onRetry}>
 						Retry
-					</button>
+					</Button>
 				),
 			};
 	}
@@ -241,13 +237,9 @@ function StaleRetryCard({ onRetry }: { onRetry?: () => void }): JSX.Element {
 			<span className="type-small" style={{ color: "var(--status-error)", flex: 1 }}>
 				Couldn't reach the model — that didn't finish.
 			</span>
-			<button
-				type="button"
-				className="type-control border-width-thin shrink-0 px-[9px] py-[6px] rounded-[var(--r-subtle)] border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-				onClick={onRetry}
-			>
+			<Button variant="secondary" size="sm" className="shrink-0" onClick={onRetry}>
 				Retry
-			</button>
+			</Button>
 		</div>
 	);
 }
@@ -593,25 +585,28 @@ export function AssistantOverlay({
 
 	// @lore AI2: modal=false surfaces don't use a focus trap, so Escape must be caught
 	// at document level (the overlay div won't receive keyboard events unless focused).
-	// behavior.requestDismiss() is called on Escape so the guard rule applies.
+	// requestDismiss() is called on Escape so the guard rule applies.
+	const { requestDismiss } = behavior;
 	useEffect(() => {
 		if (!open) return;
 		const handler = (e: KeyboardEvent): void => {
 			if (e.key === "Escape") {
-				behavior.requestDismiss();
+				requestDismiss();
 			}
 		};
 		document.addEventListener("keydown", handler);
 		return () => {
 			document.removeEventListener("keydown", handler);
 		};
-	}, [open, behavior.requestDismiss]);
+	}, [open, requestDismiss]);
 
 	if (!open) return null;
 
 	const overlayProps = behavior.getOverlayProps();
 
 	return (
+		// biome-ignore lint/a11y/useAriaPropsSupportedByRole: role is statically typed "dialog" in useDialogBehavior.getOverlayProps — biome can't see through the indirection to know aria-modal/aria-label are valid here.
+		// biome-ignore lint/a11y/noStaticElementInteractions: same indirection — role is "dialog", which supports onKeyDown for the focus/escape handling.
 		<div
 			role={overlayProps.role}
 			aria-label="Assistant conversation"
@@ -632,11 +627,10 @@ export function AssistantOverlay({
 			    already shows the agent identity. A duplicate "Assistant" h2 here
 			    caused two stacked headers (UI-140). Only the close control stays. */}
 			<div className="border-width-thin-b flex items-center justify-end px-[12px] py-[6px]  border-[var(--border-subtle)] shrink-0">
-				<button
-					type="button"
+				<Button
+					variant="ghost"
+					size="icon"
 					aria-label="Close assistant"
-					/* AQ-015: 44px touch floor ≤1024px, dense 24px ≥1280px. */
-					className="flex items-center justify-center w-[24px] h-[24px] min-h-[44px] min-w-[44px] xl:min-h-[24px] xl:min-w-[24px] rounded-[var(--r-pill)] bg-transparent border-none text-[var(--text-secondary)] cursor-pointer hover:text-[var(--accent-deep)]  "
 					onClick={behavior.requestDismiss}
 				>
 					<svg
@@ -652,7 +646,7 @@ export function AssistantOverlay({
 						<line x1="2" y1="2" x2="12" y2="12" />
 						<line x1="12" y1="2" x2="2" y2="12" />
 					</svg>
-				</button>
+				</Button>
 			</div>
 			<AssistantOverlayInner contextRefs={contextRefs} onRemoveContextRef={onRemoveContextRef} />
 		</div>

@@ -81,7 +81,7 @@ function parseServerConfig(configJson: string | undefined): ServerConfig {
  * Patch config in the server_config table.
  * Deep-merges with the existing config. Returns the new merged config.
  */
-export async function updateServerConfig(
+export function updateServerConfig(
 	db: HyperIdleDb,
 	patch: ServerConfigPatch,
 ): Promise<ServerConfig> {

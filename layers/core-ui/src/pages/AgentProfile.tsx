@@ -35,6 +35,7 @@ import {
 	Avatar,
 	agentOperationalStatusToStatus,
 	Breadcrumb,
+	Button,
 	clickableProps,
 	EmptyState,
 	ErrorState,
@@ -544,9 +545,9 @@ function AgentProfileLoaded({
 									</div>
 									{data.reviewTrackRecord.recentVerdicts.length > 0 && (
 										<ul className="flex flex-col gap-[3px]">
-											{data.reviewTrackRecord.recentVerdicts.map((v, i) => (
+											{data.reviewTrackRecord.recentVerdicts.map((v) => (
 												<li
-													key={`${v.threadId}-${i}`}
+													key={`${v.threadId}-${v.createdAt}`}
 													className="type-small text-[var(--text-secondary)]"
 												>
 													{v.decision} — {absoluteDate(v.createdAt)}
@@ -698,12 +699,14 @@ function AgentSessionPanel({
 
 	return (
 		<div className="relative flex h-full flex-col">
-			<button
-				type="button"
+			<Button
+				variant="ghost"
+				tone="neutral"
+				size="icon"
 				onClick={onClose}
 				aria-label="Close session view"
 				data-testid="close-session-view"
-				className="absolute top-[9px] right-[12px] z-[1] rounded-[var(--r-subtle)] p-[6px] text-[var(--text-tertiary)]   hover:bg-[var(--surface-container)] hover:text-[var(--text-secondary)]"
+				className="absolute top-[9px] right-[12px] z-[1]"
 			>
 				<svg
 					viewBox="0 0 12 12"
@@ -715,7 +718,7 @@ function AgentSessionPanel({
 				>
 					<path d="M2 2 L10 10 M10 2 L2 10" strokeLinecap="round" />
 				</svg>
-			</button>
+			</Button>
 			<SessionView
 				sessionId={sessionId}
 				entries={[...entries]}
