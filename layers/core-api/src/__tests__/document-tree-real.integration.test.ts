@@ -37,7 +37,7 @@ import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { documents } from "@hyperidle/db";
+import { documents, users } from "@hyperidle/db";
 import { test as dbTest } from "@hyperidle/db/test-fixtures";
 import { assembleSessionDocuments } from "@hyperidle/document";
 import { type BakedContextBundle, toBakedContextDocuments } from "@hyperidle/domain-model";
@@ -317,6 +317,25 @@ function manifestPathFor(sandboxPath: string): string {
 	return path.join(sandboxPath, ".fabric", "manifest.json");
 }
 
+/**
+ * Seeds AGENT_ID as a real `users` row, the way production creates an
+ * agent (`kind: "ai"`) — the create/move tests below pass AGENT_ID as
+ * `writeback.process`'s `actor`, which lands in `changes.actor` under a
+ * `changes_actor_fkey` FK to `users.id`. Without this the FK rejects the
+ * insert; this is a test-setup gap, not a production one (production's
+ * agent creation always inserts the `users` row first).
+ */
+async function seedActorAgent(db: import("@hyperidle/db").HyperIdleDb): Promise<void> {
+	await db.insert(users).values({
+		id: AGENT_ID,
+		kind: "ai",
+		name: "NKT Probe Agent",
+		role: "builder",
+		status: "active",
+		createdAt: new Date().toISOString(),
+	});
+}
+
 const HARNESSES = ["claude", "codex", "opencode", "cursor-agent"] as const;
 
 for (const harness of HARNESSES) {
@@ -506,6 +525,7 @@ for (const harness of HARNESSES) {
 			"a real agent creating a nested folder with a file in it produces a real document with the right parent, and the new folder becomes its own scope-inheriting item",
 			{ retry: 0 },
 			async ({ db }) => {
+				await seedActorAgent(db);
 				const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), `nkt-${harness}-create-`));
 				const writeback = createWritebackProcessor();
 				const documentPort = realDocumentWritebackPort(db, new EventBus());
@@ -578,6 +598,7 @@ for (const harness of HARNESSES) {
 			"a real agent moving an existing materialised file reparents the same item by its id suffix — no duplicate, body untouched",
 			{ retry: 0 },
 			async ({ db }) => {
+				await seedActorAgent(db);
 				const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), `nkt-${harness}-move-`));
 				const writeback = createWritebackProcessor();
 				const documentPort = realDocumentWritebackPort(db, new EventBus());

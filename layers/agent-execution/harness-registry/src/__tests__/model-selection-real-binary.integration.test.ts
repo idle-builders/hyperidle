@@ -137,13 +137,19 @@ function sessionId(prefix: string): string {
 
 // ── claude ────────────────────────────────────────────────────────────────────
 
-/** claude states the model it used as the key of `modelUsage` on its result line. */
+/**
+ * claude states the model it used on each `assistant` message's own
+ * `message.model` field — the CLI's real per-turn guarantee.
+ *
+ * @lore modelUsage's key order is not the answering model — an internal small-model entry can sort first; a test-only bug, fixed by reading assistant.model.
+ */
 function claudeModelUsed(stdout: string): string | undefined {
 	for (const obj of jsonLines(stdout).reverse()) {
-		const usage = obj.modelUsage;
-		if (usage && typeof usage === "object") {
-			const keys = Object.keys(usage as Record<string, unknown>);
-			if (keys.length > 0) return keys[0];
+		if (obj.type !== "assistant") continue;
+		const message = obj.message;
+		if (message && typeof message === "object") {
+			const model = (message as Record<string, unknown>).model;
+			if (typeof model === "string" && model.length > 0) return model;
 		}
 	}
 	return undefined;
