@@ -9,8 +9,8 @@
  * `//`-style lore note is several ADJACENT nodes, not one. `groupComments`
  * merges consecutive same-column Line comments into one unit first (a Block
  * comment is already one unit); `splitIntoParagraphs` then finds the `@lore`
- * paragraph inside it. A line starting with the literal word "@lore" only
- * begins a NEW paragraph when the previous line ends with terminal
+ * paragraph inside it. A line starting with `@lore:` always begins a new
+ * note; a bare "@lore" only begins one when the previous line ends with terminal
  * punctuation (or there is no previous line) — a wrapped sentence can land
  * that word at the start of a continuation line ("...conflation that\n@lore
  * AE4 documents.") without declaring a new note, and that must stay a
@@ -53,9 +53,9 @@ function splitIntoParagraphs(contentLines: readonly string[]): Paragraph[] {
 		const line = contentLines[i] ?? "";
 		const isBlank = line.trim().length === 0;
 		const startsNewLoreTag =
-			/^@lore\b/.test(line.trim()) &&
 			current.length > 0 &&
-			endsAParagraph(current[current.length - 1] ?? "");
+			(/^@lore:/.test(line.trim()) ||
+				(/^@lore\b/.test(line.trim()) && endsAParagraph(current[current.length - 1] ?? "")));
 		if (isBlank || startsNewLoreTag) {
 			if (current.length > 0) paragraphs.push({ lines: current, startOffsetInUnit: startOffset });
 			current = [];
