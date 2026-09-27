@@ -4,14 +4,33 @@
 		{
 			"name": "hyperidle",
 			"runtimeExecutable": "sh",
-			"runtimeArgs": ["-c", "PORT=3001 npm run dev"],
+			"runtimeArgs": [
+				"-c",
+				"PORT=3001 npm run dev"
+			],
 			"port": 5173
 		},
 		{
 			"name": "web-only",
 			"runtimeExecutable": "npm",
-			"runtimeArgs": ["run", "-w", "@hyperidle/core-ui", "dev"],
+			"runtimeArgs": [
+				"run",
+				"-w",
+				"@hyperidle/core-ui",
+				"dev"
+			],
 			"port": 5173
+		},
+		{
+			"name": "studio",
+			"runtimeExecutable": "npm",
+			"runtimeArgs": [
+				"run",
+				"-w",
+				"@hyperidle/studio",
+				"dev"
+			],
+			"port": 5180
 		}
 	]
 }
