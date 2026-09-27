@@ -117,9 +117,7 @@ const getClient = async () => {
  * connect() does an async fetch first, then creates the WS — so we need
  * to flush microtasks to let the fetch resolve before accessing wsInstances.
  *
- * @lore S4: Test helper needed because connect() is async: fetch() is awaited
- * before WebSocket creation, so wsInstances[0] is undefined immediately after
- * calling connect(). This helper polls until the WS appears (up to 100ms).
+ * @lore connect() awaits fetch() before creating the WebSocket — poll until wsInstances[0] appears.
  */
 async function waitForWsInstance(): Promise<MockWsInstance> {
 	for (let i = 0; i < 50; i++) {
@@ -192,7 +190,6 @@ describe("RemoteWorkerClient connect/disconnect", () => {
 	it("connect() calls POST /api/auth/worker-token before opening WS", async () => {
 		const { RemoteWorkerClient } = await getClient();
 
-		// @lore S4: vi.fn mock must use regular function (not arrow) so `new MockWebSocket()` works
 		// biome-ignore lint/complexity/useArrowFunction: regular function required so `new MockWebSocket()` works via Reflect.construct
 		const MockWebSocket = vi.fn().mockImplementation(function () {
 			return makeWsInstance();
@@ -485,7 +482,7 @@ describe("RemoteWorkerClient graceful shutdown", () => {
 		});
 
 		// Session that blocks until we manually resolve it
-		// @lore AU31: `| undefined` not `| null` — TS 6.0's control-flow analysis
+		// @lore optional-not-nullable: `| undefined` not `| null` — TS 6.0's control-flow analysis
 		// of a `let` reassigned inside a synchronously-invoked Promise executor
 		// narrows a `null`-initialized variable to `never` at the later read
 		// (reproduced in isolation, TS 6.0.3); `undefined` does not trip it.

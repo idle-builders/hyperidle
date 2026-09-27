@@ -7,13 +7,7 @@
  * right shape, for both terminal codes and the non-terminal (informational)
  * case.
  *
- * @lore assertion note: `streamId`'s exact convention for a PRE-resolution
- * failure (the resolution itself is what's failing, so a fully-resolved
- * `task:<id>`/`subscription:<id>`/`thread:<id>` stream may not be derivable
- * from the stored intent row alone) is not pinned down by architecture.md
- * beyond "same convention as AgentWorkIntentEvent" — this test asserts its
- * presence as a non-empty string, not an exact format, and leaves the
- * precise convention to the implementer.
+ * @lore streamId's exact format for a pre-resolution failure is unspecified — this test asserts presence as a non-empty string, not a format.
  */
 
 import { agentWorkIntents, type HyperIdleDb, teams, users } from "@hyperidle/db";
@@ -179,7 +173,5 @@ describe("agent_run_admission_failed — emission from failOrRelease", () => {
 		}
 	});
 
-	// @lore The type system is the live proof that a direct run-row write
-	// from `failOrRelease` can't come back — no such dependency exists on
-	// `DurableQueueDeps`.
+	// @lore The type system is the live proof that a direct run-row write from `failOrRelease` can't come back — no such dependency exists on `DurableQueueDeps`.
 });

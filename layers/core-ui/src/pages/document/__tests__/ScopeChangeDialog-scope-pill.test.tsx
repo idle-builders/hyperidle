@@ -59,8 +59,7 @@ describe("ScopeChangeDialog — scope-pill-change picker", () => {
 		expect(screen.getByTestId("scope-pill-change-private")).toBeInTheDocument();
 		// Founder ruling: the Filesystem scope is gone.
 		expect(screen.queryByTestId("scope-pill-change-filesystem")).not.toBeInTheDocument();
-		// @lore nested-knowledge-items: the Role option (scopeKind: "practice")
-		// is gone with the practice scope value.
+		// @lore there is no Role scope option — the practice scope value does not exist.
 		expect(screen.queryByTestId("scope-pill-change-role")).not.toBeInTheDocument();
 	});
 

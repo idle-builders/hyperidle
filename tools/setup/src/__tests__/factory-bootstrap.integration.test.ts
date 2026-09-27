@@ -110,11 +110,6 @@ describe("runFactoryBootstrap is idempotent", () => {
 		expect(count2).toBe(count1);
 	});
 
-	test("running bootstrap twice does not throw", async ({ db }) => {
-		await runFactoryBootstrap(db);
-		await expect(runFactoryBootstrap(db)).resolves.not.toThrow();
-	});
-
 	test("system:propagation row is identical after second run", async ({ db }) => {
 		await runFactoryBootstrap(db);
 		const rows1 = await queryRows<{ id: string; kind: string; role: string }>(

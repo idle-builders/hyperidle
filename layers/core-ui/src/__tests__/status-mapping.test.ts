@@ -2,8 +2,7 @@ import { DOCUMENT_STATUSES, TASK_STATES } from "@hyperidle/domain-model";
 import { describe, expect, it } from "vitest";
 import { documentStatusToStatus, type Status, taskStateToStatus } from "../ds";
 
-// @lore BB1: betStatusToStatus tests removed — WorkTeam still exports betStatusToStatus
-// for WorkTeam.tsx consumption until that page is updated to the task primitive.
+// @lore WorkTeam still exports betStatusToStatus for WorkTeam.tsx until that page moves to the task primitive.
 
 /** All legal presentation Status values, used to assert exhaustive coverage. */
 const VALID_STATUSES: readonly Status[] = [
@@ -60,10 +59,7 @@ describe("taskStateToStatus", () => {
 });
 
 describe("documentStatusToStatus", () => {
-	// @lore nested-knowledge-items: the 7-value status ladder collapsed to 4
-	// (proposed | active | stale | archived) — captured/provisional/needs_human
-	// folded into proposed, validated folded into active.
-	// @lore BC4: renamed from knowledgeStatusToStatus — values unchanged.
+	// @lore the status ladder is 4 values now: proposed | active | stale | archived.
 	it("maps proposed to behind", () => {
 		// I4 S2 intent preserved: proposed is the action-required state —
 		// explicitly not `healthy` (would mislead the founder into thinking the

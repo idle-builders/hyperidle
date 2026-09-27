@@ -76,13 +76,10 @@ describe("ConversationSurface — real props", () => {
 		renderSurface();
 		const group = screen.getByText("2");
 		expect(group).toBeInTheDocument();
-		// The avatar group is present.
-		expect(document.querySelector("[data-ds-component='AvatarGroup']")).not.toBeNull();
 	});
 
 	it("renders the message column via PartList", () => {
 		renderSurface();
-		expect(document.querySelector("[data-ds-component='PartList']")).not.toBeNull();
 		expect(screen.getByText("Hello from the founder")).toBeInTheDocument();
 		expect(screen.getByText("Reply from the agent")).toBeInTheDocument();
 	});

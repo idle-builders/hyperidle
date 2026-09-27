@@ -10,7 +10,7 @@
 import { describe, expect, it } from "vitest";
 import { SCOPE_PILL_OPTIONS, scopeKindToLabel } from "../utils/scope-labels.js";
 
-describe("AE1 — scopeKindToLabel: the 3-value contract", () => {
+describe("scopeKindToLabel: the 3-value contract", () => {
 	it('scopeKindToLabel("team") returns "Team"', () => {
 		expect(scopeKindToLabel("team")).toBe("Team");
 	});
@@ -23,15 +23,13 @@ describe("AE1 — scopeKindToLabel: the 3-value contract", () => {
 		expect(scopeKindToLabel("factory")).toBe("Shared");
 	});
 
-	// @lore nested-knowledge-items: "product" is a retired scope value — it
-	// no longer gets its own "Team" mapping, it falls through to the same
-	// unknown-kind fallback any other unrecognized string gets.
+	// @lore "product" is not a special-cased scope value — it falls through to the same unknown-kind fallback as any other string.
 	it('scopeKindToLabel("product") falls back to "Shared" (retired scope value)', () => {
 		expect(scopeKindToLabel("product")).toBe("Shared");
 	});
 });
 
-describe("AE1 — SCOPE_PILL_OPTIONS: the 3 real scope kinds", () => {
+describe("SCOPE_PILL_OPTIONS: the 3 real scope kinds", () => {
 	it('Team pill filterKinds is exactly ["team"]', () => {
 		const teamPill = SCOPE_PILL_OPTIONS.find((o) => o.id === "team");
 		expect(teamPill?.filterKinds).toEqual(["team"]);

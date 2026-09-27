@@ -37,11 +37,7 @@ const REVIEW_MESSAGE = makeMessage("review-az16", THREAD.id, {
 	createdAt: "2026-08-14T09:00:00.000Z",
 });
 
-// @lore WorkTaskPage loads
-// `open_task` (POST /api/actions/open_task), so this is that action's
-// result instead. The catch-all below answers `{}` for anything it does
-// not recognise, so an unmatched open_task request would render the page
-// with no task at all.
+// @lore WorkTaskPage loads via open_task — the catch-all route answers {} for anything else, rendering a taskless page.
 const TASK_VIEW = {
 	task: makeTask("task-az16", {
 		title: "Semantic design profiles",
@@ -145,11 +141,7 @@ async function installAz16Mocks(page: Page): Promise<void> {
 		if (pathname === "/api/actions/search_documents") {
 			return json(route, { ok: true, data: [KNOWLEDGE] });
 		}
-		// @lore `GET /api/{teams,teams/:id,org,harnesses,agents,
-		// connections,filesystems}` and `/api/settings/agent-behavior/config`
-		// are gone with the users/agents/org/teams/recipients/connections/
-		// filesystems/harnesses/agent-behavior route families — the user door
-		// (`search_users`/`open_user`/`edit_user`) is the one surface now.
+		// @lore old route families are gone — search_users/open_user/edit_user is the one user door now.
 		if (pathname === "/api/actions/search_users") {
 			return json(route, { ok: true, data: [FOUNDER_ROW, AGENT_ROW] });
 		}

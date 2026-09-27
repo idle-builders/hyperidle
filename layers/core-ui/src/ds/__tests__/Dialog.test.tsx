@@ -7,16 +7,11 @@
  * closing; focus enters on open, is trapped, and returns to the trigger on
  * close; a mobile bottom-anchored sheet class.
  *
- * @lore: Portal uses #overlay-root which is lazily created by
- * ensureOverlayRoot() inside useDialogBehavior. Tests do NOT mount
- * DialogPortalRoot — the hook's lazy-create logic makes Dialog
- * self-sufficient in bare jsdom renders.
+ * @lore #overlay-root is lazily created by ensureOverlayRoot() inside useDialogBehavior — tests don't mount DialogPortalRoot; Dialog is self-sufficient in jsdom.
  *
- * @lore: `inert` is NOT asserted here — jsdom doesn't implement it. Use a
- * real-browser E2E test to assert the #root inert attribute.
+ * @lore: `inert` is NOT asserted here — jsdom doesn't implement it. Use a real-browser E2E test to assert the #root inert attribute.
  *
- * @lore: focus-trap-react requires displayCheck:"none" under jsdom. This
- * must be threaded into useDialogBehavior's FocusTrap initialization.
+ * @lore: focus-trap-react requires displayCheck:"none" under jsdom. This must be threaded into useDialogBehavior's FocusTrap initialization.
  */
 
 import { act, createElement } from "react";
@@ -76,7 +71,7 @@ describe("Dialog chrome", () => {
 			root.render(createElement(Dialog, makeProps({ open: true })));
 		});
 		const dialog = document.querySelector("[role='dialog']");
-		expect(dialog).not.toBeNull();
+		expect(dialog).toBeInTheDocument();
 	});
 
 	it("renders the title text in the dialog header", async () => {
@@ -110,7 +105,7 @@ describe("Dialog chrome", () => {
 		const closeBtn = document.querySelector(
 			"[aria-label='Close dialog']",
 		) as HTMLButtonElement | null;
-		expect(closeBtn).not.toBeNull();
+		expect(closeBtn).toBeInTheDocument();
 	});
 
 	it("clicking the close button calls onClose", async () => {
@@ -144,7 +139,7 @@ describe("Dialog chrome", () => {
 			);
 		});
 		const btn = document.querySelector("[data-testid='action-btn']");
-		expect(btn).not.toBeNull();
+		expect(btn?.textContent).toBe("Save");
 	});
 });
 
@@ -197,11 +192,11 @@ describe("Dialog dismissal guard", () => {
 			overlay?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
 		});
 
-		// The guard strip must be visible — find it by its prompt copy or data-testid
+		// The guard strip must be visible, with its prompt copy.
 		const strip =
 			document.querySelector("[data-testid='discard-confirm-strip']") ??
 			document.querySelector("[data-dialog-guard]");
-		expect(strip).not.toBeNull();
+		expect(strip?.textContent).toContain("Discard your changes?");
 	});
 
 	it("clean dialog (isDirty=false): pressing Escape calls onClose immediately (confirmation rule §1.1)", async () => {
@@ -379,9 +374,7 @@ describe("Dialog focus behavior", () => {
 	});
 
 	it("focus returns to the trigger element after dialog closes", async () => {
-		// @lore: FocusTrap returnFocusOnDeactivate=true wires return-focus.
-		// We verify it actually fires by: focus trigger → open → focus is in dialog →
-		// close (open=false) → focus returns to trigger.
+		// @lore this verifies FocusTrap's returnFocusOnDeactivate actually fires: focus trigger → open → focus in dialog → close → focus returns to trigger.
 		const trigger = document.createElement("button");
 		trigger.textContent = "Trigger";
 		document.body.appendChild(trigger);
@@ -469,7 +462,7 @@ describe("Dialog mobile adaptation", () => {
 		const box =
 			document.querySelector("[data-dialog-box]") ??
 			document.querySelector("[data-testid='dialog-box']");
-		expect(box).not.toBeNull();
+		expect(box).toBeInTheDocument();
 	});
 });
 

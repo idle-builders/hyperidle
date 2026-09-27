@@ -268,19 +268,19 @@ describe("a production file in no package fails CLOSED", () => {
 
 	it("negative control — a DEVELOPMENT file outside every package still resolves to the repo root", () => {
 		// This is the case that must keep working: legitimate repo-root tooling with no workspace package.
-		expect(() =>
-			detect({
-				"scripts/build-thing.ts": `
-						import { bets } from "@hyperidle/db";
-						export const w = (db: any) => db.insert(bets).values({});
-					`,
-			}),
-		).not.toThrow();
+		const found = detect({
+			"scripts/build-thing.ts": `
+					import { bets } from "@hyperidle/db";
+					export const w = (db: any) => db.insert(bets).values({});
+				`,
+		});
+		expect(found).toEqual([]);
 	});
 
 	it("negative control — a production file outside every package that parses to nothing does not throw", () => {
 		// A future `layers/README.md` is production by classification and harmless.
-		expect(() => detect({ "layers/rogue/README.md": "# not code" })).not.toThrow();
+		const found = detect({ "layers/rogue/README.md": "# not code" });
+		expect(found).toEqual([]);
 	});
 });
 

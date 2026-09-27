@@ -15,9 +15,7 @@ const HEALTH_FIXTURE = { status: "ok" };
 const SEARCH_USERS_FIXTURE = { ok: true, data: [] };
 
 test("navigating the app carries X-API-Key on every action-door request", async ({ page }) => {
-	// @lore Playwright evaluates route handlers in REVERSE registration order
-	// (last-registered wins / LIFO); register the catch-all/default route
-	// FIRST and specific overrides AFTER so the specific one wins.
+	// @lore Playwright resolves routes in reverse registration order — register the catch-all first, specific overrides after.
 	let capturedApiKey: string | null = null;
 
 	await page.route("**/api/**", (route) => {

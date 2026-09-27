@@ -218,7 +218,7 @@ describe("DocumentList scope pills", () => {
 		(pill) => {
 			renderAt();
 			const scopePills = screen.getByTestId("document-scope-pills");
-			expect(scopePills.querySelector(`[data-testid="scope-pill-${pill}"]`)).not.toBeNull();
+			expect(scopePills.querySelectorAll(`[data-testid="scope-pill-${pill}"]`)).toHaveLength(1);
 		},
 	);
 
@@ -245,7 +245,7 @@ describe("DocumentList scope pills", () => {
 
 		await waitFor(() => {
 			const sortControls = screen.getByTestId("document-sort-bar");
-			expect(sortControls.querySelector("[aria-pressed='true']")).not.toBeNull();
+			expect(sortControls.querySelectorAll("[aria-pressed='true']")).toHaveLength(1);
 		});
 	});
 

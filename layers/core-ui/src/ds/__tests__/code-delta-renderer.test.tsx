@@ -100,6 +100,6 @@ describe("CodeDeltaRenderer (DS diff core)", () => {
 		// Empty hunks renders without crash (the composition handles empty, not the primitive)
 		const { container } = render(<CodeDeltaRenderer delta={{ file: "test.ts", hunks: [] }} />);
 		// Section is present with no crash
-		expect(container.querySelector("pre")).toBeTruthy();
+		expect(container.querySelectorAll("pre")).toHaveLength(1);
 	});
 });

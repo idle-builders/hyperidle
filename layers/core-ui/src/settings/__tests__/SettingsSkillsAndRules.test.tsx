@@ -6,8 +6,7 @@
  * install, and it is what makes removing the slot selector from the
  * document content view safe.
  *
- * @lore: repointed off raw `apiFetch`/`GET /api/knowledge` onto
- * `useDocuments`/`call("edit_document", …)`.
+ * @lore: repointed off raw `apiFetch`/`GET /api/knowledge` onto `useDocuments`/`call("edit_document", …)`.
  */
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -100,15 +99,7 @@ describe("SettingsSkillsAndRules", () => {
 	});
 
 	/**
-	 * @lore knowledge-attachment-slot: this row is deliberately NOT a real <a
-	 * href> (the usual link contract). The Delete button is a real button in
-	 * `actions`, which Row's href mode forbids nesting — an earlier version of
-	 * this test asserted the opposite and passed while Delete was completely
-	 * broken in the packaged app (a real anchor swallowed the "Delete" click
-	 * as navigation before it ever reached handleDelete). Clicking the row
-	 * still navigates, just via onClick/navigate() instead of a native link —
-	 * the named trade is losing ⌘-click/middle-click/"copy link" for this
-	 * list.
+	 * @lore this row is not a real anchor since Row's href mode forbids nesting Delete — it navigates via onClick/navigate(), trading away ⌘-click and copy-link.
 	 */
 	it("clicking a row navigates to its document content view, but not via a real <a>", async () => {
 		const user = userEvent.setup();
@@ -167,13 +158,7 @@ describe("SettingsSkillsAndRules", () => {
 	 * own rows still use, via RowDeleteAction; this list deliberately does
 	 * not).
 	 *
-	 * @lore knowledge-attachment-slot: this replaces the old kebab/confirm
-	 * test, which stayed green through four broken fix attempts because
-	 * jsdom's `userEvent.click()` never reproduces real anchor navigation —
-	 * see `document-slot-delete.spec.ts` for the real-Chromium coverage of
-	 * that failure mode. The removal here is optimistic (see
-	 * DocumentSlotList.tsx's `removedIds`), so the row is gone from the DOM
-	 * immediately on click, before the archive request resolves.
+	 * @lore see document-slot-delete.spec.ts for real-Chromium coverage jsdom lacks — removal is optimistic; the row leaves the DOM before the archive resolves.
 	 */
 	it("deletes: one click calls edit_document({status:'archived'}) and removes the row immediately", async () => {
 		vi.mocked(call).mockResolvedValue({ ok: true } as unknown as Awaited<ReturnType<typeof call>>);
@@ -197,11 +182,7 @@ describe("SettingsSkillsAndRules", () => {
 	});
 
 	/**
-	 * @lore knowledge-attachment-slot: the optimistic-restore path — nothing
-	 * covered this before the rewrite. `handleDelete` removes the row
-	 * immediately, then `restore(id)` puts it back if the archive call
-	 * itself fails, so a real failure is visible (the row reappears, not a
-	 * silently-broken delete) rather than trusting the optimistic remove.
+	 * @lore handleDelete removes the row immediately; restore(id) puts it back only if the archive call fails, so a real failure stays visible.
 	 */
 	it("delete error: shows the failure and the row comes back", async () => {
 		vi.mocked(call).mockResolvedValue({

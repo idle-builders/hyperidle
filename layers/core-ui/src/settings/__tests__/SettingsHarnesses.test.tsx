@@ -9,10 +9,7 @@
  * edit_user({ id, redetectHarnesses: true }); a disabled row renders
  * "Disabled — …" status.
  *
- * @lore BC5 T10: the door swap — `open_user({}).runsOn` replaces `GET
- * /api/harnesses`; `edit_user({ id: me, redetectHarnesses: true })` replaces
- * `POST /api/harnesses/redetect` (architecture.md §8). `call` is mocked at
- * the door instead of `fetch`.
+ * @lore open_user({}).runsOn replaces GET /api/harnesses; edit_user({redetectHarnesses:true}) replaces the redetect route — call is mocked at the door.
  */
 
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
@@ -406,10 +403,7 @@ describe("SettingsHarnesses SplitView", () => {
 		});
 	});
 
-	// @lore This used to assert that selecting the built-in row opened a detail
-	// pane made of model-tier rows and a credentials editor — its own pane, unlike
-	// every other harness. That pane went with the gateway it configured; there is
-	// one detail pane now and every harness gets the same one.
+	// @lore every harness gets the same detail pane now — there is no separate model-tier/credentials pane for any one harness.
 	it("selecting a key-accepting harness opens the same detail pane as any other", async () => {
 		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTimeAsync });
 		setupFetch();

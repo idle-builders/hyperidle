@@ -14,9 +14,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 // biome-ignore lint/style/useNamingConvention: React's flag name is fixed.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-// @lore: dynamic imports under jsdom take 10-30s due to remark/unified
-// (via @hyperidle/block-derivation) cold module loading. All tests in this file use
-// { timeout: 60_000 } to match the pattern in framework/block-derivation and framework/db.
+// @lore dynamic imports under jsdom take 10-30s from remark/unified cold-loading — every test here uses {timeout: 60_000}.
 const TEST_TIMEOUT = { timeout: 60_000 };
 
 describe("Per-kind payload renderers", () => {
@@ -48,7 +46,7 @@ describe("Per-kind payload renderers", () => {
 				inline: [{ type: "text", value: "Title" }],
 			}) as ReactElement,
 		);
-		expect(container.querySelector("h3")).toBeTruthy();
+		expect(container.querySelectorAll("h3")).toHaveLength(1);
 	});
 
 	it("ParagraphPayload renders <p>", TEST_TIMEOUT, async () => {
@@ -58,7 +56,7 @@ describe("Per-kind payload renderers", () => {
 				inline: [{ type: "text", value: "x" }],
 			}) as ReactElement,
 		);
-		expect(container.querySelector("p")).toBeTruthy();
+		expect(container.querySelectorAll("p")).toHaveLength(1);
 	});
 
 	it("ListPayload renders <ul> when ordered=false", TEST_TIMEOUT, async () => {
@@ -70,7 +68,7 @@ describe("Per-kind payload renderers", () => {
 				items: [{ children: [{ kind: "paragraph", inline: [{ type: "text", value: "a" }] }] }],
 			}) as ReactElement,
 		);
-		expect(container.querySelector("ul")).toBeTruthy();
+		expect(container.querySelectorAll("ul")).toHaveLength(1);
 	});
 
 	it("ListPayload renders <ol> when ordered=true", TEST_TIMEOUT, async () => {
@@ -82,7 +80,7 @@ describe("Per-kind payload renderers", () => {
 				items: [{ children: [{ kind: "paragraph", inline: [{ type: "text", value: "a" }] }] }],
 			}) as ReactElement,
 		);
-		expect(container.querySelector("ol")).toBeTruthy();
+		expect(container.querySelectorAll("ol")).toHaveLength(1);
 	});
 
 	it("QuotePayload renders <blockquote>", TEST_TIMEOUT, async () => {
@@ -93,7 +91,7 @@ describe("Per-kind payload renderers", () => {
 				children: [{ kind: "paragraph", inline: [{ type: "text", value: "q" }] }],
 			}) as ReactElement,
 		);
-		expect(container.querySelector("blockquote")).toBeTruthy();
+		expect(container.querySelectorAll("blockquote")).toHaveLength(1);
 	});
 
 	it(
@@ -108,7 +106,7 @@ describe("Per-kind payload renderers", () => {
 					text: longText,
 				}) as ReactElement,
 			);
-			expect(container.querySelector("pre code")).toBeTruthy();
+			expect(container.querySelectorAll("pre code")).toHaveLength(1);
 			// Collapsible state surfaces a control or an aria-expanded attr.
 			const html = container.innerHTML;
 			expect(html.toLowerCase()).toMatch(/collapse|expand|aria-expanded/);
@@ -124,14 +122,14 @@ describe("Per-kind payload renderers", () => {
 				rows: [[[{ type: "text", value: "1" }], [{ type: "text", value: "2" }]]],
 			}) as ReactElement,
 		);
-		expect(container.querySelector("table")).toBeTruthy();
-		expect(container.querySelector("thead")).toBeTruthy();
+		expect(container.querySelectorAll("table")).toHaveLength(1);
+		expect(container.querySelectorAll("thead")).toHaveLength(1);
 	});
 
 	it("DividerPayload renders <hr>", TEST_TIMEOUT, async () => {
 		const { DividerPayload } = await import("../../block/DividerPayload.js");
 		await mount(createElement(DividerPayload, {}) as ReactElement);
-		expect(container.querySelector("hr")).toBeTruthy();
+		expect(container.querySelectorAll("hr")).toHaveLength(1);
 	});
 
 	it("ImagePayload renders <figure><img> with zoom indicator", TEST_TIMEOUT, async () => {
@@ -143,7 +141,7 @@ describe("Per-kind payload renderers", () => {
 				title: null,
 			}) as ReactElement,
 		);
-		expect(container.querySelector("figure img")).toBeTruthy();
+		expect(container.querySelectorAll("figure img")).toHaveLength(1);
 	});
 
 	it("HtmlPayload renders sanitised HTML through the sanitizeHtml prop", TEST_TIMEOUT, async () => {
@@ -194,6 +192,6 @@ describe("Per-kind payload renderers", () => {
 		// the internal reason maps to plain words before it reaches the screen.
 		expect(container.textContent ?? "").toMatch(/couldn't read/i);
 		// Raw source rendered as text content (not inner HTML).
-		expect(container.querySelector("pre, code")).toBeTruthy();
+		expect(container.querySelector("pre")?.textContent).toContain("??");
 	});
 });

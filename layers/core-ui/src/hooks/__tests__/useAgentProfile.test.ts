@@ -1,8 +1,7 @@
 /**
  * AB1 — useAgentProfile hook unit tests.
  *
- * @lore BC5 T9: the door swap — `call("open_user", { id })` replaces
- * `apiFetch("/api/agents/:id/profile")`; `call` is mocked at the door.
+ * @lore door-swap: `call("open_user", { id })` replaces `apiFetch("/api/agents/:id/profile")`; `call` is mocked at the door.
  *
  * Covers:
  *   - Initial loading state when agentId is defined.

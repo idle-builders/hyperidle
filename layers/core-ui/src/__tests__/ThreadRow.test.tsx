@@ -125,8 +125,7 @@ describe("ThreadRow", () => {
 	});
 
 	it("renders the host tag pill when hostTag is provided", () => {
-		// @lore: hostTag="team" renders "team", not "bet" ("task" host
-		// kind is gone — a task's thread is team-hosted).
+		// @lore hostTag="team" renders "team" — a task's thread is team-hosted, so "task" is not a host kind.
 		render(<ThreadRow {...defaultProps} hostTag="team" />);
 		expect(screen.getByText("team")).toBeInTheDocument();
 	});
@@ -143,8 +142,8 @@ describe("ThreadRow", () => {
 		// Find avatars by their initials text content instead.
 		const tgAvatar = screen.getByText("TG");
 		const atAvatar = screen.getByText("AT");
-		expect(tgAvatar).toBeDefined();
-		expect(atAvatar).toBeDefined();
+		expect(tgAvatar).toBeInTheDocument();
+		expect(atAvatar).toBeInTheDocument();
 	});
 
 	it("renders message count badge when messageCount is provided", () => {
@@ -167,9 +166,8 @@ describe("ThreadRow", () => {
 
 	// Legacy avatarUrl prop — kept for backwards compatibility but not rendered visually
 	it("accepts avatarUrl prop without error (backwards compat)", () => {
-		expect(() =>
-			render(<ThreadRow {...defaultProps} avatarUrl="https://example.com/avatar.png" />),
-		).not.toThrow();
+		render(<ThreadRow {...defaultProps} avatarUrl="https://example.com/avatar.png" />);
+		expect(screen.getByText("Deploy pipeline stuck")).toBeInTheDocument();
 	});
 
 	describe("agent avatar presence dots", () => {

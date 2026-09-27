@@ -69,7 +69,7 @@ async function seedTerminalRequest(db: HyperIdleDb, id: string): Promise<AgentSe
 describe("agent_work_intents durable-rows checks", () => {
 	test("accepts a valid pending row", async ({ db }) => {
 		const [row] = await db.insert(agentWorkIntents).values(baseIntent()).returning();
-		expect(row).toBeDefined();
+		expect(row?.id).toBe("intent-default");
 	});
 
 	test("rejects a kind outside the four closed values", async ({ db }) => {
@@ -131,7 +131,7 @@ describe("agent_work_intents durable-rows checks", () => {
 					}),
 				)
 				.returning();
-			expect(row).toBeDefined();
+			expect(row?.id).toBe(`pair-${kind}`);
 		}
 	});
 
@@ -153,7 +153,7 @@ describe("agent_work_intents durable-rows checks", () => {
 				}),
 			)
 			.returning();
-		expect(row).toBeDefined();
+		expect(row?.id).toBe("good-claim");
 	});
 
 	test("rejects handed_off without a request_id", async ({ db }) => {
@@ -174,7 +174,7 @@ describe("agent_work_intents durable-rows checks", () => {
 				}),
 			)
 			.returning();
-		expect(row).toBeDefined();
+		expect(row?.id).toBe("good-handoff");
 	});
 
 	test("rejects a second intent correlated to the same request_id", async ({ db }) => {
@@ -224,7 +224,7 @@ describe("agent_work_intents durable-rows checks", () => {
 				baseIntent({ id: "good-failed", status: "failed", lastErrorCode: "INVALID_WORK_SOURCE" }),
 			)
 			.returning();
-		expect(row).toBeDefined();
+		expect(row?.id).toBe("good-failed");
 	});
 
 	test("rejects pending with claim/correlation fields set", async ({ db }) => {
@@ -249,7 +249,7 @@ describe("agent_work_intents durable-rows checks", () => {
 			.insert(agentWorkIntents)
 			.values(baseIntent({ id: "good-superseded", status: "superseded" }))
 			.returning();
-		expect(row).toBeDefined();
+		expect(row?.id).toBe("good-superseded");
 	});
 
 	test("rejects a duplicate (kind, source_kind, source_id, idempotency_key)", async ({ db }) => {
@@ -299,7 +299,7 @@ describe("agent_session_requests durable-rows checks", () => {
 	test("accepts a valid pending row", async ({ db }) => {
 		const values = await baseRequest(db);
 		const [row] = await db.insert(agentSessionRequests).values(values).returning();
-		expect(row).toBeDefined();
+		expect(row?.id).toBe("request-default");
 	});
 
 	test("rejects claimed without claim_token and claim_expires_at", async ({ db }) => {
@@ -315,7 +315,7 @@ describe("agent_session_requests durable-rows checks", () => {
 			claimExpiresAt: new Date(Date.now() + 30_000).toISOString(),
 		});
 		const [row] = await db.insert(agentSessionRequests).values(values).returning();
-		expect(row).toBeDefined();
+		expect(row?.id).toBe("good-claimed-request");
 	});
 
 	test("rejects running without a session_id", async ({ db }) => {
@@ -330,7 +330,7 @@ describe("agent_session_requests durable-rows checks", () => {
 			sessionId: "session-good-running",
 		});
 		const [row] = await db.insert(agentSessionRequests).values(values).returning();
-		expect(row).toBeDefined();
+		expect(row?.id).toBe("good-running-request");
 	});
 
 	test("rejects a closed status with a live claim still set", async ({ db }) => {
@@ -346,7 +346,7 @@ describe("agent_session_requests durable-rows checks", () => {
 	test("accepts a closed status with no live claim", async ({ db }) => {
 		const values = await baseRequest(db, { id: "good-closed-request", status: "completed" });
 		const [row] = await db.insert(agentSessionRequests).values(values).returning();
-		expect(row).toBeDefined();
+		expect(row?.id).toBe("good-closed-request");
 	});
 
 	test("rejects a termination_reason outside the four closed values", async ({ db }) => {
@@ -373,7 +373,7 @@ describe("agent_session_requests durable-rows checks", () => {
 				terminationReason: reason,
 			});
 			const [row] = await db.insert(agentSessionRequests).values(values).returning();
-			expect(row).toBeDefined();
+			expect(row?.id).toBe(`good-termination-${reason}`);
 		}
 	});
 

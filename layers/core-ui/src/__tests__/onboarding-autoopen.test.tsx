@@ -6,8 +6,7 @@
  * - AppShell with ?onboarding=true opens the assistant overlay
  * - The ?onboarding=true query param is removed after opening
  *
- * @lore: The existing ?settings=open pattern (AppShell.tsx) is the
- * reference for this implementation.
+ * @lore: The existing ?settings=open pattern (AppShell.tsx) is the reference for this implementation.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
@@ -81,7 +80,7 @@ describe("AppShell ?onboarding=true auto-open", () => {
 					screen.queryByTestId("assistant-context-chips") ??
 					screen.queryByRole("dialog", { name: /assistant/i }) ??
 					screen.queryByRole("dialog");
-				expect(overlay).not.toBeNull();
+				expect(overlay).toBeInTheDocument();
 			},
 			{ timeout: 3000 },
 		);
@@ -115,7 +114,7 @@ describe("AppShell ?onboarding=true auto-open", () => {
 					screen.queryByTestId("coc-overlay") ??
 					screen.queryByTestId("assistant-context-chips") ??
 					screen.queryByRole("dialog");
-				expect(overlay).not.toBeNull();
+				expect(overlay).toBeInTheDocument();
 			},
 			{ timeout: 3000 },
 		);

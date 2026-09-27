@@ -4,8 +4,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-// @lore AF13/BC4: sortItems is defined at module scope in DocumentList.tsx
-// and exported for testability.
+// @lore exported-for-testability: sortItems is defined at module scope in DocumentList.tsx and exported for testability.
 import { sortItems } from "../pages/DocumentList.js";
 
 interface TestItem {

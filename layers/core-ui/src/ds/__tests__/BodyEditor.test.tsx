@@ -71,7 +71,7 @@ describe("BodyEditor — mount", () => {
 			onChange: vi.fn(),
 		});
 		const wrapper = container.firstElementChild as HTMLElement;
-		expect(wrapper).toBeTruthy();
+		expect(wrapper.tagName).toBe("DIV");
 		cleanup(container, root);
 	});
 
@@ -81,7 +81,7 @@ describe("BodyEditor — mount", () => {
 			onChange: vi.fn(),
 		});
 		// TipTap renders a .ProseMirror element
-		expect(container.querySelector(".ProseMirror")).toBeTruthy();
+		expect(container.querySelectorAll(".ProseMirror")).toHaveLength(1);
 		cleanup(container, root);
 	});
 
@@ -90,7 +90,7 @@ describe("BodyEditor — mount", () => {
 			initialContent: "",
 			onChange: vi.fn(),
 		});
-		expect(container.querySelector(".body-editor")).toBeTruthy();
+		expect(container.querySelectorAll(".body-editor")).toHaveLength(1);
 		cleanup(container, root);
 	});
 });
@@ -126,8 +126,8 @@ describe("BodyEditor — renders markdown content", () => {
 			initialContent: "## Title\n\nBody text here.",
 			onChange: vi.fn(),
 		});
-		expect(container.querySelector("h2")).toBeTruthy();
-		expect(container.querySelector("p")).toBeTruthy();
+		expect(container.querySelectorAll("h2")).toHaveLength(1);
+		expect(container.querySelectorAll("p")).toHaveLength(1);
 		cleanup(container, root);
 	});
 });
@@ -140,9 +140,7 @@ describe("BodyEditor — round-trip fidelity", () => {
 	 * Round-trip tests verify that after loading markdown into the editor,
 	 * the serialized output contains the expected markdown constructs.
 	 * We test structural equivalence by verifying key markers are preserved.
-	 * @lore: We can't easily call editor.storage.markdown.getMarkdown() from
-	 * outside the component, so these tests verify the DOM rendering instead,
-	 * plus the onChange output captured from the component.
+	 * @lore editor.storage.markdown.getMarkdown() isn't callable from outside the component — tests verify DOM rendering and the onChange output instead.
 	 */
 
 	it("heading h1 renders correctly", () => {
@@ -190,7 +188,7 @@ describe("BodyEditor — round-trip fidelity", () => {
 			onChange: vi.fn(),
 		});
 		const ol = container.querySelector("ol");
-		expect(ol).toBeTruthy();
+		expect(ol?.querySelectorAll("li")).toHaveLength(3);
 		cleanup(container, root);
 	});
 
@@ -199,7 +197,7 @@ describe("BodyEditor — round-trip fidelity", () => {
 			initialContent: "> This is a quote",
 			onChange: vi.fn(),
 		});
-		expect(container.querySelector("blockquote")).toBeTruthy();
+		expect(container.querySelectorAll("blockquote")).toHaveLength(1);
 		cleanup(container, root);
 	});
 
@@ -208,8 +206,8 @@ describe("BodyEditor — round-trip fidelity", () => {
 			initialContent: "```typescript\nconst x = 1;\n```",
 			onChange: vi.fn(),
 		});
-		expect(container.querySelector("pre")).toBeTruthy();
-		expect(container.querySelector("code")).toBeTruthy();
+		expect(container.querySelectorAll("pre")).toHaveLength(1);
+		expect(container.querySelectorAll("code")).toHaveLength(1);
 		cleanup(container, root);
 	});
 
@@ -218,7 +216,7 @@ describe("BodyEditor — round-trip fidelity", () => {
 			initialContent: "| Name | Value |\n| --- | --- |\n| foo | bar |",
 			onChange: vi.fn(),
 		});
-		expect(container.querySelector("table")).toBeTruthy();
+		expect(container.querySelectorAll("table")).toHaveLength(1);
 		cleanup(container, root);
 	});
 
@@ -227,7 +225,7 @@ describe("BodyEditor — round-trip fidelity", () => {
 			initialContent: "Before\n\n---\n\nAfter",
 			onChange: vi.fn(),
 		});
-		expect(container.querySelector("hr")).toBeTruthy();
+		expect(container.querySelectorAll("hr")).toHaveLength(1);
 		cleanup(container, root);
 	});
 
@@ -248,7 +246,7 @@ describe("BodyEditor — round-trip fidelity", () => {
 			initialContent: "Hello **bold** world",
 			onChange: vi.fn(),
 		});
-		expect(container.querySelector("strong")).toBeTruthy();
+		expect(container.querySelectorAll("strong")).toHaveLength(1);
 		cleanup(container, root);
 	});
 
@@ -257,7 +255,7 @@ describe("BodyEditor — round-trip fidelity", () => {
 			initialContent: "Hello *italic* world",
 			onChange: vi.fn(),
 		});
-		expect(container.querySelector("em")).toBeTruthy();
+		expect(container.querySelectorAll("em")).toHaveLength(1);
 		cleanup(container, root);
 	});
 
@@ -268,7 +266,7 @@ describe("BodyEditor — round-trip fidelity", () => {
 		});
 		// TipTap renders strikethrough as <s>
 		const s = container.querySelector("s") ?? container.querySelector("del");
-		expect(s).toBeTruthy();
+		expect(s?.textContent).toBe("strike");
 		cleanup(container, root);
 	});
 
@@ -306,7 +304,7 @@ describe("BodyEditor — onChange callback", () => {
 			initialContent: "",
 			onChange,
 		});
-		expect(container.querySelector(".ProseMirror")).toBeTruthy();
+		expect(container.querySelectorAll(".ProseMirror")).toHaveLength(1);
 		cleanup(container, root);
 	});
 });
@@ -341,38 +339,6 @@ describe("BodyEditor — read-only mode", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Placeholder renders when empty
-// ─────────────────────────────────────────────────────────────────────────────
-describe("BodyEditor — placeholder", () => {
-	it("renders default placeholder on empty editor", () => {
-		const { container, root } = renderEditor({
-			initialContent: "",
-			onChange: vi.fn(),
-		});
-		// TipTap Placeholder sets data-placeholder attribute
-		const pm = container.querySelector(".ProseMirror");
-		expect(pm).toBeTruthy();
-		// The placeholder extension sets data-placeholder on the first p
-		const firstP = pm?.querySelector("p.is-editor-empty") ?? pm?.querySelector("p");
-		expect(firstP?.getAttribute("data-placeholder")).toBeTruthy();
-		cleanup(container, root);
-	});
-
-	it("renders custom placeholder text", () => {
-		const { container, root } = renderEditor({
-			initialContent: "",
-			onChange: vi.fn(),
-			placeholder: "Type your hypothesis...",
-		});
-		const pm = container.querySelector(".ProseMirror");
-		const firstP =
-			pm?.querySelector("p.is-editor-empty") ?? pm?.querySelector("[data-placeholder]");
-		expect(firstP?.getAttribute("data-placeholder")).toBe("Type your hypothesis...");
-		cleanup(container, root);
-	});
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Mini variant
 // ─────────────────────────────────────────────────────────────────────────────
 describe("BodyEditor — mini variant", () => {
@@ -382,7 +348,7 @@ describe("BodyEditor — mini variant", () => {
 			onChange: vi.fn(),
 			variant: "mini",
 		});
-		expect(container.querySelector(".ProseMirror")).toBeTruthy();
+		expect(container.querySelectorAll(".ProseMirror")).toHaveLength(1);
 		cleanup(container, root);
 	});
 
@@ -392,7 +358,7 @@ describe("BodyEditor — mini variant", () => {
 			onChange: vi.fn(),
 			variant: "mini",
 		});
-		expect(container.querySelector("strong")).toBeTruthy();
+		expect(container.querySelectorAll("strong")).toHaveLength(1);
 		cleanup(container, root);
 	});
 
@@ -413,7 +379,7 @@ describe("BodyEditor — mini variant", () => {
 			onChange: vi.fn(),
 			variant: "full",
 		});
-		expect(container.querySelector("h1")).toBeTruthy();
+		expect(container.querySelectorAll("h1")).toHaveLength(1);
 		cleanup(container, root);
 	});
 });

@@ -10,9 +10,7 @@
  *
  * Also: no "Email digests" control in SettingsPage.
  *
- * @lore: SettingsPage is a stacked page; sections are mounted unconditionally.
- * SettingsWorker self-gates (renders an explanatory message in web/local mode).
- * SettingsAgents fetches /api/agents independently.
+ * @lore SettingsPage mounts sections unconditionally — SettingsWorker self-gates, and SettingsAgents fetches /api/agents independently.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
@@ -201,9 +199,9 @@ describe("SettingsPage: new sections mounted", () => {
 			const agents = screen.getByTestId("settings-section-agents");
 			const backend = screen.getByTestId("settings-section-backend");
 			// agents should appear before backend in the DOM (models removed)
-			expect(
-				agents.compareDocumentPosition(backend) & Node.DOCUMENT_POSITION_FOLLOWING,
-			).toBeTruthy();
+			expect(agents.compareDocumentPosition(backend) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+				Node.DOCUMENT_POSITION_FOLLOWING,
+			);
 		});
 	});
 });

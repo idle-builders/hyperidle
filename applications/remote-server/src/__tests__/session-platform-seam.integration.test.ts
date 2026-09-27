@@ -26,24 +26,9 @@
  * needs no seed at all: `editPluginInvariants` answers `one_change`
  * before either door touches the database.
  *
- * @lore governance: `CORE_API_ACTOR_OVERRIDE_HEADER` lives in
- * `@hyperidle/api-contract`, whose reach is `["layer"]` — an
- * `applications/*` file (this test included) may not import it directly.
- * Its value is a wire constant, not a logical dependency on the package;
- * inlined below with this citation
- * (`framework/api-contract/src/core-api-port.ts`).
+ * @lore `CORE_API_ACTOR_OVERRIDE_HEADER` is a wire constant, inlined below since applications/* cannot import @hyperidle/api-contract directly.
  *
- * @lore the `tool_call_recorded` nudge is emitted by `provisioner.ts`'s live event-stream drain — reachable only
- * from inside a real harness run, which `ServerHandle` exposes no seam for
- * (no `eventBus`, only `actionTools`/`dispose`/`httpServer`). `stop_session`'s
- * CAS path (no live registry entry) emits `session_ended` on the SAME real
- * `eventBus` `registerSessionActivityGateway` subscribes, through the exact
- * same `wsPush` → `wsHub.broadcast` pipeline, producing the byte-identical
- * `{type:"update", topic:"session:<id>", kind:"session.activity",
- * data:{sessionId}}` envelope (`session-activity-gateway.ts`'s `activityNudge`
- * builds one envelope shape for all three subscribed event types — a
- * websocket client cannot tell them apart). This test proves the nudge
- * seam through that emission instead.
+ * @lore `stop_session`'s CAS path emits `session_ended` on the same pipeline as the real nudge, proving that seam.
  */
 
 import * as fs from "node:fs";

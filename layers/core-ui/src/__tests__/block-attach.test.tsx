@@ -9,16 +9,9 @@
  *   - The document carries the block's content verbatim — editing the source
  *     afterwards leaves the item unchanged (no pointer, no rotting blockId).
  *
- * @lore: re-pointed off the deleted `useAssistantThread` onto
- * `useThread`/`useThreads`/`useAgents`/`useCurrentUser`, same pattern as
- * the assistant overlay test. The thread message
- * send itself no longer POSTs `/api/threads/<id>` — `sendToThread` in
- * `shell/AssistantOverlay.tsx` sends it via
- * `call("send_message", {threadId, text, refs, clientKey})`.
+ * @lore the assistant overlay's thread send goes through call("send_message", {threadId, text, refs, clientKey}), not a direct POST.
  *
- * @lore: the document creation call moved off `apiFetch("/api/knowledge",
- * …)` onto `call("edit_document", …)` too — both calls now go through the
- * same mocked `call()` door (architecture.md §9.2).
+ * @lore document creation goes through call("edit_document", …) — the same mocked call() door used everywhere (architecture.md §9.2).
  */
 
 import { render, screen } from "@testing-library/react";

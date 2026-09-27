@@ -15,7 +15,10 @@ describe("real harness discovery", () => {
 			expect(result.codex.state).not.toBe("missing");
 			expect(result.codex.version).toMatch(/^codex-cli\s+[\d.]+/);
 			expect(["ready", "unauthenticated", "installed"]).toContain(result.codex.state);
+			// The real installed binary's auth state depends on the machine running
+			// this test — "ready" only applies when the account is actually logged in.
 			if (result.codex.state === "ready") {
+				// eslint-disable-next-line vitest/no-conditional-expect
 				expect(result.codex.authAction?.kind).toBe("native_cli_login");
 			}
 		});
@@ -81,8 +84,12 @@ describe("real harness discovery", () => {
 			const result = await discoverLocalHarnesses();
 
 			expect(["ready", "unauthenticated", "installed"]).toContain(result["cursor-agent"].state);
+			// The real installed binary's auth state depends on the machine running
+			// this test — "ready" only applies when the account is actually logged in.
 			if (result["cursor-agent"].state === "ready") {
+				// eslint-disable-next-line vitest/no-conditional-expect
 				expect(result["cursor-agent"].authAction?.kind).toBe("native_cli_login");
+				// eslint-disable-next-line vitest/no-conditional-expect
 				expect(result["cursor-agent"].version).toBeTruthy();
 			}
 		});

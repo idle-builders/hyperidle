@@ -7,9 +7,7 @@
  * `ActionResult<TaskView>` — wrapped in `MockProviders`, and asserts the page
  * renders its real heading.
  *
- * @lore: WorkBet + MOCK_BETS are deleted — WorkTaskPage replaces both.
- * The overrideBet prop is gone; this test mocks window.fetch to return an
- * `open_task` result so the page short-circuits to the populated state.
+ * @lore WorkTaskPage mocks window.fetch to return an open_task result so the page short-circuits to the populated state.
  *
  * This is not a synthetic test-local surface: it imports application code
  * (`WorkTaskPage`, `MockProviders`) and asserts the rendered DOM of a

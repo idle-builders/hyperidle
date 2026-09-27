@@ -4,10 +4,7 @@
  * Empty source groups (inherited/token/mcp) do not render a bare empty
  * list; groups with zero connections are fully hidden.
  *
- * @lore: mocks `call` at the door (`open_user({}).connections`) instead of
- * `apiFetch`. The inherited fixture uses the real wire shape
- * (`ConnectionView`: id/service/via/authSource/health/removable) the
- * connections door actually returns for inherited rows.
+ * @lore mocks call at the door (open_user({}).connections) instead of apiFetch — the inherited fixture uses the real ConnectionView wire shape.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";

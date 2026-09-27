@@ -15,9 +15,7 @@ import {
 	updateFilesystemState,
 } from "../index.js";
 
-// @lore `startWatcher` lives in `@hyperidle/run-orchestration` now (its own
-// tests are `__tests__/file-watcher.test.ts` there) — this file keeps only
-// the registry-CRUD + mounter coverage this Service still owns.
+// @lore this file keeps only registry-CRUD + mounter coverage — `startWatcher` tests live in run-orchestration.
 
 const NOW = "2026-07-22T00:00:00.000Z";
 const temporaryDirectories: string[] = [];

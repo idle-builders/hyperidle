@@ -6,14 +6,7 @@
  * terminal ndjson `result` line. The adapter normalizes those native fields
  * into `token_usage` events and `SessionResult.metrics`.
  *
- * @lore AU21 (harness-telemetry narrowing): This file used to also assert on
- * a `cost_update` event / `total_cost_usd` capture / `SessionResult.cost` /
- * `CliAdapterConfig.costField`. Founder ruling narrowed harness telemetry to
- * token usage only — "very few harness can actually report cost" (confirmed
- * by investigation: codex reports no cost at all; the builtin adapter only
- * ESTIMATED cost from a hardcoded rate table, never a harness self-report;
- * only claude/opencode natively reported a $ figure). All $-cost assertions
- * are removed — no replacement.
+ * @lore harness telemetry is token usage only — no harness self-reports a real cost figure worth asserting.
  */
 
 import type { ChildProcess } from "node:child_process";

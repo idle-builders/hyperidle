@@ -59,7 +59,7 @@ describe("Menu: rendering", () => {
 	it("renders role=menu container when open=true", async () => {
 		await render({ open: true });
 		const menu = container.querySelector("[role='menu']");
-		expect(menu).not.toBeNull();
+		expect(menu).toBeInTheDocument();
 	});
 
 	it("role=menu container carries data-ds-component='Menu'", async () => {
@@ -260,9 +260,7 @@ describe("Menu: keyboard navigation", () => {
 		await act(async () => {
 			items[0]?.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
 		});
-		// @lore: Extra act() flush ensures React event handler's focus()
-		// call has settled in JSDOM before asserting document.activeElement.
-		// Without this, the focus change can be deferred under parallel test load.
+		// @lore an extra act() flush ensures the focus() call has settled in JSDOM before asserting document.activeElement, since it can defer under parallel load.
 		await act(async () => {});
 		expect(document.activeElement).toBe(items[1]);
 	});
@@ -452,9 +450,9 @@ describe("Menu: dataAttrs passthrough", () => {
 				}) as ReactElement,
 			);
 		});
-		const item = container.querySelector("[data-bet-action='activate']");
+		const item = container.querySelector("[data-bet-action='activate']") as HTMLElement | null;
 		expect(item).not.toBeNull();
-		expect(item?.getAttribute("data-testid")).toBe("activate-btn");
+		expect(item?.dataset.testid).toBe("activate-btn");
 	});
 });
 
@@ -588,7 +586,7 @@ describe("Menu: align prop", () => {
 				}) as ReactElement,
 			);
 		});
-		expect(container.querySelector("[role='menu']")).not.toBeNull();
+		expect(container.querySelectorAll("[role='menu']")).toHaveLength(1);
 	});
 
 	it('align="start" renders', async () => {
@@ -603,6 +601,6 @@ describe("Menu: align prop", () => {
 				}) as ReactElement,
 			);
 		});
-		expect(container.querySelector("[role='menu']")).not.toBeNull();
+		expect(container.querySelectorAll("[role='menu']")).toHaveLength(1);
 	});
 });

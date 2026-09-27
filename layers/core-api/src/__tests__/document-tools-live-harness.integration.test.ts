@@ -1,27 +1,5 @@
 /**
- * @lore The live-harness proof for the document module's three agent-facing
- * tools (`search_documents` / `open_document` / `edit_document`,
- * architecture.md §3): a real agent, given a real task session, writes
- * itself a memory, writes an artifact for that task, and reads a seeded
- * document back — proven against every installed harness, zero stubs, per
- * `.pipeline/rules/testing.md`'s harness-facing archetype.
- *
- * Same shape as `thread-turn-live-harness.integration.test.ts` (its own
- * `@lore` explains why this file builds its composition through
- * `../__testing__/live-harness-test-support.js`'s shared `setUpLiveHarnessRun`
- * rather than `createTestApp`, and why the human's/founder's own action
- * calls go through `action.run()` directly rather than an HTTP door) — this
- * file differs only in HOW the real agent gets woken: a task dispatch
- * (`edit_task` creating an already-`accepted`, agent-owned task) rather than
- * a thread `send_message`. `task-actions.ts`'s dispatch branch bakes a
- * `task_run` work intent the same `drainIntents` turns into a real
- * `agent_session_requests` row, and `RETURN_ACTION_NAMES`'s `edit_task` arm
- * (`framework/harness-protocol/src/harness/return-actions.ts`) is what lets
- * the agent end its own turn once its three document-tool steps are done.
- *
- * Per harness (claude / codex / opencode / cursor-agent), `requireHarness(...)`,
- * zero stubs, hard-fail if absent — never `skipIf` to green (CLAUDE.md,
- * testing.md).
+ * @lore a real agent, given a real task session, writes a memory, writes an artifact, and reads a seeded document back — every installed harness, zero stubs.
  */
 
 import { randomUUID } from "node:crypto";
@@ -59,9 +37,7 @@ import type { Action } from "../actions/action.js";
 
 const NOW = "2026-09-22T00:00:00.000Z";
 
-// @lore stop-all afterEach: see thread-turn-live-harness.integration.test.ts's identical
-// afterEach for the full rationale — a vitest timeout skips this file's own
-// try/finally cleanup, and dispose() alone does not stop a running session.
+// @lore a vitest timeout skips this file's own try/finally cleanup — this afterEach stops the session regardless.
 afterEach(() => {
 	stopAllLiveHarnessSessions();
 });

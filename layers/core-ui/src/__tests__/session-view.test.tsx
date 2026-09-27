@@ -232,7 +232,7 @@ describe("SessionView — aggregation", () => {
 			// Aggregate header contains step count or verb summary
 			return /step|view|read/i.test(txt);
 		});
-		expect(aggregateBtn).toBeDefined();
+		expect(aggregateBtn).toBeInTheDocument();
 	});
 
 	it("does NOT fold a single completed tool (single stays standalone)", () => {
@@ -350,8 +350,7 @@ describe("SessionView — ChangedFilesPanel", () => {
 // ── Composer pills ────────────────────────────────────────────────────────
 
 describe("SessionView — composer pills", () => {
-	// @lore: deriveComposerPills deleted; per-option pill rendering removed from SessionView.
-	// The test for "renders effort pill when descriptor has effort option" was deleted with the feature.
+	// @lore deriveComposerPills and its effort-pill rendering do not exist in SessionView.
 
 	it("renders no pills when no descriptor is provided", () => {
 		render(

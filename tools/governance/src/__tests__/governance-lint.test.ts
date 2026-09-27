@@ -4,8 +4,7 @@
  * off disk. The static codebase properties themselves (zero production→development crossings, every
  * pattern alive) are enforced by `npm run lint`, per CLAUDE.md's split.
  *
- * @lore `governance-model.test.ts` stays in `framework/db` — it needs that package's live `schema.js`
- * to test real `PgTable` ownership and cannot move without losing that.
+ * @lore governance-model.test.ts stays in framework/db — it needs that package's live schema.js to test real PgTable ownership.
  */
 
 import { describe, expect, it } from "vitest";
@@ -298,15 +297,16 @@ describe("runRules — a rule that scans nothing is a build error", () => {
 	});
 
 	it("names the dead rule in the error", () => {
+		let thrown: unknown;
 		try {
 			runRules([inert], emptyCensus());
-			expect.unreachable("expected a throw");
 		} catch (error) {
-			expect(error).toBeInstanceOf(DeadRuleError);
-			expect((error as DeadRuleError).ruleId).toBe("inert");
-			expect((error as Error).message).toContain("inert");
-			expect((error as Error).message).toContain("build error");
+			thrown = error;
 		}
+		expect(thrown).toBeInstanceOf(DeadRuleError);
+		expect((thrown as DeadRuleError).ruleId).toBe("inert");
+		expect((thrown as Error).message).toContain("inert");
+		expect((thrown as Error).message).toContain("build error");
 	});
 
 	it("throws when live scope is merely below the floor, not only at zero", () => {

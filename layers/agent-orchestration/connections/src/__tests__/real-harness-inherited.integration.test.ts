@@ -162,7 +162,10 @@ describe("real-harness inherited reach", () => {
 			const facts = reach.list();
 			assertIdentityOnly(facts);
 			const github = facts.find(({ service }) => service === "github");
+			// Whether the real gh probe surfaces a github entry depends on this
+			// machine's actual gh auth state.
 			if (github) {
+				// eslint-disable-next-line vitest/no-conditional-expect
 				expect(github).toMatchObject({
 					authSource: "inherited",
 					health: "working",

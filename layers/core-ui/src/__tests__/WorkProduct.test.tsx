@@ -7,15 +7,12 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
-// @lore: WorkProduct renamed to WorkTeam; import updated.
 import { WorkTeam } from "../pages/WorkTeam";
 
 // AgentEditDialog and AgentAddDialog call useToast. They are only mounted when
 // the corresponding state is non-null/true, but we still mock useToast to prevent
 // the "must be used within <ToastRegion>" error when dialogs open in tests.
-// @lore: WorkTeam renders dialogs conditionally (editingAgentId !== null /
-// addDialogOpen), so useToast is only called when a dialog is open — but keeping
-// this mock is safer than relying on no dialog state leaking across tests.
+// @lore useToast fires only when a dialog is open, but the mock stays regardless to avoid state leaking across tests.
 vi.mock("../shell/ToastRegion.js", async () => {
 	const actual = await vi.importActual("../shell/ToastRegion.js");
 	return {
@@ -25,12 +22,7 @@ vi.mock("../shell/ToastRegion.js", async () => {
 });
 
 /**
- * @lore: TeamDetail shape replaces ProductDetail.
- * - `product` → `team` (TeamSummary)
- * - `pitchTitle` → `descriptionTitle`
- * - `status: "committed"` → `status: "active"`
- * @lore: TeamPageData replaces TeamDetail — team is id + name + a computed
- * "healthy" | "blocked" status now (no phase, no lead).
+ * @lore TeamPageData is id + name + a computed "healthy" | "blocked" status — no phase, no lead.
  */
 const MOCK_PRODUCT_DETAIL = {
 	team: {
@@ -68,7 +60,6 @@ const MOCK_PRODUCT_EMPTY_BETS = {
 	tasksInProgress: [],
 };
 
-// @lore: Route path /work/product/:productId is kept for now. Local var renamed teamId.
 function renderPage(
 	teamId = "p1",
 	overrideData?: typeof MOCK_PRODUCT_DETAIL | null,
@@ -86,14 +77,13 @@ function renderPage(
 				/>
 				{/* /work/portfolio retired → /work */}
 				<Route path="/work" element={<div data-testid="work-overview-page">Work Overview</div>} />
-				{/* @lore: bet route replaced by task route */}
 				<Route path="/work/task/:taskId" element={<div data-testid="work-task-page">Task</div>} />
 			</Routes>
 		</MemoryRouter>,
 	);
 }
 
-// @lore: describe renamed from WorkProduct → WorkTeam; testids use team-* prefix.
+// @lore testids use the team-* prefix.
 describe("WorkTeam", () => {
 	it("1. renders the page H1 with the team name when the fetch resolves", () => {
 		renderPage("p1", MOCK_PRODUCT_DETAIL);
@@ -115,17 +105,13 @@ describe("WorkTeam", () => {
 		expect(screen.getByTestId("team-active-tasks-empty")).toBeInTheDocument();
 	});
 
-	// @lore: AgentCard replaced by AgentRow (data-testid="agent-row").
-	// The row shows status, health dot, context column. Customize button opens edit dialog.
+	// @lore AgentRow (data-testid="agent-row") shows status, health dot, and context column; Customize opens the edit dialog.
 	it("4. renders one agent row per roster member", () => {
 		renderPage("p1", MOCK_PRODUCT_DETAIL);
 		const agentRows = screen.getAllByTestId("agent-row");
 		expect(agentRows).toHaveLength(2);
 	});
 
-	// @lore: "renders the burn-vs-cap with a progress element" is
-	// HARD-DELETED — the cap-utilization progress bar is gone along with
-	// the rest of the cost-cap feature, no replacement.
 	it("5. renders the team-burn-vs-cap section", () => {
 		renderPage("p1", MOCK_PRODUCT_DETAIL);
 		const burnRegion = screen.getByTestId("team-burn-vs-cap");

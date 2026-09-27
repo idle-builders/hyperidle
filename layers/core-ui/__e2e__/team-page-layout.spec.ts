@@ -87,16 +87,11 @@ test.describe("team page content column stays capped at every desktop width", ()
 			await expect(page.getByTestId("team-active-tasks")).toBeVisible();
 			await expect(page.getByTestId("team-agents")).toBeVisible();
 
-			// @lore PageScaffold(frame="page") wraps both the pinned header and
-			// the scroll body's children in their own PageFrame — two on this
-			// page, so the selector scopes inside [data-page-scroll] to land on
-			// the body's column, not the header's.
+			// @lore PageScaffold wraps two PageFrames on this page — the selector scopes inside [data-page-scroll] to land on the body, not the header.
 			const innerColumn = page.locator("[data-page-scroll] [data-page-frame] > div").first();
 			const box = await innerColumn.boundingBox();
-			expect(box).not.toBeNull();
-			if (box) {
-				expect(box.width).toBeLessThanOrEqual(MAX_CONTENT_WIDTH);
-			}
+			if (!box) throw new Error("Content column has no painted box");
+			expect(box.width).toBeLessThanOrEqual(MAX_CONTENT_WIDTH);
 		});
 
 		test(`empty team at ${width}px`, async ({ page }) => {
@@ -113,10 +108,8 @@ test.describe("team page content column stays capped at every desktop width", ()
 
 			const innerColumn = page.locator("[data-page-scroll] [data-page-frame] > div").first();
 			const box = await innerColumn.boundingBox();
-			expect(box).not.toBeNull();
-			if (box) {
-				expect(box.width).toBeLessThanOrEqual(MAX_CONTENT_WIDTH);
-			}
+			if (!box) throw new Error("Content column has no painted box");
+			expect(box.width).toBeLessThanOrEqual(MAX_CONTENT_WIDTH);
 
 			const tiles = page.locator("[data-testid='stat-tile']");
 			await expect(tiles).toHaveCount(2);
@@ -156,7 +149,7 @@ test("a stat tile's label and value paint within the tile's own bounds", async (
 	for (let i = 0; i < count; i++) {
 		const tile = statTiles.nth(i);
 		const tileBox = await tile.boundingBox();
-		expect(tileBox).not.toBeNull();
+		if (!tileBox) throw new Error("Stat tile has no painted box");
 
 		const spans = tile.locator("span");
 		const spanCount = await spans.count();
@@ -164,12 +157,10 @@ test("a stat tile's label and value paint within the tile's own bounds", async (
 
 		const valueSpan = spans.nth(1);
 		const valueBox = await valueSpan.boundingBox();
-		expect(valueBox).not.toBeNull();
+		if (!valueBox) throw new Error("Stat tile's value span has no painted box");
 
-		if (tileBox && valueBox) {
-			expect(valueBox.x).toBeGreaterThanOrEqual(tileBox.x - 1);
-			expect(valueBox.x + valueBox.width).toBeLessThanOrEqual(tileBox.x + tileBox.width + 1);
-		}
+		expect(valueBox.x).toBeGreaterThanOrEqual(tileBox.x - 1);
+		expect(valueBox.x + valueBox.width).toBeLessThanOrEqual(tileBox.x + tileBox.width + 1);
 	}
 });
 

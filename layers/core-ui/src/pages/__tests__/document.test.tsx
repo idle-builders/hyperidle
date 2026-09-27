@@ -11,8 +11,7 @@
  * `pages/__tests__/DocumentDetail.*.test.tsx` when that page was
  * rewritten against `call("open_document"/"edit_document", …)`.)
  *
- * @lore: re-pointed onto `DocumentList`/`useDocuments` — `KnowledgeList`
- * and its `useFetch("/api/knowledge")` read are gone.
+ * @lore: re-pointed onto `DocumentList`/`useDocuments` — `KnowledgeList` and its `useFetch("/api/knowledge")` read are gone.
  */
 
 import type { DocumentRow } from "@hyperidle/domain-model";
@@ -129,7 +128,7 @@ describe("Sort controls always visible", () => {
 		renderDocumentList();
 		// Sort controls: Relevance, Recency, Frequency
 		const sortBar = document.querySelector("[data-testid='document-sort-bar']");
-		expect(sortBar).not.toBeNull();
+		expect(sortBar).toBeInTheDocument();
 	});
 
 	it("renders Recency sort option", () => {
@@ -145,7 +144,7 @@ describe("Sort controls always visible", () => {
 		await user.click(curatedTab);
 		// Sort controls still visible
 		const sortBar = document.querySelector("[data-testid='document-sort-bar']");
-		expect(sortBar).not.toBeNull();
+		expect(sortBar).toBeInTheDocument();
 	});
 });
 

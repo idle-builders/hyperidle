@@ -1,35 +1,12 @@
 /**
- * @lore The live-harness proof for a subscription wake: a real `task.changed`
- * change wakes a subscribed agent for real, and the woken agent reads the
- * subscription's own instruction (its `prompt` document, embedded directly
- * into the session's assembled AGENTS.md/CLAUDE.md — `buildSubscriptionSection`,
- * `run-orchestration/src/context.ts`) and edits the document that instruction
- * names — nothing but the model actually reading its instruction and calling
- * `edit_document` produces the effect this test checks for. A subscription
- * session's own forced return action is `return_status` (the self-check
- * bridge tool, `provisioner.ts`'s `requiresReturnStatusReturn`), never
- * `send_message` — this test also proves no message row was written for the
- * agent, guarding a defect where every subscription wake ended with an
- * unwanted direct message even when the instruction never asked for one. A
- * second case wakes a subscription with
- * no instruction at all — what every subscription on a fresh install holds —
- * and proves the session is shown what happened, is told nobody wrote an
- * instruction yet, and still ends returned.
+ * @lore a real `task.changed` wakes a subscribed agent, who reads its own instruction and edits the document it names.
+ * @lore a subscription session's forced return action is `return_status`, never `send_message` — proves no message row was written.
  *
  * Per harness (claude / codex / opencode / cursor-agent), `requireHarness(...)`,
  * zero stubs, hard-fail if absent — never `skipIf` to green (CLAUDE.md,
  * testing.md).
  *
- * @lore This file builds its composition through
- * `../__testing__/live-harness-test-support.js`'s shared `setUpLiveHarnessRun`,
- * for the same reasons `thread-turn-live-harness` already documents:
- * `layers/core-api` may not import `@hyperidle/agent-execution` (that boot
- * is an Application's job), and `bootCoreApi`'s own composed `actionTools`
- * are "read exactly once". `registerSubscriptionFire` (`@hyperidle/user`,
- * the same module `app.ts` registers in production) is wired by hand on the
- * SAME `eventBus` the action calls below share, so firing `edit_task`'s real
- * `task.changed` event actually reaches the fire mechanism — nothing about
- * the wake path here is a stand-in.
+ * @lore builds composition through the shared `setUpLiveHarnessRun` — `layers/core-api` may not import `@hyperidle/agent-execution` directly.
  */
 
 import * as fs from "node:fs";
@@ -79,12 +56,7 @@ import type { Action } from "../actions/action.js";
 
 const NOW = "2026-09-23T00:00:00.000Z";
 
-// @lore stop-all afterEach: see thread-turn-live-harness.integration.test.ts's identical
-// afterEach for the full rationale — a vitest timeout skips this file's own
-// try/finally cleanup, and dispose() alone does not stop a running session.
-// The deliberate no-instruction ("proceed") cases below keep sending the
-// product's real default seed on purpose — they test what the product
-// really sends, so this change adds cleanup only and leaves their prompt alone.
+// @lore a vitest timeout skips this file's own try/finally cleanup, and dispose() alone does not stop a running session.
 afterEach(() => {
 	stopAllLiveHarnessSessions();
 });
@@ -123,9 +95,7 @@ async function seedFounderTeamAgentAndDocument(
 		teamId: opts.teamId,
 		createdAt: NOW,
 	});
-	// @lore the run-config selector (`harnessType`) lives in `agent_run_config`,
-	// an agent-orchestration-owned table the drain reads live — not on the
-	// `users` identity row.
+	// @lore the run-config selector (`harnessType`) lives in `agent_run_config`, read live — not on the `users` identity row.
 	await db.insert(agentRunConfig).values({
 		agentUserId: opts.agentId,
 		harnessType: opts.harnessType,

@@ -8,9 +8,7 @@
  * a card. "Oldest unresolved review/questionnaire wins" — deterministic
  * across renders. Returns null when no candidate exists.
  *
- * @lore L11 step5: tests fail with "promotedRichMessageId is not a
- * function" / unresolved import until plan T1 lands the helper in
- * framework/domain-model/src/thread.ts and exports it from index.ts.
+ * @lore red-phase: fails with "is not a function" until the helper is exported from framework/domain-model/src/thread.ts's index.
  */
 
 import type { Message } from "@hyperidle/domain-model";

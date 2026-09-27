@@ -37,6 +37,7 @@ describe("NavItem", () => {
 		expect(handleClick).toHaveBeenCalledOnce();
 	});
 
+	// eslint-disable-next-line vitest/expect-expect -- the click completing without throwing is the assertion
 	it("does not throw when clicked without an onClick handler", async () => {
 		const user = userEvent.setup();
 		render(<NavItem label="No handler" />);

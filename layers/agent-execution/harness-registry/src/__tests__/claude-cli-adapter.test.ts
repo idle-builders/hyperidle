@@ -455,8 +455,7 @@ describe("CliHarnessAdapter(CLAUDE_CLI_CONFIG) stream — no error events from c
 
 		// tool_call event has correct toolName
 		const toolCall = toolCallEvents[0];
-		if (toolCall?.type === "tool_call") {
-			expect(toolCall.toolName).toBe("read_inbox");
-		}
+		if (toolCall?.type !== "tool_call") throw new Error("expected a tool_call event");
+		expect(toolCall.toolName).toBe("read_inbox");
 	});
 });

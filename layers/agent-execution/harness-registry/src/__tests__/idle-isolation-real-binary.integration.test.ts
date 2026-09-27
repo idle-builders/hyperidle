@@ -5,37 +5,8 @@
  * `mcp__idle` server, opencode's user-level `hyperidle` MCP entry) — an
  * orphaned harness session did exactly that on 2026-09-26.
  *
- * @lore root cause: cwd isolation alone (a temp sandbox outside any git
- * repo, already the case for every real-binary test) does NOT close this —
- * a CLI's global, HOME/config-scoped plugins load regardless of cwd.
- * Verified live: a cursor-agent spawned with a fresh temp cwd still reported
- * a `plugin-idle-tasks-idle` tool namespace via its own GetDynamicTools
- * call; a codex session with no per-session CODEX_HOME redirect listed
- * `mcp__idle__decision` and friends; an opencode session with no per-session
- * XDG_CONFIG_HOME redirect reads this machine's real
- * `~/.config/opencode/opencode.jsonc`, which has a live `hyperidle` MCP
- * entry with a bearer token — only redirecting the harness's *config*
- * directory away from the real $HOME/config closes it.
- *
- * codex and opencode close this for free from EXISTING production wiring:
- * CliHarnessAdapter injects a per-session CODEX_HOME (when the sandbox has a
- * `.codex-home/`) and, for opencode, an UNCONDITIONAL per-session
- * XDG_CONFIG_HOME — so neither ever reads the real $HOME/.codex or
- * $HOME/.config/opencode config. This file proves that isolation holds
- * against both installed binaries, and that removing either redirect makes
- * it observably fail (see each case's own sanity-break note below its
- * assertion).
- *
- * claude and cursor-agent have no equivalent per-session config-dir seam in
- * production and forward the real $HOME for their keychain-based auth, so a
- * session on either still sees its plugin surface. Fixing that means moving
- * the idle plugin from user level to repo level (tracked separately,
- * founder decision); this file proves isolation only for the two
- * mechanisms this repo already owns and controls today — codex's
- * CODEX_HOME redirect and opencode's XDG_CONFIG_HOME redirect — and
- * hard-fails (never skips) when it cannot prove that, including when the
- * binary itself is unauthenticated: an untested "isolation" claim is not a
- * passing test.
+ * @lore cwd isolation alone does not hide user-level plugins — only redirecting CODEX_HOME/XDG_CONFIG_HOME away from real $HOME closes it.
+ * @lore claude and cursor-agent have no per-session config-dir seam and still see the real plugin surface — this file proves isolation for codex/opencode only.
  */
 
 import type { SessionConfig } from "@hyperidle/harness-protocol";

@@ -69,7 +69,7 @@ describe("groupThreadsForConversations classifier", () => {
 		];
 		const sections = groupThreadsForConversations(threads, { now: NOW });
 		const active = sections.find((s) => s.id === "active");
-		expect(active?.items[0]?.id).toBe("coach"); // @lore: thread ID "coach" stays; route/type renamed since
+		expect(active?.items[0]?.id).toBe("coach"); // @lore the thread id "coach" is stable across route/type changes.
 	});
 
 	it("re-opened blocking thread (resolved past 24h) lands in Active when not blocking", () => {
@@ -200,14 +200,14 @@ describe("ThreadSections component", () => {
 	it("renders skeleton rows while loading instead of EmptyState", () => {
 		// When loading=true the EmptyState must NOT flash.
 		const { container } = render(<ThreadSections threads={[]} now={NOW} loading={true} />);
-		expect(container.querySelector("[data-testid='thread-sections-loading']")).not.toBeNull();
+		expect(container.querySelectorAll("[data-testid='thread-sections-loading']")).toHaveLength(1);
 		expect(container.querySelector("[data-testid='thread-sections-empty']")).toBeNull();
 	});
 
 	it("renders the blocking section", () => {
 		const blocking: ThreadItem[] = [mk({ id: "b1", blocking: true })];
 		const { container } = render(<ThreadSections threads={blocking} now={NOW} />);
-		expect(container.querySelector("[data-thread-section='blocking']")).not.toBeNull();
+		expect(container.querySelectorAll("[data-thread-section='blocking']")).toHaveLength(1);
 	});
 
 	it("marks the selected thread row with aria-current and the pinned row with the pin glyph", () => {

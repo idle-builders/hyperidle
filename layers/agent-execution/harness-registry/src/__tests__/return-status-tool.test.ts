@@ -72,15 +72,13 @@ describe("return_status tool", () => {
 		// FAILS red: returnStatusTool does not exist / registry not wired yet.
 		const result = await returnStatusTool.handler({}, makeCtx(sessionId), registry);
 
-		expect(result.success).toBe(true);
-		if (result.success) {
-			const data = result.data as Record<string, unknown>;
-			expect(data.returned).toBe(false);
-			expect(data.exempt).toBe(false);
-			expect(data.forceCount).toBe(0);
-			expect(data.budgetLeft).toBe(MAX_FORCE_RETURNS);
-			expect(data.forceMessage).toBe(FORCE_RETURN_MESSAGE);
-		}
+		if (!result.success) throw new Error("expected a successful return-status result");
+		const data = result.data as Record<string, unknown>;
+		expect(data.returned).toBe(false);
+		expect(data.exempt).toBe(false);
+		expect(data.forceCount).toBe(0);
+		expect(data.budgetLeft).toBe(MAX_FORCE_RETURNS);
+		expect(data.forceMessage).toBe(FORCE_RETURN_MESSAGE);
 	});
 
 	it("calling the tool with forceMessage!==null increments forceCount in the registry", async () => {
@@ -106,11 +104,10 @@ describe("return_status tool", () => {
 		await returnStatusTool.handler({}, makeCtx(sessionId), registry);
 		const result2 = await returnStatusTool.handler({}, makeCtx(sessionId), registry);
 
-		if (result2.success) {
-			const data = result2.data as Record<string, unknown>;
-			expect(data.forceCount).toBe(1);
-			expect(data.budgetLeft).toBe(MAX_FORCE_RETURNS - 1);
-		}
+		if (!result2.success) throw new Error("expected a successful return-status result");
+		const data = result2.data as Record<string, unknown>;
+		expect(data.forceCount).toBe(1);
+		expect(data.budgetLeft).toBe(MAX_FORCE_RETURNS - 1);
 	});
 
 	// ── Handler: forceMessage=null when returned ──────────────────────────
@@ -124,11 +121,10 @@ describe("return_status tool", () => {
 
 		const result = await returnStatusTool.handler({}, makeCtx(sessionId), registry);
 
-		if (result.success) {
-			const data = result.data as Record<string, unknown>;
-			expect(data.returned).toBe(true);
-			expect(data.forceMessage).toBeNull();
-		}
+		if (!result.success) throw new Error("expected a successful return-status result");
+		const data = result.data as Record<string, unknown>;
+		expect(data.returned).toBe(true);
+		expect(data.forceMessage).toBeNull();
 	});
 
 	it("returns forceMessage=null when exempt=true", async () => {
@@ -140,11 +136,10 @@ describe("return_status tool", () => {
 
 		const result = await returnStatusTool.handler({}, makeCtx(sessionId), registry);
 
-		if (result.success) {
-			const data = result.data as Record<string, unknown>;
-			expect(data.exempt).toBe(true);
-			expect(data.forceMessage).toBeNull();
-		}
+		if (!result.success) throw new Error("expected a successful return-status result");
+		const data = result.data as Record<string, unknown>;
+		expect(data.exempt).toBe(true);
+		expect(data.forceMessage).toBeNull();
 	});
 
 	it("returns forceMessage=null when budget exhausted (forceCount>=MAX_FORCE_RETURNS)", async () => {
@@ -157,11 +152,10 @@ describe("return_status tool", () => {
 
 		const result = await returnStatusTool.handler({}, makeCtx(sessionId), registry);
 
-		if (result.success) {
-			const data = result.data as Record<string, unknown>;
-			expect(data.budgetLeft).toBe(0);
-			expect(data.forceMessage).toBeNull();
-		}
+		if (!result.success) throw new Error("expected a successful return-status result");
+		const data = result.data as Record<string, unknown>;
+		expect(data.budgetLeft).toBe(0);
+		expect(data.forceMessage).toBeNull();
 	});
 
 	// ── Handler: unknown session ──────────────────────────────────────────
@@ -170,13 +164,12 @@ describe("return_status tool", () => {
 		const registry = createEnforcementRegistry();
 		const sessionId = "unknown-session-xyz";
 
-		// The tool should handle unknown sessions gracefully.
-		// Could return forceMessage=null (allow end) or an error.
-		// Either is acceptable; what's NOT acceptable is throwing.
+		// An unknown session has no enforcement data — the tool allows the stop
+		// rather than throwing: returned/exempt both true, forceMessage null.
 		const result = await returnStatusTool.handler({}, makeCtx(sessionId), registry);
 
-		// Must not throw.
-		expect(result).toBeDefined();
+		if (!result.success) throw new Error("expected a successful return-status result");
+		expect(result.data).toMatchObject({ returned: true, exempt: true, forceMessage: null });
 	});
 
 	// ── forceMessage content ──────────────────────────────────────────────
@@ -190,15 +183,12 @@ describe("return_status tool", () => {
 
 		const result = await returnStatusTool.handler({}, makeCtx(sessionId), registry);
 
-		if (result.success) {
-			const data = result.data as Record<string, unknown>;
-			const msg = data.forceMessage as string | null;
-			expect(msg).not.toBeNull();
-			if (msg) {
-				expect(msg).toContain("edit_task");
-				expect(msg).toContain("send_message");
-			}
-		}
+		if (!result.success) throw new Error("expected a successful return-status result");
+		const data = result.data as Record<string, unknown>;
+		const msg = data.forceMessage as string | null;
+		if (!msg) throw new Error("expected a non-null forceMessage");
+		expect(msg).toContain("edit_task");
+		expect(msg).toContain("send_message");
 	});
 
 	// ── AU31 §2.5: the "injectable via buildToolRegistry extraTools" case

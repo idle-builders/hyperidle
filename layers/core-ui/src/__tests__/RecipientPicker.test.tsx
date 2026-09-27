@@ -6,16 +6,9 @@
  *
  * @lore: `useRecipients` combines the recipient list with a live busy dot.
  *
- * @lore: the recipient list itself is now `call("search_users", { status:
- * "active", name? })` — the door swap replacing `apiFetch("/api/recipients")`.
- * `search_sessions` (the live busy dot) and `send_message` (starting the DM
- * thread) already rode `call`. All three now go through the one module-wide
- * `call` mock, routed by action name.
+ * @lore the recipient list, busy dot, and send all go through the one module-wide call mock, routed by action name.
  *
- * @lore: sending the first message POSTs no route — the picker's
- * `handleSend` starts the thread via
- * `call("send_message", {recipients, text, clientKey})`
- * (`components/RecipientPicker.tsx`).
+ * @lore sending the first message posts no route — handleSend starts the thread via call("send_message", {recipients, text, clientKey}).
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
@@ -179,7 +172,7 @@ describe("RecipientPicker", () => {
 		await waitFor(() => {
 			const textarea = screen.queryByRole("textbox");
 			// Could be a textarea for composing the message — just verify one exists
-			expect(textarea).not.toBeNull();
+			expect(textarea).toBeInTheDocument();
 		});
 	});
 
@@ -206,7 +199,7 @@ describe("RecipientPicker", () => {
 		await waitFor(() => {
 			// Should render some "no results" message
 			const noMatch = screen.queryByText(/no/i);
-			expect(noMatch).not.toBeNull();
+			expect(noMatch).toBeInTheDocument();
 		});
 	});
 
@@ -257,7 +250,7 @@ describe("RecipientPicker", () => {
 
 		// Submit
 		const sendBtn = screen.queryByRole("button", { name: /send/i });
-		expect(sendBtn).not.toBeNull();
+		expect(sendBtn).toBeInTheDocument();
 		await user.click(sendBtn!);
 		await waitFor(() => {
 			expect(callMock).toHaveBeenCalledWith(

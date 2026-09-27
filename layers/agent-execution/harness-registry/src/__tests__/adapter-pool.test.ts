@@ -146,12 +146,14 @@ describe("AdapterPool select — capacity and load balancing", () => {
 		const pool = new AdapterPool();
 		pool.register("local", makeAdapter(), { ...LOCAL_META, maxConcurrent: 1 });
 		pool.release("local");
-		expect(pool.select()).not.toBeNull();
+		expect(pool.select()?.id).toBe("local");
 	});
 
 	it("release on unknown id is a no-op", () => {
 		const pool = new AdapterPool();
-		expect(() => pool.release("nonexistent")).not.toThrow();
+		pool.register("local", makeAdapter(), { ...LOCAL_META, maxConcurrent: 1 });
+		pool.release("nonexistent");
+		expect(pool.select()?.id).toBe("local");
 	});
 });
 
@@ -323,9 +325,7 @@ describe("AdapterPool select — disabledTypes gate", () => {
 		expect(pool.select({ disabledTypes: ["claude-code", "codex"] })?.meta.type).toBe("opencode");
 	});
 
-	// @lore the built-in harness used to be exempt from this gate — it was the
-	// fallback everything leaned on. Every harness is now something the person
-	// installed, so every one can be turned off, including the only one registered.
+	// @lore every harness can be disabled, including the only one registered — none is a fallback.
 	it("a disabled harness is skipped even when it is the only one registered", () => {
 		const pool = new AdapterPool();
 		pool.register("local-claude-code", makeAdapter(), CLAUDE_CODE_META);
@@ -344,7 +344,7 @@ describe("AdapterPool pause/resume", () => {
 	it("register initialises paused: false", () => {
 		const pool = new AdapterPool();
 		pool.register("w1", makeAdapter(), META);
-		expect(pool.select()).not.toBeNull();
+		expect(pool.select()?.id).toBe("w1");
 	});
 
 	it("pause(id) makes the adapter unselectable even with capacity free", () => {
@@ -373,9 +373,9 @@ describe("AdapterPool pause/resume", () => {
 	it("pause/resume on an unknown id is a no-op", () => {
 		const pool = new AdapterPool();
 		pool.register("w1", makeAdapter(), META);
-		expect(() => pool.pause("nonexistent")).not.toThrow();
-		expect(() => pool.resume("nonexistent")).not.toThrow();
-		expect(pool.select()).not.toBeNull();
+		pool.pause("nonexistent");
+		pool.resume("nonexistent");
+		expect(pool.select()?.id).toBe("w1");
 	});
 });
 
@@ -588,9 +588,7 @@ describe("createLocalAdapterPool — hermetic behavior", () => {
 		expect(pool.has("docker-worker")).toBe(false);
 	});
 
-	// @lore the isolation gate that used to warn on this env var is deleted, not
-	// just silenced — this asserts there is no gate left to trigger, not merely
-	// that it stayed quiet by chance.
+	// @lore asserts there is no isolation-gate warning left to trigger for this env var, not that it happened to stay quiet.
 	it("emits no isolation-gate warning even when HYPERIDLE_ENABLE_ISOLATED is set", async () => {
 		vi.stubEnv("HYPERIDLE_ENABLE_ISOLATED", "1");
 		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});

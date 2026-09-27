@@ -43,7 +43,7 @@ function dispatchKey(
 	return event;
 }
 
-describe("AG4 — useNavShortcuts", () => {
+describe("useNavShortcuts", () => {
 	const makeOpts = () => ({
 		onBack: vi.fn(),
 		onForward: vi.fn(),

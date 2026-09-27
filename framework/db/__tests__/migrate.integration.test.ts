@@ -34,12 +34,6 @@ describe("applyMigrations", () => {
 		expect(fs.existsSync(dataDir)).toBe(true);
 	});
 
-	it("is idempotent: re-running on already-migrated DB does not throw", async () => {
-		const dataDir = path.join(tmpDir, "pgdata");
-		await applyMigrations(dataDir, REAL_MIGRATIONS_FOLDER);
-		await expect(applyMigrations(dataDir, REAL_MIGRATIONS_FOLDER)).resolves.toBeDefined();
-	});
-
 	it("returns the same schemaVersion on re-run (idempotent)", async () => {
 		const dataDir = path.join(tmpDir, "pgdata");
 		const first = await applyMigrations(dataDir, REAL_MIGRATIONS_FOLDER);

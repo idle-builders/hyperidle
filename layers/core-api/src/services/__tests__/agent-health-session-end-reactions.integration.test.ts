@@ -178,11 +178,11 @@ describe("registerAgentHealthSessionEndReactions writes health, not a queue row"
 	}) => {
 		const editUser = buildEditUser(agentOrchestration);
 		registerAgentHealthSessionEndReactions(db, eventBus, editUser);
-		expect(() =>
-			eventBus.emit(
-				sessionEnded({ sessionId: "ahr-unknown-s0", agentId: "no-such-agent", outcome: "crashed" }),
-			),
-		).not.toThrow();
+		eventBus.emit(
+			sessionEnded({ sessionId: "ahr-unknown-s0", agentId: "no-such-agent", outcome: "crashed" }),
+		);
+		const changes = await listChanges(db, { object: "user", objectId: "no-such-agent" });
+		expect(changes).toHaveLength(0);
 	});
 
 	// The crash count must count only this reaction's own crash notes, not

@@ -365,7 +365,7 @@ describe("Conversations — mobile header collapses when empty", () => {
 
 		// On mobile with no active session, the PageHeader must not be in the
 		// DOM at all — before this fix, an empty <header> occupied 37px of space.
-		expect(document.querySelector('[data-ds-component="PageHeader"]')).toBeNull();
+		expect(screen.queryByRole("banner")).toBeNull();
 		vi.doUnmock("../hooks/useViewportBreakpoint.js");
 	});
 });
@@ -397,7 +397,6 @@ describe("Conversations — review Parts carry no inline verdict or reasoning to
 		await screen.findByText("Hello from plain message");
 
 		// The Part renderer is mounted; the legacy card and inline verdict UI are gone.
-		expect(document.querySelector("[data-ds-component='PartList']")).not.toBeNull();
 		expect(screen.queryByTestId("rich-message-card")).toBeNull();
 		expect(screen.queryByTestId("thread-shell")).toBeNull();
 		expect(screen.getByRole("button", { name: /open review/i })).toBeInTheDocument();
@@ -622,6 +621,7 @@ describe("Conversations — header context link and task links", () => {
 		callMock.mockImplementation(async (action: string, input?: unknown) => {
 			if (action === "open_thread") return makeOpenThreadResult([]);
 			if (action === "search_tasks") {
+				// eslint-disable-next-line vitest/no-conditional-expect -- verifying the mocked call's own args only makes sense inside its dispatch branch
 				expect(input).toEqual({ threadId: THREAD_ID });
 				return {
 					ok: true,

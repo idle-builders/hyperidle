@@ -101,9 +101,8 @@ describe("Sidebar conversations blocking badge", () => {
 		const badge = screen.getByTestId("conversations-blocking-badge");
 		expect(badge).toBeInTheDocument();
 
-		if (convSectionArea) {
-			expect(convSectionArea.contains(badge)).toBe(true);
-		}
+		if (!convSectionArea) throw new Error("expected the conversations section to render");
+		expect(convSectionArea.contains(badge)).toBe(true);
 	});
 
 	it("only ONE conversations badge is rendered (no duplication)", () => {
@@ -114,7 +113,8 @@ describe("Sidebar conversations blocking badge", () => {
 	});
 
 	it("accepts conversationsBlockingCount as an optional prop", () => {
-		// Should render without error when prop is omitted
-		expect(() => render(<Sidebar {...defaultProps} />)).not.toThrow();
+		// Should render without the badge when the prop is omitted.
+		render(<Sidebar {...defaultProps} />);
+		expect(screen.queryByTestId("conversations-blocking-badge")).toBeNull();
 	});
 });

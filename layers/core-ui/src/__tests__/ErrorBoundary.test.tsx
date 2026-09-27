@@ -8,9 +8,7 @@ import { ErrorBoundary } from "../components/ErrorBoundary";
  * and renders a fallback UI. The spec requires that it wraps `<Outlet />` in
  * AppShell so a page render error does not produce a white screen.
  *
- * @lore RTL's console.error spy — React logs boundary errors by default,
- * and our ErrorBoundary.componentDidCatch also logs. We silence the noise
- * during these tests so the suite output stays clean.
+ * @lore RTL's console.error spy silences React's boundary-error logging and our own componentDidCatch log, keeping suite output clean.
  */
 
 function Throws(): JSX.Element {
@@ -56,7 +54,7 @@ describe("ErrorBoundary", () => {
 		);
 		const byButton = screen.queryByRole("button", { name: /reload|retry|refresh/i });
 		const byLink = screen.queryByRole("link", { name: /reload|retry|refresh/i });
-		expect(byButton ?? byLink).not.toBeNull();
+		expect(byButton ?? byLink).toBeInTheDocument();
 		spy.mockRestore();
 	});
 

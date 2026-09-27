@@ -6,9 +6,7 @@
  * the id in memory during the run; if nothing writes it down, there is nothing
  * to resume and the agent can never be brought back.
  *
- * @lore A session whose harness reported no id genuinely cannot be resumed.
- * The column stays null in that case rather than holding a fabricated value, so
- * the verdict path can tell the human the truth instead of resuming nothing.
+ * @lore a session whose harness reported no id stays null in the column, never a fabricated value.
  */
 import * as fs from "node:fs";
 import * as os from "node:os";

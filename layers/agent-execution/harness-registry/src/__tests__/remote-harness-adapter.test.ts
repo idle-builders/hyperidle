@@ -76,7 +76,7 @@ describe("RemoteHarnessAdapter interface compliance", () => {
 		const ws = new MockWebSocket();
 		// If RemoteHarnessAdapter doesn't implement HarnessAdapter, this assignment will fail
 		const adapter: HarnessAdapter = new RemoteHarnessAdapter(ws, WORKER_REG);
-		expect(adapter).toBeDefined();
+		expect(adapter).toBeInstanceOf(RemoteHarnessAdapter);
 	});
 
 	it("getCapabilities returns modelProviders from registration", () => {
@@ -262,7 +262,7 @@ describe("RemoteHarnessAdapter stopSession", () => {
 		expect(stopMsg.sessionId).toBe(sessionId);
 
 		// Simulate worker acknowledging with a session_result
-		// @lore AU21 (harness-telemetry narrowing): no cost field on SessionResult anymore.
+		// @lore harness-telemetry narrowing: no cost field on SessionResult anymore.
 		ws.receive({
 			type: "session_result",
 			sessionId,

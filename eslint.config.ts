@@ -6,14 +6,37 @@
 //
 // Biome remains primary for everything else (formatting, style, correctness, a11y, security).
 
+import { globSync } from "node:fs";
 import tsParser from "@typescript-eslint/parser";
+import vitest from "@vitest/eslint-plugin";
 import authz from "eslint-plugin-authz";
 import design from "eslint-plugin-design";
 import { configs as designHearthConfigs } from "eslint-plugin-design/hearth-config";
 import drizzle from "eslint-plugin-drizzle";
+import playwright from "eslint-plugin-playwright";
 import reactCompiler from "eslint-plugin-react-compiler";
 import reactHooks from "eslint-plugin-react-hooks";
 import tseslint from "typescript-eslint";
+
+// testing.md-enforcement blocks below scan by test-file glob, never a maintained
+// list (architecture.md "scans, not lists") — a glob that matches zero files is
+// the same silent failure a stale list would be, so each one is asserted non-empty
+// once at config-load time.
+function assertGlobMatchesFiles(label: string, patterns: string[]): void {
+	const matches = globSync(patterns, {
+		exclude: ["**/node_modules/**", "**/dist/**", "**/.worktrees/**", "**/coverage/**"],
+	});
+	if (matches.length === 0) {
+		throw new Error(
+			`eslint.config.ts: ${label} pattern(s) ${JSON.stringify(patterns)} matched no files. ` +
+				"A rename or move silently drops every test file out of this rule's coverage — fix the pattern.",
+		);
+	}
+}
+
+assertGlobMatchesFiles("vitest test-file rules", ["**/*.test.ts", "**/*.test.tsx"]);
+assertGlobMatchesFiles("playwright spec-file rules", ["**/*.spec.ts", "**/*.spec.tsx"]);
+assertGlobMatchesFiles("component test files (*.test.tsx)", ["**/*.test.tsx"]);
 
 export default [
 	{
@@ -1061,6 +1084,146 @@ export default [
 					],
 				},
 			],
+		},
+	},
+
+	// testing.md § lint enforcement — vitest rules on every unit/component/
+	// integration test file (all end in *.test.ts(x); a plain glob covers all
+	// three lanes at once, no separate integration block needed).
+	{
+		files: ["**/*.test.ts", "**/*.test.tsx"],
+		ignores: ["**/node_modules/**"],
+		languageOptions: {
+			parser: tsParser,
+			parserOptions: { ecmaFeatures: { jsx: true } },
+		},
+		plugins: { vitest },
+		rules: {
+			// A conditional assert can silently never run.
+			"vitest/no-conditional-expect": "error",
+			// A test with no assert proves nothing. `assertFunctionNames` widens past
+			// the bare `expect` call to this repo's real assertion shapes: a
+			// `*.findBy*` Testing Library query throws on its own when nothing
+			// matches; `*.run` is RuleTester's own assertion entry point; the
+			// remaining two are named local helpers (assertOutline,
+			// assertNoFabrication, assertAllCovered) that throw instead of calling
+			// `expect` — real checks the plugin cannot see through a wrapper call.
+			"vitest/expect-expect": [
+				"error",
+				{
+					assertFunctionNames: [
+						"expect",
+						"expectTypeOf",
+						"assertType",
+						"*.findBy*",
+						"*.run",
+						"assertOutline",
+						"assertNoFabrication",
+						"assertAllCovered",
+						"settleIgnoredSessionEnded",
+						"settleIgnoredReaction",
+					],
+				},
+			],
+		},
+	},
+
+	// testing.md § Never a test: "an assert that can't fail" — a test whose
+	// ONLY assertions are existence-only (toBeDefined/toBeTruthy/not.toBeNull/
+	// not.toBeUndefined/not.toThrow) proves nothing. Narrower than banning the
+	// matchers outright (`vitest/no-restricted-matchers` would flag hundreds of
+	// legitimate sites that pair one with a real assertion) — this only fires
+	// when a test has no real assertion anywhere in its body.
+	{
+		files: ["**/*.test.ts", "**/*.test.tsx"],
+		languageOptions: { parser: tsParser, parserOptions: { ecmaFeatures: { jsx: true } } },
+		plugins: { design },
+		rules: {
+			"design/no-existence-only-test": "error",
+		},
+	},
+
+	// Founder ruling: @lore is allowed in test files, one line, no planning id.
+	{
+		files: ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.spec.tsx"],
+		languageOptions: { parser: tsParser, parserOptions: { ecmaFeatures: { jsx: true } } },
+		plugins: { design },
+		rules: {
+			"design/no-multiline-lore-in-test": "error",
+		},
+	},
+
+	// testing.md § lint enforcement — Playwright rules on every e2e spec.
+	{
+		files: ["**/*.spec.ts", "**/*.spec.tsx"],
+		ignores: ["**/node_modules/**"],
+		languageOptions: {
+			parser: tsParser,
+			parserOptions: { ecmaFeatures: { jsx: true } },
+		},
+		plugins: { playwright },
+		rules: {
+			"playwright/no-conditional-expect": "error",
+			// Local helpers (proveHeader, expectEllipsis, expectNoHorizontalCollision)
+			// hold the real `expect()` calls the plugin cannot see through a wrapper.
+			"playwright/expect-expect": ["error", { assertFunctionPatterns: ["^expect", "^prove"] }],
+			"playwright/no-restricted-matchers": [
+				"error",
+				{
+					toBeDefined:
+						"existence-only assert (testing.md): assert the actual value, not that it exists.",
+					toBeTruthy:
+						"existence-only assert (testing.md): use a specific/web-first matcher instead.",
+					"not.toBeNull":
+						"existence-only assert (testing.md): assert the actual value, not that it is non-null.",
+					"not.toThrow":
+						"existence-only assert (testing.md): assert the actual success value, not merely that nothing threw.",
+				},
+			],
+			// testing.md § UI: "No screenshots inside a spec."
+			"no-restricted-syntax": [
+				"error",
+				{
+					selector:
+						"CallExpression[callee.type='MemberExpression'][callee.property.name='screenshot'][callee.object.name='page']",
+					message:
+						"testing.md § UI: no screenshots inside a Playwright spec. A failing e2e test gets fixed or deleted, never hidden behind a captured image.",
+				},
+			],
+		},
+	},
+
+	// testing.md § Never a test — reading the repo's own source/config, or
+	// shelling out to a scan command, in place of a real test.
+	{
+		files: ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.spec.tsx"],
+		languageOptions: { parser: tsParser, parserOptions: { ecmaFeatures: { jsx: true } } },
+		plugins: { design },
+		rules: {
+			"design/no-repo-introspection-in-test": "error",
+		},
+	},
+
+	// testing.md § Structure — "Test names say the behavior. No planning
+	// labels (track letters, work-item ids)." Covers both the file name and
+	// every describe/test/it title.
+	{
+		files: ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.spec.tsx"],
+		languageOptions: { parser: tsParser, parserOptions: { ecmaFeatures: { jsx: true } } },
+		plugins: { design },
+		rules: {
+			"design/no-planning-id-in-test": "error",
+		},
+	},
+
+	// testing.md § UI — component tests assert what the user sees, never a
+	// data-ds-* marker's own existence.
+	{
+		files: ["**/*.test.tsx"],
+		languageOptions: { parser: tsParser, parserOptions: { ecmaFeatures: { jsx: true } } },
+		plugins: { design },
+		rules: {
+			"design/no-dom-marker-assert": "error",
 		},
 	},
 ];

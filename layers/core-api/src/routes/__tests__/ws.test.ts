@@ -2,12 +2,7 @@
  * `GET /api/ws` — the pre-auth identity handoff between the token-consuming
  * middleware and `onOpen`.
  *
- * @lore identity is kept in a `WeakMap<object, string>` keyed on the Hono
- * `Context`, not a single module-scoped slot — the middleware is `async`, so
- * two upgrades in flight can run middleware(A) -> middleware(B) -> onOpen(A),
- * and a single slot would let A join under B's identity. That is
- * indistinguishable from the right answer once a topic admits on identity
- * alone, as `session:<id>` does on this socket.
+ * @lore identity lives in a WeakMap keyed on the Hono Context, not one module slot — two upgrades in flight must not cross-join identities.
  */
 
 import type { UpgradeTokenStore } from "@hyperidle/user";

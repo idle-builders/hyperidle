@@ -7,12 +7,7 @@
  * appears first; removable held rows show overflow menu, inherited rows
  * do not.
  *
- * @lore `open_user({}).connections` is the door (architecture.md §8). Both
- * groups — held and inherited — are `ConnectionView` rows
- * (id/service/via/authSource/health/removable): the connections door
- * (`agent-orchestration/connections`'s `projectFacts`) projects inherited
- * facts into that same shape before `open_user` returns, so the component
- * reads every row typed, no mapping. `call` is mocked at the door.
+ * @lore open_user({}).connections is the door — held and inherited groups are both ConnectionView rows, so the component reads every row typed.
  */
 
 import { render, screen } from "@testing-library/react";
@@ -97,13 +92,13 @@ describe("SettingsConnections component", () => {
 		it("shows the inherited group heading", async () => {
 			render(<SettingsConnections />);
 			const heading = await screen.findByText(/inherited from your environment/i);
-			expect(heading).toBeDefined();
+			expect(heading).toBeInTheDocument();
 		});
 
 		it("shows the inherited connection service name", async () => {
 			render(<SettingsConnections />);
 			const service = await screen.findByText("GitHub");
-			expect(service).toBeDefined();
+			expect(service).toBeInTheDocument();
 		});
 
 		it("inherited row does NOT show an overflow/remove button", async () => {
@@ -118,20 +113,20 @@ describe("SettingsConnections component", () => {
 		it("shows the token group heading", async () => {
 			render(<SettingsConnections />);
 			const heading = await screen.findByText(/connected with a token/i);
-			expect(heading).toBeDefined();
+			expect(heading).toBeInTheDocument();
 		});
 
 		it("shows the token connection service name", async () => {
 			render(<SettingsConnections />);
 			const service = await screen.findByText("Stripe");
-			expect(service).toBeDefined();
+			expect(service).toBeInTheDocument();
 		});
 
 		it("held token row shows an overflow/remove button", async () => {
 			render(<SettingsConnections />);
 			await screen.findByText("Stripe");
 			const actionsBtn = screen.queryByRole("button", { name: /actions for stripe/i });
-			expect(actionsBtn).not.toBeNull();
+			expect(actionsBtn).toBeInTheDocument();
 		});
 	});
 
@@ -139,13 +134,13 @@ describe("SettingsConnections component", () => {
 		it("shows the mcp group heading", async () => {
 			render(<SettingsConnections />);
 			const heading = await screen.findByText(/connected via an mcp server/i);
-			expect(heading).toBeDefined();
+			expect(heading).toBeInTheDocument();
 		});
 
 		it("shows the mcp connection service name", async () => {
 			render(<SettingsConnections />);
 			const service = await screen.findByText("Figma");
-			expect(service).toBeDefined();
+			expect(service).toBeInTheDocument();
 		});
 	});
 
@@ -153,7 +148,7 @@ describe("SettingsConnections component", () => {
 		it("shows 'Needs attention' chip for SendGrid connection", async () => {
 			render(<SettingsConnections />);
 			const chip = await screen.findByText(/needs attention/i);
-			expect(chip).toBeDefined();
+			expect(chip).toBeInTheDocument();
 		});
 	});
 
@@ -184,13 +179,13 @@ describe("SettingsConnections component", () => {
 		it("renders the Connections heading", async () => {
 			render(<SettingsConnections />);
 			const heading = await screen.findByText("Connections");
-			expect(heading).toBeDefined();
+			expect(heading).toBeInTheDocument();
 		});
 
 		it("renders the '+ Add connection' button", async () => {
 			render(<SettingsConnections />);
 			const addBtn = await screen.findByText(/\+ add connection/i);
-			expect(addBtn).toBeDefined();
+			expect(addBtn).toBeInTheDocument();
 		});
 	});
 
@@ -216,7 +211,7 @@ describe("SettingsConnections component", () => {
 			});
 			render(<SettingsConnections />);
 			const err = await screen.findByText(/couldn't load connections/i);
-			expect(err).toBeDefined();
+			expect(err).toBeInTheDocument();
 		});
 	});
 });

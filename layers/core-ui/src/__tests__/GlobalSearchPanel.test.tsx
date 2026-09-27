@@ -39,8 +39,7 @@ const mockDocuments = [
 	},
 ];
 
-// @lore: the raw fetch payload keeps the `knowledge` wire key (owned by
-// layers/core-api/src/routes/search.ts).
+// @lore the raw fetch payload keeps the knowledge wire key, owned by layers/core-api/src/routes/search.ts.
 const mockSearchResults = {
 	conversations: mockConversations,
 	work: mockWork,

@@ -81,7 +81,7 @@ describe("edit_document — D7 stale (architecture.md §4.3 case 4)", () => {
 });
 
 describe("edit_document — D-invariants (document parent/state checks)", () => {
-	test("D2 parent_not_found — a document parent that does not exist", async ({ db }) => {
+	test("parent_not_found — a document parent that does not exist", async ({ db }) => {
 		await seedUser(db, "writer-d2-doc-1");
 		const result = await editAction(writeDeps()).run(ctxFor(db, "writer-d2-doc-1"), {
 			title: "Orphan",
@@ -95,9 +95,7 @@ describe("edit_document — D-invariants (document parent/state checks)", () => 
 		expect(rows).toHaveLength(0);
 	});
 
-	test("D2 parent_not_found — a task parent that does not exist (deps.openParent)", async ({
-		db,
-	}) => {
+	test("parent_not_found — a task parent that does not exist (deps.openParent)", async ({ db }) => {
 		await seedUser(db, "writer-d2-task-1", { kind: "ai" });
 		// `realOpenParent` really queries `tasks` via `ctx.db` — no row for
 		// "nope", so a real empty-result SELECT decides `exists: false`, not a
@@ -117,14 +115,7 @@ describe("edit_document — D-invariants (document parent/state checks)", () => 
 		expect(result.problems[0]?.code).toBe("parent_not_found");
 	}, 5000);
 
-	// @lore document-module review fix: this used to be "a subscription/agent
-	// parent has no existence port — no check runs (today's behaviour,
-	// kept)" and asserted `result.ok === true` for a NON-existent subscription —
-	// today's behaviour was itself the bug (any client could attach a
-	// document to any subscription or agent id, existing or not). The fix restores
-	// the pre-item rule ("`subscription`/`agent` are attached exclusively by
-	// core-api's own routes") and adds the existence check the old test
-	// documented as absent.
+	// @lore `subscription`/`agent` parents are attached exclusively by core-api's own routes — a non-existent one is refused.
 	test("forbidden_parent_kind: a non-internal caller may not name a subscription parent", async ({
 		db,
 	}) => {
@@ -155,7 +146,7 @@ describe("edit_document — D-invariants (document parent/state checks)", () => 
 		expect(result.problems[0]?.code).toBe("forbidden_parent_kind");
 	});
 
-	test("D2 parent_not_found — a subscription parent that does not exist, on the internal path", async ({
+	test("parent_not_found — a subscription parent that does not exist, on the internal path", async ({
 		db,
 	}) => {
 		await seedUser(db, "writer-d2-subscription-2", { kind: "ai" });
@@ -176,7 +167,7 @@ describe("edit_document — D-invariants (document parent/state checks)", () => 
 		expect(result.problems[0]?.code).toBe("parent_not_found");
 	});
 
-	test("D3 cycle — moving a root under its own grandchild is refused", async ({ db }) => {
+	test("cycle — moving a root under its own grandchild is refused", async ({ db }) => {
 		await seedUser(db, "writer-d3-1");
 		const root = await insertDocument(db, docValues({ id: "d3-root", title: "Root" }));
 		const child = await insertDocument(
@@ -210,7 +201,7 @@ describe("edit_document — D-invariants (document parent/state checks)", () => 
 	// (`document-actions.ts`'s `editDocumentRun`) precisely so two moves that
 	// each look legal against the pre-race tree cannot together produce a
 	// cycle no single read would catch.
-	test("D3 cycle — two concurrent reparents that are each individually legal against the pre-race tree must not both succeed", async ({
+	test("cycle — two concurrent reparents that are each individually legal against the pre-race tree must not both succeed", async ({
 		db,
 	}) => {
 		await seedUser(db, "writer-d3-race");
@@ -233,7 +224,7 @@ describe("edit_document — D-invariants (document parent/state checks)", () => 
 		expect(succeeded).toBeLessThanOrEqual(1);
 	});
 
-	test("D4 depth_exceeded — a 32-deep chain refuses one more", async ({ db }) => {
+	test("depth_exceeded — a 32-deep chain refuses one more", async ({ db }) => {
 		await seedUser(db, "writer-d4-1");
 		let parentId: string | null = null;
 		let deepestId = "";
@@ -262,7 +253,7 @@ describe("edit_document — D-invariants (document parent/state checks)", () => 
 		expect(result.problems[0]?.code).toBe("depth_exceeded");
 	});
 
-	test("D5 slot_taken — a second prompt on one subscription is refused, only reachable at create", async ({
+	test("slot_taken — a second prompt on one subscription is refused, only reachable at create", async ({
 		db,
 	}) => {
 		await seedUser(db, "writer-d5-1", { kind: "ai" });
@@ -292,7 +283,7 @@ describe("edit_document — D-invariants (document parent/state checks)", () => 
 		expect(second.problems[0]?.code).toBe("slot_taken");
 	});
 
-	test("D6 scope_too_wide — a factory-scoped child under a team-scoped parent is refused", async ({
+	test("scope_too_wide — a factory-scoped child under a team-scoped parent is refused", async ({
 		db,
 	}) => {
 		await seedTeam(db, "team-d6-1");
@@ -313,7 +304,7 @@ describe("edit_document — D-invariants (document parent/state checks)", () => 
 		expect(result.problems[0]?.code).toBe("scope_too_wide");
 	});
 
-	test("D8 forbidden_parent — the named parent is another person's memory", async ({ db }) => {
+	test("forbidden_parent — the named parent is another person's memory", async ({ db }) => {
 		await seedUser(db, "writer-d8-owner");
 		await seedUser(db, "writer-d8-other");
 		const memory = await insertDocument(

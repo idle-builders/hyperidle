@@ -56,8 +56,14 @@ describe("seed script", () => {
 	test("is idempotent (running twice does not error)", async ({ db }) => {
 		await runFactoryBootstrap(db);
 		await seedDemoWorld(db);
-		// Second run should not throw (uses onConflictDoNothing)
-		await expect(runFactoryBootstrap(db).then(() => seedDemoWorld(db))).resolves.not.toThrow();
+		const before = await queryRows<{ count: string }>(db, "SELECT COUNT(*) AS count FROM users");
+
+		// Second run must not error (uses onConflictDoNothing) and must not duplicate rows.
+		await runFactoryBootstrap(db);
+		await seedDemoWorld(db);
+		const after = await queryRows<{ count: string }>(db, "SELECT COUNT(*) AS count FROM users");
+
+		expect(after[0]?.count).toBe(before[0]?.count);
 	});
 });
 

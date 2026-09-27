@@ -9,11 +9,11 @@
  * to test real `PgTable` ownership.
  */
 
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { is } from "drizzle-orm";
 import { PgTable } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
+import architectureJson from "../../../../tools/governance/architecture.json";
+import decidedRulesJson from "../../../../tools/governance/decided-rules.json";
 import {
 	type Architecture,
 	CLAUSES,
@@ -34,12 +34,10 @@ import {
 	readWorkspacePackages,
 	type WorkspaceRoleRule,
 } from "../../../../tools/governance/src/lib/repo-census.js";
+import tableOwnersJson from "../../../../tools/governance/table-owners.json";
 import * as schema from "../schema.js";
 
-const repoRoot = join(import.meta.dirname, "../../../..");
-const readJson = (rel: string): unknown => JSON.parse(readFileSync(join(repoRoot, rel), "utf8"));
-
-const architecture = readJson("tools/governance/architecture.json") as Architecture & {
+const architecture = architectureJson as unknown as Architecture & {
 	roles: { byWorkspacePattern: readonly WorkspaceRoleRule[] };
 };
 
@@ -52,7 +50,7 @@ interface DecidedRow {
 	readonly development: "allowed" | "forbidden";
 	readonly instances: { readonly production: number; readonly development: number };
 }
-const decided = readJson("tools/governance/decided-rules.json") as {
+const decided = decidedRulesJson as unknown as {
 	totals: { rows: number; production: { allowed: number; forbidden: number } };
 	rows: readonly DecidedRow[];
 };
@@ -547,7 +545,7 @@ describe("the clauses hold beyond the decided rows", () => {
 // The registries
 // -------------------------------------------------------------------------------------------
 
-const tableOwners = readJson("tools/governance/table-owners.json") as TableOwners;
+const tableOwners = tableOwnersJson as unknown as TableOwners;
 
 /** Every table the schema actually declares, by export name — read from the module, not the file. */
 const liveTables = new Set(

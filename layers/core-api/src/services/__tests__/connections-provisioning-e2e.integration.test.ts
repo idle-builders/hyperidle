@@ -233,8 +233,8 @@ describe("real end-to-end: DB row -> listHeldConnectionsForProvisioning (live at
 		const mcpJson = JSON.parse(fs.readFileSync(path.join(sandboxPath, ".mcp.json"), "utf-8")) as {
 			mcpServers: Record<string, unknown>;
 		};
-		expect(mcpJson.mcpServers.stripe).toBeDefined();
-		expect(mcpJson.mcpServers.figma).toBeDefined();
+		expect(mcpJson.mcpServers.stripe).toMatchObject({ url: "https://mcp.stripe.com" });
+		expect(mcpJson.mcpServers.figma).toMatchObject({ url: "https://mcp.figma.com" });
 	});
 
 	test("disconnect removes entry on next spawn (real DELETE-equivalent row removal)", async ({

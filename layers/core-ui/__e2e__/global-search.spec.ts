@@ -2,10 +2,7 @@
  * Journey: opening a global-search result navigates there, and Back returns
  * to where the search started — a real router/history concern.
  *
- * @lore GlobalSearchPanel.test.tsx covers the panel's own behavior (opening,
- * typing, keyboard nav, clearing, Escape) at the component tier; this is the
- * one thing that needs a real browser: temporal history across a real
- * navigation.
+ * @lore component tests cover the panel itself — this spec proves the one thing that needs a real browser: temporal history across navigation.
  */
 import { expect, test } from "./fixtures";
 

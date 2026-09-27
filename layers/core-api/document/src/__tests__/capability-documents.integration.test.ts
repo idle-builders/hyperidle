@@ -146,7 +146,7 @@ describe("assembleSessionDocuments includes capability items", () => {
 		});
 
 		const rule = items.find((i) => i.title === "no-console-rule" && i.slot === "rule");
-		expect(rule).toBeDefined();
+		expect(rule?.title).toBe("no-console-rule");
 	});
 
 	test("a factory skill appears exactly once (never doubled by the capability fetch)", async ({

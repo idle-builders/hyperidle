@@ -187,6 +187,7 @@ describe("DocumentBody — XSS defence", () => {
 		const img = container.querySelector("img");
 		// DOMPurify removes onerror entirely
 		if (img) {
+			// eslint-disable-next-line vitest/no-conditional-expect -- either outcome (img stripped entirely, or attribute stripped) proves the XSS is defused
 			expect(img.getAttribute("onerror")).toBeNull();
 		}
 		// Even if img is null (DOMPurify stripped it entirely), no onerror fired.
@@ -204,6 +205,7 @@ describe("DocumentBody — XSS defence", () => {
 		const anchor = container.querySelector("a");
 		if (anchor) {
 			const href = anchor.getAttribute("href") ?? "";
+			// eslint-disable-next-line vitest/no-conditional-expect -- either outcome (anchor stripped entirely, or href sanitized) proves the XSS is defused
 			expect(href.toLowerCase()).not.toContain("javascript:");
 		}
 		// If anchor is null, DOMPurify removed it entirely — also acceptable.
@@ -218,11 +220,7 @@ describe("DocumentBody — XSS defence", () => {
 	});
 
 	it("(f) markdown javascript: link href is sanitised — regression guard", () => {
-		// @lore deriveBlocks itself already strips javascript: hrefs from markdown
-		// links (inlineFromMd degrades hostile links to plain text). This test is
-		// a regression guard at the inline-render boundary: if that behaviour
-		// changes, this test catches it. If it fails, it means renderInline has a bug —
-		// file it as a follow-up.
+		// @lore this is a regression guard at the inline-render boundary for javascript: hrefs already stripped by deriveBlocks — a failure means renderInline has a bug.
 		const body = "[click](javascript:alert(1))\n";
 		const { container } = render(<DocumentBody body={body} hostId="k-xss-f" />);
 		const anchors = container.querySelectorAll("a");
@@ -283,10 +281,9 @@ describe("DocumentBody — fenced html block among other blocks stays a code lis
 	});
 
 	it("renders a code-kind Block for the html fence in a mixed body", () => {
-		const { container } = render(<DocumentBody body={MIXED_BODY} hostId="k-mixed" />);
-		expect(
-			container.querySelector('[data-ds-component="block"][data-ds-kind="code"]'),
-		).toBeInTheDocument();
+		render(<DocumentBody body={MIXED_BODY} hostId="k-mixed" />);
+		// The fence's raw source shows as a code listing, not a rendered <h1>.
+		expect(screen.getByText(/<h1>Hello<\/h1>/)).toBeInTheDocument();
 	});
 
 	it("renders paragraph blocks for the surrounding text in a mixed body", () => {
@@ -307,18 +304,14 @@ describe("DocumentBody — body with no html block is unchanged", () => {
 	it("renders paragraph blocks without data-artifact-frame", () => {
 		const { container } = render(<DocumentBody body="Hello world." hostId="k-plain" />);
 		expect(container.querySelector("[data-artifact-frame]")).not.toBeInTheDocument();
-		expect(
-			container.querySelector('[data-ds-component="block"][data-ds-kind="paragraph"]'),
-		).toBeInTheDocument();
+		expect(screen.getByText("Hello world.")).toBeInTheDocument();
 	});
 
 	it("a sole non-html fenced block does not render in the frame", () => {
 		// A typescript fence should stay a code listing, not trigger the iframe path.
 		const { container } = render(<DocumentBody body={SOLE_TS_BODY} hostId="k-ts" />);
 		expect(container.querySelector("[data-artifact-frame]")).not.toBeInTheDocument();
-		expect(
-			container.querySelector('[data-ds-component="block"][data-ds-kind="code"]'),
-		).toBeInTheDocument();
+		expect(screen.getByText(/const x = 1;/)).toBeInTheDocument();
 	});
 
 	it("a sole html block with no lang tag does not render in the frame", () => {
@@ -384,6 +377,7 @@ describe("DocumentBody — block-id stability", () => {
 			if (b.payload.kind === "heading") {
 				const key = `heading:${b.payload.text}`;
 				if (mapV1.has(key)) {
+					// eslint-disable-next-line vitest/no-conditional-expect -- only headings that survive from v1 to v2 have an id to compare
 					expect(b.id).toBe(mapV1.get(key));
 				}
 			}

@@ -1,8 +1,7 @@
 /**
  * cursor-agent is actionable when discovery reports ready/unauthenticated.
  *
- * @lore: the door swap — `open_user({}).runsOn` replaces `GET
- * /api/harnesses`; `call` is mocked at the door instead of `fetch`.
+ * @lore: the door swap — `open_user({}).runsOn` replaces `GET /api/harnesses`; `call` is mocked at the door instead of `fetch`.
  */
 
 import { render, screen } from "@testing-library/react";

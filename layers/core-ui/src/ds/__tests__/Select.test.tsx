@@ -33,7 +33,7 @@ describe("Select", () => {
 		await act(async () => {
 			root.render(createElement(Select, { options: BASE_OPTIONS }));
 		});
-		expect(container.querySelector("select")).not.toBeNull();
+		expect(container.querySelectorAll("select")).toHaveLength(1);
 	});
 
 	it("renders a leading disabled option with value='' only when placeholder is set", async () => {

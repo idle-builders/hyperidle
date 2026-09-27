@@ -5,11 +5,7 @@
  * undefined (reading 'localeCompare')` then `[ErrorBoundary] caught render
  * error`, opening Settings on the demo database.
  *
- * @lore The connections door (`agent-orchestration/connections`'s
- * `projectFacts`) returns the inherited group as `ServiceConnectionView`
- * rows — the same `id/service/via/authSource/health/removable` shape the
- * held groups use. This fixture is that real wire shape: 14 inherited rows,
- * some `needs-attention`, no held connections, no documents.
+ * @lore the connections door projects inherited facts into ConnectionView rows (id/service/via/authSource/health/removable) — this fixture is that real shape.
  */
 
 import { render, screen } from "@testing-library/react";
@@ -102,7 +98,7 @@ describe("SettingsConnections on the real open_user shape", () => {
 		);
 
 		for (const service of INHERITED_SERVICES) {
-			expect(await screen.findByText(service)).toBeDefined();
+			expect(await screen.findByText(service)).toBeInTheDocument();
 		}
 	});
 

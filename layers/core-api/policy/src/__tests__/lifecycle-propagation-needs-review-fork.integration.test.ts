@@ -33,9 +33,7 @@ import type { PolicyEditTask, PolicySendMessage } from "../ports.js";
 
 // ─── Manual port implementations (raw Drizzle, no @hyperidle/work dep) ────────
 //
-// @lore policy package cannot import @hyperidle/work directly
-// (Mechanism C). The test wires the ports manually using raw Drizzle so the
-// test stays inside the policy package's own dependency set.
+// @lore policy cannot import @hyperidle/work directly — this test wires the ports manually via raw Drizzle instead.
 
 function makeWorkPort(): PolicyDeps["work"] {
 	return {

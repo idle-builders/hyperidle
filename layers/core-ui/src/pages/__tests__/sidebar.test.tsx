@@ -63,17 +63,13 @@ describe("Sidebar utility controls", () => {
 	});
 
 	it("renders an 'Assistant' label/button for CoC trigger", () => {
-		// @lore: SidebarV2 design moved the assistant to an icon-only button at the
-		// top row (next to search field). No visible "Assistant" text — aria-label only.
-		// Test updated to use getByRole with accessible name.
+		// @lore the assistant is an icon-only button in the top row with no visible text — the test asserts by accessible name via getByRole.
 		render(<Sidebar {...makeProps()} />);
 		expect(screen.getByRole("button", { name: /assistant/i })).toBeInTheDocument();
 	});
 
 	it("renders settings button (click → settings)", () => {
-		// @lore: SidebarV2 design replaced the avatar/user button in the bottom
-		// strip with a Settings gear button. The avatar button (sidebar-avatar-btn)
-		// is removed; the Settings button (sidebar-settings-btn) is the new affordance.
+		// @lore the bottom strip carries a Settings gear button (sidebar-settings-btn), not an avatar button.
 		const onSettingsClick = vi.fn();
 		render(<Sidebar {...makeProps({ onSettingsClick })} />);
 		const settingsBtn = screen.getByTestId("sidebar-settings-btn");
@@ -98,7 +94,8 @@ describe("Sidebar utility controls", () => {
 		// @ts-expect-error — onSelectScope was removed from SidebarProps
 		props.onSelectScope = vi.fn();
 		// If the above lines fail type-check, the type is correct. Render should still work.
-		expect(() => render(<Sidebar {...makeProps()} />)).not.toThrow();
+		const { getByTestId } = render(<Sidebar {...makeProps()} />);
+		expect(getByTestId("sidebar-search-hint")).toBeInTheDocument();
 	});
 });
 

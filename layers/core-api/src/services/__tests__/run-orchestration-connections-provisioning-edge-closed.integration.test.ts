@@ -19,10 +19,7 @@
  * "edge genuinely gone, not deferred" idiom of
  * `run-orchestration-users-edge-closed.test.ts`.
  *
- * @lore the connections-provisioning path reads the held-connection record
- * live, in-layer, at spawn — a live read is exactly the shape that could
- * regrow a seam call, so proving `app.fetch` never fires here proves more
- * than it would against a frozen, request-carried list.
+ * @lore connections-provisioning reads the held-connection record live at spawn — proving app.fetch never fires here proves the seam stays closed.
  */
 
 import * as fs from "node:fs";

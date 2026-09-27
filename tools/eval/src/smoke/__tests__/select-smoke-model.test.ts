@@ -16,7 +16,6 @@ import type { SelectionInput } from "../select-smoke-model.js";
 import { selectSmokeModel } from "../select-smoke-model.js";
 
 const require = createRequire(import.meta.url);
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const fixtureData = require("./fixtures/openrouter-endpoints.captured.json") as {
 	models: unknown[];
 	endpointsByModel: Record<string, { id?: unknown; endpoints?: unknown[] }>;

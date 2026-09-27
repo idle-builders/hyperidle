@@ -9,13 +9,7 @@
  *                        posted into the thread the turn came from, sent as
  *                        the agent that could not be started (never wakes it)
  *
- * @lore each reaction is registered as an async-fire-and-forget
- * `eventBus.on(...)` handler — `EventHandler<T>` is strictly `(event) =>
- * void`, so an async body can only be a detached promise (the same pattern
- * `lifecycle-propagation.ts` uses). `emit()` itself is synchronous (the
- * handler was CALLED), not that its internal `await`s resolved before
- * `drainIntents` returns — every assertion below wraps in `vi.waitFor(...)`
- * for that reason.
+ * @lore each reaction handler is async fire-and-forget — emit() only guarantees the handler was called, so every assertion below uses vi.waitFor.
  */
 
 import {
@@ -71,10 +65,7 @@ async function flush(): Promise<void> {
  * terminal failure — the subscriber reactions fire on any terminal
  * `agent_run_admission_failed`, regardless of failureCode.
  *
- * @lore the service test pool shares one PGlite instance per worker
- * (isolate:false); `truncateAllTables` clears data but not DDL, so the
- * trigger must be dropped after each test that installs it (via
- * `afterEach`) or it leaks into a sibling test file on the same worker.
+ * @lore the shared PGlite worker keeps DDL across tests — a trigger this test installs must be dropped in afterEach or it leaks into a sibling file.
  */
 let TriggerDb: HyperIdleDb | null = null;
 afterEach(async () => {
@@ -156,7 +147,13 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 			},
 		});
 
-		await expect(drainIntents(deps, { maxAttempts: 1 })).resolves.not.toThrow();
+		await drainIntents(deps, { maxAttempts: 1 });
+
+		const [row] = await db
+			.select()
+			.from(agentWorkIntents)
+			.where(eq(agentWorkIntents.idempotencyKey, "sub-subscription-run"));
+		expect(row?.status).toBe("failed");
 	});
 
 	test("task_run: marks the taskDispatchAttempts row failed", async ({ db, eventBus }) => {

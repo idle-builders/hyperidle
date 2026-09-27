@@ -11,9 +11,7 @@ import { render } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { DesktopTitleBar } from "../DesktopTitleBar";
 
-// @lore: Use the cast-through-unknown pattern (SettingsWorker.stories.tsx precedent)
-// to install a minimal __HYPERIDLE__ stub without satisfying the full bridge interface.
-// The property is optional so delete is valid.
+// @lore casts through unknown to install a minimal __HYPERIDLE__ stub without satisfying the full bridge interface — the property is optional.
 type PartialBridgeWindow = { __HYPERIDLE__?: Partial<HyperIdleElectronBridge> };
 
 describe("DesktopTitleBar", () => {
@@ -42,6 +40,8 @@ describe("DesktopTitleBar", () => {
 		}
 
 		const { container } = render(<DesktopTitleBar />);
-		expect(container.firstChild).not.toBeNull();
+		// The inset is pure chrome (a drag handle only) — it must stay hidden
+		// from assistive tech, same contract the component's own docstring states.
+		expect(container.firstElementChild?.getAttribute("aria-hidden")).toBe("true");
 	});
 });

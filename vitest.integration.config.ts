@@ -1,4 +1,4 @@
-import { globSync } from "node:fs";
+import { globSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { defineConfig } from "vitest/config";
 
@@ -19,48 +19,42 @@ import { defineConfig } from "vitest/config";
 
 const SHARED_EXCLUDE = ["**/node_modules/**", "**/.git/**", "**/dist/**", "**/.worktrees/**"];
 
-const HARNESS_INCLUDE = [
-	// @lore AU19 Increment 4: `packages/server/src/harness/__tests__/` moved to
-	// `layers/agent-execution/harness-registry/src/__tests__/` (harness-registry
-	// finalize). Four cross-package tests (spanning harness+mcp+tools, or needing
-	// `{db,app,eventBus}` fixtures) stayed behind in `packages/server/src/__tests__/`
-	// — listed explicitly below (they don't match the generic `*-real.integration.test.ts`
-	// pattern, same as the harness-lane-collapse precedent this file already documents).
-	//
-	// @lore AU19 Increment 5 (item 2): `packages/server` dissolved — these files
-	// (and the composition root itself) relocated to `layers/core-api/src/`.
-	"layers/agent-execution/harness-registry/src/__tests__/**/*.integration.test.ts",
-	// @lore AU36: the AN1 real-harness inherited-reach pin moved with the probes
-	// into the connections package. Explicit entry required — the list is
-	// explicit, and without it the file matches the service lane's
-	// `layers/**` include and hard-fails CI where the binaries are absent.
-	"layers/agent-orchestration/connections/src/__tests__/real-harness-inherited.integration.test.ts",
-	"layers/core-api/src/__tests__/real-harness-return-enforcement-realbinary.integration.test.ts",
-	"layers/core-api/src/__tests__/thread-turn-live-harness.integration.test.ts",
-	"layers/core-api/src/__tests__/document-tools-live-harness.integration.test.ts",
-	"layers/core-api/src/__tests__/subscription-wake-live-harness.integration.test.ts",
-	// @lore real-harness serial: *-real.integration.test.ts files in src/__tests__
-	// drive real CLI harnesses (codex/claude/opencode). They must run SERIALLY
-	// (harness project, fileParallelism:false) — concurrent codex sessions collide
-	// on .codex-home/.tmp/plugins-clone dirs → ENOTEMPTY teardown errors.
-	"layers/core-api/src/__tests__/*-real.integration.test.ts",
-];
+// @lore harness-lane-by-convention: membership used to be a hand-maintained
+// list of literal filenames plus a couple of directory globs — a file that
+// forgot to update the list (or renamed away from a matched suffix) silently
+// fell into the service lane, where it either passed for the wrong reason or
+// hard-failed on a missing binary with no clue why. The convention is now
+// structural: a `.integration.test.{ts,tsx}` file that calls `requireHarness(`
+// (a real CLI harness) or `requireBinary(` (a non-harness real binary, e.g.
+// `gh` — testing.md § Harness) belongs in the harness lane, full stop. A new
+// real-binary file can never land in the service lane by omission — it only
+// takes calling the right guard, which every real-binary test must call
+// anyway to avoid silently skipping to green.
+const CANDIDATE_INTEGRATION_TESTS = globSync(
+	[
+		"layers/**/*.integration.test.{ts,tsx}",
+		"framework/**/*.integration.test.{ts,tsx}",
+		"applications/**/*.integration.test.{ts,tsx}",
+		"tools/**/*.integration.test.{ts,tsx}",
+	],
+	{ cwd: import.meta.dirname, exclude: SHARED_EXCLUDE },
+);
 
-// Every entry above is a naming-convention scan (a directory + suffix glob), not
-// a maintained list of literal filenames — but a glob that matches zero files is
-// the same silent failure a stale literal filename would be (a rename drops the
-// file out of the harness lane and into the service lane's plain
-// `*.integration.test.ts` include, where it fails hard when the real binaries
-// it needs are absent). Hard-fail here rather than let that happen quietly.
-for (const pattern of HARNESS_INCLUDE) {
-	const matches = globSync(pattern, { cwd: import.meta.dirname, exclude: SHARED_EXCLUDE });
-	if (matches.length === 0) {
-		throw new Error(
-			`vitest.integration.config.ts: HARNESS_INCLUDE pattern matched no files: "${pattern}". ` +
-				`A rename or move silently drops a real-binary test into the service lane — fix the ` +
-				`pattern (or the file it should still match) before running the integration suite.`,
-		);
-	}
+const REAL_BINARY_MARKERS = ["requireHarness(", "requireBinary("];
+
+const HARNESS_INCLUDE = CANDIDATE_INTEGRATION_TESTS.filter((relPath) => {
+	const content = readFileSync(join(import.meta.dirname, relPath), "utf8");
+	return REAL_BINARY_MARKERS.some((marker) => content.includes(marker));
+}).sort();
+
+// A scan that finds nothing reads as passing forever (architecture.md "scans,
+// not lists") — hard-fail rather than silently run zero harness tests.
+if (HARNESS_INCLUDE.length === 0) {
+	throw new Error(
+		"vitest.integration.config.ts: the requireHarness()/requireBinary() scan matched no " +
+			"*.integration.test file. Either every real-binary test lost its guard call, or the " +
+			"scan itself broke — fix before running the integration suite.",
+	);
 }
 
 export default defineConfig({
@@ -128,7 +122,10 @@ export default defineConfig({
 					exclude: SHARED_EXCLUDE,
 					pool: "threads",
 					isolate: true,
-					setupFiles: ["framework/db/src/__testing__/vitest-integration-setup.ts"],
+					setupFiles: [
+						"framework/db/src/__testing__/vitest-integration-setup.ts",
+						"layers/agent-execution/harness-registry/src/__testing__/harness-lane-cleanup.ts",
+					],
 				},
 			},
 		],

@@ -172,7 +172,7 @@ describe("Empty state (0 teams)", () => {
 		const setupLink = screen.queryByRole("link", { name: /setup|finish setup|create.*team/i });
 		const setupBtn = screen.queryByRole("button", { name: /setup|finish setup|create.*team/i });
 		// At least one exists
-		expect(setupLink ?? setupBtn).not.toBeNull();
+		expect(setupLink ?? setupBtn).toBeInTheDocument();
 	});
 });
 
@@ -392,7 +392,7 @@ describe("Populated team list (2+ teams)", () => {
 		expect(screen.getByText("2 teams")).toBeInTheDocument();
 	});
 
-	// @lore: "New bet" renamed to "New task" — root tasks replace bets
+	// @lore the button reads "New task" — root tasks are the one work primitive.
 	it("header renders 'New task' button", () => {
 		mockUseTeams.mockReturnValue({
 			data: { teams: [TEAM_A, TEAM_B] },

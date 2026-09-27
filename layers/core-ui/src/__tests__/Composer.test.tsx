@@ -116,18 +116,14 @@ describe("Composer — leading prop", () => {
 			);
 		});
 
-		// The leading button must be in the DOM
+		// The leading button must be in the DOM, before the textarea in DOM order.
 		const insertBtn = container.querySelector("[data-testid='insert-btn']");
-		expect(insertBtn).not.toBeNull();
-
-		// It must appear BEFORE the textarea in DOM order
 		const textarea = container.querySelector("textarea");
-		expect(textarea).not.toBeNull();
-		if (insertBtn && textarea) {
-			// compareDocumentPosition: 4 = follows (i.e., textarea comes after insertBtn)
-			const pos = insertBtn.compareDocumentPosition(textarea);
-			expect(pos & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-		}
+		if (!(insertBtn && textarea))
+			throw new Error("expected both the leading button and the textarea to render");
+		// compareDocumentPosition: 4 = follows (i.e., textarea comes after insertBtn)
+		const pos = insertBtn.compareDocumentPosition(textarea);
+		expect(pos & Node.DOCUMENT_POSITION_FOLLOWING).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
 	});
 
 	it("does NOT render a leading slot when prop is absent", () => {
@@ -235,7 +231,7 @@ describe("Composer — iconSend prop", () => {
 
 		// onSubmit was called only if text was non-empty — the textarea change
 		// event may not fire correctly in this test env; the important thing is
-		// the button exists and is clickable (no crash).
-		expect(sendBtn).not.toBeNull();
+		// the button is a real disableable control, not decoration.
+		expect(sendBtn?.tagName).toBe("BUTTON");
 	});
 });

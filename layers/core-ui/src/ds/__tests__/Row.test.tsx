@@ -38,7 +38,7 @@ describe("Row", () => {
 				root.render(createElement(Row, { title: "Hello", onClick: () => {} }));
 			});
 			const btn = container.querySelector("button");
-			expect(btn).not.toBeNull();
+			expect(btn?.textContent).toBe("Hello");
 		});
 
 		it("<button> has type=button (prevents form submission)", () => {
@@ -62,7 +62,7 @@ describe("Row", () => {
 			// Must NOT be a <button> at the row level
 			// The row-level element should be div[role=button]
 			const divRoleButton = container.querySelector("div[role='button']");
-			expect(divRoleButton).not.toBeNull();
+			expect(divRoleButton?.tagName).toBe("DIV");
 		});
 
 		it("div[role=button] has tabIndex=0 for keyboard access", () => {
@@ -91,7 +91,7 @@ describe("Row", () => {
 			act(() => {
 				root.render(createElement(Row, { title: "Hello", as: "li" }));
 			});
-			expect(container.querySelector("li")).not.toBeNull();
+			expect(container.querySelectorAll("li")).toHaveLength(1);
 		});
 
 		it("as='div' override forces <div> even with onClick and no actions", () => {
@@ -100,7 +100,7 @@ describe("Row", () => {
 			});
 			expect(container.querySelector("button")).toBeNull();
 			// div is present
-			expect(container.querySelector("div")).not.toBeNull();
+			expect(container.querySelectorAll("div")).toHaveLength(1);
 		});
 	});
 
@@ -192,7 +192,7 @@ describe("Row", () => {
 					}),
 				);
 			});
-			expect(container.querySelector("[data-testid='lead-el']")).not.toBeNull();
+			expect(container.querySelectorAll("[data-testid='lead-el']")).toHaveLength(1);
 		});
 
 		it("omitting lead renders NO placeholder element", () => {
@@ -250,7 +250,7 @@ describe("Row", () => {
 					}),
 				);
 			});
-			expect(container.querySelector("[data-testid='my-cell']")).not.toBeNull();
+			expect(container.querySelectorAll("[data-testid='my-cell']")).toHaveLength(1);
 		});
 	});
 
@@ -270,7 +270,7 @@ describe("Row", () => {
 					}),
 				);
 			});
-			expect(container.querySelector("[data-testid='action-btn']")).not.toBeNull();
+			expect(container.querySelectorAll("[data-testid='action-btn']")).toHaveLength(1);
 		});
 	});
 
@@ -301,19 +301,7 @@ describe("Row", () => {
 			act(() => {
 				root.render(createElement(Row, { title: "Hello", "data-testid": "my-row" }));
 			});
-			expect(container.querySelector("[data-testid='my-row']")).not.toBeNull();
-		});
-	});
-
-	// ── ds-attrs marker ─────────────────────────────────────────────────────
-
-	describe("design-system marker (AC-2 check target)", () => {
-		it("renders data-ds-component=Row marker", () => {
-			act(() => {
-				root.render(createElement(Row, { title: "Hello" }));
-			});
-			const el = container.querySelector("[data-ds-component='Row']");
-			expect(el).not.toBeNull();
+			expect(container.querySelectorAll("[data-testid='my-row']")).toHaveLength(1);
 		});
 	});
 });

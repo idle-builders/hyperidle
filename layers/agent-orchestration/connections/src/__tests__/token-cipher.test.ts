@@ -87,13 +87,15 @@ describe("credential encryption — public API", () => {
 
 		it("throws MISSING_ROOT_SECRET when no secret is configured", () => {
 			withNoSecret(() => {
-				expect(() => encryptCredentialValue("any-value")).toThrow();
+				let thrown: unknown;
 				try {
 					encryptCredentialValue("any-value");
 				} catch (err) {
-					const code = (err as Error & { code?: string }).code;
-					expect(code).toBe("MISSING_ROOT_SECRET");
+					thrown = err;
 				}
+				expect((thrown as (Error & { code?: string }) | undefined)?.code).toBe(
+					"MISSING_ROOT_SECRET",
+				);
 			});
 		});
 	});

@@ -182,16 +182,7 @@ describe("admitSession — baked agent-runnability config", () => {
 		expect(fs.existsSync(path.join(sandboxPath, ".git"))).toBe(true);
 	});
 
-	// @lore The link between "an agent's identity is a knowledge document"
-	// and what the agent actually reads: `getAgentIdentity` bakes the document's
-	// body onto the request as `agentConfig.persona`; `admitSession` resolves it
-	// into `systemPromptText`, which `runSession` hands the prompt assembler to
-	// become the "## Identity" section of the sandbox AGENTS.md.
-	//
-	// This asserts the half `admitSession` owns. The other half —
-	// `systemPromptText` becoming "## Identity" — is
-	// `context-assembly-prompt.test.ts`; the whole chain against a real harness
-	// writing a real sandbox is the harness lane.
+	// @lore `admitSession` resolves `agentConfig.persona` into `systemPromptText` — this asserts only the half it owns.
 	test("the baked persona becomes the session's systemPromptText", async ({ db }) => {
 		const now = new Date().toISOString();
 		await db.insert(users).values({

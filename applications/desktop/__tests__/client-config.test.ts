@@ -225,8 +225,8 @@ describe("migrateWindowState", () => {
 
 		fs.writeFileSync(windowStatePath, "CORRUPT{{{");
 
-		// Should not throw — creates config.json with defaults
-		expect(() => migrateWindowState(windowStatePath, configPath)).not.toThrow();
+		migrateWindowState(windowStatePath, configPath);
+		expect(fs.existsSync(configPath)).toBe(true);
 	});
 });
 

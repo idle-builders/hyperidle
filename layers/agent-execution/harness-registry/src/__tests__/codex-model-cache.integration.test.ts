@@ -26,9 +26,8 @@ describe("codex models, read from the real cache", () => {
 			expect(option.key).toBe("model_reasoning_effort");
 			const control = option.control;
 			expect(control.kind).toBe("select");
-			if (control.kind === "select") {
-				expect(control.choices.length).toBeGreaterThan(0);
-			}
+			if (control.kind !== "select") throw new Error("expected a select control");
+			expect(control.choices.length).toBeGreaterThan(0);
 		}
 
 		// At least one model declares a reasoning option — if none did, the parser

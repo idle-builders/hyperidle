@@ -39,8 +39,7 @@ const { getAgentIdentity } = makeDocumentReadPorts(createStandaloneSearchDocumen
 const NOW = "2026-08-01T00:00:00.000Z";
 const TEAM_ID = "team-byteparity-parity";
 const AGENT_ID = "agent-byteparity-parity";
-// @lore the practice an agent belongs to IS its role — `knowledge.ts`
-// documents the truth ("practice scopeId is a role id").
+// @lore an agent's practice IS its role — knowledge.ts documents that practice scopeId is a role id.
 const AGENT_ROLE = "builder";
 const TASK_ID = "task-byteparity-parity";
 const ROOT_TASK_ID = "bet-byteparity-parity";

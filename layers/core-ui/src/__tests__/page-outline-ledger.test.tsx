@@ -4,7 +4,7 @@ import type { ReactElement } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-// @lore: useBet mock removed — useBet is deleted; `call("open_task", …)` replaces it.
+// @lore open_task is the door for task data — there is no useBet.
 vi.mock("../services/call.js", () => ({
 	call: () => new Promise(() => undefined),
 }));
@@ -73,8 +73,7 @@ describe("real route outline ledger", () => {
 		["Conversations queue", "/conversations", "Conversations", <Conversations />],
 		["Conversation detail", "/conversations/thread-1", undefined, <Conversations />],
 		["Work Team", "/work/team/t", "Team", <WorkTeam overrideLoading />],
-		// @lore: "Work Routine" ledger row deleted with WorkRoutine.js —
-		// subscriptions replace routines; there is no /work/routine/:id route.
+		// @lore there is no /work/routine/:id route — subscriptions are the replacement for routines.
 		// @lore: New task routes; loading state has title "Task"
 		["New Task", "/work/task/new", "New task", <WorkTaskCreate />],
 		["Work Task (loading)", "/work/task/t", "Task", <WorkTaskPage />],

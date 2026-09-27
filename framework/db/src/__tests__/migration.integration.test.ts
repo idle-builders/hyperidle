@@ -1,9 +1,6 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-// @lore test-infra: createTestDb is kept here specifically for the idempotency
-// test that calls handle.runMigrations() — the pooled fixture does not expose
-// runMigrations(). All other tests in this file use the fixture.
+import journal from "../../drizzle/meta/_journal.json";
+// @lore this file uses createTestDb() directly only for the test calling handle.runMigrations() — the fixture doesn't expose it.
 import { createTestDb } from "../__testing__/test-utils.js";
 import { teams } from "../schema.js";
 
@@ -65,11 +62,6 @@ describe("migrations bring a fresh database to the current schema", () => {
 	});
 
 	test("journal timestamps are strictly monotonically increasing", () => {
-		const journalPath = resolve(__dirname, "../../drizzle/meta/_journal.json");
-		const journal = JSON.parse(readFileSync(journalPath, "utf-8")) as {
-			entries: Array<{ idx: number; when: number; tag: string }>;
-		};
-
 		expect(journal.entries.length).toBeGreaterThan(0);
 
 		for (let i = 1; i < journal.entries.length; i++) {

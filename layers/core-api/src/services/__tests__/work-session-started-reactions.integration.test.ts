@@ -338,9 +338,7 @@ describe("registerWorkSessionStartedReactions", () => {
 		registerWorkSessionStartedReactions(db, eventBus, editTaskFrom(agentOrchestration));
 
 		// Must not throw for a null taskId.
-		expect(() =>
-			eventBus.emit(sessionStarted({ sessionId: "wssr-taskfree-session", agentId, taskId: null })),
-		).not.toThrow();
+		eventBus.emit(sessionStarted({ sessionId: "wssr-taskfree-session", agentId, taskId: null }));
 		await settleIgnoredReaction(
 			db,
 			eventBus,

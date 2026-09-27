@@ -1,33 +1,11 @@
 /**
- * @lore The live-harness proof for the thread turn: a human `send_message`
- * into a two-member direct thread with an agent wakes that agent for real,
- * and the agent's own real `send_message` tool call is the only way its
- * turn ends. There is no assistant thread, no `reply` tool — a human's
- * `send_message` with
- * `recipients:[agentId]` opens a direct thread and enqueues a `thread_turn`
- * work intent (`thread-actions.ts`'s wake block); the real
- * harness runs; the agent answers by calling `send_message` itself (the only
- * return action a task-free, thread-calling session may satisfy —
- * `provisioner.ts`'s `requiredReturnActions`, `framework/harness-protocol/
- * src/harness/return-actions.ts`).
+ * @lore a human `send_message` into a direct thread wakes the agent, whose own `send_message` is the only way its turn ends.
  *
  * Per harness (claude / codex / opencode / cursor-agent), `requireHarness(...)`,
  * zero stubs, hard-fail if absent — never `skipIf` to green (CLAUDE.md,
  * testing.md).
  *
- * @lore This file, like `document-tools-live-harness` and
- * `subscription-wake-live-harness`, builds its composition through
- * `../__testing__/live-harness-test-support.js`'s shared `setUpLiveHarnessRun`
- * rather than `createTestApp`: `layers/core-api` may not import
- * `@hyperidle/agent-execution` (that boot is an Application's job), and
- * `bootCoreApi`'s own composed `actionTools` are "read exactly once"
- * (`app.ts`'s `takeAppActionTools`). The human's `send_message` and the
- * read-back `open_thread` call `action.run()` directly (the exact door
- * `actionsAsTools`'s MCP loop calls in-process, architecture.md §3.2's "no
- * `caller`" HTTP-equivalent shape) — the brief's two doors, `POST
- * /api/actions/send_message` or `action.run`, are interchangeable, and this
- * is the smaller one. Only the MCP bridge the real spawned CLI binary curls
- * over the network needs an actual listening server.
+ * @lore builds composition through the shared `setUpLiveHarnessRun` — `layers/core-api` may not import `@hyperidle/agent-execution` directly.
  */
 
 import { randomUUID } from "node:crypto";
@@ -69,13 +47,7 @@ import { SESSION_NOT_RETURNED_NOTICE_TEXT } from "../services/session-not-return
 
 const NOW = "2026-09-18T00:00:00.000Z";
 
-// @lore stop-all afterEach: `runThreadTurnProof`'s own `finally` block (dispose + close +
-// rmSync) is skipped by a vitest test timeout — the async function keeps
-// running in the background, but `afterEach` still fires on the timeout
-// outcome. `dispose()` alone does not stop a harness session that composition
-// already started, so this is the actual backstop: sweep every live
-// CliHarnessAdapter session's process group, in this file's own afterEach,
-// same as the harness-registry package's own real-harness tests.
+// @lore a vitest timeout skips `runThreadTurnProof`'s own finally cleanup — this afterEach sweeps every live session's process group as the backstop.
 afterEach(() => {
 	stopAllLiveHarnessSessions();
 });
@@ -106,9 +78,7 @@ async function seedFounderAndAgent(
 		status: "active",
 		createdAt: NOW,
 	});
-	// @lore the run-config selector (`harnessType`) lives in `agent_run_config`,
-	// an agent-orchestration-owned table the drain reads live — not on the
-	// `users` identity row.
+	// @lore the run-config selector (`harnessType`) lives in `agent_run_config`, read live — not on the `users` identity row.
 	await db.insert(agentRunConfig).values({
 		agentUserId: opts.agentId,
 		harnessType: opts.harnessType,

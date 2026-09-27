@@ -4,9 +4,7 @@ import { sql } from "drizzle-orm";
 import { afterAll, afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
-// @lore shared-integration-workers: this suite mocks modules commonly loaded by
-// earlier service files. Clear evaluated modules before Vitest resolves its hoisted
-// mocks, then remove only this suite's registrations when it ends.
+// @lore clear evaluated modules before vitest resolves hoisted mocks, then remove only this suite's registrations.
 vi.hoisted(() => vi.resetModules());
 
 const shutdown = vi.hoisted(() => {

@@ -48,12 +48,6 @@ describe("<BlockActionsPopover />", () => {
 		});
 	};
 
-	it("outermost element carries data-ds-component='block-actions-popover'", async () => {
-		await renderPopover();
-		const popover = document.querySelector("[data-ds-component='block-actions-popover']");
-		expect(popover).toBeTruthy();
-	});
-
 	it("role='menu' on the popover and role='menuitem' on items", async () => {
 		await renderPopover();
 		const menu = document.querySelector("[role='menu']");
@@ -95,7 +89,7 @@ describe("<BlockActionsPopover />", () => {
 	it("aria-live='polite' region exists for copy-success announcement", async () => {
 		await renderPopover();
 		const live = document.querySelector("[aria-live='polite']");
-		expect(live).toBeTruthy();
+		expect(live).toBeInTheDocument();
 	});
 
 	it("disabled items carry aria-disabled='true'", async () => {

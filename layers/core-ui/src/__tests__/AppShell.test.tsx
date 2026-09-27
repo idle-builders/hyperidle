@@ -94,9 +94,9 @@ describe("AppShell", () => {
 	}
 
 	it("renders the shell layout with Sidebar + main regions and the outlet content", async () => {
-		const { container } = renderShell();
+		renderShell();
 		await waitFor(() => {
-			expect(container.querySelector("[data-ds-shell='Sidebar']")).toBeInTheDocument();
+			expect(screen.getByRole("complementary")).toBeInTheDocument();
 			expect(screen.getByTestId("main-content")).toBeInTheDocument();
 			expect(screen.getByText("Test Page Content")).toBeInTheDocument();
 		});

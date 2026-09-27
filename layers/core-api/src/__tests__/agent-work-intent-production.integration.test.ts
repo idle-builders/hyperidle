@@ -94,8 +94,7 @@ async function seedExplicitSessionAuthority(db: HyperIdleDb) {
 	});
 }
 
-// @lore shared-pglite-workers: row truncation does not remove a test-created trigger,
-// so the helper that installs this fault also owns its exact teardown.
+// @lore row truncation does not remove a test-created trigger — the helper that installs a fault also owns its teardown.
 let cleanupRejectedIntentWrites: (() => Promise<void>) | undefined;
 
 async function rejectIntentWrites(db: HyperIdleDb) {
@@ -226,14 +225,7 @@ describe("atomic production handoffs", () => {
 		expect(attempts[0]?.occasion).toBe("retry");
 	});
 
-	// @lore The message insert is not inside the same transaction as the
-	// intent submit — `send_message`'s wake loop (`thread-actions.ts`) wraps
-	// each agent's intent-record call in its own try/catch and drops that
-	// one wake on failure rather than letting it escape, so the action
-	// itself reports success (200, ok:true). This test proves that window
-	// through the real contract: a committed message with no queued turn
-	// intent, repaired by a re-send (the coherence trigger re-bakes on the
-	// next thread append anyway).
+	// @lore `send_message`'s wake loop catches each agent's intent-record failure per-agent — the action itself still reports success.
 	test("real assistant message command: the message survives even when the intent write fails", async ({
 		db,
 		app,

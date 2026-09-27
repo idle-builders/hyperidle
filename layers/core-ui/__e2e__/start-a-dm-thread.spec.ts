@@ -19,11 +19,7 @@ import {
 
 const NOW_ISO = new Date().toISOString();
 
-// @lore `GET /api/recipients` is gone — `useRecipients` reads
-// `search_users({status:"active"})`, mapping `kind` ("human"|"ai") onto the
-// picker's own vocabulary ("user"|"agent").
-// `useRecipients` queries `search_users({status:"active", ...})` — every row
-// here is "active" so the real filter doesn't silently drop one.
+// @lore useRecipients reads search_users({status:"active"}), mapping kind onto the picker's own "user"|"agent" vocabulary.
 const MOCK_RECIPIENTS = [
 	makeUserRow("agent-builder", { kind: "ai", name: "Builder Bot", role: "builder" }),
 	makeUserRow("agent-growth", { kind: "ai", name: "Growth Engine", role: "growth" }),

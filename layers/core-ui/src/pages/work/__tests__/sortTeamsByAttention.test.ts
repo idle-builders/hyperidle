@@ -5,9 +5,7 @@
  * No agent-health tie-break (removed per founder design-review; AU26 J1 then
  * deleted the `agentHealthWarning` field from the wire type outright).
  *
- * @lore BC5 T11: "behind" (capacity overrun) is gone with capacity itself
- * (D-npax8h) — only "blocked"/"healthy" remain, and the wire shape is
- * `TeamsListItem` (`hooks/useTeams.ts`), not the deleted `TeamListItem`.
+ * @lore "behind" does not exist — only "blocked"/"healthy" remain, and the wire shape is TeamsListItem (hooks/useTeams.ts).
  */
 
 import { describe, expect, it } from "vitest";

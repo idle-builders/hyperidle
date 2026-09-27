@@ -203,9 +203,7 @@ describe("provisionReturnHook", () => {
 			const hooksPath = path.join(sandboxPath, ".codex", "hooks.json");
 			const content = JSON.parse(fs.readFileSync(hooksPath, "utf-8")) as Record<string, unknown>;
 
-			// @lore Real codex format: The format is { "hooks": { "Stop": [...] } }
-			// NOT a top-level "Stop" key. Verified against codex-cli v0.141.0.
-			// The old flat format { "Stop": { "command": "..." } } is silently ignored.
+			// @lore codex's real hook format is { "hooks": { "Stop": [...] } }, not a top-level "Stop" key.
 			expect(content).toHaveProperty("hooks");
 			const hooksObj = content.hooks as Record<string, unknown>;
 			expect(hooksObj).toHaveProperty("Stop");
@@ -224,10 +222,7 @@ describe("provisionReturnHook", () => {
 		});
 
 		it("codex trust is per-invocation (--dangerously-bypass-hook-trust), no sentinel file needed", async () => {
-			// @lore Real codex trust: Codex trust is a per-invocation flag:
-			// --dangerously-bypass-hook-trust bypasses hash-check for automation.
-			// There is NO sentinel file mechanism (no "trusted" file, no config.toml needed).
-			// This test asserts the CORRECT behavior: no bogus trust file is written.
+			// @lore codex trust is a per-invocation flag (--dangerously-bypass-hook-trust) — no sentinel trust file exists.
 			await provisionReturnHook({
 				sandboxPath,
 				channel: "settings-codex",
@@ -327,16 +322,18 @@ describe("provisionReturnHook", () => {
 
 	describe("soft-continue: does not throw (cursor inert today)", () => {
 		it("soft-continue does not throw for an inert channel", async () => {
-			// Cursor is not spawnable today — soft-continue must be a safe no-op.
-			await expect(
-				provisionReturnHook({
-					sandboxPath,
-					channel: "soft-continue",
-					bridgeToken,
-					mcpUrl,
-					forceBudget,
-				}),
-			).resolves.not.toThrow();
+			// Cursor is not spawnable today — soft-continue must be a safe no-op:
+			// no harness config file gets written for it.
+			await provisionReturnHook({
+				sandboxPath,
+				channel: "soft-continue",
+				bridgeToken,
+				mcpUrl,
+				forceBudget,
+			});
+			expect(fs.existsSync(path.join(sandboxPath, ".claude"))).toBe(false);
+			expect(fs.existsSync(path.join(sandboxPath, ".codex"))).toBe(false);
+			expect(fs.existsSync(path.join(sandboxPath, ".opencode"))).toBe(false);
 		});
 	});
 
@@ -464,15 +461,14 @@ describe("provisionReturnHook", () => {
 					path.join(os.tmpdir(), `prh-ch-${channel.replace(/-/g, "")}-`),
 				);
 				try {
-					await expect(
-						provisionReturnHook({
-							sandboxPath: channelSandbox,
-							channel,
-							bridgeToken,
-							mcpUrl,
-							forceBudget,
-						}),
-					).resolves.not.toThrow();
+					await provisionReturnHook({
+						sandboxPath: channelSandbox,
+						channel,
+						bridgeToken,
+						mcpUrl,
+						forceBudget,
+					});
+					expect(fs.existsSync(channelSandbox)).toBe(true);
 				} finally {
 					fs.rmSync(channelSandbox, { recursive: true, force: true });
 				}

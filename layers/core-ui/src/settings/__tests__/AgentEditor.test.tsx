@@ -627,12 +627,7 @@ describe("SplitView ratio persistence", () => {
 // Role template fetched on edit-open
 // ---------------------------------------------------------------------------
 
-// @lore: this block covered the editor prefilling a new agent's identity
-// from `GET /api/agents/templates/:role`. That route, the files behind it and
-// the prefill are all gone — the personas are the `role-personas` plugin's, and
-// HyperIdle holds no built-in idea of what a "builder" is. A new agent starts
-// with an empty identity; a plugin's agent brings its own
-// (`BA9g-plugin-agent-identity.integration.test.ts`).
+// @lore a new agent starts with an empty identity — there is no built-in role-template prefill; a plugin's agent brings its own identity.
 
 describe("AgentEditor — model options", () => {
 	function renderWith(draft: AgentEditorDraft, onDraftChange = vi.fn()): typeof onDraftChange {

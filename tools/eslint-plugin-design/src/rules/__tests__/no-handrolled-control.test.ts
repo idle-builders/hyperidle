@@ -115,8 +115,7 @@ ruleTester.run("no-handrolled-control", noHandrolledControl, {
 			code: 'const J = <button className={["btn", "btn-ghost"].join(" ")} />;',
 			errors: [{ messageId: "daisyControl" }, { messageId: "daisyControl" }],
 		},
-		// @lore a control’s chrome built in a same-file
-		// `const` before reaching className must be caught through the identifier.
+		// @lore a control's chrome built in a same-file const before reaching className must be caught through the identifier.
 		{
 			filename: "layers/core-ui/src/pages/Foo.tsx",
 			code: 'const controlClass = "btn btn-primary"; const J = <button className={controlClass} />;',
