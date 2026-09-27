@@ -1,9 +1,7 @@
 name: E2E Nightly
 
-# The full Playwright suite ran only on version-bump PRs (release-guard.yml)
-# and rotted for 3.5 months with ~45% of tests hidden before anyone noticed.
-# This runs it every night on main regardless of whether a version bump is
-# happening, so a break surfaces the next morning instead of at release time.
+# Runs the full Playwright suite against main every night, independent of
+# version bumps (release-guard.yml runs it there too, on bump PRs only).
 on:
   schedule:
     - cron: "0 5 * * *" # 05:00 UTC nightly
