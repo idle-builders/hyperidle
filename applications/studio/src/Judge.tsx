@@ -11,7 +11,11 @@ export const JUDGE_STEPS = [
 	{ id: 1, name: "You ask on a spot" },
 	{ id: 2, name: "Answers came back" },
 	{ id: 3, name: "Approved, one still open" },
+	{ id: 4, name: "Rejected, reason sent back" },
 ];
+
+const SEEDED_REASON =
+	"Wrong direction. Customers need the warning in the email, not only on this page — most never open the page before the charge.";
 
 interface QA {
 	n: string;
@@ -74,6 +78,9 @@ export function Judge({ step }: { step: number }) {
 	const [wide, setWide] = useState(false);
 	const [device, setDevice] = useState("desktop");
 	const [openPin, setOpenPin] = useState<string | null>(null);
+	const [rejecting, setRejecting] = useState(false);
+	const [reason, setReason] = useState("");
+	const [rejected, setRejected] = useState<string | null>(step === 4 ? SEEDED_REASON : null);
 	const w = devices.find((d) => d.id === device)?.w ?? 1280;
 
 	const qa = qaFor(step);
@@ -145,14 +152,54 @@ export function Judge({ step }: { step: number }) {
 				<span className="rev-from">Builder · Explain what happens when a trial ends</span>
 				<span className="rev-act">
 					{open > 0 && <span className="rev-open">{open} open</span>}
-					{step === 3
-						? <span className="chip chip--flag">Approved · 1 open</span>
-						: <button type="button" className="btn btn--accent">Approve</button>}
+					{rejected ? (
+						<span className="chip chip--quiet">Rejected · sent to Builder</span>
+					) : step === 3 ? (
+						<span className="chip chip--flag">Approved · 1 open</span>
+					) : (
+						<>
+							<button type="button" className="btn" aria-expanded={rejecting} onClick={() => setRejecting(true)}>
+								Reject
+							</button>
+							<button type="button" className="btn btn--accent">Approve</button>
+						</>
+					)}
 				</span>
+				{rejecting && (
+					<div className="reject" role="dialog" aria-label="Reject this review">
+						<label className="reject-h" htmlFor="reject-reason">Why are you rejecting this?</label>
+						<textarea
+							id="reject-reason"
+							rows={4}
+							value={reason}
+							placeholder="What is wrong, and what should happen instead…"
+							onChange={(e) => setReason(e.target.value)}
+						/>
+						<p className="reject-to">Goes back to Builder and the session that raised this review.</p>
+						<div className="reject-act">
+							<button type="button" className="btn" onClick={() => setRejecting(false)}>Cancel</button>
+							<button
+								type="button"
+								className="btn btn--accent"
+								disabled={reason.trim() === ""}
+								onClick={() => { setRejected(reason.trim()); setRejecting(false); }}
+							>
+								Reject and send
+							</button>
+						</div>
+					</div>
+				)}
 			</header>
 
 			<div className="rev-scroll">
 				<div className="rev-in">
+					{rejected && (
+						<div className="rejected">
+							<span className="rejected-h">You rejected this · Builder's session has your reason</span>
+							<p className="rejected-why">{rejected}</p>
+							<span className="rejected-next">Builder answers in this thread.</span>
+						</div>
+					)}
 					<p className="rev-said">
 						Page says the date and the amount before the trial runs out. Proration bug fixed on the
 						way. Two things I flagged for you.

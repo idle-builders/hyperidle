@@ -238,6 +238,20 @@ kbd { font: var(--t-data); border: var(--line-w) solid var(--line-strong); borde
 .rev-from { font: var(--t-meta); color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .rev-act { margin-left: auto; display: flex; align-items: center; gap: var(--sp-3); flex: none; }
 .rev-open { font: var(--t-meta); color: var(--wait); }
+.rev-head { position: relative; }
+
+/* reject always carries a reason — it goes back to the agent and its session */
+.reject { position: absolute; top: calc(100% + var(--sp-2)); right: var(--sp-6); z-index: 30; width: 380px; display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-4); border: var(--line-w) solid var(--line-strong); border-radius: var(--r); background: var(--surface); box-shadow: var(--sh-2); }
+.reject-h { font: var(--t-strong); font-weight: 600; }
+.reject textarea { resize: vertical; padding: var(--sp-2) var(--sp-3); border: var(--line-w) solid var(--line); border-radius: var(--r-sm); background: var(--canvas); font: var(--t-body); color: var(--ink); }
+.reject-to { font: var(--t-meta); color: var(--ink-3); }
+.reject-act { display: flex; justify-content: flex-end; gap: var(--sp-2); margin-top: var(--sp-1); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; filter: none; }
+
+.rejected { border: var(--line-w) solid var(--line-strong); border-radius: var(--r); background: var(--surface); padding: var(--sp-4) var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-2); }
+.rejected-h { font: var(--t-label); color: var(--ink-3); }
+.rejected-why { font: var(--t-body); color: var(--ink); max-width: 72ch; }
+.rejected-next { font: var(--t-meta); color: var(--ink-3); }
 
 .rev-scroll { flex: 1; overflow-y: auto; min-height: 0; background: var(--sunk); padding: var(--sp-6) var(--sp-6) var(--sp-9); }
 .rev-in { max-width: 1240px; margin: 0 auto; display: flex; flex-direction: column; gap: var(--sp-5); }

@@ -380,3 +380,17 @@ thread.
   it, what it is on, the question, the answer inline, and its state. Click a row to go to the pin.
 - Header carries stage (**Final · 3 of 3**), and **Approve with the open count beside it**.
 - Overall comment at the end, separate from the placed ones.
+
+---
+
+## Session 5 — 2026-09-28 (resumed after recovery)
+
+**Founder answered the two open JUDGE points.**
+- Agents are trusted to flag their own uncertain spots. Agent pins stay the main pointer.
+- Reject requires a reason. The message goes back to the session and the agent that proposed
+  the review.
+
+**Built:** `Reject` next to `Approve` in the review header. It opens a box — "Why are you rejecting
+this?" — and "Reject and send" stays disabled until a reason is typed. After sending, the header
+reads "Rejected · sent to Builder" and the reason sits at the top of the review, with "Builder
+answers in this thread." New walkthrough step 5 shows that state.
