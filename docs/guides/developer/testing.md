@@ -67,6 +67,8 @@ npm run test:e2e
 
 **Do not start `npm run dev` first.** Playwright's `webServer` (`layers/core-ui/playwright.config.ts`) boots its own Vite on port 5179 — deliberately not dev's 5173, so a sibling dev server can't serve stale code — and the specs mock the API via `page.route`, so no API server is needed. A server already on port 3001 is the documented hang hazard for test boot. Chromium only.
 
+The full suite also runs nightly on `main` (`.github/workflows/e2e-nightly.yml`, cron + manual dispatch) so it can't rot unseen between version bumps. See the run under the repo's Actions tab ("E2E Nightly") — the job summary lists any failing test names, and the HTML report is attached as a build artifact.
+
 ## AH6 Real-Interaction Lane (record/replay + live refresh)
 
 The AH6 lane proves three real assistant interactions end-to-end — DM round-trip, tool action visible in the UI, and thinking→answered streaming transition — through the live `AssistantOverlay` with no mocks on the proof path.

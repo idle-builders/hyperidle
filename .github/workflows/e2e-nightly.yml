@@ -1,0 +1,72 @@
+name: E2E Nightly
+
+# Runs the full Playwright suite against main every night, independent of
+# version bumps (release-guard.yml runs it there too, on bump PRs only).
+on:
+  schedule:
+    - cron: "0 5 * * *" # 05:00 UTC nightly
+  workflow_dispatch: {}
+
+jobs:
+  e2e-nightly:
+    name: npm run test:e2e:full
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - run: npx playwright install --with-deps chromium
+
+      # Same command as `npm run test:e2e:full`, invoked with -w so the
+      # `--` reporter override reaches Playwright directly — the root script
+      # wraps it in a second `npm run`, and args don't survive two hops of
+      # npm's own `--` forwarding. `PLAYWRIGHT_JSON_OUTPUT_NAME` sends the
+      # json reporter to a file instead of stdout so the summary step below
+      # can read it; `html` stays the primary human report, unaffected.
+      - name: Run full E2E suite
+        id: e2e
+        continue-on-error: true
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: results.json
+        run: npm run test:e2e:full -w @hyperidle/core-ui -- --reporter=html,json
+
+      - name: Upload HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-nightly-report
+          path: layers/core-ui/playwright-report/
+          retention-days: 14
+
+      - name: Job summary — failing tests
+        if: always()
+        run: |
+          RESULTS=layers/core-ui/results.json
+          if [ "${{ steps.e2e.outcome }}" = "success" ]; then
+            echo "## E2E Nightly: all green" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          echo "## E2E Nightly: FAILED" >> "$GITHUB_STEP_SUMMARY"
+          if [ ! -f "$RESULTS" ]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "The suite did not finish (no results.json — likely a webServer boot failure or timeout). See the run log." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Failing tests:" >> "$GITHUB_STEP_SUMMARY"
+          jq -r '
+            [.. | objects | select(has("tests")) as $spec | select(($spec.tests[]? | .status) != "expected") | $spec.title] | unique
+            | if length == 0 then "(none listed — check the run log)" else (.[] | "- " + .) end
+          ' "$RESULTS" >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || echo "- (could not parse results.json — see the run log)" >> "$GITHUB_STEP_SUMMARY"
+          exit 1
