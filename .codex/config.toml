@@ -4,3 +4,9 @@
 [mcp_servers.hyperidle-trace]
 command = "npx"
 args = ["tsx", "tools/trace/mcp-server.ts"]
+
+[plugins."idle-tasks@idle-agent-tools"]
+enabled = true
+
+[plugins."idle-skills@idle-agent-tools"]
+enabled = true
