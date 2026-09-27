@@ -1,7 +1,7 @@
 /**
  * L13 — useTeams hook unit tests.
  *
- * @lore door-swap: `GET /api/teams` is deleted with the `teams` route family — the hook rebuilds the team list from `search_users({})` (teams = the distinct `team` every row carries) and, per team, `search_tasks` for the blocked/in-progress signal `useTeam.ts` (singular) already computes for one team's page. These tests mock `call()`, not `apiFetch`.
+ * @lore the team list is built from search_users plus a per-team search_tasks call for the blocked/in-progress signal — tests mock call(), not apiFetch.
  *
  * Covers:
  *   - Initial loading state.

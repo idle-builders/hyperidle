@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
-// @lore test-infra: createTestDb is kept here because these tests manage their own
-// instance lifecycle via try/finally close() — they test the createTestDb API itself
-// and need direct handle access.
+// @lore this file uses createTestDb() directly because it tests the createTestDb API itself.
 import { createTestDb } from "../__testing__/test-utils.js";
 import { DEFAULT_PG_POOL_SIZE, parsePgPoolSize } from "../connection.js";
 
@@ -28,8 +26,7 @@ describe("PostgreSQL pool-size parsing", () => {
 });
 
 describe("in-memory Postgres via pglite (drizzle-orm/pglite)", () => {
-	// @lore test-infra: Uses createTestDb() directly because this test exercises
-	// the createTestDb API itself and needs explicit close() via try/finally.
+	// @lore uses createTestDb() directly to exercise the API itself, with explicit close().
 	it("createTestDb returns a usable Drizzle instance", { timeout: 15_000 }, async () => {
 		const { db, close } = await createTestDb();
 		try {

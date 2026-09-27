@@ -21,7 +21,7 @@ describe("parentPathFor", () => {
 			expect(parentPathFor("/work/task/abc-123")).toBe("/work");
 		});
 
-		// @lore bet-routes-deleted: /work/bet/ routes deleted; test uses /work/task/ instead
+		// @lore /work/task/ is the route — there are no /work/bet/ routes.
 		it("task detail with trailing slash → /work", () => {
 			expect(parentPathFor("/work/task/abc-123/")).toBe("/work");
 		});

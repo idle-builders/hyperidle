@@ -92,10 +92,7 @@ describe("requireHarness — binary absent (claude/codex/opencode/cursor-agent)"
 	});
 });
 
-// @lore The built-in harness used to be gated here on `OPENROUTER_API_KEY` —
-// the one key that gated any harness at all. It is gone, and with it the idea
-// that a harness can be "available" because a credential exists. Availability is
-// now a question about installed binaries, and nothing else.
+// @lore availability is a question about installed binaries only, never a credential.
 
 // ── STRICT VOCABULARY: forbidden key-named tokens are NOT valid HarnessNames ──
 //

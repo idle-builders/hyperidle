@@ -1,7 +1,7 @@
 /**
  * ScopeChangeDialog — Scope ID prefill when "Team" is chosen.
  *
- * @lore: widening a private tree document to Team requires a `scopeId`. The person's own team is already carried from `open_user` (`useCurrentUser`), so the field prefills with it instead of asking the person to know and type their own team's id — the field stays editable, this is a default, not a lock.
+ * @lore widening to Team requires a scopeId — the field prefills with the person's own team from useCurrentUser but stays editable, a default not a lock.
  */
 
 import { render, screen } from "@testing-library/react";

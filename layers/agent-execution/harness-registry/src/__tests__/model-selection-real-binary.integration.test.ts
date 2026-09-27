@@ -53,9 +53,7 @@ import { productionCliConfig } from "./production-cli-config.js";
 import { requireHarness } from "./require-harness.js";
 import { trackHarnessSessions } from "./session-handle-tracker.js";
 
-// @lore process-group kill only helps once stopSession runs. `track` stops any
-// handle a test leaves unstopped — timeout or thrown assertion included — in
-// afterEach. See session-handle-tracker.ts.
+// @lore `track` stops any handle a test leaves unstopped in afterEach — see session-handle-tracker.ts.
 const { track } = trackHarnessSessions();
 
 const execFileAsync = promisify(execFile);

@@ -26,11 +26,10 @@
  *      §5) into a different folder. The real reparent() runs: same item,
  *      new parent, body untouched.
  *
- * @lore nested-knowledge-real: a probe run against `writeContextBundle` directly (hand-built bundle, two items sharing a parent, both independently selected) showed a parent-with-children item that is ALSO independently selected got its real body dumped into a stray sibling leaf file (`Title_<id8>.md`) next to its own directory, while the directory's `index.md` only ever got the bare title — never the real body, even though it was available. This contradicted plan.md's "a parent as a directory containing index.md with its own body." FIXED in `writeOrdinaryItems` (run-orchestration/src/context.ts) — the ordinary-item write moved to a two-pass materialiser: pass 1 creates every ancestor directory, pass 2 writes each item's own content, and an item that pass 1 already turned into a directory (because it is an ancestor of another selected item) gets its real body written into that directory's `index.md` instead of a separate leaf file. Regression-covered at the unit level in `run-orchestration/src/__tests__/knowledge-materialisation.test.ts` and, below, test 1b covers the same path against real harness binaries.
+ * @lore a parent item that is ALSO independently selected writes its real body into its own directory's index.md, never a stray sibling file.
  *
  * HARNESS LANE: real binaries, real LLM calls, zero stubs.
  * Gate: requireHarness() — hard-fail (never skip) if a binary is absent.
- * Local-only: no CI job exists for this lane by design.
  */
 
 import { spawn } from "node:child_process";
@@ -330,7 +329,7 @@ for (const harness of HARNESSES) {
 		// -------------------------------------------------------------------
 		dbTest(
 			"materialises a nested tree with an index-only unselected ancestor, and hides another team's branch entirely — proven by the real binary reading its own sandbox",
-			// @lore nested-knowledge-real-retry: unlike the create/move probes below (mechanical file operations, retry:0), this probe asks the model to find and reason across several nested files — the same class of task the repo's own harness-retry lore names as real-LLM nondeterminism, not a logic break. Observed live: opencode/qwen3-8b globbed the wrong filename pattern once and aborted, then succeeded on a second run with identical fixtures. No override here — this inherits the harness project's own retry:2, the sanctioned mechanism (`.claude/rules/testing.md` "@lore harness-retry").
+			// @lore this probe asks the model to reason across nested files — real-LLM nondeterminism, covered by the harness project's own retry:2.
 			async ({ db }) => {
 				const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), `nkt-${harness}-read-`));
 				const leafSecret = `LEAF-${randomUUID().slice(0, 8).toUpperCase()}`;
@@ -384,7 +383,7 @@ for (const harness of HARNESSES) {
 					scopeId: OTHER_TEAM_ID,
 				});
 
-				// @lore nested-knowledge-real: a selected parent WITH a body AND selected children — the ordinary shape of a real document tree. Both "Roadmap" and its child are independently selected (own team scope, fetched directly by fetchOrdinaryItemsByScope), so Roadmap is ALSO reached as an ancestor through the child's parentChain. Proves the fix in writeOrdinaryItems: Roadmap's real body lands in its own directory's index.md, not a stray sibling leaf file.
+				// @lore a selected parent with its own body and selected children writes that body into its own index.md, not a stray sibling file.
 				const selectedParent = await seedDocument(db, {
 					title: "Roadmap",
 					body: `Roadmap parent body.\nPARENT_TOKEN: ${parentBodySecret}`,
@@ -553,7 +552,7 @@ for (const harness of HARNESSES) {
 
 				const roadmapRows = await db.select().from(documents).where(eq(documents.title, "roadmap"));
 				expect(roadmapRows).toHaveLength(1);
-				// @lore nested-knowledge-real-trailing-newline: a real agent's file-write tool commonly appends a trailing newline (the POSIX "file ends with a newline" convention) — the writeback processor stores whatever bytes are on disk verbatim (production behaviour, correct), so the exact-content assertion is trimmed on the END only. The marker check right after this still fails if the agent altered the CONTENT itself, which is what this assertion exists to catch.
+				// @lore a real agent's file-write tool commonly appends a trailing newline — the exact-content assertion trims only the end.
 				expect(roadmapRows[0]?.body.trimEnd()).toBe(content);
 				expect(roadmapRows[0]?.body).toContain(marker);
 				expect(roadmapRows[0]?.parentKind).toBe("document");

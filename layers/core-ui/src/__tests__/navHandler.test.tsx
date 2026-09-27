@@ -32,14 +32,14 @@ describe("navHandler — OpenTarget → navigate", () => {
 		expect(navigate).toHaveBeenCalledWith("/work/task/bet-9");
 	});
 
-	// @lore: task now navigates — was previously a no-op
+	// @lore clicking task navigates.
 	it("host + task (any id) → navigate('/work/task/:id') — no longer a no-op", () => {
 		const navigate = vi.fn();
 		createOpenHandler(navigate)({ route: "host", hostKind: "task", hostId: "task-3" });
 		expect(navigate).toHaveBeenCalledWith("/work/task/task-3");
 	});
 
-	// @lore artifacts-become-documents: artifact route is a no-op — /artifacts/:id page deleted
+	// @lore the artifact route click is a no-op — there is no /artifacts/:id page.
 
 	it("review → navigate('/reviews/:reviewId?threadId=...') (flattened, no betId needed)", () => {
 		const navigate = vi.fn();

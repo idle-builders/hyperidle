@@ -11,9 +11,7 @@ import { render } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { DesktopTitleBar } from "../DesktopTitleBar";
 
-// @lore: Use the cast-through-unknown pattern (SettingsWorker.stories.tsx precedent)
-// to install a minimal __HYPERIDLE__ stub without satisfying the full bridge interface.
-// The property is optional so delete is valid.
+// @lore casts through unknown to install a minimal __HYPERIDLE__ stub without satisfying the full bridge interface — the property is optional.
 type PartialBridgeWindow = { __HYPERIDLE__?: Partial<HyperIdleElectronBridge> };
 
 describe("DesktopTitleBar", () => {

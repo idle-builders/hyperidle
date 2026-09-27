@@ -455,9 +455,7 @@ describe("connections behind open_user/edit_user", () => {
 			expect(res.status).toBe(400);
 		});
 
-		// @lore fixture injection doesn't compose with `test.each` (vitest) — see
-		// `tool-schemas.integration.test.ts`'s own note — so each blocked URL
-		// gets its own `test`, not a table.
+		// @lore fixture injection doesn't compose with `test.each` — each blocked URL gets its own `test`, not a table.
 		test("adding an mcp connection with a link-local serverUrl is refused", async ({ app, db }) => {
 			await seedUserA(db);
 			const { status, envelope } = await addConnection(app, authHeadersA(), USER_A_ID, {

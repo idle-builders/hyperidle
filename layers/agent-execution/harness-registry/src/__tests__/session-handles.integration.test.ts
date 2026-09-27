@@ -14,9 +14,9 @@
  *   4. A resume aimed at a WRONG/unknown session id is detected and fails loudly.
  *      Most important on cursor-agent, which exits 0 on a wrong id.
  *
- * @lore cursor-agent-silent-fail: cursor-agent exits 0 even on a wrong or missing session id, echoing back the requested id. Detection is from content: a resumed context-free session does not know the task ID.
+ * @lore cursor-agent exits 0 even on a wrong or missing session id — detect failure from content, not exit code.
  *
- * @lore claude-session-global: In claude 2.1.247, --resume <uuid> finds sessions globally by UUID — NOT per working directory. The research claim that "wrong-dir fails loudly with exit 1" did not hold against the installed binary. The correct "wrong resume" probe for claude is a bogus UUID (exits 0 with error_during_execution and empty result, detected via content check).
+ * @lore claude's --resume <uuid> finds sessions globally by UUID, not per working directory — probe wrong-resume with a bogus UUID.
  */
 
 import * as fs from "node:fs";
@@ -36,17 +36,14 @@ import { productionCliConfig } from "./production-cli-config.js";
 import { HARNESS_TEST_MODELS, requireHarness } from "./require-harness.js";
 import { trackHarnessSessions } from "./session-handle-tracker.js";
 
-// @lore process-group kill only helps once stopSession runs. `track` stops any handle a test leaves unstopped — timeout or thrown assertion included — in afterEach, so a real CLI session can never outlive its test. See session-handle-tracker.ts.
+// @lore `track` stops any handle a test leaves unstopped in afterEach, so a real CLI session can never outlive its test.
 const { track } = trackHarnessSessions();
 
 // ── Context marker planted in session 1, tested in the resumed session ────────
 // A non-guessable task-ID token so "did the model know this?" is meaningful.
 // Framed as a task ID (not a "codeword") to avoid security-minded model
 // refusals that treat codeword exchanges as prompt-injection attempts.
-// @lore context-marker-framing: "codeword" framing caused haiku to refuse
-// the acknowledgment and to decline recalling it in Phase 2 ("I can't treat
-// codeword exchanges as authentication"). "Task ID" framing is semantically
-// identical but does not trigger security heuristics.
+// @lore "codeword" framing trips haiku's security heuristics — "Task ID" framing is semantically identical but does not.
 const CODEWORD = "KESTREL-7429";
 const PHASE1_PROMPT =
 	`The task ID for this session is ${CODEWORD}. ` +
@@ -170,7 +167,7 @@ describe("session handles — claude-code", () => {
 			// Detection is content-based: outcome may be "completed" (exit 0) but
 			// the session has no task ID in its output.
 			//
-			// @lore claude-session-global: In claude 2.1.247, --resume <uuid> finds sessions GLOBALLY by UUID, NOT per working directory. The research claim that "wrong-dir fails loudly with exit 1" did not hold against the installed binary — wrong-dir resume exits 0 and succeeds (the session is found from any cwd). A bogus (non-existent) UUID is the correct test: it exits 0 with error_during_execution subtype and empty result, so content-based detection (no task ID in output) correctly signals failure.
+			// @lore claude's --resume <uuid> is found globally by UUID, not per cwd — a wrong-dir resume succeeds; only a bogus UUID fails.
 			const bogusId = "00000000-0000-0000-0000-000000000000";
 			let bogusIdDetected = false;
 			try {
@@ -308,12 +305,7 @@ describe("session handles — codex", () => {
 	}, 120_000);
 
 	test("resumed codex session can write files — sandbox mode is thread-scoped not config-scoped", async () => {
-		// @lore codex-sandbox-inherit: `exec resume` has no --sandbox flag. The original thread's sandbox mode (workspace-write) is INHERITED by the resumed session. This test proves it by having the resumed session create a new file and asserting the file exists on disk.
-		//
-		// If codex resume defaulted to read-only, the file write would silently
-		// fail or produce an error event, and the file would not exist — failing
-		// this assertion. A guard you cannot show red is a passenger; this test
-		// goes red if sandbox mode stops being inherited.
+		// @lore `exec resume` has no --sandbox flag — the original thread's sandbox mode (workspace-write) is inherited by the resumed session.
 		await requireHarnessAuthed("codex");
 
 		const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), "codex-sbox-"));

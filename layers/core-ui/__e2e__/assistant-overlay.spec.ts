@@ -2,9 +2,9 @@
  * Journey: the assistant overlay opens from the sidebar trigger, stays open
  * across a view change, and closes on Escape or the trigger again.
  *
- * @lore AssistantOverlay.test.tsx and AssistantAttachButton.test.tsx cover the overlay's own rendering (empty state, context chips, notice cards, send/receive) at the component tier — this file proves only what needs a real router: the trigger wiring and that navigating away doesn't unmount the overlay.
+ * @lore component tests cover the overlay's rendering — this proves what needs a real router: trigger wiring and overlay persistence across navigation.
  *
- * @lore The overlay resolves "my agent" via `search_users({ kind: "ai" })` (`ownerUserId === <viewer id>`, AssistantOverlay.tsx) before it ever reaches `search_threads`/ `open_thread` — without that mock every test sees the "Couldn't find your assistant agent." empty state.
+ * @lore the overlay resolves "my agent" via search_users before reaching search_threads — without that mock every test sees the empty state.
  */
 
 import { expect, makeUserRow, mockSearchThreads, mockSearchUsers, test } from "./fixtures";

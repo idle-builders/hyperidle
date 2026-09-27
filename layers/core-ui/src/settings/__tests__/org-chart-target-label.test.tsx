@@ -5,7 +5,7 @@
  *   1. A "team" mechanism edge renders the team NAME (not the raw team id).
  *   2. Empty edges state has explanatory copy about teams not auto-creating edges.
  *
- * @lore door-swap: `call("search_users", {})` replaces `GET /api/org`. A team-mechanism edge's target is now the team's real id directly (no more `team_members` indirection to resolve through).
+ * @lore call("search_users",{}) replaces GET /api/org — a team-mechanism edge's target is the team's real id directly, no team_members indirection.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";

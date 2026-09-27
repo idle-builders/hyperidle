@@ -14,7 +14,7 @@ describe("presentationFor: every product object kind maps to an opening intent",
 
 describe("createOpenHandler routing", () => {
 	it("contextual references use the page-owned Inspect placement", () => {
-		// @lore artifacts-become-documents: artifact route removed — /artifacts/:id deleted
+		// @lore there is no /artifacts/:id route.
 		const nav = vi.fn();
 		const inspect = vi.fn();
 		const handler = createOpenHandler(nav, { onInspectPath: inspect });

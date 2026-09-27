@@ -72,7 +72,7 @@ function mkTeam(id: string, name: string): SidebarTeam {
 
 describe("Sidebar — structure and brand", () => {
 	it("renders the Sidebar as a navigation landmark", () => {
-		// @lore sidebar-v2-no-wordmark: founder design review removed the wordmark from the sidebar layout to reduce visual noise in the 200px column — the brand is represented by the product chrome (window title / about page).
+		// @lore the sidebar carries no wordmark — the brand lives in the product chrome (window title / about page), not the 200px column.
 		render(<Sidebar {...defaultProps} />);
 		expect(screen.getByRole("complementary")).toBeInTheDocument();
 	});
@@ -173,7 +173,7 @@ describe("Sidebar — Work section team list", () => {
 	});
 
 	it("does not show teams list when activeView is not 'work'", () => {
-		// @lore visual-parity: "No teams yet" removed; work section shows nothing when not active Teams sub-items are hidden when not in work view
+		// @lore the work section renders nothing when not active; team sub-items are hidden outside the work view.
 		const teams = [mkTeam("team-1", "Alpha Team")];
 		render(<Sidebar {...defaultProps} activeView="conversations" teams={teams} />);
 		// Teams are hidden when not in work view
@@ -323,7 +323,7 @@ describe("Sidebar — Assistant trigger", () => {
 	});
 
 	it("Assistant trigger is accessible from the sidebar", () => {
-		// @lore sidebar-v2-assistant-moved: founder design review moved the Assistant button from the bottom strip to the top search row (adjacent to the SearchField) — still present and accessible, only its location changed. Test verifies presence, not position.
+		// @lore the Assistant button lives in the top search row, adjacent to the SearchField — this test verifies presence, not position.
 		render(<Sidebar {...defaultProps} />);
 		expect(screen.getByRole("button", { name: /assistant/i })).toBeInTheDocument();
 	});

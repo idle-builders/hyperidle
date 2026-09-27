@@ -14,8 +14,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { AppShell } from "../layouts/AppShell";
 import { Conversations } from "../pages/Conversations";
 
-// @lore: the thread list now comes from `useThreads({mine:true})` →
-// `call("search_threads", ...)`, not `GET /api/threads`.
+// @lore the thread list comes from useThreads({mine:true}) → call("search_threads", ...), not a GET route.
 const { callMock } = vi.hoisted(() => ({ callMock: vi.fn() }));
 vi.mock("../services/call.js", () => ({ call: callMock }));
 

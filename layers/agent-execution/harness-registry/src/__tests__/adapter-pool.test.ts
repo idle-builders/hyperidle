@@ -325,9 +325,7 @@ describe("AdapterPool select — disabledTypes gate", () => {
 		expect(pool.select({ disabledTypes: ["claude-code", "codex"] })?.meta.type).toBe("opencode");
 	});
 
-	// @lore the built-in harness used to be exempt from this gate — it was the
-	// fallback everything leaned on. Every harness is now something the person
-	// installed, so every one can be turned off, including the only one registered.
+	// @lore every harness can be disabled, including the only one registered — none is a fallback.
 	it("a disabled harness is skipped even when it is the only one registered", () => {
 		const pool = new AdapterPool();
 		pool.register("local-claude-code", makeAdapter(), CLAUDE_CODE_META);
@@ -590,9 +588,7 @@ describe("createLocalAdapterPool — hermetic behavior", () => {
 		expect(pool.has("docker-worker")).toBe(false);
 	});
 
-	// @lore the isolation gate that used to warn on this env var is deleted, not
-	// just silenced — this asserts there is no gate left to trigger, not merely
-	// that it stayed quiet by chance.
+	// @lore asserts there is no isolation-gate warning left to trigger for this env var, not that it happened to stay quiet.
 	it("emits no isolation-gate warning even when HYPERIDLE_ENABLE_ISOLATED is set", async () => {
 		vi.stubEnv("HYPERIDLE_ENABLE_ISOLATED", "1");
 		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});

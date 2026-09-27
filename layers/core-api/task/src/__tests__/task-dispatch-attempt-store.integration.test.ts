@@ -14,9 +14,9 @@
  * first attempt this is. So a relocation that silently changed count-based to
  * max-based, or dropped the per-task predicate, would have shipped green.
  *
- * @lore The store computes the ordinal itself rather than accepting one. The caller may not supply it: the count and the insert have to observe the same snapshot, the caller's transaction. A caller that counted first and inserted later would race any concurrent dispatch for the same task straight into the unique index.
+ * @lore the store computes the ordinal itself — the caller's transaction, not a separate count-then-insert, must observe one snapshot to avoid a race.
  *
- * @lore `task_dispatch_attempts` carries a SECOND unique index that `framework/db/src/schema.ts` does not declare, because Drizzle cannot express it: `("task_id","occasion",COALESCE("predecessor_session_id",''),"agent_id")`, created in `0047_AU9_durable_custody.sql`. It is a real idempotency guard — one dispatch per (task, occasion, predecessor, agent) — and it only exists in the migration, so reading the schema module will not warn you about it. Every fixture below therefore hands each successive attempt for one task a distinct predecessor session, which is what a real sequence of handoffs looks like.
+ * @lore a second unique index outside schema.ts guards one dispatch per (task, occasion, predecessor, agent) — each fixture attempt needs a distinct predecessor.
  */
 
 import {
@@ -125,7 +125,7 @@ function attemptInput(
 }
 
 /**
- * @lore Ordered by `ordinal`, never by `createdAt`. `createdAt` is an ISO string at millisecond resolution and these fixtures write several rows for one task inside the same millisecond, so `createdAt` is not a total order here — rows written moments apart routinely carry the identical stamp and the sort falls through to whatever tiebreak follows. An assertion that encoded *creation* order against this query was right roughly 7 runs in 10. `ordinal` is unique per task (the `(task_id, ordinal)` index), so ordering by it is total and deterministic — but it also means this helper cannot witness which row was written first. A case that needs that must address its rows by id (see `ordinalOf`), not by position.
+ * @lore rows are ordered by ordinal, never createdAt — same-millisecond writes make createdAt non-total; address a row by id, not position, for creation order.
  */
 async function ordinalsFor(db: HyperIdleDb, taskId: string): Promise<number[]> {
 	const rows = await db

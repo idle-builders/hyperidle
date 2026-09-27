@@ -7,12 +7,12 @@
  *   - Set to system → emulate OS color-scheme change → app re-renders without reload.
  *   - Settings Appearance toggle reflects the live persisted value.
  *
- * @lore We use page.addInitScript to clear localStorage *before* the page loads so the boot script sees a fresh default. Reading localStorage / dataset happens via page.evaluate to inspect actual browser state, not derived UI.
+ * @lore page.addInitScript clears localStorage before load so the boot script sees a fresh default; page.evaluate reads actual browser state.
  */
 import { expect, registerCoreMocks, test } from "./fixtures";
 
 test.describe("Theme persistence", () => {
-	// @lore Each test creates its own browser.newContext so localStorage is isolated per test (fresh contexts start empty). We deliberately do NOT addInitScript to clear storage — that script reruns on every navigation (including page.reload) and would wipe the preference under test.
+	// @lore each test gets its own browser.newContext for isolated storage — no addInitScript clear here, since reload would rerun it and wipe the preference.
 
 	test("default = system resolves to OS dark preference", async ({ browser }) => {
 		const ctx = await browser.newContext({ colorScheme: "dark" });
@@ -46,10 +46,7 @@ test.describe("Theme persistence", () => {
 		browser,
 	}) => {
 		// Start with OS = light to make the dark choice visibly different.
-		// @lore We do NOT addInitScript that clears localStorage here — that
-		// init runs on EVERY page load including reload, which would wipe the
-		// preference under test. Use the per-context default isolation instead:
-		// `browser.newContext` already starts with empty storage.
+		// @lore no addInitScript clear here — it reruns on every reload and would wipe the preference under test; a fresh newContext starts empty instead.
 		const ctx = await browser.newContext({ colorScheme: "light" });
 		const page = await ctx.newPage();
 		await registerCoreMocks(page);

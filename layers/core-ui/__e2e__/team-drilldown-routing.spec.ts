@@ -4,7 +4,7 @@
  * history) that WorkTeam.test.tsx's component-level rendering checks don't
  * cover.
  *
- * @lore The route was renamed from /work/product/:productId to /work/team/:teamId. `GET /api/teams` and `GET /api/teams/:id` are gone — `useTeams`/`useTeam` compose from `search_users`/`search_tasks`/`open_task`.
+ * @lore the team route lives at /work/team/:teamId — useTeams/useTeam compose from search_users/search_tasks/open_task, not a teams route.
  */
 
 import {

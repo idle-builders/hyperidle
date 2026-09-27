@@ -2,7 +2,7 @@
  * WorkTeam: team detail page — roster, active tasks, agent health rollup,
  * agent configuration, and the agent split-pane.
  *
- * @lore: the roster's run state is fetched from `agent-orchestration` (`useRosterRunState`), not stamped onto `RosterMember` by core-api — stub the hook with the values the wire fixtures used to carry. @lore: the Agent Health tile rolls up per-agent RosterRunState.healthLevel and deliberately does not reuse team.status's own vocabulary ("healthy" | "behind" | "blocked") — it is a different signal.
+ * @lore the roster's run state comes from useRosterRunState, stubbed here; the Agent Health tile's healthLevel is a separate signal from team.status.
  */
 
 import { render, screen, waitFor, within } from "@testing-library/react";

@@ -185,7 +185,7 @@ describe("startRuntime resource ownership", () => {
 	});
 
 	/**
-	 * @lore ship-blocker regression: a `ConcurrencyLimitError` release puts a session request back to `pending` with no delay, and `claimSessionRequest` has no "not before" gate — so before the fix, `drainAgentSessionRequests`'s `for (;;)` reclaimed the SAME request in the SAME synchronous drain call, forever, whenever the blocking slot never frees on its own (verified against the packaged desktop app: 100%+ CPU, health checks dead, no macrotask boundary for the event loop to hand back to). `MAX_SAFE_CLAIMS` bounds this test's own claim mock so an unfixed regression fails fast (a thrown assertion) instead of hanging the suite.
+	 * @lore `MAX_SAFE_CLAIMS` bounds the claim mock so a `for (;;)` reclaim loop on a never-freeing slot fails fast instead of hanging.
 	 */
 	it("does not busy-loop reclaiming a request released with ConcurrencyLimitError", async () => {
 		vi.useFakeTimers();

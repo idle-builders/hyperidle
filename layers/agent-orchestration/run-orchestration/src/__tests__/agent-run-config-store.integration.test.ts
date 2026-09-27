@@ -212,11 +212,4 @@ describe("agent run config store", () => {
 		expect(map.get("a-many-1")?.modelOptions).toEqual({ effort: "xhigh" });
 		expect(map.get("a-many-2")?.modelOptions).toEqual({});
 	});
-
-	// @lore this file used to have a test asserting the `agentRunConfig.agentId → users.id` cascade
-	// FK fires by deleting a user. Deleted: production never deletes a `users` row (the agents DELETE
-	// route soft-retires via an UPDATE) and no code path anywhere deletes one either — the cascade FK
-	// exists in the schema (untouched) but nothing production does can ever trigger it. The store
-	// itself exports no delete function at all, so there is no feature here to remove either — the
-	// safety this test protected already holds by the capability being absent.
 });

@@ -98,9 +98,7 @@ describe("runMigrations", () => {
 // ---------------------------------------------------------------------------
 // Production path resolution (app.isPackaged branch)
 // ---------------------------------------------------------------------------
-// @lore vi.mock() is hoisted and cannot be used inside it() for per-test module
-// control. Use vi.doMock() (not hoisted) + vi.resetModules() before the dynamic
-// import so each test gets its own module instance with the correct mock applied.
+// @lore vi.mock() is hoisted; use vi.doMock() + vi.resetModules() for per-test module control here.
 
 describe("resolveMigrationsFolder — packaged app", () => {
 	it("returns process.resourcesPath/drizzle when app.isPackaged is true", async () => {

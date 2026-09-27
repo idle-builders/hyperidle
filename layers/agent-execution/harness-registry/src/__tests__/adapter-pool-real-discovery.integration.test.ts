@@ -1,16 +1,7 @@
 /**
  * Adapter-pool assertions that depend on a REAL harness binary being on PATH.
  *
- * @lore ci-move: these assertions used to live in the unit lane. They passed there for the wrong reason: the developer running them had `claude` installed, so `createLocalAdapterPool()` — which probes PATH via `CliHarnessAdapter.checkAvailability` — registered a claude-code adapter. On a clean machine it registers nothing at all, and every one of them fails. Moving test execution into CI is what surfaced that; the local attestation never could, because it only ever ran where the binaries are.
- *
- * They are real behaviour worth asserting, so they are kept verbatim rather than
- * weakened to "…if a binary happens to be present" — an assertion that tolerates
- * its own precondition being absent asserts nothing. They belong in the harness
- * lane, where `requireHarness` hard-fails on a missing binary and where the lane
- * is local-only by design.
- *
- * The hermetic half of those files — AdapterPool registration and selection
- * driven by stub adapters — stayed in the unit lane, where it genuinely belongs.
+ * @lore these assertions require a real `claude` binary on PATH — weakening them to tolerate its absence would assert nothing.
  */
 import { describe, expect, test } from "vitest";
 import { createLocalAdapterPool } from "../adapter-pool.js";
@@ -19,7 +10,7 @@ import { requireHarness } from "./require-harness.js";
 /**
  * Ids `createLocalAdapterPool` registers on a host with the claude CLI present.
  *
- * @lore `local-builtin` was in this list, and the list was called "always-present" because that adapter was registered unconditionally. Nothing is unconditional now — the pool holds the CLI harnesses whose binaries this host has — so what is asserted is what `requireHarness("claude")` above has already guaranteed.
+ * @lore the pool holds only the CLI harnesses whose binaries this host has — `requireHarness("claude")` above guarantees this list.
  */
 const CLAUDE_HOST_IDS = ["local-claude-code"];
 
@@ -34,7 +25,7 @@ describe("[harness:claude] createLocalAdapterPool — real PATH discovery", () =
 		expect(entry?.meta.kind).toBe("local");
 	});
 
-	// @lore This asserted at least TWO adapters, because the built-in one was always registered alongside whatever binaries the host had. One is the floor now, and `requireHarness("claude")` is what guarantees even that.
+	// @lore one adapter is the floor — `requireHarness("claude")` guarantees at least that.
 	test("registers at least the claude-code adapter", async () => {
 		const pool = await createLocalAdapterPool();
 		expect(pool.size).toBeGreaterThanOrEqual(1);
@@ -69,7 +60,7 @@ describe("[harness:claude] createLocalAdapterPool — real PATH discovery", () =
 		}
 	});
 
-	// @lore An AC-8 assertion from builtin-harness-adapter.test.ts sat here, proving the claude-code adapter survived alongside the built-in one. There is no built-in one to sit alongside, and the claude-code registration is already asserted twice above, so nothing is left for it to add.
+	// @lore claude-code registration is already asserted twice above; nothing else to add here.
 	test("registers no adapter that is not a real CLI harness", async () => {
 		const pool = await createLocalAdapterPool();
 		expect(pool.has("local-builtin")).toBe(false);

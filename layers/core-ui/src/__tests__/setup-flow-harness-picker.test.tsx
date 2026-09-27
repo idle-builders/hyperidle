@@ -7,9 +7,9 @@
  * credential written; a graceful degrade — discovery failing must not
  * block setup.
  *
- * @lore The always-present built-in gateway row this file was written around is gone. It used to be the default selection, the fallback when discovery failed, and the reason primaryHarness could be omitted from the team POST. All three are now answered by the discovered harnesses themselves.
+ * @lore there is no built-in gateway row — every default, fallback, and primaryHarness value now comes from the discovered harnesses themselves.
  *
- * @lore door-swap: `open_user({}).runsOn` replaces `GET /api/harnesses`; the `edit_user` calls replace `POST /api/users` → `POST /api/teams` → `POST /api/filesystems`. `call` is mocked at the door; `apiFetch` stays mocked for the plumbing `POST /api/filesystems/inspect-path` route.
+ * @lore open_user({}).runsOn replaces GET /api/harnesses; edit_user calls replace the team/user/filesystem POST routes; call is mocked at the door.
  */
 
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
@@ -197,7 +197,7 @@ describe("harness picker renders all descriptors", () => {
 		expect(screen.getByTestId("harness-row-codex")).toHaveTextContent(/install/i);
 	});
 
-	// @lore The default used to be the built-in gateway — the one row guaranteed to be there. Discovery now decides: the form opens on the first harness this machine can actually run, so it never opens on a name that is not here.
+	// @lore discovery decides the default — the form opens on the first harness this machine can actually run, never a name that isn't here.
 	it("the first choosable row is default-selected (radio)", async () => {
 		setupCallMock({ descriptors: [OPENCODE_READY, CLAUDE_CODE_READY] });
 		renderSetupFlow();
@@ -244,7 +244,7 @@ describe("harness picker graceful degrade", () => {
 		vi.restoreAllMocks();
 	});
 
-	// @lore A failed probe is not the same fact as "no harness is installed", and setup must not treat it as one. There is no row to fall back to any more, so the degrade is: render no rows, block nothing, and let the person continue — the alternative would strand someone over a probe error. The genuine "nothing can run here" case is a populated list with nothing choosable in it, covered in setup-blocks-with-no-harness.test.tsx.
+	// @lore a failed probe is not "no harness installed" — the degrade renders no rows and blocks nothing, never stranding the person.
 	it("renders no harness rows when open_user({}) fails", async () => {
 		setupCallMock({ discoveryFails: true });
 		renderSetupFlow();
@@ -275,7 +275,7 @@ describe("setup submit ordering — person before their assistant, no credential
 		vi.restoreAllMocks();
 	});
 
-	// @lore This asserted a PUT /api/credentials landed before the navigate, back when setup collected an API key and stored it for a harness to run on. Setup asks for no credential now — the harness holds its own — so the ordering guarantee is that the person is created before the assistant that needs their id, and no credential write ever happens.
+	// @lore setup asks for no credential — the person is created before the assistant that needs their id, and no credential write ever happens.
 	it("creates the person before their assistant, and writes no credential", async () => {
 		const user = userEvent.setup();
 		const { editUserCalls } = setupCallMock({ descriptors: [OPENCODE_READY] });
@@ -323,7 +323,7 @@ describe("setup submit ordering — person before their assistant, no credential
 		expect(assistantCall.runConfig?.harnessType).toBe("claude-code");
 	});
 
-	// @lore This used to assert the opposite: builtin was the server-side default, so choosing it meant sending nothing and letting the server fill it in. There is no default harness to fall back to now, so the chosen one is always named.
+	// @lore there is no default harness to fall back to — the chosen one is always named explicitly.
 	it("primaryHarness names the chosen harness even when it is the only one", async () => {
 		const user = userEvent.setup();
 		const { editUserCalls } = setupCallMock({ descriptors: [OPENCODE_READY] });

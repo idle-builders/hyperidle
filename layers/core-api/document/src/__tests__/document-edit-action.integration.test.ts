@@ -115,14 +115,7 @@ describe("edit_document — D-invariants (document parent/state checks)", () => 
 		expect(result.problems[0]?.code).toBe("parent_not_found");
 	}, 5000);
 
-	// @lore document-module review fix: this used to be "a subscription/agent
-	// parent has no existence port — no check runs (today's behaviour,
-	// kept)" and asserted `result.ok === true` for a NON-existent subscription —
-	// today's behaviour was itself the bug (any client could attach a
-	// document to any subscription or agent id, existing or not). The fix restores
-	// the pre-item rule ("`subscription`/`agent` are attached exclusively by
-	// core-api's own routes") and adds the existence check the old test
-	// documented as absent.
+	// @lore `subscription`/`agent` parents are attached exclusively by core-api's own routes — a non-existent one is refused.
 	test("forbidden_parent_kind: a non-internal caller may not name a subscription parent", async ({
 		db,
 	}) => {

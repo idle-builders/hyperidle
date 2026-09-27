@@ -8,7 +8,7 @@
  * whitespace-only ids must redirect to /conversations (queue), not to
  * /conversations/%20%20%20 (which would 404).
  *
- * @lore: uses MemoryRouter + Routes + screen.getByText to observe the navigate target because <Navigate> from react-router-dom replaces the current location; the test renders a "Landing" stub at the redirect target to confirm the final location.
+ * @lore uses MemoryRouter + screen.getByText to observe the navigate target, since <Navigate> replaces the current location.
  */
 
 import { render, screen } from "@testing-library/react";
@@ -110,8 +110,7 @@ describe("RedirectLegacyConversation", () => {
 	it("preserves other query params (settings=open) when no legacy id present", () => {
 		// Covers the /conversations/review?settings=open real legacy URL shape
 		// (the former /settings redirect target at router.tsx line 41).
-		// @lore: the helper deletes only the paramName key; other params are
-		// carried forward in the redirect target URL.
+		// @lore the helper deletes only the paramName key — other params carry forward in the redirect target URL.
 		render(
 			<MemoryRouter initialEntries={["/conversations/review?settings=open"]}>
 				<Routes>

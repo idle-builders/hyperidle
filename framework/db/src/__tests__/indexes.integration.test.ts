@@ -46,10 +46,7 @@ describe("secondary index coverage", () => {
 		expect(indexes.some((i) => i.includes("thread_id"))).toBe(true);
 	});
 
-	// @lore knowledge-attachment-slot: the composite (parent_kind, parent_id)
-	// index serves both "everything under this parent" (leading column alone)
-	// and "the item parented to X" (the pair), and still serves
-	// `parent_kind IS NULL` — the nested-document tree's roots query.
+	// @lore the composite (parent_kind, parent_id) index also serves `parent_kind IS NULL` — the tree's roots query.
 	test("documents has an index for parent_kind, parent_id", async ({ db }) => {
 		const indexes = await indexesFor(db, "documents");
 		expect(indexes.some((i) => i.includes("parent_idx"))).toBe(true);

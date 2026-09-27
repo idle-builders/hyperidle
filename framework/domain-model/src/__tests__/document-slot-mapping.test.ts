@@ -72,10 +72,7 @@ describe("toBakedContextDocuments — slot and agentBindingId", () => {
 		expect(result?.agentBindingId).toBeNull();
 	});
 
-	// @lore knowledge-attachment-slot §4: the deliberate behaviour flip — a
-	// team-scoped agent_file used to derive agentBindingId=<teamId> (matches no
-	// agent, so silently inert everywhere). It has no parent under the new
-	// derivation, and null means UNBOUND — delivered to every session in reach.
+	// @lore a team-scoped agent_file has no parent, so its agentBindingId is null — UNBOUND, delivered to every session in reach.
 	it("an agent_file whose parent is not 'agent' has null agentBindingId, even with a parentId present", () => {
 		const [result] = toBakedContextDocuments([
 			makeItem({ slot: "agent_file", parentKind: "routine", parentId: "routine-1" }),

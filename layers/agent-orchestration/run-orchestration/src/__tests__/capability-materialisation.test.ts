@@ -164,12 +164,7 @@ describe("rule items materialise to knowledge/rules/", () => {
 });
 
 describe("agent_file items are bound to a specific agent", () => {
-	// @lore The agent file bound to THIS agent is its identity, and its home
-	// in the sandbox is the "## Identity" section of AGENTS.md — baked at emit and
-	// assembled by the provisioner. Materialising it into `knowledge/rules/` too
-	// would put the same text in the sandbox twice, so it is deliberately absent
-	// from there. The other two cases below are unchanged: an agent file bound to
-	// someone else never arrives, and an unbound one reaches every session.
+	// @lore an agent file bound to THIS agent is baked into AGENTS.md "## Identity" — materialising it into knowledge/rules/ too would duplicate it.
 	it("does not re-materialise the bound agent's own identity", async () => {
 		const bundle = makeBundle("agent-alpha", [
 			{
@@ -315,9 +310,7 @@ describe("a prompt item never reaches the sandbox", () => {
 });
 
 describe("ordinary items are unaffected", () => {
-	// @lore Layer zones (context/factory etc.) are gone — an ordinary item
-	// materialises into knowledge/, shaped by its (baked) parent chain rather
-	// than routed by layer.
+	// @lore an ordinary item materialises into knowledge/, shaped by its baked parent chain, not a layer zone.
 	it("ordinary item materialises into knowledge/", async () => {
 		const bundle = makeBundle("agent-1", [
 			{

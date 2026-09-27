@@ -33,11 +33,7 @@ async function expectSameX(a: Locator, b: Locator): Promise<void> {
 }
 
 async function mockPrimarySurfaces(page: Page): Promise<void> {
-	// @lore kind:"human", not "ai" — a kind:"ai" row here would also answer
-	// SettingsAgents' own search_users({kind:"ai"}) list, and its per-row
-	// open_user({id}) follow-up calls have no mock in this test, so every one
-	// of them hits the network and the section renders an error state (a wide
-	// side effect this test's width assertions do not want).
+	// @lore kind:"human" here — kind:"ai" would also answer SettingsAgents' own search and trigger unmocked network calls this test doesn't want.
 	await mockSearchUsers(page, {
 		rows: [
 			makeUserRow("member-team-a", { team: { id: "team-a", name: "Core" } }),
@@ -114,18 +110,12 @@ for (const viewport of [
 		await focus.scrollIntoViewIfNeeded();
 		const [focusBox, focusFrameBox] = await Promise.all([box(focus), box(focusFrame)]);
 		expect(focusBox.width).toBeLessThanOrEqual(720);
-		// @lore FR-9: Settings content left-aligns with the page frame (no
-		// mx-auto, by decision) — unlike the other lanes above, it shares the
-		// frame's left edge (within the frame's own inner padding), not its
-		// center. A centered layout at this width would offset by ~120px+;
-		// this tolerance only rules that out, it doesn't demand pixel-zero.
+		// @lore FR-9: Settings content left-aligns with the page frame, not centered — this tolerance only rules out a centered layout.
 		expect(Math.abs(focusBox.x - focusFrameBox.x)).toBeLessThanOrEqual(30);
 	});
 }
 
-// @lore WorkTeam's split view is agent-selection only (`?agent=:id`) — a
-// routine's split pane (`?routine=:id`) is gone with WorkRoutine and the
-// routines table.
+// @lore WorkTeam's split view is agent-selection only — a routine's split pane is gone with WorkRoutine.
 
 test("review with an artifact open uses two local panes", async ({ page }) => {
 	// ReviewPage's default loader reads

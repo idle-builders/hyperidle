@@ -31,7 +31,7 @@ const mockDocuments = [
 	},
 ];
 
-// @lore wire-key-unchanged: the raw fetch payload keeps the `knowledge` wire key (owned by layers/core-api/src/routes/search.ts) — only the parsed local shape is `documents`.
+// @lore the raw fetch payload keeps the knowledge wire key (search.ts) — only the parsed local shape is documents.
 const mockSearchResults = {
 	conversations: mockConversations,
 	work: mockWork,

@@ -220,11 +220,7 @@ describe("DocumentBody — XSS defence", () => {
 	});
 
 	it("(f) markdown javascript: link href is sanitised — regression guard", () => {
-		// @lore deriveBlocks itself already strips javascript: hrefs from markdown
-		// links (inlineFromMd degrades hostile links to plain text). This test is
-		// a regression guard at the inline-render boundary: if that behaviour
-		// changes, this test catches it. If it fails, it means renderInline has a bug —
-		// file it as a follow-up.
+		// @lore this is a regression guard at the inline-render boundary for javascript: hrefs already stripped by deriveBlocks — a failure means renderInline has a bug.
 		const body = "[click](javascript:alert(1))\n";
 		const { container } = render(<DocumentBody body={body} hostId="k-xss-f" />);
 		const anchors = container.querySelectorAll("a");

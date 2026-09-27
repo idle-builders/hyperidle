@@ -209,7 +209,7 @@ describe("generic transcript delivery", () => {
 		} as ProvisionSessionParams;
 	}
 
-	// @lore The transcript once delivered twice: as the `## Conversation` prompt section, and as `SessionConfig.messages`, which only the built-in adapter read — their presence is what selected its chat loop over its planning loop. A CLI harness only ever saw the prompt section. With that adapter gone the second delivery has no reader, so the prompt section is the single delivery and this test asserts it alone.
+	// @lore the `## Conversation` prompt section is the transcript's only delivery — a CLI harness never reads `SessionConfig.messages`.
 	test("a session with a baked transcript + calling thread + no task gets ## Conversation and requiredReturnActions:['send_message']", async ({
 		db,
 	}) => {
@@ -383,7 +383,7 @@ describe("generic transcript delivery", () => {
 	 * A gated agent has to be told, once, that some actions need a person and how
 	 * to ask — because the deny message deliberately will not tell it.
 	 *
-	 * @lore The push-back is two pieces. The gate's deny carries only the fact that a rule blocked the call; an imperative in a deny message is what a real model once refused as a suspected injection, arriving as it does through the same channel an attacker could write to. So the instruction lives in the prompt or nowhere.
+	 * @lore a gate's deny message states only that a rule blocked the call — an imperative there reads as a suspected injection.
 	 */
 	test("every session is told in its prompt that some work needs a person", async ({ db }) => {
 		await seedAgent(db, "agent-gated-1");
@@ -415,7 +415,7 @@ describe("generic transcript delivery", () => {
 	/**
 	 * A task session's instruction is the task.
 	 *
-	 * @lore `assembledPrompt` is CONTEXT — it is written to AGENTS.md and CLAUDE.md, and its own doc comment says so. What the agent is being ASKED to do is a different thing, and for a task session it is the task. It used to be neither: the durable path rendered the task's id and its raw correlation JSON and no title or description at all, and a real agent replied "I don't see an actual task description or request in this session".
+	 * @lore `assembledPrompt` is CONTEXT (AGENTS.md/CLAUDE.md) — the instruction the agent is ASKED to do is the task, a separate thing.
 	 */
 	test("a task session is instructed with the task itself", async ({ db }) => {
 		await seedAgent(db, "agent-instruction-1");
@@ -469,7 +469,7 @@ describe("generic transcript delivery", () => {
 	});
 
 	/**
-	 * @lore The instruction used to be `assembledPrompt.slice(0, 200)` with newlines flattened. A real agent read the result and replied "your initial message appears to have been cut off" — it had been, at 200 characters.
+	 * @lore the instruction must arrive whole, never truncated — a sliced prompt reads as a cut-off message to the agent.
 	 */
 	test("the instruction is delivered whole, not truncated", async ({ db }) => {
 		await seedAgent(db, "agent-instruction-2");

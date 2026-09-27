@@ -1,7 +1,7 @@
 /**
  * L13 — useTeam hook unit tests.
  *
- * @lore door-swap: Renamed from useProduct.test.ts → useTeam.test.ts. `useTeam` now composes from `search_users`/`search_tasks`/`open_task` (see useTeam.ts's own header), not one `GET /api/teams/:id` — `call` is mocked at the door instead of `apiFetch`.
+ * @lore useTeam composes from search_users/search_tasks/open_task, not one GET route — call is mocked at the door instead of apiFetch.
  *
  * Covers:
  *   - Initial loading state when teamId is defined.

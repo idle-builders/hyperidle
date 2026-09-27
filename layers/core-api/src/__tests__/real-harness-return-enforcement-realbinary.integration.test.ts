@@ -21,15 +21,10 @@
  * return-enforcement-registry.test.ts, cli-reengage-adapter.test.ts, return-gate.test.ts).
  * Those tests are the CI anchor — they run without any real binary or LLM call.
  *
- * @lore Real-harness tests prove the ⚠️ UNVERIFIED-AT-RUNTIME claims: - Claude CLI: full binary spawn → Stop hook → bridge POST PROVEN (see "FULL BINARY PROOF") - Claude CLI exit-2+stderr Stop hook end-to-end — also PROVEN via hook script - Codex CODEX_HOME per-session hook — FULL BINARY PROOF via CODEX_HOME strategy. provisionCodexHome creates .codex-home/ (auth+config+hooks, no SQLite); CliHarnessAdapter sets CODEX_HOME=<path>+--dangerously-bypass-hook-trust; real binary fires hook → bridge POST. - OpenCode process-reengage — PROVEN: step_finish detected on first spawn; re-engage fires second spawn with forcing message; both turns complete successfully.
- *
- * @lore Real-claude-full-binary: The FULL BINARY PROOF for claude uses: CLAUDECODE="" CLAUDE_CODE_ENTRYPOINT="" CLAUDE_CODE_EXECPATH="" CLAUDE_CODE_SESSION_ID="" AI_AGENT="" CLAUDE_EFFORT="" Zeroing (not removing) these vars lets the process inherit the rest of the env (HOME, PATH, security frameworks) so keychain auth still works. The binary runs `claude -p "<prompt>" --dangerously-skip-permissions --output-format json --model claude-haiku-4-5`. The Stop hook in .claude/settings.json fires when the session ends → POSTs to the local bridge → callCount>=1 confirmed. Tested outside vitest: 3 hook fires confirmed. Tested inside vitest: hook fires on every clean run. detached:true puts the process in its own process group so CC's process-tree SIGTERM doesn't propagate before the hook fires.
- *
- * @lore Real-codex-format: codex-cli v0.141.0 hooks.json MUST use: { "hooks": { "Stop": [{ "hooks": [{ "type":"command","command":"..." }] }] } } The old flat format { "Stop": { "command": "..." } } is silently ignored. Verified against /opt/homebrew/.codex/hooks.json installed by Homebrew.
- *
- * @lore Real-codex-semantics: Codex Stop hooks use JSON stdout semantics: { "decision": "block", "reason": "..." } blocks the stop (NOT exit 2 + stderr). Claude Code uses exit 2 + stderr. Both verified against real installed binaries.
- *
- * @lore Codex-home: Codex reads hooks ONLY from CODEX_HOME/hooks.json (default: ~/.codex/hooks.json). Project-local .codex/hooks.json is silently ignored. CODEX_HOME redirect WORKS when ONLY auth.json + config.toml are copied (not the SQLite database files). Copying the full ~/.codex/ brings in SQLite files that lock → codex exits before making an LLM call. The per-session .codex-home/ dir (sandboxPath/.codex-home) contains ONLY auth.json + config.toml + hooks.json. Verified end-to-end: callCount >= 1.
+ * @lore zeroing (not removing) claude's session-detection env vars lets the process inherit HOME/PATH so keychain auth still works.
+ * @lore codex-cli hooks.json must use the nested `{ hooks: { Stop: [{ hooks: [...] }] } }` shape — the old flat format is silently ignored.
+ * @lore codex Stop hooks use JSON stdout `{ decision: "block" }`; claude uses exit 2 + stderr.
+ * @lore CODEX_HOME/hooks.json only — the per-session dir must carry only auth.json + config.toml + hooks.json (no SQLite).
  */
 
 import { execFile, spawn } from "node:child_process";
@@ -65,7 +60,7 @@ const provisionReturnHook = (options: {
  * session teardown does NOT propagate to our test subprocess. We manage the child
  * lifecycle via the returned promise and a timeout guard.
  *
- * @lore Real-claude-full-binary: `detached: true` + `stdio: ['ignore','pipe','pipe']` is the correct posture for spawning a harness binary from vitest. The child runs in its own process group; we ref/unref to avoid vitest hanging on process exit.
+ * @lore `detached: true` + piped stdio is the correct posture for spawning a harness binary from vitest — its own process group, ref/unref to avoid hanging.
  */
 async function spawnDetached(
 	bin: string,
@@ -138,7 +133,7 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 	//      re-prompt when bridge returns forcing message) without paying for a
 	//      full LLM turn.
 	//
-	// @lore Real-claude-full-binary: The nested-session detection is bypassed by zeroing CLAUDECODE, CLAUDE_CODE_ENTRYPOINT, CLAUDE_CODE_EXECPATH, CLAUDE_CODE_SESSION_ID, AI_AGENT, CLAUDE_EFFORT (not stripping — the child inherits the rest of env including HOME/PATH/keychain). `detached: true` puts the child in its own process group so CC's SIGTERM cascade doesn't kill it before the hook fires. Proven end-to-end in vitest: bridge callCount=1.
+	// @lore zeroing (not stripping) claude's session-detection env vars bypasses nested-session detection while HOME/PATH/keychain still inherit.
 
 	describe("[harness:claude] claude-code CLI (settings-claude channel, LIVE hook fire proof)", () => {
 		requireHarness("claude");
@@ -181,9 +176,9 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 					// detached: true (inside spawnDetached): own process group → CC's
 					//   SIGTERM cascade does not reach the child before hook fires.
 					//
-					// @lore Real-claude-full-binary: The prompt MUST be short and trivial so the LLM call completes quickly (~3s). The Stop hook fires when the session ends — before the claude process exits. @lore the model comes from HARNESS_TEST_MODELS.claude — never hardcoded.
+					// @lore the prompt must be short and trivial so the LLM call completes quickly — the model comes from HARNESS_TEST_MODELS, never hardcoded.
 					//
-					// @lore force-budget-timing: "~3s" is one turn, and this spawn absorbs three — `forceBudget: 2` blocks the stop twice, and each block costs a full extra LLM round trip before the process may exit. The timeout below carries real headroom over that three-turn cost; a tight budget reads a real in-flight turn as `exitCode: null` ("never completed") even once the hook assertions above have already passed.
+					// @lore `forceBudget: 2` means this spawn absorbs three real LLM turns — the timeout below carries headroom over that cost.y passed.
 					const result = await spawnDetached(
 						"claude",
 						[
@@ -268,7 +263,7 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 					const hookStr = JSON.stringify(hooks.Stop);
 					// Use new RegExp() to avoid a backtick literal in the regex,
 					// which confuses the honest-harness-guard's string-parsing state machine.
-					// @lore guard-backtick: /[`$<>|;&]/ uses a backtick in a regex literal;
+
 					// the guard parser misidentifies it as a template literal start → subsequent
 					// requireHarness() calls are treated as "inside a string" and ignored.
 					// biome-ignore lint/complexity/useRegexLiterals: guard-backtick — see @lore above
@@ -282,7 +277,7 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 					// executes when a session stops. The script POSTs to the REAL route.
 					// This proves the TRANSPORT end-to-end: hook script → real route → real registry.
 					//
-					// @lore real-claude-hook-transport: The script is executed directly (not via full claude session) to isolate the transport proof. The real route returns FORCE_RETURN_MESSAGE (because gate.returned=false), the script sees non-empty body → exits 2 + stderr = forceMessage.
+					// @lore the script runs directly (not a full claude session) to isolate the transport proof: non-empty body → exit 2 + stderr = forceMessage.
 					const scriptResult = await new Promise<{
 						stdout: string;
 						stderr: string;
@@ -393,9 +388,9 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 	//   --dangerously-bypass-hook-trust when spawning codex exec.
 	//   The real codex binary completes a turn → Stop hook fires → bridge callCount >= 1.
 	//
-	// @lore Codex-home: Project-local .codex/hooks.json is silently ignored. CODEX_HOME env var redirects the config home to a per-session dir. The key insight: copy ONLY auth.json + config.toml (NOT the SQLite database files). SQLite files lock and cause codex to exit before making an LLM call. Verified end-to-end with codex-cli v0.141.0: hook fires, bridge receives POST.
+	// @lore project-local .codex/hooks.json is silently ignored — CODEX_HOME must redirect to a per-session dir carrying only auth.json + config.toml.
 	//
-	// @lore Real-codex-format: Verified against codex-cli v0.141.0. The hook format uses decision:block JSON on stdout (not exit 2 + stderr). Trust: --dangerously-bypass-hook-trust bypasses hash-check for automation.
+	// @lore codex hooks use decision:block JSON on stdout, not exit 2 + stderr — trust bypassed via --dangerously-bypass-hook-trust.
 
 	describe("[harness:codex] codex CLI (settings-codex channel, LIVE hook fire proof)", () => {
 		requireHarness("codex");
@@ -440,7 +435,7 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 					// at turn-end. The script POSTs to the REAL route and prints
 					// {"decision":"block","reason":"..."} on stdout when blocking.
 					//
-					// @lore real-codex-hook-transport: script execution proves the full transport (hook → real route → real registry); the codex blocking behavior is decision:block JSON stdout, not exit-2 + stderr.
+					// @lore script execution proves the full transport — codex blocking is decision:block JSON stdout, not exit-2 + stderr.
 					const scriptResult = await new Promise<{
 						stdout: string;
 						stderr: string;
@@ -596,11 +591,11 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 					// --dangerously-bypass-hook-trust: bypass hash-check for automation.
 					// --json: JSONL output including turn.completed.
 					//
-					// @lore Codex-home: CODEX_HOME must point to the per-session dir (not ~/.codex). The dir contains only auth.json + config.toml — no SQLite files. codex reads hooks.json from CODEX_HOME/hooks.json.
+					// @lore CODEX_HOME must point to a per-session dir carrying only auth.json + config.toml — no SQLite files.
 					const cleanEnv = buildCleanEnv();
 					cleanEnv.CODEX_HOME = codexHomeDir;
 
-					// @lore codex-force-budget-timing: `forceBudget: 2` means the Stop hook blocks the codex process twice, and each block costs a full extra LLM round trip before it may stop — three turns, not one. The timeout below carries real headroom over that cost; a budget flush against it reads a real hang as `exitCode: null` ("never completed") even once the hook assertions above have already passed.
+					// @lore `forceBudget: 2` means the Stop hook blocks codex twice — three real LLM turns, not one; the timeout carries headroom over that.
 					const result = await spawnDetached(
 						"codex",
 						["exec", "say: HOOK_TEST_DONE", "--json", "--dangerously-bypass-hook-trust"],
@@ -670,11 +665,11 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 	//      run with the forcing message as positional arg (reEngageCarrier:"run-arg")
 	//   3. The second invocation also completes → proves the full re-engage invocation path.
 	//
-	// @lore Opencode-process-reengage-proven: The process-reengage wrapper is implemented in CliHarnessAdapter.streamEvents (cli-harness-adapter.ts:513-599). This real-binary test proves the full binary spawn path (step_finish detected, re-invoke with forcing message via run-arg carrier) using real opencode binary. The adapter re-engage loop is separately proven via injected spawnFn in cli-reengage-adapter.test.ts (no binary required, deterministic).
+	// @lore proves the full opencode binary spawn path: step_finish detected, re-invoke with the forcing message via the run-arg carrier.
 	//
-	// @lore Opencode-plugin-limit: opencode run does not auto-load project-local .opencode/plugins/*.ts. The plugin file is provisioned as a signal mechanism (tells the operator the channel is armed); enforcement comes from HyperIdle's process wrapper re-invocation path (what this test proves).
+	// @lore opencode run does not auto-load project-local .opencode/plugins/*.ts — enforcement is HyperIdle's own process-wrapper re-invocation.
 	//
-	// @lore Opencode-model-format: opencode uses provider-prefixed model IDs. OpenRouter models: "openrouter/~anthropic/claude-haiku-latest". Use `opencode models` to list valid IDs for the configured provider.
+	// @lore opencode uses provider-prefixed model IDs — `opencode models` lists the valid ones for the configured provider.
 
 	describe("[harness:opencode] opencode CLI (process-reengage channel)", () => {
 		requireHarness("opencode");
@@ -683,7 +678,7 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 			// detached: true (inside spawnDetached) — own process group so CC's
 			// SIGTERM cascade doesn't reach it before the session completes.
 			//
-			// @lore Opencode-full-binary: Uses the locked test model (HARNESS_TEST_MODELS.opencode.model → openrouter/z-ai/glm-4.7-flash). Pure mode (--pure) skips external plugin loading. JSON output streamed per-event; step_finish proves turn completed. @lore this model's opencode invocation takes ~42s to complete a real turn — the 120s timeout below carries real headroom over that, not a bare minimum; a tight budget reads a real in-flight turn as "opencode never completes" (a kill-timer SIGKILL mid-turn, not a genuine failure — stdout holds step_start and nothing after it, exitCode null rather than a real code). @lore the model comes from HARNESS_TEST_MODELS.opencode — never hardcoded.
+			// @lore pure mode (--pure) skips external plugin loading — the model comes from HARNESS_TEST_MODELS, never hardcoded.
 			const result = await spawnDetached(
 				"opencode",
 				[
@@ -786,7 +781,7 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 			//      with the forcing message as a positional arg (reEngageCarrier:"run-arg").
 			//   4. The second invocation completes → re-engage path proven end-to-end.
 			//
-			// @lore Opencode-process-reengage-proven: The production re-engage logic lives in CliHarnessAdapter.streamEvents (cli-harness-adapter.ts:513-599). This test proves the real opencode binary spawns headlessly and completes a turn (step_finish in stdout), and that a second spawn with the forcing message as the first positional arg also completes — validating the run-arg carrier mechanism. The deterministic adapter loop is proven separately in cli-reengage-adapter.test.ts via injected spawnFn (no binary required).
+			// @lore proves the real opencode binary completes a turn headlessly, and that a forced second spawn via the run-arg carrier also completes.
 
 			const FORCING_MESSAGE =
 				"IMPORTANT: You must call a return action (submit_review) before stopping. Please do so now.";
@@ -819,8 +814,7 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 
 			// Re-engage: spawn opencode again with the forcing message as first arg.
 			// This is the "run-arg" carrier (reEngageCarrier:"run-arg" in CLI_TOOL_CONFIGS).
-			// @lore Opencode-reengage-carrier: opencode run <msg> passes the message
-			// as the initial user prompt. The forcing message instructs the agent to return.
+			// @lore `opencode run <msg>` passes the message as the initial user prompt — the forcing message instructs the agent to return.
 			const reEngageResult = await spawnDetached(
 				"opencode",
 				["run", FORCING_MESSAGE, "--format", "json", "--pure", "--model", MODEL],

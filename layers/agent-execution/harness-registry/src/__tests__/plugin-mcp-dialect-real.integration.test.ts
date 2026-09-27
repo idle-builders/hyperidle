@@ -34,11 +34,11 @@
  * Gate: requireHarness("codex") / requireHarness("opencode") — hard-fail if absent.
  * Local-only: no CI job exists for this lane by design.
  *
- * @lore dialect-proof: placed in harness-registry/__tests__/ so it can import writePluginStdioMcpEntries directly from the harness-registry package (within the same layer — no governance boundary crossed). No DB needed; the test only exercises file writing + binary config reading.
+ * @lore placed in harness-registry/__tests__/ so it can import writePluginStdioMcpEntries directly, no governance boundary crossed.
  *
- * @lore opencode-command-array: opencode 1.18.x requires command to be a SINGLE array [binary, ...args]. A string command + separate args array is rejected with "Ignoring MCP config entry without type". Verified 2026-08-26.
+ * @lore opencode 1.18.x requires command as a SINGLE array [binary, ...args] — a separate args array is rejected.
  *
- * @lore codex-mcp-list-status: `codex mcp list` shows status "enabled" for configured servers regardless of whether the subprocess is currently running. The server appearing in the list (with the correct command) proves the TOML shape is accepted. A full connection handshake would require `codex mcp get <name>`.
+ * @lore `codex mcp list` shows "enabled" regardless of whether the subprocess is running — it proves the TOML shape is accepted, not a live connection.
  */
 
 import { execFileSync, execSync } from "node:child_process";

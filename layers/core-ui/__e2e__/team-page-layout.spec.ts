@@ -87,10 +87,7 @@ test.describe("team page content column stays capped at every desktop width", ()
 			await expect(page.getByTestId("team-active-tasks")).toBeVisible();
 			await expect(page.getByTestId("team-agents")).toBeVisible();
 
-			// @lore PageScaffold(frame="page") wraps both the pinned header and
-			// the scroll body's children in their own PageFrame — two on this
-			// page, so the selector scopes inside [data-page-scroll] to land on
-			// the body's column, not the header's.
+			// @lore PageScaffold wraps two PageFrames on this page — the selector scopes inside [data-page-scroll] to land on the body, not the header.
 			const innerColumn = page.locator("[data-page-scroll] [data-page-frame] > div").first();
 			const box = await innerColumn.boundingBox();
 			if (!box) throw new Error("Content column has no painted box");

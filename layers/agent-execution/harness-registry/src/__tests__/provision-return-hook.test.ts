@@ -203,9 +203,7 @@ describe("provisionReturnHook", () => {
 			const hooksPath = path.join(sandboxPath, ".codex", "hooks.json");
 			const content = JSON.parse(fs.readFileSync(hooksPath, "utf-8")) as Record<string, unknown>;
 
-			// @lore Real codex format: The format is { "hooks": { "Stop": [...] } }
-			// NOT a top-level "Stop" key. Verified against codex-cli v0.141.0.
-			// The old flat format { "Stop": { "command": "..." } } is silently ignored.
+			// @lore codex's real hook format is { "hooks": { "Stop": [...] } }, not a top-level "Stop" key.
 			expect(content).toHaveProperty("hooks");
 			const hooksObj = content.hooks as Record<string, unknown>;
 			expect(hooksObj).toHaveProperty("Stop");
@@ -224,10 +222,7 @@ describe("provisionReturnHook", () => {
 		});
 
 		it("codex trust is per-invocation (--dangerously-bypass-hook-trust), no sentinel file needed", async () => {
-			// @lore Real codex trust: Codex trust is a per-invocation flag:
-			// --dangerously-bypass-hook-trust bypasses hash-check for automation.
-			// There is NO sentinel file mechanism (no "trusted" file, no config.toml needed).
-			// This test asserts the CORRECT behavior: no bogus trust file is written.
+			// @lore codex trust is a per-invocation flag (--dangerously-bypass-hook-trust) — no sentinel trust file exists.
 			await provisionReturnHook({
 				sandboxPath,
 				channel: "settings-codex",

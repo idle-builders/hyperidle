@@ -140,9 +140,7 @@ describe("BodyEditor — round-trip fidelity", () => {
 	 * Round-trip tests verify that after loading markdown into the editor,
 	 * the serialized output contains the expected markdown constructs.
 	 * We test structural equivalence by verifying key markers are preserved.
-	 * @lore: We can't easily call editor.storage.markdown.getMarkdown() from
-	 * outside the component, so these tests verify the DOM rendering instead,
-	 * plus the onChange output captured from the component.
+	 * @lore editor.storage.markdown.getMarkdown() isn't callable from outside the component — tests verify DOM rendering and the onChange output instead.
 	 */
 
 	it("heading h1 renders correctly", () => {

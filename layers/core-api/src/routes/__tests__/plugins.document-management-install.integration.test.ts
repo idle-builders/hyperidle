@@ -107,10 +107,7 @@ async function installKmPluginForTeam(
 }
 
 describe("document-management plugin install", () => {
-	// @lore post-task-retro converts task.changed (every edit, not just a
-	// completion) into a subscription with no filter of its own — the prompt
-	// itself must carry both guards, or a status tweak or a note edit fires a
-	// full retro session for nothing.
+	// @lore post-task-retro subscribes to every task.changed with no filter of its own — the prompt itself must guard against non-completion edits.
 	test("materializes the librarian agent, its three subscriptions, and the retro prompt's guards — idempotent on reinstall", async ({
 		db,
 		app,

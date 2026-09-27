@@ -144,11 +144,7 @@ describe("dependency-watcher SQL filter benchmark", () => {
 
 		const [dependent] = await db.select().from(tasks).where(eq(tasks.id, "dependent"));
 		expect(dependent?.state).toBe("accepted");
-		// @lore: Originally 50ms, relaxed to 2000ms to handle CI machines running
-		// 10+ parallel worktrees (10x CPU overload). The behavioral test below
-		// ("does NOT load unrelated tasks into memory") is the real regression guard;
-		// this threshold only ensures we're not doing an O(n²) scan.
-		// Under normal load this completes in <10ms; 2000ms is a ~200x safety margin.
+		// @lore 2000ms only guards against an O(n²) scan — the real regression guard is the behavioral test below.
 		expect(elapsedMs, `checkAndUnblockDependents took ${elapsedMs.toFixed(2)}ms`).toBeLessThan(
 			2000,
 		);

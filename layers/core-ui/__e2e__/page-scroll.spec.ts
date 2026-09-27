@@ -7,7 +7,7 @@
  * worst case), and 375x812 (the mobile AppShell branch, a different DOM
  * chain at the <=768px cut).
  *
- * @lore a sweep that silently covers zero routes reads as passing forever — the first assertion in the regression-net describe hard-fails if ROUTES is empty; do not remove it when trimming the route list.
+ * @lore a sweep over zero routes reads as passing forever — the first assertion hard-fails if ROUTES is empty; keep it when trimming the list.
  */
 
 import {

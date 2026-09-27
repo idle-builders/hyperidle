@@ -38,11 +38,7 @@ describe("`bun run setup --profile laptop`", () => {
 		const dataDir = path.join(tmpdir, "hyperidle-pg");
 		const { io, captured } = makeIo();
 
-		// @lore `--root` is a repo-root override consumed by the vps docker-compose
-		// lookup and the `--db-path` default — it must NOT reach
-		// the migrations lookup (that resolves off this file's own directory,
-		// not `root`). An arbitrary, non-repo root here proves the laptop path
-		// stays correct even when `--root` points somewhere migrations don't exist.
+		// @lore --root overrides only the vps docker-compose lookup and --db-path default — the migrations lookup resolves off this file's own directory, never --root.
 		const fakeRoot = path.join(tmpdir, "not-a-repo-root");
 		fs.mkdirSync(fakeRoot);
 

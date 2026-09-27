@@ -12,11 +12,7 @@ import { EventBus } from "@hyperidle/event-bus";
 import { afterAll, vi } from "vitest";
 import { seedAgent, seedMinimalWorld, seedMultiAgentWorld, seedTeam } from "../seeding.js";
 
-// @lore The seed writes the run's harness onto each agent. Which harness is
-// beside the point of a database test, and choosing one for real checks that
-// its binary is installed, which a CI machine is not — so only the run's
-// harness choice is fixed here. The service lane shares a module cache across
-// files, so the mock is dropped and the cache reset when this file is done.
+// @lore the run's harness choice is fixed here — a real one needs a binary CI lacks; the service lane resets the shared module cache when this file finishes.
 vi.hoisted(() => vi.resetModules());
 vi.mock("../eval-harness.js", () => ({
 	evalHarnessType: () => "claude-code",

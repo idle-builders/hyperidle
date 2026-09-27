@@ -139,11 +139,7 @@ function buildDeps(overrides: Partial<PlatformActionsDeps> = {}): PlatformAction
 		},
 		subscriptions: {
 			insert: async (exec, values, opts) => {
-				// @lore this test builds its own raw-drizzle stand-in for
-				// `compose.ts`'s binding (same reason `@hyperidle/settings` may
-				// not import `@hyperidle/user`/its cron helpers) — `nextRunAt`
-				// computation is exercised for real in `@hyperidle/user`'s own
-				// `user-actions.test.ts`/subscription-clock coverage, not here.
+				// @lore builds a raw-drizzle stand-in for `compose.ts`'s binding — settings cannot import @hyperidle/user directly.
 				const row = {
 					id: values.id,
 					userId: values.userId,

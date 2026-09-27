@@ -81,7 +81,7 @@ describe("search_documents — the one query (architecture.md §5.1)", () => {
 		expect(rows.map((r) => r.id).sort()).toEqual([bodyHit.id, titleHit.id].sort());
 	});
 
-	// @lore ilike-wildcard-literal: carried over from a deleted test — `%`/`_` are ILIKE wildcards; `text` must match them literally, not as a wildcard, or a one-character query would return every row.
+	// @lore `%`/`_` are ILIKE wildcards — `text` must match them literally, or a one-character query returns every row.
 	test("text escapes ILIKE wildcards — % and _ match literally, not as wildcards", async ({
 		db,
 	}) => {
@@ -548,7 +548,7 @@ describe("search_documents — the one query (architecture.md §5.1)", () => {
 			expect(rows.map((r) => r.id)).not.toContain(memory.id);
 		});
 
-		// @lore shared-visibility-predicate: carried over from a deleted test — the same predicate backs `search_documents` and `open_document`'s `children`/`siblings` (`document-actions.ts`'s `assembleDocumentView`), so one test at this level covers all three surfaces the deleted route test drove separately.
+		// @lore the same predicate backs `search_documents` and `open_document`'s children/siblings — one test here covers all three surfaces.
 		test("a team-scoped document is excluded for a viewer outside that team, included for a member", async ({
 			db,
 		}) => {

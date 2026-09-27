@@ -1,7 +1,7 @@
 /**
  * Run-state hooks tests.
  *
- * @lore `GET /api/agent-orchestration/runs?agent_ids=…` is deleted; both hooks now call `search_sessions({ agentIds })` — `POST /api/actions/search_sessions`, the same door a person's client and an agent's MCP tool use.
+ * @lore both hooks call search_sessions({ agentIds }) — the same POST /api/actions/search_sessions door a person's client and an agent's MCP tool use.
  *
  * Three properties, none of which the move shipped with:
  *   - **Fail-closed.** A failed orchestration read must NOT render a
@@ -85,7 +85,7 @@ afterEach(() => {
 });
 
 describe("useAgentRunState", () => {
-	// @lore: betId removed from activeSession — tasks link via /work/task/:taskId
+	// @lore activeSession carries no betId — tasks link via /work/task/:taskId.
 	it("resolves the active run, its task title, and the success rate", async () => {
 		stubFetch(
 			[

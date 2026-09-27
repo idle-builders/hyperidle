@@ -5,10 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // — this mock lets us assert the error surfaced without relying on
 // console.error (which other tests may also hit).
 //
-// @lore vi.mock is hoisted above ALL top-level declarations, so a plain
-// `const errorMock = vi.fn()` is undefined when the factory runs. vi.hoisted()
-// runs inside the hoisting zone, so its return value is available to the
-// factory. See https://vitest.dev/api/vi#vi-hoisted
+// @lore vi.mock is hoisted above top-level declarations; vi.hoisted() makes mock fns available inside the factory.
 const { errorMock, warnMock, infoMock, debugMock } = vi.hoisted(() => ({
 	errorMock: vi.fn(),
 	warnMock: vi.fn(),
@@ -16,9 +13,7 @@ const { errorMock, warnMock, infoMock, debugMock } = vi.hoisted(() => ({
 	debugMock: vi.fn(),
 }));
 
-// @lore the specifier is the PACKAGE, not a relative path — a `vi.mock` of a path that
-// doesn't resolve is silently a no-op. vitest does not complain, the bus logs for real,
-// and the assertion below is the only thing that notices.
+// @lore vi.mock's specifier must be the package, not a relative path — a non-resolving mock is a silent no-op.
 vi.mock("@hyperidle/diagnostics", () => ({
 	createLogger: vi.fn(() => ({
 		debug: debugMock,

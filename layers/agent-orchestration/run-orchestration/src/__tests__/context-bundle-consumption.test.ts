@@ -133,8 +133,7 @@ describe("assembleAgentContext — contextBundle consumption", () => {
 		expect(toon).toContain("Alpha");
 		expect(toon).toContain("Ada");
 
-		// @lore Layer zones are gone — every ordinary item (empty parentChain
-		// here) materialises flat into knowledge/.
+		// @lore every ordinary item with an empty parentChain materialises flat into knowledge/.
 		const knowledgeDir = path.join(sandboxPath, "knowledge");
 		expect(fs.existsSync(knowledgeDir)).toBe(true);
 		const knowledgeFiles = fs

@@ -2,7 +2,7 @@
  * useSessionActivity — a session's row + activity buffer, kept live by the
  * `session:<id>` websocket nudge.
  *
- * @lore `call` is mocked directly and the global no-op `ws-client` mock (test-setup.ts) is overridden with a captureable spy so a simulated nudge frame can be fired at the subscribed handler — the `useDocument.test.tsx` pattern verbatim, applied to `watch_session`.
+ * @lore call is mocked directly and the global ws-client no-op mock is overridden with a spy so a simulated nudge frame reaches the subscribed handler.
  */
 
 import { act, renderHook, waitFor } from "@testing-library/react";

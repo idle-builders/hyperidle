@@ -181,7 +181,7 @@ describe("DocumentList static scope pills", () => {
 // 2. "Shared" filter shows factory items only
 // ---------------------------------------------------------------------------
 
-// @lore nested-knowledge-items: product/practice retired as scope values — SCOPE_PILL_OPTIONS collapsed from {factory,practice}/{team,product} to a direct 1:1 with the 3 real scope kinds. This test now locks that: Shared shows factory only.
+// @lore SCOPE_PILL_OPTIONS is a direct 1:1 with the 3 real scope kinds — Shared shows factory only.
 describe("DocumentList Shared scope filter", () => {
 	const MIXED_ITEMS = [
 		makeItem("k-factory", "active", "factory", "Factory knowledge"),
@@ -430,7 +430,7 @@ describe("Scope-labels utility", () => {
 		expect(labels).toContain("Private");
 	});
 
-	// @lore nested-knowledge-items: the Role option (scopeKind: "practice") is gone with the practice scope value — role-scoped patterns are now tree children under the Practices root, not a scope pick.
+	// @lore role-scoped patterns are tree children under the Practices root now, not a scope pick — there is no Role scope option.
 	it("SCOPE_CREATE_OPTIONS includes exactly the 3 real scope kinds", async () => {
 		const { SCOPE_CREATE_OPTIONS } = await import("../utils/scope-labels");
 		expect(SCOPE_CREATE_OPTIONS).toHaveLength(3);
@@ -472,7 +472,7 @@ describe("Scope-labels utility", () => {
 		expect(scopeKindToLabel("factory")).toBe("Shared");
 	});
 
-	// @lore nested-knowledge-items: "product" is a retired scope value — it no longer gets a special "Team" mapping; it falls through to the same unknown-kind fallback as any other unrecognized string.
+	// @lore "product" is not a special-cased scope value — it falls through to the same unknown-kind fallback as any other string.
 	it("scopeKindToLabel returns Shared for product (retired scope value)", async () => {
 		const { scopeKindToLabel } = await import("../utils/scope-labels.js");
 		expect(scopeKindToLabel("product")).toBe("Shared");

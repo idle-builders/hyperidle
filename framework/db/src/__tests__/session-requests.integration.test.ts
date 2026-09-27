@@ -56,8 +56,6 @@ describe("session request schema", () => {
 
 	test("sessions can be task-free while retaining request/source correlation", async ({ db }) => {
 		const now = new Date().toISOString();
-		// @lore the `teams` row this test used to arrange (`team-1`) was referenced by nothing in the
-		// file — a proven-unreferenced vestige, removed rather than completed with its companion.
 		await db.insert(users).values({
 			id: "agent-1",
 			kind: "ai",

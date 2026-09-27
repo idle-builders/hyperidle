@@ -10,7 +10,7 @@
  * registers each call so we can assert it on both the valid + invalid
  * paths.
  *
- * @lore the `vi.mock` call must live in this test file (not in an imported helper) so vitest's hoister can pin it above every other import — including `../auth.js`, which pulls `node:crypto` transitively.
+ * @lore the vi.mock call must live in this file, not an imported helper, so vitest's hoister pins it above every import.
  */
 
 import type * as nodeCrypto from "node:crypto";

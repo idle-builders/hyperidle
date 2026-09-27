@@ -3,7 +3,7 @@
  *
  * Per reviewer finding A5: health signal computation needs dedicated unit tests.
  *
- * @lore moved-to-browser: `computeHealthSignals` moved here from `core-api/src/routes/agent-profile.ts` — core-api stopped reading agent-run state, so the screens that render these signals fetch the runs from `agent-orchestration` and compute them in the browser. The function is unchanged; only its unused `harnessType` input field was dropped.
+ * @lore computeHealthSignals lives in core-ui — the browser fetches runs from agent-orchestration and computes signals itself.
  */
 
 import { describe, expect, it } from "vitest";
@@ -201,8 +201,8 @@ describe("computeHealthSignals", () => {
 // ---------------------------------------------------------------------------
 // AB2 — the two display derivations over the same signals.
 //
-// @lore moved-to-browser: moved here with `computeHealthSignals`. Their callers are the team page (roster health dot) and the notification body, and the team page is now a browser-side caller.
 // ---------------------------------------------------------------------------
+// @lore computeHealthSignals' callers are the team page's roster health dot and the notification body.
 
 describe("deriveHealthLevel", () => {
 	it("returns 'critical' when failureRate7d > 0.5", () => {

@@ -50,13 +50,7 @@ describe("bootAgentExecution", () => {
 			await expect(boot.adapters.sandbox.spawn("/tmp/anything")).rejects.toThrow();
 		});
 
-		// @lore This used to assert `pool.has("local-builtin")` — the built-in
-		// adapter was registered unconditionally, so a local pool was never empty
-		// and every machine could always run a session. Nothing is always-present
-		// now: the pool holds the CLI harnesses whose binaries this machine has, so
-		// what it contains is a fact about the machine, not about the code. What
-		// the code still owes is that it registers nothing else — no adapter that
-		// is not a real, installed harness.
+		// @lore the pool holds only the CLI harnesses whose binaries this machine has, and registers nothing else.
 		it("local topology: registers only real CLI harnesses, nothing always-present", async () => {
 			const boot = await bootAgentExecution({
 				topology: "local",

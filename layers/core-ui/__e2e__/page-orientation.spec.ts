@@ -47,9 +47,7 @@ async function proveHeader(page: Page, currentText?: string): Promise<void> {
 	await expectNoHorizontalCollision(header.locator("h1").locator("xpath=..").locator(":scope > *"));
 }
 
-// @lore `GET /api/reviews/:id` is gone — `ReviewPage` loads via
-// `open_thread`, named by the `?threadId=` query string (the review
-// message's own thread), never resolved by host lookup.
+// @lore ReviewPage loads via open_thread, named by the ?threadId= query string, never resolved by host lookup.
 const REVIEW_THREAD_ID = "thread-review-orientation";
 
 test("review keeps one page title", async ({ page }) => {

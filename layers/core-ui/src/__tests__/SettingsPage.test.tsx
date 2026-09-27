@@ -10,7 +10,7 @@
  *
  * Also: no "Email digests" control in SettingsPage.
  *
- * @lore: SettingsPage is a stacked page; sections are mounted unconditionally. SettingsWorker self-gates (renders an explanatory message in web/local mode). SettingsAgents fetches /api/agents independently.
+ * @lore SettingsPage mounts sections unconditionally — SettingsWorker self-gates, and SettingsAgents fetches /api/agents independently.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";

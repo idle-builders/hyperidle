@@ -41,8 +41,7 @@ describe("open-handler block anchor", () => {
 		);
 	});
 });
-// @lore artifacts-become-documents: test for hostKind:"artifact" with blockId removed —
-// "artifact" is no longer a valid HostKind; the /artifacts/:id page is deleted.
+// @lore "artifact" is not a valid HostKind — there is no /artifacts/:id page.
 
 // ── 2. AC6: same target from two contexts → identical path ────────────────────
 describe("block-anchored target → same path from any context", () => {

@@ -13,13 +13,13 @@
  *
  * Tests FAIL if the re-engage loop is deleted from CliHarnessAdapter.streamEvents.
  *
- * @lore The opencode re-engage loop lives in CliHarnessAdapter.streamEvents, NOT in the test. The test injects a spawnFn that returns fake child processes to control turn-end timing without spawning real binaries. The enforcement registry singleton is used directly (same as production) — the session must be registered BEFORE streamEvents is entered, just as session-provisioning.ts registers it before startSession.
+ * @lore the re-engage loop lives in CliHarnessAdapter.streamEvents — the session must be registered in the enforcement registry BEFORE streamEvents is entered.
  *
- * @lore Test design: We pre-seed the enforcement registry with the session's configSessionId (the real session UUID from SessionConfig.sessionId). The adapter reads `enforcementRegistry.get(session.configSessionId)` inside streamEvents. Correct seeding is the same requirement the production flow satisfies via enforcementRegistry.register() at session-provisioning.ts:760.
+ * @lore the adapter reads `enforcementRegistry.get(session.configSessionId)` inside streamEvents — seed the registry with that same id.
  *
- * @lore Budget termination: MAX_FORCE_RETURNS=2, so we need to provide enough fake children to exhaust the budget OR set gate.returned=true to stop re-engaging. Setting gate.returned=true after N re-engages mimics the agent finally returning.
+ * @lore MAX_FORCE_RETURNS=2 — re-engaging stops once the budget is exhausted or gate.returned is set true.
  *
- * @lore Test drives real config: This test uses CLI_TOOL_CONFIGS.opencode (the REAL shipped config, args: ["--dir", "{{sandbox}}"]) NOT a fabricated config. The previous fabricated config (args: ["run", "--format", "json"]) masked the production bug where re-engage produced ["--dir", "", forceMsg] — broken invocation. Now any regression in the re-engage args building will cause this test to fail with the real config.
+ * @lore drives the real shipped CLI_TOOL_CONFIGS.opencode, not a fabricated config, so a regression in re-engage args building fails here.
  */
 
 import type { ChildProcess, spawn } from "node:child_process";
@@ -74,8 +74,7 @@ function makeSessionConfig(
 
 /**
  * Create a fake child process whose stdout/stderr/stdin are controllable.
- * @lore pid must be non-undefined so the adapter's ENOENT guard
- * doesn't block. We set pid=99999.
+ * @lore pid must be non-undefined so the adapter's ENOENT guard doesn't block — set pid=99999.
  */
 function makeFakeChild(): {
 	proc: ChildProcess;
@@ -106,7 +105,7 @@ function makeFakeChild(): {
  * Create a spawnFn that returns fake children from a pre-built list.
  * Each call returns the next child in the list.
  *
- * @lore Type cast: vi.fn() doesn't match `typeof spawn` (heavily overloaded). We cast via `unknown` to satisfy the CliAdapterDeps.spawnFn type without disabling strict mode. The mock only implements the (binary, args, options) → ChildProcess call shape that CliHarnessAdapter actually invokes at runtime.
+ * @lore vi.fn() doesn't match the heavily-overloaded `typeof spawn` — cast via `unknown` to the (binary, args, options) shape actually invoked.
  */
 function makeFakeSpawnFn(children: ReturnType<typeof makeFakeChild>[]): {
 	spawnFn: typeof spawn;

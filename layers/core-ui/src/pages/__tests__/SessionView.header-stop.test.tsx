@@ -1,7 +1,7 @@
 /**
  * SessionView — the header Stop control.
  *
- * @lore `stop_session` is one of the five declarations the governance rule `actions-projected` (clause 1) wants a real `call()` site for under `layers/core-ui/src`. The header Stop button is that site: it calls `call("stop_session", { id })` directly, disabled once the session is no longer streaming — the response is the pre-stop row, never asserted as "stopped" here; the terminal state arrives by the session's nudge, which is `useSessionActivity`'s concern, not this test's.
+ * @lore the Stop button calls call("stop_session", {id}) directly, disabled once streaming ends — the terminal state arrives via useSessionActivity nudge.
  */
 
 import { render, screen } from "@testing-library/react";

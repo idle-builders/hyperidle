@@ -284,7 +284,7 @@ describe("agent session request repository", () => {
 	});
 
 	/**
-	 * @lore `insertIntentInternal`'s dedup early-return belongs here because `enqueueWorkIntent` lives in this package. `agent_work_intents` carries no foreign key on `source_id` or `requested_by`, so dedup on (kind, sourceId, idempotencyKey) needs no seeded row at all.
+	 * @lore `agent_work_intents` carries no FK on source_id/requested_by — dedup on (kind, sourceId, idempotencyKey) needs no seeded row.
 	 */
 	test("enqueueWorkIntent is idempotent on (kind, sourceId, idempotencyKey)", async ({ db }) => {
 		const fireId = "subscription-idem-fire";

@@ -14,9 +14,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 // biome-ignore lint/style/useNamingConvention: React's flag name is fixed.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-// @lore: dynamic imports under jsdom take 10-30s due to remark/unified
-// (via @hyperidle/block-derivation) cold module loading. All tests in this file use
-// { timeout: 60_000 } to match the pattern in framework/block-derivation and framework/db.
+// @lore dynamic imports under jsdom take 10-30s from remark/unified cold-loading — every test here uses {timeout: 60_000}.
 const TEST_TIMEOUT = { timeout: 60_000 };
 
 describe("Per-kind payload renderers", () => {

@@ -1,8 +1,6 @@
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import journal from "../../drizzle/meta/_journal.json";
-// @lore test-infra: createTestDb is kept here specifically for the idempotency
-// test that calls handle.runMigrations() — the pooled fixture does not expose
-// runMigrations(). All other tests in this file use the fixture.
+// @lore this file uses createTestDb() directly only for the test calling handle.runMigrations() — the fixture doesn't expose it.
 import { createTestDb } from "../__testing__/test-utils.js";
 import { teams } from "../schema.js";
 

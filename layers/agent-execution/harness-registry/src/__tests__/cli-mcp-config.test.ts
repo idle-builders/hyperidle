@@ -21,7 +21,7 @@
  *
  * @lore config-writer-contract: Tests the shape contract for the config writer. Using a real temp dir to prove actual file I/O, not just return values.
  *
- * @lore toml-parsing: The codex toml block is verified via string matching (not a full TOML parser dependency) since the block has a simple, predictable structure. The block is appended so we match the section header and key=value lines independently.
+ * @lore the codex toml block is verified via string matching, not a TOML parser — the block has a simple, predictable structure.
  */
 
 import * as fs from "node:fs";
@@ -398,15 +398,7 @@ describe("writeCliMcpConfig", () => {
 		});
 
 		/**
-		 * @lore cursor-workspace-root (verified live 2026-08-31, cursor-agent 2026.08.25): cursor-agent resolves `.cursor/mcp.json` against the root of the enclosing GIT REPOSITORY, not its working directory. A session sandbox is a plain subdirectory of the sandbox base, and that base is a git repo — so cursor looked in the base, found no `.cursor/`, and ran the whole turn with no MCP server. The agent said as much in its own transcript and answered in plain text, which never calls `reply`.
-		 *
-		 * Two tests here asserted this writer made the sandbox a repo root, and left
-		 * an existing repo alone. It does neither now, and should not: making every
-		 * session sandbox a git repo is `ensureSandboxGitRepo`'s job
-		 * (run-orchestration/mounter.ts, BA2 ruling 22), called unconditionally from
-		 * the provisioner well before any config file is written — and it has to run
-		 * AFTER filesystem mounting, which a config writer knows nothing about. Both
-		 * claims live in `mounter-registry.test.ts` alongside that function.
+		 * @lore cursor-agent resolves `.cursor/mcp.json` against the enclosing GIT REPOSITORY root, not the working directory.
 		 */
 	});
 });

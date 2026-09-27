@@ -155,7 +155,7 @@ describe("buildToolRegistry", () => {
 			expect(specNames).toEqual(defNames);
 		});
 
-		// @lore door-picked-by-name: `edit_document`'s description is the door a model must pick "memory" vs "artifact" vs "document" through — asserted by name, not just "description is long enough".
+		// @lore door-picked-by-name: asserted that edit_document's description names the door, not just that it's long enough.
 		test("edit_document's spec teaches the model its as: memory/artifact split", ({
 			db,
 			eventBus,
