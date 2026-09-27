@@ -635,7 +635,7 @@ async function createFromBakedRequestInternal(
 		idempotencyKey: intent.idempotencyKey,
 		sourceCorrelation: baked.sourceCorrelation,
 		// The assistant_turn family's baked transcript, the
-		// task_run/subscription_run/knowledge_action families' baked
+		// task_run/subscription_run families' baked
 		// contextBundle, and EVERY kind's baked
 		// agentConfig/harnessDisabled ride the existing generic `payloadJson`
 		// pass-through column onto the created `AgentSessionRequest`.

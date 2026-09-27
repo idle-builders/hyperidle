@@ -164,9 +164,7 @@ Triggers are the single rule for "event -> agent work." Any event that can cause
 
 ## Durable agent handoff
 
-Core actions first persist an `agent_work_intents` row. The row identifies one of six work families—assistant turn, explicit session, knowledge action, subscription run, task run, or re-engagement—and contains source identity plus an idempotency key. It contains no model, tool, prompt, harness, or execution result.
-
-Explicit session starts also persist `explicit_session_starts`, the authoritative command record for requested task, agent, and model tier. The neutral intent references that row; execution choices do not leak into the shared envelope.
+Core actions first persist an `agent_work_intents` row. The row identifies one of four work families—thread turn, task run, session resume, or subscription run—and contains source identity plus an idempotency key. It contains no model, tool, prompt, harness, or execution result.
 
 The agent layer reconciles pending and expired leased intents at boot, then polls for new work. It creates one correlated `AgentSessionRequest` and checkpoints the request ID. Replaying after process death returns the same request through its stable idempotency key. In-memory events only reduce wake latency; the database row is the recovery contract.
 

@@ -11,9 +11,6 @@
  *                         `notifyThreadTurnAdmissionFailure` below) — the
  *                         person waiting on it is never left in silence.
  *
- * `session_start`/`knowledge_action` have no case here — no producer emits
- * an intent of either kind.
- *
  * Only `terminal===true` triggers a reaction — `terminal===false` is
  * informational (orchestration is still retrying on its own backoff).
  *

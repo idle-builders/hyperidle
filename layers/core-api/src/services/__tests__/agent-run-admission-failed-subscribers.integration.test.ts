@@ -9,9 +9,6 @@
  *                        posted into the thread the turn came from, sent as
  *                        the agent that could not be started (never wakes it)
  *
- * `session_start`/`knowledge_action` have no case here — see the note before
- * the `thread_turn` tests below.
- *
  * @lore each reaction is registered as an async-fire-and-forget
  * `eventBus.on(...)` handler — `EventHandler<T>` is strictly `(event) =>
  * void`, so an async body can only be a detached promise (the same pattern
@@ -248,12 +245,6 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 			expect(finalized?.status).toBe("failed");
 		});
 	});
-
-	// session_start and knowledge_action have no reaction test here: no
-	// production caller ever enqueues either kind (grepped the tree — only
-	// the type declares them and the reaction switch handles them), so a
-	// test built by hand-constructing that intent shape can never fail for
-	// a reason production breaking would cause.
 
 	test("thread_turn: failed admission posts one plain notice into the thread the turn came from", async ({
 		db,

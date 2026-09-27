@@ -1,6 +1,6 @@
 /**
  * `resolveTaskRunRequest` (architecture.md §6, Decision B) — the emit-time
- * `task_run`/`session_start` resolver: loads the dispatch attempt and task,
+ * `task_run` resolver: loads the dispatch attempt and task,
  * validates the owner-agent match and runnability, and bakes the session
  * request (`sourceKind`, `streamId`, `contextBundle`, `callingThreadId`).
  */

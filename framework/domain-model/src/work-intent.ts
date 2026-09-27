@@ -312,8 +312,8 @@ export function toBakedContextDocuments(
  * `task_run` session needs (`kind:"task"`, matching
  * `context.ts`'s `SessionContextData`), a `subscription_run` session needs
  * (`kind:"subscription"`, matching `SubscriptionSessionContextData`), or a
- * `knowledge_action` session needs (`kind:"knowledge"` — the flagged item
- * itself, since a review turn has no task or subscription), plus the shared
+ * flagged-item review needs (`kind:"knowledge"` — the flagged item itself,
+ * since a review turn has no task or subscription), plus the shared
  * ranked+budgeted `documents` bundle every variant carries.
  */
 export type BakedContextBundle =
