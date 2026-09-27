@@ -4,7 +4,7 @@ Story format, catalog groups, and the component budget are owned by [`.claude/ru
 
 ## Stories are the design artifact
 
-Each component's `.stories.tsx` is the design source of truth. The `require-stories-sibling` lint rule is wired at **error** for `layers/core-ui/src/ds/**` and **warn** elsewhere in `layers/core-ui/src/**` (`tools/eslint-plugin-design/src/hearth-config.ts`), but its own `TARGET_DIRS` are `layers/core-ui/src/components/` and a design-system directory that no longer exists — so inside `ds/`, where the components actually live, it never fires. 18 of 74 `ds/` component files have no story. `require-ds-attribute` has the same problem and currently fires nowhere: its filename predicate matches only the deleted package's path. Both want their targets corrected; until then the story and the marker attributes are a manual obligation. Note also that `npm run lint` runs ESLint with `--quiet`, which drops warn-level rules entirely — use `npm run lint:design` to see them.
+Each component's `.stories.tsx` is the design source of truth. The `require-stories-sibling` lint rule is wired at **error** across `layers/core-ui/src/**` (`tools/eslint-plugin-design/src/hearth-config.ts`), but its own `TARGET_DIRS` are `layers/core-ui/src/components/` and a design-system directory that no longer exists — so inside `ds/`, where the components actually live, it never fires. 18 of 74 `ds/` component files have no story. `require-ds-attribute` has the same problem and currently fires nowhere: its filename predicate matches only the deleted package's path. Both want their targets corrected; until then the story and the marker attributes are a manual obligation.
 
 There is **no story browser in the repo**. The old in-app `/designsystem` route and the `ds:serve` standalone viewer were both removed; nothing in the app or build depends on a viewer being installed. Stories are rendered by the pipeline plugin's component viewer during `/pipeline:design`:
 
@@ -14,7 +14,7 @@ node "$CLAUDE_PLUGIN_ROOT/skills/design/viewer/launch.mjs" . --port 6006
 
 It discovers the stories under `layers/core-ui/src/**` from `.pipeline/viewer.config.json`, which also points it at `layers/core-ui/src/index.css` and the Tailwind v4 toolchain. Without that file the viewer falls back to generic globs, finds nothing, and renders unstyled.
 
-There is **no story-rendering snapshot net**. Visual fidelity is gated by `eslint-plugin-design` (`npm run lint` / `npm run lint:design`), type-check, and the human concept review — see [`.pipeline/rules/visual-regression.md`](../../../.pipeline/rules/visual-regression.md).
+There is **no story-rendering snapshot net**. Visual fidelity is gated by `eslint-plugin-design` (`npm run lint`), type-check, and the human concept review — see [`.pipeline/rules/visual-regression.md`](../../../.pipeline/rules/visual-regression.md).
 
 Themes are `hearth-light` / `hearth-dark`, light-first via `prefers-color-scheme` (`layers/core-ui/src/ds/tokens.css`); spacing is the 6px grid (`--space-N` = 3N px). See [`docs/ui-design/foundation.md`](../../ui-design/foundation.md).
 

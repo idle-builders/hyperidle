@@ -83,7 +83,6 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach } from "vitest";
 
-// biome-ignore lint/style/useNamingConvention: React flag
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const noop = async (): Promise<void> => {};

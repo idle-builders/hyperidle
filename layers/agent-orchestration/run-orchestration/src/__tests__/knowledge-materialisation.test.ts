@@ -136,11 +136,7 @@ describe("writeContextBundle: nested materialisation", () => {
 		const manifest = JSON.parse(
 			fs.readFileSync(path.join(sandboxPath, ".fabric/manifest.json"), "utf8"),
 		) as {
-			items: Record<
-				string,
-				// biome-ignore lint/style/useNamingConvention: manifest JSON schema uses snake_case keys
-				{ source_path: string; scopeKind: string; version: number }
-			>;
+			items: Record<string, { source_path: string; scopeKind: string; version: number }>;
 		};
 		expect(manifest.items["k-root"]).toEqual({
 			source_path: "knowledge/Product",
@@ -239,11 +235,7 @@ describe("writeContextBundle: nested materialisation", () => {
 		const manifest = JSON.parse(
 			fs.readFileSync(path.join(sandboxPath, ".fabric/manifest.json"), "utf8"),
 		) as {
-			items: Record<
-				string,
-				// biome-ignore lint/style/useNamingConvention: manifest JSON schema uses snake_case keys
-				{ source_path: string; scopeKind: string; version: number }
-			>;
+			items: Record<string, { source_path: string; scopeKind: string; version: number }>;
 		};
 		expect(manifest.items["k-parent"]).toEqual({
 			source_path: "knowledge/Product/Pricing",

@@ -16,7 +16,7 @@
  * matching the mockup discussion-message pattern.
  */
 
-import { CommentRow } from "../ds";
+import { CommentRow, ReferenceChip } from "../ds";
 
 export default { title: "HostThreadSection", tier: "3" as const };
 
@@ -153,13 +153,14 @@ export const WithPrefillChip = (): React.JSX.Element => (
 				Discussion
 			</h3>
 			<div data-testid="host-thread-section" className="flex flex-col gap-2">
-				<div
-					data-testid="host-thread-prefill-chip"
-					className="flex items-center gap-1 px-2 py-1 text-xs bg-[var(--surface-elevated)] rounded text-[var(--text-tertiary)]"
-				>
-					<span>Re:</span>
-					<span className="truncate">JWT with refresh rotation should be short-lived</span>
-				</div>
+				<ReferenceChip
+					kind="block"
+					label="JWT with refresh rotation should be short-lived"
+					mode="draft"
+					dataTestId="host-thread-prefill-chip"
+					onRemove={() => {}}
+					removeAriaLabel="Cancel block reply"
+				/>
 				<div className="flex gap-2">
 					<textarea
 						className="textarea textarea-bordered text-base resize-none flex-1 h-16"

@@ -62,6 +62,13 @@ ruleTester.run("no-handrolled-control", noHandrolledControl, {
 			filename: "layers/core-ui/src/pages/Foo.stories.tsx",
 			code: 'const J = <button className="btn btn-primary" />;',
 		},
+		// The selection-card exemption: aria-pressed + flex-col together skip the
+		// fill/border/radius clauses — SettingsAppearance's theme-swatch picker is
+		// a card, not a repainted Button.
+		{
+			filename: "layers/core-ui/src/pages/Foo.tsx",
+			code: 'const J = <button aria-pressed="false" className="flex-col rounded-[var(--r-default)] bg-[var(--surface-container)] border-[1.5px]" />;',
+		},
 	],
 	invalid: [
 		// DaisyUI btn* class on a raw <button>.
@@ -179,6 +186,19 @@ ruleTester.run("no-handrolled-control", noHandrolledControl, {
 			filename: "layers/core-ui/src/pages/Foo.tsx",
 			code: 'const RETRY_BTN_CLASS = "rounded-[var(--r-subtle)] bg-[var(--surface-container)]"; const J = <button className={RETRY_BTN_CLASS} />;',
 			errors: [{ messageId: "tokenFill" }, { messageId: "controlRadius" }],
+		},
+		// The selection-card exemption stays narrow: flex-col alone (no
+		// aria-pressed) is still exactly the population this rule targets.
+		{
+			filename: "layers/core-ui/src/pages/Foo.tsx",
+			code: 'const J = <button className="flex-col bg-[var(--surface-container)]" />;',
+			errors: [{ messageId: "tokenFill" }],
+		},
+		// aria-pressed alone (no flex-col) is still a repainted Button, not a card.
+		{
+			filename: "layers/core-ui/src/pages/Foo.tsx",
+			code: 'const J = <button aria-pressed="false" className="bg-[var(--surface-container)]" />;',
+			errors: [{ messageId: "tokenFill" }],
 		},
 	],
 });

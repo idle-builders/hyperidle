@@ -57,20 +57,20 @@ interface ReturnHookOptions {
  * Codex requires a trust marker in the .codex/ directory. Writing the hook
  * without establishing trust is what caused the v1 forceCount=0 regression.
  */
-async function installReturnHook(opts: ReturnHookOptions): Promise<void> {
+function installReturnHook(opts: ReturnHookOptions): void {
 	const { sandboxPath, channel, bridgeToken, mcpUrl } = opts;
 
 	switch (channel) {
 		case "settings-claude":
-			await provisionClaudeSettings(sandboxPath, bridgeToken, mcpUrl);
+			provisionClaudeSettings(sandboxPath, bridgeToken, mcpUrl);
 			break;
 
 		case "settings-codex":
-			await provisionCodexHome(sandboxPath, bridgeToken, mcpUrl);
+			provisionCodexHome(sandboxPath, bridgeToken, mcpUrl);
 			break;
 
 		case "process-reengage":
-			await provisionOpencodePlugin(sandboxPath, bridgeToken, mcpUrl);
+			provisionOpencodePlugin(sandboxPath, bridgeToken, mcpUrl);
 			break;
 
 		// No-op channels: enforcement is handled in-process or not at all.
@@ -126,11 +126,7 @@ async function installReturnHook(opts: ReturnHookOptions): Promise<void> {
  * response. The curl command signals HyperIdle to check return status; HyperIdle
  * responds with forceMessage on stdout which the hook relays to stderr then exits 2.
  */
-async function provisionClaudeSettings(
-	sandboxPath: string,
-	bridgeToken: string,
-	mcpUrl: string,
-): Promise<void> {
+function provisionClaudeSettings(sandboxPath: string, bridgeToken: string, mcpUrl: string): void {
 	const claudeDir = path.join(sandboxPath, ".claude");
 	fs.mkdirSync(claudeDir, { recursive: true });
 
@@ -206,11 +202,7 @@ async function provisionClaudeSettings(
  * exit-2+stderr like Claude, but we use the JSON form.
  * stdout `{"decision":"approve"}` or exit 0 with no JSON allows the stop.
  */
-async function provisionCodexHome(
-	sandboxPath: string,
-	bridgeToken: string,
-	mcpUrl: string,
-): Promise<void> {
+function provisionCodexHome(sandboxPath: string, bridgeToken: string, mcpUrl: string): void {
 	// ── 1. Backward-compat: write .codex/hooks.json (for unit tests + legacy path).
 	const codexDir = path.join(sandboxPath, ".codex");
 	fs.mkdirSync(codexDir, { recursive: true });
@@ -387,11 +379,7 @@ function buildCodexReturnCheckScript(bridgeToken: string, mcpUrl: string): strin
  * "settings-claude" because it requires the plugin runtime to be loaded and
  * session.idle to fire reliably. The drain-gate floor backstops any escape.
  */
-async function provisionOpencodePlugin(
-	sandboxPath: string,
-	bridgeToken: string,
-	mcpUrl: string,
-): Promise<void> {
+function provisionOpencodePlugin(sandboxPath: string, bridgeToken: string, mcpUrl: string): void {
 	const pluginDir = path.join(sandboxPath, ".opencode", "plugins");
 	fs.mkdirSync(pluginDir, { recursive: true });
 

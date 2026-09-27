@@ -214,7 +214,7 @@ describe("ThreadSections component", () => {
 		const { container } = render(<ThreadSections threads={threads} now={NOW} selectedId="a1" />);
 		const active = container.querySelector("[data-thread-section='active']") as HTMLElement;
 		const selected = within(active)
-			.getByLabelText(/Thread: Pricing experiment/i)
+			.getByText("Pricing experiment")
 			.closest("[data-ds-component='ThreadRow']");
 		expect(selected).toHaveAttribute("aria-current", "true");
 		expect(within(active).getByLabelText(/Pinned/i)).toBeInTheDocument();

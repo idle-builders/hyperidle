@@ -96,11 +96,6 @@ describe("ThreadRow", () => {
 		expect(screen.getByText("chat")).toBeInTheDocument();
 	});
 
-	it("has aria-label on title", () => {
-		render(<ThreadRow {...defaultProps} />);
-		expect(screen.getByLabelText("Thread: Deploy pipeline stuck")).toBeInTheDocument();
-	});
-
 	// selected / pinned / hostTag props
 	it("applies aria-current='true' when selected", () => {
 		const { container } = render(<ThreadRow {...defaultProps} selected={true} />);

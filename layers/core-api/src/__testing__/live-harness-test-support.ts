@@ -83,7 +83,7 @@ export function runnerFor<I, O>(actions: readonly Action[], name: string) {
 }
 
 /** An OS-assigned free port — `bootAgentExecution({ mcpBaseUrl })` must know the origin before the bridge exists. */
-export async function getFreePort(): Promise<number> {
+export function getFreePort(): Promise<number> {
 	return new Promise((resolve, reject) => {
 		const probe = net.createServer();
 		probe.once("error", reject);

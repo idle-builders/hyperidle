@@ -329,7 +329,7 @@ export type IdentifierResolver = (identifierNode: unknown) => { type: string } |
 export function createConstIdentifierResolver(context: Rule.RuleContext): IdentifierResolver {
 	return (identifierNode: unknown): { type: string } | null => {
 		const node = identifierNode as { type?: string; name?: string };
-		if (!node || node.type !== "Identifier" || typeof node.name !== "string") return null;
+		if (node?.type !== "Identifier" || typeof node.name !== "string") return null;
 		// AZ7 review-round-3 NB3-2: no try/catch here — `.claude/rules/typescript.md`
 		// says let unexpected errors propagate. `getScope` is called the same way,
 		// uncaught, in `require-ds-attribute.ts:123` on this same plugin; if it
@@ -346,7 +346,7 @@ export function createConstIdentifierResolver(context: Rule.RuleContext): Identi
 		if (!variable) return null;
 		if (variable.defs.length !== 1) return null;
 		const def = variable.defs[0];
-		if (!def || def.type !== "Variable") return null;
+		if (def?.type !== "Variable") return null;
 		const declaration = (def as { parent?: { kind?: string } }).parent;
 		if (declaration?.kind !== "const") return null;
 		const writes = variable.references.filter((r) => r.isWrite());

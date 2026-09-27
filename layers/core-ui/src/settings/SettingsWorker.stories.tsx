@@ -16,15 +16,14 @@
  * without needing a full bridge implementation.
  */
 
+import { useMemo } from "react";
+import { useStoryHyperIdleBridge } from "../__storybook__/use-story-globals.js";
 import { SettingsWorker } from "./SettingsWorker";
 
 export default {
 	title: "SettingsWorker",
 	tier: "3" as const,
 };
-
-// @lore AF5/S: Type alias for the cast-through-unknown pattern used by all stories.
-type PartialBridgeWindow = { __HYPERIDLE__: Partial<HyperIdleElectronBridge> };
 
 /**
  * Running in a plain browser — no electron bridge present.
@@ -43,12 +42,11 @@ export const NoBridge = (): React.JSX.Element => {
  *
  * Sets window.__HYPERIDLE__.backendMode = "local" before rendering.
  */
-export const ElectronLocalMode = (): React.JSX.Element => {
-	if (typeof window !== "undefined") {
-		(window as unknown as PartialBridgeWindow).__HYPERIDLE__ = {
-			backendMode: "local",
-		};
-	}
+export const ElectronLocalMode = (): React.JSX.Element | null => {
+	const bridgeInstalled = useStoryHyperIdleBridge(
+		useMemo(() => ({ backendMode: "local" as const }), []),
+	);
+	if (!bridgeInstalled) return null;
 	return (
 		<div className="p-4 w-80">
 			<SettingsWorker />
@@ -59,28 +57,32 @@ export const ElectronLocalMode = (): React.JSX.Element => {
 /**
  * Electron, shared mode — worker disabled (default state after connecting to a shared backend).
  */
-export const SharedModeDisabled = (): React.JSX.Element => {
-	if (typeof window !== "undefined") {
-		(window as unknown as PartialBridgeWindow).__HYPERIDLE__ = {
-			backendMode: "shared",
-			worker: {
-				enable: async (_n: number) => {},
-				disable: async () => {},
-				pause: async () => {},
-				resume: async () => {},
-				status: async () => ({
-					enabled: false,
-					connected: false,
-					paused: false,
-					activeSessions: 0,
-					maxConcurrent: 1,
-					deviceId: null,
-					modelProviders: [],
-				}),
-				onStatusChange: (_cb) => () => {},
-			},
-		};
-	}
+export const SharedModeDisabled = (): React.JSX.Element | null => {
+	const bridgeInstalled = useStoryHyperIdleBridge(
+		useMemo(
+			() => ({
+				backendMode: "shared",
+				worker: {
+					enable: async (_n: number) => {},
+					disable: async () => {},
+					pause: async () => {},
+					resume: async () => {},
+					status: async () => ({
+						enabled: false,
+						connected: false,
+						paused: false,
+						activeSessions: 0,
+						maxConcurrent: 1,
+						deviceId: null,
+						modelProviders: [],
+					}),
+					onStatusChange: (_cb) => () => {},
+				},
+			}),
+			[],
+		),
+	);
+	if (!bridgeInstalled) return null;
 	return (
 		<div className="p-4 w-80">
 			<SettingsWorker />
@@ -91,28 +93,32 @@ export const SharedModeDisabled = (): React.JSX.Element => {
 /**
  * Electron, shared mode — worker enabled but not yet connected (connecting state).
  */
-export const SharedModeConnecting = (): React.JSX.Element => {
-	if (typeof window !== "undefined") {
-		(window as unknown as PartialBridgeWindow).__HYPERIDLE__ = {
-			backendMode: "shared",
-			worker: {
-				enable: async (_n: number) => {},
-				disable: async () => {},
-				pause: async () => {},
-				resume: async () => {},
-				status: async () => ({
-					enabled: true,
-					connected: false,
-					paused: false,
-					activeSessions: 0,
-					maxConcurrent: 1,
-					deviceId: "device-abc123",
-					modelProviders: ["anthropic"],
-				}),
-				onStatusChange: (_cb) => () => {},
-			},
-		};
-	}
+export const SharedModeConnecting = (): React.JSX.Element | null => {
+	const bridgeInstalled = useStoryHyperIdleBridge(
+		useMemo(
+			() => ({
+				backendMode: "shared",
+				worker: {
+					enable: async (_n: number) => {},
+					disable: async () => {},
+					pause: async () => {},
+					resume: async () => {},
+					status: async () => ({
+						enabled: true,
+						connected: false,
+						paused: false,
+						activeSessions: 0,
+						maxConcurrent: 1,
+						deviceId: "device-abc123",
+						modelProviders: ["anthropic"],
+					}),
+					onStatusChange: (_cb) => () => {},
+				},
+			}),
+			[],
+		),
+	);
+	if (!bridgeInstalled) return null;
 	return (
 		<div className="p-4 w-80">
 			<SettingsWorker />
@@ -123,28 +129,32 @@ export const SharedModeConnecting = (): React.JSX.Element => {
 /**
  * Electron, shared mode — worker enabled and connected, 2 active sessions.
  */
-export const SharedModeConnected = (): React.JSX.Element => {
-	if (typeof window !== "undefined") {
-		(window as unknown as PartialBridgeWindow).__HYPERIDLE__ = {
-			backendMode: "shared",
-			worker: {
-				enable: async (_n: number) => {},
-				disable: async () => {},
-				pause: async () => {},
-				resume: async () => {},
-				status: async () => ({
-					enabled: true,
-					connected: true,
-					paused: false,
-					activeSessions: 2,
-					maxConcurrent: 4,
-					deviceId: "device-abc123",
-					modelProviders: ["anthropic"],
-				}),
-				onStatusChange: (_cb) => () => {},
-			},
-		};
-	}
+export const SharedModeConnected = (): React.JSX.Element | null => {
+	const bridgeInstalled = useStoryHyperIdleBridge(
+		useMemo(
+			() => ({
+				backendMode: "shared",
+				worker: {
+					enable: async (_n: number) => {},
+					disable: async () => {},
+					pause: async () => {},
+					resume: async () => {},
+					status: async () => ({
+						enabled: true,
+						connected: true,
+						paused: false,
+						activeSessions: 2,
+						maxConcurrent: 4,
+						deviceId: "device-abc123",
+						modelProviders: ["anthropic"],
+					}),
+					onStatusChange: (_cb) => () => {},
+				},
+			}),
+			[],
+		),
+	);
+	if (!bridgeInstalled) return null;
 	return (
 		<div className="p-4 w-80">
 			<SettingsWorker />
@@ -155,28 +165,32 @@ export const SharedModeConnected = (): React.JSX.Element => {
 /**
  * Electron, shared mode — worker enabled but paused (no new sessions accepted).
  */
-export const SharedModePaused = (): React.JSX.Element => {
-	if (typeof window !== "undefined") {
-		(window as unknown as PartialBridgeWindow).__HYPERIDLE__ = {
-			backendMode: "shared",
-			worker: {
-				enable: async (_n: number) => {},
-				disable: async () => {},
-				pause: async () => {},
-				resume: async () => {},
-				status: async () => ({
-					enabled: true,
-					connected: true,
-					paused: true,
-					activeSessions: 0,
-					maxConcurrent: 2,
-					deviceId: "device-abc123",
-					modelProviders: ["anthropic"],
-				}),
-				onStatusChange: (_cb) => () => {},
-			},
-		};
-	}
+export const SharedModePaused = (): React.JSX.Element | null => {
+	const bridgeInstalled = useStoryHyperIdleBridge(
+		useMemo(
+			() => ({
+				backendMode: "shared",
+				worker: {
+					enable: async (_n: number) => {},
+					disable: async () => {},
+					pause: async () => {},
+					resume: async () => {},
+					status: async () => ({
+						enabled: true,
+						connected: true,
+						paused: true,
+						activeSessions: 0,
+						maxConcurrent: 2,
+						deviceId: "device-abc123",
+						modelProviders: ["anthropic"],
+					}),
+					onStatusChange: (_cb) => () => {},
+				},
+			}),
+			[],
+		),
+	);
+	if (!bridgeInstalled) return null;
 	return (
 		<div className="p-4 w-80">
 			<SettingsWorker />

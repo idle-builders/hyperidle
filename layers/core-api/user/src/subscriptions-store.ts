@@ -24,11 +24,11 @@ export interface SubscriptionsFilter {
 	readonly paused?: boolean;
 }
 
-export async function listSubscriptions(
+export function listSubscriptions(
 	db: HyperIdleDb,
 	filter: SubscriptionsFilter = {},
 ): Promise<Array<typeof subscriptions.$inferSelect>> {
-	if (filter.ids !== undefined && filter.ids.length === 0) return [];
+	if (filter.ids !== undefined && filter.ids.length === 0) return Promise.resolve([]);
 	const preds = [];
 	if (filter.ids !== undefined) preds.push(inArray(subscriptions.id, Array.from(filter.ids)));
 	if (filter.userId !== undefined) preds.push(eq(subscriptions.userId, filter.userId));
@@ -56,7 +56,7 @@ export async function insertSubscription(
 	const [row] = opts?.onConflictDoNothing
 		? await db.insert(subscriptions).values(values).onConflictDoNothing().returning()
 		: await db.insert(subscriptions).values(values).returning();
-	if (!row && !opts?.onConflictDoNothing) {
+	if (!(row || opts?.onConflictDoNothing)) {
 		throw new Error("insertSubscription: insert returned no row");
 	}
 	return row;
@@ -110,7 +110,7 @@ export interface InboxRowFilter {
 }
 
 /** Newest first, by `change_id` insertion order — `open_user`'s "newest 50". */
-export async function listInboxRows(
+export function listInboxRows(
 	db: HyperIdleDb,
 	filter: InboxRowFilter,
 ): Promise<Array<typeof inbox.$inferSelect>> {

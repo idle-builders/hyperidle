@@ -10,7 +10,6 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { BlockActionsPopover } from "../BlockActionsPopover.js";
 
-// biome-ignore lint/style/useNamingConvention: React's flag name is fixed.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const noop = (): void => {};

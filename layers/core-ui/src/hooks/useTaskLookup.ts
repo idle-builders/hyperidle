@@ -33,11 +33,12 @@ export function useTaskLookup(ids: readonly string[]): Readonly<Record<string, s
 	const knownRef = useRef<Set<string>>(new Set());
 
 	useEffect(() => {
-		const missing = ids.filter((id) => !knownRef.current.has(id));
+		const known = knownRef.current;
+		const missing = ids.filter((id) => !known.has(id));
 		if (missing.length === 0) return;
-		// In flight, not yet known — knownRef only gains an id once its title
+		// In flight, not yet known — known only gains an id once its title
 		// actually resolves (below), so an aborted/failed attempt can be retried.
-		for (const id of missing) knownRef.current.add(id);
+		for (const id of missing) known.add(id);
 		let settled = false;
 
 		let cancelled = false;
@@ -60,7 +61,7 @@ export function useTaskLookup(ids: readonly string[]): Readonly<Record<string, s
 
 		return () => {
 			cancelled = true;
-			if (!settled) for (const id of missing) knownRef.current.delete(id);
+			if (!settled) for (const id of missing) known.delete(id);
 		};
 	}, [ids]);
 

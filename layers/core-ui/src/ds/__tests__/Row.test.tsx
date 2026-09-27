@@ -12,7 +12,6 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { Row } from "../Row.js";
 
-// biome-ignore lint/style/useNamingConvention: React flag
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 describe("Row", () => {
@@ -302,6 +301,83 @@ describe("Row", () => {
 				root.render(createElement(Row, { title: "Hello", "data-testid": "my-row" }));
 			});
 			expect(container.querySelectorAll("[data-testid='my-row']")).toHaveLength(1);
+		});
+	});
+
+	// ── disabled state (button branch) ───────────────────────────────────────
+
+	describe("disabled state (button branch)", () => {
+		it("disabled=true sets the disabled attribute and the click handler does not fire", () => {
+			let clicked = false;
+			act(() => {
+				root.render(
+					createElement(Row, {
+						title: "Hello",
+						onClick: () => {
+							clicked = true;
+						},
+						disabled: true,
+					}),
+				);
+			});
+			const btn = container.querySelector("button");
+			expect(btn?.disabled).toBe(true);
+			act(() => {
+				btn?.click();
+			});
+			expect(clicked).toBe(false);
+		});
+
+		it("disabled=false (default) leaves the row clickable", () => {
+			let clicked = false;
+			act(() => {
+				root.render(
+					createElement(Row, {
+						title: "Hello",
+						onClick: () => {
+							clicked = true;
+						},
+					}),
+				);
+			});
+			const btn = container.querySelector("button");
+			expect(btn?.disabled).toBe(false);
+			act(() => {
+				btn?.click();
+			});
+			expect(clicked).toBe(true);
+		});
+	});
+
+	// ── aria-label / aria-expanded passthrough (button branch) ──────────────
+
+	describe("aria-label / aria-expanded passthrough", () => {
+		it("aria-label overrides the accessible name for a row whose visible title is hidden at some breakpoint", () => {
+			act(() => {
+				root.render(
+					createElement(Row, { title: "Hello", onClick: () => {}, "aria-label": "Row label" }),
+				);
+			});
+			const btn = container.querySelector("button");
+			expect(btn?.getAttribute("aria-label")).toBe("Row label");
+		});
+
+		it("aria-expanded reaches the outermost element for a row that toggles a popover it owns", () => {
+			act(() => {
+				root.render(
+					createElement(Row, { title: "Hello", onClick: () => {}, "aria-expanded": true }),
+				);
+			});
+			const btn = container.querySelector("button");
+			expect(btn?.getAttribute("aria-expanded")).toBe("true");
+		});
+
+		it("omitting aria-expanded leaves the attribute off entirely", () => {
+			act(() => {
+				root.render(createElement(Row, { title: "Hello", onClick: () => {} }));
+			});
+			const btn = container.querySelector("button");
+			expect(btn?.hasAttribute("aria-expanded")).toBe(false);
 		});
 	});
 });

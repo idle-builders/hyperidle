@@ -19,6 +19,7 @@ export function TablePayload({ align, header, rows }: TablePayloadProps): JSX.El
 					<tr>
 						{header.map((cell, i) => (
 							<th
+								// biome-ignore lint/suspicious/noArrayIndexKey: a parsed markdown table is immutable content re-rendered from scratch each time, never reordered.
 								key={i}
 								scope="col"
 								style={{ textAlign: align[i] ?? "left" }}
@@ -31,9 +32,11 @@ export function TablePayload({ align, header, rows }: TablePayloadProps): JSX.El
 				</thead>
 				<tbody>
 					{rows.map((row, ri) => (
+						// biome-ignore lint/suspicious/noArrayIndexKey: a parsed markdown table is immutable content re-rendered from scratch each time, never reordered.
 						<tr key={ri}>
 							{row.map((cell, ci) => (
 								<td
+									// biome-ignore lint/suspicious/noArrayIndexKey: a parsed markdown table is immutable content re-rendered from scratch each time, never reordered.
 									key={ci}
 									style={{ textAlign: align[ci] ?? "left" }}
 									className="border-width-thin-b px-[12px] py-[9px]  border-[var(--border-subtle)] tabular-nums"

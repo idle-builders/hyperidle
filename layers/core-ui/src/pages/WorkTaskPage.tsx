@@ -243,6 +243,7 @@ function SubtaskRow({
 					<div className="flex items-center gap-[3px] shrink-0">
 						<Button
 							variant="ghost"
+							tone="neutral"
 							size="icon"
 							aria-label="Move up"
 							disabled={isFirst}
@@ -315,11 +316,9 @@ function SessionRow({
 				<div className="type-metadata text-[var(--text-tertiary)] truncate mt-[3px]">{agent}</div>
 			</div>
 			{effectivenessScore !== null && effectivenessScore !== undefined && (
-				// biome-ignore lint/a11y/useAriaPropsSupportedByRole: span receives aria-label for assistive text
 				<span
 					data-testid="session-effectiveness-score"
 					className="type-data tabular-nums text-[var(--text-secondary)] shrink-0 flex items-center gap-[3px]"
-					aria-label={`Effectiveness: ${effectivenessScore.toFixed(2)}`}
 				>
 					<span className="type-metadata text-[var(--text-tertiary)]">Effectiveness</span>
 					{effectivenessScore.toFixed(2)}
@@ -364,12 +363,13 @@ function TaskSessionPanel({
 
 	return (
 		<div className="relative flex h-full flex-col">
-			<button
-				type="button"
+			<Button
+				variant="ghost"
+				size="icon"
 				onClick={onClose}
 				aria-label="Close session view"
 				data-testid="close-session-view"
-				className="absolute top-[9px] right-[12px] z-[1] rounded-[var(--r-subtle)] p-[6px] text-[var(--text-tertiary)]   hover:bg-[var(--surface-container)] hover:text-[var(--text-secondary)]"
+				className="absolute top-[9px] right-[12px] z-[1]"
 			>
 				<svg
 					viewBox="0 0 12 12"
@@ -381,7 +381,7 @@ function TaskSessionPanel({
 				>
 					<path d="M2 2 L10 10 M10 2 L2 10" strokeLinecap="round" />
 				</svg>
-			</button>
+			</Button>
 			<SessionView
 				sessionId={sessionId}
 				entries={[...entries]}

@@ -48,8 +48,10 @@ import {
 	Row,
 	type RowCell,
 	ScopePicker,
+	ScopePickerToggle,
 	SkeletonList,
 	StatusChip,
+	TabBar,
 } from "../ds";
 
 // @lore AU44 batch 4: signals (accessCount30d, relevanceScore, etc.) removed per FULL-AUDIT.md row 13.
@@ -284,39 +286,16 @@ function DocumentListContent({
 		<div className="max-w-[800px] w-full">
 			{/* FR-19: Tab controls + search + New — moved from PageHeader.actions to body at 800px lane */}
 			<div className="flex items-center justify-between py-[12px]">
-				<div
-					role="tablist"
-					aria-label="Document view"
-					className="inline-flex gap-[6px] bg-[var(--surface-container)] rounded-[var(--r-pill)] p-[3px]"
-					data-testid="document-tabs"
-				>
-					<button
-						type="button"
-						role="tab"
-						aria-selected={tab === "curated"}
-						className={`type-control ${
-							tab === "curated"
-								? "px-[12px] py-[6px] rounded-[var(--r-pill)]   bg-[var(--surface-elevated)] text-[var(--accent-deep)] shadow-[var(--shadow-subtle)] cursor-pointer border-none"
-								: "px-[12px] py-[6px] rounded-[var(--r-pill)]   text-[var(--text-secondary)] cursor-pointer border-none bg-transparent"
-						}`}
-						onClick={() => onTabChange("curated")}
-					>
-						Curated
-					</button>
-					<button
-						type="button"
-						role="tab"
-						aria-selected={tab === "triage"}
-						className={`type-control ${
-							tab === "triage"
-								? "px-[12px] py-[6px] rounded-[var(--r-pill)]   bg-[var(--surface-elevated)] text-[var(--accent-deep)] shadow-[var(--shadow-subtle)] cursor-pointer border-none"
-								: "px-[12px] py-[6px] rounded-[var(--r-pill)]   text-[var(--text-secondary)] cursor-pointer border-none bg-transparent"
-						}`}
-						onClick={() => onTabChange("triage")}
-					>
-						Triage
-					</button>
-				</div>
+				<TabBar
+					tabs={[
+						{ id: "curated", label: "Curated" },
+						{ id: "triage", label: "Triage" },
+					]}
+					activeId={tab}
+					onChange={(id) => onTabChange(id as DocumentTab)}
+					ariaLabel="Document view"
+					dataTestId="document-tabs"
+				/>
 				<div className="flex items-center gap-[9px]">
 					<input
 						type="search"
@@ -366,26 +345,26 @@ function DocumentListContent({
 				 * "Memories" — a filter chip, not a page. Toggling swaps the
 				 * `search_documents` filter between `{inTree:true}` and `{as:"memory"}`
 				 * one level up; the Triage/Curated split renders whichever set loaded.
+				 *
+				 * V1/V2 re-review fix: ScopePickerToggle shares ScopePicker's exact
+				 * pill classes (same look as the All/Shared/Team/Private pills beside
+				 * it) but is a real aria-pressed toggle button, not a one-option
+				 * radiogroup — a single-pill radiogroup unchecks on a second click,
+				 * which a screen reader hears as a radio that can't be turned off.
 				 */}
-				<button
-					type="button"
-					aria-pressed={showMemories}
+				<ScopePickerToggle
+					label="Memories"
+					pressed={showMemories}
+					onToggle={onToggleMemories}
 					data-testid="memories-filter-chip"
-					onClick={onToggleMemories}
-					className={`type-control cursor-pointer inline-flex items-center px-[12px] py-[4px] min-h-[44px] xl:min-h-[24px] rounded-[var(--r-pill)] border-width-default focus-visible:outline focus-visible:outline-[2px] focus-visible:outline-[var(--accent-deep)] focus-visible:outline-offset-[2px] ${
-						showMemories
-							? "bg-[var(--accent-primary-dim)] border-[var(--accent-deep)] text-[var(--accent-deep)]"
-							: "bg-transparent border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-					}`}
-				>
-					Memories
-				</button>
+				/>
 			</div>
 
 			{/* Sort pills changed from role=radio to plain buttons so
 			    getByRole("button", { name: /recency/ }) works in tests.
 			    @lore AF13: role="radio" buttons are not found by getByRole("button"),
 			    since explicit role overrides the implicit element role. */}
+			{/* biome-ignore lint/a11y/useSemanticElements: not a form — a <fieldset> here would be semantically wrong; role="group" is the AF13-documented compromise above. */}
 			<div
 				role="group"
 				aria-label="Sort order"
@@ -460,15 +439,16 @@ function DocumentListContent({
 										cells={triageRowCells(item)}
 										actions={
 											<div className="flex items-center gap-[3px]">
-												<button
-													type="button"
+												<Button
+													variant="ghost"
+													tone="neutral"
+													size="icon"
 													aria-label="Validate"
 													title="Validate"
 													onClick={(e) => {
 														e.stopPropagation();
 														onTriageAction(item.id, "active");
 													}}
-													className="w-[24px] h-[24px] flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_6%,transparent)] border-none bg-transparent cursor-pointer"
 												>
 													<svg
 														width="14"
@@ -483,16 +463,17 @@ function DocumentListContent({
 													>
 														<path d="M2 8l4 4 8-8" />
 													</svg>
-												</button>
-												<button
-													type="button"
+												</Button>
+												<Button
+													variant="ghost"
+													tone="neutral"
+													size="icon"
 													aria-label="Reject"
 													title="Reject"
 													onClick={(e) => {
 														e.stopPropagation();
 														onTriageAction(item.id, "archived");
 													}}
-													className="w-[24px] h-[24px] flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_6%,transparent)] border-none bg-transparent cursor-pointer"
 												>
 													<svg
 														width="14"
@@ -507,16 +488,17 @@ function DocumentListContent({
 													>
 														<path d="M2 2l12 12M14 2L2 14" />
 													</svg>
-												</button>
-												<button
-													type="button"
+												</Button>
+												<Button
+													variant="ghost"
+													tone="neutral"
+													size="icon"
 													aria-label="Open"
 													title="Open"
 													onClick={(e) => {
 														e.stopPropagation();
 														onNavigate(item.id);
 													}}
-													className="w-[24px] h-[24px] flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_6%,transparent)] border-none bg-transparent cursor-pointer"
 												>
 													<svg
 														width="14"
@@ -531,7 +513,7 @@ function DocumentListContent({
 													>
 														<path d="M3 8h10M8 3l5 5-5 5" />
 													</svg>
-												</button>
+												</Button>
 											</div>
 										}
 										onClick={() => onNavigate(item.id)}

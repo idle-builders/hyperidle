@@ -21,14 +21,16 @@ describe("Tag", () => {
 		expect(svg?.getAttribute("aria-hidden")).toBe("true");
 	});
 
-	it('names the kind in the accessible label when kind="decision"', () => {
+	it('names the kind in sr-only text when kind="decision"', () => {
 		render(<Tag label="approved" kind="decision" />);
-		expect(screen.getByLabelText(/Decision: approved/i)).toBeInTheDocument();
+		expect(screen.getByText("Decision:")).toBeInTheDocument();
+		expect(screen.getByText("approved")).toBeInTheDocument();
 	});
 
-	it('names the kind in the accessible label when kind="failure"', () => {
+	it('names the kind in sr-only text when kind="failure"', () => {
 		render(<Tag label="oops" kind="failure" />);
-		expect(screen.getByLabelText(/Failure: oops/i)).toBeInTheDocument();
+		expect(screen.getByText("Failure:")).toBeInTheDocument();
+		expect(screen.getByText("oops")).toBeInTheDocument();
 	});
 
 	it("falls back to the plain tag (no icon, no kind label) for an unknown kind value", () => {

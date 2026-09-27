@@ -4,7 +4,6 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DocRow } from "../ds";
 
-// biome-ignore lint/style/useNamingConvention: React's flag name is fixed.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 describe("DocRow", () => {
@@ -74,11 +73,6 @@ describe("DocRow", () => {
 		const { container } = render(<DocRow {...defaultProps} />);
 		const captions = container.querySelectorAll("p");
 		expect(captions.length).toBe(0);
-	});
-
-	it("has aria-label on title", () => {
-		render(<DocRow {...defaultProps} />);
-		expect(screen.getByLabelText("Document: API Rate Limiting Pattern")).toBeInTheDocument();
 	});
 
 	it("shows the item's status via StatusChip", () => {

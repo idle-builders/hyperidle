@@ -389,10 +389,10 @@ describe("SetupFlow filesystem kind decision (isCode client logic)", () => {
 		};
 		const folder = personCall.folders?.add?.[0];
 		expect(folder).toBeDefined();
-		expect(folder?.["kind"]).toBe("code");
-		const ref = folder?.["resourceRef"] as Record<string, unknown> | undefined;
-		expect(ref?.["branch"]).toBe("main");
-		expect(folder?.["writeback"]).toBe("none");
+		expect(folder?.kind).toBe("code");
+		const ref = folder?.resourceRef as Record<string, unknown> | undefined;
+		expect(ref?.branch).toBe("main");
+		expect(folder?.writeback).toBe("none");
 	});
 
 	it("git repo with no resolvable branch (null) → folders.add has kind:'doc_set', not code", async () => {
@@ -417,9 +417,9 @@ describe("SetupFlow filesystem kind decision (isCode client logic)", () => {
 		};
 		const folder = personCall.folders?.add?.[0];
 		expect(folder).toBeDefined();
-		expect(folder?.["kind"]).toBe("doc_set");
-		const ref = folder?.["resourceRef"] as Record<string, unknown> | undefined;
-		expect(ref?.["branch"]).toBeUndefined();
-		expect(folder?.["writeback"]).toBe("none");
+		expect(folder?.kind).toBe("doc_set");
+		const ref = folder?.resourceRef as Record<string, unknown> | undefined;
+		expect(ref?.branch).toBeUndefined();
+		expect(folder?.writeback).toBe("none");
 	});
 });

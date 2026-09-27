@@ -26,6 +26,7 @@ function ThreadRowPresenceDot({
 	const bg = status === "active" ? "bg-[var(--accent-primary)]" : "bg-[var(--status-error)]";
 	return (
 		<span
+			role="img"
 			className={`absolute bottom-0 right-0 w-[6px] h-[6px] rounded-[var(--r-pill)]  border-[var(--surface-elevated)] ${bg}`}
 			aria-label={`${initials} - ${status}`}
 		/>
@@ -162,8 +163,8 @@ export function ThreadRow({
 						</svg>
 					)}
 					<span
+						data-testid="thread-row-title"
 						className={`type-copy ${[" truncate", unread ? "" : ""].join(" ")}`}
-						aria-label={`Thread: ${title}`}
 					>
 						{title}
 					</span>
@@ -213,6 +214,7 @@ export function ThreadRow({
 					<div className="flex">
 						{avatars.map((a, i) => (
 							<span
+								// biome-ignore lint/suspicious/noArrayIndexKey: two avatars can share initials — position is the only thing that disambiguates a static, never-reordered list.
 								key={`${a.initials}-${i}`}
 								className={`type-avatar-initial type-avatar-initial--stacked ${[
 									"relative w-[24px] h-[24px] rounded-[var(--r-pill)] inline-flex items-center justify-center shrink-0",

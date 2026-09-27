@@ -144,7 +144,9 @@ export function buildTestHarnessRuntimeAdapter(): RunOrchestrationHarnessRuntime
 				"startTestRuntime never supplies an MCP bridge — this should be unreachable.",
 			);
 		},
-		closeMcpBridge: async () => {},
+		closeMcpBridge: async () => {
+			// no-op stub: this runtime never opens a bridge to close.
+		},
 	};
 }
 

@@ -15,7 +15,9 @@
  */
 
 import type React from "react";
+import { useMemo } from "react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
+import { useStoryFetch } from "../__storybook__/use-story-globals.js";
 import { Conversations } from "./Conversations";
 
 export default { title: "Page: Conversations" };
@@ -24,7 +26,7 @@ export default { title: "Page: Conversations" };
 // State A — no thread selected
 // ---------------------------------------------------------------------------
 
-export const StateA_Empty = (): React.JSX.Element => {
+export const StateAEmpty = (): React.JSX.Element => {
 	const router = createMemoryRouter(
 		[
 			{ path: "/conversations", element: <Conversations /> },
@@ -34,15 +36,15 @@ export const StateA_Empty = (): React.JSX.Element => {
 	);
 	return <RouterProvider router={router} />;
 };
-StateA_Empty.storyName = "A — Queue empty (no thread selected)";
+StateAEmpty.storyName = "A — Queue empty (no thread selected)";
 
 // ---------------------------------------------------------------------------
 // State B — loading
 // ---------------------------------------------------------------------------
 
-export const StateB_Loading = (): React.JSX.Element => {
+export const StateBLoading = (): React.JSX.Element => {
 	// Never-resolving fetch keeps the hook in loading indefinitely.
-	(globalThis as unknown as { fetch: unknown }).fetch = () => new Promise(() => {});
+	useStoryFetch(useMemo(() => (() => new Promise(() => {})) as typeof fetch, []));
 	const router = createMemoryRouter(
 		[
 			{ path: "/conversations", element: <Conversations /> },
@@ -52,15 +54,23 @@ export const StateB_Loading = (): React.JSX.Element => {
 	);
 	return <RouterProvider router={router} />;
 };
-StateB_Loading.storyName = "B — Thread loading";
+StateBLoading.storyName = "B — Thread loading";
 
 // ---------------------------------------------------------------------------
 // State C — error
 // ---------------------------------------------------------------------------
 
-export const StateC_Error = (): React.JSX.Element => {
-	(globalThis as unknown as { fetch: unknown }).fetch = async () =>
-		new Response(JSON.stringify({ error: "Network failure" }), { status: 500 });
+export const StateCError = (): React.JSX.Element => {
+	useStoryFetch(
+		useMemo(
+			() =>
+				(async () =>
+					new Response(JSON.stringify({ error: "Network failure" }), {
+						status: 500,
+					})) as typeof fetch,
+			[],
+		),
+	);
 	const router = createMemoryRouter(
 		[
 			{ path: "/conversations", element: <Conversations /> },
@@ -70,7 +80,7 @@ export const StateC_Error = (): React.JSX.Element => {
 	);
 	return <RouterProvider router={router} />;
 };
-StateC_Error.storyName = "C — Thread error";
+StateCError.storyName = "C — Thread error";
 
 // ---------------------------------------------------------------------------
 // State D — populated (review shape)
@@ -113,12 +123,18 @@ const REVIEW_THREAD = {
 	},
 };
 
-export const StateD_Populated = (): React.JSX.Element => {
-	(globalThis as unknown as { fetch: unknown }).fetch = async () =>
-		new Response(JSON.stringify(REVIEW_THREAD), {
-			status: 200,
-			headers: { "Content-Type": "application/json" },
-		});
+export const StateDPopulated = (): React.JSX.Element => {
+	useStoryFetch(
+		useMemo(
+			() =>
+				(async () =>
+					new Response(JSON.stringify(REVIEW_THREAD), {
+						status: 200,
+						headers: { "Content-Type": "application/json" },
+					})) as typeof fetch,
+			[],
+		),
+	);
 	const router = createMemoryRouter(
 		[
 			{ path: "/conversations", element: <Conversations /> },
@@ -128,15 +144,16 @@ export const StateD_Populated = (): React.JSX.Element => {
 	);
 	return <RouterProvider router={router} />;
 };
-StateD_Populated.storyName = "D — Thread populated (review shape)";
+StateDPopulated.storyName = "D — Thread populated (review shape)";
 
 // ---------------------------------------------------------------------------
 // State E — not found
 // ---------------------------------------------------------------------------
 
-export const StateE_NotFound = (): React.JSX.Element => {
-	(globalThis as unknown as { fetch: unknown }).fetch = async () =>
-		new Response("not found", { status: 404 });
+export const StateENotFound = (): React.JSX.Element => {
+	useStoryFetch(
+		useMemo(() => (async () => new Response("not found", { status: 404 })) as typeof fetch, []),
+	);
 	const router = createMemoryRouter(
 		[
 			{ path: "/conversations", element: <Conversations /> },
@@ -146,4 +163,4 @@ export const StateE_NotFound = (): React.JSX.Element => {
 	);
 	return <RouterProvider router={router} />;
 };
-StateE_NotFound.storyName = "E — Thread not found (404)";
+StateENotFound.storyName = "E — Thread not found (404)";

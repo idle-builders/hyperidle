@@ -21,7 +21,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // These imports fail until green phase creates the files — expected red behavior.
 import { Dialog, type DialogProps } from "../Dialog.js";
 
-// biome-ignore lint/style/useNamingConvention: React's flag name is fixed.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 function makeProps(overrides: Partial<DialogProps> = {}): DialogProps {

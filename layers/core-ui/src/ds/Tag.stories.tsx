@@ -3,7 +3,15 @@ import { Tag } from "./Tag.js";
 export default {
 	title: "Tag",
 	tier: "1" as const,
-	order: ["PlainTagsNoKind", "KindVariants", "MixedGroup", "TagCloud", "InContextDemoCard"],
+	order: [
+		"PlainTagsNoKind",
+		"KindVariants",
+		"AccentTone",
+		"SolidTone",
+		"MixedGroup",
+		"TagCloud",
+		"InContextDemoCard",
+	],
 };
 
 export const PlainTagsNoKind = (): React.JSX.Element => (
@@ -19,6 +27,27 @@ export const KindVariants = (): React.JSX.Element => (
 		<Tag label="recurring-layout" kind="pattern" />
 		<Tag label="go with plan-A" kind="decision" />
 		<Tag label="deploy broke" kind="failure" />
+	</div>
+);
+
+/**
+ * @lore control/chip migration fix: an accent-tinted, uppercase badge for a
+ * chip that names something distinctive (a host kind, a count, a role) —
+ * the closed-set replacement for the accent-uppercase pills several sites
+ * hand-rolled before this rule existed.
+ */
+export const AccentTone = (): React.JSX.Element => (
+	<div className="flex flex-wrap gap-3">
+		<Tag label="task" tone="accent" />
+		<Tag label="2" tone="accent" />
+		<Tag label="agent" tone="accent" />
+	</div>
+);
+
+export const SolidTone = (): React.JSX.Element => (
+	<div className="flex flex-wrap gap-3">
+		<Tag label="23" tone="solid" />
+		<Tag label="99+" tone="solid" />
 	</div>
 );
 

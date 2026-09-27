@@ -196,14 +196,15 @@ export function DocumentSlotList({
 							actions={
 								<>
 									<Tag label={DOCUMENT_SLOT_LABEL[item.slot]} />
-									<button
-										type="button"
+									<Button
+										variant="ghost"
+										tone="danger"
+										size="sm"
 										aria-label={`Delete ${item.title}`}
 										onClick={() => void handleDelete(item.id)}
-										className="type-control cursor-pointer px-[8px] h-[28px] rounded-[var(--r-subtle)] text-[var(--status-error)] hover:bg-[color-mix(in_oklab,var(--status-error)_8%,transparent)]"
 									>
 										Delete
-									</button>
+									</Button>
 								</>
 							}
 							onClick={() => navigate(`/documents/${item.id}`)}

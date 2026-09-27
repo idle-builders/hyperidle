@@ -37,7 +37,7 @@
 import type { ActivityEntry } from "@hyperidle/domain-model";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import { type JSX, useRef, useState } from "react";
-import { Button } from "../ds";
+import { Button, Avatar as DSAvatar, LiveDot, Tag } from "../ds";
 import { call } from "../services/call.js";
 import { clockTime } from "../utils/time.js";
 import { initialsOf } from "./PartList.js";
@@ -97,26 +97,11 @@ export interface SessionViewProps {
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
-function SessionAvatar({
-	who,
-	size = 26,
-	variant = "sm",
-}: {
-	who: PartAuthor;
-	size?: number;
-	variant?: "stacked" | "sm";
-}): JSX.Element {
-	const tint = who.isAgent
-		? "bg-[var(--accent-primary-dim)] border-[var(--accent-deep)] text-[var(--accent-deep)]"
-		: "bg-[var(--surface-container)] border-[var(--border-default)] text-[var(--text-secondary)]";
+function SessionAvatar({ who }: { who: PartAuthor }): JSX.Element {
 	return (
-		<div
-			aria-hidden="true"
-			className={`type-avatar-initial type-avatar-initial--${variant} inline-flex items-center justify-center rounded-[var(--r-pill)] shrink-0 ${tint}`}
-			style={{ width: size, height: size }}
-		>
-			{initialsOf(who.name)}
-		</div>
+		<span aria-hidden="true">
+			<DSAvatar initials={initialsOf(who.name)} size="sm" agent={who.isAgent} />
+		</span>
 	);
 }
 
@@ -129,7 +114,7 @@ function ParticipantGroup({ people }: { people: readonly PartAuthor[] }): JSX.El
 					className="rounded-[var(--r-pill)] ring-2 ring-[var(--surface-page)]"
 					style={{ marginLeft: i === 0 ? 0 : -9, zIndex: people.length - i }}
 				>
-					<SessionAvatar who={p} size={26} variant="stacked" />
+					<SessionAvatar who={p} />
 				</div>
 			))}
 		</div>
@@ -151,7 +136,7 @@ function QueuedBubble({
 		<div data-ds-component="QueuedRow" className="flex flex-col items-end opacity-70">
 			<div className="flex max-w-[80%] flex-col gap-[9px]">
 				<div className="flex items-center gap-[9px]">
-					<SessionAvatar who={msg.author} size={26} />
+					<SessionAvatar who={msg.author} />
 					<span className="type-small   text-[var(--text-secondary)]">{msg.author.name}</span>
 					<span className="type-metadata inline-flex items-center gap-[6px]  text-[var(--text-tertiary)]">
 						<svg
@@ -167,11 +152,13 @@ function QueuedBubble({
 						</svg>
 						Queued · sends when the agent finishes
 					</span>
-					<button
-						type="button"
+					<Button
+						variant="ghost"
+						tone="neutral"
+						size="icon"
 						onClick={onCancel}
 						aria-label="Remove queued message"
-						className="shrink-0 rounded-[var(--r-subtle)] p-[3px] text-[var(--text-tertiary)]   hover:bg-[var(--surface-container)] hover:text-[var(--text-secondary)]"
+						className="shrink-0"
 					>
 						<svg
 							viewBox="0 0 12 12"
@@ -183,7 +170,7 @@ function QueuedBubble({
 						>
 							<path d="M3 3 L9 9 M9 3 L3 9" strokeLinecap="round" />
 						</svg>
-					</button>
+					</Button>
 				</div>
 				<div className="rounded-[var(--r-default)] bg-[var(--surface-container)] px-[12px] py-[9px]">
 					<p className="type-copy m-0   text-[var(--text-secondary)]">{msg.text}</p>
@@ -487,7 +474,7 @@ function SessionStream({
 					>
 						<div className={`flex flex-col gap-[9px] ${isSelf ? "max-w-[80%]" : ""}`}>
 							<div className="flex items-center gap-[9px]">
-								<SessionAvatar who={group.author} size={26} />
+								<SessionAvatar who={group.author} />
 								<span className="type-small   text-[var(--text-primary)]">{group.author.name}</span>
 								{isSelf && <span className="type-metadata   text-[var(--text-tertiary)]">You</span>}
 								{head && (
@@ -609,24 +596,20 @@ function SessionComposer({
 			{/* descriptor pill row — model · working state */}
 			<div className="border-width-thin-t flex items-center gap-[3px]  border-[var(--border-subtle)] px-[9px] py-[6px]">
 				{descriptor && (
-					<button
-						type="button"
-						onClick={handleModelCycle}
-						className="type-control inline-flex items-center gap-[6px] rounded-[var(--r-pill)] px-[9px] py-[3px]   text-[var(--text-secondary)]   hover:bg-[var(--surface-container)] hover:text-[var(--text-primary)]"
-					>
+					<Button variant="ghost" tone="neutral" size="sm" onClick={handleModelCycle}>
 						{descriptor.models.find((m) => m.id === selectedModelId)?.label ?? selectedModelId}
-					</button>
+					</Button>
 				)}
 				<span className="flex-1" />
 				{running && (
 					<>
 						<span className="type-metadata mr-[3px] inline-flex items-center gap-[6px]  text-[var(--text-tertiary)]">
-							<span className="motion-activity inline-block h-[6px] w-[6px] rounded-[var(--r-pill)] bg-[var(--accent-secondary)] " />
+							<span role="img" aria-label="running">
+								<LiveDot tone="secondary" />
+							</span>
 							{elapsedLabel}
 						</span>
-						<span className="type-metadata inline-flex items-center gap-[6px] rounded-[var(--r-pill)] bg-[var(--surface-container)] px-[9px] py-[3px]   text-[var(--text-secondary)]">
-							Queues while working
-						</span>
+						<Tag label="Queues while working" />
 					</>
 				)}
 			</div>
@@ -706,11 +689,13 @@ export function SessionView({
 				<div className="mx-auto flex w-full max-w-[760px] items-center gap-[12px]">
 					<div className="min-w-0 flex-1">
 						<div className="type-metadata flex items-center gap-[6px]  text-[var(--text-secondary)]">
-							<span className="type-label inline-flex items-center gap-[6px] rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[9px] py-[1px]   uppercase  text-[var(--accent-deep)]">
+							<span className="inline-flex items-center gap-[6px]">
 								{running && (
-									<span className="motion-activity inline-block h-[6px] w-[6px] rounded-[var(--r-pill)] bg-[var(--accent-secondary)] " />
+									<span role="img" aria-label="running">
+										<LiveDot tone="secondary" />
+									</span>
 								)}
-								Session
+								<Tag label="Session" tone="accent" />
 							</span>
 							<span className="text-[var(--text-tertiary)]">·</span>
 							<span className="type-small truncate  text-[var(--text-primary)]">

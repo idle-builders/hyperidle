@@ -101,11 +101,14 @@ export function CodeDeltaRenderer({
 	renderTrailing,
 }: CodeDeltaProps): JSX.Element {
 	return (
+		// biome-ignore lint/a11y/useSemanticElements: not a form — <fieldset> doesn't apply to a read-only diff; role="group" is what makes the aria-label below (the file name, not shown anywhere else) take effect.
 		<pre
+			role="group"
 			aria-label={`Code diff: ${delta.file}`}
 			className="type-data bg-[var(--surface-container)] rounded-[var(--r-default)] overflow-x-auto    m-0"
 		>
 			{delta.hunks.map((hunk, hunkIndex) => (
+				// biome-ignore lint/suspicious/noArrayIndexKey: a computed diff is immutable content re-rendered from scratch each time, never reordered.
 				<div key={`${hunkIndex}-${hunk.header}`}>
 					<div className="type-data px-[12px] py-[6px]   text-[var(--text-tertiary)] bg-[color-mix(in_oklab,var(--accent-primary)_6%,transparent)] select-none">
 						{hunk.header}
@@ -121,6 +124,7 @@ export function CodeDeltaRenderer({
 								text: line.text,
 							};
 							return (
+								// biome-ignore lint/suspicious/noArrayIndexKey: a computed diff is immutable content re-rendered from scratch each time, never reordered.
 								<div key={`${hunkIndex}-${lineIndex}-${line.kind}`}>
 									<div data-diff-type={line.kind} className={`relative flex ${LINE_BG[line.kind]}`}>
 										{renderLineGutter?.(ref)}

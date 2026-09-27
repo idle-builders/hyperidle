@@ -33,7 +33,7 @@ export function Avatar({
 	const sizeClass = SIZE_CLASSES[size];
 	const colorClass = agent
 		? "bg-[var(--accent-primary-dim)] border-[var(--accent-deep)] text-[var(--accent-deep)]"
-		: "bg-[var(--surface-page)] border-[var(--border-default)] text-[var(--text-secondary)]";
+		: "bg-[var(--surface-container)] border-[var(--border-default)] text-[var(--text-secondary)]";
 
 	return (
 		<div

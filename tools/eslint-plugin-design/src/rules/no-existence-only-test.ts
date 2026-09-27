@@ -44,7 +44,7 @@ function matcherIsExistenceOnly(matcherName: string, negated: boolean): boolean 
  */
 function classifyExpectCall(node: AnyNode): "existence" | "real" | null {
 	const callee = node.callee as AnyNode | undefined;
-	if (!callee || callee.type !== "MemberExpression") return null;
+	if (callee?.type !== "MemberExpression") return null;
 	const matcherName = (callee.property as { name?: string } | undefined)?.name;
 	if (!matcherName) return null;
 
@@ -55,7 +55,7 @@ function classifyExpectCall(node: AnyNode): "existence" | "real" | null {
 		if (prop?.name === "not") negated = true;
 		cur = cur.object as AnyNode | undefined;
 	}
-	if (!cur || cur.type !== "CallExpression") return null;
+	if (cur?.type !== "CallExpression") return null;
 	const innerCallee = cur.callee as AnyNode | undefined;
 	if (innerCallee?.type !== "Identifier" || innerCallee.name !== "expect") return null;
 

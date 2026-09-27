@@ -132,7 +132,7 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 
 		const spawnCall = spawnSpy.mock.calls[0]!;
 		const spawnEnv = spawnCall[2]?.env as Record<string, string>;
-		expect(spawnEnv["MCP_URL"]).toBe("http://localhost:3001/api/mcp/abc123token");
+		expect(spawnEnv.MCP_URL).toBe("http://localhost:3001/api/mcp/abc123token");
 	});
 
 	it("resolves {{mcpUrl}} to empty string when mcpConnectionInfo is absent", async () => {
@@ -153,7 +153,7 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 
 		const spawnCall = spawnSpy.mock.calls[0]!;
 		const spawnEnv = spawnCall[2]?.env as Record<string, string>;
-		expect(spawnEnv["MCP_URL"]).toBe("");
+		expect(spawnEnv.MCP_URL).toBe("");
 	});
 
 	it("drops --model flag when the agent named no model", async () => {
@@ -366,10 +366,10 @@ describe("CliHarnessAdapter env sandboxing", () => {
 		spawnSpy.mockReturnValue(fakeChild.proc);
 
 		// Temporarily set some env vars to simulate host process env
-		const originalPath = process.env["PATH"];
-		const originalSecret = process.env["HYPERIDLE_SECRET"];
-		process.env["PATH"] = "/usr/bin:/bin";
-		process.env["HYPERIDLE_SECRET"] = "super-secret-should-not-leak";
+		const originalPath = process.env.PATH;
+		const originalSecret = process.env.HYPERIDLE_SECRET;
+		process.env.PATH = "/usr/bin:/bin";
+		process.env.HYPERIDLE_SECRET = "super-secret-should-not-leak";
 
 		const adapter = new CliHarnessAdapter(
 			makeConfig({
@@ -382,17 +382,17 @@ describe("CliHarnessAdapter env sandboxing", () => {
 		await adapter.startSession(makeSessionConfig());
 
 		const spawnEnv = spawnSpy!.mock.calls[0]![2]?.env as Record<string, string>;
-		expect(spawnEnv["PATH"]).toBe("/usr/bin:/bin");
-		expect(spawnEnv["FAKE_MCP"]).toBe("http://localhost:3001/api/mcp/abc123token");
+		expect(spawnEnv.PATH).toBe("/usr/bin:/bin");
+		expect(spawnEnv.FAKE_MCP).toBe("http://localhost:3001/api/mcp/abc123token");
 		// Secret must NOT be forwarded
-		expect(spawnEnv["HYPERIDLE_SECRET"]).toBeUndefined();
+		expect(spawnEnv.HYPERIDLE_SECRET).toBeUndefined();
 
 		// Restore
-		process.env["PATH"] = originalPath;
+		process.env.PATH = originalPath;
 		if (originalSecret !== undefined) {
-			process.env["HYPERIDLE_SECRET"] = originalSecret;
+			process.env.HYPERIDLE_SECRET = originalSecret;
 		} else {
-			delete process.env["HYPERIDLE_SECRET"];
+			delete process.env.HYPERIDLE_SECRET;
 		}
 	});
 
@@ -401,7 +401,7 @@ describe("CliHarnessAdapter env sandboxing", () => {
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
 
-		process.env["DATABASE_URL"] = "postgres://should-not-leak";
+		process.env.DATABASE_URL = "postgres://should-not-leak";
 		const adapter = new CliHarnessAdapter(
 			makeConfig({ args: [], envMap: {}, envAllowlist: ["PATH"] }),
 			{ spawnFn: spawnSpy, killFn: vi.fn() },
@@ -409,8 +409,8 @@ describe("CliHarnessAdapter env sandboxing", () => {
 		await adapter.startSession(makeSessionConfig());
 
 		const spawnEnv = spawnSpy!.mock.calls[0]![2]?.env as Record<string, string>;
-		expect(spawnEnv["DATABASE_URL"]).toBeUndefined();
-		delete process.env["DATABASE_URL"];
+		expect(spawnEnv.DATABASE_URL).toBeUndefined();
+		delete process.env.DATABASE_URL;
 	});
 });
 
@@ -446,7 +446,7 @@ describe("CliHarnessAdapter resumeSession — env construction", () => {
 		await adapter.startSession(startConfig);
 
 		const startEnv = spawnSpy.mock.calls[0]![2]?.env as Record<string, string>;
-		expect(startEnv["MY_MODEL"]).toBe("claude-haiku-4-5");
+		expect(startEnv.MY_MODEL).toBe("claude-haiku-4-5");
 
 		// resumeSession: the model must be resolved from envMap the same way.
 		const resumeConfig: SessionResumeConfig = {
@@ -457,7 +457,7 @@ describe("CliHarnessAdapter resumeSession — env construction", () => {
 		await adapter.resumeSession("fake-session-id", "Hello", resumeConfig);
 
 		const resumeEnv = spawnSpy.mock.calls[1]![2]?.env as Record<string, string>;
-		expect(resumeEnv["MY_MODEL"]).toBe("claude-sonnet-4-6");
+		expect(resumeEnv.MY_MODEL).toBe("claude-sonnet-4-6");
 	});
 
 	it("mcpTokenEnv overrides envMap on resume (per-session specifics win)", async () => {
@@ -486,7 +486,7 @@ describe("CliHarnessAdapter resumeSession — env construction", () => {
 
 		const resumeEnv = spawnSpy.mock.calls[0]![2]?.env as Record<string, string>;
 		// mcpTokenEnv wins over envMap.
-		expect(resumeEnv["MY_TOKEN"]).toBe("from-mcpTokenEnv");
+		expect(resumeEnv.MY_TOKEN).toBe("from-mcpTokenEnv");
 	});
 });
 

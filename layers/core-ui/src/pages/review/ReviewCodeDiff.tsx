@@ -16,7 +16,7 @@ import type { AnchorRef } from "@hyperidle/domain-model";
 import type { JSX, ReactNode } from "react";
 import { Fragment, useMemo, useState } from "react";
 import type { CodeDelta, DiffLineRef } from "../../ds";
-import { CodeDeltaRenderer } from "../../ds";
+import { Button, CodeDeltaRenderer, LiveDot, StatusChip } from "../../ds";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
 import { isPlainObject } from "./payload-guard";
 import { ReviewUnknownCanvas } from "./ReviewUnknownCanvas";
@@ -145,32 +145,24 @@ function ReviewedBox({
 	onToggle: () => void;
 }): JSX.Element {
 	return (
-		<button
-			type="button"
+		<Button
+			variant={reviewed ? "primary" : "secondary"}
+			size="icon"
 			onClick={(e) => {
 				e.stopPropagation();
 				onToggle();
 			}}
 			aria-pressed={reviewed}
 			title={reviewed ? "Reviewed" : "Mark reviewed"}
-			// @lore AZ7: this is a compact 18x18 icon-only reviewed-indicator inside a
-			// dense code-diff row. It is functionally a Checkbox (the design
-			// system's closed input set), but Checkbox.tsx's visible label is
-			// mandatory and would break this row's density; it is not a Button
-			// (not an action). Candidate for a
-			// Checkbox icon-only variant per design-system.md's promotion rule
-			// if a second consumer needs the same shape.
-			className={[
-				"inline-flex h-[18px] w-[18px] items-center justify-center rounded-[var(--r-subtle)]  shrink-0",
-				"  ",
-				reviewed
-					? // eslint-disable-next-line design/no-handrolled-control -- see comment above className
-						"bg-[var(--accent-primary)] border-[var(--accent-primary)] text-[var(--text-on-accent)]"
-					: "bg-[var(--surface-elevated)] border-[var(--border-default)] text-transparent",
-			].join(" ")}
+			// @lore AZ7: functionally a checked/unchecked toggle, but Checkbox.tsx's
+			// visible label is mandatory and this is a dense code-diff row.
+			// primary/secondary are the closed variant set's checked/unchecked
+			// look (solid accent fill vs an empty bordered box); the checkmark is
+			// conditionally rendered rather than colored transparent, so no
+			// per-instance style override is needed.
 		>
-			<CheckGlyph />
-		</button>
+			{reviewed && <CheckGlyph />}
+		</Button>
 	);
 }
 
@@ -306,21 +298,28 @@ function FileDiff({
 		if (readOnly) return null;
 		const info = lineInfoMap.get(lineKey(ref.hunkIndex, ref.lineIndex));
 		if (!info) return null;
+		// Button size="icon" floors at 32/44px — bigger than the original 16px
+		// gutter glyph. Accepted per AZ7 Set 1 (the same growth every hand-rolled
+		// icon button in this migration takes); the hide/reveal-on-hover switches
+		// from display (hidden/flex, which would fight Button's own display
+		// utility) to opacity, a property Button doesn't set.
+		//
+		// B4 fix: opacity-0 + pointer-events-none hid the button visually but
+		// left it IN the tab order — every commentable line put an invisible
+		// focusable "+" in a keyboard user's tab sequence. It now also reveals
+		// on its own focus-visible (not just the line's hover), so a keyboard
+		// user tabbing through sees it appear instead of landing on nothing.
 		return (
-			<button
-				type="button"
+			<Button
+				variant="primary"
+				size="icon"
 				aria-label="Add inline comment"
 				title="Add inline comment"
 				onClick={() => setComposerBlockId(info.blockId)}
-				// A 16x16 hover-triggered gutter affordance positioned at a fixed
-				// offset inside a code line. Button size="icon" floors at 32px
-				// (44px touch) — more than double this affordance's footprint —
-				// and would collide with the line-number gutter. Not a Button fit.
-				// eslint-disable-next-line design/no-handrolled-control -- see comment above
-				className="type-control absolute left-[68px] top-1/2 hidden h-[16px] w-[16px] -translate-y-1/2 items-center justify-center rounded-[var(--r-subtle)] bg-[var(--accent-primary)] text-[var(--text-on-accent)]   group-hover/line:flex focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]"
+				className="absolute left-[68px] top-1/2 -translate-y-1/2 opacity-0 pointer-events-none group-hover/line:opacity-100 group-hover/line:pointer-events-auto focus-visible:opacity-100 focus-visible:pointer-events-auto"
 			>
 				+
-			</button>
+			</Button>
 		);
 	};
 
@@ -337,7 +336,7 @@ function FileDiff({
 					<div className="flex gap-[12px] pl-[88px] pr-[12px] py-[9px]">
 						<div className="flex flex-col items-center gap-0">
 							<div className="w-[var(--bw-default)] h-[18px] bg-[var(--border-strong)]" />
-							<div className="w-[6px] h-[6px] rounded-[var(--r-pill)] bg-[var(--accent-primary)]" />
+							<LiveDot />
 							<div className="w-[var(--bw-default)] flex-1 bg-[var(--border-strong)]" />
 						</div>
 						<InlineComposer
@@ -550,12 +549,7 @@ function ReviewCodeDiffView({
 				<div className="flex items-start gap-[12px]">
 					<div className="min-w-0 flex-1">
 						<div className="type-metadata flex items-center gap-[9px]  text-[var(--text-tertiary)]">
-							<span
-								data-spacing-role="compact-pill"
-								className="type-label inline-flex items-center gap-[4px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--status-success)_14%,transparent)] px-[9px] py-[2px]   uppercase  text-[var(--status-success)]"
-							>
-								Open
-							</span>
+							<StatusChip status="healthy" label="Open" />
 						</div>
 					</div>
 					<div className="shrink-0 pt-[2px]">
@@ -573,13 +567,9 @@ function ReviewCodeDiffView({
 						<span className="type-data  tabular-nums  text-[var(--text-primary)]">{fileCount}</span>{" "}
 						files changed · relevance-ranked
 					</span>
-					<button
-						type="button"
-						onClick={collapseOrExpandAll}
-						className="type-control border-width-thin rounded-[var(--r-pill)]  border-[var(--border-default)] bg-[var(--surface-elevated)] px-[12px] py-[6px]   text-[var(--text-secondary)]    hover:text-[var(--text-primary)]"
-					>
+					<Button variant="secondary" size="sm" onClick={collapseOrExpandAll}>
 						{allCollapsed ? "Expand" : "Collapse"} {fileCount} files changed
-					</button>
+					</Button>
 				</div>
 			</header>
 

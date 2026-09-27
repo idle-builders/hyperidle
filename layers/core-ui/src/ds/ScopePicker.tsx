@@ -45,7 +45,9 @@ export interface ScopePickerProps {
 	dataTestId?: string;
 }
 
-const PILL_BASE =
+// Exported so ScopePickerToggle (below) — a single on/off pill with real
+// toggle-button semantics — can share the exact same look, not a lookalike.
+export const PILL_BASE =
 	"inline-flex items-center justify-center px-[12px] py-[4px] min-h-[44px] xl:min-h-[24px] rounded-[var(--r-pill)] border-width-default focus-visible:outline focus-visible:outline-[2px] focus-visible:outline-[var(--accent-deep)] focus-visible:outline-offset-[2px]";
 
 // @lore UI-007: cursor is computed per-pill inline — never included in a shared
@@ -55,10 +57,11 @@ const PILL_BASE =
 // safe fix is to ensure cursor-pointer is physically absent from disabled pills'
 // class list, which means building it conditionally rather than from a shared const.
 // Same principle for hover:text-* — a disabled control must not respond to hover.
-const PILL_ACTIVE =
+export const PILL_ACTIVE =
 	"bg-[var(--accent-primary-dim)] border-[var(--accent-deep)] text-[var(--accent-deep)]";
 
-const PILL_INACTIVE = "bg-transparent border-[var(--border-default)] text-[var(--text-secondary)]";
+export const PILL_INACTIVE =
+	"bg-transparent border-[var(--border-default)] text-[var(--text-secondary)]";
 
 export function ScopePicker({
 	options,
@@ -87,6 +90,7 @@ export function ScopePicker({
 				const isActive = option.id === activeId;
 				const isDisabled = option.disabled ?? false;
 				return (
+					// biome-ignore lint/a11y/useSemanticElements: WAI-ARIA APG's styled radio-group pattern — a native <input type="radio"> can't be restyled as this pill button.
 					<button
 						key={option.id}
 						type="button"
@@ -120,5 +124,49 @@ export function ScopePicker({
 				);
 			})}
 		</div>
+	);
+}
+
+// ---------------------------------------------------------------------------
+// ScopePickerToggle — the same pill look as ScopePicker, as a real on/off
+// toggle button (aria-pressed), not a radiogroup with one option.
+//
+// @lore V1/V2 fix (control/chip migration re-review): a single-option
+// mode="select" ScopePicker was a one-radio radiogroup whose radio unchecks
+// on a second click — screen readers hear an un-uncheckable radio, and the
+// semantics don't match a real filter toggle (DocumentList's "Memories"
+// chip). ScopePickerToggle shares PILL_BASE/PILL_ACTIVE/PILL_INACTIVE so the
+// look is pixel-identical to the scope pills beside it, with the correct
+// role for a standalone boolean filter.
+// ---------------------------------------------------------------------------
+
+export interface ScopePickerToggleProps {
+	label: string;
+	pressed: boolean;
+	onToggle: () => void;
+	"data-testid"?: string;
+}
+
+export function ScopePickerToggle({
+	label,
+	pressed,
+	onToggle,
+	"data-testid": dataTestId,
+}: ScopePickerToggleProps): JSX.Element {
+	return (
+		<button
+			type="button"
+			aria-pressed={pressed}
+			data-testid={dataTestId}
+			data-active={pressed ? "true" : "false"}
+			onClick={onToggle}
+			className={`type-control ${[
+				PILL_BASE,
+				pressed ? PILL_ACTIVE : PILL_INACTIVE,
+				`cursor-pointer${pressed ? "" : " hover:text-[var(--text-primary)]"}`,
+			].join(" ")}`}
+		>
+			{label}
+		</button>
 	);
 }

@@ -50,7 +50,7 @@ interface ReturnStatusResult {
  * The raw handler. Takes a third `registry` argument so tests can inject
  * an isolated instance rather than the process singleton.
  */
-async function handle(
+function handle(
 	_args: Record<string, never>,
 	ctx: ToolContext,
 	registry: EnforcementRegistry,
@@ -68,7 +68,7 @@ async function handle(
 			budgetLeft: 0,
 			forceMessage: null,
 		};
-		return ok(noEntry);
+		return Promise.resolve(ok(noEntry));
 	}
 
 	// Read pre-increment state: "how many times have you been forced before THIS call".
@@ -97,7 +97,7 @@ async function handle(
 		forceMessage,
 	};
 
-	return ok(result);
+	return Promise.resolve(ok(result));
 }
 
 /**

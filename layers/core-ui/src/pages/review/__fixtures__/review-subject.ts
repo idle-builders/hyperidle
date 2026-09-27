@@ -230,7 +230,6 @@ const codeArtifact: ReviewArtifact<CodeDiffPayload> = {
 								kind: "add",
 								oldNo: null,
 								newNo: 44,
-								// biome-ignore lint/suspicious/noTemplateCurlyInString: reproduces source-code template literal.
 								text: "    setError(`This promo expired on ${fmt(res.expiredAt)}.`);",
 							},
 							{

@@ -48,10 +48,8 @@ describe("hearth-config totality", () => {
 		expect(coreUiBlock).toBeDefined();
 		expect(designSystemBlock).toBeDefined();
 		expect(coreUiBlock?.rules?.["design/radius-token-only"]).toBe("error");
-		// Staged at warn while their existing population is migrated; they return
-		// to error once it is clear.
-		expect(coreUiBlock?.rules?.["design/no-handrolled-control"]).toBe("warn");
-		expect(coreUiBlock?.rules?.["design/no-handrolled-chip"]).toBe("warn");
+		expect(coreUiBlock?.rules?.["design/no-handrolled-control"]).toBe("error");
+		expect(coreUiBlock?.rules?.["design/no-handrolled-chip"]).toBe("error");
 		expect(coreUiBlock?.rules?.["design/no-hardcoded-color"]).toBe("error");
 		expect(coreUiBlock?.rules?.["design/no-off-grid-spacing"]).toBe("error");
 		expect(coreUiBlock?.rules?.["design/shadow-token-only"]).toBe("error");

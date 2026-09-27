@@ -170,7 +170,6 @@ export interface HarnessTestModelSpec {
 	readonly model: string;
 }
 
-// biome-ignore lint/style/useNamingConvention: SCREAMING_SNAKE_CASE constant per typescript.md.
 export const HARNESS_TEST_MODELS = {
 	claude: {
 		// TINY-BASELINE: `haiku` (smallest claude tier), NOT sonnet/opus. See header.

@@ -72,7 +72,7 @@ const CLI_ENTRY_POINTS: readonly string[] = [
 	"tools/governance/src/governance-new-cells.ts",
 ];
 
-const DECLARED_FLAGS: ReadonlySet<string> = new Set(["--fixtures", "--attacks", "--errors-only"]);
+const DECLARED_FLAGS: ReadonlySet<string> = new Set(["--fixtures", "--attacks"]);
 
 /** Every string literal a CLI compares directly against `process.argv`, either spelling. */
 function argvComparisons(source: string): string[] {

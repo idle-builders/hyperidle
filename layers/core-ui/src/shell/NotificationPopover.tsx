@@ -72,29 +72,33 @@ export function NotificationPopover({
 	const behavior = useDialogBehavior({ open, onClose, modal: false, layer: "overlay" });
 	const overlayProps = behavior.getOverlayProps();
 
-	// Mark all unseen on open — intentionally only depends on `open` so this fires
-	// exactly once when the popover opens, not on every unseenCount/markSeen update.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: intentional — fires on open toggle only
+	const markSeenRef = useRef(markSeen);
+	const unseenCountRef = useRef(unseenCount);
+	markSeenRef.current = markSeen;
+	unseenCountRef.current = unseenCount;
+
+	// Mark all unseen on open — fires on open toggle only; refs hold latest markSeen/count.
 	useEffect(() => {
-		if (open && unseenCount > 0) {
-			void markSeen();
+		if (open && unseenCountRef.current > 0) {
+			void markSeenRef.current();
 		}
-	}, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+	}, [open]);
 
 	// @lore AI2: Esc caught at document level for non-modal surfaces (popover div won't
-	// receive keyboard events unless focused). behavior.requestDismiss() routes through
+	// receive keyboard events unless focused). requestDismiss() routes through
 	// the unified guard rule. Outside-click-to-close preserved: popover dismisses on
 	// mousedown outside, matching the old AF8 behavior.
+	const { requestDismiss } = behavior;
 	useEffect(() => {
 		if (!open) return;
 		const handler = (e: KeyboardEvent): void => {
 			if (e.key === "Escape") {
-				behavior.requestDismiss();
+				requestDismiss();
 			}
 		};
 		document.addEventListener("keydown", handler);
 		return () => document.removeEventListener("keydown", handler);
-	}, [open, behavior.requestDismiss]);
+	}, [open, requestDismiss]);
 
 	// Outside-click-to-close
 	useEffect(() => {
@@ -124,6 +128,7 @@ export function NotificationPopover({
 	if (!open) return null;
 
 	return (
+		// biome-ignore lint/a11y/useAriaPropsSupportedByRole: role is statically typed "dialog" in useDialogBehavior.getOverlayProps — biome can't see through the indirection to know aria-modal is valid here.
 		<div
 			ref={overlayRef}
 			role={overlayProps.role}
@@ -153,24 +158,17 @@ export function NotificationPopover({
 				>
 					Notifications
 				</span>
-				<button
-					type="button"
+				<Button
+					variant="ghost"
+					tone="neutral"
+					size="icon"
 					onClick={onClose}
 					aria-label="Close notifications"
-					className="border-none flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--accent-deep)]"
-					style={{
-						background: "none",
-						border: "none",
-						cursor: "pointer",
-						padding: "6px",
-						minWidth: "36px",
-						minHeight: "36px",
-					}}
 				>
 					<svg aria-hidden="true" viewBox="0 0 16 16" className="h-[16px] w-[16px]">
 						<path d="m4 4 8 8m0-8-8 8" fill="none" stroke="currentColor" strokeWidth="1.5" />
 					</svg>
-				</button>
+				</Button>
 			</div>
 
 			{/* Body */}
@@ -241,6 +239,7 @@ export function NotificationPopover({
 									 * hydration errors. Row is a div with role=row semantics; interactive
 									 * via onClick + onKeyDown. The real button at the end handles dismiss.
 									 */}
+									{/* biome-ignore lint/a11y/useSemanticElements: AF8 W1 above — a real <button> here would nest inside the trailing dismiss <button>, which HTML forbids. */}
 									<div
 										role="button"
 										tabIndex={0}
@@ -309,18 +308,11 @@ export function NotificationPopover({
 											style={{ flexShrink: 0 }}
 										>
 											{/* Dismiss (× glyph) */}
-											<button
-												type="button"
+											<Button
+												variant="ghost"
+												tone="neutral"
+												size="icon"
 												aria-label="Dismiss notification"
-												className="border-none flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
-												style={{
-													background: "none",
-													border: "none",
-													cursor: "pointer",
-													padding: "3px",
-													minWidth: "36px",
-													minHeight: "36px",
-												}}
 												onClick={(e) => {
 													e.stopPropagation();
 													void markRead(row.change.id);
@@ -334,7 +326,7 @@ export function NotificationPopover({
 														strokeWidth="1.5"
 													/>
 												</svg>
-											</button>
+											</Button>
 										</span>
 									</div>
 								</li>

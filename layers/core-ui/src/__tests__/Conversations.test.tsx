@@ -414,11 +414,13 @@ describe("Conversations — review Parts carry no inline verdict or reasoning to
 // ---------------------------------------------------------------------------
 
 describe("Conversations — composer and review navigation", () => {
-	let lastPath = "";
-	function LocationProbe(): null {
+	function LocationProbe() {
 		const loc = useLocation();
-		lastPath = loc.pathname;
-		return null;
+		return <div data-testid="location-probe">{loc.pathname}</div>;
+	}
+
+	function readLocationPath(): string {
+		return screen.getByTestId("location-probe").textContent ?? "";
 	}
 
 	interface SendMessageCall {
@@ -428,7 +430,6 @@ describe("Conversations — composer and review navigation", () => {
 
 	beforeEach(() => {
 		sends = [];
-		lastPath = "";
 	});
 
 	function renderWithProbe(threadId: string): void {
@@ -492,10 +493,10 @@ describe("Conversations — composer and review navigation", () => {
 
 		await user.click(screen.getByRole("button", { name: /open review/i }));
 
-		await waitFor(() => expect(lastPath).toBe(`/reviews/${reviewId}`));
-		expect(lastPath).not.toContain("//");
-		expect(lastPath).not.toContain("/conversations");
-		expect(lastPath).not.toContain("/work/bet");
+		await waitFor(() => expect(readLocationPath()).toBe(`/reviews/${reviewId}`));
+		expect(readLocationPath()).not.toContain("//");
+		expect(readLocationPath()).not.toContain("/conversations");
+		expect(readLocationPath()).not.toContain("/work/bet");
 		expect(sends.some((s) => s.input.verdict !== undefined)).toBe(false);
 	});
 });

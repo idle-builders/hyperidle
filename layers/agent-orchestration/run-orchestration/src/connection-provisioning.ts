@@ -293,7 +293,7 @@ function deriveMcpServerName(
  * hyperidle entry written by Phase 8b). The merge must preserve the existing
  * entries — AN2 is additive.
  */
-export async function applyProvisioningPlan(args: {
+export function applyProvisioningPlan(args: {
 	readonly plan: ProvisioningPlan;
 	readonly sandboxPath: string;
 	readonly cliMcpDialect?: "codex-toml" | "opencode-json" | "cursor-json";
@@ -304,27 +304,27 @@ export async function applyProvisioningPlan(args: {
 	if (plan.mcpServers.length === 0) {
 		// Nothing to write; env injections from envInjections only flow via mcpTokenEnv
 		// at the Phase 8b-connections merge point in session-provisioning.ts.
-		return { mcpTokenEnv: {} };
+		return Promise.resolve({ mcpTokenEnv: {} });
 	}
 
 	if (cliMcpDialect === "codex-toml") {
-		return writeCodexTomlEntries({ sandboxPath, mcpServers: plan.mcpServers });
+		return Promise.resolve(writeCodexTomlEntries({ sandboxPath, mcpServers: plan.mcpServers }));
 	}
 
 	if (cliMcpDialect === "opencode-json") {
 		writeOpencodeJsonEntries({ sandboxPath, mcpServers: plan.mcpServers });
-		return { mcpTokenEnv: {} };
+		return Promise.resolve({ mcpTokenEnv: {} });
 	}
 
 	if (claudeNative) {
 		writeClaudeMcpJsonEntries({ sandboxPath, mcpServers: plan.mcpServers });
-		return { mcpTokenEnv: {} };
+		return Promise.resolve({ mcpTokenEnv: {} });
 	}
 
 	// No carrier (e.g. builtin or unknown harness type): no-op.
 	// @lore AN2 builtin-scoped-out: builtin has no carrier — a dead write here
 	// would go nowhere. The correct behavior is to write nothing.
-	return { mcpTokenEnv: {} };
+	return Promise.resolve({ mcpTokenEnv: {} });
 }
 
 // ── Per-harness writers ───────────────────────────────────────────────────────
@@ -420,7 +420,6 @@ function writeOpencodeJsonEntries(params: {
 
 		if (server.bearerToken !== undefined) {
 			entry.headers = {
-				// biome-ignore lint/style/useNamingConvention: HTTP header name is canonical RFC case
 				Authorization: `Bearer ${server.bearerToken}`,
 			};
 		}
@@ -479,7 +478,6 @@ function writeClaudeMcpJsonEntries(params: {
 
 		if (server.bearerToken !== undefined) {
 			entry.headers = {
-				// biome-ignore lint/style/useNamingConvention: HTTP header name is canonical RFC case
 				Authorization: `Bearer ${server.bearerToken}`,
 			};
 		}

@@ -76,7 +76,6 @@ export async function checkAndUnblockDependents(
 				taskId: task.id,
 				problems: result.problems,
 			});
-			continue;
 		}
 	}
 }
@@ -137,7 +136,6 @@ export async function handleDependencyKilled(
 				taskId: task.id,
 				problems: result.problems,
 			});
-			continue;
 		}
 	}
 }

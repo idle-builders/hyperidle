@@ -814,7 +814,7 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 				ids: [input.review.producedItemId],
 			});
 			const produced = producedResult.ok ? producedResult.data[0] : undefined;
-			if (!produced || produced.parentKind !== "task" || produced.parentId !== ctx.caller.taskId) {
+			if (produced?.parentKind !== "task" || produced.parentId !== ctx.caller.taskId) {
 				return {
 					ok: false,
 					problems: [
@@ -840,7 +840,7 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 				};
 			}
 			const sender = await deps.users.getUserById(ctx.db, ctx.actor);
-			if (!sender || sender.kind !== "human") {
+			if (sender?.kind !== "human") {
 				return {
 					ok: false,
 					problems: [{ code: "verdict_not_human", message: "Only a human may give a verdict." }],

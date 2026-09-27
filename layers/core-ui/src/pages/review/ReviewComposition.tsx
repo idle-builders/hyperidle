@@ -4,7 +4,20 @@ import {
 	verdictDecisionLabel,
 } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useMemo, useState } from "react";
-import { Breadcrumb, Button, Composer, PageHeader, PageScaffold, SplitView } from "../../ds";
+import {
+	Avatar,
+	Breadcrumb,
+	Button,
+	Composer,
+	Menu,
+	PageHeader,
+	PageScaffold,
+	Row,
+	RowDot,
+	type RowTone,
+	SplitView,
+	Tag,
+} from "../../ds";
 import { useUiPreference } from "../../hooks/useUiPreference.js";
 import { useViewportBreakpoint } from "../../hooks/useViewportBreakpoint.js";
 import { getReviewCanvas } from "./canvas-registry.js";
@@ -49,11 +62,11 @@ function CheckGlyph(): JSX.Element {
 	);
 }
 
-const NEED_TONE: Record<ReviewNeed["kind"], string> = {
-	"unhandled-exception": "var(--status-error)",
-	"over-authority": "var(--status-error)",
-	"blast-radius": "var(--status-warning)",
-	"unverified-claim": "var(--status-warning)",
+const NEED_TONE: Record<ReviewNeed["kind"], RowTone> = {
+	"unhandled-exception": "error",
+	"over-authority": "error",
+	"blast-radius": "warning",
+	"unverified-claim": "warning",
 };
 
 /** kind badge — tiny neutral chip. */
@@ -70,11 +83,7 @@ const KIND_LABEL: Record<string, string> = {
 };
 
 function KindBadge({ kind }: { kind: string }): JSX.Element {
-	return (
-		<span className="type-label inline-flex items-center rounded-[var(--r-pill)] bg-[var(--surface-container)] px-[6px] py-[3px]   uppercase   text-[var(--text-tertiary)]">
-			{KIND_LABEL[kind as keyof typeof KIND_LABEL] ?? kind}
-		</span>
-	);
+	return <Tag label={KIND_LABEL[kind as keyof typeof KIND_LABEL] ?? kind} />;
 }
 
 /** status dot + label — calm. */
@@ -96,27 +105,16 @@ function StatusDot({ tone, label }: { tone: string; label: string }): JSX.Elemen
 
 function AgentAvatar({ name }: { name: string }): JSX.Element {
 	return (
-		<span
-			data-az16-profile="avatar-initial"
-			aria-hidden="true"
-			className="type-avatar-initial type-avatar-initial--sm inline-flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[var(--r-pill)] text-white"
-			style={{ background: "var(--accent-primary)" }}
-			title={name}
-		>
-			{name.slice(0, 2)}
+		<span aria-hidden="true" title={name}>
+			<Avatar initials={name.slice(0, 2)} agent size="sm" />
 		</span>
 	);
 }
 
 function HumanAvatar({ name }: { name: string }): JSX.Element {
 	return (
-		<span
-			data-az16-profile="avatar-initial strong"
-			aria-hidden="true"
-			className="type-avatar-initial type-avatar-initial--sm border-width-strong inline-flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[var(--r-pill)] border-[var(--border-default)] bg-[var(--surface-container)] text-[var(--text-secondary)]"
-			title={name}
-		>
-			{name.slice(0, 2)}
+		<span aria-hidden="true" title={name}>
+			<Avatar initials={name.slice(0, 2)} size="sm" />
 		</span>
 	);
 }
@@ -126,6 +124,7 @@ function HumanAvatar({ name }: { name: string }): JSX.Element {
 interface VerdictProps {
 	readonly menuOpen: boolean;
 	readonly onToggleMenu: () => void;
+	readonly onCloseMenu: () => void;
 	readonly onSubmit: (decision: VerdictDecision) => void;
 	readonly resolved?: boolean;
 	readonly activeDecision?: VerdictDecision;
@@ -136,6 +135,7 @@ const OVERFLOW_DECISIONS: VerdictDecision[] = ["approve-with-comments", "edit", 
 function Verdict({
 	menuOpen,
 	onToggleMenu,
+	onCloseMenu,
 	onSubmit,
 	resolved,
 	activeDecision,
@@ -152,46 +152,38 @@ function Verdict({
 				<CheckGlyph />
 				Approve
 			</Button>
-			<button
-				type="button"
+			<Button
+				variant="secondary"
 				disabled={resolved}
 				onClick={() => onSubmit("request-changes")}
 				aria-pressed={activeDecision === "request-changes"}
-				className="type-control border-width-thin rounded-[var(--r-pill)]  border-[var(--border-default)] bg-[var(--surface-elevated)] px-[12px] py-[7px]   text-[var(--text-secondary)]    hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-60"
 			>
 				Request changes
-			</button>
-			<button
-				type="button"
+			</Button>
+			<Button
+				variant="secondary"
+				size="icon"
 				disabled={resolved}
 				aria-label="More verdict options"
 				aria-expanded={menuOpen}
 				onClick={onToggleMenu}
-				className="type-control border-width-thin inline-flex h-[32px] w-[32px] items-center justify-center rounded-[var(--r-pill)]  border-[var(--border-default)] bg-[var(--surface-elevated)]   text-[var(--text-secondary)]    hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-60"
 			>
 				⋯
-			</button>
-			{menuOpen ? (
-				<div className="border-width-thin absolute right-0 top-[40px] z-10 w-[200px] overflow-hidden rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] py-[6px] shadow-[var(--shadow-elevated)]">
-					{OVERFLOW_DECISIONS.map((decision) => (
-						<button
-							key={decision}
-							type="button"
-							disabled={resolved}
-							onClick={() => {
-								onToggleMenu();
-								onSubmit(decision);
-							}}
-							className={`type-control ${[
-								"block w-full px-[12px] py-[7px] text-left     hover:bg-[var(--surface-container)] disabled:cursor-not-allowed disabled:opacity-60",
-								decision === "reject" ? "text-[var(--status-error)]" : "text-[var(--text-primary)]",
-							].join(" ")}`}
-						>
-							{verdictDecisionLabel(decision)}
-						</button>
-					))}
-				</div>
-			) : null}
+			</Button>
+			<Menu
+				open={menuOpen}
+				onClose={onCloseMenu}
+				label="More verdict options"
+				items={OVERFLOW_DECISIONS.map((decision) => ({
+					id: decision,
+					label: verdictDecisionLabel(decision),
+					disabled: resolved,
+					destructive: decision === "reject",
+					onSelect: () => {
+						onSubmit(decision);
+					},
+				}))}
+			/>
 		</div>
 	);
 }
@@ -200,6 +192,7 @@ function FrameHeader({
 	subject,
 	menuOpen,
 	onToggleMenu,
+	onCloseMenu,
 	onSubmitVerdict,
 	resolved,
 	presentation,
@@ -208,6 +201,7 @@ function FrameHeader({
 	readonly subject: ComposedReviewSubject;
 	readonly menuOpen: boolean;
 	readonly onToggleMenu: () => void;
+	readonly onCloseMenu: () => void;
 	readonly onSubmitVerdict: (decision: VerdictDecision) => void;
 	readonly resolved?: boolean;
 	readonly presentation: "page" | "pane";
@@ -268,6 +262,7 @@ function FrameHeader({
 				<Verdict
 					menuOpen={menuOpen}
 					onToggleMenu={onToggleMenu}
+					onCloseMenu={onCloseMenu}
 					onSubmit={onSubmitVerdict}
 					resolved={resolved}
 					activeDecision={subject.verdict?.decision}
@@ -379,33 +374,20 @@ function NeedsSection({
 				{s.needs.map((need) => {
 					const target = need.artifactId;
 					return (
-						<button
+						<Row
 							key={need.id}
-							type="button"
+							as="button"
 							onClick={() => target && onJump(target)}
 							disabled={!target}
-							className="group flex w-full items-start gap-[9px] rounded-[var(--r-subtle)] px-[9px] py-[6px] text-left   hover:bg-[var(--surface-container)] disabled:cursor-default"
-						>
-							<span
-								aria-hidden="true"
-								className="mt-[6px] inline-block h-[7px] w-[7px] shrink-0 rounded-[var(--r-pill)]"
-								style={{ background: NEED_TONE[need.kind] }}
-							/>
-							<span className="min-w-0 flex-1">
-								<span className="type-small block   text-[var(--text-primary)]">{need.label}</span>
-								<span className="type-metadata block   text-[var(--text-secondary)]">
-									{need.detail}
-								</span>
-							</span>
-							{target ? (
-								<span
-									data-spacing-role="optical-offset"
-									className="type-metadata mt-[1px] shrink-0 whitespace-nowrap   text-[var(--accent-deep)]"
-								>
-									Jump →
-								</span>
-							) : null}
-						</button>
+							lead={<RowDot tone={NEED_TONE[need.kind]} />}
+							title={need.label}
+							subtitle={need.detail}
+							cells={
+								target
+									? [{ content: <span className="text-[var(--accent-deep)]">Jump →</span> }]
+									: undefined
+							}
+						/>
 					);
 				})}
 			</div>
@@ -422,42 +404,28 @@ interface ArtifactEntryProps {
 }
 
 function ArtifactEntry({ artifact, active, onOpen }: ArtifactEntryProps): JSX.Element {
+	// Row's button-branch already carries w-full (framework/design-system's
+	// UI-060 fix shipped; .pipeline/AZ-bugs.md's checkbox was stale) — this is
+	// the icon + title/subtitle + trailing cells + selected-state shape Row
+	// already owns.
 	return (
-		<button
-			type="button"
+		<Row
+			as="button"
 			onClick={onOpen}
-			aria-current={active}
-			// This is functionally a Row (icon + title, clickable, selected-state
-			// accent tint) and belongs on <Row>, but Row's button-branch is
-			// missing w-full today (bug-list UI-060, unfixed). Migrating onto
-			// the broken branch would shrink-wrap this row narrower than its
-			// current w-full. Left as a hand-rolled row pending UI-060.
-			// @lore AZ7 N1: bg-[var(--accent-primary-dim)] is Set 3's row-hover /
-			// selected tint — not a no-handrolled-control violation.
-			className={[
-				"group flex w-full items-center gap-[12px] rounded-[var(--r-subtle)] border-width-thin bg-[var(--surface-elevated)] px-[12px] py-[9px] text-left",
-				active
-					? "border-[var(--accent-deep)] bg-[var(--accent-primary-dim)]"
-					: "border-[var(--border-subtle)] hover:border-[var(--border-default)]",
-			].join(" ")}
-		>
-			<KindBadge kind={artifact.kind} />
-			<ToolLogo tool={artifact.tool as ToolId} size="sm" />
-			<div className="min-w-0 flex-1">
-				<div className="flex items-center gap-[6px]">
-					<span className="type-data truncate    text-[var(--text-primary)]">{artifact.title}</span>
-				</div>
-				<p className="type-metadata truncate  text-[var(--text-secondary)]">
-					{artifact.summary ?? ""}
-				</p>
-			</div>
-			<span className="type-data shrink-0   tabular-nums text-[var(--text-tertiary)]">
-				{artifact.badge ?? ""}
-			</span>
-			<span className="motion-move type-metadata shrink-0   text-[var(--accent-deep)]    group-hover:translate-x-[3px]">
-				Open →
-			</span>
-		</button>
+			selected={active}
+			title={artifact.title}
+			subtitle={artifact.summary ?? ""}
+			lead={
+				<span className="inline-flex items-center gap-[9px]">
+					<KindBadge kind={artifact.kind} />
+					<ToolLogo tool={artifact.tool as ToolId} size="sm" />
+				</span>
+			}
+			cells={[
+				{ content: artifact.badge ?? "", numeric: true },
+				{ content: <span className="text-[var(--accent-deep)]">Open →</span> },
+			]}
+		/>
 	);
 }
 
@@ -504,25 +472,23 @@ function CommentItem({ comment }: { comment: ReviewComment }): JSX.Element {
 			<div className="min-w-0 flex-1">
 				<div className="flex items-center gap-[6px]">
 					<span className="type-small   text-[var(--text-primary)]">{comment.author}</span>
-					{comment.authorIsAgent ? (
-						<span className="type-label rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[6px] py-[1px]   uppercase  text-[var(--accent-deep)]">
-							agent
-						</span>
-					) : null}
+					{comment.authorIsAgent ? <Tag label="agent" tone="accent" /> : null}
 					<span className="type-metadata  text-[var(--text-tertiary)]">{comment.ago}</span>
 				</div>
 				{ref ? (
-					<button
-						type="button"
+					<Button
+						variant="ghost"
+						tone="neutral"
+						size="sm"
+						className="mt-[3px]"
 						onClick={() => {
 							if (comment.anchor) onJumpToAnchor(comment.anchor);
 						}}
-						className="type-control border-width-thin mt-[3px] inline-flex items-center gap-[4px] rounded-[var(--r-pill)]  border-[var(--border-subtle)] bg-[var(--surface-container)] px-[6px] py-[1px]  text-[var(--text-tertiary)]    hover:text-[var(--text-secondary)]"
 						aria-label={comment.anchor ? `Go to anchor ${label}` : undefined}
 					>
 						<span className="text-[var(--text-tertiary)]">on</span>
 						<span className="type-data  text-[var(--text-secondary)]">{label}</span>
-					</button>
+					</Button>
 				) : null}
 				<p className="type-small mt-[3px]   text-[var(--text-secondary)]">{comment.body}</p>
 			</div>
@@ -604,16 +570,11 @@ function ExaminePane({
 						}
 						title={<span className="block truncate">{artifact.title}</span>}
 						actions={
-							<button
-								type="button"
-								aria-label="Close artifact"
-								onClick={onClose}
-								className="inline-flex h-[28px] w-[28px] items-center justify-center rounded-[var(--r-pill)] border-width-thin border-[var(--border-default)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-							>
+							<Button variant="secondary" size="icon" aria-label="Close artifact" onClick={onClose}>
 								<svg aria-hidden="true" viewBox="0 0 16 16" className="h-[14px] w-[14px]">
 									<path d="m4 4 8 8m0-8-8 8" fill="none" stroke="currentColor" strokeWidth="1.5" />
 								</svg>
-							</button>
+							</Button>
 						}
 					/>
 				}
@@ -643,6 +604,12 @@ export function ReviewComposition({
 }: ReviewCompositionProps): JSX.Element {
 	const [activeId, setActiveId] = useState<string | null>(initialOpenArtifactId);
 	const [menuOpen, setMenuOpen] = useState(false);
+	// B3 fix: onSelect and Menu's own onClose both toggled menuOpen, so a
+	// pick closed it once (via onSelect's toggle) then reopened it (via
+	// Menu's own onClose firing right after, Menu.tsx:242-243) — the menu
+	// never stayed closed after a pick. closeMenu is an explicit close, not
+	// a toggle, so both call sites land on the same state regardless of order.
+	const closeMenu = useCallback(() => setMenuOpen(false), []);
 	// SplitView ratio persistence for the review surface
 	const [reviewRatio, setReviewRatio] = useUiPreference("review", 0.55);
 	const { sidebarMobile } = useViewportBreakpoint();
@@ -703,6 +670,7 @@ export function ReviewComposition({
 						subject={subject}
 						menuOpen={menuOpen}
 						onToggleMenu={() => setMenuOpen((v) => !v)}
+						onCloseMenu={closeMenu}
 						onSubmitVerdict={onSubmitVerdict}
 						resolved={resolved}
 						presentation={listPresentation}

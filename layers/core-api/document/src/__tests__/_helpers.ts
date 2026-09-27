@@ -142,7 +142,7 @@ export function writeDeps(opts: DepsOptions = {}): DocumentActionsDeps {
 				const [row] = await exec.select().from(users).where(eq(users.id, id)).limit(1);
 				return row;
 			},
-			listOwnedBy: async (exec: WriteExecutor, ownerId: string) => {
+			listOwnedBy: (exec: WriteExecutor, ownerId: string) => {
 				return exec.select().from(users).where(eq(users.ownerUserId, ownerId));
 			},
 		},
@@ -154,15 +154,19 @@ export function writeDeps(opts: DepsOptions = {}): DocumentActionsDeps {
 		},
 		openParent:
 			opts.openParent ??
-			(async () => {
+			(() => {
 				throw new Error("openParent not stubbed for this test");
 			}),
 		systemParentExists:
 			opts.systemParentExists ??
-			(async () => {
+			(() => {
 				throw new Error("systemParentExists not stubbed for this test");
 			}),
-		onBodyChanged: opts.onBodyChanged ?? (async () => {}),
+		onBodyChanged:
+			opts.onBodyChanged ??
+			(async () => {
+				// no-op stub: tests that don't assert on body-changed side effects
+			}),
 		...(opts.wsPush ? { wsPush: opts.wsPush } : {}),
 	};
 }
@@ -188,7 +192,7 @@ export async function readRow(db: HyperIdleDb, id: string) {
 	return row;
 }
 
-export async function readChanges(db: HyperIdleDb, objectId: string) {
+export function readChanges(db: HyperIdleDb, objectId: string) {
 	return db
 		.select()
 		.from(changes)

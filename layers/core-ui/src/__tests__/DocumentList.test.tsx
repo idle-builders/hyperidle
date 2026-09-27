@@ -628,6 +628,21 @@ describe("DocumentList — the Memories filter chip", () => {
 		await user.click(chip);
 		expect(mockUseDocuments).toHaveBeenLastCalledWith({ inTree: true });
 	});
+
+	it("exposes aria-pressed on the Memories chip and flips it on click — a real toggle, not a radio", async () => {
+		const user = userEvent.setup();
+		renderAt();
+		const chip = await screen.findByTestId("memories-filter-chip");
+
+		expect(chip).toHaveAttribute("aria-pressed", "false");
+		expect(chip).not.toHaveAttribute("role", "radio");
+
+		await user.click(chip);
+		expect(chip).toHaveAttribute("aria-pressed", "true");
+
+		await user.click(chip);
+		expect(chip).toHaveAttribute("aria-pressed", "false");
+	});
 });
 
 // ---------------------------------------------------------------------------

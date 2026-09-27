@@ -33,8 +33,7 @@ The L7 retro proposal `PROPOSED-L7-A` was explicit:
 > hooks/useRecoveryFetch.ts and __tests__).
 
 This rule is the realisation of that proposal. It is wired at
-`warn`-level today; the next track that touches the wider codebase will
-clear the baseline and promote it to `error`.
+`error`-level.
 
 ## What is detected
 
@@ -94,13 +93,13 @@ const res = await fetch(input, {
 
 ## Configuration
 
-The rule is enabled at `warn`-level in the root `eslint.config.js` for
+The rule is enabled at `error`-level in the root `eslint.config.ts` for
 `layers/core-ui/src/**/*.{ts,tsx}` with the same allowlist applied via
 `ignores`. There are no rule options.
 
 ## Related
 
 - `design/no-raw-tailwind-color` — a similar regex-detectable
-  recurrence rule wired at `warn` for the same package.
+  recurrence rule, wired at `error` for the same package.
 - L7 retro proposal `PROPOSED-L7-A` — the source-of-truth proposal
   that motivated this rule.

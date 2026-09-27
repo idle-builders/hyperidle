@@ -30,7 +30,11 @@ export function ScrollBody(): JSX.Element {
 			>
 				<div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 12 }}>
 					{Array.from({ length: 20 }, (_, i) => (
-						<div key={i} style={{ padding: 12, background: "var(--surface-container, #f2f0ec)" }}>
+						<div
+							// biome-ignore lint/suspicious/noArrayIndexKey: fixed-length demo scroll content, generated once and never reordered.
+							key={i}
+							style={{ padding: 12, background: "var(--surface-container, #f2f0ec)" }}
+						>
 							Row {i + 1}
 						</div>
 					))}

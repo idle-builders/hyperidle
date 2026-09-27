@@ -185,10 +185,17 @@ function ReviewBrowserPreviewView({ data, documentTitle }: ReviewBrowserPreviewP
 					>
 						<span
 							aria-hidden="true"
-							className="type-metadata shrink-0 "
+							className="type-metadata shrink-0 inline-flex"
 							style={{ color: "var(--status-success)" }}
 						>
-							🔒
+							<svg
+								viewBox="0 0 16 16"
+								fill="currentColor"
+								style={{ width: 12, height: 12 }}
+								aria-hidden="true"
+							>
+								<path d="M4.5 7V5.5a3.5 3.5 0 017 0V7H13a1 1 0 011 1v5.5a1 1 0 01-1 1H3a1 1 0 01-1-1V8a1 1 0 011-1h1.5zm1.5 0h4V5.5a2 2 0 10-4 0V7z" />
+							</svg>
 						</span>
 						<span className="type-data truncate " style={{ color: "var(--text-secondary)" }}>
 							{data.url}

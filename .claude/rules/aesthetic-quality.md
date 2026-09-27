@@ -19,12 +19,9 @@ Read this before trusting a rule to catch anything.
 
 - Severity is decided per scope in `tools/eslint-plugin-design/src/hearth-config.ts`
   (`RULE_SEVERITY`): `ds/**` is where the system is BUILT, everything else in `layers/core-ui/src` is
-  code that USES it, and a rule can be `error` in one and `warn` or `off` in the other.
-- `npm run lint` runs ESLint with `--quiet`, which **drops every warn-level rule**. Anything wired at
-  `warn` produces no output there and cannot fail the build.
-- `npm run lint:design` runs the design rule set standalone with warnings included. It currently
-  currently reports 0 errors and ~180 warnings — that is the population no gate is stopping. Run it for the live number. Run it before
-  claiming a surface is clean.
+  code that USES it, and a rule can be `error` in one and `off` in the other. There is no `warn` —
+  every wired rule is `error`, and `npm run lint` runs ESLint with `--max-warnings=0`, so nothing at
+  any severity can pass silently.
 - A rule that is `off` in both scopes has a dedicated narrower block in `eslint.config.ts`; the
   totality test in the plugin fails if a rule is wired nowhere at all.
 

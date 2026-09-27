@@ -228,12 +228,12 @@ function DocumentOverflowMenu({
 
 	return (
 		<div className="relative">
-			<button
-				type="button"
+			<Button
+				variant="secondary"
+				size="icon"
 				aria-label="More options"
 				aria-expanded={overflowOpen}
 				aria-haspopup="menu"
-				className="border-width-default inline-flex items-center justify-center w-[32px] h-[32px] min-h-[44px] min-w-[44px] xl:min-h-[32px] xl:min-w-[32px] rounded-[var(--r-pill)] border-[var(--border-default)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] cursor-pointer hover:border-[var(--accent-deep)] hover:text-[var(--text-primary)]"
 				onClick={onToggle}
 			>
 				<svg aria-hidden="true" viewBox="0 0 16 16" className="h-[16px] w-[16px]">
@@ -241,7 +241,7 @@ function DocumentOverflowMenu({
 					<circle cx="8" cy="8" r="1" fill="currentColor" />
 					<circle cx="13" cy="8" r="1" fill="currentColor" />
 				</svg>
-			</button>
+			</Button>
 			{overflowOpen && (
 				<div data-testid="document-overflow-menu">
 					<Menu

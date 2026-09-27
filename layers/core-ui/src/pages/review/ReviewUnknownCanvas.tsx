@@ -1,4 +1,5 @@
 import type { JSX } from "react";
+import { Tag } from "../../ds";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
 import type { ReviewCanvasProps } from "./review-artifact";
 
@@ -25,9 +26,7 @@ export function ReviewUnknownCanvas({ artifact }: ReviewCanvasProps): JSX.Elemen
 			/>
 			<div className="px-[18px] py-[18px]">
 				<div className="mb-[12px] flex items-center gap-[9px]">
-					<span className="type-label rounded-[var(--r-pill)] bg-[var(--surface-container)] px-[9px] py-[3px]   uppercase  text-[var(--text-tertiary)]">
-						{kindLabel}
-					</span>
+					<Tag label={kindLabel} />
 					<span className="type-small  text-[var(--text-secondary)]">No dedicated canvas</span>
 				</div>
 				<section aria-label="Artifact payload preview">

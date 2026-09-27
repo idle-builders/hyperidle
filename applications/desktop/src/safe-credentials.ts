@@ -87,7 +87,7 @@ export function createSafeCredentialsManager(credentialsPath: string): SafeCrede
 	function registerHandlers(): void {
 		ipcMain.handle(
 			"credentials:set",
-			async (_event: unknown, name: string, value: string): Promise<SetCredentialResult> => {
+			(_event: unknown, name: string, value: string): SetCredentialResult => {
 				if (name !== CREDENTIAL_NAME) {
 					return {
 						stored: false,

@@ -25,7 +25,7 @@ type AnyNode = { type: string; [k: string]: unknown };
 function memberPropertyName(callee: AnyNode): string | null {
 	if (callee.type !== "MemberExpression") return null;
 	const prop = callee.property as AnyNode | null;
-	if (!prop || prop.type !== "Identifier") return null;
+	if (prop?.type !== "Identifier") return null;
 	return (prop as { name?: string }).name ?? null;
 }
 

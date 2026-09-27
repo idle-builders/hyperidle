@@ -311,7 +311,7 @@ function walkTs(dir: string): string[] {
  * Run the inventory over the specified source directories.
  * Returns the sorted list of InventoryRow objects.
  */
-export async function runInventory(options: RunInventoryOptions): Promise<InventoryRow[]> {
+export function runInventory(options: RunInventoryOptions): Promise<InventoryRow[]> {
 	const { webSrc, serverSrcDirs } = options;
 
 	// Collect all files to scan
@@ -390,7 +390,7 @@ export async function runInventory(options: RunInventoryOptions): Promise<Invent
 		return a.line - b.line;
 	});
 
-	return rows;
+	return Promise.resolve(rows);
 }
 
 // ---------------------------------------------------------------------------
@@ -469,8 +469,8 @@ function emitMarkdown(rows: InventoryRow[], repoRoot: string): string {
 	for (const row of rows) {
 		let bucket = buckets[row.triageHint];
 		if (bucket === undefined || bucket === null) {
-			buckets["borderline"] = [];
-			bucket = buckets["borderline"];
+			buckets.borderline = [];
+			bucket = buckets.borderline;
 		}
 		bucket.push(row);
 	}

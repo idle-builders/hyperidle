@@ -185,7 +185,7 @@ export async function stopSessionRun(
 	abort: (sessionId: string) => Promise<boolean>,
 ): Promise<"aborted" | "marked" | "already_ended"> {
 	const row = await findSessionById(db, sessionId);
-	if (!row || row.state !== "active") return "already_ended";
+	if (row?.state !== "active") return "already_ended";
 
 	const wasAborted = await abort(sessionId);
 	if (wasAborted) return "aborted";

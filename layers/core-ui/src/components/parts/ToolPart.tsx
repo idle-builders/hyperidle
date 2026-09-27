@@ -15,6 +15,7 @@
  */
 
 import { type JSX, useState } from "react";
+import { Button, LiveDot } from "../../ds";
 import type { OpenHandler, Part } from ".";
 
 type ToolPartShape = Extract<Part, { kind: "tool" }>;
@@ -57,11 +58,9 @@ function ToolIcon({ kind }: { kind: string }): JSX.Element {
 function StatusGlyph({ status }: { status: ToolPartShape["status"] }): JSX.Element {
 	if (status === "running") {
 		return (
-			<span
-				role="img"
-				aria-label="running"
-				className="motion-activity inline-block h-[7px] w-[7px] shrink-0 rounded-[var(--r-pill)] bg-[var(--accent-secondary)] "
-			/>
+			<span role="img" aria-label="running">
+				<LiveDot tone="secondary" />
+			</span>
 		);
 	}
 	if (status === "ok") {
@@ -196,14 +195,15 @@ export function ToolPart({
 
 				{/* sub-agent → open nested session view */}
 				{part.opensSession ? (
-					<button
-						type="button"
+					<Button
+						variant="secondary"
+						size="sm"
 						onClick={(e) => {
 							e.stopPropagation();
 							onOpen({ route: "session", sessionId: part.opensSession?.sessionId ?? "" });
 						}}
 						title={`Open the ${part.opensSession.label} session`}
-						className="type-control border-width-thin inline-flex shrink-0 items-center gap-[6px] rounded-[var(--r-pill)]  border-[var(--border-subtle)] px-[9px] py-[3px]   text-[var(--text-secondary)]   hover:border-[var(--accent-deep)] hover:text-[var(--accent-deep)]"
+						className="shrink-0"
 					>
 						<svg
 							viewBox="0 0 16 16"
@@ -220,7 +220,7 @@ export function ToolPart({
 							/>
 						</svg>
 						Open session
-					</button>
+					</Button>
 				) : null}
 
 				{canExpand ? <Caret open={open} /> : null}

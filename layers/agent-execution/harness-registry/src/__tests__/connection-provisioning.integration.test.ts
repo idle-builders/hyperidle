@@ -148,7 +148,7 @@ async function startMcpTestServer(): Promise<McpTestServer> {
 		"Returns a known echo value for AN2 live-proof",
 		asMcpShape({ echo: z.string() }),
 		async (args: Record<string, string>) => {
-			const echo = args["echo"] ?? "";
+			const echo = args.echo ?? "";
 			return {
 				content: [{ type: "text" as const, text: `AN2_PROBE_OK:${echo}` }],
 			};

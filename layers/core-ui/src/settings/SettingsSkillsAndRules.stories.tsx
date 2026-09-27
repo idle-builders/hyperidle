@@ -13,7 +13,10 @@
  */
 
 import type React from "react";
+import { useMemo } from "react";
 import { MemoryRouter } from "react-router-dom";
+import { useStoryFetch } from "../__storybook__/use-story-globals.js";
+import { SettingsSkillsAndRules } from "./SettingsSkillsAndRules";
 
 interface StoryItem {
 	id: string;
@@ -81,9 +84,7 @@ export default {
 };
 
 export const Populated = (): React.JSX.Element => {
-	globalThis.fetch = makeMockFetch(ITEMS_POPULATED) as typeof fetch;
-	// eslint-disable-next-line @typescript-eslint/no-require-imports
-	const { SettingsSkillsAndRules } = require("./SettingsSkillsAndRules");
+	useStoryFetch(useMemo(() => makeMockFetch(ITEMS_POPULATED) as typeof fetch, []));
 	return (
 		<MemoryRouter>
 			<div className="p-[24px] max-w-[680px] bg-[var(--surface-page)]">
@@ -95,9 +96,7 @@ export const Populated = (): React.JSX.Element => {
 Populated.storyName = "Populated (2 skills, 2 rules)";
 
 export const Empty = (): React.JSX.Element => {
-	globalThis.fetch = makeMockFetch([]) as typeof fetch;
-	// eslint-disable-next-line @typescript-eslint/no-require-imports
-	const { SettingsSkillsAndRules } = require("./SettingsSkillsAndRules");
+	useStoryFetch(useMemo(() => makeMockFetch([]) as typeof fetch, []));
 	return (
 		<MemoryRouter>
 			<div className="p-[24px] max-w-[680px] bg-[var(--surface-page)]">

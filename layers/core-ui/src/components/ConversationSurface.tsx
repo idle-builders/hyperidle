@@ -42,7 +42,7 @@
 import { type JSX, type ReactNode, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import type { ComposerSubmitInput } from "../ds";
-import { Composer as DSComposer, PageHeader } from "../ds";
+import { Avatar as DSAvatar, Composer as DSComposer, PageHeader, Tag } from "../ds";
 import { PartList } from "./PartList.js";
 import type { OpenHandler, Part } from "./parts";
 
@@ -92,24 +92,11 @@ function initialsOf(name: string): string {
 	return `${parts[0]?.[0] ?? ""}${parts[parts.length - 1]?.[0] ?? ""}`.toUpperCase();
 }
 
-function Avatar({
-	who,
-	size = 26,
-}: {
-	who: ConversationSurfaceParticipant;
-	size?: number;
-}): JSX.Element {
-	const color = who.isAgent
-		? "bg-[var(--accent-primary-dim)] border-[var(--accent-deep)] text-[var(--accent-deep)]"
-		: "bg-[var(--surface-container)] border-[var(--border-default)] text-[var(--text-secondary)]";
+function Avatar({ who }: { who: ConversationSurfaceParticipant }): JSX.Element {
 	return (
-		<div
-			className={`type-avatar-initial type-avatar-initial--stacked inline-flex items-center justify-center rounded-[var(--r-pill)] shrink-0 ${color}`}
-			style={{ width: size, height: size }}
-			aria-hidden="true"
-		>
-			{initialsOf(who.name)}
-		</div>
+		<span aria-hidden="true">
+			<DSAvatar initials={initialsOf(who.name)} size="sm" agent={who.isAgent} />
+		</span>
 	);
 }
 
@@ -126,7 +113,7 @@ function ParticipantGroup({
 					className="rounded-[var(--r-pill)] ring-2 ring-[var(--surface-page)]"
 					style={{ marginLeft: i === 0 ? 0 : -4, zIndex: people.length - i }}
 				>
-					<Avatar who={p} size={26} />
+					<Avatar who={p} />
 				</div>
 			))}
 		</div>
@@ -144,9 +131,7 @@ function ConversationHeader({
 }): JSX.Element | null {
 	const context = (
 		<div className="type-metadata flex min-w-0 flex-1 items-center gap-[6px] text-[var(--text-secondary)]">
-			<span className="type-label inline-flex items-center rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[9px] py-[1px] uppercase text-[var(--accent-deep)]">
-				{header.hostKind}
-			</span>
+			<Tag label={header.hostKind} tone="accent" />
 			<span className="text-[var(--text-tertiary)]">·</span>
 			{header.hostRoute ? (
 				<Link

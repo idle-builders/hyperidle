@@ -397,7 +397,13 @@ export async function bootAgentOrchestration(
 	// The gateway pushes straight through the
 	// Application-bound `wsPush` — absent means no push happens (a bare test
 	// fixture), never a hub this Layer would have to own.
-	const disposeGateway = registerSessionActivityGateway(eventBus, wsPush ?? (() => {}));
+	const disposeGateway = registerSessionActivityGateway(
+		eventBus,
+		wsPush ??
+			(() => {
+				// No wsPush bound (a bare test fixture) — no push happens.
+			}),
+	);
 
 	// The run runtime — poller, drain, watcher — starts HERE now,
 	// not in the Application. `options.runtime` absent (every existing

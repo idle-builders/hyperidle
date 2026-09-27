@@ -166,11 +166,13 @@ function SessionViewPanel({
 
 	return (
 		<div className="flex flex-col h-full relative">
-			<button
-				type="button"
+			<Button
+				variant="ghost"
+				tone="neutral"
+				size="icon"
 				onClick={onClose}
 				aria-label="Close session view"
-				className="absolute top-[9px] right-[12px] z-[1] rounded-[var(--r-subtle)] p-[6px] text-[var(--text-tertiary)]   hover:bg-[var(--surface-container)] hover:text-[var(--text-secondary)]"
+				className="absolute top-[9px] right-[12px] z-[1]"
 			>
 				<svg
 					viewBox="0 0 12 12"
@@ -182,7 +184,7 @@ function SessionViewPanel({
 				>
 					<path d="M2 2 L10 10 M10 2 L2 10" strokeLinecap="round" />
 				</svg>
-			</button>
+			</Button>
 			<SessionView
 				sessionId={sessionId}
 				entries={[...entries]}

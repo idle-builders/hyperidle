@@ -275,9 +275,7 @@ describe("held connections are read live at spawn, never carried on the request"
 
 		// The owner's own connection is provisioned…
 		expect(ownerPlan.envInjections).toEqual({
-			// biome-ignore lint/style/useNamingConvention: env var names are SCREAMING_SNAKE by definition
 			GH_TOKEN: "gh_owner_token",
-			// biome-ignore lint/style/useNamingConvention: env var names are SCREAMING_SNAKE by definition
 			GITHUB_TOKEN: "gh_owner_token",
 		});
 		// …and the OTHER human's is nowhere in the plan: not as a server entry,
@@ -294,7 +292,6 @@ describe("held connections are read live at spawn, never carried on the request"
 			{ name: "stripe", url: "https://mcp.stripe.com", bearerToken: "sk_other_token" },
 		]);
 		expect(otherPlan.envInjections).toEqual({
-			// biome-ignore lint/style/useNamingConvention: env var names are SCREAMING_SNAKE by definition
 			STRIPE_MCP_TOKEN: "sk_other_token",
 		});
 		expect(JSON.stringify(otherPlan)).not.toContain("gh_owner_token");

@@ -23,8 +23,7 @@
  * Tests (`__tests__`) and Playwright specs (`*.spec.ts`) are also exempt
  * — tests routinely simulate raw network paths.
  *
- * The rule is wired at `warn` in eslint.config.js. The next track will
- * promote it to `error` once the existing-offender baseline is cleared.
+ * The rule is wired at `error` in eslint.config.ts.
  */
 
 import type { Rule } from "eslint";

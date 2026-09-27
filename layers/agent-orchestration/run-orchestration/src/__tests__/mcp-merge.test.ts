@@ -145,7 +145,7 @@ describe("mergePluginMcpContributions — no dialect (claude-code)", () => {
 			null,
 		);
 		const result = readMcpJson();
-		const server = result.mcpServers["server"] as { env: Record<string, string> };
+		const server = result.mcpServers.server as { env: Record<string, string> };
 		// ${PLUGIN_DATA} → installPath/data
 		expect(server.env.CACHE).toBe("/opt/plugin/data/cache");
 	});
@@ -163,7 +163,7 @@ describe("mergePluginMcpContributions — no dialect (claude-code)", () => {
 			null,
 		);
 		const result = readMcpJson();
-		const server = result.mcpServers["server"] as Record<string, unknown>;
+		const server = result.mcpServers.server as Record<string, unknown>;
 		expect(server.cwd).toBe("/opt/plugin");
 	});
 
@@ -210,7 +210,7 @@ describe("mergePluginMcpContributions — no dialect (claude-code)", () => {
 		);
 
 		const result = readMcpJson();
-		expect(result.mcpServers["existing"]).toEqual({ url: "http://localhost:9000" });
+		expect(result.mcpServers.existing).toEqual({ url: "http://localhost:9000" });
 		expect(result.mcpServers["plugin-server"]).toMatchObject({ command: "node" });
 	});
 

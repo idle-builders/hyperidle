@@ -70,13 +70,6 @@ describe("NotificationRow", () => {
 		expect(screen.getByText("DONE")).toBeInTheDocument();
 	});
 
-	it("has aria-label on message", () => {
-		render(<NotificationRow {...defaultProps} />);
-		expect(
-			screen.getByLabelText("Notification: Deploy completed successfully"),
-		).toBeInTheDocument();
-	});
-
 	it("shows both the severity status and the source tag together", () => {
 		render(<NotificationRow {...defaultProps} source="system" />);
 		expect(screen.getByText("HEALTHY")).toBeInTheDocument();

@@ -127,9 +127,21 @@ describe("ReviewComposition", () => {
 		const { onSubmitVerdict } = renderComposition();
 
 		await user.click(screen.getByRole("button", { name: /more verdict options/i }));
-		await user.click(screen.getByRole("button", { name: /Reject/i }));
+		await user.click(screen.getByRole("menuitem", { name: /Reject/i }));
 
 		expect(onSubmitVerdict).toHaveBeenCalledWith("reject");
+	});
+
+	it("the overflow menu closes after a pick", async () => {
+		const user = userEvent.setup();
+		renderComposition();
+
+		await user.click(screen.getByRole("button", { name: /more verdict options/i }));
+		expect(screen.getByRole("menu")).toBeInTheDocument();
+
+		await user.click(screen.getByRole("menuitem", { name: /Reject/i }));
+
+		expect(screen.queryByRole("menu")).not.toBeInTheDocument();
 	});
 
 	it("does not render a separate conversation or verdict control per artifact", () => {

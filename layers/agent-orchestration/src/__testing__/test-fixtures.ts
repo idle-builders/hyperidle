@@ -16,7 +16,6 @@ export interface OrchestrationFixtures {
 }
 
 export const test = base.extend<OrchestrationFixtures>({
-	// biome-ignore lint/correctness/noEmptyPattern: vitest's fixture signature requires the destructured first arg
 	eventBus: async ({}, use) => {
 		await use(new EventBus());
 	},

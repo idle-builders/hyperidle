@@ -86,7 +86,6 @@ async function json(route: Route, body: unknown): Promise<void> {
 }
 
 async function installAz16Mocks(page: Page): Promise<void> {
-	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: one hermetic router owns every route this file visits.
 	await page.route("**/api/**", async (route) => {
 		const { pathname } = new URL(route.request().url());
 		if (pathname === "/api/settings") {

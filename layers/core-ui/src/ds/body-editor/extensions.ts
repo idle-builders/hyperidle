@@ -39,7 +39,6 @@ const lowlight = createLowlight(common);
 function buildLinkExtension(): AnyExtension {
 	return Link.configure({
 		openOnClick: false,
-		// biome-ignore lint/style/useNamingConvention: TipTap's own API uses PascalCase for this key.
 		HTMLAttributes: {
 			class: "text-[var(--accent-deep)] underline",
 		},

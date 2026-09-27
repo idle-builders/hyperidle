@@ -144,6 +144,7 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 	}));
 
 	return (
+		// biome-ignore lint/a11y/noStaticElementInteractions: onKeyDown only listens for Escape-to-cancel, bubbled from whichever focusable child has focus — the container itself needs no interactive role.
 		<div
 			data-testid="recipient-picker"
 			className="border-width-thin flex flex-col gap-[9px] p-[12px] bg-[var(--surface-container)] rounded-[var(--r-subtle)]  border-[var(--border-default)]"

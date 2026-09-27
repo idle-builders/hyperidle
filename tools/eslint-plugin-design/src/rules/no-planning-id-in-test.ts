@@ -59,7 +59,7 @@ export const noPlanningIdInTest: Rule.RuleModule = createRule({
 				if (callee.type !== "Identifier") return;
 				if (!["describe", "test", "it"].includes(callee.name)) return;
 				const first = node.arguments[0];
-				if (!first || first.type !== "Literal" || typeof first.value !== "string") return;
+				if (first?.type !== "Literal" || typeof first.value !== "string") return;
 				if (startsWithPlanningId(first.value)) {
 					context.report({ node: first, messageId: "title", data: { title: first.value } });
 				}

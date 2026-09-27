@@ -83,8 +83,8 @@ const DEFAULT_DOCUMENT_BUDGET = CONTEXT_WINDOW_TOKENS * DOCUMENT_ALLOCATION_RATI
  * `db` is kept as a parameter for call-site compatibility even though it is
  * now unused — every caller passes a live db handle already.
  */
-async function loadScoringWeights(_db: HyperIdleDb): Promise<ScoringWeights> {
-	return { ...DEFAULT_WEIGHTS };
+function loadScoringWeights(_db: HyperIdleDb): Promise<ScoringWeights> {
+	return Promise.resolve({ ...DEFAULT_WEIGHTS });
 }
 
 // ---------------------------------------------------------------------------

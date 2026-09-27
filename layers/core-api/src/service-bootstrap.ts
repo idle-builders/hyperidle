@@ -89,7 +89,7 @@ const TASK_DISPATCH_ATTEMPT_REAP_BATCH_SIZE = 500;
  * Exported so the predicate is directly testable without waiting on the real
  * 6h `setInterval`.
  */
-export async function reapTerminalTaskDispatchAttempts(
+export function reapTerminalTaskDispatchAttempts(
 	db: HyperIdleDb,
 	termCutoff: string,
 	batchSize: number,

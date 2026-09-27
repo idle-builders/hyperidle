@@ -237,8 +237,7 @@ describe("GlobalSearchPanel", () => {
 		});
 
 		await waitFor(() => {
-			// ThreadRow renders title with aria-label
-			expect(screen.getByLabelText("Thread: Deploy review")).toBeInTheDocument();
+			expect(screen.getByText("Deploy review")).toBeInTheDocument();
 			expect(screen.getByText("Reviewing the deploy pipeline...")).toBeInTheDocument();
 		});
 	});
@@ -278,7 +277,7 @@ describe("GlobalSearchPanel", () => {
 		});
 
 		await waitFor(() => {
-			expect(screen.getByLabelText("Document: Rate Limiting Pattern")).toBeInTheDocument();
+			expect(screen.getByText("Rate Limiting Pattern")).toBeInTheDocument();
 		});
 	});
 

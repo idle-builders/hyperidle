@@ -2,9 +2,12 @@
 //   - React Compiler (no Biome equivalent)
 //   - React hooks exhaustive-deps (Biome's version is partial)
 //   - Drizzle ORM safety (no Biome equivalent)
-//   - TypeScript type-safety escape hatches (api-typesafety workpackage)
+//   - Custom api-typesafety / design / authz no-restricted-* guards
 //
 // Biome remains primary for everything else (formatting, style, correctness, a11y, security).
+// @lore the former @typescript-eslint/no-unsafe-* + no-explicit-any block is gone —
+// those rules need typed linting (parserOptions.project) and crashed ESLint without --quiet;
+// Biome noExplicitAny (error) already bans `any`.
 
 import { globSync } from "node:fs";
 import tsParser from "@typescript-eslint/parser";
@@ -16,7 +19,6 @@ import drizzle from "eslint-plugin-drizzle";
 import playwright from "eslint-plugin-playwright";
 import reactCompiler from "eslint-plugin-react-compiler";
 import reactHooks from "eslint-plugin-react-hooks";
-import tseslint from "typescript-eslint";
 
 // testing.md-enforcement blocks below scan by test-file glob, never a maintained
 // list (architecture.md "scans, not lists") — a glob that matches zero files is
@@ -68,8 +70,8 @@ export default [
 		},
 		rules: {
 			"react-hooks/rules-of-hooks": "error",
-			"react-hooks/exhaustive-deps": "warn",
-			"react-compiler/react-compiler": "warn",
+			"react-hooks/exhaustive-deps": "error",
+			"react-compiler/react-compiler": "error",
 		},
 	},
 
@@ -91,9 +93,8 @@ export default [
 	// Track-L recurrence — `design/no-raw-actor-fetch` enforces that any
 	// fetch('/api/...') in the web package goes through useRecoveryFetch (or a
 	// sibling actor-aware helper in `layers/core-ui/src/hooks/`). Detected on
-	// L2/L4/L7 (X-Actor-Id silently dropped). Wired at warn-level for now;
-	// promotes to error in the next track once the existing-offender baseline
-	// is cleared. The rule itself allowlists `hooks/`, `__tests__/`, and `*.spec.*`.
+	// L2/L4/L7 (X-Actor-Id silently dropped). At error — baseline cleared.
+	// The rule itself allowlists `hooks/`, `__tests__/`, and `*.spec.*`.
 	{
 		files: ["layers/core-ui/src/**/*.{ts,tsx}"],
 		ignores: [
@@ -112,7 +113,7 @@ export default [
 		},
 		plugins: { design },
 		rules: {
-			"design/no-raw-actor-fetch": "warn",
+			"design/no-raw-actor-fetch": "error",
 		},
 	},
 
@@ -130,18 +131,16 @@ export default [
 	// RULE_SEVERITY table, same values as before this change.
 	...designHearthConfigs.hearth,
 
-	// K6-AC2 — Promote design/no-op-button to error for production pages and
+	// K6-AC2 — design/no-op-button at error for production pages and
 	// components (excludes stories and test fixtures so false-positive test
 	// <button>s don't pollute the gate). This makes AC-2 ("no button is a
 	// no-op") an enforced gate: a future no-op in pages/** or components/**
-	// fails lint, not just warns silently under --quiet.
+	// fails lint.
 	//
-	// @lore AF16 AC-2: The K6 block above wires the rule at warn so it
-	// surfaces backlog findings. This block promotes only the no-op-button
-	// rule to error for the two highest-impact dirs (pages, components) while
-	// exempting __tests__ and .stories.tsx — the rule's 13 false-positive
-	// hits are all in test fixtures. Separate block so the promotion scope is
-	// explicit and doesn't silently widen other warn-level rules.
+	// @lore AF16 AC-2: hearth-config also wires no-op-button at error for the
+	// broader core-ui sweep. This block keeps the pages/components promotion
+	// explicit (and still exempts __tests__ / .stories.tsx) so the highest-
+	// impact dirs stay gated even if the hearth severity is retuned.
 	{
 		files: ["layers/core-ui/src/pages/**/*.tsx", "layers/core-ui/src/components/**/*.tsx"],
 		ignores: [
@@ -208,11 +207,11 @@ export default [
 		},
 	},
 
-	// AI7 — no-undefined-font-heading at warn on the rest of layers/core-ui/src/**
+	// AI7 — no-undefined-font-heading at error on the rest of layers/core-ui/src/**
 	// (outside pages/**). The `font-heading` arm fires everywhere because it is
 	// an undefined utility (defect). The `tracking-wider` arm is self-gated to
-	// /pages/ path segments inside the rule, so this warn-level block never
-	// triggers it for components, shell, or design-system files.
+	// /pages/ path segments inside the rule, so this block never triggers it
+	// for components, shell, or design-system files.
 	// ~8 intentional tracking-wider usages in non-pages files are NOT flagged.
 	{
 		files: ["layers/core-ui/src/**/*.tsx"],
@@ -230,53 +229,19 @@ export default [
 		},
 		plugins: { design },
 		rules: {
-			"design/no-undefined-font-heading": "warn",
-		},
-	},
-
-	// api-typesafety: TypeScript-ESLint rules that block type-safety bypass
-	// escape hatches in the server and web packages.
-	//
-	// Rules enforced:
-	//   @typescript-eslint/no-explicit-any     — ban `any` type
-	//   @typescript-eslint/no-unsafe-assignment — ban assigning `any`-typed values
-	//   @typescript-eslint/no-unsafe-return     — ban returning `any` from typed fns
-	//   @typescript-eslint/no-unsafe-member-access — ban member access on `any`
-	//
-	// Warn-level so the baseline does not break during the migration window;
-	// will promote to error once the remaining offenders are cleared.
-	{
-		files: ["layers/core-api/src/**/*.ts", "layers/core-ui/src/**/*.{ts,tsx}"],
-		ignores: [
-			"layers/core-api/src/**/__tests__/**",
-			"layers/core-api/src/**/*.test.ts",
-			"layers/core-ui/src/**/__tests__/**",
-			"layers/core-ui/src/**/*.test.{ts,tsx}",
-		],
-		languageOptions: {
-			parser: tsParser,
-		},
-		plugins: {
-			"@typescript-eslint": tseslint.plugin,
-		},
-		rules: {
-			"@typescript-eslint/no-explicit-any": "warn",
-			"@typescript-eslint/no-unsafe-assignment": "warn",
-			"@typescript-eslint/no-unsafe-return": "warn",
-			"@typescript-eslint/no-unsafe-member-access": "warn",
+			"design/no-undefined-font-heading": "error",
 		},
 	},
 
 	// K8 (design-system's design-lint block) is folded into the AZ7
 	// `designHearthConfigs.hearth` spread near the top of this file — see the
-	// AZ7 comment above the K6/K8 replacement for what moved where. See
-	// `tools/eslint-plugin-design/waivers.md` for the per-warning waiver list.
+	// AZ7 comment above the K6/K8 replacement for what moved where.
 
-	// M1 — Mock-data guard (warn-level baseline). Promotion to error is M4.
-	// Both rules share one block: same file set, same ignores.
+	// M1/M4 — Mock-data guard, at error. Both rules share one block: same
+	// file set, same ignores.
 	// The existing L16 no-restricted-imports block stays unchanged — it fires at
 	// error for __fixtures__/ imports. This rule layers on top with broader
-	// coverage (also catches fixtures/ without double-underscore) at warn.
+	// coverage (also catches fixtures/ without double-underscore) at error.
 	{
 		files: ["layers/core-ui/src/**/*.{ts,tsx}", "layers/core-api/src/**/*.ts"],
 		ignores: [
@@ -334,7 +299,7 @@ export default [
 		},
 	},
 
-	// api-typesafety Rule 3 (warn): Discourage imperative router.get/post/… pattern in route files.
+	// api-typesafety Rule 3 (error): Ban imperative router.get/post/… pattern in route files.
 	// Routes should use the Hono chaining pattern (.get().post()…) so the return type is
 	// inferred as a union of typed routes — required for AppType / hono/client.
 	{
@@ -344,7 +309,7 @@ export default [
 		},
 		rules: {
 			"no-restricted-syntax": [
-				"warn",
+				"error",
 				{
 					selector:
 						"CallExpression[callee.type='MemberExpression'][callee.property.name=/^(get|post|put|patch|delete|options|head|all|use)$/][callee.object.name='router']",
@@ -355,7 +320,7 @@ export default [
 		},
 	},
 
-	// api-typesafety Rule 4 (warn): Discourage importing the legacy services/api-fetch module
+	// api-typesafety Rule 4 (error): Ban importing the legacy services/api-fetch module
 	// from web package code. Prefer the typed hono/client via layers/core-ui/src/api/client.ts.
 	{
 		files: ["layers/core-ui/src/**/*.{ts,tsx}"],
@@ -372,7 +337,7 @@ export default [
 		},
 		rules: {
 			"no-restricted-imports": [
-				"warn",
+				"error",
 				{
 					patterns: [
 						{
@@ -525,9 +490,7 @@ export default [
 		},
 		rules: {
 			"no-restricted-syntax": [
-				// warn-level: existing hooks still use `res.json() as Promise<T>` patterns
-				// that predate the typed hono/client. Promote to error once the baseline is cleared.
-				"warn",
+				"error",
 				{
 					selector: "TSAsExpression > TSTypeReference[typeName.name='Promise']",
 					message:

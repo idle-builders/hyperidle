@@ -125,7 +125,9 @@ export function WorkTeam({
 				frame="page"
 				header={
 					<PageHeader
-						title={<span aria-label="Team" className="skeleton block h-[22px] w-[160px]" />}
+						title={
+							<span role="status" aria-label="Team" className="skeleton block h-[22px] w-[160px]" />
+						}
 					/>
 				}
 				data-testid="work-team-page"
@@ -565,7 +567,7 @@ function WorkTeamLoaded({
 										<RRLink
 											to={`/agents/${encodeURIComponent(member.agentId)}`}
 											onClick={(e) => e.stopPropagation()}
-											className="type-control shrink-0 inline-flex items-center rounded-[var(--r-pill)] px-[12px] py-[7px] min-h-[44px] min-[1025px]:min-h-[32px] text-[var(--accent-deep)] hover:bg-[var(--accent-primary-dim)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]"
+											className="type-control shrink-0 inline-flex items-center min-h-[44px] min-[1025px]:min-h-[32px] text-[var(--accent-deep)] hover:underline focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]"
 											data-testid="agent-profile-link"
 										>
 											Profile

@@ -132,6 +132,8 @@ export function Dialog({
 					tabbableOptions: { displayCheck: "none" },
 				}}
 			>
+				{/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: role is statically typed "dialog" in useDialogBehavior.getOverlayProps — biome can't see through the indirection to know aria-modal is valid here. */}
+				{/* biome-ignore lint/a11y/noStaticElementInteractions: same indirection — role is "dialog", which supports onKeyDown for the focus/escape handling. */}
 				<div
 					role={overlayProps.role}
 					aria-modal={overlayProps["aria-modal"]}
@@ -155,7 +157,6 @@ export function Dialog({
 						data-testid="dialog-box"
 						// tabIndex allows the box itself to receive focus as the fallback
 						// when no other tabbable element exists (e.g. content-only dialogs)
-						// biome-ignore lint/a11y/noNoninteractiveTabindex: intentional fallback focus target
 						tabIndex={-1}
 						style={{
 							position: "relative",

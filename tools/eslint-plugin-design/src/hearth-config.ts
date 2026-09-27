@@ -19,8 +19,8 @@
  * block elsewhere in `eslint.config.ts` with a narrower file glob" (e.g.
  * `no-raw-actor-fetch` is scoped to `layers/core-ui/src/hooks/**` only;
  * `no-handrolled-page-header` is scoped to `pages/**` only). Every rule still
- * gets an explicit, reviewable entry, and every rule is at error or warn in
- * at least one scope — a rule off in BOTH scopes would be the exact D2
+ * gets an explicit, reviewable entry, and every rule is at error in at least
+ * one scope — a rule off in BOTH scopes would be the exact D2
  * failure this table was built to prevent.
  *
  * @lore AZ7 post-ship durability review (B1): a rule set to `"off"` in BOTH
@@ -36,7 +36,7 @@
 import type { ESLint, Linter } from "eslint";
 import plugin from "./index.js";
 
-export type Severity = "off" | "warn" | "error";
+export type Severity = "off" | "error";
 
 export interface ScopedSeverity {
 	/** Severity for layers/core-ui/src/**\/*.tsx (excluding *.stories.tsx). */
@@ -55,16 +55,15 @@ export const RULE_SEVERITY: Record<string, ScopedSeverity> = {
 	// E6: replaces no-off-scale-radius outright (allowlist was the defect).
 	"radius-token-only": { coreUi: "error", designSystem: "error" },
 	// E2: core-ui only — design-system is where controls are BUILT (Trade-off 4).
-	// At `warn`, not `error`, by maintainer decision: the widened clauses
-	// (token fill, token border, bare radius) match 97 elements across 34 files
-	// that no rule reached before, and migrating them is its own piece of work.
-	// This is a staged adoption, the shape AU31/AU32 argues against, taken
-	// knowingly. Raise both to `error` once the population is migrated.
-	"no-handrolled-control": { coreUi: "warn", designSystem: "off" },
+	// Promoted to error once the 87 hand-rolled control sites migrated onto
+	// Button/Input/SearchField/Select/Composer.
+	"no-handrolled-control": { coreUi: "error", designSystem: "off" },
 	// The chip half of the same population, scoped by the same boundary:
 	// `ds/` is where Avatar's circle, LiveDot's dot and Progress's pill-shaped
-	// track are BUILT, and all three match the predicate correctly.
-	"no-handrolled-chip": { coreUi: "warn", designSystem: "off" },
+	// track are BUILT, and all three match the predicate correctly. Promoted
+	// to error once the 35 hand-rolled chip sites migrated onto
+	// StatusChip/Tag/ReferenceChip/RowDot/LiveDot/Avatar.
+	"no-handrolled-chip": { coreUi: "error", designSystem: "off" },
 	// E7: wired at error for the first time (D2: previously registered
 	// nowhere). Scoped to layers/core-ui/src by the rule's own filename check —
 	// design-system is legitimately a registry home, not a violation site.
@@ -77,15 +76,15 @@ export const RULE_SEVERITY: Record<string, ScopedSeverity> = {
 	"shadow-token-only": { coreUi: "error", designSystem: "error" },
 
 	// ── Unchanged from the former K6/K8 blocks ──────────────────────────────
-	"no-off-scale-font-size": { coreUi: "warn", designSystem: "error" },
-	"no-ai-aesthetic": { coreUi: "warn", designSystem: "error" },
+	"no-off-scale-font-size": { coreUi: "error", designSystem: "error" },
+	"no-ai-aesthetic": { coreUi: "error", designSystem: "error" },
 	"no-raw-tailwind-color": { coreUi: "error", designSystem: "error" },
-	"require-ds-attribute": { coreUi: "warn", designSystem: "error" },
-	"require-stories-sibling": { coreUi: "warn", designSystem: "error" },
-	"require-focus-on-interactive": { coreUi: "warn", designSystem: "error" },
-	// K6 wires no-op-button at warn broadly; a SEPARATE eslint.config.ts block
-	// (unchanged by AZ7) promotes it to error for pages/** and components/**.
-	"no-op-button": { coreUi: "warn", designSystem: "off" },
+	"require-ds-attribute": { coreUi: "error", designSystem: "error" },
+	"require-stories-sibling": { coreUi: "error", designSystem: "error" },
+	"require-focus-on-interactive": { coreUi: "error", designSystem: "error" },
+	// K6 wires no-op-button at error broadly; a SEPARATE eslint.config.ts block
+	// also pins it to error for pages/** and components/** (same severity).
+	"no-op-button": { coreUi: "error", designSystem: "off" },
 	"no-raw-overlay-z": { coreUi: "error", designSystem: "off" },
 	"no-dialog-boilerplate": { coreUi: "error", designSystem: "off" },
 	"no-hardcoded-tracking": { coreUi: "off", designSystem: "error" },
@@ -194,6 +193,20 @@ export const configs: { hearth: Linter.Config[] } = {
 				"design/typography-profile-only": "error",
 				"design/motion-profile-only": "error",
 				"design/border-width-profile-only": "error",
+			},
+		},
+		// no-op-button's predicate is a visual/production check: does the button
+		// on screen actually do something. A test file's inline `<button
+		// onClick={() => {}}>` exists only to give a DOM node a role/name to
+		// query against — the rule's known false-positive population; retune
+		// the scope rather than dodge it with a fake handler that only
+		// "satisfies" the rule. Overrides the broader sweep block above for
+		// test files only; every other hearth rule still runs on tests.
+		{
+			files: ["layers/core-ui/src/**/__tests__/**/*.tsx", "layers/core-ui/src/**/*.test.tsx"],
+			plugins: { design: designPlugin },
+			rules: {
+				"design/no-op-button": "off",
 			},
 		},
 	],

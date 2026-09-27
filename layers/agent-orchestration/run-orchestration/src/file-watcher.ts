@@ -116,7 +116,7 @@ export function startWatcher(config: FileWatcherConfig): FileWatcher {
 			// the watcher must report a new directory too, so writeback can create
 			// its item. `writeback-processor.ts` distinguishes file vs. directory
 			// by stat'ing `fullPath` itself; nothing here needs to know which.
-			if (!stat.isFile() && !stat.isDirectory()) return;
+			if (!(stat.isFile() || stat.isDirectory())) return;
 
 			changeType = "modify"; // Will be refined in writeback
 		} else {

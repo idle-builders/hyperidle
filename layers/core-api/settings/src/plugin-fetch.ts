@@ -46,7 +46,9 @@ export function fetchPlugin(source: PluginSource): FetchedPlugin {
 	}
 }
 
-function noopCleanup(): void {}
+function noopCleanup(): void {
+	// A folder source has nothing to clean up — no temp dir was created for it.
+}
 
 function fetchFolder(folderPath: string): FetchedPlugin {
 	const rootDir = resolve(folderPath);

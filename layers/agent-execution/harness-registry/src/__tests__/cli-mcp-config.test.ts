@@ -571,7 +571,7 @@ describe("writePluginStdioMcpEntries — plugin stdio MCP entries", () => {
 				mcp?: Record<string, { type: string }>;
 			};
 			// Bridge entry must survive.
-			expect(parsed.mcp?.["hyperidle"]?.type).toBe("remote");
+			expect(parsed.mcp?.hyperidle?.type).toBe("remote");
 			// Plugin entry must be added.
 			expect(parsed.mcp?.["my-plugin"]?.type).toBe("local");
 		});
@@ -603,7 +603,7 @@ describe("writePluginStdioMcpEntries — plugin stdio MCP entries", () => {
 			const entry = parsed.mcpServers?.["my-plugin"];
 			expect(entry).toBeDefined();
 			// cursor passes through the full config object.
-			expect((entry as Record<string, unknown>)["command"]).toBe("/usr/bin/node");
+			expect((entry as Record<string, unknown>).command).toBe("/usr/bin/node");
 		});
 
 		test("no-op when servers list is empty", () => {

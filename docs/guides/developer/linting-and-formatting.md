@@ -4,18 +4,21 @@ Lint/typecheck commands: detailed reference is [commands.md](commands.md). Note 
 
 ## What `npm run lint` actually runs
 
-Four steps, in order, all must pass:
+Several steps, in order, all must pass:
 
 ```
-biome check . --reporter=summary
-npx eslint . --quiet
+biome check . --error-on-warnings --max-diagnostics=none
+npx eslint . --max-warnings=0
+npm run lint:design-css
+npm run lint:design-profiles
 npx tsx tools/governance/src/governance-lint.ts --fixtures
+npx tsx tools/governance/src/governance-lint.ts --attacks
 npx tsx tools/governance/src/governance-lint.ts
 ```
 
 There are no domain guard scripts in the chain. The governance lint replaced them.
 
-Individual legs: `npm run lint:biome`, `npm run lint:eslint`, `npm run lint:governance`, `npm run lint:governance:fixtures`. `npm run lint:design` runs just the design rules over `layers/core-ui/src/**/*.tsx` and `framework/design-system/src/**/*.tsx`. `npm run lint:fix` is `biome check --write .`.
+Individual legs: `npm run lint:biome`, `npm run lint:eslint`, `npm run lint:governance`, `npm run lint:governance:fixtures`, `npm run lint:governance:attacks`, `npm run lint:design-css`, `npm run lint:design-profiles`. `npm run lint:fix` is `biome check --write .`.
 
 ## Biome + ESLint split
 
@@ -25,11 +28,11 @@ Individual legs: `npm run lint:biome`, `npm run lint:eslint`, `npm run lint:gove
 - Drizzle ORM safety on `framework/db/src/**` and `layers/core-api/src/**`: `drizzle/enforce-delete-with-where` and `drizzle/enforce-update-with-where` with `drizzleObjectName: "db"`
 - The repo's own rule plugins, `tools/eslint-plugin-design` and `tools/eslint-plugin-authz`
 
-`eslint . --quiet` **discards warnings entirely.** A rule set to `warn` in `eslint.config.ts` enforces nothing in the gate. Set a rule to `error` or accept that it is advisory only.
+`eslint . --max-warnings=0` **prints every warning and fails on any of them.** There is no rule left at `warn` in `eslint.config.ts` — every rule is `error` or `off`.
 
 ## Architectural governance lint
 
-`tools/governance/src/governance-lint.ts` is the architectural boundary gate: what may cross which boundary in this repo, and why. It runs twice in `npm run lint` — first `--fixtures`, which self-tests the detectors against a synthetic tree, then against the live tree.
+`tools/governance/src/governance-lint.ts` is the architectural boundary gate: what may cross which boundary in this repo, and why. It runs three times in `npm run lint` — `--fixtures` (self-tests the detectors against a synthetic tree), `--attacks` (break-tests every rule against the live tree), then against the live tree for real.
 
 **The rules themselves are documented in [`tools/governance/README.md`](../../../tools/governance/README.md), and that file forbids restating any of them anywhere else** — a second copy drifts from the enforced one and then agents follow the wrong copy. Read it there.
 
@@ -37,8 +40,7 @@ What is useful to know here is the shape:
 
 - **One census, many rules.** One pass builds the connection graph and classifies every tracked file; each rule in `tools/governance/src/rules/` is a declarative predicate over it. No rule does its own file discovery — `tools/governance/src/governance-lint.ts` is the only file in the stack allowed to touch the filesystem or spawn a process.
 - **Every file must classify**, and **a rule matching zero files fails loudly** (`DeadRuleError`). Both exist because the previous guard set contained scripts that scanned a directory deleted two tracks earlier and printed PASS.
-- **One severity per rule: `error`, unconditionally.** There is no severity dial and no severity file — a new rule lands with its violations already fixed in the same pull request.
-- **Warnings print one line per site**, never aggregated — the next thing that happens after a rule lands at warn is a work package that clears it, and that work package needs the sites. `--errors-only` gives you the gate without the debt.
+- **One severity, `error`, unconditionally — there is no `warn` level.** There is no severity dial and no severity file — a new rule lands with its violations already fixed in the same pull request, and every finding fails the run. Findings print one line per site, never aggregated.
 - `npm run governance:new-cells` lists the verdicts the model produced for combinations nobody was explicitly asked about, grouped by the clause that produced them, so they can be challenged rather than discovered later.
 
 ### Production vs development files
@@ -53,12 +55,12 @@ Enforced by `tools/governance/src/rules/no-production-imports-development.ts`, w
 
 ## eslint-plugin-design
 
-`tools/eslint-plugin-design` houses the repo's design-system enforcement rules, registered in `eslint.config.ts` and run via `npm run lint:eslint` (or `npm run lint:design` for just the UI surface). They cover token scales (color, spacing, radius, font size, tracking, duration), page anatomy, mock-data policy, and a set of AI-aesthetic tells. Rules are at **error** across `framework/design-system/src/**` and mostly at **warn** across `layers/core-ui/src/**`.
+`tools/eslint-plugin-design` houses the repo's design-system enforcement rules, registered in `eslint.config.ts` and run via `npm run lint:eslint`. They cover token scales (color, spacing, radius, font size, tracking, duration), page anatomy, mock-data policy, and a set of AI-aesthetic tells. Rules are at **error** across `framework/design-system/src/**` and `layers/core-ui/src/**`.
 
 Two rules enforce the page-anatomy standard:
 
 **`design/no-handrolled-page-header`** — error on `layers/core-ui/src/pages/**/*.tsx`. Flags the literal class combination `text-[20px]` + `font-[600]` + `tracking-[-0.01em]` on any JSX element that is not `PageHeader`. `SettingsPage.tsx` and `SetupFlow.tsx` are exempted via block `ignores` pending their own migrations. Pages with an editable title `<input>` compose `pageTitleClassName` (from `@hyperidle/design-system`) as an identifier reference — compliant, because the rule inspects only string literals.
 
-**`design/no-undefined-font-heading`** — error on `layers/core-ui/src/pages/**/*.tsx`, warn on the rest of `layers/core-ui/src/**`. Flags two things: `font-heading` (an undefined Tailwind utility that silently does nothing) and `tracking-wider` inside `pages/**` (Tailwind's 0.05em default is off the Hearth caps scale — use `SectionLabel`, which applies `tracking-[var(--tracking-caps-sm)]` = 0.06em).
+**`design/no-undefined-font-heading`** — error across `layers/core-ui/src/**`. Flags two things: `font-heading` (an undefined Tailwind utility that silently does nothing) and `tracking-wider` inside `pages/**` (Tailwind's 0.05em default is off the Hearth caps scale — use `SectionLabel`, which applies `tracking-[var(--tracking-caps-sm)]` = 0.06em).
 
 The mock-data rules (`design/no-mock-data-import`, `design/no-mock-data-symbol`) are documented in the [mock-data policy](mock-data-policy.md).

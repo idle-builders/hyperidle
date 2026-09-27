@@ -39,6 +39,10 @@ export interface ReferenceChipProps {
 	onRemove?: () => void;
 	/** Freezes both the open and remove controls — real `disabled`, not an omitted handler. */
 	disabled?: boolean;
+	/** Overrides the remove button's default `Remove ${label}` accessible name. */
+	removeAriaLabel?: string;
+	/** Passthrough testid on the outermost element. */
+	dataTestId?: string;
 }
 
 // Inline icon set — currentColor, no emoji-as-icon (AQ-105). 16-box.
@@ -84,6 +88,8 @@ export function ReferenceChip({
 	onOpen,
 	onRemove,
 	disabled = false,
+	removeAriaLabel,
+	dataTestId,
 }: ReferenceChipProps): JSX.Element {
 	const openBody = (
 		<>
@@ -107,6 +113,7 @@ export function ReferenceChip({
 				{...dsProps("ReferenceChip", "1")}
 				data-ds-mode="posted"
 				data-ds-kind={kind}
+				data-testid={dataTestId}
 				className={`type-control disabled:cursor-not-allowed disabled:opacity-50 ${`${SHELL} pr-[9px] text-left`}`}
 			>
 				{openBody}
@@ -127,6 +134,7 @@ export function ReferenceChip({
 			{...dsProps("ReferenceChip", "1")}
 			data-ds-mode="draft"
 			data-ds-kind={kind}
+			data-testid={dataTestId}
 			className={`type-metadata ${SHELL}`}
 		>
 			{onOpen ? (
@@ -143,16 +151,18 @@ export function ReferenceChip({
 			) : (
 				<span className="flex min-w-0 items-center gap-[6px]">{openBody}</span>
 			)}
-			<button
-				type="button"
-				onClick={onRemove}
-				disabled={disabled}
-				aria-label={`Remove ${label}`}
-				title="Remove"
-				className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-secondary)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
-			>
-				<Glyph d={ICON_REMOVE} size={11} />
-			</button>
+			{onRemove && (
+				<button
+					type="button"
+					onClick={onRemove}
+					disabled={disabled}
+					aria-label={removeAriaLabel ?? `Remove ${label}`}
+					title="Remove"
+					className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-secondary)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+				>
+					<Glyph d={ICON_REMOVE} size={11} />
+				</button>
+			)}
 		</span>
 	);
 }

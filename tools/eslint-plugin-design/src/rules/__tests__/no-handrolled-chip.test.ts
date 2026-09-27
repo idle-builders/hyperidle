@@ -57,6 +57,13 @@ ruleTester.run("no-handrolled-chip", noHandrolledChip, {
 			filename: "layers/core-ui/src/pages/Foo.stories.tsx",
 			code: 'const J = <span className="rounded-full bg-[var(--surface-container)]" />;',
 		},
+		// The role="img" exemption: a self-labeled icon badge (accessible name
+		// from aria-label, not from a chip's visible text) is not a chip in
+		// this rule's sense, even though it matches pill+fill.
+		{
+			filename: "layers/core-ui/src/pages/Foo.tsx",
+			code: 'const J = <span role="img" aria-label="Quick ask" className="rounded-full bg-[var(--accent-primary-dim)]" />;',
+		},
 	],
 	invalid: [
 		// rounded-full + a surface fill on a <span>.
@@ -106,6 +113,13 @@ ruleTester.run("no-handrolled-chip", noHandrolledChip, {
 		{
 			filename: "layers/core-ui/src/pages/Foo.tsx",
 			code: 'const PILL = "rounded-full bg-[var(--surface-container)]"; const J = <span className={PILL} />;',
+			errors: [{ messageId: "handrolledChip" }],
+		},
+		// The role="img" exemption stays narrow: the identical pill+fill classes
+		// without role="img" are still a handrolled chip.
+		{
+			filename: "layers/core-ui/src/pages/Foo.tsx",
+			code: 'const J = <span aria-label="Quick ask" className="rounded-full bg-[var(--accent-primary-dim)]" />;',
 			errors: [{ messageId: "handrolledChip" }],
 		},
 	],

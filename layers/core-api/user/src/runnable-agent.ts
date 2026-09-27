@@ -42,7 +42,7 @@ const RUNNABLE_STATUSES: ReadonlySet<string> = new Set(["active", "idle"]);
  */
 export async function requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<User> {
 	const agent = await findUser(db, { id: agentId });
-	if (!agent || agent.kind !== "ai" || !RUNNABLE_STATUSES.has(agent.status)) {
+	if (agent?.kind !== "ai" || !RUNNABLE_STATUSES.has(agent.status)) {
 		throw new AgentNotRunnableError(`Agent ${agentId} is not a runnable AI agent`);
 	}
 	return agent;

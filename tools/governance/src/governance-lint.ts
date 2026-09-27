@@ -20,16 +20,13 @@
  *
  * Usage:
  *   npx tsx tools/governance/src/governance-lint.ts                # check the live tree
- *   npx tsx tools/governance/src/governance-lint.ts --errors-only  # errors only — the gate, without the debt
  *   npx tsx tools/governance/src/governance-lint.ts --fixtures     # self-test the detector on a synthetic tree
  *   npx tsx tools/governance/src/governance-lint.ts --attacks      # break-test every rule against the live tree
  *
- * @lore AU28: warnings are printed ONE LINE PER SITE, never aggregated. The founder ruled on this:
- * the next thing that happens after a rule lands at warn is a work package that clears it, and that
- * work package needs the sites. `--errors-only` exists for the runs that only care about the gate.
- * What is NOT acceptable is an ESLint warning — `npm run lint` runs `eslint . --quiet`, which
- * discards warnings entirely, and that is how `eslint-plugin-design` came to enforce nothing on the
- * product UI while looking like a net.
+ * @lore AU28: findings are printed ONE LINE PER SITE, never aggregated, and every finding is an
+ * `error` — there is no `warn` level here or anywhere else in the lint chain. A governance finding
+ * fails the run, full stop; there is no lower severity for it to hide behind. `eslint . --quiet` is
+ * also gone; `eslint . --max-warnings=0` fails on any ESLint warning the same way.
  */
 
 import {
@@ -165,7 +162,7 @@ function runAttackSuite(): number {
 	return 0;
 }
 
-function runLive(errorsOnly: boolean): number {
+function runLive(): number {
 	const files = trackedFiles();
 	// @lore AZ7: an EMPTY census, not a small one. This used to compare against a maintained
 	// repo-wide file count; that floor was removed because it named a number instead of an
@@ -261,19 +258,15 @@ function runLive(errorsOnly: boolean): number {
 		throw error;
 	}
 
-	const errors = result.findings.filter((f) => f.severity === "error");
-	const warnings = result.findings.filter((f) => f.severity === "warn");
-	// Grouped by world, production first. The two are different kinds of debt and one total hides
-	// the smaller, more serious half behind the larger one.
-	const shown = errorsOnly ? errors : [...errors, ...warnings];
+	// Every finding is an `error` — there is no `warn` level to filter out or hold back. Grouped by
+	// world, production first, because the two are different kinds of defect and one total hides the
+	// smaller, more serious half behind the larger one.
+	const errors = result.findings;
 	for (const world of ["production", "development", undefined] as const) {
-		const inWorld = shown.filter((f) => f.world === world);
+		const inWorld = errors.filter((f) => f.world === world);
 		if (inWorld.length === 0) continue;
 		console.error(`\n  ── ${world ?? "not world-specific"} · ${inWorld.length} finding(s)`);
 		for (const finding of inWorld) console.error(formatFinding(finding));
-	}
-	if (errorsOnly && warnings.length > 0) {
-		console.error(`  (${warnings.length} warning(s) hidden by --errors-only)`);
 	}
 
 	// AU29: the unplaced-db-symbol NOTE that used to print here is gone — `db-symbols-all-placed`
@@ -283,9 +276,7 @@ function runLive(errorsOnly: boolean): number {
 	const development = census.files.length - production;
 	const summary =
 		`${census.files.length} tracked files (${production} production, ${development} development), ` +
-		`${census.packages.length} packages, ${detected.crossings.length} crossings, ${RULES.length} rules, ` +
-		`${warnings.filter((f) => f.world === "production").length} production + ` +
-		`${warnings.filter((f) => f.world === "development").length} development known violation(s) at warn`;
+		`${census.packages.length} packages, ${detected.crossings.length} crossings, ${RULES.length} rules`;
 
 	if (hasErrors(result.findings)) {
 		console.error(`\ngovernance-lint: FAIL — ${errors.length} error(s). ${summary}.`);
@@ -299,5 +290,5 @@ const exitCode = process.argv.includes("--fixtures")
 	? runFixtures()
 	: process.argv.includes("--attacks")
 		? runAttackSuite()
-		: runLive(process.argv.includes("--errors-only"));
+		: runLive();
 process.exit(exitCode);
