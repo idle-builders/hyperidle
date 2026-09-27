@@ -210,8 +210,8 @@ describe("mergePluginMcpContributions — no dialect (claude-code)", () => {
 		);
 
 		const result = readMcpJson();
-		expect(result.mcpServers["existing"]).toBeDefined();
-		expect(result.mcpServers["plugin-server"]).toBeDefined();
+		expect(result.mcpServers["existing"]).toEqual({ url: "http://localhost:9000" });
+		expect(result.mcpServers["plugin-server"]).toMatchObject({ command: "node" });
 	});
 
 	it("skips rows with invalid JSON in defaultValueJson — writes file with empty mcpServers", async () => {

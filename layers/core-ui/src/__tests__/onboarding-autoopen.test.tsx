@@ -81,7 +81,7 @@ describe("AppShell ?onboarding=true auto-open", () => {
 					screen.queryByTestId("assistant-context-chips") ??
 					screen.queryByRole("dialog", { name: /assistant/i }) ??
 					screen.queryByRole("dialog");
-				expect(overlay).not.toBeNull();
+				expect(overlay).toBeInTheDocument();
 			},
 			{ timeout: 3000 },
 		);
@@ -115,7 +115,7 @@ describe("AppShell ?onboarding=true auto-open", () => {
 					screen.queryByTestId("coc-overlay") ??
 					screen.queryByTestId("assistant-context-chips") ??
 					screen.queryByRole("dialog");
-				expect(overlay).not.toBeNull();
+				expect(overlay).toBeInTheDocument();
 			},
 			{ timeout: 3000 },
 		);

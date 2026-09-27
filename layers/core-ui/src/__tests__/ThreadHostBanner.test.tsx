@@ -41,7 +41,7 @@ describe("ThreadHostBanner (approved.md §2.1)", () => {
 	it("shows a pinned glyph when pinned=true (lucide pin, not emoji)", () => {
 		const { container } = render(<ThreadHostBanner {...baseProps} pinned={true} />);
 		// approved.md §2.1: never an emoji. Use the lucide `pin` SVG.
-		expect(container.querySelector("svg")).not.toBeNull();
+		expect(container.querySelectorAll("svg")).toHaveLength(1);
 	});
 
 	it("renders up to 3 participant avatars and overflow +N", () => {

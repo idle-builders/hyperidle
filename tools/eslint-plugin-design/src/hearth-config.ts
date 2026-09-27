@@ -112,6 +112,7 @@ export const RULE_SEVERITY: Record<string, ScopedSeverity> = {
 	// eslint.config.ts block (testing.md § lint enforcement), not the
 	// core-ui/*.tsx blanket sweep this table governs.
 	"no-dom-marker-assert": { coreUi: "off", designSystem: "off" },
+	"no-existence-only-test": { coreUi: "off", designSystem: "off" },
 	"no-planning-id-in-test": { coreUi: "off", designSystem: "off" },
 	"no-repo-introspection-in-test": { coreUi: "off", designSystem: "off" },
 };
@@ -132,6 +133,7 @@ export const DEDICATED_BLOCK_RULES: ReadonlySet<string> = new Set([
 	"no-raw-actor-fetch",
 	"no-unknown-cast",
 	"no-dom-marker-assert",
+	"no-existence-only-test",
 	"no-planning-id-in-test",
 	"no-repo-introspection-in-test",
 ]);

@@ -231,7 +231,7 @@ describe("ItemList", () => {
 					createElement(ItemList, { isEmpty: false, as: "ul" }, createElement("li", {}, "item")),
 				);
 			});
-			expect(container.querySelector("ul")).not.toBeNull();
+			expect(container.querySelectorAll("ul")).toHaveLength(1);
 		});
 
 		it("as=div (default) renders a <div> element", () => {
@@ -240,7 +240,7 @@ describe("ItemList", () => {
 					createElement(ItemList, { isEmpty: false }, createElement(FakeRow, { label: "Row" })),
 				);
 			});
-			expect(container.querySelector("div")).not.toBeNull();
+			expect(container.firstElementChild?.tagName).toBe("DIV");
 		});
 	});
 
@@ -291,7 +291,7 @@ describe("ItemList", () => {
 					),
 				);
 			});
-			expect(container.querySelector("[data-testid='fake-row']")).not.toBeNull();
+			expect(container.querySelectorAll("[data-testid='fake-row']")).toHaveLength(1);
 		});
 	});
 
@@ -311,7 +311,7 @@ describe("ItemList", () => {
 					}),
 				);
 			});
-			expect(container.querySelector("[data-testid='team-routines-empty']")).not.toBeNull();
+			expect(container.querySelectorAll("[data-testid='team-routines-empty']")).toHaveLength(1);
 		});
 	});
 
@@ -328,7 +328,7 @@ describe("ItemList", () => {
 					),
 				);
 			});
-			expect(container.querySelector("[data-testid='team-agents']")).not.toBeNull();
+			expect(container.querySelectorAll("[data-testid='team-agents']")).toHaveLength(1);
 		});
 	});
 });

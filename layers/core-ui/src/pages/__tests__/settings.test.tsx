@@ -149,7 +149,7 @@ describe("Theme swatch cards (not select)", () => {
 		);
 		// Must have a clickable card element with "Light" label, not an <option>
 		const lightCard = document.querySelector("[data-theme-option='light'], [data-theme='light']");
-		expect(lightCard).not.toBeNull();
+		expect(lightCard).toBeInTheDocument();
 	});
 
 	it("renders a Dark swatch card", () => {
@@ -159,7 +159,7 @@ describe("Theme swatch cards (not select)", () => {
 			</MemoryRouter>,
 		);
 		const darkCard = document.querySelector("[data-theme-option='dark'], [data-theme='dark']");
-		expect(darkCard).not.toBeNull();
+		expect(darkCard).toBeInTheDocument();
 	});
 
 	it("renders a System swatch card", () => {
@@ -171,7 +171,7 @@ describe("Theme swatch cards (not select)", () => {
 		const systemCard = document.querySelector(
 			"[data-theme-option='system'], [data-theme='system']",
 		);
-		expect(systemCard).not.toBeNull();
+		expect(systemCard).toBeInTheDocument();
 	});
 });
 

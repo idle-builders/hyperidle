@@ -42,6 +42,6 @@ describe("DesktopTitleBar", () => {
 		}
 
 		const { container } = render(<DesktopTitleBar />);
-		expect(container.firstChild).not.toBeNull();
+		expect((container.firstChild as HTMLElement | null)?.className).toContain("app-region-drag");
 	});
 });

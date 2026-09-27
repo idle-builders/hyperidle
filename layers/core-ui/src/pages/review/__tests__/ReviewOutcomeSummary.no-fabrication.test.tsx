@@ -167,7 +167,9 @@ describe("ReviewOutcomeSummary canvas — fixture-driven ordering", () => {
 
 		const unmet = screen.getByText(/Exceptions routed to human/i);
 		const needsYou = screen.getByText(/9,840 wire lacks source documentation/i);
-		expect(unmet.compareDocumentPosition(needsYou) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+		expect(unmet.compareDocumentPosition(needsYou) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+			Node.DOCUMENT_POSITION_FOLLOWING,
+		);
 	});
 
 	it("exposes a jump affordance on every needs-you row", () => {

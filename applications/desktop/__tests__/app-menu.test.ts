@@ -148,14 +148,14 @@ describe("buildAppMenuTemplate — Help menu", () => {
 		const template = buildAppMenuTemplate(BASE_OPTIONS);
 		const helpMenu = findMenu(template, "Help");
 		const logsItem = helpMenu?.submenu?.find((item) => item.label === "Open Logs Folder");
-		expect(logsItem).toBeDefined();
+		expect(logsItem?.label).toBe("Open Logs Folder");
 	});
 
 	it("contains Open Data Folder item", () => {
 		const template = buildAppMenuTemplate(BASE_OPTIONS);
 		const helpMenu = findMenu(template, "Help");
 		const dataItem = helpMenu?.submenu?.find((item) => item.label === "Open Data Folder");
-		expect(dataItem).toBeDefined();
+		expect(dataItem?.label).toBe("Open Data Folder");
 	});
 
 	it("Open Logs Folder click opens the logDir path", async () => {

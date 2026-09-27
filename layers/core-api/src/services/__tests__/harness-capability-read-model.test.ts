@@ -70,8 +70,11 @@ describe("harness-capability-read-model", () => {
 	it("harnessCapabilitiesForType returns non-null for a registered type", () => {
 		const pool = makePopulatedPool();
 		const result = harnessCapabilitiesForType(pool, "opencode");
-		expect(result).not.toBeNull();
-		expect(result?.returnEnforcement).toBeDefined();
+		expect(result).toMatchObject({
+			mcpSupport: false,
+			modelProviders: [],
+			returnEnforcement: "none",
+		});
 	});
 
 	it("harnessCapabilitiesForType forwards null for an unregistered type", () => {
@@ -92,6 +95,6 @@ describe("harness-capability-read-model", () => {
 	it("a real AdapterPool is structurally assignable to HarnessCapabilityReader (compile-time guarantee)", () => {
 		const pool = makePopulatedPool();
 		const reader: HarnessCapabilityReader = pool;
-		expect(harnessCapabilitiesForType(reader, "opencode")).not.toBeNull();
+		expect(harnessCapabilitiesForType(reader, "opencode")?.returnEnforcement).toBe("none");
 	});
 });

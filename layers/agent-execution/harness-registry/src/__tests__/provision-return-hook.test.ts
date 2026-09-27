@@ -327,16 +327,18 @@ describe("provisionReturnHook", () => {
 
 	describe("soft-continue: does not throw (cursor inert today)", () => {
 		it("soft-continue does not throw for an inert channel", async () => {
-			// Cursor is not spawnable today — soft-continue must be a safe no-op.
-			await expect(
-				provisionReturnHook({
-					sandboxPath,
-					channel: "soft-continue",
-					bridgeToken,
-					mcpUrl,
-					forceBudget,
-				}),
-			).resolves.not.toThrow();
+			// Cursor is not spawnable today — soft-continue must be a safe no-op:
+			// no harness config file gets written for it.
+			await provisionReturnHook({
+				sandboxPath,
+				channel: "soft-continue",
+				bridgeToken,
+				mcpUrl,
+				forceBudget,
+			});
+			expect(fs.existsSync(path.join(sandboxPath, ".claude"))).toBe(false);
+			expect(fs.existsSync(path.join(sandboxPath, ".codex"))).toBe(false);
+			expect(fs.existsSync(path.join(sandboxPath, ".opencode"))).toBe(false);
 		});
 	});
 
@@ -464,15 +466,14 @@ describe("provisionReturnHook", () => {
 					path.join(os.tmpdir(), `prh-ch-${channel.replace(/-/g, "")}-`),
 				);
 				try {
-					await expect(
-						provisionReturnHook({
-							sandboxPath: channelSandbox,
-							channel,
-							bridgeToken,
-							mcpUrl,
-							forceBudget,
-						}),
-					).resolves.not.toThrow();
+					await provisionReturnHook({
+						sandboxPath: channelSandbox,
+						channel,
+						bridgeToken,
+						mcpUrl,
+						forceBudget,
+					});
+					expect(fs.existsSync(channelSandbox)).toBe(true);
 				} finally {
 					fs.rmSync(channelSandbox, { recursive: true, force: true });
 				}

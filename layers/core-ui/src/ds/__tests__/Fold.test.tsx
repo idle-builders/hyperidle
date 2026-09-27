@@ -16,13 +16,13 @@ import { Fold } from "../Fold.js";
 describe("Fold — calm collapse-to-summary device", () => {
 	it("renders the CTA text", () => {
 		render(<Fold cta="Show session" />);
-		expect(screen.getByText("Show session")).toBeDefined();
+		expect(screen.getByText("Show session")).toBeInTheDocument();
 	});
 
 	it("renders an optional label before the CTA", () => {
 		render(<Fold label="Worked for 1m 12s" cta="Show" />);
-		expect(screen.getByText("Worked for 1m 12s")).toBeDefined();
-		expect(screen.getByText("Show")).toBeDefined();
+		expect(screen.getByText("Worked for 1m 12s")).toBeInTheDocument();
+		expect(screen.getByText("Show")).toBeInTheDocument();
 	});
 
 	it("fires onShow when clicked (the live dial-in hook)", () => {

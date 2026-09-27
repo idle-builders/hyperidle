@@ -358,8 +358,9 @@ describe("writeCliMcpConfig", () => {
 			const opencodeJsonPath = path.join(sandboxPath, "opencode.json");
 			const raw = fs.readFileSync(opencodeJsonPath, "utf-8");
 
-			// Must be valid JSON — no JSON.parse exception.
-			expect(() => JSON.parse(raw)).not.toThrow();
+			// Must be valid JSON with the mcp server entry it just wrote.
+			const parsed = JSON.parse(raw) as { mcp?: Record<string, unknown> };
+			expect(Object.keys(parsed.mcp ?? {}).length).toBeGreaterThan(0);
 		});
 
 		test("does not put the token in a query param or path — only in headers.Authorization", () => {

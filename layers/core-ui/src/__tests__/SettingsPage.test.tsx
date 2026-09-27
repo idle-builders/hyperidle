@@ -201,9 +201,9 @@ describe("SettingsPage: new sections mounted", () => {
 			const agents = screen.getByTestId("settings-section-agents");
 			const backend = screen.getByTestId("settings-section-backend");
 			// agents should appear before backend in the DOM (models removed)
-			expect(
-				agents.compareDocumentPosition(backend) & Node.DOCUMENT_POSITION_FOLLOWING,
-			).toBeTruthy();
+			expect(agents.compareDocumentPosition(backend) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+				Node.DOCUMENT_POSITION_FOLLOWING,
+			);
 		});
 	});
 });

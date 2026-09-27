@@ -302,8 +302,11 @@ describe("applyProvisioningPlan (relocated to agent-orchestration, unchanged beh
 		const mcpJson = JSON.parse(fs.readFileSync(path.join(sandboxPath, ".mcp.json"), "utf-8")) as {
 			mcpServers: Record<string, unknown>;
 		};
-		expect(mcpJson.mcpServers.hyperidle).toBeDefined();
-		expect(mcpJson.mcpServers.github).toBeDefined();
+		expect(mcpJson.mcpServers.hyperidle).toEqual({
+			type: "http",
+			url: "http://localhost:3001/api/mcp/tok",
+		});
+		expect(mcpJson.mcpServers.github).toMatchObject({ url: "https://mcp.github.com" });
 	});
 
 	test("no carrier applies → empty mcpTokenEnv, no file written", async () => {

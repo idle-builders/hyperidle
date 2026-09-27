@@ -113,7 +113,8 @@ describe("Sidebar conversations blocking badge", () => {
 	});
 
 	it("accepts conversationsBlockingCount as an optional prop", () => {
-		// Should render without error when prop is omitted
-		expect(() => render(<Sidebar {...defaultProps} />)).not.toThrow();
+		// Should render without the badge when the prop is omitted.
+		render(<Sidebar {...defaultProps} />);
+		expect(screen.queryByTestId("conversations-blocking-badge")).toBeNull();
 	});
 });

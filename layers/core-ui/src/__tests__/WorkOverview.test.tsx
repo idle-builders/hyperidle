@@ -172,7 +172,7 @@ describe("Empty state (0 teams)", () => {
 		const setupLink = screen.queryByRole("link", { name: /setup|finish setup|create.*team/i });
 		const setupBtn = screen.queryByRole("button", { name: /setup|finish setup|create.*team/i });
 		// At least one exists
-		expect(setupLink ?? setupBtn).not.toBeNull();
+		expect(setupLink ?? setupBtn).toBeInTheDocument();
 	});
 });
 

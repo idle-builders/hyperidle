@@ -13,6 +13,7 @@ import { motionProfileOnly } from "./rules/motion-profile-only.js";
 import { noAiAesthetic } from "./rules/no-ai-aesthetic.js";
 import { noDialogBoilerplate } from "./rules/no-dialog-boilerplate.js";
 import { noDomMarkerAssert } from "./rules/no-dom-marker-assert.js";
+import { noExistenceOnlyTest } from "./rules/no-existence-only-test.js";
 import { noHandrolledChip } from "./rules/no-handrolled-chip.js";
 import { noHandrolledControl } from "./rules/no-handrolled-control.js";
 import { noHandrolledPageHeader } from "./rules/no-handrolled-page-header.js";
@@ -67,6 +68,7 @@ export const rules: Record<string, Rule.RuleModule> = {
 	"no-dialog-boilerplate": noDialogBoilerplate,
 	"no-unknown-cast": noUnknownCast,
 	"no-dom-marker-assert": noDomMarkerAssert,
+	"no-existence-only-test": noExistenceOnlyTest,
 	"no-planning-id-in-test": noPlanningIdInTest,
 	"no-repo-introspection-in-test": noRepoIntrospectionInTest,
 	"require-ds-attribute": requireDsAttribute,

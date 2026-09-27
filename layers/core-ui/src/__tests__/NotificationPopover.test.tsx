@@ -246,7 +246,7 @@ describe("Sidebar unread dot affordance", () => {
 		);
 
 		const dot = document.querySelector("[data-testid='notification-unread-dot']");
-		expect(dot).not.toBeNull();
+		expect(dot).toBeInTheDocument();
 	});
 
 	it("no unread dot when unseenCount is 0", async () => {

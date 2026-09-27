@@ -20,7 +20,7 @@ import { ReferenceChip } from "../ReferenceChip.js";
 describe("ReferenceChip — single shared reference primitive", () => {
 	it("renders the label as text", () => {
 		render(<ReferenceChip kind="artifact" label="auth/passkey.ts" mode="posted" />);
-		expect(screen.getByText("auth/passkey.ts")).toBeDefined();
+		expect(screen.getByText("auth/passkey.ts")).toBeInTheDocument();
 	});
 
 	it("renders each of the four kinds' label without error", () => {
@@ -74,14 +74,14 @@ describe("ReferenceChip — single shared reference primitive", () => {
 
 	it("renders optional meta as text alongside the label", () => {
 		render(<ReferenceChip kind="artifact" label="auth/passkey.ts" meta="+2 −1" mode="posted" />);
-		expect(screen.getByText("+2 −1")).toBeDefined();
+		expect(screen.getByText("+2 −1")).toBeInTheDocument();
 	});
 
 	it("renders a label containing markup as TEXT, not HTML (§8 injection guard)", () => {
 		render(<ReferenceChip kind="block" label="<img src=x onerror=1>" mode="posted" />);
 		// No injected <img> — React escapes the label to text.
 		expect(document.querySelector("img")).toBeNull();
-		expect(screen.getByText("<img src=x onerror=1>")).toBeDefined();
+		expect(screen.getByText("<img src=x onerror=1>")).toBeInTheDocument();
 	});
 
 	// Draft mode with no `onOpen` renders the body as plain text, not a
@@ -91,7 +91,7 @@ describe("ReferenceChip — single shared reference primitive", () => {
 		const onRemove = vi.fn();
 		render(<ReferenceChip kind="task" label="Some task" mode="draft" onRemove={onRemove} />);
 		expect(screen.queryByRole("button", { name: /open/i })).toBeNull();
-		expect(screen.getByText("Some task")).toBeDefined();
+		expect(screen.getByText("Some task")).toBeInTheDocument();
 		// Remove still works — only the open half is affected by the missing handler.
 		fireEvent.click(screen.getByLabelText(/remove/i));
 		expect(onRemove).toHaveBeenCalledTimes(1);

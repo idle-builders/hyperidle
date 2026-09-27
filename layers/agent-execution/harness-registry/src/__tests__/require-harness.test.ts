@@ -187,7 +187,7 @@ describe("requireBinary — a CLI a test needs, with no harness vocabulary", () 
 	});
 
 	test("does not throw for a binary POSIX guarantees is present", () => {
-		expect(() => requireBinary("sh")).not.toThrow();
+		expect(requireBinary("sh")).toBeUndefined();
 	});
 
 	test("no API key satisfies it — a binary gate is a binary gate", () => {

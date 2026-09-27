@@ -40,7 +40,8 @@ describe("PageScaffold", () => {
 				</PageScaffold>,
 			);
 			const child = screen.getByTestId("child");
-			expect(child.closest("[data-page-scroll]")).not.toBeNull();
+			expect(child.closest("[data-page-scroll]")).toBeInTheDocument();
+			expect(document.querySelectorAll("[data-page-scroll]")).toHaveLength(1);
 		});
 
 		it('frame="page" additionally places scroll content in the stable page frame', () => {
@@ -50,8 +51,8 @@ describe("PageScaffold", () => {
 				</PageScaffold>,
 			);
 			const child = screen.getByTestId("page-child");
-			expect(child.closest("[data-page-frame]")).not.toBeNull();
-			expect(child.closest("[data-page-scroll]")).not.toBeNull();
+			expect(child.closest("[data-page-frame]")).toBeInTheDocument();
+			expect(child.closest("[data-page-scroll]")).toBeInTheDocument();
 		});
 
 		it('frame="local" is the default and adds no page frame', () => {

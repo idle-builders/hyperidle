@@ -146,12 +146,14 @@ describe("AdapterPool select — capacity and load balancing", () => {
 		const pool = new AdapterPool();
 		pool.register("local", makeAdapter(), { ...LOCAL_META, maxConcurrent: 1 });
 		pool.release("local");
-		expect(pool.select()).not.toBeNull();
+		expect(pool.select()?.id).toBe("local");
 	});
 
 	it("release on unknown id is a no-op", () => {
 		const pool = new AdapterPool();
-		expect(() => pool.release("nonexistent")).not.toThrow();
+		pool.register("local", makeAdapter(), { ...LOCAL_META, maxConcurrent: 1 });
+		pool.release("nonexistent");
+		expect(pool.select()?.id).toBe("local");
 	});
 });
 
@@ -344,7 +346,7 @@ describe("AdapterPool pause/resume", () => {
 	it("register initialises paused: false", () => {
 		const pool = new AdapterPool();
 		pool.register("w1", makeAdapter(), META);
-		expect(pool.select()).not.toBeNull();
+		expect(pool.select()?.id).toBe("w1");
 	});
 
 	it("pause(id) makes the adapter unselectable even with capacity free", () => {
@@ -373,9 +375,9 @@ describe("AdapterPool pause/resume", () => {
 	it("pause/resume on an unknown id is a no-op", () => {
 		const pool = new AdapterPool();
 		pool.register("w1", makeAdapter(), META);
-		expect(() => pool.pause("nonexistent")).not.toThrow();
-		expect(() => pool.resume("nonexistent")).not.toThrow();
-		expect(pool.select()).not.toBeNull();
+		pool.pause("nonexistent");
+		pool.resume("nonexistent");
+		expect(pool.select()?.id).toBe("w1");
 	});
 });
 

@@ -130,7 +130,7 @@ describe("<Block />", () => {
 		for (const c of cases) {
 			it(`${c.kind} renders a <${c.tag}>`, async () => {
 				await renderBlock(c.payload);
-				expect(container.querySelector(c.tag)).toBeTruthy();
+				expect(container.querySelectorAll(c.tag)).toHaveLength(1);
 			});
 		}
 
@@ -142,7 +142,7 @@ describe("<Block />", () => {
 					text: `H${level}`,
 					inline: [{ type: "text", value: `H${level}` }],
 				});
-				expect(container.querySelector(`h${level}`)).toBeTruthy();
+				expect(container.querySelectorAll(`h${level}`)).toHaveLength(1);
 			}
 		});
 

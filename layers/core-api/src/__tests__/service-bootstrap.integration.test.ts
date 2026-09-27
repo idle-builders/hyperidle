@@ -225,7 +225,9 @@ describe("AppOptions.serviceBootstrap type field", () => {
 
 describe("kernel-only boot (no serviceBootstrap)", () => {
 	test("createTestApp() without any options boots without throwing", async () => {
-		await expect(createTestApp()).resolves.not.toThrow();
+		const app = await createTestApp();
+		const res = await app.request("/api/health");
+		expect(res.status).toBe(200);
 	}, 120_000);
 
 	test("GET /api/health returns 200 in kernel-only mode", async () => {

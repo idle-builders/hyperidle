@@ -59,8 +59,8 @@ describe("PartList — calm author-grouped column", () => {
 				onOpen={vi.fn()}
 			/>,
 		);
-		expect(screen.getByText("Atlas")).toBeDefined();
-		expect(screen.getByText("Mara")).toBeDefined();
+		expect(screen.getByText("Atlas")).toBeInTheDocument();
+		expect(screen.getByText("Mara")).toBeInTheDocument();
 	});
 
 	it("collapses consecutive same-author parts under ONE head", () => {
@@ -75,15 +75,15 @@ describe("PartList — calm author-grouped column", () => {
 		);
 		// One head for the agent, but both bodies present.
 		expect(screen.getAllByText("Atlas")).toHaveLength(1);
-		expect(screen.getByText("first")).toBeDefined();
-		expect(screen.getByText("second")).toBeDefined();
+		expect(screen.getByText("first")).toBeInTheDocument();
+		expect(screen.getByText("second")).toBeInTheDocument();
 	});
 
 	it("marks the agent group with an agent cue (not a human marker)", () => {
 		render(<PartList parts={[prose({ id: "m1", author: ATLAS, text: "x" })]} onOpen={vi.fn()} />);
 		// Agent cue is keyed off author.isAgent — a data marker the head exposes.
 		const cue = document.querySelector('[data-ds-agent="true"], [data-agent="true"]');
-		expect(cue).not.toBeNull();
+		expect(cue?.getAttribute("data-ds-agent") ?? cue?.getAttribute("data-agent")).toBe("true");
 	});
 });
 
@@ -97,7 +97,7 @@ describe("PartList — inline embeds", () => {
 				onOpen={vi.fn()}
 			/>,
 		);
-		expect(screen.getByText("auth/passkey.ts")).toBeDefined();
+		expect(screen.getByText("auth/passkey.ts")).toBeInTheDocument();
 	});
 
 	it("renders a session reference as a Fold, NOT a ReferenceChip", () => {
@@ -152,7 +152,7 @@ describe("PartList — message-type Parts", () => {
 
 	it("review Part: compact reference with an Open review button, NO inline decision/code", () => {
 		render(<PartList parts={[reviewPart]} onOpen={vi.fn()} />);
-		expect(screen.getByText(/open review/i)).toBeDefined();
+		expect(screen.getByText(/open review/i)).toBeInTheDocument();
 		// NO inline decision buttons in the conversation.
 		expect(screen.queryByText(/^approve$/i)).toBeNull();
 		expect(screen.queryByText(/request changes/i)).toBeNull();
@@ -161,22 +161,22 @@ describe("PartList — message-type Parts", () => {
 
 	it("review Part: shows the change-set as a ReferenceChip (no raw diff wall)", () => {
 		render(<PartList parts={[reviewPart]} onOpen={vi.fn()} />);
-		expect(screen.getByText("auth/passkey.ts")).toBeDefined();
+		expect(screen.getByText("auth/passkey.ts")).toBeInTheDocument();
 	});
 
 	it("questionnaire Part: question + neutral option buttons, no biased/recommended tag", () => {
 		render(<PartList parts={[questionnairePart]} onOpen={vi.fn()} />);
-		expect(screen.getByText("Which DB?")).toBeDefined();
-		expect(screen.getByText("Postgres")).toBeDefined();
-		expect(screen.getByText("SQLite")).toBeDefined();
+		expect(screen.getByText("Which DB?")).toBeInTheDocument();
+		expect(screen.getByText("Postgres")).toBeInTheDocument();
+		expect(screen.getByText("SQLite")).toBeInTheDocument();
 		// no "Recommended" tag rendered.
 		expect(screen.queryByText(/recommended/i)).toBeNull();
 	});
 
 	it("resolved Part: verdict echo via the label vocabulary + quiet View review, no buttons", () => {
 		render(<PartList parts={[resolvedPart]} onOpen={vi.fn()} />);
-		expect(screen.getByText(/approved/i)).toBeDefined();
-		expect(screen.getByText(/inspect review/i)).toBeDefined();
+		expect(screen.getByText(/approved/i)).toBeInTheDocument();
+		expect(screen.getByText(/inspect review/i)).toBeInTheDocument();
 		expect(screen.queryByText(/open review/i)).toBeNull();
 	});
 });

@@ -642,16 +642,14 @@ describe("registerWorkSessionEndReactions — session_ended task-token writeback
 		await seedSession(db, "wser-tok-notask-session", agentId);
 		registerWorkSessionEndReactions(db, eventBus, editTaskFrom(agentOrchestration));
 
-		expect(() =>
-			eventBus.emit(
-				sessionEnded({
-					sessionId: "wser-tok-notask-session",
-					agentId,
-					taskId: null,
-					tokensByTier: { workhorse: { prompt: 10, completion: 20 } },
-				}),
-			),
-		).not.toThrow();
+		eventBus.emit(
+			sessionEnded({
+				sessionId: "wser-tok-notask-session",
+				agentId,
+				taskId: null,
+				tokensByTier: { workhorse: { prompt: 10, completion: 20 } },
+			}),
+		);
 		await settleIgnoredSessionEnded(
 			db,
 			eventBus,

@@ -38,7 +38,7 @@ describe("SplitView: modes", () => {
 			/>,
 		);
 		// In fold-back, only origin is shown
-		expect(container.querySelector("[data-testid='origin-content']")).toBeTruthy();
+		expect(container.querySelectorAll("[data-testid='origin-content']")).toHaveLength(1);
 		expect(container.querySelector("[data-testid='dest-content']")).toBeNull();
 	});
 
@@ -53,7 +53,7 @@ describe("SplitView: modes", () => {
 		);
 		// In full, only destination is shown
 		expect(container.querySelector("[data-testid='origin-content']")).toBeNull();
-		expect(container.querySelector("[data-testid='dest-content']")).toBeTruthy();
+		expect(container.querySelectorAll("[data-testid='dest-content']")).toHaveLength(1);
 	});
 
 	it("split: shows both origin and destination", () => {
@@ -65,7 +65,7 @@ describe("SplitView: modes", () => {
 				dividerRatio={0.5}
 			/>,
 		);
-		expect(container.querySelector("[data-testid='origin-content']")).toBeTruthy();
-		expect(container.querySelector("[data-testid='dest-content']")).toBeTruthy();
+		expect(container.querySelectorAll("[data-testid='origin-content']")).toHaveLength(1);
+		expect(container.querySelectorAll("[data-testid='dest-content']")).toHaveLength(1);
 	});
 });

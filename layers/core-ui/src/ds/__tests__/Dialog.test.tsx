@@ -76,7 +76,7 @@ describe("Dialog chrome", () => {
 			root.render(createElement(Dialog, makeProps({ open: true })));
 		});
 		const dialog = document.querySelector("[role='dialog']");
-		expect(dialog).not.toBeNull();
+		expect(dialog).toBeInTheDocument();
 	});
 
 	it("renders the title text in the dialog header", async () => {
@@ -110,7 +110,7 @@ describe("Dialog chrome", () => {
 		const closeBtn = document.querySelector(
 			"[aria-label='Close dialog']",
 		) as HTMLButtonElement | null;
-		expect(closeBtn).not.toBeNull();
+		expect(closeBtn).toBeInTheDocument();
 	});
 
 	it("clicking the close button calls onClose", async () => {
@@ -144,7 +144,7 @@ describe("Dialog chrome", () => {
 			);
 		});
 		const btn = document.querySelector("[data-testid='action-btn']");
-		expect(btn).not.toBeNull();
+		expect(btn?.textContent).toBe("Save");
 	});
 });
 
@@ -197,11 +197,11 @@ describe("Dialog dismissal guard", () => {
 			overlay?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
 		});
 
-		// The guard strip must be visible — find it by its prompt copy or data-testid
+		// The guard strip must be visible, with its prompt copy.
 		const strip =
 			document.querySelector("[data-testid='discard-confirm-strip']") ??
 			document.querySelector("[data-dialog-guard]");
-		expect(strip).not.toBeNull();
+		expect(strip?.textContent).toContain("Discard your changes?");
 	});
 
 	it("clean dialog (isDirty=false): pressing Escape calls onClose immediately (confirmation rule §1.1)", async () => {
@@ -469,7 +469,7 @@ describe("Dialog mobile adaptation", () => {
 		const box =
 			document.querySelector("[data-dialog-box]") ??
 			document.querySelector("[data-testid='dialog-box']");
-		expect(box).not.toBeNull();
+		expect(box).toBeInTheDocument();
 	});
 });
 

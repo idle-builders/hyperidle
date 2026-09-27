@@ -231,7 +231,7 @@ describe("Composer — iconSend prop", () => {
 
 		// onSubmit was called only if text was non-empty — the textarea change
 		// event may not fire correctly in this test env; the important thing is
-		// the button exists and is clickable (no crash).
-		expect(sendBtn).not.toBeNull();
+		// the button is a real disableable control, not decoration.
+		expect(sendBtn?.tagName).toBe("BUTTON");
 	});
 });

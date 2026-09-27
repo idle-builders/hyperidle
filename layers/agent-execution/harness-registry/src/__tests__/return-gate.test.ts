@@ -183,8 +183,9 @@ describe("ReturnGate — mid-turn non-terminal tools do not block the gate", () 
 			{ type: "error", message: "oops", code: "E001" },
 		];
 		for (const ev of events) {
-			expect(() => gate.observe(ev)).not.toThrow();
+			gate.observe(ev);
 		}
+		expect(gate.returned).toBe(false);
 	});
 
 	it("error event does not count as a return action", () => {
@@ -199,7 +200,8 @@ describe("ReturnGate — mid-turn non-terminal tools do not block the gate", () 
 describe("ReturnGate — gate is observation-only", () => {
 	it("observe() on a return tool_call does not throw or intercept", () => {
 		const gate = createReturnGate();
-		expect(() => gate.observe(toolCallEvent("send_message", {}))).not.toThrow();
+		gate.observe(toolCallEvent("send_message", {}));
+		expect(gate.returned).toBe(true);
 	});
 
 	it("multiple gates are independent (no shared state)", () => {

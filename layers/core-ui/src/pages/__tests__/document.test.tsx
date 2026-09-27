@@ -129,7 +129,7 @@ describe("Sort controls always visible", () => {
 		renderDocumentList();
 		// Sort controls: Relevance, Recency, Frequency
 		const sortBar = document.querySelector("[data-testid='document-sort-bar']");
-		expect(sortBar).not.toBeNull();
+		expect(sortBar).toBeInTheDocument();
 	});
 
 	it("renders Recency sort option", () => {
@@ -145,7 +145,7 @@ describe("Sort controls always visible", () => {
 		await user.click(curatedTab);
 		// Sort controls still visible
 		const sortBar = document.querySelector("[data-testid='document-sort-bar']");
-		expect(sortBar).not.toBeNull();
+		expect(sortBar).toBeInTheDocument();
 	});
 });
 

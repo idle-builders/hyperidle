@@ -112,7 +112,9 @@ describe("a plugin's contributions view lists what it contributed", () => {
 
 		const contributions = await contributionsOf(app);
 		for (const c of contributions) {
-			expect(c.entityId, `${c.kind} contribution must name its row`).toBeTruthy();
+			expect(c.entityId?.length ?? 0, `${c.kind} contribution must name its row`).toBeGreaterThan(
+				0,
+			);
 		}
 	});
 

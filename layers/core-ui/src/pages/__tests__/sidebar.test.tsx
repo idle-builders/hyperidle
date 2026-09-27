@@ -98,7 +98,8 @@ describe("Sidebar utility controls", () => {
 		// @ts-expect-error — onSelectScope was removed from SidebarProps
 		props.onSelectScope = vi.fn();
 		// If the above lines fail type-check, the type is correct. Render should still work.
-		expect(() => render(<Sidebar {...makeProps()} />)).not.toThrow();
+		const { getByTestId } = render(<Sidebar {...makeProps()} />);
+		expect(getByTestId("sidebar-search-hint")).toBeInTheDocument();
 	});
 });
 

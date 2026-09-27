@@ -80,15 +80,16 @@ describe("org_edges", () => {
 				createdAt: NOW,
 			});
 
-			await expect(
-				db.insert(orgEdges).values({
-					id: "edge-m2",
-					fromUserId: "u-human-1",
-					mechanism: "function",
-					target: "builder",
-					createdAt: NOW,
-				}),
-			).resolves.not.toThrow();
+			await db.insert(orgEdges).values({
+				id: "edge-m2",
+				fromUserId: "u-human-1",
+				mechanism: "function",
+				target: "builder",
+				createdAt: NOW,
+			});
+
+			const rows = await db.select().from(orgEdges).where(eq(orgEdges.fromUserId, "u-human-1"));
+			expect(rows.map((r) => r.mechanism).sort()).toEqual(["direct", "function"]);
 		});
 	});
 

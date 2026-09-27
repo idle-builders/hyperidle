@@ -232,7 +232,7 @@ describe("SessionView — aggregation", () => {
 			// Aggregate header contains step count or verb summary
 			return /step|view|read/i.test(txt);
 		});
-		expect(aggregateBtn).toBeDefined();
+		expect(aggregateBtn).toBeInTheDocument();
 	});
 
 	it("does NOT fold a single completed tool (single stays standalone)", () => {

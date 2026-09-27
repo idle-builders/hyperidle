@@ -56,7 +56,7 @@ describe("ErrorBoundary", () => {
 		);
 		const byButton = screen.queryByRole("button", { name: /reload|retry|refresh/i });
 		const byLink = screen.queryByRole("link", { name: /reload|retry|refresh/i });
-		expect(byButton ?? byLink).not.toBeNull();
+		expect(byButton ?? byLink).toBeInTheDocument();
 		spy.mockRestore();
 	});
 

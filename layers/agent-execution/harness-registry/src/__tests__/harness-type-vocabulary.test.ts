@@ -106,7 +106,7 @@ describe("harness type vocabulary", () => {
 			};
 			pool.register(`local-${type}`, makeAdapter(), meta);
 
-			expect(pool.select({ harnessType: type })).not.toBeNull();
+			expect(pool.select({ harnessType: type })?.id).toBe(`local-${type}`);
 		}
 	});
 

@@ -1120,19 +1120,26 @@ export default [
 						"assertOutline",
 						"assertNoFabrication",
 						"assertAllCovered",
+						"settleIgnoredSessionEnded",
+						"settleIgnoredReaction",
 					],
 				},
 			],
-			// NOTE: `vitest/no-restricted-matchers` for the four existence-only
-			// chains (toBeDefined/toBeTruthy/not.toBeNull/not.toThrow — testing.md
-			// § Never a test) is deliberately NOT wired here yet. It is real and
-			// accurate (verified against the current tree) but the population is
-			// 427 sites across 140 files spread thin (~3/file) across nearly every
-			// package — a second full area-review pass, not a mechanical fix this
-			// task can safely make alone. Landing it at error today would fail
-			// lint repo-wide. Proposed as its own follow-up (mirroring the
-			// per-area split this tree already used) rather than shipped
-			// half-fixed or allowlisted.
+		},
+	},
+
+	// testing.md § Never a test: "an assert that can't fail" — a test whose
+	// ONLY assertions are existence-only (toBeDefined/toBeTruthy/not.toBeNull/
+	// not.toBeUndefined/not.toThrow) proves nothing. Narrower than banning the
+	// matchers outright (`vitest/no-restricted-matchers` would flag hundreds of
+	// legitimate sites that pair one with a real assertion) — this only fires
+	// when a test has no real assertion anywhere in its body.
+	{
+		files: ["**/*.test.ts", "**/*.test.tsx"],
+		languageOptions: { parser: tsParser, parserOptions: { ecmaFeatures: { jsx: true } } },
+		plugins: { design },
+		rules: {
+			"design/no-existence-only-test": "error",
 		},
 	},
 

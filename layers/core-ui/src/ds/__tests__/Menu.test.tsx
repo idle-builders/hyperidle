@@ -59,7 +59,7 @@ describe("Menu: rendering", () => {
 	it("renders role=menu container when open=true", async () => {
 		await render({ open: true });
 		const menu = container.querySelector("[role='menu']");
-		expect(menu).not.toBeNull();
+		expect(menu).toBeInTheDocument();
 	});
 
 	it("role=menu container carries data-ds-component='Menu'", async () => {
@@ -588,7 +588,7 @@ describe("Menu: align prop", () => {
 				}) as ReactElement,
 			);
 		});
-		expect(container.querySelector("[role='menu']")).not.toBeNull();
+		expect(container.querySelectorAll("[role='menu']")).toHaveLength(1);
 	});
 
 	it('align="start" renders', async () => {
@@ -603,6 +603,6 @@ describe("Menu: align prop", () => {
 				}) as ReactElement,
 			);
 		});
-		expect(container.querySelector("[role='menu']")).not.toBeNull();
+		expect(container.querySelectorAll("[role='menu']")).toHaveLength(1);
 	});
 });

@@ -134,7 +134,7 @@ describe("DocRow signals prop", () => {
 			);
 		});
 		const triad = container.querySelector("[data-testid='document-signals']");
-		expect(triad).not.toBeNull();
+		expect(triad?.textContent).toContain("2d");
 	});
 
 	// Renders recency value when present

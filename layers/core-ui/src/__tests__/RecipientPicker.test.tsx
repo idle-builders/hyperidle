@@ -179,7 +179,7 @@ describe("RecipientPicker", () => {
 		await waitFor(() => {
 			const textarea = screen.queryByRole("textbox");
 			// Could be a textarea for composing the message — just verify one exists
-			expect(textarea).not.toBeNull();
+			expect(textarea).toBeInTheDocument();
 		});
 	});
 
@@ -206,7 +206,7 @@ describe("RecipientPicker", () => {
 		await waitFor(() => {
 			// Should render some "no results" message
 			const noMatch = screen.queryByText(/no/i);
-			expect(noMatch).not.toBeNull();
+			expect(noMatch).toBeInTheDocument();
 		});
 	});
 
@@ -257,7 +257,7 @@ describe("RecipientPicker", () => {
 
 		// Submit
 		const sendBtn = screen.queryByRole("button", { name: /send/i });
-		expect(sendBtn).not.toBeNull();
+		expect(sendBtn).toBeInTheDocument();
 		await user.click(sendBtn!);
 		await waitFor(() => {
 			expect(callMock).toHaveBeenCalledWith(

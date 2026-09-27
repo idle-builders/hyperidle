@@ -102,7 +102,7 @@ describe("SettingsConnections on the real open_user shape", () => {
 		);
 
 		for (const service of INHERITED_SERVICES) {
-			expect(await screen.findByText(service)).toBeDefined();
+			expect(await screen.findByText(service)).toBeInTheDocument();
 		}
 	});
 

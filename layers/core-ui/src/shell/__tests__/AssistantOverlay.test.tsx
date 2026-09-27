@@ -171,7 +171,7 @@ describe("AssistantOverlay message thread rendering", () => {
 		const agentEl =
 			container.querySelector("[title='Assistant']") ??
 			container.querySelector("[aria-label*='Assistant' i]");
-		expect(agentEl).not.toBeNull();
+		expect(agentEl).toBeInTheDocument();
 	});
 });
 
@@ -594,7 +594,7 @@ describe("Review fix: loading guard covers useCurrentUser too", () => {
 		const { container } = renderNoticeOverlay();
 
 		expect(screen.queryByText(/couldn't find your assistant agent/i)).not.toBeInTheDocument();
-		expect(container.querySelector(".loading-spinner")).not.toBeNull();
+		expect(container.querySelectorAll(".loading-spinner")).toHaveLength(1);
 	});
 });
 

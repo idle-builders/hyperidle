@@ -999,15 +999,14 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 				const bridgeToken = `cursor-agent-test-token-${Math.random().toString(36).slice(2)}`;
 				const mcpUrl = `http://localhost:3001/api/mcp/${bridgeToken}`;
 
-				await expect(
-					provisionReturnHook({
-						sandboxPath,
-						channel: "soft-continue",
-						bridgeToken,
-						mcpUrl,
-						forceBudget: 2,
-					}),
-				).resolves.not.toThrow();
+				await provisionReturnHook({
+					sandboxPath,
+					channel: "soft-continue",
+					bridgeToken,
+					mcpUrl,
+					forceBudget: 2,
+				});
+				expect(fs.existsSync(path.join(sandboxPath, ".claude"))).toBe(false);
 			} finally {
 				await sandbox.cleanup();
 			}

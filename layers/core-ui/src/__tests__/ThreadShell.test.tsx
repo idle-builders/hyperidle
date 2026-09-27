@@ -397,7 +397,7 @@ describe("ThreadShell promotion", () => {
 			/>,
 		);
 		const newRow = screen.getByText("Review r-new").closest("[data-testid='comment-row']");
-		expect(newRow).not.toBeNull();
+		expect(newRow).toBeInTheDocument();
 	});
 
 	it("does NOT mount the legacy thread-head section — that file is deleted", () => {

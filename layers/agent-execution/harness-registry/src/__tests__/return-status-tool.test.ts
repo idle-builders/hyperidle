@@ -164,13 +164,12 @@ describe("return_status tool", () => {
 		const registry = createEnforcementRegistry();
 		const sessionId = "unknown-session-xyz";
 
-		// The tool should handle unknown sessions gracefully.
-		// Could return forceMessage=null (allow end) or an error.
-		// Either is acceptable; what's NOT acceptable is throwing.
+		// An unknown session has no enforcement data — the tool allows the stop
+		// rather than throwing: returned/exempt both true, forceMessage null.
 		const result = await returnStatusTool.handler({}, makeCtx(sessionId), registry);
 
-		// Must not throw.
-		expect(result).toBeDefined();
+		if (!result.success) throw new Error("expected a successful return-status result");
+		expect(result.data).toMatchObject({ returned: true, exempt: true, forceMessage: null });
 	});
 
 	// ── forceMessage content ──────────────────────────────────────────────

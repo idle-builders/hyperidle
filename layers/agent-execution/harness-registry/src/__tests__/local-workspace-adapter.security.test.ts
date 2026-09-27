@@ -51,7 +51,7 @@ describe("LocalSandboxAdapter production guard", () => {
 		const adapter = new LocalSandboxAdapter();
 
 		const handle = await adapter.spawn(baseDir);
-		expect(handle.sandboxId).toBeDefined();
+		expect(handle.sandboxId).toMatch(/^local-sb-/);
 		await adapter.destroy(handle);
 	});
 
@@ -60,7 +60,7 @@ describe("LocalSandboxAdapter production guard", () => {
 		const adapter = new LocalSandboxAdapter();
 
 		const handle = await adapter.spawn(baseDir);
-		expect(handle.sandboxId).toBeDefined();
+		expect(handle.sandboxId).toMatch(/^local-sb-/);
 		await adapter.destroy(handle);
 	});
 
@@ -76,13 +76,13 @@ describe("LocalSandboxAdapter production guard", () => {
 		const adapter = new LocalSandboxAdapter();
 
 		const handle = await adapter.spawn(baseDir);
-		expect(handle.sandboxId).toBeDefined();
+		expect(handle.sandboxId).toMatch(/^local-sb-/);
 		await adapter.destroy(handle);
 	});
 
 	it("does not throw when NODE_ENV=production and HYPERIDLE_PROFILE is unset (laptop is the default)", () => {
 		process.env.NODE_ENV = "production";
 		process.env.HYPERIDLE_PROFILE = undefined;
-		expect(() => new LocalSandboxAdapter()).not.toThrow();
+		expect(new LocalSandboxAdapter()).toBeInstanceOf(LocalSandboxAdapter);
 	});
 });

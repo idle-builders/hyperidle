@@ -347,7 +347,7 @@ describe("useDialogBehavior modal=false (non-modal surfaces)", () => {
 				}),
 			);
 		});
-		expect(capturedBehavior!.getScrimProps()).not.toBeNull();
+		expect(typeof capturedBehavior!.getScrimProps()?.onMouseDown).toBe("function");
 	});
 
 	it("modal=true exposes scrim props; modal=false does not", () => {

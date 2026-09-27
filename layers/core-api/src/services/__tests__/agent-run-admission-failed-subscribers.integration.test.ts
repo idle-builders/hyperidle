@@ -156,7 +156,13 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 			},
 		});
 
-		await expect(drainIntents(deps, { maxAttempts: 1 })).resolves.not.toThrow();
+		await drainIntents(deps, { maxAttempts: 1 });
+
+		const [row] = await db
+			.select()
+			.from(agentWorkIntents)
+			.where(eq(agentWorkIntents.idempotencyKey, "sub-subscription-run"));
+		expect(row?.status).toBe("failed");
 	});
 
 	test("task_run: marks the taskDispatchAttempts row failed", async ({ db, eventBus }) => {
