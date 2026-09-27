@@ -10,7 +10,6 @@
 import {
 	agentSessionRequests,
 	agentWorkIntents,
-	explicitSessionStarts,
 	sessions,
 	tasks,
 	teams,
@@ -64,28 +63,18 @@ describe("agent-layer boot recovery", () => {
 		const now = new Date();
 		const nowIso = now.toISOString();
 
-		// 1. A pending explicit-session-start intent — proves the awaited
-		//    first-sweep drain admits it (not merely scheduled for later).
+		// 1. A pending task_run intent — proves the awaited first-sweep drain
+		//    admits it (not merely scheduled for later).
 		await db.insert(teams).values({ id: "boot-team", name: "boot", createdAt: nowIso });
-		await db.insert(users).values([
-			{
-				id: "boot-agent",
-				kind: "ai",
-				name: "Agent",
-				role: "builder",
-				status: "active",
-				teamId: "boot-team",
-				createdAt: nowIso,
-			},
-			{
-				id: "boot-human",
-				kind: "human",
-				name: "Founder",
-				role: "founder",
-				status: "active",
-				createdAt: nowIso,
-			},
-		]);
+		await db.insert(users).values({
+			id: "boot-agent",
+			kind: "ai",
+			name: "Agent",
+			role: "builder",
+			status: "active",
+			teamId: "boot-team",
+			createdAt: nowIso,
+		});
 		await db.insert(threads).values({
 			id: `thr-${"boot-bet"}`,
 			hostKind: "team",
@@ -126,28 +115,15 @@ describe("agent-layer boot recovery", () => {
 			createdAt: nowIso,
 			updatedAt: nowIso,
 		});
-		await db.insert(explicitSessionStarts).values({
-			id: "boot-pending-start",
-			taskId: "boot-task",
-			requestedAgentId: "boot-agent",
-			requestedModelTier: "workhorse",
-			requestedBy: "boot-human",
-			idempotencyKey: "boot-pending",
-			status: "requested",
-			createdAt: nowIso,
-			updatedAt: nowIso,
-		});
 		await db.insert(agentWorkIntents).values({
 			id: "boot-pending-intent",
-			kind: "session_start",
-			sourceKind: "explicit_session_start",
-			sourceId: "boot-pending-start",
-			requestedBy: "boot-human",
-			idempotencyKey: "explicit-session-start:boot-pending-start",
+			kind: "task_run",
+			sourceKind: "task_dispatch_attempt",
+			sourceId: "boot-task",
+			idempotencyKey: "task-dispatch:boot-pending",
 			status: "pending",
-			// `session_start` carries no drain-time case — every real intent now
-			// carries a baked payload from emit time. Mirror that here so this
-			// fixture stays production-realistic (see `session-requests/src/service.ts`).
+			// Every intent kind bakes its request at emit time; the drain reads
+			// `bakedRequestJson` directly with zero domain reads.
 			bakedRequestJson: JSON.stringify({
 				defaultAgentId: "boot-agent",
 				sourceKind: "task",
@@ -163,24 +139,12 @@ describe("agent-layer boot recovery", () => {
 
 		// 2. An expired-claimed intent (crash mid-claim) — proves it is reclaimed
 		//    by the same awaited sweep, not left stranded.
-		await db.insert(explicitSessionStarts).values({
-			id: "boot-expired-start",
-			taskId: "boot-task",
-			requestedAgentId: "boot-agent",
-			requestedModelTier: "workhorse",
-			requestedBy: "boot-human",
-			idempotencyKey: "boot-expired",
-			status: "requested",
-			createdAt: nowIso,
-			updatedAt: nowIso,
-		});
 		await db.insert(agentWorkIntents).values({
 			id: "boot-expired-intent",
-			kind: "session_start",
-			sourceKind: "explicit_session_start",
-			sourceId: "boot-expired-start",
-			requestedBy: "boot-human",
-			idempotencyKey: "explicit-session-start:boot-expired-start",
+			kind: "task_run",
+			sourceKind: "task_dispatch_attempt",
+			sourceId: "boot-task",
+			idempotencyKey: "task-dispatch:boot-expired",
 			status: "claimed",
 			// See the `boot-pending-intent` note above.
 			bakedRequestJson: JSON.stringify({
@@ -288,11 +252,6 @@ describe("agent-layer boot recovery", () => {
 				.from(agentWorkIntents)
 				.where(eq(agentWorkIntents.id, "boot-pending-intent"));
 			expect(pendingIntent).toMatchObject({ status: "handed_off" });
-			const [pendingStart] = await db
-				.select()
-				.from(explicitSessionStarts)
-				.where(eq(explicitSessionStarts.id, "boot-pending-start"));
-			expect(pendingStart).toMatchObject({ status: "admitted" });
 
 			// (2) expired claim reclaimed and admitted.
 			const [expiredIntent] = await db
@@ -328,7 +287,7 @@ describe("agent-layer boot recovery", () => {
 			expect(oldTerminal).toHaveLength(0);
 
 			// No second harness start: each real request that reached admission
-			// (the two explicit-session-starts) was admitted exactly once.
+			// (the two task-run intents) was admitted exactly once.
 			expect(admitSessionCalls.filter((id) => id === orphanRequest?.id)).toHaveLength(0);
 			const counts = admitSessionCalls.reduce<Record<string, number>>((acc, id) => {
 				acc[id] = (acc[id] ?? 0) + 1;

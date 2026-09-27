@@ -203,12 +203,6 @@ export function createAgentOrchestrationIntakeRoutes(
 		return c.json(outcome);
 	});
 
-	// @lore `GET .../requests/pending-intents` and
-	// `POST .../requests/explicit-starts/:startId/fail` do not exist — no
-	// producer ever emits a `session_start`/`knowledge_action` intent, so
-	// this route only ever accepts `thread_turn`/`task_run`/`session_resume`/
-	// `subscription_run`.
-
 	// ── runs.stopForTasks — POST /agent-orchestration/runs/stop-for-tasks ────
 	//
 	// @lore `runs.abort` (POST /runs/abort) is DELETED — `stop_session`

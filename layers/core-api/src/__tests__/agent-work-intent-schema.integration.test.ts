@@ -72,13 +72,13 @@ describe("agent_work_intents durable-rows checks", () => {
 		expect(row).toBeDefined();
 	});
 
-	test("rejects a kind outside the six closed values", async ({ db }) => {
+	test("rejects a kind outside the four closed values", async ({ db }) => {
 		await expect(
 			db.insert(agentWorkIntents).values(baseIntent({ id: "bad-kind", kind: "assistant" })),
 		).rejects.toThrow();
 	});
 
-	test("rejects a source_kind outside the six closed values", async ({ db }) => {
+	test("rejects a source_kind outside the four closed values", async ({ db }) => {
 		await expect(
 			db
 				.insert(agentWorkIntents)
@@ -116,8 +116,6 @@ describe("agent_work_intents durable-rows checks", () => {
 				// `routine_run` isn't a valid kind — it retired from the closed set
 				// entirely, not just this pairing.
 				["thread_turn", "thread_message"],
-				["session_start", "explicit_session_start"],
-				["knowledge_action", "knowledge_action"],
 				["task_run", "task_dispatch_attempt"],
 			];
 		for (const [kind, sourceKind] of pairs) {

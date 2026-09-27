@@ -13,10 +13,7 @@ import {
 	agentSessionRequests,
 	agentWorkIntents,
 	type HyperIdleDb,
-	sessions,
-	tasks,
 	teams,
-	threads,
 	users,
 } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
@@ -26,7 +23,6 @@ import { eq } from "drizzle-orm";
 import { describe, vi } from "vitest";
 import {
 	claimSessionRequest,
-	createSessionRequest,
 	drainIntents,
 	enqueueWorkIntent,
 	findSessionRequest,
@@ -356,136 +352,6 @@ describe("agent session request repository", () => {
 		expect(
 			(await listSessionRequests(db, { status: "running" })).map((row: { id: string }) => row.id),
 		).toContain(request.id);
-	});
-
-	test("explicit starts are found by id and requester key and transition to admitted", async ({
-		db,
-	}) => {
-		const now = new Date().toISOString();
-		await db.insert(teams).values({ id: "explicit-team", name: "Team", createdAt: now });
-		await db.insert(users).values([
-			{
-				id: "explicit-agent",
-				kind: "ai",
-				name: "Agent",
-				role: "builder",
-				status: "active",
-				createdAt: now,
-			},
-			{
-				id: "explicit-user",
-				kind: "human",
-				name: "User",
-				role: "founder",
-				status: "active",
-				createdAt: now,
-			},
-		]);
-		// Every task has a real thread (`tasks.thread_id` is NOT NULL).
-		await db.insert(threads).values([
-			{
-				id: "thr-explicit-bet",
-				hostKind: "team",
-				hostId: "explicit-team",
-				initiatorId: "explicit-user",
-				participants: "[]",
-				lastActiveAt: now,
-				createdAt: now,
-			},
-			{
-				id: "thr-explicit-task",
-				hostKind: "team",
-				hostId: "explicit-team",
-				initiatorId: "explicit-user",
-				participants: "[]",
-				lastActiveAt: now,
-				createdAt: now,
-			},
-		]);
-		await db.insert(tasks).values({
-			id: "explicit-bet",
-			parentTaskId: null,
-			teamId: "explicit-team",
-			title: "Bet",
-			description: "Bet",
-			state: "in_progress",
-			threadId: "thr-explicit-bet",
-			createdAt: now,
-			updatedAt: now,
-		});
-		await db.insert(tasks).values({
-			id: "explicit-task",
-			parentTaskId: "explicit-bet",
-			teamId: "explicit-team",
-			title: "Task",
-			state: "accepted",
-			threadId: "thr-explicit-task",
-			createdAt: now,
-			updatedAt: now,
-		});
-		const start = await createSessionRequest(db, {
-			kind: "explicitStart",
-			start: {
-				taskId: "explicit-task",
-				requestedAgentId: "explicit-agent",
-				requestedBy: "explicit-user",
-				idempotencyKey: "explicit-key",
-			},
-		});
-		const [request] = await db
-			.insert(agentSessionRequests)
-			.values({
-				id: "explicit-request",
-				sourceKind: "task",
-				sourceId: "explicit-task",
-				streamId: "task:explicit-task",
-				agentId: "explicit-agent",
-				promptMode: "task",
-				idempotencyKey: "explicit-request-key",
-				sourceCorrelationJson: JSON.stringify({ taskId: "explicit-task", teamId: "explicit-team" }),
-				status: "pending",
-				createdAt: now,
-				updatedAt: now,
-			})
-			.returning();
-		if (!request) throw new Error("Insert failed");
-		await db.insert(sessions).values({
-			id: "explicit-session",
-			taskId: "explicit-task",
-			requestId: request.id,
-			sourceKind: "task",
-			sourceId: "explicit-task",
-			sourceCorrelationJson: JSON.stringify({ taskId: "explicit-task", teamId: "explicit-team" }),
-			agentId: "explicit-agent",
-			modelTier: "fast",
-			startedAt: now,
-			state: "active",
-		});
-		expect((await findSessionRequest(db, { by: "explicitStart", startId: start.id }))?.id).toBe(
-			start.id,
-		);
-		expect(
-			(
-				await findSessionRequest(db, {
-					by: "explicitStart",
-					requestedBy: "explicit-user",
-					idempotencyKey: "explicit-key",
-				})
-			)?.id,
-		).toBe(start.id);
-		await transitionSessionRequest(db, {
-			target: "explicitStart",
-			to: "admitted",
-			startId: start.id,
-			requestId: request.id,
-			sessionId: "explicit-session",
-		});
-		const admitted = await findSessionRequest(db, { by: "explicitStart", startId: start.id });
-		expect(admitted).toMatchObject({
-			status: "admitted",
-			requestId: request.id,
-			sessionId: "explicit-session",
-		});
 	});
 
 	test("lifecycle transitions are CAS-guarded", async ({ db }) => {

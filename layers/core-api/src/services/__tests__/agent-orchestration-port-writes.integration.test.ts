@@ -99,8 +99,8 @@ describe("AgentOrchestrationPort — write side (contract-test harness)", () => 
 		const receipt = await port.intents.submit({
 			kind: "thread_turn",
 			sourceKind: "thread_message",
-			sourceId: "knowledge:aop-write-1",
-			idempotencyKey: "knowledge:aop-write-1:review:e1",
+			sourceId: "thread:aop-write-1",
+			idempotencyKey: "thread:aop-write-1:review:e1",
 		});
 
 		expect(receipt.id).toBeTruthy();
@@ -109,7 +109,7 @@ describe("AgentOrchestrationPort — write side (contract-test harness)", () => 
 			.from(agentWorkIntents)
 			.where(eq(agentWorkIntents.id, receipt.id))
 			.limit(1);
-		expect(row?.sourceId).toBe("knowledge:aop-write-1");
+		expect(row?.sourceId).toBe("thread:aop-write-1");
 		expect(row?.status).toBe("pending");
 	});
 
@@ -122,14 +122,14 @@ describe("AgentOrchestrationPort — write side (contract-test harness)", () => 
 		const first = await port.intents.submit({
 			kind: "thread_turn",
 			sourceKind: "thread_message",
-			sourceId: "knowledge:aop-write-idem",
-			idempotencyKey: "knowledge:aop-write-idem:review:e1",
+			sourceId: "thread:aop-write-idem",
+			idempotencyKey: "thread:aop-write-idem:review:e1",
 		});
 		const second = await port.intents.submit({
 			kind: "thread_turn",
 			sourceKind: "thread_message",
-			sourceId: "knowledge:aop-write-idem",
-			idempotencyKey: "knowledge:aop-write-idem:review:e1",
+			sourceId: "thread:aop-write-idem",
+			idempotencyKey: "thread:aop-write-idem:review:e1",
 		});
 
 		expect(second.id).toBe(first.id);

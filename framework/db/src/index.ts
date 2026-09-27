@@ -16,8 +16,6 @@ export {
 	changes,
 	type DocumentRow,
 	documents,
-	type ExplicitSessionStart,
-	explicitSessionStarts,
 	type FilesystemRow,
 	filesystemInjections,
 	filesystems,

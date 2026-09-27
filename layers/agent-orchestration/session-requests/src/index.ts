@@ -1,9 +1,7 @@
 export {
 	type BakedWorkIntentRequest,
 	type ClaimOptions,
-	type CreateSessionRequestInput,
 	claimSessionRequest,
-	createSessionRequest,
 	drainIntents,
 	enqueueWorkIntent,
 	type FindQuery,

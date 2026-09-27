@@ -2,11 +2,10 @@ import { randomUUID } from "node:crypto";
 import type {
 	AgentSessionRequest,
 	AgentWorkIntent,
-	ExplicitSessionStart,
 	HyperIdleDb,
 	WriteExecutor,
 } from "@hyperidle/db";
-import { agentSessionRequests, agentWorkIntents, explicitSessionStarts } from "@hyperidle/db";
+import { agentSessionRequests, agentWorkIntents } from "@hyperidle/db";
 import type {
 	AgentSessionRequestInput,
 	AgentSessionSourceCorrelation,
@@ -347,17 +346,6 @@ async function finishRequestInTxInternal(tx: WriteExecutor, input: TerminalInput
 		.where(predicate)
 		.returning();
 	if (!winner) return null;
-	// Inline the one real projection (explicit_session_start → explicitSessionStarts)
-	// that the former lifecycle-inbox poller did asynchronously. All other source kinds
-	// were observeOnly no-ops; this single branch replaces the entire outbox drain.
-	if (winner.sourceKind === "explicit_session_start") {
-		await projectStartInternal(tx, {
-			requestId: winner.id,
-			state: input.state,
-			sessionId: input.precondition === "running" ? input.sessionId : null,
-			failureCode: input.state === "failed" ? (input.failureCode ?? "INTERNAL_ERROR") : null,
-		});
-	}
 	return winner;
 }
 async function finishRequestInternal(db: HyperIdleDb, input: TerminalInput) {
@@ -868,114 +856,10 @@ async function reapIntentsInternal(db: HyperIdleDb, options: ReapOptions = {}) {
 		if (ids.length > 0) {
 			await tx.delete(agentWorkIntents).where(inArray(agentWorkIntents.id, ids));
 		}
-		const oldStarts = await tx
-			.delete(explicitSessionStarts)
-			.where(
-				and(
-					inArray(explicitSessionStarts.status, ["completed", "failed", "cancelled"]),
-					lt(explicitSessionStarts.updatedAt, cutoff),
-				),
-			)
-			.returning({ id: explicitSessionStarts.id });
-		return {
-			intents: ids.length,
-			explicitStarts: oldStarts.length,
-		};
+		return { intents: ids.length };
 	});
 }
 
-async function findStartInternal(db: HyperIdleDb, id: string) {
-	const [row] = await db
-		.select()
-		.from(explicitSessionStarts)
-		.where(eq(explicitSessionStarts.id, id))
-		.limit(1);
-	return row;
-}
-async function admitStartInternal(
-	db: HyperIdleDb,
-	input: { readonly id: string; readonly requestId: string; readonly sessionId: string },
-) {
-	await db
-		.update(explicitSessionStarts)
-		.set({
-			status: "admitted",
-			requestId: input.requestId,
-			sessionId: input.sessionId,
-			updatedAt: /* @__PURE__ */ new Date().toISOString(),
-		})
-		.where(eq(explicitSessionStarts.id, input.id));
-}
-async function failStartInternal(
-	db: HyperIdleDb,
-	input: { readonly id: string; readonly failureCode: string },
-) {
-	await db
-		.update(explicitSessionStarts)
-		.set({
-			status: "failed",
-			failureCode: input.failureCode,
-			updatedAt: /* @__PURE__ */ new Date().toISOString(),
-		})
-		.where(eq(explicitSessionStarts.id, input.id));
-}
-async function findStartIdentityInternal(
-	db: HyperIdleDb,
-	input: { readonly requestedBy: string; readonly idempotencyKey: string },
-) {
-	const [row] = await db
-		.select()
-		.from(explicitSessionStarts)
-		.where(
-			and(
-				eq(explicitSessionStarts.requestedBy, input.requestedBy),
-				eq(explicitSessionStarts.idempotencyKey, input.idempotencyKey),
-			),
-		)
-		.limit(1);
-	return row;
-}
-async function insertStartInternal(
-	exec: WriteExecutor,
-	input: Extract<CreateSessionRequestInput, { kind: "explicitStart" }>["start"],
-) {
-	const now = /* @__PURE__ */ new Date().toISOString();
-	const [row] = await exec
-		.insert(explicitSessionStarts)
-		.values({
-			id: input.id ?? randomUUID(),
-			taskId: input.taskId,
-			requestedAgentId: input.requestedAgentId,
-			requestedModelTier: input.requestedModelTier ?? "fast",
-			requestedBy: input.requestedBy,
-			idempotencyKey: input.idempotencyKey,
-			status: "requested",
-			createdAt: now,
-			updatedAt: now,
-		})
-		.returning();
-	if (!row) throw new Error("Explicit session start insert returned no row");
-	return row;
-}
-async function projectStartInternal(
-	exec: WriteExecutor,
-	input: {
-		readonly requestId: string;
-		readonly state: "completed" | "failed" | "cancelled";
-		readonly sessionId: string | null;
-		readonly failureCode: string | null;
-	},
-) {
-	await exec
-		.update(explicitSessionStarts)
-		.set({
-			status: input.state,
-			sessionId: input.sessionId,
-			failureCode: input.failureCode,
-			updatedAt: new Date().toISOString(),
-		})
-		.where(eq(explicitSessionStarts.requestId, input.requestId));
-}
 function queryRequestInternal(exec: HyperIdleDb, query: FindQuery) {
 	switch (query.by) {
 		case "id":
@@ -990,14 +874,6 @@ function queryRequestInternal(exec: HyperIdleDb, query: FindQuery) {
 				claimToken: query.claimToken,
 				now: query.now,
 			});
-		case "explicitStart":
-			if ("startId" in query) {
-				return findStartInternal(exec, query.startId);
-			}
-			return findStartIdentityInternal(exec, {
-				requestedBy: query.requestedBy,
-				idempotencyKey: query.idempotencyKey,
-			});
 		case "intentSource":
 			if ("kind" in query) {
 				return findIntentSourceInternal(exec, query.kind, query.sourceId);
@@ -1010,19 +886,6 @@ function mutateRequestInternal(
 	spec: TransitionSpec,
 	options: { readonly now?: Date; readonly existingTransaction?: boolean } = {},
 ) {
-	if ("target" in spec) {
-		if (spec.to === "admitted") {
-			return admitStartInternal(db, {
-				id: spec.startId,
-				requestId: spec.requestId,
-				sessionId: spec.sessionId,
-			});
-		}
-		return failStartInternal(db, {
-			id: spec.startId,
-			failureCode: spec.failureCode,
-		});
-	}
 	if (spec.to === "running") {
 		return admitClaimedRequestInternal(
 			db,
@@ -1072,18 +935,8 @@ const PROMPT_MODE_BY_SOURCE: Record<string, string> = {
 export type WorkIntentInput =
 	| {
 			// @lore BC3 architecture.md §5 B5: renamed from "assistant_turn".
-			readonly kind:
-				| "thread_turn"
-				| "session_start"
-				| "knowledge_action"
-				| "task_run"
-				| "subscription_run";
-			readonly sourceKind:
-				| "thread_message"
-				| "explicit_session_start"
-				| "knowledge_action"
-				| "task_dispatch_attempt"
-				| "subscription";
+			readonly kind: "thread_turn" | "task_run" | "subscription_run";
+			readonly sourceKind: "thread_message" | "task_dispatch_attempt" | "subscription";
 			readonly sourceId: string;
 			readonly requestedBy?: string;
 			readonly idempotencyKey: string;
@@ -1133,12 +986,12 @@ export type BakedWorkIntentRequest = {
 		readonly type: string;
 	}>;
 	/**
-	 * The `task_run`/`knowledge_action`/
-	 * `subscription_run` families' baked entity content (task/bet/
-	 * agent/team, or subscription/agent/team) plus the ranked+budgeted knowledge
-	 * items `@hyperidle/knowledge`'s `assembleSessionKnowledge` produces.
-	 * Absent for `assistant_turn` (bakes `transcript` instead) — see
-	 * `BakedWorkIntentRequest` in `@hyperidle/work-intent-port` for the full `@lore`.
+	 * The `task_run`/`subscription_run` families' baked entity content
+	 * (task/bet/agent/team, or subscription/agent/team) plus the
+	 * ranked+budgeted knowledge items `@hyperidle/knowledge`'s
+	 * `assembleSessionKnowledge` produces. Absent for `assistant_turn` (bakes
+	 * `transcript` instead) — see `BakedWorkIntentRequest` in
+	 * `@hyperidle/work-intent-port` for the full `@lore`.
 	 */
 	readonly contextBundle?: BakedContextBundle;
 	/**
@@ -1155,7 +1008,7 @@ export type BakedWorkIntentRequest = {
 	readonly harnessDisabled?: readonly string[];
 	/**
 	 * The session's calling thread id. Absent
-	 * for `subscription_run`/`knowledge_action` — see `BakedWorkIntentRequest` in
+	 * for `subscription_run` — see `BakedWorkIntentRequest` in
 	 * `@hyperidle/work-intent-port` for the full `@lore`.
 	 */
 	readonly callingThreadId?: string;
@@ -1163,23 +1016,6 @@ export type BakedWorkIntentRequest = {
 // BakedContextDocument and BakedContextBundle are now imported from @hyperidle/domain-model above.
 // The local mirrors existed because @hyperidle/work-intent-port's audience excluded session-requests;
 // work-intent-port dissolved into domain-model (reach: everyone).
-/**
- * @lore There is no "triggered" kind and no trigger rule to match: a
- * subscription that fires calls `enqueueWorkIntent` with its agent already
- * resolved, the same as every other kind that bakes its request at emit time.
- * An agent's reactions are its subscriptions and their prompts, nothing else.
- */
-export type CreateSessionRequestInput = {
-	readonly kind: "explicitStart";
-	readonly start: {
-		readonly id?: string;
-		readonly requestedBy: string;
-		readonly requestedAgentId: string;
-		readonly requestedModelTier?: string;
-		readonly taskId: string;
-		readonly idempotencyKey: string;
-	};
-};
 export type FindQuery =
 	| { readonly by: "id"; readonly requestId: string }
 	| { readonly by: "sessionId"; readonly sessionId: string }
@@ -1195,9 +1031,7 @@ export type FindQuery =
 			readonly kind: WorkIntentInput["kind"];
 			readonly sourceId: string;
 	  }
-	| { readonly by: "terminationReason"; readonly requestId: string }
-	| { readonly by: "explicitStart"; readonly startId: string }
-	| { readonly by: "explicitStart"; readonly requestedBy: string; readonly idempotencyKey: string };
+	| { readonly by: "terminationReason"; readonly requestId: string };
 type TransitionSpec =
 	| {
 			readonly requestId: string;
@@ -1227,19 +1061,6 @@ type TransitionSpec =
 			readonly claimToken: string;
 			readonly failureCode?: string;
 			readonly errorMessage?: string;
-	  }
-	| {
-			readonly target: "explicitStart";
-			readonly to: "admitted";
-			readonly startId: string;
-			readonly requestId: string;
-			readonly sessionId: string;
-	  }
-	| {
-			readonly target: "explicitStart";
-			readonly to: "failed";
-			readonly startId: string;
-			readonly failureCode: string;
 	  };
 export type SessionRequestTransition = TransitionSpec & {
 	readonly transaction?: "existing";
@@ -1262,13 +1083,6 @@ export function enqueueWorkIntent(exec: WriteExecutor, input: WorkIntentInput) {
 // assumed "sourceId IS the triggering message id", which the wake rule's
 // `(message, agent)` identity (§3.10) makes false; a live function whose
 // doc comment is false is the worse option.
-export function createSessionRequest(
-	exec: HyperIdleDb,
-	input: Extract<CreateSessionRequestInput, { kind: "explicitStart" }>,
-): Promise<ExplicitSessionStart>;
-export function createSessionRequest(exec: HyperIdleDb, input: CreateSessionRequestInput) {
-	return insertStartInternal(exec, input.start);
-}
 export function findSessionRequest(
 	exec: HyperIdleDb,
 	query: Extract<FindQuery, { by: "id" }>,
@@ -1285,10 +1099,6 @@ export function findSessionRequest(
 	exec: HyperIdleDb,
 	query: Extract<FindQuery, { by: "claimActive" }>,
 ): Promise<boolean>;
-export function findSessionRequest(
-	exec: HyperIdleDb,
-	query: Extract<FindQuery, { by: "explicitStart" }>,
-): Promise<ExplicitSessionStart | undefined>;
 export function findSessionRequest(
 	exec: HyperIdleDb,
 	query: Extract<FindQuery, { by: "intentSource" }>,
