@@ -1,5 +1,4 @@
 import { type HyperIdleDb, sessions } from "@hyperidle/db";
-import type { ModelTier } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
 import { and, eq } from "drizzle-orm";
 import { createContextAssembler } from "./context.js";
@@ -55,7 +54,7 @@ function resolveEventBus(deps: RuntimeDeps): EventBus {
 	return deps.eventBus ?? new EventBus();
 }
 
-/** 6h cadence for the terminal-intent/explicit-start/task-attempt reaper. */
+/** 6h cadence for the terminal-intent/task-attempt reaper. */
 const AGENT_LAYER_REAP_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
 function assertStartable(deps: RuntimeDeps): asserts deps is RuntimeDeps & {
@@ -94,63 +93,14 @@ async function drainAgentSessionRequests(deps: RuntimeDeps): Promise<number> {
 			{ workerId: "agent-layer", now: new Date(), leaseMs: 30_000 },
 		);
 		if (!request) return consumed;
-		// @lore AU9: explicitSessionStarts.requestId is only populated by THIS
-		// function's own success write below — before admission it is still null,
-		// so looking the row up `WHERE requestId = request.id` silently matches
-		// zero rows both for the pre-admission tier read and (worse) the failure
-		// projection, which then never surfaces a terminal code to the poller.
-		// The correlated intent's sourceId is the durable link the whole way
-		// through — resolve the explicit-session-start row through it instead.
-		const correlatedIntent = await deps.ports.sessionRequests.findSessionRequest(deps.db, {
-			by: "intentSource",
-			requestId: request.id,
-		});
-		const explicitStartId =
-			correlatedIntent?.sourceKind === "explicit_session_start" ? correlatedIntent.sourceId : null;
 		try {
-			// The assistant falls through the SAME drain path as every other
-			// kind — `requiredReturnActions` and the calling-thread bake make
-			// its session-scoped output generic like any other agent's.
-			let tier: ModelTier = "workhorse";
-			if (explicitStartId) {
-				const start = await deps.ports.sessionRequests.findSessionRequest(deps.db, {
-					by: "explicitStart",
-					startId: explicitStartId,
-				});
-				tier = (start?.requestedModelTier as ModelTier | null) ?? tier;
-			}
-			// The target agent's per-agent
-			// model override applies uniformly for all six kinds, not just the
-			// @lore A model was resolved here, through the model gateway, so the
-			// built-in adapter could make its own provider API call. It came with a
-			// live read of `agent_run_config` for the per-agent override, and a
-			// tolerance for MissingCredentialError so a subscription-CLI harness
-			// would not be killed before adapter selection by a key it never uses.
-			//
-			// No harness makes that call now. Each authenticates itself and runs the
-			// model the agent named, which reaches it as `SessionConfig.selectedModel`
-			// — read where the session is admitted, not here. The resolution, the
-			// read, the error tolerance and the gateway behind them are all gone.
-
-			const result = await runSession(deps, {
+			await runSession(deps, {
 				mode: "durable",
 				request,
 				sandboxBasePath: deps.sandboxBasePath ?? "/tmp/hyperidle-workspaces",
-				modelTier: tier,
+				modelTier: "workhorse",
 				completion: "admit",
 			});
-			if (explicitStartId) {
-				if (result.mode === "assembled") {
-					throw new Error("Durable execution returned assembly-only result");
-				}
-				await deps.ports.sessionRequests.transitionSessionRequest(deps.db, {
-					target: "explicitStart",
-					to: "admitted",
-					startId: explicitStartId,
-					requestId: request.id,
-					sessionId: result.sessionId,
-				});
-			}
 			consumed += 1;
 		} catch (error) {
 			const failure = classifyAdmissionFailure(error);
@@ -163,20 +113,7 @@ async function drainAgentSessionRequests(deps: RuntimeDeps): Promise<number> {
 			// transitionAgentRunLifecycle again here would either double-terminalize
 			// (CAS finds zero rows — a thrown "Unknown agent request", the exact
 			// silent-no-op-turned-crash class R1 exists to kill) or incorrectly
-			// terminalize a legitimately-retryable released claim. This catch's only
-			// remaining job is the family-specific explicit-session-start projection.
-			// A pre-admission throw for an `assistant_turn` request behaves exactly
-			// like every other kind's: the claim sits released/claimed until its
-			// lease expires and is re-claimed, not terminalized here — a known,
-			// pre-existing gap for every kind, not special-cased for the assistant.
-			if (explicitStartId) {
-				await deps.ports.sessionRequests.transitionSessionRequest(deps.db, {
-					target: "explicitStart",
-					to: "failed",
-					startId: explicitStartId,
-					failureCode: failure.code,
-				});
-			}
+			// terminalize a legitimately-retryable released claim.
 			// @lore ship-blocker fix: a `ConcurrencyLimitError` release puts the
 			// request back to `pending` with NO delay — `claimSessionRequest`'s
 			// `{next:true}` candidate query has no "not before" gate, so it is

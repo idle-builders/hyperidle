@@ -23,8 +23,6 @@ const COMPATIBLE_SOURCE_KIND: Record<
 	typeof agentWorkIntents.$inferInsert.sourceKind
 > = {
 	thread_turn: "thread_message",
-	session_start: "explicit_session_start",
-	knowledge_action: "knowledge_action",
 	task_run: "task_dispatch_attempt",
 	subscription_run: "subscription",
 };

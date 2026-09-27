@@ -28,8 +28,6 @@ export const AGENT_WORK_INTENT_KINDS = [
 	// thread turn is not necessarily "the assistant"; any woken agent gets
 	// one. Migration 0085 step 8 respells the DB check constraint the same way.
 	"thread_turn",
-	"session_start",
-	"knowledge_action",
 	"task_run",
 	// A subscription's wake.
 	"subscription_run",
@@ -45,12 +43,7 @@ export type AgentWorkIntentKind = (typeof AGENT_WORK_INTENT_KINDS)[number];
  * fires from the drain against the STORED intent row, before (or instead of)
  * resolution succeeds, so it carries this pre-resolution vocabulary verbatim.
  */
-export type AgentWorkIntentSourceKind =
-	| "thread_message"
-	| "explicit_session_start"
-	| "knowledge_action"
-	| "task_dispatch_attempt"
-	| "subscription";
+export type AgentWorkIntentSourceKind = "thread_message" | "task_dispatch_attempt" | "subscription";
 
 export type AgentRunAdmissionFailureCode =
 	| "INVALID_WORK_SOURCE" // baked payload's source no longer exists / no longer eligible (domain-state staleness)

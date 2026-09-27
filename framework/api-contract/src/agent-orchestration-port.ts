@@ -83,12 +83,7 @@ export interface AgentOrchestrationSessionsPort {
 /** Mirrors `AgentWorkIntentRecorderInput`'s discriminant (`@hyperidle/shared`). */
 export type AgentOrchestrationWorkIntentKind =
 	// @lore BC3 architecture.md §5 B5: renamed from "assistant_turn".
-	| "thread_turn"
-	| "session_start"
-	| "knowledge_action"
-	| "task_run"
-	| "session_resume"
-	| "subscription_run";
+	"thread_turn" | "task_run" | "session_resume" | "subscription_run";
 
 /**
  * Mirrors `AgentWorkIntentRecorderInput` — `bakedRequest` is carried opaque

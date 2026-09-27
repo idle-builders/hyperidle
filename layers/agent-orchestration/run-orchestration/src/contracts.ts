@@ -1,9 +1,4 @@
-import type {
-	AgentSessionRequest,
-	AgentWorkIntent,
-	ExplicitSessionStart,
-	HyperIdleDb,
-} from "@hyperidle/db";
+import type { AgentSessionRequest, AgentWorkIntent, HyperIdleDb } from "@hyperidle/db";
 import type {
 	AgentSessionSourceCorrelation,
 	AgentSessionSourceKind,
@@ -163,10 +158,6 @@ export interface RuntimePorts {
 			| Pick<AgentWorkIntent, "id" | "kind" | "idempotencyKey" | "sourceId" | "sourceKind">
 			| undefined
 		>;
-		findSessionRequest(
-			exec: HyperIdleDb,
-			query: { by: "explicitStart"; startId: string },
-		): Promise<ExplicitSessionStart | undefined>;
 		listSessionRequests(
 			exec: HyperIdleDb,
 			filter: { source: { kind: AgentSessionSourceKind; id: string } } | { status: "running" },
@@ -198,15 +189,7 @@ export interface RuntimePorts {
 						claimToken: string;
 						failureCode?: string;
 						errorMessage?: string;
-				  }
-				| {
-						target: "explicitStart";
-						to: "admitted";
-						startId: string;
-						requestId: string;
-						sessionId: string;
-				  }
-				| { target: "explicitStart"; to: "failed"; startId: string; failureCode: string },
+				  },
 			options?: { now?: Date },
 		): Promise<
 			| AgentSessionRequest
@@ -225,7 +208,7 @@ export interface RuntimePorts {
 		reapExpired(
 			db: HyperIdleDb,
 			options?: { now?: Date; retentionDays?: number; batchSize?: number },
-		): Promise<{ intents: number; explicitStarts: number }>;
+		): Promise<{ intents: number }>;
 	};
 	readonly sessionLifecycle: RunOrchestrationSessionLifecycleRuntime;
 	/** Test-only execution seam; production runSession binds the internal provisioner. */
