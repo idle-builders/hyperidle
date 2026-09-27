@@ -130,4 +130,31 @@ describe("ReferenceChip — single shared reference primitive", () => {
 		const el = screen.getByLabelText("Remove Task x");
 		expect(el.tagName).toBe("BUTTON");
 	});
+
+	// A draft chip that only lists a reference (e.g. a dependency chip with
+	// nothing to detach) must not ship a remove control nobody wired.
+	it("draft mode with no onRemove: renders no remove button", () => {
+		render(<ReferenceChip kind="task" label="Read-only dep" mode="draft" />);
+		expect(screen.queryByLabelText(/remove/i)).toBeNull();
+		expect(screen.queryByRole("button", { name: /remove/i })).toBeNull();
+	});
+
+	// removeAriaLabel overrides the default `Remove ${label}` name — for a
+	// caller whose label alone doesn't read as a sensible removal target.
+	it("removeAriaLabel overrides the default accessible name on the remove button", () => {
+		const onRemove = vi.fn();
+		render(
+			<ReferenceChip
+				kind="task"
+				label="Task x"
+				mode="draft"
+				onRemove={onRemove}
+				removeAriaLabel="Detach Task x from this review"
+			/>,
+		);
+		expect(screen.queryByLabelText("Remove Task x")).toBeNull();
+		const button = screen.getByLabelText("Detach Task x from this review");
+		fireEvent.click(button);
+		expect(onRemove).toHaveBeenCalledTimes(1);
+	});
 });

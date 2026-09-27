@@ -254,6 +254,41 @@ describe("ReviewPage route", () => {
 		});
 	});
 
+	it("does not re-run the loader when threadDetail.data gets a new identity but status stays ready", async () => {
+		const loader = vi.fn().mockResolvedValue(REVIEW_COMPOSITION_SUBJECT);
+		renderRoute(loader);
+
+		await screen.findByRole("button", { name: /^approve$/i });
+		expect(loader).toHaveBeenCalledTimes(1);
+
+		// A fresh ThreadView object, same status — the kind of update
+		// `useThread`'s own refetch/subscription produces without the loader
+		// needing to re-run (only the conversation/verdict overlay reacts).
+		// `useThread()` is re-invoked on ReviewPage's next render below, so
+		// this is what that next call returns.
+		useThreadMock.mockReturnValue({
+			status: "ready",
+			data: makeThreadView(),
+			error: null,
+			refresh: retrySpy,
+		});
+
+		// A refused verdict changes `verdictError` from null to a message —
+		// an actual state change, so React is guaranteed to re-render
+		// ReviewPage (a same-value `setState` would bail out silently) and
+		// re-invoke useThread(), the trigger for the effect this test targets.
+		postMessageSpy.mockResolvedValueOnce({
+			ok: false,
+			problems: [{ code: "conflict", message: "Someone else's verdict already won." }],
+		});
+		fireEvent.click(screen.getByRole("button", { name: /^approve$/i }));
+
+		await waitFor(() => {
+			expect(screen.getByRole("alert")).toHaveTextContent("Someone else's verdict already won.");
+		});
+		expect(loader).toHaveBeenCalledTimes(1);
+	});
+
 	it("renders an error state instead of a permanent spinner when the route has no threadId", () => {
 		// Simulates the landed `useThread` contract's terminal "idle" status for
 		// a falsy id — but the page must not even wait on that: a missing
