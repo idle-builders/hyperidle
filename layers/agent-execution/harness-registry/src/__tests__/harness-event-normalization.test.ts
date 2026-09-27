@@ -64,19 +64,14 @@ describe("normalizeHarnessEvent — opencode pre-map", () => {
 	});
 
 	it("step_start → benign empty completion (not an error — a lifecycle event)", () => {
-		// @lore AR2 opencode-events: step_start is emitted at turn-start by opencode
-		// `--format json`. Without this mapping it falls through to unknownEvent →
-		// { type:"error" } → provisionSession crashed=true. Mapped to benign completion.
+		// @lore opencode-events: step_start is emitted at turn-start by opencode `--format json`. Without this mapping it falls through to unknownEvent → { type:"error" } → provisionSession crashed=true. Mapped to benign completion.
 		const input = { type: "step_start", id: "s1" };
 		const result = normalizeHarnessEvent(input);
 		expect(result.type).toBe("completion");
 	});
 
 	it("text → completion with part.text (real opencode event shape)", () => {
-		// @lore AR5 opencode-text-event: real opencode --format json text event carries
-		// content in part.text, NOT at the top level. Verified 2026-06-30 by running
-		// `opencode run ... --format json` manually. Without part.text extraction,
-		// drainForCompletion sees only empty completions → blocked/empty.
+		// @lore opencode-text-event: real opencode --format json text event carries content in part.text, NOT at the top level. Verified 2026-06-30 by running `opencode run ... --format json` manually. Without part.text extraction, drainForCompletion sees only empty completions → blocked/empty.
 		const input = {
 			type: "text",
 			part: { type: "text", text: '[{"title":"Task 1"}]' },
@@ -97,11 +92,7 @@ describe("normalizeHarnessEvent — opencode pre-map", () => {
 	});
 
 	it("tool_use → tool_call (actual opencode --format json event shape)", () => {
-		// @lore AR2 opencode-tool_use: opencode --format json emits "tool_use" (not "tool")
-		// for tool calls. Discovered 2026-06-29 by running opencode manually. Real event:
-		// { type:"tool_use", part:{ type:"tool", tool:"bash", state:{ input:{ command:"echo 4" } } } }
-		// Without this branch, tool_use hits default → preMapCodexEvent (no match) →
-		// unknownEvent → { type:"error", code:"UnknownHarnessEvent" } → crash.
+		// @lore opencode-tool-use: opencode --format json emits "tool_use" (not "tool") for tool calls. Discovered 2026-06-29 by running opencode manually. Real event: { type:"tool_use", part:{ type:"tool", tool:"bash", state:{ input:{ command:"echo 4" } } } } Without this branch, tool_use hits default → preMapCodexEvent (no match) → unknownEvent → { type:"error", code:"UnknownHarnessEvent" } → crash.
 		const input = {
 			type: "tool_use",
 			part: {

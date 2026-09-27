@@ -7,17 +7,12 @@
  *   - Set to system → emulate OS color-scheme change → app re-renders without reload.
  *   - Settings Appearance toggle reflects the live persisted value.
  *
- * @lore We use page.addInitScript to clear localStorage *before* the page loads
- * so the boot script sees a fresh default. Reading localStorage / dataset
- * happens via page.evaluate to inspect actual browser state, not derived UI.
+ * @lore We use page.addInitScript to clear localStorage *before* the page loads so the boot script sees a fresh default. Reading localStorage / dataset happens via page.evaluate to inspect actual browser state, not derived UI.
  */
 import { expect, registerCoreMocks, test } from "./fixtures";
 
 test.describe("Theme persistence", () => {
-	// @lore Each test creates its own browser.newContext so localStorage is
-	// isolated per test (fresh contexts start empty). We deliberately do NOT
-	// addInitScript to clear storage — that script reruns on every navigation
-	// (including page.reload) and would wipe the preference under test.
+	// @lore Each test creates its own browser.newContext so localStorage is isolated per test (fresh contexts start empty). We deliberately do NOT addInitScript to clear storage — that script reruns on every navigation (including page.reload) and would wipe the preference under test.
 
 	test("default = system resolves to OS dark preference", async ({ browser }) => {
 		const ctx = await browser.newContext({ colorScheme: "dark" });

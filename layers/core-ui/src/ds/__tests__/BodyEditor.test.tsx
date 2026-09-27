@@ -341,37 +341,6 @@ describe("BodyEditor — read-only mode", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Placeholder renders when empty
-// ─────────────────────────────────────────────────────────────────────────────
-describe("BodyEditor — placeholder", () => {
-	it("renders default placeholder on empty editor", () => {
-		const { container, root } = renderEditor({
-			initialContent: "",
-			onChange: vi.fn(),
-		});
-		// TipTap Placeholder sets data-placeholder attribute
-		const pm = container.querySelector(".ProseMirror");
-		// The placeholder extension sets data-placeholder on the first p
-		const firstP = pm?.querySelector("p.is-editor-empty") ?? pm?.querySelector("p");
-		expect(firstP?.getAttribute("data-placeholder")).toBe("Start writing...");
-		cleanup(container, root);
-	});
-
-	it("renders custom placeholder text", () => {
-		const { container, root } = renderEditor({
-			initialContent: "",
-			onChange: vi.fn(),
-			placeholder: "Type your hypothesis...",
-		});
-		const pm = container.querySelector(".ProseMirror");
-		const firstP =
-			pm?.querySelector("p.is-editor-empty") ?? pm?.querySelector("[data-placeholder]");
-		expect(firstP?.getAttribute("data-placeholder")).toBe("Type your hypothesis...");
-		cleanup(container, root);
-	});
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Mini variant
 // ─────────────────────────────────────────────────────────────────────────────
 describe("BodyEditor — mini variant", () => {

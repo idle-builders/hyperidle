@@ -1143,6 +1143,16 @@ export default [
 		},
 	},
 
+	// Founder ruling: @lore is allowed in test files, one line, no planning id.
+	{
+		files: ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.spec.tsx"],
+		languageOptions: { parser: tsParser, parserOptions: { ecmaFeatures: { jsx: true } } },
+		plugins: { design },
+		rules: {
+			"design/no-multiline-lore-in-test": "error",
+		},
+	},
+
 	// testing.md § lint enforcement — Playwright rules on every e2e spec.
 	{
 		files: ["**/*.spec.ts", "**/*.spec.tsx"],

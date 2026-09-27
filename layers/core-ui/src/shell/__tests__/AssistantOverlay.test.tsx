@@ -2,14 +2,9 @@
  * AssistantOverlay component tests: open/close, message thread rendering,
  * context chips, layout, and notice/crash-recovery rendering.
  *
- * @lore: re-pointed off the deleted `useAssistantThread` onto
- * `useThread`/`useThreads`/`useAgents`/`useCurrentUser` — the overlay
- * resolves its own agent's direct thread via `useThreads({host:{kind:"agent"}})`
- * then reads it with `useThread(id)` (see architecture.md).
+ * @lore: re-pointed off the deleted `useAssistantThread` onto `useThread`/`useThreads`/`useAgents`/`useCurrentUser` — the overlay resolves its own agent's direct thread via `useThreads({host:{kind:"agent"}})` then reads it with `useThread(id)` (see architecture.md).
  *
- * @lore: `useAgentOwnership` (a second fetch of every AI-role user) is
- * deleted — `GET /api/agents` carries `ownerUserId` directly, so the overlay
- * finds "my agent" off the same `useAgents` fetch every agent picker shares.
+ * @lore: `useAgentOwnership` (a second fetch of every AI-role user) is deleted — `GET /api/agents` carries `ownerUserId` directly, so the overlay finds "my agent" off the same `useAgents` fetch every agent picker shares.
  */
 
 import type { Message } from "@hyperidle/domain-model";

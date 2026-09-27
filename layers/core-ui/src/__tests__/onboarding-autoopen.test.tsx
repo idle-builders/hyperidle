@@ -6,8 +6,7 @@
  * - AppShell with ?onboarding=true opens the assistant overlay
  * - The ?onboarding=true query param is removed after opening
  *
- * @lore: The existing ?settings=open pattern (AppShell.tsx) is the
- * reference for this implementation.
+ * @lore: The existing ?settings=open pattern (AppShell.tsx) is the reference for this implementation.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";

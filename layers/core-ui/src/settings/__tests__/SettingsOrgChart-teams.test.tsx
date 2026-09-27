@@ -9,12 +9,7 @@
  * - Solo short-circuit (1 human) is RELAXED: Add-Edge form still renders.
  * - With 1 human, mechanism defaults to "function" (not "direct").
  *
- * @lore BC5 T9: the door swap — `call("search_users", {})` replaces `GET
- * /api/org`; `call("edit_user", { id, edges })` replaces `PUT /api/org/edges`
- * and `DELETE /api/org/edges/:id`. Users, edges and teams are all derived
- * from the one `UserRow[]` — each row already carries its own `edges` and its
- * effective `team`, so a team's target is now its real id directly (the old
- * `teamActualId` indirection through `team_members` is gone).
+ * @lore door-swap: `call("search_users", {})` replaces `GET /api/org`; `call("edit_user", { id, edges })` replaces `PUT /api/org/edges` and `DELETE /api/org/edges/:id`. Users, edges and teams are all derived from the one `UserRow[]` — each row already carries its own `edges` and its effective `team`, so a team's target is now its real id directly (the old `teamActualId` indirection through `team_members` is gone).
  */
 
 import { render, screen, waitFor } from "@testing-library/react";

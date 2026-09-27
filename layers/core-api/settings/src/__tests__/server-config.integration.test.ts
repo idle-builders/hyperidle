@@ -3,9 +3,7 @@
  * table, write merges partial patches, and a corrupt or superseded config
  * column falls back to defaults instead of throwing.
  *
- * @lore `notifications` is never read: the mute and dispatcher it fed are
- * gone now that a subscription's `paused` flag is the one mute mechanism, so
- * an old row carrying that dead key must parse, not fail.
+ * @lore `notifications` is never read: the mute and dispatcher it fed are gone now that a subscription's `paused` flag is the one mute mechanism, so an old row carrying that dead key must parse, not fail.
  */
 
 import { serverConfig } from "@hyperidle/db";

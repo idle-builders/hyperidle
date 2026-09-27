@@ -7,8 +7,7 @@
  * - bridge, backendMode === "local" → "Local (laptop)"
  * - bridge, backendMode null/undefined → "Local (laptop)" (fallback)
  *
- * @lore: The fix reads backendMode (not platform) from the bridge. The old
- * code had isLocal = true hardcoded — the "Shared (remote)" branch was dead UI.
+ * @lore: The fix reads backendMode (not platform) from the bridge. The old code had isLocal = true hardcoded — the "Shared (remote)" branch was dead UI.
  */
 
 import { render, screen } from "@testing-library/react";

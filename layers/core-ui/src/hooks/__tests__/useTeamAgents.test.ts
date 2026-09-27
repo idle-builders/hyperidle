@@ -1,13 +1,9 @@
 /**
  * useTeamAgents: filters the full agent catalog down to a team's roster.
  *
- * @lore useTeamAgents is a filter over useAgents' single fetch, not a second
- * fetch — WorkTeam tests only ever assert on `agents`/`refetch`, so a
- * regression where the filter is dropped and every agent is returned still
- * leaves every WorkTeam test green. This test asserts on the filter itself.
+ * @lore useTeamAgents is a filter over useAgents' single fetch, not a second fetch — WorkTeam tests only ever assert on `agents`/`refetch`, so a regression where the filter is dropped and every agent is returned still leaves every WorkTeam test green. This test asserts on the filter itself.
  *
- * @lore BC5 T9: useAgents' internal fetch moved to `call("search_users", …)`
- * — this test mocks `call` instead of `apiFetch`.
+ * @lore door-swap: useAgents' internal fetch moved to `call("search_users", …)` — this test mocks `call` instead of `apiFetch`.
  */
 
 import { renderHook, waitFor } from "@testing-library/react";

@@ -6,16 +6,9 @@
  *
  * @lore: `useRecipients` combines the recipient list with a live busy dot.
  *
- * @lore: the recipient list itself is now `call("search_users", { status:
- * "active", name? })` — the door swap replacing `apiFetch("/api/recipients")`.
- * `search_sessions` (the live busy dot) and `send_message` (starting the DM
- * thread) already rode `call`. All three now go through the one module-wide
- * `call` mock, routed by action name.
+ * @lore: the recipient list itself is now `call("search_users", { status: "active", name? })` — the door swap replacing `apiFetch("/api/recipients")`. `search_sessions` (the live busy dot) and `send_message` (starting the DM thread) already rode `call`. All three now go through the one module-wide `call` mock, routed by action name.
  *
- * @lore: sending the first message POSTs no route — the picker's
- * `handleSend` starts the thread via
- * `call("send_message", {recipients, text, clientKey})`
- * (`components/RecipientPicker.tsx`).
+ * @lore: sending the first message POSTs no route — the picker's `handleSend` starts the thread via `call("send_message", {recipients, text, clientKey})` (`components/RecipientPicker.tsx`).
  */
 
 import { render, screen, waitFor } from "@testing-library/react";

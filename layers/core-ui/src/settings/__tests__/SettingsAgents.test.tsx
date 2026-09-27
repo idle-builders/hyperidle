@@ -9,12 +9,7 @@
  * text content); the add form creates an agent with template pre-fill;
  * delete uses a two-click confirmation.
  *
- * @lore: the door swap — `call("search_users", { kind: "ai" })` +
- * one `call("open_user", { id })` per row replace `GET /api/agents`;
- * `call("edit_user", ...)` replaces the agent PATCH/POST/DELETE routes
- * (delete is `status: "retired"`, never a hard delete). `call` is mocked at
- * the door; a small in-memory store keeps `search_users`/`open_user`/
- * `edit_user` consistent with each other across the create/delete refetch.
+ * @lore: the door swap — `call("search_users", { kind: "ai" })` + one `call("open_user", { id })` per row replace `GET /api/agents`; `call("edit_user", ...)` replaces the agent PATCH/POST/DELETE routes (delete is `status: "retired"`, never a hard delete). `call` is mocked at the door; a small in-memory store keeps `search_users`/`open_user`/ `edit_user` consistent with each other across the create/delete refetch.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
@@ -720,10 +715,7 @@ describe("Assistant is a row in the agents list", () => {
 		});
 	});
 
-	// @lore: the role template exists to PREFILL a new agent's identity, and
-	// editing an existing agent no longer has a box to prefill — it links to that
-	// agent's identity document instead. The door carries `documentIds` up front
-	// (loaded with the row), so there is no separate template fetch to avoid.
+	// @lore: the role template exists to PREFILL a new agent's identity, and editing an existing agent no longer has a box to prefill — it links to that agent's identity document instead. The door carries `documentIds` up front (loaded with the row), so there is no separate template fetch to avoid.
 	it("editing an existing agent links to its identity document — no editable box", async () => {
 		const user = userEvent.setup();
 		render(

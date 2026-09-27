@@ -3,11 +3,7 @@
  * /setup; filling in a name and starting creates the founder (and their
  * assistant) and lands on /work.
  *
- * @lore Setup collects no credential at all — a harness arrives already
- * logged in, or it is not choosable. There is no API-key field any more.
- * `FirstRunRedirect` reads `search_users({kind:"human"})` (a
- * human row with a team means setup is done); the welcome screen writes
- * through `edit_user` twice (new person + team name, then new agent).
+ * @lore Setup collects no credential at all — a harness arrives already logged in, or it is not choosable. There is no API-key field any more. `FirstRunRedirect` reads `search_users({kind:"human"})` (a human row with a team means setup is done); the welcome screen writes through `edit_user` twice (new person + team name, then new agent).
  */
 import { expect, makeUserRow, mockSearchUsers, mockUser, test } from "./fixtures";
 

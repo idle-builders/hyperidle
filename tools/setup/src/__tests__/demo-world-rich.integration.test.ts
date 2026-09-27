@@ -6,9 +6,7 @@
  * with real reviews/verdicts, a document corpus, sessions and a paused
  * daily-digest subscription — everything the three views need to look alive.
  *
- * @lore "and notifications" dropped from that list — the demo
- * world no longer fabricates unread popover rows (no demo data fabricated
- * in code); a person's inbox is real, and starts empty.
+ * @lore "and notifications" dropped from that list — the demo world no longer fabricates unread popover rows (no demo data fabricated in code); a person's inbox is real, and starts empty.
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
@@ -72,8 +70,7 @@ describe("lived-in demo world", () => {
 		expect(promoted.length).toBeGreaterThanOrEqual(1);
 	});
 
-	// @lore Tasks form a tree (root → child → grandchild). The dangling
-	// check no longer joins bets; it verifies team + owner FKs for child tasks.
+	// @lore Tasks form a tree (root → child → grandchild). The dangling check no longer joins bets; it verifies team + owner FKs for child tasks.
 	test("tasks cover all eight states, teams, and owners", async ({ db }) => {
 		await seedWorld(db);
 
@@ -195,11 +192,7 @@ describe("lived-in demo world", () => {
 		expect(await count(db, "messages")).toBeGreaterThanOrEqual(100);
 	});
 
-	// @lore The projection/edit-log/access-log/conflicts tables are dropped
-	// (architecture.md §6.2, §6.4) — `confidence`/`meta` folded onto `documents`,
-	// and the demo corpus (re-seeded 3a99a022b/205659d1d) no longer writes a
-	// conflict row or any edit-log/access-log rows, so those assertions are gone,
-	// not re-pointed.
+	// @lore The projection/edit-log/access-log/conflicts tables are dropped (architecture.md §6.2, §6.4) — `confidence`/`meta` folded onto `documents`, and the demo corpus (re-seeded 3a99a022b/205659d1d) no longer writes a conflict row or any edit-log/access-log rows, so those assertions are gone, not re-pointed.
 	test("document corpus fills curated + triage with real usage signals", async ({ db }) => {
 		await seedWorld(db);
 
@@ -231,9 +224,7 @@ describe("lived-in demo world", () => {
 		);
 		expect(retro.length).toBeGreaterThanOrEqual(1);
 
-		// @lore The desktop walk's decay routine (`unusedSince` +
-		// `sort:"least_used"`) needs active, ordinary documents that read stale
-		// on both usage clocks — the seed backdates four of them past 90 days.
+		// @lore The desktop walk's decay routine (`unusedSince` + `sort:"least_used"`) needs active, ordinary documents that read stale on both usage clocks — the seed backdates four of them past 90 days.
 		const usage = await rows<{
 			id: string;
 			last_used_at: string | null;
@@ -269,10 +260,7 @@ describe("lived-in demo world", () => {
 	test("sessions: terminal history plus live ones, all resolving", async ({ db }) => {
 		await seedWorld(db);
 
-		// @lore Three ritual subscriptions removed from demo world
-		// (document-decay, document-triage, post-task-retro) — their associated
-		// sessions are gone. Actual count is 34 (26 task + 2 live-or-just-ended +
-		// 6 assistant turns).
+		// @lore Three ritual subscriptions removed from demo world (document-decay, document-triage, post-task-retro) — their associated sessions are gone. Actual count is 34 (26 task + 2 live-or-just-ended + 6 assistant turns).
 		//
 		// Review-found defect: the assistant's placeholder session
 		// (SESSION_ACTIVE_ASSISTANT) used to be seeded "active" alongside a
@@ -328,11 +316,7 @@ describe("lived-in demo world", () => {
 		).toBe(0);
 	});
 
-	// @lore `notification_queue` is dropped with no replacement —
-	// a person's inbox is `open_user({}).inbox` now, backed by the `inbox`
-	// table, and the demo world seeds no fabricated unread rows into it
-	// (no demo data fabricated in code, only seeded — this fixture no longer
-	// invents a popover-ready backlog).
+	// @lore `notification_queue` is dropped with no replacement — a person's inbox is `open_user({}).inbox` now, backed by the `inbox` table, and the demo world seeds no fabricated unread rows into it (no demo data fabricated in code, only seeded — this fixture no longer invents a popover-ready backlog).
 
 	test("the world has weeks of history, anchored to seed time", async ({ db }) => {
 		await seedWorld(db);
@@ -385,11 +369,7 @@ describe("lived-in demo world", () => {
 	test("team state reflects the live workload", async ({ db }) => {
 		await seedWorld(db);
 
-		// @lore There is no `active_bets` column on teams — WIP is counted
-		// live via countTeamTasksInProgress. The bets table is gone too.
-		// @lore `lead_agent_id` (and every
-		// other setup-wizard scaffold column) is dropped too — a team is an id
-		// and a name now, so this test verifies root tasks exist instead.
+		// @lore There is no `active_bets` column on teams — WIP is counted live via countTeamTasksInProgress. The bets table is gone too. @lore `lead_agent_id` (and every other setup-wizard scaffold column) is dropped too — a team is an id and a name now, so this test verifies root tasks exist instead.
 		const teamRow = await rows<{ id: string }>(
 			db,
 			"SELECT id FROM teams WHERE id = 'demo-team-acme'",

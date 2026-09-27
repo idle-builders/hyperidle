@@ -7,12 +7,7 @@
  * appears first; removable held rows show overflow menu, inherited rows
  * do not.
  *
- * @lore `open_user({}).connections` is the door (architecture.md §8). Both
- * groups — held and inherited — are `ConnectionView` rows
- * (id/service/via/authSource/health/removable): the connections door
- * (`agent-orchestration/connections`'s `projectFacts`) projects inherited
- * facts into that same shape before `open_user` returns, so the component
- * reads every row typed, no mapping. `call` is mocked at the door.
+ * @lore `open_user({}).connections` is the door (architecture.md §8). Both groups — held and inherited — are `ConnectionView` rows (id/service/via/authSource/health/removable): the connections door (`agent-orchestration/connections`'s `projectFacts`) projects inherited facts into that same shape before `open_user` returns, so the component reads every row typed, no mapping. `call` is mocked at the door.
  */
 
 import { render, screen } from "@testing-library/react";

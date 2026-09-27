@@ -8,10 +8,7 @@
  * whitespace-only ids must redirect to /conversations (queue), not to
  * /conversations/%20%20%20 (which would 404).
  *
- * @lore: uses MemoryRouter + Routes + screen.getByText to observe the
- * navigate target because <Navigate> from react-router-dom replaces the
- * current location; the test renders a "Landing" stub at the redirect target
- * to confirm the final location.
+ * @lore: uses MemoryRouter + Routes + screen.getByText to observe the navigate target because <Navigate> from react-router-dom replaces the current location; the test renders a "Landing" stub at the redirect target to confirm the final location.
  */
 
 import { render, screen } from "@testing-library/react";

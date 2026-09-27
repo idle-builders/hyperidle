@@ -115,10 +115,7 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 		expect(spawnCall[1]).not.toContain("{{model}}");
 	});
 
-	// @lore Two tests here exercised `{{apiKey}}` and `{{baseUrl}}`, the template
-	// variables that carried a stored credential and a brought endpoint into a
-	// harness's environment. Both variables are gone — HyperIdle holds no model
-	// credential to pass on — so there is nothing left for them to resolve.
+	// @lore Two tests here exercised `{{apiKey}}` and `{{baseUrl}}`, the template variables that carried a stored credential and a brought endpoint into a harness's environment. Both variables are gone — HyperIdle holds no model credential to pass on — so there is nothing left for them to resolve.
 
 	it("resolves {{mcpUrl}} in envMap", async () => {
 		const spawnSpy = vi.fn();
@@ -162,11 +159,7 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 	});
 
 	it("drops --model flag when the agent named no model", async () => {
-		// @lore AR4 WARNING-D1: When the agent named no model, {{model}} resolves to "".
-		// Passing --model "" to codex sends an empty model string to the OpenAI API →
-		// 400 invalid_request_error. The fix: strip --model + "" pairs when model is empty,
-		// preserving pre-AR4 behavior (codex falls back to its CLI default).
-		// This test proves the conditional strip: --model "" must NOT appear in the final args.
+		// @lore empty-model-strip: When the agent named no model, {{model}} resolves to "". Passing --model "" to codex sends an empty model string to the OpenAI API → 400 invalid_request_error. The fix: strip --model + "" pairs when model is empty, preserving prior behavior (codex falls back to its CLI default). This test proves the conditional strip: --model "" must NOT appear in the final args.
 		const spawnSpy = vi.fn();
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
@@ -193,11 +186,7 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 	});
 
 	/**
-	 * @lore BA10: `{{prompt}}` used to be built here as
-	 * `assembledPrompt.slice(0, 200)` with newlines flattened. A real agent read
-	 * the result and replied "your initial message appears to have been cut off" —
-	 * it had been, at exactly 200 characters. The instruction is what the agent is
-	 * ASKED to do; it arrives whole or the agent cannot do the work.
+	 * @lore instruction-not-truncated: `{{prompt}}` used to be built here as `assembledPrompt.slice(0, 200)` with newlines flattened. A real agent read the result and replied "your initial message appears to have been cut off" — it had been, at exactly 200 characters. The instruction is what the agent is ASKED to do; it arrives whole or the agent cannot do the work.
 	 */
 	it("passes the instruction through whole, never truncated", async () => {
 		const spawnSpy = vi.fn();
@@ -220,8 +209,7 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 	});
 
 	/**
-	 * @lore BA10: `assembledPrompt` is CONTEXT — it goes to AGENTS.md. It is not
-	 * the ask, and it must not be used as one.
+	 * @lore instruction-not-truncated: `assembledPrompt` is CONTEXT — it goes to AGENTS.md. It is not the ask, and it must not be used as one.
 	 */
 	it("does not fall back to the assembled context when there is no instruction", async () => {
 		const spawnSpy = vi.fn();
@@ -245,8 +233,7 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 	});
 
 	it("keeps --model flag when the agent named one", async () => {
-		// @lore AR4 WARNING-D1: Non-empty model must still inject --model <value>.
-		// Proves the conditional strip only fires on empty string, not on valid model IDs.
+		// @lore empty-model-strip: Non-empty model must still inject --model <value>. Proves the conditional strip only fires on empty string, not on valid model IDs.
 		const spawnSpy = vi.fn();
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
@@ -435,13 +422,7 @@ describe("CliHarnessAdapter env sandboxing", () => {
 // startSession. Before this fix, resumeSession passed only extraEnv
 // (CODEX_HOME + mcpTokenEnv), silently dropping envMap.
 //
-// @lore A test here proved `{{apiKey}}` resolved on resume exactly as it did at
-// start — codex's envMap was `OPENAI_API_KEY: "{{apiKey}}"`, opencode's the
-// ANTHROPIC_API_KEY equivalent. HyperIdle holds no key to resolve any more: a
-// harness arrives already logged in and carries its own credential, so
-// `{{apiKey}}` and `{{baseUrl}}` are gone as template vars. The claim that
-// survives — envMap IS resolved on resume, and per-session specifics beat it —
-// is made below over `{{model}}`, a var that still exists.
+// @lore A test here proved `{{apiKey}}` resolved on resume exactly as it did at start — codex's envMap was `OPENAI_API_KEY: "{{apiKey}}"`, opencode's the ANTHROPIC_API_KEY equivalent. HyperIdle holds no key to resolve any more: a harness arrives already logged in and carries its own credential, so `{{apiKey}}` and `{{baseUrl}}` are gone as template vars. The claim that survives — envMap IS resolved on resume, and per-session specifics beat it — is made below over `{{model}}`, a var that still exists.
 
 describe("CliHarnessAdapter resumeSession — env construction", () => {
 	it("resolves envMap templates on resume the same way startSession does", async () => {
@@ -605,8 +586,7 @@ describe("CliHarnessAdapter streamEvents — ndjson mode", () => {
 	});
 
 	it("silently drops stderr lines matching stderrIgnorePatterns (no error event emitted)", async () => {
-		// @lore AR2 codex/opencode-stderr-ignore: CLI tools emit informational stderr.
-		// stderrIgnorePatterns filters them before they become error events that crash provisionSession.
+		// @lore codex-opencode-stderr-ignore: CLI tools emit informational stderr. stderrIgnorePatterns filters them before they become error events that crash provisionSession.
 		const spawnSpy = vi.fn();
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
@@ -739,11 +719,7 @@ describe("CliHarnessAdapter stopSession", () => {
 	});
 
 	it("sends SIGTERM to the whole process group on stop", async () => {
-		// @lore process-group kill: stopSession signals -pid (the process group),
-		// not the child's own pid, so a grandchild the CLI forked dies too. Kill is
-		// routed through an injected killFn — never a real kill(2) syscall on this
-		// fake child's fabricated pid — see the grandchild-kill test below for the
-		// real-process proof.
+		// @lore process-group kill: stopSession signals -pid (the process group), not the child's own pid, so a grandchild the CLI forked dies too. Kill is routed through an injected killFn — never a real kill(2) syscall on this fake child's fabricated pid — see the grandchild-kill test below for the real-process proof.
 		const spawnSpy = vi.fn();
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
@@ -858,11 +834,7 @@ describe("CliHarnessAdapter stopSession", () => {
 
 // ── stopSession — real process-group kill (no mocks) ────────────────────────
 //
-// @lore process-group kill: proves the fix for the leak on 2026-09-26 — a real
-// cursor-agent, spawned by a test, outlived the test process because
-// child.kill(signal) only ever reached the one process we held a handle to.
-// This test never mocks spawnFn: it spawns a real node subprocess that forks
-// its own grandchild ('sleep'), then proves stopSession kills BOTH.
+// @lore process-group kill: proves the fix for the leak on 2026-09-26 — a real cursor-agent, spawned by a test, outlived the test process because child.kill(signal) only ever reached the one process we held a handle to. This test never mocks spawnFn: it spawns a real node subprocess that forks its own grandchild ('sleep'), then proves stopSession kills BOTH.
 
 describe("CliHarnessAdapter stopSession — real process-group kill", () => {
 	it("kills a grandchild process the harness child spawned", async () => {
@@ -905,12 +877,7 @@ describe("CliHarnessAdapter stopSession — real process-group kill", () => {
 
 // ── stopSession — process-group kill when the parent already exited ─────────
 //
-// @lore process-group kill (done branch): stopSession's `session.done` branch (the CLI process already
-// exited — the normal drain-then-stop sequence: exit fires, THEN the caller
-// calls stopSession) used to return the buffered result WITHOUT signalling
-// the process group at all. A grandchild that outlives its own exited parent
-// was never touched. This test proves the fix: the parent exits on its own
-// FIRST, then stopSession is called, and the grandchild still has to die.
+// @lore process-group kill (done branch): stopSession's `session.done` branch (the CLI process already exited — the normal drain-then-stop sequence: exit fires, THEN the caller calls stopSession) used to return the buffered result WITHOUT signalling the process group at all. A grandchild that outlives its own exited parent was never touched. This test proves the fix: the parent exits on its own FIRST, then stopSession is called, and the grandchild still has to die.
 
 describe("CliHarnessAdapter stopSession — parent already exited (session.done)", () => {
 	it("still kills a grandchild when the parent process exited before stopSession was called", async () => {
@@ -957,27 +924,11 @@ describe("CliHarnessAdapter stopSession — parent already exited (session.done)
 
 // ── process exit sweep ───────────────────────────────────────────────────────
 //
-// @lore process-exit backstop: detached:true means a spawned harness CLI no longer gets
-// the terminal's SIGINT/SIGHUP on a forced `npm run dev` exit or crash. A
-// single shared `process.on("exit", ...)` handler is the backstop, and
-// `stopAllLiveHarnessSessions` is the exact function it calls.
+// @lore process-exit backstop: detached:true means a spawned harness CLI no longer gets the terminal's SIGINT/SIGHUP on a forced `npm run dev` exit or crash. A single shared `process.on("exit", ...)` handler is the backstop, and `stopAllLiveHarnessSessions` is the exact function it calls.
 //
-// @lore no real exit event: this test calls `stopAllLiveHarnessSessions()` directly — never
-// `process.emit("exit", ...)` on the real `process` object. Emitting the real
-// event fires the ACTUAL shared handler, which sweeps every CliHarnessAdapter
-// constructed anywhere else in this file, not just this test's own adapter —
-// a real cross-test entanglement that is exactly how a prior version of this
-// test (before every fake-child test in this file injected its own killFn)
-// reached real `process.kill(-12345, "SIGKILL")` / `process.kill(-99999,
-// "SIGKILL")` calls against the host, dozens of times per run. Calling the
-// exported sweep function directly, with an adapter whose killFn is injected
-// right here, tests the identical logic without touching global process
-// state or any other test's adapter.
+// @lore no real exit event: this test calls `stopAllLiveHarnessSessions()` directly — never `process.emit("exit", ...)` on the real `process` object. Emitting the real event fires the ACTUAL shared handler, which sweeps every CliHarnessAdapter constructed anywhere else in this file, not just this test's own adapter — a real cross-test entanglement that is exactly how a prior version of this test (before every fake-child test in this file injected its own killFn) reached real `process.kill(-12345, "SIGKILL")` / `process.kill(-99999, "SIGKILL")` calls against the host, dozens of times per run. Calling the exported sweep function directly, with an adapter whose killFn is injected right here, tests the identical logic without touching global process state or any other test's adapter.
 //
-// @lore reused-pid gap: a `done` session (its CLI already exited) must NOT
-// be swept here — see killAllLiveSessionGroups's own @lore for why. This test
-// proves both halves in one pass: the still-running session is swept, the
-// done one is not.
+// @lore reused-pid gap: a `done` session (its CLI already exited) must NOT be swept here — see killAllLiveSessionGroups's own @lore for why. This test proves both halves in one pass: the still-running session is swept, the done one is not.
 
 describe("CliHarnessAdapter — process exit sweep", () => {
 	it("SIGKILLs every still-running session's process group, and skips a done one", async () => {

@@ -3,9 +3,7 @@
  * from the recipient's own `kind` (ai -> "agent", human -> "user"), and
  * reuses the same thread on a second send to the same recipient.
  *
- * @lore `send_message`'s single-recipient branch (`thread-actions.ts`)
- * inlines its own find-or-create logic; there is no separate store helper to
- * call, so this test drives the real `send_message` action door.
+ * @lore `send_message`'s single-recipient branch (`thread-actions.ts`) inlines its own find-or-create logic; there is no separate store helper to call, so this test drives the real `send_message` action door.
  */
 
 import { type HyperIdleDb, users } from "@hyperidle/db";

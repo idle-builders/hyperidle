@@ -4,8 +4,7 @@
  * off disk. The static codebase properties themselves (zero production→development crossings, every
  * pattern alive) are enforced by `npm run lint`, per CLAUDE.md's split.
  *
- * @lore `governance-model.test.ts` stays in `framework/db` — it needs that package's live `schema.js`
- * to test real `PgTable` ownership and cannot move without losing that.
+ * @lore `governance-model.test.ts` stays in `framework/db` — it needs that package's live `schema.js` to test real `PgTable` ownership and cannot move without losing that.
  */
 
 import { describe, expect, it } from "vitest";

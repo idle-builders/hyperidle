@@ -5,17 +5,7 @@
  * `mcp__idle` server, opencode's user-level `hyperidle` MCP entry) — an
  * orphaned harness session did exactly that on 2026-09-26.
  *
- * @lore root cause: cwd isolation alone (a temp sandbox outside any git
- * repo, already the case for every real-binary test) does NOT close this —
- * a CLI's global, HOME/config-scoped plugins load regardless of cwd.
- * Verified live: a cursor-agent spawned with a fresh temp cwd still reported
- * a `plugin-idle-tasks-idle` tool namespace via its own GetDynamicTools
- * call; a codex session with no per-session CODEX_HOME redirect listed
- * `mcp__idle__decision` and friends; an opencode session with no per-session
- * XDG_CONFIG_HOME redirect reads this machine's real
- * `~/.config/opencode/opencode.jsonc`, which has a live `hyperidle` MCP
- * entry with a bearer token — only redirecting the harness's *config*
- * directory away from the real $HOME/config closes it.
+ * @lore root cause: cwd isolation alone (a temp sandbox outside any git repo, already the case for every real-binary test) does NOT close this — a CLI's global, HOME/config-scoped plugins load regardless of cwd. Verified live: a cursor-agent spawned with a fresh temp cwd still reported a `plugin-idle-tasks-idle` tool namespace via its own GetDynamicTools call; a codex session with no per-session CODEX_HOME redirect listed `mcp__idle__decision` and friends; an opencode session with no per-session XDG_CONFIG_HOME redirect reads this machine's real `~/.config/opencode/opencode.jsonc`, which has a live `hyperidle` MCP entry with a bearer token — only redirecting the harness's *config* directory away from the real $HOME/config closes it.
  *
  * codex and opencode close this for free from EXISTING production wiring:
  * CliHarnessAdapter injects a per-session CODEX_HOME (when the sandbox has a

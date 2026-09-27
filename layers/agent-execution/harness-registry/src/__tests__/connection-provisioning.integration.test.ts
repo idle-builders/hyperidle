@@ -26,30 +26,11 @@
  * HARD-FAILS (never skips) when the binary is absent — a missing harness means the work
  * is not done (AR1). The inner auth checks remain only for binary-present-but-unauthed.
  *
- * @lore AN2 live-proof: The real-harness tests require:
- *   1. A real in-proc MCP server over a real transport (streamable HTTP via SDK).
- *      CRITICAL: ONE stateful McpServer+Transport instance per server (not per-request).
- *      Streamable HTTP is stateful; creating a new instance per request breaks the
- *      session handshake — the client initializes, but subsequent requests (tools/list,
- *      tools/call) don't share state and the tools appear absent.
- *   2. A real provisioning write (applyProvisioningPlan into a real sandboxPath).
- *   3. A real CLI spawn.
- *   4. The agent actually calls the MCP tool and AN2_PROBE_OK appears in output.
+ * @lore live-proof: The real-harness tests require: 1. A real in-proc MCP server over a real transport (streamable HTTP via SDK). CRITICAL: ONE stateful McpServer+Transport instance per server (not per-request). Streamable HTTP is stateful; creating a new instance per request breaks the session handshake — the client initializes, but subsequent requests (tools/list, tools/call) don't share state and the tools appear absent. 2. A real provisioning write (applyProvisioningPlan into a real sandboxPath). 3. A real CLI spawn. 4. The agent actually calls the MCP tool and AN2_PROBE_OK appears in output.
  *
- * @lore AN2 claude-mcp-trust: claude reads project-scoped .mcp.json servers but
- * may prompt for trust approval in interactive mode. Two mechanisms bypass this:
- *   (a) Write { "enableAllProjectMcpServers": true } to .claude/settings.json in the
- *       sandbox cwd — this pre-approves all .mcp.json servers for that project.
- *   (b) Use --mcp-config <file> + --strict-mcp-config (as in AL7) to bypass .mcp.json
- *       entirely (that approach requires a separate config file, not the provisioned .mcp.json).
- * AN2 uses approach (a) because the provisioned .mcp.json IS the carrier — the test
- * proves that the provisioning path works end-to-end.
+ * @lore claude-mcp-trust: claude reads project-scoped .mcp.json servers but may prompt for trust approval in interactive mode. Two mechanisms bypass this: (a) Write { "enableAllProjectMcpServers": true } to .claude/settings.json in the sandbox cwd — this pre-approves all .mcp.json servers for that project. (b) Use --mcp-config <file> + --strict-mcp-config to bypass .mcp.json entirely (that approach requires a separate config file, not the provisioned .mcp.json). This test uses approach (a) because the provisioned .mcp.json IS the carrier — the test proves that the provisioning path works end-to-end.
  *
- * @lore AN2 builtin-scoped-out: builtin has mcpSupport:false, runs an in-process
- * callLlm() loop via ToolRegistry, never spawns a child, never reads mcpTokenEnv.
- * Neither the MCP-bearer nor the CLI-key carrier exists for builtin. Builtin's
- * external-tool story is the inbound MCP bridge (HyperIdle's own registry tools),
- * a separate path AN2 does not own. AC3's builtin cell = scoped out with reason.
+ * @lore builtin-scoped-out: builtin has mcpSupport:false, runs an in-process callLlm() loop via ToolRegistry, never spawns a child, never reads mcpTokenEnv. Neither the MCP-bearer nor the CLI-key carrier exists for builtin. Builtin's external-tool story is the inbound MCP bridge (HyperIdle's own registry tools), a separate path this test does not own — scoped out with reason.
  */
 
 import { execFileSync, spawn } from "node:child_process";
@@ -57,10 +38,7 @@ import * as fs from "node:fs";
 import * as http from "node:http";
 import * as os from "node:os";
 import * as path from "node:path";
-// @lore AU21 §9 Increment 8 (Decision F2): `applyProvisioningPlan` relocated
-// from `@hyperidle/connections` to `@hyperidle/run-orchestration` — the
-// session-launch-time provisioning OPERATION is agent-orchestration's own
-// job now (the pure-fs `applyProvisioningPlan` half is unchanged behavior).
+// @lore provisioning-op-moved: `applyProvisioningPlan` relocated from `@hyperidle/connections` to `@hyperidle/run-orchestration` — the session-launch-time provisioning OPERATION is agent-orchestration's own job now (the pure-fs half is unchanged behavior).
 import { applyProvisioningPlan } from "@hyperidle/run-orchestration";
 import { describe, expect, test } from "vitest";
 import { buildCleanEnv, createHarnessSandbox, requireHarnessAuthed } from "./harness-sandbox.js";
@@ -138,9 +116,7 @@ async function spawnDetached(
 // instance. Creating a new instance per request breaks the session: tools appear
 // absent after initialize because tools/list hits a fresh, unconnected server.
 //
-// @lore AN2 test-server-stateful: Verified live: new-per-request → tools absent
-// (agent says "I don't see ping_test"). Single stateful instance → AN2_PROBE_OK
-// returned. The exact failure mode matches what the reviewer saw in the original test.
+// @lore test-server-stateful: Verified live: new-per-request → tools absent (agent says "I don't see ping_test"). Single stateful instance → AN2_PROBE_OK returned. The exact failure mode matches what the reviewer saw in the original test.
 
 interface McpTestServer {
 	url: string;
@@ -157,8 +133,7 @@ async function startMcpTestServer(): Promise<McpTestServer> {
 	);
 	const { z } = await import("zod");
 
-	// @lore AN2 version-seam bridge: server pkg uses zod 4.4.3; SDK deduped to zod 3.25.76.
-	// Same §9 cross-version seam as mcp-bridge.ts asMcpInputSchema. Cast is safe: no wire change.
+	// @lore version-seam-bridge: server pkg uses zod 4.4.3; SDK deduped to zod 3.25.76. Same cross-version seam as mcp-bridge.ts asMcpInputSchema. Cast is safe: no wire change.
 	type McpAnySchema = import("@modelcontextprotocol/sdk/server/zod-compat.js").AnySchema;
 	type McpRawShape = Record<string, McpAnySchema>;
 	function asMcpShape(shape: unknown): McpRawShape {
@@ -256,7 +231,7 @@ describe("claude-code: real CLI connects to the provisioned MCP server via .mcp.
 
 			// Write .claude/settings.json to pre-approve all project MCP servers.
 			// This bypasses the interactive trust prompt for .mcp.json entries.
-			// @lore AN2 claude-mcp-trust: enableAllProjectMcpServers:true in
+			// @lore claude-mcp-trust: enableAllProjectMcpServers:true in
 			// .claude/settings.json (the project settings file, not ~/.claude.json)
 			// pre-approves all .mcp.json servers in that cwd — no trust dialog spawned.
 			fs.mkdirSync(path.join(sandboxPath, ".claude"), { recursive: true });
@@ -276,9 +251,7 @@ describe("claude-code: real CLI connects to the provisioned MCP server via .mcp.
 				"[AN2 real-harness claude] Starting real claude session with AN2-provisioned MCP server...\n",
 			);
 
-			// @lore AN2 claude-model-tool-calling: the release proof deliberately uses
-			// Haiku, the locked smallest Claude model. A larger model would hide whether
-			// the integration works at the supported harness floor.
+			// @lore claude-model-tool-calling: the release proof deliberately uses Haiku, the locked smallest Claude model. A larger model would hide whether the integration works at the supported harness floor.
 			//
 			// Bounded retry (≤2 attempts) scoped ONLY to "model declined to call the tool":
 			// - Condition: the MCP-namespaced tool name `mcp__an2-test__ping_test` appears in
@@ -704,7 +677,7 @@ describe("CLI-key: GH_TOKEN env injection → real gh CLI op succeeds", () => {
 			// but NOT the checkmark success line) — the old /Logged in|github\.com/i regex
 			// passed on a bogus token (reviewer W-gh finding). The ✓ line only appears when the
 			// token authenticates successfully.
-			// @lore AN2 gh-auth-assertion: verified live: `gh auth status` with a valid token
+			// @lore gh-auth-assertion: verified live: `gh auth status` with a valid token
 			// (via GH_CONFIG_DIR sandbox + GH_TOKEN) prints "✓ Logged in to github.com account".
 			// With an invalid token: "X Failed to log in to github.com using token … The token
 			// in GH_TOKEN is invalid." — no checkmark, so this assertion correctly rejects it.

@@ -16,11 +16,7 @@ opencode/good
 
 const response = (stdout = "", exitCode = 0, stderr = "") => ({ stdout, stderr, exitCode });
 
-// @lore AU36: the inherited-reach probe behavior cases (claude suffix/
-// precedence/duplicate/symlink/malformed, deadline ownership, late-settlement)
-// moved with the probes into
-// `layers/agent-orchestration/connections/src/__tests__/inherited-reach-probes.test.ts`.
-// This file keeps the harness-family assertions only.
+// @lore inherited-reach-moved: the inherited-reach probe behavior cases (claude suffix/ precedence/duplicate/symlink/malformed, deadline ownership, late-settlement) moved with the probes into `layers/agent-orchestration/connections/src/__tests__/inherited-reach-probes.test.ts`. This file keeps the harness-family assertions only.
 function discoveryRunner(overrides: Readonly<Record<string, ReturnType<typeof response>>> = {}) {
 	const defaults: Readonly<Record<string, ReturnType<typeof response>>> = {
 		"codex --version": response("codex-cli 1.2.3"),

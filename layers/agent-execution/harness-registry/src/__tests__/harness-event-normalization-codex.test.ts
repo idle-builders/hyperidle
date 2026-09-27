@@ -12,11 +12,7 @@
  * previously-erroring case (Fix B) that turned UnknownHarnessEvent into a
  * proper token_usage event. It must be locked here.
  *
- * @lore harness-event-normalization codex-coverage: preMapCodexEvent is
- * applied globally inside normalizeHarnessEvent (before the main switch)
- * because codex's dot-namespaced type strings are disjoint from all other
- * harness vocabularies. These unit tests lock all four codex branches so a
- * regression in any branch fails immediately in CI without a real binary.
+ * @lore harness-event-normalization codex-coverage: preMapCodexEvent is applied globally inside normalizeHarnessEvent (before the main switch) because codex's dot-namespaced type strings are disjoint from all other harness vocabularies. These unit tests lock all four codex branches so a regression in any branch fails immediately in CI without a real binary.
  */
 
 import { describe, expect, it } from "vitest";

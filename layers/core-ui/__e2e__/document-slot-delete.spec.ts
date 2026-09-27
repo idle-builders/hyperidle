@@ -2,22 +2,9 @@
  * E2E for Settings → Skills & Rules delete (the one-click Delete button on
  * a DocumentSlotList row).
  *
- * @lore knowledge-attachment-slot: jsdom/RTL cannot catch this class of bug.
- * `SettingsSkillsAndRules.test.tsx` drives the same click with
- * `userEvent.click()`, which dispatches synthetic events straight at the
- * element it holds a reference to — it never reproduces what a REAL mouse
- * click does along the way (real native mousedown/mouseup, real anchor
- * navigation). That gap is exactly what let the previous kebab/confirm
- * design ship completely broken: a real anchor swallowed the "Delete" click
- * as navigation before the confirm step ever ran, four separate fix
- * attempts stayed green in jsdom, and the founder's call afterward was to
- * drop the confirm step entirely — one real button, one real click, no menu
- * to intercept it. This spec — real Chromium, a real mouse click — is what
- * actually proves that first click both fires the archive request and
- * leaves the row's own click-to-navigate path alone.
+ * @lore knowledge-attachment-slot: jsdom/RTL cannot catch this class of bug. `SettingsSkillsAndRules.test.tsx` drives the same click with `userEvent.click()`, which dispatches synthetic events straight at the element it holds a reference to — it never reproduces what a REAL mouse click does along the way (real native mousedown/mouseup, real anchor navigation). That gap is exactly what let the previous kebab/confirm design ship completely broken: a real anchor swallowed the "Delete" click as navigation before the confirm step ever ran, four separate fix attempts stayed green in jsdom, and the founder's call afterward was to drop the confirm step entirely — one real button, one real click, no menu to intercept it. This spec — real Chromium, a real mouse click — is what actually proves that first click both fires the archive request and leaves the row's own click-to-navigate path alone.
  *
- * @lore Repointed at `POST /api/actions/{search_documents,
- * edit_document}` — never `GET/POST /api/knowledge*`.
+ * @lore Repointed at `POST /api/actions/{search_documents, edit_document}` — never `GET/POST /api/knowledge*`.
  */
 import { expect, makeDocumentRow, test } from "./fixtures";
 

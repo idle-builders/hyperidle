@@ -1,10 +1,5 @@
 /**
- * @lore The live-harness proof for the document module's three agent-facing
- * tools (`search_documents` / `open_document` / `edit_document`,
- * architecture.md §3): a real agent, given a real task session, writes
- * itself a memory, writes an artifact for that task, and reads a seeded
- * document back — proven against every installed harness, zero stubs, per
- * `.pipeline/rules/testing.md`'s harness-facing archetype.
+ * @lore The live-harness proof for the document module's three agent-facing tools (`search_documents` / `open_document` / `edit_document`, architecture.md §3): a real agent, given a real task session, writes itself a memory, writes an artifact for that task, and reads a seeded document back — proven against every installed harness, zero stubs, per `.pipeline/rules/testing.md`'s harness-facing archetype.
  *
  * Same shape as `thread-turn-live-harness.integration.test.ts` (its own
  * `@lore` explains why this file builds its composition through
@@ -59,9 +54,7 @@ import type { Action } from "../actions/action.js";
 
 const NOW = "2026-09-22T00:00:00.000Z";
 
-// @lore stop-all afterEach: see thread-turn-live-harness.integration.test.ts's identical
-// afterEach for the full rationale — a vitest timeout skips this file's own
-// try/finally cleanup, and dispose() alone does not stop a running session.
+// @lore stop-all afterEach: see thread-turn-live-harness.integration.test.ts's identical afterEach for the full rationale — a vitest timeout skips this file's own try/finally cleanup, and dispose() alone does not stop a running session.
 afterEach(() => {
 	stopAllLiveHarnessSessions();
 });

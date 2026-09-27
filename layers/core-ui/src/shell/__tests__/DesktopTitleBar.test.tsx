@@ -42,6 +42,8 @@ describe("DesktopTitleBar", () => {
 		}
 
 		const { container } = render(<DesktopTitleBar />);
-		expect((container.firstChild as HTMLElement | null)?.className).toContain("app-region-drag");
+		// The inset is pure chrome (a drag handle only) — it must stay hidden
+		// from assistive tech, same contract the component's own docstring states.
+		expect(container.firstElementChild?.getAttribute("aria-hidden")).toBe("true");
 	});
 });

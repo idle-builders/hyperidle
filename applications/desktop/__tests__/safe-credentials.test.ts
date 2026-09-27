@@ -1,12 +1,7 @@
 /**
  * safe-credentials tests — one channel, write-only.
  *
- * @lore The bridge used to carry six channels (set, get, list, delete,
- * status, validate, encryption-available). The plaintext readback and the
- * catalog-status surface had no renderer caller left once CredentialsTab
- * stopped using the bridge, so they went. What remains is credentials:set:
- * it accepts the one recognized name, writes the encrypted blob, and never
- * hands the value back.
+ * @lore The bridge used to carry six channels (set, get, list, delete, status, validate, encryption-available). The plaintext readback and the catalog-status surface had no renderer caller left once CredentialsTab stopped using the bridge, so they went. What remains is credentials:set: it accepts the one recognized name, writes the encrypted blob, and never hands the value back.
  *
  * AC coverage:
  *  - encryptCredential() returns a base64-encoded string when safeStorage is available

@@ -57,10 +57,7 @@ describe("isReturnAction — edit_task is gated on the session's own task moving
 	});
 
 	/**
-	 * @lore `isReturnAction` already returns false on `!taskId` before
-	 * the `args.id === taskId` comparison ever runs, so a thread turn (no
-	 * session task) cannot be ended by `edit_task` no matter what it creates.
-	 * Pinned here so a future edit cannot silently widen the guard.
+	 * @lore `isReturnAction` already returns false on `!taskId` before the `args.id === taskId` comparison ever runs, so a thread turn (no session task) cannot be ended by `edit_task` no matter what it creates. Pinned here so a future edit cannot silently widen the guard.
 	 */
 	it("edit_task with no id and no session task is not terminal", () => {
 		expect(isReturnAction("edit_task", { ownerAgentId: "agent-7" }, undefined)).toBe(false);

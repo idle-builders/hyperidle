@@ -452,9 +452,9 @@ describe("Menu: dataAttrs passthrough", () => {
 				}) as ReactElement,
 			);
 		});
-		const item = container.querySelector("[data-bet-action='activate']");
+		const item = container.querySelector("[data-bet-action='activate']") as HTMLElement | null;
 		expect(item).not.toBeNull();
-		expect(item?.getAttribute("data-testid")).toBe("activate-btn");
+		expect(item?.dataset.testid).toBe("activate-btn");
 	});
 });
 

@@ -57,33 +57,15 @@
  *   randomness to absorb. retry:0 removes any ambiguity about which attempt a result
  *   came from.
  *
- * @lore BA9b: placed in layers/core-api/src/__tests__/ (matches HARNESS_INCLUDE glob
- *   `*-real.integration.test.ts`) so it can import from run-orchestration-test-runtime.ts
- *   in the same directory. The old passenger test in harness-registry/__tests__/ could not
- *   import run-orchestration (governance boundary) and therefore could not call writeSkillItem
- *   via the production path.
+ * @lore real-harness-lane-placement: placed in layers/core-api/src/__tests__/ (matches the harness-lane glob) so it can import from run-orchestration-test-runtime.ts in the same directory — a test in harness-registry/__tests__/ could not import run-orchestration (governance boundary) and therefore could not call writeSkillItem via the production path.
  *
- * @lore BA9b-opencode-model: the coordinator authorized using openrouter/qwen/qwen3-8b
- *   for the opencode lane (test-specific override). The locked baseline model
- *   (glm-4.7-flash) cannot drive skill selection — it neither auto-injects skill content
- *   nor responds reliably to explicit "use skill X" prompts, verified 2026-08-26.
- *   qwen3-8b handles YAML-frontmatter skills and explicit skill invocation requests.
+ * @lore opencode-model-override: the coordinator authorized using openrouter/qwen/qwen3-8b for the opencode lane (test-specific override). The locked baseline model (glm-4.7-flash) cannot drive skill selection — it neither auto-injects skill content nor responds reliably to explicit "use skill X" prompts, verified 2026-08-26. qwen3-8b handles YAML-frontmatter skills and explicit skill invocation requests.
  *
- * @lore BA9b-probe-token: fixed constant "XSKILL-BA9B-PROD-XFKJ" replaced with
- *   randomUUID() per-run. Root causes of the original failure: (1) fixed tokens can
- *   appear in training data and be confabulated; (2) retry:2 means a lucky confabulation
- *   on attempt 3 greens the test. Per-run token + retry:0 closes both vectors.
+ * @lore probe-token-per-run: fixed constant "XSKILL-BA9B-PROD-XFKJ" replaced with randomUUID() per-run. Root causes of the original failure: (1) fixed tokens can appear in training data and be confabulated; (2) retry:2 means a lucky confabulation on attempt 3 greens the test. Per-run token + retry:0 closes both vectors.
  *
- * @lore BA9b-file-presence-required: model output alone is insufficient for codex and
- *   cursor-agent because they scan ALL files in CWD. A broken HARNESS_SKILL_DIRS
- *   redirects the skill write to a dead path, but the file is still in the sandbox at
- *   that dead path — these harnesses read it from there and the model check passes. File
- *   presence at the harness-specific expected path is the correct sanity-break signal.
+ * @lore file-presence-required: model output alone is insufficient for codex and cursor-agent because they scan ALL files in CWD. A broken HARNESS_SKILL_DIRS redirects the skill write to a dead path, but the file is still in the sandbox at that dead path — these harnesses read it from there and the model check passes. File presence at the harness-specific expected path is the correct sanity-break signal.
  *
- * @lore BA9b-pwd: all binary harnesses override PWD=sandboxPath in env. opencode
- *   requires this (uses process.env.PWD for skill scanning). Applied uniformly as a
- *   defensive measure — any harness that inherits the parent process's PWD (the worktree)
- *   could scan the worktree's skill dirs instead of the sandbox's.
+ * @lore pwd-override: all binary harnesses override PWD=sandboxPath in env. opencode requires this (uses process.env.PWD for skill scanning). Applied uniformly as a defensive measure — any harness that inherits the parent process's PWD (the worktree) could scan the worktree's skill dirs instead of the sandbox's.
  *
  * HARNESS LANE: real binaries, real LLM calls, zero stubs.
  * Gate: requireHarness() — hard-fail (never skip) if any binary/key is absent.
@@ -246,8 +228,7 @@ async function assembleSkillIntoSandbox(db: import("@hyperidle/db").HyperIdleDb)
 // ---------------------------------------------------------------------------
 
 /**
- * @lore BA9b-spawn: execFile leaves stdin open (pipe), which causes codex to block.
- *   spawn with stdio: ['ignore', 'pipe', 'pipe'] closes stdin at process start.
+ * @lore spawn-not-execfile: execFile leaves stdin open (pipe), which causes codex to block. spawn with stdio: ['ignore', 'pipe', 'pipe'] closes stdin at process start.
  */
 async function spawnWithClosedStdin(
 	bin: string,
@@ -318,13 +299,7 @@ async function spawnWithClosedStdin(
 // ---------------------------------------------------------------------------
 
 describe("skill materialisation via production writeSkillItem — real harnesses", () => {
-	// @lore The built-in harness had a lane here. It was a direct in-process LLM
-	// call with no binary to interrogate, so it could only assert the half of this
-	// test that is deterministic — that writeSkillItem put SKILL.md on both
-	// HARNESS_SKILL_DIRS paths. The cursor-agent lane below asserts presence on
-	// both of those same paths before it interrogates its binary, so the
-	// deterministic proof outlives it.
-	// ── claude ───────────────────────────────────────────────────────────────
+	// @lore The built-in harness had a lane here. It was a direct in-process LLM call with no binary to interrogate, so it could only assert the half of this test that is deterministic — that writeSkillItem put SKILL.md on both HARNESS_SKILL_DIRS paths. The cursor-agent lane below asserts presence on both of those same paths before it interrogates its binary, so the deterministic proof outlives it. ── claude ───────────────────────────────────────────────────────────────
 	describe("claude — reads from .claude/skills/", () => {
 		requireHarness("claude");
 
@@ -361,11 +336,9 @@ describe("skill materialisation via production writeSkillItem — real harnesses
 							// carries no key any more, and the inherited environment is where
 							// opencode looks for one anyway.
 							...process.env,
-							// @lore BA9b-pwd: pin PWD to sandbox so claude doesn't scan
-							// the worktree's skill dirs via inherited parent PWD.
+							// @lore pwd-override: pin PWD to sandbox so claude doesn't scan the worktree's skill dirs via inherited parent PWD.
 							PWD: sandboxPath,
-							// @lore real-claude-full-binary: zero these so claude does not
-							// detect it is running inside claude-code (would skip the run).
+							// @lore real-claude-full-binary: zero these so claude does not detect it is running inside claude-code (would skip the run).
 							CLAUDECODE: "",
 							CLAUDE_CODE_ENTRYPOINT: "",
 							CLAUDE_CODE_EXECPATH: "",
@@ -419,8 +392,7 @@ describe("skill materialisation via production writeSkillItem — real harnesses
 						cwd: sandboxPath,
 						env: {
 							...process.env,
-							// @lore BA9b-pwd: pin PWD to sandbox — defensive against codex
-							// scanning the worktree's .agents/skills/ via inherited PWD.
+							// @lore pwd-override: pin PWD to sandbox — defensive against codex scanning the worktree's .agents/skills/ via inherited PWD.
 							PWD: sandboxPath,
 						},
 						timeoutMs: 90_000,
@@ -449,7 +421,7 @@ describe("skill materialisation via production writeSkillItem — real harnesses
 				expect(fs.readFileSync(skillPath, "utf8")).toContain(probeToken);
 
 				// Injection check: spawn and assert model output.
-				// @lore BA9b-opencode-model: coordinator-authorized override; glm-4.7-flash
+				// @lore opencode-model-override: coordinator-authorized override; glm-4.7-flash
 				// (the locked baseline) cannot drive skill selection. qwen3-8b understands
 				// YAML frontmatter and explicit skill invocation requests.
 				const opencodeModel = "openrouter/qwen/qwen3-8b";
@@ -461,10 +433,7 @@ describe("skill materialisation via production writeSkillItem — real harnesses
 						cwd: sandboxPath,
 						env: {
 							...process.env,
-							// @lore BA9b-opencode-pwd: opencode uses process.env.PWD (not
-							// process.cwd()) for project-root skill scanning. Without this,
-							// it inherits the parent's PWD (the worktree) and scans the
-							// worktree's skill dirs instead of the sandbox's.
+							// @lore opencode-pwd-override: opencode uses process.env.PWD (not process.cwd()) for project-root skill scanning. Without this, it inherits the parent's PWD (the worktree) and scans the worktree's skill dirs instead of the sandbox's.
 							PWD: sandboxPath,
 						},
 						timeoutMs: 180_000,
@@ -517,8 +486,7 @@ describe("skill materialisation via production writeSkillItem — real harnesses
 						cwd: sandboxPath,
 						env: {
 							...process.env,
-							// @lore BA9b-pwd: pin PWD to sandbox — defensive against
-							// cursor-agent scanning the worktree's skill dirs.
+							// @lore pwd-override: pin PWD to sandbox — defensive against cursor-agent scanning the worktree's skill dirs.
 							PWD: sandboxPath,
 						},
 						timeoutMs: 90_000,

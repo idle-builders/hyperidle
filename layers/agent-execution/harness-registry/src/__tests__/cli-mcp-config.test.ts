@@ -19,20 +19,15 @@
  *
  * IN CI / test:all — deterministic, no external binary.
  *
- * @lore AL7 T1: Tests the shape contract for the config writer. The writer
- * lives in packages/server/src/harness/cli-mcp-config.ts (new file, T4).
- * Using a real temp dir to prove actual file I/O, not just return values.
+ * @lore config-writer-contract: Tests the shape contract for the config writer. Using a real temp dir to prove actual file I/O, not just return values.
  *
- * @lore AL7 T1 toml-parsing: The codex toml block is verified via string
- * matching (not a full TOML parser dependency) since the block has a simple,
- * predictable structure. The block is appended so we match the section header
- * and key=value lines independently.
+ * @lore toml-parsing: The codex toml block is verified via string matching (not a full TOML parser dependency) since the block has a simple, predictable structure. The block is appended so we match the section header and key=value lines independently.
  */
 
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-// @lore AL7 T1 RED: This import will fail until writeCliMcpConfig is created in T4.
+// @lore red-phase: This import will fail until writeCliMcpConfig is created.
 import { writeHarnessMcpConfig, writePluginStdioMcpEntries } from "../cli-mcp-config.js";
 
 const writeCliMcpConfig = writeHarnessMcpConfig;
@@ -403,13 +398,7 @@ describe("writeCliMcpConfig", () => {
 		});
 
 		/**
-		 * @lore cursor-workspace-root (verified live 2026-08-31, cursor-agent
-		 * 2026.08.25): cursor-agent resolves `.cursor/mcp.json` against the root of
-		 * the enclosing GIT REPOSITORY, not its working directory. A session sandbox
-		 * is a plain subdirectory of the sandbox base, and that base is a git repo —
-		 * so cursor looked in the base, found no `.cursor/`, and ran the whole turn
-		 * with no MCP server. The agent said as much in its own transcript and
-		 * answered in plain text, which never calls `reply`.
+		 * @lore cursor-workspace-root (verified live 2026-08-31, cursor-agent 2026.08.25): cursor-agent resolves `.cursor/mcp.json` against the root of the enclosing GIT REPOSITORY, not its working directory. A session sandbox is a plain subdirectory of the sandbox base, and that base is a git repo — so cursor looked in the base, found no `.cursor/`, and ran the whole turn with no MCP server. The agent said as much in its own transcript and answered in plain text, which never calls `reply`.
 		 *
 		 * Two tests here asserted this writer made the sandbox a repo root, and left
 		 * an existing repo alone. It does neither now, and should not: making every

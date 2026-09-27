@@ -3,10 +3,7 @@
  * document Inspect preserving the live draft and scroll position when
  * opened and closed.
  *
- * @lore the deleted `kind:"artifact"` inline reference this used to click
- * renders as a non-navigating label now (a review canvas anchor, not a
- * navigable target); a `document` reference is the surviving inline
- * reference that opens inline.
+ * @lore the deleted `kind:"artifact"` inline reference this used to click renders as a non-navigating label now (a review canvas anchor, not a navigable target); a `document` reference is the surviving inline reference that opens inline.
  */
 
 import {

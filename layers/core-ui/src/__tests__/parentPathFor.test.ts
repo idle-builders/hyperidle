@@ -21,12 +21,12 @@ describe("parentPathFor", () => {
 			expect(parentPathFor("/work/task/abc-123")).toBe("/work");
 		});
 
-		// @lore BB1: /work/bet/ routes deleted; test uses /work/task/ instead
+		// @lore bet-routes-deleted: /work/bet/ routes deleted; test uses /work/task/ instead
 		it("task detail with trailing slash → /work", () => {
 			expect(parentPathFor("/work/task/abc-123/")).toBe("/work");
 		});
 
-		// @lore BB1: tasks have no URL-visible parent (breadcrumb uses ancestors API)
+		// @lore no-url-visible-parent: tasks have no URL-visible parent (breadcrumb uses ancestors API)
 		it("task detail (any id) → /work — flat URL, depth via ancestors API", () => {
 			expect(parentPathFor("/work/task/xyz-456")).toBe("/work");
 		});
@@ -58,7 +58,7 @@ describe("parentPathFor", () => {
 		});
 
 		it("/documents/new is NOT a detail route → null", () => {
-			// @lore AE4: /documents/new is a create page excluded from isDetailRoute
+			// @lore create-page-excluded: /documents/new is a create page excluded from isDetailRoute
 			expect(parentPathFor("/documents/new")).toBeNull();
 		});
 	});

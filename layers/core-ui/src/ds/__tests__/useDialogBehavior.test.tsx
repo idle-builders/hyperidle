@@ -8,13 +8,9 @@
  * enters on open, is trapped, and returns to the trigger on close; layer →
  * zIndex resolution.
  *
- * @lore: jsdom does not implement `inert` — tests assert the focus-trap
- * path and treat `inert` as a graceful no-op. Do NOT assert the `inert`
- * attribute under jsdom; assert it via a real-browser E2E test instead.
+ * @lore: jsdom does not implement `inert` — tests assert the focus-trap path and treat `inert` as a graceful no-op. Do NOT assert the `inert` attribute under jsdom; assert it via a real-browser E2E test instead.
  *
- * @lore AI2: focus-trap-react requires `displayCheck:"none"` under jsdom
- * because jsdom doesn't lay out elements (all computed sizes are 0).
- * This is carried forward from the existing web-side lore into the DS hook.
+ * @lore jsdom-no-layout: focus-trap-react requires `displayCheck:"none"` under jsdom because jsdom doesn't lay out elements (all computed sizes are 0). Carried forward from the existing web-side lore into the DS hook.
  */
 
 import { act, createElement } from "react";

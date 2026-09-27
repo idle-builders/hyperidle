@@ -13,18 +13,9 @@
  *
  * IN CI / test:all — deterministic, no external binary.
  *
- * @lore AL7 T0b stateful-bridge: Uses SDK Client + StreamableHTTPClientTransport
- * against the production listener to avoid the `mcp-protocol-version` foot-gun
- * (N11). A hand-rolled fetch test that hardcodes a stale protocol version can
- * 400 for the wrong reason and mask a real regression. The SDK client handles
- * the protocol version header correctly and is still the PRODUCTION server
- * transport — only the client side is SDK-assisted.
+ * @lore stateful-bridge: Uses SDK Client + StreamableHTTPClientTransport against the production listener to avoid the `mcp-protocol-version` foot-gun. A hand-rolled fetch test that hardcodes a stale protocol version can 400 for the wrong reason and mask a real regression. The SDK client handles the protocol version header correctly and is still the PRODUCTION server transport — only the client side is SDK-assisted.
  *
- * @lore AL7 T0b sanity-break: omitting the mcp-session-id on a second request
- * (post-initialize) must return 400/404. This is verified via a raw fetch call
- * after the SDK client successfully initializes (the SDK client naturally carries
- * the session id; we probe the raw path with a second client that re-initializes
- * and then sends a request without the session id header).
+ * @lore sanity-break: omitting the mcp-session-id on a second request (post-initialize) must return 400/404. This is verified via a raw fetch call after the SDK client successfully initializes (the SDK client naturally carries the session id; we probe the raw path with a second client that re-initializes and then sends a request without the session id header).
  */
 
 import * as fs from "node:fs";
@@ -47,10 +38,7 @@ const createEnforcementRegistry = () => createReturnEnforcement();
 /**
  * Inline commit_file proof-vehicle tool.
  *
- * @lore AU20 Am10: `createCommitFileTool` factory is now internal to
- * `@hyperidle/tool-handlers` (AU20 Am10 collapse). `commit_file` is a pure
- * disk-write tool with no DB dependency — inlined here so the MCP bridge
- * proof vehicle is self-contained without a cross-layer import.
+ * @lore commit-file-tool-inlined: `createCommitFileTool` factory is now internal to `@hyperidle/tool-handlers`. `commit_file` is a pure disk-write tool with no DB dependency — inlined here so the MCP bridge proof vehicle is self-contained without a cross-layer import.
  */
 const commitFileTool = toRegistered({
 	name: "commit_file",

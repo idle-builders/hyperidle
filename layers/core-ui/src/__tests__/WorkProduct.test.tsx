@@ -25,12 +25,7 @@ vi.mock("../shell/ToastRegion.js", async () => {
 });
 
 /**
- * @lore: TeamDetail shape replaces ProductDetail.
- * - `product` → `team` (TeamSummary)
- * - `pitchTitle` → `descriptionTitle`
- * - `status: "committed"` → `status: "active"`
- * @lore: TeamPageData replaces TeamDetail — team is id + name + a computed
- * "healthy" | "blocked" status now (no phase, no lead).
+ * @lore: TeamDetail shape replaces ProductDetail. - `product` → `team` (TeamSummary) - `pitchTitle` → `descriptionTitle` - `status: "committed"` → `status: "active"` @lore: TeamPageData replaces TeamDetail — team is id + name + a computed "healthy" | "blocked" status now (no phase, no lead).
  */
 const MOCK_PRODUCT_DETAIL = {
 	team: {
@@ -115,17 +110,14 @@ describe("WorkTeam", () => {
 		expect(screen.getByTestId("team-active-tasks-empty")).toBeInTheDocument();
 	});
 
-	// @lore: AgentCard replaced by AgentRow (data-testid="agent-row").
-	// The row shows status, health dot, context column. Customize button opens edit dialog.
+	// @lore: AgentCard replaced by AgentRow (data-testid="agent-row"). The row shows status, health dot, context column. Customize button opens edit dialog.
 	it("4. renders one agent row per roster member", () => {
 		renderPage("p1", MOCK_PRODUCT_DETAIL);
 		const agentRows = screen.getAllByTestId("agent-row");
 		expect(agentRows).toHaveLength(2);
 	});
 
-	// @lore: "renders the burn-vs-cap with a progress element" is
-	// HARD-DELETED — the cap-utilization progress bar is gone along with
-	// the rest of the cost-cap feature, no replacement.
+	// @lore: "renders the burn-vs-cap with a progress element" is HARD-DELETED — the cap-utilization progress bar is gone along with the rest of the cost-cap feature, no replacement.
 	it("5. renders the team-burn-vs-cap section", () => {
 		renderPage("p1", MOCK_PRODUCT_DETAIL);
 		const burnRegion = screen.getByTestId("team-burn-vs-cap");

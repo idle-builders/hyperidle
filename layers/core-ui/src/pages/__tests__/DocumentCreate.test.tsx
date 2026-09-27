@@ -1,19 +1,11 @@
 /**
  * DocumentCreate component tests.
  *
- * @lore: repointed off `apiFetch`/`POST /api/knowledge` onto
- * `call("edit_document", …)`; ParentPicker's own read is `useDocuments`, not
- * `useFetch` (architecture.md §9.2).
+ * @lore: repointed off `apiFetch`/`POST /api/knowledge` onto `call("edit_document", …)`; ParentPicker's own read is `useDocuments`, not `useFetch` (architecture.md §9.2).
  *
- * @lore nested-knowledge-items, founder ruling: nesting under an existing
- * item is ONE write — the chosen parent rides `edit_document`'s `parent`
- * field. There is no follow-up call.
+ * @lore nested-knowledge-items, founder ruling: nesting under an existing item is ONE write — the chosen parent rides `edit_document`'s `parent` field. There is no follow-up call.
  *
- * @lore: vi.mock() calls are hoisted to top regardless of scope
- * (describe/it/beforeEach). Multiple vi.mock() calls for the same module
- * path in one file → LAST factory wins for ALL tests. This file uses a
- * single file-level vi.mock per module, configured per-describe via
- * mockReturnValue, to avoid that trap.
+ * @lore: vi.mock() calls are hoisted to top regardless of scope (describe/it/beforeEach). Multiple vi.mock() calls for the same module path in one file → LAST factory wins for ALL tests. This file uses a single file-level vi.mock per module, configured per-describe via mockReturnValue, to avoid that trap.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";

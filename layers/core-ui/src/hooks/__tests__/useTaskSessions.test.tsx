@@ -1,15 +1,7 @@
 /**
  * A task's sessions, read through the session action list.
  *
- * @lore `GET /api/tasks/:id/sessions` (later `GET
- * /api/agent-orchestration/runs?task_id=…`) is deleted; `useTaskSessions`
- * calls `search_sessions({ taskId })` — `POST /api/actions/search_sessions`,
- * the same door a person's client and an agent's MCP tool use — and does the
- * projection the old route used to do. This file is where that projection is
- * covered: the `Session N` numbering (which needs OLDEST-first order, so the
- * newest-first search read is reversed), the `status` field keyed off the
- * row's `state` (so a cascade-stopped run reports `stopped`, never blank),
- * and the effectiveness score parse.
+ * @lore `GET /api/tasks/:id/sessions` (later `GET /api/agent-orchestration/runs?task_id=…`) is deleted; `useTaskSessions` calls `search_sessions({ taskId })` — `POST /api/actions/search_sessions`, the same door a person's client and an agent's MCP tool use — and does the projection the old route used to do. This file is where that projection is covered: the `Session N` numbering (which needs OLDEST-first order, so the newest-first search read is reversed), the `status` field keyed off the row's `state` (so a cascade-stopped run reports `stopped`, never blank), and the effectiveness score parse.
  */
 
 import { renderHook, waitFor } from "@testing-library/react";

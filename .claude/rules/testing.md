@@ -21,14 +21,12 @@ enforcement" blocks in `eslint.config.ts` for the exact wiring, and the rule sou
 flags: `vitest/no-conditional-expect`, `vitest/expect-expect`, `playwright/no-conditional-expect`,
 `playwright/expect-expect` ([@vitest/eslint-plugin](https://github.com/vitest-dev/eslint-plugin-vitest),
 [eslint-plugin-playwright](https://github.com/playwright-community/eslint-plugin-playwright)); the
-repo-specific rules in `tools/eslint-plugin-design/src/rules/`:
-`no-repo-introspection-in-test.ts`, `no-planning-id-in-test.ts`, `no-dom-marker-assert.ts`; and the
-Playwright screenshot ban (`no-restricted-syntax` in the same `eslint.config.ts` block). Do not restate
-what a rule already enforces here — read the rule when the linter stops you, the same way
-`.pipeline/rules/architecture.md` points at `tools/governance/README.md` for the boundary rules.
-
-`vitest/no-restricted-matchers` (the four existence-only chains below) is authored but not yet wired —
-see the `NOTE` in `eslint.config.ts` next to the vitest block.
+repo-specific rules in `tools/eslint-plugin-design/src/rules/`: `no-repo-introspection-in-test.ts`,
+`no-planning-id-in-test.ts`, `no-dom-marker-assert.ts`, `no-existence-only-test.ts`,
+`no-multiline-lore-in-test.ts`; and the Playwright screenshot ban (`no-restricted-syntax` in the same
+`eslint.config.ts` block). Do not restate what a rule already enforces here — read the rule when the
+linter stops you, the same way `.pipeline/rules/architecture.md` points at `tools/governance/README.md`
+for the boundary rules.
 
 ## Never a test
 

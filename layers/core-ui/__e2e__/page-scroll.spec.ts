@@ -7,9 +7,7 @@
  * worst case), and 375x812 (the mobile AppShell branch, a different DOM
  * chain at the <=768px cut).
  *
- * @lore a sweep that silently covers zero routes reads as passing forever —
- * the first assertion in the regression-net describe hard-fails if ROUTES
- * is empty; do not remove it when trimming the route list.
+ * @lore a sweep that silently covers zero routes reads as passing forever — the first assertion in the regression-net describe hard-fails if ROUTES is empty; do not remove it when trimming the route list.
  */
 
 import {
@@ -255,8 +253,7 @@ const ROUTES: readonly RouteCase[] = [
 		},
 	},
 	{
-		// @lore The bet page and its nested task page are the same page now,
-		// so this is one row.
+		// @lore The bet page and its nested task page are the same page now, so this is one row.
 		name: "work-task",
 		url: `/work/task/${ROOT_TASK_ID}`,
 		readySelector: "[data-testid='task-detail-page']",
@@ -265,8 +262,7 @@ const ROUTES: readonly RouteCase[] = [
 		},
 	},
 	{
-		// @lore `/work/routine/:id` and WorkRoutine are gone — subscriptions
-		// replace routines, and they live on AgentProfile now, not their own page.
+		// @lore `/work/routine/:id` and WorkRoutine are gone — subscriptions replace routines, and they live on AgentProfile now, not their own page.
 		name: "agent-profile",
 		url: `/agents/${AGENT_ID}`,
 		readySelector: "[data-testid='agent-profile-page']",

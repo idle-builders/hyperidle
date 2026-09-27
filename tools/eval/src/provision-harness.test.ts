@@ -5,16 +5,9 @@ import { describe, expect, it, vi } from "vitest";
 import { runEvalSession } from "./provision-harness.js";
 
 /**
- * @lore `runSession` lives on `buildRunOrchestrationComposition(...).runSession`
- * (`@hyperidle/agent-orchestration`) — mock the FACTORY to return an object whose
- * `runSession` is the spy; this test's concern is adapter-pool selection, not the
- * composition's own wiring.
+ * @lore `runSession` lives on `buildRunOrchestrationComposition(...).runSession` (`@hyperidle/agent-orchestration`) — mock the FACTORY to return an object whose `runSession` is the spy; this test's concern is adapter-pool selection, not the composition's own wiring.
  *
- * @lore artifacts-become-knowledge: `runEvalSession` now boots a real HTTP
- * server (`startEvalLiveServer`) before calling `runSession`. The new
- * dependencies (`bootAgentOrchestration`, `bootCoreApi`, `composeApiApplication`,
- * `serve`) are mocked here so the unit test stays a unit test — the concern
- * is still adapter-pool selection, not server boot.
+ * @lore artifacts-become-knowledge: `runEvalSession` now boots a real HTTP server (`startEvalLiveServer`) before calling `runSession`. The new dependencies (`bootAgentOrchestration`, `bootCoreApi`, `composeApiApplication`, `serve`) are mocked here so the unit test stays a unit test — the concern is still adapter-pool selection, not server boot.
  */
 const runSession = vi.fn();
 vi.mock("@hyperidle/agent-orchestration", () => ({

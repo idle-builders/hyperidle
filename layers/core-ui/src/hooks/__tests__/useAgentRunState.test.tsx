@@ -1,10 +1,7 @@
 /**
  * Run-state hooks tests.
  *
- * @lore `GET /api/agent-orchestration/runs?agent_ids=…` is deleted; both
- * hooks now call `search_sessions({ agentIds })` — `POST
- * /api/actions/search_sessions`, the same door a person's client and an
- * agent's MCP tool use.
+ * @lore `GET /api/agent-orchestration/runs?agent_ids=…` is deleted; both hooks now call `search_sessions({ agentIds })` — `POST /api/actions/search_sessions`, the same door a person's client and an agent's MCP tool use.
  *
  * Three properties, none of which the move shipped with:
  *   - **Fail-closed.** A failed orchestration read must NOT render a

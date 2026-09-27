@@ -5,16 +5,9 @@
  * Contributions button visible with "detached" label when a contribution has a
  * user override, contribution expand shows detached tag + restore button.
  *
- * @lore The five raw `apiFetch("/api/plugins…")` calls this page used to
- * make are gone — `call("search_plugins", …)`/`call("edit_plugin", …)` is the
- * one door now, so `call` is mocked directly (the same idiom
- * `ScopeChangeDialog`'s and `SettingsSkillsAndRules`' own tests use).
+ * @lore The five raw `apiFetch("/api/plugins…")` calls this page used to make are gone — `call("search_plugins", …)`/`call("edit_plugin", …)` is the one door now, so `call` is mocked directly (the same idiom `ScopeChangeDialog`'s and `SettingsSkillsAndRules`' own tests use).
  *
- * @lore BC5 T11: `useTeams` no longer reads `GET /api/teams` — deleted with
- * the `teams` route family — it derives teams from `search_users({})` (the
- * distinct `team` each row carries) plus a per-team `search_tasks` call for
- * the blocked/in-progress signal. The team-picker test drives that through
- * the same `callMock`, not a separate `fetch` stub.
+ * @lore door-swap: `useTeams` no longer reads `GET /api/teams` — deleted with the `teams` route family — it derives teams from `search_users({})` (the distinct `team` each row carries) plus a per-team `search_tasks` call for the blocked/in-progress signal. The team-picker test drives that through the same `callMock`, not a separate `fetch` stub.
  */
 
 import { render, screen, waitFor, within } from "@testing-library/react";

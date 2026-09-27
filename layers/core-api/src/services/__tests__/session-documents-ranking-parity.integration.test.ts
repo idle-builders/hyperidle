@@ -4,8 +4,7 @@
  * genuine relocation bug (wrong scope, wrong budget cutoff) shows up as a set
  * mismatch against the hardcoded expected membership below.
  *
- * @lore "what an agent receives" collapses onto scope alone — factory + its
- * team + its own.
+ * @lore "what an agent receives" collapses onto scope alone — factory + its team + its own.
  */
 
 import { documents, type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";

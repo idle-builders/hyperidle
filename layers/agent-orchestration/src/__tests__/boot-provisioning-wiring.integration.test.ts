@@ -5,13 +5,7 @@
  * `provisioning` field — this is the Layer that owns the wiring, so this is
  * the Layer whose test proves it.
  *
- * @lore A test that hand-builds its own port and calls the read function
- * directly never goes through the real composition root, so it cannot catch
- * a wiring mismatch there — which is exactly how `serviceConnectionResolver`
- * once got wired to a `CredentialResolver` (`resolve(name)`) where a
- * `ServiceConnectionResolver` (`resolve(userId, connectionId)`) was expected:
- * a blanket `as` cast on the deps literal hid the arity mismatch from `tsc`,
- * and provisioning silently provisioned nothing in production for months.
+ * @lore A test that hand-builds its own port and calls the read function directly never goes through the real composition root, so it cannot catch a wiring mismatch there — which is exactly how `serviceConnectionResolver` once got wired to a `CredentialResolver` (`resolve(name)`) where a `ServiceConnectionResolver` (`resolve(userId, connectionId)`) was expected: a blanket `as` cast on the deps literal hid the arity mismatch from `tsc`, and provisioning silently provisioned nothing in production for months.
  *
  * This test boots the REAL `bootAgentOrchestration` and asserts, functionally
  * against a real DB, that all three provisioning ports are the real
@@ -144,10 +138,7 @@ async function bootOrchestrationWithProvisioning(db: HyperIdleDb) {
 		topology: "disabled",
 		mcpBaseUrl: "http://localhost:0",
 	});
-	// @lore token-cipher: `bootAgentOrchestration` owns its own cipher now —
-	// `encryptCredentialValue` above is this package's own real AES cipher
-	// (`@hyperidle/connections`), used only to seed the fixture data this test
-	// asserts the production wiring can decrypt.
+	// @lore token-cipher: `bootAgentOrchestration` owns its own cipher now — `encryptCredentialValue` above is this package's own real AES cipher (`@hyperidle/connections`), used only to seed the fixture data this test asserts the production wiring can decrypt.
 	const agentOrchestration = await bootAgentOrchestration({
 		db,
 		eventBus,
@@ -194,9 +185,7 @@ describe("bootAgentOrchestration wires the real session-provisioning ports", () 
 		await seed(db);
 		const { agentOrchestration, agentExecution } = await bootOrchestrationWithProvisioning(db);
 		try {
-			// @lore No instanceof check here — `ServiceConnectionResolver` is a
-			// deleted class; the functional check below proves the same contract
-			// against the `resolveHeldToken` function this uses instead.
+			// @lore No instanceof check here — `ServiceConnectionResolver` is a deleted class; the functional check below proves the same contract against the `resolveHeldToken` function this uses instead.
 			expect(agentOrchestration.provisioning?.serviceConnectionResolver).toBeDefined();
 			// The two-argument call the provisioner makes. This is the exact
 			// call that silently returned null in production.

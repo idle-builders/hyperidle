@@ -5,9 +5,7 @@
  *   canGoBack  = (window.history.state?.idx ?? 0) > 0
  *   canGoForward = window.navigation?.canGoForward ?? false
  *
- * @lore RR v7 has no public canGoBack/canGoForward. We read `idx` from
- * window.history.state — an RR internal. If RR changes its state shape this
- * breaks; the popstate test below is the canary.
+ * @lore RR v7 has no public canGoBack/canGoForward. We read `idx` from window.history.state — an RR internal. If RR changes its state shape this breaks; the popstate test below is the canary.
  */
 
 // @vitest-environment jsdom

@@ -3,9 +3,7 @@
  * skill's body in the DB and then calling `edit_plugin`'s restore change puts
  * the original SKILL.md content back, through `POST /api/actions/edit_plugin`.
  *
- * @lore restore writes through `edit_document`, so `updatedBy` is always the
- * requesting person — never on the input, always `ctx.actor` — carried by
- * the `x-hyperidle-actor-id` override header, never a body field.
+ * @lore restore writes through `edit_document`, so `updatedBy` is always the requesting person — never on the input, always `ctx.actor` — carried by the `x-hyperidle-actor-id` override header, never a body field.
  */
 
 import { cpSync, mkdirSync, readFileSync, rmSync } from "node:fs";

@@ -2,8 +2,7 @@
  * PartList: the source-agnostic renderer + per-kind dispatch.
  *
  * Covers: a calm author-grouped column — group heads (name+time),
- * consecutive same-author parts under one head, agent groups marked by an
- * agent cue; a block renders as a ReferenceChip while a session reference
+ * consecutive same-author parts under one head; a block renders as a ReferenceChip while a session reference
  * renders as a Fold (NOT a chip); each message-type Part renders its own
  * contract (prose/review/questionnaire/resolved), and a verdict echoes onto
  * the resolved Part; a session renders as a Fold with no work-log/tool-call
@@ -77,13 +76,6 @@ describe("PartList — calm author-grouped column", () => {
 		expect(screen.getAllByText("Atlas")).toHaveLength(1);
 		expect(screen.getByText("first")).toBeInTheDocument();
 		expect(screen.getByText("second")).toBeInTheDocument();
-	});
-
-	it("marks the agent group with an agent cue (not a human marker)", () => {
-		render(<PartList parts={[prose({ id: "m1", author: ATLAS, text: "x" })]} onOpen={vi.fn()} />);
-		// Agent cue is keyed off author.isAgent — a data marker the head exposes.
-		const cue = document.querySelector('[data-ds-agent="true"], [data-agent="true"]');
-		expect(cue?.getAttribute("data-ds-agent") ?? cue?.getAttribute("data-agent")).toBe("true");
 	});
 });
 

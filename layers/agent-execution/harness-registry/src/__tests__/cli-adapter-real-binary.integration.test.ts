@@ -14,31 +14,13 @@
  *     needs real CLI binaries and real LLM credentials. Nothing records that
  *     it ran, so a human running it is the only evidence it passed.
  *
- * @lore AU21 (harness-telemetry narrowing): a `cost_update` event / `cost`
- * result field used to be asserted here too. Founder ruling narrowed harness
- * telemetry to token usage only — "very few harness can actually report
- * cost" (confirmed empirically: codex never emits `total_cost_usd`). No
- * harness's adapter emits `cost_update` anymore; every case below asserts its
- * absence.
+ * @lore harness-telemetry narrowing: a `cost_update` event / `cost` result field used to be asserted here too. Founder ruling narrowed harness telemetry to token usage only — "very few harness can actually report cost" (confirmed empirically: codex never emits `total_cost_usd`). No harness's adapter emits `cost_update` anymore; every case below asserts its absence.
  *
- * @lore claude-env-allowlist: CLAUDE_CLI_CONFIG's envAllowlist is
- * [PATH, HOME, LANG, USER, LOGNAME] — it does not forward CLAUDECODE or any
- * other CC session var, so claude's nested-session detection never fires even
- * when this test runs inside Claude Code, and claude authenticates via the
- * macOS Keychain (HOME/USER/LOGNAME is sufficient for the Security framework
- * to resolve the keychain user) — no key is injected.
+ * @lore claude-env-allowlist: CLAUDE_CLI_CONFIG's envAllowlist is [PATH, HOME, LANG, USER, LOGNAME] — it does not forward CLAUDECODE or any other CC session var, so claude's nested-session detection never fires even when this test runs inside Claude Code, and claude authenticates via the macOS Keychain (HOME/USER/LOGNAME is sufficient for the Security framework to resolve the keychain user) — no key is injected.
  *
- * @lore codex-stdin-fix: the production adapter closes the child's stdin
- * immediately after spawn; without that, codex blocks forever on "Reading
- * additional input from stdin...". This test runs against the real binary to
- * prove the fix holds.
+ * @lore codex-stdin-fix: the production adapter closes the child's stdin immediately after spawn; without that, codex blocks forever on "Reading additional input from stdin...". This test runs against the real binary to prove the fix holds.
  *
- * @lore codex-sandbox: codex needs a git repo plus a `.codex-home/` (auth.json
- * + config.toml only — SQLite files lock and make codex exit before the LLM
- * call). The sandbox is built via `LocalSandboxAdapter.spawn()` +
- * `ensureSandboxGitRepo` — the exact two calls, same order, that run-
- * orchestration's real session provisioning uses — never a hand-rolled `git
- * init`, which would prove nothing about production's own provisioning path.
+ * @lore codex-sandbox: codex needs a git repo plus a `.codex-home/` (auth.json + config.toml only — SQLite files lock and make codex exit before the LLM call). The sandbox is built via `LocalSandboxAdapter.spawn()` + `ensureSandboxGitRepo` — the exact two calls, same order, that run- orchestration's real session provisioning uses — never a hand-rolled `git init`, which would prove nothing about production's own provisioning path.
  */
 
 import type { HarnessEvent, SessionConfig } from "@hyperidle/harness-protocol";
@@ -56,9 +38,7 @@ import { productionCliConfig } from "./production-cli-config.js";
 import { HARNESS_TEST_MODELS, type HarnessName, requireHarness } from "./require-harness.js";
 import { trackHarnessSessions } from "./session-handle-tracker.js";
 
-// @lore process-group kill only helps once stopSession runs. `track` stops any
-// handle a test leaves unstopped — timeout or thrown assertion included — in
-// afterEach. See session-handle-tracker.ts.
+// @lore process-group kill only helps once stopSession runs. `track` stops any handle a test leaves unstopped — timeout or thrown assertion included — in afterEach. See session-handle-tracker.ts.
 const { track } = trackHarnessSessions();
 
 const ADAPTER_OK_PROMPT = "Reply with exactly the token ADAPTER_OK and nothing else.";

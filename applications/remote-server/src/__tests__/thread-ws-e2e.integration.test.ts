@@ -16,12 +16,7 @@
  * `wsPush` sink) and `layers/core-ui/src/hooks/__tests__/useThread.test.tsx`
  * (fake ws client) each stop short of — neither proves the two ends meet.
  *
- * @lore governance: `CORE_API_ACTOR_OVERRIDE_HEADER` lives in
- * `@hyperidle/api-contract`, whose reach is `["layer"]` — an
- * `applications/*` file (this test included) may not import it directly.
- * Its value is a wire constant, not a logical dependency on the package;
- * inlined below with this citation
- * (`framework/api-contract/src/core-api-port.ts`).
+ * @lore governance: `CORE_API_ACTOR_OVERRIDE_HEADER` lives in `@hyperidle/api-contract`, whose reach is `["layer"]` — an `applications/*` file (this test included) may not import it directly. Its value is a wire constant, not a logical dependency on the package; inlined below with this citation (`framework/api-contract/src/core-api-port.ts`).
  */
 
 import * as os from "node:os";
