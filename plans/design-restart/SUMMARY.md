@@ -19,12 +19,12 @@ getting designs thrown at them and to first talk through what matters in a revie
 
 **Q: What was the open question at the very end?**
 Whether the founder would trust the **agent flagging its own uncertainty**. The third JUDGE design
-leans on agent-placed pins. If the agent flags well, a review is a thirty-second scan of two flags
-and a decision. If it flags badly, the screen falls back into reading. No answer was given.
+leans on agent-placed pins. Answered 2026-09-28: **yes, we trust agents to flag their own uncertain
+spots.** So the agent's pins are the main way a review shows where to look.
 
 **Q: Which journeys are done?**
 - **HAND OFF**: designed and approved.
-- **JUDGE**: third attempt built, founder feedback on it still pending.
+- **JUDGE**: third attempt built. Two open points settled 2026-09-28 (agent flags trusted; reject needs a reason). Broader feedback on the design still pending.
 - **ARRIVE, THINK, RUN THE SHIFT**: not started. The rail and the queue were drawn only as
   background for the HAND OFF screen; ARRIVE owns them.
 
@@ -76,9 +76,9 @@ questions sits next to it**.
 **Q: Approve, reject, send back?**
 - There is **no "send back" button.** Founder: "a pure send back button without feedback creates
   chaos." Asking for a change is done by **commenting**.
-- The verdict is **Approve** and maybe **Reject**. What a reject actually does was left open. The
-  agent's proposal (not confirmed): nothing ships, the work item closes as rejected, the agent
-  stops, and the reason becomes knowledge.
+- The verdict is **Approve** or **Reject**. Settled 2026-09-28: **a reject requires a message
+  saying why**, and that message goes back to the session and the agent that proposed the review.
+  *Overturned:* the agent's earlier proposal (reject closes the work item and the agent stops).
 
 **Q: How do I hand a review to someone else?**
 Mention them with **@**, exactly like in chat. No separate "hand off" button; the conversation

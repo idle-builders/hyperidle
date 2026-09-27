@@ -131,6 +131,10 @@ Objects that appear inside surfaces. Designed once, reused everywhere.
   pin's back-and-forth is its own thread; the review is a conversation of many threads.
 - **Approve is not gated on open questions** — they are the reviewer's own — but the open count
   sits beside the button.
+- **Agents are trusted to flag their own uncertain spots** (founder, 2026-09-28). Agent pins are the
+  primary pointer mechanic.
+- **Reject requires a reason** (founder, 2026-09-28). The message goes back to the session and the
+  agent that proposed the review. No bare reject, no send-back button.
 
 ## 7. Open concerns
 
