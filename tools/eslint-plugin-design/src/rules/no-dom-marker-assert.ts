@@ -95,7 +95,7 @@ function getExpectCallAndModifiers(callee: AnyNode): { inner: AnyNode; negated: 
 		if (prop?.name === "not") negated = true;
 		cur = cur.object as AnyNode | undefined;
 	}
-	if (!cur || cur.type !== "CallExpression") return null;
+	if (cur?.type !== "CallExpression") return null;
 	const innerCallee = cur.callee as { type?: string; name?: string } | undefined;
 	if (innerCallee?.type !== "Identifier" || innerCallee.name !== "expect") return null;
 	return { inner: cur, negated };

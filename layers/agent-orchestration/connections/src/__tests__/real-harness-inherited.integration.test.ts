@@ -116,7 +116,6 @@ describe("real-harness inherited reach", () => {
 			await writeFile(
 				join(configDirectory, "opencode.jsonc"),
 				JSON.stringify({
-					// biome-ignore lint/style/useNamingConvention: external OpenCode config key.
 					$schema: "https://opencode.ai/config.json",
 					mcp: { "isolated-opencode": { type: "remote", url: "http://localhost:19998/mcp" } },
 				}),

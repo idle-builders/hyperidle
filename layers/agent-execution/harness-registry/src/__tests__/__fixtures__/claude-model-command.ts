@@ -41,7 +41,7 @@ export const CLAUDE_MODEL_COMMAND_CAPTURE = String.raw`{
  * The same command on a build whose `/model` answer names no models — the shape
  * discovery must treat as "this harness told us nothing", not as a parse bug.
  */
-export const CLAUDE_MODEL_COMMAND_NO_LIST_CAPTURE = String.raw`{
+export const CLAUDE_MODEL_COMMAND_NO_LIST_CAPTURE = `{
 	"is_error": false,
 	"duration_api_ms": 0,
 	"total_cost_usd": 0,

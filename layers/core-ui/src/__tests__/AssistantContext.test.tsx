@@ -4,59 +4,38 @@
  * Context can be attached: AssistantContext exports the correct shape.
  */
 
-import { render } from "@testing-library/react";
+import { render, renderHook } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { useContext } from "react";
 import { describe, expect, it, vi } from "vitest";
-import {
-	AssistantContext,
-	type AssistantContextRef,
-	type AssistantContextValue,
-} from "../contexts/AssistantContext";
+import { AssistantContext, type AssistantContextRef } from "../contexts/AssistantContext";
 
 describe("AssistantContext", () => {
 	it("AssistantContext default value has overlayOpen=false", () => {
-		let capturedValue: AssistantContextValue | null = null;
+		const { result } = renderHook(() => useContext(AssistantContext));
 
-		function Consumer(): null {
-			capturedValue = useContext(AssistantContext);
-			return null;
-		}
-
-		render(<Consumer />);
-
-		expect(capturedValue).not.toBeNull();
-		expect(capturedValue!.overlayOpen).toBe(false);
+		expect(result.current).not.toBeNull();
+		expect(result.current.overlayOpen).toBe(false);
 	});
 
 	it("AssistantContext default attachContext is a function", () => {
-		let capturedValue: AssistantContextValue | null = null;
+		const { result } = renderHook(() => useContext(AssistantContext));
 
-		function Consumer(): null {
-			capturedValue = useContext(AssistantContext);
-			return null;
-		}
-
-		render(<Consumer />);
-
-		expect(typeof capturedValue!.attachContext).toBe("function");
+		expect(typeof result.current.attachContext).toBe("function");
 	});
 
 	it("Provider passes overlayOpen=true to consumers", () => {
-		let capturedOverlayOpen = false;
-
-		function Consumer(): null {
-			const ctx = useContext(AssistantContext);
-			capturedOverlayOpen = ctx.overlayOpen;
-			return null;
+		function wrapper({ children }: { children: ReactNode }) {
+			return (
+				<AssistantContext.Provider value={{ overlayOpen: true, attachContext: vi.fn() }}>
+					{children}
+				</AssistantContext.Provider>
+			);
 		}
 
-		render(
-			<AssistantContext.Provider value={{ overlayOpen: true, attachContext: vi.fn() }}>
-				<Consumer />
-			</AssistantContext.Provider>,
-		);
+		const { result } = renderHook(() => useContext(AssistantContext), { wrapper });
 
-		expect(capturedOverlayOpen).toBe(true);
+		expect(result.current.overlayOpen).toBe(true);
 	});
 
 	it("attachContext passes the ref to the provider handler", () => {

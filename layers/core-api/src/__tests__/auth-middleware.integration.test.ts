@@ -96,7 +96,6 @@ describe("auth middleware — the API key is the one credential", () => {
 	test("a bearer token is not a credential", async ({ db }) => {
 		await seedHuman(db, "u-auth-human");
 		const res = await makeProbeApp(db).request("/probe", {
-			// biome-ignore lint/style/useNamingConvention: HTTP header name
 			headers: { Authorization: "Bearer anything" },
 		});
 		expect(res.status).toBe(401);

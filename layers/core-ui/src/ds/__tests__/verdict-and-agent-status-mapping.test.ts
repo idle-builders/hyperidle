@@ -37,20 +37,20 @@ const VALID_STATUSES: readonly Status[] = [
 
 describe("TASK_OUTCOME_VERDICT_STATUS (AI4 AC5, Decision 6)", () => {
 	it("maps met to 'healthy' (done condition fully met = green)", () => {
-		expect(TASK_OUTCOME_VERDICT_STATUS["met"]).toBe("healthy" satisfies Status);
+		expect(TASK_OUTCOME_VERDICT_STATUS.met).toBe("healthy" satisfies Status);
 	});
 
 	it("maps met_with_rework to 'behind' (amber — not a clean pass)", () => {
 		// @lore amber-for-not-clean-win: amber for anything "not a clean win"
-		expect(TASK_OUTCOME_VERDICT_STATUS["met_with_rework"]).toBe("behind" satisfies Status);
+		expect(TASK_OUTCOME_VERDICT_STATUS.met_with_rework).toBe("behind" satisfies Status);
 	});
 
 	it("maps partially_met to 'behind' (amber — partial delivery)", () => {
-		expect(TASK_OUTCOME_VERDICT_STATUS["partially_met"]).toBe("behind" satisfies Status);
+		expect(TASK_OUTCOME_VERDICT_STATUS.partially_met).toBe("behind" satisfies Status);
 	});
 
 	it("maps not_met to 'error' (done condition failed = red)", () => {
-		expect(TASK_OUTCOME_VERDICT_STATUS["not_met"]).toBe("error" satisfies Status);
+		expect(TASK_OUTCOME_VERDICT_STATUS.not_met).toBe("error" satisfies Status);
 	});
 
 	it("every value maps to a valid Status", () => {
@@ -100,15 +100,15 @@ describe("taskOutcomeVerdictToStatus (AI4 Decision 6)", () => {
 
 describe("AGENT_OPERATIONAL_STATUS_MAP (AI4 Decision 3a)", () => {
 	it("maps active to 'healthy' (live agent = green)", () => {
-		expect(AGENT_OPERATIONAL_STATUS_MAP["active"]).toBe("healthy" satisfies Status);
+		expect(AGENT_OPERATIONAL_STATUS_MAP.active).toBe("healthy" satisfies Status);
 	});
 
 	it("maps error to 'error' (agent in error = red)", () => {
-		expect(AGENT_OPERATIONAL_STATUS_MAP["error"]).toBe("error" satisfies Status);
+		expect(AGENT_OPERATIONAL_STATUS_MAP.error).toBe("error" satisfies Status);
 	});
 
 	it("maps idle to 'paused' (agent not running = blue/info)", () => {
-		expect(AGENT_OPERATIONAL_STATUS_MAP["idle"]).toBe("paused" satisfies Status);
+		expect(AGENT_OPERATIONAL_STATUS_MAP.idle).toBe("paused" satisfies Status);
 	});
 
 	it("has exactly 3 entries for the closed 3-value AgentOperationalStatus set", () => {

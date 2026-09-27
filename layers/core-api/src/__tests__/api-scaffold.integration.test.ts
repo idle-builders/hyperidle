@@ -140,7 +140,6 @@ describe("API Scaffold", () => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const res = await app.request("/api/health", {
 				headers: {
-					// biome-ignore lint/style/useNamingConvention: HTTP header name
 					Origin: "http://localhost:5173",
 				},
 			});
@@ -154,7 +153,6 @@ describe("API Scaffold", () => {
 			const res = await app.request("/api/health", {
 				method: "OPTIONS",
 				headers: {
-					// biome-ignore lint/style/useNamingConvention: HTTP header name
 					Origin: "http://localhost:5173",
 					"Access-Control-Request-Method": "POST",
 					"Access-Control-Request-Headers": "X-API-Key",
@@ -171,7 +169,6 @@ describe("API Scaffold", () => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const res = await app.request("/api/health", {
 				headers: {
-					// biome-ignore lint/style/useNamingConvention: HTTP header name
 					Origin: "http://evil.com",
 				},
 			});

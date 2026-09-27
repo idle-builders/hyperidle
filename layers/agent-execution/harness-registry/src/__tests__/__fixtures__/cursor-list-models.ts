@@ -14,7 +14,7 @@
  *    model. A parser that keeps the suffix produces a label that changes under
  *    the reader's feet.
  */
-export const CURSOR_LIST_MODELS_CAPTURE = String.raw`Available models
+export const CURSOR_LIST_MODELS_CAPTURE = `Available models
 
 auto - Auto (default)
 gpt-5.3-codex-low - Codex 5.3 Low

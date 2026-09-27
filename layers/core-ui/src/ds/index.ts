@@ -159,6 +159,8 @@ export {
 	taskOutcomeVerdictToStatus,
 	taskStateToStatus,
 } from "./status-mapping.js";
+export type { TabBarProps } from "./TabBar.js";
+export { TabBar } from "./TabBar.js";
 export type { TagProps } from "./Tag.js";
 export { Tag } from "./Tag.js";
 export type { TaskCardProps } from "./TaskCard.js";

@@ -196,10 +196,11 @@ export function Row({
 
 	// A standalone nav-style row sits among sibling nav rows that compact to
 	// 36px on desktop (Sidebar's SectionHeader/NotificationButton) — the
-	// 44px AQ-015 touch floor stays for mobile/tablet, `lg:` (1024px+, the
-	// same breakpoint Button.tsx's own size classes use) restores the dense
-	// height. A list row has no such sibling convention and stays 44px.
-	const heightClasses = rounded ? "min-h-[44px] lg:min-h-[36px]" : "min-h-[44px]";
+	// 44px AQ-015 touch floor stays for mobile/tablet, `min-[1025px]:`
+	// (Button.tsx's lore explains the off-by-one at exactly 1024px)
+	// restores the dense height. A list row has no such sibling convention
+	// and stays 44px.
+	const heightClasses = rounded ? "min-h-[44px] min-[1025px]:min-h-[36px]" : "min-h-[44px]";
 
 	const baseClasses = [
 		"flex items-center gap-[12px]",

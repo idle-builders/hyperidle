@@ -12,7 +12,6 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { BlockId, BlockPayload } from "../../block/types.js";
 import { Block } from "../Block.js";
 
-// biome-ignore lint/style/useNamingConvention: React's flag name is fixed.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const STUB_ID = "0123456789abcdef0123456789abcdef" as BlockId;

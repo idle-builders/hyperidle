@@ -165,7 +165,7 @@ export async function readThreadMembers(db: HyperIdleDb, id: string): Promise<st
 	return row ? (JSON.parse(row.participants) as string[]) : [];
 }
 
-export async function readChanges(db: HyperIdleDb, threadId: string) {
+export function readChanges(db: HyperIdleDb, threadId: string) {
 	return db.select().from(changes).where(eq(changes.objectId, threadId));
 }
 
@@ -222,7 +222,7 @@ export function threadDeps(overrides: Partial<ThreadActionsDeps> = {}): ThreadAc
 		agents: {
 			requireRunnableAgent: async (db, agentId) => {
 				const [row] = await db.select().from(users).where(eq(users.id, agentId));
-				if (!row || row.kind !== "ai" || !["active", "idle"].includes(row.status)) {
+				if (row?.kind !== "ai" || !["active", "idle"].includes(row.status)) {
 					throw new Error(`Agent ${agentId} is not a runnable AI agent`);
 				}
 				return row;

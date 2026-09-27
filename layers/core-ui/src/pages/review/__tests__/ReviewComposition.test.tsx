@@ -127,7 +127,7 @@ describe("ReviewComposition", () => {
 		const { onSubmitVerdict } = renderComposition();
 
 		await user.click(screen.getByRole("button", { name: /more verdict options/i }));
-		await user.click(screen.getByRole("button", { name: /Reject/i }));
+		await user.click(screen.getByRole("menuitem", { name: /Reject/i }));
 
 		expect(onSubmitVerdict).toHaveBeenCalledWith("reject");
 	});

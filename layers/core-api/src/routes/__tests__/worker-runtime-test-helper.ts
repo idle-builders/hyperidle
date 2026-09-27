@@ -3,7 +3,7 @@ import { type AdapterPool, RemoteHarnessAdapter, type WsLike } from "@hyperidle/
 import { type RuntimeDeps, type RuntimeHandle, startRuntime } from "@hyperidle/run-orchestration";
 
 /** Exercise worker ingress only through the owned public runtime handle. */
-export async function startWorkerTestRuntime(pool: AdapterPool): Promise<RuntimeHandle> {
+export function startWorkerTestRuntime(pool: AdapterPool): Promise<RuntimeHandle> {
 	const eventBus = new EventBus();
 	const deps = {
 		db: {} as never,

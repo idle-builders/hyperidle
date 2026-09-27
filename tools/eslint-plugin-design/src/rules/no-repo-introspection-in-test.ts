@@ -105,7 +105,7 @@ function referencesRepoCheckoutAnchor(
 					: callee?.type === "MemberExpression"
 						? (callee.property as { name?: string } | undefined)?.name
 						: undefined;
-			if (!name || !PATH_BUILDER_FNS.has(name)) return false;
+			if (!(name && PATH_BUILDER_FNS.has(name))) return false;
 			const args = n.arguments as unknown[];
 			return args.some((a) => referencesRepoCheckoutAnchor(a, resolveIdentifier, seen));
 		}

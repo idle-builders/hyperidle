@@ -249,7 +249,6 @@ describe("production MCP bridge stateful session-capability", () => {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
-				// biome-ignore lint/style/useNamingConvention: HTTP header name is canonical RFC case
 				Accept: "application/json, text/event-stream",
 			},
 			body: JSON.stringify({
@@ -276,7 +275,6 @@ describe("production MCP bridge stateful session-capability", () => {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
-				// biome-ignore lint/style/useNamingConvention: HTTP header name is canonical RFC case
 				Accept: "application/json, text/event-stream",
 				// Intentionally NO mcp-session-id header.
 			},

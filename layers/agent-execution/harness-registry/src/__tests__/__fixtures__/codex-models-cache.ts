@@ -6,7 +6,7 @@
  * parser agrees with our idea of the format, which is the mistake that made a
  * hardcoded codex model list look reasonable in the first place.
  */
-export const CODEX_MODELS_CACHE_CAPTURE = String.raw`{
+export const CODEX_MODELS_CACHE_CAPTURE = `{
 	"fetched_at": "2026-08-25T22:17:59.275325Z",
 	"etag": "<redacted>",
 	"client_version": "0.149.0",
