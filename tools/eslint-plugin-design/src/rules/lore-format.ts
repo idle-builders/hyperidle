@@ -1,11 +1,9 @@
 /**
- * design/no-multiline-lore-in-test
+ * design/lore-format
  *
- * Founder ruling: `@lore` is allowed in test files, but each note is one
- * short line, present-tense, no history, and names no planning id — a track
- * letter, a work-item id, or a task id (`T-abc123`) names a document that
- * moves or disappears; the constraint the lore records does not. (Production
- * files are a separate rule/task — this one is scoped to test files only.)
+ * Every `@lore` note is one short line, present-tense, no history, and names
+ * no planning id — a track letter, a work-item id, or a task id (`T-abc123`)
+ * names a document that moves or disappears; the constraint does not.
  *
  * ESLint hands every `//` line its own Comment node — a real multi-line
  * `//`-style lore note is several ADJACENT nodes, not one. `groupComments`
@@ -155,21 +153,20 @@ function checkLoreParagraph(paragraph: Paragraph, unitStartLine: number, report:
 	}
 }
 
-export const noMultilineLoreInTest: Rule.RuleModule = createRule({
+export const loreFormat: Rule.RuleModule = createRule({
 	meta: {
 		type: "problem",
 		docs: {
-			description:
-				"An @lore comment in a test file must be one short line, present-tense, with no planning id.",
+			description: "An @lore comment must be one short line, present-tense, with no planning id.",
 		},
 		schema: [],
 		messages: {
-			multiline: "@lore in a test file must be one line — this one spans {{lines}}.",
-			tooLong: "@lore in a test file must be short (≤{{max}} chars) — this one is {{length}}.",
+			multiline: "@lore must be one line — this one spans {{lines}}.",
+			tooLong: "@lore must be short (≤{{max}} chars) — this one is {{length}}.",
 			planningId:
-				"@lore in a test file must name no planning id (a track letter, work-item id, or task id) — the constraint outlives the document that named it.",
+				"@lore must name no planning id (a track letter, work-item id, or task id) — the constraint outlives the document that named it.",
 			history:
-				"@lore in a test file states the present constraint, not its history — drop the change narrative ({{word}}).",
+				"@lore states the present constraint, not its history — drop the change narrative ({{word}}).",
 		},
 	},
 	create(context) {

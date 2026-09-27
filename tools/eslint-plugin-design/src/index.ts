@@ -9,6 +9,7 @@
 
 import type { ESLint, Rule } from "eslint";
 import { borderWidthProfileOnly } from "./rules/border-width-profile-only.js";
+import { loreFormat } from "./rules/lore-format.js";
 import { motionProfileOnly } from "./rules/motion-profile-only.js";
 import { noAiAesthetic } from "./rules/no-ai-aesthetic.js";
 import { noDialogBoilerplate } from "./rules/no-dialog-boilerplate.js";
@@ -23,7 +24,6 @@ import { noHardcodedTracking } from "./rules/no-hardcoded-tracking.js";
 import { noLocalStatusBuilder } from "./rules/no-local-status-builder.js";
 import { noMockDataImport } from "./rules/no-mock-data-import.js";
 import { noMockDataSymbol } from "./rules/no-mock-data-symbol.js";
-import { noMultilineLoreInTest } from "./rules/no-multiline-lore-in-test.js";
 import { noOffGridSpacing } from "./rules/no-off-grid-spacing.js";
 import { noOffScaleDuration } from "./rules/no-off-scale-duration.js";
 import { noOffScaleFontSize } from "./rules/no-off-scale-font-size.js";
@@ -70,7 +70,7 @@ export const rules: Record<string, Rule.RuleModule> = {
 	"no-unknown-cast": noUnknownCast,
 	"no-dom-marker-assert": noDomMarkerAssert,
 	"no-existence-only-test": noExistenceOnlyTest,
-	"no-multiline-lore-in-test": noMultilineLoreInTest,
+	"lore-format": loreFormat,
 	"no-planning-id-in-test": noPlanningIdInTest,
 	"no-repo-introspection-in-test": noRepoIntrospectionInTest,
 	"require-ds-attribute": requireDsAttribute,
