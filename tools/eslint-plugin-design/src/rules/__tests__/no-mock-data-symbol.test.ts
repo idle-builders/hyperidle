@@ -1,16 +1,8 @@
 /**
- * Tests for design/no-mock-data-symbol rule.
- *
- * Red phase (M1 write-tests): all tests fail until the rule is implemented.
- * File: tools/eslint-plugin-design/src/rules/no-mock-data-symbol.ts
- *
- * Coverage:
- * - Positive: every forbidden prefix emits a violation (parametric test)
- * - DEFAULT_* disambiguation: flagged in data-provider paths
- * - DEFAULT_* disambiguation: NOT flagged for numeric tuning constants (critique Important #1)
- * - DEFAULT_* disambiguation: NOT flagged for theme/UI defaults
- * - Permitted surface: same symbol in test/fixture/story/e2e/seed paths → NOT flagged
- * - Message: actionable content (file, symbol, prefix, policy URL, where-legal)
+ * `design/no-mock-data-symbol` flags every forbidden-prefix symbol (MOCK_, FAKE_, STUB_, etc.) in
+ * production source, and disambiguates `DEFAULT_*` — flagged only in data-provider paths, never for
+ * a numeric tuning constant or a theme/UI default. Never flagged in a test/fixture/story/e2e/seed
+ * path.
  */
 
 import { RuleTester } from "eslint";
@@ -55,19 +47,16 @@ for (const prefix of FORBIDDEN_PREFIXES) {
 ruleTester.run("no-mock-data-symbol", noMockDataSymbol, {
 	valid: [
 		// DEFAULT_* in non-data paths: NOT flagged
-		// Critique Important #1: numeric tuning constant in /services/ path
 		// DEFAULT_LOCAL_MS in packages/server/src/services/git-export-runner.ts
 		{
 			filename: "/repo/packages/server/src/services/git-export-runner.ts",
 			code: "const DEFAULT_LOCAL_MS = 5_000;",
 		},
-		// Critique Important #1: numeric tuning constant in /services/ path
 		// DEFAULT_PUSH_MS in packages/server/src/services/git-export-runner.ts
 		{
 			filename: "/repo/packages/server/src/services/git-export-runner.ts",
 			code: "const DEFAULT_PUSH_MS = 30_000;",
 		},
-		// Critique Important #1: numeric limit constant in /routes/ path
 		// DEFAULT_LIMIT in packages/server/src/routes/artifacts.ts
 		{
 			filename: "/repo/packages/server/src/routes/artifacts.ts",

@@ -1,10 +1,6 @@
 /**
- * Unit tests for the import-specifier normalization used by the
- * import-vs-manifest gate (tools/repo-gates/src/dep-manifest-lint.ts).
- *
- * @lore AU37: moved here from framework/api-contract, where it was parked because the
- * module under test lived in scripts/lib/ (not a workspace package) and vitest projects
- * only cover workspace packages. tools/repo-gates is now that package.
+ * The import-specifier normalization used by the import-vs-manifest gate
+ * (tools/repo-gates/src/dep-manifest-lint.ts).
  */
 
 import { describe, expect, it } from "vitest";

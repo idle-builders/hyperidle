@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { EmptyState } from "../ds";
 
 describe("EmptyState", () => {
-	it("renders title and description as meaningful message", () => {
+	it("renders title and description as a meaningful message", () => {
 		render(
 			<EmptyState
 				title="No documents yet"
@@ -32,91 +32,46 @@ describe("EmptyState", () => {
 		expect(screen.getByTestId("conv-empty")).toBeInTheDocument();
 	});
 
-	it("uses surface-page background (not elevated)", () => {
-		const { container } = render(<EmptyState title="No items" description="Nothing here." />);
-		const outer = container.firstElementChild;
-		expect(outer?.className).toContain("bg-[var(--surface-page)]");
-	});
-
-	it("has --r-default radius for card shape", () => {
-		const { container } = render(<EmptyState title="No items" description="Nothing here." />);
-		const outer = container.firstElementChild;
-		expect(outer?.className).toContain("rounded-[var(--r-default)]");
-	});
-
-	it("has no shadow (EmptyState is lighter than ErrorState)", () => {
-		const { container } = render(<EmptyState title="No items" description="Nothing here." />);
-		const outer = container.firstElementChild;
-		expect(outer?.className).not.toContain("shadow");
-	});
-
-	it("has 36px padding matching mockup", () => {
-		const { container } = render(<EmptyState title="No items" description="Nothing here." />);
-		const outer = container.firstElementChild;
-		expect(outer?.className).toContain("p-[36px]");
-	});
-
-	it("has max-width of 420px matching mockup", () => {
-		const { container } = render(<EmptyState title="No items" description="Nothing here." />);
-		const outer = container.firstElementChild;
-		expect(outer?.className).toContain("max-w-[420px]");
-	});
-
-	it("renders title with the title profile", () => {
-		render(<EmptyState title="Big title" description="desc" />);
-		const title = screen.getByText("Big title");
-		expect(title.className).toContain("type-title");
-	});
-
-	it("renders description with the copy profile and secondary color", () => {
-		render(<EmptyState title="T" description="My description" />);
-		const desc = screen.getByText("My description");
-		expect(desc.className).toContain("type-copy");
-		expect(desc.className).toContain("text-[var(--text-secondary)]");
-	});
-
-	it("renders icon in a 48x48 tinted container when icon prop is provided", () => {
-		const { container } = render(
-			<EmptyState title="T" description="D" icon={<svg data-testid="test-icon" />} />,
-		);
-		const iconContainer = container.querySelector(".w-\\[48px\\]");
-		expect(iconContainer).not.toBeNull();
+	it("renders a provided icon", () => {
+		render(<EmptyState title="T" description="D" icon={<svg data-testid="test-icon" />} />);
 		expect(screen.getByTestId("test-icon")).toBeInTheDocument();
 	});
 
-	it("does not render icon container when icon prop is omitted", () => {
-		const { container } = render(<EmptyState title="T" description="D" />);
-		const iconContainer = container.querySelector(".w-\\[48px\\]");
-		expect(iconContainer).toBeNull();
-	});
-
-	it("uses default green-tinted iconBg when icon is provided without iconBg (AI6: token form)", () => {
-		const { container } = render(<EmptyState title="T" description="D" icon={<svg />} />);
-		const iconContainer = container.querySelector(".w-\\[48px\\]") as HTMLElement | null;
-		// AI6: default iconBg changed from rgba(22,118,79,0.08) to var(--accent-primary-dim) token.
-		expect(iconContainer?.style.background).toBe("var(--accent-primary-dim)");
-	});
-
-	it("uses custom iconBg when provided", () => {
-		const { container } = render(
-			<EmptyState title="T" description="D" icon={<svg />} iconBg="rgba(0,0,255,0.1)" />,
-		);
-		const iconContainer = container.querySelector(".w-\\[48px\\]") as HTMLElement | null;
-		// Browser normalizes rgba values with spaces after commas
-		expect(iconContainer?.style.background).toBe("rgba(0, 0, 255, 0.1)");
-	});
-
-	it("renders action slot when provided", () => {
+	it("renders an action slot when provided", () => {
 		render(
 			<EmptyState title="T" description="D" action={<button type="button">Click me</button>} />,
 		);
 		expect(screen.getByRole("button", { name: "Click me" })).toBeInTheDocument();
 	});
 
-	it("does not render action wrapper when action is omitted", () => {
-		const { container } = render(<EmptyState title="T" description="D" />);
-		// Should have: icon-container (absent), title p, description p — only 2 children
-		const card = container.firstElementChild;
-		expect(card?.children.length).toBe(2);
+	describe("compact — renders inline, same content and interaction contract", () => {
+		it("renders title and description", () => {
+			render(<EmptyState compact title="No discussions" description="Start one." />);
+			expect(screen.getByText("No discussions")).toBeInTheDocument();
+			expect(screen.getByText("Start one.")).toBeInTheDocument();
+		});
+
+		it("still exposes role=status and the message", () => {
+			render(<EmptyState compact title="No activity yet" description="Nothing happened." />);
+			const region = screen.getByRole("status");
+			expect(region).toHaveTextContent("No activity yet");
+			expect(region).toHaveTextContent("Nothing happened.");
+		});
+
+		it("renders an action slot", () => {
+			render(
+				<EmptyState
+					compact
+					title="T"
+					description="D"
+					action={
+						<button type="button" onClick={() => undefined}>
+							Add one
+						</button>
+					}
+				/>,
+			);
+			expect(screen.getByRole("button", { name: "Add one" })).toBeInTheDocument();
+		});
 	});
 });

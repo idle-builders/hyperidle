@@ -63,7 +63,8 @@ describe("return-enforcement-registry", () => {
 
 	it("unregister on unknown sessionId does not throw", () => {
 		const registry = createEnforcementRegistry();
-		expect(() => registry.unregister("nonexistent")).not.toThrow();
+		registry.unregister("nonexistent");
+		expect(registry.get("nonexistent")).toBeUndefined();
 	});
 
 	// ── incrementForce ────────────────────────────────────────────────────
@@ -91,7 +92,8 @@ describe("return-enforcement-registry", () => {
 
 	it("incrementForce on unknown sessionId does not throw", () => {
 		const registry = createEnforcementRegistry();
-		expect(() => registry.incrementForce("nonexistent")).not.toThrow();
+		registry.incrementForce("nonexistent");
+		expect(registry.get("nonexistent")).toBeUndefined();
 	});
 
 	// ── Gate reference is live ───────────────────────────────────────────

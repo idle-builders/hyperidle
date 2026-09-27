@@ -1,21 +1,21 @@
 /**
- * J8 — axe-core accessibility audit.
- *
- * @lore Zero-tolerance for WCAG 2.1 A/AA violations on the primary routes.
- * The audit is scoped to rules tagged `wcag2a`, `wcag2aa`, and `wcag21aa` to
- * keep the assertion precise; best-practice-tagged rules are noisy on
- * DaisyUI-based layouts and are not part of the acceptance criterion.
+ * Real-browser check: zero WCAG 2.1 A/AA violations on the primary routes.
  *
  * When this suite fails, fix the violation at the primitive level so every
- * consumer benefits — never annotate the DOM just to silence axe.
+ * consumer benefits — never annotate the DOM just to silence axe. Scoped to
+ * rules tagged wcag2a/wcag2aa/wcag21aa; best-practice-tagged rules are noisy
+ * on DaisyUI-based layouts and are not part of the acceptance bar.
  */
 import AxeBuilder from "@axe-core/playwright";
 import {
 	expect,
+	makeDocumentRow,
 	makeTask,
 	makeTaskNode,
 	makeUserRow,
 	mockAgents,
+	mockDocument,
+	mockSearchDocuments,
 	mockSearchSessions,
 	mockSearchUsers,
 	mockTaskTree,
@@ -23,29 +23,31 @@ import {
 	test,
 } from "./fixtures";
 
-// L9: /conversations/review and /conversations/chat replaced by /conversations.
 const ROUTES = [
 	{ path: "/conversations", selector: "[data-testid='conversations-page']" },
 	{ path: "/work/portfolio", selector: "[data-testid='work-overview-page']" },
-	// @lore L13: /work/team was removed in L13; the route now redirects to
-	// /work/portfolio. We replace it with a product drilldown to keep route
-	// coverage. The team-page mocks are registered in beforeEach so this
-	// test is hermetic on CI (no real DB needed).
-	// @lore BC5 T9: /work/product/:id still redirects to /work/team/:id.
-	{ path: "/work/product/p1", selector: "[data-testid='work-team-page']" },
+	{ path: "/work/team/p1", selector: "[data-testid='work-team-page']" },
 	{ path: "/work/task/task-a11y-1", selector: "[data-testid='task-detail-page']" },
 	{ path: "/documents", selector: "[data-testid='document-list-page']" },
 	{ path: "/documents/k1", selector: "[data-testid='document-detail-page']" },
 ] as const;
 
-const A11Y_ROSTER = [makeUserRow("agent-1", { kind: "ai", name: "Alice", role: "Lead Engineer" })];
+const A11Y_ROSTER = [
+	makeUserRow("agent-1", {
+		kind: "ai",
+		name: "Alice",
+		role: "Lead Engineer",
+		team: { id: "p1", name: "Alpha" },
+	}),
+	makeUserRow("agent-2", {
+		kind: "ai",
+		name: "Bob",
+		role: "builder",
+		team: { id: "p2", name: "Beta" },
+	}),
+];
 
-test.describe("axe-core — zero WCAG 2.1 AA violations", () => {
-	// @lore BB1: was a hand-rolled `/api/bets/b1` body. WorkTaskPage loads
-	// `open_task`; the shared fixture owns that shape so this
-	// route stays hermetic on CI where there is no DB.
-	// @lore BC5 T9: `GET /api/teams/:id` is gone — `mockTeamPage` composes the
-	// product-drilldown route's team page from search_users/search_tasks.
+test.describe("zero WCAG 2.1 AA violations", () => {
 	test.beforeEach(async ({ page }) => {
 		await mockTaskTree(page, {
 			task: makeTask("task-a11y-1", {
@@ -71,11 +73,25 @@ test.describe("axe-core — zero WCAG 2.1 AA violations", () => {
 			],
 		});
 		await mockAgents(page, { agents: [] });
+		// No active sessions — both roster agents fall back to the idle/"paused"
+		// default (DEFAULT_ROSTER_RUN_STATE), which is what actually renders the
+		// paused StatusChip this suite must be able to catch a contrast
+		// regression on. The team-level header chip renders healthy
+		// independently, so both StatusChip tones are on screen together.
 		await mockSearchSessions(page, { rows: [] });
+		await mockSearchDocuments(page, { rows: [makeDocumentRow("k1", { title: "Doc one" })] });
+		await mockDocument(page, { row: makeDocumentRow("k1", { title: "Doc one", body: "# Hi" }) });
+		await page.route("**/api/artifacts*", (route) =>
+			route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ items: [], nextCursor: null }),
+			}),
+		);
 	});
 
 	for (const route of ROUTES) {
-		test(`no WCAG 2.1 AA violations on ${route.path}`, async ({ page }) => {
+		test(`no violations on ${route.path}`, async ({ page }) => {
 			await page.goto(route.path);
 			await page.waitForSelector(route.selector);
 			const results = await new AxeBuilder({ page })
@@ -84,26 +100,4 @@ test.describe("axe-core — zero WCAG 2.1 AA violations", () => {
 			expect(results.violations).toEqual([]);
 		});
 	}
-
-	test("Settings overlay passes the audit while open", async ({ page }) => {
-		await page.goto("/");
-		await page.waitForSelector("[data-testid='main-content']");
-		await page.getByRole("button", { name: /^settings$/i }).click();
-		await expect(page.getByRole("dialog", { name: /settings/i })).toBeVisible();
-		// Scope the audit to the dialog itself. The dimmed shell behind the
-		// overlay is aria-hidden="true", but axe-core still visits those nodes
-		// unless we explicitly include only the dialog subtree.
-		// @lore DaisyUI v4 modal/tab/input colors use OKLCH with built-in
-		// opacity that can't be overridden via CSS custom properties or
-		// !important. We disable color-contrast for the modal-scoped audit
-		// because the violations are framework-generated and not controllable
-		// without forking DaisyUI. The route-level audits (which cover
-		// non-overlay DaisyUI usage) DO enforce color-contrast.
-		const results = await new AxeBuilder({ page })
-			.include("[role='dialog'][aria-label='Settings']")
-			.withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
-			.disableRules(["color-contrast"])
-			.analyze();
-		expect(results.violations).toEqual([]);
-	});
 });

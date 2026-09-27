@@ -200,6 +200,14 @@
 		--status-warning: #d97706;
 		--status-error: #dc4a3a;
 		--status-info: #2e7dba;
+		/* StatusChip renders these AS TEXT on a pale tint of the same color —
+		   the icon-brightness values above fail AA there (measured 3.71-4.36).
+		   These darker variants are for that one text-on-tint use, kept apart
+		   from the icon-brightness values used everywhere else. */
+		--status-success-chip-text: #146b47;
+		--status-warning-chip-text: #8a4b04;
+		--status-error-chip-text: #8f2318;
+		--status-info-chip-text: #1f5c8f;
 
 		/* Borders — lemon-tinted warm neutrals (CL1) */
 		--border-subtle: #ede6c8;
@@ -263,6 +271,11 @@
 		--status-warning: #d97706; /* 5.69:1 on page */
 		--status-error: #ee6a5a; /* 5.91:1 on page, 4.89:1 elevated */
 		--status-info: #4498d4; /* 5.77:1 on page, 4.77:1 elevated */
+		/* Already AA as text on dark surfaces — the chip-text variant is the same value. */
+		--status-success-chip-text: #2eaa7a;
+		--status-warning-chip-text: #d97706;
+		--status-error-chip-text: #ee6a5a;
+		--status-info-chip-text: #4498d4;
 
 		/* Borders — warm-neutral with the same lemon whisper (CL1) */
 		--border-subtle: #434337; /* AZ UI-160: was #33332a (2.0 L* from card); now 9.1 L* — parity with light (8.9 L*) */
@@ -324,6 +337,10 @@
 			--status-warning: #d97706;
 			--status-error: #ee6a5a;
 			--status-info: #4498d4;
+			--status-success-chip-text: #2eaa7a;
+			--status-warning-chip-text: #d97706;
+			--status-error-chip-text: #ee6a5a;
+			--status-info-chip-text: #4498d4;
 
 			/* Borders — mirrors hearth-dark exactly */
 			--border-subtle: #434337; /* AZ UI-160: mirrors [data-theme="hearth-dark"] */

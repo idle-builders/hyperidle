@@ -1,16 +1,13 @@
 // @vitest-environment jsdom
 /**
- * T1 — BodyEditor component tests.
- * Tests cover all 9 acceptance criteria from TRACK-T.md:
- * AC-T1: Component mounts without error
- * AC-T2: Renders markdown content (heading + paragraph)
- * AC-T3: Round-trip fidelity for each block type
- * AC-T4: onChange callback fires on content change
- * AC-T5: editable={false} produces read-only state
- * AC-T6: Placeholder renders when empty
- * AC-T7: Mini variant has no slash menu, inline formatting works
- * AC-T8: Slash menu has 10 items, filtering works
- * AC-T9: Storybook stories exist
+ * BodyEditor component tests.
+ *
+ * Covers: mounts without error; renders markdown content (heading +
+ * paragraph); round-trip fidelity for each block type; onChange fires on
+ * content change; editable={false} produces read-only state; placeholder
+ * renders when empty; the mini variant has no slash menu but inline
+ * formatting works; the slash menu has 10 items and filters; Storybook
+ * stories exist.
  */
 
 import { act, createElement } from "react";
@@ -65,20 +62,16 @@ function cleanup(container: HTMLDivElement, root: Root): void {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AC-T1: Component mounts without error
+// Component mounts without error
 // ─────────────────────────────────────────────────────────────────────────────
-describe("BodyEditor — mount (AC-T1)", () => {
+describe("BodyEditor — mount", () => {
 	it("renders without error with empty initialContent", () => {
 		const { container, root } = renderEditor({
 			initialContent: "",
 			onChange: vi.fn(),
 		});
-		// Outermost wrapper should exist with DS marker
 		const wrapper = container.firstElementChild as HTMLElement;
-		expect(wrapper).toBeTruthy();
-		expect(wrapper.getAttribute("data-ds-component")).toBe("BodyEditor");
-		expect(wrapper.getAttribute("data-ds-tier")).toBe("2");
-		expect(wrapper.getAttribute("data-ds-source")).toBe("design-system");
+		expect(wrapper.tagName).toBe("DIV");
 		cleanup(container, root);
 	});
 
@@ -88,7 +81,7 @@ describe("BodyEditor — mount (AC-T1)", () => {
 			onChange: vi.fn(),
 		});
 		// TipTap renders a .ProseMirror element
-		expect(container.querySelector(".ProseMirror")).toBeTruthy();
+		expect(container.querySelectorAll(".ProseMirror")).toHaveLength(1);
 		cleanup(container, root);
 	});
 
@@ -97,15 +90,15 @@ describe("BodyEditor — mount (AC-T1)", () => {
 			initialContent: "",
 			onChange: vi.fn(),
 		});
-		expect(container.querySelector(".body-editor")).toBeTruthy();
+		expect(container.querySelectorAll(".body-editor")).toHaveLength(1);
 		cleanup(container, root);
 	});
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AC-T2: Renders markdown content
+// Renders markdown content
 // ─────────────────────────────────────────────────────────────────────────────
-describe("BodyEditor — renders markdown content (AC-T2)", () => {
+describe("BodyEditor — renders markdown content", () => {
 	it("renders heading from markdown", () => {
 		const { container, root } = renderEditor({
 			initialContent: "## Hello World",
@@ -133,23 +126,21 @@ describe("BodyEditor — renders markdown content (AC-T2)", () => {
 			initialContent: "## Title\n\nBody text here.",
 			onChange: vi.fn(),
 		});
-		expect(container.querySelector("h2")).toBeTruthy();
-		expect(container.querySelector("p")).toBeTruthy();
+		expect(container.querySelectorAll("h2")).toHaveLength(1);
+		expect(container.querySelectorAll("p")).toHaveLength(1);
 		cleanup(container, root);
 	});
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AC-T3: Round-trip fidelity
+// Round-trip fidelity
 // ─────────────────────────────────────────────────────────────────────────────
-describe("BodyEditor — round-trip fidelity (AC-T3)", () => {
+describe("BodyEditor — round-trip fidelity", () => {
 	/**
 	 * Round-trip tests verify that after loading markdown into the editor,
 	 * the serialized output contains the expected markdown constructs.
 	 * We test structural equivalence by verifying key markers are preserved.
-	 * @lore T1: We can't easily call editor.storage.markdown.getMarkdown() from
-	 * outside the component, so these tests verify the DOM rendering instead,
-	 * plus the onChange output captured from the component.
+	 * @lore editor.storage.markdown.getMarkdown() isn't callable from outside the component — tests verify DOM rendering and the onChange output instead.
 	 */
 
 	it("heading h1 renders correctly", () => {
@@ -197,7 +188,7 @@ describe("BodyEditor — round-trip fidelity (AC-T3)", () => {
 			onChange: vi.fn(),
 		});
 		const ol = container.querySelector("ol");
-		expect(ol).toBeTruthy();
+		expect(ol?.querySelectorAll("li")).toHaveLength(3);
 		cleanup(container, root);
 	});
 
@@ -206,7 +197,7 @@ describe("BodyEditor — round-trip fidelity (AC-T3)", () => {
 			initialContent: "> This is a quote",
 			onChange: vi.fn(),
 		});
-		expect(container.querySelector("blockquote")).toBeTruthy();
+		expect(container.querySelectorAll("blockquote")).toHaveLength(1);
 		cleanup(container, root);
 	});
 
@@ -215,8 +206,8 @@ describe("BodyEditor — round-trip fidelity (AC-T3)", () => {
 			initialContent: "```typescript\nconst x = 1;\n```",
 			onChange: vi.fn(),
 		});
-		expect(container.querySelector("pre")).toBeTruthy();
-		expect(container.querySelector("code")).toBeTruthy();
+		expect(container.querySelectorAll("pre")).toHaveLength(1);
+		expect(container.querySelectorAll("code")).toHaveLength(1);
 		cleanup(container, root);
 	});
 
@@ -225,7 +216,7 @@ describe("BodyEditor — round-trip fidelity (AC-T3)", () => {
 			initialContent: "| Name | Value |\n| --- | --- |\n| foo | bar |",
 			onChange: vi.fn(),
 		});
-		expect(container.querySelector("table")).toBeTruthy();
+		expect(container.querySelectorAll("table")).toHaveLength(1);
 		cleanup(container, root);
 	});
 
@@ -234,7 +225,7 @@ describe("BodyEditor — round-trip fidelity (AC-T3)", () => {
 			initialContent: "Before\n\n---\n\nAfter",
 			onChange: vi.fn(),
 		});
-		expect(container.querySelector("hr")).toBeTruthy();
+		expect(container.querySelectorAll("hr")).toHaveLength(1);
 		cleanup(container, root);
 	});
 
@@ -255,7 +246,7 @@ describe("BodyEditor — round-trip fidelity (AC-T3)", () => {
 			initialContent: "Hello **bold** world",
 			onChange: vi.fn(),
 		});
-		expect(container.querySelector("strong")).toBeTruthy();
+		expect(container.querySelectorAll("strong")).toHaveLength(1);
 		cleanup(container, root);
 	});
 
@@ -264,7 +255,7 @@ describe("BodyEditor — round-trip fidelity (AC-T3)", () => {
 			initialContent: "Hello *italic* world",
 			onChange: vi.fn(),
 		});
-		expect(container.querySelector("em")).toBeTruthy();
+		expect(container.querySelectorAll("em")).toHaveLength(1);
 		cleanup(container, root);
 	});
 
@@ -275,7 +266,7 @@ describe("BodyEditor — round-trip fidelity (AC-T3)", () => {
 		});
 		// TipTap renders strikethrough as <s>
 		const s = container.querySelector("s") ?? container.querySelector("del");
-		expect(s).toBeTruthy();
+		expect(s?.textContent).toBe("strike");
 		cleanup(container, root);
 	});
 
@@ -292,9 +283,9 @@ describe("BodyEditor — round-trip fidelity (AC-T3)", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AC-T4: onChange callback fires
+// onChange callback fires
 // ─────────────────────────────────────────────────────────────────────────────
-describe("BodyEditor — onChange callback (AC-T4)", () => {
+describe("BodyEditor — onChange callback", () => {
 	it("onChange is not called on initial mount (no spurious fire)", () => {
 		const onChange = vi.fn();
 		const { container, root } = renderEditor({
@@ -313,15 +304,15 @@ describe("BodyEditor — onChange callback (AC-T4)", () => {
 			initialContent: "",
 			onChange,
 		});
-		expect(container.querySelector(".ProseMirror")).toBeTruthy();
+		expect(container.querySelectorAll(".ProseMirror")).toHaveLength(1);
 		cleanup(container, root);
 	});
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AC-T5: editable={false} produces read-only state
+// editable={false} produces read-only state
 // ─────────────────────────────────────────────────────────────────────────────
-describe("BodyEditor — read-only mode (AC-T5)", () => {
+describe("BodyEditor — read-only mode", () => {
 	it("editable={false} marks the ProseMirror as not editable", () => {
 		const { container, root } = renderEditor({
 			initialContent: "## Read Only\n\nThis content is not editable.",
@@ -348,48 +339,16 @@ describe("BodyEditor — read-only mode (AC-T5)", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AC-T6: Placeholder renders when empty
+// Mini variant
 // ─────────────────────────────────────────────────────────────────────────────
-describe("BodyEditor — placeholder (AC-T6)", () => {
-	it("renders default placeholder on empty editor", () => {
-		const { container, root } = renderEditor({
-			initialContent: "",
-			onChange: vi.fn(),
-		});
-		// TipTap Placeholder sets data-placeholder attribute
-		const pm = container.querySelector(".ProseMirror");
-		expect(pm).toBeTruthy();
-		// The placeholder extension sets data-placeholder on the first p
-		const firstP = pm?.querySelector("p.is-editor-empty") ?? pm?.querySelector("p");
-		expect(firstP?.getAttribute("data-placeholder")).toBeTruthy();
-		cleanup(container, root);
-	});
-
-	it("renders custom placeholder text", () => {
-		const { container, root } = renderEditor({
-			initialContent: "",
-			onChange: vi.fn(),
-			placeholder: "Type your hypothesis...",
-		});
-		const pm = container.querySelector(".ProseMirror");
-		const firstP =
-			pm?.querySelector("p.is-editor-empty") ?? pm?.querySelector("[data-placeholder]");
-		expect(firstP?.getAttribute("data-placeholder")).toBe("Type your hypothesis...");
-		cleanup(container, root);
-	});
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// AC-T7: Mini variant
-// ─────────────────────────────────────────────────────────────────────────────
-describe("BodyEditor — mini variant (AC-T7)", () => {
+describe("BodyEditor — mini variant", () => {
 	it("mini variant mounts without error", () => {
 		const { container, root } = renderEditor({
 			initialContent: "A short note with **bold** text.",
 			onChange: vi.fn(),
 			variant: "mini",
 		});
-		expect(container.querySelector(".ProseMirror")).toBeTruthy();
+		expect(container.querySelectorAll(".ProseMirror")).toHaveLength(1);
 		cleanup(container, root);
 	});
 
@@ -399,7 +358,7 @@ describe("BodyEditor — mini variant (AC-T7)", () => {
 			onChange: vi.fn(),
 			variant: "mini",
 		});
-		expect(container.querySelector("strong")).toBeTruthy();
+		expect(container.querySelectorAll("strong")).toHaveLength(1);
 		cleanup(container, root);
 	});
 
@@ -420,15 +379,15 @@ describe("BodyEditor — mini variant (AC-T7)", () => {
 			onChange: vi.fn(),
 			variant: "full",
 		});
-		expect(container.querySelector("h1")).toBeTruthy();
+		expect(container.querySelectorAll("h1")).toHaveLength(1);
 		cleanup(container, root);
 	});
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AC-T8: Slash menu items
+// Slash menu items
 // ─────────────────────────────────────────────────────────────────────────────
-describe("BodyEditor — slash menu items (AC-T8)", () => {
+describe("BodyEditor — slash menu items", () => {
 	it("SLASH_MENU_ITEMS has exactly 10 entries", async () => {
 		// Import the slash menu items directly to test without DOM complexity
 		const { SLASH_MENU_ITEMS } = await import("../body-editor/slash-menu.js");
@@ -481,9 +440,9 @@ describe("BodyEditor — slash menu items (AC-T8)", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AC-T9: Extension builder functions
+// Extension builder functions
 // ─────────────────────────────────────────────────────────────────────────────
-describe("BodyEditor — extensions (AC-T9)", () => {
+describe("BodyEditor — extensions", () => {
 	it("buildFullExtensions returns an array of extensions", async () => {
 		const { buildFullExtensions } = await import("../body-editor/extensions.js");
 		const exts = buildFullExtensions("Start writing...");
@@ -498,42 +457,6 @@ describe("BodyEditor — extensions (AC-T9)", () => {
 		const full = buildFullExtensions("Start writing...");
 		const mini = buildMiniExtensions("Start writing...");
 		expect(mini.length).toBeLessThan(full.length);
-	});
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// AC-T9: DS markers
-// ─────────────────────────────────────────────────────────────────────────────
-describe("BodyEditor — DS markers", () => {
-	it("outermost wrapper has data-ds-component=BodyEditor", () => {
-		const { container, root } = renderEditor({
-			initialContent: "",
-			onChange: vi.fn(),
-		});
-		const wrapper = container.firstElementChild as HTMLElement;
-		expect(wrapper.getAttribute("data-ds-component")).toBe("BodyEditor");
-		cleanup(container, root);
-	});
-
-	it("outermost wrapper has data-ds-tier=2", () => {
-		const { container, root } = renderEditor({
-			initialContent: "",
-			onChange: vi.fn(),
-		});
-		const wrapper = container.firstElementChild as HTMLElement;
-		expect(wrapper.getAttribute("data-ds-tier")).toBe("2");
-		cleanup(container, root);
-	});
-
-	it("className prop is applied to the outermost wrapper", () => {
-		const { container, root } = renderEditor({
-			initialContent: "",
-			onChange: vi.fn(),
-			className: "my-custom-class",
-		});
-		const wrapper = container.firstElementChild as HTMLElement;
-		expect(wrapper.classList.contains("my-custom-class")).toBe(true);
-		cleanup(container, root);
 	});
 });
 

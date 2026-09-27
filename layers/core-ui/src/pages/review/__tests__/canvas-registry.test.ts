@@ -10,7 +10,6 @@ import { ReviewOutcomeSummary } from "../ReviewOutcomeSummary";
 import { ReviewRenderedInContext } from "../ReviewRenderedInContext";
 import { ReviewUnknownCanvas } from "../ReviewUnknownCanvas";
 import { ReviewVisualDiff } from "../ReviewVisualDiff";
-import type { ReviewCanvasComponent } from "../review-artifact";
 
 describe("getReviewCanvas", () => {
 	it("maps outcome_summary to ReviewOutcomeSummary", () => {
@@ -57,10 +56,5 @@ describe("getReviewCanvas", () => {
 		const first = getReviewCanvas("code_diff");
 		const second = getReviewCanvas("code_diff");
 		expect(second).toBe(first);
-	});
-
-	it("type-checks as a ReviewCanvasComponent", () => {
-		const Canvas: ReviewCanvasComponent = getReviewCanvas("outcome_summary");
-		expect(Canvas).toBeDefined();
 	});
 });

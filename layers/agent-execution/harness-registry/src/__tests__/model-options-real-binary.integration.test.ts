@@ -34,25 +34,27 @@
 
 import { execFile, execFileSync, spawn } from "node:child_process";
 import * as fs from "node:fs";
-import * as os from "node:os";
 import * as path from "node:path";
 import { promisify } from "node:util";
 import type { HarnessEvent, SessionConfig } from "@hyperidle/harness-protocol";
 import { describe, expect, test } from "vitest";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
-import { cliAdapterFixture } from "./cli-adapter-fixtures.js";
+import {
+	createHarnessSandbox,
+	provisionClaudeSandbox,
+	provisionCodexHome,
+} from "./harness-sandbox.js";
+import { productionCliConfig } from "./production-cli-config.js";
 import { requireHarness } from "./require-harness.js";
 import { trackHarnessSessions } from "./session-handle-tracker.js";
 
-// @lore process-group kill only helps once stopSession runs. `track` stops any
-// handle a test leaves unstopped — timeout or thrown assertion included — in
-// afterEach. See session-handle-tracker.ts.
+// @lore `track` stops any handle a test leaves unstopped in afterEach — see session-handle-tracker.ts.
 const { track } = trackHarnessSessions();
 
 const execFileAsync = promisify(execFile);
 
-const CLAUDE_CLI_CONFIG = cliAdapterFixture("claude");
-const CODEX_CLI_CONFIG = cliAdapterFixture("codex");
+const CLAUDE_CLI_CONFIG = productionCliConfig("claude");
+const CODEX_CLI_CONFIG = productionCliConfig("codex");
 
 /** The real `spawn`, with the child's stdout duplicated into `sink`. */
 function teeingSpawn(sink: { text: string }): typeof spawn {
@@ -80,22 +82,8 @@ function jsonLines(text: string): Record<string, unknown>[] {
 	return out;
 }
 
-async function rmSandboxWithRetry(sandboxPath: string): Promise<void> {
-	for (let attempt = 0; attempt < 5; attempt += 1) {
-		try {
-			fs.rmSync(sandboxPath, { recursive: true, force: true });
-			return;
-		} catch (err) {
-			const code = (err as NodeJS.ErrnoException).code;
-			if (code !== "ENOTEMPTY" && code !== "EBUSY") throw err;
-			await new Promise((resolve) => setTimeout(resolve, 50 * (attempt + 1)));
-		}
-	}
-	fs.rmSync(sandboxPath, { recursive: true, force: true });
-}
-
 async function runSession(
-	config: ReturnType<typeof cliAdapterFixture>,
+	config: ReturnType<typeof productionCliConfig>,
 	sessionConfig: Omit<SessionConfig, "modelTier" | "tools">,
 ): Promise<{ stdout: string; events: HarnessEvent[] }> {
 	const sink = { text: "" };
@@ -122,25 +110,14 @@ function sessionId(prefix: string): string {
 
 // ── claude ────────────────────────────────────────────────────────────────────
 
-function provisionClaudeSandbox(sandboxPath: string): void {
-	fs.writeFileSync(
-		path.join(sandboxPath, ".mcp.json"),
-		JSON.stringify({
-			mcpServers: { hyperidle: { type: "http", url: "http://localhost:9/api/mcp/x" } },
-		}),
-		"utf-8",
-	);
-	fs.mkdirSync(path.join(sandboxPath, ".claude"), { recursive: true });
-	fs.writeFileSync(path.join(sandboxPath, ".claude", "settings.json"), JSON.stringify({}), "utf-8");
-}
-
 describe("[harness:claude] the configured effort is the effort claude runs with", () => {
 	requireHarness("claude");
 
 	test("asking for low and then max each comes back stated by claude itself", async () => {
 		const seen: string[] = [];
 		for (const effort of ["low", "max"]) {
-			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "model-opt-claude-"));
+			const sandbox = createHarnessSandbox("model-opt-claude");
+			const sandboxPath = sandbox.path;
 			try {
 				provisionClaudeSandbox(sandboxPath);
 				// `/model` is claude's own account of the session it is in — the model
@@ -163,7 +140,7 @@ describe("[harness:claude] the configured effort is the effort claude runs with"
 				expect(text).toContain(`effort: ${effort}`);
 				seen.push(text);
 			} finally {
-				await rmSandboxWithRetry(sandboxPath);
+				await sandbox.cleanup();
 			}
 		}
 		// Two different asks produced two different answers — the option steers.
@@ -186,21 +163,6 @@ function provisionCodexRepo(sandboxPath: string): void {
 			GIT_COMMITTER_EMAIL: "t@t",
 		},
 	});
-}
-
-function provisionCodexHome(sandboxPath: string): boolean {
-	const codexHomeDir = path.join(sandboxPath, ".codex-home");
-	fs.mkdirSync(codexHomeDir, { recursive: true });
-	const homeCodexDir = path.join(os.homedir(), ".codex");
-	let authFound = false;
-	for (const fname of ["auth.json", "config.toml"]) {
-		const src = path.join(homeCodexDir, fname);
-		if (fs.existsSync(src)) {
-			fs.copyFileSync(src, path.join(codexHomeDir, fname));
-			if (fname === "auth.json") authFound = true;
-		}
-	}
-	return authFound;
 }
 
 /** codex records the effort alongside the model in its own `turn_context`. */
@@ -247,7 +209,8 @@ describe("[harness:codex] the configured reasoning effort is the effort codex ru
 		// impossible to miss.
 		const seen: string[] = [];
 		for (const effort of ["low", "xhigh"]) {
-			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "model-opt-codex-"));
+			const sandbox = createHarnessSandbox("model-opt-codex");
+			const sandboxPath = sandbox.path;
 			try {
 				provisionCodexRepo(sandboxPath);
 				expect(provisionCodexHome(sandboxPath)).toBe(true);
@@ -268,7 +231,7 @@ describe("[harness:codex] the configured reasoning effort is the effort codex ru
 				);
 				seen.push(ctx?.effort as string);
 			} finally {
-				await rmSandboxWithRetry(sandboxPath);
+				await sandbox.cleanup();
 			}
 		}
 		expect(seen[0]).not.toBe(seen[1]);

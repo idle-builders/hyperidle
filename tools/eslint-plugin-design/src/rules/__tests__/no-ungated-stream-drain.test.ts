@@ -1,5 +1,5 @@
 /**
- * Tests for the no-ungated-stream-drain rule (T9).
+ * Tests for the no-ungated-stream-drain rule.
  *
  * Three classification paths are verified:
  *   (a) return-observe-only marker + observe present → valid (no error)

@@ -13,7 +13,7 @@
  */
 
 import { describe, expect, test } from "vitest";
-import { cliAdapterFixture } from "./cli-adapter-fixtures.js";
+import { productionCliConfig } from "./production-cli-config.js";
 import { HARNESS_TEST_MODELS } from "./require-harness.js";
 
 // ── Matrix shape ──────────────────────────────────────────────────────────────
@@ -40,11 +40,7 @@ describe("HARNESS_TEST_MODELS — locked matrix shape", () => {
 		expect(HARNESS_TEST_MODELS["cursor-agent"].model).toBe("auto");
 	});
 
-	// @lore Each entry used to carry a provider, a base URL and an env var naming
-	// the key that billed for the run, and `harnessTestResolvedModel` assembled
-	// them into the `resolvedModel` a test handed to `runSession`. All three
-	// described the model gateway. No harness calls a provider API any more, so a
-	// locked MODEL is the whole of what a lane needs to fix.
+	// @lore a locked MODEL is the whole of what a lane needs to fix — no harness calls a provider API.
 	test("an entry carries the model and nothing else", () => {
 		for (const [harness, spec] of Object.entries(HARNESS_TEST_MODELS)) {
 			expect(Object.keys(spec), `${harness} should lock only a model`).toEqual(["model"]);
@@ -58,7 +54,7 @@ describe("CLI_TOOL_CONFIGS.codex — model is argument-enforced", () => {
 		// Regression: codex must pass --model {{model}} so the locked model from
 		// HARNESS_TEST_MODELS is enforced at the subprocess level (not left to
 		// the inherited CODEX_HOME config default).
-		const args = cliAdapterFixture("codex").args;
+		const args = productionCliConfig("codex").args;
 		const modelFlagIdx = args.indexOf("--model");
 		expect(modelFlagIdx).toBeGreaterThanOrEqual(0);
 		expect(args[modelFlagIdx + 1]).toBe("{{model}}");
@@ -69,20 +65,20 @@ describe("CLI_TOOL_CONFIGS.codex — model is argument-enforced", () => {
 		// CLAUDE_CLI_CONFIG is imported from adapter-pool as a named export;
 		// CLI_TOOL_CONFIGS does not include claude (it has its own const).
 		// We verify the codex args inline here; claude is covered by existing tests.
-		const args = cliAdapterFixture("claude").args;
+		const args = productionCliConfig("claude").args;
 		// This test is about codex; claude consistency verified by adapter-pool.test.ts.
 		expect(args).toContain("{{model}}");
 	});
 
 	test("opencode args contain --model immediately followed by {{model}}", () => {
-		const args = cliAdapterFixture("opencode").args;
+		const args = productionCliConfig("opencode").args;
 		const modelFlagIdx = args.indexOf("--model");
 		expect(modelFlagIdx).toBeGreaterThanOrEqual(0);
 		expect(args[modelFlagIdx + 1]).toBe("{{model}}");
 	});
 
 	test("cursor-agent args contain --model immediately followed by {{model}}", () => {
-		const args = cliAdapterFixture("cursor-agent").args;
+		const args = productionCliConfig("cursor-agent").args;
 		const modelFlagIdx = args.indexOf("--model");
 		expect(modelFlagIdx).toBeGreaterThanOrEqual(0);
 		expect(args[modelFlagIdx + 1]).toBe("{{model}}");

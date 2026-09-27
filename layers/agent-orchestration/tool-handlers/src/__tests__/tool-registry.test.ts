@@ -1,16 +1,7 @@
 /**
  * Dispatch-mechanics unit tests for `buildToolRegistry`.
  *
- * @lore AU31 §2.5: relocated with `tool-registry.ts` from
- * `@hyperidle/harness-registry` (agent-execution) into `@hyperidle/tool-
- * handlers` (agent-orchestration). The "extraTools wiring" case decomposed
- * out of harness-registry's `return-status-tool.test.ts` lands here — same
- * mechanism (an opaque `RegisteredTool` merges into the built registry via
- * `extraTools`), proven with a locally-built fixture tool instead of the
- * real `returnStatusTool` (which stays agent-execution's own, and rides the
- * execution adapters bundle at runtime — `layers/agent-execution/src/
- * boot.ts` — rather than being imported here, which would recreate the
- * cross-layer import this relocation exists to remove).
+ * @lore uses a locally-built fixture tool, not the real `returnStatusTool` — importing it here would be an illegal cross-layer import.
  */
 
 import { EventBus } from "@hyperidle/event-bus";

@@ -1,41 +1,18 @@
 /**
- * AU21 §9 Increment 8, Wave F2 (credentials/filesystems provisioning split) — RED phase.
- *
- * Decision F2 (architecture.md §6 / §9 Increment 8 / edge-disposition.md
- * `connections.{applyProvisioningPlan, buildProvisioningPlan}` row): the
- * provisioning OPERATION relocates from `layers/core-api/connections/src/
- * connection-provisioning.ts` into `agent-orchestration` — it becomes
- * orchestration's own job at session launch, reading the connection RECORD
- * once through `CoreApiPort` (never a raw `db` handle — the `serviceConnections`
- * table stays core-api-owned).
- *
- * This is a behavior-preserving MOVE, not a rewrite: every plan-shape
- * assertion below is carried over verbatim from
- * `layers/core-api/connections/src/__tests__/connection-provisioning.test.ts`
- * (SVC_MCP_TOKEN naming, N3 dialect suffix, SSRF-drop, secret-never-logged).
- * What changes is the SHAPE OF THE INPUT: the old `{db, resolver, users}` (a
- * raw Drizzle handle + a `ConnectionsUserReader` DI port) becomes
- * `{connections, resolver}` — `connections` is the `CoreApiPort.connections`
- * seam-shaped reader (`listHeldConnectionsForProvisioning()`, returning the
- * already-resolved owner `userId` + the held-connection RECORD set, per
- * `core-api-port-increment8-connections-filesystems.integration.test.ts`).
- * `resolver` (`ServiceConnectionResolver`-shaped, `resolve(userId,
- * connectionId)`) stays an Application-composed direct dependency — it is
- * NEVER routed through `CoreApiPort` (AN1 hard-rule 1: "the resolver is the
- * ONLY plaintext path... wired to sandbox injection, not to routes" —
- * `connection-provisioning.ts`'s own top `@lore`).
- *
- * The relocated module (`../connection-provisioning.js`, this package) does
- * not exist yet — every test below fails at IMPORT-RESOLUTION time, before a
- * single assertion runs. RED for the right reason: the operation has not
- * moved yet, not a typo in the test.
+ * `buildProvisioningPlan`/`applyProvisioningPlan` turn a session's held
+ * connections into MCP server entries: SVC_MCP_TOKEN naming, the "-mcp"
+ * dialect suffix for a service with both a token and an MCP connection,
+ * SSRF-drop of an unsafe target, and a secret that is never logged.
+ * `connections` is the `CoreApiPort.connections` seam-shaped reader; `resolver`
+ * (`ServiceConnectionResolver`-shaped) is an Application-composed direct
+ * dependency, never routed through `CoreApiPort` — the only plaintext path,
+ * wired to sandbox injection, not to routes.
  */
 
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-// biome-ignore lint/correctness/noUnresolvedImports: RED phase — this module does not exist yet, per this wave's charter (relocated, not written, in this pass).
 import { applyProvisioningPlan, buildProvisioningPlan } from "../connection-provisioning.js";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -58,8 +35,8 @@ type MockConnection = {
 };
 
 /**
- * Builds the live in-layer `connections` reader (AU26 E3 — no bake, no seam)
- * + `resolver` (Application-composed, never through a seam) —
+ * Builds the live in-layer `connections` reader (no bake, no seam) +
+ * `resolver` (Application-composed, never through a seam) —
  * `buildProvisioningPlan`'s ONLY two deps. No `db`.
  */
 function buildPlanSeamDeps(
@@ -224,7 +201,7 @@ describe("buildProvisioningPlan (relocated to agent-orchestration, seam-shaped d
 		expect(plan.mcpServers[0]?.name).toBe("figma");
 	});
 
-	test("stripe token + stripe mcp → deterministic key suffix (stripe vs stripe-mcp) — N3", async () => {
+	test("stripe token + stripe mcp → deterministic key suffix (stripe vs stripe-mcp)", async () => {
 		const { connections, resolver } = buildPlanSeamDeps([
 			{
 				id: "sc-stripe-token",
@@ -325,8 +302,11 @@ describe("applyProvisioningPlan (relocated to agent-orchestration, unchanged beh
 		const mcpJson = JSON.parse(fs.readFileSync(path.join(sandboxPath, ".mcp.json"), "utf-8")) as {
 			mcpServers: Record<string, unknown>;
 		};
-		expect(mcpJson.mcpServers.hyperidle).toBeDefined();
-		expect(mcpJson.mcpServers.github).toBeDefined();
+		expect(mcpJson.mcpServers.hyperidle).toEqual({
+			type: "http",
+			url: "http://localhost:3001/api/mcp/tok",
+		});
+		expect(mcpJson.mcpServers.github).toMatchObject({ url: "https://mcp.github.com" });
 	});
 
 	test("no carrier applies → empty mcpTokenEnv, no file written", async () => {

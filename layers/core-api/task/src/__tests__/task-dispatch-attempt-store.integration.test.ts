@@ -14,20 +14,9 @@
  * first attempt this is. So a relocation that silently changed count-based to
  * max-based, or dropped the per-task predicate, would have shipped green.
  *
- * @lore The store computes the ordinal itself rather than accepting one. The
- * caller may not supply it: the count and the insert have to observe the same
- * snapshot, and the snapshot is the caller's transaction (A4/A5). A caller that
- * counted first and inserted later would race any concurrent dispatch for the
- * same task straight into the unique index.
+ * @lore the store computes the ordinal itself — the caller's transaction, not a separate count-then-insert, must observe one snapshot to avoid a race.
  *
- * @lore `task_dispatch_attempts` carries a SECOND unique index that
- * `framework/db/src/schema.ts` does not declare, because Drizzle cannot express
- * it: `("task_id","occasion",COALESCE("predecessor_session_id",''),"agent_id")`,
- * created in `0047_AU9_durable_custody.sql`. It is a real idempotency guard —
- * one dispatch per (task, occasion, predecessor, agent) — and it only exists in
- * the migration, so reading the schema module will not warn you about it. Every
- * fixture below therefore hands each successive attempt for one task a distinct
- * predecessor session, which is what a real sequence of handoffs looks like.
+ * @lore a second unique index outside schema.ts guards one dispatch per (task, occasion, predecessor, agent) — each fixture attempt needs a distinct predecessor.
  */
 
 import {
@@ -136,16 +125,7 @@ function attemptInput(
 }
 
 /**
- * @lore Ordered by `ordinal`, never by `createdAt`. `createdAt` is an ISO string
- * at millisecond resolution and these fixtures write several rows for one task
- * inside the same millisecond, so `createdAt` is not a total order here — rows
- * written moments apart routinely carry the identical stamp and the sort falls
- * through to whatever tiebreak follows. An assertion that encoded *creation*
- * order against this query was right roughly 7 runs in 10. `ordinal` is unique
- * per task (the `(task_id, ordinal)` index), so ordering by it is total and
- * deterministic — but it also means this helper cannot witness which row was
- * written first. A case that needs that must address its rows by id (see
- * `ordinalOf`), not by position.
+ * @lore rows are ordered by ordinal, never createdAt — same-millisecond writes make createdAt non-total; address a row by id, not position, for creation order.
  */
 async function ordinalsFor(db: HyperIdleDb, taskId: string): Promise<number[]> {
 	const rows = await db
@@ -179,7 +159,7 @@ async function ordinalOf(db: HyperIdleDb, attemptId: string): Promise<number | u
 }
 
 describe("taskDispatchAttemptStore.insertAttempt — the ordinal invariant lives at the owner", () => {
-	test("A1: three successive calls for one task produce ordinals 1, 2, 3", async ({ db }) => {
+	test("three successive calls for one task produce ordinals 1, 2, 3", async ({ db }) => {
 		await seedWorld(db);
 		await seedTask(db, "task-a1");
 
@@ -209,9 +189,7 @@ describe("taskDispatchAttemptStore.insertAttempt — the ordinal invariant lives
 		expect(row?.predecessorSessionId).toBe(SESSION_IDS[0]);
 	});
 
-	test("A2: the count is scoped to one task — task B's first attempt is 1, not 4", async ({
-		db,
-	}) => {
+	test("the count is scoped to one task — task B's first attempt is 1, not 4", async ({ db }) => {
 		await seedWorld(db);
 		await seedTask(db, "task-a2-a");
 		await seedTask(db, "task-a2-b");
@@ -226,9 +204,7 @@ describe("taskDispatchAttemptStore.insertAttempt — the ordinal invariant lives
 		expect(await ordinalsFor(db, "task-a2-b")).toEqual([1]);
 	});
 
-	test("A3: the rule is count-based, not max-based — one row at ordinal 9 yields 2", async ({
-		db,
-	}) => {
+	test("the rule is count-based, not max-based — one row at ordinal 9 yields 2", async ({ db }) => {
 		await seedWorld(db);
 		await seedTask(db, "task-a3");
 		const now = new Date().toISOString();
@@ -255,7 +231,7 @@ describe("taskDispatchAttemptStore.insertAttempt — the ordinal invariant lives
 		expect(await ordinalsFor(db, "task-a3")).toHaveLength(2);
 	});
 
-	test("A4: two calls inside one transaction see each other — 1 then 2, readable through tx", async ({
+	test("two calls inside one transaction see each other — 1 then 2, readable through tx", async ({
 		db,
 	}) => {
 		await seedWorld(db);
@@ -277,7 +253,7 @@ describe("taskDispatchAttemptStore.insertAttempt — the ordinal invariant lives
 		expect(await ordinalsFor(db, "task-a4")).toEqual([1, 2]);
 	});
 
-	test("A5: a throwing transaction leaves zero attempt rows", async ({ db }) => {
+	test("a throwing transaction leaves zero attempt rows", async ({ db }) => {
 		await seedWorld(db);
 		await seedTask(db, "task-a5");
 

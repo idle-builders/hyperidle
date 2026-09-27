@@ -1,23 +1,17 @@
 // @vitest-environment jsdom
 
 /**
- * AI2 — Dialog component: chrome, portal, focus, dismissal guard (RED phase).
+ * Dialog component: chrome, portal, focus, dismissal guard.
  *
- * AC-1: One dismissal grammar; dirty input guarded; confirmation closes.
- * AC-2: Focus in on open, trapped, returns to trigger on close.
- * AC-4: Mobile bottom-anchored sheet class.
+ * Covers: one dismissal grammar with dirty input guarded and confirmation
+ * closing; focus enters on open, is trapped, and returns to the trigger on
+ * close; a mobile bottom-anchored sheet class.
  *
- * These tests FAIL in the red phase because Dialog.tsx does not exist.
+ * @lore #overlay-root is lazily created by ensureOverlayRoot() inside useDialogBehavior — tests don't mount DialogPortalRoot; Dialog is self-sufficient in jsdom.
  *
- * @lore AI2: Portal uses #overlay-root which is lazily created by ensureOverlayRoot()
- * inside useDialogBehavior. Tests do NOT mount DialogPortalRoot — the hook's
- * lazy-create logic makes Dialog self-sufficient in bare jsdom renders.
+ * @lore: `inert` is NOT asserted here — jsdom doesn't implement it. Use a real-browser E2E test to assert the #root inert attribute.
  *
- * @lore AI2: `inert` is NOT asserted here — jsdom doesn't implement it.
- * Use Playwright (AC-2 E2E) to assert the #root inert attribute under a real browser.
- *
- * @lore AI2: focus-trap-react requires displayCheck:"none" under jsdom.
- * This must be threaded into useDialogBehavior's FocusTrap initialization.
+ * @lore: focus-trap-react requires displayCheck:"none" under jsdom. This must be threaded into useDialogBehavior's FocusTrap initialization.
  */
 
 import { act, createElement } from "react";
@@ -41,10 +35,10 @@ function makeProps(overrides: Partial<DialogProps> = {}): DialogProps {
 }
 
 // ---------------------------------------------------------------------------
-// AC-1 — Chrome renders (title, role, close button)
+// Chrome renders (title, role, close button)
 // ---------------------------------------------------------------------------
 
-describe("AI2 — Dialog chrome (AC-1)", () => {
+describe("Dialog chrome", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 
@@ -77,7 +71,7 @@ describe("AI2 — Dialog chrome (AC-1)", () => {
 			root.render(createElement(Dialog, makeProps({ open: true })));
 		});
 		const dialog = document.querySelector("[role='dialog']");
-		expect(dialog).not.toBeNull();
+		expect(dialog).toBeInTheDocument();
 	});
 
 	it("renders the title text in the dialog header", async () => {
@@ -111,7 +105,7 @@ describe("AI2 — Dialog chrome (AC-1)", () => {
 		const closeBtn = document.querySelector(
 			"[aria-label='Close dialog']",
 		) as HTMLButtonElement | null;
-		expect(closeBtn).not.toBeNull();
+		expect(closeBtn).toBeInTheDocument();
 	});
 
 	it("clicking the close button calls onClose", async () => {
@@ -145,15 +139,15 @@ describe("AI2 — Dialog chrome (AC-1)", () => {
 			);
 		});
 		const btn = document.querySelector("[data-testid='action-btn']");
-		expect(btn).not.toBeNull();
+		expect(btn?.textContent).toBe("Save");
 	});
 });
 
 // ---------------------------------------------------------------------------
-// AC-1 — Dismissal guard: dirty dialog shows DiscardConfirmStrip
+// Dismissal guard: dirty dialog shows DiscardConfirmStrip
 // ---------------------------------------------------------------------------
 
-describe("AI2 — Dialog dismissal guard (AC-1)", () => {
+describe("Dialog dismissal guard", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 
@@ -198,11 +192,11 @@ describe("AI2 — Dialog dismissal guard (AC-1)", () => {
 			overlay?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
 		});
 
-		// The guard strip must be visible — find it by its prompt copy or data-testid
+		// The guard strip must be visible, with its prompt copy.
 		const strip =
 			document.querySelector("[data-testid='discard-confirm-strip']") ??
 			document.querySelector("[data-dialog-guard]");
-		expect(strip).not.toBeNull();
+		expect(strip?.textContent).toContain("Discard your changes?");
 	});
 
 	it("clean dialog (isDirty=false): pressing Escape calls onClose immediately (confirmation rule §1.1)", async () => {
@@ -270,10 +264,10 @@ describe("AI2 — Dialog dismissal guard (AC-1)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-1 — Portal: renders into #overlay-root (body sibling of #root)
+// Portal: renders into #overlay-root (body sibling of #root)
 // ---------------------------------------------------------------------------
 
-describe("AI2 — Dialog portal mount (AC-1, D3)", () => {
+describe("Dialog portal mount", () => {
 	let appRoot: HTMLDivElement;
 	let container: HTMLDivElement;
 	let root: Root;
@@ -313,7 +307,7 @@ describe("AI2 — Dialog portal mount (AC-1, D3)", () => {
 		expect(dialogInContainer).toBeNull();
 	});
 
-	it("#overlay-root is created as a sibling of #root under body (D3)", async () => {
+	it("#overlay-root is created as a sibling of #root under body", async () => {
 		await act(async () => {
 			root.render(createElement(Dialog, makeProps({ open: true })));
 		});
@@ -326,10 +320,10 @@ describe("AI2 — Dialog portal mount (AC-1, D3)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-2 — Focus trap: focus enters dialog on open
+// Focus trap: focus enters dialog on open
 // ---------------------------------------------------------------------------
 
-describe("AI2 — Dialog focus behavior (AC-2)", () => {
+describe("Dialog focus behavior", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 
@@ -379,10 +373,8 @@ describe("AI2 — Dialog focus behavior (AC-2)", () => {
 		trigger.remove();
 	});
 
-	it("focus returns to the trigger element after dialog closes (AC-2 return-focus)", async () => {
-		// @lore AI2 AC-2 W-1: FocusTrap returnFocusOnDeactivate=true wires return-focus.
-		// We verify it actually fires by: focus trigger → open → focus is in dialog →
-		// close (open=false) → focus returns to trigger.
+	it("focus returns to the trigger element after dialog closes", async () => {
+		// @lore this verifies FocusTrap's returnFocusOnDeactivate actually fires: focus trigger → open → focus in dialog → close → focus returns to trigger.
 		const trigger = document.createElement("button");
 		trigger.textContent = "Trigger";
 		document.body.appendChild(trigger);
@@ -439,10 +431,10 @@ describe("AI2 — Dialog focus behavior (AC-2)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-4 — Mobile bottom-sheet class
+// Mobile bottom-sheet class
 // ---------------------------------------------------------------------------
 
-describe("AI2 — Dialog mobile adaptation (AC-4)", () => {
+describe("Dialog mobile adaptation", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 
@@ -470,15 +462,15 @@ describe("AI2 — Dialog mobile adaptation (AC-4)", () => {
 		const box =
 			document.querySelector("[data-dialog-box]") ??
 			document.querySelector("[data-testid='dialog-box']");
-		expect(box).not.toBeNull();
+		expect(box).toBeInTheDocument();
 	});
 });
 
 // ---------------------------------------------------------------------------
-// AC-1 — Guard strip: keyboard discard path (§1.2)
+// Guard strip: keyboard discard path
 // ---------------------------------------------------------------------------
 
-describe("AI2 — Dialog guard strip keyboard discard path (§1.2)", () => {
+describe("Dialog guard strip keyboard discard path (§1.2)", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 

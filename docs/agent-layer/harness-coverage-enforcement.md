@@ -107,16 +107,15 @@ Twelve files call `requireHarness`. What each covers:
 | `layers/core-api/src/__tests__/thread-turn-live-harness.integration.test.ts` | all four |
 | `layers/core-api/src/__tests__/real-harness-return-enforcement-realbinary.integration.test.ts` | all four |
 | `layers/core-api/src/__tests__/AL7-two-session-trust-first.integration.test.ts` | all four |
-| `layers/agent-execution/harness-registry/src/__tests__/AM2-real-harness-discovery.integration.test.ts` | all four |
+| `layers/agent-execution/harness-registry/src/__tests__/real-harness-discovery.integration.test.ts` | all four |
 | `layers/agent-execution/harness-registry/src/__tests__/cli-adapter-real-binary.integration.test.ts` | claude, codex, opencode, cursor-agent |
 | `layers/agent-execution/harness-registry/src/__tests__/AM2-real-harness-session-probe.integration.test.ts` | claude, codex, opencode |
-| `layers/agent-execution/harness-registry/src/__tests__/AN1-real-harness-inherited.integration.test.ts` | claude, codex, opencode (+ `requireBinary("gh")` probe — not a harness) |
-| `layers/agent-execution/harness-registry/src/__tests__/AN2-connection-provisioning.integration.test.ts` | claude, codex, opencode (+ `requireBinary("gh")` probe — not a harness) |
-| `layers/core-api/src/__tests__/AU9-assistant-handoff-realbinary.integration.test.ts` | all four |
+| `layers/agent-orchestration/connections/src/__tests__/real-harness-inherited.integration.test.ts` | claude, codex, opencode (+ `requireBinary("gh")` probe — not a harness) |
+| `layers/agent-execution/harness-registry/src/__tests__/connection-provisioning.integration.test.ts` | claude, codex, opencode (+ `requireBinary("gh")` probe — not a harness) |
 | `layers/agent-execution/harness-registry/src/__tests__/opencode-model-probe.integration.test.ts` | opencode |
-| `layers/agent-execution/harness-registry/src/__tests__/ar1-require-harness.test.ts` | none — it is the unit test *of* `requireHarness` |
+| `layers/agent-execution/harness-registry/src/__tests__/require-harness.test.ts` | none — it is the unit test *of* `requireHarness` |
 
-Four of them emit `[harness:X]` tags: the two `core-api` all-harness files, `AL7-two-session-trust-first`, and `AU9-assistant-handoff-realbinary`. The rest do not, so their per-harness breadth is only visible by reading the file.
+Three of them emit `[harness:X]` tags: the two `core-api` all-harness files and `AL7-two-session-trust-first`. The rest do not, so their per-harness breadth is only visible by reading the file.
 
 ### Adoption pattern
 

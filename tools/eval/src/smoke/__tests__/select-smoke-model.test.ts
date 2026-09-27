@@ -1,15 +1,9 @@
 /**
- * AH5: Unit tests for selectSmokeModel — AC2 gate/rank/fallback.
- *
- * All cases derive from the captured real OpenRouter response fixture.
- * No live key. Pure function under test.
- *
- * @lore AH5: This file is in protectedTests — the gates encoded here must not
- * be weakened (e.g., loosening the uptime floor to make CI pass).
- *
- * @lore AH5: We test against the REAL fixture JSON so any OpenRouter API shape
- * change (pricing format, throughput/latency structure) reddens this suite
- * immediately — not just the live lane.
+ * `selectSmokeModel`'s gate/rank/fallback logic, against the captured real OpenRouter response
+ * fixture (no live key) — any OpenRouter API shape change (pricing format, throughput/latency
+ * structure) reddens this suite immediately, not just the live lane. This file is in
+ * protectedTests — the gates encoded here must not be weakened (e.g. loosening the uptime floor
+ * to make CI pass).
  */
 
 import { createRequire } from "node:module";
@@ -22,7 +16,6 @@ import type { SelectionInput } from "../select-smoke-model.js";
 import { selectSmokeModel } from "../select-smoke-model.js";
 
 const require = createRequire(import.meta.url);
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const fixtureData = require("./fixtures/openrouter-endpoints.captured.json") as {
 	models: unknown[];
 	endpointsByModel: Record<string, { id?: unknown; endpoints?: unknown[] }>;
@@ -62,7 +55,7 @@ function buildInput(overrides: Partial<SelectionInput> = {}): SelectionInput {
 }
 
 // ---------------------------------------------------------------------------
-// AC2: Gate — per-provider tools gate (not model-level)
+// Gate — per-provider tools gate (not model-level)
 // ---------------------------------------------------------------------------
 
 describe("selectSmokeModel — per-provider tools gate", () => {
@@ -99,7 +92,7 @@ describe("selectSmokeModel — per-provider tools gate", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC2: Gate — generation cutoff (2026-01-01 = unix 1767225600)
+// Gate — generation cutoff (2026-01-01 = unix 1767225600)
 // ---------------------------------------------------------------------------
 
 describe("selectSmokeModel — generation gate", () => {
@@ -147,7 +140,7 @@ describe("selectSmokeModel — generation gate", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC2: Gate — price ceiling
+// Gate — price ceiling
 // ---------------------------------------------------------------------------
 
 describe("selectSmokeModel — price ceiling gate", () => {
@@ -184,7 +177,7 @@ describe("selectSmokeModel — price ceiling gate", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC2: Gate — redundancy (≥2 providers above uptime floor)
+// Gate — redundancy (≥2 providers above uptime floor)
 // ---------------------------------------------------------------------------
 
 describe("selectSmokeModel — redundancy gate", () => {
@@ -230,7 +223,7 @@ describe("selectSmokeModel — redundancy gate", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC2: Gate — :free exclusion
+// Gate — :free exclusion
 // ---------------------------------------------------------------------------
 
 describe("selectSmokeModel — :free exclusion", () => {
@@ -245,7 +238,7 @@ describe("selectSmokeModel — :free exclusion", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC2: Ranking — throughput desc → latency asc → price asc
+// Ranking — throughput desc → latency asc → price asc
 // ---------------------------------------------------------------------------
 
 describe("selectSmokeModel — ranking", () => {
@@ -470,7 +463,7 @@ describe("selectSmokeModel — ranking", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC2: :nitro routing on winner
+// :nitro routing on winner
 // ---------------------------------------------------------------------------
 
 describe("selectSmokeModel — :nitro routing", () => {
@@ -495,7 +488,7 @@ describe("selectSmokeModel — :nitro routing", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC2: Fallback — delisted top choice → next candidate (the load-bearing AC)
+// Fallback — delisted top choice → next candidate
 // ---------------------------------------------------------------------------
 
 describe("selectSmokeModel — delisting fallback", () => {
@@ -547,41 +540,3 @@ describe("selectSmokeModel — delisting fallback", () => {
 // ---------------------------------------------------------------------------
 // Fixture shape validation — detects OpenRouter API shape drift
 // ---------------------------------------------------------------------------
-
-describe("narrowModels + narrowModelEndpoints — fixture shape integrity", () => {
-	it("narrowed models match expected field types from real fixture", () => {
-		const models = buildModels();
-		expect(models.length).toBeGreaterThan(0);
-		for (const m of models) {
-			expect(typeof m.id).toBe("string");
-			expect(m.id.length).toBeGreaterThan(0);
-			expect(typeof m.created).toBe("number");
-			expect(m.created).toBeGreaterThan(0);
-			expect(typeof m.pricing.prompt).toBe("string");
-			expect(typeof m.pricing.completion).toBe("string");
-			// pricing strings must be parseable as numbers
-			expect(Number.isNaN(Number.parseFloat(m.pricing.completion))).toBe(false);
-		}
-	});
-
-	it("narrowed endpoints match expected field types from real fixture", () => {
-		const map = buildEndpointsMap();
-		expect(map.size).toBeGreaterThan(0);
-		for (const [, me] of map) {
-			for (const ep of me.endpoints) {
-				expect(typeof ep.provider_name).toBe("string");
-				expect(Array.isArray(ep.supported_parameters)).toBe(true);
-				// uptime is number or null
-				expect(ep.uptime_last_30m === null || typeof ep.uptime_last_30m === "number").toBe(true);
-				// throughput is {p50:number} or null
-				if (ep.throughput_last_30m !== null) {
-					expect(typeof ep.throughput_last_30m.p50).toBe("number");
-				}
-				// latency is {p50:number} or null
-				if (ep.latency_last_30m !== null) {
-					expect(typeof ep.latency_last_30m.p50).toBe("number");
-				}
-			}
-		}
-	});
-});

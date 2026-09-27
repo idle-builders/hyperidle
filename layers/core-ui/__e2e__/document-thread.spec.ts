@@ -1,13 +1,10 @@
 /**
- * L18 — Document thread Playwright e2e tests.
+ * Journey: opening a document shows its thread (replacing the old
+ * observation log); posting a message and reloading keeps it.
  *
- * AC coverage:
- *  - open a document → thread renders (replacing observation log) → post → reload → persists
- *
- * @lore BC3: repointed at the thread action door — never `GET/POST
- * /api/threads*`. `document` is still a valid `HostKind`; the
- * document page resolves its thread lazily via `search_threads` (the
- * `host` prop path), unlike a task page's known `threadId`.
+ * The thread action door is `search_threads`/`open_thread` — never
+ * `GET/POST /api/threads*`. A document resolves its thread lazily via
+ * `search_threads` (the `host` prop path), unlike a task's known threadId.
  */
 
 import {
@@ -26,7 +23,7 @@ const FOUNDER_ID = "u-founder";
 const THREAD_ID = "t-knowledge-001";
 const DOCUMENT_ID = "k3"; // known fixture id with content
 
-test.describe("L18 — Document thread surface", () => {
+test.describe("document thread surface", () => {
 	test("thread renders (replacing observation log); post; reload; persists", async ({ page }) => {
 		const composedText = "Insight from reviewing this document.";
 
@@ -43,9 +40,6 @@ test.describe("L18 — Document thread surface", () => {
 			rows: [makeThreadListRow(THREAD_ID, { ...thread, hasUnresolvedReview: false })],
 		});
 		await mockThread(page, { thread, messages: [] });
-		// @lore BC4: KnowledgeDetail's LEGACY_DETAILS/fixture fallback ("k3, known
-		// fixture id with content") is gone — DocumentDetail only ever reads
-		// `open_document`, so this id needs an explicit mock now.
 		await mockDocument(page, {
 			row: makeDocumentRow(DOCUMENT_ID, { scopeKind: "team", scopeId: "team-a" }),
 		});

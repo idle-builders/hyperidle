@@ -2,7 +2,7 @@
 
 /**
  * K2 acceptance gate: every Tier 1+2 component spreads `dsProps(name, tier)` on its outermost element.
- * @lore BB1: BetCard removed — tasks are now the one work primitive.
+ * @lore BetCard does not exist — tasks are the one work primitive.
  */
 
 import { act, createElement } from "react";
@@ -129,7 +129,7 @@ const TIER_2: ComponentCase[] = [
 
 const ALL_CASES: ComponentCase[] = [...TIER_1, ...TIER_2];
 
-describe("K2 — design-system DOM markers", () => {
+describe("design-system DOM markers", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 

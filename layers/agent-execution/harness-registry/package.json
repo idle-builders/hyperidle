@@ -6,6 +6,7 @@
 	"exports": {
 		".": "./src/index.ts",
 		"./mcp": "./src/mcp/index.ts",
+		"./test-fixtures": "./src/__testing__/test-fixtures.ts",
 		"./test-utils": "./src/__tests__/test-utils.ts"
 	},
 	"scripts": {

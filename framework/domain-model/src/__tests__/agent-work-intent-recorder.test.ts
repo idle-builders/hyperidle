@@ -1,15 +1,6 @@
-// AU21 §6 Decision G (recorder unification) — `AgentWorkIntentRecorderInput`
-// widens from the AC-9 2-kind scope to the full six-kind union matching
-// `agent_work_intents_kind_ck` (framework/db/src/schema.ts). This proves the
-// widened type + its canonical runtime kind list stay in lockstep with
-// `AgentWorkIntentKind` (events.ts) so `work`/`review`'s deleted local
-// mirrors can't be silently reintroduced.
-//
-// AU21 §9 Increment 10a (Decision I): `bet_decomposition` is REMOVED — the
-// built-in bet_decomposition mechanism no longer exists, so the union shrinks
-// from seven kinds to six.
-// `reengagement` is REMOVED with the capture machinery it belonged to,
-// so the union shrinks from six kinds to five.
+// `AgentWorkIntentRecorderInput`'s discriminant matches `agent_work_intents_kind_ck`
+// (framework/db/src/schema.ts) exactly, keeping it in lockstep with `AgentWorkIntentKind`
+// (events.ts) so callers can't silently reintroduce a local mirror of the kind union.
 
 import { describe, expect, expectTypeOf, it } from "vitest";
 import {
@@ -19,11 +10,9 @@ import {
 } from "../work-intent.js";
 
 describe("AGENT_WORK_INTENT_KINDS canonical runtime kind list", () => {
-	it("contains exactly the six canonical kinds", () => {
+	it("contains exactly the four canonical kinds", () => {
 		expect(AGENT_WORK_INTENT_KINDS).toEqual([
 			"thread_turn",
-			"session_start",
-			"knowledge_action",
 			"task_run",
 			"session_resume",
 			"subscription_run",
@@ -38,8 +27,8 @@ describe("AGENT_WORK_INTENT_KINDS canonical runtime kind list", () => {
 	});
 });
 
-describe("AgentWorkIntentRecorderInput widened six-kind union", () => {
-	it("accepts every one of the six kinds as its discriminant, paired with the correct sourceKind", () => {
+describe("AgentWorkIntentRecorderInput four-kind union", () => {
+	it("accepts every one of the four kinds as its discriminant, paired with the correct sourceKind", () => {
 		const inputs: AgentWorkIntentRecorderInput[] = [
 			{
 				kind: "thread_turn",
@@ -48,26 +37,14 @@ describe("AgentWorkIntentRecorderInput widened six-kind union", () => {
 				idempotencyKey: "k1",
 			},
 			{
-				kind: "session_start",
-				sourceKind: "explicit_session_start",
-				sourceId: "s2",
-				idempotencyKey: "k2",
-			},
-			{
-				kind: "knowledge_action",
-				sourceKind: "knowledge_action",
-				sourceId: "s3",
-				idempotencyKey: "k3",
-			},
-			{
 				kind: "task_run",
 				sourceKind: "task_dispatch_attempt",
 				sourceId: "s5",
 				idempotencyKey: "k5",
 			},
 			{
-				// BA2: the only kind that resumes a session rather than starting one,
-				// so it bakes a resume instead of a BakedWorkIntentRequest.
+				// The only kind that resumes a session rather than starting one, so it
+				// bakes a resume instead of a BakedWorkIntentRequest.
 				kind: "session_resume",
 				sourceKind: "review_verdict",
 				sourceId: "review-message-1",
@@ -96,9 +73,10 @@ describe("AgentWorkIntentRecorderInput widened six-kind union", () => {
 		expectTypeOf<AgentWorkIntentRecorderInput["kind"]>().toEqualTypeOf<AgentWorkIntentKind>();
 	});
 
+	// eslint-disable-next-line vitest/expect-expect -- compile-time proof via @ts-expect-error, no runtime assertion needed
 	it("rejects an invented kind via type narrowing", () => {
 		acceptRecorderInput({
-			// @ts-expect-error — "not_a_real_kind" is not one of the five canonical kinds
+			// @ts-expect-error — "not_a_real_kind" is not one of the four canonical kinds
 			kind: "not_a_real_kind",
 			sourceKind: "thread_message",
 			sourceId: "s1",
@@ -106,6 +84,7 @@ describe("AgentWorkIntentRecorderInput widened six-kind union", () => {
 		});
 	});
 
+	// eslint-disable-next-line vitest/expect-expect -- compile-time proof via @ts-expect-error, no runtime assertion needed
 	it("rejects a mismatched kind/sourceKind pairing via type narrowing", () => {
 		// @ts-expect-error — "subscription_run" pairs only with sourceKind "subscription"
 		acceptRecorderInput({
@@ -116,9 +95,10 @@ describe("AgentWorkIntentRecorderInput widened six-kind union", () => {
 		});
 	});
 
-	it("rejects the removed bet_decomposition kind entirely (Decision I)", () => {
+	// eslint-disable-next-line vitest/expect-expect -- compile-time proof via @ts-expect-error, no runtime assertion needed
+	it("rejects the removed bet_decomposition kind entirely", () => {
 		acceptRecorderInput({
-			// @ts-expect-error — "bet_decomposition" no longer exists in the five-kind union
+			// @ts-expect-error — "bet_decomposition" no longer exists in the four-kind union
 			kind: "bet_decomposition",
 			sourceKind: "thread_message",
 			sourceId: "s1",

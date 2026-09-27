@@ -1,16 +1,3 @@
-/**
- * N4 — main.ts tests
- *
- * AC coverage:
- *  - Single-instance lock: app.quit() called if lock not obtained
- *  - Single-instance lock: second-instance event focuses existing window
- *  - resolveDataDir() returns userData + '/hyperidle-pg'
- *  - readOrGenerateApiKey() creates secrets.json with 0o600 and returns key
- *  - readOrGenerateApiKey() returns existing key from secrets.json
- *  - getBeforeQuitHandler(): serverHandle.dispose() and logRotator.detach() called
- *  - getBeforeQuitHandler(): handles null server handle gracefully
- */
-
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -327,16 +314,7 @@ describe("getBeforeQuitHandler", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// @lore A `readAnthropicKeyFromStore` block stood here, proving the desktop app
-// decrypted the stored Anthropic key at boot and put it in the environment for
-// the built-in harness to pick up. The app stores no model credential now — a
-// harness authenticates with its own login — so there is nothing to read.
-
-// ---------------------------------------------------------------------------
-// P3 AC-4: waitForRemoteHealth
-// ---------------------------------------------------------------------------
-describe("waitForRemoteHealth (P3 AC-4)", () => {
+describe("waitForRemoteHealth", () => {
 	it("resolves when the remote server responds 200", async () => {
 		// Use a real HTTP server to verify
 		const mockFetch = vi.fn().mockResolvedValue({ ok: true, status: 200 });

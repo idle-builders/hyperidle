@@ -1,13 +1,9 @@
 /**
- * Q1 — AC3: a single-recipient `send_message` derives the direct thread's
- * `hostKind` from the recipient's own `kind` (ai → "agent", human → "user"),
- * and reuses the same thread on a second send to the same recipient.
+ * A single-recipient `send_message` derives the direct thread's `hostKind`
+ * from the recipient's own `kind` (ai -> "agent", human -> "user"), and
+ * reuses the same thread on a second send to the same recipient.
  *
- * @lore BC3: `findOrCreateDirectThread` (the store helper this test used to
- * call directly) has no production caller — `send_message`'s single-recipient
- * branch (`thread-actions.ts`) inlines the same find-or-create logic itself
- * rather than calling it. Re-pointed onto the `send_message` action so the
- * behavior is proven through the real door instead of a dead internal.
+ * @lore send_message's single-recipient branch inlines its own find-or-create — this test drives the real send_message action door.
  */
 
 import { type HyperIdleDb, users } from "@hyperidle/db";

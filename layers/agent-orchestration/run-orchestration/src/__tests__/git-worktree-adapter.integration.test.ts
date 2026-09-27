@@ -1,9 +1,6 @@
 /**
- * AO2 — GitWorktreeAdapter integration test.
- *
- * AC1: mount creates a worktree on agent/<sessionId>; files present.
- * AC2: captureBack is a declared no-op (AU43 stage 2 — write code removed).
- * Scaffolding-exclusion: CLAUDE.md/AGENTS.md excluded paths set in git info/exclude.
+ * GitWorktreeAdapter mounts a code filesystem as a git worktree and excludes
+ * scaffolding paths (CLAUDE.md/AGENTS.md) from the worktree's git info/exclude.
  */
 
 import { execSync } from "node:child_process";
@@ -104,24 +101,5 @@ describe("GitWorktreeAdapter integration", () => {
 		expect(excludeContent).toContain("/context");
 		expect(excludeContent).toContain("/knowledge");
 		expect(excludeContent).toContain("/.claude");
-	});
-
-	it("captureBack: returns success no-op (write code removed in AU43 stage 2)", async () => {
-		const repoPath = await createSourceRepo(tmpDir);
-		const sessionId = randomUUID();
-		const sandboxPath = path.join(tmpDir, `sandbox-${sessionId}`);
-		fs.mkdirSync(sandboxPath, { recursive: true });
-
-		const adapter = new RegistryFilesystemMounter(makeDeps());
-		await adapter.mount({ filesystem: makeFs(repoPath), sandboxPath });
-
-		const result = await adapter.captureBack({
-			filesystem: makeFs(repoPath),
-			sandboxPath,
-			sessionId,
-		});
-
-		expect(result.success).toBe(true);
-		expect(result.captured).toBe(false);
 	});
 });

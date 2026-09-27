@@ -6,9 +6,7 @@
  * the id in memory during the run; if nothing writes it down, there is nothing
  * to resume and the agent can never be brought back.
  *
- * @lore BA2: A session whose harness reported no id genuinely cannot be resumed.
- * The column stays null in that case rather than holding a fabricated value, so
- * the verdict path can tell the human the truth instead of resuming nothing.
+ * @lore a session whose harness reported no id stays null in the column, never a fabricated value.
  */
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -17,17 +15,14 @@ import { type HyperIdleDb, sessions, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
-import { afterEach, describe, vi } from "vitest";
+import { afterEach, describe } from "vitest";
+import {
+	buildRunningHarnessPorts,
+	type FakeHarnessAdapter,
+	type ProvisionSessionDeps,
+	type ProvisionSessionParams,
+} from "../__testing__/test-fixtures.js";
 import { createProvisioner } from "../provisioner.js";
-
-type CreateProvisioner = typeof createProvisioner;
-type SessionLifecyclePorts = Parameters<CreateProvisioner>[0];
-type Provisioner = ReturnType<CreateProvisioner>;
-type AdmitArgs = Parameters<Provisioner["admit"]>;
-type ProvisionSessionDeps = AdmitArgs[0];
-type ProvisionSessionParams = AdmitArgs[1];
-type FakeAdapterPoolEntry = NonNullable<ReturnType<ProvisionSessionDeps["adapterPool"]["select"]>>;
-type FakeHarnessAdapter = FakeAdapterPoolEntry["adapter"];
 
 /**
  * `nativeId` undefined models a harness that never reported one — an error
@@ -56,49 +51,8 @@ function buildFakeHarnessAdapter(nativeId: string | undefined): FakeHarnessAdapt
 	} as FakeHarnessAdapter;
 }
 
-function buildHarnessPorts(): SessionLifecyclePorts {
-	const neverCalled = (label: string) =>
-		vi.fn(() => {
-			throw new Error(`${label}: must not be called in this test scenario`);
-		});
-	return {
-		sessionRequests: {
-			findSessionRequest: neverCalled("sessionRequests.findSessionRequest"),
-			listSessionRequests: neverCalled("sessionRequests.listSessionRequests"),
-			transitionSessionRequest: neverCalled("sessionRequests.transitionSessionRequest"),
-			abortSessionRun: neverCalled("sessionRequests.abortSessionRun"),
-			registerSessionRun: vi.fn(),
-			deregisterSessionRun: vi.fn(),
-		},
-		observability: { summarizeToolArgs: () => "" },
-		harnessRuntime: {
-			enforcementRegistry: {
-				register: vi.fn(),
-				get: vi.fn(() => undefined),
-				incrementForce: vi.fn(),
-				unregister: vi.fn(),
-			},
-			createReturnGate: () => ({ observe: () => undefined, returned: false }),
-			evaluateReturn: () => "returned" as const,
-			provisionReturnHook: async () => undefined,
-			writeCliMcpConfig: neverCalled("harnessRuntime.writeCliMcpConfig"),
-			writePluginStdioMcpEntries: neverCalled("harnessRuntime.writePluginStdioMcpEntries"),
-			openMcpBridge: neverCalled("harnessRuntime.openMcpBridge"),
-			closeMcpBridge: neverCalled("harnessRuntime.closeMcpBridge"),
-		},
-		toolProvider: {
-			buildToolRegistry: () => ({ invoke: async () => ({ success: true, data: undefined }) }),
-			toolsForRole: () => [],
-			returnStatusToolForRegistry: () => ({ name: "return_status" }),
-		},
-		contextAssembly: {
-			assembleAgentContext: neverCalled("contextAssembly.assembleAgentContext"),
-			beginAgentWriteback: () => ({ dispose: () => undefined }),
-			assemblePrompt: neverCalled("contextAssembly.assemblePrompt"),
-			assembleSubscriptionPrompt: neverCalled("contextAssembly.assembleSubscriptionPrompt"),
-			writeSandboxAgentsMd: vi.fn(),
-		},
-	};
+function buildHarnessPorts() {
+	return buildRunningHarnessPorts();
 }
 
 function buildDeps(

@@ -8,7 +8,6 @@
  */
 import {
 	changes,
-	documents,
 	type HyperIdleDb,
 	teams,
 	type User,
@@ -22,56 +21,15 @@ import type {
 	OpenDocumentInput,
 	SearchDocumentsInput,
 } from "@hyperidle/domain-model";
-import { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import { vi } from "vitest";
-import type { Action, ActionContext } from "../action-types.js";
 import {
 	assembleDocumentView,
 	createDocumentActions,
 	type DocumentActionsDeps,
 } from "../document-actions.js";
 import { insertDocument } from "../document-store.js";
-
-type Insertable = typeof documents.$inferInsert;
-
-/** Sensible defaults for a document row; every field is overridable — the
- * same helper `document-store.integration.test.ts` uses. */
-function docValues(overrides: Partial<Insertable> & { id: string }): Insertable {
-	const ts = "2026-01-01T00:00:00.000Z";
-	return {
-		scopeKind: "factory",
-		scopeId: null,
-		title: "Untitled",
-		body: "body",
-		format: "markdown",
-		status: "active",
-		slot: "ordinary",
-		parentKind: null,
-		parentId: null,
-		position: 0,
-		updatedBy: "seed",
-		createdAt: ts,
-		updatedAt: ts,
-		...overrides,
-	};
-}
-
-async function seedUser(
-	db: HyperIdleDb,
-	id: string,
-	overrides: Partial<typeof users.$inferInsert> = {},
-): Promise<void> {
-	await db.insert(users).values({
-		id,
-		kind: "human",
-		name: id,
-		role: "member",
-		status: "active",
-		createdAt: "2026-01-01T00:00:00.000Z",
-		...overrides,
-	});
-}
+import { actionFor, ctxFor, docValues, readRow, seedUser } from "./_helpers.js";
 
 /** Real queries against the real `users`/`teams` tables — never a stub of
  * the visibility predicate's own data. */
@@ -108,16 +66,6 @@ function readOnlyDeps(): DocumentActionsDeps {
 	};
 }
 
-function ctxFor(db: HyperIdleDb, actor: string, now = "2026-06-01T00:00:00.000Z"): ActionContext {
-	return { actor, db, eventBus: new EventBus(), now };
-}
-
-function actionFor<I, O>(actions: readonly Action[], name: string): Action<I, O> {
-	const found = actions.find((a) => a.declaration.name === name);
-	if (!found) throw new Error(`no "${name}" action in the bag`);
-	return found as unknown as Action<I, O>;
-}
-
 /** A db whose `.update` throws — the failure `bumpRead` must log and
  * swallow. Every other method proxies straight through to the real
  * fixture db, bound to it (not the proxy) so drizzle's own internals keep
@@ -136,11 +84,6 @@ function withFailingUpdate(db: HyperIdleDb): HyperIdleDb {
 				: value;
 		},
 	}) as HyperIdleDb;
-}
-
-async function readRow(db: HyperIdleDb, id: string) {
-	const [row] = await db.select().from(documents).where(eq(documents.id, id)).limit(1);
-	return row;
 }
 
 describe("open_document (architecture.md §3.4, §6.7)", () => {
@@ -190,9 +133,12 @@ describe("open_document (architecture.md §3.4, §6.7)", () => {
 
 		const actions = createDocumentActions(readOnlyDeps());
 		const openDocument = actionFor<OpenDocumentInput, DocumentView>(actions, "open_document");
-		const result = await openDocument.run(ctxFor(db, "writer-open-2", "2026-06-01T00:00:00.000Z"), {
-			id: "doc-open-mine-1",
-		});
+		const result = await openDocument.run(
+			ctxFor(db, "writer-open-2", { now: "2026-06-01T00:00:00.000Z" }),
+			{
+				id: "doc-open-mine-1",
+			},
+		);
 
 		expect(result.ok).toBe(true);
 		if (!result.ok) throw new Error("expected success");

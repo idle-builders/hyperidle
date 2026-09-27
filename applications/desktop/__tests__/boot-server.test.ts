@@ -1,21 +1,14 @@
 /**
- * N4 — boot-server tests
- *
- * AC coverage:
- *  - startServer() calls createServer(0, deps) from ./create-server.js,
- *    with topology:"local" and the loopback hostname (AU31 §5.3: desktop's
- *    own composition root — no `application → application` import)
- *  - getPort() extracts the OS-assigned port from a listening handle
- *  - waitForHealth() resolves when /api/health returns 200
- *  - waitForHealth() throws after 30s timeout (mocked to fast timeout)
- *  - waitForHealth() throws immediately on explicit small timeout
+ * startServer() calls createServer(0, deps) with topology:"local" and the loopback hostname —
+ * desktop's own composition root, never importing another application. getPort() extracts the
+ * OS-assigned port from a listening handle; waitForHealth() resolves on 200 and times out otherwise.
  */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getPort, startServer, waitForHealth } from "../src/boot-server.js";
 
 // ---------------------------------------------------------------------------
-// Mock ./create-server.js — desktop's own composition root (AU31 §5.3)
+// Mock ./create-server.js — desktop's own composition root
 // ---------------------------------------------------------------------------
 vi.mock("../src/create-server.js", () => ({
 	createServer: vi.fn(async (port: number) => ({

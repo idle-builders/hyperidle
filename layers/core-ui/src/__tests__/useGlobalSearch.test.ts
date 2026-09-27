@@ -12,7 +12,7 @@ const mockConversations = [
 	},
 ];
 
-// @lore BB1: work items are now tasks — `state` replaces `status` + `appetite`.
+// @lore work-items-are-tasks: `state` replaces `status` + `appetite`.
 const mockWork = [
 	{
 		id: "w1",
@@ -31,8 +31,7 @@ const mockDocuments = [
 	},
 ];
 
-// @lore BC4: the raw fetch payload keeps the `knowledge` wire key (owned by
-// layers/core-api/src/routes/search.ts) — only the parsed local shape is `documents`.
+// @lore the raw fetch payload keeps the knowledge wire key (search.ts) — only the parsed local shape is documents.
 const mockSearchResults = {
 	conversations: mockConversations,
 	work: mockWork,

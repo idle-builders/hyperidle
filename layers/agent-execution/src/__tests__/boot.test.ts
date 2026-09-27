@@ -5,10 +5,24 @@
  * is a pure `.test.ts`, not an integration suite — every assertion is a
  * direct call against the boot's return value.
  */
+
 import type { ToolRegistry, WorkerRegisterMessage } from "@hyperidle/harness-protocol";
+import type { CliAvailabilityDeps, HarnessProbeDeps } from "@hyperidle/harness-registry";
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 import { bootAgentExecution } from "../boot.js";
+
+// No real binary is ever spawned or shelled out to here: discovery and
+// availability are injected with stubs that report "nothing installed" — the
+// same seam createLocalAdapterPool already exposes for production callers.
+const noDiscovery: HarnessProbeDeps = {
+	run: async () => ({ stdout: "", stderr: "not found", exitCode: 1 }),
+};
+const noBinaries: CliAvailabilityDeps = {
+	whichFn: async () => {
+		throw new Error("not found");
+	},
+};
 
 const emptyToolRegistry: ToolRegistry = {
 	definitions: [],
@@ -36,17 +50,13 @@ describe("bootAgentExecution", () => {
 			await expect(boot.adapters.sandbox.spawn("/tmp/anything")).rejects.toThrow();
 		});
 
-		// @lore This used to assert `pool.has("local-builtin")` — the built-in
-		// adapter was registered unconditionally, so a local pool was never empty
-		// and every machine could always run a session. Nothing is always-present
-		// now: the pool holds the CLI harnesses whose binaries this machine has, so
-		// what it contains is a fact about the machine, not about the code. What
-		// the code still owes is that it registers nothing else — no adapter that
-		// is not a real, installed harness.
+		// @lore the pool holds only the CLI harnesses whose binaries this machine has, and registers nothing else.
 		it("local topology: registers only real CLI harnesses, nothing always-present", async () => {
 			const boot = await bootAgentExecution({
 				topology: "local",
 				mcpBaseUrl: "http://localhost:9999",
+				discoveryDeps: noDiscovery,
+				availabilityDeps: noBinaries,
 			});
 
 			expect(boot.adapters.pool.has("local-builtin")).toBe(false);

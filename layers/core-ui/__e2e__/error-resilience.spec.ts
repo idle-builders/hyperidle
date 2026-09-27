@@ -1,5 +1,8 @@
 /**
- * I4 E3: Error resilience E2E — unknown URL shows NotFound, not a blank page.
+ * Journey: an unknown URL shows an actionable "Page not found" screen instead
+ * of a blank page, with a real way back into the app.
+ *
+ * @lore NotFound is deliberately a standalone page outside AppShell (no sidebar) — see NotFound.tsx's own UI-128 lore.
  */
 import { expect, test } from "./fixtures";
 
@@ -9,14 +12,9 @@ test.describe("Error resilience", () => {
 		await expect(page.getByText(/page not found/i)).toBeVisible();
 	});
 
-	test("NotFound page provides a Go home link back to the app", async ({ page }) => {
+	test("NotFound page provides a way back into the app", async ({ page }) => {
 		await page.goto("/another-random-url");
-		const homeLink = page.getByRole("link", { name: /home|back|dashboard/i }).first();
-		await expect(homeLink).toBeVisible();
-	});
-
-	test("IconRail remains visible on NotFound so users can navigate away", async ({ page }) => {
-		await page.goto("/totally-bogus");
-		await expect(page.getByRole("navigation", { name: "Main navigation" })).toBeVisible();
+		await expect(page.getByTestId("not-found-go-to-conversations")).toBeVisible();
+		await expect(page.getByTestId("not-found-go-back")).toBeVisible();
 	});
 });

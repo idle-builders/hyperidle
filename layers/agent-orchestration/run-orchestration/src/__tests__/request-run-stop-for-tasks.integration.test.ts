@@ -82,6 +82,9 @@ async function seedRun(db: HyperIdleDb, id: string, taskId: string, state: strin
 }
 
 describe("requestRunStopForTasks", () => {
+	// The CAS-mark/emit mechanics of a single stop are `stopSessionRun`'s own
+	// rule, proven directly in session-actions.integration.test.ts — this file
+	// only proves the wiring: which sessions get selected across multiple tasks.
 	test("stops the active runs of the named tasks and returns them", async ({ db }) => {
 		await seed(db);
 		await seedRun(db, "run-a", "task-a", "active");
@@ -94,13 +97,6 @@ describe("requestRunStopForTasks", () => {
 			{ taskId: "task-a", sessionId: "run-a" },
 			{ taskId: "task-b", sessionId: "run-b" },
 		]);
-
-		const rows = await db.select().from(sessions);
-		for (const row of rows) {
-			expect(row.state).toBe("stopped");
-			expect(row.outcome).toBe("stopped");
-			expect(row.endedAt).toBeTruthy();
-		}
 	});
 
 	test("emits session_ended per stopped run on the no-live-entry path", async ({ db }) => {

@@ -1,5 +1,5 @@
 /**
- * L1a — `ThreadHostBanner` rendering tests.
+ * `ThreadHostBanner` rendering tests.
  *
  * Red phase: the component throws "Not implemented"; every render
  * test surfaces the error.
@@ -41,7 +41,7 @@ describe("ThreadHostBanner (approved.md §2.1)", () => {
 	it("shows a pinned glyph when pinned=true (lucide pin, not emoji)", () => {
 		const { container } = render(<ThreadHostBanner {...baseProps} pinned={true} />);
 		// approved.md §2.1: never an emoji. Use the lucide `pin` SVG.
-		expect(container.querySelector("svg")).not.toBeNull();
+		expect(container.querySelectorAll("svg")).toHaveLength(1);
 	});
 
 	it("renders up to 3 participant avatars and overflow +N", () => {
@@ -54,5 +54,54 @@ describe("ThreadHostBanner (approved.md §2.1)", () => {
 		];
 		render(<ThreadHostBanner {...baseProps} participants={many} />);
 		expect(screen.getByText(/\+2/)).toBeInTheDocument();
+	});
+
+	describe("agent presence dots", () => {
+		it("shows a presence dot labeled with the agent's status when active or in error", () => {
+			const { rerender } = render(
+				<ThreadHostBanner
+					{...baseProps}
+					participants={[
+						{ id: "agent-1", name: "Aria", isAgent: true, operationalStatus: "active" },
+					]}
+				/>,
+			);
+			expect(screen.getByLabelText(/Aria.*active/i)).toBeInTheDocument();
+
+			rerender(
+				<ThreadHostBanner
+					{...baseProps}
+					participants={[
+						{ id: "agent-1", name: "Aria", isAgent: true, operationalStatus: "error" },
+					]}
+				/>,
+			);
+			expect(screen.getByLabelText(/Aria.*error/i)).toBeInTheDocument();
+		});
+
+		it("shows no presence dot for an idle agent, a human, or a status-less participant", () => {
+			const { rerender } = render(
+				<ThreadHostBanner
+					{...baseProps}
+					participants={[{ id: "agent-1", name: "Aria", isAgent: true, operationalStatus: "idle" }]}
+				/>,
+			);
+			expect(screen.queryByLabelText(/Aria.*idle/i)).toBeNull();
+
+			rerender(
+				<ThreadHostBanner
+					{...baseProps}
+					participants={[{ id: "u-founder", name: "Alice", isAgent: false }]}
+				/>,
+			);
+			expect(screen.queryByLabelText(/Alice.*active/i)).toBeNull();
+			expect(screen.queryByLabelText(/Alice.*error/i)).toBeNull();
+
+			rerender(
+				<ThreadHostBanner {...baseProps} participants={[{ id: "agent-1", name: "Aria" }]} />,
+			);
+			expect(screen.queryByLabelText(/Aria.*active/i)).toBeNull();
+			expect(screen.queryByLabelText(/Aria.*error/i)).toBeNull();
+		});
 	});
 });

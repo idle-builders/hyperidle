@@ -9,7 +9,7 @@
  *   Failing: <button> with no type and no onClick (implicit no-op)
  *   Failing: <button type="submit"> outside an onSubmit/method=dialog form (dangling submit)
  *
- * Maps to AF16 CRITICAL-1 / AC-2 ("no button is a no-op").
+ * The hard rule: no button is a no-op.
  */
 
 import { RuleTester } from "eslint";

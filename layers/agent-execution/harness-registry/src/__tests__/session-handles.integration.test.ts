@@ -14,47 +14,36 @@
  *   4. A resume aimed at a WRONG/unknown session id is detected and fails loudly.
  *      Most important on cursor-agent, which exits 0 on a wrong id.
  *
- * @lore BA2 cursor-agent-silent-fail: cursor-agent exits 0 even on a wrong or
- * missing session id, echoing back the requested id. Detection is from content:
- * a resumed context-free session does not know the task ID.
+ * @lore cursor-agent exits 0 even on a wrong or missing session id — detect failure from content, not exit code.
  *
- * @lore BA2 claude-session-global: In claude 2.1.247, --resume <uuid> finds
- * sessions globally by UUID — NOT per working directory. The research claim that
- * "wrong-dir fails loudly with exit 1" did not hold against the installed binary.
- * The correct "wrong resume" probe for claude is a bogus UUID (exits 0 with
- * error_during_execution and empty result, detected via content check).
+ * @lore claude's --resume <uuid> finds sessions globally by UUID, not per working directory — probe wrong-resume with a bogus UUID.
  */
 
-import { execFile } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { promisify } from "node:util";
 import type { HarnessEvent, SessionConfig, SessionResumeConfig } from "@hyperidle/harness-protocol";
 import { ensureSandboxGitRepo } from "@hyperidle/run-orchestration";
 import { describe, expect, test } from "vitest";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
 import { LocalSandboxAdapter } from "../local-sandbox-adapter.js";
-import { cliAdapterFixture } from "./cli-adapter-fixtures.js";
+import {
+	provisionClaudeSandbox,
+	provisionCodexHome,
+	requireHarnessAuthed,
+} from "./harness-sandbox.js";
+import { productionCliConfig } from "./production-cli-config.js";
 import { HARNESS_TEST_MODELS, requireHarness } from "./require-harness.js";
 import { trackHarnessSessions } from "./session-handle-tracker.js";
 
-const execFileAsync = promisify(execFile);
-
-// @lore process-group kill only helps once stopSession runs. `track` stops any
-// handle a test leaves unstopped — timeout or thrown assertion included — in
-// afterEach, so a real CLI session can never outlive its test. See
-// session-handle-tracker.ts.
+// @lore `track` stops any handle a test leaves unstopped in afterEach, so a real CLI session can never outlive its test.
 const { track } = trackHarnessSessions();
 
 // ── Context marker planted in session 1, tested in the resumed session ────────
 // A non-guessable task-ID token so "did the model know this?" is meaningful.
 // Framed as a task ID (not a "codeword") to avoid security-minded model
 // refusals that treat codeword exchanges as prompt-injection attempts.
-// @lore BA2 context-marker-framing: "codeword" framing caused haiku to refuse
-// the acknowledgment and to decline recalling it in Phase 2 ("I can't treat
-// codeword exchanges as authentication"). "Task ID" framing is semantically
-// identical but does not trigger security heuristics.
+// @lore "codeword" framing trips haiku's security heuristics — "Task ID" framing is semantically identical but does not.
 const CODEWORD = "KESTREL-7429";
 const PHASE1_PROMPT =
 	`The task ID for this session is ${CODEWORD}. ` +
@@ -99,84 +88,6 @@ function knownCodeword(completionTexts: string[]): boolean {
 	return completionTexts.some((t) => t.includes(CODEWORD));
 }
 
-// ── Auth probe helpers ────────────────────────────────────────────────────────
-
-async function claudeAuthed(): Promise<boolean> {
-	try {
-		const { stdout } = await execFileAsync("claude", ["auth", "status"], { timeout: 10_000 });
-		const parsed = JSON.parse(stdout.trim()) as { loggedIn?: boolean };
-		return parsed.loggedIn === true;
-	} catch {
-		return false;
-	}
-}
-
-async function codexAuthed(): Promise<boolean> {
-	try {
-		const { stdout, stderr } = await execFileAsync("codex", ["login", "status"], {
-			timeout: 10_000,
-		});
-		return (stdout + stderr).trim().startsWith("Logged in");
-	} catch {
-		return false;
-	}
-}
-
-async function opencodeAuthed(): Promise<boolean> {
-	try {
-		if (!process.env.OPENROUTER_API_KEY) return false;
-		const { stdout } = await execFileAsync("opencode", ["providers", "list"], { timeout: 10_000 });
-		return /\d+\s+credentials/.test(stdout) || stdout.includes("environment variable");
-	} catch {
-		return false;
-	}
-}
-
-async function cursorAgentAuthed(): Promise<boolean> {
-	try {
-		const { stdout } = await execFileAsync("cursor-agent", ["status"], { timeout: 10_000 });
-		return stdout.includes("Logged in");
-	} catch {
-		return false;
-	}
-}
-
-// ── claude sandbox provisioning ───────────────────────────────────────────────
-
-function provisionClaudeSandbox(sandboxPath: string): void {
-	fs.writeFileSync(
-		path.join(sandboxPath, ".mcp.json"),
-		JSON.stringify({
-			mcpServers: { hyperidle: { type: "http", url: "http://localhost:9/api/mcp/x" } },
-		}),
-		"utf-8",
-	);
-	fs.mkdirSync(path.join(sandboxPath, ".claude"), { recursive: true });
-	fs.writeFileSync(path.join(sandboxPath, ".claude", "settings.json"), JSON.stringify({}), "utf-8");
-}
-
-// ── codex sandbox provisioning ────────────────────────────────────────────────
-
-function provisionCodexHome(sandboxPath: string): boolean {
-	const codexHomeDir = path.join(sandboxPath, ".codex-home");
-	fs.mkdirSync(codexHomeDir, { recursive: true });
-	const homeCodexDir = path.join(os.homedir(), ".codex");
-	let authFound = false;
-	for (const fname of ["auth.json", "config.toml"]) {
-		const src = path.join(homeCodexDir, fname);
-		if (fs.existsSync(src)) {
-			fs.copyFileSync(src, path.join(codexHomeDir, fname));
-			if (fname === "auth.json") authFound = true;
-		}
-	}
-	fs.appendFileSync(
-		path.join(codexHomeDir, "config.toml"),
-		`\n[projects."${sandboxPath}"]\ntrust_level = "trusted"\n`,
-		"utf-8",
-	);
-	return authFound;
-}
-
 // ═════════════════════════════════════════════════════════════════════════════
 // claude-code
 // ═════════════════════════════════════════════════════════════════════════════
@@ -184,20 +95,15 @@ function provisionCodexHome(sandboxPath: string): boolean {
 describe("session handles — claude-code", () => {
 	requireHarness("claude");
 
-	test("assigns session id immediately at start, resumes with prior context, bogus-id resume detected", async ({
-		skip,
-	}) => {
-		if (!(await claudeAuthed())) {
-			skip();
-			return;
-		}
+	test("assigns session id immediately at start, resumes with prior context, bogus-id resume detected", async () => {
+		await requireHarnessAuthed("claude");
 
 		const sandboxA = fs.mkdtempSync(path.join(os.tmpdir(), "sh-claude-a-"));
 
 		try {
 			provisionClaudeSandbox(sandboxA);
 
-			const claudeConfig = cliAdapterFixture("claude");
+			const claudeConfig = productionCliConfig("claude");
 			const adapter = new CliHarnessAdapter(claudeConfig);
 
 			// ── Proof 1: native id is assigned BEFORE any stream event ───────
@@ -261,13 +167,7 @@ describe("session handles — claude-code", () => {
 			// Detection is content-based: outcome may be "completed" (exit 0) but
 			// the session has no task ID in its output.
 			//
-			// @lore BA2 claude-session-global: In claude 2.1.247, --resume <uuid>
-			// finds sessions GLOBALLY by UUID, NOT per working directory. The research
-			// claim that "wrong-dir fails loudly with exit 1" did not hold against the
-			// installed binary — wrong-dir resume exits 0 and succeeds (the session is
-			// found from any cwd). A bogus (non-existent) UUID is the correct test:
-			// it exits 0 with error_during_execution subtype and empty result, so
-			// content-based detection (no task ID in output) correctly signals failure.
+			// @lore claude's --resume <uuid> is found globally by UUID, not per cwd — a wrong-dir resume succeeds; only a bogus UUID fails.
 			const bogusId = "00000000-0000-0000-0000-000000000000";
 			let bogusIdDetected = false;
 			try {
@@ -302,13 +202,8 @@ describe("session handles — claude-code", () => {
 describe("session handles — codex", () => {
 	requireHarness("codex");
 
-	test("captures thread_id from thread.started, resumes with prior context, wrong-id fails loudly", async ({
-		skip,
-	}) => {
-		if (!(await codexAuthed())) {
-			skip();
-			return;
-		}
+	test("captures thread_id from thread.started, resumes with prior context, wrong-id fails loudly", async () => {
+		await requireHarnessAuthed("codex");
 
 		const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), "sh-codex-base-"));
 		const sandboxAdapter = new LocalSandboxAdapter();
@@ -320,11 +215,12 @@ describe("session handles — codex", () => {
 
 			const authFound = provisionCodexHome(sandboxPath);
 			if (!authFound) {
-				skip();
-				return;
+				throw new Error(
+					"codex: no ~/.codex/auth.json to copy into the per-session sandbox — run `codex login`. Never skip to green.",
+				);
 			}
 
-			const codexConfig = cliAdapterFixture("codex");
+			const codexConfig = productionCliConfig("codex");
 			const adapter = new CliHarnessAdapter(codexConfig);
 
 			// ── Phase 1: run session, capture native thread id ────────────────
@@ -408,22 +304,9 @@ describe("session handles — codex", () => {
 		}
 	}, 120_000);
 
-	test("resumed codex session can write files — sandbox mode is thread-scoped not config-scoped", async ({
-		skip,
-	}) => {
-		// @lore BA2 codex-sandbox-inherit: `exec resume` has no --sandbox flag.
-		// The original thread's sandbox mode (workspace-write) is INHERITED by the
-		// resumed session. This test proves it by having the resumed session create
-		// a new file and asserting the file exists on disk.
-		//
-		// If codex resume defaulted to read-only, the file write would silently
-		// fail or produce an error event, and the file would not exist — failing
-		// this assertion. A guard you cannot show red is a passenger; this test
-		// goes red if sandbox mode stops being inherited.
-		if (!(await codexAuthed())) {
-			skip();
-			return;
-		}
+	test("resumed codex session can write files — sandbox mode is thread-scoped not config-scoped", async () => {
+		// @lore `exec resume` has no --sandbox flag — the original thread's sandbox mode (workspace-write) is inherited by the resumed session.
+		await requireHarnessAuthed("codex");
 
 		const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), "codex-sbox-"));
 		const sandboxAdapter = new LocalSandboxAdapter();
@@ -434,11 +317,12 @@ describe("session handles — codex", () => {
 			ensureSandboxGitRepo(sandboxPath);
 			const authFound = provisionCodexHome(sandboxPath);
 			if (!authFound) {
-				skip();
-				return;
+				throw new Error(
+					"codex: no ~/.codex/auth.json to copy into the per-session sandbox — run `codex login`. Never skip to green.",
+				);
 			}
 
-			const codexConfig = cliAdapterFixture("codex");
+			const codexConfig = productionCliConfig("codex");
 			const adapter = new CliHarnessAdapter(codexConfig);
 
 			// Phase 1: write a sentinel file, capture thread id.
@@ -519,19 +403,14 @@ describe("session handles — codex", () => {
 describe("session handles — cursor-agent", () => {
 	requireHarness("cursor-agent");
 
-	test("captures session_id from system/init, resumes with prior context, wrong-dir resume detected as context-free", async ({
-		skip,
-	}) => {
-		if (!(await cursorAgentAuthed())) {
-			skip();
-			return;
-		}
+	test("captures session_id from system/init, resumes with prior context, wrong-dir resume detected as context-free", async () => {
+		await requireHarnessAuthed("cursor-agent");
 
 		const sandboxA = fs.mkdtempSync(path.join(os.tmpdir(), "sh-cursor-a-"));
 		const sandboxB = fs.mkdtempSync(path.join(os.tmpdir(), "sh-cursor-b-"));
 
 		try {
-			const cursorConfig = cliAdapterFixture("cursor-agent");
+			const cursorConfig = productionCliConfig("cursor-agent");
 			const adapter = new CliHarnessAdapter(cursorConfig);
 
 			// ── Phase 1: run session, plant codeword ──────────────────────────
@@ -586,7 +465,7 @@ describe("session handles — cursor-agent", () => {
 			).toBe(true);
 
 			// ── Proof 4: wrong-directory resume detected as context-free ──────
-			// @lore BA2 cursor-agent-silent-fail: cursor-agent exits 0 on a wrong-dir
+			// @lore cursor-agent-silent-fail: cursor-agent exits 0 on a wrong-dir
 			// resume, echoes the requested id, but runs context-free. Detection is
 			// content-based: the resumed session does NOT know the codeword from sandboxA.
 			const resumeConfigB: SessionResumeConfig = {
@@ -625,18 +504,13 @@ describe("session handles — cursor-agent", () => {
 describe("session handles — opencode", () => {
 	requireHarness("opencode");
 
-	test("captures sessionID from first event, resumes with prior context, wrong-id fails loudly", async ({
-		skip,
-	}) => {
-		if (!(await opencodeAuthed())) {
-			skip();
-			return;
-		}
+	test("captures sessionID from first event, resumes with prior context, wrong-id fails loudly", async () => {
+		await requireHarnessAuthed("opencode");
 
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "sh-opencode-"));
 
 		try {
-			const opencodeConfig = cliAdapterFixture("opencode");
+			const opencodeConfig = productionCliConfig("opencode");
 			const adapter = new CliHarnessAdapter(opencodeConfig);
 
 			// ── Phase 1: run session, plant codeword ──────────────────────────

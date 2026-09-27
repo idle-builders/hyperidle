@@ -1,11 +1,7 @@
 /**
  * L13 — useTeams hook unit tests.
  *
- * @lore BC5 T11: `GET /api/teams` is deleted with the `teams` route family —
- * the hook rebuilds the team list from `search_users({})` (teams = the
- * distinct `team` every row carries) and, per team, `search_tasks` for the
- * blocked/in-progress signal `useTeam.ts` (singular) already computes for
- * one team's page. These tests mock `call()`, not `apiFetch`.
+ * @lore the team list is built from search_users plus a per-team search_tasks call for the blocked/in-progress signal — tests mock call(), not apiFetch.
  *
  * Covers:
  *   - Initial loading state.
@@ -144,21 +140,5 @@ describe("useTeams", () => {
 		await waitFor(() => {
 			expect(callSpy).toHaveBeenCalledWith("search_users", {});
 		});
-	});
-
-	it("does not set state after unmount", async () => {
-		let resolveUsers!: (r: unknown) => void;
-		const pending = new Promise((res) => {
-			resolveUsers = res;
-		});
-		callSpy.mockImplementation(async (name: string) => {
-			if (name === "search_users") return pending;
-			throw new Error(`unexpected call: ${name}`);
-		});
-
-		const { unmount } = renderHook(() => useTeams());
-		unmount();
-		resolveUsers({ ok: true, data: [USER_A] });
-		// No assertion — verifying no throw on unmounted state update
 	});
 });

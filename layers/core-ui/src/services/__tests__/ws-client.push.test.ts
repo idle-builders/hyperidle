@@ -24,12 +24,7 @@ vi.mock("../api-fetch.js", () => ({
 	apiFetch: apiFetchMock,
 }));
 
-// @lore AU21: test-setup.ts globally mocks "./services/ws-client.js" as a
-// no-op for every web unit test (WS is unavailable in JSDOM — see its top
-// comment). THIS file is the one place that must exercise the REAL WsClient
-// implementation, so we explicitly unmock it here, then stub the browser
-// WebSocket global instead (the standard "stub the platform API, not the
-// unit under test" pattern).
+// @lore test-setup.ts globally no-ops ws-client for web tests — this file unmocks it to exercise the real WsClient, stubbing only the WebSocket global.
 vi.unmock("../ws-client.js");
 
 class MockWebSocket {
@@ -150,12 +145,7 @@ describe("ws-client — push envelope topic matching", () => {
 	});
 });
 
-// @lore proven-bug regression: a packaged desktop build (MODE === "production")
-// must never dial the hardcoded dev address, even when a machine-local `.env`
-// file sets NODE_ENV=development and corrupts `import.meta.env.DEV`/`.PROD` —
-// see the `@lore proven-bug fix` comment on ws-client.ts's `connect()`. MODE is
-// the one signal Vite cannot mis-set from a `.env` file, so it is the only thing
-// this branch may read.
+// @lore a packaged build must never dial the dev address even if a local .env sets NODE_ENV=development — MODE is the one signal Vite cannot mis-set from .env.
 describe("ws-client — production build never dials the dev address", () => {
 	beforeEach(() => {
 		vi.resetModules();

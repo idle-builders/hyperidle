@@ -1,17 +1,6 @@
 /**
- * N4 — app-menu tests
- *
- * AC coverage:
- *  - buildAppMenuTemplate() returns exactly 5 top-level menus
- *  - Menu names are: HyperIdle (app name), Edit, View, Window, Help
- *  - HyperIdle menu contains Settings... with accelerator CmdOrCtrl+,
- *  - Edit menu contains undo, redo, cut, copy, paste, selectAll
- *  - View menu contains togglefullscreen
- *  - View menu in dev mode contains reload and toggleDevTools items
- *  - View menu in production mode does NOT contain reload or toggleDevTools
- *  - Window menu contains minimize, zoom, close
- *  - Help menu contains Open Logs Folder and Open Data Folder items
- *  - onOpenSettings callback is wired to Settings... click handler
+ * buildAppMenuTemplate() builds the 5 top-level menus (HyperIdle, Edit, View, Window, Help), with
+ * dev-mode-only reload/toggleDevTools items on View, and onOpenSettings wired to the Settings... item.
  */
 
 import type { MenuItemConstructorOptions } from "electron";
@@ -159,14 +148,14 @@ describe("buildAppMenuTemplate — Help menu", () => {
 		const template = buildAppMenuTemplate(BASE_OPTIONS);
 		const helpMenu = findMenu(template, "Help");
 		const logsItem = helpMenu?.submenu?.find((item) => item.label === "Open Logs Folder");
-		expect(logsItem).toBeDefined();
+		expect(logsItem?.label).toBe("Open Logs Folder");
 	});
 
 	it("contains Open Data Folder item", () => {
 		const template = buildAppMenuTemplate(BASE_OPTIONS);
 		const helpMenu = findMenu(template, "Help");
 		const dataItem = helpMenu?.submenu?.find((item) => item.label === "Open Data Folder");
-		expect(dataItem).toBeDefined();
+		expect(dataItem?.label).toBe("Open Data Folder");
 	});
 
 	it("Open Logs Folder click opens the logDir path", async () => {

@@ -1,17 +1,11 @@
 /**
- * AU26 G1 — `agent-run-config-store` is the SQL-owning Service for the
- * run-config columns relocated off `users`/`teams` (architecture §D-L).
- *
- * Folded into run-orchestration by AU44 batch6; test recovered and
- * re-pointed here.
- *
- * The behavioural contract these tests pin:
+ * `agent-run-config-store` is the SQL-owning Service for the run-config
+ * columns off `users`/`teams`. The behavioural contract these tests pin:
  *  - a written config round-trips verbatim (including `maxConcurrentSessions`,
  *    the one NOT NULL DEFAULT 1 column);
- *  - an agent with NO row resolves the SAME effective config an agent whose
- *    columns were all-null resolved before the move — `maxConcurrentSessions`
- *    1, everything else null (§D-L's backfill invariant, stated for the
- *    steady state as well as the migration);
+ *  - an agent with NO row resolves the same effective config as an agent
+ *    whose columns are all-null: `maxConcurrentSessions` 1, everything else
+ *    null;
  *  - a partial write patches only the named fields and leaves the rest;
  *  - an explicit `null` in a patch clears the field (the `"x" in data`
  *    semantics `PATCH /api/agents/:id` has always had).
@@ -218,11 +212,4 @@ describe("agent run config store", () => {
 		expect(map.get("a-many-1")?.modelOptions).toEqual({ effort: "xhigh" });
 		expect(map.get("a-many-2")?.modelOptions).toEqual({});
 	});
-
-	// @lore this file used to have a test asserting the `agentRunConfig.agentId → users.id` cascade
-	// FK fires by deleting a user. Deleted: production never deletes a `users` row (the agents DELETE
-	// route soft-retires via an UPDATE) and no code path anywhere deletes one either — the cascade FK
-	// exists in the schema (untouched) but nothing production does can ever trigger it. The store
-	// itself exports no delete function at all, so there is no feature here to remove either — the
-	// safety this test protected already holds by the capability being absent.
 });

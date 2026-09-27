@@ -12,6 +12,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
+import { MOCK_REVIEW_SUBJECT } from "../__fixtures__/review-subject.fixture";
 import { getReviewCanvas } from "../canvas-registry";
 import type { OutcomeSummaryPayload, ReviewArtifact } from "../review-artifact";
 import { assertNoFabrication, domText } from "./no-fabrication";
@@ -149,5 +150,33 @@ describe("ReviewOutcomeSummary — no fabrication", () => {
 		render(<Canvas artifact={artifactWith({})} />);
 
 		expect(screen.getByTestId("review-unknown-canvas")).toBeInTheDocument();
+	});
+});
+
+describe("ReviewOutcomeSummary canvas — fixture-driven ordering", () => {
+	const fixtureArtifact = MOCK_REVIEW_SUBJECT.artifacts.find(
+		(a) => a.kind === "outcome_summary",
+	)! as ReviewArtifact<OutcomeSummaryPayload>;
+
+	function renderFixture() {
+		return render(<Canvas artifact={fixtureArtifact} />);
+	}
+
+	it("floats unmet conditions and needs-you items above met ones", () => {
+		renderFixture();
+
+		const unmet = screen.getByText(/Exceptions routed to human/i);
+		const needsYou = screen.getByText(/9,840 wire lacks source documentation/i);
+		expect(unmet.compareDocumentPosition(needsYou) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+			Node.DOCUMENT_POSITION_FOLLOWING,
+		);
+	});
+
+	it("exposes a jump affordance on every needs-you row", () => {
+		renderFixture();
+
+		expect(screen.getAllByText(/Jump ↓/i).length).toBeGreaterThanOrEqual(
+			fixtureArtifact.payload.needsYou.length,
+		);
 	});
 });

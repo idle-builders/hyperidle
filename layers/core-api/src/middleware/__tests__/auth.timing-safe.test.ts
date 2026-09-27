@@ -1,9 +1,8 @@
 /**
- * I2 — A1: API key comparison must use a constant-time comparator.
- *
- * The current `authMiddleware` does `apiKey !== expectedKey` — a non-constant-time
- * string compare. Under I2 the comparison routes through `crypto.timingSafeEqual`
- * (after hashing both sides to a fixed length).
+ * `authMiddleware` compares the API key through `crypto.timingSafeEqual`
+ * (after hashing both sides to a fixed length) instead of a non-constant-time
+ * `!==` string compare, so a wrong-length or wrong-value key never leaks
+ * timing information.
  *
  * `vi.spyOn(crypto, "timingSafeEqual")` does not work in ESM (module
  * namespaces are frozen). Instead we `vi.mock("node:crypto")` and replace
@@ -11,9 +10,7 @@
  * registers each call so we can assert it on both the valid + invalid
  * paths.
  *
- * @lore I2 A1: the `vi.mock` call MUST live in this test file (not in an
- * imported helper) so vitest's hoister can pin it ABOVE every other
- * import — including `../auth.js` which pulls `node:crypto` transitively.
+ * @lore the vi.mock call must live in this file, not an imported helper, so vitest's hoister pins it above every import.
  */
 
 import type * as nodeCrypto from "node:crypto";
@@ -52,7 +49,7 @@ vi.mock("node:crypto", async () => {
 	};
 });
 
-const TEST_API_KEY = "test-key-i2-timing-safe";
+const TEST_API_KEY = "test-key-timing-safe";
 
 function buildApp(): Hono {
 	const app = new Hono();
@@ -61,7 +58,7 @@ function buildApp(): Hono {
 	return app;
 }
 
-describe("I2 A1 — authMiddleware uses crypto.timingSafeEqual", () => {
+describe("authMiddleware uses crypto.timingSafeEqual", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		actualTimingSafeEqualCalls.length = 0;
@@ -89,20 +86,16 @@ describe("I2 A1 — authMiddleware uses crypto.timingSafeEqual", () => {
 		expect(actualTimingSafeEqualCalls.length).toBeGreaterThan(0);
 	});
 
-	it("rejects different-length keys without throwing (constraint l.110)", async () => {
+	it("rejects different-length keys without throwing", async () => {
 		const app = buildApp();
 		const res = await app.request("/probe", {
 			headers: { "X-API-Key": "x" },
 		});
-		// Should be a clean 401, not an unhandled error (timingSafeEqual
-		// throws on different-length inputs unless the wrapper hashes first).
+		// A clean 401, not an unhandled error — timingSafeEqual throws on
+		// different-length inputs unless the wrapper hashes both sides first.
 		expect(res.status).toBe(401);
-		// And the comparator must have been reached even though lengths
-		// differed — this proves the comparator does the equal-length
-		// normalisation (per the I2 plan: SHA-256 both sides). Without
-		// the wrapper, the middleware would either skip the comparator
-		// (current behavior — uses `!==`) or throw before recording the
-		// call.
+		// The comparator must have been reached even though lengths
+		// differed, proving the equal-length normalisation ran.
 		expect(actualTimingSafeEqualCalls.length).toBeGreaterThan(0);
 	});
 });

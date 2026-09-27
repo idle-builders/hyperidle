@@ -13,8 +13,6 @@ import {
 
 const AGENT_WORK_INTENT_SOURCE_KINDS = [
 	"thread_message",
-	"explicit_session_start",
-	"knowledge_action",
 	"task_dispatch_attempt",
 	"subscription",
 ] as const;

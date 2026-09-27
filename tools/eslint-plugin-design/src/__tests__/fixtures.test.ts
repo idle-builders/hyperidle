@@ -89,9 +89,8 @@ describe("eslint-plugin-design fixtures", () => {
 		const aiAestheticMessageIds = messages
 			.filter((m) => m.ruleId === "design/no-ai-aesthetic")
 			.map((m) => m.messageId);
-		// SEV-1 #1: catalogue coverage expanded — assert each major tell fires
-		// in the integration fixture.
-		// U10 Hearth: rounded2xl is now on-scale; use rounded3xl instead.
+		// Assert each major tell fires in the integration fixture. rounded2xl is on-scale;
+		// rounded3xl is the AI-aesthetic tell.
 		const expectedTells = [
 			"rounded3xl",
 			"backdropBlur",

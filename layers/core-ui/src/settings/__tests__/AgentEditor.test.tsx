@@ -1,15 +1,13 @@
 /**
- * AV2 — AgentEditor component tests (RED phase)
+ * AgentEditor component tests.
  *
- * Covers:
- *  - AC-1: Assistant is a row in the agents list (no filter, no separate section)
- *  - AC-2: Save routing (ast-* → assistant route; others → /api/agents/:id)
- *  - AC-2: modelOptionsForHarness reads descriptor.models, never MODEL_CATALOG
- *  - AC-2: Codex (empty models) renders affordance, not select
- *  - AC-2: Save-payload anti-422 guard (empty modelProviders → modelProvider: null)
- *  - AC-2: Ratio persistence via onRatioChange
- *  - AC-3: Combobox commits custom string and catalog role
- *  - AC-3: Edit-open fetches role template
+ * Covers: the assistant is a row in the agents list (no filter, no
+ * separate section); save routing (ast-* → assistant route; others →
+ * /api/agents/:id); modelOptionsForHarness reads descriptor.models, never
+ * MODEL_CATALOG; Codex (empty models) renders an affordance, not a select;
+ * the save-payload anti-422 guard (empty modelProviders → modelProvider:
+ * null); ratio persistence via onRatioChange; the combobox commits a
+ * custom string and a catalog role; edit-open fetches the role template.
  */
 
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
@@ -244,7 +242,7 @@ function mockApiFetch(
 }
 
 // ---------------------------------------------------------------------------
-// AC-2: Save routing — ast-* agent uses assistant route
+// Save routing — ast-* agent uses assistant route
 // ---------------------------------------------------------------------------
 
 describe("AgentEditor save routing", () => {
@@ -302,7 +300,7 @@ describe("AgentEditor save routing", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-2: Model dropdown options = descriptor.models, never MODEL_CATALOG
+// Model dropdown options = descriptor.models, never MODEL_CATALOG
 // ---------------------------------------------------------------------------
 
 describe("Model dropdown uses discovered descriptor.models", () => {
@@ -365,7 +363,7 @@ describe("Model dropdown uses discovered descriptor.models", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-2: Anti-422 save payload guard
+// Anti-422 save payload guard
 // ---------------------------------------------------------------------------
 
 describe("Save payload anti-422 guard (modelProvider reconcile)", () => {
@@ -516,10 +514,10 @@ describe("Role field lock is decided by ownerUserId, not an id prefix", () => {
 });
 
 // ---------------------------------------------------------------------------
-// UI-103 — form field labels are sentence-case in rendered output
+// Form field labels are sentence-case in rendered output
 // ---------------------------------------------------------------------------
 
-describe("UI-103 — AgentEditor field labels are sentence-case (not hardcoded ALLCAPS)", () => {
+describe("AgentEditor field labels are sentence-case (not hardcoded ALLCAPS)", () => {
 	beforeEach(() => {
 		mockApiFetch();
 	});
@@ -611,7 +609,7 @@ describe("UI-103 — AgentEditor field labels are sentence-case (not hardcoded A
 });
 
 // ---------------------------------------------------------------------------
-// AC-2: SplitView ratio persistence (onRatioChange required)
+// SplitView ratio persistence (onRatioChange required)
 // ---------------------------------------------------------------------------
 
 describe("SplitView ratio persistence", () => {
@@ -626,15 +624,10 @@ describe("SplitView ratio persistence", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-3: Role template fetched on edit-open
+// Role template fetched on edit-open
 // ---------------------------------------------------------------------------
 
-// @lore BA9g: this block covered the editor prefilling a new agent's identity
-// from `GET /api/agents/templates/:role`. That route, the files behind it and
-// the prefill are all gone — the personas are the `role-personas` plugin's, and
-// HyperIdle holds no built-in idea of what a "builder" is. A new agent starts
-// with an empty identity; a plugin's agent brings its own
-// (`BA9g-plugin-agent-identity.integration.test.ts`).
+// @lore a new agent starts with an empty identity — there is no built-in role-template prefill; a plugin's agent brings its own identity.
 
 describe("AgentEditor — model options", () => {
 	function renderWith(draft: AgentEditorDraft, onDraftChange = vi.fn()): typeof onDraftChange {

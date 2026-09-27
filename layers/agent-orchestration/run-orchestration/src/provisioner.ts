@@ -71,10 +71,9 @@ interface IngestionHandle {
 // read and the admission-time routine per-run cap read are replaced by baked
 // data every per-kind resolver now supplies on the drained request:
 //   - Phase 3: `params.harnessDisabled` (global server config, baked
-//     alongside `agentConfig` by the same four `contextBundle` resolvers —
-//     `assistant_turn`/`session_start` bake it too, at their one real emit
-//     site each, so no kind silently loses the admin's disabled-harness-types
-//     enforcement).
+//     alongside `agentConfig` by the same two `contextBundle` resolvers —
+//     `assistant_turn` bakes it too, at its own one real emit site, so no
+//     kind silently loses the admin's disabled-harness-types enforcement).
 //   - The admission-time routine per-run cost cap this
 //     bullet used to describe (`params.contextBundle.routine
 //     .costCapPerRunMinor`) is DELETED along with the rest of the cost-cap
@@ -337,7 +336,7 @@ interface SessionLifecycleToolContext {
 	/**
 	 * The session's calling thread, forwarded
 	 * straight from `params.callingThreadId` (baked at emit — zero
-	 * orchestration -> core read). Absent for `subscription_run`/`knowledge_action`.
+	 * orchestration -> core read). Absent for `subscription_run`.
 	 */
 	readonly threadId?: string;
 }
@@ -521,8 +520,8 @@ interface SessionLifecyclePorts {
  * `send_message` — one line, shared by the prompt orientation
  * (`assembleTaskFreePrompt`) and the enforced gate (`requiredReturnActions`
  * below) so the two can never drift apart. A session that replies into a
- * calling thread (the assistant, `knowledge_action`) resolves `true`. A
- * task-bound session (task_run/session_start) keeps the full return set,
+ * calling thread (the assistant) resolves `true`. A
+ * task-bound session (task_run) keeps the full return set,
  * `edit_task` included, even with a calling thread.
  *
  * A subscription wake is deliberately NOT covered here — see
@@ -790,44 +789,10 @@ const PROVISIONER_EMITTED_FILES = [".mcp.json"] as const;
  * working on a repo that tracks .mcp.json does not overwrite the real config.
  */
 
-// ── Phase 4.5 mount + teardown capture-back helpers ────────────────────
-//
 // @lore AU21 §9 Increment 8 (Decision F2): the mount operation itself
 // (`mountFilesystemsForAgent`) relocated wholesale into this package's own
 // `filesystem-provisioning.ts` (imported above) — only the seam-facing
 // `SessionLifecycleFilesystemsReader` port type stays declared in this file.
-
-/**
- * Capture-back mounted filesystems before endSession/crashSession.
- *
- * Called BEFORE each endSession (which holds the rm -rf) and before crashSession
- * on the in-runSession crash path. Best-effort: a capture failure is logged but
- * never blocks teardown (uncommitted-but-failed = same loss as today).
- *
- * The delete lives in the terminal transition, not workspace.destroy
- * (adapter-map cleanup only, runs after the delete).
- * Anchoring capture "before workspace.destroy" would capture an already-deleted tree.
- * Must be called BEFORE endSession.
- */
-async function captureMountedFilesystems(
-	sessionId: string,
-	sandboxPath: string,
-	mountedFilesystems: Filesystem[],
-	mounter: FilesystemMounterPort,
-): Promise<void> {
-	if (mountedFilesystems.length === 0) return;
-
-	for (const filesystem of mountedFilesystems) {
-		try {
-			await mounter.captureBack({ filesystem, sandboxPath, sessionId });
-		} catch (err) {
-			// biome-ignore lint/suspicious/noConsole: observability adapter not yet stood up
-			console.warn(
-				`[session-provisioning] AO2 captureBack threw for filesystem ${filesystem.id}: ${err instanceof Error ? err.message : String(err)}`,
-			);
-		}
-	}
-}
 
 /**
  * @lore BA9b: Fetches plugin MCP server contributions scoped to a team.
@@ -900,10 +865,9 @@ interface ProvisionSessionDeps {
 	 */
 	readonly onHarnessStarted?: () => void;
 	/**
-	 * Optional mounter for filesystem placement + capture-back.
+	 * Optional mounter for filesystem placement.
 	 * When absent, sessions run without any filesystem mount (degrade to today's behavior).
-	 * When present, mount runs after sandbox spawn (Phase 4.5) and captureBack runs before
-	 * each endSession/crashSession call.
+	 * When present, mount runs after sandbox spawn (Phase 4.5).
 	 */
 	readonly mounter?: FilesystemMounterPort;
 	/**
@@ -939,7 +903,7 @@ interface ProvisionSessionParams {
 	 * are built from — `kind:"task"` for `task_run`,
 	 * `kind:"subscription"` for `subscription_run`. Sourced from the emit-time
 	 * resolver via the drained `AgentSessionRequest.payloadJson` (zero db read
-	 * here). Absent for `knowledge_action`/`session_start`/`assistant_turn` turns.
+	 * here). Absent for `assistant_turn` turns.
 	 */
 	readonly contextBundle?: BakedContextBundle;
 	/**
@@ -986,9 +950,9 @@ interface ProvisionSessionParams {
 	/**
 	 * The session's calling thread id, baked at
 	 * EMIT time by every per-kind resolver that has one (`assistant_turn` from
-	 * the triggering message's thread; `task_run`/`session_start`/
-	 * resolve-or-create). Absent for
-	 * `subscription_run`/`knowledge_action`. Forwarded verbatim onto
+	 * the triggering message's thread; `task_run` from the document's own
+	 * thread). Absent for
+	 * `subscription_run`. Forwarded verbatim onto
 	 * `SessionLifecycleToolContext.threadId` in Phase 8 — the `reply` tool
 	 * (Increment 2) reads it from there. ZERO orchestration -> core read.
 	 */
@@ -1666,10 +1630,9 @@ async function runSession(
 	// no thread to reply into, and no task to hand off) has no work-output
 	// return action at all, so its own required subset is `["return_status"]`
 	// — the self-check tool reporting it is done. A session whose output
-	// belongs in a calling thread and has no task (the assistant, and
-	// `knowledge_action`) must call `send_message` instead — that thread is a
-	// real place for the message to land. A task-bound session
-	// (task_run/session_start) keeps the full return set available even with
+	// belongs in a calling thread and has no task (the assistant) must call
+	// `send_message` instead — that thread is a real place for the message to
+	// land. A task-bound session (task_run) keeps the full return set available even with
 	// a calling thread (`send_message` still lands there, but so does e.g.
 	// `edit_task`). Naming the specific action explicitly removes dead
 	// options the default full-set forcing message would otherwise offer —
@@ -2076,10 +2039,6 @@ async function runSession(
 	}
 
 	if (crashed) {
-		// ── Capture-back before crash teardown.
-		if (deps.mounter && mountedFilesystems.length > 0) {
-			await captureMountedFilesystems(sessionId, sandboxPath, mountedFilesystems, deps.mounter);
-		}
 		await transitionRun(
 			{ db, eventBus, ports },
 			{
@@ -2128,10 +2087,6 @@ async function runSession(
 			timestamp: Date.now(),
 		});
 
-		// ── Capture-back before not_returned teardown.
-		if (deps.mounter && mountedFilesystems.length > 0) {
-			await captureMountedFilesystems(sessionId, sandboxPath, mountedFilesystems, deps.mounter);
-		}
 		await transitionRun(
 			{ db, eventBus, ports },
 			{
@@ -2155,10 +2110,6 @@ async function runSession(
 		};
 	}
 
-	// ── Capture-back before normal teardown.
-	if (deps.mounter && mountedFilesystems.length > 0) {
-		await captureMountedFilesystems(sessionId, sandboxPath, mountedFilesystems, deps.mounter);
-	}
 	// @lore `stopRequested` (set only inside `signalAbort` above, when the run
 	// registry's own `abort` is called) threads through as `terminalOutcome:
 	// "stopped"` so a genuinely stopped session's row reads state "stopped" /
@@ -2308,7 +2259,6 @@ interface Provisioner {
 		sandboxPath: string,
 		mounter: FilesystemMounterPort,
 	): Promise<Filesystem[]>;
-	capture: typeof captureMountedFilesystems;
 }
 
 export function createProvisioner(ports: SessionLifecyclePorts): Provisioner {
@@ -2326,6 +2276,5 @@ export function createProvisioner(ports: SessionLifecyclePorts): Provisioner {
 				sandboxPath,
 				mounter,
 			}),
-		capture: (...args) => captureMountedFilesystems(...args),
 	};
 }

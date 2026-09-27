@@ -44,7 +44,7 @@ function parseConfiguredOrigins(): ReadonlyArray<string> {
  * header → no CORS headers added (correct).
  * See architecture section 2.4 for the full CORS strategy.
  */
-function resolveOrigin(origin: string, _c: Context): string | undefined {
+export function resolveOrigin(origin: string, _c: Context): string | undefined {
 	if (origin === ALLOWED_DEV_ORIGIN) {
 		return origin;
 	}

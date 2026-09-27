@@ -1,5 +1,5 @@
 /**
- * L1a — `ThreadShell` composition tests.
+ * `ThreadShell` composition tests.
  *
  * Approved-design: §2.6 + §4 (states). The shell mounts:
  *   - ThreadHostBanner (always)
@@ -9,7 +9,7 @@
  */
 
 import type { AgentSessionStateSnapshot, Message, Thread } from "@hyperidle/domain-model";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { computeSenderGrouping, ThreadShell } from "../ds";
 
@@ -139,7 +139,7 @@ describe("ThreadShell (approved.md §2.6 + §4 states)", () => {
 		expect(screen.queryByPlaceholderText(/reply to thread/i)).toBeNull();
 	});
 
-	// L1 step9 (Design-C2): sender-grouping per approved.md §2.4 + §8 hard-rule 3.
+	// sender-grouping per approved.md §2.4 + §8 hard-rule 3.
 	it("sender-grouping: shows the sender header on the FIRST of three same-sender messages within 5 minutes", () => {
 		const thread = baseThread;
 		const make = (id: string, ts: string): Message => ({
@@ -173,7 +173,7 @@ describe("ThreadShell (approved.md §2.6 + §4 states)", () => {
 		expect(founderEls.length).toBe(1);
 	});
 
-	// L1 step9 (Design-C2): a 6+ minute gap breaks the group → 2 headers.
+	// a 6+ minute gap breaks the group → 2 headers.
 	it("sender-grouping: a 6-minute gap creates a new group", () => {
 		const thread = baseThread;
 		const make = (id: string, ts: string): Message => ({
@@ -204,12 +204,11 @@ describe("ThreadShell (approved.md §2.6 + §4 states)", () => {
 		expect(screen.getAllByText("Founder").length).toBe(2);
 	});
 
-	// L11 plan §6.2: the legacy 'Unresolved review · acting required' link
-	// is removed. The card sits in-stream, so there is nothing for the link
-	// to scroll to. The previous J3 fallback test inverts: assert the link
-	// is NEVER rendered, even when the most recent message is an unresolved
-	// review.
-	it("L11: 'Unresolved review' link is NOT rendered (card replaces sticky bar)", () => {
+	// The legacy 'Unresolved review · acting required' link is removed. The
+	// card sits in-stream, so there is nothing for the link to scroll to.
+	// This inverts the previous fallback test: assert the link is NEVER
+	// rendered, even when the most recent message is an unresolved review.
+	it("'Unresolved review' link is NOT rendered — the card replaces the sticky bar", () => {
 		render(
 			<ThreadShell
 				thread={baseThread}
@@ -233,7 +232,7 @@ describe("ThreadShell (approved.md §2.6 + §4 states)", () => {
 		expect(screen.queryByText(/unresolved review/i)).toBeNull();
 	});
 
-	// L1 step9 (Arch): isBlocking wired into the host banner.
+	// isBlocking wired into the host banner.
 	it("isBlocking: shows BLOCKED chip when an unresolved-review thread has the agent's session active", () => {
 		const snapshot: AgentSessionStateSnapshot = {
 			pausedOnThreadId: null,
@@ -248,7 +247,7 @@ describe("ThreadShell (approved.md §2.6 + §4 states)", () => {
 				agentSessionState={snapshot}
 			/>,
 		);
-		// L11: both the banner AND the in-stream RichMessageCard surface the
+		// Both the banner AND the in-stream RichMessageCard surface the
 		// blocking signal as a "BLOCKED" chip (text + colour, not colour-only).
 		// Assert at least one renders; the banner one specifically lives in the
 		// host-banner region.
@@ -273,7 +272,7 @@ describe("ThreadShell (approved.md §2.6 + §4 states)", () => {
 		expect(screen.queryByText("BLOCKED")).toBeNull();
 	});
 
-	// L1 step9 (Design-C4): shape-transition region carries aria-live="polite".
+	// shape-transition region carries aria-live="polite".
 	it("a11y: container exposes aria-live='polite' for shape-change announcements", () => {
 		render(
 			<ThreadShell
@@ -326,5 +325,139 @@ describe("computeSenderGrouping (approved.md §2.4)", () => {
 			make("b", "u2", "2026-04-19T12:00:30.000Z"),
 		]);
 		expect(result.map((g) => g.showSenderHeader)).toEqual([true, true]);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Promotion rule: at most one RichMessageCard per thread
+// ---------------------------------------------------------------------------
+
+function review(id: string, createdAt: string, resolvedAt: string | null = null): Message {
+	return {
+		id,
+		threadId: "t-1",
+		senderId: "agent-1",
+		clientKey: id,
+		blockId: null,
+		deletedAt: null,
+		redactedAt: null,
+		resolvedAt,
+		createdAt,
+		type: "review",
+		payload: {
+			title: `Review ${id}`,
+			reasoning: ["short"],
+			producedItemId: `art-${id}`,
+		},
+	};
+}
+
+describe("ThreadShell promotion", () => {
+	it("mounts at most ONE RichMessageCard for a thread with two unresolved reviews", () => {
+		render(
+			<ThreadShell
+				thread={baseThread}
+				messages={[
+					review("r-old", "2026-04-19T12:00:00.000Z"),
+					review("r-new", "2026-04-19T12:30:00.000Z"),
+				]}
+				identities={identities}
+				onAppendMessage={vi.fn()}
+			/>,
+		);
+		expect(screen.queryAllByTestId("rich-message-card").length).toBe(1);
+	});
+
+	it("the OLDEST unresolved review is the one promoted to a card", () => {
+		render(
+			<ThreadShell
+				thread={baseThread}
+				messages={[
+					review("r-old", "2026-04-19T12:00:00.000Z"),
+					review("r-new", "2026-04-19T12:30:00.000Z"),
+				]}
+				identities={identities}
+				onAppendMessage={vi.fn()}
+			/>,
+		);
+		const card = screen.getByTestId("rich-message-card");
+		expect(within(card).getByText("Review r-old")).toBeInTheDocument();
+	});
+
+	it("non-promoted unresolved reviews render as a CommentRow, not a second RichMessageCard", () => {
+		render(
+			<ThreadShell
+				thread={baseThread}
+				messages={[
+					review("r-old", "2026-04-19T12:00:00.000Z"),
+					review("r-new", "2026-04-19T12:30:00.000Z"),
+				]}
+				identities={identities}
+				onAppendMessage={vi.fn()}
+			/>,
+		);
+		const newRow = screen.getByText("Review r-new").closest("[data-testid='comment-row']");
+		expect(newRow).toBeInTheDocument();
+	});
+
+	it("does NOT mount the legacy thread-head section — that file is deleted", () => {
+		render(
+			<ThreadShell
+				thread={baseThread}
+				messages={[review("r-1", "2026-04-19T12:00:00.000Z")]}
+				identities={identities}
+				onAppendMessage={vi.fn()}
+			/>,
+		);
+		expect(screen.queryByTestId("thread-head")).toBeNull();
+	});
+
+	it("does NOT render the legacy 'Unresolved review · acting required' link (plan §6.2)", () => {
+		render(
+			<ThreadShell
+				thread={baseThread}
+				messages={[review("r-1", "2026-04-19T12:00:00.000Z")]}
+				identities={identities}
+				onAppendMessage={vi.fn()}
+			/>,
+		);
+		expect(screen.queryByText(/unresolved review/i)).toBeNull();
+	});
+
+	it("renders zero RichMessageCards when no rich messages exist (chat-shape)", () => {
+		const plain: Message = {
+			id: "p1",
+			threadId: "t-1",
+			senderId: "u-founder",
+			clientKey: "p1",
+			blockId: null,
+			deletedAt: null,
+			redactedAt: null,
+			resolvedAt: null,
+			createdAt: "2026-04-19T12:00:00.000Z",
+			type: "plain",
+			payload: { text: "hi" },
+		};
+		render(
+			<ThreadShell
+				thread={baseThread}
+				messages={[plain]}
+				identities={identities}
+				onAppendMessage={vi.fn()}
+			/>,
+		);
+		expect(screen.queryAllByTestId("rich-message-card").length).toBe(0);
+	});
+
+	it("renders zero RichMessageCards when every rich message is resolved", () => {
+		render(
+			<ThreadShell
+				thread={baseThread}
+				messages={[review("r-resolved", "2026-04-19T12:00:00.000Z", "2026-04-19T12:30:00.000Z")]}
+				identities={identities}
+				onAppendMessage={vi.fn()}
+			/>,
+		);
+		expect(screen.queryAllByTestId("rich-message-card").length).toBe(0);
 	});
 });

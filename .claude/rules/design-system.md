@@ -9,7 +9,7 @@ paths:
 Components live in `layers/core-ui/src/ds/` — 57 at the top level plus nested parts in subfolders,
 re-exported from `layers/core-ui/src/ds/index.ts` along with their prop types and helpers. Shell and
 region components stay in `layers/core-ui/src/shell/`. There is no separate design-system package — it
-was dissolved into `ds/`, and `design-source.test.ts` fails if one comes back.
+was dissolved into `ds/` — don't recreate it.
 
 **Single source of truth.** Each component has exactly one `.tsx` (production, Tailwind). TSX is the
 design source of truth — there are no `.html` reference files, and the `.stories.tsx` story IS the

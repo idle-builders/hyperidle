@@ -25,9 +25,9 @@ import { buildCoreActions } from "../actions/compose.js";
 import { registerWorkSessionStartedReactions } from "../services/work-session-started-reactions.js";
 
 /**
- * B7 fix: `edit_task`'s own bound `run`, for registering the started
- * reaction inline — the only way this seam test can drive a real
- * `session_started` event through `markRunning` instead of hand-seeding
+ * `edit_task`'s own bound `run`, for registering the started reaction
+ * inline — the only way this seam test can drive a real `session_started`
+ * event through `markRunning` instead of hand-seeding
  * `taskDispatchAttempts.sessionId`.
  */
 function editTaskFrom(
@@ -759,10 +759,9 @@ describe("dispatch", () => {
 			updatedAt: now,
 		});
 		// The predecessor's live dispatch attempt, seeded the way `insertAttempt`
-		// really leaves it — no `requestId`/`sessionId` yet. B7 fix: those are
-		// filled by a REAL `session_started` event through `markRunning`
-		// (§1's repair), never hand-seeded — the exact shape that let the
-		// original defect (§1) ship unnoticed.
+		// really leaves it — no `requestId`/`sessionId` yet. Those fields are
+		// filled by a REAL `session_started` event through `markRunning`, never
+		// hand-seeded.
 		await db.insert(taskDispatchAttempts).values({
 			id: "ta-handoff-attempt-1",
 			taskId: "ta-handoff-task",

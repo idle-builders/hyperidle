@@ -1,7 +1,7 @@
 /**
  * The filesystem belongs to the work, not to the session.
  *
- * BA2: a session that ends by calling `submit_review` is not finished — it is
+ * A session that ends by calling `submit_review` is not finished — it is
  * waiting, and a human may take days. When the verdict comes the agent is
  * resumed IN THAT DIRECTORY. Destroying it at teardown does not merely lose the
  * agent's files: the resume spawns the harness with a working directory that no
@@ -20,18 +20,16 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import { users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
-import { afterEach, describe, vi } from "vitest";
+import { afterEach, describe } from "vitest";
+import {
+	buildRunningHarnessPorts,
+	type FakeHarnessAdapter,
+	type ProvisionSessionDeps,
+	type ProvisionSessionParams,
+	type SessionLifecyclePorts,
+} from "../__testing__/test-fixtures.js";
 import { createProvisioner } from "../provisioner.js";
 import { recordReviewSession } from "../review-sessions.js";
-
-type CreateProvisioner = typeof createProvisioner;
-type SessionLifecyclePorts = Parameters<CreateProvisioner>[0];
-type Provisioner = ReturnType<CreateProvisioner>;
-type AdmitArgs = Parameters<Provisioner["admit"]>;
-type ProvisionSessionDeps = AdmitArgs[0];
-type ProvisionSessionParams = AdmitArgs[1];
-type FakeAdapterPoolEntry = NonNullable<ReturnType<ProvisionSessionDeps["adapterPool"]["select"]>>;
-type FakeHarnessAdapter = FakeAdapterPoolEntry["adapter"];
 
 /** A harness whose turn calls exactly the tool named — through the MCP namespace, as production does. */
 function buildFakeHarnessAdapter(
@@ -66,69 +64,23 @@ function buildFakeHarnessAdapter(
 }
 
 /**
- * @lore BA2: `bridgeCall` models the path PRODUCTION takes. With the MCP bridge
- * open, a tool call arrives through `openMcpBridge`'s `onToolCall` and never
- * appears in `streamEvents` at all. A version of this suite that only drove the
- * stream passed while every real run destroyed the sandbox anyway.
+ * @lore with the MCP bridge open, a tool call arrives via `onToolCall`, never `streamEvents` — `bridgeCall` models that real path.
  */
 function buildHarnessPorts(
 	bridgeCall: string | undefined,
 	onReturnAction: (toolName: string) => Promise<void>,
 ): SessionLifecyclePorts {
-	const neverCalled = (label: string) =>
-		vi.fn(() => {
-			throw new Error(`${label}: must not be called in this test scenario`);
-		});
-	return {
-		sessionRequests: {
-			findSessionRequest: neverCalled("sessionRequests.findSessionRequest"),
-			listSessionRequests: neverCalled("sessionRequests.listSessionRequests"),
-			transitionSessionRequest: neverCalled("sessionRequests.transitionSessionRequest"),
-			abortSessionRun: neverCalled("sessionRequests.abortSessionRun"),
-			registerSessionRun: vi.fn(),
-			deregisterSessionRun: vi.fn(),
-		},
-		observability: { summarizeToolArgs: () => "" },
-		harnessRuntime: {
-			enforcementRegistry: {
-				register: vi.fn(),
-				get: vi.fn(() => undefined),
-				incrementForce: vi.fn(),
-				unregister: vi.fn(),
-			},
-			createReturnGate: () => ({ observe: () => undefined, returned: true }),
-			evaluateReturn: () => "returned" as const,
-			provisionReturnHook: async () => undefined,
-			writeCliMcpConfig: neverCalled("harnessRuntime.writeCliMcpConfig"),
-			writePluginStdioMcpEntries: neverCalled("harnessRuntime.writePluginStdioMcpEntries"),
-			openMcpBridge: bridgeCall
-				? async ({
-						onToolCall,
-					}: {
-						onToolCall: (c: { toolName: string; args: unknown }) => void;
-					}) => {
-						await onReturnAction(bridgeCall);
-						onToolCall({ toolName: bridgeCall, args: {} });
-						return { token: "tok", url: "http://127.0.0.1:0/mcp" };
-					}
-				: neverCalled("harnessRuntime.openMcpBridge"),
-			closeMcpBridge: bridgeCall
-				? async () => undefined
-				: neverCalled("harnessRuntime.closeMcpBridge"),
-		},
-		toolProvider: {
-			buildToolRegistry: () => ({ invoke: async () => ({ success: true, data: undefined }) }),
-			toolsForRole: () => [],
-			returnStatusToolForRegistry: () => ({ name: "return_status" }),
-		},
-		contextAssembly: {
-			assembleAgentContext: neverCalled("contextAssembly.assembleAgentContext"),
-			beginAgentWriteback: () => ({ dispose: () => undefined }),
-			assemblePrompt: neverCalled("contextAssembly.assemblePrompt"),
-			assembleSubscriptionPrompt: neverCalled("contextAssembly.assembleSubscriptionPrompt"),
-			writeSandboxAgentsMd: vi.fn(),
-		},
-	} as unknown as SessionLifecyclePorts;
+	return buildRunningHarnessPorts({
+		createReturnGate: () => ({ observe: () => undefined, returned: true }),
+		openMcpBridge: bridgeCall
+			? async ({ onToolCall }) => {
+					await onReturnAction(bridgeCall);
+					onToolCall?.({ toolName: bridgeCall, args: {} });
+					return { token: "tok", url: "http://127.0.0.1:0/mcp" };
+				}
+			: undefined,
+		closeMcpBridge: bridgeCall ? async () => undefined : undefined,
+	});
 }
 
 interface RunOutcome {
@@ -228,10 +180,7 @@ async function runOnce(
 	const admitted = await provisioner.admit(deps, params);
 	sessionIdForLink = admitted.sessionId;
 	await provisioner.run(deps, params, admitted);
-	// @lore BA2: assert the DIRECTORY, not the `workspace.destroy` spy. The
-	// delete that matters is the `fs.rm` in the terminal transition; the adapter's
-	// destroy removes an already-removed tree. A version of this suite that
-	// watched only the spy passed while every real run deleted the sandbox.
+	// @lore assert the sandbox DIRECTORY, not the `workspace.destroy` spy — the real delete is the `fs.rm` in the terminal transition.
 	const target = opts.resumeFrom ?? sandboxPath;
 	return { survives: fs.existsSync(target), destroyed, adopted, resumedIn: resumed.path };
 }

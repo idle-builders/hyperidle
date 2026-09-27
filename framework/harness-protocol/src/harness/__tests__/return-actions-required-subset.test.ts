@@ -1,12 +1,10 @@
 /**
- * AU27 Increment 3 (Decision 3) — the return-gate's required-subset
- * narrowing. Plain membership in the closed return set both under-binds a
- * session with a specific required action (a session could satisfy the gate
- * with either of the two names, not the one it actually needs) and
- * over-permits one (the assistant has both `send_message` and `edit_task` in
- * its ordinary registry too). `isRequiredReturnAction`/
- * `buildForceReturnMessage`/`shouldForceReturn`'s `required` param close
- * that gap — the requirement is a SET, never a lone string.
+ * The return-gate's required-subset narrowing: plain membership in the closed return set both
+ * under-binds a session with a specific required action (it could satisfy the gate with either of
+ * two names, not the one it actually needs) and over-permits one (the assistant has both
+ * `send_message` and `edit_task` in its ordinary registry too). `isRequiredReturnAction`/
+ * `buildForceReturnMessage`/`shouldForceReturn`'s `required` param close that gap — the requirement
+ * is a SET, never a lone string.
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -18,9 +16,8 @@ import {
 } from "../return-actions.js";
 
 /**
- * B4 — `edit_task`'s own-task-and-moves-away-from-the-agent gate
- * (`isReturnAction`'s `@lore`). Terminal only when the edit is the session's
- * OWN task AND moves it away from the calling agent.
+ * `edit_task`'s own-task-and-moves-away-from-the-agent gate (`isReturnAction`'s `@lore`).
+ * Terminal only when the edit is the session's OWN task AND moves it away from the calling agent.
  */
 describe("isReturnAction — edit_task is gated on the session's own task moving away from the agent", () => {
 	it("own task + owner change ⇒ terminal (the handoff case)", () => {
@@ -60,10 +57,7 @@ describe("isReturnAction — edit_task is gated on the session's own task moving
 	});
 
 	/**
-	 * @lore BC3 R1: `isReturnAction` already returns false on `!taskId` before
-	 * the `args.id === taskId` comparison ever runs, so a thread turn (no
-	 * session task) cannot be ended by `edit_task` no matter what it creates.
-	 * Pinned here so a future edit cannot silently widen the guard.
+	 * @lore `isReturnAction` returns false on `!taskId` before comparing args.id — a thread turn can never be ended by `edit_task`.
 	 */
 	it("edit_task with no id and no session task is not terminal", () => {
 		expect(isReturnAction("edit_task", { ownerAgentId: "agent-7" }, undefined)).toBe(false);

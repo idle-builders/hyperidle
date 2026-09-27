@@ -42,8 +42,8 @@ export interface BakedWorkIntentRequest {
 	/**
 	 * The `assistant_turn` family's baked
 	 * thread transcript (`@hyperidle/conversation`'s `resolveAssistantTurnRequest`).
-	 * Absent for every other kind — `task_run`/`knowledge_action`/`subscription_run`/
-	 * Others instead bake a `contextBundle` (Decision H3, Increment 12).
+	 * Absent for every other kind — `task_run`/`subscription_run` instead bake
+	 * a `contextBundle` (Decision H3, Increment 12).
 	 */
 	readonly transcript?: ReadonlyArray<{
 		readonly senderId: string;
@@ -51,8 +51,7 @@ export interface BakedWorkIntentRequest {
 		readonly type: string;
 	}>;
 	/**
-	 * The `task_run`/`knowledge_action`/
-	 * `subscription_run` families' baked entity content (task/bet/
+	 * The `task_run`/`subscription_run` families' baked entity content (task/bet/
 	 * agent/team, or subscription/agent/team) plus the ranked+budgeted
 	 * documents `@hyperidle/document`'s `assembleSessionDocuments` produces —
 	 * `context.ts`'s `SessionContextData`/`SubscriptionSessionContextData` content,
@@ -66,8 +65,8 @@ export interface BakedWorkIntentRequest {
 	/**
 	 * The target agent's
 	 * runnable-config snapshot, baked at emit time by EVERY per-kind resolver
-	 * (all six kinds — `admitSession`'s Phase 1 applies uniformly, not just to
-	 * the four `contextBundle`-baking families) from the SAME `agent: User` row
+	 * (all four kinds — `admitSession`'s Phase 1 applies uniformly, not just to
+	 * the two `contextBundle`-baking families) from the SAME `agent: User` row
 	 * `requireRunnableAgent` already loaded + validated there. Replaces
 	 * `admitSession`'s former live `ports.users.getUserById` read — a snapshot
 	 * check, not a live one (the emit→deactivate→drain race stays open exactly
@@ -88,8 +87,7 @@ export interface BakedWorkIntentRequest {
 	/**
 	 * The session's calling thread id, baked at emit time by every
 	 * resolver whose kind has a real thread host: `assistant_turn` (the
-	 * conversation thread), `task_run`/`session_start`/
-	 * `knowledge_action` (the
+	 * conversation thread), `task_run` (the
 	 * document's thread). `subscription_run` bakes none — a subscription has no
 	 * thread host — and its `reply` tool call falls back to a direct thread
 	 * with the sole human user instead. Carried through onto the created
@@ -314,8 +312,8 @@ export function toBakedContextDocuments(
  * `task_run` session needs (`kind:"task"`, matching
  * `context.ts`'s `SessionContextData`), a `subscription_run` session needs
  * (`kind:"subscription"`, matching `SubscriptionSessionContextData`), or a
- * `knowledge_action` session needs (`kind:"knowledge"` — the flagged item
- * itself, since a review turn has no task or subscription), plus the shared
+ * flagged-item review needs (`kind:"knowledge"` — the flagged item itself,
+ * since a review turn has no task or subscription), plus the shared
  * ranked+budgeted `documents` bundle every variant carries.
  */
 export type BakedContextBundle =
@@ -378,19 +376,11 @@ export type BakedContextBundle =
 	  };
 
 /**
- * Widened from the AC-9 2-kind
- * (`assistant_turn`/`session_start`) scope to the FULL six-kind
- * discriminated union (`bet_decomposition` was removed, shrinking the
- * union from seven to six), matching
- * `agent_work_intents_kind_ck` + `agent_work_intents_kind_source_compat_ck`
- * (`framework/db/src/schema.ts`) exactly. `work` (`task_run`) and `review`
- * used to re-declare their own narrower local mirrors of
- * this exact shape (`WorkAgentWorkIntentInput`/`ReviewAgentWorkIntentInput`)
- * purely because this union hadn't grown to cover their kinds yet — now that
- * it does, every caller imports this ONE type and the mirrors are deleted
- * (`tsc` enforces conformance mechanically, not by convention). See
- * `AGENT_WORK_INTENT_KINDS` below for the runtime-checkable kind list this
- * union's discriminant is built from.
+ * The one discriminated union every emitter of an `agent_work_intents` row
+ * imports — matching `agent_work_intents_kind_ck` +
+ * `agent_work_intents_kind_source_compat_ck` (`framework/db/src/schema.ts`)
+ * exactly. See `AGENT_WORK_INTENT_KINDS` below for the runtime-checkable kind
+ * list this union's discriminant is built from.
  */
 export type AgentWorkIntentRecorderInput =
 	| {
@@ -402,24 +392,6 @@ export type AgentWorkIntentRecorderInput =
 			readonly requestedBy?: string;
 			readonly idempotencyKey: string;
 			/** See `BakedWorkIntentRequest`. Populated at emit time by the `thread` module's wake rule. */
-			readonly bakedRequest?: BakedWorkIntentRequest;
-	  }
-	| {
-			readonly kind: "session_start";
-			readonly sourceKind: "explicit_session_start";
-			readonly sourceId: string;
-			readonly requestedBy?: string;
-			readonly idempotencyKey: string;
-			/** See `BakedWorkIntentRequest`. Populated at emit time by the `work` resolver. */
-			readonly bakedRequest?: BakedWorkIntentRequest;
-	  }
-	| {
-			readonly kind: "knowledge_action";
-			readonly sourceKind: "knowledge_action";
-			readonly sourceId: string;
-			readonly requestedBy?: string;
-			readonly idempotencyKey: string;
-			/** See `BakedWorkIntentRequest`. Populated at emit time by the `knowledge` resolver. */
 			readonly bakedRequest?: BakedWorkIntentRequest;
 	  }
 	| {
@@ -478,8 +450,6 @@ export type AgentWorkIntentRecorderInput =
  */
 export const AGENT_WORK_INTENT_KINDS = [
 	"thread_turn",
-	"session_start",
-	"knowledge_action",
 	"task_run",
 	"session_resume",
 	"subscription_run",

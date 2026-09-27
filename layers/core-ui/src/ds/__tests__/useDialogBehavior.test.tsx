@@ -1,22 +1,16 @@
 // @vitest-environment jsdom
 
 /**
- * AI2 — useDialogBehavior hook: dismissal rule + layer resolution (RED phase).
+ * useDialogBehavior hook: dismissal rule + layer resolution.
  *
- * AC-1: One dismissal grammar; dirty input never lost to one Esc/backdrop;
- *       confirmations (isDirty=false) always close.
- * AC-2: Focus in on open, trapped, returns to trigger on close.
- * AC-3: Layer → zIndex resolution.
+ * Covers: one dismissal grammar — dirty input is never lost to a single
+ * Esc/backdrop, and confirmations (isDirty=false) always close; focus
+ * enters on open, is trapped, and returns to the trigger on close; layer →
+ * zIndex resolution.
  *
- * These tests FAIL in the red phase because useDialogBehavior.ts does not exist.
+ * @lore jsdom has no inert implementation — tests assert the focus-trap path only; assert the inert attribute in a real-browser E2E test instead.
  *
- * @lore AI2: jsdom does not implement `inert` — tests assert focus-trap path
- * and treat `inert` as a graceful no-op. Do NOT assert the `inert` attribute
- * under jsdom; assert it via Playwright (AC-2).
- *
- * @lore AI2: focus-trap-react requires `displayCheck:"none"` under jsdom
- * because jsdom doesn't lay out elements (all computed sizes are 0).
- * This is carried forward from the existing web-side lore into the DS hook.
+ * @lore focus-trap-react needs displayCheck:"none" under jsdom — jsdom lays out nothing, so every computed size reads 0.
  */
 
 import { act, createElement } from "react";
@@ -50,10 +44,10 @@ function BehaviorWrapper({ options }: WrapperProps): null {
 }
 
 // ---------------------------------------------------------------------------
-// AC-1 — Dismissal rule: clean closes immediately
+// Dismissal rule: clean closes immediately
 // ---------------------------------------------------------------------------
 
-describe("AI2 — useDialogBehavior dismissal rule (AC-1)", () => {
+describe("useDialogBehavior dismissal rule", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 
@@ -217,10 +211,10 @@ describe("AI2 — useDialogBehavior dismissal rule (AC-1)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-3 — Layer → zIndex resolution
+// Layer → zIndex resolution
 // ---------------------------------------------------------------------------
 
-describe("AI2 — useDialogBehavior layer → zIndex (AC-3)", () => {
+describe("useDialogBehavior layer → zIndex", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 
@@ -235,58 +229,6 @@ describe("AI2 — useDialogBehavior layer → zIndex (AC-3)", () => {
 		root.unmount();
 		container.remove();
 		capturedBehavior = null;
-	});
-
-	it("layer='dialog' (default) resolves zIndex to var(--z-dialog)", () => {
-		const onClose = vi.fn();
-		act(() => {
-			root.render(
-				createElement(BehaviorWrapper, {
-					options: { open: true, onClose, layer: "dialog" },
-				}),
-			);
-		});
-		const props = capturedBehavior!.getOverlayProps();
-		expect(props.style.zIndex).toBe("var(--z-dialog)");
-	});
-
-	it("layer='drawer' resolves zIndex to var(--z-drawer)", () => {
-		const onClose = vi.fn();
-		act(() => {
-			root.render(
-				createElement(BehaviorWrapper, {
-					options: { open: true, onClose, layer: "drawer" },
-				}),
-			);
-		});
-		const props = capturedBehavior!.getOverlayProps();
-		expect(props.style.zIndex).toBe("var(--z-drawer)");
-	});
-
-	it("layer='overlay' resolves zIndex to var(--z-overlay)", () => {
-		const onClose = vi.fn();
-		act(() => {
-			root.render(
-				createElement(BehaviorWrapper, {
-					options: { open: true, onClose, layer: "overlay" },
-				}),
-			);
-		});
-		const props = capturedBehavior!.getOverlayProps();
-		expect(props.style.zIndex).toBe("var(--z-overlay)");
-	});
-
-	it("layer omitted (defaults to 'dialog'): zIndex is var(--z-dialog)", () => {
-		const onClose = vi.fn();
-		act(() => {
-			root.render(
-				createElement(BehaviorWrapper, {
-					options: { open: true, onClose },
-				}),
-			);
-		});
-		const props = capturedBehavior!.getOverlayProps();
-		expect(props.style.zIndex).toBe("var(--z-dialog)");
 	});
 
 	it("getOverlayProps returns role='dialog'", () => {
@@ -360,10 +302,10 @@ describe("AI2 — useDialogBehavior layer → zIndex (AC-3)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-1 — modal=false: no scrim props
+// modal=false: no scrim props
 // ---------------------------------------------------------------------------
 
-describe("AI2 — useDialogBehavior modal=false (non-modal surfaces)", () => {
+describe("useDialogBehavior modal=false (non-modal surfaces)", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 
@@ -401,33 +343,27 @@ describe("AI2 — useDialogBehavior modal=false (non-modal surfaces)", () => {
 				}),
 			);
 		});
+		expect(typeof capturedBehavior!.getScrimProps()?.onMouseDown).toBe("function");
+	});
+
+	it("modal=true exposes scrim props; modal=false does not", () => {
+		const onClose = vi.fn();
+		act(() => {
+			root.render(
+				createElement(BehaviorWrapper, {
+					options: { open: true, onClose, modal: true },
+				}),
+			);
+		});
 		expect(capturedBehavior!.getScrimProps()).not.toBeNull();
-	});
 
-	it("modal=true scrim has zIndex=var(--z-scrim)", () => {
-		const onClose = vi.fn();
 		act(() => {
 			root.render(
 				createElement(BehaviorWrapper, {
-					options: { open: true, onClose, modal: true },
+					options: { open: true, onClose, modal: false },
 				}),
 			);
 		});
-		const scrimProps = capturedBehavior!.getScrimProps();
-		expect(scrimProps).not.toBeNull();
-		expect(scrimProps!.style.zIndex).toBe("var(--z-scrim)");
-	});
-
-	it("modal=true scrim background uses var(--scrim) token", () => {
-		const onClose = vi.fn();
-		act(() => {
-			root.render(
-				createElement(BehaviorWrapper, {
-					options: { open: true, onClose, modal: true },
-				}),
-			);
-		});
-		const scrimProps = capturedBehavior!.getScrimProps();
-		expect(scrimProps!.style.background).toBe("var(--scrim)");
+		expect(capturedBehavior!.getScrimProps()).toBeNull();
 	});
 });

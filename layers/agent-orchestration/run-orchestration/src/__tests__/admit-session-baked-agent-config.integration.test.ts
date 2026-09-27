@@ -1,147 +1,38 @@
 /**
- * AU21 §9 Increment 12 (Decision H3), Wave E — updated by the THIRD,
- * founder-final pass (see `provisioner.ts`'s top-of-file Wave E `@lore`).
- *
- * Closes the formerly still-open `run-orchestration -> core-api` live reads
- * `provisioner.ts`'s `admitSession` used to perform
- * (`ports.settings.readServerConfig` Phase 3, `ports.routine.getRoutineById`
- * the admission-time per-run cost cap read (AU21 Increment 14a: this whole
- * cap is since deleted, no replacement), and — as of the third pass —
- * `ports.users`/`ports.agentRunnability` entirely) — see `provisioner.ts`'s
- * own Wave E top-of-file note and
- * `scripts/composition-edge-anti-regrowth-guard.ts`'s `DEFERRED_FOLLOWUP`
- * (no longer carries `run-orchestration::settings`/`::routine`/`::users` at
- * all).
- *
- * History (kept for context, not because it still stands as written): a
- * second pass restored a narrow live `kind`/`status` re-check
- * (`SessionLifecycleAgentRunnabilityReader.checkAgentRunnable`), reasoning
- * every per-kind resolver's `requireRunnableAgent` call guarantees the baked
- * snapshot is always runnable at emit time, so a baked-only re-check could
- * never catch a real emit→deactivate→drain race. The founder rejected that
- * pass outright ("the orchestration is a blind executer"), and a follow-up
- * event/subscriber mechanism ALSO rejected ("if it doesn't get a request to
- * do something it doesn't do something"). The resolution is a pure deletion,
- * no replacement: `SessionLifecyclePorts` carries no `users`/`agentRunnability`
- * field of any kind. Phase 1's baked `kind`/`status` check is DEFENSE-IN-DEPTH
- * ONLY (a resolver-bug consistency assertion, never a live authority gate) —
- * the emit→deactivate→drain race itself is now a named, accepted non-issue,
- * proven in `admit-session-defense-in-depth-only.integration.test.ts`.
- *
- * The two tests below are GREEN: `admitSession` consults
- * `params.harnessDisabled` for Phase 3 (no `ports.settings`/`ports.routine`
- * field exists at all — AU21 Increment 14a additionally deleted the
- * admission-time per-run cost cap this file used to also cover), and
- * `params.agentConfig` for every Phase 1 field, including the
- * defense-in-depth `kind`/`status` check — with zero live read of any kind.
+ * `admitSession` admits purely from the baked snapshot on `params.agentConfig`
+ * — `SessionLifecyclePorts` carries no live users/settings/routine/
+ * agentRunnability field to consult, so nothing about runnability, MCP
+ * plugin config, or cost is ever read live. The Phase 1 kind/status check is
+ * defense-in-depth only, not a live authority gate: a bad bake still throws
+ * `TargetAgentNotRunnableError` even when the live row is runnable, and a
+ * good bake still admits even when the live row was deactivated after emit.
  */
 
 import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import { type HyperIdleDb, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
-import { describe, vi } from "vitest";
+import { afterEach, describe } from "vitest";
+import {
+	buildNeverCalledPorts,
+	type ProvisionSessionDeps,
+	type ProvisionSessionParams,
+	rejectingHarnessAdapter,
+} from "../__testing__/test-fixtures.js";
 import { TargetAgentNotRunnableError } from "../errors.js";
 import { createProvisioner } from "../provisioner.js";
 
-type CreateProvisioner = typeof createProvisioner;
-type SessionLifecyclePorts = Parameters<CreateProvisioner>[0];
-type Provisioner = ReturnType<CreateProvisioner>;
-type AdmitArgs = Parameters<Provisioner["admit"]>;
-type ProvisionSessionDeps = AdmitArgs[0];
-type ProvisionSessionParams = AdmitArgs[1];
-type FakeAdapterPoolEntry = NonNullable<ReturnType<ProvisionSessionDeps["adapterPool"]["select"]>>;
-type FakeHarnessAdapter = FakeAdapterPoolEntry["adapter"];
-
-/** A harness adapter that is never actually invoked by `admitSession` (Phases 1-7 stop short of harness spawn). */
-function buildFakeHarnessAdapter(): FakeHarnessAdapter {
-	return {
-		startSession: () => Promise.reject(new Error("must not be called by admitSession")),
-		streamEvents: () => ({
-			[Symbol.asyncIterator]() {
-				throw new Error("must not be called by admitSession");
-			},
-		}),
-		stopSession: () => Promise.reject(new Error("must not be called by admitSession")),
-		getCapabilities: () => ({
-			preCompactionTrigger: false,
-			subAgents: false,
-			modelProviders: [],
-			mcpSupport: false,
-			returnEnforcement: "none" as const,
-		}),
-	};
-}
-
-/**
- * Minimal, harmless `SessionLifecyclePorts` fixture — every field admitSession's
- * Phases 1-7 do not exercise in this test's scenarios (bare, task-free,
- * unmounted sessions) is a `vi.fn()` that throws if ever called, so an
- * unexpected invocation fails loudly instead of silently no-op'ing.
- */
-function buildHarnessPorts(overrides: Partial<SessionLifecyclePorts>): SessionLifecyclePorts {
-	const neverCalled = (label: string) =>
-		vi.fn(() => {
-			throw new Error(`${label}: must not be called in this test scenario`);
-		});
-	const base: SessionLifecyclePorts = {
-		sessionRequests: {
-			findSessionRequest: neverCalled("sessionRequests.findSessionRequest"),
-			listSessionRequests: neverCalled("sessionRequests.listSessionRequests"),
-			transitionSessionRequest: neverCalled("sessionRequests.transitionSessionRequest"),
-			abortSessionRun: neverCalled("sessionRequests.abortSessionRun"),
-			registerSessionRun: neverCalled("sessionRequests.registerSessionRun"),
-			deregisterSessionRun: neverCalled("sessionRequests.deregisterSessionRun"),
-		},
-		observability: {
-			summarizeToolArgs: () => "",
-		},
-		// AU21 §9 Increment 12 follow-up (F2 gap closure): `SessionLifecyclePorts`
-		// no longer carries a `filesystems` seam reader at all — see
-		// `admit-session-baked-filesystems.integration.test.ts` for the baked-list
-		// proof that replaces it. AU21 Increment 14a: the `cost` port
-		// (`checkCostCap`/`recordCostAndCheck`) is deleted along with the rest
-		// of the cost feature — `SessionLifecyclePorts` no longer carries it.
-		harnessRuntime: {
-			enforcementRegistry: {
-				register: neverCalled("harnessRuntime.enforcementRegistry.register"),
-				get: neverCalled("harnessRuntime.enforcementRegistry.get"),
-				incrementForce: neverCalled("harnessRuntime.enforcementRegistry.incrementForce"),
-				unregister: neverCalled("harnessRuntime.enforcementRegistry.unregister"),
-			},
-			createReturnGate: neverCalled("harnessRuntime.createReturnGate"),
-			evaluateReturn: neverCalled("harnessRuntime.evaluateReturn"),
-			provisionReturnHook: neverCalled("harnessRuntime.provisionReturnHook"),
-			writeCliMcpConfig: neverCalled("harnessRuntime.writeCliMcpConfig"),
-			writePluginStdioMcpEntries: neverCalled("harnessRuntime.writePluginStdioMcpEntries"),
-			openMcpBridge: neverCalled("harnessRuntime.openMcpBridge"),
-			closeMcpBridge: neverCalled("harnessRuntime.closeMcpBridge"),
-		},
-		toolProvider: {
-			buildToolRegistry: neverCalled("toolProvider.buildToolRegistry"),
-			toolsForRole: () => [],
-			returnStatusToolForRegistry: neverCalled("toolProvider.returnStatusToolForRegistry"),
-		},
-		contextAssembly: {
-			assembleAgentContext: neverCalled("contextAssembly.assembleAgentContext"),
-			beginAgentWriteback: () => ({ dispose: () => undefined }),
-			assemblePrompt: neverCalled("contextAssembly.assemblePrompt"),
-			assembleSubscriptionPrompt: neverCalled("contextAssembly.assembleSubscriptionPrompt"),
-			writeSandboxAgentsMd: neverCalled("contextAssembly.writeSandboxAgentsMd"),
-		},
-	};
-	return { ...base, ...overrides };
-}
-
-function buildDeps(db: HyperIdleDb): ProvisionSessionDeps {
+function buildDeps(db: HyperIdleDb, sandboxPath: string): ProvisionSessionDeps {
 	return {
 		db,
 		eventBus: new EventBus(),
 		adapterPool: {
 			select: () => ({
 				id: "fake-adapter",
-				adapter: buildFakeHarnessAdapter(),
+				adapter: rejectingHarnessAdapter(),
 				meta: {
 					name: "Fake",
 					kind: "local",
@@ -156,11 +47,10 @@ function buildDeps(db: HyperIdleDb): ProvisionSessionDeps {
 		workspace: {
 			// A real workspace adapter always materializes the directory it hands
 			// back (LocalSandboxAdapter.spawn) — admitSession's post-mount
-			// `ensureSandboxGitRepo` step now depends on that, so this fake must
-			// honor it too.
+			// `ensureSandboxGitRepo` step depends on that, so this fake must honor it too.
 			spawn: async () => {
-				fs.mkdirSync("/tmp/au21-admit-session-baked-config", { recursive: true });
-				return { sandboxId: "sbx-1", path: "/tmp/au21-admit-session-baked-config" };
+				fs.mkdirSync(sandboxPath, { recursive: true });
+				return { sandboxId: "sbx-1", path: sandboxPath };
 			},
 			exec: async () => ({ stdout: "", stderr: "", exitCode: 0 }),
 			adopt: (path: string) => Promise.resolve({ sandboxId: "sb-adopted", path }),
@@ -169,34 +59,47 @@ function buildDeps(db: HyperIdleDb): ProvisionSessionDeps {
 	};
 }
 
-describe("admitSession — baked agent-runnability config (Increment 12 Wave E)", () => {
-	test("a deactivated agent's BAKED snapshot still fails provisioning, even when the agent's LIVE row is runnable", async ({
+describe("admitSession — baked agent-runnability config", () => {
+	const sandboxDirs: string[] = [];
+	afterEach(() => {
+		for (const dir of sandboxDirs.splice(0)) {
+			fs.rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	function freshSandbox(): string {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), "admit-session-baked-config-"));
+		sandboxDirs.push(dir);
+		return dir;
+	}
+
+	test("a bad bake still throws TargetAgentNotRunnableError, even when the live row is runnable", async ({
 		db,
 	}) => {
 		const now = new Date().toISOString();
+		// The LIVE row is runnable — proving Phase 1 does not (and structurally
+		// cannot: `SessionLifecyclePorts` carries no `users` field at all)
+		// consult it. Only the BAKED snapshot on `params.agentConfig` governs.
 		await db.insert(users).values({
-			id: "wave-e-agent-1",
+			id: "runnable-agent",
 			kind: "ai",
 			name: "Agent One",
 			role: "builder",
 			status: "active",
 			createdAt: now,
 		});
-		// The LIVE row is runnable — proving Phase 1 does not (and structurally
-		// cannot: `SessionLifecyclePorts` carries no `users` field at all)
-		// consult it. Only the BAKED snapshot on `params.agentConfig` below
-		// governs the outcome.
-		const [liveRunnableAgent] = await db.select().from(users).where(eq(users.id, "wave-e-agent-1"));
+		const [liveRunnableAgent] = await db.select().from(users).where(eq(users.id, "runnable-agent"));
 		if (!liveRunnableAgent) throw new Error("fixture insert failed");
 
-		const ports = buildHarnessPorts({});
+		const sandboxPath = freshSandbox();
+		const ports = buildNeverCalledPorts();
 		const provisioner = createProvisioner(ports);
 
 		const params: ProvisionSessionParams = {
 			taskId: null,
-			agentId: "wave-e-agent-1",
+			agentId: "runnable-agent",
 			productId: "task-free",
-			sandboxBasePath: "/tmp/au21-admit-session-baked-config",
+			sandboxBasePath: sandboxPath,
 			// The BAKED snapshot (what the emit-time resolver produced) says this
 			// agent is NOT runnable — deliberately mismatched from the live row
 			// above to isolate which source of truth Phase 1 consults.
@@ -208,68 +111,78 @@ describe("admitSession — baked agent-runnability config (Increment 12 Wave E)"
 			},
 		};
 
-		await expect(provisioner.admit(buildDeps(db as HyperIdleDb), params)).rejects.toBeInstanceOf(
-			TargetAgentNotRunnableError,
-		);
+		await expect(
+			provisioner.admit(buildDeps(db as HyperIdleDb, sandboxPath), params),
+		).rejects.toBeInstanceOf(TargetAgentNotRunnableError);
 	});
 
-	test("admitSession admits purely from a fully-baked snapshot — SessionLifecyclePorts carries no users/settings/routine field to read live at all", async ({
+	test("a missing bake (agentConfig absent entirely) is a hard provisioning failure, never a silent allow", async ({
+		db,
+	}) => {
+		const sandboxPath = freshSandbox();
+		const ports = buildNeverCalledPorts();
+		const provisioner = createProvisioner(ports);
+
+		const params: ProvisionSessionParams = {
+			taskId: null,
+			agentId: "no-such-agent",
+			productId: "task-free",
+			sandboxBasePath: sandboxPath,
+			// No `agentConfig` at all — every real durable path bakes one.
+		};
+
+		await expect(
+			provisioner.admit(buildDeps(db as HyperIdleDb, sandboxPath), params),
+		).rejects.toBeInstanceOf(TargetAgentNotRunnableError);
+	});
+
+	test("a well-formed baked snapshot admits successfully with zero live read — an agent deactivated in the live row after emit still admits, by design", async ({
 		db,
 	}) => {
 		const now = new Date().toISOString();
-		// The live row exists but is never consulted — `SessionLifecyclePorts`
-		// (see `buildHarnessPorts`) structurally has no `users`/`settings`/
-		// `routine` field for `admitSession` to read through; the only
-		// mechanism left is the baked snapshot below.
 		await db.insert(users).values({
-			id: "wave-e-agent-2",
+			id: "deactivated-live-agent",
 			kind: "ai",
 			name: "Agent Two",
 			role: "builder",
 			status: "active",
 			createdAt: now,
 		});
+		// The agent is deactivated in the LIVE row after the snapshot below was
+		// baked. There is no mechanism left to consult this live row at all —
+		// admission must succeed purely from the bake.
+		await db
+			.update(users)
+			.set({ status: "archived" })
+			.where(eq(users.id, "deactivated-live-agent"));
 
-		const ports = buildHarnessPorts({});
+		const sandboxPath = freshSandbox();
+		const ports = buildNeverCalledPorts();
 		const provisioner = createProvisioner(ports);
 
 		const params: ProvisionSessionParams = {
 			taskId: null,
-			agentId: "wave-e-agent-2",
-			productId: "team-1",
-			sandboxBasePath: "/tmp/au21-admit-session-baked-config",
+			agentId: "deactivated-live-agent",
+			productId: "task-free",
+			sandboxBasePath: sandboxPath,
 			agentConfig: {
 				kind: "ai",
 				status: "active",
 				role: "builder",
-				teamId: "team-1",
-			},
-			harnessDisabled: [],
-			contextBundle: {
-				kind: "subscription",
-				subscription: { id: "subscription-1", event: "task.changed", schedule: null },
-				prompt: null,
-				change: null,
-				agent: { id: "wave-e-agent-2", name: "Agent Two", role: "builder" },
-				team: { id: "team-1", name: "Team" },
-				documents: [],
+				teamId: null,
 			},
 		};
 
-		const admitted = await provisioner.admit(buildDeps(db as HyperIdleDb), params);
-
+		const admitted = await provisioner.admit(buildDeps(db as HyperIdleDb, sandboxPath), params);
 		expect(admitted).toBeDefined();
+		expect(admitted.sessionId).toEqual(expect.any(String));
+		// `ensureSandboxGitRepo`'s only production call site (provisioner.ts's
+		// admit, post-mount) — a fresh `mkdtempSync` directory makes this a real,
+		// fixable-red check rather than one a reused fixed path would pass anyway.
+		expect(fs.existsSync(path.join(sandboxPath, ".git"))).toBe(true);
 	});
-	// @lore BA9f: the link between "an agent's identity is a knowledge document"
-	// and what the agent actually reads. `getAgentIdentity` bakes the document's
-	// body onto the request as `agentConfig.persona`; `admitSession` resolves it
-	// into `systemPromptText`, which `runSession` hands the prompt assembler to
-	// become the "## Identity" section of the sandbox AGENTS.md.
-	//
-	// This asserts the half `admitSession` owns. The other half —
-	// `systemPromptText` becoming "## Identity" — is
-	// `context-assembly-prompt.test.ts`; the whole chain against a real harness
-	// writing a real sandbox is the harness lane.
+
+	// @lore `admitSession` resolves `agentConfig.persona` into `systemPromptText` — this asserts only the half it owns.
 	test("the baked persona becomes the session's systemPromptText", async ({ db }) => {
 		const now = new Date().toISOString();
 		await db.insert(users).values({
@@ -281,14 +194,15 @@ describe("admitSession — baked agent-runnability config (Increment 12 Wave E)"
 			createdAt: now,
 		});
 
-		const ports = buildHarnessPorts({});
+		const sandboxPath = freshSandbox();
+		const ports = buildNeverCalledPorts();
 		const provisioner = createProvisioner(ports);
 
 		const params: ProvisionSessionParams = {
 			taskId: null,
 			agentId: "ba9f-agent",
 			productId: "team-1",
-			sandboxBasePath: "/tmp/ba9f-identity-seam",
+			sandboxBasePath: sandboxPath,
 			agentConfig: {
 				kind: "ai",
 				status: "active",
@@ -308,11 +222,11 @@ describe("admitSession — baked agent-runnability config (Increment 12 Wave E)"
 			},
 		};
 
-		const admitted = await provisioner.admit(buildDeps(db as HyperIdleDb), params);
+		const admitted = await provisioner.admit(buildDeps(db as HyperIdleDb, sandboxPath), params);
 
-		// BA2: every session's context also carries the standing instruction to ask
-		// for a review when work deserves a person's agreement, so the persona is the
-		// start of this rather than the whole of it.
+		// Every session's context also carries the standing instruction to ask
+		// for a review when work deserves a person's agreement, so the persona is
+		// the start of this rather than the whole of it.
 		expect(admitted.systemPromptText).toContain("You are Atlas. You never ship broken builds.");
 		expect(admitted.systemPromptText.startsWith("You are Atlas.")).toBe(true);
 	});
@@ -330,14 +244,15 @@ describe("admitSession — baked agent-runnability config (Increment 12 Wave E)"
 			createdAt: now,
 		});
 
-		const ports = buildHarnessPorts({});
+		const sandboxPath = freshSandbox();
+		const ports = buildNeverCalledPorts();
 		const provisioner = createProvisioner(ports);
 
-		const admitted = await provisioner.admit(buildDeps(db as HyperIdleDb), {
+		const admitted = await provisioner.admit(buildDeps(db as HyperIdleDb, sandboxPath), {
 			taskId: null,
 			agentId: "ba9f-agent-none",
 			productId: "team-1",
-			sandboxBasePath: "/tmp/ba9f-identity-none",
+			sandboxBasePath: sandboxPath,
 			agentConfig: { kind: "ai", status: "active", role: "builder", teamId: "team-1" },
 			harnessDisabled: [],
 			contextBundle: {
@@ -353,7 +268,7 @@ describe("admitSession — baked agent-runnability config (Increment 12 Wave E)"
 
 		// Empty, so `assemblePrompt` emits no "## Identity" section at all —
 		// proven by `context-assembly-prompt.test.ts`.
-		// BA2: no identity document means no persona — but the review instruction is
+		// No identity document means no persona — but the review instruction is
 		// unconditional, so what remains is that and nothing else.
 		expect(admitted.systemPromptText).not.toContain("You are");
 		expect(admitted.systemPromptText).toContain("send_message");

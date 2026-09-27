@@ -32,12 +32,15 @@ import {
 } from "@hyperidle/api-contract";
 import {
 	agentWorkIntents,
+	changes,
 	documents,
 	type HyperIdleDb,
+	messages,
 	plugins,
 	subscriptions,
 	tasks,
 	threads,
+	users,
 } from "@hyperidle/db";
 import {
 	type ActionResult,
@@ -49,8 +52,9 @@ import {
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
+import { eq, or } from "drizzle-orm";
 import type { Hono } from "hono";
-import { afterEach, describe, expect } from "vitest";
+import { afterEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 import type { ActionContext } from "../actions/action.js";
 import { buildCoreActions } from "../actions/compose.js";
@@ -166,11 +170,6 @@ async function installed(result: Promise<ActionResult<PluginView>>): Promise<Plu
 	return done.data;
 }
 
-/** Wakes run after commit in a detached handler — give them time to land. */
-async function settle(): Promise<void> {
-	await new Promise((r) => setTimeout(r, 300));
-}
-
 function availableIn(listing: readonly PluginListing[]): string[] {
 	return listing
 		.filter((p) => p.state === "available")
@@ -243,17 +242,98 @@ describe("a fresh install, end to end", () => {
 		expect(await db.select().from(threads)).toEqual([]);
 
 		// A message to the assistant starts its thread turn and nothing else.
-		await new Promise((r) => setTimeout(r, 5));
+		// The subscription-wake rule only counts a change strictly after the
+		// subscription's own `createdAt` — spin until the clock ticks past the
+		// millisecond the subscribe-on-create call above landed in, a real
+		// (deterministic) tick rather than a guessed sleep duration.
+		const beforeMessageMs = Date.now();
+		while (Date.now() === beforeMessageMs) {
+			// intentionally empty: waiting for Date.now() to advance
+		}
+		// The assistant's own thread.created/thread.message subscriptions ALSO
+		// match the very thread its direct wake just fired on (it can read its
+		// own DM) — a real duplicate that lands after the first intent is seen
+		// would otherwise go unnoticed. A DM only its two members can read, and
+		// a 2-member thread auto-wakes its other party directly (never via a
+		// subscription), so the sentinel needs its OWN 3-member thread, where
+		// nobody is auto-woken and only its subscription reaches it.
+		await db.insert(users).values({
+			id: "sentinel-once-install",
+			kind: "ai",
+			name: "Sentinel",
+			role: "assistant",
+			status: "active",
+			agentCategory: "individual",
+			ownerUserId: adaId,
+			createdAt: new Date().toISOString(),
+		});
+		await db.insert(subscriptions).values({
+			id: "sub-sentinel-once-install",
+			userId: "sentinel-once-install",
+			event: "thread.message",
+			schedule: null,
+			paused: false,
+			nextRunAt: null,
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
+		});
+		await db.insert(users).values({
+			id: "third-party-once-install",
+			kind: "human",
+			name: "Third party",
+			role: "member",
+			status: "active",
+			teamId: teamA,
+			createdAt: new Date().toISOString(),
+		});
+		const sentinelThreadId = "sentinel-thread-once-install";
+		await db.insert(threads).values({
+			id: sentinelThreadId,
+			hostKind: "user",
+			hostId: adaId,
+			initiatorId: adaId,
+			participants: JSON.stringify([adaId, "sentinel-once-install", "third-party-once-install"]),
+			lastActiveAt: new Date().toISOString(),
+			createdAt: new Date().toISOString(),
+		});
+
 		await call(app, "send_message", { recipients: [assistantId], text: "Hello" });
-		await settle();
+		await call(app, "send_message", { threadId: sentinelThreadId, text: "sentinel ping" });
+
+		await vi.waitFor(async () => {
+			const sentinelIntents = (await db.select().from(agentWorkIntents)).filter((i) =>
+				i.sourceId.includes("sentinel-once-install"),
+			);
+			expect(sentinelIntents.map((i) => i.kind)).toEqual(["subscription_run"]);
+		});
 		const afterMessage = await db.select().from(agentWorkIntents);
-		expect(afterMessage.map((i) => i.kind)).toEqual(["thread_turn"]);
+		expect(
+			afterMessage.filter((i) => !i.sourceId.includes("sentinel-once-install")).map((i) => i.kind),
+		).toEqual(["thread_turn"]);
+
+		// The sentinel was scaffolding for the completion signal above, not a
+		// fixture this end-to-end test's later agent-count assertions expect —
+		// remove it and everything it touched, FK-dependent rows first.
+		const sentinelIntentRows = (await db.select().from(agentWorkIntents)).filter((i) =>
+			i.sourceId.includes("sentinel-once-install"),
+		);
+		for (const row of sentinelIntentRows) {
+			await db.delete(agentWorkIntents).where(eq(agentWorkIntents.id, row.id));
+		}
+		await db.delete(messages).where(eq(messages.threadId, sentinelThreadId));
+		await db.delete(changes).where(eq(changes.objectId, sentinelThreadId));
+		await db.delete(threads).where(eq(threads.id, sentinelThreadId));
+		await db.delete(subscriptions).where(eq(subscriptions.id, "sub-sentinel-once-install"));
+		await db
+			.delete(users)
+			.where(or(eq(users.id, "sentinel-once-install"), eq(users.id, "third-party-once-install")));
 
 		// The subscriptions are live: a change the assistant did not start does wake it.
 		await call(app, "edit_task", { teamId: teamA, title: "Plan the week" }, adaId);
-		await settle();
-		const afterTask = await db.select().from(agentWorkIntents);
-		expect(afterTask.some((i) => i.kind === "subscription_run")).toBe(true);
+		await vi.waitFor(async () => {
+			const afterTask = await db.select().from(agentWorkIntents);
+			expect(afterTask.some((i) => i.kind === "subscription_run")).toBe(true);
+		});
 
 		// A second person on a second team.
 		const bo = await call<UserView>(app, "edit_user", {

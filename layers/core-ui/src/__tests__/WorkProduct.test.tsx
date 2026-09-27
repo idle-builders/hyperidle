@@ -1,7 +1,5 @@
 /**
- * L13 — WorkProduct page unit tests (red phase).
- *
- * Covers all 10 items from architecture §Test plan §Vitest dispatch (client unit).
+ * WorkProduct page unit tests.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
@@ -9,15 +7,12 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
-// @lore U5: WorkProduct renamed to WorkTeam; import updated.
 import { WorkTeam } from "../pages/WorkTeam";
 
 // AgentEditDialog and AgentAddDialog call useToast. They are only mounted when
 // the corresponding state is non-null/true, but we still mock useToast to prevent
 // the "must be used within <ToastRegion>" error when dialogs open in tests.
-// @lore AB3: WorkTeam renders dialogs conditionally (editingAgentId !== null /
-// addDialogOpen), so useToast is only called when a dialog is open — but keeping
-// this mock is safer than relying on no dialog state leaking across tests.
+// @lore useToast fires only when a dialog is open, but the mock stays regardless to avoid state leaking across tests.
 vi.mock("../shell/ToastRegion.js", async () => {
 	const actual = await vi.importActual("../shell/ToastRegion.js");
 	return {
@@ -27,12 +22,7 @@ vi.mock("../shell/ToastRegion.js", async () => {
 });
 
 /**
- * @lore U1: TeamDetail shape replaces ProductDetail.
- * - `product` → `team` (TeamSummary)
- * - `pitchTitle` → `descriptionTitle`
- * - `status: "committed"` → `status: "active"`
- * @lore BC5 T9: TeamPageData replaces TeamDetail — team is id + name + a
- * computed "healthy" | "blocked" status now (no phase, no lead, D-c7jgxy).
+ * @lore TeamPageData is id + name + a computed "healthy" | "blocked" status — no phase, no lead.
  */
 const MOCK_PRODUCT_DETAIL = {
 	team: {
@@ -70,7 +60,6 @@ const MOCK_PRODUCT_EMPTY_BETS = {
 	tasksInProgress: [],
 };
 
-// @lore U5: Route path /work/product/:productId is F1 scope (U6). Local var renamed teamId.
 function renderPage(
 	teamId = "p1",
 	overrideData?: typeof MOCK_PRODUCT_DETAIL | null,
@@ -86,16 +75,15 @@ function renderPage(
 						<WorkTeam overrideData={overrideData} overrideLoading={loading} overrideError={error} />
 					}
 				/>
-				{/* AD9: /work/portfolio retired → /work */}
+				{/* /work/portfolio retired → /work */}
 				<Route path="/work" element={<div data-testid="work-overview-page">Work Overview</div>} />
-				{/* @lore BB1: bet route replaced by task route */}
 				<Route path="/work/task/:taskId" element={<div data-testid="work-task-page">Task</div>} />
 			</Routes>
 		</MemoryRouter>,
 	);
 }
 
-// @lore U5: describe renamed from WorkProduct → WorkTeam; testids use team-* prefix.
+// @lore testids use the team-* prefix.
 describe("WorkTeam", () => {
 	it("1. renders the page H1 with the team name when the fetch resolves", () => {
 		renderPage("p1", MOCK_PRODUCT_DETAIL);
@@ -117,24 +105,20 @@ describe("WorkTeam", () => {
 		expect(screen.getByTestId("team-active-tasks-empty")).toBeInTheDocument();
 	});
 
-	// @lore AB2: AgentCard replaced by AgentRow (data-testid="agent-row").
-	// The row shows status, health dot, context column. Customize button opens edit dialog.
+	// @lore AgentRow (data-testid="agent-row") shows status, health dot, and context column; Customize opens the edit dialog.
 	it("4. renders one agent row per roster member", () => {
 		renderPage("p1", MOCK_PRODUCT_DETAIL);
 		const agentRows = screen.getAllByTestId("agent-row");
 		expect(agentRows).toHaveLength(2);
 	});
 
-	// @lore AU21 Increment 14a: "renders the burn-vs-cap with a progress
-	// element" is HARD-DELETED — the cap-utilization progress bar is gone
-	// along with the rest of the cost-cap feature, no replacement.
 	it("5. renders the team-burn-vs-cap section", () => {
 		renderPage("p1", MOCK_PRODUCT_DETAIL);
 		const burnRegion = screen.getByTestId("team-burn-vs-cap");
 		expect(burnRegion).toBeInTheDocument();
 	});
 
-	// AD9: breadcrumb navigates to /work (was /work/portfolio)
+	// breadcrumb navigates to /work (was /work/portfolio)
 	it("6. click on the breadcrumb chip navigates to /work (work overview)", async () => {
 		const user = userEvent.setup();
 		renderPage("p1", MOCK_PRODUCT_DETAIL);
@@ -147,11 +131,11 @@ describe("WorkTeam", () => {
 		});
 	});
 
-	// UI-080: bet rows are now <a href> links so ⌘-click / middle-click work natively.
+	// bet rows are now <a href> links so ⌘-click / middle-click work natively.
 	// In jsdom + MemoryRouter, <a href> clicks don't trigger SPA navigation; the correct
 	// assertion is that the row has the right href attribute.
-	// @lore BB1: bet rows now link to /work/task/:id (root tasks replace bets)
-	it("7. task row has href to /work/task/:id (BB1: was /work/bet/:id)", () => {
+	// @lore: bet rows now link to /work/task/:id (root tasks replace bets)
+	it("7. task row has href to /work/task/:id (root tasks replace bets; was /work/bet/:id)", () => {
 		renderPage("p1", MOCK_PRODUCT_DETAIL);
 
 		// The task title is inside the anchor row; find the closest <a> ancestor.
@@ -185,7 +169,7 @@ describe("WorkTeam", () => {
 		expect(screen.queryByTestId("team-active-tasks-empty")).not.toBeInTheDocument();
 	});
 
-	// D1 regression guard: a committed bet must not show the BEHIND status chip.
+	// Regression guard: a committed bet must not show the BEHIND status chip.
 	// Previously BetRow mapped `committed → "behind"` which was a category error
 	// (committed = normal active state; behind = actually behind by some signal).
 	it("11. a committed bet renders without 'BEHIND' in the active bets section", () => {

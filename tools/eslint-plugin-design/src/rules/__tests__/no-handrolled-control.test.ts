@@ -6,7 +6,7 @@ import { ruleTester } from "./setup.js";
 RuleTester.describe = describe as unknown as typeof RuleTester.describe;
 RuleTester.it = it as unknown as typeof RuleTester.it;
 
-// AZ7 E2: DaisyUI control classes, a raw accent/status fill, any other token
+// DaisyUI control classes, a raw accent/status fill, any other token
 // fill, a token border, or ANY radius on a raw button/input/textarea/select
 // under layers/core-ui/src/** are violations. The rule is scoped OFF outside
 // that path (design-system builds controls).
@@ -47,9 +47,8 @@ ruleTester.run("no-handrolled-control", noHandrolledControl, {
 			filename: "layers/core-ui/src/pages/Foo.tsx",
 			code: 'const J = <input type="range" className="range range-xs" />;',
 		},
-		// AZ7 N1 (review round 1): --accent-primary-dim is Set 3's row-hover /
-		// selected tint, not an accent fill — a raw interactive element (e.g. a
-		// Row) painting it directly must not be flagged.
+		// --accent-primary-dim is a row-hover/selected tint, not an accent fill — a raw
+		// interactive element (e.g. a Row) painting it directly must not be flagged.
 		{
 			filename: "layers/core-ui/src/pages/Foo.tsx",
 			code: 'const J = <button className="hover:bg-[var(--accent-primary-dim)]" />;',
@@ -116,8 +115,7 @@ ruleTester.run("no-handrolled-control", noHandrolledControl, {
 			code: 'const J = <button className={["btn", "btn-ghost"].join(" ")} />;',
 			errors: [{ messageId: "daisyControl" }, { messageId: "daisyControl" }],
 		},
-		// @lore AZ7 review-round-2 NEW-1: a control’s chrome built in a same-file
-		// `const` before reaching className must be caught through the identifier.
+		// @lore a control's chrome built in a same-file const before reaching className must be caught through the identifier.
 		{
 			filename: "layers/core-ui/src/pages/Foo.tsx",
 			code: 'const controlClass = "btn btn-primary"; const J = <button className={controlClass} />;',

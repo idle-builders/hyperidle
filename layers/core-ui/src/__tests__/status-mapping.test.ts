@@ -1,14 +1,8 @@
-import {
-	DOCUMENT_STATUSES,
-	type DocumentStatus,
-	TASK_STATES,
-	type TaskState,
-} from "@hyperidle/domain-model";
+import { DOCUMENT_STATUSES, TASK_STATES } from "@hyperidle/domain-model";
 import { describe, expect, it } from "vitest";
 import { documentStatusToStatus, type Status, taskStateToStatus } from "../ds";
 
-// @lore BB1: betStatusToStatus tests removed — WorkTeam still exports betStatusToStatus
-// for WorkTeam.tsx consumption until that page is updated to the task primitive.
+// @lore WorkTeam still exports betStatusToStatus for WorkTeam.tsx until that page moves to the task primitive.
 
 /** All legal presentation Status values, used to assert exhaustive coverage. */
 const VALID_STATUSES: readonly Status[] = [
@@ -53,23 +47,6 @@ describe("taskStateToStatus", () => {
 		expect(taskStateToStatus("killed")).toBe("error" satisfies Status);
 	});
 
-	it("covers all TaskState values", () => {
-		const allStates: TaskState[] = [
-			"proposed",
-			"accepted",
-			"hold",
-			"in_progress",
-			"blocked",
-			"review",
-			"done",
-			"killed",
-		];
-		for (const state of allStates) {
-			const result = taskStateToStatus(state);
-			expect(typeof result).toBe("string");
-		}
-	});
-
 	it("exhaustively maps every TASK_STATES value to a valid Status", () => {
 		// I4 S3/S6: runtime-iterable TASK_STATES ensures the type and runtime
 		// coverage cannot drift.
@@ -82,10 +59,7 @@ describe("taskStateToStatus", () => {
 });
 
 describe("documentStatusToStatus", () => {
-	// @lore nested-knowledge-items: the 7-value status ladder collapsed to 4
-	// (proposed | active | stale | archived) — captured/provisional/needs_human
-	// folded into proposed, validated folded into active.
-	// @lore BC4: renamed from knowledgeStatusToStatus — values unchanged.
+	// @lore the status ladder is 4 values now: proposed | active | stale | archived.
 	it("maps proposed to behind", () => {
 		// I4 S2 intent preserved: proposed is the action-required state —
 		// explicitly not `healthy` (would mislead the founder into thinking the
@@ -103,14 +77,6 @@ describe("documentStatusToStatus", () => {
 
 	it("maps archived to done", () => {
 		expect(documentStatusToStatus("archived")).toBe("done" satisfies Status);
-	});
-
-	it("covers all DocumentStatus values", () => {
-		const allStatuses: DocumentStatus[] = ["proposed", "active", "stale", "archived"];
-		for (const ds of allStatuses) {
-			const result = documentStatusToStatus(ds);
-			expect(typeof result).toBe("string");
-		}
 	});
 
 	it("exhaustively maps every DOCUMENT_STATUSES value to a valid Status", () => {

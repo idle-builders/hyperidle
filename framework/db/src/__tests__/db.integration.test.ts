@@ -1,16 +1,10 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
-// @lore test-infra: This file keeps createTestDb() because each test manages
-// its own instance lifecycle via try/finally close(), rather than using
-// beforeEach/afterEach. The fixture handles the pool pattern but these tests
-// intentionally test the createTestDb API itself and need explicit close().
+// @lore this file uses createTestDb() directly (not the fixture) because it tests the createTestDb API itself.
 import { createTestDb } from "../__testing__/test-utils.js";
 import { serverConfig } from "../schema.js";
 
-// @lore AU18: this file previously exercised the generic KV `factory_settings`
-// table (retired). `server_config` is its typed singleton-row successor —
-// still a real table with a text PK, adequate to prove createTestDb's basic
-// CRUD + uniqueness behavior.
+// @lore server_config is a real table with a text PK, enough to prove basic CRUD + uniqueness.
 describe("createTestDb", () => {
 	it("creates an in-memory database that can execute queries", { timeout: 30_000 }, async () => {
 		const { db, close } = await createTestDb();

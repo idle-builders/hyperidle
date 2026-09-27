@@ -1,19 +1,6 @@
 /**
- * Tests for design/no-mock-data-import rule.
- *
- * Red phase (M1 write-tests): all tests fail until the rule is implemented.
- * File: tools/eslint-plugin-design/src/rules/no-mock-data-import.ts
- *
- * Coverage:
- * - Positive: forbidden import from fixtures path in runtime file → violation
- * - Positive: forbidden import from __fixtures__ in runtime file → violation
- * - Message: contains policy URL + file + import path info
- * - Negative: same import inside *.test.ts → NOT flagged
- * - Negative: same import inside __fixtures__ file → NOT flagged
- * - Negative: import from non-fixture path → NOT flagged
- * - Negative: import from __tests__ dir → NOT flagged
- * - Negative: same import in *.stories.tsx → NOT flagged
- * - Negative: same import in e2e/ path → NOT flagged
+ * `design/no-mock-data-import` flags a runtime file importing from a fixtures path
+ * (`/fixtures/` or `/__fixtures__/`) — never flagged from a test, story, e2e, or fixture file itself.
  */
 
 import { RuleTester } from "eslint";

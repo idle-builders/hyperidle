@@ -1,21 +1,15 @@
 /**
- * "Tasks wait for the tasks they depend on, then start themselves".
+ * "Tasks wait for the tasks they depend on, then start themselves". Every
+ * door goes through `POST /api/actions/edit_task`, human and direct alike —
+ * a refusal is `422 { ok: false, problems }`, never a distinct HTTP status.
  *
- * re-pointed off the deleted `POST/PATCH /tasks` routes and the deleted
- * `transitionTask` — everything here now goes through `POST
- * /api/actions/edit_task`, human and direct alike. A refusal is `422
- * { ok: false, problems }`, never a distinct HTTP status per rule.
- *
- * Covers, against the real `{ db, app, eventBus }` fixtures:
- *   - AC1 (human doors): `edit_task` accepts `dependencies` on create and edit,
- *     and validates it on write.
- *   - AC2 (the enforcing half): `edit_task` itself refuses a move to
- *     `accepted` while an unfinished dependency remains.
- *   - AC5: a dependency cycle, a self-dependency, and a dependency naming a
- *     task that does not exist are all refused with a problem identifying
- *     the rule.
- *   - "Decided without asking": a dependency may point at a task under any
- *     root — no restriction.
+ * Covers, against the real `{ db, app, eventBus }` fixtures: `edit_task`
+ * accepts `dependencies` on create and edit and validates it on write;
+ * `edit_task` itself refuses a move to `accepted` while an unfinished
+ * dependency remains; a dependency cycle, a self-dependency, and a
+ * dependency naming a task that does not exist are all refused with a
+ * problem identifying the rule; a dependency may point at a task under any
+ * root — no restriction.
  */
 
 import { type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
@@ -108,10 +102,7 @@ async function insertTask(
 }
 
 describe("task dependencies — the edit_task door, the guard, cycle rejection", () => {
-	// ---------------------------------------------------------------------
-	// AC1: create
-	// ---------------------------------------------------------------------
-	describe("AC1: edit_task (create) accepts dependencies", () => {
+	describe("edit_task (create) accepts dependencies", () => {
 		test("creates a task carrying dependencies and parks it while the dependency is unfinished", async ({
 			db,
 			app,
@@ -137,10 +128,7 @@ describe("task dependencies — the edit_task door, the guard, cycle rejection",
 		});
 	});
 
-	// ---------------------------------------------------------------------
-	// AC1 (edit) + "no restriction on where a dependency points"
-	// ---------------------------------------------------------------------
-	describe("AC1: edit_task (existing) accepts dependencies and parks the task", () => {
+	describe("edit_task (existing) accepts dependencies and parks the task", () => {
 		test("a dependency may point at a task under a DIFFERENT root — no restriction", async ({
 			db,
 			app,
@@ -164,10 +152,7 @@ describe("task dependencies — the edit_task door, the guard, cycle rejection",
 		});
 	});
 
-	// ---------------------------------------------------------------------
-	// AC2: the enforcing half — direct against edit_task
-	// ---------------------------------------------------------------------
-	describe("AC2: edit_task refuses accepted while a dependency is unfinished", () => {
+	describe("edit_task refuses accepted while a dependency is unfinished", () => {
 		test("hold -> accepted is refused while a named dependency is not done", async ({
 			db,
 			app,
@@ -188,10 +173,7 @@ describe("task dependencies — the edit_task door, the guard, cycle rejection",
 		});
 	});
 
-	// ---------------------------------------------------------------------
-	// AC5: cycle / self-dependency / dangling dependency rejection
-	// ---------------------------------------------------------------------
-	describe("AC5: dependency cycles and invalid dependencies are refused", () => {
+	describe("dependency cycles and invalid dependencies are refused", () => {
 		test("a cycle (A depends on B, B depends on A) is refused with a problem naming the rule", async ({
 			db,
 			app,
@@ -261,11 +243,9 @@ describe("task dependencies — the edit_task door, the guard, cycle rejection",
 		});
 	});
 
-	// ---------------------------------------------------------------------
-	// AC6: a killed dependency sends its dependents back to `proposed` and
-	// drops the killed id from their dependency list.
-	// ---------------------------------------------------------------------
-	describe("AC6: a killed dependency resets its dependents", () => {
+	// A killed dependency sends its dependents back to `proposed` and drops
+	// the killed id from their dependency list.
+	describe("a killed dependency resets its dependents", () => {
 		test("dependent returns to proposed and the killed id is dropped from its list", async ({
 			db,
 			app,
@@ -473,42 +453,32 @@ describe("task dependencies — the edit_task door, the guard, cycle rejection",
 			expect(row?.state).toBe("review");
 		});
 
-		test("-> accepted is still refused with a problem naming the dependency", async ({
-			db,
-			app,
-		}) => {
-			await seedTeam(db, "dep-b2b-accepted");
-			await insertTask(db, "dep-b2b-accepted-dep", "dep-b2b-accepted", "proposed");
-			await insertTask(db, "dep-b2b-accepted-task", "dep-b2b-accepted", "hold", [
-				"dep-b2b-accepted-dep",
-			]);
+		// @lore fixture injection doesn't compose with test.each — each transition gets its own test, sharing one assertion helper.
+		async function expectStillRefused(
+			db: HyperIdleDb,
+			app: Hono,
+			fromState: TaskState,
+			toState: TaskState,
+		): Promise<void> {
+			const teamId = `dep-b2b-${fromState}-${toState}`;
+			await seedTeam(db, teamId);
+			await insertTask(db, `${teamId}-dep`, teamId, "proposed");
+			await insertTask(db, `${teamId}-task`, teamId, fromState, [`${teamId}-dep`]);
 
-			const { status, json } = await editTask(app, {
-				id: "dep-b2b-accepted-task",
-				state: "accepted",
-			});
-
-			expect(status).toBe(422);
-			expect(json.problems?.[0]?.code).toBe("dependency_blocked");
-		});
-
-		test("accepted -> in_progress is still refused with a problem naming the dependency", async ({
-			db,
-			app,
-		}) => {
-			await seedTeam(db, "dep-b2b-accepted2");
-			await insertTask(db, "dep-b2b-accepted2-dep", "dep-b2b-accepted2", "proposed");
-			await insertTask(db, "dep-b2b-accepted2-task", "dep-b2b-accepted2", "accepted", [
-				"dep-b2b-accepted2-dep",
-			]);
-
-			const { status, json } = await editTask(app, {
-				id: "dep-b2b-accepted2-task",
-				state: "in_progress",
-			});
+			const { status, json } = await editTask(app, { id: `${teamId}-task`, state: toState });
 
 			expect(status).toBe(422);
 			expect(json.problems?.[0]?.code).toBe("dependency_blocked");
+		}
+
+		// accepted -> in_progress is covered above ("edit_task also refuses
+		// accepted -> in_progress while a dependency is unfinished"); this
+		// covers the other guarded pick-up transition.
+		test("hold -> accepted is still refused with a problem naming the dependency", async ({
+			db,
+			app,
+		}) => {
+			await expectStillRefused(db, app, "hold", "accepted");
 		});
 	});
 

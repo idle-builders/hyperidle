@@ -214,12 +214,7 @@ describe("a written-back item hangs off what the session is working on, attribut
 		expect(call.input).not.toHaveProperty("parent");
 	});
 
-	// @lore document-module B15: an unresolvable session has no real `users.id`
-	// to attribute a write to — `changes.actor` is an FK, so nothing here may
-	// fabricate one (no fallback string satisfies it). Unlike the parent (an
-	// honest "don't know" is fine and was always the behaviour), a missing
-	// actor is fatal to the whole batch: it is skipped, not written parentless
-	// under a made-up identity.
+	// @lore `changes.actor` is an FK — an unresolvable session has no real `users.id`, so the write is skipped, never fabricated.
 	test("an unknown session writes nothing back — there is no real agent to attribute it to", async ({
 		db,
 	}) => {

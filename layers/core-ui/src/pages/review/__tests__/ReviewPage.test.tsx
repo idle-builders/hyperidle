@@ -169,8 +169,8 @@ describe("ReviewPage route", () => {
 		expect(screen.getByRole("button", { name: /Go to anchor/i })).toBeInTheDocument();
 	});
 
-	it("exposes the verdict decision controls (the AM1 destination for 'Open review')", async () => {
-		// AM1 §12.4: the conversation no longer takes a verdict inline; "Open
+	it("exposes the verdict decision controls — the destination for 'Open review'", async () => {
+		// The conversation no longer takes a verdict inline; "Open
 		// review" routes here. This confirms the relocated verdict DECISION UI
 		// (Approve / Request changes + the overflow reject/edit menu) is present
 		// and reachable on the review page.
@@ -382,6 +382,7 @@ describe("ReviewPage default loader — task naming", () => {
 		});
 		postMessageSpy.mockImplementation((action: unknown, input: unknown) => {
 			if (action === "open_task") {
+				// eslint-disable-next-line vitest/no-conditional-expect -- verifying the mocked call's own args only makes sense inside its dispatch branch
 				expect(input).toEqual({ id: "task-1" });
 				return Promise.resolve({ ok: true, data: taskViewFor("task-1", "Fix the webhook") });
 			}

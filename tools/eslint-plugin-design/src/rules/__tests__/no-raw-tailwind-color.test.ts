@@ -20,7 +20,7 @@ ruleTester.run("no-raw-tailwind-color", noRawTailwindColor, {
 			filename: "Foo.tsx",
 			code: 'const J = <div className="bg-[var(--surface-2)]" />;',
 		},
-		// AI6: color-mix form is the correct replacement for bg-success/10 — allowed.
+		// color-mix form is the correct replacement for bg-success/10 — allowed.
 		{
 			filename: "Foo.tsx",
 			code: 'const J = <div className="bg-[color-mix(in_oklab,var(--status-success)_10%,transparent)]" />;',
@@ -42,13 +42,13 @@ ruleTester.run("no-raw-tailwind-color", noRawTailwindColor, {
 			code: 'const J = <div className="ring-emerald-300" />;',
 			errors: [{ messageId: "rawColor" }],
 		},
-		// AI6: template-string className must be scanned (covers the template-literal gap).
+		// template-string className must be scanned (covers the template-literal gap).
 		{
 			filename: "Foo.tsx",
 			code: 'const active = true; const J = <div className={`bg-[var(--x)] ${active ? "bg-blue-500" : ""}`} />;',
 			errors: [{ messageId: "rawColor" }],
 		},
-		// AI6: undefined-semantic-token-opacity form `bg-success/10` — silently renders nothing.
+		// undefined-semantic-token-opacity form `bg-success/10` — silently renders nothing.
 		{
 			filename: "Foo.tsx",
 			code: 'const J = <div className="bg-success/10" />;',

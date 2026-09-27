@@ -1,8 +1,6 @@
 /**
- * AO2 — GitCloneAdapter integration test.
- *
- * AC1: mount shallow-clones a bare repo; files present.
- * AC2: captureBack is a declared no-op (AU43 stage 2 — write code removed).
+ * GitCloneAdapter shallow-clones a code filesystem into the sandbox and
+ * excludes scaffolding paths from the clone's git info/exclude.
  */
 
 import { execSync } from "node:child_process";
@@ -92,24 +90,5 @@ describe("GitCloneAdapter integration", () => {
 		);
 		expect(excludeContent).toContain("/.fabric");
 		expect(excludeContent).toContain("/CLAUDE.md");
-	});
-
-	it("captureBack: returns success no-op (write code removed in AU43 stage 2)", async () => {
-		const repoPath = await createSourceRepo(tmpDir);
-		const sessionId = randomUUID();
-		const sandboxPath = path.join(tmpDir, `sandbox-${sessionId}`);
-		fs.mkdirSync(sandboxPath, { recursive: true });
-
-		const adapter = new RegistryFilesystemMounter(makeDeps());
-		await adapter.mount({ filesystem: makeFs(repoPath), sandboxPath });
-
-		const result = await adapter.captureBack({
-			filesystem: makeFs(repoPath),
-			sandboxPath,
-			sessionId,
-		});
-
-		expect(result.success).toBe(true);
-		expect(result.captured).toBe(false);
 	});
 });

@@ -22,10 +22,12 @@ const authHeaders = {
 async function seedExplicitSessionAuthority(db: HyperIdleDb) {
 	await db.execute(sql`drop trigger if exists au9_reject_intent_write on agent_work_intents`);
 	const now = new Date().toISOString();
-	await db.insert(teams).values({ id: "au9-production-team", name: "AU9", createdAt: now });
+	await db
+		.insert(teams)
+		.values({ id: "prodintent-production-team", name: "Production Intent Team", createdAt: now });
 	await db.insert(users).values([
 		{
-			id: "au9-production-human",
+			id: "prodintent-production-human",
 			kind: "human",
 			name: "Founder",
 			role: "founder",
@@ -33,12 +35,12 @@ async function seedExplicitSessionAuthority(db: HyperIdleDb) {
 			createdAt: now,
 		},
 		{
-			id: "au9-production-agent",
+			id: "prodintent-production-agent",
 			kind: "ai",
 			name: "Builder",
 			role: "builder",
 			status: "active",
-			teamId: "au9-production-team",
+			teamId: "prodintent-production-team",
 			createdAt: now,
 		},
 		// `changes.actor` FKs to `users` — the dependency watcher's edit_task
@@ -52,19 +54,19 @@ async function seedExplicitSessionAuthority(db: HyperIdleDb) {
 		},
 	]);
 	await db.insert(threads).values({
-		id: `thr-${"au9-production-bet"}`,
+		id: `thr-${"prodintent-production-bet"}`,
 		hostKind: "team",
-		hostId: "au9-production-team",
+		hostId: "prodintent-production-team",
 		initiatorId: "system:propagation",
 		participants: "[]",
 		lastActiveAt: now,
 		createdAt: now,
 	});
 	await db.insert(tasks).values({
-		threadId: `thr-${"au9-production-bet"}`,
-		id: "au9-production-bet",
+		threadId: `thr-${"prodintent-production-bet"}`,
+		id: "prodintent-production-bet",
 		parentTaskId: null,
-		teamId: "au9-production-team",
+		teamId: "prodintent-production-team",
 		title: "Atomic handoff",
 		description: "Atomic handoff",
 		state: "in_progress",
@@ -72,19 +74,19 @@ async function seedExplicitSessionAuthority(db: HyperIdleDb) {
 		updatedAt: now,
 	});
 	await db.insert(threads).values({
-		id: `thr-${"au9-production-task"}`,
+		id: `thr-${"prodintent-production-task"}`,
 		hostKind: "team",
-		hostId: "au9-production-team",
+		hostId: "prodintent-production-team",
 		initiatorId: "system:propagation",
 		participants: "[]",
 		lastActiveAt: now,
 		createdAt: now,
 	});
 	await db.insert(tasks).values({
-		threadId: `thr-${"au9-production-task"}`,
-		id: "au9-production-task",
-		parentTaskId: "au9-production-bet",
-		teamId: "au9-production-team",
+		threadId: `thr-${"prodintent-production-task"}`,
+		id: "prodintent-production-task",
+		parentTaskId: "prodintent-production-bet",
+		teamId: "prodintent-production-team",
 		title: "Atomic handoff",
 		state: "in_progress",
 		createdAt: now,
@@ -92,8 +94,7 @@ async function seedExplicitSessionAuthority(db: HyperIdleDb) {
 	});
 }
 
-// @lore shared-pglite-workers: row truncation does not remove a test-created trigger,
-// so the helper that installs this fault also owns its exact teardown.
+// @lore row truncation does not remove a test-created trigger — the helper that installs a fault also owns its teardown.
 let cleanupRejectedIntentWrites: (() => Promise<void>) | undefined;
 
 async function rejectIntentWrites(db: HyperIdleDb) {
@@ -103,7 +104,7 @@ async function rejectIntentWrites(db: HyperIdleDb) {
 	};
 	await db.execute(sql`
 		create or replace function au9_reject_intent_write() returns trigger as $$
-		begin raise exception 'AU9 injected intent write failure'; end;
+		begin raise exception 'injected intent write failure'; end;
 		$$ language plpgsql
 	`);
 	await db.execute(sql`
@@ -117,7 +118,7 @@ async function seedAssistantThread(db: HyperIdleDb) {
 	const now = new Date().toISOString();
 	await db.insert(users).values([
 		{
-			id: "au9-assistant-human",
+			id: "prodintent-assistant-human",
 			kind: "human",
 			name: "Founder",
 			role: "founder",
@@ -125,7 +126,7 @@ async function seedAssistantThread(db: HyperIdleDb) {
 			createdAt: now,
 		},
 		{
-			id: "ast-au9-assistant-human",
+			id: "ast-prodintent-assistant-human",
 			kind: "ai",
 			name: "Assistant",
 			role: "assistant",
@@ -133,19 +134,19 @@ async function seedAssistantThread(db: HyperIdleDb) {
 			createdAt: now,
 		},
 	]);
-	// AU26 G1: the run config lives in its own table now.
+	// The run config lives in its own table (agent_run_config).
 	await db.insert(agentRunConfig).values({
-		agentUserId: "ast-au9-assistant-human",
+		agentUserId: "ast-prodintent-assistant-human",
 		harnessType: "opencode",
 		modelId: "deepseek/deepseek-v4-flash",
 		modelProvider: "openrouter",
 	});
 	await db.insert(threads).values({
-		id: "au9-assistant-thread",
+		id: "prodintent-assistant-thread",
 		hostKind: "user",
-		hostId: "au9-assistant-human",
-		initiatorId: "au9-assistant-human",
-		participants: JSON.stringify(["au9-assistant-human", "ast-au9-assistant-human"]),
+		hostId: "prodintent-assistant-human",
+		initiatorId: "prodintent-assistant-human",
+		participants: JSON.stringify(["prodintent-assistant-human", "ast-prodintent-assistant-human"]),
 		lastActiveAt: now,
 		createdAt: now,
 	});
@@ -159,43 +160,6 @@ describe("atomic production handoffs", () => {
 		cleanupRejectedIntentWrites = undefined;
 	});
 
-	// A subscription's wake carries no run row to be an authoritative source
-	// for, so only five atomic commands have one.
-	test("schema exposes authoritative sources for all five atomic commands", async ({ db }) => {
-		const result = await db.execute(sql`
-			select table_name as "tableName" from information_schema.tables
-			where table_schema = 'public'
-			and table_name in ('messages','explicit_session_starts','documents','bets','task_dispatch_attempts','agent_work_intents')
-		`);
-		const rows = result as { rows: Array<{ tableName: string }> };
-		expect(new Set(rows.rows.map((row) => row.tableName))).toEqual(
-			// BB1: "bets" table deleted — tasks are the single work primitive.
-			new Set([
-				"messages",
-				"explicit_session_starts",
-				"documents",
-				"task_dispatch_attempts",
-				"agent_work_intents",
-			]),
-		);
-	});
-
-	test("composition module exports dependencies only", async () => {
-		const worker = await import("../__testing__/durable-agent-queue-test-deps.js");
-		expect(worker.queueDeps).toBeTypeOf("function");
-		expect("drainIntents" in worker).toBe(false);
-		// @lore AU9 R1: handOffIntent was a zero-production-caller duplicate of the
-		// drain's own inline resolve+create+checkpoint transaction — deleted rather
-		// than kept as a second, un-wired "correct" path (the exact divergence class
-		// R1 exists to prevent). No AgentWorkIntentWorkerOptions.onRequest callback
-		// exists either — the drain is the sole request-creating path.
-		expect("handOffIntent" in worker).toBe(false);
-	});
-
-	// POST /api/sessions (door #114) deleted. Two explicit-session tests removed with the route.
-
-	// POST /api/tasks/:id/transition (door #40) deleted. Two transition tests removed with the route.
-
 	test("dependency watcher acceptance records a distinct dispatch occasion", async ({
 		db,
 		eventBus,
@@ -204,27 +168,27 @@ describe("atomic production handoffs", () => {
 		await seedExplicitSessionAuthority(db);
 		const now = new Date().toISOString();
 		await db.insert(threads).values({
-			id: `thr-${"au9-production-dependent"}`,
+			id: `thr-${"prodintent-production-dependent"}`,
 			hostKind: "team",
-			hostId: "au9-production-team",
+			hostId: "prodintent-production-team",
 			initiatorId: "system:propagation",
 			participants: "[]",
 			lastActiveAt: now,
 			createdAt: now,
 		});
 		await db.insert(tasks).values({
-			threadId: `thr-${"au9-production-dependent"}`,
-			id: "au9-production-dependent",
-			parentTaskId: "au9-production-bet",
-			teamId: "au9-production-team",
-			ownerAgentId: "au9-production-agent",
+			threadId: `thr-${"prodintent-production-dependent"}`,
+			id: "prodintent-production-dependent",
+			parentTaskId: "prodintent-production-bet",
+			teamId: "prodintent-production-team",
+			ownerAgentId: "prodintent-production-agent",
 			title: "Unblocked work",
 			state: "hold",
-			dependencies: JSON.stringify(["au9-production-task"]),
+			dependencies: JSON.stringify(["prodintent-production-task"]),
 			createdAt: now,
 			updatedAt: now,
 		});
-		await db.update(tasks).set({ state: "done" }).where(eq(tasks.id, "au9-production-task"));
+		await db.update(tasks).set({ state: "done" }).where(eq(tasks.id, "prodintent-production-task"));
 
 		// §6 row 2: `checkAndUnblockDependents` writes through the real
 		// composed `edit_task` action now — this proves the whole chain against
@@ -237,19 +201,19 @@ describe("atomic production handoffs", () => {
 		if (!editTaskAction) throw new Error("edit_task action not found");
 		await checkAndUnblockDependents(
 			{ actor: "system:propagation", db, eventBus, now: new Date().toISOString() },
-			"au9-production-task",
+			"prodintent-production-task",
 			editTaskAction.run as Parameters<typeof checkAndUnblockDependents>[2],
 		);
 
 		const [dependent] = await db
 			.select()
 			.from(tasks)
-			.where(eq(tasks.id, "au9-production-dependent"));
+			.where(eq(tasks.id, "prodintent-production-dependent"));
 		expect(dependent?.state).toBe("accepted");
 		const attempts = await db
 			.select()
 			.from(taskDispatchAttempts)
-			.where(eq(taskDispatchAttempts.taskId, "au9-production-dependent"));
+			.where(eq(taskDispatchAttempts.taskId, "prodintent-production-dependent"));
 		const intents = await db
 			.select()
 			.from(agentWorkIntents)
@@ -261,21 +225,8 @@ describe("atomic production handoffs", () => {
 		expect(attempts[0]?.occasion).toBe("retry");
 	});
 
-	// @lore AU31 §3.1 site 5 — INVERTED, then repointed onto the thread
-	// module. The message insert is no longer inside the same transaction as
-	// the intent submit (relinquished, founder ruling architecture.md
-	// §3.1/§13 item 9): a seam call from inside this route's own open
-	// `db.transaction()` reproduced a real deadlock (§3.2), so the two writes
-	// can no longer share one transaction. The door is now
-	// `POST /api/actions/send_message`, whose wake loop
-	// (`thread-actions.ts`) wraps each agent's intent-record call in its own
-	// try/catch and drops that one wake on failure rather than letting it
-	// escape — so the action itself reports success (200, ok:true) instead
-	// of the old route's uncaught 500. This test now proves that same named
-	// window through the real contract: a committed message with no queued
-	// turn intent, repaired by a re-send (the coherence trigger re-bakes on
-	// the next thread append anyway).
-	test("real assistant message command: the message survives even when the intent write fails (AU31 §3.1 site 5)", async ({
+	// @lore `send_message`'s wake loop catches each agent's intent-record failure per-agent — the action itself still reports success.
+	test("real assistant message command: the message survives even when the intent write fails", async ({
 		db,
 		app,
 	}) => {
@@ -286,9 +237,9 @@ describe("atomic production handoffs", () => {
 			method: "POST",
 			headers: authHeaders,
 			body: JSON.stringify({
-				threadId: "au9-assistant-thread",
+				threadId: "prodintent-assistant-thread",
 				text: "Run the production assistant command",
-				clientKey: "au9-assistant-command",
+				clientKey: "prodintent-assistant-command",
 			}),
 		});
 
@@ -302,19 +253,4 @@ describe("atomic production handoffs", () => {
 		expect(await db.select().from(messages)).toHaveLength(1);
 		expect(await db.select().from(agentWorkIntents)).toHaveLength(0);
 	});
-
-	// flag (POST /api/knowledge/:id/flag) §3.1 site 4 coverage moved to plugin — ritual routes left core under AU20 founder ruling; recover from git when the plugin lands.
-
-	// A subscription's wake carries no run row to leave wedged; the
-	// subscription fire and clock suites cover the wake path itself.
-
-	// §8 B4: `POST /tasks/:id/handoff` is deleted — handoff is
-	// `edit_task({ ownerAgentId })` now, and `toRole`/`toHuman` targeting is
-	// gone with it (the caller names a user id). The owner-change dispatch
-	// occasion this used to prove atomically is the new seam test's job:
-	// `layers/core-api/src/__tests__/task-actions.integration.test.ts`
-	// ("an owner change on an in_progress task inserts a second attempt with
-	// occasion: owner_handoff and records a second intent").
-
-	// POST /api/tasks/:id/transition (door #40) deleted. Retry-transition test removed.
 });

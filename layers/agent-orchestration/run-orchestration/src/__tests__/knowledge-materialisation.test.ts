@@ -1,10 +1,5 @@
 /**
- * @lore nested-knowledge-items architecture.md §5 / review.md B4 & B5 — a
- * `BakedContextDocument` carrying a real `parentChain` materialises as
- * nested directories (not flat), and every ancestor directory gets its own
- * `.fabric/manifest.json` entry (id → {source_path, scopeKind, version}) so
- * a later writeback session finds it instead of minting a duplicate folder
- * item.
+ * @lore a real parentChain materialises as nested directories, each with its own .fabric/manifest.json entry so writeback finds it, not a duplicate.
  *
  * Same poisoned-ports pattern as context-bundle-consumption.test.ts:
  * `writeContextBundle` must do zero DB reads, so a thrown port call here is
@@ -60,11 +55,7 @@ const BUNDLE: BakedContextBundle = {
 				{ id: "k-mid", title: "Pricing", scopeKind: "team", version: 2 },
 			],
 		},
-		// @lore BC4: proves `slot` (not a stale `role` field) is what routes an
-		// item away from the ordinary tree — a "rule" item must land in
-		// knowledge/rules/, never nested under its parentChain. If the reader
-		// fell back to a default (the old cast-hiding-a-typo failure mode),
-		// this item would materialise under knowledge/Product/Pricing instead.
+		// @lore `slot` (not `role`) routes an item away from the ordinary tree — a "rule" item lands in knowledge/rules/, never nested under parentChain.
 		{
 			id: "k-rule",
 			title: "Deploy checklist",
@@ -82,7 +73,7 @@ const BUNDLE: BakedContextBundle = {
 	],
 };
 
-describe("writeContextBundle: nested materialisation (review.md B4/B5)", () => {
+describe("writeContextBundle: nested materialisation", () => {
 	let sandboxPath: string | undefined;
 	afterEach(() => {
 		if (sandboxPath) fs.rmSync(sandboxPath, { recursive: true, force: true });
@@ -120,9 +111,7 @@ describe("writeContextBundle: nested materialisation (review.md B4/B5)", () => {
 			),
 		).toBe("leaf body");
 
-		// @lore BC4: a "rule"-slotted item lands in knowledge/rules/, not nested
-		// under its parentChain — proves the reader keys off `slot`, not a
-		// default that would fall through to the ordinary-tree path.
+		// @lore a "rule"-slotted item lands in knowledge/rules/, not nested under its parentChain — the reader keys off `slot`.
 		const ruleDirEntries = fs.readdirSync(path.join(sandboxPath, "knowledge/rules"));
 		expect(ruleDirEntries).toHaveLength(1);
 		expect(
@@ -141,7 +130,7 @@ describe("writeContextBundle: nested materialisation (review.md B4/B5)", () => {
 			fs.readFileSync(path.join(sandboxPath, "knowledge/Product/Pricing/index.md"), "utf8"),
 		).toBe("# Pricing\n");
 
-		// review.md B5: every ancestor directory gets its own manifest entry —
+		// Every ancestor directory gets its own manifest entry —
 		// not just the leaf — so writeback's ensureDirectoryChainItem finds it
 		// instead of minting a duplicate.
 		const manifest = JSON.parse(
@@ -165,18 +154,12 @@ describe("writeContextBundle: nested materialisation (review.md B4/B5)", () => {
 			version: 2,
 			format: "markdown",
 		});
-		// review.md B6: the leaf's own manifest entry carries its real
+		// The leaf's own manifest entry carries its real
 		// scopeKind too, not an undefined field the reader defaults away.
 		expect(manifest.items["k-leaf"]).toMatchObject({ scopeKind: "team" });
 	});
 
-	// @lore nested-knowledge-real: the ordinary shape of a real knowledge tree
-	// — a parent document with a body of its own AND selected children, both
-	// independently selected into the same bundle. Previously the parent's
-	// real body was dumped into a stray sibling leaf file next to its own
-	// directory, while the directory's index.md stayed title-only forever —
-	// contradicting plan.md's "a parent as a directory containing index.md
-	// with its own body."
+	// @lore a parent with its own body AND selected children writes that body into its own directory's index.md, not a stray sibling file.
 	test("a selected parent with a body AND selected children writes its real body into index.md, with no stray sibling leaf", async () => {
 		sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "tree-materialisation-parent-"));
 		const assembler = createContextAssembler(poisonedPorts());

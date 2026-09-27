@@ -43,18 +43,18 @@ function makeRow(overrides: Partial<DocumentRow> = {}): DocumentRow {
 }
 
 describe("editDocumentInvariants", () => {
-	it("I1 title_required: create with a whitespace-only title", () => {
+	it("title_required: create with a whitespace-only title", () => {
 		const problems = editDocumentInvariants({ title: "   " }, null, noCaller);
 		expect(problems[0]?.code).toBe("title_required");
 	});
 
-	it("I2 empty_edit: an id alone, on an existing row", () => {
+	it("empty_edit: an id alone, on an existing row", () => {
 		const prev = makeRow();
 		const problems = editDocumentInvariants({ id: prev.id }, prev, noCaller);
 		expect(problems[0]?.code).toBe("empty_edit");
 	});
 
-	it("I3 memory_scope_fixed: as memory with an explicit scopeKind, on a create — the generic message, since there is no existing memory yet to point at", () => {
+	it("memory_scope_fixed: as memory with an explicit scopeKind, on a create — the generic message, since there is no existing memory yet to point at", () => {
 		const problems = editDocumentInvariants(
 			{ as: "memory", scopeKind: "team", title: "Note" },
 			null,
@@ -64,7 +64,7 @@ describe("editDocumentInvariants", () => {
 		expect(problems[0]?.message).toBe("A memory is private to you — it has no scope to set.");
 	});
 
-	it("I4 memory_has_parent: as memory with a parent", () => {
+	it("memory_has_parent: as memory with a parent", () => {
 		const problems = editDocumentInvariants(
 			{ as: "memory", parent: { kind: "document", id: "p1" }, title: "Note" },
 			null,
@@ -109,7 +109,7 @@ describe("editDocumentInvariants", () => {
 		expect(problems.map((p) => p.code)).not.toContain("memory_needs_ordinary_slot");
 	});
 
-	it("memory_needs_ordinary_slot: an edit reaching the same shape by narrowing scope on an already-root slotted document, without touching parent/slot/as, still refuses — I10 cannot save it, since the parent never changes", () => {
+	it("memory_needs_ordinary_slot: an edit reaching the same shape by narrowing scope on an already-root slotted document, without touching parent/slot/as, still refuses — slotted_document_cannot_move cannot save it, since the parent never changes", () => {
 		const prev = makeRow({
 			scopeKind: "team",
 			scopeId: "team-1",
@@ -155,7 +155,7 @@ describe("editDocumentInvariants", () => {
 		expect(problems[0]?.code).toBe("memory_needs_ordinary_slot");
 	});
 
-	it("I3 memory_scope_fixed: editing an existing memory's scope WITHOUT repeating `as` still refuses — the run function's forcing must never land silently", () => {
+	it("memory_scope_fixed: editing an existing memory's scope WITHOUT repeating `as` still refuses — the run function's forcing must never land silently", () => {
 		const prev = makeRow({ scopeKind: "user", scopeId: "u1", parentKind: null, slot: "ordinary" });
 		expect(documentAs(prev)).toBe("memory");
 		const problems = editDocumentInvariants(
@@ -196,7 +196,7 @@ describe("editDocumentInvariants", () => {
 		expect(problems).toEqual([]);
 	});
 
-	it("I5 artifact_parent_kind: as artifact with a document parent", () => {
+	it("artifact_parent_kind: as artifact with a document parent", () => {
 		const problems = editDocumentInvariants(
 			{ as: "artifact", parent: { kind: "document", id: "p1" }, title: "Out" },
 			null,
@@ -205,12 +205,12 @@ describe("editDocumentInvariants", () => {
 		expect(problems[0]?.code).toBe("artifact_parent_kind");
 	});
 
-	it("I6 artifact_no_parent: as artifact, no parent, caller has neither", () => {
+	it("artifact_no_parent: as artifact, no parent, caller has neither", () => {
 		const problems = editDocumentInvariants({ as: "artifact", title: "Out" }, null, noCaller);
 		expect(problems[0]?.code).toBe("artifact_no_parent");
 	});
 
-	it("I6 does not fire when the caller has a calling task to fall back to", () => {
+	it("artifact_no_parent does not fire when the caller has a calling task to fall back to", () => {
 		const problems = editDocumentInvariants({ as: "artifact", title: "Out" }, null, {
 			hasCallingTask: true,
 			hasCallingThread: false,
@@ -218,12 +218,12 @@ describe("editDocumentInvariants", () => {
 		expect(problems.map((p) => p.code)).not.toContain("artifact_no_parent");
 	});
 
-	it("I7 scope_needs_id: scopeKind team with no scopeId", () => {
+	it("scope_needs_id: scopeKind team with no scopeId", () => {
 		const problems = editDocumentInvariants({ scopeKind: "team", title: "x" }, null, noCaller);
 		expect(problems[0]?.code).toBe("scope_needs_id");
 	});
 
-	it("I8 as_is_create_only: as memory on a row whose derived as is document", () => {
+	it("as_is_create_only: as memory on a row whose derived as is document", () => {
 		const prev = makeRow({
 			scopeKind: "team",
 			scopeId: "team-1",
@@ -235,13 +235,13 @@ describe("editDocumentInvariants", () => {
 		expect(problems[0]?.code).toBe("as_is_create_only");
 	});
 
-	it("I9 slot_is_create_only: slot changes away from the stored one", () => {
+	it("slot_is_create_only: slot changes away from the stored one", () => {
 		const prev = makeRow({ slot: "ordinary" });
 		const problems = editDocumentInvariants({ id: prev.id, slot: "skill" }, prev, noCaller);
 		expect(problems[0]?.code).toBe("slot_is_create_only");
 	});
 
-	it("I10 slotted_document_cannot_move: a move on a slotted document", () => {
+	it("slotted_document_cannot_move: a move on a slotted document", () => {
 		const prev = makeRow({ slot: "skill" });
 		const problems = editDocumentInvariants(
 			{ id: prev.id, parent: { kind: "document", id: "new-parent" } },
@@ -251,7 +251,7 @@ describe("editDocumentInvariants", () => {
 		expect(problems[0]?.code).toBe("slotted_document_cannot_move");
 	});
 
-	it("I11 self_parent: parent.id equals the document's own id", () => {
+	it("self_parent: parent.id equals the document's own id", () => {
 		const prev = makeRow({ slot: "ordinary" });
 		const problems = editDocumentInvariants(
 			{ id: prev.id, parent: { kind: "document", id: prev.id } },
@@ -261,7 +261,7 @@ describe("editDocumentInvariants", () => {
 		expect(problems[0]?.code).toBe("self_parent");
 	});
 
-	it("I12 status_from_archived: a field other than status changes on an archived row", () => {
+	it("status_from_archived: a field other than status changes on an archived row", () => {
 		const prev = makeRow({ status: "archived", slot: "ordinary" });
 		const problems = editDocumentInvariants({ id: prev.id, title: "New title" }, prev, noCaller);
 		expect(problems[0]?.code).toBe("status_from_archived");
@@ -273,7 +273,7 @@ describe("editDocumentInvariants", () => {
 		expect(problems.map((p) => p.code)).not.toContain("status_from_archived");
 	});
 
-	it("I13 artifact_cannot_be_private: as artifact with scopeKind user", () => {
+	it("artifact_cannot_be_private: as artifact with scopeKind user", () => {
 		const problems = editDocumentInvariants(
 			{ as: "artifact", scopeKind: "user", title: "Out" },
 			null,
@@ -282,7 +282,7 @@ describe("editDocumentInvariants", () => {
 		expect(problems[0]?.code).toBe("artifact_cannot_be_private");
 	});
 
-	it("I13 artifact_cannot_be_private: editing an existing artifact's scope to user WITHOUT repeating `as` still refuses — a forced write with no problem attached would be a silent no-op", () => {
+	it("artifact_cannot_be_private: editing an existing artifact's scope to user WITHOUT repeating `as` still refuses — a forced write with no problem attached would be a silent no-op", () => {
 		const prev = makeRow({
 			parentKind: "task",
 			parentId: "t1",
@@ -297,7 +297,7 @@ describe("editDocumentInvariants", () => {
 		expect(problems[0]?.code).toBe("artifact_cannot_be_private");
 	});
 
-	it("graduating an existing artifact by moving its parent to a document root, WITHOUT repeating `as`, raises no problem — I5 stays keyed on the caller's explicit `as`, not the row's derived one", () => {
+	it("graduating an existing artifact by moving its parent to a document root, WITHOUT repeating `as`, raises no problem — artifact_parent_kind stays keyed on the caller's explicit `as`, not the row's derived one", () => {
 		const prev = makeRow({
 			parentKind: "task",
 			parentId: "t1",
@@ -360,7 +360,7 @@ describe("editDocumentInvariants", () => {
 });
 
 describe("searchDocumentsInvariants", () => {
-	it("I14 artifact_search_needs_parent: as artifact with no parent filter", () => {
+	it("artifact_search_needs_parent: as artifact with no parent filter", () => {
 		const problems = searchDocumentsInvariants({ as: "artifact" });
 		expect(problems[0]?.code).toBe("artifact_search_needs_parent");
 	});
@@ -420,7 +420,7 @@ describe("searchDocumentsInvariants", () => {
 // ---------------------------------------------------------------------------
 
 describe("combined cases (pure half)", () => {
-	it("case 1f: a memory can never be in the tree — refused by I4, which is what makes the cascade walk safe", () => {
+	it("case 1f: a memory can never be in the tree — refused by memory_has_parent, which is what makes the cascade walk safe", () => {
 		const problems = editDocumentInvariants(
 			{ as: "memory", parent: { kind: "document", id: "p1" }, title: "Note" },
 			null,
@@ -429,11 +429,11 @@ describe("combined cases (pure half)", () => {
 		expect(problems[0]?.code).toBe("memory_has_parent");
 	});
 
-	it("case 2: a move of a slotted document is refused by I10 before D5 is ever consulted", () => {
+	it("case 2: a move of a slotted document is refused by slotted_document_cannot_move before forbidden_parent_kind is ever consulted", () => {
 		const prev = makeRow({ slot: "prompt" });
 		// `internal: true` — a subscription parent is internal-only
-		// (`forbidden_parent_kind`); this case is about I10 firing before D5,
-		// not about who may name a subscription.
+		// (`forbidden_parent_kind`); this case is about slotted_document_cannot_move firing
+		// before forbidden_parent_kind, not about who may name a subscription.
 		const problems = editDocumentInvariants(
 			{ id: prev.id, parent: { kind: "subscription", id: "s1" } },
 			prev,

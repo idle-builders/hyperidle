@@ -1,10 +1,7 @@
 /**
  * useRecipients hook.
  *
- * @lore BC5 T9: the door swap — `call("search_users", { status: "active", name?
- * })` replaces `apiFetch("/api/recipients")`. `search_sessions` (the active-session
- * count) is untouched. `call` is mocked directly (the same idiom SettingsPlugins'
- * own test uses); the two calls are routed by action name.
+ * @lore call("search_users", {status, name?}) is the recipient list door; call is mocked directly, routed by action name.
  */
 
 import { renderHook, waitFor } from "@testing-library/react";

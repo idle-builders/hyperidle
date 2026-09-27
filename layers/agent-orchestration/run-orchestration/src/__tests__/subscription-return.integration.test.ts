@@ -21,17 +21,15 @@ import { expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import { isRequiredReturnAction } from "@hyperidle/harness-protocol";
 import { afterEach, describe, vi } from "vitest";
+import type {
+	FakeHarnessAdapter,
+	ProvisionSessionDeps,
+	ProvisionSessionParams,
+	SessionLifecyclePorts,
+} from "../__testing__/test-fixtures.js";
 import { createContextAssembler } from "../context.js";
 import { createProvisioner } from "../provisioner.js";
 
-type CreateProvisioner = typeof createProvisioner;
-type SessionLifecyclePorts = Parameters<CreateProvisioner>[0];
-type Provisioner = ReturnType<CreateProvisioner>;
-type AdmitArgs = Parameters<Provisioner["admit"]>;
-type ProvisionSessionDeps = AdmitArgs[0];
-type ProvisionSessionParams = AdmitArgs[1];
-type FakeAdapterPoolEntry = NonNullable<ReturnType<ProvisionSessionDeps["adapterPool"]["select"]>>;
-type FakeHarnessAdapter = FakeAdapterPoolEntry["adapter"];
 type FakeHarnessEvent = {
 	readonly type: "tool_call";
 	readonly toolName: string;

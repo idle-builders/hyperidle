@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 /**
- * L2 AC-31, AC-42 — <BlockActionsPopover /> coverage.
+ * <BlockActionsPopover /> coverage.
  */
 
 import { act, createElement, type ReactElement } from "react";
@@ -48,13 +48,7 @@ describe("<BlockActionsPopover />", () => {
 		});
 	};
 
-	it("AC-31: outermost element carries data-ds-component='block-actions-popover'", async () => {
-		await renderPopover();
-		const popover = document.querySelector("[data-ds-component='block-actions-popover']");
-		expect(popover).toBeTruthy();
-	});
-
-	it("AC-31: role='menu' on the popover and role='menuitem' on items", async () => {
+	it("role='menu' on the popover and role='menuitem' on items", async () => {
 		await renderPopover();
 		const menu = document.querySelector("[role='menu']");
 		expect(menu).toBeTruthy();
@@ -62,7 +56,7 @@ describe("<BlockActionsPopover />", () => {
 		expect(items.length).toBe(2);
 	});
 
-	it("AC-31: Esc closes the popover", async () => {
+	it("Esc closes the popover", async () => {
 		let closed = 0;
 		await renderPopover({ onClose: () => closed++ });
 		await act(async () => {
@@ -71,7 +65,7 @@ describe("<BlockActionsPopover />", () => {
 		expect(closed).toBeGreaterThan(0);
 	});
 
-	it("AC-31: clicking an item invokes onSelect", async () => {
+	it("clicking an item invokes onSelect", async () => {
 		let chosen = "";
 		await renderPopover({
 			items: [
@@ -92,13 +86,13 @@ describe("<BlockActionsPopover />", () => {
 		expect(chosen).toBe("copy");
 	});
 
-	it("AC-42: aria-live='polite' region exists for copy-success announcement", async () => {
+	it("aria-live='polite' region exists for copy-success announcement", async () => {
 		await renderPopover();
 		const live = document.querySelector("[aria-live='polite']");
-		expect(live).toBeTruthy();
+		expect(live).toBeInTheDocument();
 	});
 
-	it("AC-31: disabled items carry aria-disabled='true'", async () => {
+	it("disabled items carry aria-disabled='true'", async () => {
 		await renderPopover({
 			items: [
 				{

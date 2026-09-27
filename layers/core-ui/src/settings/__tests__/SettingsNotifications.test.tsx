@@ -3,10 +3,9 @@
  * object event, driven by the caller's own event subscriptions off
  * `open_user`. Off means paused (or never subscribed); on adds or unpauses.
  *
- * Replaces AD3-SettingsNotifications-solo / AF8-SettingsNotificationsTypeList
- * / AD5-settings-notifications — all built around the deleted
- * NOTIFICATION_TYPES registry and factory-wide mute, neither of which
- * exists any more.
+ * Replaces the previous solo/type-list/factory-wide-mute test files, all
+ * built around the deleted NOTIFICATION_TYPES registry and factory-wide
+ * mute, neither of which exists any more.
  */
 
 import { OBJECT_EVENTS } from "@hyperidle/domain-model";

@@ -182,12 +182,6 @@ export function registerCoreDomainServices(ctx: {
 	 */
 	readonly sendMessage: import("./services/session-not-returned-notice.js").SendMessageRunFn;
 	/**
-	 * `adjust_thread`'s own bound `run`, threaded the same way — the
-	 * stalled-knowledge-action reaction resolves-or-creates the document's
-	 * thread through it.
-	 */
-	readonly adjustThread: import("./services/agent-run-admission-reactions.js").AdjustThreadRunFn;
-	/**
 	 * `edit_user`'s own bound `run`, threaded the same way — the
 	 * crashed-session health reaction writes the agent's `health`
 	 * through it instead of a notification-queue row.
@@ -206,15 +200,12 @@ export function registerCoreDomainServices(ctx: {
 	 */
 	readonly dispatcherDeps?: Omit<TaskDispatcherDeps, "db" | "eventBus">;
 }): Array<() => void> {
-	const { db, eventBus, agentOrchestration, editTask, sendMessage, adjustThread, editUser } = ctx;
+	const { db, eventBus, editTask, sendMessage, editUser } = ctx;
 	const disposers: Array<() => void> = [];
 
 	disposers.push(
 		identifyBootstrapOwner(
-			registerAgentRunAdmissionReactions(db, eventBus, agentOrchestration, {
-				sendMessage,
-				adjustThread,
-			}),
+			registerAgentRunAdmissionReactions(db, eventBus, { sendMessage }),
 			"agent-run-admission reactions",
 			"unsubscribe",
 			["agent_run_admission_failed subscription"],

@@ -408,11 +408,11 @@ export const agentWorkIntents = pgTable(
 		index("agent_work_intents_claim_expires_idx").on(table.claimExpiresAt),
 		check(
 			"agent_work_intents_kind_ck",
-			sql`${table.kind} in ('thread_turn','session_start','knowledge_action','task_run','session_resume','subscription_run')`,
+			sql`${table.kind} in ('thread_turn','task_run','session_resume','subscription_run')`,
 		),
 		check(
 			"agent_work_intents_source_kind_ck",
-			sql`${table.sourceKind} in ('thread_message','explicit_session_start','knowledge_action','task_dispatch_attempt','review_verdict','subscription')`,
+			sql`${table.sourceKind} in ('thread_message','task_dispatch_attempt','review_verdict','subscription')`,
 		),
 		check(
 			"agent_work_intents_status_ck",
@@ -427,8 +427,6 @@ export const agentWorkIntents = pgTable(
 			"agent_work_intents_kind_source_compat_ck",
 			sql`
 				(${table.kind} = 'thread_turn' and ${table.sourceKind} = 'thread_message')
-				or (${table.kind} = 'session_start' and ${table.sourceKind} = 'explicit_session_start')
-				or (${table.kind} = 'knowledge_action' and ${table.sourceKind} = 'knowledge_action')
 				or (${table.kind} = 'task_run' and ${table.sourceKind} = 'task_dispatch_attempt')
 				or (${table.kind} = 'session_resume' and ${table.sourceKind} = 'review_verdict')
 				or (${table.kind} = 'subscription_run' and ${table.sourceKind} = 'subscription')
@@ -449,47 +447,6 @@ export const agentWorkIntents = pgTable(
 				or (${table.status} = 'failed' and ${table.lastErrorCode} is not null)
 				or (${table.status} = 'superseded' and ${table.claimToken} is null and ${table.claimExpiresAt} is null and ${table.requestId} is null)
 			`,
-		),
-	],
-);
-
-export const explicitSessionStarts = pgTable(
-	"explicit_session_starts",
-	{
-		id: text("id").primaryKey(),
-		taskId: text("task_id")
-			.notNull()
-			.references(() => tasks.id, { onDelete: "restrict" }),
-		requestedAgentId: text("requested_agent_id").notNull(),
-		requestedModelTier: text("requested_model_tier").notNull(),
-		requestedBy: text("requested_by")
-			.notNull()
-			.references(() => users.id, { onDelete: "restrict" }),
-		idempotencyKey: text("idempotency_key").notNull(),
-		status: text("status").notNull().default("requested"),
-		requestId: text("request_id").references(() => agentSessionRequests.id),
-		sessionId: text("session_id").references(() => sessions.id),
-		failureCode: text("failure_code"),
-		createdAt: text("created_at").notNull(),
-		updatedAt: text("updated_at").notNull(),
-	},
-	(table) => [
-		uniqueIndex("explicit_session_starts_requester_key_uq").on(
-			table.requestedBy,
-			table.idempotencyKey,
-		),
-		index("explicit_session_starts_status_idx").on(table.status, table.createdAt),
-		check(
-			"explicit_session_starts_model_tier_ck",
-			sql`${table.requestedModelTier} in ('reasoning','workhorse','fast')`,
-		),
-		check(
-			"explicit_session_starts_status_ck",
-			sql`${table.status} in ('requested','admitted','completed','failed','cancelled')`,
-		),
-		check(
-			"explicit_session_starts_correlation_ck",
-			sql`(${table.status} = 'requested' and ${table.requestId} is null and ${table.sessionId} is null and ${table.failureCode} is null) or (${table.status} in ('admitted','completed') and ${table.requestId} is not null and ${table.sessionId} is not null) or (${table.status} = 'failed' and ${table.failureCode} is not null) or (${table.status} = 'cancelled' and ${table.requestId} is not null)`,
 		),
 	],
 );
@@ -1069,7 +1026,6 @@ export type Session = typeof sessions.$inferSelect;
 
 export type AgentSessionRequest = typeof agentSessionRequests.$inferSelect;
 export type AgentWorkIntent = typeof agentWorkIntents.$inferSelect;
-export type ExplicitSessionStart = typeof explicitSessionStarts.$inferSelect;
 
 // @lore BC5 T7b: Routine/NewRoutine/NewRoutineRun deleted with their tables.
 

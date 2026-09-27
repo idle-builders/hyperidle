@@ -444,7 +444,7 @@ function buildLeafDeclarations(root: string, tscBin: string): void {
 	//
 	// @lore AU19 Increment 3a: `agent-orchestration/trigger-resolution` added —
 	// same TS6305 cascade; services/agent-work-intent-worker.ts and
-	// __tests__/AR4b-formation-seam.test.ts /
+	// __tests__/formation-seam.integration.test.ts /
 	// __tests__/trigger-resolution.integration.test.ts now import
 	// `@hyperidle/trigger-resolution`.
 	//

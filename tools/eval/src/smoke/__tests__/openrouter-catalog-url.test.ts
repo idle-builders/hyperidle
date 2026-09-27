@@ -1,27 +1,14 @@
 /**
- * AH5 Fix 1 regression test: fetchModelEndpoints URL encoding.
- *
- * Regression for the bug where `encodeURIComponent(modelId)` encoded the slash
- * in `author/slug` as `%2F`, causing every /endpoints lookup to 404.
- *
- * The correct encoding encodes per path-segment so the slash is preserved:
- *   deepseek/deepseek-v4-flash → .../deepseek/deepseek-v4-flash/endpoints  ✓
- *   (not)                      → .../deepseek%2Fdeepseek-v4-flash/endpoints  ✗
- *
- * This test mocks fetch and asserts the URL that fetchModelEndpoints constructs,
- * catching the %2F regression at the unit-test level.
- *
- * @lore AH5: encodeURIComponent("/") → "%2F". The OpenRouter API treats the
- * author/slug separator as a real path separator, not a query parameter. Using
- * encodeURIComponent on the whole modelId breaks every endpoint lookup silently
- * (OpenRouter returns 404, not an error message). Split by "/" and encode each
- * segment independently.
+ * `fetchModelEndpoints` must encode a model id's author/slug separator as a literal slash, not
+ * `%2F` — the OpenRouter API treats it as a real path separator, not a query parameter, and
+ * `encodeURIComponent` on the whole id breaks every endpoint lookup silently (404, no error
+ * message). Split by "/" and encode each segment independently.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchModelEndpoints } from "../openrouter-catalog.js";
 
-describe("fetchModelEndpoints — URL encoding (Fix 1 regression)", () => {
+describe("fetchModelEndpoints — URL encoding", () => {
 	let capturedUrl: string | undefined;
 
 	beforeEach(() => {

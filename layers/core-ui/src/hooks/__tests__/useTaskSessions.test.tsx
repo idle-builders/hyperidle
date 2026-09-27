@@ -1,15 +1,7 @@
 /**
  * A task's sessions, read through the session action list.
  *
- * @lore `GET /api/tasks/:id/sessions` (later `GET
- * /api/agent-orchestration/runs?task_id=…`) is deleted; `useTaskSessions`
- * calls `search_sessions({ taskId })` — `POST /api/actions/search_sessions`,
- * the same door a person's client and an agent's MCP tool use — and does the
- * projection the old route used to do. This file is where that projection is
- * covered: the `Session N` numbering (which needs OLDEST-first order, so the
- * newest-first search read is reversed), the `status` field keyed off the
- * row's `state` (so a cascade-stopped run reports `stopped`, never blank),
- * and the effectiveness score parse.
+ * @lore useTaskSessions calls search_sessions and projects it: oldest-first numbering, status from the row's state, the effectiveness parse.
  */
 
 import { renderHook, waitFor } from "@testing-library/react";
@@ -79,7 +71,7 @@ describe("useTaskSessions", () => {
 		await waitFor(() => expect(result.current.data).not.toBeNull());
 
 		const sessions = result.current.data?.sessions ?? [];
-		// UI-036: titles are formatted dates, not ordinals ("Session N").
+		// titles are formatted dates, not ordinals ("Session N").
 		// Oldest-first order preserved; session-old (2026-08-01) precedes session-new (2026-08-03).
 		expect(sessions.map((s) => s.id)).toEqual(["session-old", "session-new"]);
 		expect(sessions[0]?.title).toMatch(/Aug.*1.*2026|1.*Aug.*2026/);

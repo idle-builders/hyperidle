@@ -1,7 +1,7 @@
 /**
  * A resumed session knows the thread the human answered in.
  *
- * BA2: the verdict is delivered by resuming the agent's own session, and the
+ * The verdict is delivered by resuming the agent's own session, and the
  * agent's answer belongs back in the thread the human gave the verdict in. That
  * thread is also where the never-silent net posts when a turn ends without
  * returning anything. Without it a resumed agent that says nothing leaves the

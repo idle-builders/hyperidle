@@ -1,19 +1,3 @@
-/**
- * P3 RED — Client-local config file (AC-1, AC-2)
- *
- * AC coverage:
- *  - loadClientConfig() with missing file returns DEFAULTS
- *  - loadClientConfig() with corrupt JSON returns DEFAULTS
- *  - loadClientConfig() with valid JSON returns parsed config
- *  - saveClientConfig() merges partial updates without losing other keys
- *  - Zod rejects invalid backendMode values ("invalid_mode")
- *  - Zod accepts null backendMode (first run state)
- *  - migrateWindowState() creates config.json from window-state.json when config.json absent
- *  - migrateWindowState() is a no-op when config.json already exists
- *  - loadClientConfig() windowState defaults to 1280x800
- *  - saveClientConfig() writes partial update preserving unmodified keys
- */
-
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -30,7 +14,7 @@ afterEach(() => {
 	fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
-describe("P3 AC-1 — loadClientConfig", () => {
+describe("loadClientConfig", () => {
 	it("returns defaults when config file does not exist", () => {
 		const configPath = path.join(tmpDir, "config.json");
 		const result = loadClientConfig(configPath);
@@ -127,7 +111,7 @@ describe("P3 AC-1 — loadClientConfig", () => {
 	});
 });
 
-describe("P3 AC-1 — saveClientConfig", () => {
+describe("saveClientConfig", () => {
 	it("writes config to disk", () => {
 		const configPath = path.join(tmpDir, "config.json");
 		saveClientConfig(configPath, { backendMode: "local" });
@@ -176,7 +160,7 @@ describe("P3 AC-1 — saveClientConfig", () => {
 	});
 });
 
-describe("P3 AC-2 — migrateWindowState", () => {
+describe("migrateWindowState", () => {
 	it("creates config.json from window-state.json when config.json does not exist", () => {
 		const windowStatePath = path.join(tmpDir, "window-state.json");
 		const configPath = path.join(tmpDir, "config.json");
@@ -241,7 +225,73 @@ describe("P3 AC-2 — migrateWindowState", () => {
 
 		fs.writeFileSync(windowStatePath, "CORRUPT{{{");
 
-		// Should not throw — creates config.json with defaults
-		expect(() => migrateWindowState(windowStatePath, configPath)).not.toThrow();
+		migrateWindowState(windowStatePath, configPath);
+		expect(fs.existsSync(configPath)).toBe(true);
+	});
+});
+
+describe("ClientConfig worker fields", () => {
+	it("default workerEnabled is false", () => {
+		const configPath = path.join(tmpDir, "config.json");
+		const result = loadClientConfig(configPath);
+		expect(result.workerEnabled).toBe(false);
+	});
+
+	it("default workerMaxConcurrent is 1", () => {
+		const configPath = path.join(tmpDir, "config.json");
+		const result = loadClientConfig(configPath);
+		expect(result.workerMaxConcurrent).toBe(1);
+	});
+
+	it("default workerDeviceId is null", () => {
+		const configPath = path.join(tmpDir, "config.json");
+		const result = loadClientConfig(configPath);
+		expect(result.workerDeviceId).toBeNull();
+	});
+
+	it("round-trip: save all three worker fields and reload", () => {
+		const configPath = path.join(tmpDir, "config.json");
+		const deviceId = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11";
+		saveClientConfig(configPath, {
+			workerEnabled: true,
+			workerMaxConcurrent: 8,
+			workerDeviceId: deviceId,
+		});
+
+		const result = loadClientConfig(configPath);
+		expect(result.workerEnabled).toBe(true);
+		expect(result.workerMaxConcurrent).toBe(8);
+		expect(result.workerDeviceId).toBe(deviceId);
+	});
+
+	it("old config without worker fields loads with defaults (backward compat)", () => {
+		const configPath = path.join(tmpDir, "config.json");
+		const legacyConfig = {
+			backendMode: "shared",
+			serverUrl: "https://example.com",
+			lastView: "/work/portfolio",
+			windowState: { width: 1440, height: 900, isMaximized: false, isFullScreen: false },
+		};
+		fs.writeFileSync(configPath, JSON.stringify(legacyConfig));
+
+		const result = loadClientConfig(configPath);
+		expect(result.backendMode).toBe("shared");
+		expect(result.workerEnabled).toBe(false);
+		expect(result.workerMaxConcurrent).toBe(1);
+		expect(result.workerDeviceId).toBeNull();
+	});
+
+	it("worker fields do not overwrite existing config keys when patching", () => {
+		const configPath = path.join(tmpDir, "config.json");
+		saveClientConfig(configPath, {
+			backendMode: "shared",
+			serverUrl: "https://remote.example.com",
+		});
+		saveClientConfig(configPath, { workerEnabled: true });
+
+		const result = loadClientConfig(configPath);
+		expect(result.backendMode).toBe("shared");
+		expect(result.serverUrl).toBe("https://remote.example.com");
+		expect(result.workerEnabled).toBe(true);
 	});
 });

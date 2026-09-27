@@ -426,7 +426,12 @@ async function runCommand(
 	}
 }
 
-export type { HarnessDiscoveryInput, HarnessDiscoveryResult, HarnessSessionProbeResult };
+export type {
+	HarnessDiscoveryInput,
+	HarnessDiscoveryResult,
+	HarnessProbeDeps,
+	HarnessSessionProbeResult,
+};
 
 /**
  * The models codex can run, read from codex's own cache.

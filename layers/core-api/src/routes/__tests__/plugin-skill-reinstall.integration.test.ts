@@ -1,7 +1,6 @@
 /**
- * The document module's plugin behaviour — architecture.md §8.3/B10: a
- * plugin's skill is a document now, upserted through `edit_document`'s
- * read-then-edit path rather than a raw repository write.
+ * A plugin's skill is a document, upserted through `edit_document`'s
+ * read-then-edit path via `POST /api/actions/edit_plugin`.
  *
  * Three things, one plugin, one install:
  *   (i)   the contributed document exists with `slot: "skill"`;
@@ -9,8 +8,6 @@
  *         `edit_document`'s upsert never sends `body` on an existing row;
  *   (iii) disable archives exactly the contributed ids — a `document`
  *         contribution the plugin no longer owns is untouched.
- *
- * Re-pointed onto `POST /api/actions/edit_plugin`.
  */
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
@@ -131,7 +128,7 @@ describe("a plugin's skill is a document, upserted through edit_document", () =>
 		await db.update(documents).set({ body: EDITED_BODY }).where(eq(documents.id, documentId));
 
 		// Reinstall — `edit_document`'s upsert never sends `body` on an id that
-		// already exists (architecture.md §8.3), so the person's edit survives.
+		// already exists, so the person's edit survives.
 		await install(app);
 
 		const [reinstalled] = await db.select().from(documents).where(eq(documents.id, documentId));

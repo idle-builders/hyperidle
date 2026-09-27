@@ -281,8 +281,6 @@ return hook on the harness layer; none hides an action a user would say.
 | `GET /health` · `GET /health/auth` | plumbing |
 | `POST /agent-orchestration/intents` | plumbing — seam |
 | `POST /agent-orchestration/review-verdicts` | plumbing — seam |
-| `GET /agent-orchestration/requests/pending-intents` | plumbing — seam |
-| `POST /agent-orchestration/requests/explicit-starts/:id/fail` | plumbing — seam |
 | `POST /agent-orchestration/runs/end-for-handoff` | plumbing — seam |
 | `GET·PATCH /agent-orchestration/run-config/:agentId` | plumbing — seam behind edit a user |
 | `POST /agent-orchestration/run-config/batch` | plumbing — seam |

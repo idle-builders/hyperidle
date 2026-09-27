@@ -49,9 +49,10 @@ export interface InputProps
 	rows?: number;
 }
 
-// @lore POLISH-060 A3: AQ-015 requires touch targets ≥ 44px at ≤ 1024px.
-// min-h-[44px] is the base (mobile-first); lg:min-h-[36px] relaxes on desktop
-// (1024px+) so settings forms read at the right density.
+// AQ-015 requires touch targets ≥ 44px at ≤ 1024px. min-h-[44px] is the base
+// (mobile-first); min-[1025px]:min-h-[36px] relaxes strictly ABOVE 1024px so
+// the floor holds through 1024px inclusive (Tailwind's lg: fires AT 1024px,
+// which is the off-by-one Button.tsx also fixes — see its lore).
 //
 // @lore AZ7 review-round-2 NB-2: this height pair used to live INSIDE
 // INPUT_BASE, shared by both input and textarea mode. CSS cascade order is
@@ -65,7 +66,7 @@ export interface InputProps
 const INPUT_BASE =
 	"w-full px-[12px] py-[10px] bg-[var(--surface-elevated)] border-width-default border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] outline-hidden focus:border-[var(--accent-deep)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed";
 
-const INPUT_SINGLE_LINE_HEIGHT = "min-h-[44px] lg:min-h-[36px]";
+const INPUT_SINGLE_LINE_HEIGHT = "min-h-[44px] min-[1025px]:min-h-[36px]";
 
 const INPUT_ERROR =
 	"border-[var(--status-error)] focus:border-[var(--status-error)] focus:shadow-[0_0_0_3px_var(--status-error-dim)]";

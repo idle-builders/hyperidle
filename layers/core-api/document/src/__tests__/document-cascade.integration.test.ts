@@ -9,15 +9,7 @@
  * `deps.onBodyChanged` is a recorder except in the one test that uses it to
  * prove the transaction boundary.
  */
-import {
-	changes,
-	documents,
-	type HyperIdleDb,
-	teams,
-	type User,
-	users,
-	type WriteExecutor,
-} from "@hyperidle/db";
+import { changes, type HyperIdleDb } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import {
 	type DocumentView,
@@ -26,127 +18,19 @@ import {
 	type EditDocumentInput,
 	type SearchDocumentsInput,
 } from "@hyperidle/domain-model";
-import { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
-import type { Action, ActionContext } from "../action-types.js";
+import type { Action } from "../action-types.js";
 import { createDocumentActions, type DocumentActionsDeps } from "../document-actions.js";
 import { insertDocument } from "../document-store.js";
-
-type Insertable = typeof documents.$inferInsert;
-
-/** Sensible defaults for a document row; every field is overridable — the
- * same helper `document-store.integration.test.ts` and
- * `document-edit-action.integration.test.ts` use. */
-function docValues(overrides: Partial<Insertable> & { id: string }): Insertable {
-	const ts = "2026-01-01T00:00:00.000Z";
-	return {
-		scopeKind: "factory",
-		scopeId: null,
-		title: "Untitled",
-		body: "body",
-		format: "markdown",
-		status: "active",
-		slot: "ordinary",
-		parentKind: null,
-		parentId: null,
-		position: 0,
-		updatedBy: "seed",
-		createdAt: ts,
-		updatedAt: ts,
-		...overrides,
-	};
-}
-
-async function seedUser(
-	db: HyperIdleDb,
-	id: string,
-	overrides: Partial<typeof users.$inferInsert> = {},
-): Promise<void> {
-	await db.insert(users).values({
-		id,
-		kind: "human",
-		name: id,
-		role: "member",
-		status: "active",
-		createdAt: "2026-01-01T00:00:00.000Z",
-		...overrides,
-	});
-}
-
-async function seedTeam(db: HyperIdleDb, id: string, name = id): Promise<void> {
-	await db.insert(teams).values({
-		id,
-		name,
-		createdAt: "2026-01-01T00:00:00.000Z",
-	});
-}
-
-function ctxFor(
-	db: HyperIdleDb,
-	actor: string,
-	opts: { now?: string; caller?: ActionContext["caller"] } = {},
-): ActionContext {
-	return {
-		actor,
-		db,
-		eventBus: new EventBus(),
-		now: opts.now ?? "2026-06-01T00:00:00.000Z",
-		...(opts.caller ? { caller: opts.caller } : {}),
-	};
-}
-
-function actionFor<I, O>(actions: readonly Action[], name: string): Action<I, O> {
-	const found = actions.find((a) => a.declaration.name === name);
-	if (!found) throw new Error(`no "${name}" action in the bag`);
-	return found as unknown as Action<I, O>;
-}
-
-interface DepsOptions {
-	readonly openParent?: DocumentActionsDeps["openParent"];
-	readonly onBodyChanged?: DocumentActionsDeps["onBodyChanged"];
-	readonly wsPush?: DocumentActionsDeps["wsPush"];
-}
-
-/** Real queries against the real `users`/`teams`/`changes` tables — never a
- * stub of the visibility predicate or the change log itself. */
-function writeDeps(opts: DepsOptions = {}): DocumentActionsDeps {
-	return {
-		changes: {
-			appendChange: async (exec: WriteExecutor, row) => {
-				await exec.insert(changes).values(row).returning();
-			},
-		},
-		users: {
-			getUserById: async (exec: WriteExecutor, id: string): Promise<User | undefined> => {
-				const [row] = await exec.select().from(users).where(eq(users.id, id)).limit(1);
-				return row;
-			},
-			listOwnedBy: async (exec: WriteExecutor, ownerId: string) =>
-				exec.select().from(users).where(eq(users.ownerUserId, ownerId)),
-		},
-		org: {
-			getTeam: async (exec: WriteExecutor, q: { id: string }) => {
-				const [row] = await exec.select().from(teams).where(eq(teams.id, q.id)).limit(1);
-				return row;
-			},
-		},
-		openParent:
-			opts.openParent ??
-			(async () => {
-				throw new Error("openParent not stubbed for this test");
-			}),
-		systemParentExists: async () => {
-			throw new Error("systemParentExists not stubbed for this test");
-		},
-		onBodyChanged: opts.onBodyChanged ?? (async () => {}),
-		...(opts.wsPush ? { wsPush: opts.wsPush } : {}),
-	};
-}
-
-async function readRow(db: HyperIdleDb, id: string) {
-	const [row] = await db.select().from(documents).where(eq(documents.id, id)).limit(1);
-	return row;
-}
+import {
+	actionFor,
+	ctxFor,
+	docValues,
+	readRow,
+	seedTeam,
+	seedUser,
+	writeDeps,
+} from "./_helpers.js";
 
 async function readDocumentChanges(db: HyperIdleDb) {
 	return db.select().from(changes).where(eq(changes.object, "document"));

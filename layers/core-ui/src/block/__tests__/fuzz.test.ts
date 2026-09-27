@@ -21,9 +21,7 @@ const randString = (len: number, seed: number): string => {
 };
 
 describe("Fuzz: deriveBlocks() recovers from arbitrary bytes", () => {
-	// @lore R3: 200 random deriveBlocks() calls under vitest worker load takes
-	// 10-30s due to remark/unified transform overhead. 60s matches the pattern
-	// for other slow shared-package tests.
+	// @lore 200 random deriveBlocks() calls take 10-30s under vitest worker load from remark/unified overhead — 60s matches other slow shared-package tests.
 	it("200 random inputs never throw and emit only closed-set kinds", { timeout: 60_000 }, () => {
 		for (let i = 0; i < 200; i++) {
 			const body = randString(64 + (i % 256), i + 1);

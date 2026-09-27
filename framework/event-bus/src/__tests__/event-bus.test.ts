@@ -5,10 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // — this mock lets us assert the error surfaced without relying on
 // console.error (which other tests may also hit).
 //
-// @lore AU44-b6: vi.mock is hoisted above ALL top-level declarations, so
-// plain `const errorMock = vi.fn()` is undefined when the factory runs.
-// vi.hoisted() runs inside the hoisting zone, so its return value is
-// available to the factory. See https://vitest.dev/api/vi#vi-hoisted
+// @lore vi.mock is hoisted above top-level declarations; vi.hoisted() makes mock fns available inside the factory.
 const { errorMock, warnMock, infoMock, debugMock } = vi.hoisted(() => ({
 	errorMock: vi.fn(),
 	warnMock: vi.fn(),
@@ -16,11 +13,7 @@ const { errorMock, warnMock, infoMock, debugMock } = vi.hoisted(() => ({
 	debugMock: vi.fn(),
 }));
 
-// @lore AU34: the specifier is the PACKAGE, not a relative path. `logger.ts` left this package for
-// `@hyperidle/diagnostics`, and a `vi.mock` of a path that no longer resolves is silently a no-op —
-// vitest does not complain, the bus logs for real, and the assertion below is the only thing that
-// notices. A relative `vi.mock` crossing a package boundary is the one rewrite the split's codemod
-// could not see, because the string is an argument rather than an import.
+// @lore vi.mock's specifier must be the package, not a relative path — a non-resolving mock is a silent no-op.
 vi.mock("@hyperidle/diagnostics", () => ({
 	createLogger: vi.fn(() => ({
 		debug: debugMock,
@@ -30,12 +23,9 @@ vi.mock("@hyperidle/diagnostics", () => ({
 	})),
 }));
 
-// @lore BB1: BetStateChangedEvent deleted — bet is now a root task.
-// @lore BC5 T7b: TaskStateChangedEvent/NotificationEvent deleted — their
-// last listener is gone — this file's generic "some event" fixture is now
-// `task.changed` (an ObjectChangeEvent member, the shape every real
-// task-state move emits today), and the second wildcard fixture is
-// `session_started`, a plain platform event with no object-event shape.
+// This file's generic "some event" fixture is `task.changed` (an ObjectChangeEvent
+// member, the shape every real task-state move emits today); the second wildcard
+// fixture is `session_started`, a plain platform event with no object-event shape.
 import type { DomainEvent, ObjectChangeEvent } from "@hyperidle/event-bus";
 import { EventBus } from "../event-bus.js";
 
@@ -217,39 +207,14 @@ describe("EventBus", () => {
 		const bus = new EventBus();
 		const handler = vi.fn();
 
-		// @lore BB1: bet_state_changed deleted; use session_started to keep cross-type isolation test.
 		bus.on("session_started", handler);
 		bus.emit(makeTaskEvent("t1", 1));
 
 		expect(handler).not.toHaveBeenCalled();
 	});
 
-	it("type safety: handler receives correctly typed event", () => {
-		const bus = new EventBus();
-
-		// This test verifies compile-time type safety.
-		// If the types are wrong, tsc will reject this file.
-		bus.on("task.changed", (e) => {
-			// These property accesses must type-check
-			const TaskId: string = e.change.objectId;
-			const Before: unknown = e.change.before;
-			const After: Record<string, unknown> = e.change.after;
-			expect(TaskId).toBeDefined();
-			expect(Before).toBeDefined();
-			expect(After).toBeDefined();
-		});
-
-		// @lore BB1: BetStateChangedEvent deleted — bet is now a root task.
-
-		bus.emit(makeTaskEvent("t1", 1));
-	});
-
-	// ---------------- I1 / EventBus resilience ----------------
-	// E1: a throwing handler must not block subsequent handlers on the
-	// same event type. Today's EventBus aborts the iteration on the first
-	// throw — this test is RED until the green phase wraps each handler in
-	// try/catch.
-	describe("I1 E1: throwing handler does not block subsequent handlers", () => {
+	// ---------------- EventBus resilience ----------------
+	describe("a throwing handler does not block subsequent handlers", () => {
 		it("continues delivering to remaining type-specific subscribers when one throws", () => {
 			const bus = new EventBus();
 			const subsequent = vi.fn();
@@ -265,9 +230,7 @@ describe("EventBus", () => {
 		});
 	});
 
-	// E2: the handler exception must be logged via `createLogger`. The
-	// mock at the top of this file captures calls to `.error(...)`.
-	describe("I1 E2: handler errors are logged", () => {
+	describe("handler errors are logged via createLogger", () => {
 		it("logs via createLogger.error when a handler throws", () => {
 			const bus = new EventBus();
 
@@ -286,9 +249,7 @@ describe("EventBus", () => {
 		});
 	});
 
-	// E3: wildcard subscribers must also isolate errors. A throwing
-	// wildcard handler must not block other wildcard handlers.
-	describe("I1 E3: wildcard path also isolates errors", () => {
+	describe("the wildcard subscriber path also isolates errors", () => {
 		it("continues delivering to remaining wildcard subscribers when one throws", () => {
 			const bus = new EventBus();
 			const subsequent = vi.fn();

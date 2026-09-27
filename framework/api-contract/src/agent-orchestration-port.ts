@@ -83,12 +83,7 @@ export interface AgentOrchestrationSessionsPort {
 /** Mirrors `AgentWorkIntentRecorderInput`'s discriminant (`@hyperidle/shared`). */
 export type AgentOrchestrationWorkIntentKind =
 	// @lore BC3 architecture.md §5 B5: renamed from "assistant_turn".
-	| "thread_turn"
-	| "session_start"
-	| "knowledge_action"
-	| "task_run"
-	| "session_resume"
-	| "subscription_run";
+	"thread_turn" | "task_run" | "session_resume" | "subscription_run";
 
 /**
  * Mirrors `AgentWorkIntentRecorderInput` — `bakedRequest` is carried opaque
@@ -156,17 +151,6 @@ export interface AgentOrchestrationIntentsPort {
 	recordReviewVerdict(
 		input: AgentOrchestrationReviewVerdictInput,
 	): Promise<AgentOrchestrationReviewVerdictOutcome>;
-}
-
-/** The requests family — outstanding-work readers and session-start lifecycle writers. */
-export interface AgentOrchestrationRequestsPort {
-	// @lore BC3 architecture.md §3.10/§5 B5: `listPendingIntentsByKind` DELETED
-	// with its only caller, the deleted coherence trigger.
-	/**
-	 * Mark an explicit session-start row as failed.
-	 * Called by core-api's `session_start` admission-failure reaction.
-	 */
-	failExplicitSessionStart(startId: string, failureCode: string): Promise<void>;
 }
 
 /** One run actually stopped by `runs.stopForTasks` — mirrors `StoppedRun`. */
@@ -358,7 +342,6 @@ export interface AgentOrchestrationFoldersPort {
 export interface AgentOrchestrationPort {
 	readonly sessions: AgentOrchestrationSessionsPort;
 	readonly intents: AgentOrchestrationIntentsPort;
-	readonly requests: AgentOrchestrationRequestsPort;
 	readonly runs: AgentOrchestrationRunsPort;
 	readonly runConfig: AgentOrchestrationRunConfigPort;
 	readonly filesystems: AgentOrchestrationFilesystemsPort;

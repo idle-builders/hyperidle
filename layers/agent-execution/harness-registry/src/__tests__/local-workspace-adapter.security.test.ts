@@ -1,13 +1,10 @@
 /**
- * I2 — S4: LocalSandboxAdapter refuses to operate when
- * `NODE_ENV === "production"`.
+ * LocalSandboxAdapter refuses to operate when NODE_ENV === "production",
+ * except on the laptop/desktop profile where it is the intended runtime.
  *
  * The adapter executes commands directly on the host filesystem with no
- * isolation. Allowing it in production would let any agent escape the
- * intended Docker boundary and read or mutate the host. The gate lives at
- * `spawn()` (per the I2 plan) so type-only imports in tests still work.
- *
- * Red phase: the current adapter has no production check; both tests fail.
+ * isolation. Allowing it on a server profile in production would let any
+ * agent escape the intended sandbox boundary and read or mutate the host.
  */
 
 import { mkdir, rm } from "node:fs/promises";
@@ -36,14 +33,14 @@ afterEach(() => {
 	process.env = { ...originalEnv };
 });
 
-describe("I2 S4 / review A3 — LocalSandboxAdapter production guard", () => {
+describe("LocalSandboxAdapter production guard", () => {
 	it("constructor throws when NODE_ENV === 'production' on a server profile", () => {
 		process.env.NODE_ENV = "production";
 		process.env.HYPERIDLE_PROFILE = "vps";
 		expect(() => new LocalSandboxAdapter()).toThrow(/not allowed/i);
 	});
 
-	it("error message indicates server-profile restriction (AQ1: no Docker reference)", () => {
+	it("error message indicates server-profile restriction", () => {
 		process.env.NODE_ENV = "production";
 		process.env.HYPERIDLE_PROFILE = "vps";
 		expect(() => new LocalSandboxAdapter()).toThrow(/not allowed.*server/i);
@@ -54,7 +51,7 @@ describe("I2 S4 / review A3 — LocalSandboxAdapter production guard", () => {
 		const adapter = new LocalSandboxAdapter();
 
 		const handle = await adapter.spawn(baseDir);
-		expect(handle.sandboxId).toBeDefined();
+		expect(handle.sandboxId).toMatch(/^local-sb-/);
 		await adapter.destroy(handle);
 	});
 
@@ -63,7 +60,7 @@ describe("I2 S4 / review A3 — LocalSandboxAdapter production guard", () => {
 		const adapter = new LocalSandboxAdapter();
 
 		const handle = await adapter.spawn(baseDir);
-		expect(handle.sandboxId).toBeDefined();
+		expect(handle.sandboxId).toMatch(/^local-sb-/);
 		await adapter.destroy(handle);
 	});
 
@@ -71,5 +68,21 @@ describe("I2 S4 / review A3 — LocalSandboxAdapter production guard", () => {
 		process.env.NODE_ENV = "production";
 		process.env.HYPERIDLE_PROFILE = "vps";
 		expect(() => new LocalSandboxAdapter()).toThrow(/not allowed/i);
+	});
+
+	it("does not throw when NODE_ENV=production and HYPERIDLE_PROFILE=laptop (the desktop build)", async () => {
+		process.env.NODE_ENV = "production";
+		process.env.HYPERIDLE_PROFILE = "laptop";
+		const adapter = new LocalSandboxAdapter();
+
+		const handle = await adapter.spawn(baseDir);
+		expect(handle.sandboxId).toMatch(/^local-sb-/);
+		await adapter.destroy(handle);
+	});
+
+	it("does not throw when NODE_ENV=production and HYPERIDLE_PROFILE is unset (laptop is the default)", () => {
+		process.env.NODE_ENV = "production";
+		process.env.HYPERIDLE_PROFILE = undefined;
+		expect(new LocalSandboxAdapter()).toBeInstanceOf(LocalSandboxAdapter);
 	});
 });

@@ -1,15 +1,15 @@
 /**
- * I2 review HIGH-2 — `authMiddleware` WARN-logs every rejected request
- * with timestamp, request path, method, and source IP. The supplied API
- * key MUST NOT appear in the log line — only the failure metadata an
- * incident responder needs to correlate against access logs.
+ * `authMiddleware` WARN-logs every rejected request with timestamp, request
+ * path, method, and source IP. The supplied API key must never appear in the
+ * log line — only the failure metadata an incident responder needs to
+ * correlate against access logs.
  */
 
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { authMiddleware } from "../auth.js";
 
-const TEST_API_KEY = "test-key-i2-auth-logging";
+const TEST_API_KEY = "test-key-auth-logging";
 
 function buildApp(): Hono {
 	const app = new Hono();
@@ -18,7 +18,7 @@ function buildApp(): Hono {
 	return app;
 }
 
-describe("I2 review HIGH-2 — authMiddleware WARN-logs rejected requests", () => {
+describe("authMiddleware WARN-logs rejected requests", () => {
 	let warnSpy: ReturnType<typeof vi.spyOn>;
 
 	beforeEach(() => {

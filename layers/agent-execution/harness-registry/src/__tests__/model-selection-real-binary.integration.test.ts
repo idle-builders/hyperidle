@@ -38,28 +38,30 @@
 
 import { execFile, execFileSync, spawn } from "node:child_process";
 import * as fs from "node:fs";
-import * as os from "node:os";
 import * as path from "node:path";
 import { promisify } from "node:util";
 import type { HarnessEvent, SessionConfig } from "@hyperidle/harness-protocol";
 import { describe, expect, test } from "vitest";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
 import { discoverLocalHarnesses } from "../harness-discovery.js";
-import { cliAdapterFixture } from "./cli-adapter-fixtures.js";
+import {
+	createHarnessSandbox,
+	provisionClaudeSandbox,
+	provisionCodexHome,
+} from "./harness-sandbox.js";
+import { productionCliConfig } from "./production-cli-config.js";
 import { requireHarness } from "./require-harness.js";
 import { trackHarnessSessions } from "./session-handle-tracker.js";
 
-// @lore process-group kill only helps once stopSession runs. `track` stops any
-// handle a test leaves unstopped — timeout or thrown assertion included — in
-// afterEach. See session-handle-tracker.ts.
+// @lore `track` stops any handle a test leaves unstopped in afterEach — see session-handle-tracker.ts.
 const { track } = trackHarnessSessions();
 
 const execFileAsync = promisify(execFile);
 
-const CLAUDE_CLI_CONFIG = cliAdapterFixture("claude");
-const CURSOR_AGENT_CLI_CONFIG = cliAdapterFixture("cursor-agent");
-const CODEX_CLI_CONFIG = cliAdapterFixture("codex");
-const OPENCODE_CLI_CONFIG = cliAdapterFixture("opencode");
+const CLAUDE_CLI_CONFIG = productionCliConfig("claude");
+const CURSOR_AGENT_CLI_CONFIG = productionCliConfig("cursor-agent");
+const CODEX_CLI_CONFIG = productionCliConfig("codex");
+const OPENCODE_CLI_CONFIG = productionCliConfig("opencode");
 
 const PROMPT = "Reply with exactly the token MODEL_OK and nothing else.";
 
@@ -97,23 +99,9 @@ function jsonLines(text: string): Record<string, unknown>[] {
 	return out;
 }
 
-async function rmSandboxWithRetry(sandboxPath: string): Promise<void> {
-	for (let attempt = 0; attempt < 5; attempt += 1) {
-		try {
-			fs.rmSync(sandboxPath, { recursive: true, force: true });
-			return;
-		} catch (err) {
-			const code = (err as NodeJS.ErrnoException).code;
-			if (code !== "ENOTEMPTY" && code !== "EBUSY") throw err;
-			await new Promise((resolve) => setTimeout(resolve, 50 * (attempt + 1)));
-		}
-	}
-	fs.rmSync(sandboxPath, { recursive: true, force: true });
-}
-
 /** Run one session through the production adapter, returning its raw stdout. */
 async function runWithModel(
-	config: ReturnType<typeof cliAdapterFixture>,
+	config: ReturnType<typeof productionCliConfig>,
 	sessionConfig: Omit<SessionConfig, "modelTier" | "tools">,
 ): Promise<{ stdout: string; events: HarnessEvent[] }> {
 	const sink = { text: "" };
@@ -149,25 +137,19 @@ function sessionId(prefix: string): string {
 
 // ── claude ────────────────────────────────────────────────────────────────────
 
-function provisionClaudeSandbox(sandboxPath: string): void {
-	fs.writeFileSync(
-		path.join(sandboxPath, ".mcp.json"),
-		JSON.stringify({
-			mcpServers: { hyperidle: { type: "http", url: "http://localhost:9/api/mcp/x" } },
-		}),
-		"utf-8",
-	);
-	fs.mkdirSync(path.join(sandboxPath, ".claude"), { recursive: true });
-	fs.writeFileSync(path.join(sandboxPath, ".claude", "settings.json"), JSON.stringify({}), "utf-8");
-}
-
-/** claude states the model it used as the key of `modelUsage` on its result line. */
+/**
+ * claude states the model it used on each `assistant` message's own
+ * `message.model` field — the CLI's real per-turn guarantee.
+ *
+ * @lore modelUsage's key order is not the answering model — an internal small-model entry can sort first; a test-only bug, fixed by reading assistant.model.
+ */
 function claudeModelUsed(stdout: string): string | undefined {
 	for (const obj of jsonLines(stdout).reverse()) {
-		const usage = obj.modelUsage;
-		if (usage && typeof usage === "object") {
-			const keys = Object.keys(usage as Record<string, unknown>);
-			if (keys.length > 0) return keys[0];
+		if (obj.type !== "assistant") continue;
+		const message = obj.message;
+		if (message && typeof message === "object") {
+			const model = (message as Record<string, unknown>).model;
+			if (typeof model === "string" && model.length > 0) return model;
 		}
 	}
 	return undefined;
@@ -185,7 +167,8 @@ describe("[harness:claude] the model asked for is the model claude runs", () => 
 
 		const seen: string[] = [];
 		for (const model of wanted) {
-			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "model-sel-claude-"));
+			const sandbox = createHarnessSandbox("model-sel-claude");
+			const sandboxPath = sandbox.path;
 			try {
 				provisionClaudeSandbox(sandboxPath);
 				const { stdout } = await runWithModel(CLAUDE_CLI_CONFIG, {
@@ -204,7 +187,7 @@ describe("[harness:claude] the model asked for is the model claude runs", () => 
 				// `haiku` is an alias; claude reports the concrete id it resolved to.
 				expect(used?.toLowerCase()).toContain(model);
 			} finally {
-				await rmSandboxWithRetry(sandboxPath);
+				await sandbox.cleanup();
 			}
 		}
 		// Asking for a different model produced a different model — the flag steers.
@@ -235,7 +218,8 @@ describe("[harness:cursor-agent] the model asked for is the model cursor runs", 
 
 		const seen: string[] = [];
 		for (const model of wanted) {
-			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "model-sel-cursor-"));
+			const sandbox = createHarnessSandbox("model-sel-cursor");
+			const sandboxPath = sandbox.path;
 			try {
 				const { stdout } = await runWithModel(CURSOR_AGENT_CLI_CONFIG, {
 					sessionId: sessionId("model-sel-cursor"),
@@ -253,7 +237,7 @@ describe("[harness:cursor-agent] the model asked for is the model cursor runs", 
 				const label = offered.find((m) => m.id === model)?.label ?? "";
 				expect(used?.startsWith(label)).toBe(true);
 			} finally {
-				await rmSandboxWithRetry(sandboxPath);
+				await sandbox.cleanup();
 			}
 		}
 		expect(seen[0]).not.toBe(seen[1]);
@@ -280,21 +264,6 @@ function provisionCodexRepo(sandboxPath: string): void {
 			GIT_COMMITTER_EMAIL: "t@t",
 		},
 	});
-}
-
-function provisionCodexHome(sandboxPath: string): boolean {
-	const codexHomeDir = path.join(sandboxPath, ".codex-home");
-	fs.mkdirSync(codexHomeDir, { recursive: true });
-	const homeCodexDir = path.join(os.homedir(), ".codex");
-	let authFound = false;
-	for (const fname of ["auth.json", "config.toml"]) {
-		const src = path.join(homeCodexDir, fname);
-		if (fs.existsSync(src)) {
-			fs.copyFileSync(src, path.join(codexHomeDir, fname));
-			if (fname === "auth.json") authFound = true;
-		}
-	}
-	return authFound;
 }
 
 /**
@@ -338,7 +307,8 @@ describe("[harness:codex] the model asked for is the model codex runs", () => {
 			offered.find((m) => m.id.endsWith("-mini"))?.id ?? offered[offered.length - 1]?.id;
 		expect(model).toBeDefined();
 
-		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "model-sel-codex-"));
+		const sandbox = createHarnessSandbox("model-sel-codex");
+		const sandboxPath = sandbox.path;
 		try {
 			provisionCodexRepo(sandboxPath);
 			expect(provisionCodexHome(sandboxPath)).toBe(true);
@@ -354,7 +324,7 @@ describe("[harness:codex] the model asked for is the model codex runs", () => {
 			expect(used, "codex recorded no model for the turn").toBeDefined();
 			expect(used).toBe(model);
 		} finally {
-			await rmSandboxWithRetry(sandboxPath);
+			await sandbox.cleanup();
 		}
 	}, 240_000);
 });
@@ -388,7 +358,8 @@ describe("[harness:opencode] the model asked for is the model opencode runs", ()
 		expect(offered.length).toBeGreaterThan(0);
 
 		const model = "openrouter/z-ai/glm-4.7-flash";
-		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "model-sel-opencode-"));
+		const sandbox = createHarnessSandbox("model-sel-opencode");
+		const sandboxPath = sandbox.path;
 		try {
 			const { stdout } = await runWithModel(OPENCODE_CLI_CONFIG, {
 				sessionId: sessionId("model-sel-opencode"),
@@ -402,7 +373,7 @@ describe("[harness:opencode] the model asked for is the model opencode runs", ()
 			expect(used, "opencode's export named no model").toBeDefined();
 			expect(used).toBe(model);
 		} finally {
-			await rmSandboxWithRetry(sandboxPath);
+			await sandbox.cleanup();
 		}
 	}, 240_000);
 });

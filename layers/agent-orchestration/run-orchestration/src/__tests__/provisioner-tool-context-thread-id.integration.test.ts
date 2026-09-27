@@ -1,10 +1,9 @@
 /**
- * AU27 Increment 1 (Decision 1) — `provisioner.ts`'s Phase 8 forwards
- * `params.callingThreadId` straight onto the session-scoped
- * `ToolContext.threadId` the `reply` tool (Increment 2) reads. Proven by
- * capturing the `ToolContext` the harness's tool registry is built with, over
- * a real (fake-adapter) `admit` + `run` pass — no live orchestration -> core
- * read, the value is forwarded verbatim from `params`.
+ * `provisioner.ts`'s Phase 8 forwards `params.callingThreadId` straight onto
+ * the session-scoped `ToolContext.threadId` the `reply` tool reads. Proven
+ * by capturing the `ToolContext` the harness's tool registry is built with,
+ * over a real (fake-adapter) `admit` + `run` pass — no live orchestration ->
+ * core read, the value is forwarded verbatim from `params`.
  */
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -12,93 +11,23 @@ import * as path from "node:path";
 import { type HyperIdleDb, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
-import { afterEach, describe, vi } from "vitest";
+import { afterEach, describe } from "vitest";
+import {
+	buildRunningHarnessPorts,
+	completingHarnessAdapter,
+	type ProvisionSessionDeps,
+	type ProvisionSessionParams,
+} from "../__testing__/test-fixtures.js";
 import { createProvisioner } from "../provisioner.js";
 
-type CreateProvisioner = typeof createProvisioner;
-type SessionLifecyclePorts = Parameters<CreateProvisioner>[0];
-type Provisioner = ReturnType<CreateProvisioner>;
-type AdmitArgs = Parameters<Provisioner["admit"]>;
-type ProvisionSessionDeps = AdmitArgs[0];
-type ProvisionSessionParams = AdmitArgs[1];
-type FakeAdapterPoolEntry = NonNullable<ReturnType<ProvisionSessionDeps["adapterPool"]["select"]>>;
-type FakeHarnessAdapter = FakeAdapterPoolEntry["adapter"];
-
-/** A harness adapter that starts, streams zero events, and stops cleanly. */
-function buildFakeHarnessAdapter(): FakeHarnessAdapter {
-	return {
-		startSession: async (config) => ({ sessionId: config.sessionId }),
-		streamEvents: () => ({
-			async *[Symbol.asyncIterator]() {
-				/* no events — the drain completes immediately */
-			},
-		}),
-		stopSession: async () => ({
-			outcome: "completed" as const,
-			tokenUsage: { byTier: {} },
-		}),
-		getCapabilities: () => ({
-			preCompactionTrigger: false,
-			subAgents: false,
-			modelProviders: [],
-			mcpSupport: false,
-			returnEnforcement: "none" as const,
-		}),
-	};
-}
-
 /** Every port method not exercised by this scenario throws if called. */
-function buildHarnessPorts(captured: {
-	toolContext?: { readonly threadId?: string };
-}): SessionLifecyclePorts {
-	const neverCalled = (label: string) =>
-		vi.fn(() => {
-			throw new Error(`${label}: must not be called in this test scenario`);
-		});
-	const base: SessionLifecyclePorts = {
-		sessionRequests: {
-			findSessionRequest: neverCalled("sessionRequests.findSessionRequest"),
-			listSessionRequests: neverCalled("sessionRequests.listSessionRequests"),
-			transitionSessionRequest: neverCalled("sessionRequests.transitionSessionRequest"),
-			abortSessionRun: neverCalled("sessionRequests.abortSessionRun"),
-			registerSessionRun: vi.fn(),
-			deregisterSessionRun: vi.fn(),
+function buildHarnessPorts(captured: { toolContext?: { readonly threadId?: string } }) {
+	return buildRunningHarnessPorts({
+		buildToolRegistry: (ctx) => {
+			captured.toolContext = ctx;
+			return { invoke: async () => ({ success: true, data: undefined }) };
 		},
-		observability: {
-			summarizeToolArgs: () => "",
-		},
-		harnessRuntime: {
-			enforcementRegistry: {
-				register: vi.fn(),
-				get: vi.fn(() => undefined),
-				incrementForce: vi.fn(),
-				unregister: vi.fn(),
-			},
-			createReturnGate: () => ({ observe: () => undefined, returned: false }),
-			evaluateReturn: () => "returned" as const,
-			provisionReturnHook: async () => undefined,
-			writeCliMcpConfig: neverCalled("harnessRuntime.writeCliMcpConfig"),
-			writePluginStdioMcpEntries: neverCalled("harnessRuntime.writePluginStdioMcpEntries"),
-			openMcpBridge: neverCalled("harnessRuntime.openMcpBridge"),
-			closeMcpBridge: neverCalled("harnessRuntime.closeMcpBridge"),
-		},
-		toolProvider: {
-			buildToolRegistry: (ctx) => {
-				captured.toolContext = ctx;
-				return { invoke: async () => ({ success: true, data: undefined }) };
-			},
-			toolsForRole: () => [],
-			returnStatusToolForRegistry: () => ({ name: "return_status" }),
-		},
-		contextAssembly: {
-			assembleAgentContext: neverCalled("contextAssembly.assembleAgentContext"),
-			beginAgentWriteback: () => ({ dispose: () => undefined }),
-			assemblePrompt: neverCalled("contextAssembly.assemblePrompt"),
-			assembleSubscriptionPrompt: neverCalled("contextAssembly.assembleSubscriptionPrompt"),
-			writeSandboxAgentsMd: vi.fn(),
-		},
-	};
-	return base;
+	});
 }
 
 function buildDeps(db: HyperIdleDb, sandboxPath: string): ProvisionSessionDeps {
@@ -108,7 +37,7 @@ function buildDeps(db: HyperIdleDb, sandboxPath: string): ProvisionSessionDeps {
 		adapterPool: {
 			select: () => ({
 				id: "fake-adapter",
-				adapter: buildFakeHarnessAdapter(),
+				adapter: completingHarnessAdapter(),
 				meta: {
 					name: "Fake",
 					kind: "local",

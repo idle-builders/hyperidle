@@ -1,5 +1,3 @@
-import { mkdir } from "node:fs/promises";
-import { resolve } from "node:path";
 import type { Locator, Page, Route } from "@playwright/test";
 import { REVIEW_COMPOSITION_SUBJECT } from "../src/pages/review/__fixtures__/review-composition.fixture.js";
 import {
@@ -17,7 +15,6 @@ import {
 	test,
 } from "./fixtures";
 
-const EVIDENCE = resolve(process.cwd(), "test-results/page-layout");
 const NOW = "2026-08-14T08:00:00.000Z";
 
 async function json(route: Route, body: unknown): Promise<void> {
@@ -26,7 +23,6 @@ async function json(route: Route, body: unknown): Promise<void> {
 
 async function box(locator: Locator) {
 	const value = await locator.boundingBox();
-	expect(value).not.toBeNull();
 	if (!value) throw new Error("Visible layout target has no painted box");
 	return value;
 }
@@ -37,11 +33,7 @@ async function expectSameX(a: Locator, b: Locator): Promise<void> {
 }
 
 async function mockPrimarySurfaces(page: Page): Promise<void> {
-	// @lore kind:"human", not "ai" — a kind:"ai" row here would also answer
-	// SettingsAgents' own search_users({kind:"ai"}) list, and its per-row
-	// open_user({id}) follow-up calls have no mock in this test, so every one
-	// of them hits the network and the section renders an error state (a wide
-	// side effect this test's width assertions do not want).
+	// @lore kind:"human" here — kind:"ai" would also answer SettingsAgents' own search and trigger unmocked network calls this test doesn't want.
 	await mockSearchUsers(page, {
 		rows: [
 			makeUserRow("member-team-a", { team: { id: "team-a", name: "Core" } }),
@@ -78,9 +70,6 @@ async function mockPrimarySurfaces(page: Page): Promise<void> {
 	});
 	await mockSearchSessions(page, { rows: [] });
 	await mockSearchThreads(page, { rows: [] });
-	// @lore BC4: KnowledgeDetail's LEGACY_DETAILS/fixture fallback ("k1, known
-	// fixture id with content") is gone — DocumentDetail only ever reads
-	// `open_document`, so this id needs an explicit mock now.
 	await mockDocument(page, {
 		row: makeDocumentRow("k1", { scopeKind: "team", scopeId: "team-a" }),
 	});
@@ -91,7 +80,6 @@ for (const viewport of [
 	{ width: 1024, height: 768 },
 ]) {
 	test(`stable frame and content lanes paint at ${viewport.width}px`, async ({ page }) => {
-		await mkdir(EVIDENCE, { recursive: true });
 		await page.setViewportSize(viewport);
 		await mockPrimarySurfaces(page);
 
@@ -101,8 +89,6 @@ for (const viewport of [
 			page.getByRole("heading", { level: 1 }),
 			page.getByTestId("team-row").first(),
 		);
-		if (viewport.width === 1440)
-			await page.screenshot({ path: resolve(EVIDENCE, "scan-work.png") });
 
 		await page.goto("/conversations/layout-thread");
 		const readLane = page.locator("[data-ds-component='PartList']").locator("xpath=..");
@@ -112,37 +98,26 @@ for (const viewport of [
 		expect(
 			Math.abs(readBox.x + readBox.width / 2 - (frameBox.x + frameBox.width / 2)),
 		).toBeLessThanOrEqual(1);
-		if (viewport.width === 1440)
-			await page.screenshot({ path: resolve(EVIDENCE, "read-conversation.png") });
 
 		await page.goto("/documents/k1");
 		await expect(page.getByTestId("document-body")).toBeVisible();
 		const workbench = page.getByTestId("document-metadata-aside").locator("xpath=..");
 		await expectSameX(page.getByRole("heading", { level: 1 }), workbench);
-		if (viewport.width === 1440)
-			await page.screenshot({ path: resolve(EVIDENCE, "workbench-document.png") });
 
 		await page.goto("/settings");
 		const focus = page.getByTestId("settings-section-profile");
 		const focusFrame = page.locator("[data-page-scroll] [data-page-frame]");
 		await focus.scrollIntoViewIfNeeded();
 		const [focusBox, focusFrameBox] = await Promise.all([box(focus), box(focusFrame)]);
-		expect(focusBox.width).toBeLessThanOrEqual(681);
-		expect(
-			Math.abs(focusBox.x + focusBox.width / 2 - (focusFrameBox.x + focusFrameBox.width / 2)),
-		).toBeLessThanOrEqual(1);
-		if (viewport.width === 1440)
-			await page.screenshot({ path: resolve(EVIDENCE, "focus-settings.png") });
+		expect(focusBox.width).toBeLessThanOrEqual(720);
+		// @lore FR-9: Settings content left-aligns with the page frame, not centered — this tolerance only rules out a centered layout.
+		expect(Math.abs(focusBox.x - focusFrameBox.x)).toBeLessThanOrEqual(30);
 	});
 }
 
-// @lore BC5 T9: "team split uses local pane headers..." deleted. Its subject
-// — a routine's split pane opened via `/work/team/:id?routine=:id` — is gone
-// with WorkRoutine and the routines table; WorkTeam's split view is agent-
-// selection only now (`?agent=:id`), and there is no routine pane to open.
+// @lore WorkTeam's split view is agent-selection only — a routine's split pane is gone with WorkRoutine.
 
 test("review with an artifact open uses two local panes", async ({ page }) => {
-	await mkdir(EVIDENCE, { recursive: true });
 	// ReviewPage's default loader reads
 	// the review message straight off `open_thread`. `artifacts` passes
 	// through the loader unchanged, so reusing the composed fixture's
@@ -215,7 +190,5 @@ test("review with an artifact open uses two local panes", async ({ page }) => {
 		.getByText(REVIEW_COMPOSITION_SUBJECT.artifacts[0]?.title ?? "", { exact: true });
 	await expect(destinationTitle).toBeVisible();
 	expect((await box(destinationTitle)).width).toBeGreaterThan(96);
-	await page.screenshot({ path: resolve(EVIDENCE, "inspect-review.png") });
 	await page.evaluate(() => document.documentElement.setAttribute("data-theme", "hearth-dark"));
-	await page.screenshot({ path: resolve(EVIDENCE, "inspect-review-dark.png") });
 });

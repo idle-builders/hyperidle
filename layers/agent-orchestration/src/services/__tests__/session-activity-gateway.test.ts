@@ -3,20 +3,9 @@
  * `session_ended`/`tool_call_recorded` off the EventBus as a `session:<id>`
  * NUDGE on the injected `wsPush` — never the raw event.
  *
- * @lore this Layer's live-run stream used to be served on its own second
- * websocket (`SessionStreamHub`, deleted), which teed the raw event JSON
- * straight onto the wire. The browser now holds ONE socket, owned by
- * core-api; this gateway pushes the same content-free envelope
- * `document-actions.ts`'s `pushChanges` already uses —
- * `{type:"update", topic, kind:"session.activity", data:{sessionId}}` — so
- * this Layer never hands core-api anything but a topic string and a JSON
- * value it does not interpret. `kind` here is a websocket word only; it is
- * never added to `EVENT_TYPES` (that vocabulary is the nine object events).
+ * @lore this gateway pushes the same content-free envelope `pushChanges` uses — this layer never hands core-api anything but an opaque topic/value.
  *
- * @lore AU26 B1a: relocated from `layers/core-api/src/services/__tests__/`
- * with the gateway itself, and reclassified from `.integration.test.ts` to a
- * unit test — it touches no DB and no app, only the EventBus, so it never met
- * the integration bar.
+ * @lore a unit test, not integration — it touches only the EventBus, no DB or app.
  */
 
 import { describe, expect, test } from "../../__testing__/test-fixtures.js";

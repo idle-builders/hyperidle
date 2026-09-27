@@ -1,13 +1,10 @@
 /**
- * AF11 — RuleTester fixtures for authz/no-raw-db-in-route-bypassing-policy (AC7).
- *
- * Rule: a route handler declared with requireBoundary({ kind: "enforced" })
- * (participant-scope) that performs a db.select/insert/update/delete must also
- * call authorizeRead or authorizeWrite somewhere in the same handler.
- *
- * @lore AF11: Narrow scope to avoid false positives on host-scope P routes.
- * High precision over recall per architecture §60. The runtime assertion +
- * integration tests cover what the lint can't see statically.
+ * `authz/no-raw-db-in-route-bypassing-policy` flags a route handler declared with
+ * `requireBoundary({ kind: "enforced" })` (participant-scope) that performs a
+ * db.select/insert/update/delete without also calling authorizeRead or authorizeWrite somewhere
+ * in the same handler. Deliberately narrow, to avoid false positives on host-scope routes — high
+ * precision over recall; the runtime assertion + integration tests cover what the lint can't see
+ * statically.
  */
 
 import { RuleTester } from "eslint";

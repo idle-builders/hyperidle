@@ -1,5 +1,5 @@
 /**
- * L9 — RedirectLegacyConversation unit tests.
+ * RedirectLegacyConversation unit tests.
  *
  * The helper maps legacy /conversations/review and /conversations/chat URLs
  * to the canonical /conversations/:threadId shape.
@@ -8,10 +8,7 @@
  * whitespace-only ids must redirect to /conversations (queue), not to
  * /conversations/%20%20%20 (which would 404).
  *
- * @lore L9: uses MemoryRouter + Routes + screen.getByText to observe the
- * navigate target because <Navigate> from react-router-dom replaces the
- * current location; the test renders a "Landing" stub at the redirect target
- * to confirm the final location.
+ * @lore uses MemoryRouter + screen.getByText to observe the navigate target, since <Navigate> replaces the current location.
  */
 
 import { render, screen } from "@testing-library/react";
@@ -54,7 +51,7 @@ function renderRedirect(
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("RedirectLegacyConversation (L9)", () => {
+describe("RedirectLegacyConversation", () => {
 	// -----------------------------------------------------------------------
 	// ?id= forms (paramName="id" at /conversations/review)
 	// -----------------------------------------------------------------------
@@ -77,7 +74,7 @@ describe("RedirectLegacyConversation (L9)", () => {
 	it("redirects /conversations/review?id=%20%20%20 (whitespace-only id) → /conversations", () => {
 		// CRITICAL fix from architecture-critique: whitespace ids must not produce
 		// a navigate to /conversations/%20%20%20 which then 404s on the detail page.
-		// @lore L9: params.get("id")?.trim() || null treats "   " as no id.
+		// @lore: params.get("id")?.trim() || null treats "   " as no id.
 		renderRedirect("/conversations/review?id=%20%20%20", "id");
 		expect(screen.getByTestId("landing")).toHaveTextContent("queue");
 	});
@@ -113,8 +110,7 @@ describe("RedirectLegacyConversation (L9)", () => {
 	it("preserves other query params (settings=open) when no legacy id present", () => {
 		// Covers the /conversations/review?settings=open real legacy URL shape
 		// (the former /settings redirect target at router.tsx line 41).
-		// @lore L9: the helper deletes only the paramName key; other params are
-		// carried forward in the redirect target URL.
+		// @lore the helper deletes only the paramName key — other params carry forward in the redirect target URL.
 		render(
 			<MemoryRouter initialEntries={["/conversations/review?settings=open"]}>
 				<Routes>

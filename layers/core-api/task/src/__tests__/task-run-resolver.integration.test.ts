@@ -1,35 +1,8 @@
 /**
- * AU21 Increment 3, session_start + task_run wave (RED) — architecture.md §6
- * Decision B's placement ruling: "`session_start`, `task_run` → resolvers
- * added to `layers/core-api/work/src/` ... `work` already owns
- * `taskDispatchAttemptStore`, `work-service.ts:62`."
- *
- * This resolver must do EXACTLY what `resolveIntentInputInternal`'s
- * "task_run" case does today (`session-requests/src/service.ts:753-773`),
- * reading only `work`'s own tables (`taskDispatchAttempts` — an
- * `UNOWNED_SHARED_TABLES` table `work` already touches via
- * `taskDispatchAttemptStore`, and `tasks` — `work`-owned) plus the shared
- * `requireRunnableAgent` invariant:
- *   1. Load the dispatch attempt; reject if it does not exist or its status
- *      is not "requested".
- *   2. Load the task; reject if it does not exist or is not in an
- *      agent-work-eligible state (`ready`/`accepted`/`in_progress`).
- *   3. Reject if the task's `ownerAgentId` no longer matches the attempt's
- *      `agentId` (owner changed after the dispatch attempt was created).
- *   4. Validate runnability of the attempt's agent via the shared core-api
- *      helper.
- *   5. Bake the request: `defaultAgentId`, `sourceKind: "task"`, `sourceId`
- *      (the task id), `streamId: task:<taskId>`, `taskId`, `teamId`,
- *      `sourceCorrelation`.
- *
- * Currently RED: no `task-run-resolver.ts` module exists anywhere under
- * `layers/core-api/work/src/` (nor from its barrel, `@hyperidle/work`) —
- * this import fails to resolve at runtime.
- *
- * @lore naming: the architecture doc does not pin an exact export name for
- * this new resolver — `resolveTaskRunRequest` is this wave's best-guess
- * interpretation (mirrors `resolveAssistantTurnRequest`'s naming), flagged
- * for reviewer confirmation.
+ * `resolveTaskRunRequest` (architecture.md §6, Decision B) — the emit-time
+ * `task_run` resolver: loads the dispatch attempt and task,
+ * validates the owner-agent match and runnability, and bakes the session
+ * request (`sourceKind`, `streamId`, `contextBundle`, `callingThreadId`).
  */
 
 import {
@@ -45,6 +18,7 @@ import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { assembleSessionDocuments } from "@hyperidle/document";
 import { getTeam, requireRunnableAgent } from "@hyperidle/user";
 import { and, eq } from "drizzle-orm";
+import { resolveTaskRunRequest } from "../task-run-resolver.js";
 
 /**
  * `resolveAgentIdentityBody`'s own read
@@ -175,7 +149,6 @@ describe("resolveTaskRunRequest — emit-time task_run resolver (work)", () => {
 	test("bakes the full request for a valid attempt + task + runnable agent, matching resolveIntentInputInternal's shape", async ({
 		db,
 	}) => {
-		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
 		await seedTeamAndRootTask(db, { teamId: "team-trun-1", rootTaskId: "bet-trun-1" });
 		await seedAgent(db, "agent-trun-1");
 		await seedTask(db, {
@@ -208,7 +181,6 @@ describe("resolveTaskRunRequest — emit-time task_run resolver (work)", () => {
 	});
 
 	test("rejects a dispatch attempt that does not exist", async ({ db }) => {
-		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
 		await expect(
 			resolveTaskRunRequest(
 				db,
@@ -219,7 +191,6 @@ describe("resolveTaskRunRequest — emit-time task_run resolver (work)", () => {
 	});
 
 	test("rejects a dispatch attempt that is no longer 'requested'", async ({ db }) => {
-		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
 		await seedTeamAndRootTask(db, { teamId: "team-trun-2", rootTaskId: "bet-trun-2" });
 		await seedAgent(db, "agent-trun-2");
 		await seedTask(db, {
@@ -245,7 +216,6 @@ describe("resolveTaskRunRequest — emit-time task_run resolver (work)", () => {
 	});
 
 	test("rejects when the task is not in an agent-work-eligible state", async ({ db }) => {
-		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
 		await seedTeamAndRootTask(db, { teamId: "team-trun-3", rootTaskId: "bet-trun-3" });
 		await seedAgent(db, "agent-trun-3");
 		await seedTask(db, {
@@ -273,7 +243,6 @@ describe("resolveTaskRunRequest — emit-time task_run resolver (work)", () => {
 	test("rejects when the task owner changed after the dispatch attempt was created", async ({
 		db,
 	}) => {
-		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
 		await seedTeamAndRootTask(db, { teamId: "team-trun-4", rootTaskId: "bet-trun-4" });
 		await seedAgent(db, "agent-trun-4-attempt");
 		await seedAgent(db, "agent-trun-4-new-owner");
@@ -300,13 +269,8 @@ describe("resolveTaskRunRequest — emit-time task_run resolver (work)", () => {
 	});
 
 	test("rejects when the attempt's agent is not a runnable AI agent", async ({ db }) => {
-		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
 		await seedTeamAndRootTask(db, { teamId: "team-trun-5", rootTaskId: "bet-trun-5" });
-		// `tasks.owner_agent_id` / `task_dispatch_attempts.agent_id` FK to
-		// `users.id` — a real row must exist to satisfy the constraint. Seeded
-		// as `kind: "human"` (not `"ai"`) so the row is real but still fails
-		// the runnability check, same intent as the RED-phase author's
-		// "deliberately do NOT seed as an AI agent" comment.
+		// A real user row (FK), but kind:"human" — fails the runnability check.
 		await db.insert(users).values({
 			id: "agent-trun-5-unrunnable",
 			kind: "human",
@@ -338,43 +302,18 @@ describe("resolveTaskRunRequest — emit-time task_run resolver (work)", () => {
 });
 
 /**
- * AU21 §9 Increment 12 (Decision H3), Wave B (RED) — `task_run` bakes a
- * `contextBundle` (`kind:"task"`) matching what `context.ts`'s pre-migration
- * `assembleContext`/`buildSessionContextData` used to assemble at launch:
- * task + bet + agent + team content, plus the ranked+budgeted document
- * bundle (`@hyperidle/document`'s `assembleSessionDocuments`, Wave A).
- *
- * Currently RED two ways:
- *  - `npm run check`: `TaskRunResolverDeps` has no `getTeamById`/
- *    `assembleSessionDocuments` fields yet — passing them as a 3rd-arg object
- *    literal is a TS2353 excess-property error.
- *  - `npm run test` (this file): `resolveTaskRunRequest`'s current
- *    implementation never sets `contextBundle` on its return — the field is
- *    `undefined`, so `toMatchObject` on it fails.
- *
- * @lore Mechanism C: `getTeamById`/`assembleSessionDocuments` must be
- * INJECTED (not statically imported) — `@hyperidle/work`'s package.json
- * declares only `@hyperidle/db` + framework packages as dependencies
- * (composition-boundary-guard's Mechanism C), matching every sibling
- * resolver's `requireRunnableAgent` injection precedent. The real emit sites
- * (`task-state-machine.ts`, `bet-decomposition.ts`, `handoff-protocol.ts`) are
- * core-api Layer code, not nested Services, so they may legitimately import
- * both `@hyperidle/user` and `@hyperidle/document` to wire the real
- * implementations in — this test does the same (test files are
- * guard-exempt — `scripts/composition-boundary-guard.ts` skips `__tests__/`).
- *
- * @lore Mechanism C also requires widening `TaskRunResolverDeps.requireRunnableAgent`'s
- * return type from `Promise<unknown>` to `Promise<User>` — the H2/Increment 11
- * precedent (`assistant-turn-resolver.ts`'s `agent.modelId`/`agent.modelProvider`
- * reuse) is to bake the agent's `name`/`role` from this SAME already-validated
- * row, not read it twice.
+ * `task_run` bakes a `contextBundle` (`kind:"task"`) — task + ancestors +
+ * agent + team content, plus the ranked+budgeted document bundle
+ * (`@hyperidle/document`'s `assembleSessionDocuments`). `getTeamById`/
+ * `assembleSessionDocuments` are injected, not statically imported —
+ * `@hyperidle/work`'s package.json declares only `@hyperidle/db` +
+ * framework packages (composition-boundary-guard's Mechanism C); the real
+ * emit sites (core-api Layer code) wire the real implementations in.
  */
-describe("resolveTaskRunRequest — contextBundle baking (Increment 12 Wave B, RED)", () => {
+describe("resolveTaskRunRequest — contextBundle baking", () => {
 	test("bakes a contextBundle (kind:'task') with task/ancestors/agent/team content + ranked documents", async ({
 		db,
 	}) => {
-		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
-
 		await seedTeamAndRootTask(db, { teamId: "team-trun-ctx-1", rootTaskId: "bet-trun-ctx-1" });
 		await db
 			.update(tasks)
@@ -413,12 +352,6 @@ describe("resolveTaskRunRequest — contextBundle baking (Increment 12 Wave B, R
 			updatedAt: now,
 		});
 
-		// RED (npm run check): `TaskRunResolverDeps` does not declare `getTeamById`/
-		// `assembleSessionDocuments` yet — this object literal is a genuine TS2353
-		// excess-property error until Wave B's GREEN phase grows the interface.
-		// Left uncast deliberately (no `any`/`as` — CLAUDE.md strict-TS rule): the
-		// compile error itself IS the expected RED signal. Vitest's esbuild
-		// transpile (type-erasure only, no type-check) still executes this file.
 		const baked = await resolveTaskRunRequest(
 			db,
 			{ kind: "task_run", attemptId: "attempt-trun-ctx-1" },
@@ -432,12 +365,6 @@ describe("resolveTaskRunRequest — contextBundle baking (Increment 12 Wave B, R
 
 		const team = await getTeam(db, { id: "team-trun-ctx-1" });
 
-		// RED (npm run check): `BakedTaskRunRequest` does not declare `contextBundle`
-		// yet — `baked.contextBundle` is a genuine TS2339 "property does not exist"
-		// error until Wave B's GREEN phase grows the return shape. Left as a direct
-		// property access deliberately (no cast) — the compile error IS the RED
-		// signal; vitest's transpile-only run still executes and evaluates it to
-		// `undefined` at runtime, which `toMatchObject` below then fails on.
 		expect(baked.contextBundle).toMatchObject({
 			kind: "task",
 			task: {
@@ -446,9 +373,8 @@ describe("resolveTaskRunRequest — contextBundle baking (Increment 12 Wave B, R
 				description: "Ship the contextBundle wiring.",
 				state: "accepted",
 			},
-			// BB1: the single `bet` became the ancestor chain, root first. This task
-			// sits one level down, so the chain is exactly its parent — the same
-			// row the old `bet` assertion named.
+			// The ancestor chain is root first; this task sits one level down, so
+			// the chain is exactly its parent.
 			ancestors: [
 				{
 					id: "bet-trun-ctx-1",
@@ -472,7 +398,6 @@ describe("resolveTaskRunRequest — contextBundle baking (Increment 12 Wave B, R
  */
 describe("resolveTaskRunRequest — callingThreadId baking", () => {
 	test("bakes callingThreadId from the task's own thread column", async ({ db }) => {
-		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
 		await seedTeamAndRootTask(db, {
 			teamId: "team-trun-thread-1",
 			rootTaskId: "bet-trun-thread-1",
@@ -502,7 +427,6 @@ describe("resolveTaskRunRequest — callingThreadId baking", () => {
 	});
 
 	test("two task_run bakes for the same task carry the same callingThreadId", async ({ db }) => {
-		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
 		await seedTeamAndRootTask(db, {
 			teamId: "team-trun-thread-2",
 			rootTaskId: "bet-trun-thread-2",
@@ -545,180 +469,5 @@ describe("resolveTaskRunRequest — callingThreadId baking", () => {
 		);
 
 		expect(secondBake.callingThreadId).toBe(firstBake.callingThreadId);
-	});
-});
-
-/**
- * session_start path of resolveTaskRunRequest — ported from the deleted
- * session-start-resolver.integration.test.ts. The session_start branch was
- * folded into task-run-resolver.ts (AU44 B3); these cases cover the
- * `{ kind: "session_start", taskId, requestedAgentId }` input shape.
- *
- * Key difference from task_run: no dispatch-attempt lookup, no task-state
- * eligibility check, no owner-agent mismatch check — only task existence
- * and agent runnability are validated.
- */
-describe("resolveTaskRunRequest — session_start path", () => {
-	test("bakes the full request for a valid task + runnable agent", async ({ db }) => {
-		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
-		await seedTeamAndRootTask(db, { teamId: "team-sstart-1", rootTaskId: "bet-sstart-1" });
-		await seedAgent(db, "agent-sstart-1");
-		await seedTask(db, {
-			taskId: "task-sstart-1",
-			rootTaskId: "bet-sstart-1",
-			teamId: "team-sstart-1",
-			ownerAgentId: "agent-sstart-1",
-		});
-
-		const baked = await resolveTaskRunRequest(
-			db,
-			{ kind: "session_start", taskId: "task-sstart-1", requestedAgentId: "agent-sstart-1" },
-			{ requireRunnableAgent, getAgentIdentity },
-		);
-
-		expect(baked).toMatchObject({
-			defaultAgentId: "agent-sstart-1",
-			sourceKind: "task",
-			sourceId: "task-sstart-1",
-			streamId: "task:task-sstart-1",
-			taskId: "task-sstart-1",
-			teamId: "team-sstart-1",
-			sourceCorrelation: { taskId: "task-sstart-1", teamId: "team-sstart-1" },
-		});
-	});
-
-	test("rejects a task that does not exist", async ({ db }) => {
-		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
-		await seedAgent(db, "agent-sstart-missing-task");
-
-		await expect(
-			resolveTaskRunRequest(
-				db,
-				{
-					kind: "session_start",
-					taskId: "task-does-not-exist",
-					requestedAgentId: "agent-sstart-missing-task",
-				},
-				{ requireRunnableAgent, getAgentIdentity },
-			),
-		).rejects.toThrow();
-	});
-
-	test("rejects when the requested agent is not a runnable AI agent (user row absent)", async ({
-		db,
-	}) => {
-		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
-		await seedTeamAndRootTask(db, { teamId: "team-sstart-2", rootTaskId: "bet-sstart-2" });
-		await seedTask(db, {
-			taskId: "task-sstart-2",
-			rootTaskId: "bet-sstart-2",
-			teamId: "team-sstart-2",
-		});
-		// Agent row absent — requireRunnableAgent must reject.
-
-		await expect(
-			resolveTaskRunRequest(
-				db,
-				{
-					kind: "session_start",
-					taskId: "task-sstart-2",
-					requestedAgentId: "agent-sstart-2-unrunnable",
-				},
-				{ requireRunnableAgent, getAgentIdentity },
-			),
-		).rejects.toThrow();
-	});
-
-	test("rejects a retired (non-runnable status) requested agent", async ({ db }) => {
-		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
-		await seedTeamAndRootTask(db, { teamId: "team-sstart-3", rootTaskId: "bet-sstart-3" });
-		await seedAgent(db, "agent-sstart-3-retired", { status: "retired" });
-		await seedTask(db, {
-			taskId: "task-sstart-3",
-			rootTaskId: "bet-sstart-3",
-			teamId: "team-sstart-3",
-			ownerAgentId: "agent-sstart-3-retired",
-		});
-
-		await expect(
-			resolveTaskRunRequest(
-				db,
-				{
-					kind: "session_start",
-					taskId: "task-sstart-3",
-					requestedAgentId: "agent-sstart-3-retired",
-				},
-				{ requireRunnableAgent, getAgentIdentity },
-			),
-		).rejects.toThrow();
-	});
-});
-
-describe("resolveTaskRunRequest — session_start callingThreadId baking", () => {
-	test("bakes callingThreadId from the task's own thread column", async ({ db }) => {
-		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
-		await seedTeamAndRootTask(db, {
-			teamId: "team-sstart-thread-1",
-			rootTaskId: "bet-sstart-thread-1",
-		});
-		await seedAgent(db, "agent-sstart-thread-1");
-		await seedTask(db, {
-			taskId: "task-sstart-thread-1",
-			rootTaskId: "bet-sstart-thread-1",
-			teamId: "team-sstart-thread-1",
-			ownerAgentId: "agent-sstart-thread-1",
-		});
-
-		const baked = await resolveTaskRunRequest(
-			db,
-			{
-				kind: "session_start",
-				taskId: "task-sstart-thread-1",
-				requestedAgentId: "agent-sstart-thread-1",
-			},
-			{ requireRunnableAgent, getAgentIdentity },
-		);
-
-		const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-sstart-thread-1"));
-		expect(task?.threadId).toBeTruthy();
-		expect(baked.callingThreadId).toBe(task?.threadId);
-	});
-
-	test("two session_start bakes for the same task carry the same callingThreadId", async ({
-		db,
-	}) => {
-		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
-		await seedTeamAndRootTask(db, {
-			teamId: "team-sstart-thread-2",
-			rootTaskId: "bet-sstart-thread-2",
-		});
-		await seedAgent(db, "agent-sstart-thread-2");
-		await seedTask(db, {
-			taskId: "task-sstart-thread-2",
-			rootTaskId: "bet-sstart-thread-2",
-			teamId: "team-sstart-thread-2",
-			ownerAgentId: "agent-sstart-thread-2",
-		});
-
-		const first = await resolveTaskRunRequest(
-			db,
-			{
-				kind: "session_start",
-				taskId: "task-sstart-thread-2",
-				requestedAgentId: "agent-sstart-thread-2",
-			},
-			{ requireRunnableAgent, getAgentIdentity },
-		);
-		const second = await resolveTaskRunRequest(
-			db,
-			{
-				kind: "session_start",
-				taskId: "task-sstart-thread-2",
-				requestedAgentId: "agent-sstart-thread-2",
-			},
-			{ requireRunnableAgent, getAgentIdentity },
-		);
-
-		expect(second.callingThreadId).toBe(first.callingThreadId);
 	});
 });

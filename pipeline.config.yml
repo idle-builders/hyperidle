@@ -74,6 +74,7 @@ worktree:
 rules:
   code: .pipeline/rules/typescript.md              # → write-code, architecture, review
   testing: .pipeline/rules/testing.md              # → write-tests, review
+  comments: .pipeline/rules/comments.md            # → write-code, write-tests, review
   architecture: .pipeline/rules/architecture.md    # → architecture, architecture-critique, review
   security: .pipeline/rules/security.md            # → architecture, write-code, review
   design-system: .pipeline/rules/design-system.md  # → design, write-code, review

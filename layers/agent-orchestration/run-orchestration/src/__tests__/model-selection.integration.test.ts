@@ -26,84 +26,21 @@ import { expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import type { SessionConfig } from "@hyperidle/harness-protocol";
 import { afterEach, describe, vi } from "vitest";
+import {
+	buildRunningHarnessPorts,
+	type ProvisionSessionDeps,
+	type ProvisionSessionParams,
+	rejectingHarnessAdapter,
+} from "../__testing__/test-fixtures.js";
 import { writeAgentRunConfig } from "../agent-run-config-store.js";
 import { createProvisioner } from "../provisioner.js";
 
-type CreateProvisioner = typeof createProvisioner;
-type SessionLifecyclePorts = Parameters<CreateProvisioner>[0];
-type Provisioner = ReturnType<CreateProvisioner>;
-type AdmitArgs = Parameters<Provisioner["admit"]>;
-type ProvisionSessionDeps = AdmitArgs[0];
-type ProvisionSessionParams = AdmitArgs[1];
-type FakeAdapterPoolEntry = NonNullable<ReturnType<ProvisionSessionDeps["adapterPool"]["select"]>>;
-type FakeHarnessAdapter = FakeAdapterPoolEntry["adapter"];
-
-function buildFakeHarnessAdapter(): FakeHarnessAdapter {
-	return {
-		startSession: () =>
-			Promise.reject(new Error("must not be called — onBeforeHarnessStart aborts")),
-		streamEvents: () => ({
-			[Symbol.asyncIterator]() {
-				throw new Error("must not be called — onBeforeHarnessStart aborts");
-			},
-		}),
-		stopSession: () =>
-			Promise.reject(new Error("must not be called — onBeforeHarnessStart aborts")),
-		getCapabilities: () => ({
-			preCompactionTrigger: false,
-			subAgents: false,
-			modelProviders: [],
-			mcpSupport: false,
-			returnEnforcement: "none" as const,
-		}),
-	};
-}
-
-function buildHarnessPorts(): SessionLifecyclePorts {
-	const neverCalled = (label: string) =>
-		vi.fn(() => {
-			throw new Error(`${label}: must not be called in this test scenario`);
-		});
-	return {
-		sessionRequests: {
-			findSessionRequest: neverCalled("sessionRequests.findSessionRequest"),
-			listSessionRequests: neverCalled("sessionRequests.listSessionRequests"),
-			transitionSessionRequest: neverCalled("sessionRequests.transitionSessionRequest"),
-			abortSessionRun: neverCalled("sessionRequests.abortSessionRun"),
-			registerSessionRun: vi.fn(),
-			deregisterSessionRun: vi.fn(),
-		},
-		observability: { summarizeToolArgs: () => "" },
-		harnessRuntime: {
-			enforcementRegistry: {
-				register: vi.fn(),
-				get: vi.fn(() => undefined),
-				incrementForce: vi.fn(),
-				unregister: vi.fn(),
-			},
-			createReturnGate: () => ({ observe: () => undefined, returned: false }),
-			evaluateReturn: () => "returned" as const,
-			provisionReturnHook: async () => undefined,
-			writeCliMcpConfig: neverCalled("harnessRuntime.writeCliMcpConfig"),
-			writePluginStdioMcpEntries: neverCalled("harnessRuntime.writePluginStdioMcpEntries"),
-			openMcpBridge: neverCalled("harnessRuntime.openMcpBridge"),
-			closeMcpBridge: neverCalled("harnessRuntime.closeMcpBridge"),
-		},
-		toolProvider: {
-			buildToolRegistry: () => ({ invoke: async () => ({ success: true, data: undefined }) }),
-			toolsForRole: () => [],
-			returnStatusToolForRegistry: () => ({ name: "return_status" }),
-		},
-		contextAssembly: {
-			// A task-bearing session assembles context; a no-op stub keeps this test
-			// about the model and nothing else.
-			assembleAgentContext: vi.fn(async () => ({ itemCount: 0, durationMs: 0, manifestPath: "" })),
-			beginAgentWriteback: () => ({ dispose: () => undefined }),
-			assemblePrompt: neverCalled("contextAssembly.assemblePrompt"),
-			assembleSubscriptionPrompt: neverCalled("contextAssembly.assembleSubscriptionPrompt"),
-			writeSandboxAgentsMd: vi.fn(),
-		},
-	};
+function buildHarnessPorts() {
+	// A task-bearing session assembles context; a no-op stub keeps this test
+	// about the model and nothing else.
+	return buildRunningHarnessPorts({
+		assembleAgentContext: vi.fn(async () => ({ itemCount: 0, durationMs: 0, manifestPath: "" })),
+	});
 }
 
 describe("the model an agent is configured with reaches its session", () => {
@@ -182,7 +119,7 @@ describe("the model an agent is configured with reaches its session", () => {
 			adapterPool: {
 				select: () => ({
 					id: "fake-adapter",
-					adapter: buildFakeHarnessAdapter(),
+					adapter: rejectingHarnessAdapter("must not be called — onBeforeHarnessStart aborts"),
 					meta: {
 						name: "Fake",
 						kind: "local",

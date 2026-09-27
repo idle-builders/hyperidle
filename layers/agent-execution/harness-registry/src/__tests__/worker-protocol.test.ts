@@ -25,15 +25,12 @@ describe("WorkerToServerMessage", () => {
 			modelProviders: ["anthropic"],
 			maxConcurrent: 2,
 		};
-		if (msg.type === "register") {
-			// These fields must exist after narrowing
-			expect(msg.id).toBe("w-1");
-			expect(msg.name).toBe("test-worker");
-			expect(msg.modelProviders).toEqual(["anthropic"]);
-			expect(msg.maxConcurrent).toBe(2);
-		} else {
-			throw new Error("Expected type === register");
-		}
+		if (msg.type !== "register") throw new Error('Expected type === "register"');
+		// These fields must exist after narrowing
+		expect(msg.id).toBe("w-1");
+		expect(msg.name).toBe("test-worker");
+		expect(msg.modelProviders).toEqual(["anthropic"]);
+		expect(msg.maxConcurrent).toBe(2);
 	});
 
 	it("narrows to WorkerEventMessage on type === event", () => {
@@ -42,12 +39,9 @@ describe("WorkerToServerMessage", () => {
 			sessionId: "sess-1",
 			event: { type: "completion", text: "done" },
 		};
-		if (msg.type === "event") {
-			expect(msg.sessionId).toBe("sess-1");
-			expect(msg.event.type).toBe("completion");
-		} else {
-			throw new Error("Expected type === event");
-		}
+		if (msg.type !== "event") throw new Error('Expected type === "event"');
+		expect(msg.sessionId).toBe("sess-1");
+		expect(msg.event.type).toBe("completion");
 	});
 
 	it("narrows to WorkerSessionResultMessage on type === session_result", () => {
@@ -59,12 +53,9 @@ describe("WorkerToServerMessage", () => {
 				tokenUsage: { byTier: { workhorse: { prompt: 10, completion: 5 } } },
 			},
 		};
-		if (msg.type === "session_result") {
-			expect(msg.sessionId).toBe("sess-2");
-			expect(msg.result.outcome).toBe("completed");
-		} else {
-			throw new Error("Expected type === session_result");
-		}
+		if (msg.type !== "session_result") throw new Error('Expected type === "session_result"');
+		expect(msg.sessionId).toBe("sess-2");
+		expect(msg.result.outcome).toBe("completed");
 	});
 
 	it("narrows to WorkerErrorMessage on type === error", () => {
@@ -73,12 +64,9 @@ describe("WorkerToServerMessage", () => {
 			sessionId: "sess-3",
 			message: "something went wrong",
 		};
-		if (msg.type === "error") {
-			expect(msg.sessionId).toBe("sess-3");
-			expect(msg.message).toBe("something went wrong");
-		} else {
-			throw new Error("Expected type === error");
-		}
+		if (msg.type !== "error") throw new Error('Expected type === "error"');
+		expect(msg.sessionId).toBe("sess-3");
+		expect(msg.message).toBe("something went wrong");
 	});
 });
 
@@ -97,12 +85,9 @@ describe("ServerToWorkerMessage", () => {
 				tools: ["Read", "Write"],
 			},
 		};
-		if (msg.type === "dispatch") {
-			expect(msg.sessionId).toBe("sess-4");
-			expect(msg.config.sandboxPath).toBe("/workspace/test");
-		} else {
-			throw new Error("Expected type === dispatch");
-		}
+		if (msg.type !== "dispatch") throw new Error('Expected type === "dispatch"');
+		expect(msg.sessionId).toBe("sess-4");
+		expect(msg.config.sandboxPath).toBe("/workspace/test");
 	});
 
 	it("narrows to ServerStopMessage on type === stop", () => {
@@ -110,22 +95,16 @@ describe("ServerToWorkerMessage", () => {
 			type: "stop",
 			sessionId: "sess-5",
 		};
-		if (msg.type === "stop") {
-			expect(msg.sessionId).toBe("sess-5");
-		} else {
-			throw new Error("Expected type === stop");
-		}
+		if (msg.type !== "stop") throw new Error('Expected type === "stop"');
+		expect(msg.sessionId).toBe("sess-5");
 	});
 
 	it("narrows to ServerRegisteredMessage on type === registered", () => {
 		const msg: ServerToWorkerMessage = {
 			type: "registered",
 		};
-		if (msg.type === "registered") {
-			expect(msg.type).toBe("registered");
-		} else {
-			throw new Error("Expected type === registered");
-		}
+		if (msg.type !== "registered") throw new Error('Expected type === "registered"');
+		expect(msg.type).toBe("registered");
 	});
 });
 

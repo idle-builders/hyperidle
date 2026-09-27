@@ -35,14 +35,6 @@ async function seedFounder(db: HyperIdleDb): Promise<void> {
 	});
 }
 
-// @lore BC5 T11: `POST /api/agents` and `POST /api/teams` (with its
-// `functions`-driven roster scaffold and team-level `primaryHarness`
-// default) are deleted with the `agents`/`teams` route families — a team is
-// just an id and a name now (migration 0090 drops every other column), so
-// "a team's chosen harness propagates to its scaffolded roster" has no
-// subject left to test. What survives is the principle itself, proven
-// against `edit_user`: nobody's agent is quietly assigned a harness or model
-// it never picked.
 describe("no harness or model is chosen on someone's behalf", () => {
 	test("an agent created with no harness named stores none", async ({ db, app }) => {
 		await seedFounder(db);

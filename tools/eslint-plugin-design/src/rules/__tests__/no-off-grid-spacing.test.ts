@@ -22,7 +22,7 @@ ruleTester.run("no-off-grid-spacing", noOffGridSpacing, {
 			filename: "Foo.tsx",
 			code: 'const J = <div className="gap-[var(--space-2)] mt-[var(--space-4)]" />;',
 		},
-		// Padding and fixed geometry belong to AZ7/AZ11, not this composition rule.
+		// Padding and fixed geometry belong to another rule, not this composition rule.
 		{
 			filename: "Foo.tsx",
 			code: 'const J = <div className="p-[5px] px-2 py-2.5 w-[17px] h-[31px]" />;',

@@ -1,9 +1,9 @@
 /**
- * AD9 — WorkOverview component tests (AC2, AC4, AC11).
+ * WorkOverview component tests.
  *
- * AC2: Team list with per-row status chip + active-bet count subtitle.
- * AC4: All four states — loading, error, empty, populated.
- * AC11: 1-team short-circuit → <Navigate to="/work/team/:id" replace>.
+ * Covers: a team list with a per-row status chip + active-bet count
+ * subtitle; all four states — loading, error, empty, populated; a
+ * 1-team short-circuit → <Navigate to="/work/team/:id" replace>.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
@@ -74,9 +74,9 @@ function renderInRouter(): ReturnType<typeof render> {
 }
 
 // ---------------------------------------------------------------------------
-// AC4 — Loading state
+// Loading state
 // ---------------------------------------------------------------------------
-describe("AC4 — Loading state", () => {
+describe("Loading state", () => {
 	it("renders SkeletonList when loading", () => {
 		mockUseTeams.mockReturnValue({ data: null, loading: true, error: null, refetch: mockRefetch });
 		renderInRouter();
@@ -92,9 +92,9 @@ describe("AC4 — Loading state", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC4 — Error state
+// Error state
 // ---------------------------------------------------------------------------
-describe("AC4 — Error state", () => {
+describe("Error state", () => {
 	it("renders ErrorState when fetch fails", () => {
 		mockUseTeams.mockReturnValue({
 			data: null,
@@ -117,7 +117,7 @@ describe("AC4 — Error state", () => {
 		expect(screen.queryByTestId("team-row")).not.toBeInTheDocument();
 	});
 
-	it("renders a retry affordance in the error state (AC4 §3 spec)", () => {
+	it("renders a retry affordance in the error state", () => {
 		// Spec §3: error state must offer retry → refetch. Verifies the button exists
 		// so users can recover without a full page reload.
 		mockUseTeams.mockReturnValue({
@@ -131,7 +131,7 @@ describe("AC4 — Error state", () => {
 		expect(screen.getByRole("button", { name: /^retry$/i })).toBeInTheDocument();
 	});
 
-	it("clicking retry triggers refetch (AC4 §3 spec)", async () => {
+	it("clicking retry triggers refetch", async () => {
 		const user = userEvent.setup();
 		mockUseTeams.mockReturnValue({
 			data: null,
@@ -146,9 +146,9 @@ describe("AC4 — Error state", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC4 — Empty state (0 teams)
+// Empty state (0 teams)
 // ---------------------------------------------------------------------------
-describe("AC4 — Empty state (0 teams)", () => {
+describe("Empty state (0 teams)", () => {
 	it("renders EmptyState when teams array is empty", () => {
 		mockUseTeams.mockReturnValue({
 			data: { teams: [] },
@@ -172,14 +172,14 @@ describe("AC4 — Empty state (0 teams)", () => {
 		const setupLink = screen.queryByRole("link", { name: /setup|finish setup|create.*team/i });
 		const setupBtn = screen.queryByRole("button", { name: /setup|finish setup|create.*team/i });
 		// At least one exists
-		expect(setupLink ?? setupBtn).not.toBeNull();
+		expect(setupLink ?? setupBtn).toBeInTheDocument();
 	});
 });
 
 // ---------------------------------------------------------------------------
-// AC11 — 1-team short-circuit
+// 1-team short-circuit
 // ---------------------------------------------------------------------------
-describe("AC11 — 1-team short-circuit (WorkOverview redirects to the single team)", () => {
+describe("1-team short-circuit (WorkOverview redirects to the single team)", () => {
 	it("navigates to /work/team/:id when exactly 1 team", async () => {
 		mockUseTeams.mockReturnValue({
 			data: { teams: [TEAM_A] },
@@ -236,9 +236,9 @@ describe("AC11 — 1-team short-circuit (WorkOverview redirects to the single te
 });
 
 // ---------------------------------------------------------------------------
-// AC2 — Populated team list
+// Populated team list
 // ---------------------------------------------------------------------------
-describe("AC2 — Populated team list (2+ teams)", () => {
+describe("Populated team list (2+ teams)", () => {
 	it("renders work-overview-page testid", () => {
 		mockUseTeams.mockReturnValue({
 			data: { teams: [TEAM_A, TEAM_B] },
@@ -392,7 +392,7 @@ describe("AC2 — Populated team list (2+ teams)", () => {
 		expect(screen.getByText("2 teams")).toBeInTheDocument();
 	});
 
-	// @lore BB1: "New bet" renamed to "New task" — root tasks replace bets
+	// @lore the button reads "New task" — root tasks are the one work primitive.
 	it("header renders 'New task' button", () => {
 		mockUseTeams.mockReturnValue({
 			data: { teams: [TEAM_A, TEAM_B] },
@@ -404,7 +404,7 @@ describe("AC2 — Populated team list (2+ teams)", () => {
 		expect(screen.getByRole("button", { name: /new task/i })).toBeInTheDocument();
 	});
 
-	it("'New task' button navigates to /work/task/new (BB1: was /work/bet/new)", async () => {
+	it("'New task' button navigates to /work/task/new (was /work/bet/new)", async () => {
 		const user = userEvent.setup();
 		mockUseTeams.mockReturnValue({
 			data: { teams: [TEAM_A, TEAM_B] },

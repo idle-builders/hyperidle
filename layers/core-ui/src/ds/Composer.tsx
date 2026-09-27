@@ -20,6 +20,7 @@
 import type { InlineRef } from "@hyperidle/domain-model";
 import type { JSX, KeyboardEvent, ReactNode } from "react";
 import { useCallback, useState } from "react";
+import { Button } from "./Button.js";
 import { dsProps } from "./ds-attrs.js";
 
 export interface ComposerSubmitInput {
@@ -162,22 +163,16 @@ export function Composer({
 					onKeyDown={handleKeyDown}
 					disabled={submitting}
 				/>
-				<button
-					type="button"
-					aria-label={iconSend ? "Send message" : undefined}
-					onClick={(): void => {
-						void handleSubmit();
-					}}
-					disabled={submitting || !text.trim()}
-					// L1 step9 (Design-C4): 44px minimum touch target (iconSend=false).
-					// Pill mode: compact icon button sits at bottom of the unified pill.
-					className={`type-control rounded-[var(--r-pill)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] hover:bg-[var(--accent-primary-hover)] active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] ${
-						iconSend
-							? "shrink-0 self-end px-[12px] py-[9px]"
-							: "px-[12px] min-h-[44px] self-stretch"
-					}`}
-				>
-					{iconSend ? (
+				{iconSend ? (
+					<Button
+						size="icon"
+						aria-label="Send message"
+						onClick={(): void => {
+							void handleSubmit();
+						}}
+						disabled={submitting || !text.trim()}
+						className="shrink-0 self-end"
+					>
 						<svg
 							aria-hidden="true"
 							viewBox="0 0 24 24"
@@ -191,12 +186,20 @@ export function Composer({
 						>
 							<path d={SEND_ICON_PATH} />
 						</svg>
-					) : submitting ? (
-						"Sending…"
-					) : (
-						"Send"
-					)}
-				</button>
+					</Button>
+				) : (
+					<button
+						type="button"
+						onClick={(): void => {
+							void handleSubmit();
+						}}
+						disabled={submitting || !text.trim()}
+						// L1 step9 (Design-C4): 44px minimum touch target.
+						className="type-control rounded-[var(--r-pill)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] hover:bg-[var(--accent-primary-hover)] active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] px-[12px] min-h-[44px] self-stretch"
+					>
+						{submitting ? "Sending…" : "Send"}
+					</button>
+				)}
 			</div>
 		</div>
 	);

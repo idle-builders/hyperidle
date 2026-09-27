@@ -18,6 +18,7 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(functi
 			<span className="pointer-events-none absolute left-[8px] flex items-center text-[var(--text-tertiary)]">
 				{loading ? (
 					<svg
+						data-testid="search-field-spinner"
 						data-az16-profile="busy"
 						aria-hidden="true"
 						viewBox="0 0 16 16"

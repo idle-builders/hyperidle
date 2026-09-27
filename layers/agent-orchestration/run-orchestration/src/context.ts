@@ -968,12 +968,9 @@ interface AssembleAgentContextInput {
 	/**
 	 * The baked entity+knowledge bundle a
 	 * `task_run` (`kind:"task"`) or `subscription_run`
-	 * (`kind:"subscription"`) session's sandbox is built from. Absent for
-	 * `knowledge_action` (`kind:"knowledge"` bundles carry no established
-	 * sandbox-context shape yet — a knowledge-review turn keeps today's
-	 * task-free minimal stub) and for any session with no bundle at all
-	 * (falls back to the same minimal stub every task-free session got
-	 * pre-migration — never a DB read).
+	 * (`kind:"subscription"`) session's sandbox is built from. Absent for any
+	 * session with no bundle at all (falls back to the same minimal stub
+	 * every task-free session got pre-migration — never a DB read).
 	 */
 	readonly contextBundle?: BakedContextBundle;
 }

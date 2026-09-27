@@ -20,7 +20,7 @@ const mockConversations = [
 	},
 ];
 
-// @lore BB1: work items are now tasks — `state` replaces `status` + `appetite`.
+// @lore: work items are now tasks — `state` replaces `status` + `appetite`.
 const mockWork = [
 	{
 		id: "w1",
@@ -39,8 +39,7 @@ const mockDocuments = [
 	},
 ];
 
-// @lore BC4: the raw fetch payload keeps the `knowledge` wire key (owned by
-// layers/core-api/src/routes/search.ts).
+// @lore the raw fetch payload keeps the knowledge wire key, owned by layers/core-api/src/routes/search.ts.
 const mockSearchResults = {
 	conversations: mockConversations,
 	work: mockWork,
@@ -73,7 +72,7 @@ describe("GlobalSearchPanel", () => {
 		vi.restoreAllMocks();
 	});
 
-	// AC1: Modal opens when open=true
+	// Modal opens when open=true
 	it("renders modal when open is true", () => {
 		render(<GlobalSearchPanel {...defaultProps} />);
 		expect(screen.getByRole("dialog")).toBeInTheDocument();
@@ -84,14 +83,14 @@ describe("GlobalSearchPanel", () => {
 		expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 	});
 
-	// AC2: SearchField focused automatically
+	// SearchField focused automatically
 	it("auto-focuses the search input when opened", () => {
 		render(<GlobalSearchPanel {...defaultProps} />);
 		const input = screen.getByRole("textbox");
 		expect(input).toHaveFocus();
 	});
 
-	// AC3: Typing filters results in real time
+	// Typing filters results in real time
 	it("calls search API when user types", async () => {
 		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 		(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
@@ -115,7 +114,7 @@ describe("GlobalSearchPanel", () => {
 		});
 	});
 
-	// AC4: Results grouped by type
+	// Results grouped by type
 	it("renders results grouped by Conversations, Work, Documents", async () => {
 		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 		(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
@@ -163,7 +162,7 @@ describe("GlobalSearchPanel", () => {
 		expect(screen.queryByText("Documents")).not.toBeInTheDocument();
 	});
 
-	// AC5: Arrow keys navigate, Enter selects, Esc closes
+	// Arrow keys navigate, Enter selects, Esc closes
 	it("Escape closes the panel", async () => {
 		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 		const onClose = vi.fn();
@@ -221,8 +220,8 @@ describe("GlobalSearchPanel", () => {
 		expect(onNavigate).toHaveBeenCalledWith("conversation", "c2");
 	});
 
-	// AC6: Results rendered as ThreadRow, TaskCard (lite), DocRow
-	// @lore BB1: BetCard replaced by TaskCard in GlobalSearchPanel.
+	// Results rendered as ThreadRow, TaskCard (lite), DocRow
+	// @lore: BetCard replaced by TaskCard in GlobalSearchPanel.
 	it("renders conversation results as ThreadRow components", async () => {
 		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 		(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
@@ -260,7 +259,7 @@ describe("GlobalSearchPanel", () => {
 
 		await waitFor(() => {
 			expect(screen.getByText("Mobile App V2")).toBeInTheDocument();
-			// @lore BB1: TaskCard shows title and state; team maps to owner. Title is sufficient to confirm rendering.
+			// @lore: TaskCard shows title and state; team maps to owner. Title is sufficient to confirm rendering.
 		});
 	});
 
@@ -283,7 +282,7 @@ describe("GlobalSearchPanel", () => {
 		});
 	});
 
-	// AC7: No results shows empty state message
+	// No results shows empty state message
 	it("shows empty state message when query has no results", async () => {
 		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 		(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
@@ -309,8 +308,8 @@ describe("GlobalSearchPanel", () => {
 		expect(screen.queryByTestId("search-empty")).not.toBeInTheDocument();
 	});
 
-	// AC8: Dialog layer carries data-dialog-layer="dialog" (AI2: DaisyUI .modal replaced by useDialogBehavior)
-	// UI-001: panel is portalled into #overlay-root (sibling of #root), so use
+	// Dialog layer carries data-dialog-layer="dialog" (DaisyUI .modal replaced by useDialogBehavior)
+	// The panel is portalled into #overlay-root (sibling of #root), so use
 	// document.querySelector instead of container.querySelector.
 	it("renders with dialog layer attribute", () => {
 		render(<GlobalSearchPanel {...defaultProps} />);
@@ -369,5 +368,21 @@ describe("GlobalSearchPanel", () => {
 
 		await user.click(screen.getByText("Mobile App V2"));
 		expect(onNavigate).toHaveBeenCalledWith("work", "w1");
+	});
+	// The panel is portalled into #overlay-root (sibling of #root).
+	// Use document.querySelector — portal content is outside the RTL container.
+	it("renders a recent-queries row region at the bottom, labeled for assistive tech", () => {
+		render(<GlobalSearchPanel {...defaultProps} />);
+		const recent = document.querySelector('[data-testid="search-recent-queries"]');
+		expect(recent).not.toBeNull();
+		expect(
+			recent?.getAttribute("aria-label") ?? recent?.getAttribute("aria-labelledby") ?? "",
+		).not.toBe("");
+	});
+
+	it("recent-queries row reports initial empty state", () => {
+		render(<GlobalSearchPanel {...defaultProps} />);
+		// Default placeholder message when no recent queries exist.
+		expect(screen.getByText(/no recent/i)).toBeInTheDocument();
 	});
 });

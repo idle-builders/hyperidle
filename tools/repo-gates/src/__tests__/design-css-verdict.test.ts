@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { evaluateDesignCss } from "../lib/design-css-verdict.js";
 
-describe("AZ16 CSS design verdict", () => {
+describe("CSS design verdict", () => {
 	test("accepts semantic profiles and the exact global reduced-motion contract", () => {
 		const findings = evaluateDesignCss([
 			{

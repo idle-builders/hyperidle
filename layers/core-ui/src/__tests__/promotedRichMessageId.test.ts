@@ -8,31 +8,14 @@
  * a card. "Oldest unresolved review/questionnaire wins" — deterministic
  * across renders. Returns null when no candidate exists.
  *
- * @lore L11 step5: tests fail with "promotedRichMessageId is not a
- * function" / unresolved import until plan T1 lands the helper in
- * framework/domain-model/src/thread.ts and exports it from index.ts.
+ * @lore red-phase: fails with "is not a function" until the helper is exported from framework/domain-model/src/thread.ts's index.
  */
 
-import type { Message, Thread } from "@hyperidle/domain-model";
+import type { Message } from "@hyperidle/domain-model";
 import { describe, expect, it } from "vitest";
 import { promotedRichMessageId } from "../ds/thread-display.js";
 
 const THREAD_ID = "t-1";
-
-const baseThread: Thread = {
-	id: THREAD_ID,
-	hostKind: "team",
-	hostId: "task-1",
-	initiatorId: "u-founder",
-	members: ["u-founder", "agent-1"],
-	title: null,
-	computedTitle: "Review r1",
-	pinned: false,
-	resolvedAt: null,
-	deletedAt: null,
-	lastActiveAt: "2026-04-19T12:00:00.000Z",
-	createdAt: "2026-04-19T12:00:00.000Z",
-};
 
 function review(id: string, createdAt: string, resolvedAt: string | null = null): Message {
 	return {
@@ -145,14 +128,5 @@ describe("promotedRichMessageId (approved.md §3, plan §5.2)", () => {
 
 	it("returns null on an empty messages array", () => {
 		expect(promotedRichMessageId([])).toBeNull();
-	});
-
-	// Architectural anchor: the helper MUST be a pure derivation — no thread
-	// or session-state argument needed (plan §6.2 CONFUSION resolution A).
-	it("is a one-arg pure function (signature anchor)", () => {
-		expect(promotedRichMessageId.length).toBe(1);
-		// Touch baseThread to avoid unused-import lint when this anchor is
-		// the only place the type is referenced.
-		expect(baseThread.id).toBe(THREAD_ID);
 	});
 });

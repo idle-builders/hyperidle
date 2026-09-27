@@ -1,7 +1,7 @@
 /**
- * Unit tests for the plugin manifest parser (BA9a AC3).
- *
- * Tests run against real temp files (no DB needed — pure filesystem).
+ * The plugin manifest parser: fatal violations refuse the install, some
+ * shapes only warn, and valid manifests parse cleanly. Runs against real
+ * temp files (no DB needed — pure filesystem).
  */
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
@@ -28,93 +28,38 @@ function writeManifest(content: unknown): void {
 }
 
 describe("parsePluginManifest", () => {
-	describe("AC3 — fatal violations", () => {
-		it("rejects when plugin.json is missing", () => {
+	describe("fatal violations", () => {
+		it.each([
+			["plugin.json is missing", undefined, /Cannot read plugin\.json/],
+			["plugin.json is not an object", "not-an-object", /must be a JSON object/],
+			["$schema is missing", { name: "my-plugin" }, /\$schema/],
+			[
+				"$schema is wrong — reason names the expected value",
+				{ $schema: "https://wrong.url", name: "my-plugin" },
+				VALID_SCHEMA,
+			],
+			["name is missing", { $schema: VALID_SCHEMA }, /"name"/],
+			["name has uppercase letters", { $schema: VALID_SCHEMA, name: "MyPlugin" }, null],
+			["name starts with a hyphen", { $schema: VALID_SCHEMA, name: "-bad" }, null],
+			["name has consecutive hyphens", { $schema: VALID_SCHEMA, name: "a--b" }, null],
+			["name is longer than 64 chars", { $schema: VALID_SCHEMA, name: "a".repeat(65) }, null],
+			[
+				"version is a number, not a string",
+				{ $schema: VALID_SCHEMA, name: "my-plugin", version: 123 },
+				/version.*string/i,
+			],
+			["version is a boolean", { $schema: VALID_SCHEMA, name: "my-plugin", version: true }, null],
+		] as const)("rejects when %s", (_desc, content, reasonMatch) => {
+			if (content !== undefined) writeManifest(content);
 			const result = parsePluginManifest(tempDir);
 			expect(result.ok).toBe(false);
-			if (!result.ok) {
-				expect(result.reason).toMatch(/Cannot read plugin\.json/);
-			}
-		});
-
-		it("rejects when plugin.json is not an object", () => {
-			writeManifest("not-an-object");
-			const result = parsePluginManifest(tempDir);
-			expect(result.ok).toBe(false);
-			if (!result.ok) {
-				expect(result.reason).toMatch(/must be a JSON object/);
-			}
-		});
-
-		it("rejects when $schema is missing", () => {
-			writeManifest({ name: "my-plugin" });
-			const result = parsePluginManifest(tempDir);
-			expect(result.ok).toBe(false);
-			if (!result.ok) {
-				expect(result.reason).toMatch(/\$schema/);
-			}
-		});
-
-		it("rejects when $schema is wrong — provides the expected value in the reason", () => {
-			writeManifest({ $schema: "https://wrong.url", name: "my-plugin" });
-			const result = parsePluginManifest(tempDir);
-			expect(result.ok).toBe(false);
-			if (!result.ok) {
-				expect(result.reason).toMatch(/\$schema/);
-				expect(result.reason).toContain(VALID_SCHEMA);
-			}
-		});
-
-		it("rejects when name is missing", () => {
-			writeManifest({ $schema: VALID_SCHEMA });
-			const result = parsePluginManifest(tempDir);
-			expect(result.ok).toBe(false);
-			if (!result.ok) {
-				expect(result.reason).toMatch(/"name"/);
-			}
-		});
-
-		it("rejects when name has uppercase letters", () => {
-			writeManifest({ $schema: VALID_SCHEMA, name: "MyPlugin" });
-			const result = parsePluginManifest(tempDir);
-			expect(result.ok).toBe(false);
-		});
-
-		it("rejects when name starts with a hyphen", () => {
-			writeManifest({ $schema: VALID_SCHEMA, name: "-bad" });
-			const result = parsePluginManifest(tempDir);
-			expect(result.ok).toBe(false);
-		});
-
-		it("rejects when name has consecutive hyphens", () => {
-			writeManifest({ $schema: VALID_SCHEMA, name: "a--b" });
-			const result = parsePluginManifest(tempDir);
-			expect(result.ok).toBe(false);
-		});
-
-		it("rejects when name is longer than 64 chars", () => {
-			writeManifest({ $schema: VALID_SCHEMA, name: "a".repeat(65) });
-			const result = parsePluginManifest(tempDir);
-			expect(result.ok).toBe(false);
-		});
-
-		it("rejects when version is a number, not a string", () => {
-			writeManifest({ $schema: VALID_SCHEMA, name: "my-plugin", version: 123 });
-			const result = parsePluginManifest(tempDir);
-			expect(result.ok).toBe(false);
-			if (!result.ok) {
-				expect(result.reason).toMatch(/version.*string/i);
-			}
-		});
-
-		it("rejects when version is a boolean", () => {
-			writeManifest({ $schema: VALID_SCHEMA, name: "my-plugin", version: true });
-			const result = parsePluginManifest(tempDir);
-			expect(result.ok).toBe(false);
+			if (result.ok) throw new Error("expected a fatal violation");
+			if (!reasonMatch) return;
+			expect(result.reason).toMatch(reasonMatch);
 		});
 	});
 
-	describe("AC3 — non-fatal (warning, install continues)", () => {
+	describe("non-fatal (warning, install continues)", () => {
 		it("succeeds with warning when there is an unknown top-level field", () => {
 			writeManifest({
 				$schema: VALID_SCHEMA,
@@ -123,11 +68,10 @@ describe("parsePluginManifest", () => {
 			});
 			const result = parsePluginManifest(tempDir);
 			expect(result.ok).toBe(true);
-			if (result.ok) {
-				const warn = result.manifest.warnings.find((w) => w.code === "UNKNOWN_TOP_LEVEL_FIELD");
-				expect(warn).toBeDefined();
-				expect(warn?.message).toContain("unknownField");
-			}
+			if (!result.ok) throw new Error("expected a successful parse");
+			const warn = result.manifest.warnings.find((w) => w.code === "UNKNOWN_TOP_LEVEL_FIELD");
+			expect(warn).toBeDefined();
+			expect(warn?.message).toContain("unknownField");
 		});
 
 		it("succeeds with warning when extensions is not an object", () => {
@@ -138,10 +82,9 @@ describe("parsePluginManifest", () => {
 			});
 			const result = parsePluginManifest(tempDir);
 			expect(result.ok).toBe(true);
-			if (result.ok) {
-				const warn = result.manifest.warnings.find((w) => w.code === "NON_OBJECT_EXTENSIONS");
-				expect(warn).toBeDefined();
-			}
+			if (!result.ok) throw new Error("expected a successful parse");
+			const warn = result.manifest.warnings.find((w) => w.code === "NON_OBJECT_EXTENSIONS");
+			expect(warn).toBeDefined();
 		});
 
 		it("succeeds with warning when extensions is an array", () => {
@@ -160,21 +103,17 @@ describe("parsePluginManifest", () => {
 			writeManifest({ $schema: VALID_SCHEMA, name: "my-plugin" });
 			const result = parsePluginManifest(tempDir);
 			expect(result.ok).toBe(true);
-			if (result.ok) {
-				expect(result.manifest.name).toBe("my-plugin");
-				expect(result.manifest.version).toBe("0");
-				expect(result.manifest.warnings).toHaveLength(0);
-			}
+			if (!result.ok) throw new Error("expected a successful parse");
+			expect(result.manifest.name).toBe("my-plugin");
+			expect(result.manifest.version).toBe("0");
+			expect(result.manifest.warnings).toHaveLength(0);
 		});
 
-		it("accepts a single-character name", () => {
-			writeManifest({ $schema: VALID_SCHEMA, name: "a" });
-			const result = parsePluginManifest(tempDir);
-			expect(result.ok).toBe(true);
-		});
-
-		it("accepts a name with hyphens and periods", () => {
-			writeManifest({ $schema: VALID_SCHEMA, name: "my-plugin.v2" });
+		it.each([
+			["a single-character name", "a"],
+			["a name with hyphens and periods", "my-plugin.v2"],
+		])("accepts %s", (_desc, name) => {
+			writeManifest({ $schema: VALID_SCHEMA, name });
 			const result = parsePluginManifest(tempDir);
 			expect(result.ok).toBe(true);
 		});
@@ -188,10 +127,9 @@ describe("parsePluginManifest", () => {
 			});
 			const result = parsePluginManifest(tempDir);
 			expect(result.ok).toBe(true);
-			if (result.ok) {
-				expect(result.manifest.version).toBe("1.2.3");
-				expect(result.manifest.description).toBe("A great plugin");
-			}
+			if (!result.ok) throw new Error("expected a successful parse");
+			expect(result.manifest.version).toBe("1.2.3");
+			expect(result.manifest.description).toBe("A great plugin");
 		});
 
 		it("ignores unknown client namespaces without validating their contents", () => {
@@ -205,12 +143,11 @@ describe("parsePluginManifest", () => {
 			});
 			const result = parsePluginManifest(tempDir);
 			expect(result.ok).toBe(true);
-			if (result.ok) {
-				// No warnings about the unknown client namespace
-				expect(
-					result.manifest.warnings.filter((w) => w.code === "NON_OBJECT_EXTENSIONS"),
-				).toHaveLength(0);
-			}
+			if (!result.ok) throw new Error("expected a successful parse");
+			// No warnings about the unknown client namespace
+			expect(
+				result.manifest.warnings.filter((w) => w.code === "NON_OBJECT_EXTENSIONS"),
+			).toHaveLength(0);
 		});
 	});
 });

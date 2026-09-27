@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { blockId, deriveBlocks, normalisedPayload } from "../../../block/index.js";
+import { deriveBlocks } from "../../../block/index.js";
 import { MOCK_REVIEW_SUBJECT } from "../__fixtures__/review-subject.fixture.js";
 import type { CodeDiffPayload, ReviewArtifact } from "../review-artifact.js";
 import { deriveProseBlocks, lineBlockId } from "../review-canvas.js";
@@ -37,20 +37,6 @@ describe("lineBlockId", () => {
 		const id1 = lineBlockId(codeArtifact.id, file.path, 0, line);
 		const id2 = lineBlockId(codeArtifact.id, file.path, 1, line);
 		expect(id1).not.toBe(id2);
-	});
-
-	it("matches the explicit blockId construction", () => {
-		const actual = lineBlockId(codeArtifact.id, file.path, 0, line);
-		const expected = blockId({
-			kind: "code",
-			outlinePath: `${codeArtifact.id}:${file.path}#hunk0`,
-			normalisedPayload: normalisedPayload({
-				kind: "code",
-				lang: "ts",
-				text: line.text,
-			}),
-		});
-		expect(actual).toBe(expected);
 	});
 });
 

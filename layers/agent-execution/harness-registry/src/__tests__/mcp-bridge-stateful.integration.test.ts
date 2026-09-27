@@ -13,18 +13,9 @@
  *
  * IN CI / test:all — deterministic, no external binary.
  *
- * @lore AL7 T0b stateful-bridge: Uses SDK Client + StreamableHTTPClientTransport
- * against the production listener to avoid the `mcp-protocol-version` foot-gun
- * (N11). A hand-rolled fetch test that hardcodes a stale protocol version can
- * 400 for the wrong reason and mask a real regression. The SDK client handles
- * the protocol version header correctly and is still the PRODUCTION server
- * transport — only the client side is SDK-assisted.
+ * @lore uses the SDK client against the production listener — a hand-rolled fetch test risks a stale protocol-version header masking a real regression.
  *
- * @lore AL7 T0b sanity-break: omitting the mcp-session-id on a second request
- * (post-initialize) must return 400/404. This is verified via a raw fetch call
- * after the SDK client successfully initializes (the SDK client naturally carries
- * the session id; we probe the raw path with a second client that re-initializes
- * and then sends a request without the session id header).
+ * @lore omitting the mcp-session-id on a second request (post-initialize) must return 400/404.
  */
 
 import * as fs from "node:fs";
@@ -47,10 +38,7 @@ const createEnforcementRegistry = () => createReturnEnforcement();
 /**
  * Inline commit_file proof-vehicle tool.
  *
- * @lore AU20 Am10: `createCommitFileTool` factory is now internal to
- * `@hyperidle/tool-handlers` (AU20 Am10 collapse). `commit_file` is a pure
- * disk-write tool with no DB dependency — inlined here so the MCP bridge
- * proof vehicle is self-contained without a cross-layer import.
+ * @lore `commit_file` is inlined here (no DB dependency) so the MCP bridge proof vehicle is self-contained.
  */
 const commitFileTool = toRegistered({
 	name: "commit_file",
@@ -165,7 +153,7 @@ async function startT0bServer(sandboxPath: string): Promise<T0bTestServer> {
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
-describe("T0b — production MCP bridge stateful session-capability (AC9)", () => {
+describe("production MCP bridge stateful session-capability", () => {
 	let sandboxPath: string;
 	let testServer: T0bTestServer;
 
@@ -179,7 +167,7 @@ describe("T0b — production MCP bridge stateful session-capability (AC9)", () =
 		fs.rmSync(sandboxPath, { recursive: true, force: true });
 	});
 
-	test("multi-request session: initialize → list_tools → call_tool succeeds via mcp-session-id (AC9)", async () => {
+	test("multi-request session: initialize → list_tools → call_tool succeeds via mcp-session-id", async () => {
 		// Use the SDK Client + StreamableHTTPClientTransport pointed at the
 		// PRODUCTION server. This avoids the mcp-protocol-version foot-gun (N11)
 		// and naturally carries the mcp-session-id header on requests 2+.

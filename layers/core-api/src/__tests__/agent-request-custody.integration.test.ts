@@ -1,10 +1,9 @@
 /**
- * AU9 Remediation-2 — R2: this suite drives the real DB/request worker
- * (`drainAgentSessionRequests` / `bootAgentLayer`, both from `agent-layer-boot.ts`
- * — NOT one of the five R2-banned custody modules), with a deterministic fake
- * ONLY at the `ProvisionSessionDeps` harness-execution edge (`admitSession` /
- * `runSession` from `session-provisioning.js`, the same seam used by the
- * already-protected `agent-run-boundary.test.ts`). It never imports a
+ * This suite drives the real DB/request worker (`drainAgentSessionRequests` /
+ * `bootAgentLayer`, both from `agent-layer-boot.ts`), with a deterministic
+ * fake ONLY at the `ProvisionSessionDeps` harness-execution edge
+ * (`admitSession` / `runSession` from `session-provisioning.js`, the same
+ * seam used by `agent-run-boundary.test.ts`). It never imports a
  * custody/claim/terminal/recovery helper directly to assert its return value.
  */
 
@@ -40,9 +39,9 @@ const sessionProvisioner: NonNullable<RuntimePorts["sessionProvisioner"]> = {
 				sessionId,
 				agentId: params.agentId,
 				taskId: params.taskId,
-				sandboxPath: "/tmp/au9-custody",
+				sandboxPath: "/tmp/custody",
 				ingestion: { dispose: vi.fn() },
-				traceId: "trace-au9-custody",
+				traceId: "trace-custody",
 				requestContext: params.requestContext,
 			},
 		};
@@ -151,11 +150,11 @@ async function seedTaskRequest(
 }
 
 /**
- * AU27 W1 fix — the assistant turn's own `sourceKind: "assistant"` request,
- * seeded directly on `agentSessionRequests` (bypassing the trigger-recording
- * stage) exactly like `seedTaskRequest` does for `task` — proving the shared
- * drain (`drainAgentSessionRequests` → `runClaimedRequest`) is genuinely
- * agnostic to source kind, not merely that `task` happens to work.
+ * The assistant turn's own `sourceKind: "assistant"` request, seeded directly
+ * on `agentSessionRequests` (bypassing the trigger-recording stage) exactly
+ * like `seedTaskRequest` does for `task` — proving the shared drain
+ * (`drainAgentSessionRequests` -> `runClaimedRequest`) is genuinely agnostic
+ * to source kind, not merely that `task` happens to work.
  */
 async function seedAssistantTurnRequest(
 	db: import("@hyperidle/db").HyperIdleDb,
@@ -182,7 +181,7 @@ async function seedAssistantTurnRequest(
 		status: "active",
 		createdAt: now,
 	});
-	// AU26 G1: the run config lives in `agent_run_config` now.
+	// The run config lives in `agent_run_config`.
 	await db.insert(agentRunConfig).values({
 		agentUserId: assistantId,
 		harnessType: "opencode",
@@ -301,21 +300,18 @@ describe("request custody drives the real drain and runtime", () => {
 		expect(request?.status).toBe("completed");
 	});
 
-	// -------------------------------------------------------------------------
-	// AU27 W1 — AC-5's promised proof: the assistant's `sourceKind: "assistant"`
-	// request drains through the SAME shared poller as `task`, and reaches
-	// "completed" only via the real `running`-precondition CAS
-	// (`transition-run.ts`'s `transitionAgentRunLifecycle`) — not merely
-	// because a row exists. `runClaimedRequest` (runtime.ts:370-375) writes
-	// `to: "running"` BEFORE admitting; only after that does the detached
-	// `runSession` completion write `to: "completed"` under a
-	// `precondition: "running"` CAS. A request that never reached "running"
-	// cannot reach "completed" — it would CAS-miss and terminalize "failed"
-	// instead (runtime.ts's `.catch` branch), so this assertion is a genuine
-	// lifecycle-transition proof, not a row-existence check.
-	// -------------------------------------------------------------------------
+	// The assistant's `sourceKind: "assistant"` request drains through the SAME
+	// shared poller as `task`, and reaches "completed" only via the real
+	// `running`-precondition CAS (`transition-run.ts`'s
+	// `transitionAgentRunLifecycle`) — not merely because a row exists.
+	// `runClaimedRequest` writes `to: "running"` BEFORE admitting; only after
+	// that does the detached `runSession` completion write `to: "completed"`
+	// under a `precondition: "running"` CAS. A request that never reached
+	// "running" cannot reach "completed" — it would CAS-miss and terminalize
+	// "failed" instead, so this assertion is a genuine lifecycle-transition
+	// proof, not a row-existence check.
 
-	test("an assistant_turn request reaches running then completed through the shared durable poller (AC-5)", async ({
+	test("an assistant_turn request reaches running then completed through the shared durable poller", async ({
 		db,
 	}) => {
 		await seedAssistantTurnRequest(db, "assistant-lifecycle-request");

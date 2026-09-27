@@ -2,16 +2,7 @@
  * `GET /api/ws` — the pre-auth identity handoff between the token-consuming
  * middleware and `onOpen`.
  *
- * @lore AU26 review W12, relocated: the deleted second websocket
- * (`agent-orchestration/src/routes/session-stream-ws.ts`) carried this exact
- * fix already — a `WeakMap<object, string>` keyed on the Hono `Context`
- * instead of a single module-scoped slot. Core's socket kept the older
- * single-slot shape, which the same race hits: the middleware is `async`,
- * so two upgrades in flight can run middleware(A) → middleware(B) →
- * onOpen(A), and A joins under B's identity — indistinguishable from the
- * right answer once a topic admits on identity alone (as `session:<id>`
- * now does on this very socket). This test proves the fix survived the
- * merge instead of being deleted with the file it was copied from.
+ * @lore identity lives in a WeakMap keyed on the Hono Context, not one module slot — two upgrades in flight must not cross-join identities.
  */
 
 import type { UpgradeTokenStore } from "@hyperidle/user";

@@ -1,17 +1,12 @@
 /**
- * AU16 — harness-capability-read-model: unit tests (RED phase)
- *
  * Constructs a REAL AdapterPool (registers a real adapter instance implementing
  * the HarnessAdapter contract, mirroring the pattern in
- * harness/__tests__/adapter-pool-ab1.test.ts) and asserts each of the 6 exported
+ * harness-registry/src/__tests__/adapter-pool.test.ts) and asserts each of the 6 exported
  * read functions forwards the exact value the corresponding AdapterPool member
  * returns. Also asserts the two optional-reader forwarders fall back to
  * null/[] when passed undefined, and that a real AdapterPool instance is
- * structurally assignable to HarnessCapabilityReader (the AC-2 no-execution
+ * structurally assignable to HarnessCapabilityReader (the no-execution
  * guarantee's compile-time property).
- *
- * These tests FAIL until packages/server/src/services/harness-capability-read-model.ts
- * is created.
  */
 
 import type {
@@ -75,8 +70,11 @@ describe("harness-capability-read-model", () => {
 	it("harnessCapabilitiesForType returns non-null for a registered type", () => {
 		const pool = makePopulatedPool();
 		const result = harnessCapabilitiesForType(pool, "opencode");
-		expect(result).not.toBeNull();
-		expect(result?.returnEnforcement).toBeDefined();
+		expect(result).toMatchObject({
+			mcpSupport: false,
+			modelProviders: [],
+			returnEnforcement: "none",
+		});
 	});
 
 	it("harnessCapabilitiesForType forwards null for an unregistered type", () => {
@@ -94,9 +92,9 @@ describe("harness-capability-read-model", () => {
 		expect(harnessRegistrationMeta(pool, "unknown-type")).toBeNull();
 	});
 
-	it("a real AdapterPool is structurally assignable to HarnessCapabilityReader (AC-2 compile-time guarantee)", () => {
+	it("a real AdapterPool is structurally assignable to HarnessCapabilityReader (compile-time guarantee)", () => {
 		const pool = makePopulatedPool();
 		const reader: HarnessCapabilityReader = pool;
-		expect(harnessCapabilitiesForType(reader, "opencode")).not.toBeNull();
+		expect(harnessCapabilitiesForType(reader, "opencode")?.returnEnforcement).toBe("none");
 	});
 });

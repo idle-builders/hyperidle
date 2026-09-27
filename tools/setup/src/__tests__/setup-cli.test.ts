@@ -31,19 +31,14 @@ afterEach(() => {
 	fs.rmSync(tmpdir, { recursive: true, force: true });
 });
 
-describe("H4 AC1: `bun run setup --profile laptop`", () => {
+describe("`bun run setup --profile laptop`", () => {
 	it("creates PGlite data dir, runs migrations, seeds — end to end", {
 		timeout: 60_000,
 	}, async () => {
 		const dataDir = path.join(tmpdir, "hyperidle-pg");
 		const { io, captured } = makeIo();
 
-		// @lore AU29 N7: `--root` is a repo-root override consumed by the vps
-		// docker-compose lookup and the `--db-path` default — it must NOT reach
-		// the migrations lookup (that resolves off this file's own directory,
-		// not `root`). An arbitrary, non-repo root here proves the laptop path
-		// stays correct even when `--root` points somewhere migrations don't
-		// exist; this is the exact combination that regressed (B1).
+		// @lore --root overrides only the vps docker-compose lookup and --db-path default — the migrations lookup resolves off this file's own directory, never --root.
 		const fakeRoot = path.join(tmpdir, "not-a-repo-root");
 		fs.mkdirSync(fakeRoot);
 
@@ -61,8 +56,8 @@ describe("H4 AC1: `bun run setup --profile laptop`", () => {
 		const client = new PGlite(dataDir);
 		await client.waitReady;
 		try {
-			// @lore AF17: applyFactoryBootstrap does NOT insert teams — teams are
-			// created at onboarding, not at setup time. Assert factory agents present.
+			// applyFactoryBootstrap does NOT insert teams — teams are created at
+			// onboarding, not at setup time. Assert factory agents present.
 			const usersResult = await client.query<{ id: string }>("SELECT id FROM users");
 			expect(usersResult.rows.length).toBeGreaterThan(0);
 
@@ -91,7 +86,7 @@ describe("H4 AC1: `bun run setup --profile laptop`", () => {
 	});
 });
 
-describe("H4 AC2: `bun run setup --profile vps`", () => {
+describe("`bun run setup --profile vps`", () => {
 	it("prints Docker Compose bring-up instructions", async () => {
 		const { io, captured } = makeIo();
 		const exit = await runSetup(["--profile", "vps", "--dry-run"], io, { env: {} });
@@ -110,7 +105,7 @@ describe("H4 AC2: `bun run setup --profile vps`", () => {
 	});
 });
 
-describe("H4: CLI argument errors", () => {
+describe("CLI argument errors", () => {
 	it("rejects unknown profile", async () => {
 		const { io, captured } = makeIo();
 		const exit = await runSetup(["--profile", "bogus"], io, { env: {} });
@@ -135,7 +130,7 @@ describe("H4: CLI argument errors", () => {
 	});
 });
 
-describe("H4 security: --db-path validation", () => {
+describe("--db-path validation", () => {
 	it("rejects paths with .. traversal segments", () => {
 		expect(() => validateDbPath("../../../etc/passwd", tmpdir)).toThrow(/'\.\.'/);
 		expect(() => validateDbPath("a/b/../c.db", tmpdir)).toThrow(/'\.\.'/);
@@ -183,7 +178,7 @@ describe("H4 security: --db-path validation", () => {
 	});
 });
 
-describe("AF17 CRITICAL-2: --demo flag behavior", () => {
+describe("--demo flag behavior", () => {
 	it("without --demo: setup produces no demo team (factory only)", {
 		timeout: 60_000,
 	}, async () => {
@@ -257,7 +252,7 @@ describe("AF17 CRITICAL-2: --demo flag behavior", () => {
 	});
 });
 
-describe("H4 idempotency: laptop setup is safe to run twice", () => {
+describe("laptop setup is safe to run twice", () => {
 	it("running setup --profile laptop twice does not corrupt the DB", {
 		timeout: 60_000,
 	}, async () => {
@@ -279,10 +274,9 @@ describe("H4 idempotency: laptop setup is safe to run twice", () => {
 		const client = new PGlite(dataDir);
 		await client.waitReady;
 		try {
-			// @lore P2: agents → users table
 			const agentsResult = await client.query<{ id: string }>("SELECT id FROM users");
 			expect(agentsResult.rows.length).toBeGreaterThan(0);
-			// @lore AF17: factory bootstrap does NOT insert teams (teams come from onboarding).
+			// Factory bootstrap does NOT insert teams (teams come from onboarding).
 			// Assert the factory system:propagation row is still present after second run.
 			const propagationResult = await client.query<{ n: string }>(
 				"SELECT COUNT(*) AS n FROM users WHERE id = 'system:propagation'",

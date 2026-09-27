@@ -18,8 +18,8 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 	await db.insert(users).values([
 		{
 			id: "agent-1",
-			// AF11: kind='human' so auth middleware resolves this user as the principal.
-			// GET /api/users/:id/inbox is self-only (AC5); the resolved principal must
+			// kind='human' so auth middleware resolves this user as the principal.
+			// GET /api/users/:id/inbox is self-only; the resolved principal must
 			// match the inbox owner. All seedBase tests resolve principal = "agent-1".
 			kind: "human",
 			name: "Test Agent",
@@ -28,10 +28,9 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 			teamId: "prod-1",
 			createdAt: new Date().toISOString(),
 		},
-		// L1a: synthetic sender for verdict-typed messages emitted by
-		// the legacy `POST /responses` route (plan §6.4 wraps the new
-		// repo path). The new `messages.sender_id` FK requires the
-		// row to exist.
+		// A synthetic sender for verdict-typed messages emitted by the legacy
+		// `POST /responses` route — `messages.sender_id` FK requires the row
+		// to exist.
 		{
 			id: "policy_engine",
 			name: "Policy Engine",
@@ -43,7 +42,7 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 }
 
 async function seedTaskData(db: HyperIdleDb): Promise<void> {
-	// @lore U1: teamId references `teams` domain entity (not teamMembers).
+	// teamId references the `teams` domain entity (not teamMembers).
 	await db.insert(threads).values({
 		id: `thr-${"bet-1"}`,
 		hostKind: "team",
@@ -86,7 +85,7 @@ async function seedTaskData(db: HyperIdleDb): Promise<void> {
 	});
 }
 
-describe("E2E API Integration (I5)", () => {
+describe("E2E API integration", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 	});
@@ -154,12 +153,11 @@ describe("E2E API Integration (I5)", () => {
 	});
 
 	// -------------------------------------------------------
-	// 3. Root Tasks (replaced Bets in BB1) — edit_task/open_task/search_tasks
+	// 3. Root Tasks — edit_task/open_task/search_tasks
 	// -------------------------------------------------------
 	describe("Root Tasks", () => {
-		// BB1: bets are now root tasks (parentTaskId=null). Test task creation and listing.
-		// the architecture doc §8: the eight-route /api/tasks CRUD surface is
-		// deleted — task is an action, POST /api/actions/<name>.
+		// A root task is a task with parentTaskId=null. There is no separate
+		// CRUD route surface — task is an action, POST /api/actions/<name>.
 		test("edit_task (no id) creates a root task, and search_tasks lists it", async ({
 			db,
 			app,
@@ -247,31 +245,14 @@ describe("E2E API Integration (I5)", () => {
 			const body = (await res.json()) as { ok: boolean; data: Array<{ parentTaskId: string }> };
 			expect(body.data.every((t) => t.parentTaskId === "bet-1")).toBe(true);
 		});
-
-		// PATCH /api/tasks/:id (door #39) and POST /api/tasks/:id/transition (door #40) deleted.
-		// Tests removed with the routes; edit_task covers create+edit+transition together.
 	});
 
-	// -------------------------------------------------------
-	// 5. Conversations
-	// -------------------------------------------------------
-	// @lore BC3 architecture.md §5: describe("Conversations") DELETED —
-	// GET /api/conversations, POST /api/conversations/items, POST
-	// /api/threads, and POST /api/threads/:id/messages are all deleted
-	// routes (the `items` table and the old thread routes are both gone;
-	// thread reads/writes are actions now — `search_thread`/`open_thread`/
-	// `send_message`/`adjust_thread`).
-
-	// -------------------------------------------------------
-	// 6. Document search
-	// -------------------------------------------------------
-	// @lore document-module B20: the CRUD checks that used to live here
-	// (create/list/get-by-id over the now-deleted `POST /api/knowledge`) are
-	// the seam contract — `document-actions.integration.test.ts` proves them
-	// against `POST /api/actions/edit_document` for both the human and agent
-	// door. What is left here is what was never about the route: the global
-	// search endpoint, seeded through the surviving action door.
-	// Search: GET /api/search?scope=document&q=... (AU44 fold; scope was renamed since).
+	// The document/user/thread/session/routine CRUD routes this file used to
+	// exercise are gone — those doors are actions now
+	// (edit_document/edit_task/search_users/send_message/edit_user), proven
+	// in document-actions/task-actions/user-actions/thread-actions. What
+	// remains here is what was never about a CRUD route: the global search
+	// endpoint and 404 handling.
 	describe("Document search", () => {
 		test("GET /api/search?scope=document&q=test returns search results", async ({ db, app }) => {
 			await seedBase(db);
@@ -306,30 +287,6 @@ describe("E2E API Integration (I5)", () => {
 		});
 	});
 
-	// -------------------------------------------------------
-	// 7. Agents
-	// -------------------------------------------------------
-	// @lore BC5 T11: GET /api/users, GET /api/users/:id and GET /api/users/:id/
-	// inbox are all deleted with the `users` route family — user is one module
-	// now, `search_users`/`open_user`/`edit_user` under `POST /api/actions/
-	// <name>`, proven in `@hyperidle/user`'s own `user-actions.integration.test.ts`.
-
-	// -------------------------------------------------------
-	// 8. Sessions
-	// -------------------------------------------------------
-	// GET /api/sessions deleted — search_sessions is the door now, proven by
-	// the integrate task's seam test, not here.
-	// POST /api/sessions (door #114) and PATCH /api/sessions/:id (door #144) deleted.
-	// Tests removed with the routes.
-
-	// Status routes (doors #115-118) deleted. Tests removed with the routes.
-
-	// @lore BC5 T7b: 11. Routines — GET/PATCH /api/routines deleted with the
-	// routine package; a routine is a subscription now, edited on `edit_user`.
-
-	// -------------------------------------------------------
-	// 14. 404 handling
-	// -------------------------------------------------------
 	describe("404 handling", () => {
 		test("returns 404 JSON for unknown /api routes", async ({ db, app }) => {
 			await seedBase(db);
@@ -344,8 +301,4 @@ describe("E2E API Integration (I5)", () => {
 			expect(res.status).toBe(404);
 		});
 	});
-
-	// @lore BC5 T7b: section 15 "Request validation" deleted — its two cases
-	// (POST /api/sessions door #114, PATCH /api/routines/:id 404) were both
-	// removed with their routes, leaving an empty describe vitest refuses to run.
 });

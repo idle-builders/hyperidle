@@ -22,29 +22,7 @@ import {
 	searchDocumentRows,
 	updateDocument,
 } from "../document-store.js";
-
-type Insertable = typeof documents.$inferInsert;
-
-/** Sensible defaults for a document row; every field is overridable. */
-function docValues(overrides: Partial<Insertable> & { id: string }): Insertable {
-	const ts = "2026-01-01T00:00:00.000Z";
-	return {
-		scopeKind: "factory",
-		scopeId: null,
-		title: "Untitled",
-		body: "body",
-		format: "markdown",
-		status: "active",
-		slot: "ordinary",
-		parentKind: null,
-		parentId: null,
-		position: 0,
-		updatedBy: "seed",
-		createdAt: ts,
-		updatedAt: ts,
-		...overrides,
-	};
-}
+import { docValues } from "./_helpers.js";
 
 /** No `scope: 'user'`/`'team'` rows are visible-by-default fixtures use — every
  * capability test that isn't specifically about visibility uses this viewer
@@ -103,10 +81,7 @@ describe("search_documents — the one query (architecture.md §5.1)", () => {
 		expect(rows.map((r) => r.id).sort()).toEqual([bodyHit.id, titleHit.id].sort());
 	});
 
-	// @lore document-module B20: carried over from the deleted
-	// `knowledge.validation.integration.test.ts` — `%`/`_` are ILIKE
-	// wildcards; `text` must match them literally, not as a wildcard, or a
-	// one-character query would return every row.
+	// @lore `%`/`_` are ILIKE wildcards — `text` must match them literally, or a one-character query returns every row.
 	test("text escapes ILIKE wildcards — % and _ match literally, not as wildcards", async ({
 		db,
 	}) => {
@@ -573,12 +548,7 @@ describe("search_documents — the one query (architecture.md §5.1)", () => {
 			expect(rows.map((r) => r.id)).not.toContain(memory.id);
 		});
 
-		// @lore document-module B20: carried over from the deleted
-		// `knowledge.team-visibility.integration.test.ts` — the same predicate
-		// backs `search_documents` and `open_document`'s `children`/`siblings`
-		// (`document-actions.ts`'s `assembleDocumentView`), so one test at this
-		// level covers all three surfaces the deleted route test drove
-		// separately.
+		// @lore the same predicate backs `search_documents` and `open_document`'s children/siblings — one test here covers all three surfaces.
 		test("a team-scoped document is excluded for a viewer outside that team, included for a member", async ({
 			db,
 		}) => {

@@ -1,13 +1,7 @@
 /**
- * L1a — `headCollapsePredicate` unit tests.
- *
- * Approved-design hard-rule 1:
- * "ThreadHead mounts iff there exists a message of type 'review' or
- * 'questionnaire' whose resolvedAt is null AND that message is the most
- * recent of its kind in the thread."
- *
- * @lore L1 step-1 (write-tests): these tests describe the predicate
- * contract; the green phase fills the function body.
+ * `headCollapsePredicate`: ThreadHead mounts iff there exists a message of type 'review' or
+ * 'questionnaire' whose resolvedAt is null AND that message is the most recent of its kind in
+ * the thread.
  */
 
 import { describe, expect, it } from "vitest";
@@ -80,7 +74,7 @@ function questionnaire(
 	};
 }
 
-describe("headCollapsePredicate (L1 plan §4 + approved.md §8 hard-rule 1)", () => {
+describe("headCollapsePredicate (approved.md §8 hard-rule 1)", () => {
 	it("returns null head when messages are empty", () => {
 		expect(headCollapsePredicate([])).toEqual({ headMessageId: null });
 	});
@@ -133,18 +127,14 @@ describe("headCollapsePredicate (L1 plan §4 + approved.md §8 hard-rule 1)", ()
 	});
 });
 
-// AC-4 closure assertions: tighten the closed-enum surface so additions
-// require updating both the constant and the type.
-describe("closed enums (AC-4)", () => {
-	it("MESSAGE_TYPES has exactly 4 entries", () => {
-		expect(MESSAGE_TYPES.length).toBe(4);
+describe("closed enums", () => {
+	it("MESSAGE_TYPES is exactly {plain, review, questionnaire, verdict}", () => {
 		expect(new Set(MESSAGE_TYPES)).toEqual(
 			new Set(["plain", "review", "questionnaire", "verdict"]),
 		);
 	});
 
-	it("HOST_KINDS has exactly 5 entries (bet, artifact, and task are no longer host kinds — a task's thread is team-hosted)", () => {
-		expect(HOST_KINDS.length).toBe(5);
+	it("HOST_KINDS is exactly {document, agent, user, team, factory} — a task's thread is team-hosted", () => {
 		expect(new Set(HOST_KINDS)).toEqual(new Set(["document", "agent", "user", "team", "factory"]));
 	});
 });

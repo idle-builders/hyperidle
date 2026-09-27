@@ -8,77 +8,118 @@ paths:
 
 # Testing Rules
 
-## What a test is
+## What a test is for
 
-A test imports application code and asserts on its behavior. That's it.
+A test guarantees functionality: a rule our code decides, or in UI that something that must be shown
+is shown, or that what the user does works. It must be able to fail when production breaks. If you
+can't say what production change would turn it red, don't write it.
 
-- Call a function, assert on the return value.
-- Render a component, assert on the DOM.
-- Send a request via the fixture-injected `app`, assert on the response.
-- Write via the fixture-injected `db`, read back, assert on the data.
+## Enforced by lint
 
-## What a test is NOT
+The rules a machine can check fail `npm run lint`, not just a review — see the "testing.md § lint
+enforcement" blocks in `eslint.config.ts` for the exact wiring, and the rule sources for what each one
+flags: `vitest/no-conditional-expect`, `vitest/expect-expect`, `playwright/no-conditional-expect`,
+`playwright/expect-expect` ([@vitest/eslint-plugin](https://github.com/vitest-dev/eslint-plugin-vitest),
+[eslint-plugin-playwright](https://github.com/playwright-community/eslint-plugin-playwright)); the
+repo-specific rules in `tools/eslint-plugin-design/src/rules/`: `no-repo-introspection-in-test.ts`,
+`no-planning-id-in-test.ts`, `no-dom-marker-assert.ts`, `no-existence-only-test.ts`,
+`no-multiline-lore-in-test.ts`; and the Playwright screenshot ban (`no-restricted-syntax` in the same
+`eslint.config.ts` block). Do not restate what a rule already enforces here — read the rule when the
+linter stops you, the same way `.pipeline/rules/architecture.md` points at `tools/governance/README.md`
+for the boundary rules.
 
-- Reading source files with `readFileSync` to check for string patterns. That's a lint rule.
-- Grepping the filesystem with `execSync("grep ...")`. That's a shell script.
-- Checking that files exist or don't exist with `existsSync`. That's a build check.
-- Spawning child processes to start servers. Use the `app` fixture.
-- Validating config files (package.json, docker-compose.yml, tsconfig). That's CI.
-- Asserting on documentation content. That's nothing.
+## Never a test
 
-If you can't express the assertion as `import { thing } from "../module" → expect(thing(...)).toBe(...)`, it's not a test.
+- **Types and shapes.** That's TypeScript's job.
+- **Freezing what a document says.** That's the document's job.
+- **"X stays removed."** Deletion plus typecheck/knip already prove that.
+- **Reading source, the filesystem, or config** (`readFileSync`, `execSync("grep …")`, `existsSync`,
+  validating `package.json`/`tsconfig`). That's a lint rule or a build check, not a test.
+- **A re-export**, or a copy of the implementation pasted inside the test.
+- **DB-engine or library behavior** — you're testing Postgres or a package, not your code.
+- **An assert that can't fail** — existence-only (`toBeDefined`, `not.toThrow`), an assert buried
+  inside `if (success)`, or no assert at all.
+
+If you can't express it as `import { thing } from "../module"` → call it → `expect(...)`, it's not a
+test.
+
+## Coverage, not mirroring
+
+An acceptance criterion is covered by a test — new or already existing; search before writing one. ACs
+point at what to test. They are not a checklist to mirror one test per line, and "test all paths" is
+not the standard — cover the branches that matter, not every combination.
+
+## One home per rule
+
+Test a rule once, at the lowest tier that owns it (the module that decides it, the component that
+renders it). A higher tier proves wiring only: one success and one refusal per door, not the rule
+again.
 
 ## Structure
 
-- Tests only live inside a package (under `layers/`, `framework/`, `applications/` or `tools/`), never at the project root.
-- Unit tests: `<name>.test.ts` in `<root>/<pkg>/src/__tests__/`.
-- Integration tests: `<name>.integration.test.ts` — exercise a **real integration point** with no stub standing in for it. Service integration uses the vitest fixtures that inject `{ db, app, eventBus }`; harness-facing integration uses the **real installed harness binary**. See **Integration tests: two archetypes**.
-- E2E tests: Playwright for user-facing features (`*.spec.ts`).
+- Tests live inside a package (`layers/`, `framework/`, `applications/`, `tools/`), never at the repo
+  root.
+- File naming decides the lane and the world — see `CLAUDE.md` § Test file naming. Not repeated here.
 - Tests must not depend on execution order.
+- Variants are table-driven — one row per distinct branch, not one test each.
+- Deleting code deletes its tests and its test-only support code in the same change.
+- A repeated setup gets one shared helper per package. Integration tests drive the production
+  composition root — never a hand-built stand-in for a real port. A module-tier test may inject
+  small fakes for the ports the module doesn't own, over a real DB — what's banned is
+  re-implementing the port or the composition actually being proven.
+- Test names say the behavior. No planning labels (track letters, work-item ids) — `taste.md` already
+  rules that out everywhere. Keep file headers to ~5 lines. Comments in test files follow
+  `.claude/rules/comments.md`, same as production code.
 
-### Test file naming
+## TDD
 
-The pattern table lives in `CLAUDE.md` — you need it before you name the file, not after. It is not
-repeated here.
+Still the way we work: write the failing test for the behavior first, then the code that turns it
+green. The red phase is scaffolding — once green, drop what only existed to force the failure.
 
-## Standards
+## UI
 
-- Write tests first (TDD). Every acceptance criterion that describes runtime behavior gets a test.
-- ACs that describe static codebase properties (file locations, naming conventions, config shape) are enforced by lint rules or the type system — not tests.
-- Follow AAA pattern: Arrange, Act, Assert.
-- Test all paths: success, error, boundary values, edge cases.
-- Use `test()` (not `it()`) in integration tests — only `test()` receives fixture injection.
-- Never call `createTestDb()`, `createTestApp()`, or `new EventBus()` directly in test files — use fixtures.
-- Never write `beforeEach`/`afterEach` for DB setup — fixtures handle setup and teardown automatically.
-- `beforeEach`/`afterEach` only for non-DB setup (e.g. `vi.stubEnv`).
-- Never write tests that only assert `toBeDefined()` or `not.toThrow()`.
-- Design system: every UI component must have a `.stories.tsx` file.
-- Prefer a polling watcher over `fs.watch` in tests — `fs.watch` flakes. Gate any real `fs.watch` test behind an env flag, excluded from the default run.
+- Component tests assert what the user sees or does — not class names, DOM markers, pixel values, or
+  styling.
+- Playwright covers user journeys plus what only a real browser proves: layout, scroll, focus, real
+  pointer events, z-order, history, reload. No screenshots inside a spec. No known-failures list — a
+  failing e2e test gets fixed or deleted, never hidden.
+
+## Harness (agentic)
+
+One test per behavior, looping over all four supported harnesses with per-harness expected values,
+through one shared helper, driving the production config — never a subset, never a stub. Gate each
+lane with `requireHarness(<name>)`: a missing binary hard-fails the run, it never skips to green.
+Non-harness binaries (e.g. `gh`) use `requireBinary(<name>)` instead.
+
+The harness lane has no CI job — it needs four real CLI binaries and real LLM credentials, so it runs
+locally only, as part of the `verify:release` checklist. If you change harness plumbing
+(`layers/agent-execution/harness-registry/`, session provisioning, CLI adapter configs,
+`require-harness.ts`) or touch a harness-facing test, run `npm run test:integration:harness` yourself
+and get it green before shipping — nothing downstream will catch it for you.
+
+Mechanism, matrix, and locked test models: `docs/agent-layer/harness-coverage-enforcement.md`.
+
+## Migrations
+
+A migration test lives only as long as a deployed database can still sit before that migration. Once
+nothing does, delete it. Keep one empty-database-to-latest run as the standing check.
 
 ## Integration tests: two archetypes
 
-An integration test exercises a **real integration point**, with no stub standing in for that point. Decide which kind you're writing by one question: **is the harness / agent / CLI the thing under test?**
+Decide by one question: **is the harness / agent / CLI itself the thing under test?**
 
-- **No → service integration.** The integration point is the DB + app. Real PGlite + real Hono app via the `{ db, app, eventBus }` fixtures (already the norm), deterministic.
-- **Yes → harness integration.** The integration point is the **real installed harness binary**, real LLM, across **every supported harness** — not just one — and **zero stubs**. **The supported matrix is `HarnessName` in `require-harness.ts` = `claude` + `codex` + `opencode` + `cursor-agent`** (four harnesses — `builtin` was retired when the harness stopped shipping its own key, and `gh` is the GitHub CLI, not a harness: use `requireBinary("gh")` for it). A harness-facing `*.integration.test.ts` must cover **all four** — a `requireHarness(<name>)` lane through real `provisionSession()` for each — **equal coverage across all four, and nothing mechanically enforces it — see below**. **Gate it with `requireHarness(<name>)`, never a key proxy.** If a path through the harness adapter is stubbed, scripted, echoed, or `vi.mock`'d, it is **not** an integration test — it is a mislabeled unit test. Either test the pure logic directly as a `*.test.ts` unit (stubs belong there) or test it against the real harness. A stubbed-harness test is a false green: it proves the wrapper, not that the feature works on the harness; a subset-covered one is the same false green for the harnesses it omits.
+- **No → service integration.** Real PGlite + real Hono app via the `{ db, app, eventBus }` fixtures.
+- **Yes → harness integration.** The real installed binary, real LLM, all four harnesses, zero stubs —
+  see Harness above.
 
-**A binary absent means the work is not done — hard-fail, never skip.** Harness integration tests run **locally only**, via `test:integration`'s serial `harness` project (where the binaries are installed). A missing harness must **fail** the run via `requireHarness(<name>)`, which throws "harness X not installed — cannot complete," not `skipIf`-skip to green. A green minted while every agentic test silently skipped is the deepest false-green.
+If any part of the path is stubbed, scripted, or `vi.mock`'d, it isn't an integration test — it's a
+mislabeled unit test. Test the pure logic as a `.test.ts` unit instead, or run it against the real
+thing.
 
-**The harness lane has NO CI job, per-merge or release.** It needs four real CLI binaries and real LLM credentials, so it stays on your machine. Per-merge CI runs the integration lane with `--project service`; the release lane (`release-guard.yml`) runs the full suite and e2e but still not the harness project. `npm run verify:release` includes it, but that is a checklist you run, not a gate that runs itself — **nothing blocks a merge or a release whose harness matrix never executed.** **The obligation this creates:** if you change harness plumbing (`layers/agent-execution/harness-registry/`, session provisioning, CLI adapter configs, `require-harness.ts`) or write/modify a harness-facing `*.integration.test.ts`, run `npm run test:integration:harness` yourself and get it green BEFORE shipping. Nothing downstream will catch it for you. A single file: `npm run test:integration:harness -- <path>`.
-
-**Never bump a test model to make a flaky test go green.** `HARNESS_TEST_MODELS` (`layers/agent-execution/harness-registry/src/__tests__/require-harness.ts`) is founder-set to the smallest model each harness's auth allows, deliberately. A harness test must pass on the tiny baseline; if it only works on a bigger model the feature is wrong, not the model. A larger model is a separate founder decision. A test cannot override the model — it obtains one through the seam (`runThroughHarness` / `lockedHarnessAdapter`, same file).
-
-**What actually enforces this, today.** Do not restate the mechanism here — `docs/agent-layer/harness-coverage-enforcement.md` is the authoritative account and this rule deliberately does not duplicate it. Two things are worth knowing before you rely on it:
-
-- **The source-level gate is gone.** `scripts/honest-harness-guard.ts` and its three shrink-only allowlists were deleted in a clean-slate ruling, and the note recording them as worth re-deriving did not survive the folder consolidation that followed. Nothing checks at lint time that a harness-facing test declares all its lanes or avoids a stubbed adapter.
-- **The execution floor is gone too.** `assertHarnessSymmetry` enforced per-harness executed counts out of the signed attestation; both were deleted when test execution moved into CI. It had also been near-blind for most of its life — its path predicate matched 1 of the 12 files calling `requireHarness`, having stopped matching when the packages moved.
-
-**So nothing enforces harness breadth today — not at lint time, not at run time.** It is on you, and only on you. `requireHarness` still hard-fails on an absent binary, which keeps an individual lane honest about whether it ran; it says nothing about whether you wrote all four.
-
-## Fixture pattern (integration tests)
+## Fixture pattern
 
 ```typescript
-// layer integration test — path is relative to the file, inside the same layer
+// layer integration test
 import { test, describe, expect } from "../__testing__/test-fixtures.js";
 
 describe("Feature", () => {
@@ -103,11 +144,26 @@ describe("Feature", () => {
 });
 ```
 
-Fixture sources — each package that has them keeps them in its own `src/__testing__/test-fixtures.ts`:
-- `layers/core-api/src/__testing__/test-fixtures.ts` — `{ db, app, eventBus }` context.
-- `layers/agent-orchestration/src/__testing__/test-fixtures.ts` — the orchestration layer's own app.
-- `framework/db/src/__testing__/test-fixtures.ts` (`@hyperidle/db/test-fixtures`) — `{ db }` context.
+Each package keeps its own fixtures in `src/__testing__/test-fixtures.ts`:
+`layers/core-api`, `layers/agent-orchestration`, `framework/db` (published as
+`@hyperidle/db/test-fixtures`), and `harness-registry` (published as
+`@hyperidle/harness-registry/test-fixtures`, the real-harness sandbox/env
+helpers a cross-package caller needs). Import a layer's own fixtures by
+relative path; import another package's through its published subpath, never
+a relative path into its `__tests__/`.
 
-Import a layer's fixtures from within that layer by relative path; `@hyperidle/db/test-fixtures` is the only one published as a subpath.
+Service integration shares one PGlite instance per worker and `TRUNCATE`s before each test, so clean up
+background work and file-local mocks before a test ends. Harness integration keeps file isolation and
+runs serially.
 
-The PGlite pool allocates one instance **per service-test worker** and reuses it across files. Every test still checks out the worker pool and runs `TRUNCATE` before application behavior. Service integration files therefore must clean up background work and file-local mocks before they finish. Harness integration keeps file isolation and runs serially.
+## Other rules
+
+- Use `test()` (not `it()`) in integration tests — only `test()` receives fixture injection.
+- Never call `createTestDb()`, `createTestApp()`, or `new EventBus()` directly — use fixtures.
+- Never write `beforeEach`/`afterEach` for DB setup — fixtures handle it. Use them only for non-DB
+  setup (`vi.stubEnv` etc.).
+- Never bump `HARNESS_TEST_MODELS` to make a flaky harness test pass — the model is founder-locked to
+  the smallest tier each harness's auth allows; a test that only works on a bigger model means the
+  feature is wrong, not the model.
+- Prefer a polling watcher over `fs.watch` in tests — it flakes. Gate any real `fs.watch` test behind
+  an env flag, excluded from the default run.

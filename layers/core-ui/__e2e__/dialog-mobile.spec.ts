@@ -1,20 +1,9 @@
 /**
- * AI2 — Dialog mobile adaptation: 375px no-overflow + bottom-anchoring (AC-4).
- *
- * Asserts, at a 375px viewport:
- *   - No horizontal overflow (scrollWidth <= clientWidth)
- *   - Bottom-anchored sheet: bounding box bottom ≈ viewport height, top > 0
- *
- * @lore AI2: "bottom ≈ viewport height" means within a tolerance of the
- * mobile safe-area bottom inset (≤ 20px tolerance for border/rounding).
- * "top > 0" proves it's a sheet, not a fullscreen takeover.
- *
- * @lore BB1: this covered four dialogs; three of them no longer exist.
- * BetCreateDialog went in AG3 (creation is a full page), and
- * ConsequencePreviewDialog and AppetiteDialog went with the bet surface —
- * a task is finished through the state Select on WorkTaskPage, and appetite
- * is not a task field. ScopeChangeDialog is the one still standing, so it is
- * the one still asserted here.
+ * Dialog mobile adaptation: at a 375px viewport, a dialog has no horizontal
+ * overflow and renders as a bottom-anchored sheet (bounding box bottom near
+ * viewport height, top > 0 so it's a sheet, not a fullscreen takeover).
+ * "near" tolerates the mobile safe-area bottom inset (≤ 20px for
+ * border/rounding).
  */
 
 import {
@@ -57,7 +46,6 @@ async function assertBottomAnchored(
 		};
 	}, viewportHeight);
 
-	expect(box, "Dialog box must exist in the DOM").not.toBeNull();
 	// No horizontal overflow
 	expect(box!.scrollWidth, "No horizontal overflow on mobile dialog").toBeLessThanOrEqual(
 		box!.clientWidth + 1, // 1px tolerance for border-box rounding
@@ -70,7 +58,7 @@ async function assertBottomAnchored(
 	expect(box!.top, "Dialog sheet top > 0 (not fullscreen takeover)").toBeGreaterThan(0);
 }
 
-test.describe("AI2 — Mobile bottom-sheet at 375px (AC-4)", () => {
+test.describe("mobile bottom-sheet at 375px", () => {
 	test.use({ viewport: VIEWPORT_MOBILE });
 
 	test("ScopeChangeDialog — 375px: no horizontal overflow, bottom-anchored sheet", async ({
@@ -109,9 +97,5 @@ test.describe("AI2 — Mobile bottom-sheet at 375px (AC-4)", () => {
 		await expect(page.getByRole("dialog")).toBeVisible();
 
 		await assertBottomAnchored(page, VIEWPORT_MOBILE.height);
-
-		await page.screenshot({ path: "test-results/ai2-mobile-scope-change-375px.png" });
 	});
-
-	// Dialog 3: Kill-confirm (WorkBet kill action)
 });

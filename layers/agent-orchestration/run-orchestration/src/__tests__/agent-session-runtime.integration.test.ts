@@ -17,6 +17,145 @@ import { TargetAgentNotRunnableError } from "../errors.js";
 import { runSession } from "../runtime.js";
 import { buildTestPorts } from "./test-ports.js";
 
+async function seedBoundaryFixture(db: HyperIdleDb): Promise<void> {
+	const now = new Date().toISOString();
+	await db.insert(teams).values({ id: "team-boundary", name: "Boundary", createdAt: now });
+	await db.insert(users).values([
+		{
+			id: "agent-boundary",
+			kind: "ai",
+			name: "Agent",
+			role: "builder",
+			status: "active",
+			teamId: "team-boundary",
+			createdAt: now,
+		},
+		{
+			id: "user-boundary",
+			kind: "human",
+			name: "Founder",
+			role: "founder",
+			status: "active",
+			createdAt: now,
+		},
+	]);
+	await db.insert(threads).values({
+		id: "thr-bet-boundary",
+		hostKind: "team",
+		hostId: "team-boundary",
+		initiatorId: "agent-boundary",
+		participants: "[]",
+		lastActiveAt: now,
+		createdAt: now,
+	});
+	await db.insert(tasks).values({
+		id: "bet-boundary",
+		threadId: "thr-bet-boundary",
+		parentTaskId: null,
+		teamId: "team-boundary",
+		title: "Close agent execution boundary",
+		description: "Close agent execution boundary",
+		state: "in_progress",
+		createdAt: now,
+		updatedAt: now,
+	});
+	await db.insert(threads).values({
+		id: "thr-task-boundary",
+		hostKind: "team",
+		hostId: "team-boundary",
+		initiatorId: "agent-boundary",
+		participants: "[]",
+		lastActiveAt: now,
+		createdAt: now,
+	});
+	await db.insert(tasks).values({
+		id: "task-boundary",
+		threadId: "thr-task-boundary",
+		parentTaskId: "bet-boundary",
+		teamId: "team-boundary",
+		title: "Boundary task",
+		state: "accepted",
+		ownerAgentId: "agent-boundary",
+		createdAt: now,
+		updatedAt: now,
+	});
+}
+
+function boundarySourceInput(
+	sourceKind: AgentSessionRequestInput["sourceKind"],
+	suffix: string,
+): AgentSessionRequestInput {
+	const base = {
+		sourceId: `${sourceKind}-${suffix}`,
+		streamId: `${sourceKind}:${suffix}`,
+		agentId: "agent-boundary",
+		teamId: "team-boundary",
+		idempotencyKey: `${sourceKind}:${suffix}`,
+	} as const;
+
+	switch (sourceKind) {
+		case "task":
+			return {
+				...base,
+				sourceKind,
+				sourceId: "task-boundary",
+				streamId: "task:task-boundary",
+				taskId: "task-boundary",
+				promptMode: "task",
+				sourceCorrelation: { taskId: "task-boundary", teamId: "team-boundary" },
+			};
+		case "assistant":
+			return {
+				...base,
+				sourceKind,
+				userId: "user-boundary",
+				promptMode: "conversation",
+				sourceCorrelation: {
+					threadId: "thread-boundary",
+					messageId: `msg-${suffix}`,
+					userId: "user-boundary",
+					agentId: "agent-boundary",
+				},
+			};
+		case "knowledge":
+			return {
+				...base,
+				sourceKind,
+				taskId: null,
+				promptMode: "knowledge",
+				sourceCorrelation: {
+					knowledgeItemId: `item-${suffix}`,
+					action: "summarize",
+					teamId: "team-boundary",
+				},
+			};
+		case "subscription":
+			return {
+				...base,
+				sourceKind,
+				taskId: null,
+				promptMode: "subscription",
+				sourceCorrelation: {
+					subscriptionId: `subscription-${suffix}`,
+					changeId: `change-${suffix}`,
+					teamId: "team-boundary",
+				},
+			};
+		case "review_resume":
+			return {
+				...base,
+				sourceKind,
+				taskId: null,
+				promptMode: "resume",
+				sourceCorrelation: {
+					reviewMessageId: `review-${suffix}`,
+					threadId: "thread-boundary",
+					resumedSessionId: `sess-${suffix}`,
+				},
+			};
+	}
+}
+
 async function createRequestForTest(db: HyperIdleDb, request: AgentSessionRequestInput) {
 	const now = new Date().toISOString();
 	const [row] = await db
@@ -294,6 +433,13 @@ describe("agent session runtime consumer", () => {
 		expect(stored).toMatchObject({
 			status: "failed",
 			sessionId: "failure-session",
+			// Load-bearing: this Service's real composition once silently dropped
+			// this field for months (see run-orchestration-composition.ts's
+			// `sessionLifecyclePort.transitionAgentRunLifecycle` `@lore`) — a
+			// hand-rewritten test double kept forwarding it correctly while
+			// production wrote null. Routing through the real `transitionRun`
+			// (test-ports.ts) is what makes this assertion mean anything.
+			errorMessage: "harness crashed",
 		});
 	});
 
@@ -414,5 +560,45 @@ describe("agent session runtime consumer", () => {
 			.where(eq(agentSessionRequests.id, request.id));
 		expect(stored?.status).toBe("failed");
 		expect(stored?.sessionId).toBeNull();
+	});
+
+	test("all source kinds can enter the boundary from a durable request", async ({ db }) => {
+		await seedBoundaryFixture(db);
+		const ports = buildTestPorts();
+		const eventBus = new EventBus();
+		const lifecycle: Array<{ sourceKind: string; sourceId: string; state: string }> = [];
+		eventBus.on("agent_run_lifecycle_changed", (event) => lifecycle.push(event));
+		vi.mocked(ports.sessionProvisioner!.admitSession).mockImplementation(async (_deps, params) => ({
+			sessionId: "session-boundary-boundary",
+			sessionContext: { taskId: params.taskId },
+		}));
+		vi.mocked(ports.sessionProvisioner!.runSession).mockImplementation(async () => ({
+			sessionId: "session-boundary-boundary",
+			outcome: "completed",
+			taskId: "task-boundary",
+			forceReturnCount: 0,
+		}));
+		for (const sourceKind of ["task", "assistant", "subscription", "knowledge"] as const) {
+			const request = await createRequestForTest(db, boundarySourceInput(sourceKind, "boundary"));
+			await runSession(
+				{ db, eventBus, ports } as unknown as import("../contracts.js").RuntimeDeps,
+				{ mode: "durable", request, sandboxBasePath: "/tmp/boundary-boundary" },
+			);
+			const [row] = await db
+				.select()
+				.from(agentSessionRequests)
+				.where(eq(agentSessionRequests.id, request.id));
+			expect(row).toMatchObject({ sourceKind, status: "completed" });
+		}
+		expect(lifecycle).toHaveLength(4);
+		expect(lifecycle.map(({ sourceKind, state }) => ({ sourceKind, state }))).toEqual(
+			["task", "assistant", "subscription", "knowledge"].map((sourceKind) => ({
+				sourceKind,
+				state: "completed",
+			})),
+		);
+		expect(lifecycle.filter(({ sourceKind }) => sourceKind === "assistant")).toEqual([
+			expect.objectContaining({ sourceId: "assistant-boundary", state: "completed" }),
+		]);
 	});
 });

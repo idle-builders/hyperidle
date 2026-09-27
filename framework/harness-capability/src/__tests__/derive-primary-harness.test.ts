@@ -1,9 +1,7 @@
 /**
- * AV1 — derivePrimaryHarness unit tests
- *
- * AC1: Picker derives a PrimaryHarnessConfig from a HarnessCapabilityDescriptor.
- * - Model selection filters on selectable === true
- * - Falls back to claude-sonnet-4-6 / anthropic when no selectable model
+ * `derivePrimaryHarness` picks a `PrimaryHarnessConfig` from a `HarnessCapabilityDescriptor`: model
+ * selection filters on `selectable === true`, falling back to claude-sonnet-4-6/anthropic when no
+ * model is selectable.
  */
 
 import { describe, expect, it } from "vitest";
@@ -45,11 +43,7 @@ describe("derivePrimaryHarness", () => {
 		expect(result.modelProvider).toBe("anthropic");
 	});
 
-	// @lore These four used to assert a hardcoded "claude-sonnet-4-6" / "anthropic"
-	// pair whenever the descriptor named no selectable model. That pair was
-	// invented, not chosen: it went onto every scaffolded agent as though the user
-	// had picked it, naming an Anthropic model on harnesses that may not serve one.
-	// The absence is now carried as absence, and the harness runs its own default.
+	// @lore when the descriptor names no selectable model, the absence is carried as absence — the harness runs its own default.
 
 	it("names no model when the descriptor lists none as selectable", () => {
 		const descriptor = makeDescriptor("codex", [{ id: "o3-mini", selectable: false }]);

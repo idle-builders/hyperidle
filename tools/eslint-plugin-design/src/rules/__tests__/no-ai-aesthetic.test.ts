@@ -6,8 +6,8 @@ import { ruleTester } from "./setup.js";
 RuleTester.describe = describe as unknown as typeof RuleTester.describe;
 RuleTester.it = it as unknown as typeof RuleTester.it;
 
-// U10 Hearth update: rounded-2xl (16px) is now ON-SCALE (maps to --r-default).
-// Only rounded-3xl (24px) remains an AI-aesthetic tell.
+// rounded-2xl (16px) is ON-SCALE (maps to --r-default). Only rounded-3xl (24px) is an
+// AI-aesthetic tell.
 ruleTester.run("no-ai-aesthetic", noAiAesthetic, {
 	valid: [
 		{
@@ -38,7 +38,7 @@ ruleTester.run("no-ai-aesthetic", noAiAesthetic, {
 			filename: "Foo.tsx",
 			code: "const J = <p>This was effortless to read.</p>;",
 		},
-		// U10 Hearth: rounded-2xl (16px) is NOW on-scale — must NOT fire
+		// rounded-2xl (16px) is on-scale — must NOT fire
 		{
 			filename: "Foo.tsx",
 			code: 'const J = <div className="rounded-2xl" />;',

@@ -1,11 +1,7 @@
 /**
  * L13 — useTeam hook unit tests.
  *
- * @lore U5: Renamed from useProduct.test.ts → useTeam.test.ts.
- * @lore BC5 T9: the door swap — `useTeam` now composes from
- * `search_users`/`search_tasks`/`open_task` (see useTeam.ts's own header),
- * not one `GET /api/teams/:id` — `call` is mocked at the door instead of
- * `apiFetch`.
+ * @lore useTeam composes from search_users/search_tasks/open_task, not one GET route — call is mocked at the door instead of apiFetch.
  *
  * Covers:
  *   - Initial loading state when teamId is defined.
@@ -175,6 +171,53 @@ describe("useTeam", () => {
 		expect(result.current.error?.message).toBe("Network error");
 	});
 
+	it("counts subtask progress from the whole descendant subtree, not the task itself", async () => {
+		callMock.mockImplementation((name: string, input: Record<string, unknown>) => {
+			if (name === "search_users") return Promise.resolve({ ok: true, data: MEMBERS });
+			if (name === "search_tasks") {
+				if (input.state === "blocked") return Promise.resolve({ ok: true, data: [] });
+				return Promise.resolve({ ok: true, data: [ROOT_TASK] });
+			}
+			if (name === "open_task") {
+				return Promise.resolve({
+					ok: true,
+					data: {
+						task: ROOT_TASK,
+						ancestors: [],
+						children: [
+							{ id: "c1", state: "done", children: [] },
+							{ id: "c2", state: "done", children: [] },
+							{
+								id: "c3",
+								state: "in_progress",
+								children: [{ id: "c3a", state: "done", children: [] }],
+							},
+						],
+						tokensActualRollup: null,
+						threadId: "t1",
+						attachments: [],
+					},
+				});
+			}
+			return Promise.resolve({ ok: true, data: [] });
+		});
+
+		const { result } = renderHook(() => useTeam("p1"));
+
+		await waitFor(() => {
+			expect(result.current.loading).toBe(false);
+		});
+
+		// Root task (ROOT_TASK) itself is excluded; c1, c2, c3, c3a are counted;
+		// c1, c2, c3a are done, c3 is not → 3 of 4 (asymmetric — flipping the
+		// done check would give 1, not 3, so a broken comparison fails this).
+		expect(result.current.data?.tasksInProgress[0]).toMatchObject({
+			id: ROOT_TASK.id,
+			progressDone: 3,
+			progressTotal: 4,
+		});
+	});
+
 	it("calls search_users with the teamId", async () => {
 		setupOk();
 		renderHook(() => useTeam("p1"));
@@ -182,28 +225,5 @@ describe("useTeam", () => {
 		await waitFor(() => {
 			expect(callMock).toHaveBeenCalledWith("search_users", { teamId: "p1" });
 		});
-	});
-
-	it("does not set state after unmount (cancels stale response)", async () => {
-		let resolveUsers!: (r: unknown) => void;
-		const pending = new Promise((res) => {
-			resolveUsers = res;
-		});
-		callMock.mockImplementation((name: string) => {
-			if (name === "search_users") return pending;
-			return Promise.resolve({ ok: true, data: [] });
-		});
-
-		const { result, unmount } = renderHook(() => useTeam("p1"));
-		expect(result.current.loading).toBe(true);
-
-		// Unmount before fetch resolves
-		unmount();
-
-		// Resolve the fetch — should not cause a state update
-		resolveUsers({ ok: true, data: MEMBERS });
-
-		// No assertion on result.current after unmount — the point is it doesn't throw
-		// (React strict mode guards against state updates on unmounted components)
 	});
 });

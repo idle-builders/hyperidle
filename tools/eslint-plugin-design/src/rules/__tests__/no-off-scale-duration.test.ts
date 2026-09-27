@@ -1,11 +1,6 @@
 /**
- * AI6 — RED phase: no-off-scale-duration rule tests.
- *
- * Rule: `duration-[<number>ms]` and `ease-[ease]` in DS .tsx files must use
- * token forms (--motion-fast/default/slow and --motion-ease).
- *
- * These tests fail until the rule is created at
- * tools/eslint-plugin-design/src/rules/no-off-scale-duration.ts.
+ * `design/no-off-scale-duration` flags `duration-[<number>ms]` and `ease-[ease]` in DS .tsx files —
+ * they must use token forms (--motion-fast/default/slow and --motion-ease) instead.
  */
 
 import { RuleTester } from "eslint";

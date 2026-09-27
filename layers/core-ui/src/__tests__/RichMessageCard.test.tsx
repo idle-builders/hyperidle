@@ -1,12 +1,9 @@
 /**
- * L11 step5 (write-tests) — `RichMessageCard` Tier 2 component.
+ * `RichMessageCard` Tier 2 component tests.
  *
- * Approved.md §2.1 (review variant), §2.2 (CommentRow rich-row extension is
- * covered separately), §4 (states), §5.7 (sticky-within-card), §8 (a11y).
- * Plan §5.3 (props), §6.1 (file path), §9 (failure modes).
- *
- * @lore L11 step5: until plan T4 lands the component, the import below
- * fails with "Module not found". This is the desired red-phase failure.
+ * Covers: the review variant, states, sticky-within-card, accessibility,
+ * props, and failure modes. (CommentRow's rich-row extension is covered
+ * separately.)
  */
 
 import type { Message } from "@hyperidle/domain-model";
@@ -65,8 +62,8 @@ function questionnaireMessage(): Message {
 	};
 }
 
-describe("RichMessageCard — review variant (AC-1, AC-8, AC-11)", () => {
-	it("mounts with data-component=RichMessageCard and embeds the artifact slot inline", () => {
+describe("RichMessageCard — review variant", () => {
+	it("mounts and embeds the artifact slot inline", () => {
 		render(
 			<RichMessageCard
 				message={reviewMessage()}
@@ -82,8 +79,7 @@ describe("RichMessageCard — review variant (AC-1, AC-8, AC-11)", () => {
 			/>,
 		);
 		const card = screen.getByTestId("rich-message-card");
-		expect(card.getAttribute("data-component")).toBe("RichMessageCard");
-		// Artifact slot rendered INSIDE the card (AC-8).
+		// Artifact slot rendered INSIDE the card.
 		expect(within(card).getByText("mock-artifact")).toBeInTheDocument();
 	});
 
@@ -161,7 +157,7 @@ describe("RichMessageCard — review variant (AC-1, AC-8, AC-11)", () => {
 	});
 
 	it("blocking=true exposes a redundant text signal (not just the danger left-border)", () => {
-		// AQ-010 / approved.md §8: blocking must not be color-only.
+		// Blocking must not be color-only.
 		render(
 			<RichMessageCard
 				message={reviewMessage()}
@@ -172,11 +168,11 @@ describe("RichMessageCard — review variant (AC-1, AC-8, AC-11)", () => {
 			/>,
 		);
 		const card = screen.getByTestId("rich-message-card");
-		expect(card.getAttribute("data-blocking")).toBe("true");
+		expect(within(card).getByText(/BLOCKED/i)).toBeInTheDocument();
 	});
 });
 
-describe("RichMessageCard — questionnaire variant (AC-9)", () => {
+describe("RichMessageCard — questionnaire variant", () => {
 	it("renders one button per option inside an Answer-options toolbar", () => {
 		render(
 			<RichMessageCard
@@ -281,7 +277,6 @@ describe("RichMessageCard — states (approved.md §4, plan §9)", () => {
 			/>,
 		);
 		const card = screen.getByTestId("rich-message-card");
-		expect(card.getAttribute("data-state")).toBe("resolved");
 		expect(within(card).getByText(/RESOLVED/i)).toBeInTheDocument();
 		expect(within(card).getByText(/APPROVED/i)).toBeInTheDocument();
 		const reExpand = within(card).getByRole("button", { name: /re-expand/i });
@@ -324,27 +319,6 @@ describe("RichMessageCard — reasoning (Fix 2)", () => {
 		);
 		const toggle = screen.getByRole("button", { name: /reasons/i });
 		expect(toggle.getAttribute("aria-expanded")).toBe("false");
-	});
-});
-
-describe("RichMessageCard — sticky footer (approved.md §5.7)", () => {
-	it("encodes max-height + sticky-bottom on the action footer (visual contract)", () => {
-		render(
-			<RichMessageCard
-				message={reviewMessage()}
-				sender={sender}
-				blocking={false}
-				onAction={vi.fn()}
-				state={{ phase: "idle" }}
-			/>,
-		);
-		const card = screen.getByTestId("rich-message-card");
-		// The visual contract is encoded as data-attributes that the CSS keys
-		// off; tests assert the contract markers, not computed style (jsdom
-		// has no layout engine — see L11-plan.md §9).
-		expect(card.getAttribute("data-sticky-footer")).toBe("true");
-		const toolbar = screen.getByRole("toolbar", { name: /verdict actions/i });
-		expect(toolbar.getAttribute("data-sticky")).toBe("bottom");
 	});
 });
 

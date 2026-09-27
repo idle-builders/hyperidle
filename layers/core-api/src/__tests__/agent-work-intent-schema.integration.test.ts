@@ -1,9 +1,7 @@
 /**
- * AU9 Remediation-2 — Durable-rows checks (enumerated in architecture.md
- * "Durable-rows checks (enumerated)"). One insert-and-expect-rejection case per
- * enumerated check, plus one accept case per valid state, driven directly
- * against the real DB fixture — these are constraint tests, not custody-surface
- * helper tests, so there is no R2 banned-import concern here.
+ * Durable-rows checks (architecture.md's "Durable-rows checks (enumerated)").
+ * One insert-and-expect-rejection case per enumerated check, plus one accept
+ * case per valid state, driven directly against the real DB fixture.
  */
 
 import {
@@ -71,16 +69,16 @@ async function seedTerminalRequest(db: HyperIdleDb, id: string): Promise<AgentSe
 describe("agent_work_intents durable-rows checks", () => {
 	test("accepts a valid pending row", async ({ db }) => {
 		const [row] = await db.insert(agentWorkIntents).values(baseIntent()).returning();
-		expect(row).toBeDefined();
+		expect(row?.id).toBe("intent-default");
 	});
 
-	test("rejects a kind outside the six closed values", async ({ db }) => {
+	test("rejects a kind outside the four closed values", async ({ db }) => {
 		await expect(
 			db.insert(agentWorkIntents).values(baseIntent({ id: "bad-kind", kind: "assistant" })),
 		).rejects.toThrow();
 	});
 
-	test("rejects a source_kind outside the six closed values", async ({ db }) => {
+	test("rejects a source_kind outside the four closed values", async ({ db }) => {
 		await expect(
 			db
 				.insert(agentWorkIntents)
@@ -118,8 +116,6 @@ describe("agent_work_intents durable-rows checks", () => {
 				// `routine_run` isn't a valid kind — it retired from the closed set
 				// entirely, not just this pairing.
 				["thread_turn", "thread_message"],
-				["session_start", "explicit_session_start"],
-				["knowledge_action", "knowledge_action"],
 				["task_run", "task_dispatch_attempt"],
 			];
 		for (const [kind, sourceKind] of pairs) {
@@ -135,7 +131,7 @@ describe("agent_work_intents durable-rows checks", () => {
 					}),
 				)
 				.returning();
-			expect(row).toBeDefined();
+			expect(row?.id).toBe(`pair-${kind}`);
 		}
 	});
 
@@ -157,7 +153,7 @@ describe("agent_work_intents durable-rows checks", () => {
 				}),
 			)
 			.returning();
-		expect(row).toBeDefined();
+		expect(row?.id).toBe("good-claim");
 	});
 
 	test("rejects handed_off without a request_id", async ({ db }) => {
@@ -178,7 +174,7 @@ describe("agent_work_intents durable-rows checks", () => {
 				}),
 			)
 			.returning();
-		expect(row).toBeDefined();
+		expect(row?.id).toBe("good-handoff");
 	});
 
 	test("rejects a second intent correlated to the same request_id", async ({ db }) => {
@@ -228,7 +224,7 @@ describe("agent_work_intents durable-rows checks", () => {
 				baseIntent({ id: "good-failed", status: "failed", lastErrorCode: "INVALID_WORK_SOURCE" }),
 			)
 			.returning();
-		expect(row).toBeDefined();
+		expect(row?.id).toBe("good-failed");
 	});
 
 	test("rejects pending with claim/correlation fields set", async ({ db }) => {
@@ -253,7 +249,7 @@ describe("agent_work_intents durable-rows checks", () => {
 			.insert(agentWorkIntents)
 			.values(baseIntent({ id: "good-superseded", status: "superseded" }))
 			.returning();
-		expect(row).toBeDefined();
+		expect(row?.id).toBe("good-superseded");
 	});
 
 	test("rejects a duplicate (kind, source_kind, source_id, idempotency_key)", async ({ db }) => {
@@ -303,7 +299,7 @@ describe("agent_session_requests durable-rows checks", () => {
 	test("accepts a valid pending row", async ({ db }) => {
 		const values = await baseRequest(db);
 		const [row] = await db.insert(agentSessionRequests).values(values).returning();
-		expect(row).toBeDefined();
+		expect(row?.id).toBe("request-default");
 	});
 
 	test("rejects claimed without claim_token and claim_expires_at", async ({ db }) => {
@@ -319,7 +315,7 @@ describe("agent_session_requests durable-rows checks", () => {
 			claimExpiresAt: new Date(Date.now() + 30_000).toISOString(),
 		});
 		const [row] = await db.insert(agentSessionRequests).values(values).returning();
-		expect(row).toBeDefined();
+		expect(row?.id).toBe("good-claimed-request");
 	});
 
 	test("rejects running without a session_id", async ({ db }) => {
@@ -334,7 +330,7 @@ describe("agent_session_requests durable-rows checks", () => {
 			sessionId: "session-good-running",
 		});
 		const [row] = await db.insert(agentSessionRequests).values(values).returning();
-		expect(row).toBeDefined();
+		expect(row?.id).toBe("good-running-request");
 	});
 
 	test("rejects a closed status with a live claim still set", async ({ db }) => {
@@ -350,7 +346,7 @@ describe("agent_session_requests durable-rows checks", () => {
 	test("accepts a closed status with no live claim", async ({ db }) => {
 		const values = await baseRequest(db, { id: "good-closed-request", status: "completed" });
 		const [row] = await db.insert(agentSessionRequests).values(values).returning();
-		expect(row).toBeDefined();
+		expect(row?.id).toBe("good-closed-request");
 	});
 
 	test("rejects a termination_reason outside the four closed values", async ({ db }) => {
@@ -363,9 +359,8 @@ describe("agent_session_requests durable-rows checks", () => {
 		await expect(db.insert(agentSessionRequests).values(values)).rejects.toThrow();
 	});
 
-	// @lore AU21 Increment 14a: "cost_cap" removed from the closed set — the
-	// cap gate that produced it is HARD-DELETED, no replacement termination
-	// reason.
+	// "cost_cap" is not in the closed set — there is no cap gate that could
+	// produce it.
 	test("accepts every closed termination_reason value", async ({ db }) => {
 		const reasons = ["user_done", "user_crashed", "handoff", "shutdown"] as const;
 		for (const reason of reasons) {
@@ -378,7 +373,7 @@ describe("agent_session_requests durable-rows checks", () => {
 				terminationReason: reason,
 			});
 			const [row] = await db.insert(agentSessionRequests).values(values).returning();
-			expect(row).toBeDefined();
+			expect(row?.id).toBe(`good-termination-${reason}`);
 		}
 	});
 

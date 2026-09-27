@@ -15,12 +15,7 @@ import {
 	updateFilesystemState,
 } from "../index.js";
 
-// @lore AU21 §9 Increment 8 (Decision F2): the watcher-specific describe
-// blocks that used to live here (`startWatcher` behavior + the
-// `context.ts`-wiring test) moved to `@hyperidle/run-orchestration`'s
-// `__tests__/file-watcher.test.ts` — `startWatcher` itself relocated there
-// (see `../index.js`'s top `@lore`). This file keeps only the registry-CRUD
-// + mounter coverage this Service still owns.
+// @lore this file keeps only registry-CRUD + mounter coverage — `startWatcher` tests live in run-orchestration.
 
 const NOW = "2026-07-22T00:00:00.000Z";
 const temporaryDirectories: string[] = [];

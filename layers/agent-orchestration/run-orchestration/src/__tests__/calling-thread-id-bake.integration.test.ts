@@ -1,10 +1,10 @@
 /**
- * AU27 Increment 1 (Decision 1) — `consumeAgentSessionRequest`'s
- * `parseBakedCallingThreadId` parses `callingThreadId` off the drained
- * request's `payloadJson` (the same generic pass-through column
- * `transcript`/`modelId`/`contextBundle`/`agentConfig` already ride) and
- * forwards it onto `provisionParams.callingThreadId` — a JSON.parse of the
- * already-drained payload, ZERO orchestration -> core read (AU21 AC #2).
+ * `consumeAgentSessionRequest`'s `parseBakedCallingThreadId` parses
+ * `callingThreadId` off the drained request's `payloadJson` (the same
+ * generic pass-through column `transcript`/`modelId`/`contextBundle`/
+ * `agentConfig` already ride) and forwards it onto
+ * `provisionParams.callingThreadId` — a JSON.parse of the already-drained
+ * payload, zero orchestration -> core read.
  */
 import {
 	agentSessionRequests,
