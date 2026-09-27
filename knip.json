@@ -52,6 +52,9 @@
 		// (BA9b-plugin-mcp-dialect-real.integration.test.ts and AN2). They are not
 		// npm packages — they are installed CLIs on PATH, like `claude` and `cursor-agent`.
 		"layers/agent-execution/harness-registry": {
+			// wired only via vitest.integration.config.ts's harness-project setupFiles,
+			// never imported by an individual test file.
+			"entry": ["src/__testing__/harness-lane-cleanup.ts!"],
 			// `ps` is the cursor-agent-worker-server sweep's process lister — a
 			// standard POSIX system binary, never a project dependency.
 			"ignoreBinaries": ["codex", "opencode", "ps"]
