@@ -96,8 +96,8 @@ export interface SessionStartedEvent {
 
 /**
  * "not_returned" is a non-completed outcome for a turn that exhausted its
- * stream without a return action (after force budget spent, or on a Tier-2
- * harness). Every switch(outcome) consumer MUST handle this member.
+ * stream without a return action (after the force budget is spent, or on a
+ * harness that cannot force a return). Every switch(outcome) consumer MUST handle this member.
  */
 
 export interface SessionEndedEvent {

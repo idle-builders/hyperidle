@@ -18,10 +18,8 @@
 --   9. collapse status onto proposed | active | stale | archived.
 --  10. drop topic (kernel) and layer/kind (projection).
 --  11. fail any pending/claimed agent_work_intents row whose baked
---      contextBundle predates this migration ("either
---      drain the queue as a migration step or rewrite the persisted
---      payloads. Name which, and do it." — draining is the one that does
---      not require re-deriving a parent chain inside a migration).
+--      contextBundle predates this migration — draining, unlike rewriting
+--      the persisted payloads, needs no parent chain re-derived here.
 --
 -- Destructive, per house rule: no compat column, no dual-write, no alias.
 

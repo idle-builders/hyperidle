@@ -144,8 +144,8 @@ export const AGENT_OPERATIONAL_STATUS_LABEL: Record<"active" | "error" | "idle",
 
 /**
  * "not_returned" is a non-completed outcome for a turn that exhausted its
- * stream without a return action (after force budget spent, or on a Tier-2
- * harness). Every switch(outcome) consumer MUST handle this member.
+ * stream without a return action (after the force budget is spent, or on a
+ * harness that cannot force a return). Every switch(outcome) consumer MUST handle this member.
  *
  */
 export type SessionOutcome = "completed" | "crashed" | "stopped" | "not_returned";

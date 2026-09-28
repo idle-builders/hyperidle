@@ -3,14 +3,14 @@
 -- trigger-rule entity's stored data is deleted. Order matters; each step's
 -- reason is stated because a later reader will need it.
 --
--- Step 3's three builtin-dedupe INSERTs now carry "team_id" —
+-- Step 3's three builtin-dedupe INSERTs carry "team_id" —
 -- routines.team_id is NOT NULL until step 4 drops it, and the survivor row's
 -- own team_id is a valid, non-null value to copy (it is dropped moments
 -- later regardless, so which team it names does not matter). Every
 -- structural change (RENAME/ADD/DROP COLUMN, ADD/DROP CONSTRAINT, CREATE
--- INDEX) is now guarded (IF EXISTS / IF NOT EXISTS, or the DO block for the
+-- INDEX) is guarded (IF EXISTS / IF NOT EXISTS, or the DO block for the
 -- one RENAME Postgres has no guarded form of) so the file is safe to re-run
--- against a database left mid-migration by an earlier failed attempt.
+-- against a database left mid-migration by a failed attempt.
 
 -- 1. Rename the prompt into its right name. `description` never had a
 --    home of its own for a prompt — this IS it. Guarded (not a bare RENAME

@@ -5,10 +5,9 @@
 -- regenerated drizzle-kit snapshot chain past 0042).
 --
 -- DATA-PRESERVATION NOTE (deliberate, not a regression): every real setting
--- this table held has already been migrated onto `server_config` (the typed
--- successor table, see services/server-config.ts) or `server_credentials`
--- (notification secrets) by the code changes that land alongside this
--- migration. Any row NOT
+-- this table held is carried by `server_config` (see
+-- layers/core-api/settings/src/server-config.ts) or `server_credentials`
+-- (notification secrets). Any row NOT
 -- migrated is intentionally dropped as debris:
 --   - `cost_cycle` — zero readers anywhere in the codebase.
 --   - `factory_start_time` — no writer ever existed; the read always fell

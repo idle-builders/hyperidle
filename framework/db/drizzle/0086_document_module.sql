@@ -184,10 +184,8 @@ WHERE "before" LIKE '%sourceKnowledgeItemId%' OR "after" LIKE '%sourceKnowledgeI
 -- 12. a baked bundle written before this migration carries `contextBundle.knowledge`
 --     with `role` on each entry; the drain iterates the new shape. Same treatment
 --     migration 0080 step 11 gave the same table — fail the row, never rewrite a
---     body. Deviation from the architecture's literal SQL, empirically required:
---     `agent_work_intents_correlation_ck` demands `last_error_code IS NOT NULL`
---     whenever `status='failed'`; the drafted step only set `last_error`, which
---     would have violated that check on every matching row. Mirrors 0080's own
+--     body. Sets `last_error_code` too: `agent_work_intents_correlation_ck`
+--     demands it whenever `status='failed'`. Mirrors 0080's own
 --     shape exactly (`last_error_code`, cleared claim fields, bumped `updated_at`).
 --     Guarded the same way step 9 is: the UPDATE's own WHERE casts
 --     `baked_request_json` to jsonb, and one malformed row would otherwise

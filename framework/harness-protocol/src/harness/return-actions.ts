@@ -197,9 +197,8 @@ export function buildForceReturnMessage(
 }
 
 /**
- * Maximum number of force-continue re-injections per turn before falling
- * through to Tier-2 reject. N=2 is a bounded-retry discipline: one nudge, one
- * recovery.
+ * Maximum number of force-continue re-injections per turn before the turn
+ * ends `not_returned`. N=2 is a bounded retry: one nudge, one recovery.
  */
 export const MAX_FORCE_RETURNS = 2;
 
@@ -212,7 +211,7 @@ export const MAX_FORCE_RETURNS = 2;
  *
  * Returns `null` when:
  *   - A return was already seen (gate.returned === true) — no force needed, OR
- *   - Budget spent (forceCount >= MAX_FORCE_RETURNS) — fall through to Tier-2 reject.
+ *   - Budget spent (forceCount >= MAX_FORCE_RETURNS) — the turn ends `not_returned`.
  *
  * Pure: does NOT mutate the gate or forceCount. The caller increments forceCount
  * and re-prompts. This function is safe to call multiple times with the same inputs.
@@ -232,6 +231,6 @@ export function shouldForceReturn(
 	literalToolName?: LiteralToolNamer,
 ): string | null {
 	if (gate.returned) return null; // return was seen — allow stop
-	if (forceCount >= MAX_FORCE_RETURNS) return null; // budget spent — Tier-2 reject
+	if (forceCount >= MAX_FORCE_RETURNS) return null; // budget spent — turn ends not_returned
 	return buildForceReturnMessage(required, literalToolName);
 }
