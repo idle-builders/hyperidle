@@ -34,7 +34,7 @@ function editAction(deps: DocumentActionsDeps): Action<EditDocumentInput, Docume
 	return actionFor<EditDocumentInput, DocumentView>(createDocumentActions(deps), "edit_document");
 }
 
-describe("edit_document — D7 stale", () => {
+describe("edit_document — stale version", () => {
 	test("two edits, the second carrying version 1, is refused and writes nothing", async ({
 		db,
 	}) => {

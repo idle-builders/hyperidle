@@ -1,8 +1,8 @@
 /**
- * — production-path skill materialisation proof.
+ * Production-path skill materialisation proof.
  *
- * AC3: "materialisation lands where the running harness actually reads, proven per harness."
- * AC5: "a skill installed by a plugin is used by an agent in a real session — observed in
+ * "Materialisation lands where the running harness actually reads, proven per harness."
+ * "A skill installed by a plugin is used by an agent in a real session — observed in
  *      the run, not inferred from a row."
  *
  * Proof method (each binary harness):

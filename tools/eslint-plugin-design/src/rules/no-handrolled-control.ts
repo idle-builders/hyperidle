@@ -168,9 +168,9 @@ export const noHandrolledControl: Rule.RuleModule = createRule({
 		schema: [],
 		messages: {
 			daisyControl:
-				"Raw <{{tag}}> paints DaisyUI control chrome ('{{cls}}') in layers/core-ui/src. use Button/Input/SearchField/Select/Composer from @hyperidle/design-system instead of a hand-rolled DaisyUI control.",
+				"Raw <{{tag}}> paints DaisyUI control chrome ('{{cls}}') in layers/core-ui/src. Use Button/Input/SearchField/Select/Composer from @hyperidle/design-system instead of a hand-rolled DaisyUI control.",
 			accentFill:
-				"Raw <{{tag}}> paints an accent/status fill ('{{cls}}') directly in layers/core-ui/src. use Button's variant system (primary/secondary/ghost/destructive) instead of a hand-rolled fill.",
+				"Raw <{{tag}}> paints an accent/status fill ('{{cls}}') directly in layers/core-ui/src. Use Button's variant system (primary/secondary/ghost/destructive) instead of a hand-rolled fill.",
 			tokenFill:
 				"Raw <{{tag}}> paints its own fill ('{{cls}}') in layers/core-ui/src. The fill of a control belongs to Button/Input/SearchField/Select/Composer — a token-legal fill assembled per site is still a hand-rolled control. → fix: use the design-system component, or drop the fill and let the surface behind it show through.",
 			tokenBorder:

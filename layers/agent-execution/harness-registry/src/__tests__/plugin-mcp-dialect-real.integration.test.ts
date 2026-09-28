@@ -111,7 +111,7 @@ describe("codex-toml dialect", () => {
 			sandboxPath,
 			servers: [
 				{
-					key: "probe",
+					key: "dialect-key",
 					config: { command: NODE_BIN, args: [probeServerScript] },
 				},
 			],
@@ -121,7 +121,7 @@ describe("codex-toml dialect", () => {
 		const tomlPath = path.join(sandboxPath, ".codex-home", "config.toml");
 		expect(fs.existsSync(tomlPath), `config.toml must exist at ${tomlPath}`).toBe(true);
 		const tomlContent = fs.readFileSync(tomlPath, "utf-8");
-		expect(tomlContent).toContain("[mcp_servers.probe]");
+		expect(tomlContent).toContain("[mcp_servers.dialect-key]");
 		expect(tomlContent).toContain(NODE_BIN);
 
 		// Run `codex mcp list` with CODEX_HOME pointing at .codex-home/.
@@ -132,7 +132,7 @@ describe("codex-toml dialect", () => {
 			encoding: "utf-8",
 		});
 		// The server name must appear in the list output.
-		expect(result).toContain("probe");
+		expect(result).toContain("dialect-key");
 	});
 
 	it("env and cwd fields are written to TOML and read by codex", () => {
@@ -143,7 +143,7 @@ describe("codex-toml dialect", () => {
 			sandboxPath,
 			servers: [
 				{
-					key: "probe-env",
+					key: "dialect-key-env",
 					config: {
 						command: NODE_BIN,
 						args: [probeServerScript],
@@ -166,7 +166,7 @@ describe("codex-toml dialect", () => {
 			timeout: 15_000,
 			encoding: "utf-8",
 		});
-		expect(result).toContain("probe-env");
+		expect(result).toContain("dialect-key-env");
 	});
 });
 
@@ -183,7 +183,7 @@ describe("opencode-json dialect", () => {
 			sandboxPath,
 			servers: [
 				{
-					key: "probe",
+					key: "dialect-key",
 					config: { command: NODE_BIN, args: [probeServerScript] },
 				},
 			],
@@ -195,7 +195,7 @@ describe("opencode-json dialect", () => {
 		const parsed = JSON.parse(fs.readFileSync(jsonPath, "utf-8")) as {
 			mcp?: Record<string, { type: string; command?: string[] }>;
 		};
-		const entry = parsed.mcp?.["probe"];
+		const entry = parsed.mcp?.["dialect-key"];
 		expect(entry?.type).toBe("local");
 		expect(Array.isArray(entry?.command)).toBe(true);
 		expect(entry?.command?.[0]).toBe(NODE_BIN);
@@ -210,7 +210,7 @@ describe("opencode-json dialect", () => {
 			encoding: "utf-8",
 		});
 		// The server must appear and be connected (successful MCP handshake).
-		expect(result).toContain("probe");
+		expect(result).toContain("dialect-key");
 		expect(result).toContain("connected");
 	});
 
@@ -222,7 +222,7 @@ describe("opencode-json dialect", () => {
 			sandboxPath,
 			servers: [
 				{
-					key: "probe-env",
+					key: "dialect-key-env",
 					config: {
 						command: NODE_BIN,
 						args: [probeServerScript],
@@ -236,7 +236,7 @@ describe("opencode-json dialect", () => {
 		const parsed = JSON.parse(fs.readFileSync(jsonPath, "utf-8")) as {
 			mcp?: Record<string, { env?: Record<string, string> }>;
 		};
-		const envObj = parsed.mcp?.["probe-env"]?.env;
+		const envObj = parsed.mcp?.["dialect-key-env"]?.env;
 		expect(envObj).toEqual({ XPROBE_ENV_KEY: "xprobe-env-value" });
 
 		const result = execSync("opencode mcp list", {
@@ -245,7 +245,7 @@ describe("opencode-json dialect", () => {
 			timeout: 20_000,
 			encoding: "utf-8",
 		});
-		expect(result).toContain("probe-env");
+		expect(result).toContain("dialect-key-env");
 		expect(result).toContain("connected");
 	});
 });
