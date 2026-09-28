@@ -99,34 +99,11 @@ export type ProvisionSessionDeps = Pick<RuntimeInput, "db" | "eventBus" | "onHar
 type SessionLifecycleToolContext = Parameters<typeof buildToolRegistryFromDefinitions>[1];
 type ToolRegistryOptions = Parameters<typeof buildToolRegistryFromDefinitions>[2];
 
-// `workAccessor` DELETED entirely
-// (reads AND writes) — `run-orchestration/provisioner.ts` no longer carries
-// a `work` port at all. Its former call sites are core-api-side event
-// subscribers instead: `work-session-started-reactions.ts` (session_started
-// -> in_progress transition) and `work-session-end-reactions.ts` (session_ended
-// -> bet token-writeback). See `provisioner.ts`'s own Wave D note for the
-// full per-caller migration map.
-//
-// `routineAccessor`/`settingsReader`
-// (this file's own `getRoutineById`/`readServerConfig` bindings) are DELETED
-// entirely — `SessionLifecyclePorts` no longer carries `routine`/`settings`
-// fields at all. `admitSession`'s Phase 3 `harnessDisabled` read is replaced
-// by baked data every per-kind resolver now supplies on the drained request
-// (`params.harnessDisabled` — see `provisioner.ts`'s own Wave E top-of-file
-// note; the admission-time routine per-run cost
-// cap this bullet used to also describe, no replacement). `run-orchestration`
-// now holds ZERO `-> routine`/`-> settings` edge, read or write — closing
-// architecture.md §6 H3 and the anti-regrowth guard's `DEFERRED_FOLLOWUP`
-// entries `run-orchestration::routine`/`::settings`.
-//
-// **RE-CORRECTED (founder, 2026-08-01), third/final pass:** the earlier
-// `userReader`/`agentRunnabilityReader` reopening above is ITSELF deleted,
-// with no replacement of any kind. The founder rejected the premise that
-// prompted it outright: orchestration never initiates anything on its own —
-// every unit of work originates from a request core already sent — so there
-// is no scenario where it needs to independently discover or react to an
-// agent's deactivation, live-read or pushed-event alike. See
-// `provisioner.ts`'s top-of-file Wave E `@lore` for the full trace.
+// `run-orchestration` holds ZERO `-> routine`/`-> settings`/`-> work` edge,
+// read or write (architecture.md §6 H3). All baked data every per-kind resolver
+// needs (harness params, context) arrives on the drained request — no live reads.
+// Orchestration never initiates: every unit of work originates from a request
+// core already sent, so it never needs to discover or react to agent state.
 // `run-orchestration` now holds ZERO `-> users` edge; `DEFERRED_FOLLOWUP`
 // no longer carries `run-orchestration::users` — there is nothing left to
 // defer.

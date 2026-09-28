@@ -4,7 +4,6 @@ import { createLogger } from "@hyperidle/diagnostics";
 import { assembleSessionDocuments } from "@hyperidle/document";
 import { EventBus } from "@hyperidle/event-bus";
 import type { RegisteredTool } from "@hyperidle/harness-protocol";
-import { readServerConfig } from "@hyperidle/settings";
 import { checkAndUnblockDependents } from "@hyperidle/task";
 import {
 	createUpgradeTokenStore,
@@ -350,8 +349,8 @@ function buildCoreActionsBindings(
  * that function's own cognitive-complexity budget is already spent.
  * `searchTasksRun`/`searchThreadsRun`/`searchDocumentsRun` are reach's own
  * doors (already extracted in `createCoreApiApp`, never `open_*`);
- * `assembleSessionDocuments`/`readServerConfig` are this Layer's own
- * (never a nested Service's) imports, exactly like
+ * `assembleSessionDocuments` is this Layer's own
+ * (never a nested Service's) import, exactly like
  * `task-run-resolver-bindings.ts`'s equivalent wiring.
  */
 function registerSubscriptionServices(
@@ -375,7 +374,6 @@ function registerSubscriptionServices(
 		searchThreads: runners.searchThreadsRun,
 		searchDocuments: runners.searchDocumentsRun,
 		assembleSessionDocuments,
-		readServerConfig: (readDb) => readServerConfig(readDb),
 		...(wsPush ? { wsPush } : {}),
 	});
 	// The schedule half — started and stopped alongside the fire
@@ -385,7 +383,6 @@ function registerSubscriptionServices(
 		agentWorkIntentRecorder,
 		searchDocuments: runners.searchDocumentsRun,
 		assembleSessionDocuments,
-		readServerConfig: (readDb) => readServerConfig(readDb),
 	});
 	return [unsubSubscriptionFire, subscriptionClock.stop];
 }

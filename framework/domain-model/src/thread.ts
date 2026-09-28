@@ -24,7 +24,7 @@ export type BlockId = string & { readonly __brand: "BlockId" };
 // @lore BB1: `"bet"` removed — a bet is a task with no parent, and migration
 // 0068 flipped every thread whose host_kind was "bet" to "task" (the host_id was
 // already correct, since each bet kept its id as a root task).
-export type BlockHostKind = "task" | "document" | "agent" | "user";
+export type BlockHostKind = "task" | "document" | "artifact" | "agent" | "user";
 
 // ── Closed enums ────────────────────────────────────────────────
 
@@ -195,7 +195,7 @@ export type InlineRef = EntityRef | MentionRef | CanvasArtifactRef;
  * `payload.notice?.kind`.
  */
 export interface AssistantNotice {
-	readonly kind: "missing_key" | "missing_harness" | "provider_error";
+	readonly kind: "missing_harness" | "provider_error";
 	/** Non-sensitive provider code (e.g. "rate_limited"). Allowlisted — never raw error.message. */
 	readonly code?: string;
 }

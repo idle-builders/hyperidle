@@ -25,7 +25,6 @@ export type {
 	SandboxWritebackChange,
 	SandboxWritebackChangesDetectedEvent,
 	SessionEndedEvent,
-	SessionHandoffCompletedEvent,
 	SessionNotReturnedEvent,
 	// SessionOutcome stays in @hyperidle/domain-model (core-ui uses it; core-ui cannot reach event-bus)
 	SessionStartedEvent,

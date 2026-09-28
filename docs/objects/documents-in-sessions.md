@@ -23,7 +23,7 @@ Only `task_run` and `subscription_run` sessions get a `knowledge/` tree with doc
 
 Ordinary documents are ranked and then trimmed to fit a 40,000-token budget (200k context × 0.2 allocation). Scoring uses three factors:
 
-- Tag match: weight 0.55 — but `taskTags: []` is always passed, so this factor is always 0. Only recency and confidence contribute in practice.
+- Tag match: weight 0.55 — derived by tokenising the task description (split on non-alphanumeric characters, lowercase, drop tokens shorter than 3 characters). A document whose title or meta tags contain a task keyword scores higher.
 - Recency: weight 0.20 — decays over 30 days.
 - Confidence: weight 0.15 — from `documents.confidence` (0–1).
 

@@ -153,34 +153,6 @@ export interface SessionEndedEvent {
 }
 
 /**
- * @lore AU19 Increment 3g: `handoff-protocol.ts`'s `buildHandoff` emits this
- * post-commit. Handoff deliberately does NOT emit `session_ended` (a handoff
- * is not a session-end outcome). Historical note: this event originally
- * existed to let the (now AU21-Increment-14a-deleted) cost package release
- * its per-session dedup state on the handoff path since it doesn't see
- * `session_ended`; that consumer is gone, but `start-runtime.ts` and
- * `session-lifecycle`'s `registerHandoffTerminationRequester` still subscribe
- * for termination-request bookkeeping (see below), so the event stays.
- *
- * @lore AU19 Increment 3i fix round: `requestedBy` carries the outgoing
- * agent's id (`sessionContext.agentId`) so `session-lifecycle`'s
- * `registerHandoffTerminationRequester` subscriber can pass it through to
- * `requestAgentTermination`'s `terminationRequestedBy` write
- * (`agent_session_requests.termination_requested_by`, `schema.ts`). Pre-
- * migration `handoff-protocol.ts` passed `requestedBy: sessionContext.agentId`
- * directly to the (then-synchronous) termination call; the EventBus inversion
- * had silently dropped it since the event carried only `sessionId` — this
- * field closes that gap so the inversion stays behavior-preserving.
- */
-export interface SessionHandoffCompletedEvent {
-	type: "session_handoff_completed";
-	streamId: string;
-	sessionId: string;
-	requestedBy: string;
-	timestamp: number;
-}
-
-/**
  * Emitted by `runSession` (site A) when a task-session turn exhausts its
  * event stream without having invoked any member of the accepted-return set
  * (RETURN_ACTION_NAMES). The turn is flagged — never silently completed.
@@ -397,8 +369,6 @@ export type DomainEvent =
 	// lifecycle propagation and the dependency watcher now.
 	| SessionStartedEvent
 	| SessionEndedEvent
-	// Handoff EventBus inversion
-	| SessionHandoffCompletedEvent
 	// Return-gate escape surface
 	| SessionNotReturnedEvent
 	// @lore BC5 T7b: ThreadCreatedEvent/ThreadMessageAppendedEvent/
@@ -457,7 +427,6 @@ export const EVENT_TYPES = [
 	// "task.changed" (above) carries a state move now.
 	"session_started",
 	"session_ended",
-	"session_handoff_completed",
 	"session_not_returned",
 	// @lore BC5 T7b: "thread_created"/"thread_message_appended"/
 	// "thread_resolved"/"thread_reopened" deleted — their last listener is

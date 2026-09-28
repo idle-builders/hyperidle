@@ -554,10 +554,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 				path: "state",
 			});
 		}
-		// @lore BC5 T11: the capacity_exceeded gate (team.capacity, dropped by
-		// migration 0090) is deleted — WIP capacity goes with the team column
-		// that carried it (D-c7jgxy). A team is id + name now; accepting a
-		// task no longer reads it at all.
+		// @lore BC5 T11: no capacity gate — a team is id + name; accepting a task reads no team capacity column.
 		if (
 			input.ownerAgentId !== undefined &&
 			input.ownerAgentId !== null &&

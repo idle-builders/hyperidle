@@ -75,16 +75,6 @@ export interface BakedWorkIntentRequest {
 	 */
 	readonly agentConfig?: BakedAgentRunnableConfig;
 	/**
-	 * The server's
-	 * disabled-harness-types list (`server_config.harnessDisabled`), baked at
-	 * emit time (global config, not per-agent) so `admitSession`'s Phase 3
-	 * adapter-selection filter no longer needs a live
-	 * `ports.settings.readServerConfig` read. Absent means "nothing disabled"
-	 * (matches the settings row's own empty-array default), not a live-read
-	 * fallback — `ports.settings` is deleted from `run-orchestration` entirely.
-	 */
-	readonly harnessDisabled?: readonly string[];
-	/**
 	 * The session's calling thread id, baked at emit time by every
 	 * resolver whose kind has a real thread host: `assistant_turn` (the
 	 * conversation thread), `task_run` (the
@@ -324,6 +314,7 @@ export type BakedContextBundle =
 				readonly title: string;
 				readonly description: string | null;
 				readonly state: string;
+				readonly doneCondition: string | null;
 			};
 			/**
 			 * The containing work, root first, down to the immediate

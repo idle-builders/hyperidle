@@ -39,7 +39,7 @@ Every `task_run` and `subscription_run` session gets a sandbox directory with fo
 
 ## Notes
 
-`sessions.notes` is written by the file watcher when the agent edits `work/task-notes.md` or `work/session-notes.md`. It is NOT passed to the next session. `tasks.notes` is a separate field written only via `edit_task({ appendNote })`.
+`sessions.notes` is written by the file watcher when the agent edits `work/task-notes.md` or `work/session-notes.md`. When a new session starts on the same task, the most recently completed session's notes are seeded into `work/task-notes.md` so the agent can continue from where the previous session left off. `tasks.notes` is a separate field written only via `edit_task({ appendNote })`.
 
 ## Token counts
 

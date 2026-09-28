@@ -52,6 +52,7 @@ import {
 // @lore AU44 b2: moved from @hyperidle/domain-model (dissolved filesystem-contract).
 import { ensureSandboxGitRepo, type Filesystem, localTrustedPath } from "./mounter.js";
 import { sessionAwaitsVerdict } from "./review-sessions.js";
+import { fetchPreviousSessionNotes } from "./session-store.js";
 import { transitionRun } from "./transition-run.js";
 
 type TransitionSpec = Parameters<typeof transitionRun>[1];
@@ -67,17 +68,8 @@ interface IngestionHandle {
 // `SessionLifecycleRoutineAccessor`
 // (`getRoutineById`)/`SessionLifecycleSettingsReader` (`readServerConfig`) are
 // DELETED entirely — `run-orchestration` holds ZERO `-> routine`/
-// `-> settings` edge, read or write. `admitSession`'s Phase 3 `harnessDisabled`
-// read and the admission-time routine per-run cap read are replaced by baked
-// data every per-kind resolver now supplies on the drained request:
-//   - Phase 3: `params.harnessDisabled` (global server config, baked
-//     alongside `agentConfig` by the same two `contextBundle` resolvers —
-//     `assistant_turn` bakes it too, at its own one real emit site, so no
-//     kind silently loses the admin's disabled-harness-types enforcement).
-//   - The admission-time routine per-run cost cap this
-//     bullet used to describe (`params.contextBundle.routine
-//     .costCapPerRunMinor`) is DELETED along with the rest of the cost-cap
-//     gate — no replacement.
+// `-> settings` edge, read or write. The admission-time routine per-run cap read
+// is deleted along with the rest of the cost-cap gate — no replacement.
 //
 // @lore AU21 §9 Increment 12 (Decision H3), Wave E — THIRD, founder-FINAL
 // pass on the emit→deactivate→drain race (architecture.md §12's
@@ -183,7 +175,6 @@ interface SessionLifecycleAdapterMeta {
 interface SessionLifecycleSelectRequirements {
 	readonly modelProviders?: readonly string[];
 	readonly harnessType?: string;
-	readonly disabledTypes?: readonly string[];
 }
 
 interface SessionLifecycleSelectedEntry {
@@ -377,6 +368,7 @@ interface SessionLifecycleSessionContextData {
 		readonly title: string;
 		readonly description: string | null;
 		readonly state: string;
+		readonly doneCondition: string | null;
 	};
 	/** Root-first chain of ancestor tasks. ancestors[0] is the root task (the former "bet"). */
 	readonly ancestors: readonly {
@@ -419,6 +411,7 @@ interface SessionLifecycleContextAssembly {
 		readonly sourceId: string | null;
 		readonly sourceCorrelation: AgentSessionSourceCorrelation | null;
 		readonly contextBundle?: BakedContextBundle;
+		readonly previousSessionNotes?: string | null;
 	}): Promise<SessionLifecycleContextAssemblyOutcome>;
 	beginAgentWriteback(input: {
 		readonly sandboxPath: string;
@@ -940,16 +933,6 @@ interface ProvisionSessionParams {
 	 */
 	readonly agentConfig?: BakedAgentRunnableConfig;
 	/**
-	 * The server's
-	 * disabled-harness-types list, baked at emit time (global `settings`
-	 * config, not per-agent) so Phase 3's adapter-selection filter no longer
-	 * needs a live `ports.settings.readServerConfig` read. Absent defaults to
-	 * "nothing disabled" (matches the settings row's own empty-array default)
-	 * — unlike `agentConfig`, this is not a security gate, so a missing bake
-	 * degrades gracefully rather than hard-failing.
-	 */
-	readonly harnessDisabled?: readonly string[];
-	/**
 	 * The session's calling thread id, baked at
 	 * EMIT time by every per-kind resolver that has one (`assistant_turn` from
 	 * the triggering message's thread; `task_run` from the document's own
@@ -1160,16 +1143,11 @@ async function admitSession(
 	const modelTier: ModelTier = params.modelTier ?? "workhorse";
 
 	// ── Phase 3: adapter selection + concurrency check + task transition.
-	// Wave E: `harnessDisabled` comes from the baked request (no live
-	// `ports.settings.readServerConfig` read) — absent defaults to "nothing
-	// disabled", matching the settings row's own empty-array default.
-	const harnessDisabled = params.harnessDisabled ?? [];
 	const selectRequirements = {
 		harnessType: runConfig.harnessType ?? undefined,
 		...(runConfig.modelProvider
 			? { modelProviders: [runConfig.modelProvider] as readonly string[] }
 			: {}),
-		disabledTypes: harnessDisabled as readonly string[],
 	};
 	const selectedAdapter = adapterPool.select(selectRequirements);
 	if (!selectedAdapter) {
@@ -1306,6 +1284,12 @@ async function admitSession(
 	ensureSandboxGitRepo(sandboxPath);
 
 	// ── Phase 6: assemble context into the sandbox through the agent layer.
+	// Fetch the previous completed session's notes for this task so the agent
+	// can pick up where it left off. Only task-backed sessions carry notes.
+	const previousSessionNotes = params.taskId
+		? await fetchPreviousSessionNotes(db, params.taskId)
+		: null;
+
 	if (params.taskId) {
 		await ports.contextAssembly.assembleAgentContext({
 			sandboxPath,
@@ -1318,6 +1302,7 @@ async function admitSession(
 			sourceId: params.requestContext?.sourceId ?? null,
 			sourceCorrelation: params.requestContext?.sourceCorrelation ?? null,
 			contextBundle: params.contextBundle,
+			previousSessionNotes,
 		});
 	} else if (params.requestContext) {
 		await ports.contextAssembly.assembleAgentContext({

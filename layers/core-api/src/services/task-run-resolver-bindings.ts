@@ -31,7 +31,6 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import { assembleSessionDocuments } from "@hyperidle/document";
 import { EventBus } from "@hyperidle/event-bus";
-import { readServerConfig } from "@hyperidle/settings";
 import type { TaskRunResolverDeps } from "@hyperidle/task";
 import { getTeam, requireRunnableAgent } from "@hyperidle/user";
 import type { ActionContext, SearchDocumentsRunFn } from "../actions/action.js";
@@ -75,7 +74,6 @@ export function buildTaskRunResolverDeps(
 		getTeamById: (db, id) => getTeam(db, { id }),
 		assembleSessionDocuments: (...args: Parameters<typeof assembleSessionDocuments>) =>
 			assembleSessionDocuments(...args),
-		readServerConfig: (...args: Parameters<typeof readServerConfig>) => readServerConfig(...args),
 		// `task-run-resolver.ts` bakes `callingThreadId` straight from
 		// `task.threadId`, a real column.
 	};

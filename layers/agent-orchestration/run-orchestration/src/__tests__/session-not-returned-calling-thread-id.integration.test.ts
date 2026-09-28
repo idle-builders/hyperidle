@@ -92,7 +92,6 @@ describe("session_not_returned carries callingThreadId (Increment 5)", () => {
 				role: "builder",
 				teamId: null,
 			},
-			harnessDisabled: [],
 			callingThreadId: "thread-not-returned-1",
 		} as ProvisionSessionParams;
 
@@ -163,7 +162,6 @@ describe("session_not_returned carries callingThreadId (Increment 5)", () => {
 				role: "builder",
 				teamId: null,
 			},
-			harnessDisabled: [],
 		} as ProvisionSessionParams;
 
 		const admitted = await provisioner.admit(deps, params);

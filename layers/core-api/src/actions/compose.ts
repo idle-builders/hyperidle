@@ -24,12 +24,7 @@ import type {
 	ThreadView,
 } from "@hyperidle/domain-model";
 import { derivePrimaryHarness } from "@hyperidle/harness-capability";
-import {
-	createPlatformActions,
-	markDetached,
-	type PlatformActionsDeps,
-	readServerConfig,
-} from "@hyperidle/settings";
+import { createPlatformActions, markDetached, type PlatformActionsDeps } from "@hyperidle/settings";
 import { createTaskActions, type TaskActionsDeps } from "@hyperidle/task";
 import { createThreadActions, type ThreadActionsDeps } from "@hyperidle/thread";
 import {
@@ -93,7 +88,6 @@ function buildThreadActionsDeps(
 		},
 		searchDocuments,
 		org: { getTeam: (exec, q) => getTeam(exec, q) },
-		settings: { readServerConfig: (db) => readServerConfig(db) },
 		agents: {
 			requireRunnableAgent: (db, agentId) => requireRunnableAgent(db, agentId),
 			// §8.3: bound to searchDocuments now, never a direct table read — the
@@ -318,20 +312,14 @@ function buildPlatformActionsDeps(
 }
 
 /**
- * The harness a plugin's agents land on: the first one this machine can run
- * right now (discovery `ready`) that the person has not switched off — the
- * same first-ready choice the welcome screen preselects — as `edit_user`'s
- * run-config pick.
+ * The harness a plugin's agents land on: the first ready one on this machine.
  */
-async function firstAvailableHarness(
-	db: HyperIdleDb,
+function firstAvailableHarness(
+	_db: HyperIdleDb,
 	adapterPool: HarnessCapabilityReader,
 ): Promise<ReturnType<typeof derivePrimaryHarness> | null> {
-	const { harnessDisabled } = await readServerConfig(db);
-	const ready = adapterPool
-		.describe()
-		.find((d) => d.discovery.state === "ready" && !harnessDisabled.includes(d.type));
-	return ready ? derivePrimaryHarness(ready) : null;
+	const ready = adapterPool.describe().find((d) => d.discovery.state === "ready");
+	return Promise.resolve(ready ? derivePrimaryHarness(ready) : null);
 }
 
 /**
@@ -355,10 +343,8 @@ function toHarnessDescriptors(
  * itself (governance: "a service talks through its own layer"), and this
  * assignment is where that mirror meets the real thing.
  * `editDocument`/`searchDocuments` are extracted from the already-built
- * `documentActions`, exactly like `platform`'s own deps above;
- * `readServerConfig` binds to `@hyperidle/settings`'s own typed
- * function, because `@hyperidle/user` may not import that sibling Service
- * either. `harnesses` is absent when no adapter pool is wired (a
+ * `documentActions`, exactly like `platform`'s own deps above.
+ * `harnesses` is absent when no adapter pool is wired (a
  * composition without agent execution) — `open_user`'s `runsOn` then answers
  * `[]`, the same "no pool" shape `routes/harnesses.ts` itself never mounts
  * under.
@@ -387,7 +373,6 @@ function buildUserActionsDeps(
 					},
 				}
 			: {}),
-		readServerConfig: (db) => readServerConfig(db),
 		// @lore BC5 T11: restored from the deleted `agent-profile.ts` route —
 		// same `computeApprovalRate` call, same 30-day window, same 10-verdict cap.
 		reviewTrackRecord: async (db, agentId) => {

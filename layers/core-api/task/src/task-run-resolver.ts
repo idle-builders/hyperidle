@@ -69,15 +69,6 @@ export interface TaskRunResolverDeps {
 			readonly agentId: string;
 		},
 	): Promise<readonly SessionDocumentLike[]>;
-	/**
-	 * Optional: `@hyperidle/settings`'s
-	 * `readServerConfig`, injected (Mechanism C — `@hyperidle/work` cannot
-	 * import `@hyperidle/settings` directly) for the `harnessDisabled` bake.
-	 * Absent at a call site not yet wired — the resolver bakes no
-	 * `harnessDisabled` (matching `admitSession`'s own "absent defaults to
-	 * nothing disabled" degrade), never a live read reintroduced downstream.
-	 */
-	readServerConfig?(db: HyperIdleDb): Promise<{ readonly harnessDisabled: readonly string[] }>;
 }
 
 /** The baked `task_run` request shape, matching `resolveIntentInputInternal`'s current return. */
@@ -108,12 +99,6 @@ export interface BakedTaskRunRequest {
 	 * it for every `task_run` session, not just the ones with a `contextBundle`.
 	 */
 	readonly agentConfig: BakedAgentRunnableConfig;
-	/**
-	 * The server's
-	 * disabled-harness-types list. Present only when `deps.readServerConfig`
-	 * was supplied (see `TaskRunResolverDeps` `@lore`).
-	 */
-	readonly harnessDisabled?: readonly string[];
 	/**
 	 * @lore The task's own thread — a real, `NOT NULL` column, so this is
 	 * one read, never a resolve-or-create. Always present.
@@ -153,7 +138,13 @@ export async function bakeTaskContextBundle(
 	});
 	return {
 		kind: "task",
-		task: { id: task.id, title: task.title, description: task.description, state: task.state },
+		task: {
+			id: task.id,
+			title: task.title,
+			description: task.description,
+			state: task.state,
+			doneCondition: task.doneCondition,
+		},
 		// Root-first, so the agent reads the goal chain top-down.
 		ancestors: ancestors.map((a) => ({
 			id: a.id,
@@ -209,7 +200,7 @@ export async function resolveTaskRunRequest(
 	// destructured into locals so TS keeps them narrowed non-optional inside
 	// the block below, no non-null assertion needed.
 	let contextBundle: BakedContextBundle | undefined;
-	const { getTeamById, assembleSessionDocuments, readServerConfig } = deps;
+	const { getTeamById, assembleSessionDocuments } = deps;
 	if (getTeamById && assembleSessionDocuments) {
 		// The containing work is now a chain, not a single bet.
 		// `listAncestorIds` returns nearest-first; the bundle wants root-first.
@@ -230,10 +221,6 @@ export async function resolveTaskRunRequest(
 			assembleSessionDocuments,
 		);
 	}
-	const harnessDisabled = readServerConfig
-		? (await readServerConfig(db)).harnessDisabled
-		: undefined;
-
 	return {
 		defaultAgentId: attempt.agentId,
 		sourceKind: "task",
@@ -244,7 +231,6 @@ export async function resolveTaskRunRequest(
 		sourceCorrelation: { taskId: task.id, teamId: task.teamId },
 		agentConfig: bakeAgentRunnableConfig(agent, agentPersona),
 		callingThreadId: task.threadId,
-		...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
 		...(contextBundle ? { contextBundle } : {}),
 	};
 }

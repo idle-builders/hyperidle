@@ -127,7 +127,6 @@ describe("admitSession mounts what the live injection record says", () => {
 				role: "builder",
 				teamId: null,
 			},
-			harnessDisabled: [],
 		} as ProvisionSessionParams;
 
 		const asked: string[] = [];

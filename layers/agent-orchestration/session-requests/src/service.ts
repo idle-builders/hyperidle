@@ -637,7 +637,7 @@ async function createFromBakedRequestInternal(
 		// The assistant_turn family's baked transcript, the
 		// task_run/subscription_run families' baked
 		// contextBundle, and EVERY kind's baked
-		// agentConfig/harnessDisabled ride the existing generic `payloadJson`
+		// agentConfig rides the existing generic `payloadJson`
 		// pass-through column onto the created `AgentSessionRequest`.
 		//
 		// @lore AU26 G1: the per-agent model override (`modelId`/`modelProvider`)
@@ -646,16 +646,12 @@ async function createFromBakedRequestInternal(
 		...(baked.transcript !== undefined ||
 		baked.contextBundle !== undefined ||
 		baked.agentConfig !== undefined ||
-		baked.harnessDisabled !== undefined ||
 		baked.callingThreadId !== undefined
 			? {
 					payloadJson: JSON.stringify({
 						...(baked.transcript !== undefined ? { transcript: baked.transcript } : {}),
 						...(baked.contextBundle !== undefined ? { contextBundle: baked.contextBundle } : {}),
 						...(baked.agentConfig !== undefined ? { agentConfig: baked.agentConfig } : {}),
-						...(baked.harnessDisabled !== undefined
-							? { harnessDisabled: baked.harnessDisabled }
-							: {}),
 						// The session's calling thread id.
 						...(baked.callingThreadId !== undefined
 							? { callingThreadId: baked.callingThreadId }
@@ -960,8 +956,8 @@ export type WorkIntentInput =
  *
  * @lore AU44-b8: `@hyperidle/work-intent-port` dissolved into `@hyperidle/domain-model`.
  * `BakedContextBundle` and `BakedContextDocument` are now imported from there.
- * This type stays local because it adds `harnessDisabled` and `callingThreadId` —
- * session-requests-specific extension fields not in domain-model's `BakedWorkIntentRequest`.
+ * This type stays local because it adds `callingThreadId` —
+ * a session-requests-specific extension field not in domain-model's `BakedWorkIntentRequest`.
  * It is a structural superset, not a mirror.
  */
 export type BakedWorkIntentRequest = {
@@ -1005,7 +1001,6 @@ export type BakedWorkIntentRequest = {
 		readonly role: string;
 		readonly teamId: string | null;
 	};
-	readonly harnessDisabled?: readonly string[];
 	/**
 	 * The session's calling thread id. Absent
 	 * for `subscription_run` — see `BakedWorkIntentRequest` in

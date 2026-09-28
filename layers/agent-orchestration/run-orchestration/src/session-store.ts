@@ -14,7 +14,7 @@
 import { type HyperIdleDb, type Session, sessions } from "@hyperidle/db";
 import type { SessionOutcome } from "@hyperidle/domain-model";
 import type { EventBus, SessionEndedEvent } from "@hyperidle/event-bus";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull } from "drizzle-orm";
 
 /** Full row by id; `undefined` on a miss. */
 export async function findSessionById(
@@ -85,8 +85,6 @@ export interface EndSessionByCasInput {
 	/** Caller override for the PERSISTED outcome only; the event stays derived. */
 	readonly outcome?: string;
 	readonly notes?: string;
-	readonly effectivenessScore?: number;
-	readonly actor?: string;
 	readonly now: string;
 }
 
@@ -111,7 +109,7 @@ export async function endSessionByCas(
 	eventBus: EventBus,
 	input: EndSessionByCasInput,
 ): Promise<Session | undefined> {
-	const { sessionId, state, now, actor } = input;
+	const { sessionId, state, now } = input;
 	const outcome: SessionOutcome = state === "crashed" ? "crashed" : "completed";
 
 	const stateUpdates: Record<string, unknown> = {
@@ -120,12 +118,6 @@ export async function endSessionByCas(
 		notes: input.notes,
 		endedAt: now,
 	};
-	if (input.effectivenessScore !== undefined) {
-		stateUpdates.effectivenessScore = input.effectivenessScore.toString();
-		stateUpdates.effectivenessRecordedAt = now;
-		stateUpdates.effectivenessRecordedBy = actor ?? input.agentId;
-	}
-
 	const transitioned = await db
 		.update(sessions)
 		.set(stateUpdates)
@@ -145,6 +137,26 @@ export async function endSessionByCas(
 	}
 
 	return await findSessionById(db, sessionId);
+}
+
+/**
+ * Notes from the most recent completed session for a task, for handoff context.
+ * Filters out null endedAt so a session that ended without a timestamp cannot win.
+ */
+export async function fetchPreviousSessionNotes(
+	db: HyperIdleDb,
+	taskId: string,
+): Promise<string | null> {
+	const row = await db
+		.select({ notes: sessions.notes })
+		.from(sessions)
+		.where(
+			and(eq(sessions.taskId, taskId), eq(sessions.state, "done"), isNotNull(sessions.endedAt)),
+		)
+		.orderBy(desc(sessions.endedAt))
+		.limit(1)
+		.then((rows) => rows[0] ?? null);
+	return row?.notes ?? null;
 }
 
 /** Set `notes` and nothing else. */

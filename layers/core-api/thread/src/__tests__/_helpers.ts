@@ -218,7 +218,6 @@ export function threadDeps(overrides: Partial<ThreadActionsDeps> = {}): ThreadAc
 		org: {
 			getTeam: async (exec, q) => (await exec.select().from(teams).where(eq(teams.id, q.id)))[0],
 		},
-		settings: { readServerConfig: async () => ({ harnessDisabled: [] }) },
 		agents: {
 			requireRunnableAgent: async (db, agentId) => {
 				const [row] = await db.select().from(users).where(eq(users.id, agentId));

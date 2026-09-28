@@ -317,24 +317,6 @@ export async function startRuntime(deps: RuntimeDeps): Promise<RuntimeHandle> {
 		deps.composition.worker.adapterFactory,
 	);
 	try {
-		disposers.push(
-			eventBus.on("session_handoff_completed", (event) => {
-				void ports.sessionRequests
-					.findSessionRequest(deps.db, { by: "sessionId", sessionId: event.sessionId })
-					.then((request) =>
-						request
-							? ports.sessionLifecycle.requestAgentTermination(deps.db, {
-									requestId: request.id,
-									reason: "handoff",
-									requestedBy: event.requestedBy,
-								})
-							: undefined,
-					)
-					.catch((error: unknown) => {
-						throw error;
-					});
-			}),
-		);
 		const agentLayer = await bootAgentLayer(ownedDeps);
 		disposers.push(agentLayer.stop);
 		joinAgentLayer = agentLayer.join;

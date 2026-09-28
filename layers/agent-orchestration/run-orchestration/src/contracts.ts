@@ -42,7 +42,6 @@ export interface RunContextBundle {
 	readonly sessionWorkflow?: unknown;
 	readonly contextBundle?: BakedContextBundle;
 	readonly agentConfig?: BakedAgentRunnableConfig;
-	readonly harnessDisabled?: readonly string[];
 	readonly callingThreadId?: string;
 	readonly transcript?: readonly ConversationMessage[];
 	/**

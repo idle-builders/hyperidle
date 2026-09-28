@@ -11,7 +11,7 @@
  * the owner/team rows the effective-team rule needs.
  *
  * Every cross-Service capability this needs (`@hyperidle/document`'s
- * `assembleSessionDocuments`, `@hyperidle/settings`'s `readServerConfig`) is
+ * `assembleSessionDocuments`) is
  * injected (Mechanism C) — `@hyperidle/user` may depend on nothing but
  * `@hyperidle/db`/framework packages. `requireRunnableAgent`/`findUser`/
  * `getTeam` are THIS package's own siblings, so they are plain imports, not
@@ -48,10 +48,6 @@ export interface SubscriptionWakeDeps {
 			readonly agentId: string;
 		},
 	) => Promise<readonly SessionDocumentLike[]>;
-	/** `@hyperidle/settings`'s `readServerConfig`, injected, for the `harnessDisabled` bake. */
-	readonly readServerConfig?: (
-		db: HyperIdleDb,
-	) => Promise<{ readonly harnessDisabled: readonly string[] }>;
 }
 
 /** The agent's identity document body — `search_documents({parent:{kind:"agent",id},slot:"agent_file"})[0]?.body`. */
@@ -152,10 +148,6 @@ export async function resolveSubscriptionWakeRequest(
 		};
 	}
 
-	const harnessDisabled = deps.readServerConfig
-		? (await deps.readServerConfig(ctx.db)).harnessDisabled
-		: undefined;
-
 	return {
 		defaultAgentId: agent.id,
 		sourceKind: "subscription",
@@ -171,6 +163,5 @@ export async function resolveSubscriptionWakeRequest(
 		},
 		...(contextBundle ? { contextBundle } : {}),
 		agentConfig: bakeAgentRunnableConfig(agent, agentPersona),
-		...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
 	};
 }

@@ -234,7 +234,13 @@ export type { ApiErrorResponse } from "./api-types.js";
 export { API_ERROR_CODES } from "./api-types.js";
 // Block types moved to layers/core-ui/src/block/types.ts.
 // core-ui callers import from relative path; server-side uses are inlined or dropped.
-export type { PluginContributionKind, PluginScopeKind, PluginState } from "./configuration.js";
+export type {
+	PluginContributionKind,
+	PluginScopeKind,
+	PluginState,
+	StoredPluginContributionKind,
+} from "./configuration.js";
+export { STORED_PLUGIN_CONTRIBUTION_KINDS } from "./configuration.js";
 export type {
 	ConnectionAuthSource,
 	ConnectionHealth,

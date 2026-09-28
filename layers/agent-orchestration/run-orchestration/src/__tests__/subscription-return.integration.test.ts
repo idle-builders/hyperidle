@@ -232,7 +232,6 @@ describe("a subscription wake's forced return is return_status, never send_messa
 			productId: "no-team",
 			sandboxBasePath: sandboxPath,
 			agentConfig: { kind: "ai", status: "active", role: "builder", teamId: null },
-			harnessDisabled: [],
 			contextBundle: {
 				kind: "subscription",
 				subscription: { id: "sub-stop-1", event: "task.changed", schedule: null },

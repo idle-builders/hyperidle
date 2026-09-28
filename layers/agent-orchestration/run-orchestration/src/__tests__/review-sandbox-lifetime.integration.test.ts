@@ -161,7 +161,6 @@ async function runOnce(
 		productId: "task-free",
 		sandboxBasePath: sandboxPath,
 		agentConfig: { kind: "ai", status: "active", role: "builder", teamId: null },
-		harnessDisabled: [],
 		...(opts.resumeFrom
 			? {
 					resume: {

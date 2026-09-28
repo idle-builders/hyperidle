@@ -160,7 +160,6 @@ describe("the model an agent is configured with reaches its session", () => {
 				role: "builder",
 				teamId: `${taskId}-team`,
 			},
-			harnessDisabled: [],
 		} as ProvisionSessionParams;
 	}
 
