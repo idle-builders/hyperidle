@@ -1,15 +1,10 @@
 /**
  * Harness presentation mappers — pure, descriptor-only.
  *
- * Single interpretation point: ALL presence decisions (toggle, auth zone, caps fold,
- * disabled row) flow through these functions. ZERO per-backend type branching in the
- * rendered surface — there is now no exemption at all. The ESLint
- * no-restricted-syntax rule (task 12) enforces this.
- *
- * @lore AM4: showsToggle/isEnabled are real persisted controls — the
- * caller-supplied select() disabledTypes gate drives disable state. The built-in
- * harness toggle exemption went with that harness; the ESLint contract rule now
- * bans every harness-type literal here.
+ * Single interpretation point: ALL presence decisions (caps fold, disabled row)
+ * flow through these functions. ZERO per-backend type branching in the rendered
+ * surface — there is now no exemption at all. The ESLint no-restricted-syntax
+ * rule enforces this.
  */
 
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
@@ -79,52 +74,6 @@ export function statusLine(d: HarnessCapabilityDescriptor): {
 	}
 }
 
-// ── hasActionableNextStep ─────────────────────────────────────────────────────
-
-/**
- * True when a CTA (auth zone with button + command) should render.
- * Only for unauthenticated/installed states with a non-"none" auth action.
- * Disabled backends suppress the CTA (enable first).
- */
-export function hasActionableNextStep(d: HarnessCapabilityDescriptor): boolean {
-	const discovery = getDiscovery(d);
-	// Disabled: no CTA — enable first
-	if (discovery.disabled === true) return false;
-	// Only unauthenticated and installed states have actionable CTAs
-	if (discovery.state !== "unauthenticated" && discovery.state !== "installed") return false;
-	// authAction.kind must be actionable (not "none")
-	if (d.authAction.kind === "none") return false;
-	return true;
-}
-
-// ── showsToggle ───────────────────────────────────────────────────────────────
-
-/**
- * True when an interactive enable/disable Toggle should render on the row.
- * Driven by discovery.state — ready/installed/unauthenticated get a toggle.
- * missing/unavailable show NO toggle (nothing to disable — no ambiguity).
- *
- * @lore AM4: Real persisted control — driven by discovery.state and the
- * caller-supplied select() disabledTypes gate. Every harness is user-installed
- * and can be turned off, including the last one.
- */
-export function showsToggle(d: HarnessCapabilityDescriptor): boolean {
-	// Only ready, unauthenticated, and installed states have a meaningful toggle
-	const s = getDiscovery(d).state;
-	return s === "ready" || s === "unauthenticated" || s === "installed";
-}
-
-// ── isEnabled ────────────────────────────────────────────────────────────────
-
-/**
- * True when discovery.disabled is absent or false (the enabled state).
- * Controls the Toggle's checked state.
- */
-export function isEnabled(d: HarnessCapabilityDescriptor): boolean {
-	const discovery = getDiscovery(d);
-	return !discovery.disabled;
-}
-
 // ── provenCapabilities ────────────────────────────────────────────────────────
 
 /**
@@ -137,19 +86,6 @@ export function isEnabled(d: HarnessCapabilityDescriptor): boolean {
  */
 export function provenCapabilities(_d: HarnessCapabilityDescriptor): readonly string[] {
 	return [];
-}
-
-// ── capabilitySummary ─────────────────────────────────────────────────────────
-
-/**
- * Single-line summary for the Capabilities line in the fold.
- * "Capabilities confirmed after first run" when no caps are proven (production shape).
- * Design R2: avoids the "File editing: No / MCP: No" wall-of-no.
- */
-export function capabilitySummary(d: HarnessCapabilityDescriptor): string {
-	const caps = provenCapabilities(d);
-	if (caps.length === 0) return "Capabilities confirmed after first run";
-	return caps.join(", ");
 }
 
 // ── hasCaps ───────────────────────────────────────────────────────────────────
@@ -167,18 +103,4 @@ export function hasCaps(d: HarnessCapabilityDescriptor): boolean {
 	// Any proven runtime cap → fold visible
 	if (provenCapabilities(d).length > 0) return true;
 	return false;
-}
-
-// ── commandText ───────────────────────────────────────────────────────────────
-
-/**
- * Returns the CLI command text to display in the auth zone.
- * null when the authAction has no command (enter_api_key / kind="none").
- */
-export function commandText(d: HarnessCapabilityDescriptor): string | null {
-	const action = d.authAction;
-	if (action.kind === "native_cli_login" && "command" in action && Array.isArray(action.command)) {
-		return (action.command as string[]).join(" ");
-	}
-	return null;
 }

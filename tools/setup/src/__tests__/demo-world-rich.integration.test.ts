@@ -5,12 +5,12 @@
  * world: task history across all lifecycles, tasks in every state, threads
  * with real reviews/verdicts, a document corpus, sessions and a paused
  * daily-digest subscription — everything the three views need to look alive.
- *
- * @lore the demo world fabricates no unread popover rows — a person's inbox is real and starts empty.
  */
 
-import type { HyperIdleDb } from "@hyperidle/db";
+import { changes, type HyperIdleDb } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
+import { EventBus } from "@hyperidle/event-bus";
+import { createUserActions, type UserActionsDeps } from "@hyperidle/user";
 import { sql } from "drizzle-orm";
 import { seedDemoWorld } from "../demo-fixture.js";
 import { runFactoryBootstrap } from "../factory-bootstrap-runner.js";
@@ -28,6 +28,50 @@ async function count(db: HyperIdleDb, table: string, where = ""): Promise<number
 async function seedWorld(db: HyperIdleDb): Promise<void> {
 	await runFactoryBootstrap(db);
 	await seedDemoWorld(db);
+}
+
+/** Minimal deps for open_user — only the inbox-path (changes.listByIds) needs
+ * to be real; everything else is a harmless no-op that open_user won't reach
+ * when called as self with no edit intent. */
+function demoOpenUserDeps(db: HyperIdleDb): UserActionsDeps {
+	return {
+		changes: {
+			appendChange: async (_exec, row) => {
+				const [inserted] = await db.insert(changes).values(row).returning();
+				if (!inserted) throw new Error("appendChange: no row");
+				return inserted;
+			},
+			listByIds: async (_db, ids) => {
+				if (ids.length === 0) return [];
+				const allChanges = await _db.select().from(changes);
+				return allChanges.filter((r) => (ids as string[]).includes(r.id));
+			},
+		},
+		runConfig: {
+			read: async () => ({
+				harnessType: null,
+				modelId: null,
+				modelProvider: null,
+				maxConcurrentSessions: 1,
+				modelOptions: {},
+			}),
+			write: async () => undefined,
+		},
+		folders: {
+			list: async () => [],
+			add: async () => ({ ok: false, code: "TEAM_NOT_FOUND" }) as const,
+			remove: async () => ({ ok: false, code: "NOT_FOUND" }) as const,
+			give: async () => ({ ok: false, code: "NOT_FOUND" }) as const,
+			take: async () => ({ ok: false, code: "NOT_FOUND" }) as const,
+		},
+		connections: {
+			list: async () => ({ connections: [], inherited: [] }),
+			add: async () => ({ ok: false, code: "MISSING_ROOT_SECRET" }) as const,
+			remove: async () => ({ ok: false, code: "NOT_FOUND" }) as const,
+		},
+		searchDocuments: async () => ({ ok: true, data: [] as never }) as const,
+		editDocument: async () => ({ ok: false, problems: [] as never }) as const,
+	};
 }
 
 describe("lived-in demo world", () => {
@@ -302,7 +346,25 @@ describe("lived-in demo world", () => {
 		).toBe(0);
 	});
 
-	// @lore a person's inbox is open_user({}).inbox, backed by the inbox table — the demo world seeds no fabricated unread rows into it.
+	test("demo-founder's inbox has unread items via open_user", async ({ db }) => {
+		await seedWorld(db);
+		const deps = demoOpenUserDeps(db);
+		const actions = createUserActions(deps);
+		const openUser = actions.find((a) => a.declaration.name === "open_user");
+		if (!openUser) throw new Error("open_user action not found");
+
+		const result = await openUser.run(
+			{ actor: "demo-founder", db, eventBus: new EventBus(), now: new Date().toISOString() },
+			{ id: "demo-founder" },
+		);
+
+		expect(result.ok, "open_user succeeded").toBe(true);
+		if (!result.ok) return;
+		const inbox = (result.data as { inbox?: Array<{ readAt: string | null }> }).inbox ?? [];
+		expect(inbox.length, "demo-founder has at least one inbox item").toBeGreaterThanOrEqual(1);
+		const unread = inbox.filter((item) => item.readAt === null);
+		expect(unread.length, "at least one unread item").toBeGreaterThanOrEqual(1);
+	});
 
 	test("the world has weeks of history, anchored to seed time", async ({ db }) => {
 		await seedWorld(db);

@@ -6,7 +6,7 @@
  * hundreds of rows. `onConflictDoNothing` keeps this idempotent.
  */
 
-import { changes, type HyperIdleDb } from "@hyperidle/db";
+import { changes, type HyperIdleDb, inbox } from "@hyperidle/db";
 import {
 	ASSISTANT_ID,
 	FOUNDER_ID,
@@ -194,4 +194,29 @@ export async function seedChanges(db: HyperIdleDb, clock: DemoClock): Promise<vo
 			at: clock.daysAgo(13),
 		})
 		.onConflictDoNothing();
+
+	// ── inbox rows for demo-founder ───────────────────────────────────────────
+	// Four unread (PM_ID authored — the founder hasn't seen them yet) and two
+	// seen-but-not-read (older threads the founder opened but left unactioned).
+	const founderInboxRows = [
+		{ userId: FOUNDER_ID, changeId: "demo-ch-task-pricing", seenAt: null, readAt: null },
+		{ userId: FOUNDER_ID, changeId: "demo-ch-task-trial", seenAt: null, readAt: null },
+		{ userId: FOUNDER_ID, changeId: "demo-ch-task-pricing-page", seenAt: null, readAt: null },
+		{ userId: FOUNDER_ID, changeId: "demo-ch-task-trial-flow", seenAt: null, readAt: null },
+		{
+			userId: FOUNDER_ID,
+			changeId: "demo-ch-thread-pricing-review",
+			seenAt: clock.daysAgo(3),
+			readAt: null,
+		},
+		{
+			userId: FOUNDER_ID,
+			changeId: "demo-ch-thread-trial-review",
+			seenAt: clock.daysAgo(27),
+			readAt: null,
+		},
+	];
+	for (const row of founderInboxRows) {
+		await db.insert(inbox).values(row).onConflictDoNothing();
+	}
 }

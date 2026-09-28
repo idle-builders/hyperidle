@@ -2,7 +2,7 @@
  * AX1 — demo world activity: ~35 sessions (terminal history + two live).
  * @lore Built-in subscriptions (retro, knowledge decay, knowledge promotion) are owned by the plugin,
  * not seeded here — a demo install without the plugin shows none; installing it produces exactly one of each.
- * @lore The demo inbox starts empty — only a real subscription's own wake writes an inbox row.
+ * @lore The demo inbox seeds unread rows for the founder — changes created by PM_ID while the founder was away.
  */
 
 import { type HyperIdleDb, sessions } from "@hyperidle/db";
