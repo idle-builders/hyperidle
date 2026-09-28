@@ -161,7 +161,7 @@ kbd { font: var(--t-data); border: var(--line-w) solid var(--line-strong); borde
 .refs { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-3); }
 .ref { display: inline-flex; align-items: center; gap: var(--sp-2); max-width: 100%; padding: var(--sp-1) var(--sp-2) var(--sp-1) var(--sp-1); border: var(--line-w) solid var(--line); background: var(--surface); border-radius: var(--r-sm); }
 .ref:hover { border-color: var(--accent); }
-.ref-src { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 4px; background: var(--sunk); font: var(--t-label); font-size: 0.625rem; font-weight: 700; color: var(--ink-3); }
+.ref-src { display: grid; place-items: center; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 4px; background: var(--sunk); font: var(--t-label); font-size: 0.625rem; font-weight: 700; color: var(--ink-3); }
 .ref-id { font: var(--t-data); color: var(--ink-3); }
 .ref-title { font: var(--t-meta); color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ref-out { font: var(--t-meta); color: var(--ink-3); }
@@ -385,14 +385,22 @@ kbd { font: var(--t-data); border: var(--line-w) solid var(--line-strong); borde
 .caret { display: inline-block; width: 2px; height: 1.1em; vertical-align: text-bottom; background: var(--accent); margin-left: 1px; }
 
 /* knowledge is a tree of documents */
-.tree-row { display: flex; align-items: center; gap: var(--sp-1); min-height: 28px; padding-right: var(--sp-4); border-left: 2px solid transparent; }
-.tree-row:hover { background: var(--surface); }
-.tree-row[aria-current="true"] { background: var(--surface); border-left-color: var(--accent); }
-.tree-fold { width: 16px; flex: none; display: grid; place-items: center; color: var(--ink-3); }
 .chev { display: inline-block; font: 600 1rem/1 var(--font-ui); transition: transform var(--dur-tap) var(--ease); }
 .tree-fold[aria-expanded="true"] .chev { transform: rotate(90deg); }
-.tree-title { font: var(--t-body); color: var(--ink); text-align: left; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tree-note { font: var(--t-label); color: var(--ink-3); background: var(--canvas); border: var(--line-w) solid var(--line); border-radius: var(--r-sm); padding: 0 var(--sp-1); }
 .nav-empty { font: var(--t-meta); color: var(--ink-3); padding: var(--sp-4); }
-.handover { margin-top: var(--sp-3); padding-left: var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-2); }
-.handover a { color: var(--accent); font-weight: 550; white-space: nowrap; }
+
+/* document tree — guides per level, a fixed chevron column, a page icon on every node */
+.tree { padding: 0 var(--sp-2) 0 var(--sp-3); }
+.tree-row { display: flex; align-items: center; gap: 2px; min-height: 30px; padding-right: var(--sp-2); border-radius: var(--r-sm); }
+.tree-row:hover { background: var(--surface); }
+.tree-row[aria-current="true"] { background: var(--surface); box-shadow: var(--sh-1); }
+.tree-row[aria-current="true"] .tree-name { font-weight: 600; color: var(--ink); }
+.tree-fold { width: 18px; height: 22px; flex: none; display: grid; place-items: center; color: var(--ink-3); border-radius: var(--r-sm); }
+.tree-fold:hover { background: var(--sunk); color: var(--ink); }
+.tree-title { display: flex; align-items: center; gap: var(--sp-2); flex: 1; min-width: 0; text-align: left; }
+.doc-ic { width: 14px; height: 14px; flex: none; color: var(--ink-3); }
+.tree-name { font: var(--t-body); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tree-note { flex: none; font: var(--t-label); color: var(--ink-3); border: var(--line-w) solid var(--line); border-radius: var(--r-sm); padding: 0 var(--sp-1); }
+.tree-count { flex: none; font: var(--t-meta); color: var(--ink-3); }
+.tree-kids { margin-left: 8px; padding-left: 10px; border-left: var(--line-w) solid var(--line); }
+.ask[aria-current="true"] { border-color: var(--accent); }

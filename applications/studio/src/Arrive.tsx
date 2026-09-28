@@ -3,17 +3,18 @@ import { useState } from "react";
 /**
  * ARRIVE — first start, and every morning after.
  * One sidebar: find-or-ask, the three spines stacked, a separator, then the chosen spine's list
- * in priority order — what needs you, what is moving, the rest. No Home: the morning overview is
- * a routine that posts a thread, so it arrives like everything else.
+ * in priority order — what needs you, what is moving, the rest. Everything is a thread, a task or a
+ * document, so the spine says what a row is.
  */
 export const ARRIVE_STEPS = [
 	{ id: 0, name: "First start" },
 	{ id: 1, name: "First conversation" },
-	{ id: 2, name: "Morning handover thread" },
+	{ id: 2, name: "Conversations, in priority order" },
 	{ id: 3, name: "Work, in priority order" },
 	{ id: 4, name: "Knowledge, a tree" },
-	{ id: 5, name: "Find or ask" },
-	{ id: 6, name: "Something new while you focus" },
+	{ id: 5, name: "Find: results open in place" },
+	{ id: 6, name: "Ask: becomes a thread" },
+	{ id: 7, name: "Something new while you focus" },
 ];
 
 type Spine = "conversations" | "work" | "knowledge";
@@ -44,7 +45,6 @@ function conversations(withMention: boolean): Group[] {
 			{ id: "c-infra", title: "Infra wants the rollout rule written down", sub: "Maya: can you own this?", age: "11h", needsYou: true },
 		] },
 		{ label: "Unread", items: [
-			{ id: "c-morning", title: "Morning handover", sub: "Routine · 7 finished · 5 need you · 2 running", age: "08:00", unread: true },
 			{ id: "c-trial", title: "Trial-end confusion, three tickets", sub: "Maya: Sent all three, closed the tickets.", age: "13:02", unread: true },
 		] },
 		{ label: "Recent", items: [
@@ -103,10 +103,17 @@ const TREE: Doc[] = [
 	] },
 ];
 
-const RESULTS = [
-	{ group: "Conversations", items: ["Trial-end confusion, three tickets", "Pricing page, Q4 pass"] },
-	{ group: "Work", items: ["Trials that convert without a call", "Explain what happens when a trial ends"] },
-	{ group: "Knowledge", items: ["How we price › Trials"] },
+const RESULTS: { group: string; items: Item[] }[] = [
+	{ group: "Conversations", items: [
+		{ id: "s-c1", title: "Trial-end confusion, three tickets", sub: "Maya · 3 tickets about the trial ending", age: "13:02" },
+		{ id: "s-c2", title: "Pricing page, Q4 pass", sub: "Growth · trial length discussed", age: "yesterday" },
+	] },
+	{ group: "Work", items: [
+		{ id: "s-w1", title: "Trials that convert without a call", sub: "Growth · running", age: "week 2" },
+	] },
+	{ group: "Knowledge", items: [
+		{ id: "s-k1", title: "Trials", sub: "in How we price", age: "2d" },
+	] },
 ];
 
 function Row({ item, current, onPick }: { item: Item; current?: boolean; onPick: () => void }) {
@@ -125,24 +132,39 @@ function Row({ item, current, onPick }: { item: Item; current?: boolean; onPick:
 	);
 }
 
-function Tree({ docs, depth, open, toggle, picked, onPick }: {
-	docs: Doc[]; depth: number; open: Set<string>; toggle: (id: string) => void; picked: string | null; onPick: (id: string) => void;
+function DocIcon() {
+	return (
+		<svg className="doc-ic" viewBox="0 0 14 14" aria-hidden="true">
+			<path d="M3 1.5h5l3 3v8H3z M8 1.5v3h3" fill="none" stroke="currentColor" strokeWidth="1.1" strokeLinejoin="round" />
+		</svg>
+	);
+}
+
+/** Every node is a document. Guides show what belongs under what; the chevron column never moves. */
+function Tree({ docs, open, toggle, picked, onPick }: {
+	docs: Doc[]; open: Set<string>; toggle: (id: string) => void; picked: string | null; onPick: (id: string) => void;
 }) {
 	return (
 		<>
 			{docs.map((d) => (
 				<div key={d.id}>
-					<div className="tree-row" style={{ paddingLeft: `calc(var(--sp-4) + ${depth} * var(--sp-4))` }} aria-current={picked === d.id}>
+					<div className="tree-row" aria-current={picked === d.id}>
 						{d.children ? (
-							<button type="button" className="tree-fold" aria-expanded={open.has(d.id)} onClick={() => toggle(d.id)}>
+							<button type="button" className="tree-fold" aria-expanded={open.has(d.id)} aria-label={open.has(d.id) ? "Fold" : "Unfold"} onClick={() => toggle(d.id)}>
 								<span className="chev">›</span>
 							</button>
 						) : <span className="tree-fold" />}
-						<button type="button" className="tree-title" onClick={() => onPick(d.id)}>{d.title}</button>
+						<button type="button" className="tree-title" onClick={() => onPick(d.id)}>
+							<DocIcon />
+							<span className="tree-name">{d.title}</span>
+						</button>
 						{d.note && <span className="tree-note">{d.note}</span>}
+						{d.children && !open.has(d.id) && <span className="tree-count">{d.children.length}</span>}
 					</div>
 					{d.children && open.has(d.id) && (
-						<Tree docs={d.children} depth={depth + 1} open={open} toggle={toggle} picked={picked} onPick={onPick} />
+						<div className="tree-kids">
+							<Tree docs={d.children} open={open} toggle={toggle} picked={picked} onPick={onPick} />
+						</div>
 					)}
 				</div>
 			))}
@@ -226,35 +248,41 @@ function Focused() {
 }
 
 
-function MorningThread() {
+function AskThread() {
 	return (
 		<section className="detail">
 			<header className="detail-head">
 				<span className="chip chip--quiet">Thread</span>
-				<h2>Morning handover</h2>
-				<span className="meta">posted by a routine every weekday at 08:00 · you can change it</span>
+				<h2>What do we know about trials?</h2>
+				<span className="meta">started from Find or ask · now in Conversations</span>
 			</header>
 			<div className="detail-scroll">
 				<article className="msg">
-					<span className="avatar">MH</span>
+					<span className="avatar avatar--human">YO</span>
 					<div>
-						<div className="msg-who"><span className="msg-name">Morning handover</span><span className="meta">08:00</span></div>
+						<div className="msg-who"><span className="msg-name">You</span><span className="meta">now</span></div>
+						<div className="msg-body">What do we know about trials?</div>
+					</div>
+				</article>
+				<article className="msg">
+					<span className="avatar">BU</span>
+					<div>
+						<div className="msg-who"><span className="msg-name">Builder</span><span className="meta">now</span></div>
 						<div className="msg-body">
-							Good morning. Overnight: <b>7 finished</b>, <b>5 need you</b>, <b>2 still running</b>.
-							<ul className="handover">
-								<li>Builder finished the trial-end fix. <a href="#c-r1">Review waiting</a></li>
-								<li>Designer stacked the comparison table. <a href="#c-r2">Review waiting</a></li>
-								<li>Builder needs a name only you can pick. <a href="#c-q">Question</a></li>
-								<li>Maya asks whether you can own the rollout rule. <a href="#c-infra">Thread</a></li>
-								<li>Growth's trial task is 3 of 7 done and still running.</li>
-								<li>Facilitation redrafted the deploy rule from Tuesday's retro. <a href="#k-deploy">Draft to publish</a></li>
-							</ul>
+							Trials run 14 days with a card up front. Since this week the page and the email both say
+							the date and the amount before the first bill. Growth is testing whether trials convert
+							without a sales call — 3 of 7 subtasks done.
+							<div className="refs">
+								<a className="ref" href="#k"><span className="ref-src">Doc</span><span className="ref-title">How we price › Trials</span></a>
+								<a className="ref" href="#c"><span className="ref-src">Thread</span><span className="ref-title">Trial-end confusion, three tickets</span></a>
+								<a className="ref" href="#w"><span className="ref-src">Task</span><span className="ref-title">Trials that convert without a call</span></a>
+							</div>
 						</div>
 					</div>
 				</article>
 			</div>
 			<div className="composer">
-				<input placeholder="Reply, or @someone…" aria-label="Reply" />
+				<input placeholder="Ask a follow-up, or @someone…" aria-label="Reply" />
 				<button type="button" className="btn btn--accent">Send</button>
 			</div>
 		</section>
@@ -277,16 +305,16 @@ function Placeholder({ kind, title, meta, note }: { kind: string; title: string;
 }
 
 export function Arrive({ step }: { step: number }) {
-	const initial: Spine = step === 3 ? "work" : step === 4 || step === 6 ? "knowledge" : "conversations";
+	const initial: Spine = step === 3 ? "work" : step === 4 || step === 7 ? "knowledge" : "conversations";
 	const [spine, setSpine] = useState<Spine>(initial);
 	const [picked, setPicked] = useState<string | null>(
-		step === 1 ? "g" : step === 2 ? "c-morning" : step === 3 ? "w-f1" : step === 4 || step === 6 ? "k-price" : null,
+		step === 1 ? "g" : step === 2 ? "c-r1" : step === 3 ? "w-f1" : step === 4 || step === 7 ? "k-price" : step === 5 ? "s-k1" : null,
 	);
 	const [open, setOpen] = useState<Set<string>>(new Set(["t-product", "k-price", "t-eng"]));
 
 	if (step === 0) return <FirstStart />;
 
-	const focused = step === 6;
+	const focused = step === 7;
 	const conv = conversations(focused);
 	const counts: Record<Spine, number> = {
 		conversations: conv[0].items.length,
@@ -307,9 +335,11 @@ export function Arrive({ step }: { step: number }) {
 		return next;
 	});
 
-	let detail = <MorningThread />;
+	let detail = <Placeholder kind="Thread" title="Trial-end explainer" meta="Review · Builder · final" note="A review is a thread. It opens here as designed in Judge; the list stays put, so the next one is one click away." />;
 	if (step === 1) detail = <FirstConversation />;
-	else if (step === 6) detail = <Focused />;
+	else if (step === 5) detail = <Placeholder kind="Document" title="Trials" meta="in How we price · opened from Find" note="A result opens right here, like picking it from its list. The search stays in the sidebar until you clear it." />;
+	else if (step === 6) detail = <AskThread />;
+	else if (step === 7) detail = <Focused />;
 	else if (spine === "work" && step === 3) {
 		detail = <Placeholder kind="Task" title="Trials that convert without a call" meta="Growth owns this · 3 of 7 subtasks done" note="The task opens here with its subtasks. Its thread and any reviews live in Conversations." />;
 	} else if (spine === "knowledge" && step === 4) {
@@ -322,24 +352,22 @@ export function Arrive({ step }: { step: number }) {
 				<div className="nav-top">
 					<span className="wordmark">HyperIdle</span>
 					<div className="rail-search">
-						<input placeholder="Find or ask…" aria-label="Find or ask" defaultValue={step === 5 ? "trial" : ""} />
+						<input placeholder="Find or ask…" aria-label="Find or ask" defaultValue={step === 5 ? "trial" : step === 6 ? "what do we know about trials?" : ""} />
 					</div>
 				</div>
 
-				{step === 5 ? (
+				{step === 5 || step === 6 ? (
 					<div className="nav-list">
+						<button type="button" className="ask" aria-current={step === 6}>
+							<span className="ask-h">{step === 6 ? "Asked · answer is on the right" : "Ask instead ↵"}</span>
+							<span>{step === 6 ? "What do we know about trials?" : "Starts a thread with Builder. It answers with links."}</span>
+						</button>
 						{RESULTS.map((g) => (
 							<div key={g.group}>
 								<p className="nav-group">{g.group}</p>
-								{g.items.map((t) => (
-									<button key={t} type="button" className="nrow"><span className="nrow-title">{t}</span></button>
-								))}
+								{g.items.map((i) => <Row key={i.id} item={i} current={picked === i.id} onPick={() => setPicked(i.id)} />)}
 							</div>
 						))}
-						<button type="button" className="ask">
-							<span className="ask-h">Ask Builder</span>
-							<span>"trial" — what do we know about trials?</span>
-						</button>
 					</div>
 				) : (
 					<>
@@ -369,7 +397,7 @@ export function Arrive({ step }: { step: number }) {
 								<>
 									{groups(KNOWLEDGE_PRIORITY)}
 									<p className="nav-group">All documents</p>
-									<Tree docs={TREE} depth={0} open={open} toggle={toggle} picked={picked} onPick={setPicked} />
+									<div className="tree"><Tree docs={TREE} open={open} toggle={toggle} picked={picked} onPick={setPicked} /></div>
 								</>
 							)}
 						</div>

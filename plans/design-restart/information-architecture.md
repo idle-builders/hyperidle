@@ -150,9 +150,15 @@ Objects that appear inside surfaces. Designed once, reused everywhere.
 - ~~Double navigation~~ — **settled 2026-09-28: one sidebar.** Top: the three items
   Conversations · Work · Knowledge, stacked, with a needs-you count. Then a separator. Then the list for the
   selected item. Detail on the right. **Never tabs in the nav** (founder: "absolutely not").
-- **No Home** (founder, 2026-09-28: "not convinced of this home concept"). The morning overview is a
-  **routine that posts a thread** ("Morning handover", weekdays 08:00), so it arrives in
-  Conversations like anything else.
+- **No Home** (founder, 2026-09-28: "not convinced of this home concept"). A morning overview would
+  be a **plugin**, not a built-in feature, so the core design does not include one.
+- **Find or ask.** Typing shows results in the sidebar, grouped by the three spines; a result opens
+  on the right exactly like picking it from its list. "Ask instead" starts a **thread** with an
+  agent, which answers with links to the threads, tasks and documents it used; that thread then
+  lives in Conversations.
+- **Document tree:** every node is a document (page icon), one guide line per level, a fixed
+  chevron column, collapsed nodes show their child count. Patterns taken from Notion, Obsidian and
+  VS Code's explorer.
 - **Each spine's list is in priority order** — the founder's point: "each of conversation, work,
   knowledge have this valuable prioritization in the sub nav so that you actually see per category
   what there is to see."

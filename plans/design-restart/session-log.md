@@ -446,3 +446,12 @@ looked, with no needs-you count. Per-row type labels removed (the spine says wha
 kind of thread matters it is in the subtitle ("Review · Builder…"). Detail headers use only Thread,
 Task, Document. Rows tightened: unread dot + title + time on one line, needs-you chip on the
 subtitle line.
+
+**Founder: morning handover is a plugin, not built in; the tree is hard to follow, learn from
+others; unclear what find-or-ask opens.**
+- Morning handover removed from the core design (would be a plugin).
+- Tree rebuilt with common patterns (Notion, Obsidian, VS Code): page icon on every node, guide line
+  per level, fixed chevron column, child count when folded, taller rows, selected node bold.
+- Find and Ask split into two steps. Find: results in the sidebar by spine; a result opens on the
+  right. Ask: becomes a thread with an agent that answers with linked references; lives in
+  Conversations.
