@@ -466,3 +466,7 @@ needs a complete rethink — maybe an overlay.**
 - Documents carry their own icon; click it to pick another from a small grid.
 - Find or ask is now a ⌘K overlay: Find/Ask switch with Tab, results + preview in Find, the answer
   with sources in Ask, saved as a thread.
+
+**Founder: the boxed cards are not nice; the section headings are not good; status must be on the
+row.** Removed both. Rows now carry a status icon in a fixed left column (Linear-style), bold title
+only when it wants attention, priority order kept, blocks separated by space only.

@@ -157,10 +157,12 @@ Objects that appear inside surfaces. Designed once, reused everywhere.
   the match highlighted; ↵ opens here, ⌘↵ opens beside; top row offers "Ask Builder about …".
   Ask: the agent answers inside the overlay with its sources listed; it is saved as a thread in
   Conversations (↵ follow up, ⌘↵ open the thread).
-- **Lists get quieter as they go down.** Tier 1 (needs you): raised cards with a yellow edge and
-  full subtitle. Tier 2 (moving): normal rows with a state marker — unread/changed dot, pulsing
-  live dot for running, hollow ring for waiting. Tier 3 (the rest): one muted line, no subtitle.
-  Every section has a bold heading with its count.
+- **Sidebar lists: priority order, no headings, status on the row** (founder, 2026-09-28: boxed
+  cards "not nice", section headings "not good", "status needs to be something on the row").
+  Every row has one status icon in a fixed column: needs you (yellow !), unread / changed (dot),
+  running (half-filled green circle), waiting on a review (dashed orange ring), done (grey check),
+  read (none). Titles are bold only for needs you, unread and changed. Priority blocks are
+  separated by space, never labelled. The document tree follows after a thin line.
 - **Document tree:** every node is a document with **its own icon, changeable** (click it; the page
   outline is only the default), one guide line per level, a fixed
   chevron column, collapsed nodes show their child count. Patterns taken from Notion, Obsidian and

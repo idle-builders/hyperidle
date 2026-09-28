@@ -3,8 +3,8 @@ import { useState } from "react";
 /**
  * ARRIVE — first start, and every morning after.
  * One sidebar: find-or-ask, the three spines stacked, a separator, then the chosen spine's list.
- * The list gets quieter as it goes down: what needs you is heaviest, what is moving is normal,
- * the rest is one muted line. Find or ask is an overlay, not a sidebar mode.
+ * The list is in priority order with no headings; every row carries its own status icon, and the
+ * title is bold only when it wants your attention. Find or ask is an overlay, not a sidebar mode.
  */
 export const ARRIVE_STEPS = [
 	{ id: 0, name: "First start" },
@@ -19,69 +19,69 @@ export const ARRIVE_STEPS = [
 
 type Spine = "conversations" | "work" | "knowledge";
 
-/** 1 = needs you (heaviest) · 2 = moving (normal, with a marker) · 3 = the rest (one muted line). */
-type Tier = 1 | 2 | 3;
-type Mark = "unread" | "live" | "waiting" | "changed" | "done";
+type Status = "needs" | "unread" | "changed" | "running" | "waiting" | "done" | "read";
+
+const STATUS_LABEL: Record<Status, string> = {
+	needs: "Needs you", unread: "Unread", changed: "Changed", running: "Running",
+	waiting: "Waiting on a review", done: "Done", read: "Read",
+};
 
 interface Item {
 	id: string;
 	title: string;
 	sub: string;
 	age: string;
-	mark?: Mark;
+	status: Status;
 }
 
-interface Group {
-	label: string;
-	tier: Tier;
-	items: Item[];
-}
+/** Priority blocks. Their order is the list order; they are never labelled on screen. */
+type Group = Item[];
 
-const MENTION: Item = { id: "m1", title: "Maya: can you look at the refund wording?", sub: "Mentioned in Trial-end confusion · just now", age: "now" };
+const MENTION: Item = { id: "m1", title: "Maya: can you look at the refund wording?", sub: "Mentioned in Trial-end confusion · just now", age: "now", status: "needs" };
 
 function conversations(withMention: boolean): Group[] {
 	return [
-		{ label: "Needs you", tier: 1, items: [
+		[
 			...(withMention ? [MENTION] : []),
-			{ id: "c-r1", title: "Trial-end explainer", sub: "Review · Builder · 2 flags", age: "8h" },
-			{ id: "c-r2", title: "Comparison table, stacked layout", sub: "Review · Designer · 1 flag", age: "5h" },
-			{ id: "c-q", title: "What do we call the charge after a trial?", sub: "Builder asks · seen by every trial user", age: "6h" },
-			{ id: "c-infra", title: "Infra wants the rollout rule written down", sub: "Maya: can you own this?", age: "11h" },
-		] },
-		{ label: "Unread", tier: 2, items: [
-			{ id: "c-trial", title: "Trial-end confusion, three tickets", sub: "Maya: Sent all three, closed the tickets.", age: "13:02", mark: "unread" },
-		] },
-		{ label: "Recent", tier: 3, items: [
-			{ id: "c-pricing", title: "Pricing page, Q4 pass", sub: "", age: "yesterday" },
-			{ id: "c-onb", title: "Onboarding emails", sub: "", age: "Mon" },
-			{ id: "c-hiring", title: "Support hire, second round", sub: "", age: "Fri" },
-		] },
+			{ id: "c-r1", title: "Trial-end explainer", sub: "Review · Builder · 2 flags", age: "8h", status: "needs" },
+			{ id: "c-r2", title: "Comparison table, stacked layout", sub: "Review · Designer · 1 flag", age: "5h", status: "needs" },
+			{ id: "c-q", title: "What do we call the charge after a trial?", sub: "Builder asks · seen by every trial user", age: "6h", status: "needs" },
+			{ id: "c-infra", title: "Infra wants the rollout rule written down", sub: "Maya: can you own this?", age: "11h", status: "needs" },
+		],
+		[
+			{ id: "c-trial", title: "Trial-end confusion, three tickets", sub: "Maya: Sent all three, closed the tickets.", age: "13:02", status: "unread" },
+		],
+		[
+			{ id: "c-pricing", title: "Pricing page, Q4 pass", sub: "", age: "yesterday", status: "read" },
+			{ id: "c-onb", title: "Onboarding emails", sub: "", age: "Mon", status: "read" },
+			{ id: "c-hiring", title: "Support hire, second round", sub: "", age: "Fri", status: "read" },
+		],
 	];
 }
 
 /** Work is only tasks. The agent owns them, so nothing here is yours to act on. */
 const WORK: Group[] = [
-	{ label: "Running", tier: 2, items: [
-		{ id: "w-f1", title: "Trials that convert without a call", sub: "Growth · 3 of 7 subtasks", age: "week 2", mark: "live" },
-		{ id: "w-f2", title: "Usage-based tier, metering", sub: "Builder · 2h in", age: "2h", mark: "live" },
-	] },
-	{ label: "Waiting on a review", tier: 2, items: [
-		{ id: "w-t1", title: "Explain what happens when a trial ends", sub: "Builder · waiting on you", age: "8h", mark: "waiting" },
-		{ id: "w-t2", title: "Comparison table, stacked layout", sub: "Designer · waiting on you", age: "5h", mark: "waiting" },
-	] },
-	{ label: "Done since you looked", tier: 3, items: [
-		{ id: "w-d1", title: "Proration math covered end to end", sub: "", age: "03:40", mark: "done" },
-		{ id: "w-d2", title: "Trial dates normalised to UTC", sub: "", age: "05:55", mark: "done" },
-	] },
+	[
+		{ id: "w-f1", title: "Trials that convert without a call", sub: "Growth · 3 of 7 subtasks", age: "week 2", status: "running" },
+		{ id: "w-f2", title: "Usage-based tier, metering", sub: "Builder · 2h in", age: "2h", status: "running" },
+	],
+	[
+		{ id: "w-t1", title: "Explain what happens when a trial ends", sub: "Builder · waiting on you", age: "8h", status: "waiting" },
+		{ id: "w-t2", title: "Comparison table, stacked layout", sub: "Designer · waiting on you", age: "5h", status: "waiting" },
+	],
+	[
+		{ id: "w-d1", title: "Proration math covered end to end", sub: "", age: "03:40", status: "done" },
+		{ id: "w-d2", title: "Trial dates normalised to UTC", sub: "", age: "05:55", status: "done" },
+	],
 ];
 
 const KNOWLEDGE_PRIORITY: Group[] = [
-	{ label: "Needs you", tier: 1, items: [
-		{ id: "k-deploy", title: "Deploy rule", sub: "Draft · Facilitation asks you to publish", age: "4h" },
-	] },
-	{ label: "Changed since you looked", tier: 2, items: [
-		{ id: "k-price", title: "How we price", sub: "Growth edited the Trials section", age: "2d", mark: "changed" },
-	] },
+	[
+		{ id: "k-deploy", title: "Deploy rule", sub: "Draft · Facilitation asks you to publish", age: "4h", status: "needs" },
+	],
+	[
+		{ id: "k-price", title: "How we price", sub: "Growth edited the Trials section", age: "2d", status: "changed" },
+	],
 ];
 
 interface Doc {
@@ -126,36 +126,49 @@ const HITS: Hit[] = [
 	{ id: "h4", spine: "Thread", title: "Pricing page, Q4 pass", where: "Conversations · Growth · yesterday", snippet: ["Two options drafted. Option B shortens the ", "trial", " to 10 days and adds a reminder."] },
 ];
 
-function Marker({ mark }: { mark?: Mark }) {
-	if (!mark) return null;
-	if (mark === "done") return <span className="mk mk--done" aria-label="done">✓</span>;
-	return <span className={`mk mk--${mark}`} aria-label={mark} />;
+/** One icon column, always present, so status reads down the list at a glance. */
+function StatusIcon({ status }: { status: Status }) {
+	const label = STATUS_LABEL[status];
+	let body = null;
+	if (status === "needs") body = <><circle cx="7" cy="7" r="6" className="si-needs" /><path d="M7 3.8v3.6M7 9.6v.2" className="si-needs-mark" /></>;
+	else if (status === "unread" || status === "changed") body = <circle cx="7" cy="7" r="3.5" className="si-dot" />;
+	else if (status === "running") body = <><circle cx="7" cy="7" r="5.5" className="si-ring si-ring--live" /><path d="M7 1.5a5.5 5.5 0 0 1 0 11z" className="si-half" /></>;
+	else if (status === "waiting") body = <><circle cx="7" cy="7" r="5.5" className="si-ring si-ring--wait" /><circle cx="7" cy="7" r="2" className="si-wait-core" /></>;
+	else if (status === "done") body = <><circle cx="7" cy="7" r="6" className="si-done" /><path d="M4.3 7.2l1.8 1.8 3.6-3.8" className="si-done-mark" /></>;
+	return (
+		<svg className="si" viewBox="0 0 14 14" role="img" aria-label={label}>
+			<title>{label}</title>
+			{body}
+		</svg>
+	);
 }
 
-function Row({ item, tier, current, onPick }: { item: Item; tier: Tier; current?: boolean; onPick: () => void }) {
+function Row({ item, current, onPick }: { item: Item; current?: boolean; onPick: () => void }) {
+	const loud = item.status === "needs" || item.status === "unread" || item.status === "changed";
 	return (
-		<button type="button" className={`nrow nrow--t${tier}`} aria-current={current} onClick={onPick}>
-			<span className="nrow-top">
-				<Marker mark={item.mark} />
-				<span className="nrow-title">{item.title}</span>
-				<span className="nrow-age">{item.age}</span>
+		<button type="button" className={loud ? "nrow nrow--loud" : "nrow"} aria-current={current} onClick={onPick}>
+			<StatusIcon status={item.status} />
+			<span className="nrow-main">
+				<span className="nrow-top">
+					<span className="nrow-title">{item.title}</span>
+					<span className="nrow-age">{item.age}</span>
+				</span>
+				{item.sub && <span className="nrow-sub">{item.sub}</span>}
 			</span>
-			{tier !== 3 && item.sub && <span className="nrow-sub">{item.sub}</span>}
 		</button>
 	);
 }
 
-function Section({ group, picked, onPick }: { group: Group; picked: string | null; onPick: (id: string) => void }) {
+/** Priority blocks, in order, separated by space rather than headings. */
+function Blocks({ groups, picked, onPick }: { groups: Group[]; picked: string | null; onPick: (id: string) => void }) {
 	return (
-		<section className={`sect sect--t${group.tier}`}>
-			<header className="sect-h">
-				<span>{group.label}</span>
-				<span className="sect-n">{group.items.length}</span>
-			</header>
-			{group.items.map((i) => (
-				<Row key={i.id} item={i} tier={group.tier} current={picked === i.id} onPick={() => onPick(i.id)} />
+		<>
+			{groups.map((g) => (
+				<div className="block" key={g[0]?.id ?? "empty"}>
+					{g.map((i) => <Row key={i.id} item={i} current={picked === i.id} onPick={() => onPick(i.id)} />)}
+				</div>
 			))}
-		</section>
+		</>
 	);
 }
 
@@ -418,9 +431,9 @@ export function Arrive({ step }: { step: number }) {
 	const focused = step === 7;
 	const conv = conversations(focused);
 	const needs: Record<Spine, number> = {
-		conversations: conv[0].items.length,
+		conversations: conv[0].length,
 		work: 0,
-		knowledge: KNOWLEDGE_PRIORITY[0].items.length,
+		knowledge: KNOWLEDGE_PRIORITY[0].length,
 	};
 
 	const toggle = (id: string) => setOpen((prev) => {
@@ -459,20 +472,19 @@ export function Arrive({ step }: { step: number }) {
 				<div className="nav-list">
 					{step === 1 ? (
 						spine === "conversations"
-							? <Row item={{ id: "g", title: "Getting started", sub: "Builder: What are you working on?", age: "now", mark: "unread" }} tier={2} current onPick={() => undefined} />
+							? <Row item={{ id: "g", title: "Getting started", sub: "Builder: What are you working on?", age: "now", status: "unread" }} current onPick={() => undefined} />
 							: <p className="nav-empty">Nothing here yet.</p>
 					) : spine === "conversations" ? (
 						<>
 							{focused && <p className="nav-new">1 new since you started · it waits here</p>}
-							{conv.map((g) => <Section key={g.label} group={g} picked={picked} onPick={setPicked} />)}
+							<Blocks groups={conv} picked={picked} onPick={setPicked} />
 						</>
 					) : spine === "work" ? (
-						WORK.map((g) => <Section key={g.label} group={g} picked={picked} onPick={setPicked} />)
+						<Blocks groups={WORK} picked={picked} onPick={setPicked} />
 					) : (
 						<>
-							{KNOWLEDGE_PRIORITY.map((g) => <Section key={g.label} group={g} picked={picked} onPick={setPicked} />)}
-							<section className="sect sect--tree">
-								<header className="sect-h"><span>All documents</span></header>
+							<Blocks groups={KNOWLEDGE_PRIORITY} picked={picked} onPick={setPicked} />
+							<section className="tree-wrap" aria-label="All documents">
 								<div className="tree">
 									<Tree docs={TREE} open={open} toggle={toggle} picked={picked} onPick={setPicked}
 										icons={icons} onIcon={(id, ic) => setIcons((p) => ({ ...p, [id]: ic }))}
