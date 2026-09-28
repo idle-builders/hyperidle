@@ -455,3 +455,14 @@ others; unclear what find-or-ask opens.**
 - Find and Ask split into two steps. Find: results in the sidebar by spine; a result opens on the
   right. Ask: becomes a thread with an agent that answers with linked references; lives in
   Conversations.
+
+**Founder: group differences (needs you / unread / recent; running / in review; needs you /
+changed) are very hard to spot — needs a better concept. Changeable document icons. Find or ask
+needs a complete rethink — maybe an overlay.**
+- Concept: **the list gets quieter as it goes down.** Needs you = raised cards with a yellow edge;
+  moving = normal rows with a state marker (dot, pulsing live dot, hollow waiting ring); the rest =
+  one muted line. Bold section headings with counts. Work's middle group renamed "Waiting on a
+  review".
+- Documents carry their own icon; click it to pick another from a small grid.
+- Find or ask is now a ⌘K overlay: Find/Ask switch with Tab, results + preview in Find, the answer
+  with sources in Ask, saved as a thread.

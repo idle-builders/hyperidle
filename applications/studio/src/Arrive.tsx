@@ -2,9 +2,9 @@ import { useState } from "react";
 
 /**
  * ARRIVE — first start, and every morning after.
- * One sidebar: find-or-ask, the three spines stacked, a separator, then the chosen spine's list
- * in priority order — what needs you, what is moving, the rest. Everything is a thread, a task or a
- * document, so the spine says what a row is.
+ * One sidebar: find-or-ask, the three spines stacked, a separator, then the chosen spine's list.
+ * The list gets quieter as it goes down: what needs you is heaviest, what is moving is normal,
+ * the rest is one muted line. Find or ask is an overlay, not a sidebar mode.
  */
 export const ARRIVE_STEPS = [
 	{ id: 0, name: "First start" },
@@ -12,123 +12,150 @@ export const ARRIVE_STEPS = [
 	{ id: 2, name: "Conversations, in priority order" },
 	{ id: 3, name: "Work, in priority order" },
 	{ id: 4, name: "Knowledge, a tree" },
-	{ id: 5, name: "Find: results open in place" },
-	{ id: 6, name: "Ask: becomes a thread" },
+	{ id: 5, name: "Find (⌘K)" },
+	{ id: 6, name: "Ask (Tab to switch)" },
 	{ id: 7, name: "Something new while you focus" },
 ];
 
 type Spine = "conversations" | "work" | "knowledge";
+
+/** 1 = needs you (heaviest) · 2 = moving (normal, with a marker) · 3 = the rest (one muted line). */
+type Tier = 1 | 2 | 3;
+type Mark = "unread" | "live" | "waiting" | "changed" | "done";
 
 interface Item {
 	id: string;
 	title: string;
 	sub: string;
 	age: string;
-	needsYou?: boolean;
-	unread?: boolean;
+	mark?: Mark;
 }
 
 interface Group {
 	label: string;
+	tier: Tier;
 	items: Item[];
 }
 
-const MENTION: Item = { id: "m1", title: "Maya: can you look at the refund wording?", sub: "Mentioned in Trial-end confusion · just now", age: "now", needsYou: true };
+const MENTION: Item = { id: "m1", title: "Maya: can you look at the refund wording?", sub: "Mentioned in Trial-end confusion · just now", age: "now" };
 
 function conversations(withMention: boolean): Group[] {
 	return [
-		{ label: "Needs you", items: [
+		{ label: "Needs you", tier: 1, items: [
 			...(withMention ? [MENTION] : []),
-			{ id: "c-r1", title: "Trial-end explainer", sub: "Review · Builder · final · 2 flags", age: "8h", needsYou: true },
-			{ id: "c-r2", title: "Comparison table, stacked layout", sub: "Review · Designer · design · 1 flag", age: "5h", needsYou: true },
-			{ id: "c-q", title: "What do we call the charge after a trial?", sub: "Builder asks · seen by every trial user", age: "6h", needsYou: true },
-			{ id: "c-infra", title: "Infra wants the rollout rule written down", sub: "Maya: can you own this?", age: "11h", needsYou: true },
+			{ id: "c-r1", title: "Trial-end explainer", sub: "Review · Builder · 2 flags", age: "8h" },
+			{ id: "c-r2", title: "Comparison table, stacked layout", sub: "Review · Designer · 1 flag", age: "5h" },
+			{ id: "c-q", title: "What do we call the charge after a trial?", sub: "Builder asks · seen by every trial user", age: "6h" },
+			{ id: "c-infra", title: "Infra wants the rollout rule written down", sub: "Maya: can you own this?", age: "11h" },
 		] },
-		{ label: "Unread", items: [
-			{ id: "c-trial", title: "Trial-end confusion, three tickets", sub: "Maya: Sent all three, closed the tickets.", age: "13:02", unread: true },
+		{ label: "Unread", tier: 2, items: [
+			{ id: "c-trial", title: "Trial-end confusion, three tickets", sub: "Maya: Sent all three, closed the tickets.", age: "13:02", mark: "unread" },
 		] },
-		{ label: "Recent", items: [
-			{ id: "c-pricing", title: "Pricing page, Q4 pass", sub: "Growth: two options drafted", age: "yesterday" },
-			{ id: "c-onb", title: "Onboarding emails", sub: "You: park until October", age: "Mon" },
+		{ label: "Recent", tier: 3, items: [
+			{ id: "c-pricing", title: "Pricing page, Q4 pass", sub: "", age: "yesterday" },
+			{ id: "c-onb", title: "Onboarding emails", sub: "", age: "Mon" },
+			{ id: "c-hiring", title: "Support hire, second round", sub: "", age: "Fri" },
 		] },
 	];
 }
 
-/** Work is only tasks. The agent owns them, so nothing here is flagged as yours. */
+/** Work is only tasks. The agent owns them, so nothing here is yours to act on. */
 const WORK: Group[] = [
-	{ label: "Running", items: [
-		{ id: "w-f1", title: "Trials that convert without a call", sub: "Growth · 3 of 7 subtasks done", age: "week 2" },
-		{ id: "w-f2", title: "Usage-based tier, metering", sub: "Builder · running 2h", age: "2h" },
+	{ label: "Running", tier: 2, items: [
+		{ id: "w-f1", title: "Trials that convert without a call", sub: "Growth · 3 of 7 subtasks", age: "week 2", mark: "live" },
+		{ id: "w-f2", title: "Usage-based tier, metering", sub: "Builder · 2h in", age: "2h", mark: "live" },
 	] },
-	{ label: "In review", items: [
-		{ id: "w-t1", title: "Explain what happens when a trial ends", sub: "Builder · review open with you", age: "8h" },
-		{ id: "w-t2", title: "Comparison table, stacked layout", sub: "Designer · review open with you", age: "5h" },
+	{ label: "Waiting on a review", tier: 2, items: [
+		{ id: "w-t1", title: "Explain what happens when a trial ends", sub: "Builder · waiting on you", age: "8h", mark: "waiting" },
+		{ id: "w-t2", title: "Comparison table, stacked layout", sub: "Designer · waiting on you", age: "5h", mark: "waiting" },
 	] },
-	{ label: "Done since you looked", items: [
-		{ id: "w-d1", title: "Proration math covered end to end", sub: "Builder · 03:40", age: "5h" },
-		{ id: "w-d2", title: "Trial dates normalised to UTC", sub: "Builder · 05:55", age: "3h" },
+	{ label: "Done since you looked", tier: 3, items: [
+		{ id: "w-d1", title: "Proration math covered end to end", sub: "", age: "03:40", mark: "done" },
+		{ id: "w-d2", title: "Trial dates normalised to UTC", sub: "", age: "05:55", mark: "done" },
+	] },
+];
+
+const KNOWLEDGE_PRIORITY: Group[] = [
+	{ label: "Needs you", tier: 1, items: [
+		{ id: "k-deploy", title: "Deploy rule", sub: "Draft · Facilitation asks you to publish", age: "4h" },
+	] },
+	{ label: "Changed since you looked", tier: 2, items: [
+		{ id: "k-price", title: "How we price", sub: "Growth edited the Trials section", age: "2d", mark: "changed" },
 	] },
 ];
 
 interface Doc {
 	id: string;
 	title: string;
+	icon: string;
 	note?: string;
 	children?: Doc[];
 }
 
-const KNOWLEDGE_PRIORITY: Group[] = [
-	{ label: "Needs you", items: [
-		{ id: "k-deploy", title: "Deploy rule", sub: "Draft · Facilitation · ready to publish", age: "4h", needsYou: true },
-	] },
-	{ label: "Changed since you looked", items: [
-		{ id: "k-price", title: "How we price", sub: "Growth edited · Trials section", age: "2d", unread: true },
-	] },
-];
-
 const TREE: Doc[] = [
-	{ id: "t-product", title: "Product", children: [
-		{ id: "k-price", title: "How we price", children: [
-			{ id: "t-trials", title: "Trials" },
-			{ id: "t-tiers", title: "Tiers and metering" },
+	{ id: "t-product", title: "Product", icon: "📦", children: [
+		{ id: "k-price", title: "How we price", icon: "💷", children: [
+			{ id: "t-trials", title: "Trials", icon: "⏳" },
+			{ id: "t-tiers", title: "Tiers and metering", icon: "📊" },
 		] },
-		{ id: "t-clean", title: "What a clean feature looks like" },
+		{ id: "t-clean", title: "What a clean feature looks like", icon: "✨" },
 	] },
-	{ id: "t-eng", title: "Engineering", children: [
-		{ id: "k-deploy", title: "Deploy rule", note: "draft" },
-		{ id: "t-trace", title: "Tracing the codebase" },
+	{ id: "t-eng", title: "Engineering", icon: "🛠️", children: [
+		{ id: "k-deploy", title: "Deploy rule", icon: "🚀", note: "draft" },
+		{ id: "t-trace", title: "Tracing the codebase", icon: "🧭" },
 	] },
-	{ id: "t-support", title: "Support", children: [
-		{ id: "t-themes", title: "July support themes" },
-	] },
-];
-
-const RESULTS: { group: string; items: Item[] }[] = [
-	{ group: "Conversations", items: [
-		{ id: "s-c1", title: "Trial-end confusion, three tickets", sub: "Maya · 3 tickets about the trial ending", age: "13:02" },
-		{ id: "s-c2", title: "Pricing page, Q4 pass", sub: "Growth · trial length discussed", age: "yesterday" },
-	] },
-	{ group: "Work", items: [
-		{ id: "s-w1", title: "Trials that convert without a call", sub: "Growth · running", age: "week 2" },
-	] },
-	{ group: "Knowledge", items: [
-		{ id: "s-k1", title: "Trials", sub: "in How we price", age: "2d" },
+	{ id: "t-support", title: "Support", icon: "💬", children: [
+		{ id: "t-themes", title: "July support themes", icon: "" },
 	] },
 ];
 
-function Row({ item, current, onPick }: { item: Item; current?: boolean; onPick: () => void }) {
+const ICON_CHOICES = ["", "📦", "💷", "⏳", "📊", "✨", "🛠️", "🚀", "🧭", "💬", "📌", "🧪", "📣", "🔒", "🎯", "📚"];
+
+interface Hit {
+	id: string;
+	spine: "Thread" | "Task" | "Document";
+	title: string;
+	where: string;
+	snippet: [string, string, string];
+}
+
+const HITS: Hit[] = [
+	{ id: "h1", spine: "Document", title: "Trials", where: "How we price › Trials", snippet: ["Every plan starts with a 14-day ", "trial", ". We ask for a card up front and say, before it ends, exactly when the first bill comes."] },
+	{ id: "h2", spine: "Thread", title: "Trial-end confusion, three tickets", where: "Conversations · Maya · 13:02", snippet: ["Three support tickets asking the same thing — people finish the ", "trial", " and cannot tell what they will pay."] },
+	{ id: "h3", spine: "Task", title: "Trials that convert without a call", where: "Work · Growth · 3 of 7 subtasks", snippet: ["Can a ", "trial", " convert to paid without a sales call? Testing a self-serve checkout at day 12."] },
+	{ id: "h4", spine: "Thread", title: "Pricing page, Q4 pass", where: "Conversations · Growth · yesterday", snippet: ["Two options drafted. Option B shortens the ", "trial", " to 10 days and adds a reminder."] },
+];
+
+function Marker({ mark }: { mark?: Mark }) {
+	if (!mark) return null;
+	if (mark === "done") return <span className="mk mk--done" aria-label="done">✓</span>;
+	return <span className={`mk mk--${mark}`} aria-label={mark} />;
+}
+
+function Row({ item, tier, current, onPick }: { item: Item; tier: Tier; current?: boolean; onPick: () => void }) {
 	return (
-		<button type="button" className="nrow" aria-current={current} onClick={onPick}>
+		<button type="button" className={`nrow nrow--t${tier}`} aria-current={current} onClick={onPick}>
 			<span className="nrow-top">
-				{item.unread && <span className="nrow-dot" aria-label="unread" />}
+				<Marker mark={item.mark} />
 				<span className="nrow-title">{item.title}</span>
 				<span className="nrow-age">{item.age}</span>
 			</span>
-			<span className="nrow-sub">
-				{item.needsYou && <span className="chip chip--flag">Needs you</span>}
-				<span>{item.sub}</span>
-			</span>
+			{tier !== 3 && item.sub && <span className="nrow-sub">{item.sub}</span>}
 		</button>
+	);
+}
+
+function Section({ group, picked, onPick }: { group: Group; picked: string | null; onPick: (id: string) => void }) {
+	return (
+		<section className={`sect sect--t${group.tier}`}>
+			<header className="sect-h">
+				<span>{group.label}</span>
+				<span className="sect-n">{group.items.length}</span>
+			</header>
+			{group.items.map((i) => (
+				<Row key={i.id} item={i} tier={group.tier} current={picked === i.id} onPick={() => onPick(i.id)} />
+			))}
+		</section>
 	);
 }
 
@@ -140,35 +167,150 @@ function DocIcon() {
 	);
 }
 
-/** Every node is a document. Guides show what belongs under what; the chevron column never moves. */
-function Tree({ docs, open, toggle, picked, onPick }: {
+/** Every node is a document with its own icon; the page outline is only the default. */
+function Tree({ docs, open, toggle, picked, onPick, icons, onIcon, picking, setPicking }: {
 	docs: Doc[]; open: Set<string>; toggle: (id: string) => void; picked: string | null; onPick: (id: string) => void;
+	icons: Record<string, string>; onIcon: (id: string, icon: string) => void;
+	picking: string | null; setPicking: (id: string | null) => void;
 }) {
 	return (
 		<>
-			{docs.map((d) => (
-				<div key={d.id}>
-					<div className="tree-row" aria-current={picked === d.id}>
-						{d.children ? (
-							<button type="button" className="tree-fold" aria-expanded={open.has(d.id)} aria-label={open.has(d.id) ? "Fold" : "Unfold"} onClick={() => toggle(d.id)}>
-								<span className="chev">›</span>
+			{docs.map((d) => {
+				const icon = icons[d.id] ?? d.icon;
+				return (
+					<div key={d.id}>
+						<div className="tree-row" aria-current={picked === d.id}>
+							{d.children ? (
+								<button type="button" className="tree-fold" aria-expanded={open.has(d.id)} aria-label={open.has(d.id) ? "Fold" : "Unfold"} onClick={() => toggle(d.id)}>
+									<span className="chev">›</span>
+								</button>
+							) : <span className="tree-fold" />}
+							<button type="button" className="tree-icon" aria-label="Change icon" onClick={() => setPicking(picking === d.id ? null : d.id)}>
+								{icon ? <span className="emoji">{icon}</span> : <DocIcon />}
 							</button>
-						) : <span className="tree-fold" />}
-						<button type="button" className="tree-title" onClick={() => onPick(d.id)}>
-							<DocIcon />
-							<span className="tree-name">{d.title}</span>
-						</button>
-						{d.note && <span className="tree-note">{d.note}</span>}
-						{d.children && !open.has(d.id) && <span className="tree-count">{d.children.length}</span>}
-					</div>
-					{d.children && open.has(d.id) && (
-						<div className="tree-kids">
-							<Tree docs={d.children} open={open} toggle={toggle} picked={picked} onPick={onPick} />
+							<button type="button" className="tree-title" onClick={() => onPick(d.id)}>
+								<span className="tree-name">{d.title}</span>
+							</button>
+							{d.note && <span className="tree-note">{d.note}</span>}
+							{d.children && !open.has(d.id) && <span className="tree-count">{d.children.length}</span>}
 						</div>
-					)}
-				</div>
-			))}
+						{picking === d.id && (
+							<div className="icon-pick" role="dialog" aria-label="Pick an icon">
+								{ICON_CHOICES.map((c) => (
+									<button key={c || "none"} type="button" aria-pressed={icon === c} onClick={() => { onIcon(d.id, c); setPicking(null); }}>
+										{c ? <span className="emoji">{c}</span> : <DocIcon />}
+									</button>
+								))}
+							</div>
+						)}
+						{d.children && open.has(d.id) && (
+							<div className="tree-kids">
+								<Tree docs={d.children} open={open} toggle={toggle} picked={picked} onPick={onPick}
+									icons={icons} onIcon={onIcon} picking={picking} setPicking={setPicking} />
+							</div>
+						)}
+					</div>
+				);
+			})}
 		</>
+	);
+}
+
+/** One input, two intents. Tab flips between them and keeps what you typed. */
+function Palette({ initialMode }: { initialMode: "find" | "ask" }) {
+	const [mode, setMode] = useState(initialMode);
+	const [sel, setSel] = useState("h1");
+	const hit = HITS.find((h) => h.id === sel) ?? HITS[0];
+	const query = mode === "find" ? "trial" : "what do we know about trials?";
+
+	return (
+		<div className="pal-back">
+			<div className="pal" role="dialog" aria-label="Find or ask">
+				<div className="pal-top">
+					<div className="pal-mode" role="radiogroup" aria-label="Mode">
+						<button type="button" role="radio" aria-checked={mode === "find"} onClick={() => setMode("find")}>Find</button>
+						<button type="button" role="radio" aria-checked={mode === "ask"} onClick={() => setMode("ask")}>Ask</button>
+					</div>
+					<input className="pal-in" defaultValue={query} key={mode} aria-label={mode === "find" ? "Find" : "Ask"}
+						placeholder={mode === "find" ? "Find threads, tasks, documents…" : "Ask anything — an agent answers with sources"} />
+					<kbd className="pal-kbd">esc</kbd>
+				</div>
+
+				{mode === "find" ? (
+					<div className="pal-body">
+						<div className="pal-list">
+							<button type="button" className="pal-askrow" onClick={() => setMode("ask")}>
+								<span className="pal-askrow-ic">↳</span>
+								<span>Ask Builder about “trial”</span>
+								<kbd>Tab</kbd>
+							</button>
+							{(["Document", "Thread", "Task"] as const).map((sp) => {
+								const hits = HITS.filter((h) => h.spine === sp);
+								if (hits.length === 0) return null;
+								return (
+									<div key={sp}>
+										<p className="pal-group">{sp === "Document" ? "Knowledge" : sp === "Thread" ? "Conversations" : "Work"}</p>
+										{hits.map((h) => (
+											<button key={h.id} type="button" className="pal-hit" aria-selected={sel === h.id}
+												onMouseEnter={() => setSel(h.id)} onClick={() => setSel(h.id)}>
+												<span className="pal-hit-t">{h.title}</span>
+												<span className="pal-hit-w">{h.where}</span>
+											</button>
+										))}
+									</div>
+								);
+							})}
+						</div>
+						<div className="pal-prev">
+							<span className="pal-prev-sp">{hit.spine}</span>
+							<h3>{hit.title}</h3>
+							<span className="pal-prev-w">{hit.where}</span>
+							<p className="pal-prev-s">…{hit.snippet[0]}<mark>{hit.snippet[1]}</mark>{hit.snippet[2]}</p>
+							<span className="pal-prev-go">↵ open here · ⌘↵ open beside</span>
+						</div>
+					</div>
+				) : (
+					<div className="pal-ask">
+						<div className="pal-who">
+							<span className="avatar">BU</span>
+							<span><b>Builder</b> is answering · searched 3 threads, 2 tasks, 4 documents</span>
+						</div>
+						<p className="pal-ans">
+							Trials run <b>14 days</b> with a card up front. Since this week the pricing page and the
+							three-day email both say the date and the amount before the first bill. Growth is testing
+							whether trials convert without a sales call — 3 of 7 subtasks done. Option B in the Q4
+							pricing thread would shorten trials to 10 days; nobody has decided that yet.
+						</p>
+						<div className="pal-src">
+							<span className="pal-src-h">Sources</span>
+							{HITS.map((h) => (
+								<button key={h.id} type="button" className="pal-src-row">
+									<span className="pal-src-sp">{h.spine}</span>
+									<span>{h.title}</span>
+								</button>
+							))}
+						</div>
+					</div>
+				)}
+
+				<footer className="pal-foot">
+					{mode === "find" ? (
+						<>
+							<span><kbd>↑↓</kbd> move</span>
+							<span><kbd>↵</kbd> open</span>
+							<span><kbd>Tab</kbd> ask instead</span>
+						</>
+					) : (
+						<>
+							<span className="pal-saved">Saved as a thread in Conversations</span>
+							<span><kbd>↵</kbd> follow up</span>
+							<span><kbd>⌘↵</kbd> open thread</span>
+							<span><kbd>Tab</kbd> back to find</span>
+						</>
+					)}
+				</footer>
+			</div>
+		</div>
 	);
 }
 
@@ -246,49 +388,6 @@ function Focused() {
 		</section>
 	);
 }
-
-
-function AskThread() {
-	return (
-		<section className="detail">
-			<header className="detail-head">
-				<span className="chip chip--quiet">Thread</span>
-				<h2>What do we know about trials?</h2>
-				<span className="meta">started from Find or ask · now in Conversations</span>
-			</header>
-			<div className="detail-scroll">
-				<article className="msg">
-					<span className="avatar avatar--human">YO</span>
-					<div>
-						<div className="msg-who"><span className="msg-name">You</span><span className="meta">now</span></div>
-						<div className="msg-body">What do we know about trials?</div>
-					</div>
-				</article>
-				<article className="msg">
-					<span className="avatar">BU</span>
-					<div>
-						<div className="msg-who"><span className="msg-name">Builder</span><span className="meta">now</span></div>
-						<div className="msg-body">
-							Trials run 14 days with a card up front. Since this week the page and the email both say
-							the date and the amount before the first bill. Growth is testing whether trials convert
-							without a sales call — 3 of 7 subtasks done.
-							<div className="refs">
-								<a className="ref" href="#k"><span className="ref-src">Doc</span><span className="ref-title">How we price › Trials</span></a>
-								<a className="ref" href="#c"><span className="ref-src">Thread</span><span className="ref-title">Trial-end confusion, three tickets</span></a>
-								<a className="ref" href="#w"><span className="ref-src">Task</span><span className="ref-title">Trials that convert without a call</span></a>
-							</div>
-						</div>
-					</div>
-				</article>
-			</div>
-			<div className="composer">
-				<input placeholder="Ask a follow-up, or @someone…" aria-label="Reply" />
-				<button type="button" className="btn btn--accent">Send</button>
-			</div>
-		</section>
-	);
-}
-
 function Placeholder({ kind, title, meta, note }: { kind: string; title: string; meta: string; note: string }) {
 	return (
 		<section className="detail">
@@ -308,26 +407,21 @@ export function Arrive({ step }: { step: number }) {
 	const initial: Spine = step === 3 ? "work" : step === 4 || step === 7 ? "knowledge" : "conversations";
 	const [spine, setSpine] = useState<Spine>(initial);
 	const [picked, setPicked] = useState<string | null>(
-		step === 1 ? "g" : step === 2 ? "c-r1" : step === 3 ? "w-f1" : step === 4 || step === 7 ? "k-price" : step === 5 ? "s-k1" : null,
+		step === 1 ? "g" : step === 2 ? "c-r1" : step === 3 ? "w-f1" : step === 4 || step === 7 ? "k-price" : null,
 	);
 	const [open, setOpen] = useState<Set<string>>(new Set(["t-product", "k-price", "t-eng"]));
+	const [icons, setIcons] = useState<Record<string, string>>({});
+	const [picking, setPicking] = useState<string | null>(null);
 
 	if (step === 0) return <FirstStart />;
 
 	const focused = step === 7;
 	const conv = conversations(focused);
-	const counts: Record<Spine, number> = {
+	const needs: Record<Spine, number> = {
 		conversations: conv[0].items.length,
 		work: 0,
 		knowledge: KNOWLEDGE_PRIORITY[0].items.length,
 	};
-
-	const groups = (gs: Group[]) => gs.map((g) => (
-		<div key={g.label}>
-			<p className="nav-group">{g.label}</p>
-			{g.items.map((i) => <Row key={i.id} item={i} current={picked === i.id} onPick={() => setPicked(i.id)} />)}
-		</div>
-	));
 
 	const toggle = (id: string) => setOpen((prev) => {
 		const next = new Set(prev);
@@ -337,75 +431,61 @@ export function Arrive({ step }: { step: number }) {
 
 	let detail = <Placeholder kind="Thread" title="Trial-end explainer" meta="Review · Builder · final" note="A review is a thread. It opens here as designed in Judge; the list stays put, so the next one is one click away." />;
 	if (step === 1) detail = <FirstConversation />;
-	else if (step === 5) detail = <Placeholder kind="Document" title="Trials" meta="in How we price · opened from Find" note="A result opens right here, like picking it from its list. The search stays in the sidebar until you clear it." />;
-	else if (step === 6) detail = <AskThread />;
+	else if (step === 3) detail = <Placeholder kind="Task" title="Trials that convert without a call" meta="Growth owns this · 3 of 7 subtasks done" note="The task opens here with its subtasks. Its thread and any reviews live in Conversations." />;
+	else if (step === 4) detail = <Placeholder kind="Document" title="How we price" meta="Published · Growth edited the Trials section 2 days ago" note="The document opens here. Click any icon in the tree to change it." />;
 	else if (step === 7) detail = <Focused />;
-	else if (spine === "work" && step === 3) {
-		detail = <Placeholder kind="Task" title="Trials that convert without a call" meta="Growth owns this · 3 of 7 subtasks done" note="The task opens here with its subtasks. Its thread and any reviews live in Conversations." />;
-	} else if (spine === "knowledge" && step === 4) {
-		detail = <Placeholder kind="Document" title="How we price" meta="Published · Growth edited the Trials section 2 days ago" note="The document opens here. Its place in the tree stays highlighted on the left." />;
-	}
 
 	return (
 		<>
 			<nav className="nav">
 				<div className="nav-top">
 					<span className="wordmark">HyperIdle</span>
-					<div className="rail-search">
-						<input placeholder="Find or ask…" aria-label="Find or ask" defaultValue={step === 5 ? "trial" : step === 6 ? "what do we know about trials?" : ""} />
-					</div>
+					<button type="button" className="find-btn">
+						<span>Find or ask…</span>
+						<kbd>⌘K</kbd>
+					</button>
 				</div>
 
-				{step === 5 || step === 6 ? (
-					<div className="nav-list">
-						<button type="button" className="ask" aria-current={step === 6}>
-							<span className="ask-h">{step === 6 ? "Asked · answer is on the right" : "Ask instead ↵"}</span>
-							<span>{step === 6 ? "What do we know about trials?" : "Starts a thread with Builder. It answers with links."}</span>
+				<div className="spines nav-spines">
+					{(["conversations", "work", "knowledge"] as Spine[]).map((t) => (
+						<button key={t} type="button" className="spine" aria-current={spine === t} onClick={() => setSpine(t)}>
+							<span>{t[0].toUpperCase() + t.slice(1)}</span>
+							{step > 1 && needs[t] > 0 && <span className="spine-count spine-count--flag">{needs[t]}</span>}
 						</button>
-						{RESULTS.map((g) => (
-							<div key={g.group}>
-								<p className="nav-group">{g.group}</p>
-								{g.items.map((i) => <Row key={i.id} item={i} current={picked === i.id} onPick={() => setPicked(i.id)} />)}
-							</div>
-						))}
-					</div>
-				) : (
-					<>
-						<div className="spines nav-spines">
-							{(["conversations", "work", "knowledge"] as Spine[]).map((t) => (
-								<button key={t} type="button" className="spine" aria-current={spine === t} onClick={() => setSpine(t)}>
-									<span>{t[0].toUpperCase() + t.slice(1)}</span>
-									{step > 1 && counts[t] > 0 && <span className="spine-count spine-count--flag">{counts[t]}</span>}
-								</button>
-							))}
-						</div>
-						<hr className="nav-sep" />
+					))}
+				</div>
+				<hr className="nav-sep" />
 
-						<div className="nav-list">
-							{step === 1 ? (
-								spine === "conversations"
-									? <Row item={{ id: "g", title: "Getting started", sub: "Builder: What are you working on?", age: "now" }} current onPick={() => undefined} />
-									: <p className="nav-empty">Nothing here yet.</p>
-							) : spine === "conversations" ? (
-								<>
-									{focused && <p className="nav-new">1 new since you started · it waits here</p>}
-									{groups(conv)}
-								</>
-							) : spine === "work" ? (
-								groups(WORK)
-							) : (
-								<>
-									{groups(KNOWLEDGE_PRIORITY)}
-									<p className="nav-group">All documents</p>
-									<div className="tree"><Tree docs={TREE} open={open} toggle={toggle} picked={picked} onPick={setPicked} /></div>
-								</>
-							)}
-						</div>
-					</>
-				)}
+				<div className="nav-list">
+					{step === 1 ? (
+						spine === "conversations"
+							? <Row item={{ id: "g", title: "Getting started", sub: "Builder: What are you working on?", age: "now", mark: "unread" }} tier={2} current onPick={() => undefined} />
+							: <p className="nav-empty">Nothing here yet.</p>
+					) : spine === "conversations" ? (
+						<>
+							{focused && <p className="nav-new">1 new since you started · it waits here</p>}
+							{conv.map((g) => <Section key={g.label} group={g} picked={picked} onPick={setPicked} />)}
+						</>
+					) : spine === "work" ? (
+						WORK.map((g) => <Section key={g.label} group={g} picked={picked} onPick={setPicked} />)
+					) : (
+						<>
+							{KNOWLEDGE_PRIORITY.map((g) => <Section key={g.label} group={g} picked={picked} onPick={setPicked} />)}
+							<section className="sect sect--tree">
+								<header className="sect-h"><span>All documents</span></header>
+								<div className="tree">
+									<Tree docs={TREE} open={open} toggle={toggle} picked={picked} onPick={setPicked}
+										icons={icons} onIcon={(id, ic) => setIcons((p) => ({ ...p, [id]: ic }))}
+										picking={picking} setPicking={setPicking} />
+								</div>
+							</section>
+						</>
+					)}
+				</div>
 			</nav>
 
 			{detail}
+			{(step === 5 || step === 6) && <Palette initialMode={step === 5 ? "find" : "ask"} />}
 		</>
 	);
 }

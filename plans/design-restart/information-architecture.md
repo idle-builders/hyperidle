@@ -152,11 +152,17 @@ Objects that appear inside surfaces. Designed once, reused everywhere.
   selected item. Detail on the right. **Never tabs in the nav** (founder: "absolutely not").
 - **No Home** (founder, 2026-09-28: "not convinced of this home concept"). A morning overview would
   be a **plugin**, not a built-in feature, so the core design does not include one.
-- **Find or ask.** Typing shows results in the sidebar, grouped by the three spines; a result opens
-  on the right exactly like picking it from its list. "Ask instead" starts a **thread** with an
-  agent, which answers with links to the threads, tasks and documents it used; that thread then
-  lives in Conversations.
-- **Document tree:** every node is a document (page icon), one guide line per level, a fixed
+- **Find or ask is an overlay (⌘K)**, not a sidebar mode. One input, two intents, **Tab** flips
+  between them and keeps what you typed. Find: results left (grouped by spine), preview right with
+  the match highlighted; ↵ opens here, ⌘↵ opens beside; top row offers "Ask Builder about …".
+  Ask: the agent answers inside the overlay with its sources listed; it is saved as a thread in
+  Conversations (↵ follow up, ⌘↵ open the thread).
+- **Lists get quieter as they go down.** Tier 1 (needs you): raised cards with a yellow edge and
+  full subtitle. Tier 2 (moving): normal rows with a state marker — unread/changed dot, pulsing
+  live dot for running, hollow ring for waiting. Tier 3 (the rest): one muted line, no subtitle.
+  Every section has a bold heading with its count.
+- **Document tree:** every node is a document with **its own icon, changeable** (click it; the page
+  outline is only the default), one guide line per level, a fixed
   chevron column, collapsed nodes show their child count. Patterns taken from Notion, Obsidian and
   VS Code's explorer.
 - **Each spine's list is in priority order** — the founder's point: "each of conversation, work,
