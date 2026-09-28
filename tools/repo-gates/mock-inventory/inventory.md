@@ -8,4 +8,4 @@ Total offenders: **1**
 
 | path | line | symbol | kind | shape |
 |---|---|---|---|---|
-| `layers/core-api/src/middleware/auth.ts` | 54 | `u-founder` | literal-id | string |
+| `layers/core-api/src/middleware/auth.ts` | 51 | `u-founder` | literal-id | string |
