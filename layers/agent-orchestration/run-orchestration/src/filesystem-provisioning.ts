@@ -72,13 +72,13 @@ export async function mountFilesystemsForAgent(params: {
 			} else {
 				// biome-ignore lint/suspicious/noConsole: observability adapter not yet stood up
 				console.warn(
-					`[session-provisioning] AO2 mount failed for filesystem ${filesystem.id}: ${result.error ?? "unknown"}`,
+					`[session-provisioning] mount failed for filesystem ${filesystem.id}: ${result.error ?? "unknown"}`,
 				);
 			}
 		} catch (err) {
 			// biome-ignore lint/suspicious/noConsole: observability adapter not yet stood up
 			console.warn(
-				`[session-provisioning] AO2 mount threw for filesystem ${filesystem.id}: ${err instanceof Error ? err.message : String(err)}`,
+				`[session-provisioning] mount threw for filesystem ${filesystem.id}: ${err instanceof Error ? err.message : String(err)}`,
 			);
 		}
 	}

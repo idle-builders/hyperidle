@@ -28,10 +28,10 @@ function makeBundle(
 ) {
 	return {
 		kind: "task" as const,
-		task: { id: "t-ba9b", title: "Test", description: null, state: "in_progress" },
+		task: { id: "t-probe", title: "Test", description: null, state: "in_progress" },
 		ancestors: [],
 		agent: { id: agentId, name: "Tester", role: "builder" },
-		team: { id: "team-ba9b", name: "Test Team" },
+		team: { id: "team-probe", name: "Test Team" },
 		documents: knowledge.map((k) => ({
 			id: k.id,
 			title: k.title,
@@ -49,7 +49,7 @@ function makeBundle(
 let sandboxPath: string;
 
 beforeEach(() => {
-	sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "ba9b-test-"));
+	sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "probe-test-"));
 });
 
 afterEach(() => {
@@ -65,9 +65,9 @@ describe("skill items materialise to harness skill dirs", () => {
 		await assembler.assembleAgentContext({
 			sandboxPath,
 			sessionId: "session-1",
-			taskId: "t-ba9b",
+			taskId: "t-probe",
 			agentId: "agent-1",
-			teamId: "team-ba9b",
+			teamId: "team-probe",
 			taskFree: false,
 			sourceKind: null,
 			sourceId: null,
@@ -91,9 +91,9 @@ describe("skill items materialise to harness skill dirs", () => {
 		await assembler.assembleAgentContext({
 			sandboxPath,
 			sessionId: "session-2",
-			taskId: "t-ba9b",
+			taskId: "t-probe",
 			agentId: "agent-1",
-			teamId: "team-ba9b",
+			teamId: "team-probe",
 			taskFree: false,
 			sourceKind: null,
 			sourceId: null,
@@ -117,9 +117,9 @@ describe("skill items materialise to harness skill dirs", () => {
 		await assembler.assembleAgentContext({
 			sandboxPath,
 			sessionId: "session-3",
-			taskId: "t-ba9b",
+			taskId: "t-probe",
 			agentId: "agent-1",
-			teamId: "team-ba9b",
+			teamId: "team-probe",
 			taskFree: false,
 			sourceKind: null,
 			sourceId: null,
@@ -143,9 +143,9 @@ describe("rule items materialise to knowledge/rules/", () => {
 		await assembler.assembleAgentContext({
 			sandboxPath,
 			sessionId: "session-4",
-			taskId: "t-ba9b",
+			taskId: "t-probe",
 			agentId: "agent-1",
-			teamId: "team-ba9b",
+			teamId: "team-probe",
 			taskFree: false,
 			sourceKind: null,
 			sourceId: null,
@@ -178,9 +178,9 @@ describe("agent_file items are bound to a specific agent", () => {
 		await assembler.assembleAgentContext({
 			sandboxPath,
 			sessionId: "session-5",
-			taskId: "t-ba9b",
+			taskId: "t-probe",
 			agentId: "agent-alpha",
-			teamId: "team-ba9b",
+			teamId: "team-probe",
 			taskFree: false,
 			sourceKind: null,
 			sourceId: null,
@@ -207,9 +207,9 @@ describe("agent_file items are bound to a specific agent", () => {
 		await assembler.assembleAgentContext({
 			sandboxPath,
 			sessionId: "session-6",
-			taskId: "t-ba9b",
+			taskId: "t-probe",
 			agentId: "agent-beta",
-			teamId: "team-ba9b",
+			teamId: "team-probe",
 			taskFree: false,
 			sourceKind: null,
 			sourceId: null,
@@ -237,9 +237,9 @@ describe("agent_file items are bound to a specific agent", () => {
 		await assembler.assembleAgentContext({
 			sandboxPath,
 			sessionId: "session-7",
-			taskId: "t-ba9b",
+			taskId: "t-probe",
 			agentId: "any-agent",
-			teamId: "team-ba9b",
+			teamId: "team-probe",
 			taskFree: false,
 			sourceKind: null,
 			sourceId: null,
@@ -272,9 +272,9 @@ describe("a prompt item never reaches the sandbox", () => {
 		await assembler.assembleAgentContext({
 			sandboxPath,
 			sessionId: "session-prompt-1",
-			taskId: "t-ba9b",
+			taskId: "t-probe",
 			agentId: "agent-1",
-			teamId: "team-ba9b",
+			teamId: "team-probe",
 			taskFree: false,
 			sourceKind: null,
 			sourceId: null,
@@ -322,9 +322,9 @@ describe("ordinary items are unaffected", () => {
 		await assembler.assembleAgentContext({
 			sandboxPath,
 			sessionId: "session-8",
-			taskId: "t-ba9b",
+			taskId: "t-probe",
 			agentId: "agent-1",
-			teamId: "team-ba9b",
+			teamId: "team-probe",
 			taskFree: false,
 			sourceKind: null,
 			sourceId: null,

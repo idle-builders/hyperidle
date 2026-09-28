@@ -193,7 +193,7 @@ function readDebtFile(root: string): { excepted: Set<string>; raw: DebtFile } {
 	if (!existsSync(debtPath)) {
 		process.stderr.write(
 			`typecheck-gate: FATAL — ${DEBT_FILE} not found at ${debtPath}.\n` +
-				`Create it or run AF1 setup to generate it.\n`,
+				`Create it or run setup to generate it.\n`,
 		);
 		process.exit(1);
 	}

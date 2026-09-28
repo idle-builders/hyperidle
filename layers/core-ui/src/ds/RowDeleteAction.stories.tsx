@@ -4,7 +4,7 @@ import { ItemList } from "./ItemList.js";
 import { Row } from "./Row.js";
 import { RowDeleteAction } from "./RowDeleteAction.js";
 
-export default { title: "AG6/RowDeleteAction" };
+export default { title: "RowDeleteAction" };
 
 export const Default = (): React.JSX.Element => (
 	<ItemList variant="flush" isEmpty={false}>

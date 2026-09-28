@@ -41,7 +41,7 @@ function pass(msg: string): void {
 if (!fs.existsSync(USAGE_FILE)) {
 	fail(
 		`Usage report missing: ${USAGE_FILE}\n` +
-			"  This means the AH6 record lane crashed before writing the report file.\n" +
+			"  This means the record lane crashed before writing the report file.\n" +
 			"  Fail-closed: a missing report is NOT evidence of zero usage.",
 	);
 }

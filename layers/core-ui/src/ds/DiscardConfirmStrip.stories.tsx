@@ -11,7 +11,7 @@
 import type { JSX } from "react";
 import { DiscardConfirmStrip } from "./DiscardConfirmStrip.js";
 
-export default { title: "AI2/DiscardConfirmStrip" };
+export default { title: "DiscardConfirmStrip" };
 
 export function Default(): JSX.Element {
 	return (

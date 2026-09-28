@@ -44,7 +44,7 @@ describe("BLOCK_KINDS", () => {
 });
 
 describe("BLOCK_HOST_KINDS", () => {
-	it("is a closed 5-entry array (BB1: bet removed)", () => {
+	it("is a closed 5-entry array (bet removed)", () => {
 		expect(BLOCK_HOST_KINDS).toHaveLength(5);
 		expect([...BLOCK_HOST_KINDS]).toEqual(["task", "document", "artifact", "agent", "user"]);
 	});

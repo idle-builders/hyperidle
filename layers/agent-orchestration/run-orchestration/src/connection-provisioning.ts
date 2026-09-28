@@ -121,13 +121,13 @@ export async function buildProvisioningPlan(deps: {
 			} else if (conn.serverUrl) {
 				// MCP-bearer path: inject as server entry + per-server token env var.
 				const ssrfResult = await resolveUrlForSSRF(conn.serverUrl, {
-					label: `AN2 ${conn.service} serverUrl`,
+					label: `${conn.service} serverUrl`,
 					...(_ssrfLookup !== undefined ? { lookup: _ssrfLookup } : {}),
 				});
 				if (!ssrfResult.ok) {
 					// biome-ignore lint/suspicious/noConsole: graceful-degradation, matches inbound bridge :789
 					console.warn(
-						`[AN2 connection-provisioning] SSRF check failed for ${conn.service} (${conn.id}): ${ssrfResult.reason} — dropping entry`,
+						`[connection-provisioning] SSRF check failed for ${conn.service} (${conn.id}): ${ssrfResult.reason} — dropping entry`,
 					);
 					continue;
 				}
@@ -146,7 +146,7 @@ export async function buildProvisioningPlan(deps: {
 				envInjections[envKey] = token;
 				// biome-ignore lint/suspicious/noConsole: graceful-degradation, matches inbound bridge :789
 				console.warn(
-					`[AN2 connection-provisioning] carrier-by-convention for ${conn.service} (${conn.id}): ` +
+					`[connection-provisioning] carrier-by-convention for ${conn.service} (${conn.id}): ` +
 						`no serverUrl and not a known CLI-key service — injecting ${envKey} ` +
 						`(the tool may not read this var; add a CLI carrier mapping if needed)`,
 				);
@@ -158,13 +158,13 @@ export async function buildProvisioningPlan(deps: {
 			}
 
 			const ssrfResult = await resolveUrlForSSRF(conn.serverUrl, {
-				label: `AN2 ${conn.service} serverUrl`,
+				label: `${conn.service} serverUrl`,
 				...(_ssrfLookup !== undefined ? { lookup: _ssrfLookup } : {}),
 			});
 			if (!ssrfResult.ok) {
 				// biome-ignore lint/suspicious/noConsole: graceful-degradation, matches inbound bridge :789
 				console.warn(
-					`[AN2 connection-provisioning] SSRF check failed for ${conn.service} (${conn.id}): ${ssrfResult.reason} — dropping entry`,
+					`[connection-provisioning] SSRF check failed for ${conn.service} (${conn.id}): ${ssrfResult.reason} — dropping entry`,
 				);
 				continue;
 			}

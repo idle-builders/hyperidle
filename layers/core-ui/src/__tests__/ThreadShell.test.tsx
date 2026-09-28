@@ -65,7 +65,7 @@ const plainMessage: Message = {
 	payload: { text: "hi" },
 };
 
-describe("ThreadShell (approved.md §2.6 + §4 states)", () => {
+describe("ThreadShell", () => {
 	it("populated-issue: mounts ThreadHostBanner + RichMessageCard + Composer when there is an unresolved review", () => {
 		render(
 			<ThreadShell
@@ -287,7 +287,7 @@ describe("ThreadShell (approved.md §2.6 + §4 states)", () => {
 	});
 });
 
-describe("computeSenderGrouping (approved.md §2.4)", () => {
+describe("computeSenderGrouping", () => {
 	const make = (id: string, senderId: string, ts: string): Message => ({
 		id,
 		threadId: "t-1",
@@ -412,7 +412,7 @@ describe("ThreadShell promotion", () => {
 		expect(screen.queryByTestId("thread-head")).toBeNull();
 	});
 
-	it("does NOT render the legacy 'Unresolved review · acting required' link (plan §6.2)", () => {
+	it("does NOT render the legacy 'Unresolved review · acting required' link", () => {
 		render(
 			<ThreadShell
 				thread={baseThread}

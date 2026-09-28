@@ -67,7 +67,7 @@ export function requireHarness(...names: HarnessName[]): void {
 		`requireHarness: ${missing.join(", ")} not installed/configured — harness ` +
 			`integration test cannot complete. Install the binary ` +
 			`(claude/codex/opencode/cursor-agent); or demote ` +
-			`to a *.test.ts unit. (AR1: never skipIf to green.)`,
+			`to a *.test.ts unit. (never skipIf to green.)`,
 	);
 }
 

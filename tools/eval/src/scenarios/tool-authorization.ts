@@ -199,7 +199,7 @@ After triaging the document, record your curation decision in session notes.`,
 
 const taUnknownRoleFallback: EvalScenario = {
 	id: "ta-unknown-role-fallback",
-	description: "Agent with custom/unknown role completes task with standard tools (AB0 fallback)",
+	description: "Agent with custom/unknown role completes task with standard tools",
 	feature: "tool_authorization",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {

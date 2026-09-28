@@ -328,7 +328,7 @@ function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		if (!agentOrchestration) {
 			throw new Error(
 				"AppOptions.agentOrchestration is required when db is provided — build one with " +
-					"buildAgentOrchestrationPort(transport) and pass it explicitly (AU31 §3.2: no ambient transport).",
+					"buildAgentOrchestrationPort(transport) and pass it explicitly (no ambient transport).",
 			);
 		}
 		const defaultAgentWorkIntentRecorder = buildSeamBackedWorkIntentRecorder(agentOrchestration);

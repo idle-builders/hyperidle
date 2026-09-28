@@ -49,7 +49,7 @@ function searchAction(
 	);
 }
 
-describe("edit_document — the scope cascade, architecture.md §4.3 case 1a", () => {
+describe("edit_document — the scope cascade, case 1a", () => {
 	test("narrowing clamps a wider child's scopeKind AND scopeId, leaves an already-narrow grandchild untouched, and writes exactly two document change rows", async ({
 		db,
 	}) => {
@@ -122,7 +122,7 @@ describe("edit_document — the scope cascade, architecture.md §4.3 case 1a", (
 	});
 });
 
-describe("edit_document — the scope cascade family, architecture.md §4.3 cases 1b-1f", () => {
+describe("edit_document — the scope cascade family, cases 1b-1f", () => {
 	test("case 1b — widening never cascades: exactly one change row, the child untouched", async ({
 		db,
 	}) => {
@@ -334,7 +334,7 @@ describe("edit_document — the scope cascade family, architecture.md §4.3 case
 	});
 });
 
-describe("edit_document — the cascade's post-commit push, architecture.md §6.6 rule 5, §7", () => {
+describe("edit_document — the cascade's post-commit push", () => {
 	test("the push receives every changed row — the parent's and each narrowed child's", async ({
 		db,
 	}) => {
@@ -375,7 +375,7 @@ describe("edit_document — the cascade's post-commit push, architecture.md §6.
 	});
 });
 
-describe("edit_document — a refused edit narrows nothing, architecture.md §4.3 case 4", () => {
+describe("edit_document — a refused edit narrows nothing", () => {
 	test("a stale version on the parent refuses the whole edit and narrows no child", async ({
 		db,
 	}) => {

@@ -46,7 +46,7 @@ class CloudNotBuiltAdapter implements MountAdapter {
 	mount(_ctx: MountContext): Promise<MountResult> {
 		return Promise.resolve({
 			success: false,
-			error: `mount adapter not built for source '${this.source}' (built in its connector WP)`,
+			error: `mount adapter not built for source '${this.source}'`,
 		});
 	}
 }
@@ -82,7 +82,7 @@ class LocalFolderAdapter implements MountAdapter {
 function writeExclude(gitDir: string): void {
 	const destination = path.join(gitDir, "info", "exclude");
 	fs.mkdirSync(path.dirname(destination), { recursive: true });
-	const marker = "# AU20 scaffolding exclusion";
+	const marker = "# HyperIdle scaffolding exclusion";
 	const existing = fs.existsSync(destination) ? fs.readFileSync(destination, "utf8") : "";
 	if (!existing.includes(marker))
 		fs.writeFileSync(

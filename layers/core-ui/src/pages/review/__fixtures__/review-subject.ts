@@ -321,8 +321,8 @@ const browserArtifact: ReviewArtifact<BrowserPreviewPayload> = {
  *
  */
 export const AL2_REVIEW_SUBJECT: ReviewSubject = {
-	id: "review:AL2:fixture",
-	title: "AL2 review composition fixture",
+	id: "review:subject:fixture",
+	title: "review composition fixture",
 	artifacts: [
 		outcomeArtifact,
 		fieldChangeArtifact,

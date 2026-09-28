@@ -49,7 +49,7 @@ async function seedCorpus(db: HyperIdleDb): Promise<void> {
 	});
 }
 
-describe("assembleSessionDocuments — session_use_count (architecture.md §6.7)", () => {
+describe("assembleSessionDocuments — session_use_count", () => {
 	test("bumps sessionUseCount and lastUsedAt for every returned id, leaves an unpicked document at 0/NULL, and leaves version/updatedAt untouched", async ({
 		db,
 	}) => {

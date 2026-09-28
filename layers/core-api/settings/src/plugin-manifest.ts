@@ -188,7 +188,7 @@ export function parsePluginManifest(pluginRoot: string): ManifestParseResult {
 		if (!PERMITTED_TOP_LEVEL_FIELDS.has(field)) {
 			warnings.push({
 				code: "UNKNOWN_TOP_LEVEL_FIELD",
-				message: `Unknown top-level field "${field}" — ignored per spec §manifest`,
+				message: `Unknown top-level field "${field}" — ignored per the plugin spec`,
 			});
 		}
 	}

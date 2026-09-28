@@ -48,7 +48,7 @@ ALTER TABLE tasks ADD COLUMN needs_review boolean NOT NULL DEFAULT false;
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM bets b JOIN tasks t ON t.id = b.id) THEN
-    RAISE EXCEPTION 'BB1: a bet id collides with an existing task id';
+    RAISE EXCEPTION 'a bet id collides with an existing task id';
   END IF;
 END $$;
 --> statement-breakpoint
@@ -174,7 +174,7 @@ BEGIN
   SELECT count(*) INTO bet_count FROM bets;
   SELECT count(*) INTO root_count FROM tasks WHERE parent_task_id IS NULL;
   IF bet_count <> root_count THEN
-    RAISE EXCEPTION 'BB1: % bets produced % root tasks', bet_count, root_count;
+    RAISE EXCEPTION '% bets produced % root tasks', bet_count, root_count;
   END IF;
 
   -- Every task that had a bet must now have a parent that exists.
@@ -183,12 +183,12 @@ BEGIN
   WHERE t.bet_id IS NOT NULL
     AND NOT EXISTS (SELECT 1 FROM tasks p WHERE p.id = t.parent_task_id);
   IF orphan_count > 0 THEN
-    RAISE EXCEPTION 'BB1: % tasks have no parent after backfill', orphan_count;
+    RAISE EXCEPTION '% tasks have no parent after backfill', orphan_count;
   END IF;
 
   -- No task may be its own parent.
   IF EXISTS (SELECT 1 FROM tasks WHERE parent_task_id = id) THEN
-    RAISE EXCEPTION 'BB1: a task is its own parent';
+    RAISE EXCEPTION 'a task is its own parent';
   END IF;
 END $$;
 --> statement-breakpoint

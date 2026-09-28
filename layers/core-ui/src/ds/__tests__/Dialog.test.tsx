@@ -193,7 +193,7 @@ describe("Dialog dismissal guard", () => {
 		expect(strip?.textContent).toContain("Discard your changes?");
 	});
 
-	it("clean dialog (isDirty=false): pressing Escape calls onClose immediately (confirmation rule §1.1)", async () => {
+	it("clean dialog (isDirty=false): pressing Escape calls onClose immediately", async () => {
 		const onClose = vi.fn();
 		await act(async () => {
 			root.render(createElement(Dialog, makeProps({ onClose, isDirty: false })));
@@ -463,7 +463,7 @@ describe("Dialog mobile adaptation", () => {
 // Guard strip: keyboard discard path
 // ---------------------------------------------------------------------------
 
-describe("Dialog guard strip keyboard discard path (§1.2)", () => {
+describe("Dialog guard strip keyboard discard path", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 

@@ -43,7 +43,10 @@ const BANNED: readonly { readonly token: RegExp; readonly why: string }[] = [
 		why: "`betId` is replaced by `parentTaskId` (nullable — null means root)",
 	},
 	{ token: /\bbet_id\b/, why: "`bet_id` is replaced by `parent_task_id`" },
-	{ token: /\bappetite\b/, why: "`appetite` was dead before BB1 and is deleted" },
+	{
+		token: /\bappetite\b/,
+		why: "`appetite` was dead before the bet model was removed and is deleted",
+	},
 	{ token: /\batRisk\b|\bat_risk\b/, why: "`at_risk` was never written to true in production" },
 	{ token: /\bhypothesis\b/, why: "`hypothesis` is cut — a task's goal is its `doneCondition`" },
 	{

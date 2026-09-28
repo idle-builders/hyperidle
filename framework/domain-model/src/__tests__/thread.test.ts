@@ -74,7 +74,7 @@ function questionnaire(
 	};
 }
 
-describe("headCollapsePredicate (approved.md §8 hard-rule 1)", () => {
+describe("headCollapsePredicate", () => {
 	it("returns null head when messages are empty", () => {
 		expect(headCollapsePredicate([])).toEqual({ headMessageId: null });
 	});

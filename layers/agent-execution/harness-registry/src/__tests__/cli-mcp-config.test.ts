@@ -402,7 +402,7 @@ describe("writePluginStdioMcpEntries — plugin stdio MCP entries", () => {
 	let sandboxPath: string;
 
 	beforeEach(() => {
-		sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "ba9b-plugin-mcp-"));
+		sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "probe-plugin-mcp-"));
 	});
 
 	afterEach(() => {

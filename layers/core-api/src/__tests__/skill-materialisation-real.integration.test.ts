@@ -1,5 +1,5 @@
 /**
- * BA9b — production-path skill materialisation proof.
+ * — production-path skill materialisation proof.
  *
  * AC3: "materialisation lands where the running harness actually reads, proven per harness."
  * AC5: "a skill installed by a plugin is used by an agent in a real session — observed in
@@ -80,8 +80,8 @@ import { buildTestRunOrchestrationComposition } from "./run-orchestration-test-r
 // Stable constants (do not change per run)
 // ---------------------------------------------------------------------------
 
-/** Slug from toSkillDirName("ba9b-session-secret") — all chars are valid, no change. */
-const SKILL_DIR_NAME = "ba9b-session-secret";
+/** Slug from toSkillDirName("probe-session-secret") — all chars are valid, no change. */
+const SKILL_DIR_NAME = "probe-session-secret";
 
 /** Prompt for claude/codex/cursor-agent: no answer possible without the skill. */
 const PROBE_PROMPT =
@@ -94,8 +94,8 @@ const OPENCODE_PROBE_PROMPT = `Use the ${SKILL_DIR_NAME} skill and tell me the s
 // Per-run state
 // ---------------------------------------------------------------------------
 
-const TEAM_ID = "team-ba9b-skill";
-const AGENT_ID = "agent-ba9b-skill";
+const TEAM_ID = "team-probe-skill";
+const AGENT_ID = "agent-probe-skill";
 
 /**
  * Fresh random token minted per test invocation. UUID-derived; cannot be
@@ -117,7 +117,7 @@ beforeEach(() => {
 	probeToken = `XSKILL-${uuid.slice(0, 8)}-${uuid.slice(8, 16)}`;
 
 	skillBody = `---
-name: ba9b-session-secret
+name: probe-session-secret
 description: "Contains the session secret value. Use this skill when asked for the session secret or probe token."
 ---
 # Session Secret Skill
@@ -128,7 +128,7 @@ This skill contains the session secret value for this environment.
 
 When asked for the session secret, respond with exactly: ${probeToken}`;
 
-	sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "ba9b-skill-"));
+	sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "probe-skill-"));
 });
 
 afterEach(() => {
@@ -141,7 +141,7 @@ afterEach(() => {
 
 async function assembleSkillIntoSandbox(db: import("@hyperidle/db").HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
-	const skillId = `ba9b-skill-${Math.random().toString(36).slice(2, 10)}`;
+	const skillId = `probe-skill-${Math.random().toString(36).slice(2, 10)}`;
 
 	await db.insert(documents).values({
 		id: skillId,
@@ -153,7 +153,7 @@ async function assembleSkillIntoSandbox(db: import("@hyperidle/db").HyperIdleDb)
 		status: "active",
 		slot: "skill",
 		version: 1,
-		updatedBy: "ba9b-test",
+		updatedBy: "probe-test",
 		createdAt: now,
 		updatedAt: now,
 	});
@@ -167,21 +167,21 @@ async function assembleSkillIntoSandbox(db: import("@hyperidle/db").HyperIdleDb)
 	const contextBundle: BakedContextBundle = {
 		kind: "task",
 		task: {
-			id: "task-ba9b-probe",
-			title: "BA9b Probe Task",
+			id: "task-probe",
+			title: "Probe Task",
 			description: "Probe task for skill materialisation test",
 			state: "active",
 		},
 		ancestors: [
 			{
-				id: "bet-ba9b-probe",
+				id: "bet-probe",
 				title: "Prove skill materialisation via production path",
 				description: null,
 				doneCondition: "PROBE_TOKEN in harness output",
 			},
 		],
-		agent: { id: AGENT_ID, name: "BA9b Probe Agent", role: "builder" },
-		team: { id: TEAM_ID, name: "BA9b Probe Team" },
+		agent: { id: AGENT_ID, name: "Probe Agent", role: "builder" },
+		team: { id: TEAM_ID, name: "Probe Team" },
 		documents: toBakedContextDocuments(knowledge),
 	};
 
@@ -191,8 +191,8 @@ async function assembleSkillIntoSandbox(db: import("@hyperidle/db").HyperIdleDb)
 			mode: "assemble",
 			input: {
 				sandboxPath,
-				sessionId: "session-ba9b-probe",
-				taskId: "task-ba9b-probe",
+				sessionId: "session-probe",
+				taskId: "task-probe",
 				agentId: AGENT_ID,
 				teamId: TEAM_ID,
 				taskFree: false,

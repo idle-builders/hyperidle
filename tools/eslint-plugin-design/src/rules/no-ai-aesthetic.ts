@@ -95,8 +95,7 @@ export const noAiAesthetic: Rule.RuleModule = createRule({
 	meta: {
 		type: "problem",
 		docs: {
-			description:
-				"Flag screenshot-detectable AI-aesthetic tells from AESTHETICS.md § AI-Aesthetic Anti-Patterns.",
+			description: "Flag screenshot-detectable AI-aesthetic tells.",
 			recommended: true,
 		},
 		schema: [],

@@ -72,7 +72,7 @@ function plain(id: string, createdAt: string): Message {
 	};
 }
 
-describe("promotedRichMessageId (approved.md §3, plan §5.2)", () => {
+describe("promotedRichMessageId", () => {
 	it("returns null when the thread has zero rich messages", () => {
 		expect(
 			promotedRichMessageId([

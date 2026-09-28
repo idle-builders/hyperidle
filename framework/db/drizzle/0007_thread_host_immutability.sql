@@ -9,10 +9,10 @@ CREATE OR REPLACE FUNCTION threads_host_immutable_fn()
 RETURNS trigger AS $$
 BEGIN
 	IF NEW.host_kind <> OLD.host_kind THEN
-		RAISE EXCEPTION 'thread host_kind is immutable (L1 §5.1)';
+		RAISE EXCEPTION 'thread host_kind is immutable';
 	END IF;
 	IF NEW.host_id <> OLD.host_id THEN
-		RAISE EXCEPTION 'thread host_id is immutable (L1 §5.1)';
+		RAISE EXCEPTION 'thread host_id is immutable';
 	END IF;
 	RETURN NEW;
 END;

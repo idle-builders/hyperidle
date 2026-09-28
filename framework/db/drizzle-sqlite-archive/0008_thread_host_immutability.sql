@@ -11,7 +11,7 @@ BEFORE UPDATE OF host_kind ON threads
 FOR EACH ROW
 WHEN OLD.host_kind <> NEW.host_kind
 BEGIN
-	SELECT RAISE(ABORT, 'thread host_kind is immutable (L1 §5.1)');
+	SELECT RAISE(ABORT, 'thread host_kind is immutable');
 END;--> statement-breakpoint
 
 CREATE TRIGGER IF NOT EXISTS threads_host_id_immutable
@@ -19,5 +19,5 @@ BEFORE UPDATE OF host_id ON threads
 FOR EACH ROW
 WHEN OLD.host_id <> NEW.host_id
 BEGIN
-	SELECT RAISE(ABORT, 'thread host_id is immutable (L1 §5.1)');
+	SELECT RAISE(ABORT, 'thread host_id is immutable');
 END;

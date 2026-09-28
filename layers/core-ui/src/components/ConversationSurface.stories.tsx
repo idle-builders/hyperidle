@@ -156,12 +156,12 @@ const PARTICIPANTS: ReadonlyArray<ConversationSurfaceParticipant> = [
 // story, so it is a clearly-labeled console noop naming its target route.
 const onOpen = (target: OpenTarget): void => {
 	// biome-ignore lint/suspicious/noConsole: story-only navigation-hook proof
-	console.info("[AM1] open", target.route, target);
+	console.info("open", target.route, target);
 };
 
 const onSend = (): void => {
 	// biome-ignore lint/suspicious/noConsole: story-only send-hook proof
-	console.info("[AM1] send (story noop)");
+	console.info("send (story noop)");
 };
 
 // The full conversation, resting composer — natural height (nothing clipped).

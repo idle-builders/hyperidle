@@ -12,7 +12,7 @@ import { useState } from "react";
 import { Button } from "./Button.js";
 import { Dialog } from "./Dialog.js";
 
-export default { title: "AI2/Dialog" };
+export default { title: "Dialog" };
 
 function CleanDialogDemo(): JSX.Element {
 	const [open, setOpen] = useState(false);
@@ -123,7 +123,7 @@ function ConfirmationDemo(): JSX.Element {
 			>
 				<p style={{ color: "var(--text-secondary)", fontSize: "var(--text-sm)" }}>
 					Confirmation dialogs always pass isDirty=false. Pressing Escape closes immediately —
-					whether or not the reason field has text (§1.1 confirmation-never-dirty rule).
+					whether or not the reason field has text (confirmation-never-dirty rule).
 				</p>
 			</Dialog>
 		</>

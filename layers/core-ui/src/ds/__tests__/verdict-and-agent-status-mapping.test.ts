@@ -35,7 +35,7 @@ const VALID_STATUSES: readonly Status[] = [
 
 // --- TASK_OUTCOME_VERDICT_STATUS ---
 
-describe("TASK_OUTCOME_VERDICT_STATUS (AI4 AC5, Decision 6)", () => {
+describe("TASK_OUTCOME_VERDICT_STATUS", () => {
 	it("maps met to 'healthy' (done condition fully met = green)", () => {
 		expect(TASK_OUTCOME_VERDICT_STATUS.met).toBe("healthy" satisfies Status);
 	});
@@ -70,7 +70,7 @@ describe("TASK_OUTCOME_VERDICT_STATUS (AI4 AC5, Decision 6)", () => {
 
 // --- taskOutcomeVerdictToStatus ---
 
-describe("taskOutcomeVerdictToStatus (AI4 Decision 6)", () => {
+describe("taskOutcomeVerdictToStatus", () => {
 	it("returns 'healthy' for met", () => {
 		expect(taskOutcomeVerdictToStatus("met")).toBe("healthy" satisfies Status);
 	});
@@ -97,7 +97,7 @@ describe("taskOutcomeVerdictToStatus (AI4 Decision 6)", () => {
 
 // --- AgentOperationalStatus + AGENT_OPERATIONAL_STATUS_MAP + agentOperationalStatusToStatus ---
 
-describe("AGENT_OPERATIONAL_STATUS_MAP (AI4 Decision 3a)", () => {
+describe("AGENT_OPERATIONAL_STATUS_MAP", () => {
 	it("maps active to 'healthy' (live agent = green)", () => {
 		expect(AGENT_OPERATIONAL_STATUS_MAP.active).toBe("healthy" satisfies Status);
 	});
@@ -121,7 +121,7 @@ describe("AGENT_OPERATIONAL_STATUS_MAP (AI4 Decision 3a)", () => {
 	});
 });
 
-describe("agentOperationalStatusToStatus (AI4 Decision 3a)", () => {
+describe("agentOperationalStatusToStatus", () => {
 	it("returns 'healthy' for active", () => {
 		expect(agentOperationalStatusToStatus("active")).toBe("healthy" satisfies Status);
 	});

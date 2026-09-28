@@ -688,7 +688,7 @@ async function processIntentsInternal(
 				);
 			} else {
 				throw new InvalidAgentWorkSourceError(
-					`Intent ${intent.id} (kind: ${intent.kind}) has no bakedRequestJson — unbaked intents are production-unreachable since AU44`,
+					`Intent ${intent.id} (kind: ${intent.kind}) has no bakedRequestJson`,
 				);
 			}
 		} catch (error) {
