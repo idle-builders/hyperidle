@@ -178,8 +178,8 @@ export default function ConversationSurface({
 					style={scroll ? { flex: 1, minHeight: 0, overflowY: "auto" } : undefined}
 				>
 					<div className="mx-auto w-full max-w-[760px]">
-						{/* The message column is rendered by the PRODUCTION renderer — the
-						    approved design and PartList cannot drift. */}
+						{/* The message column is rendered by the production PartList, so this
+						    surface and the conversation view cannot drift. */}
 						<PartList parts={parts} onOpen={onOpen} onAnswer={(text) => void onSend(text)} />
 						{/*
 						 * What was produced in this conversation, inside the scrolling

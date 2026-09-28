@@ -409,11 +409,9 @@ async function runClaimedRequest(
 		// `reserveOrAdoptSession` inserts the session row BEFORE `admitSession`
 		// runs, so a pre-admission throw leaves an `active` session behind with
 		// no runtime attached to it. Nothing else ends it: the detached-runtime
-		// `crashSession` below only fires once `admitted` is set. The result was
-		// a product showing an agent working forever on work that had already
-		// failed, and a phantom `active` row counting against the agent's own
-		// concurrency limit — so the NEXT run could be refused by a session that
-		// never started.
+		// `crashSession` below only fires once `admitted` is set. Without this the
+		// agent shows as working forever on failed work, and the phantom `active`
+		// row counts against its concurrency limit, refusing the next run.
 		if (!admitted) {
 			await endReservedSessionAfterFailedAdmission(deps.db, request.id);
 		}

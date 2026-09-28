@@ -8,7 +8,7 @@
 --   4. one item per practice under Practices; a practice row's own topic is
 --      preserved as a topic item under that practice, not discarded.
 --   5. product rows: scope -> 'team' (scope_id UNCHANGED — already a team
---      id, feasibility.md finding 1); parent -> their topic item / Product.
+--      id); parent -> their topic item / Product.
 --   6. every remaining ordinary row: its topic item, or General.
 --   7. task-scoped rows: parent_kind='task', parent_id=scope_id, guarded
 --      against a dangling task id (RAISE EXCEPTION).
@@ -109,7 +109,7 @@ END $$;
 --> statement-breakpoint
 
 -- 5. Product rows: scope becomes 'team', scope_id UNCHANGED (it is already a
---    team id — feasibility.md finding 1). Parent is the topic item under
+--    team id). Parent is the topic item under
 --    Product, or Product itself when topicless.
 UPDATE "knowledge_items" SET
   scope_kind = 'team',

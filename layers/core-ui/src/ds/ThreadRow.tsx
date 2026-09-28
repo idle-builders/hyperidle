@@ -52,12 +52,11 @@ export interface ThreadRowProps {
 	hostTag?: HostKind;
 	/**
 	 * Overlapping 24px participant avatar circles in the right-side meta area.
-	 * Matches the mockup's `.thread-avatars` group (audit L-21).
 	 */
 	avatars?: ThreadAvatarItem[];
 	/**
 	 * Numeric message count badge in the right-side meta area.
-	 * Green-tinted when unread, neutral when read (audit L-22).
+	 * Green-tinted when unread, neutral when read.
 	 */
 	messageCount?: number;
 }
@@ -93,7 +92,7 @@ export function ThreadRow({
 		"hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))]",
 		"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus-visible:-outline-offset-1",
 		onClick ? "cursor-pointer" : "",
-		// selected state: elevated bg + subtle shadow per design spec
+		// selected state: elevated bg + subtle shadow
 		selected ? "bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)]" : "",
 		borderLeftClass,
 	]
@@ -102,7 +101,7 @@ export function ThreadRow({
 
 	const rowContent = (
 		<>
-			{/* Unread indicator — always rendered; transparent spacer for read rows (audit L-12, L-14) */}
+			{/* Unread indicator — always rendered; transparent spacer for read rows */}
 			<span
 				data-testid={unread ? "unread-dot" : "read-dot-spacer"}
 				aria-hidden="true"
@@ -146,7 +145,7 @@ export function ThreadRow({
 					{tag && <Tag label={tag} />}
 					{kind && <Tag label={kind} kind={kind as TagKind} />}
 				</div>
-				{/* Preview/snippet — color differentiates read/unread (audit L-18, L-19) */}
+				{/* Preview/snippet — color differentiates read/unread */}
 				<p
 					className={`type-small ${[
 						" truncate mt-[3px]",
@@ -159,7 +158,7 @@ export function ThreadRow({
 
 			{/* Meta: blocking badge, avatars, count, timestamp */}
 			<div className="flex items-center gap-[9px] shrink-0">
-				{/* Blocking badge in the right-side meta (audit L-23, L-24) */}
+				{/* Blocking badge in the right-side meta */}
 				{blocking && (
 					<span
 						data-testid="thread-row-blocking-badge"
@@ -169,7 +168,7 @@ export function ThreadRow({
 					</span>
 				)}
 
-				{/* Overlapping participant avatar group (audit L-21) */}
+				{/* Overlapping participant avatar group */}
 				{avatars && avatars.length > 0 && (
 					<div className="flex">
 						{avatars.map((a, i) => (
@@ -195,7 +194,7 @@ export function ThreadRow({
 					</div>
 				)}
 
-				{/* Message count badge (audit L-22) */}
+				{/* Message count badge */}
 				{messageCount !== undefined && (
 					<span
 						data-testid="thread-row-count-badge"

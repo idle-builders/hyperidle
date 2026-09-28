@@ -66,7 +66,7 @@ export function buildRoutes(): RouteObject[] {
 			],
 		},
 		// catch-all so unknown URLs render NotFound (not a blank page).
-		// Rendered outside AppShell per error-states.html mockup (standalone page, no sidebar).
+		// Rendered outside AppShell (standalone page, no sidebar).
 		{ path: "*", element: <NotFound /> },
 	];
 

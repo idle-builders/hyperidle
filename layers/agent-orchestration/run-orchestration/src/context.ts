@@ -580,9 +580,8 @@ function writeItem(sandboxPath: string, item: BakedContextDocument, zone: string
  * every item's chain has been walked:
  *
  * Pass 1 creates every ancestor directory, a title-only `index.md`
- * placeholder (plan.md: "a path with a missing middle means nothing" — an
- * ancestor not itself among the selected items still gets one; that is
- * incomplete, not fabricated), and its own manifest entry.
+ * placeholder (an ancestor not itself among the selected items still gets
+ * one — a path with a missing middle means nothing), and its own manifest entry.
  * `!fs.existsSync`/`!manifestItems[ancestor.id]` dedupe across items that
  * share an ancestor (without a manifest entry, writeback's
  * `ensureDirectoryChainItem` mints a duplicate folder item).

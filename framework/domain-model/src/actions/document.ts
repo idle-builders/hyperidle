@@ -371,8 +371,7 @@ function artifactInvariants(
 	const problems: Problem[] = [];
 	if (input.as === "artifact") {
 		if (input.parent === null) {
-			// `null` means "to the top of the tree", for every `as` (architecture
-			// decision) — and an artifact can never be at the top, so an
+			// `null` means "to the top of the tree", for every `as` — and an artifact can never be at the top, so an
 			// explicit `parent: null` is refused the same way a `document` parent
 			// is, not silently treated as "no parent given" (which would stamp the
 			// caller's own calling task/thread instead of honouring the explicit

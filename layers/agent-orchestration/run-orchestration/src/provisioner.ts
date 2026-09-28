@@ -968,8 +968,7 @@ async function admitSession(
 
 	// The run-config fields are read LIVE here from
 	// `agent_run_config` — orchestration's OWN table — instead of coming off the
-	// emit-time bake. An agent with no row resolves the all-null default, which
-	// is exactly what an all-null `users` row resolved before the move.
+	// emit-time bake. An agent with no row resolves the all-null default.
 	const runConfig = await readAgentRunConfig(db, params.agentId);
 
 	// The agent's identity is the `agent_file` document bound to it,

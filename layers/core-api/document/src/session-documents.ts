@@ -36,7 +36,7 @@ const CONTEXT_WINDOW_TOKENS = 200_000;
 const DOCUMENT_ALLOCATION_RATIO = 0.2;
 const DEFAULT_DOCUMENT_BUDGET = CONTEXT_WINDOW_TOKENS * DOCUMENT_ALLOCATION_RATIO; // 40_000
 
-// Always returns hardcoded defaults; `db` param kept for call-site compatibility.
+// Always returns hardcoded defaults.
 function loadScoringWeights(_db: HyperIdleDb): Promise<ScoringWeights> {
 	return Promise.resolve({ ...DEFAULT_WEIGHTS });
 }

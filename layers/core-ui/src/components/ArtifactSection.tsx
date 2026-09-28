@@ -51,8 +51,7 @@ export interface ArtifactSectionProps {
  * That shared path is the point, not a convenience. It is what makes a produced
  * item that IS an interactive document — a body whose only block is a fenced
  * ```html block — run in the sandbox frame here too. Rendering the body as
- * `<pre>` text instead would show an interactive artifact as its own source,
- * which is precisely the thing this change exists to stop.
+ * `<pre>` text instead would show an interactive artifact as its own source.
  */
 function ArtifactDetailPane({ itemId }: { itemId: string }): JSX.Element {
 	const { status, data } = useDocument(itemId);

@@ -143,7 +143,7 @@ export const tasks = pgTable(
 	(table) => [
 		index("tasks_parent_task_id_idx").on(table.parentTaskId),
 		index("tasks_team_id_idx").on(table.teamId),
-		// `tasks_state_idx` dropped — state has too few distinct values to be selective
+		// no index on state — too few distinct values to be selective
 	],
 );
 

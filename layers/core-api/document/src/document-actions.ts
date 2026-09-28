@@ -556,8 +556,7 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 		if (effectiveAs === "memory") {
 			effectiveParent = null;
 		} else if (input.parent !== undefined) {
-			// `null` always means "to the top of the tree" (architecture
-			// decision) — never a re-stamp of the calling task/thread. An
+			// `null` always means "to the top of the tree" — never a re-stamp of the calling task/thread. An
 			// explicit `as:"artifact"` + `parent:null` is refused before this
 			// this line is ever reached (`artifact_parent_kind`); an existing
 			// artifact edited to `parent:null` with no explicit `as` simply
@@ -620,8 +619,8 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 		// already refused a client-named one above, in the pure pass), and a
 		// plain read against a table this module doesn't own, so resolving it
 		// before the transaction opens is safe the same way the task/thread
-		// arm above is. Review finding: "a missing agent/subscription ->
-		// parent_not_found" on the internal path.
+		// arm above is. A missing agent/subscription is `parent_not_found` on the
+		// internal path.
 		//
 		if (
 			parentActivelySet &&

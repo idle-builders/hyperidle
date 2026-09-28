@@ -533,7 +533,7 @@ async function markSupersededInternal(db: HyperIdleDb, intent: AgentWorkIntent):
 			and(eq(agentWorkIntents.id, intent.id), eq(agentWorkIntents.claimToken, intent.claimToken)),
 		);
 }
-/** `intent.bakedRequestJson` parsed, or `undefined` for a not-yet-migrated kind. */
+/** `intent.bakedRequestJson` parsed, or `undefined` when the intent carries none. */
 function parseBakedRequest(intent: AgentWorkIntent): BakedWorkIntentRequest | undefined {
 	if (!intent.bakedRequestJson) return undefined;
 	return JSON.parse(intent.bakedRequestJson) as BakedWorkIntentRequest;

@@ -7,7 +7,7 @@
  * Only `failed` uses the destructive color token (`--status-error`).
  *
  * The diff chip is a label, not a control — it has no destination.
- * No new diff renderer (a hard rule).
+ * No new diff renderer.
  *
  */
 // @lore: agent-authored fields — verb/target/output render as React-escaped TEXT only; no dangerouslySetInnerHTML in the activity path

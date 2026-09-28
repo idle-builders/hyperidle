@@ -72,7 +72,7 @@ export interface CommentRowProps extends CommentRowRichSlots {
 /**
  * MentionToken — inline highlighted span for @mention rendering.
  *
- * Visual treatment per design spec:
+ * Visual treatment:
  * - Background: var(--accent-primary) at 8% opacity
  * - Text: var(--accent-primary)
  * - Border-radius: var(--r-pill)

@@ -4,7 +4,7 @@ import { TAG_KIND_ICONS, type TagKind } from "./tag-kinds";
 
 export interface TagProps {
 	label: string;
-	/** Optional Tier-2 kind. When omitted, renders the legacy neutral chip. */
+	/** Optional Tier-2 kind. When omitted, renders the neutral chip. */
 	kind?: TagKind;
 
 	tone?: "neutral" | "accent" | "solid";
