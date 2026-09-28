@@ -1,36 +1,69 @@
 # Agents
 
-How you work with the agents on your team: your personal Assistant, the agent categories you'll encounter, and what happens when agents run. For agent identity, composition, and lifecycle in depth, see [agent-layer/agent-model.md](../../agent-layer/agent-model.md).
+How agents work, what wakes them, and how to add more.
 
-## Your Assistant
+For agent identity and the full lifecycle, see [agent-layer/agent-model.md](../../agent-layer/agent-model.md).
 
-Every HyperIdle user has a personal **Assistant** (role `assistant`, category `individual`) — created for you at registration, one per human. It lives in a persistent conversation thread in an overlay anchored to the bottom-right of the window, opened from the **Assistant button in the top row of the sidebar** (next to the search field). The Assistant is scoped to you: it sees what you can see and acts on your behalf.
+---
 
-### Talking to your Assistant
+## Your assistant
 
-Open the Assistant overlay by clicking the **Assistant button** in the top row of the sidebar, next to the search field (no keyboard shortcut). Describe what you need in natural language; the Assistant replies in the same thread, the same way any other agent replies into a conversation it's part of.
+Every HyperIdle user gets a personal **assistant** — created during setup, one per human. It is an individual agent: scoped to you, not a team. It can see what you can see and act on your behalf through the same tools any other agent uses.
 
-Ask the Assistant to draft a task in plain language. It uses `edit_task` (no `id` — a create) to place a proposed task on your team's work queue. You then review and accept it — the Assistant never changes task state on your behalf without your confirmation.
+Open the assistant as an overlay from the **Assistant** button in the sidebar's top row, next to search. Ask it to draft a task, look something up, or explain what's happening. You can see every change it makes.
 
-## Agent categories
+---
 
-Two categories — `team` and `individual`:
+## Team agents
 
-**Team agents** — do the work on tasks. A new team starts with **one** agent and
-nothing decided about it. You give it an identity, add more agents in whatever
-roles your work needs, or install a plugin that brings a shaped team. A role is
-just a name you type; the picker offers the ones already in use so you can reuse
-them.
+Team agents do the work on tasks. A fresh install has no team agents. You get them two ways:
 
-**Individual agents** — your Assistant (above). Scoped to one user, not a team.
+**Install the role-personas plugin.** Go to **Settings → Plugins** and install **role-personas**. It brings seven shaped agents: Builder, Designer, Product Manager, QA Engineer, Growth, Ops, and Facilitator — each with a name, role, system prompt, and harness selection. Install it for your team. You can edit any of them afterward.
 
-## How agents work
+**Add one by hand.** Go to the team page in Work and click **Add agent**, or use **Settings → Agents → + Add Agent**. Fill in a name, role, system prompt, harness, and max concurrent sessions.
 
-Agents run in **sessions** — bounded work units on a specific task. Each session:
+---
 
-1. Gets context assembled from the task tree and relevant knowledge
-2. Works in a sandbox working directory toward the task's done condition
-3. Creates review items when it needs your approval
-4. Finishes and captures learnings back into the knowledge layer
+## What wakes an agent
 
-You don't manage sessions directly. Agents pick up work from accepted tasks, run sessions, and surface results through Conversations. See [three-core-views.md](./three-core-views.md) for where sessions appear, and [process-layer/tasks-and-sessions.md](../../process-layer/tasks-and-sessions.md) for the underlying lifecycle.
+An agent runs when any of these happen:
+
+- **A task it owns is accepted.** Set `ownerAgentId` on a task and accept it — the agent starts a session.
+- **It is mentioned or messaged in a thread it's part of.**
+- **A subscription fires.** An event subscription wakes the agent when one of the nine object events occurs. A schedule subscription wakes it on a cron schedule.
+
+---
+
+## Subscriptions
+
+An agent's subscriptions live on its profile page (click the agent's name anywhere it appears). Each subscription is either an event (one of task/thread/document/user created or changed) or a cron schedule. A firing subscription starts a session.
+
+The role-personas plugin installs subscriptions on its agents automatically. You can inspect and adjust them.
+
+---
+
+## Harness, model, and concurrency
+
+Each agent has:
+
+- **Harness** — which CLI runs it: `claude` (Claude Code), `codex`, `opencode`, or `cursor-agent`. The harness uses its own login; no API key is set in HyperIdle.
+- **Model** — selected from the models the harness knows about. What is available depends on which harness you picked.
+- **Max concurrent sessions** — how many sessions this agent can run at once.
+
+Edit these in **Settings → Agents** or on the agent's profile page.
+
+---
+
+## Sessions
+
+A session is one bounded run of an agent on a task. It runs in a sandbox, reads the task and relevant knowledge, and writes back what it produces. You can watch it in the task's session view. Stop a session from the task page or session view.
+
+---
+
+## Approval rate
+
+The agent's profile shows its approval rate — the share of reviews where you approved without requesting changes. This is informational. It does not gate any action.
+
+---
+
+Next: [Running Your Team](./running-your-team.md)

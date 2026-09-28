@@ -1,74 +1,63 @@
 # Self-Hosting
 
-Two server-hosted profiles run HyperIdle against real Postgres: **VPS** (single-machine Docker Compose) and **cloud** (managed Postgres). Both use the postgres-js driver (`framework/host-process/src/profiles.ts`). The implemented, operated server deployment is the shared K8s backend — see [shared-backend](shared-backend.md). The VPS compose stack runs dev-mode processes (`npm run dev` inside the containers) — it is not hardened production.
+The **cloud** profile runs HyperIdle against a managed Postgres instance. The remote-server application boots with no embedded harness pool — agents come from desktop clients or a `remote-worker` pointed at the server.
 
-Agents run on the host in every profile — see [run-unit-model](../architecture/run-unit-model.md).
+Profile defaults are in `applications/remote-server/src/profiles.ts`.
 
-## VPS (Docker Compose)
+## Required environment variables
 
-One stack, three services (`docker-compose.yml` at repo root):
-
-- `postgres` — `postgres:16-alpine`, named volume `postgres_data`, healthcheck, bound to `127.0.0.1:5432`.
-- `server` — Hono API on `127.0.0.1:3001`, `HYPERIDLE_PROFILE=vps`, waits on a healthy Postgres (`depends_on: condition: service_healthy`).
-- `web` — Vite on `127.0.0.1:5173`.
-
-All three bind to loopback so `docker compose up -d` never accidentally publishes to `0.0.0.0`. Front the server and web with a reverse proxy (nginx/Caddy) for TLS + auth; reach Postgres externally only via VPN or SSH tunnel.
-
-### Setup
-
-```bash
-cp .env.example .env
-# Set POSTGRES_PASSWORD — compose hard-fails without it.
-npm run setup -- --profile vps
-docker compose up -d
-DATABASE_URL=postgres://hyperidle:$POSTGRES_PASSWORD@localhost:5432/hyperidle npx tsx framework/db/src/migrate-pg.ts
-npm run db:seed:pg
-```
-
-Notes:
-
-- `npm run setup` needs `--` before flags to forward them (`npm run setup --profile vps` silently drops the flag). The vps profile verifies `docker-compose.yml` exists (`tools/setup/src/setup-cli.ts`, `requiresDockerCompose` in `framework/host-process/src/profiles.ts`).
-- `DATABASE_URL` inside the server container is interpolated from `POSTGRES_USER`/`POSTGRES_PASSWORD`/`POSTGRES_DB` (see `@lore` in `docker-compose.yml`). Override with an explicit `DATABASE_URL` in `.env` if needed.
-
-### Verify
-
-```bash
-docker compose ps
-curl http://localhost:3001/health
-```
+| Variable | Required | Notes |
+|---|---|---|
+| `HYPERIDLE_API_KEY` | **Yes** | Shared secret for all API requests. Server exits at startup without it for vps/cloud profiles (`applications/remote-server/src/validate-startup-env.ts`). |
+| `DATABASE_URL` | **Yes** | PostgreSQL connection string. |
+| `HYPERIDLE_PROFILE` | No | `cloud` (default: `laptop`). |
+| `PORT` | No | Default `3001`. |
 
 ## Cloud (managed Postgres)
 
-`HYPERIDLE_PROFILE=cloud` runs against a managed Postgres instance (Neon, Supabase, RDS, …). The cloud profile has no default URL — `DATABASE_URL` (or `--db-url`) is mandatory; setup errors with `Cloud profile requires DATABASE_URL env var or --db-url.` (`tools/setup/src/setup-cli.ts:233`).
+`HYPERIDLE_PROFILE=cloud` runs against a managed Postgres instance (Neon, Supabase, RDS, …).
 
 ```bash
 export DATABASE_URL=postgres://user:pass@host:5432/hyperidle
 export HYPERIDLE_PROFILE=cloud
-npm run setup -- --profile cloud
-npx tsx framework/db/src/migrate-pg.ts
-npm run db:seed:pg
+export HYPERIDLE_API_KEY=$(openssl rand -hex 32)
+npx tsx framework/db/src/migrate-pg.ts   # applies migrations (no CREATE SCHEMA — safe for a restricted role)
+npm run db:bootstrap:pg                  # writes the one system row every instance needs
+npm start                                # serve the built frontend + API
 ```
 
-**Connection pool:** default 10 connections; override via the `PG_POOL_SIZE` env var or the `maxConnections` option on `createPgDb` — all in `framework/db/src/connection.ts`.
+**Connection pool:** default 10 connections; override via `PG_POOL_SIZE` (`framework/db/src/connection.ts`).
 
-**Verify:** `curl $API_URL/health` (also served at `/api/health`).
+**Health check:** `curl $API_URL/api/health`.
 
-## Postgres tooling
+## Postgres migration tooling
 
-There is no `db:migrate:pg` npm script — PG migrations run via `npx tsx framework/db/src/migrate-pg.ts`, which applies migrations without `CREATE SCHEMA` so a schema-scoped tenant role (no database-level CREATE) can run it. Companion scripts:
+Two migration runners exist:
 
 | Command | What it does |
 |---|---|
-| `npx tsx framework/db/src/migrate-pg.ts` | Apply PG migrations against `DATABASE_URL` |
-| `npm run db:seed:pg` | Seed against `DATABASE_URL` |
-| `npm run db:bootstrap:pg` | Factory bootstrap against `DATABASE_URL` |
-| `npm run test:pg` | Run the test suite against a real `DATABASE_URL` (`framework/db/src/__testing__/pg-test-runner.ts`) |
+| `npx tsx framework/db/src/migrate-pg.ts` | Custom runner — applies migrations without `CREATE SCHEMA`, safe for a schema-scoped tenant role |
+| `npm run db:migrate` | drizzle-kit migrate against `DATABASE_URL` — requires database-level CREATE, not suitable for a restricted role |
+
+Use `migrate-pg.ts` in production. Use `npm run db:migrate` locally when you have full database access.
+
+Companion commands:
+
+| Command | What it does |
+|---|---|
+| `npm run db:bootstrap:pg` | Factory bootstrap (the `system:propagation` actor) |
+| `npm run db:seed:pg` | Same as bootstrap plus `--demo` |
+| `npm run test:pg` | Run the test suite against a real `DATABASE_URL` |
+
+## VPS (Docker Compose)
+
+The `docker-compose.yml` at repo root defines a three-service stack. **This stack is not currently functional** — the `server` service requires `HYPERIDLE_API_KEY` but none is passed in the compose environment, so the server exits at startup. Use the cloud profile with a managed Postgres instead until this is fixed.
 
 ## Troubleshooting
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `docker-compose.yml not found` | Wrong working directory. | Run from repo root, or pass `--root <path>` to setup. |
+| `HYPERIDLE_API_KEY is required for VPS/cloud profiles` | Server started without a key. | Export `HYPERIDLE_API_KEY` before starting. |
 | `Invalid profile: "…". Must be one of: laptop, vps, cloud.` | Typo in `HYPERIDLE_PROFILE`. | Use `laptop`, `vps`, or `cloud`. |
 | `Cloud profile requires DATABASE_URL env var or --db-url.` | Cloud profile without a URL. | Export `DATABASE_URL` or pass `--db-url`. |
 | Postgres pool exhausted | Too few connections. | Raise `PG_POOL_SIZE` (default 10). |

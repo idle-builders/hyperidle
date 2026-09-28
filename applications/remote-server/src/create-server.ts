@@ -86,8 +86,7 @@ export interface CreateServerDeps {
 	 *
 	 * @lore Exposure is a property of the Application, not of this factory, so
 	 * it is a parameter rather than a runtime env branch. `desktop` embeds this
-	 * server in the Electron shell and passes `127.0.0.1`: S-9.2 promises the
-	 * desktop app is not reachable from the local network, and until this field
+	 * server in the Electron shell and passes `127.0.0.1`: the desktop app must not be reachable from the local network, and until this field
 	 * existed that promise was false — the embedded server bound `::`, so any
 	 * machine on the same café/office LAN could reach a laptop's team data.
 	 * `remote-server` deliberately leaves this undefined. Both sides are pinned
@@ -486,7 +485,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	const wss = new WebSocketServer({ noServer: true });
 
 	// `hostname` undefined → serve() binds all interfaces (the hosted default).
-	// `desktop` passes 127.0.0.1 so the embedded server is loopback-only (S-9.2).
+	// `desktop` passes 127.0.0.1 so the embedded server is loopback-only.
 	const httpServer = serve({
 		fetch: staticFetch,
 		port,

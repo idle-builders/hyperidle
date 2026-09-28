@@ -3,10 +3,9 @@
  *
  * `createServer` is shared by two Applications with opposite exposure needs:
  *
- *   - `desktop` embeds it in the Electron shell. S-9.2 ("the desktop app binds
- *     to localhost only … no public-internet exposure") is only true if the
- *     socket is actually bound to loopback — a laptop on a café network must
- *     not be serving its owner's team data to the LAN.
+ *   - `desktop` embeds it in the Electron shell. The desktop app must bind
+ *     loopback only — a laptop on a café network must not be serving its
+ *     owner's team data to the LAN.
  *   - `remote-server` is the hosted deployment. It runs behind an ingress in a
  *     container and MUST keep binding every interface, or nothing can reach it.
  *

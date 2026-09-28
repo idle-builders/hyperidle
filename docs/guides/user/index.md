@@ -1,24 +1,15 @@
 # HyperIdle User Guide
 
-HyperIdle puts you at the head of a flat team of humans and AI agents. You shape work as tasks, agents execute, you review and redirect. Agents act by default — reviews and gates are chosen by you or earned from real outcomes, not imposed on every action. Every session, decision, and pattern is captured and reused: knowledge compounds across your team over time.
+HyperIdle puts you at the head of a flat team of humans and AI agents. You shape work as tasks, agents execute, you review and redirect.
 
 ---
 
 ## Walkthroughs
 
-- [Getting Started](./getting-started.md) — install, first-run setup, and creating a task with an agent responding
-- [The Interface](./the-interface.md) — two-column shell: sidebar nav, shortcuts, search, notifications, and the assistant overlay
-- [Three Core Views](./three-core-views.md) — Conversations, Work, and Knowledge view walkthroughs including verdicts and scope pills
-- [Agents](./agents.md) — your personal Assistant, the three agent categories, and how agent sessions run
-- [Running Your Team](./running-your-team.md) — daily and weekly rhythms and a common-situation playbook
-- [Settings](./settings.md) — section-by-section reference for Profile, Models, Agents, Filesystems, and trust configuration
-- [Connecting Services](./connections.md) — adding held tokens and MCP servers so agents can reach external tools
-- [Deployment](./deployment.md) — profile summary (laptop PGlite, VPS, cloud) and links to full deployment docs
-
-## Deeper reference
-
-- [Agent model](../../agent-layer/agent-model.md) — agent composition, identity, categories, and lifecycle
-- [Tasks and the task tree](../../process-layer/the-four-primitives.md) — how tasks work, subtasks, and the recursive tree
-- [Tasks and sessions](../../process-layer/tasks-and-sessions.md) — how agents pick up and execute work
-- [Knowledge architecture](../../knowledge-architecture/index.md) — how knowledge nests as a tree and compounds across the team
-- [WIP limits](../../process-layer/wip-and-cost-limits.md) — how concurrency is bounded
+- [Getting Started](./getting-started.md) — install, first-run setup, and running your first task
+- [The Interface](./the-interface.md) — sidebar, shortcuts, search, inbox, and the assistant overlay
+- [Views](./views.md) — Conversations, Work, and Knowledge walkthroughs
+- [Agents](./agents.md) — your assistant, team agents, subscriptions, and sessions
+- [Running Your Team](./running-your-team.md) — common situations and how to handle them
+- [Settings](./settings.md) — section-by-section reference
+- [Connecting Services](./connections.md) — adding tokens and MCP servers so agents can reach external tools

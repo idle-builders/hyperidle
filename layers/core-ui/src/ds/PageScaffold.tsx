@@ -2,7 +2,7 @@
  * PageScaffold — Tier 1 DS component.
  *
  * The one place a page declares its scroll contract. Before it, the contract
- * was prose in `docs/ui-design/page-anatomy.md` that each page hand-copied —
+ * was prose in `docs/interface/ui-design.md` that each page hand-copied —
  * incompletely, in three places. PageScaffold makes it
  * a component: a page that wants to scroll calls this; it cannot hand-write the
  * combination of classes that scrolls (or that silently clips) instead.

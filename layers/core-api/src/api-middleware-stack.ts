@@ -7,7 +7,7 @@
  * Application (`applications/remote-server/src/create-server.ts`, or a test harness)
  * owns the `/api` router, `use()`s these handlers on it, and only then mounts
  * both Layer apps behind them. "Only an Application may choose to put another
- * Layer's routes behind this stack" (`runtime-simplification.md:159-164`) — that
+ * Layer's routes behind this stack" (`docs/architecture/overview.md` §Applications) — that
  * choice is not core-api's to make, which is why the stack is handed out rather
  * than installed.
  */

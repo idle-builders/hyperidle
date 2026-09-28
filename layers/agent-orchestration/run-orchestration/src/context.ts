@@ -408,7 +408,7 @@ function assemblePrompt(input: PromptCompositionInput): PromptCompositionResult 
  *
  * @lore AK1: Renamed from writeWorkspaceCLAUDEmd (AK1 harness-vocab rename).
  * Dual-write (DEFAULT): writes AGENTS.md (Linux-Foundation cross-vendor standard,
- * per runtime-simplification.md §4) AND CLAUDE.md (current harness auto-discovery
+ * per docs/architecture/overview.md §Session path) AND CLAUDE.md (current harness auto-discovery
  * for Claude Agent SDK + Aider/Goose/OpenCode). Both files contain identical content.
  *
  * Rationale for dual-write: no adapter positively verified to read AGENTS.md today;

@@ -44,12 +44,11 @@ describe("DOCS_NAV", () => {
 			"guides/user",
 			"guides/user/getting-started",
 			"guides/user/the-interface",
-			"guides/user/three-core-views",
+			"guides/user/views",
 			"guides/user/agents",
 			"guides/user/running-your-team",
 			"guides/user/settings",
 			"guides/user/connections",
-			"guides/user/deployment",
 		]);
 	});
 
@@ -61,9 +60,7 @@ describe("DOCS_NAV", () => {
 			"guides/developer/commands",
 			"guides/developer/testing",
 			"guides/developer/mock-data-policy",
-			"guides/developer/design-system",
 			"guides/developer/linting-and-formatting",
-			"guides/developer/work-packages",
 		]);
 	});
 
@@ -73,9 +70,7 @@ describe("DOCS_NAV", () => {
 			"product",
 			"product/what-is-hyperidle",
 			"product/how-work-flows",
-			"product/human-ai-collaboration",
 			"product/how-knowledge-compounds",
-			"product/product-decisions",
 		]);
 	});
 });

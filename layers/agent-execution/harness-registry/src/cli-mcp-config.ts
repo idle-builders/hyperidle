@@ -151,7 +151,7 @@ function writeCodexToml(params: {
  * @lore in adapter-pool.ts next to codex's CLI_TOOL_CONFIGS entry). The
  * session sandbox (codex's cwd) is always declared; `extraPaths` carries the
  * session's other mounted filesystems (the filesystem primitive's job is
- * deciding what is trusted — see docs/process-layer/filesystem-primitive.md),
+ * deciding what is trusted — see docs/objects/folders.md),
  * so a doc_set folder symlinked into the sandbox from elsewhere on disk is
  * trusted too, not just the sandbox root it is linked under.
  */

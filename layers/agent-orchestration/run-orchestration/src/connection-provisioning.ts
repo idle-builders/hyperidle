@@ -28,7 +28,7 @@
  * authenticate directly. No gate; re-apply every spawn; idempotent.
  *
  * @lore AN2 ownership: Single-founder is the locked deployment
- * (authorization-model.md:32). A multi-tenant model (agent→explicit-owner FK)
+ * (docs/architecture/security.md §Trust mode). A multi-tenant model (agent→explicit-owner FK)
  * is a future change gated by the same trigger as RLS; not built now. Every
  * held row carries its own `userId` and its token is resolved against THAT
  * owner, so hard-rule 4 (per-user isolation) is enforced per row rather than

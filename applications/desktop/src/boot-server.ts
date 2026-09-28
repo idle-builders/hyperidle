@@ -19,8 +19,8 @@ export type { ServerHandle };
  * The embedded server serves only the Electron renderer in this same process,
  * so it binds loopback and nothing else.
  *
- * @lore S-9.2 ("the desktop app binds to localhost only — no public-internet
- * exposure") was a false claim until this was passed: `createServer` binds
+ * @lore The desktop app binds to loopback only — no public-internet exposure.
+ * This was a false claim until this parameter was passed: `createServer` binds
  * every interface when given no hostname, so the embedded server was reachable
  * from the local network by any machine that could guess the OS-assigned port.
  * `remote-server` still omits `hostname` on purpose — a hosted deployment has

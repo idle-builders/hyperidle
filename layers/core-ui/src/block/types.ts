@@ -1,6 +1,5 @@
 /**
- * L2 Block primitive types. Concept: docs/blocks/.
- * docs/blocks/canonical-shapes.md is the canonical signature.
+ * L2 Block primitive types. Concept: docs/interface/blocks.md.
  *
  * @lore AU44-b8: moved here from framework/domain-model/src/blocks/types.ts.
  * block-derivation dissolved into core-ui (batch 7); types follow their producer.

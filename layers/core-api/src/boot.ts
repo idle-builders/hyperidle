@@ -9,7 +9,7 @@
  * @lore AU26 B1b: this boot used to own the `/api` router, the middleware stack
  * and the mounting of the OTHER Layer's app — a core-api file deciding that
  * `agent-orchestration`'s routes sit behind core-api's auth. That decision is an
- * Application's alone (`runtime-simplification.md:159-164`), so it moved out to
+ * Application's alone (`docs/architecture/overview.md` §Applications), so it moved out to
  * `applications/remote-server/src/create-server.ts` (production) and
  * `test-utils.ts`'s `createTestApp` (the test harness Application). What this
  * boot returns is core-api's own route table, its own pre-auth registrar, and
@@ -190,7 +190,7 @@ export interface CoreApiBoot {
 /**
  * The human whose held connections a
  * spawn provisions. A deployment is single-founder
- * (`docs/architecture/authorization-model.md:32`) — one human owns the
+ * (`docs/architecture/security.md` §Trust mode) — one human owns the
  * deployment's connections, and every agent it runs provisions that human's
  * tokens. Deterministic under more than one human — oldest row, id as
  * tiebreak — so a shared-mode deployment provisions the founder's connections

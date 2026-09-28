@@ -1,7 +1,7 @@
 /**
  * deriveBlocks() — pure markdown → Block[] derivation.
  *
- * Concept: docs/blocks/.
+ * Concept: docs/interface/blocks.md.
  *
  * Pipeline: oversize byte-cap check → unified().use(remarkParse).use(remarkGfm)
  * .parse(body) → walk top-level mdast nodes → map to BlockKind →

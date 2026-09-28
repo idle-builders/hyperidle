@@ -4,7 +4,7 @@ import { Button } from "../ds";
 /**
  * @lore I4 E1: ErrorBoundary is a utility class component that catches
  * render errors in its children and renders a fallback UI. It is NOT one of
- * the 19 custom presentational components in `docs/UI_DESIGN.md` — it is
+ * the custom presentational components in `docs/interface/ui-design.md` — it is
  * infrastructure (same category as the AppShell layout). Without it, an
  * uncaught render error in any page produces a blank white screen.
  *

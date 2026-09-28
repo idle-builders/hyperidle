@@ -13,8 +13,8 @@
  * shared — it names no layer), same disposal ordering. Only the environment
  * facts differ: `topology: "local"` (in-process CLI harness discovery, a real
  * local sandbox — `desktop` runs agents on the user's own machine) and
- * `hostname: "127.0.0.1"` (S-9.2: the desktop app is never reachable from the
- * local network).
+ * `hostname: "127.0.0.1"` (the desktop app is never reachable from the
+ * local network — it binds loopback only).
  *
  * If the two composition roots' recipes ever need to diverge further, that is
  * the point of duplicating them: each Application owns its own boot sequence

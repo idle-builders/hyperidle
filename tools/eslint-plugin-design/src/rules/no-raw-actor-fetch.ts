@@ -9,8 +9,7 @@
  *
  * Recurrence (3-track): L2, L4, L7. Each story shipped a route that
  * silently dropped the actor header because the call was a literal
- * `fetch(...)` outside the wrapper. See `docs/no-raw-actor-fetch.md` for
- * cross-references to retro entries.
+ * `fetch(...)` outside the wrapper.
  *
  * Detection:
  *   CallExpression whose callee is the bare global identifier `fetch` and
@@ -81,7 +80,7 @@ export const noRawActorFetch: Rule.RuleModule = createRule({
 		schema: [],
 		messages: {
 			rawActorFetch:
-				"Raw fetch('{{path}}') drops the X-Actor-Id header. Use useRecoveryFetch (layers/core-ui/src/hooks/) or a sibling actor-aware helper instead. See docs/no-raw-actor-fetch.md.",
+				"Raw fetch('{{path}}') drops the X-Actor-Id header. Use useRecoveryFetch (layers/core-ui/src/hooks/) or a sibling actor-aware helper instead.",
 		},
 	},
 	create(context) {

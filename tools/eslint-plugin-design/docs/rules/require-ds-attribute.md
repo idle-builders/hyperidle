@@ -40,5 +40,4 @@ export default function Foo() {
 
 ## Cross-link
 
-See `layers/core-ui/src/ds/ds-attrs.ts` for the marker helper, and
-`docs/work-packages/TRACK-K.md` § K2 for the full contract.
+See `layers/core-ui/src/ds/ds-attrs.ts` for the marker helper.
