@@ -52,12 +52,13 @@ founder (ownership).
 
 ## 3. Surfaces registered
 
-### Frame — three regions, present on every screen designed so far
+### Frame — two regions, on every screen
 | Region | Holds | Owning journey |
 |---|---|---|
-| **Rail** | identity, find-or-ask, the three spines with counts | ARRIVE |
-| **Queue** | the night-shift handover, then what needs you, then what finished | ARRIVE |
-| **Detail** | the thread and everything inside it | HAND OFF |
+| **Sidebar** | find-or-ask (opens the ⌘K overlay), Conversations · Work · Knowledge stacked, a separator, the chosen spine's priority list | ARRIVE |
+| **Detail** | the thread, task or document you opened — including a review, which is a thread | HAND OFF (thread), JUDGE (review) |
+
+All three journeys use the same sidebar component in the studio (`applications/studio/src/Sidebar.tsx`).
 
 ### HAND OFF — designed, founder-approved 2026-08-18
 Seven states of one thread, walkable in the studio:

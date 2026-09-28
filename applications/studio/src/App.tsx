@@ -2,7 +2,7 @@ import { useState } from "react";
 import { drafts, mentionables, sessionSteps, STEPS, tickets } from "./handoff";
 import { Arrive, ARRIVE_STEPS } from "./Arrive";
 import { Judge, JUDGE_STEPS } from "./Judge";
-import { needsYou, overnight, type QueueItem } from "./mock";
+import { conversations, type Item, Sidebar } from "./Sidebar";
 
 const SKINS = [
 	{ id: "paper", name: "Paper" },
@@ -63,19 +63,6 @@ function WorkItem({ step }: { step: number }) {
 	);
 }
 
-function Row({ item, current, onPick }: { item: QueueItem; current: boolean; onPick: () => void }) {
-	return (
-		<button type="button" className="row" aria-current={current} onClick={onPick}>
-			<span className="row-top">
-				<span className="chip chip--quiet">{item.origin}</span>
-				{item.waiting ? <span className="chip chip--flag">Needs you</span> : null}
-				<span className="row-age">{item.age}</span>
-			</span>
-			<span className="row-title">{item.title}</span>
-			<span className="row-sub">{item.sub}</span>
-		</button>
-	);
-}
 
 export function App() {
 	const [skin, setSkin] = useState("paper");
@@ -89,39 +76,21 @@ export function App() {
 	document.documentElement.dataset.skin = skin;
 	document.documentElement.dataset.mode = mode;
 
-	// The interruption's own row moves through the queue as the loop turns.
-	const live: QueueItem =
-		step === 0 ? { id: "x", origin: "TASK", title: "Trial-end confusion, three tickets", sub: "Maya · needs a decision", age: "now", waiting: true }
-		: step <= 3 ? { id: "x", origin: "TASK", title: "Trial-end confusion, three tickets", sub: "Builder · running", age: "12m" }
-		: step <= 5 ? { id: "x", origin: "TASK", title: "Explain what happens when a trial ends", sub: "Builder · needs your eyes", age: "4h", waiting: true }
-		: { id: "x", origin: "TASK", title: "Explain what happens when a trial ends", sub: "Builder · closed by your verdict", age: "4h" };
+	// The interruption's own thread moves through the list as the loop turns.
+	const live: Item =
+		step === 0 ? { id: "x", title: "Trial-end confusion, three tickets", state: "Your answer", who: "Maya asks", age: "now", yours: true }
+		: step <= 2 ? { id: "x", title: "Trial-end confusion, three tickets", state: "Handed to Builder", who: "you", age: "now" }
+		: step === 3 ? { id: "x", title: "Trial-end confusion, three tickets", state: "Builder working · 12m", who: "5 steps", age: "12m" }
+		: step === 4 ? { id: "x", title: "Trial-end confusion, three tickets", state: "Your answer", who: "Builder asks", age: "4h", yours: true }
+		: step === 5 ? { id: "x", title: "Trial-end confusion, three tickets", state: "Your review", who: "Builder · 1 of 2 reviews", age: "4h", yours: true }
+		: { id: "x", title: "Trial-end confusion, three tickets", state: "Maya:", who: "Sent all three, closed the tickets.", age: "13:02", fresh: true };
+	const others = conversations(false).filter((i) => i.id !== "c-trial" && i.id !== "c-r1" && i.id !== "c-q");
+	const handoffList = [live, ...others].sort((a, b) => Number(Boolean(b.yours)) - Number(Boolean(a.yours)) || Number(Boolean(b.fresh)) - Number(Boolean(a.fresh)));
 
 	return (
-		<div className={journey === "judge" ? "frame frame--judge" : arrive ? `frame frame--arrive${step === 0 ? " frame--first" : ""}` : "frame"}>
-			<nav className={arrive ? "rail rail--studio" : "rail"}>
-				{arrive ? <span className="studio-h">Studio controls</span> : <>
-				<span className="wordmark">HyperIdle</span>
-
-				<div className="rail-search">
-					<input placeholder="Find or ask…" aria-label="Find or ask" />
-					<button type="button" aria-label="Assistant">✦</button>
-				</div>
-
-				<div className="spines">
-					<button type="button" className="spine" aria-current="true">
-						<span>Conversations</span>
-						<span className="spine-count">{step === 0 || step === 4 || step === 5 ? 3 : 2}</span>
-					</button>
-					<button type="button" className="spine">
-						<span>Work</span>
-						<span className="spine-count">12</span>
-					</button>
-					<button type="button" className="spine">
-						<span>Knowledge</span>
-						<span className="spine-count">2</span>
-					</button>
-				</div>
-				</>}
+		<div className={arrive && step === 0 ? "frame frame--first" : "frame"}>
+			<nav className="rail rail--studio">
+				<span className="studio-h">Studio controls</span>
 
 				<div className="switcher">
 					{[
@@ -165,35 +134,12 @@ export function App() {
 				</div>
 			</nav>
 
-			{journey === "judge" ? <Judge key={step} step={step} /> : arrive ? <Arrive key={step} step={step} /> : <>
-			<section className="queue">
-				<header className="overnight">
-					<h1>While you were away</h1>
-					<p>Last night's shift, handed over</p>
-					<div className="overnight-nums">
-						<span className="overnight-num"><b>7</b><span>Finished</span></span>
-						<span className="overnight-num overnight-num--flag">
-							<b>{step === 0 || step >= 4 ? 3 : 2}</b><span>Need you</span>
-						</span>
-					</div>
-				</header>
-
-				<div className="queue-scroll">
-					<p className="queue-group">{step >= 1 && step <= 3 ? "In flight" : "Need you"}</p>
-					<Row item={live} current onPick={() => undefined} />
-					{needsYou.slice(1).map((i) => (
-						<Row key={i.id} item={i} current={false} onPick={() => undefined} />
-					))}
-					<p className="queue-group">Finished overnight</p>
-					{overnight.slice(0, 4).map((i) => (
-						<Row key={i.id} item={i} current={false} onPick={() => undefined} />
-					))}
-				</div>
-			</section>
+			{journey === "judge" ? <><Sidebar key={`j${step}`} initialPicked="c-r1" /><Judge key={step} step={step} /></> : arrive ? <Arrive key={step} step={step} /> : <>
+			<Sidebar key={`h${step}`} initialPicked="x" lists={{ conversations: handoffList }} />
 
 			<section className="thread">
 				<header className="thread-head">
-					<span className="chip chip--quiet">Task</span>
+					<span className="chip chip--quiet">Thread</span>
 					<h2>Trial-end confusion, three tickets</h2>
 				</header>
 

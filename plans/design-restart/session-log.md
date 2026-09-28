@@ -475,3 +475,10 @@ only when it wants attention, priority order kept, blocks separated by space onl
 Agreed — the icons broke our own rule (colour does not carry status; words do). Replaced with a
 status phrase on each row ("Your review", "New reply", "Running · 2h", "Publish?", …), flag colour
 only for what you owe, even row spacing, no gaps between priority blocks, bold rows first.
+
+**All three journeys now share one sidebar.** Extracted it into `Sidebar.tsx`; Hand Off and Judge
+use it instead of the old rail + queue. In Hand Off the trial-end thread's row changes status as
+the loop turns (Your answer → Handed to Builder → Builder working · 12m → Your answer → Your
+review · 1 of 2 reviews → Maya: Sent all three). The studio's own column now holds only studio
+controls. Removed the old queue, its mock data and styles. Thread/review headers say "Thread";
+a review's header reads "Review · Final · 3 of 3".

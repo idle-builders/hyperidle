@@ -113,8 +113,8 @@ function Round2({ approved }: { approved: boolean }) {
 	return (
 		<div className="rev">
 			<header className="rev-head">
-				<span className="chip chip--quiet">Review</span>
-				<span className="rev-stage">Final · round 2</span>
+				<span className="chip chip--quiet">Thread</span>
+				<span className="rev-stage">Review · Final · round 2</span>
 				<h2>Trial-end explainer</h2>
 				<span className="rev-from">Builder · Explain what happens when a trial ends</span>
 				<span className="rev-act">
@@ -287,8 +287,8 @@ function Round1({ step }: { step: number }) {
 	return (
 		<div className="rev">
 			<header className="rev-head">
-				<span className="chip chip--quiet">Review</span>
-				<span className="rev-stage">Final · 3 of 3</span>
+				<span className="chip chip--quiet">Thread</span>
+				<span className="rev-stage">Review · Final · 3 of 3</span>
 				<h2>Trial-end explainer</h2>
 				<span className="rev-from">Builder · Explain what happens when a trial ends</span>
 				<span className="rev-act">

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { conversations, Sidebar } from "./Sidebar";
 
 /**
  * ARRIVE — first start, and every morning after.
@@ -17,80 +18,6 @@ export const ARRIVE_STEPS = [
 	{ id: 7, name: "Something new while you focus" },
 ];
 
-type Spine = "conversations" | "work" | "knowledge";
-
-/**
- * `state` is the status in words. `yours` = you owe something (the only use of the flag colour);
- * `fresh` = something new you have not seen. Lists are already in priority order.
- */
-interface Item {
-	id: string;
-	title: string;
-	state: string;
-	who: string;
-	age: string;
-	yours?: boolean;
-	fresh?: boolean;
-}
-
-const MENTION: Item = { id: "m1", title: "Refund wording", state: "Mentioned you", who: "Maya", age: "now", yours: true };
-
-function conversations(withMention: boolean): Item[] {
-	return [
-		...(withMention ? [MENTION] : []),
-		{ id: "c-r1", title: "Trial-end explainer", state: "Your review", who: "Builder · 2 flags", age: "8h", yours: true },
-		{ id: "c-r2", title: "Comparison table, stacked layout", state: "Your review", who: "Designer · 1 flag", age: "5h", yours: true },
-		{ id: "c-q", title: "Name for the charge after a trial", state: "Your answer", who: "Builder asks", age: "6h", yours: true },
-		{ id: "c-infra", title: "Rollout rule, written down", state: "Your answer", who: "Maya asks you to own it", age: "11h", yours: true },
-		{ id: "c-trial", title: "Trial-end confusion, three tickets", state: "New reply", who: "Maya", age: "13:02", fresh: true },
-		{ id: "c-pricing", title: "Pricing page, Q4 pass", state: "Growth:", who: "two options drafted", age: "yesterday" },
-		{ id: "c-onb", title: "Onboarding emails", state: "You:", who: "park until October", age: "Mon" },
-		{ id: "c-hiring", title: "Support hire, second round", state: "Maya:", who: "two candidates left", age: "Fri" },
-	];
-}
-
-/** Work is only tasks. The agent owns them, so nothing here is flagged as yours — the review is in Conversations. */
-const WORK: Item[] = [
-	{ id: "w-d1", title: "Proration math covered end to end", state: "Done", who: "Builder", age: "03:40", fresh: true },
-	{ id: "w-d2", title: "Trial dates normalised to UTC", state: "Done", who: "Builder", age: "05:55", fresh: true },
-	{ id: "w-t1", title: "Explain what happens when a trial ends", state: "Waiting on your review", who: "Builder", age: "8h" },
-	{ id: "w-t2", title: "Comparison table, stacked layout", state: "Waiting on your review", who: "Designer", age: "5h" },
-	{ id: "w-f2", title: "Usage-based tier, metering", state: "Running · 2h", who: "Builder", age: "2h" },
-	{ id: "w-f1", title: "Trials that convert without a call", state: "3 of 7 done", who: "Growth", age: "week 2" },
-];
-
-const KNOWLEDGE_PRIORITY: Item[] = [
-	{ id: "k-deploy", title: "Deploy rule", state: "Publish?", who: "draft by Facilitation", age: "4h", yours: true },
-	{ id: "k-price", title: "How we price", state: "Edited by Growth", who: "Trials section", age: "2d", fresh: true },
-];
-
-interface Doc {
-	id: string;
-	title: string;
-	icon: string;
-	note?: string;
-	children?: Doc[];
-}
-
-const TREE: Doc[] = [
-	{ id: "t-product", title: "Product", icon: "📦", children: [
-		{ id: "k-price", title: "How we price", icon: "💷", children: [
-			{ id: "t-trials", title: "Trials", icon: "⏳" },
-			{ id: "t-tiers", title: "Tiers and metering", icon: "📊" },
-		] },
-		{ id: "t-clean", title: "What a clean feature looks like", icon: "✨" },
-	] },
-	{ id: "t-eng", title: "Engineering", icon: "🛠️", children: [
-		{ id: "k-deploy", title: "Deploy rule", icon: "🚀", note: "draft" },
-		{ id: "t-trace", title: "Tracing the codebase", icon: "🧭" },
-	] },
-	{ id: "t-support", title: "Support", icon: "💬", children: [
-		{ id: "t-themes", title: "July support themes", icon: "" },
-	] },
-];
-
-const ICON_CHOICES = ["", "📦", "💷", "⏳", "📊", "✨", "🛠️", "🚀", "🧭", "💬", "📌", "🧪", "📣", "🔒", "🎯", "📚"];
-
 interface Hit {
 	id: string;
 	spine: "Thread" | "Task" | "Document";
@@ -105,83 +32,6 @@ const HITS: Hit[] = [
 	{ id: "h3", spine: "Task", title: "Trials that convert without a call", where: "Work · Growth · 3 of 7 subtasks", snippet: ["Can a ", "trial", " convert to paid without a sales call? Testing a self-serve checkout at day 12."] },
 	{ id: "h4", spine: "Thread", title: "Pricing page, Q4 pass", where: "Conversations · Growth · yesterday", snippet: ["Two options drafted. Option B shortens the ", "trial", " to 10 days and adds a reminder."] },
 ];
-
-function Row({ item, current, onPick }: { item: Item; current?: boolean; onPick: () => void }) {
-	const tone = item.yours ? " nrow-state--yours" : item.fresh ? " nrow-state--fresh" : "";
-	return (
-		<button type="button" className="nrow" aria-current={current} onClick={onPick}>
-			<span className="nrow-top">
-				<span className={item.yours || item.fresh ? "nrow-title nrow-title--strong" : "nrow-title"}>{item.title}</span>
-				<span className="nrow-age">{item.age}</span>
-			</span>
-			<span className="nrow-sub">
-				<span className={`nrow-state${tone}`}>{item.state}</span>
-				<span className="nrow-who">{item.who}</span>
-			</span>
-		</button>
-	);
-}
-
-function List({ items, picked, onPick }: { items: Item[]; picked: string | null; onPick: (id: string) => void }) {
-	return <>{items.map((i) => <Row key={i.id} item={i} current={picked === i.id} onPick={() => onPick(i.id)} />)}</>;
-}
-
-function DocIcon() {
-	return (
-		<svg className="doc-ic" viewBox="0 0 14 14" aria-hidden="true">
-			<path d="M3 1.5h5l3 3v8H3z M8 1.5v3h3" fill="none" stroke="currentColor" strokeWidth="1.1" strokeLinejoin="round" />
-		</svg>
-	);
-}
-
-/** Every node is a document with its own icon; the page outline is only the default. */
-function Tree({ docs, open, toggle, picked, onPick, icons, onIcon, picking, setPicking }: {
-	docs: Doc[]; open: Set<string>; toggle: (id: string) => void; picked: string | null; onPick: (id: string) => void;
-	icons: Record<string, string>; onIcon: (id: string, icon: string) => void;
-	picking: string | null; setPicking: (id: string | null) => void;
-}) {
-	return (
-		<>
-			{docs.map((d) => {
-				const icon = icons[d.id] ?? d.icon;
-				return (
-					<div key={d.id}>
-						<div className="tree-row" aria-current={picked === d.id}>
-							{d.children ? (
-								<button type="button" className="tree-fold" aria-expanded={open.has(d.id)} aria-label={open.has(d.id) ? "Fold" : "Unfold"} onClick={() => toggle(d.id)}>
-									<span className="chev">›</span>
-								</button>
-							) : <span className="tree-fold" />}
-							<button type="button" className="tree-icon" aria-label="Change icon" onClick={() => setPicking(picking === d.id ? null : d.id)}>
-								{icon ? <span className="emoji">{icon}</span> : <DocIcon />}
-							</button>
-							<button type="button" className="tree-title" onClick={() => onPick(d.id)}>
-								<span className="tree-name">{d.title}</span>
-							</button>
-							{d.note && <span className="tree-note">{d.note}</span>}
-							{d.children && !open.has(d.id) && <span className="tree-count">{d.children.length}</span>}
-						</div>
-						{picking === d.id && (
-							<div className="icon-pick" role="dialog" aria-label="Pick an icon">
-								{ICON_CHOICES.map((c) => (
-									<button key={c || "none"} type="button" aria-pressed={icon === c} onClick={() => { onIcon(d.id, c); setPicking(null); }}>
-										{c ? <span className="emoji">{c}</span> : <DocIcon />}
-									</button>
-								))}
-							</div>
-						)}
-						{d.children && open.has(d.id) && (
-							<div className="tree-kids">
-								<Tree docs={d.children} open={open} toggle={toggle} picked={picked} onPick={onPick}
-									icons={icons} onIcon={onIcon} picking={picking} setPicking={setPicking} />
-							</div>
-						)}
-					</div>
-				);
-			})}
-		</>
-	);
-}
 
 /** One input, two intents. Tab flips between them and keeps what you typed. */
 function Palette({ initialMode }: { initialMode: "find" | "ask" }) {
@@ -371,30 +221,14 @@ function Placeholder({ kind, title, meta, note }: { kind: string; title: string;
 }
 
 export function Arrive({ step }: { step: number }) {
-	const initial: Spine = step === 3 ? "work" : step === 4 || step === 7 ? "knowledge" : "conversations";
-	const [spine, setSpine] = useState<Spine>(initial);
-	const [picked, setPicked] = useState<string | null>(
-		step === 1 ? "g" : step === 2 ? "c-r1" : step === 3 ? "w-f1" : step === 4 || step === 7 ? "k-price" : null,
-	);
-	const [open, setOpen] = useState<Set<string>>(new Set(["t-product", "k-price", "t-eng"]));
-	const [icons, setIcons] = useState<Record<string, string>>({});
-	const [picking, setPicking] = useState<string | null>(null);
-
 	if (step === 0) return <FirstStart />;
 
 	const focused = step === 7;
-	const conv = conversations(focused);
-	const needs: Record<Spine, number> = {
-		conversations: conv.filter((i) => i.yours).length,
-		work: 0,
-		knowledge: KNOWLEDGE_PRIORITY.filter((i) => i.yours).length,
-	};
-
-	const toggle = (id: string) => setOpen((prev) => {
-		const next = new Set(prev);
-		if (next.has(id)) next.delete(id); else next.add(id);
-		return next;
-	});
+	const spine = step === 3 ? "work" : step === 4 || step === 7 ? "knowledge" : "conversations";
+	const picked = step === 1 ? "g" : step === 2 ? "c-r1" : step === 3 ? "w-f1" : step === 4 || step === 7 ? "k-price" : null;
+	const lists = step === 1
+		? { conversations: [{ id: "g", title: "Getting started", state: "New", who: "Builder", age: "now", fresh: true }], work: null, knowledge: null }
+		: { conversations: conversations(focused) };
 
 	let detail = <Placeholder kind="Thread" title="Trial-end explainer" meta="Review · Builder · final" note="A review is a thread. It opens here as designed in Judge; the list stays put, so the next one is one click away." />;
 	if (step === 1) detail = <FirstConversation />;
@@ -404,52 +238,8 @@ export function Arrive({ step }: { step: number }) {
 
 	return (
 		<>
-			<nav className="nav">
-				<div className="nav-top">
-					<span className="wordmark">HyperIdle</span>
-					<button type="button" className="find-btn">
-						<span>Find or ask…</span>
-						<kbd>⌘K</kbd>
-					</button>
-				</div>
-
-				<div className="spines nav-spines">
-					{(["conversations", "work", "knowledge"] as Spine[]).map((t) => (
-						<button key={t} type="button" className="spine" aria-current={spine === t} onClick={() => setSpine(t)}>
-							<span>{t[0].toUpperCase() + t.slice(1)}</span>
-							{step > 1 && needs[t] > 0 && <span className="spine-count spine-count--flag">{needs[t]}</span>}
-						</button>
-					))}
-				</div>
-				<hr className="nav-sep" />
-
-				<div className="nav-list">
-					{step === 1 ? (
-						spine === "conversations"
-							? <Row item={{ id: "g", title: "Getting started", state: "New", who: "Builder", age: "now", fresh: true }} current onPick={() => undefined} />
-							: <p className="nav-empty">Nothing here yet.</p>
-					) : spine === "conversations" ? (
-						<>
-							{focused && <p className="nav-new">1 new since you started · it waits here</p>}
-							<List items={conv} picked={picked} onPick={setPicked} />
-						</>
-					) : spine === "work" ? (
-						<List items={WORK} picked={picked} onPick={setPicked} />
-					) : (
-						<>
-							<List items={KNOWLEDGE_PRIORITY} picked={picked} onPick={setPicked} />
-							<section className="tree-wrap" aria-label="All documents">
-								<div className="tree">
-									<Tree docs={TREE} open={open} toggle={toggle} picked={picked} onPick={setPicked}
-										icons={icons} onIcon={(id, ic) => setIcons((p) => ({ ...p, [id]: ic }))}
-										picking={picking} setPicking={setPicking} />
-								</div>
-							</section>
-						</>
-					)}
-				</div>
-			</nav>
-
+			<Sidebar initialSpine={spine} initialPicked={picked} lists={lists} showCounts={step > 1}
+				conversationsNote={focused ? <p className="nav-new">1 new since you started · it waits here</p> : undefined} />
 			{detail}
 			{(step === 5 || step === 6) && <Palette initialMode={step === 5 ? "find" : "ask"} />}
 		</>
