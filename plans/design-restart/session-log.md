@@ -505,3 +505,16 @@ written → built upon; "draft and published and some notifications"; proximity 
    added, Publish.
 5. Published — followers told, version 2 kept.
 6. Built upon — Builder followed it, Maya quoted it, another document links it.
+
+**Founder on the first THINK pass: "a very weird experience … I don't get it yet."** Stopped
+building and asked three questions. Answers: a document starts empty or from a thread; the
+document stays a document with conversation as a layer above — comment on a block/section to tell
+the agent, maybe an inline comment block you can hide; per-block author badges are confusing and
+make it look like a chat; a thinking session is not a technical session — only threads have
+sessions.
+
+**Rebuilt THINK as one story around one document:** start empty, write · ask on a block (thread
+under it) · Growth answers in the thread and leaves a suggestion (Accept / Discard) · accepted →
+plain text, thread folds to "2 comments", Hide comments switch · hand off from the doc (@Builder
+in a block's thread → task in that thread) · publish (followers told). Dropped the deploy-rule
+detour, Close by, and "built upon" from this journey.

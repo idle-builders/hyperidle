@@ -1,219 +1,170 @@
 import { useState } from "react";
-import { KNOWLEDGE_PRIORITY, Sidebar } from "./Sidebar";
+import { Sidebar } from "./Sidebar";
 
 /**
- * THINK — where we think together, and what we know afterwards.
- * A document is a run of blocks written by people and agents alike; authorship shows in the
- * gutter. What is close by sits under the title so nobody has to search. Draft → published →
- * the people who follow it hear about it.
+ * THINK — a document stays a document. Conversation is a layer on top: a comment on a block
+ * opens a thread anchored there, which you can hide. An agent answers in the thread and, when
+ * it wants to change the page, leaves a suggestion you accept or discard. Sessions belong to
+ * threads, never to the document.
  */
 export const THINK_STEPS = [
-	{ id: 0, name: "Start a thought" },
-	{ id: 1, name: "Think with an agent" },
-	{ id: 2, name: "Talk about a block" },
-	{ id: 3, name: "A draft waits on you" },
-	{ id: 4, name: "Published" },
-	{ id: 5, name: "Built upon" },
+	{ id: 0, name: "Start empty, write" },
+	{ id: 1, name: "Ask on a block" },
+	{ id: 2, name: "Answer + suggestion" },
+	{ id: 3, name: "Accepted" },
+	{ id: 4, name: "Hand off from the doc" },
+	{ id: 5, name: "Publish" },
 ];
 
-function Author({ who, agent }: { who: string; agent?: boolean }) {
-	return <span className={agent ? "author author--agent" : "author"} title={agent ? `${who} (agent) wrote this` : `${who} wrote this`}>{who.slice(0, 2).toUpperCase()}</span>;
+interface Msg {
+	who: string;
+	agent?: boolean;
+	text: React.ReactNode;
 }
 
-function Block({ who, agent, children, talk, onTalk, changed }: {
-	who: string; agent?: boolean; children: React.ReactNode; talk?: number; onTalk?: () => void; changed?: "added" | "removed";
+/** A thread anchored to a block. Shown under it; folds to a count when hidden. */
+function Comments({ msgs, open, onToggle, children }: {
+	msgs: Msg[]; open: boolean; onToggle: () => void; children?: React.ReactNode;
 }) {
+	if (!open) {
+		return (
+			<button type="button" className="cm-fold" onClick={onToggle}>
+				<span className="cm-fold-ic">💬</span> {msgs.length} {msgs.length === 1 ? "comment" : "comments"}
+			</button>
+		);
+	}
 	return (
-		<div className={`blk${changed ? ` blk--${changed}` : ""}`}>
-			<span className="blk-gutter"><Author who={who} agent={agent} /></span>
-			<div className="blk-body">{children}</div>
-			<span className="blk-side">
-				{talk ? (
-					<button type="button" className="blk-talk blk-talk--on" onClick={onTalk}>{talk} replies</button>
-				) : (
-					<button type="button" className="blk-talk" onClick={onTalk}>Talk about this</button>
-				)}
-			</span>
-		</div>
-	);
-}
-
-function CloseBy({ items }: { items: { kind: string; title: string }[] }) {
-	return (
-		<div className="closeby">
-			<span className="closeby-h">Close by</span>
-			{items.map((i) => (
-				<a key={i.title} className="ref" href="#close">
-					<span className="ref-src">{i.kind}</span>
-					<span className="ref-title">{i.title}</span>
-				</a>
+		<div className="cm">
+			<div className="cm-head">
+				<span>Thread on this block · also in Conversations</span>
+				<button type="button" onClick={onToggle}>Hide</button>
+			</div>
+			{msgs.map((m, i) => (
+				<div className="cm-msg" key={`${m.who}${i}`}>
+					<span className={m.agent ? "cm-who cm-who--agent" : "cm-who"}>{m.who}</span>
+					<div className="cm-text">{m.text}</div>
+				</div>
 			))}
+			{children}
+			<div className="cm-reply">
+				<input placeholder="Reply, or @someone…" aria-label="Reply" />
+				<button type="button" className="btn">Send</button>
+			</div>
 		</div>
 	);
 }
 
-function TrialsDoc({ step }: { step: number }) {
-	const [talkOpen, setTalkOpen] = useState(step === 2);
+function Suggestion({ who, children }: { who: string; children: React.ReactNode }) {
 	return (
-		<section className="detail">
-			<header className="detail-head">
-				<span className="chip chip--quiet">Document</span>
-				<h2>Should trials be 10 days?</h2>
-				<span className="meta">Draft · you and Growth · in Product › How we price</span>
-				<span className="doc-act">
-					{step === 1 && <span className="doc-live"><Author who="Growth" agent /> Growth is writing…</span>}
-					<button type="button" className="btn">Publish</button>
+		<div className="sugg">
+			<div className="sugg-head">
+				<span>Suggested by {who}</span>
+				<span className="sugg-acts">
+					<button type="button" className="btn btn--accent">Accept</button>
+					<button type="button" className="btn">Discard</button>
 				</span>
-			</header>
-			<div className="detail-scroll">
-				<article className="page">
-					<h1 className="page-title">🤔 Should trials be 10 days?</h1>
-					<p className="page-from">Started from the thread "Pricing page, Q4 pass" · what it knew came along</p>
-					<CloseBy items={[
-						{ kind: "Doc", title: "How we price › Trials" },
-						{ kind: "Thread", title: "Pricing page, Q4 pass" },
-						{ kind: "Task", title: "Trials that convert without a call" },
-						{ kind: "Thread", title: "Trial-end confusion, three tickets" },
-					]} />
-
-					<Block who="You">
-						<p>Growth's option B shortens trials to 10 days. Before we decide, I want to know what we would lose.</p>
-					</Block>
-					<Block who="You">
-						<h3>What we know</h3>
-					</Block>
-					<Block who="You">
-						<ul>
-							<li>Trials run 14 days, card up front.</li>
-							<li>Since the warning email, 27% more trials convert.</li>
-							<li>Most cancellations happen on day 13.</li>
-						</ul>
-					</Block>
-
-					{step === 1 && (
-						<Block who="You">
-							<p><b className="mention">@Growth</b> how many people who pay would we lose with 10 days?</p>
-						</Block>
-					)}
-					{step >= 1 && (
-						<Block who="Growth" agent>
-							<p>
-								61% of people who pay decide by day 9. A 10-day trial keeps most of them and brings the
-								first bill four days sooner. The risk sits in the last group: 1 in 5 who pay decide on
-								days 11–14.
-							</p>
-							<div className="refs">
-								<a className="ref" href="#src"><span className="ref-src">Task</span><span className="ref-title">Trials that convert without a call</span></a>
-							</div>
-						</Block>
-					)}
-
-					<Block who="You">
-						<h3>Open question</h3>
-					</Block>
-					<Block who="You" talk={step >= 2 ? 2 : undefined} onTalk={() => setTalkOpen(!talkOpen)}>
-						<p>Does a shorter trial raise refund requests?</p>
-						{step >= 2 && talkOpen && (
-							<div className="blk-thread">
-								<div className="pop-msg">
-									<span className="pop-who">Maya Chen</span>
-									<p>Refunds went up when we tried 7 days in March. Worth checking before we commit.</p>
-								</div>
-								<div className="pop-msg">
-									<span className="pop-who">Growth</span>
-									<p>I can pull the March numbers into this document.</p>
-								</div>
-								<div className="pop-reply">
-									<input placeholder="Reply…" aria-label="Reply" />
-									<button type="button" className="btn">Send</button>
-								</div>
-								<span className="blk-thread-note">This talk is a thread — it is in Conversations too.</span>
-							</div>
-						)}
-					</Block>
-				</article>
 			</div>
-		</section>
+			<div className="sugg-body">{children}</div>
+		</div>
 	);
 }
 
-function DeployRule({ step }: { step: number }) {
-	const published = step >= 4;
-	return (
-		<section className="detail">
-			<header className="detail-head">
-				<span className="chip chip--quiet">Document</span>
-				<h2>Deploy rule</h2>
-				<span className="meta">
-					{published ? "Published · version 3 · just now" : "Draft · Facilitation asks you to publish"}
-				</span>
-				<span className="doc-act">
-					{published ? (
-						<span className="doc-done">Published · 5 followers told</span>
-					) : (
-						<>
-							<button type="button" className="btn">Talk about it</button>
-							<button type="button" className="btn btn--accent">Publish</button>
-						</>
-					)}
-				</span>
-			</header>
-			<div className="detail-scroll">
-				<article className="page">
-					<h1 className="page-title">🚀 Deploy rule</h1>
-					{!published && (
-						<div className="draft-why">
-							<b>Why you:</b> you own Engineering, and this is read by everyone who deploys —
-							12 people and 8 agents. Facilitation redrafted it from Tuesday's retro.
-							<span className="draft-count">Since version 2: 1 block removed, 2 added</span>
-						</div>
-					)}
-					{published && step === 4 && (
-						<div className="draft-why draft-why--done">
-							Published. The 5 people and agents who follow this document got a notification. Version 2
-							stays in its history.
-						</div>
-					)}
-
-					<Block who="Facilitation" agent>
-						<p>Deploy on weekdays before 16:00. Anyone can deploy; nobody deploys alone into the weekend.</p>
-					</Block>
-					{!published && (
-						<Block who="Facilitation" agent changed="removed">
-							<p>Every deploy needs a second person to approve it.</p>
-						</Block>
-					)}
-					<Block who="Facilitation" agent changed={published ? undefined : "added"}>
-						<p>
-							A deploy needs a second look only when it changes billing, auth or data that customers
-							see. Everything else ships on green.
-						</p>
-					</Block>
-					<Block who="Facilitation" agent changed={published ? undefined : "added"}>
-						<p>If a deploy breaks something, the one who deployed writes a short retro the same day.</p>
-					</Block>
-
-					{step === 5 && (
-						<div className="usedby">
-							<span className="usedby-h">Built upon since it was published</span>
-							<div className="usedby-row"><span className="ref-src">Task</span><b>Usage-based tier, metering</b><span>Builder followed it: shipped on green, no second look — 2h ago</span></div>
-							<div className="usedby-row"><span className="ref-src">Thread</span><b>Billing hotfix</b><span>Maya quoted it to ask for a second look — yesterday</span></div>
-							<div className="usedby-row"><span className="ref-src">Doc</span><b>On-call handbook</b><span>links here</span></div>
-						</div>
-					)}
-				</article>
-			</div>
-		</section>
-	);
-}
+const ASK: Msg = { who: "You", text: <><b className="mention">@Growth</b> how many people who pay would we lose with 10 days?</> };
+const ANSWER: Msg = {
+	who: "Growth", agent: true,
+	text: <>61% decide by day 9, so most stay. The risk is the 1 in 5 who decide on days 11–14. I put the numbers in the document as a suggestion.</>,
+};
 
 export function Think({ step }: { step: number }) {
-	const onDeploy = step >= 3;
+	const [hidden, setHidden] = useState(false);
+	const [openA, setOpenA] = useState(step >= 1 && step <= 2);
+	const [openB, setOpenB] = useState(step === 4);
+	const published = step === 5;
+
 	return (
 		<>
-			<Sidebar initialSpine="knowledge" initialPicked={onDeploy ? "k-deploy" : "t-10days"}
-				lists={step >= 4 ? { knowledge: KNOWLEDGE_PRIORITY.filter((i) => i.id !== "k-deploy") } : undefined} />
-			{onDeploy ? <DeployRule step={step} /> : <TrialsDoc step={step} />}
+			<Sidebar initialSpine="knowledge" initialPicked="t-10days" />
+			<section className="detail">
+				<header className="detail-head">
+					<span className="chip chip--quiet">Document</span>
+					<h2>Should trials be 10 days?</h2>
+					<span className="meta">
+						{published ? "Published · 4 followers told · in Product › How we price" : "Draft · in Product › How we price"}
+					</span>
+					<span className="doc-act">
+						{step >= 1 && (
+							<button type="button" className="tool" aria-pressed={!hidden} onClick={() => setHidden(!hidden)}>
+								{hidden ? "Show comments" : "Hide comments"}
+							</button>
+						)}
+						{published ? <span className="doc-done">Published</span> : <button type="button" className="btn">Publish</button>}
+					</span>
+				</header>
+
+				<div className="detail-scroll">
+					<article className="page">
+						<h1 className="page-title">🤔 Should trials be 10 days?</h1>
+
+						<div className="pblk">
+							<p>Growth's option B shortens trials to 10 days. Before we decide, I want to know what we would lose.</p>
+						</div>
+
+						<div className="pblk">
+							<h3>What we know</h3>
+							<ul>
+								<li>Trials run 14 days, card up front.</li>
+								<li>Since the warning email, 27% more trials convert.</li>
+								<li>Most cancellations happen on day 13.</li>
+								{step >= 3 && <li>61% of people who pay decide by day 9; 1 in 5 decide on days 11–14.</li>}
+							</ul>
+							{step === 0 && <span className="pblk-hint">Hover a block to comment, or type @ to ask someone</span>}
+							{step >= 1 && !hidden && (
+								<Comments msgs={step === 1 ? [ASK] : [ASK, ANSWER]} open={openA} onToggle={() => setOpenA(!openA)} />
+							)}
+						</div>
+
+						{step === 2 && !hidden && (
+							<Suggestion who="Growth">
+								<ul><li>61% of people who pay decide by day 9; 1 in 5 decide on days 11–14.</li></ul>
+							</Suggestion>
+						)}
+
+						<div className="pblk">
+							<h3>Decision</h3>
+							<p>
+								{step >= 3
+									? "Try 10 days for new signups for two weeks, and watch refund requests."
+									: <span className="page-caret">Not yet<span className="caret" /></span>}
+							</p>
+							{step >= 4 && !hidden && (
+								<Comments
+									msgs={[
+										{ who: "You", text: <><b className="mention">@Builder</b> set new signups to a 10-day trial from Monday, for two weeks.</> },
+										{ who: "Builder", agent: true, text: <>Taking it. I will come back in this thread when it is live.</> },
+									]}
+									open={openB}
+									onToggle={() => setOpenB(!openB)}
+								>
+									<button type="button" className="workitem cm-task">
+										<div>
+											<div className="workitem-title">10-day trial for new signups</div>
+											<div className="workitem-sub">Builder owns this · made from this thread</div>
+										</div>
+										<span className="workitem-state"><span className="dot" />Queued</span>
+									</button>
+								</Comments>
+							)}
+						</div>
+
+						{published && (
+							<p className="page-note">
+								Published. The 4 people and agents who follow this document got a notification. The comments
+								stay as threads; the page shows only what was decided.
+							</p>
+						)}
+					</article>
+				</div>
+			</section>
 		</>
 	);
 }

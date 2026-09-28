@@ -75,13 +75,17 @@ Seven states of one thread, walkable in the studio:
 
 ---
 
-### THINK — first pass, 2026-09-28 (awaiting founder feedback)
-Six states, walkable in the studio: start a thought (a document made from a thread, what it knew
-comes along; **Close by** under the title — related threads, tasks and documents, no search) ·
-think with an agent (@Growth writes a block in place; **authorship in the gutter**, agents marked
-differently) · talk about a block (the talk is a thread, also in Conversations) · a draft waits on
-you (**why you**: who will read it — exposure; blocks added / removed since the last version;
-Publish) · published (followers told; old version kept) · built upon (where it was used since).
+### THINK — second pass, 2026-09-28 (founder shaped it; awaiting a look)
+**A document stays a document; conversation is a layer on top** (founder: "the document is still a
+document and you have a conversation as a layer above"). No per-block authors — they made it look
+like a chat. A document can start empty or from an existing thread.
+- **Comment on a block** (or type @someone in it) → a **thread anchored under that block**, also in
+  Conversations. Folds to "💬 2 comments"; a header switch hides all comments.
+- **An agent answers in the thread.** When it wants to change the page it leaves a **suggestion**
+  (dashed, tinted, "Suggested by Growth", Accept / Discard). Accepted → plain document text.
+- **No session on a document.** "A thinking session isn't a session in the technical sense." A
+  thread on a block can hand work off (@Builder …) — that thread gets the task and the session.
+- Draft → Publish → followers told. Comments stay as threads; the page shows what was decided.
 
 ## 4. Object vocabulary
 
