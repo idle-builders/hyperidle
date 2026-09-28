@@ -488,3 +488,20 @@ start is right but needs "name your team".** Added a bell with a count at the to
 it opens a notifications panel (what happened in things you follow, each opening its thread, task
 or document; mark all read; "What I follow"). New Arrive step 9. First start gains a "Name your
 team" field.
+
+---
+
+## Session 7 — THINK, first pass (2026-09-28)
+
+Founder accepted Arrive; the stuck-agent question (notification only, or also "Your answer" in
+Conversations?) is still open.
+
+Built from the interview ("Knowledge as where WE think collaboratively"; SECI idea → discussed →
+written → built upon; "draft and published and some notifications"; proximity = no search):
+1. Start a thought — "Should trials be 10 days?" made from the Q4 pricing thread; Close by line.
+2. Think with an agent — @Growth answers as a block in the document, authorship in the gutter.
+3. Talk about a block — replies under the block; the talk is a thread.
+4. A draft waits on you — Deploy rule: why you (12 people and 8 agents read it), 1 removed, 2
+   added, Publish.
+5. Published — followers told, version 2 kept.
+6. Built upon — Builder followed it, Maya quoted it, another document links it.

@@ -75,6 +75,14 @@ Seven states of one thread, walkable in the studio:
 
 ---
 
+### THINK — first pass, 2026-09-28 (awaiting founder feedback)
+Six states, walkable in the studio: start a thought (a document made from a thread, what it knew
+comes along; **Close by** under the title — related threads, tasks and documents, no search) ·
+think with an agent (@Growth writes a block in place; **authorship in the gutter**, agents marked
+differently) · talk about a block (the talk is a thread, also in Conversations) · a draft waits on
+you (**why you**: who will read it — exposure; blocks added / removed since the last version;
+Publish) · published (followers told; old version kept) · built upon (where it was used since).
+
 ## 4. Object vocabulary
 
 Objects that appear inside surfaces. Designed once, reused everywhere.

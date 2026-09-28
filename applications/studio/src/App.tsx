@@ -2,6 +2,7 @@ import { useState } from "react";
 import { drafts, mentionables, sessionSteps, STEPS, tickets } from "./handoff";
 import { Arrive, ARRIVE_STEPS } from "./Arrive";
 import { Judge, JUDGE_STEPS } from "./Judge";
+import { Think, THINK_STEPS } from "./Think";
 import { conversations, type Item, Sidebar } from "./Sidebar";
 
 const SKINS = [
@@ -70,7 +71,7 @@ export function App() {
 	const [journey, setJourney] = useState("handoff");
 	const [step, setStep] = useState(0);
 	const [peek, setPeek] = useState(false);
-	const steps = journey === "handoff" ? STEPS : journey === "judge" ? JUDGE_STEPS : ARRIVE_STEPS;
+	const steps = journey === "handoff" ? STEPS : journey === "judge" ? JUDGE_STEPS : journey === "think" ? THINK_STEPS : ARRIVE_STEPS;
 	const arrive = journey === "arrive";
 
 	document.documentElement.dataset.skin = skin;
@@ -97,6 +98,7 @@ export function App() {
 						{ id: "handoff", name: "Hand off" },
 						{ id: "judge", name: "Judge" },
 						{ id: "arrive", name: "Arrive" },
+						{ id: "think", name: "Think" },
 					].map((j) => (
 						<button key={j.id} type="button" aria-pressed={journey === j.id}
 							onClick={() => { setJourney(j.id); setStep(0); setPeek(false); }}>
@@ -134,7 +136,7 @@ export function App() {
 				</div>
 			</nav>
 
-			{journey === "judge" ? <><Sidebar key={`j${step}`} initialPicked="c-r1" /><Judge key={step} step={step} /></> : arrive ? <Arrive key={step} step={step} /> : <>
+			{journey === "judge" ? <><Sidebar key={`j${step}`} initialPicked="c-r1" /><Judge key={step} step={step} /></> : arrive ? <Arrive key={step} step={step} /> : journey === "think" ? <Think key={step} step={step} /> : <>
 			<Sidebar key={`h${step}`} initialPicked="x" lists={{ conversations: handoffList }} />
 
 			<section className="thread">

@@ -64,6 +64,7 @@ const TREE: Doc[] = [
 		{ id: "k-price", title: "How we price", icon: "💷", children: [
 			{ id: "t-trials", title: "Trials", icon: "⏳" },
 			{ id: "t-tiers", title: "Tiers and metering", icon: "📊" },
+			{ id: "t-10days", title: "Should trials be 10 days?", icon: "🤔", note: "draft" },
 		] },
 		{ id: "t-clean", title: "What a clean feature looks like", icon: "✨" },
 	] },
