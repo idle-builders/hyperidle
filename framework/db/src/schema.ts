@@ -47,6 +47,8 @@ export const users = pgTable(
 			onDelete: "set null",
 		}),
 		health: text("health"),
+		// @lore: discipline — an open craft string on a human or agent, matched case-insensitively; it clusters a context bundle, never gates access (`role` does).
+		discipline: text("discipline"),
 	},
 	(table) => [
 		check(
@@ -455,6 +457,7 @@ export const messages = pgTable(
  * OrgChart edges: defines review-routing relationships between human users and
  * AI users / roles / teams.
  *
+ * @lore: mechanism — open vocabulary like `users.discipline`; an edge keyed on a stale value breaks, the accepted cost of free text.
  */
 export const orgEdges = pgTable(
 	"org_edges",
@@ -567,6 +570,8 @@ export const documents = pgTable(
 		updatedBy: text("updated_by").notNull(),
 		createdAt: text("created_at").notNull(),
 		updatedAt: text("updated_at").notNull(),
+		// @lore: discipline — who a document is for; clusters a context bundle only, never hides it in the document view. `agent_file` never carries one.
+		discipline: text("discipline"),
 	},
 	(table) => [
 		index("doc_scope_idx").on(table.scopeKind, table.scopeId),
@@ -598,6 +603,22 @@ export const documents = pgTable(
 		check(
 			"doc_parent_pair_ck",
 			sql`(${table.parentKind} IS NULL AND ${table.parentId} IS NULL) OR (${table.parentKind} IS NOT NULL AND ${table.parentId} IS NOT NULL)`,
+		),
+		// `SCOPES_REQUIRING_ID` (`@hyperidle/domain-model`) is exactly {team};
+		// `user` legitimately carries a scope_id too (the bound agent's id), but
+		// `factory` never does. Made unrepresentable, not just true today —
+		// migration 0080 broke this silently for months by rewriting scope_kind
+		// to 'factory' on every practice row without clearing scope_id, and the
+		// factory fetch (`scope_kind='factory' AND scope_id IS NULL`) skipped
+		// every one of them.
+		check(
+			"doc_factory_scope_id_ck",
+			sql`${table.scopeKind} <> 'factory' OR ${table.scopeId} IS NULL`,
+		),
+		// @lore: doc_agent_file_parent_ck — `parent_kind = 'agent'` alone passes a NULL row under three-valued logic; the explicit `IS NOT NULL` forces it to FALSE.
+		check(
+			"doc_agent_file_parent_ck",
+			sql`${table.slot} <> 'agent_file' OR (${table.parentKind} IS NOT NULL AND ${table.parentKind} = 'agent')`,
 		),
 	],
 );

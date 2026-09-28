@@ -12,13 +12,14 @@ import {
 	reconcileForModel,
 	withOptionValue,
 } from "./agent-model-options.js";
+import { disciplineOptions } from "./discipline-options.js";
 import { modelOptionsForHarness } from "./model-options-for-harness.js";
-import { roleOptions } from "./role-options.js";
 import type { InjectableFilesystem } from "./settings-types.js";
 
 export interface AgentEditorDraft {
 	name: string;
-	role: string;
+	/** The agent's craft. "" means unset — the combobox's empty value. */
+	discipline: string;
 	systemPrompt: string;
 	harnessType: string;
 	modelId: string;
@@ -36,8 +37,6 @@ export interface AgentEditorDraft {
 export interface AgentEditorProps {
 	/** The agent id being edited. Every agent, assistants included, is edited through `edit_user`. */
 	agentId: string;
-	/** Non-null for person-owned agents (assistant only today) — role field is locked for those. */
-	ownerUserId: string | null;
 	/** Controlled draft state. */
 	draft: AgentEditorDraft;
 	/** Called when the user changes any draft field. */
@@ -66,7 +65,12 @@ export interface AgentEditorProps {
 	 * where documents are edited. Absent (creating an agent) → the box seeds it.
 	 */
 	identityDocumentId?: string | null;
-	rolesInUse?: readonly string[];
+	/**
+	 * The disciplines agents actually have — what the picker offers.
+	 *
+	 * @lore: disciplinesInUse — a discipline is data, not a fixed list; typing one the list lacks introduces it.
+	 */
+	disciplinesInUse?: readonly string[];
 }
 
 function fsSourceLabel(source: string): string {
@@ -89,7 +93,6 @@ function reconcileModelProvider(
 
 export function AgentEditor({
 	agentId,
-	ownerUserId,
 	draft,
 	onDraftChange,
 	harnesses,
@@ -99,7 +102,7 @@ export function AgentEditor({
 	error,
 	filesystems,
 	identityDocumentId,
-	rolesInUse,
+	disciplinesInUse,
 }: AgentEditorProps): JSX.Element {
 	const selectedDescriptor = harnesses.find((h) => h.type === draft.harnessType);
 	const declaredOptions = declaredOptionsFor(selectedDescriptor, draft.modelId);
@@ -112,8 +115,6 @@ export function AgentEditor({
 		{ value: "", label: "Default" },
 		...harnesses.map((h) => ({ value: h.type, label: h.name })),
 	];
-
-	const isAssistant = ownerUserId !== null;
 
 	return (
 		<div className="border-width-thin flex flex-col gap-[12px] p-[12px]  border-[var(--border-subtle)] rounded-[var(--r-subtle)]">
@@ -132,20 +133,22 @@ export function AgentEditor({
 					/>
 				</div>
 
+				{/* @lore: Combobox renders its own "Discipline" label internally — no extra label wrapper here. */}
 				<div className="flex-1 min-w-[140px]">
 					<Combobox
-						id={`edit-role-${agentId}`}
-						label="Role"
-						options={roleOptions(rolesInUse ?? [draft.role])}
-						value={draft.role}
-						disabled={isAssistant} // assistant role is immutable
+						id={`edit-discipline-${agentId}`}
+						label="Discipline"
+						options={disciplineOptions(
+							disciplinesInUse ?? (draft.discipline ? [draft.discipline] : []),
+						)}
+						value={draft.discipline}
 						allowCustomValue
-						placeholder="Filter roles or type a new one…"
-						listAriaLabel="Roles"
-						inputAriaLabel="Filter or define a role"
-						customValuePrefix="Use new role: "
-						onChange={(newRole) => {
-							onDraftChange((prev) => ({ ...prev, role: newRole }));
+						placeholder="Filter disciplines or type a new one…"
+						listAriaLabel="Disciplines"
+						inputAriaLabel="Filter or define a discipline"
+						customValuePrefix="Use new discipline: "
+						onChange={(newDiscipline) => {
+							onDraftChange((prev) => ({ ...prev, discipline: newDiscipline }));
 						}}
 					/>
 				</div>

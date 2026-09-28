@@ -102,7 +102,7 @@ export async function seedDemoWorld(
 			id: `ast-${founderId}`,
 			kind: "ai",
 			name: "Founder's Assistant",
-			role: "assistant",
+			role: "agent",
 			agentCategory: "individual",
 			ownerUserId: founderId,
 			status: "active",

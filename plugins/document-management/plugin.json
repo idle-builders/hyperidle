@@ -10,7 +10,7 @@
 				{
 					"id": "librarian",
 					"name": "Document Librarian",
-					"role": "assistant",
+					"discipline": "librarian",
 					"agentCategory": "individual"
 				}
 			],

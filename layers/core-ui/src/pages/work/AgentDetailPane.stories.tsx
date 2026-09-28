@@ -18,7 +18,7 @@ function Wrapper({ children }: { children: ReactNode }): JSX.Element {
 const TEAM_AGENT: AgentConfig = {
 	id: "agent-builder-1",
 	name: "Atlas Builder",
-	role: "builder",
+	discipline: "builder",
 	identityDocumentId: "ki_af_demo",
 	harnessType: "claude-code",
 	modelId: null,
@@ -31,7 +31,7 @@ const TEAM_AGENT: AgentConfig = {
 const INDIVIDUAL_AGENT: AgentConfig = {
 	id: "agent-scout-1",
 	name: "Scout Agent",
-	role: "scout",
+	discipline: "scout",
 	identityDocumentId: "ki_af_demo",
 	harnessType: null,
 	modelId: null,
@@ -44,14 +44,14 @@ const INDIVIDUAL_AGENT: AgentConfig = {
 const TEAM_MEMBER: TeamRosterMember = {
 	agentId: "agent-builder-1",
 	name: "Atlas Builder",
-	role: "builder",
+	discipline: "builder",
 	agentCategory: "team",
 };
 
 const INDIVIDUAL_MEMBER: TeamRosterMember = {
 	agentId: "agent-scout-1",
 	name: "Scout Agent",
-	role: "scout",
+	discipline: "scout",
 	agentCategory: "individual",
 };
 

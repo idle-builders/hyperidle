@@ -18,9 +18,9 @@ Open the assistant as an overlay from the **Assistant** button in the sidebar's 
 
 Team agents do the work on tasks. A fresh install has no team agents. You get them two ways:
 
-**Install the role-personas plugin.** Go to **Settings → Plugins** and install **role-personas**. It brings seven shaped agents: Builder, Designer, Product Manager, QA Engineer, Growth, Ops, and Facilitator — each with a name, role, system prompt, and harness selection. Install it for your team. You can edit any of them afterward.
+**Install the role-personas plugin.** Go to **Settings → Plugins** and install **role-personas**. It brings seven shaped agents: Builder, Designer, Product Manager, QA Engineer, Growth, Ops, and Facilitator — each with a name, discipline, system prompt, and harness selection. Install it for your team. You can edit any of them afterward.
 
-**Add one by hand.** Go to the team page in Work and click **Add agent**, or use **Settings → Agents → + Add Agent**. Fill in a name, role, system prompt, harness, and max concurrent sessions.
+**Add one by hand.** Go to the team page in Work and click **Add agent**, or use **Settings → Agents → + Add Agent**. Fill in a name, discipline, system prompt, harness, and max concurrent sessions.
 
 ---
 

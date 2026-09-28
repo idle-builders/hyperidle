@@ -76,7 +76,7 @@ function makePlugin(): string {
 						{
 							id: "builder",
 							name: "Builder",
-							role: "builder",
+							discipline: "builder",
 							agentCategory: "team",
 							identity: "personas/builder.md",
 						},
@@ -111,7 +111,7 @@ describe("a plugin's agent comes with an identity", () => {
 	test("installing materialises the agent and its identity document", async ({ db, app }) => {
 		await install(db, app);
 
-		const [agent] = await db.select().from(users).where(eq(users.role, "builder"));
+		const [agent] = await db.select().from(users).where(eq(users.discipline, "builder"));
 		expect(agent, "the plugin's agent exists").toBeDefined();
 
 		const [identity] = await db
@@ -151,7 +151,7 @@ describe("a plugin's agent comes with an identity", () => {
 
 	test("uninstalling takes the identity down with the agent", async ({ db, app }) => {
 		await install(db, app);
-		const [agent] = await db.select().from(users).where(eq(users.role, "builder"));
+		const [agent] = await db.select().from(users).where(eq(users.discipline, "builder"));
 
 		const del = await editPlugin(app, { id: PLUGIN_ID, remove: true });
 		expect(del.status).toBe(200);
@@ -178,7 +178,7 @@ describe("a plugin's agent comes with an identity", () => {
 		});
 		await install(db, app);
 
-		const [agent] = await db.select().from(users).where(eq(users.role, "builder"));
+		const [agent] = await db.select().from(users).where(eq(users.discipline, "builder"));
 		const [identity] = await db
 			.select()
 			.from(documents)
@@ -223,7 +223,9 @@ describe("a plugin's agent comes with an identity", () => {
 				version: "1.0.0",
 				extensions: {
 					"io.hyperidle": {
-						agents: [{ id: "sweeper", name: "Sweeper", role: "builder", agentCategory: "team" }],
+						agents: [
+							{ id: "sweeper", name: "Sweeper", discipline: "builder", agentCategory: "team" },
+						],
 						subscriptions: [
 							{
 								id: "weekly-sweep",
@@ -269,7 +271,7 @@ describe("a plugin's agent comes with an identity", () => {
 				version: "1.0.0",
 				extensions: {
 					"io.hyperidle": {
-						agents: [{ id: "quiet", name: "Quiet", role: "builder", agentCategory: "team" }],
+						agents: [{ id: "quiet", name: "Quiet", discipline: "builder", agentCategory: "team" }],
 					},
 				},
 			}),

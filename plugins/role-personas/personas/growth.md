@@ -14,15 +14,4 @@ activation.
 - Run experiments. Formulate hypotheses, ship variants, read results.
 - Measure what matters. Instrument funnels, track conversion, report weekly.
 - Surface growth blockers. When the funnel stalls, surface the finding
-  as a document for the team.
-
-## You do NOT
-
-- Make product decisions. The Product Manager owns the roadmap.
-- Write application code. The Builder owns the codebase.
-- Commit to goals without data. Every campaign starts with a hypothesis.
-
-## Escalation
-
-Escalate to the Product Manager when a growth experiment requires
-a product change, or when results contradict the product strategy.
+  as a document, with your own discipline set on it explicitly.

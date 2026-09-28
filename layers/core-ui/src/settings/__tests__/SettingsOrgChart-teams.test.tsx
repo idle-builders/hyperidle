@@ -7,7 +7,7 @@
  * - When no teams are returned, the select shows the "No teams yet…" disabled
  *   option with copy pointing to Setup (not to "Work").
  * - Solo short-circuit (1 human) is RELAXED: Add-Edge form still renders.
- * - With 1 human, mechanism defaults to "function" (not "direct").
+ * - With 1 human, mechanism defaults to "discipline" (not "direct").
  *
  */
 
@@ -255,10 +255,10 @@ describe("SettingsOrgChart: solo short-circuit relaxed", () => {
 			expect(screen.getByTestId("add-edge-btn")).toBeInTheDocument();
 		});
 		const text = document.body.textContent ?? "";
-		expect(text.toLowerCase()).toMatch(/function|reporting|add/i);
+		expect(text.toLowerCase()).toMatch(/discipline|reporting|add/i);
 	});
 
-	it("mechanism defaults to 'function' in solo mode (1 human)", async () => {
+	it("mechanism defaults to 'discipline' in solo mode (1 human)", async () => {
 		const user = userEvent.setup();
 		setupCall([mkUser({ id: "u1", name: "Solo Founder" })]);
 
@@ -271,7 +271,7 @@ describe("SettingsOrgChart: solo short-circuit relaxed", () => {
 
 		await waitFor(() => {
 			const mechanismSelect = screen.getByRole("combobox", { name: /mechanism/i });
-			expect((mechanismSelect as HTMLSelectElement).value).toBe("function");
+			expect((mechanismSelect as HTMLSelectElement).value).toBe("discipline");
 		});
 	});
 });

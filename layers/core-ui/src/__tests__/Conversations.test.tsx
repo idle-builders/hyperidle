@@ -68,8 +68,8 @@ function makeThread(
 }
 
 const FAKE_MEMBERS: ThreadView["members"] = [
-	{ id: "u-founder", name: "Founder", role: "founder", isAgent: false },
-	{ id: "agent-1", name: "Agent", role: "agent", isAgent: true },
+	{ id: "u-founder", name: "Founder", discipline: null, isAgent: false },
+	{ id: "agent-1", name: "Agent", discipline: null, isAgent: true },
 ];
 
 const FAKE_REVIEW_MESSAGE: ThreadView["messages"][number] = {
@@ -655,7 +655,7 @@ describe("Conversations — header context link and task links", () => {
 describe("Conversations — session panel agent identity", () => {
 	it("gives the session's own agent id, never the (team) thread host id", () => {
 		const teamIdentities = {
-			"team-42": { id: "team-42", name: "Team Rocket", role: "member", isAgent: false },
+			"team-42": { id: "team-42", name: "Team Rocket", discipline: null, isAgent: false },
 		};
 		const author = resolveSessionAgentAuthor({ agentId: "agent-7" }, teamIdentities);
 		expect(author.id).toBe("agent-7");
@@ -665,7 +665,7 @@ describe("Conversations — session panel agent identity", () => {
 
 	it("resolves the agent's display name from identities when known", () => {
 		const identities = {
-			"agent-7": { id: "agent-7", name: "Atlas", role: "agent", isAgent: true },
+			"agent-7": { id: "agent-7", name: "Atlas", discipline: null, isAgent: true },
 		};
 		const author = resolveSessionAgentAuthor({ agentId: "agent-7" }, identities);
 		expect(author.name).toBe("Atlas");
@@ -674,7 +674,7 @@ describe("Conversations — session panel agent identity", () => {
 
 	it("does not invent a lookup when the session carries no agent id yet (streaming)", () => {
 		const teamIdentities = {
-			"team-42": { id: "team-42", name: "Team Rocket", role: "member", isAgent: false },
+			"team-42": { id: "team-42", name: "Team Rocket", discipline: null, isAgent: false },
 		};
 		const author = resolveSessionAgentAuthor(null, teamIdentities);
 		expect(author.id).not.toBe("team-42");

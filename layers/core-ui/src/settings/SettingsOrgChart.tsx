@@ -1,3 +1,5 @@
+// @lore: OrgEdgeMechanism — imported, never redeclared locally; a local copy can silently drift from the shared mechanism values.
+import { ORG_EDGE_MECHANISMS, type OrgEdgeMechanism } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useState } from "react";
 // hearth-internal-padding
 import {
@@ -14,8 +16,6 @@ import {
 } from "../ds";
 import { call } from "../services/call.js";
 import { useToast } from "../shell/ToastRegion.js";
-
-type OrgEdgeMechanism = "direct" | "function" | "team";
 
 interface OrgEdge {
 	id: string;
@@ -42,7 +42,7 @@ interface OrgData {
 	teams: OrgTeam[];
 }
 
-const MECHANISMS: OrgEdgeMechanism[] = ["direct", "function", "team"];
+const MECHANISMS: readonly OrgEdgeMechanism[] = ORG_EDGE_MECHANISMS;
 
 /** Every user, each with its own `edges` and effective `team` — the one call. */
 async function fetchOrgData(): Promise<OrgData> {
@@ -185,7 +185,7 @@ export function SettingsOrgChart(): JSX.Element {
 
 	// Solo contextual hint when exactly 1 human user.
 	// RELAXED — we still render the Add-Edge form but show guidance above it.
-	// Default mechanism to "function" in solo mode (zero-dependency path).
+	// Default mechanism to "discipline" in solo mode (zero-dependency path).
 	// 0 humans (all-agent org) sees the full UI.
 	const humanUsers = users.filter((u) => u.kind === "human");
 	const isSolo = humanUsers.length === 1;
@@ -204,16 +204,16 @@ export function SettingsOrgChart(): JSX.Element {
 		return edge.target;
 	};
 
-	// Solo: show hint + form (mechanism defaults to "function")
+	// Solo: show hint + form (mechanism defaults to "discipline")
 	const soloHint = isSolo ? (
 		<p className="type-small  text-[var(--text-secondary)]">
-			Add a function (e.g. "Engineering") to describe your role, or add a second human to define
+			Add a discipline (e.g. "Engineering") to describe your craft, or add a second human to define
 			reporting lines.
 		</p>
 	) : null;
 
-	// Effective mechanism in solo mode: open the form with "function" default
-	const effectiveMechanism = isSolo && !showAddForm ? "function" : mechanism;
+	// Effective mechanism in solo mode: open the form with "discipline" default
+	const effectiveMechanism = isSolo && !showAddForm ? "discipline" : mechanism;
 
 	return (
 		<div className="flex flex-col gap-[18px]">
@@ -225,7 +225,7 @@ export function SettingsOrgChart(): JSX.Element {
 				<EmptyState
 					compact
 					title="No edges yet"
-					description="Teams don't auto-create org edges. Add a reporting line, function, or team relationship to define your chart."
+					description="Teams don't auto-create org edges. Add a reporting line, discipline, or team relationship to define your chart."
 				/>
 			) : (
 				<ItemList variant="flush" isEmpty={false}>
@@ -297,8 +297,8 @@ export function SettingsOrgChart(): JSX.Element {
 					size="sm"
 					className="self-start"
 					onClick={() => {
-						// Default to "function" in solo mode
-						if (isSolo) setMechanism("function");
+						// Default to "discipline" in solo mode
+						if (isSolo) setMechanism("discipline");
 						setShowAddForm(true);
 					}}
 					data-testid="add-edge-btn"
@@ -339,7 +339,7 @@ interface AddEdgeFormProps {
 	users: OrgUser[];
 	/** Real teams, derived from every user's effective `team`. */
 	teams: OrgTeam[];
-	/** True when exactly 1 human — defaults mechanism to "function". */
+	/** True when exactly 1 human — defaults mechanism to "discipline". */
 	isSolo: boolean;
 	fromUserId: string;
 	mechanism: OrgEdgeMechanism;
@@ -428,7 +428,7 @@ function AddEdgeForm({
 							options={teams.map((t) => ({ id: t.id, label: t.name }))}
 						/>
 					) : (
-						/* mechanism === "function": free-text input */
+						/* mechanism === "discipline": free-text input */
 						<Input
 							id="org-target"
 							label="Target"
@@ -436,7 +436,7 @@ function AddEdgeForm({
 							value={target}
 							onChange={(e) => onTargetChange(e.target.value)}
 							placeholder="e.g. engineering, support"
-							aria-label="Target function"
+							aria-label="Target discipline"
 							disabled={adding}
 						/>
 					)}

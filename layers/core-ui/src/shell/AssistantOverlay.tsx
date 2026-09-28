@@ -345,10 +345,12 @@ function AssistantOverlayInner({
 	}
 
 	const { thread, messages } = data;
-	const identities: Record<string, { name: string; role?: string; isAgent?: boolean }> =
-		Object.fromEntries(
-			data.members.map((m) => [m.id, { name: m.name, role: m.role, isAgent: m.isAgent }]),
-		);
+	const identities: Record<
+		string,
+		{ name: string; discipline?: string | null; isAgent?: boolean }
+	> = Object.fromEntries(
+		data.members.map((m) => [m.id, { name: m.name, discipline: m.discipline, isAgent: m.isAgent }]),
+	);
 	const msgsAsc: ReadonlyArray<Message> = [...messages].sort((a, b) =>
 		a.createdAt.localeCompare(b.createdAt),
 	);

@@ -86,7 +86,8 @@ export interface ParsedSkill {
 export interface ParsedPluginAgent {
 	readonly id: string;
 	readonly name: string;
-	readonly role: string;
+	/** The agent's craft — designer, developer, whatever the plugin names. Installed as `role: "agent"` plus this `discipline`; a plugin agent spec declares a discipline, never a role. */
+	readonly discipline: string;
 	readonly agentCategory: string;
 	/**
 	 * Who this agent is, read from the file the manifest's `identity` names.
@@ -379,10 +380,10 @@ function parsePluginAgent(
 		});
 		return null;
 	}
-	if (typeof obj.role !== "string" || !obj.role) {
+	if (typeof obj.discipline !== "string" || !obj.discipline) {
 		warnings.push({
 			code: "INVALID_CONTRIBUTION",
-			message: `Agent "${obj.id}" missing required string "role" — skipped`,
+			message: `Agent "${obj.id}" missing required string "discipline" — skipped`,
 		});
 		return null;
 	}
@@ -409,7 +410,7 @@ function parsePluginAgent(
 	return {
 		id: obj.id,
 		name: obj.name,
-		role: obj.role,
+		discipline: obj.discipline,
 		agentCategory: obj.agentCategory,
 		identity,
 	};

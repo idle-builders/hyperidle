@@ -95,8 +95,8 @@ function mockReadyThread(): void {
 		data: {
 			thread: BASE_THREAD,
 			members: [
-				{ id: MY_USER_ID, name: "You", role: "human", isAgent: false },
-				{ id: MY_AGENT_ID, name: "Assistant", role: "assistant", isAgent: true },
+				{ id: MY_USER_ID, name: "You", discipline: null, isAgent: false },
+				{ id: MY_AGENT_ID, name: "Assistant", discipline: null, isAgent: true },
 			],
 			messages: [],
 			headMessageId: null,

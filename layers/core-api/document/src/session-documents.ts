@@ -1,9 +1,11 @@
 // Session document assembler: fetches factory-wide + team-scoped + agent's own ordinary docs,
-// ranks + budgets, then appends active capability docs (skill/rule/agent_file) unranked.
+// filters by discipline, ranks by tag match + recency + confidence, then appends active
+// capability docs (skill/rule/agent_file) unranked.
 // @lore: assembleSessionDocuments is NOT a pure read — last step bumps session_use on all returned ids; joins caller's transaction
+// @lore: no document budget — these are files in a real `knowledge/` tree, never inlined into a prompt to cap against.
 
 import { type DocumentRow, documents, type HyperIdleDb } from "@hyperidle/db";
-import { and, eq, inArray, isNull, ne, or } from "drizzle-orm";
+import { and, eq, inArray, isNull, ne, or, type SQL, sql } from "drizzle-orm";
 import {
 	bumpSessionUse,
 	type DocumentParentChainAncestor,
@@ -31,19 +33,10 @@ const DEFAULT_WEIGHTS: ScoringWeights = {
 	confidence: 0.15,
 };
 
-/** Total context window tokens and document allocation ratio. */
-const CONTEXT_WINDOW_TOKENS = 200_000;
-const DOCUMENT_ALLOCATION_RATIO = 0.2;
-const DEFAULT_DOCUMENT_BUDGET = CONTEXT_WINDOW_TOKENS * DOCUMENT_ALLOCATION_RATIO; // 40_000
-
 // Always returns hardcoded defaults.
 function loadScoringWeights(_db: HyperIdleDb): Promise<ScoringWeights> {
 	return Promise.resolve({ ...DEFAULT_WEIGHTS });
 }
-
-// ---------------------------------------------------------------------------
-// Token budget.
-// ---------------------------------------------------------------------------
 
 /**
  * Derive searchable keyword tokens from a task description.
@@ -56,64 +49,6 @@ function tokenizeDescription(desc: string): string[] {
 		.toLowerCase()
 		.split(/[^a-z0-9]+/)
 		.filter((t) => t.length >= 3);
-}
-
-/** Approximate token count via whitespace split. */
-function countTokens(text: string): number {
-	if (!text || text.trim().length === 0) {
-		return 0;
-	}
-	return text.split(/\s+/).length;
-}
-
-/** Count tokens for a document (title + body). */
-function countItemTokens(item: DocumentRow): number {
-	return countTokens(item.title) + countTokens(item.body);
-}
-
-interface ScoredItem {
-	item: DocumentRow;
-	score: number;
-}
-
-// Greedy budget fill; factory-scoped items are non-negotiable and included first.
-function enforceBudget(scoredItems: ScoredItem[], maxTokens: number): DocumentRow[] {
-	// Separate factory-scoped items (non-negotiable) from the rest
-	const factoryItems: ScoredItem[] = [];
-	const otherItems: ScoredItem[] = [];
-
-	for (const si of scoredItems) {
-		if (si.item.scopeKind === "factory") {
-			factoryItems.push(si);
-		} else {
-			otherItems.push(si);
-		}
-	}
-
-	// Sort both groups by score descending
-	factoryItems.sort((a, b) => b.score - a.score);
-	otherItems.sort((a, b) => b.score - a.score);
-
-	const result: DocumentRow[] = [];
-	let usedTokens = 0;
-
-	// Include all factory-scoped items first (non-negotiable)
-	for (const si of factoryItems) {
-		const tokens = countItemTokens(si.item);
-		usedTokens += tokens;
-		result.push(si.item);
-	}
-
-	// Greedily fill remaining budget with highest-scored items
-	for (const si of otherItems) {
-		const tokens = countItemTokens(si.item);
-		if (usedTokens + tokens <= maxTokens) {
-			usedTokens += tokens;
-			result.push(si.item);
-		}
-	}
-
-	return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -171,6 +106,7 @@ function computeTagMatch(item: DocumentRow, taskTags: string[]): number {
 	return matches / normalizedTaskTags.length;
 }
 
+/** Compute recency factor (0-1). Items updated within last 30 days score higher. */
 function computeRecency(item: DocumentRow, now: number): number {
 	const updatedAt = new Date(item.updatedAt).getTime();
 	const age = now - updatedAt;
@@ -197,6 +133,7 @@ function computeConfidence(item: DocumentRow): number {
 	return Math.max(0, Math.min(1, val));
 }
 
+/** Score a single document. Returns 0-100. */
 function scoreItem(
 	item: DocumentRow,
 	context: ScoringContext,
@@ -222,28 +159,30 @@ function scoreItem(
 	return Math.round((weighted / totalWeight) * 100);
 }
 
+/**
+ * Rank items by relevance score, highest first. No cap — see the file header
+ * `@lore` for why. Every item scope-and-discipline-selected for this session
+ * is returned.
+ */
 function rankAndBudget(
 	items: DocumentRow[],
 	context: ScoringContext,
 	weights: ScoringWeights,
-	budgetTokens: number,
 	now?: number,
 ): DocumentRow[] {
-	const scored: ScoredItem[] = items.map((item) => ({
-		item,
-		score: scoreItem(item, context, weights, now),
-	}));
-
-	return enforceBudget(scored, budgetTokens);
+	return items
+		.map((item) => ({ item, score: scoreItem(item, context, weights, now) }))
+		.sort((a, b) => b.score - a.score)
+		.map((scored) => scored.item);
 }
 
 async function rank(
 	db: HyperIdleDb,
 	items: DocumentRow[],
-	context: ScoringContext & { readonly tokenLimit?: number },
+	context: ScoringContext,
 ): Promise<DocumentRow[]> {
 	const weights = await loadScoringWeights(db);
-	return rankAndBudget(items, context, weights, context.tokenLimit ?? DEFAULT_DOCUMENT_BUDGET);
+	return rankAndBudget(items, context, weights);
 }
 
 // ---------------------------------------------------------------------------
@@ -255,6 +194,32 @@ export interface SessionDocumentsInput {
 	readonly taskDescription: string;
 	// Required so callers cannot accidentally omit it and silently lose agent-bound documents.
 	readonly agentId: string;
+	/**
+	 * The agent's own craft, or `null`/absent for an agent with none. Every
+	 * caller already has the agent's `User` row in hand (the same row
+	 * `agentId` comes from) — this is threaded, never looked up again here.
+	 * Filters, never ranks: a document whose own `discipline` is set and does
+	 * not match this one (case-insensitive) is dropped outright, for ordinary
+	 * items and for capability items in slot `skill`/`rule`. `agent_file` is
+	 * exempt — it is already about exactly one agent.
+	 */
+	readonly agentDiscipline?: string | null;
+}
+
+/**
+ * A discipline CLUSTERS, it never ranks: a document whose own `discipline`
+ * is null/empty reaches everyone; one that names a discipline reaches only
+ * an agent whose own matches, case-insensitively (`lower(a) = lower(b)` —
+ * the column itself keeps whatever case was typed, `schema.ts`'s own `@lore`
+ * on `documents.discipline`). An agent with no discipline of its own
+ * therefore only ever matches the undisciplined documents.
+ */
+function disciplineFilter(agentDiscipline: string | null | undefined): SQL {
+	const clauses = [isNull(documents.discipline), eq(documents.discipline, "")];
+	if (agentDiscipline) {
+		clauses.push(sql`LOWER(${documents.discipline}) = LOWER(${agentDiscipline})`);
+	}
+	return or(...clauses) as SQL;
 }
 
 // Fetch ordinary documents at one scope — factory, team, or agent's own.
@@ -262,6 +227,7 @@ function fetchOrdinaryItemsByScope(
 	db: HyperIdleDb,
 	scopeKind: "factory" | "team" | "user",
 	scopeId: string | null,
+	agentDiscipline: string | null | undefined,
 ): Promise<DocumentRow[]> {
 	return db
 		.select()
@@ -273,6 +239,7 @@ function fetchOrdinaryItemsByScope(
 				scopeId === null ? isNull(documents.scopeId) : eq(documents.scopeId, scopeId),
 				// @lore: archived docs must never reach a session; proposed docs must (write_memory writes proposed)
 				ne(documents.status, "archived"),
+				disciplineFilter(agentDiscipline),
 			),
 		)
 		.orderBy(documents.id);
@@ -285,6 +252,7 @@ function fetchCapabilityItems(
 	db: HyperIdleDb,
 	teamId: string | undefined,
 	agentId: string | undefined,
+	agentDiscipline: string | null | undefined,
 ): Promise<DocumentRow[]> {
 	// Only emit scope clauses for values actually in play; undefined would silently match nothing.
 	const scopeClauses = [
@@ -302,6 +270,11 @@ function fetchCapabilityItems(
 				inArray(documents.slot, ["skill", "rule", "agent_file"]),
 				eq(documents.status, "active"),
 				scopeFilter,
+				// A bound `agent_file` is already about exactly one agent — a
+				// discipline on it means nothing, so it is exempt (never filtered);
+				// `skill`/`rule` are fetched by scope+slot alone, so this field is
+				// the only thing that can reach them.
+				or(eq(documents.slot, "agent_file"), disciplineFilter(agentDiscipline)) as SQL,
 			),
 		)
 		.orderBy(documents.id);
@@ -312,18 +285,22 @@ export interface SessionDocument extends DocumentRow {
 	readonly parentChain: readonly DocumentParentChainAncestor[];
 }
 
-// Fetch + rank + budget ordinary docs, then append capability items (skill/rule/agent_file) unranked.
-// Capability items bypass ranking — plugin installation is a deliberate act.
+// Fetch + filter (discipline) + rank (tag match, recency, confidence) ordinary docs, no
+// budget — see the file header — then append capability items (skill/rule/agent_file)
+// unranked. Capability items bypass ranking — plugin installation is a deliberate act.
 export async function assembleSessionDocuments(
 	db: HyperIdleDb,
 	input: SessionDocumentsInput,
 ): Promise<readonly SessionDocument[]> {
+	const agentDiscipline = input.agentDiscipline;
 	// A team-less agent gets no team-scoped items — never every team's.
 	const [factoryItems, teamItems, ownItems, capabilityItems] = await Promise.all([
-		fetchOrdinaryItemsByScope(db, "factory", null),
-		input.teamId ? fetchOrdinaryItemsByScope(db, "team", input.teamId) : Promise.resolve([]),
-		fetchOrdinaryItemsByScope(db, "user", input.agentId),
-		fetchCapabilityItems(db, input.teamId, input.agentId),
+		fetchOrdinaryItemsByScope(db, "factory", null, agentDiscipline),
+		input.teamId
+			? fetchOrdinaryItemsByScope(db, "team", input.teamId, agentDiscipline)
+			: Promise.resolve([]),
+		fetchOrdinaryItemsByScope(db, "user", input.agentId, agentDiscipline),
+		fetchCapabilityItems(db, input.teamId, input.agentId, agentDiscipline),
 	]);
 
 	const allItems = [...factoryItems, ...teamItems, ...ownItems];
@@ -357,5 +334,3 @@ export async function assembleSessionDocuments(
 
 	return result;
 }
-
-export { countTokens, enforceBudget, tokenizeDescription };

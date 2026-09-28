@@ -58,7 +58,7 @@ import type {
 } from "./action-types.js";
 import { type AgentIdentityPort, createAgentIdentityPort } from "./agent-identity.js";
 import { nextCronMatch, parseCron } from "./cron.js";
-import { deleteOrgEdge, listOrgEdges, upsertOrgEdge } from "./org-edges.js";
+import { deleteOrgEdge, listOrgEdges, resolveDisciplineUsers, upsertOrgEdge } from "./org-edges.js";
 import {
 	deleteSubscription,
 	insertSubscription,
@@ -266,13 +266,29 @@ async function toUserRows(db: HyperIdleDb, rows: readonly User[]): Promise<UserR
 	const teamById = new Map(teamRows.map((t) => [t.id, t] as const));
 
 	const edgeRows = await listOrgEdges(db, { fromUserIds: rows.map((r) => r.id) });
+	const disciplineTargets = [
+		...new Set(edgeRows.filter((e) => e.mechanism === "discipline").map((e) => e.target)),
+	];
+	const resolvedByTarget = await resolveDisciplineUsers(db, disciplineTargets);
 	const edgesByUser = new Map<
 		string,
-		Array<{ id: string; mechanism: OrgEdgeMechanism; target: string }>
+		Array<{
+			id: string;
+			mechanism: OrgEdgeMechanism;
+			target: string;
+			resolvedUserIds: string[];
+		}>
 	>();
 	for (const e of edgeRows) {
+		const mechanism = e.mechanism as OrgEdgeMechanism;
 		const list = edgesByUser.get(e.fromUserId) ?? [];
-		list.push({ id: e.id, mechanism: e.mechanism as OrgEdgeMechanism, target: e.target });
+		list.push({
+			id: e.id,
+			mechanism,
+			target: e.target,
+			resolvedUserIds:
+				mechanism === "discipline" ? [...(resolvedByTarget.get(e.target) ?? [])] : [],
+		});
 		edgesByUser.set(e.fromUserId, list);
 	}
 
@@ -290,6 +306,7 @@ async function toUserRows(db: HyperIdleDb, rows: readonly User[]): Promise<UserR
 			agentCategory: (r.agentCategory as AgentCategory | null) ?? null,
 			ownerUserId: r.ownerUserId ?? null,
 			health: r.health ?? null,
+			discipline: r.discipline ?? null,
 			team: team ? { id: team.id, name: team.name } : null,
 			edges: edgesByUser.get(r.id) ?? [],
 		};
@@ -320,6 +337,7 @@ async function searchUsersRun(
 		ownerUserId: input.ownerUserId,
 		status: input.status,
 		nameContains: input.name,
+		discipline: input.discipline,
 	});
 	const listed = rows.filter((r) => r.role !== "system" || (input.ids ?? []).includes(r.id));
 	let views = await toUserRows(ctx.db, listed);
@@ -763,7 +781,12 @@ async function createUserRun(
 			return problem("unknown_owner", `No user with id '${input.ownerUserId}'.`, "ownerUserId");
 	}
 
+	// Only a "direct" edge's target is a userId — "team"'s is a teamId, and
+	// "discipline"'s is an open-vocabulary craft string nothing enumerates
+	// (same rule as `documents.discipline`). Checking every edge against
+	// `users` regardless of mechanism would refuse every non-direct edge.
 	for (const e of input.edges?.add ?? []) {
+		if (e.mechanism !== "direct") continue;
 		const target = await findUser(ctx.db, { id: e.target });
 		if (!target) return problem("unknown_user", `No user with id '${e.target}'.`, "edges");
 	}
@@ -791,6 +814,8 @@ async function createUserRun(
 		agentCategory,
 		ownerUserId: input.ownerUserId ?? null,
 		health: input.health ?? null,
+		// Explicit only — never inherited from anything.
+		discipline: input.discipline ?? null,
 		teamId: null,
 	};
 
@@ -899,7 +924,7 @@ async function createUserRun(
 // edit_user — edit an existing user
 // ---------------------------------------------------------------------------
 
-const IDENTITY_FIELDS = ["name", "role", "avatarUrl", "status", "health"] as const;
+const IDENTITY_FIELDS = ["name", "role", "avatarUrl", "status", "health", "discipline"] as const;
 
 function touchesIdentityFields(input: EditUserInput): boolean {
 	return IDENTITY_FIELDS.some((f) => input[f] !== undefined);
@@ -940,7 +965,9 @@ async function editExistingUserRun(
 		return problem("yourself_only", "Your inbox is edited on your own view only.", "inbox");
 	}
 
+	// Only a "direct" edge's target is a userId — see the create-side `@lore`.
 	for (const e of input.edges?.add ?? []) {
+		if (e.mechanism !== "direct") continue;
 		const target = await findUser(ctx.db, { id: e.target });
 		if (!target) return problem("unknown_user", `No user with id '${e.target}'.`, "edges");
 	}

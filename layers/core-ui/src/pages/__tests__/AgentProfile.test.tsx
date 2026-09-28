@@ -20,7 +20,7 @@ vi.mock("../../services/call.js", () => ({ call: callMock }));
 const BASE_PROFILE: AgentProfileData = {
 	id: "agent-test",
 	name: "Test Agent",
-	role: "builder",
+	discipline: "builder",
 	agentCategory: "team",
 	teamName: null,
 	teamId: null,

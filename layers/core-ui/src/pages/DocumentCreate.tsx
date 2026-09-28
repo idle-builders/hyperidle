@@ -37,6 +37,11 @@ export function DocumentCreate(): JSX.Element {
 	const [parentId, setParentId] = useState(() => searchParams.get("parentId") ?? "");
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	/**
+	 * Who this document is for. Explicit only — a chosen parent never seeds
+	 * this; scope isn't inherited from a parent either (see `handleParentChange`).
+	 */
+	const [discipline, setDiscipline] = useState("");
 
 	const hasTeam: boolean = user?.teamId !== undefined;
 	// @lore: Private scope — only legal with a parent chosen; parentless user-scoped write becomes a memory; Private not offered without parent
@@ -77,6 +82,7 @@ export function DocumentCreate(): JSX.Element {
 			scopeKind: scope,
 			...(needsScopeId ? { scopeId: scopeId.trim() } : {}),
 			...(parentId !== "" ? { parent: { kind: "document" as const, id: parentId } } : {}),
+			discipline: discipline.trim() || null,
 		});
 
 		setSubmitting(false);
@@ -217,6 +223,14 @@ export function DocumentCreate(): JSX.Element {
 								disabled={submitting}
 							/>
 						)}
+						<Input
+							label="Discipline"
+							type="text"
+							placeholder="e.g. design (optional)"
+							value={discipline}
+							onChange={(e) => setDiscipline(e.target.value)}
+							disabled={submitting}
+						/>
 						<ParentPicker
 							value={parentId}
 							onChange={handleParentChange}

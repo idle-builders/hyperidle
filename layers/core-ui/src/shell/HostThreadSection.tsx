@@ -37,7 +37,6 @@ export interface HostThreadSectionProps {
 
 export interface HostThreadIdentity {
 	name: string;
-	role: string;
 	isAgent: boolean;
 }
 
@@ -50,7 +49,6 @@ function resolveSender(
 		return {
 			id: senderId,
 			name: identity.name,
-			role: identity.role,
 			isAgent: identity.isAgent,
 		};
 	}
@@ -156,9 +154,7 @@ export function HostThreadSection({
 
 	const allMessages: ReadonlyArray<Message> = data?.messages ? [...data.messages].reverse() : [];
 	const identities: Record<string, HostThreadIdentity> = data
-		? Object.fromEntries(
-				data.members.map((m) => [m.id, { name: m.name, role: m.role, isAgent: m.isAgent }]),
-			)
+		? Object.fromEntries(data.members.map((m) => [m.id, { name: m.name, isAgent: m.isAgent }]))
 		: {};
 
 	// block-scoped filter unless user toggled "show all"

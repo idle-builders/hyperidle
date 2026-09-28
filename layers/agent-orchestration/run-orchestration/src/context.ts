@@ -230,13 +230,11 @@ function substituteTemplateVars(template: string, vars: Record<string, string>):
 
 /**
  * Build the template variable map for a given session context.
- * Returns { product, community }.
+ * Returns { product }.
  */
 function buildTemplateVariables(context: SessionContextData): Record<string, string> {
-	const community = context.agent.role;
 	return {
 		product: context.team.name,
-		community,
 	};
 }
 
@@ -472,7 +470,6 @@ function assembleSubscriptionPrompt(
 		// a factory-wide agent's subscription may belong to no team.
 		const vars: Record<string, string> = {
 			product: context.team?.name ?? "",
-			community: context.agent.role,
 		};
 		personaSection = substituteTemplateVars(stripped, vars);
 	}
@@ -697,12 +694,11 @@ function writeSkillItem(sandboxPath: string, item: BakedContextDocument): string
  * Write the baked+ranked knowledge bundle to its sandbox zones, building the
  * manifest entries.
  *
-
+ * @lore: agent_file — skipped here; this agent's own is already the AGENTS.md "## Identity" section, and an unbound row can't exist to belong to another.
  */
 function writeBundleKnowledge(
 	sandboxPath: string,
 	knowledge: readonly BakedContextDocument[],
-	agentId: string,
 ): Record<string, ManifestEntry> {
 	const manifestItems: Record<string, ManifestEntry> = {};
 	const ordinaryItems: BakedContextDocument[] = [];
@@ -736,22 +732,9 @@ function writeBundleKnowledge(
 		if (role === "agent_file") {
 			// The agent file bound to THIS agent is its identity, and its home in
 			// the sandbox is the "## Identity" section of AGENTS.md. Writing it here
-			// too would deliver the same text twice.
-			if (item.agentBindingId === agentId) {
-				continue;
-			}
-			// An agent file bound to someone else is not ours to carry.
-			if (item.agentBindingId !== null && item.agentBindingId !== undefined) {
-				continue;
-			}
-			// Unbound: applies to every session, so it is materialised.
-			const relativePath = writeItem(sandboxPath, item, "knowledge/rules");
-			manifestItems[item.id] = {
-				version: item.version,
-				source_path: relativePath,
-				format: item.format,
-				scopeKind: item.scopeKind,
-			};
+			// too would deliver the same text twice. Every other `agent_file` is
+			// bound to a different agent and not ours to carry — an unbound one
+			// cannot exist (`doc_agent_file_parent_ck` forbids that row).
 			continue;
 		}
 
@@ -782,7 +765,6 @@ function writeContextBundle(
 	sandboxPath: string,
 	sessionId: string,
 	bundle: Extract<BakedContextBundle, { kind: "task" | "subscription" }>,
-	agentId: string,
 	previousSessionNotes?: string | null,
 ): ContextAssemblyResult {
 	const start = performance.now();
@@ -793,7 +775,7 @@ function writeContextBundle(
 	cleanDirectory(path.join(sandboxPath, ".fabric"));
 	createDirectoryStructure(sandboxPath, previousSessionNotes);
 
-	const manifestItems = writeBundleKnowledge(sandboxPath, bundle.documents, agentId);
+	const manifestItems = writeBundleKnowledge(sandboxPath, bundle.documents);
 
 	const sessionToon =
 		bundle.kind === "task"
@@ -914,7 +896,6 @@ function assembleAgentContext(input: AssembleAgentContextInput): AgentContextAss
 		input.sandboxPath,
 		input.sessionId,
 		input.contextBundle,
-		input.agentId,
 		input.previousSessionNotes,
 	);
 	return {

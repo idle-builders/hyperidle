@@ -83,8 +83,8 @@ function makeThreadView(): ThreadView {
 			createdAt: new Date().toISOString(),
 		},
 		members: [
-			{ id: "u-founder", name: "You", role: "founder", isAgent: false },
-			{ id: "agent-atlas", name: "Atlas", role: "agent", isAgent: true },
+			{ id: "u-founder", name: "You", discipline: null, isAgent: false },
+			{ id: "agent-atlas", name: "Atlas", discipline: null, isAgent: true },
 		],
 		messages: [reviewMessage, anchoredMessage, laterReviewMessage],
 		headMessageId: null,
@@ -349,8 +349,8 @@ describe("ReviewPage default loader — task naming", () => {
 				createdAt: new Date().toISOString(),
 			},
 			members: [
-				{ id: "u-founder", name: "You", role: "founder", isAgent: false },
-				{ id: "agent-atlas", name: "Atlas", role: "agent", isAgent: true },
+				{ id: "u-founder", name: "You", discipline: null, isAgent: false },
+				{ id: "agent-atlas", name: "Atlas", discipline: null, isAgent: true },
 			],
 			messages: [message],
 			headMessageId: null,

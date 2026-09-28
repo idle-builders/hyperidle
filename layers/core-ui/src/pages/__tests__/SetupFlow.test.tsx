@@ -281,12 +281,13 @@ describe("SetupFlow", () => {
 		expect(assistantInput).toMatchObject({
 			kind: "ai",
 			name: "Ada's Assistant",
-			role: "assistant",
+			role: "agent",
 			agentCategory: "individual",
 			ownerUserId: "u-founder",
 			runConfig: { harnessType: "claude-code" },
 		});
 		expect(assistantInput).not.toHaveProperty("identity");
+		expect(assistantInput).not.toHaveProperty("discipline");
 		expect(assistantInput.subscriptions).toEqual({
 			add: OBJECT_EVENTS.map((event) => ({ event })),
 		});

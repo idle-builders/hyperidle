@@ -65,9 +65,26 @@ export const UserRowSchema = z.object({
 	ownerUserId: z.string().nullable(),
 	/** A note on the agent, e.g. a crash count — null for a healthy row. */
 	health: z.string().nullable(),
+	/**
+	 * Someone's craft. Applies to a human and an agent alike; clusters an
+	 * agent's context bundle and nothing else — see `documents.discipline`'s
+	 * own doc for the shared rule.
+	 */
+	discipline: z.string().nullable(),
 	team: z.object({ id: z.string(), name: z.string() }).nullable(),
 	edges: z.array(
-		z.object({ id: z.string(), mechanism: z.enum(ORG_EDGE_MECHANISMS), target: z.string() }),
+		z.object({
+			id: z.string(),
+			mechanism: z.enum(ORG_EDGE_MECHANISMS),
+			target: z.string(),
+			/**
+			 * Every user currently holding this discipline, case-insensitive —
+			 * populated for `discipline` edges only, recomputed on every read,
+			 * never stored. Empty for `direct`/`team` edges, where `target`
+			 * already names its own resolution (a userId, a teamId).
+			 */
+			resolvedUserIds: z.array(z.string()),
+		}),
 	),
 });
 export type UserRow = z.infer<typeof UserRowSchema>;
@@ -82,6 +99,8 @@ export const SearchUsersInputSchema = z
 		name: z.string().min(1).optional(),
 		ownerUserId: z.string().optional(),
 		status: z.enum(USER_STATUSES).optional(),
+		/** Case-insensitive exact match against a user's own `discipline`. */
+		discipline: z.string().min(1).optional(),
 		limit: z.number().int().min(1).max(500).optional(), // default 500
 	})
 	.strict();
@@ -385,6 +404,8 @@ export const EditUserInputSchema = z
 		kind: z.enum(USER_KINDS).optional(),
 		name: z.string().optional(),
 		role: z.string().optional(),
+		/** Someone's craft. Explicit only — never inherited. `null` clears it. */
+		discipline: z.string().nullable().optional(),
 		avatarUrl: z.string().nullable().optional(),
 		status: z.enum(USER_STATUSES).optional(),
 		health: z.string().nullable().optional(),

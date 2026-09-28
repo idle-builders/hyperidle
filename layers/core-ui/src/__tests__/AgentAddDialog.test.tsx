@@ -18,7 +18,7 @@ vi.mock("../services/call.js", () => ({ call: callMock }));
 function renderDialog(
 	teamName: string,
 	open = true,
-	rolesInUse?: readonly string[],
+	disciplinesInUse?: readonly string[],
 ): ReturnType<typeof render> {
 	return render(
 		<ToastRegion>
@@ -27,7 +27,7 @@ function renderDialog(
 				teamName={teamName}
 				onClose={vi.fn()}
 				onCreated={vi.fn()}
-				{...(rolesInUse ? { rolesInUse } : {})}
+				{...(disciplinesInUse ? { disciplinesInUse } : {})}
 			/>
 		</ToastRegion>,
 	);
@@ -58,7 +58,7 @@ describe("AgentAddDialog placement affordance", () => {
 		expect(screen.getByText("Add agent")).toBeInTheDocument();
 		// The placement field is a KeyValue, not a combobox
 		const teamSelects = screen.queryAllByRole("combobox");
-		// The Role select exists but there should be no additional "Team" combobox
+		// The Discipline select exists but there should be no additional "Team" combobox
 		// Verify none of the selects has a team-picker label
 		for (const sel of teamSelects) {
 			expect(sel).not.toHaveAccessibleName("Team");
@@ -71,14 +71,14 @@ describe("AgentAddDialog placement affordance", () => {
 	});
 });
 
-describe("AgentAddDialog — role field is a Combobox", () => {
+describe("AgentAddDialog — discipline field is a Combobox, role is never sent", () => {
 	beforeEach(() => {
 		callMock.mockReset();
 		callMock.mockResolvedValue({ ok: true, data: { user: { id: "agent-new" } } });
 	});
 	afterEach(() => vi.restoreAllMocks());
 
-	it("picks a role through the combobox and creates the agent with it", async () => {
+	it("picks a discipline through the combobox and creates the agent with it", async () => {
 		const user = userEvent.setup();
 
 		render(
@@ -88,25 +88,28 @@ describe("AgentAddDialog — role field is a Combobox", () => {
 					teamName="Acme"
 					onClose={vi.fn()}
 					onCreated={vi.fn()}
-					rolesInUse={["scout", "builder"]}
+					disciplinesInUse={["scout", "builder"]}
 				/>
 			</ToastRegion>,
 		);
 
 		await user.type(screen.getByLabelText("Agent name"), "Newbie");
 
-		const trigger = screen.getByRole("combobox", { name: "Role" });
+		const trigger = screen.getByRole("combobox", { name: "Discipline" });
 		await user.click(trigger);
-		await user.click(await screen.findByText("Scout"));
+		await user.click(await screen.findByText("scout"));
 
 		await user.click(screen.getByRole("button", { name: /create/i }));
 
 		await waitFor(() => {
 			expect(callMock).toHaveBeenCalledWith(
 				"edit_user",
-				expect.objectContaining({ kind: "ai", role: "scout", team: { name: "Acme" } }),
+				expect.objectContaining({ kind: "ai", discipline: "scout", team: { name: "Acme" } }),
 			);
 		});
+		// role is RBAC now — the create call never names it, the server defaults it.
+		const call = callMock.mock.calls.find(([name]) => name === "edit_user");
+		expect(call?.[1]).not.toHaveProperty("role");
 	});
 
 	it("always sends identity, even with an empty system prompt", async () => {

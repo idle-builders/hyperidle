@@ -19,6 +19,7 @@ export interface TaskRunResolverDeps {
 			readonly teamId: string;
 			readonly taskDescription: string;
 			readonly agentId: string;
+			readonly agentDiscipline?: string | null;
 		},
 	): Promise<readonly SessionDocumentLike[]>;
 }
@@ -57,6 +58,7 @@ export async function bakeTaskContextBundle(
 		teamId: task.teamId,
 		taskDescription: task.description ?? task.title,
 		agentId: agent.id,
+		agentDiscipline: agent.discipline,
 	});
 	return {
 		kind: "task",

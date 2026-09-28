@@ -6,7 +6,7 @@
  *
  * States covered:
  *  - NormalAgent: editing a regular team agent (opencode harness, discovered models)
- *  - AssistantAgent: editing the assistant (ownerUserId set, role disabled)
+ *  - AssistantAgent: editing the assistant (ownerUserId set)
  *  - EmptyModels: codex harness — no discovered models → affordance text
  *  - SavingState: save in progress
  *  - WithError: inline 422 error shown
@@ -156,7 +156,7 @@ const ALL_HARNESSES = [OPENCODE_DESCRIPTOR, CODEX_DESCRIPTOR, CLAUDE_CODE_DESCRI
 function NormalAgentEditor(): JSX.Element {
 	const [draft, setDraft] = useState<AgentEditorDraft>({
 		name: "Atlas",
-		role: "builder",
+		discipline: "builder",
 		systemPrompt: "You are Atlas, a builder agent. You implement features from plans.",
 		harnessType: "opencode",
 		modelId: "openrouter/deepseek/deepseek-v4-flash",
@@ -169,7 +169,6 @@ function NormalAgentEditor(): JSX.Element {
 	return (
 		<AgentEditor
 			agentId="agent-atlas"
-			ownerUserId={null}
 			draft={draft}
 			onDraftChange={(fn) => setDraft((prev) => fn(prev))}
 			harnesses={ALL_HARNESSES}
@@ -184,13 +183,13 @@ function NormalAgentEditor(): JSX.Element {
 export const NormalAgent = (): JSX.Element => <NormalAgentEditor />;
 
 // ---------------------------------------------------------------------------
-// AssistantAgent: ownerUserId set, role disabled
+// AssistantAgent: a person-owned agent, discipline still free-text
 // ---------------------------------------------------------------------------
 
 function AssistantAgentEditor(): JSX.Element {
 	const [draft, setDraft] = useState<AgentEditorDraft>({
 		name: "Nova",
-		role: "assistant",
+		discipline: "assistant",
 		systemPrompt:
 			"You are Nova, your personal assistant. You help coordinate work and answer questions.",
 		harnessType: "opencode",
@@ -204,7 +203,6 @@ function AssistantAgentEditor(): JSX.Element {
 	return (
 		<AgentEditor
 			agentId="agent-nova"
-			ownerUserId="user1"
 			draft={draft}
 			onDraftChange={(fn) => setDraft((prev) => fn(prev))}
 			harnesses={ALL_HARNESSES}
@@ -225,7 +223,7 @@ export const AssistantAgent = (): JSX.Element => <AssistantAgentEditor />;
 function EmptyModelsEditor(): JSX.Element {
 	const [draft, setDraft] = useState<AgentEditorDraft>({
 		name: "Kira",
-		role: "reviewer",
+		discipline: "reviewer",
 		systemPrompt: "You are Kira, a code reviewer.",
 		harnessType: "codex",
 		modelId: "",
@@ -238,7 +236,6 @@ function EmptyModelsEditor(): JSX.Element {
 	return (
 		<AgentEditor
 			agentId="agent-kira"
-			ownerUserId={null}
 			draft={draft}
 			onDraftChange={(fn) => setDraft((prev) => fn(prev))}
 			harnesses={ALL_HARNESSES}
@@ -259,10 +256,9 @@ export const EmptyModels = (): JSX.Element => <EmptyModelsEditor />;
 export const SavingState = (): JSX.Element => (
 	<AgentEditor
 		agentId="agent-atlas"
-		ownerUserId={null}
 		draft={{
 			name: "Atlas",
-			role: "builder",
+			discipline: "builder",
 			systemPrompt: "You are Atlas.",
 			harnessType: "opencode",
 			modelId: "openrouter/deepseek/deepseek-v4-flash",
@@ -287,10 +283,9 @@ export const SavingState = (): JSX.Element => (
 export const WithError = (): JSX.Element => (
 	<AgentEditor
 		agentId="agent-atlas"
-		ownerUserId={null}
 		draft={{
 			name: "Atlas",
-			role: "builder",
+			discipline: "builder",
 			systemPrompt: "You are Atlas.",
 			harnessType: "claude-code",
 			modelId: "openrouter/deepseek/deepseek-v4-flash",
@@ -315,10 +310,9 @@ export const WithError = (): JSX.Element => (
 export const WithModelOptions = (): JSX.Element => (
 	<AgentEditor
 		agentId="agent-atlas"
-		ownerUserId={null}
 		draft={{
 			name: "Atlas",
-			role: "builder",
+			discipline: "builder",
 			systemPrompt: "You are Atlas.",
 			harnessType: "claude-code",
 			modelId: "claude-sonnet-4-6",
@@ -343,10 +337,9 @@ export const WithModelOptions = (): JSX.Element => (
 export const NoModelOptions = (): JSX.Element => (
 	<AgentEditor
 		agentId="agent-atlas"
-		ownerUserId={null}
 		draft={{
 			name: "Atlas",
-			role: "builder",
+			discipline: "builder",
 			systemPrompt: "You are Atlas.",
 			harnessType: "claude-code",
 			modelId: "claude-haiku-4-5",

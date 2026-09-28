@@ -174,6 +174,7 @@ function toSearchFilter(input: SearchDocumentsInput): DocumentSearchFilter {
 		...(input.slot !== undefined ? { slot: input.slot } : {}),
 		...(input.status !== undefined ? { status: input.status } : {}),
 		...(input.scopeKind !== undefined ? { scopeKind: input.scopeKind } : {}),
+		...(input.discipline !== undefined ? { discipline: input.discipline } : {}),
 		...(input.as !== undefined ? { as: input.as as DocumentAs } : {}),
 		...(input.unusedSince !== undefined ? { unusedSince: input.unusedSince } : {}),
 		...(input.sort !== undefined ? { sort: input.sort } : {}),
@@ -576,6 +577,9 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 		const effectiveBody = input.body ?? prev?.body ?? "";
 		const effectiveFormat = input.format ?? prev?.format ?? "markdown";
 		const effectiveStatus = input.status ?? prev?.status ?? "proposed";
+		// Explicit only — never inherited from a parent folder (founder ruling).
+		const effectiveDiscipline =
+			input.discipline !== undefined ? input.discipline : (prev?.discipline ?? null);
 		const bodyChanged = isCreate || (input.body !== undefined && input.body !== prev?.body);
 		// A parent is only actively (re-)established at create, or when the
 		// caller names one — an edit that omits `parent` never moves the
@@ -732,6 +736,7 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 					slot: effectiveSlot,
 					scopeKind: effectiveScopeKind,
 					scopeId: effectiveScopeId,
+					discipline: effectiveDiscipline,
 					parentKind: effectiveParent?.kind ?? null,
 					parentId: effectiveParent?.id ?? null,
 					position,

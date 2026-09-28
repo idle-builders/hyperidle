@@ -28,7 +28,6 @@ import { StatusChip } from "./StatusChip.js";
 export interface CommentRowSender {
 	id: string;
 	name: string;
-	role?: string;
 	avatarUrl?: string;
 	/** When true, renders the green-tinted agent avatar variant and "Agent" badge. */
 	isAgent?: boolean;

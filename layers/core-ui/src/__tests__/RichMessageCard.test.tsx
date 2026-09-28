@@ -14,7 +14,7 @@ import { RichMessageCard } from "../ds";
 const sender = {
 	id: "agent-1",
 	name: "Aria",
-	role: "builder",
+	discipline: "builder",
 };
 
 function reviewMessage(
@@ -83,7 +83,7 @@ describe("RichMessageCard — review variant", () => {
 		expect(within(card).getByText("mock-artifact")).toBeInTheDocument();
 	});
 
-	it("renders the review title and metadata (REVIEW tag, sender, role)", () => {
+	it("renders the review title and metadata (REVIEW tag, sender, discipline)", () => {
 		render(
 			<RichMessageCard
 				message={reviewMessage({ title: "Approve copy update" })}
@@ -96,6 +96,21 @@ describe("RichMessageCard — review variant", () => {
 		expect(screen.getByText("Approve copy update")).toBeInTheDocument();
 		expect(screen.getByText(/REVIEW/)).toBeInTheDocument();
 		expect(screen.getByText("Aria")).toBeInTheDocument();
+		expect(screen.getByText(/builder/)).toBeInTheDocument();
+	});
+
+	it("renders no craft badge at all for a sender with no discipline", () => {
+		render(
+			<RichMessageCard
+				message={reviewMessage({ title: "Approve copy update" })}
+				sender={{ id: "agent-2", name: "Nova", discipline: null }}
+				blocking={false}
+				onAction={vi.fn()}
+				state={{ phase: "idle" }}
+			/>,
+		);
+		expect(screen.getByText("Nova")).toBeInTheDocument();
+		expect(screen.queryByText(/·/)).not.toBeInTheDocument();
 	});
 
 	it("renders all 5 binding verdict buttons inside the action toolbar", () => {

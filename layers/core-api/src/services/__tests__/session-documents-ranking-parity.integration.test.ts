@@ -1,9 +1,10 @@
 /**
  * Exercises `@hyperidle/document`'s `assembleSessionDocuments` against a
  * fixed corpus (two teams, one agent-bound item, one factory-wide item) so a
- * genuine relocation bug (wrong scope, wrong budget cutoff) shows up as a set
- * mismatch against the hardcoded expected membership below.
+ * genuine relocation bug (wrong scope) shows up as a set mismatch against the
+ * hardcoded expected membership below.
  *
+ * @lore: what an agent receives — collapses onto scope alone; no budget or cutoff to exercise, every scope-selected item is returned.
  */
 
 import { documents, type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
@@ -151,17 +152,17 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 }
 
 describe("assembleSessionDocuments — scope-only selection", () => {
-	test("returns exactly the expected item-id set for the fixed corpus (budget/scope filter)", async ({
+	test("returns exactly the expected item-id set for the fixed corpus (scope filter)", async ({
 		db,
 	}) => {
 		await seedFixedCorpus(db);
 
-		const budgeted = await assembleSessionDocuments(db, {
+		const assembled = await assembleSessionDocuments(db, {
 			teamId: TEAM_ID,
 			taskDescription: TASK_DESCRIPTION,
 			agentId: AGENT_ID,
 		});
-		const ids = new Set(budgeted.map((item) => item.id));
+		const ids = new Set(assembled.map((item) => item.id));
 
 		// Anchor the actual expected membership — the corpus mixes in-scope and
 		// out-of-scope items on purpose (team + agent exclusion), so a
@@ -174,7 +175,7 @@ describe("assembleSessionDocuments — scope-only selection", () => {
 	test("each returned item carries the scope that put it in reach", async ({ db }) => {
 		await seedFixedCorpus(db);
 
-		const budgeted = await assembleSessionDocuments(db, {
+		const assembled = await assembleSessionDocuments(db, {
 			teamId: TEAM_ID,
 			taskDescription: TASK_DESCRIPTION,
 			agentId: AGENT_ID,
@@ -186,8 +187,8 @@ describe("assembleSessionDocuments — scope-only selection", () => {
 			"item-own-in": "user",
 		};
 
-		expect(budgeted.length).toBe(3);
-		for (const item of budgeted) {
+		expect(assembled.length).toBe(3);
+		for (const item of assembled) {
 			expect(item.scopeKind).toBe(expectedScopeById[item.id]);
 		}
 	});
@@ -206,12 +207,12 @@ describe("assembleSessionDocuments — scope-only selection", () => {
 			.where(eq(documents.id, "item-team-out"));
 		expect(row).toBeDefined();
 
-		const budgeted = await assembleSessionDocuments(db, {
+		const assembled = await assembleSessionDocuments(db, {
 			teamId: TEAM_ID,
 			taskDescription: TASK_DESCRIPTION,
 			agentId: AGENT_ID,
 		});
-		const ids = new Set(budgeted.map((item) => item.id));
+		const ids = new Set(assembled.map((item) => item.id));
 		expect(ids.has("item-team-out")).toBe(false);
 		expect(ids.has("item-own-out")).toBe(false);
 		expect(ids.has("item-factory")).toBe(true);

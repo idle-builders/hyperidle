@@ -21,7 +21,8 @@ const SENDER_GROUP_WINDOW_MS = 5 * 60 * 1000; // 5-minute grouping window
 
 export interface ThreadShellIdentity {
 	name: string;
-	role?: string;
+	/** Their craft, e.g. "designer" — absent renders no badge, never a placeholder. */
+	discipline?: string | null;
 	avatarUrl?: string;
 	/** When true, renders the agent avatar variant and sets data-sender-kind="ai" on the row. */
 	isAgent?: boolean;
@@ -346,7 +347,7 @@ export function ThreadShell({
 														sender={{
 															id: m.senderId,
 															name: identityFor(identities, m.senderId).name,
-															role: identityFor(identities, m.senderId).role,
+															discipline: identityFor(identities, m.senderId).discipline,
 														}}
 														blocking={resolvedProps ? false : blocking}
 														onAction={
@@ -381,7 +382,6 @@ export function ThreadShell({
 													sender={{
 														id: message.senderId,
 														name: identityFor(identities, message.senderId).name,
-														role: identityFor(identities, message.senderId).role,
 														isAgent: identityFor(identities, message.senderId).isAgent,
 													}}
 													showSenderHeader={showSenderHeader}
@@ -403,7 +403,6 @@ export function ThreadShell({
 											sender={{
 												id: message.senderId,
 												name: identityFor(identities, message.senderId).name,
-												role: identityFor(identities, message.senderId).role,
 												isAgent: identityFor(identities, message.senderId).isAgent,
 											}}
 											showSenderHeader={showSenderHeader}

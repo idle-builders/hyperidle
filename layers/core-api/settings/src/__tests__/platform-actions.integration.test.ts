@@ -241,7 +241,7 @@ function makePlugin(pluginId: string): string {
 						{
 							id: "builder",
 							name: "Builder",
-							role: "builder",
+							discipline: "builder",
 							agentCategory: "team",
 							identity: "identity.md",
 						},

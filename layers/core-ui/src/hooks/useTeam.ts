@@ -5,7 +5,7 @@ import { call } from "../services/call.js";
 export interface TeamRosterMember {
 	readonly agentId: string;
 	readonly name: string;
-	readonly role: string;
+	readonly discipline: string | null;
 	readonly agentCategory: string | null;
 }
 
@@ -90,7 +90,7 @@ export function useTeam(teamId: string | undefined): UseTeamResult {
 					.map((m) => ({
 						agentId: m.id,
 						name: m.name,
-						role: m.role,
+						discipline: m.discipline,
 						agentCategory: m.agentCategory,
 					}));
 

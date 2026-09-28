@@ -177,6 +177,7 @@ describe("DocumentCreate — parent picker", () => {
 			format: "markdown",
 			status: "active",
 			scopeKind: "factory",
+			discipline: null,
 		});
 	});
 
@@ -195,6 +196,7 @@ describe("DocumentCreate — parent picker", () => {
 			status: "active",
 			scopeKind: "factory",
 			parent: { kind: "document", id: "root-a" },
+			discipline: null,
 		});
 
 		await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith("/documents/new-item-id"));
@@ -260,6 +262,51 @@ describe("DocumentCreate — parent picker", () => {
 			"edit_document",
 			expect.objectContaining({ parent: { kind: "document", id: "ki-existing" } }),
 		);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Discipline — explicit only, never inherited from the chosen parent
+// ---------------------------------------------------------------------------
+
+describe("DocumentCreate — discipline field", () => {
+	beforeEach(() => {
+		mockUser();
+		mockParentOptions();
+	});
+
+	afterEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it("sends the typed discipline on create", async () => {
+		vi.mocked(call).mockResolvedValue(documentView("new-item-id"));
+
+		const user = await fillAndSubmit();
+		await user.type(screen.getByLabelText("Discipline"), "design");
+		await user.click(screen.getByTestId("document-create-submit"));
+
+		await waitFor(() => {
+			expect(call).toHaveBeenCalledWith(
+				"edit_document",
+				expect.objectContaining({ discipline: "design" }),
+			);
+		});
+	});
+
+	it("does not inherit a discipline from the chosen parent — picking one leaves the field empty", async () => {
+		vi.mocked(call).mockResolvedValue(documentView("new-item-id"));
+
+		const user = await fillAndSubmit();
+		await pickParent(user, "Root A");
+		await user.click(screen.getByTestId("document-create-submit"));
+
+		await waitFor(() => {
+			expect(call).toHaveBeenCalledWith(
+				"edit_document",
+				expect.objectContaining({ discipline: null }),
+			);
+		});
 	});
 });
 

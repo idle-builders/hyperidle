@@ -576,3 +576,50 @@ describe("open_user — the declared output shape matches what the connections d
 		expect(parsed.success).toBe(true);
 	});
 });
+
+describe("edit_user — a discipline edge resolves to the users holding it", () => {
+	test("resolvedUserIds names every user whose own discipline matches, case-insensitively, never one that doesn't", async ({
+		db,
+	}) => {
+		await seedFounder(db);
+		const deps = buildDeps();
+		const { editUser, openUser } = actionsFor(deps);
+
+		const designer = await editUser(ctxFor(db, "u-founder"), {
+			kind: "ai",
+			name: "Dana",
+			team: { name: "Design Team" },
+			discipline: "Design",
+		});
+		expect(designer.ok).toBe(true);
+
+		const builder = await editUser(ctxFor(db, "u-founder"), {
+			kind: "ai",
+			name: "Bo",
+			team: { name: "Build Team" },
+			discipline: "builder",
+		});
+		expect(builder.ok).toBe(true);
+
+		const withEdge = await editUser(ctxFor(db, "u-founder"), {
+			id: "u-founder",
+			edges: { add: [{ mechanism: "discipline", target: "design" }] },
+		});
+		expect(withEdge.ok).toBe(true);
+		if (!withEdge.ok) return;
+
+		const edge = withEdge.data.user?.edges.find((e) => e.mechanism === "discipline");
+		expect(edge).toBeDefined();
+		expect(edge?.resolvedUserIds).toContain(designer.ok ? designer.data.user?.id : undefined);
+		expect(edge?.resolvedUserIds).not.toContain(builder.ok ? builder.data.user?.id : undefined);
+
+		// Recomputed on every read, not just at write time.
+		const reopened = await openUser(ctxFor(db, "u-founder"), { id: "u-founder" });
+		expect(reopened.ok).toBe(true);
+		if (!reopened.ok) return;
+		const reopenedEdge = reopened.data.user?.edges.find((e) => e.mechanism === "discipline");
+		expect(reopenedEdge?.resolvedUserIds).toContain(
+			designer.ok ? designer.data.user?.id : undefined,
+		);
+	});
+});
