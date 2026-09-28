@@ -38,16 +38,6 @@ export interface SelectRequirements {
 	readonly modelProviders?: readonly string[];
 	/** X3: If set, only adapters with matching type are eligible. */
 	readonly harnessType?: string;
-	/**
-	 * Caller-supplied list of disabled harness types (pool is DB-free and
-	 * select() is synchronous — cannot read server_config itself). The caller (admitSession)
-	 * reads harnessDisabled from readServerConfig(db) and passes it here.
-	 *
-	 * @lore AM4: Real persisted control backed by server_config.harnessDisabled + this
-	 * caller-supplied gate (AM4 R1 reversal, founder review + AC2). The pool stays a
-	 * pure in-memory registry (preserves the AM2 immutability lore).
-	 */
-	readonly disabledTypes?: readonly string[];
 }
 
 export interface AdapterFilter {
@@ -188,23 +178,6 @@ export class AdapterPool {
 				if (entry.meta.type !== requirements.harnessType) continue;
 			}
 
-			// disabledTypes gate. The caller (admitSession) passes
-			// `harnessDisabled` from server_config here.
-			//
-			// @lore There used to be a hard exemption here for the built-in harness —
-			// it could never be disabled, whatever the stored config said, because it
-			// was the always-present fallback everything else leaned on. With it gone
-			// no harness is exempt: every one of them is something the person
-			// installed, and every one can be turned off.
-			if (
-				requirements?.disabledTypes &&
-				requirements.disabledTypes.length > 0 &&
-				entry.meta.type &&
-				requirements.disabledTypes.includes(entry.meta.type)
-			) {
-				continue;
-			}
-
 			// Least-loaded selection
 			if (best === null || entry.currentLoad < best.entry.currentLoad) {
 				best = { id, entry };
@@ -249,17 +222,6 @@ export class AdapterPool {
 			const ofType = live.filter((entry) => entry.meta.type === requirements.harnessType);
 			if (ofType.length === 0) {
 				return `no harness adapter of type "${requirements.harnessType}" is available (available: ${availableTypes.join(", ")})`;
-			}
-		}
-		const disabled = requirements?.disabledTypes ?? [];
-		if (disabled.length > 0) {
-			// Mirrors `select`'s filter exactly — no harness is exempt from being
-			// disabled any more, so neither is this diagnostic.
-			const enabled = live.filter(
-				(entry) => !(entry.meta.type && disabled.includes(entry.meta.type)),
-			);
-			if (enabled.length === 0) {
-				return `every available harness type is disabled in settings (disabled: ${disabled.join(", ")})`;
 			}
 		}
 		if (requirements?.modelProviders) {

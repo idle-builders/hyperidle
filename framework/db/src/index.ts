@@ -44,7 +44,6 @@ export {
 	type ServiceConnectionRow,
 	type Session,
 	type Subscription,
-	serverConfig,
 	serviceConnections,
 	sessions,
 	subscriptions,

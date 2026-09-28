@@ -88,6 +88,8 @@ Click **Refresh** to re-probe after signing in while HyperIdle is running.
 
 Click **Models** on a ready harness to see the models it exposes.
 
+There is no switch to disable a harness. If you do not want a harness used, do not sign in to it — an unauthenticated harness cannot run sessions.
+
 ---
 
 ## Connections

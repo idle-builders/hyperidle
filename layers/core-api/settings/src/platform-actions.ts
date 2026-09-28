@@ -49,7 +49,6 @@ import {
 	type EditPluginSource,
 	editPlugin as editPluginDeclaration,
 	editPluginInvariants,
-	type PluginContributionKind,
 	type PluginContributionView,
 	type PluginListing,
 	type PluginView,
@@ -57,6 +56,7 @@ import {
 	type ScopeKind,
 	type SearchDocumentsInput,
 	type SearchPluginsInput,
+	type StoredPluginContributionKind,
 	searchPlugins as searchPluginsDeclaration,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
@@ -385,7 +385,7 @@ async function labelContributions(
 	deps: PlatformActionsDeps,
 	contributions: readonly PluginContribution[],
 ): Promise<ReadonlyMap<string, string>> {
-	const idsOf = (kind: PluginContributionKind): string[] =>
+	const idsOf = (kind: StoredPluginContributionKind): string[] =>
 		contributions.filter((c) => c.kind === kind).map((c) => c.entityId);
 
 	const agentIds = idsOf("agent");

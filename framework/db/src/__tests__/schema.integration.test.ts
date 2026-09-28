@@ -3,7 +3,6 @@ import { eq } from "drizzle-orm";
 import {
 	documents,
 	messages,
-	serverConfig,
 	sessions,
 	subscriptions,
 	tasks,
@@ -409,15 +408,6 @@ describe("database schema", () => {
 			const result = await db.select().from(documents).where(eq(documents.id, "doc-1"));
 			expect(result[0]?.title).toBe("Updated");
 			expect(result[0]?.version).toBe(2);
-		});
-
-		test("inserts and reads server_config", async ({ db }) => {
-			const now = new Date().toISOString();
-			await db.insert(serverConfig).values({ id: "default", config: "{}", updatedAt: now });
-
-			const result = await db.select().from(serverConfig).where(eq(serverConfig.id, "default"));
-
-			expect(result[0]).toMatchObject({ id: "default", config: "{}" });
 		});
 	});
 

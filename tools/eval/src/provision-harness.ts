@@ -57,7 +57,6 @@ import {
 	type McpToolBridge,
 	returnStatusTool,
 } from "@hyperidle/harness-registry/mcp";
-import { readServerConfig } from "@hyperidle/settings";
 import * as work from "@hyperidle/task";
 import { bakeTaskContextBundle } from "@hyperidle/task";
 import { getTeam, requireRunnableAgent } from "@hyperidle/user";
@@ -257,16 +256,6 @@ export async function runEvalSession(
 
 		const startMs = Date.now();
 
-		// AU21 §9 Increment 12 (Decision H3), Wave E: this "one-shot" seam calls
-		// `provisionSession` directly, bypassing the durable emit-time resolver
-		// pipeline entirely — so it must supply the baked `agentConfig`/
-		// `harnessDisabled` `admitSession` now REQUIRES itself, same as it already
-		// supplies `resolvedModel` itself instead of letting `run-orchestration`
-		// resolve it. `requireRunnableAgent` is the SAME shared invariant every
-		// per-kind resolver validates against before baking; a deactivated agent
-		// throws here, before any session is provisioned — no live-read
-		// regression versus the pre-Wave-E behavior (which performed this exact
-		// check live, inside `admitSession`, every eval run).
 		const agent = await requireRunnableAgent(deps.db, params.agentId);
 
 		// Bake the task context the way the emit-time pipeline does.
@@ -296,7 +285,6 @@ export async function runEvalSession(
 			(db: HyperIdleDb, id: string) => getTeam(db, { id }),
 			assembleSessionDocuments,
 		);
-		const { harnessDisabled } = await readServerConfig(deps.db);
 		// The agent's identity: the `agent_file` document bound to it, read the way
 		// the emit-time pipeline reads it, with the agent as the reader.
 		const identity = await createStandaloneSearchDocuments()(
@@ -335,7 +323,6 @@ export async function runEvalSession(
 					// arrives as `selectedModel`, off the agent's own `model_id`.
 					agentConfig: bakeAgentRunnableConfig(agent, persona),
 					...(contextBundle ? { contextBundle } : {}),
-					harnessDisabled,
 					// No cost cap during eval — cost is tracked but not capped.
 				},
 			},

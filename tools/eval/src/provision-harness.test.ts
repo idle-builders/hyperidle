@@ -87,9 +87,9 @@ vi.mock("@hyperidle/harness-registry/mcp", () => ({
 	})),
 }));
 
-// `runEvalSession` performs a real `requireRunnableAgent`/`readServerConfig` bake
+// `runEvalSession` performs a real `requireRunnableAgent` bake
 // before calling `runSession` (mocked above) — this test's concern is adapter-pool
-// selection, not agent runnability, so those two reads are mocked here rather than
+// selection, not agent runnability, so that read is mocked here rather than
 // pulled onto a real DB (this is a `.test.ts` unit test, no DB fixture).
 vi.mock("@hyperidle/user", () => ({
 	requireRunnableAgent: vi.fn(
@@ -120,11 +120,6 @@ vi.mock("@hyperidle/task", () => ({
 vi.mock("@hyperidle/document", () => ({
 	assembleSessionDocuments: vi.fn(async () => []),
 }));
-vi.mock("@hyperidle/settings", () => ({
-	readServerConfig: vi.fn(async () => ({ harnessDisabled: [] })),
-	updateServerConfig: vi.fn(),
-}));
-
 describe("eval harness provisioning", () => {
 	/**
 	 * An eval exists to measure HyperIdle on a harness a user can actually run.

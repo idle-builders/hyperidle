@@ -1,10 +1,8 @@
 /**
  * Barrel for @hyperidle/settings (core-api Layer, SQL-owning Service).
  *
- * Typed functions only. This barrel MUST NOT re-export the raw `serverConfig`
- * pgTable object — that would let a consumer obtain the table transitively and
- * defeat Table ACL (Mechanism A). Consumers get typed functions; the table
- * stays private to this Service.
+ * Typed functions only — no raw pgTable objects. Consumers get typed functions;
+ * tables stay private to this Service (Table ACL, Mechanism A).
  *
  * @lore The plugin configuration engine (per-plugin configuration defaults,
  * person overrides, the resolver behind the agent-behaviour settings page) is
@@ -57,6 +55,3 @@ export type {
 	PluginManifest,
 } from "./plugin-manifest.js";
 export { parsePluginManifest } from "./plugin-manifest.js";
-// -- server config (P3 — server_config single-row table read/write) --
-export type { ServerConfig, ServerConfigPatch } from "./server-config.js";
-export { readServerConfig, updateServerConfig } from "./server-config.js";
