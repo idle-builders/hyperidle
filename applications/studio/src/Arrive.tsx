@@ -3,8 +3,8 @@ import { useState } from "react";
 /**
  * ARRIVE — first start, and every morning after.
  * One sidebar: find-or-ask, the three spines stacked, a separator, then the chosen spine's list.
- * The list is in priority order with no headings; every row carries its own status icon, and the
- * title is bold only when it wants your attention. Find or ask is an overlay, not a sidebar mode.
+ * Each list is one priority-ordered run of evenly spaced rows. Status is words on the row saying
+ * what is going on; only what is yours gets the flag colour. Find or ask is an overlay.
  */
 export const ARRIVE_STEPS = [
 	{ id: 0, name: "First start" },
@@ -19,69 +19,49 @@ export const ARRIVE_STEPS = [
 
 type Spine = "conversations" | "work" | "knowledge";
 
-type Status = "needs" | "unread" | "changed" | "running" | "waiting" | "done" | "read";
-
-const STATUS_LABEL: Record<Status, string> = {
-	needs: "Needs you", unread: "Unread", changed: "Changed", running: "Running",
-	waiting: "Waiting on a review", done: "Done", read: "Read",
-};
-
+/**
+ * `state` is the status in words. `yours` = you owe something (the only use of the flag colour);
+ * `fresh` = something new you have not seen. Lists are already in priority order.
+ */
 interface Item {
 	id: string;
 	title: string;
-	sub: string;
+	state: string;
+	who: string;
 	age: string;
-	status: Status;
+	yours?: boolean;
+	fresh?: boolean;
 }
 
-/** Priority blocks. Their order is the list order; they are never labelled on screen. */
-type Group = Item[];
+const MENTION: Item = { id: "m1", title: "Refund wording", state: "Mentioned you", who: "Maya", age: "now", yours: true };
 
-const MENTION: Item = { id: "m1", title: "Maya: can you look at the refund wording?", sub: "Mentioned in Trial-end confusion · just now", age: "now", status: "needs" };
-
-function conversations(withMention: boolean): Group[] {
+function conversations(withMention: boolean): Item[] {
 	return [
-		[
-			...(withMention ? [MENTION] : []),
-			{ id: "c-r1", title: "Trial-end explainer", sub: "Review · Builder · 2 flags", age: "8h", status: "needs" },
-			{ id: "c-r2", title: "Comparison table, stacked layout", sub: "Review · Designer · 1 flag", age: "5h", status: "needs" },
-			{ id: "c-q", title: "What do we call the charge after a trial?", sub: "Builder asks · seen by every trial user", age: "6h", status: "needs" },
-			{ id: "c-infra", title: "Infra wants the rollout rule written down", sub: "Maya: can you own this?", age: "11h", status: "needs" },
-		],
-		[
-			{ id: "c-trial", title: "Trial-end confusion, three tickets", sub: "Maya: Sent all three, closed the tickets.", age: "13:02", status: "unread" },
-		],
-		[
-			{ id: "c-pricing", title: "Pricing page, Q4 pass", sub: "", age: "yesterday", status: "read" },
-			{ id: "c-onb", title: "Onboarding emails", sub: "", age: "Mon", status: "read" },
-			{ id: "c-hiring", title: "Support hire, second round", sub: "", age: "Fri", status: "read" },
-		],
+		...(withMention ? [MENTION] : []),
+		{ id: "c-r1", title: "Trial-end explainer", state: "Your review", who: "Builder · 2 flags", age: "8h", yours: true },
+		{ id: "c-r2", title: "Comparison table, stacked layout", state: "Your review", who: "Designer · 1 flag", age: "5h", yours: true },
+		{ id: "c-q", title: "Name for the charge after a trial", state: "Your answer", who: "Builder asks", age: "6h", yours: true },
+		{ id: "c-infra", title: "Rollout rule, written down", state: "Your answer", who: "Maya asks you to own it", age: "11h", yours: true },
+		{ id: "c-trial", title: "Trial-end confusion, three tickets", state: "New reply", who: "Maya", age: "13:02", fresh: true },
+		{ id: "c-pricing", title: "Pricing page, Q4 pass", state: "Growth:", who: "two options drafted", age: "yesterday" },
+		{ id: "c-onb", title: "Onboarding emails", state: "You:", who: "park until October", age: "Mon" },
+		{ id: "c-hiring", title: "Support hire, second round", state: "Maya:", who: "two candidates left", age: "Fri" },
 	];
 }
 
-/** Work is only tasks. The agent owns them, so nothing here is yours to act on. */
-const WORK: Group[] = [
-	[
-		{ id: "w-f1", title: "Trials that convert without a call", sub: "Growth · 3 of 7 subtasks", age: "week 2", status: "running" },
-		{ id: "w-f2", title: "Usage-based tier, metering", sub: "Builder · 2h in", age: "2h", status: "running" },
-	],
-	[
-		{ id: "w-t1", title: "Explain what happens when a trial ends", sub: "Builder · waiting on you", age: "8h", status: "waiting" },
-		{ id: "w-t2", title: "Comparison table, stacked layout", sub: "Designer · waiting on you", age: "5h", status: "waiting" },
-	],
-	[
-		{ id: "w-d1", title: "Proration math covered end to end", sub: "", age: "03:40", status: "done" },
-		{ id: "w-d2", title: "Trial dates normalised to UTC", sub: "", age: "05:55", status: "done" },
-	],
+/** Work is only tasks. The agent owns them, so nothing here is flagged as yours — the review is in Conversations. */
+const WORK: Item[] = [
+	{ id: "w-d1", title: "Proration math covered end to end", state: "Done", who: "Builder", age: "03:40", fresh: true },
+	{ id: "w-d2", title: "Trial dates normalised to UTC", state: "Done", who: "Builder", age: "05:55", fresh: true },
+	{ id: "w-t1", title: "Explain what happens when a trial ends", state: "Waiting on your review", who: "Builder", age: "8h" },
+	{ id: "w-t2", title: "Comparison table, stacked layout", state: "Waiting on your review", who: "Designer", age: "5h" },
+	{ id: "w-f2", title: "Usage-based tier, metering", state: "Running · 2h", who: "Builder", age: "2h" },
+	{ id: "w-f1", title: "Trials that convert without a call", state: "3 of 7 done", who: "Growth", age: "week 2" },
 ];
 
-const KNOWLEDGE_PRIORITY: Group[] = [
-	[
-		{ id: "k-deploy", title: "Deploy rule", sub: "Draft · Facilitation asks you to publish", age: "4h", status: "needs" },
-	],
-	[
-		{ id: "k-price", title: "How we price", sub: "Growth edited the Trials section", age: "2d", status: "changed" },
-	],
+const KNOWLEDGE_PRIORITY: Item[] = [
+	{ id: "k-deploy", title: "Deploy rule", state: "Publish?", who: "draft by Facilitation", age: "4h", yours: true },
+	{ id: "k-price", title: "How we price", state: "Edited by Growth", who: "Trials section", age: "2d", fresh: true },
 ];
 
 interface Doc {
@@ -126,50 +106,24 @@ const HITS: Hit[] = [
 	{ id: "h4", spine: "Thread", title: "Pricing page, Q4 pass", where: "Conversations · Growth · yesterday", snippet: ["Two options drafted. Option B shortens the ", "trial", " to 10 days and adds a reminder."] },
 ];
 
-/** One icon column, always present, so status reads down the list at a glance. */
-function StatusIcon({ status }: { status: Status }) {
-	const label = STATUS_LABEL[status];
-	let body = null;
-	if (status === "needs") body = <><circle cx="7" cy="7" r="6" className="si-needs" /><path d="M7 3.8v3.6M7 9.6v.2" className="si-needs-mark" /></>;
-	else if (status === "unread" || status === "changed") body = <circle cx="7" cy="7" r="3.5" className="si-dot" />;
-	else if (status === "running") body = <><circle cx="7" cy="7" r="5.5" className="si-ring si-ring--live" /><path d="M7 1.5a5.5 5.5 0 0 1 0 11z" className="si-half" /></>;
-	else if (status === "waiting") body = <><circle cx="7" cy="7" r="5.5" className="si-ring si-ring--wait" /><circle cx="7" cy="7" r="2" className="si-wait-core" /></>;
-	else if (status === "done") body = <><circle cx="7" cy="7" r="6" className="si-done" /><path d="M4.3 7.2l1.8 1.8 3.6-3.8" className="si-done-mark" /></>;
-	return (
-		<svg className="si" viewBox="0 0 14 14" role="img" aria-label={label}>
-			<title>{label}</title>
-			{body}
-		</svg>
-	);
-}
-
 function Row({ item, current, onPick }: { item: Item; current?: boolean; onPick: () => void }) {
-	const loud = item.status === "needs" || item.status === "unread" || item.status === "changed";
+	const tone = item.yours ? " nrow-state--yours" : item.fresh ? " nrow-state--fresh" : "";
 	return (
-		<button type="button" className={loud ? "nrow nrow--loud" : "nrow"} aria-current={current} onClick={onPick}>
-			<StatusIcon status={item.status} />
-			<span className="nrow-main">
-				<span className="nrow-top">
-					<span className="nrow-title">{item.title}</span>
-					<span className="nrow-age">{item.age}</span>
-				</span>
-				{item.sub && <span className="nrow-sub">{item.sub}</span>}
+		<button type="button" className="nrow" aria-current={current} onClick={onPick}>
+			<span className="nrow-top">
+				<span className={item.yours || item.fresh ? "nrow-title nrow-title--strong" : "nrow-title"}>{item.title}</span>
+				<span className="nrow-age">{item.age}</span>
+			</span>
+			<span className="nrow-sub">
+				<span className={`nrow-state${tone}`}>{item.state}</span>
+				<span className="nrow-who">{item.who}</span>
 			</span>
 		</button>
 	);
 }
 
-/** Priority blocks, in order, separated by space rather than headings. */
-function Blocks({ groups, picked, onPick }: { groups: Group[]; picked: string | null; onPick: (id: string) => void }) {
-	return (
-		<>
-			{groups.map((g) => (
-				<div className="block" key={g[0]?.id ?? "empty"}>
-					{g.map((i) => <Row key={i.id} item={i} current={picked === i.id} onPick={() => onPick(i.id)} />)}
-				</div>
-			))}
-		</>
-	);
+function List({ items, picked, onPick }: { items: Item[]; picked: string | null; onPick: (id: string) => void }) {
+	return <>{items.map((i) => <Row key={i.id} item={i} current={picked === i.id} onPick={() => onPick(i.id)} />)}</>;
 }
 
 function DocIcon() {
@@ -431,9 +385,9 @@ export function Arrive({ step }: { step: number }) {
 	const focused = step === 7;
 	const conv = conversations(focused);
 	const needs: Record<Spine, number> = {
-		conversations: conv[0].length,
+		conversations: conv.filter((i) => i.yours).length,
 		work: 0,
-		knowledge: KNOWLEDGE_PRIORITY[0].length,
+		knowledge: KNOWLEDGE_PRIORITY.filter((i) => i.yours).length,
 	};
 
 	const toggle = (id: string) => setOpen((prev) => {
@@ -472,18 +426,18 @@ export function Arrive({ step }: { step: number }) {
 				<div className="nav-list">
 					{step === 1 ? (
 						spine === "conversations"
-							? <Row item={{ id: "g", title: "Getting started", sub: "Builder: What are you working on?", age: "now", status: "unread" }} current onPick={() => undefined} />
+							? <Row item={{ id: "g", title: "Getting started", state: "New", who: "Builder", age: "now", fresh: true }} current onPick={() => undefined} />
 							: <p className="nav-empty">Nothing here yet.</p>
 					) : spine === "conversations" ? (
 						<>
 							{focused && <p className="nav-new">1 new since you started · it waits here</p>}
-							<Blocks groups={conv} picked={picked} onPick={setPicked} />
+							<List items={conv} picked={picked} onPick={setPicked} />
 						</>
 					) : spine === "work" ? (
-						<Blocks groups={WORK} picked={picked} onPick={setPicked} />
+						<List items={WORK} picked={picked} onPick={setPicked} />
 					) : (
 						<>
-							<Blocks groups={KNOWLEDGE_PRIORITY} picked={picked} onPick={setPicked} />
+							<List items={KNOWLEDGE_PRIORITY} picked={picked} onPick={setPicked} />
 							<section className="tree-wrap" aria-label="All documents">
 								<div className="tree">
 									<Tree docs={TREE} open={open} toggle={toggle} picked={picked} onPick={setPicked}

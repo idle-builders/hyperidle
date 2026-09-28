@@ -157,12 +157,13 @@ Objects that appear inside surfaces. Designed once, reused everywhere.
   the match highlighted; ↵ opens here, ⌘↵ opens beside; top row offers "Ask Builder about …".
   Ask: the agent answers inside the overlay with its sources listed; it is saved as a thread in
   Conversations (↵ follow up, ⌘↵ open the thread).
-- **Sidebar lists: priority order, no headings, status on the row** (founder, 2026-09-28: boxed
-  cards "not nice", section headings "not good", "status needs to be something on the row").
-  Every row has one status icon in a fixed column: needs you (yellow !), unread / changed (dot),
-  running (half-filled green circle), waiting on a review (dashed orange ring), done (grey check),
-  read (none). Titles are bold only for needs you, unread and changed. Priority blocks are
-  separated by space, never labelled. The document tree follows after a thin line.
+- **Sidebar lists: one evenly spaced run, in priority order, status in words on the row**
+  (founder, 2026-09-28: coloured status icons "absolutely no value … meaningless"; uneven spacing
+  "makes no sense"). Row = title + time, then a status phrase + who. The phrase says what is going
+  on: *Your review · Your answer · Mentioned you · New reply · Done · Waiting on your review ·
+  Running · 2h · 3 of 7 done · Publish? · Edited by Growth*; a read thread shows its last message.
+  Only what you owe gets the flag colour; something new you have not seen is green; the rest is
+  grey. Bold titles always come first. Work never flags anything as yours.
 - **Document tree:** every node is a document with **its own icon, changeable** (click it; the page
   outline is only the default), one guide line per level, a fixed
   chevron column, collapsed nodes show their child count. Patterns taken from Notion, Obsidian and

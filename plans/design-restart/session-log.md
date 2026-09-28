@@ -470,3 +470,8 @@ needs a complete rethink — maybe an overlay.**
 **Founder: the boxed cards are not nice; the section headings are not good; status must be on the
 row.** Removed both. Rows now carry a status icon in a fixed left column (Linear-style), bold title
 only when it wants attention, priority order kept, blocks separated by space only.
+
+**Founder: the coloured status icons say nothing; the spacing between rows makes no sense.**
+Agreed — the icons broke our own rule (colour does not carry status; words do). Replaced with a
+status phrase on each row ("Your review", "New reply", "Running · 2h", "Publish?", …), flag colour
+only for what you owe, even row spacing, no gaps between priority blocks, bold rows first.
