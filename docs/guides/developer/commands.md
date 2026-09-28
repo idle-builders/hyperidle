@@ -78,8 +78,8 @@ Migrations are hand-written — there is no generator. A new migration is a hand
 | Command | Purpose |
 |---------|---------|
 | `npm run db:migrate` | Apply migrations via drizzle-kit against `DATABASE_URL` (Postgres only — never touches PGlite) |
-| `npm run db:bootstrap:pg` | Factory bootstrap against `DATABASE_URL` |
-| `npm run db:seed:pg` | Seed against `DATABASE_URL` (same as `db:bootstrap:pg` plus `--demo`) |
+| `npm run db:bootstrap:pg -- --demo` | Seed the Acme demo world against `DATABASE_URL` |
+| `npm run db:seed:pg` | Factory bootstrap against `DATABASE_URL` (server does this at boot) |
 
 Laptop PGlite migrations run via `npm run setup`, not `db:migrate`.
 

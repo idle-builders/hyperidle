@@ -1,13 +1,12 @@
 # HyperIdle VPS deployment profile.
-# Brings up Postgres + server + web as a single Docker Compose stack.
+# Brings up Postgres, runs migrations, then starts the production server.
+# The server also serves the built web SPA (HYPERIDLE_STATIC_DIR).
 #
 # Usage:
-#   cp .env.example .env     # and set POSTGRES_PASSWORD (at minimum)
-#   docker compose up -d
-#   npm run db:migrate:pg
-#   npm run db:seed:pg
+#   cp .env.example .env     # set POSTGRES_PASSWORD and HYPERIDLE_API_KEY
+#   docker compose up -d --build
 #
-# See docs/DEPLOYMENT.md for details.
+# See docs/deployment/self-hosting.md for details.
 
 services:
   postgres:
@@ -30,25 +29,36 @@ services:
       timeout: 5s
       retries: 10
 
-  server:
+  migrate:
     build:
       context: .
-      dockerfile: Dockerfile
-    restart: unless-stopped
+      dockerfile: Dockerfile.deploy
+    restart: "no"
     depends_on:
       postgres:
         condition: service_healthy
     environment:
-      # @lore HYPERIDLE_PROFILE is NOT dead here despite server-factory no
-      # longer branching on it for adapter selection (AU19 Increment 5 item 2
-      # made CreateServerDeps.adapterPool/workspaceAdapter required, injected
-      # by remote-server's own bootstrap instead). It is still load-bearing:
-      # @hyperidle/host-process's validateStartupEnv (called by remote-server's
-      # src/index.ts) branches on it to REQUIRE an explicit HYPERIDLE_API_KEY
-      # on vps/cloud profiles rather than silently falling back to the
-      # laptop-dev default key — a real security behavior for a
-      # network-exposed deployment, not dead code.
+      DATABASE_URL: ${DATABASE_URL:-postgres://${POSTGRES_USER:-hyperidle}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}@postgres:5432/${POSTGRES_DB:-hyperidle}}
+    command: ["npx", "tsx", "framework/db/src/migrate-pg.ts"]
+
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile.deploy
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      # @lore HYPERIDLE_PROFILE=vps is load-bearing: validateStartupEnv
+      # (applications/remote-server/src/validate-startup-env.ts) requires an
+      # explicit HYPERIDLE_API_KEY for vps/cloud profiles rather than falling
+      # back to the laptop-dev default — a real security gate for a
+      # network-exposed deployment.
       HYPERIDLE_PROFILE: vps
+      # @lore HYPERIDLE_API_KEY must be set in .env — the vps profile exits at
+      # startup without it (validate-startup-env.ts:12-13).
+      HYPERIDLE_API_KEY: ${HYPERIDLE_API_KEY:?HYPERIDLE_API_KEY must be set in .env}
       # @lore Interpolated from POSTGRES_* so setting POSTGRES_PASSWORD in
       # .env actually takes effect. Previously hard-coded to hyperidle:hyperidle
       # which silently ignored operator changes (H4 review finding).
@@ -57,31 +67,9 @@ services:
       PORT: 3001
     # @lore Server bound to loopback on the host; operators front it with a
     # reverse proxy (nginx/Caddy) for TLS + auth rather than exposing the
-    # Hono dev server directly.
+    # Hono server directly.
     ports:
       - "127.0.0.1:3001:3001"
-    # @lore AU19 Increment 5 item 2: repointed from the retired @hyperidle/server
-    # to @hyperidle/remote-server, the real thin Application entrypoint for this
-    # deployment profile — it injects an empty AdapterPool + DisabledSandboxAdapter
-    # itself (no local sandbox) rather than server-factory branching on
-    # HYPERIDLE_PROFILE internally (that internal default no longer exists;
-    # CreateServerDeps.adapterPool/workspaceAdapter are now required).
-    command: ["npm", "run", "-w", "@hyperidle/remote-server", "dev"]
-
-  web:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    restart: unless-stopped
-    depends_on:
-      - server
-    environment:
-      VITE_API_URL: http://server:3001
-    # @lore Vite dev server is bound to loopback on the host for the same
-    # reason as the server; production operators front with nginx + auth.
-    ports:
-      - "127.0.0.1:5173:5173"
-    command: ["npm", "run", "-w", "@hyperidle/core-ui", "dev", "--", "--host", "0.0.0.0"]
 
 volumes:
   postgres_data:

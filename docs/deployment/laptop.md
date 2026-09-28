@@ -9,6 +9,20 @@ Setup steps and the command reference live in [guides/developer/getting-started]
 3. **Laptop auto-defaults the API key.** When `HYPERIDLE_API_KEY` is not set, the laptop profile sets it to `hyperidle-dev-local` (`applications/remote-server/src/validate-startup-env.ts`). The web client falls back to the same value (`layers/core-ui/src/services/api-fetch.ts`). No env setup is needed for local dev.
 4. **Node ≥ 24** (root `package.json` engines).
 
+## Running as a macOS background service
+
+`deploy/bin/service install` installs the server as a macOS LaunchAgent (survives terminal close, starts on login). Set `HYPERIDLE_API_KEY` first; the script requires it for a production key. The laptop profile auto-defaults the key to `hyperidle-dev-local` only when no key is given at runtime — the service installer requires you to be explicit.
+
+```bash
+export HYPERIDLE_API_KEY=your-key-here
+./deploy/bin/service install    # installs and starts
+./deploy/bin/service status
+./deploy/bin/service logs
+./deploy/bin/service uninstall  # remove
+```
+
+The server entry point is `applications/remote-server/src/index.ts` (the real `@hyperidle/remote-server` application).
+
 ## Other profiles
 
 - Server-hosted profiles (cloud): [self-hosting](self-hosting.md)

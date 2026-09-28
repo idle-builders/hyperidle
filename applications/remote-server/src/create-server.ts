@@ -41,6 +41,7 @@ import {
 	type RunOrchestrationReturnStatusToolAdapter,
 } from "@hyperidle/agent-orchestration";
 import {
+	applyFactoryCoreState,
 	buildAgentOrchestrationPort,
 	composeApiApplication,
 	createInProcessAgentOrchestrationTransport,
@@ -258,6 +259,12 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		// copying — so installing would delete the sources it was built from.
 		pluginsBaseDir = path.join(path.dirname(dbUrl), "installed-plugins");
 	}
+
+	// @lore factory bootstrap: every remote/cloud deploy needs the hidden
+	// system:propagation actor before any write. Idempotent — safe to call on
+	// every boot, same as the desktop app does.
+	await applyFactoryCoreState(db);
+
 	const eventBus = new EventBus();
 
 	const hasSecret = Boolean(process.env.HYPERIDLE_CREDENTIAL_KEY ?? process.env.HYPERIDLE_API_KEY);

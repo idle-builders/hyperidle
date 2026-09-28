@@ -27,9 +27,9 @@ A Deploy **never provisions** — it consumes what provisioning created and appl
 
 ## Factory bootstrap
 
-`applyFactoryCoreState` (`layers/core-api/src/bootstrap/factory-state.ts`) writes the one row every HyperIdle instance needs: the hidden `system:propagation` actor. It seeds no agent, no roster and no personas — those come from the welcome screen and plugins. It is idempotent and runs on every desktop launch.
+`applyFactoryCoreState` (`layers/core-api/src/bootstrap/factory-state.ts`) writes the one row every HyperIdle instance needs: the hidden `system:propagation` actor. It seeds no agent, no roster and no personas — those come from the welcome screen and plugins. It is idempotent.
 
-**Gap:** `tools/setup/src/bootstrap-pg.ts` (the deploy-time bootstrap CLI) is **not wired into the Helm chart** (`deploy/chart/templates/deployment.yaml`) — cloud deploys currently skip factory bootstrap.
+The server calls it on every boot (`applications/remote-server/src/create-server.ts`), so both the VPS Docker Compose stack and the Helm chart get the required row without a separate bootstrap step.
 
 ## Artifacts (this repo)
 

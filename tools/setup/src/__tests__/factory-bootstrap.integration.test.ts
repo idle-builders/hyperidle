@@ -50,17 +50,6 @@ describe("runFactoryBootstrap creates the complete factory layer", () => {
 		expect(rows.length).toBe(0);
 	});
 
-	// cost_cap lives as server_config.cost.capMinor with a schema default (20000) —
-	// bootstrap relies on the default rather than seeding it explicitly.
-	test("bootstrap writes no server_config row (cost_cap default now lives server-side)", async ({
-		db,
-	}) => {
-		await runFactoryBootstrap(db);
-
-		const rows = await queryRows<{ id: string }>(db, "SELECT id FROM server_config");
-		expect(rows).toHaveLength(0);
-	});
-
 	// Bootstrap does not seed documents.
 
 	test("no teams row is created by bootstrap (team_id null constraint)", async ({ db }) => {

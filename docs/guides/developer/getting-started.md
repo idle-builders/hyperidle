@@ -53,7 +53,7 @@ No env setup is needed unless you set your own key.
 ## Database
 
 - **Laptop profile is PGlite** — a data directory (default `./hyperidle-pg`). `npm run dev` never migrates; run `npm run setup` first.
-- **vps/cloud use Postgres** via `DATABASE_URL`. Apply migrations with `npm run db:migrate` (drizzle-kit, targets Postgres only) or `npx tsx framework/db/src/migrate-pg.ts`. Bootstrap with `npm run db:bootstrap:pg`.
+- **vps/cloud use Postgres** via `DATABASE_URL`. Apply migrations with `npm run db:migrate:pg` (custom runner, safe for restricted roles) or `npm run db:migrate` (drizzle-kit, requires database-level CREATE). The server runs factory bootstrap at boot — use `npm run db:bootstrap:pg -- --demo` only if you want demo data.
 - Migrations are hand-written — see `framework/db/drizzle/README.md`.
 
 ## Project Structure

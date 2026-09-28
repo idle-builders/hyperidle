@@ -10,7 +10,7 @@
 		<string>__NODE_PATH__</string>
 		<string>--import</string>
 		<string>tsx</string>
-		<string>__REPO_DIR__/packages/server/src/index.ts</string>
+		<string>__REPO_DIR__/applications/remote-server/src/index.ts</string>
 	</array>
 
 	<key>WorkingDirectory</key>

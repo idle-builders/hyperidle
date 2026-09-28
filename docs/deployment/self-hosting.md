@@ -21,10 +21,11 @@ Profile defaults are in `applications/remote-server/src/profiles.ts`.
 export DATABASE_URL=postgres://user:pass@host:5432/hyperidle
 export HYPERIDLE_PROFILE=cloud
 export HYPERIDLE_API_KEY=$(openssl rand -hex 32)
-npx tsx framework/db/src/migrate-pg.ts   # applies migrations (no CREATE SCHEMA — safe for a restricted role)
-npm run db:bootstrap:pg                  # writes the one system row every instance needs
-npm start                                # serve the built frontend + API
+npm run db:migrate:pg    # applies migrations (no CREATE SCHEMA — safe for a restricted role)
+npm start                # serve the built frontend + API; factory bootstrap runs at boot
 ```
+
+The server runs `applyFactoryCoreState` on every boot — no separate bootstrap step is needed.
 
 **Connection pool:** default 10 connections; override via `PG_POOL_SIZE` (`framework/db/src/connection.ts`).
 
@@ -36,22 +37,40 @@ Two migration runners exist:
 
 | Command | What it does |
 |---|---|
-| `npx tsx framework/db/src/migrate-pg.ts` | Custom runner — applies migrations without `CREATE SCHEMA`, safe for a schema-scoped tenant role |
+| `npm run db:migrate:pg` | Custom runner (`framework/db/src/migrate-pg.ts`) — applies migrations without `CREATE SCHEMA`, safe for a schema-scoped tenant role |
 | `npm run db:migrate` | drizzle-kit migrate against `DATABASE_URL` — requires database-level CREATE, not suitable for a restricted role |
 
-Use `migrate-pg.ts` in production. Use `npm run db:migrate` locally when you have full database access.
+Use `db:migrate:pg` in production. Use `npm run db:migrate` locally when you have full database access.
 
 Companion commands:
 
 | Command | What it does |
 |---|---|
-| `npm run db:bootstrap:pg` | Factory bootstrap (the `system:propagation` actor) |
-| `npm run db:seed:pg` | Same as bootstrap plus `--demo` |
-| `npm run test:pg` | Run the test suite against a real `DATABASE_URL` |
+| `npm run db:bootstrap:pg -- --demo` | Seeds the Acme demo world — only needed if you want demo data |
+| `npm run db:seed:pg` | Factory bootstrap (the `system:propagation` actor) — not needed for normal deploys, server does it at boot |
 
 ## VPS (Docker Compose)
 
-The `docker-compose.yml` at repo root defines a three-service stack. **This stack is not currently functional** — the `server` service requires `HYPERIDLE_API_KEY` but none is passed in the compose environment, so the server exits at startup. Use the cloud profile with a managed Postgres instead until this is fixed.
+The `docker-compose.yml` at repo root defines a three-service stack: Postgres, a one-shot migrate container, and the production server. The server also serves the built web SPA from `HYPERIDLE_STATIC_DIR` — no separate frontend container.
+
+```bash
+cp .env.example .env                          # set POSTGRES_PASSWORD and HYPERIDLE_API_KEY
+docker compose up -d --build                  # builds Dockerfile.deploy, runs migrate, starts server
+```
+
+On `docker compose up`:
+1. `postgres` starts and passes its healthcheck.
+2. `migrate` runs `npx tsx framework/db/src/migrate-pg.ts` against Postgres, then exits.
+3. `server` starts once migrate exits successfully, serving the API and built web SPA on port 3001.
+
+The server runs factory bootstrap at boot (the `system:propagation` actor is created automatically).
+
+**Health checks:**
+```bash
+curl http://127.0.0.1:3001/api/health
+curl -H "X-API-Key: $HYPERIDLE_API_KEY" http://127.0.0.1:3001/api/health/auth
+curl http://127.0.0.1:3001/   # HTML 200 — web SPA
+```
 
 ## Troubleshooting
 
