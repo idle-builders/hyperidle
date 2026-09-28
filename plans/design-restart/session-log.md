@@ -403,3 +403,23 @@ round 1" (new: the warning email; same: page and proration fix), the new email b
 page, and two agent flags (C: "this is what you asked for", D: "unchanged from round 1"). Step 7:
 approved, work item closed, both flags settled. Also removed the overflow clip on artifact blocks so
 a pin's thread can spill past the block edge.
+
+---
+
+## Session 6 — ARRIVE, first pass (2026-09-28)
+
+**Proposal for the parked double-nav concern: one navigation column.** Find-or-ask on top, the
+spines as tabs (Home · Conversations · Work · Knowledge), the chosen tab's list below, detail on
+the right. Home is "while you were away". The old rail + queue pair is gone in this journey. The
+studio's own controls sit in a dashed "Studio controls" column so they are not mistaken for product.
+
+**Six steps:**
+1. First start — agents found on this computer (Claude Code, Codex; Cursor not installed), a team
+   made for you, one button: Start talking. No setup form.
+2. First conversation — Builder greets you; an optional, skippable hint to connect a folder or GitHub.
+3. Morning — Home list: Needs you (reviews and questions only) · Still running · Finished overnight.
+   The detail shows a short written handover: numbers, one paragraph, what each agent did.
+4. Open one — the review opens on the right; the list stays so the next one is one click away.
+5. Find or ask — results grouped by spine, plus "Ask Builder" at the bottom.
+6. Something new while you focus — no pop-up. It lands in Home, the Home count goes up, and a quiet
+   line says "1 new since you started · it waits here". Finish, then turn.

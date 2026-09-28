@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { drafts, mentionables, sessionSteps, STEPS, tickets } from "./handoff";
+import { Arrive, ARRIVE_STEPS } from "./Arrive";
 import { Judge, JUDGE_STEPS } from "./Judge";
 import { needsYou, overnight, type QueueItem } from "./mock";
 
@@ -82,7 +83,8 @@ export function App() {
 	const [journey, setJourney] = useState("handoff");
 	const [step, setStep] = useState(0);
 	const [peek, setPeek] = useState(false);
-	const steps = journey === "handoff" ? STEPS : JUDGE_STEPS;
+	const steps = journey === "handoff" ? STEPS : journey === "judge" ? JUDGE_STEPS : ARRIVE_STEPS;
+	const arrive = journey === "arrive";
 
 	document.documentElement.dataset.skin = skin;
 	document.documentElement.dataset.mode = mode;
@@ -95,8 +97,9 @@ export function App() {
 		: { id: "x", origin: "TASK", title: "Explain what happens when a trial ends", sub: "Builder · closed by your verdict", age: "4h" };
 
 	return (
-		<div className={journey === "judge" ? "frame frame--judge" : "frame"}>
-			<nav className="rail">
+		<div className={journey === "judge" ? "frame frame--judge" : arrive ? `frame frame--arrive${step === 0 ? " frame--first" : ""}` : "frame"}>
+			<nav className={arrive ? "rail rail--studio" : "rail"}>
+				{arrive ? <span className="studio-h">Studio controls</span> : <>
 				<span className="wordmark">HyperIdle</span>
 
 				<div className="rail-search">
@@ -118,11 +121,13 @@ export function App() {
 						<span className="spine-count">2</span>
 					</button>
 				</div>
+				</>}
 
 				<div className="switcher">
 					{[
 						{ id: "handoff", name: "Hand off" },
 						{ id: "judge", name: "Judge" },
+						{ id: "arrive", name: "Arrive" },
 					].map((j) => (
 						<button key={j.id} type="button" aria-pressed={journey === j.id}
 							onClick={() => { setJourney(j.id); setStep(0); setPeek(false); }}>
@@ -160,7 +165,7 @@ export function App() {
 				</div>
 			</nav>
 
-			{journey === "judge" ? <Judge key={step} step={step} /> : <>
+			{journey === "judge" ? <Judge key={step} step={step} /> : arrive ? <Arrive key={step} step={step} /> : <>
 			<section className="queue">
 				<header className="overnight">
 					<h1>While you were away</h1>
