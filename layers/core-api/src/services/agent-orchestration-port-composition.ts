@@ -31,7 +31,7 @@ import type { AppType } from "../schemas/index.js";
 /**
  * Hand-typed mirror of the real core-api `hc` client shape for the
  * `/agent-orchestration` mount — same "one audited cast recovering a usable
- * shape" idiom as `core-api-port-composition.ts`'s `buildCoreApiHcClient`.
+ * shape" idiom.
  */
 interface AgentOrchestrationHcClient {
 	readonly "agent-orchestration": {
@@ -131,7 +131,7 @@ interface AgentOrchestrationHcClient {
 	};
 }
 
-/** Placeholder origin for hc's internal URL construction — see `core-api-port-composition.ts`'s twin. */
+/** Placeholder origin for hc's internal URL construction. */
 const SEAM_PLACEHOLDER_BASE_URL = "http://agent-orchestration.internal/api";
 
 function buildAgentOrchestrationHcClient(fetchAdapter: typeof fetch): AgentOrchestrationHcClient {

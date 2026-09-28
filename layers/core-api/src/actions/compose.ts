@@ -195,8 +195,7 @@ function buildDocumentActionsDeps(
 		openParent: buildOpenParent(taskActions, threadActions),
 		systemParentExists,
 		// bound to the settings package's contribution tracker — a
-		// document's `body` changing detaches it from the plugin that seeded
-		// it, the same event `routes/knowledge.ts:666` (pre-item) raised.
+		// document's `body` changing detaches it from the plugin that seeded it.
 		onBodyChanged: (exec, documentId) =>
 			markDetached(exec, { kind: "document", entityId: documentId, ts: new Date().toISOString() }),
 		...(wsPush ? { wsPush } : {}),
@@ -321,8 +320,7 @@ function toHarnessDescriptors(
  * function, because `@hyperidle/user` may not import that sibling Service
  * either. `harnesses` is absent when no adapter pool is wired (a
  * composition without agent execution) — `open_user`'s `runsOn` then answers
- * `[]`, the same "no pool" shape `routes/harnesses.ts` itself never mounts
- * under.
+ * `[]` (no pool).
  */
 function buildUserActionsDeps(
 	documentActions: readonly Action[],
@@ -430,8 +428,8 @@ export function buildCoreActions(bindings: {
  * A minimal, standalone document action list — never `buildCoreActions`'s
  * composed HTTP/MCP list — for the composition roots that need
  * `search_documents`/`edit_document` before or outside that list exists:
- * the pre-auth first-run setup route (`routes/users.ts`, called before any
- * request has reached `createCoreApiApp`). `openParent` is honestly
+ * the pre-auth first-run setup route (called before any request has reached
+ * `createCoreApiApp`). `openParent` is honestly
  * unreachable here: it fires only from `edit_document` when the caller's
  * `parent.kind` is `"task"`/`"thread"`, and this caller never parents a
  * document that way (an agent identity document is agent-parented). Throws
@@ -458,8 +456,8 @@ function buildStandaloneDocumentActions(): readonly Action[] {
 
 /**
  * `search_documents` and `edit_document`, standalone (see
- * `buildStandaloneDocumentActions` above) — `routes/users.ts`'s pre-auth
- * setup route feeds both into `createAgentIdentityPort`.
+ * `buildStandaloneDocumentActions` above) — the pre-auth setup route feeds
+ * both into `createAgentIdentityPort`.
  */
 export function buildStandaloneDocumentRunners(): {
 	readonly searchDocuments: SearchDocumentsRunFn;

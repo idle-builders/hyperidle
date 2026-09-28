@@ -40,7 +40,7 @@ interface DiffLine {
 	readonly text: string;
 	/** Deterministic block id for this line (computed if omitted). */
 	readonly blockId?: import("@hyperidle/domain-model").BlockId;
-	/** Human-readable spot label, e.g. `PromoField.tsx:118`. */
+	/** Human-readable spot label, e.g. `Component.tsx:118`. */
 	readonly spotLabel?: string;
 }
 
@@ -667,8 +667,7 @@ function mapCodeDiffPayload(payload: CodeDiffPayload, artifactId: string): CodeD
 
 export function ReviewCodeDiff({ artifact }: ReviewCanvasProps): JSX.Element {
 	if (!isCodeDiffPayload(artifact.payload)) {
-		// A malformed payload gets the honest unknown-canvas
-		// fallback, never the promo-fix PR demo fixture.
+		// A malformed payload gets the honest unknown-canvas fallback.
 		return <ReviewUnknownCanvas artifact={artifact} />;
 	}
 	return (

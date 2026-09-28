@@ -1,4 +1,4 @@
--- BB1: bets and tasks become one recursive task.
+-- Bets and tasks become one recursive task.
 --
 -- Every bet becomes a ROOT task (parent_task_id IS NULL) and its tasks become
 -- that root's children. Nothing is kept alongside the new shape: `bets` is
@@ -58,7 +58,7 @@ END $$;
 -- `title` is the one lossy field: bets have no title column, and the API derived
 -- a display string from the description's first meaningful line. That derivation
 -- happens here, ONCE, and then the helper is deleted — every task from now on
--- has a real title. Reproduced from `deriveTitle` (bet-title.ts): first
+-- has a real title. Reproduced from `deriveTitle`: first
 -- non-empty line, strip leading markdown heading markers, truncate to 60 chars,
 -- fall back to the id.
 --

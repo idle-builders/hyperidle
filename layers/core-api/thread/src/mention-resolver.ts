@@ -32,7 +32,7 @@ export interface MentionResolverDeps {
  * a person reasonably addresses in this thread: the current participants,
  * the teams those participants belong to, the thread's own HOST team
  * when it is team-hosted, and the sender's own agents. A name collision
- * keeps the old deterministic rule — sorted by id, first wins — except a
+ * keeps the deterministic rule — sorted by id, first wins — except a
  * current participant always wins over a non-participant sharing the name.
  */
 async function buildMentionLookup(

@@ -286,7 +286,7 @@ export function AppShell(): JSX.Element {
 				// With exactly 1 team, skip the overview and navigate directly to
 				// that team's page. The sidebar suppresses the sub-list in this case too,
 				// so the Work section header becomes a direct entry point.
-				// 2+ teams → /work (WorkOverview; was /work/portfolio).
+				// 2+ teams → /work (WorkOverview).
 				// WorkOverview also enforces the 1-team short-circuit for any direct /work nav.
 				if (sidebarTeams.length === 1 && sidebarTeams[0]) {
 					navigate(`/work/team/${encodeURIComponent(sidebarTeams[0].id)}`);

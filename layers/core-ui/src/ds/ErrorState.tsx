@@ -8,7 +8,7 @@
 import type { JSX, ReactNode } from "react";
 import { dsProps } from "./ds-attrs";
 
-/** Pill-shaped primary button — matches Button.html "default" size spec exactly. */
+/** Pill-shaped primary button, pill-radius, default size. */
 const RETRY_BTN_CLASS =
 	"inline-flex items-center justify-center px-[18px] py-[10px] text-[var(--text-on-accent)] bg-[var(--accent-primary)] rounded-[var(--r-pill)] border-width-default border-transparent cursor-pointer hover:bg-[var(--accent-primary-hover)] active:scale-[0.97]";
 

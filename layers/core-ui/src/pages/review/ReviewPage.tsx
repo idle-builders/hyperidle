@@ -140,7 +140,7 @@ async function defaultLoader({
 	const author = identityById.get(reviewMsg.senderId);
 
 	// The one human, other than the sender, in this thread — same "who has to
-	// answer" question `routes/reviews.ts` asked, over `open_thread`'s own
+	// answer" question the reviews route asked, over `open_thread`'s own
 	// member list instead of a second fetch.
 	let reviewerName = "";
 	for (const member of members) {

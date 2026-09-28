@@ -176,8 +176,7 @@ export interface UserActionsDeps {
 		remove(userId: string, id: string): Promise<UserActionsRemoveResult>;
 	};
 	/** Install-wide: this machine's harnesses, unstamped — `open_user` stamps
-	 * `discovery.disabled` itself from `readServerConfig`, mirroring
-	 * `routes/harnesses.ts`'s own `stampDisabled`. Absent when no adapter pool
+	 * `discovery.disabled` itself from `readServerConfig`. Absent when no adapter pool
 	 * is wired (a composition without agent execution). */
 	readonly harnesses?: {
 		describe(): readonly HarnessDescriptor[];

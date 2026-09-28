@@ -248,8 +248,7 @@ export interface RuntimeDeps {
 	/**
 	 * An optional per-agent model override
 	 * (baked onto every kind's `agentConfig.modelId`/`modelProvider`, uniform,
-	 * not assistant-only). Absent means "no override, tier only" — matches the
-	 * earlier signature's own behaviour exactly.
+	 * not assistant-only). Absent means "no override, tier only".
 	 */
 	readonly ports?: RuntimePorts;
 	readonly durableQueue?: Parameters<RuntimePorts["sessionRequests"]["drainIntents"]>[0];

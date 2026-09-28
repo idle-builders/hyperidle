@@ -101,7 +101,7 @@
 		--surface-elevated: #ffffff;
 		--surface-overlay: #ffffff;
 
-		/* Text — warm dark tones with a faint olive cast (CL1) */
+		/* Text — warm dark tones with a faint olive cast */
 		--text-primary: #2a2415; /* ~14.5:1 page, ~13.7:1 container, 15.4:1 elevated */
 		--text-secondary: #645c46; /* ~6.2:1 page, ~5.8:1 container, ~6.6:1 elevated */
 		/* Tertiary used for timestamps, schedule text — real data, needs AA contrast. */
@@ -131,7 +131,7 @@
 		--status-error-chip-text: #8f2318;
 		--status-info-chip-text: #1f5c8f;
 
-		/* Borders — lemon-tinted warm neutrals (CL1) */
+		/* Borders — lemon-tinted warm neutrals */
 		--border-subtle: #ede6c8;
 		--border-default: #ded3a9;
 		--border-strong: #c0b483;
@@ -158,10 +158,9 @@
 
 	/* ── Hearth Dark — Crème Lemon ── */
 	[data-theme="hearth-dark"] {
-		/* Surfaces — deep near-neutral with a WHISPER OF LEMON (CL1).
-		 * CP1's de-browning holds: chroma stays low (~0.01–0.02); only the hue
-		 * nudges from amber ~60° toward lemon ~100°, and the ladder keeps CP1
-		 * round-2's step sizes (ΔL 0.076 / 0.049 / 0.051).
+		/* Surfaces — deep near-neutral with a WHISPER OF LEMON. Chroma stays low
+		 * (~0.01–0.02); hue nudges from amber ~60° toward lemon ~100°;
+		 * step sizes ΔL 0.076 / 0.049 / 0.051.
 		 */
 		--surface-page: #14140b; /* deepest — page bg (L0.188 C0.017 H108) */
 		--surface-container: #242418; /* app chrome (L0.25) — widened step */
@@ -183,8 +182,8 @@
 		--accent-deep-dim: rgba(217, 201, 163, 0.14);
 		--accent-secondary: #d97706; /* ~5.7:1 on page */
 
-		/* Status — unchanged by CL1 (already AA on dark surfaces) */
-		--status-success: #2eaa7a; /* decoupled from the lemon accent (CL1) */
+		/* Status — already AA on dark surfaces */
+		--status-success: #2eaa7a; /* already AA as success */
 		--status-warning: #d97706; /* 5.69:1 on page */
 		--status-error: #ee6a5a; /* 5.91:1 on page, 4.89:1 elevated */
 		--status-info: #4498d4; /* 5.77:1 on page, 4.77:1 elevated */
@@ -194,7 +193,7 @@
 		--status-error-chip-text: #ee6a5a;
 		--status-info-chip-text: #4498d4;
 
-		/* Borders — warm-neutral with the same lemon whisper (CL1) */
+		/* Borders — warm-neutral with the same lemon whisper */
 		--border-subtle: #434337; /* 9.1 L* — parity with light (8.9 L*) */
 		--border-default: #46453a;
 		--border-strong: #626050;
@@ -222,7 +221,7 @@
 	/* ── System preference: dark (when no explicit data-theme) ── */
 	@media (prefers-color-scheme: dark) {
 		:root:not([data-theme]) {
-			/* Surfaces — mirrors [data-theme="hearth-dark"] exactly (CL1) */
+			/* Surfaces — mirrors [data-theme="hearth-dark"] exactly */
 			--surface-page: #14140b;
 			--surface-container: #242418;
 			--surface-elevated: #2f2f21;
@@ -286,7 +285,7 @@
 	}
 }
 
-/* Compatibility until the loading migration lands. */
+/* Compatibility alias for hearth-loading. */
 @keyframes skeleton-pulse {
 	0%,
 	100% {

@@ -181,9 +181,7 @@ export function SettingsAgents(): JSX.Element {
 				? (draft.harnessType as HarnessType)
 				: undefined;
 
-			// One action for every agent. The id-prefix split existed because the
-			// persona was a column with an assistant-shaped guard on it; both the
-			// guard and the second route are gone.
+			// One action for every agent.
 			const result = await call("edit_user", {
 				id: selectedId,
 				name: draft.name,

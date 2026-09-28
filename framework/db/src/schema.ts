@@ -72,9 +72,7 @@ export const agentRunConfig = pgTable("agent_run_config", {
 	 * The harness options this agent's model runs with, as a JSON object of the
 	 * option keys the harness declares for that model.
 	 *
-	 * Nullable with no default: an agent configured before this column existed,
-	 * or one whose options were never touched, reads as `{}` and runs exactly as
-	 * it did before. Sparse by design — only a value the user moved away from the
+	 * Nullable with no default — reads as `{}` when not set. Sparse by design — only a value the user moved away from the
 	 * harness's own default is stored, so an absent key means "whatever the
 	 * harness does", not "unset".
 	 */
@@ -360,8 +358,7 @@ export const taskDispatchAttempts = pgTable(
  * the event log the action mechanism writes to, once per touched
  * object, in the same transaction as the write. Not an audit control and
  * adds no gate — the source for subscriptions and the UI stream once every
- * object's edit action feeds it, and `task`'s replacement for the dropped
- * `tasks.audit_trail` column. `before`/`after` hold only the fields that
+ * object's edit action feeds it. `before`/`after` hold only the fields that
  * differ (plus `id`), not the whole row.
  */
 export const changes = pgTable(
@@ -387,8 +384,6 @@ export const changes = pgTable(
 	],
 );
 
-// Routines don't exist — a routine is a subscription now (subscriptions, below).
-
 // --- Messaging (Thread primitive) ---
 
 export const threads = pgTable(
@@ -410,8 +405,8 @@ export const threads = pgTable(
 		 * The partial unique index (WHERE direct_key IS NOT NULL) enforces
 		 * one row per direct identity under concurrency.
 		 *
-		 * directKey is nullable and NOT backfilled for pre-existing threads; historical duplicates are not retroactively merged.
-		 * The assistant thread (host=user, hostId===senderId, participant=ast-<userId>) is exempt (directKey=null) to avoid overlap with assistant.ts.
+		 * directKey is nullable and not backfilled; existing duplicate threads are not merged.
+		 * The assistant thread (host=user, hostId===senderId, participant=ast-<userId>) is exempt (directKey=null).
 		 */
 		directKey: text("direct_key"),
 		/**

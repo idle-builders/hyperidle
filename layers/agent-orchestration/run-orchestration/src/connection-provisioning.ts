@@ -6,7 +6,7 @@
  * and writes the provisioned form into the session working directory. No gate;
  * re-applies every spawn; idempotent.
  *
- * @lore: connection-provisioning claude-write — .mcp.json written by session-provisioning.ts AND here (claudeNative); merges to preserve inbound hyperidle entry
+ * @lore: connection-provisioning claude-write — .mcp.json written here (claudeNative); merges to preserve inbound hyperidle entry
  * @lore: connection-provisioning SSRF — outbound URL SSRF-checked at provision; harness re-resolves at connect; DNS-rebinding unguarded; pinning only on /validate
  */
 
@@ -224,7 +224,7 @@ export function applyProvisioningPlan(args: {
 
 	if (plan.mcpServers.length === 0) {
 		// Nothing to write; env injections from envInjections only flow via mcpTokenEnv
-		// at the Phase 8b-connections merge point in session-provisioning.ts.
+		// at the Phase 8b-connections merge point.
 		return Promise.resolve({ mcpTokenEnv: {} });
 	}
 
@@ -347,7 +347,7 @@ function writeOpencodeJsonEntries(params: {
  * Write N MCP server entries to .mcp.json for claude.
  *
  * Merges with existing .mcp.json if present (preserves the inbound hyperidle
- * entry written by Phase 8b in session-provisioning.ts).
+ * entry written by Phase 8b).
  *
  */
 function writeClaudeMcpJsonEntries(params: {

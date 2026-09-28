@@ -81,7 +81,7 @@ export interface EntityRef {
  * message payload) by id. The kind "artifact" is kept on the wire so ReviewPage's
  * `isArtifactEntityRef` guard can identify the anchor without modification.
  *
- * This is NOT a pointer to a deleted artifacts-table row. The artifactId here is
+ * The artifactId here is
  * the id field of a ReviewCanvasArtifact from a review message's `artifacts` array.
  */
 export interface CanvasArtifactRef {

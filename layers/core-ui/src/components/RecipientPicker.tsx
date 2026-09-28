@@ -125,9 +125,7 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 			{pickerState === "browsing" && (
 				<Combobox
 					label="Recipient"
-					// Opens on mount: before the Combobox migration this was a plain,
-					// always-visible search field a person could type into right away.
-					// Defaulting to closed would cost that — a click just to start typing.
+					// Opens on mount so a person can type immediately without an extra click.
 					defaultOpen
 					options={options}
 					onChange={handleSelectRecipient}

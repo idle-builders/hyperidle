@@ -37,7 +37,7 @@ END$$;
 DO $$
 BEGIN
 	-- routines.active default is true (1), so a NULL is intentionally
-	-- preserved as true (matches `default(true)` in schema.pg.ts).
+	-- preserved as true (matches `default(true)` in the schema).
 	IF (SELECT data_type FROM information_schema.columns WHERE table_name='routines' AND column_name='active') = 'integer' THEN
 		ALTER TABLE "routines" ALTER COLUMN "active" DROP DEFAULT;
 		ALTER TABLE "routines" ALTER COLUMN "active" SET DATA TYPE boolean USING (COALESCE("active", 1) <> 0);

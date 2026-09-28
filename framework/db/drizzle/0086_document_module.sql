@@ -72,9 +72,9 @@ UPDATE "documents" d SET "scope_id" = p."scope_id"
 -- 5. BACKFILL THE OWNER. Moves the "whose private note is this" key from
 --    `updated_by` to `scope_id`, and existing rows can be `scope_kind='user'`
 --    with a NULL or stale `scope_id`: `cascadeScopeNarrowing` set scope_kind
---    alone (knowledge-repository.ts:167-201, note 192-193), `requiresScopeId`
---    excludes `user` (types.ts:184) so PATCH never demanded one
---    (routes/knowledge.ts:560,629-630), and only POST autofilled it (:475).
+--    alone, `requiresScopeId`
+--    excludes `user` (types.ts:184) so PATCH never demanded one,
+--    and only POST autofilled it.
 --    Without this step those rows would match no subject and vanish for
 --    everyone. `updated_by` has SIX observed shapes, so the derivation is a
 --    ladder, not one prefix strip:

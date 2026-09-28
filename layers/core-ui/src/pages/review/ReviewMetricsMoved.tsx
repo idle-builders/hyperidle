@@ -1,4 +1,4 @@
-// Canvas #5 — metrics-that-moved / data-diff.
+// Metrics-that-moved / data-diff.
 // Tool: QuickBooks month-end close (revenue roll-forward + reconciliation).
 //
 // Three layers:
@@ -389,9 +389,8 @@ function isRollForwardRow(value: unknown): value is RollForwardRow {
 }
 
 function mapMetricsPayload(payload: MetricsMovedPayload): CloseFixture {
-	// `MetricsMovedPayload.headlines[]` carries no per-figure source at all —
-	// an earlier mapper invented one (`tool: "quickbooks"`, `source:
-	// payload.period`). `provenance` is left undefined; the view renders the
+	// `MetricsMovedPayload.headlines[]` carries no per-figure source at all, so
+	// `provenance` is left undefined; the view renders the
 	// disclosure only when there is real provenance to show.
 	const figures: MovedFigure[] = payload.headlines.map((h, i) => ({
 		id: `fig-${i}`,

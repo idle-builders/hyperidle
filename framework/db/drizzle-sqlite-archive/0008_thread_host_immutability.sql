@@ -2,8 +2,7 @@
 --
 -- Hard-rule: `host_kind` and `host_id` are
 -- immutable post-creation. The routes don't expose a PATCH endpoint
--- for these fields, but service-layer writes (`builtin-routines.ts`,
--- `handoff-protocol.ts`, `agents.ts`) can mutate the threads row via
+-- for these fields, but service-layer writes can mutate the threads row via
 -- Drizzle's `update()` API. A SQLite trigger raises an error if a future
 -- code path drifts the host. Forward-only.
 --

@@ -70,9 +70,8 @@ ALTER TABLE "threads" ALTER COLUMN "pinned" SET DEFAULT false;--> statement-brea
 -- Step 6: drop the legacy `kind` column from threads.
 ALTER TABLE "threads" DROP COLUMN "kind";--> statement-breakpoint
 
--- Step 7: add new messages columns. `payload` is text (NOT jsonb) per
--- Confirmed via framework/db/src/schema.pg.ts:201
--- (payload column = text). client_key is required for idempotency;
+-- Step 7: add new messages columns. `payload` is text (NOT jsonb).
+-- client_key is required for idempotency;
 -- legacy_item_id ties the row back to its source item for backfill.
 ALTER TABLE "messages" ADD COLUMN "type" text;--> statement-breakpoint
 ALTER TABLE "messages" ADD COLUMN "payload" text;--> statement-breakpoint
@@ -176,7 +175,7 @@ DROP TABLE "responses";--> statement-breakpoint
 
 -- Step 13: indexes. The legacy `messages_thread_id_idx` already exists from
 -- migration 0003 — drop and recreate as composite (thread_id, created_at)
--- to match schema.pg.ts.
+-- to match the schema.
 DROP INDEX IF EXISTS "messages_thread_id_idx";--> statement-breakpoint
 CREATE INDEX "messages_thread_id_idx" ON "messages" USING btree ("thread_id", "created_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "messages_idempotency_uq" ON "messages" USING btree ("thread_id", "sender_id", "client_key");--> statement-breakpoint

@@ -271,7 +271,7 @@ export function Row({
 
 		if (onClick && hasActions) {
 			// li + click + actions → li wraps inner div[role=button] + action slot.
-			// Fix: inner div is w-full + carries px padding + min-h so hover is edge-to-edge.
+			// Inner div is w-full + carries px padding + min-h so hover is edge-to-edge.
 			const innerClickableClass =
 				clickableProps(onClick, liInnerLayoutWithActions).className ?? liInnerLayoutWithActions;
 			return (

@@ -1,4 +1,4 @@
-// Canvas #6 — ReviewVisualDiff: the visual before→after canvas.
+// ReviewVisualDiff: the visual before→after canvas.
 //
 // Proof family: visual before→after (a design frame vs the implemented screen).
 // Real content reaches this canvas as the labels an agent's `VisualDiffPayload`
@@ -12,7 +12,7 @@
 //   L3  on demand   — the differing regions listed as chips; clicking one flags it.
 //
 //
-// Chrome tokens are Hearth/CP1 by NAME (var(--token)). No hex anywhere in this
+// Chrome tokens are Hearth tokens by name (var(--token)). No hex anywhere in this
 // surface; tool identity is shown once, in `CanvasSourceHeader`.
 //
 // States: populated (default, story) — panes always read "No rendered image
@@ -113,7 +113,7 @@ function ReviewVisualDiffView({ diff, onFlag }: ReviewVisualDiffProps): JSX.Elem
 			}}
 		>
 			<div className="flex flex-col gap-[12px] p-[18px]">
-				{/* ── L1: one-glance summary (tool/title now in source header) ── */}
+				{/* ── L1: one-glance summary ── */}
 				<header className="flex items-center gap-[6px]">
 					<span
 						data-spacing-role="compact-pill"

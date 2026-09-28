@@ -384,10 +384,7 @@ function SettingsFooter({
 			data-sidebar-bottom
 			aria-label="App utilities"
 		>
-			{/* Today's look used r-subtle and a shadow on the active state — both
-			    dropped for Button's own chrome; the maintainer accepted the pill
-			    radius as a small redesign rather than adding a square variant.
-			    Active → secondary (bg-surface-elevated/border/text-primary);
+			{/* Active → secondary (bg-surface-elevated/border/text-primary);
 			    inactive → ghost tone="neutral" (transparent, text-secondary),
 			    matching every other sidebar toggle icon. */}
 			<Button

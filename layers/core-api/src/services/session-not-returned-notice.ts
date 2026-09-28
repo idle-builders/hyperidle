@@ -20,7 +20,7 @@ async function reactToSessionNotReturned(
 	// No BAKED calling thread — only a subscription_run session reaches this: it
 	// has no thread host to resolve one from at emit time, and (unlike
 	// `reply`'s own call-time fallback to a direct thread) this reaction has
-	// no agent-facing call to fall back from — no-op, per Decision 5.
+	// no agent-facing call to fall back from — no-op.
 	if (!event.callingThreadId) return;
 
 	await sendMessage(

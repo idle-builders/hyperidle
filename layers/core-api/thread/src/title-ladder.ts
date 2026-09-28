@@ -99,7 +99,6 @@ export async function resolveThreadTitles(
 		// `send_message`'s single-agent-recipient branch creates
 		// (thread-actions.ts) — the thread is hosted by the AGENT party, not
 		// the human.
-		// Every user-hosted assistant thread was re-hosted onto its agent — `agent`-hosted is the only valid shape.
 		if (
 			row.hostKind === "agent" &&
 			parts.length === 2 &&
@@ -127,8 +126,7 @@ export async function resolveThreadTitles(
 			}
 		}
 
-		// Rung 3: host-scoped (document). Task's own rung is gone — a
-		// task's thread is team-hosted.
+		// Rung 3: host-scoped (document) — task threads are team-hosted.
 		if (row.hostKind === "document") {
 			const title = kiMap.get(row.hostId);
 			titleMap.set(row.id, title ?? "Deleted document");

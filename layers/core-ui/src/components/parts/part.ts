@@ -38,7 +38,7 @@ function exhaustiveAssert(value: never): never {
 
 /**
  * Closed, exhaustive, `unknown`-terminated union.
- * Adding a kind requires a concept-doc update first.
+ * Adding a kind requires a design-doc update first.
  */
 type PartKind =
 	| "prose"
@@ -254,7 +254,7 @@ function inlineRefToEmbed(ref: InlineRef): Embed {
 	}
 	// CanvasArtifactRef (kind:"artifact") — points to a review canvas artifact,
 	// not a navigable page route. Renders as a non-navigating label so the chip
-	// appears in the conversation without trying to open a deleted /artifacts/:id.
+	// appears in the conversation without trying to navigate to /artifacts/:id.
 	if (ref.kind === "artifact") {
 		return { kind: "unknown", label: ref.id };
 	}
@@ -288,7 +288,7 @@ function refsToEmbeds(refs: ReadonlyArray<InlineRef> | undefined): ReadonlyArray
  * Map Message[] → Part[]. The ONLY adapter that knows `Message`. A verdict
  * message is NOT its own Part — it echoes onto the `resolved` Part of the
  * message it resolves (`resolvesMessageId`). Session activity NEVER becomes a
- * Part (concept hard-rule 3) — a session is an Embed only.
+ * Part — a session is an Embed only.
  *
  */
 export function derivePartsFromMessages(

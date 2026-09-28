@@ -27,7 +27,7 @@ export const mentionRefSchema = z.object({
 /**
  * Review canvas anchor ref — preserves `kind:"artifact"` on the wire so
  * `ReviewPage`'s `isArtifactEntityRef` guard can locate the anchor unchanged.
- * Not a pointer at a deleted `artifacts`-table row: the id here is the id of
+ * The id here is the id of
  * a `ReviewCanvasArtifact` inside a review message's `artifacts` array.
  */
 export const canvasArtifactRefSchema = z.object({
@@ -244,7 +244,7 @@ export const SendMessageInputSchema = z
 			.optional(),
 		// exactly one of the four bodies below — a pure invariant, not a schema rule
 		text: z.string().max(16_384).optional(),
-		refs: z.array(inlineRefSchema).optional(), // plain only; moved verbatim
+		refs: z.array(inlineRefSchema).optional(), // plain only
 		blockId: z.string().max(128).optional(), // plain only
 		spotLabel: z.string().max(128).optional(), // plain only
 		// `taskId` is server-stamped from `ctx.caller.taskId`, never caller

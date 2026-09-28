@@ -35,7 +35,7 @@ export interface Action<I = unknown, O = unknown> {
 }
 
 /** `search_documents`'s bound `run`, injected — the same shape
- * `routes/plugins.ts`/`platform-actions.ts` established. */
+ * `platform-actions.ts` established. */
 export type SearchDocumentsRunFn = (
 	ctx: ActionContext,
 	input: import("@hyperidle/domain-model").SearchDocumentsInput,

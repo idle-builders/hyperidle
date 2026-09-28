@@ -78,8 +78,7 @@ export interface Action<I = unknown, O = unknown> {
 	readonly run: (ctx: ActionContext, input: I) => Promise<ActionResult<O>>;
 }
 
-/** `search_documents`'s bound `run`, injected — the same shape
- * `routes/plugins.ts`'s own `SearchDocumentsRun` established. */
+/** `search_documents`'s bound `run`, injected. */
 type SearchDocumentsRunFn = (
 	ctx: ActionContext,
 	input: SearchDocumentsInput,
@@ -216,7 +215,7 @@ function problem(code: string, message: string, path?: string): { ok: false; pro
 
 // ---------------------------------------------------------------------------
 // One document a plugin contributes — a skill, an agent's identity, or a
-// subscription's prompt — before it is written. Verbatim from `routes/plugins.ts`.
+// subscription's prompt — before it is written.
 // ---------------------------------------------------------------------------
 
 interface ContributedDocumentSpec {
@@ -364,9 +363,9 @@ async function labelContributions(
 }
 
 /**
- * The plugin's own version of a contributed document, read off disk. See
- * `routes/plugins.ts`'s own header for why every contributed document kind
- * (skill, agent identity, subscription prompt) needs its own branch here.
+ * The plugin's own version of a contributed document, read off disk. Every
+ * contributed document kind (skill, agent identity, subscription prompt) needs
+ * its own branch here.
  */
 function readPluginDocumentSource(
 	installPath: string,
@@ -452,8 +451,7 @@ async function assemblePluginView(
 // lookupPlugin — the not-found ladder every state/remove/restore change
 // needs: a genuinely absent id is `unknown_plugin`;
 // a plugin that WAS installed and is now `state: "removed"` is `plugin_removed`
-// — a clearer answer than folding both into one generic 404 the way
-// `routes/plugins.ts` did.
+// — a clearer answer than folding both into one generic 404.
 // ---------------------------------------------------------------------------
 
 type LookupResult =

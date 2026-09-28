@@ -553,13 +553,13 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 						],
 					};
 				}
-				// Review-fix (BUG): the direct thread's host must not depend on who
+				// The direct thread's host must not depend on who
 				// spoke first. When exactly one party is AI, that agent hosts the
 				// thread — whether it is `ctx.actor` (a welcome message, or any
 				// agent-initiated send) or `recipientId` (a human's first send) —
 				// because the assistant overlay always finds its thread as
 				// `search_threads({host:{kind:"agent", id: myAgentId}})`. Human↔human
-				// and agent↔agent keep the old recipient-decides shape: there is no
+				// and agent↔agent keep the recipient-decides shape: there is no
 				// "the" agent to prefer when both or neither party is one.
 				const actorUser = await deps.users.getUserById(ctx.db, ctx.actor);
 				const actorIsAgent = actorUser?.kind === "ai";
@@ -625,14 +625,10 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 					],
 				};
 			}
-			// Review-fix (BUG): this fallback only runs when a session is calling
+			// This fallback only runs when a session is calling
 			// (`ctx.caller !== undefined`), so `ctx.actor` is always the agent and
 			// `human` is never one — the host is the agent, matching the
-			// single-recipient rule above. It was hardcoded "user"/`human.id`,
-			// which both mis-hosted the thread AND produced a different directKey
-			// than the single-recipient path for the same pair, so a human's first
-			// reply to the same agent created a SECOND thread instead of finding
-			// this one.
+			// single-recipient rule above.
 			const directKey = `${[ctx.actor, human.id].sort().join(":")}:agent`;
 			const existing = await store.findThread(ctx.db, { directKey });
 			if (existing) {
@@ -1107,8 +1103,8 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 				? [...new Set([...woken, resolvesMessageRow.senderId])]
 				: woken;
 
-		// Every row this call appended is one object event
-		// (decision 5) — `pushRows` already carries them all: the message,
+		// Every row this call appended is one object event;
+		// `pushRows` already carries them all: the message,
 		// the create (if any) and the resolve/reopen (if any).
 		emitObjectEvents(ctx.eventBus, pushRows, woke);
 

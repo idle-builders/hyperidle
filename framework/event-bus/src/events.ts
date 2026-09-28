@@ -13,7 +13,7 @@ import type {
  * The canonical runtime-checkable list `AgentWorkIntentKind` is built from —
  * kept in lockstep with `agent_work_intents_kind_ck`
  * (`framework/db/src/schema.ts`) and consumed by
- * `AgentWorkIntentRecorderInput` (`agent-work-intent-recorder.ts`) so a kind-set drift test (`framework/db`) can derive its
+ * `AgentWorkIntentRecorderInput` so a kind-set drift test (`framework/db`) can derive its
  * accept-list mechanically from this single source instead of a second
  * hardcoded copy.
  */
@@ -97,8 +97,7 @@ export interface SessionStartedEvent {
 /**
  * "not_returned" is a non-completed outcome for a turn that exhausted its
  * stream without a return action (after force budget spent, or on a Tier-2
- * harness). Every switch(outcome) consumer MUST handle this member — see the
- * exhaustiveness guard in session-lifecycle.ts.
+ * harness). Every switch(outcome) consumer MUST handle this member.
  */
 
 export interface SessionEndedEvent {

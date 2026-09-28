@@ -119,7 +119,6 @@ export async function resolveTaskRunRequest(
 	let contextBundle: BakedContextBundle | undefined;
 	const { getTeamById, assembleSessionDocuments, readServerConfig } = deps;
 	if (getTeamById && assembleSessionDocuments) {
-		// The containing work is now a chain, not a single bet.
 		// `listAncestorIds` returns nearest-first; the bundle wants root-first.
 		const ancestorIds = await work.listAncestorIds(db, task.id);
 		const ancestorRows =

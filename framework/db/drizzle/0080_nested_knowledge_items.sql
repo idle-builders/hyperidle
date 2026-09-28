@@ -151,7 +151,7 @@ WHERE role = 'ordinary' AND parent_kind IS NULL AND scope_kind NOT IN ('product'
 --> statement-breakpoint
 
 -- 7. Task-scoped rows: parent_kind='task', parent_id=scope_id. Bets already
---    became root tasks keeping their ids (BB1, 0076), so the id resolves.
+--    became root tasks keeping their ids (0076), so the id resolves.
 --    Guarded anyway — with no FK a dangling parent is otherwise silent.
 DO $$
 DECLARE missing bigint;

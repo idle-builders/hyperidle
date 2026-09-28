@@ -71,11 +71,7 @@ export type AgentCategory = (typeof AGENT_CATEGORIES)[number];
  * that agent fails.
  *
  * Selection compares this string for exact equality (`adapter-pool.ts`'s
- * `select`), so a near-miss is as fatal as nonsense. The demo world seeded
- * `"claude"` against an adapter registered as `"claude-code"`, which made its
- * builder agent permanently unrunnable — a typo no type caught, because every
- * declaration on the path was a bare `string`. Both the registration side and
- * every writer now spell the vocabulary from here.
+ * `select`), so a near-miss is as fatal as nonsense. Spellings must match exactly — a near-miss is as fatal as nonsense.
  */
 export const HARNESS_TYPES = ["claude-code", "codex", "opencode", "cursor-agent"] as const;
 export type HarnessType = (typeof HARNESS_TYPES)[number];
@@ -149,8 +145,7 @@ export const AGENT_OPERATIONAL_STATUS_LABEL: Record<"active" | "error" | "idle",
 /**
  * "not_returned" is a non-completed outcome for a turn that exhausted its
  * stream without a return action (after force budget spent, or on a Tier-2
- * harness). Every switch(outcome) consumer MUST handle this member — see the
- * exhaustiveness guard in session-lifecycle.ts.
+ * harness). Every switch(outcome) consumer MUST handle this member.
  *
  */
 export type SessionOutcome = "completed" | "crashed" | "stopped" | "not_returned";

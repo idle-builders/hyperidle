@@ -230,8 +230,7 @@ export class AdapterPool {
 		}
 		const disabled = requirements?.disabledTypes ?? [];
 		if (disabled.length > 0) {
-			// Mirrors `select`'s filter exactly — no harness is exempt from being
-			// disabled any more, so neither is this diagnostic.
+			// Mirrors `select`'s filter exactly — no harness is exempt from being disabled.
 			const enabled = live.filter(
 				(entry) => !(entry.meta.type && disabled.includes(entry.meta.type)),
 			);

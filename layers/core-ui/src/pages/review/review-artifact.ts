@@ -3,8 +3,8 @@ import type { ComponentType } from "react";
 /**
  * Review canvas vocabulary and contracts.
  *
- * These shapes are intentionally separate from the primitive `Artifact` type in
- * `framework/domain-model/src/types/artifact.ts`. The review experience maps proof
+ * These shapes are intentionally separate from the primitive `Artifact` type.
+ * The review experience maps proof
  * families (code, field-change, action, render, metrics, visual, batch) onto
  * dedicated canvases, plus two utility canvases (outcome_summary frame lead and
  * browser_preview escape hatch) approved for review.

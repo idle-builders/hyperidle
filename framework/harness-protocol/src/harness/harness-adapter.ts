@@ -68,9 +68,7 @@ export interface SessionConfig {
 	 * was configured rather than chosen per message.
 	 *
 	 * Sparse: only a value moved away from the harness's own default is present,
-	 * so an absent key means "whatever the harness does". Absent or empty means
-	 * the adapter builds exactly the invocation it built before this existed —
-	 * that equivalence is the contract, not a convention.
+	 * so an absent key means "whatever the harness does". Absent or empty means all defaults.
 	 */
 	readonly modelOptions?: Readonly<Record<string, string | number | boolean>>;
 	/**

@@ -1,4 +1,4 @@
-// Canvas #3 — the action / operation canvas.
+// ReviewActionOperation: the action / operation canvas.
 //
 // Proof family: a staged, PRE-COMMIT *receipt* for an irreversible side-effect
 // with money attached (here: a Stripe refund). NOT a post-hoc diff — nothing has
@@ -14,7 +14,7 @@
 //        irreversible). The review frame owns the pre-commit verdict gate.
 //
 // Tokens by NAME only (Hearth). Money + irreversibility lean on
-// --status-warning / --status-error per the brief. Brand color lives only in ToolLogo.
+// --status-warning / --status-error. Brand color lives only in ToolLogo.
 
 import { type JSX, useState } from "react";
 import { RowDot } from "../../ds";

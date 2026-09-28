@@ -8,7 +8,7 @@ import { DOCUMENT_SLOTS } from "./document.js";
 export const USER_KINDS = ["human", "ai"] as const;
 export type UserKind = (typeof USER_KINDS)[number];
 
-/** Derived from the real writers — `routes/agents.ts`, `users/src/runnable-agent.ts`. */
+/** Derived from the real writers — `users/src/runnable-agent.ts`. */
 export const USER_STATUSES = ["active", "idle", "inactive", "retired"] as const;
 export type UserStatus = (typeof USER_STATUSES)[number];
 

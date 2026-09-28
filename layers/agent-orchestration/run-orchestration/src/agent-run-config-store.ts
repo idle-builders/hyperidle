@@ -25,9 +25,7 @@ export type ModelOptionValue = string | number | boolean;
  *
  * **Sparse.** Only a value the user moved away from the harness's own default is
  * present. An absent key means "whatever the harness does" — never "unset" —
- * which is what keeps an agent that was never configured running exactly as it
- * did before this existed, and stops an agent being frozen to whatever the
- * default happened to be the day someone opened the editor.
+ * which keeps an agent that was never configured running on the harness's own defaults.
  */
 export type ModelOptions = Readonly<Record<string, ModelOptionValue>>;
 
@@ -73,7 +71,7 @@ export interface AgentRunConfig {
 /**
  * The effective config of an agent with no `agent_run_config` row — identical
  * to an all-null row, because `max_concurrent_sessions` is the one column with
- * a NOT NULL DEFAULT 1 (its exact pre-move shape on `users`).
+ * a NOT NULL DEFAULT 1.
  */
 export const DEFAULT_AGENT_RUN_CONFIG: AgentRunConfig = {
 	harnessType: null,

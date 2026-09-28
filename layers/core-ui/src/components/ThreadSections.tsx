@@ -150,8 +150,7 @@ export interface ThreadSectionsProps {
 	/** Milliseconds since epoch. Defaults to Date.now() at render time. */
 	now?: number;
 	/**
-	 * @deprecated Navigation is now handled by ThreadRow's href prop.
-	 * Retained so existing callers compile without changes.
+	 * @deprecated Use ThreadRow's href prop for navigation.
 	 */
 	onSelect?: (id: string) => void;
 	/** Lifted-selection target — at most one row carries aria-current. */
@@ -167,9 +166,8 @@ export interface ThreadSectionsProps {
 	onClearFilter?: () => void;
 	/**
 	 * When false, renders a flat chronological list ordered by lastActiveAt DESC.
-	 * Filter chips (Blocking, Unread) have been removed — they never matched real state.
 	 * The blocking/unread fields on ThreadItem remain for forward-compatibility.
-	 * Defaults to true for backwards compatibility.
+	 * Defaults to true.
 	 */
 	groupBySection?: boolean;
 }
@@ -206,7 +204,6 @@ export function ThreadSections({
 			);
 		}
 
-		// Chip filtering removed — render the full list directly.
 		// The blocking/unread fields remain on ThreadItem (forward-compatible).
 		const flatFiltered = [...threads];
 		// Sort by ISO lastActiveAt DESC (not display timestamp — "5m" → NaN).
@@ -214,8 +211,7 @@ export function ThreadSections({
 
 		return (
 			<div className="flex flex-col flex-1 overflow-y-auto">
-				{/* Blocking/Unread chip bar removed — neither chip matched real state.
-				    The blocking/unread FIELDS remain on ThreadItem. */}
+				{/* Blocking/unread fields remain on ThreadItem. */}
 				{flatFiltered.length === 0 ? (
 					<div className="flex flex-1 items-center justify-center p-[48px_24px]">
 						<EmptyState

@@ -129,8 +129,7 @@ interface AppOptions {
 	/**
 	 * Adapter pool for running agent sessions — read-only capability probe
 	 * (which harnesses are registered/discovered), used only to gate route
-	 * mounting and answer descriptor reads (`agents.ts`, `teams-routes.ts`,
-	 * `users.ts`, `workers.ts`, `harnesses.ts`).
+	 * mounting and answer descriptor reads.
 	 */
 	adapterPool?: HarnessCapabilityReader;
 	/**
@@ -144,13 +143,13 @@ interface AppOptions {
 	/**
 	 * Application-injected cross-Layer
 	 * `agent_work_intents` recorder (`@hyperidle/work-intent-port`-typed,
-	 * Mechanism C) — `routes/threads.ts` must not cross by importing
+	 * Mechanism C) — the threads routes must not cross by importing
 	 * `@hyperidle/session-requests` directly. Defaults to the seam-backed
 	 * recorder built over `agentOrchestration` (`buildSeamBackedWorkIntentRecorder`);
 	 * tests may override for isolation.
 	 */
 	agentWorkIntentRecorder?: import("@hyperidle/domain-model").AgentWorkIntentRecorderFn;
-	// Application-injected verdict recorder; tests may override. Injected because routes/threads.ts may not read agent-orchestration.
+	// Application-injected verdict recorder; tests may override. Injected because the threads routes may not read agent-orchestration.
 	reviewVerdictRecorder?: import("@hyperidle/domain-model").ReviewVerdictRecorderFn;
 	/**
 	 * Base directory where plugin files are persisted on install.
@@ -255,7 +254,7 @@ function buildCoreActionsBindings(
 /**
  * Registers the subscription fire mechanism
  * (the nine object events) and its schedule half, extracted out of
- * `createCoreApiApp` for the same reason `buildCoreActionsBindings` was —
+ * `createCoreApiApp` —
  * that function's own cognitive-complexity budget is already spent.
  * `searchTasksRun`/`searchThreadsRun`/`searchDocumentsRun` are reach's own
  * doors (already extracted in `createCoreApiApp`, never `open_*`);
@@ -421,10 +420,9 @@ function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 			import("@hyperidle/domain-model").EditUserInput,
 			import("@hyperidle/domain-model").UserView
 		>(actions, "edit_user");
-		// user is one module now — search_users/open_user/edit_user under /api/actions/<name>
+		// user module: search_users/open_user/edit_user under /api/actions/<name>
 		api.route("/search", createSearchRoutes(options.db, eventBus, searchDocumentsRun));
-		// Plugin management is the platform module now —
-		// `search_plugins`/`edit_plugin`, mounted generically by
+		// Plugin management: `search_plugins`/`edit_plugin`, mounted generically by
 		// `createActionsRouter` above (`compose.ts`'s fourth action group).
 
 		const db = options.db;
@@ -461,8 +459,7 @@ function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 
 		// The subscription fire mechanism and its
 		// schedule half, registered beside the dependency watcher above.
-		// Extracted the same way `buildCoreActionsBindings` was — this
-		// function's own cognitive-complexity budget is already spent.
+		// Extracted here — this function's own cognitive-complexity budget is already spent.
 		disposers.push(
 			...registerSubscriptionServices(options, db, eventBus, agentWorkIntentRecorder, {
 				searchTasksRun,
@@ -533,7 +530,7 @@ export function disposeApp(hono: Hono): void {
 
 export type { AppOptions };
 
-// AppType is bare Hono — typed RPC surface was lost when routes moved to untyped app.route(); honest type re-exported for the web client.
+// AppType is bare Hono — typed RPC surface is not available; honest type re-exported for the web client.
 export type AppType = Hono;
 
 export { createCoreApiApp };

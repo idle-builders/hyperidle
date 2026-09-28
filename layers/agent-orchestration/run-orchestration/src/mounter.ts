@@ -273,8 +273,7 @@ export class RegistryFilesystemMounter {
  * contains a `.git` (verified empirically — "already exists" / "not an empty
  * directory"). Mounting a code filesystem already makes the sandbox a git
  * repo as a side effect, so this only inits when `.git` is still absent —
- * the no-filesystem and doc_set-only cases, which is exactly where the
- * original bug lived.
+ * the no-filesystem and doc_set-only cases.
  */
 export function ensureSandboxGitRepo(sandboxPath: string): void {
 	if (fs.existsSync(path.join(sandboxPath, ".git"))) return;

@@ -395,9 +395,8 @@ async function handleCreate(
 		// own real scope rides along, never a hardcoded default. `config.parent`
 		// (session task/thread) is the fallback for a leaf sitting directly at
 		// the `knowledge/` root; the two never both apply. Neither present
-		// means no `scopeKind`/`parent` at all — A4's own derivation (the
-		// writing agent's real team, then the calling task's, then factory)
-		// decides, exactly as it would for any other agent-authored create.
+		// means no `scopeKind`/`parent` at all — the harness decides,
+		// exactly as it would for any other agent-authored create.
 		...(parent
 			? {
 					scopeKind: asScopeKind(parent.scopeKind),
@@ -550,8 +549,7 @@ function registerCaptureWriteback(deps: CaptureWritebackSubscriberDeps): () => v
 	const { db, eventBus, document } = deps;
 
 	const dispose = eventBus.on("sandbox_writeback_changes_detected", (event) => {
-		// Fire-and-forget, matching file-watcher.ts's pre-inversion behavior
-		// (that flush() was never awaited by its own caller either).
+		// Fire-and-forget (flush() is never awaited by its caller).
 		void resolveSessionContext(db, event.sessionId)
 			.then((context) => {
 				if (!context) {

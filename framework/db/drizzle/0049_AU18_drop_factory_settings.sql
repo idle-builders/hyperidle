@@ -14,8 +14,8 @@
 --   - `factory_start_time` — no writer ever existed; the read always fell
 --     back to SERVER_START_TIME already.
 --   - `system_template:<role>` — templates are now read directly from
---     docs/system-prompts/*.md via the shared role→filename map
---     (system-prompt-templates.ts); these rows were a bootstrap-time cache,
+--     docs/system-prompts/*.md via the shared role→filename map;
+--     these rows were a bootstrap-time cache,
 --     not the source of truth.
 --   - any row seeded via the retired generic PATCH /api/status/settings
 --     catch-all under a namespace with no domain owner (scoring/attention/

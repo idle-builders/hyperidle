@@ -1,8 +1,5 @@
 /**
  * The Filesystem wire/domain type.
- * All auxiliary named types (FilesystemKind, WriteBack, ResourceRef, FilesystemState)
- * are inlined — their single consumers use the literals directly.
- *
  */
 
 /** A REGISTERED, team-scoped file source — NOT owned by one agent.

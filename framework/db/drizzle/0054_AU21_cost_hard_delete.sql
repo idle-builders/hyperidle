@@ -1,7 +1,6 @@
 -- HARD DELETE the cost
 -- feature — no cap gate, no ledger, no display, no DB columns, no
--- replacement mechanism. Founder, verbatim: "no everything delete. zero
--- mention of costs in the repo."
+-- replacement mechanism.
 --
 -- Hand-authored incremental migration (this repo's migrations are additive
 -- SQL files tracked only by meta/_journal.json past 0042 — see 0043-0053 —
@@ -12,9 +11,7 @@
 -- columns removed from `schema.ts` in this same commit).
 --
 -- DATA-PRESERVATION NOTE (deliberate, not a regression): every dropped column
--- below is either an unenforced "lightweight cost accounting" value (the
--- founder: "we do not actually enforce cost... all we do is lightweight cost
--- accounting") or a legacy/rollback-only column already superseded by a
+-- below is either an unenforced "lightweight cost accounting" value, or a legacy/rollback-only column already superseded by a
 -- structured pair dropped in the SAME statement group (e.g. `cost_cap` /
 -- `cost_actual` alongside `cost_cap_minor` / `cost_cap_currency`). No
 -- replacement column, table, or mechanism is added.

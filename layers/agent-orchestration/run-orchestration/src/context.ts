@@ -838,7 +838,7 @@ interface AssembleAgentContextInput {
 	 * `task_run` (`kind:"task"`) or `subscription_run`
 	 * (`kind:"subscription"`) session's sandbox is built from. Absent for any
 	 * session with no bundle at all (falls back to the same minimal stub
-	 * every task-free session got pre-migration — never a DB read).
+	 * every task-free session uses — never a DB read).
 	 */
 	readonly contextBundle?: BakedContextBundle;
 }

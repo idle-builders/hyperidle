@@ -876,7 +876,7 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 		}
 		// Post-commit, once per `changes` row — the parent's and every narrowed
 		// child's; each is also one
-		// document.created/document.changed object event (decision 5).
+		// document.created/document.changed object event.
 		if (pushRow) {
 			const rows = [pushRow, ...cascadeRows];
 			pushChanges(deps, rows);

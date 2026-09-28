@@ -5,7 +5,7 @@
  * composite unique index (from_user_id, mechanism, target), then re-selects.
  *
  * Callers that accept untrusted target values MUST validate target existence
- * BEFORE calling this (see org.ts PUT /edges which does mechanism-specific checks).
+ * BEFORE calling this.
  * Team creation passes a server-generated teamMembersId that was just inserted,
  * so no re-validation is needed at that call site.
  */

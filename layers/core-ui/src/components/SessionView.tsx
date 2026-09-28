@@ -309,8 +309,7 @@ function ChangedFilesPanel({
 				<span className="flex-1" />
 				{/*
 				 * There is no "View diff" button. It fired `onOpen` with a target of
-				 * `/artifacts/<file path>`, which never resolved to a row even while
-				 * that route existed — a control that has never done anything. The
+				 * `/artifacts/<file path>` has no navigable destination. The
 				 * changed-file list below names the files and their counts, which is
 				 * what this panel actually knows.
 				 */}

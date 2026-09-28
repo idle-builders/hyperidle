@@ -314,7 +314,7 @@ async function inspectOpenCodeTools(
  *
  * Currently checks `gh auth status --json hosts` (GitHub CLI).
  * gh always exits 0; the JSON hosts list shows which accounts are logged in.
- * Never passes --show-token (hard-rule 4).
+ * Never passes --show-token.
  *
  * Returns health:"working" when an account is found for a host.
  * Extensible to other CLIs (stripe, vercel, etc.) by the same evidence-first shape.

@@ -164,9 +164,8 @@ export interface SessionDocumentLike {
 /**
  * Map `assembleSessionDocuments`'s ranked+budgeted output onto the
  * `BakedContextDocument[]` shape every `contextBundle` variant carries —
- * one shared mapper so `task-run-resolver.ts`/`knowledge-action-resolver.ts`/
- * the subscription-wake resolver doesn't reimplement the
- * same field-pick.
+ * one shared mapper so `task-run-resolver.ts`/the subscription-wake resolver
+ * doesn't reimplement the same field-pick.
  */
 export function toBakedContextDocuments(
 	items: readonly SessionDocumentLike[],

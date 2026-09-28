@@ -39,8 +39,7 @@ export function derivePrimaryHarness(
 	return {
 		harnessType: descriptor.type,
 		// Absent when the harness lists nothing selectable — it then runs its own
-		// default, which is the truthful answer. Naming a model nobody chose was
-		// how a hardcoded Anthropic id ended up on agents running on other harnesses.
+		// default, which is the truthful answer.
 		...(firstSelectable ? { modelId: firstSelectable.id } : {}),
 		...(modelProvider ? { modelProvider } : {}),
 	};

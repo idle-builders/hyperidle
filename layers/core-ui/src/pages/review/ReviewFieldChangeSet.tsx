@@ -1,4 +1,4 @@
-// Canvas #2 — ReviewFieldChangeSet.
+// ReviewFieldChangeSet.
 //
 // Proof family: record/field change-set (a CRM record write). Tool: Salesforce.
 // The signature is a before→after FIELD GRID with approve-per-field.
@@ -200,7 +200,7 @@ export function ReviewFieldChangeSetView({
 				boxShadow: "var(--shadow-default)",
 			}}
 		>
-			{/* ── L1 — one-glance summary (tool/record now in source header) ── */}
+			{/* ── L1 — one-glance summary ── */}
 			<div className="border-width-thin-b  border-[var(--border-default)] px-[18px] py-[12px]">
 				<div className="min-w-0 flex-1">
 					<div className="type-small flex flex-wrap items-center gap-[6px]  text-[var(--text-secondary)]">
@@ -240,9 +240,7 @@ export function ReviewFieldChangeSetView({
 
 			{/* unchanged-fields trivia line — a static count, not a disclosure:
 			    `FieldChangeSetPayload` carries only the unchanged COUNT, not which
-			    fields, so there is nothing to expand into. An earlier version named
-			    five specific field labels here ("Owner, Lead source, Probability,
-			    Type, Account") no payload ever supplied. */}
+			    fields, so there is nothing to expand into. */}
 			<div
 				className="type-metadata flex w-full items-center gap-[6px] px-[18px] py-[9px]   text-[var(--text-tertiary)]"
 				style={{

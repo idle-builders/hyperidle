@@ -1363,8 +1363,7 @@ async function runSession(
 		// Every durable session (the
 		// primary production path — `requestContext` is always set by
 		// `consumeAgentSessionRequest`) already took this generic, db-free
-		// branch pre-migration regardless of source kind (unchanged here) —
-		// this is also the graceful fallback for a subscription/task session whose
+		// branch for every durable session source kind — this is also the graceful fallback for a subscription/task session whose
 		// emit-time resolver hasn't been wired with the optional contextBundle
 		// deps yet (`getTeamById`/`assembleSessionKnowledge`), so a wiring gap
 		// degrades to a plain prompt instead of crashing the session.
@@ -1607,8 +1606,7 @@ async function runSession(
 		// rather than being handed an empty string to strip back out.
 		...(selectedModel ? { selectedModel } : {}),
 		// The options this agent was configured with. Absent when the agent has
-		// none, so an unconfigured agent's invocation is byte-identical to what it
-		// was before per-agent options existed.
+		// none.
 		...(Object.keys(modelOptions).length > 0 ? { modelOptions } : {}),
 		mcpConnectionInfo:
 			mcpBridgeToken && mcpUrl ? { url: mcpUrl, token: mcpBridgeToken } : undefined,
@@ -1678,7 +1676,7 @@ async function runSession(
 		}
 		onHarnessStarted?.();
 
-		// ── Phase 10: drain the event stream (single pass in v4).
+		// ── Phase 10: drain the event stream.
 		try {
 			if (harnessHandle) {
 				for await (const event of harness.streamEvents(harnessHandle)) {
@@ -1767,7 +1765,7 @@ async function runSession(
 
 	// Unregister the MCP bridge BEFORE calling endSession/crashSession.
 	// Close whenever a bridge was opened (token present) — `mcpBridgeRegistry` is
-	// the vestigial, now-unwired dep and the face ignores it on close.
+	// the dep the face ignores on close.
 	if (mcpBridgeToken) {
 		await ports.harnessRuntime.closeMcpBridge(mcpBridgeRegistry, mcpBridgeToken);
 	}

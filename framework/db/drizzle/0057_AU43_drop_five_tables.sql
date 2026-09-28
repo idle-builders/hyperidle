@@ -17,7 +17,7 @@
 --
 -- filesystem_captures: write-only archive whose consumer was cancelled.
 --   Capture write code removed in stage 2; no non-test reader has ever existed.
---   Referenced only in comments in mounter-registry.ts and index.ts.
+--   Referenced only in comments in index.ts.
 --
 -- task_planning_signals: `task_strategy_fabric` renamed in migration 0050.
 --   Never had a production writer after the riskTier column it stored was

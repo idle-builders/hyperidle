@@ -1,6 +1,6 @@
 /**
  * The closed, enumerable set of "return to HyperIdle" actions. A turn that
- * ends without invoking one is `not-returned` (see return-gate.ts). This set is
+ * ends without invoking one is `not-returned`. This set is
  * CLOSED: membership is a fixed list of tool names, never "any tool". Adding a
  * member is a deliberate edit here. (HyperIdle enumerates valid turn endings
  * by reading RETURN_ACTION_NAMES.)

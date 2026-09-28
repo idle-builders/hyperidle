@@ -519,8 +519,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			resolvedArgs = filtered;
 		}
 
-		// The agent's configured options. Empty for an agent that has none, so its
-		// invocation stays character-for-character what it was before options existed.
+		// The agent's configured options. Empty for an agent that has none.
 		const optionArgv = modelOptionArgv(deriveHarnessType(this.config.binary), config.modelOptions);
 		if (optionArgv.length > 0) resolvedArgs = [...resolvedArgs, ...optionArgv];
 

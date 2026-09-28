@@ -1,4 +1,4 @@
--- BA1: one routine primitive — the prompt gets its right name, the event
+-- One routine primitive — the prompt gets its right name, the event
 -- trigger gets an indexable column, scope moves off the routine row, and the
 -- trigger-rule entity's stored data is deleted. Order matters; each step's
 -- reason is stated because a later reader will need it.

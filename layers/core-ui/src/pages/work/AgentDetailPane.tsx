@@ -108,7 +108,7 @@ export function AgentDetailPane({
 
 	return (
 		<PageScaffold
-			// Note: NO <Dialog> shell — no role="dialog" (AC#3 requirement).
+			// Note: NO <Dialog> shell — no role="dialog".
 			data-testid="agent-detail-pane"
 			header={
 				<PageHeader

@@ -123,8 +123,6 @@ function ConversationHeader({
 	);
 }
 
-// ComposerInputRow and Composer (hand-rolled local composer) removed.
-
 // ───────────────────────────────────────────────────────────────────
 // The conversation surface — INTERACTIVE, prop-driven. The conversation column
 // (PartList) + composer ONLY; it owns NO viewing surface. The single `onOpen`

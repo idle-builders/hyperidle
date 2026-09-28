@@ -741,7 +741,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 			await deps.agentOrchestration.endRunForHandoff(predecessorSessionId, now);
 		}
 		// Every change row this call appended is one object event, post
-		// commit (decision 5) — the main row always (a
+		// commit — the main row always (a
 		// state move or any other field edit alike), each killed
 		// descendant's row flagged `cascade: true` so lifecycle propagation
 		// and the dependency watcher can tell a deliberate subtree kill from

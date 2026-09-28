@@ -193,7 +193,7 @@ function renderBody(message: Message, sanitizeHtml?: (raw: string) => string): R
 		}
 		case "review": {
 			// Rich slots carry the review's substance on ThreadShell, but
-			// HostThreadSection supplies none (WorkTask.tsx, HostThreadSection.tsx) —
+			// HostThreadSection supplies none —
 			// without a fallback a review is a blank row there. Text only, no navigation.
 			const payload = reviewPayloadOf(message);
 			if (isRedactedPayload(payload)) return null;
