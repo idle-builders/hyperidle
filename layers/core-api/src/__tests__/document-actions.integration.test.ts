@@ -41,11 +41,6 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
 }
 
-/** The agent actor-override header the seam already uses (thread/task tests). */
-function actorHeaders(actorId: string): Record<string, string> {
-	return authHeaders({ "x-hyperidle-actor-id": actorId });
-}
-
 interface ActionEnvelope<T> {
 	readonly ok: boolean;
 	readonly data?: T;
@@ -148,6 +143,23 @@ function buildRealActions(agentOrchestration: AgentOrchestrationPort): readonly 
 		agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
 		reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
 	});
+}
+
+async function callHumanAs<T>(
+	actions: readonly Action[],
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	name: string,
+	body: Record<string, unknown>,
+	actor: string,
+): Promise<DoorResult<T>> {
+	const action = actions.find((a) => a.declaration.name === name);
+	if (!action) throw new Error(`no "${name}" action`);
+	const ctx: ActionContext = { actor, db, eventBus, now: new Date().toISOString() };
+	const result = await action.run(ctx, body);
+	return result.ok
+		? { ok: true, data: result.data as T }
+		: { ok: false, problemCode: result.problems[0]?.code };
 }
 
 // ---------------------------------------------------------------------------
@@ -307,7 +319,7 @@ async function readContributionDetachedAt(
 interface Doors {
 	readonly edit: (
 		body: Record<string, unknown>,
-		humanHeaders?: Record<string, string>,
+		humanActorId?: string,
 		agentOverride?: Partial<AgentIdentity>,
 	) => Promise<{
 		readonly human: DoorResult<DocumentView>;
@@ -315,7 +327,7 @@ interface Doors {
 	}>;
 	readonly open: (
 		body: Record<string, unknown>,
-		humanHeaders?: Record<string, string>,
+		humanActorId?: string,
 		agentOverride?: Partial<AgentIdentity>,
 	) => Promise<{
 		readonly human: DoorResult<DocumentView>;
@@ -323,7 +335,7 @@ interface Doors {
 	}>;
 	readonly search: (
 		body: Record<string, unknown>,
-		humanHeaders?: Record<string, string>,
+		humanActorId?: string,
 		agentOverride?: Partial<AgentIdentity>,
 	) => Promise<{
 		readonly human: DoorResult<DocumentRow[]>;
@@ -341,10 +353,12 @@ function buildDoors(
 	async function both<T>(
 		name: string,
 		body: Record<string, unknown>,
-		humanHeaders: Record<string, string>,
+		humanActorId?: string,
 		agentOverride?: Partial<AgentIdentity>,
 	): Promise<{ readonly human: DoorResult<T>; readonly agent: DoorResult<T> }> {
-		const human = await callHuman<T>(app, name, body, humanHeaders);
+		const human = humanActorId
+			? await callHumanAs<T>(actions, db, eventBus, name, body, humanActorId)
+			: await callHuman<T>(app, name, body);
 		const agent = await callAgent<T>(actions, db, eventBus, name, body, {
 			...defaultAgent,
 			...agentOverride,
@@ -352,12 +366,12 @@ function buildDoors(
 		return { human, agent };
 	}
 	return {
-		edit: (body, humanHeaders = authHeaders(), agentOverride) =>
-			both<DocumentView>("edit_document", body, humanHeaders, agentOverride),
-		open: (body, humanHeaders = authHeaders(), agentOverride) =>
-			both<DocumentView>("open_document", body, humanHeaders, agentOverride),
-		search: (body, humanHeaders = authHeaders(), agentOverride) =>
-			both<DocumentRow[]>("search_documents", body, humanHeaders, agentOverride),
+		edit: (body, humanActorId, agentOverride) =>
+			both<DocumentView>("edit_document", body, humanActorId, agentOverride),
+		open: (body, humanActorId, agentOverride) =>
+			both<DocumentView>("open_document", body, humanActorId, agentOverride),
+		search: (body, humanActorId, agentOverride) =>
+			both<DocumentRow[]>("search_documents", body, humanActorId, agentOverride),
 	};
 }
 
@@ -643,7 +657,6 @@ describe("case 2b — a user-scoped document IN the tree is a private document, 
 
 describe("case 3 — an agent's memory is visible to its owner, not to a third person", () => {
 	test("owner opens it; a stranger gets not_found", async ({
-		app,
 		db,
 		eventBus,
 		agentOrchestration,
@@ -664,19 +677,23 @@ describe("case 3 — an agent's memory is visible to its owner, not to a third p
 		);
 		const docId = requireDoc(created).document.id;
 
-		const ownerOpen = await callHuman<DocumentView>(
-			app,
+		const ownerOpen = await callHumanAs<DocumentView>(
+			actions,
+			db,
+			eventBus,
 			"open_document",
 			{ id: docId },
-			actorHeaders("c3-owner"),
+			"c3-owner",
 		);
 		expect(ownerOpen.ok).toBe(true);
 
-		const strangerOpen = await callHuman<DocumentView>(
-			app,
+		const strangerOpen = await callHumanAs<DocumentView>(
+			actions,
+			db,
+			eventBus,
 			"open_document",
 			{ id: docId },
-			actorHeaders("c3-stranger"),
+			"c3-stranger",
 		);
 		expect(strangerOpen.ok).toBe(false);
 		expect(strangerOpen.problemCode).toBe("not_found");
@@ -797,26 +814,35 @@ describe("case 5 — a tree: ancestors root-first, ordered children, siblings ex
 // ---------------------------------------------------------------------------
 
 describe("case 5b — ancestors are filtered through the viewer's own visibility", () => {
-	test("a cross-team ancestor is absent from the path, exact length", async ({ app, db }) => {
+	test("a cross-team ancestor is absent from the path, exact length", async ({
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
 		await seedTeam(db, "c5b-a");
 		await seedTeam(db, "c5b-b");
 		await seedHuman(db, "c5b-b-owner", "c5b-b");
 		await seedHuman(db, "c5b-a-viewer", "c5b-a");
+		const actions = buildRealActions(agentOrchestration);
 
 		// The team-B owner can see their own team-B parent, so they may nest a
 		// narrower team-A-scoped child under it — the visibility check only
 		// compares scope RANK (architecture.md §4.2), and both are "team" rank.
 		const parent = requireDoc(
-			await callHuman<DocumentView>(
-				app,
+			await callHumanAs<DocumentView>(
+				actions,
+				db,
+				eventBus,
 				"edit_document",
 				{ title: "team-B parent", scopeKind: "team", scopeId: "c5b-b" },
-				actorHeaders("c5b-b-owner"),
+				"c5b-b-owner",
 			),
 		).document;
 		const child = requireDoc(
-			await callHuman<DocumentView>(
-				app,
+			await callHumanAs<DocumentView>(
+				actions,
+				db,
+				eventBus,
 				"edit_document",
 				{
 					title: "team-A child",
@@ -824,18 +850,20 @@ describe("case 5b — ancestors are filtered through the viewer's own visibility
 					scopeId: "c5b-a",
 					parent: { kind: "document", id: parent.id },
 				},
-				actorHeaders("c5b-b-owner"),
+				"c5b-b-owner",
 			),
 		).document;
 
 		// The team-A viewer CAN read the child itself (it is scoped to their
 		// own team) but must not see the team-B parent above it.
 		const opened = requireDoc(
-			await callHuman<DocumentView>(
-				app,
+			await callHumanAs<DocumentView>(
+				actions,
+				db,
+				eventBus,
 				"open_document",
 				{ id: child.id },
-				actorHeaders("c5b-a-viewer"),
+				"c5b-a-viewer",
 			),
 		);
 		expect(opened.ancestors.map((a) => a.id)).not.toContain(parent.id);
@@ -918,11 +946,13 @@ describe('case 7 — search_documents({as:"memory"}) returns only the caller\'s 
 		const founderMemory = requireDoc(
 			await callHuman<DocumentView>(app, "edit_document", { title: "founder note", as: "memory" }),
 		).document.id;
-		await callHuman<DocumentView>(
-			app,
+		await callHumanAs<DocumentView>(
+			actions,
+			db,
+			eventBus,
 			"edit_document",
 			{ title: "other human note", as: "memory" },
-			actorHeaders("c7-other-human"),
+			"c7-other-human",
 		);
 		const agentMemory = requireDoc(
 			await callAgent<DocumentView>(
@@ -1057,11 +1087,13 @@ describe("case 9 — an invariant refusal round-trips through both doors", () =>
 		await seedAgent(db, "c9d8-agent");
 		const actions = buildRealActions(agentOrchestration);
 		const memoryId = requireDoc(
-			await callHuman<DocumentView>(
-				app,
+			await callHumanAs<DocumentView>(
+				actions,
+				db,
+				eventBus,
 				"edit_document",
 				{ title: "private", as: "memory" },
-				actorHeaders("c9d8-owner"),
+				"c9d8-owner",
 			),
 		).document.id;
 		const human = await callHuman<DocumentView>(app, "edit_document", {
@@ -1311,11 +1343,13 @@ describe("case 10 — the combined cases of §4.3 (2, 3, 4, 5, 6, 7, 8)", () => 
 		await seedHuman(db, "c10c7-owner");
 		await seedAgent(db, "c10c7-agent");
 		const actions = buildRealActions(agentOrchestration);
-		await callHuman<DocumentView>(
-			app,
+		await callHumanAs<DocumentView>(
+			actions,
+			db,
+			eventBus,
 			"edit_document",
 			{ id: "c10c7-m1", title: "A's title", as: "memory" },
-			actorHeaders("c10c7-owner"),
+			"c10c7-owner",
 		);
 		const human = await callHuman<DocumentView>(app, "edit_document", {
 			id: "c10c7-m1",
@@ -1332,11 +1366,13 @@ describe("case 10 — the combined cases of §4.3 (2, 3, 4, 5, 6, 7, 8)", () => 
 		);
 		expect(agent.problemCode).toBe("not_found");
 		const reread = requireDoc(
-			await callHuman<DocumentView>(
-				app,
+			await callHumanAs<DocumentView>(
+				actions,
+				db,
+				eventBus,
 				"open_document",
 				{ id: "c10c7-m1" },
-				actorHeaders("c10c7-owner"),
+				"c10c7-owner",
 			),
 		);
 		expect(reread.document.title).toBe("A's title");
@@ -1350,7 +1386,6 @@ describe("case 10 — the combined cases of §4.3 (2, 3, 4, 5, 6, 7, 8)", () => 
 	});
 
 	test("§4.3 case 8 (successful half) — a shared task's artifact is readable across teams", async ({
-		app,
 		db,
 		eventBus,
 		agentOrchestration,
@@ -1371,11 +1406,13 @@ describe("case 10 — the combined cases of §4.3 (2, 3, 4, 5, 6, 7, 8)", () => 
 				{ agentId: "c10c8-agent", sessionId: "c10c8-sess", taskId: "c10c8-task" },
 			),
 		).document.id;
-		const readByOtherTeam = await callHuman<DocumentView>(
-			app,
+		const readByOtherTeam = await callHumanAs<DocumentView>(
+			actions,
+			db,
+			eventBus,
 			"open_document",
 			{ id: artifact },
-			actorHeaders("c10c8-teammate-b"),
+			"c10c8-teammate-b",
 		);
 		expect(readByOtherTeam.ok).toBe(true);
 	});
@@ -1730,26 +1767,31 @@ describe("case 14 — the scope cascade family", () => {
 	});
 
 	test("1b widening never cascades: exactly one change row, children untouched", async ({
-		app,
 		db,
+		eventBus,
+		agentOrchestration,
 	}) => {
 		// A team member throughout — creating a child under a team-scoped
 		// parent needs to SEE that parent, which is a separate concern from the
 		// widening-never-cascades property this case proves.
 		await seedTeam(db, "c14b");
 		await seedHuman(db, "c14b-human", "c14b");
-		const headers = actorHeaders("c14b-human");
+		const actions = buildRealActions(agentOrchestration);
 		const parent = requireDoc(
-			await callHuman<DocumentView>(
-				app,
+			await callHumanAs<DocumentView>(
+				actions,
+				db,
+				eventBus,
 				"edit_document",
 				{ title: "parent", scopeKind: "team", scopeId: "c14b" },
-				headers,
+				"c14b-human",
 			),
 		).document.id;
 		const child = requireDoc(
-			await callHuman<DocumentView>(
-				app,
+			await callHumanAs<DocumentView>(
+				actions,
+				db,
+				eventBus,
 				"edit_document",
 				{
 					title: "child",
@@ -1757,14 +1799,16 @@ describe("case 14 — the scope cascade family", () => {
 					scopeId: "c14b",
 					parent: { kind: "document", id: parent },
 				},
-				headers,
+				"c14b-human",
 			),
 		).document.id;
-		await callHuman<DocumentView>(
-			app,
+		await callHumanAs<DocumentView>(
+			actions,
+			db,
+			eventBus,
 			"edit_document",
 			{ id: parent, scopeKind: "factory" },
-			headers,
+			"c14b-human",
 		);
 		const childChanges = await listChanges(db, { object: "document", objectId: child });
 		expect(childChanges).toHaveLength(1);
@@ -1946,22 +1990,26 @@ describe("case 15 — open_document raises the read count and nothing else", () 
 
 		// a refused open (another person's memory) leaves readCount at 0.
 		const strangerMemory = requireDoc(
-			await callHuman<DocumentView>(
-				app,
+			await callHumanAs<DocumentView>(
+				actions,
+				db,
+				eventBus,
 				"edit_document",
 				{ title: "secret", as: "memory" },
-				actorHeaders("c15-stranger"),
+				"c15-stranger",
 			),
 		).document;
 		expect(strangerMemory.readCount).toBe(0);
 		const refused = await callHuman<DocumentView>(app, "open_document", { id: strangerMemory.id });
 		expect(refused.ok).toBe(false);
 		const rereadAsOwner = requireDoc(
-			await callHuman<DocumentView>(
-				app,
+			await callHumanAs<DocumentView>(
+				actions,
+				db,
+				eventBus,
 				"open_document",
 				{ id: strangerMemory.id },
-				actorHeaders("c15-stranger"),
+				"c15-stranger",
 			),
 		).document;
 		expect(rereadAsOwner.readCount).toBe(1);
@@ -2256,19 +2304,21 @@ describe("case 18 — search_documents({parent}) must name exactly one of id/ids
 			),
 		).document;
 
-		const res = await app.request("/api/actions/search_documents", {
-			method: "POST",
-			headers: actorHeaders("c18-outsider"),
-			body: JSON.stringify({ as: "artifact", parent: { kind: "task" } }),
-		});
-		expect(res.status).toBe(422);
-		const body = (await res.json()) as ActionEnvelope<DocumentRow[]>;
-		expect(body.problems?.[0]?.code).toBe("parent_needs_id");
-		expect(body.data).toBeUndefined();
+		const outsiderSearch = await callHumanAs<DocumentRow[]>(
+			actions,
+			db,
+			eventBus,
+			"search_documents",
+			{ as: "artifact", parent: { kind: "task" } },
+			"c18-outsider",
+		);
+		expect(outsiderSearch.ok).toBe(false);
+		expect(outsiderSearch.problemCode).toBe("parent_needs_id");
+		expect(outsiderSearch.data).toBeUndefined();
 
 		const { human, agent } = await doors.search(
 			{ as: "artifact", parent: { kind: "task" } },
-			actorHeaders("c18-outsider"),
+			"c18-outsider",
 		);
 		expect(human.problemCode).toBe("parent_needs_id");
 		expect(human.data).toBeUndefined();

@@ -35,8 +35,6 @@ import { EventBus } from "@hyperidle/event-bus";
 import { afterEach, vi } from "vitest";
 import { createServer, type ServerHandle } from "../create-server.js";
 
-const ACTOR_OVERRIDE_HEADER = "x-hyperidle-actor-id";
-
 interface Booted {
 	readonly server: ServerHandle;
 	readonly port: number;
@@ -71,19 +69,14 @@ async function callAction(
 	handle: Booted,
 	name: string,
 	body: Record<string, unknown>,
-	actorOverride: string,
+	actorId: string,
 ): Promise<HttpResult> {
-	const res = await fetch(`http://127.0.0.1:${handle.port}/api/actions/${name}`, {
-		method: "POST",
-		headers: {
-			"X-API-Key": handle.apiKey,
-			"Content-Type": "application/json",
-			[ACTOR_OVERRIDE_HEADER]: actorOverride,
-		},
-		body: JSON.stringify(body),
-	});
-	const json = (await res.json()) as Record<string, unknown>;
-	return { status: res.status, json };
+	const result = await handle.server.callActionAs(name, body, actorId);
+	const status = result.ok ? 200 : 422;
+	const json = result.ok
+		? { ok: true, data: result.data }
+		: { ok: false, problems: result.problems };
+	return { status, json: json as Record<string, unknown> };
 }
 
 /** The registered MCP tool for `name` on the joined list — throws with a clear message if the join dropped it. */
@@ -106,22 +99,8 @@ function agentToolCtx(db: HyperIdleDb, agentId: string, sessionId: string) {
 	};
 }
 
-async function mintWsToken(handle: Booted, actorOverride: string): Promise<string> {
-	const res = await fetch(`http://127.0.0.1:${handle.port}/api/auth/ws-token`, {
-		method: "POST",
-		headers: {
-			"X-API-Key": handle.apiKey,
-			"Content-Type": "application/json",
-			[ACTOR_OVERRIDE_HEADER]: actorOverride,
-		},
-		body: JSON.stringify({}),
-	});
-	const json = (await res.json()) as Record<string, unknown>;
-	const token = json.token;
-	if (typeof token !== "string") {
-		throw new Error(`ws-token mint failed: ${JSON.stringify(json)}`);
-	}
-	return token;
+function mintWsToken(handle: Booted, actorId: string): string {
+	return handle.server.mintWsTokenFor(actorId);
 }
 
 function connect(handle: Booted, token: string): WebSocket {
@@ -468,7 +447,7 @@ describe("user-subscription seam — reach, wake, and pause", () => {
 				"the out-of-reach agent",
 			);
 
-			const token = await mintWsToken(handle, "seam-sub-person");
+			const token = mintWsToken(handle, "seam-sub-person");
 			ws = connect(handle, token);
 			await waitForOpen(ws);
 			ws.send(JSON.stringify({ type: "subscribe", topic: "user:seam-sub-person" }));

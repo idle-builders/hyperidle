@@ -27,6 +27,7 @@ import {
 	users,
 } from "@hyperidle/db";
 import type { ActionResult, SendMessageInput, ThreadView } from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 import { drainIntents } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
@@ -45,9 +46,37 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
 }
 
-/** The agent actor-override header the seam already uses. */
-function agentHeaders(agentId: string): Record<string, string> {
-	return authHeaders({ "x-hyperidle-actor-id": agentId });
+async function callAs<T>(
+	name: string,
+	body: Record<string, unknown>,
+	actorId: string,
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	agentOrchestration: AgentOrchestrationPort,
+): Promise<{ readonly status: number; readonly body: ActionEnvelope<T> }> {
+	const actions = buildRealActions(agentOrchestration);
+	const action = actions.find((a) => a.declaration.name === name);
+	if (!action) throw new Error(`no "${name}" action`);
+	const ctx: ActionContext = { actor: actorId, db, eventBus, now: new Date().toISOString() };
+	const result = await action.run(ctx, body);
+	return result.ok
+		? { status: 200, body: { ok: true, data: result.data as T } }
+		: {
+				status: 422,
+				body: {
+					ok: false,
+					problems: (
+						result as {
+							ok: false;
+							problems: ReadonlyArray<{
+								readonly code: string;
+								readonly message: string;
+								readonly path?: string;
+							}>;
+						}
+					).problems,
+				},
+			};
 }
 
 interface ActionEnvelope<T> {
@@ -243,7 +272,8 @@ function runnerFor<I, O>(actions: ReturnType<typeof buildRealActions>, name: str
 describe("send_message — membership, read/write/join", () => {
 	test("a non-member send into a user-hosted DM returns not_a_member and writes nothing", async ({
 		db,
-		app,
+		eventBus,
+		agentOrchestration,
 	}) => {
 		await seedTeam(db, "sm-team-4");
 		await seedHuman(db, "sm-victim", "sm-team-4");
@@ -258,11 +288,13 @@ describe("send_message — membership, read/write/join", () => {
 		const before = await db.select().from(messages);
 		const beforeChanges = await db.select().from(changes);
 
-		const res = await call(
-			app,
+		const res = await callAs(
 			"send_message",
 			{ threadId: "sm-dm-1", text: "hi" },
-			agentHeaders("sm-stranger"),
+			"sm-stranger",
+			db,
+			eventBus,
+			agentOrchestration,
 		);
 		expect(res.status).toBe(422);
 		expect((res.body as ActionEnvelope<unknown>).problems?.[0]?.code).toBe("not_a_member");
@@ -273,7 +305,8 @@ describe("send_message — membership, read/write/join", () => {
 
 	test("a non-member send into a team-hosted thread succeeds, joins, and appends no thread.changed row", async ({
 		db,
-		app,
+		eventBus,
+		agentOrchestration,
 	}) => {
 		await seedTeam(db, "sm-team-5");
 		await seedHuman(db, "sm-newcomer", "sm-team-5");
@@ -284,11 +317,13 @@ describe("send_message — membership, read/write/join", () => {
 			members: [],
 		});
 
-		const res = await call(
-			app,
+		const res = await callAs(
 			"send_message",
 			{ threadId: "sm-team-thread-1", text: "hi team" },
-			agentHeaders("sm-newcomer"),
+			"sm-newcomer",
+			db,
+			eventBus,
+			agentOrchestration,
 		);
 		expect(res.status).toBe(200);
 
@@ -303,11 +338,13 @@ describe("send_message — membership, read/write/join", () => {
 		expect(after.members).toEqual(expect.arrayContaining(["sm-newcomer"]));
 
 		// a second post by the same sender adds no duplicate member.
-		await call(
-			app,
+		await callAs(
 			"send_message",
 			{ threadId: "sm-team-thread-1", text: "again" },
-			agentHeaders("sm-newcomer"),
+			"sm-newcomer",
+			db,
+			eventBus,
+			agentOrchestration,
 		);
 		const membersAfter = await readThreadMembers(db, "sm-team-thread-1");
 		expect(membersAfter.filter((m) => m === "sm-newcomer")).toHaveLength(1);
@@ -315,7 +352,8 @@ describe("send_message — membership, read/write/join", () => {
 
 	test("two different non-members posting into the same team thread at once both end up members", async ({
 		db,
-		app,
+		eventBus,
+		agentOrchestration,
 	}) => {
 		await seedTeam(db, "sm-team-race");
 		await seedHuman(db, "sm-racer-a", "sm-team-race");
@@ -328,17 +366,21 @@ describe("send_message — membership, read/write/join", () => {
 		});
 
 		await Promise.all([
-			call(
-				app,
+			callAs(
 				"send_message",
 				{ threadId: "sm-team-thread-race", text: "hi from a" },
-				agentHeaders("sm-racer-a"),
+				"sm-racer-a",
+				db,
+				eventBus,
+				agentOrchestration,
 			),
-			call(
-				app,
+			callAs(
 				"send_message",
 				{ threadId: "sm-team-thread-race", text: "hi from b" },
-				agentHeaders("sm-racer-b"),
+				"sm-racer-b",
+				db,
+				eventBus,
+				agentOrchestration,
 			),
 		]);
 
@@ -349,6 +391,8 @@ describe("send_message — membership, read/write/join", () => {
 	test("a non-member open_thread on a user-hosted DM returns not_found, byte-identical to a deleted thread and a nonexistent id", async ({
 		db,
 		app,
+		eventBus,
+		agentOrchestration,
 	}) => {
 		await seedTeam(db, "sm-team-6");
 		await seedHuman(db, "sm-owner-6", "sm-team-6");
@@ -370,17 +414,21 @@ describe("send_message — membership, read/write/join", () => {
 		// the OWNER, reading their own now-deleted thread, and a stranger reading
 		// a thread they never had access to, must be indistinguishable — same
 		// code, same shape — from asking about an id that never existed.
-		const nonMember = await call(
-			app,
+		const nonMember = await callAs(
 			"open_thread",
 			{ id: "sm-dm-6" },
-			agentHeaders("sm-outsider-6"),
+			"sm-outsider-6",
+			db,
+			eventBus,
+			agentOrchestration,
 		);
-		const deleted = await call(
-			app,
+		const deleted = await callAs(
 			"open_thread",
 			{ id: "sm-deleted-6" },
-			agentHeaders("sm-owner-6"),
+			"sm-owner-6",
+			db,
+			eventBus,
+			agentOrchestration,
 		);
 		const missing = await call(app, "open_thread", { id: "sm-does-not-exist" });
 
@@ -394,7 +442,11 @@ describe("send_message — membership, read/write/join", () => {
 		}
 	});
 
-	test("a non-member CAN open a team-hosted and a document-hosted thread", async ({ db, app }) => {
+	test("a non-member CAN open a team-hosted and a document-hosted thread", async ({
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
 		await seedTeam(db, "sm-team-7");
 		await seedHuman(db, "sm-visitor-7", "sm-team-7");
 		await seedDocument(db, "sm-ki-7");
@@ -411,17 +463,21 @@ describe("send_message — membership, read/write/join", () => {
 			members: [],
 		});
 
-		const teamRes = await call(
-			app,
+		const teamRes = await callAs(
 			"open_thread",
 			{ id: "sm-team-thread-7" },
-			agentHeaders("sm-visitor-7"),
+			"sm-visitor-7",
+			db,
+			eventBus,
+			agentOrchestration,
 		);
-		const kiRes = await call(
-			app,
+		const kiRes = await callAs(
 			"open_thread",
 			{ id: "sm-ki-thread-7" },
-			agentHeaders("sm-visitor-7"),
+			"sm-visitor-7",
+			db,
+			eventBus,
+			agentOrchestration,
 		);
 		expect(teamRes.status).toBe(200);
 		expect(kiRes.status).toBe(200);
@@ -429,7 +485,8 @@ describe("send_message — membership, read/write/join", () => {
 
 	test("search_threads({ids}) returns [] for a stranger's DM; search_threads({host:{kind:'user'}}) returns []", async ({
 		db,
-		app,
+		eventBus,
+		agentOrchestration,
 	}) => {
 		await seedTeam(db, "sm-team-8");
 		await seedHuman(db, "sm-victim-8", "sm-team-8");
@@ -441,17 +498,21 @@ describe("send_message — membership, read/write/join", () => {
 			members: [FOUNDER_ID, "sm-victim-8"],
 		});
 
-		const byIds = await call<unknown[]>(
-			app,
+		const byIds = await callAs(
 			"search_threads",
 			{ ids: ["sm-dm-8"] },
-			agentHeaders("sm-stranger-8"),
+			"sm-stranger-8",
+			db,
+			eventBus,
+			agentOrchestration,
 		);
-		const byHost = await call<unknown[]>(
-			app,
+		const byHost = await callAs(
 			"search_threads",
 			{ host: { kind: "user", id: "sm-victim-8" } },
-			agentHeaders("sm-stranger-8"),
+			"sm-stranger-8",
+			db,
+			eventBus,
+			agentOrchestration,
 		);
 		expect(byIds.body.data).toEqual([]);
 		expect(byHost.body.data).toEqual([]);
@@ -459,7 +520,8 @@ describe("send_message — membership, read/write/join", () => {
 
 	test("a non-member adjust_thread on a team thread succeeds and does not add them as a member; on a user-hosted DM it returns not_a_member", async ({
 		db,
-		app,
+		eventBus,
+		agentOrchestration,
 	}) => {
 		await seedTeam(db, "sm-team-9");
 		await seedHuman(db, "sm-editor-9", "sm-team-9");
@@ -477,21 +539,25 @@ describe("send_message — membership, read/write/join", () => {
 			members: [FOUNDER_ID, "sm-victim-9"],
 		});
 
-		const teamAdjust = await call(
-			app,
+		const teamAdjust = await callAs(
 			"adjust_thread",
 			{ id: "sm-team-thread-9", pinned: true },
-			agentHeaders("sm-editor-9"),
+			"sm-editor-9",
+			db,
+			eventBus,
+			agentOrchestration,
 		);
 		expect(teamAdjust.status).toBe(200);
 		const members = await readThreadMembers(db, "sm-team-thread-9");
 		expect(members).not.toContain("sm-editor-9");
 
-		const dmAdjust = await call(
-			app,
+		const dmAdjust = await callAs(
 			"adjust_thread",
 			{ id: "sm-dm-9", pinned: true },
-			agentHeaders("sm-editor-9"),
+			"sm-editor-9",
+			db,
+			eventBus,
+			agentOrchestration,
 		);
 		expect(dmAdjust.status).toBe(422);
 		expect((dmAdjust.body as ActionEnvelope<unknown>).problems?.[0]?.code).toBe("not_a_member");
@@ -501,7 +567,8 @@ describe("send_message — membership, read/write/join", () => {
 describe("send_message — @mentions", () => {
 	test("an @mention adds the mentioned user as a member in the send's transaction; no changed row is appended", async ({
 		db,
-		app,
+		eventBus,
+		agentOrchestration,
 	}) => {
 		await seedTeam(db, "sm-mn-1");
 		await seedHuman(db, "sm-sender-1", "sm-mn-1");
@@ -509,11 +576,13 @@ describe("send_message — @mentions", () => {
 		const threadId = await seedTaskWithThread(db, "sm-mn1-task", "sm-mn-1");
 
 		// mention resolution is team-scoped off the SENDER's team.
-		const res = await call(
-			app,
+		const res = await callAs(
 			"send_message",
 			{ threadId, text: "cc @sm-mentioned-1 please look" },
-			agentHeaders("sm-sender-1"),
+			"sm-sender-1",
+			db,
+			eventBus,
+			agentOrchestration,
 		);
 		expect(res.status).toBe(200);
 
@@ -529,7 +598,8 @@ describe("send_message — @mentions", () => {
 
 	test("a multi-word agent name (`My Team Agent`) is @mentionable by typing it plainly", async ({
 		db,
-		app,
+		eventBus,
+		agentOrchestration,
 	}) => {
 		await seedTeam(db, "sm-mn-2");
 		await seedHuman(db, "sm-sender-2", "sm-mn-2");
@@ -545,11 +615,13 @@ describe("send_message — @mentions", () => {
 		});
 		const threadId = await seedTaskWithThread(db, "sm-mn2-task", "sm-mn-2");
 
-		const res = await call(
-			app,
+		const res = await callAs(
 			"send_message",
 			{ threadId, text: "@My Team Agent please look" },
-			agentHeaders("sm-sender-2"),
+			"sm-sender-2",
+			db,
+			eventBus,
+			agentOrchestration,
 		);
 		expect(res.status).toBe(200);
 
@@ -591,7 +663,8 @@ describe("send_message — @mentions", () => {
 describe("send_message — @mention pool includes the host team and the sender's own agents", () => {
 	test("a team-hosted thread's sole member (a human with no team) can @mention an agent of the HOST team", async ({
 		db,
-		app,
+		eventBus,
+		agentOrchestration,
 	}) => {
 		await seedTeam(db, "mn-host-1");
 		await seedHuman(db, "mn-human-1"); // no teamId
@@ -603,11 +676,13 @@ describe("send_message — @mention pool includes the host team and the sender's
 			members: ["mn-human-1"],
 		});
 
-		const res = await call(
-			app,
+		const res = await callAs(
 			"send_message",
 			{ threadId: "mn-thread-1", text: "@mn-builder-1 hi" },
-			agentHeaders("mn-human-1"),
+			"mn-human-1",
+			db,
+			eventBus,
+			agentOrchestration,
 		);
 		expect(res.status).toBe(200);
 
@@ -637,7 +712,8 @@ describe("send_message — @mention pool includes the host team and the sender's
 
 	test("the same sole member can @mention their OWN agent (owned, no team of its own) the same way", async ({
 		db,
-		app,
+		eventBus,
+		agentOrchestration,
 	}) => {
 		await seedTeam(db, "mn-host-2");
 		await seedHuman(db, "mn-human-2"); // no teamId
@@ -659,11 +735,13 @@ describe("send_message — @mention pool includes the host team and the sender's
 			members: ["mn-human-2"],
 		});
 
-		const res = await call(
-			app,
+		const res = await callAs(
 			"send_message",
 			{ threadId: "mn-thread-2", text: "@mn-nova-2 hi" },
-			agentHeaders("mn-human-2"),
+			"mn-human-2",
+			db,
+			eventBus,
+			agentOrchestration,
 		);
 		expect(res.status).toBe(200);
 
@@ -693,7 +771,8 @@ describe("send_message — @mention pool includes the host team and the sender's
 
 	test("a stranger's owned agent (no team of its own, not owned by this sender) is NOT mentionable", async ({
 		db,
-		app,
+		eventBus,
+		agentOrchestration,
 	}) => {
 		await seedTeam(db, "mn-host-3");
 		await seedHuman(db, "mn-human-3"); // no teamId
@@ -715,11 +794,13 @@ describe("send_message — @mention pool includes the host team and the sender's
 			members: ["mn-human-3"],
 		});
 
-		const res = await call(
-			app,
+		const res = await callAs(
 			"send_message",
 			{ threadId: "mn-thread-3", text: "@mn-strangers-agent-3 hi" },
-			agentHeaders("mn-human-3"),
+			"mn-human-3",
+			db,
+			eventBus,
+			agentOrchestration,
 		);
 		expect(res.status).toBe(200);
 
@@ -748,7 +829,8 @@ describe("send_message — @mention pool includes the host team and the sender's
 describe("send_message — the wake rule", () => {
 	test("a mention of an agent records one thread_turn intent for it; a two-member thread with one agent records one with no mention; a three-member thread with no mention records none", async ({
 		db,
-		app,
+		eventBus,
+		agentOrchestration,
 	}) => {
 		await seedTeam(db, "wk-1");
 		await seedHuman(db, "wk-human-1", "wk-1");
@@ -761,11 +843,13 @@ describe("send_message — the wake rule", () => {
 
 		// mention resolution is team-scoped off the SENDER's team — `wk-human-1`
 		// carries `teamId:"wk-1"`, unlike the bare global founder seed.
-		await call(
-			app,
+		await callAs(
 			"send_message",
 			{ threadId, text: "hey @wk-agent-mentioned please help" },
-			agentHeaders("wk-human-1"),
+			"wk-human-1",
+			db,
+			eventBus,
+			agentOrchestration,
 		);
 		const intents = await db
 			.select()
@@ -794,7 +878,8 @@ describe("send_message — the wake rule", () => {
 
 	test("a stranger posting into a two-member team thread does not wake the agent sitting in it", async ({
 		db,
-		app,
+		eventBus,
+		agentOrchestration,
 	}) => {
 		await seedTeam(db, "wk-3");
 		await seedAgent(db, "wk-agent-3", "wk-3");
@@ -806,11 +891,13 @@ describe("send_message — the wake rule", () => {
 			members: [FOUNDER_ID, "wk-agent-3"],
 		});
 
-		await call(
-			app,
+		await callAs(
 			"send_message",
 			{ threadId: "wk-team-3", text: "hi" },
-			agentHeaders("wk-stranger-3"),
+			"wk-stranger-3",
+			db,
+			eventBus,
+			agentOrchestration,
 		);
 		const intents = await db
 			.select()
@@ -821,8 +908,8 @@ describe("send_message — the wake rule", () => {
 
 	test("two mentioned agents produce two dispatches, not two rows — drained, two session requests exist, one per agent", async ({
 		db,
-		app,
 		eventBus,
+		agentOrchestration,
 	}) => {
 		await seedTeam(db, "wk-4");
 		await seedHuman(db, "wk-human-4", "wk-4");
@@ -834,11 +921,13 @@ describe("send_message — the wake rule", () => {
 			.set({ participants: JSON.stringify(["wk-human-4"]) })
 			.where(eq(threads.id, threadId));
 
-		const sent = await call<{ message: { id: string } }>(
-			app,
+		const sent = await callAs<{ message: { id: string } }>(
 			"send_message",
 			{ threadId, text: "@wk-agent-a and @wk-agent-b please both look" },
-			agentHeaders("wk-human-4"),
+			"wk-human-4",
+			db,
+			eventBus,
+			agentOrchestration,
 		);
 		const messageId = sent.body.data?.message.id as string;
 
@@ -854,7 +943,8 @@ describe("send_message — the wake rule", () => {
 
 	test("a mention of an agent already a member records one thread_turn intent and appends no changed row", async ({
 		db,
-		app,
+		eventBus,
+		agentOrchestration,
 	}) => {
 		await seedTeam(db, "wk-5");
 		await seedHuman(db, "wk-human-5a", "wk-5");
@@ -866,11 +956,13 @@ describe("send_message — the wake rule", () => {
 			.set({ participants: JSON.stringify(["wk-human-5a", "wk-human-5b", "wk-agent-5"]) })
 			.where(eq(threads.id, threadId));
 
-		await call(
-			app,
+		await callAs(
 			"send_message",
 			{ threadId, text: "hey @wk-agent-5 already here, please help" },
-			agentHeaders("wk-human-5a"),
+			"wk-human-5a",
+			db,
+			eventBus,
+			agentOrchestration,
 		);
 
 		const intents = await db
@@ -1320,17 +1412,20 @@ describe("send_message — produced-item ownership", () => {
 describe("send_message — the four dead-end paths it keeps alive", () => {
 	test("a handed-off agent that was never seeded posts in its task's thread and is a member afterwards", async ({
 		db,
-		app,
+		eventBus,
+		agentOrchestration,
 	}) => {
 		await seedTeam(db, "hp-1");
 		await seedAgent(db, "hp-new-owner", "hp-1");
 		const threadId = await seedTaskWithThread(db, "hp1-task", "hp-1");
 		// the thread's members never included the new owner — a real handoff seeds nothing.
-		const res = await call(
-			app,
+		const res = await callAs(
 			"send_message",
 			{ threadId, text: "taking over" },
-			agentHeaders("hp-new-owner"),
+			"hp-new-owner",
+			db,
+			eventBus,
+			agentOrchestration,
 		);
 		expect(res.status).toBe(200);
 		const members = await readThreadMembers(db, threadId);
@@ -1339,7 +1434,8 @@ describe("send_message — the four dead-end paths it keeps alive", () => {
 
 	test("a human who is not on the task posts a verdict on a review in it — the verdict trio decides, not not_a_member", async ({
 		db,
-		app,
+		eventBus,
+		agentOrchestration,
 	}) => {
 		await seedTeam(db, "hp-2");
 		await seedAgent(db, "hp-agent-2", "hp-2");
@@ -1352,26 +1448,34 @@ describe("send_message — the four dead-end paths it keeps alive", () => {
 			.set({ participants: JSON.stringify(["hp-agent-2"]) })
 			.where(eq(threads.id, threadId));
 
-		const review = await call<{ message: { id: string } }>(
-			app,
+		const review = await callAs<{ message: { id: string } }>(
 			"send_message",
 			{ threadId, review: { title: "review", reasoning: ["done"] } },
-			agentHeaders("hp-agent-2"),
+			"hp-agent-2",
+			db,
+			eventBus,
+			agentOrchestration,
 		);
 		const reviewMessageId = review.body.data?.message.id as string;
 
-		const verdict = await call(
-			app,
+		const verdict = await callAs(
 			"send_message",
 			{ threadId, verdict: { decision: "approve", resolvesMessageId: reviewMessageId } },
-			agentHeaders("hp-reviewer-2"),
+			"hp-reviewer-2",
+			db,
+			eventBus,
+			agentOrchestration,
 		);
 		expect(verdict.status).toBe(200);
 		const members = await readThreadMembers(db, threadId);
 		expect(members).toContain("hp-reviewer-2");
 	});
 
-	test("a visitor posts into a document thread they did not create", async ({ db, app }) => {
+	test("a visitor posts into a document thread they did not create", async ({
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
 		await seedTeam(db, "hp-3");
 		await seedHuman(db, "hp-visitor-3", "hp-3");
 		await seedDocument(db, "hp-ki-3");
@@ -1381,11 +1485,13 @@ describe("send_message — the four dead-end paths it keeps alive", () => {
 			initiatorId: "system:propagation",
 			members: [],
 		});
-		const res = await call(
-			app,
+		const res = await callAs(
 			"send_message",
 			{ threadId: "hp-ki-thread-3", text: "question" },
-			agentHeaders("hp-visitor-3"),
+			"hp-visitor-3",
+			db,
+			eventBus,
+			agentOrchestration,
 		);
 		expect(res.status).toBe(200);
 		const members = await readThreadMembers(db, "hp-ki-thread-3");
@@ -1394,24 +1500,29 @@ describe("send_message — the four dead-end paths it keeps alive", () => {
 
 	test("system:propagation posts a second stalled-knowledge-action review into the thread it made on the first", async ({
 		db,
-		app,
+		eventBus,
+		agentOrchestration,
 	}) => {
 		await seedTeam(db, "hp-4");
 		await seedDocument(db, "hp-ki-4");
-		const firstRes = await call<{ thread: { id: string } }>(
-			app,
+		const firstRes = await callAs<{ thread: { id: string } }>(
 			"send_message",
 			{ recipients: [FOUNDER_ID], review: { title: "stalled", reasoning: ["first failure"] } },
-			agentHeaders("system:propagation"),
+			"system:propagation",
+			db,
+			eventBus,
+			agentOrchestration,
 		);
 		expect(firstRes.status).toBe(200);
 		const threadId = firstRes.body.data?.thread.id as string;
 
-		const secondRes = await call(
-			app,
+		const secondRes = await callAs(
 			"send_message",
 			{ threadId, review: { title: "stalled again", reasoning: ["second failure"] } },
-			agentHeaders("system:propagation"),
+			"system:propagation",
+			db,
+			eventBus,
+			agentOrchestration,
 		);
 		expect(secondRes.status).toBe(200);
 		const rows = await db.select().from(messages).where(eq(messages.threadId, threadId));

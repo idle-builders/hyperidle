@@ -1,4 +1,3 @@
-import { CORE_API_ACTOR_OVERRIDE_HEADER } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { ApiErrorResponse } from "@hyperidle/domain-model";
@@ -65,23 +64,21 @@ function rejectUnauthorized(c: Context, message: string, logMessage: string): Re
 }
 
 /**
- * Resolves the route actor once an X-API-Key holder has already
- * authenticated.
+ * Resolves the route actor once an X-API-Key holder has already authenticated.
+ * Always returns the first human row, or the placeholder "u-founder" before
+ * the welcome screen creates one.
  *
- * An actor-override header lets the seam's own Application-layer
- * composition root (never an external client — see
- * `@hyperidle/api-contract`'s `CORE_API_ACTOR_OVERRIDE_HEADER` doc comment,
- * kept there so both sides of the seam read the same wire
- * constant from the contract package) carry the calling agent's own
- * identity as the route actor. Falls back to the existing human-resolution
- * behavior (`@lore P2`) when the header is absent.
+ * @lore P2: the placeholder "u-founder" stands in only while no human row
+ * exists — the moment before the welcome screen's `edit_user` creates the
+ * person. Any `x-hyperidle-actor-id` header is intentionally ignored: the
+ * API key is the one credential and cannot be used to impersonate any user.
+ * Tests that need a specific actor call the action in-process via
+ * `action.run({ actor, db, eventBus, now }, input)`.
  */
 async function resolveApiKeyActorUserId(
-	c: Context<HyperIdleEnv>,
+	_c: Context<HyperIdleEnv>,
 	db: HyperIdleDb,
 ): Promise<string> {
-	const actorOverride = c.req.header(CORE_API_ACTOR_OVERRIDE_HEADER);
-	if (actorOverride) return actorOverride;
 	const humanUser = await findUser(db, { kind: "human" });
 	return humanUser?.id ?? "u-founder";
 }
@@ -89,13 +86,8 @@ async function resolveApiKeyActorUserId(
 /**
  * Create the auth middleware with database access for identity lookup.
  *
- * A valid X-API-Key resolves `userId` to the actor-override header when the
- * composition root sets it, else the first human row.
- *
- * @lore P2: the placeholder "u-founder" stands in only while no human row
- * exists — the moment before the welcome screen's `edit_user` creates the
- * person, whose own call runs as that placeholder actor (which is how the
- * first human gets role "founder"). Every later request resolves a real row.
+ * A valid X-API-Key resolves `userId` to the first human row in `users`,
+ * or "u-founder" while no human row exists yet.
  */
 export function createAuthMiddleware(
 	options: AuthMiddlewareOptions,

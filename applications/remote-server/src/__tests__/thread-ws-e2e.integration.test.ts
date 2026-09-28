@@ -16,7 +16,6 @@
  * `wsPush` sink) and `layers/core-ui/src/hooks/__tests__/useThread.test.tsx`
  * (fake ws client) each stop short of — neither proves the two ends meet.
  *
- * @lore `CORE_API_ACTOR_OVERRIDE_HEADER` is a wire constant, inlined below since applications/* cannot import @hyperidle/api-contract directly.
  */
 
 import * as os from "node:os";
@@ -27,7 +26,6 @@ import { EventBus } from "@hyperidle/event-bus";
 import { afterEach, vi } from "vitest";
 import { createServer, type ServerHandle } from "../create-server.js";
 
-const ACTOR_OVERRIDE_HEADER = "x-hyperidle-actor-id";
 const FOUNDER_ID = "e2e-founder";
 
 interface Booted {
@@ -54,30 +52,20 @@ async function boot(db: HyperIdleDb): Promise<Booted> {
 
 async function callAction(
 	handle: Booted,
-	actionPath: string,
+	actionName: string,
 	body: Record<string, unknown>,
-	actorOverride?: string,
+	actorId: string,
 ): Promise<{ status: number; json: Record<string, unknown> }> {
-	const res = await fetch(`http://127.0.0.1:${handle.port}${actionPath}`, {
-		method: "POST",
-		headers: {
-			"X-API-Key": handle.apiKey,
-			"Content-Type": "application/json",
-			...(actorOverride ? { [ACTOR_OVERRIDE_HEADER]: actorOverride } : {}),
-		},
-		body: JSON.stringify(body),
-	});
-	const json = (await res.json()) as Record<string, unknown>;
-	return { status: res.status, json };
+	const result = await handle.server.callActionAs(actionName, body, actorId);
+	const status = result.ok ? 200 : 422;
+	const json = result.ok
+		? { ok: true, data: result.data }
+		: { ok: false, problems: result.problems };
+	return { status, json: json as Record<string, unknown> };
 }
 
-async function wsTokenFor(handle: Booted, actorOverride?: string): Promise<string> {
-	const res = await callAction(handle, "/api/auth/ws-token", {}, actorOverride);
-	const token = res.json.token;
-	if (typeof token !== "string") {
-		throw new Error(`ws-token mint failed: ${JSON.stringify(res.json)}`);
-	}
-	return token;
+function wsTokenFor(handle: Booted, actorId: string): string {
+	return handle.server.mintWsTokenFor(actorId);
 }
 
 function connect(handle: Booted, token: string): WebSocket {
@@ -198,7 +186,7 @@ describe("thread websocket nudge — real server, real socket, both doors", () =
 				members: [FOUNDER_ID, "e2e-other-1"],
 			});
 
-			const token = await wsTokenFor(handle, FOUNDER_ID);
+			const token = wsTokenFor(handle, FOUNDER_ID);
 			const ws = connect(handle, token);
 			try {
 				await waitForOpen(ws);
@@ -231,7 +219,7 @@ describe("thread websocket nudge — real server, real socket, both doors", () =
 				// The window's OWN identity never sends this — a DIFFERENT member does.
 				const sendRes = await callAction(
 					handle,
-					"/api/actions/send_message",
+					"send_message",
 					{ threadId: "e2e-thr-1", text: "secret e2e http-door text" },
 					"e2e-other-1",
 				);
@@ -270,7 +258,7 @@ describe("thread websocket nudge — real server, real socket, both doors", () =
 				members: [FOUNDER_ID, "e2e-agent-1"],
 			});
 
-			const token = await wsTokenFor(handle, FOUNDER_ID);
+			const token = wsTokenFor(handle, FOUNDER_ID);
 			const ws = connect(handle, token);
 			try {
 				await waitForOpen(ws);
@@ -330,7 +318,7 @@ describe("thread websocket nudge — real server, real socket, both doors", () =
 				members: [FOUNDER_ID],
 			});
 
-			const token = await wsTokenFor(handle, "e2e-stranger-1");
+			const token = wsTokenFor(handle, "e2e-stranger-1");
 			const ws = connect(handle, token);
 			try {
 				await waitForOpen(ws);
@@ -361,7 +349,7 @@ describe("thread websocket nudge — real server, real socket, both doors", () =
 				members: [FOUNDER_ID, "e2e-other-2"],
 			});
 
-			const token = await wsTokenFor(handle, "e2e-stranger-2");
+			const token = wsTokenFor(handle, "e2e-stranger-2");
 			const ws = connect(handle, token);
 			try {
 				await waitForOpen(ws);

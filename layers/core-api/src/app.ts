@@ -223,6 +223,8 @@ const APP_DISPOSERS = new WeakMap<Hono, Array<() => void>>();
  * SAME composed list (architecture.md §7's "one composed list, built once").
  */
 const APP_ACTION_TOOLS = new WeakMap<Hono, ReadonlyArray<RegisteredTool<HyperIdleDb>>>();
+/** Raw action list — exposed so `boot.ts` can build `CoreApiBoot.callActionAs` without re-constructing the actions. Same take-once idiom as `APP_ACTION_TOOLS`. */
+const APP_ACTIONS = new WeakMap<Hono, readonly Action[]>();
 /**
  * @lore document-module B15: `boot.ts` needs the RAW `edit_document`/
  * `search_documents` runners (not `actionsAsTools`' MCP-wrapped projection)
@@ -461,6 +463,7 @@ function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		);
 		api.route("/actions", createActionsRouter(actions, { db: options.db, eventBus }));
 		APP_ACTION_TOOLS.set(api, actionsAsTools(actions));
+		APP_ACTIONS.set(api, actions);
 		const editTaskAction = actions.find((a) => a.declaration.name === "edit_task");
 		if (!editTaskAction) {
 			throw new Error("buildCoreActions did not produce an edit_task action");
@@ -679,6 +682,13 @@ export function takeAppActionTools(
 	const tools = APP_ACTION_TOOLS.get(hono);
 	APP_ACTION_TOOLS.delete(hono);
 	return tools;
+}
+
+/** Detach and return the raw action list. `undefined` when `db` was never supplied. Read exactly once, by `bootCoreApi`, the same idiom as `takeAppActionTools`. */
+export function takeAppActions(hono: Hono): readonly Action[] | undefined {
+	const actions = APP_ACTIONS.get(hono);
+	APP_ACTIONS.delete(hono);
+	return actions;
 }
 
 /**

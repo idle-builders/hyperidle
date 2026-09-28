@@ -10,7 +10,7 @@ The **Principal** is the authenticated identity on a request — `c.get("userId"
 
 There is one credential: the deployment's `HYPERIDLE_API_KEY`, sent as `X-API-Key` and compared in constant time. There are no login sessions, invite codes, or bearer tokens.
 
-A valid key makes the caller the first human row on `users`. The application's composition root may name a different actor through the `CORE_API_ACTOR_OVERRIDE_HEADER` — this is how an agent's tool call acts as that agent. No external client sets this header.
+A valid key makes the caller the first human row on `users`. Any `x-hyperidle-actor-id` header on the request is ignored. Tests that need a specific actor call the action in-process via `action.run({ actor, db, eventBus, now }, input)`.
 
 `HYPERIDLE_SHARED_MODE` changes one thing: whose identity `POST /api/auth/ws-token` mints the WebSocket upgrade token for. In shared mode it is the authenticated caller; in local mode the `X-Identity` header may name the identity (safe because the caller already holds the master key). `X-Identity` grants no authority anywhere else.
 

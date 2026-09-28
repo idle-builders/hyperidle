@@ -136,6 +136,10 @@ export interface ServerHandle {
 	readonly httpServer: ServerType;
 	readonly dispose: () => Promise<void>;
 	readonly actionTools: CoreApiBoot["actionTools"];
+	/** Call any registered action in-process as a specific actor — for multi-actor integration test scenarios. */
+	readonly callActionAs: NonNullable<CoreApiBoot["callActionAs"]>;
+	/** Mint a WebSocket upgrade token for a specific actor — for integration tests that connect as non-default users. */
+	readonly mintWsTokenFor: NonNullable<CoreApiBoot["mintWsTokenFor"]>;
 }
 
 const MIME_TYPES: Record<string, string> = {
@@ -568,10 +572,16 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		return disposePromise;
 	};
 
+	if (!coreApi.callActionAs)
+		throw new Error("callActionAs not available — server was built without db");
+	if (!coreApi.mintWsTokenFor)
+		throw new Error("mintWsTokenFor not available — server was built without WS support");
 	return {
 		httpServer,
 		dispose,
 		// The joined list — what the seam test drives as "the agent".
 		actionTools,
+		callActionAs: coreApi.callActionAs,
+		mintWsTokenFor: coreApi.mintWsTokenFor,
 	};
 }

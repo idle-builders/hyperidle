@@ -61,11 +61,13 @@ import {
 } from "@hyperidle/user";
 import type { Hono } from "hono";
 import type { UpgradeWebSocket } from "hono/ws";
+import type { ActionContext } from "./actions/action.js";
 import { type ApiMiddlewareStack, createApiMiddlewareStack } from "./api-middleware-stack.js";
 import {
 	type AppOptions,
 	createCoreApiApp,
 	registerCoreApiPreAuthRoutes,
+	takeAppActions,
 	takeAppActionTools,
 	takeAppDisposers,
 	takeAppDocumentRunners,
@@ -185,6 +187,26 @@ export interface CoreApiBoot {
 		caller: { readonly actor: string },
 		input: SearchDocumentsInput,
 	) => Promise<ActionResult<readonly DocumentRow[]>>;
+	/**
+	 * Call any registered action in-process as a specific actor — used by the
+	 * remote-server integration tests to drive multi-actor scenarios without an
+	 * HTTP actor-override header. Present whenever `db` is provided.
+	 */
+	readonly callActionAs?: (
+		actionName: string,
+		body: Record<string, unknown>,
+		actorId: string,
+	) => Promise<{
+		readonly ok: boolean;
+		readonly data?: unknown;
+		readonly problems?: ReadonlyArray<{ readonly code: string }>;
+	}>;
+	/**
+	 * Mint a WebSocket upgrade token for a specific actor — used by the
+	 * remote-server integration tests to connect WebSocket clients as a
+	 * non-default user. Present whenever WS support was wired.
+	 */
+	readonly mintWsTokenFor?: (actorId: string) => string;
 }
 
 /**
@@ -293,6 +315,7 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 
 	const disposers: Array<() => void> = [...takeAppDisposers(app)];
 	const actionTools = takeAppActionTools(app) ?? [];
+	const rawActions = takeAppActions(app);
 
 	// §8.4: the raw `edit_document`/`search_documents` runners this boot's own
 	// `app` just built, adapted from the door's `(ctx: ActionContext, input)`
@@ -344,6 +367,29 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 				);
 			};
 
+	const callActionEventBus = options?.eventBus ?? new EventBus();
+	const callActionAs: CoreApiBoot["callActionAs"] =
+		rawActions && db
+			? async (actionName, body, actorId) => {
+					const action = rawActions.find((a) => a.declaration.name === actionName);
+					if (!action) throw new Error(`callActionAs: no "${actionName}" action`);
+					const ctx: ActionContext = {
+						actor: actorId,
+						db: db as HyperIdleDb,
+						eventBus: callActionEventBus,
+						now: new Date().toISOString(),
+					};
+					const result = await action.run(ctx, body);
+					return result.ok
+						? { ok: true, data: result.data }
+						: { ok: false, problems: result.problems };
+				}
+			: undefined;
+
+	const mintWsTokenFor: CoreApiBoot["mintWsTokenFor"] = tokenStore
+		? (actorId) => tokenStore.issue(actorId).token
+		: undefined;
+
 	return {
 		app,
 		registerPreAuthRoutes: (apiRouter) => {
@@ -360,6 +406,8 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 		searchDocuments,
 		wsHub,
 		upgradeTokenStore: tokenStore,
+		...(callActionAs ? { callActionAs } : {}),
+		...(mintWsTokenFor ? { mintWsTokenFor } : {}),
 		...(db ? { resolveProvisioningOwnerUserId: resolveProvisioningOwnerUserIdFor(db) } : {}),
 		...(db
 			? {

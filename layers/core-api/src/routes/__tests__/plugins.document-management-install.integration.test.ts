@@ -13,13 +13,17 @@
 import { cpSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { documents, type HyperIdleDb, subscriptions, teams, users } from "@hyperidle/db";
 import type { DocumentRow } from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 import { agentItemId, skillItemId, subscriptionItemId } from "@hyperidle/settings";
 import { and, eq, inArray } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, describe, expect } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
+import type { ActionContext } from "../../actions/action.js";
+import { buildCoreActions } from "../../actions/compose.js";
 
 const API_KEY = "test-km-plugin";
 const PLUGIN_ROOT = resolve("plugins/document-management");
@@ -32,13 +36,39 @@ interface ActionEnvelope<T> {
 	readonly problems?: ReadonlyArray<{ readonly code: string; readonly message: string }>;
 }
 
-/** The agent actor-override header the document seam test already uses. */
-function actorHeaders(actorId: string): Record<string, string> {
-	return { ...auth(), "Content-Type": "application/json", "x-hyperidle-actor-id": actorId };
-}
-
 function auth(): Record<string, string> {
 	return { "X-API-Key": API_KEY };
+}
+
+function buildActions(agentOrchestration: AgentOrchestrationPort) {
+	return buildCoreActions({
+		agentOrchestration,
+		agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
+		reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
+	});
+}
+
+async function callActionAs<T>(
+	name: string,
+	body: Record<string, unknown>,
+	actorId: string,
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	agentOrchestration: AgentOrchestrationPort,
+): Promise<ActionEnvelope<T>> {
+	const actions = buildActions(agentOrchestration);
+	const action = actions.find((a) => a.declaration.name === name);
+	if (!action) throw new Error(`action not found: ${name}`);
+	const ctx: ActionContext = { actor: actorId, db, eventBus, now: new Date().toISOString() };
+	const result = await action.run(ctx, body);
+	return result.ok
+		? { ok: true, data: result.data as T }
+		: {
+				ok: false,
+				problems: (
+					result as { ok: false; problems: ReadonlyArray<{ code: string; message: string }> }
+				).problems,
+			};
 }
 
 const tempDirs: string[] = [];
@@ -180,6 +210,8 @@ describe("document-management plugin — team-scope isolation", () => {
 	test("two teams installing at team scope get independent agent, subscription, and skill-document rows", async ({
 		db,
 		app,
+		eventBus,
+		agentOrchestration,
 	}) => {
 		await db.insert(teams).values([
 			{ id: "team-alpha", name: "Alpha", createdAt: "2026-01-01T00:00:00.000Z" },
@@ -213,12 +245,15 @@ describe("document-management plugin — team-scope isolation", () => {
 
 		const skillIdAlpha = skillItemId(PLUGIN_ID, SKILL_DIR, "team", "team-alpha");
 		// Team alpha edits its own copy's body before team beta installs.
-		const editRes = await app.request("/api/actions/edit_document", {
-			method: "POST",
-			headers: actorHeaders("u-alpha-member"),
-			body: JSON.stringify({ id: skillIdAlpha, body: "TEAM ALPHA EDITED CONTENT" }),
-		});
-		expect(editRes.status).toBe(200);
+		const editRes = await callActionAs(
+			"edit_document",
+			{ id: skillIdAlpha, body: "TEAM ALPHA EDITED CONTENT" },
+			"u-alpha-member",
+			db,
+			eventBus,
+			agentOrchestration,
+		);
+		expect(editRes.ok).toBe(true);
 
 		const resBeta = await installKmPluginForTeam(db, app, "team-beta");
 		expect(resBeta.status).toBe(200);
@@ -260,12 +295,14 @@ describe("document-management plugin — team-scope isolation", () => {
 		const betaRows = await db.select().from(documents).where(eq(documents.id, skillIdBeta));
 		expect(betaRows[0]?.body).toBe(shippedBody);
 
-		const searchAsAlpha = await app.request("/api/actions/search_documents", {
-			method: "POST",
-			headers: actorHeaders("u-alpha-member"),
-			body: JSON.stringify({ ids: [skillIdAlpha, skillIdBeta] }),
-		});
-		const alphaBody = (await searchAsAlpha.json()) as ActionEnvelope<readonly DocumentRow[]>;
+		const alphaBody = await callActionAs<readonly DocumentRow[]>(
+			"search_documents",
+			{ ids: [skillIdAlpha, skillIdBeta] },
+			"u-alpha-member",
+			db,
+			eventBus,
+			agentOrchestration,
+		);
 		expect((alphaBody.data ?? []).map((d) => d.id)).toEqual([skillIdAlpha]);
 	});
 });

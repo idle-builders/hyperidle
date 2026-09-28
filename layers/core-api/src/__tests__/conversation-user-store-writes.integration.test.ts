@@ -11,43 +11,20 @@
  * verdict-race first-wins behavior lives in thread-actions.integration.test.ts.
  */
 
+import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
 import { getOrCreateUser, insertUser, updateUser } from "@hyperidle/user";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
+import type { ActionContext } from "../actions/action.js";
+import { buildCoreActions } from "../actions/compose.js";
 
-interface ActionEnvelope<T> {
-	readonly ok: boolean;
-	readonly data?: T;
-}
-
-async function sendMessageAs(
-	app: { request: (path: string, init: RequestInit) => Response | Promise<Response> },
-	actorId: string,
-	body: Record<string, unknown>,
-): Promise<{ readonly status: number; readonly body: ActionEnvelope<{ thread: { id: string } }> }> {
-	const res = await app.request("/api/actions/send_message", {
-		method: "POST",
-		headers: { "Content-Type": "application/json", "x-hyperidle-actor-id": actorId },
-		body: JSON.stringify(body),
+function buildTestActions(agentOrchestration: AgentOrchestrationPort) {
+	return buildCoreActions({
+		agentOrchestration,
+		agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
+		reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
 	});
-	return {
-		status: res.status,
-		body: (await res.json()) as ActionEnvelope<{ thread: { id: string } }>,
-	};
-}
-
-async function adjustThreadAs(
-	app: { request: (path: string, init: RequestInit) => Response | Promise<Response> },
-	actorId: string,
-	body: Record<string, unknown>,
-): Promise<{ readonly status: number }> {
-	const res = await app.request("/api/actions/adjust_thread", {
-		method: "POST",
-		headers: { "Content-Type": "application/json", "x-hyperidle-actor-id": actorId },
-		body: JSON.stringify(body),
-	});
-	return { status: res.status };
 }
 
 const NOW = new Date().toISOString();
@@ -106,11 +83,19 @@ describe("conversation-store row writes", () => {
 		expect(rows[0]?.threadId).toBe("t2");
 	});
 
-	test("adjust_thread applies a typed pinned patch (was updateThread)", async ({ db, app }) => {
+	test("adjust_thread applies a typed pinned patch (was updateThread)", async ({
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
 		await insertUser(db, userValues("u3"));
 		await db.insert(threads).values(threadValues("t3", "u3"));
-		const res = await adjustThreadAs(app, "u3", { id: "t3", pinned: true });
-		expect(res.status).toBe(200);
+		const actions = buildTestActions(agentOrchestration);
+		const adjustThread = actions.find((a) => a.declaration.name === "adjust_thread");
+		if (!adjustThread) throw new Error("adjust_thread action not found");
+		const ctx: ActionContext = { actor: "u3", db, eventBus, now: new Date().toISOString() };
+		const result = await adjustThread.run(ctx, { id: "t3", pinned: true });
+		expect(result.ok).toBe(true);
 		const [row] = await db.select().from(threads).where(eq(threads.id, "t3"));
 		expect(row?.pinned).toBe(true);
 	});
@@ -122,13 +107,22 @@ describe("conversation-store row writes", () => {
 
 	test("send_message reuses the same direct thread for the same sender+recipient", async ({
 		db,
-		app,
+		eventBus,
+		agentOrchestration,
 	}) => {
 		await insertUser(db, userValues("u5a"));
 		await insertUser(db, userValues("u5b", { kind: "human" }));
-		const first = await sendMessageAs(app, "u5a", { recipients: ["u5b"], text: "one" });
-		const second = await sendMessageAs(app, "u5a", { recipients: ["u5b"], text: "two" });
-		expect(second.body.data?.thread.id).toBe(first.body.data?.thread.id);
+		const actions = buildTestActions(agentOrchestration);
+		const sendMessage = actions.find((a) => a.declaration.name === "send_message");
+		if (!sendMessage) throw new Error("send_message action not found");
+		const ctx: ActionContext = { actor: "u5a", db, eventBus, now: new Date().toISOString() };
+		const first = await sendMessage.run(ctx, { recipients: ["u5b"], text: "one" });
+		const second = await sendMessage.run(ctx, { recipients: ["u5b"], text: "two" });
+		if (!first.ok) throw new Error("first send failed");
+		if (!second.ok) throw new Error("second send failed");
+		const firstData = first.data as { thread: { id: string } };
+		const secondData = second.data as { thread: { id: string } };
+		expect(secondData.thread.id).toBe(firstData.thread.id);
 	});
 });
 

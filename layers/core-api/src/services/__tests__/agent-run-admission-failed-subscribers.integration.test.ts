@@ -12,6 +12,7 @@
  * @lore each reaction handler is async fire-and-forget — emit() only guarantees the handler was called, so every assertion below uses vi.waitFor.
  */
 
+import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import {
 	agentWorkIntents,
 	changes,
@@ -24,10 +25,13 @@ import {
 	users,
 } from "@hyperidle/db";
 import type { ThreadView } from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
 import { and, eq, sql } from "drizzle-orm";
 import { queueDeps } from "../../__testing__/durable-agent-queue-test-deps.js";
 import { afterEach, describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
+import type { ActionContext } from "../../actions/action.js";
+import { buildCoreActions } from "../../actions/compose.js";
 
 interface ActionEnvelope<T> {
 	readonly ok: boolean;
@@ -37,17 +41,34 @@ interface ActionEnvelope<T> {
 async function openThread(
 	app: { request: (path: string, init: RequestInit) => Response | Promise<Response> },
 	id: string,
-	/** Override the route actor (`x-hyperidle-actor-id`) for a non-host-scoped thread. */
-	actorId?: string,
 ): Promise<{ readonly status: number; readonly body: ActionEnvelope<ThreadView> }> {
-	const headers: Record<string, string> = { "Content-Type": "application/json" };
-	if (actorId !== undefined) headers["x-hyperidle-actor-id"] = actorId;
 	const res = await app.request("/api/actions/open_thread", {
 		method: "POST",
-		headers,
+		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({ id }),
 	});
 	return { status: res.status, body: (await res.json()) as ActionEnvelope<ThreadView> };
+}
+
+async function openThreadAs(
+	actorId: string,
+	id: string,
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	agentOrchestration: AgentOrchestrationPort,
+): Promise<{ readonly status: number; readonly body: ActionEnvelope<ThreadView> }> {
+	const actions = buildCoreActions({
+		agentOrchestration,
+		agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
+		reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
+	});
+	const openThreadAction = actions.find((a) => a.declaration.name === "open_thread");
+	if (!openThreadAction) throw new Error("open_thread action not found");
+	const ctx: ActionContext = { actor: actorId, db, eventBus, now: new Date().toISOString() };
+	const result = await openThreadAction.run(ctx, { id });
+	return result.ok
+		? { status: 200, body: { ok: true, data: result.data as ThreadView } }
+		: { status: 422, body: { ok: false } };
 }
 
 /**
@@ -400,7 +421,7 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 	test("thread_turn: two-member agent thread has no human — no notice, no wake, breaking the ping-pong", async ({
 		db,
 		eventBus,
-		app,
+		agentOrchestration,
 	}) => {
 		const { teamId } = await seedTeam(db, "sub-turn-pp");
 		await seedAgent(db, "sub-turn-pp-a", { teamId });
@@ -440,7 +461,13 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		eventBus.emit(event);
 		await flush();
 
-		const opened = await openThread(app, "sub-turn-pp-thread", "sub-turn-pp-b");
+		const opened = await openThreadAs(
+			"sub-turn-pp-b",
+			"sub-turn-pp-thread",
+			db,
+			eventBus,
+			agentOrchestration,
+		);
 		expect(opened.status).toBe(200);
 		// Only the original message — no notice was posted as A (which would
 		// have woken B, whose own failure would then have woken A again).

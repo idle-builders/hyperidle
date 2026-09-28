@@ -15,7 +15,6 @@
  * place that proves the two ends — the real hub's authorizer and a real
  * socket — actually meet.
  *
- * @lore `CORE_API_ACTOR_OVERRIDE_HEADER` is a wire constant, inlined below since applications/* cannot import @hyperidle/api-contract directly.
  */
 
 import * as os from "node:os";
@@ -26,7 +25,6 @@ import { EventBus } from "@hyperidle/event-bus";
 import { afterEach, vi } from "vitest";
 import { createServer, type ServerHandle } from "../create-server.js";
 
-const ACTOR_OVERRIDE_HEADER = "x-hyperidle-actor-id";
 const FOUNDER_ID = "doc-e2e-founder";
 
 interface Booted {
@@ -53,29 +51,24 @@ async function boot(db: HyperIdleDb): Promise<Booted> {
 
 async function callAction(
 	handle: Booted,
-	actionPath: string,
+	actionName: string,
 	body: Record<string, unknown>,
-	actorOverride?: string,
+	actorId: string,
 ): Promise<{ status: number; json: Record<string, unknown> }> {
-	const res = await fetch(`http://127.0.0.1:${handle.port}${actionPath}`, {
-		method: "POST",
-		headers: {
-			"X-API-Key": handle.apiKey,
-			"Content-Type": "application/json",
-			...(actorOverride ? { [ACTOR_OVERRIDE_HEADER]: actorOverride } : {}),
-		},
-		body: JSON.stringify(body),
-	});
-	const json = (await res.json()) as Record<string, unknown>;
-	return { status: res.status, json };
+	const result = await handle.server.callActionAs(actionName, body, actorId);
+	const status = result.ok ? 200 : 422;
+	const json = result.ok
+		? { ok: true, data: result.data }
+		: { ok: false, problems: result.problems };
+	return { status, json: json as Record<string, unknown> };
 }
 
 async function editDocument(
 	handle: Booted,
 	body: Record<string, unknown>,
-	actorOverride?: string,
+	actorId: string,
 ): Promise<{ id: string; version: number }> {
-	const res = await callAction(handle, "/api/actions/edit_document", body, actorOverride);
+	const res = await callAction(handle, "edit_document", body, actorId);
 	if (res.status !== 200 || res.json.ok !== true) {
 		throw new Error(`edit_document failed: ${JSON.stringify(res.json)}`);
 	}
@@ -83,13 +76,8 @@ async function editDocument(
 	return data.document;
 }
 
-async function wsTokenFor(handle: Booted, actorOverride?: string): Promise<string> {
-	const res = await callAction(handle, "/api/auth/ws-token", {}, actorOverride);
-	const token = res.json.token;
-	if (typeof token !== "string") {
-		throw new Error(`ws-token mint failed: ${JSON.stringify(res.json)}`);
-	}
-	return token;
+function wsTokenFor(handle: Booted, actorId: string): string {
+	return handle.server.mintWsTokenFor(actorId);
 }
 
 function connect(handle: Booted, token: string): WebSocket {
@@ -215,9 +203,9 @@ describe("document websocket nudge — real server, real socket, both doors (arc
 		try {
 			await seedTeam(db, "doc-e2e-team-1");
 			await seedHuman(db, FOUNDER_ID, "doc-e2e-team-1");
-			const created = await editDocument(handle, { title: "v1", body: "first body" });
+			const created = await editDocument(handle, { title: "v1", body: "first body" }, FOUNDER_ID);
 
-			const token = await wsTokenFor(handle, FOUNDER_ID);
+			const token = wsTokenFor(handle, FOUNDER_ID);
 			const ws = connect(handle, token);
 			try {
 				await waitForOpen(ws);
@@ -239,7 +227,7 @@ describe("document websocket nudge — real server, real socket, both doors (arc
 
 				const editRes = await callAction(
 					handle,
-					"/api/actions/edit_document",
+					"edit_document",
 					{ id: created.id, title: "secret e2e http-door title", version: created.version },
 					FOUNDER_ID,
 				);
@@ -280,7 +268,7 @@ describe("document websocket nudge — real server, real socket, both doors (arc
 			await seedAgent(db, "doc-e2e-agent-1", FOUNDER_ID);
 			const created = await editDocument(handle, { title: "tool-door v1" }, "doc-e2e-agent-1");
 
-			const token = await wsTokenFor(handle, FOUNDER_ID);
+			const token = wsTokenFor(handle, FOUNDER_ID);
 			const ws = connect(handle, token);
 			try {
 				await waitForOpen(ws);
@@ -337,7 +325,7 @@ describe("document websocket nudge — real server, real socket, both doors (arc
 				"doc-e2e-owner",
 			);
 
-			const token = await wsTokenFor(handle, "doc-e2e-stranger");
+			const token = wsTokenFor(handle, "doc-e2e-stranger");
 			const ws = connect(handle, token);
 			try {
 				await waitForOpen(ws);
@@ -351,7 +339,7 @@ describe("document websocket nudge — real server, real socket, both doors (arc
 				);
 				await callAction(
 					handle,
-					"/api/actions/edit_document",
+					"edit_document",
 					{ id: created.id, title: "still private", version: created.version },
 					"doc-e2e-owner",
 				);
@@ -388,7 +376,7 @@ describe("document websocket nudge — real server, real socket, both doors (arc
 				FOUNDER_ID,
 			);
 
-			const token = await wsTokenFor(handle, FOUNDER_ID);
+			const token = wsTokenFor(handle, FOUNDER_ID);
 			const ws = connect(handle, token);
 			try {
 				await waitForOpen(ws);
@@ -408,7 +396,7 @@ describe("document websocket nudge — real server, real socket, both doors (arc
 				// gets its own post-commit push (§6.6 rule 5, §7).
 				const narrowRes = await callAction(
 					handle,
-					"/api/actions/edit_document",
+					"edit_document",
 					{
 						id: root.id,
 						scopeKind: "team",
