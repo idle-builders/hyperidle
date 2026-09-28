@@ -80,6 +80,14 @@ questions sits next to it**.
   saying why**, and that message goes back to the session and the agent that proposed the review.
   *Overturned:* the agent's earlier proposal (reject closes the work item and the agent stops).
 
+**Q: After a reject, is the next version a new review or an update?**
+**A new review** ("round 2") on the same work item. The old one stays as it was, so comments keep
+pointing at the version they were made on. The thread has the history either way.
+
+**Q: Do open questions carry over to round 2?**
+**No, they stay on the old review**, for simplicity. Round 2 links back to round 1 and shows the
+open count there, and starts with "Changed since round 1".
+
 **Q: How do I hand a review to someone else?**
 Mention them with **@**, exactly like in chat. No separate "hand off" button; the conversation
 keeps the same mechanics everywhere.

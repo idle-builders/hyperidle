@@ -135,6 +135,11 @@ Objects that appear inside surfaces. Designed once, reused everywhere.
   primary pointer mechanic.
 - **Reject requires a reason** (founder, 2026-09-28). The message goes back to the session and the
   agent that proposed the review. No bare reject, no send-back button.
+- **A retry is a new review, never an edit of the old one** (founder, 2026-09-28). Round 2 is a new
+  review on the same work item; comments stay pinned to the version they were made on. The thread
+  holds the history either way.
+- **Open questions stay on the old review** (founder, 2026-09-28) — simplest. Round 2 links back to
+  round 1 and shows how many are still open there, but does not carry them over.
 
 ## 7. Open concerns
 

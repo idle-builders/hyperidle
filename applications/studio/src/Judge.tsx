@@ -12,6 +12,8 @@ export const JUDGE_STEPS = [
 	{ id: 2, name: "Answers came back" },
 	{ id: 3, name: "Approved, one still open" },
 	{ id: 4, name: "Rejected, reason sent back" },
+	{ id: 5, name: "Round 2 came back" },
+	{ id: 6, name: "Round 2 approved" },
 ];
 
 const SEEDED_REASON =
@@ -74,7 +76,146 @@ function Pin({ n, kind, top, left, onOpen }: {
 	);
 }
 
+/**
+ * A retry is a new review, never an edit of the old one — comments stay pinned to the
+ * version they were made on. Questions left open on round 1 stay there; round 2 starts clean.
+ */
+function FlagPop({ q, top, left, onClose }: { q: QA; top: number; left: number; onClose: () => void }) {
+	return (
+		<div className="pop" style={{ top, left }}>
+			<div className="pop-head">
+				<span>on {q.where}</span>
+				<button type="button" style={{ marginLeft: "auto" }} onClick={onClose}>✕</button>
+			</div>
+			<div className="pop-body">
+				<div className="pop-msg">
+					<span className="pop-who">Builder</span>
+					<p>{q.q}</p>
+				</div>
+			</div>
+			<div className="pop-reply">
+				<input placeholder="Reply…" aria-label="Reply" />
+				<button type="button" className="btn">Send</button>
+			</div>
+		</div>
+	);
+}
+
+function Round2({ approved }: { approved: boolean }) {
+	const [openPin, setOpenPin] = useState<string | null>(null);
+	const flags: QA[] = [
+		{ n: "C", who: "agent", where: "the warning email", q: "This is what you asked for: the three-day warning now goes out by email, with the date and the amount.", state: approved ? "done" : "open" },
+		{ n: "D", who: "agent", where: "the trial-end page", q: "Unchanged from round 1. The page still says the same thing, so the email and the page agree.", state: approved ? "done" : "open" },
+	];
+	const pinned = flags.find((q) => q.n === openPin);
+	const open = flags.filter((q) => q.state === "open").length;
+
+	return (
+		<div className="rev">
+			<header className="rev-head">
+				<span className="chip chip--quiet">Review</span>
+				<span className="rev-stage">Final · round 2</span>
+				<h2>Trial-end explainer</h2>
+				<span className="rev-from">Builder · Explain what happens when a trial ends</span>
+				<span className="rev-act">
+					{approved ? (
+						<span className="chip chip--flag">Approved · work item closed</span>
+					) : (
+						<>
+							<button type="button" className="btn">Reject</button>
+							<button type="button" className="btn btn--accent">Approve</button>
+						</>
+					)}
+				</span>
+			</header>
+
+			<div className="rev-scroll">
+				<div className="rev-in">
+					<button type="button" className="prev-round">
+						<span className="prev-round-h">Round 1 · rejected by you</span>
+						<span className="prev-round-why">"Wrong direction. Customers need the warning in the email, not only on this page…"</span>
+						<span className="prev-round-meta">1 question still open there · open round 1 ›</span>
+					</button>
+
+					<p className="rev-said">
+						Moved the warning into the email, as you asked. The page stays as it was. Two things I
+						flagged for you.
+					</p>
+
+					<div className="since">
+						<span className="since-h">Changed since round 1</span>
+						<ul>
+							<li>New: the three-day warning email, with date and amount</li>
+							<li>Same: the trial-end page and the proration fix</li>
+						</ul>
+					</div>
+
+					<div className="art">
+						<div className="art-bar">
+							<span className="art-kind">Email</span>
+							<span className="art-title">Three-day warning · new in round 2</span>
+						</div>
+						<div className="art-body">
+							<div className="mail">
+								<div className="mail-meta">
+									<span><b>To</b> the trial user</span>
+									<span><b>Subject</b> Your trial ends in 3 days</span>
+								</div>
+								<p>Hi Sam,</p>
+								<p>
+									Your trial ends on 1 September. On 2 September we start your Team plan and charge
+									<b> £24</b>.
+								</p>
+								<p>If you do not want to continue, cancel before 1 September and nothing is charged.</p>
+							</div>
+							<Pin n="C" kind={approved ? "done" : "agent"} top={120} left={596} onOpen={() => setOpenPin("C")} />
+							{pinned?.n === "C" && <FlagPop q={pinned} top={150} left={626} onClose={() => setOpenPin(null)} />}
+						</div>
+					</div>
+
+					<div className="art">
+						<div className="art-bar">
+							<span className="art-kind">Live preview</span>
+							<span className="art-title">Trial-end page · unchanged</span>
+						</div>
+						<div className="art-body">
+							<TrialPage width={720} />
+							<Pin n="D" kind={approved ? "done" : "agent"} top={20} left={330} onOpen={() => setOpenPin("D")} />
+							{pinned?.n === "D" && <FlagPop q={pinned} top={50} left={360} onClose={() => setOpenPin(null)} />}
+						</div>
+					</div>
+
+					<div className="qa">
+						<div className="qa-head">
+							<span className="qa-title">Questions on this review</span>
+							<span className="qa-counts">
+								{open > 0 && <span>{open} open</span>}
+								<span>{flags.length} total</span>
+							</span>
+						</div>
+						{flags.map((q) => (
+							<button key={q.n} type="button" className="qa-row" onClick={() => setOpenPin(q.n)}>
+								<span className={`qa-mark pin--${q.state === "done" ? "done" : "agent"}`}>{q.n}</span>
+								<span>
+									<span className="qa-where">Builder flagged · on {q.where}</span>
+									<span className="qa-q">{q.q}</span>
+								</span>
+								<span className={`qa-state qa-state--${q.state}`}>{q.state === "open" ? "Open" : "Settled"}</span>
+							</button>
+						))}
+					</div>
+				</div>
+			</div>
+		</div>
+	);
+}
+
 export function Judge({ step }: { step: number }) {
+	if (step >= 5) return <Round2 approved={step === 6} />;
+	return <Round1 step={step} />;
+}
+
+function Round1({ step }: { step: number }) {
 	const [wide, setWide] = useState(false);
 	const [device, setDevice] = useState("desktop");
 	const [openPin, setOpenPin] = useState<string | null>(null);

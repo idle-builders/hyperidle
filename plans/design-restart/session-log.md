@@ -394,3 +394,12 @@ thread.
 this?" — and "Reject and send" stays disabled until a reason is typed. After sending, the header
 reads "Rejected · sent to Builder" and the reason sits at the top of the review, with "Builder
 answers in this thread." New walkthrough step 5 shows that state.
+
+**Founder: a retry is a new review; open questions stay on the old one** (2026-09-28).
+
+**Built:** walkthrough steps 6–7. Round 2 header reads "Final · round 2". At the top, a dashed link
+back to round 1 with your reject reason and "1 question still open there". Then "Changed since
+round 1" (new: the warning email; same: page and proration fix), the new email block, the unchanged
+page, and two agent flags (C: "this is what you asked for", D: "unchanged from round 1"). Step 7:
+approved, work item closed, both flags settled. Also removed the overflow clip on artifact blocks so
+a pin's thread can spill past the block edge.
