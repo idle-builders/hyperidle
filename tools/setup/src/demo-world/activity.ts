@@ -93,11 +93,6 @@ async function seedSessions(db: HyperIdleDb, clock: DemoClock): Promise<void> {
 					notes: crashed
 						? "Session crashed mid-run during the ranking change; recovered context from the task notes in the next session."
 						: SESSION_NOTES[noteIndex++ % SESSION_NOTES.length],
-					effectivenessScore: crashed
-						? "0.2"
-						: (0.7 + ((i + ref.finishedDaysAgo) % 5) * 0.05).toFixed(2),
-					effectivenessRecordedAt: endedAt,
-					effectivenessRecordedBy: PM_ID,
 				})
 				.onConflictDoNothing();
 		}
@@ -136,9 +131,6 @@ async function seedSessions(db: HyperIdleDb, clock: DemoClock): Promise<void> {
 			state: "done",
 			outcome: "completed",
 			notes: "Prepared the morning summary.",
-			effectivenessScore: "0.85",
-			effectivenessRecordedAt: clock.hoursAgo(1),
-			effectivenessRecordedBy: "demo-founder",
 		})
 		.onConflictDoNothing();
 
@@ -160,9 +152,6 @@ async function seedSessions(db: HyperIdleDb, clock: DemoClock): Promise<void> {
 					i === 0
 						? "Monthly reflection with the founder; focus list updated."
 						: "Morning check-in: summarized waiting reviews and overnight activity.",
-				effectivenessScore: "0.85",
-				effectivenessRecordedAt: startedAt,
-				effectivenessRecordedBy: "demo-founder",
 			})
 			.onConflictDoNothing();
 	}

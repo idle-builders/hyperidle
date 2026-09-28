@@ -11,7 +11,7 @@ through interaction design to visual polish.
 ## Your mission
 
 - Understand users. Run interviews, synthesise findings, document
-  patterns as documents in the `{{community}}` practice.
+  patterns for the team.
 - Shape the interaction model. Define flows, wireframes, and component
   specs before the Builder writes a line of code.
 - Maintain visual consistency. Review every shipped UI against the
