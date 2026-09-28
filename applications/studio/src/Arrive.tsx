@@ -2,8 +2,8 @@ import { useState } from "react";
 
 /**
  * ARRIVE — first start, and every morning after.
- * One navigation column, not two: find-or-ask on top, the spines as tabs, the chosen
- * spine's list below. Home is "while you were away". The detail takes the rest.
+ * One sidebar, not two nav bars: find-or-ask, the four spines stacked, a separator, then the
+ * chosen spine's list. Home is "while you were away". The detail takes the rest.
  */
 export const ARRIVE_STEPS = [
 	{ id: 0, name: "First start" },
@@ -247,16 +247,17 @@ export function Arrive({ step }: { step: number }) {
 					</div>
 				) : (
 					<>
-						<div className="tabs" role="tablist">
-							{(step === 1 ? (["conversations", "work", "knowledge"] as Tab[]) : (["home", "conversations", "work", "knowledge"] as Tab[])).map((t) => (
-								<button key={t} type="button" role="tab" className="tab" aria-selected={tab === t} onClick={() => setTab(t)}>
-									{t === "home" ? "Home" : t[0].toUpperCase() + t.slice(1)}
+						<div className="spines nav-spines">
+							{(["home", "conversations", "work", "knowledge"] as Tab[]).map((t) => (
+								<button key={t} type="button" className="spine" aria-current={tab === t} onClick={() => setTab(t)}>
+									<span>{t === "home" ? "Home" : t[0].toUpperCase() + t.slice(1)}</span>
 									{step > 1 && counts[t] > 0 && (
-										<span className={t === "home" ? "tab-n tab-n--flag" : "tab-n"}>{counts[t]}</span>
+										<span className={t === "home" ? "spine-count spine-count--flag" : "spine-count"}>{counts[t]}</span>
 									)}
 								</button>
 							))}
 						</div>
+						<hr className="nav-sep" />
 
 						<div className="nav-list">
 							{step === 1 ? (

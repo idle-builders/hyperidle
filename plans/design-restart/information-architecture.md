@@ -143,8 +143,9 @@ Objects that appear inside surfaces. Designed once, reused everywhere.
 
 ## 7. Open concerns
 
-- **Double navigation.** Founder: *"I am never a fan of double nav bars."* The rail and the queue
-  are both navigation. Parked deliberately — revisit when ARRIVE is designed.
+- ~~Double navigation~~ — **settled 2026-09-28: one sidebar.** Top: the four items Home ·
+  Conversations · Work · Knowledge, stacked, with counts. Then a separator. Then the list for the
+  selected item. Detail on the right. **Never tabs in the nav** (founder: "absolutely not").
 - Whether another owner's review belongs in your thread at all, or collapses to one line and lives
   only in theirs.
 - Whether the thread should auto-scroll to the newest content.

@@ -423,3 +423,8 @@ studio's own controls sit in a dashed "Studio controls" column so they are not m
 5. Find or ask — results grouped by spine, plus "Ask Builder" at the bottom.
 6. Something new while you focus — no pop-up. It lands in Home, the Home count goes up, and a quiet
    line says "1 new since you started · it waits here". Finish, then turn.
+
+**Founder rejected tabs in the nav outright.** Asked where the lists live instead; founder: *"Top of
+the sidebar the 4 items then separator and then the changeable list of items per type."* Rebuilt:
+Find or ask · Home / Conversations / Work / Knowledge stacked with counts (Home's count uses the flag
+colour) · separator · the selected item's list. Double-nav concern closed.
