@@ -58,32 +58,8 @@ export function statusLine(d: HarnessCapabilityDescriptor): {
 	}
 }
 
-export function hasActionableNextStep(d: HarnessCapabilityDescriptor): boolean {
-	const discovery = getDiscovery(d);
-	if (discovery.disabled === true) return false;
-	if (discovery.state !== "unauthenticated" && discovery.state !== "installed") return false;
-	if (d.authAction.kind === "none") return false;
-	return true;
-}
-
-export function showsToggle(d: HarnessCapabilityDescriptor): boolean {
-	const s = getDiscovery(d).state;
-	return s === "ready" || s === "unauthenticated" || s === "installed";
-}
-
-export function isEnabled(d: HarnessCapabilityDescriptor): boolean {
-	const discovery = getDiscovery(d);
-	return !discovery.disabled;
-}
-
 export function provenCapabilities(_d: HarnessCapabilityDescriptor): readonly string[] {
 	return [];
-}
-
-export function capabilitySummary(d: HarnessCapabilityDescriptor): string {
-	const caps = provenCapabilities(d);
-	if (caps.length === 0) return "Capabilities confirmed after first run";
-	return caps.join(", ");
 }
 
 export function hasCaps(d: HarnessCapabilityDescriptor): boolean {
@@ -92,15 +68,4 @@ export function hasCaps(d: HarnessCapabilityDescriptor): boolean {
 	// Any proven runtime cap → fold visible
 	if (provenCapabilities(d).length > 0) return true;
 	return false;
-}
-
-/** Joined auth command string — e.g. "claude auth login". Returns
- * null when the authAction has no command (enter_api_key / kind="none").
- */
-export function commandText(d: HarnessCapabilityDescriptor): string | null {
-	const action = d.authAction;
-	if (action.kind === "native_cli_login" && "command" in action && Array.isArray(action.command)) {
-		return (action.command as string[]).join(" ");
-	}
-	return null;
 }
