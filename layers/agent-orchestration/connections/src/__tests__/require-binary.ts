@@ -1,12 +1,7 @@
 /**
  * A hard-fail gate for a plain CLI binary a test needs on PATH.
  *
- * @lore A local copy of `layers/agent-execution/harness-registry/src/__tests__/require-binary.ts`
- * (same hard-fail semantics and message shape) — a cross-layer dev import of
- * the original is not a legal edge (agent-orchestration may never import
- * agent-execution, even in the development world — governance reads the
- * import, not the intent). The binary-on-PATH check is the honest gate here:
- * the probes read configs and exec CLIs, never a model.
+ * @lore local copy of harness-registry/require-binary — cross-layer dev import not legal; governance reads the import; binary-on-PATH check, never a model call
  */
 
 import { execFileSync } from "node:child_process";

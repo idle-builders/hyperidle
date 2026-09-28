@@ -1,13 +1,9 @@
 /**
  * Agent-orchestration–scoped connection vocabulary.
  *
- * @lore AU44-b8: InheritedConnectionFact moved from framework/domain-model/src/connection.ts.
- * Used exclusively within the agent-orchestration connections service and the boot
- * composition root.
- *
- * HeldAuthSource/HELD_AUTH_SOURCES remain in domain-model: run-orchestration (a service)
- * also uses them, and service→service (run-orchestration→connections) is a crossing that
- * governance forbids. Domain-model (framework) is the only legal shared location.
+ * HeldAuthSource/HELD_AUTH_SOURCES remain in domain-model: run-orchestration also
+ * uses them, and service→service imports are forbidden by governance. Domain-model
+ * (framework) is the only legal shared location.
  */
 import type { ConnectionHealth } from "@hyperidle/domain-model";
 
@@ -22,12 +18,7 @@ import type { ConnectionHealth } from "@hyperidle/domain-model";
  * appear here. Adding one requires editing this type — a visible, reviewable
  * act.
  *
- * @lore AU36 (D2): `source` is the renamed `InheritedToolDescriptor.harness`
- * field — a plain provenance string ("which config the auth was found in"),
- * NOT a dependency on the harness model. The VALUES are unchanged
- * ("claude-code" | "codex" | "opencode" | "environment") because the view
- * `id`/`via` are built from them and the Connections view must stay
- * byte-identical.
+ * @lore: InheritedConnectionFact source — provenance string, not harness dependency; values must stay byte-identical; Connections view id/via are built from them
  */
 export interface InheritedConnectionFact {
 	/** Server/CLI identity, e.g. "github", "linear", "gh". */

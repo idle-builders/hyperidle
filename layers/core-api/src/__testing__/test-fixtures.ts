@@ -95,8 +95,7 @@ export async function createServiceTestApp(
 		pluginsBaseDir,
 	});
 	const rawFetch = app.fetch.bind(app);
-	// @lore The shared service fixture owns authentication explicitly. Its app
-	// must remain valid when another isolate:false file changes process.env.
+	// @lore shared service fixture owns authentication explicitly; app must remain valid when another isolate:false file changes process.env
 	app.fetch = (request, env, executionCtx) => {
 		const headers = new Headers(request.headers);
 		const omitDefaultAuth = headers.has("X-HyperIdle-Test-Without-Auth");
@@ -108,31 +107,11 @@ export async function createServiceTestApp(
 }
 
 export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
-	// @lore AU21 Increment 3 Wave 0: core-api's `agent_run_admission_failed`
-	// reactions are wired here. Production wires the SAME registration inside
-	// `registerCoreDomainServices` (`server-factory.ts`), reached only via
-	// `createServer`'s `serviceBootstrap` — the plain `createApp` this
-	// fixture's `app` below builds does NOT invoke that bootstrap, so wiring
-	// it here (rather than requiring every test to call
-	// `registerAgentRunAdmissionReactions` by hand) is what lets a bare `{ db, eventBus }` test observe the real
-	// reaction without booting the whole app. `registerAgentRunAdmissionReactions`'s
-	// per-eventBus-instance idempotency guard means this is still safe even if
-	// a future change makes `createServer`'s boot path reachable from a test
-	// sharing the same eventBus instance.
+	// @lore registerAgentRunAdmissionReactions wired in fixture — createApp skips serviceBootstrap; per-eventBus idempotency guard makes double-wiring safe
 	//
-	// @lore BC3 architecture.md §5 B5: the assistant-thread pin reaction and
-	// the B‴ coherence re-bake trigger are DELETED — the wake rule
-	// (`@hyperidle/thread`'s `agentsToWake`) replaces both.
+	// @lore assistant-thread pin reaction and coherence re-bake trigger absent; @hyperidle/thread's agentsToWake handles wakeup
 	//
-	// @lore AU31 §3.2 clause 6: this fixture builds its OWN `AgentOrchestrationPort`
-	// over a throwaway `bootAgentOrchestration({db, eventBus})` — the seam's
-	// backing surface only, never the composed core+orchestration `/api` app —
-	// so a reaction test asserts a real effect through the real route without
-	// needing an `app` fixture. This is what makes wave A's reaction lane
-	// testable at all: the module-level transport singleton it replaces could
-	// not be reached from a bare `{db, eventBus}` fixture (a reaction test
-	// requesting no `app` would resolve some OTHER test's stale registration,
-	// or throw).
+	// @lore eventBus fixture: own AgentOrchestrationPort over throwaway bootAgentOrchestration; backing surface only; lets reaction test assert real effect
 	eventBus: async ({ db }, use) => {
 		const eventBus = new EventBus();
 		const orchestrationBoot = await bootAgentOrchestration({
@@ -183,17 +162,9 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 		await use(port);
 		orchestrationBoot.dispose();
 	},
-	// @lore AU26 B1b: the fixture is an Application — it delegates to
-	// `createTestApp`, the single test-harness composition site, which boots BOTH
-	// Layers, applies the middleware stack and mounts both apps on one `/api`
-	// router exactly as `remote-server`'s `createServer` does. Without the second
-	// Layer the four `/api/sessions` routes that moved onto agent-orchestration's
-	// app would 404 for every fixture-based test. Both Layers' teardown rides
-	// `disposeApp`'s bag.
+	// @lore app fixture = Application; delegates to createTestApp which boots BOTH Layers; without second Layer, /api/sessions routes 404; teardown via disposeApp
 	app: async ({ db, eventBus }, use) => {
-		// @lore AU28: the middleware-exercising routes (/protected-test, /test-validate,
-		// /test-error) are mounted from here — the development world registering into
-		// production. `app.ts` no longer imports them.
+		// @lore middleware-exercising routes (/protected-test, /test-validate, /test-error) mount from the fixture, not from app.ts — dev world only
 		const { app } = await createServiceTestApp(db, eventBus);
 		await use(app);
 		disposeApp(app);
@@ -205,10 +176,7 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 			return app.request(input, { ...requestInit, headers }, env, executionCtx);
 		});
 	},
-	// @lore BA9d D12: per-test app with a temp pluginsBaseDir so install_path
-	// is recorded and skill restore (route /contributions/restore, kind=skill)
-	// can re-read from disk. Not shared across the worker: each test gets its
-	// own temp dir so concurrent tests don't collide on file paths.
+	// @lore pluginsApp: temp pluginsBaseDir so install_path is recorded and skill restore (/contributions/restore) can re-read from disk; per-test, not shared
 	pluginsApp: async ({ db, eventBus }, use) => {
 		const pluginsBaseDir = join(
 			tmpdir(),

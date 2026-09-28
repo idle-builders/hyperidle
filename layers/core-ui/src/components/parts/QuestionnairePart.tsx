@@ -1,18 +1,11 @@
 /**
  * QuestionnairePart: an agent "quick ask" survey.
  *
- * Options read as EVEN / NEUTRAL choices — no biased/recommended styling (W2:
- * the source `QuestionnairePayload.options` is flat strings with no per-option
- * metadata, so no "Recommended" tag is rendered yet). Prominence comes from
- * layering (elevated surface + shadow), never from an accent border or biasing
- * one answer.
- *
- * @lore UI-004: options were static <li> chips in AM1 because answering was not
- * wired. Now that `onAnswer` is threaded through PartList → ConversationSurface,
- * options render as <button> elements when wired and remain static <li> chips
- * when not (e.g. story fixtures). The no-op-button rule applies only when no
- * onClick handler exists; buttons here always have a real onClick → onAnswer(option).
+ * Options read as EVEN / NEUTRAL choices — no biased/recommended styling;
+ * `QuestionnairePayload.options` is flat strings with no per-option metadata.
+ * Prominence comes from layering (elevated surface + shadow), never from an accent border.
  */
+// @lore: options button vs chip — <button> when onAnswer is wired; static chip otherwise; no-op-button rule exempt — buttons always have a real handler
 
 import { type JSX, useState } from "react";
 import { Button } from "../../ds";
@@ -23,22 +16,11 @@ type QuestionnairePartValue = Extract<Part, { kind: "questionnaire" }>;
 const ICON_QUESTION =
 	"M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM8 4a2.4 2.4 0 012.4 2.4c0 1-.6 1.5-1.3 2-.5.35-.6.55-.6 1.1H6.9c0-1 .3-1.5 1-2 .5-.36.8-.6.8-1.1a.9.9 0 00-1.8 0H5.6A2.4 2.4 0 018 4zm-.05 7.4a.95.95 0 110-1.9.95.95 0 010 1.9z";
 
-// @lore UI-decision-card: `border-[var(--bw-thin)]` in Tailwind v4 resolves to border-color
-// (not border-width) for CSS variable arguments — computed borderWidth: 0px despite --bw-thin: 1px.
-// Both chips and the outer card now use `border-width-thin` (@utility in tokens.css) which
-// correctly emits `border-width: var(--bw-thin)` so the chips read as interactive controls
-// rather than plain text.
+// @lore: border-width-thin — Tailwind v4 resolves border-[var(--bw-thin)] as border-color; @utility in tokens.css correctly emits border-width: var(--bw-thin)
 const CHIP_CLASS =
 	"type-small border-width-thin inline-flex items-center gap-[6px] rounded-[var(--r-subtle)] border-[var(--border-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] px-[12px] py-[6px] text-[var(--text-secondary)]";
 
-/**
- * @lore NEW-11: `selectedAnswer` tracks the last choice the user made this
- * session. The questionnaire Part schema has no `answer` field, so the card
- * cannot derive this from data alone. sessionStorage keyed by part.id restores
- * the selection even when the component remounts (e.g. after a thread refresh
- * following message send). Clears naturally at end of browser session.
- * Re-selection is explicit: click a different option to change the answer.
- */
+// @lore: selectedAnswer sessionStorage — Part schema has no answer field; keyed by part.id survives remounts; clears at browser session end
 export function QuestionnairePart({
 	part,
 	onAnswer,
@@ -94,8 +76,7 @@ export function QuestionnairePart({
 								size="sm"
 								aria-pressed={selectedAnswer === option}
 								onClick={() => {
-									// NEW-16: Re-clicking the already-selected option is a no-op —
-									// don't post a duplicate message to the thread.
+									// Re-clicking the already-selected option is a no-op — prevents posting a duplicate message.
 									if (option === selectedAnswer) return;
 									setSelectedAnswer(option);
 									try {

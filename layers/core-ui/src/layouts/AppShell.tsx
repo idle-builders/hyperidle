@@ -1,10 +1,4 @@
-/**
- * @lore U6: AppShell restructured. Layout is now Sidebar | Main (Outlet).
- * The old IconRail | Submenu | Main | Rail quad-column layout is replaced by
- * a 276px fixed Sidebar on the left and a flex-1 main area on the right.
- * @lore sidebar-system: Settings swaps Main content without replacing primary navigation
- * or the selected domain's navigator. Mobile exposes the same shell in a 300px drawer.
- */
+// @lore: sidebar-system — Settings swaps Main content without replacing primary navigation or domain navigator; mobile exposes the same shell in a 300px drawer
 
 import FocusTrap from "focus-trap-react";
 import type { JSX } from "react";
@@ -34,19 +28,7 @@ import type { ViewId } from "../shell/shell-types";
 import { ToastRegion } from "../shell/ToastRegion";
 import { relativeShort } from "../utils/time.js";
 
-/**
- * Outlet context surfaced by AppShell to its children. Read by
- * `Conversations` and any future filter-aware page via
- * `useOutletContext<AppShellOutletContext>()`.
- *
- * @lore U6: Extended with conversationsFilter, onFilterChange, onClearFilter
- * so the Conversations page can render the pill bar (All/Blocking/Async) and
- * drive filter state that lives in AppShell (session-transient, not URL).
- *
- * @lore U6 review V1: threads/threadsStatus/threadsError/onRetryThreads are
- * passed via context so Conversations.tsx reads AppShell's single `useThreads`
- * call instead of fetching its own copy.
- */
+/** Outlet context surfaced by AppShell to its children. Read via `useOutletContext<AppShellOutletContext>()`. */
 export interface AppShellOutletContext {
 	selectedThreadId: string | null;
 	conversationsFilter: ConversationsFilter;
@@ -58,21 +40,12 @@ export interface AppShellOutletContext {
 	threadsError: string | null;
 	onRetryThreads: () => void;
 
-	/** U9 AC-1: Opens the RecipientPicker for creating a new thread. */
+	/** Opens the RecipientPicker for creating a new thread. */
 	onNewThread: () => void;
-	/** @lore NEW-24: retries AppShell-owned fetches (user + sidebar document list) so a
-	 * full-outage recovery clears ALL sidebar error states, not just the main-pane error.
-	 * Child pages call this alongside their own domain retry. */
+	/** @lore: onRetryShell — retries AppShell fetches (user + sidebar docs); clears sidebar errors on full outage; child pages call this alongside their own retry */
 	onRetryShell: () => void;
 }
 
-/**
- * @lore BC3: replaces `useConversationsThreads.ts`'s `rowToItem` — the
- * hand-pushed `ThreadListRow` is now `search_threads`'s own output shape
- * (`title`/`computedTitle`/`lastMessagePreview`/`members`, no `participants`,
- * no client-side `blocking` guess). AppShell is the sole caller of the row
- * shape, so the mapping lives here rather than in a hook module of its own.
- */
 function rowToItem(row: import("@hyperidle/domain-model").ThreadListRow): ThreadItem {
 	// `computedTitle` is required and never empty (ThreadListRowSchema), so
 	// this always resolves without a synthesized fallback.
@@ -94,33 +67,14 @@ function rowToItem(row: import("@hyperidle/domain-model").ThreadListRow): Thread
 	};
 }
 
-/**
- * @lore BC4 §8.6: the Knowledge section's view id stays `"knowledge"` even
- * though its route moved to `/documents` — the sidebar label and the view id
- * are the one exception the rename never touches (founder ruling 3). This
- * function is the one place that bridges the two: it reads the new path and
- * returns the unchanged id.
- */
+// @lore: pathToView — view id "knowledge" stays unchanged even though the route is /documents; the sidebar label and view id are stable identifiers
 export function pathToView(pathname: string): ViewId {
 	if (pathname.startsWith("/work")) return "work";
 	if (pathname.startsWith("/documents")) return "knowledge";
 	return "conversations";
 }
 
-/**
- * I4 security MED-1: validate a route-segment id coming from a search
- * result before interpolating it into a navigate() call. Rejects ids that
- * could escape the segment (contain `/`, `?`, `#`, `\`, `..`, whitespace,
- * control characters) or look like absolute URIs (scheme prefix). Returns
- * the URI-component-encoded safe id, or null if the input is unsafe. The
- * encode step preserves safety against characters that survive the reject
- * list (percent, etc.).
- *
- * @lore The search API emits ids from agent-produced or indexed content.
- * Even if today's mock returns safe ids, the trust boundary is "whatever
- * the /api/search endpoint emits" — which will be agent-authored strings
- * the moment live indexing lands.
- */
+// @lore: sanitizeRouteId — search API emits agent-produced ids; encode or reject before navigate(); trust boundary is /api/search output, not the mock
 export function sanitizeRouteId(id: string): string | null {
 	if (typeof id !== "string" || id.length === 0) return null;
 	if (id.length > 200) return null;
@@ -136,21 +90,7 @@ export function sanitizeRouteId(id: string): string | null {
 	return encodeURIComponent(id);
 }
 
-/**
- * True when `target` sits inside an open combobox/listbox popover — a
- * document-level Escape handler must not act on that key press, or it steals
- * Escape before the popover's own bubble-phase handler ever sees it.
- *
- * @lore Combobox's open popover renders as a SIBLING of its `role="combobox"`
- * trigger button (both children of one `[data-ds-component="Combobox"]`
- * wrapper), not nested inside it — so `target.closest('[aria-expanded="true"]')`
- * alone can't find the trigger from focus inside the popover's filter input.
- * Scoping to the nearest Combobox wrapper (rather than walking every ancestor
- * up to `<body>`) is load-bearing: `<body>` contains every open combobox on
- * the page, so an unscoped `querySelector` at that level always matched,
- * regardless of where focus actually was — the guard fired even with focus
- * outside any popover, and Escape could never leave Settings.
- */
+// @lore: isEscapeInsideOpenPopover — Combobox popover is a sibling of trigger, not nested; closest('[aria-expanded]') misses it; scope to Combobox wrapper
 function isEscapeInsideOpenPopover(target: EventTarget | null): boolean {
 	if (!(target instanceof Element)) return false;
 	const comboboxRoot = target.closest('[data-ds-component="Combobox"]');
@@ -162,19 +102,16 @@ export function AppShell(): JSX.Element {
 	const location = useLocation();
 	const navigate = useNavigate();
 	const { user, status: userStatus, retry: retryUser } = useCurrentUser();
-	// @lore U6: useRail removed (Rail component deleted).
 
 	const activeView = useMemo(() => pathToView(location.pathname), [location.pathname]);
 
-	// Viewport breakpoint for mobile drawer
 	const { sidebarMobile } = useViewportBreakpoint();
 	const { canGoBack } = useHistoryAvailability(location.key);
 	const routeStateRef = useRef(
 		new Map<string, { scrollTop: number; focusTestId: string | null; focusText: string | null }>(),
 	);
 
-	// Browser Back restores the origin's working context. Location keys are
-	// already the router's temporal identity, so a small shell-local map is enough.
+	// Browser Back restores the origin's working context — a shell-local map keyed on location.key is enough.
 	useLayoutEffect(() => {
 		const saved = routeStateRef.current.get(location.key);
 		const scroller = document.querySelector<HTMLElement>("[data-page-scroll]");
@@ -214,17 +151,12 @@ export function AppShell(): JSX.Element {
 	}, [location.key]);
 	const [drawerOpen, setDrawerOpen] = useState(false);
 
-	// Close drawer whenever the pathname changes (navigation closes drawer)
 	// biome-ignore lint/correctness/useExhaustiveDependencies: location.pathname is intentional — we WANT the effect to fire on every navigation, not only when setDrawerOpen changes.
 	useEffect(() => {
 		setDrawerOpen(false);
 	}, [location.pathname]);
 
-	// @lore AI2/sidebar-system: Drawer uses the shared modal dismissal contract and is portalled
-	// beside #root so inert applies to page content without disabling the drawer itself.
-	// getOverlayProps() returns data-dialog-layer="drawer" (--z-drawer=30 via CSS var).
-	// Its scrim is locally placed one level below --z-drawer; the generic dialog
-	// scrim token is intentionally above non-modal drawer layers.
+	// @lore: drawer — portalled beside #root; inert on page content only; scrim sits below --z-drawer; dialog scrim token intentionally above non-modal drawer layers
 	const handleDrawerClose = useCallback(() => setDrawerOpen(false), []);
 	const drawerBehavior = useDialogBehavior({
 		open: drawerOpen,
@@ -232,16 +164,10 @@ export function AppShell(): JSX.Element {
 		modal: true,
 		layer: "drawer",
 	});
-	// Compute drawer overlay/scrim props once (used in the mobile branch below).
 	const drawerOverlayProps = drawerBehavior.getOverlayProps();
 	const drawerScrimProps = drawerBehavior.getScrimProps();
 
-	// @lore UI-002 / AE4: focusTrapOptions.initialFocus=false leaves focus on the
-	// hamburger button (outside the portal) after the drawer opens, so the drawer's
-	// own onKeyDown handler never receives the Escape event. Document-level listener
-	// is the correct fix: it fires regardless of where focus lives and is guarded by
-	// drawerOpen so it only runs while the drawer is visible. capture=true runs before
-	// any bubble-phase handler and stops conflicting handlers from also seeing the key.
+	// @lore: drawer Escape — initialFocus=false leaves focus on the hamburger; drawer's onKeyDown never fires (portal); document-level capture listener required
 	useEffect(() => {
 		if (!drawerOpen) return;
 		const handler = (e: KeyboardEvent): void => {
@@ -256,44 +182,18 @@ export function AppShell(): JSX.Element {
 		};
 	}, [drawerOpen]);
 
-	/**
-	 * Derive whether the current route is a "detail" route that should
-	 * show a back arrow instead of the hamburger.
-	 *
-	 * Matches:
-	 *   /conversations/:id          (thread detail)
-	 *   /work/task/:id              (task detail — any depth, replaces /work/bet/:id)
-	 *   /work/team/:id              (team page — shows back arrow)
-	 *   /documents/:id              (document detail, but NOT /documents/new)
-	 *   /agents/:id                 (agent detail)
-	 *
-	 * @lore AE4: /documents/new is a create page, not a detail view. The regex
-	 * excludes "new" to prevent incorrectly showing a back arrow on the create page.
-	 */
+	// @lore: /documents/new is a create page — excluded from detail routes so no back arrow shows on it
 	const isDetailRoute = useMemo((): boolean => {
 		const p = location.pathname;
-		// conversations/:id
 		if (/^\/conversations\/[^/]+/.test(p)) return true;
-		// @lore BB1: /work/bet/:id replaced by /work/task/:id (any depth)
 		if (/^\/work\/task\/[^/]+/.test(p)) return true;
-		// work/team/:id
 		if (/^\/work\/team\/[^/]+/.test(p)) return true;
-		// documents/:id — exclude "new"
 		if (/^\/documents\/(?!new$)[^/]+/.test(p)) return true;
-		// agents/:id
 		if (/^\/agents\/[^/]+/.test(p)) return true;
 		return false;
 	}, [location.pathname]);
 
-	/**
-	 * Navigate to the parent list view (explicit path, not navigate(-1)).
-	 * @lore AE4: Using navigate(-1) would break deep links (opening a detail
-	 * page directly in a browser would navigate back to the previous session's
-	 * URL rather than the parent list). Explicit parent paths are always correct.
-	 * @lore AG4: Refactored to use parentPathFor() pure fn — same resolver used
-	 * by the desktop breadcrumb cluster, eliminating divergence. Unmatched routes
-	 * return null and no-op (no navigate(-1) fallback — that was the latent smell).
-	 */
+	// @lore: Up uses explicit parent paths (not navigate(-1)); direct-link entry has no history to go back to — navigate(-1) would land on a previous session's URL
 	const navigateToParent = useCallback((): void => {
 		const parent = parentPathFor(location.pathname);
 		if (parent !== null && parent !== location.pathname) {
@@ -310,16 +210,11 @@ export function AppShell(): JSX.Element {
 	}, [canGoBack, navigate, navigateToParent]);
 
 	const [searchParams, setSearchParams] = useSearchParams();
-	// @lore FR-18: settingsOpen is now DERIVED from the route, not local state.
-	// /settings is a real page rendered by the Outlet — no overlay needed.
 	const settingsOpen = useMemo(
 		() => location.pathname.startsWith("/settings"),
 		[location.pathname],
 	);
 
-	// Assistant overlay state (renamed from CoC overlay).
-	// @lore AF14: AF14 completes the Coc→Assistant rename started in AD8b.
-	// AppShell is the single mount site for AssistantOverlay (two branches: mobile + desktop).
 	const [assistantOverlayOpen, setAssistantOverlayOpen] = useState(false);
 	const [assistantContextRefs, setAssistantContextRefs] = useState<
 		ReadonlyArray<AssistantContextRef>
@@ -333,7 +228,6 @@ export function AppShell(): JSX.Element {
 		setAssistantOverlayOpen(false);
 	}, []);
 
-	// Notification popover open state — wired to sidebar-notification-btn.
 	const [notifOpen, setNotifOpen] = useState(false);
 	const handleNotificationClick = useCallback((): void => {
 		setNotifOpen((prev) => !prev);
@@ -360,18 +254,13 @@ export function AppShell(): JSX.Element {
 
 	const commandK = useCommandK();
 
-	// @lore FR-18: ?settings=open is a legacy deep-link (was used by AgentProfile).
-	// Now navigates to /settings (the real route) and drops the query param.
 	useEffect(() => {
 		if (searchParams.get("settings") === "open") {
 			navigate("/settings", { replace: true });
 		}
 	}, [searchParams, navigate]);
 
-	// Auto-open the assistant overlay when ?onboarding=true is in the URL.
-	// Pattern mirrors the ?settings=open handler above.
-	// @lore AE2: After successful setup, SetupFlow navigates to /work/portfolio?onboarding=true.
-	// AppShell detects this param, opens AssistantOverlay, and removes the param.
+	// Auto-open the assistant overlay when ?onboarding=true is in the URL, then remove the param.
 	useEffect(() => {
 		if (searchParams.get("onboarding") === "true") {
 			setAssistantOverlayOpen(true);
@@ -386,25 +275,13 @@ export function AppShell(): JSX.Element {
 		}
 	}, [searchParams, setSearchParams]);
 
-	// @lore U6: Teams data for sidebar Work section (Q2 resolution: useTeams already exists).
-	// @lore AD3: Hoisted above handleViewChange so the callback can read sidebarTeams without
-	// triggering lint/correctness/noInvalidUseBeforeDeclaration.
 	const { data: teamsData, loading: teamsLoading, error: teamsError } = useTeams();
 	const sidebarTeams = useMemo(
 		() => (teamsData?.teams ?? []).map((t) => ({ id: t.id, name: t.name })),
 		[teamsData],
 	);
 
-	/**
-	 * Full view-change handler used for keyboard shortcuts (⌘1/2/3).
-	 * @lore UI-080: Section header *clicks* go through handleSectionNavClick
-	 * (side effects only) because the <Link to={href}> in SectionHeader already
-	 * handles navigation. Using the full handleViewChange on clicks would push a
-	 * second history entry and break back-button behaviour for the 1-team work
-	 * path (Work short-circuits to /work/team/:id while the Link always goes to /work).
-	 * @lore FR-18: settingsOpen is path-derived — navigating away from /settings
-	 * is sufficient; no explicit setSettingsOpen(false) needed.
-	 */
+	// @lore: handleViewChange — keyboard ⌘1/2/3 only; section <Link> handles clicks; routing it through here adds history entry and breaks back-button on 1-team work
 	const handleViewChange = useCallback(
 		(view: ViewId): void => {
 			if (view === "conversations") {
@@ -431,41 +308,22 @@ export function AppShell(): JSX.Element {
 		[navigate, sidebarTeams],
 	);
 
-	/**
-	 * Side-effect-only handler passed to Sidebar's onViewChange prop.
-	 * Navigation is driven by the <Link to={href}> in SectionHeader.
-	 * @lore FR-18: settingsOpen is path-derived — navigating away is sufficient.
-	 * No explicit setter needed; keeping the callback for Sidebar's onViewChange signature.
-	 */
 	const handleSectionNavClick = useCallback((_view: ViewId): void => {
 		// Navigation handled by SectionHeader's <Link>; path change auto-updates settingsOpen.
 	}, []);
 
-	// @lore FR-18: settings button navigates to /settings (real route).
 	const handleAvatarClick = useCallback((): void => {
 		navigate("/settings");
 		setDrawerOpen(false);
 	}, [navigate]);
 
-	// Global keyboard shortcuts — Back (⌘[), Forward (⌘]), view switch (⌘1/2/3).
-	// Wired here in AppShell (desktop + mobile both — shortcuts are global).
-	// Guard: input/textarea/contentEditable targets are ignored inside useNavShortcuts.
 	useNavShortcuts({
 		onBack: () => navigate(-1),
 		onForward: () => navigate(1),
 		onSwitchView: handleViewChange,
 	});
 
-	// P4 AC-21: Escape navigates back from /settings.
-	// @lore FR-18: settingsOpen is now path-derived. Closing settings = navigate(-1).
-	// @lore Escape-vs-combobox: this listener runs in the CAPTURE phase on
-	// document, ahead of any Settings combobox's own bubble-phase Escape
-	// handling — so without the guard below, the first Escape while a
-	// dropdown was open closed all of Settings instead of just the dropdown.
-	// When the key belongs to an open popover, do nothing and let it
-	// propagate normally so the popover's own handler closes just itself; a
-	// second Escape (popover already closed) falls through to navigate(-1)
-	// same as before.
+	// @lore: settings Escape — capture-phase runs before combobox bubbling; without isEscapeInsideOpenPopover guard, Escape closes Settings instead of the dropdown
 	useEffect(() => {
 		if (!settingsOpen) return;
 		const handler = (e: KeyboardEvent): void => {
@@ -490,22 +348,14 @@ export function AppShell(): JSX.Element {
 	}, [settingsOpen, commandK, navigate]);
 
 	const handleSearchNavigate = useCallback(
-		// Z8-151: unsafe ids previously caused silent no-ops for work/document types
-		// while conversation fell back to /conversations. All types now fall back
-		// consistently to their list route so there is no silent failure.
 		(type: string, id: string): void => {
 			commandK.close();
 			switch (type) {
 				case "work": {
 					const safeId = sanitizeRouteId(id);
-					// @lore BB1: /work/bet/:id replaced by /work/task/:taskId — tasks are the one work primitive.
 					navigate(safeId !== null ? `/work/task/${safeId}` : "/work");
 					break;
 				}
-				// @lore BC4: the result "type" wire value is GlobalSearchPanel's
-				// ResultType (owned by a sibling block, architecture.md §8.6),
-				// which now emits "document" — this case and the destination
-				// path both moved to the new shape (§9): `/documents/:id`.
 				case "document": {
 					const safeId = sanitizeRouteId(id);
 					navigate(safeId !== null ? `/documents/${safeId}` : "/documents");
@@ -524,10 +374,7 @@ export function AppShell(): JSX.Element {
 		[commandK, navigate],
 	);
 
-	// @lore M3 A11: participant id comes from useCurrentUser() — no more hardcoded demo-founder-id.
-	// @lore BC3: `useConversationsThreads` → `useThreads({mine:true})`; `undefined` when
-	// there is no viewer yet short-circuits the call entirely (N5's "no 400 on a fresh
-	// install" guard, now inside `useThreads` itself).
+	// @lore: useThreads — undefined when no viewer yet short-circuits the call (no 400 on a fresh install; guard inside useThreads)
 	const threadsResult = useThreads(user?.id ? { mine: true } : undefined);
 	const threadItems = useMemo(() => threadsResult.threads.map(rowToItem), [threadsResult.threads]);
 	const conversationsThreads = {
@@ -537,31 +384,23 @@ export function AppShell(): JSX.Element {
 		retry: threadsResult.retry,
 	};
 
-	// @lore UI-011/012/013 + NEW-23: when the user fetch fails, user?.id is undefined so
-	// useThreads short-circuits to status:"ready" (N5 guard — avoids a 400
-	// "Missing scope" error on a fresh install with no users). The threads hook never fires
-	// and never errors. Propagate the user-fetch failure so the sidebar and Conversations
-	// page show "Couldn't load" instead of a false "No threads yet" empty claim.
+	// Propagate user-fetch failure so the sidebar shows an error instead of a false "No threads yet" empty state.
 	const isThreadsError =
 		conversationsThreads.status === "error" || (!user && userStatus === "error");
 	const threadsErrorMessage =
 		conversationsThreads.error ??
 		(isThreadsError ? "Something went wrong. Please try again." : null);
 
-	// @lore U6: filter state moved from Submenu to OutletContext so the Conversations page
-	// renders the pill bar in the main pane (AC-16). Filter resets to "all" on view change (AC 64).
 	const [conversationsFilter, setConversationsFilter] = useState<ConversationsFilter>("all");
 	const handleClearFilter = useCallback((): void => {
 		setConversationsFilter("all");
 	}, []);
 
-	// AC 64: reset filter to "all" on view change.
 	useEffect(() => {
 		void activeView;
 		setConversationsFilter("all");
 	}, [activeView]);
 
-	// Q1 §4.9: recipient picker state
 	const [showRecipientPicker, setShowRecipientPicker] = useState(false);
 
 	const handleRecipientPickerSelect = useCallback(
@@ -576,7 +415,6 @@ export function AppShell(): JSX.Element {
 		setShowRecipientPicker(false);
 	}, []);
 
-	// @lore L9 WARNING: selectedThreadId derived from URL for backwards-compat with outlet context consumers.
 	const { threadId: urlThreadId } = useParams<{ threadId?: string }>();
 	const selectedThreadId = urlThreadId ?? null;
 
@@ -587,7 +425,6 @@ export function AppShell(): JSX.Element {
 		[navigate],
 	);
 
-	// @lore U6 Q1: keyboard shortcut N opens recipient picker in Conversations view.
 	useEffect(() => {
 		if (activeView !== "conversations") return;
 		const handler = (e: KeyboardEvent): void => {
@@ -612,17 +449,11 @@ export function AppShell(): JSX.Element {
 		};
 	}, [activeView, showRecipientPicker]);
 
-	// Derive activeTeamId from URL for Work section
 	const activeTeamId = useMemo(() => {
 		const match = location.pathname.match(/^\/work\/team\/([^/]+)/);
 		return match ? (match[1] ?? null) : null;
 	}, [location.pathname]);
 
-	// @lore BC4 §5.2/§9: fetch documents for the Knowledge fast-nav list in the
-	// sidebar through `useDocuments({inTree:true, limit:50})` —
-	// `call("search_documents", …)`, not a raw `/api/knowledge` fetch. Only
-	// the head of the list (first 5) is shown; the full list is on /documents.
-	// The nudge-driven refetch (§7) replaces the old manual `refetchSidebarKnowledge`.
 	const {
 		documents: sidebarDocuments,
 		status: sidebarDocumentsStatus,
@@ -631,11 +462,7 @@ export function AppShell(): JSX.Element {
 	} = useDocuments({ inTree: true, limit: 50 });
 	const documentsLoading = sidebarDocumentsStatus === "loading";
 	const documentsError = sidebarDocumentsStatus === "error" ? sidebarDocumentsError : null;
-	// @lore nested-knowledge-items §4: the same parent rule DocumentList
-	// applies — a role-carrying binding (skill/rule/agent identity/subscription
-	// prompt) has a non-`document` parent and is reached from its own
-	// surface, not the fast-nav. `inTree` already excludes these server-side
-	// (architecture.md §5.1); the client keeps its own check too.
+	// @lore: sidebar documents — inTree excludes role-carrying bindings (non-document parents) server-side; client filters too in case the source changes
 	const sidebarDocumentItems = useMemo(
 		() =>
 			sidebarDocuments
@@ -647,19 +474,14 @@ export function AppShell(): JSX.Element {
 		[sidebarDocuments],
 	);
 
-	// Derive blocking count from thread list (threads with unresolved reviews).
-	// @lore AE4: conversationsBlockingCount is not fetched separately — it is derived
-	// from the thread list already loaded for the sidebar. This avoids an extra API call.
-	// The same derived value is passed to Sidebar so the badge renders correctly (AD5 gap).
+	// Derived from the thread list already loaded for the sidebar — avoids a separate API call.
 	const conversationsBlockingCount = useMemo(
 		() => conversationsThreads.threads.filter((t) => t.hasUnresolvedReview).length,
 		[conversationsThreads.threads],
 	);
 
-	// Notification dot on hamburger — signals "items need attention".
 	const hasAttentionItems = conversationsBlockingCount > 0;
 
-	// Page title for mobile header.
 	const pageTitle = useMemo((): string => {
 		if (settingsOpen) return "Settings";
 		const p = location.pathname;
@@ -672,7 +494,6 @@ export function AppShell(): JSX.Element {
 		}
 		if (p.startsWith("/work/portfolio")) return "Work";
 		if (p.startsWith("/work/team/")) return "Work";
-		// @lore BB1: /work/bet/:id replaced by /work/task/:id
 		if (p.startsWith("/work/task/")) return "Work";
 		if (p.startsWith("/work")) return "Work";
 		if (p.startsWith("/documents")) return "Knowledge";
@@ -680,7 +501,6 @@ export function AppShell(): JSX.Element {
 		return "HyperIdle";
 	}, [location.pathname, settingsOpen, selectedThreadId, conversationsThreads.threads]);
 
-	// Thread list for sidebar (top 5, no filter applied to sidebar sub-items)
 	const sidebarThreads = useMemo(
 		() =>
 			conversationsThreads.threads.slice(0, 5).map((t) => ({
@@ -691,12 +511,8 @@ export function AppShell(): JSX.Element {
 		[conversationsThreads.threads],
 	);
 
-	// Shared sidebar props used in both desktop and mobile drawer branches.
 	const sidebarProps = {
 		activeView,
-		// @lore UI-080: handleSectionNavClick (side effects only) — Link navigation
-		// in SectionHeader handles routing. handleViewChange (navigate included)
-		// is wired to useNavShortcuts below for ⌘1/⌘2/⌘3.
 		onViewChange: handleSectionNavClick,
 		threads: sidebarThreads,
 		selectedThreadId,
@@ -723,26 +539,18 @@ export function AppShell(): JSX.Element {
 		conversationsBlockingCount,
 		onNotificationClick: handleNotificationClick,
 		notificationPopoverOpen: notifOpen,
-		// UI-011/012/013: suppress false "No X yet" messages during initial load
 		threadsLoading: conversationsThreads.status === "loading",
 		teamsLoading,
 		documentsLoading,
-		// UI-011/012/013: honest error states — sidebar shows "Couldn't load X" not "No X yet"
 		threadsError: isThreadsError,
 		teamsError: teamsError !== null,
 		documentsError: documentsError !== null,
 	} as const;
 
 	// Shared main content used in both mobile and desktop branches.
-	// @lore FR-18: SettingsPage is now a real route — rendered via Outlet at /settings.
-	// No conditional overlay needed; AssistantContext wraps Outlet for all routes
-	// (SettingsPage simply doesn't use it — that's fine).
+	// @lore: SettingsPage route — real route at /settings; no conditional overlay; AssistantContext wraps Outlet for all routes
 	const mainContent = (
 		<main
-			/*
-			 * @lore W2: density tokens removed. Using Hearth default page gutter (24px).
-			 * @lore U6: Main pane is now the only content area (no Submenu or Rail).
-			 */
 			id="main-content"
 			className="type-copy flex-1 flex flex-col overflow-hidden bg-[var(--surface-elevated)] rounded-[var(--r-default)] shadow-[var(--shadow-default)] min-w-0"
 			data-shell-surface="main"
@@ -750,14 +558,7 @@ export function AppShell(): JSX.Element {
 		>
 			<AssistantContext.Provider value={assistantContextValue}>
 				<ErrorBoundary>
-					{/*
-					 * @lore U6: Outlet context extended with filter props so Conversations
-					 * page renders the pill bar in the main pane (AC-16).
-					 * @lore L9: selectedThreadId derived from URL params for backwards-compat.
-					 * @lore visual-parity Issue 6: RecipientPicker replaces the Outlet entirely
-					 * so it fills the main pane rather than stacking above it. The Outlet is
-					 * still rendered (hidden) to avoid unmounting side-effects.
-					 */}
+					{/* @lore: RecipientPicker — fills main pane (not stacked above it); Outlet still rendered hidden to avoid unmounting side-effects */}
 					{showRecipientPicker && activeView === "conversations" && (
 						<div className="flex flex-1 items-start justify-center p-[24px]">
 							<div className="w-full max-w-[480px]">
@@ -783,13 +584,11 @@ export function AppShell(): JSX.Element {
 									conversationsFilter,
 									onFilterChange: setConversationsFilter,
 									onClearFilter: handleClearFilter,
-									/** U9 AC-1: opens RecipientPicker for new thread creation. */
 									onNewThread: () => setShowRecipientPicker(true),
 									threads: conversationsThreads.threads,
 									threadsStatus: isThreadsError ? "error" : conversationsThreads.status,
 									threadsError: threadsErrorMessage,
-									// @lore NEW-24: also retries user+sidebar-document fetches so the N5
-									// short-circuit unblocks and the sidebar fully clears after an outage.
+									// @lore: onRetryThreads — also retries user+sidebar-document fetches; short-circuit unblocks and sidebar fully clears after an outage
 									onRetryThreads: () => {
 										conversationsThreads.retry();
 										retryUser();
@@ -808,11 +607,9 @@ export function AppShell(): JSX.Element {
 		</main>
 	);
 
-	// Mobile layout branch (viewport <= 768px)
 	if (sidebarMobile) {
 		return (
 			<ToastRegion>
-				{/* UI-084: skip link — first focusable element; lands on <main id="main-content"> */}
 				<a
 					href="#main-content"
 					className="absolute left-0 top-0 z-[100] -translate-y-full focus:translate-y-0 type-control rounded-[var(--r-subtle)] bg-[var(--surface-elevated)] px-[12px] py-[6px] text-[var(--text-primary)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]"
@@ -820,9 +617,7 @@ export function AppShell(): JSX.Element {
 					Skip to main content
 				</a>
 				<div className="flex flex-col h-screen bg-[var(--surface-container)] overflow-hidden">
-					{/* Desktop titlebar — null in browser → layout-neutral; shrink-0 in Electron */}
 					<DesktopTitleBar />
-					{/* Mobile header — 48px + safe-area-inset-top */}
 					<header
 						className="border-width-thin-b shrink-0 flex items-center h-[48px] px-[12px] bg-[var(--surface-elevated)] border-[var(--border-subtle)]"
 						style={{ paddingTop: "env(safe-area-inset-top)" }}
@@ -839,7 +634,6 @@ export function AppShell(): JSX.Element {
 								}
 								className="flex cursor-pointer items-center justify-center w-[48px] h-[48px] shrink-0 text-[var(--text-secondary)]"
 							>
-								{/* Chevron-left icon */}
 								<svg
 									width="24"
 									height="24"
@@ -863,7 +657,6 @@ export function AppShell(): JSX.Element {
 							aria-expanded={drawerOpen}
 							className="relative flex cursor-pointer items-center justify-center w-[48px] h-[48px] shrink-0 text-[var(--text-secondary)]"
 						>
-							{/* Hamburger icon */}
 							<svg
 								width="24"
 								height="24"
@@ -879,14 +672,12 @@ export function AppShell(): JSX.Element {
 								<line x1="3" y1="12" x2="21" y2="12" />
 								<line x1="3" y1="18" x2="21" y2="18" />
 							</svg>
-							{/* Notification dot — signals "items need attention" */}
 							{hasAttentionItems && (
 								<span className="absolute top-[8px] right-[8px]">
 									<LiveDot />
 								</span>
 							)}
 						</button>
-						{/* @lore UI-144/145: h1 in PageHeader provides the semantic title; this span is visual-only */}
 						<span
 							aria-hidden="true"
 							className="type-copy flex-1 text-[var(--text-primary)] truncate px-[6px]"
@@ -899,7 +690,6 @@ export function AppShell(): JSX.Element {
 							aria-label="Search"
 							className="flex cursor-pointer items-center justify-center w-[48px] h-[48px] shrink-0 text-[var(--text-secondary)]"
 						>
-							{/* Search icon */}
 							<svg
 								width="24"
 								height="24"
@@ -917,20 +707,9 @@ export function AppShell(): JSX.Element {
 						</button>
 					</header>
 
-					{/* Main content — full width */}
 					{mainContent}
 
-					{/* Drawer overlay
-					 * @lore AE4: CSS transform transition for GPU-accelerated slide animation.
-					 * The drawer slides from translateX(-100%) (offscreen left) to translateX(0)
-					 * using --motion-default (240ms) easing. Always rendered when drawerOpen
-					 * is true so the transition plays correctly.
-					 * @lore AE4: focus-trap-react with tabbableOptions.displayCheck="none"
-					 * matches the GlobalSearchPanel pattern — required for jsdom compatibility.
-					 * @lore AI2: Drawer uses useDialogBehavior (modal=true, layer="drawer").
-					 * The local scrim sits one layer below --z-drawer so the portalled drawer
-					 * remains visible and interactive while page content is inert.
-					 */}
+					{/* @lore: drawer focus-trap — displayCheck="none" required for jsdom; matches GlobalSearchPanel pattern */}
 					{drawerOpen &&
 						createPortal(
 							<>
@@ -982,10 +761,8 @@ export function AppShell(): JSX.Element {
 						onNavigate={handleSearchNavigate}
 					/>
 
-					{/* NotificationPopover — anchored to sidebar-notification-btn, z-50 */}
 					<NotificationPopover open={notifOpen} onClose={handleNotificationClose} />
 
-					{/* AssistantOverlay — renders above Main (z-30), below drawer (z-40). */}
 					<AssistantOverlay
 						open={assistantOverlayOpen}
 						onClose={handleAssistantClose}
@@ -997,10 +774,8 @@ export function AppShell(): JSX.Element {
 		);
 	}
 
-	// Desktop layout branch (viewport > 768px)
 	return (
 		<ToastRegion>
-			{/* UI-084: skip link — first focusable element; lands on <main id="main-content"> */}
 			<a
 				href="#main-content"
 				className="absolute left-0 top-0 z-[100] -translate-y-full focus:translate-y-0 type-control rounded-[var(--r-subtle)] bg-[var(--surface-elevated)] px-[12px] py-[6px] text-[var(--text-primary)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]"
@@ -1008,20 +783,9 @@ export function AppShell(): JSX.Element {
 				Skip to main content
 			</a>
 			<div className="flex h-screen bg-[var(--surface-container)] overflow-hidden gap-[9px] p-[9px]">
-				{/* @lore U6: Sidebar replaces IconRail | Submenu | Rail trio. */}
-				{/* @lore sidebar-system: Sidebar uses w-full internally; its parent owns the 276px
-				 * desktop width and the mobile drawer owns the 300px width. */}
-				{/* @lore POLISH-060 A4: h-full + overflow-hidden clamps the sidebar to the
-				 * viewport height so only the fast-nav list scrolls (Sidebar.tsx:651 is
-				 * already flex-1 min-h-0 overflow-y-auto). Without this clamp the whole
-				 * aside can scroll instead of just its fast-nav region. */}
-				{/*
-				 * @lore AV5: DesktopTitleBar lives only in the sidebar column — not full-width.
-				 * macOS hiddenInset traffic-lights float top-left over the sidebar area; the
-				 * 28px drag inset shifts search/nav down clear of them. Main content card is a
-				 * direct child of the root row and still reaches the window top (only the 9px
-				 * p-[9px] gutter above it). DesktopTitleBar returns null in browser → no shift.
-				 */}
+				{/* @lore: sidebar-system — parent owns 276px desktop width; Sidebar uses w-full internally */}
+				{/* @lore: sidebar-overflow — h-full + overflow-hidden clamps sidebar to viewport; without it the whole aside scrolls instead of just the fast-nav list */}
+				{/* @lore: DesktopTitleBar — sidebar column only; macOS traffic lights float top-left; 28px drag inset clears them; returns null in browser */}
 				<div className="w-[276px] shrink-0 h-full overflow-hidden flex flex-col">
 					<DesktopTitleBar />
 					<div className="flex-1 min-h-0 overflow-hidden">
@@ -1037,10 +801,8 @@ export function AppShell(): JSX.Element {
 					onNavigate={handleSearchNavigate}
 				/>
 
-				{/* NotificationPopover — anchored to sidebar-notification-btn, z-50 */}
 				<NotificationPopover open={notifOpen} onClose={handleNotificationClose} />
 
-				{/* AssistantOverlay — renders above Main (z-30), below Settings (z-40). */}
 				<AssistantOverlay
 					open={assistantOverlayOpen}
 					onClose={handleAssistantClose}

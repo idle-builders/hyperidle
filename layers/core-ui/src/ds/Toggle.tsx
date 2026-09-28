@@ -1,14 +1,4 @@
-/**
- * Toggle — Tier 0 foundation primitive.
- *
- * Spring-animated toggle with --easing-expressive thumb motion.
- * Label + optional description.
- *
- * @lore W2: No DaisyUI — custom CSS per Toggle.html.
- * The signature spring overshoot uses --easing-expressive: cubic-bezier(0.34, 1.56, 0.64, 1).
- * @lore W2 hearth-internal-padding: internal toggle spacing (2px between label/description)
- * is sub-grid. AQ-001 exemption for sub-element gaps inside toggle label stacks.
- */
+// @lore: no DaisyUI — custom CSS; spring thumb uses --easing-expressive: cubic-bezier(0.34, 1.56, 0.64, 1); 2px internal gap is sub-grid AQ-001 exemption
 
 // hearth-internal-padding
 
@@ -19,15 +9,7 @@ export interface ToggleProps {
 	on?: boolean;
 	label: string;
 	/**
-	 * When true, the label is rendered as sr-only (visually hidden) and no
-	 * adjacent text is shown. The `label` prop is still required for a11y — it becomes
-	 * the aria-label on the track button. Reusable for any settings row that toggles
-	 * without adjacent text (clears the 2+-context bar; a founder decision).
-	 *
-	 * @lore AM4: Folded into DS Toggle as a reusable variant rather than hand-rolled
-	 * per-component. The label-less track has identical visual + a11y contract (role="switch",
-	 * spring thumb, --accent-primary track) as the labeled variant. The sr-only label
-	 * satisfies WCAG 2.1 AA (AQ-010). Do NOT ship inline copies — use this prop.
+	 * @lore: label-less toggle — label prop becomes aria-label on the track button; sr-only satisfies WCAG 2.1 AA; do NOT ship inline copies
 	 */
 	labelHidden?: boolean;
 	description?: string;
@@ -43,10 +25,7 @@ export function Toggle({
 	onChange,
 	disabled = false,
 }: ToggleProps): JSX.Element {
-	// Label-hidden variant: inline button + sr-only span for a11y
-	// @lore AM4: button is inlined (not extracted to a variable) because biome's
-	// noLabelWithoutControl rule uses static analysis and can't follow JSX variable refs.
-	// Extracting `track` caused the default variant's <label> to fail the lint rule.
+	// @lore: button inlined (not extracted to variable) — biome noLabelWithoutControl uses static analysis; extracting to variable caused <label> lint failure
 	if (labelHidden) {
 		return (
 			<span

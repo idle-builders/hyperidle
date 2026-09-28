@@ -1,25 +1,13 @@
 /// <reference types="node" />
 //
-// @lore AU28: the triple-slash reference above is load-bearing. `layers/core-ui`'s
-// ~110 test-file references to the Node `global` object were resolving only because
-// the dead Hono RPC client (`src/api/client.ts`, zero call sites) imported
-// `@hyperidle/core-api`, whose type graph pulled `@types/node` into the web program
-// as a side effect. Deleting that file under AU28 Ruling 4.1 removed the accidental
-// load and reded 111 `Cannot find name 'global'` errors. Declaring the reference here
-// makes the dependency explicit instead of inherited from a file nobody imported.
+// @lore /// <reference types="node" /> is load-bearing — makes @types/node explicit in core-ui; without it, ~110 test files can't resolve Node global
 
 import { cleanup } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
 
 /**
- * @lore Q1: The ws-client singleton lazily connects to the WebSocket server.
- * In JSDOM tests, `global.fetch` is typically mocked per-test to return
- * specific responses for API calls. Without this module mock, the WS client's
- * `connect()` method would call `apiFetch("/api/auth/ws-token")` which
- * intercepts mocked `fetch` calls intended for other API endpoints (e.g.
- * `/api/threads`), corrupting per-test `fetchMock` call-count assertions.
- * Mocking the module here prevents any WS connection attempts in unit tests.
+ * @lore ws-client mocked at module level — ws calls apiFetch("/api/auth/ws-token") which intercepts per-test fetch mocks; corrupts call-count assertions
  */
 vi.mock("../services/ws-client.js", () => ({
 	getWsClient: () => ({
@@ -27,9 +15,7 @@ vi.mock("../services/ws-client.js", () => ({
 	}),
 }));
 
-// @lore Node 26 defines globalThis.localStorage as experimental (returns undefined
-// without --localstorage-file). This shadows jsdom's localStorage on the window object.
-// Provide an in-memory Storage polyfill so tests that use localStorage work.
+// @lore Node 26 globalThis.localStorage experimental (undefined without --localstorage-file); shadows jsdom's localStorage; in-memory polyfill ensures tests work
 if (typeof window !== "undefined" && window.localStorage === undefined) {
 	const store = new Map<string, string>();
 	const storage: Storage = {
@@ -60,16 +46,9 @@ if (typeof window !== "undefined" && window.localStorage === undefined) {
 }
 
 /**
- * @lore RTL's waitFor checks `typeof jest !== 'undefined'` to detect fake
- * timers and use jest.advanceTimersByTime for retries. Without this shim,
- * waitFor falls back to real setInterval which never fires under
- * vi.useFakeTimers(), causing every waitFor call to hang until test timeout.
- * Vitest does not expose a `jest` global even with globals:true.
+ * @lore RTL's waitFor checks typeof jest for fake timers; without shim falls back to real setInterval (hangs under vi.useFakeTimers()); Vitest has no jest global
  */
-// @lore AF5: globalThis has no index signature; cast to Record to suppress TS7017.
-// typeof jest is a namespace not a value; cast via unknown to suppress TS2708.
-// This shim is test-only and the cast is safe — we are constructing the minimal
-// jest-compat shape that RTL's waitFor checks for fake-timer detection.
+// @lore globalThis cast to Record: no index signature (TS7017); jest namespace cast via unknown (TS2708); test-only shim for RTL waitFor fake-timer detection
 const globalAny = globalThis as Record<string, unknown>;
 globalAny.jest = {
 	...(globalAny.jest as Record<string, unknown>),
@@ -77,13 +56,7 @@ globalAny.jest = {
 };
 
 /**
- * @lore React Router v7 creates Request objects with AbortSignal via
- * `createClientSideRequest`. Under jsdom + Bun, the AbortSignal from jsdom
- * doesn't match Node's native AbortSignal class, causing:
- *   TypeError: RequestInit: Expected signal ("AbortSignal {}") to be an instance of AbortSignal
- * Fix: Replace the global Request constructor with one that strips the signal
- * from the RequestInit before passing to the native Request, then re-applies it.
- * This only affects tests — production code runs in a real browser.
+ * @lore React Router v7: jsdom AbortSignal doesn't match Node's native class; PatchedRequest strips signal from RequestInit then re-applies it; test-only
  */
 const OriginalRequest = globalThis.Request;
 class PatchedRequest extends OriginalRequest {
@@ -106,15 +79,7 @@ class PatchedRequest extends OriginalRequest {
 globalThis.Request = PatchedRequest as typeof Request;
 
 /**
- * @lore I4 R1/R2: jsdom does not implement `window.matchMedia`. The
- * `useViewportBreakpoint` hook uses it to determine the sidebar mobile
- * breakpoint. Without this polyfill the hook throws on mount.
- *
- * We install a configurable mock so individual tests can override the return
- * value by setting `window.innerWidth` and re-stubbing the function; by
- * default we evaluate the query's `max-width` expression against the current
- * `window.innerWidth` so responsive tests "just work" when they set the
- * viewport size via `Object.defineProperty(window, 'innerWidth', ...)`.
+ * @lore jsdom lacks window.matchMedia; useViewportBreakpoint hook uses it for sidebar mobile breakpoint; polyfill prevents throw on mount
  */
 // jsdom defaults `window.innerWidth` to 1024, which is below the 1280px
 // desktop breakpoint. Force a desktop viewport so tests that assume
@@ -163,13 +128,7 @@ if (typeof window.matchMedia !== "function") {
 }
 
 /**
- * @lore AB3: jsdom does not implement HTMLDialogElement.showModal() or
- * HTMLDialogElement.close(). Native <dialog> elements used in AgentEditDialog
- * and AgentAddDialog call these methods. We polyfill them so component tests
- * can exercise dialog open/close behavior without a real browser.
- *
- * The polyfill sets/removes the `open` attribute (which is what browsers do)
- * so `getByRole("dialog")` still works via the dialog element's `open` state.
+ * @lore jsdom lacks HTMLDialogElement.showModal()/close(); polyfill lets component tests exercise dialog open/close (sets/removes 'open' attribute)
  */
 if (typeof window !== "undefined" && !window.HTMLDialogElement.prototype.showModal) {
 	Object.assign(window.HTMLDialogElement.prototype, {

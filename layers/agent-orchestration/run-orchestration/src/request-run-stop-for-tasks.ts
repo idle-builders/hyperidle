@@ -1,27 +1,4 @@
-/**
- * The run-stop write a bet kill cascades downward.
- *
- * `layers/core-api/work/bet-kill-cascade.ts` selected the active runs per
- * task and CAS-stopped each itself. Killing a bet must stop its runs — that is
- * a genuine core need — but the write is `run-orchestration`'s state
- * transition, so core asks for it instead of performing it.
- *
- * @lore This used to CAS-mark every active run straight to
- * `stopped` itself, taking no `EventBus`, deliberately silent — the fear was
- * `review/session-review-creator.ts` reacting to a `session_ended` it never
- * expected. That reactor no longer exists, and "killing a task goes through
- * the same abort" is now a real requirement, not a CAS-mark that
- * leaves the harness process running. This is now a thin loop over the ONE
- * stop path both doors share (`stopSessionRun`, `session-store.ts`): it takes
- * the bus and an injected `abort`, and emits ONLY on the no-live-entry path —
- * on the abort path the provisioning teardown emits, exactly as `stop_session`
- * itself does.
- *
- * @lore AU26 H2: the return value is the set of runs ACTUALLY stopped
- * (aborted or marked alike), not a count. A 0-row CAS — an already-stopped run
- * on a re-kill — stops nothing. A count could not tell the caller which runs
- * were affected.
- */
+// @lore: requestRunStopForTasks — return value is the ACTUAL stopped runs, not a count; 0-row CAS (already-stopped) is not in the result
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import { sessions } from "@hyperidle/db";

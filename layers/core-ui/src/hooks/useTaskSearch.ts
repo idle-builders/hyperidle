@@ -1,19 +1,4 @@
-/**
- * useTaskSearch — search tasks by title for the dependency picker.
- *
- * Calls `search_tasks` with `text` (an ILIKE across title/description/
- * doneCondition, ranked so title matches sort first, no `parentTaskId`
- * restriction so every depth is searchable) and `excludeKilled: true`.
- * `excludeIds` is now sent server-side too — `search_tasks` applies it
- * directly, so the caller no longer needs to re-filter results itself.
- * Built on its own debounce so fast typing doesn't fire a request per
- * keystroke.
- *
- * @lore BA6: the global `GET /api/search` route (`useGlobalSearch`) was
- * rejected as this picker's door — it caps tasks at 5 and restricts to roots
- * (`parentTaskId: null`), both wrong for a field that must find a
- * non-root task by title at any depth.
- */
+// @lore: useGlobalSearch rejected as this picker's door — caps tasks at 5 and restricts to parentTaskId:null; search_tasks finds any depth
 
 import { useEffect, useRef, useState } from "react";
 import { call } from "../services/call.js";
@@ -33,17 +18,7 @@ export interface UseTaskSearchResult {
 
 const DEBOUNCE_MS = 200;
 
-/**
- * Search tasks by title. `query` empty/whitespace-only means idle, no call.
- * `excludeIds` is now a `search_tasks` input, so a change to it re-runs the
- * search too.
- *
- * @lore the caller MUST memoize `excludeIds` (see `TaskDependencyField`'s
- * `useMemo`). It sits in the search effect's dependency array by referential
- * identity; a fresh array literal at the call site re-triggers the search on
- * every render the hook's own state updates cause — an infinite loop, not
- * just a wasted request.
- */
+// @lore: excludeIds MUST be memoized by caller — referential identity in effect deps; fresh array literal every render → infinite search loop
 export function useTaskSearch(query: string, excludeIds: readonly string[]): UseTaskSearchResult {
 	const trimmed = query.trim();
 	const [debounced, setDebounced] = useState(trimmed);
@@ -63,12 +38,7 @@ export function useTaskSearch(query: string, excludeIds: readonly string[]): Use
 	useEffect(() => {
 		const timer = setTimeout(() => {
 			setDebounced(trimmed);
-			// @lore BA6: a debounced-value-keyed effect never re-fires when the
-			// settled value equals what it already held (retyping the same query
-			// fast enough that no intermediate value ever commits) — `setDebounced`
-			// bails out as a no-op since the value didn't change. After an error
-			// that same string must still be retryable, so bump `retryToken`
-			// explicitly whenever the settled query matches the one that just failed.
+			// @lore: retryToken bumped when settled query matches current — setDebounced bails out (same value); error must still be retryable so token forces re-run
 			if (trimmed === debouncedRef.current && trimmed !== "" && errorRef.current !== null) {
 				setRetryToken((t) => t + 1);
 			}

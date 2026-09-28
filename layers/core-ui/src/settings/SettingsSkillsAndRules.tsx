@@ -1,11 +1,3 @@
-/**
- * SettingsSkillsAndRules — skills and rules, on the shared document list.
- *
- * A thin instantiation of `DocumentSlotList` for slot in {skill, rule} — see
- * that component for the shared list/create/delete/navigate behavior. This
- * file only supplies what varies: which slots, and the copy.
- */
-
 import type { DocumentSlot } from "@hyperidle/domain-model";
 import type { JSX } from "react";
 import { DocumentSlotList } from "./DocumentSlotList.js";

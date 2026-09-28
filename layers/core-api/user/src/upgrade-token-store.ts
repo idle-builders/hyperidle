@@ -5,27 +5,9 @@
  * with the standard `X-API-Key`), then opens the WS with `?token=<token>`.
  * The token is single-use and TTL-bounded so it cannot be lifted from
  * access logs or browser history and replayed.
- *
- * @lore I2 A3/A4/A5: the previous WS auth accepted `?token=<HYPERIDLE_API_KEY>`
- * — that leaked the master key into URL access logs, browser history, and
- * any reverse proxy in front. The upgrade-token model gives the WS its own
- * short-lived credential without storing keys in URL strings.
- *
- * @lore I2 review HIGH-1: the store caps live tokens at
- * `HYPERIDLE_WS_TOKEN_MAX` (default 1000) so a misconfigured rate limit
- * or compromised key cannot drive the Map to unbounded size. When the cap
- * is reached the OLDEST token (smallest `expiresAt`) is evicted to make
- * room for the new one — the operator sees no error but the legitimate
- * client whose token was evicted falls back to a fresh mint on its next
- * upgrade attempt.
- *
- * @lore I2 review A1: browsers cannot set Authorization headers on the
- * WebSocket upgrade, so the token must travel in the URL query string.
- * The mitigations are: 32-byte random tokens, 60s TTL, single-shot
- * consumption, and the token only authorizes session establishment — never
- * any subsequent message. Future work: switch to `Sec-WebSocket-Protocol`
- * subprotocol so the token leaves URL space entirely.
  */
+// @lore: WS upgrade auth — browsers can't set Authorization on WS upgrade; token travels in URL; 32-byte, 60s TTL, single-shot
+// @lore: UpgradeTokenStore cap — HYPERIDLE_WS_TOKEN_MAX (default 1000) prevents unbounded Map growth; oldest evicted at cap
 
 import { randomBytes } from "node:crypto";
 
@@ -38,8 +20,7 @@ export interface UpgradeTokenStore {
 	/**
 	 * Issue a token. The optional `identityId` is bound to the token and
 	 * returned by `consume` so the WS handler knows which authenticated
-	 * identity is opening the upgrade. L1 step9 (Adv-C1): per-thread
-	 * subscribe authz needs to verify `senderId ∈ thread.participants`.
+	 * identity is opening the upgrade.
 	 */
 	issue(identityId?: string): { token: string; expiresAt: number };
 	/**
@@ -100,11 +81,7 @@ export function createUpgradeTokenStore(): UpgradeTokenStore {
 		// Lazy cleanup on every issue so memory does not grow unbounded
 		// under sustained issuance without consumption (no setInterval).
 		purgeExpired(now);
-		// I2 review HIGH-1: hard cap on live tokens. If we are still at the
-		// cap after the lazy purge (i.e. all tokens are unexpired), evict
-		// the soonest-to-expire token to make room. The legitimate caller
-		// whose token was evicted simply mints another one on its next
-		// upgrade.
+		// Hard cap on live tokens; at cap after lazy purge, evict soonest-to-expire to make room.
 		while (tokens.size >= maxTokens) {
 			evictOldestByExpiry();
 		}

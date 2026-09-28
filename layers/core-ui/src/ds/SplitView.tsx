@@ -1,32 +1,4 @@
-// The shared fold / SplitView primitive (the open presentation).
-//
-// EXTRACTED, not reinvented. This is the ONE net-new container shape the design requires
-// — the generalization of chat's proportional `flex-row` split (Conversations.tsx)
-// into a content-agnostic `origin | seam | destination` with a single draggable
-// seam and contextual icon mode-controls floated over the destination half.
-//
-// The component lives HERE (not inside a story) so every surface composes the SAME
-// fold: `SplitView.stories.tsx` exercises it with placeholder boxes;
-// `UnifiedSplitView.stories.tsx` fills it with real (Kind,Representation) content
-// across conversation / review / document — proving the unification. No fork, no
-// duplicated split logic. See SplitView.stories.tsx header for the full extraction
-// rationale (chat = canonical base, review = converges onto this).
-//
-// Founder round-3 fix — TWO SURFACES, not a divided surface or nested cards:
-//   In split mode, origin and destination are sibling elevated cards. The root is
-//   transparent and adds no inset, so the app layout's background shows through
-//   their gap. In one-pane modes the wrapper adds no card chrome and inherits the
-//   shell's normal single surface. No divider stripe or extra canvas layer.
-//
-// @lore AM5 round-3: the old design was two flush panes split by a 5px divider
-// stripe on a single bordered surface. The founder asked for the established
-// layering instead — two rounded white cards floating on the canvas, the gap as
-// the seam. Drag + icon controls were explicitly KEPT (only the surface treatment
-// changed). If you "simplify" back to one bordered surface you've regressed it.
-//
-// Presentational — props in, drag state is local UI state, callbacks are noops.
-// Production wiring (persistence of dividerRatio, where it mounts, reconciling
-// chat+review onto it) is the architect's / builder's job.
+// @lore: two sibling elevated cards in split mode — root is transparent; do NOT "simplify" to one bordered surface; drag + icon controls are intentional
 
 import { type JSX, useRef, useState } from "react";
 
@@ -39,7 +11,7 @@ export interface SplitViewProps {
 	dividerRatio: number; // 0..1 — origin's share in `split`
 	onModeChange?: (mode: FoldMode) => void;
 	onRatioChange?: (ratio: number) => void;
-	/** @lore AM5 T6: per-surface persistence key — web composes SplitView + useUiPreference(surfaceKey, default) to persist the divider ratio in localStorage. SplitView itself stays presentational; this prop is informational for the stories viewer only. */
+	/** @lore: per-surface persistence key — web composes SplitView + useUiPreference(surfaceKey) for divider ratio persistence; SplitView itself stays presentational */
 	surfaceKey?: string;
 	compact?: boolean;
 	originLabel?: string;
@@ -132,13 +104,7 @@ function ControlButton({
 	);
 }
 
-/**
- * The shared fold container. Owns ONLY the split + divider + contextual controls.
- * Layout extracted from chat's proportional `flex-row` split (Conversations.tsx).
- *
- * @lore AM5: the existing DS `Fold.tsx` is an unrelated disclosure ("Show")
- * component — a name collision the architect resolves (SplitView vs Fold, O7).
- */
+// @lore: existing DS Fold.tsx is an unrelated disclosure component — name collision; SplitView is distinct
 export function SplitView({
 	origin,
 	destination,
@@ -198,11 +164,7 @@ export function SplitView({
 			data-fold-mode={mode}
 		>
 			{showOrigin ? (
-				// @lore UI-122: origin pane uses overflow-hidden on the rounded card wrapper
-				// and overflow-auto on the inner scroll container — same as destination.
-				// overflow-auto alone does not clip child backgrounds at border-radius in
-				// Chromium scroll containers, so row hover/selected backgrounds leaked
-				// past the card's rounded corners (white corner notches).
+				// @lore: card wrapper overflow-hidden — overflow-auto skips background clipping at border-radius; hover/selected state bleeds past rounded corners without it
 				<div
 					hidden={compactDestination}
 					className={`flex min-w-0 flex-col overflow-hidden ${paneSurfaceClass}`}

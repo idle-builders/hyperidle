@@ -1,19 +1,3 @@
-// The session-launch-time
-// provisioning OPERATION relocated here from core-api's
-// `connections`/`filesystems` Services.
-//
-// `SessionLifecyclePorts` has no `filesystems` or `connections` seam port
-// and nothing is baked onto the request for them. Held connections
-// are read LIVE at spawn through `HeldConnectionsReaderPort`, backed by
-// `@hyperidle/connections` — this Layer's own table, so this is not a seam.
-// A port rather than a direct import because `run-orchestration` is itself a
-// Service (Mechanism C); the Application wires the two.
-//
-// And now the filesystems half as well —
-// `InjectedFilesystemsReaderPort`, backed by `@hyperidle/filesystems`, same
-// shape and same reasoning. NOTHING about connections or filesystems rides an
-// emitted request any more.
-
 export type {
 	AgentRunConfig,
 	AgentRunConfigPatch,
@@ -29,8 +13,6 @@ export {
 	buildProvisioningPlan,
 	type HeldConnectionForProvisioning,
 	type HeldConnectionsReaderPort,
-	// @lore AU44 batch6: ProvisioningPlan removed from barrel — file-local per
-	// the lore in connection-provisioning.ts. No cross-package consumer.
 	type ServiceConnectionResolverPort,
 } from "./connection-provisioning.js";
 export { createContextAssembler } from "./context.js";
@@ -87,15 +69,5 @@ export {
 } from "./session-store.js";
 export { startRuntime } from "./start-runtime.js";
 export { transitionRun } from "./transition-run.js";
-/**
- * @lore nested-knowledge-items (review.md B7): the writeback processor was
- * only reachable from a test *inside* this package, via a relative import —
- * `startRuntime` (already public) is the only production caller and it
- * calls `createWritebackProcessor().subscribe(...)` internally as one line.
- * A true end-to-end test needs `process`/`subscribe` directly, wired to the
- * REAL document repository (`@hyperidle/document`) — which this package
- * may not import (the agent-orchestration -> core-api edge AU26 B1a
- * forbids). That test can only live where BOTH are legal to import
- * (core-api's own test directory), so the factory itself must be public.
- */
+// @lore: createWritebackProcessor public — e2e test needs process/subscribe wired to @hyperidle/document; forbidden here; test lives where both imports are legal
 export { createWritebackProcessor } from "./writeback-processor.js";

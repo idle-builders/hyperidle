@@ -5,9 +5,7 @@
  * Each story injects its own data via the `_data` prop so states are rendered
  * deterministically without relying on API calls or module mocking.
  *
- * @lore BC5 T10: rows are inbox items over `ChangeRow` now — `typeKey`/
- * `urgency`/`sourceLink`/`createdAt` are gone with the notification-type
- * registry; a row is `{ change, seenAt, readAt }` (architecture.md §8).
+ * @lore inbox rows are { change, seenAt, readAt }; typeKey/urgency/sourceLink/createdAt gone with notification-type registry
  */
 
 import type { JSX } from "react";

@@ -3,14 +3,7 @@
  * `__tests__/`), consumed only by other packages' real-harness integration
  * tests (never by production code).
  *
- * @lore Kept as a barrel rather than pointing `package.json`'s `test-utils`
- * export straight at `require-harness.ts` (the pre-existing single-file
- * shape) so a second dev-world test utility — `stopAllLiveHarnessSessions`,
- * the "stop everything now" afterEach safety net for a live-harness test
- * whose own finally block a vitest timeout would skip — has an obvious home
- * without either living inside `require-harness.ts` (a file about harness
- * availability and the locked test-model matrix, not session cleanup) or
- * requiring every consumer to import two separate subpaths.
+ * @lore barrel so stopAllLiveHarnessSessions has a home alongside requireHarness without living inside it (wrong file) or requiring two-subpath imports
  */
 
 export { stopAllLiveHarnessSessions } from "../cli-harness-adapter.js";

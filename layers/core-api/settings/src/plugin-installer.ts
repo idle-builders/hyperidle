@@ -44,9 +44,6 @@ export interface InstallPluginInput {
 	 * and the path is stored: sessions read the plugin's MCP servers from it and
 	 * expand ${PLUGIN_ROOT} against it, and restore reads source files from it.
 	 * When absent, the install has no folder, so it brings no MCP servers.
-	 *
-	 * @lore BA9b: This is the plugins directory beside the database that each
-	 * application passes.
 	 */
 	readonly pluginsBaseDir?: string;
 }
@@ -69,24 +66,11 @@ export type InstallPluginResult =
 	| {
 			ok: true;
 			plugin: InstalledPlugin;
-			/**
-			 * Parsed skills from the manifest, needed by the core-api layer to sync
-			 * skill documents through the document service after install.
-			 * @lore BA9b: settings cannot write documents (owned by document).
-			 * The layer's route handler picks these up and calls document.upsertPluginSkill.
-			 */
+			/** Parsed skills — layer handler syncs through document service after install (settings cannot write documents). */
 			skills: readonly ParsedSkill[];
-			/**
-			 * Agents declared in extensions["io.hyperidle"].agents[].
-			 * The core-api route handler materializes them as users rows via insertUserIfAbsent.
-			 * @lore BA9d: settings cannot write users (owned by users service).
-			 */
+			/** Agents — layer handler materializes as users rows (settings cannot write users). */
 			agents: readonly ParsedPluginAgent[];
-			/**
-			 * Subscriptions declared in extensions["io.hyperidle"].subscriptions[].
-			 * The core-api route handler materializes them as subscriptions rows.
-			 * @lore BA9d: settings cannot write subscriptions (owned by the user module).
-			 */
+			/** Subscriptions — layer handler materializes as subscriptions rows (settings cannot write subscriptions). */
 			subscriptions: readonly ParsedPluginSubscription[];
 			scopeKind: string;
 			scopeId: string | null;
@@ -137,23 +121,7 @@ function pluginFromRow(row: PluginRow, warnings: ManifestWarning[] = []): Instal
 	};
 }
 
-/**
- * Deterministic document ID for a plugin skill.
- * Scoped to pluginId + skill title so reinstalls update the same row.
- * Exported so the core-api layer's route handlers can compute the same IDs
- * when syncing skills through the document service (governance boundary).
- *
- * @lore document-module B10 follow-up: `scopeKind`/`scopeId` join the hash the
- * same way `agentItemId`/`subscriptionItemId` already fold them in — a factory
- * install's suffix is empty, so its id is byte-identical to before this
- * change (there is no pre-existing factory-scoped id to migrate); a
- * team-scoped install's id now carries the team, so two teams installing the
- * same plugin never share one skill document. Before this, both teams
- * resolved the SAME id — the visibility rule (architecture.md §5.1) then
- * correctly refused the second team's install with `not_found`, because it
- * cannot see a row scoped to a team it is not, which is how the collision
- * surfaced rather than a silent overwrite.
- */
+// @lore: skillItemId — factory suffix is empty; team-scoped id carries the team so two teams never share one skill document
 export function skillItemId(
 	pluginId: string,
 	dirName: string,
@@ -161,32 +129,12 @@ export function skillItemId(
 	scopeId: string | null,
 ): string {
 	const suffix = scopeKind === "team" ? `\0${scopeKind}\0${scopeId ?? ""}` : "";
-	// @lore document-module: the `ki_` prefix stays despite the table rename
-	// (`knowledge_items` -> `documents`) — it is baked into every id this
-	// function has ever minted, including every existing factory-scoped
-	// install's row. Changing it would change the id a reinstall computes,
-	// so a reinstall would stop finding its own row and create a duplicate
-	// instead of updating in place. The factory id must stay byte-identical
-	// forever; only NEW callers ever see the prefix, and none of them read
-	// meaning into it.
+	// @lore: `ki_` prefix baked into every minted id; changing it would break reinstall id match and create duplicates
 	return `ki_${sha256(`plugin-skill\0${pluginId}\0${dirName}${suffix}`).slice(0, 24)}`;
 }
 
-/**
- * Stable DB id for a plugin-declared agent.
- * Deterministic from pluginId + localId + install scope.
- *
- * @lore BA9d: scope is included in the hash so that a factory-scoped install
- * produces exactly ONE global agent row (scopeId is null → hash suffix is
- * constant), while a team-scoped install produces ONE row PER team (different
- * teamId → different hash → different row). This is the entire mechanism that
- * guarantees "global upkeep runs once, not once per team" for factory-scoped
- * plugins like document-management: the subscription clock sees one
- * subscription row and fires it once. A team-scoped plugin gets one
- * subscription per team, which is the correct per-team behaviour. The same
- * id derivation must be used wherever
- * these rows are looked up — the test for two-team installs guards this.
- */
+// Stable DB id for a plugin-declared agent. Deterministic from pluginId + localId + scope.
+// @lore: factory install → one global row (null scopeId); team install → one row per team; same derivation used everywhere these ids are looked up
 export function agentItemId(
 	pluginId: string,
 	localId: string,
@@ -196,17 +144,8 @@ export function agentItemId(
 	return `pa_${sha256(`plugin-agent\0${pluginId}\0${localId}\0${scopeKind}\0${scopeId ?? ""}`).slice(0, 24)}`;
 }
 
-/**
- * Stable DB id for a plugin-declared subscription.
- * Deterministic from pluginId + localId + install scope.
- * See @lore on agentItemId — same scope guarantee applies.
- *
- * @lore BC5 T7b: renamed from `routineItemId` — the hash input literal
- * ("plugin-routine\0...") stays byte-for-byte unchanged on purpose, so an
- * already-installed plugin's subscription id does not churn on reinstall
- * (migration 0089 converts its routine row to a subscription under this
- * SAME id).
- */
+// Stable DB id for a plugin-declared subscription. Same scope guarantee as agentItemId.
+// @lore: hash input literal stays "plugin-routine\0..." unchanged — an existing install's id must not churn on reinstall
 export function subscriptionItemId(
 	pluginId: string,
 	localId: string,
@@ -232,17 +171,10 @@ export interface PluginMcpContributionRow {
  * The MCP servers of every enabled plugin in scope for the given team (factory
  * installs always, a team install only for its own team), read from each
  * install's `mcp.json` at the moment a session is provisioned.
- *
- * @lore The install folder is the only copy: nothing is written to the database
- * at install time, so an edit to the installed `mcp.json` reaches the next
- * session, and an install without a folder (no plugins directory configured)
- * brings no servers — there is no `${PLUGIN_ROOT}` to expand for it anyway.
- *
- * @lore The provisioner (run-orchestration, a different layer) cannot read
- * `plugins` — settings owns it. This is the settings-service door, wrapped by
- * the core-api layer in a boot capability the application hands to
- * orchestration as its plugin MCP port.
  */
+// @lore: install folder is the only copy; an edit to mcp.json reaches the next session; no folder → no MCP servers
+//
+// @lore: provisioner (run-orchestration) cannot read plugins — settings owns it; this door is wrapped in a boot capability
 export async function getPluginMcpContributions(
 	db: HyperIdleDb,
 	teamId: string | null,
@@ -277,13 +209,8 @@ export async function getPluginMcpContributions(
 /**
  * Copy plugin files to this install's own folder, `<pluginsBaseDir>/<installId>`.
  * Returns the destination path.
- *
- * @lore One folder per install: the `rmSync` below only ever removes this
- * install's own copy, so a second team's install never deletes the folder a
- * first team's restore reads. And a source that already IS the destination
- * is left alone — removing it first would delete the only copy (a bundled
- * folder or a folder install pointed at the install directory itself).
  */
+// @lore: rmSync removes only this install's folder — another team's restore is safe; source==dest is left alone to avoid deleting the only copy
 function persistPlugin(sourceDir: string, pluginsBaseDir: string, installId: string): string {
 	const dest = join(pluginsBaseDir, installId);
 	if (resolve(sourceDir) === resolve(dest)) return dest;
@@ -335,13 +262,7 @@ export async function installPlugin(
 
 		// Persist plugin files whenever we have somewhere to put them.
 		//
-		// @lore BA9g: this used to require `skills.length > 0 || mcpServers.length
-		// > 0`, on the reasoning that only those two need files on disk. That became
-		// wrong the moment an agent could carry an `identity` file: the shipped
-		// `role-personas` plugin has seven agents, no skills and no MCP servers, so
-		// it got NO install_path — and restore answered NO_INSTALL_PATH forever for
-		// the one plugin the batch added. Restore reads the plugin's files for any
-		// contributed document, so the condition is simply "can we persist".
+		// @lore: condition is simply "can we persist" — agents with identity files also need the install folder, not just skills and MCP servers
 		let installPath: string | null = null;
 		if (input.pluginsBaseDir) {
 			try {
@@ -437,14 +358,8 @@ export async function getInstalledPlugin(
 
 /**
  * Disable a plugin — its MCP servers stop reaching sessions at once.
- *
- * @lore BA9d: This function only flips plugins.state. The real disable work —
- * deactivating materialised subscriptions, agents, and skills that the
- * plugin created — lives in `platform-actions.ts`. Settings cannot write to
- * subscriptions, users, or documents (governance boundary). Both must
- * succeed or the plugin is in a split state; `platform-actions.ts` runs this
- * call first and the row-cleanup second, inside a try/catch.
  */
+// @lore: only flips plugins.state; deactivating subs/agents/skills lives in platform-actions.ts — governance boundary; run this first, cleanup second
 export async function disablePlugin(
 	db: HyperIdleDb,
 	pluginId: string,
@@ -471,13 +386,7 @@ export async function enablePlugin(db: HyperIdleDb, pluginId: string, now?: stri
 /** Remove a plugin: its row stays as a `removed` tombstone. */
 export async function removePlugin(db: HyperIdleDb, pluginId: string, now?: string): Promise<void> {
 	const ts = nowIso(now);
-	// @lore BA9d: All domain-row cleanup (subscriptions, agents, skills)
-	// happens in `platform-actions.ts` after this call — settings cannot
-	// write to those tables (governance boundary). `platform-actions.ts`
-	// wraps both calls; if this succeeds but the row cleanup fails, the
-	// plugin is in state='removed' with its rows still live. It catches that
-	// and returns REMOVE_CLEANUP_FAILED rather than silently leaving a split
-	// state.
+	// @lore: row cleanup (subscriptions/agents/skills) is in platform-actions.ts — settings cannot write those tables; split state surfaced as REMOVE_CLEANUP_FAILED
 	await db
 		.update(plugins)
 		.set({ state: "removed", removedAt: ts, updatedAt: ts })

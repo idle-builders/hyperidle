@@ -6,33 +6,14 @@
  * FORM of conversation. No parallel renderer (a hard rule). No duplicated diff
  * renderer (reuses `ReviewCodeDiff` via the `diff` Embed's `OpenTarget`).
  *
- * Architecture:
- *   - `derivePartsFromSession(entries, agent)` → `Part[]` (shared adapter)
- *   - `groupParts` + `aggregateToolRun` → session-aware stream grouping
- *   - Same `parts/*` renderers as `PartList` (NOT a parallel renderer)
- *   - `createOpenHandler` + `onOpenSession` callback (sub-agent recursion, task j)
- *   - `ChangedFilesPanel` — per-session file changes panel (aspect f)
- *   - Descriptor pills from `HarnessCapabilityDescriptor` (no per-backend branch)
- *   - Queued message: pre-Part FIFO state; renders right-aligned like delivered human turn
- *
- * Aggregation rule (architecture §c, concept Phase 4, founder review round 5):
+ * Aggregation rule:
  *   - ALL COMPLETED tool calls fold into one aggregate expander — INCLUDING failed.
  *   - The ONLY standalone tool row is the currently-RUNNING one.
  *   - Aggregate header signals failures ("· N failed" + ✗ in --status-error).
  *   - Changed files panel always surfaces diffs regardless of fold.
  *   - `aggregateAt = 2` (calm bias).
- *
- * Composer: REUSES the ConversationSurface's exact container treatment
- * (`rounded border bg-surface-elevated shadow`, outer `px-[18px] pb-[18px] pt-[9px]`).
- * Adds descriptor pills + working/queue/Stop state.
- *
- * @lore AM3: `initialsOf` is exported from `PartList.tsx` (the canonical
- * location — it serves both conversation + session avatars from one place).
- *
- * @lore AM3: The diff `OpenTarget` uses the file path as `artifactId` placeholder.
- * In production the harness event will carry a real artifactId; for now the label
- * serves as a stable handle. A precise follow-up: `diffEmbed` in part.ts line ~440.
  */
+// @lore: initialsOf — exported from PartList.tsx; serves both conversation and session avatars from one canonical location
 
 import type { ActivityEntry } from "@hyperidle/domain-model";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
@@ -226,7 +207,6 @@ function aggregateVerb(tools: ReadonlyArray<Extract<Part, { kind: "tool" }>>): s
  * HARD AGGREGATE — ALL completed tool calls fold here INCLUDING failed ones.
  * The aggregate header signals failures ("· N failed" + ✗ in --status-error).
  * On expand, the bare rows appear beneath a left rule.
- * (Architecture §c / concept Phase 4 / founder review round 5 — FINAL rule.)
  */
 function HardAggregate({
 	tools,
@@ -287,17 +267,11 @@ function HardAggregate({
 }
 
 /**
- * Changed files panel — per-session file changes (aspect f, architecture §d).
+ * Changed files panel — per-session file changes.
  * Surfaces ALL file diffs from the session's tool Parts regardless of aggregation.
- * The changed-file list is a label, not a control — see the panel below.
- *
- * @lore AM3: Diffs are NEVER lost to folding — this panel always surfaces them.
- *
- * The panel is READ-ONLY. Its rows used to be buttons firing an OpenTarget whose
- * `artifactId` was the file PATH — a placeholder, as the note this replaces said
- * outright, that never resolved to anything. It named the files then and it names
- * them now; the difference is that it no longer offers a click that does nothing.
+ * READ-ONLY: rows name the files but do not offer navigation (no resolved artifactId target).
  */
+// @lore: diffs panel — never hidden by aggregation fold; surfaces all file changes regardless of whether tool rows are collapsed
 function ChangedFilesPanel({
 	toolParts,
 }: {
@@ -376,11 +350,8 @@ function ChangedFilesPanel({
 
 /**
  * SessionStream — renders author groups with tool-run aggregation.
- *
- * Architecture §c: "a renderer grouping BESIDE `groupParts`". This is NOT a
- * parallel renderer — it uses the SAME `parts/*` renderers as `PartList`, with
- * an additional `aggregateToolRun` step that groups consecutive completed tool
- * Parts. One renderer, one set of components, one extra grouping layer.
+ * Uses the SAME `parts/*` renderers as `PartList` with an extra `aggregateToolRun` step.
+ * One renderer, one set of components, one extra grouping layer (NOT a parallel renderer).
  */
 
 /** Render a single ToolRunBlock (aggregate or single Part). */
@@ -419,9 +390,7 @@ function renderBlock(block: ToolRunBlock, onOpen: OpenHandler): JSX.Element {
  * consecutive tool Parts or a single non-tool Part. Each tool segment is passed
  * through `aggregateToolRun` (the shared canonical function, `aggregateAt = 2`).
  *
- * This is the "aggregation grouping BESIDE `groupParts`" from architecture §c.
- * Using `aggregateToolRun` from `@hyperidle/conversation-parts` keeps the aggregation rule
- * (ALL completed fold, running stays standalone) in one place.
+ * Using `aggregateToolRun` keeps the aggregation rule (ALL completed fold, running stays standalone) in one place.
  */
 function buildGroupBlocks(parts: ReadonlyArray<Part>): ToolRunBlock[] {
 	const result: ToolRunBlock[] = [];
@@ -642,11 +611,7 @@ export function SessionView({
 
 	const running = status === "streaming";
 
-	// The header Stop control — the real `call("stop_session")` site the
-	// governance rule wants. Its answer is the
-	// pre-stop row: this view learns the session
-	// ended only when `useSessionActivity` re-runs `watch_session` off the
-	// nudge, never from this call's response.
+	// Stop fires stop_session directly; the view learns the session ended only when useSessionActivity re-runs watch_session, never from this call's response.
 	const handleStop = (): void => {
 		if (!sessionId) return;
 		void call("stop_session", { id: sessionId });
@@ -657,7 +622,7 @@ export function SessionView({
 
 	const handleSend = (text: string): void => {
 		if (running) {
-			// Queue the message — non-interrupting (concept Phase 4 queue contract)
+			// Queue the message — non-interrupting; delivers after the agent finishes its current turn
 			const queuedMsg: QueuedMessage = {
 				id: `q-${Date.now()}`,
 				text,

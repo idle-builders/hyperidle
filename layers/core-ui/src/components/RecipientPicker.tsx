@@ -1,26 +1,3 @@
-/**
- * Q1 §4.4: RecipientPicker component.
- *
- * Inline recipient picker for new DM thread creation. Built on the shared
- * `Combobox` in server-driven mode (options = `useRecipients`' current
- * results, passing `onQueryChange`) — the same pattern `TaskDependencyField`
- * uses for searching tasks.
- *
- * States:
- * - browsing: Combobox (closed trigger + popover search) visible
- * - selected: recipient chosen, message textarea visible
- * - sending: send_message({recipients}) in flight, inputs disabled
- *
- * @lore Q1: This is a page-level composition, not a design-system primitive.
- * It lives in layers/core-ui/src/components/ alongside GlobalSearchPanel.
- *
- * @lore the hand-built listbox (role=listbox rows with an Avatar and a
- * StatusChip each) is gone with the migration to Combobox — each row's
- * avatar and live-session dot now come back through `ComboboxOption.leading`
- * instead of a separate colored pill. The post-pick header (avatar + name +
- * Change) was always untouched.
- */
-
 import { type JSX, type KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
 import { Avatar, Button, Combobox, Input, LiveDot } from "../ds";
 import type { Recipient } from "../hooks/useRecipients.js";
@@ -109,11 +86,7 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 	);
 
 	const handleMessageKeyDown = useCallback(
-		// @lore AZ7 B2 (review round 1): Input's textarea mode types onKeyDown for
-		// HTMLInputElement (InputProps extends InputHTMLAttributes — see
-		// Input.tsx's own docblock on the textarea-mode cast). This handler only
-		// reads key/shiftKey/preventDefault, none of which are element-specific,
-		// so widening the param type to the union is a genuine type, not a cast.
+		// @lore: textarea onKeyDown — Input.tsx casts to HTMLInputElement; widening to HTMLTextAreaElement union is type-correct; reads key/shiftKey/preventDefault only
 		(e: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
 			if (e.key === "Escape") {
 				onCancel();
@@ -187,11 +160,6 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 							Change
 						</button>
 					</div>
-					{/*
-					 * @lore AZ7 B2 (review round 1): was a hand-rolled <textarea>
-					 * already on token-legal fill/border but reproducing Input's own
-					 * textarea-mode recipe by hand. Migrated to Input's textarea mode.
-					 */}
 					<Input
 						ref={messageRef}
 						textarea

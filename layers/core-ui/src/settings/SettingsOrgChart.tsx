@@ -1,51 +1,5 @@
-/**
- * SettingsOrgChart — Org Chart settings section.
- *
- * P4 Task 10: Settings section (AC-12, AC-14)
- * Displays org chart edges with Add/Delete functionality.
- *
- * - Fetches every user via `search_users({})` — each row carries its own
- *   `edges` and its effective `team`; users/edges/teams are all derived from
- *   that one list.
- * - Edge table: FROM | MECHANISM | TARGET | delete button
- * - "Add Edge" expands inline form with From select, Mechanism select, Target select
- * - Delete calls `edit_user({ id: fromUserId, edges: { remove: [edgeId] } })`
- * - Add calls `edit_user({ id: fromUserId, edges: { add: [{mechanism, target}] } })`
- *
- * @lore BC5 T9: the door swap. A team-mechanism edge's target is the team's
- * real id directly now — the old `team_members` indirection (`teamActualId`)
- * is gone along with the team_members table itself.
- *
- * @lore visual-parity W-06: DaisyUI form classes replaced with Hearth token styling.
- * @lore visual-parity issue-16: Target field is now context-aware:
- * - mechanism "direct" → select from users list
- * - mechanism "team" → select from each user's effective `team` (id=teams.id, name=teams.name)
- * - mechanism "function" → free-text input
- * Inline error display added below the form (not just toast).
- *
- * @lore AF15: Three fixes:
- * 1. OrgData now includes teams:{id,name}[] derived from every user's effective team.
- * 2. Team select uses the derived teams list (real team ids) instead of deriveTeams
- *    (circular edge-derived derivation). deriveTeams deleted — was a circular dependency
- *    that made the first team edge impossible to create.
- * 3. Solo short-circuit (1 human) relaxed: Add-Edge form still renders. Mechanism
- *    defaults to "function" in solo mode — the zero-dependency path. Guidance text
- *    becomes a hint above the form, not a blocker.
- *
- * @lore AF15: Empty team state copy fixed — no longer says "create one in Work"
- * (Work roster does not create teams; only SetupFlow does). Now points to the
- * function mechanism and Setup, which are real affordances.
- *
- * @lore The "From" field and the "direct"/"team" Target pickers are the
- * shared `Combobox` (client-filtered — `users`/`teams` are already the full
- * list) instead of a closed `<Select>`. "Mechanism" stays a `Select` — a
- * short fixed list, not an entity picker. The "no teams yet" guidance moved
- * from a disabled option that impersonated the closed trigger's value to
- * `Combobox`'s own `emptyMessage`, shown inside the popover once opened.
- * "From" and "Target" never render together with the same visible label —
- * mechanism selection decides which one shows — so no accessible-name
- * override is needed; the visible labels are already unique.
- */
+// @lore: team-mechanism edge target — real team id directly; no team_members indirection
+// @lore: teams list derived from users' effective team; deriving from edges was circular (first edge impossible)
 
 import { type JSX, useCallback, useEffect, useState } from "react";
 // hearth-internal-padding
@@ -129,7 +83,6 @@ export function SettingsOrgChart(): JSX.Element {
 	const [adding, setAdding] = useState(false);
 	const [deletingId, setDeletingId] = useState<string | null>(null);
 	const [formError, setFormError] = useState<string | null>(null);
-	// @lore FR-10: per-row action menu open state — only one open at a time.
 	const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
 	const loadOrg = useCallback(async (): Promise<void> => {
@@ -267,10 +220,10 @@ export function SettingsOrgChart(): JSX.Element {
 
 	return (
 		<div className="flex flex-col gap-[18px]">
-			{/* Solo guidance hint (shown above the form, not instead of it) */}
+			{/* solo guidance hint — shown above the form, not instead of it */}
 			{soloHint}
 
-			{/* Edge list */}
+			{/* edge list */}
 			{edges.length === 0 ? (
 				<EmptyState
 					compact
@@ -278,7 +231,6 @@ export function SettingsOrgChart(): JSX.Element {
 					description="Teams don't auto-create org edges. Add a reporting line, function, or team relationship to define your chart."
 				/>
 			) : (
-				// @lore FR-10: destructive actions moved behind a Menu — no inline Delete on rows.
 				<ItemList variant="flush" isEmpty={false}>
 					{edges.map((edge) => (
 						<Row
@@ -341,7 +293,7 @@ export function SettingsOrgChart(): JSX.Element {
 				</ItemList>
 			)}
 
-			{/* Add Edge */}
+			{/* add edge */}
 			{!showAddForm ? (
 				<Button
 					variant="ghost"
@@ -423,7 +375,7 @@ function AddEdgeForm({
 	return (
 		<div className="border-width-default flex flex-col gap-[12px] p-[18px]  border-[var(--border-subtle)] rounded-[var(--r-subtle)]">
 			<div className="flex gap-[12px] flex-wrap">
-				{/* From */}
+				{/* from */}
 				<div className="flex-1 min-w-[120px]">
 					<Combobox
 						id="org-from"
@@ -438,7 +390,7 @@ function AddEdgeForm({
 					/>
 				</div>
 
-				{/* Mechanism */}
+				{/* mechanism */}
 				<div className="flex-1 min-w-[120px]">
 					<Select
 						id="org-mechanism"
@@ -451,7 +403,7 @@ function AddEdgeForm({
 					/>
 				</div>
 
-				{/* Target — context-aware by mechanism */}
+				{/* target — context-aware by mechanism */}
 				<div className="flex-1 min-w-[120px]">
 					{mechanism === "direct" ? (
 						<Combobox
@@ -466,15 +418,6 @@ function AddEdgeForm({
 							options={users.map((u) => ({ id: u.id, label: u.name }))}
 						/>
 					) : mechanism === "team" ? (
-						/* Team select from real teams (each user's effective `team`).
-						 * value=team.id (teams.id — what the server validates for mechanism:"team").
-						 * label=team.name (human-readable).
-						 * @lore AF15: The old deriveTeams() derived from existing edges — circular.
-						 * Now sourced from `search_users`'s per-row `team`.
-						 * @lore BA6: the empty-teams guidance used to BE the closed
-						 * trigger's displayed value (a disabled option standing in for
-						 * "selected"). Combobox has no such slot, so it is `emptyMessage`
-						 * instead — shown inside the popover once opened, not before. */
 						<Combobox
 							id="org-target"
 							label="Target"
@@ -503,7 +446,7 @@ function AddEdgeForm({
 				</div>
 			</div>
 
-			{/* Inline error */}
+			{/* inline error */}
 			{formError && (
 				<p
 					role="alert"

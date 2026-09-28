@@ -1,19 +1,10 @@
-/**
- * Preload script — exposes window.__HYPERIDLE__ via contextBridge.
- *
- * @lore N4: Sandboxed preloads (sandbox: true) run in a restricted CJS
- * context at runtime. In dev mode tsx handles the TS→JS transform; in
- * production esbuild compiles this to CJS with `electron` as external
- * (producing `require("electron")`). Using static `import` in source
- * gives us full type checking while the toolchain handles the CJS output.
- */
+// @lore: preload — sandboxed preloads run in restricted CJS at runtime; static import gives type checking; esbuild compiles to CJS with electron as external
 
 import { contextBridge, ipcRenderer } from "electron";
 
 contextBridge.exposeInMainWorld("__HYPERIDLE__", {
 	apiKey: process.argv.find((a: string) => a.startsWith("--api-key="))?.split("=")[1] ?? "",
 	platform: "electron" as const,
-	// S4: backend mode is passed from main process via additionalArguments
 	backendMode: (process.argv.find((a: string) => a.startsWith("--backend-mode="))?.split("=")[1] ??
 		null) as "local" | "shared" | null,
 	credentials: {
@@ -29,7 +20,6 @@ contextBridge.exposeInMainWorld("__HYPERIDLE__", {
 		ipcRenderer.on("open-settings", callback);
 		return () => ipcRenderer.removeListener("open-settings", callback);
 	},
-	// S4: Worker IPC bridge — only functional in shared-mode Electron
 	worker: {
 		enable: (maxConcurrent: number): Promise<void> =>
 			ipcRenderer.invoke("worker:enable", maxConcurrent),

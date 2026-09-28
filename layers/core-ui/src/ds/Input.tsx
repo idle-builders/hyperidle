@@ -1,23 +1,11 @@
 /**
  * Input — Tier 0 foundation primitive.
  *
- * Label, hint, error states. textarea mode. Custom CSS matching Input.html.
- *
- * @lore W2: No DaisyUI — custom CSS per Input.html.
- * @lore AQ-005: Mobile inputs need ≥16px font at ≤768px to prevent iOS Safari zoom.
- * Input.html uses 15px; the responsive override adds 16px at mobile.
- * @lore W2 hearth-internal-padding: input padding (10px vertical) is optically
- * tuned, not on the 6px grid. AQ-001 form exemption applies.
- * @lore AZ7 B2 (review round 1): forwardRef added — Button's docblock used to
- * say it was the only Tier 0 primitive that needed one ("no other Tier 0
- * primitive currently needs ref forwarding"). HostThreadSection's inline
- * composer needs a ref to the input for the exact reason Button's does
- * (programmatic focus: scrollIntoView + focus() when a block-reply prefill
- * arrives) and was, until this fix, the reason it stayed a hand-rolled
- * `<input>` instead of adopting this component. The ref is typed as the
- * union of both DOM element types the component can render (textarea mode
- * vs input mode) since which one a given caller gets depends on `textarea`.
+ * Label, hint, error states. textarea mode.
  */
+// @lore: mobile font — ≥16px at ≤768px prevents iOS Safari zoom; responsive override applies at mobile
+// @lore: hearth-internal-padding — input padding (10px vertical) is optically tuned, not on the 6px grid
+// @lore: Input forwardRef — typed as HTMLInputElement | HTMLTextAreaElement union; which one a caller gets depends on the textarea prop
 
 // hearth-internal-padding
 
@@ -34,10 +22,7 @@ import { dsProps } from "./ds-attrs.js";
  * textarea-specific attrs. Callers using textarea mode may need to cast onChange
  * when targeting HTMLTextAreaElement — the runtime element IS an HTMLTextAreaElement.
  *
- * @lore AH3 D4: `rows` was previously missing from InputProps because InputProps only
- * extended HTMLInputElement attrs. Added textarea-specific fields to the interface so
- * callers can pass `rows` without TypeScript errors. The cast in the implementation
- * is intentional (see Input.tsx line ~56).
+ * Callers using textarea mode may need to cast onChange when targeting HTMLTextAreaElement.
  */
 export interface InputProps
 	extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "size" | "rows"> {
@@ -49,20 +34,7 @@ export interface InputProps
 	rows?: number;
 }
 
-// AQ-015 requires touch targets ≥ 44px at ≤ 1024px. min-h-[44px] is the base
-// (mobile-first); min-[1025px]:min-h-[36px] relaxes strictly ABOVE 1024px so
-// the floor holds through 1024px inclusive (Tailwind's lg: fires AT 1024px,
-// which is the off-by-one Button.tsx also fixes — see its lore).
-//
-// @lore AZ7 review-round-2 NB-2: this height pair used to live INSIDE
-// INPUT_BASE, shared by both input and textarea mode. CSS cascade order is
-// determined by each utility's position in the generated stylesheet, not by
-// where its class token sits in the `className` string — so textarea mode's
-// own `min-h-[80px]` (appended after `${INPUT_BASE}` in the template
-// literal) never actually won at ≥1024px: `lg:min-h-[36px]` still applied,
-// measured on RecipientPicker's message box. Splitting the height utilities
-// out of the shared base means the textarea never carries `lg:min-h-[36px]`
-// at all, so there is no competing rule for `min-h-[80px]` to lose to.
+// @lore: INPUT_SINGLE_LINE_HEIGHT — split from INPUT_BASE; textarea must not carry 36px min-h; separate const avoids cascade conflict with textarea's 80px min-h
 const INPUT_BASE =
 	"w-full px-[12px] py-[10px] bg-[var(--surface-elevated)] border-width-default border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] outline-hidden focus:border-[var(--accent-deep)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed";
 

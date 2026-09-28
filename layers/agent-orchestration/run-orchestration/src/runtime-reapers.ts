@@ -101,9 +101,7 @@ async function dirMtimeMs(dirPath: string): Promise<number> {
  * Start the workspace reaper on a 60-minute interval. Returns a disposer that
  * clears the interval.
  *
- * @lore AF7 §6: the interval resets on every server restart — worst case is a
- * 60-minute gap before the next sweep, which is irrelevant for a TTL-of-hours
- * reclamation. No persistence needed.
+ * @lore: sandbox reaper interval — resets on restart; worst case 60-min gap is irrelevant for a TTL-of-hours reclamation; no persistence needed
  */
 function startSandboxReaper(db: HyperIdleDb, options: SandboxReaperOptions): () => void {
 	const handle = setInterval(() => {

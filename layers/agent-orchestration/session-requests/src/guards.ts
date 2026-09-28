@@ -1,9 +1,3 @@
-/**
- * Agent-work-intent type guards, local to @hyperidle/session-requests.
- *
- * @lore AU44-b8: moved from framework/domain-model/src/agent-work-intent-kinds.ts.
- * Guards over event-bus types used only within agent-orchestration.
- */
 import {
 	AGENT_WORK_INTENT_KINDS,
 	type AgentWorkIntentKind,

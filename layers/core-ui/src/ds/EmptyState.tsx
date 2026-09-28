@@ -1,16 +1,7 @@
 /**
  * Shared empty-state region.
- *
- * @lore J8 AC: empty-state copy must be meaningful, not blank. Pages pass a
- * concrete noun-forward title and a short agent-forward description so the
- * user knows what will eventually populate the list. Rendered with
- * `role="status"` so assistive tech reads the message without requiring a
- * route change.
- *
- * @lore visual-parity: matches EmptyState.html exactly — surface-page bg
- * (not elevated), 36px padding, no shadow, 20px/600 title, 15px/secondary
- * description, 48x48 icon container with tinted bg, pill action button.
  */
+// @lore: empty-state copy — noun-forward title, agent-forward description; role="status" announces to assistive tech without a route change
 import type { JSX, ReactNode } from "react";
 import { dsProps } from "./ds-attrs";
 
@@ -35,10 +26,7 @@ export interface EmptyStateProps {
 	/**
 	 * Compact (panel-inline) variant. When true: 18px padding, no max-width,
 	 * never renders the 48px icon block, 15px/600 title, 13px description.
-	 * @lore AI5: embodies the hand-rolled panel one-liners
-	 * (e.g. ArtifactThreadsSummary) so they have a primitive
-	 * to reach for instead of forking. Default false keeps the full page-scale
-	 * variant frozen by EmptyState.test.tsx.
+	 * Default false keeps the full page-scale variant frozen by EmptyState.test.tsx.
 	 */
 	compact?: boolean;
 	/** data-testid passthrough so pages can scope E2E selectors. */

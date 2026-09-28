@@ -6,46 +6,18 @@ export interface TagProps {
 	label: string;
 	/** Optional Tier-2 kind. When omitted, renders the legacy neutral chip. */
 	kind?: TagKind;
-	/**
-	 * `"neutral"` (default) is the muted gray pill. `"accent"` is an
-	 * uppercase, accent-tinted badge (bg-accent-primary-dim, text-accent-deep)
-	 * — for a chip that names something distinctive (a source kind, a count,
-	 * a role) rather than a plain inline label. `"solid"` is a solid
-	 * accent-fill badge (bg-accent-primary, text-on-accent) — the attention
-	 * signal for an unread/blocking count, where the tinted `"accent"` look
-	 * reads as too quiet. Only applies when `kind` is omitted — a kind-tagged
-	 * chip keeps its own tint.
-	 */
+
 	tone?: "neutral" | "accent" | "solid";
 }
 
-/**
- * @lore Tag styling matches the HTML reference in framework/design-system/html/Tag.html.
- * Uses custom Tailwind classes instead of DaisyUI badge so the TSX and HTML
- * renderings are pixel-identical.
- *
- * @lore All spacing/radius values use explicit pixel units (not rem-based
- * Tailwind utilities like gap-1, px-2, py-0.5, rounded-lg) because the
- * design-system viewer sets html { font-size: 14px }, which makes 1rem=14px.
- * Tailwind rem classes would compute to wrong values (e.g. gap-1=3.5px
- * instead of 4px, px-2=7px instead of 8px, rounded-lg=7px instead of 8px).
- *
- * @lore K10 / K11: badge-as-callout — every axis stays literal, same
- * rationale as StatusChip. Free-form labels make the case stronger: long
- * labels would visually swell at comfortable and break the ThreadRow
- * inline flow. The `design/no-density-tokens` lint rule treats Tag as
- * density-static. See framework/design-system/research/density-audit.md
- * § 3.1.2.
- */
+// @lore: custom Tailwind not DaisyUI badge — TSX/HTML pixel-identical; px-based values not rem (font-size:14px makes rem compute wrong)
+
+// @lore: density-static — badge-as-callout dimensions stay literal; long labels would swell at comfortable density and break inline flow
 const TAG_BASE =
 	"inline-flex items-center gap-[4px] px-[8px] py-[2px] rounded-[var(--r-pill)] whitespace-nowrap border-none";
 
 export function Tag({ label, kind, tone = "neutral" }: TagProps): JSX.Element {
-	// @lore J1 review: defensive guard — if a caller passes an arbitrary
-	// string typed as `TagKind` (e.g. `kind={item.kind as TagKind}` for a
-	// document kind not in the Tier-2 set), `meta` would be undefined
-	// and the render path would crash on `meta.tintClass`. Fall back to the
-	// neutral chip in that case so the page stays up.
+	// @lore: defensive guard — arbitrary string cast to TagKind leaves meta undefined; crash on meta.tintClass; neutral chip fallback keeps page up
 	const meta = kind ? TAG_KIND_ICONS[kind] : undefined;
 	if (!meta) {
 		if (tone === "accent") {

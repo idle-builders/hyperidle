@@ -1,19 +1,8 @@
 /**
- * L1a — `Composer` design-system component.
+ * Composer — always-rendered plain-message input.
  *
- * Plan §7.6; approved.md §2.5. Always-rendered plain-message input.
  * Cmd/Ctrl+Enter submits. No optimistic UI — disable on submit.
- *
- * UI-062 extensions:
- *   - `leading?: ReactNode` — slot rendered to the left of the textarea
- *     (used by ConversationSurface for its insert "+" button + menu).
- *   - `iconSend?: boolean` — when true the send button renders an SVG
- *     arrow icon instead of the "Send" text label.
- *
- * @lore UI-062: ConversationSurface previously had its own hand-rolled
- * Composer. Extending with `leading` and `iconSend` consolidates to one
- * implementation in the design system without losing any affordance.
- * SessionComposer stays separate — it depends on @hyperidle/harness-capability
+ * SessionComposer stays separate: it depends on @hyperidle/harness-capability
  * which cannot be a DS dependency.
  */
 
@@ -36,27 +25,16 @@ export interface ComposerProps {
 	/**
 	 * Optional slot rendered to the LEFT of the textarea inside the composer row.
 	 * Use for contextual controls like an insert-menu toggle button.
-	 *
-	 * @lore UI-062: ConversationSurface passes its "+" insert button here so
-	 * the DS Composer is the single composer implementation across the app.
 	 */
 	leading?: ReactNode;
 	/**
 	 * When true the send button renders an SVG arrow icon instead of "Send" text.
 	 * Use in full-surface conversations where a compact icon button fits better.
-	 *
-	 * @lore UI-062: ConversationSurface needs an icon send button (primary pill
-	 * with arrow) to match the Hearth conversation design.
 	 */
 	iconSend?: boolean;
 	/**
 	 * Textarea placeholder text. Defaults to "Reply to thread…".
-	 * Pass a contextual string (e.g. "Message Founder, Aria…") to give users a
-	 * recipient hint — the affordance ConversationSurface relied on before UI-062.
-	 *
-	 * @lore UI-062: ConversationSurface passes participant names here so the
-	 * contextual placeholder affordance ("Message X, Y…") is preserved after
-	 * migrating from the hand-rolled Composer to DS Composer.
+	 * Pass a contextual string (e.g. "Message Founder, Aria…") to give users a recipient hint.
 	 */
 	placeholder?: string;
 }
@@ -117,9 +95,6 @@ export function Composer({
 				<button
 					type="button"
 					onClick={unresolvedReviewLink.onClick}
-					// L1 step9 (Design-C4): minimum 44px touch target at viewport
-					// ≤1024px (AQ-015). The `min-h-[44px]` floor honors the rule
-					// without inflating the visual padding.
 					className="type-control text-left  text-[var(--accent-deep)] hover:underline min-h-[44px] flex items-center focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]"
 				>
 					Unresolved review · acting required ↑
@@ -130,9 +105,7 @@ export function Composer({
 					{error}
 				</div>
 			) : null}
-			{/* W3 AC-12: data-composer-row with items-stretch so textarea and button are equal height.
-			    Unified pill when iconSend: row container carries the border+bg+radius; textarea is
-			    transparent inside it. Standard form layout (iconSend=false): textarea owns its border. */}
+			{/* data-composer-row: row container carries border+bg+radius for unified pill (iconSend=true); textarea is transparent inside it; standard layout lets textarea own its border */}
 			<div
 				data-composer-row
 				className={
@@ -147,11 +120,6 @@ export function Composer({
 				<textarea
 					data-testid="composer-textarea"
 					rows={1}
-					// @lore AZ7 review-round-2 NB-3: was `bg-[var(--surface-page)]` — the
-					// page-canvas token used as a fill, the same Set 3 second-job
-					// defect B3 already fixed on SearchField. `--surface-elevated` is
-					// the closed Input set's fill (DESIGN.md: "text inputs").
-					// Unified pill (iconSend=true): bg transparent — row container supplies the fill.
 					className={`type-input flex-1 min-h-[44px] resize-none text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] focus:outline-hidden ${
 						iconSend
 							? "bg-transparent border-none outline-none px-[6px] py-[9px]"
@@ -194,7 +162,6 @@ export function Composer({
 							void handleSubmit();
 						}}
 						disabled={submitting || !text.trim()}
-						// L1 step9 (Design-C4): 44px minimum touch target.
 						className="type-control rounded-[var(--r-pill)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] hover:bg-[var(--accent-primary-hover)] active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] px-[12px] min-h-[44px] self-stretch"
 					>
 						{submitting ? "Sending…" : "Send"}

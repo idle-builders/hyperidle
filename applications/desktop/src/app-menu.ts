@@ -1,7 +1,3 @@
-/**
- * Five-menu application menu builder.
- */
-
 import type { MenuItemConstructorOptions } from "electron";
 import { app, shell } from "electron";
 
@@ -12,16 +8,7 @@ export interface AppMenuOptions {
 	onOpenSettings: () => void;
 }
 
-/**
- * Build and return the five-menu application menu template as raw constructor options.
- * Menus: HyperIdle, Edit, View, Window, Help.
- *
- * In dev mode, the View menu includes Reload and Toggle DevTools items.
- *
- * @lore AF2: Returns the raw template array (MenuItemConstructorOptions[]) so the caller
- * can pass it to Menu.buildFromTemplate(). This avoids a cast from Menu → MenuTemplate[]
- * and keeps the return type accurate. main.ts does Menu.setApplicationMenu(Menu.buildFromTemplate(template)).
- */
+// @lore: buildAppMenuTemplate — returns MenuItemConstructorOptions[] not Menu; avoids cast; caller calls Menu.buildFromTemplate(template)
 export function buildAppMenuTemplate(options: AppMenuOptions): MenuItemConstructorOptions[] {
 	const { isDev, logDir, dataDir, onOpenSettings } = options;
 

@@ -1,10 +1,3 @@
-/**
- * Agent-orchestration-owned error classes and guards.
- *
- * @lore AU44-b8: error classes moved from framework/domain-model/src/errors.ts.
- * Guards moved from framework/domain-model/src/agent-work-intent-kinds.ts.
- * All symbols are used exclusively within agent-orchestration.
- */
 import {
 	AGENT_WORK_INTENT_KINDS,
 	type AgentWorkIntentKind,
@@ -37,14 +30,7 @@ export class ConcurrencyLimitError extends Error {
 	}
 }
 
-/**
- * @lore AU21 §12 — the emit→deactivate→drain race, RESOLVED (founder,
- * 2026-07-27): if the agent resolved at emit is deactivated by the time
- * orchestration goes to provision the session, that is a provisioning
- * failure like any other — reported via the pre-handoff
- * `agent_run_admission_failed` channel with `failureCode:
- * "TARGET_AGENT_NOT_RUNNABLE"`, no bespoke race-handling.
- */
+// @lore: deactivated-after-admission — treated as provisioning failure (TARGET_AGENT_NOT_RUNNABLE), not special race-handling
 export class TargetAgentNotRunnableError extends Error {
 	constructor(public readonly agentId: string) {
 		super(`Agent '${agentId}' is not a runnable AI agent (deactivated after admission was baked)`);
@@ -53,11 +39,8 @@ export class TargetAgentNotRunnableError extends Error {
 }
 
 /**
- * Thrown by session provisioning when no registered adapter matches the
- * agent's harnessType.
- *
- * @lore AH2: Distinct from MissingCredentialError — this is a configuration
- * problem (no adapter registered for that type), not a credential problem.
+ * Thrown by session provisioning when no registered adapter matches the agent's harnessType.
+ * @lore: NoEligibleHarnessError — config problem (no adapter for type), not a credential problem; distinct from MissingCredentialError
  */
 export class NoEligibleHarnessError extends Error {
 	constructor(
@@ -77,10 +60,8 @@ export class NoEligibleHarnessError extends Error {
  * empty, paused, filtered out, or full. `reason` comes from the pool itself,
  * which is the only thing that can tell those apart.
  *
- * Exists as a named class purely so the failure gets a usable `error_code`:
- * the durable record derives it from `err.name`, and a plain `new Error` lands
- * as the literal string `"Error"` — which is what every failed request in a
- * real database used to carry.
+ * Named class (not a plain Error) so the failure gets a usable `error_code`
+ * — the durable record derives it from `err.name`.
  */
 export class NoAvailableHarnessError extends Error {
 	constructor(public readonly reason: string) {

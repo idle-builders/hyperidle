@@ -5,8 +5,7 @@ import type { z } from "zod";
  * /api/actions/<name>`), an MCP tool, the UI's `call("<name>", …)`, and this
  * declaration itself. `framework/domain-model` is where a declaration lives
  * because the UI cannot import `core-api` and must read the exact same
- * `input`/invariant shape the server runs — see the architecture doc
- * §3.
+ * `input`/invariant shape the server runs.
  *
  * `input`/`output` must be `z.toJSONSchema`-able: no `Date`, no `.transform()`.
  */

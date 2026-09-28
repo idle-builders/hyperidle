@@ -25,10 +25,7 @@ interface HyperIdleElectronBridge {
 	/** Backend mode: "local" (embedded server) or "shared" (remote server). */
 	backendMode?: "local" | "shared" | null;
 	/**
-	 * @lore The bridge used to carry six credential channels; five had no
-	 * renderer caller left once CredentialsTab stopped using them. set is the
-	 * only one that remains — the Worker settings field writes the shared
-	 * backend key through it and never reads the value back.
+	 * @lore credentials.set only — Worker settings writes shared backend key; no read-back needed
 	 */
 	credentials: {
 		set(name: string, value: string): Promise<{ stored: boolean; warning?: string }>;

@@ -1,17 +1,5 @@
-/**
- * The plugin service's record of what each plugin contributed.
- *
- * @lore BA9g: provenance used to be recorded seven ways, each covering a
- * different subset, so no surface could answer "what did this plugin
- * contribute" and the lifecycle operations disagreed with one another. Two of
- * the seven were never read at all. This module is the only answer now.
- *
- * The plugin service says WHICH rows a plugin owns; the service that owns each
- * table does the write. That is why nothing here writes `users`,
- * `subscriptions` or `documents` — it hands their ids to the owner instead.
- * It replaces a `plugin_id` column on `users` and on `subscriptions`, which
- * was the plugin service's provenance sitting in tables it does not own.
- */
+// Single source of truth for plugin provenance.
+// @lore: plugin service records WHICH rows it owns; the table-owning service does the writes (users/subscriptions/documents)
 
 import { pluginContributions, type WriteExecutor } from "@hyperidle/db";
 import type { PluginContributionKind } from "@hyperidle/domain-model";
@@ -91,13 +79,7 @@ export async function contributedEntityIds(
 	return rows.map((r) => r.entityId);
 }
 
-/**
- * Mark a contribution as the person's now, so a reinstall leaves it alone.
- *
- * This replaces `documents.updated_by = 'plugin:<id>'`, a sentinel that
- * was written and reset but never read — and which rendered in the knowledge
- * view as a raw `plugin:<id>` author string.
- */
+/** Mark a contribution as the person's — a reinstall leaves it alone. */
 export async function markDetached(
 	exec: WriteExecutor,
 	input: {

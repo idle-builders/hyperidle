@@ -1,12 +1,4 @@
 /** Consolidated private remote-worker ingress. */
-/**
- * @lore AU26 B1a: the local `constantTimeStringEqual` this file used to declare
- * existed only because `run-orchestration` could not import core-api's copy.
- * A1 removed that reason — the primitive now lives in `@hyperidle/domain-model`,
- * which both apps may import — so the second hand-rolled copy is deleted, not
- * kept in sync.
- */
-
 import { constantTimeStringEqual } from "@hyperidle/domain-model/http";
 import type { HarnessAdapter } from "@hyperidle/harness-protocol";
 import type { Hono } from "hono";
@@ -44,12 +36,7 @@ interface RunOrchestrationRemoteHarnessAdapterFactory {
 
 // ── Zod schemas for worker protocol messages ──────────────────────────────────
 
-/**
- * @lore S2-F05: Worker WebSocket messages must be Zod-validated before processing
- * to prevent type-unsafe `as` casts from letting malformed messages through.
- * Validation rejects malformed messages early rather than propagating bad data
- * into session routing logic.
- */
+// @lore: worker message validation — Zod parse before processing; prevents type-unsafe `as` casts from propagating malformed messages into session routing
 const WorkerRegisterSchema = z.object({
 	type: z.literal("register"),
 	id: z.string().min(1),
@@ -77,7 +64,7 @@ const WorkerErrorSchema = z.object({
 	message: z.string(),
 });
 
-/** S4: pause/resume protocol messages */
+/** Pause/resume protocol messages. */
 const WorkerPauseSchema = z.object({ type: z.literal("pause") });
 const WorkerResumeSchema = z.object({ type: z.literal("resume") });
 
@@ -90,18 +77,7 @@ const WorkerToServerMessageSchema = z.discriminatedUnion("type", [
 	WorkerResumeSchema,
 ]);
 
-/**
- * Module-level registry of live worker sockets, keyed by worker id.
- * Used to probe incumbent liveness before accepting a duplicate-id register.
- *
- * @lore AF11 Hole 3: AdapterPool only stores HarnessAdapter entries (no WS ref).
- * We track WS readyState separately so liveness can be determined without coupling
- * the pool to WebSocket internals. A worker id maps to its socket's isLive() probe.
- *
- * Why module-level: WorkerConnectionManager instances are ephemeral (one per WS
- * connection). The registry must survive across manager instances to detect
- * cross-connection id collisions.
- */
+// @lore: LIVE_WORKER_SOCKETS — AdapterPool stores no WS ref; readyState tracked separately to avoid coupling pool to WebSocket; module-level so managers share it
 const LIVE_WORKER_SOCKETS = new Map<string, { isLive: () => boolean }>();
 
 /**
@@ -126,16 +102,12 @@ class WorkerConnectionManager {
 
 	/**
 	 * Handle an incoming message from the worker.
-	 * The ws parameter must support send(data: string).
 	 *
 	 * Before registration: only `register` messages are processed.
 	 * After registration: runtime messages (event, session_result, error)
 	 * are dispatched directly to the RemoteHarnessAdapter.
 	 *
-	 * @lore S2-F07: Without this post-registration routing, runtime messages
-	 * arriving via the Hono WS onMessage handler would be passed back to
-	 * manager.onMessage() which previously ignored them — causing streamEvents()
-	 * to hang forever as no session queue would ever receive data.
+	 * @lore: post-registration routing — runtime messages dispatched via adapter.dispatchMessage; without it streamEvents() hangs (no session queue receives data)
 	 */
 	onMessage(data: string, ws: { send(data: string): void }): void {
 		let raw: unknown;
@@ -159,9 +131,7 @@ class WorkerConnectionManager {
 			// incumbent socket is already dead (closed/closing) — in which case it is
 			// a legitimate reconnect and the stale entry is evicted.
 			//
-			// @lore AF11: LIVE_WORKER_SOCKETS probes incumbent WS readyState independently
-			// of AdapterPool. Pool entries are keyed by id; socket liveness is not stored
-			// in the pool. The two registries are kept in sync by onClose cleanup.
+			// LIVE_WORKER_SOCKETS probes incumbent WS readyState independently of AdapterPool; both registries synced by onClose.
 			if (this.pool.has(msg.id)) {
 				const incumbent = LIVE_WORKER_SOCKETS.get(msg.id);
 				if (incumbent?.isLive()) {
@@ -195,7 +165,7 @@ class WorkerConnectionManager {
 			this.pool.register(msg.id, this.adapter, {
 				name: msg.name,
 				kind: "remote",
-				type: msg.harnessType, // X3: worker-specified harness type (optional)
+				type: msg.harnessType, // worker-specified harness type (optional)
 				modelProviders: msg.modelProviders,
 				maxConcurrent: msg.maxConcurrent,
 			});
@@ -203,7 +173,7 @@ class WorkerConnectionManager {
 			// Acknowledge registration
 			ws.send(JSON.stringify({ type: "registered" }));
 		} else if (this.adapter !== null) {
-			// S4: handle pause/resume messages — update pool state, don't dispatch
+			// Pause/resume messages — update pool state, don't dispatch to adapter.
 			if (msg.type === "pause" && this.workerId) {
 				this.pool.pause(this.workerId);
 			} else if (msg.type === "resume" && this.workerId) {

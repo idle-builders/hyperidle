@@ -10,11 +10,7 @@ export interface ViewIconEntry {
 	icon: ReactNode;
 }
 
-/**
- * @lore SVG icons instead of emoji — color-emoji glyphs ignore CSS `color` (and most
- * font styling); use an SVG icon when you need to recolor it precisely.
- * These are minimal 16x16 SVGs.
- */
+// @lore: SVG not emoji — color-emoji glyphs ignore CSS color; SVG icons recolor precisely
 const svgProps = { width: 16, height: 16, viewBox: "0 0 16 16", fill: "currentColor" };
 
 export const VIEW_ICONS: Record<ViewId, ViewIconEntry> = {

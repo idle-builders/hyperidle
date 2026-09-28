@@ -1,11 +1,4 @@
-/**
- * TabBar — Tier 0 foundation primitive.
- *
- * Pill variant: surface-container track with active pill.
- * Underline variant: border-bottom with active accent underline.
- *
- * @lore W2: No DaisyUI — custom CSS per TabBar.html.
- */
+// @lore: no DaisyUI — custom CSS; pill and underline variants
 
 import type { JSX } from "react";
 import { dsProps } from "./ds-attrs.js";

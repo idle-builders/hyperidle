@@ -2,16 +2,8 @@
  * Which session filed which review.
  *
  * A review is how an agent asks a human for agreement, and its session ends
- * there. When the human answers, this record is what says which session to bring
- * back. Nothing else about the review needs remembering: what was approved is the
- * agent's own account of it, and nothing was blocked, so there is no permission
- * to carry.
- *
- * @lore BA2: this used to record "the review a gate caused", carrying the rule
- * and the tool that had been refused, because a clearance had to be keyed to
- * exactly the action a human cleared. Interception is gone — the agent elects to
- * ask — so there is no rule, no tool and no clearance, and the row shrank to the
- * one fact the return path actually needs.
+ * there. When the human answers, this record says which session to bring back.
+ * Nothing else about the review needs remembering.
  */
 
 import { randomUUID } from "node:crypto";
@@ -102,9 +94,7 @@ export type ResumeIntentEnqueuer = (input: {
  *   answered something that will not reach anyone, so they have to be told.
  * - **queued** — the resume is durable and the drain will carry it.
  *
- * @lore BA2: the resume is baked here rather than read at drain time, matching
- * every other intent kind, and it fixes what was decided at the moment a human
- * decided it rather than reconstructing it later from rows that have moved on.
+ * @lore: review-verdict — resume is baked at verdict time, not reconstructed at drain time; fixes decision at the moment it was made
  */
 export async function recordReviewVerdict(
 	db: HyperIdleDb,

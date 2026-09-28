@@ -3,19 +3,9 @@
  * `useHostThread`'s detail half. One door: `call("open_thread", { id })`,
  * kept live by the `thread:<id>` websocket nudge.
  *
- * @lore architecture.md §3.12 (nudge, founder-locked): the push carries the
- * `changes` row, never the assembled view. On any frame for this thread's
- * topic the hook re-runs `open_thread` itself — no payload merging, no
- * client-side reducer over `kind`. That is what "hooks are replaced by
- * `call()` + the same subscription" means literally.
+ * @lore: nudge carries the changes row, never the assembled view; hook re-runs open_thread on every frame — no payload merging
  *
- * @lore re-review: this hook never takes a `blockId`. `open_thread`'s
- * server-side `blockId` filter exists for agents (a narrower fetch than the
- * UI needs), not for a page that renders a block-scoped view of a thread it
- * already has in full — `HostThreadSection`'s own block filter is a
- * client-side slice over the one `ThreadView` this hook loads, so every
- * block's messages stay available to whatever else on the page reads the
- * same data (e.g. `DocumentDetail`'s inline anchored comments).
+ * @lore: blockId never in this hook — open_thread's server-side filter is for agents; HostThreadSection filters client-side over the full ThreadView
  */
 
 import type { ThreadView } from "@hyperidle/domain-model";
@@ -42,11 +32,7 @@ export function useThread(threadId: string | undefined | null): UseThreadResult 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `tick` is intentionally a dependency — bumping it via refresh() re-runs the call.
 	useEffect(() => {
 		if (!threadId) {
-			// @lore BC3 review: "idle" is terminal for "no id given, nothing to
-			// open" — this used to set "loading" here, which never resolved
-			// (no call, no subscription fires from the other effect either),
-			// so a caller with no id yet (e.g. HostThreadSection resolving a
-			// host before any thread exists) showed a permanent skeleton.
+			// @lore: "idle" is terminal for no id given — setting "loading" here never resolves (no call fires), causing a permanent skeleton on the caller
 			setStatus("idle");
 			setError(null);
 			setData(null);

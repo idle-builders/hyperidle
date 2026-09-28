@@ -31,10 +31,7 @@
  *     / connection / state), split into a files cluster and an auth cluster by a
  *     hairline so Filesystem ⟂ Connection stays structurally legible.
  *
- * @lore AO1: KeyValue renders its value at 15px SANS (KeyValue.tsx:23), so the
- * mono resource/branch identifiers in the inspect grid read sans, not mono.
- * Accepted — reusing the catalogued Settings primitive beats a bespoke mono field;
- * the row title still carries the mono resource for identity.
+ * @lore KeyValue renders 15px SANS — mono identifiers read sans in the inspect grid; accepted; row title still carries mono resource
  *
  * Renders only the populated real state + a needs_attention row (AC). No skeleton /
  * empty / error here — those reuse Settings conventions at build.

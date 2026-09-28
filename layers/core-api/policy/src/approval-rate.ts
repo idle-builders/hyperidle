@@ -1,11 +1,6 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { PolicyDeps } from "./ports.js";
 
-/**
- * @lore BC3 architecture.md §5 R4: `work` (Path 1, `legacyItemId` →
- * `items.sourceAgentId`) is DELETED with the `items` column/table. Path 2
- * (`threads.initiatorId`) becomes the only attribution.
- */
 type ApprovalRateDeps = {
 	conversation: Pick<PolicyDeps["conversation"], "listInitiatedVerdictMessages">;
 };
@@ -20,21 +15,7 @@ export interface ApprovalRateResult {
 	}>;
 }
 
-/**
- * Compute the approval rate for an agent within a sliding window.
- *
- * Attribution: a verdict message counts toward the agent when it landed on a
- * thread that agent initiated (`threads.initiatorId = agentId`).
- *
- * Approval = decision is "approve" or "approve-with-comments".
- * Rate = approvals / total (0 when total = 0).
- *
- * @param db - The database connection.
- * @param agentId - The agent to compute the rate for.
- * @param windowDays - Number of days to look back (sliding window).
- * @param deps - Injected `conversation` port (Mechanism C).
- * @param recentLimit - Max number of recent verdicts to return (default 10).
- */
+// Compute approval rate: attribution is by thread initiatorId; approval = "approve" or "approve-with-comments".
 export async function computeApprovalRate(
 	db: HyperIdleDb,
 	agentId: string,

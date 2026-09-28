@@ -1,11 +1,4 @@
-/**
- * SettingsFilesystems: the folders a person's team can reach.
- *
- * @lore BC5 T10: the door swap — `call("open_user", {})` replaces the
- * `/api/org` + `/api/filesystems?teamId=` pair (architecture.md §8). A
- * person's `folders` on `UserView` is already their team's registry — no
- * second call to resolve the team id first.
- */
+// @lore: open_user({}).folders — already the team's registry; no second call needed to resolve team id
 
 import type { FolderView } from "@hyperidle/domain-model";
 import type { JSX } from "react";
@@ -13,10 +6,6 @@ import { useCallback, useEffect, useState } from "react";
 // hearth-internal-padding
 import { type Status, StatusChip, Tag } from "../ds";
 import { call } from "../services/call.js";
-
-// ---------------------------------------------------------------------------
-// Mappers
-// ---------------------------------------------------------------------------
 
 function stateToStatus(s: FolderView["state"]): Status | "unknown" {
 	if (s === "reachable") return "healthy";

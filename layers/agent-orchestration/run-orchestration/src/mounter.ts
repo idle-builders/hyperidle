@@ -1,14 +1,3 @@
-/**
- * The filesystem mount engine — `RegistryFilesystemMounter` and its four
- * adapters.
- *
- * @lore AU26 F1 (§D-I): relocated VERBATIM from
- * `layers/core-api/filesystems/src/mounter-registry.ts`. The relocation is a
- * package move, not a rewrite: the four adapters, `SANDBOX_SCAFFOLDING_PATHS`
- * and the capture-root containment check are unchanged, and their tests moved
- * with them.
- */
-
 import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -16,15 +5,7 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { MountingGitRunnerFactory } from "./mounter-ports.js";
 
-/**
- * Structural local type — mirrors @hyperidle/filesystems' Filesystem shape.
- * run-orchestration is a sibling service and may not import from filesystems
- * directly (Mechanism C). The two types are structurally identical and the
- * Application composes them.
- *
- * @lore AU44 b2: domain-model's Filesystem type dissolved here with its
- * auxiliary types (ResourceRef etc.) inlined.
- */
+/** Structural mirror of @hyperidle/filesystems' Filesystem — run-orchestration may not import filesystems directly (Mechanism C); Application composes them. */
 export interface Filesystem {
 	id: string;
 	teamId: string;
@@ -37,12 +18,7 @@ export interface Filesystem {
 	createdAt: string;
 }
 
-/**
- * Outcome of a mount call.
- * @lore AU44 b2: dissolved from @hyperidle/domain-model. sandboxPath removed
- * because it is write-only — the caller already holds it before calling mount;
- * the result carries only success/failure information.
- */
+/** Outcome of a mount call. */
 export interface MountResult {
 	success: boolean;
 	error?: string;
@@ -196,10 +172,7 @@ function isLocalRepoPath(
  * path distinct from the sandbox (a remote clone, or a cloud source not yet
  * built).
  *
- * @lore Both branches run through `normalizeLocalPath` — `doc_set.folder` is
- * as user-configured as `code.repo` (a `./docs` or `~/docs` spelling emits an
- * inert `[projects."./docs"]` codex never matches against its resolved cwd
- * if left unnormalized). Do not special-case one branch to skip it.
+ * @lore: localTrustedPath — both doc_set.folder and code.repo are user-configured; both must run through normalizeLocalPath or codex trust config mismatches
  */
 export function localTrustedPath(filesystem: Filesystem): string | undefined {
 	const ref = filesystem.resourceRef;

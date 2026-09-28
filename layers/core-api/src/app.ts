@@ -43,18 +43,10 @@ interface AppOptions {
 	 * The seam's ONE port for this composition, built by the caller
 	 * (`buildAgentOrchestrationPort(transport)`) and handed in as a value —
 	 * there is no ambient/module-level transport to fall back on. Required
-	 * whenever `db` is provided: every route and reaction that used to reach
-	 * `@hyperidle/session-requests`/`@hyperidle/run-orchestration`/
-	 * `@hyperidle/run-orchestration`/`@hyperidle/filesystems` directly now goes
-	 * through this door. `createCoreApiApp` throws a named error at
+	 * whenever `db` is provided: every route and reaction routes through this door. `createCoreApiApp` throws a named error at
 	 * construction if `db` is present and this is not.
 	 */
 	agentOrchestration?: AgentOrchestrationPort;
-	/**
-	 * @lore AU44 batch 4: readAlertPreferences removed from ctx — the dispatcher
-	 * that consumed it is deleted. serviceBootstrap ctx now only carries the 3
-	 * primitives the agent layer and agent orchestration need.
-	 */
 	serviceBootstrap?: (ctx: {
 		db: HyperIdleDb;
 		eventBus: EventBus;
@@ -62,7 +54,7 @@ interface AppOptions {
 		/**
 		 * `edit_task`'s own bound `run`, so a background writer
 		 * (`registerWorkSessionStartedReactions`) can call it in-process instead
-		 * of the deleted `transitionTask`. the architecture doc §6.
+		 * of the deleted `transitionTask`.
 		 */
 		editTask: (
 			ctx: import("./actions/action.js").ActionContext,
@@ -103,10 +95,6 @@ interface AppOptions {
 	 * `authMiddleware` catch-all so the WS route can authenticate via
 	 * query token. Kept optional so integration tests that do not need
 	 * WebSocket support can omit it.
-	 *
-	 * @lore I1 S1-S5: production `createServer` passes this hook so the
-	 * same `createApp` instance powers both production and the integration
-	 * test harness — no divergent "minimal app" path.
 	 */
 	registerWebSocket?: (apiRouter: Hono, tokenStore: UpgradeTokenStore) => void;
 	/**
@@ -144,21 +132,7 @@ interface AppOptions {
 	 * (which harnesses are registered/discovered), used only to gate route
 	 * mounting and answer descriptor reads (`agents.ts`, `teams-routes.ts`,
 	 * `users.ts`, `workers.ts`, `harnesses.ts`).
-	 *
-	 * @lore AU31 §2.4/[P4]: typed against `@hyperidle/harness-protocol`'s
-	 * `HarnessCapabilityReader` rather than `@hyperidle/harness-registry`'s
-	 * `AdapterPool` — this route layer never provisions or executes a session
-	 * (that is `run-orchestration-composition.ts`'s job, agent-orchestration
-	 * wiring), it only reads capability descriptors, so the narrower shared
-	 * type is both sufficient and the one every consuming route factory
-	 * already declares its own parameter as. `workspaceAdapter`/
-	 * `sandboxBasePath`/`mcpBridgeRegistry`/`mcpBaseUrl`/`mounter` were
-	 * forward-only threading with zero readers anywhere in this file (every
-	 * real consumer resolved them via a separately-built `dispatcherDeps`
-	 * bundle in `create-server.ts` instead — `service-bootstrap.ts`'s
-	 * `canProvision: boolean` already carries the one bit those five fields
-	 * existed to signal) — deleted rather than retyped.
-	 * @lore S2: renamed from harnessAdapter to adapterPool.
+	 * @lore: HarnessCapabilityReader not AdapterPool — this layer only reads capability descriptors, never provisions sessions
 	 */
 	adapterPool?: HarnessCapabilityReader;
 	/**
@@ -167,10 +141,6 @@ interface AppOptions {
 	 * Also mounts the public /api/auth/claim endpoint (pre-auth).
 	 *
 	 * Defaults to false (local mode — unchanged X-API-Key behavior).
-	 *
-	 * @lore S1: Derived from HYPERIDLE_SHARED_MODE env var at app construction
-	 * time in production. Tests pass this directly to control the mode without
-	 * setting environment variables.
 	 */
 	sharedMode?: boolean;
 	/**
@@ -182,12 +152,7 @@ interface AppOptions {
 	 * tests may override for isolation.
 	 */
 	agentWorkIntentRecorder?: import("@hyperidle/domain-model").AgentWorkIntentRecorderFn;
-	/**
-	 * @lore BA2: Application-injected verdict recorder for the review loop, injected for
-	 * the same reason as `agentWorkIntentRecorder` above — `review_sessions` belongs
-	 * to agent-orchestration and `routes/threads.ts` may not read it. Defaults to
-	 * the seam-backed recorder; tests may override.
-	 */
+	// Application-injected verdict recorder; tests may override. Injected because routes/threads.ts may not read agent-orchestration.
 	reviewVerdictRecorder?: import("@hyperidle/domain-model").ReviewVerdictRecorderFn;
 	/**
 	 * Base directory where plugin files are persisted on install.
@@ -208,32 +173,11 @@ interface AppOptions {
 	bundledPluginsDir?: string;
 }
 
-/**
- * @lore Event-bus disposers live alongside the app instance but must not
- * appear on the public Hono surface. A module-scoped WeakMap keyed by
- * the Hono instance keeps the association without string-cast stash
- * patterns — disposers are garbage-collected with the app.
- */
+// @lore: WeakMap keyed by Hono instance keeps disposers off the public surface; GC'd with the app
 const APP_DISPOSERS = new WeakMap<Hono, Array<() => void>>();
-/**
- * §7 — the composed action list's tool projection, keyed the same way
- * disposers are: it must not appear on the public Hono surface, and
- * `bootCoreApi` (`boot.ts`) reads it exactly once to grow `CoreApiBoot`'s
- * `actionTools` field, which `create-server.ts` threads into
- * `bootAgentOrchestration` so the MCP registry and the tool provider see the
- * SAME composed list (architecture.md §7's "one composed list, built once").
- */
+// @lore: tool projection keyed off Hono instance; bootCoreApi reads it once; MCP registry and tool provider share the same composed list
 const APP_ACTION_TOOLS = new WeakMap<Hono, ReadonlyArray<RegisteredTool<HyperIdleDb>>>();
-/**
- * @lore document-module B15: `boot.ts` needs the RAW `edit_document`/
- * `search_documents` runners (not `actionsAsTools`' MCP-wrapped projection)
- * to build `CoreApiBoot.editDocument`/`searchDocuments` — the two values
- * architecture.md §8.4 threads into the writeback processor exactly like
- * `actionTools`. Same take-once-by-app-instance idiom as `APP_ACTION_TOOLS`,
- * kept as a second WeakMap rather than widening that one's value shape,
- * since a tool registration and a raw action runner are different things
- * with different consumers.
- */
+// @lore: raw runners (not MCP-wrapped) for boot.ts to build CoreApiBoot document ports; separate WeakMap — tool and raw runner are different things
 const APP_DOCUMENT_RUNNERS = new WeakMap<
 	Hono,
 	{
@@ -255,37 +199,13 @@ const APP_DOCUMENT_RUNNERS = new WeakMap<
 >();
 const appLogger = createLogger({ pkg: "server.app" });
 
-/**
- * Resolve the one-shot WebSocket upgrade-token store this app instance uses.
- *
- * I2 review arch H-2/H-3: the store — and with it `/api/auth/ws-token` — exists
- * ONLY when WS support is being wired. Apps without a `registerWebSocket` hook
- * (integration tests that do not need WebSocket) never expose the mint route.
- *
- * @lore AU26 B1b: the store is now resolved by the Application (`bootCoreApi`)
- * rather than inside `createCoreApiApp`, because the SAME instance is needed on
- * both sides of the auth middleware — the pre-auth WS upgrade route consumes
- * tokens, the post-auth `/auth/ws-token` route mints them.
- */
+// Token store resolved by the caller (not createCoreApiApp) — same instance needed on both sides of auth middleware.
 export function resolveUpgradeTokenStore(options?: AppOptions): UpgradeTokenStore | null {
 	if (options?.upgradeTokenStore) return options.upgradeTokenStore;
 	return options?.registerWebSocket ? createUpgradeTokenStore() : null;
 }
 
-/**
- * Register `core-api`'s own PRE-auth routes on the Application's `/api` router.
- *
- * These four must sit in front of the auth middleware, and only registration
- * order puts them there — `createAuthMiddleware` has no path allow-list. The
- * Application calls this after `use()`ing cors/rate-limit/body-limit and before
- * `use()`ing auth (§D-B).
- *
- * @lore AU26 B1b: `GET /api/health` is registered here rather than before the
- * rate limiter (its previous position). The limiter's `skipPaths` already
- * exempts `/api/health`, so the liveness probe is unaffected — but the setup
- * and claim routes now also sit behind the body limit, which is strictly
- * tighter than before and costs nothing (both post a few hundred bytes).
- */
+// Register core-api's PRE-auth routes. Must sit before the auth middleware (registration order is the only gate).
 export function registerCoreApiPreAuthRoutes(
 	api: Hono,
 	options: AppOptions | undefined,
@@ -299,12 +219,6 @@ export function registerCoreApiPreAuthRoutes(
 		};
 		return c.json(response);
 	});
-
-	// @lore BC5 T11 (architecture.md §7): the pre-auth `POST /api/users`
-	// setup route is DELETED — `edit_user`'s own first-run rule (a caller
-	// with no `users` row may create a person only while no person exists)
-	// is strictly tighter, behind the auth middleware instead of in front of
-	// it.
 
 	// WS upgrades authenticate via a one-shot upgrade token (`?token=...`) in a
 	// middleware defined inside `registerWsRoute`, not via the API key.
@@ -390,29 +304,12 @@ function registerSubscriptionServices(
 	return [unsubSubscriptionFire, subscriptionClock.stop];
 }
 
-/**
- * Create `core-api`'s own route table — the Layer's HTTP surface and nothing
- * else. The returned app is mounted by the Application at `/` on its `/api`
- * router, AFTER the middleware stack, beside `bootAgentOrchestration().app`.
- *
- * @lore AU26 B1b: this used to be the whole application — it built the root
- * `Hono`, the `/api` sub-router, the cors/rate-limit/body-limit/auth/fail-closed
- * stack, the `onError`/`notFound` handlers, and it mounted the other Layer. All
- * of that is the **Application's** now (`applications/remote-server/src/create-server.ts`
- * in production, `test-utils.ts`'s `createTestApp` for a test harness): "only an
- * Application may choose to put another Layer's routes behind this stack."
- * What is left here is one Layer's routes.
- *
- * Two consequences a caller must know:
- *   - every path this app registers is RELATIVE (`/bets`, not `/api/bets`);
- *   - the pre-auth half of core-api's surface lives in
- *     `registerCoreApiPreAuthRoutes`, not here.
- */
+// Create core-api's route table. Every path is RELATIVE — Application mounts at /api.
+// Pre-auth half of core-api's surface lives in registerCoreApiPreAuthRoutes.
 function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 	const api = new Hono();
 
-	// S1: shared mode — read from options (test-injectable) or env var (production).
-	// @lore S1: The env var is read once at app construction time, not per-request.
+	// shared mode — read from options (test-injectable) or env var (production), once at construction time.
 	const sharedMode = options?.sharedMode ?? process.env.HYPERIDLE_SHARED_MODE === "true";
 	const tokenStore = options?.upgradeTokenStore ?? null;
 
@@ -421,15 +318,10 @@ function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 	// X-Identity header. The worker-token endpoint is always mounted.
 	api.route("/auth", createAuthRoutes(tokenStore, sharedMode));
 
-	// @lore AU28 Ruling 8.1: this used to be a static
-	// `import { registerTestRoutes } from "./routes/test-routes.js"` plus a
-	// `NODE_ENV !== "production"` guard — production code importing a development
-	// module and relying on an env check to stay out of the shipped path. Inverted:
-	// the development world now registers INTO production, which is the legal
-	// direction. `src/__testing__/test-fixtures.ts` passes `registerTestRoutes`.
+	// Dev routes register INTO production (legal direction) — test fixtures pass registerTestRoutes here.
 	options?.registerExtraRoutes?.(api);
 
-	// P3: Authenticated health check — behind auth middleware
+	// Authenticated health check — behind auth middleware
 	api.route("/health", authHealth);
 
 	// Register work endpoints if db is provided
@@ -451,9 +343,7 @@ function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 			options.agentWorkIntentRecorder ?? defaultAgentWorkIntentRecorder;
 		const reviewVerdictRecorder = options.reviewVerdictRecorder ?? defaultGateVerdictRecorder;
 
-		// the action list. `search_tasks`/`open_task`/`edit_task` mount at
-		// `POST /api/actions/<name>` — one loop over the composed list, never a
-		// per-object route factory. the architecture doc §7.
+		// action list mounted at POST /api/actions/<name> — one loop, never a per-object route factory
 		const actions: readonly Action[] = buildCoreActions(
 			buildCoreActionsBindings(
 				options,
@@ -486,10 +376,7 @@ function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 				import("@hyperidle/domain-model").SendMessageOutput
 			>
 		>;
-		// @lore `/search`'s scope=document branch and its own document category
-		// (architecture.md §8.3) go through the composed `search_documents`
-		// action, extracted the same way `sendMessage` is — never
-		// `open_document` (a search result is not a read).
+		// search_documents extracted same way as sendMessage — a search result is not a read
 		const searchDocumentsAction = actions.find((a) => a.declaration.name === "search_documents");
 		if (!searchDocumentsAction) {
 			throw new Error("buildCoreActions did not produce a search_documents action");
@@ -518,11 +405,7 @@ function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 			{ readonly ids: readonly string[] },
 			readonly { readonly id: string }[]
 		>(actions, "search_threads");
-		// @lore document-module B10: the platform module's install/enable/
-		// disable/restore lifecycle (`edit_plugin`, bound in `compose.ts`'s
-		// fourth action group) writes documents through this same composed
-		// `edit_document` action — never `@hyperidle/document`'s repository
-		// functions directly.
+		// edit_plugin writes documents through edit_document action — never document repository functions directly
 		const editDocumentAction = actions.find((a) => a.declaration.name === "edit_document");
 		if (!editDocumentAction) {
 			throw new Error("buildCoreActions did not produce an edit_document action");
@@ -533,45 +416,23 @@ function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		) => Promise<
 			import("@hyperidle/domain-model").ActionResult<import("@hyperidle/domain-model").DocumentView>
 		>;
-		// @lore document-module B15: the SAME two runners, captured raw (not
-		// MCP-tool-wrapped) for `boot.ts` to build `CoreApiBoot.editDocument`/
-		// `searchDocuments` off — the writeback processor's document port
-		// (architecture.md §8.4).
+		// raw runners (not MCP-wrapped) for boot.ts to build CoreApiBoot document ports
 		APP_DOCUMENT_RUNNERS.set(api, {
 			editDocument: editDocumentRun,
 			searchDocuments: searchDocumentsRun,
 		});
-		// @lore BC5 T7b (F1): the crashed-session health reaction writes the
-		// agent's `health` through the composed `edit_user` action — never
-		// `@hyperidle/user`'s store functions directly — so the write lands as
-		// an ordinary `user.changed` row, same as any other edit.
+		// health reaction writes through edit_user action — lands as user.changed row, same as any edit
 		const editUserRun = runnerFor<
 			import("@hyperidle/domain-model").EditUserInput,
 			import("@hyperidle/domain-model").UserView
 		>(actions, "edit_user");
-		// @lore BC5 T11: the `agents`/`org`/`teams`/`recipients`/`harnesses`
-		// route families and the core-hosted `filesystems` injection route are
-		// all DELETED — user is one module now, `search_users`/`open_user`/
-		// `edit_user` under `POST /api/actions/<name>` (mounted generically by
-		// `createActionsRouter` above), never a route module. `agentIdentity`
-		// (the shared helper those routes reduced an agent's identity document
-		// creation to) goes with them — `@hyperidle/user`'s own
-		// `agent-identity.ts` builds the same port internally now, per call,
-		// for `edit_user`'s own identity-document write.
-		// @lore BC3 architecture.md §5 B1: `/reviews`, `/conversations`, `/threads`
-		// and their route files are DELETED — search_threads/open_thread/
-		// send_message/adjust_thread are the door now, mounted generically by
-		// createActionsRouter above.
-		// AU26 E4: `/api/connections` was served by `agent-orchestration`'s own
-		// app; that route family is deleted too — connections are a
-		// user attribute now, behind `open_user`/`edit_user`.
+		// user is one module now — search_users/open_user/edit_user under /api/actions/<name>
 		api.route("/search", createSearchRoutes(options.db, eventBus, searchDocumentsRun));
 		// Plugin management is the platform module now —
 		// `search_plugins`/`edit_plugin`, mounted generically by
 		// `createActionsRouter` above (`compose.ts`'s fourth action group).
 		// `routes/plugins.ts` and its six routes are deleted.
-		// @lore BC5 T7b: `/notifications` is deleted with the notification
-		// queue — a person's inbox is `open_user({}).inbox` now.
+		// /notifications deleted — inbox is open_user({}).inbox now
 
 		const db = options.db;
 		const disposers: Array<() => void> = [];
@@ -588,16 +449,6 @@ function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		disposers.push(...serviceDisposers);
 
 		// Auto-unblock dependent tasks when a task transitions to "done".
-		// @lore AD5 option-A: handler lives in app.ts (server layer) — fabric cannot
-		// import from server (layer violation). checkAndUnblockDependents relocated
-		// to `@hyperidle/task` (renamed from `@hyperidle/work`) — it
-		// exclusively calls task's own table paths, so `task` is its correct
-		// home. §6 row 2: it now writes through `edit_task` instead of the
-		// deleted `transitionTask`, injected as a plain function (Mechanism C).
-		// The deleted `task_state_changed` event is gone from this path —
-		// `task.changed` carries the row, and `change.after.state` is present
-		// only when the edit moved the state (the diff-only shape `edit_task`
-		// already writes).
 		const unsubDepWatcher = eventBus.on("task.changed", (event) => {
 			if (event.change.after.state === "done") {
 				void checkAndUnblockDependents(
@@ -611,13 +462,7 @@ function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 					});
 				});
 			}
-			// @lore BA6: NOT subscribed here on `state === "killed"` — unlike the
-			// `done` reaction above, a killed dependency's reset has to be visible
-			// the moment the kill's own response returns. Subscribing here would
-			// race `cascadeTaskKill`'s own synchronous per-task loop and
-			// double-apply the reset. `cascadeTaskKill` — the ONLY production
-			// path that ever reaches `killed` — calls `handleDependencyKilled`
-			// itself, awaited, right after each task's kill transition.
+			// @lore: NOT subscribed for killed — cascadeTaskKill calls handleDependencyKilled itself to avoid racing its own synchronous loop
 		});
 		disposers.push(unsubDepWatcher);
 
@@ -639,43 +484,21 @@ function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 	return Promise.resolve(api);
 }
 
-/**
- * Attach extra disposers to an app the Application composed, so a single
- * `disposeApp(root)` tears the whole composition down.
- *
- * @lore AU26 B1b: `createCoreApiApp` keys its own disposer bag on the route
- * table it returns, but a test harness holds the composed ROOT app. The
- * Application therefore forwards the Layer disposers onto the root, which keeps
- * `disposeApp(app)` — the shape ~240 fixture-based tests already rely on —
- * unchanged.
- */
+// Attach extra disposers so a single disposeApp(root) tears the whole composition down.
 export function registerAppDisposers(hono: Hono, disposers: ReadonlyArray<() => void>): void {
 	const bag = APP_DISPOSERS.get(hono) ?? [];
 	bag.push(...disposers);
 	APP_DISPOSERS.set(hono, bag);
 }
 
-/**
- * Detach and return an app's disposer bag.
- *
- * @lore AU26 B1b: the Application composes ONE root app and tears it down with
- * ONE `disposeApp(root)` call. If the Layer boot kept its own bag and the root
- * merely held a `() => disposeApp(layerApp)` thunk, `disposeApp` would run
- * twice per shutdown — which `server-disposal.integration.test.ts` catches as a
- * duplicated `app-domain` phase. Taking the bag moves ownership instead of
- * nesting it, so every disposer runs exactly once, in order.
- */
+// Detach and return the disposer bag — ownership moves to the root, so every disposer runs exactly once.
 export function takeAppDisposers(hono: Hono): Array<() => void> {
 	const bag = APP_DISPOSERS.get(hono) ?? [];
 	APP_DISPOSERS.delete(hono);
 	return bag;
 }
 
-/**
- * §7 — detach and return the composed action list's tool projection.
- * `undefined` when `db` was never supplied (no actions were built). Read
- * exactly once, by `bootCoreApi`.
- */
+// Detach and return the composed action list's tool projection. Undefined when db was not supplied.
 export function takeAppActionTools(
 	hono: Hono,
 ): ReadonlyArray<RegisteredTool<HyperIdleDb>> | undefined {
@@ -684,12 +507,7 @@ export function takeAppActionTools(
 	return tools;
 }
 
-/**
- * §8.4 — detach and return the composed `edit_document`/`search_documents`
- * runners. `undefined` when `db` was never supplied (no actions were built).
- * Read exactly once, by `bootCoreApi`, the same idiom `takeAppActionTools`
- * already gives.
- */
+// Detach and return the raw edit_document/search_documents runners. Undefined when db was not supplied.
 export function takeAppDocumentRunners(hono: Hono): ReturnType<typeof APP_DOCUMENT_RUNNERS.get> {
 	const runners = APP_DOCUMENT_RUNNERS.get(hono);
 	APP_DOCUMENT_RUNNERS.delete(hono);
@@ -710,15 +528,7 @@ export function disposeApp(hono: Hono): void {
 		try {
 			d();
 		} catch (err) {
-			// @lore G4 dispose-swallow: dispose is best-effort. Each registered
-			// disposer is a synchronous `EventBus.off` call; the tolerated failure
-			// mode here is a second teardown (e.g. overlapping test lifecycles)
-			// calling `unsubscribe` on a handler that was already removed. We
-			// prefer to continue iterating the disposer list rather than abort
-			// midway and leak the remaining subscriptions — a partial dispose
-			// during test teardown causes unbounded handler accumulation and
-			// flaky downstream assertions. H2 adds observability for the failure
-			// so we don't lose the signal.
+			// @lore: dispose is best-effort; tolerated failure is a double teardown on an already-unsubscribed handler; keep iterating to avoid leaking subscriptions
 			appLogger.error("disposeApp: disposer threw", {
 				error: err instanceof Error ? err.message : String(err),
 			});
@@ -730,17 +540,7 @@ export function disposeApp(hono: Hono): void {
 
 export type { AppOptions };
 
-/**
- * The Hono application type, re-exported via `@hyperidle/server/schemas` for the
- * web package's `hc<AppType>` client.
- *
- * @lore AF4/§4g: A fully typed Hono-RPC `AppType` (route-chained schema) was
- * lost when routes moved to untyped `app.route(path, sub)` mutation. `createApp`
- * returns a bare `Hono`, so the honest type is `Hono` — the web client keeps a
- * structural client without a per-route schema. Restoring a typed RPC surface
- * is a behaviour/architecture change (out of AF4 scope); this re-export only
- * un-dangles the type so server (and web, AF5) compile against the real shape.
- */
+// AppType is bare Hono — typed RPC surface was lost when routes moved to untyped app.route(); honest type re-exported for the web client.
 export type AppType = Hono;
 
 export { createCoreApiApp };

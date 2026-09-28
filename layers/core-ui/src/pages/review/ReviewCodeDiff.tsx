@@ -154,12 +154,7 @@ function ReviewedBox({
 			}}
 			aria-pressed={reviewed}
 			title={reviewed ? "Reviewed" : "Mark reviewed"}
-			// @lore AZ7: functionally a checked/unchecked toggle, but Checkbox.tsx's
-			// visible label is mandatory and this is a dense code-diff row.
-			// primary/secondary are the closed variant set's checked/unchecked
-			// look (solid accent fill vs an empty bordered box); the checkmark is
-			// conditionally rendered rather than colored transparent, so no
-			// per-instance style override is needed.
+			// @lore: reviewed toggle — Checkbox needs visible label (too wide); Button primary/secondary gives checked/unchecked look without per-row style
 		>
 			{reviewed && <CheckGlyph />}
 		</Button>
@@ -168,12 +163,7 @@ function ReviewedBox({
 
 // ── L1: CI checks row ─────────────────────────────────────────────────────────────
 //
-// @lore `CodeDiffPayload.checks` is `readonly string[]` —
-// labels only, no pass/fail state. The row used to render every one with a
-// green checkmark under a fixed "All checks passed" banner and a coverage
-// figure (`+0.4%`) the payload has no field for at all — a review must not
-// claim CI is green (or name a coverage delta) when nothing here knows either.
-// Render the check names the payload actually has, nothing else.
+// @lore: CiRow — checks are labels only (no pass/fail); never claim CI is green or name coverage delta when payload has neither
 function CiRow({ checks }: { readonly checks: readonly CiCheck[] }): JSX.Element {
 	return (
 		<div className="flex flex-wrap items-center gap-x-[12px] gap-y-[3px]">
@@ -214,13 +204,7 @@ function lineKey(hunkIndex: number, lineIndex: number): string {
 
 // ── L3: a single file's hunks with a line-number gutter ───────────────────────────
 //
-// @lore AM5 C1: FileDiff now composes the DS CodeDeltaRenderer (K2b) via the
-// four per-line slot callbacks (renderLineGutter / renderLineAffordance /
-// renderLineBelow / renderTrailing). The DS core owns the hunk/line structure
-// (hunk headers, data-diff-type, prefix glyph, <code> text, line bg tints);
-// the review chrome fills the slots with its dual gutter, "+" button,
-// InlineComposer, AnchoredThreadCard, and orphan pass.
-// The rendered DOM is byte-identical to the previous hand-rolled version.
+// @lore: FileDiff CodeDeltaRenderer — DS core owns hunk/line structure; review chrome fills slots (dual gutter, "+" button, InlineComposer, orphan pass)
 function FileDiff({
 	hunks,
 	filePath,
@@ -298,17 +282,9 @@ function FileDiff({
 		if (readOnly) return null;
 		const info = lineInfoMap.get(lineKey(ref.hunkIndex, ref.lineIndex));
 		if (!info) return null;
-		// Button size="icon" floors at 32/44px — bigger than the original 16px
-		// gutter glyph. Accepted per AZ7 Set 1 (the same growth every hand-rolled
-		// icon button in this migration takes); the hide/reveal-on-hover switches
-		// from display (hidden/flex, which would fight Button's own display
-		// utility) to opacity, a property Button doesn't set.
-		//
-		// B4 fix: opacity-0 + pointer-events-none hid the button visually but
-		// left it IN the tab order — every commentable line put an invisible
-		// focusable "+" in a keyboard user's tab sequence. It now also reveals
-		// on its own focus-visible (not just the line's hover), so a keyboard
-		// user tabbing through sees it appear instead of landing on nothing.
+		// Button size="icon" floors at 32/44px — bigger than the 16px gutter glyph;
+		// hide/reveal via opacity (not display, which would fight Button's own utility).
+		// Also reveals on focus-visible so keyboard users see it, not an invisible tab stop.
 		return (
 			<Button
 				variant="primary"

@@ -1,21 +1,7 @@
 /**
- * S4: RemoteWorkerClient — manages the desktop worker WebSocket connection.
- *
- * Lifecycle:
- * 1. connect(): POST /api/auth/worker-token → get worker token
- * 2. Open WebSocket to /api/ws/worker?token=<token>
- * 3. Send WorkerRegisterMessage on open
- * 4. Wait for "registered" ack → status = connected
- * 5. Handle dispatch/stop messages from server
- * 6. Stream events back as WorkerEventMessage
- * 7. disconnect(): graceful shutdown (wait up to 60s for active sessions)
- *
- * @lore S4: No auto-reconnect in scope. If WS drops, status changes to
- * "disconnected". User must toggle off and on to reconnect.
- *
- * @lore S4 Decision 2: The claude CLI adapter (CliHarnessAdapter) is instantiated
- * once and reused across concurrent sessions — the adapter tracks sessions by ID
- * in a Map and is concurrent-safe.
+ * RemoteWorkerClient — manages the desktop worker WebSocket connection.
+ * @lore: no auto-reconnect; if WS drops, status = disconnected; user must toggle off and on to reconnect
+ * @lore: CliHarnessAdapter instantiated once, reused across concurrent sessions (session ID tracked in a Map)
  */
 
 import type {
@@ -41,7 +27,7 @@ export interface RemoteWorkerClientOptions {
 	 * How long disconnect() waits for active sessions to complete before force-stopping them.
 	 * Defaults to 60_000ms (60s) in production. Injectable for tests.
 	 *
-	 * @lore S4: injectable for testing — 60s real-time wait is not acceptable in unit tests.
+	 * @lore: disconnectTimeoutMs injectable — 60s real-time wait is not acceptable in unit tests
 	 */
 	disconnectTimeoutMs?: number;
 }
@@ -68,9 +54,7 @@ export interface WorkerStatus {
  * or a vi.fn() mock for tests. The mock must return a WebSocket-compatible
  * object when called (either via `new` or as a regular function).
  *
- * @lore S4: The wsConstructor is stored and called with `new` in production.
- * In tests, vi.fn().mockImplementation(() => mockInstance) is passed — vitest
- * mocks support `new` calls when the implementation returns an object.
+ * @lore: wsConstructor — stored and called with `new`; vi.fn().mockImplementation(() => mockInstance) works (vitest supports `new` when impl returns an object)
  */
 export class RemoteWorkerClient {
 	private readonly options: RemoteWorkerClientOptions;
@@ -114,7 +98,6 @@ export class RemoteWorkerClient {
 		const { serverUrl, authKey, deviceId, machineName, modelProviders, maxConcurrent } =
 			this.options;
 
-		// Step 1: get worker token
 		const tokenRes = await fetch(`${serverUrl}/api/auth/worker-token`, {
 			method: "POST",
 			headers: {
@@ -132,8 +115,6 @@ export class RemoteWorkerClient {
 		const tokenBody = (await tokenRes.json()) as { token: string };
 		const workerToken = tokenBody.token;
 
-		// Step 2: open WebSocket
-		// Convert http:// → ws:// and https:// → wss://
 		const wsUrl =
 			serverUrl.replace(/^https:\/\//, "wss://").replace(/^http:\/\//, "ws://") +
 			`/api/ws/worker?token=${encodeURIComponent(workerToken)}`;
@@ -143,7 +124,6 @@ export class RemoteWorkerClient {
 			this.ws = ws;
 
 			ws.onopen = (): void => {
-				// Step 3: send register message
 				ws.send(
 					JSON.stringify({
 						type: "register",
@@ -167,14 +147,12 @@ export class RemoteWorkerClient {
 				const typed = msg as ServerToWorkerMessage;
 
 				if (typed.type === "registered") {
-					// Step 4: registration acknowledged
 					this.connected = true;
 					this.notifyListeners();
 					resolve();
 					return;
 				}
 
-				// Handle dispatch/stop only after registered (adapter may be null in tests)
 				if (!this.adapter) return;
 
 				if (typed.type === "dispatch") {
@@ -220,10 +198,7 @@ export class RemoteWorkerClient {
 			const handle = await this.adapter.startSession(config);
 			this.sessionHandles.set(sessionId, handle);
 
-			// return-relay: forwarding relay — re-emits events verbatim to the server via
-			// WebSocket. This loop does NOT terminate a turn and must NOT wire a
-			// ReturnGate. The turn it carries is gated once, at the remote adapter's
-			// enforced drain (session-provisioning.ts site A).
+			// @lore: return-relay — forwarding loop only; must NOT wire a ReturnGate; turn is gated once at the remote adapter's enforced drain
 			for await (const event of this.adapter.streamEvents(handle)) {
 				const eventMsg: WorkerEventMessage = { type: "event", sessionId, event };
 				this.ws?.send(JSON.stringify(eventMsg));
@@ -297,7 +272,6 @@ export class RemoteWorkerClient {
 			return;
 		}
 
-		// If no active sessions, close immediately
 		if (this.activeSessions === 0) {
 			this.ws.close();
 			this.connected = false;
@@ -306,14 +280,12 @@ export class RemoteWorkerClient {
 			return;
 		}
 
-		// Wait up to the configured timeout (default 60s) for active sessions to complete
 		const timeoutMs = this.options.disconnectTimeoutMs ?? 60_000;
 		const deadline = Date.now() + timeoutMs;
 		while (this.activeSessions > 0 && Date.now() < deadline) {
 			await new Promise<void>((res) => setTimeout(res, 100));
 		}
 
-		// Force-stop any remaining sessions that didn't complete within the timeout
 		if (this.activeSessions > 0 && this.adapter) {
 			const stopPromises: Promise<void>[] = [];
 			for (const [sessionId, handle] of this.sessionHandles) {

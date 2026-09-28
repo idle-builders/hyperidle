@@ -1,21 +1,3 @@
-/**
- * The dispatch: given a pre-assembled list of tool definitions (built by
- * `@hyperidle/tool-handlers`, DI-wired to domain-Service ports) + a
- * per-invocation `ToolContext`, build a `ToolRegistry` that
- * validates args against each tool's zod schema, and calls the matched
- * handler.
- *
- * @lore AU19 Increment 4 (§7.5 C1): this is `packages/server/src/tools/
- * tool-registry.ts`'s `buildToolRegistry`/`invoke`, split at the DB boundary.
- * Zero domain Service or `@hyperidle/db` import here.
- *
- * @lore AU31 §2.5: relocated from `@hyperidle/harness-registry` (agent-
- * execution) into `@hyperidle/tool-handlers` (agent-orchestration) — this
- * file imports only `@hyperidle/tool-protocol` and holds zero execution content,
- * so it belongs with the layer that owns the definitions it dispatches, not
- * the layer that owns harness adapters.
- */
-
 import {
 	type ClaudeToolSpec,
 	err,
@@ -26,12 +8,7 @@ import {
 } from "@hyperidle/harness-protocol";
 import { type BuildToolRegistryOptions, toClaudeToolSpec } from "./tool-types.js";
 
-/**
- * Build a fresh registry bound to the given context. Every agent gets every
- * definition — no tool is scoped to a role — plus the per-session
- * `extraTools`. The harness still applies its own per-session allowlist
- * (`session-provisioning.ts`).
- */
+// Build a fresh registry; every agent gets every definition plus per-session extraTools.
 export function buildToolRegistry<TDb = unknown>(
 	allToolDefinitions: readonly RegisteredTool<TDb>[],
 	ctx: ToolContext<TDb>,

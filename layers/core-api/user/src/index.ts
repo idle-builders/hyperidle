@@ -1,38 +1,8 @@
 /**
  * Barrel for @hyperidle/user (core-api Layer, SQL-owning Service).
- *
- * Typed functions only. This barrel MUST NOT re-export the raw `users`/
- * `teams`/`orgEdges` pgTable objects — that
- * would let a consumer obtain a table transitively and defeat Table ACL
- * (Mechanism A). Consumers get typed functions; the tables stay private to
- * this Service.
- *
- * @lore BC5 T2: users, teams and org edges are one Service — a user (human
- * or agent) with its team and who it reports to is one row of state, not
- * three packages agreeing by convention. `cron.ts` lives here — this
- * Service's subscription clock is its caller, so `parseCron`/`nextCronMatch`
- * are exported here.
- *
- * @lore BC5 T5: `search_users`/`open_user`/`edit_user` (`user-actions.ts`)
- * are this Service's own action list now, the way `@hyperidle/task`/
- * `@hyperidle/thread`/`@hyperidle/document` each declare theirs.
- * `agent-identity.ts` and `validate-agent-config.ts` moved here verbatim
- * from `layers/core-api/src/routes/`. The agent-creating routes that used
- * to import them (`routes/agents.ts`, `routes/org.ts`, `routes/users.ts`,
- * `routes/teams-routes.ts`) are deleted along with the rest of the user/org
- * route surface; `user-actions.ts` is their only caller now.
- *
- * @lore AU20 Am11: 14 bespoke read variants collapsed into `findUser` +
- * `listUsers` + `UserFilter`. The two projected getters (`listAgentProfiles` /
- * `listUserDirectory`) and their row types are deleted — routes project full
- * rows themselves.
- *
- * @lore AU44 B1: `team_members` dissolved into `teams`. `AU20 Am7`: 22
- * per-call-site team exports collapsed into `getTeam`/`listTeams`/
- * `createTeam`/`updateTeam`.
- *
- * @lore AH4: `upsertOrgEdge` is idempotent by construction — INSERT … ON
- * CONFLICT DO NOTHING against the composite unique index, then re-select.
+ * Typed functions only — must NOT re-export raw `users`/`teams`/`orgEdges` pgTable objects (Table ACL, Mechanism A).
+ * Users, teams and org edges are one Service — a user with its team is one unit of state; parseCron/nextCronMatch live here because the subscription clock (this Service) is their caller.
+ * @lore: upsertOrgEdge is idempotent — INSERT … ON CONFLICT DO NOTHING against the composite unique index, then re-select
  */
 
 // -- agent identity (moved verbatim from routes/agent-identity.ts) --

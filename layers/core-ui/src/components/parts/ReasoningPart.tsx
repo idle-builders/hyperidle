@@ -5,11 +5,8 @@
  * Expands to quiet/muted prose under a left rule.
  * No status glyph — reasoning is never success/failure.
  *
- * @lore AM3: The `reasoning` Part kind is distinct from `prose` because it
- * carries a structural `durationMs` the renderer needs for the resting label,
- * and must render visually quieter than answer prose — a renderer concern that
- * belongs in dispatch, not in ad-hoc wrapping (concept Phase 4 decision).
  */
+// @lore: reasoning Part kind — carries durationMs for resting label; renders quieter than prose; renderer concern belongs in dispatch, not ad-hoc wrapping
 
 import { type JSX, useState } from "react";
 import type { Part } from ".";

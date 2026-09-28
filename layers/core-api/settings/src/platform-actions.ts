@@ -1,37 +1,5 @@
-/**
- * The platform action list — `search_plugins` / `edit_plugin`. This Service
- * owns `plugins` and `plugin_contributions` (`table-owners.json`), so it
- * declares the runs itself. Replaces
- * `routes/plugins.ts` (984 lines, six routes) whole.
- *
- * `Action`/`ActionContext` below are a local structural mirror of
- * `layers/core-api/src/actions/action.ts`'s own pair, the same reason
- * `@hyperidle/document`/`@hyperidle/task`/`@hyperidle/thread` (and
- * `@hyperidle/run-orchestration`'s `session-actions.ts`) each declare their
- * own: a nested Service may not import the layer's own package.
- *
- * @lore document-module B10 (carried over from `routes/plugins.ts`'s own
- * header): every document read/write goes through the injected
- * `editDocument`/`searchDocuments` runners (`runnerFor` over the composed
- * list `compose.ts` builds), never a document
- * repository function directly. `edit_document` opens its own transaction
- * per call, so the document-touching calls in this file never run inside
- * this module's OWN `ctx.db.transaction(...)` blocks — they run before it
- * opens or after it commits. Install is four phases for that reason, in this
- * order: (1) the agents/subscriptions transaction commits; (2) the document
- * upsert runs, BEFORE the contribution registry claims these ids — a fresh
- * create's `onBodyChanged` hook marks a document detached the moment a
- * `plugin_contributions` row already names its id, and a plugin's own first
- * write must never read as a person's edit; (3) the contribution-registry
- * transaction commits, naming what is current and what is now stale; (4) the
- * stale documents are archived. Enable/disable/remove read the registry
- * first (it already names everything, nothing to (re)record) so they are two
- * phases: the agent/subscription transaction, then the document archive loop.
- *
- * `internal: true` is set INSIDE this module's own `run`, on the ctx it
- * hands to `editDocument` — never read off the caller's ctx
- * (`action.ts:37-50`'s own account of why).
- */
+// search_plugins / edit_plugin platform actions. Action/ActionContext are local structural mirrors — nested Services cannot import the layer's own package.
+// @lore: doc reads/writes through injected runners only — never repository directly; edit_document owns its own tx — no nested tx here
 
 import { resolve } from "node:path";
 import { type HyperIdleDb, type NewUser, plugins, type WriteExecutor } from "@hyperidle/db";
@@ -143,14 +111,6 @@ export interface NewPlatformSubscription {
  * runners — this package may import neither `@hyperidle/user` nor the
  * layer's own document composition, so the layer's `compose.ts` binds each
  * to the real function.
- *
- * @lore BC5 T7b: `routines` renamed `subscriptions` — `insertRoutine`'s
- * owner-side `nextRunAt` computation (cron parsing) moves into `compose.ts`'s
- * binding, since this package may not import `@hyperidle/user`'s cron
- * helpers either. `softDelete` becomes `remove` (a hard delete — a
- * subscription has no soft-delete column). `get` answers a display label
- * (`event` or `schedule` — a subscription has no `name` column) rather than
- * a name.
  */
 export interface PlatformActionsDeps {
 	readonly agents: {
@@ -270,16 +230,7 @@ interface ContributedDocumentSpec {
 	readonly scopeId: string | null;
 }
 
-/**
- * Make everything a plugin's agents and subscriptions contributed live, or not —
- * the document half is `setContributedDocumentsLive` below, kept separate
- * because it runs through `editDocument` (its own transaction) rather than
- * this one.
- *
- * @lore BA9g (carried over): enable, disable and remove each spelled this
- * out separately, over three different provenance mechanisms, and drifted
- * apart. One function, one outcome, whatever the caller is doing.
- */
+// Make a plugin's agent/subscription contributions live or not. Document half is separate (editDocument has its own transaction).
 async function setNonDocumentContributionsLive(
 	deps: PlatformActionsDeps,
 	exec: WriteExecutor,
@@ -575,10 +526,7 @@ async function installRun(
 	deps: PlatformActionsDeps,
 	source: EditPluginSource,
 ): Promise<ActionResult<PluginView>> {
-	// @lore A team install's id and folder are `<name>@<teamId>`, and the
-	// installer removes that folder before copying into it. A team id that is
-	// not a real team (`../../../x`) would put that remove-and-copy outside the
-	// install root, so it is refused here, before any row or folder is written.
+	// @lore: team install folder is <name>@<teamId>; a non-existent teamId could escape the install root via remove-and-copy, so refused before any write
 	if (source.scope.kind === "team" && !(await deps.teams.exists(ctx.db, source.scope.teamId))) {
 		return problem(
 			"unknown_team",

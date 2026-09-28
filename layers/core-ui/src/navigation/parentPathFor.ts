@@ -1,60 +1,23 @@
-/**
- * Pure parent-path resolver.
- *
- * Returns the explicit structural parent path for a known route, or null for
- * unmatched routes. Callers must no-op on null.
- *
- * @lore AE4: Up is never navigate(-1). An unmatched route returns null so the
- * caller does nothing — never silently falls back to history traversal. That
- * fallback conflates Up (structural) with Back (temporal) and breaks deep links.
- * See AppShell @lore AE4.
- *
- * @lore AG4: Extracted from AppShell navigateToParent (mobile-only in AE4) so
- * both the mobile back button and the desktop breadcrumb cluster compute the
- * same Up target from a single pure function.
- *
- * @lore BB1: /work/bet/ routes removed. /work/task/:id at any depth goes Up
- * to /work (we cannot know the parent task id from the pathname alone). Use
- * the breadcrumb built from ancestors for fine-grained nav.
- */
+// @lore: Up — never navigate(-1); unmatched route returns null; caller must no-op; conflating Up (structural) with Back (temporal) breaks direct links
 
-/**
- * Returns the structural parent path for a known app route, or null if the
- * pathname does not match any detail route with a defined parent.
- *
- * Matched route → parent mapping:
- *   /work/task/:id              → /work  (tasks at any depth, breadcrumb handles deep nav)
- *   /work/team/:id              → /work
- *   /documents/:id              → /documents  (excludes /documents/new)
- *   /agents/:id                 → /conversations
- *   /conversations/:id          → /conversations
- *
- * @param pathname - The current location.pathname
- * @returns The explicit parent path string, or null for unmatched routes.
- */
 export function parentPathFor(pathname: string): string | null {
-	// Task detail: /work/task/:id → /work (at any depth)
 	if (/^\/work\/task\/[^/]+/.test(pathname)) {
 		return "/work";
 	}
 
-	// Team detail: /work/team/:id → /work
 	if (/^\/work\/team\/[^/]+/.test(pathname)) {
 		return "/work";
 	}
 
-	// Document detail: /documents/:id → /documents
-	// @lore AE4: /documents/new is a create page — excluded from detail routes.
+	// /documents/new is a create page — excluded from detail routes
 	if (/^\/documents\/(?!new$)[^/]+/.test(pathname)) {
 		return "/documents";
 	}
 
-	// Agent detail: /agents/:id → /conversations
 	if (/^\/agents\/[^/]+/.test(pathname)) {
 		return "/conversations";
 	}
 
-	// Conversation thread: /conversations/:id → /conversations
 	if (/^\/conversations\/[^/]+/.test(pathname)) {
 		return "/conversations";
 	}

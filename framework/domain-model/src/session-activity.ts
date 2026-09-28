@@ -1,26 +1,10 @@
 /**
  * Normalized session ActivityEntry union.
  *
- * Lifted from `layers/core-ui/src/hooks/useSessionActivity.ts` and
- * `packages/server/src/services/session-activity-buffer.ts` (both had
- * verbatim-duplicate definitions). This is the ONE definition; both the
- * web hook and the server buffer re-point their imports here.
- *
- * The union is the NORMALIZED, backend-agnostic boundary: the server
- * normalizes raw harness events into `ActivityEntry[]`; the web hook
- * consumes the same shape; `derivePartsFromSession` (framework/conversation-parts/src/part.ts)
- * adapts ActivityEntry[] → Part[] through this type only — no harness-type
- * parameter, no per-backend branch.
- *
- * @lore AM3: ActivityEntry is intentionally richer than the Q1 shape to
- * support the session adapter. The Q1 shape (tool_call/reasoning) is
- * preserved as a subset; new entry types (answer_delta, answer_settled,
- * human_message) are added to cover the full adapter contract. The server
- * buffer only emits tool_call/reasoning; the web hook maps WS events to
- * these types. The adapter handles all members exhaustively.
- *
- * @lore AU21 Increment 14a: `cost_tick`/`CostTickData` is HARD-DELETED along
- * with the rest of the cost-cap feature — no replacement.
+ * The server normalizes raw harness events into `ActivityEntry[]`; the web
+ * hook consumes the same shape; `derivePartsFromSession`
+ * (framework/conversation-parts/src/part.ts) adapts ActivityEntry[] → Part[]
+ * through this type only — no harness-type parameter, no per-backend branch.
  */
 
 // ── Data payload shapes ──────────────────────────────────────────────
@@ -36,7 +20,7 @@ export type ToolCallData = {
 	target?: string;
 	/**
 	 * "running" | "ok" | "failed" | "neutral".
-	 * Optional for backward-compat with Q1 server buffer that emits only toolName+argsSummary.
+	 * Optional for backward-compat with older server buffers that emit only toolName+argsSummary.
 	 * The adapter defaults to "neutral" when absent.
 	 */
 	status?: "running" | "ok" | "failed" | "neutral";
@@ -51,15 +35,15 @@ export type ToolCallData = {
 export type ReasoningData = {
 	/**
 	 * How long the agent thought (ms) → "Thought for Ns" resting label.
-	 * Optional for backward-compat with Q1 server buffer that only emits `excerpt`.
+	 * Optional for backward-compat with older server buffers that only emit `excerpt`.
 	 */
 	durationMs?: number;
 	/**
 	 * The reasoning body, shown on expand.
-	 * Optional for backward-compat with Q1 server buffer that only emits `excerpt`.
+	 * Optional for backward-compat with older server buffers that only emit `excerpt`.
 	 */
 	text?: string;
-	/** Legacy field from Q1 server buffer; used when durationMs/text are absent. */
+	/** Legacy field from older server buffers; used when durationMs/text are absent. */
 	excerpt?: string;
 };
 

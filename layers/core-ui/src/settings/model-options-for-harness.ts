@@ -1,18 +1,4 @@
-/**
- * ModelOptionsForHarness
- *
- * Reads the harness's DISCOVERED descriptor.models (from GET /api/harnesses)
- * and returns select-friendly options. Never reads MODEL_CATALOG.
- *
- * @lore AV2: The model dropdown reads descriptor.models (discovered per harness
- * at probe time), NOT MODEL_CATALOG. An empty discovered list → hasModels:false
- * so the editor renders an affordance ("This harness manages its own model"),
- * never a catalog fallback. This is the founder concept-review blocking tweak.
- *
- * The old invariant (filter MODEL_CATALOG by modelProviders) is REMOVED here.
- * modelProviders remains load-bearing for the server validator and the
- * on-switch modelProvider reconcile — but it is not the option source.
- */
+// @lore: model source — descriptor.models discovered at probe time; MODEL_CATALOG never used; empty list → hasModels:false; catalog import banned by deletion
 
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 
@@ -22,20 +8,10 @@ export interface ModelOption {
 }
 
 export interface ModelOptionsResult {
-	/** true when the harness exposes selectable models */
 	hasModels: boolean;
-	/** select options (always includes the "System default" empty-value option) */
 	options: ModelOption[];
 }
 
-/**
- * Build model select options from the harness's discovered descriptor.models.
- *
- * Contract:
- * - Returns the descriptor's discovered models as options (+ a "System default" leading option).
- * - Returns hasModels:false + no selectable options when descriptor.models is empty.
- * - NEVER reads MODEL_CATALOG — a static import ban enforced by deletion.
- */
 export function modelOptionsForHarness(
 	descriptor: HarnessCapabilityDescriptor,
 ): ModelOptionsResult {

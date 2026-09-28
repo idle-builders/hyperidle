@@ -17,15 +17,8 @@
  *   0 teams        → EmptyState (finish setup)
  *   2+ teams       → attention-sorted ItemList of Rows
  *
- * @lore AD9: The 1-team branch is THE single chokepoint for the AD3 "skip the
- * overview at 1 team" rule + spec scenarios 1 & 3. Every entry path
- * (post-setup landing, /work/portfolio redirect, bookmarked /work) flows
- * through /work → here; redirect sites stay unconditional → /work.
- *
- * @lore AD9: WorkOverviewView is presentational so WorkOverview.stories.tsx can
- * render the loading/error/empty/populated states live in the component viewer
- * without a backend or router-fetch stubbing. The view takes onSelectTeam /
- * onNewBet callbacks; the wrapper supplies navigate().
+ * @lore: 1-team branch — single chokepoint for "skip the overview at 1 team"; every entry path (/work/portfolio redirect, bookmarked /work) flows through here
+ * @lore: WorkOverviewView — presentational; stories render all states without backend or router-fetch stubbing; view takes onSelectTeam/onNewBet
  */
 
 import type { JSX } from "react";
@@ -64,14 +57,6 @@ export interface WorkOverviewViewProps {
 	onRetry: () => void;
 }
 
-/**
- * Presentational Work overview. Renders one of: loading / error / empty / populated.
- * Holds zero data-fetching or router logic — every state is driven by props so the
- * story (and tests) can exercise each branch directly.
- *
- * Note: the 1-team short-circuit is NOT here — it is a navigation concern owned by
- * the WorkOverview wrapper. A 1-team list never reaches the view.
- */
 export function WorkOverviewView({
 	teams,
 	loading,
@@ -81,7 +66,6 @@ export function WorkOverviewView({
 	onFinishSetup,
 	onRetry,
 }: WorkOverviewViewProps): JSX.Element {
-	// Loading state
 	if (loading) {
 		return (
 			<PageScaffold
@@ -97,7 +81,6 @@ export function WorkOverviewView({
 		);
 	}
 
-	// Error state — W3: render static user-facing copy only; error.message stays off the screen.
 	if (error) {
 		return (
 			<PageScaffold
@@ -135,7 +118,6 @@ export function WorkOverviewView({
 		);
 	}
 
-	// Populated: attention-sorted list
 	const sorted = sortTeamsByAttention(teams);
 
 	return (
@@ -161,7 +143,6 @@ export function WorkOverviewView({
 			<div className="max-w-[800px] w-full">
 				<ItemList variant="flush" as="ul" isEmpty={false}>
 					{sorted.map((team) => {
-						// @lore BB1: activeBets→tasksInProgress on TeamListItem
 						const taskCount = team.tasksInProgress;
 						const taskLabel = `${taskCount} active ${taskCount === 1 ? "task" : "tasks"}`;
 						return (
@@ -172,9 +153,6 @@ export function WorkOverviewView({
 								title={team.name}
 								cells={[
 									{
-										// Active-task count as a numeric end cell (tabular-nums),
-										// placed BEFORE the StatusChip. Row reads:
-										// [name .......... N active tasks] [StatusChip]
 										content: taskLabel,
 										align: "end" as const,
 										numeric: true,
@@ -195,10 +173,6 @@ export function WorkOverviewView({
 	);
 }
 
-/**
- * Data wrapper: fetches teams, applies the 1-team short-circuit, wires navigation,
- * and delegates rendering to WorkOverviewView.
- */
 export function WorkOverview(): JSX.Element {
 	const navigate = useNavigate();
 	const { data, loading, error, refetch } = useTeams();

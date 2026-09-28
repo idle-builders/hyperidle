@@ -1,18 +1,3 @@
-/**
- * L13 — Team lookup service.
- *
- * @lore AU44 B1: `team_members` dissolved into `teams`. The 500-throwing
- * invariant police in `getTeamMembers` existed only because one entity was
- * split across two tables. After the fold, `getTeamMembers` collapses into
- * `getTeam`, `listTeamMembers` into `listTeams`, and `createTeam` / `updateTeam`
- * each write one table instead of two. See migration 0058.
- *
- * @lore U1: Renamed from product-team.ts. Migration 0021 renamed both tables.
- *
- * @lore AU20 Am7: collapsed 22 per-call-site exports into parameterized interfaces.
- * AU21 Increment 14a: cost verbs deleted with the cost feature.
- */
-
 import type { Team, WriteExecutor } from "@hyperidle/db";
 import { type HyperIdleDb, teams } from "@hyperidle/db";
 import { asc, eq, inArray } from "drizzle-orm";
@@ -74,8 +59,7 @@ export function listTeams(db: HyperIdleDb, filter?: { ids?: readonly string[] })
 /**
  * Input for {@link createTeam}.
  *
- * @lore BC5 T11: a team is an id and a name now (D-e3zm2j, migration 0090)
- * — `phase`/`factoryDbPath`/every other scaffold-tracking column is gone.
+ * @lore: CreateTeamInput — team is id + name only; phase/factoryDbPath columns are gone (migration 0090)
  */
 export interface CreateTeamInput {
 	readonly id: string;
@@ -91,7 +75,3 @@ export async function createTeam(db: WriteExecutor, input: CreateTeamInput): Pro
 		createdAt: input.createdAt,
 	});
 }
-
-// @lore BC5 T11: `updateTeam` (phase/leadAgentId) is deleted — both columns
-// are dropped (migration 0090); a team has no writable field but its name,
-// and `edit_user` never renames one.

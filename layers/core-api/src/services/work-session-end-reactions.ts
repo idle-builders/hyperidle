@@ -1,29 +1,4 @@
-/**
- * Core-api's POST-SESSION reaction that
- * finalizes a `task`'s `taskDispatchAttempts` row.
- *
- * Subscribes `agent_run_lifecycle_changed` ONLY for dispatch-attempt finalize.
- * Idempotent by construction via `updateIfActive`'s guard.
- *
- * A second subscription on
- * `session_ended` merges per-tier token counts into the WORKED TASK's own
- * `tasks.tokensActualJson`. There is no ancestor rollup write — subtree totals
- * are computed at read time by `GET /api/tasks/:id/tree`.
- *
- * @lore BB1: `task.betId` is gone. Tokens accumulate on the worked task itself
- * (not on an ancestor). Per api-contract.md §"Token rollup": nothing writes a
- * rollup onto an ancestor — `tokensActualRollup` is summed at read time.
- *
- * @lore B3 fix (the architecture doc §6): the merged JSON used to land through
- * a bare `update(db, "task", taskId, …)` straight from this file — a
- * production writer of `tasks` outside the task module, with no `changes`
- * row, so the writeback was invisible to the record the item exists to
- * create. `tokensActualJson` is now a field on `EditTaskInput`; this reaction
- * merges the counts (still its own job — `edit_task` has no tier-merge
- * semantics) and calls `edit_task.run` in-process, as the session's own
- * agent, exactly like `work-session-started-reactions.ts` does for the
- * `in_progress` transition.
- */
+// @lore: work-session-end — writeback via `edit_task`; no ancestor rollup — `tokensActualRollup` summed at read time by GET /api/tasks/:id/tree
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";

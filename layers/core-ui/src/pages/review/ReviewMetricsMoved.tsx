@@ -1,7 +1,7 @@
 // Canvas #5 — metrics-that-moved / data-diff.
 // Tool: QuickBooks month-end close (revenue roll-forward + reconciliation).
 //
-// Three layers (brief §1):
+// Three layers:
 //   L1  the moved headlines, materiality-sorted (biggest $ on top), + exceptions count + ToolLogo.
 //   L2  the roll-forward / reconciliation table with CHANGED CELLS HIGHLIGHTED and an explicit
 //       TIE-OUT STRIP (opening + activity = closing), conditional on the payload's own `ties` flag.
@@ -72,9 +72,7 @@ interface CloseFixture {
 
 // ── format helpers ───────────────────────────────────────────────────────────
 //
-// @lore `MetricsMovedPayload` carries no currency field at all, so formatting
-// every number as USD (`style: "currency"`) would assert a fact the payload
-// never supplied. These format grouping only.
+// @lore: fmt helpers — payload carries no currency field; format grouping only, never USD (would assert a fact the payload never supplied)
 
 function fmt(n: number): string {
 	return n.toLocaleString("en-US", {

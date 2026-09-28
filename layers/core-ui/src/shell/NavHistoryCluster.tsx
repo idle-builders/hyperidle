@@ -1,24 +1,10 @@
-/**
- * NavHistoryCluster — shell component for history Back/Forward buttons.
- *
- * Renders the [←][→] pair. Reads history availability via useHistoryAvailability
- * and calls the injected onBack/onForward callbacks on click.
- *
- * @lore AG4: Desktop-only — mobile keeps the existing 48px header chevron in
- * AppShell (mobile branch). This component is only rendered inside detail-page
- * headers behind the `!sidebarMobile` guard.
- *
- * @lore AG4: Forward button is omitted from the DOM entirely when canGoForward
- * is false. This is deliberate — no "dimmed" forward affordance exists when
- * there's nothing to go forward to (unlike Back which stays but is disabled so
- * the space is reserved and muscle memory works for deep links).
- */
+// @lore: desktop-only; rendered behind !sidebarMobile guard; never on mobile
+// @lore: forward button omitted from DOM entirely when canGoForward is false — no dimmed affordance; Back stays disabled to preserve muscle memory for deep links
 
 import type { JSX } from "react";
 import { Button } from "../ds";
 import { useHistoryAvailability } from "../hooks/useHistoryAvailability.js";
 
-// Chevron SVG — 18px, matching AppShell mobile back button (stroke-width 2, round caps).
 const ChevronLeft = (): JSX.Element => (
 	<svg
 		width={18}

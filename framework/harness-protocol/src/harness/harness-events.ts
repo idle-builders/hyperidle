@@ -1,4 +1,4 @@
-/** Harness-level events streamed from agent sessions (D1). */
+/** Harness-level events streamed from agent sessions. */
 
 import type { ModelTier } from "@hyperidle/domain-model";
 
@@ -9,7 +9,7 @@ export interface TokenUsageEvent {
 	readonly cachedInputTokens?: number;
 	readonly cacheCreationInputTokens?: number;
 	readonly reasoningOutputTokens?: number;
-	/** L17: optional tier identifying which model tier produced these tokens. */
+	/** Optional tier identifying which model tier produced these tokens. */
 	readonly tier?: ModelTier;
 }
 
@@ -30,11 +30,7 @@ export interface ErrorEvent {
 	readonly code: string;
 }
 
-/**
- * `cost_update` (harness-adapter $-cost self-report) was removed —
- * founder ruling: "very few harness can actually report cost"; keep only
- * token usage (`token_usage`), tracked by every supported harness.
- */
+// @lore: cost_update is absent from HarnessEvent — "very few harnesses can report cost"; token_usage is the one signal every harness tracks
 export type HarnessEvent = TokenUsageEvent | ToolCallEvent | CompletionEvent | ErrorEvent;
 
 export type HarnessEventType = HarnessEvent["type"];

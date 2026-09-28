@@ -5,26 +5,13 @@
  * A separate preload entry produces dist/preload.js.
  * splash.html is copied to dist/.
  *
- * @lore N5: We bundle from main.ts (Option B) rather than a separate server
- * entry (Option A). This inlines @hyperidle/server, @hyperidle/db, etc. into
- * one CJS file, eliminating split-brain dependency management and runtime
- * require() tricks.
+ * @lore desktop: bundle from main.ts — inlines all hyperidle packages into one CJS; eliminates split-brain dep management and runtime require() tricks
  *
- * @lore PGlite migration: postgres and drizzle-orm/postgres-js are stubbed
- * (not externalized) via the pgStubPlugin. Desktop uses PGlite (not
- * postgres-js), so these code paths are never reached. @electric-sql/pglite
- * is externalized (not stubbed) — it must be available at runtime since
- * desktop now uses PGlite as its database engine. The WASM binary ships
- * inside the pglite package and must be resolvable from node_modules.
+ * @lore desktop: postgres/drizzle-orm/postgres-js stubbed — desktop uses PGlite only; pglite externalized so WASM binary resolvable at runtime from node_modules
  *
- * @lore N5: Node target is node24 (NOT node22). Electron 42 ships Node 24.x
- * (ABI 137). Using node22 produces a technically working but incorrect build
- * that prevents use of Node 24 APIs. Updated from node22 in Electron 36→42 upgrade.
+ * @lore desktop: node target is node24 — Electron 42 ships Node 24.x (ABI 137); node22 prevents Node 24 API use
  *
- * @lore N5: preload output is preload.js (not preload.cjs) so that main.ts's
- * existing `path.join(Dirname, "preload.js")` reference works in both dev
- * (tsx resolves .js → .ts) and production (esbuild outputs preload.js).
- * See architecture.md §4b for the full explanation.
+ * @lore desktop: preload.js not .cjs — main.ts path.join reference resolves in dev (tsx .js→.ts) and production (esbuild outputs preload.js)
  */
 
 import * as fs from "node:fs";
@@ -55,8 +42,7 @@ const PG_STUB_MODULES = ["postgres", "drizzle-orm/postgres-js"];
 // packaged with the Electron app (only dist/**/* is included), these sub-path
 // requires would fail at startup. We stub them with minimal shims that satisfy
 // the interface expected by the generated validators.
-// @lore desktop: AJV runtime stubs — generated MCP validators emit require()
-// calls for ajv runtime helpers. Stubs prevent startup failures in packaged app.
+// @lore desktop: AJV runtime stubs — generated MCP validators emit require() calls for ajv runtime helpers; stubs prevent startup failures in packaged app
 const AJV_STUB_MODULES = [
 	"ajv/dist/runtime/validation_error",
 	"ajv/dist/runtime/uri",
@@ -83,16 +69,12 @@ const pgStubPlugin: esbuild.Plugin = {
 };
 
 // Bundle main process
-// @lore desktop: import.meta.url is undefined in CJS output — esbuild replaces
-// import.meta with an empty object, so import.meta.url becomes undefined. Transitive
-// deps (MCP SDK) call createRequire(import.meta.url) without a __dirname guard,
-// crashing at startup. We use define+banner to replace import.meta.url with a
-// CJS-compatible runtime expression before esbuild creates the empty shim.
+// @lore desktop: import.meta.url undefined in CJS output — esbuild empties import.meta; MCP SDK calls createRequire(import.meta.url) without guard; define+banner replaces it before esbuild shims
 await esbuild.build({
 	entryPoints: [path.join(DESKTOP_DIR, "src/main.ts")],
 	bundle: true,
 	platform: "node",
-	// @lore N5: Electron 42 ships Node 24.x — use node24 as the esbuild target.
+	// @lore desktop: Electron 42 ships Node 24.x — use node24 as the esbuild target.
 	target: "node24",
 	format: "cjs",
 	outfile: path.join(DIST_DIR, "main.cjs"),
@@ -145,10 +127,7 @@ const ALLOWED_EXTERNALS = new Set([
 	// These are data strings embedded by AJV for use in generated validator code —
 	// they are not require() calls that execute at module load time. Adding them
 	// here tells the validator to skip these false-positive matches.
-	// @lore desktop: AJV embeds require() strings as code templates. The validator
-	// regex matches them as if they were real requires, but they are never executed
-	// unless AJV compiles new schemas at runtime (which it does not in the desktop
-	// app — all schemas are pre-compiled at build time by the MCP SDK).
+	// @lore desktop: AJV embeds require() strings as code templates — validator regex matches but never executed; all schemas pre-compiled by MCP SDK at build time
 	...AJV_STUB_MODULES,
 ]);
 

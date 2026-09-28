@@ -1,6 +1,3 @@
-// @lore BB1: "bet" removed — a bet is a task with no parent.
-// @lore artifacts-become-documents: "artifact" removed — produced content is a
-// document; there is no separate artifact navigable surface.
 export type ProductObjectKind =
 	| "team"
 	| "task"

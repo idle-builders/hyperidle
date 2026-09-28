@@ -1,21 +1,3 @@
-/**
- * AgentAddDialog: create a new team agent.
- *
- * Separate from AgentEditDialog because the header is structurally different
- * (editable name + role select vs static identity display).
- *
- * @lore AI2: Migrated from native <dialog> + showModal() boilerplate to the
- * Dialog primitive. isDirty is true when the user has modified name or systemPrompt
- * from the initial empty state. Authoring surface — guards on dismissal when dirty.
- *
- * @lore BC5 T9: the door swap — `call("edit_user", {...})` replaces `POST
- * /api/agents`. `identity` is always sent (`?? ""`) so the agent gets an
- * identity document even with an empty system prompt, matching the create
- * route's old behaviour. `team` is the destination team by name — this
- * dialog is always placed inside a specific team's page, so the field is
- * never left to a caller default.
- */
-
 import { HARNESS_TYPES, type HarnessType } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useState } from "react";
 // hearth-internal-padding
@@ -30,7 +12,6 @@ export interface AgentAddDialogProps {
 	/** Name of the destination team — matched or created by `edit_user`'s `team` ref. Shown read-only above the name field. */
 	teamName: string;
 	onClose: () => void;
-	/** Called after successful create. Triggers refetch in parent. */
 	onCreated: () => void;
 	/** The roles agents actually have — what the picker offers. A new one introduces itself. */
 	rolesInUse?: readonly string[];
@@ -52,17 +33,6 @@ const INITIAL_FORM: AddFormValues = {
 	maxConcurrentSessions: 1,
 };
 
-/**
- * @lore BA9g: this was `AGENT_ROLE_CATALOG.filter(category === "team")` behind a
- * closed <Select> — you could only add an agent in one of 15 roles the product
- * had decided on. A role is data now: the picker offers the roles the team's
- * agents actually have, and typing a new one introduces it.
- *
- * @lore BA6: the <Select> itself is gone too — the role field is now the same
- * `Combobox` + `allowCustomValue` + `roleOptions()` catalog `AgentEditor`'s
- * role field uses, not a second hand-rolled equivalent.
- */
-
 export function AgentAddDialog({
 	open,
 	teamName,
@@ -74,7 +44,6 @@ export function AgentAddDialog({
 	const [formValues, setFormValues] = useState<AddFormValues>(INITIAL_FORM);
 	const [creating, setCreating] = useState(false);
 
-	// Reset form on open
 	useEffect(() => {
 		if (open) {
 			setFormValues(INITIAL_FORM);
@@ -82,10 +51,6 @@ export function AgentAddDialog({
 	}, [open]);
 
 	const isDirty = formValues.name.trim().length > 0 || formValues.systemPrompt.trim().length > 0;
-
-	// @lore BA9g: prefilling a new agent's identity from the role's template is
-	// gone with the route and the files behind it. The personas belong to the
-	// `role-personas` plugin; a new agent starts with an empty identity.
 
 	const handleRoleChange = useCallback((newRole: string): void => {
 		setFormValues((prev) => ({ ...prev, role: newRole, systemPrompt: "" }));
@@ -147,12 +112,10 @@ export function AgentAddDialog({
 				</>
 			}
 		>
-			{/* Placement context — read-only team name shown before identity fields */}
 			<div className="mb-[12px]">
 				<KeyValue label="TEAM" value={teamName} layout="inline" />
 			</div>
 
-			{/* Header — editable name + role select */}
 			<div className="flex flex-col gap-[12px]">
 				<Input
 					id="add-dialog-name"
@@ -179,7 +142,6 @@ export function AgentAddDialog({
 				)}
 			</div>
 
-			{/* System prompt section */}
 			<div className="mt-[18px]">
 				<h3 className="type-label   uppercase  text-[var(--text-tertiary)] mb-[6px]">
 					System prompt
@@ -200,7 +162,6 @@ export function AgentAddDialog({
 				/>
 			</div>
 
-			{/* Config section — starts expanded in create mode */}
 			<div className="mt-[12px]">
 				<h3 className="type-label   uppercase  text-[var(--text-tertiary)] mb-[6px]">
 					CONFIGURATION

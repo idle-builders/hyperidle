@@ -10,19 +10,11 @@
  * Flow: mkdtemp → apply Drizzle migrations against it → open a live PGlite
  * handle on the same dir → boot Hono server.
  *
- * @lore AH1: The main E2E suite mocks all /api/* routes (no real backend).
- * The AH1 credential proof requires real PUT/GET /api/credentials/* calls.
- * This script is the minimal glue: we pass deps.db to createServer so the
- * server uses our already-migrated tmp-dir DB instead of opening a file.
+ * @lore test server: main e2e suite mocks all /api/* routes; this script adds minimal glue for real credential routes (PUT/GET /api/credentials/*)
  *
- * @lore AH1: npm workspace hoisting means @electric-sql/pglite, @hyperidle/db
- * and @hyperidle/server are all accessible from node_modules at the repo root,
- * even though layers/core-ui/package.json doesn't list them as deps. This is
- * correct for an E2E test helper — it's not web source code.
+ * @lore workspace hoisting: pglite, @hyperidle/db and @hyperidle/server available from root node_modules — not a dep of core-ui/package.json
  *
- * @lore AH1: Port 3099 is the AH1 E2E API port. Non-default (not 3001) to
- * avoid collision with sibling worktree dev servers. Not 5179/5180 (those are
- * Vite ports). The playwright.ah1.config.ts and vite.ah1.config.ts agree on 3099.
+ * @lore port 3099: avoids collision with dev server (3001) and Vite ports (5179/5180)
  */
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -85,9 +77,7 @@ function shutdown(): Promise<void> {
 			process.stderr.write(`[ah1-test-server] database close failed: ${String(error)}\n`);
 			exitCode = 1;
 		}
-		// @lore AU32: the tmp-dir composition (D4) replaced the in-memory `new PGlite()` this
-		// script used to hand-roll with a per-boot `mkdtemp` directory, so there is now
-		// something on disk to remove — the old in-memory handle left nothing behind.
+		// @lore shutdown removes the mkdtemp data dir — there IS a file to clean up (per-boot tmp dir PGlite, not in-memory)
 		try {
 			await rm(dataDir, { recursive: true, force: true });
 		} catch (error) {

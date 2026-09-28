@@ -1,10 +1,7 @@
 /**
  * AV4 — AgentDetailPane stories (design artifacts for the component viewer).
  *
- * @lore AV4: Wrapped in <ToastRegion> only — AgentDetailPane uses no router hooks,
- * so no Router ancestor is needed. No <Dialog> shell — no role="dialog" anywhere
- * (AC#3). (The in-app /designsystem viewer was removed in #404; stories render
- * standalone in the component viewer.)
+ * @lore wrapped in <ToastRegion> only — AgentDetailPane uses no router hooks; no Dialog shell (no role="dialog"); stories render standalone
  */
 
 import type { JSX, ReactNode } from "react";
@@ -32,7 +29,7 @@ const TEAM_AGENT: AgentConfig = {
 	agentCategory: "team",
 };
 
-// @lore BA9d: "strategy" category deleted. Was STRATEGY_AGENT — now an individual agent.
+// @lore agentCategory "strategy" is not valid; use "individual"
 const INDIVIDUAL_AGENT: AgentConfig = {
 	id: "agent-scout-1",
 	name: "Scout Agent",
@@ -53,7 +50,7 @@ const TEAM_MEMBER: TeamRosterMember = {
 	agentCategory: "team",
 };
 
-// @lore BA9d: was STRATEGY_MEMBER. Renamed and recategorised to individual.
+// @lore member category is "individual"; strategy category absent
 const INDIVIDUAL_MEMBER: TeamRosterMember = {
 	agentId: "agent-scout-1",
 	name: "Scout Agent",

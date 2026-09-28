@@ -7,13 +7,7 @@
  * Per visual-regression.md: stories render POPULATED real state only.
  * No skeleton or error states in an initial design.
  *
- * @lore BC3: the page's Discussion section (`HostThreadSection`) no longer
- * resolves a thread via a `hostKind: "task"` lookup — that host kind is
- * gone. It reads `task.threadId` (set by `open_task`) directly and, when
- * present, loads it with `POST /api/actions/open_thread`
- * (`ThreadViewSchema`). The mock below gives each story task a real
- * `threadId` and answers `open_thread` for it, instead of the deleted
- * threads REST route.
+ * @lore HostThreadSection reads task.threadId directly (no hostKind:"task" lookup); loads via POST /api/actions/open_thread; mock provides threadId per story
  */
 
 import { MemoryRouter, Route, Routes } from "react-router-dom";
@@ -51,8 +45,7 @@ function makeTask(
 		state: overrides.state ?? "proposed",
 		position: overrides.position ?? 0,
 		dependencies: null,
-		// @lore BC3: `Task.threadId` is `NOT NULL` — every task gets its own
-		// thread at creation (architecture.md §3.9). Never `null` here.
+		// @lore Task.threadId is NOT NULL — every task gets its own thread at creation
 		threadId: overrides.threadId ?? `${overrides.id ?? "task-1"}-thread`,
 		notes: null,
 		outcomeVerdict: null,

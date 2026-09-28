@@ -28,21 +28,6 @@ interface FlatItem {
 	id: string;
 }
 
-/**
- * @lore GlobalSearchPanel is a composition panel that assembles Tier 1/2 components
- * (SearchField, ThreadRow, TaskCard, DocRow) and DaisyUI primitives. It is NOT
- * one of the 19 custom components in the component budget — it is a page-level
- * composition, similar to how a page assembles components without being a component itself.
- */
-
-/**
- * @lore DaisyUI modal pattern uses CSS classes (modal modal-open) instead of
- * the <dialog> element so we have full control over focus and keyboard events
- * without fighting the native dialog behavior.
- */
-
-// Z8-149: replaced #374151 (cool gray-700, AQ-008/AQ-018 violation) with
-// #5c4f3d (warm earth mid-tone matching --surface-container token family).
 const AVATAR_PLACEHOLDER =
 	"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Crect width='32' height='32' fill='%235c4f3d'/%3E%3C/svg%3E";
 
@@ -53,9 +38,7 @@ export function GlobalSearchPanel({
 }: GlobalSearchPanelProps): JSX.Element | null {
 	const search = useGlobalSearch();
 	const prevOpenRef = useRef(open);
-	// @lore AI2: useDialogBehavior with layer="dialog" replaces DaisyUI .modal.modal-open chrome.
-	// The overlay div carries data-dialog-layer="dialog" (--z-dialog = 60, above --z-overlay = 40).
-	// modal=true: scrim + backdrop dismiss. isDirty=false: command palette, always clean.
+	// modal=true: scrim + backdrop dismiss. isDirty=false: command palette always clean.
 	const behavior = useDialogBehavior({
 		open,
 		onClose,
@@ -106,11 +89,7 @@ export function GlobalSearchPanel({
 		onClose,
 	});
 
-	/**
-	 * @lore Ref callback focuses the input when the panel mounts.
-	 * Cannot use autoFocus because biome's noAutofocus rule forbids it.
-	 * Ref callback is the recommended alternative for programmatic focus.
-	 */
+	// @lore: focus on mount — ref callback used instead of autoFocus (biome noAutofocus forbids it)
 	const focusRef = useCallback((node: HTMLInputElement | null): void => {
 		node?.focus();
 	}, []);
@@ -121,10 +100,7 @@ export function GlobalSearchPanel({
 
 	const overlayProps = behavior.getOverlayProps();
 
-	// @lore AI2: nav.onKeyDown handles Escape (→ onClose) and ArrowUp/Down/Enter navigation.
-	// We do NOT also call overlayProps.onKeyDown here because isDirty=false always for the
-	// command palette, so both handlers would call onClose on Escape (double-fire).
-	// behavior.requestDismiss is used only for the Close button (confirmations not relevant here).
+	// nav.onKeyDown handles Escape/ArrowUp/Down/Enter; overlayProps.onKeyDown not called (double-fire on Escape).
 	const handleKeyDown = (e: React.KeyboardEvent): void => {
 		nav.onKeyDown(e.nativeEvent);
 	};
@@ -134,18 +110,7 @@ export function GlobalSearchPanel({
 
 	let itemIndex = 0;
 
-	/*
-	 * @lore AI2: DaisyUI .modal.modal-open replaced by useDialogBehavior overlay.
-	 * The panel div carries data-dialog-layer="dialog" (--z-dialog = 60, above --z-overlay = 40).
-	 * max-w-[640px] SURVIVES on this same element — the sanctioned test asserts both attributes
-	 * on the same node. The scrim (backdrop) is rendered as a separate fixed sibling div.
-	 * See architecture.md §Sanctioned assertion changes #2.
-	 *
-	 * @lore UI-001: createPortal into #overlay-root (sibling of #root) prevents the
-	 * panel from being caught by the inert attribute that useDialogBehavior sets on
-	 * #root while a modal is open. Without the portal the input is inside the inerted
-	 * subtree and typing/Escape both become no-ops. Mirrors the Dialog.tsx pattern.
-	 */
+	// @lore: portal into #overlay-root — prevents panel from being caught by inert on #root; typing/Escape would be no-ops inside the inerted subtree
 	return createPortal(
 		<>
 			{/* Scrim / backdrop — closes on click */}
@@ -159,11 +124,6 @@ export function GlobalSearchPanel({
 				}}
 				onMouseDown={onClose}
 			/>
-			{/*
-			 * @lore focus-trap-react requires tabbableOptions.displayCheck="none" in jsdom
-			 * because jsdom doesn't implement CSS visibility/display checks. The fallbackFocus
-			 * ensures activation succeeds even when jsdom cannot detect tabbable nodes.
-			 */}
 			<FocusTrap
 				focusTrapOptions={{
 					initialFocus: false,
@@ -199,9 +159,6 @@ export function GlobalSearchPanel({
 						ref={focusRef}
 					/>
 
-					{/* Z8-152: removed 404-as-"coming-soon" branch. /api/search is always
-					    mounted; a 404 now indicates a real route regression and should surface
-					    as a generic search error, not a "coming soon" affordance that masks it. */}
 					{search.error && (
 						<ErrorState
 							title="Search failed"
@@ -255,7 +212,6 @@ export function GlobalSearchPanel({
 													: ""
 											}
 										>
-											{/* @lore BB1: BetCard replaced by TaskCard — tasks are the one work primitive. */}
 											<TaskCard
 												title={w.title}
 												team={w.team}
@@ -303,17 +259,6 @@ export function GlobalSearchPanel({
 						)}
 					</div>
 
-					{/*
-					 * @lore J3: mono recent-queries row at bottom of the
-					 * Command-K overlay. Persistence of actual recent queries
-					 * is deferred (J8+ knowledge-facing work); for now we
-					 * render the row structure so the keyboard flow + layout
-					 * match spec. The data-testid lets tests and e2e pin the
-					 * region without coupling to visual text.
-					 * @lore UI: hide when results are on screen — "No recent queries"
-					 * shown alongside matches is contradictory. Only visible when
-					 * the result list is empty (no query or no matches).
-					 */}
 					{!search.hasResults && (
 						// biome-ignore lint/a11y/useSemanticElements: not a form — <fieldset> doesn't apply to this region; role="group" is what makes the aria-label below take effect.
 						<div

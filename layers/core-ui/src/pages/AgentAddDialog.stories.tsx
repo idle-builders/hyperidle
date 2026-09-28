@@ -2,9 +2,7 @@
  * AB3 — AgentAddDialog stories.
  * Renders key states for visual verification.
  *
- * @lore AB3: Wrapped in <ToastRegion> because AgentAddDialog calls useToast().
- * The story viewer does not provide <ToastRegion>, so stories that render
- * dialogs must add their own wrapper to avoid a runtime crash.
+ * @lore wrapped in <ToastRegion> — AgentAddDialog calls useToast(); story viewer provides none
  */
 
 import type { JSX, ReactNode } from "react";

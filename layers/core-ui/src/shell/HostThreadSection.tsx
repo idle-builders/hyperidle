@@ -1,41 +1,8 @@
-/**
- * HostThreadSection — L18 Tier 3 shell component.
- *
- * Single convergence point for the thread surface on task and document
- * detail surfaces. Wraps `useThread`/`useThreads` and renders messages plus a
- * plain composer.
- *
- * @lore BC3: `hostKind`/`hostId` are gone — `"task"` left the thread
- * `HOST_KINDS` vocabulary (a task's own thread is `team`-hosted;
- * architecture.md §3.9) and a task page already knows its own thread id
- * (`open_task(id).threadId`). Two ways in, never both at once:
- *  - `threadId` — the caller already has the thread (the task page).
- *  - `host` — the caller has only a host to resolve, and creates the thread
- *    on first post when none exists yet (the document page). A
- *    `document` host is host-scoped (architecture.md §3.4): any
- *    signed-in visitor may read it and post into it, joining by posting.
- *
- * @lore L18: the `inline` prop suppresses the `<section>` wrapper and heading
- * chrome for TaskSheet (which provides its own structural container).
- *
- * @lore L18: `prefill` is set by the page when the user clicks "Discuss" on
- * a Block. The chip renders a `Re: <excerpt>` affordance above the composer.
- * The chip is stateless here — the page owns the prefill state and can clear
- * it by passing `undefined`. `onClearPrefill` is called when the user clicks
- * the dismiss × button inside the chip.
- *
- * @lore BC3: the block-anchored filter now reads `Message.blockId` — a real
- * top-level column (architecture.md §3.1's `messages_block_id_idx`), not a
- * field buried inside the plain payload. The old `isPlainPayloadWithBlockId`
- * type-guard hack is gone with it.
- *
- * @lore BC3 review: this component is the *only* place that resolves the
- * host's thread — `search_threads({host})` then `open_thread(id)`. A host
- * page that separately needs the same data (DocumentDetail's block-anchored
- * inline rendering) does not call those hooks again; it reads `onThreadView`
- * instead. Duplicating the resolve here was the original review finding:
- * two independent fetchers for one thread, four action calls where two do.
- */
+// @lore: two ways in — threadId (caller has thread; task page) or host (caller resolves; document page creates on first post)
+// @lore: inline prop — suppresses <section> wrapper and header chrome for TaskSheet
+// @lore: prefill — stateless here; page owns state and clears by passing undefined; onClearPrefill called on dismiss
+// @lore: filterBlockId reads Message.blockId — real column, not a field buried in payload; client-side slice only
+// @lore: onThreadView — single fetch point; host pages that need the same thread data read it from here, not by resolving the host again
 
 import type { HostKind, Message, ThreadView } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
@@ -80,10 +47,6 @@ export interface HostThreadIdentity {
 	isAgent: boolean;
 }
 
-/**
- * Resolve a senderId to a CommentRowSender using the identities map.
- * Falls back to a minimal sender shape when identity data is unavailable.
- */
 function resolveSender(
 	senderId: string,
 	identities: Record<string, HostThreadIdentity>,
@@ -97,7 +60,6 @@ function resolveSender(
 			isAgent: identity.isAgent,
 		};
 	}
-	// Fallback: use senderId prefix as display name (e.g. "agent-1" → "agent-1")
 	return {
 		id: senderId,
 		name: senderId,
@@ -115,29 +77,18 @@ export function HostThreadSection({
 	onThreadView,
 	filterBlockId,
 }: HostThreadSectionProps): JSX.Element {
-	// A `host` prop resolves lazily: search for an existing thread on that
-	// host, and adopt whichever id `search_threads` finds. `knownThreadId`
-	// (the task page) never goes through this search at all.
+	// host prop resolves lazily via search_threads; knownThreadId skips the search entirely
 	const hostFilter = knownThreadId === undefined && host !== undefined ? { host } : undefined;
 	const resolved = useThreads(hostFilter);
 	const resolvedThreadId = resolved.threads[0]?.id;
 	const activeThreadId = knownThreadId ?? resolvedThreadId;
 
-	// @lore re-review: never `useThread(activeThreadId, filterBlockId)` — that
-	// asked the server for only that block's messages, so `onThreadView`
-	// below reported a block-scoped `data` to whatever else on the page
-	// reads it (e.g. DocumentDetail's inline anchored comments), making
-	// every other block's comments vanish the moment one block's discussion
-	// was opened. `filterBlockId` stays a purely client-side slice over the
-	// one full `ThreadView` this hook loads — see `messages` below.
+	// @lore: filterBlockId is client-side only — passing it to useThread would report a block-scoped view via onThreadView, making all other blocks' comments vanish
 	const { status, data, error, refresh } = useThread(activeThreadId);
 	const composerWrapperRef = useRef<HTMLDivElement>(null);
 	// T5: when filterBlockId is set, user can toggle "show all" to exit the filter.
 	const [showAll, setShowAll] = useState(false);
 
-	// Report every load — including the reload that follows a
-	// first post creating the thread — so a host page that needs the same
-	// data (e.g. block-anchored rendering) never resolves it a second time.
 	useEffect(() => {
 		onThreadView?.(data);
 	}, [data, onThreadView]);
@@ -157,9 +108,7 @@ export function HostThreadSection({
 		}
 	}, [prefill]);
 
-	// Only `resolved.retry` is called below; depending on the whole `resolved`
-	// object (a fresh instance from `useThreads` every render) would rebuild
-	// this callback — and anything keyed on it — on every render.
+	// destructure retry to avoid full resolved object as dep (fresh instance each render)
 	const { retry: retryResolved } = resolved;
 	const handleComposerSubmit = useCallback(
 		async (input: ComposerSubmitInput): Promise<void> => {
@@ -189,11 +138,7 @@ export function HostThreadSection({
 		[activeThreadId, host, prefill?.blockId, refresh, retryResolved],
 	);
 
-	// @lore BC3 review: `useThread(undefined)` is "idle", not "loading" — a
-	// host with no thread yet (search_threads → []) must not show the
-	// skeleton forever. Only count `status === "loading"` once an id has
-	// actually been resolved; while resolving the host itself, `resolved`'s
-	// own loading state already covers the skeleton.
+	// @lore: useThread(undefined) is "idle" not "loading" — only count status==="loading" once an id is resolved; host with no thread must not show skeleton forever
 	const isLoading =
 		resolved.status === "loading" || (activeThreadId !== undefined && status === "loading");
 
@@ -216,8 +161,7 @@ export function HostThreadSection({
 		);
 	}
 
-	// @lore UI-003: open_thread returns messages DESC (newest-first). Reverse
-	// to ASC so CommentRow renders oldest → newest top-to-bottom.
+	// @lore: open_thread returns messages DESC; reversed to ASC for oldest-first rendering
 	const allMessages: ReadonlyArray<Message> = data?.messages ? [...data.messages].reverse() : [];
 	const identities: Record<string, HostThreadIdentity> = data
 		? Object.fromEntries(
@@ -225,7 +169,7 @@ export function HostThreadSection({
 			)
 		: {};
 
-	// T5: Apply block-scoped filter unless user has toggled "show all".
+	// block-scoped filter unless user toggled "show all"
 	const isFiltering = filterBlockId !== undefined && !showAll;
 	const messages: ReadonlyArray<Message> = isFiltering
 		? allMessages.filter((msg) => msg.blockId === filterBlockId)
@@ -275,13 +219,6 @@ export function HostThreadSection({
 			)}
 
 			{prefill && (
-				// B2 fix: was a hand-rolled pill+fill div — dodged
-				// no-handrolled-chip only by dropping the pill radius to
-				// rounded-subtle while keeping the fill (still hand-rolled, just
-				// no longer pattern-matched). ReferenceChip's draft mode (no
-				// onOpen) is exactly this shape — a non-interactive reply preview
-				// + a trailing remove control — already used elsewhere for
-				// exactly this "reference to something" chip family.
 				<ReferenceChip
 					kind="block"
 					label={prefill.blockExcerpt}

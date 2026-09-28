@@ -1,5 +1,3 @@
-// Block derivation — merged from framework/block-derivation
-// Block types — moved from framework/domain-model
 export { blockId } from "./block-id.js";
 export { deriveBlocks } from "./derive-blocks.js";
 export { derivePayloads } from "./derive-payloads.js";

@@ -1,9 +1,4 @@
-/**
- * @mention resolution — moved from `routes/threads.ts`'s
- * `buildMentionLookup`/`resolveMentionsForMessage`. A nested Service
- * may not import `@hyperidle/user` directly, so the name lookup is built
- * from an injected read (`ThreadActionsDeps.users`) instead of `listUsers`.
- */
+// @lore: @mention resolution — a nested Service may not import `@hyperidle/user` directly; the name lookup is injected via `ThreadActionsDeps.users`
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import { type InlineRef, resolveMentionsInText } from "@hyperidle/domain-model";
@@ -89,13 +84,9 @@ async function buildMentionLookup(
 /**
  * Resolve @mention candidates from a plain message's text. Returns the
  * enriched refs array, the set of newly-mentioned participant ids
- * (excluding the sender and anyone already a member — used to grow
- * thread membership), and `mentionedIds` — every resolved mention id
- * excluding the sender, whether or not it was already a member.
- *
- * @lore A mention of an agent already in the thread must still wake it, so
- * the wake decision (`agentsToWake`) reads `mentionedIds`, not
- * `newParticipantIds`.
+ * (excluding the sender and anyone already a member), and `mentionedIds` —
+ * every resolved mention id excluding the sender, whether or not already a member.
+ * @lore: a mention of an agent already in the thread must still wake it — `agentsToWake` reads `mentionedIds`, not `newParticipantIds`
  */
 export async function resolveMentionsForMessage(
 	db: HyperIdleDb,

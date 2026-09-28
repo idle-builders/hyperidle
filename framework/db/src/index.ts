@@ -49,20 +49,15 @@ export {
 	sessions,
 	subscriptions,
 	type Task,
-	// @lore U1 / AU44 B1: Team is the single domain entity (team_members dissolved in).
+	// @lore: Team — single domain entity; membership via teamId on users/agents, no join table
 	type Team,
 	type Thread,
 	taskDispatchAttempts,
 	tasks,
-	// @lore U1: teams table (formerly products table).
 	teams,
 	threads,
 	type User,
 	users,
 } from "./schema.js";
-// @lore AU28 Ruling 9: `createTestDb` / `warmPool` / `closeAllInstances` /
-// `TestDbHandle` used to be exported from this production barrel. That is one of the
-// breaches the founder named which "no folder convention would have caught" — a
-// development symbol reachable from a production entry point. They now live behind the
-// `@hyperidle/db/testing` subpath, and the crossing rule polices who imports it.
+// @lore: @hyperidle/db/testing subpath — test-only exports behind separate subpath; production entry point cannot reach test symbols
 export type { WriteExecutor } from "./write-executor.js";

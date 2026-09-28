@@ -1,7 +1,3 @@
-/**
- * Size-based log rotation for server stdout/stderr tee.
- */
-
 import * as fs from "node:fs";
 import * as path from "node:path";
 
@@ -14,51 +10,33 @@ export interface LogRotatorOptions {
 
 export interface LogRotator {
 	readonly logPath: string;
-	/** Monkey-patch process.stdout and process.stderr to also write to log file. */
 	attach(): void;
-	/** Restore original process.stdout and process.stderr write functions. */
 	detach(): void;
-	/** Write a string synchronously to the current log file. */
 	writeSync(text: string): void;
 }
 
-/**
- * Create a log rotator that tees process.stdout/stderr to a file in logDir.
- * The file is named "server.log".
- */
 export function createLogRotator(logDir: string, options?: LogRotatorOptions): LogRotator {
 	const maxBytes = options?.maxBytes ?? 10 * 1024 * 1024; // 10MB default
 	const maxFiles = options?.maxFiles ?? 3;
 	const logPath = path.join(logDir, "server.log");
 
-	// Track the original write functions for detach
 	let origStdoutWrite: typeof process.stdout.write | null = null;
 	let origStderrWrite: typeof process.stderr.write | null = null;
 
-	/** Track current log file size in bytes */
 	let currentSize = 0;
 
-	/**
-	 * Ensure log directory exists.
-	 */
 	function ensureDir(): void {
 		if (!fs.existsSync(logDir)) {
 			fs.mkdirSync(logDir, { recursive: true });
 		}
 	}
 
-	/**
-	 * Rotate the log files: shift existing .N files up, rename server.log → server.log.1.
-	 * Deletes server.log.maxFiles if it exists.
-	 */
 	function rotate(): void {
-		// Remove the oldest rotated file beyond maxFiles
 		const oldest = `${logPath}.${maxFiles}`;
 		if (fs.existsSync(oldest)) {
 			fs.rmSync(oldest);
 		}
 
-		// Shift server.log.N → server.log.N+1 (from highest down to 1)
 		for (let i = maxFiles - 1; i >= 1; i--) {
 			const from = `${logPath}.${i}`;
 			const to = `${logPath}.${i + 1}`;
@@ -67,24 +45,18 @@ export function createLogRotator(logDir: string, options?: LogRotatorOptions): L
 			}
 		}
 
-		// Rename server.log → server.log.1
 		if (fs.existsSync(logPath)) {
 			fs.renameSync(logPath, `${logPath}.1`);
 		}
 
-		// Reset current size counter
 		currentSize = 0;
 	}
 
-	/**
-	 * Write text to the log file, rotating if necessary.
-	 */
 	function writeSync(text: string): void {
 		ensureDir();
 
 		const buf = Buffer.from(text, "utf-8");
 
-		// Check if rotation is needed
 		if (fs.existsSync(logPath)) {
 			const stat = fs.statSync(logPath);
 			currentSize = stat.size;
@@ -100,22 +72,15 @@ export function createLogRotator(logDir: string, options?: LogRotatorOptions): L
 		currentSize += buf.length;
 	}
 
-	/**
-	 * Monkey-patch process.stdout.write and process.stderr.write to tee to log.
-	 */
 	function attach(): void {
 		if (origStdoutWrite !== null) {
-			// Already attached
 			return;
 		}
 
 		origStdoutWrite = process.stdout.write.bind(process.stdout);
 		origStderrWrite = process.stderr.write.bind(process.stderr);
 
-		// @lore N4: We override process.stdout.write to tee output to the log file.
-		// The callback form must be preserved to not break callers that pass a cb.
-		// We capture the originals into local variables to avoid non-null assertions
-		// inside the arrow function body.
+		// @lore: process.stdout.write — callback form must be preserved; originals captured to local vars to avoid closures over non-null-asserted values
 		const capturedStdout = origStdoutWrite;
 		const capturedStderr = origStderrWrite;
 
@@ -156,9 +121,6 @@ export function createLogRotator(logDir: string, options?: LogRotatorOptions): L
 		};
 	}
 
-	/**
-	 * Restore original process.stdout.write and process.stderr.write.
-	 */
 	function detach(): void {
 		if (origStdoutWrite === null) {
 			return;

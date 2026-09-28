@@ -69,9 +69,7 @@ function describe(
 	const type = meta.type ?? meta.name;
 
 	if (isKnownHarnessFamily(type)) {
-		// @lore AV2: known CLI harnesses prefer discoveries[type].models (populated by
-		// probeClaudeCodeCli / probeOpenCodeCli at probe time), falling back to
-		// caps.descriptorModels (the legacy static path). This is the "discovered wins" rule.
+		// @lore: known harness descriptor — discoveries[type].models wins over caps.descriptorModels; probed models always override static fallback
 		const discoveredModels = discoveries?.[type]?.models;
 		const models: readonly HarnessModelDescriptor[] =
 			discoveredModels && discoveredModels.length > 0 ? discoveredModels : cliModels(caps);
@@ -92,7 +90,6 @@ function describe(
 		};
 	}
 
-	// External harnesses: same discovered-wins rule
 	const discoveredModels = discoveries?.[type]?.models;
 	const models: readonly HarnessModelDescriptor[] =
 		discoveredModels && discoveredModels.length > 0 ? discoveredModels : cliModels(caps);

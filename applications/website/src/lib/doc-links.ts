@@ -3,22 +3,8 @@ import path from "node:path";
 import { docEntryId } from "./docs-loader.js";
 
 /**
- * Link mapping for the docs seam.
- *
- * Docs source files cross-link with repo-relative markdown hrefs
- * (`./other.md`, `../../deployment/laptop.md`). The site renders a subset of
- * the repo's docs/ tree (the "rendered sections"); every other target must
- * still resolve. Two destinations:
- *
- * 1. hrefs that resolve INSIDE the rendered sections → the site route,
- *    `<base>docs/<id>/` (same contract as docEntryId: index.md collapses
- *    onto its directory URL).
- * 2. hrefs that resolve OUTSIDE them (other docs/ subtrees, repo-root files
- *    like CLAUDE.md, tools/**) → the file's GitHub URL on main, so nothing
- *    404s on the static site.
- *
- * Returns null for hrefs the mapper must leave untouched (external URLs,
- * site-absolute paths, pure anchors, hrefs escaping the repo root).
+ * Two destinations for in-repo markdown cross-links: hrefs inside the rendered sections map to site
+ * routes; hrefs outside map to GitHub URLs so nothing 404s. Returns null for hrefs to leave untouched.
  */
 
 export interface GitHubTarget {
@@ -34,11 +20,6 @@ export interface DocLinkOptions {
 	github: GitHubTarget;
 }
 
-/**
- * Resolve a relative href against the directory of the doc that contains it.
- * Both arguments are repo-root-relative ("docs/guides/user/agents.md").
- * Returns null when the href climbs above the repo root.
- */
 export function resolveRepoPath(sourceDoc: string, hrefPath: string): string | null {
 	const segments: string[] = [];
 	for (const part of [...path.posix.dirname(sourceDoc).split("/"), ...hrefPath.split("/")]) {
@@ -53,10 +34,6 @@ export function resolveRepoPath(sourceDoc: string, hrefPath: string): string | n
 	return segments.join("/");
 }
 
-/**
- * GitHub URL for a repo-root-relative path: blob for files, tree for
- * directories (trailing slash, or a final segment without an extension).
- */
 export function githubDocUrl(github: GitHubTarget, repoPath: string): string {
 	const isDirectory = repoPath.endsWith("/") || !path.posix.basename(repoPath).includes(".");
 	const kind = isDirectory ? "tree" : "blob";
@@ -106,14 +83,7 @@ interface MarkdownLinkNode {
 	children?: MarkdownLinkNode[];
 }
 
-/**
- * Remark plugin factory: rewrites relative markdown link hrefs in rendered
- * docs via mapDocHref. Registered in astro.config.ts markdown.remarkPlugins.
- *
- * The current file comes from the vfile (astro sets it from the entry's
- * fileURL — see @astrojs/markdown-remark's render()); repoRoot turns it back
- * into the repo-relative path the mapper works in.
- */
+// @lore: remarkDocLinks — vfile.path is the absolute filesystem path; repoRoot converts it to repo-relative for resolveRepoPath
 export function remarkDocLinks(
 	options: DocLinkOptions & { repoRoot: string },
 ): (tree: MarkdownLinkNode, file: { path?: string }) => void {

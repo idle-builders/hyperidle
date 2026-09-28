@@ -9,7 +9,7 @@ import type { Action } from "./action.js";
  * action, parsed with the action's own zod shape, run as the authenticated
  * actor. Mounting is structural — this loop mounts every declaration or
  * none, so the governance rule (`actions-projected.ts`) has no "is it
- * mounted" clause. the architecture doc §7.
+ * mounted" clause.
  */
 export function createActionsRouter(
 	actions: readonly Action[],
@@ -22,11 +22,7 @@ export function createActionsRouter(
 			`/${action.declaration.name}`,
 			validateBody(action.declaration.input),
 			async (c) => {
-				// @lore the zod-dual-version bridge every existing handler needs
-				// (`routes/tasks.ts:336` before this item) — `@hono/zod-validator`
-				// typechecks against its own deduped zod; server schemas are a
-				// different zod instance. Not optional; omitting it costs a
-				// typecheck round.
+				// @lore: @hono/zod-validator typechecks against its own deduped zod; server schemas are a different instance; this cast is required
 				const input = c.req.valid("json" as never);
 				const result = await action.run(
 					{

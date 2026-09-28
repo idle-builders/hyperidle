@@ -9,11 +9,7 @@
  * 5. Electron, shared mode — enabled worker (connected)
  * 6. Electron, shared mode — enabled worker (paused)
  *
- * @lore AF5/S: window.__HYPERIDLE__ is typed as HyperIdleElectronBridge (window.d.ts).
- * Casting `window as Window & { __HYPERIDLE__?: T }` still intersects T with
- * HyperIdleElectronBridge, requiring the full bridge interface. Stories use partial
- * mocks for visual testing, so we cast through `unknown` to install a minimal stub
- * without needing a full bridge implementation.
+ * @lore window.__HYPERIDLE__ typed as HyperIdleElectronBridge; cast through unknown to install minimal stub — intersecting T still requires full interface
  */
 
 import { useMemo } from "react";

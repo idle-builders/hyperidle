@@ -1,28 +1,18 @@
 import type { ModelProvider } from "@hyperidle/domain-model";
 
 /**
- * @lore AU34: this type is declared HERE, beside the descriptor, and imported back by the adapter —
- * the reverse of where it used to sit. The descriptor's `returnEnforcement` field was the single edge
- * that made the harness protocol and the harness capability import each other, and the split puts
- * them in different packages. Moving the closed set to the side a screen legitimately reads, and
- * naming it directly instead of indexing `HarnessCapabilities`, is what makes the graph acyclic.
- *
  * The per-harness return-enforcement provisioning channel.
  * Declares HOW HyperIdle provisions return enforcement for this adapter.
- * Non-optional — TypeScript strict forces every adapter to declare a channel,
- * making "uniform across harnesses" un-skippable.
+ *
+ * @lore: non-optional field — `npm run check` fails any adapter that doesn't declare a channel; drain-end ReturnGate is the un-bypassable backstop on all
  *
  * Channels:
- *   "sdk-inprocess"   — dead since claude moved to settings-claude; no adapter declares this
+ *   "sdk-inprocess"   — dead; no adapter declares this
  *   "settings-claude" — HyperIdle writes .claude/settings.json Stop hook (BLOCKING)
  *   "settings-codex"  — HyperIdle writes .codex/hooks.json Stop hook (BLOCKING)
  *   "process-reengage"— no native block — HyperIdle re-invokes the CLI in its sandbox (opencode, remote default)
  *   "soft-continue"   — native soft re-prompt (inert until spawnable)
  *   "none"            — no enforcement artifact — drain-gate floor only (last-resort remote)
- *
- * @lore The non-optional field is the forcing function: npm run check fails any adapter
- * that doesn't declare a channel. The drain-end ReturnGate is the un-bypassable backstop
- * on ALL.
  */
 export type ReturnEnforcementChannel =
 	| "sdk-inprocess"
@@ -96,12 +86,8 @@ export interface HarnessDiscoveryStatus {
 }
 
 /**
- * The descriptor describes the harness — it carries NO field describing
- * what an agent may reach. The inherited-reach fact lives in
- * `@hyperidle/domain-model` (`InheritedConnectionFact`), probed and cached by
- * the connections domain. `InheritedToolDescriptor` and
- * `HarnessCapabilityDescriptor.inheritedTools` were deleted here with no
- * compatibility alias (plan constraint: no compat field, no dual-write).
+ * Describes a harness — carries NO field describing what an agent may reach.
+ * Inherited-reach facts live in `@hyperidle/domain-model` (`InheritedConnectionFact`).
  */
 export interface HarnessCapabilityDescriptor {
 	readonly type: string;
@@ -111,6 +97,5 @@ export interface HarnessCapabilityDescriptor {
 	readonly discovery: HarnessDiscoveryStatus;
 	readonly models: readonly HarnessModelDescriptor[];
 	readonly returnEnforcement?: ReturnEnforcementChannel;
-	/** Legacy compatibility for existing SettingsAgents selector. */
 	readonly modelProviders: readonly string[];
 }

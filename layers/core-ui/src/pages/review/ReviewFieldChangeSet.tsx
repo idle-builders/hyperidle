@@ -3,7 +3,7 @@
 // Proof family: record/field change-set (a CRM record write). Tool: Salesforce.
 // The signature is a before→after FIELD GRID with approve-per-field.
 //
-// 3-layer LAYERING (brief §1):
+// 3-layer LAYERING:
 //   L1 — one-glance header: "1 record · 5 fields changed · 1 needs you" + the
 //        Salesforce mini-logo + the record identity (Northwind — Opportunity).
 //   L2 — the proof: a before→after field grid. Each changed row reads

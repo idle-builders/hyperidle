@@ -53,12 +53,7 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(functi
 				data-az16-profile="input thin"
 				ref={ref}
 				type="text"
-				// @lore AZ7 B3 (review round 1): fill was --surface-container (a recessed
-				// fill, wrong job for an input — Set 3 gives text inputs
-				// --surface-elevated, plan.md §2 Set 3 + §5.1) with a focus
-				// state that swapped to --surface-page, giving the page-canvas token a
-				// second job on focus (the same defect fixed on Button's hover tint).
-				// Matches Input.tsx's pattern: one fill,  + ring for focus.
+				// @lore: --surface-elevated fill + focus ring — matches Input.tsx; --surface-container is a recessed fill, wrong for an input
 				className="type-input border-width-thin w-full h-[32px] pl-[36px] pr-[48px] bg-[var(--surface-elevated)] border-[var(--border-subtle)] rounded-[var(--r-default)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] focus:border-[var(--accent-deep)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] focus:outline-hidden"
 				placeholder={placeholder}
 				value={value}
@@ -90,10 +85,7 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(functi
 					</button>
 				)}
 				{shortcutKey && (
-					/* @lore K7 / AESTHETICS.md § Typography row "Body size (default)":
-					   text-[10px] → text-[11px] (off-scale). The 56px right-inset on the
-					   input above is a designer-call exception (audit B.1.5) — it is the
-					   geometric minimum required to clear the clear-button + gap + kbd. */
+					/* @lore: 56px right-inset is the geometric minimum to clear clear-button + gap + kbd; text-[11px] is off-scale but approved exception */
 					<kbd className="type-data inline-flex items-center justify-center min-w-[20px] h-[18px] px-[3px] rounded-[var(--r-subtle)] bg-[var(--surface-elevated)] text-[var(--text-tertiary)]   ">
 						{shortcutKey}
 					</kbd>

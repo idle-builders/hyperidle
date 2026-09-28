@@ -3,9 +3,7 @@
  * derived from this constant so the runtime list (used by Zod enums at
  * route boundaries) and the type checker cannot drift.
  *
- * @lore I2 V1: previously the route schema accepted `z.string()`, which let
- * invalid states fall through to the state-machine and surface as 409. Routes
- * must use `z.enum(TASK_STATES)` so bad input is a 400 from validation.
+ * @lore: TASK_STATES — routes must use z.enum(TASK_STATES); a bare z.string() lets invalid states reach the state-machine and surface as 409 instead of 400
  */
 export const TASK_STATES = [
 	"proposed",
@@ -24,17 +22,11 @@ export type TaskState = (typeof TASK_STATES)[number];
  * Human-readable labels for each TaskState. Exhaustive `Record` so adding
  * a 9th TaskState is a TS error until labelled here.
  *
- * @lore AC1: "met_with_rework"→"Rework" and "partially_met"→"Partial" preserve
- * WorkBet's pre-existing abbreviations. Labels render verbatim into DOM;
- * CSS `uppercase` in StatusChip provides visual uppercasing (Decision 1a).
+ * @lore: labels render verbatim into DOM; CSS `uppercase` in StatusChip provides visual uppercasing
  */
 export const TASK_STATE_LABEL: Record<TaskState, string> = {
 	proposed: "Planned",
-	// @lore BB1: `accepted` used to read "Planned" too, so the State dropdown
-	// listed "Planned" twice and the two states were indistinguishable — picking
-	// the wrong one silently set a different state. They are genuinely different:
-	// `proposed` is drafted and not yet picked up, `accepted` is committed to an
-	// owner and counts against the team's concurrent-task limit.
+	// @lore: `proposed` = drafted, not yet picked up; `accepted` = committed to owner, counts against concurrent-task limit; labels must remain distinct
 	accepted: "Accepted",
 	hold: "On hold",
 	in_progress: "In progress",
@@ -50,29 +42,15 @@ export interface HealthResponse {
 }
 
 /**
- * @lore nested-knowledge-items: collapsed onto the single four-value ladder —
- * `proposed | active | stale | archived` — that `DOCUMENT_STATUSES`
- * (`./actions/document.ts`) also is. There were two status vocabularies
- * (kernel vs. app-runtime) saying the same thing under different names
- * (`draft` vs `captured`, both "not yet vouched for"); one lifecycle now, no
- * gatekeeping.
- *
- * @lore O1: moved as part of kernel/strategy separation, historically.
+ * @lore: KERNEL_DOCUMENT_STATUSES — same four-value ladder as DOCUMENT_STATUSES; one lifecycle, no divergence between kernel and app-runtime
  */
 export const KERNEL_DOCUMENT_STATUSES = ["proposed", "active", "stale", "archived"] as const;
 export type KernelDocumentStatus = (typeof KERNEL_DOCUMENT_STATUSES)[number];
 
-/**
- * @lore BB1: `BET_STATUSES`, `BetStatus`, and `BET_STATUS_LABEL` are DELETED.
- * A bet was a root task; the task state vocabulary (TASK_STATES) is the only
- * work vocabulary. Old mapping: draft→proposed, active→in_progress,
- * completed→done, killed→killed.
- */
-
 export type ModelTier = "reasoning" | "workhorse" | "fast";
 
 /**
- * X3: Runtime-safe tuple of all valid ModelTier values.
+ * Runtime-safe tuple of all valid ModelTier values.
  * Used for Zod enum schemas at API boundaries so validation does not require
  * an unsafe `as` cast. ModelTier already exists as a type; MODEL_TIERS is the
  * corresponding const tuple for runtime use.
@@ -86,13 +64,7 @@ export type TriggerType = "heartbeat" | "calendar" | "event" | "continuous";
  * - team: bound to a team, domain specialist
  * - individual: bound to a human user (or a factory-wide agent not tied to one team)
  *
- * @lore AB0: Replaces the KERNEL_USER_ROLES / FABRIC_USER_ROLES split which was
- * about system layer, not agent category. The category system is orthogonal to
- * the role system.
- * @lore AD8a: Renamed "personal" → "individual". Migration 0027_AD8a_agent_type_rename.sql
- * updates existing DB rows.
- * @lore BA9d: "strategy" removed. Migration 0065 migrates all strategy rows to "individual".
- * An agent that reaches every team (a plugin's no-team agent) is "individual".
+ * @lore: "individual" category covers factory-wide (no-team) plugin agents; "strategy" rows migrated to "individual" in 0065
  */
 export const AGENT_CATEGORIES = ["team", "individual"] as const;
 export type AgentCategory = (typeof AGENT_CATEGORIES)[number];
@@ -110,16 +82,11 @@ export type AgentCategory = (typeof AGENT_CATEGORIES)[number];
  * declaration on the path was a bare `string`. Both the registration side and
  * every writer now spell the vocabulary from here.
  */
-// @lore `"builtin"` led this list. HyperIdle ran agents in-process against a
-// model gateway it held the key for; it does not any more — you bring a harness,
-// and the harness brings its login. A vocabulary that still named it would make
-// an unrunnable value look sanctioned, which is the exact drift the
-// harness-type-vocabulary tests exist to catch.
 export const HARNESS_TYPES = ["claude-code", "codex", "opencode", "cursor-agent"] as const;
 export type HarnessType = (typeof HARNESS_TYPES)[number];
 
 /**
- * P2: OrgChart edge mechanisms.
+ * OrgChart edge mechanisms.
  * "direct" = edge targets a specific userId,
  * "function" = edge targets a role string,
  * "team" = edge targets a teamId.
@@ -128,37 +95,10 @@ export const ORG_EDGE_MECHANISMS = ["direct", "function", "team"] as const;
 export type OrgEdgeMechanism = (typeof ORG_EDGE_MECHANISMS)[number];
 
 /**
- * Kernel-level scope kinds for documents. Closed enum — adding a new
- * scope kind requires a concept-doc update per the Q2 contract.
+ * Kernel-level scope kinds for documents. Closed enum — three concentric rings:
+ * factory (everyone) > team (a team) > user (one person).
  *
- * @lore Q2: scope_kind lives on the kernel documents table so every
- * item knows where it belongs, regardless of which strategy fabric is active.
- * The fabric maps scope_kind → layer via scopeToLayer() in packages/server/src/knowledge/types.ts.
- *
- * @lore AU26 F2 (founder ruling, 2026-08-04): `"filesystem"` is REMOVED. AV3
- * had added it so a document could hang off a repo/doc-set, and that one
- * usage was the only reason the `filesystems` record had to stay core-owned
- * while its mounting engine lived in agent-orchestration. A filesystem is an
- * agent's execution environment, not a place knowledge lives — the founder
- * ruled the scope out and the record whole into agent-orchestration. There is
- * no production data, so nothing is migrated.
- */
-/**
- * @lore BB1: `"bet"` is GONE. A bet is a task with no parent now, so knowledge
- * produced under a bet is knowledge produced under a task. Migration 0068
- * re-scoped every `"bet"` row to `"task"`; the scope_id did not change, because
- * each bet became a root task keeping its own id.
- *
- * @lore nested-knowledge-items: `"product"`, `"practice"` and `"task"` are
- * GONE too. `product`/`practice` were the layer vocabulary wearing a scope
- * costume — "Product" and "Practices" are now documents near the root,
- * not scope values; where an item sits in the tree says what it is about,
- * `scope` says only who sees it. `task` left because a task's knowledge
- * parents onto the task directly (`parentKind='task'`) and never appears in
- * the scope column at all — task/bet-scoped knowledge never had a "how far
- * does it reach" question `scope` answers. Scope is now closed to exactly
- * three concentric rings: factory (everyone) > team (a team) > user (one
- * person).
+ * @lore: scope_kind on kernel documents — every item knows where it belongs; fabric maps scope_kind → layer via scopeToLayer() regardless of active strategy
  */
 export const SCOPE_KINDS = ["factory", "team", "user"] as const;
 
@@ -167,11 +107,6 @@ export type ScopeKind = (typeof SCOPE_KINDS)[number];
 /**
  * Scope kinds that require an external scopeId.
  * "factory" and "user" are self-referential/global — they never need an id.
- *
- * @lore Q2: Extracted to @hyperidle/domain-model so the web dialogs (DocumentCreateDialog,
- * ScopeChangeDialog) and the action declaration (actions/document.ts) share a single source of truth.
- * @lore nested-knowledge-items: `"product"`/`"practice"`/`"task"` removed with
- * the scope kinds themselves.
  */
 export const SCOPES_REQUIRING_ID: ReadonlySet<ScopeKind> = new Set<ScopeKind>(["team"]);
 
@@ -180,10 +115,7 @@ export const SCOPES_REQUIRING_ID: ReadonlySet<ScopeKind> = new Set<ScopeKind>(["
  * factory → "Shared", team → "Team", user → "Private".
  * Anything else → "Shared" (safe fallback).
  *
- * @lore AV3: SSOT for scope label mapping — lives beside ScopeKind so the
- * server (core-api) and the web (core-ui) import the same function rather than
- * inlining copies that can drift. Moved from @hyperidle/presentation-format
- * (dissolved) and core-ui/scope-labels.ts in AU44 review.
+ * @lore: scopeKindToLabel — SSOT; server (core-api) and web (core-ui) import here rather than inlining copies that can drift
  */
 export function scopeKindToLabel(scopeKind: string): string {
 	if (scopeKind === "user") return "Private";
@@ -195,9 +127,7 @@ export function scopeKindToLabel(scopeKind: string): string {
  * Closed enum of task outcome verdicts.
  * Adding a fifth value is a concept change, not a type change.
  *
- * @lore AC1: Records whether the task's done condition was met during review.
- * NOT set automatically by the state machine — must be explicitly recorded by
- * a human or evaluator agent.
+ * @lore: TaskOutcomeVerdict — records whether done condition was met; NOT set automatically; must be explicitly recorded by a human or evaluator agent
  */
 export const TASK_OUTCOME_VERDICTS = [
 	"met",
@@ -210,8 +140,7 @@ export type TaskOutcomeVerdict = (typeof TASK_OUTCOME_VERDICTS)[number];
 /**
  * Human-readable labels for each TaskOutcomeVerdict.
  *
- * @lore AC1: "met_with_rework"→"Rework" and "partially_met"→"Partial" preserve
- * WorkBet's pre-existing abbreviated rendering (not a truncation error).
+ * @lore: "met_with_rework"→"Rework" and "partially_met"→"Partial" are intentional abbreviations, not truncation errors
  */
 export const TASK_OUTCOME_VERDICT_LABEL: Record<TaskOutcomeVerdict, string> = {
 	met: "Met",
@@ -220,10 +149,6 @@ export const TASK_OUTCOME_VERDICT_LABEL: Record<TaskOutcomeVerdict, string> = {
 	not_met: "Not met",
 };
 
-/**
- * Human-readable labels for each AgentOperationalStatus.
- * AgentOperationalStatus type lives in `team.ts` (pre-existing).
- */
 export const AGENT_OPERATIONAL_STATUS_LABEL: Record<"active" | "error" | "idle", string> = {
 	active: "Active",
 	error: "Error",
@@ -236,10 +161,6 @@ export const AGENT_OPERATIONAL_STATUS_LABEL: Record<"active" | "error" | "idle",
  * harness). Every switch(outcome) consumer MUST handle this member — see the
  * exhaustiveness guard in session-lifecycle.ts.
  *
- * @lore BC1: relocated from the deleted domain-model events fork (`events.ts`)
- * — this was the fork's only surviving export. core-ui reads it via the
- * `@hyperidle/domain-model` barrel (it cannot reach `@hyperidle/event-bus`),
- * and `framework/event-bus/src/events.ts` imports it back from here, so it
- * lives in this general types module rather than moving to event-bus.
+ * @lore: SessionOutcome lives in domain-model — core-ui reads it via the barrel (cannot reach @hyperidle/event-bus); event-bus imports it back from here
  */
 export type SessionOutcome = "completed" | "crashed" | "stopped" | "not_returned";

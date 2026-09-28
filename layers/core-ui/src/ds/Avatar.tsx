@@ -4,9 +4,8 @@
  * Displays user or agent initials in a round pill. Three sizes (sm/md/lg).
  * Agent variant uses forest green accent styling.
  *
- * @lore W2: Tier 0 primitive. No DaisyUI — custom CSS matching Avatar.html.
- * @lore S3/W2: Button uses forwardRef; Avatar does not (no focus management needed).
  */
+// @lore: Avatar forwardRef — Button uses forwardRef; Avatar does not (no focus management needed)
 
 import type { JSX } from "react";
 import { dsProps } from "./ds-attrs.js";

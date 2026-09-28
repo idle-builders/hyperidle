@@ -6,24 +6,8 @@
  * them up" pass. Pure: no DB, no HTTP, no React. Usable by both server and
  * client.
  *
- * @lore Server-side resolution is authoritative (concept hard rule #1).
- * The client sends raw @name text; the server parses and resolves via this
- * function. Resolution scope is team-wide (concept: "users can @mention
- * agents not yet in the thread").
- *
- * @lore MAX_MENTIONS_PER_MESSAGE = 20 caps the resolved-mention count to
- * bound transaction size and prevent abuse. Mentioned in concept
- * §Cardinality: "0..N" with no upper bound, but the arch-critique flags this
- * as a risk for unbounded DB queries.
- *
- * @lore Founder-approved fix: a one-token-after-`@` extraction (the old
- * `MENTION_RE = /(?:^|(?<=\s))@(\S+)/g`) could never match a name with a
- * space or apostrophe ("Founder's Assistant", "My Team Agent"). Matching is
- * now driven by the pool of known names instead of by a token shape: for
- * every `@` that starts a mention, take the LONGEST pool name that matches
- * right after it case-insensitively and is followed by end of text,
- * whitespace, or punctuation. This is what lets "My Team Agent" beat "My
- * Team" when both are in the pool, and lets "Nova's plan" resolve "Nova".
+ * @lore: mention resolution — server-side is authoritative; client sends raw text; MAX_MENTIONS_PER_MESSAGE=20 bounds transaction size and DB queries
+ * @lore: mention matching — pool-driven longest-match (not token-shape regex); lets "My Team Agent" beat "My Team"; handles names with spaces or apostrophes
  */
 
 import type { IdentityId } from "./thread.js";
@@ -43,8 +27,6 @@ export interface ResolvedMention {
 	sourceText: string;
 }
 
-// MentionSegment moved to layers/core-ui/src/ds/mention-segments.ts.
-
 // ── resolveMentionsInText ───────────────────────────────────────────────────
 
 /**
@@ -57,8 +39,7 @@ export interface ResolvedMention {
  *   equals (case-insensitively) the text right after the "@" and is
  *   followed by end of text, whitespace, or punctuation.
  * - nameMap: lowercased display name → { identityId, displayName }.
- * - An "@" with no matching pool name is silently left as plain text
- *   (concept hard rule #4).
+ * - An "@" with no matching pool name is silently left as plain text.
  * - Deduplicates by identityId (same identity mentioned twice = one entry).
  * - Capped at MAX_MENTIONS_PER_MESSAGE resolved mentions.
  */
@@ -109,5 +90,3 @@ export function resolveMentionsInText(
 
 	return resolved;
 }
-
-// segmentMentions moved to layers/core-ui/src/ds/mention-segments.ts.

@@ -34,8 +34,7 @@ export function createApiMiddlewareStack(deps: {
 	return {
 		cors: corsMiddleware,
 		errorHandler,
-		// M3 A3: with a db, auth resolves `userId` off the `users` table; without
-		// one (db-less test apps) the stateless middleware stands in.
+		// With a db, auth resolves userId off the users table; without one (db-less test apps) stateless middleware stands in.
 		auth: deps.db
 			? createAuthMiddleware({
 					db: deps.db,

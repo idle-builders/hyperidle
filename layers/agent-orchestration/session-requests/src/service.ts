@@ -455,11 +455,6 @@ async function failOrRelease(
 		error instanceof InvalidAgentWorkSourceError ||
 		intent.attempts >= (options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS);
 	const delay = Math.min(1e3 * 2 ** Math.max(0, intent.attempts - 1), MAX_BACKOFF_MS);
-	// @lore AU21 §10: this classification also drives the NEW
-	// `agent_run_admission_failed` event's `failureCode` below, not just the
-	// row's `lastErrorCode` — see that emission for why a non-terminal attempt
-	// still needs a value even though architecture.md doesn't pin one exactly
-	// (flagged CONFUSION in this wave's report).
 	const failureCode: AgentRunAdmissionFailureCode =
 		error instanceof InvalidAgentWorkSourceError ? "INVALID_WORK_SOURCE" : "MAX_ATTEMPTS_EXCEEDED";
 	await db
@@ -475,17 +470,7 @@ async function failOrRelease(
 		.where(
 			and(eq(agentWorkIntents.id, intent.id), eq(agentWorkIntents.claimToken, intent.claimToken)),
 		);
-	// @lore AU21 §6 Decision B4/§13: every terminal failure is reported through
-	// this event, reacted to by a core-api subscriber
-	// (`registerAgentRunAdmissionReactions`), for EVERY kind — no service here
-	// writes a run-row outcome directly. `deps.eventBus` is optional (back-compat
-	// with every pre-existing `queueDeps(db)` call site that never wired one).
-	// @lore AU29 §2.4: the typed construction+emit used to be
-	// the framework's `reportAdmissionFailure`, also called by
-	// `run-orchestration`'s `runClaimedRequest` for the provisioning-time
-	// failure site (§12). Now inlined at both sites — the two services
-	// deliberately do not import each other, and now share the event *type*
-	// (`events.ts`, now in `@hyperidle/domain-model`), not an emit helper.
+	// @lore: admission failure event — every terminal failure reported here; no service writes run-row outcome directly; shared event type, no shared import
 	if (
 		eventBus &&
 		isAgentWorkIntentKind(intent.kind) &&
@@ -554,24 +539,13 @@ function parseBakedRequest(intent: AgentWorkIntent): BakedWorkIntentRequest | un
 	return JSON.parse(intent.bakedRequestJson) as BakedWorkIntentRequest;
 }
 
-/**
- * @lore BA2: the `session_resume` kind bakes a resume, not a start request. Same
- * column, different shape — see `insertIntentInternal`.
- */
+// @lore: session_resume — bakes a resume, not a start request; same bakedRequestJson column, different shape
 function parseBakedResume(intent: AgentWorkIntent): BakedSessionResumeRequest | undefined {
 	if (!intent.bakedRequestJson) return undefined;
 	return JSON.parse(intent.bakedRequestJson) as BakedSessionResumeRequest;
 }
 
-/**
- * Turn a baked resume into the session request that carries it.
- *
- * @lore BA2: A resumed session IS a session — it takes the same provisioning
- * path as any other, which already opens the MCP bridge, drains the stream,
- * accounts tokens, posts output back to the thread and tears down once. The
- * difference is one branch at harness start, and it is expressed here as a
- * source kind of its own rather than by borrowing one that misdescribes it.
- */
+/** Turn a baked resume into the session request that carries it. Resume takes the same provisioning path; sourceKind of its own so it's not mistaken for a new start. */
 async function createResumeRequestInternal(
 	db: HyperIdleDb,
 	intent: AgentWorkIntent,
@@ -590,17 +564,7 @@ async function createResumeRequestInternal(
 			threadId: resume.threadId,
 			resumedSessionId: resume.sessionId,
 		},
-		// `agentConfig` rides the same key every other kind uses, so the drain's
-		// existing `parseBakedAgentConfig` finds it with no special case.
-		//
-		// @lore BA2: `callingThreadId` is the thread the human gave the verdict in,
-		// and a resumed session needs it for the same reason any other session with
-		// a calling thread does — it is where the agent's answer belongs, and it is
-		// where the never-silent net posts when a turn ends without returning.
-		// Without it a resumed agent that says nothing leaves the human who
-		// approved staring at silence, which is the exact defect this package
-		// exists to remove. Observed on codex: the resume ran, carried its context,
-		// and ended `not_returned` with nothing posted anywhere.
+		// @lore: callingThreadId in resume — the thread the verdict came in; where the agent's answer belongs; absent → resumed agent's silence reaches nobody
 		payloadJson: JSON.stringify({
 			resume,
 			callingThreadId: resume.threadId,
@@ -634,15 +598,7 @@ async function createFromBakedRequestInternal(
 		promptMode: PROMPT_MODE_BY_SOURCE[baked.sourceKind],
 		idempotencyKey: intent.idempotencyKey,
 		sourceCorrelation: baked.sourceCorrelation,
-		// The assistant_turn family's baked transcript, the
-		// task_run/subscription_run families' baked
-		// contextBundle, and EVERY kind's baked
-		// agentConfig/harnessDisabled ride the existing generic `payloadJson`
-		// pass-through column onto the created `AgentSessionRequest`.
-		//
-		// @lore AU26 G1: the per-agent model override (`modelId`/`modelProvider`)
-		// is no longer baked — those columns moved into `agent_run_config`,
-		// orchestration's own table, so `dispatch` reads them live instead.
+		// baked transcript/contextBundle/agentConfig/harnessDisabled ride payloadJson onto the created AgentSessionRequest; model override is NOT baked (dispatch reads it live from agent_run_config)
 		...(baked.transcript !== undefined ||
 		baked.contextBundle !== undefined ||
 		baked.agentConfig !== undefined ||
@@ -714,12 +670,7 @@ async function processIntentsInternal(
 		}
 
 		try {
-			// Every intent kind bakes at
-			// emit time; an unbaked intent row is production-unreachable. bakedRequest
-			// is required on WorkIntentInput.
-			// @lore AU44: unbaked intents are production-unreachable (bakedRequest is
-			// required at emit time), but legacy rows with bakedRequestJson=null must
-			// fail cleanly via INVALID_WORK_SOURCE rather than being stuck claimed.
+			// @lore: unbaked intents — production-unreachable (bakedRequest required at emit); legacy rows with null bakedRequestJson fail via INVALID_WORK_SOURCE, not stuck
 			if (intent.kind === "session_resume") {
 				const resume = parseBakedResume(intent);
 				if (!resume) {
@@ -774,10 +725,7 @@ async function insertIntentInternal(db: WriteExecutor, input: WorkIntentInput) {
 			requestedBy: input.requestedBy ?? null,
 			idempotencyKey: input.idempotencyKey,
 			status: "pending",
-			// @lore BA2: session_resume bakes a resume rather than a start request —
-			// it returns to a session that already exists, so there is no agent to
-			// resolve and no context to assemble. Same column, different shape,
-			// read back by the drain branch that owns the kind.
+			// session_resume bakes a resume, not a start request (same column, different shape).
 			bakedRequestJson: JSON.stringify(
 				input.kind === "session_resume" ? input.resume : input.bakedRequest,
 			),
@@ -813,14 +761,6 @@ async function findIntentSourceInternal(
 	return row;
 }
 async function findIntentRequestInternal(db: HyperIdleDb, requestId: string) {
-	// @lore AU21 §12: widened to also select `id`/`kind` (the exported overload
-	// already TYPED this Pick shape — `id`/`idempotencyKey` were declared but
-	// never actually selected, a latent pre-existing mismatch nothing had
-	// tripped since no caller read those fields). Now genuinely needed:
-	// `run-orchestration`'s provisioning-time `agent_run_admission_failed`
-	// emit site correlates a post-handoff `AgentSessionRequest` failure back
-	// to the ORIGINAL intent's identity (`id`/`kind`/`sourceId`/`sourceKind`)
-	// to emit with the right shape.
 	const [row] = await db
 		.select({
 			id: agentWorkIntents.id,
@@ -934,7 +874,6 @@ const PROMPT_MODE_BY_SOURCE: Record<string, string> = {
 
 export type WorkIntentInput =
 	| {
-			// @lore BC3 architecture.md §5 B5: renamed from "assistant_turn".
 			readonly kind: "thread_turn" | "task_run" | "subscription_run";
 			readonly sourceKind: "thread_message" | "task_dispatch_attempt" | "subscription";
 			readonly sourceId: string;
@@ -943,11 +882,6 @@ export type WorkIntentInput =
 			readonly bakedRequest: BakedWorkIntentRequest;
 	  }
 	| {
-			/**
-			 * @lore BA2: return an agent to a session it already had, carrying a human's
-			 * verdict. Nothing is started, so nothing is resolved or assembled —
-			 * `resume` is the whole payload, and it takes `bakedRequest`'s column.
-			 */
 			readonly kind: "session_resume";
 			readonly sourceKind: "review_verdict";
 			readonly sourceId: string;
@@ -955,15 +889,7 @@ export type WorkIntentInput =
 			readonly idempotencyKey: string;
 			readonly resume: BakedSessionResumeRequest;
 	  };
-/**
- * Extended baked work-intent payload for session-requests' own drain logic.
- *
- * @lore AU44-b8: `@hyperidle/work-intent-port` dissolved into `@hyperidle/domain-model`.
- * `BakedContextBundle` and `BakedContextDocument` are now imported from there.
- * This type stays local because it adds `harnessDisabled` and `callingThreadId` —
- * session-requests-specific extension fields not in domain-model's `BakedWorkIntentRequest`.
- * It is a structural superset, not a mirror.
- */
+/** Extended baked work-intent payload for session-requests' drain. Adds `harnessDisabled` and `callingThreadId` — fields not in domain-model's BakedWorkIntentRequest. Structural superset. */
 export type BakedWorkIntentRequest = {
 	readonly defaultAgentId: string;
 	readonly sourceKind: AgentSessionSourceKind;
@@ -985,20 +911,7 @@ export type BakedWorkIntentRequest = {
 		readonly payload: string;
 		readonly type: string;
 	}>;
-	/**
-	 * The `task_run`/`subscription_run` families' baked entity content
-	 * (task/bet/agent/team, or subscription/agent/team) plus the
-	 * ranked+budgeted knowledge items `@hyperidle/knowledge`'s
-	 * `assembleSessionKnowledge` produces. Absent for `assistant_turn` (bakes
-	 * `transcript` instead) — see `BakedWorkIntentRequest` in
-	 * `@hyperidle/work-intent-port` for the full `@lore`.
-	 */
 	readonly contextBundle?: BakedContextBundle;
-	/**
-	 * Every kind's baked
-	 * agent-runnability snapshot / disabled-harness-types list. See
-	 * `BakedWorkIntentRequest` in `@hyperidle/work-intent-port` for the full `@lore`.
-	 */
 	readonly agentConfig?: {
 		readonly kind: string;
 		readonly status: string;
@@ -1006,16 +919,8 @@ export type BakedWorkIntentRequest = {
 		readonly teamId: string | null;
 	};
 	readonly harnessDisabled?: readonly string[];
-	/**
-	 * The session's calling thread id. Absent
-	 * for `subscription_run` — see `BakedWorkIntentRequest` in
-	 * `@hyperidle/work-intent-port` for the full `@lore`.
-	 */
 	readonly callingThreadId?: string;
 };
-// BakedContextDocument and BakedContextBundle are now imported from @hyperidle/domain-model above.
-// The local mirrors existed because @hyperidle/work-intent-port's audience excluded session-requests;
-// work-intent-port dissolved into domain-model (reach: everyone).
 export type FindQuery =
 	| { readonly by: "id"; readonly requestId: string }
 	| { readonly by: "sessionId"; readonly sessionId: string }
@@ -1078,11 +983,6 @@ type DurableQueueDeps = {
 export function enqueueWorkIntent(exec: WriteExecutor, input: WorkIntentInput) {
 	return insertIntentInternal(exec, input);
 }
-// @lore BC3 architecture.md §3.10/§5 B5: `listPendingIntentsByKind` DELETED
-// with its only caller, the deleted coherence trigger — its own doc comment
-// assumed "sourceId IS the triggering message id", which the wake rule's
-// `(message, agent)` identity (§3.10) makes false; a live function whose
-// doc comment is false is the worse option.
 export function findSessionRequest(
 	exec: HyperIdleDb,
 	query: Extract<FindQuery, { by: "id" }>,

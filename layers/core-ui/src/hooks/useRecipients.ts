@@ -1,21 +1,4 @@
-/**
- * useRecipients hook — the recipient picker's data source.
- *
- * @lore BC5 T9: `call("search_users", { status: "active", name? })` replaces
- * `apiFetch("/api/recipients")` (architecture.md §8). A `UserRow`'s
- * `kind` ("human" | "ai") maps to the picker's own vocabulary ("user" | "agent").
- *
- * @lore AU26 J4: `hasActiveSession` no longer rides on the core-api response —
- * core-api stopped reading `agent-orchestration`'s `sessions` table.
- *
- * @lore `GET /api/agent-orchestration/runs/active-counts` is deleted; the
- * hook calls `search_sessions({ state: "active" })` — `POST
- * /api/actions/search_sessions`, the same door a person's client and an
- * agent's MCP tool use — alongside the recipient list, and counts the active
- * rows per agent itself, so the picker's live busy dot renders exactly as
- * before. An active-session read failure degrades to "nobody is busy" rather
- * than failing the picker, which is core's data and stands on its own.
- */
+// @lore: useRecipients — active-session read failure degrades to "nobody is busy"; does not fail the picker; recipient list is independent
 
 import type { SessionRow, UserRow } from "@hyperidle/domain-model";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -38,7 +21,6 @@ export interface UseRecipientsResult {
 	retry: () => void;
 }
 
-/** A `UserRow` maps directly to a recipient, minus the live busy flag. */
 function toRecipient(row: UserRow): Omit<Recipient, "hasActiveSession"> {
 	return {
 		id: row.id,
@@ -57,7 +39,6 @@ function toRecipient(row: UserRow): Omit<Recipient, "hasActiveSession"> {
  */
 const MAX_ACTIVE_SESSIONS = 500;
 
-/** Active session count per agent, from the rows `search_sessions` answers. */
 function countActiveSessions(rows: ReadonlyArray<SessionRow>): Readonly<Record<string, number>> {
 	const counts: Record<string, number> = {};
 	for (const row of rows) {
@@ -66,10 +47,7 @@ function countActiveSessions(rows: ReadonlyArray<SessionRow>): Readonly<Record<s
 	return counts;
 }
 
-/**
- * Active session counts keyed by agent id, degrading to "nobody is busy" on
- * any failure — the recipient list is core's data and stands on its own.
- */
+// @lore: fetchActiveSessionCounts — degrades to empty record on any failure; recipient list renders without active-session signal
 async function fetchActiveSessionCounts(
 	signal: AbortSignal,
 ): Promise<Readonly<Record<string, number>>> {
@@ -85,11 +63,6 @@ async function fetchActiveSessionCounts(
 	}
 }
 
-/**
- * Fetch the recipient list through `search_users`.
- *
- * @param query - Optional search query forwarded as `name`.
- */
 export function useRecipients(query?: string): UseRecipientsResult {
 	const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 	const [recipients, setRecipients] = useState<ReadonlyArray<Recipient>>([]);
@@ -107,8 +80,7 @@ export function useRecipients(query?: string): UseRecipientsResult {
 
 		(async (): Promise<void> => {
 			try {
-				// @lore AU26 review W4: the two reads are INDEPENDENT — the recipient
-				// list and the active-session count — so they go out together.
+				// @lore: two reads are INDEPENDENT — recipient list + active-session count both go out in Promise.all; neither blocks the other
 				const [result, counts] = await Promise.all([
 					call("search_users", { status: "active", ...(query ? { name: query } : {}) }, ac.signal),
 					fetchActiveSessionCounts(ac.signal),

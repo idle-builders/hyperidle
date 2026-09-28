@@ -1,17 +1,9 @@
 /**
  * AES-256-GCM credential encryption with HKDF key derivation.
  *
- * @lore P3: Decision 3 — encrypt with key derived from HYPERIDLE_API_KEY via
- * HKDF. The API key is the root of trust; an attacker who has it already has
- * full API access. Adding a separate file-stored key would increase operational
- * complexity without improving security in practice.
- *
  * Format: base64(iv[12] + ciphertext[n] + authTag[16])
  *
- * @lore AU20 Am4: getServerSecret/requireServerSecret/deriveKey are intentionally
- * NOT exported — the cipher owns the key. Callers use encryptCredentialValue /
- * decryptCredentialValue with no secret param; the service handles key lookup.
- * Pure secret-param helpers are kept file-private for internal package use.
+ * @lore: token-cipher — API key is root of trust; HKDF adds domain separation; getServerSecret/deriveKey unexported so the cipher owns the key
  */
 
 import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from "node:crypto";
@@ -33,9 +25,6 @@ const HKDF_INFO = "credential-encryption-key";
  * @internal — not exported; callers use encryptCredentialValue/decryptCredentialValue.
  */
 function deriveKey(serverSecret: string): Buffer {
-	// @lore P3: hkdfSync is synchronous HKDF per RFC 5869. We use SHA-256
-	// as the hash, a fixed salt (public constant), and a context info string
-	// to domain-separate this key from any other derived keys.
 	const keyMaterial = Buffer.from(serverSecret, "utf-8");
 	const salt = Buffer.from(HKDF_SALT, "utf-8");
 	const info = Buffer.from(HKDF_INFO, "utf-8");
@@ -48,22 +37,14 @@ function deriveKey(serverSecret: string): Buffer {
  * HYPERIDLE_CREDENTIAL_KEY takes priority (operator override for key rotation).
  * Falls back to HYPERIDLE_API_KEY (root of trust).
  *
- * @lore AH1 §6: Returns null (not empty string) when both vars are absent/empty.
  * @internal — not exported. Callers use encryptCredentialValue/decryptCredentialValue.
  */
 function getServerSecret(): string | null {
-	// HYPERIDLE_CREDENTIAL_KEY takes priority.
-	// @lore AH1 §6: If HYPERIDLE_CREDENTIAL_KEY is explicitly set (even to ""),
-	// we do NOT fall back to HYPERIDLE_API_KEY. An empty CREDENTIAL_KEY means "no
-	// encryption key configured" — a deliberate operator choice to separate auth
-	// key from credential encryption key. Only when CREDENTIAL_KEY is entirely
-	// absent (undefined) do we fall back to HYPERIDLE_API_KEY (legacy single-key
-	// deployments where HYPERIDLE_API_KEY served both purposes).
+	// @lore: token-cipher fallback — HYPERIDLE_CREDENTIAL_KEY set (even empty) overrides; absent falls back to HYPERIDLE_API_KEY; empty CREDENTIAL_KEY means no key
 	if (process.env.HYPERIDLE_CREDENTIAL_KEY !== undefined) {
 		const credKey = process.env.HYPERIDLE_CREDENTIAL_KEY;
 		return credKey !== "" ? credKey : null;
 	}
-	// HYPERIDLE_CREDENTIAL_KEY is unset → fall back to HYPERIDLE_API_KEY.
 	const apiKey = process.env.HYPERIDLE_API_KEY;
 	if (apiKey !== undefined && apiKey !== "") return apiKey;
 	return null;
@@ -142,9 +123,7 @@ function decryptWithSecret(encrypted: string, serverSecret: string): string | nu
  *
  * @throws {Error & { code: "MISSING_ROOT_SECRET" }} when no secret is configured.
  *
- * @lore AU20 Am4: No serverSecret param — the cipher owns the key.
- * Callers that need graceful handling of a missing secret should catch
- * MISSING_ROOT_SECRET (code property on the thrown error).
+ * @lore: token-cipher no-param — cipher owns the key; callers catch MISSING_ROOT_SECRET for graceful handling
  */
 export function encryptCredentialValue(plaintext: string): string {
 	const secret = requireServerSecret();
@@ -157,10 +136,7 @@ export function encryptCredentialValue(plaintext: string): string {
  * Returns the plaintext string, or null if decryption fails for any reason
  * (wrong key, tampered ciphertext, invalid format, or no secret configured).
  *
- * @lore AU20 Am4: No serverSecret param — the cipher owns the key.
- * Returning null on missing secret matches the "graceful degradation" posture:
- * reads that can't decrypt are surfaced as MissingCredentialError downstream,
- * not as a hard boot failure.
+ * @lore: token-cipher graceful-degradation — null on missing secret; reads that can't decrypt surface as MissingCredentialError downstream
  */
 export function decryptCredentialValue(ciphertext: string): string | null {
 	const secret = getServerSecret();

@@ -9,27 +9,7 @@ import {
 } from "../thread.js";
 import type { ActionDeclaration, Problem } from "./action.js";
 
-/**
- * @lore BC3: the thread action list — search, open, send, adjust.
- * This is what replaces `routes/threads.ts`/`threads-schema.ts`, the
- * `conversation` package's public row shapes, the four deleted tools and the
- * `access-boundary.ts` read/write predicate.
- *
- * `framework/domain-model/src/thread.ts` (426 lines) already owns the
- * vocabulary this file imports (`HOST_KINDS`, `MESSAGE_TYPES`,
- * `VERDICT_DECISIONS`, `REVIEW_CANVAS_KINDS`) and the display helpers that
- * stay there (`headCollapsePredicate`, `isBlocking`, `verdictDecisionLabel`,
- * `AnchorRef`, `InlineRef`). This file owns the ROW shapes an action's
- * input/output validates against — `Thread`, `Message` and the four payload
- * interfaces moved out of `thread.ts` and are re-exported from the barrel
- * under the same names (architecture.md §3.1).
- */
-
-// ---------------------------------------------------------------------------
-// Wire schemas moved from `routes/threads-schema.ts` — the four message
-// payload shapes, the inline-ref union, and the two id-list validators. The
-// four payload TYPES keep the exact names `thread.ts` used to export.
-// ---------------------------------------------------------------------------
+// @lore: thread actions — thread.ts owns vocabulary (HOST_KINDS, MESSAGE_TYPES, display helpers); this file owns row shapes actions validate against
 
 export const entityRefSchema = z.object({
 	kind: z.enum(["document", "task", "message"]),
@@ -122,11 +102,7 @@ export const reviewPayloadSchema = z.object({
 	reasoning: z.array(z.string().max(1024)).max(16),
 	producedItemId: z.string().optional(),
 	artifacts: z.array(reviewCanvasArtifactSchema).optional(),
-	/**
-	 * @lore BC3: the task the sending session ran on, stamped by the server
-	 * from `ctx.caller.taskId` — never accepted from the caller, so
-	 * `SendMessageInputSchema.review` omits it (see below).
-	 */
+	// server-stamped from ctx.caller.taskId — never accepted from the caller; SendMessageInputSchema.review omits it so a smuggled taskId is stripped by validation
 	taskId: z.string().optional(),
 });
 export type ReviewPayload = z.infer<typeof reviewPayloadSchema>;
@@ -149,13 +125,7 @@ export const verdictPayloadSchema = z.object({
 });
 export type VerdictPayload = z.infer<typeof verdictPayloadSchema>;
 
-/**
- * @lore BC3: parses a message row's `payload` against the schema its `type`
- * implies, as a function rather than a discriminated-union output-schema arm
- * (a four-arm discriminated union in an OUTPUT schema buys nothing and makes
- * `z.toJSONSchema` noisy). Used by the UI to narrow `MessageSchema`'s
- * `payload: unknown` at render time; never used to validate a write.
- */
+// @lore: parseMessagePayload — function not a discriminated-union schema; four-arm union in OUTPUT buys nothing; UI-only narrowing at render time
 export function parseMessagePayload(
 	type: (typeof MESSAGE_TYPES)[number],
 	payload: unknown,
@@ -172,18 +142,14 @@ export function parseMessagePayload(
 	}
 }
 
-// ---------------------------------------------------------------------------
-// The row shapes — replace `thread.ts`'s hand-written `Thread`/`Message`.
-// ---------------------------------------------------------------------------
-
 export const ThreadSchema = z.object({
 	id: z.string(),
 	hostKind: z.enum(HOST_KINDS),
 	hostId: z.string(),
 	initiatorId: z.string(),
-	members: z.array(z.string()), // the parsed `participants` JSON column
-	title: z.string().nullable(), // the STORED column; null ⇒ use `computedTitle`
-	computedTitle: z.string(), // the ladder's answer, viewer-relative, never empty
+	members: z.array(z.string()), // parsed `participants` JSON column
+	title: z.string().nullable(), // stored column; null ⇒ use computedTitle
+	computedTitle: z.string(), // viewer-relative, never empty
 	pinned: z.boolean(),
 	resolvedAt: z.string().nullable(),
 	deletedAt: z.string().nullable(),
@@ -215,10 +181,6 @@ export const IdentitySchema = z.object({
 });
 export type Identity = z.infer<typeof IdentitySchema>;
 
-// ---------------------------------------------------------------------------
-// search_threads
-// ---------------------------------------------------------------------------
-
 export const SearchThreadsInputSchema = z
 	.object({
 		mine: z.boolean().optional(), // threads the actor is a member of
@@ -231,7 +193,7 @@ export const SearchThreadsInputSchema = z
 export type SearchThreadsInput = z.infer<typeof SearchThreadsInputSchema>;
 
 export const ThreadListRowSchema = ThreadSchema.extend({
-	hasUnresolvedReview: z.boolean(), // the sidebar badge; one batched query, never N+1
+	hasUnresolvedReview: z.boolean(), // sidebar badge; one batched query, never N+1
 	lastMessagePreview: z.string().nullable(),
 });
 export type ThreadListRow = z.infer<typeof ThreadListRowSchema>;
@@ -243,10 +205,6 @@ export const searchThreads: ActionDeclaration<SearchThreadsInput, ThreadListRow[
 	output: z.array(ThreadListRowSchema),
 };
 
-// ---------------------------------------------------------------------------
-// open_thread
-// ---------------------------------------------------------------------------
-
 export const OpenThreadInputSchema = z
 	.object({
 		id: z.string().min(1),
@@ -257,8 +215,8 @@ export type OpenThreadInput = z.infer<typeof OpenThreadInputSchema>;
 
 export const ThreadViewSchema = z.object({
 	thread: ThreadSchema,
-	members: z.array(IdentitySchema), // replaces GET /threads/:id's `identities` map
-	messages: z.array(MessageSchema), // createdAt DESC, id tiebreak — today's order, unchanged
+	members: z.array(IdentitySchema),
+	messages: z.array(MessageSchema), // createdAt DESC, id tiebreak
 	headMessageId: z.string().nullable(),
 	hostTitle: z.string().nullable(),
 });
@@ -270,10 +228,6 @@ export const openThread: ActionDeclaration<OpenThreadInput, ThreadView> = {
 	input: OpenThreadInputSchema,
 	output: ThreadViewSchema,
 };
-
-// ---------------------------------------------------------------------------
-// send_message
-// ---------------------------------------------------------------------------
 
 // FLAT object, never a discriminated union — Reconciliation R8: a top-level
 // `z.discriminatedUnion` emits `anyOf` with no top-level `properties`, so the
@@ -322,10 +276,6 @@ export const sendMessage: ActionDeclaration<SendMessageInput, SendMessageOutput>
 	output: SendMessageOutputSchema,
 };
 
-// ---------------------------------------------------------------------------
-// adjust_thread
-// ---------------------------------------------------------------------------
-
 export const AdjustThreadInputSchema = z
 	.object({
 		id: z.string().min(1).optional(), // absent ⇒ create an empty thread
@@ -355,10 +305,7 @@ export const THREAD_ACTIONS = {
 	adjust_thread: adjustThread,
 } as const;
 
-// ---------------------------------------------------------------------------
-// Pure invariants — run in the browser to grey a control, and again on the
-// server as the first pass over the input. No database.
-// ---------------------------------------------------------------------------
+// Pure invariants — run in the browser and on the server; no database.
 
 export function sendMessageInvariants(
 	input: SendMessageInput,
@@ -375,7 +322,7 @@ export function sendMessageInvariants(
 			path: "threadId",
 		});
 	} else if (!(hasThreadId || hasRecipients || caller.hasCallingThread)) {
-		// resolvable later via the agent fallback (server invariant / step 2) —
+		// resolvable later via the agent fallback (server invariant) —
 		// this pure check only refuses an HTTP caller (no `caller` at all), which
 		// `sendMessage.run` mirrors by passing `hasCallingThread: false` for it.
 		problems.push({
@@ -477,11 +424,7 @@ export function adjustThreadInvariants(input: AdjustThreadInput): Problem[] {
 	return problems;
 }
 
-// ---------------------------------------------------------------------------
-// @lore BC3: who may read, who may post, and how anyone ever joins.
-// `canWriteThread` delegates to `canReadThread`, exactly as the deleted
-// `access-boundary.ts`'s `canWrite` delegated to `canRead`.
-// ---------------------------------------------------------------------------
+// @lore: canReadThread — team/document/factory are shared (any signed-in principal reads); user/agent hosts are members-only; canWriteThread delegates here
 
 const HOST_SCOPED: ReadonlySet<HostKind> = new Set(["team", "document", "factory"]);
 
@@ -495,10 +438,7 @@ export function canReadThread(
 
 export const canWriteThread = canReadThread;
 
-// ---------------------------------------------------------------------------
-// @lore BC3: the wake rule. Pure. Runs post-commit over the thread's FINAL
-// member list, after the mention-adds and after the sender's own join.
-// ---------------------------------------------------------------------------
+// @lore: agentsToWake — pure; post-commit over the FINAL member list; wakes mentioned agents + the other party in a 2-member thread; never wakes the sender
 
 export function agentsToWake(input: {
 	readonly members: readonly string[]; // after the send's mention-adds

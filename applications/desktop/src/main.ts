@@ -1,11 +1,3 @@
-/**
- * Electron main process entry point.
- *
- * Implements the full startup sequence from architecture.md §3:
- * single-instance lock → paths → API key → log rotation → migrations →
- * env vars → server → health check → BrowserWindow → IPC handlers → menu
- */
-
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -13,7 +5,7 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from "electron";
 
-// @lore N5: CJS output (esbuild) has __dirname; ESM (dev/tsx) has import.meta.url.
+// @lore: Dirname — CJS output (esbuild) has __dirname; ESM (dev/tsx) requires fileURLToPath(import.meta.url)
 const Dirname =
 	typeof __dirname === "string" ? __dirname : path.dirname(fileURLToPath(import.meta.url));
 
@@ -32,31 +24,13 @@ function log(message: string, data?: Record<string, unknown>): void {
 	process.stderr.write(`${ts} [desktop] ${message}${suffix}\n`);
 }
 
-// @lore N4: IS_DEV uses app.isPackaged which is false when running `electron .`
-// from source and true in the packaged .app bundle. This is the correct way
-// to distinguish dev from production in Electron — not NODE_ENV.
+// @lore: IS_DEV — app.isPackaged is false when running electron . from source; do not use NODE_ENV to distinguish dev from production in Electron
 export const IS_DEV = !app.isPackaged;
 
-// ---------------------------------------------------------------------------
-// Exported helper functions for testability
-// ---------------------------------------------------------------------------
-
-/**
- * Resolve the PGlite data directory.
- * Lives at userData + '/hyperidle-pg'. PGlite uses a directory, not a single file.
- */
 export function resolveDataDir(userDataDir: string): string {
 	return path.join(userDataDir, "hyperidle-pg");
 }
 
-/**
- * Poll GET {serverUrl}/api/health until a 200 response is received or timeout.
- * Used for shared-mode health check against a remote server.
- * Throws if the health check does not succeed within timeoutMs.
- *
- * @lore P3 AC-4: Separate from waitForHealth() (which takes a port number)
- * to avoid changing the existing function signature that tests rely on.
- */
 export async function waitForRemoteHealth(serverUrl: string, timeoutMs = 30_000): Promise<void> {
 	const url = `${serverUrl.replace(/\/$/, "")}/api/health`;
 	const deadline = Date.now() + timeoutMs;
@@ -86,14 +60,6 @@ interface SecretsFile {
 	apiKey: string;
 }
 
-/**
- * Read the HYPERIDLE_API_KEY from secrets.json, or generate and persist one.
- * The file is written with mode 0o600 (owner-read-write only).
- *
- * @lore N4: secrets.json stores the internal server auth key (NOT a user-facing
- * credential). It is written with 0o600 to restrict access to the current user.
- * We use crypto.randomBytes(32).toString('hex') for 256 bits of entropy.
- */
 export function readOrGenerateApiKey(secretsPath: string): string {
 	if (fs.existsSync(secretsPath)) {
 		try {
@@ -113,13 +79,7 @@ export function readOrGenerateApiKey(secretsPath: string): string {
 	return apiKey;
 }
 
-/**
- * Check single-instance lock. Returns true if this instance got the lock.
- * Calls app.quit() if the lock is not obtained.
- *
- * @lore N4: requestSingleInstanceLock must be called BEFORE app.whenReady()
- * to prevent a second instance from starting initialization before quitting.
- */
+// @lore: checkSingleInstanceLock — must be called BEFORE app.whenReady(); a second instance starts initialization before quitting otherwise
 export function checkSingleInstanceLock(): boolean {
 	const gotLock = app.requestSingleInstanceLock();
 	if (!gotLock) {
@@ -137,10 +97,6 @@ export interface ServerHandleLike {
 	readonly dispose: () => Promise<void> | void;
 }
 
-/**
- * Build the before-quit handler that shuts down server and log rotation.
- * Exported for unit testing.
- */
 export function getBeforeQuitHandler(
 	serverHandle: ServerHandleLike | null,
 	logRotator: LogRotator | null,
@@ -165,10 +121,6 @@ export function getBeforeQuitHandler(
 			});
 	};
 }
-
-// ---------------------------------------------------------------------------
-// Error dialog helper
-// ---------------------------------------------------------------------------
 
 async function showStartupError(
 	message: string,
@@ -196,16 +148,8 @@ async function showStartupError(
 	app.quit();
 }
 
-// ---------------------------------------------------------------------------
-// Module-level state (for shutdown)
-// ---------------------------------------------------------------------------
-
 let logRotator: LogRotator | null = null;
 let serverHandle: ServerHandleLike | null = null;
-
-// ---------------------------------------------------------------------------
-// App lifecycle
-// ---------------------------------------------------------------------------
 
 // Register uncaughtException BEFORE anything else
 process.on("uncaughtException", (err: Error): void => {
@@ -225,22 +169,15 @@ process.on("uncaughtException", (err: Error): void => {
 	app.exit(1);
 });
 
-// @lore N4: We gate the side-effectful startup so that importing main.ts in tests
-// (for the exported helpers) does not trigger the full app boot sequence.
-// In Electron, process.argv[0] is the electron binary. In Vitest, it's the node
-// binary running vitest. We detect Electron by checking for the electron binary name
-// or the ELECTRON_RUN_AS_NODE env var being absent (Electron sets it when running
-// as plain Node). The simplest reliable check: process.versions.electron exists
-// at runtime but not in Vitest/Node.
+// @lore: isEntrypoint — process.versions.electron exists in Electron but not Vitest/Node; guards against boot side-effects when tests import this module
 /* c8 ignore start */
 const isEntrypoint = "electron" in process.versions;
 
 if (isEntrypoint) {
 	// Single-instance lock must run before app.whenReady()
 	if (!checkSingleInstanceLock()) {
-		// app.quit() was called inside checkSingleInstanceLock; stop here.
+		// nothing
 	} else {
-		// Register second-instance focus handler
 		app.on("second-instance", (): void => {
 			const windows = BrowserWindow.getAllWindows();
 			if (windows.length > 0) {
@@ -257,17 +194,6 @@ if (isEntrypoint) {
 }
 /* c8 ignore stop */
 
-// @lore A `SafeStorageLike` interface stood here so the Anthropic-key reader
-// could be tested against a stub. That reader is gone; the one credential the
-// desktop still stores is read through `readCredentialFromStore` below.
-
-// @lore A `readAnthropicKeyFromStore` stood here, decrypting the stored
-// Anthropic key at boot and putting it into `process.env.ANTHROPIC_API_KEY` so
-// the built-in harness would pick it up. No harness reads a key HyperIdle
-// supplies — each authenticates with its own login — and the desktop app stores
-// no model credential to read.
-
-/** Parameters shared by local and shared mode boot paths. */
 interface BootContext {
 	userDataDir: string;
 	logDir: string;
@@ -275,9 +201,6 @@ interface BootContext {
 	credentialsPath: string;
 }
 
-/**
- * Register common IPC handlers used in both local and shared mode.
- */
 function registerCommonIpcHandlers(mainWindow: BrowserWindow, ctx: BootContext): void {
 	ipcMain.handle("shell:open-logs", async (): Promise<void> => {
 		await shell.openPath(ctx.logDir);
@@ -294,9 +217,6 @@ function registerCommonIpcHandlers(mainWindow: BrowserWindow, ctx: BootContext):
 	});
 }
 
-/**
- * Bind window state persistence handlers to save config.json on window changes.
- */
 function bindWindowStatePersistence(mainWindow: BrowserWindow, configPath: string): void {
 	const saveState = (): void => {
 		if (!mainWindow.isDestroyed()) {
@@ -324,10 +244,6 @@ function bindWindowStatePersistence(mainWindow: BrowserWindow, configPath: strin
 	mainWindow.on("leave-full-screen", saveState);
 }
 
-/**
- * Run DB migrations with lock-contention retry dialog.
- * Returns false if the user chose to quit, true on success.
- */
 async function runMigrationsWithRetry(
 	dbPath: string,
 	migrationsFolder: string,
@@ -340,9 +256,7 @@ async function runMigrationsWithRetry(
 			migrated = true;
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : "";
-			// @lore PGlite migration: PGlite throws "database is locked" or
-			// Postgres error code 55P03 (lock_not_available) when another
-			// process holds the data directory. Replaces SQLITE_BUSY check.
+			// @lore: PGlite — throws "database is locked" or Postgres error code 55P03 when another process holds the data directory
 			if (msg.includes("locked") || msg.includes("55P03")) {
 				const response = await dialog.showMessageBox({
 					type: "warning",
@@ -384,11 +298,6 @@ async function runMigrationsWithRetry(
 	return true;
 }
 
-/**
- * Boot sequence for local mode: migrate DB, start embedded server, open window.
- *
- * @lore P3 AC-3/AC-5: local mode (including null/unset backendMode) boots the embedded server.
- */
 async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 	log("boot:local start", { userDataDir: ctx.userDataDir, isDev: IS_DEV });
 
@@ -405,16 +314,7 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 	}
 	log("boot:local migrations complete");
 
-	// Apply factory bootstrap after migrations — idempotent, runs every launch.
-	// @lore AF17: factory bootstrap must run before the server starts so the hidden
-	// system actor row is present when the first request arrives. No agent is seeded
-	// here: agents arrive from the welcome screen or a plugin. The call is idempotent
-	// (onConflictDoNothing) so repeated launches are safe.
-	// @lore AU29 §2.5.4: `applyFactoryBootstrap` (framework/db) dissolved into layer
-	// faces — `framework/db` may not import a layer, so first-boot composition moved to
-	// this composition root. Only the core-state face is left: the run-config face wrote
-	// the built-in harness and a hardcoded Anthropic model, and once the built-in harness
-	// was retired it had nothing left to write that an absent row does not already resolve.
+	// Apply factory bootstrap after migrations — idempotent; system actor row must exist before first request
 	try {
 		const { createPgliteDb } = await import("@hyperidle/db");
 		const { applyFactoryCoreState } = await import("@hyperidle/core-api");
@@ -435,9 +335,6 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 
 	process.env.DATABASE_URL = dbPath;
 	process.env.HYPERIDLE_API_KEY = apiKey;
-	// The plugins that ship inside the app: electron-builder copies the repo's
-	// `plugins/` into Resources beside the migrations; in development they are read
-	// straight from the repo (same split as `resolveMigrationsFolder`).
 	process.env.HYPERIDLE_BUNDLED_PLUGINS_DIR = IS_DEV
 		? path.resolve(Dirname, "..", "..", "..", "plugins")
 		: path.join(process.resourcesPath ?? "", "plugins");
@@ -481,13 +378,7 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 	const preloadPath = path.join(Dirname, "preload.js");
 	log("boot:local preload", { preloadPath, exists: fs.existsSync(preloadPath) });
 
-	// @lore AV5: titleBarStyle:"hiddenInset" — macOS-only; insets the OS traffic-lights
-	// into the app-owned chrome instead of a separate gray bar (Windows/Linux unaffected).
-	// Design: 28px draggable inset (h-[28px]) at the top of the sidebar column only — not
-	// a full-width strip. The traffic-lights float over the sidebar; main content reaches
-	// the window top unaffected. trafficLightPosition:{x:12,y:11} centers the lights within
-	// that 28px inset. backgroundColor must stay in sync with --surface-container (#242418);
-	// the cool "#1a1a2e" violated AQ-018. Windows/Linux titleBarOverlay is a deliberate follow-up.
+	// @lore: backgroundColor — must stay in sync with --surface-container (#242418); mismatch causes flash of wrong color before app shell paints
 	const mainWindow = new BrowserWindow({
 		x: windowState.x,
 		y: windowState.y,
@@ -535,12 +426,10 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 	log("boot:local loading app", { appUrl });
 	mainWindow.loadURL(appUrl);
 
-	// In dev mode, open devtools for debugging
 	if (IS_DEV) {
 		mainWindow.webContents.openDevTools({ mode: "detach" });
 	}
 
-	// Log renderer errors visible in main process
 	mainWindow.webContents.on(
 		"did-fail-load",
 		(_event, errorCode, errorDescription, validatedURL) => {
@@ -579,20 +468,12 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 	log("boot:local complete", { port, appUrl });
 }
 
-/**
- * Boot sequence for shared mode: connect to remote server, open window pointing at serverUrl.
- *
- * @lore P3 AC-4: No embedded server is started. The desktop connects to the remote serverUrl.
- * The embedded server (startServer/migrations) is NOT called.
- */
 async function bootSharedMode(ctx: BootContext, serverUrl: string): Promise<void> {
 	const clientConfig = loadClientConfig(ctx.configPath);
 	const windowState = clientConfig.windowState;
 	const preloadPath = path.join(Dirname, "preload.js");
 
-	// @lore AV5: Same hiddenInset config as bootLocalMode — both windows share the same
-	// titlebar treatment. backgroundColor matches --surface-container to avoid a flash of
-	// cool color (#1a1a2e) before the app shell paints. Windows/Linux follow-up out of scope.
+	// @lore: backgroundColor — must stay in sync with --surface-container (#242418); mismatch causes flash of wrong color before app shell paints
 	const mainWindow = new BrowserWindow({
 		x: windowState.x,
 		y: windowState.y,
@@ -605,7 +486,6 @@ async function bootSharedMode(ctx: BootContext, serverUrl: string): Promise<void
 			preload: preloadPath,
 			contextIsolation: true,
 			sandbox: true,
-			// S4: pass backend mode so preload can expose it via __HYPERIDLE__.backendMode
 			additionalArguments: ["--backend-mode=shared"],
 		},
 		show: false,
@@ -641,7 +521,6 @@ async function bootSharedMode(ctx: BootContext, serverUrl: string): Promise<void
 	credManager.registerHandlers();
 	registerCommonIpcHandlers(mainWindow, ctx);
 
-	// S4: Worker client — initialized if config.workerEnabled is true
 	let workerClient: RemoteWorkerClient | null = null;
 	const workerIpcChannels = [
 		"worker:enable",
@@ -651,10 +530,6 @@ async function bootSharedMode(ctx: BootContext, serverUrl: string): Promise<void
 		"worker:status",
 	] as const;
 
-	/**
-	 * Read a credential from the encrypted safeStorage store.
-	 * Returns null if not found or decryption fails.
-	 */
 	function readCredentialFromStore(name: string): string | null {
 		try {
 			const raw = fs.readFileSync(ctx.credentialsPath, "utf-8");
@@ -681,9 +556,6 @@ async function bootSharedMode(ctx: BootContext, serverUrl: string): Promise<void
 			saveClientConfig(ctx.configPath, { workerDeviceId: deviceId });
 		}
 
-		// @lore This read the stored model keys to advertise which providers this
-		// worker could serve. There are no stored model keys: a worker runs the
-		// harnesses installed on its own machine, and each authenticates itself.
 		const modelProviders: string[] = [];
 		const client = new RemoteWorkerClient({
 			serverUrl,
@@ -704,7 +576,6 @@ async function bootSharedMode(ctx: BootContext, serverUrl: string): Promise<void
 		return client;
 	}
 
-	// Register worker IPC handlers
 	ipcMain.handle("worker:enable", async (_event: unknown, maxConcurrent: number): Promise<void> => {
 		if (workerClient) {
 			await workerClient.disconnect();
@@ -770,8 +641,6 @@ async function bootSharedMode(ctx: BootContext, serverUrl: string): Promise<void
 		},
 	});
 	Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate));
-	// No server handle in shared mode
-	// S4: include worker client shutdown in before-quit handler
 	app.on("before-quit", (event) => {
 		if (workerClient) {
 			event.preventDefault();
@@ -794,7 +663,6 @@ async function bootSharedMode(ctx: BootContext, serverUrl: string): Promise<void
 async function startApp(): Promise<void> {
 	await app.whenReady();
 
-	// Resolve paths
 	const userDataDir = app.getPath("userData");
 	const logDir = app.getPath("logs");
 	const secretsPath = path.join(userDataDir, "secrets.json");
@@ -818,17 +686,13 @@ async function startApp(): Promise<void> {
 		arch: process.arch,
 	});
 
-	// P3: Migrate window-state.json → config.json on first run after upgrade.
 	migrateWindowState(windowStatePath, configPath);
 
-	// P3: Read client config to determine BackendMode.
-	// @lore P3 AC-3/AC-4/AC-5: null backendMode (first run) defaults to local.
 	const clientConfig = loadClientConfig(configPath);
 	log("startApp config", { backendMode: clientConfig.backendMode ?? "local (default)" });
 	const ctx: BootContext = { userDataDir, logDir, configPath, credentialsPath };
 
 	if (clientConfig.backendMode === "shared") {
-		// SHARED MODE: connect to remote server, no embedded server started.
 		const serverUrl = clientConfig.serverUrl;
 		if (!serverUrl) {
 			log("startApp shared mode FAILED — no serverUrl configured");
@@ -842,7 +706,6 @@ async function startApp(): Promise<void> {
 		log("startApp booting shared mode", { serverUrl });
 		await bootSharedMode(ctx, serverUrl);
 	} else {
-		// LOCAL MODE (or null/unset): boot embedded server.
 		const apiKey = readOrGenerateApiKey(secretsPath);
 		log("startApp booting local mode");
 		await bootLocalMode(ctx, apiKey);

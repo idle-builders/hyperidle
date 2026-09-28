@@ -16,19 +16,10 @@ export interface TaskCardProps {
 	owner?: string;
 	state: TaskState;
 	/**
-	 * The owning team. Rendered as its own labelled value, never in the owner
-	 * slot — a team is not a person.
-	 *
-	 * @lore BB1: global search returns a team and no owner. It briefly passed the
-	 * team INTO `owner`, which rendered a team name where the card claims an
-	 * owner — a fabricated value, indistinguishable from the truth to the reader.
+	 * @lore: team rendered in its own slot, never the owner slot — a team is not a person; misrendering team as owner fabricates a value indistinguishable from truth
 	 */
 	team?: string;
-	/**
-	 * The parent task's title, when this card is shown outside its tree.
-	 *
-	 * @lore BB1: was `betTag`. A task's container is another task now.
-	 */
+
 	parentTag?: string;
 	actions?: ReactNode;
 	onClick?: () => void;

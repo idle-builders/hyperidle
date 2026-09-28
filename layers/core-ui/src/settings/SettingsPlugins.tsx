@@ -1,26 +1,4 @@
-/**
- * SettingsPlugins — plugin install and management surface.
- *
- * Install from a git URL, zip path, or local folder path; choose factory
- * or team scope; list installed plugins; disable/enable/remove; restore
- * a contribution a person edited (detached) back to the plugin's version.
- * The plugins that ship with the app are listed beside the installed ones
- * as available, each with an Install button: a team plugin installs into
- * the viewer's own team, a factory plugin once for everyone.
- *
- * A contribution is "detached" when a person has edited the agent,
- * subscription or document a plugin put there; a reinstall leaves it alone
- * and Restore brings back the plugin's own version. The plugin's MCP servers
- * are listed too, read from its install folder; they are never detached.
- *
- * @lore `/api/plugins` (six routes) replaced by `call("search_plugins",
- * …)`/`call("edit_plugin", …)` — the door swap, not a redesign, this page's
- * own header now says. Install/enable/disable/remove/restore are each one
- * `edit_plugin` change field. Restore used to branch on `REGISTRY_KINDS` to decide whether to name a
- * contribution by its entity id or its manifest key — the action's own
- * `PluginContributionView.key` is the one name it takes, so the branch is
- * gone: every restore names the contribution with `key`.
- */
+// @lore: restore — names contribution by PluginContributionView.key; no REGISTRY_KINDS branch needed
 
 // hearth-internal-padding
 
@@ -51,11 +29,6 @@ import { useTeams } from "../hooks/useTeams.js";
 import { call } from "../services/call.js";
 import { useToast } from "../shell/ToastRegion.js";
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-/** The form installs from a path or URL; a bundled plugin installs from its row. */
 type SourceKind = Exclude<EditPluginSource["kind"], "bundled">;
 type ScopeKind = PluginScope["kind"];
 
@@ -64,10 +37,6 @@ function isAvailable(p: PluginListing): p is AvailablePluginView {
 }
 
 type LoadState = "loading" | "ready" | "error";
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 function stateChipStatus(state: PluginListState): "healthy" | "behind" {
 	return state === "enabled" ? "healthy" : "behind";
@@ -82,10 +51,6 @@ function scopeLabel(scope: PluginScope, teamNames: ReadonlyMap<string, string>):
 	const name = scope.teamId ? teamNames.get(scope.teamId) : undefined;
 	return name ? `For ${name}` : "For another team";
 }
-
-// ---------------------------------------------------------------------------
-// Install form
-// ---------------------------------------------------------------------------
 
 interface InstallFormProps {
 	onInstalled: () => void;
@@ -204,11 +169,6 @@ function InstallForm({ onInstalled, teamOptions }: InstallFormProps): JSX.Elemen
 	);
 }
 
-// ---------------------------------------------------------------------------
-// Contribution list (shown expanded below a plugin row)
-// ---------------------------------------------------------------------------
-
-/** What each contribution kind is called in the list. */
 const KIND_LABEL: Record<string, string> = {
 	agent: "agent",
 	subscription: "subscription",
@@ -264,10 +224,6 @@ function ContributionList({
 		</ul>
 	);
 }
-
-// ---------------------------------------------------------------------------
-// Main component
-// ---------------------------------------------------------------------------
 
 export function SettingsPlugins(): JSX.Element {
 	const { showToast } = useToast();
@@ -453,9 +409,7 @@ export function SettingsPlugins(): JSX.Element {
 								<div key={plugin.id} className="flex flex-col">
 									<Row
 										title={<PluginTitle name={plugin.name} version={plugin.version} />}
-										// @lore Whose install it is sits under the title, not in the
-										// actions: a scope tag beside three buttons took the row's width
-										// and a team install's title collapsed to nothing.
+										// @lore: scope in subtitle not actions — tag beside three buttons collapsed the title to nothing
 										subtitle={scopeLabel(plugin.scope, teamNames)}
 										lead={
 											<StatusChip status={stateChipStatus(plugin.state)} label={plugin.state} />
@@ -517,11 +471,6 @@ export function SettingsPlugins(): JSX.Element {
 	);
 }
 
-// ---------------------------------------------------------------------------
-// A plugin that ships with the app and is not installed for this viewer
-// ---------------------------------------------------------------------------
-
-/** A plugin row's title — name and version — the same for an install and an available plugin. */
 function PluginTitle({ name, version }: { name: string; version: string }): JSX.Element {
 	return (
 		<span>

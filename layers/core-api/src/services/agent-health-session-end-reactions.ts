@@ -1,48 +1,4 @@
-/**
- * The degraded-agent notice, event-driven.
- *
- * Founder ruling: *"shouldn't the notification system anyhow allow to be event
- * based and then the notification system just keeps track of how many of the
- * notification events it got from the orchestration that something broke and
- * the notification system then just say 5 notification about this in the last 7
- * days"*.
- *
- * This module is the literal replacement for `routes/teams-routes.ts`'s deleted
- * `maybeNotifyAgentError`. That producer had two faults the ruling fixes at
- * once: it only ran when a human happened to open the team page (so a crash at
- * 03:00 notified nobody until someone looked), and it made a GET perform a
- * write. Deleting it also removed the route's batched `sessions` read — the
- * last core-api read of an `agent-orchestration` table, and the remaining
- * acceptance criterion.
- *
- * Shape copied from `work-session-end-reactions.ts`: a per-eventBus-instance
- * `registeredBuses` WeakSet idempotency guard, and the explicit
- * `register*(db, eventBus)` wiring convention wired at `service-bootstrap.ts`.
- *
- * ## The notification queue is gone — this writes `health` now
- *
- * The old trigger was a RATIO — `failureRate7d > 0.5 || lastSessionCrashed`
- * (`deriveHealthLevel`, `framework/domain-model/src/agent-run-view.ts`), computed from
- * the agent's raw run rows; the team page's own health dots still compute it
- * that way, browser-side, off `agent-orchestration`'s own API — untouched
- * here. What this reaction drives is the NOTICE, and the notice moved onto
- * the user module: a crashed session writes `edit_user({ id: agentId,
- * health })`, which lands as an ordinary `user.changed` change row. Whoever
- * subscribes to `user.changed` in reach (the agent's owner, its team) sees
- * it, the same door a mention uses — no separate notification vocabulary,
- * no queue.
- *
- * Every crash writes a `health` note — no threshold decides whether it is
- * written. The note text carries how many crashes happened in the trailing
- * 7-day window, so a human reading it sees "N failures in 7 days".
- *
- * @lore review fix: the count used to be EVERY `user` change row on the
- * agent in the window — a plain rename or a team move counted as a
- * "failure" alongside an actual crash. This reaction is the only writer of
- * `health` on an `edit_user` call (grep confirms no UI or route sets it),
- * so `after.health` present on a row is exactly "this row is one of this
- * reaction's own crash notes" — the filter below counts only those.
- */
+// @lore: agent-health — crash writes `health` note via `edit_user`; `after.health` distinguishes crash notes from renames/team-moves; set ONLY by this reaction
 
 import { listChanges } from "@hyperidle/changes";
 import type { HyperIdleDb } from "@hyperidle/db";
@@ -65,11 +21,6 @@ export const AGENT_FAILURE_WINDOW_DAYS = 7;
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
-/**
- * "Agent Ada on team Hearth" when the agent is on a team, "Agent Ada" when the
- * lookup cannot resolve one. Preserves the subject line the deleted
- * `maybeNotifyAgentError` produced from its roster context.
- */
 async function describeAgent(
 	db: HyperIdleDb,
 	agentId: string,
@@ -77,7 +28,6 @@ async function describeAgent(
 	const agent = await findUser(db, { id: agentId });
 	if (!agent) return undefined;
 	if (!agent.teamId) return { name: agent.name, teamName: null };
-	// @lore AU44 B1: agent.teamId now references teams.id directly (no two-hop).
 	const team = await getTeam(db, { id: agent.teamId });
 	return { name: agent.name, teamName: team?.name ?? null };
 }

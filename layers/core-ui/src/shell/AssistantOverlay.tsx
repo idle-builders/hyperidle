@@ -1,27 +1,5 @@
-/**
- * AssistantOverlay
- *
- * Popover overlay that renders a ThreadShell in assistant configuration.
- * Anchored to the assistant trigger button ref.
- *
- * Positioning: fixed, bottom-16 right-4 (grows upward and to the right).
- * Dimensions: 360px wide, max-height 70vh. z-index 30 (above Main, below Settings).
- *
- * @lore AD8b: Renamed from CocOverlay → AssistantOverlay.
- * Context: CocContext → AssistantContext.
- * data-testid for context chips: "coc-context-chips" → "assistant-context-chips".
- *
- * @lore BC3 B6: resolves the viewer's own agent via useAgents()/useCurrentUser(),
- * then reads that agent's direct thread via useThreads()/useThread().
- *
- * @lore L21 (design): overlay does NOT close on clicking outside. The user
- * must be able to interact with Main content (to select context items via the
- * "+" attach affordance) while the overlay remains open. Only Escape and
- * clicking the trigger again close it.
- *
- * @lore L21 (arch): AssistantOverlay is a shell-level composition (like SettingsPanel)
- * not a design-system custom component. It lives in layers/core-ui/src/shell/.
- */
+// @lore: overlay stays open on outside click — user must interact with Main content while overlay is open; only Escape or trigger click closes it
+// @lore: shell-level composition, not a design-system primitive; lives in layers/core-ui/src/shell/
 
 import type { AssistantNotice, InlineRef, Message } from "@hyperidle/domain-model";
 import { ASSISTANT_TURN_TIMEOUT_MS, isRedactedPayload } from "@hyperidle/domain-model";
@@ -38,17 +16,11 @@ import { call } from "../services/call.js";
 export interface AssistantOverlayProps {
 	open: boolean;
 	onClose: () => void;
-	/** @lore L21: anchorRef is reserved for future dynamic positioning relative
-	 * to the assistant trigger button. Currently the overlay uses fixed bottom-16 right-4
-	 * positioning. The prop is optional — pass a ref when dynamic anchoring lands. */
 	anchorRef?: RefObject<HTMLButtonElement | null>;
 	contextRefs: ReadonlyArray<AssistantContextRef>;
 	onRemoveContextRef: (index: number) => void;
 }
 
-/**
- * Context chip rendered above the composer in the overlay.
- */
 function ContextChip({
 	ref: contextRef,
 	index,
@@ -77,10 +49,6 @@ function ContextChip({
 		</span>
 	);
 }
-
-// ---------------------------------------------------------------------------
-// Notice card rendering (missing_key / missing_harness / provider_error)
-// ---------------------------------------------------------------------------
 
 interface NoticeConfig {
 	title: string;
@@ -120,14 +88,7 @@ function getNoticeConfig(notice: AssistantNotice, onRetry?: () => void): NoticeC
 	}
 }
 
-/**
- * Render a notice card for assistant error/guidance messages.
- * These replace the normal chat bubble when payload.notice is present.
- *
- * @lore AH3: role="alert" for accessibility — screen readers announce immediately.
- * Token contract: --status-warning (setup gaps), --status-error (failures).
- * No --color-error/success (dead tokens, AI1 owns).
- */
+// @lore: AssistantNoticeCard — role="alert" required (announces immediately); use --status-warning/--status-error; --color-error/success are dead tokens
 function AssistantNoticeCard({
 	notice,
 	onRetry,
@@ -185,10 +146,6 @@ function AssistantNoticeCard({
 	);
 }
 
-/**
- * "Thinking…" indicator — shown when last message is human and
- * within the turn timeout window. Client-derived from thread state.
- */
 function ThinkingRow(): JSX.Element {
 	return (
 		<div
@@ -214,14 +171,7 @@ function ThinkingRow(): JSX.Element {
 	);
 }
 
-/**
- * Stale crash-recovery Retry card — shown when last message is human
- * AND older than ASSISTANT_TURN_TIMEOUT_MS. Never shows an infinite spinner.
- */
 function StaleRetryCard({ onRetry }: { onRetry?: () => void }): JSX.Element {
-	// FR-21: styled as an inline thread element (like ThinkingRow), not a floating alert.
-	// Removed red border + overlay background — the error context is communicated
-	// through the status-error text colour and the "try again" call to action.
 	return (
 		<div
 			role="alert"
@@ -244,8 +194,6 @@ function StaleRetryCard({ onRetry }: { onRetry?: () => void }): JSX.Element {
 	);
 }
 
-// ---------------------------------------------------------------------------
-
 function AssistantOverlayInner({
 	contextRefs,
 	onRemoveContextRef,
@@ -253,18 +201,11 @@ function AssistantOverlayInner({
 	contextRefs: ReadonlyArray<AssistantContextRef>;
 	onRemoveContextRef: (index: number) => void;
 }): JSX.Element {
-	// artifacts-become-documents: scopeKind for documents created from pending_block refs.
 	const { user, status: userStatus } = useCurrentUser();
-	// "The assistant is your agent" — an ordinary agent with
-	// `ownerUserId === me`. `search_users({ kind: "ai" })` carries `ownerUserId`
-	// directly, so the overlay finds it straight off the one agents fetch every
-	// agent picker already shares — no second fetch.
 	const { agents, loading: agentsLoading, refetch: refetchAgents } = useAgents();
 	const myAgentId = agents.find((a) => a.ownerUserId === user?.id)?.id ?? null;
 
-	// There is no `GET /api/threads/assistant` create-on-read. Resolve the
-	// existing direct thread with my agent, if any; the overlay's first send
-	// creates one via `send_message({ recipients: [myAgentId] })`.
+	// No create-on-read thread endpoint — first send creates it via send_message({ recipients: [myAgentId] })
 	const agentHostFilter = myAgentId
 		? { host: { kind: "agent" as const, id: myAgentId } }
 		: undefined;
@@ -272,7 +213,6 @@ function AssistantOverlayInner({
 	const existingThreadId = threadSearch.threads[0]?.id;
 	const { status: threadStatus, data, error, refresh } = useThread(existingThreadId);
 
-	/** Shared by the populated ThreadShell composer and the empty first-send composer. */
 	const sendToThread = useCallback(
 		async (
 			targetThreadId: string | undefined,
@@ -312,19 +252,8 @@ function AssistantOverlayInner({
 				throw new Error(res.problems[0]?.message ?? "Failed to send message");
 			}
 
-			// @lore artifacts-become-documents: For each pending_block, create a
-			// document parented to this thread. The content was captured at click
-			// time — a real document row, not a pointer that rots when the source
-			// is edited.
-			// @lore BC4: `apiFetch("/api/knowledge", …)` replaced by
-			// `call("edit_document", { as: "artifact", parent: {kind:"thread", id} })`
-			// (architecture.md §9.2). `as:"artifact"` forces the artifact rules
-			// (I5/I13) — an explicit thread parent wins over the caller's own
-			// session stamp (§4.3 case 3) — so `scopeKind` is informational only,
-			// never "user" (I13: an artifact cannot be private). The old
-			// `scopeKind: teamId ? "product" : "factory"` carried a value outside
-			// SCOPE_KINDS ("factory"|"team"|"user") that `edit_document` would
-			// refuse to validate — fixed to "team" while repointing this call.
+			// @lore: artifacts-become-documents — each pending block becomes a real document row parented to this thread; content captured at click time
+			// @lore: edit_document as:"artifact" — forces artifact rules; explicit thread parent beats session stamp; scopeKind informational only, never "user"
 			const teamId = user?.teamId ?? null;
 			await Promise.all(
 				pendingBlocks.map((ref) =>
@@ -349,9 +278,6 @@ function AssistantOverlayInner({
 		async (input: { type: string; payload: unknown; clientKey: string }): Promise<void> => {
 			if (!existingThreadId) return;
 			await sendToThread(existingThreadId, input);
-			// re-fetch thread so the sent message appears without closing and
-			// reopening the overlay. The WS nudge will arrive shortly after, but
-			// refresh() ensures immediate visibility.
 			refresh();
 		},
 		[existingThreadId, sendToThread, refresh],
@@ -364,16 +290,12 @@ function AssistantOverlayInner({
 				payload: { text: input.text },
 				clientKey: input.clientKey,
 			});
-			// The new thread now exists on this host — re-run the search that
-			// resolves `existingThreadId`.
 			threadSearch.retry();
 		},
 		[sendToThread, threadSearch],
 	);
 
-	// `open_user({})` is still in flight until `userStatus`
-	// leaves "loading" — without this, `myAgentId` reads as null while the
-	// user is unresolved and the overlay flashes the no-agent message.
+	// open_user({}) still in flight until userStatus != "loading" — without the guard myAgentId reads null and the overlay flashes the no-agent message
 	if (
 		userStatus === "loading" ||
 		agentsLoading ||
@@ -387,11 +309,7 @@ function AssistantOverlayInner({
 	}
 
 	if (!myAgentId || threadSearch.status === "error") {
-		// With no agent, `threadSearch`'s filter is undefined
-		// and `threadSearch.retry()` is a no-op — re-fetching agents is the
-		// only thing that can resolve this state. Once an agent exists,
-		// `threadSearch.status === "error"` means the search itself failed,
-		// so its own retry is the right one.
+		// no agent → threadSearch filter undefined, retry is no-op; refetch agents resolves it; threadSearch error → search failed, its own retry
 		const onRetry = myAgentId ? threadSearch.retry : refetchAgents;
 		return (
 			<div className="flex flex-1 flex-col items-center justify-center gap-[9px] p-4">
@@ -405,8 +323,6 @@ function AssistantOverlayInner({
 		);
 	}
 
-	// No thread yet — an empty compose-only state. The first send creates
-	// the thread (`recipients: [myAgentId]`); no create-on-read, no flag.
 	if (!existingThreadId) {
 		return (
 			<div className="flex-1 min-h-0 flex flex-col justify-end overflow-hidden">
@@ -450,14 +366,7 @@ function AssistantOverlayInner({
 		a.createdAt.localeCompare(b.createdAt),
 	);
 
-	// Compute thinking/stale state from thread state (client-derived).
-	// Show "thinking…" only when: last message is human AND within ASSISTANT_TURN_TIMEOUT_MS.
-	// Show Retry card when: last message is human AND PAST the timeout (crash recovery).
-	// @lore BC3 B5/B6: the overlay knows its own counterpart — it opened a
-	// direct thread with exactly one agent — so "the last message is human"
-	// is an identity comparison against that agent id, not a structural id
-	// prefix check (which no longer means anything once every agent
-	// is an ordinary owned agent).
+	// @lore: lastMessageIsHuman — identity comparison against myAgentId; not an id-prefix check (structural prefix has no meaning for ordinary owned agents)
 	const lastMessage = msgsAsc[msgsAsc.length - 1];
 	const lastMessageIsHuman = lastMessage !== undefined && lastMessage.senderId !== myAgentId;
 	const lastMessageIsWithinTimeout =
@@ -467,13 +376,7 @@ function AssistantOverlayInner({
 	const isThinking = lastMessageIsWithinTimeout;
 	const isStale = lastMessageIsHuman && !lastMessageIsWithinTimeout;
 
-	// Partition messages — notice messages are REMOVED from ThreadShell and
-	// rendered as standalone notice cards below the thread. This ensures getByText
-	// doesn't find the message bubble text AND the notice card title simultaneously.
-	// @lore AH3: ThreadShell's `renderMessageExtra` injects BELOW the bubble
-	// text — so both the bubble text and a card title would have matched
-	// /no api key/i. Instead, we filter notice messages out of the messages
-	// array and render them separately, unrelated to that prop.
+	// @lore: notice messages filtered out of ThreadShell — renderMessageExtra injects below bubble text; keeping them in produces duplicate title matches in tests
 	const plainPayloadCache = new Map(
 		msgsAsc.filter((m) => m.type === "plain").map((m) => [m.id, plainReadPayloadOf(m)] as const),
 	);
@@ -488,13 +391,7 @@ function AssistantOverlayInner({
 		return p === undefined || isRedactedPayload(p) || p.notice === undefined;
 	});
 
-	// @lore UI-138/139/140: The fragment return caused ThreadShell to receive no
-	// definite height from the overlay's flex container, so the message list
-	// clipped and the composer was invisible. A flex-1 min-h-0 wrapper gives
-	// ThreadShell the h-full parent it requires. hideHostBanner suppresses the
-	// duplicate "Assistant" header (UI-140) — the overlay already has its own.
-	// Notice/thinking cards are rendered as shrink-0 rows below ThreadShell and
-	// stay outside ThreadShell to avoid the text-collision mentioned in AH3 lore.
+	// @lore: ThreadShell — needs flex-1 min-h-0 parent to resolve h-full; without it message list clips and composer hidden; notice/thinking cards outside
 	return (
 		<div className="flex-1 min-h-0 flex flex-col overflow-hidden">
 			{/* Context chips area — only renders when refs are attached */}
@@ -517,9 +414,7 @@ function AssistantOverlayInner({
 					))}
 				</div>
 			)}
-			{/* Notice/thinking/stale cards rendered OUTSIDE ThreadShell (avoids
-			    text collision with the scroll area) and ABOVE the ThreadShell wrapper
-			    so the composer stays pinned to the overlay bottom (NEW-13). */}
+			{/* notice/thinking/stale cards rendered outside ThreadShell to avoid text-collision with the scroll area */}
 			{noticeMessages.map((m) => {
 				const p = plainPayloadCache.get(m.id);
 				if (p === undefined || isRedactedPayload(p) || p.notice === undefined) return null;
@@ -529,20 +424,19 @@ function AssistantOverlayInner({
 					</div>
 				);
 			})}
-			{/* Thinking indicator — client-derived from thread state */}
+			{/* thinking indicator */}
 			{isThinking && (
 				<div className="shrink-0 px-[12px] pt-[9px]">
 					<ThinkingRow />
 				</div>
 			)}
-			{/* Stale crash-recovery Retry card */}
+			{/* stale retry card */}
 			{isStale && (
 				<div className="shrink-0 px-[12px] pt-[9px]">
 					<StaleRetryCard onRetry={refresh} />
 				</div>
 			)}
-			{/* flex-1 min-h-0 gives ThreadShell a parent with a definite height
-			    so its internal h-full resolves correctly (UI-138/139). */}
+			{/* flex-1 min-h-0 gives ThreadShell a definite height parent so its internal h-full resolves */}
 			<div className="flex-1 min-h-0 overflow-hidden">
 				<ThreadShell
 					thread={thread}
@@ -556,17 +450,7 @@ function AssistantOverlayInner({
 	);
 }
 
-/**
- * AssistantOverlay — the popover dialog anchored to the assistant trigger button.
- *
- * Renders nothing when `open === false`.
- *
- * @lore AI2: Migrated to useDialogBehavior with modal=false, layer="overlay".
- * modal=false: no scrim, no backdrop dismiss (L21 design rule: user must be able
- * to interact with Main content while overlay stays open). Escape still closes.
- * The overlay carries data-dialog-layer="overlay" (--z-overlay = 40) instead of
- * the old hardcoded z-30 class.
- */
+// @lore: useDialogBehavior modal=false — no scrim, no backdrop dismiss; layer="overlay" sets z-index via --z-overlay (40)
 export function AssistantOverlay({
 	open,
 	onClose,
@@ -574,7 +458,7 @@ export function AssistantOverlay({
 	contextRefs,
 	onRemoveContextRef,
 }: AssistantOverlayProps): JSX.Element | null {
-	// @lore L21: modal=false → no scrim, no backdrop dismiss. Escape closes via behavior.
+	// @lore: modal=false — no scrim, no backdrop dismiss; Escape closes via document-level handler
 	const behavior = useDialogBehavior({
 		open,
 		onClose,
@@ -583,9 +467,7 @@ export function AssistantOverlay({
 		layer: "overlay",
 	});
 
-	// @lore AI2: modal=false surfaces don't use a focus trap, so Escape must be caught
-	// at document level (the overlay div won't receive keyboard events unless focused).
-	// requestDismiss() is called on Escape so the guard rule applies.
+	// @lore: Escape — caught at document level; modal=false surfaces have no focus trap so overlay div won't receive keyboard events unless focused
 	const { requestDismiss } = behavior;
 	useEffect(() => {
 		if (!open) return;
@@ -623,9 +505,7 @@ export function AssistantOverlay({
 			].join(" ")}`}
 			style={{ zIndex: overlayProps.style.zIndex }}
 		>
-			{/* Overlay close button bar — no title because ThreadShell's hostBanner
-			    already shows the agent identity. A duplicate "Assistant" h2 here
-			    caused two stacked headers (UI-140). Only the close control stays. */}
+			{/* no title — ThreadShell hostBanner already shows agent identity; duplicate h2 causes stacked headers */}
 			<div className="border-width-thin-b flex items-center justify-end px-[12px] py-[6px]  border-[var(--border-subtle)] shrink-0">
 				<Button
 					variant="ghost"
@@ -652,8 +532,3 @@ export function AssistantOverlay({
 		</div>
 	);
 }
-
-// ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
-// @lore AF14: Coc→Assistant rename complete. CocOverlay.tsx deleted. AssistantOverlay is the sole mount point.
-// ---------------------------------------------------------------------------

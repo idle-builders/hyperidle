@@ -1,8 +1,5 @@
 /**
- * @lore AU43: `DurableAgentQueueDeps` and the lifecycle-projection subsystem
- * were removed. `drainIntents` / `reapExpired` now accept `{ db, eventBus? }`.
- * This helper returns exactly that minimal shape so all consumers compile
- * unchanged after the refactor.
+ * @lore queueDeps: drainIntents/reapExpired accept {db, eventBus?} minimal shape; call sites compile without constructing a full DurableAgentQueueDeps
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";

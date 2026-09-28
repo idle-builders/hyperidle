@@ -1,19 +1,5 @@
-/**
- * Typed server config read/write backed by the server_config table.
- *
- * @lore P3: Single-row table (id = "default") holds all server config as a
- * Zod-validated JSON blob. Replaces factorySettings for new structured config.
- * Deep-merges partial updates so callers only need to supply changed keys.
- * Corrupt JSON in the DB falls back to defaults — the app always boots.
- *
- * @lore BC5 leftover: `notifications` (`mutedTypes`, the SMTP `delivery`
- * block) is deleted — the mute and the SMTP dispatcher it fed are both gone
- * now that a subscription's `paused` flag is the one mute mechanism. The
- * schema below is a plain `z.object`, not `.strict()`, so an old row that
- * still carries a `notifications` key parses fine — the unknown key is
- * dropped silently, the same tolerance every earlier field removal here
- * relied on.
- */
+// Typed server config read/write backed by the server_config table.
+// @lore: schema is z.object not .strict() — unknown keys (e.g. stale notifications) are dropped silently so old rows always parse
 
 import { type HyperIdleDb, serverConfig, type WriteExecutor } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
@@ -128,6 +114,3 @@ async function patchServerConfig(
 
 	return merged;
 }
-
-// @lore AU20 Am6: ServerConfigSchema is a validation internal — zero census
-// demand from callers; dropped from the public barrel. Not re-exported here.

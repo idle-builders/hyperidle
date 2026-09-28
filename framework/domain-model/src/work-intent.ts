@@ -1,34 +1,20 @@
 /**
- * The cross-Layer `AgentWorkIntentRecorder`/`AgentWorkIntentReader`
- * seam. `agent_work_intents` is owned by the `agent-orchestration` Layer's
- * `session-requests` Service; `routes/threads.ts` and `routes/sessions-routes.ts`
- * are core-api-Layer code (still physically in `packages/server` pending
- * Increment 5's route relocation, but logically core-api). A core-api route
- * must not import an orchestration Service directly — the Application
- * (`createApp(deps)`) obtains the concrete recorder/reader from the
- * `agent-orchestration` Layer and injects it, matching §11's design exactly.
+ * Cross-layer seam: `agent_work_intents` is owned by the `agent-orchestration`
+ * layer's `session-requests` service; a core-api route must not import it
+ * directly — the composition root injects the concrete recorder/reader.
  *
- * `threads.ts`'s AC-9 accessor needs the write to stay atomic with its own
- * message insert (`tx`-carrying) — hence the generic `TTx` type param rather
- * than a fixed db type: `@hyperidle/work-intent-port` has zero `@hyperidle/db`
- * dependency (a leaf package), so it cannot name `HyperIdleDb`/`WriteExecutor`
- * directly. The composition root (`packages/server`) instantiates this
- * generic with its own concrete `HyperIdleDb` type; the real concrete
- * recorder (`@hyperidle/session-requests`'s `enqueueWorkIntent`) is
- * assigned unchanged — no adapter needed (its `AgentWorkIntentDb` param type
- * is a structural superset of `HyperIdleDb`).
+ * `@hyperidle/work-intent-port` has zero `@hyperidle/db` dependency (leaf
+ * package); the composition root instantiates with its own `HyperIdleDb` and
+ * assigns `enqueueWorkIntent` unchanged — no adapter needed (structural superset).
  */
 
 import type { ChangeRow } from "./actions/user.js";
 import type { AgentSessionSourceCorrelation, AgentSessionSourceKind } from "./session-request.js";
 
 /**
- * The emit-time-resolved request a migrated
- * family's core-api resolver produces (the exact shape
- * `resolveIntentInputInternal` used to return per kind, minus the fields
- * trivially re-derivable from the intent row at drain time). Carried on the
- * `AgentWorkIntentRecorder` payload (Decision G: payload growth, not a new
- * edge) so the drain can dispatch it directly with ZERO domain reads.
+ * The emit-time-resolved request a per-kind core-api resolver produces. Carried
+ * on the `AgentWorkIntentRecorder` payload so the drain dispatches directly with
+ * ZERO domain reads.
  */
 export interface BakedWorkIntentRequest {
 	readonly defaultAgentId: string;
@@ -40,10 +26,8 @@ export interface BakedWorkIntentRequest {
 	readonly userId?: string;
 	readonly sourceCorrelation: AgentSessionSourceCorrelation;
 	/**
-	 * The `assistant_turn` family's baked
-	 * thread transcript (`@hyperidle/conversation`'s `resolveAssistantTurnRequest`).
-	 * Absent for every other kind — `task_run`/`subscription_run` instead bake
-	 * a `contextBundle` (Decision H3, Increment 12).
+	 * The `assistant_turn` family's baked thread transcript.
+	 * Absent for every other kind — `task_run`/`subscription_run` bake a `contextBundle` instead.
 	 */
 	readonly transcript?: ReadonlyArray<{
 		readonly senderId: string;
@@ -51,78 +35,36 @@ export interface BakedWorkIntentRequest {
 		readonly type: string;
 	}>;
 	/**
-	 * The `task_run`/`subscription_run` families' baked entity content (task/bet/
-	 * agent/team, or subscription/agent/team) plus the ranked+budgeted
-	 * documents `@hyperidle/document`'s `assembleSessionDocuments` produces —
-	 * `context.ts`'s `SessionContextData`/`SubscriptionSessionContextData` content,
-	 * assembled at emit time by each per-kind resolver (the entity it already
-	 * loads to validate + resolve the target agent) instead of
-	 * `run-orchestration` reading it back at session-launch time. Absent for
-	 * `assistant_turn` (bakes `transcript` instead — a thread-reply turn needs
-	 * conversation history, not ranked L2/L3/L4 knowledge).
+	 * The `task_run`/`subscription_run` families' baked entity content plus ranked+budgeted
+	 * documents, assembled at emit time so `run-orchestration` makes zero domain reads at
+	 * session-launch time. Absent for `assistant_turn` (bakes `transcript` instead).
 	 */
 	readonly contextBundle?: BakedContextBundle;
 	/**
-	 * The target agent's
-	 * runnable-config snapshot, baked at emit time by EVERY per-kind resolver
-	 * (all four kinds — `admitSession`'s Phase 1 applies uniformly, not just to
-	 * the two `contextBundle`-baking families) from the SAME `agent: User` row
-	 * `requireRunnableAgent` already loaded + validated there. Replaces
-	 * `admitSession`'s former live `ports.users.getUserById` read — a snapshot
-	 * check, not a live one (the emit→deactivate→drain race stays open exactly
-	 * as architecture.md §12's founder-resolved note accepts), but the
-	 * runnability GATE itself is never dropped, only its data source changes.
+	 * The target agent's runnable-config snapshot, baked at emit time by every per-kind
+	 * resolver from the same `agent: User` row `requireRunnableAgent` loaded and validated.
+	 * The runnability gate is never dropped, only its data source changes.
 	 */
 	readonly agentConfig?: BakedAgentRunnableConfig;
 	/**
-	 * The server's
-	 * disabled-harness-types list (`server_config.harnessDisabled`), baked at
-	 * emit time (global config, not per-agent) so `admitSession`'s Phase 3
-	 * adapter-selection filter no longer needs a live
-	 * `ports.settings.readServerConfig` read. Absent means "nothing disabled"
-	 * (matches the settings row's own empty-array default), not a live-read
-	 * fallback — `ports.settings` is deleted from `run-orchestration` entirely.
+	 * Disabled harness types (`server_config.harnessDisabled`), baked at emit time.
+	 * Absent means "nothing disabled" — not a live-read fallback; `ports.settings` has no place in `run-orchestration`.
 	 */
 	readonly harnessDisabled?: readonly string[];
 	/**
-	 * The session's calling thread id, baked at emit time by every
-	 * resolver whose kind has a real thread host: `assistant_turn` (the
-	 * conversation thread), `task_run` (the
-	 * document's thread). `subscription_run` bakes none — a subscription has no
-	 * thread host — and its `reply` tool call falls back to a direct thread
-	 * with the sole human user instead. Carried through onto the created
-	 * `AgentSessionRequest.payloadJson` alongside `agentConfig` so `reply`
-	 * has somewhere to post with zero orchestration -> core read.
+	 * Calling thread id, baked at emit time by resolvers that have a real thread host.
+	 * `subscription_run` bakes none; its `reply` falls back to a direct thread with the sole human user.
+	 * Carried on `AgentSessionRequest.payloadJson` so `reply` has somewhere to post with zero orchestration → core read.
 	 */
 	readonly callingThreadId?: string;
-	// @lore AU26 F2: an `injectedFilesystems` bake used to ride here, frozen at
-	// emit time by every per-kind resolver. It is DELETED, exactly as E3 deleted
-	// the `injectedConnections` twin: `filesystems` / `filesystem_injections`
-	// are agent-orchestration's own tables now, so the spawn reads the record
-	// live and in-layer instead of consuming a snapshot that went stale between
-	// emit and drain.
 }
 
 /**
- * The target agent's
- * admission-relevant configuration, baked at emit time from the SAME
- * `agent: User` row every per-kind resolver already loads via
- * `requireRunnableAgent` to validate the ast-`<userId>` invariant. Carries the
- * runnability predicate (`kind`/`status`), the `role` prompt assembly needs,
- * and the agent's own home team (`teamId`, distinct from
- * `ProvisionSessionParams.productId`, which is the TASK's team).
+ * The target agent's admission-relevant configuration, baked at emit time from
+ * the same `agent: User` row `requireRunnableAgent` loads. Carries runnability
+ * predicate (`kind`/`status`), `role` for prompt assembly, and home `teamId`.
  *
- * @lore AU26 G1 (architecture §D-L): the five RUN-CONFIG fields this shape used
- * to carry — `systemPrompt`, `harnessType`,
- * `modelProvider`, `maxConcurrentSessions` — LEFT the bake when the columns
- * left `users`. They are no longer core state, so there is nothing for core to
- * bake: they live in `agent_run_config`, which agent-orchestration owns, and
- * `admitSession` reads them live at drain through
- * `ports.agentRunConfig.readAgentRunConfig`. That is an IN-LAYER read of
- * orchestration's own table, not a reinstatement of the core-state read AU21
- * Increment 12 closed — the four fields left here are all genuinely core's
- * (`middleware/auth.ts`, `recipients.ts`, `policy-bindings.ts` all use them).
- * Do not re-add a run-config field to this shape; add it to `agent_run_config`.
+ * @lore: run-config fields (harnessType, modelProvider, etc.) are NOT in this bake — they live in agent_run_config (orchestration-owned); do not re-add them here
  */
 export interface BakedAgentRunnableConfig {
 	readonly kind: string;
@@ -166,9 +108,7 @@ export function bakeAgentRunnableConfig(
 }
 
 /**
- * @lore nested-knowledge-items §5: one ancestor in `BakedContextDocument.parentChain` —
- * everything `writeOrdinaryItems` (context.ts) needs to materialise that
- * ancestor's own directory + manifest entry without a DB read.
+ * @lore: one ancestor in BakedContextDocument.parentChain — carries all fields writeOrdinaryItems needs to materialise its dir + manifest entry without a DB read
  */
 export interface BakedDocumentAncestor {
 	readonly id: string;
@@ -185,27 +125,13 @@ export interface BakedContextDocument {
 	readonly format: string;
 	readonly version: number;
 	/**
-	 * @lore nested-knowledge-items §5: the chain of ancestor documents
-	 * this item sits under, root first. `writeContextBundle` does zero DB
-	 * reads ("every byte comes from `bundle`"), so an ancestor that was not
-	 * itself selected still needs its directory-with-index materialised, AND
-	 * its own manifest entry (review.md B5 — without one, an agent later
-	 * writing inside that already-materialised directory mints a duplicate
-	 * folder item). Each ancestor therefore carries its own `scopeKind` and
-	 * `version`, not just `id`/`title` — everything a manifest entry needs,
-	 * with zero DB reads at write time. Empty for a root item or one whose
-	 * parent is not a document (task/thread/subscription/agent — walks never
-	 * cross that hop).
+	 * @lore: ancestor chain, root first — writeContextBundle does zero DB reads; an unselected ancestor still needs its dir + manifest; empty for a root item
 	 */
 	readonly parentChain: readonly BakedDocumentAncestor[];
-	/** @lore nested-knowledge-items §5/D4: this item's own scope — every manifest entry needs one (review.md B6). */
+	/** @lore: own scope — every manifest entry requires scopeKind */
 	readonly scopeKind: string;
 	/**
-	 * @lore BA9b: Slot determines how context assembly materialises this item.
-	 * Defaults to 'ordinary' for all items that pre-date the slot column.
-	 * @lore BC4: field renamed `role` -> `slot` with migration 0086 step 1,
-	 * which renamed the DB column itself (architecture.md §2, §6.4). Values
-	 * unchanged.
+	 * Slot determines how context assembly materialises this item. Defaults to 'ordinary'.
 	 * - ordinary: knowledge/... files
 	 * - skill: .claude/skills/<title>/SKILL.md
 	 * - rule: knowledge/rules/<title>
@@ -213,40 +139,16 @@ export interface BakedContextDocument {
 	 * - prompt: the run's instruction — never materialised as a sandbox file
 	 */
 	readonly slot: string;
-	/**
-	 * @lore BA9b: For slot='agent_file', this is the agentId the file is
-	 * bound to. Only the agent whose session matches this id receives the
-	 * file.
-	 *
-	 * @lore knowledge-attachment-slot: the binding moved from a scope reverse
-	 * lookup to the parent slot — `parentKind='agent'`, `parentId=<agentId>` —
-	 * so this is now derived from the parent, not from `scopeId`.
-	 */
+	/** For slot='agent_file': the agentId the file is bound to; only that agent's session receives it. Derived from parentKind/parentId, not scopeId. */
 	readonly agentBindingId: string | null;
 }
 
 /**
- * The structural shape
- * `@hyperidle/document`'s `assembleSessionDocuments` (Wave A) returns
- * (`SessionDocument`), duck-typed here so `work`/`user`/
- * `review`'s per-kind resolvers can type their INJECTED `assembleSessionDocuments`
- * dependency (Mechanism C: none of those packages may import
- * `@hyperidle/document` directly) without needing that Service's own type.
- * `layer` stays optional (matching `SessionDocument`'s own
- * `slot`, `parentKind` and `parentId` are required: all three come from the
- * kernel `documents` table, which is always present in a DB row. slot is
- * NOT NULL DEFAULT 'ordinary'; `parentKind`/`parentId` are nullable but always
- * present — the same rule this doc comment already stated for `scopeId`,
- * which this interface no longer needs (its only reader was the
- * agentBindingId derivation below). No compat shim — callers provide the real
- * DB values.
+ * Duck-typed shape of `SessionDocument` from `@hyperidle/document`'s
+ * `assembleSessionDocuments`. Per-kind resolvers type their injected dependency
+ * here so they need no direct import of `@hyperidle/document`.
  *
- * @lore nested-knowledge-items §5 (review.md B4): `parentChain` and
- * `scopeKind` are REQUIRED, not optional with a silent `?? []` fallback —
- * that fallback is exactly how B4 shipped unnoticed (every real caller
- * resolved to flat placement, and the type system never complained). Every
- * caller must resolve the real chain, via `resolveParentChain` (the only
- * caller today, `assembleSessionDocuments` in `@hyperidle/document`, does).
+ * @lore: parentChain and scopeKind REQUIRED — ?? [] causes flat placement; missing scopeKind routes to wrong scope; callers must resolve via resolveParentChain
  */
 export interface SessionDocumentLike {
 	readonly id: string;
@@ -254,24 +156,13 @@ export interface SessionDocumentLike {
 	readonly body: string;
 	readonly format: string;
 	readonly version: number;
-	/** @lore nested-knowledge-items §5: see `BakedContextDocument.parentChain`. */
+	/** See `BakedContextDocument.parentChain` — required, not optional; a silent fallback causes flat placement. */
 	readonly parentChain: readonly BakedDocumentAncestor[];
-	/** @lore nested-knowledge-items §5/D4: see `BakedContextDocument.scopeKind`. */
+	/** See `BakedContextDocument.scopeKind` — required for manifest entries. */
 	readonly scopeKind: string;
-	/**
-	 * @lore BA9b: Kernel table column, NOT NULL DEFAULT 'ordinary'. Required.
-	 * Every DB row carries a non-null slot after migration 0062.
-	 * @lore BC4: field renamed `role` -> `slot`, matching the DB column
-	 * migration 0086 step 1 renamed.
-	 */
+	/** Kernel table column, NOT NULL DEFAULT 'ordinary'. Required; every DB row carries a non-null slot. */
 	readonly slot: string;
-	/**
-	 * @lore knowledge-attachment-slot: kernel table columns, required,
-	 * nullable — the parent slot this item hangs off, if any.
-	 * toBakedContextDocuments derives agentBindingId from these two
-	 * fields: `parentKind === "agent"` means `parentId` names the bound
-	 * agent.
-	 */
+	/** Kernel table columns, nullable. `toBakedContextDocuments` derives agentBindingId: `parentKind === "agent"` means `parentId` names the bound agent. */
 	readonly parentKind: string | null;
 	readonly parentId: string | null;
 }
@@ -295,14 +186,7 @@ export function toBakedContextDocuments(
 		parentChain: item.parentChain,
 		scopeKind: item.scopeKind,
 		slot: item.slot,
-		// @lore knowledge-attachment-slot: the binding is the parent, not the
-		// scope — always derived, never set explicitly (no shim path). One
-		// semantic flip is deliberate: a team-scoped agent_file (unreachable in
-		// production — no writer creates one) used to derive
-		// agentBindingId=<teamId>, matching no agent and so silently inert
-		// everywhere. It has no parent under this derivation, and null means
-		// UNBOUND — delivered to every session in reach, per BA9b's stated
-		// intent for an agent file nobody claims.
+		// binding is the parent, not the scope — always derived from parentKind/parentId, never set explicitly; null means UNBOUND (delivered to every session in reach)
 		agentBindingId: item.parentKind === "agent" ? item.parentId : null,
 	}));
 }
@@ -325,16 +209,7 @@ export type BakedContextBundle =
 				readonly description: string | null;
 				readonly state: string;
 			};
-			/**
-			 * The containing work, root first, down to the immediate
-			 * parent. Empty for a root task.
-			 *
-			 * Replaces the single `bet` this carried. A task used to sit
-			 * exactly one level under a bet, so one entity was the whole
-			 * context above it; a task can now sit at any depth, and an agent
-			 * on a leaf needs the goal chain it is serving, not just the step
-			 * directly above.
-			 */
+			/** Containing work, root first, down to the immediate parent. Empty for a root task. */
 			readonly ancestors: readonly {
 				readonly id: string;
 				readonly title: string;
@@ -384,8 +259,6 @@ export type BakedContextBundle =
  */
 export type AgentWorkIntentRecorderInput =
 	| {
-			// @lore BC3 architecture.md §5 B5: renamed from "assistant_turn" —
-			// any woken agent gets a turn, not only "the assistant".
 			readonly kind: "thread_turn";
 			readonly sourceKind: "thread_message";
 			readonly sourceId: string;
@@ -404,15 +277,7 @@ export type AgentWorkIntentRecorderInput =
 			readonly bakedRequest?: BakedWorkIntentRequest;
 	  }
 	| {
-			/**
-			 * @lore BA2: a human decided on the review an agent filed, and the agent
-			 * that asked has to be brought back to its own session with the answer.
-			 *
-			 * This kind does NOT start a session, so it bakes no
-			 * `BakedWorkIntentRequest` — there is no agent to resolve, no context to
-			 * assemble and no prompt to compose. Everything a resume needs is the
-			 * session to return to and what to tell it.
-			 */
+			/** Does NOT start a session — no agent to resolve, no context to assemble, no prompt. Everything a resume needs is the session to return to and what to tell it. */
 			readonly kind: "session_resume";
 			readonly sourceKind: "review_verdict";
 			/** The review message the human decided on. */
@@ -440,13 +305,9 @@ export type AgentWorkIntentRecorderInput =
  * The canonical runtime-checkable list `AgentWorkIntentRecorderInput`'s `kind`
  * discriminant is built from — kept in lockstep with `agent_work_intents_kind_ck`
  * (`framework/db/src/schema.ts`) so a kind-set drift test can derive its
- * accept-list mechanically from this single source instead of a second
- * hardcoded copy.
+ * accept-list mechanically from this single source.
  *
- * @lore BC1: relocated from the deleted domain-model events fork (`events.ts`)
- * — this is the recorder input's own canonical list, not the (differently
- * scoped) `AGENT_WORK_INTENT_KINDS` in `@hyperidle/event-bus`, which covers
- * `AgentRunAdmissionFailedEvent`'s `kind` and omits `session_resume`.
+ * @lore: AGENT_WORK_INTENT_KINDS in @hyperidle/event-bus covers AgentRunAdmissionFailedEvent and omits `session_resume`; this list is distinct
  */
 export const AGENT_WORK_INTENT_KINDS = [
 	"thread_turn",
@@ -460,10 +321,7 @@ export type AgentWorkIntentKind = (typeof AGENT_WORK_INTENT_KINDS)[number];
 /**
  * What a resume needs, baked when the verdict is recorded.
  *
- * @lore BA2: Baked rather than read at drain time for the same reason every
- * other kind bakes — the drain does zero domain reads. It also means the record
- * of what was approved is fixed at the moment a human decided it, not
- * reconstructed later from rows that may have moved on.
+ * @lore: baked at verdict-time — drain does zero domain reads; record of what was approved is fixed at the moment a human decided it
  */
 export interface BakedSessionResumeRequest {
 	/** The HyperIdle session to bring back. */
@@ -479,12 +337,7 @@ export interface BakedSessionResumeRequest {
 	/**
 	 * The working directory the original session ran in.
 	 *
-	 * @lore BA2: cursor-agent keys a chat on an md5 of the cwd STRING —
-	 * `~/.cursor/chats/<md5(cwd)>/` — so a resume from any other directory exits 0,
-	 * echoes back the right session id, and runs with no context at all, silently.
-	 * The chat content lives outside the sandbox, so what has to match is the path,
-	 * not the directory's contents. claude finds a session by id from anywhere and
-	 * does not care.
+	 * @lore: cursor-agent keys a chat on md5(cwd); resume from a different dir exits 0 with no context silently; path must match; claude finds by id from anywhere
 	 */
 	readonly sandboxPath?: string | null;
 	/** The thread the review lives in, where a failure has to be reported. */
@@ -500,9 +353,8 @@ export interface BakedSessionResumeRequest {
 }
 
 /**
- * Plain function type replacing the former `AgentWorkIntentRecorder<TTx>` interface.
- * The TTx parameter was a lie — the sole implementation ignored it (seam calls
- * never join a caller's transaction). Every caller now holds a direct function.
+ * Function type for recording work intents. Seam calls never join a caller's
+ * transaction — this is a plain async function, not a transactional interface.
  */
 export type AgentWorkIntentRecorderFn = (
 	input: AgentWorkIntentRecorderInput,
@@ -511,10 +363,7 @@ export type AgentWorkIntentRecorderFn = (
 /**
  * What happened when a verdict tried to send an agent back to its work.
  *
- * @lore BA2: A status rather than void, because the acceptance criterion is that
- * a failure REACHES the human who approved. Silent failure is the defect this
- * package exists to fix — a human sees "approved" and assumes the action
- * happened — so reproducing it here would fail the work.
+ * @lore: status, not void — failure must reach the human who approved; silent failure is the defect; "approved" without feedback is indistinguishable from success
  */
 export type ReviewVerdictOutcome =
 	/** The resume is queued. The agent will be brought back. */

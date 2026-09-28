@@ -11,19 +11,10 @@
 //       (Side-by-side · Overlay · Swipe).
 //   L3  on demand   — the differing regions listed as chips; clicking one flags it.
 //
-// @lore This canvas used to fill BOTH evidence panes, in every compare mode,
-// with a hand-drawn fake signup screen ("Create your account", an email field
-// placeholdered "you@company.com", a "Create account" CTA) plus a hardcoded
-// Figma mark — for every payload, regardless of what was actually under
-// review. `VisualDiffPayload` carries labels only, no image data, so there
-// was never anything real to put there; the fake screen was pure invention
-// and is deleted outright, not guarded. Real visual content belongs to the
-// `image` artifact kind; until a payload carries one, the honest behavior is
-// to say so — the same rule every other canvas in this family already follows.
+// @lore: visual evidence panes — payload carries labels only (no image data); until a payload supplies image data, honest behavior is to say so
 //
 // Chrome tokens are Hearth/CP1 by NAME (var(--token)). No hex anywhere in this
-// surface — the tool mark that used to live inside the evidence panes is gone;
-// tool identity is shown once, in `CanvasSourceHeader`.
+// surface; tool identity is shown once, in `CanvasSourceHeader`.
 //
 // States: populated (default, story) — panes always read "No rendered image
 // supplied" because no payload observed so far carries image data.

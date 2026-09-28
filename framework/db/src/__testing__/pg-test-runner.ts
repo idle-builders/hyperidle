@@ -1,10 +1,6 @@
 import { spawnSync } from "node:child_process";
 
-// @lore Real-Postgres smoke runner. When `DATABASE_URL` is unset we exit 0
-// with a message — the pg-migration + pg-connection tests in the default
-// `npm run test` already exercise pglite. Set `DATABASE_URL` to spawn a
-// vitest run targeted at the db + server projects against a real cluster.
-// We do NOT env-mutate the PGlite test path; real-PG integration is opt-in.
+// @lore Real-Postgres runner — DATABASE_URL unset exits 0; set it to run vitest against real cluster; no PGlite env mutation; real-PG is opt-in
 
 /** Redact the password from a DB connection URL for safe logging. */
 function redactDbUrl(url: string): string {

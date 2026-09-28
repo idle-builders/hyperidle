@@ -1,24 +1,4 @@
-/**
- * SettingsConnections production component (design reference scaffold).
- *
- * Three source groups in fixed order (inherited → token → mcp), grouped by
- * authSource. Health-sorted within each group (needs-attention first). Single
- * "+ Add connection" button in the page header. Per-row StatusChip carries the
- * health state.
- *
- * Adapted from the founder-approved #353 design (commit 16c3fe62) per the locked
- * Connection concept:
- *   - authSource closed set { token, mcp, inherited }
- *   - health closed set { working, needs-attention }
- *   - NO trust tier (ETHOS §2 — no preemptive vetted/community badge)
- *   - NO "agents never see the secret" framing — the secret is resolved into the
- *     sandbox so tools can authenticate (concept hard-rule 2); it is only never
- *     *displayed* in this UI or *logged*.
- *   - The inherited group is live (projected from the harness descriptor).
- *
- * @lore AN1: ServiceMark is an inline single-use shape. Do not promote to the
- * design system. The component composes only catalogued primitives otherwise.
- */
+// @lore: ServiceMark — inline single-use shape; do not promote to design system
 
 import type {
 	ConnectionAuthSource,
@@ -43,26 +23,20 @@ import {
 } from "../ds";
 import { call } from "../services/call.js";
 
-// ---------------------------------------------------------------------------
-// Mappers
-// ---------------------------------------------------------------------------
-
 function healthToStatus(h: ConnectionHealth): Status {
-	return h === "working" ? "healthy" : "behind"; // behind = amber "needs attention"
+	return h === "working" ? "healthy" : "behind";
 }
 
 function healthLabel(h: ConnectionHealth): string {
 	return h === "working" ? "Working" : "Needs attention";
 }
 
-/** Per-row note: where the auth lives. Never implies the secret is hidden from tools. */
 function authNote(s: ConnectionAuthSource): string | null {
 	if (s === "token") return "Stored encrypted · resolved server-side";
 	if (s === "mcp") return "Auth held by the MCP server";
 	return null; // inherited: HyperIdle stores nothing
 }
 
-/** @lore AN1: inline single-use shape, not promoted to design system. */
 function ServiceMark({ service }: { service: string }): JSX.Element {
 	return (
 		<span className="type-metadata inline-flex items-center justify-center h-[28px] w-[28px] rounded-[var(--r-subtle)] bg-[var(--surface-container)]   text-[var(--text-secondary)] shrink-0">
@@ -71,15 +45,10 @@ function ServiceMark({ service }: { service: string }): JSX.Element {
 	);
 }
 
-/** Health-sort within a group: needs-attention floats to the top. */
 function bySeverity(a: ConnectionView, b: ConnectionView): number {
 	const rank = (h: ConnectionHealth) => (h === "working" ? 1 : 0);
 	return rank(a.health) - rank(b.health) || a.service.localeCompare(b.service);
 }
-
-// ---------------------------------------------------------------------------
-// Add Connection Dialog
-// ---------------------------------------------------------------------------
 
 interface AddConnectionDialogProps {
 	open: boolean;
@@ -211,10 +180,6 @@ function AddConnectionDialog({
 	);
 }
 
-// ---------------------------------------------------------------------------
-// Connection row
-// ---------------------------------------------------------------------------
-
 interface ConnectionRowProps {
 	connection: ConnectionView;
 	onRemove: (id: string) => Promise<void>;
@@ -261,7 +226,6 @@ function ConnectionRow({ connection: c, onRemove }: ConnectionRowProps): JSX.Ele
 					{c.removable ? (
 						confirming ? (
 							<span className="flex items-center gap-[6px]">
-								{/* @lore UI-066: one destructive variant app-wide */}
 								<Button
 									variant="destructive"
 									size="sm"
@@ -306,10 +270,6 @@ function ConnectionRow({ connection: c, onRemove }: ConnectionRowProps): JSX.Ele
 	);
 }
 
-// ---------------------------------------------------------------------------
-// Source group
-// ---------------------------------------------------------------------------
-
 interface SourceGroupProps {
 	label: string;
 	help: string;
@@ -326,8 +286,6 @@ function SourceGroup({
 	onRemove,
 }: SourceGroupProps): JSX.Element | null {
 	const sorted = [...connections].sort(bySeverity);
-	// D8 (POLISH-060): hide fully-empty groups — no bare grey box for groups with
-	// zero connections. The group header adds no value without any rows beneath it.
 	if (sorted.length === 0) return null;
 	return (
 		<section className="flex flex-col gap-[9px]">
@@ -352,10 +310,6 @@ function SourceGroup({
 		</section>
 	);
 }
-
-// ---------------------------------------------------------------------------
-// Main component
-// ---------------------------------------------------------------------------
 
 export function SettingsConnections(): JSX.Element {
 	const [connections, setConnections] = useState<ConnectionView[]>([]);

@@ -9,12 +9,7 @@
  * checked out in, so a `mkdtemp` there is a directory the spawned CLI's own
  * filesystem walk-up can never resolve back to hyperidle.
  *
- * @lore This does NOT close every isolation gap — a CLI's *global*,
- * HOME-scoped plugins (e.g. cursor-agent's ~/.cursor/plugins/local) load
- * regardless of cwd, proven empirically for cursor-agent's idle-tasks
- * plugin. Fixing that needs a founder call on trading HOME-scoped auth for
- * HOME-scoped plugin exposure; this helper only owns the sandbox directory,
- * not the harness's own environment.
+ * @lore sandbox cwd gap: HOME-scoped plugins load regardless of cwd (e.g. cursor ~/.cursor/plugins/local); this helper owns sandbox dir only
  */
 
 import { execFile, execFileSync } from "node:child_process";
@@ -35,11 +30,7 @@ import type { HarnessName } from "./require-harness.js";
 
 const execFileAsync = promisify(execFile);
 
-// @lore cursor-agent-worker-sweep: registered once, at module scope, so every
-// real-binary test file gets the sweep below for free just by importing this
-// module's exports (directly or through the published test-fixtures subpath)
-// — the same "no per-file wiring" shape stopAllLiveHarnessSessions's own exit
-// handler uses (cli-harness-adapter.ts).
+// @lore cursor-agent-worker-sweep: registered once at module scope — every real-binary test file gets the sweep by importing this module
 afterEach(() => {
 	killOrphanedCursorAgentWorkers();
 });
@@ -63,9 +54,7 @@ export function createHarnessSandbox(prefix: string): HarnessSandbox {
 				} catch (err) {
 					const code = (err as NodeJS.ErrnoException).code;
 					if (code !== "ENOTEMPTY" && code !== "EBUSY") throw err;
-					// @lore AV3-ship: a just-exited real CLI harness can leave a helper
-					// touching the temp sandbox for a tick on macOS. Retry past it rather
-					// than fail cleanup for a non-product race.
+					// @lore sandbox cleanup: a just-exited CLI harness can leave a helper touching the temp dir for a tick on macOS; retry rather than fail for a non-product race
 					await new Promise((resolve) => setTimeout(resolve, 50 * (attempt + 1)));
 				}
 			}

@@ -1,22 +1,5 @@
-/**
- * SettingsHarnesses — Agent backends section.
- *
- * Converted from HarnessCard list to ItemList/Row + SplitView.
- * - Left pane: ItemList of harness rows (one Row per descriptor)
- * - Right pane (destination): a configurable harness → auth/capability detail;
- *   empty caps+models → no pane
- * - SplitView ratio persisted via useUiPreference("settings.backends", 0.42)
- *
- * Row sort order: actionable states first (unauthenticated → installed → ready → missing → unavailable)
- *
- * @lore AV2: SplitView ratio persistence requires container-owned wiring:
- *   const [ratio, setRatio] = useUiPreference("settings.backends", 0.42)
- *   then dividerRatio={ratio} onRatioChange={setRatio}
- * surfaceKey alone is informational only (SplitView.tsx:45 @lore AM5 T6).
- *
- * @lore AV2: hasCaps/models check gates split-open on click — a descriptor with
- * no caps AND no models does not open a destination pane (AC-4 spec).
- */
+// @lore: SplitView ratio — dividerRatio + onRatioChange required for persistence; surfaceKey alone is informational
+// @lore: hasDetail gates split-open — a descriptor with no caps, no models, and no login command does not open a destination pane
 
 // hearth-internal-padding
 
@@ -39,10 +22,6 @@ import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import { call } from "../services/call.js";
 import { hasCaps, statusLine } from "./harness-presentation.js";
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
 const STATE_ORDER: Record<string, number> = {
 	unauthenticated: 0,
 	installed: 1,
@@ -61,21 +40,11 @@ function sortDescriptors(
 	});
 }
 
-/**
- * Returns true if a descriptor has meaningful detail to show in the split pane.
- *
- * A login command counts as detail. A cleanup removed the runtime
- * capability flags, whose only reader was `provenCapabilities` behind `hasCaps` —
- * so a CLI harness that declares no models stopped being clickable, and the one
- * thing a user needs from it, how to authenticate it, became unreachable. The
- * flags are not coming back; the fold opens on having something to say instead.
- */
 function hasDetail(d: HarnessCapabilityDescriptor): boolean {
 	const hasLoginCommand = d.authAction.kind === "native_cli_login" && !!d.authAction.command;
 	return hasCaps(d) || d.models.length > 0 || hasLoginCommand;
 }
 
-/** Map discovery state to StatusChip status. */
 function discoveryStateToStatus(
 	state: string,
 ): "healthy" | "behind" | "paused" | "error" | "unknown" {
@@ -92,17 +61,6 @@ function discoveryStateToStatus(
 	}
 }
 
-// @lore The built-in gateway had its own detail pane here — the three model-tier
-// rows plus the credentials editor — because it was the one harness whose
-// configuration was a model choice and an API key rather than a login. Every
-// harness left resolves its own models and authenticates itself, so there is one
-// detail pane now, and it is the same one for all of them. The credentials
-// editor still has its own "Provider keys" section on the Settings page.
-
-// ---------------------------------------------------------------------------
-// HarnessDetail — the detail pane, same for every harness
-// ---------------------------------------------------------------------------
-
 interface HarnessDetailProps {
 	descriptor: HarnessCapabilityDescriptor;
 }
@@ -114,14 +72,14 @@ function HarnessDetail({ descriptor }: HarnessDetailProps): JSX.Element {
 
 	return (
 		<div className="flex flex-col gap-[12px] p-[18px] overflow-y-auto h-full">
-			{/* Header */}
+			{/* header */}
 			<div className="flex items-center gap-[9px]">
 				<p className="type-copy   text-[var(--text-primary)]">{d.name}</p>
 				{version && <span className="type-data   text-[var(--text-tertiary)]">v{version}</span>}
 				<StatusChip status={discoveryStateToStatus(d.discovery.state)} label={sl.text} />
 			</div>
 
-			{/* Models list */}
+			{/* models list */}
 			{d.models.length > 0 && (
 				<div>
 					<p className="type-label   uppercase  text-[var(--text-tertiary)] mb-[9px]">Models</p>
@@ -139,7 +97,7 @@ function HarnessDetail({ descriptor }: HarnessDetailProps): JSX.Element {
 				</div>
 			)}
 
-			{/* Auth action — show login command when kind is native_cli_login */}
+			{/* auth action — show login command when kind is native_cli_login */}
 			{d.authAction.kind === "native_cli_login" && d.authAction.command && (
 				<div>
 					<p className="type-label   uppercase  text-[var(--text-tertiary)] mb-[9px]">Login</p>
@@ -151,10 +109,6 @@ function HarnessDetail({ descriptor }: HarnessDetailProps): JSX.Element {
 		</div>
 	);
 }
-
-// ---------------------------------------------------------------------------
-// SettingsHarnesses
-// ---------------------------------------------------------------------------
 
 type LoadState = "loading" | "ready" | "error";
 
@@ -266,7 +220,7 @@ export function SettingsHarnesses(): JSX.Element {
 			originLabel="agent backends"
 			origin={
 				<div className="flex flex-col gap-[12px] p-[3px]">
-					{/* Section header */}
+					{/* section header */}
 					<div className="flex items-center justify-between">
 						<span className="type-label   uppercase  text-[var(--text-tertiary)]">Providers</span>
 						<div className="flex items-center gap-[9px]">
@@ -283,16 +237,12 @@ export function SettingsHarnesses(): JSX.Element {
 						</div>
 					</div>
 
-					{/* Backend rows — variant="boxed" is the one hairline-border-container
-					    spelling (ItemList.tsx), shared with DocumentSlotList. */}
+					{/* backend rows — variant="boxed" is the one hairline-border-container spelling */}
 					<ItemList as="ul" isEmpty={sorted.length === 0} variant="boxed">
 						{sorted.map((descriptor) => {
 							const sl = statusLine(descriptor);
 							const clickable = hasDetail(descriptor);
-							// @lore AZ7 E7: Status → RowTone mapping mirrors the
-							// original hand-rolled ladder exactly (healthy→success,
-							// behind→warning, error|blocked→error, else→info); the dot itself
-							// is now RowDot, not a private span + private color ladder.
+							// @lore: RowTone mapping — healthy→success, behind→warning, error|blocked→error, else→info; mirrors original hand-rolled ladder
 							const dotTone =
 								sl.tone === "healthy"
 									? ("success" as const)

@@ -1,31 +1,5 @@
-/**
- * User store — the single owner of `users` row reads and writes.
- * Every caller that creates, modifies, or queries a user record routes
- * through here instead of touching the Drizzle table directly.
- *
- * @lore Executor param is plain `HyperIdleDb` (no union, no derived generic).
- * The drizzle transaction handle is structurally compatible (same
- * `insert`/`update`/`select` methods), so a caller inside `db.transaction`
- * passes its `tx as HyperIdleDb` — the accepted transaction-composition cast
- * used repo-wide (see `conversation-store.ts`'s own top `@lore`) and avoids
- * depending on drizzle's internal transaction type.
- *
- * @lore `updateUser`'s patch admits `SQL` per column (not just literal
- * `NewUser` values) for any future atomic-increment-style patch that needs
- * a SQL expression to stay race-free. (AU21 Increment 14a: the cost-metering
- * use case this originally existed for — `costActual = coalesce(costActual,
- * 0) + delta` — is deleted along with the rest of the cost feature; the
- * generic `SQL`-admitting patch type is kept as reusable infrastructure.)
- *
- * @lore AU20 Am11: 14 bespoke per-intent read variants collapsed into two
- * parameterised functions (`findUser` / `listUsers`) plus one `UserFilter`
- * type. `buildWhere` compiles the filter into a single `and(...)` WHERE so
- * every new predicate combination is a `UserFilter` literal at the call site,
- * not a new function. The two projected getters (`listAgentProfiles` /
- * `listUserDirectory`) and their associated row types (`AgentProfileRow` /
- * `OrgDirectoryRow`) are deleted — the two route call sites project full rows
- * themselves, as every other route already does.
- */
+// @lore: user-store executor — plain HyperIdleDb param; drizzle tx is structurally compat; callers pass tx as HyperIdleDb inside db.transaction
+// @lore: updateUser patch — admits SQL per column for atomic patches; SQL expressions stay race-free under concurrent writes
 
 import {
 	type HyperIdleDb,
@@ -135,13 +109,7 @@ export function listUsers(exec: HyperIdleDb, filter: UserFilter = {}): Promise<U
 // Writes
 // ===========================================================================
 
-/**
- * @lore AU26 review W10: `WriteExecutor`, not `HyperIdleDb` — an agent's
- * identity row and its `agent_run_config` row are two writes since the G1
- * column move, and `POST /api/agents` wraps them in one `db.transaction` so a
- * failure between them cannot leave an agent silently running the all-null
- * default config. That needs this to accept the transaction handle.
- */
+// @lore: insertUser — WriteExecutor not HyperIdleDb; agent identity + agent_run_config are two writes; transaction wraps both to prevent silent null-config
 export async function insertUser(exec: WriteExecutor, values: NewUser): Promise<void> {
 	await exec.insert(users).values(values);
 }
@@ -170,8 +138,3 @@ export async function getOrCreateUser(
 	}
 	return created;
 }
-
-// @lore AU21 Increment 14a: cost metering (`resetAllUserCost`/
-// `incrementUserCost`/`sumAllUserCost`, the `users.costActual` accumulator)
-// is deleted along with the rest of the cost feature — the column is
-// dropped, no replacement.

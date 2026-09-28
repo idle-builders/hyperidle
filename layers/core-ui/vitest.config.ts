@@ -4,12 +4,7 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
 	plugins: [react()],
-	// @lore AU44 batch7: design-system, block-derivation, and conversation-parts were
-	// dissolved into layers/core-ui. Their npm workspace packages are gone, so Node's
-	// walk-up module resolution would fall through to the primary checkout's node_modules
-	// and load the OLD pre-dissolution code — a "duplicate React" split results because
-	// two React instances load from different paths. Explicit resolve aliases prevent the
-	// walk-up and route imports to the right local sources.
+	// @lore resolve aliases prevent walk-up to primary checkout's node_modules — dissolved packages gone; without alias, old code loads and duplicate React splits
 	resolve: {
 		alias: {
 			"@hyperidle/design-system": resolve(import.meta.dirname, "src/ds"),
@@ -28,9 +23,7 @@ export default defineConfig({
 		setupFiles: ["./src/__testing__/test-setup.ts"],
 		include: ["src/**/*.test.{ts,tsx}"],
 		exclude: ["**/*.integration.test.{ts,tsx}"],
-		// @lore: Under heavy CI load (10+ parallel worktrees on a 10-core machine),
-		// React module initialization and createBrowserRouter can take >15s.
-		// Increased to 60s to handle worst-case load while keeping reasonable bounds.
+		// @lore testTimeout 60s: React init + createBrowserRouter >15s under heavy CI load (10+ parallel worktrees)
 		testTimeout: 60_000,
 	},
 });

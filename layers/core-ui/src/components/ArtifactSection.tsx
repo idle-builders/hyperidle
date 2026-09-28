@@ -1,23 +1,14 @@
 /**
  * ArtifactSection — produced-item section for task and thread surfaces.
  *
- * Shows documents parented to a task or thread. "Artifact" is the word
- * users see for content an agent produced — the founder call, per plan. The
- * storage concept (artifacts table) is gone; produced items are documents
- * with `as:"artifact"` and a task/thread parent (architecture.md §3.6).
+ * Shows documents parented to a task or thread — produced items are documents
+ * with `as:"artifact"` and a task/thread parent.
  *
- * Data: `search_documents({ parent: { kind, id }, as: "artifact" })` —
- * I14 requires the parent alongside `as:"artifact"`; both together is what
- * keeps this list to exactly the produced items under this host (§5.1's
- * artifact visibility exemption, §5.2).
+ * Data: `search_documents({ parent: { kind, id }, as: "artifact" })` — both
+ * together keeps this list to exactly the produced items under this host.
  *
- * Interaction: clicking a row enters split mode — the list stays as
- * origin, the selected item's body renders as destination. Uses SplitView from
- * the DS, the standard pattern across settings surfaces.
- *
- * @lore BC4: repointed off `useParentedKnowledgeItems`/`useKnowledgeItem` onto
- * `useDocuments`/`useDocument` — the one door onto `search_documents`/
- * `open_document` (architecture.md §9.2).
+ * Interaction: clicking a row enters split mode — the list stays as origin,
+ * the selected item's body renders as destination.
  */
 
 import { type JSX, useMemo, useState } from "react";
@@ -102,9 +93,7 @@ export function ArtifactSection({
 	const [splitMode, setSplitMode] = useState<FoldMode>("fold-back");
 	const [ratio, setRatio] = useUiPreference("artifact-section", 0.42);
 
-	// I14: `as:"artifact"` needs a parent alongside it — this is that parent,
-	// always this section's own host. useMemo keeps the filter referentially
-	// stable so useDocuments' effect does not refire every render.
+	// useMemo keeps the filter referentially stable so useDocuments' effect does not refire every render.
 	const filter = useMemo(
 		() => ({ parent: { kind: parentKind, id: parentId }, as: "artifact" as const }),
 		[parentKind, parentId],

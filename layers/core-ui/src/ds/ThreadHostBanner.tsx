@@ -1,19 +1,10 @@
-/**
- * L1a — `ThreadHostBanner` design-system component.
- *
- * Plan §7.1; approved.md §2.1. Renders the thread's host attachment label,
- * status flags (blocking, resolved, pinned), and participant avatars.
- */
-
 import type { AgentOperationalStatus, HostKind } from "@hyperidle/domain-model";
 import type { JSX } from "react";
 import { dsProps } from "./ds-attrs.js";
 import { StatusChip } from "./StatusChip.js";
 import { Tag } from "./Tag.js";
 
-// @lore L1a: inline 14×14 pin SVG. We avoid adding lucide-react as a
-// dependency for a single icon — Tag.tsx and tag-kinds.tsx already
-// established this convention.
+// @lore: inline SVG not lucide-react — same convention as Tag.tsx and tag-kinds.tsx; no dep for a single icon
 function PinIcon(): JSX.Element {
 	return (
 		<svg
@@ -36,18 +27,7 @@ function PinIcon(): JSX.Element {
 	);
 }
 
-// @lore L1 step5 (S-C1): the `onMoreActions` prop and `ThreadHostBannerAction`
-// enum were declared in step 2 but never wired anywhere. They land with the
-// L1b banner overflow menu; ship the smaller surface for now.
-
-/**
- * PresenceDot — 6px status indicator on agent avatars.
- * Renders only for active/error statuses; idle renders as no dot (absence = idle).
- * The dot carries aria-label for screen reader accessibility.
- *
- * @lore AE5 (SUGGESTION from arch-critique): Extracted from inline to avoid duplication
- * between ThreadHostBanner and ThreadRow. Defined once, used in both consumers.
- */
+// @lore: PresenceDot defined once here, used in ThreadHostBanner and ThreadRow — no cross-file import of a 10-line component; keep in sync if dot style changes
 function PresenceDot({
 	status,
 	name,

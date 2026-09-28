@@ -11,11 +11,6 @@ export interface NotificationRowProps {
 	actions?: ReactNode;
 }
 
-/**
- * Map Status severity to a CSS variable for the colored left border + icon circle.
- * @lore U8: NotificationRow gains a colored left border and icon circle per
- * Hearth design spec. The severity-to-color mapping uses semantic status tokens.
- */
 function severityColor(severity: Status): string {
 	switch (severity) {
 		case "error":
@@ -41,17 +36,10 @@ export function NotificationRow({
 	return (
 		<div
 			{...dsProps("NotificationRow", "2")}
-			/*
-			 * @lore K11: pad/gap/body text consume density tokens per
-			 * density-audit.md § 3.2.3. Same shape as ThreadRow but no
-			 * avatar. Trailing timestamp stays literal 12 px (chrome).
-			 * @lore U8: left colored border (3px) and icon circle added per Hearth restyle.
-			 */
 			className="flex items-center gap-[12px] py-[12px] px-[24px] rounded-[var(--r-subtle)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))] "
 			style={{ borderLeftColor: color }}
 			data-testid="severity-border"
 		>
-			{/* Icon circle before StatusChip — 24px circle tinted with severity color */}
 			<span
 				data-testid="severity-icon-circle"
 				aria-hidden="true"

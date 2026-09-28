@@ -1,18 +1,4 @@
-/**
- * Harness capability reader — the narrow read-only view core-api routes hold over
- * the harness adapter pool.
- *
- * Moved from `@hyperidle/harness-protocol`: this module's every namer
- * is core-api. The four one-line forwarders (registeredHarnessCount, workerConnections,
- * harnessCapabilityDescriptors, refreshHarnessDiscoveries) had zero callers and are
- * deleted outright. The two live functions (harnessCapabilitiesForType,
- * harnessRegistrationMeta) are retained here — each has exactly one calling file in
- * core-api.
- *
- * @lore AU26 A2: HarnessCapabilityReader is declared STRUCTURALLY so core-api never
- * imports harness-registry (execution layer). The pool satisfies it by structural
- * subtyping — harness-capability-read-model.test.ts holds the anti-drift assertion.
- */
+// @lore: HarnessCapabilityReader structural — core-api never imports harness-registry; pool satisfies by structural subtyping; anti-drift: read-model.test.ts
 
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import type { AdapterMeta, HarnessCapabilities } from "@hyperidle/harness-protocol";

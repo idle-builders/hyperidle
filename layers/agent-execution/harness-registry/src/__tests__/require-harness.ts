@@ -9,21 +9,13 @@
  *     This is the ONLY key that gates any harness. NEVER ANTHROPIC_API_KEY,
  *     NEVER OPENAI_API_KEY — those tokens do not gate anything in this system.
  *
- * @lore AU28 Ruling 15: a harness is the thing that RUNS A MODEL, and nothing else
- *   is one, ever. `gh` used to be a `HarnessName`; it is the GitHub CLI and its one
- *   production use is an auth probe that makes no model call. A test that needs the
- *   `gh` binary now says so with `requireBinary("gh")` (./require-binary.ts) — the
- *   gate survives, the misfiling does not.
+ * @lore harness = thing that runs a model; gh is not (auth probe, no model call); plain binary gate goes in requireBinary
  *
  * A missing harness means the work is NOT done. requireHarness THROWS, naming the
  * absent harness, so the suite fails loudly rather than minting a false green by
  * silently skipping. The message never echoes a secret value — only harness names.
  *
- * @lore AR1: lives in `harness/__tests__/` (a test-support module, not production
- *   code) because it is consumed only by harness-facing integration tests. The
- *   reverted first attempt used key-named tokens (`requireHarness("anthropic-key")`)
- *   — that is the exact bug that got AR1 reverted. The vocabulary here is strictly
- *   harness-named; there is no key-named member.
+ * @lore requireHarness: test-support only; vocabulary is strictly harness-named — no key-named member; requireHarness("anthropic-key") was the exact bug
  */
 
 import { isBinaryOnPath } from "./require-binary.js";
@@ -33,20 +25,9 @@ export type HarnessName = "claude" | "codex" | "opencode" | "cursor-agent";
 /**
  * The supported-harness matrix. This file is now the SINGLE source of truth.
  *
- * @lore ci-move: this was one half of a cross-file mirror — the other half,
- * `SUPPORTED_HARNESSES` in `scripts/lib/honest-harness-predicate.ts`, existed
- * only to feed the attestation's per-harness floor. The attestation is gone and
- * the predicate with it, so there is nothing left to mirror. The list and the
- * `HarnessName` union both live here, and the asserts below now check this
- * file against itself:
- *   _AssertSupportedInHarness: every listed name is a valid HarnessName (→).
- *   _AssertHarnessCoversSupported: every HarnessName is in the list (←).
- * Adding to either without the other → `npm run check` RED, in both directions.
+ * @lore harness list and HarnessName union both live here; asserts enforce both directions — add to either without the other → check RED
  *
- * @lore AU28 Ruling 15: the two sets are now IDENTICAL. They used to differ by exactly one
- * member — `gh`, carved out of the ← direction by hand — and that carve-out was the type system
- * being told to tolerate a non-harness in the harness vocabulary. With `gh` gone the assert is a
- * plain mutual-extends, which is the shape a mirror should have had all along.
+ * @lore harness sets are identical; asserts are plain mutual-extends; any non-harness in the vocabulary breaks the ← assert
  */
 // biome-ignore format: keep the mirror and asserts on adjacent lines for lockstep visibility
 const SUPPORTED_HARNESSES_MIRROR = [
@@ -76,10 +57,7 @@ const BINARY: Record<HarnessName, string> = {
 /**
  * True iff the harness is available: its binary is on PATH.
  *
- * @lore There used to be a second arm here — `builtin` was "available" when
- * `OPENROUTER_API_KEY` was set, the one key that gated any harness. With the
- * built-in harness gone, availability is a question about installed binaries
- * only, and no key gates any harness.
+ * @lore isHarnessAvailable: binary-on-PATH only; no key gates any harness
  */
 function isHarnessAvailable(name: HarnessName): boolean {
 	return isBinaryOnPath(BINARY[name]);
@@ -140,30 +118,9 @@ export function requireHarness(...names: HarnessName[]): void {
  * the absence of any imported model source make an off-matrix literal an obvious,
  * isolated red flag rather than a routine reach.
  *
- * @lore AR7: Values are founder-set 2026-06-30. `haiku` is the claude CLI tier
- * alias resolving to the latest Haiku (smallest tier); `gpt-5.6-luna` is the
- * smallest codex tier our ChatGPT-account login accepts. `gpt-5.4-mini` (the
- * prior entry) was retired by OpenAI — codex now rejects it outright with
- * "GPT-5.4 Mini is no longer available", and offers `gpt-5.6-luna` as its
- * direct replacement (the CLI's own migration message names it as such); nano
- * and `gpt-5-codex-mini` remain API-key-only and rejected under the
- * ChatGPT-account login. Re-verified live 2026-09-09: enumerated candidate
- * slugs against `codex exec --model <id> "say hi"` — unknown ids fail fast
- * with "Model metadata ... not found" plus a 400 from the account gate;
- * `gpt-5.6-luna` returned a real completion with no warning. The slug itself
- * was confirmed by grepping the installed `codex` binary's embedded strings
- * for its model registry (`"slug": "gpt-5.6-luna"`), not guessed. Both entries
- * are the TINY baseline — see the header block. Every harness authenticates
- * itself, so none of these carry a key.
+ * @lore HARNESS_TEST_MODELS: haiku=smallest claude tier; gpt-5.6-luna=codex floor (nano/codex-mini API-key-only); no harness carries a key; verified 2026-09-09
  *
- * @lore AR7: All four harnesses are argument-enforced on the model — each
- * receives it via `--model {{model}}` in its adapter config, resolved from
- * `config.selectedModel`. `HARNESS_TEST_MODELS` is therefore load-bearing for
- * every supported harness. A hand-written model id seeded straight onto an
- * agent's run config remains an accepted residual gap (catching it would require
- * the brittle model-id string-matching we rejected). Code review + the absence of
- * any other imported model source make an off-matrix literal an obvious,
- * isolated red flag rather than a routine reach.
+ * @lore HARNESS_TEST_MODELS: load-bearing — all harnesses enforce model via --model arg; off-matrix literal in run config is accepted gap; red flag in code review
  */
 export interface HarnessTestModelSpec {
 	/** The locked model id passed to the harness. */
@@ -202,10 +159,4 @@ export const HARNESS_TEST_MODELS = {
 	// `npm run check` error.
 } as const satisfies Record<SupportedHarnessName, HarnessTestModelSpec>;
 
-// @lore This map used to carry a `provider`, a `baseUrl` and an `apiKeyEnv`
-// alongside each model, and a `harnessTestResolvedModel` helper assembled them
-// into the `resolvedModel` a test handed to `runSession`. All three described the
-// model gateway: which provider to call, where, with whose key. No harness makes
-// that call — each authenticates itself — so the only thing left worth locking is
-// which model a lane runs. A test seeds it onto the agent's own run config, the
-// same place production puts it, and it arrives as `SessionConfig.selectedModel`.
+// @lore HARNESS_TEST_MODELS: model only — no provider/baseUrl/apiKeyEnv; each harness authenticates itself; locked value arrives as SessionConfig.selectedModel

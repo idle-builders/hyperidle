@@ -1,19 +1,9 @@
 // Canvas — browser preview (the LOW-fidelity end of the proof spectrum).
 //
-// Founder direction (human-design-review round 1): "not all stuff will be combined
-// and fancy — some things will be a simple browser window to look at." This canvas
-// is the deliberately-basic member of the family: a browser chrome frame (traffic
-// lights + URL bar) wrapping a faithful render of a deployed page.
+// Deliberately-basic canvas: a browser chrome frame (traffic lights + URL bar) wrapping a faithful render of a deployed page.
 // The frame IS the framing — no inbox row, no diff panel, no flags. Look, then verdict.
 //
-// @lore The "web page" inside is hand-built from divs with neutral, email-safe-style
-// inline styling, NOT a live <iframe>. The prototype/component viewer runs offline
-// with no deploy to point an iframe at, and an iframe wouldn't be diffable in the
-// DOM-snapshot net. So the page is a styled render of a real deployed pricing page.
-// The REVIEW CHROME (header, URL bar) uses Hearth/CP1 tokens by name
-// only (AQ-008); the rendered page is the one place neutral page styling is allowed,
-// because that IS the artifact under review (it must read as a real web page).
-// Tool-brand color lives only in <ToolLogo> (via CanvasSourceHeader).
+// @lore: preview page — hand-built from divs (not iframe); diffable in DOM-snapshot; rendered page uses neutral styling, review chrome uses Hearth tokens
 //
 // Presentational isolation component: no local state needed (the page is static —
 // there is nothing to toggle). The verdict gate lives in the review frame, not here.
@@ -221,12 +211,7 @@ function isBrowserPreviewPayload(payload: unknown): payload is BrowserPreviewPay
 
 // Review artifact wrapper.
 //
-// @lore `BrowserPreviewPayload` is `{url, title, previewBody}` — nothing else.
-// An earlier mapper invented a fixed nav bar and a "Solo / $19/mo" pricing
-// tier the payload never carried, and reused `previewBody` as both the
-// subhead AND a footer note (rendering it twice). Fixed: `PreviewPage` now
-// has no nav/tier/footer fields at all — there is nothing in the payload to
-// derive them from, so the regions were deleted rather than left empty.
+// @lore: BrowserPreviewPayload — {url, title, previewBody} only; no nav/tier/footer fields; render only what the payload has, nothing invented
 function mapBrowserPayload(payload: BrowserPreviewPayload): PreviewPage {
 	return {
 		url: payload.url,

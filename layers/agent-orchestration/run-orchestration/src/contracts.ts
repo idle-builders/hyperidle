@@ -11,10 +11,6 @@ import type {
 import type { EventBus } from "@hyperidle/event-bus";
 import type { ConversationMessage, SessionMetrics } from "@hyperidle/harness-protocol";
 
-// ---------------------------------------------------------------------------
-// Harness port types (moved from @hyperidle/harness-protocol harness-port.ts)
-// ---------------------------------------------------------------------------
-
 /** Deps `HarnessPort`'s two methods need. `TDb` is the composition root's real DB type. */
 export interface HarnessPortDeps<TDb = unknown> {
 	readonly db: TDb;
@@ -45,11 +41,7 @@ export interface RunContextBundle {
 	readonly harnessDisabled?: readonly string[];
 	readonly callingThreadId?: string;
 	readonly transcript?: readonly ConversationMessage[];
-	/**
-	 * @lore BA2: present only for a `review_resume` request. Its presence is what makes
-	 * this a resumed session rather than a new one — the harness reopens its own
-	 * session and takes the verdict as a user turn, so nothing is composed.
-	 */
+	// @lore: resume — present only for session_resume; harness reopens its own session and takes verdict as user turn; nothing is composed
 	readonly resume?: BakedSessionResumeRequest;
 }
 
@@ -69,7 +61,7 @@ export interface HarnessRunOutput {
 	readonly metrics?: SessionMetrics;
 }
 
-/** Application-injected port for "dispatch a run to some execution" (§7.4). */
+/** Application-injected port for "dispatch a run to some execution". */
 export interface HarnessPort<TDb = unknown> {
 	admitSession(deps: HarnessPortDeps<TDb>, bundle: RunContextBundle): Promise<AdmittedRun>;
 	runSession(
@@ -82,12 +74,7 @@ export interface HarnessPort<TDb = unknown> {
 
 interface DurableQueueDeps {
 	readonly db: HyperIdleDb;
-	/**
-	 * @lore AU21 §6 Decision B4: mirrors the private `DurableQueueDeps.eventBus`
-	 * in `@hyperidle/session-requests` (Mechanism C — this Service declares its
-	 * own structural copy rather than importing that type directly). Required
-	 * since AU44 — an admission failure that emits nowhere is a silent black hole.
-	 */
+	// @lore: DurableQueueDeps.eventBus — admission failures must emit; a missing bus silently drops failed admission events
 	readonly eventBus: EventBus;
 }
 

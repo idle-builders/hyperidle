@@ -358,10 +358,7 @@ function isOutcomeSummaryPayload(payload: unknown): payload is OutcomeSummaryPay
 /** Wrapper: receives a uniform review artifact and mounts the frame lead. */
 export function ReviewOutcomeSummary({ artifact }: ReviewCanvasProps): JSX.Element {
 	if (!isOutcomeSummaryPayload(artifact.payload)) {
-		// A malformed payload gets the honest unknown-canvas
-		// fallback — this used to fall back to `{}` and render a half-empty frame
-		// (`standing` defaulted to "Awaiting", `achieved` to the artifact title),
-		// both invented on the guard-failure path.
+		// A malformed payload gets the unknown-canvas fallback — prevents partial render with invented values.
 		return <ReviewUnknownCanvas artifact={artifact} />;
 	}
 	const payload = artifact.payload;

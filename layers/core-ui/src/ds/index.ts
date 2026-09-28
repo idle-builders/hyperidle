@@ -1,18 +1,9 @@
-// @hyperidle/design-system — barrel export
-
-// ── Re-export AgentOperationalStatus type (lives in shared, needed by ds consumers) ──
 export type { AgentOperationalStatus } from "@hyperidle/domain-model";
-// ── Artifact view family (closed: 3 sub-primitives + 3 layouts; L3) ──
-// @lore AU21 Increment 14a: ArtifactCostChip deleted along with the rest of
-// the cost feature — no replacement.
-// @lore AU43 bundle-03: ArtifactEmbed deleted — only door was /_dev/artifacts (DEV-ONLY).
 export type { ArtifactFrameProps } from "./ArtifactFrame.js";
 export { ArtifactFrame } from "./ArtifactFrame.js";
-// ── Tier 0: Foundation primitives (W2) ──
+// ── Tier 0: Foundation primitives ──
 export type { AvatarProps } from "./Avatar.js";
 export { Avatar } from "./Avatar.js";
-// @lore BB1: BetCard deleted — tasks are now the one work primitive.
-// ── Tier 2: Block primitive (L2) ──
 export type { BlockProps, BlockSlots } from "./Block.js";
 export { Block } from "./Block.js";
 export type {
@@ -20,17 +11,13 @@ export type {
 	BlockActionsPopoverProps,
 } from "./BlockActionsPopover.js";
 export { BlockActionsPopover } from "./BlockActionsPopover.js";
-// ── T1: BodyEditor — TipTap WYSIWYG editor ──
+// ── BodyEditor — TipTap WYSIWYG editor ──
 export type { BodyEditorProps } from "./BodyEditor.js";
 export { BodyEditor } from "./BodyEditor.js";
-// ── Breadcrumb — Tier 1 DS nav orientation strip ──
 export type { BreadcrumbProps, BreadcrumbSegment } from "./Breadcrumb.js";
 export { Breadcrumb } from "./Breadcrumb.js";
 export type { ButtonProps } from "./Button.js";
 export { Button } from "./Button.js";
-// ── Base-primitive content foundations (the block-payload layer, promoted
-// to first-class DS foundations so each is individually reviewable). The diff is
-// NOT in here (K0) — it lives in the Review composition. ──
 export type { CodePayloadProps } from "./block/CodePayload.js";
 export { CodePayload } from "./block/CodePayload.js";
 export { DividerPayload } from "./block/DividerPayload.js";
@@ -55,44 +42,29 @@ export type { CommentRowProps, CommentRowSender } from "./CommentRow.js";
 export { CommentRow } from "./CommentRow.js";
 export type { ComposerProps, ComposerSubmitInput } from "./Composer.js";
 export { Composer } from "./Composer.js";
-// ── Support ──
 export { clickableProps } from "./clickable.js";
-// ── Dialog primitive + behavioral hook ──
-// @lore AU43 bundle-03: DialogPortalRoot deleted — zero mounts; AppShell calls ensureOverlayRoot directly.
 export type { DialogLayer, DialogProps, DialogSize } from "./Dialog.js";
 export { Dialog } from "./Dialog.js";
-// @lore BC4: renamed from KnowledgeRow — DocumentRow is taken by the wire type (architecture.md §2).
 export type { DocRowProps, DocRowSignals } from "./DocRow.js";
 export { DocRow } from "./DocRow.js";
-// ── DS diff core — (code,diff) structural renderer ──
-// @lore AU43 bundle-03: getDiffRenderer/DiffRendererComponent/DiffRendererProps deleted —
-// ReviewCodeDiff imports CodeDeltaRenderer directly; the registry had one entry and zero callers.
 export type { CodeDelta, CodeDeltaProps, DiffLineRef } from "./diff/code-delta-renderer.js";
 export { CodeDeltaRenderer } from "./diff/code-delta-renderer.js";
-// ── DOM markers (K2) ──
-// @lore AU43 bundle-03: DsShellAttrs/DsTier/DsSource/dsShellProps deleted — only consumer was
-// ThreadShell (now inlined) + SidebarV2.stories; tier taxonomy is compile-time only.
 export type { DsAttrs } from "./ds-attrs.js";
 export { dsProps } from "./ds-attrs.js";
 export type { EmptyStateProps } from "./EmptyState.js";
-// ── Utility Components ──
 export { EmptyState } from "./EmptyState.js";
 export type { ErrorStateProps } from "./ErrorState.js";
 export { ErrorState } from "./ErrorState.js";
-// ── Fold — calm collapse-to-summary device ──
 export type { FoldProps } from "./Fold.js";
 export { Fold } from "./Fold.js";
 export type { InputProps } from "./Input.js";
 export { Input } from "./Input.js";
-// ── Row + ItemList + RowDot shared list-row primitives ──
 export type { ItemListEmpty, ItemListError, ItemListProps } from "./ItemList.js";
 export { ItemList } from "./ItemList.js";
 export type { KeyValueProps } from "./KeyValue.js";
 export { KeyValue } from "./KeyValue.js";
-// ── KpiStat — extracted base primitive from data-renderer ──
 export type { KpiStatMetric, KpiStatProps } from "./KpiStat.js";
 export { KpiStat } from "./KpiStat.js";
-// ── LiveDot — promoted from WorkTask/TaskSheet ──
 export { LiveDot } from "./LiveDot.js";
 export type { MenuItem, MenuProps } from "./Menu.js";
 export { Menu } from "./Menu.js";
@@ -102,14 +74,10 @@ export type { NotificationRowProps } from "./NotificationRow.js";
 export { NotificationRow } from "./NotificationRow.js";
 export type { PageFrameProps } from "./PageFrame.js";
 export { PageFrame } from "./PageFrame.js";
-// ── PageHeader — canonical page-title strip (Tier 1) ──
 export type { PageHeaderProps } from "./PageHeader.js";
 export { PageHeader, pageTitleClassName, paneTitleClassName } from "./PageHeader.js";
-// ── PageScaffold — canonical page scroll contract (Tier 1) ──
 export type { PageScaffoldProps } from "./PageScaffold.js";
 export { PageScaffold } from "./PageScaffold.js";
-// U8: PitchCard deleted from design-system exports.
-// ── ReferenceChip — single shared attachment/reference primitive ──
 export type { ReferenceChipKind, ReferenceChipMode, ReferenceChipProps } from "./ReferenceChip.js";
 export { ReferenceChip } from "./ReferenceChip.js";
 export type {
@@ -134,7 +102,6 @@ export type {
 export { ScopePicker, ScopePickerToggle } from "./ScopePicker.js";
 export type { SearchFieldProps } from "./SearchField.js";
 export { SearchField } from "./SearchField.js";
-// ── SectionLabel — canonical uppercase section heading (Tier 1) ──
 export type { SectionLabelProps } from "./SectionLabel.js";
 export { SectionLabel } from "./SectionLabel.js";
 export type { SelectProps } from "./Select.js";
@@ -144,9 +111,7 @@ export { Skeleton, SkeletonCard, SkeletonList } from "./Skeleton.js";
 export type { FoldMode, SplitViewProps } from "./SplitView.js";
 export { SplitView } from "./SplitView.js";
 export type { Status, StatusChipProps } from "./StatusChip.js";
-// ── Tier 1: Primitives ──
 export { StatusChip } from "./StatusChip.js";
-// @lore BB1: BET_STATUS_MAP and betStatusToStatus removed — bet vocabulary gone
 export {
 	AGENT_OPERATIONAL_STATUS_MAP,
 	agentOperationalStatusToStatus,
@@ -165,14 +130,12 @@ export type { TagProps } from "./Tag.js";
 export { Tag } from "./Tag.js";
 export type { TaskCardProps } from "./TaskCard.js";
 export { TaskCard } from "./TaskCard.js";
-// ── L1a Thread primitive components (stubs during write-tests phase) ──
 export type {
 	ThreadHostBannerParticipant,
 	ThreadHostBannerProps,
 } from "./ThreadHostBanner.js";
 export { ThreadHostBanner } from "./ThreadHostBanner.js";
 export type { ThreadRowProps } from "./ThreadRow.js";
-// ── Tier 2: Row primitives ──
 export { ThreadRow } from "./ThreadRow.js";
 export type {
 	ThreadShellAppendInput,
@@ -180,13 +143,9 @@ export type {
 	ThreadShellProps,
 } from "./ThreadShell.js";
 export { computeSenderGrouping, ThreadShell } from "./ThreadShell.js";
-// @lore AU43 bundle-03: Toast deleted — zero renders; core-ui ToastRegion is the real system.
 export type { ToggleProps } from "./Toggle.js";
 export { Toggle } from "./Toggle.js";
 export type { TagKind, TagKindMeta } from "./tag-kinds.js";
 export { TAG_KIND_ICONS } from "./tag-kinds.js";
-// @lore AU43 bundle-03: token-profiles.ts deleted — entire file was a JS mirror of tokens.css
-// that nothing imported at runtime; components use type-<role> CSS classes directly.
-// Census has its own copy; lint enforces profiles via regex, not these consts.
 export type { UseDialogBehavior, UseDialogBehaviorOptions } from "./useDialogBehavior.js";
 export { ensureOverlayRoot, useDialogBehavior } from "./useDialogBehavior.js";

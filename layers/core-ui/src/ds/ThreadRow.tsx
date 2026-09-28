@@ -7,14 +7,7 @@ import { type Status, StatusChip } from "./StatusChip";
 import { Tag } from "./Tag";
 import type { TagKind } from "./tag-kinds";
 
-/**
- * PresenceDot for ThreadRow — same visual treatment as ThreadHostBanner.
- * Extracted to a function to avoid cross-file imports of a 10-line component.
- *
- * @lore AE5 (SUGGESTION from arch-critique): shared with ThreadHostBanner's PresenceDot
- * conceptually but kept inline here. Both are 10 lines — extraction saves nothing without
- * a design-system export. Keep in sync if the dot style changes.
- */
+// @lore: PresenceDot kept inline — extraction saves nothing without a DS export; both are 10 lines; keep in sync with ThreadHostBanner
 function ThreadRowPresenceDot({
 	status,
 	initials,
@@ -41,14 +34,7 @@ export interface ThreadAvatarItem {
 }
 
 export interface ThreadRowProps {
-	/**
-	 * Kept for backwards compatibility — not rendered visually.
-	 * The mockup layout is: dot → info → meta (with small overlapping avatars
-	 * on the right). The large left-side avatar was removed in the visual
-	 * parity pass (audit L-25).
-	 *
-	 * @deprecated Pass `avatars` instead for the right-side overlapping group.
-	 */
+	/** @deprecated Pass `avatars` instead for the right-side overlapping group. */
 	avatarUrl?: string | null;
 	title: string;
 	snippet: string;
@@ -59,30 +45,14 @@ export interface ThreadRowProps {
 	unread?: boolean;
 	onClick?: () => void;
 	/**
-	 * When set, renders the row as an <a href> link so ⌘-click, middle-click,
-	 * "copy link" and hover-preview work natively.
-	 *
-	 * @lore UI-080: conversation queue rows must be real links.
+	 * @lore: conversation queue rows must be real links — ⌘-click, middle-click, copy-link, and hover-preview require <a href>
 	 */
 	href?: string;
 	blocking?: boolean;
 	kind?: "review" | "chat";
-	/**
-	 * L8 §3.4: highlights the row as the lifted-selection target. Adds
-	 * aria-current="true" and a primary border-left that overrides the
-	 * blocking danger border per design §4.
-	 */
 	selected?: boolean;
-	/**
-	 * L8 §3.4: renders a 12×12 SVG pin glyph before the title.
-	 * `aria-label="Pinned"` on the SVG.
-	 */
 	pinned?: boolean;
-	/**
-	 * L8 §3.4: small mono pill at the right of the title. Closed enum —
-	 * matches `HOST_KINDS`. Typed as `HostKind` so a malformed wire row
-	 * cannot reach the renderer (Architecture M3).
-	 */
+	/** Typed as `HostKind` so a malformed wire row cannot reach the renderer. */
 	hostTag?: HostKind;
 	/**
 	 * Overlapping 24px participant avatar circles in the right-side meta area.
@@ -169,12 +139,7 @@ export function ThreadRow({
 						{title}
 					</span>
 					{hostTag && (
-						// @lore L8 review (Design B3): host pill is rendered inline
-						// rather than via <Tag/> because the approved design (§5.6)
-						// specifies mono 10px @ 1px-6px padding @ --r-pill radius.
-						// The Tag primitive is sans-12px @ --r2 — wrong scale for
-						// this slot. Promote to a shared `HostPill` primitive when a
-						// second consumer surfaces.
+						// @lore: host pill not <Tag> — Tag is sans-12px @ --r2; this slot needs mono-10px @ 1px-6px @ --r-pill; promote to HostPill when a second consumer surfaces.
 						<span
 							data-testid="thread-row-host-pill"
 							className="type-data inline-flex items-center px-[6px] py-[3px] rounded-[var(--r-pill)]    bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] text-[var(--text-secondary)] whitespace-nowrap"
@@ -263,7 +228,7 @@ export function ThreadRow({
 		</>
 	);
 
-	// UI-080: href → real anchor link so ⌘-click / middle-click work natively.
+	// href → real anchor link so ⌘-click / middle-click work natively.
 	if (href) {
 		return (
 			<a

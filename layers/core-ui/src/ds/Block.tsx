@@ -62,12 +62,7 @@ export interface BlockProps {
 	outline?: AuthoredOutlineContext;
 }
 
-/**
- * @lore L2 AC-32: data-ds-component is LOWERCASE ("block"), not PascalCase.
- * The ds-attrs.ts default-exported `dsProps` produces PascalCase names — Block
- * renders the marker manually so the kebab-case contract holds. The same
- * applies to BlockActionsPopover.
- */
+// @lore: data-ds-component="block" — lowercase not PascalCase; dsProps produces PascalCase so Block sets the marker manually; same applies to BlockActionsPopover
 export function Block({
 	id,
 	payload,
@@ -96,7 +91,7 @@ export function Block({
 			data-ds-kind={kind}
 			data-block-id={id}
 			data-state={effectiveState}
-			// biome-ignore lint/a11y/noNoninteractiveTabindex: Block shells are explicitly tabbable for ↑/↓ block stepping per AC-39.
+			// biome-ignore lint/a11y/noNoninteractiveTabindex: Block shells are explicitly tabbable for ↑/↓ block stepping.
 			tabIndex={0}
 			onKeyDown={onKeyDown}
 			className={`group relative grid grid-cols-[32px_1fr] gap-[9px] py-[6px] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus-visible:[outline-offset:-1px] hover:bg-[color-mix(in_oklab,var(--text-secondary)_4%,transparent)] ${className ?? ""}`}
@@ -106,7 +101,7 @@ export function Block({
 				className="flex justify-end items-start pt-[3px] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:opacity-40"
 			/>
 			<div className="flex flex-col gap-[9px] min-w-0">
-				{/* @lore Suppress only the heading payload; filtering the Block would sever its stable anchor, handle, and discussion slots. */}
+				{/* @lore: heading payload — suppress only the payload, not the Block; filtering the Block severs its stable anchor, handle, and discussion slots */}
 				{renderPayload(payload, sanitizeHtml, outline)}
 				{slots?.inlineAfterPayload}
 			</div>

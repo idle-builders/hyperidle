@@ -1,28 +1,4 @@
-/**
- * DocumentBody — renders a document's body as structured Block primitives.
- *
- * @lore BC4: renamed from `KnowledgeBody` (architecture.md §9.2). Behavior is
- * unchanged — it already passed `kind: "document"` to `deriveBlocks`.
- *
- * @lore L23: Client-side render-time derivation. `deriveBlocks` is pure, has no
- * I/O, and costs <1 ms on bodies within the 256 KB cap. No server-side
- * pre-derivation — see architecture.md § "Where the deriver runs".
- *
- * @lore L23 / AZ6: `sanitizeHtml` is fixed and NOT exposed as a prop. It now
- * comes from `utils/sanitize-html.ts`, which is the single policy for
- * agent-authored prose across every host that renders a body — a document,
- * a comment and a `text` artifact are the same class of content.
- *
- * @lore L23: `slots` is intentionally omitted from <Block /> calls. FU-1
- * (floating-ui wiring) and FU-2 (mobile sheet) are L26 prereqs; the popover is
- * not wired in L23.
- *
- * @lore L18: `onOpenBlockActions` and `messagesByBlockId` are added to wire the
- * L18 block popover and inline anchored-message slots. When provided, blocks
- * become interactive (Space/Enter opens popover) and messages are shown inline
- * after their anchor block. Unmatched messages render in a catch-all container
- * at the bottom (same pattern as BetPitch/WorkBet).
- */
+// @lore: sanitizeHtml — fixed, not a prop; single policy from utils/sanitize-html.ts for all agent-authored prose (documents, comments, text artifacts)
 
 import type { Message } from "@hyperidle/domain-model";
 import { isRedactedPayload } from "@hyperidle/domain-model";
@@ -46,18 +22,13 @@ export interface DocumentBodyProps {
 	 * The edit-mode preview passes "document-edit-preview".
 	 */
 	testId?: string;
-	/** L18: Called when the user opens a block's actions menu (Space/Enter). */
+	/** Called when the user opens a block's actions menu (Space/Enter). */
 	onOpenBlockActions?: (blockId: string) => void;
-	/** L18: Messages grouped by blockId for inline anchored-message slots. */
+	/** Messages grouped by blockId for inline anchored-message slots. */
 	messagesByBlockId?: ReadonlyMap<string, ReadonlyArray<Message>>;
 }
 
-/**
- * Inline anchored messages — shown below a block's payload.
- * @lore L18: same catch-all pattern as BetPitch/WorkBet.
- * @lore T5: `anchorLost` renders an honest indicator when the block this message
- * was anchored to no longer resolves (edited or deleted). Same signal for both cases.
- */
+// @lore: AnchoredMessages — anchorLost: anchor block missing or unreachable (edit or removal) renders an indicator; same signal for both cases
 function AnchoredMessages({
 	messages,
 	anchorLost = false,
@@ -93,10 +64,6 @@ function AnchoredMessages({
 	);
 }
 
-/**
- * DocumentBody renders a markdown body as a sequence of Block primitives.
- * Pure render: no state, no effects.
- */
 export function DocumentBody({
 	body,
 	hostId,
@@ -110,9 +77,7 @@ export function DocumentBody({
 		[body, hostId],
 	);
 
-	// Collect messages whose blockId doesn't match any rendered block (orphans).
-	// @lore L18: pitch content may change after a message was posted; show orphans
-	// so they're never silently dropped.
+	// @lore: orphanMessages — pitch content may change after posting; orphans always shown, never silently dropped
 	const orphanMessages = useMemo((): ReadonlyArray<Message> => {
 		if (!messagesByBlockId) return [];
 		// Widen to Set<string> so string keys from messagesByBlockId compare
@@ -125,12 +90,7 @@ export function DocumentBody({
 		return out;
 	}, [messagesByBlockId, blocks]);
 
-	// Sole-html-block rule: exactly one block that is a code fence tagged `html`.
-	// This is the condition that distinguishes "this document IS an interactive artifact"
-	// from "this document contains an HTML code sample". Must be decided here, where the
-	// full block list is known — renderPayload sees one payload at a time and cannot see this.
-	// @lore artifacts-become-documents: a fenced html block alongside other blocks stays a code
-	// listing; only when it is the ONLY block does it run in the sandbox frame.
+	// @lore: sole-html-block — only when it is the ONLY block does a fenced html block run in the sandbox frame; alongside other blocks it stays a code listing
 	if (blocks.length === 1) {
 		const sole = blocks.at(0);
 		if (sole !== undefined && sole.payload.kind === "code" && sole.payload.lang === "html") {
@@ -144,7 +104,6 @@ export function DocumentBody({
 				<p className="type-small text-[var(--text-tertiary)]  m-0">(no content yet)</p>
 			) : (
 				blocks.map((block, blockIndex) => (
-					// T4: relative wrapper so AssistantAttachButton can be positioned in the gutter.
 					<div key={block.id} className="relative group/block-attach">
 						<Block
 							id={block.id}
@@ -160,7 +119,6 @@ export function DocumentBody({
 								) : undefined,
 							}}
 						/>
-						{/* T4: AssistantAttachButton — shows when Assistant overlay is open */}
 						<AssistantAttachButton
 							ref={{
 								kind: "pending_block",
@@ -171,8 +129,6 @@ export function DocumentBody({
 					</div>
 				))
 			)}
-			{/* Catch-all: anchored messages whose block no longer exists in the body */}
-			{/* T5: anchorLost={true} renders the honest indicator for orphaned messages */}
 			<AnchoredMessages messages={orphanMessages} anchorLost />
 		</div>
 	);

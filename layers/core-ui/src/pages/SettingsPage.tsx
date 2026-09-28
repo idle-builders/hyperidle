@@ -1,15 +1,4 @@
-/**
- * SettingsPage — stacked single-page layout for all settings sections.
- *
- * W3 AC-47: All settings sections stacked vertically in one scrollable page.
- * No sidebar navigation — all sections visible simultaneously.
- *
- * @lore FR-9: max-w-[720px] with NO mx-auto on the body container. Content
- * left-aligns with the PageHeader title which also starts at the PageFrame
- * left edge (px-[24px]). mx-auto on the body would create a different left
- * edge from the title (centered vs left-aligned). One measure, one left edge.
- *
- */
+// @lore: max-w-[720px] no mx-auto — left-aligns with PageHeader title; mx-auto would create different left edge than the title
 
 import type { JSX } from "react";
 import { PageHeader, PageScaffold } from "../ds";
@@ -26,7 +15,6 @@ import { SettingsProfile } from "../settings/SettingsProfile.js";
 import { SettingsSkillsAndRules } from "../settings/SettingsSkillsAndRules.js";
 import { SettingsWorker } from "../settings/SettingsWorker.js";
 
-/** Section label: 13px uppercase, text-tertiary. No border — spacing creates rhythm. */
 function SectionTitle({ children }: { children: string }): JSX.Element {
 	return <h2 className="type-label uppercase text-[var(--text-tertiary)] pb-[4px]">{children}</h2>;
 }
@@ -40,11 +28,6 @@ export function SettingsPage(): JSX.Element {
 				<PageHeader title="Settings" subtitle="Manage your profile, team, and app preferences." />
 			}
 		>
-			{/*
-			 * settings-body: max-w-[720px] with no mx-auto so content left-aligns
-			 * with the Settings title above. Three section groups separated by
-			 * gap-[48px]; sections within a group use gap-[24px].
-			 */}
 			<div
 				data-testid="settings-body"
 				className="flex flex-col gap-[48px] max-w-[720px] w-full py-[24px]"
@@ -108,7 +91,6 @@ export function SettingsPage(): JSX.Element {
 						<SettingsFilesystems />
 					</section>
 
-					{/* Agent backends section — harness detection + enable/disable */}
 					<section
 						id="settings-section-agent-backends"
 						data-testid="settings-section-agent-backends"
@@ -148,10 +130,7 @@ export function SettingsPage(): JSX.Element {
 						<SettingsNotifications />
 					</section>
 
-					{/*
-					 * Backend: SettingsBackend + SettingsWorker separated by a thin rule.
-					 * @lore FR-17: two distinct sub-areas, not one undifferentiated list.
-					 */}
+					{/* @lore: backend section — SettingsBackend + SettingsWorker separated; two distinct sub-areas not one undifferentiated list */}
 					<section
 						id="settings-section-backend"
 						data-testid="settings-section-backend"

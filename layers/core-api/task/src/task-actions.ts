@@ -30,20 +30,12 @@ import type { Task } from "./task-service.js";
 import * as taskDb from "./task-service.js";
 import { taskDispatchAttemptStore } from "./task-service.js";
 
-/**
- * the task module's outward-facing deps: every one is a sibling
- * Service or the seam, which this nested Service may not import directly
- * (Mechanism C — the same shape `TaskStateMachineDeps` used).
- * the architecture doc §5.
- */
+/** Task action dependencies — every one is a sibling Service or the seam; this module may not import any directly (Mechanism C). */
 export interface TaskActionsDeps {
 	readonly changes: {
 		appendChange(exec: WriteExecutor, row: NewChange): Promise<Change>;
 	};
 	readonly agentOrchestration: {
-		// one direction, three verbs — see architecture.md's header. A later
-		// item removes all three together once orchestration's other seam
-		// direction is gone.
 		submitWorkIntent(input: AgentWorkIntentRecorderInput): Promise<void>;
 		stopRunsForTasks(
 			taskIds: readonly string[],
@@ -51,33 +43,13 @@ export interface TaskActionsDeps {
 		endRunForHandoff(sessionId: string, endedAt: string): Promise<void>;
 	};
 	readonly users: { getUserById(exec: WriteExecutor, id: string): Promise<User | undefined> };
-	/**
-	 * The ONE door onto `document` (architecture.md §6.7, §8.3) — task never
-	 * imports `@hyperidle/document`, never opens a document (a read here must
-	 * never count as one), and never calls this inside its own open
-	 * transaction (a runner call inside `ctx.db.transaction` hangs PGlite).
-	 * Two call sites: the artifacts list (`parent:{kind:"task",id}`) and the
-	 * `sourceDocumentId` existence check (`ids:[id]`).
-	 */
+	/** The ONE door onto `document` — task never imports `@hyperidle/document`, never opens a document, and never calls this inside its own open transaction (a runner call inside `ctx.db.transaction` hangs PGlite). */
 	readonly searchDocuments: (
 		ctx: ActionContext,
 		input: SearchDocumentsInput,
 	) => Promise<ActionResult<DocumentRow[]>>;
-	/**
-	 * Not named on architecture.md §5's `TaskActionsDeps` block, but required
-	 * by step 4's bake (`resolveTaskRunRequest`) — the same shape
-	 * `TaskStateMachineDeps` carried before and the same singleton
-	 * `task-run-resolver-bindings.ts` already wires. Builder decision: folded
-	 * into this bag rather than a second constructor argument.
-	 */
 	readonly taskRunResolver: TaskRunResolverDeps;
-	/**
-	 * @lore The ONE crossing from `task` to `thread` — a function value,
-	 * never an import ("a service never names a sibling, it receives one
-	 * through a port"). Every task now owns a real thread, written at
-	 * creation by calling the thread action in-process as the same actor,
-	 * never by touching the `threads` table.
-	 */
+	// @lore: adjustThread ONE crossing task→thread — function value, never import; thread written in-process as same actor, never touching threads table
 	readonly adjustThread: (
 		ctx: ActionContext,
 		input: AdjustThreadInput,
@@ -152,10 +124,7 @@ function candidateTask(prev: Task | null, input: EditTaskInput, resolvedState: s
 		doneCondition: null,
 		state: "proposed",
 		dependencies: null,
-		// @lore Never inspected by `taskInvariants` — a placeholder for the
-		// invariant-checking candidate, which is never written. The real
-		// value is resolved via `deps.adjustThread` before the transaction
-		// and set directly on the INSERT values, not through this candidate.
+		// @lore: threadId placeholder — never inspected by taskInvariants; resolved via deps.adjustThread before transaction, set on INSERT directly
 		threadId: "",
 		notes: null,
 		createdAt: "",
@@ -270,9 +239,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 			subtreeIds.length > 0 ? await taskDb.list(ctx.db, "task", { ids: subtreeIds }) : [task];
 		const children = buildChildren(subtreeTasks, input.id);
 		const tokensActualRollup = sumTokensActual(subtreeTasks);
-		// searchDocuments, never a raw table read — an artifact's `parent_kind
-		// IN ('task','thread')` visibility arm means this never needs a
-		// separate scope check (architecture.md §5.1).
+		// searchDocuments, never a raw table read — an artifact's `parent_kind IN ('task','thread')` visibility arm means this never needs a separate scope check.
 		const artifactsResult = await deps.searchDocuments(ctx, {
 			parent: { kind: "task", id: input.id },
 		});
@@ -327,18 +294,9 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 
 	/**
 	 * Kill `rootTaskId` and its whole subtree, INSIDE the caller's own open
-	 * transaction — collateral, never a second decision
-	 * (the architecture doc §6 row 6). Returns every task killed, each with
-	 * its real prior state (root first is not guaranteed; deepest-first is)
-	 * so the caller can stop runs, free dependents and emit the true
-	 * `fromState` after commit.
-	 *
-	 * @lore B2 fix: this used to return bare ids and the caller emitted a
-	 * hardcoded `fromState: "proposed"` for every collateral kill — wrong
-	 * whenever a descendant was killed from `in_progress`/`accepted`/etc, and
-	 * a real consumer (the subscription fire mechanism's transition matching)
-	 * reads that field. The real value is already in hand here (`t.state`, read for
-	 * the transition guard); it is now carried out instead of discarded.
+	 * transaction — collateral, never a second decision. Returns every task
+	 * killed with its real prior state so the caller can stop runs, free
+	 * dependents and emit the true `fromState` after commit.
 	 */
 	async function killSubtreeInTx(
 		tx: WriteExecutor,
@@ -461,10 +419,8 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 			input.dependencies !== null &&
 			input.dependencies.length > 0 &&
 			prev !== null &&
-			// the architecture doc §5 step 4: auto-park only when the task CAN
-			// still reach hold — a task already in_progress (or any other state
-			// with no edge to hold) keeps its state; adding a dependency to it
-			// is not rewound.
+			// Auto-park only when the task CAN still reach hold — a task already
+			// in_progress keeps its state; adding a dependency to it is not rewound.
 			canTransitionTaskState(prev.state as DomainTask["state"], "hold") &&
 			(await hasUnfinishedDependency(ctx.db, input.dependencies))
 		) {
@@ -554,10 +510,6 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 				path: "state",
 			});
 		}
-		// @lore BC5 T11: the capacity_exceeded gate (team.capacity, dropped by
-		// migration 0090) is deleted — WIP capacity goes with the team column
-		// that carried it (D-c7jgxy). A team is id + name now; accepting a
-		// task no longer reads it at all.
 		if (
 			input.ownerAgentId !== undefined &&
 			input.ownerAgentId !== null &&
@@ -578,24 +530,12 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 		}
 
 		// -- 3b. resolve the task's thread -------------------------------------
-		// @lore Every task has a real thread. Created BEFORE this task's own
-		// transaction opens, by calling the thread action in-process as the
-		// same actor (the module-link rule: through the action, never the
-		// table) — `tasks.threadId` is NOT NULL, so the thread must already
-		// exist by the time the INSERT below runs.
+		// @lore: every task has real thread; created BEFORE this task transaction via thread action (never table) — tasks.threadId NOT NULL must exist before INSERT
 		let resolvedThreadId = prev?.threadId;
 		if (!prev) {
 			if (input.threadId) {
 				resolvedThreadId = input.threadId;
-				// @lore A task created inside a thread makes its owner a member of
-				// that thread if not already. `adjust_thread.members`
-				// is a full replacement (locked), never a union with the
-				// thread's current members — so the owner must be appended to
-				// the list this actor can already see, not passed alone, or
-				// every other member of the thread is removed. Read first via
-				// `openThread` (same actor, same in-process crossing rule as
-				// `adjustThread`); skip the write entirely when the owner is
-				// already a member.
+				// @lore: adjust_thread.members is full replacement (locked) not union — owner appended; other members dropped; read first, skip if already member
 				if (next.ownerAgentId) {
 					const opened = await deps.openThread(ctx, { id: input.threadId });
 					if (!opened.ok) {
@@ -751,11 +691,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 					agentId: next.ownerAgentId,
 					now,
 				});
-				// @lore B1 fix: a swallowed unique-index conflict (§5 step 4) leaves
-				// `inserted.id` undefined — no attempt row exists to bake a request
-				// for or to submit a work intent against, so both are skipped rather
-				// than reading a fabricated id that `resolveTaskRunRequest` would
-				// then throw on inside this transaction.
+				// A unique-index conflict leaves `inserted.id` undefined — skip bake and dispatch rather than reading a fabricated id.
 				if (inserted.id) {
 					const bakedRequest = await resolveTaskRunRequest(
 						tx as HyperIdleDb,
@@ -783,8 +719,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 					predecessorSessionId: predecessorSessionId ?? null,
 					now,
 				});
-				// @lore B1 fix: see the accept branch above — a swallowed conflict
-				// means no row, so no bake and no dispatch.
+				// A swallowed conflict means no row — no bake and no dispatch.
 				if (inserted.id) {
 					const bakedRequest = await resolveTaskRunRequest(
 						tx as HyperIdleDb,

@@ -6,13 +6,6 @@ import { API_ERROR_CODES, type ApiErrorResponse } from "./api-types.js";
 
 /**
  * The authenticated Hono context type both HTTP applications run on.
- *
- * @lore AU26 A1: lived in `layers/core-api/src/middleware/auth.ts`, then moved
- * to `@hyperidle/http-middleware` so routes on either app (core-api AND
- * agent-orchestration) could type their context without cross-layer imports.
- * Now domain-model: `http-middleware` dissolves (AU44 batch 8) and this type
- * belongs in the wire-contract layer, next to `validateBody`/`ApiErrorResponse`.
- *
  * `userId` is the caller the auth middleware resolved from the API key.
  */
 export type HyperIdleEnv = {
@@ -30,18 +23,7 @@ export type HyperIdleEnv = {
  * digest is always 32 bytes so `timingSafeEqual` becomes total without
  * branching on input length.
  *
- * @lore I2 A1/A2: the previous comparison used `actual !== expected`, which
- * runs in time proportional to the matching prefix. The hash-and-compare is
- * the standard mitigation; we accept the cost of two SHA-256 calls per
- * authenticated request because key compares happen at the request boundary,
- * not inside hot loops.
- *
- * @lore AU26 A1: moved from `layers/core-api/src/middleware/timing-safe.ts`.
- * Both applications authenticate at the boundary, and a second hand-rolled copy
- * of a timing-safe compare is exactly the drift this WP exists to delete —
- * `run-orchestration/src/worker-ingress.ts:37` already carried one because it
- * could not import core-api's. Moved to domain-model (AU44 batch 8) so all
- * consumers reach it without cross-layer imports.
+ * @lore: API key comparison — hash both with SHA-256 first; eliminates length-leak from timingSafeEqual on unequal lengths; two SHA-256 per auth request is fine
  */
 export function constantTimeStringEqual(actual: string, expected: string): boolean {
 	const a = createHash("sha256").update(actual).digest();
@@ -81,15 +63,7 @@ export type ValidatedJson<T extends z.ZodTypeAny> = {
  * Request body validator using Zod.
  * Returns 400 with VALIDATION_ERROR code on failure.
  *
- * @lore AF4/§4a: `@hono/zod-validator@0.8.0` typechecks against its own deduped
- * zod 3.25.76, while server schemas are zod 4.4.3 — the two `zod/v4/core`
- * `$ZodType` brands are nominally distinct, so the validator's inferring
- * overload (`T extends ZodSchema`) is UNREACHABLE for server schemas. We keep
- * `zValidator` for the runtime parse + 400-on-invalid behavior (unchanged) but
- * OWN the boundary type ourselves: the function's declared return type carries
- * `ValidatedJson<T>` (server-local `z.output<T>`). The only cast is
- * `schema as never` — a bridge for the validator's brand-incompatible schema
- * ARGUMENT, NOT a cast of the request payload.
+ * @lore: @hono/zod-validator uses a deduped zod whose $ZodType brand differs from server schemas; inferring overload unreachable; only cast is schema as never
  */
 export function validateBody<T extends z.ZodTypeAny>(
 	schema: T,

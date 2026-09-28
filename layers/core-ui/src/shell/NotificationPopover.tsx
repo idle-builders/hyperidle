@@ -1,35 +1,6 @@
-/**
- * NotificationPopover
- *
- * In-app notification inbox popover. Anchored to the notification trigger
- * in the Sidebar bottom strip.
- *
- * States: loading / error / empty / populated
- * Row anatomy: urgency dot → title (flex-1, truncate) → type label → relative
- * time → hover-reveal mute/dismiss glyphs (opacity-0 at rest, group-hover:100)
- *
- * @lore AF8: markSeen is called on mount (when open=true) so unseen dots
- * clear immediately on popover open, matching the UX spec. markRead removes
- * a specific row (jump or dismiss). muteType removes all rows of a type and
- * writes the mute preference to the server.
- *
- * @lore AF8: Tier-3 shell composition — NOT a design-system primitive.
- * Uses raw DaisyUI + Hearth tokens. Every interactive element follows the
- * AQ-015 touch target rule at ≤1024px.
- *
- * @lore AF8 W1: Row is a single-line dense layout (min-h-36px) per approved.md
- * §A Row anatomy. Trailing mute/dismiss are opacity-0 at rest, visible on
- * group-hover/focus-within (hover-reveal idiom). Text buttons were replaced
- * with 16px glyph buttons. Positioning uses fixed bottom-16 left-4 (not
- * hardcoded pixel offsets).
- *
- * @lore AF8 C1: Retry button wired to refetch() exposed from useNotifications.
- * Previously the button had no onClick — clicking it was a dead action.
- *
- * @lore AF8 W4 (sourceLink guard): sourceLink is system-authored today but
- * the plan's §Security requires we reject anything not starting with "/" as
- * defense-in-depth against future agent-authored content reaching this path.
- */
+// @lore: markSeen called on mount when open=true — clears unseen dots immediately on popover open
+// @lore: Tier-3 shell composition, not a design-system primitive; uses raw DaisyUI + Hearth tokens
+// @lore: sourceLink guard — only navigate to routes starting with "/"; defense-in-depth against agent-authored content
 
 import { type JSX, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
@@ -45,12 +16,7 @@ export type { InboxItem };
 export interface NotificationPopoverProps {
 	open: boolean;
 	onClose: () => void;
-	/**
-	 * Optional data override for Storybook and tests. When provided, the
-	 * component skips the `useNotifications` hook and uses these values instead.
-	 * @lore AF8 W2: injectable data lets stories render each distinct state
-	 * deterministically without module mocking or API calls.
-	 */
+	/** Injectable data override — lets stories render each distinct state without module mocking or API calls. */
 	_data?: UseNotificationsResult;
 }
 
@@ -65,10 +31,7 @@ export function NotificationPopover({
 	const { unseenCount, rows, status, refetch, markSeen, markRead } = _data ?? hookData;
 	const overlayRef = useRef<HTMLDivElement>(null);
 
-	// @lore AI2: Migrated to useDialogBehavior with modal=false, layer="overlay".
-	// modal=false: popover is non-modal — no scrim, no backdrop dismiss.
-	// Escape is caught at document level (non-modal divs don't receive keyboard
-	// events unless focused). Layer "overlay" (--z-overlay=40) replaces z-30.
+	// @lore: useDialogBehavior modal=false — non-modal, no scrim, no backdrop dismiss; layer="overlay" (--z-overlay=40)
 	const behavior = useDialogBehavior({ open, onClose, modal: false, layer: "overlay" });
 	const overlayProps = behavior.getOverlayProps();
 
@@ -77,17 +40,13 @@ export function NotificationPopover({
 	markSeenRef.current = markSeen;
 	unseenCountRef.current = unseenCount;
 
-	// Mark all unseen on open — fires on open toggle only; refs hold latest markSeen/count.
 	useEffect(() => {
 		if (open && unseenCountRef.current > 0) {
 			void markSeenRef.current();
 		}
 	}, [open]);
 
-	// @lore AI2: Esc caught at document level for non-modal surfaces (popover div won't
-	// receive keyboard events unless focused). requestDismiss() routes through
-	// the unified guard rule. Outside-click-to-close preserved: popover dismisses on
-	// mousedown outside, matching the old AF8 behavior.
+	// @lore: Escape at document level — non-modal popover div won't receive keyboard events unless focused; outside-click closes via mousedown handler
 	const { requestDismiss } = behavior;
 	useEffect(() => {
 		if (!open) return;
@@ -108,12 +67,10 @@ export function NotificationPopover({
 				onClose();
 			}
 		};
-		// Use capture=false so we don't fight with stopPropagation inside the popover
 		document.addEventListener("mousedown", handler);
 		return () => document.removeEventListener("mousedown", handler);
 	}, [open, onClose]);
 
-	// Must be before the early return — hook rules require all hooks called unconditionally
 	const handleRowClick = useCallback(
 		(changeId: string, link: string): void => {
 			// W4: link guard — only navigate to internal app routes
@@ -136,12 +93,7 @@ export function NotificationPopover({
 			aria-label="Notifications"
 			data-testid="notification-popover"
 			data-dialog-layer={overlayProps["data-dialog-layer"]}
-			// @lore AI2: z-30 removed; z-layer now via --z-overlay token in style prop (AC-3).
-			// @lore AZ-bugs: Repositioned from bottom-16 left-4 (bottom-left corner, ~600px
-			// from bell trigger) to top-[108px] left-[9px] to clear below the bell trigger
-			// (bell bottom ≈ 105px). top-[60px] overlapped the bell; top-[108px] clears it.
-			// Width expanded to w-[440px] so notification titles don't truncate (scrollWidth 221px
-			// needs more than the prior w-[360px] left-rail 75px trailing affordances).
+			// @lore: top-[108px] clears below bell trigger (bottom ≈105px); top-[60px] overlapped; w-[440px] prevents title truncation
 			className="border-width-thin fixed top-[108px] left-[9px] flex w-[440px] flex-col overflow-hidden rounded-[var(--r-subtle)]  border-[var(--border-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-elevated)]"
 			style={{ zIndex: overlayProps.style.zIndex, maxHeight: "70vh" }}
 		>
@@ -234,12 +186,9 @@ export function NotificationPopover({
 									{/*
 									 * Single-line dense row: div with row-level keyboard/click for jump,
 									 * plus a real <button> for dismiss at the trailing edge.
-									 * @lore AF8 W1: cannot use <button> wrapper when trailing affordances
-									 * are also <button> — HTML spec forbids nested buttons and causes
-									 * hydration errors. Row is a div with role=row semantics; interactive
-									 * via onClick + onKeyDown. The real button at the end handles dismiss.
+									 * @lore: cannot use <button> wrapper when trailing affordances are also <button> — HTML spec forbids nested buttons; row is a div with role=button semantics
 									 */}
-									{/* biome-ignore lint/a11y/useSemanticElements: AF8 W1 above — a real <button> here would nest inside the trailing dismiss <button>, which HTML forbids. */}
+									{/* biome-ignore lint/a11y/useSemanticElements: a real <button> here would nest inside the trailing dismiss <button>, which HTML forbids. */}
 									<div
 										role="button"
 										tabIndex={0}

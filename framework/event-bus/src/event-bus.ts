@@ -21,14 +21,7 @@ const logger = createLogger({ pkg: "event-bus" });
  * have been called. This guarantees at-least-once delivery when emit() is called
  * after database write durability.
  *
- * @lore I1 EventBus resilience: one throwing handler must not abort delivery
- * to subsequent handlers. A single bad subscriber (e.g. a newly-added
- * observability forwarder that hits a transient error) would
- * otherwise silently break every durability-critical subscriber registered
- * after it. We isolate per-handler failures with try/catch and log via
- * `createLogger` so the error remains observable. Throwing handlers are still
- * a programming error — this guard limits the blast radius, it does not
- * condone them.
+ * @lore: one throwing handler must not abort delivery — a bad subscriber silently breaks every handler after it; try/catch+log limits blast radius
  */
 export class EventBus {
 	private readonly handlers = new Map<EventType, Set<EventHandler<EventType>>>();
@@ -90,12 +83,9 @@ export class EventBus {
 		if (set) {
 			for (const handler of set) {
 				try {
-					// @lore AF2: Handlers are stored as EventHandler<EventType> (i.e. (e: DomainEvent) => void)
-					// because the map must hold a uniform type. At runtime the handler stored at event.type
-					// was registered via on<T>(event.type, handler) so it only ever receives events of type T.
-					// Calling with `event as DomainEvent` is safe: the stored handler accepts DomainEvent.
-					// We avoid casting to EventHandler<T> (which fails the overlap check) and instead cast the
-					// event to the stored handler's expected type — the wider direction is always safe.
+					// Handlers stored as EventHandler<EventType> — map must hold a uniform type. Safe to call with
+					// `event as DomainEvent`: the handler accepts DomainEvent. Casting event (not handler) avoids
+					// the overlap check failure that casting to EventHandler<T> would trigger.
 					(handler as (e: DomainEvent) => void)(event as DomainEvent);
 				} catch (err) {
 					logger.error("event handler threw", {

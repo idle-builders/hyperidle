@@ -6,11 +6,7 @@ interface UseCommandKReturn {
 	close: () => void;
 }
 
-/**
- * @lore Uses document-level keydown listener so the shortcut works regardless
- * of focus. preventDefault() stops the browser's native Cmd+K (address bar
- * in Chrome/Safari).
- */
+// @lore: document-level keydown — shortcut works regardless of focus; preventDefault stops browser's native Cmd+K (address bar in Chrome/Safari)
 export function useCommandK(): UseCommandKReturn {
 	const [isOpen, setIsOpen] = useState(false);
 

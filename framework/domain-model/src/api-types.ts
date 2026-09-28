@@ -1,11 +1,9 @@
-/** Standard error response shape for all API errors. */
 export interface ApiErrorResponse {
 	error: string;
 	code: string;
 	details?: Record<string, unknown>;
 }
 
-/** Error codes used across the API. */
 export const API_ERROR_CODES = {
 	UNAUTHORIZED: "UNAUTHORIZED",
 	VALIDATION_ERROR: "VALIDATION_ERROR",
@@ -13,9 +11,6 @@ export const API_ERROR_CODES = {
 	NOT_FOUND: "NOT_FOUND",
 	CONFLICT: "CONFLICT",
 	FORBIDDEN: "FORBIDDEN",
-	// I2 — rate-limit and body-limit middleware. Adding these constants
-	// up front (red phase) so the security tests can assert against the
-	// canonical code without lifting magic strings into the test file.
 	RATE_LIMITED: "RATE_LIMITED",
 	PAYLOAD_TOO_LARGE: "PAYLOAD_TOO_LARGE",
 } as const;

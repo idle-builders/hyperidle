@@ -1,10 +1,6 @@
 import type { ReactNode } from "react";
 
-/**
- * @lore Inline 16×16 SVG — we avoid adding lucide-react because only three
- * glyphs are needed. Centralised here so Tag.tsx, tests, and any downstream
- * document taxonomy consumer import from ONE constant.
- */
+// @lore: inline SVG glyphs — no lucide-react dep; only three glyphs needed; centralised here for Tag.tsx and document taxonomy consumers
 export type TagKind = "pattern" | "decision" | "failure";
 
 export interface TagKindMeta {

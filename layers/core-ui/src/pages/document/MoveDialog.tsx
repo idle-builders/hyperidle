@@ -1,15 +1,4 @@
-/**
- * MoveDialog — moves an existing document to a new parent, including back to
- * the top level. The rule: "a person can nest and move knowledge items,
- * and the tree keeps up."
- *
- * @lore BC4: PATCH `/api/knowledge/:id` replaced by
- * `call("edit_document", { id, parent, version })` (architecture.md §9.2).
- * `ParentPicker` only ever offers a choice `buildParentOptions` computed as
- * legal; a concurrent edit between render and submit can still make it
- * illegal, so a refusal shows the action's own named problem rather than a
- * generic failure.
- */
+// @lore: MoveDialog refusal — concurrent edit can invalidate a shown legal choice; refusal shows named problem, not generic failure
 
 import { type JSX, useState } from "react";
 import { Button, Dialog } from "../../ds";

@@ -1,28 +1,6 @@
-/**
- * Connections — read/write bodies for a user's `service_connections`, held
- * union the reach cache's inherited projections.
- *
- * @lore BC5 T11 (architecture.md §6/§9, T4): the `/api/connections` HTTP
- * route family (`createConnectionRoutes`, its rate limiters and the
- * `/:id/validate` SSRF-checked probe) is DELETED — connections are a user
- * attribute now, read through `open_user({}).connections` and written
- * through `edit_user({ connections })`, crossing `AgentOrchestrationPort`'s
- * `connections` seam (`agent-orchestration-intake.ts`'s plumbing routes)
- * rather than a public route. `listConnectionsForUser`/
- * `createConnectionForUser`/`removeConnectionForUser` below (BC5 T4) are
- * that seam's one implementation — they stay, unchanged.
- *
- * Security model unchanged: every query scoped on userId (per-user
- * isolation); cross-user / non-existent → NOT_FOUND, never leaks existence;
- * tokens stored AES-256-GCM encrypted, never returned.
- *
- * @lore AN1: No trust tier, no broker/gate, no OAuth dance. Simple secrets and
- * MCP pointers only. OAuth services arrive inherited from the harness.
- *
- * @lore AN1: Concept hard-rule 1 — encryptedToken NEVER appears in any response.
- * The resolver (ServiceConnectionResolver) is the only plaintext path, wired to
- * sandbox injection (AN2), not to routes.
- */
+// Connections — read/write for a user's `service_connections`, unioned with inherited reach projections.
+// Security model: every query scoped on userId; cross-user / non-existent → NOT_FOUND, never leaks;
+// tokens stored AES-256-GCM encrypted, never returned; encryptedToken NEVER appears in any response.
 
 import {
 	deleteConnection,
@@ -39,17 +17,8 @@ import { isPrivateHostLiteral } from "../ssrf.js";
 // Input validation
 // ---------------------------------------------------------------------------
 
-/**
- * SSRF guard for serverUrl: must be https:// and must not be a private/loopback/
- * link-local IP literal.
- *
- * Architecture critique WARNING §4: https:// alone is insufficient — https://169.254.169.254
- * is link-local. We block private IP literals at input time using the shared SSRF utility.
- *
- * @lore AN1 SSRF: This blocks IP literals. Full DNS-rebinding protection (where a public
- * hostname resolves to a private IP) is deferred to AN2's outbound-client scope, which is
- * explicitly documented as a known follow-up — not a silent gap.
- */
+// SSRF guard: blocks private IP literals at input time.
+// @lore: SSRF — IP literals blocked here; DNS-rebinding (public hostname → private IP) deferred to outbound-client scope
 function isBlockedUrl(url: string): boolean {
 	try {
 		const parsed = new URL(url);
@@ -59,11 +28,7 @@ function isBlockedUrl(url: string): boolean {
 	}
 }
 
-/**
- * Exported so `agent-orchestration-intake.ts` validates `connections.add`'s
- * body against the SAME schema — mirrors `AgentOrchestrationConnectionCreateInput`
- * (`@hyperidle/api-contract`).
- */
+// Exported so `agent-orchestration-intake.ts` validates `connections.add` body against the same schema.
 export const createConnectionSchema = z.discriminatedUnion("authSource", [
 	z.object({
 		service: z.string().min(1).max(200),
@@ -91,13 +56,8 @@ export type CreateConnectionInput = z.infer<typeof createConnectionSchema>;
 // View builder
 // ---------------------------------------------------------------------------
 
-/**
- * Derive the `via` string for a row. Server-constructed — never a raw secret echo.
- *
- * @lore AN1 Phase-0 decision 3: `via` is always server-constructed:
- *   token → "API key · stored encrypted"
- *   mcp   → "<host>" (hostname of the MCP server URL)
- */
+// Derive the `via` display string. Server-constructed, never a raw secret echo.
+// @lore: `via` is always server-constructed — token → "API key · stored encrypted"; mcp → hostname of server URL
 function buildVia(authSource: string, serverUrl: string | null | undefined): string {
 	if (authSource === "token") return "API key · stored encrypted";
 	if (authSource === "mcp" && serverUrl) {
@@ -110,19 +70,13 @@ function buildVia(authSource: string, serverUrl: string | null | undefined): str
 	return "";
 }
 
-/**
- * Cast a raw DB health string to the closed 2-set.
- * Falls back to "needs-attention" for any unrecognised value.
- */
+// Cast a raw DB health string to the closed 2-set; falls back to "needs-attention".
 function toHealth(raw: string): ConnectionHealth {
 	if (raw === "working" || raw === "needs-attention") return raw;
 	return "needs-attention";
 }
 
-/**
- * Build the public ServiceConnectionView from a DB row.
- * NEVER includes encryptedToken or serverUrl.
- */
+// Build the public ServiceConnectionView; NEVER includes encryptedToken or serverUrl.
 function rowToView(row: {
 	id: string;
 	service: string;
@@ -140,17 +94,12 @@ function rowToView(row: {
 	};
 }
 
-/**
- * Derive the service name from a serverUrl hostname when the user omits it.
- * Strips a leading "mcp." subdomain so "mcp.figma.com" → "figma.com".
- *
- * @lore AN1 §4 suggestion: deterministic derivation so two builders can't pick
- * different rules. This affects the unique constraint (userId, service, authSource).
- */
+// Derive service name from serverUrl when omitted; strips "mcp." prefix.
+// @lore: derivation is deterministic — affects the (userId, service, authSource) unique constraint
 function deriveServiceFromUrl(serverUrl: string): string {
 	try {
 		const host = new URL(serverUrl).hostname;
-		// Strip common "mcp." prefix
+		// Strip "mcp." prefix
 		return host.startsWith("mcp.") ? host.slice(4) : host;
 	} catch {
 		return serverUrl;
@@ -158,16 +107,10 @@ function deriveServiceFromUrl(serverUrl: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Extracted logic — the one implementation
-// `AgentOrchestrationPort`'s `connections` family calls through
-// `agent-orchestration-intake.ts`'s plumbing routes.
+// Extracted logic — called through `AgentOrchestrationPort`'s connections seam
 // ---------------------------------------------------------------------------
 
-/**
- * `connections.list` — held rows (from DB) union the reach cache's inherited
- * projections, kept as two arrays rather than a merged one so a caller that
- * needs to tell them apart (§6's `open_user`) can.
- */
+// `connections.list` — held rows union inherited projections; two arrays so the caller can tell them apart.
 export async function listConnectionsForUser(
 	db: HyperIdleDb,
 	userId: string,
@@ -188,7 +131,7 @@ export type CreateConnectionResult =
 	| { readonly ok: false; readonly code: "MISSING_ROOT_SECRET" }
 	| { readonly ok: false; readonly code: "DUPLICATE_CONNECTION" };
 
-/** `connections.add` — validated body already parsed by the caller; encrypts a token, derives an mcp service name. */
+// `connections.add` — body already validated; encrypts token, derives mcp service name.
 export async function createConnectionForUser(
 	db: HyperIdleDb,
 	userId: string,
@@ -252,7 +195,7 @@ export type RemoveConnectionResult =
 	| { readonly ok: true }
 	| { readonly ok: false; readonly code: "NOT_FOUND" };
 
-/** `connections.remove` — cross-user, non-existent and `inherited:` ids all resolve NOT_FOUND, never leak existence. */
+// `connections.remove` — cross-user, non-existent, and inherited: ids all resolve NOT_FOUND, never leak existence.
 export async function removeConnectionForUser(
 	db: HyperIdleDb,
 	userId: string,
@@ -265,9 +208,7 @@ export async function removeConnectionForUser(
 	return { ok: true };
 }
 
-// @lore drizzle-orm 0.45.2: wraps PGlite errors — outer message is "Failed query: …",
-// original error (with code 23505 and "duplicate key" message) is in err.cause.
-// Walk the cause chain to find the real constraint error.
+// @lore: drizzle-orm — wraps PGlite errors; outer message is "Failed query:…"; walk cause chain for the real constraint error
 function isUniqueViolation(err: unknown): boolean {
 	if (!(err instanceof Error)) return false;
 	const check = (e: unknown): boolean => {

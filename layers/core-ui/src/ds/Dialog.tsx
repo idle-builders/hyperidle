@@ -10,17 +10,6 @@
  *   - z-layer via CSS token (var(--z-*))
  *   - Mobile bottom-sheet at ≤480px
  *
- * @lore AI2: jsdom does not implement `inert`. Unit tests assert focus-trap
- * behavior and guard logic. Playwright (AC-2) asserts the inert attribute.
- *
- * @lore AI2: focus-trap-react requires displayCheck:"none" under jsdom
- * because jsdom doesn't compute element visibility. Without it, the trap
- * throws in every vitest run. The FocusTrap is only activated when open=true
- * to prevent initialization errors when no tabbable element is present.
- *
- * @lore AI2: The dialog box emits data-dialog-box and data-testid="dialog-box"
- * for mobile-sheet CSS targeting (AC-4 tests query by these attributes).
- * The title emits data-dialog-title for test queries.
  */
 
 import FocusTrap from "focus-trap-react";
@@ -73,12 +62,7 @@ export function Dialog({
 		ensureOverlayRoot();
 	}, []);
 
-	// Move focus into the dialog box on open.
-	// focus-trap-react uses setTimeout internally which doesn't fire during act() in jsdom.
-	// We use useEffect to ensure focus moves synchronously on the next render cycle.
-	// @lore AI2: Direct focus call via useEffect is required because focus-trap-react's
-	// internal setTimeout is not flushed by React's act() in jsdom environments.
-	// The focus trap still prevents focus from leaving the dialog.
+	// @lore: focus-trap-react.setTimeout — not flushed by act(); useEffect ensures synchronous focus in jsdom
 	useEffect(() => {
 		if (!open) return;
 		// Find the first tabbable element inside the dialog box, or focus the box itself
@@ -127,8 +111,7 @@ export function Dialog({
 					// initialFocus not set: trap moves focus to first tabbable element
 					allowOutsideClick: true,
 					fallbackFocus: "[data-dialog-box]",
-					// @lore AI2: displayCheck:"none" required for jsdom — jsdom doesn't compute
-					// element visibility, so the trap would throw without this option.
+					// @lore: displayCheck:"none" — required for jsdom; jsdom skips visibility computation; trap throws without it
 					tabbableOptions: { displayCheck: "none" },
 				}}
 			>
@@ -188,7 +171,7 @@ export function Dialog({
 								data-dialog-title=""
 								data-testid="dialog-title"
 								style={{
-									// 15px — intentional (design §4.1)
+									// 15px — intentional
 									// 600
 									color: "var(--text-primary)",
 
@@ -223,7 +206,7 @@ export function Dialog({
 								}}
 								className="type-control"
 							>
-								{/* Close icon — inline SVG per AQ-105; lucide-react not installed in design-system */}
+								{/* Close icon — inline SVG; lucide-react not installed in design-system */}
 								<svg
 									aria-hidden="true"
 									width="16"

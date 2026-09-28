@@ -1,47 +1,8 @@
 /**
- * Work service: one repository vocabulary for the owned `tasks` table.
- * Every write call site and every read call site routes through one of
- * these functions instead of a direct `insert`/`update`/`delete`/`select`
- * against the table object.
+ * Task service: one repository vocabulary for the owned `tasks` table.
  *
- * @lore BC3 architecture.md §5 B7: `items` DROPPED, destructive, no compat
- * column — a review, a question, an escalation are messages already.
- * `WorkEntity` collapses from `"task" | "item"` to `"task"` alone, and
- * every generic `<E extends "task" | "item">` signature below loses its
- * union with it.
- *
- * Mirrors `knowledge/knowledge-repository.ts`'s style (`create`/`update`
- * functions, executor-first param), widened to accept `WriteExecutor` so
- * callers that already coordinate a multi-table write inside
- * `db.transaction(async (tx) => …)` (handoff-protocol, bet-state-machine,
- * task-state-machine, lifecycle-propagation, bet-decomposition) can join
- * this service's write into their existing transaction unchanged. Reads
- * reuse the same `WriteExecutor` type
- * (addendum §A3) so tx-scoped reads keep seeing uncommitted in-transaction
- * state.
- *
- * @lore AU13 §5.3 (design-it-twice synthesis): a single generic
- * `update*ById(exec, id, patch)` cannot express the guarded-transition /
- * silent-if-running mechanics without leaking a per-caller predicate through
- * `args` (Shape B, rejected). Each genuinely different mechanic — plain
- * by-id set, guarded CAS transition with `.returning()`, in-update silent
- * guard, bulk sweep — gets its own named function whose predicate +
- * returning-shape is fixed and internal. The same discipline applies to
- * reads: distinct predicates get distinct named functions; get-by-id
- * collapses uniformly since every caller wants the same full row.
- *
- * @lore Founder ruling (2026-07-12): zero exceptions for cross-owned-table
- * access — a cross-service join is decomposed, never allowlisted. The former
- * `findPostBetRetroItem` `items ⋈ threads` join (AU13 addendum §A2
- * "FOREIGN-IMPORT CEILING") was decomposed into `findRetroItemByThreadIds`
- * (items-only) plus a caller-side `getThreadIdsByHost` lookup in
- * conversation-store, since Conversation owns `threads`. See `searchBetsByText`
- * below for the same decompose-don't-join discipline (owned-primary query +
- * caller-side `teams` lookup). AU26 H2 (§D-M.3) closed the LAST exception: the
- * `latestSessionOutcome` correlated `sessions` subquery is deleted and
- * recomposed at `routes/bets.ts`. There are now zero foreign reads here.
- *
- * Event emission stays at call sites (out of scope — see plan §3).
+ * @lore: zero foreign table reads — each mechanic has own named function with fixed predicate; no generic that leaks predicates through args
+ * @lore: WriteExecutor param — callers inside db.transaction join this write into their tx; tx-scoped reads use WriteExecutor to see uncommitted state
  */
 
 import { randomUUID } from "node:crypto";
@@ -93,15 +54,9 @@ export const taskDispatchAttemptStore = {
 			.from(taskDispatchAttempts)
 			.where(eq(taskDispatchAttempts.taskId, input.taskId));
 		const id = randomUUID();
-		// §5 step 4: `.onConflictDoNothing()` — migration 0047 carries a
-		// second unique index `schema.ts` does not declare
-		// (`(task_id, occasion, coalesce(predecessor_session_id,''), agent_id)`),
-		// and handing a task with no live session back and forth between the
-		// same two agents collides on it. A swallowed conflict means no new
-		// attempt row is inserted; `returning()` then yields no row.
-		// @lore B1 fix: a swallowed conflict must not fabricate an id for a row
-		// that was never written — the caller reads `id === undefined` as "no
-		// attempt was inserted" and skips the bake and the work-intent submit.
+		// migration 0047 carries a second unique index `schema.ts` doesn't declare — back-and-forth
+		// between two agents on a task with no live session collides on it; a swallowed conflict
+		// means no row was inserted; returning `id === undefined` tells the caller to skip the bake.
 		const inserted = await exec
 			.insert(taskDispatchAttempts)
 			.values({
@@ -127,15 +82,7 @@ export const taskDispatchAttemptStore = {
 			.limit(1);
 		return row;
 	},
-	/**
-	 * §1/§6 row 1 — the dispatch-attempt repair. `requestId`/`sessionId`
-	 * were never written in production: the only writers were `insertAttempt`
-	 * (neither) and `markFailed` (neither), so `updateIfActive`'s
-	 * `eq(taskDispatchAttempts.requestId, requestId)` matched zero rows,
-	 * always. Called from the session-started reaction, before the
-	 * `in_progress` edit, on the task's highest-ordinal `requested` row — the
-	 * one the session that just started was dispatched for.
-	 */
+	/** Fill `requestId`/`sessionId` on the task's highest-ordinal `requested` row — called from the session-started reaction before the `in_progress` transition. */
 	markRunning: async (
 		exec: WriteExecutor,
 		input: {
@@ -167,11 +114,7 @@ export const taskDispatchAttemptStore = {
 			})
 			.where(eq(taskDispatchAttempts.id, row.id));
 	},
-	/**
-	 * §5 step 5b — the predecessor's live session id for a handoff,
-	 * read once inside `edit_task`'s own transaction, over this task-owned
-	 * table only.
-	 */
+	/** The predecessor's live session id for a handoff — read inside `edit_task`'s own transaction. */
 	findLiveSessionId: async (exec: WriteExecutor, taskId: string): Promise<string | undefined> => {
 		const [row] = await exec
 			.select({ sessionId: taskDispatchAttempts.sessionId })
@@ -205,13 +148,7 @@ export const taskDispatchAttemptStore = {
 				),
 			);
 	},
-	/**
-	 * @lore AU21 Increment 3 Wave 0 (§10 subscriber table): the `task_run`
-	 * reaction to a terminal `agent_run_admission_failed` marks the attempt
-	 * row failed by its OWN id — distinct from `updateIfActive` (keyed on
-	 * `requestId`, which never gets assigned for a PRE-handoff failure since
-	 * no `agentSessionRequests` row was ever created for this attempt).
-	 */
+	/** Marks the attempt failed by its OWN id — distinct from `updateIfActive` which keys on `requestId` (never assigned for a pre-handoff failure). */
 	markFailed: async (exec: WriteExecutor, id: string) => {
 		await exec
 			.update(taskDispatchAttempts)
@@ -244,15 +181,6 @@ type TaskPatch = { [K in keyof NewTask]?: NewTask[K] | SQL };
 const NOTE_SEPARATOR = "\n\n---\n\n";
 
 // ---------------------------------------------------------------------------
-// General primitives: get() and list()
-//
-// @lore AU20 Ag5b: collapses ~19 read exports (4 get*ById + ~14 list*/find*/
-// count* + joined/enriched reads) into two discriminated primitives. Internal
-// helpers above stay exported from work-service.ts (internal-package imports in
-// dependency-watcher.ts / bet-state-machine.ts use them directly), but the
-// barrel (index.ts) only re-exports get/list. Callers that need the old named
-// functions as DI-port bindings wrap them in lambdas at the composition root.
-//
 
 /** Discriminant union of all work-owned entity kinds. */
 export type WorkEntity = "task";
@@ -289,13 +217,7 @@ export interface WorkFilter {
 	parentTaskId?: string | null;
 	ownerAgentId?: string;
 	dependencyId?: string;
-	/**
-	 * @lore BA6: opt-in only — the shared `text` branch is also `GET
-	 * /api/search`'s door, and global search exists to show state (killed
-	 * included), so it may not exclude `killed` unconditionally. Only the
-	 * dependency picker (`GET /api/tasks?q=`) wants a corpse excluded from
-	 * its candidate list, so it must ask for that explicitly.
-	 */
+	/** Opt-in only — global search shows all states including killed; only the dependency picker excludes killed, so it must ask explicitly. */
 	excludeKilled?: true;
 	// artifact-specific
 	taskIds?: readonly string[] | null;
@@ -438,17 +360,6 @@ export async function list(
 }
 
 // ---------------------------------------------------------------------------
-// Generic write primitives: create() / update() / transition()
-//
-// @lore AU20 Ag5c: collapses ~14 write exports (createBet/createTask/
-// createItem/createArtifact/updateBetById/updateTaskById/updateItemById/
-// incrementBetCost/transitionBetStatus/transitionTaskState/
-// updateBetDecompositionStatusIfRunning/claimBetDecomposition/
-// resolveOrphanedBetDecompositions/appendTaskNote/setArtifactPreviewIfAbsent)
-// into three discriminated primitives.  Old named functions stay in this file
-// for internal-package callers (bet-state-machine.ts, bet-decomposition.ts,
-// task-state-machine.ts); the barrel (index.ts) only re-exports the three
-// primitives.
 // ---------------------------------------------------------------------------
 
 /** Atomic append operator — translates to a SQL CASE concat with separator. */
@@ -520,14 +431,7 @@ function parentCond(parentTaskId: string | null): SQL {
  * callers that need this (the kill cascade and the token rollup) both need the
  * whole subtree in one consistent read.
  *
- * @lore BB1: `depth` is capped at MAX_TASK_DEPTH. A cycle is rejected at write
- * time (`assertNoCycle`), so this cap should never bind — it is here because a
- * recursive CTE that meets a cycle does not error, it spins forever, and a
- * corrupt row must not be able to hang a request.
- *
- * @lore BB1: 32 matches the cap the nested-knowledge-documents work chose for
- * its own tree. The number is arbitrary in both places; having ONE number
- * across the product's two trees is the point, so if either moves, move both.
+ * @lore: depth capped at MAX_TASK_DEPTH — CTE on cycle spins forever; cycles rejected at write so cap never binds; 32 matches knowledge-documents cap
  */
 export const MAX_TASK_DEPTH = 32;
 
@@ -548,7 +452,7 @@ export async function listSubtreeIds(exec: WriteExecutor, rootId: string): Promi
 
 /**
  * Every ancestor of `taskId`, nearest parent first, excluding the task.
- * Drives the upward completion rollup, which is no longer a single hop.
+ * Drives the upward completion rollup (multi-hop).
  */
 export async function listAncestorIds(exec: WriteExecutor, taskId: string): Promise<string[]> {
 	const result = (await exec.execute(sql`
@@ -568,10 +472,7 @@ export async function listAncestorIds(exec: WriteExecutor, taskId: string): Prom
 /**
  * How many tasks this team currently has `in_progress`, at any depth.
  *
- * This is the WIP limit's live count. It replaces the stored `teams.activeBets`
- * tally, which the bet commit/complete/kill paths maintained by hand and which
- * could therefore drift from the truth. Counted inside the caller's transaction,
- * so it cannot be stale.
+ * Live count, inside the caller's transaction so it cannot be stale.
  */
 export async function countTeamTasksInProgress(
 	exec: WriteExecutor,
@@ -630,15 +531,7 @@ function buildTaskGuardCond(guard: TransitionGuard): SQL {
  * `parentTaskId` (or among root tasks when `parentTaskId` is null).
  * Returns -1 when the sibling group is empty, so the first child gets 0.
  *
- * @lore BB1: used by POST /tasks (append) and PATCH /tasks/:id (reparent) to
- * assign the next-last position without a data race — callers that need
- * atomicity must call this INSIDE their own transaction.
- *
- * @lore BB1: `teamId` is REQUIRED, not optional. A nested task's parent already
- * implies its team, but a ROOT task's parent is null — so without the team
- * filter the "sibling group" for a root is every root task in the entire
- * install, and a new root would take its position from an unrelated team's
- * count. Making the argument mandatory means a caller cannot forget it.
+ * @lore: teamId required — without it root task sibling group is every root in install; callers needing atomicity must call INSIDE own transaction
  */
 export async function maxSiblingPosition(
 	exec: WriteExecutor,
@@ -675,7 +568,6 @@ export async function create<E extends WorkEntity>(
  * Update a task row with atomic note-append (SQL CASE — no pre-read).
  * Returns `{ id }` when the row was found and updated; `undefined` when absent.
  *
- * @lore AU20 Ag5c: appendTaskNote folds into update() via { notes: AppendNoteOp }.
  */
 export function update(
 	exec: WriteExecutor,
@@ -683,12 +575,7 @@ export function update(
 	id: string,
 	patch: { readonly notes: AppendNoteOp },
 ): Promise<{ id: string } | undefined>;
-/**
- * Plain by-id field-set. (@lore AU21 Increment 14a: the `costActualMinor:
- * { increment: n }` atomic-accumulation example this used to document is
- * HARD-DELETED along with the rest of the cost feature — no field on
- * `BetUpdatePatch`/`TaskUpdatePatch` uses the `{increment}` operator anymore.)
- */
+/** Plain by-id field-set. */
 export function update<E extends "task">(
 	exec: WriteExecutor,
 	entity: E,
@@ -734,9 +621,6 @@ export async function update(
  * - `guard.equals` → WHERE field = value
  * - `guard.isNull` → WHERE field IS NULL
  *
- * @lore AU20 Ag5c: replaces transitionBetStatus / transitionTaskState /
- * updateBetDecompositionStatusIfRunning / claimBetDecomposition /
- * resolveOrphanedBetDecompositions / setArtifactPreviewIfAbsent.
  */
 export async function transition<E extends keyof WorkEntityTransitionPatchMap>(
 	exec: WriteExecutor,

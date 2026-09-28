@@ -221,7 +221,6 @@ describe("GlobalSearchPanel", () => {
 	});
 
 	// Results rendered as ThreadRow, TaskCard (lite), DocRow
-	// @lore: BetCard replaced by TaskCard in GlobalSearchPanel.
 	it("renders conversation results as ThreadRow components", async () => {
 		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 		(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({

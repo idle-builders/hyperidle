@@ -1,15 +1,12 @@
 /**
  * ArtifactFrame — an artifact of the `html` kind, running as its own document.
  *
- * @lore AZ6 component budget: this is a new component because no existing export
- * does its job. `HtmlPayload` renders sanitised fragments into the app's own
- * document, which is the opposite of what an artifact needs — it strips the
- * scripts that make an artifact worth opening. Everything around the frame is
- * composed from existing exports (`Button`, `Dialog`).
+ * HtmlPayload renders sanitised fragments into the app's own document — the opposite of what an
+ * artifact needs (it strips the scripts that make an artifact work). ArtifactFrame runs the html
+ * as its own document; everything around the frame is composed from existing exports (Button, Dialog).
  *
- * The seal itself lives in `artifact-frame/build-srcdoc.ts` — read the lore there
- * before changing anything here, particularly the part about why there are two
- * layers.
+ * The seal itself lives in `artifact-frame/build-srcdoc.ts` — read the lore there before changing
+ * anything here, particularly the part about why there are two layers.
  */
 
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
@@ -32,29 +29,11 @@ export interface ArtifactFrameProps {
 	title?: string;
 }
 
-/**
- * @lore NEW-20: `bg-white` is intentionally theme-independent. The iframe element's
- * background shows as a letterbox behind the shell canvas; `bg-[var(--surface-page)]`
- * resolved to the app's dark canvas colour in dark mode, making the rectangle black.
- * The artifact viewport is a document surface — paper-white regardless of the host
- * theme. The `colorScheme:'light'` on the style prop (see below) stops the browser
- * passing `color-scheme:dark` from the app root into the srcdoc rendering context.
- */
+// @lore: bg-white on iframe — artifact viewport is paper-white; colorScheme:light stops browser from passing color-scheme:dark into srcdoc; letterbox stays light
 const FRAME_CLASS =
 	"block w-full border-width-thin border-[var(--border-subtle)] rounded-[var(--r-default)] bg-white max-h-[70vh]";
 
-/**
- * What the user is told about the box.
- *
- * @lore AZ6: this line says what the frame IS, not everything it cannot do, and
- * that is deliberate. Earlier versions promised an absolute — "no access to your
- * data or the network" — and an absolute about a security boundary is only as
- * true as the last channel someone thought to try. Two review rounds each found
- * one nobody had. A sentence whose truth depends on enumerating every channel in
- * the web platform will eventually be a lie printed under a hostile page. This
- * one stays true on its own: the artifact runs in its own document, sealed off
- * from the app. Keep it modest if you edit it.
- */
+// @lore: SEALED_NOTE wording — states what the frame IS; enumerating channels eventually lies when a new channel is added; present-tense wording stays true
 const SEALED_NOTE = "Runs on its own, in a box sealed off from the app.";
 
 /** Read a height out of a size-changed notification, or null if it is not one. */
@@ -87,20 +66,7 @@ export function ArtifactFrame({ html, title = "Artifact" }: ArtifactFrameProps):
 		return () => window.removeEventListener("message", onMessage);
 	}, [onMessage]);
 
-	/**
-	 * There is deliberately no watcher for the shell being replaced.
-	 *
-	 * @lore AZ6: `frame-src 'none'` on the shell is what keeps an artifact in its
-	 * box, and that is measured (`probes/egress-matrix-result.json`, row C: loosening
-	 * only the INNER policy changes nothing; it is the shell's directive that pins
-	 * it). An earlier version counted `load` events on this iframe and painted a
-	 * "tried to leave its box" panel on the second one. It was cut, because it
-	 * guarded a case nothing in the artifact can reach and it could not have been
-	 * load-bearing anyway: the *Open larger* dialog below renders the identical
-	 * `srcDoc` with no counter at all, so if a replaced shell were a real threat the
-	 * largest view of the artifact would have been the unguarded one. Either it
-	 * matters everywhere or it matters nowhere. It is nowhere.
-	 */
+	// No watcher for shell replacement: frame-src 'none' on the shell is what keeps an artifact in its box (not the inner policy).
 	return (
 		<div {...dsProps("ArtifactFrame", "2")} className="flex flex-col gap-[6px] w-full">
 			<iframe

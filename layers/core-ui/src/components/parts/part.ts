@@ -9,21 +9,10 @@
  * conversation↔session reuse boundary, enforced by a scoped `no-restricted-imports` ESLint
  * rule (W1). The adapters below are the ONLY place that knows the source.
  *
- * @lore AM1: `prose` (the render kind) is deliberately decoupled from `plain`
- * (the Message type). A session event (AM3) that renders as a text body is
- * also a `prose` Part — it is not a `plain` Message. Keeping the names
- * distinct is what makes the renderer source-agnostic (concept hard-rule 4).
- *
- * @lore AM1 C1: a block/entity routes to its HOST surface via the `host`
- * OpenTarget — total over `HostKind` (the page resolves it through the
- * existing `resolveHostRoute`). No fabricated `documentId`, no unhandled host.
- *
- * @lore AM1 W5: `EntityRef.kind === "message"` has no permalink route → it
- * collapses to the `unknown` Embed (label-only, no target). EntityRef.kind is
- * now 3 members (document, task, message); CanvasArtifactRef carries
- * kind:"artifact" as a separate union member and also renders as unknown Embed.
- * The adapter dispatches over the full InlineRef union via exhaustiveAssert.
  */
+// @lore: prose Part kind — decoupled from the "plain" Message type; a session answer is also "prose"; keeps the renderer source-agnostic
+// @lore: entity-ref routing — block/entity routes to its HOST surface via the host OpenTarget; page resolves via resolveHostRoute; no fabricated documentId
+// @lore: message InlineRef — EntityRef.kind==="message" has no permalink route; collapses to unknown Embed (label-only)
 
 import type {
 	ActivityEntry,
@@ -51,9 +40,8 @@ function exhaustiveAssert(value: never): never {
 // ── Part discriminant (closed, derived, never stored) ───────────────
 
 /**
- * Extended with `tool` + `reasoning` (concept Phase 4, locked).
- * Stays closed + exhaustive + `unknown`-terminated. Adding a kind requires
- * a concept-doc update first (the concept doc IS that update for these two).
+ * Closed, exhaustive, `unknown`-terminated union.
+ * Adding a kind requires a concept-doc update first.
  */
 type PartKind =
 	| "prose"
@@ -67,10 +55,8 @@ type PartKind =
 /**
  * Closed tool-family set — icon/verb/expanded-shape per family.
  * An unrecognized family falls back to "generic" (mirrors `unknown` Part discipline).
- *
- * @lore AM3: `generic` is the explicit fallback entry — never throw on an unknown
- * family; the closed set lives here so callers can dispatch without guessing.
  */
+// @lore: generic fallback — never throw on an unknown tool family; closed set lives here so callers dispatch without guessing
 export const TOOL_KINDS = [
 	"command",
 	"file-read", // "read" alias
@@ -106,24 +92,12 @@ interface BasePart {
 	readonly embeds: ReadonlyArray<Embed>;
 }
 
-/**
- * Opaque routing target the review hook resolves.
- *
- * @lore `betId` DELETED, not widened. The route used to be
- * `/work/bet/:betId/review/:reviewId`, so a task-hosted review (no bet)
- * could never build a valid target — `canOpen` in `PartList.tsx` required a
- * bet id that a task-hosted thread has no way to supply. Once the loader
- * names the review's own thread directly, the route flattens to
- * `/reviews/:reviewId` and there is nothing left for a bet id to gate.
- */
+/** Opaque routing target the review hook resolves. */
 interface ReviewTarget {
 	readonly reviewId: string;
 	/**
-	 * @lore BC3: `open_thread` needs a thread id, not a message id, and no
-	 * action resolves one from the other (`search_threads` gained no
-	 * message-id filter — R5). Every `Message` already carries its own
-	 * `threadId`, so the adapter attaches it here rather than the review
-	 * page trying to rediscover it. See the BC3 build report.
+	 * Thread id is attached by the adapter (not derived later) — open_thread needs
+	 * a thread id, not a message id, and no action resolves one from the other.
 	 */
 	readonly threadId: string;
 }
@@ -185,18 +159,9 @@ export type Part =
 			readonly reason: "wire-unrecognised-type" | "redacted";
 	  });
 
-// The `artifact` Embed variant is DELETED with its only producer,
-// `artifactRefToEmbed` — a review's `artifactRef` pointed at a row in the
-// artifacts table, and both the field and the table are gone.
 export type Embed =
 	| {
-			/**
-			 * A file diff in an agent's tool activity. It carries NO target, because
-			 * there is nothing to open. Its `artifactId` used to be the file PATH, so
-			 * the `/artifacts/<path>` it pointed at could never have resolved to a row
-			 * even while that route existed — the chip was a dead click before the
-			 * artifacts table was deleted, not because of it.
-			 */
+			/** A file diff in an agent's tool activity. Carries no target — there is nothing to open. */
 			readonly kind: "diff";
 			readonly label: string;
 			readonly meta: string;
@@ -219,10 +184,11 @@ export type OpenTarget =
 			readonly route: "host";
 			readonly hostKind: RouteHostKind;
 			readonly hostId: string;
-			/** @lore AM5 T8: optional block anchor. open-handler appends #block-<encodeURIComponent(blockId)>
-			 *  to the resolved path; DocumentDetail scrolls to the matching data-block-id element.
-			 *  Security: blockId is matched by value comparison against known block ids, never
-			 *  concatenated into a querySelector (selector-injection mitigation). */
+			/**
+			 * Optional block anchor. Open-handler appends #block-<encodeURIComponent(blockId)> to the
+			 * resolved path; DocumentDetail scrolls to the matching data-block-id element.
+			 * blockId is matched by value comparison against known ids, never concatenated into a querySelector.
+			 */
 			readonly blockId?: string;
 	  }
 	| {
@@ -285,20 +251,6 @@ function resolveAuthor(
 	return { id: senderId, name: senderId, isAgent: false, isMe: senderId === viewerId };
 }
 
-// UI-043: kind-based display labels — ArtifactRef has no title field; raw id
-// must never surface as the chip label the user reads.
-//
-// @lore the respell from the retired five-value `ARTIFACT_VIEW_SHAPES`
-// vocabulary (`text_diff`/`content_preview`/`visual_comparison`/
-// `action_summary`/`data_metrics`) to the six consolidated `ARTIFACT_KINDS`
-// (`text`/`code`/`image`/`data`/`html`/`url`, `@hyperidle/domain-model`)
-// only ever gets WRITTEN going forward — no data migration touches rows
-// already persisted with a retired value (`ArtifactRef.kind` is an
-// unvalidated `string | undefined` on read, by design). The retired entries
-// stay here so an existing row keeps a real label instead of falling
-// through to "Artifact"; the six current entries are what a NEW row can
-// actually carry.
-
 /** Map one InlineRef to one Embed. Exhaustive over all InlineRef union members. */
 function inlineRefToEmbed(ref: InlineRef): Embed {
 	if (ref.kind === "mention") {
@@ -307,12 +259,11 @@ function inlineRefToEmbed(ref: InlineRef): Embed {
 	// CanvasArtifactRef (kind:"artifact") — points to a review canvas artifact,
 	// not a navigable page route. Renders as a non-navigating label so the chip
 	// appears in the conversation without trying to open a deleted /artifacts/:id.
-	// @lore artifacts-become-documents: ReviewPage reads this ref by kind to
-	// reconstruct the AnchorRef; the embed here is only for the conversation view.
+	// @lore: artifact embed — CanvasArtifactRef has no navigable page route; renders as non-navigating label; ReviewPage reads the ref by kind separately
 	if (ref.kind === "artifact") {
 		return { kind: "unknown", label: ref.id };
 	}
-	// EntityRef — exhaustive over all 3 EntityRef.kind members (W5).
+	// EntityRef — exhaustive over all 3 EntityRef.kind members.
 	switch (ref.kind) {
 		case "document":
 		case "task": {
@@ -326,7 +277,7 @@ function inlineRefToEmbed(ref: InlineRef): Embed {
 			};
 		}
 		case "message":
-			// W5: no permalink route exists for a message ref → quiet, non-navigating.
+			// No permalink route exists for a message ref → quiet, non-navigating.
 			return { kind: "unknown", label: ref.id };
 		default:
 			return exhaustiveAssert(ref);
@@ -344,10 +295,8 @@ function refsToEmbeds(refs: ReadonlyArray<InlineRef> | undefined): ReadonlyArray
  * message it resolves (`resolvesMessageId`). Session activity NEVER becomes a
  * Part (concept hard-rule 3) — a session is an Embed only.
  *
- * @lore BC3: `Message.payload` is `unknown` on the wire (architecture.md
- * §3.1) — each branch below parses it via the shared, per-type helpers in
- * `ds/message-payload.ts` rather than narrowing the bare field.
  */
+// @lore: Message.payload — unknown on the wire; each branch parses via shared per-type helpers in ds/message-payload.ts rather than narrowing the bare field
 export function derivePartsFromMessages(
 	messages: ReadonlyArray<Message>,
 	viewerId: string,
@@ -450,7 +399,7 @@ export function derivePartsFromMessages(
 			}
 			default: {
 				// A row deserialized from the wire with a `type` outside MESSAGE_TYPES
-				// (forward-compat / staged rollout) lands here — render quietly (N3).
+				// (forward-compat / staged rollout) lands here — render quietly.
 				parts.push({ ...base, kind: "unknown", reason: "wire-unrecognised-type" });
 				break;
 			}
@@ -464,26 +413,16 @@ export function derivePartsFromMessages(
 /**
  * Normalize a toolKind string to the closed ToolKind family set.
  * An unrecognized family → "generic" (never throw — mirrors `unknown` Part).
- *
- * @lore AM3: "read" and "file-read" are the same family; "edit" and "file-change"
- * similarly. We normalize both aliases to their canonical form here so the
- * renderer only dispatches on a consistent set.
  */
+// @lore: tool family aliases — "read"/"file-read" and "edit"/"file-change" are the same family; normalized here so the renderer dispatches on a consistent set
 function normalizeToolKind(raw: string | undefined): ToolKind {
 	if (raw === undefined || raw === "") return "generic";
 	if ((TOOL_KINDS as ReadonlyArray<string>).includes(raw)) return raw as ToolKind;
 	return "generic";
 }
 
-/**
- * Derive an `OpenTarget` for a file-diff Embed. The `target` routes to an
- * artifact surface; `meta` carries the `+N/−M` stat for the diff chip.
- *
- * @lore AM3: We use the diff label as the artifactId placeholder. In production
- * the session adapter will receive a real artifactId from the harness event;
- * for now the label (file path) serves as a stable handle the diff surface
- * resolves. Hard-rule: one diff renderer (`ReviewCodeDiff`) — never a new one.
- */
+/** Derive a file-diff Embed. `meta` carries the `+N/−M` stat for the diff chip. */
+// @lore: diff embed label — file path used as stable handle; one diff renderer (ReviewCodeDiff); never add a second
 function diffEmbed(label: string, added: number, removed: number): Embed {
 	return {
 		kind: "diff",
@@ -507,15 +446,9 @@ function diffEmbed(label: string, added: number, removed: number): Embed {
  *  - `answer_settled`→ `prose` Part (final text)
  *  - `human_message`→ `prose` Part authored by the human (self/other pattern handles alignment)
  *
- * Exhaustive over `ActivityEntry["type"]` via the default branch with a lore note.
- *
- * @lore AM1 AC5: this is the executable half of the source-agnostic boundary.
- * Two adapters, one renderer, zero renderer change.
- * @lore AM3: Parts are derived-never-stored. Streaming prose Parts grow by
- * consecutive `answer_delta` entries being merged into one `prose` Part (the
- * Part's text is the concatenation). The Part's id derives from the FIRST delta's
- * timestamp to maintain stable identity across appends.
+ * Exhaustive over `ActivityEntry["type"]` via the default branch.
  */
+// @lore: streaming prose merge — consecutive answer_delta accumulate into one prose Part; id = FIRST delta's timestamp for stable identity across appends
 export function derivePartsFromSession(
 	entries: ReadonlyArray<ActivityEntry>,
 	agent: PartAuthor,
@@ -565,7 +498,7 @@ export function derivePartsFromSession(
 					verb: d.verb ?? d.toolName ?? "Tool call",
 					target: d.target ?? (d.argsSummary !== "" ? d.argsSummary : undefined),
 					toolKind,
-					// Default to "neutral" when status is absent (Q1 buffer compat)
+					// Default to "neutral" when status is absent
 					status: d.status ?? "neutral",
 					output: d.output,
 					...(d.opensSession ? { opensSession: d.opensSession } : {}),
@@ -644,9 +577,7 @@ export function derivePartsFromSession(
 
 			default: {
 				// Forward-compat: a future ActivityEntry type lands here quietly.
-				// @lore AM3: exhaustiveAssert would throw in strict TypeScript but
-				// we must not throw at runtime (unknown future types degrade quietly).
-				// The default branch is correct here (not `assertNeverPart`).
+				// @lore: no exhaustiveAssert in this default — must not throw at runtime; unknown future types degrade quietly
 				break;
 			}
 		}
@@ -663,11 +594,8 @@ export function derivePartsFromSession(
 /**
  * A stream block — either a single (non-tool or standalone-running-tool) or
  * a tool-run aggregate (all completed tool calls within the agent turn).
- *
- * @lore AM3: Aggregation is a RENDERER grouping beside `groupParts` — NOT a
- * Part kind. Keeping it out of the union keeps the union small and exhaustive.
- * `ToolRunBlock` lives here (adapter layer) so the renderer can import one shape.
  */
+// @lore: ToolRunBlock is a renderer grouping beside groupParts — NOT a Part kind; keeping aggregation out of the union keeps the union small and exhaustive
 export type ToolRunBlock =
 	| { readonly kind: "single"; readonly part: Part }
 	| {
@@ -678,13 +606,12 @@ export type ToolRunBlock =
 	  };
 
 /**
- * THE AGGREGATION RULE (architecture §c, concept Phase 4, founder review round 5):
+ * THE AGGREGATION RULE:
  *  - ALL COMPLETED tool calls fold into the turn's aggregate expander — INCLUDING failed ones.
  *  - The ONLY tool that renders STANDALONE is the currently-RUNNING one.
  *  - `aggregateAt` = 2: two consecutive completed calls already fold.
  *
- * @lore AM3: "diffs never lost" — the diff Embed stays on the tool Part inside
- * the aggregate; the Changed files panel always surfaces them regardless of fold.
+ * Diff Embeds stay on the tool Part inside the aggregate; the Changed files panel always surfaces them.
  */
 export function aggregateToolRun(
 	toolParts: ReadonlyArray<Extract<Part, { kind: "tool" }>>,

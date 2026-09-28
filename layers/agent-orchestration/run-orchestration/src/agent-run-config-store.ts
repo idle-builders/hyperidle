@@ -1,21 +1,8 @@
 /**
  * The sole reader/writer of `agent_run_config`.
  *
- * @lore AU26 G1: these fields (six at the time) lived on `users` until AU26. Core administers
- * them (Settings → Agents writes them, the agent profile renders them) but
- * never operationally consumes them for its own purpose — only an agent's
- * session does. So the columns relocated into an `agent-orchestration`-owned
- * table and `users` stayed the single human + agent identity record.
  *
- * @lore AU26 G1: **absent row ≡ all-null row.** `readAgentRunConfig` returns
- * `DEFAULT_AGENT_RUN_CONFIG` rather than `undefined` when an agent has no row.
- * That is the §D-L backfill invariant restated for the steady state: the
- * effective defaults live in the resolvers (provisioning's `"workhorse"` tier
- * fallback, adapter selection's "null harness ⇒ any adapter eligible"), never
- * in the columns — so an agent with no row must resolve exactly what an agent
- * with an all-null row resolves. Callers must NOT treat a missing row as
- * "agent does not exist": existence is a `users` question, and mixing the two
- * would turn a never-configured agent into a fail-closed one.
+ * @lore: agent-run-config absent row ≡ all-null row; missing ≠ "does not exist" (existence is a users question); never fail-closed
  */
 
 import {
@@ -208,9 +195,3 @@ export async function writeAgentRunConfig(
 	}
 	await insert.onConflictDoUpdate({ target: agentRunConfig.agentUserId, set: updateSet });
 }
-
-// @lore A `writeAgentRunConfigIfAbsent` lived here, for the every-launch factory
-// bootstrap to seed first-boot run config without overwriting user edits. Its one
-// caller wrote the built-in harness and a hardcoded Anthropic model; with that
-// harness retired, everything left to seed was what an absent row already resolves
-// to (`DEFAULT_AGENT_RUN_CONFIG`), so the caller went and this went with it.

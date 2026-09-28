@@ -1,16 +1,9 @@
 /**
  * Derive a run-config harness/model pick from a HarnessCapabilityDescriptor.
- *
- * @lore BC5 T7: maps the chosen descriptor to `edit_user`'s `runConfig` shape —
- * SetupFlow.tsx wires it straight into the assistant/team-agent `edit_user`
- * calls (the team-creation seam this once fed is deleted; the shape survives
- * because `runConfig` needs exactly the same three fields).
  * Filters models on .selectable === true to exclude inherited/non-choosable models.
  * A model the user named explicitly (bring-your-own-key) wins over both.
  *
- * @lore AV1: Only called on a choosable (installed/ready) descriptor — greyed rows
- * never produce a pick. The .selectable filter is essential: CLI harnesses
- * list non-selectable models that must not become the primary.
+ * @lore: only call on choosable (installed/ready) descriptors — greyed rows never produce a pick; .selectable blocks non-choosable CLI models from primary
  */
 
 import type { HarnessCapabilityDescriptor } from "./harness-capability-descriptor.js";

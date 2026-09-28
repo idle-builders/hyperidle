@@ -1,27 +1,6 @@
-/**
- * L1a / L11 — `ThreadShell` design-system component.
- *
- * Plan §7.7 (L1) + L11 plan §5.5. Composition root that mounts:
- *  - `ThreadHostBanner` (always — only chrome above the stream after L11)
- *  - The message stream — promoted rich message → `RichMessageCard`,
- *    other unresolved review/questionnaire → `CommentRow` rich-row variant,
- *    everything else → standard `CommentRow`.
- *  - `Composer` (always pinned at the floor)
- *
- * @lore L11 plan §6.2: `ThreadHead` and `ReviewVerdictBar` mounts removed.
- * The promotion rule (`promotedRichMessageId`) replaces `headCollapsePredicate`
- * for rendering — head was about WHERE rich content rendered (above the
- * stream); promotion is about WHICH rich message becomes a card. The
- * `headCollapsePredicate` helper still ships from shared for `isBlocking`.
- *
- * @lore L11 plan §5.5: the IntersectionObserver / verdict-bar wrapper /
- * verdict-sentinel testid / `Unresolved review · acting required ↑` link
- * are deleted. Sticky-within-card replaces the sticky bar; the card sits
- * in the stream so there is nothing for the link to scroll to.
- *
- * State coverage (approved.md §4): empty / loading / error / populated-issue
- * / populated-chat / populated-resolved / populated-overflow.
- */
+// @lore: promotedRichMessageId replaces headCollapsePredicate — head was WHERE rich content rendered; promotion is WHICH message becomes a card
+
+// @lore: sticky-within-card replaces IntersectionObserver verdict bar — card sits in stream; no sentinel to scroll to
 
 import type {
 	AgentSessionStateSnapshot,
@@ -42,7 +21,7 @@ import { SkeletonList } from "./Skeleton.js";
 import { ThreadHostBanner } from "./ThreadHostBanner.js";
 import { promotedRichMessageId } from "./thread-display.js";
 
-const SENDER_GROUP_WINDOW_MS = 5 * 60 * 1000; // approved.md §2.4 — 5 minutes
+const SENDER_GROUP_WINDOW_MS = 5 * 60 * 1000; // 5-minute grouping window
 
 export interface ThreadShellIdentity {
 	name: string;
@@ -65,42 +44,19 @@ export interface ThreadShellProps {
 	onAppendMessage: (input: ThreadShellAppendInput) => Promise<void>;
 	loading?: boolean;
 	error?: string;
-	/**
-	 * Optional snapshot of the agent's session state. Drives the
-	 * `ThreadHostBanner` blocking indicator AND the `RichMessageCard`
-	 * `--danger` left-border.
-	 */
 	agentSessionState?: AgentSessionStateSnapshot;
 	hostTitle?: string;
 	hostHref?: string;
 	/**
-	 * When true, ThreadHostBanner is not rendered. Use when the consuming
-	 * page already renders its own header with thread title — avoids a
-	 * duplicate header above the message stream.
-	 *
-	 * @lore visual-parity-audit: Conversations.tsx renders its own <header>
-	 * with the thread title and dial-in button. Without this prop, ThreadShell
-	 * also renders ThreadHostBanner, producing two stacked headers.
+	 * @lore: Conversations.tsx renders its own header — without this prop ThreadShell also renders ThreadHostBanner, producing two stacked headers
 	 */
 	hideHostBanner?: boolean;
 	/**
-	 * Optional HTML sanitizer (e.g. DOMPurify). Threaded through to
-	 * `CommentRow` so that raw HTML blocks in plain messages are sanitized
-	 * before rendering. When absent, html payloads degrade to UnknownPayload.
-	 *
-	 * @lore R3 C-1 (reviewer): web consumer (Conversations.tsx) passes
-	 * DOMPurify here; design-system stays free of DOMPurify dependency.
+	 * @lore: web consumer passes DOMPurify here; design-system stays free of DOMPurify dependency; absent → html payloads degrade to UnknownPayload
 	 */
 	sanitizeHtml?: (raw: string) => string;
 	/**
-	 * Optional render function for per-message extra content.
-	 * Called per plain message; return value is appended after the message
-	 * body (afterBody). Used by AssistantOverlay to render tinted tool-call
-	 * summary rows for messages with payload.toolCalls.
-	 *
-	 * @lore AD8b: Keeps design-system free of ToolCallSummary rendering
-	 * logic. The web-layer consumer (AssistantOverlay) provides the render
-	 * function; ThreadShell just calls it per message.
+	 * @lore: design-system free of ToolCallSummary logic — web consumer (AssistantOverlay) provides the render function; ThreadShell calls it per message
 	 */
 	renderMessageExtra?: (message: Message) => ReactNode;
 }
@@ -110,9 +66,6 @@ interface SenderGroupedMessage {
 	readonly showSenderHeader: boolean;
 }
 
-/**
- * Group consecutive messages from the same sender within a 5-minute window.
- */
 export function computeSenderGrouping(
 	messages: ReadonlyArray<Message>,
 ): ReadonlyArray<SenderGroupedMessage> {
@@ -192,11 +145,7 @@ function buildRichSlots(message: Message): RichSlotsForRow | null {
 				</>
 			),
 			body: null,
-			// @lore L11 plan §6.2 CONFUSION-A + step9 W2: questionnaire
-			// dispatch is render-only at the page level for L11 (no answer
-			// commit endpoint). Buttons are disabled + aria-disabled so the
-			// user gets honest feedback instead of a dead-click. All-ghost
-			// styling — no false hierarchy on neutral-choice questionnaires.
+			// @lore: questionnaire buttons disabled + aria-disabled — no answer commit endpoint; user gets honest feedback instead of a dead click
 			actions:
 				payload.options.length > 0
 					? payload.options.map((opt: string) => (
@@ -241,12 +190,7 @@ export function ThreadShell({
 		[messages],
 	);
 
-	// @lore L11 step9 (apply-review C2): a single card subject — the
-	// promoted unresolved candidate when one exists, otherwise the
-	// most-recent resolved review/questionnaire WITH a recorded verdict.
-	// Render goes through ONE path; the card's `resolved` prop is what
-	// flips when `promotedRichMessageId` re-evaluates after a successful
-	// verdict POST. No second `<li>` synthesised above the stream.
+	// @lore: single card subject — promoted unresolved when present, else most-recent resolved with verdict; one render path; resolved prop flips on verdict
 	const cardSubject = useMemo(() => {
 		const promotedId = promotedRichMessageId(ordered);
 		if (promotedId !== null) {
@@ -291,12 +235,7 @@ export function ThreadShell({
 		{ phase: "idle" } | { phase: "saving" } | { phase: "error"; reason: string }
 	>({ phase: "idle" });
 
-	/**
-	 * @lore L7 reconciliation: L11 left retry as render-only (CONFUSION-C §5.6).
-	 * L7 wires retry at the page level via props. The reconciled approach stores
-	 * the last verdict dispatch input here so `handleCardAction("retry")` can
-	 * re-invoke `dispatchVerdict` without re-lifting state to the page.
-	 */
+	// @lore: lastVerdictInput stored here so retry can re-invoke dispatchVerdict without re-lifting state to the page
 	const lastVerdictInput = useRef<{
 		type: "verdict";
 		payload: { decision: string; resolvesMessageId: string };
@@ -353,8 +292,7 @@ export function ThreadShell({
 				await dispatchVerdict(prior);
 			}
 		}
-		// answer intentionally render-only at the page level for L11
-		// (plan §5.6 CONFUSION-C). The card surfaces the click; no dispatch.
+		// answer is render-only — the card surfaces the click; no dispatch endpoint
 	};
 
 	const resolvedHostTitle = hostTitle ?? `${thread.hostKind}/${thread.hostId}`;

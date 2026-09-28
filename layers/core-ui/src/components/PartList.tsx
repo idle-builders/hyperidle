@@ -2,17 +2,12 @@
  * PartList: the source-agnostic conversation renderer.
  *
  * Author-groups a `Part[]` (via `groupParts`), then exhaustively dispatches
- * each Part to its per-kind renderer. The renderer imports ONLY the
- * source-agnostic `Part`/`OpenHandler` vocabulary — NEVER `Message`,
- * `InlineRef`, or any `harness` type. That import-absence is the conversation↔session
- * reuse boundary, enforced statically by a scoped `no-restricted-imports`
- * ESLint rule (eslint.config.ts, W1). A second adapter (`derivePartsFromSession`)
- * feeds the SAME `Part[]` with zero change here.
- *
- * @lore AM1: dispatch is exhaustive with an `unknown` fallback that NEVER
- * throws — a future drifted PartKind degrades quietly (mirrors Block `unknown`).
- * `assertNeverPart` gives compile-time exhaustiveness AND a runtime UnknownPart.
+ * each Part to its per-kind renderer. Imports ONLY the source-agnostic
+ * `Part`/`OpenHandler` vocabulary — NEVER `Message`, `InlineRef`, or any harness type.
+ * That import-absence is the conversation↔session reuse boundary, enforced by a scoped
+ * `no-restricted-imports` ESLint rule.
  */
+// @lore: dispatch exhaustiveness — unknown fallback never throws; a future drifted PartKind degrades to UnknownPart silently
 
 import { Fragment, type JSX } from "react";
 import { Avatar } from "../ds";
@@ -41,15 +36,10 @@ function renderPart(
 		case "prose":
 			return <ProsePart part={part} onOpen={onOpen} />;
 		case "review":
-			// The route no longer needs a bet id — `/reviews/:reviewId` resolves
-			// for any host — so the `canOpen` gate that hid "Open review" on a
-			// task-hosted thread is deleted rather than widened. There is
-			// nothing left to guard.
 			return <ReviewRequestPart part={part} onOpen={onOpen} />;
 		case "resolved":
 			return <ReviewResolvedPart part={part} onOpen={onOpen} />;
 		case "questionnaire":
-			// UI-004: onAnswer posts the chosen option as a plain message via onSend.
 			return <QuestionnairePart part={part} onAnswer={onAnswer} />;
 		case "tool":
 			// Tool Part — bare one-liner row; per-kind icon; expand-to-output.
@@ -94,35 +84,18 @@ function GroupAvatar({ name, isAgent }: { name: string; isAgent: boolean }): JSX
 export interface PartListProps {
 	parts: ReadonlyArray<Part>;
 	onOpen: OpenHandler;
-	/**
-	 * UI-004: when provided, clicking a questionnaire option posts it as a plain
-	 * reply via this callback (wired to ConversationSurface's onSend at the page).
-	 */
+	/** When provided, clicking a questionnaire option posts it as a plain reply via this callback. */
 	onAnswer?: (text: string) => void;
 }
 
-/**
- * UI-104: Extract the locale-formatted date label (e.g. "Jun 17, 2026") for
- * display in the day separator. Display uses the viewer's local timezone.
- */
+/** Locale-formatted date label (e.g. "Jun 17, 2026") for the day separator. Uses the viewer's local timezone. */
 function groupDayLabel(group: ReturnType<typeof groupParts>[number]): string {
 	const head = group.parts[0];
 	if (!head?.createdAt) return "";
 	return absoluteDate(head.createdAt);
 }
 
-/**
- * UI-104: UTC-based day key (YYYY-MM-DD) used for comparing whether two groups
- * fall on different calendar days. Using UTC avoids timezone edge cases where
- * `absoluteDate` (local time) maps timestamps near midnight onto the same
- * local day even though they crossed a UTC midnight boundary.
- *
- * @lore Day boundaries use UTC so the comparison is stable across timezones.
- * The display label (groupDayLabel) still uses local time so the user sees
- * their own date. The two are always consistent: a UTC boundary always
- * separates dates that differ by at least one UTC day, and the display label
- * always reflects the local date of the first message in the later group.
- */
+// @lore: day boundary key — UTC YYYY-MM-DD for comparison; display uses local time; UTC boundary separates distinct local dates without cross-timezone gaps
 function groupDayUTCKey(group: ReturnType<typeof groupParts>[number]): string {
 	const head = group.parts[0];
 	if (!head?.createdAt) return "";
@@ -131,11 +104,7 @@ function groupDayUTCKey(group: ReturnType<typeof groupParts>[number]): string {
 	return new Date(epoch).toISOString().slice(0, 10);
 }
 
-/**
- * UI-104: Day separator rendered between message groups from different calendar days.
- * Matches the slim "date divider" pattern used by chat apps — centred label on a
- * full-width rule so the eye reads the date at a glance.
- */
+/** Day separator between message groups from different calendar days. */
 function DaySeparator({ label }: { label: string }): JSX.Element {
 	return (
 		// biome-ignore lint/a11y/useSemanticElements: not a form — <fieldset> doesn't apply to a chat date divider; role="group" is what makes the aria-label below take effect.
@@ -165,11 +134,6 @@ export function PartList({ parts, onOpen, onAnswer }: PartListProps): JSX.Elemen
 				// carries the it's-me. One pattern, shared by conversation + session.
 				const isSelf = group.author.isMe;
 
-				// UI-104: show a day separator when this group's UTC calendar day differs from the
-				// previous group's UTC day. Never fires for the first group (index 0) — there is
-				// nothing to separate it from. The separator appears ABOVE the first group of a
-				// new day so the eye reads "date" → "first message of that day".
-				// UTC key is used for comparison so timezone-edge cases don't suppress separators.
 				const thisDay = groupDayLabel(group);
 				const thisDayKey = groupDayUTCKey(group);
 				const prevDayKey = index > 0 ? groupDayUTCKey(groups[index - 1] ?? group) : thisDayKey;

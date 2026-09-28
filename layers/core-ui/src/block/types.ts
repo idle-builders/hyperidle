@@ -1,9 +1,6 @@
 /**
- * L2 Block primitive types. Concept: docs/blocks/.
+ * Block primitive types. Concept: docs/blocks/.
  * docs/blocks/canonical-shapes.md is the canonical signature.
- *
- * @lore AU44-b8: moved here from framework/domain-model/src/blocks/types.ts.
- * block-derivation dissolved into core-ui (batch 7); types follow their producer.
  */
 
 export const BLOCK_KINDS = [
@@ -20,25 +17,21 @@ export const BLOCK_KINDS = [
 ] as const;
 export type BlockKind = (typeof BLOCK_KINDS)[number];
 
-// @lore BB1: "bet" removed — root tasks (parentTaskId===null) replace bets.
 export const BLOCK_HOST_KINDS = ["task", "document", "artifact", "agent", "user"] as const;
 export type BlockHostKind = (typeof BLOCK_HOST_KINDS)[number];
 
-/**
- * @lore Branded BlockId — nominal type prevents passing arbitrary strings
- * where a derived BlockId is required. Construct only via blockId().
- */
+// @lore: BlockId — branded nominal type; prevents passing arbitrary strings where a derived BlockId is required; construct only via blockId()
 export type BlockId = string & { readonly __brand: "BlockId" };
 
 export const BLOCK_ID_VERSION = "blk:v1" as const;
 
-/** Defence-in-depth allowlist for image URLs. AC-15a. */
+/** Defence-in-depth allowlist for image URLs. */
 export const IMAGE_URL_SAFE_SCHEMES = ["http:", "https:", "data:image/"] as const;
 
 /** Defence-in-depth allowlist for inline-link URLs. */
 export const LINK_URL_SAFE_SCHEMES = ["http:", "https:", "mailto:", "tel:"] as const;
 
-/** 256 KB body cap. See L2-plan § 4.1.1. */
+/** 256 KB body cap. */
 export const MAX_BODY_BYTES = 256 * 1024;
 
 export interface BlockAnchor {

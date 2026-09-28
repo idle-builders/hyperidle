@@ -6,13 +6,7 @@
 // faithful opened email render with a desktop/mobile toggle (L2), then exposes
 // flags + the send plan on demand (L3).
 //
-// @lore The email body is hand-built from divs with neutral, email-safe inline
-// styling (white background, neutral borders) rather than a screenshot or an
-// <iframe srcDoc>. This keeps the render diffable in the DOM-snapshot net and
-// avoids shipping raw HTML. The REVIEW CHROME around it uses Hearth/CP1 tokens
-// by name only (AQ-008); the email body is the one place neutral email styling
-// is allowed, because that IS the artifact under review (it must look like an
-// email, not like Hearth chrome). Tool-brand color lives only in <ToolLogo>.
+// @lore: email body — hand-built from divs (not screenshot/iframe); diffable in DOM-snapshot; email body uses neutral styling, review chrome uses Hearth tokens
 //
 // Presentational isolation component: local useState for the desktop/mobile
 // toggle + flag-panel expand. The review frame owns the verdict gate.
@@ -136,10 +130,7 @@ export function EmailRender({
 				borderRadius: 12,
 			}}
 		>
-			{/* No brand name here: this header bar used to hardcode "HyperIdle"
-			    regardless of who actually sent the email. There is no payload field
-			    for a brand distinct from the sender already named in the inbox row
-			    above — subtracted rather than duplicating that same value here. */}
+			{/* No brand name: no payload field for a brand distinct from the sender already in the inbox row above. */}
 
 			{/* hero */}
 			<div style={{ padding: viewport === "mobile" ? "24px 20px" : "32px 36px" }}>

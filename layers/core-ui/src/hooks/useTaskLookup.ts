@@ -1,30 +1,8 @@
-/**
- * useTaskLookup — resolve task ids to titles for the dependency chips.
- *
- * A dependency chip must show the task's title, not its id (searching by
- * title and then displaying a raw id is half a fix). Freshly-picked
- * dependencies already carry a title from the search result that picked
- * them; dependencies loaded from the server (the edit surface's existing
- * list) carry only ids. This hook resolves those via `search_tasks`'s
- * `ids` filter — the same batch lookup, now the action door.
- *
- * Best-effort: a lookup failure leaves the id unresolved and the caller
- * falls back to showing the id rather than blocking the chip from rendering.
- *
- * @lore React StrictMode double-invokes effects in dev — mount, cleanup
- * (abort), mount again. If an id were marked "known" the instant its fetch
- * *started*, the cleanup's abort would fire before it resolved and the
- * second mount would see nothing missing — the title lost for good, with
- * nothing left to retry it. So `knownRef` only gains an id once its title
- * actually resolves; the cleanup releases any id whose fetch never settled,
- * so a later effect run (StrictMode's second mount, or a real remount)
- * retries it instead of silently giving up.
- */
+// @lore: knownRef gains id only once title resolves — StrictMode abort fires before fetch settles; marking on start loses the title permanently with no retry
 
 import { useEffect, useRef, useState } from "react";
 import { call } from "../services/call.js";
 
-/** Maps each id in `ids` to its title, once resolved. Ids never seen resolve on the next id set that includes them. */
 export function useTaskLookup(ids: readonly string[]): Readonly<Record<string, string>> {
 	const [titles, setTitles] = useState<Readonly<Record<string, string>>>({});
 	// Tracks ids already resolved or in flight, outside React state, so the

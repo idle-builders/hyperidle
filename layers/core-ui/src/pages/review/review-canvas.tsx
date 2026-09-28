@@ -50,11 +50,8 @@ function fileExtension(path: string): string {
 /**
  * Derive a stable {@link BlockId} for a single diff line.
  *
- * @lore AL4: Diff lines are not markdown. We synthesise a `code` payload and
- * an outline path that includes the artifact + file + hunk index. The line
- * survives edits that keep it inside the same hunk, but renames / hunk
- * renumbering will orphan anchors — accepted limitation.
  */
+// @lore: lineBlockId — diff lines are not markdown; synthesises code payload with artifact+file+hunk path; renames/hunk renumbering orphan anchors (accepted)
 export function lineBlockId(
 	artifactId: string,
 	filePath: string,

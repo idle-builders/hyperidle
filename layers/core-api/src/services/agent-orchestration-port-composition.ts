@@ -1,33 +1,4 @@
-/**
- * `AgentOrchestrationPort`: Application-
- * layer composition root, mirroring `core-api-port-composition.ts`'s exact
- * pattern (in-process/network transport duality onto `hc<AppType>`) for the
- * OPPOSITE-direction door — agent-orchestration's own read surface, backed
- * by `agent-orchestration-sessions-routes.ts` (mounted at
- * `/api/agent-orchestration` in `app.ts`; see that route file's header for
- * why the HTTP hosting lives in core-api even though the data/query logic is
- * agent-orchestration's own).
- *
- * Unlike `CoreApiPort` (whose callers explicitly wrap the transport with
- * `withActorTransport` to attribute a write to a specific calling agent),
- * this door carries no per-agent actor semantics — it is a pure read, so the
- * `X-API-Key` credential is injected internally by `buildAgentOrchestrationPort`
- * itself, read at call-time from `process.env.HYPERIDLE_API_KEY` (same
- * env var the route's own auth middleware checks).
- *
- * @lore AU31 §3.2 — acquisition changed. There is no module-level transport
- * singleton anymore (`registerAgentOrchestrationTransport`/
- * `getRegisteredAgentOrchestrationTransport` are DELETED). Every composition
- * root builds exactly ONE `AgentOrchestrationPort` with
- * `buildAgentOrchestrationPort(transport)` and hands it to every consumer —
- * routes, reaction registrars, the `{ db, eventBus }` service-lane fixture —
- * as an ordinary value, the same way `adapterPool` already threads through
- * `AppOptions`. Production builds the transport as an arrow closing over a
- * root-local `let` filled once the composed app exists
- * (`applications/remote-server/src/create-server.ts`); a call before that
- * binding is filled throws the same named error the singleton used to throw,
- * minus the cross-test bleed an ambient global caused.
- */
+// @lore: agent-orchestration-port — no singleton transport; composition root builds ONE port threaded as a value; call before binding fills throws a named error
 
 import type {
 	AgentOrchestrationAddFolderResult,
@@ -84,7 +55,6 @@ interface AgentOrchestrationHcClient {
 		};
 		readonly runs: {
 			readonly "stop-for-tasks": {
-				// @lore AU44 batch6: `reason` dropped from request body.
 				$post(args: { readonly json: { readonly taskIds: readonly string[] } }): Promise<Response>;
 			};
 			readonly "end-for-handoff": {
@@ -213,10 +183,6 @@ export function buildAgentOrchestrationPort(
 
 	return {
 		sessions: {
-			/**
-			 * @lore AU26 B1a (AC5(d)): returns the FULL 18-column wire row, never
-			 * the seven-field decoration narrowing. A 404 resolves `null`.
-			 */
 			async getById(sessionId: string): Promise<AgentOrchestrationSessionWireRow | null> {
 				const res = await client["agent-orchestration"].sessions[":sessionId"].$get({
 					param: { sessionId },
@@ -357,7 +323,6 @@ export function buildAgentOrchestrationPort(
 				if (!res.ok) return throwSeamError("folders.remove", res);
 				return (await res.json()) as AgentOrchestrationRemoveResult;
 			},
-			/** §6: the SAME write as `filesystems.persistInjection` above, under the `folders` family's own name. */
 			async give(
 				id: string,
 				agentUserId: string,
@@ -407,65 +372,29 @@ export function buildAgentOrchestrationPort(
 	};
 }
 
-/**
- * The seam-backed `AgentWorkIntentRecorder` factory: the
- * composition-root adapter that lets `@hyperidle/work`'s `transitionTask`
- * (site 6), `@hyperidle/policy`'s `handoff` (site 7), the subscription
- * clock (site 8) and `@hyperidle/review`'s proposed-call workflow
- * (site 9) — plus every route that records a work intent directly — go
- * through the port instead of importing `@hyperidle/session-requests`.
- *
- * `record` deliberately IGNORES the executor it is handed: a seam call is an
- * HTTP round trip through the composed app's own connection, so it can never
- * join a caller's transaction. That is exactly §3.1's ruling — cross-layer
- * atomicity is relinquished, not preserved by a clever executor
- * thread-through. Every call site that used to open a `db.transaction(...)`
- * around `.record(tx, …)` is restructured so the transaction commits the
- * core write(s) alone and this call runs AFTER, post-commit — never inside
- * one. Generic over `TTx` so one factory serves every call site's own
- * `AgentWorkIntentRecorder<TTx>` instantiation (`HyperIdleDb` at the route
- * layer, `WriteExecutor` inside `@hyperidle/work`/`@hyperidle/policy`).
- */
+// @lore: work-intent recorder — seam call is HTTP; cannot join caller transaction; commit core write first, call AFTER
 export function buildSeamBackedWorkIntentRecorder(
 	port: AgentOrchestrationPort,
 ): AgentWorkIntentRecorderFn {
 	return (input: AgentWorkIntentRecorderInput) => port.intents.submit(input);
 }
 
-/**
- * @lore BA2: the same mechanism for the review loop's verdict half. `review_sessions` belongs to
- * agent-orchestration, so the thread route asks across the seam rather than
- * reading the table, and gets back what happened — including that the agent
- * cannot be resumed, which the human then has to be told.
- */
+// @lore: review-verdict recorder — `review_sessions` belongs to agent-orchestration; the thread route asks across the seam rather than reading the table
 export function buildSeamBackedReviewVerdictRecorder(
 	port: AgentOrchestrationPort,
 ): ReviewVerdictRecorderFn {
 	return (input) => port.intents.recordReviewVerdict(input);
 }
 
-// @lore BC5 T11: `buildSeamBackedAgentRunConfigWriter` (the seam-backed
-// `OrgAgentRunConfigWriter` factory `@hyperidle/org`'s `persistScaffoldedAgents`
-// went through) is DELETED — `org.ts`/`teams-routes.ts`/`users.ts`'s setup
-// route, its only three callers, are gone with the `org` package they
-// scaffolded through. `edit_user` writes an agent's run config straight
-// through `AgentOrchestrationPort.runConfig.write` itself now (`compose.ts`).
-
 /**
  * The in-process transport: core-api's own Hono app dispatches the request
- * directly via `app.fetch`, zero network hop — same shape as
- * `createInProcessCoreApiTransport`.
+ * directly via `app.fetch`, zero network hop.
  */
 export function createInProcessAgentOrchestrationTransport(app: Hono): AgentOrchestrationTransport {
 	return async (req: Request) => app.fetch(req);
 }
 
-/**
- * The split/remote transport: a real network `fetch` against a real,
- * separately-running instance at `baseUrl` — same shape as
- * `createNetworkCoreApiTransport`, proving the same call site works whether
- * agent-orchestration's backing route is colocated or split out.
- */
+/** Real network `fetch` transport — for a separately-running instance at `baseUrl`. */
 export function createNetworkAgentOrchestrationTransport(
 	baseUrl: string,
 ): AgentOrchestrationTransport {

@@ -1,9 +1,3 @@
-/**
- * @lore AU44-b8: promotedRichMessageId moved here from framework/domain-model/src/thread.ts.
- * Only ThreadShell and RichMessageCard use it; this is a pure render rule.
- * Audit row 35: MERGE → design-system (=core-ui).
- */
-
 import type { Message, MessageId } from "@hyperidle/domain-model";
 
 export function promotedRichMessageId(messages: ReadonlyArray<Message>): MessageId | null {

@@ -1,9 +1,4 @@
-/**
- * @lore BC5 T10: the inbox carries a `ChangeRow` now, not a notification type
- * — there is no registry of type keys left to label from. This file derives
- * the popover row's label and link straight off the change's `object`/`kind`
- * (architecture.md §8: "renders the change row, links to the object").
- */
+// @lore: ChangeRow-based — no notification type registry; labels and links derived from change.object/kind
 
 import type { ChangeObject, ChangeRow } from "@hyperidle/domain-model";
 

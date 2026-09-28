@@ -1,12 +1,7 @@
 /**
- * Per-kind payload normalisation, and the GFM heading slug it is built on. Concept § 8.4.
+ * Per-kind payload normalisation, and the GFM heading slug it is built on.
  * The output of normalisedPayload(payload) is fed verbatim into the BlockId
  * hash. The sole source of normalisation logic.
- *
- * @lore AU34: `slug()` and its two sentinels used to be a module of their own. Nothing outside this
- * package reached them and only this module and `derive-blocks.ts` reached them from inside it, so
- * they were folded into the normaliser that defines what a heading hashes to rather than carried
- * across the split as a module with no consumer outside its package.
  */
 
 import GithubSlugger from "github-slugger";
@@ -29,15 +24,7 @@ const EMOJI_RE =
 	// biome-ignore lint/suspicious/noMisleadingCharacterClass: emoji ranges include surrogate pairs intentionally.
 	/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F000}-\u{1F2FF}\u{FE00}-\u{FE0F}\u{200D}]/gu;
 
-/**
- * @lore Per-call slugger instance — github-slugger holds an internal cache
- * keyed by previously-emitted slugs for de-duplication. Reusing a module-level
- * singleton with `.reset()` between calls is not safe under interleaved
- * concurrent execution (Promise.all, async iterators) because two interleaved
- * `slug()` calls would clobber each other's cache. `deriveBlocks` is pure and
- * tests its purity under interleaved conditions; instantiating per call
- * guarantees that property.
- */
+// @lore: github-slugger — per-call instance required; module-level singleton unsafe under concurrent calls (Promise.all clobbers internal cache)
 export function slug(text: string): string {
 	// Strip emoji first so all-emoji headings don't accidentally pass through.
 	const stripped = text.replace(EMOJI_RE, "").trim();
@@ -114,7 +101,7 @@ export function normalisedPayload(payload: BlockPayload): string {
 		case "image":
 			return `${NFC(payload.alt)}${payload.url}`;
 		case "html":
-			// Concept § 8.4 mandates CRLF→LF normalisation for code/unknown/html.
+			// CRLF→LF normalisation for code/unknown/html.
 			// We do NOT collapse inter-tag whitespace — that would silently change
 			// the hash of meaningfully different HTML (e.g. `<pre>` content where
 			// whitespace is significant).

@@ -1,14 +1,5 @@
-/**
- * The plugins that ship inside the app: one folder per plugin under the
- * bundled directory (the desktop build copies the repo's `plugins/` there).
- *
- * @lore A bundled install names a plugin; it never carries a path. The name
- * is matched exactly against the manifest names this listing read from the
- * server's own directory, and the path handed to the installer is the one
- * the listing built from that directory entry — so `../x`, an absolute path
- * or a folder that merely resembles a plugin can never be reached through
- * it. A missing or unreadable directory lists nothing; that is not an error.
- */
+// One folder per bundled plugin under the bundled directory.
+// @lore: bundled install names a plugin, never carries a path — installer resolves path from directory listing; ../x or absolute paths can't reach through it
 
 import { type Dirent, readdirSync } from "node:fs";
 import { join } from "node:path";

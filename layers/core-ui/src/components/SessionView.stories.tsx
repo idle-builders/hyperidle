@@ -13,14 +13,7 @@
  * `derivePartsFromSession` adapter → `PartList` dispatch. The DOM-snapshot net
  * exercises the real production components.
  *
- * @lore AM3: hard-rule — one message renderer (`PartList` over
- * `derivePartsFromSession`). The fixture fork (the old parallel AgentProse /
- * HumanRow / QueuedBubble / SessionComposer / blockStream / ToolGlyph atoms) has
- * been deleted; the story now exercises the production path.
- *
- * @lore AM3: fixture data was previously in sessionContentFixtures.tsx; inlined
- * here after the design-system viewer was removed (the file was story-data-only,
- * no other consumers).
+ * @lore one message renderer: PartList over derivePartsFromSession; fixture data inlined here (sessionContentFixtures.tsx had no other consumers)
  */
 
 import type { ActivityEntry } from "@hyperidle/domain-model";

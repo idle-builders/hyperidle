@@ -1,25 +1,8 @@
-/**
- * UseDialogBehavior: the single dismissal/guard/layer contract for all
- * overlay surfaces. Consumed by Dialog (box chrome) and directly by non-box
- * surfaces (TaskSheet, AssistantOverlay, NotificationPopover, GlobalSearch,
- * mobile drawer).
- *
- * @lore AI2: jsdom does not implement `inert` — the `inert` attribute is
- * applied via feature-detection (`"inert" in HTMLElement.prototype`). When
- * absent, the focus-trap still contains focus, so a11y degrades gracefully.
- * Never assert the `inert` attribute in unit tests; assert it via Playwright.
- *
- * @lore AI2: focus-trap-react requires displayCheck:"none" under jsdom because
- * jsdom doesn't lay out elements (all computed sizes are 0). This option is
- * carried from the existing web-side lore into this DS hook. Without it, the
- * trap throws "Your focus-trap must have at least one focusable element" in
- * every jsdom test environment.
- *
- * @lore AI2: ensureOverlayRoot() lazily creates and appends a #overlay-root
- * div to document.body as a SIBLING of #root (never inside it). This allows
- * createPortal to target a body-level node from any test without requiring
- * DialogPortalRoot to be mounted first. The function is idempotent.
- */
+// @lore: `inert` is feature-detected ("inert" in HTMLElement.prototype) — jsdom lacks it; never assert inert in unit tests, use Playwright
+
+// @lore: focus-trap-react needs displayCheck:"none" under jsdom — jsdom has no layout (all sizes 0); without it trap throws "no focusable element"
+
+// @lore: ensureOverlayRoot creates #overlay-root as a body sibling of #root — createPortal works in bare jsdom without pre-mounted DialogPortalRoot; idempotent
 
 import {
 	type KeyboardEventHandler,
@@ -66,14 +49,6 @@ const LAYER_Z: Record<DialogLayer, string> = {
 	dialog: "var(--z-dialog)",
 };
 
-/**
- * Lazily create and append #overlay-root to document.body as a body-level
- * sibling of #root. Idempotent — returns existing node if already present.
- *
- * @lore AI2: Called on mount so Dialog/non-box surfaces work in bare jsdom
- * tests without a pre-mounted DialogPortalRoot. The app shell also calls this
- * via DialogPortalRoot for a deterministic eager mount at startup.
- */
 export function ensureOverlayRoot(): HTMLElement {
 	const existing = document.getElementById("overlay-root");
 	if (existing) return existing;
@@ -93,14 +68,12 @@ export function useDialogBehavior({
 	const [guarding, setGuarding] = useState(false);
 	const overlayRef = useRef<HTMLElement | null>(null);
 
-	// Reset guarding state when dialog closes
 	useEffect(() => {
 		if (!open) {
 			setGuarding(false);
 		}
 	}, [open]);
 
-	// Scroll-lock: prevent body scroll while any modal dialog is open
 	useEffect(() => {
 		if (!(modal && open)) return;
 		const prev = document.body.style.overflow;
@@ -110,10 +83,7 @@ export function useDialogBehavior({
 		};
 	}, [modal, open]);
 
-	// Inert background: set inert on #root (sibling of #overlay-root) while modal open
-	// @lore AI2: inert is feature-detected — jsdom may not implement it.
-	// The focus trap still contains focus when inert is absent (graceful degradation).
-	// The element receiving inert is #root (app root), NOT #overlay-root or body.
+	// Inert background: applies inert to #root (not #overlay-root or body); feature-detected, degrades gracefully
 	useEffect(() => {
 		if (!(modal && open)) return;
 		if (!("inert" in HTMLElement.prototype)) return;
@@ -127,16 +97,13 @@ export function useDialogBehavior({
 
 	const requestDismiss = useCallback((): void => {
 		if (guarding) {
-			// Second Esc while guarding → cancelDiscard (Keep editing)
 			setGuarding(false);
 			return;
 		}
 		if (!isDirty) {
-			// Clean dialog or confirmation (isDirty=false) → close immediately
 			onClose();
 			return;
 		}
-		// Dirty → raise guard strip
 		setGuarding(true);
 	}, [guarding, isDirty, onClose]);
 
@@ -162,7 +129,6 @@ export function useDialogBehavior({
 
 	const handleScrimMouseDown: MouseEventHandler = useCallback(
 		(e) => {
-			// Only respond to direct clicks on the scrim, not children
 			if (e.target === e.currentTarget) {
 				requestDismiss();
 			}

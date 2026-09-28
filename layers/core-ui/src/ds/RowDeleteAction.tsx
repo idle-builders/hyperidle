@@ -1,33 +1,8 @@
-/**
- * RowDeleteAction — the one destructive-delete grammar for a Row's `actions`
- * slot: kebab → Menu → row flips to inline Confirm/Cancel.
- *
- * @lore FR-10: destructive delete moved behind a Menu; no inline one-click
- * Delete button ever sits directly on a row.
- * @lore FR-10b: Menu always closes after onSelect (Menu.tsx:183), so a
- * two-step confirm cannot stay inside one open menu. The first "Delete"
- * click closes the menu and flips the row to inline Confirm/Cancel buttons
- * — cleaner than reopening the menu for the second click.
- * @lore knowledge-attachment-slot: extracted from SettingsAgents.tsx, whose
- * open-menu/confirming-id state was lifted to the parent (coordinating one
- * open menu across every row in the list). Here each instance owns its own
- * state instead — simpler, and matches how SettingsConnections' ConnectionRow
- * already manages its own per-row menu. Two rows' menus open at once is an
- * edge case nothing else in this design system prevents either.
- * @lore knowledge-attachment-slot: `onDelete` is optional so a row that has
- * other menu items (e.g. "Edit") but no delete affordance for that particular
- * row (SettingsAgents' assistant row) still gets the same kebab+Menu chrome
- * without a destructive item or confirm step, instead of forking a second
- * "just a menu" component for one row.
- *
- * @lore knowledge-attachment-slot: the Menu below is always anchored
- * (`anchorRef`) rather than inline-positioned. A row-level kebab can sit in
- * any list container, including a "boxed" ItemList (`overflow-hidden`, for
- * the rounded-corner clip) — a single-row boxed list has no room inside that
- * box for an absolutely-positioned menu to open into, so it gets clipped at
- * the box edge with the Delete item invisible. Anchoring escapes that
- * ancestor entirely; see Menu.tsx's lore for the mechanism.
- */
+// @lore: destructive delete behind a Menu — no inline one-click Delete on a row
+
+// @lore: Menu closes after onSelect so two-step confirm flips row to inline Confirm/Cancel; cannot stay inside one open menu
+
+// @lore: Menu always anchored not inline — row-level kebab can be in overflow-hidden containers; inline menu clips at the box edge; anchoring escapes it
 
 import { type JSX, useCallback, useRef, useState } from "react";
 import { Menu, type MenuItem } from "./Menu.js";

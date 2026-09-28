@@ -5,7 +5,7 @@
 // happened yet. The reviewer's verdict is what fires the side-effect, so money +
 // reversibility must be the loudest things on the canvas.
 //
-// 3-layer drill-down (brief §1):
+// 3-layer drill-down:
 //   L1 — one glance: action headline + the AMOUNT (large, tabular) + Stripe logo +
 //        an irreversible marker.
 //   L2 — the receipt: the structured fields that define the operation (charge,

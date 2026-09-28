@@ -9,10 +9,8 @@
  * The diff chip is a label, not a control — it has no destination.
  * No new diff renderer (a hard rule).
  *
- * @lore AM3: Agent-authored fields (`verb`/`target`/`output`) render as
- * React-escaped TEXT only — no `dangerouslySetInnerHTML` in the activity path
- * (AM3 security rule).
  */
+// @lore: agent-authored fields — verb/target/output render as React-escaped TEXT only; no dangerouslySetInnerHTML in the activity path
 
 import { type JSX, useState } from "react";
 import { Button, LiveDot } from "../../ds";

@@ -1,13 +1,9 @@
 /**
  * The Filesystem wire/domain type.
- * Moved here from @hyperidle/filesystem-contract when that package dissolved.
- *
  * All auxiliary named types (FilesystemKind, WriteBack, ResourceRef, FilesystemState)
  * are inlined — their single consumers use the literals directly.
  *
- * @lore AU44 b2: FILESYSTEM_KINDS and WRITEBACK_MODES inlined into the route's
- * Zod enum where they are used; FilesystemState declared in filesystem-reachability.ts
- * next to the function that returns it.
+ * @lore: filesystem-shape — FILESYSTEM_KINDS and WRITEBACK_MODES inlined into the route's Zod enum; FilesystemState lives in filesystem-reachability.ts
  */
 
 /** A REGISTERED, team-scoped file source — NOT owned by one agent.

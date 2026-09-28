@@ -1,11 +1,3 @@
-/**
- * `startSubscriptionClock` — the schedule half of a subscription
- * (`event | schedule`, never both). Architecture.md §4: a running guard, a
- * `setInterval`, due rows fired then their `next_run_at` advanced — a
- * Service may depend on nothing but `@hyperidle/db`/framework packages, so
- * the tick loop is self-contained. Registered in `app.ts` beside
- * `registerSubscriptionFire`.
- */
 import type { HyperIdleDb, User } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { AgentWorkIntentRecorderFn } from "@hyperidle/domain-model";
@@ -125,11 +117,6 @@ async function tick(
 	}
 }
 
-/**
- * Start the tick loop. A running guard skips an overlapping tick (the
- * previous one is still in flight) rather than queuing it — the same shape
- * `startRoutineScheduler` uses.
- */
 export function startSubscriptionClock(
 	db: HyperIdleDb,
 	eventBus: EventBus,
