@@ -1,12 +1,3 @@
-/**
- * useDocument. Replaces `useKnowledgeItem`. One door: `call("open_document",
- * { id })`, kept live by the `document:<id>` websocket nudge.
- *
- * @lore BC4 architecture.md §7 (nudge): the push carries the `changes` row,
- * never the assembled view — on any frame for this document's topic the
- * hook re-runs `open_document` itself, the `useThread.ts` shape verbatim.
- */
-
 import type { DocumentView } from "@hyperidle/domain-model";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { call } from "../services/call.js";
@@ -31,8 +22,6 @@ export function useDocument(documentId: string | undefined | null): UseDocumentR
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `tick` is intentionally a dependency — bumping it via refresh() re-runs the call.
 	useEffect(() => {
 		if (!documentId) {
-			// "idle" is terminal for "no id given, nothing to open" — see
-			// useThread.ts's identical case.
 			setStatus("idle");
 			setError(null);
 			setData(null);
@@ -71,9 +60,7 @@ export function useDocument(documentId: string | undefined | null): UseDocumentR
 		setTick((n) => n + 1);
 	}, []);
 
-	// Nudge subscription — a frame on `document:<id>` means "something about
-	// this document changed"; the hook re-runs its own `open_document` rather
-	// than applying the change row itself.
+	// Nudge: re-run open_document on any frame for this document's topic
 	useEffect(() => {
 		if (!documentId) return;
 		cancelledRef.current = false;

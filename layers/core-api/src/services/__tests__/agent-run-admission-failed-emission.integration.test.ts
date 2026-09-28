@@ -7,7 +7,6 @@
  * right shape, for both terminal codes and the non-terminal (informational)
  * case.
  *
- * @lore streamId's exact format for a pre-resolution failure is unspecified — this test asserts presence as a non-empty string, not a format.
  */
 
 import { agentWorkIntents, type HyperIdleDb, teams, users } from "@hyperidle/db";
@@ -172,6 +171,4 @@ describe("agent_run_admission_failed — emission from failOrRelease", () => {
 			await dropRejectSessionRequestWritesTrigger(db);
 		}
 	});
-
-	// @lore The type system is the live proof that a direct run-row write from `failOrRelease` can't come back — no such dependency exists on `DurableQueueDeps`.
 });

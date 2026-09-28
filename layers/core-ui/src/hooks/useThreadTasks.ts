@@ -1,14 +1,3 @@
-/**
- * useThreadTasks. A thread's own tasks, listed where the old task link sat
- * — a thread's `hostKind` is never `task`, so there is no single
- * host-context link to a task; there can be several.
- *
- * One door: `call("search_tasks", { threadId })`. Kept live by the same
- * `thread:<id>` websocket nudge `useThread` already subscribes to — copied
- * verbatim: on any frame for this thread's topic the hook re-runs its own
- * fetch, no payload merging.
- */
-
 import type { Problem, TaskListItem } from "@hyperidle/domain-model";
 import { useEffect, useRef, useState } from "react";
 import { call } from "../services/call.js";
@@ -61,9 +50,7 @@ export function useThreadTasks(threadId: string | undefined | null): UseThreadTa
 		};
 	}, [threadId, tick]);
 
-	// Nudge subscription — copied from useThread.ts: a frame on `thread:<id>`
-	// means "something in this thread changed"; re-run the search rather than
-	// applying the change row itself.
+	// Nudge subscription — a frame on `thread:<id>` means "something in this thread changed"; re-run search rather than applying the change row.
 	useEffect(() => {
 		if (!threadId) return;
 		cancelledRef.current = false;

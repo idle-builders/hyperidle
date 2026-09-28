@@ -1,16 +1,3 @@
-/**
- * Client-local config file: config.json in Electron userData.
- *
- * Replaces window-state.json with a single typed file that holds
- * BackendMode, serverUrl, lastView, and window state. One file, one
- * Zod schema, one read on boot.
- *
- * @lore P3: Option A chosen over Option B (separate files). The one-time
- * window position reset on upgrade is benign. Having two files (config.json
- * + window-state.json) adds complexity without benefit. See architecture.md
- * Decision 1.
- */
-
 import * as fs from "node:fs";
 import { z } from "zod";
 
@@ -32,11 +19,8 @@ const ClientConfigSchema = z.object({
 	backendMode: BackendModeSchema.nullable().default(null),
 	/** Remote server URL for shared mode. Null when local. */
 	serverUrl: z.string().url().nullable().default(null),
-	/** Last active view path for restoration. */
 	lastView: z.string().nullable().default(null),
-	/** Window bounds and state. */
 	windowState: WindowStateSchema.optional(),
-	// S4: Worker registration fields
 	/** Whether this desktop is registered as a worker. Default false. */
 	workerEnabled: z.boolean().default(false),
 	/** Maximum concurrent sessions this worker handles. Default 1, max 8. */
@@ -50,21 +34,12 @@ export type ClientConfig = {
 	serverUrl: string | null;
 	lastView: string | null;
 	windowState: WindowState;
-	/** S4: Whether this desktop is registered as a worker. */
 	workerEnabled: boolean;
-	/** S4: Maximum concurrent sessions. */
 	workerMaxConcurrent: number;
-	/** S4: Stable UUID for the worker pool entry. */
 	workerDeviceId: string | null;
 };
 
-/**
- * @lore P3: DEFAULTS constructed explicitly to avoid Zod v4 nested .default({})
- * behavior where the literal {} is used without re-parsing through the sub-schema.
- * WindowStateSchema.parse({}) correctly applies all inner defaults (width: 1280, etc.).
- * @lore S4: Worker fields added with safe defaults — workerEnabled=false ensures
- * no worker is started by default. workerDeviceId=null is generated on first enable.
- */
+// @lore: Zod v4 — nested .default({}) does not re-parse through sub-schema; DEFAULTS uses WindowStateSchema.parse({}) to apply inner defaults
 const DEFAULTS: ClientConfig = {
 	backendMode: null,
 	serverUrl: null,
@@ -75,11 +50,6 @@ const DEFAULTS: ClientConfig = {
 	workerDeviceId: null,
 };
 
-/**
- * Apply defaults to a raw parsed config, handling the windowState sub-object.
- * @lore P3: Needed because Zod v4 does not re-parse .default({}) values through
- * the sub-schema — WindowStateSchema inner defaults would not apply otherwise.
- */
 function applyConfigDefaults(raw: z.infer<typeof ClientConfigSchema>): ClientConfig {
 	return {
 		backendMode: raw.backendMode ?? null,
@@ -112,10 +82,7 @@ export function loadClientConfig(configPath: string): ClientConfig {
 	}
 }
 
-/**
- * Write config to disk. Merges partial updates with the existing config
- * (reads current state first, applies patch, writes result).
- */
+/** Merges partial updates with the existing config. */
 export function saveClientConfig(configPath: string, patch: Partial<ClientConfig>): void {
 	const current = loadClientConfig(configPath);
 	const merged: ClientConfig = {
@@ -130,20 +97,11 @@ export function saveClientConfig(configPath: string, patch: Partial<ClientConfig
 	fs.writeFileSync(configPath, JSON.stringify(merged, null, 2));
 }
 
-/**
- * One-time migration: if window-state.json exists and config.json does not,
- * read window state from the old file and write it into config.json.
- *
- * No-op if config.json already exists or window-state.json does not exist.
- * Handles corrupt window-state.json gracefully (falls back to defaults).
- */
 export function migrateWindowState(windowStatePath: string, configPath: string): void {
-	// No-op if config.json already exists
 	if (fs.existsSync(configPath)) {
 		return;
 	}
 
-	// No-op if window-state.json also doesn't exist
 	if (!fs.existsSync(windowStatePath)) {
 		return;
 	}

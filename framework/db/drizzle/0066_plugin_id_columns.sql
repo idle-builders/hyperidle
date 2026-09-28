@@ -1,4 +1,4 @@
--- BA9d: add plugin_id to routines and users so disable/enable/remove can
+-- Add plugin_id to routines and users so disable/enable/remove can
 -- target the materialised rows a plugin install created, without a full
 -- table scan or a join back to plugin_configuration_defaults.
 --

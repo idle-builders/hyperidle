@@ -283,9 +283,6 @@ describe("agent session request repository", () => {
 		expect(stored).toMatchObject({ status: "failed", attempts: 1 });
 	});
 
-	/**
-	 * @lore `agent_work_intents` carries no FK on source_id/requested_by — dedup on (kind, sourceId, idempotencyKey) needs no seeded row.
-	 */
 	test("enqueueWorkIntent is idempotent on (kind, sourceId, idempotencyKey)", async ({ db }) => {
 		const fireId = "subscription-idem-fire";
 		const ownerAgentId = "idem-owner";

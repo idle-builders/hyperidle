@@ -1,20 +1,3 @@
-/**
- * useTeams — the portfolio's team list, built client-side from the user and
- * task action doors.
- *
- * @lore BC5 T11: `GET /api/teams` is gone with the `teams` route family — a
- * team is id + name now (migration 0090 drops every other column). This
- * hook rebuilds `TeamListItem`'s old shape from `search_users({})` (teams =
- * the distinct `team` every row carries) and, per team, the same two
- * `search_tasks` calls `useTeam.ts` (singular) already makes for one team's
- * page: `state: "blocked"` (limit 1, for the status chip) and `state:
- * "in_progress", parentTaskId: null` (for the active-task count).
- * `phase`/`leadAgentId`/`tasksDone`/`shipRate`/`progress`/`routineCount`/
- * `agentCount` go with the columns and the routines/capacity concepts that
- * carried them — nothing renders them any more (AD9's row is name + active
- * count + status only).
- */
-
 import { useEffect, useState } from "react";
 import { call } from "../services/call.js";
 
@@ -51,7 +34,6 @@ export function useTeams(): UseTeamsResult {
 		loading: true,
 		error: null,
 	});
-	// fetchKey increments to re-run the effect (refetch pattern).
 	const [fetchKey, setFetchKey] = useState(0);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: fetchKey is a refetch counter — incrementing it re-runs the effect intentionally even though it isn't read inside the body.

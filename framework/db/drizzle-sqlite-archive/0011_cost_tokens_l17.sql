@@ -35,7 +35,7 @@ DROP TABLE `bets`;--> statement-breakpoint
 ALTER TABLE `bets_new` RENAME TO `bets`;--> statement-breakpoint
 CREATE INDEX `bets_product_id_idx` ON `bets` (`product_id`);--> statement-breakpoint
 CREATE INDEX `bets_status_idx` ON `bets` (`status`);--> statement-breakpoint
--- Backfill: copy existing session costs into cost_minor so the L17 spend
+-- Backfill: copy existing session costs into cost_minor so the spend
 -- aggregation (which prefers cost_minor over cost) reflects pre-migration data.
 UPDATE `sessions` SET `cost_minor` = `cost` WHERE `cost` IS NOT NULL AND `cost` > 0;--> statement-breakpoint
 -- Backfill: copy existing agent cost caps into cost_cap_minor.

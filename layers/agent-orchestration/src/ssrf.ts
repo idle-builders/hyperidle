@@ -1,18 +1,4 @@
-/**
- * SSRF (Server-Side Request Forgery) defences.
- *
- * Moved here from the deleted `@hyperidle/host-process` package.
- * `isPrivateHostLiteral` is the only symbol callers in this package need; the
- * IP-level predicates stay module-private.
- *
- * @lore BC5 T11: `resolveUrlForSSRF` (the DNS-rebinding-guarded resolve —
- * H-1) is deleted with it — its one caller was AN2's live MCP reachability
- * probe, itself deleted with the `createConnectionRoutes` HTTP surface. The
- * connections seam's own guard is `isBlockedUrl` (`routes/connections.ts`),
- * checked at add-time, not a live per-request DNS resolve. The still-used
- * `run-orchestration` package keeps its own `resolveUrlForSSRF` copy — spawn
- * provisioning resolves live, at connect time, and needs the pinned-IP gate.
- */
+// SSRF defences: isPrivateHostLiteral is the only exported symbol.
 import * as net from "node:net";
 
 const PRIVATE_HOSTS: ReadonlySet<string> = new Set(["localhost", "localhost.", "broadcasthost"]);

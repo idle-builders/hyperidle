@@ -1,4 +1,4 @@
--- L22: Three relevance signals as first-class data
+-- Three relevance signals as first-class data
 -- Adds knowledge_access_log table and new columns on knowledge_items.
 
 CREATE TABLE `knowledge_access_log` (

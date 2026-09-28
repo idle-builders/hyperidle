@@ -1,5 +1,5 @@
 /**
- * useTheme — K3/U4 theme persistence hook.
+ * useTheme — theme persistence hook.
  *
  * Reads/writes the user's theme preference (`light` | `dark` | `system`) from
  * `localStorage["hyperidle-theme"]`, applies the resolved theme as
@@ -7,14 +7,6 @@
  * `matchMedia("(prefers-color-scheme: dark)")` so `system` mode follows the OS
  * at runtime without a reload.
  *
- * @lore The boot script in `index.html` paints the initial theme synchronously
- * before React mounts (FOIT prevention). This hook then takes over: it
- * re-asserts data-theme on mount (idempotent) and keeps it in sync with
- * subsequent setTheme calls and OS-level media changes.
- *
- * @lore Allowed values are `'light' | 'dark' | 'system'`. Anything else in
- * localStorage (e.g. legacy keys, user tampering) is coerced to `'system'` so
- * the boot script and the hook agree on a single fallback.
  */
 
 const STORAGE_KEY = "hyperidle-theme";

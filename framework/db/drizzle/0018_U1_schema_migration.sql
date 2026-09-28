@@ -1,10 +1,4 @@
--- U1: Schema Migration — Products -> Teams + Bet Simplification (PostgreSQL)
--- @lore U1: Hand-written PG migration. PG does NOT auto-update FK references
--- on table rename (unlike SQLite). However, Drizzle-managed FKs are defined
--- in the TypeScript schema, not as DB-level constraints in PG.
--- The migration only renames tables/columns; FK constraints are managed
--- by Drizzle's schema definition.
-
+-- Schema Migration — Products -> Teams + Bet Simplification (PostgreSQL)
 -- Step 1: Rename old `teams` (agent membership) to `team_members` FIRST
 -- so the name `teams` becomes available for the products rename.
 ALTER TABLE "teams" RENAME TO "team_members";
@@ -65,14 +59,11 @@ ALTER TABLE "bets" ADD COLUMN "at_risk" boolean DEFAULT false NOT NULL;
 --> statement-breakpoint
 
 -- Step 12: Rename team_members.product_id to team_members.team_id
--- (it now references the `teams` table, formerly `products`).
+-- (it now references the `teams` table).
 ALTER TABLE "team_members" RENAME COLUMN "product_id" TO "team_id";
 --> statement-breakpoint
 
 -- Step 13: Update propagation_log target_level values.
--- @lore U1: Guard with IF EXISTS because the PG migration set does not yet
--- include the add_propagation_log migration (L20). The UPDATE is a no-op if
--- the table does not exist.
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'propagation_log') THEN

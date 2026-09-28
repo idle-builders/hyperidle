@@ -1,40 +1,3 @@
-/**
- * Document/List page — a Curated list and a draft-item Triage view.
- *
- * @lore BC4: replaces `KnowledgeList`. Data comes from one door,
- * `useDocuments` (`call("search_documents", filter)`), kept live by the
- * global `documents` websocket nudge (architecture.md §9, §5.2). The four
- * hand-copied API shapes (`ApiKnowledgeItem`/`ApiKnowledgeListResponse`) are
- * deleted — `DocumentRow` from `@hyperidle/domain-model` is the one shape.
- * Validate/reject and archive all go through `call("edit_document", …)`.
- *
- * @lore J6: Tab memory (Triage/Curated) stays in component state only —
- * AC explicitly forbids localStorage persistence here.
- *
- * @lore AU44 batch 4: signals removed (FULL-AUDIT.md row 13). frequency/relevance pills
- * removed. attentionScore triage sort removed. Plain recency list throughout.
- *
- * @lore Q2: "+ New" button navigates to /documents/new (full-page create route).
- * User-scoped items show a "Private" tag in the list.
- *
- * @lore visual-parity: Page structure changed to flex flex-col h-full with
- * fixed header (non-scrolling) and flex-1 overflow-y-auto body, per AppShell
- * overflow-hidden contract. Visual treatment updated to match knowledge-list.html:
- * segmented pill tab control, outlined scope pills, plain-text sort bar,
- * inline row rendering via the shared Row primitive.
- *
- * @lore nested-knowledge-items: topic grouping (KnowledgeTopicGroup, "curated
- * = topic buckets") is REMOVED — `topic` no longer exists on the kernel row.
- * The Curated tab is a nestable tree (DocumentTreeList): collapse/expand,
- * indent guides, add-child in place. Detail still lists children on the item.
- *
- * @lore BC4 §9: "Memories" is a filter chip on this page (`as: "memory"`),
- * not a page of its own — the plan's "kept minimal". Toggling it swaps the
- * `search_documents` filter between `{inTree:true}` and `{as:"memory"}`; the
- * existing Triage/Curated split and tree rendering apply unchanged to
- * whichever set is loaded.
- */
-
 import type { DocumentRow, DocumentStatus, SearchDocumentsInput } from "@hyperidle/domain-model";
 import { DOCUMENT_STATUS_LABEL } from "@hyperidle/domain-model";
 import {
@@ -54,10 +17,6 @@ import {
 	TabBar,
 } from "../ds";
 
-// @lore AU44 batch 4: signals (accessCount30d, relevanceScore, etc.) removed per FULL-AUDIT.md row 13.
-// Only the recency pill survives. This is a page-local display concept, distinct from
-// `search_documents`'s own `sort` (`least_used`/`most_read`, §6.7) — the list has no usage
-// surface of its own and never sends `sort` to the server; it re-sorts the fetched page client-side.
 const VISIBLE_SORT_OPTIONS = ["recency"] as const;
 type DocumentSortOption = (typeof VISIBLE_SORT_OPTIONS)[number];
 
@@ -76,21 +35,8 @@ import { DocumentTreeList } from "./document/DocumentTreeList.js";
 
 type DocumentTab = "triage" | "curated";
 
-/**
- * Pure sort helper for documents.
- * Returns a new array — does NOT mutate the input.
- *
- * recency:   updatedAt desc, tie-break title asc
- *
- * @lore AF13: Previously sort pills only changed the URL param but the item list
- * was never reordered. This function is applied both within topic groups (curated)
- * and to the flat triage list so sort pills actually do something.
- * @lore AU44 batch 4: frequency and relevance branches removed (FULL-AUDIT.md row 13 —
- * signals die). Only recency survives. Non-recency values fall through to recency behavior.
- */
 export function sortItems(items: readonly DocumentRow[]): DocumentRow[] {
 	return [...items].sort((a, b) => {
-		// recency (and any future unrecognised value): updatedAt desc, tie-break title asc
 		const cmp = b.updatedAt.localeCompare(a.updatedAt);
 		if (cmp !== 0) return cmp;
 		return a.title.localeCompare(b.title);
@@ -106,13 +52,6 @@ function deriveSort(searchParams: URLSearchParams): DocumentSortOption {
 	return isDocumentSortOption(raw) ? raw : "recency";
 }
 
-// KnowledgeListRow deleted. Rows now rendered via Row + ItemList variant="flush".
-
-/**
- * A triage row's trailing meta cells — private badge, status badge, relative
- * time. Pulled out of the row-map callback so that callback's own cognitive
- * complexity stays under the lint ceiling; behaviour is unchanged.
- */
 function triageRowCells(item: DocumentRow): RowCell[] {
 	const cells: RowCell[] = [];
 	if (item.scopeKind === "user") {
@@ -163,15 +102,10 @@ interface DocumentListContentProps {
 	isTriageEmpty: boolean;
 	onNavigate: (id: string) => void;
 	searchQuery: string;
-	/** Y4: called when the user validates (active) or rejects (archived) a triage item. */
 	onTriageAction: (itemId: string, newStatus: "active" | "archived") => void;
-	/** UI-010/UI-015: re-issues the search from the error state. */
 	onRetry?: () => void;
-	/** FR-19: tab change callback — moves tab control from PageHeader into the body lane. */
 	onTabChange: (tab: DocumentTab) => void;
-	/** FR-19: search query change callback. */
 	onSearchChange: (query: string) => void;
-	/** FR-19: navigate to new document creation. */
 	onNewItem: () => void;
 	/** Navigate to create a child under the given parent item. */
 	onNewChild: (parentId: string) => void;
@@ -203,7 +137,6 @@ function DocumentListContent({
 	showMemories,
 	onToggleMemories,
 }: DocumentListContentProps): JSX.Element {
-	// Y4: keyboard navigation state for triage items (-1 = no focus)
 	const [focusedIndex, setFocusedIndex] = useState<number>(-1);
 
 	const normalizedQuery = searchQuery.trim().toLowerCase();
@@ -213,14 +146,11 @@ function DocumentListContent({
 	const filteredCuratedItems = normalizedQuery
 		? curatedItems.filter((i) => i.title.toLowerCase().includes(normalizedQuery))
 		: curatedItems;
-	// @lore nested-knowledge-items AC1: the Curated tab renders as a tree —
-	// each parent immediately followed by its own children, indented.
 	const curatedTreeRows = useMemo(
 		() => buildDocumentTree(filteredCuratedItems),
 		[filteredCuratedItems],
 	);
 
-	// Y4: keyboard navigation handler for triage tab
 	useEffect(() => {
 		if (tab !== "triage") return;
 
@@ -273,7 +203,6 @@ function DocumentListContent({
 		};
 	}, [tab, focusedIndex, filteredTriageItems, onTriageAction, onNavigate]);
 
-	// Y4: reset focused index when triage items change (e.g. after optimistic removal)
 	useEffect(() => {
 		setFocusedIndex((prev) => {
 			if (filteredTriageItems.length === 0) return -1;
@@ -284,7 +213,6 @@ function DocumentListContent({
 
 	return (
 		<div className="max-w-[800px] w-full">
-			{/* FR-19: Tab controls + search + New — moved from PageHeader.actions to body at 800px lane */}
 			<div className="flex items-center justify-between py-[12px]">
 				<TabBar
 					tabs={[
@@ -320,13 +248,6 @@ function DocumentListContent({
 					</Button>
 				</div>
 			</div>
-			{/*
-			 * Static 4-pill scope filter row.
-			 * All → no filter | Shared → factory+product+practice | Team → team | Private → user.
-			 * Consolidated to the shared ScopePicker primitive (filter mode).
-			 * The "All" pill (filterKinds=null) maps to value=null; selecting any
-			 * other pill resolves the id back to its SCOPE_PILL_OPTIONS entry.
-			 */}
 			<div className="pt-[12px] flex items-center justify-between flex-wrap gap-[9px]">
 				<ScopePicker
 					mode="filter"
@@ -341,17 +262,6 @@ function DocumentListContent({
 					testIdPrefix="scope-pill"
 					dataTestId="document-scope-pills"
 				/>
-				{/*
-				 * "Memories" — a filter chip, not a page. Toggling swaps the
-				 * `search_documents` filter between `{inTree:true}` and `{as:"memory"}`
-				 * one level up; the Triage/Curated split renders whichever set loaded.
-				 *
-				 * V1/V2 re-review fix: ScopePickerToggle shares ScopePicker's exact
-				 * pill classes (same look as the All/Shared/Team/Private pills beside
-				 * it) but is a real aria-pressed toggle button, not a one-option
-				 * radiogroup — a single-pill radiogroup unchecks on a second click,
-				 * which a screen reader hears as a radio that can't be turned off.
-				 */}
 				<ScopePickerToggle
 					label="Memories"
 					pressed={showMemories}
@@ -360,11 +270,7 @@ function DocumentListContent({
 				/>
 			</div>
 
-			{/* Sort pills changed from role=radio to plain buttons so
-			    getByRole("button", { name: /recency/ }) works in tests.
-			    @lore AF13: role="radio" buttons are not found by getByRole("button"),
-			    since explicit role overrides the implicit element role. */}
-			{/* biome-ignore lint/a11y/useSemanticElements: not a form — a <fieldset> here would be semantically wrong; role="group" is the AF13-documented compromise above. */}
+			{/* biome-ignore lint/a11y/useSemanticElements: not a form — a <fieldset> here would be semantically wrong; role="group" is the established compromise. */}
 			<div
 				role="group"
 				aria-label="Sort order"
@@ -393,11 +299,7 @@ function DocumentListContent({
 			</div>
 
 			{tab === "triage" ? (
-				// @lore UI-125: block (not flex) so sticky bottom-0 on the hint bar resolves
-				// to the scroll container (overflow-y-auto), not to this flex container.
-				// position:sticky's containing block for flex items is the flex parent,
-				// which has no overflow — so sticky never fired. Block flow lets it find
-				// the real scroll ancestor.
+				// @lore: triage div block — block not flex so sticky resolves to overflow-y-auto scroll container; flex parent has no overflow so sticky never fires
 				<div data-testid="document-triage-view">
 					{apiLoading ? (
 						<div className="py-[12px]">
@@ -530,8 +432,6 @@ function DocumentListContent({
 							<SkeletonList rows={4} ariaLabel="Loading curated items" />
 						</div>
 					) : apiError ? (
-						/* UI-010: a 500/network failure must show an error state with retry,
-						 * not the "No documents yet" empty state (which implies success). */
 						<div className="py-[12px]">
 							<ErrorState
 								title="Couldn't load documents"
@@ -572,36 +472,19 @@ export function DocumentList({
 	const navigate = useNavigate();
 	const [searchParams, setSearchParams] = useSearchParams();
 	const sort = deriveSort(searchParams);
-	// @lore NEW-24: optional — gracefully absent in story/test contexts without an AppShell outlet.
 	const outletCtx = useOutletContext<AppShellOutletContext | null>();
-	// @lore L9 pattern: read ToastContext directly (not useToast) so the page renders
-	// in unit tests / Storybook without a <ToastRegion> ancestor.
 	const toast = useContext(ToastContext);
 
 	const [tab, setTab] = useState<DocumentTab>("triage");
 	const tabManuallySelectedRef = useRef(false);
-	/**
-	 * SelectedScopePill — null means "All" (no filter).
-	 * Replaces the old dynamic string-keyed selectedScopeFilter.
-	 */
 	const [selectedScopePill, setSelectedScopePill] = useState<ScopePillOption | null>(null);
 	const [searchQuery, setSearchQuery] = useState("");
-	// "Memories" filter chip — swaps the search_documents filter.
 	const [showMemories, setShowMemories] = useState(false);
-	// Replace optimisticRemovals (Set<id>) with optimisticStatuses (Map<id, status>).
-	// A validated item gets status "active" so it moves to Curated in the same render.
-	// A rejected item gets status "archived" so it leaves Triage and does not appear in Curated.
-	// On refusal, the map entry is deleted to revert the item to its original status.
-	// @lore AF13: The old Set only removed items from Triage but never added them to Curated.
-	// The Map approach applies status overrides before the triage/curated split so one render
-	// handles both the departure from Triage and the arrival in Curated.
+	// @lore: optimisticStatuses Map — overrides applied before triage/curated split; departure from Triage and arrival in Curated both happen in one render
 	const [optimisticStatuses, setOptimisticStatuses] = useState<Map<string, "active" | "archived">>(
 		new Map(),
 	);
 
-	// The list's one search — inTree by default, `as:"memory"` when
-	// the chip is active. `useDocuments` refetches on the global `documents`
-	// websocket nudge — no manual live-refresh wiring here.
 	const documentsFilter: SearchDocumentsInput = showMemories ? { as: "memory" } : { inTree: true };
 	const {
 		documents: apiDocuments,
@@ -612,22 +495,11 @@ export function DocumentList({
 	const apiLoading = apiStatus === "loading";
 	const apiError = apiStatus === "error" ? apiErrorMessage : null;
 
-	// @lore NEW-24: combined retry re-issues the document search + all AppShell-owned fetches
-	// (user and sidebar document list). Without retrying the user fetch, the N5 short-circuit
-	// (no participantId → no thread fetch) stays active after an outage+restart, so the sidebar
-	// stays in error even when the main-pane content loads.
 	const handleRetry = useCallback((): void => {
 		apiRetry();
 		outletCtx?.onRetryShell?.();
 	}, [apiRetry, outletCtx]);
 
-	// @lore nested-knowledge-items §4: a role-carrying binding (agent identity,
-	// subscription prompt, skill, rule) is any row whose parent is set but is not
-	// `document`. `search_documents({inTree:true})` already excludes these
-	// server-side (§5.1's `<shape>` predicate), but the client keeps its own
-	// check too: it is the one place this page's contract with its data
-	// source is expressed in code, not just in the server it happens to be
-	// pointed at today.
 	const allItems = useMemo<DocumentRow[]>(
 		() =>
 			apiDocuments.filter(
@@ -639,14 +511,7 @@ export function DocumentList({
 		[apiDocuments],
 	);
 
-	/**
-	 * Apply static scope filter before triage/curated split.
-	 * null pill → all items | specific pill → only items whose scopeKind is in filterKinds.
-	 * Also applies optimisticStatuses overrides so triage/curated split reflects
-	 * the immediate user action without waiting for refetch.
-	 */
 	const scopeFilteredItems = useMemo<DocumentRow[]>(() => {
-		// Apply optimistic status overrides before scope filter
 		const withOverrides: DocumentRow[] =
 			optimisticStatuses.size > 0
 				? allItems.map((i) => {
@@ -659,11 +524,6 @@ export function DocumentList({
 		return withOverrides.filter((i) => allowed.has(i.scopeKind));
 	}, [allItems, selectedScopePill, optimisticStatuses]);
 
-	// @lore nested-knowledge-items: triage/curated now split on the collapsed
-	// 4-value ladder — "proposed" replaces the old draft/needs_human pair,
-	// "active" is unchanged.
-	// @lore AU44 batch 4: attentionScore sort removed (FULL-AUDIT.md row 13 — attention sort dies
-	// with signals). Triage is now a plain recency list; the sort pill applies if selected.
 	const triageItems = useMemo<DocumentRow[]>(() => {
 		const raw = scopeFilteredItems.filter((i) => i.status === "proposed");
 		return sortItems(raw);
@@ -680,17 +540,10 @@ export function DocumentList({
 		setTab(hasTriage ? "triage" : "curated");
 	}, [allItems]);
 
-	// Optimistic status-override + `edit_document` for triage actions.
-	// Uses Map<id, status> instead of Set<id> so validated items appear in Curated
-	// immediately (override status → "active") rather than vanishing from all tabs.
-	// @lore Y4-F02: item.version prevents a stale write on items at version 2+.
-	// @lore AF13: On refusal, the override entry is deleted to restore the
-	//   original status so the item reappears in Triage for retry.
 	function handleTriageAction(itemId: string, newStatus: "active" | "archived"): void {
 		const item = allItems.find((i) => i.id === itemId);
 		const version = item?.version;
 
-		// Optimistically override status (validated → active, rejected → archived)
 		setOptimisticStatuses((prev) => new Map([...prev, [itemId, newStatus]]));
 
 		void (async (): Promise<void> => {
@@ -754,8 +607,6 @@ export function DocumentList({
 		);
 	}
 
-	// UI-010: only show "system empty" when there is no API error — a 500/429 must
-	// surface as an error state (ErrorState + retry), NOT as "your document library is empty".
 	const systemEmpty = allItems.length === 0 && !apiLoading && !apiError;
 	const isCuratedEmpty = curatedItems.length === 0 && !apiLoading;
 	const isTriageEmpty = triageItems.length === 0 && !apiLoading;
@@ -765,8 +616,6 @@ export function DocumentList({
 			frame="page"
 			data-testid="document-list-page"
 			header={
-				/* PageHeader — Documents title + tabs + search + New button in actions.
-				    When systemEmpty: title only. When populated: tabs + search + New in actions. */
 				<PageHeader
 					title={
 						<>
@@ -800,7 +649,6 @@ export function DocumentList({
 						}
 						iconBg="rgba(46,125,186,0.08)"
 						action={
-							/* Shared Button primitive. */
 							<Button variant="primary" onClick={() => navigate("/documents/new")}>
 								Create first document
 							</Button>

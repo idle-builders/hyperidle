@@ -12,7 +12,6 @@
  * previously-erroring case (Fix B) that turned UnknownHarnessEvent into a
  * proper token_usage event. It must be locked here.
  *
- * @lore preMapCodexEvent runs before the main switch because codex's dot-namespaced types are disjoint from other harnesses.
  */
 
 import { describe, expect, it } from "vitest";

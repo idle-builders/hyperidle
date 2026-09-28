@@ -1,68 +1,13 @@
 /**
  * Connection provisioning: re-apply held connections into a spawned session.
  *
- * This module moved here from
- * `layers/core-api/connections/src/connection-provisioning.ts` — the
- * session-launch-time PROVISIONING OPERATION is `agent-orchestration`'s own
- * job now. The human-configured RECORD (the `serviceConnections` table, its
- * CRUD) is a user attribute behind `edit_user`. Earlier the held-connection
- * set reached this module through a seam call and then as a snapshot baked
- * onto the request at emit time, which went stale (a connection added
- * between emit and drain never reached the sandbox).
+ * At spawn time: reads active held connections live from this layer's own record,
+ * resolves each token against its per-row owner, SSRF-checks every outbound URL,
+ * and writes the provisioned form into the session working directory. No gate;
+ * re-applies every spawn; idempotent.
  *
- * The table is agent-orchestration's own now, so the read is live and
- * in-layer — `deps.connections`, one
- * injected port backed by `@hyperidle/connections`'s
- * `listHeldConnectionsForProvisioning`. Not a seam: it is this Layer reading
- * this Layer's own table. `run-orchestration` is itself a Service, so it takes
- * the reader as a port rather than importing that Service (Mechanism C); the
- * Application wires the two together. The decrypt step
- * (`resolver.resolve(userId, connectionId)`) stays a separate
- * Application-composed dependency, never routed through a seam: the
- * resolver is the ONLY plaintext path, wired to sandbox injection, never to
- * routes.
- *
- * The central act: at spawn time, read the owning human's active held
- * connections, resolve each, SSRF-check each outbound URL, and write the
- * provisioned form into the session working directory so the agent's tools
- * authenticate directly. No gate; re-apply every spawn; idempotent.
- *
- * @lore AN2 ownership: Single-founder is the locked deployment
- * (authorization-model.md:32). A multi-tenant model (agent→explicit-owner FK)
- * is a future change gated by the same trigger as RLS; not built now. Every
- * held row carries its own `userId` and its token is resolved against THAT
- * owner, so hard-rule 4 (per-user isolation) is enforced per row rather than
- * by a single resolved-owner guess. When multi-tenancy arrives, the per-agent
- * owner has to arrive ON THE REQUEST from the emitting core-api resolver —
- * orchestration must not go looking for it (it reads zero core-api state) —
- * and this builder filters on that value.
- *
- * @lore AN2 claude-two-write-sites: claude's .mcp.json is written by the inline
- * Phase 8b writer (session-provisioning.ts) AND by applyProvisioningPlan
- * (claudeNative=true). The AN2 writer MERGES into the existing file so the
- * inbound hyperidle entry is preserved. The split exists because claude uses a
- * different config format from codex/opencode, and restructuring the shipping
- * inbound path is out of AN2 scope.
- *
- * @lore AN2 SVC_MCP_TOKEN: Per-server token env var name = <UPPER_SERVICE>_MCP_TOKEN
- * (not HYPERIDLE_MCP_TOKEN which is the inbound bridge token). Distinct names
- * prevent collision. E.g. github bearer MCP → GITHUB_MCP_TOKEN.
- *
- * @lore AN2 builtin-scoped-out: builtin has mcpSupport:false, runs an in-process
- * callLlm() loop via ToolRegistry — it never spawns a child and never reads
- * mcpTokenEnv. Neither the MCP-bearer carrier nor the CLI-key carrier exists for
- * builtin. Do NOT inject mcpTokenEnv for builtin sessions (dead write).
- * Builtin's external reach is the inbound MCP bridge (HyperIdle's own registry
- * tools), a separate path AN2 does not own.
- *
- * @lore AN2 SSRF-check-only-vs-pinned: The outbound URL is SSRF-checked at
- * provisioning time via resolveUrlForSSRF. A URL resolving to a private IP is
- * dropped and logged. However, the written config carries the hostname and the
- * harness re-resolves it at connect time — AN2 cannot pin the resolved IP into
- * the harness's config (it doesn't own that connect). So the written-config
- * path is NOT DNS-rebinding-guarded. Pinning is claimed ONLY on /validate
- * (T5), where AN2 owns the connect. This is the honest boundary: the held MCP
- * URL is user-configured; pinning requires proxying (forbidden by hard-rule 6).
+ * @lore: connection-provisioning claude-write — .mcp.json written here (claudeNative); merges to preserve inbound hyperidle entry
+ * @lore: connection-provisioning SSRF — outbound URL SSRF-checked at provision; harness re-resolves at connect; DNS-rebinding unguarded; pinning only on /validate
  */
 
 import * as fs from "node:fs";
@@ -78,11 +23,6 @@ import { resolveUrlForSSRF } from "./ssrf.js";
  * `HeldConnectionForProvisioning` — the two are wired together by the
  * Application, so this Service names the shape without importing that one.
  *
- * @lore AU26 E3: `userId` is per-ROW. Each connection's token is resolved
- * against the owner the row itself carries, so a plan can never resolve a row
- * under someone else's identity. K1's shape carried one shared `userId` for the
- * whole list, resolved from core-api's `users` at emit time; orchestration does
- * not read `users` at all.
  */
 export interface HeldConnectionForProvisioning {
 	readonly id: string;
@@ -110,8 +50,6 @@ export interface ServiceConnectionResolverPort {
 /**
  * One MCP server entry to provision into the harness config.
  * bearerToken is present for token-MCP-bearer, absent for plain mcp.
- * @lore AU20 Am4: removed from barrel — no cross-package consumer.
- * Exported from this file so within-package tests can reference it.
  */
 export interface ProvisioningPlan {
 	readonly mcpServers: readonly {
@@ -122,7 +60,7 @@ export interface ProvisioningPlan {
 	readonly envInjections: Readonly<Record<string, string>>;
 }
 
-// ── T2: buildProvisioningPlan ─────────────────────────────────────────────────
+// ── buildProvisioningPlan ───────────────────────────────────────────────────
 
 /**
  * Build the provisioning plan for one spawn.
@@ -136,14 +74,6 @@ export interface ProvisioningPlan {
  * The _ssrfLookup parameter is injectable for tests (overrides the DNS
  * resolution step without patching global dns.lookup).
  *
- * @lore AN2 token-fork: AN1 stores no `kind` on a token connection, so
- * "is this an MCP bearer or a CLI key?" is inferred:
- *   - known CLI service slug → CLI-key (all vars injected)
- *   - serverUrl present (and not a CLI-key service) → MCP-bearer
- *   - bare token, no serverUrl, not a CLI-key service → convention
- *     <SERVICE>_TOKEN env var + logged as "carrier-by-convention" (visible gap)
- * If real usage shows this guesses wrong often, AN3/AN-future adds an
- * explicit tokenKind column (AN1 concept-doc update first).
  */
 export async function buildProvisioningPlan(deps: {
 	readonly connections?: HeldConnectionsReaderPort;
@@ -167,7 +97,7 @@ export async function buildProvisioningPlan(deps: {
 
 	// Track which service+authSource combos have an mcpServer entry so we can
 	// generate the deterministic "-mcp" suffix when both token and mcp exist
-	// for the same service (N3 — open question §10 resolved).
+	// for the same service.
 	const mcpServerNames = new Set<string>();
 
 	for (const conn of heldOnly) {
@@ -191,13 +121,13 @@ export async function buildProvisioningPlan(deps: {
 			} else if (conn.serverUrl) {
 				// MCP-bearer path: inject as server entry + per-server token env var.
 				const ssrfResult = await resolveUrlForSSRF(conn.serverUrl, {
-					label: `AN2 ${conn.service} serverUrl`,
+					label: `${conn.service} serverUrl`,
 					...(_ssrfLookup !== undefined ? { lookup: _ssrfLookup } : {}),
 				});
 				if (!ssrfResult.ok) {
 					// biome-ignore lint/suspicious/noConsole: graceful-degradation, matches inbound bridge :789
 					console.warn(
-						`[AN2 connection-provisioning] SSRF check failed for ${conn.service} (${conn.id}): ${ssrfResult.reason} — dropping entry`,
+						`[connection-provisioning] SSRF check failed for ${conn.service} (${conn.id}): ${ssrfResult.reason} — dropping entry`,
 					);
 					continue;
 				}
@@ -216,26 +146,25 @@ export async function buildProvisioningPlan(deps: {
 				envInjections[envKey] = token;
 				// biome-ignore lint/suspicious/noConsole: graceful-degradation, matches inbound bridge :789
 				console.warn(
-					`[AN2 connection-provisioning] carrier-by-convention for ${conn.service} (${conn.id}): ` +
+					`[connection-provisioning] carrier-by-convention for ${conn.service} (${conn.id}): ` +
 						`no serverUrl and not a known CLI-key service — injecting ${envKey} ` +
 						`(the tool may not read this var; add a CLI carrier mapping if needed)`,
 				);
 			}
 		} else {
-			// authSource === "mcp" — outbound MCP pointer
 			if (!conn.serverUrl) {
 				// mcp connection without a serverUrl is a DB invariant violation; skip.
 				continue;
 			}
 
 			const ssrfResult = await resolveUrlForSSRF(conn.serverUrl, {
-				label: `AN2 ${conn.service} serverUrl`,
+				label: `${conn.service} serverUrl`,
 				...(_ssrfLookup !== undefined ? { lookup: _ssrfLookup } : {}),
 			});
 			if (!ssrfResult.ok) {
 				// biome-ignore lint/suspicious/noConsole: graceful-degradation, matches inbound bridge :789
 				console.warn(
-					`[AN2 connection-provisioning] SSRF check failed for ${conn.service} (${conn.id}): ${ssrfResult.reason} — dropping entry`,
+					`[connection-provisioning] SSRF check failed for ${conn.service} (${conn.id}): ${ssrfResult.reason} — dropping entry`,
 				);
 				continue;
 			}
@@ -250,14 +179,9 @@ export async function buildProvisioningPlan(deps: {
 }
 
 /**
- * Derive a unique MCP server name for a (service, authSource) pair.
+ * If (github token) and (github mcp) both exist as server entries, the token
+ * entry gets "github" and the mcp entry gets "github-mcp".
  *
- * Resolves the open-question in §10: if (github token) and (github mcp) both
- * exist as server entries, the token entry gets "github" and the mcp entry
- * gets "github-mcp" (deterministic suffix).
- *
- * @lore AN2 N3: The "-mcp" suffix is deterministic and asserted in T3 so two
- * builders can't diverge on the naming convention.
  */
 function deriveMcpServerName(
 	service: string,
@@ -267,14 +191,14 @@ function deriveMcpServerName(
 	const base = service.toLowerCase().replace(/\s+/g, "-");
 	// For token entries: use base name (e.g. "github")
 	// For mcp entries: use base name if available, otherwise base-mcp
-	// This matches N3: the token-bearer gets the plain name; mcp gets the suffix.
+	// The token-bearer gets the plain name; mcp gets the suffix.
 	if (authSource === "mcp" && existing.has(base)) {
 		return `${base}-mcp`;
 	}
 	return base;
 }
 
-// ── T3: applyProvisioningPlan ─────────────────────────────────────────────────
+// ── applyProvisioningPlan ───────────────────────────────────────────────────
 
 /**
  * Apply the provisioning plan to a session's sandbox.
@@ -288,10 +212,7 @@ function deriveMcpServerName(
  * Returns the env vars to merge into SessionConfig.mcpTokenEnv.
  * Pure filesystem + return; no DB, no network.
  *
- * @lore AN2 claude-two-write-sites: The claude carrier writes into .mcp.json by
- * merging AN2 entries into any existing mcpServers object (e.g. the inbound
- * hyperidle entry written by Phase 8b). The merge must preserve the existing
- * entries — AN2 is additive.
+ * @lore: applyProvisioningPlan claude — merges into existing .mcp.json; the merge must preserve existing entries (additive only)
  */
 export function applyProvisioningPlan(args: {
 	readonly plan: ProvisioningPlan;
@@ -303,7 +224,7 @@ export function applyProvisioningPlan(args: {
 
 	if (plan.mcpServers.length === 0) {
 		// Nothing to write; env injections from envInjections only flow via mcpTokenEnv
-		// at the Phase 8b-connections merge point in session-provisioning.ts.
+		// at the Phase 8b-connections merge point.
 		return Promise.resolve({ mcpTokenEnv: {} });
 	}
 
@@ -322,8 +243,6 @@ export function applyProvisioningPlan(args: {
 	}
 
 	// No carrier (e.g. builtin or unknown harness type): no-op.
-	// @lore AN2 builtin-scoped-out: builtin has no carrier — a dead write here
-	// would go nowhere. The correct behavior is to write nothing.
 	return Promise.resolve({ mcpTokenEnv: {} });
 }
 
@@ -335,10 +254,6 @@ export function applyProvisioningPlan(args: {
  * Returns tokenEnv for each bearer server (caller injects outside allowlist).
  * This is the generalized 1→N extension of writeCodexToml in cli-mcp-config.ts.
  *
- * @lore AN2 codex-toml: Per-server token env var = <UPPER_SERVICE>_MCP_TOKEN
- * (not HYPERIDLE_MCP_TOKEN which is the inbound bridge token).
- * Appends to the existing config.toml (the inbound hyperidle entry may already
- * be there from the AL7 writeCliMcpConfig call in Phase 8b).
  */
 function writeCodexTomlEntries(params: {
 	sandboxPath: string;
@@ -373,9 +288,7 @@ function writeCodexTomlEntries(params: {
  * Token is inline in headers.Authorization (matches writeOpencodeJson
  * for the inbound hyperidle entry). Merges with existing opencode.json if present.
  *
- * @lore AN2 opencode-json: opencode loads opencode.json from the spawn cwd.
- * Token inline in headers.Authorization — matches the inbound bridge shape.
- * AN2's entries are merged alongside the existing mcp.hyperidle entry if present.
+ * @lore: opencode-json — token inline in headers.Authorization; merged alongside the existing mcp.hyperidle entry if present
  */
 function writeOpencodeJsonEntries(params: {
 	sandboxPath: string;
@@ -434,14 +347,8 @@ function writeOpencodeJsonEntries(params: {
  * Write N MCP server entries to .mcp.json for claude.
  *
  * Merges with existing .mcp.json if present (preserves the inbound hyperidle
- * entry written by Phase 8b in session-provisioning.ts).
+ * entry written by Phase 8b).
  *
- * @lore AN2 claude-two-write-sites: The inline Phase 8b writer creates the
- * initial .mcp.json with the hyperidle inbound entry. This function merges
- * AN2's external server entries into that same file. Order matters: Phase 8b
- * runs first (creates the file), then Phase 8b-connections calls applyProvisioningPlan
- * (this function merges). If Phase 8b has not run (no inbound bridge configured),
- * this function creates the file from scratch.
  */
 function writeClaudeMcpJsonEntries(params: {
 	sandboxPath: string;

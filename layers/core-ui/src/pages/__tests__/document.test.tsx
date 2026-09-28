@@ -11,7 +11,6 @@
  * `pages/__tests__/DocumentDetail.*.test.tsx` when that page was
  * rewritten against `call("open_document"/"edit_document", …)`.)
  *
- * @lore: re-pointed onto `DocumentList`/`useDocuments` — `KnowledgeList` and its `useFetch("/api/knowledge")` read are gone.
  */
 
 import type { DocumentRow } from "@hyperidle/domain-model";

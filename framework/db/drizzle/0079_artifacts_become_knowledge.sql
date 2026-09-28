@@ -9,19 +9,18 @@
 --
 -- So the second table goes. Produced content is a knowledge item whose parent is
 -- the task or the conversation that produced it. The WORD "artifact" survives as
--- the name for produced content, and the create_artifact tool keeps its name by
--- founder call, but nothing stores one any more.
+-- the name for produced content, and the create_artifact tool keeps its name,
+-- but nothing stores one any more.
 --
--- EXISTING ROWS ARE DROPPED, NOT CONVERTED. Founder call. An artifact's content
+-- EXISTING ROWS ARE DROPPED, NOT CONVERTED. An artifact's content
 -- lived in an untyped preview blob whose shape varied by kind; converting those
 -- into markdown bodies is content-migration work this change deliberately does
--- not do. AM5 set the same pre-alpha precedent when incompatible preview shapes
--- were dropped rather than migrated.
+-- not do.
 --
 -- Threads hosted on an artifact lose their host, so they go with it, and their
 -- children go with them. threads.host_kind/host_id is an unconstrained
 -- polymorphic pair with no FK, so nothing would have stopped those rows from
--- pointing at a table that no longer exists; they would simply have stopped
+-- pointing at a table that does not exist; they would simply have stopped
 -- resolving, silently, which is worse than being gone.
 --
 -- threads.id has THREE inbound foreign keys, all ON DELETE RESTRICT, and every

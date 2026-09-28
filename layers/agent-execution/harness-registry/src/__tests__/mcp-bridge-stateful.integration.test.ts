@@ -12,10 +12,6 @@
  * After T0 (the stateful flip), it turns GREEN.
  *
  * IN CI / test:all — deterministic, no external binary.
- *
- * @lore uses the SDK client against the production listener — a hand-rolled fetch test risks a stale protocol-version header masking a real regression.
- *
- * @lore omitting the mcp-session-id on a second request (post-initialize) must return 400/404.
  */
 
 import * as fs from "node:fs";
@@ -37,8 +33,6 @@ const createEnforcementRegistry = () => createReturnEnforcement();
 
 /**
  * Inline commit_file proof-vehicle tool.
- *
- * @lore `commit_file` is inlined here (no DB dependency) so the MCP bridge proof vehicle is self-contained.
  */
 const commitFileTool = toRegistered({
 	name: "commit_file",

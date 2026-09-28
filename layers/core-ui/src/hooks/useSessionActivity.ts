@@ -1,23 +1,4 @@
-/**
- * useSessionActivity — a session's row + activity buffer, kept live by the
- * `session:<id>` websocket nudge.
- *
- * @lore `GET /api/sessions/:id/activity` and the
- * second websocket are both gone. The hook now calls `call("watch_session",
- * { id })` — `POST /api/actions/watch_session`, the same door a person's
- * client and an agent's MCP tool use — and re-runs it on every frame for
- * `session:<id>`, the `useDocument.ts` nudge-and-refetch shape verbatim. The
- * nudge carries no content (`{type:"update", topic:"session:<id>",
- * kind:"session.activity", data:{sessionId}}`); this hook only reacts to the
- * topic matching, never reads `data`.
- *
- * @lore `stop_session`'s answer is the row as it
- * stood the moment it was asked, not the terminal state — a live session's
- * harness process is killed and the row is marked by normal teardown
- * afterwards, reaching the browser as this same nudge. This hook never reads
- * a `stop_session` response; "ended" only ever comes from a re-run
- * `watch_session` reporting the row is no longer `active`.
- */
+// @lore: stop_session answer is not terminal state — "ended" comes only from a re-run watch_session reporting state !== active
 
 import type { ActivityEntry, SessionRow } from "@hyperidle/domain-model";
 import { useEffect, useRef, useState } from "react";
@@ -50,20 +31,11 @@ function statusFor(session: SessionRow): SessionActivityStatus {
 	return session.state === "active" ? "streaming" : "ended";
 }
 
-/**
- * `summary` stays `null` while the session is active — Conversations.tsx's
- * `resolveSessionAgentAuthor` depends on that to fall back to a generic
- * agent placeholder rather than a possibly-stale id.
- */
 function summaryFor(session: SessionRow): SessionSummary | null {
 	if (session.state === "active") return null;
 	return { agentId: session.agentId, taskId: session.taskId ?? "", endedAt: session.endedAt };
 }
 
-/**
- * Subscribe to a session's row + activity, kept live by the session's nudge
- * topic.
- */
 export function useSessionActivity(sessionId: string): UseSessionActivityResult {
 	const [status, setStatus] = useState<SessionActivityStatus>("connecting");
 	const [entries, setEntries] = useState<ReadonlyArray<ActivityEntry>>([]);

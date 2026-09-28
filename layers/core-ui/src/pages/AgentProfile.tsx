@@ -1,30 +1,3 @@
-/**
- * Agent Profile page at /agents/:agentId.
- *
- * Read-only profile showing complete operational picture of an AI agent:
- * identity, configuration, harness capabilities, skills, recent activity,
- * and performance. Links to Settings for editing.
- *
- * Design: Variant B (approved)
- * Layout (top to bottom):
- * 1. Breadcrumb
- * 2. Health Banner (conditional — only when degraded, role="alert")
- * 3. Header: Avatar + Name + StatusChip + Tag(category) + role + created + active session + settings link
- * 4. Section 1 — Configuration: KeyValue grid + collapsed system prompt
- * 5. Section 2 — Harness Capabilities: badge row
- * 6. Section 3 — Skills: table with overflow-x-auto
- * 7. Section 4 — Recent Activity: table
- * 8. Section 5 — Performance: horizontal KeyValue row
- *
- * Reviewer findings addressed:
- * - F1: Settings link → /conversations?settings=open (deep-link broken)
- * - F2: Health banner has role="alert"
- * - F4: Tables have aria-label
- * - F5: Skills table has overflow-x-auto wrapper
- * - F6: Sections use bg-[var(--surface-container)] card styling
- * - A2: Operational status derived on frontend, not from DB status column
- */
-
 import type { SessionOutcome } from "@hyperidle/domain-model";
 import { AGENT_OPERATIONAL_STATUS_LABEL } from "@hyperidle/domain-model";
 import { type JSX, useState } from "react";
@@ -65,8 +38,7 @@ import { roleLabel } from "../utils/role-label.js";
 import { absoluteDate } from "../utils/time.js";
 import { SubscriptionsSection } from "./SubscriptionsSection.js";
 
-// UI-041: static display names for known harness families. Matches
-// KNOWN_HARNESS_NAMES in harness-capability-descriptors.ts.
+// static display names for known harness families; matches KNOWN_HARNESS_NAMES in harness-capability-descriptors.ts
 const HARNESS_DISPLAY: Record<string, string> = {
 	"claude-code": "Claude Code",
 	codex: "Codex",
@@ -85,7 +57,6 @@ function harnessLabel(type: string | null | undefined): string {
 	);
 }
 
-/** F2: Narrow string|null to SessionOutcome without an unsafe cast. */
 const SESSION_OUTCOMES: ReadonlySet<SessionOutcome> = new Set<SessionOutcome>([
 	"completed",
 	"crashed",
@@ -100,15 +71,7 @@ export interface AgentProfileProps {
 	overrideData?: AgentProfileData | null;
 	overrideLoading?: boolean;
 	overrideError?: Error | null;
-	/**
-	 * Override the agent's run state (active run, recent runs, performance,
-	 * health signals). Used by stories and tests.
-	 *
-	 * @lore AU26 J4: these four used to arrive on `overrideData` because core-api
-	 * served them on the profile response. They are fetched from
-	 * `agent-orchestration` now, so the story/test injection seam for them is its
-	 * own prop — same pattern as `overrideData`, one prop per source.
-	 */
+	/** Override the agent's run state (active run, recent runs, performance, health signals). Used by stories and tests. */
 	overrideRunState?: AgentRunState;
 }
 
@@ -126,8 +89,6 @@ export function AgentProfile({
 	const loading = overrideLoading === true || (overrideData === undefined && fetched.loading);
 	const error = overrideError !== undefined ? (overrideError ?? null) : (fetched.error ?? null);
 	const data = overrideData !== undefined ? overrideData : (fetched.data ?? null);
-	// @lore UI-014: httpStatus comes from the hook so AgentProfile can branch on the numeric
-	// code without parsing error.message strings. Null when using overrideError (tests/stories).
 	const httpStatus = overrideError !== undefined ? null : (fetched.httpStatus ?? null);
 
 	if (loading) {
@@ -147,14 +108,9 @@ export function AgentProfile({
 	}
 
 	if (error !== null) {
-		// @lore UI-014: check httpStatus (numeric, no string parsing) when available;
-		// fall back to error.message parsing for overrideError callers (tests/stories).
 		const is404 = httpStatus === 404 || error.message.includes("404");
 		if (is404) {
 			return (
-				// @lore UI-129: body="managed" gives children a flex-1 flex-col container
-				// with definite height (fills the AppShell h-screen chain). frame="page" wraps
-				// in PageFrame (block, auto height), so min-h-full = content height not viewport.
 				<PageScaffold
 					body="managed"
 					header={<PageHeader title="Agent" />}
@@ -249,19 +205,6 @@ function AgentProfileLoaded({
 	const [sessionRatio, setSessionRatio] = useUiPreference("agent.session", 0.6);
 	const openSessionTarget = createOpenHandler(navigate, { onOpenSession: setOpenSessionId });
 
-	// @lore AU26 J4: `activeSession`, `recentSessions`, `performance` and
-	// `healthSignals` used to arrive on this response, computed by core-api from
-	// `agent-orchestration`'s `sessions` table. Founder ruling: *"orchestration
-	// now has an api so that the ui can get the agent run state from the
-	// orchestration directly and combine this information in the ui instead of in
-	// the core api service."* This hook fetches the runs from that Layer and
-	// derives the same four with the same `computeHealthSignals` — the live chip,
-	// the recent-runs table, the success rate and the degraded banner all render
-	// exactly what they rendered before.
-	// @lore BC5 T18: `harnessAvailable` is a fact about the server's adapter
-	// pool (`open_user`'s `runsOn`), not run state — `useAgentProfile` derives
-	// it from the same read `harnessCapabilities` uses and hands it back here,
-	// the one input `useAgentRunState` cannot compute in the browser.
 	const fetchedRunState = useAgentRunState(
 		overrideRunState ? null : data.id,
 		data.harnessAvailable,
@@ -274,36 +217,20 @@ function AgentProfileLoaded({
 		status,
 	} = overrideRunState ?? fetchedRunState;
 
-	// @lore UI-072: orchestration can return duplicate sessionId rows when a run
-	// appears in both the "active" slot and the "recent" list mid-flight, or when
-	// the hook re-maps the same run twice via flatMap. Dedup by sessionId (first
-	// occurrence wins) before rendering. This is a display-only guard — the source
-	// of truth is not altered.
+	// @lore: recentSessions dedup — orchestration emits duplicate sessionId rows mid-flight; display-only guard, source not altered
 	const recentSessions = rawRecentSessions.filter(
 		(session, index, arr) => arr.findIndex((s) => s.sessionId === session.sessionId) === index,
 	);
-	// @lore AU26 review W6: a failed run read must not paint a healthy agent.
-	// `computeHealthSignals([])` says "not degraded" — true of an agent with no
-	// runs, a lie about an agent whose runs we could not read. The banner below
-	// switches to an explicit unavailability alert instead.
+	// @lore: runStateUnavailable — computeHealthSignals([]) says "not degraded"; true for zero runs, false for failed load; show unavailability alert instead
 	const runStateUnavailable = status === "error";
-	// @lore AU26 review W5: while the run read is still in flight the page knows
-	// nothing about runs — painting "0 sessions · 0% · No sessions recorded" and
-	// then replacing it a round-trip later is a flicker that states a falsehood
-	// on the way. The server-composed response used to arrive atomically; these
-	// two blocks wait for the same certainty.
 	const runStateSettled = status === "ready";
 
-	// A2: Derive operational status from run state, not the DB status column
 	const isActive = activeSession !== null;
 	const isError = !isActive && healthSignals.lastSessionCrashed;
 	const operationalStatus = isActive ? "active" : isError ? "error" : "idle";
 
 	const createdDate = absoluteDate(data.createdAt);
 
-	// @lore AB1 S4: Team agents link back to their team page; others to conversations.
-	// parentPathFor(/agents/:id) returns /conversations (generic fallback); page overrides
-	// to team-aware path when teamId is present.
 	const agentSegments = data.teamId
 		? ([
 				{ label: "Work", to: "/work" },
@@ -316,8 +243,6 @@ function AgentProfileLoaded({
 		<PageScaffold
 			body="managed"
 			header={
-				/* PageHeader owns the pinned title strip.
-				    DS Breadcrumb in leading prop. Identity block stays in body scroll. */
 				<PageHeader
 					title={data.name}
 					leading={
@@ -379,11 +304,6 @@ function AgentProfileLoaded({
 								</div>
 							)}
 
-							{/* F2: Health banner — only shown when degraded, has role="alert" */}
-							{/* @lore UI-105: icon + "Edit in Settings" route added — the banner carried
-				    copy but no icon or action. A warning icon makes the alert immediately
-				    scannable; the Settings route (same as the Edit button) lets the founder
-				    act on "harness not available" without scrolling the page. */}
 							{!runStateUnavailable && healthSignals.degraded && (
 								<div
 									role="alert"
@@ -429,13 +349,11 @@ function AgentProfileLoaded({
 								</div>
 							)}
 
-							{/* Identity block — Avatar + meta. Name/status live in PageHeader. */}
 							<section aria-label="Agent identity" className="flex flex-col gap-[12px]">
 								<div className="flex items-start gap-[12px]">
 									<Avatar initials={initials} size="md" agent />
 									<div className="flex-1 min-w-0">
 										<div className="flex items-center gap-[9px] flex-wrap">
-											{/* Category tag (name + status are in PageHeader) */}
 											{data.agentCategory && data.agentCategory !== "team" && (
 												<Tag
 													label={
@@ -449,7 +367,6 @@ function AgentProfileLoaded({
 											{data.teamName && <span className="ml-[6px]">· {data.teamName}</span>}
 											<span className="ml-[6px]">· Created {createdDate}</span>
 										</p>
-										{/* @lore BB1: active session links directly to /work/task/:taskId */}
 										{activeSession !== null && (
 											<div className="mt-[6px]" data-testid="agent-active-session">
 												<RRLink
@@ -461,14 +378,12 @@ function AgentProfileLoaded({
 											</div>
 										)}
 									</div>
-									{/* @lore FR-18: Link to /settings (real route) — was /conversations?settings=open */}
 									<RRLink to="/settings" className="btn btn-ghost btn-sm shrink-0">
 										Edit in Settings
 									</RRLink>
 								</div>
 							</section>
 
-							{/* Section 1 — Configuration */}
 							<section
 								aria-label="Configuration"
 								data-testid="agent-config-section"
@@ -483,9 +398,6 @@ function AgentProfileLoaded({
 									<KeyValue label="Max sessions" value={String(data.maxConcurrentSessions)} />
 									<KeyValue label="Created" value={createdDate} />
 								</div>
-								{/* Who the agent is. It is a document, so the profile
-					    links to it rather than reprinting it — one place to read it,
-					    one place to edit it. */}
 								{data.identityDocumentId && (
 									<RRLink
 										to={`/documents/${data.identityDocumentId}`}
@@ -497,8 +409,6 @@ function AgentProfileLoaded({
 								)}
 							</section>
 
-							{/* Section 2 — Harness Capabilities (restored from
-							    open_user's runsOn, matched by harnessType). */}
 							{data.harnessCapabilities && (
 								<section
 									aria-label="Harness capabilities"
@@ -517,15 +427,12 @@ function AgentProfileLoaded({
 								</section>
 							)}
 
-							{/* Section 3 — Subscriptions */}
 							<SubscriptionsSection
 								userId={data.id}
 								subscriptions={data.subscriptions}
 								onChanged={refetch}
 							/>
 
-							{/* Section 4 — Review Track Record (restored — computed
-							    by open_user itself now, through the deps bag). */}
 							{data.reviewTrackRecord && (
 								<section
 									aria-label="Review track record"
@@ -558,7 +465,6 @@ function AgentProfileLoaded({
 								</section>
 							)}
 
-							{/* Section 5 — Recent Activity */}
 							<section
 								aria-label="Recent activity"
 								data-testid="agent-activity-section"
@@ -576,12 +482,6 @@ function AgentProfileLoaded({
 										No sessions recorded.
 									</p>
 								) : (
-									// @lore UI-073: an HTML <table> is the right element here — this is
-									// genuinely tabular data: sessions × (task, outcome, when). A flex/grid
-									// layout would need role=grid and aria-rowcount/colcount to stay
-									// accessible; a table gets those semantics for free and lets screen
-									// readers announce "row 3 of 8, column 2: completed". ThreadRow is for
-									// conversation-like entries with avatar + unread count — not applicable.
 									<table
 										className="type-metadata w-full "
 										aria-label="Recent agent session activity"
@@ -608,10 +508,6 @@ function AgentProfileLoaded({
 														{session.taskTitle}
 													</td>
 													<td className="py-[6px]">
-														{/* Session outcome via StatusChip (was text-only OutcomeChip).
-										     F2: narrowed from `as SessionOutcome` cast; label omitted so chip
-										     renders the presentation status name (DONE/ERROR/PAUSED) from
-										     SESSION_OUTCOME_MAP — no SESSION_OUTCOME_LABEL registry in plan. */}
 														{isSessionOutcome(session.outcome) ? (
 															<StatusChip status={sessionOutcomeToStatus(session.outcome)} />
 														) : (
@@ -628,7 +524,6 @@ function AgentProfileLoaded({
 								)}
 							</section>
 
-							{/* Section 5 — Performance */}
 							<section
 								aria-label="Performance"
 								data-testid="agent-performance-section"
@@ -672,12 +567,6 @@ function AgentProfileLoaded({
 // Sub-components
 // ---------------------------------------------------------------------------
 
-/**
- * The session viewer, opened from a Recent Activity row click into the
- * page's split pane. Reuses `SessionView` exactly as it is — no redesign, no
- * new component. `WorkTaskPage.tsx`'s `TaskSessionPanel`
- * verbatim.
- */
 function AgentSessionPanel({
 	sessionId,
 	viewerId,
@@ -732,14 +621,3 @@ function AgentSessionPanel({
 		</div>
 	);
 }
-
-// OutcomeChip deleted — replaced with StatusChip at the call site.
-// Session outcomes now render as full StatusChip pills (deliberate visual change:
-// text-only colored label → chrome pill with dot).
-//
-// @lore BC5 T11: CapabilityBadge/VerdictDot (the old dedicated components for
-// these two sections) are NOT restored — the restored sections above render
-// with plain Tag/KeyValue instead. Harness Capabilities reads a `runsOn`
-// entry (install-wide, matched by `harnessType`); Review Track Record reads
-// `open_user`'s own `reviewTrackRecord` field, computed through the deps bag
-// (`computeApprovalRate`, unchanged) rather than a second route.

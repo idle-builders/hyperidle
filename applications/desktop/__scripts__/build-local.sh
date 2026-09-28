@@ -4,8 +4,6 @@ set -euo pipefail
 # Build the desktop app locally WITHOUT code signing or notarization.
 # Produces a runnable .app bundle for testing — no Apple credentials needed.
 #
-# @lore PGlite migration: no native module rebuild needed. PGlite is pure WASM.
-#
 # Usage: ./__scripts__/build-local.sh
 #   Then: open release/mac-arm64/HyperIdle.app
 
@@ -15,12 +13,7 @@ DESKTOP_DIR="$REPO_ROOT/applications/desktop"
 echo "==> Building web SPA"
 npm run -w @hyperidle/core-ui build
 
-# @lore proven-bug guard: a `.env` NODE_ENV=development line anywhere Vite loads
-# it (even a machine-local, gitignored one) forces import.meta.env.DEV/.PROD true
-# for the whole build, which silently ships the dev-only ws://localhost:3001
-# address into a packaged app — no live update ever reaches the window again.
-# ws-client.ts now reads MODE (immune to that) instead, but this hard-fails the
-# build if the regression ever comes back, in this file or the pattern it uses.
+# @lore: .env NODE_ENV=development — forces import.meta.env.DEV true and ships ws://localhost into the packaged app
 echo "==> Verifying the web bundle never hardcodes the dev websocket address"
 WEB_BUNDLE_DIR="$REPO_ROOT/layers/core-ui/dist/assets"
 WEB_BUNDLE_JS=("$WEB_BUNDLE_DIR"/index-*.js)
@@ -34,12 +27,6 @@ if grep -l "ws://localhost" "${WEB_BUNDLE_JS[@]}" >/dev/null 2>&1; then
   exit 1
 fi
 
-# @lore proven-bug guard, wider class: `ws://localhost` is only one symptom of a
-# build that ran in dev mode. `hyperidle-dev-local` (the dev-only API key
-# fallback in layers/core-ui/src/services/api-fetch.ts) only appears on the
-# `import.meta.env.DEV` branch, so it is a second independent tripwire for the
-# same root cause — catches it even if a future Vite change makes MODE itself
-# unreliable.
 if grep -l "hyperidle-dev-local" "${WEB_BUNDLE_JS[@]}" >/dev/null 2>&1; then
   echo "Error: the built web bundle hardcodes the dev API key fallback (hyperidle-dev-local) — this build ran in dev mode."
   echo "See layers/core-ui/src/services/api-fetch.ts."
@@ -51,9 +38,7 @@ npx tsx "$DESKTOP_DIR/__scripts__/bundle.ts"
 
 echo "==> Building unsigned app (no signing, no notarization)"
 cd "$DESKTOP_DIR"
-# @lore electron is hoisted to the monorepo-root node_modules, so electron-builder
-# run from this workspace subdir cannot compute the version from a "^43.1.1" range.
-# Derive the exact installed version and pass it explicitly.
+# @lore: electron version — hoisted to root node_modules; electron-builder in a workspace cannot resolve a range; pass exact
 ELECTRON_VERSION="$(node -p "require('electron/package.json').version")"
 CSC_IDENTITY_AUTO_DISCOVERY=false \
   npx electron-builder \

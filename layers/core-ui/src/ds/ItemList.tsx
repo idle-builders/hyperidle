@@ -4,9 +4,8 @@
  *
  * State precedence: error → loading → empty (when isEmpty===true) → children.
  *
- * @lore AG6: isEmpty is a REQUIRED explicit signal — no implicit React.Children
- * counting. Consumers pass x.length===0. Implicit detection was rejected as
- * a footgun (an empty children slot is not the same as "no data").
+ * isEmpty is a required explicit signal — no implicit React.Children counting;
+ * an empty children slot is not the same as "no data".
  */
 
 import type { JSX, ReactNode } from "react";
@@ -66,14 +65,6 @@ export function ItemList({
 	isEmpty,
 	"data-testid": dataTestId,
 }: ItemListProps): JSX.Element {
-	// @lore POLISH-060 A1: The grey surface-container background belongs ONLY on
-	// real row children (contained variant). Empty/error/loading states render on
-	// the page surface (transparent) so they don't produce a grey box around a
-	// single EmptyState/ErrorState/SkeletonList. The contained style is applied
-	// only in the populated branch below.
-	// @lore knowledge-attachment-slot: "boxed" contract = hairline-border
-	// container, no shadow — SettingsHarnesses' original wrapper, now the one
-	// spelling instead of a fork per caller.
 	const containerClass =
 		variant === "contained"
 			? "rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[12px]"

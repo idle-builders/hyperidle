@@ -1,15 +1,3 @@
-/**
- * L7 — `ToastRegion` shell wrapper (plan §4.7).
- *
- * Tier 3 shell composition — NOT a new design-system component. Implements a
- * single transient toast at a time using DaisyUI's `toast` class. Provides a
- * `useToast()` hook returning `showToast(message)` via React context.
- *
- * Single-toast invariant: the most recent `showToast` call replaces the
- * currently-visible toast (queue depth 1). Each toast auto-dismisses after
- * 4 seconds with `role="status"` for assistive technology.
- */
-
 import {
 	createContext,
 	type JSX,
@@ -29,10 +17,7 @@ interface ToastApi {
 
 export const ToastContext = createContext<ToastApi | null>(null);
 
-/**
- * Imperative toast trigger. Must be used inside a `<ToastRegion>`. Calling
- * outside throws — the alternative would be a silent no-op that hides bugs.
- */
+/** Imperative toast trigger — must be inside <ToastRegion>; throws if called outside (silent no-op would hide bugs). */
 export function useToast(): ToastApi {
 	const ctx = useContext(ToastContext);
 	if (!ctx) {
@@ -73,7 +58,6 @@ export function ToastRegion({ children }: ToastRegionProps): JSX.Element {
 	return (
 		<ToastContext.Provider value={{ showToast }}>
 			{children}
-			{/* @lore AI2: z-50 removed; z-layer now via --z-toast token (AC-3). Toasts sit above dialogs. */}
 			{message !== null ? (
 				<div
 					className="toast toast-top toast-end"

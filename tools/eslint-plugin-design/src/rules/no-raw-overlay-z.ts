@@ -48,7 +48,7 @@ export const noRawOverlayZ: Rule.RuleModule = createRule({
 		},
 		schema: [],
 		messages: {
-			rawZ: "Raw z-index class '{{cls}}' found. Use the --z-* token scale: --z-drawer (30), --z-overlay (40), --z-scrim (50), --z-dialog (60) via style={{ zIndex: 'var(--z-drawer)' }}. (AI2 AC-3)",
+			rawZ: "Raw z-index class '{{cls}}' found. Use the --z-* token scale: --z-drawer (30), --z-overlay (40), --z-scrim (50), --z-dialog (60) via style={{ zIndex: 'var(--z-drawer)' }}.",
 		},
 	},
 	create(context) {

@@ -1,4 +1,4 @@
--- L20: Add propagation_log table for lifecycle propagation audit + retry.
+-- Add propagation_log table for lifecycle propagation audit + retry.
 -- This table was in the SQLite schema but missed during PG migration.
 
 CREATE TABLE IF NOT EXISTS "propagation_log" (

@@ -5,12 +5,6 @@
  * that RUNS A MODEL (`builtin`, `claude`, `codex`, `opencode`, `cursor-agent`) and nothing else.
  * `gh` is the GitHub CLI — a test that shells out to it needs the binary present, but calling that
  * requirement "a harness" put a credential probe inside the vocabulary of model execution.
- *
- * @lore AU28 Ruling 15: `gh` used to sit in `HarnessName`, in the binary map, in a type carve-out,
- * and behind `requireHarness("gh")` in two integration tests. All of that said `gh` is a harness. It
- * is not, and the one production use — `gh auth status --json hosts` — makes no model call at all.
- * The gate itself was never the problem, so it moved here rather than being deleted: the test still
- * cannot complete without the binary, and the run still hard-fails instead of skipping to green.
  */
 
 import { execFileSync } from "node:child_process";

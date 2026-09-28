@@ -1,4 +1,4 @@
--- P5: First-time hint progress tracking
+-- First-time hint progress tracking
 CREATE TABLE IF NOT EXISTS "hint_progress" (
 	"user_id" text NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
 	"hint_id" text NOT NULL,

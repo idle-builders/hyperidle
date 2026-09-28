@@ -1,11 +1,11 @@
-// Canvas #3 — the action / operation canvas.
+// ReviewActionOperation: the action / operation canvas.
 //
 // Proof family: a staged, PRE-COMMIT *receipt* for an irreversible side-effect
 // with money attached (here: a Stripe refund). NOT a post-hoc diff — nothing has
 // happened yet. The reviewer's verdict is what fires the side-effect, so money +
 // reversibility must be the loudest things on the canvas.
 //
-// 3-layer drill-down (brief §1):
+// 3-layer drill-down:
 //   L1 — one glance: action headline + the AMOUNT (large, tabular) + Stripe logo +
 //        an irreversible marker.
 //   L2 — the receipt: the structured fields that define the operation (charge,
@@ -14,7 +14,7 @@
 //        irreversible). The review frame owns the pre-commit verdict gate.
 //
 // Tokens by NAME only (Hearth). Money + irreversibility lean on
-// --status-warning / --status-error per the brief. Brand color lives only in ToolLogo.
+// --status-warning / --status-error. Brand color lives only in ToolLogo.
 
 import { type JSX, useState } from "react";
 import { RowDot } from "../../ds";

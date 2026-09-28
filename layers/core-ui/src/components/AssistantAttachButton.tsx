@@ -1,14 +1,3 @@
-/**
- * AssistantAttachButton
- *
- * A "+" button that appears on BetCard/TaskCard/DocRow when the assistant
- * overlay is open. Clicking it attaches the item as a context ref in the
- * AssistantOverlay composer.
- *
- * @lore AD8b: Renamed from CocAttachButton → AssistantAttachButton.
- * data-testid changed from "coc-attach-button" → "assistant-attach-button".
- */
-
 import type { JSX } from "react";
 import { useContext } from "react";
 import type { AssistantContextRef } from "../contexts/AssistantContext";

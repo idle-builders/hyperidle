@@ -1,29 +1,4 @@
-/**
- * WorkTaskPage — recursive task detail page.
- *
- * Route: /work/task/:taskId
- *
- * One page for any task at any depth. Replaces both WorkBet and WorkTask.
- * Calls `open_task` to get the task, its ancestors (root-first for the
- * breadcrumb), and its nested subtree.
- *
- * The edit surface is the point: title, description, doneCondition,
- * ownerAgentId and state are all editable via `edit_task` with no role gate
- * or approval step.
- *
- * @lore BB1: bets are gone; root tasks (parentTaskId === null) are the top
- * of the work tree. The breadcrumb is built from ancestors, not from a fixed
- * two-level [Work / Team / Bet / Task] structure.
- *
- * @lore BB1: AppShell <main> is overflow-hidden with no padding, so this page
- * uses the fixed shrink-0 header + flex-1 overflow-y-auto body pattern from
- * the existing WorkTask, WorkBet, and DocumentDetail pages.
- *
- * @lore the architecture doc: `taskInvariants` runs client-side here to grey
- * the Save button on a doomed edit (e.g. an illegal state transition) before
- * the round trip, not just after — the same pure function `edit_task.run`
- * runs server-side as its first pass.
- */
+// @lore: PageScaffold scroll — AppShell main is overflow-hidden with no padding; use shrink-0 header + flex-1 overflow-y-auto body pattern
 
 import {
 	type EditTaskInput,
@@ -69,8 +44,6 @@ import { createOpenHandler } from "../services/open-handler.js";
 import { HostThreadSection } from "../shell/HostThreadSection.js";
 import { NavHistoryCluster } from "../shell/NavHistoryCluster.js";
 
-// ── Editable field state ────────────────────────────────────────────────────
-
 interface EditState {
 	title: string;
 	description: string;
@@ -80,7 +53,6 @@ interface EditState {
 	dependencies: readonly string[];
 }
 
-/** `Task.dependencies` is the column's raw JSON-text; malformed/absent reads as none. */
 function parseDependencies(dependencies: string | null): readonly string[] {
 	if (!dependencies) return [];
 	try {
@@ -102,14 +74,11 @@ function taskToEditState(task: Task): EditState {
 	};
 }
 
-/** Same-set comparison, order-insensitive — the field re-adds/removes freely. */
 function sameDependencySet(a: readonly string[], b: readonly string[]): boolean {
 	if (a.length !== b.length) return false;
 	const bSet = new Set(b);
 	return a.every((id) => bSet.has(id));
 }
-
-// ── Task state select options ───────────────────────────────────────────────
 
 const TASK_STATE_OPTIONS: { value: TaskState; label: string }[] = [
 	{ value: "proposed", label: TASK_STATE_LABEL.proposed },
@@ -122,8 +91,6 @@ const TASK_STATE_OPTIONS: { value: TaskState; label: string }[] = [
 	{ value: "killed", label: TASK_STATE_LABEL.killed },
 ];
 
-// ── Reorder arrow icons ─────────────────────────────────────────────────────
-//
 // 16×16 filled chevrons consistent with ds/Fold.tsx's icon style.
 // Paths are vertical mirrors of ICON_FOLD from Fold.tsx.
 
@@ -158,18 +125,6 @@ function ChevronDownIcon(): JSX.Element {
 	);
 }
 
-// ── Recursive subtask tree ──────────────────────────────────────────────────
-
-/**
- * Renders a recursive list of subtask nodes at any depth.
- * Each leaf can expand further via the Add subtask affordance.
- *
- * @param onReorder - callback to PATCH position for a task within its sibling
- *   list. Receives the task id and the target position (0-indexed). When
- *   provided, each row shows move-up / move-down controls disabled at the
- *   boundary siblings. Works at every depth — grandchildren reorder within
- *   their own sibling list, not their parent's.
- */
 function SubtaskTree({
 	nodes,
 	depth = 0,
@@ -216,8 +171,6 @@ function SubtaskRow({
 	totalSiblings: number;
 	onReorder?: (taskId: string, newPosition: number) => void;
 }): JSX.Element {
-	// @lore BB1: the node IS the task, with `children` alongside — the tree
-	// endpoint flattens each row rather than wrapping it in `{ task, children }`.
 	const { children } = node;
 	const task = node;
 	const isFirst = index === 0;
@@ -238,7 +191,6 @@ function SubtaskRow({
 				</RRLink>
 				{task.state === "in_progress" && <LiveDot />}
 				<StatusChip status={taskStateToStatus(task.state)} label={TASK_STATE_LABEL[task.state]} />
-				{/* Reorder controls — only rendered when a reorder handler is wired */}
 				{onReorder !== undefined && (
 					<div className="flex items-center gap-[3px] shrink-0">
 						<Button
@@ -272,7 +224,6 @@ function SubtaskRow({
 			{task.ownerAgentId && (
 				<span className="type-metadata text-[var(--text-tertiary)]">{task.ownerAgentId}</span>
 			)}
-			{/* Recursively render grandchildren — pass onReorder so any depth works */}
 			{children.length > 0 && (
 				<div className="mt-[6px]">
 					<SubtaskTree nodes={children} depth={depth + 1} onReorder={onReorder} />
@@ -281,8 +232,6 @@ function SubtaskRow({
 		</div>
 	);
 }
-
-// ── Session row ─────────────────────────────────────────────────────────────
 
 function SessionRow({
 	id,
@@ -297,7 +246,6 @@ function SessionRow({
 	agent: string;
 	status: string;
 	effectivenessScore?: number | null;
-	/** Opens the session in the page's split pane — the same `onOpenSession` door Conversations uses. */
 	onOpen: (sessionId: string) => void;
 }): JSX.Element {
 	const isActive = status === "active";
@@ -334,14 +282,6 @@ function SessionRow({
 	);
 }
 
-/**
- * The session viewer, opened from a `SessionRow` click into the page's
- * split pane. Reuses `SessionView` exactly as it is — no redesign, no new
- * component. The session's own agent id only surfaces
- * once `useSessionActivity`'s `summary` settles (it stays `null` while
- * streaming — same reasoning as `Conversations.tsx`'s
- * `resolveSessionAgentAuthor`), so a generic placeholder renders until then.
- */
 function TaskSessionPanel({
 	sessionId,
 	viewerId,
@@ -398,8 +338,6 @@ function TaskSessionPanel({
 	);
 }
 
-// ── open_task / edit_task doors ─────────────────────────────────────────────
-
 interface UseOpenTaskResult {
 	data: TaskView | null;
 	loading: boolean;
@@ -407,7 +345,6 @@ interface UseOpenTaskResult {
 	refresh: () => void;
 }
 
-/** Replaces `useTaskTree` — same {data, loading, error, refresh} shape, over `open_task`. */
 function useOpenTask(taskId: string | undefined): UseOpenTaskResult {
 	const [refreshCounter, setRefreshCounter] = useState(0);
 	const [state, setState] = useState<Omit<UseOpenTaskResult, "refresh">>({
@@ -463,11 +400,9 @@ type EditTaskStatus = "idle" | "saving" | "saved" | "error";
 interface UseEditTaskResult {
 	status: EditTaskStatus;
 	errorMessage: string | null;
-	/** `id` and `version` are the caller's job — this just issues the call and tracks status. */
 	edit: (input: EditTaskInput) => void;
 }
 
-/** Replaces `useTaskPatch` — same status machine, issuing `edit_task` instead of PATCH. */
 function useEditTask(onSaved?: (view: TaskView) => void): UseEditTaskResult {
 	const [status, setStatus] = useState<EditTaskStatus>("idle");
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -510,13 +445,6 @@ function useEditTask(onSaved?: (view: TaskView) => void): UseEditTaskResult {
 	return { status, errorMessage, edit };
 }
 
-// ── Edit panel ──────────────────────────────────────────────────────────────
-
-/**
- * EditPanel renders the editable task fields and issues `edit_task` on submit.
- * Title, description, goal, owner, and state are all editable — no approval
- * step, no role gate.
- */
 function EditPanel({ task, onSaved }: { task: Task; onSaved: () => void }): JSX.Element {
 	const [fields, setFields] = useState<EditState>(() => taskToEditState(task));
 	const { status, errorMessage, edit } = useEditTask(onSaved);
@@ -531,7 +459,6 @@ function EditPanel({ task, onSaved }: { task: Task; onSaved: () => void }): JSX.
 		[agents],
 	);
 
-	// When the task prop changes (e.g. after a refresh), re-sync the form
 	useEffect(() => {
 		setFields(taskToEditState(task));
 	}, [task]);
@@ -590,7 +517,6 @@ function EditPanel({ task, onSaved }: { task: Task; onSaved: () => void }): JSX.
 		<section data-testid="task-edit-panel" aria-label="Edit task">
 			<SectionLabel label="Details" divider />
 			<div className="flex flex-col gap-[18px] mt-[12px]">
-				{/* Title */}
 				<div>
 					<Input
 						label="Title"
@@ -602,7 +528,6 @@ function EditPanel({ task, onSaved }: { task: Task; onSaved: () => void }): JSX.
 						disabled={isSaving}
 					/>
 				</div>
-				{/* Description */}
 				<div>
 					<Input
 						label="Description"
@@ -615,7 +540,6 @@ function EditPanel({ task, onSaved }: { task: Task; onSaved: () => void }): JSX.
 						disabled={isSaving}
 					/>
 				</div>
-				{/* Goal / done condition */}
 				<div>
 					<Input
 						label="Goal (done when…)"
@@ -628,7 +552,6 @@ function EditPanel({ task, onSaved }: { task: Task; onSaved: () => void }): JSX.
 						disabled={isSaving}
 					/>
 				</div>
-				{/* Owner */}
 				<div>
 					<Combobox
 						id="task-owner-combobox"
@@ -642,14 +565,12 @@ function EditPanel({ task, onSaved }: { task: Task; onSaved: () => void }): JSX.
 						disabled={isSaving}
 					/>
 				</div>
-				{/* Dependencies */}
 				<TaskDependencyField
 					dependencies={fields.dependencies}
 					onChange={(dependencies) => setFields((f) => ({ ...f, dependencies }))}
 					disabled={isSaving}
 					currentTaskId={task.id}
 				/>
-				{/* State */}
 				<div>
 					<Select
 						label="State"
@@ -662,7 +583,6 @@ function EditPanel({ task, onSaved }: { task: Task; onSaved: () => void }): JSX.
 						disabled={isSaving}
 					/>
 				</div>
-				{/* Save controls */}
 				<div className="flex items-center gap-[12px]">
 					<Button
 						variant="primary"
@@ -704,10 +624,7 @@ function EditPanel({ task, onSaved }: { task: Task; onSaved: () => void }): JSX.
 	);
 }
 
-// ── Main page ───────────────────────────────────────────────────────────────
-
 export interface WorkTaskPageProps {
-	/** Override task ID from route params — used by tests outside the router. */
 	overrideTaskId?: string;
 }
 
@@ -720,19 +637,11 @@ export function WorkTaskPage({ overrideTaskId }: WorkTaskPageProps = {}): JSX.El
 	const { data, loading, error, refresh } = useOpenTask(taskId);
 	const { data: sessionsData } = useTaskSessions(taskId);
 
-	// The session viewer door — a `SessionRow` click fires the same
-	// `onOpenSession` OpenTarget path Conversations.tsx uses, mounted in this
-	// page's own split pane rather than navigating away from the task.
 	const { user } = useCurrentUser();
 	const [openSessionId, setOpenSessionId] = useState<string | null>(null);
 	const [sessionRatio, setSessionRatio] = useUiPreference("task.session", 0.6);
 	const openSessionTarget = createOpenHandler(navigate, { onOpenSession: setOpenSessionId });
 
-	// Position reordering — `edit_task` with { id, position } then re-read the
-	// subtree so the order the user sees matches what the server stored.
-	// @lore BB1: useEditTask(refresh) wires the onSaved callback so the tree
-	// re-fetches after every successful edit. The re-fetch is what keeps
-	// server order authoritative — never an optimistic local swap.
 	const { edit: editPosition } = useEditTask(refresh);
 	const onReorder = useCallback(
 		(reorderTaskId: string, newPosition: number): void => {
@@ -740,8 +649,6 @@ export function WorkTaskPage({ overrideTaskId }: WorkTaskPageProps = {}): JSX.El
 		},
 		[editPosition],
 	);
-
-	// ── Loading ────────────────────────────────────────────────────────────
 
 	if (loading) {
 		return (
@@ -762,8 +669,6 @@ export function WorkTaskPage({ overrideTaskId }: WorkTaskPageProps = {}): JSX.El
 		);
 	}
 
-	// ── Error ──────────────────────────────────────────────────────────────
-
 	if (error) {
 		return (
 			<PageScaffold frame="page" header={<PageHeader title="Task" />} data-testid="task-page-error">
@@ -778,8 +683,6 @@ export function WorkTaskPage({ overrideTaskId }: WorkTaskPageProps = {}): JSX.El
 			</PageScaffold>
 		);
 	}
-
-	// ── Not found ──────────────────────────────────────────────────────────
 
 	if (!data) {
 		return (
@@ -800,15 +703,6 @@ export function WorkTaskPage({ overrideTaskId }: WorkTaskPageProps = {}): JSX.El
 	const activeSessions = sessions.filter((s) => s.status === "active");
 	const completedSessions = sessions.filter((s) => s.status === "done" || s.status === "completed");
 
-	// Build breadcrumb from ancestors root-first + the current task as the
-	// non-linked final segment. ancestors[0] is the root task.
-	// @lore BB1: typed as a NON-EMPTY tuple, which is what `Breadcrumb` asks for.
-	// This was `Array<…>` plus an `as unknown as` cast at the call site — a
-	// double assertion that launders the value past the type checker (and that
-	// `design/no-unknown-cast` rightly rejects). The array is non-empty by
-	// construction: the "Work" root and the current task always exist, and the
-	// ancestors spread in between. Saying so in the type costs nothing and means
-	// the compiler checks the shape instead of being told to trust it.
 	const breadcrumbSegments: readonly [BreadcrumbSegment, ...BreadcrumbSegment[]] = [
 		{ label: "Work", to: "/work" },
 		...ancestors.map((a) => ({ label: a.title, to: `/work/task/${encodeURIComponent(a.id)}` })),
@@ -863,19 +757,16 @@ export function WorkTaskPage({ overrideTaskId }: WorkTaskPageProps = {}): JSX.El
 							data-testid="task-detail-body"
 							className="flex flex-col gap-[24px] max-w-[800px] w-full py-[24px] box-border"
 						>
-							{/* Metadata strip */}
 							<div
 								data-testid="task-meta-strip"
 								className="border-width-thin bg-[var(--surface-page)] rounded-[var(--r-default)] border-[var(--border-subtle)] flex overflow-hidden"
 							>
-								{/* Owner */}
 								<div className="border-width-thin-r flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px] border-[var(--border-subtle)]">
 									<span className="type-label uppercase text-[var(--text-tertiary)]">Owner</span>
 									<span className="type-small text-[var(--text-primary)]">
 										{task.ownerAgentId ?? "Unassigned"}
 									</span>
 								</div>
-								{/* Status */}
 								<div className="border-width-thin-r flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px] border-[var(--border-subtle)]">
 									<span className="type-label uppercase text-[var(--text-tertiary)]">Status</span>
 									<div className="flex items-center gap-[6px] mt-[3px]">
@@ -886,14 +777,12 @@ export function WorkTaskPage({ overrideTaskId }: WorkTaskPageProps = {}): JSX.El
 										/>
 									</div>
 								</div>
-								{/* Depth / parent */}
 								<div className="border-width-thin-r flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px] border-[var(--border-subtle)]">
 									<span className="type-label uppercase text-[var(--text-tertiary)]">Depth</span>
 									<span className="type-small text-[var(--text-primary)]">
 										{ancestors.length === 0 ? "Root task" : `Level ${ancestors.length}`}
 									</span>
 								</div>
-								{/* Sessions */}
 								<div className="flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px]">
 									<span className="type-label uppercase text-[var(--text-tertiary)]">Sessions</span>
 									<span
@@ -905,10 +794,8 @@ export function WorkTaskPage({ overrideTaskId }: WorkTaskPageProps = {}): JSX.El
 								</div>
 							</div>
 
-							{/* Edit panel */}
 							<EditPanel task={task} onSaved={refresh} />
 
-							{/* Subtasks */}
 							<section data-testid="task-subtasks-section">
 								<div className="flex items-center justify-between">
 									<SectionLabel label="Subtasks" divider />
@@ -928,7 +815,6 @@ export function WorkTaskPage({ overrideTaskId }: WorkTaskPageProps = {}): JSX.El
 								</div>
 							</section>
 
-							{/* Sessions */}
 							<section data-testid="task-sessions-section">
 								<SectionLabel label="Sessions" divider />
 								{sessions.length === 0 ? (
@@ -950,7 +836,6 @@ export function WorkTaskPage({ overrideTaskId }: WorkTaskPageProps = {}): JSX.El
 								)}
 							</section>
 
-							{/* Artifacts — documents parented to this task */}
 							<ArtifactSection
 								parentKind="task"
 								parentId={taskId ?? ""}
@@ -958,7 +843,6 @@ export function WorkTaskPage({ overrideTaskId }: WorkTaskPageProps = {}): JSX.El
 								emptyDescription="Artifacts will appear here once agents produce output for this task."
 							/>
 
-							{/* Discussion */}
 							<section aria-label="Discussion">
 								<SectionLabel label="Discussion" divider />
 								<HostThreadSection threadId={task.threadId} inline />

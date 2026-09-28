@@ -1,10 +1,8 @@
 /**
- * L1a — `CommentRow` design-system component.
+ * CommentRow — per-message row in the comment stream.
  *
- * Plan §7.5; approved.md §2.4. Per-message row in the comment stream.
- * Renders plain text, plain text with inline ref, verdict (status chip +
- * decision label), inline-comment (anchor label above body), redacted
- * (greyed body, "Redacted by X — reason"), grouped vs ungrouped variant.
+ * Renders plain text, inline ref, verdict (status chip + decision label),
+ * inline-comment (anchor label above body), redacted, grouped vs ungrouped.
  */
 
 import type { InlineRef, Message } from "@hyperidle/domain-model";
@@ -42,10 +40,8 @@ export interface CommentRowRichSlots {
 	 * promoted RichMessageCard's metadata column. Variant marker
 	 * `data-variant="rich-review" | "rich-questionnaire"`.
 	 *
-	 * @lore L11 plan §5.4: rich slots only render when message.type ∈
-	 * {review, questionnaire}. For plain/verdict messages the slots are
-	 * silently dropped (no warning, no error) and the standard body
-	 * renders instead.
+	 * Rich slots only render when message.type ∈ {review, questionnaire};
+	 * for plain/verdict messages the slots are silently dropped and standard body renders.
 	 */
 	richHeader?: ReactNode;
 	/** ArtifactView mounted inline, no card chrome. */
@@ -63,14 +59,11 @@ export interface CommentRowProps extends CommentRowRichSlots {
 	 * Optional HTML sanitizer (e.g. DOMPurify). When provided, raw HTML block
 	 * payloads are sanitized and rendered as HTML. When absent, html payloads
 	 * degrade to UnknownPayload (shows raw source, no DOM injection).
-	 *
-	 * @lore R3 C-1 (reviewer): threaded from web consumer → ThreadShell →
-	 * CommentRow. Tests verify the prop contract at the CommentRow level.
 	 */
 	sanitizeHtml?: (raw: string) => string;
 	/**
-	 * T4: Optional slot rendered after the message body — used for inline ref
-	 * embeds (BlockRefEmbed). Assembeld by the ThreadShell consumer via
+	 * Optional slot rendered after the message body — used for inline ref
+	 * embeds (BlockRefEmbed). Assembled by the ThreadShell consumer via
 	 * the `renderRefEmbeds` render prop.
 	 */
 	afterBody?: ReactNode;
@@ -79,14 +72,12 @@ export interface CommentRowProps extends CommentRowRichSlots {
 /**
  * MentionToken — inline highlighted span for @mention rendering.
  *
- * Visual treatment per design spec:
+ * Visual treatment:
  * - Background: var(--accent-primary) at 8% opacity
  * - Text: var(--accent-primary)
  * - Border-radius: var(--r-pill)
  * - Padding: 1px 3px (sub-grid exempt, internal inline padding)
  *
- * @lore AE5: Not interactive in v1. No click-to-navigate, no hover card.
- * Click-to-profile deferred until agent profile page covers all identity types.
  */
 function MentionToken({ displayName }: { displayName: string }): JSX.Element {
 	return (
@@ -104,14 +95,7 @@ function MentionToken({ displayName }: { displayName: string }): JSX.Element {
  * When the message has MentionRef entries in refs[], the text is first
  * segmented by segmentMentions() so @name tokens render as MentionToken spans.
  *
- * @lore R3: plain messages are rendered through derivePayloads() → renderPayload()
- * so that markdown formatting (bold, code, lists, headings) is displayed correctly.
- * Previously plain messages were rendered as a single <p> with whitespace-pre-wrap.
  *
- * @lore AE5: Mention tokens are pre-segmented BEFORE the markdown pipeline. This means
- * mentions inside code blocks or other markdown constructs will still be highlighted —
- * this is intentional per the design spec (the mention was intentional regardless of
- * surrounding formatting).
  */
 function MessagePayloads({
 	text,
@@ -122,8 +106,6 @@ function MessagePayloads({
 	refs?: ReadonlyArray<InlineRef>;
 	sanitizeHtml?: (raw: string) => string;
 }): JSX.Element {
-	// Check if any MentionRef entries exist in refs.
-	// All hooks must be called unconditionally before any early returns.
 	const hasMentions = useMemo(
 		() => Array.isArray(refs) && refs.some((r) => r.kind === "mention"),
 		[refs],
@@ -176,18 +158,8 @@ function MessagePayloads({
  * Render the per-message body. Type narrowing flows through a `switch` on
  * `message.type` so that adding a 5th `MessageType` to the vocabulary
  * triggers a TS narrowing failure at the `default` arm via
- * `exhaustiveAssert(message.type)` (AC-11).
+ * `exhaustiveAssert(message.type)`.
  *
- * @lore L1 step9 (Arch-#2): the previous if/else chain fell through to
- * `null` for unhandled types, so a 5th union variant would compile clean
- * and silently render nothing. The switch + `exhaustiveAssert` pattern
- * surfaces the omission at the type system level.
- *
- * @lore BC3: `Message` is now a flat zod-inferred row shape (`payload:
- * unknown`, `type: MessageType`), not a discriminated union of per-type
- * interfaces — `switch(message.type)` narrows the `type` FIELD in each
- * case, but never narrows `message` itself to `never`, so the exhaustion
- * check moves onto `message.type` directly.
  */
 function renderBody(message: Message, sanitizeHtml?: (raw: string) => string): ReactNode {
 	if (isRedactedPayload(message.payload)) {
@@ -221,7 +193,7 @@ function renderBody(message: Message, sanitizeHtml?: (raw: string) => string): R
 		}
 		case "review": {
 			// Rich slots carry the review's substance on ThreadShell, but
-			// HostThreadSection supplies none (WorkTask.tsx, HostThreadSection.tsx) —
+			// HostThreadSection supplies none —
 			// without a fallback a review is a blank row there. Text only, no navigation.
 			const payload = reviewPayloadOf(message);
 			if (isRedactedPayload(payload)) return null;
@@ -259,32 +231,14 @@ export function CommentRow({
 			: "rich-questionnaire"
 		: undefined;
 	const isAgent = sender.isAgent ?? false;
-	/**
-	 * @lore AI3 CommentRow null-render contract: clockTime always returns a string.
-	 * When the result is TIME_PLACEHOLDER (invalid/unparseable input), we coerce
-	 * back to null so the existing {timeString ? <span> : null} render hides the chip.
-	 * This is the single AC-3 carve-out surface — all other surfaces render "—" verbatim.
-	 * Rationale: sender-header chip has no reserved cell; absence is its native "no value"
-	 * state. A dangling "—" beside a name+Agent badge reads as broken, not "no time".
-	 */
+	// clockTime always returns a string; TIME_PLACEHOLDER means invalid input.
 	const timeRaw = showSenderHeader ? clockTime(message.createdAt) : null;
 	const timeString = timeRaw === TIME_PLACEHOLDER ? null : timeRaw;
 
-	// @lore AZ7 review-round-2 NEW-1: was `rounded-full` (the pill's forbidden
-	// second spelling — B1's `@source` glob fix made it paint, at
-	// `border-radius: 3.35544e+07px`) and, on the non-agent branch,
-	// `bg-[var(--surface-page)]` — the page-canvas token used as a fill, the
-	// same Set 3 second-job defect already removed from Button's hover tint,
-	// HostThreadSection's input, and SearchField. `--surface-elevated` is the
-	// correct token per DESIGN.md's fill table: "anything that floats on the
-	// canvas and holds content" — an avatar chip is exactly that, not the
-	// canvas itself.
 	const avatarClass = isAgent
 		? "inline-flex items-center justify-center w-[36px] h-[36px] rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] text-[var(--accent-deep)] border-width-strong border-[var(--accent-deep)] shrink-0"
 		: "inline-flex items-center justify-center w-[36px] h-[36px] rounded-[var(--r-pill)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] border-width-strong border-[var(--border-subtle)] shrink-0";
 
-	// @lore AH6: data-sender-kind="ai"|"human" is the stable Playwright selector
-	// for AI vs human message bubbles. Derives from CommentRowSender.isAgent.
 	return (
 		<li
 			{...dsProps("CommentRow", "2")}

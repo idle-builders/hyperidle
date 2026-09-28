@@ -6,15 +6,9 @@ import type { ErrorHandler } from "hono";
 
 const log = createLogger({ pkg: "server" });
 
-/**
- * Global error handler that returns consistent ApiErrorResponse shape.
- * Maps domain errors to appropriate HTTP status codes.
- * Never exposes stack traces.
- */
+/** Maps domain errors to HTTP status codes. Never exposes stack traces. */
 export const errorHandler: ErrorHandler = (err, c) => {
-	// Map domain errors to HTTP status codes
-	// Check both instanceof and error name to handle different class instances
-	// (e.g. task-state-machine has its own InvalidTransitionError)
+	// Check both instanceof and error name — different class instances can share the same name
 	if (
 		err instanceof InvalidTransitionError ||
 		err instanceof CapacityExceededError ||
@@ -29,7 +23,6 @@ export const errorHandler: ErrorHandler = (err, c) => {
 		return c.json(response, 409);
 	}
 
-	// Check for "not found" errors from services
 	if (err.message.includes("not found") || err.message.includes("not found:")) {
 		const response: ApiErrorResponse = {
 			error: err.message,

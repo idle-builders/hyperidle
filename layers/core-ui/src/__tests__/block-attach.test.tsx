@@ -9,9 +9,7 @@
  *   - The document carries the block's content verbatim — editing the source
  *     afterwards leaves the item unchanged (no pointer, no rotting blockId).
  *
- * @lore the assistant overlay's thread send goes through call("send_message", {threadId, text, refs, clientKey}), not a direct POST.
  *
- * @lore document creation goes through call("edit_document", …) — the same mocked call() door used everywhere (architecture.md §9.2).
  */
 
 import { render, screen } from "@testing-library/react";

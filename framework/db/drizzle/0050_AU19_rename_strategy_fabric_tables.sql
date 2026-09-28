@@ -1,10 +1,10 @@
--- AU19 Increment 1k: finish AU3's half-done Strategy-vocabulary rename.
+-- Finish the Strategy-vocabulary rename.
 --
 -- Hand-authored incremental migration (this repo's migrations are additive
 -- SQL files tracked only by meta/_journal.json — see 0043-0049 — not by a
 -- regenerated drizzle-kit snapshot chain past 0042).
 --
--- AU3 (the Kernel/Strategy runtime retirement) was supposed to rename the
+-- The Kernel/Strategy runtime retirement was supposed to rename the
 -- `knowledge_strategy_fabric`/`task_strategy_fabric` extension tables to the
 -- app-owned vocabulary but only bolted a JS alias export onto the unchanged
 -- physical tables, leaving TS code and SQL disagreeing on the table's name

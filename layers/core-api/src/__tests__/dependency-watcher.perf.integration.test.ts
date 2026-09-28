@@ -144,7 +144,6 @@ describe("dependency-watcher SQL filter benchmark", () => {
 
 		const [dependent] = await db.select().from(tasks).where(eq(tasks.id, "dependent"));
 		expect(dependent?.state).toBe("accepted");
-		// @lore 2000ms only guards against an O(n²) scan — the real regression guard is the behavioral test below.
 		expect(elapsedMs, `checkAndUnblockDependents took ${elapsedMs.toFixed(2)}ms`).toBeLessThan(
 			2000,
 		);

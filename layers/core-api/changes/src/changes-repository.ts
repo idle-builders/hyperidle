@@ -7,14 +7,8 @@ import {
 } from "@hyperidle/db";
 import { and, desc, eq, gt, inArray, type SQL } from "drizzle-orm";
 
-/**
- * the event log the action mechanism writes to. Not an audit control,
- * no gate: the record of what happened, appended once per touched object in
- * the SAME transaction as the write (the architecture doc
- * §4). `before`/`after` on `row` carry only the fields that differ (plus
- * `id`), already JSON-encoded by the caller — this Service does not shape
- * the diff, only persists it.
- */
+// Event log the action mechanism writes to — appended once per touched object in the same transaction.
+// before/after carry only the diffed fields (plus id), JSON-encoded by the caller.
 export async function appendChange(exec: WriteExecutor, row: NewChange): Promise<Change> {
 	const [inserted] = await exec.insert(changes).values(row).returning();
 	if (!inserted) {
@@ -27,12 +21,11 @@ export interface ListChangesFilter {
 	readonly object?: string;
 	readonly objectId?: string;
 	readonly after?: string;
-	/** `open_user`'s inbox batch-reads the change rows an inbox's
-	 * `(user_id, change_id)` rows point at, by id. */
+	// `open_user` inbox batch-reads change rows by id.
 	readonly ids?: readonly string[];
 }
 
-/** Newest first. `after` filters to rows recorded strictly after the given ISO timestamp. */
+// Newest first; `after` filters to rows recorded strictly after the given ISO timestamp.
 export function listChanges(db: HyperIdleDb, filter: ListChangesFilter = {}): Promise<Change[]> {
 	if (filter.ids !== undefined && filter.ids.length === 0) return Promise.resolve([]);
 	const conds: SQL[] = [];

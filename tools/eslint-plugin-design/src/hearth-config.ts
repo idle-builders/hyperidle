@@ -107,12 +107,12 @@ export const RULE_SEVERITY: Record<string, ScopedSeverity> = {
 	"no-undefined-font-heading": { coreUi: "off", designSystem: "off" },
 	"no-raw-actor-fetch": { coreUi: "off", designSystem: "off" },
 	"no-unknown-cast": { coreUi: "off", designSystem: "off" },
+	"lore-format": { coreUi: "off", designSystem: "off" },
 	// Test-file rules — scoped to test-file globs by their own dedicated
 	// eslint.config.ts block (testing.md § lint enforcement), not the
 	// core-ui/*.tsx blanket sweep this table governs.
 	"no-dom-marker-assert": { coreUi: "off", designSystem: "off" },
 	"no-existence-only-test": { coreUi: "off", designSystem: "off" },
-	"no-multiline-lore-in-test": { coreUi: "off", designSystem: "off" },
 	"no-planning-id-in-test": { coreUi: "off", designSystem: "off" },
 	"no-repo-introspection-in-test": { coreUi: "off", designSystem: "off" },
 };
@@ -134,7 +134,7 @@ export const DEDICATED_BLOCK_RULES: ReadonlySet<string> = new Set([
 	"no-unknown-cast",
 	"no-dom-marker-assert",
 	"no-existence-only-test",
-	"no-multiline-lore-in-test",
+	"lore-format",
 	"no-planning-id-in-test",
 	"no-repo-introspection-in-test",
 ]);

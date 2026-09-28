@@ -1,26 +1,4 @@
-/**
- * ParentPicker — the destination picker for nesting or moving a document,
- * shared by the create flow (nest at create time) and MoveDialog (move an
- * existing document). The document-specific adapter over the shared
- * `Combobox`: it owns the fetch and the `buildParentOptions` narrowing,
- * `Combobox` owns the picking.
- *
- * Fetches the full visible tree via `useDocuments({ inTree: true })` — the
- * same door `DocumentList` uses to build its own tree — and narrows it to
- * the legal choices with `buildParentOptions`, so a person is never offered
- * a move the server will reject (see that function's own doc comment for
- * what a concurrent edit can still invalidate between render and submit).
- *
- * @lore BC4: `useFetch("/api/knowledge")` replaced by `useDocuments`
- * (architecture.md §9.2) — same narrowing, one fewer hand-shaped response
- * type.
- *
- * @lore BA6: was a plain `Select`; migrated to `Combobox` (client-filtered —
- * the tree is already fetched in full, so no `onQueryChange`). "" (top
- * level) is a real, always-legal option; `Combobox` shows it as the closed
- * trigger's placeholder rather than a chosen label, same as every other
- * empty-means-"none" picker in the app.
- */
+// @lore: ParentPicker empty string — "" (top level) is a real always-legal option; Combobox shows it as placeholder, not a chosen label
 
 import { type JSX, useMemo } from "react";
 import { Combobox } from "../../ds";

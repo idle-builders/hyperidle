@@ -1,26 +1,9 @@
 /**
- * Per-model harness options: what each harness declares, and how a configured
- * value actually reaches its binary.
+ * Per-model harness options: declared keys and how they reach the binary.
+ * OPTION_KEYS and OPTION_CARRIERS are typed together — a key with no carrier or a carrier
+ * for an undeclared key fails `npm run check`.
  *
- * Both halves live in this one module on purpose. `OPTION_KEYS` is the single
- * list of keys a harness may declare, and `OPTION_CARRIERS` is typed *from* it —
- * so a key declared with no carrier, or a carrier for a key nothing declares,
- * fails `npm run check`. That coupling is the guard against the defect this
- * feature exists to fix: an option written somewhere and read nowhere.
- *
- * @lore The coupling was break-tested rather than assumed, and fires both ways:
- * deleting a declared key's carrier gives `TS2741: Property 'effort' is missing`,
- * and adding a carrier for a key nothing declares gives `TS2353: 'bogus_key' does
- * not exist`. It rests on `as const satisfies` — annotating `OPTION_KEYS` as a
- * plain `Record<string, readonly string[]>` instead widens the key types and both
- * checks silently pass, which is exactly how this guard would rot without anyone
- * noticing. Do not change that spelling.
- *
- * @lore An option's value is stored on the agent, not chosen per message. The
- * stored set is sparse — an absent key means "whatever the harness does" — so an
- * agent with no options must produce character-for-character the invocation it
- * produced before this existed. {@link modelOptionArgv} returning an empty array
- * is what makes that true.
+ * @lore: model option values — stored on the agent (sparse); absent key = harness default; modelOptionArgv([]) must not change an unconfigured agent's invocation
  */
 
 export type ModelOptionValue = string | number | boolean;
@@ -47,10 +30,6 @@ type OptionKeyOf<H extends OptionCarryingHarness> = (typeof OPTION_KEYS)[H][numb
 /**
  * How one option value reaches its harness: appended to its command line.
  *
- * @lore There used to be a second shape, `request-field`, naming a field on an
- * outgoing request body — the built-in harness had no command line to append to,
- * because it called the model API itself. Every harness is a spawned process
- * now, so every option is an argument.
  */
 export type OptionCarrier = {
 	readonly kind: "argv";

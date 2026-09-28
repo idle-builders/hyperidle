@@ -223,7 +223,6 @@ describe("harness-presentation — showsToggle() (key contract)", () => {
 		expect(showsToggle(UNAVAILABLE_DESCRIPTOR)).toBe(false);
 	});
 
-	// @lore every harness is user-installed and can be turned off now — none carries the built-in gateway's old always-present fallback standing.
 	it("true for a ready key-accepting harness (no exemptions left)", () => {
 		expect(showsToggle(KEY_ACCEPTING_DESCRIPTOR)).toBe(true);
 	});

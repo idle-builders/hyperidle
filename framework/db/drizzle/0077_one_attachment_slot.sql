@@ -17,9 +17,9 @@ ALTER TABLE "knowledge_items" ADD COLUMN "parent_kind" text;
 ALTER TABLE "knowledge_items" ADD COLUMN "parent_id" text;
 --> statement-breakpoint
 
--- 2. Constraints and the read index. The full five-value vocabulary ships now
---    even though phase 1 writes only 'routine' and 'agent' — so phase 2 and
---    the nested-knowledge strand never have to reopen this constraint.
+-- 2. Constraints and the read index. The full five-value vocabulary is allowed
+--    even though only 'routine' and 'agent' are written here, so later writers
+--    never have to reopen this constraint.
 ALTER TABLE "knowledge_items" ADD CONSTRAINT "ki_parent_kind_ck"
   CHECK ("parent_kind" IS NULL OR "parent_kind" IN ('knowledge_item', 'task', 'thread', 'routine', 'agent'));
 --> statement-breakpoint

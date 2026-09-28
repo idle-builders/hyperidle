@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-// @lore this file uses createTestDb() directly because it tests the createTestDb API itself.
 import { createTestDb } from "../__testing__/test-utils.js";
 import { DEFAULT_PG_POOL_SIZE, parsePgPoolSize } from "../connection.js";
 
@@ -26,7 +25,6 @@ describe("PostgreSQL pool-size parsing", () => {
 });
 
 describe("in-memory Postgres via pglite (drizzle-orm/pglite)", () => {
-	// @lore uses createTestDb() directly to exercise the API itself, with explicit close().
 	it("createTestDb returns a usable Drizzle instance", { timeout: 15_000 }, async () => {
 		const { db, close } = await createTestDb();
 		try {

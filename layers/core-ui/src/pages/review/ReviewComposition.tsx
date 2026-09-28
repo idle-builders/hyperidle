@@ -213,7 +213,6 @@ function FrameHeader({
 			presentation={presentation}
 			reservePaneControls={reservePaneControls}
 			title={s.title}
-			// @lore BB1: betId → parentTaskId; /work/bet/ → /work/task/
 			leading={
 				<Breadcrumb
 					segments={[
@@ -404,10 +403,6 @@ interface ArtifactEntryProps {
 }
 
 function ArtifactEntry({ artifact, active, onOpen }: ArtifactEntryProps): JSX.Element {
-	// Row's button-branch already carries w-full (framework/design-system's
-	// UI-060 fix shipped; .pipeline/AZ-bugs.md's checkbox was stale) — this is
-	// the icon + title/subtitle + trailing cells + selected-state shape Row
-	// already owns.
 	return (
 		<Row
 			as="button"
@@ -548,13 +543,7 @@ function ExaminePane({
 }): JSX.Element {
 	const Canvas = getReviewCanvas(artifact.kind);
 	return (
-		// W-[620px] + border-l REMOVED — ExaminePane now fills its SplitView destination slot.
-		// @lore AZ2: <aside> keeps the landmark + surface background; <PageScaffold>
-		// nested inside owns the pinned-header/scroll-body contract. Without it,
-		// ExaminePane's own scroll region would double up with SplitView's
-		// destination wrapper (SplitView.tsx:253, `min-h-0 flex-1 overflow-auto`
-		// around {destination}) — two nested scroll containers, and the header
-		// above would scroll away with the outer one instead of staying pinned.
+		// @lore: ExaminePane aside — <aside> keeps landmark+surface; nested PageScaffold owns pinned-header/scroll; double containers would scroll the header away
 		<aside className="flex h-full flex-col bg-[var(--surface-container)]">
 			<PageScaffold
 				header={
@@ -604,7 +593,7 @@ export function ReviewComposition({
 }: ReviewCompositionProps): JSX.Element {
 	const [activeId, setActiveId] = useState<string | null>(initialOpenArtifactId);
 	const [menuOpen, setMenuOpen] = useState(false);
-	// B3 fix: onSelect and Menu's own onClose both toggled menuOpen, so a
+	// onSelect and Menu's own onClose both toggled menuOpen, so a
 	// pick closed it once (via onSelect's toggle) then reopened it (via
 	// Menu's own onClose firing right after, Menu.tsx:242-243) — the menu
 	// never stayed closed after a pick. closeMenu is an explicit close, not
@@ -652,15 +641,6 @@ export function ReviewComposition({
 		[subject.conversation, activeArtifactId, resolved, onPostComment, openArtifact],
 	);
 
-	// ExaminePane reconciled onto SplitView (surfaceKey="review").
-	// The review list is the origin; ExaminePane fills the destination.
-	//
-	// @lore AZ2: reviewListPane is a self-contained header+scroll-body unit —
-	// exactly PageScaffold's shape — used in the two same positions WorkTeam's
-	// pre-AZ2 teamBody used to occupy (standalone, and as a SplitView origin).
-	// The outer bg-[var(--surface-page)]/text-[var(--text-primary)] surface
-	// classes stay on a thin wrapper (PageScaffold's own root has no className
-	// prop) so the card's visual surface is unchanged.
 	const reviewListPane = (
 		<div className="h-full bg-[var(--surface-page)] text-[var(--text-primary)]">
 			<PageScaffold

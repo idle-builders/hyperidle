@@ -122,7 +122,6 @@ describe("registerCaptureWriteback (filesystems ⚠ capture-writeback EventBus i
 		expect(JSON.parse(fs.readFileSync(manifestPath, "utf-8")).items["item-1"].version).toBe(5);
 	});
 
-	// @lore a stale writeback re-reads the durable version through `searchDocuments`, never `open_document`.
 	it("a stale write is refused: the agent's text is discarded and the manifest advances to the durable version read via searchDocuments — no conflict object (founder ruling)", async () => {
 		const notePath = path.join(tmpDir, "knowledge", "note.md");
 		fs.writeFileSync(notePath, "competing body");

@@ -11,8 +11,6 @@
  *  - SavingState: save in progress
  *  - WithError: inline 422 error shown
  *
- * @lore AV2: AgentEditor is a pure controlled component — no network calls, no side
- * effects. Stories provide all props inline.
  */
 
 import { type JSX, useState } from "react";

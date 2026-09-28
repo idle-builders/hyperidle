@@ -1,7 +1,7 @@
 import type React from "react";
 import { RowDot } from "./RowDot.js";
 
-export default { title: "AG6/RowDot" };
+export default { title: "RowDot" };
 
 export const Success = (): React.JSX.Element => (
 	<div className="flex items-center gap-[12px] p-[12px]">

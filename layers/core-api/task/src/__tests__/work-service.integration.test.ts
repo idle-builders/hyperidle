@@ -25,7 +25,6 @@ async function seedTeamAndAgent(db: HyperIdleDb): Promise<void> {
 	});
 }
 
-/** @lore `tasks.threadId` is `NOT NULL` — every `work.create(db, "task", ...)` call needs a real thread row first. */
 async function seedTaskThread(db: HyperIdleDb, id: string): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(threads).values({

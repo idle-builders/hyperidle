@@ -8,47 +8,6 @@
  *   data-theme="hearth-dark"   → explicit dark (deep warm with a lemon whisper)
  *   (no data-theme)            → follows prefers-color-scheme (light default)
  *
- * @lore CL1 — Crème Lemon replaces the Hearth cream/beige + forest-green
- * palette (founder: beige reads boring; lemon carries energy). Shape of the
- * system unchanged; every token keeps its role. The accent split in two:
- *   --accent-primary  = LEMON DROP (#f0c419 light / #f5d33d dark) — the FILL
- *                       role: primary buttons, checkboxes, toggles, count
- *                       badges. Bright yellow fails with white text, so
- *                       --text-on-accent flipped dark (#2a2415 / #221f0a),
- *                       which also passes BETTER on the error/amber fills it
- *                       shares (dark on #d97706 ≈ 4.8:1 vs white 3.2:1).
- *   --accent-deep     = COCOA (#6f4d1e light) / LIGHT BEIGE (#d9c9a3 dark) —
- *                       the TEXT role: links, icons, focus rings, agent-avatar
- *                       identity (AQ-012, was forest green), ghost buttons.
- *                       Text-safe contrast on every surface (~7:1 light page,
- *                       ~10:1 dark page).
- * --status-success STAYS GREEN (#16764f / #2eaa7a) — deliberately decoupled
- * from the accent so lemon never eats the success semantic. Warning/error/info
- * unchanged. Theme names stay hearth-light/hearth-dark (localStorage +
- * data-theme contract is stable); only the colors moved.
- *
- * @lore U3 — Hearth replaces Lucid. Key structural change: default mode is
- * now LIGHT (hearth-light), not dark. The prefers-color-scheme media query
- * now detects `dark` to override the light default, the opposite of Lucid
- * which was dark-default and detected `light` to override.
- *
- * @lore U3 / CP1 — light mode --text-tertiary was #938b70 (~2.9:1 on page).
- * Originally documented as decorative/hint-only. Revised AZ UI-161 2026-08-16:
- * tertiary is used for real data (timestamps, schedule text) — WCAG AA for
- * normal text applies. Updated to #716a54 (5.07:1 on page, 5.40:1 elevated).
- * Dark mode text-tertiary (#a8a58c after CL1) achieves ~7:1 on page, AA everywhere.
- *
- * @lore U3 — status-warning (#d97706), status-error (#dc4a3a), and
- * status-info (#2e7dba) in LIGHT MODE fail WCAG AA for normal text on warm
- * surfaces (surface-page, surface-container). These tokens are intentionally
- * decorative/icon-only in light mode — they are NEVER used as standalone
- * text on warm surfaces. They are exempt from AA normal text contrast. Dark
- * mode status tokens pass AA on all surfaces.
- *
- * @lore CL1 — --text-on-accent is DARK (#2a2415 light / #221f0a dark) since
- * the accent fill is bright lemon: white on #f0c419 is ~1.6:1 (fails), dark
- * is ~9:1 (AAA). The dark text also holds on status-error and accent-secondary
- * fills (≥3.7:1 light, ≥5:1 dark), which share this token.
  */
 
 @layer base {
@@ -64,11 +23,6 @@
 		--motion-fast: 120ms;
 		--motion-default: 240ms;
 		--motion-slow: 450ms;
-		/*
-		 * @lore U3 / Motion — cubic-bezier(0.25, 0.1, 0.25, 1) is the CSS
-		 * standard `ease` curve. Hearth uses this over Lucid's Material standard
-		 * (0.2, 0, 0, 1) for a softer, more organic feel matching the warm palette.
-		 */
 		--motion-ease: cubic-bezier(0.25, 0.1, 0.25, 1);
 
 		/* Typography — system fonts (no external font dependency) */
@@ -94,22 +48,8 @@
 		--leading-tight: 1.25;
 		--leading-normal: 1.55;
 		--leading-relaxed: 1.7;
-		/*
-		 * @lore W2 — --leading-body moved from density blocks to shared :root after
-		 * density system removal. Value matches Hearth default (1.55).
-		 */
 		--leading-body: 1.55;
-		/* @lore U10: Hearth wide-tracking uppercase signature. 0.08em for section
-		 * titles; 0.06em for smaller labels (subtitles, sidebar categories).
-		 * Previous Lucid-era value 0.02em was too tight for the warm, generous
-		 * Hearth aesthetic. */
-		/* @lore AI6: ArtifactEmbed.html, ArtifactPreview.html, and Block.html
-		 * were migrated from literal `letter-spacing: 0.02em / 0.05em` to
-		 * `var(--tracking-caps-sm)` in this WP. This is a deliberate visual-parity
-		 * exception (architecture.md §VISUAL-PARITY CONFLICT) — the HTML references
-		 * now consume the token so TSX↔HTML remain in agreement. The 0.02em
-		 * literals were Lucid-era leftovers; the token is the ratified value
-		 * (AQ-013). Do NOT revert to literal values without updating TSX too. */
+
 		--tracking-caps: 0.08em;
 		--tracking-caps-sm: 0.06em;
 
@@ -128,21 +68,11 @@
 		--bw-default: 1.5px;
 		--bw-strong: 2px;
 
-		/*
-		 * @lore W2 — --easing-expressive added for spring-like micro-interactions
-		 * (toggle thumb overshoot). Matches Toggle.html inline CSS.
-		 */
 		--easing-expressive: cubic-bezier(0.34, 1.56, 0.64, 1);
 
-		/*
-		 * @lore W2 — --card-max-h moved from density blocks to shared :root after
-		 * density system removal. Caps in-stream RichMessageCard height.
-		 * See L11 plan §5.7 lore.
-		 */
 		--card-max-h: 70vh;
 
-		/* AI2 — overlay z-layer scale. Single source of truth for every overlay surface.
-		   ⚠️ AI1 overlap: this block is added to tokens.css concurrently with AI1's token work.
+		/* Overlay z-layer scale. Single source of truth for every overlay surface.
 		   Do not reorder or renumber; surfaces reference these by name (var(--z-*)).
 		   --z-toast sits above the modal + scrim — toasts portal into #overlay-root
 		   (a body sibling never inerted) so they stay clickable over open modals. */
@@ -165,27 +95,21 @@
 	/* ── Hearth Light (default) — Crème Lemon ── */
 	:root,
 	[data-theme="hearth-light"] {
-		/* Surfaces — pale lemon cream ladder
-		 * @lore CL1 — beige cream → pale lemon. Hue moves from ~68–74° (beige)
-		 * to ~95–100° (lemon) with slightly more chroma for energy; lightness
-		 * ladder and step sizes preserved from CP1 round-2 (page L0.978,
-		 * container L0.958, elevated white).
-		 */
+		/* Surfaces — pale lemon cream ladder */
 		--surface-page: #fcf8e8;
 		--surface-container: #f6f0d8;
 		--surface-elevated: #ffffff;
 		--surface-overlay: #ffffff;
 
-		/* Text — warm dark tones with a faint olive cast (CL1) */
+		/* Text — warm dark tones with a faint olive cast */
 		--text-primary: #2a2415; /* ~14.5:1 page, ~13.7:1 container, 15.4:1 elevated */
 		--text-secondary: #645c46; /* ~6.2:1 page, ~5.8:1 container, ~6.6:1 elevated */
 		/* Tertiary used for timestamps, schedule text — real data, needs AA contrast. */
 		--text-tertiary: #716a54; /* 5.07:1 on page, 5.40:1 on elevated — AA ✓ */
 		--text-placeholder: #b8b09a; /* placeholder-only, exempt from AA */
-		/* @lore CL1 — flipped DARK: lemon-drop fills need dark content (~9:1). */
 		--text-on-accent: #2a2415;
 
-		/* Accents — lemon drop (fill) + cocoa (text) — see file-header @lore CL1 */
+		/* Accents — lemon drop (fill) + cocoa (text) */
 		--accent-primary: #f0c419;
 		--accent-primary-dim: rgba(240, 196, 25, 0.14);
 		--accent-primary-hover: #d9ad0f;
@@ -193,9 +117,7 @@
 		--accent-deep-dim: rgba(111, 77, 30, 0.09);
 		--accent-secondary: #d97706;
 
-		/* Status — see @lore: light mode values are icon/badge only.
-		 * @lore CL1 — success intentionally STAYS green, decoupled from the
-		 * lemon accent so the success semantic survives the palette shift. */
+		/* Status — light mode values are icon/badge only (see file header). */
 		--status-success: #16764f;
 		--status-warning: #d97706;
 		--status-error: #dc4a3a;
@@ -209,7 +131,7 @@
 		--status-error-chip-text: #8f2318;
 		--status-info-chip-text: #1f5c8f;
 
-		/* Borders — lemon-tinted warm neutrals (CL1) */
+		/* Borders — lemon-tinted warm neutrals */
 		--border-subtle: #ede6c8;
 		--border-default: #ded3a9;
 		--border-strong: #c0b483;
@@ -219,11 +141,10 @@
 		--shadow-default: 0 4px 12px rgba(44, 36, 26, 0.08);
 		--shadow-elevated: 0 8px 24px rgba(44, 36, 26, 0.1);
 
-		/* AI2 — modal scrim color. Placeholder token; AI6 will derive via color-mix.
-		   AI6: candidate for color-mix(in oklab, var(--text-primary) 45%, transparent) */
+		/* Modal scrim color. */
 		--scrim: rgba(26, 21, 16, 0.45);
 
-		/* AI6 — tint + hover tokens for status and accent-secondary (§2 approved.md).
+		/* Tint + hover tokens for status and accent-secondary.
 		   These replace recurring hardcoded rgba() literals across DS components.
 		   Dark mode counterparts defined below. */
 		--accent-secondary-dim: rgba(217, 119, 6, 0.08);
@@ -237,10 +158,9 @@
 
 	/* ── Hearth Dark — Crème Lemon ── */
 	[data-theme="hearth-dark"] {
-		/* Surfaces — deep near-neutral with a WHISPER OF LEMON (CL1).
-		 * CP1's de-browning holds: chroma stays low (~0.01–0.02); only the hue
-		 * nudges from amber ~60° toward lemon ~100°, and the ladder keeps CP1
-		 * round-2's step sizes (ΔL 0.076 / 0.049 / 0.051).
+		/* Surfaces — deep near-neutral with a WHISPER OF LEMON. Chroma stays low
+		 * (~0.01–0.02); hue nudges from amber ~60° toward lemon ~100°;
+		 * step sizes ΔL 0.076 / 0.049 / 0.051.
 		 */
 		--surface-page: #14140b; /* deepest — page bg (L0.188 C0.017 H108) */
 		--surface-container: #242418; /* app chrome (L0.25) — widened step */
@@ -252,13 +172,9 @@
 		--text-secondary: #bdb9a2; /* ~9:1 page (AAA), ~7.6:1 container (AAA) */
 		--text-tertiary: #a8a58c; /* ~7:1 page (AAA) — AA+ everywhere */
 		--text-placeholder: #4a4735; /* placeholder-only, exempt from AA */
-		/* @lore CL1 — dark content on lemon fills (~9:1 on #f5d33d). */
 		--text-on-accent: #221f0a;
 
-		/* Accents — lemon drop (fill) + light beige (text) — see file-header @lore CL1.
-		 * @lore CL1 — the dark secondary is LIGHT BEIGE, not lime: a lime green
-		 * next to the yellow primary read as clashing; beige is the crème family
-		 * inverted onto the deep base (~10:1 on page). */
+		/* Accents — lemon drop (fill) + light beige (text) */
 		--accent-primary: #f5d33d;
 		--accent-primary-dim: rgba(245, 211, 61, 0.14);
 		--accent-primary-hover: #e3c22e;
@@ -266,8 +182,8 @@
 		--accent-deep-dim: rgba(217, 201, 163, 0.14);
 		--accent-secondary: #d97706; /* ~5.7:1 on page */
 
-		/* Status — unchanged by CL1 (already AA on dark surfaces) */
-		--status-success: #2eaa7a; /* decoupled from the lemon accent (CL1) */
+		/* Status — already AA on dark surfaces */
+		--status-success: #2eaa7a; /* already AA as success */
 		--status-warning: #d97706; /* 5.69:1 on page */
 		--status-error: #ee6a5a; /* 5.91:1 on page, 4.89:1 elevated */
 		--status-info: #4498d4; /* 5.77:1 on page, 4.77:1 elevated */
@@ -277,8 +193,8 @@
 		--status-error-chip-text: #ee6a5a;
 		--status-info-chip-text: #4498d4;
 
-		/* Borders — warm-neutral with the same lemon whisper (CL1) */
-		--border-subtle: #434337; /* AZ UI-160: was #33332a (2.0 L* from card); now 9.1 L* — parity with light (8.9 L*) */
+		/* Borders — warm-neutral with the same lemon whisper */
+		--border-subtle: #434337; /* 9.1 L* — parity with light (8.9 L*) */
 		--border-default: #46453a;
 		--border-strong: #626050;
 
@@ -287,11 +203,11 @@
 		--shadow-default: 0 4px 12px rgba(0, 0, 0, 0.4);
 		--shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.5);
 
-		/* AI2 — dark scrim. Warm family, higher opacity so lighter dark surfaces read as "behind".
-		   AQ-009: no pure black. AI6: candidate for color-mix derivation. */
+		/* Dark scrim. Warm family, higher opacity so lighter dark surfaces read as "behind".
+		   No pure black. */
 		--scrim: rgba(20, 16, 12, 0.62);
 
-		/* AI6 — dark tint + hover tokens. Slightly higher opacity (0.10) vs light (0.08)
+		/* Dark tint + hover tokens. Slightly higher opacity (0.10) vs light (0.08)
 		   to compensate for lower luminance on dark surfaces. Hover hexes unchanged. */
 		--accent-secondary-dim: rgba(217, 119, 6, 0.1);
 		--status-info-dim: rgba(68, 152, 212, 0.1);
@@ -303,15 +219,9 @@
 	}
 
 	/* ── System preference: dark (when no explicit data-theme) ── */
-	/*
-	 * @lore U3 — Hearth is light-first. This media query detects dark preference
-	 * to OVERRIDE the light default. This is the opposite of Lucid (dark-default,
-	 * detected light to override). The :root:not([data-theme]) selector ensures
-	 * explicit data-theme attributes always win over system preference.
-	 */
 	@media (prefers-color-scheme: dark) {
 		:root:not([data-theme]) {
-			/* Surfaces — mirrors [data-theme="hearth-dark"] exactly (CL1) */
+			/* Surfaces — mirrors [data-theme="hearth-dark"] exactly */
 			--surface-page: #14140b;
 			--surface-container: #242418;
 			--surface-elevated: #2f2f21;
@@ -343,7 +253,7 @@
 			--status-info-chip-text: #4498d4;
 
 			/* Borders — mirrors hearth-dark exactly */
-			--border-subtle: #434337; /* AZ UI-160: mirrors [data-theme="hearth-dark"] */
+			--border-subtle: #434337; /* mirrors [data-theme="hearth-dark"] */
 			--border-default: #46453a;
 			--border-strong: #626050;
 
@@ -352,7 +262,7 @@
 			--shadow-default: 0 4px 12px rgba(0, 0, 0, 0.4);
 			--shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.5);
 
-			/* AI6 — dark tint + hover tokens (matches [data-theme="hearth-dark"] block) */
+			/* Dark tint + hover tokens (matches [data-theme="hearth-dark"] block) */
 			--accent-secondary-dim: rgba(217, 119, 6, 0.1);
 			--status-info-dim: rgba(68, 152, 212, 0.1);
 			--status-error-dim: rgba(238, 106, 90, 0.1);
@@ -375,7 +285,7 @@
 	}
 }
 
-/* Compatibility until the loading migration lands in Wave 4. */
+/* Compatibility alias for hearth-loading. */
 @keyframes skeleton-pulse {
 	0%,
 	100% {
@@ -569,15 +479,7 @@
 @utility border-width-strong {
 	border-width: var(--bw-strong);
 }
-/*
- * @lore NEW-18: Tailwind v4 changes `border-width-thin-b` to set
- * border-bottom-COLOR, not border-bottom-WIDTH. In v3 the arbitrary-value
- * slot for `border-{side}` was width; in v4 it's color. Result: computed
- * borderBottomWidth is 0px — the separator is invisible. Fix: use these
- * direction-specific @utility classes that explicitly set border-*-width.
- * Sweep pattern: `border-width-thin-b` → `border-width-thin-b`,
- * `border-width-thin-t` → `border-width-thin-t`, etc.
- */
+/* @lore: border-{side}-N — Tailwind v4 sets color not width; these @utility classes set border-*-width explicitly */
 @utility border-width-thin-b {
 	border-bottom-width: var(--bw-thin);
 }
@@ -598,10 +500,6 @@
 }
 /*
  * ── Reduced-motion ──
- * @lore U3 — Token rename: --motion-medium → --motion-default. The reduced-
- * motion block collapses all motion durations to 1ms (effectively instant).
- * MDN, WCAG SC 2.3.3 and Material 3 mandate respect for prefers-reduced-motion.
- * Components that consume --motion-fast/default/slow inherit this automatically.
  */
 @media (prefers-reduced-motion: reduce) {
 	*,
@@ -617,25 +515,13 @@
 }
 
 /*
- * AI2 — Dialog mobile bottom-sheet (AC-4).
+ * Dialog mobile bottom-sheet.
  *
- * At ≤480px, the Dialog box transitions from centered desktop positioning to a
- * bottom-anchored full-width sheet. The overlay wrapper aligns to the bottom;
- * the box stretches full-width with rounded top corners only.
- *
- * @lore AI2: Dialog.tsx uses inline styles for the overlay and box geometry.
- * Inline styles have higher specificity than any CSS selector. However, CSS
- * `!important` declarations override inline styles per the CSS cascade spec
- * (Cascading Order §6.4 — !important > inline style). This is the canonical
- * mechanism for design-system overrides of component inline geometry.
- *
- * The attributes [data-dialog-layer] and [data-dialog-box] are stable —
- * they are emitted by useDialogBehavior.getOverlayProps() and Dialog.tsx
- * respectively (AI2 contract, documented in architecture.md).
+ * @lore: Dialog geometry — Dialog.tsx sets inline styles; only !important here can override them
  */
 @media (max-width: 480px) {
 	[data-dialog-layer] {
-		/* biome-ignore lint/complexity/noImportantStyles: Override inline style via !important (CSS cascade §6.4). Required to switch desktop center-positioning to mobile bottom-anchoring. */
+		/* biome-ignore lint/complexity/noImportantStyles: Override inline style via !important. Required to switch desktop center-positioning to mobile bottom-anchoring. */
 		align-items: flex-end !important;
 		/* biome-ignore lint/complexity/noImportantStyles: Same rationale as align-items override above. */
 		padding: 0 !important;
@@ -646,7 +532,7 @@
 		max-width: 100% !important;
 		/* biome-ignore lint/complexity/noImportantStyles: Override inline borderRadius to round top corners only (bottom-sheet UX). */
 		border-radius: var(--r-default) var(--r-default) 0 0 !important;
-		/* biome-ignore lint/complexity/noImportantStyles: Override inline maxHeight for the sheet variant (85vh matches approved.md mobile spec). */
+		/* biome-ignore lint/complexity/noImportantStyles: Override inline maxHeight for the sheet variant (85vh). */
 		max-height: 85vh !important;
 	}
 }

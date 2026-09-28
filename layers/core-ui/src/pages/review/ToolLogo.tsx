@@ -1,4 +1,4 @@
-// Canvases — shared mini provider logo (the "T3 touch": every artifact
+// Canvases — shared mini provider logo: every artifact
 // and canvas carries its source tool's mark = provenance at a glance).
 //
 // Prototype treatment: a brand-colored monogram chip (the recommended Logo.dev

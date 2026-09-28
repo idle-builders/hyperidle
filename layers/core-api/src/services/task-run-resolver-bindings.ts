@@ -1,33 +1,3 @@
-/**
- * The ONE shared,
- * fully-wired `TaskRunResolverDeps` every real `task_run`-baking composition
- * site (`run-orchestration-composition.ts`'s `workAccessor.transitionTask`,
- * `policy-bindings.ts`'s pre-bound `handoffDeps.taskRunResolver`, and the
- * three direct `resolveTaskRunRequest`/`transitionTask` callers in
- * `routes/tasks.ts`, `routes/bets.ts`, `app.ts`'s dependency-watcher)
- * imports instead of each separately constructing `{ requireRunnableAgent }`
- * — the same factory-curry idiom `policy-bindings.ts`'s pre-bound `handoff`
- * already uses. Centralizing the wiring here means `getTeamById`/
- * `assembleSessionDocuments` (Decision H3's contextBundle bake) reach every
- * real `task_run` emit site from ONE place, instead of five independently
- * drifting copies.
- *
- * @lore BC4 follow-up (architecture.md §8.3): `getAgentIdentity` used to read
- * `@hyperidle/document`'s repository function directly. `TaskRunResolverDeps`
- * is built once at compose-time now, as a FACTORY closing over the composed
- * `search_documents` runner (the same `lazySearchDocuments` idiom
- * `compose.ts` already uses) — never `@hyperidle/document` itself
- * (architecture.md §8.1: a neighbour reaches documents only through the
- * three actions). `resolveTaskRunRequest` only ever hands this a raw `db`,
- * no `ActionContext` — there is no calling human/agent in scope this deep
- * in dispatch — so the actor used for the read is the agent whose identity
- * is being baked: it is always allowed to read its own `agent_file`
- * document (§5.1), and no other choice is available here. The `EventBus` on
- * the synthesized `ActionContext` is a fresh, unused instance:
- * `search_documents`'s own `run` never touches `ctx.eventBus` (a read emits
- * nothing) — the same "inert bus for a call path that never emits"
- * precedent `run-orchestration-composition.ts:404` already uses.
- */
 import type { HyperIdleDb } from "@hyperidle/db";
 import { assembleSessionDocuments } from "@hyperidle/document";
 import { EventBus } from "@hyperidle/event-bus";
@@ -64,8 +34,6 @@ export function buildTaskRunResolverDeps(
 ): TaskRunResolverDeps {
 	return {
 		requireRunnableAgent: (db, agentId) => requireRunnableAgent(db, agentId),
-		// The agent's identity document. It was missing here while the port was
-		// optional, so every real `task_run` baked an empty identity.
 		getAgentIdentity: (db: HyperIdleDb, agentId: string) =>
 			resolveAgentIdentityBody(
 				{ actor: agentId, db, eventBus: new EventBus(), now: new Date().toISOString() },

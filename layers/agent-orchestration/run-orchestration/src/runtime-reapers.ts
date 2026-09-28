@@ -77,7 +77,7 @@ async function reapSandboxesOnce(db: HyperIdleDb, options: SandboxReaperOptions)
 			if (endedTime > cutoff) continue;
 		} else {
 			// Orphan dir (no matching session row) → reclaim only if older than TTL.
-			// The TTL is the deliberate margin for the P4-spawn-before-P5-insert
+			// The TTL is the deliberate margin for the spawn-before-insert
 			// window and for crash-before-row-commit. Never reclaim a young orphan.
 			const mtimeMs = await dirMtimeMs(dirPath);
 			if (mtimeMs > cutoff) continue;
@@ -101,9 +101,6 @@ async function dirMtimeMs(dirPath: string): Promise<number> {
  * Start the workspace reaper on a 60-minute interval. Returns a disposer that
  * clears the interval.
  *
- * @lore AF7 §6: the interval resets on every server restart — worst case is a
- * 60-minute gap before the next sweep, which is irrelevant for a TTL-of-hours
- * reclamation. No persistence needed.
  */
 function startSandboxReaper(db: HyperIdleDb, options: SandboxReaperOptions): () => void {
 	const handle = setInterval(() => {

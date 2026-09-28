@@ -23,7 +23,7 @@ flags: `vitest/no-conditional-expect`, `vitest/expect-expect`, `playwright/no-co
 [eslint-plugin-playwright](https://github.com/playwright-community/eslint-plugin-playwright)); the
 repo-specific rules in `tools/eslint-plugin-design/src/rules/`: `no-repo-introspection-in-test.ts`,
 `no-planning-id-in-test.ts`, `no-dom-marker-assert.ts`, `no-existence-only-test.ts`,
-`no-multiline-lore-in-test.ts`; and the Playwright screenshot ban (`no-restricted-syntax` in the same
+`lore-format.ts`; and the Playwright screenshot ban (`no-restricted-syntax` in the same
 `eslint.config.ts` block). Do not restate what a rule already enforces here — read the rule when the
 linter stops you, the same way `.pipeline/rules/architecture.md` points at `tools/governance/README.md`
 for the boundary rules.

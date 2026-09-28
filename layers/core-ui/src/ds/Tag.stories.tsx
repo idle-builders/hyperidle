@@ -30,12 +30,6 @@ export const KindVariants = (): React.JSX.Element => (
 	</div>
 );
 
-/**
- * @lore control/chip migration fix: an accent-tinted, uppercase badge for a
- * chip that names something distinctive (a host kind, a count, a role) —
- * the closed-set replacement for the accent-uppercase pills several sites
- * hand-rolled before this rule existed.
- */
 export const AccentTone = (): React.JSX.Element => (
 	<div className="flex flex-wrap gap-3">
 		<Tag label="task" tone="accent" />

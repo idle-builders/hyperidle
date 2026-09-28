@@ -1,7 +1,6 @@
--- AU21 Increment 14a (Decision L1, founder 2026-08-03): HARD DELETE the cost
+-- HARD DELETE the cost
 -- feature — no cap gate, no ledger, no display, no DB columns, no
--- replacement mechanism. Founder, verbatim: "no everything delete. zero
--- mention of costs in the repo."
+-- replacement mechanism.
 --
 -- Hand-authored incremental migration (this repo's migrations are additive
 -- SQL files tracked only by meta/_journal.json past 0042 — see 0043-0053 —
@@ -12,9 +11,7 @@
 -- columns removed from `schema.ts` in this same commit).
 --
 -- DATA-PRESERVATION NOTE (deliberate, not a regression): every dropped column
--- below is either an unenforced "lightweight cost accounting" value (the
--- founder: "we do not actually enforce cost... all we do is lightweight cost
--- accounting") or a legacy/rollback-only column already superseded by a
+-- below is either an unenforced "lightweight cost accounting" value, or a legacy/rollback-only column already superseded by a
 -- structured pair dropped in the SAME statement group (e.g. `cost_cap` /
 -- `cost_actual` alongside `cost_cap_minor` / `cost_cap_currency`). No
 -- replacement column, table, or mechanism is added.
@@ -31,7 +28,7 @@ ALTER TABLE "team_members" DROP COLUMN "cost_actual";--> statement-breakpoint
 ALTER TABLE "team_members" DROP COLUMN "cost_cap_minor";--> statement-breakpoint
 ALTER TABLE "team_members" DROP COLUMN "cost_cap_currency";--> statement-breakpoint
 
--- tasks: dead legacy cost cap/actual (never written per @lore O2).
+-- tasks: dead legacy cost cap/actual (never written).
 ALTER TABLE "tasks" DROP COLUMN "cost_cap";--> statement-breakpoint
 ALTER TABLE "tasks" DROP COLUMN "cost_actual";--> statement-breakpoint
 
@@ -51,8 +48,7 @@ ALTER TABLE "routines" DROP COLUMN "cost_cap_monthly_minor";--> statement-breakp
 ALTER TABLE "routine_runs" DROP COLUMN "cost_minor";--> statement-breakpoint
 ALTER TABLE "routine_runs" DROP COLUMN "cost_currency";--> statement-breakpoint
 
--- agent_session_requests: per-session recorded cost (AU21 Increment 6's
--- per-session-cost door, reversed by this increment) + the now-unreachable
+-- agent_session_requests: per-session recorded cost + the unreachable
 -- 'cost_cap' termination reason (the cap gate that produced it is deleted).
 ALTER TABLE "agent_session_requests" DROP COLUMN "cost_cents";--> statement-breakpoint
 ALTER TABLE "agent_session_requests" DROP CONSTRAINT "agent_session_requests_termination_reason_ck";--> statement-breakpoint

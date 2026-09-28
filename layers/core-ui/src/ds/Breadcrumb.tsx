@@ -4,19 +4,6 @@
  * Router-agnostic orientation strip for detail screens.
  * Renders a <nav aria-label="Breadcrumb"> flex row at 13px (--text-sm).
  *
- * @lore AG4: Router-agnostic via injected LinkComponent — no react-router
- * import in design-system. Web passes RR's <Link>; stories pass plain <a>.
- *
- * @lore AQ-010: Link segments use --text-secondary (≥4.5:1), NOT --text-tertiary
- * (2.85:1 — decorative-only per @lore U3 tokens.css:159). Tertiary does not
- * clear WCAG AA for interactive content.
- *
- * @lore AG4: Middle segments (not first, not last) get max-w-[120px] truncate
- * to prevent long team/bet names from overflowing the nav row.
- *
- * @lore AG4: Link :focus-visible ring is explicit — `outline: 2px solid
- * var(--accent-primary); outline-offset: 2px` — because link segments are
- * plain <a> elements, not DS Buttons, and receive no ring by default.
  */
 
 import type { ComponentType, JSX, ReactNode } from "react";

@@ -3,9 +3,7 @@
  * `session_ended`/`tool_call_recorded` off the EventBus as a `session:<id>`
  * NUDGE on the injected `wsPush` — never the raw event.
  *
- * @lore this gateway pushes the same content-free envelope `pushChanges` uses — this layer never hands core-api anything but an opaque topic/value.
  *
- * @lore a unit test, not integration — it touches only the EventBus, no DB or app.
  */
 
 import { describe, expect, test } from "../../__testing__/test-fixtures.js";

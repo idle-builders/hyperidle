@@ -5,13 +5,7 @@
  * that use @testing-library/react can use toBeInTheDocument(), toHaveAttribute(),
  * etc. alongside the standard vitest assertions.
  *
- * @lore AG4: Added to support Breadcrumb component tests which use
- * @testing-library/react render/screen patterns (consistent with web package).
- * Pre-existing DS tests use createRoot directly and are unaffected by this setup.
- *
- * @lore AG4: Explicit afterEach(cleanup) required with pool:'forks' — the
- * testing-library auto-cleanup hooks into afterEach via globals, but the
- * forks pool may not propagate this correctly. Explicit cleanup is the safe path.
+ * @lore: explicit afterEach(cleanup) required with pool:'forks' — auto-cleanup hooks into afterEach via globals; forks pool may not propagate; explicit is safe
  */
 import { cleanup } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";

@@ -1,44 +1,3 @@
-/**
- * Conversation Surface — the FULL-SCOPE conversation embodied in the REAL app
- * container, INTERACTIVE. (The approved conversation design; story title
- * "Conversation Surface".)
- *
- * SCOPE = THE OPEN CONVERSATION (the open thread's content). Header ·
- * author-grouped messages · composer. Navigating BETWEEN threads is the app
- * sidebar (app-shell chrome, NOT part of this design).
- *
- * ── PROP-DRIVEN, ONE SURFACE FOR STORY + PAGE ─────────────────
- * `ConversationSurface` is prop-driven. The STORY passes its fixture (PARTS +
- * fixture header/participants + a console-`onOpen` noop + a noop `onSend`); the
- * PAGE (`Conversations.tsx`) passes real data (`derivePartsFromMessages(...)`,
- * `createOpenHandler(navigate)`, real header/participants, a functional
- * `onSend`). The approved design and the production page are therefore the SAME
- * component — they cannot drift (extends the round-10 no-drift guarantee from
- * the message column to the whole surface).
- *
- * ── COMPOSES THE PRODUCTION RENDERER ──────────────────────────
- * The message column is rendered by the SAME source-agnostic `<PartList>` the
- * production page uses, over the passed-in `Part[]`. The composer + header
- * chrome (not owned by PartList) stay hand-rolled here so the surface renders
- * stand-alone in the viewer without AppShell's router/context. Reference chips +
- * the Fold come from the design system.
- *
- * ── THE CONVERSATION OWNS NO VIEWING SURFACE (round-8, founder) ──────────────
- * Reference chips are NAVIGATION HOOKS into the existing OWNED surfaces via the
- * `OpenTarget` seam (block → host surface, artifact → Artifact view, review →
- * Review page). Nothing renders inline. In the isolated story (no router) the
- * `onOpen` hook is a clearly-labeled console noop naming its target route.
- *
- * @lore AM1-r8: the conversation owns NO viewing surface. The single `onOpen`
- * OpenHandler replaces the old per-target callback props; production binds it to
- * navigate(), the story to console.info.
- *
- * @lore AM1 task 11: the fixture (`PARTS`/`FOUNDER`/`MARA`/`ATLAS`) moved OUT of
- * this component and INTO `ConversationSurface.stories.tsx` — it is now passed in
- * as props. The story render stays byte-identical (it passes what was previously
- * module-internal).
- */
-
 import { type JSX, type ReactNode, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import type { ComposerSubmitInput } from "../ds";
@@ -164,9 +123,6 @@ function ConversationHeader({
 	);
 }
 
-// ComposerInputRow and Composer (hand-rolled local composer) removed.
-// @lore UI-062: consolidated onto DS Composer via iconSend.
-
 // ───────────────────────────────────────────────────────────────────
 // The conversation surface — INTERACTIVE, prop-driven. The conversation column
 // (PartList) + composer ONLY; it owns NO viewing surface. The single `onOpen`
@@ -183,18 +139,13 @@ export default function ConversationSurface({
 	headerPresentation = "pane",
 	produced,
 }: ConversationSurfaceProps): JSX.Element {
-	// @lore UI-003: scroll the message column to the newest message on load and
-	// when new messages arrive via WS push. Only applies when scroll=true (the page
-	// layout — not the story which renders at natural height without overflow).
+	// scroll=true applies to the page layout only (not the story which renders at natural height).
 	const scrollRef = useRef<HTMLDivElement | null>(null);
 
-	// @lore UI-062: adapter from DS Composer's ComposerSubmitInput to ConversationSurface's
-	// (text: string) => Promise<void> | void contract. DS Composer manages text state.
 	const handleDSSubmit = async (input: ComposerSubmitInput): Promise<void> => {
 		await onSend(input.text);
 	};
 
-	// @lore UI-003: scroll to the bottom (newest message) whenever parts update.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: parts reference identity changes on each push; scroll on every update is intentional.
 	useEffect(() => {
 		if (scroll && scrollRef.current) {
@@ -227,8 +178,8 @@ export default function ConversationSurface({
 					style={scroll ? { flex: 1, minHeight: 0, overflowY: "auto" } : undefined}
 				>
 					<div className="mx-auto w-full max-w-[760px]">
-						{/* The message column is rendered by the PRODUCTION renderer — the
-						    approved design and PartList cannot drift. */}
+						{/* The message column is rendered by the production PartList, so this
+						    surface and the conversation view cannot drift. */}
 						<PartList parts={parts} onOpen={onOpen} onAnswer={(text) => void onSend(text)} />
 						{/*
 						 * What was produced in this conversation, inside the scrolling
@@ -240,9 +191,8 @@ export default function ConversationSurface({
 						{produced}
 					</div>
 				</div>
-				{/* UI-062: single DS Composer; insert affordance via leading slot; iconSend matches Hearth design.
-				    FR-2: surface-container + top border lifts the composer strip from the message body.
-				    FR-4: no extra px — DSComposer's own px-[24px] aligns the input with the message column. */}
+				{/* surface-container + top border lifts the composer strip from the message body;
+				    DSComposer's own px-[24px] aligns the input with the message column. */}
 				<div className="shrink-0 border-width-thin-t border-[var(--border-subtle)] bg-[var(--surface-container)]">
 					<div className="mx-auto w-full max-w-[760px]">
 						<DSComposer

@@ -5,8 +5,6 @@
  * `POST /api/actions/{search,open}_document` responses without vi.mock
  * (unavailable in the browser story renderer).
  *
- * @lore BC4: repointed off `GET /api/knowledge?...` onto `search_documents`/
- * `open_document` via `call()`.
  */
 
 import { useEffect, useState } from "react";

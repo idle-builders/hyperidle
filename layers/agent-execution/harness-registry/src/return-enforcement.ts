@@ -8,14 +8,8 @@ interface ReturnGate {
 
 interface ReturnEnforcement extends EnforcementRegistry {
 	/**
-	 * `requiredReturnActions`, when supplied,
-	 * narrows the predicate in the closure: only a tool call naming one of
-	 * THESE specific return actions flips `returned`. Absent ⇒ the
-	 * pre-Increment-3 default (any member of the closed return set).
-	 *
-	 * `taskId` (B4) — the session's own task id, closed over for
-	 * `edit_task`'s own-task-and-moves-away-from-the-agent gate
-	 * (`isReturnAction`'s `@lore`). Absent for a task-free session.
+	 * `requiredReturnActions` narrows the predicate: only a tool call naming one of these flips `returned`. Absent = any member of the closed return set.
+	 * `taskId` — session's own task id; closed over for `edit_task`'s own-task gate. Absent for a task-free session.
 	 */
 	createGate(requiredReturnActions?: readonly string[], taskId?: string): ReturnGate;
 	observe(gate: ReturnGate, event: HarnessEvent): void;

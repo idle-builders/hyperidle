@@ -1,36 +1,3 @@
-/**
- * Conversations page — single detail surface, shape-agnostic.
- *
- * Mounted on:
- *   - /conversations          → no :threadId → State A (empty, open a thread)
- *   - /conversations/:threadId → has :threadId → States B/C/D/E
- *
- * @lore AM1: the populated `ready` state renders the Part-based
- * `<ConversationSurface>` (header · author-grouped Part column · unified-"+"
- * composer). `ThreadShell`/`RichMessageCard`/inline-verdict are GONE from the
- * conversation — HyperIdle ships as versioned desktop releases, so the new
- * surface BECOMES the conversation (no flag, no live cutover). The page derives
- * `Part[]` via `derivePartsFromMessages` (the only Message-aware seam) and routes
- * references through `createOpenHandler` (the OpenTarget → navigate seam).
- *
- * @lore AM1: the conversation no longer TAKES a verdict. An unresolved review
- * renders as a `review` Part with a single "Open review" hook → the real
- * ReviewPage (`/reviews/:reviewId` — flattened from
- * `/work/bet/:betId/review/:reviewId`); a resolved review echoes as a
- * `resolved` Part. The decision UI lives on the review page (design §5). The
- * verdict SEMANTICS (Message type, payload, verdictDecisionLabel, POST shape) are
- * unchanged — only the decision UI relocated.
- *
- * @lore L9: there are exactly five states (A–E). State E ("Thread not found")
- * does NOT mount ConversationSurface — no message list, no composer.
- *
- * @lore BC3: Dial-in (the "Dial In" button opening a session-activity split)
- * is gone. It was reachable only for task-hosted threads, and that host kind
- * no longer exists (a task's own thread is `team`-hosted — architecture.md
- * §3.9). The task page shows a task's own active sessions directly; nothing
- * replaces this affordance here.
- */
-
 import { TASK_STATE_LABEL, type TaskListItem, type ThreadView } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useContext, useState } from "react";
 import { Link, useNavigate, useOutletContext, useParams } from "react-router-dom";
@@ -67,15 +34,6 @@ import { ToastContext } from "../shell/ToastRegion";
 import { DocumentDetail } from "./DocumentDetail.js";
 import { ReviewPage } from "./review/ReviewPage.js";
 
-// ---------------------------------------------------------------------------
-// Blocking/Unread chip bar removed from Conversations page — neither chip
-// matched real state. The blocking/unread fields remain on ThreadItem.
-
-/**
- * Map `open_thread`'s `members` (an Identity[]) into the source-agnostic
- * `PartAuthor[]` the `derivePartsFromMessages` adapter consumes. `isMe` marks
- * the viewer's own messages (the "You" label + own-message styling).
- */
 function identitiesToAuthors(
 	members: ThreadView["members"],
 	viewerId: string,
@@ -88,7 +46,6 @@ function identitiesToAuthors(
 	}));
 }
 
-/** Header participant chips for the ConversationSurface AvatarGroup. */
 function identitiesToParticipants(
 	members: ThreadView["members"],
 ): ReadonlyArray<ConversationSurfaceParticipant> {
@@ -99,25 +56,7 @@ function identitiesToParticipants(
 	}));
 }
 
-// ---------------------------------------------------------------------------
-// SessionViewPanel — wraps useSessionActivity + SessionView.
-// Opened by the `session` OpenTarget (session-reference Embed or sub-agent row).
-// Placement: right-panel split. The page owns the placement; the session view
-// has no route of its own (architecture §entry).
-// ---------------------------------------------------------------------------
-
-/**
- * @lore resolve the `PartAuthor` for the agent that ran a session
- * from the session's OWN data only — never from the hosting thread's
- * `hostId`. A thread's host can be a team, a document, a user or an
- * agent; only in the agent case would `hostId` even happen to name an agent,
- * and it is not necessarily the agent that ran THIS session (e.g. a
- * team-hosted task thread, or sub-agent recursion). `useSessionActivity`'s
- * `summary.agentId` is the one place the session's own agent id surfaces —
- * but by the hook's own contract it stays `null` while the session is still
- * streaming, so there genuinely is no id to show yet. A generic, role-only
- * placeholder is used rather than inventing or reusing an unrelated id.
- */
+// @lore: resolveSessionAgentAuthor — never uses thread hostId; host can be team/doc/user/agent; summary.agentId null while streaming → generic placeholder
 export function resolveSessionAgentAuthor(
 	summary: Pick<SessionSummary, "agentId"> | null,
 	identities: Record<string, ThreadView["members"][number]>,
@@ -217,9 +156,6 @@ function SessionViewPanel({
 // Detail sub-component (fetches + renders States B–E)
 // ---------------------------------------------------------------------------
 
-// L7 contract carried forward into L9: classified failure messages so
-// RichMessageCard's error row shows actionable copy; async-ack toast on
-// non-resolving commits. See @lore on onAppend below.
 const ASYNC_ACK_COPY = "Response recorded — agent will pick it up on next session.";
 
 function InspectDestination({ path }: { path: string }): JSX.Element {
@@ -247,14 +183,6 @@ function InspectDestination({ path }: { path: string }): JSX.Element {
 	return <EmptyState title="Unavailable" description="This reference cannot be inspected here." />;
 }
 
-/**
- * A thread's own tasks, rendered where the old single host-context link
- * to a task used to sit — a thread's `hostKind` is never `task`, so there
- * is no single link, there can be several. Same element (`Link` +
- * `resolveHostRoute`) and same classes as the surviving host-context link
- * (`ConversationSurface.tsx`'s `ConversationHeader`), repeated once per
- * task. Zero tasks renders nothing.
- */
 function ThreadTaskLinks({ tasks }: { tasks: readonly TaskListItem[] }): JSX.Element | null {
 	if (tasks.length === 0) return null;
 	return (
@@ -281,26 +209,17 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 	const { tasks: threadTasks } = useThreadTasks(threadId);
 	const navigate = useNavigate();
 	const { sidebarMobile } = useViewportBreakpoint();
-	// Viewer identity for own-message ("You") styling in the Part column.
 	const { user } = useCurrentUser();
 	const viewerId = user?.id ?? "";
-	// @lore L9: read ToastContext directly (not useToast) so the page renders
-	// in unit tests / Storybook without a <ToastRegion> ancestor. Production
-	// always has the provider via AppShell. When absent, async-ack falls back
-	// silently — the response still commits, the toast just doesn't fire.
+	// @lore: ToastContext — read directly (not useToast) so page renders in tests/Storybook without ToastRegion; absent = toast silent, response still commits
 	const toast = useContext(ToastContext);
 
-	// SplitView ratio persistence per surface (hooks must be unconditional)
+	// hooks must be unconditional — ratio state declared before early returns
 	const [inspectRatio, setInspectRatio] = useUiPreference("conversation.inspect", 0.6);
 	const [inspection, setInspection] = useState<
 		{ kind: "session"; sessionId: string } | { kind: "path"; path: string } | null
 	>(null);
 
-	// The conversation send path. Sends a `plain` message via
-	// `send_message`, then refreshes. The conversation no longer emits a
-	// verdict — no verdict send is reachable from here (the decision UI
-	// lives on ReviewPage), so the old verdict /
-	// head-resolving branch is gone; a plain reply always async-acks.
 	const onSend = useCallback(
 		async (text: string): Promise<void> => {
 			if (!data) return;
@@ -381,43 +300,20 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 		);
 	}
 
-	// `open_thread`'s `members` replaces the old `identities` map — build the
-	// same lookup shape once so the rest of this component reads unchanged.
 	const identities: Record<string, ThreadView["members"][number]> = Object.fromEntries(
 		data.members.map((m) => [m.id, m]),
 	);
 
-	// Derive the render units + header/participants ONCE for both layouts.
-	// The conversation column comes from the Part adapter (the only Message-aware
-	// seam); the header/participants come from the values the page already has.
-	// @lore UI-003: API returns messages DESC (newest-first, dir:"desc"). Reverse
-	// to ASC (oldest-first) before the adapter so PartList renders oldest → newest
-	// top-to-bottom as expected.
 	const parts = derivePartsFromMessages(
 		[...data.messages].reverse(),
 		viewerId,
 		identitiesToAuthors(data.members, viewerId),
 	);
 	const participants = identitiesToParticipants(data.members);
-	// The OpenTarget routing seam. Reference/host navigation flows through the
-	// one `OpenHandler` — the same descriptor-driven seam the PartList renderer uses.
-	// host targets resolve through resolveHostRoute (total over BlockHostKind);
-	// user/factory are documented no-ops. The review route no longer needs a
-	// page-sourced betId — `/reviews/:reviewId` resolves for every host, bet or
-	// task.
-	// OnOpenSession fills the `case "session"` no-op — fires when a
-	// `session-reference` Embed or a sub-agent tool row is clicked.
 	const openTarget = createOpenHandler(navigate, {
 		onInspectPath: (path) => setInspection({ kind: "path", path }),
 		onOpenSession: (sessionId) => setInspection({ kind: "session", sessionId }),
 	});
-	// The thread's OWN title (page heading + breadcrumb leaf): the stored
-	// override, else the server's viewer-relative ladder answer
-	// (`computedTitle`, never empty). `hostTitle` below is a different thing —
-	// the linked HOST object's own title (e.g. a document's), not the
-	// thread's — and must not stand in here: it is `null` for every host kind
-	// the server doesn't special-case (team included), which is what fell
-	// through to the raw host id.
 	const threadTitle: string = data.thread.title ?? data.thread.computedTitle;
 	const hostRoute = resolveHostRoute(data.thread.hostKind, data.thread.hostId);
 	const hostTitle = data.hostTitle ?? identities[data.thread.hostId]?.name ?? data.thread.hostId;
@@ -453,10 +349,6 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 		<PageScaffold
 			data-testid="conversations-page"
 			header={
-				// @lore NEW-28: on mobile (sidebarMobile) the breadcrumb is suppressed
-				// and the title is hidden md:block, so the <header> would be a 37px
-				// empty container if rendered with no visible content. Skip it entirely
-				// on mobile. Desktop always renders the full header.
 				inspection || sidebarMobile ? undefined : (
 					<PageHeader
 						title={threadTitle}
@@ -497,18 +389,6 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 						scroll
 						headerPresentation={inspection ? "pane" : "read"}
 						produced={
-							/*
-							 * What was produced in this conversation. A human and an agent
-							 * put things here the same way, and this is where they land.
-							 *
-							 * It goes in the surface's own slot, not after it: rendered as a
-							 * sibling it landed BELOW the composer, which reads as though the
-							 * conversation carries on past the place you type.
-							 *
-							 * `onOpen` rather than the section's own split — this page already
-							 * owns a SplitView, and opening through its existing `path`
-							 * inspection reuses it instead of nesting a second one.
-							 */
 							<ArtifactSection
 								parentKind="thread"
 								parentId={threadId}
@@ -530,28 +410,13 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 // ---------------------------------------------------------------------------
 
 export function Conversations(): JSX.Element {
-	// @lore L9 WARNING (arch-critique): useParams() inside AppShell's child
-	// route receives merged params from the matched child route via React
-	// Router v7's param-merge behavior. When mounted at /conversations
-	// (no :threadId segment matched), threadId is undefined → State A.
-	// When mounted at /conversations/:threadId, threadId is the path segment.
 	const { threadId } = useParams<{ threadId?: string }>();
 
-	// @lore U6 AC-16: filter state lives in AppShell and is passed via OutletContext.
-	// useOutletContext may return undefined when Conversations is rendered outside
-	// AppShell (e.g., tests that mount Conversations directly). Fallback to "all".
 	const ctx = useOutletContext<AppShellOutletContext | undefined>();
 	const conversationsFilter: ConversationsFilter = ctx?.conversationsFilter ?? "all";
 	const onClearFilter = ctx?.onClearFilter ?? (() => undefined);
-	// @lore U9 AC-1: onNewThread opens RecipientPicker via AppShell context.
-	// Undefined when Conversations is rendered outside AppShell (tests/stories).
 	const onNewThread = ctx?.onNewThread;
 
-	// @lore U6 review V1: Thread data is sourced from AppShell's OutletContext
-	// (AppShell's single `useThreads` call) — Conversations.tsx never fetches
-	// its own copy. Fallback values handle the case where Conversations is
-	// rendered outside AppShell (tests that provide a partial context or no
-	// context at all).
 	const conversationsThreads = {
 		threads: ctx?.threads ?? [],
 		status: ctx?.threadsStatus ?? ("loading" as const),
@@ -559,10 +424,6 @@ export function Conversations(): JSX.Element {
 		retry: ctx?.onRetryThreads ?? (() => undefined),
 	};
 	const navigate = useNavigate();
-
-	// ToggleFilter state removed — Blocking/Unread chips never matched
-	// real state (neither has a backing concept yet).
-	// The header now shows title + New-thread button only.
 
 	const handleSelectThread = useCallback(
 		(id: string): void => {
@@ -582,9 +443,6 @@ export function Conversations(): JSX.Element {
 				frame="page"
 				data-testid="conversations-page"
 				header={
-					/* PageHeader — Conversations title + New thread button in actions.
-					 * Button sits in the PageFrame right edge aligned with the content header.
-					 * data-conversations-header wrapper preserved for e2e + unit test selectors. */
 					<div data-conversations-header>
 						<PageHeader
 							data-testid="conversations-filter-bar"
@@ -606,12 +464,6 @@ export function Conversations(): JSX.Element {
 				}
 			>
 				{isEmpty ? (
-					// Empty state: centered card matching mockup's .empty-center wrapper.
-					// The "New thread" action is inside the EmptyState card (not the header).
-					// @lore AZ2: h-full (not flex-1) — this div is now the scroll body's
-					// direct child, not a flex item of a flex-col root; h-full resolves
-					// against the scroll body's own definite height (same pattern as
-					// DocumentList.tsx's systemEmpty branch).
 					<div className="flex items-center justify-center p-[48px_24px] h-full">
 						<EmptyState
 							title="No conversations yet"
@@ -632,7 +484,6 @@ export function Conversations(): JSX.Element {
 								</svg>
 							}
 							action={
-								/* Shared Button primitive. */
 								<Button
 									variant="primary"
 									onClick={onNewThread ?? (() => undefined)}

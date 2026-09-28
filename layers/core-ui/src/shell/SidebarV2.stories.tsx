@@ -28,7 +28,7 @@ import { ItemList, Row, SearchField } from "../ds";
 import type { ViewId } from "./shell-types";
 import { VIEW_ICONS, VIEW_IDS } from "./shell-types";
 
-export default { title: "Shell/SidebarV2 (AD9 new)" };
+export default { title: "Shell/SidebarV2" };
 
 // ---------------------------------------------------------------------------
 // Fixtures — one head-of-list per section (the fast-nav list is the head of
@@ -346,7 +346,7 @@ export function Interactive(): JSX.Element {
 		</Frame>
 	);
 }
-Interactive.storyName = "AD9 new sidebar — interactive (click to swap)";
+Interactive.storyName = "new sidebar — interactive (click to swap)";
 
 /** Conversations active → fast-nav shows threads. */
 export function ConversationsActive(): JSX.Element {
@@ -356,7 +356,7 @@ export function ConversationsActive(): JSX.Element {
 		</Frame>
 	);
 }
-ConversationsActive.storyName = "AD9 new sidebar — Conversations active (threads)";
+ConversationsActive.storyName = "new sidebar — Conversations active (threads)";
 
 /** Work active → fast-nav shows teams (list swap evident vs Conversations). */
 export function WorkActive(): JSX.Element {
@@ -366,7 +366,7 @@ export function WorkActive(): JSX.Element {
 		</Frame>
 	);
 }
-WorkActive.storyName = "AD9 new sidebar — Work active (teams)";
+WorkActive.storyName = "new sidebar — Work active (teams)";
 
 /** Knowledge active → fast-nav shows documents. */
 export function KnowledgeActive(): JSX.Element {
@@ -376,4 +376,4 @@ export function KnowledgeActive(): JSX.Element {
 		</Frame>
 	);
 }
-KnowledgeActive.storyName = "AD9 new sidebar — Knowledge active (documents)";
+KnowledgeActive.storyName = "new sidebar — Knowledge active (documents)";

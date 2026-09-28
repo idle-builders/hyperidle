@@ -3,20 +3,14 @@ import type { ComponentType } from "react";
 /**
  * Review canvas vocabulary and contracts.
  *
- * These shapes are intentionally separate from the primitive `Artifact` type in
- * `framework/domain-model/src/types/artifact.ts`. The review experience maps proof
+ * These shapes are intentionally separate from the primitive `Artifact` type.
+ * The review experience maps proof
  * families (code, field-change, action, render, metrics, visual, batch) onto
  * dedicated canvases, plus two utility canvases (outcome_summary frame lead and
  * browser_preview escape hatch) approved for review.
  *
- * @lore this nine-value list is byte-identical to `REVIEW_CANVAS_KINDS`
- * (`framework/domain-model/src/thread.ts`), the single-homed copy
- * `@hyperidle/tool-handlers`'s `submit_review` and `threads-schema.ts`'s
- * write arm both validate `artifacts[].kind` against. Deliberately left
- * un-unified with this copy — core-ui cannot be a dependency of
- * `agent-orchestration`/`core-api` (layer boundary), so the two lists are
- * kept in sync by hand. Change one, change both.
  */
+// @lore: ReviewCanvasKind — byte-identical to REVIEW_CANVAS_KINDS in domain-model; sync by hand; layer boundary prevents unification; change one, change both
 export type ReviewCanvasKind =
 	| "outcome_summary" // frame lead
 	| "field_change_set" // record/field change-set

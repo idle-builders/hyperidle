@@ -12,7 +12,7 @@ import { WorkTeam } from "../pages/WorkTeam";
 // AgentEditDialog and AgentAddDialog call useToast. They are only mounted when
 // the corresponding state is non-null/true, but we still mock useToast to prevent
 // the "must be used within <ToastRegion>" error when dialogs open in tests.
-// @lore useToast fires only when a dialog is open, but the mock stays regardless to avoid state leaking across tests.
+// @lore: useToast mock — fires only when a dialog is open; mock stays even when no dialog to prevent state leaking across tests
 vi.mock("../shell/ToastRegion.js", async () => {
 	const actual = await vi.importActual("../shell/ToastRegion.js");
 	return {
@@ -22,7 +22,6 @@ vi.mock("../shell/ToastRegion.js", async () => {
 });
 
 /**
- * @lore TeamPageData is id + name + a computed "healthy" | "blocked" status — no phase, no lead.
  */
 const MOCK_PRODUCT_DETAIL = {
 	team: {
@@ -83,7 +82,6 @@ function renderPage(
 	);
 }
 
-// @lore testids use the team-* prefix.
 describe("WorkTeam", () => {
 	it("1. renders the page H1 with the team name when the fetch resolves", () => {
 		renderPage("p1", MOCK_PRODUCT_DETAIL);
@@ -105,7 +103,6 @@ describe("WorkTeam", () => {
 		expect(screen.getByTestId("team-active-tasks-empty")).toBeInTheDocument();
 	});
 
-	// @lore AgentRow (data-testid="agent-row") shows status, health dot, and context column; Customize opens the edit dialog.
 	it("4. renders one agent row per roster member", () => {
 		renderPage("p1", MOCK_PRODUCT_DETAIL);
 		const agentRows = screen.getAllByTestId("agent-row");
@@ -134,7 +131,6 @@ describe("WorkTeam", () => {
 	// bet rows are now <a href> links so ⌘-click / middle-click work natively.
 	// In jsdom + MemoryRouter, <a href> clicks don't trigger SPA navigation; the correct
 	// assertion is that the row has the right href attribute.
-	// @lore: bet rows now link to /work/task/:id (root tasks replace bets)
 	it("7. task row has href to /work/task/:id (root tasks replace bets; was /work/bet/:id)", () => {
 		renderPage("p1", MOCK_PRODUCT_DETAIL);
 

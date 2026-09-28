@@ -1,19 +1,6 @@
--- @lore BC5 T11: a team is an id and a name now (D-e3zm2j) — every other
--- `teams` column goes. Every human already in a real install has SOME team
--- signal (an org edge, or simply the one team a laptop install has), so
--- this migration makes "every user is in a team" true by construction
--- rather than leaving `users.team_id` null and pushing the gap onto the
--- app. Edges themselves are untouched — this only ever WRITES `users.team_id`.
---
--- Order: (1) backfill every human's team from its own org edges (else the
--- oldest team), (2) delete the dead `routine_run` work-intent kind and
--- narrow its checks, (3) respell the `routine` source-kind/prompt-mode on
--- history rows (no CHECK on either), (4) drop `sessions.routine_id`, (5)
--- drop the team columns nothing but the setup wizard ever wrote.
-
 -- 1. every human with no team gets the target of its oldest mechanism='team'
 --    edge whose target is an existing teams.id — an older edge's target can
---    be a pre-AU44 team_members id that no longer names any team, so it is
+--    be an older team_members id that does not name any team, so it is
 --    skipped by construction (the IN clause never matches it), not by a
 --    special case. Falls back to the oldest team when no edge matches.
 UPDATE "users" SET "team_id" = COALESCE(
@@ -71,7 +58,7 @@ UPDATE "agent_session_requests" SET "source_kind" = 'subscription' WHERE "source
 UPDATE "agent_session_requests" SET "prompt_mode" = 'subscription' WHERE "prompt_mode" = 'routine';
 --> statement-breakpoint
 
--- 4. sessions.routine_id — null until AA2, never populated in practice (the
+-- 4. sessions.routine_id — null, never populated in practice (the
 --    scheduler that would have written it never shipped a writer here); the
 --    subscription flavour of a session is `source_kind`/`source_id`, not a
 --    second FK.

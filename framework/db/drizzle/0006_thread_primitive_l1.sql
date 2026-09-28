@@ -1,14 +1,9 @@
--- L1a — Thread primitive migration (Postgres parallel of SQLite 0007).
+-- Thread primitive migration (Postgres parallel of SQLite 0007).
 -- Forward-only. Drops `threads.kind`, `messages.recipient_id/subject/body/file_leases`,
 -- and the `responses` table; backfills new columns and projects legacy
 -- rows into the new shape; emits `verdict`-typed messages from `responses`.
 --
--- @lore L1a M2 (plan §5.4): Postgres requires DROP CONSTRAINT before
--- DROP COLUMN. The constraint names follow the Drizzle convention
--- `<table>_<column>_<reftable>_<refcol>_fk` set by 0000 + 0003. We use
--- `IF EXISTS` so a re-run on a partially-migrated DB does not error.
-
--- Step 1: snapshot tables (rollback artifact, 30-day retention per plan §5.3).
+-- Step 1: snapshot tables (rollback artifact, 30-day retention).
 CREATE TABLE "_l1_snapshot_threads" AS SELECT * FROM "threads";--> statement-breakpoint
 CREATE TABLE "_l1_snapshot_messages" AS SELECT * FROM "messages";--> statement-breakpoint
 CREATE TABLE "_l1_snapshot_items" AS SELECT * FROM "items";--> statement-breakpoint
@@ -32,7 +27,7 @@ ALTER TABLE "threads" ADD COLUMN "last_active_at" text;--> statement-breakpoint
 -- kind='direct' → host_kind='agent'; kind='post-bet-retro' → host_kind='bet';
 -- review/chat → host_kind='task'; everything else → 'task' as fallback.
 --
--- L1 step9 (Adv-C5): the CASE arms now MIRROR `drizzle/0007_thread_primitive_l1.sql`
+-- The CASE arms mirror the SQLite archive's thread_primitive_l1 migration
 -- exactly, including the `items.kind` review/questionnaire branch. Functionally
 -- both still default to 'task'; the parity prevents silent drift if either
 -- branch is later edited to project elsewhere.
@@ -75,9 +70,8 @@ ALTER TABLE "threads" ALTER COLUMN "pinned" SET DEFAULT false;--> statement-brea
 -- Step 6: drop the legacy `kind` column from threads.
 ALTER TABLE "threads" DROP COLUMN "kind";--> statement-breakpoint
 
--- Step 7: add new messages columns. `payload` is text (NOT jsonb) per
--- plan §5.4 — confirmed via framework/db/src/schema.pg.ts:201
--- (payload column = text). client_key is required for idempotency;
+-- Step 7: add new messages columns. `payload` is text (NOT jsonb).
+-- client_key is required for idempotency;
 -- legacy_item_id ties the row back to its source item for backfill.
 ALTER TABLE "messages" ADD COLUMN "type" text;--> statement-breakpoint
 ALTER TABLE "messages" ADD COLUMN "payload" text;--> statement-breakpoint
@@ -181,7 +175,7 @@ DROP TABLE "responses";--> statement-breakpoint
 
 -- Step 13: indexes. The legacy `messages_thread_id_idx` already exists from
 -- migration 0003 — drop and recreate as composite (thread_id, created_at)
--- to match schema.pg.ts.
+-- to match the schema.
 DROP INDEX IF EXISTS "messages_thread_id_idx";--> statement-breakpoint
 CREATE INDEX "messages_thread_id_idx" ON "messages" USING btree ("thread_id", "created_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "messages_idempotency_uq" ON "messages" USING btree ("thread_id", "sender_id", "client_key");--> statement-breakpoint

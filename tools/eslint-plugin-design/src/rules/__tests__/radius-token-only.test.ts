@@ -33,7 +33,6 @@ ruleTester.run("radius-token-only", radiusTokenOnly, {
 			filename: "layers/core-ui/src/ds/Checkbox.tsx",
 			code: 'const J = <div className="rounded-[6px]" />;',
 		},
-		// @lore createConstIdentifierResolver deliberately never follows a let — it cannot prove the value isn't reassigned elsewhere.
 		{
 			filename: "Foo.tsx",
 			code: 'let cls = "rounded-full"; cls = "rounded-[var(--r-pill)]"; const J = <div className={cls} />;',
@@ -95,7 +94,6 @@ ruleTester.run("radius-token-only", radiusTokenOnly, {
 			code: 'const J = <div className={["rounded-[6px]", "border"].join(" ")} />;',
 			errors: [{ messageId: "notAToken" }],
 		},
-		// @lore reproduces CommentRow.tsx's shape: a ternary of two class strings assigned to a const, then passed to className — must report through the identifier.
 		{
 			filename: "Foo.tsx",
 			code: 'const isAgent = true; const avatarClass = isAgent ? "rounded-full bg-a" : "rounded-full bg-b"; const J = <span className={avatarClass} />;',

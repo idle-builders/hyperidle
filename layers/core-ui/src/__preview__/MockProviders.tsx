@@ -14,11 +14,6 @@
  *    stable default (the exact { overlayOpen: false, attachContext: noop }
  *    default declared in AssistantContext.tsx).
  *
- * @lore AJ3: harness lives in layers/core-ui (where react-router-dom +
- * AssistantContext are first-party), NOT framework/design-system. Importing
- * MemoryRouter/AssistantContext into design-system would break `npm run check`
- * from DS (no react-router-dom dep there) and violate @lore AG4 (DS is
- * router-agnostic) + @lore AJ1-W3 (DS snapshot net is DS-scoped).
  *
  * A surface needing a route param wraps its children in
  * `<Routes><Route path=… element=… /></Routes>` itself — MockProviders

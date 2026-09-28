@@ -1,5 +1,4 @@
--- AU9 Remediation-2: enumerated durable-rows checks (architecture.md
--- "Durable-rows checks (enumerated)"). Hand-authored incremental migration
+-- Enumerated durable-rows checks. Hand-authored incremental migration
 -- (this repo's migrations are additive SQL files tracked only by
 -- meta/_journal.json — see 0043-0047 — not by a regenerated drizzle-kit
 -- snapshot chain past 0042).

@@ -1,24 +1,5 @@
 /**
- * Global search route — GET /api/search?q=<query>
- *
- * Returns grouped results across conversations (threads), work (bets), and
- * documents. Three separate LIKE queries — not a UNION — for clarity
- * and independent per-category 5-result caps.
- *
- * @lore AD7: Three separate queries (not UNION) because each category has
- * distinct shape, join requirements, and auth filtering. A UNION would
- * require normalization across incompatible shapes and make auth boundaries
- * harder to reason about per category.
- *
- * @lore AD7: Thread title = first message's payload.text (truncated 80 chars).
- * Thread snippet = latest message's payload.text (truncated 120 chars).
- * Retrieved via 3 batch queries (thread rows, first messages, latest messages)
- * for the full set of verified thread IDs — not per-thread loops.
- *
- * @lore AD7: Auth boundaries:
- * - Threads: filtered to where participants JSON LIKE-probes userId, then
- *   JS-verified for exact membership (prevents false positives from substring).
- * - Documents: scope_kind != 'user' OR updated_by = userId.
+ * @lore: search threads — participants LIKE-probe then JS-verified for exact membership; a substring LIKE could match a user whose id is a prefix of another
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
@@ -34,16 +15,10 @@ import type { EventBus } from "@hyperidle/event-bus";
 import * as work from "@hyperidle/task";
 import { listMessages, listThreads, searchConversations } from "@hyperidle/thread";
 import { listTeams } from "@hyperidle/user";
-// DeriveTitle removed — tasks use .title directly
 import { Hono } from "hono";
 import z from "zod";
 import type { ActionContext } from "../actions/action.js";
 
-/**
- * `search_documents`'s own runner shape — the ONE door this route gets onto
- * `document` (architecture.md §6.7, §8.3). Never `open_document`: listing
- * search results is not a read of any one of them.
- */
 type SearchDocumentsRunFn = (
 	ctx: ActionContext,
 	input: SearchDocumentsInput,
@@ -52,15 +27,6 @@ type SearchDocumentsRunFn = (
 /** Max results per category */
 const MAX_PER_CATEGORY = 5;
 
-/**
- * Map DB hostKind to frontend conversation kind.
- * task/document → "review"
- * agent/user/team/factory → "chat"
- *
- * @lore BB1: "bet" removed — the bets table is deleted; every bet became a root task.
- * @lore artifacts-become-knowledge: "artifact" removed — threads hang off the
- * document itself; there is no artifact host kind.
- */
 function hostKindToConversationKind(hostKind: string): "review" | "chat" {
 	switch (hostKind) {
 		case "task":
@@ -71,10 +37,6 @@ function hostKindToConversationKind(hostKind: string): "review" | "chat" {
 	}
 }
 
-/**
- * Safely extract text from a message payload JSON string.
- * Returns empty string if the payload is malformed or has no .text field.
- */
 function extractPayloadText(payloadJson: string): string {
 	try {
 		const parsed = JSON.parse(payloadJson) as unknown;
@@ -95,11 +57,9 @@ export function createSearchRoutes(
 ): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
-	// I2 review M-4 / HIGH-5: cap query length to prevent long full-table LIKE scans.
-	// Max 200 chars (knowledge route uses 500 — search is tighter).
+	// Cap query length to prevent long full-table LIKE scans.
 	const SEARCH_QUERY_SCHEMA = z.string().min(1).max(200);
 
-	// GET / — global search across conversations, work (bets), and documents
 	router.get("/", async (c) => {
 		const userId = c.get("userId");
 		const rawQuery = c.req.query("q");
@@ -117,10 +77,6 @@ export function createSearchRoutes(
 		const query = parsed.data;
 		const ctx: ActionContext = { actor: userId, db, eventBus, now: new Date().toISOString() };
 
-		// @lore AU44 batch 4: scope=document (architecture.md §8.6 — was
-		// "knowledge") folds GET /api/knowledge/search into GET /api/search —
-		// returns { results: [...] } matching the old dedicated route.
-		// Max query length is now 200 chars (was 500 on the old route — behaviour change).
 		const scope = c.req.query("scope");
 		if (scope === "document") {
 			const rawLimit = c.req.query("limit");
@@ -136,33 +92,14 @@ export function createSearchRoutes(
 			return c.json({ results: result.ok ? result.data : [] });
 		}
 
-		// I2 V4: escape LIKE wildcards so user's literal chars do not become SQL operators.
+		// Escape LIKE wildcards so user's literal chars do not become SQL operators.
 		const pattern = `%${query.replace(/[\\%_]/g, "\\$&")}%`;
 
-		// ── 1. Conversations (threads) ──────────────────────────────────────────
-		//
-		// Find threads where:
-		// (a) A message payload LIKE-matches the query, OR
-		// (b) The thread has a first message whose text LIKE-matches.
-		//
-		// Auth boundary: participants JSON contains userId.
-		// We LIKE-probe the participants column first (fast), then JS-verify
-		// exact membership to avoid substring false positives
-		// (e.g. userId "abc" matching participants ["xabcy"]).
-		//
-		// @lore AD7: The participants column is a JSON array stored as text.
-		// A LIKE probe `%"<userId>"%` is correct for a JSON array of quoted strings.
-		// JS verification after fetch eliminates false positives from substrings.
+		// ── Conversations ──────────────────────────────────────────────────────
 
 		const participantPattern = `%"${userId.replace(/[\\%_]/g, "\\$&")}"%`;
 
-		// Find all threads where the current user might be a participant and
-		// at least one message matches the query.
-		// @lore AD7: ILIKE (case-insensitive LIKE) used for search UX — users expect
-		// case-insensitive matching. The ESCAPE clause is still supported by ILIKE in
-		// PostgreSQL. The participant probe uses plain LIKE (JSON structure is ASCII).
-		// AF16 T7: over-fetch is ordered desc(lastActiveAt), asc(threads.id) so the
-		// JS cap picks the same top rows regardless of DB page order (deterministic).
+		// Over-fetch ordered desc(lastActiveAt), asc(threads.id) — JS cap picks the same top rows regardless of DB page order.
 		const matchingThreadRows = await searchConversations(
 			db,
 			participantPattern,
@@ -188,11 +125,7 @@ export function createSearchRoutes(
 			if (verifiedThreadIds.length >= MAX_PER_CATEGORY) break;
 		}
 
-		// Fetch thread metadata with first + latest message for each verified thread.
-		// @lore AD7: Three batch queries (thread rows, first messages, latest messages)
-		// replace the previous N+1 loop (3 queries per thread). For up to 5 threads
-		// this is always exactly 3 round-trips instead of up to 15.
-
+		// Three batch queries replace N+1: thread rows, first messages, latest messages.
 		const conversationResults: Array<{
 			id: string;
 			title: string;
@@ -202,9 +135,8 @@ export function createSearchRoutes(
 		}> = [];
 
 		if (verifiedThreadIds.length > 0) {
-			// Batch 1: thread rows for hostKind and lastActiveAt
 			const threadRowMap = new Map<string, { hostKind: string; lastActiveAt: string }>();
-			// Id ASC tiebreaker for deterministic order on tied lastActiveAt
+			// Id ASC tiebreaker for deterministic order on tied lastActiveAt.
 			const threadRowsBatch = await listThreads(db, {
 				ids: verifiedThreadIds,
 				order: "lastActive",
@@ -213,15 +145,12 @@ export function createSearchRoutes(
 				threadRowMap.set(row.id, { hostKind: row.hostKind, lastActiveAt: row.lastActiveAt });
 			}
 
-			// Batch 2: all non-deleted messages for these threads, ordered by createdAt ASC.
-			// First occurrence per thread = title source; last occurrence = snippet source.
 			const allMsgs = await listMessages(db, {
 				threadIds: verifiedThreadIds,
 				includeDeleted: false,
 				order: "createdAt",
 			});
 
-			// Group messages per thread: first = title, last = snippet
 			const firstMsgMap = new Map<string, string>();
 			const latestMsgMap = new Map<string, string>();
 			for (const msg of allMsgs) {
@@ -231,7 +160,6 @@ export function createSearchRoutes(
 				latestMsgMap.set(msg.threadId, msg.payload); // always overwrite → last wins
 			}
 
-			// Build results in lastActiveAt DESC order (threadRowsBatch already sorted)
 			for (const threadRow of threadRowsBatch) {
 				const thread = threadRowMap.get(threadRow.id);
 				if (!thread) continue;
@@ -249,33 +177,7 @@ export function createSearchRoutes(
 			}
 		}
 
-		// ── 2. Work (bets) ──────────────────────────────────────────────────────
-		//
-		// Find bets where description LIKE-matches the query.
-		// Join teams for the team name.
-		//
-		// @lore AD7: No auth boundary on bets — all authenticated users see all bets.
-		// Bets are team-scoped, not user-private.
-
-		// Stable secondary sort by id ASC eliminates nondeterministic
-		// ordering when multiple rows share the same createdAt timestamp.
-		// Match-rank CASE biases exact/prefix matches above mid-string
-		// substring matches. Order: matchRank ASC, createdAt DESC, id ASC.
-		//
-		// @lore AU13 addendum §A2/§A9: this was a `.from(bets).innerJoin(teams, …)`
-		// query — routing it through work-service would require a THIRD
-		// foreign-table import past the two-function ceiling. Resolved by keeping
-		// `searchBetsByText` bets-only (owns the matchRank + LIKE predicate, no
-		// foreign columns) and doing the team-name lookup here as a separate
-		// batch call. Same result set/order/values; only JOIN-vs-app-level-map
-		// mechanics differ.
-		//
-		// @lore AU19 Increment 3 (teams table-ownership remediation, 2026-07-15
-		// founder ruling): this used to be a direct `.from(teams)` query,
-		// claiming "`teams` is not one of the five owned tables, so any file may
-		// query it" — WRONG, `teams` IS `org`-owned (architecture.md §4 line 69).
-		// Now calls `@hyperidle/org`'s `listTeamsByIds`.
-		// BB1: search root tasks (parentTaskId: null) instead of deleted bets.
+		// ── Work ───────────────────────────────────────────────────────────────
 		const taskRows = await work.list(db, "task", {
 			text: query,
 			parentTaskId: null,
@@ -292,14 +194,7 @@ export function createSearchRoutes(
 			status: row.state,
 		}));
 
-		// ── 3. Documents ─────────────────────────────────────────────────────────
-		//
-		// Find documents where title OR body ILIKE-matches the query.
-		//
-		// @lore BC4 (architecture.md §8.3, §6.7): `search_documents` is the ONE
-		// door — no separate `visibility` argument to pass, its own query always
-		// applies the actor-scoped predicate (§5.1). `search_documents` raises
-		// no read count.
+		// ── Documents ──────────────────────────────────────────────────────────
 		const documentResult = await searchDocuments(ctx, { text: query, limit: MAX_PER_CATEGORY });
 		const documentRows = documentResult.ok ? documentResult.data : [];
 

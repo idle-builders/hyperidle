@@ -1,11 +1,7 @@
 import { readFileSync } from "node:fs";
 import { defineConfig } from "drizzle-kit";
 
-// NOTE: the SSL helpers are intentionally INLINED here rather than imported from
-// ./src/pg-ssl.ts. drizzle-kit loads this config through a CJS require that does
-// not do the .js→.ts resolution tsx does, so a sibling import fails at deploy
-// time ("Cannot find module './src/pg-ssl.js'"). Keep in sync with
-// framework/db/src/pg-ssl.ts (the runtime connection uses that copy via tsx).
+// @lore: SSL helpers inlined — drizzle-kit loads via CJS require, not tsx; sibling imports fail; keep in sync with src/pg-ssl.ts
 
 type PostgresSslOption =
 	| false

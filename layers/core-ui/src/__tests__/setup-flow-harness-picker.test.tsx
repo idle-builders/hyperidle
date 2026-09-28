@@ -7,9 +7,7 @@
  * credential written; a graceful degrade — discovery failing must not
  * block setup.
  *
- * @lore there is no built-in gateway row — every default, fallback, and primaryHarness value now comes from the discovered harnesses themselves.
  *
- * @lore open_user({}).runsOn replaces GET /api/harnesses; edit_user calls replace the team/user/filesystem POST routes; call is mocked at the door.
  */
 
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
@@ -197,7 +195,6 @@ describe("harness picker renders all descriptors", () => {
 		expect(screen.getByTestId("harness-row-codex")).toHaveTextContent(/install/i);
 	});
 
-	// @lore discovery decides the default — the form opens on the first harness this machine can actually run, never a name that isn't here.
 	it("the first choosable row is default-selected (radio)", async () => {
 		setupCallMock({ descriptors: [OPENCODE_READY, CLAUDE_CODE_READY] });
 		renderSetupFlow();
@@ -244,7 +241,6 @@ describe("harness picker graceful degrade", () => {
 		vi.restoreAllMocks();
 	});
 
-	// @lore a failed probe is not "no harness installed" — the degrade renders no rows and blocks nothing, never stranding the person.
 	it("renders no harness rows when open_user({}) fails", async () => {
 		setupCallMock({ discoveryFails: true });
 		renderSetupFlow();
@@ -275,7 +271,6 @@ describe("setup submit ordering — person before their assistant, no credential
 		vi.restoreAllMocks();
 	});
 
-	// @lore setup asks for no credential — the person is created before the assistant that needs their id, and no credential write ever happens.
 	it("creates the person before their assistant, and writes no credential", async () => {
 		const user = userEvent.setup();
 		const { editUserCalls } = setupCallMock({ descriptors: [OPENCODE_READY] });
@@ -323,7 +318,6 @@ describe("setup submit ordering — person before their assistant, no credential
 		expect(assistantCall.runConfig?.harnessType).toBe("claude-code");
 	});
 
-	// @lore there is no default harness to fall back to — the chosen one is always named explicitly.
 	it("primaryHarness names the chosen harness even when it is the only one", async () => {
 		const user = userEvent.setup();
 		const { editUserCalls } = setupCallMock({ descriptors: [OPENCODE_READY] });

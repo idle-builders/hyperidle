@@ -1,22 +1,3 @@
-/**
- * `resolveSubscriptionWakeRequest` — bake the `BakedWorkIntentRequest` a
- * subscription's wake carries, for an agent subscriber. Architecture.md §4:
- * three reused pieces (`bakeAgentRunnableConfig`, `toBakedContextDocuments`,
- * an injected `assembleSessionDocuments`), same optional-contextBundle
- * shape, but no run row to load: the
- * subscription row and the change that woke it are already in the caller's
- * hand (`subscription-fire.ts`'s own `listSubscriptions` read), so this
- * function does no DB read of its own beyond the agent row
- * `requireRunnableAgent` reloads (never trust the caller's cached row) and
- * the owner/team rows the effective-team rule needs.
- *
- * Every cross-Service capability this needs (`@hyperidle/document`'s
- * `assembleSessionDocuments`, `@hyperidle/settings`'s `readServerConfig`) is
- * injected (Mechanism C) — `@hyperidle/user` may depend on nothing but
- * `@hyperidle/db`/framework packages. `requireRunnableAgent`/`findUser`/
- * `getTeam` are THIS package's own siblings, so they are plain imports, not
- * deps.
- */
 import type { HyperIdleDb, User } from "@hyperidle/db";
 import {
 	type BakedContextBundle,

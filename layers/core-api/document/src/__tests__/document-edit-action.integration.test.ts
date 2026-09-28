@@ -34,7 +34,7 @@ function editAction(deps: DocumentActionsDeps): Action<EditDocumentInput, Docume
 	return actionFor<EditDocumentInput, DocumentView>(createDocumentActions(deps), "edit_document");
 }
 
-describe("edit_document — D7 stale (architecture.md §4.3 case 4)", () => {
+describe("edit_document — stale version", () => {
 	test("two edits, the second carrying version 1, is refused and writes nothing", async ({
 		db,
 	}) => {
@@ -115,7 +115,6 @@ describe("edit_document — D-invariants (document parent/state checks)", () => 
 		expect(result.problems[0]?.code).toBe("parent_not_found");
 	}, 5000);
 
-	// @lore `subscription`/`agent` parents are attached exclusively by core-api's own routes — a non-existent one is refused.
 	test("forbidden_parent_kind: a non-internal caller may not name a subscription parent", async ({
 		db,
 	}) => {
@@ -332,7 +331,7 @@ describe("edit_document — D-invariants (document parent/state checks)", () => 
 	});
 });
 
-describe("edit_document — the combined cases, architecture.md §4.3 (2-8; the cascade family 1a-1f is B6b's)", () => {
+describe("edit_document — the combined cases", () => {
 	test("case 2 — moving a slotted document is refused by I10 before D5 is ever consulted", async ({
 		db,
 	}) => {
@@ -483,7 +482,7 @@ describe("edit_document — the combined cases, architecture.md §4.3 (2-8; the 
 	});
 });
 
-describe("edit_document — create (architecture.md §3.5 A3)", () => {
+describe("edit_document — create", () => {
 	test("no id — a new uuid is assigned", async ({ db }) => {
 		await seedUser(db, "writer-create-1");
 		const result = await editAction(writeDeps()).run(ctxFor(db, "writer-create-1"), {
@@ -498,7 +497,7 @@ describe("edit_document — create (architecture.md §3.5 A3)", () => {
 	});
 });
 
-describe("edit_document — `as` forcing, architecture.md §3.6", () => {
+describe("edit_document — `as` forcing", () => {
 	test("as:'memory' forces private scope and is readable by the owner of the writing agent", async ({
 		db,
 	}) => {
@@ -612,7 +611,7 @@ describe("edit_document — `as` forcing, architecture.md §3.6", () => {
 	});
 });
 
-describe("edit_document — the `changes` row, architecture.md §6.3", () => {
+describe("edit_document — the `changes` row", () => {
 	test("create appends exactly one 'created' row with a null before and the full after", async ({
 		db,
 	}) => {
@@ -666,7 +665,7 @@ describe("edit_document — the `changes` row, architecture.md §6.3", () => {
 	});
 });
 
-describe("edit_document — onBodyChanged fires on a body change, architecture.md §0", () => {
+describe("edit_document — onBodyChanged fires on a body change", () => {
 	test("called once on create, and again only when body actually changes — not on a title-only edit", async ({
 		db,
 	}) => {
@@ -698,7 +697,7 @@ describe("edit_document — onBodyChanged fires on a body change, architecture.m
 	});
 });
 
-describe("edit_document — usage columns, architecture.md §6.7", () => {
+describe("edit_document — usage columns", () => {
 	test("editing does not bump readCount, and the four usage fields are never writable", async ({
 		db,
 	}) => {
@@ -734,7 +733,7 @@ describe("edit_document — usage columns, architecture.md §6.7", () => {
 	});
 });
 
-describe("edit_document — status archive/restore, architecture.md §4.1 I12", () => {
+describe("edit_document — status archive/restore", () => {
 	test("archive, then a further edit is refused until restored", async ({ db }) => {
 		await seedUser(db, "writer-status-1");
 		const edit = editAction(writeDeps());
@@ -764,7 +763,7 @@ describe("edit_document — status archive/restore, architecture.md §4.1 I12", 
 	});
 });
 
-describe("edit_document — the post-commit push, architecture.md §7", () => {
+describe("edit_document — the post-commit push", () => {
 	test("pushes on document:<id> with the real before/after and on documents with both redacted to null", async ({
 		db,
 	}) => {
@@ -889,7 +888,7 @@ describe("edit_document — object events, one per changes row post commit", () 
 	});
 });
 
-describe("edit_document — never a read, architecture.md §6.7", () => {
+describe("edit_document — never a read", () => {
 	test("an edit returns through assembleDocumentView, not open_document.run — readCount stays 0 through the edit itself", async ({
 		db,
 	}) => {

@@ -13,11 +13,6 @@ import { QuotePayload } from "./QuotePayload.js";
 import { TablePayload } from "./TablePayload.js";
 import { UnknownPayload } from "./UnknownPayload.js";
 
-/**
- * Internal dispatch — discriminates on payload.kind to render the matching
- * per-kind payload component. Used by Block.tsx and recursively by ListPayload
- * / QuotePayload.
- */
 export function renderPayload(
 	payload: BlockPayload,
 	sanitizeHtml?: (raw: string) => string,
@@ -56,8 +51,5 @@ export function renderPayload(
 		case "unknown":
 			return <UnknownPayload raw={payload.raw} reason={payload.reason} />;
 	}
-	// @lore Z8-166: TypeScript does not treat switch-on-discriminant as exhaustive
-	// even when all union members are covered; the unreachable throw satisfies
-	// the "function lacks ending return" TS2366.
 	throw new Error(`Unhandled payload kind: ${(payload as { kind: string }).kind}`);
 }

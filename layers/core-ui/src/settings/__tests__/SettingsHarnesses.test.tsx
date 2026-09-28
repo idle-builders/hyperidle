@@ -9,7 +9,6 @@
  * edit_user({ id, redetectHarnesses: true }); a disabled row renders
  * "Disabled — …" status.
  *
- * @lore open_user({}).runsOn replaces GET /api/harnesses; edit_user({redetectHarnesses:true}) replaces the redetect route — call is mocked at the door.
  */
 
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
@@ -403,7 +402,6 @@ describe("SettingsHarnesses SplitView", () => {
 		});
 	});
 
-	// @lore every harness gets the same detail pane now — there is no separate model-tier/credentials pane for any one harness.
 	it("selecting a key-accepting harness opens the same detail pane as any other", async () => {
 		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTimeAsync });
 		setupFetch();

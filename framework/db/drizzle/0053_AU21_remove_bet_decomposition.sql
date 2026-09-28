@@ -1,4 +1,4 @@
--- AU21 §9 Increment 10a (Decision I) — the built-in `bet_decomposition`
+-- The built-in `bet_decomposition`
 -- mechanism is REMOVED entirely, not migrated. Shrinks the `agent_work_intents`
 -- kind/source-kind vocabulary from seven kinds to six (bet_decomposition/bet
 -- dropped), drops the two `bets` decomposition-lifecycle columns, and drops

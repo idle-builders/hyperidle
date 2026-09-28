@@ -77,7 +77,7 @@ describe("ReferenceChip — single shared reference primitive", () => {
 		expect(screen.getByText("+2 −1")).toBeInTheDocument();
 	});
 
-	it("renders a label containing markup as TEXT, not HTML (§8 injection guard)", () => {
+	it("renders a label containing markup as TEXT, not HTML", () => {
 		render(<ReferenceChip kind="block" label="<img src=x onerror=1>" mode="posted" />);
 		// No injected <img> — React escapes the label to text.
 		expect(document.querySelector("img")).toBeNull();

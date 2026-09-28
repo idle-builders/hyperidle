@@ -72,7 +72,6 @@ function mkTeam(id: string, name: string): SidebarTeam {
 
 describe("Sidebar — structure and brand", () => {
 	it("renders the Sidebar as a navigation landmark", () => {
-		// @lore the sidebar carries no wordmark — the brand lives in the product chrome (window title / about page), not the 200px column.
 		render(<Sidebar {...defaultProps} />);
 		expect(screen.getByRole("complementary")).toBeInTheDocument();
 	});
@@ -88,7 +87,6 @@ describe("Sidebar — structure and brand", () => {
 
 	it("renders bottom strip with Assistant trigger and Settings (avatar) button", () => {
 		render(<Sidebar {...defaultProps} />);
-		// @lore: the Assistant button is the sidebar trigger for the assistant overlay
 		expect(screen.getByRole("button", { name: /assistant/i })).toBeInTheDocument();
 		// Settings button (avatar)
 		expect(screen.getByRole("button", { name: /settings/i })).toBeInTheDocument();
@@ -139,7 +137,6 @@ describe("Sidebar — Conversations section thread list", () => {
 	});
 
 	it('shows "No threads yet" empty text when threads is empty', () => {
-		// @lore visual-parity: changed from "No recent conversations" to "No threads yet"
 		render(<Sidebar {...defaultProps} threads={[]} />);
 		expect(screen.getByText(/no threads yet/i)).toBeInTheDocument();
 	});
@@ -159,7 +156,6 @@ describe("Sidebar — Conversations section thread list", () => {
 // ---------------------------------------------------------------------------
 
 describe("Sidebar — Work section team list", () => {
-	// @lore visual-parity: team sub-items only visible when activeView="work"
 	it("renders 3 team sub-items when 3 teams are provided", () => {
 		const teams = [
 			mkTeam("team-1", "Alpha Team"),
@@ -173,7 +169,6 @@ describe("Sidebar — Work section team list", () => {
 	});
 
 	it("does not show teams list when activeView is not 'work'", () => {
-		// @lore the work section renders nothing when not active; team sub-items are hidden outside the work view.
 		const teams = [mkTeam("team-1", "Alpha Team")];
 		render(<Sidebar {...defaultProps} activeView="conversations" teams={teams} />);
 		// Teams are hidden when not in work view
@@ -294,7 +289,6 @@ describe("Sidebar — Active sub-item is marked", () => {
 	});
 
 	it("renders the selected team sub-item", () => {
-		// @lore visual-parity: team sub-items only visible when activeView="work"
 		const teams = [mkTeam("team-active", "Active Team"), mkTeam("team-other", "Other Team")];
 		const { container } = render(
 			<Sidebar {...defaultProps} activeView="work" teams={teams} activeTeamId="team-active" />,
@@ -308,7 +302,6 @@ describe("Sidebar — Active sub-item is marked", () => {
 // ---------------------------------------------------------------------------
 
 describe("Sidebar — Assistant trigger", () => {
-	// @lore: the Assistant trigger is the "Assistant" button in the sidebar bottom strip
 	it('CoC trigger button is present with aria-label "Assistant"', () => {
 		render(<Sidebar {...defaultProps} />);
 		expect(screen.getByRole("button", { name: /assistant/i })).toBeInTheDocument();
@@ -323,7 +316,6 @@ describe("Sidebar — Assistant trigger", () => {
 	});
 
 	it("Assistant trigger is accessible from the sidebar", () => {
-		// @lore the Assistant button lives in the top search row, adjacent to the SearchField — this test verifies presence, not position.
 		render(<Sidebar {...defaultProps} />);
 		expect(screen.getByRole("button", { name: /assistant/i })).toBeInTheDocument();
 	});

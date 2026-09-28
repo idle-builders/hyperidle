@@ -4,17 +4,6 @@
  * All styles are scoped under .body-editor to prevent global style pollution.
  * All values use semantic Hearth tokens — no hex values, no raw Tailwind palette.
  *
- * @lore T1 (AI1 update): h3 uses calc(var(--text-xl) * 0.9) instead of
- * calc(var(--density-text) * 1.1) as recommended by architecture-critique I4.
- * The W2 density-token removal replaced --density-text-h1/h2 with Hearth type
- * scale tokens: --text-2xl (24px) for h1, --text-xl (20px) for h2, --text-base
- * (15px) for body. h3 stays at calc(--text-xl * 0.9) = 18px, keeping h3 within
- * the closed type scale (AI1 AC1 token-resolution; R2: h1 26→24px is a deliberate
- * normalization to the nearest on-scale step, no 26px step exists in Hearth).
- *
- * @lore T1: The .is-editor-empty:first-child::before pseudo-element is how
- * TipTap's Placeholder extension displays placeholder text — it sets
- * data-placeholder on the first paragraph and the CSS floats it in.
  */
 
 @reference "./tokens.css";
@@ -23,9 +12,7 @@
 	@apply type-copy;
 	outline: none;
 	color: var(--text-primary);
-	/* @lore UI-127: BodyEditor wrapper sets style={{ minHeight }} but ProseMirror
-	 * (a contenteditable div) defaults to content height (≈23px). min-height: inherit
-	 * propagates the wrapper's minHeight down so the editor fills the specified area. */
+	/* @lore: ProseMirror — ignores parent min-height; min-height: inherit is what makes the editor fill its area */
 	min-height: inherit;
 }
 
@@ -44,7 +31,6 @@
 	margin-bottom: 0.5em;
 }
 
-/* @lore T1: h3 at 90% of h2 keeps it within the closed type scale (I4). */
 .body-editor .ProseMirror h3 {
 	@apply type-lead;
 	color: var(--text-primary);
@@ -106,9 +92,6 @@
 	overflow-x: auto;
 }
 
-/* @lore T1: pre code must come after code (higher specificity after lower) to
- * avoid biome noDescendingSpecificity lint error. The pre code selector resets
- * the inline code styles that don't apply inside a code block. */
 .body-editor .ProseMirror pre code {
 	@apply type-data;
 	color: var(--text-primary);

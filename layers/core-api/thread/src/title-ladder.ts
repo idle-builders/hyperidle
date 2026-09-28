@@ -1,14 +1,9 @@
 /**
- * Batched thread title resolver — moved from `routes/threads.ts`'s
- * `resolveThreadTitles`, one query per host-kind bucket, never
- * N+1. Rung 0 is the stored `threads.title`; there is no host-`task` rung —
- * a task's thread is `team`-hosted now, and nothing computes a
- * team-conversation title from a task.
+ * Batched thread title resolver — one query per host-kind bucket, never N+1.
  *
  * Ladder, first match wins:
  *   0. stored `threads.title`
- *   1. assistant thread (two-party `hostKind:"agent"`, by
- *      `users.ownerUserId`, never id shape) → "Assistant"
+ *   1. assistant thread (two-party `hostKind:"agent"`, by `users.ownerUserId`) → "Assistant"
  *   2. DM (2-participant, user/agent host) → other participant's name
  *   3. host-scoped (`document`) → entity title
  *   4. group/feed → deterministic participant-name join
@@ -38,8 +33,8 @@ export interface TitleLadderDeps {
 	) => Promise<ReadonlyMap<string, ParticipantIdentity>>;
 	/**
 	 * Batched — bound to ONE `search_documents({ids})` call however many
-	 * document-hosted rows are in the list, never a per-id loop
-	 * (architecture.md §8.3). A missing/invisible document has no entry in
+	 * document-hosted rows are in the list, never a per-id loop.
+	 * A missing/invisible document has no entry in
 	 * the returned map; rung 3 below already falls back to "Deleted document"
 	 * when `.get()` misses.
 	 */
@@ -104,9 +99,6 @@ export async function resolveThreadTitles(
 		// `send_message`'s single-agent-recipient branch creates
 		// (thread-actions.ts) — the thread is hosted by the AGENT party, not
 		// the human.
-		// @lore Migration 0085 step 10 re-hosts every user-hosted assistant
-		// thread onto its agent too, so this is the only shape a migrated
-		// database ever has.
 		if (
 			row.hostKind === "agent" &&
 			parts.length === 2 &&
@@ -134,8 +126,7 @@ export async function resolveThreadTitles(
 			}
 		}
 
-		// Rung 3: host-scoped (document). Task's own rung is gone — a
-		// task's thread is team-hosted.
+		// Rung 3: host-scoped (document) — task threads are team-hosted.
 		if (row.hostKind === "document") {
 			const title = kiMap.get(row.hostId);
 			titleMap.set(row.id, title ?? "Deleted document");

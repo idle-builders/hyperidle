@@ -35,22 +35,7 @@ function stripAnsi(value: string): string {
  *   Usage: /model <name>. Available: sonnet, opus, haiku, fable, best,
  *   sonnet[1m], opus[1m], fable[1m], opusplan, default, or a full model ID.
  *
- * @lore The predecessor ran `claude models` and parsed a Markdown table.
- * `claude` has no `models` subcommand — its `Commands:` list is agents, auth,
- * auto-mode, doctor, gateway, import, install, mcp, plugin, project,
- * setup-token, ultrareview, update — so the binary took `models` as a PROMPT and
- * answered it with a model turn. That cost money on every probe, returned prose
- * that varied with whatever CLAUDE.md sat in the working directory, and parsed
- * to zero models every time. The unit test passed throughout, because its
- * fixture was a hand-written table nobody had ever seen the binary produce.
- * Verified 2026-08-27 against claude 2.1.x.
- *
- * `default` is dropped: it is the absence of a choice, the editor already has an
- * empty option for that, and a model that hands the decision back to the harness
- * can never satisfy "the model you picked is the model that ran".
- *
- * Every failure degrades to no models, never to a guessed list — the same rule
- * the codex cache reader follows, and for the same reason.
+ * @lore: claude model probe — `claude` has no `models` subcommand; `/model` answered locally; `default` dropped; every failure degrades to no models
  */
 function parseClaudeModelCommand(output: string): HarnessModelDescriptor[] {
 	let parsed: unknown;
@@ -106,16 +91,8 @@ function parseClaudeModelCommand(output: string): HarnessModelDescriptor[] {
  *   …
  *   Tip: use --model <id> …
  *
- * Two details this has to survive. The ` (current)` / ` (default)` suffix marks
- * whichever model the last run selected, so it MOVES between probes and is
- * stripped from the label rather than stored. And `auto` is dropped for the same
- * reason claude's `default` is: it hands the choice back to the harness, so a
- * session started on it can never prove which model ran.
- *
- * Cursor states its per-model options only as prose in the closing tip
- * (`claude-opus-4-8[context=1m,effort=high,fast=false]`) and publishes no
- * machine-readable list of which model takes which. Nothing is invented here.
- *
+ * The ` (current)` / ` (default)` suffix moves between probes and is stripped from the label.
+ * `auto` is dropped (hands choice back to harness). Cursor publishes no machine-readable option list.
  * Verified 2026-08-27 against a signed-in account.
  */
 function parseCursorModelList(output: string): HarnessModelDescriptor[] {
@@ -151,11 +128,7 @@ function parseCursorModelList(output: string): HarnessModelDescriptor[] {
  * names models and nothing else, and the flag is session-level rather than
  * per-model, so every discovered claude model declares the same set.
  *
- * @lore An older `claude` treats `--effort` as an unknown option and exits
- * non-zero, which the adapter reports as a crashed session. The option is
- * offered unconditionally, so someone on an older binary is offered a control
- * that kills their runs. Accepted: an agent with nothing configured sends
- * nothing, so only an agent explicitly configured with an effort is exposed.
+
  */
 const CLAUDE_EFFORT_OPTION: HarnessModelOptionDescriptor = {
 	key: "effort",
@@ -182,10 +155,7 @@ const CLAUDE_EFFORT_OPTION: HarnessModelOptionDescriptor = {
  * each one applies. Verified live 2026-08-25: 146 of 363 models publish one, and
  * the lists genuinely differ per model.
  *
- * @lore opencode SILENTLY IGNORES an unknown `--variant`, so there is no way to
- * prove a bad value was rejected — unlike claude, whose binary names the flag
- * back. Its evidence is therefore weaker than the other harnesses', and that is
- * a fact about opencode rather than a gap in the tests.
+ * @lore: opencode variant option — opencode silently ignores an unknown --variant (unlike claude, which names the flag back); evidence is weaker but accepted
  */
 function opencodeModelOptions(
 	parsed: Record<string, unknown>,
@@ -209,11 +179,6 @@ function opencodeModelOptions(
 function mapOpencodeProvider(
 	raw: string,
 ): "anthropic" | "openrouter" | "openai-compatible" | undefined {
-	// @lore AV2: opencode is a multi-provider aggregator; providerID values
-	// like "opencode", "anthropic", "openrouter" etc. come from the JSON.
-	// HarnessModelDescriptor.provider is a closed ModelProvider union —
-	// only "anthropic"/"openrouter"/"openai-compatible" are valid. We map
-	// known values and omit unknown ones (optional field).
 	if (raw === "anthropic") return "anthropic";
 	if (raw === "openrouter") return "openrouter";
 	if (raw === "openai-compatible") return "openai-compatible";
@@ -253,9 +218,6 @@ function parseOpencodeModelJson(raw: string): HarnessModelDescriptor | null {
  * Each model: a "provider/id" header line followed by a JSON object.
  * The JSON has: id, name, limit.context (optional).
  *
- * @lore AV2: opencode models --verbose outputs one JSON block per model,
- * prefixed with a "provider/id" identifier line. The JSON body carries
- * the model's metadata. Real output captured 2026-07-06 from opencode models --verbose.
  */
 function parseOpenCodeCatalog(output: string): HarnessModelDescriptor[] {
 	const models: HarnessModelDescriptor[] = [];
@@ -306,10 +268,6 @@ interface HarnessSessionProbeResult {
 	readonly reason?: string;
 }
 
-/** @lore AM2: This type intentionally mirrors no shared type exactly; it is the
- *  private probe result that the descriptor builder maps into the public
- *  `HarnessDiscoveryStatus` / `HarnessCapabilityDescriptor`. Keeping it local
- *  prevents leaking discovery internals into the shared contract. */
 interface HarnessDiscoveryInput {
 	readonly state: HarnessReadinessState;
 	readonly version?: string;
@@ -350,8 +308,7 @@ interface HarnessProbeDeps {
 	 * Working directory for real binary invocations. Ignored when `run` is
 	 * injected. Defaults to process.cwd().
 	 *
-	 * @lore AU36: the `.mcp.json`-for-`claude mcp list` example left with the
-	 * reach probes (now `@hyperidle/connections`' `createInheritedReach`).
+
 	 */
 	readonly cwd?: string;
 	/**
@@ -442,17 +399,7 @@ export type {
  * signed-in account (it carries an etag). That file is the only enumeration
  * there is, and it is the reason codex can offer per-model options at all.
  *
- * @lore A hardcoded list was the obvious alternative and is simply WRONG, not
- * merely brittle: verified 2026-08-25, `gpt-5.4` accepts four reasoning levels
- * while `gpt-5.6-sol` accepts six including `ultra`. One flat list would offer
- * `max` on a model that rejects it and hide `ultra` on one that takes it.
- *
- * The cost, accepted deliberately: this reads another tool's private file whose
- * shape is not a contract and is version-dependent — the cache records the
- * client that wrote it, and codex refuses a cache written by a different
- * version. So EVERY failure here degrades to silence: no models, no options,
- * exactly the behaviour codex had before. There is deliberately no fallback
- * list, because a fallback is how a wrong list ships anyway.
+ * @lore: codex model cache — reads ~/.codex/models_cache.json (not a contract); hardcoded list wrong (reasoning levels differ); failures degrade to no models
  */
 function parseCodexModelCache(raw: string): readonly HarnessModelDescriptor[] {
 	let parsed: unknown;
@@ -522,10 +469,7 @@ async function readCodexModelsFromDisk(): Promise<string | null> {
  * auth-output interpretation — the config that MUST differ per harness, not
  * four hand-written probe function bodies.
  *
- * @lore Row 9 SIMPLIFY: the four probe functions (probeCodexCli,
- * probeClaudeCodeCli, inspectOpenCode, probeCursorAgentCli) were copy-paste
- * variations of one pattern. The per-harness logic lives in the table; the
- * driver (`probeCli`) is a single loop body.
+
  */
 interface CliProbeConfig {
 	readonly cli: string;
@@ -630,11 +574,6 @@ const CLI_PROBE_CONFIGS: readonly [CliProbeConfig, CliProbeConfig, CliProbeConfi
 			loginLabel: "Log in to OpenCode",
 			loginCmd: ["opencode", "providers", "login"],
 			authCmd: ["opencode", "providers", "list"],
-			/**
-			 * @lore AV2: `opencode models --verbose` outputs one JSON block per model
-			 * (real format captured 2026-07-06). Run when providers are configured.
-			 * Failure degrades to models:[] — never throws.
-			 */
 			async interpretAuth(stdout, _stderr, exitCode, d, version, authAction) {
 				if (exitCode !== 0) {
 					return {
@@ -647,8 +586,6 @@ const CLI_PROBE_CONFIGS: readonly [CliProbeConfig, CliProbeConfig, CliProbeConfi
 				const hasCredentials =
 					/\d+\s+credentials/.test(stdout) || stdout.includes("environment variable");
 				if (hasCredentials) {
-					// Run `opencode models --verbose` to discover available models.
-					// ⚠️ UNVERIFIED — format captured 2026-07-06 from `opencode models --verbose`.
 					let models: readonly HarnessModelDescriptor[] = [];
 					try {
 						const modelsResult = await runCommand(["opencode", "models", "--verbose"], d);
@@ -677,8 +614,6 @@ const CLI_PROBE_CONFIGS: readonly [CliProbeConfig, CliProbeConfig, CliProbeConfi
 			async interpretAuth(stdout, stderr, exitCode, d, version, authAction) {
 				const authText = stdout.trim() || stderr.trim();
 				if (authText.includes("Logged in")) {
-					// Ask cursor for the models this account may run. Plain text is the
-					// only form it offers — see `parseCursorModelList`.
 					let models: readonly HarnessModelDescriptor[] = [];
 					try {
 						const modelsResult = await runCommand(["cursor-agent", "--list-models"], d);
@@ -736,25 +671,9 @@ async function probeCli(
 }
 
 /**
- * @lore The built-in gateway had its own probe here, plus catalogue fetches
- * against Anthropic's and OpenRouter's /models endpoints. It was the one
- * "harness" whose readiness was a credential rather than an installed binary,
- * and the one whose model list came off the network rather than out of the tool
- * itself. Both are gone with it: every harness now reports its own models, and
- * readiness means the binary is installed and logged in.
- */
-/**
  * Probe the local environment for the first-class harness families HyperIdle supports.
- *
- * @lore AM2: This probes public, non-destructive commands only (version, auth status,
- *  providers list). It never reads provider credential files and never starts an agent
- *  session.
- *
- * @lore AU36: the four inherited-reach probes (claude/codex/opencode MCP-config
- * readers + the `gh` CLI probe) and their post-probe merge are GONE from this
- * function — reach moved into the connections domain (`@hyperidle/connections`'
- * `createInheritedReach`), wired at the composition roots. Discovery keeps its
- * real job: harness readiness, version, auth state, models, runtime caps.
+ * Probes public, non-destructive commands only (version, auth status, providers list).
+ * Never reads provider credential files and never starts an agent session.
  */
 export async function discoverLocalHarnesses(
 	d?: HarnessProbeDeps,

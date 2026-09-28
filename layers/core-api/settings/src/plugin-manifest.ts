@@ -72,14 +72,7 @@ export interface ManifestWarning {
 	readonly message: string;
 }
 
-/**
- * A skill discovered from the plugin's skills/ directory.
- * The dirName is the immediate child directory name (used as title/key).
- * The body is the full content of SKILL.md.
- *
- * @lore BA9b: Path containment is enforced before reading SKILL.md —
- * the resolved path must stay inside the plugin root to prevent traversal.
- */
+// A skill from the plugin's skills/ directory. Path containment enforced before reading SKILL.md.
 export interface ParsedSkill {
 	readonly dirName: string;
 	readonly body: string;
@@ -97,26 +90,11 @@ export interface ParsedPluginAgent {
 	readonly agentCategory: string;
 	/**
 	 * Who this agent is, read from the file the manifest's `identity` names.
-	 *
-	 * @lore BA9g: the gap BA9f named — "a plugin contributing an agent had
-	 * nothing to contribute its identity to". It does now: the identity is a
-	 * document, and this is the plugin's copy of it. Absent → the agent
-	 * installs bare, which is what HyperIdle itself ships.
 	 */
 	readonly identity: string | null;
 }
 
-/**
- * A subscription declared in extensions["io.hyperidle"].subscriptions[].
- * `agentId` references a ParsedPluginAgent.id within this manifest. Exactly
- * one of `event`/`schedule` is set (`edit_user`'s own subscription
- * invariant). The route handler computes stable DB ids for both the
- * subscription and agent.
- *
- * @lore BC5 T7b: renamed from `ParsedPluginRoutine` — `triggerType`/
- * `triggerConfig`/`eventType` collapse into `event`/`schedule`, matching
- * `subscriptions`' own two-trigger shape (migration 0088).
- */
+// A subscription declared in extensions["io.hyperidle"].subscriptions[]. Exactly one of event/schedule is set.
 export interface ParsedPluginSubscription {
 	readonly id: string;
 	readonly name: string;
@@ -126,13 +104,7 @@ export interface ParsedPluginSubscription {
 	readonly prompt: string | null;
 }
 
-/**
- * An MCP server parsed from the plugin's mcp.json.
- * The name is the server key, the config is the server object.
- *
- * @lore BA9b: Per Agent Plugins 1.0.0 spec, ${PLUGIN_ROOT} and ${PLUGIN_DATA}
- * must be expanded by the client (at session materialisation time).
- */
+// An MCP server from the plugin's mcp.json. ${PLUGIN_ROOT} and ${PLUGIN_DATA} expanded at session materialisation time.
 export interface ParsedMcpServer {
 	readonly name: string;
 	readonly config: Record<string, unknown>;
@@ -216,7 +188,7 @@ export function parsePluginManifest(pluginRoot: string): ManifestParseResult {
 		if (!PERMITTED_TOP_LEVEL_FIELDS.has(field)) {
 			warnings.push({
 				code: "UNKNOWN_TOP_LEVEL_FIELD",
-				message: `Unknown top-level field "${field}" — ignored per spec §manifest`,
+				message: `Unknown top-level field "${field}" — ignored per the plugin spec`,
 			});
 		}
 	}
@@ -299,13 +271,7 @@ function parseInstallScope(value: unknown, warnings: ManifestWarning[]): "team" 
 	return "team";
 }
 
-/**
- * Returns true iff `filePath` resolves to a path strictly inside `root`.
- * Prevents path traversal (e.g., skills/../../etc/passwd).
- *
- * @lore BA9b: BA9a deleted a containment helper because nothing used it.
- * This is the package that reads skill files — containment lives here.
- */
+// Returns true iff filePath resolves strictly inside root. Prevents path traversal.
 export function isContainedWithin(filePath: string, root: string): boolean {
 	const resolvedRoot = resolve(root);
 	const resolvedFile = resolve(filePath);
@@ -427,15 +393,8 @@ function parsePluginAgent(
 		});
 		return null;
 	}
-	// @lore BA9d: agentCategory accepts any non-empty string here — deliberate.
-	// The user-facing POST /api/agents Zod schema enforces z.enum(AGENT_CATEGORIES),
-	// but plugin agents are installed server-side and trusted; gating them at the
-	// parse layer would break forward-compat (a new category would silently skip
-	// every existing agent). The API guard is the right choke-point.
-	// `identity` names a file inside the plugin, the way a skill's body is a
-	// file. A path that escapes the plugin root, or names a file that is not
-	// there, drops the identity and keeps the agent — a bare agent is a valid
-	// agent, so a typo must not cost you the whole contribution.
+	//
+	// A path that escapes the plugin root or is missing drops the identity silently.
 	let identity: string | null = null;
 	if (typeof obj.identity === "string" && obj.identity) {
 		identity = readPluginFile(pluginRoot, obj.identity);
@@ -475,13 +434,7 @@ function readPluginFile(pluginRoot: string, relativePath: string): string | null
 	}
 }
 
-/**
- * @lore BC5 T7b: renamed from `parsePluginRoutine`. `triggerType`/
- * `triggerConfig`/`eventType` collapse into `event`/`schedule` — exactly
- * one required, matching `subscriptions_trigger_ck` (migration 0088).
- * `event` must be one of the nine object events; `schedule` is a bare cron
- * expression (`subscriptions.schedule`, not a JSON-wrapped trigger config).
- */
+// `event` must be one of the nine object events; `schedule` is a bare cron expression. Exactly one required.
 function parsePluginSubscription(
 	item: unknown,
 	warnings: ManifestWarning[],

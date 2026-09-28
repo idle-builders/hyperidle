@@ -1,27 +1,25 @@
 -- Nested knowledge items: the tree, and the retirement of topic/kind/layer
 -- and the product/practice/task scope values.
 --
--- Order matters (architecture.md §7 — an earlier draft had it wrong):
+-- Order matters:
 --   1. add `position`.
 --   2. seed the three grouping roots (Product, Practices, General).
 --   3. topic items for product-scoped rows, under Product.
 --   4. one item per practice under Practices; a practice row's own topic is
 --      preserved as a topic item under that practice, not discarded.
 --   5. product rows: scope -> 'team' (scope_id UNCHANGED — already a team
---      id, feasibility.md finding 1); parent -> their topic item / Product.
+--      id); parent -> their topic item / Product.
 --   6. every remaining ordinary row: its topic item, or General.
 --   7. task-scoped rows: parent_kind='task', parent_id=scope_id, guarded
---      against a dangling task id (RAISE EXCEPTION, precedent: 0077 §4).
+--      against a dangling task id (RAISE EXCEPTION).
 --   8. `role <> 'ordinary'` rows (0077's agent identities / routine prompts)
 --      are never touched — every reparenting step above is scoped to
 --      `role = 'ordinary'`, so they keep the parent 0077 gave them.
 --   9. collapse status onto proposed | active | stale | archived.
 --  10. drop topic (kernel) and layer/kind (projection).
 --  11. fail any pending/claimed agent_work_intents row whose baked
---      contextBundle predates this migration (architecture.md §7: "either
---      drain the queue as a migration step or rewrite the persisted
---      payloads. Name which, and do it." — draining is the one that does
---      not require re-deriving a parent chain inside a migration).
+--      contextBundle predates this migration — draining, unlike rewriting
+--      the persisted payloads, needs no parent chain re-derived here.
 --
 -- Destructive, per house rule: no compat column, no dual-write, no alias.
 
@@ -109,7 +107,7 @@ END $$;
 --> statement-breakpoint
 
 -- 5. Product rows: scope becomes 'team', scope_id UNCHANGED (it is already a
---    team id — feasibility.md finding 1). Parent is the topic item under
+--    team id). Parent is the topic item under
 --    Product, or Product itself when topicless.
 UPDATE "knowledge_items" SET
   scope_kind = 'team',
@@ -151,7 +149,7 @@ WHERE role = 'ordinary' AND parent_kind IS NULL AND scope_kind NOT IN ('product'
 --> statement-breakpoint
 
 -- 7. Task-scoped rows: parent_kind='task', parent_id=scope_id. Bets already
---    became root tasks keeping their ids (BB1, 0076), so the id resolves.
+--    became root tasks keeping their ids (0076), so the id resolves.
 --    Guarded anyway — with no FK a dangling parent is otherwise silent.
 DO $$
 DECLARE missing bigint;

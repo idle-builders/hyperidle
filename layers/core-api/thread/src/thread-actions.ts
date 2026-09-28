@@ -67,28 +67,12 @@ export interface ThreadActionsDeps {
 		 * (createdAt, id).
 		 */
 		soleHumanForAgent(exec: WriteExecutor, agentId: string): Promise<User | undefined>;
-		/**
-		 * @lore The team-scoped read `resolveMentionsForMessage` needs — AE5's
-		 * "mention any agent in the team, not only who is in the thread" rule.
-		 * A nested Service may not import `@hyperidle/user` directly.
-		 */
+		/** Team-scoped read `resolveMentionsForMessage` needs — a nested Service may not import `@hyperidle/user` directly; team-wide mentions require all team members. */
 		listByTeamIds(exec: WriteExecutor, teamIds: readonly string[]): Promise<readonly User[]>;
-		/**
-		 * @lore Agents owned by a user (`users.ownerUserId`) —
-		 * `resolveMentionsForMessage` needs it so a human's own agent stays
-		 * addressable by @mention even with no team of its own.
-		 */
+		/** Agents owned by a user (`users.ownerUserId`) — addressable by @mention even with no team, so `resolveMentionsForMessage` always finds them. */
 		listOwnedBy(exec: WriteExecutor, ownerId: string): Promise<readonly User[]>;
 	};
-	/**
-	 * The ONE door onto `document` (architecture.md §6.7, §8.3) — thread never
-	 * imports `@hyperidle/document`, never opens a document (a read here must
-	 * never count as one), and never calls this inside its own open
-	 * transaction (a runner call inside `ctx.db.transaction` hangs PGlite).
-	 * Every read below — the title ladder's batched host title, the
-	 * single-thread `hostTitle`, the produced-item parent check — goes
-	 * through it.
-	 */
+	/** The ONE door onto `document` — thread never imports `@hyperidle/document`, never opens a document, and never calls this inside its own open transaction (a runner call inside `ctx.db.transaction` hangs PGlite). */
 	readonly searchDocuments: (
 		ctx: ActionContext,
 		input: SearchDocumentsInput,
@@ -99,7 +83,7 @@ export interface ThreadActionsDeps {
 	};
 	readonly agents: {
 		requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<User>;
-		/** Via `searchDocuments` now — needs the full ctx, not just `db` (§8.3). */
+		/** Via `searchDocuments` — needs the full ctx, not just `db`. */
 		getAgentIdentity(ctx: ActionContext, agentId: string): Promise<string | null>;
 	};
 	readonly agentWorkIntentRecorder: AgentWorkIntentRecorderFn;
@@ -191,10 +175,9 @@ function toIdentity(user: User): Identity {
 
 /**
  * The ladder's batched title lookup, bound to ONE `search_documents({ids})`
- * call however many document-hosted rows are in play (architecture.md §8.3)
- * — never a per-id loop. A missing/invisible document simply has no entry in
- * the returned map, and the ladder's own fallback ("Deleted document") takes
- * over.
+ * call however many document-hosted rows are in play — never a per-id loop.
+ * A missing/invisible document has no entry in the returned map and the
+ * ladder's own fallback ("Deleted document") takes over.
  */
 function documentTitleLookup(
 	ctx: ActionContext,
@@ -365,18 +348,7 @@ const logger = createLogger({ pkg: "thread.thread-actions" });
 class VerdictRaceConflict extends Error {}
 
 export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] {
-	/**
-	 * @lore Assembles the `ThreadView` for an already-loaded, already-
-	 * permission-checked row — no `not_found`/`canReadThread` guard here.
-	 * `openThreadRun` applies that guard itself, before calling this;
-	 * `adjustThreadRun`'s with-id branch calls this directly on the row IT
-	 * just wrote, because `adjustThreadRun({id, deleted:true})` must still
-	 * return the ThreadView it just produced — routing that through
-	 * `openThreadRun`'s own guard would make a successful delete answer its
-	 * own caller with `not_found`. `open_thread.run(ctx,{id})` is bounded to
-	 * the READ door; it is not a hook adjust can call to refuse its own
-	 * write's result.
-	 */
+	/** Assembles ThreadView from an already-permission-checked row — no guard here; `adjustThreadRun({id,deleted:true})` calls this directly because routing through `openThreadRun` would answer `not_found` for the row it just deleted. */
 	async function assembleThreadView(
 		ctx: ActionContext,
 		row: Parameters<typeof rowToThread>[0],
@@ -553,10 +525,7 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		input: SendMessageInput,
 	): Promise<{ ok: true; data: SendMessageOutput } | { ok: false; problems: readonly Problem[] }> {
 		// -- 1. pure invariants ---------------------------------------------
-		// @lore `hasCallingThread` here means "a session is calling" (any
-		// fallback MIGHT exist), not literally `caller.threadId != null` — an
-		// agent with a caller but no calling thread must still reach the
-		// server-side sole-human fallback, not be pre-empted here.
+		// @lore: hasCallingThread — means "a session is calling", not caller.threadId != null; narrowing it blocks the sole-human fallback
 		const pureProblems = sendMessageInvariants(input, {
 			hasCallingThread: ctx.caller !== undefined,
 		});
@@ -584,13 +553,13 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 						],
 					};
 				}
-				// Review-fix (BUG): the direct thread's host must not depend on who
+				// The direct thread's host must not depend on who
 				// spoke first. When exactly one party is AI, that agent hosts the
 				// thread — whether it is `ctx.actor` (a welcome message, or any
 				// agent-initiated send) or `recipientId` (a human's first send) —
 				// because the assistant overlay always finds its thread as
 				// `search_threads({host:{kind:"agent", id: myAgentId}})`. Human↔human
-				// and agent↔agent keep the old recipient-decides shape: there is no
+				// and agent↔agent keep the recipient-decides shape: there is no
 				// "the" agent to prefer when both or neither party is one.
 				const actorUser = await deps.users.getUserById(ctx.db, ctx.actor);
 				const actorIsAgent = actorUser?.kind === "ai";
@@ -656,14 +625,10 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 					],
 				};
 			}
-			// Review-fix (BUG): this fallback only runs when a session is calling
+			// This fallback only runs when a session is calling
 			// (`ctx.caller !== undefined`), so `ctx.actor` is always the agent and
 			// `human` is never one — the host is the agent, matching the
-			// single-recipient rule above. It was hardcoded "user"/`human.id`,
-			// which both mis-hosted the thread AND produced a different directKey
-			// than the single-recipient path for the same pair, so a human's first
-			// reply to the same agent created a SECOND thread instead of finding
-			// this one.
+			// single-recipient rule above.
 			const directKey = `${[ctx.actor, human.id].sort().join(":")}:agent`;
 			const existing = await store.findThread(ctx.db, { directKey });
 			if (existing) {
@@ -880,22 +845,12 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 						hostId: creatingThread.hostId,
 						initiatorId: ctx.actor,
 						participants: JSON.stringify(creatingThread.members),
-						// @lore A two-party create carries the SAME directKey the lookup
-						// above computed; the >1-recipient group-thread path leaves
-						// this undefined (never deduped).
 						directKey: creatingThread.directKey,
 						pinned: false,
 						lastActiveAt: now,
 						createdAt: now,
 					};
-					// @lore A direct create is `INSERT … ON CONFLICT (direct_key) DO
-					// NOTHING RETURNING *`. Under READ COMMITTED, if another
-					// transaction is concurrently inserting the same `directKey`,
-					// this statement waits for it to finish before deciding there's
-					// a conflict, so by the time it returns no row the winner's row
-					// is already committed and visible to the locked re-read below.
-					// One transaction, no retry. A group-thread create (no
-					// `directKey`) is never deduped, so it always "creates".
+					// @lore: direct INSERT ON CONFLICT (direct_key) DO NOTHING; READ COMMITTED waits on concurrent insert until winner commits; group-thread always creates
 					const created =
 						values.directKey !== undefined
 							? (await store.insertDirectThread(
@@ -951,14 +906,7 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 						creatingThread = undefined;
 					}
 				} else if (threadRow) {
-					// @lore Join-on-post race: re-read + lock the thread row inside
-					// the transaction, immediately before computing membership,
-					// instead of trusting `currentMembers`'s pre-transaction
-					// snapshot. Two different non-members posting into the same
-					// shared thread at once must not both compute "add myself" from
-					// that same stale snapshot and overwrite each other's join —
-					// the lock serialises the second transaction behind the first's
-					// commit, so it sees the already-joined list.
+					// @lore: join-on-post race — lock thread row before computing membership; concurrent non-members must not read stale snapshot; lock serialises second tx
 					const lockedRow = await store.findThreadForUpdate(tx as HyperIdleDb, {
 						id: effectiveThreadId,
 					});
@@ -995,8 +943,7 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 							listOwnedBy: (d, ownerId) => deps.users.listOwnedBy(d, ownerId),
 						},
 					);
-					// @lore Wake reads every resolved mention (including an agent
-					// already a member) — membership only grows for the NEW ones.
+					// @lore: wake reads every resolved mention (including existing member) — membership only grows for NEW ones.
 					mentionedIds.push(...resolvedMentionedIds);
 					if (newParticipantIds.length > 0) {
 						finalMembers = [...new Set([...finalMembers, ...newParticipantIds])];
@@ -1097,12 +1044,6 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 					at: now,
 				});
 
-				// @lore A resolve/reopen is the thread's OWN state moving — a
-				// `changed` row for it, never naming members: `adjust_thread`
-				// remains the ONLY writer of a `thread.changed` row whose diff
-				// names members. The routine `lastActiveAt` bump that rides every
-				// send is NOT independently reported here — a plain member-adding
-				// send appends no `changed` row at all.
 				if (resolvedAtAfter !== resolvedAtBefore) {
 					const { before, after } = diffFields(
 						effectiveThreadId,
@@ -1162,8 +1103,8 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 				? [...new Set([...woken, resolvesMessageRow.senderId])]
 				: woken;
 
-		// Every row this call appended is one object event
-		// (decision 5) — `pushRows` already carries them all: the message,
+		// Every row this call appended is one object event;
+		// `pushRows` already carries them all: the message,
 		// the create (if any) and the resolve/reopen (if any).
 		emitObjectEvents(ctx.eventBus, pushRows, woke);
 
@@ -1214,9 +1155,9 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 			try {
 				const bakedRequest = await resolveThreadTurnRequest(ctx.db, messageId, agentId, {
 					requireRunnableAgent: deps.agents.requireRunnableAgent,
-					// `resolveThreadTurnRequest`'s own dep shape only threads `db`,
-					// not the full ctx `getAgentIdentity` now needs (§8.3) — close
-					// over `ctx` here rather than widen that module's interface.
+					// `resolveThreadTurnRequest`'s dep shape only threads `db`,
+					// not the full ctx `getAgentIdentity` needs — close over `ctx`
+					// rather than widening that module's interface.
 					getAgentIdentity: (_db, id) => deps.agents.getAgentIdentity(ctx, id),
 					readServerConfig: deps.settings.readServerConfig,
 				});

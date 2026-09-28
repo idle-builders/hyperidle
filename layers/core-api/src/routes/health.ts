@@ -12,15 +12,7 @@ health.get("/health", (c) => {
 	return c.json(response);
 });
 
-/**
- * Authenticated health check for shared-mode connectivity validation.
- * Shared-mode clients call this to verify both connectivity AND authentication.
- *
- * @lore P3: GET /api/health/auth sits behind the auth middleware (mounted on
- * /api). It returns the same 200 + { status, timestamp } as the unauthenticated
- * probe, plus the resolved userId. Shared-mode clients use this to validate
- * their shared_backend_key credential.
- */
+/** Authenticated health check — verifies both connectivity and authentication. Returns resolved userId. */
 const authHealth = new Hono<HyperIdleEnv>();
 
 authHealth.get("/auth", (c) => {

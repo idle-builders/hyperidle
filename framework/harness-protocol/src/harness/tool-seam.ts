@@ -2,17 +2,6 @@
  * Tool seam types — the execution-boundary contract every tool invocation
  * crosses: orchestration builds a ToolRegistry, execution invokes it, review
  * records outcomes.
- *
- * Moved from `@hyperidle/tool-protocol` (dissolved) into the shared seam
- * package whose audience is identical: core-api, orchestration, execution,
- * and both applications. Zero UI consumers — `harness-capability` remains the
- * separate UI-facing vocabulary.
- *
- * @lore AU44 batch 5: tool-protocol dies because its founding rationale
- * (`tool-provider` needing a shared home with `tool-handlers`) evaporated when
- * `tool-provider` was dissolved in AU31. The residue is five types and two
- * three-line constructors — exactly what lives in a seam package alongside
- * the adapter contract it feeds into.
  */
 
 import type {
@@ -23,14 +12,6 @@ import type { EventBus } from "@hyperidle/event-bus";
 
 /**
  * Minimal schema interface — structurally compatible with Zod v3 and v4.
- * Keeps `tool-seam.ts` free of any zod version dependency so the seam can
- * sit in a framework package that predates the layer-level zod upgrade.
- *
- * @lore AU44 b5: the root workspace has Zod v3 while agent-orchestration and
- * agent-execution carry nested Zod v4. Importing `z.ZodType` here would fix
- * the type to whichever version npm hoists to `framework/harness-protocol`,
- * creating a structural mismatch with callers on the other version. A plain
- * structural interface sidesteps the dual-version problem entirely.
  */
 export interface AnySchema {
 	safeParse(

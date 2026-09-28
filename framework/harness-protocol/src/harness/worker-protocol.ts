@@ -1,5 +1,5 @@
 /**
- * S2: Wire protocol types for server ↔ worker communication.
+ * Wire protocol types for server ↔ worker communication.
  *
  * WorkerToServerMessage — sent from remote worker to server.
  * ServerToWorkerMessage — sent from server to remote worker.
@@ -22,7 +22,7 @@ export interface WorkerRegisterMessage {
 	readonly modelProviders: readonly string[];
 	/** Maximum concurrent sessions. */
 	readonly maxConcurrent: number;
-	/** X3: Harness type (e.g. "claude-code", "aider"). Optional for backward compat. */
+	/** Harness type (e.g. "claude-code", "opencode"). Optional for backward compat. */
 	readonly harnessType?: string;
 }
 
@@ -45,7 +45,7 @@ export interface WorkerErrorMessage {
 }
 
 /**
- * S4: Worker sends this to signal it is pausing — the server marks it as
+ * Worker sends this to signal it is pausing — the server marks it as
  * paused in the pool so select() skips it until resume.
  */
 export interface WorkerPauseMessage {
@@ -53,7 +53,7 @@ export interface WorkerPauseMessage {
 }
 
 /**
- * S4: Worker sends this to signal it is resuming — the server clears the
+ * Worker sends this to signal it is resuming — the server clears the
  * paused flag so select() considers it again.
  */
 export interface WorkerResumeMessage {
@@ -83,10 +83,6 @@ export interface ServerStopMessage {
 
 /**
  * Sent by the server to acknowledge a WorkerRegisterMessage.
- *
- * @lore S2 reviewer warning: this message was missing from the original union
- * draft. The worker blocks after sending register until it receives "registered"
- * so that it knows the pool entry is live before accepting sessions.
  */
 export interface ServerRegisteredMessage {
 	readonly type: "registered";

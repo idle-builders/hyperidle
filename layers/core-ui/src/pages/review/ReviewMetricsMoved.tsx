@@ -1,7 +1,7 @@
-// Canvas #5 — metrics-that-moved / data-diff.
+// Metrics-that-moved / data-diff.
 // Tool: QuickBooks month-end close (revenue roll-forward + reconciliation).
 //
-// Three layers (brief §1):
+// Three layers:
 //   L1  the moved headlines, materiality-sorted (biggest $ on top), + exceptions count + ToolLogo.
 //   L2  the roll-forward / reconciliation table with CHANGED CELLS HIGHLIGHTED and an explicit
 //       TIE-OUT STRIP (opening + activity = closing), conditional on the payload's own `ties` flag.
@@ -72,9 +72,6 @@ interface CloseFixture {
 
 // ── format helpers ───────────────────────────────────────────────────────────
 //
-// @lore `MetricsMovedPayload` carries no currency field at all, so formatting
-// every number as USD (`style: "currency"`) would assert a fact the payload
-// never supplied. These format grouping only.
 
 function fmt(n: number): string {
 	return n.toLocaleString("en-US", {
@@ -392,9 +389,8 @@ function isRollForwardRow(value: unknown): value is RollForwardRow {
 }
 
 function mapMetricsPayload(payload: MetricsMovedPayload): CloseFixture {
-	// `MetricsMovedPayload.headlines[]` carries no per-figure source at all —
-	// an earlier mapper invented one (`tool: "quickbooks"`, `source:
-	// payload.period`). `provenance` is left undefined; the view renders the
+	// `MetricsMovedPayload.headlines[]` carries no per-figure source at all, so
+	// `provenance` is left undefined; the view renders the
 	// disclosure only when there is real provenance to show.
 	const figures: MovedFigure[] = payload.headlines.map((h, i) => ({
 		id: `fig-${i}`,
@@ -441,7 +437,7 @@ export function ReviewMetricsMoved({ artifact }: ReviewCanvasProps): JSX.Element
 	);
 }
 
-// ── other states (specified per brief §"States"; populated is the default story) ──
+// ── other states (populated is the default story) ──
 //
 // empty:   no movement this period → "<period> close: no figures moved" + ToolLogo,
 //          no table, no exceptions. Reviewer sees a clean tie-out only.

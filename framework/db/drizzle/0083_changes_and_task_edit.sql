@@ -1,11 +1,9 @@
--- the `changes` table — the event log `edit_task` (and, later, every
--- other object's edit action) appends one row to, in the same transaction as
--- the write. Not an audit control, no gate; the source for subscriptions and
--- the UI stream once every object's edit action feeds it.
+-- the `changes` table — the event log an object's edit action appends one
+-- row to, in the same transaction as the write. Not an audit control, no
+-- gate; the source for subscriptions and the UI stream.
 --
--- `tasks.audit_trail` is dropped in the same migration: nothing reads it
--- (every writer is re-pointed or deleted in this change), and the `changes`
--- table is its replacement. Destructive, per house rule: no compat column,
+-- `tasks.audit_trail` is dropped in the same migration: nothing reads it, and
+-- the `changes` table takes its place. Destructive, per house rule: no compat column,
 -- no dual-write.
 CREATE TABLE "changes" (
 	"id" text PRIMARY KEY NOT NULL,

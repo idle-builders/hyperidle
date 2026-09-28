@@ -5,7 +5,6 @@
  * undefined (reading 'localeCompare')` then `[ErrorBoundary] caught render
  * error`, opening Settings on the demo database.
  *
- * @lore the connections door projects inherited facts into ConnectionView rows (id/service/via/authSource/health/removable) — this fixture is that real shape.
  */
 
 import { render, screen } from "@testing-library/react";

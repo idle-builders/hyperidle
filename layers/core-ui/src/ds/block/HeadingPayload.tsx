@@ -29,9 +29,6 @@ export function headingIdentityMatches(left: string, right: string): boolean {
 	return normalizeEmpty(left) === normalizeEmpty(right);
 }
 
-// @lore U8: heading level sizes use type-scale tokens for h1/h2 per Hearth AC
-// advisory; h3-h6 use fixed pixel values from the Hearth type scale spec.
-// font-heading removed: Hearth uses system-ui everywhere via --font-sans.
 const HEADING_PROFILE: Record<1 | 2 | 3 | 4 | 5 | 6, string> = {
 	1: "type-display",
 	2: "type-title",

@@ -1,38 +1,7 @@
-/**
- * L13 — Work/Team page: unified team view.
- *
- * Layout (V1 — Stacked single column, per design/approved.md):
- *   R1 — Team header (breadcrumb + name + status)
- *   R2 — Active tasks
- *   R3 — Roster
- *   Artifact slot (placeholder for L12)
- *
- * @lore L13: Product = Team 1:1 invariant. The page is addressed by teamId
- * (the public identifier).
- *
- * @lore L13: The `overrideData` / `overrideLoading` / `overrideError` props
- * mirror WorkBet's `overrideBet` / `loading` props — used by stories and tests
- * to inject fixture data without crossing the __fixtures__/ import boundary.
- *
- * @lore U5: Renamed from WorkProduct → WorkTeam. Component name, props, and
- * data-testids updated.
- * @lore U6: Route path renamed from /work/product/:productId to /work/team/:teamId.
- * useParams now reads `teamId` directly (no more productId alias).
- *
- * @lore BC5 T9: the door swap — `useTeam` now composes this page's data from
- * `search_users`/`search_tasks`/`open_task` (see its own header comment)
- * instead of one `GET /api/teams/:id`. Phase, lead and capacity are gone with
- * the columns that carried them; `team` is id + name + a computed
- * `"healthy" | "blocked"` status now. The routines section (R5) and its
- * dialog/pane are deleted — subscriptions replace routines, and they live on
- * `AgentProfile`, not the team page.
- */
-
 import { AGENT_OPERATIONAL_STATUS_LABEL, TASK_STATE_LABEL } from "@hyperidle/domain-model";
 import type { JSX } from "react";
 import { useMemo, useState } from "react";
 import { Link as RRLink, useNavigate, useParams, useSearchParams } from "react-router-dom";
-// ArtifactSection removed — produced items are task-parented and shown on each task
 import {
 	Avatar,
 	agentOperationalStatusToStatus,
@@ -66,35 +35,10 @@ import { AgentAddDialog } from "./AgentAddDialog.js";
 import { AgentDetailPane } from "./work/AgentDetailPane.js";
 
 export interface WorkTeamProps {
-	/**
-	 * Override the team detail with directly injected data. When set,
-	 * the useTeam hook is not called. Used by stories and tests.
-	 * Pass `null` to simulate a resolved-but-empty fetch (e.g. 404/500 path).
-	 *
-	 * @lore U1: Type changed from ProductDetail to TeamDetail.
-	 * @lore BC5 T9: TeamDetail (the old GET /api/teams/:id shape) replaced by
-	 * TeamPageData — useTeam's own client-composed shape.
-	 */
 	overrideData?: TeamPageData | null;
-	/**
-	 * Override the loading state. When true, skeleton placeholders are shown.
-	 */
 	overrideLoading?: boolean;
-	/**
-	 * Override the error state. When set, the appropriate error UI is shown.
-	 */
 	overrideError?: Error | null;
-	/**
-	 * When true, the ArtifactSection is not rendered. Used by test overrides
-	 * to prevent ArtifactSection from calling fetch and consuming mocked responses
-	 * meant for other hooks in the component tree.
-	 *
-	 * @lore P5: ArtifactSection's useFetch fires before parent hooks' useEffect
-	 * because React flushes child effects before parent effects. When using
-	 * overrideData in tests, skipArtifacts prevents fetch-order races.
-	 * The L12 artifact-section test does NOT pass this prop (defaults false)
-	 * and mocks ArtifactSection via vi.mock() instead.
-	 */
+	// @lore: skipArtifacts — ArtifactSection's useFetch fires before parent hooks' useEffect; with overrideData this causes fetch-order races; skipping prevents them
 	skipArtifacts?: boolean;
 }
 
@@ -104,21 +48,16 @@ export function WorkTeam({
 	overrideError,
 	skipArtifacts = false,
 }: WorkTeamProps = {}): JSX.Element {
-	// @lore U6: Route renamed from work/product/:productId to work/team/:teamId.
-	// Now reads the param directly by the semantic name.
 	const { teamId } = useParams<{ teamId: string }>();
 
-	// Only call useTeam when there is no override (mirrors WorkBet pattern).
 	const fetched = useTeam(overrideData !== undefined ? undefined : teamId);
 
 	const error = overrideError !== undefined ? (overrideError ?? null) : fetched.error;
 	const data = overrideData !== undefined ? overrideData : (fetched.data as TeamPageData | null);
-	// UI-015: retry re-issues the team fetch in place (no page reload).
+	// retry re-issues the team fetch in place (no page reload).
 	const onRetryTeam = overrideData === undefined ? fetched.refetch : undefined;
 
-	// Loading state
-	// UI-017: title uses a skeleton bar so the header never flashes the static placeholder "Team"
-	// before the real team name arrives. SkeletonCard shape mirrors the content sections.
+	// skeleton title bar avoids flashing static "Team" before real name; SkeletonCard shape mirrors content sections
 	if (overrideLoading === true || (overrideData === undefined && fetched.loading)) {
 		return (
 			<PageScaffold
@@ -133,7 +72,6 @@ export function WorkTeam({
 				data-testid="work-team-page"
 			>
 				<div className="max-w-[960px] w-full py-[24px] flex flex-col gap-[24px]">
-					{/* UI-016: match real content regions — summary strip, active tasks, roster */}
 					<SkeletonCard ariaLabel="Loading team summary" />
 					<SkeletonCard ariaLabel="Loading active tasks" />
 					<SkeletonCard ariaLabel="Loading roster" />
@@ -142,7 +80,6 @@ export function WorkTeam({
 		);
 	}
 
-	// Error state — distinguish 404 from other errors
 	if (error !== null && error !== undefined) {
 		const is404 = error.message.includes("404");
 		if (is404) {
@@ -175,7 +112,6 @@ export function WorkTeam({
 		);
 	}
 
-	// Null data after loading/error — 404 from overrideData=null path
 	if (data === null) {
 		return (
 			<PageScaffold frame="page" header={<PageHeader title="Team" />} data-testid="work-team-page">
@@ -190,10 +126,7 @@ export function WorkTeam({
 		);
 	}
 
-	// @lore U6: Defensive guard against malformed API responses (e.g. stubs that return
-	// { threads: [], nextCursor: null } for unrecognised URLs in tests). When data does
-	// not carry the expected TeamPageData shape, render the not-found EmptyState rather
-	// than crashing in WorkTeamLoaded at `data.team.name`.
+	// @lore: malformed data guard — stubs returning unexpected shapes for unrecognised URLs in tests; crashes at data.team.name without this
 	if (!data.team) {
 		return (
 			<PageScaffold frame="page" header={<PageHeader title="Team" />} data-testid="work-team-page">
@@ -217,92 +150,38 @@ export function WorkTeam({
 	);
 }
 
-/** Internal component rendered when data is fully resolved. */
 function WorkTeamLoaded({
 	data,
 	skipArtifacts = false,
 	refetchTeam,
 }: {
-	// @lore U1: TeamDetail replaces ProductDetail. @lore BC5 T9: TeamPageData replaces TeamDetail.
 	data: TeamPageData;
-	/**
-	 * When true, the ArtifactSection is not rendered. Used by test overrides
-	 * to prevent ArtifactSection from calling fetch and consuming mocked responses
-	 * meant for other hooks in the component tree.
-	 *
-	 * @lore P5: ArtifactSection's useFetch fires before parent hooks' useEffect
-	 * because React flushes child effects before parent effects. When using
-	 * overrideData in tests, skipping ArtifactSection prevents fetch-order races.
-	 */
 	skipArtifacts?: boolean;
-	/** Callback to re-fetch team data after a mutation (e.g. an agent added). */
 	refetchTeam?: () => void;
 }): JSX.Element {
 	const navigate = useNavigate();
 	const { sidebarMobile } = useViewportBreakpoint();
-	// @lore U1: `team` replaces `product` in TeamDetail.
-	// @lore BB1: activeBets → tasksInProgress; stored counter deleted, list comes from API
 	const { team, roster, tasksInProgress } = data;
-	// onOpenArtifact removed — ArtifactSection manages the split view internally
-	// @lore AV4: All three new hooks go UNCONDITIONALLY here at the top of WorkTeamLoaded,
-	// NOT in WorkTeam — WorkTeam has 5 early-return guard branches (loading/error/null/no-team)
-	// that would make any hook after the first guard a conditional-hook violation.
-	// WorkTeamLoaded is always rendered (data guaranteed present) — safe to add hooks here.
 	const [searchParams, setSearchParams] = useSearchParams();
 	const [agentRatio, setAgentRatio] = useUiPreference("work.agent", 0.5);
 
 	const selectedAgentId = searchParams.get("agent");
 	const hasSelection = selectedAgentId !== null;
 
-	// Dialog state
 	const [addDialogOpen, setAddDialogOpen] = useState(false);
 
-	// Fetch full agent configs for the roster.
-	// @lore: `useTeamAgents` fetches nothing itself (it filters `useAgents`'
-	// one shared fetch), so an unmemoized `rosterAgentIds` can no longer cause
-	// a refetch loop. Kept memoized anyway — a stable reference avoids
-	// recomputing the filtered `agents` map on every unrelated render.
+	// @lore: rosterAgentIds memo — memoized for stable reference; prevents useTeamAgents refetch loop on re-render
 	const rosterAgentIds = useMemo(() => roster.map((m) => m.agentId), [roster]);
 	const { agents: agentConfigs, refetch: refetchAgents } = useTeamAgents(rosterAgentIds);
 
-	// @lore AU26 J4: the roster's run state (status dot, health tone, the
-	// active-task context line) used to arrive stamped onto each `RosterMember` by
-	// core-api, which read `agent-orchestration`'s `sessions` table to compute it.
-	// Founder ruling: *"orchestration now has an api so that the ui can get the
-	// agent run state from the orchestration directly and combine this information
-	// in the ui instead of in the core api service."* Same derivations
-	// (`computeHealthSignals` et al., now in `@hyperidle/domain-model`), same inputs,
-	// same render — one layer over.
 	const { byAgent: rosterRunState, status: rosterRunStatus } = useRosterRunState(roster);
-	// @lore AU26 review W5/W6: when the run read fails — or has not landed yet —
-	// every member falls back to DEFAULT_ROSTER_RUN_STATE, idle and healthy. That
-	// default is honest for an agent with no runs and a lie about an agent whose
-	// runs we could not read (W6) or have not read yet (W5: the roster used to
-	// paint a full green column, then re-paint a round-trip later). Both cases
-	// render as unknown instead.
+	// @lore: rosterRunStateUnknown — failed or pending run read falls back to DEFAULT_ROSTER_RUN_STATE; renders as unknown, not falsely green
 	const rosterRunStateUnknown = rosterRunStatus !== "ready";
 
-	// @lore AV4: When a split pane is open, the "editing agent" comes from the ?agent search
-	// param (not internal editingAgentId state). editingAgentId is kept for the modal path
-	// (AgentAddDialog) but the Customize button now sets searchParams instead of editingAgentId.
 	const paneAgent = selectedAgentId !== null ? (agentConfigs.get(selectedAgentId) ?? null) : null;
 	const paneRosterMember =
 		selectedAgentId !== null ? (roster.find((m) => m.agentId === selectedAgentId) ?? null) : null;
 
-	// @lore AZ2: teamBodyContent is the team list JSX extracted into a variable so it
-	// can be: 1. Rendered full-width when no selection (PageScaffold's own scroll
-	// body owns the scroll region). 2. Passed as `origin` to SplitView when
-	// ?agent is set (SplitView's own origin wrapper — `flex min-w-0
-	// flex-col overflow-auto`, SplitView.tsx:197 — already gives it a bounded
-	// scrolling column; the content needs no scroll wrapper of its own there
-	// either). Pre-AZ2 this was `teamBody`, a standalone `flex-1 overflow-y-auto`
-	// div: that was ALSO the WorkTeam live defect's fix point — its parent
-	// (`:709` below, now the PageScaffold managed body) was a plain block, so
-	// `flex-1` on this div did nothing and it grew to its full content height
-	// instead of scrolling. The div's own class was always correct (shape A,
-	// round.md §2.3); moving it into PageScaffold(body="scroll") for the
-	// no-selection path removes the now-redundant hand-written wrapper instead
-	// of just fixing its ancestor.
 	const teamBodyContent = (
 		<div
 			className={
@@ -311,27 +190,8 @@ function WorkTeamLoaded({
 					: "max-w-[960px] w-full py-[24px] flex flex-col gap-[24px]"
 			}
 		>
-			{/* R4 — Team summary stat strip */}
-			{/*
-			 * @lore AU21 Increment 14a: the Burn/Cap stat tiles + cap-utilization
-			 * progress bar are HARD-DELETED along with the rest of the cost-cap
-			 * feature — no replacement. Capacity/Status tiles are untouched.
-			 */}
 			<section aria-label="Team summary" data-testid="team-burn-vs-cap">
-				{/*
-				 * @lore AG1: stat tiles (Active tasks/Agent Health) replace the
-				 * KeyValue burn list. flex-wrap (not grid-cols-N) avoids AQ-108. Status
-				 * tile is mandatory — empty roster → "—"/"No agents", never "Healthy".
-				 * @lore BC5 T9: the Capacity tile (active tasks / team capacity) is gone
-				 * with teams.capacity (D-c7jgxy) — it now just counts.
-				 */}
-				{/* @lore UI-065: StatTile replaced with KpiStat (design-system primitive) +
-				    a border card wrapper. KpiStat is the canonical metric-display primitive
-				    (AM5); the bordered card is layout context, not a new component. The `sub`
-				    field was added to KpiStatMetric (optional, backward-compatible) so the
-				    contextual annotation line ("active bets", "1 idle agent") is preserved. */}
 				<div className="flex gap-[12px] flex-wrap">
-					{/* Active tasks tile */}
 					<div
 						data-testid="stat-tile"
 						className="border-width-thin flex-1 min-w-[180px] rounded-[var(--r-subtle)]  border-[var(--border-subtle)] p-[18px]"
@@ -346,7 +206,6 @@ function WorkTeamLoaded({
 							]}
 						/>
 					</div>
-					{/* Agent Health tile — derives from roster; empty → "—"/"No agents" */}
 					{(() => {
 						const agentHealthMetric = (() => {
 							if (roster.length === 0) {
@@ -364,23 +223,6 @@ function WorkTeamLoaded({
 							);
 							const hasAttention = runStates.some((r) => r.healthLevel !== "healthy");
 							const idleCount = runStates.filter((r) => r.operationalStatus === "idle").length;
-							// @lore AZ7 B4 (review round 1): this tile rolls up
-							// RosterRunState.healthLevel ("healthy" | "warning" | "critical",
-							// @hyperidle/domain-model team.ts) — a per-agent run-health signal,
-							// computed client-side by useRosterRunState. It is NOT
-							// deriveTeamStatus's "healthy" | "behind" | "blocked" (bets over
-							// capacity / a blocked task; core-api/routes/teams-routes.ts),
-							// which is what the header StatusChip at :728 renders. Two
-							// genuinely different measurements over the same team. The first
-							// attempt reused the header's own word ("Behind") for this tile,
-							// which read as a second, contradicting status for the same
-							// object whenever the two happened to disagree (e.g. header
-							// BLOCKED, tile "Behind" — looks like a typo, is actually two
-							// unrelated facts). Fixed by giving this tile its own label
-							// ("Agent Health", not "Status") and its own vocabulary
-							// ("Needs attention" / "On track", neither of which is a
-							// StatusChip word) so it can never be misread as a second
-							// opinion on team.status.
 							return {
 								label: "Agent Health",
 								value: hasAttention ? "Needs attention" : "On track",
@@ -399,7 +241,6 @@ function WorkTeamLoaded({
 				</div>
 			</section>
 
-			{/* R2 — Active tasks (@lore BB1: was "Active bets") */}
 			<section aria-label="Active tasks" data-testid="team-active-tasks">
 				<SectionLabel
 					label="Active Tasks"
@@ -435,7 +276,6 @@ function WorkTeamLoaded({
 				)}
 			</section>
 
-			{/* R3 — Agents as flat AgentRow rows */}
 			<section aria-label="Team agents" data-testid="team-agents">
 				<SectionLabel
 					label="Agents"
@@ -482,9 +322,6 @@ function WorkTeamLoaded({
 							: healthDetail;
 
 						let contextText = (() => {
-							// @lore BA9g: the catalog's one-line description went with the
-							// catalog. What an agent is for is its identity document, not a
-							// sentence the product wrote about its role.
 							return roleLabel(member.role);
 						})();
 						let contextIsError = false;
@@ -498,11 +335,6 @@ function WorkTeamLoaded({
 						const categoryLabel =
 							member.agentCategory === "individual" ? "Individual" : (member.agentCategory ?? "");
 
-						// Category cell — first cell when non-team category.
-						// @lore AG6: team agents do NOT render agent-card-category testid
-						// (AB3 protected test: individual only, team = 0). The
-						// AG6 "first cell" test renders individual-category agents where this is present.
-						// @lore BA9d: "strategy" removed from category set — only "individual" is non-team.
 						const hasCategory = member.agentCategory && member.agentCategory !== "team";
 
 						return (
@@ -526,10 +358,6 @@ function WorkTeamLoaded({
 											]
 										: []),
 									{
-										// @lore AZ7 E7: the agent's operational status now
-										// reads through StatusChip like every other status on this page
-										// (the team header chip, bet StatusChips) — same word, same
-										// treatment, instead of the raw lowercase domain string.
 										content: (
 											<StatusChip
 												status={agentOperationalStatusToStatus(memberStatus)}
@@ -540,16 +368,6 @@ function WorkTeamLoaded({
 										"data-testid": "agent-status",
 									},
 									{
-										// @lore AZ7 Set 5: RowCell.tone is deleted — the error tint moves onto
-										// the content itself.
-										// @lore NEW-27: width:160 caps the context cell so the agent name
-										// (flex-1 min-w-0 in Row) is never starved to zero-width in
-										// narrow SplitView panes. The cell is shrink-0 so without a cap
-										// the role description eats all available space at ~576px pane
-										// widths; the name collapses to width:0 and is invisible on
-										// screen even though it is present in DOM. 160px truncates with
-										// ellipsis ("Engineer. Im…") which is readable and matches the
-										// prior width:140 that @lore NEW-10 removed.
 										content: contextIsError ? (
 											<span className="text-[var(--status-error)]">{contextText}</span>
 										) : (
@@ -562,8 +380,6 @@ function WorkTeamLoaded({
 								]}
 								actions={
 									<div className="flex shrink-0 items-center gap-[6px]">
-										{/* NEW-29: real <a href> to agent profile so the page is reachable
-										    via ⌘-click, middle-click, and browser hover-preview. */}
 										<RRLink
 											to={`/agents/${encodeURIComponent(member.agentId)}`}
 											onClick={(e) => e.stopPropagation()}
@@ -578,8 +394,6 @@ function WorkTeamLoaded({
 											className="shrink-0"
 											onClick={(e) => {
 												e.stopPropagation();
-												// @lore AV4: Customize now opens AgentDetailPane in the split pane
-												// via ?agent search param, not AgentEditDialog modal (AC#3).
 												setSearchParams({ agent: member.agentId });
 											}}
 											data-testid="agent-customize-btn"
@@ -595,16 +409,7 @@ function WorkTeamLoaded({
 				</ItemList>
 			</section>
 
-			{/* Produced items are now task-parented documents — each task's
-			    own ArtifactSection shows what was produced there. The team overview
-			    no longer aggregates across tasks since there is no team-level parent.
-			    skipArtifacts still suppresses the block in tests that mock data. */}
 			{!skipArtifacts && null}
-
-			{/* @lore AV4: AgentEditDialog modal retired from the WorkTeam customize path.
-			 * Customize now opens AgentDetailPane in the split pane via ?agent param (AC#3).
-			 * AgentAddDialog stays a modal; it mounts in the outer return (not teamBody) so it
-			 * works correctly regardless of whether the split pane is open or not. */}
 		</div>
 	); // end teamBodyContent
 	const teamHeader = (presentation: "page" | "pane"): JSX.Element => (
@@ -632,17 +437,7 @@ function WorkTeamLoaded({
 
 	return (
 		<>
-			{/* PageHeader owns the pinned title strip.
-			    @lore AZ2: body switches "scroll" ↔ "managed" with selection state —
-			    no selection: the page owns the scroll region (teamBodyContent, shape
-			    A). A selection: SplitView owns its own scroll internally (its origin
-			    wrapper is itself `flex min-w-0 flex-col overflow-auto`, SplitView.tsx
-			    :197) and only needs a bounded flex column to size against — that
-			    bound is the managed body. This is the WorkTeam live defect's fix: the
-			    old `:709` wrapper was a plain block (`flex-1 overflow-hidden`, no
-			    flex-col), so `flex-1` on teamBodyContent's old wrapper div did
-			    nothing and it grew to its full content height (round.md §2.3, shape
-			    C). Routine and agent selections are mutually exclusive (plan §2.4). */}
+			{/* PageHeader owns the pinned title strip. */}
 			<PageScaffold
 				frame="page"
 				header={hasSelection ? undefined : teamHeader("page")}
@@ -697,19 +492,6 @@ function WorkTeamLoaded({
 }
 
 // ---------------------------------------------------------------------------
-// StatTile removed — replaced by KpiStat (design-system primitive) + border card
-// wrapper in the stat strip. See @lore UI-065 comment in the R4 section above.
-
-/**
- * Single active-task row rendered inside R2. Uses design-system Row for flush layout.
- * @lore BB1: Renamed from BetRow; now uses TaskCardSummary shape.
- * @lore BC5 T9: TaskCardSummary (the old GET /api/teams/:id shape) replaced by
- * TeamTaskCard — useTeam's own client-composed shape (§ useTeam.ts).
- * @lore F1 (POLISH-060): replaced hand-rolled grey button with Row primitive — drops
- * bg-[var(--surface-container)] so tasks sit flush on the page, not in a grey card.
- */
-// @lore UI-080: href instead of onClick so ⌘-click / middle-click work natively.
-// StatusChip (actions) is display-only so nesting inside <a> is valid.
 function TaskRow({ task, href }: { task: TeamTaskCard; href: string }): JSX.Element {
 	const progressText = task.progressTotal > 0 ? `${task.progressDone}/${task.progressTotal}` : "—";
 

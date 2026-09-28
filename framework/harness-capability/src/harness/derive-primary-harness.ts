@@ -1,16 +1,7 @@
 /**
  * Derive a run-config harness/model pick from a HarnessCapabilityDescriptor.
- *
- * @lore BC5 T7: maps the chosen descriptor to `edit_user`'s `runConfig` shape —
- * SetupFlow.tsx wires it straight into the assistant/team-agent `edit_user`
- * calls (the team-creation seam this once fed is deleted; the shape survives
- * because `runConfig` needs exactly the same three fields).
  * Filters models on .selectable === true to exclude inherited/non-choosable models.
  * A model the user named explicitly (bring-your-own-key) wins over both.
- *
- * @lore AV1: Only called on a choosable (installed/ready) descriptor — greyed rows
- * never produce a pick. The .selectable filter is essential: CLI harnesses
- * list non-selectable models that must not become the primary.
  */
 
 import type { HarnessCapabilityDescriptor } from "./harness-capability-descriptor.js";
@@ -48,8 +39,7 @@ export function derivePrimaryHarness(
 	return {
 		harnessType: descriptor.type,
 		// Absent when the harness lists nothing selectable — it then runs its own
-		// default, which is the truthful answer. Naming a model nobody chose was
-		// how a hardcoded Anthropic id ended up on agents running on other harnesses.
+		// default, which is the truthful answer.
 		...(firstSelectable ? { modelId: firstSelectable.id } : {}),
 		...(modelProvider ? { modelProvider } : {}),
 	};

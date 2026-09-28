@@ -350,8 +350,6 @@ describe("SessionView — ChangedFilesPanel", () => {
 // ── Composer pills ────────────────────────────────────────────────────────
 
 describe("SessionView — composer pills", () => {
-	// @lore deriveComposerPills and its effort-pill rendering do not exist in SessionView.
-
 	it("renders no pills when no descriptor is provided", () => {
 		render(
 			<SessionView

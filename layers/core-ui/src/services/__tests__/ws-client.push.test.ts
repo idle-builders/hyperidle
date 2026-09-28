@@ -8,7 +8,7 @@
  * subscriber's handler. This supersedes the old `{ type: "invalidate", … }`
  * ping (founder: "there is no refetch … core submits the changed version").
  *
- * WS transport is unavailable in JSDOM (@lore Q1) — this test stubs
+ * WS transport is unavailable in JSDOM — this test stubs
  * `global.WebSocket` with a minimal fake that lets us drive `onopen`/
  * `onmessage` directly, which is the standard "stub the browser API, not the
  * unit under test" pattern (WsClient itself is real, un-mocked).
@@ -24,7 +24,7 @@ vi.mock("../api-fetch.js", () => ({
 	apiFetch: apiFetchMock,
 }));
 
-// @lore test-setup.ts globally no-ops ws-client for web tests — this file unmocks it to exercise the real WsClient, stubbing only the WebSocket global.
+// @lore: ws-client unmock — test-setup.ts globally no-ops ws-client; this file unmocks it to exercise the real WsClient, stubbing only the WebSocket global
 vi.unmock("../ws-client.js");
 
 class MockWebSocket {
@@ -145,7 +145,6 @@ describe("ws-client — push envelope topic matching", () => {
 	});
 });
 
-// @lore a packaged build must never dial the dev address even if a local .env sets NODE_ENV=development — MODE is the one signal Vite cannot mis-set from .env.
 describe("ws-client — production build never dials the dev address", () => {
 	beforeEach(() => {
 		vi.resetModules();

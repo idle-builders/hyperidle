@@ -1,25 +1,6 @@
 /**
  * Barrel for @hyperidle/thread (core-api Layer, SQL-owning Service).
- *
- * Typed functions only — the barrel must not re-export the raw `threads`/
- * `messages` pgTable objects (Table ACL / Mechanism A). The three surviving
- * outside readers of the deleted `conversation` package (`search.ts`, the ws
- * authorizer, the subscription fire mechanism) get their reads from here.
- *
- * @lore BC3 review fix: `updateThread`, `updateMessage`,
- * `resolveMessageIfUnresolved`, `searchThreadsByTitle`, `findMessage`,
- * `insertThread` and `insertMessage` are unexported — no production code
- * outside this module imported them (only tests did; house rule: test-only
- * reachable = dead — the two re-pointed tests are plain fixture inserts now,
- * `conversation-user-store-{reads,writes}.integration.test.ts`). They still
- * have production callers INSIDE the module (`thread-actions.ts`, via the
- * `store` namespace import of `thread-service.js`, not through this
- * barrel). `findOrCreateDirectThread` had no caller anywhere, in or out of
- * the module, and its fixed `recipientId`-hosts shape didn't match
- * `send_message`'s actual rule (whichever party is the agent hosts —
- * `thread-actions.ts`'s single-recipient branch) — deleted rather than
- * exported. `findThreadForUpdate` (the row-locked read the join-on-post race
- * fix needs) is the same shape: a module-internal helper, no barrel export.
+ * Typed functions only — must NOT re-export raw `threads`/`messages` pgTable objects (table ownership).
  */
 
 export { createThreadActions, type ThreadActionsDeps } from "./thread-actions.js";

@@ -4,7 +4,6 @@
  * history) that WorkTeam.test.tsx's component-level rendering checks don't
  * cover.
  *
- * @lore the team route lives at /work/team/:teamId — useTeams/useTeam compose from search_users/search_tasks/open_task, not a teams route.
  */
 
 import {

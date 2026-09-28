@@ -1,13 +1,3 @@
--- @lore BC5 T2: a subscription replaces a routine's trigger row and a
--- notification's queue row with one shape shared by a person and an agent —
--- fires on an event or a schedule, never both. `inbox` is a person's half:
--- a pointer at the change row they have not yet seen or read. Both tables
--- are owned by `@hyperidle/user` alongside `users`/`teams`/`org_edges`.
---
--- Additive only — the routine and notification tables this replaces are
--- cut over in a later migration, once the module that reads subscriptions
--- exists to receive them.
-
 -- 1. the row: exactly one of event/schedule, a closed event vocabulary, a
 --    schedule's next run only makes sense when it has a schedule.
 CREATE TABLE "subscriptions" (
@@ -45,9 +35,8 @@ CREATE TABLE "inbox" (
 );
 --> statement-breakpoint
 
--- 3. F1: a health note on an agent — a crash count, or null for a healthy
---    row. Written by the same session-ended reaction that used to write a
---    notification-queue row; lands as a `user.changed` change row instead.
+-- 3. A health note on an agent — a crash count, or null for a healthy
+--    row. Written by the session-ended reaction.
 ALTER TABLE "users" ADD COLUMN "health" text;
 --> statement-breakpoint
 

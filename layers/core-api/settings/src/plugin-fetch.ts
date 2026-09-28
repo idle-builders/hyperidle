@@ -1,13 +1,5 @@
-/**
- * Fetch a plugin from a source (folder path, git URL, or zip file) and
- * resolve it to a local directory containing plugin.json at its root.
- *
- * @lore BA9a: git URL is the primary source (works on shared backends).
- * Zip and folder path also work per D6.
- *
- * Temp directories are returned with a cleanup function — callers MUST
- * always call cleanup() to avoid leaking temp dirs on disk.
- */
+// Fetch a plugin from a source (folder, git URL, or zip) to a local directory with plugin.json.
+// Callers MUST call cleanup() to avoid leaking temp dirs.
 
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, rmSync } from "node:fs";

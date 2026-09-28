@@ -12,7 +12,7 @@ const ME = { id: "u-me", name: "A. Founder", isAgent: false, isMe: true };
 const ATLAS = { id: "a-atlas", name: "Atlas", isAgent: true, isMe: false };
 
 // biome-ignore lint/suspicious/noConsole: story-only navigation-hook proof
-const onOpen = (t: { route: string }): void => console.info("[AM1] open", t.route, t);
+const onOpen = (t: { route: string }): void => console.info("open", t.route, t);
 
 const PARTS: Part[] = [
 	{

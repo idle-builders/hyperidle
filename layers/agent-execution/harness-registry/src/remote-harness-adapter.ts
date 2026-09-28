@@ -1,11 +1,6 @@
 /**
- * S2: RemoteHarnessAdapter — delegates session execution to a connected worker
- * over a WebSocket using the ServerToWorkerMessage / WorkerToServerMessage
- * wire protocol.
- *
- * @lore S2: Each RemoteHarnessAdapter instance wraps a single WebSocket
- * connection. The adapter is registered in AdapterPool when the worker sends
- * WorkerRegisterMessage, and unregistered when the connection closes.
+ * RemoteHarnessAdapter — delegates session execution to a connected worker
+ * over a WebSocket using the ServerToWorkerMessage / WorkerToServerMessage wire protocol.
  */
 
 import { randomUUID } from "node:crypto";
@@ -23,11 +18,6 @@ import type {
  * Inbound messages from a remote worker over the WS transport. All carry a
  * `sessionId` to route to the originating session.
  *
- * @lore AF4/§4e: narrowing on `type` replaces the previous
- * `typed as { event: HarnessEvent }`-style casts (TS2352: the source
- * `{ type: string; sessionId?: string }` does not overlap the target). The
- * guards preserve the exact runtime dispatch; remote-session routing is
- * unchanged.
  */
 interface RemoteEventMessage {
 	readonly type: "event";
@@ -83,7 +73,6 @@ export class RemoteHarnessAdapter implements HarnessAdapter {
 		this.ws = ws;
 		this.registration = registration;
 
-		// Wire incoming messages to the active sessions map
 		this.ws.onmessage = (evt) => {
 			this.handleMessage(evt.data);
 		};
@@ -118,7 +107,6 @@ export class RemoteHarnessAdapter implements HarnessAdapter {
 		return (async function* (
 			adapter: RemoteHarnessAdapter,
 		): AsyncGenerator<HarnessEvent, void, unknown> {
-			// Build a queue so incoming WS messages can be pushed to the generator
 			const queue: Array<HarnessEvent | null> = []; // null = done sentinel
 			let resolve: (() => void) | null = null;
 
@@ -179,12 +167,9 @@ export class RemoteHarnessAdapter implements HarnessAdapter {
 
 		this.ws.send(JSON.stringify({ type: "stop", sessionId }));
 
-		// Wait for the worker to send session_result
 		return new Promise<SessionResult>((resolve, reject) => {
-			// If session already active (via streamEvents), patch its resolve
 			const existing = this.activeSessions.get(sessionId);
 			if (existing) {
-				// Replace the resolve/reject so stopSession's promise gets the result
 				const patched: ActiveSession = {
 					...existing,
 					resolve,
@@ -192,7 +177,6 @@ export class RemoteHarnessAdapter implements HarnessAdapter {
 				};
 				this.activeSessions.set(sessionId, patched);
 			} else {
-				// Create a minimal session entry just to capture the result
 				this.activeSessions.set(sessionId, {
 					sessionId,
 					resolve,
@@ -207,35 +191,20 @@ export class RemoteHarnessAdapter implements HarnessAdapter {
 	}
 
 	getCapabilities(): HarnessCapabilities {
-		// X5: mcpSupport: false — remote workers declare their own MCP capabilities
-		// via the worker protocol; this adapter is a local proxy and conservatively
-		// declares false so the provisioner falls back to event-stream interception.
+		// @lore: remote mcpSupport false — adapter is a local proxy; conservatively false so provisioner falls back to event-stream interception
 		return {
 			preCompactionTrigger: false,
 			subAgents: false,
 			modelProviders: this.registration.modelProviders,
 			mcpSupport: false,
-			// Remote has no in-process hook. HyperIdle can re-engage by
-			// re-dispatching the provisioning config over the WS connection (process-wrapper
-			// re-engage pattern). Non-conforming workers degrade to not_returned after budget.
-			// @lore "process-reengage" for remote — HyperIdle re-dispatches
-			// provisioning over WS when the session ends without return. Same semantics as
-			// the opencode re-spawn, but via WS protocol instead of spawn().
 			returnEnforcement: "process-reengage",
 		};
 	}
 
 	/**
-	 * Dispatch an incoming message from the worker to the appropriate active session.
-	 *
-	 * Called by WorkerConnectionManager for runtime messages (event, session_result, error)
-	 * that arrive after registration. Exposed as public so the WS route layer can forward
-	 * messages to the adapter without coupling to its internal session map.
-	 *
-	 * @lore S2-F07: WorkerConnectionManager routes the initial `register` message itself
-	 * (to create this adapter). All subsequent messages must be dispatched here so
-	 * streamEvents() generators receive them. Without this, streamEvents() hangs forever
-	 * because the WS onmessage handler in the route layer never reached the adapter.
+	 * Dispatch an incoming message to the appropriate active session.
+	 * Exposed as public so the WS route layer can forward messages without coupling to the internal session map.
+	 * @lore: dispatchMessage — subsequent WS messages must go here; without this streamEvents() hangs because the route-layer onmessage never reaches the adapter
 	 */
 	dispatchMessage(data: string): void {
 		this.handleMessage(data);
@@ -269,7 +238,6 @@ export class RemoteHarnessAdapter implements HarnessAdapter {
 	}
 
 	private handleClose(): void {
-		// Terminate all active sessions
 		for (const session of this.activeSessions.values()) {
 			session.close();
 		}

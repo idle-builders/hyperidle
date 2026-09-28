@@ -1,37 +1,6 @@
 /**
- * Per-harness return-enforcement hook provisioning.
- *
- * `provisionReturnHook` is called at sandbox setup time (Phase 8b in
- * session-provisioning.ts, BEFORE startSession) to install the enforcement
- * artifact appropriate to the harness's declared channel.
- *
- * Dispatch table:
- *   "settings-claude"  → writes .claude/settings.json with Stop hook + trust
- *   "settings-codex"   → writes .codex-home/ (per-session CODEX_HOME) with
- *                         auth.json + config.toml copied from ~/.codex + hooks.json
- *                         containing Stop hook. CliHarnessAdapter detects this dir
- *                         and sets CODEX_HOME=<sandboxPath>/.codex-home when spawning codex.
- *   "process-reengage" → writes .opencode/plugins/return-signal.ts
- *   "sdk-inprocess"    → no-op (dead — no adapter declares this; kept in union for backward compat)
- *   "soft-continue"    → no-op (cursor inert today)
- *   "none"             → no-op (drain-gate floor only)
- *
- * WARN-F1: workspace trust is established for settings-claude and settings-codex
- * by writing the appropriate trust marker. Without it the harness silently skips
- * the project-local hook — producing not_returned with forceCount=0 (v1 regression).
- *
- * @lore This module writes the hook artifact once at sandbox setup; the hook
- * fires natively at turn-end. The bridge URL and token are server-minted — no
- * agent-authored value enters the shell command (no injection surface).
- *
- * @lore Codex-home: Codex reads hooks from CODEX_HOME/hooks.json
- * (default: ~/.codex/hooks.json); a project-local .codex/hooks.json is only
- * honored in *trusted* projects, so our per-session CODEX_HOME is the reliable channel.
- * CODEX_HOME redirect works when we copy ONLY auth.json + config.toml (not the SQLite
- * database files) — those lock and cause codex to exit before making an LLM call.
- * Per-session CODEX_HOME is created at <sandboxPath>/.codex-home/ for isolation.
- * Verified with codex-cli v0.141.0: CODEX_HOME env var is respected; hook fires
- * and bridge receives POST. See real-harness-return-enforcement-realbinary.integration.test.ts.
+ * Per-harness return-enforcement hook provisioning. Writes the hook artifact
+ * appropriate to the harness's declared channel, called at sandbox setup time (BEFORE startSession).
  */
 
 import * as fs from "node:fs";
@@ -47,15 +16,8 @@ interface ReturnHookOptions {
 }
 
 /**
- * Provision the return-enforcement hook for the given channel.
- *
- * This function is idempotent: calling it twice for the same sandboxPath
- * and channel overwrites the existing artifact with the same content.
- *
- * @lore WARN-F1: The function ensures workspace trust for file-based channels.
- * Claude Code silently ignores project-level hooks in untrusted workspaces.
- * Codex requires a trust marker in the .codex/ directory. Writing the hook
- * without establishing trust is what caused the v1 forceCount=0 regression.
+ * Provision the return-enforcement hook for the given channel. Idempotent.
+ * @lore: workspace trust — must be established for file-based channels; Claude Code silently ignores hooks in untrusted workspaces; missing trust → forceCount=0
  */
 function installReturnHook(opts: ReturnHookOptions): void {
 	const { sandboxPath, channel, bridgeToken, mcpUrl } = opts;
@@ -82,66 +44,21 @@ function installReturnHook(opts: ReturnHookOptions): void {
 	}
 }
 
-// ── EMITTED_ROOTS exports for scaffolding-drift-guard ───────────────────
-
-/**
- * Root directories emitted by provisionClaudeSettings.
- * Exported so the scaffolding-drift-guard can assert coverage without
- * re-hardcoding the path list in the test.
- *
- * @lore AO2 C2: Exported separately per provisioner so the drift-guard can
- * enumerate ALL provisioners (Claude, Codex, OpenCode) rather than just Claude.
- */
-
-/**
- * Root directories emitted by provisionCodexHome.
- * .codex for backward-compat (unit tests + legacy); .codex-home for the real
- * per-session CODEX_HOME that codex actually reads.
- */
-
-/**
- * Root directories emitted by provisionOpencodePlugin.
- */
-
 // ── Private provisioning helpers ──────────────────────────────────────────────
 
 /**
  * settings-claude: Write .claude/settings.json with a Stop hook.
- *
- * WARN-F1 (trust): We set `enableAllProjectMcpServers: true` in settings.json
- * to establish workspace trust. Claude Code loads project-level hooks only in
- * trusted workspaces; without this marker the Stop hook is silently skipped.
- *
- * The Stop hook uses exit-2+stderr semantics: a non-zero exit from the hook
- * command causes Claude Code to re-prompt with the stderr as the blocking message.
- *
- * @lore WARN-F1: We write the shell script to `.claude/return-check.sh` and
- * reference ONLY the script path in settings.json. This ensures settings.json
- * contains no shell-expansion characters (`$`, `>`, `|`, `;`, `&`) — the JSON
- * hook config is injection-safe, carrying only the server-minted script path.
- * The script itself contains shell syntax but is never interpolated in JSON.
- *
- * @lore WARN-F1: exit-2+stderr semantics: the hook must exit with code 2
- * and write the force message to stderr for Claude Code to treat it as a blocking
- * response. The curl command signals HyperIdle to check return status; HyperIdle
- * responds with forceMessage on stdout which the hook relays to stderr then exits 2.
+ * @lore: claude settings hook — script: .claude/return-check.sh; settings.json references the path; exit-2+stderr; enableAllProjectMcpServers establishes trust
  */
 function provisionClaudeSettings(sandboxPath: string, bridgeToken: string, mcpUrl: string): void {
 	const claudeDir = path.join(sandboxPath, ".claude");
 	fs.mkdirSync(claudeDir, { recursive: true });
 
-	// Write the shell script separately so settings.json has no shell-expansion chars.
 	const scriptPath = path.join(claudeDir, "return-check.sh");
 	const scriptContent = buildReturnCheckScript(bridgeToken, mcpUrl);
 	fs.writeFileSync(scriptPath, scriptContent, { encoding: "utf-8", mode: 0o755 });
 
-	// WARN-F1 trust: enableAllProjectMcpServers establishes workspace trust
-	// so Claude Code loads project-level hooks. Without this, the Stop hook
-	// in hooks.Stop is silently ignored.
-	//
-	// The command references only the script path (no shell chars in JSON).
-	// We embed bridgeUrl as a metadata field so the hook config carries the URL
-	// for observability/audit (Claude Code ignores unknown fields).
+	// The command references only the script path (no shell chars in JSON). bridgeUrl is metadata (Claude Code ignores unknown fields).
 	const settings = {
 		enableAllProjectMcpServers: true,
 		enabledMcpjsonServers: ["hyperidle"],
@@ -168,52 +85,18 @@ function provisionClaudeSettings(sandboxPath: string, bridgeToken: string, mcpUr
 }
 
 /**
- * settings-codex: Create a per-session CODEX_HOME directory and write hooks.json.
- *
- * CODEX_HOME strategy (v4 proven path):
- *   - Codex reads hooks ONLY from CODEX_HOME/hooks.json (default: ~/.codex/hooks.json).
- *   - Project-local .codex/hooks.json is silently ignored by codex.
- *   - Per-session CODEX_HOME = <sandboxPath>/.codex-home/
- *   - Contents: auth.json + config.toml (copied from ~/.codex, NOT symlinked) + hooks.json
- *   - SQLite database files (.sqlite, .sqlite-wal, .sqlite-shm) are intentionally excluded —
- *     copying them triggers a file-lock and codex exits before the LLM call.
- *   - CliHarnessAdapter detects .codex-home/ in the sandbox and sets CODEX_HOME=<path>.
- *   - --dangerously-bypass-hook-trust is passed at spawn time to bypass hash-check.
- *
- * This function ALSO writes .codex/hooks.json for backward-compat with unit tests
- * that inspect the sandbox .codex/ directory.
- *
- * @lore Codex-home: Verified end-to-end with codex-cli v0.141.0:
- *   1. Per-session CODEX_HOME created with auth.json + config.toml + hooks.json
- *   2. Codex spawned with CODEX_HOME=<sandboxPath>/.codex-home + --dangerously-bypass-hook-trust
- *   3. Stop hook fires → bridge POST received → callCount >= 1 proven.
- *   Previous attempts copied the full ~/.codex/ (with SQLite files) → file-lock → codex crash.
- *   Solution: copy only auth.json + config.toml (absent these, codex works with env-based auth).
- *
- * @lore WARN-F1 (real codex v0.141.0): The hooks.json format is:
- * ```json
- * { "hooks": { "Stop": [{ "hooks": [{ "type": "command", "command": "..." }] }] } }
- * ```
- * NOT a top-level "Stop" key. The old flat format `{ "Stop": { "command": "..." } }`
- * is WRONG and silently ignored by codex.
- *
- * @lore WARN-F1 (codex decision:block): Codex Stop hooks accept JSON-on-stdout
- * (`{"decision":"block","reason":"..."}` blocks+re-prompts); recent codex also accepts
- * exit-2+stderr like Claude, but we use the JSON form.
- * stdout `{"decision":"approve"}` or exit 0 with no JSON allows the stop.
+ * settings-codex: Create per-session CODEX_HOME and write hooks.json.
+ * Also writes .codex/hooks.json for backward-compat with unit tests.
+ * @lore: codex hooks format — `{ "hooks": { "Stop": [{ "hooks": [{ "type":"command", "command":"..." }] }] } }`; flat top-level "Stop" is silently ignored
  */
 function provisionCodexHome(sandboxPath: string, bridgeToken: string, mcpUrl: string): void {
-	// ── 1. Backward-compat: write .codex/hooks.json (for unit tests + legacy path).
 	const codexDir = path.join(sandboxPath, ".codex");
 	fs.mkdirSync(codexDir, { recursive: true });
 
-	// Write the codex-specific return-check script (uses decision:block JSON on stdout,
-	// not exit 2 + stderr like Claude Code).
 	const scriptPath = path.join(codexDir, "return-check.sh");
 	const scriptContent = buildCodexReturnCheckScript(bridgeToken, mcpUrl);
 	fs.writeFileSync(scriptPath, scriptContent, { encoding: "utf-8", mode: 0o755 });
 
-	// @lore WARN-F1: Codex hooks.json format verified against real installed binary.
 	const hooksConfig = buildCodexHooksConfig(codexDir);
 
 	fs.writeFileSync(
@@ -222,37 +105,17 @@ function provisionCodexHome(sandboxPath: string, bridgeToken: string, mcpUrl: st
 		"utf-8",
 	);
 
-	// ── 2. Per-session CODEX_HOME: create .codex-home/ with auth + config + hooks.
-	//
-	// @lore Codex-home: This is the REAL enforcement path that makes the
-	// Stop hook fire when codex is spawned by CliHarnessAdapter. The .codex/ dir above
-	// is the legacy/compat path for unit tests. CliHarnessAdapter sets CODEX_HOME to
-	// this directory when it detects it exists.
+	// .codex-home/ is the real enforcement path; CliHarnessAdapter sets CODEX_HOME to it.
 	const codexHomeDir = path.join(sandboxPath, ".codex-home");
 	fs.mkdirSync(codexHomeDir, { recursive: true });
 
-	// Copy ONLY auth.json and config.toml from ~/.codex — NOT the SQLite database files.
-	// @lore Codex-home: SQLite files (.sqlite, .sqlite-wal, .sqlite-shm) get
-	// locked when a second codex process tries to open them → codex exits immediately.
-	// Absent auth.json/config.toml: codex falls back to env-based auth (OPENAI_API_KEY)
-	// which still works. Copy them when present to preserve user's model config.
-	//
-	// @lore AO2 codex-approvals-strip: config.toml may contain `approvals_reviewer = "user"`
-	// which causes codex to wait for interactive user approval before running any tool (shell
-	// command or MCP call). In a non-interactive spawned process (no TTY, stdio pipes), codex
-	// hangs indefinitely waiting for input. Fix: after copying config.toml, strip the
-	// approvals_reviewer line so codex uses its built-in default for the exec subcommand
-	// (which runs headless by design without interactive approval). "auto_review" was tried
-	// but still caused extra LLM call overhead; "never" is not a valid value (0.141.0 supports
-	// only "user", "auto_review", "guardian_subagent"). Omitting the key = headless exec default.
+	// @lore: codex copy — copy auth.json + config.toml; SQLite files lock and crash codex; strip approvals_reviewer from config.toml (interactive hang in non-TTY)
 	const userCodexDir = path.join(process.env.HOME ?? process.env.USERPROFILE ?? "/root", ".codex");
 	for (const file of ["auth.json", "config.toml"]) {
 		const src = path.join(userCodexDir, file);
 		const dst = path.join(codexHomeDir, file);
 		try {
-			// Preserve config already written by Phase 8b (notably the per-session
-			// [mcp_servers.hyperidle] block from writeCliMcpConfig). Auth can be
-			// refreshed, but config.toml is append/merge state by this point.
+			// Don't overwrite config.toml — may already have the per-session [mcp_servers.hyperidle] block.
 			if (file === "config.toml" && fs.existsSync(dst)) continue;
 			fs.copyFileSync(src, dst);
 		} catch {
@@ -260,27 +123,19 @@ function provisionCodexHome(sandboxPath: string, bridgeToken: string, mcpUrl: st
 		}
 	}
 
-	// Override approvals_reviewer to "never" in the per-session config.toml.
-	// The user's ~/.codex/config.toml may have `approvals_reviewer = "user"` which causes
-	// codex to prompt for interactive approval — a hang in non-interactive test/agent spawns.
 	const perSessionConfigPath = path.join(codexHomeDir, "config.toml");
 	try {
 		let tomlContent = fs.readFileSync(perSessionConfigPath, "utf-8");
-		// Replace any existing approvals_reviewer setting with "never".
-		// Strip approvals_reviewer entirely — let codex use its built-in default for
-		// non-interactive exec mode (the `exec` subcommand runs headless by design).
+		// Strip approvals_reviewer — let codex use its built-in headless default.
 		tomlContent = tomlContent.replace(/^approvals_reviewer\s*=\s*"[^"]*"\n?/gm, "");
 		fs.writeFileSync(perSessionConfigPath, tomlContent, "utf-8");
 	} catch {
 		// config.toml absent — nothing to strip.
 	}
 
-	// Write per-session hooks.json in CODEX_HOME — this is what codex actually reads.
 	const homeScriptPath = path.join(codexHomeDir, "return-check.sh");
 	fs.writeFileSync(homeScriptPath, scriptContent, { encoding: "utf-8", mode: 0o755 });
 
-	// The hook command uses an absolute path (the CODEX_HOME script) so it works
-	// regardless of codex's working directory.
 	const homeHooksConfig = buildCodexHooksConfig(codexHomeDir);
 	fs.writeFileSync(
 		path.join(codexHomeDir, "hooks.json"),
@@ -289,12 +144,7 @@ function provisionCodexHome(sandboxPath: string, bridgeToken: string, mcpUrl: st
 	);
 }
 
-/**
- * Build the codex hooks.json config structure referencing a return-check.sh in the given dir.
- *
- * @lore WARN-F1: Uses absolute path to the script so codex can find it regardless of
- * the working directory it was spawned in.
- */
+/** Build the codex hooks.json config referencing a return-check.sh at an absolute path (so codex finds it regardless of working directory). */
 function buildCodexHooksConfig(scriptDir: string): Record<string, unknown> {
 	return {
 		hooks: {
@@ -314,16 +164,8 @@ function buildCodexHooksConfig(scriptDir: string): Record<string, unknown> {
 }
 
 /**
- * Build the shell script content for a Claude Code return-enforcement Stop hook.
- *
- * Protocol (Claude Code — exit 2 + stderr):
- *   - Bridge returns empty body → exit 0 (allow stop).
- *   - Bridge returns a forceMessage → write to stderr + exit 2 (block stop;
- *     Claude Code re-prompts with the stderr content as a blocking message).
- *
- * @lore WARN-F1: The script uses single-quoted shell strings for the URL and
- * token to prevent shell variable expansion. Both values are server-minted
- * (hex-token + localhost URL) and contain no single-quote characters.
+ * Build the Claude Code Stop hook script. Protocol: empty body → exit 0; forceMessage → stderr + exit 2.
+ * Single-quoted shell strings prevent variable expansion (both values are server-minted hex/URL).
  */
 function buildReturnCheckScript(bridgeToken: string, mcpUrl: string): string {
 	return [
@@ -340,17 +182,7 @@ function buildReturnCheckScript(bridgeToken: string, mcpUrl: string): string {
 }
 
 /**
- * Build the shell script content for a Codex return-enforcement Stop hook.
- *
- * Protocol (Codex — decision:block JSON on stdout):
- *   - Bridge returns empty body → print {"decision":"approve"} and exit 0 (allow stop).
- *   - Bridge returns a forceMessage → print {"decision":"block","reason":"..."} on stdout
- *     and exit 0 (Codex re-prompts with the reason).
- *
- * @lore WARN-F1 (real codex v0.141.0): Codex Stop hooks use JSON stdout semantics,
- * NOT exit 2 + stderr like Claude Code. Verified by running codex with a blocking
- * Stop hook that returns {"decision":"block","reason":"..."} — codex correctly
- * re-prompted with the reason text.
+ * Build the Codex Stop hook script. Protocol: empty body → {"decision":"approve"}; forceMessage → {"decision":"block","reason":"..."}.
  */
 function buildCodexReturnCheckScript(bridgeToken: string, mcpUrl: string): string {
 	return [
@@ -369,23 +201,11 @@ function buildCodexReturnCheckScript(bridgeToken: string, mcpUrl: string): strin
 
 /**
  * process-reengage: Write .opencode/plugins/return-signal.ts.
- *
- * OpenCode does not have a native Stop hook. Instead we provision a plugin
- * that listens on the `session.idle` event and POSTs to the HyperIdle bridge.
- * If the bridge returns a forceMessage, the plugin injects it as a new user
- * message to re-engage the session.
- *
- * @lore WARN-F3: This is the "process-reengage" channel. It is weaker than
- * "settings-claude" because it requires the plugin runtime to be loaded and
- * session.idle to fire reliably. The drain-gate floor backstops any escape.
  */
 function provisionOpencodePlugin(sandboxPath: string, bridgeToken: string, mcpUrl: string): void {
 	const pluginDir = path.join(sandboxPath, ".opencode", "plugins");
 	fs.mkdirSync(pluginDir, { recursive: true });
 
-	// @lore WARN-F3: session.idle is the OpenCode lifecycle event that
-	// fires when the agent's turn completes without further tool calls.
-	// This is the closest analog to a "Stop hook" in OpenCode's plugin API.
 	const pluginContent = `/**
  * HyperIdle return-enforcement plugin for OpenCode.
  * Auto-generated by provisionReturnHook — do not edit.

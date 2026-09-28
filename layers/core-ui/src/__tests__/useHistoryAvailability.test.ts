@@ -5,7 +5,6 @@
  *   canGoBack  = (window.history.state?.idx ?? 0) > 0
  *   canGoForward = window.navigation?.canGoForward ?? false
  *
- * @lore RR v7 has no public canGoBack/canGoForward — this reads window.history.state's idx, an RR internal; the popstate test is the canary if that shape changes.
  */
 
 // @vitest-environment jsdom

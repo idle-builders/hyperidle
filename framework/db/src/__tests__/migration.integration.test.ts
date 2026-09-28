@@ -1,6 +1,5 @@
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import journal from "../../drizzle/meta/_journal.json";
-// @lore this file uses createTestDb() directly only for the test calling handle.runMigrations() — the fixture doesn't expose it.
 import { createTestDb } from "../__testing__/test-utils.js";
 import { teams } from "../schema.js";
 

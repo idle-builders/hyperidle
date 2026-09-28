@@ -1,17 +1,3 @@
-/**
- * DocumentTreeList — nested document browse tree for the Curated tab.
- *
- * @lore BC4: renamed from `KnowledgeTreeList` (architecture.md §9.2).
- *
- * Inspired by Notion / Linear / filesystem sidebars: collapse chevron, indent
- * guide lines, hover add-child — not a dented flat list with └ markers.
- *
- * @lore nested-knowledge-items tree-ui: page-local (one consumer today). Not
- * promoted to ds/ until a second surface needs the same tree chrome. Reuses
- * relativeShort / clipExcerpt utilities and Hearth tokens; does not fork Row
- * because indent guides + chevron column need a dedicated composition.
- */
-
 import { type JSX, useCallback, useMemo, useState } from "react";
 import { Button } from "../../ds";
 import { clipExcerpt } from "../../utils/clip-excerpt.js";
@@ -61,8 +47,6 @@ export function DocumentTreeList({
 			{visibleRows.map(({ item, depth, hasChildren }) => {
 				const isPrivate = item.scopeKind === "user";
 				const isCollapsed = collapsedIds.has(item.id);
-				// AQ-001: indent step is 18px (Hearth vocabulary), capped so depth never
-				// pushes the row off-screen.
 				const cappedDepth = Math.min(depth, 6);
 				const subtitle = item.body ? clipExcerpt(stripMarkdown(item.body)) || undefined : undefined;
 
@@ -92,12 +76,6 @@ export function DocumentTreeList({
 						aria-expanded={hasChildren ? !isCollapsed : undefined}
 						aria-level={depth + 1}
 					>
-						{/*
-						 * Indent guide lines — one hairline per ancestor depth.
-						 * @lore nested-knowledge-items tree-ui: VS Code-style guides
-						 * give the eye a track without the └ dent aesthetic. Position:
-						 * 12px base + i*18px + 9px centres each guide in its column.
-						 */}
 						{Array.from({ length: cappedDepth }, (_, i) => (
 							<span
 								// biome-ignore lint/suspicious/noArrayIndexKey: a fixed-length run of purely positional indent guides — nothing to identify them by but position.
@@ -116,7 +94,6 @@ export function DocumentTreeList({
 							<span aria-hidden="true" style={{ width: cappedDepth * 18, flexShrink: 0 }} />
 						)}
 
-						{/* Chevron column — 44px touch target (AQ-015) */}
 						<span className="flex-none flex items-center justify-center w-[44px]">
 							{hasChildren ? (
 								<Button

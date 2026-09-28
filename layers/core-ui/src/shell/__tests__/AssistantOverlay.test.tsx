@@ -2,9 +2,7 @@
  * AssistantOverlay component tests: open/close, message thread rendering,
  * context chips, layout, and notice/crash-recovery rendering.
  *
- * @lore the overlay resolves its own agent's direct thread via useThreads({host:{kind:"agent"}}) then reads it with useThread(id) (architecture.md).
  *
- * @lore GET /api/agents carries ownerUserId directly — the overlay finds "my agent" off the same useAgents fetch every agent picker shares.
  */
 
 import type { Message } from "@hyperidle/domain-model";

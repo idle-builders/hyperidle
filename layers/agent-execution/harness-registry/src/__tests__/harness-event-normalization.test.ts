@@ -64,14 +64,12 @@ describe("normalizeHarnessEvent — opencode pre-map", () => {
 	});
 
 	it("step_start → benign empty completion (not an error — a lifecycle event)", () => {
-		// @lore step_start (opencode --format json turn-start) maps to a benign completion, or it falls through to an error.
 		const input = { type: "step_start", id: "s1" };
 		const result = normalizeHarnessEvent(input);
 		expect(result.type).toBe("completion");
 	});
 
 	it("text → completion with part.text (real opencode event shape)", () => {
-		// @lore an opencode text event carries content in part.text, not at the top level.
 		const input = {
 			type: "text",
 			part: { type: "text", text: '[{"title":"Task 1"}]' },
@@ -92,7 +90,6 @@ describe("normalizeHarnessEvent — opencode pre-map", () => {
 	});
 
 	it("tool_use → tool_call (actual opencode --format json event shape)", () => {
-		// @lore opencode emits "tool_use" (not "tool") for tool calls in --format json.
 		const input = {
 			type: "tool_use",
 			part: {

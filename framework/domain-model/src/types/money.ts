@@ -1,6 +1,5 @@
 import type { ModelTier } from "../types.js";
 
-// Re-export ModelTier so consumers can import it from money.ts
 export type { ModelTier };
 
 /** Token counts for a single model tier. */

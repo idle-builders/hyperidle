@@ -6,7 +6,6 @@
  * with real reviews/verdicts, a document corpus, sessions and a paused
  * daily-digest subscription — everything the three views need to look alive.
  *
- * @lore the demo world fabricates no unread popover rows — a person's inbox is real and starts empty.
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
@@ -70,7 +69,6 @@ describe("lived-in demo world", () => {
 		expect(promoted.length).toBeGreaterThanOrEqual(1);
 	});
 
-	// @lore tasks form a tree (root → child → grandchild) — the dangling check verifies team + owner FKs for child tasks.
 	test("tasks cover all eight states, teams, and owners", async ({ db }) => {
 		await seedWorld(db);
 
@@ -144,7 +142,6 @@ describe("lived-in demo world", () => {
 		}
 
 		// The pinned assistant thread for the founder.
-		// @lore the assistant thread is host-kind "agent" like any other direct thread.
 		const assistantThreads = await rows<{ id: string; participants: string; pinned: boolean }>(
 			db,
 			`SELECT id, participants, pinned FROM threads
@@ -168,7 +165,6 @@ describe("lived-in demo world", () => {
 		expect(await count(db, "messages", "WHERE type = 'questionnaire'")).toBeGreaterThanOrEqual(1);
 
 		// Every thread host resolves; every message sender resolves.
-		// @lore no thread is task-hosted — a task's conversation is team-hosted (architecture.md §3.9, §4 step 7).
 		const badHosts = await rows<{ id: string }>(
 			db,
 			`SELECT th.id FROM threads th
@@ -189,7 +185,6 @@ describe("lived-in demo world", () => {
 		expect(await count(db, "messages")).toBeGreaterThanOrEqual(100);
 	});
 
-	// @lore the projection/edit-log/access-log/conflicts tables don't exist (architecture.md §6.2, §6.4) — confidence/meta live on documents now.
 	test("document corpus fills curated + triage with real usage signals", async ({ db }) => {
 		await seedWorld(db);
 
@@ -198,7 +193,6 @@ describe("lived-in demo world", () => {
 		expect(await count(db, "documents", "WHERE id LIKE 'demo-%'")).toBeGreaterThanOrEqual(45);
 
 		// Triage queue: items a human must look at.
-		// @lore the status ladder collapsed to one value, "proposed", for draft/captured/provisional/needs_human.
 		expect(await count(db, "documents", "WHERE status = 'proposed'")).toBeGreaterThanOrEqual(3);
 
 		// Variety of scopes.
@@ -209,7 +203,6 @@ describe("lived-in demo world", () => {
 		expect(scopes.length).toBeGreaterThanOrEqual(3);
 
 		// Provenance loop: a done/killed root task produced a retro item under it.
-		// @lore task-scoped items are parent_kind='task'/parent_id=<taskId>, factory-scoped (architecture §7 step 7).
 		const retro = await rows<{ id: string }>(
 			db,
 			`SELECT d.id FROM documents d
@@ -218,7 +211,6 @@ describe("lived-in demo world", () => {
 		);
 		expect(retro.length).toBeGreaterThanOrEqual(1);
 
-		// @lore the desktop walk's decay routine needs active, ordinary documents that read stale on both usage clocks — the seed backdates four of them past 90 days.
 		const usage = await rows<{
 			id: string;
 			last_used_at: string | null;
@@ -254,7 +246,6 @@ describe("lived-in demo world", () => {
 	test("sessions: terminal history plus live ones, all resolving", async ({ db }) => {
 		await seedWorld(db);
 
-		// @lore the demo world has no ritual subscriptions for document-decay, document-triage, or post-task-retro — actual session count is 34.
 		//
 		// Review-found defect: the assistant's placeholder session
 		// (SESSION_ACTIVE_ASSISTANT) used to be seeded "active" alongside a
@@ -290,7 +281,6 @@ describe("lived-in demo world", () => {
 	// Only demo-routine-daily_digest remains. The three ritual subscriptions
 	// (document-decay, document-triage, post-task-retro) were also removed
 	// from demo world per coordinator instruction. No builtin:* rows exist.
-	// @lore there is no run-history table on the subscriptions side — the daily-digest fixture is a paused schedule subscription.
 	test("subscriptions: daily_digest subscription, paused, no builtin:* rows", async ({ db }) => {
 		await seedWorld(db);
 
@@ -307,8 +297,6 @@ describe("lived-in demo world", () => {
 			"no builtin:* subscriptions",
 		).toBe(0);
 	});
-
-	// @lore a person's inbox is open_user({}).inbox, backed by the inbox table — the demo world seeds no fabricated unread rows into it.
 
 	test("the world has weeks of history, anchored to seed time", async ({ db }) => {
 		await seedWorld(db);
@@ -330,9 +318,6 @@ describe("lived-in demo world", () => {
 		await seedWorld(db);
 
 		// "bets" is not in the table list — the table does not exist.
-		// @lore there is no "artifacts" table.
-		// @lore there are no knowledge_app_projection/knowledge_edit_log/knowledge_access_log/knowledge_conflicts tables.
-		// @lore there are no routines/routine_runs/notification_queue tables — subscriptions and inbox take their place.
 		const tables = [
 			"users",
 			"teams",
@@ -358,7 +343,6 @@ describe("lived-in demo world", () => {
 	test("team state reflects the live workload", async ({ db }) => {
 		await seedWorld(db);
 
-		// @lore a team is an id and a name — there is no active_bets column, no bets table, and no lead_agent_id; WIP is counted live via countTeamTasksInProgress.
 		const teamRow = await rows<{ id: string }>(
 			db,
 			"SELECT id FROM teams WHERE id = 'demo-team-acme'",

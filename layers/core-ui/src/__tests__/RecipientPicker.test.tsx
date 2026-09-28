@@ -4,11 +4,7 @@
  * Architecture plan §4.4: inline recipient picker for new DM thread creation.
  * States: browsing (search + list), selected (recipient + message input), sending.
  *
- * @lore: `useRecipients` combines the recipient list with a live busy dot.
  *
- * @lore the recipient list, busy dot, and send all go through the one module-wide call mock, routed by action name.
- *
- * @lore sending the first message posts no route — handleSend starts the thread via call("send_message", {recipients, text, clientKey}).
  */
 
 import { render, screen, waitFor } from "@testing-library/react";

@@ -1,12 +1,4 @@
-/**
- * The session action list — `search_sessions` / `watch_session` /
- * `stop_session`. This Service owns `sessions` (`table-owners.json`), so it
- * declares the runs itself. `Action`/`ActionContext`
- * below are a local structural mirror of `layers/agent-orchestration/src/
- * actions/action.ts`'s own pair, the same reason `@hyperidle/document`/
- * `@hyperidle/task`/`@hyperidle/thread` each declare their own: a nested
- * Service may not import the layer's own package.
- */
+/** Session actions: search_sessions, watch_session, stop_session. */
 
 import type { HyperIdleDb, Session } from "@hyperidle/db";
 import {
@@ -26,11 +18,7 @@ import {
 import type { EventBus } from "@hyperidle/event-bus";
 import type { SessionSearchFilter } from "./session-store.js";
 
-/**
- * Local structural mirror of `layers/agent-orchestration/src/actions/
- * action.ts`'s `ActionContext`/`Action` — same idiom `@hyperidle/document`'s
- * `action-types.ts` uses and explains at length.
- */
+/** Local structural mirror of the layer's ActionContext/Action — nested Service may not import the layer's own package. */
 export interface ActionContext {
 	readonly actor: string;
 	readonly db: HyperIdleDb;
@@ -49,17 +37,7 @@ export interface Action<I = unknown, O = unknown> {
 	readonly run: (ctx: ActionContext, input: I) => Promise<ActionResult<O>>;
 }
 
-/**
- * The session module's outward-facing deps. `sessions`
- * is this package's own table (in-package — the two accessors below are
- * `session-store.ts`'s own `listSessions`/`findSessionById`, injected rather
- * than imported directly only for the same uniform-shape reason the
- * document/task/thread modules take a deps bag at all); `stop` and `activity`
- * are genuine crossings (`@hyperidle/session-requests`'s abort registry, and
- * the activity buffer that lives at the agent-orchestration layer root) —
- * both bound at the layer's own composition root
- * (`services/run-orchestration-composition.ts`), never imported here.
- */
+/** Deps for session actions. `stop` and `activity` are cross-package — bound at the layer composition root, never imported here. */
 export interface SessionActionsDeps {
 	readonly sessions: {
 		list(db: HyperIdleDb, filter: SessionSearchFilter): Promise<readonly Session[]>;

@@ -1,25 +1,4 @@
-/**
- * WorkTaskCreate — full-page task create form at /work/task/new.
- *
- * Accepts an optional ?parentTaskId= search param. When present the new task
- * is created as a child; teamId is inherited from the parent. When absent
- * (creating a root task) a team must be selected.
- *
- * On success, navigates to /work/task/:id.
- *
- * @lore BB1: replaces WorkBetCreate. `edit_task` (no `id`) instead of
- * POST /api/bets. The parentTaskId query-param path is the subtask creation
- * path — the "Add subtask" button on WorkTaskPage passes it here.
- *
- * @lore AK5: ?fromDocument=<id> is the multi-team promote path. DocumentDetail
- * auto-creates when there is exactly one team and sends the user here otherwise,
- * so this page is the ONLY other place that carries sourceDocumentId into
- * the `edit_task` call. Dropping it here silently loses the provenance FK.
- *
- * @lore BC4: the prefill read moved off `useKnowledgeItem` onto `useDocument`
- * — `useKnowledgeItem` is deleted once every consumer has moved
- * (architecture.md §16.1 break 5).
- */
+// @lore: fromDocument — DocumentDetail auto-creates at 1 team, sends here for multiple; sourceDocumentId carries provenance FK; dropping it loses it silently
 
 import { type JSX, useEffect, useState } from "react";
 import { Link as RRLink, useNavigate, useSearchParams } from "react-router-dom";
@@ -34,7 +13,6 @@ export function WorkTaskCreate(): JSX.Element {
 	const [searchParams] = useSearchParams();
 
 	const parentTaskId = searchParams.get("parentTaskId") ?? undefined;
-	// Provenance carrier for the multi-team promote path.
 	const fromDocumentId = searchParams.get("fromDocument") ?? undefined;
 
 	const { data: teamsData } = useTeams();
@@ -49,7 +27,6 @@ export function WorkTaskCreate(): JSX.Element {
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	// Pre-fill title/description from the promoted document.
 	const { data: documentView } = useDocument(fromDocumentId);
 	const sourceDocument = documentView?.document ?? null;
 	useEffect(() => {
@@ -200,7 +177,6 @@ export function WorkTaskCreate(): JSX.Element {
 					disabled={submitting}
 				/>
 
-				{/* Team select — shown only for root tasks when there are multiple teams */}
 				{parentTaskId == null && !singleTeam && (
 					<Select
 						label="Team"

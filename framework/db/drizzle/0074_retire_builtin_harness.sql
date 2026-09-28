@@ -1,8 +1,8 @@
 -- The built-in harness is gone. Agents configured to run on it point at an
--- adapter that no longer exists, so admission would find nothing to select and
+-- adapter that does not exist, so admission would find nothing to select and
 -- the session would fail with "no eligible harness".
 --
--- They move to codex (founder's choice of replacement). Their model moves to
+-- They move to codex. Their model moves to
 -- NULL along with it, deliberately: a built-in agent's model_id is a gateway
 -- model id ("deepseek/deepseek-v4-flash", "claude-haiku-4-5") that codex cannot
 -- serve, and handing it over as `--model` would fail every run in a way that

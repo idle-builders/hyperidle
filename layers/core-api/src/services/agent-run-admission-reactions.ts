@@ -1,27 +1,4 @@
-/**
- * Core-api's reaction to the pre-handoff `agent_run_admission_failed`
- * event, one subscriber per `kind` that has a run record to finalize:
- *
- *   subscription_run  -> logged only; a subscription's wake carries no run
- *                         row to finalize
- *   task_run          -> work marks the taskDispatchAttempts row failed
- *   thread_turn       -> the never-silent net's sibling case: the session
- *                         couldn't even be admitted, so one plain notice is
- *                         posted into the thread the turn came from (see
- *                         `notifyThreadTurnAdmissionFailure` below) — the
- *                         person waiting on it is never left in silence.
- *
- * Only `terminal===true` triggers a reaction — `terminal===false` is
- * informational (orchestration is still retrying on its own backoff).
- *
- * @lore this module is imported by BOTH the production composition root
- * (`server-factory.ts`'s `registerCoreDomainServices`) and the integration
- * test fixture (`test-fixtures.ts`'s `eventBus` fixture) — `registeredBuses`
- * makes `registerAgentRunAdmissionReactions` idempotent PER eventBus
- * instance so a test requesting both `eventBus` and `app` (which wires the
- * SAME eventBus into `createServer`'s production boot path) never
- * double-registers and double-fires a reaction.
- */
+// @lore: agent-run-admission — `registeredBuses` idempotent per EventBus; boot+test wire SAME bus; without it `eventBus`+`app` combo double-fires
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";

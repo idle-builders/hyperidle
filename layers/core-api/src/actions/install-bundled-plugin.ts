@@ -5,13 +5,6 @@
  * so a seeded team looks exactly like a team whose person installed the
  * plugin: same install row, same agent ids, same identity documents, same
  * contribution registry.
- *
- * @lore The composition has no orchestration layer behind it. A bundled
- * install reaches orchestration only to put the new agents on a harness, and
- * only when an adapter pool says which harness is ready; none is passed here,
- * so the port is never dialled. Its transport throws rather than answering, so
- * a future install step that does need orchestration fails loudly instead of
- * silently doing nothing. The caller writes any run config it wants itself.
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";

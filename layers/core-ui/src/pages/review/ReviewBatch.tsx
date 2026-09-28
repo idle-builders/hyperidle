@@ -1,4 +1,4 @@
-// Canvas #8 — ReviewBatch: the batch / per-item container.
+// ReviewBatch: the batch / per-item container.
 //
 // Half of real agent work is a SET — N items decided in one pass. The reviewer
 // can't read 41 tickets; the canvas does the reading FOR them and surfaces only

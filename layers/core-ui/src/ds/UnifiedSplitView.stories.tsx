@@ -84,7 +84,7 @@ function TextArtifact(): JSX.Element {
 			<DestinationHeader
 				kind="Artifact · text"
 				title="auth/passkey.ts — migration plan"
-				meta="§2"
+				meta="Part 2"
 			/>
 			<div className="flex-1 overflow-auto px-[18px] py-[12px]">
 				<Block
@@ -283,7 +283,7 @@ function ConversationOrigin(): JSX.Element {
 						Context for the dual-auth window:
 					</p>
 					<div className="mt-[3px]">
-						<ReferenceChip kind="block" label="Auth migration plan · §2" mode="posted" />
+						<ReferenceChip kind="block" label="Auth migration plan · Part 2" mode="posted" />
 					</div>
 				</MessageRow>
 			</div>
@@ -391,7 +391,7 @@ function DocumentOrigin(): JSX.Element {
 					<ReferenceChip
 						kind="artifact"
 						label="auth/passkey.ts — migration plan"
-						meta="§2"
+						meta="Part 2"
 						mode="posted"
 					/>
 				</div>

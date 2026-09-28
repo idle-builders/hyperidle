@@ -1,23 +1,3 @@
-/**
- * `AgentOrchestrationPort`'s WRITE side, hosted here for the same
- * reason `agent-orchestration-sessions.ts` hosts the read side: the data,
- * the query/write logic and now the HTTP door are all on the layer that
- * owns `session-requests`/`run-orchestration`/`agent-run-config`/
- * `filesystems`. Mounted at `/agent-orchestration` beside the read routes
- * (`app.ts`) — an internal seam prefix, never the public `/sessions` or
- * `/filesystems` paths those stay reserved for.
- *
- * Every route here is dialled ONLY through `AgentOrchestrationPort` (core-api's
- * `agent-orchestration-port-composition.ts`) — never directly by a UI client —
- * same trust model as the existing seam: it mounts behind the application's
- * normal auth/boundary stack (architecture.md §9), and the internal
- * `X-API-Key` credential the port injects is what actually authenticates it.
- *
- * @lore AU31 §13 item 2: this door superseds AU26 H1/H2's "the door stays
- * read-only" — `AgentOrchestrationPort` is now core's one door into this
- * layer, both directions.
- */
-
 import type {
 	AgentOrchestrationConnectionCreateInput,
 	AgentOrchestrationFolderCreateInput,
@@ -58,27 +38,15 @@ import {
 import { listFolders, registerFolder, removeFolder, takeFolder } from "./filesystems.js";
 
 const WORK_INTENT_KINDS = [
-	// @lore BC3 architecture.md §5 B5: renamed from "assistant_turn".
 	"thread_turn",
 	"task_run",
 	"session_resume",
 	"subscription_run",
 ] as const;
 
-/**
- * The ONE audited cast: `AgentOrchestrationWorkIntentInput.sourceKind` is
- * wire-loose (`string`) at the port boundary, and `bakedRequest` is carried
- * opaque (`unknown`) — neither is inspected here, both are only forwarded.
- * `enqueueWorkIntent` treats them the same way (`insertIntentInternal` writes
- * `sourceKind` straight through and `JSON.stringify`s `bakedRequest` without
- * narrowing either), so asserting them onto `WorkIntentInput`'s narrower
- * wire-mirror types here is a single audited cast per field, not a
- * type-defeating `as unknown as T` launder — `kind`/`sourceId`/`requestedBy`/
- * `idempotencyKey` all type-check structurally with no cast at all.
- */
+/** Audited cast: sourceKind and bakedRequest are wire-loose (string/unknown) at the port boundary; forwarded as-is, not narrowed. */
 function toWorkIntentInput(body: AgentOrchestrationWorkIntentInput): WorkIntentInput {
-	// @lore BA2: session_resume carries a resume, not a start request. Splitting here
-	// keeps the cast audited per field on both branches.
+	// session_resume carries a resume, not a start request; split keeps the cast audited per field on both branches
 	if (body.kind === "session_resume") {
 		return {
 			kind: "session_resume",
@@ -166,10 +134,6 @@ export function createAgentOrchestrationIntakeRoutes(
 
 	// ── gate.linkReview — POST /agent-orchestration/review-links ────────────
 	//
-	// @lore BC3 architecture.md §3.3/§5 B4: `submit_review`'s
-	// `linkReviewToSession` moves here — `send_message` runs in core-api and
-	// may not touch `review_sessions` directly. Binds to the SAME write
-	// (`recordReviewSession`) the deleted tool-side accessor reached in-process.
 	router.post("/review-links", validateBody(gateLinkInputSchema), async (c) => {
 		const body = c.req.valid("json");
 		await recordReviewSession(
@@ -182,9 +146,6 @@ export function createAgentOrchestrationIntakeRoutes(
 
 	// ── intents.recordReviewVerdict — POST /agent-orchestration/review-verdicts ──
 	//
-	// @lore BA2: the verdict half of the review loop. `review_sessions` and `sessions` are
-	// this layer's tables, so the whole decision — is this a gate review, is its
-	// session resumable — is made here and the answer crosses back as data.
 	router.post("/review-verdicts", validateBody(gateVerdictInputSchema), async (c) => {
 		const body = c.req.valid("json");
 		// One audited cast, same idiom as `toWorkIntentInput`'s: the wire carries the
@@ -205,18 +166,9 @@ export function createAgentOrchestrationIntakeRoutes(
 
 	// ── runs.stopForTasks — POST /agent-orchestration/runs/stop-for-tasks ────
 	//
-	// @lore `runs.abort` (POST /runs/abort) is DELETED — `stop_session`
-	// is the caller that never existed, and the only in-layer abort
-	// (`provisioner.ts`'s own registry call) never went through HTTP. This
-	// route now calls the shared `stopSessionRun` per session (via
-	// `requestRunStopForTasks`), reaching the SAME registry abort
-	// `sessionRunRegistry.abort` gives directly — killing a task goes through
-	// the same abort without core ever learning a session id.
 	router.post(
 		"/runs/stop-for-tasks",
 		validateBody(
-			// @lore AU44 batch6: `reason` dropped — only "bet_killed" was legal
-			// and the function no longer accepts the param.
 			z.object({
 				taskIds: z.array(z.string().min(1)),
 			}),
@@ -231,17 +183,6 @@ export function createAgentOrchestrationIntakeRoutes(
 	);
 
 	// ── runs.endForHandoff — POST /agent-orchestration/runs/end-for-handoff ──
-	// @lore AU31 §3.1 extension: `endRunForHandoff`'s own header names an
-	// in-tx-with-the-caller invariant ("must be called with the caller's tx
-	// handle, so the run is terminal at the same commit as the task claim" —
-	// `end-run-for-handoff.ts`). Crossing the seam cannot preserve that —
-	// same relinquishment class architecture.md §3.1 already accepts for
-	// `knowledge.ts:934`/`threads.ts:1463` (a committed handoff followed by a
-	// failed run-end leaves a task claimed with a technically-still-active
-	// run; no safety-net sweep exists today for that state either per the
-	// function's own header, so the window is no wider than today's
-	// no-safety-net reality). Relinquished, not silently narrowed; no outbox
-	// (founder ruling, architecture.md §13 item 3).
 	router.post(
 		"/runs/end-for-handoff",
 		validateBody(z.object({ sessionId: z.string().min(1), endedAt: z.string().min(1) })),
@@ -282,11 +223,7 @@ export function createAgentOrchestrationIntakeRoutes(
 				modelId: z.string().nullable().optional(),
 				modelProvider: z.string().nullable().optional(),
 				maxConcurrentSessions: z.number().optional(),
-				// @lore Every field on a run-config patch is optional, so omitting one
-				// here still satisfies `AgentOrchestrationRunConfigPatch` — the
-				// `satisfies` below cannot catch a field this schema forgets, and a
-				// forgotten field is silently stripped at the seam rather than
-				// rejected. Add the field here whenever the view gains one.
+				// @lore: run-config patch schema — satisfies cannot catch a forgotten field; omitted fields strip silently at seam; add here when view gains one
 				modelOptions: z
 					.record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
 					.optional(),
@@ -308,9 +245,8 @@ export function createAgentOrchestrationIntakeRoutes(
 	});
 
 	// ── filesystems.persistInjection — POST /agent-orchestration/filesystems/:id/injections/persist ──
-	// §2.6: the existence check + insert core's `POST /api/filesystems/:id/injections`
-	// used to do via a direct `@hyperidle/filesystems` import. The team-consistency
-	// gate (users + team_members) stays core-side; only the persist crosses the seam.
+	// Existence check + insert — the team-consistency gate (users + team_members) stays core-side;
+	// only the persist crosses the seam.
 	router.post(
 		"/filesystems/:id/injections/persist",
 		validateBody(z.object({ agentUserId: z.string().min(1) })),

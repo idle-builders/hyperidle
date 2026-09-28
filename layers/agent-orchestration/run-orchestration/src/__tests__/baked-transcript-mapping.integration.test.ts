@@ -100,7 +100,7 @@ async function createRequestForTest(
 	return row;
 }
 
-describe("consumeAgentSessionRequest — baked transcript mapping (Increment 4)", () => {
+describe("consumeAgentSessionRequest — baked transcript mapping", () => {
 	test("maps baked raw transcript rows to generic chat messages, keyed on the running agent's own id", async ({
 		db,
 	}) => {

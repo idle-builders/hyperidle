@@ -6,8 +6,6 @@
  * and ThreadRow to surface a "+" attach affordance without prop-drilling through
  * the entire component tree.
  *
- * @lore AD8b: Renamed from CocContext → AssistantContext. The Coc/CoC noun is
- * purged (AD8a AC-10). All symbols and file references updated atomically.
  */
 
 import { createContext } from "react";
@@ -16,11 +14,6 @@ import { createContext } from "react";
  * A context reference with a display label for the chip (label is NOT
  * persisted in the message payload — only the wire fields travel over the wire).
  *
- * @lore AD8b: Renamed from CocContextRef → AssistantContextRef.
- * @lore artifacts-become-documents: BlockRef (kind:"block") removed — a block id rots
- * the moment the source is edited. Replaced by kind:"pending_block" which captures the
- * block's text at attach time and creates a real document parented to the thread on
- * send. No pointer, no degradation.
  */
 export type AssistantContextRef =
 	| {

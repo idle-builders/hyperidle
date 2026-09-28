@@ -4,7 +4,6 @@
  * tree, edit mode with auto-save and the version-clash banner, Move/Change
  * scope/Archive, and Promote to task.
  *
- * @lore with nothing returned the page renders an honest not-found state, not a fixture fallback string.
  */
 
 import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";

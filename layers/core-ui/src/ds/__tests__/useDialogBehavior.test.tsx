@@ -8,9 +8,7 @@
  * enters on open, is trapped, and returns to the trigger on close; layer →
  * zIndex resolution.
  *
- * @lore jsdom has no inert implementation — tests assert the focus-trap path only; assert the inert attribute in a real-browser E2E test instead.
  *
- * @lore focus-trap-react needs displayCheck:"none" under jsdom — jsdom lays out nothing, so every computed size reads 0.
  */
 
 import { act, renderHook } from "@testing-library/react";

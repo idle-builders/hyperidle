@@ -1,12 +1,8 @@
 /**
- * @lore a real `task.changed` wakes a subscribed agent, who reads its own instruction and edits the document it names.
- * @lore a subscription session's forced return action is `return_status`, never `send_message` — proves no message row was written.
- *
  * Per harness (claude / codex / opencode / cursor-agent), `requireHarness(...)`,
  * zero stubs, hard-fail if absent — never `skipIf` to green (CLAUDE.md,
  * testing.md).
  *
- * @lore builds composition through the shared `setUpLiveHarnessRun` — `layers/core-api` may not import `@hyperidle/agent-execution` directly.
  */
 
 import * as fs from "node:fs";
@@ -56,7 +52,6 @@ import type { Action } from "../actions/action.js";
 
 const NOW = "2026-09-23T00:00:00.000Z";
 
-// @lore a vitest timeout skips this file's own try/finally cleanup, and dispose() alone does not stop a running session.
 afterEach(() => {
 	stopAllLiveHarnessSessions();
 });
@@ -95,7 +90,6 @@ async function seedFounderTeamAgentAndDocument(
 		teamId: opts.teamId,
 		createdAt: NOW,
 	});
-	// @lore the run-config selector (`harnessType`) lives in `agent_run_config`, read live — not on the `users` identity row.
 	await db.insert(agentRunConfig).values({
 		agentUserId: opts.agentId,
 		harnessType: opts.harnessType,

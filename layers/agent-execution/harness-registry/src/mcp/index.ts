@@ -8,15 +8,7 @@ export { returnStatusTool } from "../return-status-tool.js";
 
 export interface McpToolBridge {
 	readonly router: Hono;
-	/**
-	 * Open a session-scoped MCP bridge slot. Returns the auth token AND the
-	 * fully-spelled `/api/mcp/<token>` URL that CLI harnesses dial.
-	 *
-	 * @lore Row 14 MERGE: `openMcpBridgeSession` was a one-string-template
-	 * wrapper around `bridge.open`. The URL now lives inside `open` itself —
-	 * `baseUrl` is passed to `createMcpToolBridge` at boot time (the one place
-	 * that knows the origin). Callers no longer thread `baseUrl` per-call.
-	 */
+	/** Open a session-scoped MCP bridge slot. Returns token and the full `/api/mcp/<token>` URL. */
 	open(session: {
 		readonly sessionId: string;
 		readonly registry: ToolRegistry;
@@ -46,7 +38,7 @@ export function createMcpToolBridge(
 			try {
 				await instance.mcpServer.close();
 			} catch {
-				// Custody is already removed; teardown cannot re-authorize the token.
+				// Custody already removed; teardown failure is safe to ignore.
 			}
 		},
 		handleRequest(token, request) {

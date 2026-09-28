@@ -1,20 +1,3 @@
-/**
- * SubscriptionsSection: list, add, pause/resume, remove a user's
- * subscriptions. Mounted on AgentProfile — an agent is woken by every
- * occurrence of what it is subscribed to, within its reach. A person's own
- * subscriptions live behind Settings → Notifications (a later screen); this
- * section is agent-facing.
- *
- * @lore BC5 T9: reuses the deleted `RoutineCreateDialog`'s "When" toggle
- * (schedule vs. event) and its Select/Input field shapes — the same choice a
- * routine's trigger used to make, now made against `edit_user`'s
- * `subscriptions.add` instead of `POST /api/routines`. The raw cron string is
- * shown as-is (no preset picker, no human-readable schedule label) — the
- * architecture note calls for "raw cron shown", not the preset catalog
- * `RoutineCreateDialog` offered; a friendlier schedule editor is not part of
- * this item.
- */
-
 import { OBJECT_EVENTS, type ObjectEventName } from "@hyperidle/domain-model";
 import { type JSX, useState } from "react";
 import { Button, Input, ItemList, Row, SectionLabel, Select } from "../ds";
@@ -30,10 +13,8 @@ export interface SubscriptionRow {
 }
 
 export interface SubscriptionsSectionProps {
-	/** The user (agent) these subscriptions belong to. */
 	userId: string;
 	subscriptions: readonly SubscriptionRow[];
-	/** Called after a successful add/pause/resume/remove — the parent refetches. */
 	onChanged: () => void;
 }
 

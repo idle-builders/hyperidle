@@ -12,21 +12,6 @@
  * testMatch targets only ah1-*.spec.ts files so the rest of the e2e suite
  * is unaffected (it continues to run via the main playwright.config.ts).
  *
- * @lore AH1: Port layout:
- *   3099 — AH1 API test server (Hono, PGlite in a per-boot tmp dir, credential key set)
- *   5180 — AH1 Vite dev server (proxies /api → 3099, VITE_HYPERIDLE_API_KEY set)
- *   (3001/5179 are the main dev and test ports — left untouched)
- *
- * @lore AH1: The API server is started with __scripts__/ah1-test-server.ts which:
- *   - mkdtemp's a fresh PGlite data dir (AU32 D4 — removed on shutdown)
- *   - Applies Drizzle migrations against it
- *   - Boots createServer(3099, { db })
- * Passing deps.db to createServer bypasses file-path DB resolution and ensures
- * the server uses the migrated tmp-dir instance.
- *
- * @lore AH1: VITE_HYPERIDLE_API_KEY must match HYPERIDLE_API_KEY in the API
- * server env. apiFetch injects it as X-API-Key on every /api/* request; the
- * Hono auth middleware validates it. Mismatch → 401 on every API call.
  */
 import { defineConfig, devices } from "@playwright/test";
 

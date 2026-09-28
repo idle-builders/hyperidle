@@ -42,7 +42,6 @@ async function seedTeamAndTask(db: HyperIdleDb, prefix: string): Promise<void> {
 			name: "Agent",
 			role: "builder",
 			status: "idle",
-			// @lore users.teamId references teams.id directly (no teamMembers hop).
 			teamId: `${prefix}-team-parent`,
 			createdAt: NOW,
 		},

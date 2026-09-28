@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { pathToView } from "../layouts/AppShell.js";
 
-describe("pathToView — the §8.6 Knowledge view-id exception", () => {
+describe("pathToView — the Knowledge view-id exception", () => {
 	it('returns "knowledge" for a /documents/:id path', () => {
 		expect(pathToView("/documents/abc")).toBe("knowledge");
 	});

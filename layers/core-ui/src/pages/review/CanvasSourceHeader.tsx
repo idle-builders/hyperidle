@@ -1,9 +1,6 @@
 // Canvases — shared source-attribution header.
 //
-// Founder feedback (human-design-review round 1): every canvas should make the
-// SOURCE APP obvious at the top and offer a jump-off link back to the original
-// record/ticket/PR/user in that tool ("Open in Stripe ↗"). The mini-logo alone
-// wasn't enough — name the app + give the link.
+// Every canvas shows the SOURCE APP name + a jump-off link to the original record in that tool ("Open in Stripe ↗").
 
 import type { JSX, ReactNode } from "react";
 import { isSafeSourceHref } from "./source-link-guard";

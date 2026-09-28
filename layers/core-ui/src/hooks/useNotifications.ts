@@ -1,14 +1,3 @@
-/**
- * UseNotifications hook.
- *
- * @lore BC5 T10: the door swap — `open_user({}).inbox` replaces `GET
- * /api/notifications/inbox`; `edit_user({ id: me, inbox: { seen, read } })`
- * replaces the seen/read/mute routes; a `user:<id>` websocket nudge
- * (`useSessionActivity.ts`'s topic-and-refetch shape) replaces the second
- * poll (architecture.md §8). There is no per-type mute left to call here —
- * a subscription's own pause lives in Settings → Notifications.
- */
-
 import type { ChangeRow } from "@hyperidle/domain-model";
 import { useCallback, useEffect, useState } from "react";
 import { call } from "../services/call.js";

@@ -14,9 +14,9 @@
  * first attempt this is. So a relocation that silently changed count-based to
  * max-based, or dropped the per-task predicate, would have shipped green.
  *
- * @lore the store computes the ordinal itself — the caller's transaction, not a separate count-then-insert, must observe one snapshot to avoid a race.
+ * @lore: the store computes the ordinal itself — the caller's transaction, not a separate count-then-insert, must observe one snapshot to avoid a race.
  *
- * @lore a second unique index outside schema.ts guards one dispatch per (task, occasion, predecessor, agent) — each fixture attempt needs a distinct predecessor.
+ * @lore: a second unique index outside schema.ts guards one dispatch per (task, occasion, predecessor, agent) — each fixture attempt needs a distinct predecessor.
  */
 
 import {
@@ -125,7 +125,7 @@ function attemptInput(
 }
 
 /**
- * @lore rows are ordered by ordinal, never createdAt — same-millisecond writes make createdAt non-total; address a row by id, not position, for creation order.
+ * @lore: rows are ordered by ordinal, never createdAt — same-millisecond writes make createdAt non-total; address a row by id, not position, for creation order.
  */
 async function ordinalsFor(db: HyperIdleDb, taskId: string): Promise<number[]> {
 	const rows = await db

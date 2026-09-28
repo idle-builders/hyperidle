@@ -25,7 +25,7 @@ function buildHarnessPorts() {
 	return buildRunningHarnessPorts({ evaluateReturn: () => "not_returned" as const });
 }
 
-describe("session_not_returned carries callingThreadId (Increment 5)", () => {
+describe("session_not_returned carries callingThreadId", () => {
 	const sandboxDirs: string[] = [];
 	afterEach(() => {
 		for (const dir of sandboxDirs.splice(0)) {

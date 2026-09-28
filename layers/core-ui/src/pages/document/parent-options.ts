@@ -18,7 +18,7 @@ export function scopeRank(scopeKind: string): number {
 	return SCOPE_RANK[scopeKind] ?? 0;
 }
 
-/** The max ancestor-chain length a candidate parent may already carry (architecture.md §3). */
+/** The max ancestor-chain length a candidate parent may already carry. */
 const MAX_TREE_DEPTH = 32;
 
 export interface ParentCandidate {
@@ -44,7 +44,7 @@ export interface BuildParentOptionsInput {
 /**
  * Only `document`-parented rows (or roots) are browsable tree nodes —
  * task/thread/subscription/agent-parented rows are off-tree by design
- * (architecture.md §3, "walks stop at the first non-document parent").
+ * (walks stop at the first non-document parent).
  */
 function isTreeNode(item: ParentCandidate): boolean {
 	return item.parentKind === null || item.parentKind === "document";

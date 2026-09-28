@@ -59,7 +59,6 @@ describe("AssistantContext", () => {
 
 	it("AssistantContextRef supports all attachment kinds", () => {
 		// Type-level test: all 5 context kinds compile
-		// @lore: betRef now uses kind:"task" (root tasks replace bets)
 		const betRef: AssistantContextRef = { kind: "task", id: "b1", label: "Bet" };
 		const taskRef: AssistantContextRef = { kind: "task", id: "t1", label: "Task" };
 		const documentRef: AssistantContextRef = { kind: "document", id: "ki1", label: "KB" };

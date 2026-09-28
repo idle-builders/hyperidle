@@ -11,8 +11,6 @@
  * (Archive and Flag-removed coverage tested `KnowledgeDetail` directly —
  * moved to `pages/__tests__/DocumentDetail.dialogs.test.tsx` when that page
  * was rewritten against `call("edit_document", …)`.)
- *
- * @lore: re-pointed onto `DocumentList`/`useDocuments` — `KnowledgeList` and its `useFetch("/api/knowledge")` read are gone.
  */
 
 import type { DocumentRow } from "@hyperidle/domain-model";
@@ -181,7 +179,6 @@ describe("DocumentList static scope pills", () => {
 // 2. "Shared" filter shows factory items only
 // ---------------------------------------------------------------------------
 
-// @lore SCOPE_PILL_OPTIONS is a direct 1:1 with the 3 real scope kinds — Shared shows factory only.
 describe("DocumentList Shared scope filter", () => {
 	const MIXED_ITEMS = [
 		makeItem("k-factory", "active", "factory", "Factory knowledge"),
@@ -430,7 +427,6 @@ describe("Scope-labels utility", () => {
 		expect(labels).toContain("Private");
 	});
 
-	// @lore role-scoped patterns are tree children under the Practices root now, not a scope pick — there is no Role scope option.
 	it("SCOPE_CREATE_OPTIONS includes exactly the 3 real scope kinds", async () => {
 		const { SCOPE_CREATE_OPTIONS } = await import("../utils/scope-labels");
 		expect(SCOPE_CREATE_OPTIONS).toHaveLength(3);
@@ -472,7 +468,6 @@ describe("Scope-labels utility", () => {
 		expect(scopeKindToLabel("factory")).toBe("Shared");
 	});
 
-	// @lore "product" is not a special-cased scope value — it falls through to the same unknown-kind fallback as any other string.
 	it("scopeKindToLabel returns Shared for product (retired scope value)", async () => {
 		const { scopeKindToLabel } = await import("../utils/scope-labels.js");
 		expect(scopeKindToLabel("product")).toBe("Shared");

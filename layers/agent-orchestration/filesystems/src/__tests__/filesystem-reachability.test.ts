@@ -51,7 +51,6 @@ afterAll(() => {
 });
 
 // ─── Inline noop resolver ────────────────────────────────────────────────────
-// @lore NoopAuthResolver is not exported from @hyperidle/filesystems' barrel;
 // a noop uses this inline structural object instead.
 const noopAuthResolver = {
 	resolveToken: async (_connectionId: string) => null,

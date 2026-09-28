@@ -48,11 +48,11 @@ export const noDialogBoilerplate: Rule.RuleModule = createRule({
 		schema: [],
 		messages: {
 			showModal:
-				"showModal() is native-dialog boilerplate. Migrated overlays use useDialogBehavior/Dialog from @hyperidle/design-system. (AI2 AC-5)",
+				"showModal() is native-dialog boilerplate. Migrated overlays use useDialogBehavior/Dialog from @hyperidle/design-system.",
 			setAttributeOpen:
-				"setAttribute('open') on a dialog element is native-dialog boilerplate. Use the Dialog/useDialogBehavior open prop instead. (AI2 AC-5)",
+				"setAttribute('open') on a dialog element is native-dialog boilerplate. Use the Dialog/useDialogBehavior open prop instead.",
 			cancelListener:
-				"addEventListener('cancel', ...) is native-dialog boilerplate. The AI2 dismissal grammar uses requestDismiss() via useDialogBehavior. (AI2 AC-5)",
+				"addEventListener('cancel', ...) is native-dialog boilerplate. The dismissal grammar uses requestDismiss() via useDialogBehavior.",
 		},
 	},
 	create(context) {

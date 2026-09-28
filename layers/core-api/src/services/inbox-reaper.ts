@@ -1,15 +1,3 @@
-/**
- * @lore BC5 T7b: the retention sweep's replacement for `@hyperidle/notifications`'
- * deleted `reap(db, cutoff)` — same rule (a *read* row older than `cutoff` is
- * deleted), moved onto the subscription mechanism's own `inbox` table.
- *
- * `inbox` carries no timestamp of its own (a pointer at a `changes` row); the
- * age check reads `@hyperidle/changes`' own `listChanges` instead of this
- * layer reaching into the `changes` table directly. The delete itself stays
- * behind `@hyperidle/user`'s own store — this Layer never writes another
- * Service's table.
- */
-
 import { listChanges } from "@hyperidle/changes";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { deleteReapableInboxRows, listReadInboxChangeIds } from "@hyperidle/user";

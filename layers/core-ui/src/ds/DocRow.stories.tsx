@@ -51,7 +51,6 @@ export const NullSignals = (): React.JSX.Element => (
 	/>
 );
 
-/** @lore nested-knowledge-items: exhaustive over the 4-value status ladder. */
 export const AllStatuses = (): React.JSX.Element => (
 	<div className="flex flex-col gap-1">
 		<DocRow title="Proposed item" status="proposed" timestamp="now" />

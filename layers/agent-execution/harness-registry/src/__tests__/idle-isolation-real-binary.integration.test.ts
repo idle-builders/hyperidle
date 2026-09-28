@@ -5,8 +5,7 @@
  * `mcp__idle` server, opencode's user-level `hyperidle` MCP entry) — an
  * orphaned harness session did exactly that on 2026-09-26.
  *
- * @lore cwd isolation alone does not hide user-level plugins — only redirecting CODEX_HOME/XDG_CONFIG_HOME away from real $HOME closes it.
- * @lore claude and cursor-agent have no per-session config-dir seam and still see the real plugin surface — this file proves isolation for codex/opencode only.
+ * @lore: cwd isolation — does not hide user-level plugins; only redirecting CODEX_HOME/XDG_CONFIG_HOME away from real $HOME closes the gap
  */
 
 import type { SessionConfig } from "@hyperidle/harness-protocol";

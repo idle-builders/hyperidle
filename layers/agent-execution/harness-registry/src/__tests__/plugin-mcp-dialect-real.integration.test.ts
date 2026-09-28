@@ -6,7 +6,7 @@
  *
  * Proof method (codex-toml and opencode-json dialects):
  *   1. Write a minimal stdio MCP server script that advertises one uniquely-named tool
- *      (XPROBE_TOOL_BA9B) to a temp file.
+ *      (XPROBE_TOOL) to a temp file.
  *   2. Call the production writePluginStdioMcpEntries() with the dialect under test,
  *      producing the dialect config file in a sandbox directory.
  *   3. Run `codex mcp list` / `opencode mcp list` in the sandbox and assert the
@@ -33,12 +33,7 @@
  * HARNESS LANE: real binaries, zero stubs, no LLM calls.
  * Gate: requireHarness("codex") / requireHarness("opencode") — hard-fail if absent.
  * Local-only: no CI job exists for this lane by design.
- *
- * @lore placed in harness-registry/__tests__/ so it can import writePluginStdioMcpEntries directly, no governance boundary crossed.
- *
- * @lore opencode 1.18.x requires command as a SINGLE array [binary, ...args] — a separate args array is rejected.
- *
- * @lore `codex mcp list` shows "enabled" regardless of whether the subprocess is running — it proves the TOML shape is accepted, not a live connection.
+
  */
 
 import { execFileSync, execSync } from "node:child_process";
@@ -51,11 +46,11 @@ import { requireHarness } from "./require-harness.js";
 
 // ---------------------------------------------------------------------------
 // Minimal stdio MCP probe server script.
-// Implements MCP 2024-11-05: initialize + tools/list (returns XPROBE_TOOL_BA9B).
+// Implements MCP 2024-11-05: initialize + tools/list (returns XPROBE_TOOL).
 // ---------------------------------------------------------------------------
 
 const PROBE_SERVER_SCRIPT = `#!/usr/bin/env node
-// Minimal stdio MCP 2024-11-05 server: exposes XPROBE_TOOL_BA9B
+// Minimal stdio MCP 2024-11-05 server: exposes XPROBE_TOOL
 import { createInterface } from 'node:readline';
 const rl = createInterface({ input: process.stdin });
 function send(obj) { process.stdout.write(JSON.stringify(obj) + '\\n'); }
@@ -66,14 +61,14 @@ rl.on('line', (line) => {
     send({ jsonrpc:'2.0', id:req.id, result:{
       protocolVersion:'2024-11-05',
       capabilities:{tools:{}},
-      serverInfo:{name:'ba9b-dialect-probe',version:'1.0.0'}
+      serverInfo:{name:'dialect-probe',version:'1.0.0'}
     }});
   } else if (req.method === 'initialized') {
     // notification — no response
   } else if (req.method === 'tools/list') {
     send({ jsonrpc:'2.0', id:req.id, result:{ tools:[{
-      name:'XPROBE_TOOL_BA9B',
-      description:'BA9b MCP dialect probe tool',
+      name:'XPROBE_TOOL',
+      description:'MCP dialect probe tool',
       inputSchema:{type:'object',properties:{}}
     }]}});
   } else if (req.id != null) {
@@ -116,7 +111,7 @@ describe("codex-toml dialect", () => {
 			sandboxPath,
 			servers: [
 				{
-					key: "ba9b-probe",
+					key: "dialect-key",
 					config: { command: NODE_BIN, args: [probeServerScript] },
 				},
 			],
@@ -126,7 +121,7 @@ describe("codex-toml dialect", () => {
 		const tomlPath = path.join(sandboxPath, ".codex-home", "config.toml");
 		expect(fs.existsSync(tomlPath), `config.toml must exist at ${tomlPath}`).toBe(true);
 		const tomlContent = fs.readFileSync(tomlPath, "utf-8");
-		expect(tomlContent).toContain("[mcp_servers.ba9b-probe]");
+		expect(tomlContent).toContain("[mcp_servers.dialect-key]");
 		expect(tomlContent).toContain(NODE_BIN);
 
 		// Run `codex mcp list` with CODEX_HOME pointing at .codex-home/.
@@ -137,7 +132,7 @@ describe("codex-toml dialect", () => {
 			encoding: "utf-8",
 		});
 		// The server name must appear in the list output.
-		expect(result).toContain("ba9b-probe");
+		expect(result).toContain("dialect-key");
 	});
 
 	it("env and cwd fields are written to TOML and read by codex", () => {
@@ -148,7 +143,7 @@ describe("codex-toml dialect", () => {
 			sandboxPath,
 			servers: [
 				{
-					key: "ba9b-probe-env",
+					key: "dialect-key-env",
 					config: {
 						command: NODE_BIN,
 						args: [probeServerScript],
@@ -171,7 +166,7 @@ describe("codex-toml dialect", () => {
 			timeout: 15_000,
 			encoding: "utf-8",
 		});
-		expect(result).toContain("ba9b-probe-env");
+		expect(result).toContain("dialect-key-env");
 	});
 });
 
@@ -188,7 +183,7 @@ describe("opencode-json dialect", () => {
 			sandboxPath,
 			servers: [
 				{
-					key: "ba9b-probe",
+					key: "dialect-key",
 					config: { command: NODE_BIN, args: [probeServerScript] },
 				},
 			],
@@ -200,7 +195,7 @@ describe("opencode-json dialect", () => {
 		const parsed = JSON.parse(fs.readFileSync(jsonPath, "utf-8")) as {
 			mcp?: Record<string, { type: string; command?: string[] }>;
 		};
-		const entry = parsed.mcp?.["ba9b-probe"];
+		const entry = parsed.mcp?.["dialect-key"];
 		expect(entry?.type).toBe("local");
 		expect(Array.isArray(entry?.command)).toBe(true);
 		expect(entry?.command?.[0]).toBe(NODE_BIN);
@@ -215,7 +210,7 @@ describe("opencode-json dialect", () => {
 			encoding: "utf-8",
 		});
 		// The server must appear and be connected (successful MCP handshake).
-		expect(result).toContain("ba9b-probe");
+		expect(result).toContain("dialect-key");
 		expect(result).toContain("connected");
 	});
 
@@ -227,7 +222,7 @@ describe("opencode-json dialect", () => {
 			sandboxPath,
 			servers: [
 				{
-					key: "ba9b-probe-env",
+					key: "dialect-key-env",
 					config: {
 						command: NODE_BIN,
 						args: [probeServerScript],
@@ -241,7 +236,7 @@ describe("opencode-json dialect", () => {
 		const parsed = JSON.parse(fs.readFileSync(jsonPath, "utf-8")) as {
 			mcp?: Record<string, { env?: Record<string, string> }>;
 		};
-		const envObj = parsed.mcp?.["ba9b-probe-env"]?.env;
+		const envObj = parsed.mcp?.["dialect-key-env"]?.env;
 		expect(envObj).toEqual({ XPROBE_ENV_KEY: "xprobe-env-value" });
 
 		const result = execSync("opencode mcp list", {
@@ -250,7 +245,7 @@ describe("opencode-json dialect", () => {
 			timeout: 20_000,
 			encoding: "utf-8",
 		});
-		expect(result).toContain("ba9b-probe-env");
+		expect(result).toContain("dialect-key-env");
 		expect(result).toContain("connected");
 	});
 });

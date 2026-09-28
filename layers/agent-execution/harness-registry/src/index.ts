@@ -1,27 +1,3 @@
-/**
- * @lore AU31 §2.5: `buildToolRegistry` (the dispatch — role-filter +
- * zod-validate + workflow-route closure over shared types, zero execution
- * content) moved to `@hyperidle/tool-handlers` — the agent-orchestration
- * Service that owns the definitions it dispatches. Its only production
- * caller was the core wrapper AU31 deleted (`services/tool-provider-
- * bindings.ts`); nothing inside this package called it.
- *
- * @lore AU34: the `AdapterInfo`/`AdapterMeta`/`HarnessAdapter`/
- * `HarnessCapabilityDescriptor`/`ToolRegistry` re-export from the (now-
- * deleted) `@hyperidle/shared` barrel had zero consumers importing them
- * through this package — every real caller already reached them via
- * `@hyperidle/harness-protocol`/`@hyperidle/harness-capability`/
- * `@hyperidle/tool-protocol` directly, so the re-export is dropped rather
- * than repointed.
- *
- * @lore AU44-review: the worker-protocol.ts copy is deleted; the wire
- * protocol types live in @hyperidle/harness-protocol only. Consumers that
- * previously imported them through this package (agent-execution, core-api
- * tests) were moved to import from @hyperidle/harness-protocol directly —
- * re-exporting is blocked by no-laundered-re-exports because harness-protocol
- * is a named-audience package.
- */
-
 export {
 	type AdapterFilter,
 	AdapterPool,

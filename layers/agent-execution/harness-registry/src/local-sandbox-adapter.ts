@@ -1,20 +1,4 @@
-/**
- * Local sandbox adapter — creates per-session working directories on the host file system (D3).
- * @lore AK1: Renamed from local-workspace-adapter.ts.
- * @lore AQ1: The run-unit is a host working directory; the agent runs as a host process with the
- * user's environment. No container isolation is built or claimed (AQ2 adds opt-in isolation).
- * Refused on server profiles (non-laptop) — the shared backend runs no agents
- * (DisabledSandboxAdapter handles that boot guard). Laptop profile is always allowed.
- *
- * @lore BA2 ruling 22: the sandbox is deliberately NOT git-initialized here.
- * `spawn()` only creates the bare directory — `ensureSandboxGitRepo`
- * (run-orchestration/mounter.ts) makes it a git repo AFTER filesystem
- * mounting (Phase 4.5) runs, because a code filesystem's mount adapter
- * (`git clone` / `git worktree add`) refuses to write into a directory that
- * already has a `.git` — verified empirically (both exit non-zero: "already
- * exists"/"not an empty directory"). Git-initializing here, before mounting,
- * would break every session with a mounted code filesystem.
- */
+// @lore: spawn() does NOT git-init — ensureSandboxGitRepo (mounter.ts) runs AFTER mounting; git clone/worktree add refuse to write into an existing .git
 
 import { mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
@@ -26,13 +10,7 @@ export class LocalSandboxAdapter implements SandboxAdapter {
 	private readonly sandboxes = new Map<string, SandboxHandle>();
 
 	constructor() {
-		// @lore I2 review A3 / S4 / AQ1: refuse to operate on server deployments.
-		// The local adapter executes commands directly on the host filesystem;
-		// it is the correct run path on laptop profiles (the agent runs host-local
-		// with the user's environment). On server profiles (vps/cloud) the shared
-		// backend runs no agents — DisabledSandboxAdapter is used there.
-		// The gate uses HYPERIDLE_PROFILE rather than NODE_ENV so the desktop app
-		// (laptop profile, NODE_ENV=production) is not blocked.
+		// Gate uses HYPERIDLE_PROFILE (not NODE_ENV) so desktop app (laptop, NODE_ENV=production) is not blocked.
 		const profile = process.env.HYPERIDLE_PROFILE ?? "laptop";
 		if (process.env.NODE_ENV === "production" && profile !== "laptop") {
 			throw new Error(
@@ -50,14 +28,7 @@ export class LocalSandboxAdapter implements SandboxAdapter {
 		return handle;
 	}
 
-	/**
-	 * Register an existing directory as a sandbox this adapter owns.
-	 *
-	 * The registry is per-process, so a directory left behind by an earlier run
-	 * of the app is unknown to `destroy` until it is adopted — which is exactly
-	 * the case a resumed session is in, a human having taken however long they
-	 * took to answer.
-	 */
+	/** Per-process registry — resumed sessions must adopt their directory so destroy() can find it. */
 	async adopt(path: string): Promise<SandboxHandle> {
 		await mkdir(path, { recursive: true });
 		const sandboxId = `local-sb-adopted-${nextId++}-${Date.now()}`;

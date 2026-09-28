@@ -1,25 +1,3 @@
-/**
- * Placement ruling — the `task_run` emit-time resolver,
- * paired with its three real emit sites: `task-state-machine.ts`,
- * `bet-decomposition.ts` (same package, plain import) and
- * `layers/core-api/policy/src/handoff-protocol.ts` (a sibling package,
- * injected via `PolicyDeps` at the `policy-bindings.ts` composition root).
- * Does exactly what `resolveIntentInputInternal`'s "task_run" case does today
- * (`session-requests/src/service.ts:753-773`), reading only `work`'s own
- * tables (`taskDispatchAttempts`, `tasks`, `bets`) plus the shared
- * ast-`<userId>` runnability invariant.
- *
- * @lore Mechanism C: `requireRunnableAgent` (`@hyperidle/user`) is injected,
- * not statically imported — same shape as `assistant-turn-resolver.ts`'s
- * `AssistantTurnResolverDeps`. Return type widened to `Promise<User>` in
- * Increment 12 Wave B (was deliberately `Promise<unknown>` through Increment
- * 3-11 since this resolver only awaited the call for its throw-on-unrunnable
- * side effect) — the contextBundle bake below reuses `agent.name`/`agent.role`
- * from this SAME already-validated row (the H2/Increment 11 precedent:
- * `assistant-turn-resolver.ts`'s `agent.modelId`/`agent.modelProvider` reuse),
- * never a second read.
- */
-
 import type { HyperIdleDb, Task, Team, User } from "@hyperidle/db";
 import type {
 	BakedAgentRunnableConfig,
@@ -30,37 +8,11 @@ import { bakeAgentRunnableConfig, toBakedContextDocuments } from "@hyperidle/dom
 import * as work from "./task-service.js";
 import { taskDispatchAttemptStore } from "./task-service.js";
 
-/** Injected dependency — see the Mechanism C `@lore` above. */
 export interface TaskRunResolverDeps {
 	requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<User>;
-	/**
-	 * The agent's identity document body, baked onto the request so the
-	 * provisioner never reads `documents` — that table belongs to the
-	 * document service. Injected (Mechanism C).
-	 */
-	/**
-	 * The agent's identity document, baked onto the request.
-	 *
-	 * Required, not optional: while it was optional, two of the call sites that
-	 * bake an assistant turn simply never wired it, compiled clean, and baked no
-	 * identity at all. A required port turns that into a compile error.
-	 */
+	/** Required — a required port turns missing wiring into a compile error. */
 	getAgentIdentity(db: HyperIdleDb, agentId: string): Promise<string | null>;
-	/**
-	 * Optional: `@hyperidle/user`'s
-	 * `getTeam`, injected (Mechanism C — `@hyperidle/work`'s `package.json`
-	 * depends only on `@hyperidle/db` + framework packages, never
-	 * `@hyperidle/user`). Absent at a call site not yet wired to bake context
-	 * (composition-root wiring is a later wave) — the resolver falls back to
-	 * baking no `contextBundle` rather than throwing, matching every existing
-	 * caller's current (context-free) behavior unchanged.
-	 */
 	getTeamById?(db: HyperIdleDb, id: string): Promise<Team | undefined>;
-	/**
-	 * Optional: `@hyperidle/document`'s
-	 * `assembleSessionDocuments` (Wave A), injected for the same Mechanism C
-	 * reason as `getTeamById` above.
-	 */
 	assembleSessionDocuments?(
 		db: HyperIdleDb,
 		input: {
@@ -69,14 +21,6 @@ export interface TaskRunResolverDeps {
 			readonly agentId: string;
 		},
 	): Promise<readonly SessionDocumentLike[]>;
-	/**
-	 * Optional: `@hyperidle/settings`'s
-	 * `readServerConfig`, injected (Mechanism C — `@hyperidle/work` cannot
-	 * import `@hyperidle/settings` directly) for the `harnessDisabled` bake.
-	 * Absent at a call site not yet wired — the resolver bakes no
-	 * `harnessDisabled` (matching `admitSession`'s own "absent defaults to
-	 * nothing disabled" degrade), never a live read reintroduced downstream.
-	 */
 	readServerConfig?(db: HyperIdleDb): Promise<{ readonly harnessDisabled: readonly string[] }>;
 }
 
@@ -92,50 +36,15 @@ export interface BakedTaskRunRequest {
 		readonly taskId: string;
 		readonly teamId: string;
 	};
-	/**
-	 * The task/bet/agent/team content +
-	 * ranked documents a `task_run` session's sandbox needs, baked at emit time
-	 * from the SAME `task` (+ its `bet`) this resolver already loads to
-	 * validate. Present only when `deps.getTeamById`/`deps.assembleSessionDocuments`
-	 * were supplied (see `TaskRunResolverDeps` `@lore`).
-	 */
 	readonly contextBundle?: BakedContextBundle;
-	/**
-	 * The target agent's
-	 * runnable-config snapshot, baked from the SAME already-`requireRunnableAgent`
-	 * -validated `agent: User` row (`BakedAgentRunnableConfig`, `@hyperidle/work-intent-port`).
-	 * Always present (no optional-deps gate) — `admitSession`'s Phase 1/3 need
-	 * it for every `task_run` session, not just the ones with a `contextBundle`.
-	 */
+	/** Runnable-config snapshot baked from the same validated agent row — always present. */
 	readonly agentConfig: BakedAgentRunnableConfig;
-	/**
-	 * The server's
-	 * disabled-harness-types list. Present only when `deps.readServerConfig`
-	 * was supplied (see `TaskRunResolverDeps` `@lore`).
-	 */
 	readonly harnessDisabled?: readonly string[];
-	/**
-	 * @lore The task's own thread — a real, `NOT NULL` column, so this is
-	 * one read, never a resolve-or-create. Always present.
-	 */
+	/** `NOT NULL` column — always present, one read, never a resolve-or-create. */
 	readonly callingThreadId: string;
 }
 
-/**
- * Bake the `contextBundle` (`kind:"task"`) a `task_run` session's sandbox
- * needs: the task/bet this resolver already loaded to validate, the
- * just-validated agent, the task's team, and the ranked+budgeted document
- * bundle (`@hyperidle/document`'s `assembleSessionDocuments`, injected).
- * Returns `undefined` (never throws) if the team can't be resolved — a
- * missing team would be a data-integrity surprise, not a reason to fail the
- * whole run's bake.
- */
-/**
- * Exported so a caller that provisions a session WITHOUT going through the
- * emit-time pipeline can bake the same bundle the pipeline would — the eval
- * harness is one, and it must run the prompt production actually ships rather
- * than assembling a lookalike by hand.
- */
+/** Bake the context bundle for a `task_run` session. Returns `undefined` (never throws) if the team can't be resolved. */
 export async function bakeTaskContextBundle(
 	db: HyperIdleDb,
 	task: Task,
@@ -204,14 +113,12 @@ export async function resolveTaskRunRequest(
 	// provisioner never touches documents.
 	const agentPersona = await deps.getAgentIdentity(db, agent.id);
 
-	// Bake the contextBundle only when the
-	// caller supplied both context deps (see TaskRunResolverDeps `@lore`) —
+	// Bake the contextBundle only when both context deps are supplied —
 	// destructured into locals so TS keeps them narrowed non-optional inside
 	// the block below, no non-null assertion needed.
 	let contextBundle: BakedContextBundle | undefined;
 	const { getTeamById, assembleSessionDocuments, readServerConfig } = deps;
 	if (getTeamById && assembleSessionDocuments) {
-		// The containing work is now a chain, not a single bet.
 		// `listAncestorIds` returns nearest-first; the bundle wants root-first.
 		const ancestorIds = await work.listAncestorIds(db, task.id);
 		const ancestorRows =

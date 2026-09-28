@@ -1,29 +1,7 @@
-/**
- * Git subprocess runner for the agent-orchestration layer.
- *
- * Moved here from the deleted `@hyperidle/host-process` package.
- * The framework package existed because the runner was once shared across the
- * core-api/filesystems probe AND agent-orchestration. That sharing never
- * materialised — the filesystems probe now lives entirely inside
- * `layers/agent-orchestration/filesystems/` so there is exactly one owner.
- *
- * @lore N1: `node:child_process.spawn` is the canonical subprocess API.
- * @lore Every method is typed + whitelisted — we never forward user strings
- * straight into argv. The factory sets `GIT_TERMINAL_PROMPT=0` so an auth
- * failure errors immediately instead of hanging on an interactive password
- * prompt.
- */
 import { spawn } from "node:child_process";
 import { createLogger, type Logger } from "@hyperidle/diagnostics";
 
-/**
- * Optional per-request git config injected via environment variables.
- * Token never goes in argv or URL — only in the child env via GIT_CONFIG_*
- * (verified mechanism).
- *
- * @lore AO1 v2: GIT_CONFIG_COUNT/KEY_n/VALUE_n is the ONLY safe token path.
- * Putting tokens in the URL or `-c http.extraHeader=…` in argv leaks to ps/logs.
- */
+// @lore: git token injection — GIT_CONFIG_COUNT/KEY_n/VALUE_n only; argv/URL leaks to ps/logs
 interface GitConfigInjection {
 	/** git config key, e.g. `http.https://github.com/.extraHeader` */
 	key: string;
@@ -47,20 +25,15 @@ interface GitRunner {
 	 * exit 0 → { reachable: true }; non-zero → { reachable: false, reason }.
 	 * Token injected via GIT_CONFIG_COUNT/KEY_n/VALUE_n env — NEVER in URL or argv.
 	 *
-	 * @lore AO1 v2: This is the REAL reachability gate. The non-zero exit is
-	 * DATA (unreachable), not an exception. Never throws — always returns a result object.
-	 * Token-shape stderr is redacted before it enters the reason string.
+	 * @lore: lsRemote — non-zero exit is data (unreachable), not exception; never throws; token-shape stderr redacted
 	 */
 	lsRemote(
 		url: string,
 		opts?: { tokenConfig?: GitConfigInjection },
 	): Promise<{ reachable: boolean; reason?: string }>;
 	/**
-	 * Shallow clone a remote URL into the runner's cwd (the session dir).
-	 * Token is injected via GIT_CONFIG_COUNT/KEY_n/VALUE_n env — never in URL or argv.
-	 *
-	 * @lore AO2: cwd = sandboxPath (the session working directory). Clone INTO `.`,
-	 * not into a subdirectory, so the agent sees the repo root at sandboxPath.
+	 * Shallow clone a remote URL into the runner's cwd. Token injected via GIT_CONFIG_COUNT/KEY_n/VALUE_n — never in URL or argv.
+	 * @lore: clone — clones into cwd (`.`), not a subdirectory; agent sees repo root at sandboxPath
 	 */
 	clone(
 		url: string,
@@ -68,44 +41,24 @@ interface GitRunner {
 		opts?: { depth?: number; tokenConfig?: GitConfigInjection },
 	): Promise<void>;
 	/**
-	 * Bundle a named ref to a file path (shallow-safe named-ref bundle).
-	 *
-	 * @lore AO2: Named-ref bundles are shallow-safe (git ≥2.2). The ref must be
-	 * a full refspec for unambiguous unbundling.
+	 * @lore: bundle — named-ref bundles are shallow-safe (git ≥2.2); ref must be full refspec for unambiguous unbundling
 	 */
 	bundle(bundlePath: string, ref: string): Promise<void>;
 	/**
-	 * Add a worktree at worktreePath on the given branch.
-	 * Runs against the HOST REPO (runner cwd = host repo path).
-	 *
-	 * @lore AO2: createBranch=true creates a NEW branch from HEAD. Git refuses
-	 * two worktrees on the same branch — always use unique branch names.
+	 * @lore: worktreeAdd — git refuses two worktrees on same branch; createBranch=true creates new branch from HEAD; always use unique names
 	 */
 	worktreeAdd(
 		worktreePath: string,
 		branch: string,
 		opts?: { createBranch?: boolean },
 	): Promise<void>;
-	/**
-	 * Remove a worktree from the host repo's worktree list.
-	 *
-	 * @lore AO2: force=true removes even if the worktree has untracked/modified files.
-	 */
 	worktreeRemove(worktreePath: string, opts?: { force?: boolean }): Promise<void>;
 	/**
-	 * Restore tracked files to their HEAD state in the INDEX (unstage modifications).
-	 * `git restore --staged -- <paths...>`
-	 *
-	 * @lore AO2 W-ENV: Uses the same spawn + allowlist env as every other runner
-	 * verb, eliminating env leak and shell-quoting fragility.
+	 * Restores tracked files to HEAD state in the index (unstage).
 	 */
 	restoreStaged(paths: readonly string[]): Promise<void>;
 	/**
-	 * Return the name of the currently checked-out branch, or `null` when the branch
-	 * cannot be resolved (detached HEAD, repo with no commits, or any git error).
-	 * Never throws.
-	 *
-	 * @lore AV1: Added for onboarding branch detection.
+	 * Returns the checked-out branch name, or `null` for detached HEAD, no commits, or git error. Never throws.
 	 */
 	currentBranch(): Promise<string | null>;
 }
@@ -140,15 +93,7 @@ function redactArgs(args: readonly string[]): string[] {
 	return args.map(redactArg);
 }
 
-/**
- * Minimal env allow-list. Intentionally drops `HYPERIDLE_API_KEY` and other secrets.
- *
- * @lore Security review [high] `git-export-runner.ts:64` — inheriting
- * `process.env` exposed credential.helper, http.proxy, and HYPERIDLE_API_KEY to child git.
- * Now we compose a minimal env from PATH + HOME + a small allow-list plus hardening vars.
- *
- * @lore AO1 v2: GIT_CONFIG_COUNT/KEY_n/VALUE_n is the safe env-injection path for tokens.
- */
+// @lore: buildGitEnv — inheriting process.env exposes secrets to child git; use minimal allowlist + hardening vars only
 function buildGitEnv(extraConfigs?: readonly GitConfigInjection[]): Record<string, string> {
 	const allowed = [
 		"PATH",
@@ -354,7 +299,7 @@ export function createGitRunner(repoPath: string): GitRunner {
 			if (opts?.createBranch) args.push("-b", branch);
 			args.push("--", worktreePath);
 			if (!opts?.createBranch) args.push(branch);
-			// @lore worktree-hook-timeout: `git worktree add` runs the post-checkout hook.
+			// @lore: worktreeAdd — runs post-checkout hook; needs longLocalMs timeout
 			await runExpectOk(args, longLocalMs);
 		},
 		async worktreeRemove(worktreePath: string, opts?: { force?: boolean }): Promise<void> {

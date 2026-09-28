@@ -1,14 +1,3 @@
-/**
- * Programmatic migration runner and downgrade protection.
- * Extracted from setup-cli so both the CLI and the Electron desktop share
- * a single migration code path.
- *
- * @lore Phase 2 PGlite migration: applyMigrations() is now async and uses
- * PGlite instead of better-sqlite3. The `dataDir` argument is a filesystem
- * path that PGlite uses as its data directory (equivalent to the old dbPath).
- * `isDowngrade()` queries the drizzle migrations table via PGlite.
- */
-
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { PGlite } from "@electric-sql/pglite";
@@ -20,10 +9,6 @@ export interface MigrationResult {
 	readonly schemaVersion: number;
 }
 
-/**
- * Count applied migrations from the drizzle_migrations table.
- * Returns 0 if the table does not exist.
- */
 async function countAppliedMigrations(client: PGlite): Promise<number> {
 	const checkResult = await client.query<{ exists: boolean }>(
 		`SELECT EXISTS (
@@ -41,19 +26,11 @@ async function countAppliedMigrations(client: PGlite): Promise<number> {
 	return Number(countResult.rows[0]?.count ?? 0);
 }
 
-/**
- * Run all pending Drizzle migrations against the PGlite database at dataDir.
- *
- * Opens a dedicated PGlite instance, runs migrations, then closes it.
- * Does NOT seed — seeding is only for the setup-cli development workflow.
- *
- * @throws if the data directory does not contain a valid migrations journal.
- */
+/** Does NOT seed — seeding is only for the setup-cli development workflow. */
 export async function applyMigrations(
 	dataDir: string,
 	migrationsFolder: string,
 ): Promise<MigrationResult> {
-	// Validate the migrations folder exists before opening the DB
 	const journalPath = path.join(migrationsFolder, "meta", "_journal.json");
 	if (!fs.existsSync(migrationsFolder)) {
 		throw new Error(`ENOENT: no such file or directory, open '${migrationsFolder}'`);
@@ -78,20 +55,12 @@ export async function applyMigrations(
 	}
 }
 
-/**
- * Check if the database schema is newer than the bundled migrations.
- * Returns true if a downgrade is detected (DB has migrations the app
- * does not know about).
- *
- * Returns false if the data directory does not exist (fresh install).
- */
+/** Returns true when the DB has applied migrations the bundled journal doesn't know about. Returns false on fresh install. */
 export async function isDowngrade(dataDir: string, migrationsFolder: string): Promise<boolean> {
-	// Fresh install: no data directory yet
 	if (!fs.existsSync(dataDir)) {
 		return false;
 	}
 
-	// Read the bundled journal to count bundled migrations
 	const journalPath = path.join(migrationsFolder, "meta", "_journal.json");
 	let bundledCount = 0;
 	try {
@@ -100,7 +69,6 @@ export async function isDowngrade(dataDir: string, migrationsFolder: string): Pr
 		};
 		bundledCount = journal.entries.length;
 	} catch {
-		// If we can't read the journal, assume no downgrade
 		return false;
 	}
 

@@ -1,4 +1,4 @@
--- AL7 trust-first redo: drop v1 kernel-executor tables (pre-implementation, no prod rows).
+-- Drop v1 kernel-executor tables (pre-implementation, no prod rows).
 -- Replaces staged_operations → proposed_calls; operation_outcomes FK renamed; adds tailored_grants.
 DROP TABLE IF EXISTS "operation_outcomes";
 --> statement-breakpoint

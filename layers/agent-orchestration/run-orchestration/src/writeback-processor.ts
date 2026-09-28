@@ -21,19 +21,10 @@ const logger = createLogger({ pkg: "run-orchestration.writeback" });
 // ---- capture-writeback-ports ----
 // ---------------------------------------------------------------------------
 // document — CaptureWritebackDocumentPort, bound to core's composed
-// `edit_document`/`search_documents` actions (architecture.md §8.4).
+// `edit_document`/`search_documents` actions.
 // ---------------------------------------------------------------------------
 
-/**
- * The identity a writeback write is attributed to — the SAME shape
- * `CoreApiBoot.editDocument`'s `caller` parameter locks (architecture.md
- * §8.4): `actor` is the session's real agent id (a real `users.id` —
- * `changes.actor` is an FK, so nothing else satisfies it),
- * `sessionId`/`taskId`/`threadId` are the calling context `edit_document`'s
- * own artifact-stamp fallback reads, unused here because every writeback
- * create/move passes an explicit `parent` (§3.6) and never relies on that
- * fallback.
- */
+/** Identity for writeback attribution. `actor` is the session's real agent id (a `users.id` FK — nothing else satisfies it). */
 interface CaptureWritebackCaller {
 	readonly actor: string;
 	readonly sessionId: string;
@@ -42,19 +33,9 @@ interface CaptureWritebackCaller {
 }
 
 /**
- * Port for the document create/update/move surface `writeback-processor.ts`
- * calls directly — `{ editDocument, searchDocuments }` bound from core's
- * composed action list (architecture.md §8.4), never `open_document`: a
- * writeback re-read is not a person reading a document (§6.7), and giving
- * this port an `open_document` runner at all would make a miscount
- * reachable. `run-orchestration` may not import `core-api`, so both methods
- * are typed only through `@hyperidle/domain-model`.
- *
- * @lore document-module B15: replaces `CaptureWritebackKnowledgeWriter`'s
- * `create`/`update`/`reparentKnowledgeItem` — a document has no conflict
- * object (founder ruling, B0c) and no separate move call; a stale write is
- * refused (`editDocument`'s `problems[0].code === "stale"`) and discarded,
- * and a move is an ordinary `edit_document({id, parent})`.
+ * Port for the document surface: `{ editDocument, searchDocuments }` bound from core, never `open_document`
+ * (writeback re-read is not a person reading — gives miscount). Stale writes are refused (code "stale") and discarded;
+ * a document has no conflict object, so discard is the only path. `run-orchestration` may not import `core-api`.
  */
 interface CaptureWritebackDocumentPort {
 	editDocument(
@@ -69,20 +50,11 @@ interface CaptureWritebackDocumentPort {
 
 // ---------------------------------------------------------------------------
 // context-assembly — Manifest/ManifestEntry
-//
-// @lore nested-knowledge-items (review.md B5): this used to be a second,
-// independently-declared copy of the writer's (context.ts) shape — same
-// fields, two interfaces, so TypeScript never compared them and the writer's
-// missing `scopeKind` went uncaught. Both files now import the one shared
-// declaration in manifest-types.ts.
 // ---------------------------------------------------------------------------
 
 // ---- writeback ----
 interface WritebackConfig {
 	db: HyperIdleDb;
-	/**
-	 * @lore AK1: Renamed per harness-vocab plan (AK1).
-	 */
 	sandboxPath: string;
 	sessionId: string;
 	manifestPath: string;
@@ -117,18 +89,15 @@ interface WritebackResult {
 	deleted: number;
 }
 
-/** Read the manifest from disk. */
 function readManifest(manifestPath: string): Manifest {
 	const raw = fs.readFileSync(manifestPath, "utf-8");
 	return JSON.parse(raw) as Manifest;
 }
 
-/** Write the manifest back to disk. */
 function writeManifest(manifestPath: string, manifest: Manifest): void {
 	fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
 }
 
-/** Find the item ID for a given relative path in the manifest. */
 function findItemByPath(
 	manifest: Manifest,
 	relativePath: string,
@@ -141,17 +110,14 @@ function findItemByPath(
 	return null;
 }
 
-/** Check if a path is in the knowledge/ zone. */
 function isKnowledgePath(relativePath: string): boolean {
 	return relativePath.startsWith("knowledge/");
 }
 
-/** Check if a path is the session notes file. */
 function isSessionNotesPath(relativePath: string): boolean {
 	return relativePath === "work/session-notes.md" || relativePath === "work/task-notes.md";
 }
 
-/** Extract a title from a filename. */
 function titleFromFilename(filename: string): string {
 	const base = path.basename(filename, path.extname(filename));
 	return base.replace(/[_-]/g, " ");
@@ -159,11 +125,11 @@ function titleFromFilename(filename: string): string {
 
 /**
  * The `_${id.slice(0,8)}` suffix `toFilename` (context.ts) puts on every
- * materialised path (D3) — the one thing making a path unique, and what
+ * materialised path — the one thing making a path unique, and what
  * makes a move self-identifying. Matched against the FILENAME two paths
  * carry, not against any real database id: the suffix is a stable token a
  * rename preserves, decoupled from whichever id a fresh `create()` call
- * happens to assign (architecture.md §5).
+ * happens to assign.
  */
 function filenameIdSuffix(relativePath: string): string | null {
 	const base = path.basename(relativePath, path.extname(relativePath));
@@ -194,7 +160,7 @@ function findManifestEntryBySuffix(
 /**
  * A manifest-cached `scopeKind` is always a real `ScopeKind` — every value in
  * the manifest came from a `documents.scope_kind` row `edit_document` itself
- * wrote (`SCOPE_KINDS`-constrained at the schema, §6.1). `ManifestEntry`
+ * wrote (`SCOPE_KINDS`-constrained at the schema). `ManifestEntry`
  * declares it `string` (an untyped JSON cache), so this is a boundary
  * assertion, not a real fallback — a mismatch means the manifest was hand-
  * edited or corrupted, and that is worth throwing over, not silently
@@ -217,7 +183,7 @@ function refusalError(
 	);
 }
 
-/** A parent document's identity plus its REAL current scope — id, scopeKind and scopeId travel together, because a "team"/"user" scopeKind is meaningless without the id beside it (I7: `scope_needs_id`). */
+/** A parent document's identity plus its REAL current scope — id, scopeKind and scopeId travel together, because a "team"/"user" scopeKind is meaningless without the id beside it. */
 interface DirectoryParent {
 	readonly id: string;
 	readonly scopeKind: string;
@@ -226,23 +192,11 @@ interface DirectoryParent {
 
 /**
  * Ensure every directory from `knowledge/` down to `dirRelativePath` has a
- * document (plan.md D4: "a folder is a document"), creating any that are
+ * document (a folder is a document), creating any that are
  * missing, and return the immediate parent's document id + its REAL stored
  * scope (`null` at the `knowledge/` root itself).
  *
- * @lore nested-knowledge-items §5 D4: a created directory item inherits its
- * own parent's scope. Manifest entries double as the directory→item index —
- * a directory's `source_path` is its own relative path, so `findItemByPath`
- * already tells this function which directories already have an item.
- *
- * @lore document-module B15: the returned scope is always the REAL row —
- * `result.data.document`'s own `scopeKind`/`scopeId` on a fresh create, a
- * `searchDocuments` re-read (never `open_document`, §6.7) on an
- * already-tracked directory, since `ManifestEntry` only ever cached
- * `scopeKind` (never `scopeId`, and a "team"/"user" scope is meaningless
- * without one, I7). A root-level directory with no parent gets A4's own
- * derivation (the writing agent's real team, falling back to the calling
- * task's team, falling back to factory) instead of a hardcoded "factory".
+ * @lore: scope resolution — re-read REAL row (searchDocuments, not open_document); ManifestEntry caches only scopeKind, not scopeId; id required for scope
  */
 async function ensureDirectoryChainItem(
 	config: WritebackConfig,
@@ -322,13 +276,7 @@ async function processWriteback(
 		threadId: config.parent?.kind === "thread" ? config.parent.id : null,
 	};
 
-	// @lore nested-knowledge-items §5: creates are processed before deletes so
-	// a move (a create whose filename suffix matches a path this batch is also
-	// deleting) retargets the manifest FIRST — the paired delete for the old
-	// path then finds nothing tracked there and safely no-ops. Batch pairing
-	// itself was rejected (a directory rename is N deletes + N creates that
-	// never line up 1:1); ordering the two PASSES, not pairing entries, is
-	// what makes this safe.
+	// @lore: create-before-delete ordering — a rename creates a new entry before deleting the old; processing creates first prevents double-removing the entry
 	const creates = changes.filter((c) => c.type === "create");
 	const modifies = changes.filter((c) => c.type === "modify");
 	const deletes = changes.filter((c) => c.type === "delete");
@@ -393,8 +341,8 @@ async function processWriteback(
 }
 
 /**
- * Handle a new path in knowledge/ — a directory (materialises its own item,
- * D4) or a file (a move, if its filename suffix matches an already-tracked
+ * Handle a new path in knowledge/ — a directory (materialises its own item)
+ * or a file (a move, if its filename suffix matches an already-tracked
  * path, or a genuinely new item otherwise).
  */
 async function handleCreate(
@@ -410,16 +358,13 @@ async function handleCreate(
 		return "created";
 	}
 
-	// Move detection (architecture §5): a creation whose filename carries the
+	// Move detection: a creation whose filename carries the
 	// same id suffix as an already-tracked path IS that item, moved.
 	const suffixMatch = findManifestEntryBySuffix(manifest, relativePath);
 	if (suffixMatch) {
 		const parentDir = path.dirname(relativePath);
 		const parent = await ensureDirectoryChainItem(config, caller, parentDir, manifest);
-		// @lore nested-knowledge-items defect 2: a move to the bare `knowledge/`
-		// root (no wrapping directory, `parent === null`) moves to `null` — the
-		// top of the tree (`EditDocumentInputSchema`'s own "null ⇒ to the top
-		// of the tree") — instead of the move silently not happening.
+		// A move to the bare knowledge/ root (parent === null) is valid — null moves to tree top.
 		const result = await config.document.editDocument(caller, {
 			id: suffixMatch.itemId,
 			parent: parent ? { kind: "document", id: parent.id } : null,
@@ -446,13 +391,12 @@ async function handleCreate(
 		format: "markdown",
 		status: "proposed",
 		as: "document",
-		// Directory placement (D4) wins when a wrapping directory exists — its
+		// Directory placement wins when a wrapping directory exists — its
 		// own real scope rides along, never a hardcoded default. `config.parent`
 		// (session task/thread) is the fallback for a leaf sitting directly at
 		// the `knowledge/` root; the two never both apply. Neither present
-		// means no `scopeKind`/`parent` at all — A4's own derivation (the
-		// writing agent's real team, then the calling task's, then factory)
-		// decides, exactly as it would for any other agent-authored create.
+		// means no `scopeKind`/`parent` at all — the harness decides,
+		// exactly as it would for any other agent-authored create.
 		...(parent
 			? {
 					scopeKind: asScopeKind(parent.scopeKind),
@@ -475,17 +419,6 @@ async function handleCreate(
 	return "created";
 }
 
-/**
- * Handle a modified file in knowledge/. Returns outcome type.
- *
- * @lore document-module B15: a stale write (the manifest's version no longer
- * matches the document's) is refused, not recorded as a conflict — a
- * document has no conflict object (founder ruling, B0c). The agent's text is
- * discarded, and the manifest advances to the durable version — read via
- * `searchDocuments({ids:[id]})`, never `open_document` (§6.7: a writeback
- * re-read is not a person reading a document) — so the next save from this
- * session carries the fresh version instead of clashing again.
- */
 async function handleModify(
 	config: WritebackConfig,
 	caller: CaptureWritebackCaller,
@@ -565,7 +498,6 @@ function handleDelete(
 	return true;
 }
 
-/** Handle session notes update. */
 async function handleSessionNotes(config: WritebackConfig, change: WritebackChange): Promise<void> {
 	const body = fs.readFileSync(change.fullPath, "utf-8");
 
@@ -580,20 +512,8 @@ interface CaptureWritebackSubscriberDeps {
 }
 
 /**
- * What a session is working on, which is what everything it writes back hangs
- * off, AND who it writes back as. Read from the session row rather than
- * threaded through the watcher event: this is not an inference about where a
- * file happened to land, it is the session's own identity, and `sessions` is
- * this package's own table.
- *
- * @lore document-module B15: also resolves `agentId` now — every
- * `edit_document` call needs a real `ctx.actor` (`changes.actor`'s FK), and
- * that identity lives on the session row the same way its parent does.
- * `undefined` (session not found, or the lookup itself failed) means there
- * is no legal actor to attribute a write to — the whole batch is skipped
- * rather than fabricating one (no fallback string satisfies a `users.id`
- * FK). A missing parent alone is not fatal (a subscription/knowledge-run
- * session legitimately has none); a missing actor is.
+ * Resolve the session's context for writeback: the parent (task/thread) and actor (agentId).
+ * @lore: missing actor — no fallback string satisfies the users.id FK; whole batch is skipped; missing parent alone is not fatal
  */
 async function resolveSessionContext(
 	db: WritebackConfig["db"],
@@ -629,8 +549,7 @@ function registerCaptureWriteback(deps: CaptureWritebackSubscriberDeps): () => v
 	const { db, eventBus, document } = deps;
 
 	const dispose = eventBus.on("sandbox_writeback_changes_detected", (event) => {
-		// Fire-and-forget, matching file-watcher.ts's pre-inversion behavior
-		// (that flush() was never awaited by its own caller either).
+		// Fire-and-forget (flush() is never awaited by its caller).
 		void resolveSessionContext(db, event.sessionId)
 			.then((context) => {
 				if (!context) {

@@ -22,7 +22,7 @@ const baseProps = {
 	],
 };
 
-describe("ThreadHostBanner (approved.md §2.1)", () => {
+describe("ThreadHostBanner", () => {
 	it("renders the host attachment label", () => {
 		render(<ThreadHostBanner {...baseProps} />);
 		expect(screen.getByText(/pricing overhaul/i)).toBeInTheDocument();

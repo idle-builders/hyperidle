@@ -5,8 +5,7 @@
  * for known routes, or null for unmatched routes.
  *
  * Key boundary (Back ≠ Up): an unmatched route returns null — NOT navigate(-1).
- * Callers must no-op on null. This prevents the silent Up→Back conflation that
- * @lore AE4 documents.
+ * Callers must no-op on null. This prevents the silent Up→Back conflation.
  *
  * These tests FAIL until layers/core-ui/src/navigation/parentPathFor.ts is created.
  */
@@ -21,12 +20,10 @@ describe("parentPathFor", () => {
 			expect(parentPathFor("/work/task/abc-123")).toBe("/work");
 		});
 
-		// @lore /work/task/ is the route — there are no /work/bet/ routes.
 		it("task detail with trailing slash → /work", () => {
 			expect(parentPathFor("/work/task/abc-123/")).toBe("/work");
 		});
 
-		// @lore no-url-visible-parent: tasks have no URL-visible parent (breadcrumb uses ancestors API)
 		it("task detail (any id) → /work — flat URL, depth via ancestors API", () => {
 			expect(parentPathFor("/work/task/xyz-456")).toBe("/work");
 		});
@@ -58,7 +55,6 @@ describe("parentPathFor", () => {
 		});
 
 		it("/documents/new is NOT a detail route → null", () => {
-			// @lore create-page-excluded: /documents/new is a create page excluded from isDetailRoute
 			expect(parentPathFor("/documents/new")).toBeNull();
 		});
 	});
