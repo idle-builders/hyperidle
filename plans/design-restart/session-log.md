@@ -482,3 +482,9 @@ the loop turns (Your answer → Handed to Builder → Builder working · 12m →
 review · 1 of 2 reviews → Maya: Sent all three). The studio's own column now holds only studio
 controls. Removed the old queue, its mock data and styles. Thread/review headers say "Thread";
 a review's header reads "Review · Final · 3 of 3".
+
+**Founder: mentions show up in the conversation; notifications are missing (they exist); first
+start is right but needs "name your team".** Added a bell with a count at the top of the sidebar;
+it opens a notifications panel (what happened in things you follow, each opening its thread, task
+or document; mark all read; "What I follow"). New Arrive step 9. First start gains a "Name your
+team" field.

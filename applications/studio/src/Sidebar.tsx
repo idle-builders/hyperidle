@@ -156,6 +156,48 @@ function Tree({ docs, open, toggle, picked, onPick, icons, onIcon, picking, setP
 }
 
 
+/** What happened in things you follow. Each opens the thread, task or document it is about. */
+interface Note {
+	id: string;
+	title: string;
+	what: string;
+	age: string;
+	unread?: boolean;
+}
+
+const NOTES: Note[] = [
+	{ id: "n1", title: "Usage-based tier, metering", what: "Builder is stuck · needs a decision on rounding", age: "20m", unread: true },
+	{ id: "n2", title: "Proration math covered end to end", what: "Task done · Builder", age: "5h", unread: true },
+	{ id: "n3", title: "How we price", what: "Growth edited the Trials section · you follow this", age: "2d", unread: true },
+	{ id: "n4", title: "July support themes", what: "Published · Ops", age: "3d" },
+	{ id: "n5", title: "Comparison table, stacked layout", what: "Designer raised a review", age: "5h" },
+];
+
+function Notifications({ onClose }: { onClose: () => void }) {
+	return (
+		<div className="notes" role="dialog" aria-label="Notifications">
+			<header className="notes-h">
+				<span>Notifications</span>
+				<button type="button" className="notes-act">Mark all read</button>
+				<button type="button" className="notes-x" aria-label="Close" onClick={onClose}>✕</button>
+			</header>
+			{NOTES.map((n) => (
+				<button key={n.id} type="button" className="note">
+					<span className="nrow-top">
+						<span className={n.unread ? "nrow-title nrow-title--strong" : "nrow-title"}>{n.title}</span>
+						<span className="nrow-age">{n.age}</span>
+					</span>
+					<span className={n.unread ? "note-what note-what--new" : "note-what"}>{n.what}</span>
+				</button>
+			))}
+			<footer className="notes-f">
+				<span>You get these for what you follow.</span>
+				<button type="button" className="notes-act">What I follow</button>
+			</footer>
+		</div>
+	);
+}
+
 interface SidebarProps {
 	initialSpine?: Spine;
 	initialPicked?: string | null;
@@ -164,9 +206,11 @@ interface SidebarProps {
 	showCounts?: boolean;
 	/** Shown above the Conversations list, e.g. a quiet "1 new since you started". */
 	conversationsNote?: ReactNode;
+	notificationsOpen?: boolean;
 }
 
-export function Sidebar({ initialSpine = "conversations", initialPicked = null, lists = {}, showCounts = true, conversationsNote }: SidebarProps) {
+export function Sidebar({ initialSpine = "conversations", initialPicked = null, lists = {}, showCounts = true, conversationsNote, notificationsOpen = false }: SidebarProps) {
+	const [notesOpen, setNotesOpen] = useState(notificationsOpen);
 	const [spine, setSpine] = useState<Spine>(initialSpine);
 	const [picked, setPicked] = useState<string | null>(initialPicked);
 	const [open, setOpen] = useState<Set<string>>(new Set(["t-product", "k-price", "t-eng"]));
@@ -189,9 +233,17 @@ export function Sidebar({ initialSpine = "conversations", initialPicked = null, 
 	const items = resolved[spine];
 
 	return (
-		<nav className="nav">
+		<nav className="nav nav--rel">
 			<div className="nav-top">
-				<span className="wordmark">HyperIdle</span>
+				<div className="nav-brand">
+					<span className="wordmark">HyperIdle</span>
+					{showCounts && (
+						<button type="button" className="bell" aria-label="Notifications, 3 new" aria-expanded={notesOpen} onClick={() => setNotesOpen(!notesOpen)}>
+							<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 11V7a4 4 0 0 1 8 0v4l1 1.5H3zM6.5 14h3" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" strokeLinecap="round" /></svg>
+							<span className="bell-n">3</span>
+						</button>
+					)}
+				</div>
 				<button type="button" className="find-btn">
 					<span>Find or ask…</span>
 					<kbd>⌘K</kbd>
@@ -208,6 +260,7 @@ export function Sidebar({ initialSpine = "conversations", initialPicked = null, 
 			</div>
 			<hr className="nav-sep" />
 
+			{notesOpen && <Notifications onClose={() => setNotesOpen(false)} />}
 			<div className="nav-list">
 				{items === null ? (
 					<p className="nav-empty">Nothing here yet.</p>

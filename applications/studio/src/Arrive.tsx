@@ -16,6 +16,7 @@ export const ARRIVE_STEPS = [
 	{ id: 5, name: "Find (⌘K)" },
 	{ id: 6, name: "Ask (Tab to switch)" },
 	{ id: 7, name: "Something new while you focus" },
+	{ id: 8, name: "Notifications" },
 ];
 
 interface Hit {
@@ -143,9 +144,11 @@ function FirstStart() {
 					<div className="found-row"><span className="found-ok">✓</span><b>Codex</b><span>signed in</span></div>
 					<div className="found-row found-row--off"><span>–</span><b>Cursor</b><span>not installed</span></div>
 				</div>
-				<p className="first-note">
-					We made a team for you. Folders, GitHub and teammates can come later, when you need them.
-				</p>
+				<label className="first-field">
+					<span>Name your team</span>
+					<input placeholder="e.g. Northwind" aria-label="Team name" />
+				</label>
+				<p className="first-note">Folders, GitHub and teammates can come later, when you need them.</p>
 				<button type="button" className="btn btn--accent first-go">Start talking</button>
 			</div>
 		</div>
@@ -238,7 +241,7 @@ export function Arrive({ step }: { step: number }) {
 
 	return (
 		<>
-			<Sidebar initialSpine={spine} initialPicked={picked} lists={lists} showCounts={step > 1}
+			<Sidebar initialSpine={spine} initialPicked={picked} lists={lists} showCounts={step > 1} notificationsOpen={step === 8}
 				conversationsNote={focused ? <p className="nav-new">1 new since you started · it waits here</p> : undefined} />
 			{detail}
 			{(step === 5 || step === 6) && <Palette initialMode={step === 5 ? "find" : "ask"} />}

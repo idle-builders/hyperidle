@@ -153,6 +153,13 @@ Objects that appear inside surfaces. Designed once, reused everywhere.
   selected item. Detail on the right. **Never tabs in the nav** (founder: "absolutely not").
 - **No Home** (founder, 2026-09-28: "not convinced of this home concept"). A morning overview would
   be a **plugin**, not a built-in feature, so the core design does not include one.
+- **Mentions land in Conversations** (founder, 2026-09-28): the thread shows up with "Mentioned
+  you". No pop-up.
+- **Notifications exist and have their own place** (founder, 2026-09-28): a bell next to the
+  wordmark with a count opens a panel beside the sidebar — what happened in things you follow
+  (task done, agent stuck, document published or edited). Each item opens the thread, task or
+  document it is about. Footer: "You get these for what you follow" · What I follow.
+- **First start** is right as designed, plus **Name your team** (founder, 2026-09-28).
 - **Find or ask is an overlay (⌘K)**, not a sidebar mode. One input, two intents, **Tab** flips
   between them and keeps what you typed. Find: results left (grouped by spine), preview right with
   the match highlighted; ↵ opens here, ⌘↵ opens beside; top row offers "Ask Builder about …".

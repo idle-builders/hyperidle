@@ -435,3 +435,24 @@ kbd { font: var(--t-label); color: var(--ink-3); border: var(--line-w) solid var
 .pal-foot span { display: inline-flex; align-items: center; gap: var(--sp-1); }
 .pal-saved { margin-right: auto; color: var(--ink-2); }
 /* studio-only: keep the walkthrough clickable while the overlay is open */
+
+/* notifications — what happened in things you follow */
+.nav--rel { position: relative; }
+.nav-brand { display: flex; align-items: center; justify-content: space-between; }
+.bell { position: relative; width: 30px; height: 30px; display: grid; place-items: center; border-radius: var(--r-sm); color: var(--ink-2); }
+.bell:hover, .bell[aria-expanded="true"] { background: var(--surface); }
+.bell svg { width: 16px; height: 16px; }
+.bell-n { position: absolute; top: 1px; right: 0; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 8px; background: var(--accent); color: var(--accent-ink); font: var(--t-label); font-size: 0.625rem; font-weight: 700; display: grid; place-items: center; }
+.notes { position: absolute; top: 46px; left: calc(100% - var(--sp-4)); z-index: 40; width: 360px; border: var(--line-w) solid var(--line-strong); border-radius: var(--r); background: var(--surface); box-shadow: var(--sh-3); overflow: hidden; }
+.notes-h { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); border-bottom: var(--line-w) solid var(--line); font: var(--t-strong); font-weight: 600; }
+.notes-act { font: var(--t-meta); color: var(--accent); }
+.notes-h .notes-act { margin-left: auto; }
+.notes-x { color: var(--ink-3); font: var(--t-meta); }
+.note { display: block; width: 100%; text-align: left; padding: var(--sp-3) var(--sp-4); border-bottom: var(--line-w) solid var(--line); }
+.note:hover { background: var(--sunk); }
+.note-what { display: block; margin-top: 2px; font: var(--t-meta); color: var(--ink-3); }
+.note-what--new { color: var(--accent); font-weight: 600; }
+.notes-f { display: flex; align-items: center; justify-content: space-between; padding: var(--sp-2) var(--sp-4); background: var(--canvas); font: var(--t-meta); color: var(--ink-3); }
+
+.first-field { display: flex; flex-direction: column; gap: var(--sp-1); font: var(--t-label); color: var(--ink-2); }
+.first-field input { min-height: 38px; padding: 0 var(--sp-3); border: var(--line-w) solid var(--line-strong); border-radius: var(--r-sm); background: var(--canvas); font: var(--t-body); color: var(--ink); }
