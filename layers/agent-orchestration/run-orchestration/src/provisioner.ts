@@ -73,7 +73,7 @@ interface SessionLifecycleObservability {
 }
 
 // ---------------------------------------------------------------------------
-// filesystems (founder ruling): `filesystems` and `filesystem_injections` are
+// filesystems: `filesystems` and `filesystem_injections` are
 // `agent-orchestration`'s OWN tables; spawn reads them LIVE — no seam, no stale
 // bake. `deps.injectedFilesystems` (`InjectedFilesystemsReaderPort`) is a port
 // (not a direct import) — Mechanism C boundary.
@@ -803,11 +803,11 @@ interface ProvisionSessionParams {
 	 * staleness there is a UX/efficiency concern only.
 	 *
 	 * **`kind`/`status` are DEFENSE-IN-DEPTH ONLY, never a live authority gate**
-	 * (founder-final): a resolver's `requireRunnableAgent` call guarantees
+	 * — a resolver's `requireRunnableAgent` call guarantees
 	 * this snapshot's `kind`/`status` are ALWAYS runnable at emit time, so
 	 * re-checking them here can only catch a resolver bug, never a real
-	 * emit→deactivate→drain race — and no live/pushed mechanism replaces it,
-	 * by founder ruling (orchestration never initiates work on its own, so
+	 * emit→deactivate→drain race — and no live/pushed mechanism replaces it
+	 * (orchestration never initiates work on its own, so
 	 * there is nothing for it to independently re-verify). A mismatch here
 	 * signals a resolver bug, not a race, and is still a hard provisioning
 	 * failure either way — same throw (`TargetAgentNotRunnableError`), same
@@ -922,7 +922,6 @@ interface AdmittedSession {
 	readonly selectedModel: string | null;
 	readonly sandboxHandle: SessionLifecycleSandboxHandle;
 	readonly sandboxPath: string;
-	/** Was `watcher: FileWatcher` — renamed to `ingestion: IngestionHandle` as part of Strategy port decoupling. */
 	readonly ingestion: IngestionHandle;
 	readonly selectedAdapter: SessionLifecycleSelectedEntry;
 	readonly harness: SessionLifecycleHarnessAdapter;
@@ -951,7 +950,7 @@ async function admitSession(
 ): Promise<AdmittedSession> {
 	const { db, eventBus, adapterPool, workspace } = deps;
 
-	// ── Phase 1: consume the baked agent-CONFIG snapshot. NO live re-check (founder-final).
+	// ── Phase 1: consume the baked agent-CONFIG snapshot. NO live re-check.
 	const agentConfig = params.agentConfig;
 	// @lore: admit — agentConfig absent = deactivated agent = hard provisioning failure (TARGET_AGENT_NOT_RUNNABLE); never a silent allow; every real path bakes it
 	if (!agentConfig) {
@@ -1026,11 +1025,9 @@ async function admitSession(
 		throw new ConcurrencyLimitError(params.agentId, runConfig.maxConcurrentSessions);
 	}
 
-	// The "only transition if
-	// not already in_progress" guard moved core-side — a task's `in_progress`
-	// transition now fires as a `session_started` reaction
-	// (`core-api/src/services/work-session-started-reactions.ts`), AFTER
-	// phases 4-7 below commit the session row, instead of here before them.
+	// A task's `in_progress` transition fires as a `session_started` reaction
+	// (`core-api/src/services/work-session-started-reactions.ts`), after
+	// phases 4-7 below commit the session row.
 
 	// ── Phases 4-7 (wrapped): spawn workspace → insert session row →
 	// context assembly → start watcher. If any step throws here, the session

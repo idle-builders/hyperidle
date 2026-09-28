@@ -160,7 +160,7 @@ function QueuedBubble({
 	);
 }
 
-// ── Aggregation components (architecture §c) ──────────────────────────
+// ── Aggregation components ────────────────────────────────────────────
 
 function AggregateCaret({ open }: { open: boolean }): JSX.Element {
 	return (

@@ -27,9 +27,7 @@ import type { ReviewCanvasProps, VisualDiffPayload } from "./review-artifact";
 // ── View model ─────────────────────────────────────────────────────────────
 // A region the diff flags — id + label only, both payload-supplied.
 // `VisualDiffPayload` has no real severity, band, or per-region design/build
-// description; the earlier version invented all three to drive highlighting
-// on the fake screen deleted above. Nothing here goes beyond what the payload
-// actually names.
+// description. Nothing here goes beyond what the payload actually names.
 
 interface DiffRegion {
 	readonly id: string;

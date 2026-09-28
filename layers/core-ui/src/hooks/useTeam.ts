@@ -81,7 +81,7 @@ export function useTeam(teamId: string | undefined): UseTeamResult {
 				}
 				const members = membersResult.data;
 				if (members.length === 0) {
-					// No member carries this team — same "not found" the old route 404'd.
+					// No member carries this team — not found.
 					throw new Error("Team fetch failed: 404");
 				}
 				const teamName = members[0]?.team?.name ?? teamId;

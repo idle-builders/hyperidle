@@ -73,10 +73,7 @@ function buildWhere(filter: UserFilter): SQL | undefined {
 
 /**
  * Return the first user matching `filter` (LIMIT 1), or `undefined`.
- *
- * Replaces: `getUserById` (`{id}`), `getUserByIdScopedToTeam` (`{id, teamIds:[id]}`),
- * `getFirstUserByKind` (`{kind}`), `findActiveTeammateByRole`
- * (`{role, teamIds, status:'active', excludeId}`).
+
  */
 export async function findUser(exec: HyperIdleDb, filter: UserFilter): Promise<User | undefined> {
 	const [row] = await exec.select().from(users).where(buildWhere(filter)).limit(1);
@@ -86,13 +83,7 @@ export async function findUser(exec: HyperIdleDb, filter: UserFilter): Promise<U
 /**
  * Return all users matching `filter` (no LIMIT).
  * Pass no filter (or `{}`) to list every user row.
- *
- * Replaces: `getUsersByIds` (`{ids}`), `listAllUsers` (`{}`),
- * `listUsersByKind` (`{kind}`), `listUsersByTeam` (`{teamIds:[id]}`),
- * `listUsersByTeams` (`{teamIds}`), `listUsersByTeamAndKind` (`{teamIds:[id], kind}`),
- * `listActiveAiUsersByTeams` (`{kind:'ai', status:'active', teamIds, orderById:true}`),
- * `searchUsersByName` (`{nameContains:q}`),
- * plus the former projected getters whose call sites now project inline.
+
  */
 export function listUsers(exec: HyperIdleDb, filter: UserFilter = {}): Promise<User[]> {
 	// Fast-path: an empty ids/teamIds array can never match any row.

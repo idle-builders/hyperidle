@@ -20,20 +20,16 @@ export interface ScopeChangeDialogProps {
 	/** Current scope kind to pre-fill the select. */
 	currentScopeKind: ScopeKind;
 	/**
-	 * Current scope id, when the current scope names one (a team). Review-found
-	 * defect: opening with Team already the current scope showed an empty
-	 * Scope ID field even though the document already had one — this is what
-	 * lets the initial render prefill it instead of only prefilling on a
-	 * fresh Team click.
+	 * Current scope id, when the current scope names one (a team) — allows
+	 * the initial render to prefill it, not just on a fresh Team click.
 	 */
 	currentScopeId: string | null;
 	/**
-	 * Whether the document has a parent — review-found defect: a parentless
-	 * (root) document scoped `"user"` reads back as a memory (`documentAs`),
-	 * and widening it away from Private is then refused. Private is disabled
-	 * here for a root document so that trapdoor can never be entered through
-	 * this dialog; a private *tree* document (one with a parent) is not a
-	 * memory and stays unaffected.
+	 * Whether the document has a parent — Private is disabled for a root
+	 * (parentless) document: a parentless `"user"`-scoped row reads back as a
+	 * memory (`documentAs`), so widening it away from Private is refused. A
+	 * private tree document (one with a parent) is not a memory and stays
+	 * unaffected.
 	 */
 	hasParent: boolean;
 }

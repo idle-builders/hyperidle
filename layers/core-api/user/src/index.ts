@@ -4,7 +4,7 @@
  * Users, teams and org edges are one Service — a user with its team is one unit of state; parseCron/nextCronMatch live here because the subscription clock (this Service) is their caller.
  */
 
-// -- agent identity (moved verbatim from routes/agent-identity.ts) --
+// -- agent identity --
 export type { AgentIdentityDeps, AgentIdentityPort } from "./agent-identity.js";
 export { createAgentIdentityPort } from "./agent-identity.js";
 // -- cron (used by the subscription clock's schedule trigger) --
@@ -69,7 +69,7 @@ export { createUserActions } from "./user-actions.js";
 // -- user store (single owner of `users` row read/write) --
 export type { UserFilter } from "./user-store.js";
 export { findUser, getOrCreateUser, insertUser, listUsers, updateUser } from "./user-store.js";
-// -- run-config validation (moved verbatim from routes/validate-agent-config.ts) --
+// -- run-config validation --
 export type {
 	AgentConfigValidationError,
 	HarnessCapabilityProbe,

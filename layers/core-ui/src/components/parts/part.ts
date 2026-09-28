@@ -431,7 +431,7 @@ function diffEmbed(label: string, added: number, removed: number): Embed {
  * or any harness type. Signature takes `ActivityEntry[]` only — NO harness-type
  * parameter (compile-time proof the renderer can't branch on backend).
  *
- * Mapping rules (architecture.md §b):
+ * Mapping rules:
  *  - `tool_call`    → `tool` Part (verb/target/toolKind/status/output; file-change carries `diff` Embed)
  *  - `reasoning`    → `reasoning` Part (durationMs + text)
  *  - `answer_delta` → `prose` Part whose text grows (append; consecutive deltas merge)
@@ -580,7 +580,7 @@ export function derivePartsFromSession(
 	return parts;
 }
 
-// ── Tool-run aggregation grouping (architecture §c) ──────────────────
+// ── Tool-run aggregation grouping ──────────────────────────────────
 
 /**
  * A stream block — either a single (non-tool or standalone-running-tool) or

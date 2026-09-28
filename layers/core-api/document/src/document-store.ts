@@ -366,15 +366,8 @@ function visibilityPredicate(subjects: readonly string[], viewerTeamId: string |
  * parentless, `ordinary`-slot row — not in the tree, and not a row `slot`
  * alone already makes public.
  *
- * Review-found defect: an earlier version of this predicate dropped the
- * `slot` term (a memory's slot is always forced to `ordinary` at write time,
- * so checking it here seemed to only re-derive `parent_kind IS
- * NULL`) — but `visibilityPredicate` exempts ANY non-ordinary slot from the
- * privacy check regardless of scope, so a user-scoped, parentless row with a
- * non-ordinary slot matched `as:"memory"` here while being world-readable
- * there: the Memories filter would show a row every other person could
- * already read. `slot` must agree with the visibility predicate, not just
- * with what a memory's own write path forces.
+ * `slot` must agree with the visibility predicate: `visibilityPredicate`
+ * exempts ANY non-ordinary slot from the privacy check regardless of scope.
  *
  * `notArtifact` is written with an explicit `isNull` branch — `NOT
  * (parent_kind IN (...))` alone evaluates to SQL NULL (excluded) for a NULL

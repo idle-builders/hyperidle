@@ -613,14 +613,8 @@ export const documents = pgTable(
 	],
 );
 
-// The notification queue doesn't exist — inbox (below, beside subscriptions)
-// is a pointer at a change row plus seen/read timestamps, no egress lifecycle.
-
-// The `artifacts` table is DELETED (migration 0078). Produced content is a
-// document whose parent is the task or the conversation that produced it —
-// the same row a human writes, with a body, a status, a version, a scope and an
-// edit history, none of which an artifact row had. The word survives as the name
-// for produced content; nothing stores one.
+// Produced content ("artifacts") is a document whose parent is the task or the
+// conversation that produced it — no separate artifact table.
 
 // --- Filesystem registry + per-bot injection ---
 
@@ -736,9 +730,8 @@ export const plugins = pgTable(
 /**
  * What a plugin contributed, and whether the person has since taken it over.
  *
- *
- * `detachedAt` replaces the `updated_by = 'plugin:<id>'` sentinel: a person
- * edited this contribution, so a reinstall must not overwrite their version.
+ * `detachedAt` set: a person edited this contribution, so a reinstall must not
+ * overwrite their version.
  */
 export const pluginContributions = pgTable(
 	"plugin_contributions",

@@ -31,9 +31,8 @@ function toRecipient(row: UserRow): Omit<Recipient, "hasActiveSession"> {
 }
 
 /**
- * `search_sessions` defaults to 100 with no `limit` set; the old route had no
- * cap at all. 500 (the action's max) is the closest this read can get to
- * "every active session" under the new contract.
+ * `search_sessions` defaults to 100 with no `limit` set; 500 (the action's
+ * max) is the closest this read can get to "every active session".
  */
 const MAX_ACTIVE_SESSIONS = 500;
 

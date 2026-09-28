@@ -120,9 +120,7 @@ export interface SessionEndedEvent {
 	 * counts (`accumulatedTokens`, populated from `token_usage` stream events
 	 * across the session's lifetime) so a core-api `session_ended` subscriber
 	 * (`work-session-end-reactions.ts`) can merge them into the owning bet's
-	 * `bets.tokensActualJson` — the literal replacement for the deleted direct
-	 * `ports.work.updateBetById` write (`accumulateSessionTokensOnBet`,
-	 * `provisioner.ts`). Absent/empty when the session accumulated no tokens
+	 * `bets.tokensActualJson`. Absent/empty when the session accumulated no tokens
 	 * (e.g. it failed before any `token_usage` events arrived).
 	 */
 	tokensByTier?: Partial<Record<ModelTier, { prompt: number; completion: number }>>;

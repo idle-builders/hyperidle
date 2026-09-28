@@ -53,8 +53,7 @@ interface AppOptions {
 		agentOrchestration: AgentOrchestrationPort;
 		/**
 		 * `edit_task`'s own bound `run`, so a background writer
-		 * (`registerWorkSessionStartedReactions`) can call it in-process instead
-		 * of the deleted `transitionTask`.
+		 * (`registerWorkSessionStartedReactions`) can call it in-process.
 		 */
 		editTask: (
 			ctx: import("./actions/action.js").ActionContext,
@@ -427,8 +426,6 @@ function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		// Plugin management is the platform module now —
 		// `search_plugins`/`edit_plugin`, mounted generically by
 		// `createActionsRouter` above (`compose.ts`'s fourth action group).
-		// `routes/plugins.ts` and its six routes are deleted.
-		// /notifications deleted — inbox is open_user({}).inbox now
 
 		const db = options.db;
 		const disposers: Array<() => void> = [];

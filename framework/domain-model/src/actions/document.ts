@@ -184,17 +184,10 @@ export function documentAs(row: {
 }): DocumentAs {
 	if (row.parentKind === "task" || row.parentKind === "thread") return "artifact";
 	// A memory is a user-scoped, parentless, `ordinary`-slot row — not in the
-	// tree (founder decision, gate-walk finding), and not a row `slot` alone
-	// already makes public. Review-found defect: an earlier version of this
-	// function dropped the `slot` term (reasoning that memory creation always forces a
-	// memory's slot to `ordinary`, so checking it here would only re-derive
-	// `parentKind`) — but `canReadDocument` exempts ANY non-ordinary slot from
-	// the privacy check regardless of scope, so a user-scoped, parentless row
-	// with a non-ordinary slot was reading as "memory" here while
-	// `canReadDocument` was treating it as public: the Memories filter would
-	// show a row every other person could already read. `slot` must agree
-	// with the visibility predicate, not just with what a memory's own write
-	// path forces. A user-scoped row WITH a parent is a private document:
+	// tree, and not a row `slot` alone already makes public. `slot` must agree
+	// with the visibility predicate: `canReadDocument` exempts ANY non-ordinary
+	// slot from the privacy check regardless of scope. A user-scoped row WITH
+	// a parent is a private document:
 	// `as:"document"`, widenable to team/factory and back, like any tree
 	// document.
 	if (row.scopeKind === "user" && row.parentKind === null && row.slot === "ordinary")
@@ -264,17 +257,16 @@ function touchesAnyOf(
  * edit omits it) — not `input.as` alone. An edit of an existing memory that
  * only sends `scopeKind` (no `as`) must still be refused here: the run
  * function forces the scope back to `user` regardless, and a forced write
- * with no problem attached is a silent no-op (gate-walk finding).
+ * with no problem attached is a silent no-op.
  *
- * Review-found defect: creating a root (parentless) document scoped
- * `"user"` is a one-way trapdoor — the row reads back as a memory
- * (`documentAs`), so a later attempt to widen it hits this same check. The
- * generic "no scope to set" message reads as a bug report to someone who
- * only ever asked for Private on a document; an EXISTING memory
- * (`prev !== null` and it already derives as one) gets the clearer message
- * telling them what to do about it. A create with an explicit
- * `as:"memory"` + a scope keeps the original message — there is no
- * existing row yet to point at.
+ * Creating a root (parentless) document scoped `"user"` is a one-way
+ * trapdoor — the row reads back as a memory (`documentAs`), so a later
+ * attempt to widen it hits this same check. The generic "no scope to set"
+ * message reads as a bug report to someone who only ever asked for Private
+ * on a document; an EXISTING memory (`prev !== null` and it already derives
+ * as one) gets the clearer message telling them what to do about it. A
+ * create with an explicit `as:"memory"` + a scope keeps the original
+ * message — there is no existing row yet to point at.
  */
 function memoryInvariants(
 	effectiveAs: DocumentAs | undefined,
@@ -304,8 +296,7 @@ function memoryInvariants(
 }
 
 /**
- * Review-found defect, paired with `documentAs`'s own fix above: a
- * user-scoped, parentless, non-`ordinary`-slot row derives as `"document"`
+ * A user-scoped, parentless, non-`ordinary`-slot row derives as `"document"`
  * (not a memory — `documentAs`), but reads as PUBLIC through
  * `canReadDocument`'s non-ordinary-slot exemption, regardless of scope. A
  * caller asking for `scopeKind:"user"` on that shape is asking for a
@@ -336,12 +327,7 @@ function privateSlotInvariants(
 	// never re-refused either). The narrowing exists so a body-only edit of
 	// ANY pre-existing row never trips a shape it did not create — it is a
 	// defensive property of the check itself, not evidence of rows already
-	// sitting in this shape. (Corrected: an earlier version of this comment
-	// cited a live agent-identity row with no parent as the motivating case;
-	// that row does not exist in production — `routes/agent-identity.ts`
-	// parents every identity document to its agent. The "live row" was a
-	// hand-inserted test fixture that omitted the `parent` production always
-	// writes.)
+	// sitting in this shape.
 	if (!isCreate && input.scopeKind === undefined && input.parent === undefined) return [];
 	const scopeKind = input.scopeKind ?? prev?.scopeKind;
 	if (scopeKind !== "user") return [];
@@ -374,7 +360,7 @@ function privateSlotInvariants(
  * alone. "An artifact is never private" is an absolute rule, not a
  * transition; an edit that only sends `{id, scopeKind:"user"}` against an
  * existing artifact must still be refused here, or the run function's write
- * lands the private scope with no problem attached (gate-walk finding, same
+ * lands the private scope with no problem attached (same
  * silent-overwrite shape as `memoryInvariants` above).
  */
 function artifactInvariants(
@@ -568,13 +554,10 @@ export function searchDocumentsInvariants(input: SearchDocumentsInput): Problem[
 		});
 	}
 
-	// Review-found blocker: `parent.id`/`parent.ids` were both optional with no
-	// refine, so `{as:"artifact", parent:{kind:"task"}}` passed this function
-	// and the store then filtered on `parentKind` alone — every task/thread's
-	// artifacts, to anyone. `id`/`ids` name a query shape, not a value the
-	// store may treat as absent; exactly one must be given, for every parent
-	// kind (not only artifacts — a bare `parent:{kind:"thread"}` is the same
-	// unbounded query one kind over).
+	// `id`/`ids` name a query shape, not a value the store may treat as
+	// absent; exactly one must be given, for every parent kind (not only
+	// artifacts — a bare `parent:{kind:"thread"}` is the same unbounded query
+	// one kind over).
 	if (input.parent !== undefined) {
 		const hasId = input.parent.id !== undefined;
 		const hasIds = input.parent.ids !== undefined;

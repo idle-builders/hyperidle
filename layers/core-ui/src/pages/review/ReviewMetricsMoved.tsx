@@ -438,7 +438,7 @@ export function ReviewMetricsMoved({ artifact }: ReviewCanvasProps): JSX.Element
 	);
 }
 
-// ── other states (specified per brief §"States"; populated is the default story) ──
+// ── other states (populated is the default story) ──
 //
 // empty:   no movement this period → "<period> close: no figures moved" + ToolLogo,
 //          no table, no exceptions. Reviewer sees a clean tie-out only.

@@ -63,7 +63,7 @@ export interface RowProps {
 	 */
 	href?: string;
 	selected?: boolean;
-	/** escape hatch; default heuristic (§nested-button) is correct without it */
+	/** escape hatch; the default heuristic is correct without it */
 	as?: "button" | "div" | "li";
 	"data-testid"?: string;
 	/** DocumentList triage keyboard focus */

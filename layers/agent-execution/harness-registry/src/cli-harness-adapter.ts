@@ -555,7 +555,6 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		//
 		// XDG_CONFIG_HOME isolates opencode's config dir so the return-signal plugin
 		// in <sandbox>/.opencode/ loads while the user's global plugins do not.
-		// Replaces the removed --pure flag (which also disabled the sandbox plugin).
 		//
 		if (this.config.binary === "opencode") {
 			// Always inject XDG_CONFIG_HOME for opencode, so the user's global
@@ -859,11 +858,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 									runArgs.push(...session.reEngageOptionArgv);
 									finalReEngageArgs = runArgs;
 								} else {
-									// No carrier configured — use the tailored forcing message
-									// (was the static FORCE_RETURN_MESSAGE
-									// constant; now the same `forceMsg` this session was just
-									// adjudicated with, so a required session sees ITS message,
-									// not the always-full-trio default).
+									// No carrier configured — use the tailored forcing message.
 									// Fall back to base args (stripped of unresolved template vars via exclusion
 									// of any arg still containing "{{"). Empty-string args from stripping
 									// are excluded to avoid passing spurious flags.

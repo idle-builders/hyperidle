@@ -7,9 +7,8 @@ import type { EventBus } from "@hyperidle/event-bus";
  * `ActionContext`/`Action` — the same shape `@hyperidle/document`'s
  * `action-types.ts`, `@hyperidle/task` and `@hyperidle/thread` each declare,
  * and for the same reason: a nested Service may not import the layer's own
- * package. `agent-identity.ts` and `validate-agent-config.ts` (both moved
- * into this package verbatim) and `user-actions.ts` all share this one copy
- * instead of each declaring their own.
+ * package. `agent-identity.ts`, `validate-agent-config.ts` and `user-actions.ts`
+ * all share this one copy instead of each declaring their own.
  */
 export interface ActionContext {
 	readonly actor: string;

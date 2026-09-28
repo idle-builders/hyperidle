@@ -1,9 +1,6 @@
 /**
- * useThread. Replaces `useThreadDetail`/`useAssistantThread`/
- * `useHostThread`'s detail half. One door: `call("open_thread", { id })`,
+ * useThread. One door: `call("open_thread", { id })`,
  * kept live by the `thread:<id>` websocket nudge.
- *
- *
  */
 
 import type { ThreadView } from "@hyperidle/domain-model";

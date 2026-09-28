@@ -184,8 +184,7 @@ export interface UserActionsDeps {
 		redetect(): Promise<void>;
 	};
 	/**
-	 * Agent only — a derived trust signal (§ restored from the deleted
-	 * `agent-profile.ts` route's `computeApprovalRate`). Absent → `null` on
+	 * Agent only — a derived trust signal. Absent → `null` on
 	 * every agent's `reviewTrackRecord` (a composition without policy wired).
 	 */
 	readonly reviewTrackRecord?: (
@@ -595,10 +594,9 @@ async function archiveSubscriptionPrompt(
 // ---------------------------------------------------------------------------
 
 /** `give`'s team-consistency gate — checks the
- * team with `folders.list({teamId})`, replacing origin/main's
- * `routes/filesystems.ts` `TEAM_MISMATCH` (route deleted, gate never
- * ported). A folder already given to this agent is CONFLICT from the port —
- * its own code, `folder_already_given`, distinct from a team mismatch.
+ * team with `folders.list({teamId})`. A folder already given to this
+ * agent is CONFLICT from the port — its own code, `folder_already_given`,
+ * distinct from a team mismatch.
  *
  * Port calls throw on non-2xx; each is wrapped to convert thrown failure into
  * the same problem as a returned !ok — thrown and returned failures are indistinguishable to the caller. */

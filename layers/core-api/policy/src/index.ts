@@ -3,7 +3,7 @@
 // -- approval rate --
 export type { ApprovalRateResult } from "./approval-rate.js";
 export { computeApprovalRate } from "./approval-rate.js";
-// -- lifecycle propagation (the policy engine itself is deleted) --
+// -- lifecycle propagation --
 export { registerLifecyclePropagation } from "./lifecycle-propagation.js";
 
 // -- aggregate injection contract + cross-boundary types --

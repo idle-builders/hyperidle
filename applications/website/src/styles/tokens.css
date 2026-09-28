@@ -1,10 +1,8 @@
 /* ============================================================
-   HYPERIDLE MARKETING LANGUAGE — WP-owned tokens.
-   NEO-BRUTAL, light mode (founder-approved pivot; see
-   .pipeline/work/Z9/proposals/b-neo-brutal.html). Deliberately
-   NOT the Hearth app design system: these custom properties live
-   in the site source only and must never move into
-   framework/design-system.
+   HYPERIDLE MARKETING LANGUAGE — site tokens.
+   NEO-BRUTAL, light mode. Deliberately NOT the Hearth app design
+   system: these custom properties live in the site source only
+   and must never move into framework/design-system.
    ============================================================ */
 :root {
 	--paper: #fffdf5;

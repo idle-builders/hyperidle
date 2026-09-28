@@ -3,7 +3,7 @@
  * and write from outside the package comes through here.
  *
  * These are deliberately not a repository: each one is a specific question the
- * layer above already asked, moved verbatim.
+ * layer above already asked.
  *
  * The wire contract does NOT move with them. Nothing here imports
  * `@hyperidle/api-contract`; the routes keep their `satisfies AgentRun*Response`

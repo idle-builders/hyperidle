@@ -307,9 +307,7 @@ export async function list(
 				.where(and(...conds));
 		}
 		if (f.text !== undefined) {
-			// Moved off the deleted bet dispatch. A task's searchable prose is
-			// its title, description and goal — `hypothesis` is cut, and `title`
-			// is a real column now rather than the first line of the description.
+			// A task's searchable prose is its title, description and goal.
 			const escaped = f.text.replace(/[\\%_]/g, "\\$&");
 			const pattern = `%${escaped}%`;
 			const rank = sql<number>`CASE WHEN ${tasks.title} ILIKE ${`${escaped}%`} ESCAPE '\\' THEN 0 WHEN ${tasks.title} ILIKE ${`% ${escaped}%`} ESCAPE '\\' THEN 1 ELSE 2 END`;

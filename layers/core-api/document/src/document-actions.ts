@@ -56,7 +56,7 @@ export interface DocumentActionsDeps {
 	};
 	readonly users: {
 		getUserById(exec: WriteExecutor, id: string): Promise<User | undefined>;
-		/** agents owned by this person — founder ruling 5. */
+		/** agents owned by this person. */
 		listOwnedBy(exec: WriteExecutor, ownerId: string): Promise<readonly User[]>;
 	};
 	readonly org: { getTeam(exec: WriteExecutor, q: { id: string }): Promise<Team | undefined> };
@@ -109,8 +109,8 @@ function toDocumentRow(row: DbDocumentRow): DomainDocumentRow {
 /**
  * Resolves `:subjects`/`:viewerTeamId` once per call, exactly as
  * `thread` already resolves `listOwnedBy` (`thread-actions.ts:77`).
- * `:subjects` is the actor plus every agent that actor owns (founder ruling
- * 5); `:viewerTeamId` is the actor's own team, read off their own row — NOT
+ * `:subjects` is the actor plus every agent that actor owns;
+ * `:viewerTeamId` is the actor's own team, read off their own row — NOT
  * `deps.org.getTeam`, which looks a team up by id, not by member.
  */
 async function resolveViewer(

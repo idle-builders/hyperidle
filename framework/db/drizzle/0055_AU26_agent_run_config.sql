@@ -19,7 +19,7 @@
 --   id/name/email/avatar_url/created_at. `users` remains the single
 --   human + agent identity record.
 --
--- BACKFILL INVARIANT (§D-L, verbatim): for every existing `users` row with
+-- BACKFILL INVARIANT: for every existing `users` row with
 -- kind='ai' the migration inserts exactly one agent_run_config row carrying the
 -- current column values VERBATIM — including max_concurrent_sessions, which is
 -- never re-defaulted (it is `integer NOT NULL DEFAULT 1` on both sides). For

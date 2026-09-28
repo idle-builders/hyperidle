@@ -20,9 +20,8 @@ export interface TaskSessionsData {
 }
 
 /**
- * `search_sessions` defaults to 100 with no `limit` set; the old route had no
- * cap at all. 500 (the action's max) is the closest a task's sessions read
- * can get to "every one" under the new contract.
+ * `search_sessions` defaults to 100 with no `limit` set; 500 (the action's
+ * max) is the closest a task's sessions read can get to "every one".
  */
 const MAX_SESSIONS = 500;
 

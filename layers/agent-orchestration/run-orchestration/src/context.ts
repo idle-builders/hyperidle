@@ -74,8 +74,7 @@ function sessionContextDataFromBundle(
 
 /**
  * Encode an object into TOON format (flat key-path lines).
- * Inlined from the deleted @hyperidle/toon-codec package — encode-only,
- * no decoder exists or is needed (the LLM is the decoder).
+ * Encode-only — no decoder exists or is needed (the LLM is the decoder).
  */
 function encodeToon(obj: object): string {
 	const lines: string[] = [];
@@ -695,8 +694,7 @@ function writeSkillItem(sandboxPath: string, item: BakedContextDocument): string
 
 /**
  * Write the baked+ranked knowledge bundle to its sandbox zones, building the
- * manifest entries — the pure write-side counterpart to the (deleted)
- * `fetchAllForLayer`/`rankAndBudget` DB-reading pair.
+ * manifest entries.
  *
 
  */
