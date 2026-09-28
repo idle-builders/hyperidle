@@ -16,7 +16,7 @@ import {
 } from "../return-actions.js";
 
 /**
- * `edit_task`'s own-task-and-moves-away-from-the-agent gate (`isReturnAction`'s `@lore`).
+ * `edit_task` gate: terminal only when edit targets own task AND moves it away from the agent.
  * Terminal only when the edit is the session's OWN task AND moves it away from the calling agent.
  */
 describe("isReturnAction — edit_task is gated on the session's own task moving away from the agent", () => {
@@ -57,7 +57,6 @@ describe("isReturnAction — edit_task is gated on the session's own task moving
 	});
 
 	/**
-	 * @lore `isReturnAction` returns false on `!taskId` before comparing args.id — a thread turn can never be ended by `edit_task`.
 	 */
 	it("edit_task with no id and no session task is not terminal", () => {
 		expect(isReturnAction("edit_task", { ownerAgentId: "agent-7" }, undefined)).toBe(false);

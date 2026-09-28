@@ -191,7 +191,7 @@ async function seedAgent(db: HyperIdleDb, id: string, ownerUserId: string): Prom
 		.onConflictDoNothing();
 }
 
-describe("document websocket nudge — real server, real socket, both doors (architecture.md §15.3)", () => {
+describe("document websocket nudge — real server, real socket, both doors", () => {
 	afterEach(() => {
 		vi.unstubAllEnvs();
 	});

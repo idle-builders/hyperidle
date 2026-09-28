@@ -7,16 +7,6 @@
  *   - the in-process SDK Stop closure (reads registry directly)
  *   - the process-wrapper re-engage (reads registry for budget tracking)
  *   - the MCP bridge's /return-status route (mcp-provider)
- *
- * @lore AU19 Increment 4: reclassified from `packages/server/src/harness/
- * return-enforcement-registry.ts` to `@hyperidle/harness-protocol` — `harness-registry`
- * (owner, agent-execution) and `mcp-provider` (consumer, agent-execution) are
- * SIBLING Services; Mechanism C forbids a Service importing another Service
- * even within the same Layer, so the TYPE crosses via `@hyperidle/harness-protocol`
- * (§7.3 W4) while the concrete `createEnforcementRegistry()` factory stays
- * owned by `harness-registry` and is injected into `mcp-provider`'s
- * `createMcpRoute(bridgeRegistry, enforcementRegistry?)` by the composition
- * root — same idiom as `HttpError`/`CassetteMissError` (Increment 3h).
  */
 
 /** The retained gate reference and per-session force tracking. */
@@ -27,33 +17,16 @@ export interface EnforcementEntry {
 	forceCount: number;
 	/** Exempt sessions (internal-extraction drains) skip enforcement entirely. */
 	readonly exempt: boolean;
-	/**
-	 * The session's specific required return
-	 * subset, when it has one (structural rule: `["reply"]` for a session
-	 * whose output belongs in a calling thread and has no task — the
-	 * assistant; unchanged `undefined` for every session that
-	 * still satisfies the gate via plain membership in the full return set).
-	 */
+	/** When present, narrows the gate predicate — only a tool call naming one of these flips `returned`. Absent = any return-set member satisfies. */
 	readonly requiredReturnActions?: readonly string[];
 }
 
 export interface EnforcementRegistry {
-	/**
-	 * Register a new session. Overwrites any existing entry for the same sessionId
-	 * (safe: re-registration on session restart carries forward state if needed).
-	 */
+	/** Overwrites any existing entry — safe for re-registration on session restart. */
 	register(sessionId: string, entry: EnforcementEntry): void;
-	/** Get the live entry for a session, or undefined if not registered. */
 	get(sessionId: string): EnforcementEntry | undefined;
-	/**
-	 * Increment the forceCount for a session.
-	 * No-op if the session is not registered (guards against late calls on
-	 * sessions already cleaned up).
-	 */
+	/** No-op if session not registered (late calls after cleanup are safe). */
 	incrementForce(sessionId: string): void;
-	/**
-	 * Unregister a session on teardown.
-	 * No-op if the session is not registered.
-	 */
+	/** No-op if session not registered. */
 	unregister(sessionId: string): void;
 }

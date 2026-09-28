@@ -1,14 +1,6 @@
 /**
  * DiscardConfirmStrip: the guard strip that replaces the dialog footer
  * when a dirty dialog receives a dismissal intent.
- *
- * Button order: Keep editing (safe default, first/focused) → Discard (second,
- * reachable via Tab). This matches the §1.2 keyboard discard path.
- *
- * @lore AI2: Keep editing is the FIRST button (index 0) — focused on mount.
- * Discard is the SECOND button (index 1) — reachable via Tab. This order
- * ensures a single Tab press from Keep editing reaches Discard, satisfying
- * the keyboard discard path without requiring a mouse.
  */
 
 import type { JSX } from "react";
@@ -37,7 +29,7 @@ export function DiscardConfirmStrip({
 }: DiscardConfirmStripProps): JSX.Element {
 	const keepBtnRef = useRef<HTMLButtonElement>(null);
 
-	// Focus "Keep editing" on mount (safe default — §1.2)
+	// Focus "Keep editing" on mount (safe default).
 	useEffect(() => {
 		keepBtnRef.current?.focus();
 	}, []);
@@ -83,7 +75,7 @@ export function DiscardConfirmStrip({
 				>
 					{copy.keep}
 				</button>
-				{/* Discard — second button, reachable via Tab (§1.2 keyboard discard path) */}
+				{/* Discard — second button, reachable via Tab */}
 				<button
 					type="button"
 					onClick={onDiscard}

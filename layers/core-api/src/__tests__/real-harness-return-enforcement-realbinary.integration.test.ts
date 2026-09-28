@@ -21,10 +21,10 @@
  * return-enforcement-registry.test.ts, cli-reengage-adapter.test.ts, return-gate.test.ts).
  * Those tests are the CI anchor — they run without any real binary or LLM call.
  *
- * @lore zeroing (not removing) claude's session-detection env vars lets the process inherit HOME/PATH so keychain auth still works.
- * @lore codex-cli hooks.json must use the nested `{ hooks: { Stop: [{ hooks: [...] }] } }` shape — the old flat format is silently ignored.
- * @lore codex Stop hooks use JSON stdout `{ decision: "block" }`; claude uses exit 2 + stderr.
- * @lore CODEX_HOME/hooks.json only — the per-session dir must carry only auth.json + config.toml + hooks.json (no SQLite).
+ * @lore: zeroing (not removing) claude's session-detection env vars lets the process inherit HOME/PATH so keychain auth still works.
+ * @lore: codex-cli hooks.json must use the nested `{ hooks: { Stop: [{ hooks: [...] }] } }` shape — the old flat format is silently ignored.
+ * @lore: codex Stop hooks use JSON stdout `{ decision: "block" }`; claude uses exit 2 + stderr.
+ * @lore: CODEX_HOME/hooks.json only — the per-session dir must carry only auth.json + config.toml + hooks.json (no SQLite).
  */
 
 import { execFile, spawn } from "node:child_process";
@@ -60,7 +60,7 @@ const provisionReturnHook = (options: {
  * session teardown does NOT propagate to our test subprocess. We manage the child
  * lifecycle via the returned promise and a timeout guard.
  *
- * @lore `detached: true` + piped stdio is the correct posture for spawning a harness binary from vitest — its own process group, ref/unref to avoid hanging.
+ * @lore: `detached: true` + piped stdio is the correct posture for spawning a harness binary from vitest — its own process group, ref/unref to avoid hanging.
  */
 async function spawnDetached(
 	bin: string,
@@ -132,8 +132,6 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 	//   2. Hook script execution: proves the exact script semantics (exit 2 + stderr
 	//      re-prompt when bridge returns forcing message) without paying for a
 	//      full LLM turn.
-	//
-	// @lore zeroing (not stripping) claude's session-detection env vars bypasses nested-session detection while HOME/PATH/keychain still inherit.
 
 	describe("[harness:claude] claude-code CLI (settings-claude channel, LIVE hook fire proof)", () => {
 		requireHarness("claude");
@@ -175,10 +173,6 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 					// --model: the locked test-model matrix (HARNESS_TEST_MODELS.claude.model → haiku).
 					// detached: true (inside spawnDetached): own process group → CC's
 					//   SIGTERM cascade does not reach the child before hook fires.
-					//
-					// @lore the prompt must be short and trivial so the LLM call completes quickly — the model comes from HARNESS_TEST_MODELS, never hardcoded.
-					//
-					// @lore `forceBudget: 2` means this spawn absorbs three real LLM turns — the timeout below carries headroom over that cost.y passed.
 					const result = await spawnDetached(
 						"claude",
 						[
@@ -266,7 +260,7 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 
 					// the guard parser misidentifies it as a template literal start → subsequent
 					// requireHarness() calls are treated as "inside a string" and ignored.
-					// biome-ignore lint/complexity/useRegexLiterals: guard-backtick — see @lore above
+					// biome-ignore lint/complexity/useRegexLiterals: backtick literal confuses harness guard string-parser
 					expect(hookStr).not.toMatch(new RegExp("[`$<>|;&]"));
 
 					// The hook script must exist.
@@ -276,8 +270,6 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 					// Execute the hook script directly — this is exactly what claude
 					// executes when a session stops. The script POSTs to the REAL route.
 					// This proves the TRANSPORT end-to-end: hook script → real route → real registry.
-					//
-					// @lore the script runs directly (not a full claude session) to isolate the transport proof: non-empty body → exit 2 + stderr = forceMessage.
 					const scriptResult = await new Promise<{
 						stdout: string;
 						stderr: string;
@@ -362,8 +354,8 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 
 				// settings.json hook command must NOT contain shell expansion chars.
 				const hookStr = JSON.stringify(hooks.Stop);
-				// Use new RegExp() to avoid guard backtick-parse issue (see @lore guard-backtick above).
-				// biome-ignore lint/complexity/useRegexLiterals: guard-backtick — see @lore guard-backtick above
+				// Use new RegExp() to avoid backtick literal in regex (confuses harness guard string-parser).
+				// biome-ignore lint/complexity/useRegexLiterals: backtick literal confuses harness guard string-parser
 				expect(hookStr).not.toMatch(new RegExp("[`$<>|;&]"));
 			} finally {
 				await sandbox.cleanup();
@@ -388,9 +380,7 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 	//   --dangerously-bypass-hook-trust when spawning codex exec.
 	//   The real codex binary completes a turn → Stop hook fires → bridge callCount >= 1.
 	//
-	// @lore project-local .codex/hooks.json is silently ignored — CODEX_HOME must redirect to a per-session dir carrying only auth.json + config.toml.
 	//
-	// @lore codex hooks use decision:block JSON on stdout, not exit 2 + stderr — trust bypassed via --dangerously-bypass-hook-trust.
 
 	describe("[harness:codex] codex CLI (settings-codex channel, LIVE hook fire proof)", () => {
 		requireHarness("codex");
@@ -434,8 +424,6 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 					// Execute the hook script directly — this is what codex executes
 					// at turn-end. The script POSTs to the REAL route and prints
 					// {"decision":"block","reason":"..."} on stdout when blocking.
-					//
-					// @lore script execution proves the full transport — codex blocking is decision:block JSON stdout, not exit-2 + stderr.
 					const scriptResult = await new Promise<{
 						stdout: string;
 						stderr: string;
@@ -470,7 +458,6 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 
 					// When the real route returns a forcing message, the codex hook script must
 					// output {"decision":"block","reason":"..."} on stdout and exit 0.
-					// @lore Real-codex-semantics: Codex uses JSON stdout, NOT exit 2.
 					expect(scriptResult.stdout).toContain('"decision":"block"');
 					expect(scriptResult.stdout).toContain("return");
 					expect(scriptResult.exitCode).toBe(0);
@@ -509,7 +496,6 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 					unknown
 				>;
 
-				// @lore Real-codex-format: MUST be { "hooks": { "Stop": [...] } } NOT the flat { "Stop": { ... } } format which is silently ignored.
 				expect(hooksContent).toHaveProperty("hooks");
 				const hooksObj = hooksContent.hooks as Record<string, unknown>;
 				expect(hooksObj).toHaveProperty("Stop");
@@ -519,8 +505,8 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 				const stopHooks = hooksObj.Stop as unknown[];
 				const hookStr = JSON.stringify(stopHooks);
 				// No shell expansion chars in JSON config.
-				// Use new RegExp() to avoid guard backtick-parse issue (see @lore guard-backtick above).
-				// biome-ignore lint/complexity/useRegexLiterals: guard-backtick — see @lore guard-backtick above
+				// Use new RegExp() to avoid backtick literal in regex (confuses harness guard string-parser).
+				// biome-ignore lint/complexity/useRegexLiterals: backtick literal confuses harness guard string-parser
 				expect(hookStr).not.toMatch(new RegExp("[`$<>|;&]"));
 
 				// The shell script must exist and reference the bridge URL.
@@ -590,12 +576,9 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 					// Spawn the REAL codex binary with CODEX_HOME set to the per-session dir.
 					// --dangerously-bypass-hook-trust: bypass hash-check for automation.
 					// --json: JSONL output including turn.completed.
-					//
-					// @lore CODEX_HOME must point to a per-session dir carrying only auth.json + config.toml — no SQLite files.
 					const cleanEnv = buildCleanEnv();
 					cleanEnv.CODEX_HOME = codexHomeDir;
 
-					// @lore `forceBudget: 2` means the Stop hook blocks codex twice — three real LLM turns, not one; the timeout carries headroom over that.
 					const result = await spawnDetached(
 						"codex",
 						["exec", "say: HOOK_TEST_DONE", "--json", "--dangerously-bypass-hook-trust"],
@@ -665,11 +648,7 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 	//      run with the forcing message as positional arg (reEngageCarrier:"run-arg")
 	//   3. The second invocation also completes → proves the full re-engage invocation path.
 	//
-	// @lore proves the full opencode binary spawn path: step_finish detected, re-invoke with the forcing message via the run-arg carrier.
-	//
-	// @lore opencode run does not auto-load project-local .opencode/plugins/*.ts — enforcement is HyperIdle's own process-wrapper re-invocation.
-	//
-	// @lore opencode uses provider-prefixed model IDs — `opencode models` lists the valid ones for the configured provider.
+	// @lore: opencode run does not auto-load project-local .opencode/plugins/*.ts — enforcement is HyperIdle's own process-wrapper re-invocation.
 
 	describe("[harness:opencode] opencode CLI (process-reengage channel)", () => {
 		requireHarness("opencode");
@@ -678,7 +657,7 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 			// detached: true (inside spawnDetached) — own process group so CC's
 			// SIGTERM cascade doesn't reach it before the session completes.
 			//
-			// @lore pure mode (--pure) skips external plugin loading — the model comes from HARNESS_TEST_MODELS, never hardcoded.
+			// @lore: pure mode (--pure) skips external plugin loading — the model comes from HARNESS_TEST_MODELS, never hardcoded.
 			const result = await spawnDetached(
 				"opencode",
 				[
@@ -781,11 +760,9 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 			//      with the forcing message as a positional arg (reEngageCarrier:"run-arg").
 			//   4. The second invocation completes → re-engage path proven end-to-end.
 			//
-			// @lore proves the real opencode binary completes a turn headlessly, and that a forced second spawn via the run-arg carrier also completes.
 
 			const FORCING_MESSAGE =
 				"IMPORTANT: You must call a return action (submit_review) before stopping. Please do so now.";
-			// @lore the model comes from HARNESS_TEST_MODELS.opencode → openrouter/z-ai/glm-4.7-flash, never hardcoded.
 			const MODEL = HARNESS_TEST_MODELS.opencode.model;
 
 			// First spawn: trivial no-return prompt (agent just says something, doesn't return).
@@ -814,7 +791,6 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 
 			// Re-engage: spawn opencode again with the forcing message as first arg.
 			// This is the "run-arg" carrier (reEngageCarrier:"run-arg" in CLI_TOOL_CONFIGS).
-			// @lore `opencode run <msg>` passes the message as the initial user prompt — the forcing message instructs the agent to return.
 			const reEngageResult = await spawnDetached(
 				"opencode",
 				["run", FORCING_MESSAGE, "--format", "json", "--pure", "--model", MODEL],

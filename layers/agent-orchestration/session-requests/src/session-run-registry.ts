@@ -1,41 +1,4 @@
-/**
- * @lore AU19 Increment 3b: moved here unchanged from
- * `packages/server/src/services/session-run-registry.ts` — architecture §4's
- * roster explicitly lists this as one of `session-requests`' seed files.
- * Dependency-free (framework types only), so the move is a pure
- * relocation with zero port conversion. Every real consumer
- * (`session-provisioning.ts`, `routes/sessions-routes.ts`,
- * `policy-bindings.ts`) repoints its import to `@hyperidle/session-requests`.
- */
-
-/**
- * SessionRunRegistry.
- *
- * A process-singleton leaf module that tracks the live runtime entry for each
- * actively-running session so two collaborators can
- * cooperatively abort it WITHOUT importing each other:
- *   - the provisioning runtime (`runSession`) registers itself at harness-start
- *     and deregisters at teardown;
- *   - `PATCH /api/sessions/:id` (§4) and the handoff protocol (§5) call
- *     `abort(sessionId)` to request that the running harness stop.
- *
- * Abort is the PRIMARY revocation path. For the builtin harness it calls
- * `adapter.stopSession(handle)`, which sets the builtin session's internal
- * `aborted` flag and awaits its loop — halting `runLoop`/`executeToolCalls`
- * where builtin tools actually run (builtin executes tools internally, not via
- * the provisioning event loop, so a loop-break alone would NOT stop it). For
- * subprocess/remote adapters `stopSession` terminates the child / sends stop.
- * The provisioning event-loop break is SECONDARY (non-builtin `registry.invoke`).
- *
- * @lore AF7 §5: this MUST be a dependency-free leaf singleton so both the route
- * layer and the orchestrator share one instance without a circular import. Do
- * not import from the server barrel or from session-provisioning here.
- *
- * @lore AF7 §5: `abort` is the real tool-revocation. A builder who wires only
- * the provisioning loop-break flag and trusts "no further registry.invoke"
- * ships an abort that does NOTHING for builtin (builtin tools run inside its own
- * loop). The stopSession call below is load-bearing.
- */
+// @lore: abort — stopSession call is load-bearing; loop-flag alone does nothing for builtin adapters (tools run in their own loop)
 
 import type { HarnessAdapter, SessionHandle } from "@hyperidle/harness-protocol";
 
@@ -83,8 +46,7 @@ function has(sessionId: string): boolean {
 
 /**
  * Abort a running session. Returns true if a runtime entry existed (the abort
- * was dispatched), false if there was no live entry (caller falls back to a
- * guarded direct write — see §4 PATCH).
+ * was dispatched), false if there was no live entry (caller falls back to a guarded direct write).
  *
  * `reason` decides which caller this is — a real stop, or an adapter's own
  * defensive kill after it reported its turn over — and rides straight

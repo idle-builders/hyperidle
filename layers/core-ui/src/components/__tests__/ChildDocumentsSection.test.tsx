@@ -12,7 +12,6 @@
  *  - heading rendered when provided
  *  - clicking a row enters split mode, renders detail pane
  *
- * @lore: repointed off `useParentedKnowledgeItems`/`useKnowledgeItem` onto `useDocuments`/`useDocument` (architecture.md §9.2, §5.2).
  */
 
 import type { DocumentRow } from "@hyperidle/domain-model";

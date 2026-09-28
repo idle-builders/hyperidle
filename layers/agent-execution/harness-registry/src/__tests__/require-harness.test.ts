@@ -92,8 +92,6 @@ describe("requireHarness — binary absent (claude/codex/opencode/cursor-agent)"
 	});
 });
 
-// @lore availability is a question about installed binaries only, never a credential.
-
 // ── STRICT VOCABULARY: forbidden key-named tokens are NOT valid HarnessNames ──
 //
 // These assert the reverted bug (requireHarness("anthropic-key") etc.) cannot return.

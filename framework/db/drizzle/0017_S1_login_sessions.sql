@@ -1,4 +1,4 @@
--- S1: Per-user authentication tables (PostgreSQL)
+-- Per-user authentication tables (PostgreSQL)
 CREATE TABLE "login_sessions" (
   "id" text PRIMARY KEY NOT NULL,
   "user_id" text NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,

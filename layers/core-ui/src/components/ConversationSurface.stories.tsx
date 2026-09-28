@@ -1,5 +1,5 @@
 /**
- * Conversation Surface — stories (the approved AM1 conversation design).
+ * Conversation Surface — stories.
  *
  * The FULL-SCOPE conversation scoped to the conversation pane (the app-shell
  * sidebar — conversation list + nav — is intentionally OUT of this design: it is
@@ -7,7 +7,7 @@
  * --surface-page. Only the real populated conversation; no empty / loading /
  * error variants ([[memory]]: initial designs render only populated).
  *
- * ── THE FIXTURE LIVES HERE (AM1 task 11) ────────────────────────────────────
+ * ── THE FIXTURE LIVES HERE ────────────────────────────────────
  * `ConversationSurface` is now prop-driven (the page passes real data). This
  * story owns the design fixture — the approved conversation as a fixed `Part[]`
  * plus the header/participant strings and a console-`onOpen` / noop `onSend`.
@@ -156,12 +156,12 @@ const PARTICIPANTS: ReadonlyArray<ConversationSurfaceParticipant> = [
 // story, so it is a clearly-labeled console noop naming its target route.
 const onOpen = (target: OpenTarget): void => {
 	// biome-ignore lint/suspicious/noConsole: story-only navigation-hook proof
-	console.info("[AM1] open", target.route, target);
+	console.info("open", target.route, target);
 };
 
 const onSend = (): void => {
 	// biome-ignore lint/suspicious/noConsole: story-only send-hook proof
-	console.info("[AM1] send (story noop)");
+	console.info("send (story noop)");
 };
 
 // The full conversation, resting composer — natural height (nothing clipped).
@@ -178,7 +178,7 @@ export const Populated = (): JSX.Element => (
 				/>
 				{/* Story-only: the calm Fold device shown standalone so the viewer
 				    exercises it on its own (the page's session Folds come from
-				    PartList's session-reference embeds — AM1 §12.2). */}
+				    PartList's session-reference embeds). */}
 				<div className="mx-auto w-full max-w-[760px] px-[18px] pb-[18px]">
 					<Fold
 						label="Worked for 1m 12s"

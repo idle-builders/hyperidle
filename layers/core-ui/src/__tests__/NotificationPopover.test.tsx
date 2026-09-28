@@ -6,8 +6,6 @@
  * mark-seen; dismiss calls mark-read and removes the row; empty/loading/
  * error states render.
  *
- * @lore rows are inbox items over ChangeRow — {change, seenAt, readAt} — with no per-type mute; a subscription's pause lives in Settings.
- *
  * Note: The popover is a Tier-3 shell composition (layers/core-ui/src/shell/NotificationPopover.tsx).
  * It uses the useNotifications hook internally.
  */

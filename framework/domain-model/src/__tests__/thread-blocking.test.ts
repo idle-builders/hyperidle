@@ -81,7 +81,7 @@ const activeForThread: AgentSessionStateSnapshot = {
 	activeForThreadId: "t1",
 };
 
-describe("isBlocking (concept §4.5.5)", () => {
+describe("isBlocking", () => {
 	it("returns false when there are no agent participants and no head", () => {
 		const thread: Thread = { ...baseThread, members: ["u1"] };
 		expect(isBlocking(thread, [plainMsg], noAgentState)).toBe(false);

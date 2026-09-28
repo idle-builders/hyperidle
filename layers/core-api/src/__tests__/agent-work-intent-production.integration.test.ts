@@ -94,7 +94,6 @@ async function seedExplicitSessionAuthority(db: HyperIdleDb) {
 	});
 }
 
-// @lore row truncation does not remove a test-created trigger — the helper that installs a fault also owns its teardown.
 let cleanupRejectedIntentWrites: (() => Promise<void>) | undefined;
 
 async function rejectIntentWrites(db: HyperIdleDb) {
@@ -225,7 +224,6 @@ describe("atomic production handoffs", () => {
 		expect(attempts[0]?.occasion).toBe("retry");
 	});
 
-	// @lore `send_message`'s wake loop catches each agent's intent-record failure per-agent — the action itself still reports success.
 	test("real assistant message command: the message survives even when the intent write fails", async ({
 		db,
 		app,

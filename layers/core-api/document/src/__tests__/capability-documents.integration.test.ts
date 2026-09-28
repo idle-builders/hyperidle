@@ -68,7 +68,7 @@ describe("assembleSessionDocuments includes capability items", () => {
 		expect(skill?.body).toBe("Write tests first.");
 	});
 
-	test("team-scoped skill only reaches matching team session (AC7)", async ({ db }) => {
+	test("team-scoped skill only reaches matching team session", async ({ db }) => {
 		const teamA = `team-a-${generateId()}`;
 		const teamB = `team-b-${generateId()}`;
 

@@ -11,14 +11,8 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <link rel="apple-touch-icon" href="/icon-192.png" />
     <script>
-      // K3/U4 theme persistence — runs synchronously before React mounts.
-      // @lore FOIT prevention: we MUST set data-theme before the first paint
-      // or the user sees a flash on every reload (the body briefly renders
-      // with default styles before the React tree applies the chosen theme).
-      // Mirrors framework/design-system/html/themes/_switcher.js but writes a
-      // single data-theme attribute (no stylesheet swap — Hearth tokens are in
-      // a single sheet keyed by [data-theme]).
-      // U4: Hearth is light-first — default changed from "dark" to "light".
+      // Theme persistence — runs synchronously before React mounts.
+      // @lore: theme boot script — must set data-theme before first paint; delaying or removing it flashes the wrong theme
       (() => {
         let resolved = "light";
         try {

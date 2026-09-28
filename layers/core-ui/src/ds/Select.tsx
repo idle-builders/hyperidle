@@ -1,17 +1,4 @@
-/**
- * Select — Tier 0 foundation primitive.
- *
- * Custom styled select with CSS arrow. Matches Input border/radius/focus styling.
- *
- * @lore W2: No DaisyUI — custom CSS per Select.html. appearance:none removes native chrome.
- * The arrow is a CSS border-trick triangle absolutely positioned.
- * @lore W2 hearth-internal-padding: select padding (10px vertical) is optically tuned.
- * @lore AG5 C3: className is forwarded to the inner <select>, NOT the wrapper div.
- * This is the ONLY way width overrides work. Tailwind stylesheet order means w-full is emitted
- * AFTER w-[88px] in the stylesheet, so last-wins would make w-full always win regardless of
- * class-attribute order. Solution: conditional w-full — omit it when caller passes a w-* token,
- * so caller's width class is the sole rule. Empirically verified against TW 3.4.19 in this repo.
- */
+// @lore: className forwarded to inner <select> NOT the wrapper — only way width overrides work; conditional w-full so caller's w-* class is sole width authority
 
 // hearth-internal-padding
 
@@ -34,24 +21,12 @@ const SELECT_CLASS_BASE =
 	"appearance-none px-[12px] pr-[40px] bg-[var(--surface-elevated)] border-width-default border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] outline-hidden focus:border-[var(--accent-deep)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer";
 
 // hearth-internal-padding
-// "md": py-[10px] optically tuned form padding.
-// "sm": py-[6px] dense row; at ≤1024px the min-h-[44px] floor enforces AQ-015 touch target.
-// @lore AG5 fix-1: AQ-015 requires 44px touch target at viewport ≤ 1024px.
-// Tailwind's lg: breakpoint is min-width:1024px, which applies AT 1024px.
-// Use xl: (1280px+) to reduce height so the 44px floor holds up to and including 1024px.
 const SELECT_SIZE: Record<NonNullable<SelectProps["size"]>, string> = {
 	md: "py-[10px] min-h-[44px] xl:min-h-0",
 	sm: "py-[6px] min-h-[44px] xl:min-h-[32px]",
 };
 
-/**
- * True when the caller className contains a Tailwind width utility (w-*).
- *
- * @lore AG5 fix-1: /\bw-/ false-positives on max-w-/min-w- because `-` is a
- * non-word character so \b matches the position between the `-` and the `w`.
- * Use /(?:^|\s)w-/ instead: matches `w-` only at the start of a class token,
- * not inside `max-w-` or `min-w-`.
- */
+// @lore: /(?:^|\s)w-/ not /\bw-/ — \b matches between `-` and `w` in max-w-/min-w-, causing false-positives
 function hasWidthToken(cls: string): boolean {
 	return /(?:^|\s)w-/.test(cls);
 }
@@ -67,9 +42,7 @@ export function Select({
 }: SelectProps): JSX.Element {
 	const selectId = id ?? (label ? `select-${label.toLowerCase().replace(/\s+/g, "-")}` : undefined);
 
-	// @lore AG5 C3: Conditional w-full — see file-level lore above. Do NOT add w-full when caller
-	// already supplies a w-* token; the two would fight and stylesheet order determines the winner
-	// (w-full wins every time). Let the caller class be sole width authority when present.
+	// @lore: omit w-full when caller supplies a w-* token — both present means stylesheet order wins (w-full always); caller must be sole width authority
 	const widthClass = hasWidthToken(className) ? "" : "w-full";
 	const selectClass = `${SELECT_CLASS_BASE} ${SELECT_SIZE[size]} ${widthClass} ${className}`.trim();
 

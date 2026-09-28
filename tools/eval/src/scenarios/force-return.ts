@@ -351,7 +351,7 @@ Do NOT call edit_task or send_message.`,
 						note:
 							`${count} Layer-B loop re-engage(s) recorded — ` +
 							"external harness was forced via sandbox-file rewrite (not builtin shortcut). " +
-							"AC4 live teeth verified.",
+							"live teeth verified.",
 					};
 				},
 			},

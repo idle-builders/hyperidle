@@ -543,9 +543,7 @@ export const ATTACKS: readonly Attack[] = [
 	{
 		id: "reexport-narrow-surface",
 		detail:
-			"a layer barrel re-exporting a `framework/api-contract` symbol (reach: [layer]), whose audience is narrower than everyone" +
-			" — AU29 re-anchor: `db:util` (the previous anchor, `escapeLikePattern`) no longer exists, its exports having left " +
-			"`framework/db` altogether, so the DB package has no narrow-reach surface left at all",
+			"a layer barrel re-exporting a `framework/api-contract` symbol (reach: [layer]), whose audience is narrower than everyone",
 		rules: ["no-laundered-re-exports"],
 		overlay: {
 			[`${a.layerDir}/attack-reexport-contract.ts`]: `export type { AgentOrchestrationPort } from "@hyperidle/api-contract";\n`,
@@ -687,7 +685,7 @@ export const ATTACKS: readonly Attack[] = [
 	{
 		id: "composition-handoff-mediated-control",
 		detail:
-			"the SAME handoff, bound to a local first — a face-boot-produced value passed onward by the composition root is composition, not injection (§4); the control this predicate's own design says must stay clean",
+			"the SAME handoff, bound to a local first — a face-boot-produced value passed onward by the composition root is composition, not injection; the control this predicate's own design says must stay clean",
 		rules: ["crossing-di"],
 		overlay: {
 			[`${a.applicationDir}/attack-composition-mediated.ts`]:
@@ -876,9 +874,7 @@ export const ATTACKS: readonly Attack[] = [
 	{
 		id: "undeclared-db-surface",
 		detail:
-			"a barrel export of a database module `architecture.json` does not name resolves to db:unknown, not to a guess" +
-			" — AU29 re-anchor: the previous anchor (`readSystemPromptTemplate`, a real live unplaced symbol) was placed by " +
-			"AU29 itself, so this fabricates the same shape — a new module the registry does not name — on the post-AU29 tree",
+			"a barrel export of a database module `architecture.json` does not name resolves to db:unknown, not to a guess",
 		rules: ["crossing-import"],
 		overlay: {
 			[`${a.frameworkDir}/attack-unmapped-module.ts`]: `export function attackUnmapped(): string {\n\treturn "unmapped";\n}\n`,
@@ -897,7 +893,7 @@ export const ATTACKS: readonly Attack[] = [
 	{
 		id: "db-symbols-all-placed-scenario3",
 		detail:
-			"AU29 §4.5 / plan validation scenario 3 — a new no-database export appended to the db barrel, re-exported " +
+			"a new no-database export appended to the db barrel, re-exported " +
 			"from a module `architecture.json` does not name, must fail the build naming the symbol",
 		rules: ["db-symbols-all-placed"],
 		overlay: {

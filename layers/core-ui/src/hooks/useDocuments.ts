@@ -1,12 +1,4 @@
-/**
- * useDocuments. Replaces `useParentedKnowledgeItems` and every hand-rolled
- * `useFetch("/api/knowledge")` list read. One door: `call("search_documents",
- * filter)`, kept live by the global `documents` websocket nudge.
- *
- * The filter is a stable value the caller controls — pass a `useMemo`'d
- * object (or a primitive-only shape) so the effect doesn't refire every
- * render. `useThreads.ts` shape verbatim.
- */
+// @lore: filter must be stable (useMemo'd object or primitive-only shape) — unstable identity reruns the effect every render
 
 import type { DocumentRow, SearchDocumentsInput } from "@hyperidle/domain-model";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -22,7 +14,6 @@ export interface UseDocumentsResult {
 	retry: () => void;
 }
 
-/** `undefined` skips the call entirely — e.g. no filter resolved yet. */
 export function useDocuments(filter: SearchDocumentsInput | undefined): UseDocumentsResult {
 	const [status, setStatus] = useState<UseDocumentsStatus>(filter ? "loading" : "ready");
 	const [documents, setDocuments] = useState<ReadonlyArray<DocumentRow>>([]);
@@ -73,9 +64,7 @@ export function useDocuments(filter: SearchDocumentsInput | undefined): UseDocum
 		setTick((n) => n + 1);
 	}, []);
 
-	// Nudge subscription — the global `documents` topic. Any frame means
-	// "some document this viewer might see changed"; re-run search_documents
-	// rather than reconciling the row locally.
+	// Nudge: any frame on global documents topic re-runs search_documents rather than reconciling the row locally
 	const cancelledRef = useRef(false);
 	useEffect(() => {
 		if (filterKey === null) return;

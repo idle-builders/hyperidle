@@ -1,7 +1,6 @@
 /**
  * A task's sessions, read through the session action list.
  *
- * @lore useTaskSessions calls search_sessions and projects it: oldest-first numbering, status from the row's state, the effectiveness parse.
  */
 
 import { renderHook, waitFor } from "@testing-library/react";

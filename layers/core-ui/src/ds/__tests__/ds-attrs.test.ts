@@ -2,7 +2,6 @@
 
 /**
  * K2 acceptance gate: every Tier 1+2 component spreads `dsProps(name, tier)` on its outermost element.
- * @lore BetCard does not exist — tasks are the one work primitive.
  */
 
 import { act, createElement } from "react";

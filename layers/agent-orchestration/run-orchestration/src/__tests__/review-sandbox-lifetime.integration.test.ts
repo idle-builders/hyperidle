@@ -64,7 +64,7 @@ function buildFakeHarnessAdapter(
 }
 
 /**
- * @lore with the MCP bridge open, a tool call arrives via `onToolCall`, never `streamEvents` — `bridgeCall` models that real path.
+ * @lore: with the MCP bridge open, a tool call arrives via `onToolCall`, never `streamEvents` — `bridgeCall` models that real path.
  */
 function buildHarnessPorts(
 	bridgeCall: string | undefined,
@@ -179,7 +179,7 @@ async function runOnce(
 	const admitted = await provisioner.admit(deps, params);
 	sessionIdForLink = admitted.sessionId;
 	await provisioner.run(deps, params, admitted);
-	// @lore assert the sandbox DIRECTORY, not the `workspace.destroy` spy — the real delete is the `fs.rm` in the terminal transition.
+	// @lore: assert the sandbox DIRECTORY, not the `workspace.destroy` spy — the real delete is the `fs.rm` in the terminal transition.
 	const target = opts.resumeFrom ?? sandboxPath;
 	return { survives: fs.existsSync(target), destroyed, adopted, resumedIn: resumed.path };
 }

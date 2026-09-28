@@ -3,7 +3,7 @@
  * `text-[20px]` + `font-[600]` + `tracking-[-0.01em]` on any JSX element in
  * `layers/core-ui/src/pages/**` whose name is NOT `PageHeader`.
  *
- * @lore a template-literal identifier combo never surfaces — collectClassStringsFromExpression has no Identifier case, shared by every rule calling it.
+ * @lore: collectClassStringsFromExpression — no Identifier case; template-literal identifier combos never surface in any rule using it.
  */
 
 import tsParser from "@typescript-eslint/parser";

@@ -627,8 +627,6 @@ describe("SplitView ratio persistence", () => {
 // Role template fetched on edit-open
 // ---------------------------------------------------------------------------
 
-// @lore a new agent starts with an empty identity — there is no built-in role-template prefill; a plugin's agent brings its own identity.
-
 describe("AgentEditor — model options", () => {
 	function renderWith(draft: AgentEditorDraft, onDraftChange = vi.fn()): typeof onDraftChange {
 		render(

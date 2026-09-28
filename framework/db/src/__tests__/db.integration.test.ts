@@ -1,10 +1,8 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
-// @lore this file uses createTestDb() directly (not the fixture) because it tests the createTestDb API itself.
 import { createTestDb } from "../__testing__/test-utils.js";
 import { teams } from "../schema.js";
 
-// @lore teams is a real table with a text PK, enough to prove basic CRUD + uniqueness.
 describe("createTestDb", () => {
 	it("creates an in-memory database that can execute queries", { timeout: 30_000 }, async () => {
 		const { db, close } = await createTestDb();

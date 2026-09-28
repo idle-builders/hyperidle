@@ -5,8 +5,6 @@
  * `step_finish.part`. Claude emits token usage + turn/duration metrics on its
  * terminal ndjson `result` line. The adapter normalizes those native fields
  * into `token_usage` events and `SessionResult.metrics`.
- *
- * @lore harness telemetry is token usage only — no harness self-reports a real cost figure worth asserting.
  */
 
 import type { ChildProcess } from "node:child_process";

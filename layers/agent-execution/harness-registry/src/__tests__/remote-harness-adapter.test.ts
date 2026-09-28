@@ -262,7 +262,6 @@ describe("RemoteHarnessAdapter stopSession", () => {
 		expect(stopMsg.sessionId).toBe(sessionId);
 
 		// Simulate worker acknowledging with a session_result
-		// @lore harness-telemetry narrowing: no cost field on SessionResult anymore.
 		ws.receive({
 			type: "session_result",
 			sessionId,

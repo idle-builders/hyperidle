@@ -6,7 +6,6 @@
  * install, and it is what makes removing the slot selector from the
  * document content view safe.
  *
- * @lore: repointed off raw `apiFetch`/`GET /api/knowledge` onto `useDocuments`/`call("edit_document", …)`.
  */
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -99,7 +98,6 @@ describe("SettingsSkillsAndRules", () => {
 	});
 
 	/**
-	 * @lore this row is not a real anchor since Row's href mode forbids nesting Delete — it navigates via onClick/navigate(), trading away ⌘-click and copy-link.
 	 */
 	it("clicking a row navigates to its document content view, but not via a real <a>", async () => {
 		const user = userEvent.setup();
@@ -158,7 +156,6 @@ describe("SettingsSkillsAndRules", () => {
 	 * own rows still use, via RowDeleteAction; this list deliberately does
 	 * not).
 	 *
-	 * @lore see document-slot-delete.spec.ts for real-Chromium coverage jsdom lacks — removal is optimistic; the row leaves the DOM before the archive resolves.
 	 */
 	it("deletes: one click calls edit_document({status:'archived'}) and removes the row immediately", async () => {
 		vi.mocked(call).mockResolvedValue({ ok: true } as unknown as Awaited<ReturnType<typeof call>>);
@@ -182,7 +179,6 @@ describe("SettingsSkillsAndRules", () => {
 	});
 
 	/**
-	 * @lore handleDelete removes the row immediately; restore(id) puts it back only if the archive call fails, so a real failure stays visible.
 	 */
 	it("delete error: shows the failure and the row comes back", async () => {
 		vi.mocked(call).mockResolvedValue({

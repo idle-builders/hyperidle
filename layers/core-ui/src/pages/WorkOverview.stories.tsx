@@ -14,8 +14,6 @@
  * The 1-team short-circuit (<Navigate>) is a wrapper concern and never reaches
  * the view, so it is intentionally NOT a story state.
  *
- * @lore AD9: stories render WorkOverviewView (props-driven) — not WorkOverview
- * (hook + router) — so each state renders with no backend and no fetch stubbing.
  */
 
 import type { TeamsListItem } from "../hooks/useTeams.js";

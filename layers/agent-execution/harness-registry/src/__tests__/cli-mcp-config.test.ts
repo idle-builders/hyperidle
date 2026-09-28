@@ -18,16 +18,11 @@
  * After T4 (green phase): writeCliMcpConfig is created → this turns GREEN.
  *
  * IN CI / test:all — deterministic, no external binary.
- *
- * @lore config-writer-contract: Tests the shape contract for the config writer. Using a real temp dir to prove actual file I/O, not just return values.
- *
- * @lore the codex toml block is verified via string matching, not a TOML parser — the block has a simple, predictable structure.
  */
 
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-// @lore red-phase: This import will fail until writeCliMcpConfig is created.
 import { writeHarnessMcpConfig, writePluginStdioMcpEntries } from "../cli-mcp-config.js";
 
 const writeCliMcpConfig = writeHarnessMcpConfig;
@@ -396,10 +391,6 @@ describe("writeCliMcpConfig", () => {
 			expect(parsed.mcpServers?.hyperidle?.url).toBe(TEST_MCP_URL);
 			expect(parsed.mcpServers?.hyperidle?.headers?.Authorization).toBe(`Bearer ${TEST_TOKEN}`);
 		});
-
-		/**
-		 * @lore cursor-agent resolves `.cursor/mcp.json` against the enclosing GIT REPOSITORY root, not the working directory.
-		 */
 	});
 });
 
@@ -411,7 +402,7 @@ describe("writePluginStdioMcpEntries — plugin stdio MCP entries", () => {
 	let sandboxPath: string;
 
 	beforeEach(() => {
-		sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "ba9b-plugin-mcp-"));
+		sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "probe-plugin-mcp-"));
 	});
 
 	afterEach(() => {

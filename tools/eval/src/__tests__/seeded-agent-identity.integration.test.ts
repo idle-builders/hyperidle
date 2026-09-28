@@ -12,7 +12,7 @@ import { EventBus } from "@hyperidle/event-bus";
 import { afterAll, vi } from "vitest";
 import { seedAgent, seedMinimalWorld, seedMultiAgentWorld, seedTeam } from "../seeding.js";
 
-// @lore the run's harness choice is fixed here — a real one needs a binary CI lacks; the service lane resets the shared module cache when this file finishes.
+// @lore: harness choice fixed — a real harness needs a binary CI lacks; service lane resets the shared module cache after this file
 vi.hoisted(() => vi.resetModules());
 vi.mock("../eval-harness.js", () => ({
 	evalHarnessType: () => "claude-code",

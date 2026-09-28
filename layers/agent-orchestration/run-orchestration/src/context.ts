@@ -11,23 +11,6 @@ import type {
 import type { EventBus } from "@hyperidle/event-bus";
 import type { Manifest, ManifestEntry } from "./manifest-types.js";
 
-/**
- * `context.ts` is now pure
- * format/write. Every DB-reading path (`fetchAllForLayer`/`rankAndBudget`/
- * `buildSessionContextData`/`assembleContext`) is DELETED, not seam-routed —
- * the entity content (task/bet/agent/team or subscription/agent/team) + the
- * ranked+budgeted knowledge bundle are baked at EMIT time by each per-kind
- * resolver (`@hyperidle/work`'s `task-run-resolver.ts`, `@hyperidle/document`'s
- * `knowledge-action-resolver.ts`, the user module's subscription fire)
- * calling the shared `@hyperidle/document`'s `assembleSessionDocuments`
- * (Wave A) — the `requireRunnableAgent` precedent. `assembleAgentContext`
- * below consumes the baked `contextBundle` carried on the session request and
- * writes `context/session.toon` + the nested `knowledge/**` tree — ZERO db
- * reads, zero `ContextAssemblyPorts` domain members (`knowledge`/`work`/
- * `users`/`org` are gone; only `filesystems` remains, for
- * `beginAgentWriteback`'s watcher).
- */
-
 interface ContextAssemblyFileWatcherConfig {
 	readonly sandboxPath: string;
 	readonly sessionId: string;
@@ -44,12 +27,7 @@ interface FilesystemsReader {
 	startWatcher(config: ContextAssemblyFileWatcherConfig): ContextAssemblyFileWatcher;
 }
 
-/**
- * The deps-free surface `assembleAgentContext`/`beginAgentWriteback` need.
- * Shrunk to `filesystems` only (Increment 12 Wave C) — every domain-reading
- * member (`knowledge`/`work`/`users`/`org`) is deleted; nothing in
- * this file reads core-api domain state anymore.
- */
+/** `assembleAgentContext`/`beginAgentWriteback` ports — filesystems only; no domain-reading members. */
 interface ContextAssemblyPorts {
 	readonly filesystems: FilesystemsReader;
 }
@@ -82,8 +60,7 @@ interface SessionContextData {
 
 /**
  * Map a `kind:"task"` baked `contextBundle` onto the `SessionContextData`
- * shape `assemblePrompt` needs — a pure passthrough, the two shapes match
- * field-for-field (Increment 12 Wave B baked exactly this shape).
+ * shape `assemblePrompt` needs — a pure passthrough, the two shapes match field-for-field.
  */
 function sessionContextDataFromBundle(
 	bundle: Extract<BakedContextBundle, { kind: "task" }>,
@@ -98,8 +75,7 @@ function sessionContextDataFromBundle(
 
 /**
  * Encode an object into TOON format (flat key-path lines).
- * Inlined from the deleted @hyperidle/toon-codec package — encode-only,
- * no decoder exists or is needed (the LLM is the decoder).
+ * Encode-only — no decoder exists or is needed (the LLM is the decoder).
  */
 function encodeToon(obj: object): string {
 	const lines: string[] = [];
@@ -108,7 +84,7 @@ function encodeToon(obj: object): string {
 }
 
 function flattenToLines(value: unknown, prefix: string, lines: string[]): void {
-	// @lore I6: skip undefined values, matching JSON.stringify behavior.
+	// Skip undefined values, matching JSON.stringify behavior.
 	if (value === undefined) return;
 	if (value === null) {
 		lines.push(`${prefix}:`);
@@ -196,15 +172,7 @@ const logger = createLogger({ pkg: "server.agent-context-prompt" });
 
 /** Input to context assembly. All fields come from prior provisioning phases. */
 interface PromptCompositionInput {
-	/**
-	 * Inline system prompt text. Empty string = no persona section.
-	 *
-	 * @lore X3: Changed from a file path to inline text from DB. The DB stores system
-	 * prompts directly, eliminating the filesystem read attack surface. The content
-	 * may still contain YAML frontmatter (seeded from .md files) — stripFrontmatter()
-	 * is called before inclusion.
-	 * @lore AK1: Renamed per AK1 harness-vocab plan.
-	 */
+	/** Inline system prompt text. Empty string = no persona section. DB-stored; may contain YAML frontmatter (stripped before inclusion). */
 	readonly systemPromptText: string;
 	/** Session context data (task, bet, agent, team). */
 	readonly context: SessionContextData;
@@ -234,16 +202,7 @@ interface PromptCompositionResult {
  */
 const PERSONA_TOOLS_TOKEN_BUDGET = 4000;
 
-/**
- * Approximate token count for budget-checking the persona + tools sections.
- *
- * @lore AU21 §9 Increment 12 (Decision H3), Wave C: relocated from
- * `contextPorts.knowledge.countTokens` (`run-orchestration-composition.ts`) —
- * that binding was ALWAYS this same self-contained byte-length approximation,
- * never a real `@hyperidle/document` call (verified from source), so
- * inlining it here drops zero behavior and removes the last reason this file
- * needed a `knowledge` port at all.
- */
+/** Approximate token count for budget-checking the persona + tools sections (byte-length / 4). */
 function approxTokenCount(text: string): number {
 	return Math.ceil(Buffer.byteLength(text, "utf8") / 4);
 }
@@ -408,28 +367,13 @@ function assemblePrompt(input: PromptCompositionInput): PromptCompositionResult 
  * Write the assembled prompt to the sandbox root as BOTH AGENTS.md AND CLAUDE.md.
  * Synchronous — consistent with other context-assembly writes.
  *
- * @lore AK1: Renamed from writeWorkspaceCLAUDEmd (AK1 harness-vocab rename).
- * Dual-write (DEFAULT): writes AGENTS.md (Linux-Foundation cross-vendor standard,
- * per docs/architecture/overview.md §Session path) AND CLAUDE.md (current harness auto-discovery
- * for Claude Agent SDK + Aider/Goose/OpenCode). Both files contain identical content.
- *
- * Rationale for dual-write: no adapter positively verified to read AGENTS.md today;
- * all read CLAUDE.md (see cli-harness-adapter.ts + context-assembly-prompt.ts:10-17).
- * Writing AGENTS.md-only would stop every harness from seeing the assembled context = behaviour change.
- * Dual-write: every harness keeps reading CLAUDE.md (behaviour preserved); AGENTS.md exists
- * as the named standard surface (AC satisfied).
- *
- * @lore AK1 TODO: Once a later WP positively verifies every registered adapter auto-discovers
- * AGENTS.md, the CLAUDE.md write can be dropped. Until then, dual-write stays.
+ * @lore: writeSandboxAgentsMd dual-write — writes AGENTS.md AND CLAUDE.md (identical); all adapters read CLAUDE.md; AGENTS.md-only would break every harness
  */
 /**
  * Root-level files emitted by writeSandboxAgentsMd (dual-write: AGENTS.md + CLAUDE.md).
  * Exported so the scaffolding-drift-guard can assert coverage.
  *
- * @lore AO2: These tracked files are critical for the self-host case: this repo
- * itself tracks AGENTS.md and CLAUDE.md. Assembly overwrites them with the assembled
- * system prompt. Without scaffolding-exclusion the authored commit would carry
- * a clobbered CLAUDE.md / AGENTS.md — making it look like the agent modified them.
+ * @lore: EMITTED_AGENT_FILES — this repo tracks AGENTS.md and CLAUDE.md; assembly overwrites them; scaffolding-exclusion prevents clobbered versions in commits
  */
 const EMITTED_AGENT_FILES = ["AGENTS.md", "CLAUDE.md"] as const;
 
@@ -571,8 +515,7 @@ function assembleSubscriptionPrompt(
 	return { assembledPrompt, personaToolsTokens };
 }
 
-// `ManifestEntry`/`Manifest` are shared with writeback-processor.ts's reader
-// (review.md B5) — see manifest-types.ts.
+// `ManifestEntry`/`Manifest` are shared with writeback-processor.ts's reader — see manifest-types.ts.
 
 function toFilename(title: string, itemId?: string): string {
 	const suffix = itemId ? `_${itemId.slice(0, 8)}` : "";
@@ -598,51 +541,9 @@ function cleanDirectory(dirPath: string): void {
 	fs.rmSync(dirPath, { recursive: true, force: true });
 }
 
-/**
- * @lore nested-knowledge-items §5: the per-layer `context/product|practices|
- * factory` zones and the `knowledge/practices|decisions|failures` legacy
- * kind-inference subdirectories are GONE — there is one writable, watched
- * `knowledge/` tree shaped like the real tree, not a set of layer buckets. An
- * agent's own materialised knowledge writes wherever its parent chain says;
- * `knowledge/rules` survives because slot='rule' items land there regardless
- * of tree position (placement follows slot, not tree position).
- */
 const CONTEXT_ASSEMBLY_DIRS = [".fabric", "context", "knowledge/rules", "work/artifacts"] as const;
 
-/**
- * @lore BA9b: Per-harness skill directories — empirically verified 2026-08-26.
- *
- * Two directories cover all four binary harnesses. Established by planting a
- * unique probe skill in each candidate directory and running every real binary
- * non-interactively; only the directories whose probe token appeared in output
- * are listed. Full evidence in:
- *   the "As built" section of .pipeline/work/BA9b/plan.md — including the
- *   probe method, to re-run when a harness is added or upgraded.
- *
- *   .claude/skills  — claude:        confirmed (probe-claudedir token returned).
- *                  — cursor-agent:   ALSO reads this directory (probe-claudedir
- *                                    appeared; .cursor/rules/ was NOT used).
- *                  — opencode:       reads .claude/skills in addition to its own
- *                                    .opencode/skills and .agents/skills.
- *
- *   .agents/skills  — codex:         ONLY directory codex reads; .codex-home/skills
- *                                    is the config dir (auth/hooks), not skills.
- *                                    probe-agentsdir appeared, probe-codexhomedir did not.
- *                  — cursor-agent:   also reads .agents/skills (probe-agentsdir appeared).
- *                  — opencode:       also reads .agents/skills (probe-agentsdir appeared).
- *
- * .opencode/skills is redundant (opencode reads .claude/skills too) and is
- * therefore omitted. .codex-home/skills is dead — nothing reads it.
- *
- * builtin: no file-based skill dirs. It is a direct LLM call through OpenRouter;
- * skills reach it via the system prompt injected in AGENTS.md (already written
- * by context assembly). No extra directory entry needed.
- *
- * Each subdir contains <skillDirName>/SKILL.md as per Agent Plugins 1.0.0.
- *
- * Re-run the probe (evidence file §Method) if a harness is added or upgraded;
- * skill discovery is harness behaviour, not ours, and it can change under us.
- */
+// @lore: HARNESS_SKILL_DIRS — empirically verified: .claude/skills (claude+cursor+opencode), .agents/skills (codex+cursor+opencode); re-probe on harness change
 const HARNESS_SKILL_DIRS = [".claude/skills", ".agents/skills"] as const;
 const CONTEXT_ASSEMBLY_ROOTS = [
 	...new Set(
@@ -672,8 +573,8 @@ function writeItem(sandboxPath: string, item: BakedContextDocument, zone: string
 }
 
 /**
- * Materialise every ordinary item, shaped like its real ancestor chain
- * (architecture.md §5). `writeContextBundle` does zero DB reads —
+ * Materialise every ordinary item, shaped like its real ancestor chain.
+ * `writeContextBundle` does zero DB reads —
  * `item.parentChain` (baked at emit time, root first) is the only source for
  * "where in the tree does this go".
  *
@@ -681,22 +582,17 @@ function writeItem(sandboxPath: string, item: BakedContextDocument, zone: string
  * every item's chain has been walked:
  *
  * Pass 1 creates every ancestor directory, a title-only `index.md`
- * placeholder (plan.md: "a path with a missing middle means nothing" — an
- * ancestor not itself among the selected items still gets one; that is
- * incomplete, not fabricated), and its own manifest entry.
+ * placeholder (an ancestor not itself among the selected items still gets
+ * one — a path with a missing middle means nothing), and its own manifest entry.
  * `!fs.existsSync`/`!manifestItems[ancestor.id]` dedupe across items that
- * share an ancestor (review.md B5 — without a manifest entry, writeback's
+ * share an ancestor (without a manifest entry, writeback's
  * `ensureDirectoryChainItem` mints a duplicate folder item).
  *
  * Pass 2 writes each item's own content. An item whose id was already
  * materialised as a directory in pass 1 — a parent-with-children that is
  * ALSO independently selected — gets its REAL body written into that
  * directory's `index.md` (overwriting the placeholder) and no separate leaf
- * file. @lore nested-knowledge-real: previously that combination dumped the
- * parent's real body into a stray sibling leaf file next to its own
- * directory, while the directory's index.md stayed title-only forever —
- * contradicting plan.md's "a parent as a directory containing index.md with
- * its own body." Everything else still writes as an ordinary leaf.
+ * file. Everything else still writes as an ordinary leaf.
  */
 function writeOrdinaryItems(
 	sandboxPath: string,
@@ -773,10 +669,7 @@ function setContextReadOnly(sandboxPath: string): void {
 	setReadOnlyRecursive(contextDir);
 }
 
-/**
- * @lore BA9b: Slugify a skill title into a safe directory name.
- * Plugin-contributed skills store the dirName as the title; manual skills use a slug.
- */
+/** Slugify a skill title into a safe directory name. Plugin-contributed skills store the dirName as the title; manual skills use a slug. */
 function toSkillDirName(title: string): string {
 	return title
 		.replace(/[^a-zA-Z0-9._-]/g, "_")
@@ -784,10 +677,7 @@ function toSkillDirName(title: string): string {
 		.replace(/^_|_$/g, "");
 }
 
-/**
- * @lore BA9b: Write a skill item to each known harness skill directory.
- * Returns the first relative path written (for the manifest entry).
- */
+/** Write a skill item to each known harness skill directory. Returns the first relative path written (for the manifest entry). */
 function writeSkillItem(sandboxPath: string, item: BakedContextDocument): string {
 	const dirName = toSkillDirName(item.title);
 	let firstPath: string | undefined;
@@ -805,26 +695,9 @@ function writeSkillItem(sandboxPath: string, item: BakedContextDocument): string
 
 /**
  * Write the baked+ranked knowledge bundle to its sandbox zones, building the
- * manifest entries — the pure write-side counterpart to the (deleted)
- * `fetchAllForLayer`/`rankAndBudget` DB-reading pair.
+ * manifest entries.
  *
- * @lore BA9b: capability roles (skill/rule/agent_file) are routed by role,
- * not by layer.
- *
- * @lore BA9f: `agentId` decides which `agent_file` is THIS agent's identity.
- * That one is already delivered as the "## Identity" section of AGENTS.md
- * (baked at emit through `getAgentIdentity`), so materialising it here too
- * would put the same text in the sandbox twice. Every OTHER agent file — an
- * unbound one that applies to all sessions — is still written, which is what
- * BA9b delivers.
- *
- * @lore knowledge-attachment-slot: the binding compared below
- * (`item.agentBindingId`) is now the PARENT — `parentKind='agent'`,
- * `parentId=<agentId>` — not a scope reverse lookup. Nothing here changes:
- * `agentBindingId` is still derived once, upstream, in
- * `toBakedContextDocuments` (`@hyperidle/domain-model`), and this
- * function only ever compares the already-derived value.
- *
+
  */
 function writeBundleKnowledge(
 	sandboxPath: string,
@@ -836,12 +709,6 @@ function writeBundleKnowledge(
 	for (const item of knowledge) {
 		const role = item.slot;
 
-		// @lore knowledge-attachment-slot Guard 2: `prompt` lands as the run's
-		// instruction, never a sandbox file. This is NOT redundant with the
-		// assembler-side filters (Guard 1, session-knowledge-assembler.ts) — the
-		// code below is a FALL-THROUGH, not an `if role === 'ordinary'` branch,
-		// so without this line a prompt reaching the bundle by any route would be
-		// written as a knowledge file by the path that exists for ordinary items.
 		if (role === "prompt") continue;
 
 		if (role === "skill") {
@@ -889,7 +756,7 @@ function writeBundleKnowledge(
 		}
 
 		// role === 'ordinary': materialise into knowledge/, shaped like its
-		// real ancestor chain (architecture.md §5) — not a layer zone. Deferred
+		// real ancestor chain — not a layer zone. Deferred
 		// to writeOrdinaryItems below, which needs every ordinary item at once
 		// to tell a directory-owning parent from a plain leaf.
 		ordinaryItems.push(item);
@@ -973,7 +840,7 @@ interface AssembleAgentContextInput {
 	 * `task_run` (`kind:"task"`) or `subscription_run`
 	 * (`kind:"subscription"`) session's sandbox is built from. Absent for any
 	 * session with no bundle at all (falls back to the same minimal stub
-	 * every task-free session got pre-migration — never a DB read).
+	 * every task-free session uses — never a DB read).
 	 */
 	readonly contextBundle?: BakedContextBundle;
 	/**
@@ -1001,18 +868,7 @@ function isWritableBundle(
 	return bundle !== undefined && (bundle.kind === "task" || bundle.kind === "subscription");
 }
 
-/**
- * Write a file that may already exist and may already be read-only.
- *
- * @lore BA2: context files are chmod-ed to 0444 after assembly so an agent
- * cannot edit its own context. That was safe while every session got a brand
- * new directory. A resumed session runs in the directory of the session it is
- * resuming, so `context/session.toon` is already there and already read-only,
- * and a plain write fails with EACCES before the agent ever starts — the human
- * approved, and nothing happened. The bundle path already handles this by
- * chmod-ing and deleting the whole tree first (`cleanDirectory`); this is the
- * same thing for the two files the bundle-less path writes on its own.
- */
+// @lore: writeOverwritable — context files are 0444 after assembly; a resumed session's directory already has them read-only; rmSync first avoids EACCES
 function writeOverwritable(filePath: string, contents: string): void {
 	fs.rmSync(filePath, { force: true });
 	fs.writeFileSync(filePath, contents);

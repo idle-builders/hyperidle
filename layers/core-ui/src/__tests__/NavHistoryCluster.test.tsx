@@ -6,8 +6,6 @@
  * - Forward button: rendered only when canGoForward=true
  * - Calls onBack/onForward callbacks on click
  *
- * @lore: cluster is desktop-only; mobile keeps the existing 48px header chevron.
- *
  * These tests FAIL until layers/core-ui/src/shell/NavHistoryCluster.tsx is created.
  */
 

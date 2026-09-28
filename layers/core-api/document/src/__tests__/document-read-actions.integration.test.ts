@@ -86,7 +86,7 @@ function withFailingUpdate(db: HyperIdleDb): HyperIdleDb {
 	}) as HyperIdleDb;
 }
 
-describe("open_document (architecture.md §3.4, §6.7)", () => {
+describe("open_document", () => {
 	test("on another person's memory returns exactly [{code:'not_found'}] and leaves readCount at 0", async ({
 		db,
 	}) => {
@@ -214,7 +214,7 @@ describe("open_document (architecture.md §3.4, §6.7)", () => {
 	});
 });
 
-describe("assembleDocumentView — counts nothing on its own (architecture.md §6.7)", () => {
+describe("assembleDocumentView — counts nothing on its own", () => {
 	test("called directly does not bump the read count", async ({ db }) => {
 		await seedUser(db, "writer-assemble-1");
 		const row = await insertDocument(
@@ -234,7 +234,7 @@ describe("assembleDocumentView — counts nothing on its own (architecture.md §
 	});
 });
 
-describe("search_documents (architecture.md §3.3, §5.1)", () => {
+describe("search_documents", () => {
 	test("never bumps the read count", async ({ db }) => {
 		await insertDocument(db, docValues({ id: "doc-search-no-bump-1" }));
 

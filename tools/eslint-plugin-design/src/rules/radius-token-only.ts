@@ -96,13 +96,13 @@ export const radiusTokenOnly: Rule.RuleModule = createRule({
 		type: "problem",
 		docs: {
 			description:
-				"Forbid any radius spelling other than a --r-* token (or rounded-none for zero radius). Closes AZ7 Set 4 — the Hearth radius scale has exactly one spelling per value: rounded-none, rounded-[var(--r-subtle)], rounded-[var(--r-default)], rounded-[var(--r-pill)].",
+				"Forbid any radius spelling other than a --r-* token (or rounded-none for zero radius). The Hearth radius scale has exactly one spelling per value: rounded-none, rounded-[var(--r-subtle)], rounded-[var(--r-default)], rounded-[var(--r-pill)].",
 			recommended: true,
 		},
 		schema: [],
 		messages: {
 			notAToken:
-				"Radius class '{{cls}}' is not a --r-* token. AZ7 Set 4 has exactly one spelling per radius: rounded-none (0), rounded-[var(--r-subtle)] (10px), rounded-[var(--r-default)] (16px), rounded-[var(--r-pill)] (9999px). → fix: replace '{{cls}}' with the matching token spelling.",
+				"Radius class '{{cls}}' is not a --r-* token. There is exactly one spelling per radius: rounded-none (0), rounded-[var(--r-subtle)] (10px), rounded-[var(--r-default)] (16px), rounded-[var(--r-pill)] (9999px). → fix: replace '{{cls}}' with the matching token spelling.",
 		},
 	},
 	create(context) {

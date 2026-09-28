@@ -2,23 +2,14 @@ import type { HostKind } from "@hyperidle/domain-model";
 import type { CSSProperties, JSX } from "react";
 import { EmptyState, ErrorState, SkeletonList, type Status, ThreadRow } from "../ds";
 
-/**
- * @lore L1a (T17) / L8 §3.2: ThreadItem carries `hostKind` + the derived
- * `hasUnresolvedReview` flag. The Conversations section (L8) renders three
- * buckets only — blocking | active | resolved — per approved.md §2.
- */
 export interface ThreadItem {
 	id: string;
 	title: string;
 	snippet: string;
 	timestamp: string;
-	/** M3 E1: null means no avatar — renders initials chip instead of <img>. */
+	/** null means no avatar — renders initials chip instead of <img>. */
 	avatarUrl: string | null;
-	/**
-	 * UI-061: right-side overlapping participant avatar circles.
-	 * Shape is structurally compatible with ThreadRow's ThreadAvatarItem.
-	 * Omit to show no avatars; supply initials to render participant chips.
-	 */
+	/** Right-side overlapping participant avatar circles. Shape is structurally compatible with ThreadRow's ThreadAvatarItem. */
 	avatars?: ReadonlyArray<{ initials: string; agent?: boolean }>;
 	hostKind: HostKind;
 	hasUnresolvedReview: boolean;
@@ -33,9 +24,6 @@ export interface ThreadItem {
 	 * ISO sort key for the flat-list comparator (distinct from display `timestamp`).
 	 * `timestamp` is a relative display string (e.g. "5m") — Date.parse("5m") → NaN → wrong order.
 	 * `lastActiveAt` is an ISO 8601 string (e.g. "2026-06-11T10:00:00.000Z") → stable sort.
-	 *
-	 * @lore AF14: The flat-list comparator previously used `Date.parse(a.timestamp)` which
-	 * always returned NaN for relative strings, falling through to id.localeCompare (wrong order).
 	 */
 	lastActiveAt: string;
 }
@@ -57,14 +45,7 @@ export function compareThreadsByLastActive(a: ThreadItem, b: ThreadItem): number
 	return a.id.localeCompare(b.id);
 }
 
-/**
- * Closed vocabulary for the Conversations filter chips (legacy string form).
- * Still used in AppShell OutletContext for backwards compatibility.
- *
- * @lore W3: The W3 test spec defines a new toggle-object form
- * `{ blocking: boolean; unread: boolean }` used when groupBySection=false.
- * The legacy string form is kept for the existing section-grouped path.
- */
+/** Closed vocabulary for the Conversations filter chips; still used in AppShell OutletContext for backwards compatibility. */
 export type ConversationsFilter = "all" | "blocking" | "async";
 
 /**
@@ -110,9 +91,7 @@ const CONVERSATIONS_SECTION_ORDER: readonly ConversationsSectionId[] = [
 ] as const;
 
 function classifyForConversations(thread: ThreadItem, now: number): ConversationsSectionId {
-	// approved.md §2 ladder: resolved within 24h → resolved; else if blocking
-	// → blocking; else → active. Re-opened blocking thread (resolved past 24h,
-	// blocking false) lands in Active.
+	// Ladder: resolved within 24h → resolved; else if blocking → blocking; else → active.
 	if (thread.resolvedAt) {
 		const ts = Date.parse(thread.resolvedAt);
 		if (!Number.isNaN(ts) && now - ts <= TWENTY_FOUR_HOURS_MS) {
@@ -124,20 +103,18 @@ function classifyForConversations(thread: ThreadItem, now: number): Conversation
 }
 
 function sortById(a: ThreadItem, b: ThreadItem): number {
-	// L8: ThreadItem doesn't yet carry lastActiveAt; deterministic id sort is
-	// the placeholder until that field lands.
 	return a.id.localeCompare(b.id);
 }
 
 function sortActive(a: ThreadItem, b: ThreadItem): number {
-	// approved.md §2 — Active sorts: pinned desc → hasUnresolvedReview desc → id asc.
+	// Active sorts: pinned desc → hasUnresolvedReview desc → id asc.
 	if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
 	if (a.hasUnresolvedReview !== b.hasUnresolvedReview) return a.hasUnresolvedReview ? -1 : 1;
 	return a.id.localeCompare(b.id);
 }
 
 function sortResolved(a: ThreadItem, b: ThreadItem): number {
-	// approved.md §2 — Resolved sorts by resolvedAt desc.
+	// Resolved sorts by resolvedAt desc.
 	const at = a.resolvedAt ? Date.parse(a.resolvedAt) : 0;
 	const bt = b.resolvedAt ? Date.parse(b.resolvedAt) : 0;
 	return bt - at;
@@ -173,22 +150,15 @@ export interface ThreadSectionsProps {
 	/** Milliseconds since epoch. Defaults to Date.now() at render time. */
 	now?: number;
 	/**
-	 * @deprecated Navigation is now handled by ThreadRow's href prop.
-	 * Retained so existing callers compile without changes.
-	 *
-	 * @lore UI-080: ThreadRow renders as <a href> — the selected state updates
-	 * via selectedId (URL-derived), so onSelect is no longer needed for navigation.
+	 * @deprecated Use ThreadRow's href prop for navigation.
 	 */
 	onSelect?: (id: string) => void;
-	/** L8: lifted-selection target — at most one row carries aria-current. */
+	/** Lifted-selection target — at most one row carries aria-current. */
 	selectedId?: string | null;
-	/** L8: when set, render the ErrorState in place of the list. */
+	/** When set, render the ErrorState in place of the list. */
 	errorMessage?: string | null;
 	onRetry?: () => void;
-	/**
-	 * L8 review (Architecture C1): when true the list renders skeleton rows
-	 * instead of falling through to EmptyState while the fetch resolves.
-	 */
+	/** When true, renders skeleton rows instead of falling through to EmptyState while the fetch resolves. */
 	loading?: boolean;
 	/** When provided, threads are filtered before sectioning. Defaults to `'all'`. */
 	activeFilter?: ConversationsFilter;
@@ -196,9 +166,8 @@ export interface ThreadSectionsProps {
 	onClearFilter?: () => void;
 	/**
 	 * When false, renders a flat chronological list ordered by lastActiveAt DESC.
-	 * Filter chips (Blocking, Unread) have been removed — they never matched real state.
 	 * The blocking/unread fields on ThreadItem remain for forward-compatibility.
-	 * Defaults to true for backwards compatibility.
+	 * Defaults to true.
 	 */
 	groupBySection?: boolean;
 }
@@ -215,7 +184,7 @@ export function ThreadSections({
 	onClearFilter,
 	groupBySection = true,
 }: ThreadSectionsProps): JSX.Element {
-	// Flat list mode (W3 AC-5, AC-6)
+	// Flat list mode
 	if (!groupBySection) {
 		if (errorMessage) {
 			return (
@@ -235,7 +204,6 @@ export function ThreadSections({
 			);
 		}
 
-		// Chip filtering removed — render the full list directly.
 		// The blocking/unread fields remain on ThreadItem (forward-compatible).
 		const flatFiltered = [...threads];
 		// Sort by ISO lastActiveAt DESC (not display timestamp — "5m" → NaN).
@@ -243,8 +211,7 @@ export function ThreadSections({
 
 		return (
 			<div className="flex flex-col flex-1 overflow-y-auto">
-				{/* Blocking/Unread chip bar removed — neither chip matched real state.
-				    The blocking/unread FIELDS remain on ThreadItem. */}
+				{/* Blocking/unread fields remain on ThreadItem. */}
 				{flatFiltered.length === 0 ? (
 					<div className="flex flex-1 items-center justify-center p-[48px_24px]">
 						<EmptyState
@@ -290,8 +257,6 @@ export function ThreadSections({
 	}
 
 	if (loading) {
-		// @lore L8 review (Architecture C1): skeleton rows render until the
-		// hook resolves so the EmptyState does not flash on first paint.
 		return (
 			<div data-testid="thread-sections-loading">
 				<SkeletonList rows={3} ariaLabel="Loading threads" />
@@ -299,8 +264,7 @@ export function ThreadSections({
 		);
 	}
 
-	// Filter before the empty branches so the filter-empty surface is distinct
-	// from L8's globally-empty "No threads yet".
+	// Filter before the empty branches so the filter-empty surface is distinct from "No threads yet".
 	const filtered = activeFilter === "all" ? threads : threads.filter(predicateFor(activeFilter));
 	if (threads.length === 0 && activeFilter === "all") {
 		return (
@@ -320,9 +284,6 @@ export function ThreadSections({
 				dataTestId="thread-sections-filter-empty"
 				action={
 					onClearFilter ? (
-						// L10 Design C2 / approved mockup: flat text-link, not a solid button.
-						// Mirrors the approved mockup's `.empty-state__action-btn`
-						// (color: var(--accent-primary); background: transparent; border: 0; padding: 0).
 						<button
 							type="button"
 							className="type-control border-none bg-transparent  p-0  text-[var(--accent-deep)] hover:underline cursor-pointer"
@@ -341,28 +302,15 @@ export function ThreadSections({
 	return (
 		<div className="flex flex-col gap-[9px]" data-testid="thread-sections">
 			{sections.map((section) => {
-				// approved.md §5.5: Blocking and Resolved silently absent when empty.
-				// Active renders its header plus a "Quiet" line when empty —
-				// EXCEPT when L10 §3.5 hides Active for the 'blocking' filter
-				// (the filter restricts the visible domain to blocking threads
-				// only; an empty Active "Quiet" line would be misleading).
+				// Blocking and Resolved silently absent when empty.
+				// Active renders its header plus a "Quiet" line when empty — except
+				// for the 'blocking' filter (an empty Active "Quiet" line would be misleading).
 				if (section.items.length === 0) {
 					if (section.id !== "active") return null;
 					if (activeFilter === "blocking") return null;
 				}
 				const headerToneClass =
 					section.tone === "danger" ? "text-[var(--status-error)]" : "text-[var(--text-tertiary)]";
-				// @lore L8 review (Design B1+B2 / approved.md §2 + §5.6 + §7):
-				// the Blocking section gets a sticky header (top:0, z:2), a
-				// 10% danger-tinted background, and a 3px left-edge danger
-				// accent. Tint + accent encode danger without relying on color
-				// alone — approved.md §7 (a11y).
-				// @lore U9 (AI1 update): --danger migrated to --status-error in AI1.
-				// The previously-stale lore claimed protected tests forbade this migration —
-				// that was incorrect. ThreadSections.conversations.test.tsx L210 was updated
-				// in lockstep (AC5) to assert var(--status-error) instead of var(--danger).
-				// --danger was never defined in tokens.css; --status-error is the defined
-				// error status token. The test now asserts against a defined token (strengthened).
 				const isBlocking = section.id === "blocking";
 				const sectionStyle: CSSProperties | undefined = isBlocking
 					? {

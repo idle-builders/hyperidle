@@ -208,7 +208,7 @@ describe("generic transcript delivery", () => {
 		} as ProvisionSessionParams;
 	}
 
-	// @lore the `## Conversation` prompt section is the transcript's only delivery — a CLI harness never reads `SessionConfig.messages`.
+	// @lore: the `## Conversation` prompt section is the transcript's only delivery — a CLI harness never reads `SessionConfig.messages`.
 	test("a session with a baked transcript + calling thread + no task gets ## Conversation and requiredReturnActions:['send_message']", async ({
 		db,
 	}) => {
@@ -382,7 +382,7 @@ describe("generic transcript delivery", () => {
 	 * A gated agent has to be told, once, that some actions need a person and how
 	 * to ask — because the deny message deliberately will not tell it.
 	 *
-	 * @lore a gate's deny message states only that a rule blocked the call — an imperative there reads as a suspected injection.
+	 * @lore: a gate's deny message states only that a rule blocked the call — an imperative there reads as a suspected injection.
 	 */
 	test("every session is told in its prompt that some work needs a person", async ({ db }) => {
 		await seedAgent(db, "agent-gated-1");
@@ -414,7 +414,6 @@ describe("generic transcript delivery", () => {
 	/**
 	 * A task session's instruction is the task.
 	 *
-	 * @lore `assembledPrompt` is CONTEXT (AGENTS.md/CLAUDE.md) — the instruction the agent is ASKED to do is the task, a separate thing.
 	 */
 	test("a task session is instructed with the task itself", async ({ db }) => {
 		await seedAgent(db, "agent-instruction-1");
@@ -468,9 +467,6 @@ describe("generic transcript delivery", () => {
 		);
 	});
 
-	/**
-	 * @lore the instruction must arrive whole, never truncated — a sliced prompt reads as a cut-off message to the agent.
-	 */
 	test("the instruction is delivered whole, not truncated", async ({ db }) => {
 		await seedAgent(db, "agent-instruction-2");
 		await seedTask(db as HyperIdleDb, "task-instruction-2");

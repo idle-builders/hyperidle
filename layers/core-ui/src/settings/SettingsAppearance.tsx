@@ -1,14 +1,3 @@
-/**
- * SettingsAppearance — Appearance settings section.
- *
- * W3 AC-50: Theme selector as visual swatch cards (not a <select>).
- * Three cards: Light, Dark, System. Clicking a card sets the theme.
- *
- * @lore W2: Density system removed. Only theme preference remains.
- * @lore W3: The <select> element replaced by swatch cards per approved mockup
- * (AC-50). Each card is a button with data-theme-option attribute for testing.
- */
-
 // hearth-internal-padding
 import { type CSSProperties, type JSX, useCallback } from "react";
 import { useTheme } from "../hooks/useTheme.js";
@@ -28,16 +17,6 @@ const THEME_OPTIONS: ThemeSwatch[] = [
 	{ value: "system", label: "System", description: "Match OS setting" },
 ];
 
-/**
- * Returns an inline style object for the color swatch preview area at the top of
- * each theme card. Avoids hardcoded colors where possible by using CSS variables,
- * but the dark/light preview surfaces need fixed values since CSS variables resolve
- * to the active theme — not the theme being previewed.
- *
- * @lore W3 AC-50: CSS variables like var(--bg-canvas) resolve to the CURRENT theme,
- * so they cannot be used to preview an inactive theme. Fixed warm-toned values
- * (matching the Hearth light/dark palette) are used here intentionally.
- */
 function swatchStyle(value: ThemeOption): CSSProperties {
 	switch (value) {
 		case "light":
@@ -88,7 +67,7 @@ export function SettingsAppearance(): JSX.Element {
 							style={isActive ? { boxShadow: "0 0 0 3px var(--accent-primary-dim)" } : undefined}
 							onClick={() => handleThemeChange(option.value)}
 						>
-							{/* W3 AC-50: color swatch preview — 48px tall, rounded top, no border */}
+							{/* color swatch preview — 48px tall, rounded top, no border */}
 							<div
 								data-testid={`theme-swatch-preview-${option.value}`}
 								aria-hidden="true"

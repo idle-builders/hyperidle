@@ -49,7 +49,7 @@ async function seedCorpus(db: HyperIdleDb): Promise<void> {
 	});
 }
 
-describe("assembleSessionDocuments — session_use_count (architecture.md §6.7)", () => {
+describe("assembleSessionDocuments — session_use_count", () => {
 	test("bumps sessionUseCount and lastUsedAt for every returned id, leaves an unpicked document at 0/NULL, and leaves version/updatedAt untouched", async ({
 		db,
 	}) => {
@@ -114,9 +114,6 @@ describe("assembleSessionDocuments — session_use_count (architecture.md §6.7)
 	});
 });
 
-/**
- * @lore `resolveParentChain` resolves the ancestor chain once at bake time; `assembleSessionDocuments` attaches it to every ordinary item it ranks.
- */
 describe("assembleSessionDocuments: parentChain (review.md B4)", () => {
 	test("an ordinary item's baked parentChain matches its real ancestors — not the [] default", async ({
 		db,

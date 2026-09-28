@@ -290,7 +290,7 @@ export function deriveBlocks(
 	body: string,
 	host: { kind: BlockHostKind; id: string },
 ): BlockDerivationResult {
-	// Oversize gate (AC-51). Use UTF-8 byte length, not UTF-16 code units —
+	// Oversize gate. Use UTF-8 byte length, not UTF-16 code units —
 	// adversarial Unicode (CJK, emoji) would bypass a `.length` check.
 	if (enc.encode(body).byteLength > MAX_BODY_BYTES) {
 		const range = { start: 0, end: body.length };
@@ -372,7 +372,7 @@ export function deriveBlocks(
 
 	for (const node of topLevel) {
 		// Compute outline-path BEFORE updating heading stack, since a heading's
-		// own ancestors are headings ABOVE it (concept § 8.4: a heading is never
+		// own ancestors are headings ABOVE it (a heading is never
 		// in its own ancestor list).
 		if (node.type === "heading") {
 			const depth = node.depth ?? 1;

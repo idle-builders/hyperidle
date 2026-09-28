@@ -2,7 +2,6 @@
  * `GET /api/ws` — the pre-auth identity handoff between the token-consuming
  * middleware and `onOpen`.
  *
- * @lore identity lives in a WeakMap keyed on the Hono Context, not one module slot — two upgrades in flight must not cross-join identities.
  */
 
 import type { UpgradeTokenStore } from "@hyperidle/user";

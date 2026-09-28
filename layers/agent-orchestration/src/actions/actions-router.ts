@@ -4,15 +4,6 @@ import type { EventBus } from "@hyperidle/event-bus";
 import { Hono } from "hono";
 import type { Action } from "./action.js";
 
-/**
- * This Layer's own copy of `core-api/src/actions/actions-router.ts`'s HTTP
- * loop: mount `POST /actions/<name>` for every declared
- * session action, parsed with the action's own zod shape, run as the
- * authenticated actor. Both layer apps sit on one `/api` router
- * (`composeApiApplication`), so `POST /api/actions/stop_session` resolves
- * here while `POST /api/actions/edit_task` resolves on core's own mount —
- * no join needed on the HTTP side.
- */
 export function createActionsRouter(
 	actions: readonly Action[],
 	deps: { readonly db: HyperIdleDb; readonly eventBus: EventBus },

@@ -12,7 +12,16 @@
 
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import { describe, expect, it } from "vitest";
-import { hasCaps, provenCapabilities, statusLine } from "../harness-presentation.js";
+import {
+	capabilitySummary,
+	commandText,
+	hasActionableNextStep,
+	hasCaps,
+	isEnabled,
+	provenCapabilities,
+	showsToggle,
+	statusLine,
+} from "../harness-presentation.js";
 
 // ── Test fixtures ─────────────────────────────────────────────────────────────
 
@@ -150,12 +159,101 @@ describe("harness-presentation — statusLine()", () => {
 	});
 });
 
+// ── hasActionableNextStep ─────────────────────────────────────────────────────
+
+describe("harness-presentation — hasActionableNextStep()", () => {
+	it("true for unauthenticated with native_cli_login", () => {
+		expect(hasActionableNextStep(UNAUTHENTICATED_DESCRIPTOR)).toBe(true);
+	});
+
+	it("true for installed with native_cli_login", () => {
+		expect(hasActionableNextStep(INSTALLED_DESCRIPTOR)).toBe(true);
+	});
+
+	it("false for ready (already authenticated)", () => {
+		expect(hasActionableNextStep(READY_DESCRIPTOR)).toBe(false);
+	});
+
+	it("false for disabled (enable first)", () => {
+		expect(hasActionableNextStep(READY_DISABLED_DESCRIPTOR)).toBe(false);
+	});
+
+	it("false for unavailable (cursor-agent, kind='none')", () => {
+		expect(hasActionableNextStep(UNAVAILABLE_DESCRIPTOR)).toBe(false);
+	});
+
+	it("false for missing (authAction.kind !== 'none' but state is 'missing')", () => {
+		// missing → no in-app CTA
+		expect(hasActionableNextStep(MISSING_DESCRIPTOR)).toBe(false);
+	});
+});
+
+// ── showsToggle ───────────────────────────────────────────────────────────────
+
+describe("harness-presentation — showsToggle() (key contract)", () => {
+	it("true for ready", () => {
+		expect(showsToggle(READY_DESCRIPTOR)).toBe(true);
+	});
+
+	it("true for unauthenticated", () => {
+		expect(showsToggle(UNAUTHENTICATED_DESCRIPTOR)).toBe(true);
+	});
+
+	it("true for installed", () => {
+		expect(showsToggle(INSTALLED_DESCRIPTOR)).toBe(true);
+	});
+
+	it("false for missing", () => {
+		expect(showsToggle(MISSING_DESCRIPTOR)).toBe(false);
+	});
+
+	it("false for unavailable", () => {
+		expect(showsToggle(UNAVAILABLE_DESCRIPTOR)).toBe(false);
+	});
+
+	it("true for a ready key-accepting harness (no exemptions left)", () => {
+		expect(showsToggle(KEY_ACCEPTING_DESCRIPTOR)).toBe(true);
+	});
+
+	it("ready+disabled still shows toggle (toggle is off, but it's visible)", () => {
+		// A disabled backend shows the toggle in OFF state — users can re-enable
+		expect(showsToggle(READY_DISABLED_DESCRIPTOR)).toBe(true);
+	});
+});
+
+// ── isEnabled ────────────────────────────────────────────────────────────────
+
+describe("harness-presentation — isEnabled()", () => {
+	it("true when discovery.disabled is absent/false", () => {
+		expect(isEnabled(READY_DESCRIPTOR)).toBe(true);
+	});
+
+	it("false when discovery.disabled is true", () => {
+		expect(isEnabled(READY_DISABLED_DESCRIPTOR)).toBe(false);
+	});
+});
+
 // ── provenCapabilities ────────────────────────────────────────────────────────
 
 describe("harness-presentation — provenCapabilities()", () => {
 	it("returns empty array (runtime caps removed from descriptor)", () => {
 		expect(provenCapabilities(READY_DESCRIPTOR)).toHaveLength(0);
 		expect(provenCapabilities(KEY_ACCEPTING_DESCRIPTOR)).toHaveLength(0);
+	});
+});
+
+// ── capabilitySummary ─────────────────────────────────────────────────────────
+
+describe("harness-presentation — capabilitySummary() (production-shape)", () => {
+	it("returns 'confirmed after first run' when no caps proven (production shape)", () => {
+		const summary = capabilitySummary(READY_DESCRIPTOR);
+		expect(summary).toMatch(/confirmed after first run/i);
+	});
+
+	it("always returns 'confirmed after first run' (runtime caps removed from descriptor)", () => {
+		// provenCapabilities() always returns [] now — capabilitySummary always uses fallback
+		const summary = capabilitySummary(KEY_ACCEPTING_DESCRIPTOR);
+		expect(summary).toMatch(/confirmed after first run/i);
 	});
 });
 
@@ -179,6 +277,23 @@ describe("harness-presentation — hasCaps()", () => {
 	});
 });
 
+// ── commandText ───────────────────────────────────────────────────────────────
+
+describe("harness-presentation — commandText()", () => {
+	it("returns joined command string for CLI harnesses", () => {
+		const text = commandText(READY_DESCRIPTOR);
+		expect(text).toBe("claude auth login");
+	});
+
+	it("returns null for enter_api_key auth (no command)", () => {
+		expect(commandText(KEY_ACCEPTING_DESCRIPTOR)).toBeNull();
+	});
+
+	it("returns null for authAction.kind='none'", () => {
+		expect(commandText(UNAVAILABLE_DESCRIPTOR)).toBeNull();
+	});
+});
+
 // ── Contract: descriptor-driven, no per-family branching ─────────────────────
 
 describe("Contract — descriptor-driven / no per-backend branching (two-descriptor structural test)", () => {
@@ -187,6 +302,51 @@ describe("Contract — descriptor-driven / no per-backend branching (two-descrip
 	 * The mapper functions produce the same OUTPUT STRUCTURE from the same INPUT SHAPE —
 	 * proving one code path handles both without branching on family type.
 	 */
+	it("showsToggle returns the same boolean for two structurally different ready descriptors", () => {
+		const claudeCodeReady = makeDescriptor({ type: "claude-code" });
+		const codexReady = makeDescriptor({
+			type: "codex",
+			name: "Codex",
+			authAction: {
+				kind: "native_cli_login",
+				label: "Log in to Codex",
+				command: ["codex", "login"],
+			},
+		});
+
+		expect(showsToggle(claudeCodeReady)).toBe(showsToggle(codexReady));
+	});
+
+	it("hasActionableNextStep returns same boolean for two ready descriptors", () => {
+		const claudeCodeReady = makeDescriptor({ type: "claude-code" });
+		const codexReady = makeDescriptor({
+			type: "codex",
+			name: "Codex",
+			authAction: {
+				kind: "native_cli_login",
+				label: "Log in to Codex",
+				command: ["codex", "login"],
+			},
+		});
+
+		expect(hasActionableNextStep(claudeCodeReady)).toBe(hasActionableNextStep(codexReady));
+	});
+
+	it("capabilitySummary returns same result for two ready all-caps-false descriptors", () => {
+		const claudeCodeReady = makeDescriptor({ type: "claude-code" });
+		const opencodeReady = makeDescriptor({
+			type: "opencode",
+			name: "OpenCode",
+			authAction: {
+				kind: "native_cli_login",
+				label: "Log in to OpenCode",
+				command: ["opencode", "providers", "login"],
+			},
+		});
+
+		expect(capabilitySummary(claudeCodeReady)).toBe(capabilitySummary(opencodeReady));
+	});
+
 	it("statusLine.tone follows discovery.state not type (same state → same tone)", () => {
 		const claudeCodeUnauth = makeDescriptor({
 			type: "claude-code",

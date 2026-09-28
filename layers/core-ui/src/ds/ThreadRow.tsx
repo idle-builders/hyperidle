@@ -7,14 +7,6 @@ import { type Status, StatusChip } from "./StatusChip";
 import { Tag } from "./Tag";
 import type { TagKind } from "./tag-kinds";
 
-/**
- * PresenceDot for ThreadRow — same visual treatment as ThreadHostBanner.
- * Extracted to a function to avoid cross-file imports of a 10-line component.
- *
- * @lore AE5 (SUGGESTION from arch-critique): shared with ThreadHostBanner's PresenceDot
- * conceptually but kept inline here. Both are 10 lines — extraction saves nothing without
- * a design-system export. Keep in sync if the dot style changes.
- */
 function ThreadRowPresenceDot({
 	status,
 	initials,
@@ -41,14 +33,7 @@ export interface ThreadAvatarItem {
 }
 
 export interface ThreadRowProps {
-	/**
-	 * Kept for backwards compatibility — not rendered visually.
-	 * The mockup layout is: dot → info → meta (with small overlapping avatars
-	 * on the right). The large left-side avatar was removed in the visual
-	 * parity pass (audit L-25).
-	 *
-	 * @deprecated Pass `avatars` instead for the right-side overlapping group.
-	 */
+	/** @deprecated Pass `avatars` instead for the right-side overlapping group. */
 	avatarUrl?: string | null;
 	title: string;
 	snippet: string;
@@ -58,40 +43,20 @@ export interface ThreadRowProps {
 	actions?: ReactNode;
 	unread?: boolean;
 	onClick?: () => void;
-	/**
-	 * When set, renders the row as an <a href> link so ⌘-click, middle-click,
-	 * "copy link" and hover-preview work natively.
-	 *
-	 * @lore UI-080: conversation queue rows must be real links.
-	 */
 	href?: string;
 	blocking?: boolean;
 	kind?: "review" | "chat";
-	/**
-	 * L8 §3.4: highlights the row as the lifted-selection target. Adds
-	 * aria-current="true" and a primary border-left that overrides the
-	 * blocking danger border per design §4.
-	 */
 	selected?: boolean;
-	/**
-	 * L8 §3.4: renders a 12×12 SVG pin glyph before the title.
-	 * `aria-label="Pinned"` on the SVG.
-	 */
 	pinned?: boolean;
-	/**
-	 * L8 §3.4: small mono pill at the right of the title. Closed enum —
-	 * matches `HOST_KINDS`. Typed as `HostKind` so a malformed wire row
-	 * cannot reach the renderer (Architecture M3).
-	 */
+	/** Typed as `HostKind` so a malformed wire row cannot reach the renderer. */
 	hostTag?: HostKind;
 	/**
 	 * Overlapping 24px participant avatar circles in the right-side meta area.
-	 * Matches the mockup's `.thread-avatars` group (audit L-21).
 	 */
 	avatars?: ThreadAvatarItem[];
 	/**
 	 * Numeric message count badge in the right-side meta area.
-	 * Green-tinted when unread, neutral when read (audit L-22).
+	 * Green-tinted when unread, neutral when read.
 	 */
 	messageCount?: number;
 }
@@ -127,7 +92,7 @@ export function ThreadRow({
 		"hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))]",
 		"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus-visible:-outline-offset-1",
 		onClick ? "cursor-pointer" : "",
-		// selected state: elevated bg + subtle shadow per design spec
+		// selected state: elevated bg + subtle shadow
 		selected ? "bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)]" : "",
 		borderLeftClass,
 	]
@@ -136,7 +101,7 @@ export function ThreadRow({
 
 	const rowContent = (
 		<>
-			{/* Unread indicator — always rendered; transparent spacer for read rows (audit L-12, L-14) */}
+			{/* Unread indicator — always rendered; transparent spacer for read rows */}
 			<span
 				data-testid={unread ? "unread-dot" : "read-dot-spacer"}
 				aria-hidden="true"
@@ -169,12 +134,6 @@ export function ThreadRow({
 						{title}
 					</span>
 					{hostTag && (
-						// @lore L8 review (Design B3): host pill is rendered inline
-						// rather than via <Tag/> because the approved design (§5.6)
-						// specifies mono 10px @ 1px-6px padding @ --r-pill radius.
-						// The Tag primitive is sans-12px @ --r2 — wrong scale for
-						// this slot. Promote to a shared `HostPill` primitive when a
-						// second consumer surfaces.
 						<span
 							data-testid="thread-row-host-pill"
 							className="type-data inline-flex items-center px-[6px] py-[3px] rounded-[var(--r-pill)]    bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] text-[var(--text-secondary)] whitespace-nowrap"
@@ -186,7 +145,7 @@ export function ThreadRow({
 					{tag && <Tag label={tag} />}
 					{kind && <Tag label={kind} kind={kind as TagKind} />}
 				</div>
-				{/* Preview/snippet — color differentiates read/unread (audit L-18, L-19) */}
+				{/* Preview/snippet — color differentiates read/unread */}
 				<p
 					className={`type-small ${[
 						" truncate mt-[3px]",
@@ -199,7 +158,7 @@ export function ThreadRow({
 
 			{/* Meta: blocking badge, avatars, count, timestamp */}
 			<div className="flex items-center gap-[9px] shrink-0">
-				{/* Blocking badge in the right-side meta (audit L-23, L-24) */}
+				{/* Blocking badge in the right-side meta */}
 				{blocking && (
 					<span
 						data-testid="thread-row-blocking-badge"
@@ -209,7 +168,7 @@ export function ThreadRow({
 					</span>
 				)}
 
-				{/* Overlapping participant avatar group (audit L-21) */}
+				{/* Overlapping participant avatar group */}
 				{avatars && avatars.length > 0 && (
 					<div className="flex">
 						{avatars.map((a, i) => (
@@ -235,7 +194,7 @@ export function ThreadRow({
 					</div>
 				)}
 
-				{/* Message count badge (audit L-22) */}
+				{/* Message count badge */}
 				{messageCount !== undefined && (
 					<span
 						data-testid="thread-row-count-badge"
@@ -263,7 +222,7 @@ export function ThreadRow({
 		</>
 	);
 
-	// UI-080: href → real anchor link so ⌘-click / middle-click work natively.
+	// href → real anchor link so ⌘-click / middle-click work natively.
 	if (href) {
 		return (
 			<a

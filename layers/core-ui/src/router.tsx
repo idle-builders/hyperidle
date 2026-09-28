@@ -1,14 +1,5 @@
 import type { JSX } from "react";
 import type { RouteObject } from "react-router-dom";
-/**
- * @lore React Router v7 uses createBrowserRouter + RouterProvider pattern.
- * All routes are nested under AppShell layout which provides Sidebar | Main.
- * The index route redirects to /conversations (queue) as the default landing page.
- *
- * @lore L9: /conversations/review and /conversations/chat are legacy routes;
- * they now mount RedirectLegacyConversation which redirects to the canonical
- * /conversations or /conversations/:threadId shape.
- */
 import { createBrowserRouter, Navigate, RouterProvider, useParams } from "react-router-dom";
 import { AppShell } from "./layouts/AppShell";
 import { AgentProfile } from "./pages/AgentProfile";
@@ -27,15 +18,8 @@ import { WorkTaskCreate } from "./pages/WorkTaskCreate";
 import { WorkTaskPage } from "./pages/WorkTaskPage";
 import { WorkTeam } from "./pages/WorkTeam";
 
-/**
- * @lore U6: React Router's Navigate element cannot forward route params directly
- * (Navigate's `to` prop is a string literal, not a pattern). This wrapper reads
- * the old `productId` param and redirects to the new `/work/team/:teamId` path.
- */
 function RedirectProductToTeam(): JSX.Element {
 	const { productId } = useParams<{ productId: string }>();
-	// Z8-147: empty productId → /work/team/ matches no route. Redirect to Work overview.
-	// Was /work/portfolio; now /work (WorkOverview handles 1-team short-circuit).
 	if (!productId) return <Navigate to="/work" replace />;
 	return <Navigate to={`/work/team/${productId}`} replace />;
 }
@@ -43,7 +27,6 @@ function RedirectProductToTeam(): JSX.Element {
 export function buildRoutes(): RouteObject[] {
 	const routes: RouteObject[] = [
 		{
-			// P4: /setup replaces /onboarding. SetupFlow is the initial setup page.
 			path: "/setup",
 			element: <SetupFlow />,
 		},
@@ -56,10 +39,6 @@ export function buildRoutes(): RouteObject[] {
 				{ path: "conversations", element: <Conversations /> },
 				{ path: "conversations/:threadId", element: <Conversations /> },
 				// Legacy redirects — preserve user-facing history via replace:true.
-				// @lore L9: RedirectLegacyConversation reads the legacy query param
-				// (?id= or ?thread=), trims whitespace, and redirects to the canonical
-				// /conversations/:threadId or /conversations (queue). This handles all
-				// four legacy URL shapes: review/chat × no-id/with-id.
 				{
 					path: "conversations/review",
 					element: <RedirectLegacyConversation paramName="id" />,
@@ -74,39 +53,20 @@ export function buildRoutes(): RouteObject[] {
 				// /work/portfolio → /work (graceful redirect for bookmarks/external links).
 				// The team-count branch lives in WorkOverview, not here — unconditional redirect.
 				{ path: "work/portfolio", element: <Navigate to="/work" replace /> },
-				// @lore U6: Route renamed from work/product/:productId to work/team/:teamId.
-				// Old path redirects via RedirectProductToTeam wrapper (Navigate cannot
-				// forward params directly in React Router v7).
 				{ path: "work/team/:teamId", element: <WorkTeam /> },
 				{ path: "work/product/:productId", element: <RedirectProductToTeam /> },
-				// @lore BC5 T9: work/routine/:routineId route deleted — subscriptions
-				// replace routines; WorkRoutine is gone.
-				// @lore BB1: /work/task/:taskId replaces both /work/bet/:betId and
-				// /work/bet/:betId/task/:taskId. One route, any depth. The breadcrumb
-				// is built from the ancestors array in the tree response.
 				{ path: "work/task/new", element: <WorkTaskCreate /> },
 				{ path: "work/task/:taskId", element: <WorkTaskPage /> },
-				// Flattened from `work/bet/:betId/review/:reviewId` — the loader
-				// now names the review's own thread directly, so the route needs
-				// no bet. Deleted rather than redirected: no persisted row holds
-				// the old shape (CLAUDE.md's absolute rule 2 forbids a compat
-				// shim with nothing to bridge).
 				{ path: "reviews/:reviewId", element: <ReviewPage /> },
 				{ path: "agents/:agentId", element: <AgentProfile /> },
-				// @lore BC4: /knowledge -> /documents. Deleted rather than
-				// redirected — no persisted row holds the old path shape
-				// (CLAUDE.md's absolute rule 2 forbids a compat shim with
-				// nothing to bridge).
 				{ path: "documents", element: <DocumentList /> },
 				{ path: "documents/new", element: <DocumentCreate /> },
 				{ path: "documents/:documentId", element: <DocumentDetail /> },
-				// @lore FR-18: /settings is now a real route (was ?settings=open overlay).
-				// Sidebar marks the settings button active when pathname starts with /settings.
 				{ path: "settings", element: <SettingsPage /> },
 			],
 		},
-		// I4 E2: catch-all so unknown URLs render NotFound (not a blank page).
-		// Rendered outside AppShell per error-states.html mockup (standalone page, no sidebar).
+		// catch-all so unknown URLs render NotFound (not a blank page).
+		// Rendered outside AppShell (standalone page, no sidebar).
 		{ path: "*", element: <NotFound /> },
 	];
 

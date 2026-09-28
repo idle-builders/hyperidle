@@ -1,11 +1,6 @@
 /**
  * DocumentDetail stories — the (mixture / block-body) review surface.
  *
- * @lore BC4: replaces the fixture-driven `KnowledgeDetail` stories. Data now
- * comes from `call("open_document", …)`, so every story mocks `window.fetch`
- * for `/api/actions/*` instead of resolving a fixture id — the same pattern
- * `WorkTaskPage.stories.tsx` uses for `open_task`.
- *
  * AM5: page-fed stories mount through the shared isolation harness
  * (`MockProviders`), exactly like `WorkBetCreate.stories.tsx`. The page reaches
  * for router hooks (useNavigate/useParams/<Link>) and AssistantContext; a bare

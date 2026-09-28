@@ -1,4 +1,4 @@
--- AU44 Batch 1: fold `team_members` into `teams`.
+-- Fold `team_members` into `teams`.
 --
 -- Rationale: the 1:1 Team = TeamMembers invariant enforced by app-level 500s
 -- is the schema confessing two tables are one entity. `getTeamMembers` with
@@ -15,11 +15,7 @@
 -- 3. Drop the old FK from users.team_id → team_members dynamically.
 --    The constraint name varies by database history: it is
 --    "agents_team_id_teams_id_fk" when the tables were named agents/teams
---    before the U1 rename, but must not be hardcoded.
---    @lore migration-defect-fix: step 3 (FK drop) must run BEFORE step 4
---    (re-point users.team_id). The old order (3 then 4) wrote a teams.id into
---    a column still constrained to hold a team_members.id, violating the FK
---    and aborting the migration on every populated database. Detected BA9a.
+--    before the rename, but must not be hardcoded.
 -- 4. Re-point users.team_id from team_members.id to teams.id.
 -- 5. Add the new FK from users.team_id → teams.id.
 -- 6. Drop team_members.
@@ -42,7 +38,7 @@ SET
 
 -- Step 3: Drop old FK constraint users.team_id → team_members BEFORE re-pointing.
 -- The constraint name varies by database history (e.g. "agents_team_id_teams_id_fk"
--- when the tables were named agents/teams before U1 renamed them). Query the
+-- when the tables were named agents/teams (before rename). Query the
 -- catalog for the FK whose referencing table is "users" and referenced table
 -- is "team_members", then drop whatever name is there.
 DO $$

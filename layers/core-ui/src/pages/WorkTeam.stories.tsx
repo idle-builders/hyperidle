@@ -1,7 +1,6 @@
 /**
  * L13 — WorkTeam page stories. Renders key states for visual verification.
  *
- * @lore U5: Renamed from WorkProduct.stories.tsx → WorkTeam.stories.tsx.
  */
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { WorkTeam } from "./WorkTeam";

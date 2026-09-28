@@ -1,12 +1,4 @@
-/**
- * useThreads. Replaces `useConversationsThreads`. One door:
- * `call("search_threads", filter)`, kept live by the global `conversations`
- * websocket nudge.
- *
- * The filter is a stable value the caller controls — pass a `useMemo`'d
- * object (or a primitive-only shape) so the effect doesn't refire every
- * render.
- */
+// @lore: filter MUST be stable — pass useMemo'd object or primitive-only shape; referential change refires the effect every render
 
 import type { SearchThreadsInput, ThreadListRow } from "@hyperidle/domain-model";
 import { useCallback, useEffect, useRef, useState } from "react";

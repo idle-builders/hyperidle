@@ -13,7 +13,6 @@ import {
 	test,
 } from "./fixtures";
 
-// @lore No `task` host kind — a task's own thread is `team`-hosted.
 const THREAD = makeThread("t-az16", {
 	title: "Design tokens review",
 	computedTitle: "Design tokens review",
@@ -37,7 +36,6 @@ const REVIEW_MESSAGE = makeMessage("review-az16", THREAD.id, {
 	createdAt: "2026-08-14T09:00:00.000Z",
 });
 
-// @lore WorkTaskPage loads via open_task — the catch-all route answers {} for anything else, rendering a taskless page.
 const TASK_VIEW = {
 	task: makeTask("task-az16", {
 		title: "Semantic design profiles",
@@ -140,7 +138,6 @@ async function installAz16Mocks(page: Page): Promise<void> {
 		if (pathname === "/api/actions/search_documents") {
 			return json(route, { ok: true, data: [KNOWLEDGE] });
 		}
-		// @lore old route families are gone — search_users/open_user/edit_user is the one user door now.
 		if (pathname === "/api/actions/search_users") {
 			return json(route, { ok: true, data: [FOUNDER_ROW, AGENT_ROW] });
 		}

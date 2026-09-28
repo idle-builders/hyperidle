@@ -7,7 +7,7 @@ import type { Action } from "./action.js";
  * name, sentence and shape, calling it in-process as the session's agent —
  * the first tool that does not dial its own process over HTTP. No `roles`:
  * every actor gets every action; authorization is an invariant, not a
- * filter. the architecture doc §7.
+ * filter.
  */
 export function actionsAsTools(actions: readonly Action[]): readonly RegisteredTool<HyperIdleDb>[] {
 	return actions.map((action) => ({

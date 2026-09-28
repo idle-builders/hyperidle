@@ -2,25 +2,7 @@ import { z } from "zod";
 import { PLUGIN_CONTRIBUTION_KINDS } from "../configuration.js";
 import type { ActionDeclaration, Problem } from "./action.js";
 
-/**
- * @lore The platform action list — search, edit. This is what replaces
- * `routes/plugins.ts` (984 lines: six routes, `PluginView`/
- * `PluginContributionView`, the install/enable/disable/remove/restore
- * lifecycle). `PluginView`/`PluginContributionView` move here from
- * `routes/plugins.ts:106-132` unchanged in shape.
- *
- * `edit_plugin` is one partial input discriminated by which change field is
- * present (an edit shape, not a verb field), with the install `scope`
- * nested inside `source` so "scope without source" is unrepresentable
- * rather than an invariant this file has to check.
- */
-
-// ---------------------------------------------------------------------------
-// Vocabulary this module needs beyond `../configuration.js`'s own exports.
-// `PLUGIN_LIST_STATES` is the two states a person or agent may ask to filter
-// on or set — `"removed"` (the third `PluginState` member) is neither: a
-// removed plugin is a tombstone `search_plugins` never returns.
-// ---------------------------------------------------------------------------
+// `"removed"` (third PluginState member) is neither list state: a removed plugin is a tombstone search_plugins never returns.
 
 export const PLUGIN_LIST_STATES = ["enabled", "disabled"] as const;
 export type PluginListState = (typeof PLUGIN_LIST_STATES)[number];
@@ -39,17 +21,11 @@ const PLUGIN_SEARCH_STATES = [...PLUGIN_LIST_STATES, "available"] as const;
  */
 const PLUGIN_INSTALL_SCOPES = ["team", "factory"] as const;
 
-/** `plugins.ts:63`'s `PluginScope` (`PluginScopeKind` + `teamId`), as a zod shape. */
 export const PluginScopeSchema = z.discriminatedUnion("kind", [
 	z.object({ kind: z.literal("factory"), teamId: z.null() }),
 	z.object({ kind: z.literal("team"), teamId: z.string().min(1) }),
 ]);
 export type PluginScope = z.infer<typeof PluginScopeSchema>;
-
-// ---------------------------------------------------------------------------
-// The row — `PluginView`/`PluginContributionView` moved out of
-// `routes/plugins.ts:106-132`, unchanged in shape.
-// ---------------------------------------------------------------------------
 
 export const PluginContributionViewSchema = z.object({
 	/** A contributed row, or `mcp_server` — a server read from the install's `mcp.json`. */
@@ -170,12 +146,7 @@ export const PLATFORM_ACTIONS = {
 	edit_plugin: editPlugin,
 } as const;
 
-// ---------------------------------------------------------------------------
-// editPluginInvariants — pure. The three pure invariants declared for
-// `edit_plugin`. The DB-dependent ones it also names (`unknown_plugin`, `unknown_contribution`,
-// `install_failed`, `plugin_removed`, `unknown_team` — a team install for a team that does not
-// exist) need the database and run inside `edit_plugin.run`, not here.
-// ---------------------------------------------------------------------------
+// DB-dependent invariants (unknown_plugin, install_failed, unknown_team, etc.) run inside edit_plugin.run.
 
 export function editPluginInvariants(input: EditPluginInput): Problem[] {
 	const problems: Problem[] = [];

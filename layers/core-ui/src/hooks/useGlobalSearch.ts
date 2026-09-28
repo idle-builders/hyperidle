@@ -14,9 +14,7 @@ interface ConversationResult {
 interface WorkResult {
 	id: string;
 	title: string;
-	/** @lore U5: Renamed from `product` to `team`. */
 	team: string;
-	// @lore BB1: status/appetite (bet-era) replaced by state (task).
 	state: TaskState;
 }
 
@@ -52,9 +50,6 @@ interface UseGlobalSearchReturn {
 	clear: () => void;
 }
 
-// @lore I4 adversary W1: these sets are typed as Set<string> so .has()
-// accepts any string without casts. The type narrowing happens inside the
-// parse* functions below once the string is confirmed present in the set.
 const CONVERSATION_KINDS: ReadonlySet<string> = new Set(["review", "chat"]);
 const TASK_STATE_SET: ReadonlySet<string> = new Set<string>(TASK_STATES);
 const DOCUMENT_STATUS_SET: ReadonlySet<string> = new Set<string>(DOCUMENT_STATUSES);
@@ -63,10 +58,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null;
 }
 
-/**
- * Narrow checks that return boolean type guards — one per domain union —
- * so the parse* functions below can drop `as` casts entirely.
- */
 function isConversationKind(v: string): v is ConversationResult["kind"] {
 	return CONVERSATION_KINDS.has(v);
 }
@@ -77,11 +68,6 @@ function isDocumentStatus(v: string): v is DocumentStatus {
 	return DOCUMENT_STATUS_SET.has(v);
 }
 
-/**
- * Read `keys` off `source`, returning an object of string values if every
- * key holds a non-empty string; otherwise `null`. A single allocation per
- * row keeps per-result parsing cheap.
- */
 function readStringFields<K extends string>(
 	source: Record<string, unknown>,
 	keys: readonly K[],
@@ -111,8 +97,7 @@ function parseConversation(value: unknown): ConversationResult | null {
 
 function parseWork(value: unknown): WorkResult | null {
 	if (!isRecord(value)) return null;
-	// @lore BB1: work items are now tasks; `state` replaces `status`+`appetite`.
-	// @lore U5: API may send `team` (new) or `product` (old/compat). Prefer `team`, fall back to `product`.
+	// API may send `team` or `product`; prefer team, fall back to product
 	const fields = readStringFields(value, ["id", "title", "state"] as const);
 	if (!fields) return null;
 	if (!isTaskState(fields.state)) return null;
@@ -141,15 +126,8 @@ function parseDocument(value: unknown): DocumentResult | null {
 	};
 }
 
-/**
- * Outcome of parsing a `/api/search` response. The hook uses this to surface
- * a useful signal to the user when the server ships malformed data, instead
- * of silently collapsing to "No matches" (I4 adversary C4).
- */
 interface ParsedResponse {
 	results: SearchResults;
-	/** True when the server returned at least one row in any bucket but every
-	 * row was malformed — a signal that the API contract has drifted. */
 	allMalformed: boolean;
 }
 
@@ -166,13 +144,6 @@ function parseBucket<T>(
 	return { parsed, rawCount: raw.length };
 }
 
-/**
- * Parse and filter a raw `/api/search` response into the typed `SearchResults`
- * shape. Malformed entries are dropped per-row, but if every row in every
- * non-empty bucket is malformed we flag the response as "allMalformed" so
- * the hook can surface an error to the user rather than rendering "No
- * matches". Top-level shape mismatches default to empty arrays.
- */
 function parseSearchResponse(raw: unknown): ParsedResponse {
 	if (!isRecord(raw)) return { results: EMPTY_RESULTS, allMalformed: false };
 	const c = parseBucket(raw.conversations, parseConversation);
@@ -209,9 +180,7 @@ async function runSearch(
 		if (controller.signal.aborted) return;
 		const parsed = parseSearchResponse(raw);
 		if (parsed.allMalformed) {
-			// I4 adversary C4: non-empty buckets with zero parseable rows is a
-			// silent-data-loss hazard (API drift → empty UI). Log and surface
-			// an error instead of collapsing to "No matches".
+			// non-empty buckets with zero parseable rows = API drift; log and surface error instead of silent "No matches"
 			// biome-ignore lint/suspicious/noConsole: observability surface — placeholder for a real logger
 			console.error("[useGlobalSearch] server returned all-malformed rows", {
 				query,
@@ -246,9 +215,7 @@ export function useGlobalSearch(): UseGlobalSearchReturn {
 		}
 
 		if (!query) {
-			// I4 N2: when the user clears the query (character by character),
-			// reset stale results synchronously so the UI does not show
-			// orphaned hits. Aborts any in-flight fetch from a previous query.
+			// reset stale results synchronously on clear — avoids orphaned hits; abort in-flight fetch
 			if (abortControllerRef.current) {
 				abortControllerRef.current.abort();
 				abortControllerRef.current = null;
@@ -280,7 +247,6 @@ export function useGlobalSearch(): UseGlobalSearchReturn {
 			if (timerRef.current !== null) {
 				clearTimeout(timerRef.current);
 			}
-			// Abort any in-flight fetch on cleanup to prevent state leaks
 			if (abortControllerRef.current) {
 				abortControllerRef.current.abort();
 				abortControllerRef.current = null;
@@ -294,10 +260,7 @@ export function useGlobalSearch(): UseGlobalSearchReturn {
 	const totalCount = results.conversations.length + results.work.length + results.documents.length;
 
 	const clear = useCallback((): void => {
-		// I4 adversary W7: abort any in-flight fetch before resetting state
-		// so a late-resolving response cannot repopulate results after
-		// clear(). Without this, there is a micro-race between clear() and
-		// the effect cleanup that aborts on query change.
+		// abort in-flight fetch before reset — late-resolving response could repopulate results after clear() (race with effect cleanup)
 		if (abortControllerRef.current) {
 			abortControllerRef.current.abort();
 			abortControllerRef.current = null;

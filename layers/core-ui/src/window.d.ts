@@ -6,7 +6,7 @@
  */
 
 /**
- * S4: Worker status snapshot exposed via IPC bridge.
+ * Worker status snapshot exposed via IPC bridge.
  * Kept in sync with WorkerStatus in applications/remote-worker/src/remote-worker-client.ts.
  */
 interface WorkerStatus {
@@ -24,12 +24,6 @@ interface HyperIdleElectronBridge {
 	platform: "electron";
 	/** Backend mode: "local" (embedded server) or "shared" (remote server). */
 	backendMode?: "local" | "shared" | null;
-	/**
-	 * @lore The bridge used to carry six credential channels; five had no
-	 * renderer caller left once CredentialsTab stopped using them. set is the
-	 * only one that remains — the Worker settings field writes the shared
-	 * backend key through it and never reads the value back.
-	 */
 	credentials: {
 		set(name: string, value: string): Promise<{ stored: boolean; warning?: string }>;
 	};
@@ -40,7 +34,7 @@ interface HyperIdleElectronBridge {
 	};
 	/** Subscribe to the Settings open event from the application menu. Returns a disposer. */
 	onOpenSettings(callback: () => void): () => void;
-	/** S4: Worker registration controls (only available in shared-mode Electron). */
+	/** Worker registration controls (only available in shared-mode Electron). */
 	worker?: {
 		enable(maxConcurrent: number): Promise<void>;
 		disable(): Promise<void>;

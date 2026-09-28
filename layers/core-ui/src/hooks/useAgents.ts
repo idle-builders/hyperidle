@@ -1,20 +1,3 @@
-/**
- * useAgents — thin one-shot fetch hook for every agent in the backend.
- *
- * Every agent in the backend, unfiltered — for pickers that offer any agent
- * as a choice (e.g. a task's owner) rather than one team's roster.
- * `useTeamAgents` is a filter over this hook's result, not a second fetch —
- * the one fetch here is the whole agent-loading surface.
- *
- * @lore BC5 T9: `call("search_users", { kind: "ai" })` replaces
- * `apiFetch("/api/agents")` (architecture.md §8). The two real consumers
- * (`AssistantOverlay`, `WorkTaskPage`) only ever read `id`/`name`/`role`/
- * `ownerUserId` — the fields `search_users`' `UserRow` carries directly.
- * The rest of `AgentConfig` (harness/model/identity document/filesystems) has
- * no equivalent in a search row — an agent picker never needed it — so those
- * fields default to their "nothing configured" value here.
- */
-
 import type { UserRow } from "@hyperidle/domain-model";
 import { useEffect, useState } from "react";
 import { call } from "../services/call.js";

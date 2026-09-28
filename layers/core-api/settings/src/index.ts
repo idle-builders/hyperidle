@@ -1,15 +1,4 @@
-/**
- * Barrel for @hyperidle/settings (core-api Layer, SQL-owning Service).
- *
- * Typed functions only — no raw pgTable objects. Consumers get typed functions;
- * tables stay private to this Service (Table ACL, Mechanism A).
- *
- * @lore The plugin configuration engine (per-plugin configuration defaults,
- * person overrides, the resolver behind the agent-behaviour settings page) is
- * gone: every install's defaults were empty and nothing that runs a session
- * read an override. A plugin's MCP servers are read from its install folder
- * instead (`getPluginMcpContributions`).
- */
+// Barrel for @hyperidle/settings. Never re-exports raw table objects — consumers get typed functions only.
 
 // -- platform module: search_plugins / edit_plugin own the whole
 // plugin lifecycle. `Action`/`ActionContext` are this module's own

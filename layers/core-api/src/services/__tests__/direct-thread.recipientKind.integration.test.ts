@@ -3,7 +3,6 @@
  * from the recipient's own `kind` (ai -> "agent", human -> "user"), and
  * reuses the same thread on a second send to the same recipient.
  *
- * @lore send_message's single-recipient branch inlines its own find-or-create — this test drives the real send_message action door.
  */
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";

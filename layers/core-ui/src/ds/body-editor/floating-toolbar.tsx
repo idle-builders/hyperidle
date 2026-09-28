@@ -1,19 +1,3 @@
-/**
- * Floating toolbar — BubbleMenu wrapper with inline formatting buttons.
- * Renders when text is selected in the editor.
- *
- * @lore T1: Text labels (B, I, <>, S, Link) instead of icons to avoid icon
- * dependency and maintain density-first aesthetic at 13px.
- *
- * @lore T1: BubbleMenu hardcoded px values (4px gap, 28px buttons) are
- * 4px-grid compliant (AQ-001). The toolbar is a small overlay surface —
- * the fixed sizes are intentional for a crisp floating element. Architecture-
- * critique I5 noted this as acceptable for a small surface.
- *
- * @lore T1: All buttons include aria-label for accessibility (per architecture
- * critique I6). Active state uses aria-pressed to signal toggle state.
- */
-
 import type { Editor } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
 import type { JSX } from "react";
@@ -52,11 +36,6 @@ function ToolbarButton({
 	);
 }
 
-/**
- * Handle the link button click.
- * - If a link is active: remove it.
- * - If text is selected and no link: prompt for URL and set it.
- */
 function handleLinkClick(editor: Editor): void {
 	if (editor.isActive("link")) {
 		editor.chain().focus().unsetLink().run();
@@ -68,10 +47,6 @@ function handleLinkClick(editor: Editor): void {
 	}
 }
 
-/**
- * Floating formatting toolbar rendered on text selection.
- * Uses TipTap's BubbleMenu which handles positioning automatically.
- */
 export function FloatingToolbar({ editor }: FloatingToolbarProps): JSX.Element {
 	return (
 		<BubbleMenu

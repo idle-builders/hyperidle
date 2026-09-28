@@ -5,10 +5,6 @@
  * ("Show" / "Show session"). `onShow` makes it live — the session fold opens
  * the session dial-in; the work-fold expands the trace.
  *
- * @lore AM1-r7: NO card, NO border (round-7 lock — the heavy session card is
- * dead). The whole device is a single quiet `<button>`. Used for BOTH the
- * work-fold ("Worked for 1m 12s · Show") AND the session dial-in
- * ("› Show session"), and reused in the AM3 session view.
  */
 
 import type { JSX } from "react";

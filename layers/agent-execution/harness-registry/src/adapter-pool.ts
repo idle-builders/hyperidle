@@ -1,5 +1,5 @@
 /**
- * S2: AdapterPool — registry of HarnessAdapter instances (local and remote).
+ * AdapterPool — registry of HarnessAdapter instances (local and remote).
  *
  * Maintains a map of adapter entries keyed by stable ID. select() returns the
  * least-loaded eligible adapter and increments its active session count.
@@ -27,7 +27,7 @@ interface PoolEntry {
 	readonly adapter: HarnessAdapter;
 	readonly meta: AdapterMeta;
 	currentLoad: number;
-	/** S4: marks this entry as paused — select() skips paused entries. */
+	/** marks this entry as paused — select() skips paused entries. */
 	paused: boolean;
 	readonly connectedSince: string;
 }
@@ -36,7 +36,7 @@ interface PoolEntry {
 export interface SelectRequirements {
 	/** If present, only adapters supporting ALL listed providers are eligible. */
 	readonly modelProviders?: readonly string[];
-	/** X3: If set, only adapters with matching type are eligible. */
+	/** If set, only adapters with matching type are eligible. */
 	readonly harnessType?: string;
 }
 
@@ -50,10 +50,6 @@ export interface AdapterFilter {
 export class AdapterPool {
 	private readonly entries = new Map<string, PoolEntry>();
 	/**
-	 * @lore AM4: `readonly` dropped to allow refreshDiscoveries() to reassign the snapshot.
-	 * The freeze() is still applied to each new assignment so callers reading the snapshot
-	 * see a stable (frozen) map. Reassignment is atomic in JS single-thread; the await in
-	 * refreshDiscoveries() completes before the reassign so no concurrent read sees a partial map.
 	 */
 	private discoveries?: Readonly<Record<string, HarnessDiscoveryInput>>;
 
@@ -73,9 +69,6 @@ export class AdapterPool {
 	 * Re-run discoverLocalHarnesses() and replace the discovery snapshot.
 	 * Refreshes readiness/version/auth state — does NOT run the session probe
 	 * (same probe-gating as boot; runtime caps stay false).
-	 *
-	 * @lore AM4: Called by POST /api/harnesses/redetect. The pool is DB-free so
-	 * the caller (route handler) stamps discovery.disabled separately from readServerConfig.
 	 *
 	 * `discoveryDeps` is the same injectable command-runner discoverLocalHarnesses
 	 * already takes — a unit test passes a stub here so refresh() never spawns a
@@ -121,7 +114,7 @@ export class AdapterPool {
 	}
 
 	/**
-	 * S4: Mark an adapter as paused — select() will skip it.
+	 * Mark an adapter as paused — select() will skip it.
 	 * No-op if the ID is unknown.
 	 */
 	pause(id: string): void {
@@ -132,7 +125,7 @@ export class AdapterPool {
 	}
 
 	/**
-	 * S4: Clear the paused flag — select() will consider it again.
+	 * Clear the paused flag — select() will consider it again.
 	 * No-op if the ID is unknown.
 	 */
 	resume(id: string): void {
@@ -145,9 +138,6 @@ export class AdapterPool {
 	/**
 	 * Select the least-loaded eligible adapter and increment its active session count.
 	 * Returns null if no eligible adapter with remaining capacity exists.
-	 *
-	 * @lore S2: "least-loaded" means lowest ratio of currentLoad/maxConcurrent.
-	 * Filtering happens first (capacity + modelProviders), then min-load selection.
 	 */
 	select(requirements?: SelectRequirements): {
 		readonly id: string;
@@ -157,7 +147,7 @@ export class AdapterPool {
 		let best: { id: string; entry: PoolEntry } | null = null;
 
 		for (const [id, entry] of this.entries) {
-			// S4: skip paused adapters
+			// skip paused adapters
 			if (entry.paused) continue;
 
 			// Capacity filter
@@ -170,7 +160,7 @@ export class AdapterPool {
 				if (!allMatch) continue;
 			}
 
-			// X3: harnessType filter — adapter type must match when specified.
+			// harnessType filter — adapter type must match when specified.
 			// An adapter without a type (type: undefined) does NOT match a specific
 			// harnessType requirement (backward compat: old workers without type can
 			// still be selected when harnessType is unspecified/undefined).
@@ -194,10 +184,7 @@ export class AdapterPool {
 	 * Why `select(requirements)` would return null, in the caller's words.
 	 *
 	 * `select` has six distinct ways to reject every entry, and the pool is the
-	 * only thing that can tell them apart. Callers used to collapse all six
-	 * into "all adapters are at capacity" — false for the case that actually
-	 * happens (an empty pool, because discovery found no harness binary), and
-	 * false in a way that points the reader at the wrong subsystem.
+	 * only thing that can tell them apart.
 	 *
 	 * Ordered most-actionable first: an empty pool is a different problem from
 	 * a filtered-out pool, which is a different problem from a full one.
@@ -241,10 +228,6 @@ export class AdapterPool {
 	 * harnessType. When harnessType is null, returns capabilities from any adapter
 	 * (useful when the agent has no preference — any adapter will do).
 	 * Returns null when no matching adapter is registered.
-	 *
-	 * @lore AB1: Capabilities are read via adapter.getCapabilities() at query time,
-	 * not cached. This avoids stale capability data if adapters reconnect with
-	 * different features. The overhead is trivial (O(n) map scan, no I/O).
 	 */
 	describe(filter?: AdapterFilter): HarnessCapabilityDescriptor[] {
 		const includeKnownMissing = filter?.includeKnownMissing ?? true;
@@ -286,90 +269,12 @@ export class AdapterPool {
  * Well-known CLI tool configurations.
  * Each tool registers with its own harnessType (binary name) so agents can
  * express a preference: harnessType: "opencode" routes to the OpenCode adapter.
- *
- * @lore X5: CLI tool flags are provisional — they reflect the best-known
- * invocation at the time of writing. Validate during X7 (E2E evals) or
- * manual testing. Prefer --no-interactive / headless flags where supported.
- *
- * @lore X5: codex session-spawn invocation is `codex exec <prompt> --json`
- * (proven by probeCodexSession in harness-session-probe.ts and the committed
- * fixture packages/server/src/harness/__tests__/fixtures/codex-exec.jsonl).
- * {{sandbox}} is the working directory; codex is invoked from cwd:sandboxPath
- * so no explicit --dir flag is needed — codex picks up the cwd automatically.
- * Event format is "ndjson" because codex emits JSONL turn.completed lines
- * normalised by normalizeNativeHarnessEvent("codex", ...).
- */
-/**
- * Exported so integration tests can verify the per-session prompt-carrier
- * mechanism is wired (the codex args template must include a seed-prompt carrier slot).
- *
- * @lore CLI_TOOL_CONFIGS is exported so real-binary integration tests spawn
- * CliHarnessAdapter from the exact object registerCliAdaptersIfAvailable
- * registers from, so a wrong flag or a dropped template var fails that lane
- * too — not just this module's own callers.
  */
 export const CLI_TOOL_CONFIGS: Partial<Record<HarnessType, CliAdapterConfig>> = {
 	codex: {
 		binary: "codex",
-		// @lore X5: `codex exec` runs a single-turn headless session; --json emits
-		// JSONL event lines including turn.completed with usage fields. stdin is not
-		// needed (no interactive prompt). The task prompt is injected via AGENTS.md
-		// written to sandboxPath before startSession is called.
-		//
-		// @lore "proceed" was a placeholder that caused codex to wait
-		// on stdin for the actual prompt (stdin-wait hang). Replaced with {{prompt}}
-		// template var, resolved to the seed prompt at startSession time. When no
-		// seed prompt is provided, "proceed" is used as the default so codex runs with
-		// the system prompt context from AGENTS.md. The CODEX_HOME injection (see
-		// CliHarnessAdapter.startSession) also appends --dangerously-bypass-hook-trust.
-		//
-		// @lore AR7: `--model {{model}}` passes the gateway-resolved model to codex
-		// (`codex exec -m/--model <MODEL>`), making codex consistent with claude and
-		// opencode (all three receive the model as an explicit CLI argument from
-		// config.resolvedModel?.model, cli-harness-adapter.ts:365). This is a
-		// deliberate production-adapter change: codex runs now pass the locked model
-		// from HARNESS_TEST_MODELS explicitly rather than relying on the inherited
-		// CODEX_HOME config default. The {{prompt}} / AGENTS.md / stdin-wait lore
-		// above remains valid — only the model is newly argument-enforced.
-		//
-		// @lore AO2 codex-workspace-write: `--sandbox workspace-write` allows codex's
-		// shell tool to write files in the working directory (the mounted worktree).
-		// Without this flag, codex defaults to `read-only` sandbox mode and refuses
-		// ALL file writes (including `printf > FILE.txt`). The worktree IS the
-		// sandboxPath — codex must be able to write into it. This is a production fix:
-		// a codex agent that cannot write its mounted filesystem is useless.
-		// Verified against codex-cli: `codex exec --help` lists three values:
-		// read-only (default), workspace-write, danger-full-access.
-		// workspace-write = writable within the cwd tree; no full-disk access.
-		//
-		// @lore BA2 ruling 22 (corrects ruling 18): codex-cli 0.150.1 refuses to
-		// run with "Not inside a trusted directory and --skip-git-repo-check was
-		// not specified" unless the working directory is a git repository — that
-		// IS a git-repo check, empirically, on this binary. Verified against the
-		// installed binary across all four combinations: {git repo, no trust
-		// declaration in config.toml} → runs; {git repo, trust declared} → runs;
-		// {not a git repo, trust declared} → fails with the exact same message;
-		// {not a git repo, no trust declared} → fails. `trust_level = "trusted"`
-		// makes no observed difference in either direction — a prior
-		// comment asserted the opposite ("it is not a git-repo check")
-		// on the strength of a probe that never tried a git repo WITHOUT a trust
-		// declaration, so it never saw that the trust entry was doing nothing.
-		// Ruling 18's other claim — that a prior commit "removed"
-		// `--skip-git-repo-check` — is also corrected here: against `main` that
-		// flag was never present; it existed only inside an abandoned branch.
-		//
-		// The actual fix for "every codex session dies at startup" is
-		// `ensureSandboxGitRepo` (run-orchestration/mounter.ts), called once
-		// after Phase 4.5 filesystem mounting to `git init` the sandbox when
-		// mounting didn't already make it one — see that function's own comment
-		// for why it cannot run before mounting. `writeCliMcpConfig`'s
-		// codex-toml dialect still writes the `[projects."<sandbox>"]
-		// trust_level = "trusted"` block (cli-mcp-config.ts, `buildCodexTrustBlock`)
-		// Kept deliberately as the general shape — where a
-		// harness has its own trusted-directory mechanism, declare the
-		// filesystems we inject as trusted through it — even though it was not
-		// observed to be load-bearing for this specific codex-cli precondition.
-		// No bypass flag is used here, before or after this correction.
+		// @lore: --sandbox workspace-write — codex defaults read-only, refuses writes without it; workspace-write allows writes within cwd tree only
+		// @lore: codex requires CWD to be a git repo — trust_level in config.toml has no observed effect; ensureSandboxGitRepo (mounter.ts) is the actual fix
 		args: ["exec", "--sandbox", "workspace-write", "--model", "{{model}}", "{{prompt}}", "--json"],
 		envMap: {
 			OPENAI_API_KEY: "{{apiKey}}",
@@ -377,79 +282,39 @@ export const CLI_TOOL_CONFIGS: Partial<Record<HarnessType, CliAdapterConfig>> = 
 		eventFormat: "ndjson",
 		envAllowlist: ["PATH", "HOME", "LANG"],
 		// Explicit channel — avoids relying on deriveCliChannel binary-string matching.
-		// @lore Prefer explicit returnEnforcementChannel over binary-name inference.
-		// deriveCliChannel("codex") → "settings-codex" is a fallback; explicit is authoritative.
 		returnEnforcementChannel: "settings-codex",
 		// Per-session seed prompt carrier for Codex.
 		// "positional" means the {{prompt}} template arg in args[] carries the message.
 		// CliHarnessAdapter resolves {{prompt}} to the seed prompt before spawning.
-		// @lore Without this field, re-engage runs would use the
-		// same generic "proceed" prompt regardless of the forcing message.
 		seedPrompt: "positional",
 		// Codex reads MCP server from .codex-home/config.toml;
 		// the token is delivered via HYPERIDLE_MCP_TOKEN env var (bearer_token_env_var).
 		mcpConfig: { dialect: "codex-toml" },
-		// @lore AR2 codex-stderr-ignore: codex emits informational messages to stderr
-		// throughout a session (startup "Reading additional input from stdin...",
-		// progress lines, debug output). ALL are benign — real failures manifest as
-		// non-zero exit code (→ buildResult outcome:"crashed") or JSONL error events
-		// in stdout. Silencing all codex stderr prevents false crash-on-informational-line.
-		// Verified codex-cli 0.141.x: the process exits 0 on success regardless of
-		// how much stderr it emits.
+		// @lore: all codex stderr is benign — real failures appear as non-zero exit or JSONL error events in stdout; stderrIgnorePatterns suppresses false crashes
 		stderrIgnorePatterns: [/.*/],
 	},
 	opencode: {
 		binary: "opencode",
-		// Opencode headless `run` form (was ["--dir","{{sandbox}}"] which
-		// launches the interactive TUI, never completing a headless turn).
+		// Opencode headless `run` form:
 		// - `run <prompt>` delivers the seed prompt.
 		// - `--dir {{sandbox}}` sets cwd for config resolution (opencode.json).
 		// - `--format json` emits JSONL per-event output (eventFormat: "ndjson").
 		// - `--model {{model}}` requires provider-prefixed id (e.g. openrouter/~anthropic/claude-haiku-latest).
-		// @lore AL7 W4: {{model}} resolves from config.resolvedModel?.model (cli-harness-adapter.ts:303).
-		// opencode run requires a provider-prefixed model id; a bare id fails. The model resolution
-		// for opencode agents must produce the provider-prefixed form.
-		// @lore AK1: {{sandbox}} is the renamed template var (was {{workspace}}).
-		// @lore BA2: --pure was removed because it silently disables all external plugins including
-		// the sandbox's own gate plugin. XDG_CONFIG_HOME=<sandbox>/.hyperidle/opencode-xdg-config
-		// is injected by cli-harness-adapter (same pattern as CODEX_HOME) to provide the same
-		// config isolation --pure used to claim but never actually delivered.
+		// @lore: {{model}} resolves from config.resolvedModel?.model; opencode requires provider-prefixed model id (e.g. openrouter/~); a bare id fails
+		// @lore: XDG_CONFIG_HOME=<sandbox>/.hyperidle/opencode-xdg-config isolates config; --pure absent: it silently disables external plugins including the gate plugin
 		args: ["run", "{{prompt}}", "--dir", "{{sandbox}}", "--format", "json", "--model", "{{model}}"],
-		// @lore opencode used to be handed a stored API key here, under whichever
-		// variable its provider reads, plus a provider block for a brought
-		// OpenAI-compatible endpoint. Both are gone: opencode authenticates through
-		// its own login like every other harness, and HyperIdle holds no model
-		// credential to pass on.
 		envMap: {},
-		// Changed from "text" → "ndjson" because opencode --format json emits JSONL.
-		// @lore AL7 W3: opencode JSONL events (step_finish, tool) may normalize to `unknown` via
-		// normalizeHarnessEvent until the opencode pre-map is added (T6 verify). The router capture
-		// (captured>=1) is on the MCP router path and does NOT depend on event normalization.
 		eventFormat: "ndjson",
-		// @lore AR2 opencode-env: OPENROUTER_API_KEY is included for OpenRouter-routed models.
-		// XDG_DATA_HOME is included so callers can set a per-session data directory to isolate
-		// opencode's SQLite database (avoids lock contention when multiple processes run in
-		// rapid succession). Without XDG_DATA_HOME isolation, concurrent opencode processes
-		// hang on the global ~/.local/share/opencode/opencode.db write-lock.
-		// See provisionOpencodeHome() in provision-real-session.ts for the isolation pattern.
+		// @lore: XDG_DATA_HOME isolates opencode's SQLite db — without it concurrent processes hang on ~/.local/share/opencode/opencode.db write-lock
 		envAllowlist: ["PATH", "HOME", "LANG", "OPENROUTER_API_KEY", "XDG_DATA_HOME"],
 		// Explicit channel — avoids relying on deriveCliChannel binary-string matching.
-		// @lore Prefer explicit returnEnforcementChannel over binary-name inference.
-		// deriveCliChannel("opencode") → "process-reengage" is a fallback; explicit is authoritative.
 		returnEnforcementChannel: "process-reengage",
 		// Per-session re-engage carrier for OpenCode (process-reengage channel).
 		// "run-arg" passes the forcing message as a positional arg to `opencode run <msg>`.
-		// @lore Without this, re-engage re-invocations would not carry
-		// the forcing message and the agent would not know it needs to return.
 		reEngageCarrier: "run-arg",
 		// Opencode reads MCP server from opencode.json in the sandbox cwd;
 		// the token is inline in headers.Authorization (no tokenEnv needed).
 		mcpConfig: { dialect: "opencode-json" },
-		// @lore AR2 opencode-stderr-ignore: opencode emits informational progress messages
-		// to stderr (model selection, run status, debug output). ALL are benign — real
-		// failures manifest as non-zero exit code (→ buildResult outcome:"crashed") or
-		// JSONL error events in stdout. Silencing all opencode stderr prevents false
-		// crash-on-informational-line (same reasoning as codex).
 		stderrIgnorePatterns: [/.*/],
 	},
 };
@@ -462,40 +327,13 @@ export const CLI_TOOL_CONFIGS: Partial<Record<HarnessType, CliAdapterConfig>> = 
  *   Injecting our key would shadow the user's configured auth and break the
  *   intended "installed harness brings its own credentials" pattern (mirrors
  *   codex reading ~/.codex/auth.json — we don't inject OpenAI keys there either).
- * @lore claude-cli-adapter: envMap is empty intentionally — claude authenticates
- * via ~/.claude/ credentials installed by `claude login`. Injecting ANTHROPIC_API_KEY
- * would shadow the user's configured auth, potentially breaking enterprise/SSO setups.
- * - returnEnforcementChannel: "settings-claude" — provisionReturnHook writes
- *   .claude/settings.json + return-check.sh Stop hook before the subprocess starts.
- * - eventDialect: "claude-stream-json" — triggers preMapClaudeEvent pre-map in
- *   parseStdoutLine so assistant/result/system lines become canonical events.
- * - --mcp-config .mcp.json: session-provisioning.ts writes this file in claude-native
- *   format ({mcpServers:{hyperidle:{type:"http",url}}}) for every MCP session.
- *   No dialect entry in writeCliMcpConfig needed — claude uses its own format.
- *
- * @lore Exported so the real-binary integration lane drives CliHarnessAdapter
- * from this same object instead of a hand-copied duplicate — same reasoning
- * as CLI_TOOL_CONFIGS above.
  */
 export const CLAUDE_CLI_CONFIG: CliAdapterConfig = {
 	binary: "claude",
-	// @lore claude-cli-adapter: `-p <prompt>` is the headless prompt flag;
-	// `--output-format stream-json --verbose` emits one JSON object per line;
+	// `-p <prompt>` is the headless prompt flag; `--output-format stream-json --verbose` emits one JSON object per line;
 	// `--model {{model}}` sets the model; `--mcp-config .mcp.json` wires MCP;
 	// `--strict-mcp-config` enforces MCP config (no auto-discovery from other dirs);
-	// @lore AR2-latent-bug: `--mcp-config .mcp.json --strict-mcp-config` is passed
-	// UNCONDITIONALLY — claude crashes "MCP config file not found" whenever no
-	// `.mcp.json` was written (i.e. a session provisioned with NO MCP bridge).
-	// Production masks this because server-factory always supplies a bridge so
-	// provisionSession always writes `.mcp.json`. A no-bridge session would crash
-	// identically. AR2 (the provisionSession-seam WP) owns the fix: make these args
-	// conditional on a bridge being provisioned, or always write a (possibly empty)
-	// `.mcp.json`. NOT fixed in AR1 (test-honesty scope only). This surfaced when
-	// AR1 un-skipped session-provisioning.integration.test.ts, which now wires the
-	// bridge into its deps so `.mcp.json` exists and the real claude run completes.
-	// `--permission-mode bypassPermissions` allows all tool calls without prompts;
-	// `--settings .claude/settings.json` loads the session-provisioned settings
-	// (which includes the return-check.sh Stop hook).
+	// @lore: --mcp-config .mcp.json is unconditional — crashes "MCP config file not found" if no file; provisionSession always writes it
 	args: [
 		"-p",
 		"{{prompt}}",
@@ -517,12 +355,7 @@ export const CLAUDE_CLI_CONFIG: CliAdapterConfig = {
 	eventFormat: "ndjson",
 	// PATH + HOME needed for binary resolution and credential loading.
 	// LANG for locale-sensitive output correctness.
-	// @lore claude-cli-adapter macos-keychain-auth: USER + LOGNAME are REQUIRED for
-	// claude's claude.ai OAuth (the default Max/Pro login). On macOS the token lives in
-	// the login Keychain, not a file; the Security framework needs USER/LOGNAME to
-	// resolve the keychain user. With only [PATH,HOME,LANG] the real binary returns
-	// `authentication_failed — "Not logged in"`. PROVEN via live smoke against
-	// claude 2.1.170: adding USER+LOGNAME → real turn completes (total_cost_usd>0).
+	// @lore: USER + LOGNAME required on macOS — OAuth token in login Keychain; Security framework needs USER/LOGNAME; without them claude returns "Not logged in"
 	envAllowlist: ["PATH", "HOME", "LANG", "USER", "LOGNAME"],
 	// returnEnforcementChannel: settings-claude — provisionReturnHook writes
 	// .claude/settings.json + return-check.sh Stop hook before session start.
@@ -533,15 +366,6 @@ export const CLAUDE_CLI_CONFIG: CliAdapterConfig = {
 
 /**
  * CLI adapter config for the `cursor-agent` binary (cursor-agent harness type).
- *
- * @lore AW1: cursor-agent exposes headless `--print --output-format stream-json`
- * with the same event shapes as claude (assistant/result/system). Auth is inherited
- * via Cursor login — no API key in envMap. `--trust` + `--approve-mcps` allow
- * headless workspace + MCP without interactive prompts.
- *
- * @lore Exported so the real-binary integration lane drives CliHarnessAdapter
- * from this same object instead of a hand-copied duplicate — same reasoning
- * as CLI_TOOL_CONFIGS above.
  */
 export const CURSOR_AGENT_CLI_CONFIG: CliAdapterConfig = {
 	binary: "cursor-agent",
@@ -559,13 +383,6 @@ export const CURSOR_AGENT_CLI_CONFIG: CliAdapterConfig = {
 	envMap: {},
 	eventFormat: "ndjson",
 	envAllowlist: ["PATH", "HOME", "LANG", "USER", "LOGNAME"],
-	// @lore BA2: back to the true floor. This briefly said "settings-cursor", a
-	// channel that existed so the interception installer could write
-	// `.cursor/hooks.json`. That installer is deleted, so the channel named an
-	// enforcement nothing performed — cursor-agent has never had one, and saying
-	// so is the honest floor. Its turns are held only by the drain-end gate,
-	// which is why a cursor session sometimes returns its work and sometimes
-	// just stops. Fixing that is BA13.
 	returnEnforcementChannel: "none",
 	eventDialect: "claude-stream-json",
 	mcpConfig: { dialect: "cursor-json" },
@@ -574,10 +391,6 @@ export const CURSOR_AGENT_CLI_CONFIG: CliAdapterConfig = {
 /**
  * Register CLI adapters for any well-known tools that are available on PATH.
  * Silently skips tools whose binary is not found — no error thrown.
- *
- * @lore X5: Each CLI tool gets its own harnessType (the binary name) so an
- * agent's harnessType: "opencode" selection is unambiguous. A generic "cli" type
- * was considered but rejected — the founder chose a specific tool for a reason.
  */
 async function registerCliAdaptersIfAvailable(
 	pool: AdapterPool,
@@ -593,8 +406,6 @@ async function registerCliAdaptersIfAvailable(
 			pool.register(`local-cli-${name}`, adapter, {
 				name: `CLI: ${name}`,
 				kind: "local",
-				// X5: Each CLI tool registers with its own type (the tool name) so
-				// agents can select a specific tool via harnessType.
 				type: name,
 				modelProviders: [],
 				maxConcurrent,
@@ -607,30 +418,6 @@ async function registerCliAdaptersIfAvailable(
  * Create an AdapterPool pre-loaded with all available local adapters:
  * 1. claude-code (CliHarnessAdapter, binary `claude`) — registered if on PATH
  * 2. codex / opencode / cursor-agent — registered if their binary is on PATH
- *
- * @lore S2 AC4: this factory keeps server-factory.ts clean — it just calls
- * createLocalAdapterPool() instead of knowing about adapter internals.
- *
- * @lore X5: The function is now async because CLI adapter registration checks
- * binary availability via `which`. The server-factory.ts call site is already
- * async so the signature change is local.
- *
- * @lore X5: The adapter ID for the Claude Code adapter changed from "local"
- * to "local-claude-code" to make room for multiple local adapters. The old
- * "local" ID was only referenced inside this factory and tests that use
- * pool.list() — not hardcoded elsewhere.
- *
- * @lore AM2: `discoverLocalHarnesses` intentionally does NOT run the session
- * probe in production discovery yet. CLI capabilities (fileEditing, toolUse)
- * therefore stay gated to `false` until AM3 wires the probe into the discovery
- * pipeline. This is intentional substrate scoping — not a bug. AM3 will call
- * `probeHarnessSession` per family and merge the probe result into the
- * HarnessCapabilityDescriptor before pool registration.
- *
- * @lore claude-cli-adapter: modelProviders is set to ["anthropic"] in the
- * registration metadata (not from getCapabilities().modelProviders which returns
- * []). AdapterPool.select() reads entry.meta.modelProviders — the registration
- * info — so anthropic-provider sessions correctly select the claude adapter.
  */
 export async function createLocalAdapterPool(opts?: {
 	enforcement?: EnforcementRegistry;
@@ -656,10 +443,6 @@ export async function createLocalAdapterPool(opts?: {
 			name: "Claude Code",
 			kind: "local",
 			type: "claude-code",
-			// @lore claude-cli-adapter: modelProviders here is registration metadata read
-			// by AdapterPool.select() — not the adapter's getCapabilities().modelProviders
-			// (which returns []). Setting ["anthropic"] allows anthropic-provider sessions
-			// to select this adapter via the modelProviders filter.
 			modelProviders: ["anthropic"],
 			maxConcurrent,
 		});

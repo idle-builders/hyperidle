@@ -1,17 +1,3 @@
-/**
- * The thread module's private row store — `threads` + `messages` writes and
- * reads. Moved from `@hyperidle/conversation`'s `conversation-store.ts`
- * (behavior-preserving move). `threads` has `title`/
- * `deletedAt`; `messages` has no `legacyItemId` — the two filter fields
- * that would read it (`legacyItemIds`/`noLegacyItem`) don't exist.
- *
- * Private to this package. `search.ts`, the ws authorizer and the
- * subscription fire mechanism — the three surviving outside readers of the
- * deleted `conversation` package — get typed read functions from THIS
- * module's own barrel, exactly as they got them from `conversation`'s
- * barrel before.
- */
-
 import {
 	type HyperIdleDb,
 	type Message,
@@ -67,15 +53,7 @@ export async function insertThread(exec: HyperIdleDb, values: NewThread): Promis
 	await exec.insert(threads).values(values);
 }
 
-/**
- * @lore Direct-thread create: `INSERT … ON CONFLICT (direct_key) DO NOTHING
- * RETURNING *`, targeting `threads_direct_key_uq` (the partial unique index,
- * `WHERE direct_key IS NOT NULL` — `schema.ts`). Under READ COMMITTED, a
- * concurrent insert of the same `directKey` makes this
- * statement wait for the other transaction to finish before deciding there's
- * a conflict, so a `undefined` return means the winner's row is already
- * committed — the caller re-reads it with `findThreadForUpdate`.
- */
+// @lore: direct-thread INSERT ON CONFLICT (direct_key) DO NOTHING; READ COMMITTED waits on concurrent insert; undefined means re-read with findThreadForUpdate
 export async function insertDirectThread(
 	exec: HyperIdleDb,
 	values: NewThread & { directKey: string },
@@ -162,18 +140,7 @@ export async function findThread(exec: HyperIdleDb, q: ThreadFilter): Promise<Th
 	return row;
 }
 
-/**
- * @lore The thread row, locked (`SELECT … FOR UPDATE`) — read this, never
- * the pre-transaction snapshot, immediately before computing a membership
- * change inside a write transaction. Two different non-members posting into
- * the same shared thread at once must not both compute "add myself" from
- * the same stale read and overwrite each other's join; the lock serialises
- * the second transaction behind the first's commit so it sees the
- * already-joined list. Same pattern as `server-config.ts`'s config-row lock
- * — the only other `.for("update")` in the codebase. Takes an `id` (the
- * join-on-post path) or a `directKey` (the direct-thread create-conflict
- * path re-reading the winner's row).
- */
+// @lore: findThreadForUpdate — SELECT FOR UPDATE; read inside tx before membership change; lock serialises concurrent posts; takes id or directKey
 export async function findThreadForUpdate(
 	exec: HyperIdleDb,
 	q: Pick<ThreadFilter, "id" | "directKey">,
@@ -257,7 +224,7 @@ export function listMessages(exec: HyperIdleDb, f: MessageFilter): Promise<Messa
 /**
  * The latest non-deleted message per thread, for `search_threads`'s
  * `lastMessagePreview` — one query for every thread id in the result page,
- * never one `listMessages` call per thread (the N+1 this replaces). A thread
+ * never one `listMessages` call per thread. A thread
  * with no messages simply has no row in the result; the caller looks each
  * thread id up in a `Map` and treats a miss as "no preview".
  */

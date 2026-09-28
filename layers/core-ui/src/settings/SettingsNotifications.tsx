@@ -1,17 +1,3 @@
-/**
- * SettingsNotifications, now "my subscriptions": one toggle per
- * object event, driven by the caller's own event subscriptions. Off means
- * paused (or never subscribed) — flipping it on adds a subscription (or
- * unpauses the existing one); flipping it off pauses it. A schedule
- * subscription is agent-only and never shown here.
- *
- * @lore BC5 T10: the door swap — `open_user({}).subscriptions` replaces
- * `GET /api/notifications/mute`; `edit_user({ id: me, subscriptions })`
- * replaces `PUT /api/notifications/mute/:key` (architecture.md §8).
- * `useNotificationMute` is deleted — there is no factory-wide mute left,
- * only a person's own subscription rows.
- */
-
 import {
 	OBJECT_EVENTS,
 	type ObjectEventName,

@@ -48,8 +48,7 @@ import {
 	type InjectedFilesystemsReaderPort,
 	mountFilesystemsForAgent,
 } from "./filesystem-provisioning.js";
-// Filesystem: local to this package — sibling service boundary (Mechanism C).
-// @lore AU44 b2: moved from @hyperidle/domain-model (dissolved filesystem-contract).
+// Filesystem: local to this package — sibling service boundary.
 import { ensureSandboxGitRepo, type Filesystem, localTrustedPath } from "./mounter.js";
 import { sessionAwaitsVerdict } from "./review-sessions.js";
 import { fetchPreviousSessionNotes } from "./session-store.js";
@@ -65,34 +64,6 @@ interface IngestionHandle {
 // ---- ports ----
 
 // ---------------------------------------------------------------------------
-// `SessionLifecycleRoutineAccessor`
-// (`getRoutineById`)/`SessionLifecycleSettingsReader` (`readServerConfig`) are
-// DELETED entirely — `run-orchestration` holds ZERO `-> routine`/
-// `-> settings` edge, read or write. The admission-time routine per-run cap read
-// is deleted along with the rest of the cost-cap gate — no replacement.
-//
-// @lore AU21 §9 Increment 12 (Decision H3), Wave E — THIRD, founder-FINAL
-// pass on the emit→deactivate→drain race (architecture.md §12's
-// "RE-CORRECTED (founder, 2026-08-01)" note). History: pass one kept this
-// section's now-deleted `SessionLifecycleAgentRunnabilityReader` — a narrow
-// live `kind`/`status` re-check — reasoning a baked snapshot alone could
-// never catch a real deactivation race. The founder rejected pass one
-// outright: "the orchestration is a blind executer." Pass two replaced the
-// live read with a push-based event+subscriber mechanism instead — ALSO
-// rejected: "why does that even play a role for orchestration to know? if an
-// agent is deactivated then core will not send a request... if it doesn't
-// get a request to do something it doesn't do something." Orchestration
-// never initiates anything on its own — every unit of work originates from a
-// request core already sent — so there is NO mechanism needed here at all,
-// live or pushed. The resolution is a pure DELETION, no replacement of any
-// kind: `run-orchestration` holds ZERO `-> users` edge. Phase 1's baked
-// `kind`/`status` check (below, in `admitSession`) is DEFENSE-IN-DEPTH ONLY —
-// a consistency assertion against a resolver bug that baked an
-// already-invalid snapshot — never a live authority gate; every other Phase
-// 1 field (`role`/`systemPrompt`/`harnessType`/
-// `modelProvider`/`maxConcurrentSessions`/`teamId`) also comes from this same
-// baked `agentConfig` snapshot, unchanged.
-// ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
 // observability — SessionLifecycleObservability (ordinary downward edge, real target)
@@ -103,15 +74,10 @@ interface SessionLifecycleObservability {
 }
 
 // ---------------------------------------------------------------------------
-// filesystems (founder ruling): `filesystems` and
-// `filesystem_injections` are `agent-orchestration`'s OWN tables now, so the
-// spawn reads them LIVE — no seam, and no emit-time bake to go stale. The earlier
-// Increment 12's `ProvisionSessionParams.injectedFilesystems` is DELETED;
-// `deps.injectedFilesystems` (an `InjectedFilesystemsReaderPort` the
-// Application backs with `@hyperidle/filesystems`) replaces it. A port, not a
-// direct import, because `run-orchestration` is itself a Service and may depend
-// only on db+shared (Mechanism C) — the same reason `heldConnections` beside it
-// is injected. See `filesystem-provisioning.ts`'s own top-of-file `@lore`.
+// filesystems: `filesystems` and `filesystem_injections` are
+// `agent-orchestration`'s OWN tables; spawn reads them LIVE — no seam, no stale
+// bake. `deps.injectedFilesystems` (`InjectedFilesystemsReaderPort`) is a port
+// (not a direct import) — service boundary.
 // ---------------------------------------------------------------------------
 
 interface SessionLifecycleServiceConnectionResolver {
@@ -119,15 +85,9 @@ interface SessionLifecycleServiceConnectionResolver {
 }
 
 // ---------------------------------------------------------------------------
-// connections: `service_connections` is
-// `agent-orchestration`'s OWN table now, so the spawn reads it LIVE — no seam,
-// and no emit-time bake to go stale. The earlier `ProvisionSessionParams
-// .injectedConnections` is DELETED; `deps.heldConnections` (a
-// `HeldConnectionsReaderPort` the Application backs with
-// `@hyperidle/connections`) replaces it. A port, not a direct import, because
-// `run-orchestration` is itself a Service and may depend only on db+shared
-// (Mechanism C) — the same reason `serviceConnectionResolver` beside it is
-// injected. See `connection-provisioning.ts`'s own top-of-file `@lore`.
+// connections: `service_connections` is `agent-orchestration`'s OWN table; spawn
+// reads it LIVE — no seam. `deps.heldConnections` (`HeldConnectionsReaderPort`)
+// is a port — service boundary.
 // ---------------------------------------------------------------------------
 
 interface SessionLifecycleHarnessAdapter {
@@ -235,7 +195,7 @@ interface SessionLifecycleHarnessRuntime {
 	/**
 	 * `requiredReturnActions`, when supplied,
 	 * narrows the predicate in the closure to only that subset. Absent ⇒ the
-	 * pre-Increment-3 default (any member of the closed return set).
+	 * the default (any member of the closed return set).
 	 */
 	createReturnGate(
 		requiredReturnActions?: readonly string[],
@@ -260,7 +220,6 @@ interface SessionLifecycleHarnessRuntime {
 		/** The session's mounted filesystems, so a harness with a trust precondition (codex) can declare them trusted alongside the sandbox. */
 		readonly trustedPaths?: readonly string[];
 	}): Promise<{ readonly tokenEnv?: Record<string, string> }>;
-	/** @lore BA9b B2: write plugin stdio MCP entries in the harness's dialect. Dialect knowledge lives in cli-mcp-config.ts. */
 	writePluginStdioMcpEntries(params: {
 		readonly dialect: "codex-toml" | "opencode-json" | "cursor-json";
 		readonly sandboxPath: string;
@@ -270,29 +229,18 @@ interface SessionLifecycleHarnessRuntime {
 		}>;
 	}): void;
 	/**
-	 * The session-scoped MCP dial —
-	 * bridge-open plus the `/api/mcp/` URL spelling — folded into
-	 * `harness-registry`'s own session provisioning (`openMcpBridgeSession`,
-	 * `layers/agent-execution/harness-registry/src/mcp/index.ts`); this
-	 * package no longer calls `.open()` on the registry or builds the URL
-	 * itself. `registry`/`baseUrl` are the caller's own already-received
-	 * `mcpBridgeRegistry`/`mcpBaseUrl` values (`ProvisionSessionDeps`,
-	 * unchanged), threaded through as call-time data — not a stored
-	 * reference — same Mechanism C shape as `provisionReturnHook`/
-	 * `writeCliMcpConfig` above.
+	 * The session-scoped MCP dial — bridge-open; folded into `harness-registry`'s
+	 * own session provisioning (`openMcpBridgeSession`). `registry`/`baseUrl` are
+	 * threaded through as call-time data.
 	 */
 	openMcpBridge(options: {
-		// Vestige: the execution face now owns the ONE bridge registry +
-		// mcpBaseUrl (closed over in `bootAgentExecution`); these per-call values
-		// are ignored by the adapter and are no longer wired in production. Kept
-		// optional only so the (now harness-gated) call site still type-checks.
+		// optional: execution face owns registry+mcpBaseUrl; call site still type-checks with these present
 		readonly registry?: SessionLifecycleMcpBridgeRegistry;
 		readonly baseUrl?: string;
 		readonly sessionId: string;
 		readonly toolRegistry: unknown;
 		readonly onToolCall?: (call: { toolName: string; args: unknown }) => void;
 	}): Promise<{ readonly token: string; readonly url: string }>;
-	/** The dial's close half — see `openMcpBridge`'s `@lore`. */
 	closeMcpBridge(
 		registry: SessionLifecycleMcpBridgeRegistry | undefined,
 		token: string,
@@ -350,10 +298,8 @@ interface SessionLifecycleToolProvider {
 }
 
 // ---------------------------------------------------------------------------
-// context-assembly — SessionLifecycleContextAssembly (real, ordinary
-// same-layer DI — `context-assembly` finalized per architecture §12's
-// Increment-0 note; wired by the composition root to
-// `@hyperidle/context-assembly`'s real `createContextAssemblyOps` output)
+// context-assembly — SessionLifecycleContextAssembly (same-layer DI; wired by
+// the composition root to `@hyperidle/context-assembly`'s `createContextAssemblyOps`)
 // ---------------------------------------------------------------------------
 
 interface SessionLifecycleContextAssemblyOutcome {
@@ -543,16 +489,6 @@ function requiresReturnStatusReturn(params: ProvisionSessionParams): boolean {
 	return params.taskId == null && params.requestContext?.sourceKind === "subscription";
 }
 
-/**
- * @lore AU21 §9 Increment 10a (Decision I): the `"decomposition"` sourceKind
- * branch this function used to special-case (a bet-decomposition PM turn's
- * "Turn this bet into concrete proposed tasks" prompt) is REMOVED — the
- * built-in bet_decomposition mechanism no longer exists, so no session can
- * ever be sourced from `"decomposition"` (the sourceKind is gone from
- * `AGENT_SESSION_SOURCE_KINDS`/`AgentSessionSourceKind` itself, not merely
- * unreachable). Every task-free session now goes through the generic
- * `sourceSection` below.
- */
 function assembleTaskFreePrompt(
 	_db: HyperIdleDb,
 	params: ProvisionSessionParams,
@@ -648,11 +584,6 @@ interface BeforeTeardownContext {
  * Read-only pre-start observation point after session files are written and
  * before the external harness process is spawned.
  *
- * @lore session-setup proof: The harness-suite needs to prove AGENTS.md,
- * CLAUDE.md, MCP config, and return hooks are produced in the exact production
- * shape each binary reads, without spending an LLM call. This seam observes the
- * already-built SessionConfig and sandbox after Phase 8b/8b-enforce. Returning
- * "abort" stops before `harness.startSession` and lets normal teardown continue.
  */
 interface BeforeHarnessStartContext {
 	readonly sessionId: string;
@@ -661,10 +592,7 @@ interface BeforeHarnessStartContext {
 	readonly sessionConfig: SessionConfig;
 }
 /**
- * @lore BA9b: Expand Agent Plugins 1.0.0 template variables in MCP config values.
- * ${PLUGIN_ROOT} → installPath; ${PLUGIN_DATA} → installPath/data (per-plugin persistent store).
- * "Resolve command as a single executable token" means treat command as one atom, not shell-split —
- * the config schema already separates command and args, so no further transformation is needed.
+ * @lore: plugin template variables — ${PLUGIN_ROOT} → installPath; ${PLUGIN_DATA} → installPath/data; command is one atom (schema separates command and args)
  */
 function expandPluginVars(value: string, pluginRoot: string): string {
 	const pluginData = path.join(pluginRoot, "data");
@@ -685,26 +613,6 @@ function expandMcpConfigValue(val: unknown, pluginRoot: string): unknown {
 	return val;
 }
 
-/**
- * @lore BA9b: Merge plugin-contributed MCP servers into the session sandbox.
- * Only plugins in scope for this session contribute: factory-scoped (all sessions)
- * and team-scoped (teamId match). Servers from plugins without an installPath are
- * skipped (no ${PLUGIN_ROOT} to expand).
- *
- * For no dialect (claude-code): merges into .mcp.json.
- * For CLI dialects: calls `writeStdioEntries` (ports.harnessRuntime.writePluginStdioMcpEntries)
- * so dialect knowledge stays in cli-mcp-config.ts — one owner for all harness file shapes.
- *
- * AC6: plugin mcp.json merged WITH the tool-bridge entry already written above.
- * AC7: scope filtering ensures team-scoped plugins only reach matching team sessions.
- *
- * @lore BA9b governance: the `plugins` table is owned by settings (core-api layer),
- * which reads each install's `mcp.json` from its folder when asked.
- * run-orchestration (agent-orchestration layer) cannot query it directly. The data
- * arrives through PluginMcpContributionsPort, wired by each application (desktop
- * and remote server alike) via CoreApiBoot.pluginMcpContributions →
- * ApplicationProvisionSessionDeps.
- */
 /** @for-testing exported so the unit test can verify expansion + routing without copy-pasting helpers. */
 export async function mergePluginMcpContributions(
 	port: PluginMcpContributionsPort | undefined,
@@ -784,17 +692,6 @@ const PROVISIONER_EMITTED_FILES = [".mcp.json"] as const;
  * working on a repo that tracks .mcp.json does not overwrite the real config.
  */
 
-// @lore AU21 §9 Increment 8 (Decision F2): the mount operation itself
-// (`mountFilesystemsForAgent`) relocated wholesale into this package's own
-// `filesystem-provisioning.ts` (imported above) — only the seam-facing
-// `SessionLifecycleFilesystemsReader` port type stays declared in this file.
-
-/**
- * @lore BA9b: Fetches plugin MCP server contributions scoped to a team.
- * Defined here as an opaque port — settings owns the plugin installs, so
- * provisioner cannot query them directly. The application composition root wires the
- * implementation (from @hyperidle/settings via @hyperidle/core-api's boot).
- */
 export interface PluginMcpContributionsPort {
 	getContributions(teamId: string | null): Promise<
 		readonly {
@@ -810,9 +707,9 @@ interface ProvisionSessionDeps {
 	readonly eventBus: EventBus;
 	readonly adapterPool: SessionLifecycleAdapterPool;
 	readonly workspace: SessionLifecycleSandboxAdapter;
-	/** X2: MCP bridge registry. When present, a bridge is created per session. */
+	/** MCP bridge registry. When present, a bridge is created per session. */
 	readonly mcpBridgeRegistry?: SessionLifecycleMcpBridgeRegistry;
-	/** X2: Base URL for MCP bridge (e.g., "http://localhost:3001"). */
+	/** Base URL for MCP bridge (e.g., "http://localhost:3001"). */
 	readonly mcpBaseUrl?: string;
 	/**
 	 * Already-constructed ServiceConnectionResolver (encapsulates serverSecret).
@@ -876,16 +773,12 @@ interface ProvisionSessionDeps {
 interface ProvisionSessionParams {
 	readonly taskId: string | null;
 	readonly agentId: string;
-	/** @lore U1: field name kept for backward compat; value is now a teams.id (formerly products.id). */
 	readonly productId: string;
 	readonly sandboxBasePath: string;
 	readonly factoryCap?: number;
 	readonly factorySpend?: number;
 	readonly reviewThreadId?: string;
 	readonly modelTier?: ModelTier;
-	// @lore A `resolvedModel` was carried here — the gateway's provider, model and
-	// API key, passed to the adapter through SessionConfig. Only the built-in
-	// harness ever called with it.
 	readonly requestContext?: {
 		readonly requestId: string;
 		readonly sourceKind: AgentSessionSourceKind;
@@ -906,19 +799,17 @@ interface ProvisionSessionParams {
 	 * runnable-CONFIG snapshot, baked at EMIT time by every per-kind resolver
 	 * (all six intent kinds) from the SAME `agent: User` row
 	 * `requireRunnableAgent` already loaded + validated there (no new read —
-	 * the exact H2/Increment 11 precedent `assistant-turn-resolver.ts`'s
-	 * `modelId`/`modelProvider` bake already established). `role`/
+	 * `role`/
 	 * `systemPrompt`/`harnessType`/`modelProvider`/
 	 * `maxConcurrentSessions`/`teamId` all come from THIS baked snapshot —
 	 * staleness there is a UX/efficiency concern only.
 	 *
 	 * **`kind`/`status` are DEFENSE-IN-DEPTH ONLY, never a live authority gate**
-	 * (founder-final, third pass — see this file's top-of-file Wave E `@lore`
-	 * for the full trace): a resolver's `requireRunnableAgent` call guarantees
+	 * — a resolver's `requireRunnableAgent` call guarantees
 	 * this snapshot's `kind`/`status` are ALWAYS runnable at emit time, so
 	 * re-checking them here can only catch a resolver bug, never a real
-	 * emit→deactivate→drain race — and no live/pushed mechanism replaces it,
-	 * by founder ruling (orchestration never initiates work on its own, so
+	 * emit→deactivate→drain race — and no live/pushed mechanism replaces it
+	 * (orchestration never initiates work on its own, so
 	 * there is nothing for it to independently re-verify). A mismatch here
 	 * signals a resolver bug, not a race, and is still a hard provisioning
 	 * failure either way — same throw (`TargetAgentNotRunnableError`), same
@@ -938,8 +829,8 @@ interface ProvisionSessionParams {
 	 * the triggering message's thread; `task_run` from the document's own
 	 * thread). Absent for
 	 * `subscription_run`. Forwarded verbatim onto
-	 * `SessionLifecycleToolContext.threadId` in Phase 8 — the `reply` tool
-	 * (Increment 2) reads it from there. ZERO orchestration -> core read.
+	 * `SessionLifecycleToolContext.threadId` — the `reply` tool reads it
+	 * from there. ZERO orchestration -> core read.
 	 */
 	readonly callingThreadId?: string;
 	/**
@@ -951,15 +842,7 @@ interface ProvisionSessionParams {
 	 * transcript.
 	 */
 	readonly transcript?: readonly ConversationMessage[];
-	/**
-	 * @lore BA2: present only when this session returns an agent to a session it already
-	 * had, carrying a human's verdict.
-	 *
-	 * Its presence changes exactly one thing: where the harness starts. Everything
-	 * else — the MCP bridge, the stream drain, token accounting, posting output
-	 * back to the thread, teardown — is the same path every other session takes,
-	 * because a resumed session is a session.
-	 */
+
 	readonly resume?: BakedSessionResumeRequest;
 }
 
@@ -980,38 +863,8 @@ interface ProvisionSessionResult {
 	readonly metrics?: SessionMetrics;
 }
 
-/**
- * What a gated agent is told, once, in its prompt.
- *
- * @lore BA2 (ruling 6): the push-back is delivered in two pieces. The gate's deny
- * carries only the fact that a rule blocked the call and which rule; the
- * instruction for what to do about it lives here. A deny message that told the
- * model what to do next was refused by a real model as a suspected injection —
- * an instruction arriving through the same channel an attacker could write to.
- *
- * Only added when the session actually has rules. On a fresh system the list is
- * empty and nothing is said, because nothing can be blocked.
- */
-/**
- * @lore BA2: nothing intercepts. This text used to open with "if a tool call is
- * refused because a rule blocked it" — it was written for a gate that no longer
- * exists, and an agent reading it would wait for a refusal that never comes. The
- * whole mechanism now IS this paragraph: the agent is told that some work
- * deserves a person's agreement and how to ask, and it elects to ask. What
- * agents choose to ask about is the evidence any future interception list would
- * be built from, so the wording deliberately leaves the judgement with them
- * rather than enumerating what to ask about.
- *
- * @lore Every fact here is what the thread module does today, and it must stay
- * so: a review is `send_message`'s `review` field (a title, short reasoning
- * points, optional artifacts), not a message "type"; with no thread named it
- * lands in the conversation the session was called from, else with the one
- * person the agent answers to (`soleHumanForAgent`); the session ends there and
- * the verdict resumes it with `buildVerdictMessage`'s words. It names the
- * LITERAL tool the selected harness exposes, so it is composed after the
- * adapter is picked — a small model cannot resolve a bare `send_message`
- * (see `assembleTaskFreePrompt`'s note on literal tool names).
- */
+// @lore: gate push-back — deny carries only the blocked-rule fact; instruction lives in the prompt; deny with next-step refused by model as suspected injection
+
 function reviewOrientation(sendMessageToolName: string): string {
 	return `
 
@@ -1061,7 +914,6 @@ interface AdmittedSession {
 	readonly selectedModel: string | null;
 	readonly sandboxHandle: SessionLifecycleSandboxHandle;
 	readonly sandboxPath: string;
-	/** Was `watcher: FileWatcher` — renamed to `ingestion: IngestionHandle` as part of Strategy port decoupling. */
 	readonly ingestion: IngestionHandle;
 	readonly selectedAdapter: SessionLifecycleSelectedEntry;
 	readonly harness: SessionLifecycleHarnessAdapter;
@@ -1076,15 +928,12 @@ interface AdmittedSession {
  * Admit a session synchronously (phases 1-7).
  *
  * Runs the HTTP-observable prefix: load agent, adapter
- * select + concurrency check (P3), **resolvedModel presence guard (WARNING-2,
- * pre-P5)**, task transition, workspace spawn (P4), session row insert (P5),
- * context assembly (P6), start watcher (P7), emit `session_started`. ALL admission
- * failures (ConcurrencyLimit 429 / MissingCredential 500)
- * throw BEFORE the P5 row insert — the detach boundary — so they map to HTTP
+ * select + concurrency check, **resolvedModel presence guard**, task transition,
+ * workspace spawn, session row insert, context assembly, start watcher,
+ * emit `session_started`. ALL admission failures (ConcurrencyLimit 429 /
+ * MissingCredential 500) throw BEFORE the session row insert — the detach
+ * boundary — so they map to HTTP
  * status on the POST path and never leave a doomed row.
- * @lore AU21 Increment 14a: the cost-cap pre-flight (was Phase 2, `CostCapExceeded`
- * 422) is deleted — no replacement gate. Phase numbering below keeps its
- * historical P3/P4/... labels rather than renumbering.
  */
 async function admitSession(
 	deps: ProvisionSessionDeps,
@@ -1093,21 +942,9 @@ async function admitSession(
 ): Promise<AdmittedSession> {
 	const { db, eventBus, adapterPool, workspace } = deps;
 
-	// ── Phase 1: consume the baked agent-CONFIG snapshot. NO live re-check of
-	// any kind (founder-final, third pass — see this file's top-of-file Wave E
-	// `@lore` for the full trace of why the live re-check/event/subscriber
-	// mechanisms explored in earlier passes are all deliberately absent here).
+	// ── Phase 1: consume the baked agent-CONFIG snapshot. NO live re-check.
 	const agentConfig = params.agentConfig;
-	// @lore AU21 §12 (RE-CORRECTED, founder, 2026-08-01): the
-	// emit→deactivate→drain race needs NO mechanism — orchestration never
-	// initiates work on its own; every unit of work originates from a request
-	// core already sent, so there is nothing for it to independently
-	// re-verify. `agentConfig` absent entirely is treated the same as a
-	// deactivated agent — every real durable path bakes it (Wave E, all six
-	// intent kinds); a missing bake is a hard provisioning failure, never a
-	// silent allow. Reported back via the same pre-handoff
-	// `agent_run_admission_failed` channel — see `runtime.ts`'s
-	// `runClaimedRequest` catch, `failureCode: "TARGET_AGENT_NOT_RUNNABLE"`.
+	// @lore: admit — agentConfig absent = deactivated agent = hard provisioning failure (TARGET_AGENT_NOT_RUNNABLE); never a silent allow; every real path bakes it
 	if (!agentConfig) {
 		throw new TargetAgentNotRunnableError(params.agentId);
 	}
@@ -1123,8 +960,7 @@ async function admitSession(
 
 	// The run-config fields are read LIVE here from
 	// `agent_run_config` — orchestration's OWN table — instead of coming off the
-	// emit-time bake. An agent with no row resolves the all-null default, which
-	// is exactly what an all-null `users` row resolved before the move.
+	// emit-time bake. An agent with no row resolves the all-null default.
 	const runConfig = await readAgentRunConfig(db, params.agentId);
 
 	// The agent's identity is the `agent_file` document bound to it,
@@ -1133,13 +969,6 @@ async function admitSession(
 	// — is orchestration's own.
 	const persona = agentConfig.persona ?? "";
 
-	// @lore The tier used to be chosen: explicit param > the agent's own
-	// `modelTierPreference` > "workhorse". That dial is gone. It named which model
-	// gateway entry a session resolved against, and with the gateway removed it
-	// selected nothing — worse, the durable drain always passes a `modelTier`, so
-	// the agent's preference was never even reached on the path every real session
-	// takes. What a tier still does is key the token-usage bucket a session's spend
-	// is reported in.
 	const modelTier: ModelTier = params.modelTier ?? "workhorse";
 
 	// ── Phase 3: adapter selection + concurrency check + task transition.
@@ -1151,12 +980,7 @@ async function admitSession(
 	};
 	const selectedAdapter = adapterPool.select(selectRequirements);
 	if (!selectedAdapter) {
-		// Ask the pool WHY rather than asserting a reason. `select` declines for
-		// six different causes and this call site used to report exactly one of
-		// them ("all adapters are at capacity") for all six — false for the case
-		// that actually happens in practice, an empty pool because no harness
-		// binary was discovered, and false in a way that sends whoever reads it
-		// to the wrong subsystem.
+		// Ask the pool WHY — `select` declines for six distinct causes; asserting one gives the wrong diagnostic.
 		const reason = adapterPool.describeSelectFailure(selectRequirements);
 		if (runConfig.harnessType) {
 			throw new NoEligibleHarnessError(runConfig.harnessType, reason);
@@ -1170,9 +994,7 @@ async function admitSession(
 		literalToolNamerForAdapterType(selectedAdapter.meta.type)("send_message"),
 	)}`;
 
-	// @lore AU9: request-mediated admission already reserved/adopted this exact
-	// request's session before this concurrency check runs. Exclude the request's
-	// own correlated session so it does not self-block against its own limit.
+	// @lore: concurrency check — exclude the request's own correlated session; request-mediated admission already reserved it before this check runs
 	const activeCountWhere = params.requestContext
 		? and(
 				eq(sessions.agentId, params.agentId),
@@ -1190,17 +1012,9 @@ async function admitSession(
 		throw new ConcurrencyLimitError(params.agentId, runConfig.maxConcurrentSessions);
 	}
 
-	// @lore The synchronous resolvedModel-presence guard that stood here existed
-	// for the built-in harness alone: it was the only adapter that made the model
-	// call itself, so a session with no resolved credential could not run at all.
-	// A CLI harness authenticates itself — its own login, its own key — so there
-	// is nothing for orchestration to pre-check, and the guard went with it.
-
-	// The "only transition if
-	// not already in_progress" guard moved core-side — a task's `in_progress`
-	// transition now fires as a `session_started` reaction
-	// (`core-api/src/services/work-session-started-reactions.ts`), AFTER
-	// phases 4-7 below commit the session row, instead of here before them.
+	// A task's `in_progress` transition fires as a `session_started` reaction
+	// (`core-api/src/services/work-session-started-reactions.ts`), after
+	// phases 4-7 below commit the session row.
 
 	// ── Phases 4-7 (wrapped): spawn workspace → insert session row →
 	// context assembly → start watcher. If any step throws here, the session
@@ -1215,13 +1029,7 @@ async function admitSession(
 	let mountedFilesystems: Filesystem[] = [];
 	// ── Phase 4: spawn sandbox via adapter.
 	//
-	// @lore BA2: a resumed session does not get a new directory — it adopts the
-	// one the session it is resuming ran in. Two reasons, and either alone is
-	// enough. The agent is coming back to its own work, and cursor-agent finds
-	// its chat by an md5 of the cwd STRING, so resuming from anywhere else runs
-	// with no context at all, exits 0, and says nothing. Adopting also settles
-	// who deletes it: this session does, at its own teardown, unless it too ends
-	// by asking a human.
+	// @lore: resumed session directory — adopts the original; cursor-agent keys its chat on md5(cwd); a different dir loses all context and exits 0 silently
 	const sandboxHandle: SessionLifecycleSandboxHandle = params.resume?.sandboxPath
 		? await workspace.adopt(params.resume.sandboxPath)
 		: await workspace.spawn(params.sandboxBasePath);
@@ -1264,8 +1072,7 @@ async function admitSession(
 	}
 
 	// ── Phase 4.5: mount injected filesystems. Reads the
-	// injection record LIVE, in-layer, at spawn — no seam, and no emit-time bake
-	// to go stale (see this file's own top-of-file `filesystems` `@lore`).
+	// injection record LIVE, in-layer, at spawn — no seam, no stale bake.
 	if (deps.mounter) {
 		mountedFilesystems = await mountFilesystemsForAgent({
 			agentId: params.agentId,
@@ -1275,12 +1082,7 @@ async function admitSession(
 		});
 	}
 
-	// @lore BA2 ruling 22: guarantee the sandbox is a git repo, AFTER mounting
-	// (never before — a mounted code filesystem's `git clone`/`git worktree add`
-	// refuses a target directory that already has a `.git`; see
-	// `ensureSandboxGitRepo`'s own doc comment in mounter.ts). Unconditional —
-	// runs even when no mounter is configured, since every session sandbox
-	// benefits (codex's trust precondition; an agent's own diff/revert).
+	// @lore: sandbox git init — after mounting only; git clone refuses an existing .git; unconditional; every session needs it (codex trust, agent diff/revert)
 	ensureSandboxGitRepo(sandboxPath);
 
 	// ── Phase 6: assemble context into the sandbox through the agent layer.
@@ -1353,8 +1155,6 @@ async function admitSession(
 		...(params.requestContext ? { requestContext: params.requestContext } : {}),
 		sandboxPath,
 		ingestion,
-		// @lore AF4/§5: traceId correlates observability events for this session
-		// (H3). The provisioning path owns the session, so it mints the id.
 		traceId: randomUUID(),
 	};
 
@@ -1383,7 +1183,7 @@ async function admitSession(
  * Run an admitted session (phases 8-11).
  *
  * Builds the session-scoped tool registry, composes the prompt, starts the
- * harness (P9), drains the event stream (P10), and tears down (P11). Normal
+ * harness, drains the event stream, and tears down. Normal
  * completion calls `endSession`; an error mid-stream calls `crashSession`.
  *
  * Registers itself in the `sessionRunRegistry` at harness-start so a
@@ -1392,11 +1192,7 @@ async function admitSession(
 /**
  * What the human's verdict says to the agent when its session reopens.
  *
- * @lore BA2 (ruling 16): the wording is load-bearing. A bare "Approved. Go ahead."
- * complied 3 of 6 on cursor-agent, and the objection was about MECHANISM rather
- * than suspicion — a chat message saying approved is not the approval mechanism a
- * policy requires. Naming what actually happened took it to 8 of 8. Tune this
- * wording; do not route around a model that objects to it.
+ * @lore: verdict wording — load-bearing; "Approved. Go ahead." hit 3/6; naming the mechanism hit 8/8; tune this; never route around a model that objects to it
  */
 function buildVerdictMessage(resume: BakedSessionResumeRequest): string {
 	if (resume.decision === "approve") {
@@ -1415,15 +1211,9 @@ function buildVerdictMessage(resume: BakedSessionResumeRequest): string {
 /**
  * What the agent is being asked to do, for a session that has a task.
  *
- * @lore BA10: when a task is assigned to an agent, the task is basically all
- * there is as the user prompt. This is deliberately NOT the assembled context —
- * that goes to AGENTS.md and says who the agent is and what it knows, not what
- * to do. The two were conflated, and the agent received a 200-character slice of
- * the wrong one.
+ * @lore: task instruction — task IS the user prompt; assembled context goes to AGENTS.md; conflating them gave the agent a 200-char slice of the wrong prompt
  *
- * Returns undefined when the session has no task to state — a subscription
- * waking on a heartbeat, or an assistant turn, whose opening turn comes from
- * elsewhere.
+ * Returns undefined when the session has no task — a subscription, heartbeat, or assistant turn.
  */
 function composeTaskInstruction(params: ProvisionSessionParams): string | undefined {
 	const bundle = params.contextBundle;
@@ -1532,11 +1322,9 @@ async function runSession(
 		// subscription+agent+team context from the baked `kind:"subscription"`
 		// bundle, ZERO db read.
 		const subscriptionContextData = subscriptionSessionContextDataFromBundle(params.contextBundle);
-		// See `requiresReturnStatusReturn`'s `@lore` and `assembleTaskFreePrompt`'s
-		// own `returnStatusOrientation` — a subscription wake has no calling
-		// thread and no work-output action, so it needs the same proactive,
-		// one-line heads-up, computed the same way (the literal tool name the
-		// SELECTED harness exposes) and threaded through as pre-rendered text
+		// A subscription wake has no calling thread and no work-output action;
+		// needs the same proactive one-line heads-up (literal tool name the
+		// SELECTED harness exposes) threaded through as pre-rendered text
 		// so this module's own prompt composer never needs the
 		// harness-protocol return-action vocabulary imported into it.
 		const subscriptionReturnStatusToolName = literalToolNamerForAdapterType(
@@ -1557,11 +1345,7 @@ async function runSession(
 				: {}),
 		}));
 	} else if (params.taskId && !params.requestContext && params.contextBundle?.kind === "task") {
-		// Normal (non-durable, no
-		// requestContext) task session — derive task+ancestors+agent+team context
-		// from the baked `kind:"task"` bundle, ZERO db read (the task/
-		// users/org reads this used to make via `buildSessionContextData` are
-		// gone).
+		// Task session — derive context from baked `kind:"task"` bundle, ZERO db read.
 		const sessionContextData = sessionContextDataFromBundle(params.contextBundle);
 		({ assembledPrompt } = await ports.contextAssembly.assemblePrompt({
 			systemPromptText,
@@ -1573,8 +1357,7 @@ async function runSession(
 		// Every durable session (the
 		// primary production path — `requestContext` is always set by
 		// `consumeAgentSessionRequest`) already took this generic, db-free
-		// branch pre-migration regardless of source kind (unchanged here) —
-		// this is also the graceful fallback for a subscription/task session whose
+		// branch for every durable session source kind — this is also the graceful fallback for a subscription/task session whose
 		// emit-time resolver hasn't been wired with the optional contextBundle
 		// deps yet (`getTeamById`/`assembleSessionKnowledge`), so a wiring gap
 		// degrades to a plain prompt instead of crashing the session.
@@ -1588,12 +1371,7 @@ async function runSession(
 		);
 	}
 
-	// @lore AU27 Increment 4 delivered the transcript twice: once as
-	// `SessionConfig.messages`, which only the built-in adapter read (it picked
-	// its chat loop over its planning loop on their presence), and once as the
-	// `## Conversation` section `assembleTaskFreePrompt` renders. A CLI harness
-	// only ever saw the second. With the built-in adapter gone the first has no
-	// reader, so the prompt section is now the single delivery.
+	// @lore: transcript delivery — SessionConfig.messages unread; assembled prompt section is the only delivery path
 
 	ports.contextAssembly.writeSandboxAgentsMd(sandboxPath, assembledPrompt);
 
@@ -1797,7 +1575,7 @@ async function runSession(
 	});
 
 	let crashed = false;
-	/** L17: accumulated tokens by tier for the session's tokensJson column. */
+	/** Accumulated tokens by tier for the session's tokensJson column. */
 	const accumulatedTokens: Partial<Record<ModelTier, { prompt: number; completion: number }>> = {};
 
 	// Shared session config fields across runs.
@@ -1822,8 +1600,7 @@ async function runSession(
 		// rather than being handed an empty string to strip back out.
 		...(selectedModel ? { selectedModel } : {}),
 		// The options this agent was configured with. Absent when the agent has
-		// none, so an unconfigured agent's invocation is byte-identical to what it
-		// was before per-agent options existed.
+		// none.
 		...(Object.keys(modelOptions).length > 0 ? { modelOptions } : {}),
 		mcpConnectionInfo:
 			mcpBridgeToken && mcpUrl ? { url: mcpUrl, token: mcpBridgeToken } : undefined,
@@ -1832,7 +1609,7 @@ async function runSession(
 		...(requiredReturnActions ? { requiredReturnActions } : {}),
 	};
 
-	// X5: Determine whether to intercept tool_call events from the stream.
+	// Determine whether to intercept tool_call events from the stream.
 	const interceptToolCalls = !(adapterCapabilities.mcpSupport && mcpBridgeToken);
 
 	let beforeHarnessStartError: unknown;
@@ -1854,16 +1631,11 @@ async function runSession(
 	let harnessHandle: SessionHandle | null = null;
 	let metrics: SessionMetrics | undefined;
 
-	// W1: try/finally ensures the adapter pool slot is ALWAYS released once, even
+	// try/finally ensures the adapter pool slot is ALWAYS released once, even
 	// on errors.
 	try {
 		if (!aborted) {
-			// @lore BA2: a resumed session reopens the harness's own session and takes the
-			// verdict as a genuine user turn in it — not a new session carrying a
-			// fabricated transcript asserting that a human approved. A real
-			// cursor-agent refused exactly that, and was right to: nothing
-			// authenticated the claim. A real turn in the agent's own session is not
-			// a message about a human; it is the human.
+			// @lore: resume verdict — real turn in the harness's own session; cursor-agent refused a fabricated approval transcript; a real turn IS the human
 			//
 			// The resume runs in the ORIGINAL session's directory, not this one's.
 			// cursor-agent keys a chat on an md5 of the cwd string
@@ -1898,21 +1670,14 @@ async function runSession(
 		}
 		onHarnessStarted?.();
 
-		// ── Phase 10: drain the event stream (single pass in v4).
+		// ── Phase 10: drain the event stream.
 		try {
 			if (harnessHandle) {
 				for await (const event of harness.streamEvents(harnessHandle)) {
 					// Observe every event FIRST — the gate is read-only.
 					returnGate.observe(event);
 
-					// @lore BA2: a session that ends by filing a review is not
-					// finished, it is waiting — a human may take days to answer, and
-					// when they do, the agent is resumed IN THIS DIRECTORY. Destroying
-					// it at teardown does not merely lose the agent's files: the resume
-					// spawns the harness with a cwd that no longer exists, and every
-					// harness hangs rather than failing, so the verdict reaches nobody
-					// and nothing says why. The filesystem belongs to the work, and the
-					// work is not done until the agent says it is.
+					// @lore: verdict dir preservation — reviewed session is waiting; resume needs original cwd; harness hangs silently if cwd is gone and verdict reaches nobody
 
 					if (aborted) {
 						break;
@@ -1960,7 +1725,7 @@ async function runSession(
 			metrics = (await harness.stopSession(harnessHandle))?.metrics;
 		}
 	} finally {
-		// W1: release the adapter pool slot EXACTLY ONCE after the single run.
+		// release the adapter pool slot EXACTLY ONCE after the single run.
 		adapterPool.release(adapterId);
 	}
 
@@ -1968,10 +1733,7 @@ async function runSession(
 	// the handle. Without it there is nothing to resume, and a verdict cannot
 	// bring the agent back after a human decides.
 	//
-	// @lore BA2: Read AFTER the stream drained — claude assigns its id at start,
-	// but codex, cursor-agent and opencode only report theirs in the event stream.
-	// A harness that reported none leaves the column null: that session genuinely
-	// cannot be resumed, and the verdict path says so rather than resuming nothing.
+	// @lore: native session id — read after stream drains; claude reports at start, others in stream; null means genuinely non-resumable
 	if (harnessHandle) {
 		const nativeSessionId = harness.getNativeSessionId?.(harnessHandle);
 		if (nativeSessionId) {
@@ -1995,9 +1757,9 @@ async function runSession(
 	// The run is over — drop the abort affordance.
 	ports.sessionRequests.deregisterSessionRun(sessionId);
 
-	// X2: Unregister the MCP bridge BEFORE calling endSession/crashSession.
+	// Unregister the MCP bridge BEFORE calling endSession/crashSession.
 	// Close whenever a bridge was opened (token present) — `mcpBridgeRegistry` is
-	// the vestigial, now-unwired dep and the face ignores it on close.
+	// the dep the face ignores on close.
 	if (mcpBridgeToken) {
 		await ports.harnessRuntime.closeMcpBridge(mcpBridgeRegistry, mcpBridgeToken);
 	}
@@ -2065,9 +1827,7 @@ async function runSession(
 						sourceCorrelation: params.requestContext.sourceCorrelation,
 					}
 				: {}),
-			// The never-silent net's `conversation`
-			// subscriber needs somewhere to post — forward the already-baked
-			// calling thread id (Increment 1), zero extra read.
+			// forward the baked calling thread id — never-silent net's subscriber posts there; zero extra read.
 			...(params.callingThreadId ? { callingThreadId: params.callingThreadId } : {}),
 			timestamp: Date.now(),
 		});
@@ -2095,15 +1855,7 @@ async function runSession(
 		};
 	}
 
-	// @lore `stopRequested` (set only inside `signalAbort` above, when the run
-	// registry's own `abort` is called) threads through as `terminalOutcome:
-	// "stopped"` so a genuinely stopped session's row reads state "stopped" /
-	// outcome "stopped" — not "completed", which `lifecycle-propagation.ts`
-	// would read as a clean finish and move the task. The wider `aborted` flag
-	// is deliberately NOT used here: it also flips for an adapter's own return
-	// action (e.g. opencode's) and for a startup failure, and reading either of
-	// those as a stop wrote every clean opencode finish to the row as
-	// stopped/stopped, so its task never moved.
+	// @lore: terminalOutcome "stopped" — only from stopRequested; aborted also fires on adapter return and startup failure and must not be read as a stop
 	await transitionRun(
 		{ db, eventBus, ports },
 		{
@@ -2114,16 +1866,7 @@ async function runSession(
 			...(params.taskId ? { tokensByTier: accumulatedTokens } : {}),
 		},
 	);
-	// @lore BA2: the filesystem belongs to the work, not to the session. A session
-	// that ended by filing a review is not finished, it is waiting — a human may
-	// take days — and when the verdict comes the agent is resumed IN THIS
-	// DIRECTORY. Deleting it now does not merely lose the agent's files: the
-	// resume spawns the harness with a working directory that no longer exists,
-	// and it hangs instead of failing, so the answer reaches nobody and nothing
-	// says why. The question is asked of the `review_sessions` row `send_message`
-	// (with a `review`) wrote, not of the tool-call event: a return action reaches this function by
-	// one of two paths depending on whether the MCP bridge is open, and watching
-	// only the stream was green in a test and dead on every real run.
+	// @lore: teardown dir guard — filesystem belongs to the work; reviewed session is waiting; resume hangs if cwd is gone; question is on the review_sessions row
 	if (!(await sessionAwaitsVerdict(db, sessionId))) {
 		await workspace.destroy(sandboxHandle);
 	}
@@ -2235,8 +1978,7 @@ interface Provisioner {
 	/**
 	 * Takes the agent id plus the live, in-layer injected-filesystem
 	 * reader — `mountFilesystemsForAgent` reads the record itself at spawn
-	 * rather than consuming a list frozen onto the request. See
-	 * `filesystem-provisioning.ts`'s own top-of-file `@lore`.
+	 * rather than consuming a list frozen onto the request.
 	 */
 	mount(
 		agentId: string,

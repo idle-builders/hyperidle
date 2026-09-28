@@ -14,13 +14,6 @@
  *     needs real CLI binaries and real LLM credentials. Nothing records that
  *     it ran, so a human running it is the only evidence it passed.
  *
- * @lore no harness adapter emits `cost_update` — telemetry is token usage only; every case below asserts its absence.
- *
- * @lore CLAUDE_CLI_CONFIG's envAllowlist excludes CLAUDECODE, so nested-session detection never fires; claude auths via Keychain, no key injected.
- *
- * @lore the adapter closes the child's stdin immediately after spawn, or codex blocks forever reading stdin.
- *
- * @lore codex needs a git repo plus a `.codex-home/` with only auth.json + config.toml — SQLite files lock and make codex exit before the LLM call.
  */
 
 import type { HarnessEvent, SessionConfig } from "@hyperidle/harness-protocol";
@@ -38,7 +31,6 @@ import { productionCliConfig } from "./production-cli-config.js";
 import { HARNESS_TEST_MODELS, type HarnessName, requireHarness } from "./require-harness.js";
 import { trackHarnessSessions } from "./session-handle-tracker.js";
 
-// @lore `track` stops any handle a test leaves unstopped (timeout or thrown assertion) in afterEach — see session-handle-tracker.ts.
 const { track } = trackHarnessSessions();
 
 const ADAPTER_OK_PROMPT = "Reply with exactly the token ADAPTER_OK and nothing else.";

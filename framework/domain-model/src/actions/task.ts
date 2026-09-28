@@ -3,51 +3,10 @@ import { TASK_OUTCOME_VERDICTS, TASK_STATES, type TaskState } from "../types.js"
 import type { ActionDeclaration, Problem } from "./action.js";
 
 /**
- * the task action list: search, open, edit. the architecture doc
- * §3. This is what replaces `api-contract`'s hand-mirrored task types, the
- * three UI hooks and `core-ui/src/types/task.ts`.
- */
-
-// ---------------------------------------------------------------------------
-// Task lifecycle grammar — folded in from the deleted `task-transition.ts`.
-// ---------------------------------------------------------------------------
-
-/**
- * Canonical task lifecycle grammar shared by policy and the task module.
- *
- * @lore BB1: Both `review` AND `done` are legal targets from EVERY non-terminal
- * state (`proposed`, `accepted`, `hold`, `in_progress`, `blocked`).
- *
- * Why `review` from every state: any live task can be put up for review. Without
- * these edges, a container task that was never itself worked — the normal case —
- * had no legal path from `proposed` or `accepted` to `review`, so the parent
- * auto-completion cascade always threw `InvalidTransitionError` and silently died.
- *
- * Why `done` from every state: the parent auto-completion cascade (BB1, founder
- * call 2026-08-31) uses `task.needsReview` to decide whether to send a parent to
- * `review` (checkpoint) or straight to `done` (continue the cascade). Without
- * `done` edges from states like `accepted`, a container task that was never
- * worked had no legal path to `done`, so the cascade died with an
- * `InvalidTransitionError` for the majority case where `needsReview` is false.
- *
- * Do not remove these edges as "over-permissive" — they are required for the
- * parent auto-completion rule and are used only via controlled code paths (the
- * lifecycle propagation handler), never exposed as raw user actions.
- *
- * @lore BA6: `proposed -> hold` is the entrance to the dependency-wait chain.
- * A task is born `proposed`; without this edge nothing created or edited with
- * an unfinished dependency could ever reach `hold`, and the existing
- * `hold -> accepted` watcher would have no chain to carry onward. There is
- * deliberately no direct `hold -> in_progress` or `proposed -> in_progress`
- * edge — the existing chain (watcher `hold -> accepted`, dispatch,
- * `session_started -> in_progress`) is reused as-is.
- *
- * @lore BA6: `hold -> proposed` is the OTHER exit from the wait — a killed
- * dependency means the premise a held task was planned under is gone, so it
- * returns to `proposed` for re-planning rather than being freed to start
- * (the interview ruling this package was built against, 2026-09-09). Distinct
- * from `hold -> accepted`: that edge means the wait ended because the work
- * finished; this one means the wait ended because it never will.
+ * `review` and `done` are legal from every non-terminal state — required for the parent auto-completion cascade; a container task never worked must reach both.
+ * `proposed -> hold`: entrance to the dependency-wait chain; no direct `hold -> in_progress` edge — the existing watcher chain is reused.
+ * `hold -> proposed`: exit when a dependency is killed (premise gone, return for re-planning); distinct from `hold -> accepted` (wait ended because work finished).
+ * Do not remove these edges as "over-permissive" — used only via controlled lifecycle propagation paths.
  */
 export const TASK_STATE_TRANSITIONS: Record<TaskState, readonly TaskState[]> = {
 	proposed: ["accepted", "hold", "review", "done", "killed"],
@@ -64,10 +23,6 @@ export function canTransitionTaskState(from: TaskState, to: TaskState): boolean 
 	return TASK_STATE_TRANSITIONS[from].includes(to);
 }
 
-// ---------------------------------------------------------------------------
-// The row shape — replaces `core-ui/src/types/task.ts`.
-// ---------------------------------------------------------------------------
-
 export const TaskSchema = z.object({
 	id: z.string(),
 	parentTaskId: z.string().nullable(),
@@ -78,8 +33,6 @@ export const TaskSchema = z.object({
 	doneCondition: z.string().nullable(),
 	state: z.enum(TASK_STATES),
 	dependencies: z.string().nullable(),
-	// @lore BC3: every task has a thread now, written at creation
-	// (architecture.md §3.9); the column is `NOT NULL` (migration 0085 step 5).
 	threadId: z.string(),
 	notes: z.string().nullable(),
 	createdAt: z.string(),
@@ -106,10 +59,6 @@ const TaskNodeSchema: z.ZodType<TaskNode> = z.lazy(() =>
 	TaskSchema.extend({ children: z.array(TaskNodeSchema) }),
 );
 
-// ---------------------------------------------------------------------------
-// search_tasks
-// ---------------------------------------------------------------------------
-
 export const SearchTasksInputSchema = z
 	.object({
 		ids: z.array(z.string()).optional(),
@@ -118,9 +67,6 @@ export const SearchTasksInputSchema = z
 		ownerAgentId: z.string().optional(),
 		state: z.enum(TASK_STATES).optional(),
 		teamId: z.string().optional(),
-		// @lore BC3 architecture.md §3.9 Confusion 9: the task module reading its
-		// own `tasks.thread_id` column — a thread shows its tasks through this,
-		// not a lookup owned by thread.
 		threadId: z.string().optional(),
 		text: z.string().optional(),
 		excludeKilled: z.boolean().optional(),
@@ -139,19 +85,9 @@ export const searchTasks: ActionDeclaration<SearchTasksInput, TaskListItem[]> = 
 	output: z.array(TaskSchema),
 };
 
-// ---------------------------------------------------------------------------
-// open_task
-// ---------------------------------------------------------------------------
-
 const OpenTaskInputSchema = z.object({ id: z.string() }).strict();
 
-/**
- * What `open_task` returns, and therefore what `edit_task` returns too.
- *
- * `sessions` is deliberately NOT here — founder ruling 2026-09-13, upholding
- * The browser keeps combining orchestration data itself
- * (`useTaskSessions`, untouched by this item). See architecture.md §5.
- */
+// sessions deliberately NOT here — browser combines orchestration data itself via useTaskSessions
 export const TaskViewSchema = z.object({
 	task: TaskSchema,
 	/** Root-first, for the breadcrumb. */
@@ -174,23 +110,14 @@ export const openTask: ActionDeclaration<{ id: string }, TaskView> = {
 	output: TaskViewSchema,
 };
 
-// ---------------------------------------------------------------------------
-// edit_task
-// ---------------------------------------------------------------------------
-
-/**
- * The union of what the deleted eight task routes accepted. Without `id` this
- * creates a task; with `id` it edits one. `notes` is deliberately not a
- * writable partial field — `appendNote` keeps its own atomic-append semantics
- * (architecture.md §3).
- */
+// `notes` is not writable here — `appendNote` keeps its own atomic-append semantics
 export const EditTaskInputSchema = z
 	.object({
 		id: z.string().optional(),
 		parentTaskId: z.string().nullable().optional(),
 		/** Required when `parentTaskId` is omitted on create; inherited otherwise. */
 		teamId: z.string().optional(),
-		/** Setting this to an agent is a handoff — see architecture.md §8 B4. */
+		/** Setting this to an agent is a handoff. */
 		ownerAgentId: z.string().nullable().optional(),
 		title: z.string().min(1).optional(),
 		description: z.string().nullable().optional(),
@@ -209,7 +136,7 @@ export const EditTaskInputSchema = z
 		/** Atomic note append — not a partial field on `notes`. */
 		appendNote: z.string().optional(),
 		/**
-		 * The session-end token writeback (architecture doc §6 row, B3). The
+		 * The session-end token writeback. The
 		 * caller (`work-session-end-reactions.ts`) has already merged the
 		 * session's per-tier counts into the task's existing rollup and passes
 		 * the whole resulting JSON string here — `edit_task` is the only write
@@ -219,12 +146,7 @@ export const EditTaskInputSchema = z
 		tokensActualJson: z.string().nullable().optional(),
 		/** Optimistic-locking token, compared against `prev.updatedAt`. */
 		version: z.string().optional(),
-		/**
-		 * @lore BC3: a task created inside a thread uses that thread as its
-		 * own — the caller (`open_thread`'s reader screen) already knows which
-		 * one. Absent on create ⇒ `edit_task` creates one via `adjustThread`,
-		 * hosted on the task's own team.
-		 */
+		/** Absent on create ⇒ edit_task creates one via adjustThread hosted on the task's own team. */
 		threadId: z.string().optional(),
 	})
 	.strict();
@@ -239,23 +161,13 @@ export const editTask: ActionDeclaration<EditTaskInput, TaskView> = {
 	output: TaskViewSchema,
 };
 
-// ---------------------------------------------------------------------------
-// The list
-// ---------------------------------------------------------------------------
-
 export const TASK_ACTIONS = {
 	search_tasks: searchTasks,
 	open_task: openTask,
 	edit_task: editTask,
 } as const;
 
-// ---------------------------------------------------------------------------
-// taskInvariants — pure. Runs in the browser to enable/grey a control, and
-// again on the server as the first pass over the resulting task. The
-// server-only invariants (cycle via ancestors, team capacity at accept, owner
-// exists, unmet dependencies at accept) are NOT here — they need the
-// database and run inside `edit_task.run` (architecture.md §3, §5).
-// ---------------------------------------------------------------------------
+// Server-only invariants (cycle, team capacity, owner exists, unmet deps at accept) are NOT here — DB-dependent, run inside edit_task.run.
 
 export function taskInvariants(next: Task, prev: Task | null): Problem[] {
 	const problems: Problem[] = [];

@@ -392,7 +392,6 @@ describe("Populated team list (2+ teams)", () => {
 		expect(screen.getByText("2 teams")).toBeInTheDocument();
 	});
 
-	// @lore the button reads "New task" — root tasks are the one work primitive.
 	it("header renders 'New task' button", () => {
 		mockUseTeams.mockReturnValue({
 			data: { teams: [TEAM_A, TEAM_B] },

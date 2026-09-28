@@ -1,8 +1,6 @@
 /**
  * Journey: opening a global-search result navigates there, and Back returns
  * to where the search started — a real router/history concern.
- *
- * @lore component tests cover the panel itself — this spec proves the one thing that needs a real browser: temporal history across navigation.
  */
 import { expect, test } from "./fixtures";
 

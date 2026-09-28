@@ -243,12 +243,22 @@ function scanRouteRegistrations(
 }
 
 /**
- * Every `name: "<snake_case>"` property in a production file within ten
- * lines of an `inputSchema:` property — i.e. every hand-written
- * `ToolDefinition` literal (architecture doc §7 clause 3).
+ * Every `name: "<snake_case>"` property with an `inputSchema` in the same object
+ * literal, within ten lines — i.e. every hand-written `ToolDefinition` literal.
  */
 const TOOL_NAME_LINE = /\bname:\s*["']([a-z][a-z0-9_]*)["']/;
 const INPUT_SCHEMA_LINE = /\binputSchema\b/;
+
+/** The text up to where the enclosing object literal closes. */
+function sameObjectLiteral(text: string): string {
+	let depth = 0;
+	for (let i = 0; i < text.length; i++) {
+		const ch = text[i];
+		if (ch === "{") depth++;
+		else if (ch === "}" && --depth < 0) return text.slice(0, i);
+	}
+	return text;
+}
 
 function scanToolNames(
 	files: readonly string[],
@@ -267,8 +277,12 @@ function scanToolNames(
 		for (let i = 0; i < lines.length; i++) {
 			const nameMatch = lines[i]?.match(TOOL_NAME_LINE);
 			if (!nameMatch?.[1]) continue;
-			const window = lines.slice(i, Math.min(lines.length, i + 11)).join("\n");
-			if (INPUT_SCHEMA_LINE.test(window)) {
+			const line = lines[i] ?? "";
+			const rest = [
+				line.slice((nameMatch.index ?? 0) + nameMatch[0].length),
+				...lines.slice(i + 1, i + 11),
+			].join("\n");
+			if (INPUT_SCHEMA_LINE.test(sameObjectLiteral(rest))) {
 				found.set(nameMatch[1], path);
 			}
 		}

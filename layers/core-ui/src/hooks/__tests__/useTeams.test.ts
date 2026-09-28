@@ -1,7 +1,6 @@
 /**
  * L13 — useTeams hook unit tests.
  *
- * @lore the team list is built from search_users plus a per-team search_tasks call for the blocked/in-progress signal — tests mock call(), not apiFetch.
  *
  * Covers:
  *   - Initial loading state.

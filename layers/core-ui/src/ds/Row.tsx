@@ -1,23 +1,3 @@
-/**
- * Shared list-row primitive for all agent/subscription/document rows.
- *
- * Anatomy: [lead?] [title+subtitle flex-1] [cells[] shrink-0] [actions? shrink-0]
- *
- * Wrapper-element heuristic (nested-button a11y rule — HARD constraint):
- *   onClick + no actions → <button type="button">
- *   onClick + actions present → <div role="button" tabIndex=0 + Enter/Space handler
- *   onClick absent → plain <div> (or <li> via as="li" / ItemList as="ul")
- *   as prop overrides the heuristic.
- *
- * @lore AG6: The nested-button constraint comes from AB2 S4/W4 — a real <button>
- * wrapping inner <button> elements is invalid HTML and breaks screen readers.
- * div[role=button] + tabIndex + onKeyDown gives equivalent keyboard a11y.
- *
- * @lore AG6: Hover/focus/motion come from clickableProps (clickable.ts) — do NOT
- * hardcode rgba hover colors. The AQ-008/AQ-018 lint rules flag hardcoded colors.
- * clickableProps bundles the correct color-mix token + focus ring + motion.
- */
-
 import { createContext, type JSX, type ReactNode, useContext } from "react";
 import { clickableProps } from "./clickable.js";
 import { dsProps } from "./ds-attrs.js";
@@ -79,16 +59,11 @@ export interface RowProps {
 	 */
 	disabled?: boolean;
 	/**
-	 * When set, the whole row renders as an <a href> link so ⌘-click,
-	 * middle-click, "copy link" and hover-preview all work natively.
-	 * Actions in this mode MUST be display-only (no nested <button>/<a>).
-	 *
-	 * @lore UI-080: navigation rows that change the address must be real links,
-	 * not buttons with programmatic navigate() calls.
+	 * @lore: navigation rows must be real links — ⌘-click, middle-click, copy-link, hover-preview require <a href>; actions in this mode must be display-only
 	 */
 	href?: string;
 	selected?: boolean;
-	/** escape hatch; default heuristic (§nested-button) is correct without it */
+	/** escape hatch; the default heuristic is correct without it */
 	as?: "button" | "div" | "li";
 	"data-testid"?: string;
 	/** DocumentList triage keyboard focus */
@@ -112,18 +87,9 @@ export interface RowProps {
 }
 
 // ---------------------------------------------------------------------------
-// Shared cell renderer — single implementation for all wrapper branches (W1/W2)
+// Shared cell renderer — single implementation for all wrapper branches
 // ---------------------------------------------------------------------------
 
-// @lore AZ7 E7 / Set 5: RowCell.tone (and the toneColor ladder it drove) is
-// deleted — a status/tone shown in a cell was a THIRD status channel
-// alongside StatusChip and RowDot, with one call site (WorkTeam.tsx's
-// agent-status cell, plan.md §1.6 finding #1). A cell that needs
-// tinted content now colors its own `content` ReactNode directly (e.g. wraps
-// it in a `<span className="text-[var(--status-error)]">`), or — for an
-// actual status word — renders a <StatusChip> as the cell content. Deleting
-// the prop is stronger than any lint rule could be (E7): every remaining use
-// is now a compile error, not a lint finding.
 function renderCell(cell: RowCell, i: number): JSX.Element {
 	const cellStyle: React.CSSProperties = {};
 	if (cell.width !== undefined) cellStyle.width = `${cell.width}px`;
@@ -257,20 +223,13 @@ export function Row({
 		className: baseClasses,
 	};
 
-	// W2 fix: clickableProps is the single source of hover+focus+motion for ALL
+	// clickableProps is the single source of hover+focus+motion for ALL
 	// interactive branches. The button branch gets it via merged className; the
-	// li>div[role=button] branches get it via spread; the div+actions branch no
-	// longer hand-rolls the utilities.
+	// li>div[role=button] branches get it via spread; the div+actions branch does
+	// not hand-roll the utilities.
 	//
-	// @lore AG6 W2: previously only the div+actions branch applied clickableProps
-	// (and even that discarded the className by hand-rolling duplicates). The
-	// button and li>div branches had zero hover/focus. Now every interactive
-	// wrapper goes through clickableProps(onClick, baseClasses) — one path to rule them all.
 	const clickable = onClick ? clickableProps(onClick, baseClasses) : null;
 
-	// UI-080: href takes priority — renders a real anchor link so ⌘-click,
-	// middle-click, "copy link" and hover-preview work natively. Actions must be
-	// display-only (no nested <button>/<a>) when href is used.
 	if (href) {
 		return (
 			<a
@@ -285,9 +244,8 @@ export function Row({
 
 	if (resolvedAs === "button") {
 		// Simple: onClick + no actions → native <button type="button">
-		// W2 fix: button also gets hover/focus classes from clickableProps.
-		// UI-060: w-full added so the button fills its container (matches the
-		// li-branch inner div which already has w-full on the layout class).
+		// button gets hover/focus classes from clickableProps
+		// w-full fills the container (matches li-branch inner div which has w-full on the layout class)
 		return (
 			<button
 				type="button"
@@ -304,35 +262,16 @@ export function Row({
 	if (resolvedAs === "li") {
 		// <li> wrapper — preserves listitem role so getAllByRole("listitem") works.
 		//
-		// @lore AG6: li MUST NOT have role="button" — that overrides the implicit
-		// listitem role and breaks querySelectorAll / getAllByRole("listitem"). The
-		// architecture specifies: li + onClick + actions → li wrapping inner
-		// div[role=button] (matches original DocumentList triage pattern). The li
-		// stays semantic; the div[role=button] handles row-level interactivity.
-		//
-		// @lore AD9 (Row hover fix): The <li> holds ONLY the separator border-b +
-		// listitem role. Layout (px padding, min-h, flex, gap) and hover surface all
-		// move onto a w-full inner div so the hover background fills edge-to-edge
-		// instead of being inset inside the li's px-[24px]. This matches the <button>
-		// branch behaviour and fixes WorkOverview / DocumentList / WorkTeam li-rows.
-		// The li separator classes ("border-width-thin-b border-[var(--border-subtle)] last:border-none")
-		// stay on the li so the row divider is always full-width.
+		// @lore: li MUST NOT have role=button — overrides listitem role; li wraps inner div[role=button] for interactivity
 
-		// Separator classes stay on <li>; all layout/padding/hover move to the inner div.
 		const liSeparatorClass = "border-width-thin-b border-[var(--border-subtle)] last:border-none";
 
-		// @lore AD9 W1 (review fix): The inner div must NOT inherit the separator classes
-		// (border-b / last:border-b-0) from baseClasses — those stay on the <li> only.
-		// clickable?.className = baseClasses + FOCUS_CLASSES, so building innerClickableClass
-		// from it leaks the separator onto the inner div AND duplicates flex/gap/px/min-h.
-		// Fix: build innerClickableClass by calling clickableProps with only the layout classes
-		// (no separator) so the inner div = w-full layout + FOCUS_CLASSES only.
 		const liInnerLayoutWithActions = `flex-1 min-w-0 flex items-center gap-[12px] ${px} min-h-[44px]`;
 		const liInnerLayout = `w-full flex items-center gap-[12px] ${px} min-h-[44px]`;
 
 		if (onClick && hasActions) {
 			// li + click + actions → li wraps inner div[role=button] + action slot.
-			// Fix: inner div is w-full + carries px padding + min-h so hover is edge-to-edge.
+			// Inner div is w-full + carries px padding + min-h so hover is edge-to-edge.
 			const innerClickableClass =
 				clickableProps(onClick, liInnerLayoutWithActions).className ?? liInnerLayoutWithActions;
 			return (
@@ -371,16 +310,6 @@ export function Row({
 			// li + click + NO actions → li wraps inner div[role=button] so the li keeps
 			// its implicit listitem role (getAllByRole("listitem") must still find it).
 			//
-			// @lore AG6: DO NOT put role="button" on the <li> itself — that overrides
-			// the listitem role and breaks getAllByRole("listitem") in tests and AT.
-			// @lore AD9 (Row hover fix): inner div is w-full + carries full layout
-			// (px padding, min-h, flex, gap) so the hover fill is edge-to-edge. The
-			// li only holds the separator border-b. See AD9 lore block above.
-			// @lore AD9: data-testid and data-focused move to the inner div (the
-			// interactive element). Tests and E2E that query by testid will therefore
-			// find the div[role=button] which actually handles the click — clicking it
-			// triggers onClick. The li keeps only dsProps + aria-current + listitem role.
-			// @lore AD9 W1 (review fix): use liInnerLayout (no separator) — see W1 lore above.
 			const innerClickableClass = clickableProps(onClick, liInnerLayout).className ?? liInnerLayout;
 			return (
 				<li
@@ -415,20 +344,7 @@ export function Row({
 
 	// div case
 	if (onClick && hasActions) {
-		// @lore knowledge-attachment-slot: actions render as a SIBLING of the
-		// clickable div, never nested inside it — mirrors the li branch above
-		// exactly (which already got this right). The div branch previously put
-		// `{...clickableProps(onClick, ...)}` on the SAME element that wrapped
-		// `inner` (which includes actions), i.e. real interactive elements
-		// (RowDeleteAction's kebab/menu/confirm buttons, WorkTeam's Profile
-		// link + Customize button) sat inside the element carrying the row's
-		// own click handler. In a real browser, a click on one of those nested
-		// controls reached the row's onClick even though the control's own
-		// handler called stopPropagation() — reproduced with real mouse clicks
-		// in Chromium (jsdom's synthetic click() dispatch did not reproduce
-		// it), see document-slot-delete.spec.ts. Splitting the DOM — clickable
-		// div holds only lead/title/cells, actions is an outside sibling —
-		// removes the nesting outright rather than trying to out-handler it.
+		// @lore: actions are a sibling div, not inside the clickable div — nested button clicks reach outer onClick in Chromium despite stopPropagation; jsdom differs
 		const divInnerLayoutWithActions = `flex-1 min-w-0 flex items-center gap-[12px] ${px} min-h-[44px]`;
 		const innerClickableClass =
 			clickableProps(onClick, divInnerLayoutWithActions).className ?? divInnerLayoutWithActions;
@@ -469,7 +385,7 @@ export function Row({
 
 	if (onClick) {
 		// This case is covered by button branch above (no actions), but as="div" override
-		// W2 fix: route through clickableProps for consistent hover/focus.
+		// routes through clickableProps for consistent hover/focus.
 		return (
 			<div {...commonProps} {...clickableProps(onClick, baseClasses)}>
 				{inner}

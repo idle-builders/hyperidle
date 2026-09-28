@@ -29,7 +29,7 @@ import { docValues } from "./_helpers.js";
  * against `factory`-scoped rows, where visibility never excludes anything. */
 const ANY_VIEWER: DocumentSearchViewer = { subjects: ["viewer-1"], viewerTeamId: null };
 
-describe("search_documents — the one query (architecture.md §5.1)", () => {
+describe("search_documents — the one query", () => {
 	test("inTree excludes a task-parented row and another person's private memory — exact ids, exact length", async ({
 		db,
 	}) => {
@@ -81,7 +81,7 @@ describe("search_documents — the one query (architecture.md §5.1)", () => {
 		expect(rows.map((r) => r.id).sort()).toEqual([bodyHit.id, titleHit.id].sort());
 	});
 
-	// @lore `%`/`_` are ILIKE wildcards — `text` must match them literally, or a one-character query returns every row.
+	// @lore: `%`/`_` are ILIKE wildcards — `text` must match them literally, or a one-character query returns every row.
 	test("text escapes ILIKE wildcards — % and _ match literally, not as wildcards", async ({
 		db,
 	}) => {
@@ -548,7 +548,6 @@ describe("search_documents — the one query (architecture.md §5.1)", () => {
 			expect(rows.map((r) => r.id)).not.toContain(memory.id);
 		});
 
-		// @lore the same predicate backs `search_documents` and `open_document`'s children/siblings — one test here covers all three surfaces.
 		test("a team-scoped document is excluded for a viewer outside that team, included for a member", async ({
 			db,
 		}) => {
@@ -649,7 +648,7 @@ describe("ancestor chain", () => {
 	});
 });
 
-describe("cycle/depth/slot/scope checks (architecture.md §4.2)", () => {
+describe("cycle/depth/slot/scope checks", () => {
 	test("assertParentInvariants throws cycle when reparenting a root under its own descendant", async ({
 		db,
 	}) => {
@@ -795,7 +794,7 @@ describe("cycle/depth/slot/scope checks (architecture.md §4.2)", () => {
 	});
 });
 
-describe("listWiderDescendants (architecture.md §6.6)", () => {
+describe("listWiderDescendants", () => {
 	test("returns only wider descendants at any depth, including archived and slotted children; skips an already-narrow branch's own rank but still walks past it", async ({
 		db,
 	}) => {
@@ -859,7 +858,7 @@ describe("listWiderDescendants (architecture.md §6.6)", () => {
 	});
 });
 
-describe("narrowDescendantScope (architecture.md §6.6 rules 2 and 6)", () => {
+describe("narrowDescendantScope", () => {
 	test("clamps both scope columns and bumps version, leaving an untouched id's row alone", async ({
 		db,
 	}) => {
@@ -929,7 +928,7 @@ describe("getDocument", () => {
 	});
 });
 
-describe("updateDocument — the transactional write shape (architecture.md §6.3)", () => {
+describe("updateDocument — the transactional write shape", () => {
 	test("applies a version-guarded patch, bumping version and updatedAt", async ({ db }) => {
 		const doc = await insertDocument(db, docValues({ id: "write-ok", title: "Before" }));
 
@@ -961,7 +960,7 @@ describe("updateDocument — the transactional write shape (architecture.md §6.
 	});
 });
 
-describe("usage counting (architecture.md §6.7)", () => {
+describe("usage counting", () => {
 	test("bumpRead increments read_count and last_read_at, leaving version and updatedAt untouched", async ({
 		db,
 	}) => {

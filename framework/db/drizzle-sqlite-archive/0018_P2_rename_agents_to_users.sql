@@ -1,8 +1,4 @@
--- P2: Rename agents -> users, add kind/email/avatar_url columns
--- @lore P2: Hand-written migration for rename. Drizzle generates destructive drop-and-recreate
--- for renames. ALTER TABLE RENAME is safe in SQLite 3.25+ (better-sqlite3 bundles 3.45+).
--- FK references to agents are updated automatically by SQLite when PRAGMA foreign_keys = ON.
--- Drizzle migrator requires statement-breakpoint comments between statements.
+-- Rename agents -> users, add kind/email/avatar_url columns
 ALTER TABLE `agents` RENAME TO `users`;
 --> statement-breakpoint
 ALTER TABLE `users` ADD COLUMN `kind` text NOT NULL DEFAULT 'ai';
@@ -14,8 +10,6 @@ ALTER TABLE `users` ADD COLUMN `avatar_url` text;
 -- Rename agent_skills -> user_skills
 ALTER TABLE `agent_skills` RENAME TO `user_skills`;
 --> statement-breakpoint
--- @lore P2: architecture critique finding - agent_id column must be renamed to user_id.
--- SQLite 3.25+ supports ALTER TABLE RENAME COLUMN. better-sqlite3 bundles 3.45+.
 ALTER TABLE `user_skills` RENAME COLUMN `agent_id` TO `user_id`;
 --> statement-breakpoint
 -- Create org_edges table

@@ -38,9 +38,5 @@ function renderNode(node: InlineNode, key: number): JSX.Element | string {
 		case "break":
 			return <br key={key} />;
 	}
-	// @lore Z8-166: TypeScript does not treat switch-on-discriminant as exhaustive
-	// even when all union members are covered; the unreachable throw satisfies
-	// the "function lacks ending return" TS2366 without a `default` that forces
-	// `never` narrowing issues.
 	throw new Error(`Unhandled inline node type: ${(node as { type: string }).type}`);
 }

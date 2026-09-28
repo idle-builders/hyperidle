@@ -93,7 +93,7 @@ const composedArtifacts: ComposedReviewSubject["artifacts"] = AL2_REVIEW_SUBJECT
  * Reuses the AL2 canvas artifacts so the composition tests exercise real canvases.
  */
 export const REVIEW_COMPOSITION_SUBJECT: ComposedReviewSubject = {
-	id: "review:AL3:fixture",
+	id: "review:composition:fixture",
 	title: "Fix expired-promo checkout — silent success → typed 422",
 	threadId: "thread-review-1",
 	parentTaskId: "task-parent-1",

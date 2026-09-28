@@ -211,7 +211,7 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 
 	// ─── missing server secret in env → null (graceful degradation) ──────────
 	//
-	// @lore the cipher reads HYPERIDLE_CREDENTIAL_KEY from env directly, not a `serverSecret` parameter.
+	// @lore: the cipher reads HYPERIDLE_CREDENTIAL_KEY from env directly, not a `serverSecret` parameter.
 
 	test("resolve returns null when no HYPERIDLE_CREDENTIAL_KEY in env", async ({ db }) => {
 		await seedUsers(db);

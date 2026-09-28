@@ -6,7 +6,6 @@
  * 'localeCompare')` inside `SettingsConnections`, and the uncaught render
  * error took down every section below it, not just Connections.
  *
- * @lore this fixture is open_user({})'s real shape — every settings section under scope reads through this one response.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";

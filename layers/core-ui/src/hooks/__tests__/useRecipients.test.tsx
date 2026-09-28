@@ -1,7 +1,6 @@
 /**
  * useRecipients hook.
  *
- * @lore call("search_users", {status, name?}) is the recipient list door; call is mocked directly, routed by action name.
  */
 
 import { renderHook, waitFor } from "@testing-library/react";

@@ -33,7 +33,6 @@ async function expectSameX(a: Locator, b: Locator): Promise<void> {
 }
 
 async function mockPrimarySurfaces(page: Page): Promise<void> {
-	// @lore kind:"human" here — kind:"ai" would also answer SettingsAgents' own search and trigger unmocked network calls this test doesn't want.
 	await mockSearchUsers(page, {
 		rows: [
 			makeUserRow("member-team-a", { team: { id: "team-a", name: "Core" } }),
@@ -110,12 +109,9 @@ for (const viewport of [
 		await focus.scrollIntoViewIfNeeded();
 		const [focusBox, focusFrameBox] = await Promise.all([box(focus), box(focusFrame)]);
 		expect(focusBox.width).toBeLessThanOrEqual(720);
-		// @lore FR-9: Settings content left-aligns with the page frame, not centered — this tolerance only rules out a centered layout.
 		expect(Math.abs(focusBox.x - focusFrameBox.x)).toBeLessThanOrEqual(30);
 	});
 }
-
-// @lore WorkTeam's split view is agent-selection only — a routine's split pane is gone with WorkRoutine.
 
 test("review with an artifact open uses two local panes", async ({ page }) => {
 	// ReviewPage's default loader reads

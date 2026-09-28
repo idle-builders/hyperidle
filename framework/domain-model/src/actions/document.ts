@@ -2,19 +2,6 @@ import { z } from "zod";
 import { SCOPE_KINDS, SCOPES_REQUIRING_ID } from "../types.js";
 import type { ActionDeclaration, Problem } from "./action.js";
 
-/**
- * @lore BC4: the document action list — search, open, edit. This is what
- * replaces the knowledge item's hand-mirrored types, `routes/knowledge.ts`
- * and the `knowledge_app_projection` side table. `core-ui` imports this file
- * directly — never `core-api` — because the browser needs the exact same
- * `input`/invariant shape the server runs (architecture.md §3).
- */
-
-// ---------------------------------------------------------------------------
-// Vocabulary — moves here from the deleted `framework/domain-model/src/
-// knowledge.ts` (architecture.md §3.1, §2). `role` is renamed `slot` (A6).
-// ---------------------------------------------------------------------------
-
 export const DOCUMENT_STATUSES = ["proposed", "active", "stale", "archived"] as const;
 export type DocumentStatus = (typeof DOCUMENT_STATUSES)[number];
 
@@ -36,9 +23,6 @@ export const DOCUMENT_SLOT_LABEL: Record<DocumentSlot, string> = {
 	prompt: "Prompt",
 };
 
-/** @lore BC5 T7b: `routine` is gone — a routine's prompt used to parent
- * there; a subscription's prompt parents to `subscription` instead
- * (migration 0089 re-parents every surviving prompt document). */
 export const DOCUMENT_PARENT_KINDS = [
 	"document",
 	"task",
@@ -51,10 +35,6 @@ export type DocumentParentKind = (typeof DOCUMENT_PARENT_KINDS)[number];
 /** The word an agent uses. Derived on read, never stored — see `documentAs` below. */
 export const DOCUMENT_AS = ["memory", "artifact", "document"] as const;
 export type DocumentAs = (typeof DOCUMENT_AS)[number];
-
-// ---------------------------------------------------------------------------
-// The row — architecture.md §3.2.
-// ---------------------------------------------------------------------------
 
 export const DocumentRowSchema = z.object({
 	id: z.string(),
@@ -72,8 +52,7 @@ export const DocumentRowSchema = z.object({
 	updatedBy: z.string(),
 	createdAt: z.string(),
 	updatedAt: z.string(),
-	// Usage — §6.7. On the wire because a person reads them in the detail
-	// aside and an agent filters on them; never writable through `edit_document`.
+	// On the wire because a person reads them and an agent filters on them; never writable through `edit_document`.
 	readCount: z.number().int(),
 	lastReadAt: z.string().nullable(),
 	sessionUseCount: z.number().int(),
@@ -82,10 +61,6 @@ export const DocumentRowSchema = z.object({
 	as: z.enum(DOCUMENT_AS),
 });
 export type DocumentRow = z.infer<typeof DocumentRowSchema>;
-
-// ---------------------------------------------------------------------------
-// search_documents — architecture.md §3.3.
-// ---------------------------------------------------------------------------
 
 export const SearchDocumentsInputSchema = z
 	.object({
@@ -107,10 +82,10 @@ export const SearchDocumentsInputSchema = z
 		/**
 		 * Neither read nor handed to a session since this ISO instant, counting
 		 * a document's creation as its last activity when it has never been
-		 * either. §6.7 — this is what the librarian's decay routine searches on.
+		 * either — this is what the librarian's decay routine searches on.
 		 */
 		unusedSince: z.string().min(1).optional(),
-		/** Plain words, so neither end can get the direction wrong. §6.7. */
+		/** Plain words, so neither end can get the direction wrong. */
 		sort: z.enum(["least_used", "most_read"]).optional(),
 		limit: z.number().int().min(1).max(500).optional(), // default 200
 		offset: z.number().int().min(0).optional(),
@@ -130,10 +105,6 @@ export const searchDocuments: ActionDeclaration<SearchDocumentsInput, DocumentRo
 	input: SearchDocumentsInputSchema,
 	output: z.array(DocumentRowSchema),
 };
-
-// ---------------------------------------------------------------------------
-// open_document — architecture.md §3.4.
-// ---------------------------------------------------------------------------
 
 export const OpenDocumentInputSchema = z.object({ id: z.string().min(1) }).strict();
 export type OpenDocumentInput = z.infer<typeof OpenDocumentInputSchema>;
@@ -158,13 +129,9 @@ export const openDocument: ActionDeclaration<OpenDocumentInput, DocumentView> = 
 	output: DocumentViewSchema,
 };
 
-// ---------------------------------------------------------------------------
-// edit_document — architecture.md §3.5.
-// ---------------------------------------------------------------------------
-
 export const EditDocumentInputSchema = z
 	.object({
-		/** Absent ⇒ create with a new uuid. Present ⇒ edit, or create with that id (A3). */
+		/** Absent ⇒ create with a new uuid. Present ⇒ edit, or create with that id. */
 		id: z.string().min(1).optional(),
 		title: z.string().min(1).optional(),
 		body: z.string().optional(),
@@ -172,7 +139,7 @@ export const EditDocumentInputSchema = z
 		status: z.enum(DOCUMENT_STATUSES).optional(), // default "proposed" on create
 		/** What this is. Create-only; on an edit it must match what the row already is. */
 		as: z.enum(DOCUMENT_AS).optional(), // default "document"
-		/** Create-only. A slotted document may never change slot or parent (I10). */
+		/** Create-only. A slotted document may never change slot or parent. */
 		slot: z.enum(DOCUMENT_SLOTS).optional(), // default "ordinary"
 		scopeKind: z.enum(SCOPE_KINDS).optional(),
 		scopeId: z.string().nullable().optional(),
@@ -208,10 +175,7 @@ export const DOCUMENT_ACTIONS = {
 	edit_document: editDocument,
 } as const;
 
-// ---------------------------------------------------------------------------
-// `as` — how it maps to columns, and how it is derived back. Architecture.md
-// §3.6. Total, unambiguous, evaluated in order.
-// ---------------------------------------------------------------------------
+// `as` — derived from columns, total and unambiguous, evaluated in order.
 
 export function documentAs(row: {
 	readonly parentKind: string | null;
@@ -220,17 +184,10 @@ export function documentAs(row: {
 }): DocumentAs {
 	if (row.parentKind === "task" || row.parentKind === "thread") return "artifact";
 	// A memory is a user-scoped, parentless, `ordinary`-slot row — not in the
-	// tree (founder decision, gate-walk finding), and not a row `slot` alone
-	// already makes public. Review-found defect: an earlier version of this
-	// function dropped the `slot` term (reasoning that I3/I9 always force a
-	// memory's slot to `ordinary`, so checking it here would only re-derive
-	// `parentKind`) — but `canReadDocument` exempts ANY non-ordinary slot from
-	// the privacy check regardless of scope, so a user-scoped, parentless row
-	// with a non-ordinary slot was reading as "memory" here while
-	// `canReadDocument` was treating it as public: the Memories filter would
-	// show a row every other person could already read. `slot` must agree
-	// with the visibility predicate, not just with what a memory's own write
-	// path forces. A user-scoped row WITH a parent is a private document:
+	// tree, and not a row `slot` alone already makes public. `slot` must agree
+	// with the visibility predicate: `canReadDocument` exempts ANY non-ordinary
+	// slot from the privacy check regardless of scope. A user-scoped row WITH
+	// a parent is a private document:
 	// `as:"document"`, widenable to team/factory and back, like any tree
 	// document.
 	if (row.scopeKind === "user" && row.parentKind === null && row.slot === "ordinary")
@@ -238,19 +195,7 @@ export function documentAs(row: {
 	return "document";
 }
 
-// ---------------------------------------------------------------------------
-// @lore BC4 architecture.md §7: the read/subscribe visibility predicate,
-// pure and shared between `edit_document`/`search_documents`'s read path
-// and `ws-subscribe-authorizer.ts`, so the socket and the read can never
-// diverge — the same shape an earlier bug report on that file names as the
-// failure mode this avoids. Mirrors the §5.1 SQL predicate exactly:
-//
-//   parent_kind IN ('task','thread')
-//   OR (
-//        (scope_kind <> 'user' OR slot <> 'ordinary' OR scope_id = ANY(:subjects))
-//    AND (scope_kind <> 'team'  OR scope_id = :viewerTeamId)
-//      )
-// ---------------------------------------------------------------------------
+// @lore: canReadDocument — shared with ws-subscribe-authorizer.ts; socket and read visibility must match; non-ordinary slot skips user-privacy check
 
 export function canReadDocument(
 	subjects: readonly string[],
@@ -268,7 +213,7 @@ export function canReadDocument(
 		row.slot !== "ordinary" ||
 		(row.scopeId !== null && subjects.includes(row.scopeId));
 	// Compared on a non-null `scopeId` — a `team`-scoped row with a NULL
-	// `scopeId` (a reconcile gap the migration can leave behind, §6.4 step 5)
+	// `scopeId` (a reconcile gap the migration can leave behind)
 	// must not read as "matches a team-less viewer" just because both sides
 	// are `null`. The SQL twin (`document-store.ts`'s `visibilityPredicate`)
 	// already gets this right via `eq(scopeId, viewerTeamId)`, which SQL NULL
@@ -278,12 +223,7 @@ export function canReadDocument(
 	return notPrivateOrOwned && notTeamOrMatchesViewer;
 }
 
-// ---------------------------------------------------------------------------
-// Pure invariants — run in the browser to grey a control with its reason,
-// and again on the server as the first pass over the input. No database.
-// DB-dependent invariants (D1-D8, architecture.md §4.2) run inside
-// `edit_document.run` and are not here.
-// ---------------------------------------------------------------------------
+// Pure invariants — run in the browser and again on the server. DB-dependent invariants run inside edit_document.run.
 
 /** Every writable field other than `id`/`version` — "did this edit change anything". */
 const CONTENT_FIELDS = [
@@ -299,7 +239,7 @@ const CONTENT_FIELDS = [
 	"position",
 ] as const satisfies readonly (keyof EditDocumentInput)[];
 
-/** Same as `CONTENT_FIELDS` but without `status` — I12's "anything other than status". */
+/** Same as `CONTENT_FIELDS` but without `status`. */
 const CONTENT_FIELDS_EXCEPT_STATUS = CONTENT_FIELDS.filter(
 	(f) => f !== "status",
 ) as readonly (keyof EditDocumentInput)[];
@@ -312,22 +252,21 @@ function touchesAnyOf(
 }
 
 /**
- * I3/I4 — a memory is private and parent-less; both forced, never negotiated.
+ * A memory is private and parent-less; both invariants are forced, never negotiated.
  * Keys on `effectiveAs` (input.as, or the row's own derived `as` when the
  * edit omits it) — not `input.as` alone. An edit of an existing memory that
  * only sends `scopeKind` (no `as`) must still be refused here: the run
  * function forces the scope back to `user` regardless, and a forced write
- * with no problem attached is a silent no-op (gate-walk finding).
+ * with no problem attached is a silent no-op.
  *
- * Review-found defect: creating a root (parentless) document scoped
- * `"user"` is a one-way trapdoor — the row reads back as a memory
- * (`documentAs`), so a later attempt to widen it hits this same check. The
- * generic "no scope to set" message reads as a bug report to someone who
- * only ever asked for Private on a document; an EXISTING memory
- * (`prev !== null` and it already derives as one) gets the clearer message
- * telling them what to do about it. A create with an explicit
- * `as:"memory"` + a scope keeps the original message — there is no
- * existing row yet to point at.
+ * Creating a root (parentless) document scoped `"user"` is a one-way
+ * trapdoor — the row reads back as a memory (`documentAs`), so a later
+ * attempt to widen it hits this same check. The generic "no scope to set"
+ * message reads as a bug report to someone who only ever asked for Private
+ * on a document; an EXISTING memory (`prev !== null` and it already derives
+ * as one) gets the clearer message telling them what to do about it. A
+ * create with an explicit `as:"memory"` + a scope keeps the original
+ * message — there is no existing row yet to point at.
  */
 function memoryInvariants(
 	effectiveAs: DocumentAs | undefined,
@@ -357,17 +296,16 @@ function memoryInvariants(
 }
 
 /**
- * Review-found defect, paired with `documentAs`'s own fix above: a
- * user-scoped, parentless, non-`ordinary`-slot row derives as `"document"`
+ * A user-scoped, parentless, non-`ordinary`-slot row derives as `"document"`
  * (not a memory — `documentAs`), but reads as PUBLIC through
  * `canReadDocument`'s non-ordinary-slot exemption, regardless of scope. A
  * caller asking for `scopeKind:"user"` on that shape is asking for a
  * contradiction — private-by-scope, public-by-slot — so it is refused
- * outright, the same way I13 refuses `as:"artifact"` + `scopeKind:"user"`
+ * outright, the same way `artifactInvariants` refuses `as:"artifact"` + `scopeKind:"user"`
  * rather than silently resolving the conflict one way or the other. Only
  * `effectiveAs === "document"` reaches this: a memory's slot is already
- * forced to `ordinary` (I3/I9), and an artifact's `scopeKind:"user"` is
- * already refused by I13.
+ * forced to `ordinary` by the memory invariant, and an artifact's `scopeKind:"user"` is
+ * already refused by `artifactInvariants`.
  */
 function privateSlotInvariants(
 	effectiveAs: DocumentAs | undefined,
@@ -375,12 +313,11 @@ function privateSlotInvariants(
 	prev: DocumentRow | null,
 ): Problem[] {
 	// `effectiveAs` is `undefined` only for a create with no explicit `as` —
-	// `edit_document.run` defaults that shape to `"document"` (§3.6's write
-	// table), so this check must too, or a bare `{scopeKind:"user",
-	// slot:"skill"}` create would slip past it.
+	// `edit_document.run` defaults that shape to `"document"`, so this check must too,
+	// or a bare `{scopeKind:"user", slot:"skill"}` create would slip past it.
 	if (effectiveAs !== "document" && effectiveAs !== undefined) return [];
 	const isCreate = prev === null;
-	// Slot is immutable after create (I9) — an edit can only ever transition
+	// Slot is immutable after create — an edit can only ever transition
 	// INTO this shape by touching `scopeKind` or `parent`. An edit that
 	// touches neither leaves the row's scope/parent exactly as they already
 	// were, so it is a continuation of whatever the row already legitimately
@@ -390,12 +327,7 @@ function privateSlotInvariants(
 	// never re-refused either). The narrowing exists so a body-only edit of
 	// ANY pre-existing row never trips a shape it did not create — it is a
 	// defensive property of the check itself, not evidence of rows already
-	// sitting in this shape. (Corrected: an earlier version of this comment
-	// cited a live agent-identity row with no parent as the motivating case;
-	// that row does not exist in production — `routes/agent-identity.ts`
-	// parents every identity document to its agent. The "live row" was a
-	// hand-inserted test fixture that omitted the `parent` production always
-	// writes.)
+	// sitting in this shape.
 	if (!isCreate && input.scopeKind === undefined && input.parent === undefined) return [];
 	const scopeKind = input.scopeKind ?? prev?.scopeKind;
 	if (scopeKind !== "user") return [];
@@ -414,21 +346,21 @@ function privateSlotInvariants(
 }
 
 /**
- * I5/I6/I13 — an artifact hangs off a task or thread, and is never private.
+ * An artifact hangs off a task or thread, and is never private.
  *
- * I5/I6 stay keyed on the caller's literal `input.as === "artifact"` — an
+ * The parent checks stay keyed on the caller's literal `input.as === "artifact"` — an
  * edit that moves an existing artifact's parent WITHOUT repeating `as` is
- * "graduation" (§3.6: `as` is derived, never stored, so moving `parent` off
+ * "graduation" — `as` is derived, never stored, so moving `parent` off
  * a task/thread is all graduation is — `document-actions.integration.test.ts`
- * describe("graduation …")), a deliberately allowed transition. Keying I5/I6
+ * describe("graduation …")), a deliberately allowed transition. Keying the parent checks
  * on the row's derived `effectiveAs` instead would refuse that transition.
  *
- * I13 is different: it is keyed on `effectiveAs` (the caller's explicit `as`,
+ * The scope check is different: it is keyed on `effectiveAs` (the caller's explicit `as`,
  * or the row's own derived `as` when the edit omits it) — not `input.as`
  * alone. "An artifact is never private" is an absolute rule, not a
  * transition; an edit that only sends `{id, scopeKind:"user"}` against an
  * existing artifact must still be refused here, or the run function's write
- * lands the private scope with no problem attached (gate-walk finding, same
+ * lands the private scope with no problem attached (same
  * silent-overwrite shape as `memoryInvariants` above).
  */
 function artifactInvariants(
@@ -439,8 +371,7 @@ function artifactInvariants(
 	const problems: Problem[] = [];
 	if (input.as === "artifact") {
 		if (input.parent === null) {
-			// `null` means "to the top of the tree", for every `as` (architecture
-			// decision) — and an artifact can never be at the top (I5/I6), so an
+			// `null` means "to the top of the tree", for every `as` — and an artifact can never be at the top, so an
 			// explicit `parent: null` is refused the same way a `document` parent
 			// is, not silently treated as "no parent given" (which would stamp the
 			// caller's own calling task/thread instead of honouring the explicit
@@ -478,19 +409,8 @@ function artifactInvariants(
 }
 
 /**
- * Only a system-initiated caller may name an `agent`/`subscription` parent —
- * the rule `routes/knowledge.ts`'s (now-deleted) `CLIENT_WRITABLE_PARENT_KINDS`
- * enforced ("`routine` and `agent` stay refused from the client: those are
- * attached exclusively by core-api's own routes") and this module's first
- * pass over `edit_document` dropped. `caller.internal` is `true` only when
- * the composition root itself built the call (the user module's `edit_user`,
- * the agent identity helper, the plugin installer) — never set by the HTTP
- * door or the MCP tool loop, so a client can never talk its way past this by
- * shape alone.
- *
- * @lore BC5 T7b: `routine` is gone from `DOCUMENT_PARENT_KINDS` — the
- * `agent`/`subscription` check below is exhaustive now, not a narrowing of a
- * wider set.
+ * Only a system-initiated caller may name an `agent`/`subscription` parent.
+ * `caller.internal` is `true` only when the composition root built the call — never set by the HTTP door or MCP tool loop.
  */
 function systemParentInvariants(
 	input: EditDocumentInput,
@@ -513,7 +433,7 @@ function systemParentInvariants(
 	return [];
 }
 
-/** I9/I10/I11 — a slotted document's slot and parent are fixed at create. */
+/** A slotted document's slot and parent are fixed at create. */
 function slotAndParentInvariants(input: EditDocumentInput, prev: DocumentRow | null): Problem[] {
 	const problems: Problem[] = [];
 	if (prev !== null && input.slot !== undefined && input.slot !== prev.slot) {
@@ -621,7 +541,7 @@ export function editDocumentInvariants(
 	return problems;
 }
 
-/** `search_documents`'s own pure invariants — I14 plus the shape conflict. */
+/** `search_documents`'s own pure invariants. */
 export function searchDocumentsInvariants(input: SearchDocumentsInput): Problem[] {
 	const problems: Problem[] = [];
 
@@ -633,13 +553,10 @@ export function searchDocumentsInvariants(input: SearchDocumentsInput): Problem[
 		});
 	}
 
-	// Review-found blocker: `parent.id`/`parent.ids` were both optional with no
-	// refine, so `{as:"artifact", parent:{kind:"task"}}` passed this function
-	// and the store then filtered on `parentKind` alone — every task/thread's
-	// artifacts, to anyone. `id`/`ids` name a query shape, not a value the
-	// store may treat as absent; exactly one must be given, for every parent
-	// kind (not only artifacts — a bare `parent:{kind:"thread"}` is the same
-	// unbounded query one kind over).
+	// `id`/`ids` name a query shape, not a value the store may treat as
+	// absent; exactly one must be given, for every parent kind (not only
+	// artifacts — a bare `parent:{kind:"thread"}` is the same unbounded query
+	// one kind over).
 	if (input.parent !== undefined) {
 		const hasId = input.parent.id !== undefined;
 		const hasIds = input.parent.ids !== undefined;

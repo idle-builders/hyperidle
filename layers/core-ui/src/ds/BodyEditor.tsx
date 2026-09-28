@@ -7,9 +7,6 @@
  * - Slash menu for block type insertion (full variant only)
  * - GFM markdown serialization via tiptap-markdown
  *
- * @lore T1: CSS import uses a relative path because the design-system package
- * exports CSS separately. The CSS is scoped under .body-editor to prevent
- * global style pollution.
  */
 
 import { EditorContent } from "@tiptap/react";

@@ -1,4 +1,4 @@
-// ReviewOutcomeSummary: the FRAME LEAD of every review canvas (component #1).
+// ReviewOutcomeSummary: the FRAME LEAD of every review canvas.
 //
 // Function-agnostic. This is what a reviewer reads FIRST, before any artifact —
 // the "what was achieved + what needs you" header that frames the proof below.
@@ -267,8 +267,7 @@ function ReviewOutcomeSummaryView(props: ReviewOutcomeSummaryProps): JSX.Element
 					</div>
 					{/* The guard never checks `tokens`, so a well-formed payload omitting
 					    it must not fall back to "0 tok" — `TokensChip` requires a real
-					    number, so it renders conditionally instead (deleting the old
-					    `?? 0` alone would render "undefined tok"). */}
+					    number, so it renders conditionally instead. */}
 					{tokens !== undefined ? <TokensChip tokens={tokens} /> : null}
 				</div>
 			</header>
@@ -358,10 +357,7 @@ function isOutcomeSummaryPayload(payload: unknown): payload is OutcomeSummaryPay
 /** Wrapper: receives a uniform review artifact and mounts the frame lead. */
 export function ReviewOutcomeSummary({ artifact }: ReviewCanvasProps): JSX.Element {
 	if (!isOutcomeSummaryPayload(artifact.payload)) {
-		// A malformed payload gets the honest unknown-canvas
-		// fallback — this used to fall back to `{}` and render a half-empty frame
-		// (`standing` defaulted to "Awaiting", `achieved` to the artifact title),
-		// both invented on the guard-failure path.
+		// A malformed payload gets the unknown-canvas fallback — prevents partial render with invented values.
 		return <ReviewUnknownCanvas artifact={artifact} />;
 	}
 	const payload = artifact.payload;
@@ -389,7 +385,7 @@ export function ReviewOutcomeSummary({ artifact }: ReviewCanvasProps): JSX.Eleme
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// States not shown in the stories (specified here per the brief):
+// States not shown in the stories:
 //   empty   — agent emitted no done-conditions/needs-you: render L1 only + a
 //             "No readiness checks declared" muted line in place of L2.
 //   loading — skeleton: avatar/line/tool-row/chips as pulsing

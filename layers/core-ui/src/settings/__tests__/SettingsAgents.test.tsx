@@ -9,7 +9,6 @@
  * text content); the add form creates an agent with template pre-fill;
  * delete uses a two-click confirmation.
  *
- * @lore call("search_users"/"open_user"/"edit_user") replace the agent routes — delete is status:"retired"; an in-memory store keeps them consistent.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
@@ -397,7 +396,6 @@ describe("SettingsAgents renders agent list", () => {
 		render(<SettingsAgents />);
 
 		await waitFor(() => {
-			// @lore FR-10: Delete is now behind the "..." actions menu — verify trigger buttons exist.
 			expect(screen.getByRole("button", { name: /actions for acme pm/i })).toBeInTheDocument();
 			expect(screen.getByRole("button", { name: /actions for builder bot/i })).toBeInTheDocument();
 		});
@@ -705,7 +703,6 @@ describe("Assistant is a row in the agents list", () => {
 
 		await waitFor(() => screen.getByText("Nova"));
 		expect(screen.queryByLabelText(/name/i)).toBeNull();
-		// @lore: Edit is now behind the "..." actions menu — open menu then click Edit.
 		await user.click(screen.getByRole("button", { name: "Actions for Nova" }));
 		await waitFor(() => screen.getByRole("menuitem", { name: /^edit$/i }));
 		await user.click(screen.getByRole("menuitem", { name: /^edit$/i }));
@@ -715,7 +712,6 @@ describe("Assistant is a row in the agents list", () => {
 		});
 	});
 
-	// @lore editing an agent links to its identity document, not a prefill box — the door carries documentIds up front, so no template fetch is needed.
 	it("editing an existing agent links to its identity document — no editable box", async () => {
 		const user = userEvent.setup();
 		render(
@@ -725,7 +721,6 @@ describe("Assistant is a row in the agents list", () => {
 		);
 
 		await waitFor(() => screen.getByText("Atlas"));
-		// @lore: Edit is now behind the "..." actions menu — open menu then click Edit.
 		await user.click(screen.getByRole("button", { name: "Actions for Atlas" }));
 		await waitFor(() => screen.getByRole("menuitem", { name: /^edit$/i }));
 		await user.click(screen.getByRole("menuitem", { name: /^edit$/i }));
@@ -759,7 +754,6 @@ describe("Agent editor model dropdown uses discovered descriptor.models", () => 
 		);
 
 		await waitFor(() => screen.getByText("Atlas"));
-		// @lore: Edit is now behind the "..." actions menu — open menu then click Edit.
 		await user.click(screen.getByRole("button", { name: "Actions for Atlas" }));
 		await waitFor(() => screen.getByRole("menuitem", { name: /^edit$/i }));
 		await user.click(screen.getByRole("menuitem", { name: /^edit$/i }));

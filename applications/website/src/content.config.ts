@@ -3,14 +3,7 @@ import { glob } from "astro/loaders";
 
 import { docEntryId } from "./lib/docs-loader.js";
 
-/**
- * The docs seam: markdown lives in the repo's docs/ tree (single source of
- * truth), never copied into this package. The glob loader's `base` points at
- * the repo root (two levels up from this package). Rendered set: the product
- * story, the user guide, the developer guide, and the deployment docs.
- * Keep in sync with renderedSections in astro.config.ts (the link rewriter)
- * and DOCS_NAV (the sidebar).
- */
+// Keep in sync with renderedSections in astro.config.ts (the link rewriter) and DOCS_NAV (the sidebar).
 const docs = defineCollection({
 	schema: z.object({
 		title: z.string().optional(),

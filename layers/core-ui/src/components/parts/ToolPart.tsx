@@ -7,12 +7,10 @@
  * Only `failed` uses the destructive color token (`--status-error`).
  *
  * The diff chip is a label, not a control — it has no destination.
- * No new diff renderer (a hard rule).
+ * No new diff renderer.
  *
- * @lore AM3: Agent-authored fields (`verb`/`target`/`output`) render as
- * React-escaped TEXT only — no `dangerouslySetInnerHTML` in the activity path
- * (AM3 security rule).
  */
+// @lore: agent-authored fields — verb/target/output render as React-escaped TEXT only; no dangerouslySetInnerHTML in the activity path
 
 import { type JSX, useState } from "react";
 import { Button, LiveDot } from "../../ds";
@@ -172,10 +170,9 @@ export function ToolPart({
 				)}
 
 				{/*
-				 * The diff chip is a LABEL, not a control. It has nowhere to go: its
-				 * target was `/artifacts/<file path>`, which never resolved to a row
-				 * even while that route existed. Rendering it as a button promised a
-				 * destination that was never there.
+				 * The diff chip is a LABEL, not a control — no navigable destination exists
+				 * for `/artifacts/<file path>`. Rendering it as a button would promise a
+				 * destination that is not there.
 				 */}
 				{diffEmbed?.kind === "diff" ? (
 					<span className="border-width-thin inline-flex shrink-0 items-center gap-[6px] rounded-[var(--r-pill)]  border-[var(--border-subtle)] px-[9px] py-[3px]">

@@ -4,48 +4,14 @@ import { AGENT_SESSION_SOURCE_KINDS } from "../session-request.js";
 import { MODEL_TIERS } from "../types.js";
 import type { ActionDeclaration } from "./action.js";
 
-/**
- * @lore The session action list — search, watch, stop. This is what
- * replaces the `/agent-orchestration/runs*` routes, the `/sessions*` routes
- * and the second websocket's live-update surface.
- * `core-ui` imports this file directly — never `core-api` or
- * `agent-orchestration` — for the same reason `document.ts`/`task.ts` do: the
- * browser needs the exact same `input`/invariant shape the server runs.
- *
- * There are deliberately no pure invariant functions in this file. The two
- * candidates first drafted — `search_sessions` refusing an empty filter, and
- * an authorization check on `stop_session` — are both explicitly dropped: no
- * filter lists newest first, and anyone signed in may stop any session.
- * Every remaining constraint is either enforced by the zod shape itself
- * (`.strict()`, `id` `min(1)`) or is DB-dependent (`not_found`) and belongs
- * in the module's `run`, not here.
- */
+// No pure invariant functions: no-filter lists newest first (not an error), and anyone signed in may stop any session. Remaining constraints are either zod-enforced or DB-dependent.
 
-// ---------------------------------------------------------------------------
-// SESSION_STATES — derived from the actual writers, not assumed.
-// `sessions.state` (`framework/db/src/schema.ts:281`) is written by:
-//   - the row's own create path: "active"
-//   - `transition-run.ts`'s `updateSessionRow`: "done" | "crashed"
-//   - `runtime-reapers.ts`'s crash sweep: "crashed"
-//   - `request-run-stop-for-tasks.ts`'s `STOP_DISPOSITION`: "stopped"
-// No writer ever sets "failed" — that value belongs to
-// `agent_session_requests`, a different table. The set below already
-// includes "stopped": `request-run-stop-for-tasks.ts` was writing it before
-// this declaration existed, so "stopped" as a terminal state is confirmed
-// by the writers rather than added by this declaration.
-// ---------------------------------------------------------------------------
+// SESSION_STATES — derived from actual writers: "active" (create), "done"/"crashed" (transition-run.ts), "stopped" (request-run-stop-for-tasks.ts). "failed" belongs to agent_session_requests, not sessions.
 
 export const SESSION_STATES = ["active", "done", "stopped", "crashed"] as const;
 export type SessionState = (typeof SESSION_STATES)[number];
 
-// ---------------------------------------------------------------------------
-// The row — the 8 fields `AgentRunSummary` already carries
-// (`agent-run-view.ts:25`) plus `notes`, `modelTier`,
-// `sourceKind`. `state`/`outcome` stay plain, nullable strings, matching
-// `AgentRunSummary` exactly — the column is free text
-// (`framework/db/src/schema.ts:281`); `SESSION_STATES` above is the closed
-// set a *filter* validates against, not a constraint on the row itself.
-// ---------------------------------------------------------------------------
+// state/outcome are plain nullable strings (free-text column); SESSION_STATES is the closed set a filter validates against, not a constraint on the row itself.
 
 export const SessionRowSchema = z.object({
 	id: z.string(),
@@ -62,10 +28,6 @@ export const SessionRowSchema = z.object({
 	sourceKind: z.enum(AGENT_SESSION_SOURCE_KINDS).nullable(),
 });
 export type SessionRow = z.infer<typeof SessionRowSchema>;
-
-// ---------------------------------------------------------------------------
-// search_sessions
-// ---------------------------------------------------------------------------
 
 export const SearchSessionsInputSchema = z
 	.object({
@@ -87,10 +49,6 @@ export const searchSessions: ActionDeclaration<SearchSessionsInput, SessionRow[]
 	input: SearchSessionsInputSchema,
 	output: z.array(SessionRowSchema),
 };
-
-// ---------------------------------------------------------------------------
-// watch_session
-// ---------------------------------------------------------------------------
 
 export const WatchSessionInputSchema = z.object({ id: z.string().min(1) }).strict();
 export type WatchSessionInput = z.infer<typeof WatchSessionInputSchema>;
@@ -166,10 +124,7 @@ export const watchSession: ActionDeclaration<WatchSessionInput, WatchSessionOutp
 	output: WatchSessionOutputSchema,
 };
 
-// ---------------------------------------------------------------------------
-// stop_session — answers with the row as read BEFORE the stop, not a
-// second re-read after it.
-// ---------------------------------------------------------------------------
+// stop_session answers with the row as read BEFORE the stop, not a second re-read.
 
 export const StopSessionInputSchema = z.object({ id: z.string().min(1) }).strict();
 export type StopSessionInput = z.infer<typeof StopSessionInputSchema>;

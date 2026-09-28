@@ -19,7 +19,7 @@ import { mergePluginMcpContributions, type PluginMcpContributionsPort } from "..
 let tmpDir: string;
 
 beforeEach(() => {
-	tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ba9b-mcp-merge-"));
+	tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "probe-mcp-merge-"));
 });
 
 afterEach(() => {

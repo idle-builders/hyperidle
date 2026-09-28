@@ -1,23 +1,7 @@
 /**
- * Inherited reach: the connections domain's own probe + cache for
- * the services the machine already holds auth for.
- *
- * The four probes moved VERBATIM from `layers/agent-execution/harness-registry/
- * src/harness-discovery.ts` (inspectClaudeTools / inspectCodexTools /
- * inspectOpenCodeTools / inspectInheritedTools) — same argv, same parsing,
- * same degrade-to-`[]` error handling, same timeouts, same lore. Their
- * small CLI-runner helpers (`runCommand` / `stripAnsi` / `failedCommandResult`)
- * are deliberately DUPLICATED here (~50 lines): the originals also serve the
- * harness-family probes that stay, and no cross-layer sharing is legal
- * (agent-orchestration may never import agent-execution).
- *
- * The one expressed change: facts carry `source` where the old
- * `InheritedToolDescriptor` carried `harness` (D2) — the VALUES are unchanged.
- *
- * No DB, no timers, no background work: `refresh` runs the four probes
- * concurrently and atomically swaps a frozen snapshot (the
- * `AdapterPool.discoveries` pattern). `refresh` never rejects — every probe
- * error degrades to `[]`, exactly as today.
+ * Inherited reach: probe + cache for services the machine already holds auth for.
+ * Runs four probes concurrently (claude, codex, opencode, environment) and atomically
+ * swaps a frozen snapshot. refresh() never rejects — every probe error degrades to [].
  */
 
 import { execFile } from "node:child_process";
@@ -38,7 +22,7 @@ function stripAnsi(value: string): string {
 
 /**
  * The injected-run/env/cwd seam, shaped exactly like harness-discovery's
- * `HarnessProbeDeps` minus `fetchModels` (D1). Production calls `refresh()`
+ * `HarnessProbeDeps` minus `fetchModels`. Production calls `refresh()`
  * absent; tests seed isolated homes through it.
  */
 export interface InheritedProbeDeps {
@@ -49,9 +33,7 @@ export interface InheritedProbeDeps {
 	 * .mcp.json for `claude mcp list`).
 	 * Defaults to process.cwd().
 	 *
-	 * @lore AN1: claude mcp list reads .mcp.json from the working directory
-	 * (project scope). Integration tests set this to a temp dir seeded with a
-	 * known .mcp.json.
+	 * @lore: cwd — claude mcp list reads .mcp.json from the working directory; integration tests set this to a temp dir seeded with a known .mcp.json
 	 */
 	readonly cwd?: string;
 }
@@ -127,9 +109,7 @@ const INHERITED_PROBE_TIMEOUT_MS = 5_000;
  * Status token mapping: "✓ Connected" → working; anything else → needs-attention.
  * On non-zero exit, timeout, or empty output → [] (omit, don't fabricate).
  *
- * @lore AN1 hard-rule 4: `claude mcp list` output contains only MCP server names
- * and liveness status — env vars / tokens are never in the list output.
- * We parse names only; the status suffix determines health.
+ * @lore: claude mcp list — names and status only; env vars / tokens never in output
  */
 async function inspectClaudeTools(
 	d?: InheritedProbeDeps,
@@ -228,7 +208,7 @@ function parseCodexMcpListOutput(stdout: string): readonly InheritedConnectionFa
  * `[mcp_servers.<name>]` table keys. Health is always "unknown" (list shows
  * config, not live status).
  *
- * @lore AN1: Never reads env/command values from config.toml — names only.
+ * @lore: codex probes names only — never reads env/command values
  */
 async function inspectCodexTools(
 	d?: InheritedProbeDeps,
@@ -243,9 +223,7 @@ async function inspectCodexTools(
 				),
 			),
 		]);
-		// @lore AN1: we parse config.toml directly rather than relying solely on
-		// codex mcp list (whose output columns/format vary across codex versions);
-		// we never read token values. mcp list is tried first as a fast path.
+		// @lore: codex config.toml parsed directly (mcp list format varies across versions); token values never read
 		if (result.exitCode === 0 && result.stdout.trim()) {
 			const tools = parseCodexMcpListOutput(result.stdout);
 			if (tools) return tools;
@@ -256,9 +234,7 @@ async function inspectCodexTools(
 
 	// Fallback: read ~/.codex/config.toml (or $CODEX_HOME/config.toml), extract [mcp_servers.<name>] keys.
 	// Names only — never env/command values.
-	// @lore AN1: CODEX_HOME overrides the default ~/.codex path. We respect it here (via
-	// injected env) so integration tests can seed an isolated config.toml without touching
-	// the developer's real ~/.codex.
+	// @lore: CODEX_HOME respected via injected env so tests seed isolated config.toml
 	try {
 		const { readFile } = await import("node:fs/promises");
 		const { join } = await import("node:path");
@@ -296,10 +272,7 @@ async function inspectCodexTools(
  * Names only — never reads url/env/token values. Health always "unknown"
  * (no live connection attempted).
  *
- * @lore AN1: opencode config is JSONC at `$XDG_CONFIG_HOME/opencode/opencode.jsonc`
- * (defaults to `~/.config/opencode/opencode.jsonc`). The `mcp` key holds a record of
- * server-name → { type, url, ... }. We extract only the keys — never the values.
- * We use XDG_CONFIG_HOME env var for isolation in tests.
+ * @lore: opencode config at $XDG_CONFIG_HOME/opencode/opencode.jsonc; mcp keys only, never values; XDG_CONFIG_HOME used for test isolation
  */
 async function inspectOpenCodeTools(
 	d?: InheritedProbeDeps,
@@ -310,16 +283,11 @@ async function inspectOpenCodeTools(
 		const os = await import("node:os");
 		const env = d?.env ?? process.env;
 
-		// Respect XDG_CONFIG_HOME for config dir isolation (used in tests).
 		const configBase = env.XDG_CONFIG_HOME ?? join(os.homedir(), ".config");
 		const configPath = join(configBase, "opencode", "opencode.jsonc");
 
 		const raw = await readFile(configPath, "utf-8");
-		// Strip JSONC single-line comments: only lines whose non-whitespace content starts
-		// with `//`. We MUST NOT strip `//` inside string values (e.g. URLs like https://...).
-		// A full JSONC parser is avoided to keep zero-dependency policy; line-level stripping
-		// is safe because opencode.jsonc only uses `//` at the start of comment lines.
-		// @lore AN1: naive `replace(/\/\/[^\n]*/g, "")` breaks URLs inside string values.
+		// Strip JSONC comment lines only (not `//` inside strings e.g. URLs); zero-dependency approach is safe for opencode.jsonc
 		const stripped = raw
 			.split("\n")
 			.filter((line) => !line.trimStart().startsWith("//"))
@@ -346,13 +314,12 @@ async function inspectOpenCodeTools(
  *
  * Currently checks `gh auth status --json hosts` (GitHub CLI).
  * gh always exits 0; the JSON hosts list shows which accounts are logged in.
- * Never passes --show-token (hard-rule 4).
+ * Never passes --show-token.
  *
  * Returns health:"working" when an account is found for a host.
  * Extensible to other CLIs (stripe, vercel, etc.) by the same evidence-first shape.
  *
- * @lore AN1 hard-rule 4: `gh auth status --json hosts` never returns token values —
- * only host names and account metadata.
+ * @lore: gh auth status --json hosts — never returns token values; host names and account metadata only
  */
 async function inspectInheritedTools(
 	d?: InheritedProbeDeps,
@@ -397,15 +364,7 @@ async function inspectInheritedTools(
 	return tools;
 }
 
-/**
- * The reach cache face. Built by `bootAgentOrchestration` (always)
- * and read by `/api/connections`' inherited projection; refreshed at the boot
- * and redetect moments through composition-root wiring (D4/D5).
- *
- * @lore AU44 batch2: list() now returns ServiceConnectionView[] directly —
- * projectInheritedConnections folded in here so the route no longer needs a
- * separate projection call. The InheritedConnectionFact snapshot is internal.
- */
+/** Reach cache; built by bootAgentOrchestration, refreshed at boot and redetect moments. list() returns ServiceConnectionView[] directly; snapshot is internal. */
 export interface InheritedReach {
 	/**
 	 * Run the four probes concurrently and atomically swap the frozen snapshot.
@@ -417,8 +376,7 @@ export interface InheritedReach {
 	 * The current frozen snapshot, projected to ServiceConnectionView[].
 	 * Empty until the first refresh.
 	 *
-	 * @lore AU44 batch2: projectInheritedConnections logic inlined here so the
-	 * route receives ready-to-serve views, not raw facts.
+
 	 */
 	list(): ServiceConnectionView[];
 }
@@ -452,9 +410,7 @@ export function createInheritedReach(): InheritedReach {
 				inspectCodexTools(deps),
 				inspectOpenCodeTools(deps),
 			]);
-			// Fixed source order — reproduces today's display order for
-			// every real configuration (see architecture.md §4 D6 for the one
-			// documented edge this deliberately does not reproduce).
+
 			snapshot = Object.freeze([
 				...claudeFacts,
 				...environmentFacts,
@@ -462,10 +418,7 @@ export function createInheritedReach(): InheritedReach {
 				...opencodeFacts,
 			]);
 		} catch {
-			// @lore AU36: the probes catch their own errors (degrade-to-[]), so
-			// this branch is belt-and-braces only. If the unexpected still
-			// happens, refresh keeps its contract — never reject — and reports an
-			// honest empty reach, exactly as a fully-failed probe set would.
+			// Belt-and-braces: probes catch their own errors; this branch keeps refresh() never-reject contract
 			snapshot = Object.freeze([] as InheritedConnectionFact[]);
 		}
 	}

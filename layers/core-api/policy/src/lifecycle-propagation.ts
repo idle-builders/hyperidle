@@ -17,13 +17,7 @@ const logger = createLogger({ pkg: "policy.lifecycle-propagation" });
 
 type LifecyclePropagationDeps = Pick<PolicyDeps, "work" | "editTask" | "sendMessage">;
 
-/**
- * §6 rows 4/5: writes through `edit_task` instead of the deleted private
- * `transitionTask` helper. `edit_task` appends its own `changes` row and
- * emits `task.changed` after commit — this function no longer does
- * either. A refusal (a `Problem`, not a throw) becomes
- * `TaskInvalidTransitionError`, the shape every caller here already catches.
- */
+// Write through edit_task; a refusal becomes TaskInvalidTransitionError.
 async function transitionTask(
 	db: HyperIdleDb,
 	eventBus: EventBus,
@@ -57,16 +51,7 @@ const SYSTEM_PROPAGATION_AGENT_ID = "system:propagation";
 /** Terminal task states — tasks in these states count as finished. */
 const TERMINAL_TASK_STATES = new Set(["done", "killed"]);
 
-/**
- * States an ancestor may already be in that mean we should not attempt to
- * transition it via auto-completion. Terminal states are already finished;
- * `review` means it was advanced by a prior propagation pass (needsReview=true)
- * and is awaiting a human verdict — we do not re-trigger it.
- *
- * @lore BB1: `review` is in this set because a second sibling completing would
- * otherwise try `review -> review`, throw InvalidTransitionError, and silently
- * abort the walk. `done` and `killed` are already terminal and need no action.
- */
+// @lore: `review` in SKIP_ANCESTOR_STATES — a second sibling completing would try review→review, throw, and abort the walk
 const SKIP_ANCESTOR_STATES = new Set(["done", "killed", "review"]);
 
 // ─── Session -> Task propagation ─────────────────────────────────────────────
@@ -79,44 +64,10 @@ async function propagateSessionToTask(
 	outcome: string,
 	deps: LifecyclePropagationDeps,
 ): Promise<void> {
-	// F2: Only propagate on completed outcome. crashed and stopped do not trigger transitions.
+	// Only propagate on completed outcome. crashed and stopped do not trigger transitions.
 	if (outcome !== "completed") return;
 
-	// @lore AU26 J2: the "is another run still active on this task" guard is
-	// DELETED, and with it core-api's last policy-side read of `sessions` (an
-	// `agent-orchestration` table).
-	//
-	// What it defended against is NOT unreachable, and the earlier version of
-	// this note claiming "a state no normal path produces" was wrong — the
-	// work package's own analysis (`.pipeline/work/AU26/policy-sibling-guard.md`)
-	// names two reachable paths, both confirmed in code:
-	//   1. `POST /api/sessions` twice on the same task. The route checks that
-	//      the task exists and the agent is runnable and nothing else
-	//      (`core-api/src/routes/sessions-routes.ts`,
-	//      `work/src/session-start-resolver.ts`); `concurrency.ts` caps runs per
-	//      AGENT, not per task, and no DB constraint says one active run per
-	//      task. No screen calls this — it is an API-only path.
-	//   2. `accepted -> hold -> accepted` while the first run request is still
-	//      queued (`shared/src/task-transition.ts` allows both edges). The
-	//      queued request is not re-checked at drain, so a second attempt mints
-	//      a second run.
-	// What is genuinely absent is the ORDINARY path: a run request is only
-	// created when a task enters `accepted` (`work/src/task-state-machine.ts`),
-	// there is no `in_progress -> accepted` edge, and a handoff closes the old
-	// run and opens the new one in ONE transaction (`handoff-protocol.ts:121`),
-	// so the abandoned run is already `done` and never reaches this code
-	// (`endRunForHandoff` takes no event bus, and the later `endSession` is
-	// conditional on the row still being `active`).
-	//
-	// The residue, stated plainly: when two runs ARE live on one task, the
-	// first to finish flips the task `in_progress -> review` while the second is
-	// still working. The second run's end then sees a task that is no longer
-	// `in_progress` and quietly does nothing. That is recoverable —
-	// `review -> in_progress` is a legal move, refused only while the task
-	// still carries an unfinished dependency — and under ETHOS.md a
-	// preemptive wall against a state only a hand-made API call reaches is
-	// not worth a cross-Layer read. Founder-ruled. No replacement
-	// event, no counter, no downward call.
+	// @lore: no "is another run still active" guard — two simultaneous runs recoverable; first flips in_progress→review, second sees non-in_progress and skips
 
 	// DB reads and transition inside the catch so any read error is reported via
 	// propagation_failed (not an unhandled rejection).
@@ -145,13 +96,9 @@ async function propagateSessionToTask(
 		};
 		eventBus.emit(appliedEvent);
 	} catch (err) {
-		// F1: InvalidTransitionError from a race condition — silently skip.
+		// InvalidTransitionError from a race condition — silently skip.
 		if (isInvalidTransitionError(err)) return;
 		// Unexpected error — emit propagation_failed for extension subscribers.
-		// @lore AU44 batch6: the retry/log apparatus is gone (propagation_log
-		// drop, Ruling 2). A failed hop is announced on the bus and stops; the
-		// `propagation_failed` event is the extension point for any team that
-		// wants a notification or retry.
 		const failedEvent: PropagationFailedEvent = {
 			type: "propagation_failed",
 			streamId: taskId,
@@ -168,28 +115,9 @@ async function propagateSessionToTask(
 
 // ─── Task -> Parent propagation (recursive rollup) ───────────────────────────
 
-/**
- * When a task reaches a terminal state (`done` or `killed`), walk its ancestor
- * chain and transition each ancestor that now has all-terminal children.
- *
- * @lore BB1: replaces the single-hop `propagateTaskToBet`. A bet was one fixed
- * level above a task; ancestors are now at any depth. We use `listAncestorIds`
- * (nearest-first) and process the chain in one call — each ancestor transition
- * commits before we read the next level, so the sibling check at level N+1 sees
- * the just-committed `done` state of level N. The `task.changed` event
- * emitted by each `transitionTask` re-triggers this handler for the ancestor;
- * those secondary calls find their own ancestors already done and skip (CAS).
- *
- * `review` is now a legal target from every non-terminal state (BB1). Ancestors
- * that are already in `review` or a terminal state are skipped so a second
- * sibling completing does not re-attempt the same transition. The cascade
- * advances ONE level per call: leaf → middle to `review`, then when middle is
- * marked `done` by a human the next `task.changed(done)` event advances
- * root to `review`. A human verdict between levels is the point of `review`.
- *
- * A root task reaching `review` (`parentTaskId === null`) is what used to be a
- * bet completing. The ship-confirmation thread is created only for root tasks.
- */
+// Walk ancestor chain; transition each ancestor with all-terminal children.
+// Each transition commits before reading the next level (sibling check sees just-committed state).
+// Root task reaching review = bet completing; ship-confirmation thread created only for root tasks.
 async function propagateTaskToParent(
 	db: HyperIdleDb,
 	eventBus: EventBus,
@@ -214,10 +142,6 @@ async function propagateTaskToParent(
 			// Terminal ancestors are already finished; `review` means a prior
 			// propagation pass (or a human) already advanced this ancestor and
 			// it is awaiting a verdict — do not re-trigger.
-			// @lore BB1: `review` is added to the skip set because parent
-			// auto-completion now targets `review`. Without this a second sibling
-			// completing would try `review -> review`, throw InvalidTransitionError,
-			// and silently abort the walk.
 			if (SKIP_ANCESTOR_STATES.has(ancestor.state)) continue;
 
 			// Check: are ALL direct children of this ancestor terminal?
@@ -228,21 +152,10 @@ async function propagateTaskToParent(
 
 			const fromState = ancestor.state;
 
-			// NeedsReview fork: parent goes to `review` only when it asked for
-			// one; otherwise it goes straight to `done`. When the parent goes to
-			// `done`, transitionTask emits task.changed(done) for it, which
-			// re-triggers this handler for the GRANDPARENT — the cascade continues
-			// upward without requiring a human verdict at every level. A task with
-			// needsReview=true is where the chain deliberately stops until a person
-			// acts. Every non-terminal state has a legal edge to both `review` and
-			// `done` (founder ruling, 2026-08-31).
+			// needsReview=true → review (chain stops for human); otherwise done (cascade continues upward).
 			const targetState: TaskState = ancestor.needsReview ? "review" : "done";
 			await transitionTask(db, eventBus, ancestorId, targetState, deps);
 
-			// Root task completing is what used to be a bet completing.
-			// Create the ship-confirmation thread when the root reaches its final
-			// auto-driven state (either `review` or `done`).
-			// @lore BB1: anchored on parentTaskId === null, NOT on depth or a flag.
 			if (ancestor.parentTaskId === null) {
 				await createShipConfirmationThread(
 					db,
@@ -282,7 +195,7 @@ async function propagateTaskToParent(
 		}
 	} catch (err) {
 		if (isInvalidTransitionError(err)) {
-			// F4: Race condition — ancestor was already moved by a human or a
+			// Race condition — ancestor was already moved by a human or a
 			// concurrent propagation. Silently skip; the human intent wins.
 			return;
 		}
@@ -303,28 +216,10 @@ async function propagateTaskToParent(
 
 // ─── Ship-confirmation review thread ─────────────────────────────────────────
 
-/**
- * Post a ship-confirmation review into a ROOT task that just completed.
- *
- * @lore BC3 architecture.md §3.9: every task already owns a real thread
- * (`team`-hosted, written at creation) — this no longer creates a SECOND,
- * task-hosted thread (`hostKind: "task"` left `HOST_KINDS` with BC3; a
- * task's thread is `team`-hosted now). The review posts into the task's
- * own thread instead, the same "resolve, don't recreate" shape B7b's
- * stalled-knowledge-action review uses.
- * @lore BB1: previously anchored on a `bet` row. A root task (`parentTaskId ===
- * null`) is the new bet equivalent.
- * @lore code-review finding, BC3: posts through `sendMessage` (the injected
- * `send_message.run`) instead of a raw `conversation.insertMessage` — the
- * module-link rule (architecture.md §3.9: through the action, never the
- * table). Going through the action is what appends the `changes` row, fires
- * the websocket nudge and bumps `lastActiveAt`; the manual
- * `thread_message_appended` emit above is gone because `send_message.run`
- * already emits it on commit. The `clientKey` is stable (no `Date.now()`
- * suffix) so a duplicate call for the same root task — e.g. a retriggered
- * event — replays the same message instead of posting a second one, the
- * same idempotency shape B7b's stalled-knowledge-action review uses.
- */
+// Post ship-confirmation review into the root task's existing thread (not a new one).
+// @lore: posts through sendMessage (not insertMessage) — gets changes row, WS nudge, lastActiveAt bump
+//
+// @lore: clientKey is stable — duplicate trigger replays same message, not a second one
 async function createShipConfirmationThread(
 	db: HyperIdleDb,
 	eventBus: EventBus,
@@ -363,31 +258,13 @@ async function createShipConfirmationThread(
 
 // ─── Public registration function ─────────────────────────────────────────────
 
-/**
- * Register lifecycle propagation event handlers on the EventBus.
- *
- * Returns an unsubscribe function that tears down all subscriptions.
- *
- * @lore BB1: the three-handler chain (session -> task, task -> bet, bet ->
- * team) is now two handlers. Bets are gone; a root task (`parentTaskId ===
- * null`) is what a bet was. Handler 2 now drives a recursive rollup via
- * `listAncestorIds` and `listChildTasks` rather than a single fixed hop.
- *
- * @lore AU44 batch6: propagation_log table dropped (AU20 Ruling 2 affirmed
- * by founder). The retry heartbeat, `recordPropagationHop`, `retryFailedPropagations`,
- * and `LogSink` are all deleted. A failed hop emits `propagation_failed` on the
- * bus (the extension surface for plugins) and stops; manual repair is one legal
- * click.
- */
+// Register lifecycle propagation handlers. Returns unsubscribe function.
 export function registerLifecyclePropagation(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	deps: LifecyclePropagationDeps,
 ): () => void {
 	// Handler 1: session_ended -> evaluate task transition
-	// @lore AF3 C9b: async handlers fail the EventHandler<T> overload (Promise<void>
-	// vs void). Use sync wrapper with void async IIFE to satisfy the overload.
-	// Explicit event type annotation ensures the on<T> overload resolves correctly.
 	const unsubSessionEnded = eventBus.on("session_ended", (event: SessionEndedEvent) => {
 		void (async () => {
 			if (!event.taskId) return;
@@ -408,9 +285,7 @@ export function registerLifecyclePropagation(
 	// diff-only shape `edit_task` writes) — a title-only edit's `task.changed`
 	// carries no `state` key and no-ops here.
 	const unsubTaskChanged = eventBus.on("task.changed", (event: EventByType<"task.changed">) => {
-		// @lore BB1: a cascade kill is not progress — skip it. The handler still
-		// listens for ordinary `killed` transitions so that killing the last live
-		// child advances its parent, which is the behaviour AC3 promises.
+		// @lore: cascade kill skipped — not progress; ordinary killed transitions still advance the parent
 		if (event.cascade === true) return;
 		const state = event.change.after.state;
 		if (state === "done" || state === "killed") {

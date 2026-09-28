@@ -1,19 +1,3 @@
-/**
- * The never-silent net. The force budget
- * (`MAX_FORCE_RETURNS`) is finite, so a session can still end without
- * calling its required return action. `provisioner.ts` already emits
- * `session_not_returned` on that verdict (existing event); its only
- * subscriber today is the observability dispatcher (logging). This module
- * adds the product-facing reaction: post one plain notice into the
- * session's calling thread, so the person or agent waiting on it is never
- * left silently hanging.
- *
- * @lore BC3 architecture.md §5 B2: relocated from `@hyperidle/conversation`
- * (deleted) to this layer file, and posts through the composed
- * `send_message` action instead of a raw `insertMessage` — the thread
- * module owns the write and the `changes` row that comes with it now.
- */
-
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { EventBus, SessionNotReturnedEvent } from "@hyperidle/event-bus";
@@ -36,7 +20,7 @@ async function reactToSessionNotReturned(
 	// No BAKED calling thread — only a subscription_run session reaches this: it
 	// has no thread host to resolve one from at emit time, and (unlike
 	// `reply`'s own call-time fallback to a direct thread) this reaction has
-	// no agent-facing call to fall back from — no-op, per Decision 5.
+	// no agent-facing call to fall back from — no-op.
 	if (!event.callingThreadId) return;
 
 	await sendMessage(

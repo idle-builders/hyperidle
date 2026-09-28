@@ -9,9 +9,6 @@
  *  E — thread not found (404)
  *
  * Each story uses createMemoryRouter so useParams() resolves correctly.
- *
- * @lore L9: never renders ConversationsReview or ConversationsChat — a single
- * page handles all five states by reading :threadId from the URL.
  */
 
 import type React from "react";

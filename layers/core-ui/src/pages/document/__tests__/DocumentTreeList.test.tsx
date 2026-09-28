@@ -1,6 +1,3 @@
-/**
- * @lore nested-knowledge-items tree-ui — collapse/expand + add-child affordances.
- */
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";

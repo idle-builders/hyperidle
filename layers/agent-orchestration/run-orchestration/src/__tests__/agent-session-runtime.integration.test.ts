@@ -433,11 +433,9 @@ describe("agent session runtime consumer", () => {
 		expect(stored).toMatchObject({
 			status: "failed",
 			sessionId: "failure-session",
-			// Load-bearing: this Service's real composition once silently dropped
-			// this field for months (see run-orchestration-composition.ts's
-			// `sessionLifecyclePort.transitionAgentRunLifecycle` `@lore`) — a
-			// hand-rewritten test double kept forwarding it correctly while
-			// production wrote null. Routing through the real `transitionRun`
+			// Load-bearing: the real composition once silently dropped this field
+			// for months — a hand-rewritten test double kept forwarding it
+			// correctly while production wrote null. Routing through the real `transitionRun`
 			// (test-ports.ts) is what makes this assertion mean anything.
 			errorMessage: "harness crashed",
 		});

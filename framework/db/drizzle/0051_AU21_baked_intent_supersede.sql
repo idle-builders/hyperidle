@@ -1,6 +1,6 @@
--- AU21 Increment 3 Wave 0: (a) an additive `baked_request_json` column
+-- (a) an additive `baked_request_json` column
 -- carrying the emit-time-resolved request a migrated family's resolver
--- produces (architecture.md §6 Decision B / §13 migrations); (b) Decision B‴'s
+-- produces; (b) the
 -- `superseded` status value + its correlation shape. Hand-authored incremental
 -- migration (this repo's migrations are additive SQL files tracked only by
 -- meta/_journal.json — see 0043-0050 — not by a regenerated drizzle-kit

@@ -19,7 +19,6 @@ import {
 
 const NOW_ISO = new Date().toISOString();
 
-// @lore useRecipients reads search_users({status:"active"}), mapping kind onto the picker's own "user"|"agent" vocabulary.
 const MOCK_RECIPIENTS = [
 	makeUserRow("agent-builder", { kind: "ai", name: "Builder Bot", role: "builder" }),
 	makeUserRow("agent-growth", { kind: "ai", name: "Growth Engine", role: "growth" }),

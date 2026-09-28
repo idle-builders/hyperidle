@@ -1,28 +1,4 @@
-/**
- * ReferenceChip — the single shared attachment/reference primitive.
- *
- * ONE chip for EVERY attachment / reference, everywhere: composer drafts,
- * in-message blocks/artifacts/images, document sources, review change-sets.
- * It replaces five divergent legacy chips (DraftAttachmentChip, AttachmentChip,
- * BlockTitleEmbed, CitationChips, ChangeSetEmbedCard) that drifted apart.
- *
- * Two modes:
- *  - `posted` — whole chip = open; NO remove control. A trailing → reveals on hover.
- *  - `draft`  — body = open, trailing ✕ = remove (TWO distinct hit targets).
- *
- * @lore AM1: `label`/`meta` render as React-escaped TEXT content, never HTML
- * (§8 injection guard). The block chip shows the title only — never code.
- *
- * @lore BA6: two extensions, both additive (existing callers are unaffected):
- * - `disabled` makes BOTH buttons genuinely inert (real `disabled` attribute,
- *   not just an omitted handler) — a caller mid-save can freeze the whole chip.
- * - In `draft` mode, the open body renders as a `<button>` only when `onOpen`
- *   is supplied; with no `onOpen` it is a plain non-interactive span. Before
- *   this, draft mode always rendered a focusable "Open <label>" control even
- *   when nobody wired an action for it — a dead control ships wherever a
- *   caller has nothing to open (e.g. a dependency chip that only lists a
- *   reference, never drills into it).
- */
+// @lore: label/meta render as React-escaped TEXT, never HTML — injection guard; block chip shows title only
 
 import type { JSX } from "react";
 import { dsProps } from "./ds-attrs.js";

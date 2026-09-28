@@ -1,12 +1,3 @@
-/**
- * Harness presentation mappers — pure, descriptor-only.
- *
- * Single interpretation point: ALL presence decisions (caps fold, disabled row)
- * flow through these functions. ZERO per-backend type branching in the rendered
- * surface — there is now no exemption at all. The ESLint no-restricted-syntax
- * rule enforces this.
- */
-
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import type { Status } from "../ds";
 
@@ -17,19 +8,12 @@ function getDiscovery(d: HarnessCapabilityDescriptor): DiscoveryWithDisabled {
 	return d.discovery as DiscoveryWithDisabled;
 }
 
-// ── statusLine ────────────────────────────────────────────────────────────────
-
-/**
- * Returns the status dot tone + calm muted status line text for a row.
- * Driven entirely by discovery.state + discovery.disabled — no type switch.
- */
 export function statusLine(d: HarnessCapabilityDescriptor): {
 	tone: Status | "unknown";
 	text: string;
 } {
 	const discovery = getDiscovery(d);
 
-	// Disabled check: ready + disabled → dimmed row
 	if (discovery.disabled === true) {
 		const reasonSuffix = discovery.reason ? ` ${discovery.reason}` : "";
 		return {
@@ -74,33 +58,49 @@ export function statusLine(d: HarnessCapabilityDescriptor): {
 	}
 }
 
-// ── provenCapabilities ────────────────────────────────────────────────────────
+export function hasActionableNextStep(d: HarnessCapabilityDescriptor): boolean {
+	const discovery = getDiscovery(d);
+	if (discovery.disabled === true) return false;
+	if (discovery.state !== "unauthenticated" && discovery.state !== "installed") return false;
+	if (d.authAction.kind === "none") return false;
+	return true;
+}
 
-/**
- * Returns a list of human-readable labels for runtime capabilities that are `true`.
- * Empty when all caps are false (the production shape — session probe not run yet).
- * Design R2: never render a per-cap "No" wall; use capabilitySummary() instead.
- *
- * @lore AU43: `HarnessCapabilityDescriptor.runtime` deleted (HarnessRuntimeCapabilities
- * row 15). Runtime caps were never populated in production (always false). Returns [].
- */
+export function showsToggle(d: HarnessCapabilityDescriptor): boolean {
+	const s = getDiscovery(d).state;
+	return s === "ready" || s === "unauthenticated" || s === "installed";
+}
+
+export function isEnabled(d: HarnessCapabilityDescriptor): boolean {
+	const discovery = getDiscovery(d);
+	return !discovery.disabled;
+}
+
 export function provenCapabilities(_d: HarnessCapabilityDescriptor): readonly string[] {
 	return [];
 }
 
-// ── hasCaps ───────────────────────────────────────────────────────────────────
+export function capabilitySummary(d: HarnessCapabilityDescriptor): string {
+	const caps = provenCapabilities(d);
+	if (caps.length === 0) return "Capabilities confirmed after first run";
+	return caps.join(", ");
+}
 
-/**
- * True when the Capabilities fold should render.
- * Fold is visible when: descriptor has declared models OR any proven runtime cap.
- * Disabled backends hide the fold (nothing runs while disabled).
- */
 export function hasCaps(d: HarnessCapabilityDescriptor): boolean {
-	// Disabled backends hide the fold
 	if (getDiscovery(d).disabled === true) return false;
-	// Models declared → fold visible (shows model rows + caps line)
 	if (d.models.length > 0) return true;
 	// Any proven runtime cap → fold visible
 	if (provenCapabilities(d).length > 0) return true;
 	return false;
+}
+
+/** Joined auth command string — e.g. "claude auth login". Returns
+ * null when the authAction has no command (enter_api_key / kind="none").
+ */
+export function commandText(d: HarnessCapabilityDescriptor): string | null {
+	const action = d.authAction;
+	if (action.kind === "native_cli_login" && "command" in action && Array.isArray(action.command)) {
+		return (action.command as string[]).join(" ");
+	}
+	return null;
 }

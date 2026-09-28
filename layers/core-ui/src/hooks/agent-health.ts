@@ -1,40 +1,11 @@
-/**
- * @lore AU44-b8: Agent health types and derivation functions moved from
- * framework/domain-model to core-ui. The browser is the only consumer — it
- * fetches run rows from agent-orchestration directly (AU26 J4) and derives
- * health itself. Audit rows 6-8: MERGE → core-ui.
- *
- * AgentActiveSession / AgentSessionSummary / AgentPerformanceStats /
- * AgentHealthSignals moved from framework/domain-model/src/agent-profile.ts.
- *
- * HealthSignalInput / computeHealthSignals / deriveHealthLevel / deriveHealthDetail
- * moved from framework/domain-model/src/agent-run-view.ts.
- *
- * AgentHealthLevel stays in framework/domain-model/src/team.ts (it is part of
- * the TeamMember public API). We import it from there.
- */
-
 import type { AgentHealthLevel } from "@hyperidle/domain-model";
 
-// ---------------------------------------------------------------------------
-// Types (moved from framework/domain-model/src/agent-profile.ts)
-// ---------------------------------------------------------------------------
-
-/**
- * Active session info, derived by the profile page from the runs it fetches
- * from `agent-orchestration`. No longer served by core-api.
- */
 export interface AgentActiveSession {
 	readonly sessionId: string;
 	readonly taskId: string;
-	// @lore BB1: betId removed — /work/task/:taskId is now a direct route
 	readonly startedAt: string;
 }
 
-/**
- * One entry in the agent's recent run history, as the profile page assembles it
- * (run rows from `agent-orchestration`, task titles from core-api).
- */
 export interface AgentSessionSummary {
 	readonly sessionId: string;
 	readonly taskId: string;
@@ -44,52 +15,19 @@ export interface AgentSessionSummary {
 	readonly endedAt: string | null;
 }
 
-/**
- * Aggregate performance statistics across all runs for this agent, derived by
- * the profile page.
- */
 export interface AgentPerformanceStats {
 	readonly totalSessions: number;
 	readonly successCount: number;
-	/** 0–1 ratio. 0 when no sessions exist. */
 	readonly successRate: number;
 }
 
-/**
- * Health signals computed on-demand from the agent's session history
- * and pool availability.
- *
- * @lore AB1: Computed per-request, not cached. Health is a live view.
- * @lore AB1 F3/A3: idleDurationMs added per reviewer finding.
- */
 export interface AgentHealthSignals {
-	/** Fraction of sessions in the last 7 days that crashed. 0 when no sessions. */
 	readonly failureRate7d: number;
-	/** True when the most recent completed session outcome is "crashed". */
 	readonly lastSessionCrashed: boolean;
-	/**
-	 * True when the agent has no harnessType preference (any adapter works)
-	 * OR when an adapter matching the agent's harnessType is registered in the pool.
-	 * False (degraded) when the required harness type is not available.
-	 */
 	readonly harnessAvailable: boolean;
-	/**
-	 * Milliseconds since the most recent session ended.
-	 * null when no sessions exist or the most recent session is still active.
-	 */
 	readonly idleDurationMs: number | null;
-	/**
-	 * True when any of the following hold:
-	 *   - failureRate7d > 0.5
-	 *   - lastSessionCrashed = true
-	 *   - harnessAvailable = false
-	 */
 	readonly degraded: boolean;
 }
-
-// ---------------------------------------------------------------------------
-// Derivation functions (moved from framework/domain-model/src/agent-run-view.ts)
-// ---------------------------------------------------------------------------
 
 /** Input shape for `computeHealthSignals` — the three run fields it reads. */
 export interface HealthSignalInput {
@@ -101,27 +39,10 @@ export interface HealthSignalInput {
 	readonly harnessAvailable: boolean;
 }
 
-/**
- * Compute health signals from raw run data.
- *
- * @lore AB1 A5: Per reviewer finding, health signal logic must have dedicated
- * unit tests.
- *
- * @lore AB1 F3/A3: idleDurationMs added per reviewer finding. Computed from
- * MAX(endedAt) of the most recent completed run.
- *
- * @lore AU26 J4: moved out of `core-api/src/routes/agent-profile.ts` so the
- * screens that render these signals can compute them from run rows they fetch
- * from `agent-orchestration` directly. The body is unchanged; only the
- * unused-in-body `harnessType` input field was dropped (it was never read).
- */
 export function computeHealthSignals(input: HealthSignalInput): AgentHealthSignals {
 	const { sessions: sessionRows, harnessAvailable } = input;
 
 	// --- Failure rate and last session crash (last 7 days) ---
-	// @lore AB1: Both failure rate AND lastSessionCrashed are scoped to the
-	// 7-day window. Sessions older than 7 days do not contribute to any degraded
-	// signal.
 	const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).getTime();
 	const recent7d = sessionRows.filter((s) => new Date(s.startedAt).getTime() >= sevenDaysAgo);
 
@@ -132,10 +53,6 @@ export function computeHealthSignals(input: HealthSignalInput): AgentHealthSigna
 	}
 
 	// --- Last session crash (within 7 days only) ---
-	// @lore AB1: "lastSessionCrashed" means the most recent OUTCOME was a crash.
-	// When the most recent crashed session and most recent completed session have
-	// the same startedAt (tie), we treat it as NOT crashed — a tie means neither
-	// is "the" most recent and the agent is not clearly degraded.
 	const recentCrashes = recent7d
 		.filter((s) => s.outcome === "crashed")
 		.map((s) => new Date(s.startedAt).getTime());
@@ -150,8 +67,6 @@ export function computeHealthSignals(input: HealthSignalInput): AgentHealthSigna
 		latestCrashTime !== null && (latestSuccessTime === null || latestCrashTime > latestSuccessTime);
 
 	// --- Idle duration ---
-	// @lore AB1 F3/A3: computed from ALL runs, not just the 7d window, so the
-	// page shows how long since ANY run, not just a recent one.
 	const allSortedByStart = [...sessionRows].sort(
 		(a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime(),
 	);
@@ -174,13 +89,6 @@ export function computeHealthSignals(input: HealthSignalInput): AgentHealthSigna
  * - warning: lastSessionCrashed = true OR harness unavailable
  * - healthy: no degradation
  *
- * @lore AB2: Reuses the same `AgentHealthSignals` `computeHealthSignals`
- * produces, so the team page shows exactly the same health state as the agent
- * profile page.
- *
- * @lore AB2 fix: accepts a partial signal shape so callers can pass
- * `{ failureRate7d, lastSessionCrashed }`. Derived directly from signals — it
- * does NOT rely on the pre-computed `degraded` field, which may be absent.
  */
 export function deriveHealthLevel(
 	signals: Pick<AgentHealthSignals, "failureRate7d" | "lastSessionCrashed"> & {
@@ -197,7 +105,6 @@ export function deriveHealthLevel(
  * Build a human-readable detail string from health signals.
  * Returns "Healthy" when not degraded. Lists active problems otherwise.
  *
- * @lore AB2: Plain text so it can be used as a `title=` attribute on health dots.
  */
 export function deriveHealthDetail(
 	signals: Pick<AgentHealthSignals, "failureRate7d" | "lastSessionCrashed"> & {

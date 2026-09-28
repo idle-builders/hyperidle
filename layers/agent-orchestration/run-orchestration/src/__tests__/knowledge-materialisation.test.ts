@@ -1,5 +1,4 @@
 /**
- * @lore a real parentChain materialises as nested directories, each with its own .fabric/manifest.json entry so writeback finds it, not a duplicate.
  *
  * Same poisoned-ports pattern as context-bundle-consumption.test.ts:
  * `writeContextBundle` must do zero DB reads, so a thrown port call here is
@@ -61,7 +60,6 @@ const BUNDLE: BakedContextBundle = {
 				{ id: "k-mid", title: "Pricing", scopeKind: "team", version: 2 },
 			],
 		},
-		// @lore `slot` (not `role`) routes an item away from the ordinary tree — a "rule" item lands in knowledge/rules/, never nested under parentChain.
 		{
 			id: "k-rule",
 			title: "Deploy checklist",
@@ -117,7 +115,6 @@ describe("writeContextBundle: nested materialisation", () => {
 			),
 		).toBe("leaf body");
 
-		// @lore a "rule"-slotted item lands in knowledge/rules/, not nested under its parentChain — the reader keys off `slot`.
 		const ruleDirEntries = fs.readdirSync(path.join(sandboxPath, "knowledge/rules"));
 		expect(ruleDirEntries).toHaveLength(1);
 		expect(
@@ -161,7 +158,6 @@ describe("writeContextBundle: nested materialisation", () => {
 		expect(manifest.items["k-leaf"]).toMatchObject({ scopeKind: "team" });
 	});
 
-	// @lore a parent with its own body AND selected children writes that body into its own directory's index.md, not a stray sibling file.
 	test("a selected parent with a body AND selected children writes its real body into index.md, with no stray sibling leaf", async () => {
 		sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "tree-materialisation-parent-"));
 		const assembler = createContextAssembler(poisonedPorts());

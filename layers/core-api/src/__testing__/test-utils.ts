@@ -27,10 +27,6 @@ export interface TestAppOptions extends AppOptions {
 	 * A pre-booted orchestration Layer. Omitted → this harness boots one itself
 	 * (when a `db` is present), exactly as production does.
 	 *
-	 * @lore AU31 §3.2: renamed from `agentOrchestration` (now `AppOptions`'s
-	 * own field name for the SEAM'S PORT, a different thing entirely — the
-	 * Layer boot handle vs. the port a caller dials it through) to avoid the
-	 * collision.
 	 */
 	agentOrchestrationBoot?: AgentOrchestrationBoot;
 	/**
@@ -38,13 +34,7 @@ export interface TestAppOptions extends AppOptions {
 	 * Application mounts the MCP bridge: after both Layers' pre-auth
 	 * registrations, BEFORE `stack.auth`.
 	 *
-	 * @lore AU26 B1b x AU27: this hook used to be `AppOptions.registerMcpRoute`,
-	 * a core-api Layer option. Mounting is an APPLICATION decision, so the Layer
-	 * shed it — `create-server.ts` routes the bridge itself. A test harness IS an
-	 * Application, so the hook belongs here instead of being dropped: an MCP
-	 * client authenticates with the 64-char hex session token in the URL, not
-	 * X-API-Key, so the route must sit in front of the auth middleware exactly as
-	 * it does in production.
+	 * @lore: registerPreAuthRoutes: mounting is an application decision (not layer); MCP client uses 64-char hex session token in URL, not X-API-Key; must be pre-auth
 	 */
 	registerPreAuthRoutes?: (apiRouter: Hono) => void;
 }
@@ -52,17 +42,7 @@ export interface TestAppOptions extends AppOptions {
 /**
  * Build the SAME two-app composition production boots, for a test.
  *
- * @lore AU26 B1b: a test harness IS an Application, and this is the second (and
- * last) composition site in the repo — `applications/remote-server/src/create-server.ts`
- * is the first. The two must stay in step: one Hono root, one `/api` router, the
- * core-api middleware stack applied by the Application, core-api's pre-auth
- * routes then orchestration's, then auth + fail-closed, then BOTH Layer apps
- * mounted at `/`. §D-C accepts this duplication explicitly: the real Application
- * duplication is two, not seven — the three `web/scripts/*-test-server.ts`
- * harnesses and `desktop` all go through `createServer`.
  *
- * @lore AU26 B1b (AC9): the canonical JSON 404 lives on the ROOT app. Hono does
- * not apply a parent's `notFound` to a mounted sub-app — only the root's fires.
  */
 export async function createTestApp(options?: TestAppOptions): Promise<Hono> {
 	const t0 = performance.now();

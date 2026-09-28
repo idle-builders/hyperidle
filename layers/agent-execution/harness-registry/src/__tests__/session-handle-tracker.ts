@@ -2,14 +2,6 @@
  * Test-support helper (development world — lives in `__tests__/`,
  * never imported by production code).
  *
- * @lore process-group kill only helps once `stopSession` is actually called.
- * The 2026-09-26 incident's real mechanism was that the test run ENDED before
- * stopSession ran at all — an assertion failure or a vitest timeout unwinds
- * the test body without reaching the `stopSession` call at the bottom, so the
- * real CLI process (and, before the process-group fix, its children) kept
- * running with nothing left supervising it. Process-group kill fixes what
- * happens once stopSession runs; this fixes whether it runs at all.
- *
  * `trackHarnessSessions()` is called once per test file (module scope, before
  * any `test`). It registers a single `afterEach` that stops every handle the
  * test tracked but never stopped itself — timeouts and thrown assertions

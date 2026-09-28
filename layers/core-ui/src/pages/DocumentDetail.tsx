@@ -1,21 +1,3 @@
-/**
- * Document/Detail page — metadata bar, markdown body, discussion, children
- * and backlinks. Edit mode is a React state toggle, NOT a route.
- *
- * @lore BC4: replaces `KnowledgeDetail`. Data comes from one door,
- * `useDocument` (`call("open_document", { id })`), kept live by the
- * `document:<id>` websocket nudge — architecture.md §9. The four hand-copied
- * fixture fallbacks (`LEGACY_DETAILS`/`LEGACY_SOURCES`/`FALLBACK_DETAIL`/the
- * `fixtures/knowledge-data.ts` import) are deleted, not adapted: with
- * nothing returned the page shows an honest not-found state. A production
- * file may never import a development file, and a fixture lookup standing
- * in for a real fetch is exactly that.
- *
- * @lore BC4 §4.1: the three mutating controls (Move, Change scope, Archive)
- * run the same pure `editDocumentInvariants` the server runs first, so a
- * doomed edit greys its control with the invariant's own message before the
- * round trip — never a silent 400 after the fact.
- */
 import type {
 	ActionResult,
 	DocumentRow,
@@ -64,10 +46,6 @@ function formatUsageTime(iso: string | null): string {
 	return iso ? relativeShort(iso) : "never";
 }
 
-/**
- * ChildrenCard — this document's own children (root-first, `position` order,
- * from `DocumentView.children`).
- */
 function ChildrenCard({
 	items,
 	parentId,
@@ -118,7 +96,6 @@ function ChildrenCard({
 	);
 }
 
-/** Backlinks card — siblings (same parent, this document excluded). */
 function BacklinksCard({ siblings }: { siblings: ReadonlyArray<DocumentRow> }): JSX.Element {
 	return (
 		<div
@@ -150,7 +127,6 @@ function BacklinksCard({ siblings }: { siblings: ReadonlyArray<DocumentRow> }): 
 	);
 }
 
-/** Overflow menu ("···") for non-edit-mode actions. */
 function DocumentOverflowMenu({
 	overflowOpen,
 	onToggle,
@@ -257,7 +233,6 @@ function DocumentOverflowMenu({
 	);
 }
 
-/** Save indicator shown in edit mode */
 function SaveIndicator({ saveStatus }: { saveStatus: string }): JSX.Element {
 	return (
 		<span
@@ -382,9 +357,7 @@ function DocumentDetailView({
 	const [editing, setEditing] = useState(false);
 	const [editContent, setEditContent] = useState<string>(document.body);
 
-	// Block-anchored scroll: read hash → parse #block-<id> → scroll to it.
-	// @lore security — blockId is matched by VALUE comparison against
-	// data-block-id attributes, never concatenated into a querySelector string.
+	// @lore: block scroll security — blockId matched by value comparison against data-block-id; never concatenated into querySelector
 	const { hash: routeHash } = useLocation();
 	const hash = overrideHash ?? routeHash;
 	// biome-ignore lint/correctness/useExhaustiveDependencies: savedContent triggers re-scroll after content changes (blocks re-render with new data-block-id attrs)
@@ -426,7 +399,7 @@ function DocumentDetailView({
 	const { user } = useCurrentUser();
 
 	// Self-authored factory items are editable; agent-authored factory
-	// items remain read-only. Client-side UI policy — not a §4.1 invariant.
+	// items remain read-only. Client-side UI policy, not a server invariant.
 	const isSelfAuthoredFactory = isFactory && user !== null && document.updatedBy === user.id;
 	const isReadOnly = isFactory && !isSelfAuthoredFactory;
 
@@ -445,10 +418,6 @@ function DocumentDetailView({
 		onConflict: (problems) => setConflictMessage(problems[0]?.message ?? null),
 	});
 
-	// §4.1 — the same pure invariants the server runs first, so a doomed
-	// control greys itself with the invariant's own reason before the round
-	// trip. A stable non-self probe target is enough: I10/I4 don't depend on
-	// which document is named, only on this document's own slot/`as`.
 	const moveReason = useMemo(() => {
 		const problems = editDocumentInvariants(
 			{ id: document.id, parent: { kind: "document", id: `${document.id}-probe` } },
@@ -705,9 +674,6 @@ function DocumentDetailView({
 						</div>
 					)}
 
-					{/* §4.2 D7 — the version-clash banner: `edit_document` refused the
-					    save because the document changed since it was opened. The
-					    editor text is NEVER overwritten from this — Reload is explicit. */}
 					{conflictMessage !== null && (
 						<div
 							role="alert"
@@ -860,7 +826,6 @@ function DocumentDetailView({
 								<span className="type-small text-[var(--text-primary)] ">Another editor</span>
 							)}
 						</div>
-						{/* §6.7 — the four usage values. Existing aside, no new component. */}
 						<div
 							className="border-width-thin-b type-small flex justify-between items-center py-[6px]  border-[var(--border-subtle)] "
 							data-testid="document-read-count-row"

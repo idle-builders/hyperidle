@@ -1,39 +1,11 @@
-/**
- * Mount injected filesystems into a spawned session's sandbox.
- *
- * Earlier the injected-filesystem list reached here through a seam call and
- * then as a snapshot baked onto the request at emit time, which went stale (a
- * filesystem assigned between emit and drain never reached the sandbox).
- *
- * The tables are agent-orchestration's own now, so the read is live and
- * in-layer — `deps.filesystems`, one
- * injected port backed by `@hyperidle/filesystems`'
- * `listInjectedFilesystemsForProvisioning`. Not a seam: it is this Layer reading
- * this Layer's own tables. `run-orchestration` is itself a Service, so it takes
- * the reader as a port rather than importing that Service (Mechanism C); the
- * Application wires the two together. Exactly the shape E3 gave connections.
- *
- * `resourceRef` arrives ALREADY PARSED (the reader's own mapping mirrors the
- * route's `rowToFilesystem`) — this function must NOT re-`JSON.parse` it.
- */
-
-// Filesystem and MountResult are local to this package — run-orchestration is a sibling
-// service to @hyperidle/filesystems and may not import from it (Mechanism C).
-// Declared in mounter.ts (the mount engine) and imported here.
 import type { Filesystem, MountResult } from "./mounter.js";
 
-/** Structural mounter port — run-orchestration declares the shape it needs (Mechanism C). */
+/** Structural mounter port — run-orchestration declares the shape it needs. */
 export interface FilesystemMounterPort {
 	mount(input: { filesystem: Filesystem; sandboxPath: string }): Promise<MountResult>;
 }
 
-/**
- * One filesystem's provisioning-relevant fields (`resourceRef` already parsed).
- * Structurally identical to `@hyperidle/filesystems`' own
- * `InjectedFilesystemForProvisioning` — the two are wired together by the
- * Application, so this Service names the shape without importing that one
- * (Mechanism C, same idiom as `HeldConnectionForProvisioning` beside it).
- */
+/** Structural mirror of @hyperidle/filesystems' InjectedFilesystemForProvisioning; Application wires them. */
 export interface FilesystemForProvisioning {
 	readonly id: string;
 	readonly teamId: string;
@@ -46,12 +18,7 @@ export interface FilesystemForProvisioning {
 	readonly createdAt: string;
 }
 
-/**
- * The live, in-layer injected-filesystem read one spawn performs.
- * Application-composed from `@hyperidle/filesystems`. Absent means "this
- * deployment mounts no filesystems" (the graceful-degradation posture the
- * optional `mounter` already has), not "read failed".
- */
+/** Application-composed from @hyperidle/filesystems. Absent → no filesystems mounted (not a read failure). */
 export interface InjectedFilesystemsReaderPort {
 	listInjectedForProvisioning(agentId: string): Promise<readonly FilesystemForProvisioning[]>;
 }
@@ -67,9 +34,7 @@ export interface InjectedFilesystemsReaderPort {
  * Mount failures are best-effort: a failed mount logs a warning and is EXCLUDED from
  * the returned list. The session continues without that filesystem (degrade-to-today).
  *
- * @lore AO2 §9: Mount BEFORE context assembly so .git/info/exclude is written before
- * assembly drops scaffolding into the directory. A filesystem-less session → empty list,
- * no mounts, no capture rows — purely non-breaking for existing sessions.
+ * @lore: filesystem-provisioning — mount BEFORE context assembly so .git/info/exclude is written before scaffolding drops; filesystem-less session → empty list
  */
 export async function mountFilesystemsForAgent(params: {
 	readonly agentId: string;
@@ -107,13 +72,13 @@ export async function mountFilesystemsForAgent(params: {
 			} else {
 				// biome-ignore lint/suspicious/noConsole: observability adapter not yet stood up
 				console.warn(
-					`[session-provisioning] AO2 mount failed for filesystem ${filesystem.id}: ${result.error ?? "unknown"}`,
+					`[session-provisioning] mount failed for filesystem ${filesystem.id}: ${result.error ?? "unknown"}`,
 				);
 			}
 		} catch (err) {
 			// biome-ignore lint/suspicious/noConsole: observability adapter not yet stood up
 			console.warn(
-				`[session-provisioning] AO2 mount threw for filesystem ${filesystem.id}: ${err instanceof Error ? err.message : String(err)}`,
+				`[session-provisioning] mount threw for filesystem ${filesystem.id}: ${err instanceof Error ? err.message : String(err)}`,
 			);
 		}
 	}

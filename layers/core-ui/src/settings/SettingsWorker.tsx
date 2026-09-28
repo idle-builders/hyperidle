@@ -1,15 +1,3 @@
-/**
- * S4: Worker settings section.
- *
- * Conditional rendering per architecture-critique Warning 3:
- * - Non-electron (no bridge): show "requires desktop app"
- * - Electron, local mode (backendMode != "shared"): show "requires shared backend mode"
- * - Electron, shared mode: show worker toggle, status, pause/resume
- *
- * Mounted unconditionally in SettingsPage's Backend section; these three guards
- * are the only gate.
- */
-
 import { type JSX, useEffect, useState } from "react";
 import { Button, Input, StatusChip, Toggle } from "../ds";
 
@@ -23,7 +11,6 @@ interface WorkerStatus {
 	modelProviders: string[];
 }
 
-/** The one credential name the desktop bridge accepts. */
 const SHARED_BACKEND_KEY_NAME = "shared_backend_key";
 
 function isElectron(): boolean {
@@ -46,16 +33,6 @@ const DEFAULT_STATUS: WorkerStatus = {
 
 type ConnectionState = "connected" | "connecting" | "disconnected";
 
-/**
- * StatusChip for the worker connection state.
- * Pinned color map (design §1.9):
- * - connected → healthy (green): steady state
- * - connecting → paused (blue/info): transitional, calmer than disconnected
- * - disconnected → behind (amber): attention-needed, device should be connected
- *
- * @lore AG7: color=meaning: disconnected is amber (behind) NOT blue, connecting
- * is blue (paused/in-progress). Never invert: transitional must read calmer than degraded.
- */
 function ConnectionStatusChip({ state }: { state: ConnectionState }): JSX.Element {
 	const status = state === "connected" ? "healthy" : state === "connecting" ? "paused" : "behind";
 	const label =
@@ -63,12 +40,6 @@ function ConnectionStatusChip({ state }: { state: ConnectionState }): JSX.Elemen
 	return <StatusChip status={status} label={label} />;
 }
 
-/**
- * S4: Worker settings section component.
- *
- * Renders the appropriate content based on whether the bridge is available
- * and the current backend mode.
- */
 export function SettingsWorker(): JSX.Element {
 	const electron = isElectron();
 	const sharedMode = isSharedMode();
@@ -155,10 +126,6 @@ export function SettingsWorker(): JSX.Element {
 		setStatus((s) => ({ ...s, paused: false }));
 	};
 
-	// @lore The field is write-only: it calls credentials.set and shows the
-	// {stored, warning} result, and never reads the key back. The worker
-	// reads the same encrypted file directly (main.ts's readCredentialFromStore)
-	// on the next worker:enable, so this is the only place the key is entered.
 	const handleSaveSharedKey = async (): Promise<void> => {
 		const credentials = window.__HYPERIDLE__?.credentials;
 		if (!credentials) return;
@@ -168,7 +135,7 @@ export function SettingsWorker(): JSX.Element {
 
 	return (
 		<div className="flex flex-col gap-[18px]">
-			{/* Shared backend key */}
+			{/* shared backend key */}
 			<div className="flex flex-col gap-[9px]">
 				<div className="flex items-end gap-[9px]">
 					<div className="w-[240px]">
@@ -201,14 +168,14 @@ export function SettingsWorker(): JSX.Element {
 				)}
 			</div>
 
-			{/* Toggle */}
+			{/* toggle */}
 			<Toggle
 				on={status.enabled}
 				label="Register this device as a worker"
 				onChange={() => void handleToggle()}
 			/>
 
-			{/* Max concurrent sessions */}
+			{/* max concurrent sessions */}
 			<div className="flex items-center gap-[12px]">
 				<span className="type-small  text-[var(--text-secondary)]">Max concurrent sessions</span>
 				<div className="w-[88px]">
@@ -223,10 +190,10 @@ export function SettingsWorker(): JSX.Element {
 				</div>
 			</div>
 
-			{/* Status section — only shown when enabled */}
+			{/* status section — only shown when enabled */}
 			{status.enabled && (
 				<div className="border-width-thin-t flex flex-col gap-[12px]  border-[var(--border-subtle)] pt-[12px]">
-					{/* Connection status */}
+					{/* connection status */}
 					<div className="flex items-center gap-[12px]">
 						<span className="type-small  text-[var(--text-secondary)]">Status</span>
 						<ConnectionStatusChip
@@ -236,7 +203,7 @@ export function SettingsWorker(): JSX.Element {
 						/>
 					</div>
 
-					{/* Active sessions */}
+					{/* active sessions */}
 					<div className="flex items-center gap-[12px]">
 						<span className="type-small  text-[var(--text-secondary)]">Active sessions</span>
 						<span className="type-data   text-[var(--text-primary)]">
@@ -244,7 +211,7 @@ export function SettingsWorker(): JSX.Element {
 						</span>
 					</div>
 
-					{/* Pause / Resume */}
+					{/* pause / resume */}
 					<div className="flex items-center gap-[9px]">
 						{status.paused ? (
 							<Button

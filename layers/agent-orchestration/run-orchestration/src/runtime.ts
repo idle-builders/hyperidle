@@ -130,13 +130,6 @@ function parseCorrelation(request: AgentSessionRequest): AgentSessionSourceCorre
 	return parsed;
 }
 
-/**
- * The `task_run`/`subscription_run`/
- * baked entity+knowledge bundle, carried on
- * `request.payloadJson` the same way Increment 11's `transcript`/`modelId`
- * ride it (`session-requests/src/service.ts`'s `createFromBakedRequestInternal`).
- */
-/** @lore BA2: the resume a `review_resume` request carries. Absent for every other kind. */
 function parseBakedResume(request: AgentSessionRequest): BakedSessionResumeRequest | undefined {
 	if (!request.payloadJson) return undefined;
 	const payload = JSON.parse(request.payloadJson) as { resume?: BakedSessionResumeRequest };
@@ -150,22 +143,7 @@ function parseBakedContextBundle(request: AgentSessionRequest): BakedContextBund
 	return (payload as { contextBundle?: BakedContextBundle }).contextBundle;
 }
 
-/**
- * Every intent kind's baked
- * agent-runnability snapshot, carried on `request.payloadJson` the same way
- * `contextBundle`/`transcript`/`modelId` ride it
- * (`session-requests/src/service.ts`'s `createFromBakedRequestInternal`).
- * Feeds `admitSession`'s Phase 1 (see `provisioner.ts`'s Wave E note) — a
- * missing bake is a hard provisioning failure there, not a silent allow.
- */
-/**
- * @lore AU27 Increment 6 (Decision 4) exported this so `start-runtime.ts`'s
- * drain could read the target agent's baked `modelId`/`modelProvider` override
- * up front. AU26 G1 moved those two columns into `agent_run_config`, so the
- * drain reads them LIVE through `ports.agentRunConfig` instead and this parse
- * is module-internal again — the bake it reads now carries only the four
- * genuinely-core fields (`kind`/`status`/`role`/`teamId`).
- */
+/** Baked agent config carries only kind/status/role/teamId; model override is read live from agent_run_config. */
 function parseBakedAgentConfig(request: AgentSessionRequest): BakedAgentRunnableConfig | undefined {
 	if (!request.payloadJson) return undefined;
 	const payload = JSON.parse(request.payloadJson) as unknown;
@@ -173,13 +151,6 @@ function parseBakedAgentConfig(request: AgentSessionRequest): BakedAgentRunnable
 	return (payload as { agentConfig?: BakedAgentRunnableConfig }).agentConfig;
 }
 
-/**
- * The session's calling thread id, carried on `request.payloadJson`
- * the same way Increment 11's `transcript`/`modelId` ride it
- * (`session-requests/src/service.ts`'s `createFromBakedRequestInternal`).
- * Absent only for `subscription_run`, which has no thread host to resolve one
- * from.
- */
 function parseBakedCallingThreadId(request: AgentSessionRequest): string | undefined {
 	if (!request.payloadJson) return undefined;
 	const payload = JSON.parse(request.payloadJson) as unknown;
@@ -210,13 +181,11 @@ function parseBakedTranscript(
 }
 
 /**
- * Relocated VERBATIM from
- * `dispatch/src/service.ts`'s `mapTranscriptToMessages` (the row -> generic
- * chat-message mapping is pure formatting, which belongs orchestration-side
- * under H2, not core-side). Generalized: `assistantAgentId` becomes
- * `agentId` — the session's own running agent, not an assistant-specific
- * concept — so a future non-assistant kind that bakes a transcript gets the
- * same generic mapping with no new branch.
+ * Maps transcript rows to generic chat messages. The mapping is pure
+ * formatting (orchestration-side, not core-side). Generalized:
+ * `assistantAgentId` becomes `agentId` — the session's own running agent,
+ * not an assistant-specific concept — so a future non-assistant kind that
+ * bakes a transcript gets the same generic mapping with no new branch.
  */
 function mapTranscriptToMessages(
 	rows: readonly BakedTranscriptRow[],
@@ -269,12 +238,8 @@ async function ensureClaimedRequest(
 /**
  * A PRE-admission failure in
  * `runClaimedRequest` is the real "provisioning failed" gap — a deactivated
- * agent (`TargetAgentNotRunnableError`, `provisioner.ts`'s Phase 1 status
- * check) or any other hard infra failure building the session, before it
- * ever started running. Reported back via the SAME pre-handoff
- * `agent_run_admission_failed` channel `failOrRelease` uses (§6 B4) — no
- * bespoke race mechanism. Extracted to keep `runClaimedRequest`'s catch
- * block under the complexity ceiling.
+ * agent or any other hard infra failure before the session started running.
+ * Reported via the pre-handoff `agent_run_admission_failed` channel.
  */
 async function reportPreAdmissionProvisioningFailure(
 	deps: RuntimeProvisionDeps,
@@ -295,12 +260,7 @@ async function reportPreAdmissionProvisioningFailure(
 	) {
 		return;
 	}
-	// @lore AU29 §2.4: inlined from the framework's (now-deleted)
-	// `reportAdmissionFailure` — the typed construction+emit of the
-	// pre-handoff `agent_run_admission_failed` channel, at both real call
-	// sites (this one and `session-requests`'s `failOrRelease`). The two
-	// services deliberately do not import each other; they now share the
-	// event *type* (`events.ts`, now in `@hyperidle/domain-model`), not an emit helper.
+	// Two services share the event type, not an emit helper (they don't import each other).
 	deps.eventBus.emit({
 		type: "agent_run_admission_failed",
 		streamId: `${correlatedIntent.kind}:${correlatedIntent.sourceId}`,
@@ -375,19 +335,7 @@ async function runClaimedRequest(
 					} catch {
 						// best-effort last-resort teardown
 					}
-					// @lore AU9 R1/W1: detached-runtime failure is post-admission — the
-					// single terminal writer handles it in ONE transition (CAS + inbox
-					// insert). A prior markRequestTerminal-then-transitionAgentRunLifecycle
-					// double-write left the second CAS matching zero rows (status already
-					// "failed"), losing the inbox row and the lifecycle publish entirely.
-					//
-					// @lore This transition can itself fail, and it is the last thing in a
-					// DETACHED chain — a throw here becomes an unhandled rejection with no
-					// caller to see it. The common cause is benign: the CAS matches no row
-					// because the request already reached a terminal state, so there is
-					// nothing left to transition. It surfaced as "Unknown agent request"
-					// noise on the harness lane, where a file whose tests all passed was
-					// still reported as failed.
+					// @lore: detached-runtime failure — single terminal writer for ONE transition (CAS + inbox); double-write loses inbox row when second CAS matches zero rows
 					try {
 						await ports.sessionLifecycle.transitionAgentRunLifecycle(deps.db, deps.eventBus, {
 							requestId: request.id,
@@ -449,19 +397,13 @@ async function runClaimedRequest(
 		// `reserveOrAdoptSession` inserts the session row BEFORE `admitSession`
 		// runs, so a pre-admission throw leaves an `active` session behind with
 		// no runtime attached to it. Nothing else ends it: the detached-runtime
-		// `crashSession` below only fires once `admitted` is set. The result was
-		// a product showing an agent working forever on work that had already
-		// failed, and a phantom `active` row counting against the agent's own
-		// concurrency limit — so the NEXT run could be refused by a session that
-		// never started.
+		// `crashSession` below only fires once `admitted` is set. Without this the
+		// agent shows as working forever on failed work, and the phantom `active`
+		// row counts against its concurrency limit, refusing the next run.
 		if (!admitted) {
 			await endReservedSessionAfterFailedAdmission(deps.db, request.id);
 		}
-		// @lore AU9 R1: this catch spans both preconditions of the single terminal
-		// writer. When `admitted` is set, `markRequestRunning` already succeeded —
-		// post-admission (running+sessionId). When it is still null, the failure
-		// happened before admission — pre-admission (claimed+claimToken); the
-		// `running`-only CAS would silently match zero rows for this branch.
+		// @lore: catch precondition — admitted=set → post-admission CAS (running+sessionId); null → pre-admission CAS (claimToken); running CAS zero rows before it
 		await ports.sessionLifecycle.transitionAgentRunLifecycle(deps.db, deps.eventBus, {
 			requestId: request.id,
 			state: "failed",
@@ -496,8 +438,6 @@ async function consumeAgentSessionRequest(
 	const transcript = rawTranscript
 		? mapTranscriptToMessages(rawTranscript, claimedRequest.agentId)
 		: undefined;
-	// @lore BA2: a review_resume request carries the resume on its payload. Everything a
-	// resume needs was baked when the human decided, so nothing is read here.
 	const resume = parseBakedResume(claimedRequest);
 	const provisionParams: RunContextBundle = {
 		taskId: claimedRequest.taskId,

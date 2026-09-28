@@ -23,7 +23,6 @@ describe("scopeKindToLabel: the 3-value contract", () => {
 		expect(scopeKindToLabel("factory")).toBe("Shared");
 	});
 
-	// @lore "product" is not a special-cased scope value — it falls through to the same unknown-kind fallback as any other string.
 	it('scopeKindToLabel("product") falls back to "Shared" (retired scope value)', () => {
 		expect(scopeKindToLabel("product")).toBe("Shared");
 	});

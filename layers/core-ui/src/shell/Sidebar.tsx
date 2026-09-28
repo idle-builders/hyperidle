@@ -1,40 +1,3 @@
-/**
- * @lore sidebar-system: Sidebar is the persistent context-switching shell. Desktop uses
- * a 276px fixed column; mobile uses the same composition in a 300px drawer.
- * Search and Assistant are grouped in the brand row, four stable destinations
- * sit above a domain-owned navigator, and Settings stays in the footer.
- *
- * @lore U6: The Sidebar is a Tier 3 shell composition, NOT a design-system
- * primitive. Sub-items use raw <li><button> elements (not NavItem from
- * @hyperidle/design-system) because NavItem's interface does not expose the
- * data-thread-id / data-team-id attributes needed for E2E selectors.
- *
- * @lore AQ-015: destination, tool, list, and utility controls use 44px targets
- * on mobile and compact to 32–36px only in the fixed desktop column.
- *
- * @lore visual-parity-audit / testing-library quirk: The "conversations"
- * section header previously hid its visible label to avoid getByText clashing
- * with "No recent conversations". After the visual-parity fix, ALL three
- * section headers render visible text. Tests must use
- * getByRole("button", { name: /conversations/i }) — which still works — or
- * they can use getByText now that the label is always visible. The "No recent
- * conversations" empty state still uses getByText because
- * screen.getByText(/conversations/i) would find BOTH items if used naively.
- * Tests updated to use exact-match queries for the header vs substring for the
- * empty state, OR getByRole for the header button.
- *
- * @lore sidebar-system: Settings changes Main but never replaces the active domain
- * navigator. Domain-specific navigator richness is intentionally deferred to
- * registered follow-up work packages; these provisional lists preserve current
- * data and behavior without creating new sorting/grouping contracts here.
- *
- * @lore AD9: The fast-nav renders a custom <ul><li> list (not ItemList+Row) so
- * that each item can carry data-thread-id / data-team-id / data-document-id
- * attrs required by E2E selectors and unit tests. Row as="li" does not support
- * arbitrary data-* props. The fast-nav items replicate Row's selected-state
- * class (bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)]) directly.
- */
-
 // hearth-internal-padding
 import type { JSX } from "react";
 import { Link } from "react-router-dom";
@@ -42,12 +5,6 @@ import { Button, LiveDot, Row, Tag } from "../ds";
 import type { ViewId } from "./shell-types";
 import { VIEW_ICONS, VIEW_IDS } from "./shell-types";
 
-/**
- * @lore UI-080: Canonical href for each primary nav view.
- * The work href is /work (not /work/team/:id even in the 1-team case)
- * because WorkOverview already redirects when there is exactly one team,
- * and the Link-based navigation must produce a stable, bookmarkable URL.
- */
 const VIEW_HREFS: Record<ViewId, string> = {
 	conversations: "/conversations",
 	work: "/work",
@@ -133,52 +90,34 @@ export interface SidebarProps {
 	notificationPopoverOpen?: boolean;
 
 	/**
-	 * UI-011/012/013: When true, the fast-nav sub-list for the corresponding
-	 * section is still loading. Suppresses the "No X yet" empty-state message so
-	 * it doesn't flash during the initial fetch or after a 429/retry.
+	 * When true, the fast-nav sub-list for the corresponding section is still
+	 * loading. Suppresses the "No X yet" empty-state message so it doesn't flash
+	 * during the initial fetch or after a 429/retry.
 	 */
 	threadsLoading?: boolean;
 	teamsLoading?: boolean;
 	documentsLoading?: boolean;
 
 	/**
-	 * UI-011/012/013: When true, the API call for the corresponding section
-	 * failed. Renders an honest "Couldn't load" message instead of the misleading
-	 * "No X yet" empty state (which implies success with zero items).
+	 * When true, the API call for the corresponding section failed. Renders an
+	 * honest "Couldn't load" message instead of the misleading "No X yet" empty
+	 * state (which implies success with zero items).
 	 */
 	threadsError?: boolean;
 	teamsError?: boolean;
 	documentsError?: boolean;
 
-	/**
-	 * When true, the sidebar is rendered inside the mobile drawer (300px overlay).
-	 * Forces nav labels visible and stacks the nav items vertically regardless of
-	 * viewport width — the drawer itself is the breakpoint gate, not CSS media queries.
-	 *
-	 * @lore mobile-drawer-labels: nav items use `hidden min-[769px]:inline` for labels
-	 * so they collapse at narrow viewports. In the drawer the viewport width stays 375px
-	 * even though the drawer panel is wide enough for labels. Passing drawerMode={true}
-	 * overrides the breakpoint check so the drawer shows labeled items.
-	 */
+	/** drawerMode — labels use hidden min-[769px]:inline; at 375px mobile viewport they'd hide inside the drawer; drawerMode overrides the breakpoint gate */
 	drawerMode?: boolean;
 }
 
-// ---------------------------------------------------------------------------
-// W3 AC-3: Knowledge scope sub-items removed.
-// Scopes are now handled as inline pills on the DocumentList page.
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
-// Section header button (top-level selectable item)
-// Active icon → --text-primary (not accent green); inactive → --text-tertiary.
-// Uniform hover: accent-tinted color-mix (matches fast-nav Row hover).
-// ---------------------------------------------------------------------------
+// SectionHeader: active icon → --text-primary; inactive → --text-tertiary; hover uses accent-tinted color-mix
 
 interface SectionHeaderProps {
 	view: ViewId;
 	activeView: ViewId | "";
 	onViewChange: (view: ViewId) => void;
-	/** Destination href for the section Link (UI-080: nav items must be real links). */
+	/** Destination href for the section Link — nav items must be real links. */
 	href: string;
 	/** Optional badge count rendered to the right of the label */
 	badgeCount?: number;
@@ -299,15 +238,6 @@ function SectionHeader({
 	const isActive = view === activeView;
 	const { label, icon } = VIEW_ICONS[view];
 
-	/*
-	 * @lore UI-080: SectionHeader is a real navigable link, not a button.
-	 * Right-click → open in new tab, screen readers see a link destination.
-	 * onViewChange is called for side effects only (e.g. closing the settings
-	 * panel); Link's `to` prop handles client-side navigation.
-	 *
-	 * Test note (was @lore visual-parity-audit): tests must now query
-	 * getByRole("link", { name: /conversations/i }) — role changed from "button".
-	 */
 	return (
 		<Link
 			to={href}
@@ -329,8 +259,7 @@ function SectionHeader({
 					: "text-[var(--text-secondary)]  hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))]",
 			].join(" ")}`}
 		>
-			{/* Active icon → --text-primary (founder call: green clashed with
-			    elevated surface); inactive → --text-tertiary for quiet/active contrast. */}
+			{/* active → --text-primary; inactive → --text-tertiary */}
 			<span
 				className={
 					isActive
@@ -365,12 +294,6 @@ function SectionHeader({
 	);
 }
 
-// ---------------------------------------------------------------------------
-// Assistant icon button — robot glyph
-// @lore AD9: Assistant moved to TOP row (next to search field) per SidebarV2
-// design (founder /human-design-review). The button is still aria-accessible.
-// ---------------------------------------------------------------------------
-
 function AssistantIconButton({
 	open,
 	onClick,
@@ -378,13 +301,6 @@ function AssistantIconButton({
 	open: boolean;
 	onClick: () => void;
 }): JSX.Element {
-	// Today's look was a square (not pill) icon tile with per-state fill —
-	// Button's shared base always paints the pill radius, and the maintainer
-	// accepted that as a small redesign rather than adding a square variant.
-	// Toggle look comes entirely from Button's own variant/tone (no inline style):
-	// open → secondary (bg-surface-elevated/border/text-primary, the same
-	// "pressed" look every other sidebar toggle icon uses); closed → ghost
-	// tone="neutral" (transparent, text-secondary).
 	return (
 		<Button
 			variant={open ? "secondary" : "ghost"}
@@ -395,8 +311,7 @@ function AssistantIconButton({
 			aria-label="Assistant"
 			aria-expanded={open}
 		>
-			{/* Robot glyph. Antenna + side ears + rounded body with eyes knocked
-			    out via fillRule="evenodd" so holes show button bg in both states. */}
+			{/* robot glyph; fillRule="evenodd" knocks out eye holes */}
 			<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
 				{/* antenna */}
 				<path d="M7.25 1a.75.75 0 011.5 0v1.25h-1.5V1z" />
@@ -456,10 +371,6 @@ function SearchAssistantTools({
 	);
 }
 
-// ---------------------------------------------------------------------------
-// Settings footer — a persistent icon-only utility pinned at the bottom.
-// ---------------------------------------------------------------------------
-
 function SettingsFooter({
 	active,
 	onClick,
@@ -473,10 +384,7 @@ function SettingsFooter({
 			data-sidebar-bottom
 			aria-label="App utilities"
 		>
-			{/* Today's look used r-subtle and a shadow on the active state — both
-			    dropped for Button's own chrome; the maintainer accepted the pill
-			    radius as a small redesign rather than adding a square variant.
-			    Active → secondary (bg-surface-elevated/border/text-primary);
+			{/* Active → secondary (bg-surface-elevated/border/text-primary);
 			    inactive → ghost tone="neutral" (transparent, text-secondary),
 			    matching every other sidebar toggle icon. */}
 			<Button
@@ -511,22 +419,10 @@ function SettingsFooter({
 	);
 }
 
-// ---------------------------------------------------------------------------
-// FastNavItem — custom list item with section-specific data attrs.
-//
-// @lore AD9: Uses a plain <li><div role="button"> pattern instead of Row as="li"
-// so each item carries data-thread-id / data-team-id / data-document-id for
-// E2E selectors. Row does not accept arbitrary data-* props. Selected state
-// uses the shell's shared accent-primary-dim row treatment.
-//
-// @lore AD9: aria-current="page" on the selected item satisfies the
-// "active sub-item has aria-current" accessibility test.
-// ---------------------------------------------------------------------------
-
 interface FastNavItemProps {
 	label: string;
 	selected: boolean;
-	/** Destination href — makes the item a real link (UI-080). */
+	/** Destination href — makes the item a real link. */
 	href: string;
 	onClick?: () => void;
 	/** Optional data attrs for section-specific E2E / unit selectors */
@@ -546,14 +442,6 @@ function FastNavItem({
 	"data-document-id": dataDocumentId,
 	"data-testid": dataTestId,
 }: FastNavItemProps): JSX.Element {
-	// @lore AD9: <li data-thread-id aria-current> wraps <Link> so:
-	// - [data-thread-id] queries find the <li> (for E2E selectors and unit tests)
-	// - [aria-current="page"] is on the <li> for semantic selected state
-	// - firstItem.querySelector("a") finds the inner link for click events
-	// Both the <li> selector and the <a> click target work independently.
-	//
-	// @lore UI-080: Changed from <button> to <Link> so items are real navigable
-	// links — right-click → open in new tab, proper link semantics.
 	return (
 		<li
 			data-thread-id={dataThreadId}
@@ -573,10 +461,6 @@ function FastNavItem({
 					"flex h-[44px] w-full items-center rounded-[var(--r-subtle)] px-[9px] min-[1025px]:h-[34px]",
 					"  text-[var(--text-primary)] truncate",
 					"  ",
-					// @lore UI-083: -outline-offset-1 matches SectionHeader + NotificationButton.
-					// Without it the 1px outline renders at the element's exact border edge and
-					// bleeds into the row below. All other sidebar interactive elements already
-					// use this inset; FastNavItem was the only one missing it.
 					"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus-visible:-outline-offset-1",
 					!selected
 						? "hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))]"
@@ -590,10 +474,6 @@ function FastNavItem({
 		</li>
 	);
 }
-
-// ---------------------------------------------------------------------------
-// Sidebar
-// ---------------------------------------------------------------------------
 
 export function Sidebar({
 	activeView,
@@ -623,13 +503,7 @@ export function Sidebar({
 	documentsError,
 	drawerMode,
 }: SidebarProps): JSX.Element {
-	// Cap threads at 5 for the fast-nav head
 	const visibleThreads = threads.slice(0, 5);
-
-	// ONE shared fast-nav list — content swaps based on activeView.
-	// threads → Conversations; teams → Work (suppressed for 1 team);
-	// documentItems → Knowledge.
-	// Only show teams sub-list when there are 2+ teams (same as old sidebar).
 
 	const fastNavEmpty: Record<ViewId, string> = {
 		conversations: "No threads yet",
@@ -643,9 +517,9 @@ export function Sidebar({
 	function renderFastNavItems(): JSX.Element | null {
 		if (activeView === "conversations") {
 			if (visibleThreads.length === 0) {
-				// UI-011: suppress empty message while initial fetch is in flight
+				// suppress empty message while initial fetch is in flight
 				if (threadsLoading) return null;
-				// UI-011: honest error state — don't claim "No threads yet" when the API failed
+				// honest error state — don't claim "No threads yet" when the API failed
 				if (threadsError) {
 					return (
 						<p className="type-small px-[24px] py-[12px]  text-[var(--text-tertiary)]">
@@ -677,17 +551,15 @@ export function Sidebar({
 		}
 
 		if (activeView === "work") {
-			// Suppress the sub-list for a single team — the Work view
-			// short-circuits straight to that team's page, so a one-row list is
-			// noise. Suppressed is not empty: render nothing, not "No teams yet".
+			// 1 team: suppress sub-list — WorkOverview short-circuits straight to that team's page
 			if (teams.length === 1) {
 				return null;
 			}
 			const visibleTeams = teams;
 			if (visibleTeams.length === 0) {
-				// UI-012: suppress empty message while initial fetch is in flight
+				// suppress empty message while initial fetch is in flight
 				if (teamsLoading) return null;
-				// UI-012: honest error state — don't claim "No teams yet" when the API failed
+				// honest error state — don't claim "No teams yet" when the API failed
 				if (teamsError) {
 					return (
 						<p className="type-small px-[24px] py-[12px]  text-[var(--text-tertiary)]">
@@ -721,9 +593,9 @@ export function Sidebar({
 		if (activeView === "knowledge") {
 			const visibleDocuments = documentItems.slice(0, 5);
 			if (visibleDocuments.length === 0) {
-				// UI-013: suppress empty message while initial fetch is in flight
+				// suppress empty message while initial fetch is in flight
 				if (documentsLoading) return null;
-				// UI-013: honest error state — don't claim "No documents yet" when the API failed
+				// honest error state — don't claim "No documents yet" when the API failed
 				if (documentsError) {
 					return (
 						<p className="type-small px-[24px] py-[12px]  text-[var(--text-tertiary)]">
@@ -789,7 +661,7 @@ export function Sidebar({
 					open={notificationPopoverOpen}
 					drawerMode={drawerMode}
 				/>
-				{/* @lore FR-18: suppress domain-section highlight at /settings — no domain is "active". */}
+				{/* activeView="" at /settings — no domain section is active */}
 				{VIEW_IDS.map((view) => (
 					<SectionHeader
 						key={view}

@@ -3,8 +3,7 @@
 -- The demo world seeded `agent_run_config.harness_type = 'claude'`, but the
 -- Claude Code adapter registers as 'claude-code'. Selection compares the
 -- string for exact equality, so those agents could never be selected: every
--- run failed at admission with NoEligibleHarnessError, and — until the
--- diagnosis change that ships alongside this — recorded no reason at all.
+-- run failed at admission with NoEligibleHarnessError.
 --
 -- Fixing the seed only helps databases created after it. Any database already
 -- carrying the value stays broken, so the rows are repaired here.

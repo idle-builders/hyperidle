@@ -16,7 +16,6 @@
  * test exercised — so "tidying" them into one variable would have shipped
  * green.
  *
- * @lore the accessor takes an `EventBus`, not just a db handle — a transition, not a setter, so the rowcount and its gated emit stay in one package.
  */
 
 import { type HyperIdleDb, sessions, tasks, teams, threads, users } from "@hyperidle/db";

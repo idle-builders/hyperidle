@@ -49,7 +49,6 @@ async function recoverRunningRequests(
 	}
 }
 
-/** @lore AU9: every recovery/reap primitive needs a bus; boot always constructs one when absent. */
 function resolveEventBus(deps: RuntimeDeps): EventBus {
 	return deps.eventBus ?? new EventBus();
 }
@@ -104,40 +103,13 @@ async function drainAgentSessionRequests(deps: RuntimeDeps): Promise<number> {
 			consumed += 1;
 		} catch (error) {
 			const failure = classifyAdmissionFailure(error);
-			// @lore AU9 R1: executeAgentRunRequest (via runClaimedRequest) already
-			// terminalizes the request itself before rethrowing — for
-			// ConcurrencyLimitError (AU21 Increment 14a: CostCapExceededError no
-			// longer exists — cost is hard-deleted) it releases the claim back
-			// to pending (retryable), for every other error it terminalizes to
-			// failed through the single terminal writer. Calling
-			// transitionAgentRunLifecycle again here would either double-terminalize
-			// (CAS finds zero rows — a thrown "Unknown agent request", the exact
-			// silent-no-op-turned-crash class R1 exists to kill) or incorrectly
-			// terminalize a legitimately-retryable released claim.
-			// @lore ship-blocker fix: a `ConcurrencyLimitError` release puts the
-			// request back to `pending` with NO delay — `claimSessionRequest`'s
-			// `{next:true}` candidate query has no "not before" gate, so it is
-			// reclaimable in the SAME instant it was released. When the blocking
-			// slot never frees on its own (e.g. a permanently-`active` session
-			// with no live runtime behind it — the demo world seeds exactly one),
-			// looping straight back to `claimSessionRequest` turned this `for (;;)`
-			// into an unbounded synchronous claim→fail→release cycle: 100%+ CPU,
-			// no macrotask boundary for the event loop to hand back to (not even
-			// health checks got served), verified against the packaged desktop
-			// app. `wake()` (this function's caller) already reruns every 1s via
-			// `setInterval` — returning here instead of looping defers the retry
-			// to that natural cadence instead of busy-spinning within one call.
-			// Every OTHER failure kind still terminalizes the request to `failed`
-			// (see the lore above), so it will not be reclaimed again at all —
-			// only `CONCURRENCY_LIMIT` needs this.
+			// @lore: catch block — runClaimedRequest terminalizes before rethrowing; ConcurrencyLimitError → pending, others → failed; retrying would double-terminalize
+			// @lore: ConcurrencyLimitError early-return — released claim reclaimable immediately; looping back busy-spins at 100% CPU; return lets wake() retry after 1s
 			if (failure.code === "CONCURRENCY_LIMIT") return consumed;
 		}
 	}
 }
 
-// @lore AU21 Increment 14a: "COST_CAP_EXCEEDED" is HARD-DELETED — the
-// cost-cap gate that used to throw CostCapExceededError no longer exists,
-// no replacement admission-failure code.
 type AgentAdmissionFailureCode =
 	| "CONCURRENCY_LIMIT"
 	| "MISSING_CREDENTIAL"
@@ -162,14 +134,6 @@ function classifyAdmissionFailure(error: unknown): {
 	}
 }
 
-/**
- * @lore AU9 Shutdown callers: the process disposer stores `shutdown` on
- * every still-running correlated request before it aborts them — through
- * `requestAgentTermination` then the single terminal writer, never a bare abort.
- * A recovering boot (or this same process's own recovery sweep next start) then
- * disposes each to `failed/RUNTIME_LOST` via the durable reason, not a generic
- * guess. Best-effort: process teardown does not block on this.
- */
 async function markRunningAgentSessionRequestsForShutdown(
 	db: HyperIdleDb,
 	ports: RuntimePorts,
@@ -201,12 +165,7 @@ function disposeAll(disposers: Array<() => void>): unknown {
 /**
  * Opaque composition-root seam. Domain code gets no create/execute callback.
  *
- * @lore AU9 Boot wiring: an awaited first sweep runs before anything else observes
- * readiness — recover running-request custody (adopt-or-RUNTIME_LOST), recover
- * durably-stored termination causes that never reached teardown (crash after
- * HTTP 202: shutdown/user causes), then reap eligible terminal rows.
- * Only after that sweep does the intent/request drain start, scheduled every 1s,
- * with the reaper additionally scheduled every 6h.
+ * @lore: boot wiring — awaited first sweep before readiness: recover running-request custody, stored termination causes, reap terminal rows; drain starts after
  */
 interface AgentLayerHandle {
 	readonly stop: () => void;
@@ -220,9 +179,7 @@ async function bootAgentLayer(deps: RuntimeDeps): Promise<AgentLayerHandle> {
 	await recoverRunningRequests(deps.db, eventBus, deps.ports);
 	await deps.ports.sessionLifecycle.recoverRequestedTerminations(deps.db, eventBus);
 	await deps.ports.sessionRequests.reapExpired(deps.db);
-	// @lore The service lane reuses a fixture DB after RuntimeHandle.dispose().
-	// Stop timer/event triggers synchronously, then let the already-async dispose
-	// path join the observed wake before that DB can be checked in and truncated.
+	// @lore: dispose — service lane reuses fixture DB after dispose(); stop triggers synchronously first, then join the async wake path before DB is truncated
 	let stopping = false;
 	let active: Promise<void> | null = null;
 	const failures: unknown[] = [];

@@ -1,21 +1,3 @@
-/**
- * useTeam — a team page's composite view, built client-side from the user
- * and task action doors.
- *
- * @lore BC5 T9: the door swap — `GET /api/teams/:id` (a server-composed
- * `TeamDetail`) is gone. `team` is id + name now (architecture.md §1); phase,
- * `leadAgentId` and capacity went with the `teams` columns that carried them
- * (D-c7jgxy). This hook rebuilds the page's shape from three calls:
- * `search_users({ teamId })` for the header (every member shares the same
- * effective `team`) and the agent roster, `search_tasks({ teamId, state:
- * "in_progress", parentTaskId: null })` for the active-task cards, and one
- * `open_task` per active task (small, bounded count) to compute its subtask
- * progress — the same shape `TaskCardSummary` always carried. Status is
- * `"blocked"` when the team has any task in the `blocked` state, `"healthy"`
- * otherwise — `"behind"` (capacity overrun) is gone with capacity itself
- * (D-npax8h).
- */
-
 import type { TaskNode, TaskState } from "@hyperidle/domain-model";
 import { useCallback, useEffect, useState } from "react";
 import { call } from "../services/call.js";
@@ -50,7 +32,6 @@ export interface UseTeamResult {
 	refetch: () => void;
 }
 
-/** Sums a task's whole subtree — descendants only, not the task itself. */
 function countProgress(nodes: readonly TaskNode[]): { done: number; total: number } {
 	let done = 0;
 	let total = 0;
@@ -100,7 +81,7 @@ export function useTeam(teamId: string | undefined): UseTeamResult {
 				}
 				const members = membersResult.data;
 				if (members.length === 0) {
-					// No member carries this team — same "not found" the old route 404'd.
+					// No member carries this team — not found.
 					throw new Error("Team fetch failed: 404");
 				}
 				const teamName = members[0]?.team?.name ?? teamId;
@@ -146,7 +127,6 @@ export function useTeam(teamId: string | undefined): UseTeamResult {
 		return (): void => {
 			cancelled = true;
 		};
-		// fetchCount in deps so refetch() triggers a new fetch (counter pattern).
 	}, [teamId, fetchCount]);
 
 	return { data, loading, error, refetch };

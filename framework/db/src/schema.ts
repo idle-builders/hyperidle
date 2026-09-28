@@ -14,12 +14,6 @@ import {
 
 // --- Core tables ---
 
-// @lore U1: `teams` is the domain entity (formerly `products`). Migration 0021 renamed both
-// tables; the companion `team_members` table (formerly `teams`) folded back in per AU44 batch 1.
-// @lore AU44 B1: `team_members` is dissolved back into `teams`. The 1:1 invariant enforced by
-// app-level 500s was the schema confessing two tables were one entity. `users.teamId` now
-// references `teams.id` directly.
-// A team is an id and a name: no capacity, phase or lead agent.
 export const teams = pgTable("teams", {
 	id: text("id").primaryKey(),
 	name: text("name").notNull(),
@@ -30,23 +24,16 @@ export const users = pgTable(
 	"users",
 	{
 		id: text("id").primaryKey(),
-		/** "human" | "ai" — P2: kind column distinguishes human founders from AI agents. */
+		/** "human" | "ai" */
 		kind: text("kind").notNull().default("ai"),
 		name: text("name").notNull(),
-		// @lore AU44 B1: users.team_id now references teams.id directly (team_members dissolved).
-		// Before AU44: referenced team_members.id; the migration updated all values to teams.id.
 		teamId: text("team_id").references(() => teams.id, { onDelete: "restrict" }),
 		role: text("role").notNull(),
 		status: text("status").notNull(),
 		/** Null for AI users. */
 		avatarUrl: text("avatar_url"),
 		createdAt: text("created_at").notNull(),
-		/**
-		 * Agent category — team | individual.
-		 * Null for human users and system users.
-		 * @lore AB0: This replaces the KERNEL_USER_ROLES / FABRIC_USER_ROLES
-		 * split which was about system layer, not agent category.
-		 */
+		/** Agent category — team | individual. Null for human users and system users. */
 		agentCategory: text("agent_category"),
 		/**
 		 * Who an agent belongs to, as a real column — a team (`teamId`),
@@ -59,13 +46,6 @@ export const users = pgTable(
 		ownerUserId: text("owner_user_id").references((): AnyPgColumn => users.id, {
 			onDelete: "set null",
 		}),
-		/**
-		 * @lore BC5 T2 (F1): a note on an agent — its crash count over the last
-		 * 7 days, counted from its own `user` change rows — or null for a
-		 * healthy row. Written by the session-ended-crashed reaction as an
-		 * `edit_user` call, landing as a `user.changed` change row so whoever
-		 * subscribes to it in reach sees it. Meaningless for a human row.
-		 */
 		health: text("health"),
 	},
 	(table) => [
@@ -79,31 +59,6 @@ export const users = pgTable(
 /**
  * One agent's run configuration, keyed on its `users` row.
  *
- * @lore AU26 G1 (architecture §D-L): `users` used to carry agent-execution
- * configuration (`harness_type`,
- * `model_id`, `model_provider`, `max_concurrent_sessions`) on the same row as
- * human identity. Core administers those fields but never operationally
- * consumes them — only an agent's session does — so they relocate here, owned
- * by `layers/agent-orchestration/agent-run-config`. `users` survives intact
- * as the single human+agent identity record: `kind`, `status`, `agent_category`,
- * `role`, `team_id` stay put because core genuinely uses them
- * (`middleware/auth.ts`, `recipients.ts`, `policy-bindings.ts`).
- *
- * @lore The agent's identity is no longer here: it is an `agent_file` document
- * bound to the agent (scope_kind='user', scope_id=agentId), which is
- * what that role has always meant. Migration 0069 moved every existing prompt.
- *
- * @lore AU26 G1: `system_prompt_path` and `skills` were dropped, not moved —
- * zero production readers repo-wide (seed fixtures only) at the time of the
- * move. Do not resurrect either as a column here.
- *
- * @lore AU26 G1: **absent row ≡ all-null row.** `max_concurrent_sessions` is
- * the one NOT NULL DEFAULT 1 column (matching its pre-move shape on `users`);
- * every other field is nullable with no default, and the effective defaults
- * live in the resolvers, never in the columns. `readAgentRunConfig` therefore
- * returns `DEFAULT_AGENT_RUN_CONFIG` for an agent with no row rather than
- * `undefined` — an agent whose config was never written resolves exactly what
- * an all-null row resolves.
  */
 export const agentRunConfig = pgTable("agent_run_config", {
 	agentUserId: text("agent_user_id")
@@ -117,9 +72,7 @@ export const agentRunConfig = pgTable("agent_run_config", {
 	 * The harness options this agent's model runs with, as a JSON object of the
 	 * option keys the harness declares for that model.
 	 *
-	 * Nullable with no default: an agent configured before this column existed,
-	 * or one whose options were never touched, reads as `{}` and runs exactly as
-	 * it did before. Sparse by design — only a value the user moved away from the
+	 * Nullable with no default — reads as `{}` when not set. Sparse by design — only a value the user moved away from the
 	 * harness's own default is stored, so an absent key means "whatever the
 	 * harness does", not "unset".
 	 */
@@ -133,23 +86,13 @@ export const tasks = pgTable(
 	{
 		id: text("id").primaryKey(),
 		/**
-		 * The task tree. NULL means a root task — the shape a bet used to
-		 * have. Replaces the NOT NULL `bet_id`, which hardcoded work to exactly
-		 * two levels.
-		 *
-		 * @lore BB1: a self-FK needs the explicit `AnyPgColumn` return type or
-		 * TypeScript cannot infer the circular reference.
-		 *
-		 * @lore BB1: ON DELETE RESTRICT, not CASCADE. Killing a subtree is a
-		 * domain operation with an audit trail (`cascadeTaskKill`), never a
-		 * silent row disappearance — the same reason every other FK here
-		 * restricts.
+		 * The task tree. NULL means a root task.
+		 * Self-FK needs the explicit `AnyPgColumn` return type or TypeScript cannot infer the circular reference.
+		 * ON DELETE RESTRICT — killing a subtree is a domain operation with an audit trail, never a silent row disappearance.
 		 */
 		parentTaskId: text("parent_task_id").references((): AnyPgColumn => tasks.id, {
 			onDelete: "restrict",
 		}),
-		// @lore U1: teamId references the new `teams` table (formerly `products`).
-		// The old teamId (pointing at team_members) was dropped — see §2.3.
 		teamId: text("team_id")
 			.notNull()
 			.references(() => teams.id, { onDelete: "restrict" }),
@@ -159,85 +102,48 @@ export const tasks = pgTable(
 		doneCondition: text("done_condition"),
 		state: text("state").notNull(),
 		dependencies: text("dependencies"),
-		/**
-		 * @lore BC3: every task has a real thread, written at creation
-		 * (migration 0085 step 5 makes this `NOT NULL`; `edit_task` creates the
-		 * thread before opening its own transaction).
-		 */
 		threadId: text("thread_id")
 			.notNull()
 			.references(() => threads.id, { onDelete: "restrict" }),
 		notes: text("notes"),
-		// `auditTrail` dropped — the `changes` table (0082) is the audit
-		// mechanism now. See `one-work-primitive.ts`'s `@lore` for the ban this
-		// makes true rather than stale.
 		createdAt: text("created_at").notNull(),
 		updatedAt: text("updated_at").notNull(),
 		/** Task outcome verdict. Closed enum: met|met_with_rework|partially_met|not_met. Null = not evaluated. */
 		outcomeVerdict: text("outcome_verdict"),
-		/**
-		 * Free-text explanation of the outcome (moved from `bets`, where it
-		 * was the only half of the outcome pair tasks lacked).
-		 */
+		/** Free-text explanation of the task outcome. */
 		outcomeSummary: text("outcome_summary"),
 		/** ISO 8601 timestamp when the task outcome was last recorded. */
 		outcomeRecordedAt: text("outcome_recorded_at"),
 		/** User ID of the actor who last recorded the task outcome. */
 		outcomeRecordedBy: text("outcome_recorded_by"),
 		/**
-		 * Accumulated TokenUsage actuals for THIS task's own sessions
-		 * (moved from `bets`). Ancestors are never written — a subtree total is
-		 * summed at read time, so there is no rollup column to drift.
+		 * Accumulated TokenUsage actuals for THIS task's own sessions.
+		 * Ancestors are never written — a subtree total is summed at read time, so there is no rollup column to drift.
 		 */
 		tokensActualJson: text("tokens_actual_json"),
-		/**
-		 * Provenance — the document this task was promoted from (moved
-		 * from `bets`). RESTRICT so provenance outlives a convenience
-		 * delete. Renamed `sourceKnowledgeItemId`→`sourceDocumentId`.
-		 */
+		/** Provenance — the document this task was promoted from. RESTRICT so provenance outlives a convenience delete. */
 		sourceDocumentId: text("source_document_id").references(() => documents.id, {
 			onDelete: "restrict",
 		}),
-		/** Set when the task reaches `done` (moved from `bets`). */
+		/** Set when the task reaches `done`. */
 		completedAt: text("completed_at"),
 		/**
-		 * Display order among siblings. Defaults to creation order; ties
-		 * break on `createdAt` then `id` so the order is total and stable.
+		 * Display order among siblings. Defaults to creation order; ties break on `createdAt` then `id`.
 		 *
-		 * @lore BB1: deliberately NOT derived from `dependencies`, and
-		 * deliberately not recency. `dependencies` says what must FINISH first;
-		 * this says what to SHOW first, and two siblings with no dependency
-		 * between them still need a defined order. Ordering by recency would
-		 * reshuffle the tree whenever someone edits a child, which makes a tree
-		 * unbrowsable. Aligned with the nested-document tree, which
-		 * chose the same shape for the same reason.
 		 */
 		position: integer("position").notNull().default(0),
 		/**
 		 * Does finishing this task need a human verdict?
 		 *
-		 * `false` (the default) means the task closes straight to `done` when its
-		 * work finishes — a session ending, or every child reaching a terminal
-		 * state. `true` sends it to `review` instead.
+		 * `false` (the default) means the task closes straight to `done`; `true` sends it to `review` instead.
 		 *
-		 * @lore BB1: before this, EVERY task went to `review` when its session
-		 * ended (`lifecycle-propagation.ts`), which made review a queue nobody
-		 * could keep up with. Opting in is what makes the queue mean something.
-		 *
-		 * @lore BB1: deliberately a boolean, not a risk tier. The product used to
-		 * carry `riskTier` on `task_planning_signals`, which was deleted; reviving
-		 * a three-value scale would mean inventing how risk gets estimated, and
-		 * nothing estimates it today. Founder call: start with the flag, add a way
-		 * to derive it later. A flag that something sets beats a scale nothing
-		 * computes.
 		 */
 		needsReview: boolean("needs_review").notNull().default(false),
 	},
 	(table) => [
 		index("tasks_parent_task_id_idx").on(table.parentTaskId),
 		index("tasks_team_id_idx").on(table.teamId),
-		// @lore I3 review O1: `tasks_state_idx` was dropped — state has too
-		// few distinct values to be selective.
+		// no index on state — too few distinct values to be selective
 	],
 );
 
@@ -261,19 +167,10 @@ export const sessions = pgTable(
 		startedAt: text("started_at").notNull(),
 		endedAt: text("ended_at"),
 		state: text("state").notNull(),
-		/** @lore AK1: AK1 harness-vocab rename. Old name was the sandbox-as-workspace variant. New column name: sandbox_snapshot. */
 		sandboxSnapshot: text("sandbox_snapshot"),
 		outcome: text("outcome"),
 		notes: text("notes"),
-		/**
-		 * The harness's own id for this session, which is what `resumeSession`
-		 * needs to bring the agent back after a human decides.
-		 *
-		 * @lore BA2: Null for a session whose harness never reported one — an
-		 * error before the first stream event, or an adapter with no resume
-		 * support. A null here means the session cannot be resumed, which the
-		 * verdict path must surface to the human rather than fail silently.
-		 */
+		// Harness-assigned id for this session; null means the session cannot be resumed.
 		harnessSessionId: text("harness_session_id"),
 	},
 	(table) => [
@@ -325,13 +222,7 @@ export const agentSessionRequests = pgTable(
 		index("agent_session_requests_status_created_idx").on(table.status, table.createdAt),
 		index("agent_session_requests_source_idx").on(table.sourceKind, table.sourceId),
 		index("agent_session_requests_claim_expires_idx").on(table.claimExpiresAt),
-		/**
-		 * @lore AU9 durable-rows: running requires a session; claimed requires the
-		 * token+expiry pair; closed (terminal) statuses forbid a live claim. Pending
-		 * is permissive of session/claim absence (covered by the `running`/`claimed`
-		 * branches being false — falls through to the closed-status branch is wrong,
-		 * so pending is named explicitly).
-		 */
+		// running requires a session; claimed requires the token+expiry pair; closed statuses forbid a live claim; pending is named explicitly (not a fallthrough)
 		check(
 			"agent_session_requests_correlation_ck",
 			sql`
@@ -348,11 +239,7 @@ export const agentSessionRequests = pgTable(
 	],
 );
 
-/**
- * Durable neutral handoff between core domain writes and the agent runtime.
- * @lore AU9: EventBus delivery is only a latency hint. This row is mandatory because
- * process death between a domain commit and an in-memory emit must not lose work.
- */
+// @lore: agentWorkIntents — durable handoff; EventBus is a latency hint only; process death between a domain commit and an in-memory emit must not lose work
 export const agentWorkIntents = pgTable(
 	"agent_work_intents",
 	{
@@ -371,12 +258,6 @@ export const agentWorkIntents = pgTable(
 		attempts: integer("attempts").notNull().default(0),
 		lastError: text("last_error"),
 		lastErrorCode: text("last_error_code"),
-		/**
-		 * @lore AU44: every intent kind bakes its request at emit time; the
-		 * drain reads this column directly (zero domain reads). An absent
-		 * value is production-unreachable and fails via
-		 * INVALID_WORK_SOURCE rather than falling back to a resolver.
-		 */
 		bakedRequestJson: text("baked_request_json"),
 		createdAt: text("created_at").notNull(),
 		updatedAt: text("updated_at").notNull(),
@@ -403,13 +284,10 @@ export const agentWorkIntents = pgTable(
 		),
 		check(
 			"agent_work_intents_status_ck",
-			// @lore AU21 Decision B‴: `superseded` added — a re-emit for the same
-			// (kind, sourceId) identity with a fresher idempotencyKey wins; the
-			// older pending/claimed intent is retired as `superseded` (never
-			// dispatched), not `failed` (it was not an error).
+			// `superseded` — a re-emit for the same (kind, sourceId) with a fresher idempotencyKey wins; older intent is retired as superseded (never dispatched), not failed (it was not an error)
 			sql`${table.status} in ('pending','claimed','handed_off','failed','superseded')`,
 		),
-		/** @lore AU9 durable-rows: kind/source compatibility is a closed pairing map (§Family atomic enqueue). */
+		// kind/source compatibility is a closed pairing map
 		check(
 			"agent_work_intents_kind_source_compat_ck",
 			sql`
@@ -419,12 +297,7 @@ export const agentWorkIntents = pgTable(
 				or (${table.kind} = 'subscription_run' and ${table.sourceKind} = 'subscription')
 			`,
 		),
-		/**
-		 * @lore AU9 durable-rows: one closed per-status correlation check — pending
-		 * forbids claim/correlation fields; claimed requires token+expiry and forbids
-		 * request correlation; handed_off requires request_id; failed requires a
-		 * stable last_error_code.
-		 */
+		// One closed per-status correlation check: pending forbids claim fields; claimed requires token+expiry; handed_off requires request_id; failed requires last_error_code
 		check(
 			"agent_work_intents_correlation_ck",
 			sql`
@@ -438,8 +311,7 @@ export const agentWorkIntents = pgTable(
 	],
 );
 
-/** @lore AU9: A task ID cannot identify retries or ownership handoffs; each dispatch
- * occasion is durable so replay can reuse it without suppressing later attempts. */
+// @lore: taskDispatchAttempts — task ID alone can't identify retries or handoffs; each dispatch is durable so replay reuses it without suppressing later attempts
 export const taskDispatchAttempts = pgTable(
 	"task_dispatch_attempts",
 	{
@@ -480,9 +352,7 @@ export const taskDispatchAttempts = pgTable(
 /**
  * the event log the action mechanism writes to, once per touched
  * object, in the same transaction as the write. Not an audit control and
- * adds no gate — the source for subscriptions and the UI stream once every
- * object's edit action feeds it, and `task`'s replacement for the dropped
- * `tasks.audit_trail` column. `before`/`after` hold only the fields that
+ * adds no gate — the source for subscriptions and the UI stream. `before`/`after` hold only the fields that
  * differ (plus `id`), not the whole row.
  */
 export const changes = pgTable(
@@ -503,17 +373,12 @@ export const changes = pgTable(
 		index("changes_object_idx").on(table.object, table.objectId, table.at),
 		index("changes_at_idx").on(table.at),
 		check("changes_object_ck", sql`${table.object} in ('task','thread','document','user')`),
-		// @lore BC3 migration 0085 step 2: `message` is its own kind of change — a
-		// post is not a rename, and `objectId` stays the THREAD id either way
-		// (never a message id), so a thread's history reads with one
-		// `listChanges({object:'thread', objectId})`.
+		// `message` is its own kind of change — a post is not a rename, and `objectId` stays the THREAD id (never a message id), so a thread's history reads with one `listChanges({object:'thread', objectId})`
 		check("changes_kind_ck", sql`${table.kind} in ('created','changed','message')`),
 	],
 );
 
-// Routines don't exist — a routine is a subscription now (subscriptions, below).
-
-// --- Messaging (L1a Thread primitive) ---
+// --- Messaging (Thread primitive) ---
 
 export const threads = pgTable(
 	"threads",
@@ -534,10 +399,8 @@ export const threads = pgTable(
 		 * The partial unique index (WHERE direct_key IS NOT NULL) enforces
 		 * one row per direct identity under concurrency.
 		 *
-		 * @lore AF14: directKey is nullable and NOT backfilled for pre-AF14 threads.
-		 * Historical duplicates (if any) are not retroactively merged.
-		 * The assistant thread (host=user, hostId===senderId, participant=ast-<userId>)
-		 * is exempt (directKey=null) to avoid overlap with assistant.ts.
+		 * directKey is nullable and not backfilled; existing duplicate threads are not merged.
+		 * The assistant thread (host=user, hostId===senderId, participant=ast-<userId>) is exempt (directKey=null).
 		 */
 		directKey: text("direct_key"),
 		/**
@@ -575,7 +438,7 @@ export const messages = pgTable(
 		redactedAt: text("redacted_at"),
 		resolvedAt: text("resolved_at"),
 		createdAt: text("created_at").notNull(),
-		/** T5: Structured, queryable block anchor. Dual-written alongside payload.blockId. */
+		/** Structured, queryable block anchor. Dual-written alongside payload.blockId. */
 		blockId: text("block_id"),
 	},
 	(table) => [
@@ -586,24 +449,12 @@ export const messages = pgTable(
 	],
 );
 
-// @lore BC3 migration 0085 step 6: the `items` table and `messages.legacyItemId`
-// are DROPPED, destructive, no compat column. A review, a question, an
-// escalation are messages already (architecture.md §5 B7/B7b). `responses`
-// was already dropped (L1a) — verdicts project as `verdict`-typed `messages`
-// rows.
-
-// --- Org chart edges (P2) ---
+// --- Org chart edges ---
 
 /**
  * OrgChart edges: defines review-routing relationships between human users and
  * AI users / roles / teams.
  *
- * @lore P2: Option A (single table, polymorphic target). The `mechanism`
- * discriminator determines how `target` is interpreted: "direct" → userId,
- * "function" → role string, "team" → teamId. No FK constraint on target
- * because it points to different tables. Validation is at the API boundary.
- * The composite UNIQUE prevents duplicate edges; the UUID `id` is for REST
- * addressing.
  */
 export const orgEdges = pgTable(
 	"org_edges",
@@ -624,14 +475,6 @@ export const orgEdges = pgTable(
 
 // --- Subscriptions and inbox ---
 
-/**
- * @lore BC5 T2: one row shape shared by a person and an agent — `event |
- * schedule`, never both (`subscriptions_trigger_ck`). A person's
- * subscription only ever adds an inbox row; an agent's wakes it through the
- * same intent door a mention uses. `nextRunAt` is written only for a
- * schedule row (`subscriptions_next_run_ck`) — the clock advances it after
- * each fire.
- */
 export const subscriptions = pgTable(
 	"subscriptions",
 	{
@@ -666,13 +509,6 @@ export const subscriptions = pgTable(
 	],
 );
 
-/**
- * @lore BC5 T2: a person's half of a subscription firing — a pointer at the
- * change row they have not yet seen or read, never the change's content
- * (the UI renders the `changes` row itself). Composite PK: one row per
- * (user, change), so a re-fire of the same event onto the same change is
- * `onConflictDoNothing`, not a duplicate.
- */
 export const inbox = pgTable(
 	"inbox",
 	{
@@ -690,24 +526,12 @@ export const inbox = pgTable(
 
 // --- Documents ---
 
-/**
- * @lore BC4: document as a module. Folds `knowledgeAppProjection`'s two live
- * columns (`confidence`, `meta`) directly onto the row — the migration's own
- * `@lore` records why the rest of that extension table (relevance_score,
- * citation_count, last_cited_at) is dropped with nothing carried over
- * (founder ruling A5). Four real usage columns replace them: `readCount`
- * (`open_document`), `lastReadAt`, `sessionUseCount` (`assembleSessionDocuments`),
- * `lastUsedAt` — never written by `edit_document`, never in a `changes` row.
- */
+// Four real usage columns (readCount, lastReadAt, sessionUseCount, lastUsedAt) are never written by edit_document and never in a changes row.
 export const documents = pgTable(
 	"documents",
 	{
 		id: text("id").primaryKey(),
-		/**
-		 * @lore Q2: scope_kind + scope_id added to the kernel table so every item
-		 * knows where it belongs. The 7-value closed enum mirrors ScopeKind in
-		 * @hyperidle/domain-model. Default "factory" preserves existing rows.
-		 */
+		// scope_kind + scope_id: every document knows where it belongs; default "factory" preserves existing rows
 		scopeKind: text("scope_kind").notNull().default("factory"),
 		scopeId: text("scope_id"),
 		title: text("title").notNull(),
@@ -716,8 +540,7 @@ export const documents = pgTable(
 		status: text("status").notNull(),
 		version: integer("version").notNull().default(1),
 		/**
-		 * @lore BA9b, renamed `role`→`slot` by BC4: determines where context
-		 * assembly materialises this document in the session sandbox.
+		 * Determines where context assembly materialises this document in the session sandbox.
 		 *
 		 * - ordinary: knowledge/... files, exactly as before (default).
 		 * - skill: a SKILL.md in the harness skills directory (e.g. .claude/skills/<title>/SKILL.md).
@@ -729,23 +552,8 @@ export const documents = pgTable(
 		 * Default 'ordinary' — all existing rows keep their current behaviour.
 		 */
 		slot: text("slot").notNull().default("ordinary"),
-		/**
-		 * @lore knowledge-attachment-slot: the entity this document hangs off, or
-		 * NULL for unparented documents (most rows). Nullable, both — a half
-		 * parent is not a parent (`doc_parent_pair_ck`). No FK: the column points
-		 * at five tables (`doc_parent_kind_ck`), so nothing at the database level
-		 * keeps a parent id honest and nothing cascades a delete — application
-		 * code narrows/archives a parent's children instead.
-		 */
 		parentKind: text("parent_kind"),
 		parentId: text("parent_id"),
-		/**
-		 * @lore nested-knowledge-items: sibling ordering within one parent (or
-		 * among roots, for `parentId IS NULL`). Defaults to creation order;
-		 * `position`/`title` is the ORDER BY the tree read and the children
-		 * read both use. No hand-ordering interface yet — this column exists
-		 * so one can be added later without a schema change.
-		 */
 		position: integer("position").notNull().default(0),
 		/** Ranking signal, read only by `session-documents.ts`. */
 		confidence: text("confidence"),
@@ -794,14 +602,8 @@ export const documents = pgTable(
 	],
 );
 
-// The notification queue doesn't exist — inbox (below, beside subscriptions)
-// is a pointer at a change row plus seen/read timestamps, no egress lifecycle.
-
-// The `artifacts` table is DELETED (migration 0078). Produced content is a
-// document whose parent is the task or the conversation that produced it —
-// the same row a human writes, with a body, a status, a version, a scope and an
-// edit history, none of which an artifact row had. The word survives as the name
-// for produced content; nothing stores one.
+// Produced content ("artifacts") is a document whose parent is the task or the
+// conversation that produced it — no separate artifact table.
 
 // --- Filesystem registry + per-bot injection ---
 
@@ -809,12 +611,6 @@ export const documents = pgTable(
  * Registered, team-scoped file source. NOT owned by a single agent.
  * Per-bot wiring lives in the filesystemInjections mapping below.
  *
- * @lore AO1 Q6: `source` is stored (not computed) so the registry can display
- * it without resolving a possibly-absent Connection (service_connections was
- * reverted in 0038). `connection_id` is a plain text column, not a FK, for the
- * same reason — AO1 ⟂ AN; AN may add the FK in its own migration.
- * @lore AO1 AC3: `kind` is stored as open-vocab text; SoR kinds are rejected
- * at the Zod boundary on POST.
  */
 export const filesystems = pgTable(
 	"filesystems",
@@ -831,10 +627,7 @@ export const filesystems = pgTable(
 		source: text("source").notNull(),
 		// OPEN vocabulary. 'code' | 'doc_set' initially. SoRs excluded at the app layer (Zod).
 		kind: text("kind").notNull(),
-		// Reference to a Connection (Track AN). NOT a DB FK — service_connections was merged
-		// (0036) then reverted (0038, AN reset); absent now, re-merged shape unsettled.
-		// An unresolvable id → needs_attention.
-		// @lore AO1: plain text by design — AO1 ⟂ AN; AN may add the FK in its own migration.
+		// NOT a DB FK — plain text by design; connection service is separate and may add the FK in its own migration; an unresolvable id → needs_attention
 		connectionId: text("connection_id"),
 		// JSON-encoded ResourceRef, discriminated by kind.
 		resourceRef: text("resource_ref").notNull(),
@@ -850,10 +643,7 @@ export const filesystems = pgTable(
 /**
  * Per-bot INJECTION: which registered filesystems are injected into a given bot's sessions.
  *
- * @lore AO1 Q1: The agent FK is users.id (the runtime agent identity = sessions.agentId,
- * schema.ts:252-254), NOT team_members.id (one row per team, U1 1:1, no per-agent identity).
- * AO2's per-bot mount resolves sessions.agentId → filesystem_injections → filesystems.
- * Replaces the removed single-owner column. Parallel to connector/tool injection.
+ * @lore: filesystemInjections — agent FK is users.id (runtime = sessions.agentId); mount resolves sessions.agentId → filesystem_injections → filesystems
  */
 export const filesystemInjections = pgTable(
 	"filesystem_injections",
@@ -876,11 +666,9 @@ export const filesystemInjections = pgTable(
 export type FilesystemRow = typeof filesystems.$inferSelect; // DB row (resourceRef: string). NOT named `Filesystem`.
 export type NewFilesystem = typeof filesystems.$inferInsert;
 export type NewFilesystemInjection = typeof filesystemInjections.$inferInsert;
-// The wire types `Filesystem`/`FilesystemInjection` (parsed) live in @hyperidle/domain-model — see §1.
+// The wire types `Filesystem`/`FilesystemInjection` (parsed) live in @hyperidle/domain-model.
 
-// @lore server_credentials deletion: the `server_credentials` table (P3's
-// shared-mode credential store) is dropped — the shared-backend key now
-// lives only in the desktop keychain, and no other row ever had a writer.
+// --- Server config ---
 
 // --- Plugins: one row per install, and what each install contributed ---
 
@@ -901,7 +689,7 @@ export const plugins = pgTable(
 		scopeKind: text("scope_kind").$type<"factory" | "team">().notNull().default("factory"),
 		scopeTeamId: text("scope_team_id"),
 		/**
-		 * @lore BA9b: Absolute path to the plugin's persistent install directory.
+		 * Absolute path to the plugin's persistent install directory.
 		 * Null for plugins with only URL-based MCP servers (no local files needed).
 		 * When present, used to expand ${PLUGIN_ROOT} in MCP server args/env/cwd
 		 * at session materialisation time.
@@ -922,14 +710,8 @@ export const plugins = pgTable(
 /**
  * What a plugin contributed, and whether the person has since taken it over.
  *
- * @lore BA9g: provenance lives in this one table, not as a `plugin_id`
- * column scattered across others — a `plugin_id` on `users` would be
- * provenance the PLUGIN service owns sitting in a table it does not. This
- * table belongs to the plugin service, and it is the only answer to who
- * contributed what.
- *
- * `detachedAt` replaces the `updated_by = 'plugin:<id>'` sentinel: a person
- * edited this contribution, so a reinstall must not overwrite their version.
+ * `detachedAt` set: a person edited this contribution, so a reinstall must not
+ * overwrite their version.
  */
 export const pluginContributions = pgTable(
 	"plugin_contributions",
@@ -968,23 +750,18 @@ export const pluginContributions = pgTable(
 
 // --- Inferred types ---
 
-// @lore U1 / AU44 B1: Team is the single domain entity — team_members dissolved into it.
 export type Team = typeof teams.$inferSelect;
 
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 
-// @lore BC5 T2: subscription and inbox row types, owned by @hyperidle/user
-// alongside User/Team/NewUser above.
 export type Subscription = typeof subscriptions.$inferSelect;
 export type NewSubscription = typeof subscriptions.$inferInsert;
 
 export type InboxRow = typeof inbox.$inferSelect;
 export type NewInboxRow = typeof inbox.$inferInsert;
 
-// @lore AU26 G1: the run-config row types. `AgentRunConfigRow` is the raw
-// table row (carries `agentUserId`); `@hyperidle/agent-run-config`'s
-// `AgentRunConfig` is the keyless value object callers actually consume.
+// `AgentRunConfigRow` is the raw table row (carries `agentUserId`); `@hyperidle/agent-run-config`'s `AgentRunConfig` is the keyless value object callers actually consume.
 export type NewAgentRunConfigRow = typeof agentRunConfig.$inferInsert;
 
 export type Task = typeof tasks.$inferSelect;
@@ -998,15 +775,11 @@ export type Session = typeof sessions.$inferSelect;
 export type AgentSessionRequest = typeof agentSessionRequests.$inferSelect;
 export type AgentWorkIntent = typeof agentWorkIntents.$inferSelect;
 
-// @lore BC5 T7b: Routine/NewRoutine/NewRoutineRun deleted with their tables.
-
 export type Thread = typeof threads.$inferSelect;
 export type NewThread = typeof threads.$inferInsert;
 
 export type Message = typeof messages.$inferSelect;
 export type NewMessage = typeof messages.$inferInsert;
-
-// @lore BC3: `Item`/`NewItem` deleted with the `items` table.
 
 export type DocumentRow = typeof documents.$inferSelect;
 
@@ -1019,17 +792,7 @@ export type PluginRow = typeof plugins.$inferSelect;
  *
  * Stores ONLY held connections (token | mcp). Inherited connections are
  * projected live from the harness descriptor and NEVER written here.
- * (Concept hard-rule 4 / Phase-0 decision 1.)
  *
- * @lore AN1: No `trust_tier` column — ETHOS §2 kills preemptive security gates.
- * authSource is app-enforced to { token, mcp } on insert (Zod at the route
- * boundary); the `inherited` value never reaches this table.
- *
- * @lore AN1, corrected by the `server_credentials` deletion: this table used
- * to be kept separate from that closed infra-secret catalog (concept
- * hard-rule 5) — an open, user-driven set that reused only the encryption
- * primitive, never the catalog. The catalog is gone; the primitive
- * (`@hyperidle/connections`' token cipher) is this table's own now.
  */
 export const serviceConnections = pgTable(
 	"service_connections",
@@ -1076,15 +839,7 @@ export type NewServiceConnectionRow = typeof serviceConnections.$inferInsert;
  * a denial against its session. Approving that review clears the denied action,
  * once; approving any other review clears nothing.
  *
- * @lore BA2: This is the answer to a real defect in an abandoned attempt, which
- * registered on every `submit_review` — so approving an ordinary design review
- * granted a bypass. The link is the record that the review and the block are the
- * same event, and it is why the clearance cannot be forged by filing a review.
- *
- * @lore BA2: `toolName` is stored because the clearance is keyed to the ACTION,
- * not to "the next tool call". An earlier attempt let the resumed session's first
- * call — a harmless read — spend the one-time pass, so the action that was
- * actually cleared got denied again.
+ * @lore: reviewSessions — review-to-gate-denial link prevents forged clearances; toolName keys the clearance to the action, not "the next tool call"
  */
 export const reviewSessions = pgTable(
 	"review_sessions",

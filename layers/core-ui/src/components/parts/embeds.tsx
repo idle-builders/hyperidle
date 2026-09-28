@@ -10,8 +10,6 @@
  *   mention             → inline accent token (no chip)
  *   unknown             → non-navigating inline label (no affordance, no onOpen)
  *
- * @lore AM1: this file imports ONLY `Embed`/`OpenHandler` from the source-
- * agnostic Part vocabulary — never `Message`/`InlineRef` (W1 lint boundary).
  */
 
 import type { JSX } from "react";
@@ -57,7 +55,7 @@ export function renderEmbed(embed: Embed, key: string, onOpen: OpenHandler): JSX
 			// Mentions render inline inside prose text, not as a standalone embed row.
 			return null;
 		case "unknown":
-			// W5: a non-navigating reference (e.g. a message ref with no permalink route).
+			// Non-navigating reference (e.g. a message ref with no permalink route).
 			return (
 				<span key={key} className="type-small  text-[var(--text-tertiary)]">
 					{embed.label}

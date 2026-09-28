@@ -49,29 +49,12 @@ function migrationsFolder(): string {
 
 // ---------------------------------------------------------------------------
 // Pool: fixed set of pre-warmed PGlite instances
-//
-// @lore perf: PGlite WASM cold-start is ~726ms + migrations ~164ms = ~891ms.
-// The old approach allocated a fresh instance per createTestDb() call — 836
-// allocations across a full test run = 745s of pure overhead. The new approach
-// pre-warms a fixed pool at worker startup (in vitest-setup.ts). During tests,
-// createTestDb() just TRUNCATEs a pooled instance (~19ms) instead of allocating.
-//
-// The pool uses a checkout/return model:
-// - createTestDb(): check out an instance → TRUNCATE → return handle
-// - handle.close(): return instance to pool (available for next checkout)
-// - If no instance is available (all checked out), reclaim the least-recently
-//   checked-out one. This handles tests that call createTestDb() without close().
-// - Fallback: allocate fresh if pool hasn't been warmed yet (first call).
 // ---------------------------------------------------------------------------
 
 const POOL_SIZE = Number(process.env.VITEST_POOL_SIZE) || 2;
 
 interface PooledInstance {
 	readonly client: PGlite;
-	// @lore AF2: test-utils is pglite-only; PgliteDatabase is the correct type so
-	// drizzle-orm/pglite/migrator.migrate() accepts it without a cast. HyperIdleDb
-	// is the common supertype (uses PgQueryResultHKT) but migrate() requires the
-	// pglite-specific PgliteQueryResultHKT subtype.
 	readonly db: PgliteDatabase<typeof schema>;
 }
 
@@ -149,12 +132,7 @@ export async function createTestDb(): Promise<TestDbHandle> {
 	slot = slots.find((s) => !s.checkedOut);
 
 	// 2. No free slot — allocate a fresh instance.
-	//    @lore isolation: reclaim was removed because concurrent isolation tests
-	//    (e.g. hints AC8 makeIsolatedApp × 2) legitimately hold two live handles
-	//    simultaneously. Reclaiming the first while it's still in use caused both
-	//    apps to share the same db, breaking per-user isolation assertions.
-	//    Allocating fresh is safe: PGlite is in-memory, the extra instance lives
-	//    until close() is called, which the test does in its finally block.
+	// @lore: isolation — concurrent tests hold two live handles; reclaiming first breaks isolation; fresh alloc safe (PGlite in-memory)
 	if (!slot) {
 		const instance = await allocateInstance();
 		slot = { instance, checkedOut: false, checkedOutAt: 0 };

@@ -9,9 +9,8 @@
  *     alt-text inline node; if alt text is empty → no payload emitted.
  *   - No Block identity fields are produced (pure payload extraction).
  *
- * @lore R3: messages must not render arbitrary images — image payloads are
- * always downgraded to alt-text paragraphs (or dropped if alt is empty).
- * This is defense-in-depth against tracking pixels and hostile image URLs.
+ * Image payloads are always downgraded to alt-text paragraphs (or dropped if
+ * alt is empty) — defense against tracking pixels and hostile image URLs.
  */
 
 import remarkGfm from "remark-gfm";

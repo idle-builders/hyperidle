@@ -12,8 +12,6 @@
  * design reference the human review renders at /designsystem; production wiring
  * (fetches, save routing) is the builder's job.
  *
- * @lore AV2: extract, don't invent — this story proves the settings surface reuses
- * the same SplitView + Row shape Conversations/review already use.
  */
 
 import { useState } from "react";

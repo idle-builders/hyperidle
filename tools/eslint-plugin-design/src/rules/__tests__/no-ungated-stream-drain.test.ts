@@ -31,7 +31,7 @@ import { adapter } from "./adapter";
 import { gate } from "./gate";
 async function drainStreamEvents() {
 	const stream = adapter.streamEvents(handle);
-	// return-observe-only: assistant turn compliant-by-construction; verdict deferred to caller (concept §4.4).
+	// return-observe-only: assistant turn compliant-by-construction; verdict deferred to caller.
 	for await (const event of stream) {
 		gate.observe(event);
 	}

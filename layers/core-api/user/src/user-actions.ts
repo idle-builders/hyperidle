@@ -19,15 +19,6 @@
  * `edit_document` runners, harnesses/server config through thin
  * function seams.
  *
- * @lore the deps bag omits `agentWorkIntentRecorder`/`searchTasks`/
- * `searchThreads`/`assembleSessionDocuments`/`wsPush` — architecture.md §6
- * lists them once for the whole package, but they exist to let a
- * subscription WAKE someone (§4's fire mechanism), and firing belongs to a
- * later `subscription-fire.ts` module in this same package. `edit_user`
- * only ever WRITES a subscription row; it never fires one. Pulling those
- * five deps in here now would leave them unused until that module lands and
- * unable to be proven red-then-green by this module's own tests — the firing
- * module adds its own narrower deps bag when it lands.
  */
 import type {
 	Change,
@@ -139,9 +130,8 @@ export interface UserActionsDeps {
 		readonly appendChange: (exec: WriteExecutor, row: NewChange) => Promise<Change>;
 		readonly listByIds: (db: HyperIdleDb, ids: readonly string[]) => Promise<readonly Change[]>;
 	};
-	/** §6: structural mirrors of the ports orchestration already exposes —
-	 * `compose.ts` (the layer, which may import `@hyperidle/api-contract`)
-	 * binds these straight to the real `AgentOrchestrationPort` members. */
+	/** Structural mirrors of the ports orchestration already exposes —
+	 * `compose.ts` binds these straight to the real `AgentOrchestrationPort` members. */
 	readonly runConfig: {
 		read(agentId: string): Promise<UserActionsRunConfigView>;
 		write(agentId: string, patch: UserActionsRunConfigPatch): Promise<void>;
@@ -192,8 +182,7 @@ export interface UserActionsDeps {
 		redetect(): Promise<void>;
 	};
 	/**
-	 * Agent only — a derived trust signal (§ restored from the deleted
-	 * `agent-profile.ts` route's `computeApprovalRate`). Absent → `null` on
+	 * Agent only — a derived trust signal. Absent → `null` on
 	 * every agent's `reviewTrackRecord` (a composition without policy wired).
 	 */
 	readonly reviewTrackRecord?: (
@@ -242,7 +231,7 @@ function effectiveTeamId(user: User, ownerById: ReadonlyMap<string, User>): stri
  * for an agent's identity/skill documents and a subscription's prompt
  * document. `resolveViewer` (`@hyperidle/document`) grants a `scopeKind:
  * "user"` document to its own scope id regardless of who is actually asking
- * (§6.7's "never counts as a read" only covers `open_document`'s bump — the
+ * ("never counts as a read" only covers `open_document`'s bump — the
  * visibility gate itself is unaffected by `internal`), so these lookups run
  * as the agent, the same way `agent-identity.ts`'s `identityIdsFor` accepts
  * an explicit `viewerActor` rather than trusting whoever is asking. */
@@ -332,11 +321,6 @@ async function searchUsersRun(
 		status: input.status,
 		nameContains: input.name,
 	});
-	// @lore The system actor (role "system") is plumbing — the row system
-	// writes are attributed to — not a person or an agent anyone works with,
-	// so no list shows it. A caller that names it in `ids` (resolving a
-	// change's actor, a message's sender) still gets it. Presentation, not
-	// access control: `open_user` answers for it as for any row.
 	const listed = rows.filter((r) => r.role !== "system" || (input.ids ?? []).includes(r.id));
 	let views = await toUserRows(ctx.db, listed);
 	if (input.teamId !== undefined) {
@@ -378,8 +362,6 @@ async function buildUserView(
 
 	const runConfig = userRow.kind === "ai" ? await deps.runConfig.read(userRow.id) : null;
 
-	// @lore BC5 T11: public for any caller, like the deleted agent-profile.ts
-	// route was — a review track record is not a self-only fact.
 	const reviewTrackRecord =
 		userRow.kind === "ai" && deps.reviewTrackRecord
 			? await deps.reviewTrackRecord(ctx.db, userRow.id)
@@ -472,7 +454,7 @@ function makeOpenUserRun(deps: UserActionsDeps) {
 		if (!userRow) {
 			if (input.id !== undefined)
 				return problem("not_found", `No user with id '${input.id}'.`, "id");
-			// First-run: the caller has no row of its own yet (§7).
+			// First-run: the caller has no row of its own yet.
 			const data = await buildUserView(ctx, deps, null, true);
 			return { ok: true, data };
 		}
@@ -493,7 +475,7 @@ interface SubscriptionAddLike {
 	readonly paused?: boolean;
 }
 
-/** DB-dependent subscription problems (§1): `schedule_for_agents_only`,
+/** DB-dependent subscription problems: `schedule_for_agents_only`,
  * `prompt_for_agents_only`, `agent_not_runnable`, `invalid_schedule` — asked
  * against the row's effective kind/status AFTER this call's own edits (an
  * agent this same call just made runnable already passes). */
@@ -593,37 +575,15 @@ async function archiveSubscriptionPrompt(
 // ---------------------------------------------------------------------------
 // edit_user — folders and connections, shared by create and edit
 //
-// @lore Review fix: `create` used to never call this at all (a welcome-screen
-// folder pick was silently dropped) and `edit` returned the first port
-// failure IMMEDIATELY — before the transaction's own `user.changed` row ever
-// reached `ctx.eventBus.emit`, three loops and a `for` below. The row was
-// already committed by that point, so the caller got told the whole edit
-// was refused while it had, in fact, half-landed, and nobody in reach ever
-// heard about the half that did. architecture.md §6 fixes the ORDER at
-// "commit → port calls → emit" — port calls already run after commit, so
-// the fix is not to move them earlier; it is to stop `return`ing out of the
-// middle of that sequence. Both callers now run every port call through
-// these two helpers, keep going through the rest of their own post-commit
-// steps and the emit regardless of a port failure, and surface only the
-// FIRST folder/connection problem to the caller at the very end.
 // ---------------------------------------------------------------------------
 
 /** `give`'s team-consistency gate — checks the
- * team with `folders.list({teamId})`, replacing origin/main's
- * `routes/filesystems.ts` `TEAM_MISMATCH` (route deleted, gate never
- * ported). A folder already given to this agent is CONFLICT from the port —
- * its own code, `folder_already_given`, distinct from a team mismatch.
+ * team with `folders.list({teamId})`. A folder already given to this
+ * agent is CONFLICT from the port — its own code, `folder_already_given`,
+ * distinct from a team mismatch.
  *
- * @lore review 1b N6: every one of these five port calls throws on a non-2xx
- * response the same way `deps.connections.add` does
- * (`agent-orchestration-port-composition.ts`) — `applyUserConnections`
- * already caught that; this function did not, so a seam blip escaped
- * uncaught, past both callers' post-commit sequence, and skipped the
- * `user.changed`/`user.created` emit even though the row itself had already
- * committed. Every call below is now caught the same way, turning a throw
- * into the same problem its neighbouring `!result.ok` branch already
- * returns — a thrown failure and a returned one are indistinguishable to
- * the caller, exactly like `applyUserConnections`. */
+ * Port calls throw on non-2xx; each is wrapped to convert thrown failure into
+ * the same problem as a returned !ok — thrown and returned failures are indistinguishable to the caller. */
 async function applyUserFolders(
 	deps: UserActionsDeps,
 	id: string,
@@ -735,13 +695,7 @@ async function applyUserConnections(
 		// audited cast, widened through a local `unknown` binding rather than
 		// a chained `as unknown as` (forbidden — `design/no-unknown-cast`).
 		//
-		// @lore the seam-backed `connections.add` binding
-		// (`agent-orchestration-port-composition.ts`) throws on any non-2xx
-		// response — including the seam's own schema rejection of a
-		// mismatched pair (a bad `serverUrl`, a missing token) — rather than
-		// returning the `{ok:false}` its own return type promises. This catch
-		// makes the door honor what it already documented: every refused add,
-		// thrown or returned, is one `connection_invalid`.
+		// @lore: connections.add seam — throws on non-2xx instead of returning {ok:false}; catch converts throw to connection_invalid, matching returned failures
 		const connWidened: unknown = conn;
 		let result: Awaited<ReturnType<typeof deps.connections.add>>;
 		try {
@@ -824,13 +778,6 @@ async function createUserRun(
 	const changeActor = callerRow ? ctx.actor : id;
 	const agentCategory: AgentCategory | null =
 		kind === "ai" ? (input.agentCategory ?? (input.ownerUserId ? "individual" : "team")) : null;
-	// @lore T23: A rowless caller creating a human can only be the welcome
-	// screen's first `edit_user` call (the check above already refuses a
-	// second one once any human exists) — so it gets "founder" the way
-	// origin/main's now-deleted setup route hardcoded it, instead of the
-	// "member" every later human default gets. Deciding it here, rather than
-	// having SetupFlow.tsx pass role explicitly, keeps the welcome screen's
-	// call body unchanged.
 	const role = input.role ?? (kind === "human" ? (callerRow ? "member" : "founder") : "agent");
 
 	const values: NewUser = {
@@ -903,13 +850,11 @@ async function createUserRun(
 		});
 	});
 
-	// -- post-commit: run config, folders + connections (§6 — the welcome
-	// screen's own folder pick arrives here, B1), identity + subscription
+	// -- post-commit: run config, folders + connections, identity + subscription
 	// prompt documents, redetect. No port or document call inside
 	// the transaction above. A folder/connection problem is held, not
 	// returned, so every step below still runs and the row's own
-	// `user.created` still reaches every subscriber in reach (see the
-	// `applyUserFolders`/`applyUserConnections` @lore). --
+	// `user.created` still reaches every subscriber in reach. --
 	if (input.runConfig) await deps.runConfig.write(id, input.runConfig);
 
 	let stepProblem: Problem | null = null;
@@ -936,32 +881,7 @@ async function createUserRun(
 
 	if (mainChangeRow) ctx.eventBus.emit(objectEvent(mainChangeRow));
 
-	// @lore review 1b N8: unlike `editExistingUserRun` (below), a create that
-	// answers `ok:false` here does not describe a no-op — the person and team
-	// rows are already committed. `edit_user`'s wire shape (`ActionResult` —
-	// `framework/domain-model/src/actions/action.ts`, out of this item's
-	// scope) is a strict `{ok:true,data} | {ok:false,problems}`, so there is
-	// no shape that carries the row AND the problem at once; the two options
-	// the review named are "refuse before the row is written" or "answer
-	// `ok:true` with the row, the folder/connection problem reported some
-	// other way". The welcome screen decides this: `SetupFlow.tsx` already
-	// treats the person's own folder pick as best-effort (its own comment
-	// says so) and never branches on a folder-specific problem — it only
-	// checks `ok`/`user !== null` before using the new person's id to create
-	// their assistant next. Refusing up front would mean re-running the
-	// folder step BEFORE the team a fresh `input.team` creates even exists,
-	// which is the "commit → port calls → emit" ordering §6/B1 already fixed
-	// the other direction; undoing that ordering for create alone, to serve
-	// one caller's retry safety, is the wrong trade. So: create always
-	// answers `ok:true` with the row once it is truly committed — the
-	// caller that asked for a folder/connection it didn't get can already
-	// see that from the row's own `folders`/`connections` fields (silence by
-	// omission, the same signal a person reads off Settings after a change
-	// that quietly did not apply); the problem itself is still reported,
-	// through the same logger every other non-fatal step failure in this
-	// package already reports through (`subscription-fire.ts`,
-	// `subscription-clock.ts`), so an operator can see it without the
-	// caller having to retry-and-duplicate to surface it.
+	// create always answers ok:true once the row is committed — folder/connection problem is logged, not returned (row is already committed)
 	if (stepProblem) {
 		logger.warn("create: folder/connection step failed after the row committed", {
 			userId: id,
@@ -1197,23 +1117,12 @@ async function editExistingUserRun(
 	// -- post-commit: ports, documents, redetect, retire archive.
 	// No port or document call sits inside the transaction above. A
 	// folder/connection problem is held, not returned, so the rest of this
-	// sequence — including the `user.changed` emit below — still runs (see
-	// `applyUserFolders`/`applyUserConnections` @lore). --
+	// sequence — including the `user.changed` emit below — still runs. --
 	if (input.runConfig) await deps.runConfig.write(id, input.runConfig);
 
 	let stepProblem: Problem | null = null;
 	if (input.folders) {
-		// @lore review 1b N7: an owned agent's own `teamId` column is always
-		// null (`createUserRun` never sets it when `ownerUserId` is given) — it
-		// takes its owner's team, the same "effective team" `toUserRows` already
-		// reports on `open_user`. `create` already resolved this correctly for
-		// `folders.give` at creation time (`values.teamId ?? ownerRow?.teamId`);
-		// this edit path fell back to `existing.teamId` alone, so an owned
-		// agent's folder could never be given from Settings after creation even
-		// though the SAME give at creation time would have succeeded — main
-		// itself refused it too (`TEAM_MISMATCH` on a null team), so this was
-		// not a regression, but create and edit disagreeing on one user's
-		// effective team is its own bug.
+		// owned agent's teamId column is null; resolve via ownerRow?.teamId (same "effective team" open_user reports)
 		const ownerRow = existing.ownerUserId
 			? await findUser(ctx.db, { id: existing.ownerUserId })
 			: undefined;

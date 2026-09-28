@@ -3,7 +3,7 @@
  *
  * Mentions render inline as accent tokens (the `mention` Embed abstracts the
  * source `MentionRef` to `{identityId, displayName}`, so this file needs no
- * source type — W1 boundary). Other embeds render as a ReferenceChip / Fold row.
+ * source type). Other embeds render as a ReferenceChip / Fold row.
  */
 
 import type { JSX } from "react";

@@ -46,7 +46,7 @@ import {
 } from "./document-store.js";
 
 /**
- * The document module's outward-facing deps — architecture.md §8.1. `changes`
+ * The document module's outward-facing deps. `changes`
  * and `onBodyChanged` are written to only by `edit_document`; `openParent` is
  * read by `edit_document` for a `task`/`thread` parent's existence and team.
  */
@@ -56,13 +56,13 @@ export interface DocumentActionsDeps {
 	};
 	readonly users: {
 		getUserById(exec: WriteExecutor, id: string): Promise<User | undefined>;
-		/** agents owned by this person — founder ruling 5. */
+		/** agents owned by this person. */
 		listOwnedBy(exec: WriteExecutor, ownerId: string): Promise<readonly User[]>;
 	};
 	readonly org: { getTeam(exec: WriteExecutor, q: { id: string }): Promise<Team | undefined> };
 	/**
 	 * Existence of a `task`/`thread` parent, asked of the module that owns it,
-	 * plus that parent's team — A4's task-team fallback needs both, and one
+	 * plus that parent's team — the task-team fallback needs both, and one
 	 * crossing is cheaper than two.
 	 */
 	readonly openParent: (
@@ -85,7 +85,7 @@ export interface DocumentActionsDeps {
 		id: string,
 	) => Promise<boolean>;
 	/**
-	 * Decided (O1): bound in `compose.ts` to `markDetached`, called inside the
+	 * Bound in `compose.ts` to `markDetached`, called inside the
 	 * edit's transaction when `body` changed. The subscriptions item deletes it.
 	 */
 	readonly onBodyChanged: (exec: WriteExecutor, documentId: string) => Promise<void>;
@@ -95,11 +95,9 @@ export interface DocumentActionsDeps {
 const logger = createLogger({ pkg: "document.document-actions" });
 
 // ---------------------------------------------------------------------------
-// Row -> domain mapping. The store's row has no `as` column (architecture.md
-// §3.6 — derived, never stored); `documentAs` derives it back. The rest of
-// the fields already share their names with the domain `DocumentRow`, so the
-// structural cast (the same shape `task-actions.ts`'s `as unknown as
-// DomainTask` already uses) stands in for a sixteen-field manual copy.
+// Row -> domain mapping. The store's row has no `as` column (derived, never stored); `documentAs` derives
+// it back. The structural cast (like `task-actions.ts`'s `as unknown as DomainTask`) stands in for a
+// sixteen-field manual copy.
 // ---------------------------------------------------------------------------
 function toDocumentRow(row: DbDocumentRow): DomainDocumentRow {
 	return {
@@ -109,10 +107,10 @@ function toDocumentRow(row: DbDocumentRow): DomainDocumentRow {
 }
 
 /**
- * §5.1's `:subjects`/`:viewerTeamId` — resolved once per call, exactly as
+ * Resolves `:subjects`/`:viewerTeamId` once per call, exactly as
  * `thread` already resolves `listOwnedBy` (`thread-actions.ts:77`).
- * `:subjects` is the actor plus every agent that actor owns (founder ruling
- * 5); `:viewerTeamId` is the actor's own team, read off their own row — NOT
+ * `:subjects` is the actor plus every agent that actor owns;
+ * `:viewerTeamId` is the actor's own team, read off their own row — NOT
  * `deps.org.getTeam`, which looks a team up by id, not by member.
  */
 async function resolveViewer(
@@ -138,15 +136,7 @@ async function resolveViewer(
 	};
 }
 
-/**
- * Lifted from `routes/knowledge.ts`'s `resolveScopeName` (`:84-108`) — the
- * route keeps its own copy until it is deleted later (B20). Narrowed to the
- * three scope kinds `SCOPE_KINDS` still has (`factory`/`team`/`user` —
- * `task`/`product`/`practice`/`filesystem` are already gone from the type),
- * and rewritten against this module's own injected `deps` instead of
- * `findUser`/`getTeam` imported directly — a nested Service reaches a
- * sibling only through a port (architecture.md §8.1).
- */
+// Resolve a scope display name. Nested Service reaches users/org through injected deps, not direct imports.
 export async function resolveScopeName(
 	deps: Pick<DocumentActionsDeps, "users" | "org">,
 	exec: WriteExecutor,
@@ -193,12 +183,12 @@ function toSearchFilter(input: SearchDocumentsInput): DocumentSearchFilter {
 }
 
 /**
- * Same parent, `row` excluded, same order (architecture.md §3.4). A
+ * Same parent, `row` excluded, same order. A
  * non-root row (a real `parentKind`) reuses `search_documents`'s own
  * `parent` shape. A root row (`parentKind === null`) has no `parent` shape
  * to ask for — `search_documents`'s schema requires a `kind` — so this reads
  * the whole browsable tree (`inTree: true`, the same 200-row cap
- * `DocumentList.tsx` already accepts, architecture.md §5.2) and keeps only
+ * `DocumentList.tsx` already accepts) and keeps only
  * the other roots, in the tree's own `position, title` order.
  */
 async function siblingsOf(
@@ -243,8 +233,8 @@ function visibleAncestors(
 /**
  * Builds the `DocumentView` for an already-loaded row. Counts nothing —
  * `open_document.run` is the visibility check plus this plus `bumpRead`;
- * `edit_document.run` (B6a) calls this directly on the row it just wrote, so
- * an edit is never a read (architecture.md §6.7). Copying `edit_task`'s
+ * `edit_document.run` calls this directly on the row it just wrote, so
+ * an edit is never a read. Copying `edit_task`'s
  * `return openTaskRun(...)` here would be the bug this split avoids —
  * top-level and exported (not nested inside `createDocumentActions`) so it
  * is directly testable on its own, independent of the visibility door.
@@ -275,9 +265,8 @@ export async function assembleDocumentView(
  * a `Problem` list — the same shape `thread-actions.ts`'s `VerdictRaceConflict`
  * uses. Throwing (rather than returning) inside `db.transaction` rolls the
  * write back, so "a refused edit writes nothing" holds even for the checks
- * that must run against live state inside the transaction (architecture.md
- * §4.2's tree invariants — `reparent`'s own doc comment on why they can't run
- * before the transaction opens).
+ * that must run against live state inside the transaction (the cycle check
+ * requires live state — two moves that look legal independently can together produce a cycle).
  */
 class EditRefused extends Error {
 	readonly problems: readonly Problem[];
@@ -289,7 +278,7 @@ class EditRefused extends Error {
 
 /**
  * A `changes` row `edit_document` wrote inside its own transaction, captured
- * for the post-commit push — architecture.md §6.3, §7. `kind` here is the DB
+ * for the post-commit push. `kind` here is the DB
  * vocabulary (`changes_kind_ck`); the wire `kind` is derived from it, never
  * the other way around (mirrors `thread-actions.ts`'s `PushableChange`).
  */
@@ -307,14 +296,8 @@ function wireKindFor(kind: PushableChange["kind"]): "document.created" | "docume
 	return `document.${kind}` as "document.created" | "document.changed";
 }
 
-/**
- * Post-commit push, once per `changes` row, on both `document:<id>` and the
- * global `documents` topic (architecture.md §7). `documents` carries no
- * field values at all — a memory's title is as private as its body, and
- * `documents` is a topic any signed-in identity may subscribe to; the hooks
- * re-run their own `call()` on any matching frame, so nothing needs the
- * values. A no-op when `deps.wsPush` is absent (its binding is B9).
- */
+// Post-commit push on both document:<id> and the global `documents` topic (no field values — title is private).
+// No-op when deps.wsPush is absent.
 function pushChanges(deps: DocumentActionsDeps, rows: readonly PushableChange[]): void {
 	if (!deps.wsPush) return;
 	for (const row of rows) {
@@ -381,7 +364,7 @@ function emitObjectEvents(
 }
 
 /** Only the fields that differ (plus `id`) — the `changes` row's diff shape.
- * Reused verbatim from `task-actions.ts:190-208` (architecture.md §6.3). */
+ */
 function diffFields(
 	id: string,
 	prev: DbDocumentRow | null,
@@ -403,13 +386,8 @@ function diffFields(
 }
 
 /**
- * A4's default-scope derivation — architecture.md §0 A4, §3.6: "actor's team
- * → calling task's team → factory". `viewer.viewerTeamId` is already "the
- * actor's own team, read off their own row" (§8.1's `resolveViewer`), the
- * same value the deleted `write_memory` tool read as `ctx.teamId`
- * (`tool-definitions.ts:88-97` at the tree this architecture was read
- * against — the agent's baked team, `provisioner.ts:1088`). Only when that is
- * absent does the calling task's own team (via `deps.openParent`) apply.
+ * Default-scope derivation — actor's team → calling task's team → factory. `viewer.viewerTeamId` is
+ * the actor's own team. Only when that is absent does the calling task's own team apply.
  */
 async function deriveDefaultScope(
 	ctx: ActionContext,
@@ -425,10 +403,9 @@ async function deriveDefaultScope(
 }
 
 /**
- * The artifact stamp — architecture.md §3.6: "the same server-side stamp
- * `send_message` uses for `review.taskId`". `null` only when the caller has
- * neither, which `artifact_no_parent` (I6) already refuses before this is
- * ever called with no explicit parent.
+ * Returns the calling task or thread as the artifact parent stamp — matches `send_message`'s
+ * `review.taskId`. `null` only when the caller has neither, which `artifact_no_parent` already
+ * refuses before this is ever called with no explicit parent.
  */
 function stampedArtifactParent(
 	ctx: ActionContext,
@@ -473,7 +450,7 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 		}
 
 		// The read count bump — after the visibility check, never before, so a
-		// refused open counts nothing (architecture.md §6.7). Fire-and-forget
+		// refused open counts nothing. Fire-and-forget
 		// relative to the response: awaited, but a failure is logged and
 		// swallowed rather than failing the read.
 		try {
@@ -493,23 +470,21 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 	}
 
 	// -----------------------------------------------------------------------
-	// edit_document — architecture.md §3.5, §3.6, §4.1's forcings, §4.2, §6.3.
-	// An upsert on `id` (A3): absent ⇒ create with a new uuid; present ⇒ edit,
-	// or create with that id. A scope narrowing is accepted here and writes
-	// only the edited document — the cascade over its descendants is B6b.
+	// edit_document — upsert on `id`: absent ⇒ create; present ⇒ edit or create with that id.
+	// A scope narrowing writes only the edited document; the cascade writes its descendants.
 	// -----------------------------------------------------------------------
 	async function editDocumentRun(
 		ctx: ActionContext,
 		input: EditDocumentInput,
 	): Promise<{ ok: true; data: DocumentView } | { ok: false; problems: readonly Problem[] }> {
-		// -- 1. the raw, unfiltered upsert probe (architecture.md §4.3 case 7) --
+		// -- 1. the raw, unfiltered upsert probe --
 		const rawPrev = input.id ? await getDocument(ctx.db, input.id) : null;
 		const viewer = await resolveViewer(ctx, deps);
 
 		let prev: DbDocumentRow | null = null;
 		if (input.id && rawPrev) {
 			if (!canReadDocument(viewer.subjects, viewer.viewerTeamId, rawPrev)) {
-				// D1 — an existing-but-invisible id answers exactly `not_found`
+				// an existing-but-invisible id answers exactly `not_found`
 				// and creates nothing (never a second row, never a leak).
 				return {
 					ok: false,
@@ -519,7 +494,7 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 			prev = rawPrev;
 		}
 
-		// -- 2. pure invariants (architecture.md §4.1) --------------------------
+		// -- 2. pure invariants --
 		const domainPrev = prev ? toDocumentRow(prev) : null;
 		const caller = {
 			hasCallingTask: Boolean(ctx.caller?.taskId),
@@ -529,8 +504,8 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 		const pureProblems = editDocumentInvariants(input, domainPrev, caller);
 		if (pureProblems.length > 0) return { ok: false, problems: pureProblems };
 
-		// -- 3. D7 stale — the edited document only; a version on a create is
-		// ignored, not an error (architecture.md §4.3 case 6). -----------------
+		// -- 3. stale check — the edited document only; a version on a create is
+		// ignored, not an error. ------
 		if (prev !== null && input.version !== undefined && input.version !== prev.version) {
 			return {
 				ok: false,
@@ -543,7 +518,7 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 			};
 		}
 
-		// -- 4. §3.6's forcings — derive the written value for every field ------
+		// -- 4. forcings — derive the written value for every field ------
 		const isCreate = prev === null;
 		const effectiveAs: DocumentAs = input.as ?? (prev ? documentAs(prev) : "document");
 
@@ -561,12 +536,10 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 			effectiveScopeId = ctx.actor;
 		} else if (input.scopeKind !== undefined) {
 			effectiveScopeKind = input.scopeKind;
-			// A `user`-scoped write with no `scopeId` defaults to the actor — the
-			// same auto-fill the legacy route gave POST (`routes/knowledge.ts:467-
-			// 468`, "user scope auto-fills scopeId from userId"). Without this a
+			// A `user`-scoped write with no `scopeId` defaults to the actor. Without this a
 			// `user`-scoped, non-memory row stores `scopeId: null`, which no
-			// subject — not even its own writer — ever matches (architecture.md
-			// §5.1's visibility predicate). `team` gets no such default: I7
+			// subject — not even its own writer — ever matches.
+			// `team` gets no such default:
 			// (`scope_needs_id`) already refuses a team scope with no id before
 			// this line is ever reached.
 			effectiveScopeId = input.scopeId ?? (input.scopeKind === "user" ? ctx.actor : null);
@@ -583,10 +556,9 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 		if (effectiveAs === "memory") {
 			effectiveParent = null;
 		} else if (input.parent !== undefined) {
-			// `null` always means "to the top of the tree" (architecture
-			// decision) — never a re-stamp of the calling task/thread. An
+			// `null` always means "to the top of the tree" — never a re-stamp of the calling task/thread. An
 			// explicit `as:"artifact"` + `parent:null` is refused before this
-			// line is ever reached (I5, `artifact_parent_kind`); an existing
+			// this line is ever reached (`artifact_parent_kind`); an existing
 			// artifact edited to `parent:null` with no explicit `as` simply
 			// moves to the top and stops being derived as an artifact on the
 			// next read (`documentAs` re-derives from the stored `parentKind`).
@@ -607,13 +579,13 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 		const bodyChanged = isCreate || (input.body !== undefined && input.body !== prev?.body);
 		// A parent is only actively (re-)established at create, or when the
 		// caller names one — an edit that omits `parent` never moves the
-		// document (architecture.md §3.5: "Absent ⇒ no move").
+		// document — absent parent means no move.
 		const parentActivelySet = isCreate || input.parent !== undefined;
 
 		const id = prev?.id ?? input.id ?? randomUUID();
 		const now = ctx.now;
 
-		// -- D2's task/thread arm — resolved BEFORE the transaction opens.
+		// -- task/thread parent check — resolved BEFORE the transaction opens.
 		// `deps.openParent` crosses to the task/thread module's own action
 		// runner, which reads through ITS OWN `ctx.db` — calling it from inside
 		// this transaction would issue a second query on the same single
@@ -622,7 +594,7 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 		// actions, never inside a shared transaction — `task-actions.ts`'s
 		// `adjustThread`/`openThread` calls are made the same way, before its
 		// own transaction opens). The `document`-kind parent stays checked
-		// live inside the transaction below (D3/D4/D6/D8 need it there).
+		// live inside the transaction below (cycle/depth/scope checks need it there).
 		if (
 			parentActivelySet &&
 			effectiveParent !== null &&
@@ -647,12 +619,9 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 		// already refused a client-named one above, in the pure pass), and a
 		// plain read against a table this module doesn't own, so resolving it
 		// before the transaction opens is safe the same way the task/thread
-		// arm above is. Review finding: "a missing agent/subscription ->
-		// parent_not_found" on the internal path.
+		// arm above is. A missing agent/subscription is `parent_not_found` on the
+		// internal path.
 		//
-		// @lore BC5 T7b: `routine` is gone — `DOCUMENT_PARENT_KINDS` no longer
-		// names it, so this is exhaustive over agent/subscription now.
-		// -------------------------------
 		if (
 			parentActivelySet &&
 			effectiveParent !== null &&
@@ -683,10 +652,8 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 
 		try {
 			await ctx.db.transaction(async (tx) => {
-				// -- D8/D3/D4/D6 — re-checked against LIVE state inside the
-				// transaction (the same reasoning `reparent`'s own doc comment
-				// gives: two moves that each look legal outside a transaction can
-				// together produce a cycle no single read would catch). ----------
+				// -- re-checked against LIVE state inside the transaction --
+				// (two moves that look legal outside a transaction can together produce a cycle)
 				if (parentActivelySet && effectiveParent !== null) {
 					if (effectiveParent.kind === "document") {
 						const parentRow = await getDocument(tx, effectiveParent.id);
@@ -730,8 +697,7 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 					// pure pass).
 				}
 
-				// -- D5 — reachable only at create (a move is refused first by
-				// I10, architecture.md §4.3 case 2). ------------------------------
+				// -- slot check — reachable only at create (a move is refused first by slot constraint) --
 				if (isCreate && effectiveSlot !== "ordinary" && effectiveParent !== null) {
 					try {
 						await assertSlotFree(tx, effectiveParent.kind, effectiveParent.id, effectiveSlot);
@@ -805,7 +771,7 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 					const updated = await updateDocument(tx, id, prev.version, patch, now);
 					if (!updated) {
 						// A true concurrent race between our pre-transaction read and
-						// this write — the same fact D7 reports, caught here as a
+						// this write — caught here as a
 						// belt-and-suspenders backstop over the CAS `WHERE` clause.
 						throw new EditRefused([
 							{
@@ -837,13 +803,11 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 						at: now,
 					};
 
-					// -- the scope cascade (architecture.md §6.6, A2) --------------------
-					// Only an edit can cascade — a create has no descendants yet. Only a
-					// scope change (kind or id) is even worth walking for; widening never
-					// touches a descendant (`listWiderDescendants` already filters on
-					// rank, so a widen or a lateral same-rank move simply returns none —
-					// rule 1). No version check on a child (rule 6); no visibility filter
-					// on the walk (rule 7) — the true tree, not the actor's visible set.
+					// -- the scope cascade --
+					// Only an edit can cascade — a create has no descendants yet. A scope
+					// change (kind or id) walks descendants; widening never touches any
+					// (`listWiderDescendants` filters on rank). No version check on a child;
+					// no visibility filter on the walk — the true tree, not the actor's visible set.
 					const scopeChanged =
 						effectiveScopeKind !== prev.scopeKind || effectiveScopeId !== prev.scopeId;
 					if (scopeChanged) {
@@ -894,7 +858,7 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 					}
 				}
 
-				// O1 — inside the same transaction, only when body changed.
+				// inside the same transaction, only when body changed.
 				if (bodyChanged) {
 					await deps.onBodyChanged(tx, id);
 				}
@@ -911,7 +875,7 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 		}
 		// Post-commit, once per `changes` row — the parent's and every narrowed
 		// child's; each is also one
-		// document.created/document.changed object event (decision 5).
+		// document.created/document.changed object event.
 		if (pushRow) {
 			const rows = [pushRow, ...cascadeRows];
 			pushChanges(deps, rows);
@@ -919,7 +883,7 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 		}
 
 		// Never through `open_document.run` — that would count this write as a
-		// read (architecture.md §6.7's trap).
+		// read — open_document would count this write as a read.
 		return { ok: true, data: await assembleDocumentView(ctx, deps, writtenRow) };
 	}
 

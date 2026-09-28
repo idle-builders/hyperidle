@@ -1,4 +1,4 @@
-// Canvas #6 — ReviewVisualDiff: the visual before→after canvas.
+// ReviewVisualDiff: the visual before→after canvas.
 //
 // Proof family: visual before→after (a design frame vs the implemented screen).
 // Real content reaches this canvas as the labels an agent's `VisualDiffPayload`
@@ -11,19 +11,9 @@
 //       (Side-by-side · Overlay · Swipe).
 //   L3  on demand   — the differing regions listed as chips; clicking one flags it.
 //
-// @lore This canvas used to fill BOTH evidence panes, in every compare mode,
-// with a hand-drawn fake signup screen ("Create your account", an email field
-// placeholdered "you@company.com", a "Create account" CTA) plus a hardcoded
-// Figma mark — for every payload, regardless of what was actually under
-// review. `VisualDiffPayload` carries labels only, no image data, so there
-// was never anything real to put there; the fake screen was pure invention
-// and is deleted outright, not guarded. Real visual content belongs to the
-// `image` artifact kind; until a payload carries one, the honest behavior is
-// to say so — the same rule every other canvas in this family already follows.
 //
-// Chrome tokens are Hearth/CP1 by NAME (var(--token)). No hex anywhere in this
-// surface — the tool mark that used to live inside the evidence panes is gone;
-// tool identity is shown once, in `CanvasSourceHeader`.
+// Chrome tokens are Hearth tokens by name (var(--token)). No hex anywhere in this
+// surface; tool identity is shown once, in `CanvasSourceHeader`.
 //
 // States: populated (default, story) — panes always read "No rendered image
 // supplied" because no payload observed so far carries image data.
@@ -37,9 +27,7 @@ import type { ReviewCanvasProps, VisualDiffPayload } from "./review-artifact";
 // ── View model ─────────────────────────────────────────────────────────────
 // A region the diff flags — id + label only, both payload-supplied.
 // `VisualDiffPayload` has no real severity, band, or per-region design/build
-// description; the earlier version invented all three to drive highlighting
-// on the fake screen deleted above. Nothing here goes beyond what the payload
-// actually names.
+// description. Nothing here goes beyond what the payload actually names.
 
 interface DiffRegion {
 	readonly id: string;
@@ -125,7 +113,7 @@ function ReviewVisualDiffView({ diff, onFlag }: ReviewVisualDiffProps): JSX.Elem
 			}}
 		>
 			<div className="flex flex-col gap-[12px] p-[18px]">
-				{/* ── L1: one-glance summary (tool/title now in source header) ── */}
+				{/* ── L1: one-glance summary ── */}
 				<header className="flex items-center gap-[6px]">
 					<span
 						data-spacing-role="compact-pill"

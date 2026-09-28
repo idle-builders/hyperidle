@@ -3,7 +3,7 @@
  * and write from outside the package comes through here.
  *
  * These are deliberately not a repository: each one is a specific question the
- * layer above already asked, moved verbatim.
+ * layer above already asked.
  *
  * The wire contract does NOT move with them. Nothing here imports
  * `@hyperidle/api-contract`; the routes keep their `satisfies AgentRun*Response`
@@ -30,11 +30,7 @@ export async function findSessionById(
  * newest first, `limit` always resolved by the caller (the
  * action's own default-100 lives in `session-actions.ts`, not here — this
  * accessor never guesses a default).
- *
- * @lore AU44 batch6's note above (agentId filter and limit/offset paging
- * dropped, no caller used them) no longer holds: the session module's
- * `search_sessions` action is that caller now, and it needs every field
- * back.
+
  */
 export interface SessionSearchFilter {
 	readonly ids?: readonly string[];
@@ -71,13 +67,7 @@ export async function listSessions(
 /** Input for the no-live-runtime terminal transition. */
 export interface EndSessionByCasInput {
 	readonly sessionId: string;
-	/**
-	 * From the caller's pre-read row — the event payload, not a write.
-	 *
-	 * @lore Not nullable, unlike `taskId`: `sessions.agent_id` is `NOT NULL` and
-	 * `SessionEndedEvent.agentId` is `string`. A run always has an agent; only
-	 * the task is optional (assistant / subscription / knowledge runs have none).
-	 */
+	/** From the caller's pre-read row. `sessions.agent_id` is NOT NULL — a run always has an agent; only taskId is optional. */
 	readonly agentId: string;
 	/** From the caller's pre-read row — the event payload, not a write. */
 	readonly taskId: string | null;
@@ -98,11 +88,7 @@ export interface EndSessionByCasInput {
  * inside the same function as the CAS, gated on the same rowcount, so it cannot
  * fire for a session someone else already ended.
  *
- * @lore The persisted `outcome` and the emitted `outcome` are NOT the same
- * value. The row takes `input.outcome` when the caller supplies one; the event
- * always carries the value derived from `state`. This is verbatim of the route
- * this replaced, and it is asserted directly — collapsing them into one
- * variable is the obvious tidy-up and it is wrong.
+ * @lore: endSessionByCas — persisted outcome ≠ emitted outcome; row takes input.outcome when supplied; event always derives from state; collapsing them is wrong
  */
 export async function endSessionByCas(
 	db: HyperIdleDb,
@@ -168,28 +154,6 @@ export async function writeSessionNotes(
 	await db.update(sessions).set({ notes }).where(eq(sessions.id, sessionId));
 }
 
-/**
- * @lore `stopSessionRun` — the ONE stop path both
- * doors use (`stop_session`'s action and `requestRunStopForTasks`'s kill
- * cascade). `abort` is injected, never imported — this package names
- * `@hyperidle/session-requests` only as a devDependency, so the caller's
- * composition root (which holds both packages) passes `sessionRunRegistry.
- * abort` in.
- *
- * 1. a terminal row -> `"already_ended"`, no write, no emit.
- * 2. `abort(sessionId)` true (a live runtime entry answered) -> `"aborted"`:
- *    write nothing, emit nothing — the provisioning teardown
- *    (`transition-run.ts`'s `endSession`) writes the terminal row and emits
- *    `session_ended` as it does for any other end (outcome "stopped" — a
- *    stop must never read as a clean "completed" finish, or the upward
- *    task-propagation path would move a task that was just killed).
- * 3. `abort` false (no live runtime entry — a restart, another process, an
- *    already-dead child) -> CAS `state='stopped'`/`outcome='stopped'`
- *    ourselves, guarded on `state='active'` exactly like
- *    `request-run-stop-for-tasks.ts`'s own disposition, and emit
- *    `session_ended` so the task page, agent health and subscription reactions
- *    see the same end -> `"marked"`.
- */
 export async function stopSessionRun(
 	db: HyperIdleDb,
 	eventBus: EventBus,

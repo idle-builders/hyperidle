@@ -2,9 +2,7 @@
  * Journey: the assistant overlay opens from the sidebar trigger, stays open
  * across a view change, and closes on Escape or the trigger again.
  *
- * @lore component tests cover the overlay's rendering — this proves what needs a real router: trigger wiring and overlay persistence across navigation.
- *
- * @lore the overlay resolves "my agent" via search_users before reaching search_threads — without that mock every test sees the empty state.
+ * @lore: overlay agent lookup — resolves via search_users before search_threads; without that mock every test sees the empty state
  */
 
 import { expect, makeUserRow, mockSearchThreads, mockSearchUsers, test } from "./fixtures";

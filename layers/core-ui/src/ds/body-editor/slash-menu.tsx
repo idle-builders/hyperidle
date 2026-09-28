@@ -1,16 +1,3 @@
-/**
- * Slash menu suggestion extension + dropdown component for the BodyEditor.
- *
- * @lore T1: The slash menu uses TipTap's @tiptap/suggestion package (NOT
- * included in StarterKit — must be installed separately, per architecture-
- * critique I1). The dropdown is rendered via TipTap's ReactRenderer into a
- * tippy.js tooltip.
- *
- * @lore T1: SLASH_MENU_ITEMS and filterSlashItems are exported for direct
- * unit testing — the test suite imports them to verify the item count and
- * filtering logic without mounting the full editor.
- */
-
 import type { Editor, Range } from "@tiptap/core";
 import { Extension } from "@tiptap/core";
 import { ReactRenderer } from "@tiptap/react";
@@ -18,20 +5,12 @@ import Suggestion from "@tiptap/suggestion";
 import { forwardRef, type JSX, useEffect, useImperativeHandle, useRef, useState } from "react";
 import tippy, { type Instance as TippyInstance, type Props as TippyProps } from "tippy.js";
 
-// ─── Item type ───────────────────────────────────────────────────────────────
-
 export interface SlashMenuItem {
 	title: string;
 	description: string;
 	command: (props: { editor: Editor; range: Range }) => void;
 }
 
-// ─── Menu items list ─────────────────────────────────────────────────────────
-
-/**
- * The 10 slash menu items covering all 8 insertable BlockKind types
- * (heading counts as 3 entries: h1, h2, h3).
- */
 export const SLASH_MENU_ITEMS: SlashMenuItem[] = [
 	{
 		title: "Heading 1",
@@ -113,13 +92,6 @@ export const SLASH_MENU_ITEMS: SlashMenuItem[] = [
 	},
 ];
 
-// ─── Filter helper ───────────────────────────────────────────────────────────
-
-/**
- * Filter slash menu items by query text (case-insensitive).
- * Matches against both title and description.
- * Empty query returns all items.
- */
 export function filterSlashItems(query: string): SlashMenuItem[] {
 	if (!query) return SLASH_MENU_ITEMS;
 	const q = query.toLowerCase();
@@ -127,8 +99,6 @@ export function filterSlashItems(query: string): SlashMenuItem[] {
 		(item) => item.title.toLowerCase().includes(q) || item.description.toLowerCase().includes(q),
 	);
 }
-
-// ─── Dropdown component ───────────────────────────────────────────────────────
 
 interface SlashMenuDropdownRef {
 	onKeyDown: (props: { event: KeyboardEvent }) => boolean;

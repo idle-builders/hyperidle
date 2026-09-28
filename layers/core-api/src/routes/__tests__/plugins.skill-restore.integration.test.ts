@@ -2,9 +2,8 @@
  * Skill restore re-imports body from plugin source on disk. Editing a
  * skill's body in the DB and then calling `edit_plugin`'s restore change puts
  * the original SKILL.md content back, through `POST /api/actions/edit_plugin`.
- *
- * @lore restore writes through edit_document — updatedBy is always ctx.actor, never a body field.
  */
+// @lore: restore writes through edit_document — updatedBy is always ctx.actor, never a body field
 
 import { cpSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";

@@ -2,30 +2,13 @@ import { Component, type ErrorInfo, type ReactNode } from "react";
 import { Button } from "../ds";
 
 /**
- * @lore I4 E1: ErrorBoundary is a utility class component that catches
- * render errors in its children and renders a fallback UI. It is NOT one of
- * the custom presentational components in `docs/interface/ui-design.md` — it is
- * infrastructure (same category as the AppShell layout). Without it, an
- * uncaught render error in any page produces a blank white screen.
+ * Catches render errors in children; renders fallback UI to prevent blank screen.
  *
- * The fallback shows a generic message ("Something went wrong") and a
- * Reload button. In development (`import.meta.env.DEV`) the raw
- * `error.message` is rendered behind a disclosure so agents can debug;
- * production builds never leak the message (see security MED-2 —
- * Error.message may contain stack frames, internal paths, or unredacted
- * API response bodies).
+ * In development: raw error.message shown for debugging.
+ * In production: generic message only — error.message may leak stack frames or API bodies.
  *
- * Error boundaries do NOT catch:
- *   - event-handler errors,
- *   - async errors (setTimeout, Promise rejection, fetch .then),
- *   - SSR errors.
- * Async/effect errors in hooks like `useGlobalSearch` must be handled by
- * their own error state — the boundary cannot rescue them.
- *
- * `componentDidCatch` logs the error via `console.error` for observability.
- * A proper observability adapter will replace this wiring in a later story;
- * the log is the minimum surface so production errors are not silently
- * swallowed.
+ * Does NOT catch: event-handler errors, async errors (setTimeout, Promise, fetch), SSR errors.
+ * Those must be handled by their own error state.
  */
 
 interface ErrorBoundaryProps {
@@ -49,7 +32,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 	}
 
 	componentDidCatch(error: Error, info: ErrorInfo): void {
-		// biome-ignore lint/suspicious/noConsole: observability surface — see @lore above
+		// biome-ignore lint/suspicious/noConsole: only observability path for render errors caught by error boundary
 		console.error("[ErrorBoundary] caught render error", {
 			message: error.message,
 			componentStack: info.componentStack,

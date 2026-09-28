@@ -26,9 +26,6 @@ export const WithTaskRow = () => (
 );
 
 /**
- * @lore control/chip migration fix: tone="secondary" is the --accent-secondary
- * (orange) "in progress" pulse several running/elapsed-time indicators need —
- * a color LiveDot didn't expose before.
  */
 export const Tones = () => (
 	<div style={{ display: "flex", alignItems: "center", gap: 16 }}>

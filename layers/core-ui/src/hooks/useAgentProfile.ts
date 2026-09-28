@@ -1,30 +1,3 @@
-/**
- * UseAgentProfile: fetches the agent profile via `open_user({ id })`.
- *
- * Follows the same pattern as useTeam — thin one-shot fetch, no caching.
- * When agentId is undefined, returns idle state (no fetch).
- *
- * @lore BC5 T9: the door swap — `call("open_user", { id: agentId })` replaces
- * `apiFetch("/api/agents/:id/profile")` (architecture.md §8). Every field
- * (identity, role, team, harness/model config, identity document,
- * subscriptions) comes straight off `UserView`. `activeSession`,
- * `recentSessions`, `performance` and `healthSignals` were already client-
- * derived from `agent-orchestration` (AU26 J4, `useAgentRunState`) and are
- * untouched by this door swap.
- *
- * @lore BC5 T11: `harnessCapabilities` (a matching `runsOn` entry) and
- * `reviewTrackRecord` (now computed by `open_user` itself, restored from
- * the deleted `agent-profile.ts` route) are back — dropped fields, not
- * dropped facts.
- *
- * @lore BC5 T18: `harnessAvailable` is derived here from the same `runsOn`
- * read, mirroring the deleted `agent-profile.ts` route's
- * `resolveHarnessAvailable`: no preference (`harnessType` null) means any
- * enabled harness will do; a specific type must appear in `runsOn` and not
- * be `discovery.disabled`. `open_user` reports `runsOn` for any target, not
- * self only — a stale comment on this hook's caller claimed otherwise.
- */
-
 import type { HarnessDescriptor, SubscriptionView, UserView } from "@hyperidle/domain-model";
 import { useEffect, useState } from "react";
 import { call } from "../services/call.js";
@@ -41,18 +14,11 @@ export interface AgentProfileData {
 	readonly harnessType: string | null;
 	readonly maxConcurrentSessions: number;
 	readonly subscriptions: readonly SubscriptionView[];
-	/** The `runsOn` entry matching `harnessType`, or `null` when none/unset. */
 	readonly harnessCapabilities: HarnessDescriptor | null;
-	/**
-	 * True when the agent's harness requirement is met: no preference and at
-	 * least one enabled harness exists, or the specific `harnessType` is
-	 * present in `runsOn` and not `discovery.disabled`.
-	 */
 	readonly harnessAvailable: boolean;
 	readonly reviewTrackRecord: UserView["reviewTrackRecord"];
 }
 
-/** Mirrors the deleted `agent-profile.ts` route's `resolveHarnessAvailable`. */
 function resolveHarnessAvailable(
 	harnessType: string | null,
 	runsOn: readonly HarnessDescriptor[],
@@ -66,8 +32,7 @@ export interface UseAgentProfileResult {
 	data: AgentProfileData | null;
 	loading: boolean;
 	error: Error | null;
-	/** @lore UI-014: HTTP status code surfaced separately so callers can branch on 404/429/5xx
-	 * without parsing error.message strings. null for network errors (no HTTP response). */
+	/** HTTP status code — separate from error so callers branch on 404/429/5xx without parsing error.message; null when no HTTP response (network error). */
 	httpStatus: number | null;
 	refetch: () => void;
 }

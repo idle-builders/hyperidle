@@ -1,14 +1,3 @@
-/**
- * Pure cron utilities.
- *
- * parseCron/nextCronMatch are the two exported functions; CronFields is
- * exported alongside them.
- *
- * @lore BC5 T2: lives in `@hyperidle/user`, exported from the package index —
- * a subscription's schedule trigger needs this cron parsing, and the user
- * module is where the subscription clock lives.
- */
-
 export interface CronFields {
 	minute: number[] | "*";
 	hour: number[] | "*";

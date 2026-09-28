@@ -319,14 +319,10 @@ const browserArtifact: ReviewArtifact<BrowserPreviewPayload> = {
 /**
  * AL2 — canonical review Subject used by the integration scaffold page.
  *
- * @lore This object is intentionally fixture data for AL2 only. The full AL3
- * composition will fetch real review Subjects from the server; this default
- * keeps the canvases mounted and reachable in production code without blocking
- * on AL3 wiring.
  */
 export const AL2_REVIEW_SUBJECT: ReviewSubject = {
-	id: "review:AL2:fixture",
-	title: "AL2 review composition fixture",
+	id: "review:subject:fixture",
+	title: "review composition fixture",
 	artifacts: [
 		outcomeArtifact,
 		fieldChangeArtifact,

@@ -1,34 +1,7 @@
 [
   {
     "path": "layers/core-api/src/middleware/auth.ts",
-    "line": 68,
-    "symbol": "u-founder",
-    "kind": "literal-id",
-    "shape": "string",
-    "importerCount": 0,
-    "triageHint": "straight-swap"
-  },
-  {
-    "path": "layers/core-api/src/middleware/auth.ts",
-    "line": 71,
-    "symbol": "u-founder",
-    "kind": "literal-id",
-    "shape": "string",
-    "importerCount": 0,
-    "triageHint": "straight-swap"
-  },
-  {
-    "path": "layers/core-api/src/middleware/auth.ts",
-    "line": 83,
-    "symbol": "u-founder",
-    "kind": "literal-id",
-    "shape": "string",
-    "importerCount": 0,
-    "triageHint": "straight-swap"
-  },
-  {
-    "path": "layers/core-api/src/middleware/auth.ts",
-    "line": 90,
+    "line": 54,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",

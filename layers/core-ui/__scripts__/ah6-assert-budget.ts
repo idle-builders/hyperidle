@@ -10,32 +10,13 @@
  *   - If totalTokens > AH6_MAX_TOKENS → exit 1.
  *   - Otherwise → exit 0.
  *
- * @lore AH6: "Fail closed on absence" is the critical invariant. If the record
- * lane crashes before writing the report file, the budget step MUST still fail.
- * A missing file is NOT evidence of zero usage.
+ * @lore: fail-closed — absent or unparseable ah6-cost.json exits 1; missing report is not evidence of zero usage
  *
- * @lore AH6: This script is an AH6 wrapper of the AH5 budget-assert pattern.
- * The report file path points to playwright-report-ah6/ instead of playwright-report-ah5/.
- * The env cap var is AH6_MAX_TOKENS.
- *
- * @lore AU21 (harness-telemetry narrowing): This used to gate on an ESTIMATED
- * $-cost (totalCostCents via a hardcoded per-model rate table). Founder ruling:
- * "very few harness can actually report cost" — keep only token usage. The gate
- * now checks totalTokens against AH6_MAX_TOKENS (an already-established sibling
- * threshold surfaced in ah6-smoke-local.ts, not a newly-invented one).
- * The file is still named "ah6-cost.json" / AH6_COST_REPORT_PATH for back-compat
- * with the smoke orchestrator and playwright.ah6.config.ts wiring — the payload
- * no longer carries a $ figure.
  */
 
 import * as fs from "node:fs";
 
-// @lore AH6 CRITICAL-4: The recorder writes ah6-cost.json directly to /tmp
-// (AH6_COST_REPORT_PATH=/tmp/ah6-cost.json in playwright.ah6.config.ts).
-// Writing to /tmp bypasses Playwright's HTML reporter cleanup of playwright-report-ah6/.
-// Previously the report was written to playwright-report-ah6/, which Playwright
-// cleared during its post-run HTML report write — the file was deleted before
-// the smoke orchestrator's backup step ran.
+// @lore: ah6-cost.json in /tmp — Playwright post-run cleanup deletes test artifacts before backup; /tmp bypasses that cleanup
 const USAGE_FILE = "/tmp/ah6-cost.json";
 
 const MAX_TOKENS = Number(process.env.AH6_MAX_TOKENS ?? "20000");
@@ -60,7 +41,7 @@ function pass(msg: string): void {
 if (!fs.existsSync(USAGE_FILE)) {
 	fail(
 		`Usage report missing: ${USAGE_FILE}\n` +
-			"  This means the AH6 record lane crashed before writing the report file.\n" +
+			"  This means the record lane crashed before writing the report file.\n" +
 			"  Fail-closed: a missing report is NOT evidence of zero usage.",
 	);
 }

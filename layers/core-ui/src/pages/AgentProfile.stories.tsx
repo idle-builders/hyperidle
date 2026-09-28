@@ -77,10 +77,6 @@ const BASE_PROFILE: AgentProfileData = {
 	},
 };
 
-/**
- * @lore AU26 J4: run state is fetched from `agent-orchestration`, not served on
- * the profile response, so the stories inject it through its own prop.
- */
 const BASE_RUN_STATE: AgentRunState = {
 	status: "ready",
 	activeSession: null,
@@ -233,7 +229,6 @@ export const StrategyAgent = (): JSX.Element =>
 				...BASE_PROFILE,
 				name: "Scout Strategy",
 				role: "scout",
-				// @lore BA9d: "strategy" category deleted; was "strategy", now "individual".
 				agentCategory: "individual",
 				teamName: null,
 				teamId: null,

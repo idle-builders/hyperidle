@@ -6,9 +6,9 @@
  * to assert against, not a stub). `sessionLifecycle.transitionAgentRunLifecycle`
  * calls the package's own real `transitionRun` — never a hand-rewritten
  * duplicate of its logic — so a field this Service's real composition drops
- * (`run-orchestration-composition.ts`'s own top `@lore`: `errorMessage` did,
- * for months) fails here too, instead of a parallel reimplementation
- * quietly forwarding it while production doesn't.
+ * (the composition once silently dropped `errorMessage` for months) fails
+ * here too, instead of a parallel reimplementation quietly forwarding it
+ * while production doesn't.
  * `sessionProvisioner`/`crashSession`/`requestAgentTermination`/
  * `recoverRequestedTerminations` are `vi.fn()` stubs — overridden per test
  * where behavior matters (matching the pre-move tests' own

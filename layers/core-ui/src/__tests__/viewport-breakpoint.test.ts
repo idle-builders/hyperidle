@@ -25,7 +25,7 @@ function setViewportWidth(width: number): void {
 
 const originalWidth = window.innerWidth;
 
-describe("useViewportBreakpoint — AC-12: simplified hook", () => {
+describe("useViewportBreakpoint — simplified hook", () => {
 	beforeEach(() => {
 		setViewportWidth(1920);
 	});

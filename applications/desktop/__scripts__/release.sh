@@ -79,11 +79,7 @@ perl -0pi -e "s/^appVersion:.*\$/appVersion: \"$VERSION\"/m" "$REPO_ROOT/deploy/
 echo "==> Building web SPA"
 npm run -w @hyperidle/core-ui build
 
-# @lore proven-bug guard: see build-local.sh's matching check — a machine-local
-# `.env` NODE_ENV=development line can force import.meta.env.DEV/.PROD true for
-# the whole build, silently shipping the dev-only ws://localhost:3001 address
-# into a released app. Hard-fail rather than ship a build that never receives a
-# live update.
+# @lore: .env NODE_ENV=development — forces import.meta.env.DEV true and ships ws://localhost in a release; hard-fail
 echo "==> Verifying the web bundle never hardcodes the dev websocket address"
 WEB_BUNDLE_DIR="$REPO_ROOT/layers/core-ui/dist/assets"
 WEB_BUNDLE_JS=("$WEB_BUNDLE_DIR"/index-*.js)
@@ -97,12 +93,6 @@ if grep -l "ws://localhost" "${WEB_BUNDLE_JS[@]}" >/dev/null 2>&1; then
   exit 1
 fi
 
-# @lore proven-bug guard, wider class: see build-local.sh's matching check —
-# `ws://localhost` is only one symptom of a build that ran in dev mode.
-# `hyperidle-dev-local` (the dev-only API key fallback in
-# layers/core-ui/src/services/api-fetch.ts) only appears on the
-# `import.meta.env.DEV` branch, so it is a second independent tripwire for the
-# same root cause.
 if grep -l "hyperidle-dev-local" "${WEB_BUNDLE_JS[@]}" >/dev/null 2>&1; then
   echo "Error: the built web bundle hardcodes the dev API key fallback (hyperidle-dev-local) — this build ran in dev mode."
   echo "See layers/core-ui/src/services/api-fetch.ts."

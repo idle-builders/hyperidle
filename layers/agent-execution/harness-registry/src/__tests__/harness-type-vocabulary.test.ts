@@ -66,7 +66,6 @@ function makeAdapter(): HarnessAdapter {
 
 describe("harness type vocabulary", () => {
 	it("accounts for every vocabulary entry, installed or not", async () => {
-		// @lore what the pool can account for and what the vocabulary offers must be the same set, host-independent.
 		const pool = await fakeLocalAdapterPool();
 		const accounted = new Set(pool.describe().map((d) => d.type));
 

@@ -1,11 +1,8 @@
 /**
- * @lore a human `send_message` into a direct thread wakes the agent, whose own `send_message` is the only way its turn ends.
- *
  * Per harness (claude / codex / opencode / cursor-agent), `requireHarness(...)`,
  * zero stubs, hard-fail if absent — never `skipIf` to green (CLAUDE.md,
  * testing.md).
  *
- * @lore builds composition through the shared `setUpLiveHarnessRun` — `layers/core-api` may not import `@hyperidle/agent-execution` directly.
  */
 
 import { randomUUID } from "node:crypto";
@@ -47,7 +44,6 @@ import { SESSION_NOT_RETURNED_NOTICE_TEXT } from "../services/session-not-return
 
 const NOW = "2026-09-18T00:00:00.000Z";
 
-// @lore a vitest timeout skips `runThreadTurnProof`'s own finally cleanup — this afterEach sweeps every live session's process group as the backstop.
 afterEach(() => {
 	stopAllLiveHarnessSessions();
 });
@@ -78,7 +74,6 @@ async function seedFounderAndAgent(
 		status: "active",
 		createdAt: NOW,
 	});
-	// @lore the run-config selector (`harnessType`) lives in `agent_run_config`, read live — not on the `users` identity row.
 	await db.insert(agentRunConfig).values({
 		agentUserId: opts.agentId,
 		harnessType: opts.harnessType,

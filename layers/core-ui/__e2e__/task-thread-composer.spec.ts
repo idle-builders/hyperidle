@@ -2,8 +2,6 @@
  * Journeys: posting a message via a task thread's composer, and inline
  * document Inspect preserving the live draft and scroll position when
  * opened and closed.
- *
- * @lore an artifact inline reference now renders as a non-navigating label — a document reference is the surviving inline reference.
  */
 
 import {

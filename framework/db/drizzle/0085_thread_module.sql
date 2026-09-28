@@ -1,6 +1,3 @@
--- @lore BC3: thread as a module. Steps are ordered; a later
--- one depends on an earlier one.
-
 -- 1. a thread gets its own title and a soft delete.
 ALTER TABLE "threads" ADD COLUMN "title" text;
 --> statement-breakpoint
@@ -157,47 +154,6 @@ SET "baked_request_json" = jsonb_set(
 )::text
 WHERE "baked_request_json"::jsonb -> 'sourceCorrelation' ? 'assistantAgentId';
 --> statement-breakpoint
-
--- @lore BC3 step 10: a direct thread between a user and their own assistant agent used to
---     be hosted by the USER (pre-BC3 `createAssistantThreadRoute` shape:
---     `thr-ast-<userId>`, host_kind='user'). `send_message`'s single-
---     recipient path (thread-actions.ts ~546-558) now hosts that pair by the
---     AGENT and dedupes on `direct_key = ${[a,b].sort().join(":")}:agent`.
---     Re-host every such thread so the assistant overlay's
---     `search_threads({host:{kind:"agent", id: myAgentId}})` finds the old
---     conversation instead of a second one being created on first send.
---
---     Selected by OWNERSHIP (`users.owner_user_id`), never an id prefix —
---     migration data need not be shaped `thr-ast-<userId>`/`ast-<userId>`.
---     A candidate is a `host_kind='user'` thread whose participants are
---     EXACTLY the host user and one agent it owns (`?&` + length check).
---
---     Idempotent: only `host_kind='user'` rows are candidates, and this step
---     flips them to 'agent' — a re-run selects nothing.
---
---     Two threads can exist for the same pair (nothing forbade it pre-BC3).
---     The partial unique index on `direct_key` allows only one keyed row per
---     pair, so the most-recently-active thread keeps the key; the other is
---     still re-hosted onto the agent but left with `direct_key IS NULL` — no
---     merge, no delete, both rows survive.
---
---     A second writer already existed before this migration: the pre-BC3
---     `findOrCreateDirectThread` path wrote agent-hosted direct threads with
---     this exact `direct_key` shape for a pair reached through the old
---     reply/send tools. Such a row is not a candidate here (its `host_kind`
---     is already 'agent'), so the window above never sees it — but the key
---     it holds is still live. The most-recently-active candidate only takes
---     the computed key when no other row already holds it; otherwise it is
---     re-hosted and left unkeyed, same as a losing duplicate above. A row
---     that already had a key keeps whatever key it had — this step only ever
---     writes a key it computed, never blanks one it didn't.
---
---     `LEAST`/`GREATEST` are pinned to the C collation so the pair ordering
---     matches the app's plain JS `.sort()` regardless of the database's
---     default collation.
---
---     Same trigger-suspend window as step 7 (`threads_host_immutable_trg`,
---     migration 0007) — this changes `host_kind`/`host_id` too.
 ALTER TABLE "threads" DISABLE TRIGGER "threads_host_immutable_trg";
 --> statement-breakpoint
 WITH pair AS (

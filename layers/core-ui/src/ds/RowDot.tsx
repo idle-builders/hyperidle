@@ -1,14 +1,5 @@
 import type { JSX } from "react";
 
-/**
- * Static 6px status dot — canonical tone-keyed indicator for list rows.
- *
- * @lore AG6: Justified-distinct from LiveDot (AI4). LiveDot is a pulsing
- * accent dot for live-activity signals. RowDot is a static, tone-keyed dot
- * for status (team health, harness status). DO NOT copy
- * LiveDot markup or its animate-pulse class.
- */
-
 export type RowTone = "success" | "warning" | "error" | "info" | "neutral";
 
 export interface RowDotProps {
@@ -25,9 +16,6 @@ export interface RowDotProps {
 	title?: string;
 }
 
-// @lore AZ7 E7 (§1.6 finding #3): exported so consumers that need a tone→color
-// ladder (e.g. SettingsHarnesses.tsx) reuse this one instead of forking a
-// private copy. RowDot itself stays the presentation; TONE_COLOR is the data.
 export const TONE_COLOR: Record<RowTone, string> = {
 	success: "var(--status-success)",
 	warning: "var(--status-warning)",

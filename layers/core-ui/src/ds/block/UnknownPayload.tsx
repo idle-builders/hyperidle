@@ -6,18 +6,6 @@ export interface UnknownPayloadProps {
 	reason: "parser-unrecognised" | "body-too-large" | "sanitiser-stripped";
 }
 
-/**
- * @lore C8: the warn-stripe shell uses a plain pill — `StatusChip` has a closed
- * status enum that doesn't include "unknown" and is Tier-1 protected. A bespoke
- * pill keeps the Block primitive Tier-2 (composing tokens directly, not
- * extending Tier-1).
- *
- * @lore AZ6: `reason` is the internal discriminant and must never reach the
- * screen — "unsupported block — parser-unrecognised" is a sentence written for
- * whoever wrote the parser, not for whoever opened the page. It maps to plain
- * words here. This component appears inside artifacts, documents and
- * comments, so the wording lands in all three. Layout is unchanged.
- */
 const REASON_TEXT: Record<UnknownPayloadProps["reason"], string> = {
 	"parser-unrecognised": "HyperIdle couldn't read this part.",
 	"body-too-large": "This part is too long to show in full.",

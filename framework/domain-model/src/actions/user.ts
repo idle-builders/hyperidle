@@ -5,41 +5,14 @@ import { AGENT_CATEGORIES, HARNESS_TYPES, ORG_EDGE_MECHANISMS } from "../types.j
 import type { ActionDeclaration, Problem } from "./action.js";
 import { DOCUMENT_SLOTS } from "./document.js";
 
-/**
- * @lore BC5: the user action list — search, open, edit. Users — humans and
- * agents alike — are one module now, the way task/thread/document already
- * are: subscriptions on the row replace routines and the notification
- * queue, team and org edges are attributes read by `open_user` and changed
- * by `edit_user`. `core-ui` imports this file directly — never `core-api` —
- * for the same reason every other action module does: the browser needs the
- * exact `input`/invariant shape the server runs. The pipeline item that
- * planned this module is referenced here, in this one lore block, because
- * the shapes below reproduce a lot of pre-existing surface (harness
- * descriptors, folders, connections) verbatim and a future reader
- * asking "why does this one file carry so much" needs the pointer; no other
- * comment, test or commit in this change names it.
- */
-
-// ---------------------------------------------------------------------------
-// Vocabulary
-// ---------------------------------------------------------------------------
-
 export const USER_KINDS = ["human", "ai"] as const;
 export type UserKind = (typeof USER_KINDS)[number];
 
-/** Derived from the real writers — `routes/agents.ts`, `users/src/runnable-agent.ts`. */
+/** Derived from the real writers — `users/src/runnable-agent.ts`. */
 export const USER_STATUSES = ["active", "idle", "inactive", "retired"] as const;
 export type UserStatus = (typeof USER_STATUSES)[number];
 
-/**
- * The nine object events — every change row on `task`/`thread`/`document`/
- * `user` is one of these, edit-in named singular, changed-out named plural
- * per object. `framework/event-bus/src/events.ts` carries the same nine
- * names as `EVENT_TYPES` members once the modules that emit them are wired;
- * this constant is the vocabulary a subscription is written against and the
- * shape `edit_user`'s `event` field parses against, independent of that
- * wiring.
- */
+// Nine object events — vocabulary for subscriptions and edit_user's event field; event-bus/events.ts mirrors these as EVENT_TYPES members.
 export const OBJECT_EVENTS = [
 	"task.created",
 	"task.changed",
@@ -78,11 +51,7 @@ export const ChangeRowSchema = z.object({
 });
 export type ChangeRow = z.infer<typeof ChangeRowSchema>;
 
-// ---------------------------------------------------------------------------
-// The row. `team` is the effective team (own, else the
-// owner's); `edges` are the user's outgoing `org_edges`, so the org chart
-// needs one call.
-// ---------------------------------------------------------------------------
+// team is the effective team (own, else the owner's); edges are outgoing org_edges — the org chart needs one call.
 
 export const UserRowSchema = z.object({
 	id: z.string(),
@@ -94,7 +63,7 @@ export const UserRowSchema = z.object({
 	createdAt: z.string(),
 	agentCategory: z.enum(AGENT_CATEGORIES).nullable(),
 	ownerUserId: z.string().nullable(),
-	/** F1: a note on the agent, e.g. a crash count — null for a healthy row. */
+	/** A note on the agent, e.g. a crash count — null for a healthy row. */
 	health: z.string().nullable(),
 	team: z.object({ id: z.string(), name: z.string() }).nullable(),
 	edges: z.array(
@@ -102,10 +71,6 @@ export const UserRowSchema = z.object({
 	),
 });
 export type UserRow = z.infer<typeof UserRowSchema>;
-
-// ---------------------------------------------------------------------------
-// search_users
-// ---------------------------------------------------------------------------
 
 export const SearchUsersInputSchema = z
 	.object({
@@ -130,16 +95,6 @@ export const searchUsers: ActionDeclaration<SearchUsersInput, UserRow[]> = {
 	input: SearchUsersInputSchema,
 	output: z.array(UserRowSchema),
 };
-
-// ---------------------------------------------------------------------------
-// open_user. The supporting views (harness, folder,
-// connection, inbox) are declared as zod shapes in this file so
-// the wire contract is self-contained; the TS interfaces this mirrors
-// (`HarnessCapabilityDescriptor`, `ServiceConnectionView`, `Filesystem`)
-// keep their own server-side lives until the
-// module that actually reads and writes through this door replaces their
-// callers.
-// ---------------------------------------------------------------------------
 
 export const OpenUserInputSchema = z.object({ id: z.string().min(1).optional() }).strict();
 export type OpenUserInput = z.infer<typeof OpenUserInputSchema>;
@@ -267,10 +222,7 @@ const RunConfigViewSchema = z.object({
 	modelOptions: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).nullable(),
 });
 
-/**
- * @lore BC5 T11: restored from the deleted `agent-profile.ts` route's own
- * `computeApprovalRate` call — a derived trust signal, not a stored column.
- */
+// derived trust signal, not a stored column
 const ReviewTrackRecordSchema = z.object({
 	/** (approve + approve-with-comments) / total. 0 when no verdicts. */
 	approvalRate: z.number(),
@@ -324,10 +276,6 @@ export const openUser: ActionDeclaration<OpenUserInput, UserView> = {
 	output: UserViewSchema,
 };
 
-// ---------------------------------------------------------------------------
-// edit_user. One partial; no `id` creates.
-// ---------------------------------------------------------------------------
-
 const EditUserTeamRefSchema = z.object({ name: z.string().min(1) }).strict();
 
 const EditUserRunConfigSchema = z
@@ -353,7 +301,7 @@ const EditUserEdgesSchema = z
 
 const EditUserFoldersSchema = z
 	.object({
-		/** Today's `POST /filesystems` body, minus `teamId` — implied by the caller. */
+		/** `POST /filesystems` body, minus `teamId` — implied by the caller. */
 		add: z
 			.array(
 				z
@@ -476,12 +424,7 @@ export const USER_ACTIONS = {
 	edit_user: editUser,
 } as const;
 
-// ---------------------------------------------------------------------------
-// Pure invariants. DB-dependent problems (`not_found`,
-// `unknown_actor`, `unknown_owner`, the runnable check, the harness/model
-// codes `validate-agent-config.ts` already names, and the rest) need the
-// database and belong in `edit_user.run` (a later task), not here.
-// ---------------------------------------------------------------------------
+// Pure invariants — DB-dependent problems (not_found, unknown_actor, etc.) belong in edit_user.run, not here.
 
 /** `kind_required`, `name_required`, `belonging_required`, `owned_agent_has_no_team`,
  * `person_has_no_owner`, `agent_fields_for_agents` — only meaningful on a create (no `id`). */

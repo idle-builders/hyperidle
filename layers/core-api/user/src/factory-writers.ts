@@ -26,15 +26,6 @@ export async function insertUserIfAbsent(exec: WriteExecutor, values: NewUser): 
  * Users/agents are never hard-deleted — many tables have ON DELETE RESTRICT FKs
  * on users.id (tasks.ownerAgentId, sessions.agentId, etc.).
  * Status='inactive' is the safe tombstone.
- *
- * @lore BA9d: the route cannot write the `users` table directly (governance
- * boundary) — it calls this function instead.
- *
- * @lore BA9g: it took a `pluginId` and filtered on `users.plugin_id`. That
- * column was the plugin service's provenance living in a table it does not own,
- * which is exactly why this write had to be here in the first place. The plugin
- * service now names the rows and this function writes them, so the boundary is
- * the same and the ownership is honest.
  */
 export async function setAgentsStatus(
 	exec: WriteExecutor,

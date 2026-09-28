@@ -1,32 +1,3 @@
-/**
- * DocumentSlotList — shared list surface for documents scoped to a fixed set
- * of slots.
- *
- * Owns create and delete; the document content view owns read and update —
- * this is the human-side equivalent of a plugin's batch install, anything a
- * plugin can create a person can too, through the same path. Built on the
- * ItemList/Row primitives, following the idiom already shared by
- * SettingsPlugins, SettingsHarnesses, SettingsConnections and SettingsAgents.
- *
- * @lore knowledge-attachment-slot: one list, parameterised by slot — not one
- * bespoke screen per slot. `slot` is set once here, at creation, and never
- * edited afterward (the document content view's slot selector is gone),
- * which is what makes this the single writer of slot for the slots it lists.
- * Skills and rules are the only document type with a *list* today — a
- * subscription's prompt and an agent's identity are singular 1:1 bindings
- * shown inline in their own editor (AgentEditor's identity link, the
- * subscription prompt field), not a create/list/delete surface — so this component is not
- * wired into them. Wiring is a one-line instantiation (see
- * SettingsSkillsAndRules.tsx) whenever a type gets a real list.
- *
- * @lore BC4: repointed off `GET /api/knowledge` onto `search_documents`/
- * `edit_document`. `search_documents` filters by exactly one `slot`
- * (architecture.md §3.3) — this list combines at most two (the only caller
- * today passes `["skill", "rule"]`), so it runs `useDocuments` twice, one
- * hook call per slot, rather than looping (§5.2: "search_documents({slot:
- * 'skill'}) + search_documents({slot:'rule'})").
- */
-
 import type { DocumentSlot } from "@hyperidle/domain-model";
 import { DOCUMENT_SLOT_LABEL } from "@hyperidle/domain-model";
 import type { JSX, ReactNode } from "react";

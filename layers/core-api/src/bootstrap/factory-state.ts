@@ -1,15 +1,4 @@
-/**
- * The core-api first-boot face: writes the hidden system actor and nothing
- * else. Idempotent — the desktop app calls it on every launch.
- *
- * @lore The install ships empty: the person's own assistant arrives from the
- * welcome screen, every other agent from a plugin or from the person. The
- * one row boot still writes is not an agent — it is the actor system writes
- * are attributed to (`changes.actor`, `messages.senderId` and friends
- * reference `users.id`), so it must exist before the first system write.
- * Role "system" is its structural marker: it cannot be retired and
- * `search_users` leaves it out unless a caller names it.
- */
+// @lore: first-boot writes only the system actor (role="system", invisible to `search_users`) — must exist before any write; idempotent, called every launch
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import { insertUserIfAbsent } from "@hyperidle/user";

@@ -1,16 +1,3 @@
-/**
- * `filesystem-mounting` Service (agent-orchestration) — outbound
- * composition-boundary (Mechanism C) DI port.
- *
- * @lore AU26 F1 (§D-I): the mount engine relocated here from
- * `@hyperidle/filesystems` (a core-api Service). The git-runner port is
- * re-declared STRUCTURALLY rather than imported from the package it came from
- * — a Service never imports another Service's type, and the two now sit on
- * opposite sides of the Layer boundary. The concrete implementation both sides
- * use is the same one: `createGitRunner` from `@hyperidle/host-process` (AU26
- * A2), injected by the Application.
- */
-
 interface MountingGitConfigInjection {
 	readonly key: string;
 	readonly value: string;

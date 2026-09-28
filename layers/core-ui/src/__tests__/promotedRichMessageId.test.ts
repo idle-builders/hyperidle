@@ -8,7 +8,6 @@
  * a card. "Oldest unresolved review/questionnaire wins" — deterministic
  * across renders. Returns null when no candidate exists.
  *
- * @lore red-phase: fails with "is not a function" until the helper is exported from framework/domain-model/src/thread.ts's index.
  */
 
 import type { Message } from "@hyperidle/domain-model";
@@ -73,7 +72,7 @@ function plain(id: string, createdAt: string): Message {
 	};
 }
 
-describe("promotedRichMessageId (approved.md §3, plan §5.2)", () => {
+describe("promotedRichMessageId", () => {
 	it("returns null when the thread has zero rich messages", () => {
 		expect(
 			promotedRichMessageId([

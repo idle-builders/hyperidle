@@ -19,8 +19,7 @@ export const noOffScaleFontSize: Rule.RuleModule = createRule({
 	meta: {
 		type: "problem",
 		docs: {
-			description:
-				"Forbid arbitrary text-[Npx] values not in the closed type scale (AESTHETICS.md § Typography).",
+			description: "Forbid arbitrary text-[Npx] values not in the closed type scale.",
 			recommended: true,
 		},
 		schema: [],

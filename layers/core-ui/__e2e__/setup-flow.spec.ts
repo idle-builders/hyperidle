@@ -3,7 +3,6 @@
  * /setup; filling in a name and starting creates the founder (and their
  * assistant) and lands on /work.
  *
- * @lore setup collects no credential — a harness must already be logged in or isn't choosable; the welcome screen writes through edit_user twice.
  */
 import { expect, makeUserRow, mockSearchUsers, mockUser, test } from "./fixtures";
 

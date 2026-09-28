@@ -1,14 +1,3 @@
-/**
- * @lore B21: `@hyperidle/document`'s legacy `getAgentIdentity`/`getParentedItem`
- * are deleted with the CRUD repository they lived in. Several `core-api/src`
- * integration tests build their own narrow `TaskRunResolverDeps`-shaped bag
- * that bypasses the real composition root (`task-run-resolver-bindings.ts` —
- * needs a full `AgentOrchestrationPort`/request context this narrower test
- * port doesn't carry) — so this mirrors that binding's own `getAgentIdentity`
- * exactly (architecture.md §8.3), off the same `search_documents` runner,
- * instead of each test reaching past the action mechanism for the deleted
- * direct-table function.
- */
 import type { HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import { type AgentIdentityPort, createAgentIdentityPort } from "@hyperidle/user";

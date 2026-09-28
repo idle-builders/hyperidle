@@ -13,13 +13,9 @@
  *
  * Tests FAIL if the re-engage loop is deleted from CliHarnessAdapter.streamEvents.
  *
- * @lore the re-engage loop lives in CliHarnessAdapter.streamEvents — the session must be registered in the enforcement registry BEFORE streamEvents is entered.
+ * @lore: re-engage loop — session must be in enforcement registry BEFORE streamEvents; registry lookup is inside streamEvents
  *
- * @lore the adapter reads `enforcementRegistry.get(session.configSessionId)` inside streamEvents — seed the registry with that same id.
- *
- * @lore MAX_FORCE_RETURNS=2 — re-engaging stops once the budget is exhausted or gate.returned is set true.
- *
- * @lore drives the real shipped CLI_TOOL_CONFIGS.opencode, not a fabricated config, so a regression in re-engage args building fails here.
+ * @lore: re-engage registry key — seed with session.configSessionId; adapter reads that same key inside streamEvents
  */
 
 import type { ChildProcess, spawn } from "node:child_process";
@@ -42,8 +38,6 @@ const enforcementRegistry = createReturnEnforcement();
  * This is the discriminating config: if the re-engage invocation reverts to the
  * broken template-strip approach, the test fails because re-engage args will be
  * ["--dir", "", forceMsg] (no "run" subcommand, empty --dir, stray positional).
- *
- * @lore Using CLI_TOOL_CONFIGS.opencode ensures the test exercises the production code path, not a fabricated config that hid the real bug.
  */
 function makeProcessReEngageConfig(overrides: Partial<CliAdapterConfig> = {}): CliAdapterConfig {
 	const opencodeConfig = productionCliConfig("opencode");
@@ -74,7 +68,7 @@ function makeSessionConfig(
 
 /**
  * Create a fake child process whose stdout/stderr/stdin are controllable.
- * @lore pid must be non-undefined so the adapter's ENOENT guard doesn't block — set pid=99999.
+ * @lore: pid guard — set pid=99999; undefined pid triggers ENOENT guard that blocks the test
  */
 function makeFakeChild(): {
 	proc: ChildProcess;
@@ -104,8 +98,6 @@ function makeFakeChild(): {
 /**
  * Create a spawnFn that returns fake children from a pre-built list.
  * Each call returns the next child in the list.
- *
- * @lore vi.fn() doesn't match the heavily-overloaded `typeof spawn` — cast via `unknown` to the (binary, args, options) shape actually invoked.
  */
 function makeFakeSpawnFn(children: ReturnType<typeof makeFakeChild>[]): {
 	spawnFn: typeof spawn;

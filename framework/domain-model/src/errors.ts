@@ -11,27 +11,16 @@ export class MissingCredentialError extends Error {
  * Wall-clock timeout for one assistant turn. After this many milliseconds
  * with no completion/error event from the harness, the turn aborts and persists
  * a `provider_error` notice. Exported from @hyperidle/domain-model so both server
- * (timeout enforcement) and client (crash-recovery indicator, §1.7b) use the
- * same boundary value.
+ * (timeout enforcement) and client (crash-recovery indicator) use the same boundary value.
  *
- * @lore AH3: 120_000ms = 2 minutes. Long enough for a slow but real response;
- * short enough that a hung provider surfaces within a visible session rather
- * than stranding the UI in "thinking…" forever.
  */
 export const ASSISTANT_TURN_TIMEOUT_MS = 120_000;
 
 /**
- * POLISH-060 B2: Thrown by the LLM HTTP client on a non-2xx response.
+ * Thrown by the LLM HTTP client on a non-2xx response.
  * `dispatch`'s `mapErrorToNotice` maps 401/403 → auth notice, 400 →
  * model/config notice, other codes → generic (transient) provider_error.
  *
- * @lore AU19 Increment 3h: reclassified from `packages/server/src/harness/
- * llm-client.ts` to `@hyperidle/domain-model` — `dispatch`'s error-mapping needs
- * `instanceof HttpError` across the agent-orchestration → agent-execution
- * seam, and Mechanism C forbids a Service importing another Service's class
- * (even for `instanceof`). Same treatment as `MissingCredentialError` — a cross-cutting
- * error taxonomy lives in `shared`, not in the Service that happens to throw
- * it first.
  */
 export class HttpError extends Error {
 	constructor(
@@ -46,12 +35,7 @@ export class HttpError extends Error {
 /**
  * Thrown when a state-machine transition is not permitted by the grammar.
  *
- * @lore AU44: moved to @hyperidle/domain-model so both the work service and
- * the policy service share one class reference. Two classes with the same name
- * are still two different classes — `instanceof` returns false across the
- * boundary unless both sides use the same declaration. The error-handler's
- * name-matching fallback (`err.name === "InvalidTransitionError"`) was luck of
- * style; this makes it construction.
+ * @lore: InvalidTransitionError — one declaration shared by work-service and policy-service; two same-named classes still fail instanceof across the seam
  */
 export class InvalidTransitionError extends Error {
 	constructor(
@@ -71,11 +55,6 @@ export class InvalidTransitionError extends Error {
  * error, it spins. So this is rejected at write time, and the recursive CTEs
  * additionally carry a depth cap as a backstop.
  *
- * @lore BA6: reused for the dependency graph rather than inventing a second
- * cycle error and code — a cycle is a cycle regardless of which edge closed
- * it. `relation` only changes the message, which must name dependencies
- * rather than the parent tree when that is the edge that closed the loop
- * (the founder ruling this package was built against).
  */
 export class TaskCycleError extends Error {
 	constructor(
@@ -145,12 +124,8 @@ export class TaskDependencyBlockedError extends Error {
 }
 
 /**
- * Thrown when a team is already at its WIP limit — `teams.capacity`
- * tasks are `in_progress`. Was raised on bet activation; now raised when a task
- * starts, at any depth.
+ * Thrown when a team is already at its WIP limit — `teams.capacity` tasks are `in_progress`.
  *
- * @lore AU44: co-located with InvalidTransitionError in @hyperidle/domain-model
- * so the error-handler's instanceof check covers errors thrown by either service.
  */
 export class CapacityExceededError extends Error {
 	constructor(
@@ -163,12 +138,9 @@ export class CapacityExceededError extends Error {
 }
 
 /**
- * Extends InvalidTransitionError so `instanceof InvalidTransitionError` holds
- * for both bet and task transition errors. The error-handler and any caller
- * that catches InvalidTransitionError will naturally catch this too.
- *
- * @lore AU44: moved to @hyperidle/domain-model alongside InvalidTransitionError
- * so the inheritance chain is unbroken across the work / policy service boundary.
+ * Extends InvalidTransitionError so `instanceof InvalidTransitionError` holds for task
+ * transition errors too. The error-handler and any caller that catches InvalidTransitionError
+ * will naturally catch this too.
  */
 export class TaskInvalidTransitionError extends InvalidTransitionError {
 	constructor(
@@ -187,13 +159,6 @@ export class TaskInvalidTransitionError extends InvalidTransitionError {
  * the response's machine-readable `code` (when the body is `{ error, code }`
  * JSON) alongside the status and a formatted message.
  *
- * @lore BA6: the seam previously collapsed every non-2xx into a generic
- * `Error`, so a caller like `edit_task` had no way to distinguish a cycle
- * rejection from any other failure without string-matching the message. A
- * tool handler that needs to turn a structured route rejection (e.g. 409
- * `{ code: "TASK_CYCLE" }`) into a structured `err(code, message)` catches
- * this by `instanceof` and reads `.code`, rather than parsing the thrown
- * message text.
  */
 export class SeamRequestError extends Error {
 	constructor(

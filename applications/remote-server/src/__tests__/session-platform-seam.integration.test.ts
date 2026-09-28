@@ -26,7 +26,6 @@
  * needs no seed at all: `editPluginInvariants` answers `one_change`
  * before either door touches the database.
  *
- * @lore `stop_session`'s CAS path emits `session_ended` on the same pipeline as the real nudge, proving that seam.
  */
 
 import * as fs from "node:fs";

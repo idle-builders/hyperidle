@@ -8,8 +8,6 @@
  *   thread_turn       -> the never-silent net's sibling case: one plain notice
  *                        posted into the thread the turn came from, sent as
  *                        the agent that could not be started (never wakes it)
- *
- * @lore each reaction handler is async fire-and-forget — emit() only guarantees the handler was called, so every assertion below uses vi.waitFor.
  */
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
@@ -86,7 +84,7 @@ async function flush(): Promise<void> {
  * terminal failure — the subscriber reactions fire on any terminal
  * `agent_run_admission_failed`, regardless of failureCode.
  *
- * @lore the shared PGlite worker keeps DDL across tests — a trigger this test installs must be dropped in afterEach or it leaks into a sibling file.
+ * @lore: the shared PGlite worker keeps DDL across tests — a trigger this test installs must be dropped in afterEach or it leaks into a sibling file.
  */
 let TriggerDb: HyperIdleDb | null = null;
 afterEach(async () => {

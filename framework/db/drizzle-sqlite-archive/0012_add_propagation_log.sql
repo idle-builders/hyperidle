@@ -1,4 +1,4 @@
--- L20: Add propagation_log table for lifecycle propagation audit + retry.
+-- Add propagation_log table for lifecycle propagation audit + retry.
 CREATE TABLE `propagation_log` (
 	`id` text PRIMARY KEY NOT NULL,
 	`source_level` text NOT NULL,

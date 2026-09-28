@@ -1,29 +1,9 @@
 /**
  * Shared Playwright test fixtures for HyperIdle e2e tests.
  *
- * @lore Every page load calls the API (`open_user`, `/api/settings`,
- * `search_threads` and more). In CI there is no backend server — only Vite serves the
- * SPA bundle. Without mocks every test would get ECONNREFUSED on the
- * proxied /api/* calls.
  *
- * @lore BC3: the thread door is `POST /api/actions/{search_threads,
- * open_thread, send_message, adjust_thread}` — `{ok:true,data}` or
- * `{ok:false,problems}` — never `GET/POST /api/threads*`. Mock the action,
- * not the deleted REST route.
  *
- * @lore AD8a: /api/rail mock removed — the Rail API was deleted in U6 and the
- * route has been purged from the server. See packages/server/src/app.ts.
- *
- * @lore BC5 T9/T11: the user door — `POST /api/actions/{search_users,
- * open_user, edit_user}` — is the only user surface. `AppShell` calls
- * `open_user({})` (via `useCurrentUser`) on EVERY page load, so this file's
- * auto-use fixture answers it by default (a "self" row) the same way it
- * already defaults `open_task`;
- * without that default every spec in the suite, not only the ones that seed
- * a user, would hang on the shell's own bootstrap call. `GET /api/teams`
- * and `GET /api/agents` are gone with the `teams`/`users`/`agents` route
- * families — nothing production calls them any more — so their mocks are
- * deleted rather than kept as dead handlers.
+ * @lore: user door — open_user fires on every AppShell page load; without default fixture every test fails before its own assertions
  *
  * This file extends Playwright's `test` with an auto-use fixture that intercepts
  * the core M3 endpoints before every test. Individual tests can register
@@ -232,12 +212,7 @@ export const test = base.extend<CoreApiFixtures>({
 
 			// POST /api/actions/open_task — WorkTaskPage's only data source.
 			//
-			// @lore BB1: a fallback, exactly like the /api/teams one above. Many
-			// specs open a task page purely as a vehicle (layout, scroll, nav,
-			// dialogs) and do not care what the task says. Without a default they
-			// would each need their own mock, and a spec that forgot one would hang
-			// on the loading state rather than fail with something readable.
-			// A spec that DOES care calls mockTaskTree(), which wins on LIFO.
+			// @lore: open_task mock — without default a spec that forgets its mock hangs; tests override via mockTaskTree() LIFO
 			await page.route("**/api/actions/open_task", async (route) => {
 				if (route.request().method() !== "POST") {
 					await route.continue();
@@ -307,17 +282,6 @@ export async function registerCoreMocks(page: import("@playwright/test").Page): 
 
 // ---------------------------------------------------------------------------
 // BB1 task fixtures
-//
-// @lore BB1: bets and tasks became ONE recursive task, and `/work/bet/:id` +
-// `GET /api/bets/:id` were deleted. Every spec that drove a bet had hand-rolled
-// its own bet-shaped JSON, so the merge left ~35 files mocking an endpoint the
-// app no longer calls — they hung waiting for a page that never rendered.
-//
-// These helpers exist so the shape lives in ONE place. A spec says what it
-// cares about (state, title, children) and inherits a complete, valid task for
-// everything else. `TaskTreeResponse` is deliberately imported from the real
-// production type: if the contract moves again, these fixtures stop compiling
-// instead of silently mocking a shape the page cannot read.
 // ---------------------------------------------------------------------------
 
 /**
@@ -401,12 +365,7 @@ export async function mockTaskTree(
 	await page.route("**/api/actions/open_task", async (route) => {
 		const input = JSON.parse(route.request().postData() ?? "{}") as { id?: string };
 		if (input.id !== opts.task.id) {
-			// @lore route.continue() sends straight to the network, skipping every
-			// OTHER registered handler for this same glob — wrong here, since a
-			// spec that calls mockTaskTree() more than once (one task's action
-			// door is the same URL for every task, unlike the old per-id
-			// `/api/tasks/:id/tree` path) needs this non-matching call to fall
-			// through to the NEXT-registered mockTaskTree handler, not the network.
+			// @lore: fallback() not continue() — continue() skips to network bypassing other handlers; fallback() lets next-registered mockTaskTree handler match
 			await route.fallback();
 			return;
 		}
@@ -420,8 +379,6 @@ export async function mockTaskTree(
 	await page.route("**/api/actions/edit_task", async (route) => {
 		const patch = JSON.parse(route.request().postData() ?? "{}") as Partial<Task> & { id?: string };
 		if (patch.id !== opts.task.id) {
-			// @lore see the open_task handler above — fallback(), not continue(),
-			// so a second mockTaskTree() call's handler gets a turn.
 			await route.fallback();
 			return;
 		}
@@ -448,9 +405,6 @@ export async function mockTaskTree(
 /**
  * One row of a team's "Active tasks" list.
  *
- * @lore BB1: was `BetCardSummary` under `activeBets`. Specs that still mock
- * `activeBets` render an EMPTY task list, because the key the page reads
- * (`tasksInProgress`) is simply absent — a silent empty state, not an error.
  */
 export function makeTaskCardSummary(
 	id: string,
@@ -468,12 +422,6 @@ export function makeTaskCardSummary(
 
 // ---------------------------------------------------------------------------
 // User fixtures
-//
-// @lore BC5 T9/T11: the only user surface is `POST /api/actions/{search_users,
-// open_user, edit_user}` — `{ok:true,data}` or `{ok:false,problems}`.
-// There is no per-noun user REST route. These helpers build the row shapes
-// (`UserRow`, `UserView`) and register per-test mocks, the same pattern as
-// the thread/document fixtures above.
 // ---------------------------------------------------------------------------
 
 /** A complete user row — person or agent. Pass only the fields the assertion depends on. */
@@ -565,8 +513,6 @@ export async function mockUser(
 		const input = JSON.parse(route.request().postData() ?? "{}") as { id?: string };
 		const matches = input.id === row.id || (opts.self === true && input.id === undefined);
 		if (!matches) {
-			// @lore see mockTaskTree's open_task handler above — fallback(), not
-			// continue(), so a spec mocking more than one user id still works.
 			await route.fallback();
 			return;
 		}
@@ -789,17 +735,7 @@ export async function mockSearchTasks(
 
 // ---------------------------------------------------------------------------
 // Thread fixtures
-//
-// @lore BC3: the only thread surface is `POST /api/actions/{search_threads,
-// open_thread, send_message, adjust_thread}` — `{ok:true,data}` or
-// `{ok:false,problems}`. `GET/POST /api/threads*` and `/api/conversations*`
-// are deleted. These helpers build the row shapes (`Thread`, `ThreadView`,
-// `Identity`, `Message`) and register per-test mocks, the same pattern as
-// the BB1 task fixtures above. `Thread.members` replaced the old
-// `participants` column name; there is no `task` host kind — a task's own
-// thread is `team`-hosted and the task page already knows its id via
-// `open_task(id).threadId` (HostThreadSection's `threadId` prop), never
-// resolved through `search_threads`/`host`.
+
 // ---------------------------------------------------------------------------
 
 /** A complete thread row. Pass only the fields the assertion depends on. */
@@ -897,8 +833,6 @@ export async function mockThread(
 	await page.route("**/api/actions/open_thread", async (route) => {
 		const input = JSON.parse(route.request().postData() ?? "{}") as { id?: string };
 		if (input.id !== opts.thread.id) {
-			// @lore see mockTaskTree's open_task handler above — fallback(), not
-			// continue(), so a spec mocking more than one thread id still works.
 			await route.fallback();
 			return;
 		}
@@ -966,14 +900,6 @@ export interface MockAgentsOptions {
  * Mock `search_users({ kind: "ai" })` — `useAgents`' one fetch, the source
  * for every agent picker and the assistant overlay's `myAgentId` lookup.
  *
- * @lore BC5 T9: replaces `GET /api/agents`, deleted with the `agents` route.
- * `useAgents.toAgentConfig` only ever reads `id`/`name`/`role`/`ownerUserId`/
- * `status`/`agentCategory` off the row — the rest of `AgentConfig`
- * (harness/model/identity document) has no `search_users` equivalent and
- * comes back `null`/default, exactly as production does. Registered
- * per-test; falls through (not `continue()`) on a non-`kind:"ai"` query so
- * it composes with a `mockSearchUsers`/`mockTeamPage` call for the same
- * page.
  */
 export async function mockAgents(
 	page: import("@playwright/test").Page,
@@ -1059,9 +985,6 @@ export interface MockSearchSessionsOptions {
  * Mock `search_sessions` — every session read (task detail, agent profile,
  * the recipient picker's live dot, Settings → Agents' active-session counts).
  *
- * @lore `GET /api/sessions*` and `GET /api/agent-orchestration/runs*`
- * are deleted along with the rest of the run-read routes — `search_sessions`
- * is the one door now, `POST /api/actions/search_sessions`.
  */
 export async function mockSearchSessions(
 	page: import("@playwright/test").Page,
@@ -1082,12 +1005,6 @@ export async function mockSearchSessions(
 
 // ---------------------------------------------------------------------------
 // Document fixtures
-//
-// @lore BC4: the only document surface is `POST /api/actions/{search_documents,
-// open_document, edit_document}` — `{ok:true,data}` or `{ok:false,problems}`.
-// `GET/POST/PATCH /api/knowledge*` is deleted. These helpers build the row
-// shapes (`DocumentRow`, `DocumentView`) and register per-test mocks, the
-// same pattern as the thread fixtures above.
 // ---------------------------------------------------------------------------
 
 /** A complete document row. Pass only the fields the assertion depends on. */
@@ -1169,8 +1086,6 @@ export async function mockDocument(
 	await page.route("**/api/actions/open_document", async (route) => {
 		const input = JSON.parse(route.request().postData() ?? "{}") as { id?: string };
 		if (input.id !== row.id) {
-			// @lore see mockTaskTree's open_task handler above — fallback(), not
-			// continue(), so a spec mocking more than one document id still works.
 			await route.fallback();
 			return;
 		}

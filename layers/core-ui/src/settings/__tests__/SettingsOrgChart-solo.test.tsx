@@ -9,7 +9,6 @@
  *   - The normal table / "Add Edge" button is shown
  *   - The contextual message is NOT shown
  *
- * @lore door-swap: `call("search_users", {})` replaces `GET /api/org`.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";

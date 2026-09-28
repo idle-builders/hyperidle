@@ -38,8 +38,6 @@ export function SmallVariants(): JSX.Element {
 }
 
 /**
- * @lore AZ7 Set 1: size="icon" — a square control whose entire label is its icon.
- * 32×32 desktop, 44×44 touch floor below lg (same pattern as sm/default).
  */
 export function IconSize(): JSX.Element {
 	return (
@@ -61,9 +59,6 @@ export function IconSize(): JSX.Element {
 }
 
 /**
- * @lore control/chip migration fix: ghost's default text is --accent-deep
- * (a text-link look); tone="neutral" swaps it for --text-secondary for a
- * ghost button that is a plain icon/utility affordance.
  */
 export function GhostTone(): JSX.Element {
 	return (

@@ -1,14 +1,3 @@
-/**
- * SettingsProfile — Profile settings section.
- *
- * Pre-fills the display name from the current user. Saves via `edit_user`.
- * Shows toast feedback on save success or failure. A profile carries no
- * email.
- *
- * AC-24: Settings save feedback via toast
- * AC-25: Profile edits do NOT silently revert (dirty tracking)
- */
-
 import { type ChangeEvent, type JSX, useCallback, useEffect, useState } from "react";
 import { Button, ErrorState, Input, SkeletonList } from "../ds";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
@@ -23,7 +12,6 @@ export function SettingsProfile(): JSX.Element {
 	const [savedName, setSavedName] = useState("");
 	const [saving, setSaving] = useState(false);
 
-	// Pre-fill from current user when loaded
 	useEffect(() => {
 		if (user) {
 			setName(user.name);
@@ -31,7 +19,6 @@ export function SettingsProfile(): JSX.Element {
 		}
 	}, [user]);
 
-	// AC-25: Dirty tracking — Save enabled only when values differ from saved
 	const isDirty = name !== savedName;
 
 	const handleSave = useCallback(async (): Promise<void> => {

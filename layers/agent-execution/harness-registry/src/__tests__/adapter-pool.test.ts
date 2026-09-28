@@ -521,7 +521,6 @@ describe("createLocalAdapterPool — hermetic behavior", () => {
 		expect(pool.has("docker-worker")).toBe(false);
 	});
 
-	// @lore asserts there is no isolation-gate warning left to trigger for this env var, not that it happened to stay quiet.
 	it("emits no isolation-gate warning even when HYPERIDLE_ENABLE_ISOLATED is set", async () => {
 		vi.stubEnv("HYPERIDLE_ENABLE_ISOLATED", "1");
 		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});

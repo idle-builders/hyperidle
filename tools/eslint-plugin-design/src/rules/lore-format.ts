@@ -1,22 +1,15 @@
 /**
- * design/no-multiline-lore-in-test
+ * design/lore-format
  *
- * Founder ruling: `@lore` is allowed in test files, but each note is one
- * short line, present-tense, no history, and names no planning id — a track
- * letter, a work-item id, or a task id (`T-abc123`) names a document that
- * moves or disappears; the constraint the lore records does not. (Production
- * files are a separate rule/task — this one is scoped to test files only.)
+ * Every `@lore` note is one short line, present-tense, no history, and names
+ * no planning id — a track letter, a work-item id, or a task id (`T-abc123`)
+ * names a document that moves or disappears; the constraint does not.
  *
  * ESLint hands every `//` line its own Comment node — a real multi-line
  * `//`-style lore note is several ADJACENT nodes, not one. `groupComments`
  * merges consecutive same-column Line comments into one unit first (a Block
  * comment is already one unit); `splitIntoParagraphs` then finds the `@lore`
- * paragraph inside it. A line starting with the literal word "@lore" only
- * begins a NEW paragraph when the previous line ends with terminal
- * punctuation (or there is no previous line) — a wrapped sentence can land
- * that word at the start of a continuation line ("...conflation that\n@lore
- * AE4 documents.") without declaring a new note, and that must stay a
- * continuation, not a false paragraph break.
+ * paragraph inside it. Every line starting with `@lore` begins a new note.
  */
 
 import type { Rule } from "eslint";
@@ -35,13 +28,6 @@ function stripCommentMarker(line: string): string {
 		.trimEnd();
 }
 
-function endsAParagraph(line: string): boolean {
-	const trimmed = line.trim();
-	if (trimmed.length === 0) return true;
-	if (/^[-=]+$/.test(trimmed)) return true; // a decorative separator line
-	return /[.!?]$/.test(trimmed);
-}
-
 interface Paragraph {
 	readonly lines: readonly string[];
 	readonly startOffsetInUnit: number;
@@ -54,10 +40,7 @@ function splitIntoParagraphs(contentLines: readonly string[]): Paragraph[] {
 	for (let i = 0; i < contentLines.length; i++) {
 		const line = contentLines[i] ?? "";
 		const isBlank = line.trim().length === 0;
-		const startsNewLoreTag =
-			/^@lore\b/.test(line.trim()) &&
-			current.length > 0 &&
-			endsAParagraph(current[current.length - 1] ?? "");
+		const startsNewLoreTag = current.length > 0 && /^@lore\b/.test(line.trim());
 		if (isBlank || startsNewLoreTag) {
 			if (current.length > 0) paragraphs.push({ lines: current, startOffsetInUnit: startOffset });
 			current = [];
@@ -136,6 +119,10 @@ function checkLoreParagraph(paragraph: Paragraph, unitStartLine: number, report:
 		report({ loc, messageId: "multiline", data: { lines: String(paragraph.lines.length) } });
 		return;
 	}
+	if (!/^@lore: /.test(first.trim())) {
+		report({ loc, messageId: "format" });
+		return;
+	}
 	const text = paragraph.lines[0] ?? "";
 	if (text.length > MAX_LORE_LENGTH) {
 		report({
@@ -155,21 +142,21 @@ function checkLoreParagraph(paragraph: Paragraph, unitStartLine: number, report:
 	}
 }
 
-export const noMultilineLoreInTest: Rule.RuleModule = createRule({
+export const loreFormat: Rule.RuleModule = createRule({
 	meta: {
 		type: "problem",
 		docs: {
-			description:
-				"An @lore comment in a test file must be one short line, present-tense, with no planning id.",
+			description: "An @lore comment must be one short line, present-tense, with no planning id.",
 		},
 		schema: [],
 		messages: {
-			multiline: "@lore in a test file must be one line — this one spans {{lines}}.",
-			tooLong: "@lore in a test file must be short (≤{{max}} chars) — this one is {{length}}.",
+			multiline: "@lore must be one line — this one spans {{lines}}.",
+			format: "@lore is written `@lore: <subject> — <constraint>; <consequence>`.",
+			tooLong: "@lore must be short (≤{{max}} chars) — this one is {{length}}.",
 			planningId:
-				"@lore in a test file must name no planning id (a track letter, work-item id, or task id) — the constraint outlives the document that named it.",
+				"@lore must name no planning id (a track letter, work-item id, or task id) — the constraint outlives the document that named it.",
 			history:
-				"@lore in a test file states the present constraint, not its history — drop the change narrative ({{word}}).",
+				"@lore states the present constraint, not its history — drop the change narrative ({{word}}).",
 		},
 	},
 	create(context) {

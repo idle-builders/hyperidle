@@ -1,38 +1,3 @@
-/**
- * AgentEditor: shared agent + assistant editor pane.
- *
- * A presentation component — it renders the edit form for any agent (including the
- * assistant). Save routing (assistant vs. agent endpoint) is the parent's
- * responsibility; the editor calls `onSave()` and lets the container decide.
- *
- * Key differences from the old inline renderEditForm:
- *  - Role field is the shared `Combobox` (catalog + custom free-text, NOT a closed Select).
- *  - Model select comes from `modelOptionsForHarness(selectedDescriptor)` — DISCOVERED
- *    models only, never MODEL_CATALOG. Empty discovered list → affordance text.
- *    on mount (used when editing an existing agent whose prompt was auto-filled).
- *  - Props are fully controlled: parent owns draft + sets it on changes.
- *
- * @lore AV2: AgentEditor is deliberately endpoint-agnostic. The ONLY structural
- * requirement from the architecture (§5a) is that the assistant's save routing goes
- * to the assistant endpoint. That routing lives in SettingsAgents (the container),
- * not here. This separation keeps the editor pure and testable without mock
- * routing logic.
- *
- * @lore AV2: `Combobox` (with `allowCustomValue`) replaces the closed
- * AGENT_ROLE_CATALOG Select so custom roles survive round-trips without extra
- * schema work (role is an open string). The assistant's row keeps
- * role="assistant" disabled (immutable).
- *
- * @lore BC3: whether an agent's role is locked is decided by `ownerUserId !== null`
- * (a person-owned agent, of which the assistant is the only instance today), never
- * by an id prefix — an agent's id says nothing about who owns it.
- *
- * @lore AV2: The model dropdown source is descriptor.models (discovered at probe time),
- * NOT MODEL_CATALOG. An empty discovered list means the harness manages its own model
- * (e.g. codex) — the affordance text replaces the select in that case. This is the
- * founder concept-review blocking tweak: catalog fallback is NEVER used here.
- */
-
 // hearth-internal-padding
 
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
@@ -51,14 +16,6 @@ import { modelOptionsForHarness } from "./model-options-for-harness.js";
 import { roleOptions } from "./role-options.js";
 import type { InjectableFilesystem } from "./settings-types.js";
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-/**
- * The shape the parent maintains as draft state.
- * Mirrors the old EditFormValues plus modelProvider for the anti-422 guard.
- */
 export interface AgentEditorDraft {
 	name: string;
 	role: string;
@@ -79,10 +36,7 @@ export interface AgentEditorDraft {
 export interface AgentEditorProps {
 	/** The agent id being edited. Every agent, assistants included, is edited through `edit_user`. */
 	agentId: string;
-	/**
-	 * The human this agent belongs to, or null for a team-owned agent. Decides
-	 * whether the role field is locked — see the @lore above.
-	 */
+	/** Non-null for person-owned agents (assistant only today) — role field is locked for those. */
 	ownerUserId: string | null;
 	/** Controlled draft state. */
 	draft: AgentEditorDraft;
@@ -112,20 +66,9 @@ export interface AgentEditorProps {
 	 * where documents are edited. Absent (creating an agent) → the box seeds it.
 	 */
 	identityDocumentId?: string | null;
-	/**
-	 * The roles agents actually have — what the picker offers.
-	 *
-	 * @lore BA9g: a role is data, not a fixed list. Typing one the list does not
-	 * have introduces it.
-	 */
 	rolesInUse?: readonly string[];
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/** Human label for a filesystem source — the easy-to-detect mark text. */
 function fsSourceLabel(source: string): string {
 	if (source === "github") return "GitHub";
 	if (source === "gdrive") return "Google Drive";
@@ -144,10 +87,6 @@ function reconcileModelProvider(
 	return providers[0] ?? null;
 }
 
-// ---------------------------------------------------------------------------
-// AgentEditor
-// ---------------------------------------------------------------------------
-
 export function AgentEditor({
 	agentId,
 	ownerUserId,
@@ -162,28 +101,17 @@ export function AgentEditor({
 	identityDocumentId,
 	rolesInUse,
 }: AgentEditorProps): JSX.Element {
-	// Find the selected harness descriptor
 	const selectedDescriptor = harnesses.find((h) => h.type === draft.harnessType);
 	const declaredOptions = declaredOptionsFor(selectedDescriptor, draft.modelId);
 
-	// Compute model options from the discovered descriptor.models
 	const { hasModels, options: modelOptions } = selectedDescriptor
 		? modelOptionsForHarness(selectedDescriptor)
 		: { hasModels: false, options: [{ value: "", label: "System default" }] };
 
-	// Harness select options
 	const harnessOptions = [
 		{ value: "", label: "Default" },
 		...harnesses.map((h) => ({ value: h.type, label: h.name })),
 	];
-
-	// Template fetch on mount
-
-	// @lore BA9g: the editor used to prefill a new agent's identity from
-	// `GET /api/agents/templates/:role`. That route and the files behind it are
-	// gone — the personas are the `role-personas` plugin's, and HyperIdle holds
-	// no built-in idea of what a "builder" is. A new agent starts with an empty
-	// identity you write, or a plugin's agent brings its own.
 
 	const isAssistant = ownerUserId !== null;
 
@@ -204,9 +132,6 @@ export function AgentEditor({
 					/>
 				</div>
 
-				{/* Role — Combobox (open string + catalog).
-				 * @lore FR-12: Combobox renders its own "Role" label internally.
-				 * Do NOT add another label wrapper here — it produces "ROLE ROLE" stacked. */}
 				<div className="flex-1 min-w-[140px]">
 					<Combobox
 						id={`edit-role-${agentId}`}
@@ -225,7 +150,6 @@ export function AgentEditor({
 					/>
 				</div>
 
-				{/* Harness Select */}
 				<div className="flex-1 min-w-[140px]">
 					<Select
 						id={`edit-harness-${agentId}`}
@@ -253,7 +177,6 @@ export function AgentEditor({
 					/>
 				</div>
 
-				{/* Model — discovered from descriptor.models */}
 				<div className="flex-1 min-w-[140px]">
 					{hasModels ? (
 						<Select
@@ -309,11 +232,7 @@ export function AgentEditor({
 				</div>
 			</div>
 
-			{/*
-			  Model options — what the SELECTED MODEL declares, nothing else. When it
-			  declares none (most models, most harnesses) this renders nothing at
-			  all: no heading, no empty box, no "this model has no options" line.
-			*/}
+			{/* model options — only renders when selected model declares any */}
 			{declaredOptions.length > 0 && (
 				<div className="flex flex-col gap-[6px]">
 					<SectionLabel label="Model options" />
@@ -392,9 +311,7 @@ export function AgentEditor({
 				</div>
 			)}
 
-			{/* Who the agent is. An existing agent's identity is a
-			    document, so the editor sends you there rather than keeping a second
-			    copy of the same text behind a different Save button. */}
+			{/* identity — links to document if one exists; inline editor otherwise */}
 			{identityDocumentId ? (
 				<div className="flex flex-col gap-[6px]">
 					<span className="type-label   uppercase  text-[var(--text-tertiary)]">Identity</span>
@@ -423,7 +340,7 @@ export function AgentEditor({
 				/>
 			)}
 
-			{/* Filesystem injection — only when registry provided */}
+			{/* filesystem injection — only when registry provided */}
 			{filesystems && filesystems.length > 0 && (
 				<div className="flex flex-col gap-[6px]">
 					<span className="type-label   uppercase  text-[var(--text-tertiary)]">Filesystems</span>
@@ -457,14 +374,14 @@ export function AgentEditor({
 				</div>
 			)}
 
-			{/* Inline 422 error */}
+			{/* inline error */}
 			{error && (
 				<p className="type-metadata  text-[var(--status-error)]" role="alert">
 					{error}
 				</p>
 			)}
 
-			{/* Actions */}
+			{/* actions */}
 			<div className="flex gap-[9px] justify-end">
 				<Button variant="ghost" size="sm" onClick={onCancel}>
 					Cancel

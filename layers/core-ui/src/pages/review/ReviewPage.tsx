@@ -85,7 +85,7 @@ function hostMessagesToReviewComments(
  * resolved THIS review; a thread may hold several. Shared between
  * `defaultLoader`'s initial composition and `ReviewPage`'s reactive overlay
  * (recomputed off `useThread`'s own data on every refresh, so a verdict
- * update never needs a second loader call — see @lore below `ReviewPage`).
+ * update never needs a second loader call.
  */
 function findVerdictForReview(
 	messages: ReadonlyArray<Message>,
@@ -101,24 +101,6 @@ function findVerdictForReview(
 	return verdict;
 }
 
-/**
- * @lore `defaultLoader` composes the review subject from real rows the way
- * the old `/api/reviews/:id` route did — but the thread fetch itself is
- * `useThread`'s job, not this loader's. `ReviewPage` passes the
- * already-fetched `ThreadView` in; a second `open_thread` call here would
- * duplicate the one the hook already made (and the websocket nudge already
- * keeps live).
- *
- * The task the review belongs to: the server stamps `taskId` onto the
- * review payload from the agent's session (`ee37000af`,
- * `reviewPayloadSchema`) — when present, `open_task` names it and fills
- * `taskId`/`taskTitle`/`parentTaskId` from the returned task. No `taskId`
- * on the payload (older reviews, or a session with no task) or a refused
- * `open_task` (e.g. the task was deleted) both leave those fields honestly
- * empty rather than guessed, exactly as the deleted route left evidence it
- * did not have. `betTitle` has no successor action at all — there is no
- * "bet" row `open_task` (or anything else) returns — so it stays empty.
- */
 async function defaultLoader({
 	reviewId,
 	threadId,
@@ -158,7 +140,7 @@ async function defaultLoader({
 	const author = identityById.get(reviewMsg.senderId);
 
 	// The one human, other than the sender, in this thread — same "who has to
-	// answer" question `routes/reviews.ts` asked, over `open_thread`'s own
+	// answer" question the reviews route asked, over `open_thread`'s own
 	// member list instead of a second fetch.
 	let reviewerName = "";
 	for (const member of members) {
@@ -390,9 +372,6 @@ export function ReviewPage({
 	}
 
 	return (
-		// @lore AZ2: ReviewComposition already owns its own scroll contract
-		// internally (reviewListPane / ExaminePane both nest <PageScaffold>) — it
-		// only needs a bounded flex column to size against, the managed body's job.
 		<PageScaffold body="managed">
 			{verdictError ? (
 				// A refused verdict is a control-level rejection,
@@ -417,8 +396,3 @@ export function ReviewPage({
 		</PageScaffold>
 	);
 }
-
-// @lore AU28: AL3 re-exported `REVIEW_COMPOSITION_SUBJECT` from this production module
-// so tests and stories could reach it. That made a shipping page import a fixture for no
-// runtime reason — `defaultLoader` never used it. The five consumers all import the
-// fixture directly from `./__fixtures__/review-composition.fixture.js`.

@@ -12,7 +12,7 @@ import { useState } from "react";
 import { Button } from "./Button.js";
 import { Dialog } from "./Dialog.js";
 
-export default { title: "AI2/Dialog" };
+export default { title: "Dialog" };
 
 function CleanDialogDemo(): JSX.Element {
 	const [open, setOpen] = useState(false);
@@ -123,7 +123,7 @@ function ConfirmationDemo(): JSX.Element {
 			>
 				<p style={{ color: "var(--text-secondary)", fontSize: "var(--text-sm)" }}>
 					Confirmation dialogs always pass isDirty=false. Pressing Escape closes immediately —
-					whether or not the reason field has text (§1.1 confirmation-never-dirty rule).
+					whether or not the reason field has text (confirmation-never-dirty rule).
 				</p>
 			</Dialog>
 		</>
@@ -213,10 +213,6 @@ export const SizeLg = LargeDemo;
  * MobileSheet — AC-4 proof: at ≤480px every dialog becomes a bottom-anchored
  * full-width-minus-gutter bottom-sheet.
  *
- * @lore AI2: The bottom-anchoring is implemented via CSS @media (max-width:480px)
- * on [data-dialog-box]. This story demonstrates the bottom-sheet state in a
- * simulated 375px viewport. The Playwright AC-4 test asserts bottom-anchoring
- * programmatically (bounding box bottom ≈ viewport height).
  */
 function MobileSheetDemo(): JSX.Element {
 	const [open, setOpen] = useState(true);

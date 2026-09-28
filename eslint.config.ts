@@ -1106,13 +1106,21 @@ export default [
 		},
 	},
 
-	// Founder ruling: @lore is allowed in test files, one line, no planning id.
+	// Lore skill + comments.md: every @lore is one line, no planning id, no history.
 	{
-		files: ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.spec.tsx"],
+		files: [
+			"layers/**/*.{ts,tsx}",
+			"framework/**/*.{ts,tsx}",
+			"applications/**/*.{ts,tsx}",
+			"**/*.test.ts",
+			"**/*.test.tsx",
+			"**/*.spec.ts",
+			"**/*.spec.tsx",
+		],
 		languageOptions: { parser: tsParser, parserOptions: { ecmaFeatures: { jsx: true } } },
 		plugins: { design },
 		rules: {
-			"design/no-multiline-lore-in-test": "error",
+			"design/lore-format": "error",
 		},
 	},
 

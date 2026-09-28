@@ -212,7 +212,7 @@ describe("RichMessageCard — questionnaire variant", () => {
 	});
 });
 
-describe("RichMessageCard — states (approved.md §4, plan §9)", () => {
+describe("RichMessageCard — states", () => {
 	it("saving state: replaces the action footer with a Saving strip and removes verdict buttons", () => {
 		render(
 			<RichMessageCard

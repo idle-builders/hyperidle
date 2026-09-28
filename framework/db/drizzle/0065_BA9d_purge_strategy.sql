@@ -1,9 +1,9 @@
--- BA9d wave 3: purge strategy agent category and soft-delete builtin routines.
+-- Purge strategy agent category and soft-delete builtin routines.
 --
 -- 1. Soft-delete all builtin routine rows. `routine_runs.routineId` references
 --    `routines.id` with ON DELETE RESTRICT, so any install where a retro ever
 --    ran cannot hard-delete them. The product's own soft-delete column pair
---    (`active`, `deleted_at`) is what routines-routes.ts:232-237 uses.
+--    (`active`, `deleted_at`) is the product's soft-delete column pair.
 --
 -- 2. Migrate every `strategy` agent-category row to `individual`. The five
 --    seeded facilitators are the normal case; any agent created via the API

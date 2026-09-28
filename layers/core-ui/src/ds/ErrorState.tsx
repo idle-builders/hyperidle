@@ -1,38 +1,22 @@
 /**
  * Shared error-state region with a retry affordance.
- *
- * @lore J8 AC: an API failure must present a meaningful message plus a retry
- * button. This component is deliberately generic — pages pick the copy and
- * supply the retry handler. `role="alert"` is used so screen readers
- * announce the error on mount.
- *
- * @lore visual-parity: matches ErrorState.html exactly — surface-elevated bg,
- * shadow-default, 36px padding, max-w 440px, 48x48 error icon with red-tinted
- * bg, 20px/600/text-primary title, 15px/text-secondary/1.7 description,
- * optional mono detail block, pill-shaped retry button.
- *
- * @lore AQ-001 hearth-internal-padding: retry button uses py-[10px] (optically
- * tuned vertical padding matching Button.html spec, same as Button primitive).
  */
 
 // hearth-internal-padding
-// py-[10px] on the retry button is AQ-001 exempt (optically tuned button vertical padding).
+// py-[10px] on the retry button is optically tuned vertical padding (same as Button).
 
 import type { JSX, ReactNode } from "react";
 import { dsProps } from "./ds-attrs";
 
-/** Pill-shaped primary button — matches Button.html "default" size spec exactly. */
+/** Pill-shaped primary button, pill-radius, default size. */
 const RETRY_BTN_CLASS =
 	"inline-flex items-center justify-center px-[18px] py-[10px] text-[var(--text-on-accent)] bg-[var(--accent-primary)] rounded-[var(--r-pill)] border-width-default border-transparent cursor-pointer hover:bg-[var(--accent-primary-hover)] active:scale-[0.97]";
 
 /**
  * Compact retry pill — smaller than the full variant, inline-sized.
  *
- * @lore AI5 AQ-015: touch mechanism is `min-h-[44px] xl:min-h-[30px]`, NOT a
- * bare min-h. The 44px floor holds at every viewport up to and including
- * 1024px (where the K8 e2e gate measures); `xl:` (≥1280px) restores the
- * dense ~30px inline height so it reads as an inline control inside the
- * 18px-padded panel, not a floating slab. Mirrors `Select.tsx` `@lore AG5 fix-1`.
+ * Touch target: min-h-[44px] holds through 1024px; xl:min-h-[30px] restores
+ * dense inline height at ≥1280px so it reads as an inline control, not a floating slab.
  */
 const RETRY_BTN_COMPACT_CLASS =
 	"inline-flex items-center justify-center px-[12px] py-[7px] min-h-[44px] xl:min-h-[30px] text-[var(--text-on-accent)] bg-[var(--accent-primary)] rounded-[var(--r-pill)] border-width-default border-transparent cursor-pointer hover:bg-[var(--accent-primary-hover)] active:scale-[0.97]";
@@ -85,7 +69,6 @@ export interface ErrorStateProps {
 	 * surface-page (not elevated) + NO shadow (inline, not floating), never the
 	 * 48px icon block, 15px/600 title, 13px desc, smaller retry pill with the
 	 * AQ-015 touch mechanism, 12px mono detail block.
-	 * @lore AI5: gives BlockRefEmbed's bare bordered error rows a primitive.
 	 */
 	compact?: boolean;
 	/** data-testid passthrough so pages can scope E2E selectors. */

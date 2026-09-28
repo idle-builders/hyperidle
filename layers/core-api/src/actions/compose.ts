@@ -90,9 +90,7 @@ function buildThreadActionsDeps(
 		org: { getTeam: (exec, q) => getTeam(exec, q) },
 		agents: {
 			requireRunnableAgent: (db, agentId) => requireRunnableAgent(db, agentId),
-			// §8.3: bound to searchDocuments now, never a direct table read — the
-			// same runner, ctx and all, `ctx.agents.getAgentIdentity` used to reach
-			// past a document-owned function for.
+			// bound to searchDocuments; never a direct table read
 			getAgentIdentity: (ctx, agentId) => resolveAgentIdentityBody(ctx, agentId, searchDocuments),
 		},
 		agentWorkIntentRecorder: bindings.agentWorkIntentRecorder,
@@ -143,15 +141,7 @@ export function runnerFor<I, O>(
 	return found.run as (ctx: ActionContext, input: I) => Promise<ActionResult<O>>;
 }
 
-/**
- * §8.2's build-order break: `task`/`thread` need `search_documents` and
- * `document` needs `open_task`/`open_thread` — a real cycle if every bag were
- * built from concrete arrays. It isn't one, because this closes over a `let`
- * assigned once `document` is actually built (`buildCoreActions` below) and
- * only ever gets CALLED after `buildCoreActions` has returned — by then the
- * `let` is populated. @lore Do not "fix" this into eagerly resolving the
- * runner at build time; that reintroduces the cycle it exists to avoid.
- */
+// @lore: lazy to break build-order cycle (task/thread need search_documents, document needs open_task/open_thread) — do NOT eagerly resolve at build time
 function lazySearchDocuments(getDocumentActions: () => readonly Action[]): SearchDocumentsRunFn {
 	return (ctx, input) =>
 		runnerFor<SearchDocumentsInput, DocumentRow[]>(getDocumentActions(), "search_documents")(
@@ -160,13 +150,7 @@ function lazySearchDocuments(getDocumentActions: () => readonly Action[]): Searc
 		);
 }
 
-/**
- * `document`'s `openParent` port (architecture.md §8.1) — existence of a
- * `task`/`thread` parent, plus that parent's team, asked of the module that
- * owns it via its own `open_task`/`open_thread` runner rather than a second
- * import. Only `task` carries a team on its own row (§0 A4); a `thread`
- * parent's existence is enough, so its arm never reads `teamId`.
- */
+// document's openParent port — existence of a task/thread parent; task arm also reads teamId, thread arm does not.
 function buildOpenParent(
 	taskActions: readonly Action[],
 	threadActions: readonly Action[],
@@ -183,27 +167,13 @@ function buildOpenParent(
 	};
 }
 
-/**
- * `document`'s `systemParentExists` port — existence of an `agent`/
- * `subscription` parent, asked only on the internal path (`ctx.internal`).
- * An agent is a `users` row (the same read `deps.users.getUserById` already
- * wraps); a subscription is `@hyperidle/user`'s own `getSubscription` — the
- * user module owns `subscriptions` too.
- *
- * @lore BC5 T7b: `routine` is gone — `DOCUMENT_PARENT_KINDS` no longer
- * names it, so this is exhaustive over `agent`/`subscription` now.
- */
+// document's systemParentExists port — existence of an agent/subscription parent, checked on the internal path only.
 const systemParentExists: DocumentActionsDeps["systemParentExists"] = async (exec, kind, id) => {
 	if (kind === "agent") return (await findUser(exec, { id })) !== undefined;
 	return (await getSubscription(exec, id)) !== undefined;
 };
 
-/**
- * `document`'s deps (architecture.md §8.1, §7). `wsPush` binds here — the
- * websocket nudge — the same optional pass-through `buildThreadActionsDeps`
- * already does; `createDocumentActions`'s own `pushChanges` no-ops when it is
- * absent (test compositions that don't need WS pushes).
- */
+// document's deps. wsPush is optional — absent in test compositions that don't need WS pushes.
 function buildDocumentActionsDeps(
 	taskActions: readonly Action[],
 	threadActions: readonly Action[],
@@ -218,9 +188,8 @@ function buildDocumentActionsDeps(
 		org: { getTeam: (exec, q) => getTeam(exec, q) },
 		openParent: buildOpenParent(taskActions, threadActions),
 		systemParentExists,
-		// O1(b): bound to the settings package's contribution tracker — a
-		// document's `body` changing detaches it from the plugin that seeded
-		// it, the same event `routes/knowledge.ts:666` (pre-item) raised.
+		// bound to the settings package's contribution tracker — a
+		// document's `body` changing detaches it from the plugin that seeded it.
 		onBodyChanged: (exec, documentId) =>
 			markDetached(exec, { kind: "document", entityId: documentId, ts: new Date().toISOString() }),
 		...(wsPush ? { wsPush } : {}),
@@ -237,12 +206,6 @@ function buildDocumentActionsDeps(
  * bound to the real function, because `@hyperidle/settings` may not import
  * `@hyperidle/user`.
  *
- * @lore BC5 T7b: `routines` renamed `subscriptions` — the owner-side
- * `nextRunAt` computation (`insertRoutine`'s own `{parseCron, nextCronMatch}`
- * cron-ops idiom) moves here: a schedule subscription's `nextRunAt` is
- * computed at insert time the same way `user-actions.ts`'s own
- * `nextRunAtFor` does, since `@hyperidle/settings` may not import
- * `@hyperidle/user`'s cron helpers either.
  */
 function buildPlatformActionsDeps(
 	documentActions: readonly Action[],
@@ -255,10 +218,7 @@ function buildPlatformActionsDeps(
 		...(adapterPool
 			? { firstAvailableHarness: (db: HyperIdleDb) => firstAvailableHarness(db, adapterPool) }
 			: {}),
-		// @lore Own team, else the owner's: an owned agent has no team of its own
-		// (a fresh install's only agent is one), and with its own team alone it
-		// could never offer its person a team plugin. The same effective-team rule
-		// `open_user` answers with; read here with two `findUser` lookups.
+		// effective team: agent's own if set, else owner's — a new plugin's sole agent has no team, must reach owner's team to offer team plugins
 		teams: { exists: async (exec, teamId) => (await getTeam(exec, { id: teamId })) !== undefined },
 		viewerTeamId: async (exec, actorId) => {
 			const viewer = await findUser(exec, { id: actorId });
@@ -346,8 +306,7 @@ function toHarnessDescriptors(
  * `documentActions`, exactly like `platform`'s own deps above.
  * `harnesses` is absent when no adapter pool is wired (a
  * composition without agent execution) — `open_user`'s `runsOn` then answers
- * `[]`, the same "no pool" shape `routes/harnesses.ts` itself never mounts
- * under.
+ * `[]` (no pool).
  */
 function buildUserActionsDeps(
 	documentActions: readonly Action[],
@@ -373,8 +332,7 @@ function buildUserActionsDeps(
 					},
 				}
 			: {}),
-		// @lore BC5 T11: restored from the deleted `agent-profile.ts` route —
-		// same `computeApprovalRate` call, same 30-day window, same 10-verdict cap.
+		// reviewTrackRecord: computeApprovalRate, 30-day window, 10-verdict cap
 		reviewTrackRecord: async (db, agentId) => {
 			const result = await computeApprovalRate(db, agentId, 30, 10);
 			return {
@@ -403,7 +361,7 @@ function buildUserActionsDeps(
  * Thread actions are built FIRST — the task bag needs `adjust_thread`'s
  * runner and the thread bag needs nothing from task (`ThreadActionsDeps`
  * names no task). `document` is built next — it needs `open_task`/
- * `open_thread`, both already real arrays by then (architecture.md §8.2).
+ * `open_thread`, both already real arrays by then.
  * `platform` is built fourth, after `document` — it needs `edit_document`/
  * `search_documents`, already real by then. `user` is built FIFTH, after
  * `platform` — it needs the same two document runners,
@@ -455,8 +413,8 @@ export function buildCoreActions(bindings: {
  * A minimal, standalone document action list — never `buildCoreActions`'s
  * composed HTTP/MCP list — for the composition roots that need
  * `search_documents`/`edit_document` before or outside that list exists:
- * the pre-auth first-run setup route (`routes/users.ts`, called before any
- * request has reached `createCoreApiApp`). `openParent` is honestly
+ * the pre-auth first-run setup route (called before any request has reached
+ * `createCoreApiApp`). `openParent` is honestly
  * unreachable here: it fires only from `edit_document` when the caller's
  * `parent.kind` is `"task"`/`"thread"`, and this caller never parents a
  * document that way (an agent identity document is agent-parented). Throws
@@ -483,8 +441,8 @@ function buildStandaloneDocumentActions(): readonly Action[] {
 
 /**
  * `search_documents` and `edit_document`, standalone (see
- * `buildStandaloneDocumentActions` above) — `routes/users.ts`'s pre-auth
- * setup route feeds both into `createAgentIdentityPort`.
+ * `buildStandaloneDocumentActions` above) — the pre-auth setup route feeds
+ * both into `createAgentIdentityPort`.
  */
 export function buildStandaloneDocumentRunners(): {
 	readonly searchDocuments: SearchDocumentsRunFn;

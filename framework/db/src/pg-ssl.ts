@@ -1,18 +1,7 @@
 import { readFileSync } from "node:fs";
 
-// Resolve postgres-js TLS options from a libpq-style connection URL, honoring
-// `sslmode` semantics that postgres-js does NOT implement on its own.
-//
-// @lore deploy: the shared cluster's self-signed PostgreSQL cert lists the
-// headless service SANs (postgresql.infra…, *-hl.infra…) but NOT the primary
-// ClusterIP name the tenant DATABASE_URL connects to (postgresql-primary.infra…).
-// `sslmode=verify-ca` explicitly means "verify the CA chain, do NOT check the
-// hostname" — but postgres-js does full verification by default and trips
-// ERR_TLS_CERT_ALTNAME_INVALID. This helper builds the tls options that match
-// the requested sslmode, and also loads `sslrootcert` (postgres-js ignores it
-// from the URL). Used by both the runtime connection and drizzle-kit migrate.
+// @lore: pg-ssl — postgres-js verifies hostname by default; cluster cert SANs are headless not ClusterIP; sslmode=verify-ca must skip hostname check
 
-/** TLS options for postgres-js, or `false` to disable TLS. */
 export type PostgresSslOption =
 	| false
 	| {

@@ -1,23 +1,3 @@
-/**
- * AgentDetailPane: AgentEditDialog body lifted into a plain pane.
- *
- * The <Dialog> shell is STRIPPED — no role="dialog" is emitted anywhere (AC#3).
- * This is the body of AgentEditDialog, not a fork — logic must stay in sync.
- *
- * @lore AV4: Dialog shell stripped per plan §2.4. The pane renders only the body
- * + a plain (non-Dialog) header. Tests assert no role="dialog" in the tree.
- * If AgentEditDialog body diverges (new fields, new logic), this pane MUST follow.
- * A parallel copy that drifts is a CRITICAL review finding.
- *
- * @lore BC5 T9: the door swap — `call("edit_user", { id, runConfig })` replaces
- * `PATCH /api/agents/:id`. The team roster (`useTeamAgents` → `useAgents` →
- * `search_users`) carries no harness/model/identity data — a search row never
- * did — so this pane fetches its own `open_user({ id: agent.id })` the moment
- * an agent is selected, the same one-call-per-open pattern `SettingsAgents`
- * uses for its list. `agent`'s id/name/role (from the roster) still seed the
- * header while that fetch is in flight.
- */
-
 import { HARNESS_TYPES, type HarnessType } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useState } from "react";
 import { Link as RRLink } from "react-router-dom";
@@ -60,8 +40,6 @@ export function AgentDetailPane({
 	const [configVisible, setConfigVisible] = useState(false);
 	const [saving, setSaving] = useState(false);
 
-	// Fetch this agent's own runConfig/identity the moment it is selected — the
-	// roster's AgentConfig carries neither (see @lore above).
 	useEffect(() => {
 		if (agent === null) return;
 		let cancelled = false;
@@ -114,10 +92,7 @@ export function AgentDetailPane({
 
 	const role = rosterMember?.role ?? agent?.role ?? "";
 	const roleLabel = deriveRoleLabel(role);
-	// @lore BA9g: the catalog's description went with the catalog — an agent's
-	// identity document says what it is for, not a sentence about its role.
 	const roleDescription = roleLabel;
-	// @lore BA9d D5: strategy category removed — isStrategy deleted.
 	const agentName = rosterMember?.name ?? agent?.name ?? "";
 	const initials = deriveInitials(agentName);
 
@@ -133,7 +108,7 @@ export function AgentDetailPane({
 
 	return (
 		<PageScaffold
-			// Note: NO <Dialog> shell — no role="dialog" (AC#3 requirement).
+			// Note: NO <Dialog> shell — no role="dialog".
 			data-testid="agent-detail-pane"
 			header={
 				<PageHeader

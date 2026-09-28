@@ -5,9 +5,6 @@
  * Contributions button visible with "detached" label when a contribution has a
  * user override, contribution expand shows detached tag + restore button.
  *
- * @lore call("search_plugins"/"edit_plugin") is the one door for plugin data — call is mocked directly, the same idiom other settings tests use.
- *
- * @lore useTeams derives teams from search_users plus a per-team search_tasks call — the team-picker test drives that through the same callMock.
  */
 
 import { render, screen, waitFor, within } from "@testing-library/react";

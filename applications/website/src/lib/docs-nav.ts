@@ -1,20 +1,5 @@
-/**
- * Side-navigation config for the /docs/** area.
- *
- * One source of truth for the sidebar, the docs hub, and prev/next-style
- * orientation. Section order and per-section item order MIRROR the docs'
- * own index.md files (docs/guides/user/index.md, docs/guides/developer/
- * index.md, docs/product/index.md) — the sidebar restates the structure the
- * docs already have, never invents a new one.
- *
- * Installation is the exception: it is a top-level ASSEMBLY, not a rendered
- * directory — the user guide's getting-started plus the deployment docs,
- * gathered so a first-run reader gets one ordered path (no content is
- * duplicated; every entry links to the page's own rendered route).
- *
- * Item ids are docs-collection entry ids (docEntryId's contract), so the URL
- * is always `<base>docs/<id>/`.
- */
+// Item ids are docEntryId's contract; URL is always `<base>docs/<id>/`.
+// Installation is an ASSEMBLY (not a rendered directory): user getting-started + deployment docs gathered into one ordered path.
 
 export interface DocNavItem {
 	id: string;
@@ -78,16 +63,11 @@ export const DOCS_NAV: readonly DocNavSection[] = [
 	},
 ];
 
-/** Site URL of a nav item: entry ids render at `<base>docs/<id>/`. */
 export function navItemUrl(id: string, base: string): string {
 	return `${base}docs/${id}/`;
 }
 
-/**
- * The sidebar section an entry belongs to. Installation wins for the
- * deployment docs (they appear under User Guide too, as one entry among the
- * guide's own pages — the highlight follows the assembled section).
- */
+// Installation wins for deployment docs (they appear in both User Guide and Installation sections).
 export function findNavSection(entryId: string): DocNavSection | undefined {
 	return DOCS_NAV.find((section) => section.items.some((item) => item.id === entryId));
 }

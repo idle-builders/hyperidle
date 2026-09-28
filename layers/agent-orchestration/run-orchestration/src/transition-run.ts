@@ -17,7 +17,7 @@ type SessionLifecyclePorts = Parameters<typeof createProvisioner>[0];
 /** `TransitionPorts` carries only the own-state `sessionRequests` port the "request" disposition path needs. */
 type TransitionPorts = Pick<SessionLifecyclePorts, "sessionRequests">;
 
-/** `cost_cap` reason deleted — the cap gate no longer exists. */
+/** `cost_cap` is absent — the cap gate does not exist. */
 const TERMINATION_REASONS = ["user_done", "user_crashed", "handoff", "shutdown"] as const;
 type AgentTerminationReason = (typeof TERMINATION_REASONS)[number];
 
@@ -95,8 +95,7 @@ async function transitionAgentRunLifecycle(
 		}) as Promise<AgentSessionRequest | null>;
 	});
 	if (!row) throw new Error(`Unknown agent request ${input.requestId}`);
-	// @lore AU9: persistence precedes publication so domain projections can always
-	// reload the terminal truth; execution callbacks never cross into core domains.
+	// @lore: persistence precedes publication — domain projections can always reload the terminal truth; execution callbacks never cross into core domains
 	eventBus.emit({
 		type: "agent_run_lifecycle_changed",
 		streamId: row.streamId,
@@ -149,14 +148,8 @@ interface SessionContext {
 	agentId: string;
 	taskId: string | null;
 	sandboxPath: string;
-	/**
-	 * Was `watcher: FileWatcher`. Renamed to
-	 * `ingestion: IngestionHandle` during runtime boundary simplification.
-	 * The IngestionHandle.dispose() replaces FileWatcher.stop() at every
-	 * teardown site (endSession + crashSession).
-	 */
 	ingestion: IngestionHandle;
-	/** Correlates every observability event for this session (H3). */
+	/** Correlates every observability event for this session. */
 	traceId: string;
 	readonly requestContext?: SessionLifecycleCorrelation;
 }
@@ -167,36 +160,15 @@ async function endSession(
 	terminalOutcome: "completed" | "not_returned" | "stopped" = "completed",
 	tokensByTier?: Partial<Record<ModelTier, { prompt: number; completion: number }>>,
 ): Promise<void> {
-	// 1. Dispose ingestion handle (final flush).
-	// @lore AK2 §5b: was `context.watcher.stop()`. Renamed to `context.ingestion.dispose()`
-	// dispose() must not throw during teardown.
 	context.ingestion.dispose();
 
-	// 2. Update session row.
 	const now = new Date().toISOString();
-	// CAS terminal write. SET only WHERE state='active', so
-	// a duplicate teardown — or a teardown for a session a different writer already
-	// finalized (e.g. a handoff that set state='done') — affects ZERO rows and is a
-	// no-op. The runtime is the SOLE terminal-state writer for a session it runs.
-	//
-	// WARNING-A: `terminalOutcome` overrides the previously hardcoded "completed"
-	// in BOTH the row write and the event emit. This ensures a not_returned turn is
-	// persisted correctly in the DB and carried on the bus — not just in the in-memory
-	// ProvisionSessionResult. Passing "not_returned" here is what gives the not-returned outcome real
-	// teeth at the persistence layer.
-	//
-	// @lore A stopped session writes state "stopped", not "done" — the
-	// abort path (provisioner.ts's own `stopRequested` flag) threads
-	// `terminalOutcome: "stopped"` here so `lifecycle-propagation.ts` (which
-	// only acts on `outcome==='completed'`) stays inert on a stop.
+	// CAS terminal write — SET only WHERE state='active'; duplicate teardown or a session a different writer already finalized affects ZERO rows (no-op).
+	// @lore: stopped session — state is "stopped" not "done"; terminalOutcome:"stopped" keeps lifecycle-propagation.ts (acts only on outcome==="completed") inert
 	const state = terminalOutcome === "stopped" ? "stopped" : "done";
 	const updated = await updateSessionRow(db, context.sessionId, state, terminalOutcome, now);
 
-	// 3. Emit session_ended IFF the CAS UPDATE actually transitioned a row.
-	// HARD INVARIANT: gate the emit on rowCount, NOT merely on "the
-	// UPDATE ran". A handoff-ended session (already 'done') whose detached
-	// runSession tail later calls endSession would otherwise emit a spurious
-	// session_ended that handoff is forbidden to emit (handoff-protocol.ts).
+	// Gate emit on rowCount, not merely on "the UPDATE ran" — a handoff-ended session (already 'done') whose detached tail calls endSession must not emit a spurious session_ended.
 	if (updated) {
 		eventBus.emit({
 			type: "session_ended",
@@ -213,29 +185,12 @@ async function endSession(
 					}
 				: {}),
 			timestamp: Date.now(),
-			// Use terminalOutcome (not hardcoded "completed") so not_returned
-			// turns surface correctly on the bus.
 			outcome: terminalOutcome,
-			// The session's
-			// accumulated per-tier token counts ride this SAME event — no direct
-			// `bets.tokensActualJson` write here anymore. A core-api subscriber
-			// (`work-session-end-reactions.ts`) merges them onto the owning bet.
 			...(tokensByTier && Object.keys(tokensByTier).length > 0 ? { tokensByTier } : {}),
 		});
 	}
 
-	// 6. Delete workspace directory
-	// @lore I6: use async fs.promises.rm() instead of sync fs.rmSync() to avoid
-	// blocking the event loop during large workspace cleanup.
-	//
-	// @lore BA2: unless a human owes this session an answer. A session that ended
-	// by filing a review is not finished, it is waiting — a human may take days —
-	// and when the verdict comes the agent is resumed IN THIS DIRECTORY. Deleting
-	// it now does not merely lose the agent's files: the resume spawns the harness
-	// with a working directory that no longer exists, and it hangs instead of
-	// failing, so the answer reaches nobody and nothing anywhere says why. This is
-	// the delete that matters — `workspace.destroy` in the provisioner removes an
-	// already-removed tree — so a guard placed only there does nothing.
+	// @lore: workspace cleanup — async rm avoids blocking event loop; skip if session awaits verdict (resume needs this dir; harness hangs if dir is gone)
 	if (await sessionAwaitsVerdict(db, context.sessionId)) return;
 	try {
 		await fs.promises.rm(context.sandboxPath, { recursive: true, force: true });
@@ -255,10 +210,7 @@ async function crashSession(
 	tokensByTier?: Partial<Record<ModelTier, { prompt: number; completion: number }>>,
 ): Promise<void> {
 	// 1. Try to dispose ingestion handle (may be in a bad state during crash).
-	// @lore AK2 §5b: was `context.watcher.stop()`. Renamed to
-	// `context.ingestion.dispose()`. The port contract guarantees dispose() does
-	// not throw, but the try/catch is belt-and-suspenders — crash-path teardown
-	// is defensive (behaviour-identical to the old try { watcher.stop() } catch {}).
+	// Port contract guarantees dispose() does not throw; try/catch is defensive for crash-path teardown.
 	try {
 		context.ingestion.dispose();
 	} catch {
@@ -267,8 +219,7 @@ async function crashSession(
 
 	// 2. Update session row.
 	const now = new Date().toISOString();
-	// CAS terminal write — see endSession. Crashing an already-terminal
-	// session affects zero rows and emits nothing.
+	// CAS terminal write — crashing an already-terminal session affects zero rows and emits nothing.
 	const updated = await updateSessionRow(db, context.sessionId, "crashed", "crashed", now);
 
 	// 3. Emit session_ended IFF the CAS UPDATE transitioned a row.
@@ -289,8 +240,6 @@ async function crashSession(
 				: {}),
 			timestamp: Date.now(),
 			outcome: "crashed",
-			// See endSession's identical
-			// comment — accumulated tokens ride this same event, no direct write.
 			...(tokensByTier && Object.keys(tokensByTier).length > 0 ? { tokensByTier } : {}),
 		});
 	}
@@ -353,13 +302,7 @@ export function transitionRun(
 }
 
 // ---------------------------------------------------------------------------
-// `sessions` table access. This Service OWNS the table, so naming it here is
-// the point rather than an exemption. Kept as a tiny local helper so
-// `endSession`/`crashSession` stay import-clean of `@hyperidle/db`'s table
-// object in their own bodies. Deliberately NOT merged with `session-store.ts`'s
-// `endSessionByCas`: the two share a CAS shape but not a field set, and both
-// now live inside the owner — which is the whole point. Consolidating them is a
-// separate judgement.
+// `sessions` table — this Service owns the table; local helper keeps endSession/crashSession import-clean.
 // ---------------------------------------------------------------------------
 
 async function updateSessionRow(

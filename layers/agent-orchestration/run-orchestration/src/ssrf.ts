@@ -1,15 +1,4 @@
-/**
- * SSRF (Server-Side Request Forgery) defences.
- *
- * Moved here from the deleted `@hyperidle/host-process` package.
- * The two public exports (`resolveUrlForSSRF`, `isPrivateHostLiteral`) are
- * the only symbols callers in this package need; the IP-level predicates
- * stay module-private.
- *
- * @lore H-1: `resolveUrlForSSRF` was earned from security review H-1 — the
- * DNS resolution gate + IP-check prevents DNS rebinding between the check
- * and the outbound connect. Never remove or stub this gate.
- */
+// @lore: SSRF gate — DNS resolution + IP-check prevents DNS rebinding between check and outbound connect; earned from security review; never remove or stub
 import * as dns from "node:dns";
 import * as net from "node:net";
 import { promisify } from "node:util";

@@ -1,17 +1,11 @@
 /**
- * X5: CliHarnessAdapter — spawns an external CLI tool as a child process and
+ * CliHarnessAdapter — spawns an external CLI tool as a child process and
  * translates its stdout into HarnessEvents.
  *
  * Supports any tool that can be invoked as a subprocess. Each CLI tool is
  * registered as its own adapter instance in the pool with its own harnessType
  * (e.g. "codex", "opencode").
  *
- * @lore X5 W1: spawn() is called with the args ARRAY form, never a shell string.
- * This is the critical security boundary: array form prevents shell injection
- * because the OS execvp() call receives arguments verbatim without any
- * shell-level interpolation. Never change this to spawn(cmd, { shell: true })
- * — that would allow an attacker who controls workspace path or model name to
- * inject shell commands.
  */
 
 import type { ChildProcess } from "node:child_process";
@@ -46,22 +40,10 @@ function createIsolatedEnforcementRegistry(): EnforcementRegistry {
 	return createReturnEnforcement();
 }
 
-/**
- * @lore claude-cli-adapter: Claude return enforcement is the `settings-claude`
- * Stop hook (writes .claude/settings.json + return-check.sh) — NOT stream
- * return-detection. The process does not emit a sentinel line that signals
- * completion; the Stop hook fires inside the claude subprocess before it exits.
- * The preMapClaudeEvent pre-map is applied per-line in parseStdoutLine only when
- * eventDialect === "claude-stream-json". It is best-effort one-event-per-line:
- * multi-block assistant messages keep the first tool_use block; else the first
- * text block; else an empty completion event. Applied explicitly here — NOT
- * inside normalizeHarnessEvent — so codex/opencode adapters are unaffected.
- */
+// @lore: preMapClaudeEvent — per-line in parseStdoutLine when dialect==claude-stream-json; applied here only, not in normalizeHarnessEvent
 
 /**
  * Template variable names used in args and envMap.
- * @lore AK1: {{workspace}} renamed to {{sandbox}} in AK1 harness-vocab rename.
- * @lore {{prompt}} added for per-session seed prompt carrier (codex exec).
  */
 type TemplateVar = "{{sandbox}}" | "{{model}}" | "{{mcpUrl}}" | "{{prompt}}";
 
@@ -94,14 +76,6 @@ interface CliAdapterConfig {
 	 * These are merged with the allowlisted host env vars.
 	 */
 	readonly envMap: Readonly<Record<string, string>>;
-	// @lore Two fields stood here: `credentialEnvByProvider`, which put a stored
-	// API key into the subprocess under its own provider's variable name, and
-	// `customEndpointProvider`, which declared a brought OpenAI-compatible
-	// endpoint in the harness's own config file. Both existed so someone could
-	// bring a key and have a harness run on it. That is not a thing any more —
-	// the harness is what you bring, and the key lives in its own login. HyperIdle
-	// stores no model credential, so there is nothing left to inject.
-
 	/**
 	 * How to interpret stdout lines.
 	 * "ndjson" — each line is parsed as JSON; valid HarnessEvent objects are
@@ -120,8 +94,6 @@ interface CliAdapterConfig {
 	 * Overrides the binary-derived default when set.
 	 * Default derivation: "codex" → "settings-codex", "opencode" → "process-reengage", else "none".
 	 *
-	 * @lore Per-binary channel is declared here so
-	 * provisionReturnHook can dispatch correctly without coupling to binary names.
 	 */
 	readonly returnEnforcementChannel?: ReturnEnforcementChannel;
 	/**
@@ -133,15 +105,7 @@ interface CliAdapterConfig {
 	 * "positional" — appended as the last positional argument after the template `{{prompt}}`.
 	 * Absent → no per-session prompt carrier (hardcoded only).
 	 *
-	 * @lore Without this field, re-engage runs use the same generic
-	 * "proceed" prompt regardless of the forcing message — the agent never sees the
-	 * "you must return" instruction on re-engage.
-	 *
-	 * @lore cli-adapter-stdin: "stdin" was removed from this union. The adapter closes
-	 * stdin immediately after spawn (child.stdin?.end()) to prevent codex/opencode from
-	 * blocking on stdin EOF. No production config ever set seedPrompt:"stdin" and there
-	 * is no code that writes to child.stdin. A future stdin carrier would require a
-	 * conditional skip of the stdin-close.
+	 * @lore: seedPrompt — without it re-engage uses the hardcoded "proceed" prompt; the agent never receives the forcing message
 	 */
 	readonly seedPrompt?: "positional";
 	/**
@@ -152,10 +116,6 @@ interface CliAdapterConfig {
 	 *
 	 * "run-arg" — pass the forcing message as a positional argument to `opencode run <msg>`.
 	 * Absent → re-engage uses the sandbox instruction file only.
-	 *
-	 * @lore cli-adapter-stdin: "stdin" was removed from this union. stdin is closed
-	 * immediately after spawn to prevent blocking on stdin EOF. No production config
-	 * ever set reEngageCarrier:"stdin" and no code writes to child.stdin.
 	 */
 	readonly reEngageCarrier?: "run-arg";
 	/**
@@ -172,10 +132,6 @@ interface CliAdapterConfig {
 	 * "codex-toml"   — appends [mcp_servers.hyperidle] to .codex-home/config.toml;
 	 *                  token delivered via HYPERIDLE_MCP_TOKEN env var (outside allowlist).
 	 * "opencode-json" — writes opencode.json to sandbox cwd; token inline in headers.
-	 *
-	 * @lore AL7 mcpConfig: The dialect knowledge lives entirely in writeCliMcpConfig
-	 * (cli-mcp-config.ts). CLI_TOOL_CONFIGS declares the dialect; session-provisioning
-	 * calls writeCliMcpConfig. No per-backend branching in the router/registry.
 	 */
 	readonly mcpConfig?:
 		| { readonly dialect: "codex-toml" }
@@ -186,12 +142,7 @@ interface CliAdapterConfig {
 	 * error events). Use for known-benign, binary-specific informational stderr output
 	 * that does NOT indicate a failure.
 	 *
-	 * @lore AR2 codex-stderr-filter: codex always emits "Reading additional input from
-	 * stdin..." to stderr on startup, even when stdin is closed immediately. Without this
-	 * filter, that line becomes { type: "error", code: "CliStderr" } → provisionSession
-	 * sets crashed=true on the first event. Verified codex-cli 0.141.x: the message is
-	 * purely informational (codex still runs the LLM turn and exits 0); only the stderr
-	 * line causes the false crash.
+	 * @lore: codex-stderr-filter — codex emits "Reading additional input from stdin..." on startup even with closed stdin; without filter: CliStderr → crashed=true
 	 */
 	readonly stderrIgnorePatterns?: readonly RegExp[];
 }
@@ -268,9 +219,7 @@ interface CliSession {
 	 * short-circuits the `isReEngage && !session.returnSeen` pre-check below
 	 * BEFORE it ever reaches the registry's own required-subset-aware
 	 * `shouldForceReturn` — silently skipping the force this session actually
-	 * needs. Dormant through Phase A (no request set `requiredReturnActions`
-	 * yet); the assistant landing on the shared poller (Increment 6) makes it
-	 * live for the first time.
+	 * needs.
 	 */
 	returnSeen: boolean;
 	/**
@@ -305,9 +254,6 @@ interface CliSession {
 	 * stored at session start so re-engage spawns can pass --model correctly.
 	 * Required for opencode "run-arg" carrier: `opencode run <msg> --format json --model <model>`.
 	 *
-	 * @lore Opencode re-engage model: The re-engage spawn cannot re-resolve templates
-	 * (no config object available in streamEvents). Storing the resolved model here avoids
-	 * the need to thread SessionConfig through streamEvents.
 	 */
 	readonly reEngageResolvedModel?: string;
 	/**
@@ -322,11 +268,6 @@ interface CliSession {
 	 * assigned by us at start time (claude: --session-id). Set once the first
 	 * relevant event arrives; undefined until then (or for harnesses that do not
 	 * emit one before the session ends).
-	 *
-	 * @lore BA2: This is the handle that makes resumption possible. For claude we
-	 * assign it via --session-id at start time. For codex, cursor-agent, and
-	 * opencode we extract it from the first relevant event (thread.started,
-	 * system/init, any-event.sessionID respectively).
 	 */
 	nativeSessionId?: string;
 }
@@ -362,26 +303,8 @@ let nextId = 1;
 
 // ── Process-exit backstop ───────────────────────────────────────────────────
 //
-// @lore process-exit backstop: detached:true (needed for killProcessGroup) means a spawned
-// harness CLI no longer receives the terminal's SIGINT/SIGHUP when `npm run
-// dev` is Ctrl-C'd or its terminal closes — that used to be exactly what
-// killed a leftover agent. The graceful shutdown path (dispose →
-// markRunningSessionsForShutdown → stopSession, remote-server index.ts) still
-// covers a clean exit. This single, shared 'exit' handler is the backstop for
-// everything else Node still runs a handler for on the way out: an uncaught
-// exception, an unhandled rejection that crashes the process, or a caught
-// SIGTERM/SIGINT a signal handler turns into `process.exit()`. It SIGKILLs
-// every still-running session's process group across every CliHarnessAdapter
-// instance ever constructed. Registered ONCE at module scope (not once per
-// adapter instance) — every real-harness test constructs its own adapter, and
-// a per-instance `process.on` would accumulate one listener per instance for
-// the life of the worker process, tripping Node's max-listeners warning.
+// @lore: process-exit backstop — detached:true = no terminal signals; shared "exit" SIGKILLs all session groups; registered once; no listener accumulation
 //
-// @lore NOT covered: SIGKILL of the server process itself. Node cannot run
-// ANY JS — including this handler — in response to SIGKILL: the kernel
-// terminates the process immediately and unconditionally, before any handler
-// gets a chance to run. A detached agent survives a SIGKILL of its parent,
-// same as it always would.
 const liveAdapters = new Set<CliHarnessAdapter>();
 let exitHandlerRegistered = false;
 
@@ -416,9 +339,7 @@ function registerExitHandlerOnce(): void {
  * opencode → process-reengage (.opencode/plugins/return-signal.ts + re-spawn wrapper)
  * unknown → none (drain-gate floor backstop only)
  *
- * @lore Codex has a hooks.json mechanism (Stop hook). Without a trust
- * marker the hook is silently skipped (WARN-F1). Per-session prompt carrier is a
- * separate concern (tracked in CLI_TOOL_CONFIGS.codex.args — the {{prompt}} slot).
+ * @lore: codex hooks.json — Stop hook requires a trust marker or silently skipped; per-session prompt is the {{prompt}} slot in codex.args, a separate concern
  */
 function deriveCliChannel(binary: string): ReturnEnforcementChannel {
 	if (binary === "codex") return "settings-codex";
@@ -486,18 +407,7 @@ function extractClaudeResultMetrics(obj: Record<string, unknown>): {
 } {
 	const usage =
 		obj.usage && typeof obj.usage === "object" ? (obj.usage as Record<string, unknown>) : {};
-	// @lore BA2 cursor-metrics: cursor-agent is configured with the same
-	// eventDialect: "claude-stream-json" as claude (it advertises a
-	// claude-compatible `--output-format stream-json`), and its terminal
-	// `result` line does carry a `usage` object — but with CAMELCASE keys
-	// (`inputTokens`/`outputTokens`/`cacheReadTokens`/`cacheWriteTokens`),
-	// not claude's native snake_case. Proven against the installed binary
-	// (2026.08.25-3e8eec8): a real run reported
-	// `"usage":{"inputTokens":4,"outputTokens":759,"cacheReadTokens":61008,
-	// "cacheWriteTokens":9070}`. Without this fallback every cursor-agent
-	// session silently reports 0 input/output tokens regardless of real
-	// spend — the exact thing that made a real, reasoned model refusal look
-	// like "the prompt never arrived" in a resumed-session investigation.
+	// @lore: cursor-metrics — cursor-agent emits camelCase keys (inputTokens/outputTokens/cacheRead/cacheWrite) not snake_case; without mapping, 0 tokens reported
 	return {
 		durationMs: finiteNonNegative(obj.duration_ms),
 		apiDurationMs: finiteNonNegative(obj.duration_api_ms),
@@ -581,20 +491,9 @@ export class CliHarnessAdapter implements HarnessAdapter {
 
 	async startSession(config: SessionConfig): Promise<SessionHandle> {
 		// Build template variable map
-		// @lore BA10: {{prompt}} is the session's opening user turn — what the agent
-		// is being ASKED to do — and it is delivered whole. `assembledPrompt` is
-		// context and goes to AGENTS.md; it is not an instruction and is no longer
-		// used as one. This used to be `assembledPrompt.slice(0, 200)` with newlines
-		// flattened, and a real agent replied "your initial message appears to have
-		// been cut off". "proceed" remains the default for a session with nothing to
-		// ask — a subscription waking on a heartbeat has no instruction of its own.
 		const promptSeed = config.instruction?.trim() || "proceed";
 		const templateVars: Record<TemplateVar, string> = {
 			"{{sandbox}}": config.sandboxPath,
-			// The agent's own choice, and nothing else. A fallback to the model
-			// gateway's answer used to sit here, and on a subscription-authenticated
-			// machine it was absent — which is how the person's chosen model got
-			// silently discarded.
 			"{{model}}": config.selectedModel ?? "",
 			"{{mcpUrl}}": config.mcpConnectionInfo?.url ?? "",
 			"{{prompt}}": promptSeed,
@@ -603,13 +502,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		// Resolve args
 		let resolvedArgs = this.config.args.map((arg) => resolveTemplates(arg, templateVars));
 
-		// @lore AR4 WARNING-D1 conditional-model: When the agent named no model, the
-		// {{model}} template resolves to "". Passing --model "" to codex sends an empty string
-		// to the OpenAI API → 400 invalid_request_error. Before AR4 codex had no --model flag
-		// and used its CLI default. Preserve pre-AR4 behavior: drop --model + the following
-		// empty-string arg when the resolved model is empty. Only --model flag pairs are
-		// stripped (not arbitrary empty args) — the flag name is the sentinel.
-		// The non-empty path is unchanged: --model gpt-5.4-mini is injected as before.
+		// @lore: conditional-model — {{model}} resolves to "" when none selected; --model "" causes codex 400 invalid_request_error; strip the --model+"" pair
 		if (!templateVars["{{model}}"]) {
 			const filtered: string[] = [];
 			for (let j = 0; j < resolvedArgs.length; j++) {
@@ -626,8 +519,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			resolvedArgs = filtered;
 		}
 
-		// The agent's configured options. Empty for an agent that has none, so its
-		// invocation stays character-for-character what it was before options existed.
+		// The agent's configured options. Empty for an agent that has none.
 		const optionArgv = modelOptionArgv(deriveHarnessType(this.config.binary), config.modelOptions);
 		if (optionArgv.length > 0) resolvedArgs = [...resolvedArgs, ...optionArgv];
 
@@ -637,11 +529,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			resolvedEnvMap[key] = resolveTemplates(value, templateVars);
 		}
 
-		// @lore No API key is injected into a harness, ever. Two blocks stood here —
-		// one putting a stored key under its provider's variable name, one writing a
-		// brought endpoint into the harness's own config file. A harness
-		// authenticates itself, and an injected key can shadow the login the person
-		// already has rather than help it.
+		// @lore: no API key injection — harness authenticates itself; an injected key can shadow the person's existing login
 
 		// ── Per-session CODEX_HOME injection.
 		//
@@ -652,9 +540,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		// Also append --dangerously-bypass-hook-trust to args when CODEX_HOME is set
 		// so codex runs the hook without prompting for user confirmation.
 		//
-		// @lore CODEX_HOME must NOT be in envAllowlist (it is
-		// injected here, not forwarded from process.env). The per-session .codex-home/
-		// dir contains only auth.json + config.toml (no SQLite) + hooks.json.
+		// @lore: CODEX_HOME — injected here, not in envAllowlist; per-session .codex-home/ contains auth.json + config.toml + hooks.json (no SQLite)
 		const codexHomeDir = path.join(config.sandboxPath, ".codex-home");
 		let extraArgs: string[] = [];
 		if (this.config.binary === "codex" && fs.existsSync(codexHomeDir)) {
@@ -668,9 +554,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		//
 		// XDG_CONFIG_HOME isolates opencode's config dir so the return-signal plugin
 		// in <sandbox>/.opencode/ loads while the user's global plugins do not.
-		// Replaces the removed --pure flag (which also disabled the sandbox plugin).
 		//
-		// @lore BA2: CODEX_HOME injection pattern; neither var is in envAllowlist.
 		if (this.config.binary === "opencode") {
 			// Always inject XDG_CONFIG_HOME for opencode, so the user's global
 			// ~/.config/opencode plugins and config cannot reach into the session.
@@ -681,20 +565,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			} catch {
 				// sandbox dir not yet created (test harness with fake path) — skip XDG isolation
 			}
-			// @lore BA2: OPENCODE_PERMISSION is unconditional now. It used to be read
-			// from `.hyperidle/opencode-permission.json` when the interception
-			// installer had written one, falling back to allow-all when it had not.
-			// That installer is deleted, so nothing ever wrote the file and the read
-			// always threw into the fallback — a branch that could not be taken,
-			// reading a path nothing produces. The fallback was always the real
-			// behaviour, so it is the only behaviour.
-			//
-			// It is required even though nothing is being gated: without it opencode
-			// asks the user before each tool call, and in a non-interactive spawned
-			// process (no TTY) that auto-REJECTS every tool — write and read fail with
-			// "The user rejected permission to use this specific tool call." Verified
-			// 2026-09-01: {} also rejects; {"*":"allow"} grants non-interactive
-			// auto-approval.
+			// @lore: OPENCODE_PERMISSION — without it opencode asks before each tool call; non-TTY auto-rejects every tool; {"*":"allow"} grants non-interactive approval
 			resolvedEnvMap.OPENCODE_PERMISSION = '{"*":"allow"}';
 		}
 
@@ -705,9 +576,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		// envAllowlist — the token is per-session-generated and NOT in process.env.
 		// This mirrors the CODEX_HOME injection pattern above.
 		//
-		// @lore AL7 N6: inject-outside-allowlist is non-optional. The allowlist
-		// forwards from process.env; the MCP token is not there. Caller-provided
-		// mcpTokenEnv overrides (and does not pollute) the allowlisted env.
+		// @lore: inject-outside-allowlist — envAllowlist forwards from process.env; MCP token not there; mcpTokenEnv injects without polluting the allowlisted env
 		if (config.mcpTokenEnv) {
 			for (const [key, value] of Object.entries(config.mcpTokenEnv)) {
 				resolvedEnvMap[key] = value;
@@ -721,9 +590,6 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		// a UUID here so that getNativeSessionId can return it immediately (before any
 		// stream events arrive) and resumeSession can use it later.
 		//
-		// @lore BA2 claude-session-id: Assigning rather than capturing is strictly simpler
-		// — no stream-parsing needed, id available at startSession return time. The UUID
-		// must be unique per session; randomUUID() guarantees this.
 		let claudeAssignedSessionId: string | undefined;
 		if (this.config.binary === "claude") {
 			claudeAssignedSessionId = randomUUID();
@@ -736,11 +602,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		const sandboxedEnv = buildSandboxedEnv(this.config.envAllowlist, resolvedEnvMap);
 
 		// Spawn the child process
-		// @lore X5 W1: args ARRAY form is the security boundary — no shell: true
-		// @lore process-group kill: detached: true makes this process the leader of
-		// its own new process group, so any grandchild it forks (without its own
-		// detached: true) inherits that same group. stopSession kills the whole
-		// group in one signal — see the @lore there for why that matters.
+		// @lore: args ARRAY form — security boundary; prevents shell injection; never use spawn(cmd, { shell: true })
 		const child = this.spawnFn(this.config.binary, finalArgs, {
 			cwd: config.sandboxPath,
 			env: sandboxedEnv,
@@ -748,14 +610,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			detached: true,
 		});
 
-		// @lore cli-adapter-stdin: Close stdin immediately after spawn.
-		// The adapter delivers the prompt via argv (positional {{prompt}} for codex/opencode,
-		// -p for claude) — NEVER via stdin. Leaving stdin open causes `codex exec` to block
-		// on "Reading additional input from stdin..." waiting for EOF before it runs the LLM
-		// turn. Closing immediately is safe for all supported binaries: claude uses -p (positional),
-		// opencode uses `run` (positional), codex uses `exec <prompt>` (positional). None read
-		// stdin. Proven via the real-binary adapter test (cli-adapter-real-binary.integration.test.ts).
-		// Optional-chain: the mock spawnFn in unit tests returns a ChildProcess without .stdin.
+		// @lore: cli-adapter-stdin — prompt delivered via argv; leaving stdin open causes codex to block for EOF; all supported binaries use argv; none read stdin
 		child.stdin?.end();
 
 		const sessionId = `cli-session-${nextId++}`;
@@ -817,9 +672,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 
 		// Wire exit handler
 		child.on("exit", (code, signal) => {
-			// @lore AF10: process all remaining stdout lines before building the
-			// result so that any terminal result line's token/turn metrics are
-			// captured into the session BEFORE buildResult reads them.
+			// @lore: process stdout before buildResult — terminal result line's token/turn metrics must be captured into session before buildResult reads them
 			for (let i = 0; i < session.stdoutLines.length; i++) {
 				const bufferedLine = session.stdoutLines[i];
 				if (bufferedLine !== undefined) {
@@ -838,13 +691,8 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			session.resolveStop?.(result);
 		});
 
-		// W2: Catch ENOENT from spawn and produce a clear "binary not found" error.
-		//
-		// @lore X5 W2: In real Node.js, when spawn fails with ENOENT the child's
-		// pid is undefined and an 'error' event fires on the next tick. We check
-		// pid: undefined means spawn failed so we wait for the error event. When
-		// pid is defined the process started successfully and we resolve immediately.
-		// This avoids any timer-based heuristics that break under vi.useFakeTimers().
+		// Catch ENOENT from spawn and produce a clear "binary not found" error.
+		// @lore: ENOENT handling — when spawn fails, child.pid is undefined and 'error' fires on next tick; waiting avoids timer heuristics under vi.useFakeTimers()
 		if (child.pid === undefined) {
 			// pid is undefined — spawn failed; wait for the error event to arrive.
 			await new Promise<void>((resolve, reject) => {
@@ -967,18 +815,10 @@ export class CliHarnessAdapter implements HarnessAdapter {
 					//   4. Bounded by reEngageCount < MAX_FORCE_RETURNS (guards infinite loops).
 					//   5. reEngageCarrier="run-arg": append forceMessage as positional arg.
 					//
-					// @lore The re-engage spawns a NEW child process in the same
-					// sandbox. The new process's stdout/stderr lines are appended to the same
-					// session.stdoutLines / session.stderrLines arrays (via wireStdout/wireStderr
-					// called on the new child). session.done is reset to false so the drain loop
-					// continues. This gives the outer provisioner a single continuous event stream
-					// with no visible seam between the initial run and re-engage runs.
 					if (isReEngage && !session.returnSeen && session.reEngageCount < MAX_FORCE_RETURNS) {
 						const registryEntry = adapter.enforcement.get(session.configSessionId);
 						if (registryEntry) {
-							// adjudicate from the registry's forceCount (single source).
-							// Previously used session.reEngageCount which could diverge from the registry
-							// if other paths also incremented forceCount. The registry is authoritative.
+							// registry forceCount is authoritative (session.reEngageCount can diverge if other paths also increment it)
 							// Narrow to the session's specific
 							// required subset when the registered entry has one.
 							// This branch is structurally
@@ -1004,15 +844,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 
 								// Build re-engage args.
 								//
-								// @lore The previous approach stripped template vars with
-								// `arg.replace(/\{\{[a-z]+\}\}/g, "")` and appended the forcing message.
-								// For opencode (config.args = ["--dir", "{{sandbox}}"]) this produced
-								// ["--dir", "", forceMsg] — broken: no "run" subcommand, empty --dir, and
-								// the forcing message was a stray positional. We now build the correct
-								// opencode headless invocation from scratch for "run-arg" carrier.
-								//
-								// Proven real invocation (real-harness-return-enforcement-realbinary.integration.test.ts):
-								//   opencode run <forceMsg> --format json --pure --model <model>
+								// @lore: re-engage args built from scratch for "run-arg" carrier — stripping template vars yields broken invocation (no "run" subcommand, empty --dir)
 								let finalReEngageArgs: string[];
 								if (session.reEngageCarrier === "run-arg") {
 									// "run-arg": opencode headless re-invoke with forcing message as first arg.
@@ -1025,11 +857,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 									runArgs.push(...session.reEngageOptionArgv);
 									finalReEngageArgs = runArgs;
 								} else {
-									// No carrier configured — use the tailored forcing message
-									// (was the static FORCE_RETURN_MESSAGE
-									// constant; now the same `forceMsg` this session was just
-									// adjudicated with, so a required session sees ITS message,
-									// not the always-full-trio default).
+									// No carrier configured — use the tailored forcing message.
 									// Fall back to base args (stripped of unresolved template vars via exclusion
 									// of any arg still containing "{{"). Empty-string args from stripping
 									// are excluded to avoid passing spurious flags.
@@ -1050,16 +878,9 @@ export class CliHarnessAdapter implements HarnessAdapter {
 									detached: true,
 								});
 
-								// @lore cli-adapter-stdin: Close stdin on re-engage spawns too.
-								// Re-engage delivers the forcing message via positional arg ("run-arg" carrier).
-								// The adapter never writes to stdin — stdin must be closed immediately to prevent
-								// the same hang as the initial spawn (codex/opencode block on stdin EOF).
 								reEngageChild.stdin?.end();
 
 								// Reset session for the new child.
-								// @lore We mutate the CliSession object to point at the
-								// new child while keeping the same stdoutLines/stderrLines arrays.
-								// This is safe because the old child has exited (session.done was true).
 								session.child.removeAllListeners();
 								session.child = reEngageChild;
 								session.done = false;
@@ -1113,25 +934,9 @@ export class CliHarnessAdapter implements HarnessAdapter {
 	 * Signals the whole process group a session's child is the leader of — not
 	 * just the child itself.
 	 *
-	 * @lore process-group kill: a real cursor-agent, started by a test that set
-	 * only `assembledPrompt` (not `instruction`), was left running after the test
-	 * process exited: it read the on-disk task record, found an open tree plus
-	 * its worktree path, and worked it unsupervised for ~45 minutes — commits,
-	 * decisions, claims — because `child.kill(signal)` only ever reached the one
-	 * process object we hold a handle to, never a grandchild it spawned or a
-	 * process that outlived its parent's own exit. Every startSession /
-	 * resumeSession / re-engage spawn above sets `detached: true`, making that
-	 * child the leader of its own new process group (pgid === its own pid);
-	 * `process.kill(-pid, signal)` then reaches every process in that group in
-	 * one syscall, dead process tree included. Falls back to signalling the
-	 * child directly when it has no pid (spawn failed before a pid was assigned).
+	 * @lore: process-group kill — child.kill() misses grandchildren; detached: true makes child the group leader; process.kill(-pid, signal) kills the whole group
 	 *
-	 * @lore This alone does NOT cover every stopSession path: `session.done`
-	 * (the CLI's own process already exited — the normal drain-then-stop
-	 * sequence: exit fires, THEN the caller calls stopSession) used to return
-	 * without calling this at all. A grandchild the CLI spawned can outlive its
-	 * own exited parent, so the `session.done` branch below signals the group
-	 * too — the parent being gone does not mean the group is empty.
+	 * @lore: session.done branch — a grandchild can outlive its exited parent; done branch signals the group too; parent gone ≠ group empty
 	 */
 	private killProcessGroup(child: ChildProcess, signal: NodeJS.Signals): void {
 		if (child.pid === undefined) {
@@ -1153,19 +958,8 @@ export class CliHarnessAdapter implements HarnessAdapter {
 	 * itself, with an injected killFn, and never emits "exit" on the real
 	 * `process` (that would sweep every other test's adapter too).
 	 *
-	 * @lore reused-pid gap: a `session.done` entry (the CLI already exited;
-	 * if the caller calls `stopSession`, its done-branch signals the group once,
-	 * soon after the exit) can sit in
-	 * `this.sessions` for an UNBOUNDED time if the caller never calls
-	 * `stopSession` at all. By the time this sweep runs — a crash, a forced
-	 * exit, an arbitrarily later moment — the OS may have long since recycled
-	 * that pid for an unrelated process. Signalling it then would SIGKILL
-	 * whatever now holds that pid, not the harness that used to. Skipping
-	 * `session.done` here closes that: the done-branch's OWN signal is the only
-	 * kill a done session ever gets. That signal is not in the same tick as the
-	 * exit — it fires when the caller calls `stopSession`, which on the normal
-	 * drain-then-stop path is right after the drain finishes, so a reused pid is
-	 * unlikely there but not impossible.
+	 * @lore: reused-pid gap — done entry stays in map unbounded; OS may recycle pid before sweep; signalling then SIGKILLs wrong process
+	 * @lore: skip done entries here — done-branch's signal at stopSession (after drain) is the only kill; sweeping too risks hitting a recycled pid
 	 */
 	killAllLiveSessionGroups(): void {
 		for (const session of this.sessions.values()) {
@@ -1191,13 +985,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		}
 
 		if (session.done) {
-			// @lore process-group kill (done branch): the CLI's own process already
-			// exited (this is the normal drain-then-stop path — provisionSession
-			// drains the stream to completion, THEN calls stopSession), but a
-			// grandchild it spawned is not guaranteed to have exited with it. SIGKILL
-			// immediately — there is no live parent left to gracefully shut down, so
-			// there is nothing SIGTERM's grace period buys here. ESRCH (group already
-			// empty, the common case) is tolerated inside killProcessGroup.
+			// @lore: done branch SIGKILLs immediately — CLI already exited; grandchild may still run; no live parent means SIGTERM buys nothing; ESRCH tolerated
 			this.killProcessGroup(session.child, "SIGKILL");
 			const result = this.buildResult(session, session.exitCode, session.exitSignal);
 			this.sessions.delete(handle.sessionId);
@@ -1208,8 +996,6 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		this.killProcessGroup(session.child, "SIGTERM");
 
 		// Escalate to SIGKILL after 5 seconds if process hasn't exited
-		// @lore X5 W1: SIGTERM -> 5s wait -> SIGKILL — graceful shutdown gives the process
-		// time to flush output before the hard kill.
 		session.killTimer = setTimeout(() => {
 			const s = this.sessions.get(handle.sessionId);
 			if (s && !s.done) {
@@ -1240,8 +1026,6 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		message: string,
 		config: SessionResumeConfig,
 	): Promise<SessionHandle> {
-		// @lore BA2: Per-harness resume invocations, measured against real installed
-		// binaries. See harness-research/session-continuation.md for full evidence.
 		const model = config.selectedModel ?? "";
 		const sandboxPath = config.sandboxPath;
 
@@ -1252,9 +1036,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		switch (this.config.binary) {
 			case "claude": {
 				// claude -p <msg> --resume <uuid> [standard flags]
-				// @lore BA2 claude-resume: --resume takes the uuid we assigned via
-				// --session-id at start time. The sandbox (cwd) must be the same as the
-				// original session — claude sessions are bound to their working directory.
+				// @lore: claude-resume — --resume takes uuid from --session-id at start; cwd must match original session; sessions are bound to their working directory
 				args = [
 					"-p",
 					message,
@@ -1276,18 +1058,8 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			}
 			case "codex": {
 				// codex exec resume <thread-id> <msg> --json [--model <m>]
-				// @lore BA2 codex-resume: `exec resume` is a first-class subcommand;
-				// thread-id is captured from thread.started at session start.
-				// CODEX_HOME must point to the per-session .codex-home/ so the hook
-				// runs on the resumed session too.
-				//
-				// @lore BA2 codex-sandbox-inherit: `exec resume` has no --sandbox flag.
-				// The original thread's sandbox mode (workspace-write) is INHERITED by
-				// the resumed session — codex stores it with the thread. Proved by running
-				// a two-phase session (phase 1: exec --sandbox workspace-write, phase 2:
-				// exec resume) and verifying the resumed turn could create new files in
-				// the sandbox. This holds whether or not sandbox_mode appears in
-				// config.toml — the flag is thread-scoped, not config-scoped.
+				// @lore: codex-resume — exec resume is a first-class subcommand; thread-id from thread.started; CODEX_HOME must point to per-session .codex-home/ for hooks+state
+				// @lore: codex-sandbox-inherit — exec resume has no --sandbox flag; workspace-write inherited from original thread; flag is thread-scoped, not config-scoped
 				args = [
 					"exec",
 					"resume",
@@ -1306,12 +1078,8 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			case "cursor-agent": {
 				// cursor-agent -p <msg> --print --output-format stream-json --model <m>
 				//   --trust --approve-mcps --force --resume <chat-id>
-				// @lore BA2 cursor-agent-resume: --force is required for headless resume;
-				// without it cursor-agent prompts interactively. --resume targets the
-				// specific chat by id. The sandbox (cwd) must match the original session.
-				// @lore BA2 cursor-agent-silent-fail: cursor-agent exits 0 even on a
-				// wrong or missing session id, echoing back the requested id. The caller
-				// MUST verify prior context from the session's content.
+				// @lore: cursor-agent-resume — --force required for headless resume; without it cursor-agent prompts interactively; cwd must match original session
+				// @lore: cursor-agent-silent-fail — exits 0 on wrong/missing session id, echoing the id back; caller must verify prior context from the session's content
 				args = [
 					"-p",
 					message,
@@ -1330,10 +1098,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			case "opencode": {
 				// opencode run <msg> --dir <sandbox> --format json --pure [--model <m>]
 				//   --session <id>
-				// @lore BA2 opencode-dir-pairing: --dir must be passed on resume and must
-				// match whether --dir was passed at start time. Production always passes
-				// --dir (adapter-pool.ts), so every resume must too. Mixing (--dir at start,
-				// no --dir at resume, or vice versa) hangs forever with zero output.
+				// @lore: opencode-dir-pairing — --dir must match start-time usage; mixing (--dir at start, no --dir at resume) hangs forever with zero output
 				args = [
 					"run",
 					message,
@@ -1363,9 +1128,8 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		// ── Resolve envMap the same way startSession does.
 		//
 		// startSession builds resolvedEnvMap from this.config.envMap with template
-		// vars resolved against the session's config. resumeSession was previously
-		// passing only extraEnv (CODEX_HOME + mcpTokenEnv), silently dropping envMap
-		// entries. extraEnv entries override (they are per-session specifics that
+		// vars resolved against the session's config. extraEnv entries override
+		// (they are per-session specifics that
 		// take precedence over the template).
 		//
 		// {{mcpUrl}} and {{prompt}} are not meaningful at resume time and resolve
@@ -1471,8 +1235,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			preCompactionTrigger: false, // External CLI tools don't expose compaction signals
 			subAgents: false, // External CLI tools manage their own sub-agents
 			modelProviders: [], // CLI tool brings its own provider; selected by harnessType not provider
-			// X5: mcpSupport: true — CLI tools use MCP (via .mcp.json written to workspace)
-			// for HyperIdle tool calling.
+			// mcpSupport: true — CLI tools use MCP (via .mcp.json written to workspace) for HyperIdle tool calling.
 			mcpSupport: true,
 			// Channel is explicit in config, or derived from binary name.
 			// codex → settings-codex (writes .codex/hooks.json Stop hook)
@@ -1542,11 +1305,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 					session !== undefined &&
 					(lineIndex === undefined || lineIndex >= session.metricsProcessedLineCount);
 
-				// @lore AF10 (Z8-049/Z8-088): If this is a terminal result line from
-				// the CLI, capture its turn/duration/token metrics. Metrics capture
-				// runs on the ORIGINAL parsed object (before any dialect pre-map)
-				// because the "result" type and its fields are present on the raw
-				// claude stream-json line.
+				// @lore: result-line metrics capture — runs on original object before dialect pre-map; "result" type and fields present on raw claude stream-json
 				if (obj.type === "result" && session && shouldRecordMetrics) {
 					const metrics = extractClaudeResultMetrics(obj);
 					session.durationMs = metrics.durationMs ?? session.durationMs;

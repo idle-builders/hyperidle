@@ -9,7 +9,6 @@ import type { EventBus } from "@hyperidle/event-bus";
  * package declares the identical shape and relies on TypeScript's structural
  * typing to make `createTaskActions`'s return value assignable at the
  * composition root (`layers/core-api/src/index.ts`'s `buildCoreActions`).
- * See the architecture doc §5.
  */
 export interface ActionContext {
 	readonly actor: string;

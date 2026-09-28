@@ -1,6 +1,3 @@
--- @lore BC4: document as a module. Steps are ordered; each depends on the
--- one before.
-
 -- 1. the table and its column.
 ALTER TABLE "knowledge_items" RENAME TO "documents";
 --> statement-breakpoint
@@ -49,7 +46,7 @@ ALTER TABLE "documents" ADD CONSTRAINT "doc_parent_pair_ck"
 --    so it wins here too (mergeWithProjection: `projection.scopeId ?? item.scopeId`).
 --    The four usage columns are added in the same step and start EMPTY — nothing
 --    is carried over from relevance_score/citation_count/last_cited_at, whose
---    only writer is the demo seed (§6.2, founder ruling A5).
+--    only writer is the demo seed.
 ALTER TABLE "documents" ADD COLUMN "confidence" text;
 --> statement-breakpoint
 ALTER TABLE "documents" ADD COLUMN "meta" text;
@@ -72,12 +69,12 @@ UPDATE "documents" d SET "scope_id" = p."scope_id"
   WHERE p."knowledge_item_id" = d."id" AND p."scope_id" IS NOT NULL;
 --> statement-breakpoint
 
--- 5. BACKFILL THE OWNER. §5.1 moves the "whose private note is this" key from
+-- 5. BACKFILL THE OWNER. Moves the "whose private note is this" key from
 --    `updated_by` to `scope_id`, and existing rows can be `scope_kind='user'`
 --    with a NULL or stale `scope_id`: `cascadeScopeNarrowing` set scope_kind
---    alone (knowledge-repository.ts:167-201, note 192-193), `requiresScopeId`
---    excludes `user` (types.ts:184) so PATCH never demanded one
---    (routes/knowledge.ts:560,629-630), and only POST autofilled it (:475).
+--    alone, `requiresScopeId`
+--    excludes `user` (types.ts:184) so PATCH never demanded one,
+--    and only POST autofilled it.
 --    Without this step those rows would match no subject and vanish for
 --    everyone. `updated_by` has SIX observed shapes, so the derivation is a
 --    ladder, not one prefix strip:
@@ -168,7 +165,7 @@ WHERE "payload"::jsonb ? 'refs'
 
 -- 10. the plugin contribution kind. Constraint name confirmed at
 --    framework/db/src/schema.ts:1341-1344; the producing constant is
---    framework/domain-model/src/configuration.ts:23-29 (see §8.6).
+--    framework/domain-model/src/configuration.ts:23-29.
 ALTER TABLE "plugin_contributions" DROP CONSTRAINT "plugin_contributions_kind_ck";
 --> statement-breakpoint
 UPDATE "plugin_contributions" SET "kind" = 'document' WHERE "kind" = 'knowledge';
@@ -187,10 +184,8 @@ WHERE "before" LIKE '%sourceKnowledgeItemId%' OR "after" LIKE '%sourceKnowledgeI
 -- 12. a baked bundle written before this migration carries `contextBundle.knowledge`
 --     with `role` on each entry; the drain iterates the new shape. Same treatment
 --     migration 0080 step 11 gave the same table — fail the row, never rewrite a
---     body. Deviation from the architecture's literal SQL, empirically required:
---     `agent_work_intents_correlation_ck` demands `last_error_code IS NOT NULL`
---     whenever `status='failed'`; the drafted step only set `last_error`, which
---     would have violated that check on every matching row. Mirrors 0080's own
+--     body. Sets `last_error_code` too: `agent_work_intents_correlation_ck`
+--     demands it whenever `status='failed'`. Mirrors 0080's own
 --     shape exactly (`last_error_code`, cleared claim fields, bumped `updated_at`).
 --     Guarded the same way step 9 is: the UPDATE's own WHERE casts
 --     `baked_request_json` to jsonb, and one malformed row would otherwise

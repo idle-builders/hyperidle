@@ -1188,7 +1188,7 @@ describe("case 9b — forbidden_parent_kind refuses client doors, not the intern
 // its own describe block — case 14 below).
 // ---------------------------------------------------------------------------
 
-describe("case 10 — the combined cases of §4.3 (2, 3, 4, 5, 6, 7, 8)", () => {
+describe("case 10 — the combined cases", () => {
 	test("a move of a prompt document is refused before it ever reaches the scope-move rule", async ({
 		app,
 		db,
@@ -1223,7 +1223,7 @@ describe("case 10 — the combined cases of §4.3 (2, 3, 4, 5, 6, 7, 8)", () => 
 		expect(human.problemCode).toBe("slotted_document_cannot_move");
 	});
 
-	test('§4.3 case 3 — as:"artifact" + an explicit thread parent wins over the calling task\'s stamp', async ({
+	test('as:"artifact" + an explicit thread parent wins over the calling task\'s stamp', async ({
 		db,
 		eventBus,
 		agentOrchestration,
@@ -1246,7 +1246,7 @@ describe("case 10 — the combined cases of §4.3 (2, 3, 4, 5, 6, 7, 8)", () => 
 		expect(doc.parentId).toBe("c10c3-thread");
 	});
 
-	test("§4.3 case 4 — a stale edit writes nothing, and cascades nothing", async ({ app, db }) => {
+	test("a stale edit writes nothing, and cascades nothing", async ({ app, db }) => {
 		await seedTeam(db, "c10c4");
 		const parent = requireDoc(
 			await callHuman<DocumentView>(app, "edit_document", { title: "parent" }),
@@ -1283,7 +1283,7 @@ describe("case 10 — the combined cases of §4.3 (2, 3, 4, 5, 6, 7, 8)", () => 
 		expect(await listChanges(db, { object: "document", objectId: child.id })).toHaveLength(1);
 	});
 
-	test('§4.3 case 5 — as:"memory" + slot on create: the slot is forced to ordinary, silently', async ({
+	test('as:"memory" + slot on create: the slot is forced to ordinary, silently', async ({
 		app,
 		db,
 		eventBus,
@@ -1303,7 +1303,7 @@ describe("case 10 — the combined cases of §4.3 (2, 3, 4, 5, 6, 7, 8)", () => 
 		expect(requireDoc(agent).document.slot).toBe("ordinary");
 	});
 
-	test("§4.3 case 6 — upsert-with-id + version: a version on a create is ignored, not an error", async ({
+	test("upsert-with-id + version: a version on a create is ignored, not an error", async ({
 		app,
 		db,
 		eventBus,
@@ -1333,7 +1333,7 @@ describe("case 10 — the combined cases of §4.3 (2, 3, 4, 5, 6, 7, 8)", () => 
 		expect(agent.ok).toBe(true);
 	});
 
-	test("§4.3 case 7 — upsert-with-id + visibility: another person's id answers not_found and creates nothing", async ({
+	test("upsert-with-id + visibility: another person's id answers not_found and creates nothing", async ({
 		app,
 		db,
 		eventBus,
@@ -1385,7 +1385,7 @@ describe("case 10 — the combined cases of §4.3 (2, 3, 4, 5, 6, 7, 8)", () => 
 		expect(stored).toHaveLength(1);
 	});
 
-	test("§4.3 case 8 (successful half) — a shared task's artifact is readable across teams", async ({
+	test("a shared task's artifact is readable across teams (successful half)", async ({
 		db,
 		eventBus,
 		agentOrchestration,
@@ -1419,11 +1419,7 @@ describe("case 10 — the combined cases of §4.3 (2, 3, 4, 5, 6, 7, 8)", () => 
 
 	// The refused (private-scope) half is pure-invariant-rejected before any
 	// DB write.
-	test("§4.3 case 8 (refused half) — as:artifact + a private scope is refused", async ({
-		db,
-		eventBus,
-		agentOrchestration,
-	}) => {
+	test("as:artifact + a private scope is refused", async ({ db, eventBus, agentOrchestration }) => {
 		await seedTeam(db, "c10c8-a");
 		await seedTaskWithThread(db, "c10c8-task", "c10c8-a");
 		await seedAgent(db, "c10c8-agent");

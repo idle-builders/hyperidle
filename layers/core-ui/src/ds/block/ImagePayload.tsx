@@ -11,13 +11,7 @@ export interface ImagePayloadProps {
 	title: string | null;
 }
 
-/**
- * @lore M17 defense-in-depth: even though `deriveBlocks` already gates image
- * URLs through IMAGE_URL_SAFE_SCHEMES, ImagePayload re-validates here so that
- * a caller assembling a Block payload by hand (storybook, tests, future API)
- * can't accidentally render `<img src="javascript:…">`. A failing URL falls
- * back to the UNKNOWN warn shell.
- */
+// @lore: re-validates URL even though deriveBlocks gates it — hand-assembled payloads (tests, API) bypass that gate; failing URL falls back to warn shell
 function isSafeImageUrl(url: string): boolean {
 	if (!url) return true;
 	if (/^\/(?!\/)/.test(url)) return true;

@@ -5,7 +5,6 @@ export interface PageFrameProps {
 	children: ReactNode;
 }
 
-/** Stable horizontal frame for routed pages. Content measure stays with the page. */
 export function PageFrame({ children }: PageFrameProps): JSX.Element {
 	return (
 		<div

@@ -1,30 +1,4 @@
-/**
- * L11 — `RichMessageCard` Tier 2 component.
- *
- * Approved.md §2.1 (review variant), §4 (states), §5.7 (sticky-within-card),
- * §8 (a11y). Plan §5.3 (props), §6.1 (file path).
- *
- * Single in-stream card that absorbs the role formerly split across
- * the legacy review header (top toolbar), thread head (review title +
- * reasoning + artifact), and verdict bar (sticky bottom). The action
- * surface is a
- * property of the message, not a property of the thread.
- *
- * @lore L11: oldest-unresolved promotion is computed by
- * `promotedRichMessageId` upstream — this component renders ONE message at a
- * time. It does not pick.
- *
- * @lore L11: clientKey is generated at click-handler entry via
- * `crypto.randomUUID()` and held in card-local state for the saving phase so
- * a Retry from the error alert reuses the same key (server returns 200 on
- * the second POST). A fresh click on a different decision generates a new
- * key.
- *
- * @lore L11: the action footer is `position: sticky; bottom: 0` INSIDE the
- * card. On browsers without nested-sticky (older iOS Safari) it falls back
- * to `static` and the footer renders at the natural bottom of the card.
- * The fallback is pure CSS — no JS coordination, no IntersectionObserver.
- */
+// @lore: clientKey held in state across saving phase — retry reuses same key; server returns 200 on second POST for same key; fresh click gets new key
 
 import {
 	isRedactedPayload,
@@ -153,12 +127,6 @@ function isShortReasoning(reasoning: ReadonlyArray<string>): boolean {
 	);
 }
 
-// @lore L11 step9 (W5): clientKey contract is "non-empty string, fresh
-// per click intent" (plan §6.2). The previous Math.random() fallback was
-// not cryptographically random AND was unreachable (jsdom ≥ v22 + every
-// modern browser ship `crypto.randomUUID`). Calling it directly lets a
-// missing secure-context surface loudly instead of silently shipping a
-// weak idempotency key.
 function generateClientKey(): string {
 	return globalThis.crypto.randomUUID();
 }
@@ -404,9 +372,6 @@ export function RichMessageCard({
 					data-sticky="bottom"
 					className="border-width-thin-t sticky bottom-0 flex flex-wrap gap-[9px] px-[12px] py-[9px] bg-[var(--surface-elevated)]  border-[var(--border-subtle)]"
 				>
-					{/* @lore L11 step9 (S11): all-ghost on questionnaire answers —
-					    no spec-required preferred option, so a primary on
-					    index 0 invents false hierarchy on neutral choices. */}
 					{questionnaire.options.map((opt) => (
 						<button
 							key={`${message.id}-opt-${opt}`}

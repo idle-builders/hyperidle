@@ -28,16 +28,6 @@ const COPY_FEEDBACK_MS = 1500;
  * positioning is host-side via absolute/fixed CSS in the live UI. Test
  * surface: role=menu, items role=menuitem, Escape closes, click invokes.
  *
- * @lore L2 AC-31: aria-disabled on disabled items; aria-live polite region
- * for the copy-success announcement (AC-42).
- *
- * @lore The "copy" item rotates its label to "Copied" for 1500ms after
- * invocation; the popover then closes automatically.
- *
- * @lore AG5 C1: Refactored to render through <Menu> — BlockActionsPopover is now a thin
- * wrapper. Menu owns: role=menu container, item chrome, Escape, click-outside, keyboard nav.
- * BlockActionsPopover owns: copy-feedback label flip, aria-live region, id/aria-controls wiring.
- * This eliminates the duplicate menu anatomy that AG5 was created to kill.
  */
 export function BlockActionsPopover({
 	id,

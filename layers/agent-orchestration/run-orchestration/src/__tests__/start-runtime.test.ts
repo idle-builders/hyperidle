@@ -185,7 +185,7 @@ describe("startRuntime resource ownership", () => {
 	});
 
 	/**
-	 * @lore `MAX_SAFE_CLAIMS` bounds the claim mock so a `for (;;)` reclaim loop on a never-freeing slot fails fast instead of hanging.
+	 * @lore: `MAX_SAFE_CLAIMS` bounds the claim mock so a `for (;;)` reclaim loop on a never-freeing slot fails fast instead of hanging.
 	 */
 	it("does not busy-loop reclaiming a request released with ConcurrencyLimitError", async () => {
 		vi.useFakeTimers();

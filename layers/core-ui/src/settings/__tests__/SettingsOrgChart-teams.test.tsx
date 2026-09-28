@@ -9,7 +9,6 @@
  * - Solo short-circuit (1 human) is RELAXED: Add-Edge form still renders.
  * - With 1 human, mechanism defaults to "function" (not "direct").
  *
- * @lore search_users/edit_user replace org routes — each UserRow carries its own edges and team, so a target is its real id, no team_members indirection.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";

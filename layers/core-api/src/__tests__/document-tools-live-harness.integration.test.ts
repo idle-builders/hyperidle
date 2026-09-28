@@ -1,7 +1,3 @@
-/**
- * @lore a real agent, given a real task session, writes a memory, writes an artifact, and reads a seeded document back — every installed harness, zero stubs.
- */
-
 import { randomUUID } from "node:crypto";
 import {
 	type AgentSessionRequest,
@@ -37,7 +33,7 @@ import type { Action } from "../actions/action.js";
 
 const NOW = "2026-09-22T00:00:00.000Z";
 
-// @lore a vitest timeout skips this file's own try/finally cleanup — this afterEach stops the session regardless.
+// @lore: a vitest timeout skips this file's own try/finally cleanup — this afterEach stops the session regardless.
 afterEach(() => {
 	stopAllLiveHarnessSessions();
 });

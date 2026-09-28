@@ -7,7 +7,7 @@
  * email field, and no "First Product" section (the product is created
  * silently). After setup completes the app routes to /work.
  *
- * @lore call is mocked at the door instead of global.fetch — user/team creation becomes edit_user calls; apiFetch stays mocked only for inspect-path.
+ * @lore: call mock — mocked at the door not global.fetch; user/team creation becomes edit_user calls; apiFetch stays mocked only for inspect-path
  */
 
 import { OBJECT_EVENTS } from "@hyperidle/domain-model";
@@ -111,7 +111,6 @@ describe("SetupFlow", () => {
 		expect(screen.getByLabelText(/your name/i)).toBeInTheDocument();
 	});
 
-	// @lore a key field renders only when the chosen harness can actually use one — see setup-bring-your-own-key.test.tsx for that path.
 	it("asks for no API key when no harness wants one", () => {
 		renderSetupFlow();
 		expect(screen.queryByLabelText(/api key/i)).not.toBeInTheDocument();

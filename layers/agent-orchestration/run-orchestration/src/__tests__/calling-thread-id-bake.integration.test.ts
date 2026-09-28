@@ -101,7 +101,7 @@ async function createRequestForTest(
 	return row;
 }
 
-describe("consumeAgentSessionRequest — callingThreadId bake (Increment 1)", () => {
+describe("consumeAgentSessionRequest — callingThreadId bake", () => {
 	test("parses callingThreadId off the drained request's payloadJson onto provisionParams", async ({
 		db,
 	}) => {

@@ -1,6 +1,4 @@
 /**
- * @lore nested-knowledge-items: proof against a REAL agent, real harness binaries.
- *
  * The founder's ask: "testing this against agents and then the nested
  * structure works on their setup materialised." Every other lane proves the
  * DB/repository/writeback wiring; this file is the one that spawns a real
@@ -26,7 +24,6 @@
  *      §5) into a different folder. The real reparent() runs: same item,
  *      new parent, body untouched.
  *
- * @lore a parent item that is ALSO independently selected writes its real body into its own directory's index.md, never a stray sibling file.
  *
  * HARNESS LANE: real binaries, real LLM calls, zero stubs.
  * Gate: requireHarness() — hard-fail (never skip) if a binary is absent.
@@ -130,7 +127,7 @@ async function spawnWithClosedStdin(
 function envFor(harness: string, sandboxPath: string): NodeJS.ProcessEnv {
 	const base: NodeJS.ProcessEnv = { ...process.env, PWD: sandboxPath };
 	if (harness === "claude") {
-		// @lore real-claude-full-binary: zero these so claude does not detect it is running inside claude-code (would skip the run).
+		// @lore: real-claude-full-binary: zero these so claude does not detect it is running inside claude-code (would skip the run).
 		return {
 			...base,
 			CLAUDECODE: "",
@@ -354,7 +351,6 @@ for (const harness of HARNESSES) {
 		// -------------------------------------------------------------------
 		dbTest(
 			"materialises a nested tree with an index-only unselected ancestor, and hides another team's branch entirely — proven by the real binary reading its own sandbox",
-			// @lore this probe asks the model to reason across nested files — real-LLM nondeterminism, covered by the harness project's own retry:2.
 			async ({ db }) => {
 				const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), `nkt-${harness}-read-`));
 				const leafSecret = `LEAF-${randomUUID().slice(0, 8).toUpperCase()}`;
@@ -408,7 +404,6 @@ for (const harness of HARNESSES) {
 					scopeId: OTHER_TEAM_ID,
 				});
 
-				// @lore a selected parent with its own body and selected children writes that body into its own index.md, not a stray sibling file.
 				const selectedParent = await seedDocument(db, {
 					title: "Roadmap",
 					body: `Roadmap parent body.\nPARENT_TOKEN: ${parentBodySecret}`,
@@ -578,7 +573,7 @@ for (const harness of HARNESSES) {
 
 				const roadmapRows = await db.select().from(documents).where(eq(documents.title, "roadmap"));
 				expect(roadmapRows).toHaveLength(1);
-				// @lore a real agent's file-write tool commonly appends a trailing newline — the exact-content assertion trims only the end.
+				// @lore: a real agent's file-write tool commonly appends a trailing newline — the exact-content assertion trims only the end.
 				expect(roadmapRows[0]?.body.trimEnd()).toBe(content);
 				expect(roadmapRows[0]?.body).toContain(marker);
 				expect(roadmapRows[0]?.parentKind).toBe("document");
@@ -610,8 +605,7 @@ for (const harness of HARNESSES) {
 				const documentPort = realDocumentWritebackPort(db, new EventBus());
 
 				// Same "different owner" trick as the read test, so the folder
-				// with a child does not also get independently selected (see the
-				// file-header @lore for why that combination is avoided here).
+				// with a child does not also get independently selected.
 				const folder = await seedDocument(db, {
 					title: "Folder A",
 					body: "folder body — never independently selected",

@@ -1,33 +1,5 @@
-/**
- * agent-orchestration's composition root for the `run-orchestration` Service.
- *
- * @lore AU31 §2.1(b)/§2.3/§2.4/§5/§6: relocated from `layers/core-api/src/
- * services/run-orchestration-composition.ts`. `@hyperidle/run-orchestration`/
- * `@hyperidle/run-orchestration`/`@hyperidle/session-requests` are this
- * Layer's own Services now, so those three imports are in-layer, not
- * crossings. The `@hyperidle/harness-registry`/`@hyperidle/harness-registry/
- * mcp` imports this file used to carry (adapter-pool + sandbox construction,
- * the return-enforcement registry, the MCP bridge dial) are GONE — that
- * content is execution content, and it now arrives as an opaque, structurally-
- * typed value a composition root hands in (`RunOrchestrationHarnessRuntimeAdapter`/
- * `RunOrchestrationReturnStatusToolAdapter` below), produced by
- * `bootAgentExecution` (`layers/agent-execution/src/boot.ts`) and passed
- * through `bootAgentOrchestration`'s options — never imported here by name.
- * The `./tool-provider-bindings.js` import is gone too: that wrapper is
- * DELETED (§2.5), its dispatch (`buildToolRegistry`) relocated to
- * `@hyperidle/tool-handlers` (now in-layer), its workflow port
- * rebuilt over `CoreApiPort.review` (the seam, since `@hyperidle/review`
- * stays core-api's own Service), and `returnStatusTool` riding the same
- * execution adapters bundle as `harnessRuntime`.
- *
- * @lore BC5 T11: the `CoreApiPort` seam itself, `CoreApiTransport`,
- * `core-api-port-composition.ts` and `tool-handlers-bindings.ts` are
- * DELETED — `create_team`/`add_agent`, the seam's last two tools, are gone
- * with the `org` package they wrote through. A session's tool registry is
- * built from `actionTools()` alone now; `buildToolRegistry` (still
- * `@hyperidle/tool-handlers`'s own) keeps its per-session, role-filtered
- * dispatch role unchanged.
- */
+// Composition root for the `run-orchestration` Service.
+// Execution content (harness adapters) arrives as opaque typed values from `bootAgentExecution`.
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import { summarizeToolArgs } from "@hyperidle/diagnostics";
@@ -70,18 +42,6 @@ import {
 } from "@hyperidle/session-requests";
 import { buildToolRegistry as buildToolRegistryFromDefinitions } from "@hyperidle/tool-handlers";
 
-// This composition root builds no `CoreApiPort`: the session-launch reads
-// of an agent's connections and filesystems are this Layer's own tables,
-// read live in-layer, so there is no seam call to wrap with the calling
-// agent's identity.
-
-// Shrunk to `filesystems` only —
-// `knowledge`/`work`/`users`/`routine`/`org` are DELETED (not seam-routed).
-// `context.ts` is pure format/write now, consuming the baked `contextBundle`
-// carried on the session request; it reads zero core-api domain state.
-// `startWatcher` has zero DB coupling — it lives in
-// `@hyperidle/run-orchestration` and is wired through this same
-// context-assembly port shape.
 const contextPorts: RuntimeDeps["composition"]["context"] = {
 	filesystems: { startWatcher },
 };
@@ -99,48 +59,11 @@ export type ProvisionSessionDeps = Pick<RuntimeInput, "db" | "eventBus" | "onHar
 type SessionLifecycleToolContext = Parameters<typeof buildToolRegistryFromDefinitions>[1];
 type ToolRegistryOptions = Parameters<typeof buildToolRegistryFromDefinitions>[2];
 
-// `run-orchestration` holds ZERO `-> routine`/`-> settings`/`-> work` edge,
-// read or write (architecture.md §6 H3). All baked data every per-kind resolver
-// needs (harness params, context) arrives on the drained request — no live reads.
-// Orchestration never initiates: every unit of work originates from a request
-// core already sent, so it never needs to discover or react to agent state.
-// `run-orchestration` now holds ZERO `-> users` edge; `DEFERRED_FOLLOWUP`
-// no longer carries `run-orchestration::users` — there is nothing left to
-// defer.
 const observabilityAccessor: SessionLifecyclePorts["observability"] = { summarizeToolArgs };
 
-// `SessionLifecyclePorts` carries no `filesystems` or `connections` field.
-// The spawn reads the injection record live and in-layer through
-// `ProvisionSessionDeps.injectedFilesystems`, wired at the Application
-// composition root from `@hyperidle/filesystems`; held connections come the
-// same way from `@hyperidle/connections`.
-//
-// Nor does the emit-time bake that briefly replaced it.
-// `service_connections` is `agent-orchestration`'s own table now, so the spawn
-// reads it live through `ProvisionSessionDeps.heldConnections`, wired at the
-// composition root beside `serviceConnectionResolver` — a downward hand-off of
-// this Layer's own Service, not a seam.
-
-/**
- * The execution content this composition needs, handed in as a value by
- * `bootAgentExecution`'s adapters bundle — never imported by name (the
- * spelling law, architecture.md §4: a face-boot-produced value passed
- * onward by the composition root is composition, not injection, but only
- * for identifier-free spellings; this file declares its OWN structural
- * mirror of the shape it needs rather than importing `@hyperidle/agent-
- * execution`'s type, which would recreate the crossing this relocation
- * removes).
- *
- * Five of seven fields are field-for-field identical to `SessionLifecyclePorts
- * ["harnessRuntime"]` and assign straight through with no adapter.
- * `openMcpBridge`/`closeMcpBridge` differ: `run-orchestration`'s own port
- * still threads a per-call `registry`/`baseUrl` (its own type, unchanged by
- * this leaf), while the execution face's boot already owns one bridge
- * instance and one `mcpBaseUrl`, closed over internally — so those two
- * fields get a two-line pass-through below that ignores the per-call
- * registry/baseUrl the port still asks for. `run-orchestration`'s own port
- * signature is a later leaf's simplification, not this one's.
- */
+// Execution content handed in from `bootAgentExecution` — never imported by name (no layer crossing).
+// openMcpBridge/closeMcpBridge differ from the port: execution face owns one bridge instance,
+// so per-call registry/baseUrl args are ignored.
 export interface RunOrchestrationHarnessRuntimeAdapter {
 	readonly enforcementRegistry: SessionLifecyclePorts["harnessRuntime"]["enforcementRegistry"];
 	readonly createReturnGate: SessionLifecyclePorts["harnessRuntime"]["createReturnGate"];
@@ -156,7 +79,7 @@ export interface RunOrchestrationHarnessRuntimeAdapter {
 	closeMcpBridge(token: string): Promise<void>;
 }
 
-/** `returnStatusTool.forRegistry(registry)`'s shape — an opaque `RegisteredTool`, never inspected here (mirrors `SessionLifecyclePorts["toolProvider"]["returnStatusToolForRegistry"]`'s own return type). */
+// `returnStatusTool.forRegistry(registry)` shape — opaque RegisteredTool.
 export interface RunOrchestrationReturnStatusToolAdapter {
 	forRegistry(
 		registry: SessionLifecyclePorts["harnessRuntime"]["enforcementRegistry"],
@@ -173,13 +96,7 @@ function buildHarnessRuntime(
 		provisionReturnHook: adapter.provisionReturnHook,
 		writeCliMcpConfig: adapter.writeCliMcpConfig,
 		writePluginStdioMcpEntries: adapter.writePluginStdioMcpEntries,
-		// The execution face already owns one bridge instance and one
-		// `mcpBaseUrl` (closed over inside `bootAgentExecution`) — the per-call
-		// `registry`/`baseUrl` this port still asks for are ignored, not
-		// forwarded; they were `run-orchestration`'s own already-received
-		// `mcpBridgeRegistry`/`mcpBaseUrl` values (`ProvisionSessionDeps`), and
-		// the face now dials the ONE bridge it built regardless of which
-		// registry a caller happens to hold.
+		// Per-call registry/baseUrl are ignored; execution face owns one bridge instance.
 		openMcpBridge: (options) =>
 			adapter.openMcpBridge({
 				sessionId: options.sessionId,
@@ -195,10 +112,9 @@ function widenToToolContext(ctx: SessionLifecycleToolContext): ToolContext<Hyper
 }
 
 /**
- * The locked shape `CoreApiBoot.editDocument`/`searchDocuments` expose
- * (architecture.md §8.4), threaded through this composition exactly like
- * `actionTools`. Typed only through `@hyperidle/domain-model` — this Layer
- * may not import `core-api`.
+ * The locked shape `CoreApiBoot.editDocument`/`searchDocuments` expose,
+ * threaded through this composition exactly like `actionTools`. Typed only
+ * through `@hyperidle/domain-model` — this Layer may not import `core-api`.
  */
 type RunOrchestrationEditDocument = (
 	caller: {
@@ -214,19 +130,7 @@ type RunOrchestrationSearchDocuments = (
 	input: SearchDocumentsInput,
 ) => Promise<ActionResult<readonly DocumentRow[]>>;
 
-/**
- * @lore document-module B15: `buildKnowledgeWritebackPort` (rebuilt over the
- * `CoreApiPort` seam's now-deleted `knowledge` family) is DELETED. The
- * writeback's document port is no longer built here at all — it is bound
- * directly from core's composed `edit_document`/`search_documents` VALUES
- * (`CoreApiBoot.editDocument`/`searchDocuments`, threaded through exactly
- * like `actionTools` already is, architecture.md §8.4), not a second HTTP
- * hop through the seam. `buildDocumentWritebackPort` below just adapts the
- * two locked-shape functions onto the writeback processor's own port
- * interface — `db` is accepted and ignored on every method, same idiom as
- * `buildKnowledgeWritebackPort` used to give it, kept only so the object
- * satisfies the writeback's pre-existing pooled-handle-shaped port.
- */
+// Adapt the two document runners onto the writeback port interface; `db` is accepted and ignored.
 function buildDocumentWritebackPort(
 	editDocument: RunOrchestrationEditDocument,
 	searchDocuments: RunOrchestrationSearchDocuments,
@@ -246,30 +150,7 @@ function buildDocumentWritebackPort(
 	};
 }
 
-// There is no `buildGateAccessor`/`unusableGateAccessor` — a review links to
-// its session through `ThreadActionsDeps.linkReviewToSession` (bound to
-// `AgentOrchestrationPort.gate.linkReview`, which itself calls
-// `recordReviewSession` from the intake route); core calls it directly
-// rather than a tool dialling back into agent-orchestration.
-
-// There is no `unusableOpenTask`/`buildOpenTaskBinding` — §8 B1's `open_task`
-// binding existed only for `ToolHandlersCoreApiAccessor.openTask`, bound to
-// the composed `open_task` action's own `run` for `write_memory`/
-// `submit_review`/`create_artifact`'s task read. All three are deleted with
-// the document tools, so `buildToolDefinitions` no longer takes an
-// `openTask` argument at all.
-
-/**
- * @lore `actionTools` is a thunk, not an array: core's `actionTools` is
- * threaded in BEFORE this Layer's own session actions exist (a cycle
- * otherwise: this Layer's sessions must be handed a list that contains this
- * Layer's own tools too, and that list is only complete after
- * `bootAgentOrchestration` returns). `buildToolRegistry`/`toolsForRole`
- * already run lazily, per session — calling the thunk here, at USE time
- * rather than at composition-build time, is what lets `create-server.ts`
- * reassign the joined list after both boots complete and have every session
- * see it.
- */
+// @lore: actionTools is a thunk — injected before own session actions exist; called at USE time so create-server.ts reassigns the list after both boots complete
 function buildToolProvider(
 	returnStatusToolAdapter: RunOrchestrationReturnStatusToolAdapter,
 	actionTools: () => readonly RegisteredTool<HyperIdleDb>[],
@@ -291,13 +172,6 @@ function buildToolProvider(
 	};
 }
 
-// `transitionRunInternal`'s
-// `TransitionPorts` no longer carries a `routine` key at all — `endSession`/
-// `crashSession` finalize a routine run by emitting `session_ended`, never a
-// direct `routineRuns` write. Pure session-requests wiring, unaffected by
-// execution content or the seam — shared by `transitionPorts` below AND
-// every per-composition `SessionLifecyclePorts["sessionRequests"]` (same
-// object, not two copies of one literal).
 const sessionRequestsPort: SessionLifecyclePorts["sessionRequests"] = {
 	findSessionRequest,
 	listSessionRequests,
@@ -310,13 +184,7 @@ const sessionRequestsPort: SessionLifecyclePorts["sessionRequests"] = {
 	deregisterSessionRun: (sessionId) => sessionRunRegistry.deregister(sessionId),
 };
 
-/**
- * Builds the per-composition `SessionLifecyclePorts["provisioner"]` bag —
- * the one piece of `runtimeDeps`'s output that depends on execution content
- * (`harnessRuntime`, `toolProvider.returnStatusToolForRegistry`) and the
- * seam (`toolProvider`'s `CoreApiPort`-backed workflow ops). Everything else
- * `runtimeDeps` needs is pure and stays module-level below.
- */
+// Build per-composition SessionLifecyclePorts — depends on execution content and action tools.
 function buildSessionLifecyclePorts(
 	harnessRuntimeAdapter: RunOrchestrationHarnessRuntimeAdapter,
 	returnStatusToolAdapter: RunOrchestrationReturnStatusToolAdapter,
@@ -364,16 +232,6 @@ const sessionLifecyclePort: SessionLifecycleRuntime = {
 				sessionId: input.sessionId,
 				claimToken: input.claimToken,
 				failureCode: input.failureCode,
-				// @lore This adapter silently dropped `errorMessage` for months.
-				// Nothing caught it: the field is optional on both sides, so
-				// omitting it from this fresh object literal type-checks, and
-				// `run-orchestration/__tests__/test-ports.ts` REIMPLEMENTS this
-				// port (forwarding the field correctly), so the package's own
-				// tests asserted the message green while production wrote null.
-				// Every failed request in a real database read `error_code:
-				// "Error"`, `error_message: null` — a failure that refused to say
-				// what it was. Any new field here needs a test through the real
-				// composition, not through `test-ports`.
 				errorMessage: input.errorMessage,
 			},
 		);
@@ -390,11 +248,6 @@ const sessionLifecyclePort: SessionLifecycleRuntime = {
 	},
 };
 
-// ---------------------------------------------------------------------------
-// session-lifecycle's admission/execution surface — `@hyperidle/harness-protocol`'s `HarnessPort` satisfied by
-// `session-lifecycle-bindings.ts`'s `harnessPort` export.
-// ---------------------------------------------------------------------------
-
 const runOrchestrationPorts: RuntimePorts = {
 	sessionRequests: {
 		claimSessionRequest,
@@ -409,13 +262,7 @@ const runOrchestrationPorts: RuntimePorts = {
 	sessionLifecycle: sessionLifecyclePort,
 };
 
-/**
- * One composition's worth of `runtimeDeps`/`runSession`/`startRuntime`,
- * bound to the execution adapters a caller supplies.
- * `bootAgentOrchestration` builds exactly one of these per boot; a
- * standalone caller with no composition root of its own (`tools/eval`'s
- * `runEvalSession`) builds one directly off its own adapters.
- */
+// One composition: runtimeDeps/runSession/startRuntime bound to execution adapters.
 export interface RunOrchestrationComposition {
 	readonly runtimeDeps: (
 		db: HyperIdleDb,
@@ -431,26 +278,9 @@ export interface RunOrchestrationComposition {
 export function buildRunOrchestrationComposition(config: {
 	readonly harnessRuntime: RunOrchestrationHarnessRuntimeAdapter;
 	readonly returnStatusTool: RunOrchestrationReturnStatusToolAdapter;
-	/**
-	 * Core-api's composed action list, projected onto the
-	 * MCP tool seam (`CoreApiBoot.actionTools`), as a THUNK — `create-server.ts`
-	 * reassigns the value it closes over once this Layer's own session actions
-	 * exist, and every session's tool registry (built lazily, per session)
-	 * must see the up-to-date joined list, not the one captured at boot.
-	 * Injected rather than imported, since `agent-orchestration` may not reach
-	 * into `core-api` directly. Absent → no action tools registered (a
-	 * bare-app test fixture).
-	 */
+	// Action list as a thunk; reassigned by create-server.ts after both boots complete.
 	readonly actionTools?: () => readonly RegisteredTool<HyperIdleDb>[];
-	/**
-	 * §8.4 — core's composed `edit_document`/`search_documents` actions,
-	 * threaded through exactly like `actionTools` above (`CoreApiBoot.
-	 * editDocument`/`searchDocuments`) — the writeback processor's own
-	 * document port is bound straight to these VALUES, never a second HTTP
-	 * hop through the seam. Absent together → no writeback document port (a
-	 * bare-app test fixture / `tools/eval`'s standalone use), matching the
-	 * "no writeback" no-op every other absent-provisioning-read already gives.
-	 */
+	// Document runners for writeback; absent → no writeback port (bare-app fixture / eval).
 	readonly editDocument?: RunOrchestrationEditDocument;
 	readonly searchDocuments?: RunOrchestrationSearchDocuments;
 }): RunOrchestrationComposition {
@@ -460,12 +290,6 @@ export function buildRunOrchestrationComposition(config: {
 		config.actionTools ?? (() => []),
 	);
 
-	// §8.4: the writeback processor's document port, bound directly to core's
-	// composed actions — no Application supplies a `knowledge` port any more
-	// (that whole seam family is deleted). Absent only when this composition
-	// itself has neither value (a bare-app test fixture / `tools/eval`'s
-	// standalone use), matching the "no writeback" no-op every other
-	// absent-provisioning-read already gives.
 	const defaultDocumentWritebackPort =
 		config.editDocument && config.searchDocuments
 			? buildDocumentWritebackPort(config.editDocument, config.searchDocuments)
@@ -485,10 +309,7 @@ export function buildRunOrchestrationComposition(config: {
 			...rest,
 			...(runtime ? { runtime: runtime as RuntimeInput } : {}),
 			ports: overrides.ports ?? runOrchestrationPorts,
-			// @lore AU21 §6 Decision B4: wire the real eventBus into the drain's own
-			// deps bundle so `failOrRelease` can actually emit
-			// `agent_run_admission_failed` in production, not just in tests that
-			// build `queueDeps(db)` + `eventBus` by hand.
+			// @lore: durableQueue — must include the real eventBus so `failOrRelease` emits `agent_run_admission_failed` in production
 			durableQueue: overrides.durableQueue ?? { db, eventBus },
 			composition: {
 				context: contextPorts,
@@ -513,16 +334,7 @@ export function buildRunOrchestrationComposition(config: {
 	};
 }
 
-/**
- * The session module's deps bag — `sessions.list`/
- * `getById` are this Layer's own `@hyperidle/run-orchestration` accessors
- * (in-package for `session-actions.ts`, injected here only for the uniform
- * deps-bag shape every action module takes); `stop` is `stopSessionRun`,
- * already bound to this boot's own `db`/`eventBus` and to
- * `sessionRunRegistry.abort` — the one place this Layer is allowed to name
- * `@hyperidle/session-requests` in production, since `@hyperidle/
- * run-orchestration` itself may not (devDependency only).
- */
+// Build session action deps — sessions/stop bound to this boot's db/eventBus.
 export function buildSessionActionsDeps(
 	db: HyperIdleDb,
 	eventBus: EventBus,

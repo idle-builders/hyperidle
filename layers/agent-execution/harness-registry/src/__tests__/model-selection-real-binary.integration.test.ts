@@ -53,7 +53,6 @@ import { productionCliConfig } from "./production-cli-config.js";
 import { requireHarness } from "./require-harness.js";
 import { trackHarnessSessions } from "./session-handle-tracker.js";
 
-// @lore `track` stops any handle a test leaves unstopped in afterEach — see session-handle-tracker.ts.
 const { track } = trackHarnessSessions();
 
 const execFileAsync = promisify(execFile);
@@ -141,7 +140,7 @@ function sessionId(prefix: string): string {
  * claude states the model it used on each `assistant` message's own
  * `message.model` field — the CLI's real per-turn guarantee.
  *
- * @lore modelUsage's key order is not the answering model — an internal small-model entry can sort first; a test-only bug, fixed by reading assistant.model.
+ * @lore: modelUsage key order — not the answering model; internal small-model entry can sort first; read assistant.model instead
  */
 function claudeModelUsed(stdout: string): string | undefined {
 	for (const obj of jsonLines(stdout).reverse()) {

@@ -1,4 +1,4 @@
--- BA2 — the agent asks, a human clears.
+-- The agent asks, a human clears.
 --
 -- Interception is removed. There is no rule list, nothing matches a tool call,
 -- and nothing is blocked: the agent elects to ask, using the review product it

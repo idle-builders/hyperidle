@@ -1,26 +1,3 @@
-/**
- * `desktop`'s own composition root.
- *
- * @lore AU31 §5.3: `desktop` used to boot its embedded server by importing
- * `@hyperidle/remote-server/create-server` — an `application → application`
- * crossing (forbidden: a composition root reaches a layer's public face,
- * never another application). No third neutral composition package exists
- * either (AU26 ruling, upheld), so this file duplicates
- * `applications/remote-server/src/create-server.ts`'s recipe rather than
- * sharing it: same three layer-face boots (`bootAgentExecution` →
- * `bootCoreApi` → `bootAgentOrchestration`), same `@hyperidle/http-middleware`
- * `composeApiApplication` mount helper (the ONE piece that genuinely is
- * shared — it names no layer), same disposal ordering. Only the environment
- * facts differ: `topology: "local"` (in-process CLI harness discovery, a real
- * local sandbox — `desktop` runs agents on the user's own machine) and
- * `hostname: "127.0.0.1"` (the desktop app is never reachable from the
- * local network — it binds loopback only).
- *
- * If the two composition roots' recipes ever need to diverge further, that is
- * the point of duplicating them: each Application owns its own boot sequence
- * outright, with no shared module for a drift to hide behind.
- */
-
 import * as fs from "node:fs";
 import * as net from "node:net";
 import * as os from "node:os";
@@ -33,7 +10,6 @@ import {
 	type RunOrchestrationHarnessRuntimeAdapter,
 	type RunOrchestrationReturnStatusToolAdapter,
 } from "@hyperidle/agent-orchestration";
-// @lore AU44-b6: desktop is always laptop/pglite — resolveProfile removed with host-process.
 import {
 	buildAgentOrchestrationPort,
 	composeApiApplication,
@@ -47,10 +23,7 @@ import { bootCoreApi, type CoreApiBoot } from "@hyperidle/core-api/boot";
 import { createPgliteDb, type DbHandle, type HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import { WebSocketServer } from "ws";
-// @lore AU26: `ws` ships NO type declarations of its own — see
-// `applications/remote-server/src/create-server.ts`'s twin `@lore` for the
-// full CI-vs-local reproduction story. `@types/ws` lives in this package's
-// devDependencies alongside the `ws` runtime dependency for the same reason.
+// @lore: ws — ships no type declarations; @types/ws must be in devDependencies alongside ws; stale local dist masks missing @types on a clean npm ci
 
 export interface CreateServerDeps {
 	readonly db?: HyperIdleDb;
@@ -66,13 +39,9 @@ export interface CreateServerDeps {
 	readonly bundledPluginsDir?: string;
 }
 
-/**
- * @lore Same shape as `remote-server`'s own `ServerHandle`.
- */
 export interface ServerHandle {
 	readonly httpServer: ServerType;
 	readonly dispose: () => Promise<void>;
-	/** The joined action list — core's plus this Layer's own three session actions. */
 	readonly actionTools: CoreApiBoot["actionTools"];
 }
 
@@ -113,10 +82,7 @@ function createStaticHandler(
 	};
 }
 
-/**
- * @lore CWD-mismatch: same reasoning as `remote-server`'s twin — resolve a
- * relative PGlite path against the repo root, not the process CWD.
- */
+// @lore: resolvePglitePath — CWD differs between npm run dev and direct Node; resolve relative paths against repo root, not process.cwd()
 function resolvePglitePath(rawPath: string): string {
 	if (rawPath === ":memory:" || path.isAbsolute(rawPath)) {
 		return rawPath;
@@ -143,21 +109,12 @@ async function resolveFreeLoopbackPort(hostname: string | undefined): Promise<nu
 }
 
 export async function createServer(port: number, deps: CreateServerDeps): Promise<ServerHandle> {
-	// @lore AU31 §8 overlap 1 (AU29's own db:util handoff): kept byte-for-byte
-	// identical to `remote-server`'s own DB-open block — see that file's
-	// matching `@lore`.
 	let dbHandle: DbHandle | null = null;
 	let db: HyperIdleDb;
-	// @lore BA9g: installed plugin files live beside the database in userData.
-	// Nothing set this before, so `plugins.install_path` was null on every real
-	// install — restore answered NO_INSTALL_PATH forever and a plugin's MCP
-	// servers never reached a session, because the merge skips a plugin without
-	// an install path.
 	let pluginsBaseDir: string | undefined;
 	if (deps.db) {
 		db = deps.db;
 	} else {
-		// Desktop is always laptop/pglite — profile resolution not needed.
 		const rawDbUrl = process.env.DATABASE_URL ?? "./hyperidle-pg";
 		const dbUrl = resolvePglitePath(rawDbUrl);
 		dbHandle = await createPgliteDb(dbUrl);
@@ -195,13 +152,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 
 	const agentExecution = await bootAgentExecution({ topology: deps.topology, mcpBaseUrl });
 
-	// @lore AU31 §3.2: the transport TYPE is derived from the layer face
-	// function's own signature rather than imported by name from
-	// `@hyperidle/api-contract` — see `remote-server`'s twin `@lore`.
-	// @lore BC5 T11: the `coreApiTransport`/`realCoreApiTransport` pair (the
-	// `CoreApiPort` seam's own deferred binding) is DELETED — `create_team`/
-	// `add_agent`, the seam's last two tools, are gone with the `org` package
-	// they wrote through.
 	let realAgentOrchestrationTransport:
 		| Parameters<typeof buildAgentOrchestrationPort>[0]
 		| undefined;
@@ -213,11 +163,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	};
 	const agentOrchestrationPort = buildAgentOrchestrationPort(agentOrchestrationTransport);
 
-	// @lore AU36 D5: same deferred-binding idiom as the transports above —
-	// `bootCoreApi` runs BEFORE `bootAgentOrchestration`, so the redetect
-	// callback closes over a binding filled once the orchestration boot (and
-	// thus its `inheritedReach`) exists. Any real redetect happens strictly
-	// after that (route handlers only run on the composed app).
 	let realInheritedReachRefresh: (() => Promise<void>) | undefined;
 	const onHarnessRedetect: () => Promise<void> = () => {
 		if (!realInheritedReachRefresh) {
@@ -257,41 +202,23 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		pluginMcpContributions: coreApi.pluginMcpContributions,
 	} satisfies ApplicationProvisionSessionDeps;
 
-	// The join — see `remote-server/src/create-server.ts`'s
-	// twin comment for why the thunk and the reassignment are both needed.
 	let actionTools = coreApi.actionTools;
 	const agentOrchestration = await bootAgentOrchestration({
 		db,
 		eventBus,
-		// `upgradeWebSocket` here is ONLY for worker
-		// WebSocket registration now — the live-run stream itself reaches the
-		// browser through `wsPush` below, on core's own socket.
 		upgradeWebSocket,
-		// Byte-identical to core's own action-layer binding (`core-api/src/app.ts`).
 		wsPush: (topic, envelope) => coreApi.wsHub.broadcast(topic, JSON.stringify(envelope)),
-		// Desktop is always topology "local" (boot-server.ts) — boot
-		// awaits the initial reach probe, so facts are cached by serve time.
 		probeInheritedReach: deps.topology === "local",
 		runtime: {
 			harnessRuntime: harnessRuntimeAdapter,
 			returnStatusTool: returnStatusToolAdapter,
-			// One composed list, built once: core-api's actions, projected
-			// onto this Layer's own MCP tool seam, as a thunk (see above).
 			actionTools: () => actionTools,
-			// §8.4 — the writeback processor's document port, bound straight to
-			// core's composed `edit_document`/`search_documents` values, threaded
-			// through exactly like `actionTools` above.
 			editDocument: coreApi.editDocument,
 			searchDocuments: coreApi.searchDocuments,
 			session: runtimeSessionDeps,
 			sandboxBasePath,
 			worker: {
 				pool: agentExecution.adapters.pool,
-				// @lore AU31/AU34: passed straight through (not re-wrapped with a
-				// named `WorkerRegisterMessage` parameter annotation) — an
-				// Application has no declared reach to `@hyperidle/harness-protocol`
-				// (governance `crossing-import`); the function value already carries
-				// that type, so forwarding it structurally needs no import.
 				createWorkerAdapter: agentExecution.adapters.createWorkerAdapter,
 			},
 			reapers: {
@@ -300,10 +227,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			resolveProvisioningOwnerUserId: coreApi.resolveProvisioningOwnerUserId,
 		},
 	});
-	// Close the join — every session from here on sees both
-	// layers' actions through the thunk above.
 	actionTools = [...coreApi.actionTools, ...agentOrchestration.actionTools];
-	// Close the deferred binding — redetect now reaches the reach cache.
 	realInheritedReachRefresh = () => agentOrchestration.inheritedReach.refresh();
 
 	const app = composeApiApplication({
@@ -326,8 +250,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		agentExecution.dispose,
 	]);
 
-	// Serve the Electron renderer's built assets when HYPERIDLE_STATIC_DIR is
-	// set — `main.ts` sets it before calling `startServer()`.
 	const staticDir = process.env.HYPERIDLE_STATIC_DIR;
 	let resolvedStaticDir: string | null = null;
 	if (staticDir) {
@@ -351,9 +273,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		websocket: { server: wss },
 	});
 
-	// @lore Binding is only synchronous when NO hostname is given — see
-	// `remote-server`'s twin `@lore`. `desktop` always passes a hostname
-	// (loopback), so this await is load-bearing here, not defensive.
 	await new Promise<void>((resolve, reject) => {
 		if (httpServer.listening) {
 			resolve();

@@ -1,26 +1,6 @@
 /**
- * return_status bridge tool.
- *
- * A ToolDefinition injected into the per-session registry via
- * buildToolRegistry's extraTools option. It reads ctx.sessionId → enforcement
- * registry → { returned, exempt, forceCount, budgetLeft, forceMessage }.
- *
- * Key semantics:
- *   - returned=true OR exempt=true OR budgetLeft=0 → forceMessage: null (allow end)
- *   - returned=false AND !exempt AND budgetLeft>0 → forceMessage = the tailored forcing
- *     message for the session's `requiredReturnActions`,
- *     or the default `FORCE_RETURN_MESSAGE` when the session has no specific
- *     requirement (the pre-Increment-3 default)
- *   - calling the tool with forceMessage!==null increments forceCount in registry
- *
- * The tool is NOT in ALL_TOOL_DEFINITIONS (it is not a universal skill tool).
- * It is injected per-session via buildToolRegistry(ctx, { extraTools: [returnStatusTool.forRegistry(registry)] }).
- *
- * @lore The tool's handler signature extends ToolDefinition with a
- * third `registry` argument so unit tests can call it with an isolated registry
- * (not the process-level singleton). The `forRegistry(registry)` factory returns
- * a RegisteredTool that closes over the provided registry — the production path
- * passes the per-session enforcementRegistry from session-provisioning.ts.
+ * return_status bridge tool — injected per-session via buildToolRegistry extraTools.
+ * Reads sessionId → enforcement registry → { returned, exempt, forceCount, budgetLeft, forceMessage }.
  */
 
 import {
@@ -71,22 +51,15 @@ function handle(
 		return Promise.resolve(ok(noEntry));
 	}
 
-	// Read pre-increment state: "how many times have you been forced before THIS call".
 	const preForceCount = entry.forceCount;
-	// Narrow to the session's specific required
-	// subset when the registered entry has one — the agent's own self-check
-	// must name the SAME action the other five force sites do.
 	const forceMessage = entry.exempt
 		? null
 		: shouldForceReturn(entry.gate, preForceCount, entry.requiredReturnActions);
 
-	// If forceMessage is non-null, this is an active force — increment AFTER reading.
 	if (forceMessage !== null) {
 		registry.incrementForce(ctx.sessionId);
 	}
 
-	// forceCount in response = number of prior forces (before this call).
-	// budgetLeft = remaining budget at the time this call was made.
 	const budgetLeft = Math.max(0, MAX_FORCE_RETURNS - preForceCount);
 
 	const result: ReturnStatusResult = {
@@ -100,13 +73,7 @@ function handle(
 	return Promise.resolve(ok(result));
 }
 
-/**
- * returnStatusTool: the bridge tool object.
- *
- * - `.handler(args, ctx, registry)` — callable directly in tests (3-arg form).
- * - `.forRegistry(registry)` — returns a RegisteredTool for use in extraTools.
- * - `.name`, `.description`, `.inputSchema` — standard ToolDefinition fields.
- */
+/** returnStatusTool: `.handler(args, ctx, registry)` for tests, `.forRegistry(registry)` for extraTools. */
 const returnStatusDefinition = {
 	name: "return_status" as const,
 	description:
@@ -115,13 +82,7 @@ const returnStatusDefinition = {
 		"If forceMessage is null, you may stop normally.",
 	inputSchema,
 
-	/** Direct 3-arg handler for unit tests. */
 	handler: handle,
-
-	/**
-	 * Produce a RegisteredTool bound to a specific enforcement registry.
-	 * Pass the result as an element of extraTools in buildToolRegistry.
-	 */
 	forRegistry(registry: EnforcementRegistry): RegisteredTool {
 		return {
 			name: "return_status",
@@ -132,24 +93,10 @@ const returnStatusDefinition = {
 	},
 } as const;
 
-/**
- * Callable export keeps the explicit MCP entry's runtime contract uniform:
- * both exported bridge factories are functions. Existing tool consumers keep
- * using the assigned definition fields (`forRegistry`, `handler`, schema).
- */
 const { name: _functionName, ...returnStatusFields } = returnStatusDefinition;
 
-/**
- * @lore AU27 Increment 8 (BLOCKER fix): this bare tool name used to be
- * "hyperidle_return_status" (the "hyperidle_" prefix baked into the tool's
- * OWN name). opencode's MCP client independently namespaces every tool as
- * `<server>_<bare>` for the "hyperidle" server — the baked-in prefix and
- * opencode's own prefix stacked, producing the double-prefixed
- * `hyperidle_hyperidle_return_status` the model saw and could never call.
- * Every other tool in this codebase (`reply`, `send_message`, `log_task`,
- * ...) registers under its bare name for exactly this reason — this tool
- * now matches that convention.
- */
+// @lore: return_status bare name — opencode adds `<server>_` prefix; "hyperidle_" stacks to "hyperidle_hyperidle_return_status" (unreachable); register bare
+
 // biome-ignore lint/style/useNamingConvention: the function's intrinsic .name IS the tool identifier — must stay snake_case to match "return_status".
 function return_status(): typeof returnStatusDefinition {
 	return returnStatusDefinition;

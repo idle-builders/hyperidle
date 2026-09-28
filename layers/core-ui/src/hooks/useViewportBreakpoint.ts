@@ -1,20 +1,6 @@
 import { useEffect, useState } from "react";
 
-/**
- * U6: Simplified viewport breakpoint hook.
- * Returns whether the sidebar should collapse to mobile mode (viewport ≤ 768px).
- *
- * @lore U6: The old hook returned { submenuCollapsed, railExpanded } for
- * the IconRail | Submenu | Rail layout. U6 replaces that layout with a
- * 200px fixed Sidebar, so only one breakpoint matters: ≤ 768px hides the
- * sidebar behind a mobile drawer pattern (sidebarMobile=true).
- *
- * @lore Uses `window.matchMedia` listeners so the hook reacts to viewport
- * resizes (not just initial mount). The shim in `test-setup.ts` evaluates
- * max/min-width queries against `window.innerWidth` so jsdom-based tests
- * can drive the hook by reassigning `window.innerWidth` and dispatching a
- * `resize` event.
- */
+// @lore: matchMedia shim — test-setup.ts evaluates queries against window.innerWidth; tests reassign window.innerWidth and dispatch a resize event
 
 export interface ViewportBreakpoint {
 	sidebarMobile: boolean;

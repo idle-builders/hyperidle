@@ -1,3 +1,2 @@
-// Compatibility path for frozen direct-import tests. Production consumers use
-// the package's explicit `./mcp` entry.
+// Compatibility path for tests that import this path directly.
 export { createMcpToolBridge, type McpToolBridge } from "./mcp/index.js";
