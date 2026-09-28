@@ -138,8 +138,8 @@ export class CapacityExceededError extends Error {
 }
 
 /**
- * Extends InvalidTransitionError so `instanceof InvalidTransitionError` holds for both bet and
- * task transition errors. The error-handler and any caller that catches InvalidTransitionError
+ * Extends InvalidTransitionError so `instanceof InvalidTransitionError` holds for task
+ * transition errors too. The error-handler and any caller that catches InvalidTransitionError
  * will naturally catch this too.
  */
 export class TaskInvalidTransitionError extends InvalidTransitionError {

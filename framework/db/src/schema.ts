@@ -357,8 +357,7 @@ export const taskDispatchAttempts = pgTable(
 /**
  * the event log the action mechanism writes to, once per touched
  * object, in the same transaction as the write. Not an audit control and
- * adds no gate — the source for subscriptions and the UI stream once every
- * object's edit action feeds it. `before`/`after` hold only the fields that
+ * adds no gate — the source for subscriptions and the UI stream. `before`/`after` hold only the fields that
  * differ (plus `id`), not the whole row.
  */
 export const changes = pgTable(
