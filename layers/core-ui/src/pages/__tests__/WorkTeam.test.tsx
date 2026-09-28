@@ -13,10 +13,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { TeamPageData, TeamRosterMember } from "../../hooks/useTeam.js";
 import { WorkTeam } from "../WorkTeam";
 
-vi.mock("../../components/ArtifactSection.js", () => ({
-	ArtifactSection: () => null,
-}));
-
 vi.mock("../../shell/ToastRegion.js", async () => {
 	const actual = await vi.importActual("../../shell/ToastRegion.js");
 	return { ...actual, useToast: vi.fn(() => ({ showToast: vi.fn() })) };
@@ -161,9 +157,7 @@ function renderTeam(
 			<Routes>
 				<Route
 					path="/work/team/:teamId"
-					element={
-						<WorkTeam overrideData={data} overrideLoading={opts.loading ?? false} skipArtifacts />
-					}
+					element={<WorkTeam overrideData={data} overrideLoading={opts.loading ?? false} />}
 				/>
 				<Route
 					path="/agents/:agentId"
@@ -381,7 +375,7 @@ describe("WorkTeam active tasks", () => {
 	});
 
 	it("renders each active task's title", async () => {
-		renderWithApiFetch(<WorkTeam overrideData={TEAM_WITH_TASKS} skipArtifacts />);
+		renderWithApiFetch(<WorkTeam overrideData={TEAM_WITH_TASKS} />);
 		await waitFor(() => {
 			expect(screen.getByText("Ship the MVP")).toBeInTheDocument();
 		});
@@ -389,7 +383,7 @@ describe("WorkTeam active tasks", () => {
 
 	it("renders a '+ New task' button that navigates to /work/task/new", async () => {
 		const user = userEvent.setup();
-		renderWithApiFetch(<WorkTeam overrideData={TEAM_NO_TASKS} skipArtifacts />);
+		renderWithApiFetch(<WorkTeam overrideData={TEAM_NO_TASKS} />);
 		await waitFor(() => {
 			expect(screen.getByTestId("new-task-btn")).toBeInTheDocument();
 		});
@@ -452,10 +446,7 @@ describe("WorkTeam agent split-pane", () => {
 		return render(
 			<MemoryRouter initialEntries={[path]}>
 				<Routes>
-					<Route
-						path="/work/team/:teamId"
-						element={<WorkTeam overrideData={TEAM_DATA} skipArtifacts />}
-					/>
+					<Route path="/work/team/:teamId" element={<WorkTeam overrideData={TEAM_DATA} />} />
 				</Routes>
 			</MemoryRouter>,
 		);
@@ -601,12 +592,9 @@ describe("WorkTeam agent configuration", () => {
 				<Routes>
 					<Route
 						path="/work/team/:teamId"
-						element={<WorkTeam overrideData={TEAM_WITH_CATEGORIES} skipArtifacts />}
+						element={<WorkTeam overrideData={TEAM_WITH_CATEGORIES} />}
 					/>
-					<Route
-						path="*"
-						element={<WorkTeam overrideData={TEAM_WITH_CATEGORIES} skipArtifacts />}
-					/>
+					<Route path="*" element={<WorkTeam overrideData={TEAM_WITH_CATEGORIES} />} />
 				</Routes>
 			</MemoryRouter>,
 		);

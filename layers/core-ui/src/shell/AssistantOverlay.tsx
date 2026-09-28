@@ -79,7 +79,7 @@ function ContextChip({
 }
 
 // ---------------------------------------------------------------------------
-// Notice card rendering (missing_key / missing_harness / provider_error)
+// Notice card rendering (missing_harness / provider_error)
 // ---------------------------------------------------------------------------
 
 interface NoticeConfig {
@@ -92,13 +92,6 @@ interface NoticeConfig {
 
 function getNoticeConfig(notice: AssistantNotice, onRetry?: () => void): NoticeConfig {
 	switch (notice.kind) {
-		case "missing_key":
-			return {
-				title: "No API key yet",
-				description:
-					"I can't think until an API key is set. Add your Anthropic key under Settings → Credentials to get started.",
-				colorToken: "var(--status-warning)",
-			};
 		case "missing_harness":
 			return {
 				title: "Runtime not configured",

@@ -16,8 +16,9 @@ vi.mock("../../services/api-fetch.js", () => ({
 	apiFetch: (...args: unknown[]) => mockApiFetch(...args),
 }));
 
-vi.mock("../../components/ArtifactSection.js", () => ({
-	ArtifactSection: () => null,
+vi.mock("../../components/ChildDocumentsSection.js", () => ({
+	ChildDocumentsSection: ({ heading }: { heading?: string }) =>
+		heading ? <div data-testid="documents-section-stub">{heading}</div> : null,
 }));
 
 vi.mock("../../shell/HostThreadSection.js", () => ({
@@ -555,6 +556,109 @@ describe("WorkTaskPage — dependency picker exclusion", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Agent name resolution — owner
+// ---------------------------------------------------------------------------
+
+const ALICE_ROW = {
+	id: "pa_agent-xyz",
+	kind: "ai",
+	name: "Alice",
+	role: "assistant",
+	status: "active",
+	avatarUrl: null,
+	createdAt: "2026-01-01T00:00:00.000Z",
+	agentCategory: "team",
+	ownerUserId: null,
+	health: null,
+	team: null,
+	edges: [],
+};
+
+describe("WorkTaskPage — owner name resolution", () => {
+	it("shows the agent name (not the raw id) in the meta strip owner cell", async () => {
+		const task = makeTask({ id: "task-owner-1", ownerAgentId: "pa_agent-xyz" });
+		setupApiFetch(task, {
+			search_users: () => ({ ok: true, data: [ALICE_ROW] }),
+		});
+		renderPage("task-owner-1");
+		await waitFor(() => {
+			expect(screen.getByTestId("task-meta-strip")).toHaveTextContent("Alice");
+			expect(screen.getByTestId("task-meta-strip")).not.toHaveTextContent("pa_agent-xyz");
+		});
+	});
+
+	it("shows the agent name (not the raw id) in subtask rows", async () => {
+		const root = makeTask({ id: "root-owner-1" });
+		const child = makeTask({
+			id: "child-owner-1",
+			parentTaskId: "root-owner-1",
+			ownerAgentId: "pa_agent-xyz",
+		});
+		mockApiFetch.mockImplementation((url: string) => {
+			if (typeof url === "string" && url.includes("/api/actions/open_task")) {
+				return Promise.resolve({
+					ok: true,
+					json: () => Promise.resolve(openTaskBody(root, [], [{ ...child, children: [] }])),
+				});
+			}
+			if (typeof url === "string" && url.includes("/api/actions/search_users")) {
+				return Promise.resolve({
+					ok: true,
+					json: () => Promise.resolve({ ok: true, data: [ALICE_ROW] }),
+				});
+			}
+			if (typeof url === "string" && url.includes("/api/actions/search_sessions")) {
+				return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true, data: [] }) });
+			}
+			return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+		});
+		renderPage("root-owner-1");
+		await waitFor(() => {
+			const subtasks = screen.getByTestId("task-subtasks-section");
+			expect(subtasks).toHaveTextContent("Alice");
+			expect(subtasks).not.toHaveTextContent("pa_agent-xyz");
+		});
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Documents section heading
+// ---------------------------------------------------------------------------
+
+describe("WorkTaskPage — documents section", () => {
+	it("renders the documents section with heading 'Documents' not 'Artifacts'", async () => {
+		setupApiFetch(makeTask({ id: "task-docs-1" }));
+		renderPage("task-docs-1");
+		await waitFor(() => {
+			expect(screen.getByTestId("documents-section-stub")).toHaveTextContent("Documents");
+		});
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Outcome verdict display
+// ---------------------------------------------------------------------------
+
+describe("WorkTaskPage — outcome verdict", () => {
+	it("shows verdict label and summary for a done task with an outcome", async () => {
+		const task = makeTask({
+			id: "task-verdict-1",
+			state: "done",
+			outcomeVerdict: "partially_met",
+			outcomeSummary: "Most criteria met but one edge case missed.",
+		});
+		setupApiFetch(task);
+		renderPage("task-verdict-1");
+		await waitFor(() => {
+			expect(screen.getByTestId("task-outcome-verdict")).toHaveTextContent("Partial");
+			expect(screen.getByTestId("task-outcome-summary")).toHaveTextContent(
+				"Most criteria met but one edge case missed.",
+			);
+		});
+	});
+});
+
+// ---------------------------------------------------------------------------
 // Session viewer door
 // ---------------------------------------------------------------------------
 
@@ -569,7 +673,6 @@ describe("WorkTaskPage session viewer door", () => {
 			endedAt: null,
 			state: "active",
 			outcome: null,
-			effectivenessScore: null,
 			routineId: null,
 			notes: null,
 			modelTier: "workhorse",

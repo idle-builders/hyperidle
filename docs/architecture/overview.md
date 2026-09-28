@@ -81,7 +81,7 @@ An in-memory event bus carries lifecycle signals after commit. A crash between c
 
 ```
 agent_run_admission_failed  agent_run_lifecycle_changed
-session_started  session_ended  session_handoff_completed  session_not_returned
+session_started  session_ended  session_not_returned
 sandbox_writeback_changes_detected
 propagation_applied  propagation_failed
 tool_call_recorded

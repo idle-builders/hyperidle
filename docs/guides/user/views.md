@@ -49,7 +49,7 @@ Work is organized in levels.
 
 **Team page** — active tasks and agents. **New task** lives here and in the overview header.
 
-**Task detail** — description, subtask tree, outcome section, session list, and comment thread.
+**Task detail** — description, subtask tree, outcome section, produced documents, session list, and comment thread.
 
 ### Setting the owner and state
 

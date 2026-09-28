@@ -398,7 +398,6 @@ describe("AgentProfile session viewer door", () => {
 							endedAt: "2026-08-01T10:05:00.000Z",
 							state: "done",
 							outcome: "completed",
-							effectivenessScore: null,
 							routineId: null,
 							notes: null,
 							modelTier: "workhorse",

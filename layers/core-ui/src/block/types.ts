@@ -20,8 +20,18 @@ export const BLOCK_KINDS = [
 export type BlockKind = (typeof BLOCK_KINDS)[number];
 
 // @lore BB1: "bet" removed — root tasks (parentTaskId===null) replace bets.
-export const BLOCK_HOST_KINDS = ["task", "document", "artifact", "agent", "user"] as const;
-export type BlockHostKind = (typeof BLOCK_HOST_KINDS)[number];
+// @lore domain-model is the single source for BlockHostKind; core-ui re-exports the type
+// and keeps BLOCK_HOST_KINDS as the runtime array, type-checked to stay in sync.
+import type { BlockHostKind } from "@hyperidle/domain-model";
+
+export type { BlockHostKind };
+export const BLOCK_HOST_KINDS = [
+	"task",
+	"document",
+	"artifact",
+	"agent",
+	"user",
+] as const satisfies readonly BlockHostKind[];
 
 /**
  * @lore Branded BlockId — nominal type prevents passing arbitrary strings

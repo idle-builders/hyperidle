@@ -16,7 +16,6 @@ interface WireRow {
 	endedAt: string | null;
 	state: string | null;
 	outcome: string | null;
-	effectivenessScore: string | null;
 }
 
 function row(overrides: Partial<WireRow> = {}): WireRow {
@@ -28,7 +27,6 @@ function row(overrides: Partial<WireRow> = {}): WireRow {
 		endedAt: overrides.endedAt ?? null,
 		state: overrides.state ?? "active",
 		outcome: overrides.outcome ?? null,
-		effectivenessScore: overrides.effectivenessScore ?? null,
 	};
 }
 
@@ -92,21 +90,6 @@ describe("useTaskSessions", () => {
 		const byId = new Map(result.current.data?.sessions.map((s) => [s.id, s.status]));
 		expect(byId.get("session-stopped")).toBe("stopped");
 		expect(byId.get("session-active")).toBe("active");
-	});
-
-	it("parses the effectiveness score, and yields null when absent or unparseable", async () => {
-		stubSessions([
-			row({ id: "session-scored", effectivenessScore: "0.75" }),
-			row({ id: "session-unscored", effectivenessScore: null }),
-			row({ id: "session-garbage", effectivenessScore: "not-a-number" }),
-		]);
-		const { result } = renderHook(() => useTaskSessions("task-1"));
-		await waitFor(() => expect(result.current.data).not.toBeNull());
-
-		const byId = new Map(result.current.data?.sessions.map((s) => [s.id, s.effectivenessScore]));
-		expect(byId.get("session-scored")).toBe(0.75);
-		expect(byId.get("session-unscored")).toBeNull();
-		expect(byId.get("session-garbage")).toBeNull();
 	});
 
 	it("returns an empty list for a task with no sessions", async () => {

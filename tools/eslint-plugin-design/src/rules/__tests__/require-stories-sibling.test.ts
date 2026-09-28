@@ -2,7 +2,7 @@
  * The require-stories-sibling rule reads from the filesystem (existsSync).
  * We use real fixture files committed under test-fixtures/sibling-fixtures/.
  *
- * Each fixture path includes "framework/design-system/src/" as a substring so
+ * Each fixture path includes "layers/core-ui/src/ds/" as a substring so
  * the rule's target-dir gate passes; the actual on-disk path is local to the
  * eslint-plugin-design package.
  */
@@ -19,7 +19,7 @@ RuleTester.it = it as unknown as typeof RuleTester.it;
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pkgRoot = resolve(here, "..", "..", "..");
-const fxBase = `${pkgRoot}/test-fixtures/sibling-fixtures/framework/design-system/src`;
+const fxBase = `${pkgRoot}/test-fixtures/sibling-fixtures/layers/core-ui/src/ds`;
 
 ruleTester.run("require-stories-sibling", requireStoriesSibling, {
 	valid: [

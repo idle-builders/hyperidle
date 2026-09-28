@@ -3,7 +3,7 @@
  *
  * @lore this test lives in core-ui because blocks/types.ts lives there now.
  *
- * Closed enums: BLOCK_KINDS (10) and BLOCK_HOST_KINDS (6). The exported
+ * Closed enums: BLOCK_KINDS (10) and BLOCK_HOST_KINDS (5). The exported
  * names match docs/interface/blocks.md.
  */
 

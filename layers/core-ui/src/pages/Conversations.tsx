@@ -34,7 +34,7 @@
 import { TASK_STATE_LABEL, type TaskListItem, type ThreadView } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useContext, useState } from "react";
 import { Link, useNavigate, useOutletContext, useParams } from "react-router-dom";
-import { ArtifactSection } from "../components/ArtifactSection";
+import { ChildDocumentsSection } from "../components/ChildDocumentsSection";
 import ConversationSurface, {
 	type ConversationSurfaceParticipant,
 } from "../components/ConversationSurface";
@@ -509,11 +509,11 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 							 * owns a SplitView, and opening through its existing `path`
 							 * inspection reuses it instead of nesting a second one.
 							 */
-							<ArtifactSection
+							<ChildDocumentsSection
 								parentKind="thread"
 								parentId={threadId}
-								heading="Artifacts"
-								emptyDescription="Artifacts produced in this conversation appear here."
+								heading="Documents"
+								emptyDescription="Documents produced in this conversation appear here."
 								onOpen={(itemId) => setInspection({ kind: "path", path: `/documents/${itemId}` })}
 							/>
 						}

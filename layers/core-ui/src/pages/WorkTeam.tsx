@@ -84,25 +84,12 @@ export interface WorkTeamProps {
 	 * Override the error state. When set, the appropriate error UI is shown.
 	 */
 	overrideError?: Error | null;
-	/**
-	 * When true, the ArtifactSection is not rendered. Used by test overrides
-	 * to prevent ArtifactSection from calling fetch and consuming mocked responses
-	 * meant for other hooks in the component tree.
-	 *
-	 * @lore P5: ArtifactSection's useFetch fires before parent hooks' useEffect
-	 * because React flushes child effects before parent effects. When using
-	 * overrideData in tests, skipArtifacts prevents fetch-order races.
-	 * The L12 artifact-section test does NOT pass this prop (defaults false)
-	 * and mocks ArtifactSection via vi.mock() instead.
-	 */
-	skipArtifacts?: boolean;
 }
 
 export function WorkTeam({
 	overrideData,
 	overrideLoading,
 	overrideError,
-	skipArtifacts = false,
 }: WorkTeamProps = {}): JSX.Element {
 	// @lore U6: Route renamed from work/product/:productId to work/team/:teamId.
 	// Now reads the param directly by the semantic name.
@@ -211,7 +198,6 @@ export function WorkTeam({
 	return (
 		<WorkTeamLoaded
 			data={data}
-			skipArtifacts={skipArtifacts}
 			refetchTeam={overrideData !== undefined ? undefined : fetched.refetch}
 		/>
 	);
@@ -220,21 +206,10 @@ export function WorkTeam({
 /** Internal component rendered when data is fully resolved. */
 function WorkTeamLoaded({
 	data,
-	skipArtifacts = false,
 	refetchTeam,
 }: {
 	// @lore U1: TeamDetail replaces ProductDetail. @lore BC5 T9: TeamPageData replaces TeamDetail.
 	data: TeamPageData;
-	/**
-	 * When true, the ArtifactSection is not rendered. Used by test overrides
-	 * to prevent ArtifactSection from calling fetch and consuming mocked responses
-	 * meant for other hooks in the component tree.
-	 *
-	 * @lore P5: ArtifactSection's useFetch fires before parent hooks' useEffect
-	 * because React flushes child effects before parent effects. When using
-	 * overrideData in tests, skipping ArtifactSection prevents fetch-order races.
-	 */
-	skipArtifacts?: boolean;
 	/** Callback to re-fetch team data after a mutation (e.g. an agent added). */
 	refetchTeam?: () => void;
 }): JSX.Element {
@@ -594,12 +569,6 @@ function WorkTeamLoaded({
 					})}
 				</ItemList>
 			</section>
-
-			{/* Produced items are now task-parented documents — each task's
-			    own ArtifactSection shows what was produced there. The team overview
-			    no longer aggregates across tasks since there is no team-level parent.
-			    skipArtifacts still suppresses the block in tests that mock data. */}
-			{!skipArtifacts && null}
 
 			{/* @lore AV4: AgentEditDialog modal retired from the WorkTeam customize path.
 			 * Customize now opens AgentDetailPane in the split pane via ?agent param (AC#3).

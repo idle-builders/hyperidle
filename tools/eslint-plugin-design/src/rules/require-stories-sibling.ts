@@ -1,7 +1,7 @@
 /**
  * design/require-stories-sibling
  *
- * Component files under `framework/design-system/src/` or
+ * Component files under `layers/core-ui/src/ds/` or
  * `layers/core-ui/src/components/` must have a `<Name>.stories.tsx` sibling.
  *
  * This rule fires once per file (on Program node). It is opt-out per file via
@@ -17,7 +17,7 @@ import { basename, dirname, extname, join } from "node:path";
 import type { Rule } from "eslint";
 import { createRule } from "../util.js";
 
-const TARGET_DIRS = ["framework/design-system/src/", "layers/core-ui/src/components/"];
+const TARGET_DIRS = ["layers/core-ui/src/ds/", "layers/core-ui/src/components/"];
 
 function isComponentFile(filename: string): boolean {
 	if (!filename.endsWith(".tsx")) return false;
@@ -40,7 +40,7 @@ export const requireStoriesSibling: Rule.RuleModule = createRule({
 		type: "suggestion",
 		docs: {
 			description:
-				"Component files in framework/design-system/src/ or layers/core-ui/src/components/ must have a .stories.tsx sibling.",
+				"Component files in layers/core-ui/src/ds/ or layers/core-ui/src/components/ must have a .stories.tsx sibling.",
 			recommended: true,
 		},
 		schema: [],

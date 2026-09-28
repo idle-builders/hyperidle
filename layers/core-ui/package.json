@@ -8,8 +8,7 @@
 		"build": "vite build",
 		"check": "tsc --noEmit",
 		"test:e2e": "playwright test --only-changed=origin/main --pass-with-no-tests",
-		"test:e2e:full": "playwright test",
-		"test:e2e:ah1": "playwright test --config playwright.ah1.config.ts"
+		"test:e2e:full": "playwright test"
 	},
 	"dependencies": {
 		"@hyperidle/domain-model": "*",
@@ -44,8 +43,6 @@
 	},
 	"devDependencies": {
 		"@axe-core/playwright": "^4.12.1",
-		"@hyperidle/db": "*",
-		"@hyperidle/remote-server": "*",
 		"@playwright/test": "^1.61.1",
 		"@tailwindcss/vite": "^4.3.1",
 		"@testing-library/jest-dom": "^6.9.1",

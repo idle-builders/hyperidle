@@ -84,14 +84,12 @@ export function WorkTaskCreate(): JSX.Element {
 			if (!result.ok) {
 				const problem = result.problems[0];
 				setError(
-					problem?.code === "capacity_exceeded"
-						? "Team is at its concurrent task limit."
-						: // A dependency rejection names the rule it broke for the
-							// two codes mapped below. A dangling id's `dependency_not_found`
-							// is not mapped, so it still falls through to the generic message.
-							((problem?.code === "cycle" || problem?.code === "dependency_killed") &&
-								problem.message) ||
-								"Failed to create task. Please try again.",
+					// A dependency rejection names the rule it broke for the
+					// two codes mapped below. A dangling id's `dependency_not_found`
+					// is not mapped, so it still falls through to the generic message.
+					((problem?.code === "cycle" || problem?.code === "dependency_killed") &&
+						problem.message) ||
+						"Failed to create task. Please try again.",
 				);
 				setSubmitting(false);
 				return;
