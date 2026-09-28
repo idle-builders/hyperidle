@@ -22,6 +22,10 @@ learning curve and ecosystem interoperability.
 
 ---
 
+**Everything is always one of three** (founder, 2026-09-28): Conversations = all threads,
+Work = all tasks, Knowledge = all documents. A review is a thread. A routine's output is a thread.
+Work is only tasks. So a list never needs a per-row type label — the spine already says what it is.
+
 ## 2. Ownership — settled 2026-08-18
 
 **Ownership is by domain, not by lineage.** Founder's words. An agent's output is split and routed
@@ -152,8 +156,9 @@ Objects that appear inside surfaces. Designed once, reused everywhere.
 - **Each spine's list is in priority order** — the founder's point: "each of conversation, work,
   knowledge have this valuable prioritization in the sub nav so that you actually see per category
   what there is to see."
-  - Conversations: Needs you · Unread · Recent.
-  - Work: Needs your review · Running · Done since you looked.
+  - Conversations: Needs you (reviews, questions, mentions — all threads) · Unread · Recent.
+  - Work: Running · In review · Done since you looked. Tasks only; the agent owns them, so Work
+    never carries a needs-you count.
   - Knowledge: Needs you (drafts to publish) · Changed since you looked · then the **document tree**.
 - **Bets do not exist.** Work is tasks; a task can have subtasks.
 - **Knowledge is a tree of documents.**

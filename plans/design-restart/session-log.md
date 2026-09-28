@@ -438,3 +438,11 @@ a tree of documents.
 in Conversations, with links to what needs you) · Work in priority order · Knowledge: priority
 groups then a foldable document tree · find or ask · something new while you focus (you stay in the
 doc; only the Conversations count moves 2 → 3).
+
+**Founder: "review is a thread. work is only tasks." Then: "conversation = all threads, work = all
+tasks, knowledge = all documents. And everything is always one of those three."**
+Reviews moved from Work into Conversations' Needs you. Work is Running · In review · Done since you
+looked, with no needs-you count. Per-row type labels removed (the spine says what it is); where the
+kind of thread matters it is in the subtitle ("Review · Builder…"). Detail headers use only Thread,
+Task, Document. Rows tightened: unread dot + title + time on one line, needs-you chip on the
+subtitle line.
