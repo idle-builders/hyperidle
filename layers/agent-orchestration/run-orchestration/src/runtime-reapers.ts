@@ -77,7 +77,7 @@ async function reapSandboxesOnce(db: HyperIdleDb, options: SandboxReaperOptions)
 			if (endedTime > cutoff) continue;
 		} else {
 			// Orphan dir (no matching session row) → reclaim only if older than TTL.
-			// The TTL is the deliberate margin for the P4-spawn-before-P5-insert
+			// The TTL is the deliberate margin for the spawn-before-insert
 			// window and for crash-before-row-commit. Never reclaim a young orphan.
 			const mtimeMs = await dirMtimeMs(dirPath);
 			if (mtimeMs > cutoff) continue;

@@ -12,7 +12,7 @@ export type { CronFields } from "./cron.js";
 export { nextCronMatch, parseCron } from "./cron.js";
 // -- factory writers (idempotent first-boot actor insert, agent status flip) --
 export { insertUserIfAbsent, setAgentsStatus } from "./factory-writers.js";
-// -- org edges (P2 — org chart edge CRUD, survivor from batch 0) --
+// -- org edges --
 export type { UpsertOrgEdgeInput } from "./org-edges.js";
 export { deleteOrgEdge, listOrgEdges, upsertOrgEdge } from "./org-edges.js";
 // -- runnable-agent invariant (the shared runnable check) --
@@ -60,7 +60,7 @@ export {
 // -- team lookup --
 export type { CreateTeamInput } from "./team-lookup.js";
 export { createTeam, getTeam, listTeams } from "./team-lookup.js";
-// -- upgrade token store (I2 — WS-handshake one-shot tokens, no table) --
+// -- upgrade token store --
 export type { UpgradeTokenStore } from "./upgrade-token-store.js";
 export { createUpgradeTokenStore } from "./upgrade-token-store.js";
 // -- user actions (search_users / open_user / edit_user) --

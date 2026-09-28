@@ -85,9 +85,7 @@ export interface AgentExecutionHarnessRuntime {
 		}>;
 	}): void;
 	/**
-	 * The session-scoped MCP dial. `registry`/`baseUrl` are no longer per-call
-	 * parameters (contrast `run-orchestration-composition.ts`'s current
-	 * `openMcpBridge(options)` today) — this boot already owns one bridge
+	 * The session-scoped MCP dial — this boot already owns one bridge
 	 * instance and one `mcpBaseUrl`, closed over here, so the caller supplies
 	 * only the session-scoped data.
 	 */

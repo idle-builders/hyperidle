@@ -1,12 +1,4 @@
--- @lore I3 review C3 / arch C-1: SQLite FK rebuilds need FK enforcement
--- suppressed for the entire migration. `PRAGMA foreign_keys` is a NO-OP
--- inside an active transaction (https://www.sqlite.org/pragma.html#pragma_foreign_keys),
--- and Drizzle's bun-sqlite migrator wraps every migration file in a single
--- BEGIN/COMMIT (drizzle-orm/sqlite-core/dialect.ts ~line 580). So
--- `PRAGMA foreign_keys=OFF` at the top would be a no-op. Use
--- `PRAGMA defer_foreign_keys=ON` instead — it CAN be set inside a
--- transaction and defers FK enforcement until the implicit COMMIT, at
--- which point all rebuilt tables are in their final shape and FKs resolve.
+-- @lore: SQLite FK rebuild — PRAGMA foreign_keys=OFF inside a transaction is a no-op; use PRAGMA defer_foreign_keys=ON
 PRAGMA defer_foreign_keys=ON;--> statement-breakpoint
 PRAGMA foreign_keys=OFF;--> statement-breakpoint
 CREATE TABLE `__new_agent_skills` (

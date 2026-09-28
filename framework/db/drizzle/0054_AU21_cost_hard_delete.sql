@@ -31,7 +31,7 @@ ALTER TABLE "team_members" DROP COLUMN "cost_actual";--> statement-breakpoint
 ALTER TABLE "team_members" DROP COLUMN "cost_cap_minor";--> statement-breakpoint
 ALTER TABLE "team_members" DROP COLUMN "cost_cap_currency";--> statement-breakpoint
 
--- tasks: dead legacy cost cap/actual (never written per @lore O2).
+-- tasks: dead legacy cost cap/actual (never written).
 ALTER TABLE "tasks" DROP COLUMN "cost_cap";--> statement-breakpoint
 ALTER TABLE "tasks" DROP COLUMN "cost_actual";--> statement-breakpoint
 

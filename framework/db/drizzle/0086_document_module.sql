@@ -1,6 +1,3 @@
--- @lore BC4: document as a module. Steps are ordered; each depends on the
--- one before.
-
 -- 1. the table and its column.
 ALTER TABLE "knowledge_items" RENAME TO "documents";
 --> statement-breakpoint

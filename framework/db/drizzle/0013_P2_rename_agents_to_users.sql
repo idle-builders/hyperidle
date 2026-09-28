@@ -1,5 +1,4 @@
 -- P2: Rename agents -> users, add kind/email/avatar_url columns (PostgreSQL)
--- @lore P2: Hand-written migration matching the SQLite migration 0017.
 ALTER TABLE "agents" RENAME TO "users";
 --> statement-breakpoint
 ALTER TABLE "users" ADD COLUMN "kind" text NOT NULL DEFAULT 'ai';
@@ -11,7 +10,6 @@ ALTER TABLE "users" ADD COLUMN "avatar_url" text;
 -- Rename agent_skills -> user_skills
 ALTER TABLE "agent_skills" RENAME TO "user_skills";
 --> statement-breakpoint
--- @lore P2: architecture critique finding — agent_id column must be renamed to user_id.
 ALTER TABLE "user_skills" RENAME COLUMN "agent_id" TO "user_id";
 --> statement-breakpoint
 -- Create org_edges table

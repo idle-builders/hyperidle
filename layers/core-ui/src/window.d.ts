@@ -6,7 +6,7 @@
  */
 
 /**
- * S4: Worker status snapshot exposed via IPC bridge.
+ * Worker status snapshot exposed via IPC bridge.
  * Kept in sync with WorkerStatus in applications/remote-worker/src/remote-worker-client.ts.
  */
 interface WorkerStatus {
@@ -34,7 +34,7 @@ interface HyperIdleElectronBridge {
 	};
 	/** Subscribe to the Settings open event from the application menu. Returns a disposer. */
 	onOpenSettings(callback: () => void): () => void;
-	/** S4: Worker registration controls (only available in shared-mode Electron). */
+	/** Worker registration controls (only available in shared-mode Electron). */
 	worker?: {
 		enable(maxConcurrent: number): Promise<void>;
 		disable(): Promise<void>;

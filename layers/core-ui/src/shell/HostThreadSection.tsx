@@ -29,7 +29,7 @@ export interface HostThreadSectionProps {
 	 */
 	onThreadView?: (view: ThreadView | null) => void;
 	/**
-	 * T5: When set, filters the displayed messages to only those anchored to
+	 * When set, filters the displayed messages to only those anchored to
 	 * this blockId. A "Show all messages" toggle allows the user to exit the filter.
 	 */
 	filterBlockId?: string;
@@ -80,7 +80,7 @@ export function HostThreadSection({
 	// @lore: filterBlockId is client-side only — passing it to useThread would report a block-scoped view via onThreadView, making all other blocks' comments vanish
 	const { status, data, error, refresh } = useThread(activeThreadId);
 	const composerWrapperRef = useRef<HTMLDivElement>(null);
-	// T5: when filterBlockId is set, user can toggle "show all" to exit the filter.
+	// when filterBlockId is set, user can toggle "show all" to exit the filter.
 	const [showAll, setShowAll] = useState(false);
 
 	useEffect(() => {

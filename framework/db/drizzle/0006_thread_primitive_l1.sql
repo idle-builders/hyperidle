@@ -3,11 +3,6 @@
 -- and the `responses` table; backfills new columns and projects legacy
 -- rows into the new shape; emits `verdict`-typed messages from `responses`.
 --
--- @lore L1a M2 (plan §5.4): Postgres requires DROP CONSTRAINT before
--- DROP COLUMN. The constraint names follow the Drizzle convention
--- `<table>_<column>_<reftable>_<refcol>_fk` set by 0000 + 0003. We use
--- `IF EXISTS` so a re-run on a partially-migrated DB does not error.
-
 -- Step 1: snapshot tables (rollback artifact, 30-day retention per plan §5.3).
 CREATE TABLE "_l1_snapshot_threads" AS SELECT * FROM "threads";--> statement-breakpoint
 CREATE TABLE "_l1_snapshot_messages" AS SELECT * FROM "messages";--> statement-breakpoint

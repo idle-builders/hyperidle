@@ -10,8 +10,8 @@ import { listFilesystems } from "./filesystem-registry.js";
 /**
  * Read every filesystem injected into `agentId` (`filesystem_injections` joined
  * to `filesystems`), live, for one session spawn. Both tables are this Layer's
- * own since F2, so the join stays a single query — the two-owner decomposition
- * §D-I anticipated never has to happen.
+ * own, so the join stays a single query — the two-owner decomposition
+ * never has to happen.
  *
  * An agent with no injections resolves `[]`, never a throw.
  */

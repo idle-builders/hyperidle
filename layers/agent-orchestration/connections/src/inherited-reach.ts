@@ -22,7 +22,7 @@ function stripAnsi(value: string): string {
 
 /**
  * The injected-run/env/cwd seam, shaped exactly like harness-discovery's
- * `HarnessProbeDeps` minus `fetchModels` (D1). Production calls `refresh()`
+ * `HarnessProbeDeps` minus `fetchModels`. Production calls `refresh()`
  * absent; tests seed isolated homes through it.
  */
 export interface InheritedProbeDeps {

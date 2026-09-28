@@ -193,13 +193,11 @@ function parseBakedTranscript(
 }
 
 /**
- * Relocated VERBATIM from
- * `dispatch/src/service.ts`'s `mapTranscriptToMessages` (the row -> generic
- * chat-message mapping is pure formatting, which belongs orchestration-side
- * under H2, not core-side). Generalized: `assistantAgentId` becomes
- * `agentId` — the session's own running agent, not an assistant-specific
- * concept — so a future non-assistant kind that bakes a transcript gets the
- * same generic mapping with no new branch.
+ * Maps transcript rows to generic chat messages. The mapping is pure
+ * formatting (orchestration-side, not core-side). Generalized:
+ * `assistantAgentId` becomes `agentId` — the session's own running agent,
+ * not an assistant-specific concept — so a future non-assistant kind that
+ * bakes a transcript gets the same generic mapping with no new branch.
  */
 function mapTranscriptToMessages(
 	rows: readonly BakedTranscriptRow[],

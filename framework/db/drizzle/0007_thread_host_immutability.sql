@@ -5,10 +5,6 @@
 -- Postgres needs a trigger function plus the trigger itself; SQLite gets
 -- away with an inline `RAISE` because its trigger language is in-band SQL.
 --
--- @lore L1 step9: this trigger guards the column at the storage layer so
--- service-layer mutations through Drizzle's `update()` API cannot drift
--- the host without a deliberate migration.
-
 CREATE OR REPLACE FUNCTION threads_host_immutable_fn()
 RETURNS trigger AS $$
 BEGIN

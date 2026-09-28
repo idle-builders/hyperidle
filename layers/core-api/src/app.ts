@@ -100,7 +100,7 @@ interface AppOptions {
 	/**
 	 * Optional hook letting a caller mount extra routes on the `/api`
 	 * sub-router. The only caller is the development test fixture, which mounts
-	 * the middleware-exercising routes that used to be statically imported here.
+	 * the middleware-exercising routes.
 	 */
 	registerExtraRoutes?: (apiRouter: Hono) => void;
 	/**
@@ -135,7 +135,7 @@ interface AppOptions {
 	 */
 	adapterPool?: HarnessCapabilityReader;
 	/**
-	 * Enable shared-mode authentication (S1). When true, the auth middleware
+	 * Enable shared-mode authentication. When true, the auth middleware
 	 * accepts Bearer tokens from LoginSessions in addition to X-API-Key.
 	 * Also mounts the public /api/auth/claim endpoint (pre-auth).
 	 *

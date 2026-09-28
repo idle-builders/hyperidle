@@ -69,7 +69,7 @@ export function NotificationPopover({
 
 	const handleRowClick = useCallback(
 		(changeId: string, link: string): void => {
-			// W4: link guard — only navigate to internal app routes
+			// link guard — only navigate to internal app routes
 			if (!link.startsWith("/")) return;
 			void markRead(changeId);
 			navigate(link);

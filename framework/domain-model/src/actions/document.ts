@@ -186,7 +186,7 @@ export function documentAs(row: {
 	// A memory is a user-scoped, parentless, `ordinary`-slot row — not in the
 	// tree (founder decision, gate-walk finding), and not a row `slot` alone
 	// already makes public. Review-found defect: an earlier version of this
-	// function dropped the `slot` term (reasoning that I3/I9 always force a
+	// function dropped the `slot` term (reasoning that memory creation always forces a
 	// memory's slot to `ordinary`, so checking it here would only re-derive
 	// `parentKind`) — but `canReadDocument` exempts ANY non-ordinary slot from
 	// the privacy check regardless of scope, so a user-scoped, parentless row
@@ -246,7 +246,7 @@ const CONTENT_FIELDS = [
 	"position",
 ] as const satisfies readonly (keyof EditDocumentInput)[];
 
-/** Same as `CONTENT_FIELDS` but without `status` — I12's "anything other than status". */
+/** Same as `CONTENT_FIELDS` but without `status`. */
 const CONTENT_FIELDS_EXCEPT_STATUS = CONTENT_FIELDS.filter(
 	(f) => f !== "status",
 ) as readonly (keyof EditDocumentInput)[];
@@ -259,7 +259,7 @@ function touchesAnyOf(
 }
 
 /**
- * I3/I4 — a memory is private and parent-less; both forced, never negotiated.
+ * A memory is private and parent-less; both invariants are forced, never negotiated.
  * Keys on `effectiveAs` (input.as, or the row's own derived `as` when the
  * edit omits it) — not `input.as` alone. An edit of an existing memory that
  * only sends `scopeKind` (no `as`) must still be refused here: the run
@@ -310,11 +310,11 @@ function memoryInvariants(
  * `canReadDocument`'s non-ordinary-slot exemption, regardless of scope. A
  * caller asking for `scopeKind:"user"` on that shape is asking for a
  * contradiction — private-by-scope, public-by-slot — so it is refused
- * outright, the same way I13 refuses `as:"artifact"` + `scopeKind:"user"`
+ * outright, the same way `artifactInvariants` refuses `as:"artifact"` + `scopeKind:"user"`
  * rather than silently resolving the conflict one way or the other. Only
  * `effectiveAs === "document"` reaches this: a memory's slot is already
- * forced to `ordinary` (I3/I9), and an artifact's `scopeKind:"user"` is
- * already refused by I13.
+ * forced to `ordinary` by the memory invariant, and an artifact's `scopeKind:"user"` is
+ * already refused by `artifactInvariants`.
  */
 function privateSlotInvariants(
 	effectiveAs: DocumentAs | undefined,
@@ -326,7 +326,7 @@ function privateSlotInvariants(
 	// or a bare `{scopeKind:"user", slot:"skill"}` create would slip past it.
 	if (effectiveAs !== "document" && effectiveAs !== undefined) return [];
 	const isCreate = prev === null;
-	// Slot is immutable after create (I9) — an edit can only ever transition
+	// Slot is immutable after create — an edit can only ever transition
 	// INTO this shape by touching `scopeKind` or `parent`. An edit that
 	// touches neither leaves the row's scope/parent exactly as they already
 	// were, so it is a continuation of whatever the row already legitimately
@@ -360,16 +360,16 @@ function privateSlotInvariants(
 }
 
 /**
- * I5/I6/I13 — an artifact hangs off a task or thread, and is never private.
+ * An artifact hangs off a task or thread, and is never private.
  *
- * I5/I6 stay keyed on the caller's literal `input.as === "artifact"` — an
+ * The parent checks stay keyed on the caller's literal `input.as === "artifact"` — an
  * edit that moves an existing artifact's parent WITHOUT repeating `as` is
  * "graduation" — `as` is derived, never stored, so moving `parent` off
  * a task/thread is all graduation is — `document-actions.integration.test.ts`
- * describe("graduation …")), a deliberately allowed transition. Keying I5/I6
+ * describe("graduation …")), a deliberately allowed transition. Keying the parent checks
  * on the row's derived `effectiveAs` instead would refuse that transition.
  *
- * I13 is different: it is keyed on `effectiveAs` (the caller's explicit `as`,
+ * The scope check is different: it is keyed on `effectiveAs` (the caller's explicit `as`,
  * or the row's own derived `as` when the edit omits it) — not `input.as`
  * alone. "An artifact is never private" is an absolute rule, not a
  * transition; an edit that only sends `{id, scopeKind:"user"}` against an
@@ -386,7 +386,7 @@ function artifactInvariants(
 	if (input.as === "artifact") {
 		if (input.parent === null) {
 			// `null` means "to the top of the tree", for every `as` (architecture
-			// decision) — and an artifact can never be at the top (I5/I6), so an
+			// decision) — and an artifact can never be at the top, so an
 			// explicit `parent: null` is refused the same way a `document` parent
 			// is, not silently treated as "no parent given" (which would stamp the
 			// caller's own calling task/thread instead of honouring the explicit
@@ -448,7 +448,7 @@ function systemParentInvariants(
 	return [];
 }
 
-/** I9/I10/I11 — a slotted document's slot and parent are fixed at create. */
+/** A slotted document's slot and parent are fixed at create. */
 function slotAndParentInvariants(input: EditDocumentInput, prev: DocumentRow | null): Problem[] {
 	const problems: Problem[] = [];
 	if (prev !== null && input.slot !== undefined && input.slot !== prev.slot) {

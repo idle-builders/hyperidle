@@ -74,7 +74,7 @@ const redactedPayloadSchema = z.object({
 export const threadParticipantsSchema = z.array(z.string().min(1));
 
 // ── plain ────────────────────────────────────────────────────────────────
-// `notice` drops off the WRITE side (Reconciliation R9 — nothing in
+// `notice` drops off the WRITE side (nothing in
 // production writes it); it stays on the READ side so historical rows still
 // render, via `plainReadPayloadSchema` below.
 
@@ -226,7 +226,7 @@ export const openThread: ActionDeclaration<OpenThreadInput, ThreadView> = {
 	output: ThreadViewSchema,
 };
 
-// FLAT object, never a discriminated union — Reconciliation R8: a top-level
+// FLAT object, never a discriminated union — a top-level
 // `z.discriminatedUnion` emits `anyOf` with no top-level `properties`, so the
 // Anthropic direct-API tool spec would ship an empty schema.
 export const SendMessageInputSchema = z

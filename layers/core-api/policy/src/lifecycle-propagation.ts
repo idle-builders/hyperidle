@@ -64,7 +64,7 @@ async function propagateSessionToTask(
 	outcome: string,
 	deps: LifecyclePropagationDeps,
 ): Promise<void> {
-	// F2: Only propagate on completed outcome. crashed and stopped do not trigger transitions.
+	// Only propagate on completed outcome. crashed and stopped do not trigger transitions.
 	if (outcome !== "completed") return;
 
 	// @lore: no "is another run still active" guard — two simultaneous runs recoverable; first flips in_progress→review, second sees non-in_progress and skips
@@ -96,7 +96,7 @@ async function propagateSessionToTask(
 		};
 		eventBus.emit(appliedEvent);
 	} catch (err) {
-		// F1: InvalidTransitionError from a race condition — silently skip.
+		// InvalidTransitionError from a race condition — silently skip.
 		if (isInvalidTransitionError(err)) return;
 		// Unexpected error — emit propagation_failed for extension subscribers.
 		const failedEvent: PropagationFailedEvent = {
@@ -195,7 +195,7 @@ async function propagateTaskToParent(
 		}
 	} catch (err) {
 		if (isInvalidTransitionError(err)) {
-			// F4: Race condition — ancestor was already moved by a human or a
+			// Race condition — ancestor was already moved by a human or a
 			// concurrent propagation. Silently skip; the human intent wins.
 			return;
 		}

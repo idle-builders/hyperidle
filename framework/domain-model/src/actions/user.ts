@@ -63,7 +63,7 @@ export const UserRowSchema = z.object({
 	createdAt: z.string(),
 	agentCategory: z.enum(AGENT_CATEGORIES).nullable(),
 	ownerUserId: z.string().nullable(),
-	/** F1: a note on the agent, e.g. a crash count — null for a healthy row. */
+	/** A note on the agent, e.g. a crash count — null for a healthy row. */
 	health: z.string().nullable(),
 	team: z.object({ id: z.string(), name: z.string() }).nullable(),
 	edges: z.array(

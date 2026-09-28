@@ -201,10 +201,7 @@ export class AdapterPool {
 	 * Why `select(requirements)` would return null, in the caller's words.
 	 *
 	 * `select` has six distinct ways to reject every entry, and the pool is the
-	 * only thing that can tell them apart. Callers used to collapse all six
-	 * into "all adapters are at capacity" — false for the case that actually
-	 * happens (an empty pool, because discovery found no harness binary), and
-	 * false in a way that points the reader at the wrong subsystem.
+	 * only thing that can tell them apart.
 	 *
 	 * Ordered most-actionable first: an empty pool is a different problem from
 	 * a filtered-out pool, which is a different problem from a full one.

@@ -60,7 +60,7 @@ export interface ProvisioningPlan {
 	readonly envInjections: Readonly<Record<string, string>>;
 }
 
-// ── T2: buildProvisioningPlan ─────────────────────────────────────────────────
+// ── buildProvisioningPlan ───────────────────────────────────────────────────
 
 /**
  * Build the provisioning plan for one spawn.
@@ -191,14 +191,14 @@ function deriveMcpServerName(
 	const base = service.toLowerCase().replace(/\s+/g, "-");
 	// For token entries: use base name (e.g. "github")
 	// For mcp entries: use base name if available, otherwise base-mcp
-	// This matches N3: the token-bearer gets the plain name; mcp gets the suffix.
+	// The token-bearer gets the plain name; mcp gets the suffix.
 	if (authSource === "mcp" && existing.has(base)) {
 		return `${base}-mcp`;
 	}
 	return base;
 }
 
-// ── T3: applyProvisioningPlan ─────────────────────────────────────────────────
+// ── applyProvisioningPlan ───────────────────────────────────────────────────
 
 /**
  * Apply the provisioning plan to a session's sandbox.

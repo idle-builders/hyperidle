@@ -593,7 +593,7 @@ export function ReviewComposition({
 }: ReviewCompositionProps): JSX.Element {
 	const [activeId, setActiveId] = useState<string | null>(initialOpenArtifactId);
 	const [menuOpen, setMenuOpen] = useState(false);
-	// B3 fix: onSelect and Menu's own onClose both toggled menuOpen, so a
+	// onSelect and Menu's own onClose both toggled menuOpen, so a
 	// pick closed it once (via onSelect's toggle) then reopened it (via
 	// Menu's own onClose firing right after, Menu.tsx:242-243) — the menu
 	// never stayed closed after a pick. closeMenu is an explicit close, not

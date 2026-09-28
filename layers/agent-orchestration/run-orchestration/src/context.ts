@@ -514,8 +514,7 @@ function assembleSubscriptionPrompt(
 	return { assembledPrompt, personaToolsTokens };
 }
 
-// `ManifestEntry`/`Manifest` are shared with writeback-processor.ts's reader
-// (review.md B5) — see manifest-types.ts.
+// `ManifestEntry`/`Manifest` are shared with writeback-processor.ts's reader — see manifest-types.ts.
 
 function toFilename(title: string, itemId?: string): string {
 	const suffix = itemId ? `_${itemId.slice(0, 8)}` : "";
@@ -586,7 +585,7 @@ function writeItem(sandboxPath: string, item: BakedContextDocument, zone: string
  * ancestor not itself among the selected items still gets one; that is
  * incomplete, not fabricated), and its own manifest entry.
  * `!fs.existsSync`/`!manifestItems[ancestor.id]` dedupe across items that
- * share an ancestor (review.md B5 — without a manifest entry, writeback's
+ * share an ancestor (without a manifest entry, writeback's
  * `ensureDirectoryChainItem` mints a duplicate folder item).
  *
  * Pass 2 writes each item's own content. An item whose id was already

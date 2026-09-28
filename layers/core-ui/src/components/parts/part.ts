@@ -7,7 +7,7 @@
  * ONLY this module's `Part`/`Embed`/`OpenTarget` vocabulary — never a source
  * type (`Message`/`InlineRef`/`HarnessEvent`). That import-absence is the
  * conversation↔session reuse boundary, enforced by a scoped `no-restricted-imports` ESLint
- * rule (W1). The adapters below are the ONLY place that knows the source.
+ * rule. The adapters below are the ONLY place that knows the source.
  *
  */
 

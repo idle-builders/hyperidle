@@ -5,9 +5,6 @@ const ALLOWED_DEV_ORIGIN = "http://localhost:5173";
 // @lore: cors — Electron renderer loads the SPA from a random 127.0.0.1 port; require ':' after "127.0.0.1" to prevent prefix-bypass attacks
 const ELECTRON_ORIGIN_PREFIX = "http://127.0.0.1";
 
-/**
- * @lore: parseConfiguredOrigins — read lazily per-request, not at module load; vi.stubEnv() in tests must take effect before the first call
- */
 function parseConfiguredOrigins(): ReadonlyArray<string> {
 	const raw = process.env.HYPERIDLE_CORS_ORIGINS;
 	if (!raw) return [];

@@ -18,7 +18,6 @@ import { WorkTaskCreate } from "./pages/WorkTaskCreate";
 import { WorkTaskPage } from "./pages/WorkTaskPage";
 import { WorkTeam } from "./pages/WorkTeam";
 
-// @lore: RedirectProductToTeam — Navigate can't forward route params (to prop is a string literal); wrapper reads productId and redirects
 function RedirectProductToTeam(): JSX.Element {
 	const { productId } = useParams<{ productId: string }>();
 	if (!productId) return <Navigate to="/work" replace />;
@@ -71,7 +70,7 @@ export function buildRoutes(): RouteObject[] {
 				{ path: "settings", element: <SettingsPage /> },
 			],
 		},
-		// I4 E2: catch-all so unknown URLs render NotFound (not a blank page).
+		// catch-all so unknown URLs render NotFound (not a blank page).
 		// Rendered outside AppShell per error-states.html mockup (standalone page, no sidebar).
 		{ path: "*", element: <NotFound /> },
 	];

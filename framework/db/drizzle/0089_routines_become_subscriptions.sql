@@ -1,17 +1,3 @@
--- @lore BC5 T7b: every live routine (deleted_at IS NULL) with an event or
--- calendar trigger becomes a subscription under the SAME id — the owner
--- becomes the subscriber, the trigger config becomes event/schedule, the
--- state/active pair becomes paused. A heartbeat/continuous/manual routine
--- has no subscription analogue and is not converted (no deployments exist
--- to carry one, so this is never observed in practice — the guard below
--- still refuses rather than silently dropping data it cannot place).
---
--- Order: (1) a guard refusing an event name the routine matcher heard that
--- no subscription can, (2) the subscription rows, (3) the prompt documents
--- re-parent or, having nowhere to land, delete, (4) the three plugin kind
--- columns respell, (5) the old tables drop, (6) the document parent-kind
--- check loses routine.
-
 -- 1. guard: an event routine whose event_type this migration cannot map
 --    must stop the migration, not silently drop the trigger.
 DO $$

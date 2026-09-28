@@ -42,12 +42,6 @@ ALTER TABLE "tasks" DROP CONSTRAINT "tasks_thread_id_threads_id_fk";
 --> statement-breakpoint
 ALTER TABLE "teams" DROP CONSTRAINT "teams_product_id_products_id_fk";
 --> statement-breakpoint
--- @lore I3 review C4: boolean coercion was originally inlined here. It
--- has been moved to `0004_boolean_coerce.sql` (a hand-authored file that
--- the generator never touches) so a future `bun run db:generate` cannot
--- silently regenerate this file with a naive cast that would corrupt
--- data. See 0004_boolean_coerce.sql for the NULL-safe COALESCE-based
--- coercion (sec CRITICAL-1).
 ALTER TABLE "agent_skills" ADD CONSTRAINT "agent_skills_agent_id_agents_id_fk" FOREIGN KEY ("agent_id") REFERENCES "agents"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "agents" ADD CONSTRAINT "agents_team_id_teams_id_fk" FOREIGN KEY ("team_id") REFERENCES "teams"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "bets" ADD CONSTRAINT "bets_product_id_products_id_fk" FOREIGN KEY ("product_id") REFERENCES "products"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint

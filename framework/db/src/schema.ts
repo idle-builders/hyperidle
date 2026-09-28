@@ -389,7 +389,7 @@ export const changes = pgTable(
 
 // Routines don't exist — a routine is a subscription now (subscriptions, below).
 
-// --- Messaging (L1a Thread primitive) ---
+// --- Messaging (Thread primitive) ---
 
 export const threads = pgTable(
 	"threads",

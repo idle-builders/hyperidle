@@ -705,9 +705,9 @@ interface ProvisionSessionDeps {
 	readonly eventBus: EventBus;
 	readonly adapterPool: SessionLifecycleAdapterPool;
 	readonly workspace: SessionLifecycleSandboxAdapter;
-	/** X2: MCP bridge registry. When present, a bridge is created per session. */
+	/** MCP bridge registry. When present, a bridge is created per session. */
 	readonly mcpBridgeRegistry?: SessionLifecycleMcpBridgeRegistry;
-	/** X2: Base URL for MCP bridge (e.g., "http://localhost:3001"). */
+	/** Base URL for MCP bridge (e.g., "http://localhost:3001"). */
 	readonly mcpBaseUrl?: string;
 	/**
 	 * Already-constructed ServiceConnectionResolver (encapsulates serverSecret).
@@ -937,11 +937,11 @@ interface AdmittedSession {
  * Admit a session synchronously (phases 1-7).
  *
  * Runs the HTTP-observable prefix: load agent, adapter
- * select + concurrency check (P3), **resolvedModel presence guard (WARNING-2,
- * pre-P5)**, task transition, workspace spawn (P4), session row insert (P5),
- * context assembly (P6), start watcher (P7), emit `session_started`. ALL admission
- * failures (ConcurrencyLimit 429 / MissingCredential 500)
- * throw BEFORE the P5 row insert — the detach boundary — so they map to HTTP
+ * select + concurrency check, **resolvedModel presence guard**, task transition,
+ * workspace spawn, session row insert, context assembly, start watcher,
+ * emit `session_started`. ALL admission failures (ConcurrencyLimit 429 /
+ * MissingCredential 500) throw BEFORE the session row insert — the detach
+ * boundary — so they map to HTTP
  * status on the POST path and never leave a doomed row.
  */
 async function admitSession(
@@ -1192,7 +1192,7 @@ async function admitSession(
  * Run an admitted session (phases 8-11).
  *
  * Builds the session-scoped tool registry, composes the prompt, starts the
- * harness (P9), drains the event stream (P10), and tears down (P11). Normal
+ * harness, drains the event stream, and tears down. Normal
  * completion calls `endSession`; an error mid-stream calls `crashSession`.
  *
  * Registers itself in the `sessionRunRegistry` at harness-start so a
@@ -1585,7 +1585,7 @@ async function runSession(
 	});
 
 	let crashed = false;
-	/** L17: accumulated tokens by tier for the session's tokensJson column. */
+	/** Accumulated tokens by tier for the session's tokensJson column. */
 	const accumulatedTokens: Partial<Record<ModelTier, { prompt: number; completion: number }>> = {};
 
 	// Shared session config fields across runs.
@@ -1620,7 +1620,7 @@ async function runSession(
 		...(requiredReturnActions ? { requiredReturnActions } : {}),
 	};
 
-	// X5: Determine whether to intercept tool_call events from the stream.
+	// Determine whether to intercept tool_call events from the stream.
 	const interceptToolCalls = !(adapterCapabilities.mcpSupport && mcpBridgeToken);
 
 	let beforeHarnessStartError: unknown;
@@ -1642,7 +1642,7 @@ async function runSession(
 	let harnessHandle: SessionHandle | null = null;
 	let metrics: SessionMetrics | undefined;
 
-	// W1: try/finally ensures the adapter pool slot is ALWAYS released once, even
+	// try/finally ensures the adapter pool slot is ALWAYS released once, even
 	// on errors.
 	try {
 		if (!aborted) {
@@ -1736,7 +1736,7 @@ async function runSession(
 			metrics = (await harness.stopSession(harnessHandle))?.metrics;
 		}
 	} finally {
-		// W1: release the adapter pool slot EXACTLY ONCE after the single run.
+		// release the adapter pool slot EXACTLY ONCE after the single run.
 		adapterPool.release(adapterId);
 	}
 
@@ -1768,7 +1768,7 @@ async function runSession(
 	// The run is over — drop the abort affordance.
 	ports.sessionRequests.deregisterSessionRun(sessionId);
 
-	// X2: Unregister the MCP bridge BEFORE calling endSession/crashSession.
+	// Unregister the MCP bridge BEFORE calling endSession/crashSession.
 	// Close whenever a bridge was opened (token present) — `mcpBridgeRegistry` is
 	// the vestigial, now-unwired dep and the face ignores it on close.
 	if (mcpBridgeToken) {

@@ -5,7 +5,7 @@
 
 // -- Cipher (2) — AES-256-GCM encrypt/decrypt for connection tokens --
 export { decryptCredentialValue, encryptCredentialValue } from "./token-cipher.js";
-// -- Connection vocabulary: InheritedConnectionFact moved from domain-model --
+// -- Connection vocabulary: InheritedConnectionFact --
 export type { InheritedConnectionFact } from "./types.js";
 
 // -- Provisioning read — callers use listConnections({ userId, authSource }) directly --

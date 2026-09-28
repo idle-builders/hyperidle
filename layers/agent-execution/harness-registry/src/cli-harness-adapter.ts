@@ -1134,9 +1134,8 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		// ── Resolve envMap the same way startSession does.
 		//
 		// startSession builds resolvedEnvMap from this.config.envMap with template
-		// vars resolved against the session's config. resumeSession was previously
-		// passing only extraEnv (CODEX_HOME + mcpTokenEnv), silently dropping envMap
-		// entries. extraEnv entries override (they are per-session specifics that
+		// vars resolved against the session's config. extraEnv entries override
+		// (they are per-session specifics that
 		// take precedence over the template).
 		//
 		// {{mcpUrl}} and {{prompt}} are not meaningful at resume time and resolve

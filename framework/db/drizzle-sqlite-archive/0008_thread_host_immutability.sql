@@ -7,11 +7,6 @@
 -- Drizzle's `update()` API. A SQLite trigger raises an error if a future
 -- code path drifts the host. Forward-only.
 --
--- @lore L1 step9: a trigger is the only enforcement mechanism that
--- catches both intentional misuse and accidental drift. Application-
--- level guards live next to whoever writes the column; a DB trigger
--- guards the whole codebase.
-
 CREATE TRIGGER IF NOT EXISTS threads_host_kind_immutable
 BEFORE UPDATE OF host_kind ON threads
 FOR EACH ROW

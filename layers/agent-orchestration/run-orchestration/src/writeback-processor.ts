@@ -125,7 +125,7 @@ function titleFromFilename(filename: string): string {
 
 /**
  * The `_${id.slice(0,8)}` suffix `toFilename` (context.ts) puts on every
- * materialised path (D3) — the one thing making a path unique, and what
+ * materialised path — the one thing making a path unique, and what
  * makes a move self-identifying. Matched against the FILENAME two paths
  * carry, not against any real database id: the suffix is a stable token a
  * rename preserves, decoupled from whichever id a fresh `create()` call
@@ -183,7 +183,7 @@ function refusalError(
 	);
 }
 
-/** A parent document's identity plus its REAL current scope — id, scopeKind and scopeId travel together, because a "team"/"user" scopeKind is meaningless without the id beside it (I7: `scope_needs_id`). */
+/** A parent document's identity plus its REAL current scope — id, scopeKind and scopeId travel together, because a "team"/"user" scopeKind is meaningless without the id beside it. */
 interface DirectoryParent {
 	readonly id: string;
 	readonly scopeKind: string;
@@ -192,7 +192,7 @@ interface DirectoryParent {
 
 /**
  * Ensure every directory from `knowledge/` down to `dirRelativePath` has a
- * document (plan.md D4: "a folder is a document"), creating any that are
+ * document (a folder is a document), creating any that are
  * missing, and return the immediate parent's document id + its REAL stored
  * scope (`null` at the `knowledge/` root itself).
  *
@@ -341,8 +341,8 @@ async function processWriteback(
 }
 
 /**
- * Handle a new path in knowledge/ — a directory (materialises its own item,
- * D4) or a file (a move, if its filename suffix matches an already-tracked
+ * Handle a new path in knowledge/ — a directory (materialises its own item)
+ * or a file (a move, if its filename suffix matches an already-tracked
  * path, or a genuinely new item otherwise).
  */
 async function handleCreate(
@@ -391,7 +391,7 @@ async function handleCreate(
 		format: "markdown",
 		status: "proposed",
 		as: "document",
-		// Directory placement (D4) wins when a wrapping directory exists — its
+		// Directory placement wins when a wrapping directory exists — its
 		// own real scope rides along, never a hardcoded default. `config.parent`
 		// (session task/thread) is the fallback for a leaf sitting directly at
 		// the `knowledge/` root; the two never both apply. Neither present

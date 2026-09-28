@@ -58,7 +58,7 @@ function actionContextFor(
 	return { actor, db, eventBus, now, internal: true };
 }
 
-/** Own team, else the owner's, else "every team" (a factory-wide user, F2). */
+/** Own team, else the owner's, else "every team" (a factory-wide user). */
 async function teamsOf(db: HyperIdleDb, user: User): Promise<ReadonlySet<string> | "all"> {
 	if (user.teamId) return new Set([user.teamId]);
 	if (user.ownerUserId) {

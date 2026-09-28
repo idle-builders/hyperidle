@@ -1,24 +1,13 @@
 # electron-builder production configuration for HyperIdle desktop.
 # N5: signing, notarization, DMG distribution, Homebrew support.
 #
-# @lore N5: extraMetadata.main overrides the `main` field in package.json AT
-# BUILD TIME only — it does not modify the source file. This lets us keep
-# `"main": "src/main.ts"` for dev mode (tsx interprets it) while telling
-# electron-builder to use the compiled `dist/main.cjs` in the packaged app.
-# This is the standard electron-builder pattern for ESM→CJS dev/prod split.
-#
-# @lore N5: publish: null suppresses electron-updater entirely. v1 distributes
-# via Homebrew only (user-initiated updates via `brew upgrade hyperidle`).
-# This eliminates the Squirrel/electron-updater attack surface.
+# @lore: extraMetadata.main — points packaged app at dist/main.cjs; package.json main stays src/main.ts for dev
 
 appId: com.hyperidle.app
 productName: HyperIdle
 copyright: Copyright © 2025-2026 HyperIdle
 
-# @lore N5: electron-builder defaults output to dist/, which overlaps with the
-# esbuild output (dist/main.cjs). This causes a circular inclusion — the
-# packaged app (dist/mac-arm64/) gets bundled INTO the asar via the dist/**/*
-# files pattern, inflating it by 262MB. Separating to release/ avoids this.
+# @lore: directories.output — must not be dist/ (esbuild output); overlap causes circular inclusion (+262MB)
 directories:
   output: release
 
@@ -43,9 +32,7 @@ mac:
   icon: build/icon.icns
 
 # Files included in the asar (app bundle)
-# @lore PGlite migration: PGlite is pure WASM — no native binaries needed.
-# The WASM bundle ships inside @electric-sql/pglite/dist and must be included
-# in the asar. Everything else is compiled into dist/main.cjs by esbuild.
+# @lore: pglite dist — @electric-sql/pglite/dist must be in the asar; removing it breaks the app at runtime
 files:
   - "dist/**/*"
   - "!dist/**/*.map"
@@ -66,7 +53,6 @@ extraResources:
   - from: "../../plugins"
     to: "plugins"
 
-# @lore PGlite migration: no native modules — npmRebuild not needed.
 npmRebuild: false
 
 # DMG window layout (standard Drag-to-Applications style)
@@ -84,6 +70,5 @@ dmg:
 artifactName: "${productName}-${version}-${arch}.${ext}"
 
 # No auto-update server — distribution is via Homebrew only (v1).
-# @lore N5: publish: null suppresses auto-publish. The CI workflow does NOT
-# pass --publish so this is doubly enforced (config + workflow omission).
+# @lore: publish null — CI also omits --publish; both are required to prevent an accidental release
 publish: null

@@ -115,10 +115,10 @@ export async function clearDetached(
 }
 
 /**
- * Forget contributions this plugin no longer declares.
+ * Forget contributions not in the current manifest.
  *
  * Called on install with the ids the manifest currently declares: anything else
- * this plugin used to contribute is stale. The ROWS are the caller's to clean
+ * not in the current manifest is stale. The ROWS are the caller's to clean
  * up — this only forgets the ownership claim.
  */
 export async function forgetContributionsExcept(

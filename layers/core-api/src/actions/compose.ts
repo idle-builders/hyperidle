@@ -194,7 +194,7 @@ function buildDocumentActionsDeps(
 		org: { getTeam: (exec, q) => getTeam(exec, q) },
 		openParent: buildOpenParent(taskActions, threadActions),
 		systemParentExists,
-		// O1(b): bound to the settings package's contribution tracker — a
+		// bound to the settings package's contribution tracker — a
 		// document's `body` changing detaches it from the plugin that seeded
 		// it, the same event `routes/knowledge.ts:666` (pre-item) raised.
 		onBodyChanged: (exec, documentId) =>

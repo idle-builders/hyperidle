@@ -40,7 +40,6 @@ function deriveKey(serverSecret: string): Buffer {
  * @internal — not exported. Callers use encryptCredentialValue/decryptCredentialValue.
  */
 function getServerSecret(): string | null {
-	// @lore: token-cipher fallback — HYPERIDLE_CREDENTIAL_KEY set (even empty) overrides; absent falls back to HYPERIDLE_API_KEY; empty CREDENTIAL_KEY means no key
 	if (process.env.HYPERIDLE_CREDENTIAL_KEY !== undefined) {
 		const credKey = process.env.HYPERIDLE_CREDENTIAL_KEY;
 		return credKey !== "" ? credKey : null;

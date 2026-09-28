@@ -3,9 +3,6 @@
 -- and the `responses` table; backfills new columns and projects legacy
 -- rows into the new shape; emits `verdict`-typed messages from `responses`.
 
--- @lore L1a: SQLite FK rebuild needs FK enforcement deferred for the entire
--- migration. PRAGMA foreign_keys=OFF inside an open transaction is a no-op;
--- defer_foreign_keys=ON defers checks until COMMIT. See migration 0005.
 PRAGMA defer_foreign_keys=ON;--> statement-breakpoint
 PRAGMA foreign_keys=OFF;--> statement-breakpoint
 

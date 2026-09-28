@@ -1,13 +1,3 @@
--- @lore No producer ever emits a `session_start`/`knowledge_action` work
--- intent (nothing calls `createSessionRequest`/the explicit-session-start
--- route outside a test, and no `knowledge_action` resolver ever existed) —
--- both kinds and the `explicit_session_starts` table they alone fed are
--- dead. Zero deployments means no row needs preserving.
---
--- Order: (1) delete any stray rows of either dead kind, (2) rebuild the
--- three `agent_work_intents` CHECK constraints down to the four live kinds,
--- (3) drop `explicit_session_starts` outright.
-
 -- 1. stray rows of either dead kind (none expected — no producer exists).
 DELETE FROM "agent_work_intents" WHERE "kind" IN ('session_start', 'knowledge_action');
 --> statement-breakpoint

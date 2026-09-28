@@ -193,7 +193,7 @@ export function SettingsOrgChart(): JSX.Element {
 	// Resolve display name for a user id
 	const userName = (id: string): string => users.find((u) => u.id === id)?.name ?? id;
 
-	// D4 (POLISH-060): resolve edge target to a human-readable label.
+	// Resolve edge target to a human-readable label.
 	// For "team" mechanism, target is the team's real id — look it up in data.teams.
 	// For other mechanisms (direct/function), target is a user id or free text — use as-is.
 	const targetLabel = (edge: OrgEdge): string => {
