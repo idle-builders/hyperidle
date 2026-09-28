@@ -1,7 +1,7 @@
 -- Nested knowledge items: the tree, and the retirement of topic/kind/layer
 -- and the product/practice/task scope values.
 --
--- Order matters (an earlier draft had it wrong):
+-- Order matters:
 --   1. add `position`.
 --   2. seed the three grouping roots (Product, Practices, General).
 --   3. topic items for product-scoped rows, under Product.

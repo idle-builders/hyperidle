@@ -1,11 +1,11 @@
 import type { Filesystem, MountResult } from "./mounter.js";
 
-/** Structural mounter port — run-orchestration declares the shape it needs (Mechanism C). */
+/** Structural mounter port — run-orchestration declares the shape it needs. */
 export interface FilesystemMounterPort {
 	mount(input: { filesystem: Filesystem; sandboxPath: string }): Promise<MountResult>;
 }
 
-/** Structural mirror of @hyperidle/filesystems' InjectedFilesystemForProvisioning — Mechanism C; Application wires them. */
+/** Structural mirror of @hyperidle/filesystems' InjectedFilesystemForProvisioning; Application wires them. */
 export interface FilesystemForProvisioning {
 	readonly id: string;
 	readonly teamId: string;

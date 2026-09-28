@@ -1,6 +1,6 @@
 /**
  * Barrel for @hyperidle/task (core-api Layer, SQL-owning Service).
- * Typed functions only — must NOT re-export the raw `tasks` pgTable object (Table ACL, Mechanism A).
+ * Typed functions only — must NOT re-export the raw `tasks` pgTable object (table ownership).
  * `edit_task` is the only write; nothing outside it appends a task `changes` row.
  */
 export type { Action, ActionContext } from "./action-types.js";

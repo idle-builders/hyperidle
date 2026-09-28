@@ -142,8 +142,8 @@ interface AppOptions {
 	sharedMode?: boolean;
 	/**
 	 * Application-injected cross-Layer
-	 * `agent_work_intents` recorder (`@hyperidle/work-intent-port`-typed,
-	 * Mechanism C) — the threads routes must not cross by importing
+	 * `agent_work_intents` recorder (`@hyperidle/work-intent-port`-typed)
+	 * — the threads routes must not cross by importing
 	 * `@hyperidle/session-requests` directly. Defaults to the seam-backed
 	 * recorder built over `agentOrchestration` (`buildSeamBackedWorkIntentRecorder`);
 	 * tests may override for isolation.

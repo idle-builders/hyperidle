@@ -128,7 +128,7 @@ export interface AgentOrchestrationBoot {
 	readonly provisioning?: OrchestrationProvisioningReads;
 }
 
-/** Audited cast: recovers WorkerRegisterMessage from Mechanism-C-narrowed type; design/no-unknown-cast bans double-assertion, not a named single-cast helper. */
+/** Audited cast: recovers WorkerRegisterMessage from the narrowed seam type; design/no-unknown-cast bans double-assertion, not a named single-cast helper. */
 function widenWorkerRegistration(registration: unknown): WorkerRegisterMessage {
 	return registration as WorkerRegisterMessage;
 }

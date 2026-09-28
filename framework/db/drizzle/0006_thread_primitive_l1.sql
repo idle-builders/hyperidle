@@ -27,7 +27,7 @@ ALTER TABLE "threads" ADD COLUMN "last_active_at" text;--> statement-breakpoint
 -- kind='direct' → host_kind='agent'; kind='post-bet-retro' → host_kind='bet';
 -- review/chat → host_kind='task'; everything else → 'task' as fallback.
 --
--- Step 9: the CASE arms now MIRROR `drizzle/0007_thread_primitive_l1.sql`
+-- The CASE arms mirror the SQLite archive's thread_primitive_l1 migration
 -- exactly, including the `items.kind` review/questionnaire branch. Functionally
 -- both still default to 'task'; the parity prevents silent drift if either
 -- branch is later edited to project elsewhere.

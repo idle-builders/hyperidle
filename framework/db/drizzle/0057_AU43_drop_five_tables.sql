@@ -16,7 +16,7 @@
 --   read sites in production.
 --
 -- filesystem_captures: write-only archive whose consumer was cancelled.
---   Capture write code removed in stage 2; no non-test reader has ever existed.
+--   No capture write code and no non-test reader remain.
 --   Referenced only in comments in index.ts.
 --
 -- task_planning_signals: `task_strategy_fabric` renamed in migration 0050.
@@ -25,7 +25,7 @@
 --   review/src/index.ts.
 --
 -- team_run_config_defaults: the one-reader memo. The single reader
---   (`readTeamRunConfigDefaults` in agent-run-config) was removed in stage 2.
+--   (`readTeamRunConfigDefaults` in agent-run-config) is gone.
 --   Referenced only in a comment in team-lookup.ts.
 --
 -- FOREIGN KEY ORDER: each dropped table holds outbound FKs only — no surviving

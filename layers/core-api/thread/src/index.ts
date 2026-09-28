@@ -1,6 +1,6 @@
 /**
  * Barrel for @hyperidle/thread (core-api Layer, SQL-owning Service).
- * Typed functions only — must NOT re-export raw `threads`/`messages` pgTable objects (Table ACL, Mechanism A).
+ * Typed functions only — must NOT re-export raw `threads`/`messages` pgTable objects (table ownership).
  */
 
 export { createThreadActions, type ThreadActionsDeps } from "./thread-actions.js";

@@ -48,7 +48,7 @@ import {
 	type InjectedFilesystemsReaderPort,
 	mountFilesystemsForAgent,
 } from "./filesystem-provisioning.js";
-// Filesystem: local to this package — sibling service boundary (Mechanism C).
+// Filesystem: local to this package — sibling service boundary.
 import { ensureSandboxGitRepo, type Filesystem, localTrustedPath } from "./mounter.js";
 import { sessionAwaitsVerdict } from "./review-sessions.js";
 import { transitionRun } from "./transition-run.js";
@@ -76,7 +76,7 @@ interface SessionLifecycleObservability {
 // filesystems: `filesystems` and `filesystem_injections` are
 // `agent-orchestration`'s OWN tables; spawn reads them LIVE — no seam, no stale
 // bake. `deps.injectedFilesystems` (`InjectedFilesystemsReaderPort`) is a port
-// (not a direct import) — Mechanism C boundary.
+// (not a direct import) — service boundary.
 // ---------------------------------------------------------------------------
 
 interface SessionLifecycleServiceConnectionResolver {
@@ -86,7 +86,7 @@ interface SessionLifecycleServiceConnectionResolver {
 // ---------------------------------------------------------------------------
 // connections: `service_connections` is `agent-orchestration`'s OWN table; spawn
 // reads it LIVE — no seam. `deps.heldConnections` (`HeldConnectionsReaderPort`)
-// is a port — Mechanism C boundary.
+// is a port — service boundary.
 // ---------------------------------------------------------------------------
 
 interface SessionLifecycleHarnessAdapter {
@@ -231,7 +231,7 @@ interface SessionLifecycleHarnessRuntime {
 	/**
 	 * The session-scoped MCP dial — bridge-open; folded into `harness-registry`'s
 	 * own session provisioning (`openMcpBridgeSession`). `registry`/`baseUrl` are
-	 * threaded through as call-time data (Mechanism C).
+	 * threaded through as call-time data.
 	 */
 	openMcpBridge(options: {
 		// optional: execution face owns registry+mcpBaseUrl; call site still type-checks with these present

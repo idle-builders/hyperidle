@@ -30,7 +30,7 @@ import type { Task } from "./task-service.js";
 import * as taskDb from "./task-service.js";
 import { taskDispatchAttemptStore } from "./task-service.js";
 
-/** Task action dependencies — every one is a sibling Service or the seam; this module may not import any directly (Mechanism C). */
+/** Task action dependencies — every one is a sibling Service or the seam; this module may not import any directly (service boundary). */
 export interface TaskActionsDeps {
 	readonly changes: {
 		appendChange(exec: WriteExecutor, row: NewChange): Promise<Change>;

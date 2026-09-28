@@ -1,6 +1,6 @@
 /**
  * Barrel for @hyperidle/user (core-api Layer, SQL-owning Service).
- * Typed functions only — must NOT re-export raw `users`/`teams`/`orgEdges` pgTable objects (Table ACL, Mechanism A).
+ * Typed functions only — must NOT re-export raw `users`/`teams`/`orgEdges` pgTable objects (table ownership).
  * Users, teams and org edges are one Service — a user with its team is one unit of state; parseCron/nextCronMatch live here because the subscription clock (this Service) is their caller.
  */
 

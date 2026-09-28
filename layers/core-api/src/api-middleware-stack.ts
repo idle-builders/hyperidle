@@ -6,10 +6,9 @@
  * Service), so the stack is constructed here. It is NOT applied here: the
  * Application (`applications/remote-server/src/create-server.ts`, or a test harness)
  * owns the `/api` router, `use()`s these handlers on it, and only then mounts
- * both Layer apps behind them. "Only an Application may choose to put another
- * Layer's routes behind this stack" (`runtime-simplification.md:159-164`) — that
- * choice is not core-api's to make, which is why the stack is handed out rather
- * than installed.
+ * both Layer apps behind them. Only an Application may put another Layer's
+ * routes behind this stack, which is why the stack is handed out rather than
+ * installed.
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";

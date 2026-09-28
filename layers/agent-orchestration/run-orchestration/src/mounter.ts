@@ -5,7 +5,7 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { MountingGitRunnerFactory } from "./mounter-ports.js";
 
-/** Structural mirror of @hyperidle/filesystems' Filesystem — run-orchestration may not import filesystems directly (Mechanism C); Application composes them. */
+/** Structural mirror of @hyperidle/filesystems' Filesystem — run-orchestration may not import filesystems directly; Application composes them. */
 export interface Filesystem {
 	id: string;
 	teamId: string;
